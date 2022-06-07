@@ -132,6 +132,7 @@ macro_rules! impl_native_traits {
             Rets: WasmTypeList,
         {
             /// Call the typed func and return results.
+            #[allow(clippy::too_many_arguments)]
             pub fn call(&self, $( $x: $x, )* ) -> Result<Rets, RuntimeError> {
                 if !self.is_host() {
                     // We assume the trampoline is always going to be present for
@@ -233,7 +234,7 @@ macro_rules! impl_native_traits {
                 crate::Function::get_self_from_extern(_extern)?.native().map_err(|_| crate::sys::exports::ExportError::IncompatibleType)
             }
 
-            fn into_weak_instance_ref(&mut self) {
+            fn convert_to_weak_instance_ref(&mut self) {
                 self.exported.vm_function.instance_ref.as_mut().map(|v| *v = v.downgrade());
             }
         }

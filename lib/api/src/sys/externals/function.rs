@@ -45,8 +45,7 @@ pub struct Function {
 impl wasmer_types::WasmValueType for Function {
     /// Write the value.
     unsafe fn write_value_to(&self, p: *mut i128) {
-        let func_ref =
-            Val::into_vm_funcref(&Val::FuncRef(Some(self.clone())), &self.store).unwrap();
+        let func_ref = Val::into_vm_funcref(Val::FuncRef(Some(self.clone())), &self.store).unwrap();
         std::ptr::write(p as *mut VMFuncRef, func_ref);
     }
 
@@ -533,7 +532,7 @@ impl Function {
             VMFunctionKind::Dynamic => unsafe {
                 type VMContextWithEnv = VMDynamicFunctionContext<DynamicFunction<std::ffi::c_void>>;
                 let ctx = self.exported.vm_function.vmctx.host_env as *mut VMContextWithEnv;
-                Ok((*ctx).ctx.call(&params)?.into_boxed_slice())
+                Ok((*ctx).ctx.call(params)?.into_boxed_slice())
             },
             VMFunctionKind::Static => {
                 unimplemented!(
@@ -704,12 +703,10 @@ impl<'a> Exportable<'a> for Function {
         }
     }
 
-    fn into_weak_instance_ref(&mut self) {
-        self.exported
-            .vm_function
-            .instance_ref
-            .as_mut()
-            .map(|v| *v = v.downgrade());
+    fn convert_to_weak_instance_ref(&mut self) {
+        if let Some(v) = self.exported.vm_function.instance_ref.as_mut() {
+            *v = v.downgrade();
+        }
     }
 }
 
@@ -768,7 +765,7 @@ where
     Env: Sized + 'static + Send + Sync,
 {
     fn call(&self, args: &[Val]) -> Result<Vec<Val>, RuntimeError> {
-        (*self.func)(&*self.env, &args)
+        (*self.func)(&*self.env, args)
     }
     fn function_type(&self) -> &FunctionType {
         &self.function_type
@@ -864,6 +861,10 @@ mod inner {
     /// `FromNativeWasmType` and `ToNativeWasmType` but it creates a
     /// non-negligible complexity in the `WasmTypeList`
     /// implementation.
+    ///
+    /// # Safety
+    /// This trait is unsafe given the nature of how values are written and read from the native
+    /// stack
     pub unsafe trait FromToNativeWasmType
     where
         Self: Sized,
@@ -1219,6 +1220,7 @@ mod inner {
 
                 type Array = [i128; count_idents!( $( $x ),* )];
 
+                #[allow(clippy::unused_unit)]
                 fn from_array(array: Self::Array) -> Self {
                     // Unpack items of the array.
                     #[allow(non_snake_case)]
@@ -1254,6 +1256,7 @@ mod inner {
                     [0; count_idents!( $( $x ),* )]
                 }
 
+                #[allow(clippy::unused_unit)]
                 fn from_c_struct(c_struct: Self::CStruct) -> Self {
                     // Unpack items of the C structure.
                     #[allow(non_snake_case)]

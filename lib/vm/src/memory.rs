@@ -210,7 +210,7 @@ impl LinearMemory {
         };
 
         let base_ptr = mmap.alloc.as_mut_ptr();
-        let mem_length = memory.minimum.bytes().0.try_into().unwrap();
+        let mem_length = memory.minimum.bytes().0;
         Ok(Self {
             mmap: Mutex::new(mmap),
             maximum: memory.maximum,
@@ -255,7 +255,7 @@ impl Memory for LinearMemory {
     /// Returns the type for this memory.
     fn ty(&self) -> MemoryType {
         let minimum = self.size();
-        let mut out = self.memory.clone();
+        let mut out = self.memory;
         out.minimum = minimum;
 
         out
@@ -353,7 +353,7 @@ impl Memory for LinearMemory {
         unsafe {
             let mut md_ptr = self.get_vm_memory_definition();
             let md = md_ptr.as_mut();
-            md.current_length = new_pages.bytes().0.try_into().unwrap();
+            md.current_length = new_pages.bytes().0;
             md.base = mmap.alloc.as_mut_ptr() as _;
         }
 

@@ -239,9 +239,9 @@ impl Read for FrameBuffer {
                 FrameBufferFileType::Buffer => {
                     let mut bytes_copied = 0;
 
-                    for i in 0..buf.len() {
+                    for (i, b) in buf.iter_mut().enumerate() {
                         if let Some(byte) = fb_state.get_byte(cursor + i) {
-                            buf[i] = byte;
+                            *b = byte;
                             bytes_copied += 1;
                         } else {
                             break;
@@ -257,8 +257,8 @@ impl Read for FrameBuffer {
                     let mut bytes = resolution_data.bytes().skip(cursor);
                     let bytes_to_copy = std::cmp::min(buf.len(), bytes.clone().count());
 
-                    for i in 0..bytes_to_copy {
-                        buf[i] = bytes.next().unwrap();
+                    for byte in buf.iter_mut().take(bytes_to_copy) {
+                        *byte = bytes.next().unwrap();
                     }
 
                     self.cursor += bytes_to_copy as u32;

@@ -83,9 +83,9 @@ pub trait Machine {
     /// reserve a GPR
     fn reserve_gpr(&mut self, gpr: Self::GPR);
     /// Push used gpr to the stack. Return the bytes taken on the stack
-    fn push_used_gpr(&mut self, grps: &Vec<Self::GPR>) -> usize;
+    fn push_used_gpr(&mut self, grps: &[Self::GPR]) -> usize;
     /// Pop used gpr to the stack
-    fn pop_used_gpr(&mut self, grps: &Vec<Self::GPR>);
+    fn pop_used_gpr(&mut self, grps: &[Self::GPR]);
     /// Picks an unused SIMD register.
     ///
     /// This method does not mark the register as used
@@ -101,9 +101,9 @@ pub trait Machine {
     /// Releases a temporary XMM register.
     fn release_simd(&mut self, simd: Self::SIMD);
     /// Push used simd regs to the stack. Return bytes taken on the stack
-    fn push_used_simd(&mut self, simds: &Vec<Self::SIMD>) -> usize;
+    fn push_used_simd(&mut self, simds: &[Self::SIMD]) -> usize;
     /// Pop used simd regs to the stack
-    fn pop_used_simd(&mut self, simds: &Vec<Self::SIMD>);
+    fn pop_used_simd(&mut self, simds: &[Self::SIMD]);
     /// Return a rounded stack adjustement value (must be multiple of 16bytes on ARM64 for example)
     fn round_stack_adjust(&self, value: usize) -> usize;
     /// Set the source location of the Wasm to the given offset.
@@ -628,6 +628,7 @@ pub trait Machine {
         ret: Location<Self::GPR, Self::SIMD>,
     );
     /// i32 load
+    #[allow(clippy::too_many_arguments)]
     fn i32_load(
         &mut self,
         addr: Location<Self::GPR, Self::SIMD>,
@@ -639,6 +640,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i32 load of an unsigned 8bits
+    #[allow(clippy::too_many_arguments)]
     fn i32_load_8u(
         &mut self,
         addr: Location<Self::GPR, Self::SIMD>,
@@ -650,6 +652,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i32 load of an signed 8bits
+    #[allow(clippy::too_many_arguments)]
     fn i32_load_8s(
         &mut self,
         addr: Location<Self::GPR, Self::SIMD>,
@@ -661,6 +664,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i32 load of an unsigned 16bits
+    #[allow(clippy::too_many_arguments)]
     fn i32_load_16u(
         &mut self,
         addr: Location<Self::GPR, Self::SIMD>,
@@ -672,6 +676,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i32 load of an signed 16bits
+    #[allow(clippy::too_many_arguments)]
     fn i32_load_16s(
         &mut self,
         addr: Location<Self::GPR, Self::SIMD>,
@@ -683,6 +688,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i32 atomic load
+    #[allow(clippy::too_many_arguments)]
     fn i32_atomic_load(
         &mut self,
         addr: Location<Self::GPR, Self::SIMD>,
@@ -694,6 +700,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i32 atomic load of an unsigned 8bits
+    #[allow(clippy::too_many_arguments)]
     fn i32_atomic_load_8u(
         &mut self,
         addr: Location<Self::GPR, Self::SIMD>,
@@ -705,6 +712,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i32 atomic load of an unsigned 16bits
+    #[allow(clippy::too_many_arguments)]
     fn i32_atomic_load_16u(
         &mut self,
         addr: Location<Self::GPR, Self::SIMD>,
@@ -716,6 +724,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i32 save
+    #[allow(clippy::too_many_arguments)]
     fn i32_save(
         &mut self,
         value: Location<Self::GPR, Self::SIMD>,
@@ -727,6 +736,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i32 save of the lower 8bits
+    #[allow(clippy::too_many_arguments)]
     fn i32_save_8(
         &mut self,
         value: Location<Self::GPR, Self::SIMD>,
@@ -738,6 +748,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i32 save of the lower 16bits
+    #[allow(clippy::too_many_arguments)]
     fn i32_save_16(
         &mut self,
         value: Location<Self::GPR, Self::SIMD>,
@@ -749,6 +760,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i32 atomic save
+    #[allow(clippy::too_many_arguments)]
     fn i32_atomic_save(
         &mut self,
         value: Location<Self::GPR, Self::SIMD>,
@@ -760,6 +772,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i32 atomic save of a the lower 8bits
+    #[allow(clippy::too_many_arguments)]
     fn i32_atomic_save_8(
         &mut self,
         value: Location<Self::GPR, Self::SIMD>,
@@ -771,6 +784,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i32 atomic save of a the lower 16bits
+    #[allow(clippy::too_many_arguments)]
     fn i32_atomic_save_16(
         &mut self,
         value: Location<Self::GPR, Self::SIMD>,
@@ -782,6 +796,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i32 atomic Add with i32
+    #[allow(clippy::too_many_arguments)]
     fn i32_atomic_add(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
@@ -794,6 +809,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i32 atomic Add with unsigned 8bits
+    #[allow(clippy::too_many_arguments)]
     fn i32_atomic_add_8u(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
@@ -806,6 +822,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i32 atomic Add with unsigned 16bits
+    #[allow(clippy::too_many_arguments)]
     fn i32_atomic_add_16u(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
@@ -818,6 +835,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i32 atomic Sub with i32
+    #[allow(clippy::too_many_arguments)]
     fn i32_atomic_sub(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
@@ -830,6 +848,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i32 atomic Sub with unsigned 8bits
+    #[allow(clippy::too_many_arguments)]
     fn i32_atomic_sub_8u(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
@@ -842,6 +861,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i32 atomic Sub with unsigned 16bits
+    #[allow(clippy::too_many_arguments)]
     fn i32_atomic_sub_16u(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
@@ -854,6 +874,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i32 atomic And with i32
+    #[allow(clippy::too_many_arguments)]
     fn i32_atomic_and(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
@@ -866,6 +887,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i32 atomic And with unsigned 8bits
+    #[allow(clippy::too_many_arguments)]
     fn i32_atomic_and_8u(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
@@ -878,6 +900,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i32 atomic And with unsigned 16bits
+    #[allow(clippy::too_many_arguments)]
     fn i32_atomic_and_16u(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
@@ -890,6 +913,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i32 atomic Or with i32
+    #[allow(clippy::too_many_arguments)]
     fn i32_atomic_or(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
@@ -902,6 +926,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i32 atomic Or with unsigned 8bits
+    #[allow(clippy::too_many_arguments)]
     fn i32_atomic_or_8u(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
@@ -914,6 +939,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i32 atomic Or with unsigned 16bits
+    #[allow(clippy::too_many_arguments)]
     fn i32_atomic_or_16u(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
@@ -926,6 +952,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i32 atomic Xor with i32
+    #[allow(clippy::too_many_arguments)]
     fn i32_atomic_xor(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
@@ -938,6 +965,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i32 atomic Xor with unsigned 8bits
+    #[allow(clippy::too_many_arguments)]
     fn i32_atomic_xor_8u(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
@@ -950,6 +978,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i32 atomic Xor with unsigned 16bits
+    #[allow(clippy::too_many_arguments)]
     fn i32_atomic_xor_16u(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
@@ -962,6 +991,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i32 atomic Exchange with i32
+    #[allow(clippy::too_many_arguments)]
     fn i32_atomic_xchg(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
@@ -974,6 +1004,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i32 atomic Exchange with u8
+    #[allow(clippy::too_many_arguments)]
     fn i32_atomic_xchg_8u(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
@@ -986,6 +1017,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i32 atomic Exchange with u16
+    #[allow(clippy::too_many_arguments)]
     fn i32_atomic_xchg_16u(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
@@ -998,6 +1030,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i32 atomic Compare and Exchange with i32
+    #[allow(clippy::too_many_arguments)]
     fn i32_atomic_cmpxchg(
         &mut self,
         new: Location<Self::GPR, Self::SIMD>,
@@ -1011,6 +1044,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i32 atomic Compare and Exchange with u8
+    #[allow(clippy::too_many_arguments)]
     fn i32_atomic_cmpxchg_8u(
         &mut self,
         new: Location<Self::GPR, Self::SIMD>,
@@ -1024,6 +1058,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i32 atomic Compare and Exchange with u16
+    #[allow(clippy::too_many_arguments)]
     fn i32_atomic_cmpxchg_16u(
         &mut self,
         new: Location<Self::GPR, Self::SIMD>,
@@ -1245,6 +1280,7 @@ pub trait Machine {
         ret: Location<Self::GPR, Self::SIMD>,
     );
     /// i64 load
+    #[allow(clippy::too_many_arguments)]
     fn i64_load(
         &mut self,
         addr: Location<Self::GPR, Self::SIMD>,
@@ -1256,6 +1292,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i64 load of an unsigned 8bits
+    #[allow(clippy::too_many_arguments)]
     fn i64_load_8u(
         &mut self,
         addr: Location<Self::GPR, Self::SIMD>,
@@ -1267,6 +1304,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i64 load of an signed 8bits
+    #[allow(clippy::too_many_arguments)]
     fn i64_load_8s(
         &mut self,
         addr: Location<Self::GPR, Self::SIMD>,
@@ -1278,6 +1316,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i64 load of an unsigned 32bits
+    #[allow(clippy::too_many_arguments)]
     fn i64_load_32u(
         &mut self,
         addr: Location<Self::GPR, Self::SIMD>,
@@ -1289,6 +1328,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i64 load of an signed 32bits
+    #[allow(clippy::too_many_arguments)]
     fn i64_load_32s(
         &mut self,
         addr: Location<Self::GPR, Self::SIMD>,
@@ -1300,6 +1340,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i64 load of an signed 16bits
+    #[allow(clippy::too_many_arguments)]
     fn i64_load_16u(
         &mut self,
         addr: Location<Self::GPR, Self::SIMD>,
@@ -1311,6 +1352,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i64 load of an signed 16bits
+    #[allow(clippy::too_many_arguments)]
     fn i64_load_16s(
         &mut self,
         addr: Location<Self::GPR, Self::SIMD>,
@@ -1322,6 +1364,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i64 atomic load
+    #[allow(clippy::too_many_arguments)]
     fn i64_atomic_load(
         &mut self,
         addr: Location<Self::GPR, Self::SIMD>,
@@ -1333,6 +1376,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i64 atomic load from unsigned 8bits
+    #[allow(clippy::too_many_arguments)]
     fn i64_atomic_load_8u(
         &mut self,
         addr: Location<Self::GPR, Self::SIMD>,
@@ -1344,6 +1388,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i64 atomic load from unsigned 16bits
+    #[allow(clippy::too_many_arguments)]
     fn i64_atomic_load_16u(
         &mut self,
         addr: Location<Self::GPR, Self::SIMD>,
@@ -1355,6 +1400,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i64 atomic load from unsigned 32bits
+    #[allow(clippy::too_many_arguments)]
     fn i64_atomic_load_32u(
         &mut self,
         addr: Location<Self::GPR, Self::SIMD>,
@@ -1366,6 +1412,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i64 save
+    #[allow(clippy::too_many_arguments)]
     fn i64_save(
         &mut self,
         value: Location<Self::GPR, Self::SIMD>,
@@ -1377,6 +1424,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i64 save of the lower 8bits
+    #[allow(clippy::too_many_arguments)]
     fn i64_save_8(
         &mut self,
         value: Location<Self::GPR, Self::SIMD>,
@@ -1388,6 +1436,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i64 save of the lower 16bits
+    #[allow(clippy::too_many_arguments)]
     fn i64_save_16(
         &mut self,
         value: Location<Self::GPR, Self::SIMD>,
@@ -1399,6 +1448,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i64 save of the lower 32bits
+    #[allow(clippy::too_many_arguments)]
     fn i64_save_32(
         &mut self,
         value: Location<Self::GPR, Self::SIMD>,
@@ -1410,6 +1460,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i64 atomic save
+    #[allow(clippy::too_many_arguments)]
     fn i64_atomic_save(
         &mut self,
         value: Location<Self::GPR, Self::SIMD>,
@@ -1421,6 +1472,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i64 atomic save of a the lower 8bits
+    #[allow(clippy::too_many_arguments)]
     fn i64_atomic_save_8(
         &mut self,
         value: Location<Self::GPR, Self::SIMD>,
@@ -1432,6 +1484,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i64 atomic save of a the lower 16bits
+    #[allow(clippy::too_many_arguments)]
     fn i64_atomic_save_16(
         &mut self,
         value: Location<Self::GPR, Self::SIMD>,
@@ -1443,6 +1496,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i64 atomic save of a the lower 32bits
+    #[allow(clippy::too_many_arguments)]
     fn i64_atomic_save_32(
         &mut self,
         value: Location<Self::GPR, Self::SIMD>,
@@ -1454,6 +1508,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i64 atomic Add with i64
+    #[allow(clippy::too_many_arguments)]
     fn i64_atomic_add(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
@@ -1466,6 +1521,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i64 atomic Add with unsigned 8bits
+    #[allow(clippy::too_many_arguments)]
     fn i64_atomic_add_8u(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
@@ -1478,6 +1534,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i64 atomic Add with unsigned 16bits
+    #[allow(clippy::too_many_arguments)]
     fn i64_atomic_add_16u(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
@@ -1490,6 +1547,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i64 atomic Add with unsigned 32bits
+    #[allow(clippy::too_many_arguments)]
     fn i64_atomic_add_32u(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
@@ -1502,6 +1560,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i64 atomic Sub with i64
+    #[allow(clippy::too_many_arguments)]
     fn i64_atomic_sub(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
@@ -1514,6 +1573,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i64 atomic Sub with unsigned 8bits
+    #[allow(clippy::too_many_arguments)]
     fn i64_atomic_sub_8u(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
@@ -1526,6 +1586,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i64 atomic Sub with unsigned 16bits
+    #[allow(clippy::too_many_arguments)]
     fn i64_atomic_sub_16u(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
@@ -1538,6 +1599,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i64 atomic Sub with unsigned 32bits
+    #[allow(clippy::too_many_arguments)]
     fn i64_atomic_sub_32u(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
@@ -1550,6 +1612,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i64 atomic And with i64
+    #[allow(clippy::too_many_arguments)]
     fn i64_atomic_and(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
@@ -1562,6 +1625,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i64 atomic And with unsigned 8bits
+    #[allow(clippy::too_many_arguments)]
     fn i64_atomic_and_8u(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
@@ -1574,6 +1638,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i64 atomic And with unsigned 16bits
+    #[allow(clippy::too_many_arguments)]
     fn i64_atomic_and_16u(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
@@ -1586,6 +1651,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i64 atomic And with unsigned 32bits
+    #[allow(clippy::too_many_arguments)]
     fn i64_atomic_and_32u(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
@@ -1598,6 +1664,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i64 atomic Or with i64
+    #[allow(clippy::too_many_arguments)]
     fn i64_atomic_or(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
@@ -1610,6 +1677,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i64 atomic Or with unsigned 8bits
+    #[allow(clippy::too_many_arguments)]
     fn i64_atomic_or_8u(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
@@ -1622,6 +1690,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i64 atomic Or with unsigned 16bits
+    #[allow(clippy::too_many_arguments)]
     fn i64_atomic_or_16u(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
@@ -1634,6 +1703,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i64 atomic Or with unsigned 32bits
+    #[allow(clippy::too_many_arguments)]
     fn i64_atomic_or_32u(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
@@ -1646,6 +1716,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i64 atomic Xor with i64
+    #[allow(clippy::too_many_arguments)]
     fn i64_atomic_xor(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
@@ -1658,6 +1729,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i64 atomic Xor with unsigned 8bits
+    #[allow(clippy::too_many_arguments)]
     fn i64_atomic_xor_8u(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
@@ -1670,6 +1742,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i64 atomic Xor with unsigned 16bits
+    #[allow(clippy::too_many_arguments)]
     fn i64_atomic_xor_16u(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
@@ -1682,6 +1755,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i64 atomic Xor with unsigned 32bits
+    #[allow(clippy::too_many_arguments)]
     fn i64_atomic_xor_32u(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
@@ -1694,6 +1768,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i64 atomic Exchange with i64
+    #[allow(clippy::too_many_arguments)]
     fn i64_atomic_xchg(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
@@ -1706,6 +1781,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i64 atomic Exchange with u8
+    #[allow(clippy::too_many_arguments)]
     fn i64_atomic_xchg_8u(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
@@ -1718,6 +1794,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i64 atomic Exchange with u16
+    #[allow(clippy::too_many_arguments)]
     fn i64_atomic_xchg_16u(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
@@ -1730,6 +1807,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i64 atomic Exchange with u32
+    #[allow(clippy::too_many_arguments)]
     fn i64_atomic_xchg_32u(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
@@ -1742,6 +1820,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i64 atomic Compare and Exchange with i32
+    #[allow(clippy::too_many_arguments)]
     fn i64_atomic_cmpxchg(
         &mut self,
         new: Location<Self::GPR, Self::SIMD>,
@@ -1755,6 +1834,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i64 atomic Compare and Exchange with u8
+    #[allow(clippy::too_many_arguments)]
     fn i64_atomic_cmpxchg_8u(
         &mut self,
         new: Location<Self::GPR, Self::SIMD>,
@@ -1768,6 +1848,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i64 atomic Compare and Exchange with u16
+    #[allow(clippy::too_many_arguments)]
     fn i64_atomic_cmpxchg_16u(
         &mut self,
         new: Location<Self::GPR, Self::SIMD>,
@@ -1781,6 +1862,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// i64 atomic Compare and Exchange with u32
+    #[allow(clippy::too_many_arguments)]
     fn i64_atomic_cmpxchg_32u(
         &mut self,
         new: Location<Self::GPR, Self::SIMD>,
@@ -1795,6 +1877,7 @@ pub trait Machine {
     );
 
     /// load an F32
+    #[allow(clippy::too_many_arguments)]
     fn f32_load(
         &mut self,
         addr: Location<Self::GPR, Self::SIMD>,
@@ -1806,6 +1889,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// f32 save
+    #[allow(clippy::too_many_arguments)]
     fn f32_save(
         &mut self,
         value: Location<Self::GPR, Self::SIMD>,
@@ -1818,6 +1902,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// load an F64
+    #[allow(clippy::too_many_arguments)]
     fn f64_load(
         &mut self,
         addr: Location<Self::GPR, Self::SIMD>,
@@ -1829,6 +1914,7 @@ pub trait Machine {
         heap_access_oob: Label,
     );
     /// f64 save
+    #[allow(clippy::too_many_arguments)]
     fn f64_save(
         &mut self,
         value: Location<Self::GPR, Self::SIMD>,

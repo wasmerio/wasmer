@@ -42,14 +42,14 @@ pub enum Condition {
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
-#[allow(dead_code)]
+#[allow(dead_code, clippy::upper_case_acronyms)]
 pub enum XMMOrMemory {
     XMM(XMM),
     Memory(GPR, i32),
 }
 
 #[derive(Copy, Clone, Debug)]
-#[allow(dead_code)]
+#[allow(dead_code, clippy::upper_case_acronyms)]
 pub enum GPROrMemory {
     GPR(GPR),
     Memory(GPR, i32),

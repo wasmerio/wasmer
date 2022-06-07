@@ -287,13 +287,10 @@ impl WasiFs {
                 &path.to_string_lossy(),
                 &alias
             );
-            let cur_dir_metadata = wasi_fs.fs_backing.metadata(path).map_err(|e| {
-                format!(
-                    "Could not get metadata for file {:?}: {}",
-                    path,
-                    e.to_string()
-                )
-            })?;
+            let cur_dir_metadata = wasi_fs
+                .fs_backing
+                .metadata(path)
+                .map_err(|e| format!("Could not get metadata for file {:?}: {}", path, e))?;
 
             let kind = if cur_dir_metadata.is_dir() {
                 Kind::Dir {
@@ -1189,12 +1186,11 @@ impl WasiFs {
                 let inode = &mut self.inodes[fd.inode];
 
                 match &mut inode.kind {
-                    Kind::File { handle, .. } => {
-                        if let Some(file) = handle {
-                            file.flush().map_err(|_| __WASI_EIO)?
-                        } else {
-                            return Err(__WASI_EIO);
-                        }
+                    Kind::File {
+                        handle: Some(file), ..
+                    } => file.flush().map_err(|_| __WASI_EIO)?,
+                    Kind::File { handle: None, .. } => {
+                        return Err(__WASI_EIO);
                     }
                     // TODO: verify this behavior
                     Kind::Dir { .. } => return Err(__WASI_EISDIR),

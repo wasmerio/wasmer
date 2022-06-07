@@ -114,7 +114,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
     environ: &mut FE,
 ) -> WasmResult<()> {
     if !state.reachable {
-        translate_unreachable_operator(module_translation_state, &op, builder, state, environ)?;
+        translate_unreachable_operator(module_translation_state, op, builder, state, environ)?;
         return Ok(());
     }
 
@@ -128,13 +128,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             let val = builder.use_var(Variable::with_u32(*local_index));
             let local_type = environ.get_local_type(*local_index).unwrap();
             let ref_counted = local_type == WasmerType::ExternRef;
-            state.push1_extra((
-                val,
-                ValueExtraInfo {
-                    ref_counted,
-                    ..Default::default()
-                },
-            ));
+            state.push1_extra((val, ValueExtraInfo { ref_counted }));
             let label = ValueLabel::from_u32(*local_index);
             builder.set_val_label(val, label);
 
@@ -199,13 +193,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
                         environ.translate_externref_inc(builder.cursor(), value)?;
                     }
 
-                    (
-                        value,
-                        ValueExtraInfo {
-                            ref_counted,
-                            ..Default::default()
-                        },
-                    )
+                    (value, ValueExtraInfo { ref_counted })
                 }
                 GlobalVariable::Custom => (
                     environ.translate_custom_global_get(builder.cursor(), global_index)?,
@@ -268,13 +256,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             if ref_counted {
                 let selected_ref = builder.ins().select(cond, arg1, arg2);
                 let not_selected_ref = builder.ins().select(cond, arg2, arg1);
-                state.push1_extra((
-                    selected_ref,
-                    ValueExtraInfo {
-                        ref_counted,
-                        ..Default::default()
-                    },
-                ));
+                state.push1_extra((selected_ref, ValueExtraInfo { ref_counted }));
                 environ.translate_externref_dec(builder.cursor(), not_selected_ref)?;
             } else {
                 state.push1_extra((
@@ -638,7 +620,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             let callee_signature =
                 &builder.func.dfg.signatures[builder.func.dfg.ext_funcs[fref].signature];
             let types = wasm_param_types(&callee_signature.params, |i| {
-                environ.is_wasm_parameter(&callee_signature, i)
+                environ.is_wasm_parameter(callee_signature, i)
             });
             bitcast_arguments(args, &types, builder);
             let func_index = FunctionIndex::from_u32(*function_index);
@@ -656,10 +638,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             let mut results_metadata = Vec::with_capacity(func_type.results().len());
             for result in func_type.results() {
                 results_metadata.push(if *result == WasmerType::ExternRef {
-                    ValueExtraInfo {
-                        ref_counted: true,
-                        ..Default::default()
-                    }
+                    ValueExtraInfo { ref_counted: true }
                 } else {
                     Default::default()
                 });
@@ -678,7 +657,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             let callee_signature = &builder.func.dfg.signatures[sigref];
             let (args, _) = state.peekn_mut(num_args);
             let types = wasm_param_types(&callee_signature.params, |i| {
-                environ.is_wasm_parameter(&callee_signature, i)
+                environ.is_wasm_parameter(callee_signature, i)
             });
             bitcast_arguments(args, &types, builder);
 
@@ -704,10 +683,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             let mut results_metadata = Vec::with_capacity(func_type.results().len());
             for result in func_type.results() {
                 results_metadata.push(if *result == WasmerType::ExternRef {
-                    ValueExtraInfo {
-                        ref_counted: true,
-                        ..Default::default()
-                    }
+                    ValueExtraInfo { ref_counted: true }
                 } else {
                     Default::default()
                 });
@@ -1576,17 +1552,17 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
         | Operator::V128Store32Lane { memarg, lane }
         | Operator::V128Store64Lane { memarg, lane } => {
             let vector = pop1_with_bitcast(state, type_of(op), builder);
-            state.push1(builder.ins().extractlane(vector, lane.clone()));
+            state.push1(builder.ins().extractlane(vector, *lane));
             translate_store(memarg, ir::Opcode::Store, builder, state, environ)?;
         }
         Operator::I8x16ExtractLaneS { lane } | Operator::I16x8ExtractLaneS { lane } => {
             let vector = pop1_with_bitcast(state, type_of(op), builder);
-            let extracted = builder.ins().extractlane(vector, lane.clone());
+            let extracted = builder.ins().extractlane(vector, *lane);
             state.push1(builder.ins().sextend(I32, extracted))
         }
         Operator::I8x16ExtractLaneU { lane } | Operator::I16x8ExtractLaneU { lane } => {
             let vector = pop1_with_bitcast(state, type_of(op), builder);
-            let extracted = builder.ins().extractlane(vector, lane.clone());
+            let extracted = builder.ins().extractlane(vector, *lane);
             state.push1(builder.ins().uextend(I32, extracted));
             // On x86, PEXTRB zeroes the upper bits of the destination register of extractlane so
             // uextend could be elided; for now, uextend is needed for Cranelift's type checks to
@@ -1597,7 +1573,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
         | Operator::F32x4ExtractLane { lane }
         | Operator::F64x2ExtractLane { lane } => {
             let vector = pop1_with_bitcast(state, type_of(op), builder);
-            state.push1(builder.ins().extractlane(vector, lane.clone()))
+            state.push1(builder.ins().extractlane(vector, *lane))
         }
         Operator::I8x16ReplaceLane { lane } | Operator::I16x8ReplaceLane { lane } => {
             let ((vector, _), (replacement, _)) = state.pop2();
@@ -2536,10 +2512,7 @@ fn translate_atomic_rmw<FE: FuncEnvironment + ?Sized>(
             ))
         }
     };
-    let w_ty_ok = match widened_ty {
-        I32 | I64 => true,
-        _ => false,
-    };
+    let w_ty_ok = matches!(widened_ty, I32 | I64);
     assert!(w_ty_ok && widened_ty.bytes() >= access_ty.bytes());
 
     assert!(arg2_ty.bytes() >= access_ty.bytes());
@@ -2586,10 +2559,7 @@ fn translate_atomic_cas<FE: FuncEnvironment + ?Sized>(
             ))
         }
     };
-    let w_ty_ok = match widened_ty {
-        I32 | I64 => true,
-        _ => false,
-    };
+    let w_ty_ok = matches!(widened_ty, I32 | I64);
     assert!(w_ty_ok && widened_ty.bytes() >= access_ty.bytes());
 
     assert!(expected_ty.bytes() >= access_ty.bytes());
@@ -2638,10 +2608,7 @@ fn translate_atomic_load<FE: FuncEnvironment + ?Sized>(
             ))
         }
     };
-    let w_ty_ok = match widened_ty {
-        I32 | I64 => true,
-        _ => false,
-    };
+    let w_ty_ok = matches!(widened_ty, I32 | I64);
     assert!(w_ty_ok && widened_ty.bytes() >= access_ty.bytes());
 
     let final_effective_address =
@@ -2681,10 +2648,7 @@ fn translate_atomic_store<FE: FuncEnvironment + ?Sized>(
             ))
         }
     };
-    let d_ty_ok = match data_ty {
-        I32 | I64 => true,
-        _ => false,
-    };
+    let d_ty_ok = matches!(data_ty, I32 | I64);
     assert!(d_ty_ok && data_ty.bytes() >= access_ty.bytes());
 
     if data_ty.bytes() > access_ty.bytes() {
@@ -2993,10 +2957,10 @@ fn optionally_bitcast_vector(
 
 #[inline(always)]
 fn is_non_canonical_v128(ty: ir::Type) -> bool {
-    match ty {
-        B8X16 | B16X8 | B32X4 | B64X2 | I64X2 | I32X4 | I16X8 | F32X4 | F64X2 => true,
-        _ => false,
-    }
+    matches!(
+        ty,
+        B8X16 | B16X8 | B32X4 | B64X2 | I64X2 | I32X4 | I16X8 | F32X4 | F64X2
+    )
 }
 
 /// Cast to I8X16, any vector values in `values` that are of "non-canonical" type (meaning, not

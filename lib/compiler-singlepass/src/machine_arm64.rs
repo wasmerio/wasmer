@@ -151,19 +151,19 @@ impl MachineARM64 {
         match ty {
             ImmType::None => false,
             ImmType::NoneXzr => false,
-            ImmType::Bits8 => (imm >= 0) && (imm < 256),
-            ImmType::Bits12 => (imm >= 0) && (imm < 0x1000),
-            ImmType::Shift32 => (imm >= 0) && (imm < 32),
-            ImmType::Shift32No0 => (imm > 0) && (imm < 32),
-            ImmType::Shift64 => (imm >= 0) && (imm < 64),
-            ImmType::Shift64No0 => (imm > 0) && (imm < 64),
+            ImmType::Bits8 => (0..256).contains(&imm),
+            ImmType::Bits12 => (0..0x1000).contains(&imm),
+            ImmType::Shift32 => (0..32).contains(&imm),
+            ImmType::Shift32No0 => (1..32).contains(&imm),
+            ImmType::Shift64 => (0..64).contains(&imm),
+            ImmType::Shift64No0 => (1..64).contains(&imm),
             ImmType::Logical32 => encode_logical_immediate_32bit(imm as u32).is_some(),
             ImmType::Logical64 => encode_logical_immediate_64bit(imm as u64).is_some(),
             ImmType::UnscaledOffset => (imm > -256) && (imm < 256),
-            ImmType::OffsetByte => (imm >= 0) && (imm < 0x1000),
-            ImmType::OffsetHWord => (imm & 1 == 0) && (imm >= 0) && (imm < 0x2000),
-            ImmType::OffsetWord => (imm & 3 == 0) && (imm >= 0) && (imm < 0x4000),
-            ImmType::OffsetDWord => (imm & 7 == 0) && (imm >= 0) && (imm < 0x8000),
+            ImmType::OffsetByte => (0..0x1000).contains(&imm),
+            ImmType::OffsetHWord => (imm & 1 == 0) && (0..0x2000).contains(&imm),
+            ImmType::OffsetWord => (imm & 3 == 0) && (0..0x4000).contains(&imm),
+            ImmType::OffsetDWord => (imm & 7 == 0) && (0..0x8000).contains(&imm),
         }
     }
 
@@ -181,67 +181,61 @@ impl MachineARM64 {
             Location::Imm8(val) => {
                 if allow_imm == ImmType::NoneXzr && val == 0 {
                     Location::GPR(GPR::XzrSp)
+                } else if self.compatible_imm(val as i64, allow_imm) {
+                    src
                 } else {
-                    if self.compatible_imm(val as i64, allow_imm) {
-                        src
+                    let tmp = if let Some(wanted) = wanted {
+                        wanted
                     } else {
-                        let tmp = if wanted.is_some() {
-                            wanted.unwrap()
-                        } else {
-                            let tmp = self.acquire_temp_gpr().unwrap();
-                            temps.push(tmp.clone());
-                            tmp
-                        };
-                        self.assembler.emit_mov_imm(Location::GPR(tmp), val as u64);
-                        Location::GPR(tmp)
-                    }
+                        let tmp = self.acquire_temp_gpr().unwrap();
+                        temps.push(tmp);
+                        tmp
+                    };
+                    self.assembler.emit_mov_imm(Location::GPR(tmp), val as u64);
+                    Location::GPR(tmp)
                 }
             }
             Location::Imm32(val) => {
                 if allow_imm == ImmType::NoneXzr && val == 0 {
                     Location::GPR(GPR::XzrSp)
+                } else if self.compatible_imm(val as i64, allow_imm) {
+                    src
                 } else {
-                    if self.compatible_imm(val as i64, allow_imm) {
-                        src
+                    let tmp = if let Some(wanted) = wanted {
+                        wanted
                     } else {
-                        let tmp = if wanted.is_some() {
-                            wanted.unwrap()
-                        } else {
-                            let tmp = self.acquire_temp_gpr().unwrap();
-                            temps.push(tmp.clone());
-                            tmp
-                        };
-                        self.assembler
-                            .emit_mov_imm(Location::GPR(tmp), (val as i64) as u64);
-                        Location::GPR(tmp)
-                    }
+                        let tmp = self.acquire_temp_gpr().unwrap();
+                        temps.push(tmp);
+                        tmp
+                    };
+                    self.assembler
+                        .emit_mov_imm(Location::GPR(tmp), (val as i64) as u64);
+                    Location::GPR(tmp)
                 }
             }
             Location::Imm64(val) => {
                 if allow_imm == ImmType::NoneXzr && val == 0 {
                     Location::GPR(GPR::XzrSp)
+                } else if self.compatible_imm(val as i64, allow_imm) {
+                    src
                 } else {
-                    if self.compatible_imm(val as i64, allow_imm) {
-                        src
+                    let tmp = if let Some(wanted) = wanted {
+                        wanted
                     } else {
-                        let tmp = if wanted.is_some() {
-                            wanted.unwrap()
-                        } else {
-                            let tmp = self.acquire_temp_gpr().unwrap();
-                            temps.push(tmp.clone());
-                            tmp
-                        };
-                        self.assembler.emit_mov_imm(Location::GPR(tmp), val as u64);
-                        Location::GPR(tmp)
-                    }
+                        let tmp = self.acquire_temp_gpr().unwrap();
+                        temps.push(tmp);
+                        tmp
+                    };
+                    self.assembler.emit_mov_imm(Location::GPR(tmp), val as u64);
+                    Location::GPR(tmp)
                 }
             }
             Location::Memory(reg, val) => {
-                let tmp = if wanted.is_some() {
-                    wanted.unwrap()
+                let tmp = if let Some(wanted) = wanted {
+                    wanted
                 } else {
                     let tmp = self.acquire_temp_gpr().unwrap();
-                    temps.push(tmp.clone());
+                    temps.push(tmp);
                     tmp
                 };
                 if read_val {
@@ -327,7 +321,7 @@ impl MachineARM64 {
             Location::SIMD(_) => src,
             Location::GPR(_) => {
                 let tmp = self.acquire_temp_simd().unwrap();
-                temps.push(tmp.clone());
+                temps.push(tmp);
                 if read_val {
                     self.assembler.emit_mov(sz, src, Location::SIMD(tmp));
                 }
@@ -339,7 +333,7 @@ impl MachineARM64 {
                 } else {
                     let gpr = self.acquire_temp_gpr().unwrap();
                     let tmp = self.acquire_temp_simd().unwrap();
-                    temps.push(tmp.clone());
+                    temps.push(tmp);
                     self.assembler.emit_mov_imm(Location::GPR(gpr), val as u64);
                     self.assembler
                         .emit_mov(sz, Location::GPR(gpr), Location::SIMD(tmp));
@@ -353,7 +347,7 @@ impl MachineARM64 {
                 } else {
                     let gpr = self.acquire_temp_gpr().unwrap();
                     let tmp = self.acquire_temp_simd().unwrap();
-                    temps.push(tmp.clone());
+                    temps.push(tmp);
                     self.assembler
                         .emit_mov_imm(Location::GPR(gpr), (val as i64) as u64);
                     self.assembler
@@ -368,7 +362,7 @@ impl MachineARM64 {
                 } else {
                     let gpr = self.acquire_temp_gpr().unwrap();
                     let tmp = self.acquire_temp_simd().unwrap();
-                    temps.push(tmp.clone());
+                    temps.push(tmp);
                     self.assembler.emit_mov_imm(Location::GPR(gpr), val as u64);
                     self.assembler
                         .emit_mov(sz, Location::GPR(gpr), Location::SIMD(tmp));
@@ -378,7 +372,7 @@ impl MachineARM64 {
             }
             Location::Memory(reg, val) => {
                 let tmp = self.acquire_temp_simd().unwrap();
-                temps.push(tmp.clone());
+                temps.push(tmp);
                 if read_val {
                     let offsize = if sz == Size::S32 {
                         ImmType::OffsetWord
@@ -852,6 +846,7 @@ impl MachineARM64 {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn memory_op<F: FnOnce(&mut Self, GPR)>(
         &mut self,
         addr: Location,
@@ -1029,7 +1024,7 @@ impl MachineARM64 {
         if (offset & ((1 << shift) - 1)) != 0 {
             return false;
         }
-        return true;
+        true
     }
 
     fn emit_push(&mut self, sz: Size, src: Location) {
@@ -1128,12 +1123,12 @@ impl MachineARM64 {
     fn set_default_nan(&mut self, temps: &mut Vec<GPR>) -> GPR {
         // temporarly set FPCR to DefaultNan
         let old_fpcr = self.acquire_temp_gpr().unwrap();
-        temps.push(old_fpcr.clone());
+        temps.push(old_fpcr);
         self.assembler.emit_read_fpcr(old_fpcr);
         let new_fpcr = self.acquire_temp_gpr().unwrap();
-        temps.push(new_fpcr.clone());
+        temps.push(new_fpcr);
         let tmp = self.acquire_temp_gpr().unwrap();
-        temps.push(tmp.clone());
+        temps.push(tmp);
         self.assembler
             .emit_mov(Size::S32, Location::Imm32(1), Location::GPR(tmp));
         self.assembler
@@ -1152,10 +1147,10 @@ impl MachineARM64 {
     fn set_trap_enabled(&mut self, temps: &mut Vec<GPR>) -> GPR {
         // temporarly set FPCR to DefaultNan
         let old_fpcr = self.acquire_temp_gpr().unwrap();
-        temps.push(old_fpcr.clone());
+        temps.push(old_fpcr);
         self.assembler.emit_read_fpcr(old_fpcr);
         let new_fpcr = self.acquire_temp_gpr().unwrap();
-        temps.push(new_fpcr.clone());
+        temps.push(new_fpcr);
         self.assembler
             .emit_mov(Size::S64, Location::GPR(old_fpcr), Location::GPR(new_fpcr));
         // IOE is bit 8 of FPCR
@@ -1195,7 +1190,7 @@ impl MachineARM64 {
         let end = self.assembler.get_label();
 
         let fpsr = self.read_fpsr();
-        temps.push(fpsr.clone());
+        temps.push(fpsr);
         // no trap, than all good
         self.assembler
             .emit_tbz_label(Size::S32, Location::GPR(fpsr), 0, end);
@@ -1264,26 +1259,14 @@ impl Machine for MachineARM64 {
 
     fn get_used_gprs(&self) -> Vec<GPR> {
         GPR::iterator()
-            .filter_map(|x| {
-                if self.used_gprs & (1 << x.into_index()) != 0 {
-                    Some(x)
-                } else {
-                    None
-                }
-            })
+            .filter(|x| self.used_gprs & (1 << x.into_index()) != 0)
             .cloned()
             .collect()
     }
 
     fn get_used_simd(&self) -> Vec<NEON> {
         NEON::iterator()
-            .filter_map(|x| {
-                if self.used_simd & (1 << x.into_index()) != 0 {
-                    Some(x)
-                } else {
-                    None
-                }
-            })
+            .filter(|x| self.used_simd & (1 << x.into_index()) != 0)
             .cloned()
             .collect()
     }
@@ -1333,7 +1316,7 @@ impl Machine for MachineARM64 {
         self.used_gprs_insert(gpr);
     }
 
-    fn push_used_gpr(&mut self, used_gprs: &Vec<GPR>) -> usize {
+    fn push_used_gpr(&mut self, used_gprs: &[GPR]) -> usize {
         if used_gprs.len() % 2 == 1 {
             self.emit_push(Size::S64, Location::GPR(GPR::XzrSp));
         }
@@ -1342,7 +1325,7 @@ impl Machine for MachineARM64 {
         }
         ((used_gprs.len() + 1) / 2) * 16
     }
-    fn pop_used_gpr(&mut self, used_gprs: &Vec<GPR>) {
+    fn pop_used_gpr(&mut self, used_gprs: &[GPR]) {
         for r in used_gprs.iter().rev() {
             self.emit_pop(Size::S64, Location::GPR(*r));
         }
@@ -1390,10 +1373,10 @@ impl Machine for MachineARM64 {
 
     // Releases a temporary NEON register.
     fn release_simd(&mut self, simd: NEON) {
-        assert_eq!(self.used_simd_remove(&simd), true);
+        assert!(self.used_simd_remove(&simd));
     }
 
-    fn push_used_simd(&mut self, used_neons: &Vec<NEON>) -> usize {
+    fn push_used_simd(&mut self, used_neons: &[NEON]) -> usize {
         let stack_adjust = if used_neons.len() & 1 == 1 {
             (used_neons.len() * 8) as u32 + 8
         } else {
@@ -1410,7 +1393,7 @@ impl Machine for MachineARM64 {
         }
         stack_adjust as usize
     }
-    fn pop_used_simd(&mut self, used_neons: &Vec<NEON>) {
+    fn pop_used_simd(&mut self, used_neons: &[NEON]) {
         for (i, r) in used_neons.iter().enumerate() {
             self.assembler.emit_ldr(
                 Size::S64,
@@ -1671,10 +1654,8 @@ impl Machine for MachineARM64 {
                         Size::S64 => 3,
                     };
                     // align first
-                    if sz > 1 {
-                        if *stack_args & !((1 << sz) - 1) != 0 {
-                            *stack_args = (*stack_args + ((1 << sz) - 1)) & !((1 << sz) - 1);
-                        }
+                    if sz > 1 && *stack_args & !((1 << sz) - 1) != 0 {
+                        *stack_args = (*stack_args + ((1 << sz) - 1)) & !((1 << sz) - 1);
                     }
                     let loc = Location::Memory(GPR::XzrSp, *stack_args as i32);
                     *stack_args += 1 << sz;
@@ -1724,10 +1705,8 @@ impl Machine for MachineARM64 {
                         Size::S64 => 3,
                     };
                     // align first
-                    if sz > 1 {
-                        if *stack_args & !((1 << sz) - 1) != 0 {
-                            *stack_args = (*stack_args + ((1 << sz) - 1)) & !((1 << sz) - 1);
-                        }
+                    if sz > 1 && *stack_args & !((1 << sz) - 1) != 0 {
+                        *stack_args = (*stack_args + ((1 << sz) - 1)) & !((1 << sz) - 1);
                     }
                     let loc = Location::Memory(GPR::X29, 16 * 2 + *stack_args as i32);
                     *stack_args += 1 << sz;
@@ -1757,6 +1736,7 @@ impl Machine for MachineARM64 {
         idx: usize,
         calling_convention: CallingConvention,
     ) -> Location {
+        #[allow(clippy::match_single_binding)]
         match calling_convention {
             _ => match idx {
                 0 => Location::GPR(GPR::X0),
@@ -1950,7 +1930,7 @@ impl Machine for MachineARM64 {
         let label = self.assembler.get_label();
         let mut temps = vec![];
         let dest = self.acquire_temp_gpr().unwrap();
-        temps.push(dest.clone());
+        temps.push(dest);
         let cnt = self.location_to_reg(
             Size::S64,
             Location::Imm64(init_stack_loc_cnt),
@@ -2530,7 +2510,7 @@ impl Machine for MachineARM64 {
         let dest = self.location_to_reg(Size::S32, ret, &mut temps, ImmType::None, false, None);
         let dest = if dest == src1 || dest == src2 {
             let tmp = self.acquire_temp_gpr().unwrap();
-            temps.push(tmp.clone());
+            temps.push(tmp);
             self.assembler.emit_mov(Size::S32, dest, Location::GPR(tmp));
             Location::GPR(tmp)
         } else {
@@ -2564,7 +2544,7 @@ impl Machine for MachineARM64 {
         let dest = self.location_to_reg(Size::S32, ret, &mut temps, ImmType::None, false, None);
         let dest = if dest == src1 || dest == src2 {
             let tmp = self.acquire_temp_gpr().unwrap();
-            temps.push(tmp.clone());
+            temps.push(tmp);
             self.assembler.emit_mov(Size::S32, dest, Location::GPR(tmp));
             Location::GPR(tmp)
         } else {
@@ -2668,7 +2648,7 @@ impl Machine for MachineARM64 {
         let dest = self.location_to_reg(Size::S32, ret, &mut temps, ImmType::None, false, None);
         let src = if src == loc {
             let tmp = self.acquire_temp_gpr().unwrap();
-            temps.push(tmp.clone());
+            temps.push(tmp);
             self.assembler.emit_mov(Size::S32, src, Location::GPR(tmp));
             Location::GPR(tmp)
         } else {
@@ -2676,7 +2656,7 @@ impl Machine for MachineARM64 {
         };
         let tmp = {
             let tmp = self.acquire_temp_gpr().unwrap();
-            temps.push(tmp.clone());
+            temps.push(tmp);
             Location::GPR(tmp)
         };
         let label_loop = self.assembler.get_label();
@@ -3465,7 +3445,7 @@ impl Machine for MachineARM64 {
         let dest = self.location_to_reg(Size::S64, ret, &mut temps, ImmType::None, false, None);
         let dest = if dest == src1 || dest == src2 {
             let tmp = self.acquire_temp_gpr().unwrap();
-            temps.push(tmp.clone());
+            temps.push(tmp);
             self.assembler.emit_mov(Size::S32, dest, Location::GPR(tmp));
             Location::GPR(tmp)
         } else {
@@ -3499,7 +3479,7 @@ impl Machine for MachineARM64 {
         let dest = self.location_to_reg(Size::S64, ret, &mut temps, ImmType::None, false, None);
         let dest = if dest == src1 || dest == src2 {
             let tmp = self.acquire_temp_gpr().unwrap();
-            temps.push(tmp.clone());
+            temps.push(tmp);
             self.assembler.emit_mov(Size::S64, dest, Location::GPR(tmp));
             Location::GPR(tmp)
         } else {
@@ -3601,7 +3581,7 @@ impl Machine for MachineARM64 {
         let dest = self.location_to_reg(Size::S64, ret, &mut temps, ImmType::None, false, None);
         let src = if src == loc {
             let tmp = self.acquire_temp_gpr().unwrap();
-            temps.push(tmp.clone());
+            temps.push(tmp);
             self.assembler.emit_mov(Size::S64, src, Location::GPR(tmp));
             Location::GPR(tmp)
         } else {
@@ -3609,7 +3589,7 @@ impl Machine for MachineARM64 {
         };
         let tmp = {
             let tmp = self.acquire_temp_gpr().unwrap();
-            temps.push(tmp.clone());
+            temps.push(tmp);
             Location::GPR(tmp)
         };
         let label_loop = self.assembler.get_label();
@@ -5199,8 +5179,8 @@ impl Machine for MachineARM64 {
         let mut instructions = vec![];
         for &(instruction_offset, ref inst) in &self.unwind_ops {
             let instruction_offset = instruction_offset as u32;
-            match inst {
-                &UnwindOps::PushFP { up_to_sp } => {
+            match *inst {
+                UnwindOps::PushFP { up_to_sp } => {
                     instructions.push((
                         instruction_offset,
                         CallFrameInstruction::CfaOffset(up_to_sp as i32),
@@ -5210,7 +5190,7 @@ impl Machine for MachineARM64 {
                         CallFrameInstruction::Offset(AArch64::X29, -(up_to_sp as i32)),
                     ));
                 }
-                &UnwindOps::Push2Regs {
+                UnwindOps::Push2Regs {
                     reg1,
                     reg2,
                     up_to_sp,
@@ -5228,13 +5208,13 @@ impl Machine for MachineARM64 {
                         CallFrameInstruction::Offset(dwarf_index(reg1), -(up_to_sp as i32)),
                     ));
                 }
-                &UnwindOps::DefineNewFrame => {
+                UnwindOps::DefineNewFrame => {
                     instructions.push((
                         instruction_offset,
                         CallFrameInstruction::CfaRegister(AArch64::X29),
                     ));
                 }
-                &UnwindOps::SaveRegister { reg, bp_neg_offset } => instructions.push((
+                UnwindOps::SaveRegister { reg, bp_neg_offset } => instructions.push((
                     instruction_offset,
                     CallFrameInstruction::Offset(dwarf_index(reg), -bp_neg_offset),
                 )),

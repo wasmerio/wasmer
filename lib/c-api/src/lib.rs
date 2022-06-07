@@ -23,6 +23,9 @@
     unused_unsafe,
     unreachable_patterns
 )]
+// Because this crate exposes a lot of C APIs which are unsafe by definition,
+// we allow unsafe without explicit safety documentation for each of them.
+#![allow(clippy::missing_safety_doc)]
 
 pub mod error;
 pub mod wasm_c_api;

@@ -90,6 +90,8 @@ unsafe fn process_illegal_op(addr: usize) -> Option<TrapCode> {
 /// A package of functionality needed by `catch_traps` to figure out what to do
 /// when handling a trap.
 ///
+/// # Safety
+///
 /// Note that this is an `unsafe` trait at least because it's being run in the
 /// context of a synchronous signal handler, so it needs to be careful to not
 /// access too much state in answering these queries.
@@ -625,6 +627,8 @@ pub unsafe fn wasmer_call_trampoline(
 /// Catches any wasm traps that happen within the execution of `closure`,
 /// returning them as a `Result`.
 ///
+/// # Safety
+///
 /// Highly unsafe since `closure` won't have any dtors run.
 pub unsafe fn catch_traps<F, R>(
     trap_handler: &(dyn TrapHandler + 'static),
@@ -636,7 +640,7 @@ where
     // Ensure that per-thread initialization is done.
     lazy_per_thread_init()?;
 
-    on_wasm_stack(trap_handler, closure).map_err(UnwindReason::to_trap)
+    on_wasm_stack(trap_handler, closure).map_err(UnwindReason::into_trap)
 }
 
 // We need two separate thread-local variables here:
@@ -654,6 +658,7 @@ thread_local! {
 
 /// Read-only information that is used by signal handlers to handle and recover
 /// from traps.
+#[allow(clippy::type_complexity)]
 struct TrapHandlerContext {
     inner: *const u8,
     handle_trap: fn(
@@ -700,7 +705,7 @@ impl TrapHandlerContext {
             }
         }
         let inner = TrapHandlerContextInner { coro_trap_handler };
-        let ctx = TrapHandlerContext {
+        let ctx = Self {
             inner: &inner as *const _ as *const u8,
             handle_trap: func::<T>,
             custom_trap,
@@ -709,10 +714,7 @@ impl TrapHandlerContext {
         compiler_fence(Ordering::Release);
         let prev = TRAP_HANDLER.with(|ptr| {
             let prev = ptr.load(Ordering::Relaxed);
-            ptr.store(
-                &ctx as *const TrapHandlerContext as *mut TrapHandlerContext,
-                Ordering::Relaxed,
-            );
+            ptr.store(&ctx as *const Self as *mut Self, Ordering::Relaxed);
             prev
         });
 
@@ -824,7 +826,7 @@ enum UnwindReason {
 }
 
 impl UnwindReason {
-    fn to_trap(self) -> Trap {
+    fn into_trap(self) -> Trap {
         match self {
             UnwindReason::UserTrap(data) => Trap::User(data),
             UnwindReason::LibTrap(trap) => trap,
@@ -964,7 +966,7 @@ pub fn lazy_per_thread_init() -> Result<(), Trap> {
     const MIN_STACK_SIZE: usize = 16 * 4096;
 
     enum Tls {
-        OOM,
+        OutOfMemory,
         Allocated {
             mmap_ptr: *mut libc::c_void,
             mmap_size: usize,
@@ -997,7 +999,7 @@ pub fn lazy_per_thread_init() -> Result<(), Trap> {
             0,
         );
         if ptr == libc::MAP_FAILED {
-            return Tls::OOM;
+            return Tls::OutOfMemory;
         }
 
         // Prepare the stack with readable/writable memory and then register it
@@ -1026,7 +1028,7 @@ pub fn lazy_per_thread_init() -> Result<(), Trap> {
     // Ensure TLS runs its initializer and return an error if it failed to
     // set up a separate stack for signal handlers.
     return TLS.with(|tls| {
-        if let Tls::OOM = tls {
+        if let Tls::OutOfMemory = tls {
             Err(Trap::oom())
         } else {
             Ok(())

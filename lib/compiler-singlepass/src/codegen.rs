@@ -160,7 +160,7 @@ enum CanonicalizeType {
 }
 
 impl CanonicalizeType {
-    fn to_size(&self) -> Size {
+    fn to_size(self) -> Size {
         match self {
             CanonicalizeType::F32 => Size::S32,
             CanonicalizeType::F64 => Size::S64,
@@ -204,10 +204,7 @@ trait WpTypeExt {
 
 impl WpTypeExt for WpType {
     fn is_float(&self) -> bool {
-        match self {
-            WpType::F32 | WpType::F64 => true,
-            _ => false,
-        }
+        matches!(self, WpType::F32 | WpType::F64)
     }
 }
 
@@ -605,14 +602,14 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         // Initialize all normal locals to zero.
         let mut init_stack_loc_cnt = 0;
         let mut last_stack_loc = Location::Memory(self.machine.local_pointer(), i32::MAX);
-        for i in sig.params().len()..n {
-            match locations[i] {
+        for location in locations.iter().take(n).skip(sig.params().len()) {
+            match location {
                 Location::Memory(_, _) => {
                     init_stack_loc_cnt += 1;
-                    last_stack_loc = cmp::min(last_stack_loc, locations[i]);
+                    last_stack_loc = cmp::min(last_stack_loc, *location);
                 }
                 Location::GPR(_) => {
-                    self.machine.zero_location(Size::S64, locations[i]);
+                    self.machine.zero_location(Size::S64, *location);
                 }
                 _ => unreachable!(),
             }
@@ -756,7 +753,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
         // Save used SIMD registers.
         let used_simds = self.machine.get_used_simd();
-        if used_simds.len() > 0 {
+        if !used_simds.is_empty() {
             used_stack += self.machine.push_used_simd(&used_simds);
 
             for r in used_simds.iter().rev() {
@@ -803,6 +800,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         }
         self.machine.adjust_stack(stack_offset as u32);
 
+        #[allow(clippy::type_complexity)]
         let mut call_movs: Vec<(Location<M::GPR, M::SIMD>, M::GPR)> = vec![];
         // Prepare register & stack parameters.
         for (i, param) in params.iter().enumerate().rev() {
@@ -1047,6 +1045,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         Ok(())
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         module: &'a ModuleInfo,
         config: &'a Singlepass,
@@ -1067,7 +1066,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             .iter()
             .map(|&x| type_to_wp_type(x))
             .collect();
-        local_types.extend_from_slice(&local_types_excluding_arguments);
+        local_types.extend_from_slice(local_types_excluding_arguments);
 
         let mut machine = machine;
         let special_labels = SpecialLabelSet {
@@ -1104,7 +1103,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             save_area_offset: None,
             state: machine.new_machine_state(),
             track_state: true,
-            machine: machine,
+            machine,
             unreachable_depth: 0,
             fsm,
             relocations: vec![],
@@ -2920,8 +2919,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 }
 
                 let frame = &self.control_stack.last_mut().unwrap();
-                let stack_depth = frame.value_stack_depth.clone();
-                let fp_depth = frame.fp_stack_depth.clone();
+                let stack_depth = frame.value_stack_depth;
+                let fp_depth = frame.fp_stack_depth;
                 self.release_locations_value(stack_depth);
                 self.value_stack.truncate(stack_depth);
                 self.fp_stack.truncate(fp_depth);
@@ -3461,7 +3460,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             target_value,
                             memarg,
                             target_addr,
-                            config_nan_canonicalization && !fp.canonicalization.is_none(),
+                            config_nan_canonicalization && fp.canonicalization.is_some(),
                             need_check,
                             imported_memories,
                             offset,
@@ -3703,7 +3702,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             target_value,
                             memarg,
                             target_addr,
-                            config_nan_canonicalization && !fp.canonicalization.is_none(),
+                            config_nan_canonicalization && fp.canonicalization.is_some(),
                             need_check,
                             imported_memories,
                             offset,
@@ -3791,7 +3790,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         .emit_function_return_value(first_return, canonicalize, loc);
                 }
                 let frame = &self.control_stack[0];
-                let frame_depth = frame.value_stack_depth.clone();
+                let frame_depth = frame.value_stack_depth;
                 let label = frame.label;
                 self.release_locations_keep_state(frame_depth);
                 self.machine.jmp_unconditionnal(label);
@@ -3821,7 +3820,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 }
                 let stack_len = self.control_stack.len();
                 let frame = &mut self.control_stack[stack_len - 1 - (relative_depth as usize)];
-                let frame_depth = frame.value_stack_depth.clone();
+                let frame_depth = frame.value_stack_depth;
                 let label = frame.label;
 
                 self.release_locations_keep_state(frame_depth);
@@ -3859,8 +3858,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 }
                 let stack_len = self.control_stack.len();
                 let frame = &mut self.control_stack[stack_len - 1 - (relative_depth as usize)];
-                let stack_depth = frame.value_stack_depth.clone();
-                let label = frame.label.clone();
+                let stack_depth = frame.value_stack_depth;
+                let label = frame.label;
                 self.release_locations_keep_state(stack_depth);
                 self.machine.jmp_unconditionnal(label);
 
@@ -3916,9 +3915,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         self.machine
                             .emit_function_return_value(first_return, canonicalize, loc);
                     }
-                    let frame = &self.control_stack
-                        [self.control_stack.len().clone() - 1 - (*target as usize)];
-                    let stack_depth = frame.value_stack_depth.clone();
+                    let frame =
+                        &self.control_stack[self.control_stack.len() - 1 - (*target as usize)];
+                    let stack_depth = frame.value_stack_depth;
                     let label = frame.label;
                     self.release_locations_keep_state(stack_depth);
                     self.machine.jmp_unconditionnal(label);
@@ -3950,7 +3949,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     }
                     let frame = &self.control_stack
                         [self.control_stack.len() - 1 - (default_target as usize)];
-                    let stack_depth = frame.value_stack_depth.clone();
+                    let stack_depth = frame.value_stack_depth;
                     let label = frame.label;
                     self.release_locations_keep_state(stack_depth);
                     self.machine.jmp_unconditionnal(label);
@@ -5915,21 +5914,16 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
         (
             CompiledFunction {
-                body: FunctionBody {
-                    body: body,
-                    unwind_info,
-                },
+                body: FunctionBody { body, unwind_info },
                 relocations: self.relocations.clone(),
-                frame_info: CompiledFunctionFrameInfo {
-                    traps: traps,
-                    address_map,
-                },
+                frame_info: CompiledFunctionFrameInfo { traps, address_map },
             },
             fde,
         )
     }
     // FIXME: This implementation seems to be not enough to resolve all kinds of register dependencies
     // at call place.
+    #[allow(clippy::type_complexity)]
     fn sort_call_movs(movs: &mut [(Location<M::GPR, M::SIMD>, M::GPR)]) {
         for i in 0..movs.len() {
             for j in (i + 1)..movs.len() {

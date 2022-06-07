@@ -1126,7 +1126,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
             cached_memory_size: HashMap::new(),
 
             // TODO: pointer width
-            offsets: VMOffsets::new(8, &wasm_module),
+            offsets: VMOffsets::new(8, wasm_module),
         }
     }
 
@@ -1435,7 +1435,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                 let global_ptr = cache_builder
                     .build_bitcast(
                         global_ptr,
-                        type_to_llvm_ptr(&intrinsics, global_value_type)?,
+                        type_to_llvm_ptr(intrinsics, global_value_type)?,
                         "",
                     )
                     .into_pointer_value();
@@ -1478,6 +1478,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn local_func(
         &mut self,
         _local_function_index: LocalFunctionIndex,

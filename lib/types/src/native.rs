@@ -248,6 +248,8 @@ mod test_native_type {
 /// Trait for a Value type. A Value type is a type that is always valid and may
 /// be safely copied.
 ///
+/// # Safety
+///
 /// To maintain safety, types which implement this trait must be valid for all
 /// bit patterns. This means that it cannot contain enums, `bool`, references,
 /// etc.

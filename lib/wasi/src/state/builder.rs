@@ -401,10 +401,7 @@ impl WasiStateBuilder {
             }
         }
 
-        let fs_backing = self
-            .fs_override
-            .take()
-            .unwrap_or_else(|| default_fs_backing());
+        let fs_backing = self.fs_override.take().unwrap_or_else(default_fs_backing);
 
         // self.preopens are checked in [`PreopenDirBuilder::build`]
         let mut wasi_fs = WasiFs::new_with_preopen(&self.preopens, &self.vfs_preopens, fs_backing)
@@ -441,9 +438,9 @@ impl WasiStateBuilder {
                 .iter()
                 .map(|(key, value)| {
                     let mut env = Vec::with_capacity(key.len() + value.len() + 1);
-                    env.extend_from_slice(&key);
+                    env.extend_from_slice(key);
                     env.push(b'=');
-                    env.extend_from_slice(&value);
+                    env.extend_from_slice(value);
 
                     env
                 })

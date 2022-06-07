@@ -37,7 +37,7 @@ impl UnwindInstructions {
     pub fn to_fde(&self, address: Address) -> UnwindFrame {
         let mut fde = FrameDescriptionEntry::new(address, self.len);
         for (offset, inst) in &self.instructions {
-            fde.add_instruction(*offset, inst.clone().into());
+            fde.add_instruction(*offset, inst.clone());
         }
         UnwindFrame::SystemV(fde)
     }

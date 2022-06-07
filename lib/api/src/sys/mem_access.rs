@@ -29,12 +29,12 @@ pub enum MemoryAccessError {
 
 impl From<MemoryAccessError> for RuntimeError {
     fn from(err: MemoryAccessError) -> Self {
-        RuntimeError::new(err.to_string())
+        Self::new(err.to_string())
     }
 }
 impl From<FromUtf8Error> for MemoryAccessError {
     fn from(_err: FromUtf8Error) -> Self {
-        MemoryAccessError::NonUtf8String
+        Self::NonUtf8String
     }
 }
 
@@ -191,6 +191,12 @@ impl<'a, T: ValueType> WasmSlice<'a, T> {
         self.len
     }
 
+    /// Returns `true` if the number of elements is 0.
+    #[inline]
+    pub fn is_empty(self) -> bool {
+        self.len == 0
+    }
+
     /// Get a reference to the Wasm memory backing this reference.
     #[inline]
     pub fn memory(self) -> &'a Memory {
@@ -343,7 +349,7 @@ impl<'a, T: ValueType> Iterator for WasmSliceIter<'a, T> {
     type Item = WasmRef<'a, T>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.slice.len() != 0 {
+        if !self.slice.is_empty() {
             let elem = self.slice.index(0);
             self.slice = self.slice.subslice(1..self.slice.len());
             Some(elem)
@@ -359,7 +365,7 @@ impl<'a, T: ValueType> Iterator for WasmSliceIter<'a, T> {
 
 impl<'a, T: ValueType> DoubleEndedIterator for WasmSliceIter<'a, T> {
     fn next_back(&mut self) -> Option<Self::Item> {
-        if self.slice.len() != 0 {
+        if !self.slice.is_empty() {
             let elem = self.slice.index(self.slice.len() - 1);
             self.slice = self.slice.subslice(0..self.slice.len() - 1);
             Some(elem)

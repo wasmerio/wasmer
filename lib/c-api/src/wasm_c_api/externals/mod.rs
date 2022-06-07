@@ -82,15 +82,9 @@ impl wasm_extern_t {
             CApiExternTag::Function => {
                 ExternType::Function(unsafe { self.inner.function.inner.ty().clone() })
             }
-            CApiExternTag::Memory => {
-                ExternType::Memory(unsafe { self.inner.memory.inner.ty().clone() })
-            }
-            CApiExternTag::Global => {
-                ExternType::Global(unsafe { self.inner.global.inner.ty().clone() })
-            }
-            CApiExternTag::Table => {
-                ExternType::Table(unsafe { self.inner.table.inner.ty().clone() })
-            }
+            CApiExternTag::Memory => ExternType::Memory(unsafe { self.inner.memory.inner.ty() }),
+            CApiExternTag::Global => ExternType::Global(unsafe { *self.inner.global.inner.ty() }),
+            CApiExternTag::Table => ExternType::Table(unsafe { *self.inner.table.inner.ty() }),
         }
     }
 }

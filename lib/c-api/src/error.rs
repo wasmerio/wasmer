@@ -131,7 +131,7 @@ pub unsafe extern "C" fn wasmer_last_error_message(
     };
 
     let error_message = match take_last_error() {
-        Some(err) => err.to_string(),
+        Some(err) => err,
         None => return 0,
     };
 

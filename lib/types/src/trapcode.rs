@@ -111,18 +111,18 @@ impl FromStr for TrapCode {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "stk_ovf" => Ok(TrapCode::StackOverflow),
-            "heap_get_oob" => Ok(TrapCode::HeapAccessOutOfBounds),
-            "heap_misaligned" => Ok(TrapCode::HeapMisaligned),
-            "table_get_oob" => Ok(TrapCode::TableAccessOutOfBounds),
-            "oob" => Ok(TrapCode::OutOfBounds),
-            "icall_null" => Ok(TrapCode::IndirectCallToNull),
-            "bad_sig" => Ok(TrapCode::BadSignature),
-            "int_ovf" => Ok(TrapCode::IntegerOverflow),
-            "int_divz" => Ok(TrapCode::IntegerDivisionByZero),
-            "bad_toint" => Ok(TrapCode::BadConversionToInteger),
-            "unreachable" => Ok(TrapCode::UnreachableCodeReached),
-            "unalign_atom" => Ok(TrapCode::UnalignedAtomic),
+            "stk_ovf" => Ok(Self::StackOverflow),
+            "heap_get_oob" => Ok(Self::HeapAccessOutOfBounds),
+            "heap_misaligned" => Ok(Self::HeapMisaligned),
+            "table_get_oob" => Ok(Self::TableAccessOutOfBounds),
+            "oob" => Ok(Self::OutOfBounds),
+            "icall_null" => Ok(Self::IndirectCallToNull),
+            "bad_sig" => Ok(Self::BadSignature),
+            "int_ovf" => Ok(Self::IntegerOverflow),
+            "int_divz" => Ok(Self::IntegerDivisionByZero),
+            "bad_toint" => Ok(Self::BadConversionToInteger),
+            "unreachable" => Ok(Self::UnreachableCodeReached),
+            "unalign_atom" => Ok(Self::UnalignedAtomic),
             _ => Err(()),
         }
     }

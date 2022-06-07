@@ -62,6 +62,9 @@ pub trait Tunables {
     }
 
     /// Allocate memory for just the memories of the current module.
+    ///
+    /// # Safety
+    /// - `memory_definition_locations` must point to a valid locations in VM memory.
     unsafe fn create_memories(
         &self,
         module: &ModuleInfo,
@@ -71,13 +74,17 @@ pub trait Tunables {
         let num_imports = module.num_imported_memories;
         let mut memories: PrimaryMap<LocalMemoryIndex, _> =
             PrimaryMap::with_capacity(module.memories.len() - num_imports);
-        for index in num_imports..module.memories.len() {
+        for (index, mdl) in memory_definition_locations
+            .iter()
+            .enumerate()
+            .take(module.memories.len())
+            .skip(num_imports)
+        {
             let mi = MemoryIndex::new(index);
             let ty = &module.memories[mi];
             let style = &memory_styles[mi];
-            let mdl = memory_definition_locations[index];
             memories.push(
-                self.create_vm_memory(ty, style, mdl)
+                self.create_vm_memory(ty, style, *mdl)
                     .map_err(|e| LinkError::Resource(format!("Failed to create memory: {}", e)))?,
             );
         }
@@ -85,6 +92,10 @@ pub trait Tunables {
     }
 
     /// Allocate memory for just the tables of the current module.
+    ///
+    /// # Safety
+    ///
+    /// To be done
     unsafe fn create_tables(
         &self,
         module: &ModuleInfo,
@@ -94,13 +105,17 @@ pub trait Tunables {
         let num_imports = module.num_imported_tables;
         let mut tables: PrimaryMap<LocalTableIndex, _> =
             PrimaryMap::with_capacity(module.tables.len() - num_imports);
-        for index in num_imports..module.tables.len() {
+        for (index, tdl) in table_definition_locations
+            .iter()
+            .enumerate()
+            .take(module.tables.len())
+            .skip(num_imports)
+        {
             let ti = TableIndex::new(index);
             let ty = &module.tables[ti];
             let style = &table_styles[ti];
-            let tdl = table_definition_locations[index];
             tables.push(
-                self.create_vm_table(ty, style, tdl)
+                self.create_vm_table(ty, style, *tdl)
                     .map_err(LinkError::Resource)?,
             );
         }

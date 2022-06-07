@@ -85,7 +85,7 @@ pub unsafe extern "C" fn wasm_global_same(
 
 #[no_mangle]
 pub extern "C" fn wasm_global_type(global: &wasm_global_t) -> Box<wasm_globaltype_t> {
-    Box::new(wasm_globaltype_t::new(global.inner.ty().clone()))
+    Box::new(wasm_globaltype_t::new(*global.inner.ty()))
 }
 
 #[cfg(test)]

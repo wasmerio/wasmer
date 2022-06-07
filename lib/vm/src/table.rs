@@ -318,11 +318,12 @@ impl Table for LinearTable {
         let element = match init_value {
             TableElement::ExternRef(extern_ref) => {
                 let extern_ref: VMExternRef = extern_ref.into();
+
                 // We reduce the amount we increment by because `into` prevents
                 // dropping `init_value` (which is a caller-inc'd ref).
-                (new_len as usize)
-                    .checked_sub(size as usize + 1)
-                    .map(|val| extern_ref.ref_inc_by(val));
+                if let Some(val) = (new_len as usize).checked_sub(size as usize + 1) {
+                    extern_ref.ref_inc_by(val)
+                }
                 RawTableElement { extern_ref }
             }
             TableElement::FuncRef(func_ref) => RawTableElement { func_ref },

@@ -16,7 +16,7 @@ pub struct RuntimeError {
 #[derive(Debug)]
 enum RuntimeErrorSource {
     Generic(String),
-    OOM,
+    OutOfMemory,
     User(Box<dyn Error + Send + Sync>),
     Trap(TrapCode),
 }
@@ -26,7 +26,7 @@ impl fmt::Display for RuntimeErrorSource {
         match self {
             Self::Generic(s) => write!(f, "{}", s),
             Self::User(s) => write!(f, "{}", s),
-            Self::OOM => write!(f, "Wasmer VM out of memory"),
+            Self::OutOfMemory => write!(f, "Wasmer VM out of memory"),
             Self::Trap(s) => write!(f, "{}", s.message()),
         }
     }
@@ -83,7 +83,7 @@ impl RuntimeError {
             }
             // A trap caused by the VM being Out of Memory
             Trap::OOM { backtrace } => {
-                Self::new_with_trace(&info, None, RuntimeErrorSource::OOM, backtrace)
+                Self::new_with_trace(&info, None, RuntimeErrorSource::OutOfMemory, backtrace)
             }
             // A trap caused by an error on the generated machine code for a Wasm function
             Trap::Wasm {
@@ -138,7 +138,8 @@ impl RuntimeError {
         source: RuntimeErrorSource,
         native_trace: Backtrace,
     ) -> Self {
-        let frames: Vec<usize> = native_trace
+        // Let's construct the trace
+        let wasm_trace = native_trace
             .frames()
             .iter()
             .filter_map(|frame| {
@@ -160,11 +161,6 @@ impl RuntimeError {
                     Some(pc_to_lookup)
                 }
             })
-            .collect();
-
-        // Let's construct the trace
-        let wasm_trace = frames
-            .into_iter()
             .filter_map(|pc| info.lookup_frame_info(pc))
             .collect::<Vec<_>>();
 

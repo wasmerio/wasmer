@@ -3,6 +3,8 @@
 
 //! This is the module that facilitates the usage of Traps
 //! in Wasmer Runtime
+
+#[allow(clippy::module_inception)]
 mod trap;
 mod traphandlers;
 

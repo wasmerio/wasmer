@@ -301,6 +301,7 @@ impl<'ctx> State<'ctx> {
         Ok((v1, v2))
     }
 
+    #[allow(clippy::type_complexity)]
     pub fn pop2_extra(
         &mut self,
     ) -> Result<
@@ -331,6 +332,7 @@ impl<'ctx> State<'ctx> {
         Ok((v1, v2, v3))
     }
 
+    #[allow(clippy::type_complexity)]
     pub fn pop3_extra(
         &mut self,
     ) -> Result<

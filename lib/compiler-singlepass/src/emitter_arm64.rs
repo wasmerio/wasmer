@@ -70,14 +70,14 @@ pub enum Condition {
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
-#[allow(dead_code)]
+#[allow(dead_code, clippy::upper_case_acronyms)]
 pub enum NeonOrMemory {
     NEON(NEON),
     Memory(GPR, i32),
 }
 
 #[derive(Copy, Clone, Debug)]
-#[allow(dead_code)]
+#[allow(dead_code, clippy::upper_case_acronyms)]
 pub enum GPROrMemory {
     GPR(GPR),
     Memory(GPR, i32),
@@ -1165,14 +1165,14 @@ impl EmitterARM64 for Assembler {
             }
             (Size::S64, Location::Imm32(imm), Location::GPR(dst)) => {
                 let dst = dst.into_index() as u32;
-                if !encode_logical_immediate_64bit(imm as u64).is_some() {
+                if encode_logical_immediate_64bit(imm as u64).is_none() {
                     unreachable!();
                 }
                 dynasm!(self ; tst X(dst), imm as u64);
             }
             (Size::S64, Location::Imm64(imm), Location::GPR(dst)) => {
                 let dst = dst.into_index() as u32;
-                if !encode_logical_immediate_64bit(imm as u64).is_some() {
+                if encode_logical_immediate_64bit(imm as u64).is_none() {
                     unreachable!();
                 }
                 dynasm!(self ; tst X(dst), imm as u64);
@@ -1184,7 +1184,7 @@ impl EmitterARM64 for Assembler {
             }
             (Size::S32, Location::Imm32(imm), Location::GPR(dst)) => {
                 let dst = dst.into_index() as u32;
-                if !encode_logical_immediate_64bit(imm as u64).is_some() {
+                if encode_logical_immediate_64bit(imm as u64).is_none() {
                     unreachable!();
                 }
                 dynasm!(self ; tst W(dst), imm);
@@ -1458,7 +1458,7 @@ impl EmitterARM64 for Assembler {
                 let src1 = src1.into_index() as u32;
                 let src2 = src2 as u64;
                 let dst = dst.into_index() as u32;
-                if !encode_logical_immediate_64bit(src2 as u64).is_some() {
+                if encode_logical_immediate_64bit(src2 as u64).is_none() {
                     unreachable!();
                 }
                 dynasm!(self ; orr X(dst), X(src1), src2);
@@ -1467,7 +1467,7 @@ impl EmitterARM64 for Assembler {
                 let src1 = src1.into_index() as u32;
                 let src2 = src2 as u32;
                 let dst = dst.into_index() as u32;
-                if !encode_logical_immediate_32bit(src2).is_some() {
+                if encode_logical_immediate_32bit(src2).is_none() {
                     unreachable!();
                 }
                 dynasm!(self ; orr W(dst), W(src1), src2);
@@ -1496,7 +1496,7 @@ impl EmitterARM64 for Assembler {
                 let src1 = src1.into_index() as u32;
                 let src2 = src2 as u64;
                 let dst = dst.into_index() as u32;
-                if !encode_logical_immediate_64bit(src2 as u64).is_some() {
+                if encode_logical_immediate_64bit(src2 as u64).is_none() {
                     unreachable!();
                 }
                 dynasm!(self ; and X(dst), X(src1), src2);
@@ -1505,7 +1505,7 @@ impl EmitterARM64 for Assembler {
                 let src1 = src1.into_index() as u32;
                 let src2 = src2 as u32;
                 let dst = dst.into_index() as u32;
-                if !encode_logical_immediate_32bit(src2).is_some() {
+                if encode_logical_immediate_32bit(src2).is_none() {
                     unreachable!();
                 }
                 dynasm!(self ; and W(dst), W(src1), src2);
@@ -1534,7 +1534,7 @@ impl EmitterARM64 for Assembler {
                 let src1 = src1.into_index() as u32;
                 let src2 = src2 as u64;
                 let dst = dst.into_index() as u32;
-                if !encode_logical_immediate_64bit(src2 as u64).is_some() {
+                if encode_logical_immediate_64bit(src2 as u64).is_none() {
                     unreachable!();
                 }
                 dynasm!(self ; eor X(dst), X(src1), src2);
@@ -1543,7 +1543,7 @@ impl EmitterARM64 for Assembler {
                 let src1 = src1.into_index() as u32;
                 let src2 = src2 as u32;
                 let dst = dst.into_index() as u32;
-                if !encode_logical_immediate_32bit(src2).is_some() {
+                if encode_logical_immediate_32bit(src2).is_none() {
                     unreachable!();
                 }
                 dynasm!(self ; eor W(dst), W(src1), src2);
@@ -2453,6 +2453,7 @@ pub fn gen_std_trampoline_arm64(
                 );
             }
             _ => {
+                #[allow(clippy::single_match)]
                 match calling_convention {
                     CallingConvention::AppleAarch64 => {
                         match sz {
@@ -2613,6 +2614,7 @@ pub fn gen_std_dynamic_import_trampoline_arm64(
         }
     }
 
+    #[allow(clippy::match_single_binding)]
     match calling_convention {
         _ => {
             // Load target address.
@@ -2694,10 +2696,9 @@ pub fn gen_import_call_trampoline_arm64(
         .iter()
         .any(|&x| x == Type::F32 || x == Type::F64)
     {
+        #[allow(clippy::match_single_binding)]
         match calling_convention {
             _ => {
-                let mut param_locations: Vec<Location> = vec![];
-
                 // Allocate stack space for arguments.
                 let stack_offset: i32 = if sig.params().len() > 7 {
                     7 * 8
@@ -2729,26 +2730,23 @@ pub fn gen_import_call_trampoline_arm64(
                 }
 
                 // Store all arguments to the stack to prevent overwrite.
-                for i in 0..sig.params().len() {
-                    let loc = match i {
-                        0..=6 => {
-                            static PARAM_REGS: &[GPR] = &[
-                                GPR::X1,
-                                GPR::X2,
-                                GPR::X3,
-                                GPR::X4,
-                                GPR::X5,
-                                GPR::X6,
-                                GPR::X7,
-                            ];
-                            let loc = Location::Memory(GPR::XzrSp, (i * 8) as i32);
-                            a.emit_str(Size::S64, Location::GPR(PARAM_REGS[i]), loc);
-                            loc
-                        }
-                        _ => Location::Memory(GPR::XzrSp, stack_offset + ((i - 7) * 8) as i32),
-                    };
-                    param_locations.push(loc);
-                }
+                static PARAM_REGS: &[GPR] = &[
+                    GPR::X1,
+                    GPR::X2,
+                    GPR::X3,
+                    GPR::X4,
+                    GPR::X5,
+                    GPR::X6,
+                    GPR::X7,
+                ];
+                let gpr_iter = PARAM_REGS.iter().map(|r| Location::GPR(*r));
+                let memory_iter =
+                    (0i32..).map(|i| Location::Memory(GPR::XzrSp, stack_offset + i * 8));
+
+                let param_locations: Vec<Location> = gpr_iter
+                    .chain(memory_iter)
+                    .take(sig.params().len())
+                    .collect();
 
                 // Copy arguments.
                 let mut caller_stack_offset: i32 = 0;
@@ -2816,6 +2814,7 @@ pub fn gen_import_call_trampoline_arm64(
             );
             0
         };
+    #[allow(clippy::match_single_binding)]
     match calling_convention {
         _ => {
             if (offset & 7) == 0 {

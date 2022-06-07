@@ -223,8 +223,8 @@ impl Compiler for CraneliftCompiler {
                     isa.frontend_config(),
                     module,
                     &signatures,
-                    &memory_styles,
-                    &table_styles,
+                    memory_styles,
+                    table_styles,
                 );
                 context.func.name = get_function_name(func_index);
                 context.func.signature = signatures[module.functions[func_index]].clone();
@@ -256,20 +256,20 @@ impl Compiler for CraneliftCompiler {
                 let func_relocs = result
                     .buffer
                     .relocs()
-                    .into_iter()
+                    .iter()
                     .map(|r| mach_reloc_to_reloc(module, r))
                     .collect::<Vec<_>>();
 
                 let traps = result
                     .buffer
                     .traps()
-                    .into_iter()
+                    .iter()
                     .map(mach_trap_to_trap)
                     .collect::<Vec<_>>();
 
                 let (unwind_info, fde) = match compiled_function_unwind_info(&*isa, &context)? {
                     #[cfg(feature = "unwind")]
-                    CraneliftUnwindInfo::FDE(fde) => {
+                    CraneliftUnwindInfo::Fde(fde) => {
                         if dwarf_frametable.is_some() {
                             let fde = fde.to_fde(Address::Symbol {
                                 // The symbol is the kind of relocation.
@@ -315,10 +315,8 @@ impl Compiler for CraneliftCompiler {
 
         #[cfg(feature = "unwind")]
         let dwarf = if let Some((mut dwarf_frametable, cie_id)) = dwarf_frametable {
-            for fde in fdes {
-                if let Some(fde) = fde {
-                    dwarf_frametable.add_fde(cie_id, fde);
-                }
+            for fde in fdes.into_iter().flatten() {
+                dwarf_frametable.add_fde(cie_id, fde);
             }
             let mut eh_frame = EhFrame(WriterRelocate::new(target.triple().endianness().ok()));
             dwarf_frametable.write_eh_frame(&mut eh_frame).unwrap();
@@ -351,8 +349,8 @@ impl Compiler for CraneliftCompiler {
             .values()
             .collect::<Vec<_>>()
             .par_iter()
-            .map_init(FunctionBuilderContext::new, |mut cx, sig| {
-                make_trampoline_function_call(&*isa, &mut cx, sig)
+            .map_init(FunctionBuilderContext::new, |cx, sig| {
+                make_trampoline_function_call(&*isa, cx, sig)
             })
             .collect::<Result<Vec<FunctionBody>, CompileError>>()?
             .into_iter()
@@ -377,8 +375,8 @@ impl Compiler for CraneliftCompiler {
             .imported_function_types()
             .collect::<Vec<_>>()
             .par_iter()
-            .map_init(FunctionBuilderContext::new, |mut cx, func_type| {
-                make_trampoline_dynamic_function(&*isa, &offsets, &mut cx, &func_type)
+            .map_init(FunctionBuilderContext::new, |cx, func_type| {
+                make_trampoline_dynamic_function(&*isa, &offsets, cx, func_type)
             })
             .collect::<Result<Vec<_>, CompileError>>()?
             .into_iter()

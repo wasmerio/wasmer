@@ -126,7 +126,7 @@ fn write_buffer_array(
 
         let data = wasi_try_mem!(new_ptr.slice(memory, sub_buffer.len() as u32));
         wasi_try_mem!(data.write_slice(sub_buffer));
-        wasi_try_mem!(wasi_try_mem!(new_ptr.add(sub_buffer.len() as u32)).write(memory, 0));
+        wasi_try_mem!(wasi_try_mem!(new_ptr.add_offset(sub_buffer.len() as u32)).write(memory, 0));
 
         current_buffer_offset += sub_buffer.len() as u32 + 1;
     }
@@ -1051,8 +1051,8 @@ pub fn fd_readdir(
             buf_len as usize - buf_idx,
             std::mem::size_of::<__wasi_dirent_t>(),
         );
-        for i in 0..upper_limit {
-            wasi_try_mem!(buf_arr.index((i + buf_idx) as u64).write(dirent_bytes[i]));
+        for (i, b) in dirent_bytes.iter().enumerate().take(upper_limit) {
+            wasi_try_mem!(buf_arr.index((i + buf_idx) as u64).write(*b));
         }
         buf_idx += upper_limit;
         if upper_limit != std::mem::size_of::<__wasi_dirent_t>() {

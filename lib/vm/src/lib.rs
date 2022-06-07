@@ -5,7 +5,7 @@
 #![warn(unused_import_braces)]
 #![cfg_attr(
     feature = "cargo-clippy",
-    allow(clippy::new_without_default, vtable_address_comparisons)
+    allow(clippy::new_without_default, clippy::vtable_address_comparisons)
 )]
 #![cfg_attr(
     feature = "cargo-clippy",

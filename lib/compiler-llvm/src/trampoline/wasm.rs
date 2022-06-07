@@ -340,7 +340,7 @@ impl FuncTrampoline {
         }
 
         let callable_func = inkwell::values::CallableValue::try_from(func_ptr).unwrap();
-        let call_site = builder.build_call(callable_func, args_vec.as_slice().into(), "call");
+        let call_site = builder.build_call(callable_func, args_vec.as_slice(), "call");
         for (attr, attr_loc) in func_attrs {
             call_site.add_attribute(*attr_loc, *attr);
         }
@@ -475,7 +475,7 @@ impl FuncTrampoline {
                 for (idx, value) in results.iter().enumerate() {
                     let value = builder.build_bitcast(
                         *value,
-                        type_to_llvm(&intrinsics, func_sig.results()[idx])?,
+                        type_to_llvm(intrinsics, func_sig.results()[idx])?,
                         "",
                     );
                     struct_value = builder
@@ -487,9 +487,9 @@ impl FuncTrampoline {
                 builder.build_return(None);
             } else {
                 builder.build_return(Some(&self.abi.pack_values_for_register_return(
-                    &intrinsics,
+                    intrinsics,
                     &builder,
-                    &results.as_slice(),
+                    results.as_slice(),
                     &trampoline_func.get_type(),
                 )?));
             }

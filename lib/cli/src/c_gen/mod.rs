@@ -124,7 +124,7 @@ impl CType {
                 // function with no, name, assume it's a function pointer
                 let ret: CType = return_value
                     .as_ref()
-                    .map(|i: &Box<CType>| (&**i).clone())
+                    .map(|i| (**i).clone())
                     .unwrap_or_default();
                 ret.generate_c(w);
                 w.push(' ');
@@ -181,7 +181,7 @@ impl CType {
             } => {
                 let ret: CType = return_value
                     .as_ref()
-                    .map(|i: &Box<CType>| (&**i).clone())
+                    .map(|i| (**i).clone())
                     .unwrap_or_default();
                 ret.generate_c(w);
                 w.push(' ');

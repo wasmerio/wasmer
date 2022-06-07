@@ -47,7 +47,7 @@ impl wasm_tabletype_t {
 
     pub(crate) fn inner(&self) -> &WasmTableType {
         match &self.extern_type.inner {
-            WasmExternType::Table(wasm_table_type) => &wasm_table_type,
+            WasmExternType::Table(wasm_table_type) => wasm_table_type,
             _ => unreachable!("Data corruption: `wasm_tabletype_t` does not contain a table type"),
         }
     }

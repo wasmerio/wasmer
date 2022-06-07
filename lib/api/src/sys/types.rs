@@ -37,17 +37,17 @@ impl From<Function> for Val {
 /// It provides useful functions for converting back and forth
 /// from [`Val`] into `FuncRef`.
 pub trait ValFuncRef {
-    fn into_vm_funcref(&self, store: &Store) -> Result<VMFuncRef, RuntimeError>;
+    fn into_vm_funcref(self, store: &Store) -> Result<VMFuncRef, RuntimeError>;
 
     fn from_vm_funcref(item: VMFuncRef, store: &Store) -> Self;
 
-    fn into_table_reference(&self, store: &Store) -> Result<wasmer_vm::TableElement, RuntimeError>;
+    fn into_table_reference(self, store: &Store) -> Result<wasmer_vm::TableElement, RuntimeError>;
 
     fn from_table_reference(item: wasmer_vm::TableElement, store: &Store) -> Self;
 }
 
 impl ValFuncRef for Val {
-    fn into_vm_funcref(&self, store: &Store) -> Result<VMFuncRef, RuntimeError> {
+    fn into_vm_funcref(self, store: &Store) -> Result<VMFuncRef, RuntimeError> {
         if !self.comes_from_same_store(store) {
             return Err(RuntimeError::new("cross-`Store` values are not supported"));
         }
@@ -90,13 +90,13 @@ impl ValFuncRef for Val {
         Self::FuncRef(Some(f))
     }
 
-    fn into_table_reference(&self, store: &Store) -> Result<wasmer_vm::TableElement, RuntimeError> {
+    fn into_table_reference(self, store: &Store) -> Result<wasmer_vm::TableElement, RuntimeError> {
         if !self.comes_from_same_store(store) {
             return Err(RuntimeError::new("cross-`Store` values are not supported"));
         }
         Ok(match self {
             // TODO(reftypes): review this clone
-            Self::ExternRef(extern_ref) => wasmer_vm::TableElement::ExternRef(extern_ref.clone()),
+            Self::ExternRef(extern_ref) => wasmer_vm::TableElement::ExternRef(extern_ref),
             Self::FuncRef(None) => wasmer_vm::TableElement::FuncRef(VMFuncRef::null()),
             Self::FuncRef(Some(f)) => wasmer_vm::TableElement::FuncRef(f.vm_funcref()),
             _ => return Err(RuntimeError::new("val is not reference")),

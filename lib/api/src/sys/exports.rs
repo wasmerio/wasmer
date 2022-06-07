@@ -170,7 +170,7 @@ impl Exports {
         T: ExportableWithGenerics<'a, Args, Rets>,
     {
         let mut out: T = self.get_with_generics(name)?;
-        out.into_weak_instance_ref();
+        out.convert_to_weak_instance_ref();
         Ok(out)
     }
 
@@ -279,7 +279,7 @@ impl IntoIterator for Exports {
     type Item = (String, Extern);
 
     fn into_iter(self) -> Self::IntoIter {
-        self.map.clone().into_iter()
+        self.map.into_iter()
     }
 }
 
@@ -311,7 +311,7 @@ pub trait Exportable<'a>: Sized {
     /// Convert the extern internally to hold a weak reference to the `InstanceRef`.
     /// This is useful for preventing cycles, for example for data stored in a
     /// type implementing `WasmerEnv`.
-    fn into_weak_instance_ref(&mut self);
+    fn convert_to_weak_instance_ref(&mut self);
 }
 
 /// A trait for accessing exports (like [`Exportable`]) but it takes generic
@@ -323,7 +323,7 @@ pub trait ExportableWithGenerics<'a, Args: WasmTypeList, Rets: WasmTypeList>: Si
     /// Convert the extern internally to hold a weak reference to the `InstanceRef`.
     /// This is useful for preventing cycles, for example for data stored in a
     /// type implementing `WasmerEnv`.
-    fn into_weak_instance_ref(&mut self);
+    fn convert_to_weak_instance_ref(&mut self);
 }
 
 /// We implement it for all concrete [`Exportable`] types (that are `Clone`)
@@ -333,7 +333,7 @@ impl<'a, T: Exportable<'a> + Clone + 'static> ExportableWithGenerics<'a, (), ()>
         T::get_self_from_extern(_extern).map(|i| i.clone())
     }
 
-    fn into_weak_instance_ref(&mut self) {
-        <Self as Exportable>::into_weak_instance_ref(self);
+    fn convert_to_weak_instance_ref(&mut self) {
+        <Self as Exportable>::convert_to_weak_instance_ref(self);
     }
 }

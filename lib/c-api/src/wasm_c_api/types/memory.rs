@@ -40,7 +40,7 @@ impl wasm_memorytype_t {
 
     pub(crate) fn inner(&self) -> &WasmMemoryType {
         match &self.extern_type.inner {
-            WasmExternType::Memory(wasm_memory_type) => &wasm_memory_type,
+            WasmExternType::Memory(wasm_memory_type) => wasm_memory_type,
             _ => {
                 unreachable!("Data corruption: `wasm_memorytype_t` does not contain a memory type")
             }

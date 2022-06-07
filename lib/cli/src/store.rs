@@ -242,13 +242,13 @@ impl CompilerOptions {
                         }
                         CompiledKind::FunctionCallTrampoline(func_type) => format!(
                             "trampoline_call_{}_{}",
-                            types_to_signature(&func_type.params()),
-                            types_to_signature(&func_type.results())
+                            types_to_signature(func_type.params()),
+                            types_to_signature(func_type.results())
                         ),
                         CompiledKind::DynamicFunctionTrampoline(func_type) => format!(
                             "trampoline_dynamic_{}_{}",
-                            types_to_signature(&func_type.params()),
-                            types_to_signature(&func_type.results())
+                            types_to_signature(func_type.params()),
+                            types_to_signature(func_type.results())
                         ),
                         CompiledKind::Module => "module".into(),
                     }

@@ -317,12 +317,9 @@ pub fn _time(ctx: &EmEnv, time_p: u32) -> i32 {
 pub fn _ctime_r(ctx: &EmEnv, time_p: u32, buf: u32) -> u32 {
     debug!("emscripten::_ctime_r {} {}", time_p, buf);
 
-    // var stack = stackSave();
     let (result_offset, _result_slice): (u32, &mut [u8]) = unsafe { allocate_on_stack(ctx, 44) };
     let time = _localtime_r(ctx, time_p, result_offset) as u32;
-    let rv = _asctime_r(ctx, time, buf);
-    // stackRestore(stack);
-    rv
+    _asctime_r(ctx, time, buf)
 }
 
 pub fn _ctime(ctx: &EmEnv, time_p: u32) -> u32 {
@@ -403,11 +400,11 @@ pub fn _strftime(ctx: &EmEnv, s_ptr: c_int, maxsize: u32, format_ptr: c_int, tm_
     let tm = unsafe { &*tm };
 
     let rust_date = time::Date::try_from_ymd(tm.tm_year, tm.tm_mon as u8, tm.tm_mday as u8);
-    if !rust_date.is_ok() {
+    if rust_date.is_err() {
         return 0;
     }
     let rust_time = time::Time::try_from_hms(tm.tm_hour as u8, tm.tm_min as u8, tm.tm_sec as u8);
-    if !rust_time.is_ok() {
+    if rust_time.is_err() {
         return 0;
     }
     let rust_datetime = time::PrimitiveDateTime::new(rust_date.unwrap(), rust_time.unwrap());

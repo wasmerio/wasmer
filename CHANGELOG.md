@@ -8,6 +8,8 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **Unreleased**
 
+### Fixed
+- [#2942](https://github.com/wasmerio/wasmer/pull/2942) Fix clippy lints.
 
 ## 2.3.0 - 2022/06/06
 

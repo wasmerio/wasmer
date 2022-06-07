@@ -1,7 +1,7 @@
 use anyhow::Context;
 use std::fs::{read_dir, File, OpenOptions, ReadDir};
 use std::io::{self, Read, Seek, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use wasmer::{Imports, Instance, Module, Store};
 use wasmer_vfs::{host_fs, mem_fs, FileSystem};
 use wasmer_wasi::types::{__wasi_filesize_t, __wasi_timestamp_t};
@@ -95,7 +95,7 @@ impl<'a> WasiTest<'a> {
             wasm_module.read_to_end(&mut out)?;
             out
         };
-        let module = Module::new(&store, &wasm_bytes)?;
+        let module = Module::new(store, &wasm_bytes)?;
         let (env, _tempdirs) = self.create_wasi_env(filesystem_kind)?;
         let imports = self.get_imports(store, &module, env.clone())?;
         let instance = Instance::new(&module, &imports)?;
@@ -620,14 +620,13 @@ impl VirtualFile for OutputCapturerer {
 fn map_host_fs_to_mem_fs(
     fs: &mem_fs::FileSystem,
     directory_reader: ReadDir,
-    path_prefix: &PathBuf,
+    path_prefix: &Path,
 ) -> anyhow::Result<()> {
     for entry in directory_reader {
         let entry = entry?;
         let entry_type = entry.file_type()?;
 
-        let mut path = path_prefix.clone();
-        path.push(entry.path().file_name().unwrap());
+        let path = path_prefix.join(entry.path().file_name().unwrap());
 
         if entry_type.is_dir() {
             fs.create_dir(&path)?;

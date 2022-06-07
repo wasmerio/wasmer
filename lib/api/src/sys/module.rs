@@ -345,11 +345,10 @@ impl Module {
     pub fn set_name(&mut self, name: &str) -> bool {
         Arc::get_mut(&mut self.artifact)
             .and_then(|artifact| artifact.module_mut())
-            .map(|mut module_info| {
+            .map_or(false, |mut module_info| {
                 module_info.name = Some(name.to_string());
                 true
             })
-            .unwrap_or(false)
     }
 
     /// Returns an iterator over the imported types in the Module.
@@ -376,7 +375,7 @@ impl Module {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn imports<'a>(&'a self) -> ImportsIterator<impl Iterator<Item = ImportType> + 'a> {
+    pub fn imports(&self) -> ImportsIterator<impl Iterator<Item = ImportType> + '_> {
         self.artifact.module_ref().imports()
     }
 
@@ -403,7 +402,7 @@ impl Module {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn exports<'a>(&'a self) -> ExportsIterator<impl Iterator<Item = ExportType> + 'a> {
+    pub fn exports(&self) -> ExportsIterator<impl Iterator<Item = ExportType> + '_> {
         self.artifact.module_ref().exports()
     }
 
@@ -430,7 +429,7 @@ impl Module {
     /// However, the usage is highly discouraged.
     #[doc(hidden)]
     pub fn info(&self) -> &ModuleInfo {
-        &self.artifact.module_ref()
+        self.artifact.module_ref()
     }
 
     /// Gets the [`Artifact`] used internally by the Module.

@@ -62,10 +62,10 @@ pub trait Artifact: Send + Sync + Upcastable + ArtifactCreate {
         // host CPU features.
         let host_cpu_features = CpuFeature::for_host();
         if !host_cpu_features.is_superset(self.cpu_features()) {
-            Err(InstantiationError::CpuFeature(format!(
+            return Err(InstantiationError::CpuFeature(format!(
                 "{:?}",
                 self.cpu_features().difference(host_cpu_features)
-            )))?;
+            )));
         }
 
         self.preinstantiate()?;
@@ -75,7 +75,7 @@ pub trait Artifact: Send + Sync + Upcastable + ArtifactCreate {
             let mut imports = resolve_imports(
                 &module,
                 imports,
-                &self.finished_dynamic_function_trampolines(),
+                self.finished_dynamic_function_trampolines(),
                 self.memory_styles(),
                 self.table_styles(),
             )

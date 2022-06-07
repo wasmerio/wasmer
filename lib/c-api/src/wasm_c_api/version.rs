@@ -1,8 +1,8 @@
 use lazy_static::lazy_static;
 use std::os::raw::c_char;
 
-const VERSION: &'static str = concat!(env!("CARGO_PKG_VERSION"), "\0");
-const VERSION_PRE: &'static str = concat!(env!("CARGO_PKG_VERSION_PRE"), "\0");
+const VERSION: &str = concat!(env!("CARGO_PKG_VERSION"), "\0");
+const VERSION_PRE: &str = concat!(env!("CARGO_PKG_VERSION_PRE"), "\0");
 
 lazy_static! {
     static ref VERSION_MAJOR: u8 = env!("CARGO_PKG_VERSION_MAJOR")

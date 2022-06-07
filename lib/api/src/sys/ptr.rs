@@ -7,6 +7,10 @@ use wasmer_types::{NativeWasmType, ValueType};
 /// Trait for the `Memory32` and `Memory64` marker types.
 ///
 /// This allows code to be generic over 32-bit and 64-bit memories.
+///
+/// # Safety
+///
+/// Used for raw memory access.
 pub unsafe trait MemorySize {
     /// Type used to represent an offset into a memory. This is `u32` or `u64`.
     type Offset: Copy + Into<u64> + TryFrom<u64>;
@@ -131,7 +135,7 @@ impl<T, M: MemorySize> WasmPtr<T, M> {
     /// Returns a null `UserPtr`.
     #[inline]
     pub fn null() -> Self {
-        WasmPtr::new(M::ZERO)
+        Self::new(M::ZERO)
     }
 
     /// Checks whether the `WasmPtr` is null.
@@ -145,8 +149,7 @@ impl<T, M: MemorySize> WasmPtr<T, M> {
     ///
     /// This method returns an error if an address overflow occurs.
     #[inline]
-    #[must_use]
-    pub fn add(self, offset: M::Offset) -> Result<Self, MemoryAccessError> {
+    pub fn add_offset(self, offset: M::Offset) -> Result<Self, MemoryAccessError> {
         let base = self.offset.into();
         let index = offset.into();
         let offset = index
@@ -156,16 +159,15 @@ impl<T, M: MemorySize> WasmPtr<T, M> {
             .checked_add(offset)
             .ok_or(MemoryAccessError::Overflow)?;
         let address = M::Offset::try_from(address).map_err(|_| MemoryAccessError::Overflow)?;
-        Ok(WasmPtr::new(address))
+        Ok(Self::new(address))
     }
 
     /// Calculates an offset from the current pointer address. The argument is
     /// in units of `T`.
     ///
-    /// This method returns an error if an address overflow occurs.
+    /// This method returns an error if an address underflow occurs.
     #[inline]
-    #[must_use]
-    pub fn sub(self, offset: M::Offset) -> Result<Self, MemoryAccessError> {
+    pub fn sub_offset(self, offset: M::Offset) -> Result<Self, MemoryAccessError> {
         let base = self.offset.into();
         let index = offset.into();
         let offset = index
@@ -175,7 +177,7 @@ impl<T, M: MemorySize> WasmPtr<T, M> {
             .checked_sub(offset)
             .ok_or(MemoryAccessError::Overflow)?;
         let address = M::Offset::try_from(address).map_err(|_| MemoryAccessError::Overflow)?;
-        Ok(WasmPtr::new(address))
+        Ok(Self::new(address))
     }
 }
 
@@ -183,7 +185,7 @@ impl<T: ValueType, M: MemorySize> WasmPtr<T, M> {
     /// Creates a `WasmRef` from this `WasmPtr` which allows reading and
     /// mutating of the value being pointed to.
     #[inline]
-    pub fn deref<'a>(self, memory: &'a Memory) -> WasmRef<'a, T> {
+    pub fn deref(self, memory: &Memory) -> WasmRef<'_, T> {
         WasmRef::new(memory, self.offset.into())
     }
 
@@ -205,11 +207,11 @@ impl<T: ValueType, M: MemorySize> WasmPtr<T, M> {
     /// Returns a `MemoryAccessError` if the slice length overflows a 64-bit
     /// address.
     #[inline]
-    pub fn slice<'a>(
+    pub fn slice(
         self,
-        memory: &'a Memory,
+        memory: &Memory,
         len: M::Offset,
-    ) -> Result<WasmSlice<'a, T>, MemoryAccessError> {
+    ) -> Result<WasmSlice<'_, T>, MemoryAccessError> {
         WasmSlice::new(memory, self.offset.into(), len.into())
     }
 
@@ -218,15 +220,15 @@ impl<T: ValueType, M: MemorySize> WasmPtr<T, M> {
     ///
     /// This last value is not included in the returned vector.
     #[inline]
-    pub fn read_until<'a>(
+    pub fn read_until(
         self,
-        memory: &'a Memory,
+        memory: &Memory,
         mut end: impl FnMut(&T) -> bool,
     ) -> Result<Vec<T>, MemoryAccessError> {
         let mut vec = Vec::new();
         for i in 0u64.. {
             let i = M::Offset::try_from(i).map_err(|_| MemoryAccessError::Overflow)?;
-            let val = self.add(i)?.deref(memory).read()?;
+            let val = self.add_offset(i)?.deref(memory).read()?;
             if end(&val) {
                 break;
             }
@@ -242,9 +244,9 @@ impl<M: MemorySize> WasmPtr<u8, M> {
     /// This method is safe to call even if the memory is being concurrently
     /// modified.
     #[inline]
-    pub fn read_utf8_string<'a>(
+    pub fn read_utf8_string(
         self,
-        memory: &'a Memory,
+        memory: &Memory,
         len: M::Offset,
     ) -> Result<String, MemoryAccessError> {
         let vec = self.slice(memory, len)?.read_to_vec()?;
@@ -256,10 +258,7 @@ impl<M: MemorySize> WasmPtr<u8, M> {
     /// This method is safe to call even if the memory is being concurrently
     /// modified.
     #[inline]
-    pub fn read_utf8_string_with_nul<'a>(
-        self,
-        memory: &'a Memory,
-    ) -> Result<String, MemoryAccessError> {
+    pub fn read_utf8_string_with_nul(self, memory: &Memory) -> Result<String, MemoryAccessError> {
         let vec = self.read_until(memory, |&byte| byte == 0)?;
         Ok(String::from_utf8(vec)?)
     }

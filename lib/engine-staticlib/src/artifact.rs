@@ -102,6 +102,7 @@ impl StaticlibArtifact {
     }
 
     #[cfg(feature = "compiler")]
+    #[allow(clippy::type_complexity)]
     /// Generate a compilation
     fn generate_metadata<'data>(
         data: &'data [u8],
@@ -182,7 +183,7 @@ impl StaticlibArtifact {
 
         let mut metadata = ModuleMetadata {
             compile_info,
-            prefix: engine_inner.get_prefix(&data),
+            prefix: engine_inner.get_prefix(data),
             data_initializers,
             function_body_lengths,
             cpu_features: target.cpu_features().as_u64(),
@@ -207,7 +208,7 @@ impl StaticlibArtifact {
 
         let serialized_data = bincode::serialize(&metadata).map_err(to_compile_error)?;
         let mut metadata_binary = vec![];
-        metadata_binary.extend(MetadataHeader::new(serialized_data.len()));
+        metadata_binary.extend(MetadataHeader::new(serialized_data.len()).into_bytes());
         metadata_binary.extend(serialized_data);
         let metadata_length = metadata_binary.len();
 
@@ -219,8 +220,8 @@ impl StaticlibArtifact {
         compile_info.module = Arc::new(module);
 
         let maybe_obj_bytes = compiler.experimental_native_compile_module(
-            &target,
-            &compile_info,
+            target,
+            compile_info,
             module_translation.as_ref().unwrap(),
             &function_body_inputs,
             &symbol_registry,
@@ -231,7 +232,7 @@ impl StaticlibArtifact {
             obj_bytes?
         } else {
             let compilation = compiler.compile_module(
-                &target,
+                target,
                 &metadata.compile_info,
                 module_translation.as_ref().unwrap(),
                 function_body_inputs,
@@ -245,10 +246,10 @@ impl StaticlibArtifact {
             .map(|function_body| function_body.body.len() as u64)
             .collect::<PrimaryMap<LocalFunctionIndex, u64>>();
              */
-            let mut obj = get_object_for_target(&target_triple).map_err(to_compile_error)?;
+            let mut obj = get_object_for_target(target_triple).map_err(to_compile_error)?;
             emit_data(&mut obj, WASMER_METADATA_SYMBOL, &metadata_binary, 1)
                 .map_err(to_compile_error)?;
-            emit_compilation(&mut obj, compilation, &symbol_registry, &target_triple)
+            emit_compilation(&mut obj, compilation, &symbol_registry, target_triple)
                 .map_err(to_compile_error)?;
             obj.write().map_err(to_compile_error)?
         };
@@ -344,7 +345,7 @@ impl StaticlibArtifact {
         for i in 0..num_imported_functions {
             let sig_idx = metadata.compile_info.module.functions[FunctionIndex::new(i)];
             let func_type = &metadata.compile_info.module.signatures[sig_idx];
-            let vm_shared_idx = signature_registry.register(&func_type);
+            let vm_shared_idx = signature_registry.register(func_type);
             sig_map.insert(sig_idx, vm_shared_idx);
         }
         // read finished functions in order now...
@@ -353,7 +354,7 @@ impl StaticlibArtifact {
             let func_idx = metadata.compile_info.module.func_index(local_func_idx);
             let sig_idx = metadata.compile_info.module.functions[func_idx];
             let func_type = &metadata.compile_info.module.signatures[sig_idx];
-            let vm_shared_idx = signature_registry.register(&func_type);
+            let vm_shared_idx = signature_registry.register(func_type);
             sig_map.insert(sig_idx, vm_shared_idx);
 
             byte_buffer[0..WORD_SIZE]

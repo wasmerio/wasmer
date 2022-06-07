@@ -120,13 +120,17 @@ impl MetadataHeader {
     pub const ALIGN: usize = 16;
 
     /// Creates a new header for metadata of the given length.
-    pub fn new(len: usize) -> [u8; 16] {
-        let header = MetadataHeader {
+    pub fn new(len: usize) -> Self {
+        Self {
             magic: Self::MAGIC,
             version: Self::CURRENT_VERSION,
             len: len.try_into().expect("metadata exceeds maximum length"),
-        };
-        unsafe { mem::transmute(header) }
+        }
+    }
+
+    /// Convert the header into its bytes representation.
+    pub fn into_bytes(self) -> [u8; 16] {
+        unsafe { mem::transmute(self) }
     }
 
     /// Parses the header and returns the length of the metadata following it.
@@ -143,7 +147,7 @@ impl MetadataHeader {
             })?
             .try_into()
             .unwrap();
-        let header: MetadataHeader = unsafe { mem::transmute(bytes) };
+        let header: Self = unsafe { mem::transmute(bytes) };
         if header.magic != Self::MAGIC {
             return Err(DeserializeError::Incompatible(
                 "The provided bytes were not serialized by Wasmer".to_string(),

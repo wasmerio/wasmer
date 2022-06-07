@@ -56,7 +56,7 @@ pub unsafe extern "C" fn wasm_func_new(
     let num_rets = func_sig.results().len();
     let inner_callback = move |args: &[Val]| -> Result<Vec<Val>, RuntimeError> {
         let processed_args: wasm_val_vec_t = args
-            .into_iter()
+            .iter()
             .map(TryInto::try_into)
             .collect::<Result<Vec<wasm_val_t>, _>>()
             .expect("Argument conversion failed")
@@ -134,7 +134,7 @@ pub unsafe extern "C" fn wasm_func_new_with_env(
 
     let trampoline = move |env: &WrapperEnv, args: &[Val]| -> Result<Vec<Val>, RuntimeError> {
         let processed_args: wasm_val_vec_t = args
-            .into_iter()
+            .iter()
             .map(TryInto::try_into)
             .collect::<Result<Vec<wasm_val_t>, _>>()
             .expect("Argument conversion failed")
@@ -208,7 +208,7 @@ pub unsafe extern "C" fn wasm_func_call(
             for (slot, val) in results
                 .as_uninit_slice()
                 .iter_mut()
-                .zip(wasm_results.into_iter())
+                .zip(wasm_results.iter())
             {
                 *slot = MaybeUninit::new(val.try_into().expect("Results conversion failed"));
             }

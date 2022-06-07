@@ -80,7 +80,7 @@ impl PartialEq for Store {
 
 unsafe impl TrapHandler for Store {
     fn custom_trap_handler(&self, call: &dyn Fn(&TrapHandlerFn) -> bool) -> bool {
-        if let Some(handler) = *&self.trap_handler.read().unwrap().as_ref() {
+        if let Some(handler) = self.trap_handler.read().unwrap().as_ref() {
             call(handler)
         } else {
             false

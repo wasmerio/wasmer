@@ -229,6 +229,7 @@ pub trait FuncEnvironment: TargetEnvironment {
     ///
     /// The `index` provided identifies the linear memory to query, and `heap` is the heap reference
     /// returned by `make_heap` for the same index.
+    #[allow(clippy::too_many_arguments)]
     fn translate_memory_copy(
         &mut self,
         pos: FuncCursor,

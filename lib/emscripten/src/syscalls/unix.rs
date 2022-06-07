@@ -452,10 +452,14 @@ pub fn ___syscall330(ctx: &EmEnv, _which: c_int, mut varargs: VarArgs) -> pid_t 
     // Set flags on newfd (https://www.gnu.org/software/libc/manual/html_node/Descriptor-Flags.html)
     let mut old_flags = unsafe { fcntl(newfd, F_GETFD, 0) };
 
-    if old_flags > 0 {
-        old_flags |= flags;
-    } else if old_flags == 0 {
-        old_flags &= !flags;
+    match old_flags {
+        f if f > 0 => {
+            old_flags |= flags;
+        }
+        0 => {
+            old_flags &= !flags;
+        }
+        _ => {}
     }
 
     unsafe {

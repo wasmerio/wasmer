@@ -20,7 +20,7 @@ impl WriterRelocate {
             // We autodetect it, based on the host
             None => RunTimeEndian::default(),
         };
-        WriterRelocate {
+        Self {
             relocs: Vec::new(),
             writer: EndianVec::new(endianness),
         }

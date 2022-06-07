@@ -90,17 +90,14 @@ impl AbstractReg for GPR {
         self as usize > 18
     }
     fn is_reserved(self) -> bool {
-        match self.into_index() {
-            0..=16 | 19..=27 => false,
-            _ => true,
-        }
+        !matches!(self.into_index(), 0..=16 | 19..=27)
     }
     fn into_index(self) -> usize {
         self as usize
     }
     fn from_index(n: usize) -> Result<GPR, ()> {
         match n {
-            0..=31 => Ok(GPR::iterator().nth(n).unwrap().clone()),
+            0..=31 => Ok(*GPR::iterator().nth(n).unwrap()),
             _ => Err(()),
         }
     }
@@ -158,7 +155,7 @@ impl AbstractReg for NEON {
     }
     fn from_index(n: usize) -> Result<NEON, ()> {
         match n {
-            0..=31 => Ok(NEON::iterator().nth(n).unwrap().clone()),
+            0..=31 => Ok(*NEON::iterator().nth(n).unwrap()),
             _ => Err(()),
         }
     }
@@ -206,6 +203,7 @@ impl AbstractReg for NEON {
 
 /// A machine register under the x86-64 architecture.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[allow(clippy::upper_case_acronyms)]
 pub enum ARM64Register {
     /// General-purpose registers.
     GPR(GPR),

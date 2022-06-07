@@ -215,7 +215,7 @@ impl Memory {
             .checked_add(buf.len() as u64)
             .ok_or(MemoryAccessError::Overflow)?;
         if end > def.current_length.try_into().unwrap() {
-            Err(MemoryAccessError::HeapOutOfBounds)?;
+            return Err(MemoryAccessError::HeapOutOfBounds);
         }
         unsafe {
             volatile_memcpy_read(def.base.add(offset as usize), buf.as_mut_ptr(), buf.len());
@@ -245,7 +245,7 @@ impl Memory {
             .checked_add(buf.len() as u64)
             .ok_or(MemoryAccessError::Overflow)?;
         if end > def.current_length.try_into().unwrap() {
-            Err(MemoryAccessError::HeapOutOfBounds)?;
+            return Err(MemoryAccessError::HeapOutOfBounds);
         }
         let buf_ptr = buf.as_mut_ptr() as *mut u8;
         unsafe {
@@ -269,7 +269,7 @@ impl Memory {
             .checked_add(data.len() as u64)
             .ok_or(MemoryAccessError::Overflow)?;
         if end > def.current_length.try_into().unwrap() {
-            Err(MemoryAccessError::HeapOutOfBounds)?;
+            return Err(MemoryAccessError::HeapOutOfBounds);
         }
         unsafe {
             volatile_memcpy_write(data.as_ptr(), def.base.add(offset as usize), data.len());
@@ -302,11 +302,10 @@ impl<'a> Exportable<'a> for Memory {
         }
     }
 
-    fn into_weak_instance_ref(&mut self) {
-        self.vm_memory
-            .instance_ref
-            .as_mut()
-            .map(|v| *v = v.downgrade());
+    fn convert_to_weak_instance_ref(&mut self) {
+        if let Some(v) = self.vm_memory.instance_ref.as_mut() {
+            *v = v.downgrade();
+        }
     }
 }
 

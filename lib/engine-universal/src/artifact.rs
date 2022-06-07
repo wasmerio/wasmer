@@ -124,7 +124,7 @@ impl UniversalArtifact {
         link_module(
             artifact.module_ref(),
             &finished_functions,
-            artifact.get_function_relocations().clone(),
+            artifact.get_function_relocations(),
             &custom_sections,
             artifact.get_custom_section_relocations_ref(),
             artifact.get_libcall_trampolines(),
