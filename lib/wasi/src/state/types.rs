@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(all(unix, feature = "sys-poll"))]
 use std::convert::TryInto;
 use std::{
+    sync::{Arc, Mutex},
     collections::VecDeque,
     io::{self, Read, Seek, Write},
     time::Duration,
@@ -315,10 +316,10 @@ pub(crate) fn poll(
 pub trait WasiPath {}
 
 /// For piping stdio. Stores all output / input in a byte-vector.
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, Default)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct Pipe {
-    buffer: VecDeque<u8>,
+    buffer: Arc<Mutex<VecDeque<u8>>>,
 }
 
 impl Pipe {
@@ -329,8 +330,9 @@ impl Pipe {
 
 impl Read for Pipe {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        let amt = std::cmp::min(buf.len(), self.buffer.len());
-        for (i, byte) in self.buffer.drain(..amt).enumerate() {
+        let mut buffer = self.buffer.lock().unwrap();
+        let amt = std::cmp::min(buf.len(), buffer.len());
+        for (i, byte) in buffer.drain(..amt).enumerate() {
             buf[i] = byte;
         }
         Ok(amt)
@@ -339,7 +341,8 @@ impl Read for Pipe {
 
 impl Write for Pipe {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.buffer.extend(buf);
+        let mut buffer = self.buffer.lock().unwrap();
+        buffer.extend(buf);
         Ok(buf.len())
     }
     fn flush(&mut self) -> io::Result<()> {
@@ -368,17 +371,20 @@ impl VirtualFile for Pipe {
         0
     }
     fn size(&self) -> u64 {
-        self.buffer.len() as u64
+        let buffer = self.buffer.lock().unwrap();
+        buffer.len() as u64
     }
     fn set_len(&mut self, len: u64) -> Result<(), FsError> {
-        self.buffer.resize(len as usize, 0);
+        let mut buffer = self.buffer.lock().unwrap();
+        buffer.resize(len as usize, 0);
         Ok(())
     }
     fn unlink(&mut self) -> Result<(), FsError> {
         Ok(())
     }
-    fn bytes_available(&self) -> Result<usize, FsError> {
-        Ok(self.buffer.len())
+    fn bytes_available_read(&self) -> Result<Option<usize>, FsError> {
+        let buffer = self.buffer.lock().unwrap();
+        Ok(Some(buffer.len()))
     }
 }
 
