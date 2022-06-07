@@ -16,6 +16,7 @@ build = "build.rs"
 name = "wasmer"
 path = "src/bin/wasmer.rs"
 doc = false
+required-features = ["compiler"]
 
 [[bin]]
 name = "wasmer-headless"
