@@ -11,11 +11,11 @@
 //!
 //! Ready?
 
+use std::io::{Read, Write};
 use wasmer::{Instance, Module, Store};
 use wasmer_compiler_cranelift::Cranelift;
 use wasmer_engine_universal::Universal;
 use wasmer_wasi::{Pipe, WasiState};
-use std::io::{Read, Write};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let wasm_path = concat!(
@@ -62,7 +62,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     start.call(&[])?;
 
     println!("Reading from the WASI stdout...");
-    
+
     // To read from the stdout
     let mut buf = String::new();
     output.read_to_string(&mut buf)?;

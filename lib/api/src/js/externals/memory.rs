@@ -339,7 +339,7 @@ impl Memory {
             .len()
             .try_into()
             .map_err(|_| MemoryAccessError::Overflow)?;
-            let view = self.uint8view();
+        let view = self.uint8view();
         let end = offset.checked_add(len).ok_or(MemoryAccessError::Overflow)?;
         if end > view.length() {
             Err(MemoryAccessError::HeapOutOfBounds)?;

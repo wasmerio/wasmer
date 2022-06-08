@@ -10,7 +10,11 @@ pub struct FileOpener {
 }
 
 impl crate::FileOpener for FileOpener {
-    fn open(&mut self, path: &Path, conf: &OpenOptionsConfig) -> Result<Box<dyn VirtualFile + Sync>> {
+    fn open(
+        &mut self,
+        path: &Path,
+        conf: &OpenOptionsConfig,
+    ) -> Result<Box<dyn VirtualFile + Sync>> {
         let read = conf.read();
         let mut write = conf.write();
         let append = conf.append();

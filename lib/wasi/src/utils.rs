@@ -1,6 +1,6 @@
+use super::types::*;
 use std::collections::BTreeSet;
 use wasmer::Module;
-use super::types::*;
 
 #[allow(dead_code)]
 /// Check if a provided module is compiled for some version of WASI.
@@ -31,7 +31,7 @@ pub fn map_io_err(err: std::io::Error) -> __wasi_errno_t {
         ErrorKind::Other => __WASI_EIO,
         ErrorKind::UnexpectedEof => __WASI_EIO,
         ErrorKind::Unsupported => __WASI_ENOTSUP,
-       _ => __WASI_EIO,
+        _ => __WASI_EIO,
     }
 }
 
@@ -104,22 +104,19 @@ impl Ord for WasiVersion {
             return std::cmp::Ordering::Equal;
         }
         match (*self, *other) {
-            (Self::Snapshot1, Self::Snapshot0) => {
-                std::cmp::Ordering::Greater
-            }
+            (Self::Snapshot1, Self::Snapshot0) => std::cmp::Ordering::Greater,
             (Self::Wasix32v1, Self::Snapshot1) | (Self::Wasix32v1, Self::Snapshot0) => {
                 std::cmp::Ordering::Greater
             }
-            (Self::Wasix64v1, Self::Wasix32v1) | (Self::Wasix64v1, Self::Snapshot1) | (Self::Wasix64v1, Self::Snapshot0) => {
-                std::cmp::Ordering::Greater
-            }
-            (Self::Latest, Self::Wasix64v1) | (Self::Latest, Self::Wasix32v1) | (Self::Latest, Self::Snapshot1) | (Self::Latest, Self::Snapshot0) => {
-                std::cmp::Ordering::Greater
-            }
+            (Self::Wasix64v1, Self::Wasix32v1)
+            | (Self::Wasix64v1, Self::Snapshot1)
+            | (Self::Wasix64v1, Self::Snapshot0) => std::cmp::Ordering::Greater,
+            (Self::Latest, Self::Wasix64v1)
+            | (Self::Latest, Self::Wasix32v1)
+            | (Self::Latest, Self::Snapshot1)
+            | (Self::Latest, Self::Snapshot0) => std::cmp::Ordering::Greater,
             // they are not equal and not greater so they must be less
-            (_, _) => {
-                std::cmp::Ordering::Less
-            }
+            (_, _) => std::cmp::Ordering::Less,
         }
     }
 }

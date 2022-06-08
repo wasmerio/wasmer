@@ -51,7 +51,11 @@ impl dyn FileSystem + 'static {
 }
 
 pub trait FileOpener {
-    fn open(&mut self, path: &Path, conf: &OpenOptionsConfig) -> Result<Box<dyn VirtualFile + Sync>>;
+    fn open(
+        &mut self,
+        path: &Path,
+        conf: &OpenOptionsConfig,
+    ) -> Result<Box<dyn VirtualFile + Sync>>;
 }
 
 #[derive(Debug, Clone)]
@@ -183,7 +187,7 @@ pub trait VirtualFile: fmt::Debug + Send + Write + Read + Seek + 'static + Upcas
     /// Returns the number of bytes available.  This function must not block
     fn bytes_available(&self) -> Result<usize> {
         return Ok(self.bytes_available_read()?.unwrap_or(0usize)
-           + self.bytes_available_write()?.unwrap_or(0usize));
+            + self.bytes_available_write()?.unwrap_or(0usize));
     }
 
     /// Returns the number of bytes available.  This function must not block

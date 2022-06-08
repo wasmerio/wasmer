@@ -3,8 +3,8 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 use thiserror::Error;
 
-pub use wasmer_vfs::StdioMode;
 pub use wasmer_vfs::FileDescriptor;
+pub use wasmer_vfs::StdioMode;
 
 pub type Result<T> = std::result::Result<T, BusError>;
 
@@ -16,17 +16,12 @@ pub struct BusDescriptor(usize);
 #[repr(transparent)]
 pub struct CallDescriptor(usize);
 
-pub trait VirtualBus: fmt::Debug + Send + Sync + 'static
-{
+pub trait VirtualBus: fmt::Debug + Send + Sync + 'static {
     /// Starts a new WAPM sub process
-    fn new_spawn(
-        &self,
-    ) -> SpawnOptions;
+    fn new_spawn(&self) -> SpawnOptions;
 
     /// Creates a listener thats used to receive BUS commands
-    fn listen(
-        &self
-    )-> Result<Box<dyn VirtualBusListener + Sync>>;
+    fn listen(&self) -> Result<Box<dyn VirtualBusListener + Sync>>;
 }
 
 pub trait VirtualBusSpawner {
@@ -159,40 +154,33 @@ impl SpawnOptions {
 }
 
 #[derive(Debug)]
-pub struct BusSpawnedProcess
-{
+pub struct BusSpawnedProcess {
     /// Handle of the instance
     pub handle: BusDescriptor,
     /// Reference to the spawned instance
     pub inst: Box<dyn VirtualBusProcess + Sync>,
 }
 
-pub trait VirtualBusScope: fmt::Debug + Send + Sync + 'static
-{
+pub trait VirtualBusScope: fmt::Debug + Send + Sync + 'static {
     //// Returns true if the invokable target has finished
-    fn poll_finished(
-        self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-    ) -> Poll<()>;
+    fn poll_finished(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<()>;
 }
 
-pub trait VirtualBusInvokable: fmt::Debug + Send + Sync + 'static
-{
+pub trait VirtualBusInvokable: fmt::Debug + Send + Sync + 'static {
     /// Invokes a service within this instance
     fn invoke(
         &self,
         topic: String,
         format: BusDataFormat,
-        buf: &[u8]
+        buf: &[u8],
     ) -> Result<Box<dyn VirtualBusInvocation + Sync>>;
 }
 
-pub trait VirtualBusProcess: VirtualBusScope + VirtualBusInvokable +  fmt::Debug + Send + Sync + 'static
+pub trait VirtualBusProcess:
+    VirtualBusScope + VirtualBusInvokable + fmt::Debug + Send + Sync + 'static
 {
     /// Returns the exit code if the instance has finished
-    fn exit_code(
-        &self,
-    ) -> Option<u32>;
+    fn exit_code(&self) -> Option<u32>;
 
     /// Returns a file descriptor used to read the STDIN
     fn stdin_fd(&self) -> Option<FileDescriptor>;
@@ -204,18 +192,15 @@ pub trait VirtualBusProcess: VirtualBusScope + VirtualBusInvokable +  fmt::Debug
     fn stderr_fd(&self) -> Option<FileDescriptor>;
 }
 
-pub trait VirtualBusInvocation: VirtualBusScope + VirtualBusInvokable + fmt::Debug + Send + Sync + 'static
+pub trait VirtualBusInvocation:
+    VirtualBusScope + VirtualBusInvokable + fmt::Debug + Send + Sync + 'static
 {
     /// Polls for new listen events related to this context
-    fn poll_event(
-        self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-    ) -> Poll<BusInvocationEvent>;
+    fn poll_event(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<BusInvocationEvent>;
 }
 
 #[derive(Debug)]
-pub enum BusInvocationEvent
-{
+pub enum BusInvocationEvent {
     /// The server has sent some out-of-band data to you
     Callback {
         /// Topic that this call relates to
@@ -234,18 +219,13 @@ pub enum BusInvocationEvent
     },
 }
 
-pub trait VirtualBusListener: fmt::Debug + Send + Sync + 'static
-{
+pub trait VirtualBusListener: fmt::Debug + Send + Sync + 'static {
     /// Polls for new calls to this service
-    fn poll_call(
-        self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-    ) -> Poll<BusCallEvent>;
+    fn poll_call(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<BusCallEvent>;
 }
 
 #[derive(Debug)]
-pub struct BusCallEvent
-{
+pub struct BusCallEvent {
     /// Topic that this call relates to
     pub topic: String,
     /// Reference to the call itself
@@ -256,28 +236,15 @@ pub struct BusCallEvent
     pub data: Vec<u8>,
 }
 
-pub trait VirtualBusCalled: VirtualBusListener + fmt::Debug + Send + Sync + 'static
-{
+pub trait VirtualBusCalled: VirtualBusListener + fmt::Debug + Send + Sync + 'static {
     /// Sends an out-of-band message back to the caller
-    fn callback(
-        &self,
-        topic: String,
-        format: BusDataFormat,
-        buf: &[u8],
-    ) -> Result<()>;
+    fn callback(&self, topic: String, format: BusDataFormat, buf: &[u8]) -> Result<()>;
 
     /// Informs the caller that their call has failed
-    fn fault(
-        self,
-        fault: BusError,
-    ) -> Result<()>;
+    fn fault(self, fault: BusError) -> Result<()>;
 
-    /// Finishes the call and returns a particular response 
-    fn reply(
-        self,
-        format: BusDataFormat,
-        buf: &[u8],
-    ) -> Result<()>;
+    /// Finishes the call and returns a particular response
+    fn reply(self, format: BusDataFormat, buf: &[u8]) -> Result<()>;
 }
 
 /// Format that the supplied data is in
@@ -292,10 +259,9 @@ pub enum BusDataFormat {
 }
 
 #[derive(Debug, Default)]
-pub struct UnsupportedVirtualBus { }
+pub struct UnsupportedVirtualBus {}
 
-impl VirtualBus
-for UnsupportedVirtualBus {
+impl VirtualBus for UnsupportedVirtualBus {
     fn new_spawn(&self) -> SpawnOptions {
         SpawnOptions::new(Box::new(UnsupportedVirtualBusSpawner::default()))
     }
@@ -306,10 +272,9 @@ for UnsupportedVirtualBus {
 }
 
 #[derive(Debug, Default)]
-pub struct UnsupportedVirtualBusSpawner { }
+pub struct UnsupportedVirtualBusSpawner {}
 
-impl VirtualBusSpawner
-for UnsupportedVirtualBusSpawner {
+impl VirtualBusSpawner for UnsupportedVirtualBusSpawner {
     fn spawn(&mut self, _name: &str, _config: &SpawnOptionsConfig) -> Result<BusSpawnedProcess> {
         Err(BusError::Unsupported)
     }

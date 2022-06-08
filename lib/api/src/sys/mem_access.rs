@@ -1,5 +1,5 @@
 use crate::RuntimeError;
-use crate::{Memory, Memory32, Memory64, WasmPtr, MemorySize};
+use crate::{Memory, Memory32, Memory64, MemorySize, WasmPtr};
 use std::{
     convert::TryInto,
     fmt,
@@ -88,7 +88,11 @@ impl<'a, T: ValueType> WasmRef<'a, T> {
     /// Get a `WasmPtr` fror this `WasmRef`.
     #[inline]
     pub fn as_ptr<M: MemorySize>(self) -> WasmPtr<T, M> {
-        let offset: M::Offset = self.offset.try_into().map_err(|_| "invalid offset into memory").unwrap();
+        let offset: M::Offset = self
+            .offset
+            .try_into()
+            .map_err(|_| "invalid offset into memory")
+            .unwrap();
         WasmPtr::<T, M>::new(offset)
     }
 

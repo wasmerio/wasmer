@@ -83,6 +83,7 @@ pub use crate::indexes::{
 pub use crate::initializers::{
     DataInitializer, DataInitializerLocation, OwnedDataInitializer, TableInitializer,
 };
+pub use crate::memory::{Memory32, Memory64, MemorySize};
 pub use crate::module::{ExportsIterator, ImportsIterator, ModuleInfo};
 pub use crate::native::{NativeWasmType, ValueType};
 pub use crate::units::{
@@ -92,9 +93,6 @@ pub use crate::values::{Value, WasmValueType};
 pub use types::{
     ExportType, ExternType, FunctionType, GlobalInit, GlobalType, ImportType, MemoryType,
     Mutability, TableType, Type, V128,
-};
-pub use crate::memory::{
-    MemorySize, Memory32, Memory64
 };
 
 #[cfg(feature = "enable-rkyv")]

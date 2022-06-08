@@ -1,13 +1,13 @@
+use std::fmt;
 use std::ops::Deref;
 use std::sync::atomic::{AtomicU32, Ordering};
-use std::fmt;
 use thiserror::Error;
-use wasmer_vbus::{VirtualBus, UnsupportedVirtualBus};
-use wasmer_vnet::{VirtualNetworking};
+use wasmer_vbus::{UnsupportedVirtualBus, VirtualBus};
+use wasmer_vnet::VirtualNetworking;
 
+use super::types::*;
 use super::WasiError;
 use super::WasiThreadId;
-use super::types::*;
 
 #[derive(Error, Debug)]
 pub enum WasiThreadError {
@@ -17,13 +17,11 @@ pub enum WasiThreadError {
     MethodNotFound,
 }
 
-impl Into<__wasi_errno_t>
-for WasiThreadError
-{
+impl Into<__wasi_errno_t> for WasiThreadError {
     fn into(self) -> __wasi_errno_t {
         match self {
             WasiThreadError::Unsupported => __WASI_ENOTSUP,
-            WasiThreadError::MethodNotFound => __WASI_EINVAL
+            WasiThreadError::MethodNotFound => __WASI_EINVAL,
         }
     }
 }
@@ -43,8 +41,7 @@ pub struct WasiTtyState {
 
 /// Represents an implementation of the WASI runtime - by default everything is
 /// unimplemented.
-pub trait WasiRuntimeImplementation: fmt::Debug + Sync
-{
+pub trait WasiRuntimeImplementation: fmt::Debug + Sync {
     /// For WASI runtimes that support it they can implement a message BUS implementation
     /// which allows runtimes to pass serialized messages between each other similar to
     /// RPC's. BUS implementation can be implemented that communicate across runtimes
@@ -74,11 +71,15 @@ pub trait WasiRuntimeImplementation: fmt::Debug + Sync
     }
 
     /// Sets the TTY state
-    fn tty_set(&self, _tty_state: WasiTtyState) {
-    }
+    fn tty_set(&self, _tty_state: WasiTtyState) {}
 
-    /// Spawns a new thread by invoking the 
-    fn thread_spawn(&self, _method: &str, _user_data: u64, _reactor: bool) -> Result<WasiThreadId, WasiThreadError> {
+    /// Spawns a new thread by invoking the
+    fn thread_spawn(
+        &self,
+        _method: &str,
+        _user_data: u64,
+        _reactor: bool,
+    ) -> Result<WasiThreadId, WasiThreadError> {
         Err(WasiThreadError::Unsupported)
     }
 
@@ -107,31 +108,29 @@ pub trait WasiRuntimeImplementation: fmt::Debug + Sync
 }
 
 #[derive(Debug)]
-pub struct PlugableRuntimeImplementation
-{
+pub struct PlugableRuntimeImplementation {
     pub bus: Box<dyn VirtualBus + Sync>,
     pub networking: Box<dyn VirtualNetworking + Sync>,
     pub thread_id_seed: AtomicU32,
 }
 
-impl PlugableRuntimeImplementation
-{
+impl PlugableRuntimeImplementation {
     pub fn set_bus_implementation<I>(&mut self, bus: I)
-    where I: VirtualBus + Sync
+    where
+        I: VirtualBus + Sync,
     {
         self.bus = Box::new(bus)
     }
 
     pub fn set_networking_implementation<I>(&mut self, net: I)
-    where I: VirtualNetworking + Sync
+    where
+        I: VirtualNetworking + Sync,
     {
         self.networking = Box::new(net)
     }
 }
 
-impl Default
-for PlugableRuntimeImplementation
-{
+impl Default for PlugableRuntimeImplementation {
     fn default() -> Self {
         Self {
             #[cfg(not(feature = "host-vnet"))]
@@ -144,8 +143,7 @@ for PlugableRuntimeImplementation
     }
 }
 
-impl WasiRuntimeImplementation
-for PlugableRuntimeImplementation {
+impl WasiRuntimeImplementation for PlugableRuntimeImplementation {
     fn bus<'a>(&'a self) -> &'a (dyn VirtualBus) {
         self.bus.deref()
     }

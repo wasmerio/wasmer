@@ -52,33 +52,33 @@ impl MemoryStyle {
 /// This allows code to be generic over 32-bit and 64-bit memories.
 pub unsafe trait MemorySize: Copy {
     /// Type used to represent an offset into a memory. This is `u32` or `u64`.
-    type Offset: Default +
-                 std::fmt::Debug +
-                 std::fmt::Display +
-                 Eq +
-                 Ord +
-                 PartialEq<Self::Offset> +
-                 PartialOrd<Self::Offset> +
-                 Clone +
-                 Copy +
-                 ValueType +
-                 Into<u64> +
-                 From<u32> +
-                 From<u16> +
-                 From<u8> +
-                 TryFrom<u64> +
-                 TryFrom<u32> +
-                 TryFrom<u16> +
-                 TryFrom<u8> +
-                 TryInto<usize> +
-                 TryInto<u64> +
-                 TryInto<u32> +
-                 TryInto<u16> +
-                 TryInto<u8> +
-                 TryFrom<usize> +
-                 Add<Self::Offset> +
-                 Sum<Self::Offset> +
-                 AddAssign<Self::Offset>;
+    type Offset: Default
+        + std::fmt::Debug
+        + std::fmt::Display
+        + Eq
+        + Ord
+        + PartialEq<Self::Offset>
+        + PartialOrd<Self::Offset>
+        + Clone
+        + Copy
+        + ValueType
+        + Into<u64>
+        + From<u32>
+        + From<u16>
+        + From<u8>
+        + TryFrom<u64>
+        + TryFrom<u32>
+        + TryFrom<u16>
+        + TryFrom<u8>
+        + TryInto<usize>
+        + TryInto<u64>
+        + TryInto<u32>
+        + TryInto<u16>
+        + TryInto<u8>
+        + TryFrom<usize>
+        + Add<Self::Offset>
+        + Sum<Self::Offset>
+        + AddAssign<Self::Offset>;
 
     /// Type used to pass this value as an argument or return value for a Wasm function.
     type Native: super::NativeWasmType;

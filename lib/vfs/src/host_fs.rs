@@ -177,7 +177,11 @@ impl TryInto<Metadata> for fs::Metadata {
 pub struct FileOpener;
 
 impl crate::FileOpener for FileOpener {
-    fn open(&mut self, path: &Path, conf: &OpenOptionsConfig) -> Result<Box<dyn VirtualFile + Sync>> {
+    fn open(
+        &mut self,
+        path: &Path,
+        conf: &OpenOptionsConfig,
+    ) -> Result<Box<dyn VirtualFile + Sync>> {
         // TODO: handle create implying write, etc.
         let read = conf.read();
         let write = conf.write();

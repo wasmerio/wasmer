@@ -35,39 +35,41 @@ compile_error!(
 
 #[macro_use]
 mod macros;
+mod runtime;
 mod state;
 mod syscalls;
 mod utils;
-mod runtime;
 
 use crate::syscalls::*;
 
 pub use crate::state::{
-    Fd, Pipe, Stderr, Stdin, Stdout, WasiFs, WasiInodes, WasiState, WasiStateBuilder, WasiStateCreationError,
-    ALL_RIGHTS, VIRTUAL_ROOT_FD,
+    Fd, Pipe, Stderr, Stdin, Stdout, WasiFs, WasiInodes, WasiState, WasiStateBuilder,
+    WasiStateCreationError, ALL_RIGHTS, VIRTUAL_ROOT_FD,
 };
 pub use crate::syscalls::types;
 pub use crate::utils::{get_wasi_version, get_wasi_versions, is_wasi_module, WasiVersion};
+pub use wasmer_vbus::{UnsupportedVirtualBus, VirtualBus};
 #[deprecated(since = "2.1.0", note = "Please use `wasmer_vfs::FsError`")]
 pub use wasmer_vfs::FsError as WasiFsError;
 #[deprecated(since = "2.1.0", note = "Please use `wasmer_vfs::VirtualFile`")]
 pub use wasmer_vfs::VirtualFile as WasiFile;
 pub use wasmer_vfs::{FsError, VirtualFile};
-pub use wasmer_vbus::{VirtualBus, UnsupportedVirtualBus};
-pub use wasmer_vnet::{VirtualNetworking, UnsupportedVirtualNetworking};
+pub use wasmer_vnet::{UnsupportedVirtualNetworking, VirtualNetworking};
 use wasmer_wasi_types::__WASI_CLOCK_MONOTONIC;
 
 use derivative::*;
 use std::ops::Deref;
 use thiserror::Error;
 use wasmer::{
-    imports, Function, Imports, LazyInit, Memory, MemoryAccessError, Module, Store, WasmerEnv,
-    MemorySize, Memory32,
+    imports, Function, Imports, LazyInit, Memory, Memory32, MemoryAccessError, MemorySize, Module,
+    Store, WasmerEnv,
 };
 
-use std::time::Duration;
+pub use runtime::{
+    PlugableRuntimeImplementation, WasiRuntimeImplementation, WasiThreadError, WasiTtyState,
+};
 use std::sync::{Arc, RwLockReadGuard, RwLockWriteGuard};
-pub use runtime::{WasiRuntimeImplementation, PlugableRuntimeImplementation, WasiThreadError, WasiTtyState};
+use std::time::Duration;
 
 /// This is returned in `RuntimeError`.
 /// Use `downcast` or `downcast_ref` to retrieve the `ExitCode`.
@@ -84,10 +86,14 @@ pub enum WasiError {
 pub struct WasiThreadId(u32);
 
 impl From<u32> for WasiThreadId {
-    fn from(id: u32) -> Self { Self(id) }
+    fn from(id: u32) -> Self {
+        Self(id)
+    }
 }
 impl Into<u32> for WasiThreadId {
-    fn into(self) -> u32 { self.0 }
+    fn into(self) -> u32 {
+        self.0
+    }
 }
 
 /// WASI processes can have multiple threads attached to the same environment
@@ -131,14 +137,18 @@ impl WasiThread {
             let now = platform_clock_time_get(__WASI_CLOCK_MONOTONIC, 1_000_000).unwrap() as u128;
             let delta = match now.checked_sub(start) {
                 Some(a) => a,
-                None => { break; }
-            };            
+                None => {
+                    break;
+                }
+            };
             if delta >= duration {
                 break;
             }
             let remaining = match duration.checked_sub(delta) {
                 Some(a) => Duration::from_nanos(a as u64),
-                None => { break; }
+                None => {
+                    break;
+                }
             };
             std::thread::sleep(remaining.min(Duration::from_millis(10)));
             self.yield_now()?;
@@ -254,7 +264,8 @@ impl WasiEnv {
 
     /// Overrides the runtime implementation for this environment
     pub fn set_runtime<R>(&mut self, runtime: R)
-    where R: WasiRuntimeImplementation + Send + Sync + 'static
+    where
+        R: WasiRuntimeImplementation + Send + Sync + 'static,
     {
         self.runtime = Arc::new(runtime);
     }

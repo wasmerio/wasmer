@@ -1,5 +1,5 @@
-use wasmer_derive::ValueType;
 use super::*;
+use wasmer_derive::ValueType;
 
 use crate::__wasi_option_timestamp_t;
 

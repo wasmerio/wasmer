@@ -1,6 +1,6 @@
 use crate::syscalls;
 use crate::syscalls::types::{self, snapshot0};
-use crate::{mem_error_to_wasi, WasiEnv, WasiError, WasiThread, MemorySize, Memory32};
+use crate::{mem_error_to_wasi, Memory32, MemorySize, WasiEnv, WasiError, WasiThread};
 use wasmer::WasmPtr;
 
 /// Wrapper around `syscalls::fd_filestat_get` with extra logic to handle the size
@@ -72,7 +72,8 @@ pub fn path_filestat_get(
     let new_buf: WasmPtr<types::__wasi_filestat_t, Memory32> = buf.cast();
     let new_filestat_setup: types::__wasi_filestat_t = wasi_try_mem!(new_buf.read(memory));
 
-    let result = syscalls::path_filestat_get::<Memory32>(thread, fd, flags, path, path_len, new_buf);
+    let result =
+        syscalls::path_filestat_get::<Memory32>(thread, fd, flags, path, path_len, new_buf);
 
     let memory = thread.memory();
     let new_filestat = wasi_try_mem!(new_buf.deref(memory).read());
@@ -158,7 +159,8 @@ pub fn poll_oneoff(
     }
 
     // make the call
-    let result = syscalls::poll_oneoff::<Memory32>(thread, in_new_type_ptr, out_, nsubscriptions, nevents);
+    let result =
+        syscalls::poll_oneoff::<Memory32>(thread, in_new_type_ptr, out_, nsubscriptions, nevents);
 
     // replace the old values of in, in case the calling code reuses the memory
     let memory = thread.memory();
