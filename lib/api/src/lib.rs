@@ -156,8 +156,8 @@
 //! [`imports`] macro:
 //!
 //! ```
-//! # use wasmer::{imports, Function, Memory, MemoryType, Store, ImportObject};
-//! # fn imports_example(store: &Store) -> ImportObject {
+//! # use wasmer::{imports, Function, Memory, MemoryType, Store, Imports};
+//! # fn imports_example(store: &Store) -> Imports {
 //! let memory = Memory::new(&store, MemoryType::new(1, None, false)).unwrap();
 //! imports! {
 //!     "env" => {
@@ -172,11 +172,11 @@
 //! from any instance via `instance.exports`:
 //!
 //! ```
-//! # use wasmer::{imports, Instance, Function, Memory, NativeFunc};
+//! # use wasmer::{imports, Instance, Function, Memory, TypedFunction};
 //! # fn exports_example(instance: &Instance) -> anyhow::Result<()> {
 //! let memory = instance.exports.get_memory("memory")?;
 //! let memory: &Memory = instance.exports.get("some_other_memory")?;
-//! let add: NativeFunc<(i32, i32), i32> = instance.exports.get_native_function("add")?;
+//! let add: TypedFunction<(i32, i32), i32> = instance.exports.get_native_function("add")?;
 //! let result = add.call(5, 37)?;
 //! assert_eq!(result, 42);
 //! # Ok(())
@@ -215,7 +215,7 @@
 //!
 //! In the `wasmer` API we support functions which take their arguments and
 //! return their results dynamically, [`Function`], and functions which
-//! take their arguments and return their results statically, [`NativeFunc`].
+//! take their arguments and return their results statically, [`TypedFunction`].
 //!
 //! ### Memories
 //!

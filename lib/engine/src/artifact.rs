@@ -1,5 +1,4 @@
-use crate::{resolve_imports, InstantiationError, Resolver, RuntimeError, Tunables};
-use loupe::MemoryUsage;
+use crate::{resolve_imports, Export, InstantiationError, RuntimeError, Tunables};
 use std::any::Any;
 pub use wasmer_artifact::MetadataHeader;
 use wasmer_artifact::{ArtifactCreate, Upcastable};
@@ -20,7 +19,7 @@ use wasmer_vm::{
 ///
 /// The `ArtifactRun` contains the extra information needed to run the
 /// module at runtime, such as [`ModuleInfo`] and [`Features`].
-pub trait Artifact: Send + Sync + Upcastable + MemoryUsage + ArtifactCreate {
+pub trait Artifact: Send + Sync + Upcastable + ArtifactCreate {
     /// Register thie `Artifact` stack frame information into the global scope.
     ///
     /// This is required to ensure that any traps can be properly symbolicated.
@@ -56,7 +55,7 @@ pub trait Artifact: Send + Sync + Upcastable + MemoryUsage + ArtifactCreate {
     unsafe fn instantiate(
         &self,
         tunables: &dyn Tunables,
-        resolver: &dyn Resolver,
+        imports: &[Export],
         host_state: Box<dyn Any>,
     ) -> Result<InstanceHandle, InstantiationError> {
         // Validate the CPU features this module was compiled with against the
@@ -75,7 +74,7 @@ pub trait Artifact: Send + Sync + Upcastable + MemoryUsage + ArtifactCreate {
         let (imports, import_function_envs) = {
             let mut imports = resolve_imports(
                 &module,
-                resolver,
+                imports,
                 &self.finished_dynamic_function_trampolines(),
                 self.memory_styles(),
                 self.table_styles(),

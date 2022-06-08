@@ -1,12 +1,14 @@
 use crate::*;
 use std::convert::TryFrom;
 use std::fmt;
+use std::mem::{self, MaybeUninit};
+use wasmer_derive::ValueType;
 use wasmer_types::ValueType;
 
 pub type __wasi_subclockflags_t = u16;
 pub const __WASI_SUBSCRIPTION_CLOCK_ABSTIME: u16 = 1 << 0;
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, ValueType)]
 #[repr(C)]
 pub struct __wasi_subscription_clock_t {
     pub clock_id: __wasi_clockid_t,
@@ -15,7 +17,7 @@ pub struct __wasi_subscription_clock_t {
     pub flags: __wasi_subclockflags_t,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, ValueType)]
 #[repr(C)]
 pub struct __wasi_subscription_fs_readwrite_t {
     pub fd: __wasi_fd_t,
@@ -122,7 +124,49 @@ impl fmt::Debug for __wasi_subscription_t {
     }
 }
 
-unsafe impl ValueType for __wasi_subscription_t {}
+unsafe impl ValueType for __wasi_subscription_t {
+    fn zero_padding_bytes(&self, bytes: &mut [MaybeUninit<u8>]) {
+        macro_rules! field {
+            ($($f:tt)*) => {
+                &self.$($f)* as *const _ as usize - self as *const _ as usize
+            };
+        }
+        macro_rules! field_end {
+            ($($f:tt)*) => {
+                field!($($f)*) + mem::size_of_val(&self.$($f)*)
+            };
+        }
+        macro_rules! zero {
+            ($start:expr, $end:expr) => {
+                for i in $start..$end {
+                    bytes[i] = MaybeUninit::new(0);
+                }
+            };
+        }
+        self.userdata
+            .zero_padding_bytes(&mut bytes[field!(userdata)..field_end!(userdata)]);
+        zero!(field_end!(userdata), field!(type_));
+        self.type_
+            .zero_padding_bytes(&mut bytes[field!(type_)..field_end!(type_)]);
+        zero!(field_end!(type_), field!(u));
+        match self.type_ {
+            __WASI_EVENTTYPE_FD_READ | __WASI_EVENTTYPE_FD_WRITE => unsafe {
+                self.u.fd_readwrite.zero_padding_bytes(
+                    &mut bytes[field!(u.fd_readwrite)..field_end!(u.fd_readwrite)],
+                );
+                zero!(field_end!(u.fd_readwrite), field_end!(u));
+            },
+            __WASI_EVENTTYPE_CLOCK => unsafe {
+                self.u
+                    .clock
+                    .zero_padding_bytes(&mut bytes[field!(u.clock)..field_end!(u.clock)]);
+                zero!(field_end!(u.clock), field_end!(u));
+            },
+            _ => zero!(field!(u), field_end!(u)),
+        }
+        zero!(field_end!(u), mem::size_of_val(self));
+    }
+}
 
 pub enum SubscriptionEnum {
     Clock(__wasi_subscription_clock_t),

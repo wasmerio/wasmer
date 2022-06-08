@@ -21,6 +21,10 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 - [#2802](https://github.com/wasmerio/wasmer/pull/2802) Support Dylib engine with Singlepass
 - [#2836](https://github.com/wasmerio/wasmer/pull/2836) Improve TrapInformation data stored at runtime
 - [#2864](https://github.com/wasmerio/wasmer/pull/2864) `wasmer-cli`: remove wasi-experimental-io-devices from default builds
+- #2864 wasmer-cli: remove wasi-experimental-io-devices from default builds
+- [#2933](https://github.com/wasmerio/wasmer/pull/2933) Rename NativeFunc to TypedFunction.
+### Changed
+- #2868 Removed loupe crate dependency
 
 ### Fixed
 - [#2829](https://github.com/wasmerio/wasmer/pull/2829) Improve error message oriented from JS object.

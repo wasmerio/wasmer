@@ -5,12 +5,11 @@
 //! long as we need them to.
 
 use crate::vmcontext::VMCallerCheckedAnyfunc;
-use loupe::MemoryUsage;
 use std::collections::HashMap;
 use std::sync::Mutex;
 
 /// The registry that holds the values that `VMFuncRef`s point to.
-#[derive(Debug, MemoryUsage)]
+#[derive(Debug)]
 pub struct FuncDataRegistry {
     // This structure is stored in an `Engine` and is intended to be shared
     // across many instances. Ideally instances can themselves be sent across
@@ -26,7 +25,7 @@ unsafe impl Sync for FuncDataRegistry {}
 
 /// A function reference. A single word that points to metadata about a function.
 #[repr(transparent)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, MemoryUsage)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct VMFuncRef(pub(crate) *const VMCallerCheckedAnyfunc);
 
 impl wasmer_types::NativeWasmType for VMFuncRef {
@@ -87,7 +86,7 @@ impl std::ops::DerefMut for VMFuncRef {
 unsafe impl Send for VMFuncRef {}
 unsafe impl Sync for VMFuncRef {}
 
-#[derive(Debug, Default, MemoryUsage)]
+#[derive(Debug, Default)]
 struct Inner {
     func_data: Vec<Box<VMCallerCheckedAnyfunc>>,
     anyfunc_to_index: HashMap<VMCallerCheckedAnyfunc, usize>,

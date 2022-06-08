@@ -2,7 +2,6 @@ use super::externals::wasm_extern_vec_t;
 use super::module::wasm_module_t;
 use super::store::wasm_store_t;
 use super::trap::wasm_trap_t;
-use crate::ordered_resolver::OrderedResolver;
 use std::sync::Arc;
 use wasmer_api::{Extern, Instance, InstantiationError};
 
@@ -48,14 +47,14 @@ pub unsafe extern "C" fn wasm_instance_new(
     let wasm_module = &module.inner;
     let module_imports = wasm_module.imports();
     let module_import_count = module_imports.len();
-    let resolver: OrderedResolver = imports
+    let externs = imports
         .as_slice()
         .iter()
         .map(|imp| Extern::from(imp.as_ref().unwrap().as_ref().clone()))
         .take(module_import_count)
-        .collect();
+        .collect::<Vec<Extern>>();
 
-    let instance = match Instance::new(wasm_module, &resolver) {
+    let instance = match Instance::new_by_index(wasm_module, &externs) {
         Ok(instance) => Arc::new(instance),
 
         Err(InstantiationError::Link(link_error)) => {

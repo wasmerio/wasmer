@@ -1258,27 +1258,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "loupe"
-version = "0.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9b6a72dfa44fe15b5e76b94307eeb2ff995a8c5b283b55008940c02e0c5b634d"
-dependencies = [
- "indexmap",
- "loupe-derive",
- "rustversion",
-]
-
-[[package]]
-name = "loupe-derive"
-version = "0.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c0fbfc88337168279f2e9ae06e157cfed4efd3316e14dc96ed074d4f2e6c5952"
-dependencies = [
- "quote",
- "syn",
-]
-
-[[package]]
 name = "mach"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2462,11 +2441,11 @@ dependencies = [
 
 [[package]]
 name = "tracing-core"
-version = "0.1.26"
+version = "0.1.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f54c8ca710e81886d498c2fd3331b56c93aa248d49de2222ad2742247c60072f"
+checksum = "7709595b8878a4965ce5e87ebf880a7d39c9afc6837721b21a5a816a8117d921"
 dependencies = [
- "lazy_static",
+ "once_cell",
  "valuable",
 ]
 
@@ -2753,7 +2732,6 @@ dependencies = [
  "hashbrown 0.11.2",
  "indexmap",
  "js-sys",
- "loupe",
  "more-asserts",
  "target-lexicon 0.12.4",
  "tempfile",
@@ -2781,7 +2759,6 @@ name = "wasmer-artifact"
 version = "2.3.0"
 dependencies = [
  "enumset",
- "loupe",
  "thiserror",
  "wasmer-compiler",
  "wasmer-types",
@@ -2889,7 +2866,6 @@ version = "2.3.0"
 dependencies = [
  "enumset",
  "hashbrown 0.11.2",
- "loupe",
  "rkyv",
  "serde",
  "serde_bytes",
@@ -2932,7 +2908,6 @@ dependencies = [
  "gimli",
  "hashbrown 0.11.2",
  "lazy_static",
- "loupe",
  "more-asserts",
  "rayon",
  "smallvec",
@@ -2952,7 +2927,6 @@ dependencies = [
  "itertools",
  "lazy_static",
  "libc",
- "loupe",
  "object",
  "rayon",
  "regex",
@@ -2975,7 +2949,6 @@ dependencies = [
  "gimli",
  "hashbrown 0.11.2",
  "lazy_static",
- "loupe",
  "more-asserts",
  "rayon",
  "smallvec",
@@ -3016,7 +2989,6 @@ dependencies = [
  "backtrace",
  "enumset",
  "lazy_static",
- "loupe",
  "memmap2",
  "more-asserts",
  "rustc-demangle",
@@ -3036,7 +3008,6 @@ version = "2.3.0"
 dependencies = [
  "bincode",
  "enumset",
- "loupe",
  "serde",
  "serde_bytes",
  "wasmer-artifact",
@@ -3055,7 +3026,6 @@ dependencies = [
  "enumset",
  "leb128",
  "libloading",
- "loupe",
  "object",
  "rkyv",
  "serde",
@@ -3079,7 +3049,6 @@ dependencies = [
  "enumset",
  "leb128",
  "libloading",
- "loupe",
  "serde",
  "tempfile",
  "tracing",
@@ -3098,7 +3067,6 @@ dependencies = [
  "cfg-if 1.0.0",
  "enumset",
  "leb128",
- "loupe",
  "region",
  "rkyv",
  "wasmer-compiler",
@@ -3115,7 +3083,6 @@ version = "2.3.0"
 dependencies = [
  "enum-iterator",
  "enumset",
- "loupe",
  "rkyv",
  "thiserror",
  "wasmer-artifact",
@@ -3139,7 +3106,6 @@ version = "2.3.0"
 name = "wasmer-middlewares"
 version = "2.3.0"
 dependencies = [
- "loupe",
  "wasmer",
  "wasmer-types",
  "wasmer-vm",
@@ -3159,10 +3125,8 @@ dependencies = [
 name = "wasmer-types"
 version = "2.3.0"
 dependencies = [
- "backtrace",
  "enum-iterator",
  "indexmap",
- "loupe",
  "more-asserts",
  "rkyv",
  "serde",
@@ -3193,7 +3157,6 @@ dependencies = [
  "indexmap",
  "lazy_static",
  "libc",
- "loupe",
  "mach",
  "memoffset",
  "more-asserts",
@@ -3249,6 +3212,7 @@ dependencies = [
  "byteorder",
  "serde",
  "time",
+ "wasmer-derive",
  "wasmer-types",
 ]
 
@@ -3277,7 +3241,6 @@ dependencies = [
  "criterion",
  "glob",
  "lazy_static",
- "loupe",
  "rustc_version 0.4.0",
  "serial_test",
  "tempfile",

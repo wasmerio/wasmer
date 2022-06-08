@@ -1,7 +1,7 @@
+use crate::sys::exports::Exportable;
 use crate::sys::store::Store;
 use crate::sys::types::{ExportType, ImportType};
 use crate::sys::InstantiationError;
-use loupe::MemoryUsage;
 use std::fmt;
 use std::io;
 use std::path::Path;
@@ -10,7 +10,7 @@ use thiserror::Error;
 use wasmer_compiler::CompileError;
 #[cfg(feature = "wat")]
 use wasmer_compiler::WasmError;
-use wasmer_engine::{Artifact, DeserializeError, Resolver, SerializeError};
+use wasmer_engine::{Artifact, DeserializeError, SerializeError};
 use wasmer_types::{ExportsIterator, ImportsIterator, ModuleInfo};
 use wasmer_vm::InstanceHandle;
 
@@ -32,7 +32,7 @@ pub enum IoCompileError {
 ///
 /// Cloning a module is cheap: it does a shallow copy of the compiled
 /// contents rather than a deep copy.
-#[derive(Clone, MemoryUsage)]
+#[derive(Clone)]
 pub struct Module {
     // The field ordering here is actually significant because of the drop
     // order: we want to drop the artifact before dropping the engine.
@@ -276,12 +276,15 @@ impl Module {
 
     pub(crate) fn instantiate(
         &self,
-        resolver: &dyn Resolver,
+        imports: &[crate::Extern],
     ) -> Result<InstanceHandle, InstantiationError> {
         unsafe {
             let instance_handle = self.artifact.instantiate(
                 self.store.tunables(),
-                resolver,
+                &imports
+                    .iter()
+                    .map(crate::Extern::to_export)
+                    .collect::<Vec<_>>(),
                 Box::new(self.clone()),
             )?;
 

@@ -63,7 +63,7 @@ fn issue_2329(mut config: crate::Config) -> Result<()> {
     "#;
     let module = Module::new(&store, wat)?;
     let env = Env::new();
-    let imports: ImportObject = imports! {
+    let imports: Imports = imports! {
         "env" => {
             "__read_memory" => Function::new_native_with_env(
                 &store,
@@ -103,14 +103,9 @@ fn call_with_static_data_pointers(mut config: crate::Config) -> Result<()> {
         h: u64,
     ) -> u64 {
         println!("{:?}", (a, b, c, d, e, f, g, h));
-        let view = env.memory.view::<u8>();
-        let bytes = view
-            .get(e as usize..(e + d) as usize)
-            .unwrap()
-            .into_iter()
-            .map(|b| b.get())
-            .collect::<Vec<u8>>();
-        let input_string = std::str::from_utf8(&bytes).unwrap();
+        let mut buf = vec![0; d as usize];
+        env.memory.read(e, &mut buf).unwrap();
+        let input_string = std::str::from_utf8(&buf).unwrap();
         assert_eq!(input_string, "bananapeach");
         0
     }
@@ -219,8 +214,8 @@ fn call_with_static_data_pointers(mut config: crate::Config) -> Result<()> {
         "gas",
         Function::new_native_with_env(&store, env.clone(), gas),
     );
-    let mut imports = ImportObject::new();
-    imports.register("env", exports);
+    let mut imports = Imports::new();
+    imports.register_namespace("env", exports);
     let instance = Instance::new(&module, &imports)?;
     instance.exports.get_function("repro")?.call(&[])?;
     Ok(())
@@ -260,7 +255,7 @@ fn regression_gpr_exhaustion_for_calls(mut config: crate::Config) -> Result<()> 
           (table (;0;) 1 1 funcref))
     "#;
     let module = Module::new(&store, wat)?;
-    let imports: ImportObject = imports! {};
+    let imports: Imports = imports! {};
     let instance = Instance::new(&module, &imports)?;
     Ok(())
 }

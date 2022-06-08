@@ -10,7 +10,6 @@ use crate::{
     FunctionIndex, GlobalIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex,
     ModuleInfo, SignatureIndex, TableIndex,
 };
-use loupe::MemoryUsage;
 use more_asserts::assert_lt;
 use std::convert::TryFrom;
 
@@ -151,7 +150,7 @@ const fn align(offset: u32, width: u32) -> u32 {
 
 /// This class computes offsets to fields within VMContext and other
 /// related structs that JIT code accesses directly.
-#[derive(Clone, Debug, MemoryUsage)]
+#[derive(Clone, Debug)]
 pub struct VMOffsets {
     /// The size in bytes of a pointer on the target.
     pub pointer_size: u8,

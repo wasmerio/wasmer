@@ -1,7 +1,6 @@
 use std::ptr::NonNull;
 use std::sync::Arc;
 
-use loupe::MemoryUsage;
 use wasmer::{
     imports,
     vm::{self, MemoryError, MemoryStyle, TableStyle, VMMemoryDefinition, VMTableDefinition},
@@ -15,7 +14,6 @@ use wasmer_engine_universal::Universal;
 ///
 /// After adjusting the memory limits, it delegates all other logic
 /// to the base tunables.
-#[derive(MemoryUsage)]
 pub struct LimitingTunables<T: Tunables> {
     /// The maximum a linear memory is allowed to be (in Wasm pages, 64 KiB each).
     /// Since Wasmer ensures there is only none or one memory, this is practically

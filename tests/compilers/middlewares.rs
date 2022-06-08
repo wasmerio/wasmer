@@ -1,11 +1,10 @@
 use anyhow::Result;
 
-use loupe::MemoryUsage;
 use std::sync::Arc;
 use wasmer::wasmparser::Operator;
 use wasmer::*;
 
-#[derive(Debug, MemoryUsage)]
+#[derive(Debug)]
 struct Add2MulGen {
     value_off: i32,
 }
@@ -47,7 +46,7 @@ impl FunctionMiddleware for Add2Mul {
     }
 }
 
-#[derive(Debug, MemoryUsage)]
+#[derive(Debug)]
 struct FusionGen;
 
 #[derive(Debug)]
@@ -105,7 +104,7 @@ fn middleware_basic(mut config: crate::Config) -> Result<()> {
 
     let instance = Instance::new(&module, &import_object)?;
 
-    let f: NativeFunc<(i32, i32), i32> = instance.exports.get_native_function("add")?;
+    let f: TypedFunction<(i32, i32), i32> = instance.exports.get_native_function("add")?;
     let result = f.call(4, 6)?;
     assert_eq!(result, 24);
     Ok(())
@@ -128,7 +127,7 @@ fn middleware_one_to_multi(mut config: crate::Config) -> Result<()> {
 
     let instance = Instance::new(&module, &import_object)?;
 
-    let f: NativeFunc<(i32, i32), i32> = instance.exports.get_native_function("add")?;
+    let f: TypedFunction<(i32, i32), i32> = instance.exports.get_native_function("add")?;
     let result = f.call(4, 6)?;
     assert_eq!(result, 25);
     Ok(())
@@ -152,7 +151,7 @@ fn middleware_multi_to_one(mut config: crate::Config) -> Result<()> {
 
     let instance = Instance::new(&module, &import_object)?;
 
-    let f: NativeFunc<(i32, i32), i32> = instance.exports.get_native_function("testfunc")?;
+    let f: TypedFunction<(i32, i32), i32> = instance.exports.get_native_function("testfunc")?;
     let result = f.call(10, 20)?;
     assert_eq!(result, 10);
     Ok(())
@@ -176,7 +175,7 @@ fn middleware_chain_order_1(mut config: crate::Config) -> Result<()> {
 
     let instance = Instance::new(&module, &import_object)?;
 
-    let f: NativeFunc<(i32, i32), i32> = instance.exports.get_native_function("add")?;
+    let f: TypedFunction<(i32, i32), i32> = instance.exports.get_native_function("add")?;
     let result = f.call(4, 6)?;
     assert_eq!(result, 24);
     Ok(())
@@ -200,7 +199,7 @@ fn middleware_chain_order_2(mut config: crate::Config) -> Result<()> {
 
     let instance = Instance::new(&module, &import_object)?;
 
-    let f: NativeFunc<(i32, i32), i32> = instance.exports.get_native_function("add")?;
+    let f: TypedFunction<(i32, i32), i32> = instance.exports.get_native_function("add")?;
     let result = f.call(4, 6)?;
     assert_eq!(result, 48);
     Ok(())

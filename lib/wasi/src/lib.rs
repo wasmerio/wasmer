@@ -4,7 +4,7 @@
 
 //! Wasmer's WASI implementation
 //!
-//! Use `generate_import_object` to create an [`ImportObject`].  This [`ImportObject`]
+//! Use `generate_import_object` to create an [`Imports`].  This [`Imports`]
 //! can be combined with a module to create an `Instance` which can execute WASI
 //! Wasm functions.
 //!
@@ -35,7 +35,6 @@ compile_error!(
 
 #[macro_use]
 mod macros;
-mod ptr;
 mod state;
 mod syscalls;
 mod utils;
@@ -56,8 +55,7 @@ pub use wasmer_vfs::{FsError, VirtualFile};
 
 use thiserror::Error;
 use wasmer::{
-    imports, ChainableNamedResolver, Function, ImportObject, LazyInit, Memory, Module,
-    NamedResolver, Store, WasmerEnv,
+    imports, Function, Imports, LazyInit, Memory, MemoryAccessError, Module, Store, WasmerEnv,
 };
 
 use std::sync::{Arc, Mutex, MutexGuard};
@@ -94,8 +92,8 @@ impl WasiEnv {
         }
     }
 
-    /// Get an `ImportObject` for a specific version of WASI detected in the module.
-    pub fn import_object(&mut self, module: &Module) -> Result<ImportObject, WasiError> {
+    /// Get an `Imports` for a specific version of WASI detected in the module.
+    pub fn import_object(&mut self, module: &Module) -> Result<Imports, WasiError> {
         let wasi_version = get_wasi_version(module, false).ok_or(WasiError::UnknownWasiVersion)?;
         Ok(generate_import_object_from_env(
             module.store(),
@@ -109,16 +107,17 @@ impl WasiEnv {
     pub fn import_object_for_all_wasi_versions(
         &mut self,
         module: &Module,
-    ) -> Result<Box<dyn NamedResolver + Send + Sync>, WasiError> {
+    ) -> Result<Imports, WasiError> {
         let wasi_versions =
             get_wasi_versions(module, false).ok_or(WasiError::UnknownWasiVersion)?;
 
-        let mut resolver: Box<dyn NamedResolver + Send + Sync> =
-            { Box::new(()) as Box<dyn NamedResolver + Send + Sync> };
+        let mut resolver = Imports::new();
         for version in wasi_versions.iter() {
             let new_import_object =
                 generate_import_object_from_env(module.store(), self.clone(), *version);
-            resolver = Box::new(new_import_object.chain_front(resolver));
+            for ((n, m), e) in new_import_object.into_iter() {
+                resolver.define(&n, &m, e);
+            }
         }
         Ok(resolver)
     }
@@ -148,14 +147,14 @@ impl WasiEnv {
     }
 }
 
-/// Create an [`ImportObject`] with an existing [`WasiEnv`]. `WasiEnv`
+/// Create an [`Imports`] with an existing [`WasiEnv`]. `WasiEnv`
 /// needs a [`WasiState`], that can be constructed from a
 /// [`WasiStateBuilder`](state::WasiStateBuilder).
 pub fn generate_import_object_from_env(
     store: &Store,
     wasi_env: WasiEnv,
     version: WasiVersion,
-) -> ImportObject {
+) -> Imports {
     match version {
         WasiVersion::Snapshot0 => generate_import_object_snapshot0(store, wasi_env),
         WasiVersion::Snapshot1 | WasiVersion::Latest => {
@@ -165,7 +164,7 @@ pub fn generate_import_object_from_env(
 }
 
 /// Combines a state generating function with the import list for legacy WASI
-fn generate_import_object_snapshot0(store: &Store, env: WasiEnv) -> ImportObject {
+fn generate_import_object_snapshot0(store: &Store, env: WasiEnv) -> Imports {
     imports! {
         "wasi_unstable" => {
             "args_get" => Function::new_native_with_env(store, env.clone(), args_get),
@@ -218,7 +217,7 @@ fn generate_import_object_snapshot0(store: &Store, env: WasiEnv) -> ImportObject
 }
 
 /// Combines a state generating function with the import list for snapshot 1
-fn generate_import_object_snapshot1(store: &Store, env: WasiEnv) -> ImportObject {
+fn generate_import_object_snapshot1(store: &Store, env: WasiEnv) -> Imports {
     imports! {
         "wasi_snapshot_preview1" => {
             "args_get" => Function::new_native_with_env(store, env.clone(), args_get),
@@ -267,5 +266,14 @@ fn generate_import_object_snapshot1(store: &Store, env: WasiEnv) -> ImportObject
             "sock_send" => Function::new_native_with_env(store, env.clone(), sock_send),
             "sock_shutdown" => Function::new_native_with_env(store, env, sock_shutdown),
         }
+    }
+}
+
+fn mem_error_to_wasi(err: MemoryAccessError) -> types::__wasi_errno_t {
+    match err {
+        MemoryAccessError::HeapOutOfBounds => types::__WASI_EFAULT,
+        MemoryAccessError::Overflow => types::__WASI_EOVERFLOW,
+        MemoryAccessError::NonUtf8String => types::__WASI_EINVAL,
+        _ => types::__WASI_EINVAL,
     }
 }

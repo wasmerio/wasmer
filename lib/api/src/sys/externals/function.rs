@@ -3,12 +3,11 @@ use crate::sys::externals::Extern;
 use crate::sys::store::Store;
 use crate::sys::types::{Val, ValFuncRef};
 use crate::sys::FunctionType;
-use crate::sys::NativeFunc;
 use crate::sys::RuntimeError;
+use crate::sys::TypedFunction;
 use crate::sys::WasmerEnv;
 pub use inner::{FromToNativeWasmType, HostFunction, WasmTypeList, WithEnv, WithoutEnv};
 
-use loupe::MemoryUsage;
 use std::cmp::max;
 use std::ffi::c_void;
 use std::fmt;
@@ -37,7 +36,7 @@ use wasmer_vm::{
 ///   with native functions. Attempting to create a native `Function` with one will
 ///   result in a panic.
 ///   [Closures as host functions tracking issue](https://github.com/wasmerio/wasmer/issues/1840)
-#[derive(PartialEq, MemoryUsage)]
+#[derive(PartialEq)]
 pub struct Function {
     pub(crate) store: Store,
     pub(crate) exported: ExportFunction,
@@ -562,7 +561,7 @@ impl Function {
     }
 
     /// Transform this WebAssembly function into a function with the
-    /// native ABI. See [`NativeFunc`] to learn more.
+    /// native ABI. See [`TypedFunction`] to learn more.
     ///
     /// # Examples
     ///
@@ -636,7 +635,7 @@ impl Function {
     /// // This results in an error: `RuntimeError`
     /// let sum_native = sum.native::<(i32, i32), i64>().unwrap();
     /// ```
-    pub fn native<Args, Rets>(&self) -> Result<NativeFunc<Args, Rets>, RuntimeError>
+    pub fn native<Args, Rets>(&self) -> Result<TypedFunction<Args, Rets>, RuntimeError>
     where
         Args: WasmTypeList,
         Rets: WasmTypeList,
@@ -669,7 +668,10 @@ impl Function {
             }
         }
 
-        Ok(NativeFunc::new(self.store.clone(), self.exported.clone()))
+        Ok(TypedFunction::new(
+            self.store.clone(),
+            self.exported.clone(),
+        ))
     }
 
     #[track_caller]

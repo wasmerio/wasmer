@@ -1,9 +1,7 @@
 use crate::sys::externals::{Extern, Function, Global, Memory, Table};
-use crate::sys::import_object::LikeNamespace;
-use crate::sys::native::NativeFunc;
+use crate::sys::native::TypedFunction;
 use crate::sys::WasmTypeList;
 use indexmap::IndexMap;
-use loupe::MemoryUsage;
 use std::fmt;
 use std::iter::{ExactSizeIterator, FromIterator};
 use thiserror::Error;
@@ -61,7 +59,7 @@ pub enum ExportError {
 /// the types of instances.
 ///
 /// TODO: add examples of using exports
-#[derive(Clone, Default, MemoryUsage)]
+#[derive(Clone, Default)]
 pub struct Exports {
     map: IndexMap<String, Extern>,
 }
@@ -136,11 +134,11 @@ impl Exports {
         self.get(name)
     }
 
-    /// Get an export as a `NativeFunc`.
+    /// Get an export as a `TypedFunction`.
     pub fn get_native_function<Args, Rets>(
         &self,
         name: &str,
-    ) -> Result<NativeFunc<Args, Rets>, ExportError>
+    ) -> Result<TypedFunction<Args, Rets>, ExportError>
     where
         Args: WasmTypeList,
         Rets: WasmTypeList,
@@ -276,20 +274,21 @@ impl FromIterator<(String, Extern)> for Exports {
     }
 }
 
-impl LikeNamespace for Exports {
-    fn get_namespace_export(&self, name: &str) -> Option<Export> {
-        self.map.get(name).map(|is_export| is_export.to_export())
-    }
+impl IntoIterator for Exports {
+    type IntoIter = indexmap::map::IntoIter<String, Extern>;
+    type Item = (String, Extern);
 
-    fn get_namespace_exports(&self) -> Vec<(String, Export)> {
-        self.map
-            .iter()
-            .map(|(k, v)| (k.clone(), v.to_export()))
-            .collect()
+    fn into_iter(self) -> Self::IntoIter {
+        self.map.clone().into_iter()
     }
+}
 
-    fn as_exports(&self) -> Option<Exports> {
-        Some(self.clone())
+impl<'a> IntoIterator for &'a Exports {
+    type IntoIter = indexmap::map::Iter<'a, String, Extern>;
+    type Item = (&'a String, &'a Extern);
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.map.iter()
     }
 }
 
@@ -316,7 +315,7 @@ pub trait Exportable<'a>: Sized {
 }
 
 /// A trait for accessing exports (like [`Exportable`]) but it takes generic
-/// `Args` and `Rets` parameters so that `NativeFunc` can be accessed directly
+/// `Args` and `Rets` parameters so that `TypedFunction` can be accessed directly
 /// as well.
 pub trait ExportableWithGenerics<'a, Args: WasmTypeList, Rets: WasmTypeList>: Sized {
     /// Get an export with the given generics.

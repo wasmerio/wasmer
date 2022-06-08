@@ -1,5 +1,5 @@
 use wasmer::{
-    imports, wat2wasm, Function, Instance, Module, NativeFunc, Store, TableType, Type, Value,
+    imports, wat2wasm, Function, Instance, Module, Store, TableType, Type, TypedFunction, Value,
 };
 use wasmer_compiler_cranelift::Cranelift;
 use wasmer_engine_universal::Universal;
@@ -61,7 +61,7 @@ fn main() -> anyhow::Result<()> {
     // We get our function that calls (i32, i32) -> i32 functions via table.
     // The first argument is the table index and the next 2 are the 2 arguments
     // to be passed to the function found in the table.
-    let call_via_table: NativeFunc<(i32, i32, i32), i32> =
+    let call_via_table: TypedFunction<(i32, i32, i32), i32> =
         instance.exports.get_native_function("call_callback")?;
 
     // And then call it with table index 1 and arguments 2 and 7.

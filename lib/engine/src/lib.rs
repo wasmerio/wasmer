@@ -35,10 +35,7 @@ pub use crate::artifact::Artifact;
 pub use crate::engine::{Engine, EngineId};
 pub use crate::error::{InstantiationError, LinkError};
 pub use crate::export::{Export, ExportFunction, ExportFunctionMetadata};
-pub use crate::resolver::{
-    resolve_imports, ChainableNamedResolver, NamedResolver, NamedResolverChain, NullResolver,
-    Resolver,
-};
+pub use crate::resolver::resolve_imports;
 pub use crate::trap::*;
 pub use crate::tunables::Tunables;
 pub use wasmer_artifact::{ArtifactCreate, MetadataHeader};

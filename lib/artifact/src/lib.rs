@@ -27,13 +27,12 @@ mod funcbody;
 pub use crate::artifact::{ArtifactCreate, MetadataHeader, Upcastable};
 pub use crate::error::{DeserializeError, ImportError, PreInstantiationError, SerializeError};
 pub use crate::funcbody::VMFunctionBody;
-use loupe::MemoryUsage;
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// A safe wrapper around `VMFunctionBody`.
-#[derive(Clone, Copy, Debug, MemoryUsage)]
+#[derive(Clone, Copy, Debug)]
 #[repr(transparent)]
 pub struct FunctionBodyPtr(pub *const VMFunctionBody);
 

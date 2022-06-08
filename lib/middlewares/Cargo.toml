@@ -14,7 +14,6 @@ edition = "2018"
 wasmer = { path = "../api", version = "=2.3.0", default-features = false, features = ["compiler"] }
 wasmer-types = { path = "../types", version = "=2.3.0" }
 wasmer-vm = { path = "../vm", version = "=2.3.0" }
-loupe = "0.1"
 
 [dev-dependencies]
 wasmer = { path = "../api", version = "=2.3.0", features = ["compiler"] }

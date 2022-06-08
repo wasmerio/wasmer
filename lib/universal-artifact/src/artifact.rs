@@ -7,7 +7,6 @@ use crate::serialize::SerializableModule;
 use crate::trampoline::{libcall_trampoline_len, make_libcall_trampolines};
 use crate::{ArtifactCreate, UniversalEngineBuilder};
 use enumset::EnumSet;
-use loupe::MemoryUsage;
 use std::mem;
 use std::sync::Arc;
 use wasmer_artifact::{MetadataHeader, SerializeError};
@@ -23,7 +22,6 @@ use wasmer_types::{
 };
 
 /// A compiled wasm module, ready to be instantiated.
-#[derive(MemoryUsage)]
 pub struct UniversalArtifactBuild {
     serializable: SerializableModule,
 }

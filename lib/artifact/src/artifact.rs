@@ -1,6 +1,5 @@
 use crate::{DeserializeError, SerializeError};
 use enumset::EnumSet;
-use loupe::MemoryUsage;
 use std::any::Any;
 use std::convert::TryInto;
 use std::path::Path;
@@ -18,7 +17,7 @@ use wasmer_types::{
 /// The `Artifact` contains the compiled data for a given
 /// module as well as extra information needed to run the
 /// module at runtime, such as [`ModuleInfo`] and [`Features`].
-pub trait ArtifactCreate: Send + Sync + Upcastable + MemoryUsage {
+pub trait ArtifactCreate: Send + Sync + Upcastable {
     /// Return a reference-counted pointer to the module
     fn module(&self) -> Arc<ModuleInfo>;
 

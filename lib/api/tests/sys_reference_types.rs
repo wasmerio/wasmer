@@ -80,7 +80,7 @@ mod sys {
         fn func_ref_call(values: &[Value]) -> Result<Vec<Value>, RuntimeError> {
             // TODO: look into `Box<[Value]>` being returned breakage
             let f = values[0].unwrap_funcref().as_ref().unwrap();
-            let f: NativeFunc<(i32, i32), i32> = f.native()?;
+            let f: TypedFunction<(i32, i32), i32> = f.native()?;
             Ok(vec![Value::I32(f.call(7, 9)?)])
         }
 
@@ -94,7 +94,7 @@ mod sys {
                 // TODO(reftypes): this should work
                 /*
                 "func_ref_call_native" => Function::new_native(&store, |f: Function| -> Result<i32, RuntimeError> {
-                    let f: NativeFunc::<(i32, i32), i32> = f.native()?;
+                    let f: TypedFunction::<(i32, i32), i32> = f.native()?;
                     f.call(7, 9)
                 })
                 */
@@ -114,7 +114,7 @@ mod sys {
         }
 
         {
-            let f: NativeFunc<(), i32> = instance
+            let f: TypedFunction<(), i32> = instance
                 .exports
                 .get_native_function("call_host_func_with_wasm_func")?;
             let result = f.call()?;
@@ -184,7 +184,7 @@ mod sys {
                 panic!("result is not an extern ref!");
             }
 
-            let f: NativeFunc<(), ExternRef> = instance.exports.get_native_function(run)?;
+            let f: TypedFunction<(), ExternRef> = instance.exports.get_native_function(run)?;
             let result: ExternRef = f.call()?;
             assert!(result.is_null());
         }
@@ -200,7 +200,8 @@ mod sys {
                 panic!("result is not an extern ref!");
             }
 
-            let f: NativeFunc<(), ExternRef> = instance.exports.get_native_function(get_hashmap)?;
+            let f: TypedFunction<(), ExternRef> =
+                instance.exports.get_native_function(get_hashmap)?;
 
             let result: ExternRef = f.call()?;
             let inner: &HashMap<String, String> = result.downcast().unwrap();
@@ -223,7 +224,7 @@ mod sys {
 )"#;
         let module = Module::new(&store, wat)?;
         let instance = Instance::new(&module, &imports! {})?;
-        let f: NativeFunc<ExternRef, ()> = instance.exports.get_native_function("drop")?;
+        let f: TypedFunction<ExternRef, ()> = instance.exports.get_native_function("drop")?;
 
         let er = ExternRef::new(3u32);
         f.call(er.clone())?;
@@ -270,7 +271,7 @@ mod sys {
             let fr_global: &Global = instance.exports.get_global("fr_immutable_global")?;
 
             if let Value::FuncRef(Some(f)) = fr_global.get() {
-                let native_func: NativeFunc<(), u32> = f.native()?;
+                let native_func: TypedFunction<(), u32> = f.native()?;
                 assert_eq!(native_func.call()?, 73);
             } else {
                 panic!("Did not find non-null func ref in the global");
@@ -290,7 +291,7 @@ mod sys {
             fr_global.set(Val::FuncRef(Some(f)))?;
 
             if let Value::FuncRef(Some(f)) = fr_global.get() {
-                let native: NativeFunc<(i32, i32), i32> = f.native()?;
+                let native: TypedFunction<(i32, i32), i32> = f.native()?;
                 assert_eq!(native.call(5, 7)?, 12);
             } else {
                 panic!("Did not find extern ref in the global");
@@ -318,7 +319,7 @@ mod sys {
         let module = Module::new(&store, wat)?;
         let instance = Instance::new(&module, &imports! {})?;
 
-        let f: NativeFunc<(ExternRef, i32), ExternRef> =
+        let f: TypedFunction<(ExternRef, i32), ExternRef> =
             instance.exports.get_native_function("insert_into_table")?;
 
         let er = ExternRef::new(3usize);
@@ -362,7 +363,7 @@ mod sys {
             global.set(Val::ExternRef(er.clone()))?;
             assert_eq!(er.strong_count(), 2);
         }
-        let get_from_global: NativeFunc<(), ExternRef> =
+        let get_from_global: TypedFunction<(), ExternRef> =
             instance.exports.get_native_function("get_from_global")?;
 
         let er = get_from_global.call()?;
@@ -387,7 +388,7 @@ mod sys {
         let module = Module::new(&store, wat)?;
         let instance = Instance::new(&module, &imports! {})?;
 
-        let pass_extern_ref: NativeFunc<ExternRef, ()> =
+        let pass_extern_ref: TypedFunction<ExternRef, ()> =
             instance.exports.get_native_function("pass_extern_ref")?;
 
         let er = ExternRef::new(3usize);
@@ -417,13 +418,13 @@ mod sys {
         let module = Module::new(&store, wat)?;
         let instance = Instance::new(&module, &imports! {})?;
 
-        let grow_table_with_ref: NativeFunc<(ExternRef, i32), i32> = instance
+        let grow_table_with_ref: TypedFunction<(ExternRef, i32), i32> = instance
             .exports
             .get_native_function("grow_table_with_ref")?;
-        let fill_table_with_ref: NativeFunc<(ExternRef, i32, i32), ()> = instance
+        let fill_table_with_ref: TypedFunction<(ExternRef, i32, i32), ()> = instance
             .exports
             .get_native_function("fill_table_with_ref")?;
-        let copy_into_table2: NativeFunc<(), ()> =
+        let copy_into_table2: TypedFunction<(), ()> =
             instance.exports.get_native_function("copy_into_table2")?;
         let table1: &Table = instance.exports.get_table("table1")?;
         let table2: &Table = instance.exports.get_table("table2")?;

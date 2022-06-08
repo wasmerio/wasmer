@@ -58,14 +58,14 @@ pub use wasmer_artifact::{FunctionBodyPtr, VMFunctionBody};
 pub use wasmer_types::LibCall;
 pub use wasmer_types::MemoryStyle;
 pub use wasmer_types::TableStyle;
+pub use wasmer_types::VMExternRef;
+pub use wasmer_types::{TargetSharedSignatureIndex, VMBuiltinFunctionIndex, VMOffsets};
+
 #[deprecated(
     since = "2.1.0",
     note = "ModuleInfo, ExportsIterator, ImportsIterator should be imported from wasmer_types."
 )]
 pub use wasmer_types::{ExportsIterator, ImportsIterator, ModuleInfo};
-pub use wasmer_types::{
-    TargetSharedSignatureIndex, VMBuiltinFunctionIndex, VMExternRef, VMOffsets,
-};
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

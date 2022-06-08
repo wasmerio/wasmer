@@ -2,7 +2,6 @@ use crate::compiler::CraneliftCompiler;
 use cranelift_codegen::isa::{lookup, TargetIsa};
 use cranelift_codegen::settings::{self, Configurable};
 use cranelift_codegen::CodegenResult;
-use loupe::MemoryUsage;
 use std::sync::Arc;
 use wasmer_compiler::{
     Architecture, Compiler, CompilerConfig, CpuFeature, ModuleMiddleware, Target,
@@ -12,7 +11,7 @@ use wasmer_compiler::{
 
 /// Possible optimization levels for the Cranelift codegen backend.
 #[non_exhaustive]
-#[derive(Clone, Debug, MemoryUsage)]
+#[derive(Clone, Debug)]
 pub enum CraneliftOptLevel {
     /// No optimizations performed, minimizes compilation time by disabling most
     /// optimizations.
@@ -29,7 +28,7 @@ pub enum CraneliftOptLevel {
 ///
 /// This structure exposes a builder-like interface and is primarily
 /// consumed by `wasmer_engine::Engine::new`.
-#[derive(Debug, Clone, MemoryUsage)]
+#[derive(Debug, Clone)]
 pub struct Cranelift {
     enable_nan_canonicalization: bool,
     enable_verifier: bool,

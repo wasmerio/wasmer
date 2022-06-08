@@ -2,13 +2,15 @@ use crate::js::export::{Export, VMMemory};
 use crate::js::exports::{ExportError, Exportable};
 use crate::js::externals::Extern;
 use crate::js::store::Store;
-use crate::js::{MemoryType, MemoryView};
+use crate::js::{MemoryAccessError, MemoryType};
 use std::convert::TryInto;
+use std::mem::MaybeUninit;
+use std::slice;
 use thiserror::Error;
 
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
-use wasmer_types::{Bytes, Pages, ValueType};
+use wasmer_types::{Bytes, Pages};
 
 /// Error type describing things that can go wrong when operating on Wasm Memories.
 #[derive(Error, Debug, Clone, PartialEq, Hash)]
@@ -73,11 +75,15 @@ extern "C" {
 /// mutable from both host and WebAssembly.
 ///
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#memory-instances>
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct Memory {
     store: Store,
     vm_memory: VMMemory,
+    view: js_sys::Uint8Array,
 }
+
+unsafe impl Send for Memory {}
+unsafe impl Sync for Memory {}
 
 impl Memory {
     /// Creates a new host `Memory` from the provided [`MemoryType`].
@@ -105,9 +111,11 @@ impl Memory {
             .map_err(|_e| MemoryError::Generic("Error while creating the memory".to_owned()))?;
 
         let memory = VMMemory::new(js_memory, ty);
+        let view = js_sys::Uint8Array::new(&memory.memory.buffer());
         Ok(Self {
             store: store.clone(),
             vm_memory: memory,
+            view,
         })
     }
 
@@ -146,32 +154,8 @@ impl Memory {
         &self.store
     }
 
-    /// Retrieve a slice of the memory contents.
-    ///
-    /// # Safety
-    ///
-    /// Until the returned slice is dropped, it is undefined behaviour to
-    /// modify the memory contents in any way including by calling a wasm
-    /// function that writes to the memory or by resizing the memory.
-    pub unsafe fn data_unchecked(&self) -> &[u8] {
-        unimplemented!("direct data pointer access is not possible in JavaScript");
-    }
-
-    /// Retrieve a mutable slice of the memory contents.
-    ///
-    /// # Safety
-    ///
-    /// This method provides interior mutability without an UnsafeCell. Until
-    /// the returned value is dropped, it is undefined behaviour to read or
-    /// write to the pointed-to memory in any way except through this slice,
-    /// including by calling a wasm function that reads the memory contents or
-    /// by resizing this Memory.
-    #[allow(clippy::mut_from_ref)]
-    pub unsafe fn data_unchecked_mut(&self) -> &mut [u8] {
-        unimplemented!("direct data pointer access is not possible in JavaScript");
-    }
-
     /// Returns the pointer to the raw bytes of the `Memory`.
+    #[doc(hidden)]
     pub fn data_ptr(&self) -> *mut u8 {
         unimplemented!("direct data pointer access is not possible in JavaScript");
     }
@@ -253,53 +237,18 @@ impl Memory {
         Ok(Pages(new_pages))
     }
 
-    /// Return a "view" of the currently accessible memory. By
-    /// default, the view is unsynchronized, using regular memory
-    /// accesses. You can force a memory view to use atomic accesses
-    /// by calling the [`MemoryView::atomically`] method.
-    ///
-    /// # Notes:
-    ///
-    /// This method is safe (as in, it won't cause the host to crash or have UB),
-    /// but it doesn't obey rust's rules involving data races, especially concurrent ones.
-    /// Therefore, if this memory is shared between multiple threads, a single memory
-    /// location can be mutated concurrently without synchronization.
-    ///
-    /// # Usage:
-    ///
-    /// ```
-    /// # use wasmer::{Memory, MemoryView};
-    /// # use std::{cell::Cell, sync::atomic::Ordering};
-    /// # fn view_memory(memory: Memory) {
-    /// // Without synchronization.
-    /// let view: MemoryView<u8> = memory.view();
-    /// for byte in view[0x1000 .. 0x1010].iter().map(Cell::get) {
-    ///     println!("byte: {}", byte);
-    /// }
-    ///
-    /// // With synchronization.
-    /// let atomic_view = view.atomically();
-    /// for byte in atomic_view[0x1000 .. 0x1010].iter().map(|atom| atom.load(Ordering::SeqCst)) {
-    ///     println!("byte: {}", byte);
-    /// }
-    /// # }
-    /// ```
-    pub fn view<T: ValueType>(&self) -> MemoryView<T> {
-        unimplemented!("The view function is not yet implemented in Wasmer Javascript");
-    }
-
-    /// A theoretical alais to `Self::view::<u8>` but it returns a `js::Uint8Array` in this case.
-    ///
-    /// This code is going to be refactored. Use it as your own risks.
+    /// Used by tests
     #[doc(hidden)]
     pub fn uint8view(&self) -> js_sys::Uint8Array {
-        js_sys::Uint8Array::new(&self.vm_memory.memory.buffer())
+        self.view.clone()
     }
 
     pub(crate) fn from_vm_export(store: &Store, vm_memory: VMMemory) -> Self {
+        let view = js_sys::Uint8Array::new(&vm_memory.memory.buffer());
         Self {
             store: store.clone(),
             vm_memory,
+            view,
         }
     }
 
@@ -317,6 +266,84 @@ impl Memory {
     /// ```
     pub fn same(&self, other: &Self) -> bool {
         self.vm_memory == other.vm_memory
+    }
+
+    /// Safely reads bytes from the memory at the given offset.
+    ///
+    /// The full buffer will be filled, otherwise a `MemoryAccessError` is returned
+    /// to indicate an out-of-bounds access.
+    ///
+    /// This method is guaranteed to be safe (from the host side) in the face of
+    /// concurrent writes.
+    pub fn read(&self, offset: u64, buf: &mut [u8]) -> Result<(), MemoryAccessError> {
+        let offset: u32 = offset.try_into().map_err(|_| MemoryAccessError::Overflow)?;
+        let len: u32 = buf
+            .len()
+            .try_into()
+            .map_err(|_| MemoryAccessError::Overflow)?;
+        let end = offset.checked_add(len).ok_or(MemoryAccessError::Overflow)?;
+        if end > self.view.length() {
+            Err(MemoryAccessError::HeapOutOfBounds)?;
+        }
+        self.view.subarray(offset, end).copy_to(buf);
+        Ok(())
+    }
+
+    /// Safely reads bytes from the memory at the given offset.
+    ///
+    /// This method is similar to `read` but allows reading into an
+    /// uninitialized buffer. An initialized view of the buffer is returned.
+    ///
+    /// The full buffer will be filled, otherwise a `MemoryAccessError` is returned
+    /// to indicate an out-of-bounds access.
+    ///
+    /// This method is guaranteed to be safe (from the host side) in the face of
+    /// concurrent writes.
+    pub fn read_uninit<'a>(
+        &self,
+        offset: u64,
+        buf: &'a mut [MaybeUninit<u8>],
+    ) -> Result<&'a mut [u8], MemoryAccessError> {
+        let offset: u32 = offset.try_into().map_err(|_| MemoryAccessError::Overflow)?;
+        let len: u32 = buf
+            .len()
+            .try_into()
+            .map_err(|_| MemoryAccessError::Overflow)?;
+        let end = offset.checked_add(len).ok_or(MemoryAccessError::Overflow)?;
+        if end > self.view.length() {
+            Err(MemoryAccessError::HeapOutOfBounds)?;
+        }
+
+        // Zero-initialize the buffer to avoid undefined behavior with
+        // uninitialized data.
+        for elem in buf.iter_mut() {
+            *elem = MaybeUninit::new(0);
+        }
+        let buf = unsafe { slice::from_raw_parts_mut(buf.as_mut_ptr() as *mut u8, buf.len()) };
+
+        self.view.subarray(offset, end).copy_to(buf);
+        Ok(buf)
+    }
+
+    /// Safely writes bytes to the memory at the given offset.
+    ///
+    /// If the write exceeds the bounds of the memory then a `MemoryAccessError` is
+    /// returned.
+    ///
+    /// This method is guaranteed to be safe (from the host side) in the face of
+    /// concurrent reads/writes.
+    pub fn write(&self, offset: u64, data: &[u8]) -> Result<(), MemoryAccessError> {
+        let offset: u32 = offset.try_into().map_err(|_| MemoryAccessError::Overflow)?;
+        let len: u32 = data
+            .len()
+            .try_into()
+            .map_err(|_| MemoryAccessError::Overflow)?;
+        let end = offset.checked_add(len).ok_or(MemoryAccessError::Overflow)?;
+        if end > self.view.length() {
+            Err(MemoryAccessError::HeapOutOfBounds)?;
+        }
+        self.view.subarray(offset, end).copy_from(data);
+        Ok(())
     }
 }
 
