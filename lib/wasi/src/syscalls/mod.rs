@@ -3136,7 +3136,7 @@ pub fn poll_oneoff<M: MemorySize>(
         wasi_try_mem_ok!(event_array.index(events_seen as u64).write(event));
         events_seen += 1;
     }
-    if triggered <= 0 {
+    if triggered == 0 {
         for (clock_info, userdata) in clock_subs {
             let event = __wasi_event_t {
                 userdata,
