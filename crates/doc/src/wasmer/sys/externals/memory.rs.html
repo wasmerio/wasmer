@@ -303,16 +303,86 @@
 <span id="301">301</span>
 <span id="302">302</span>
 <span id="303">303</span>
+<span id="304">304</span>
+<span id="305">305</span>
+<span id="306">306</span>
+<span id="307">307</span>
+<span id="308">308</span>
+<span id="309">309</span>
+<span id="310">310</span>
+<span id="311">311</span>
+<span id="312">312</span>
+<span id="313">313</span>
+<span id="314">314</span>
+<span id="315">315</span>
+<span id="316">316</span>
+<span id="317">317</span>
+<span id="318">318</span>
+<span id="319">319</span>
+<span id="320">320</span>
+<span id="321">321</span>
+<span id="322">322</span>
+<span id="323">323</span>
+<span id="324">324</span>
+<span id="325">325</span>
+<span id="326">326</span>
+<span id="327">327</span>
+<span id="328">328</span>
+<span id="329">329</span>
+<span id="330">330</span>
+<span id="331">331</span>
+<span id="332">332</span>
+<span id="333">333</span>
+<span id="334">334</span>
+<span id="335">335</span>
+<span id="336">336</span>
+<span id="337">337</span>
+<span id="338">338</span>
+<span id="339">339</span>
+<span id="340">340</span>
+<span id="341">341</span>
+<span id="342">342</span>
+<span id="343">343</span>
+<span id="344">344</span>
+<span id="345">345</span>
+<span id="346">346</span>
+<span id="347">347</span>
+<span id="348">348</span>
+<span id="349">349</span>
+<span id="350">350</span>
+<span id="351">351</span>
+<span id="352">352</span>
+<span id="353">353</span>
+<span id="354">354</span>
+<span id="355">355</span>
+<span id="356">356</span>
+<span id="357">357</span>
+<span id="358">358</span>
+<span id="359">359</span>
+<span id="360">360</span>
+<span id="361">361</span>
+<span id="362">362</span>
+<span id="363">363</span>
+<span id="364">364</span>
+<span id="365">365</span>
+<span id="366">366</span>
+<span id="367">367</span>
+<span id="368">368</span>
+<span id="369">369</span>
+<span id="370">370</span>
+<span id="371">371</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::exports</span>::{<span class="ident">ExportError</span>, <span class="ident">Exportable</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::externals::Extern</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::store::Store</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys</span>::{<span class="ident">MemoryType</span>, <span class="ident">MemoryView</span>};
-<span class="kw">use</span> <span class="ident">loupe::MemoryUsage</span>;
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::MemoryType</span>;
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::MemoryAccessError</span>;
 <span class="kw">use</span> <span class="ident">std::convert::TryInto</span>;
+<span class="kw">use</span> <span class="ident">std::mem</span>;
+<span class="kw">use</span> <span class="ident">std::mem::MaybeUninit</span>;
 <span class="kw">use</span> <span class="ident">std::slice</span>;
 <span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
 <span class="kw">use</span> <span class="ident">wasmer_engine::Export</span>;
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">Pages</span>, <span class="ident">ValueType</span>};
+<span class="kw">use</span> <span class="ident">wasmer_types::Pages</span>;
 <span class="kw">use</span> <span class="ident">wasmer_vm</span>::{<span class="ident">MemoryError</span>, <span class="ident">VMMemory</span>};
 
 <span class="doccomment">/// A WebAssembly `memory` instance.</span>
@@ -329,7 +399,7 @@
 <span class="doccomment">/// mutable from both host and WebAssembly.</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// Spec: &lt;https://webassembly.github.io/spec/core/exec/runtime.html#memory-instances&gt;</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">MemoryUsage</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Memory</span> {
     <span class="ident">store</span>: <span class="ident">Store</span>,
     <span class="ident">vm_memory</span>: <span class="ident">VMMemory</span>,
@@ -398,34 +468,11 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">store</span>
     }
 
-    <span class="doccomment">/// Retrieve a slice of the memory contents.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Safety</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Until the returned slice is dropped, it is undefined behaviour to</span>
-    <span class="doccomment">/// modify the memory contents in any way including by calling a wasm</span>
-    <span class="doccomment">/// function that writes to the memory or by resizing the memory.</span>
-    <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">data_unchecked</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[<span class="ident">u8</span>] {
-        <span class="self">self</span>.<span class="ident">data_unchecked_mut</span>()
-    }
-
-    <span class="doccomment">/// Retrieve a mutable slice of the memory contents.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Safety</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This method provides interior mutability without an UnsafeCell. Until</span>
-    <span class="doccomment">/// the returned value is dropped, it is undefined behaviour to read or</span>
-    <span class="doccomment">/// write to the pointed-to memory in any way except through this slice,</span>
-    <span class="doccomment">/// including by calling a wasm function that reads the memory contents or</span>
-    <span class="doccomment">/// by resizing this Memory.</span>
-    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::mut_from_ref</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">data_unchecked_mut</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut</span> [<span class="ident">u8</span>] {
-        <span class="kw">let</span> <span class="ident">definition</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">vm_memory</span>.<span class="ident">from</span>.<span class="ident">vmmemory</span>();
-        <span class="kw">let</span> <span class="ident">def</span> <span class="op">=</span> <span class="ident">definition</span>.<span class="ident">as_ref</span>();
-        <span class="ident">slice::from_raw_parts_mut</span>(<span class="ident">def</span>.<span class="ident">base</span>, <span class="ident">def</span>.<span class="ident">current_length</span>.<span class="ident">try_into</span>().<span class="ident">unwrap</span>())
-    }
-
     <span class="doccomment">/// Returns the pointer to the raw bytes of the `Memory`.</span>
+    <span class="comment">//</span>
+    <span class="comment">// This used by wasmer-emscripten and wasmer-c-api, but should be treated</span>
+    <span class="comment">// as deprecated and not used in future code.</span>
+    <span class="attribute">#[<span class="ident">doc</span>(<span class="ident">hidden</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">data_ptr</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">*mut</span> <span class="ident">u8</span> {
         <span class="kw">let</span> <span class="ident">definition</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">vm_memory</span>.<span class="ident">from</span>.<span class="ident">vmmemory</span>();
         <span class="kw">let</span> <span class="ident">def</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">definition</span>.<span class="ident">as_ref</span>() };
@@ -492,53 +539,6 @@
         <span class="self">self</span>.<span class="ident">vm_memory</span>.<span class="ident">from</span>.<span class="ident">grow</span>(<span class="ident">delta</span>.<span class="ident">into</span>())
     }
 
-    <span class="doccomment">/// Return a &quot;view&quot; of the currently accessible memory. By</span>
-    <span class="doccomment">/// default, the view is unsynchronized, using regular memory</span>
-    <span class="doccomment">/// accesses. You can force a memory view to use atomic accesses</span>
-    <span class="doccomment">/// by calling the [`MemoryView::atomically`] method.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Notes:</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This method is safe (as in, it won&#39;t cause the host to crash or have UB),</span>
-    <span class="doccomment">/// but it doesn&#39;t obey rust&#39;s rules involving data races, especially concurrent ones.</span>
-    <span class="doccomment">/// Therefore, if this memory is shared between multiple threads, a single memory</span>
-    <span class="doccomment">/// location can be mutated concurrently without synchronization.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Usage:</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// ```</span>
-    <span class="doccomment">/// # use wasmer::{Memory, MemoryView};</span>
-    <span class="doccomment">/// # use std::{cell::Cell, sync::atomic::Ordering};</span>
-    <span class="doccomment">/// # fn view_memory(memory: Memory) {</span>
-    <span class="doccomment">/// // Without synchronization.</span>
-    <span class="doccomment">/// let view: MemoryView&lt;u8&gt; = memory.view();</span>
-    <span class="doccomment">/// for byte in view[0x1000 .. 0x1010].iter().map(Cell::get) {</span>
-    <span class="doccomment">///     println!(&quot;byte: {}&quot;, byte);</span>
-    <span class="doccomment">/// }</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// // With synchronization.</span>
-    <span class="doccomment">/// let atomic_view = view.atomically();</span>
-    <span class="doccomment">/// for byte in atomic_view[0x1000 .. 0x1010].iter().map(|atom| atom.load(Ordering::SeqCst)) {</span>
-    <span class="doccomment">///     println!(&quot;byte: {}&quot;, byte);</span>
-    <span class="doccomment">/// }</span>
-    <span class="doccomment">/// # }</span>
-    <span class="doccomment">/// ```</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">view</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">ValueType</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">MemoryView</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">base</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">data_ptr</span>();
-
-        <span class="kw">let</span> <span class="ident">length</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">size</span>().<span class="ident">bytes</span>().<span class="number">0</span> <span class="op">/</span> <span class="ident">std::mem::size_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>();
-
-        <span class="kw">unsafe</span> { <span class="ident">MemoryView::new</span>(<span class="ident">base</span> <span class="kw">as</span> <span class="kw">_</span>, <span class="ident">length</span> <span class="kw">as</span> <span class="ident">u32</span>) }
-    }
-
-    <span class="doccomment">/// A shortcut to [`Self::view::&lt;u8&gt;`][self::view].</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This code is going to be refactored. Use it as your own risks.</span>
-    <span class="attribute">#[<span class="ident">doc</span>(<span class="ident">hidden</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">uint8view</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">MemoryView</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">view</span>()
-    }
-
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">from_vm_export</span>(<span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="ident">Store</span>, <span class="ident">vm_memory</span>: <span class="ident">VMMemory</span>) -&gt; <span class="self">Self</span> {
         <span class="self">Self</span> {
             <span class="ident">store</span>: <span class="ident">store</span>.<span class="ident">clone</span>(),
@@ -573,6 +573,82 @@
     <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">get_vm_memory</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">VMMemory</span> {
         <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">vm_memory</span>
     }
+
+    <span class="doccomment">/// Safely reads bytes from the memory at the given offset.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// The full buffer will be filled, otherwise a `MemoryAccessError` is returned</span>
+    <span class="doccomment">/// to indicate an out-of-bounds access.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// This method is guaranteed to be safe (from the host side) in the face of</span>
+    <span class="doccomment">/// concurrent writes.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">read</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">offset</span>: <span class="ident">u64</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;mut</span> [<span class="ident">u8</span>]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">MemoryAccessError</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">definition</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">vm_memory</span>.<span class="ident">from</span>.<span class="ident">vmmemory</span>();
+        <span class="kw">let</span> <span class="ident">def</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">definition</span>.<span class="ident">as_ref</span>() };
+        <span class="kw">let</span> <span class="ident">end</span> <span class="op">=</span> <span class="ident">offset</span>
+            .<span class="ident">checked_add</span>(<span class="ident">buf</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">u64</span>)
+            .<span class="ident">ok_or</span>(<span class="ident">MemoryAccessError::Overflow</span>)<span class="question-mark">?</span>;
+        <span class="kw">if</span> <span class="ident">end</span> <span class="op">&gt;</span> <span class="ident">def</span>.<span class="ident">current_length</span>.<span class="ident">try_into</span>().<span class="ident">unwrap</span>() {
+            <span class="prelude-val">Err</span>(<span class="ident">MemoryAccessError::HeapOutOfBounds</span>)<span class="question-mark">?</span>;
+        }
+        <span class="kw">unsafe</span> {
+            <span class="ident">volatile_memcpy_read</span>(<span class="ident">def</span>.<span class="ident">base</span>.<span class="ident">add</span>(<span class="ident">offset</span> <span class="kw">as</span> <span class="ident">usize</span>), <span class="ident">buf</span>.<span class="ident">as_mut_ptr</span>(), <span class="ident">buf</span>.<span class="ident">len</span>());
+        }
+
+        <span class="prelude-val">Ok</span>(())
+    }
+
+    <span class="doccomment">/// Safely reads bytes from the memory at the given offset.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// This method is similar to `read` but allows reading into an</span>
+    <span class="doccomment">/// uninitialized buffer. An initialized view of the buffer is returned.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// The full buffer will be filled, otherwise a `MemoryAccessError` is returned</span>
+    <span class="doccomment">/// to indicate an out-of-bounds access.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// This method is guaranteed to be safe (from the host side) in the face of</span>
+    <span class="doccomment">/// concurrent writes.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">read_uninit</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        <span class="ident">offset</span>: <span class="ident">u64</span>,
+        <span class="ident">buf</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="kw-2">mut</span> [<span class="ident">MaybeUninit</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>],
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="kw-2">mut</span> [<span class="ident">u8</span>], <span class="ident">MemoryAccessError</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">definition</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">vm_memory</span>.<span class="ident">from</span>.<span class="ident">vmmemory</span>();
+        <span class="kw">let</span> <span class="ident">def</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">definition</span>.<span class="ident">as_ref</span>() };
+        <span class="kw">let</span> <span class="ident">end</span> <span class="op">=</span> <span class="ident">offset</span>
+            .<span class="ident">checked_add</span>(<span class="ident">buf</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">u64</span>)
+            .<span class="ident">ok_or</span>(<span class="ident">MemoryAccessError::Overflow</span>)<span class="question-mark">?</span>;
+        <span class="kw">if</span> <span class="ident">end</span> <span class="op">&gt;</span> <span class="ident">def</span>.<span class="ident">current_length</span>.<span class="ident">try_into</span>().<span class="ident">unwrap</span>() {
+            <span class="prelude-val">Err</span>(<span class="ident">MemoryAccessError::HeapOutOfBounds</span>)<span class="question-mark">?</span>;
+        }
+        <span class="kw">let</span> <span class="ident">buf_ptr</span> <span class="op">=</span> <span class="ident">buf</span>.<span class="ident">as_mut_ptr</span>() <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">u8</span>;
+        <span class="kw">unsafe</span> {
+            <span class="ident">volatile_memcpy_read</span>(<span class="ident">def</span>.<span class="ident">base</span>.<span class="ident">add</span>(<span class="ident">offset</span> <span class="kw">as</span> <span class="ident">usize</span>), <span class="ident">buf_ptr</span>, <span class="ident">buf</span>.<span class="ident">len</span>());
+        }
+
+        <span class="prelude-val">Ok</span>(<span class="kw">unsafe</span> { <span class="ident">slice::from_raw_parts_mut</span>(<span class="ident">buf_ptr</span>, <span class="ident">buf</span>.<span class="ident">len</span>()) })
+    }
+
+    <span class="doccomment">/// Safely writes bytes to the memory at the given offset.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// If the write exceeds the bounds of the memory then a `MemoryAccessError` is</span>
+    <span class="doccomment">/// returned.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// This method is guaranteed to be safe (from the host side) in the face of</span>
+    <span class="doccomment">/// concurrent reads/writes.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">write</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">offset</span>: <span class="ident">u64</span>, <span class="ident">data</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">MemoryAccessError</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">definition</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">vm_memory</span>.<span class="ident">from</span>.<span class="ident">vmmemory</span>();
+        <span class="kw">let</span> <span class="ident">def</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">definition</span>.<span class="ident">as_ref</span>() };
+        <span class="kw">let</span> <span class="ident">end</span> <span class="op">=</span> <span class="ident">offset</span>
+            .<span class="ident">checked_add</span>(<span class="ident">data</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">u64</span>)
+            .<span class="ident">ok_or</span>(<span class="ident">MemoryAccessError::Overflow</span>)<span class="question-mark">?</span>;
+        <span class="kw">if</span> <span class="ident">end</span> <span class="op">&gt;</span> <span class="ident">def</span>.<span class="ident">current_length</span>.<span class="ident">try_into</span>().<span class="ident">unwrap</span>() {
+            <span class="prelude-val">Err</span>(<span class="ident">MemoryAccessError::HeapOutOfBounds</span>)<span class="question-mark">?</span>;
+        }
+        <span class="kw">unsafe</span> {
+            <span class="ident">volatile_memcpy_write</span>(<span class="ident">data</span>.<span class="ident">as_ptr</span>(), <span class="ident">def</span>.<span class="ident">base</span>.<span class="ident">add</span>(<span class="ident">offset</span> <span class="kw">as</span> <span class="ident">usize</span>), <span class="ident">data</span>.<span class="ident">len</span>());
+        }
+        <span class="prelude-val">Ok</span>(())
+    }
 }
 
 <span class="kw">impl</span> <span class="ident">Clone</span> <span class="kw">for</span> <span class="ident">Memory</span> {
@@ -604,6 +680,66 @@
             .<span class="ident">instance_ref</span>
             .<span class="ident">as_mut</span>()
             .<span class="ident">map</span>(<span class="op">|</span><span class="ident">v</span><span class="op">|</span> <span class="kw-2">*</span><span class="ident">v</span> <span class="op">=</span> <span class="ident">v</span>.<span class="ident">downgrade</span>());
+    }
+}
+
+<span class="comment">// We can&#39;t use a normal memcpy here because it has undefined behavior if the</span>
+<span class="comment">// memory is being concurrently modified. So we need to write our own memcpy</span>
+<span class="comment">// implementation which uses volatile operations.</span>
+<span class="comment">//</span>
+<span class="comment">// The implementation of these functions can optimize very well when inlined</span>
+<span class="comment">// with a fixed length: they should compile down to a single load/store</span>
+<span class="comment">// instruction for small (8/16/32/64-bit) copies.</span>
+<span class="attribute">#[<span class="ident">inline</span>]</span>
+<span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">volatile_memcpy_read</span>(<span class="kw-2">mut</span> <span class="ident">src</span>: <span class="kw-2">*const</span> <span class="ident">u8</span>, <span class="kw-2">mut</span> <span class="ident">dst</span>: <span class="kw-2">*mut</span> <span class="ident">u8</span>, <span class="kw-2">mut</span> <span class="ident">len</span>: <span class="ident">usize</span>) {
+    <span class="attribute">#[<span class="ident">inline</span>]</span>
+    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">copy_one</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>(<span class="ident">src</span>: <span class="kw-2">&amp;mut</span> <span class="kw-2">*const</span> <span class="ident">u8</span>, <span class="ident">dst</span>: <span class="kw-2">&amp;mut</span> <span class="kw-2">*mut</span> <span class="ident">u8</span>, <span class="ident">len</span>: <span class="kw-2">&amp;mut</span> <span class="ident">usize</span>) {
+        <span class="attribute">#[<span class="ident">repr</span>(<span class="ident">packed</span>)]</span>
+        <span class="kw">struct</span> <span class="ident">Unaligned</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>(<span class="ident">T</span>);
+        <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">src</span> <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">Unaligned</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>).<span class="ident">read_volatile</span>();
+        (<span class="kw-2">*</span><span class="ident">dst</span> <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">Unaligned</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>).<span class="ident">write</span>(<span class="ident">val</span>);
+        <span class="kw-2">*</span><span class="ident">src</span> <span class="op">=</span> <span class="ident">src</span>.<span class="ident">add</span>(<span class="ident">mem::size_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>());
+        <span class="kw-2">*</span><span class="ident">dst</span> <span class="op">=</span> <span class="ident">dst</span>.<span class="ident">add</span>(<span class="ident">mem::size_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>());
+        <span class="kw-2">*</span><span class="ident">len</span> <span class="op">-</span><span class="op">=</span> <span class="ident">mem::size_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>();
+    }
+
+    <span class="kw">while</span> <span class="ident">len</span> <span class="op">&gt;</span><span class="op">=</span> <span class="number">8</span> {
+        <span class="ident">copy_one</span>::<span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span>(<span class="kw-2">&amp;mut</span> <span class="ident">src</span>, <span class="kw-2">&amp;mut</span> <span class="ident">dst</span>, <span class="kw-2">&amp;mut</span> <span class="ident">len</span>);
+    }
+    <span class="kw">if</span> <span class="ident">len</span> <span class="op">&gt;</span><span class="op">=</span> <span class="number">4</span> {
+        <span class="ident">copy_one</span>::<span class="op">&lt;</span><span class="ident">u32</span><span class="op">&gt;</span>(<span class="kw-2">&amp;mut</span> <span class="ident">src</span>, <span class="kw-2">&amp;mut</span> <span class="ident">dst</span>, <span class="kw-2">&amp;mut</span> <span class="ident">len</span>);
+    }
+    <span class="kw">if</span> <span class="ident">len</span> <span class="op">&gt;</span><span class="op">=</span> <span class="number">2</span> {
+        <span class="ident">copy_one</span>::<span class="op">&lt;</span><span class="ident">u16</span><span class="op">&gt;</span>(<span class="kw-2">&amp;mut</span> <span class="ident">src</span>, <span class="kw-2">&amp;mut</span> <span class="ident">dst</span>, <span class="kw-2">&amp;mut</span> <span class="ident">len</span>);
+    }
+    <span class="kw">if</span> <span class="ident">len</span> <span class="op">&gt;</span><span class="op">=</span> <span class="number">1</span> {
+        <span class="ident">copy_one</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>(<span class="kw-2">&amp;mut</span> <span class="ident">src</span>, <span class="kw-2">&amp;mut</span> <span class="ident">dst</span>, <span class="kw-2">&amp;mut</span> <span class="ident">len</span>);
+    }
+}
+<span class="attribute">#[<span class="ident">inline</span>]</span>
+<span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">volatile_memcpy_write</span>(<span class="kw-2">mut</span> <span class="ident">src</span>: <span class="kw-2">*const</span> <span class="ident">u8</span>, <span class="kw-2">mut</span> <span class="ident">dst</span>: <span class="kw-2">*mut</span> <span class="ident">u8</span>, <span class="kw-2">mut</span> <span class="ident">len</span>: <span class="ident">usize</span>) {
+    <span class="attribute">#[<span class="ident">inline</span>]</span>
+    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">copy_one</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>(<span class="ident">src</span>: <span class="kw-2">&amp;mut</span> <span class="kw-2">*const</span> <span class="ident">u8</span>, <span class="ident">dst</span>: <span class="kw-2">&amp;mut</span> <span class="kw-2">*mut</span> <span class="ident">u8</span>, <span class="ident">len</span>: <span class="kw-2">&amp;mut</span> <span class="ident">usize</span>) {
+        <span class="attribute">#[<span class="ident">repr</span>(<span class="ident">packed</span>)]</span>
+        <span class="kw">struct</span> <span class="ident">Unaligned</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>(<span class="ident">T</span>);
+        <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">src</span> <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">Unaligned</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>).<span class="ident">read</span>();
+        (<span class="kw-2">*</span><span class="ident">dst</span> <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">Unaligned</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>).<span class="ident">write_volatile</span>(<span class="ident">val</span>);
+        <span class="kw-2">*</span><span class="ident">src</span> <span class="op">=</span> <span class="ident">src</span>.<span class="ident">add</span>(<span class="ident">mem::size_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>());
+        <span class="kw-2">*</span><span class="ident">dst</span> <span class="op">=</span> <span class="ident">dst</span>.<span class="ident">add</span>(<span class="ident">mem::size_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>());
+        <span class="kw-2">*</span><span class="ident">len</span> <span class="op">-</span><span class="op">=</span> <span class="ident">mem::size_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>();
+    }
+
+    <span class="kw">while</span> <span class="ident">len</span> <span class="op">&gt;</span><span class="op">=</span> <span class="number">8</span> {
+        <span class="ident">copy_one</span>::<span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span>(<span class="kw-2">&amp;mut</span> <span class="ident">src</span>, <span class="kw-2">&amp;mut</span> <span class="ident">dst</span>, <span class="kw-2">&amp;mut</span> <span class="ident">len</span>);
+    }
+    <span class="kw">if</span> <span class="ident">len</span> <span class="op">&gt;</span><span class="op">=</span> <span class="number">4</span> {
+        <span class="ident">copy_one</span>::<span class="op">&lt;</span><span class="ident">u32</span><span class="op">&gt;</span>(<span class="kw-2">&amp;mut</span> <span class="ident">src</span>, <span class="kw-2">&amp;mut</span> <span class="ident">dst</span>, <span class="kw-2">&amp;mut</span> <span class="ident">len</span>);
+    }
+    <span class="kw">if</span> <span class="ident">len</span> <span class="op">&gt;</span><span class="op">=</span> <span class="number">2</span> {
+        <span class="ident">copy_one</span>::<span class="op">&lt;</span><span class="ident">u16</span><span class="op">&gt;</span>(<span class="kw-2">&amp;mut</span> <span class="ident">src</span>, <span class="kw-2">&amp;mut</span> <span class="ident">dst</span>, <span class="kw-2">&amp;mut</span> <span class="ident">len</span>);
+    }
+    <span class="kw">if</span> <span class="ident">len</span> <span class="op">&gt;</span><span class="op">=</span> <span class="number">1</span> {
+        <span class="ident">copy_one</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>(<span class="kw-2">&amp;mut</span> <span class="ident">src</span>, <span class="kw-2">&amp;mut</span> <span class="ident">dst</span>, <span class="kw-2">&amp;mut</span> <span class="ident">len</span>);
     }
 }
 </code></pre></div>

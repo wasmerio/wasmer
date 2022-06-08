@@ -52,13 +52,11 @@
 <span id="50">50</span>
 <span id="51">51</span>
 <span id="52">52</span>
-<span id="53">53</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Data structures to provide transformation of the source</span>
 <span class="comment">// addresses of a WebAssembly module into the native code.</span>
 
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::lib::std::vec::Vec</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sourceloc::SourceLoc</span>;
-<span class="kw">use</span> <span class="ident">loupe::MemoryUsage</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-rkyv&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">rkyv</span>::{<span class="ident">Archive</span>, <span class="ident">Deserialize</span> <span class="kw">as</span> <span class="ident">RkyvDeserialize</span>, <span class="ident">Serialize</span> <span class="kw">as</span> <span class="ident">RkyvSerialize</span>};
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>)]</span>
@@ -70,7 +68,7 @@
     <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-rkyv&quot;</span>,
     <span class="ident">derive</span>(<span class="ident">RkyvSerialize</span>, <span class="ident">RkyvDeserialize</span>, <span class="ident">Archive</span>)
 )]</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">MemoryUsage</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">InstructionAddressMap</span> {
     <span class="doccomment">/// Original source location.</span>
     <span class="kw">pub</span> <span class="ident">srcloc</span>: <span class="ident">SourceLoc</span>,
@@ -88,7 +86,7 @@
     <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-rkyv&quot;</span>,
     <span class="ident">derive</span>(<span class="ident">RkyvSerialize</span>, <span class="ident">RkyvDeserialize</span>, <span class="ident">Archive</span>)
 )]</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Default</span>, <span class="ident">MemoryUsage</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Default</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">FunctionAddressMap</span> {
     <span class="doccomment">/// Instructions maps.</span>
     <span class="doccomment">/// The array is sorted by the InstructionAddressMap::code_offset field.</span>

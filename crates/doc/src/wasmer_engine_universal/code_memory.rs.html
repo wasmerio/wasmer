@@ -223,14 +223,11 @@
 <span id="221">221</span>
 <span id="222">222</span>
 <span id="223">223</span>
-<span id="224">224</span>
-<span id="225">225</span>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
 
 <span class="doccomment">//! Memory management for executable code.</span>
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::unwind::UnwindRegistry</span>;
-<span class="kw">use</span> <span class="ident">loupe::MemoryUsage</span>;
 <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">CompiledFunctionUnwindInfo</span>, <span class="ident">CustomSection</span>, <span class="ident">FunctionBody</span>};
 <span class="kw">use</span> <span class="ident">wasmer_vm</span>::{<span class="ident">Mmap</span>, <span class="ident">VMFunctionBody</span>};
 
@@ -246,7 +243,6 @@
 <span class="kw">const</span> <span class="ident">DATA_SECTION_ALIGNMENT</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="number">64</span>;
 
 <span class="doccomment">/// Memory manager for executable code.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">MemoryUsage</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">CodeMemory</span> {
     <span class="ident">unwind_registry</span>: <span class="ident">UnwindRegistry</span>,
     <span class="ident">mmap</span>: <span class="ident">Mmap</span>,

@@ -139,16 +139,14 @@
 <span id="137">137</span>
 <span id="138">138</span>
 <span id="139">139</span>
-<span id="140">140</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::vmcontext::VMGlobalDefinition</span>;
-<span class="kw">use</span> <span class="ident">loupe::MemoryUsage</span>;
 <span class="kw">use</span> <span class="ident">std::cell::UnsafeCell</span>;
 <span class="kw">use</span> <span class="ident">std::ptr::NonNull</span>;
 <span class="kw">use</span> <span class="ident">std::sync::Mutex</span>;
 <span class="kw">use</span> <span class="ident">thiserror::Error</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">GlobalType</span>, <span class="ident">Mutability</span>, <span class="ident">Type</span>, <span class="ident">Value</span>, <span class="ident">WasmValueType</span>};
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">MemoryUsage</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
 <span class="doccomment">/// A Global instance</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Global</span> {
     <span class="ident">ty</span>: <span class="ident">GlobalType</span>,

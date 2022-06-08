@@ -144,15 +144,61 @@
 <span id="142">142</span>
 <span id="143">143</span>
 <span id="144">144</span>
+<span id="145">145</span>
+<span id="146">146</span>
+<span id="147">147</span>
+<span id="148">148</span>
+<span id="149">149</span>
+<span id="150">150</span>
+<span id="151">151</span>
+<span id="152">152</span>
+<span id="153">153</span>
+<span id="154">154</span>
+<span id="155">155</span>
+<span id="156">156</span>
+<span id="157">157</span>
+<span id="158">158</span>
+<span id="159">159</span>
+<span id="160">160</span>
+<span id="161">161</span>
+<span id="162">162</span>
+<span id="163">163</span>
+<span id="164">164</span>
+<span id="165">165</span>
+<span id="166">166</span>
+<span id="167">167</span>
+<span id="168">168</span>
+<span id="169">169</span>
+<span id="170">170</span>
+<span id="171">171</span>
+<span id="172">172</span>
+<span id="173">173</span>
+<span id="174">174</span>
+<span id="175">175</span>
+<span id="176">176</span>
+<span id="177">177</span>
+<span id="178">178</span>
+<span id="179">179</span>
+<span id="180">180</span>
+<span id="181">181</span>
+<span id="182">182</span>
+<span id="183">183</span>
+<span id="184">184</span>
+<span id="185">185</span>
+<span id="186">186</span>
+<span id="187">187</span>
+<span id="188">188</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">crate</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident">std::convert::TryFrom</span>;
 <span class="kw">use</span> <span class="ident">std::fmt</span>;
+<span class="kw">use</span> <span class="ident">std::mem</span>::{<span class="self">self</span>, <span class="ident">MaybeUninit</span>};
+<span class="kw">use</span> <span class="ident">wasmer_derive::ValueType</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types::ValueType</span>;
 
 <span class="kw">pub</span> <span class="kw">type</span> <span class="ident">__wasi_subclockflags_t</span> <span class="op">=</span> <span class="ident">u16</span>;
 <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">__WASI_SUBSCRIPTION_CLOCK_ABSTIME</span>: <span class="ident">u16</span> <span class="op">=</span> <span class="number">1</span> <span class="op">&lt;</span><span class="op">&lt;</span> <span class="number">0</span>;
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">ValueType</span>)]</span>
 <span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">__wasi_subscription_clock_t</span> {
     <span class="kw">pub</span> <span class="ident">clock_id</span>: <span class="ident">__wasi_clockid_t</span>,
@@ -161,7 +207,7 @@
     <span class="kw">pub</span> <span class="ident">flags</span>: <span class="ident">__wasi_subclockflags_t</span>,
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">ValueType</span>)]</span>
 <span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">__wasi_subscription_fs_readwrite_t</span> {
     <span class="kw">pub</span> <span class="ident">fd</span>: <span class="ident">__wasi_fd_t</span>,
@@ -268,7 +314,49 @@
     }
 }
 
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">ValueType</span> <span class="kw">for</span> <span class="ident">__wasi_subscription_t</span> {}
+<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">ValueType</span> <span class="kw">for</span> <span class="ident">__wasi_subscription_t</span> {
+    <span class="kw">fn</span> <span class="ident">zero_padding_bytes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">bytes</span>: <span class="kw-2">&amp;mut</span> [<span class="ident">MaybeUninit</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>]) {
+        <span class="macro">macro_rules!</span> <span class="ident">field</span> {
+            ($(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">f</span>:<span class="ident">tt</span>)<span class="kw-2">*</span>) =&gt; {
+                <span class="kw-2">&amp;</span><span class="self">self</span>.$(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">f</span>)<span class="op">*</span> <span class="kw">as</span> <span class="kw-2">*const</span> <span class="kw">_</span> <span class="kw">as</span> <span class="ident">usize</span> <span class="op">-</span> <span class="self">self</span> <span class="kw">as</span> <span class="kw-2">*const</span> <span class="kw">_</span> <span class="kw">as</span> <span class="ident">usize</span>
+            };
+        }
+        <span class="macro">macro_rules!</span> <span class="ident">field_end</span> {
+            ($(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">f</span>:<span class="ident">tt</span>)<span class="kw-2">*</span>) =&gt; {
+                <span class="macro">field!</span>($(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">f</span>)<span class="kw-2">*</span>) <span class="op">+</span> <span class="ident">mem::size_of_val</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.$(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">f</span>)<span class="kw-2">*</span>)
+            };
+        }
+        <span class="macro">macro_rules!</span> <span class="ident">zero</span> {
+            (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">start</span>:<span class="ident">expr</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">end</span>:<span class="ident">expr</span>) =&gt; {
+                <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">start</span>..<span class="macro-nonterminal">$</span><span class="macro-nonterminal">end</span> {
+                    <span class="ident">bytes</span>[<span class="ident">i</span>] <span class="op">=</span> <span class="ident">MaybeUninit::new</span>(<span class="number">0</span>);
+                }
+            };
+        }
+        <span class="self">self</span>.<span class="ident">userdata</span>
+            .<span class="ident">zero_padding_bytes</span>(<span class="kw-2">&amp;mut</span> <span class="ident">bytes</span>[<span class="macro">field!</span>(<span class="ident">userdata</span>)..<span class="macro">field_end!</span>(<span class="ident">userdata</span>)]);
+        <span class="macro">zero!</span>(<span class="macro">field_end!</span>(<span class="ident">userdata</span>), <span class="macro">field!</span>(<span class="ident">type_</span>));
+        <span class="self">self</span>.<span class="ident">type_</span>
+            .<span class="ident">zero_padding_bytes</span>(<span class="kw-2">&amp;mut</span> <span class="ident">bytes</span>[<span class="macro">field!</span>(<span class="ident">type_</span>)..<span class="macro">field_end!</span>(<span class="ident">type_</span>)]);
+        <span class="macro">zero!</span>(<span class="macro">field_end!</span>(<span class="ident">type_</span>), <span class="macro">field!</span>(<span class="ident">u</span>));
+        <span class="kw">match</span> <span class="self">self</span>.<span class="ident">type_</span> {
+            <span class="ident">__WASI_EVENTTYPE_FD_READ</span> <span class="op">|</span> <span class="ident">__WASI_EVENTTYPE_FD_WRITE</span> =&gt; <span class="kw">unsafe</span> {
+                <span class="self">self</span>.<span class="ident">u</span>.<span class="ident">fd_readwrite</span>.<span class="ident">zero_padding_bytes</span>(
+                    <span class="kw-2">&amp;mut</span> <span class="ident">bytes</span>[<span class="macro">field!</span>(<span class="ident">u</span>.<span class="ident">fd_readwrite</span>)..<span class="macro">field_end!</span>(<span class="ident">u</span>.<span class="ident">fd_readwrite</span>)],
+                );
+                <span class="macro">zero!</span>(<span class="macro">field_end!</span>(<span class="ident">u</span>.<span class="ident">fd_readwrite</span>), <span class="macro">field_end!</span>(<span class="ident">u</span>));
+            },
+            <span class="ident">__WASI_EVENTTYPE_CLOCK</span> =&gt; <span class="kw">unsafe</span> {
+                <span class="self">self</span>.<span class="ident">u</span>
+                    .<span class="ident">clock</span>
+                    .<span class="ident">zero_padding_bytes</span>(<span class="kw-2">&amp;mut</span> <span class="ident">bytes</span>[<span class="macro">field!</span>(<span class="ident">u</span>.<span class="ident">clock</span>)..<span class="macro">field_end!</span>(<span class="ident">u</span>.<span class="ident">clock</span>)]);
+                <span class="macro">zero!</span>(<span class="macro">field_end!</span>(<span class="ident">u</span>.<span class="ident">clock</span>), <span class="macro">field_end!</span>(<span class="ident">u</span>));
+            },
+            <span class="kw">_</span> =&gt; <span class="macro">zero!</span>(<span class="macro">field!</span>(<span class="ident">u</span>), <span class="macro">field_end!</span>(<span class="ident">u</span>)),
+        }
+        <span class="macro">zero!</span>(<span class="macro">field_end!</span>(<span class="ident">u</span>), <span class="ident">mem::size_of_val</span>(<span class="self">self</span>));
+    }
+}
 
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">SubscriptionEnum</span> {
     <span class="ident">Clock</span>(<span class="ident">__wasi_subscription_clock_t</span>),

@@ -184,16 +184,62 @@
 <span id="182">182</span>
 <span id="183">183</span>
 <span id="184">184</span>
+<span id="185">185</span>
+<span id="186">186</span>
+<span id="187">187</span>
+<span id="188">188</span>
+<span id="189">189</span>
+<span id="190">190</span>
+<span id="191">191</span>
+<span id="192">192</span>
+<span id="193">193</span>
+<span id="194">194</span>
+<span id="195">195</span>
+<span id="196">196</span>
+<span id="197">197</span>
+<span id="198">198</span>
+<span id="199">199</span>
+<span id="200">200</span>
+<span id="201">201</span>
+<span id="202">202</span>
+<span id="203">203</span>
+<span id="204">204</span>
+<span id="205">205</span>
+<span id="206">206</span>
+<span id="207">207</span>
+<span id="208">208</span>
+<span id="209">209</span>
+<span id="210">210</span>
+<span id="211">211</span>
+<span id="212">212</span>
+<span id="213">213</span>
+<span id="214">214</span>
+<span id="215">215</span>
+<span id="216">216</span>
+<span id="217">217</span>
+<span id="218">218</span>
+<span id="219">219</span>
+<span id="220">220</span>
+<span id="221">221</span>
+<span id="222">222</span>
+<span id="223">223</span>
+<span id="224">224</span>
+<span id="225">225</span>
+<span id="226">226</span>
+<span id="227">227</span>
+<span id="228">228</span>
+<span id="229">229</span>
+<span id="230">230</span>
+<span id="231">231</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::exports::Exports</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::externals::Extern</span>;
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::imports::Imports</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::module::Module</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::store::Store</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys</span>::{<span class="ident">HostEnvInitError</span>, <span class="ident">LinkError</span>, <span class="ident">RuntimeError</span>};
-<span class="kw">use</span> <span class="ident">loupe::MemoryUsage</span>;
 <span class="kw">use</span> <span class="ident">std::fmt</span>;
 <span class="kw">use</span> <span class="ident">std::sync</span>::{<span class="ident">Arc</span>, <span class="ident">Mutex</span>};
 <span class="kw">use</span> <span class="ident">thiserror::Error</span>;
-<span class="kw">use</span> <span class="ident">wasmer_engine::Resolver</span>;
 <span class="kw">use</span> <span class="ident">wasmer_vm</span>::{<span class="ident">InstanceHandle</span>, <span class="ident">VMContext</span>};
 
 <span class="doccomment">/// A WebAssembly Instance is a stateful, executable</span>
@@ -204,10 +250,12 @@
 <span class="doccomment">/// interacting with WebAssembly.</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// Spec: &lt;https://webassembly.github.io/spec/core/exec/runtime.html#module-instances&gt;</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">MemoryUsage</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Instance</span> {
     <span class="ident">handle</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">Mutex</span><span class="op">&lt;</span><span class="ident">InstanceHandle</span><span class="op">&gt;</span><span class="op">&gt;</span>,
     <span class="ident">module</span>: <span class="ident">Module</span>,
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
+    <span class="ident">imports</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Extern</span><span class="op">&gt;</span>,
     <span class="doccomment">/// The exports for an instance.</span>
     <span class="kw">pub</span> <span class="ident">exports</span>: <span class="ident">Exports</span>,
 }
@@ -272,15 +320,10 @@
 
 <span class="kw">impl</span> <span class="ident">Instance</span> {
     <span class="doccomment">/// Creates a new `Instance` from a WebAssembly [`Module`] and a</span>
-    <span class="doccomment">/// set of imports resolved by the [`Resolver`].</span>
+    <span class="doccomment">/// set of imports using [`Imports`] or the [`imports`] macro helper.</span>
     <span class="doccomment">///</span>
-    <span class="doccomment">/// The resolver can be anything that implements the [`Resolver`] trait,</span>
-    <span class="doccomment">/// so you can plug custom resolution for the imports, if you wish not</span>
-    <span class="doccomment">/// to use [`ImportObject`].</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// The [`ImportObject`] is the easiest way to provide imports to the instance.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// [`ImportObject`]: crate::ImportObject</span>
+    <span class="doccomment">/// [`imports`]: crate::imports</span>
+    <span class="doccomment">/// [`Imports`]: crate::Imports</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// ```</span>
     <span class="doccomment">/// # use wasmer::{imports, Store, Module, Global, Value, Instance};</span>
@@ -304,12 +347,12 @@
     <span class="doccomment">/// Those are, as defined by the spec:</span>
     <span class="doccomment">///  * Link errors that happen when plugging the imports into the instance</span>
     <span class="doccomment">///  * Runtime errors that happen when running the module `start` function.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(
-        <span class="ident">module</span>: <span class="kw-2">&amp;</span><span class="ident">Module</span>,
-        <span class="ident">resolver</span>: <span class="kw-2">&amp;</span>(<span class="kw">dyn</span> <span class="ident">Resolver</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span>),
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">InstantiationError</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">module</span>: <span class="kw-2">&amp;</span><span class="ident">Module</span>, <span class="ident">imports</span>: <span class="kw-2">&amp;</span><span class="ident">Imports</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">InstantiationError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">store</span> <span class="op">=</span> <span class="ident">module</span>.<span class="ident">store</span>();
-        <span class="kw">let</span> <span class="ident">handle</span> <span class="op">=</span> <span class="ident">module</span>.<span class="ident">instantiate</span>(<span class="ident">resolver</span>)<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">imports</span> <span class="op">=</span> <span class="ident">imports</span>
+            .<span class="ident">imports_for_module</span>(<span class="ident">module</span>)
+            .<span class="ident">map_err</span>(<span class="ident">InstantiationError::Link</span>)<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">handle</span> <span class="op">=</span> <span class="ident">module</span>.<span class="ident">instantiate</span>(<span class="kw-2">&amp;</span><span class="ident">imports</span>)<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="ident">exports</span> <span class="op">=</span> <span class="ident">module</span>
             .<span class="ident">exports</span>()
             .<span class="ident">map</span>(<span class="op">|</span><span class="ident">export</span><span class="op">|</span> {
@@ -323,6 +366,57 @@
         <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> <span class="self">Self</span> {
             <span class="ident">handle</span>: <span class="ident">Arc::new</span>(<span class="ident">Mutex::new</span>(<span class="ident">handle</span>)),
             <span class="ident">module</span>: <span class="ident">module</span>.<span class="ident">clone</span>(),
+            <span class="ident">imports</span>,
+            <span class="ident">exports</span>,
+        };
+
+        <span class="comment">// # Safety</span>
+        <span class="comment">// `initialize_host_envs` should be called after instantiation but before</span>
+        <span class="comment">// returning an `Instance` to the user. We set up the host environments</span>
+        <span class="comment">// via `WasmerEnv::init_with_instance`.</span>
+        <span class="comment">//</span>
+        <span class="comment">// This usage is correct because we pass a valid pointer to `instance` and the</span>
+        <span class="comment">// correct error type returned by `WasmerEnv::init_with_instance` as a generic</span>
+        <span class="comment">// parameter.</span>
+        <span class="kw">unsafe</span> {
+            <span class="ident">instance</span>
+                .<span class="ident">handle</span>
+                .<span class="ident">lock</span>()
+                .<span class="ident">unwrap</span>()
+                .<span class="ident">initialize_host_envs</span>::<span class="op">&lt;</span><span class="ident">HostEnvInitError</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="ident">instance</span> <span class="kw">as</span> <span class="kw-2">*const</span> <span class="kw">_</span> <span class="kw">as</span> <span class="kw-2">*const</span> <span class="kw">_</span>)<span class="question-mark">?</span>;
+        }
+
+        <span class="prelude-val">Ok</span>(<span class="ident">instance</span>)
+    }
+
+    <span class="doccomment">/// Creates a new `Instance` from a WebAssembly [`Module`] and a</span>
+    <span class="doccomment">/// vector of imports.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// ## Errors</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// The function can return [`InstantiationError`]s.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// Those are, as defined by the spec:</span>
+    <span class="doccomment">///  * Link errors that happen when plugging the imports into the instance</span>
+    <span class="doccomment">///  * Runtime errors that happen when running the module `start` function.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_by_index</span>(<span class="ident">module</span>: <span class="kw-2">&amp;</span><span class="ident">Module</span>, <span class="ident">externs</span>: <span class="kw-2">&amp;</span>[<span class="ident">Extern</span>]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">InstantiationError</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">store</span> <span class="op">=</span> <span class="ident">module</span>.<span class="ident">store</span>();
+        <span class="kw">let</span> <span class="ident">imports</span> <span class="op">=</span> <span class="ident">externs</span>.<span class="ident">iter</span>().<span class="ident">cloned</span>().<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
+        <span class="kw">let</span> <span class="ident">handle</span> <span class="op">=</span> <span class="ident">module</span>.<span class="ident">instantiate</span>(<span class="kw-2">&amp;</span><span class="ident">imports</span>)<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">exports</span> <span class="op">=</span> <span class="ident">module</span>
+            .<span class="ident">exports</span>()
+            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">export</span><span class="op">|</span> {
+                <span class="kw">let</span> <span class="ident">name</span> <span class="op">=</span> <span class="ident">export</span>.<span class="ident">name</span>().<span class="ident">to_string</span>();
+                <span class="kw">let</span> <span class="ident">export</span> <span class="op">=</span> <span class="ident">handle</span>.<span class="ident">lookup</span>(<span class="kw-2">&amp;</span><span class="ident">name</span>).<span class="ident">expect</span>(<span class="string">&quot;export&quot;</span>);
+                <span class="kw">let</span> <span class="ident">extern_</span> <span class="op">=</span> <span class="ident">Extern::from_vm_export</span>(<span class="ident">store</span>, <span class="ident">export</span>.<span class="ident">into</span>());
+                (<span class="ident">name</span>, <span class="ident">extern_</span>)
+            })
+            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Exports</span><span class="op">&gt;</span>();
+
+        <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> <span class="self">Self</span> {
+            <span class="ident">handle</span>: <span class="ident">Arc::new</span>(<span class="ident">Mutex::new</span>(<span class="ident">handle</span>)),
+            <span class="ident">module</span>: <span class="ident">module</span>.<span class="ident">clone</span>(),
+            <span class="ident">imports</span>,
             <span class="ident">exports</span>,
         };
 

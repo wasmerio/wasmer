@@ -197,15 +197,11 @@
 <span id="195">195</span>
 <span id="196">196</span>
 <span id="197">197</span>
-<span id="198">198</span>
-<span id="199">199</span>
-<span id="200">200</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Target configuration</span>
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::error::ParseCpuFeatureError</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::lib::std::str::FromStr</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::lib::std::string</span>::{<span class="ident">String</span>, <span class="ident">ToString</span>};
 <span class="kw">use</span> <span class="ident">enumset</span>::{<span class="ident">EnumSet</span>, <span class="ident">EnumSetType</span>};
-<span class="kw">use</span> <span class="ident">loupe::MemoryUsage</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">target_lexicon</span>::{
     <span class="ident">Architecture</span>, <span class="ident">BinaryFormat</span>, <span class="ident">CallingConvention</span>, <span class="ident">Endianness</span>, <span class="ident">OperatingSystem</span>, <span class="ident">PointerWidth</span>,
     <span class="ident">Triple</span>,
@@ -363,11 +359,9 @@
 
 <span class="doccomment">/// This is the target that we will use for compiling</span>
 <span class="doccomment">/// the WebAssembly ModuleInfo, and then run it.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>, <span class="ident">MemoryUsage</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Target</span> {
-    <span class="attribute">#[<span class="ident">loupe</span>(<span class="ident">skip</span>)]</span>
     <span class="ident">triple</span>: <span class="ident">Triple</span>,
-    <span class="attribute">#[<span class="ident">loupe</span>(<span class="ident">skip</span>)]</span>
     <span class="ident">cpu_features</span>: <span class="ident">EnumSet</span><span class="op">&lt;</span><span class="ident">CpuFeature</span><span class="op">&gt;</span>,
 }
 

@@ -270,6 +270,34 @@
 <span id="268">268</span>
 <span id="269">269</span>
 <span id="270">270</span>
+<span id="271">271</span>
+<span id="272">272</span>
+<span id="273">273</span>
+<span id="274">274</span>
+<span id="275">275</span>
+<span id="276">276</span>
+<span id="277">277</span>
+<span id="278">278</span>
+<span id="279">279</span>
+<span id="280">280</span>
+<span id="281">281</span>
+<span id="282">282</span>
+<span id="283">283</span>
+<span id="284">284</span>
+<span id="285">285</span>
+<span id="286">286</span>
+<span id="287">287</span>
+<span id="288">288</span>
+<span id="289">289</span>
+<span id="290">290</span>
+<span id="291">291</span>
+<span id="292">292</span>
+<span id="293">293</span>
+<span id="294">294</span>
+<span id="295">295</span>
+<span id="296">296</span>
+<span id="297">297</span>
+<span id="298">298</span>
 </pre><pre class="rust"><code><span class="doccomment">//! This module permits to create native functions</span>
 <span class="doccomment">//! easily in Rust, thanks to its advanced typing system.</span>
 
@@ -277,6 +305,8 @@
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::lib::std::fmt</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::types::Type</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::values</span>::{<span class="ident">Value</span>, <span class="ident">WasmValueType</span>};
+<span class="kw">use</span> <span class="ident">std::marker::PhantomData</span>;
+<span class="kw">use</span> <span class="ident">std::mem::MaybeUninit</span>;
 
 <span class="doccomment">/// `NativeWasmType` represents a Wasm type that has a direct</span>
 <span class="doccomment">/// representation on the host (hence the “native” term).</span>
@@ -518,28 +548,54 @@
 <span class="doccomment">/// Trait for a Value type. A Value type is a type that is always valid and may</span>
 <span class="doccomment">/// be safely copied.</span>
 <span class="doccomment">///</span>
-<span class="doccomment">/// That is, for all possible bit patterns a valid Value type can be constructed</span>
-<span class="doccomment">/// from those bits.</span>
+<span class="doccomment">/// To maintain safety, types which implement this trait must be valid for all</span>
+<span class="doccomment">/// bit patterns. This means that it cannot contain enums, `bool`, references,</span>
+<span class="doccomment">/// etc.</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// Concretely a `u32` is a Value type because every combination of 32 bits is</span>
 <span class="doccomment">/// a valid `u32`. However a `bool` is _not_ a Value type because any bit patterns</span>
 <span class="doccomment">/// other than `0` and `1` are invalid in Rust and may cause undefined behavior if</span>
 <span class="doccomment">/// a `bool` is constructed from those bytes.</span>
-<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">trait</span> <span class="ident">ValueType</span>: <span class="ident">Copy</span>
-<span class="kw">where</span>
-    <span class="self">Self</span>: <span class="ident">Sized</span>,
-{
+<span class="doccomment">///</span>
+<span class="doccomment">/// Additionally this trait has a method which zeros out any uninitializes bytes</span>
+<span class="doccomment">/// prior to writing them to Wasm memory, which prevents information leaks into</span>
+<span class="doccomment">/// the sandbox.</span>
+<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">trait</span> <span class="ident">ValueType</span>: <span class="ident">Copy</span> {
+    <span class="doccomment">/// This method is passed a byte slice which contains the byte</span>
+    <span class="doccomment">/// representation of `self`. It must zero out any bytes which are</span>
+    <span class="doccomment">/// uninitialized (e.g. padding bytes).</span>
+    <span class="kw">fn</span> <span class="ident">zero_padding_bytes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">bytes</span>: <span class="kw-2">&amp;mut</span> [<span class="ident">MaybeUninit</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>]);
 }
 
-<span class="macro">macro_rules!</span> <span class="ident">impl_value_type_for</span> {
-    ( $(<span class="macro-nonterminal">$</span><span class="kw">type</span>:<span class="macro-nonterminal">ty</span>),<span class="op">*</span> ) =&gt; {
-        $(
-            <span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">ValueType</span> <span class="kw">for</span> <span class="macro-nonterminal">$</span><span class="kw">type</span> {}
-        )<span class="op">*</span>
-    };
+<span class="comment">// Trivial implementations for primitive types and arrays of them.</span>
+<span class="macro">macro_rules!</span> <span class="ident">primitives</span> {
+    ($(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">t</span>:<span class="ident">ident</span>)<span class="kw-2">*</span>) =&gt; ($(
+        <span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">ValueType</span> <span class="kw">for</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">t</span> {
+            <span class="attribute">#[<span class="ident">inline</span>]</span>
+            <span class="kw">fn</span> <span class="ident">zero_padding_bytes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">_bytes</span>: <span class="kw-2">&amp;mut</span> [<span class="ident">MaybeUninit</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>]) {}
+        }
+        <span class="kw">unsafe</span> <span class="kw">impl</span><span class="op">&lt;</span><span class="kw">const</span> <span class="ident">N</span>: <span class="ident">usize</span><span class="op">&gt;</span> <span class="ident">ValueType</span> <span class="kw">for</span> [<span class="macro-nonterminal">$</span><span class="macro-nonterminal">t</span>; <span class="ident">N</span>] {
+            <span class="attribute">#[<span class="ident">inline</span>]</span>
+            <span class="kw">fn</span> <span class="ident">zero_padding_bytes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">_bytes</span>: <span class="kw-2">&amp;mut</span> [<span class="ident">MaybeUninit</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>]) {}
+        }
+    )<span class="kw-2">*</span>)
+}
+<span class="macro">primitives!</span> {
+    <span class="ident">i8</span> <span class="ident">u8</span>
+    <span class="ident">i16</span> <span class="ident">u16</span>
+    <span class="ident">i32</span> <span class="ident">u32</span>
+    <span class="ident">i64</span> <span class="ident">u64</span>
+    <span class="ident">i128</span> <span class="ident">u128</span>
+    <span class="ident">isize</span> <span class="ident">usize</span>
+    <span class="ident">f32</span> <span class="ident">f64</span>
 }
 
-<span class="macro">impl_value_type_for!</span>(<span class="macro-nonterminal">u8</span>, <span class="ident">i8</span>, <span class="ident">u16</span>, <span class="ident">i16</span>, <span class="ident">u32</span>, <span class="ident">i32</span>, <span class="ident">u64</span>, <span class="ident">i64</span>, <span class="ident">f32</span>, <span class="ident">f64</span>);
+<span class="comment">// This impl for PhantomData allows #[derive(ValueType)] to work with types</span>
+<span class="comment">// that contain a PhantomData.</span>
+<span class="kw">unsafe</span> <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="question-mark">?</span><span class="ident">Sized</span><span class="op">&gt;</span> <span class="ident">ValueType</span> <span class="kw">for</span> <span class="ident">PhantomData</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
+    <span class="attribute">#[<span class="ident">inline</span>]</span>
+    <span class="kw">fn</span> <span class="ident">zero_padding_bytes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">_bytes</span>: <span class="kw-2">&amp;mut</span> [<span class="ident">MaybeUninit</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>]) {}
+}
 </code></pre></div>
 </section><section id="search" class="content hidden"></section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_types" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.59.0 (9d1b2106e 2022-02-23)" ></div>
 </body></html>

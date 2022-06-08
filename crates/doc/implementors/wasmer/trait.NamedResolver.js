@@ -1,3 +1,0 @@
-(function() {var implementors = {};
-implementors["wasmer"] = [{"text":"impl <a class=\"trait\" href=\"wasmer/trait.NamedResolver.html\" title=\"trait wasmer::NamedResolver\">NamedResolver</a> for <a class=\"struct\" href=\"wasmer/sys/import_object/struct.ImportObject.html\" title=\"struct wasmer::sys::import_object::ImportObject\">ImportObject</a>","synthetic":false,"types":["wasmer::sys::import_object::ImportObject"]}];
-if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

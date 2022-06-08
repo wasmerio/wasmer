@@ -231,8 +231,6 @@
 <span id="229">229</span>
 <span id="230">230</span>
 <span id="231">231</span>
-<span id="232">232</span>
-<span id="233">233</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Define `UniversalArtifactBuild` to allow compiling and instantiating to be</span>
 <span class="doccomment">//! done as separate steps.</span>
 
@@ -242,7 +240,6 @@
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::trampoline</span>::{<span class="ident">libcall_trampoline_len</span>, <span class="ident">make_libcall_trampolines</span>};
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">ArtifactCreate</span>, <span class="ident">UniversalEngineBuilder</span>};
 <span class="kw">use</span> <span class="ident">enumset::EnumSet</span>;
-<span class="kw">use</span> <span class="ident">loupe::MemoryUsage</span>;
 <span class="kw">use</span> <span class="ident">std::mem</span>;
 <span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
 <span class="kw">use</span> <span class="ident">wasmer_artifact</span>::{<span class="ident">MetadataHeader</span>, <span class="ident">SerializeError</span>};
@@ -258,7 +255,6 @@
 };
 
 <span class="doccomment">/// A compiled wasm module, ready to be instantiated.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">MemoryUsage</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">UniversalArtifactBuild</span> {
     <span class="ident">serializable</span>: <span class="ident">SerializableModule</span>,
 }

@@ -303,10 +303,43 @@
 <span id="301">301</span>
 <span id="302">302</span>
 <span id="303">303</span>
+<span id="304">304</span>
+<span id="305">305</span>
+<span id="306">306</span>
+<span id="307">307</span>
+<span id="308">308</span>
+<span id="309">309</span>
+<span id="310">310</span>
+<span id="311">311</span>
+<span id="312">312</span>
+<span id="313">313</span>
+<span id="314">314</span>
+<span id="315">315</span>
+<span id="316">316</span>
+<span id="317">317</span>
+<span id="318">318</span>
+<span id="319">319</span>
+<span id="320">320</span>
+<span id="321">321</span>
+<span id="322">322</span>
+<span id="323">323</span>
+<span id="324">324</span>
+<span id="325">325</span>
+<span id="326">326</span>
+<span id="327">327</span>
+<span id="328">328</span>
+<span id="329">329</span>
+<span id="330">330</span>
+<span id="331">331</span>
+<span id="332">332</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">crate</span>::<span class="kw-2">*</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
-<span class="kw">use</span> <span class="ident">std::fmt</span>;
+<span class="kw">use</span> <span class="ident">std</span>::{
+    <span class="ident">fmt</span>,
+    <span class="ident">mem</span>::{<span class="self">self</span>, <span class="ident">MaybeUninit</span>},
+};
+<span class="kw">use</span> <span class="ident">wasmer_derive::ValueType</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types::ValueType</span>;
 
 <span class="kw">pub</span> <span class="kw">type</span> <span class="ident">__wasi_device_t</span> <span class="op">=</span> <span class="ident">u64</span>;
@@ -326,13 +359,11 @@
 <span class="kw">pub</span> <span class="kw">type</span> <span class="ident">__wasi_preopentype_t</span> <span class="op">=</span> <span class="ident">u8</span>;
 <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">__WASI_PREOPENTYPE_DIR</span>: <span class="ident">u8</span> <span class="op">=</span> <span class="number">0</span>;
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">ValueType</span>)]</span>
 <span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">__wasi_prestat_u_dir_t</span> {
     <span class="kw">pub</span> <span class="ident">pr_name_len</span>: <span class="ident">u32</span>,
 }
-
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">ValueType</span> <span class="kw">for</span> <span class="ident">__wasi_prestat_u_dir_t</span> {}
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>)]</span>
 <span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
@@ -345,8 +376,6 @@
         <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;__wasi_prestat_u&quot;</span>)
     }
 }
-
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">ValueType</span> <span class="kw">for</span> <span class="ident">__wasi_prestat_u</span> {}
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>)]</span>
 <span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
@@ -382,9 +411,42 @@
     }
 }
 
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">ValueType</span> <span class="kw">for</span> <span class="ident">__wasi_prestat_t</span> {}
+<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">ValueType</span> <span class="kw">for</span> <span class="ident">__wasi_prestat_t</span> {
+    <span class="kw">fn</span> <span class="ident">zero_padding_bytes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">bytes</span>: <span class="kw-2">&amp;mut</span> [<span class="ident">MaybeUninit</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>]) {
+        <span class="macro">macro_rules!</span> <span class="ident">field</span> {
+            ($(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">f</span>:<span class="ident">tt</span>)<span class="kw-2">*</span>) =&gt; {
+                <span class="kw-2">&amp;</span><span class="self">self</span>.$(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">f</span>)<span class="op">*</span> <span class="kw">as</span> <span class="kw-2">*const</span> <span class="kw">_</span> <span class="kw">as</span> <span class="ident">usize</span> <span class="op">-</span> <span class="self">self</span> <span class="kw">as</span> <span class="kw-2">*const</span> <span class="kw">_</span> <span class="kw">as</span> <span class="ident">usize</span>
+            };
+        }
+        <span class="macro">macro_rules!</span> <span class="ident">field_end</span> {
+            ($(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">f</span>:<span class="ident">tt</span>)<span class="kw-2">*</span>) =&gt; {
+                <span class="macro">field!</span>($(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">f</span>)<span class="kw-2">*</span>) <span class="op">+</span> <span class="ident">mem::size_of_val</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.$(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">f</span>)<span class="kw-2">*</span>)
+            };
+        }
+        <span class="macro">macro_rules!</span> <span class="ident">zero</span> {
+            (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">start</span>:<span class="ident">expr</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">end</span>:<span class="ident">expr</span>) =&gt; {
+                <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">start</span>..<span class="macro-nonterminal">$</span><span class="macro-nonterminal">end</span> {
+                    <span class="ident">bytes</span>[<span class="ident">i</span>] <span class="op">=</span> <span class="ident">MaybeUninit::new</span>(<span class="number">0</span>);
+                }
+            };
+        }
+        <span class="self">self</span>.<span class="ident">pr_type</span>
+            .<span class="ident">zero_padding_bytes</span>(<span class="kw-2">&amp;mut</span> <span class="ident">bytes</span>[<span class="macro">field!</span>(<span class="ident">pr_type</span>)..<span class="macro">field_end!</span>(<span class="ident">pr_type</span>)]);
+        <span class="macro">zero!</span>(<span class="macro">field_end!</span>(<span class="ident">pr_type</span>), <span class="macro">field!</span>(<span class="ident">u</span>));
+        <span class="kw">match</span> <span class="self">self</span>.<span class="ident">pr_type</span> {
+            <span class="ident">__WASI_PREOPENTYPE_DIR</span> =&gt; <span class="kw">unsafe</span> {
+                <span class="self">self</span>.<span class="ident">u</span>
+                    .<span class="ident">dir</span>
+                    .<span class="ident">zero_padding_bytes</span>(<span class="kw-2">&amp;mut</span> <span class="ident">bytes</span>[<span class="macro">field!</span>(<span class="ident">u</span>.<span class="ident">dir</span>)..<span class="macro">field_end!</span>(<span class="ident">u</span>.<span class="ident">dir</span>)]);
+                <span class="macro">zero!</span>(<span class="macro">field_end!</span>(<span class="ident">u</span>.<span class="ident">dir</span>), <span class="macro">field_end!</span>(<span class="ident">u</span>));
+            },
+            <span class="kw">_</span> =&gt; <span class="macro">zero!</span>(<span class="macro">field!</span>(<span class="ident">u</span>), <span class="macro">field_end!</span>(<span class="ident">u</span>)),
+        }
+        <span class="macro">zero!</span>(<span class="macro">field_end!</span>(<span class="ident">u</span>), <span class="ident">mem::size_of_val</span>(<span class="self">self</span>));
+    }
+}
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">ValueType</span>)]</span>
 <span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">__wasi_fdstat_t</span> {
     <span class="kw">pub</span> <span class="ident">fs_filetype</span>: <span class="ident">__wasi_filetype_t</span>,
@@ -393,13 +455,11 @@
     <span class="kw">pub</span> <span class="ident">fs_rights_inheriting</span>: <span class="ident">__wasi_rights_t</span>,
 }
 
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">ValueType</span> <span class="kw">for</span> <span class="ident">__wasi_fdstat_t</span> {}
-
 <span class="kw">pub</span> <span class="kw">type</span> <span class="ident">__wasi_filedelta_t</span> <span class="op">=</span> <span class="ident">i64</span>;
 
 <span class="kw">pub</span> <span class="kw">type</span> <span class="ident">__wasi_filesize_t</span> <span class="op">=</span> <span class="ident">u64</span>;
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">ValueType</span>)]</span>
 <span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>))]</span>
 <span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">__wasi_filestat_t</span> {
@@ -462,8 +522,6 @@
             .<span class="ident">finish</span>()
     }
 }
-
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">ValueType</span> <span class="kw">for</span> <span class="ident">__wasi_filestat_t</span> {}
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">wasi_filetype_to_name</span>(<span class="ident">ft</span>: <span class="ident">__wasi_filetype_t</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span> {
     <span class="kw">match</span> <span class="ident">ft</span> {

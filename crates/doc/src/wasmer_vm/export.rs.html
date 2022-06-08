@@ -234,8 +234,6 @@
 <span id="232">232</span>
 <span id="233">233</span>
 <span id="234">234</span>
-<span id="235">235</span>
-<span id="236">236</span>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
 
@@ -244,7 +242,6 @@
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::memory::Memory</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::table::Table</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::vmcontext</span>::{<span class="ident">VMFunctionBody</span>, <span class="ident">VMFunctionEnvironment</span>, <span class="ident">VMFunctionKind</span>, <span class="ident">VMTrampoline</span>};
-<span class="kw">use</span> <span class="ident">loupe::MemoryUsage</span>;
 <span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">FunctionType</span>, <span class="ident">MemoryStyle</span>, <span class="ident">MemoryType</span>, <span class="ident">TableStyle</span>, <span class="ident">TableType</span>};
 
@@ -265,7 +262,7 @@
 }
 
 <span class="doccomment">/// A function export value.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">MemoryUsage</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Debug</span>, <span class="ident">PartialEq</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">VMFunction</span> {
     <span class="doccomment">/// The address of the native-code function.</span>
     <span class="kw">pub</span> <span class="ident">address</span>: <span class="kw-2">*const</span> <span class="ident">VMFunctionBody</span>,
@@ -285,7 +282,6 @@
     <span class="doccomment">///</span>
     <span class="doccomment">/// May be `None` when the function is a host function (`FunctionType`</span>
     <span class="doccomment">/// == `Dynamic` or `vmctx` == `nullptr`).</span>
-    <span class="attribute">#[<span class="ident">loupe</span>(<span class="ident">skip</span>)]</span>
     <span class="kw">pub</span> <span class="ident">call_trampoline</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">VMTrampoline</span><span class="op">&gt;</span>,
 
     <span class="doccomment">/// A “reference” to the instance through the</span>
@@ -319,7 +315,7 @@
 }
 
 <span class="doccomment">/// A table export value.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Debug</span>, <span class="ident">MemoryUsage</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Debug</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">VMTable</span> {
     <span class="doccomment">/// Pointer to the containing `Table`.</span>
     <span class="kw">pub</span> <span class="ident">from</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Table</span><span class="op">&gt;</span>,
@@ -374,7 +370,7 @@
 }
 
 <span class="doccomment">/// A memory export value.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">MemoryUsage</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">VMMemory</span> {
     <span class="doccomment">/// Pointer to the containing `Memory`.</span>
     <span class="kw">pub</span> <span class="ident">from</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Memory</span><span class="op">&gt;</span>,
@@ -429,7 +425,7 @@
 }
 
 <span class="doccomment">/// A global export value.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">MemoryUsage</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">VMGlobal</span> {
     <span class="doccomment">/// The global declaration, used for compatibility checking.</span>
     <span class="kw">pub</span> <span class="ident">from</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">Global</span><span class="op">&gt;</span>,

@@ -144,14 +144,14 @@
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_types::LibCall</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_types::MemoryStyle</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_types::TableStyle</span>;
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_types::VMExternRef</span>;
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">TargetSharedSignatureIndex</span>, <span class="ident">VMBuiltinFunctionIndex</span>, <span class="ident">VMOffsets</span>};
+
 <span class="attribute">#[<span class="ident">deprecated</span>(
     <span class="ident">since</span> <span class="op">=</span> <span class="string">&quot;2.1.0&quot;</span>,
     <span class="ident">note</span> <span class="op">=</span> <span class="string">&quot;ModuleInfo, ExportsIterator, ImportsIterator should be imported from wasmer_types.&quot;</span>
 )]</span>
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">ExportsIterator</span>, <span class="ident">ImportsIterator</span>, <span class="ident">ModuleInfo</span>};
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_types</span>::{
-    <span class="ident">TargetSharedSignatureIndex</span>, <span class="ident">VMBuiltinFunctionIndex</span>, <span class="ident">VMExternRef</span>, <span class="ident">VMOffsets</span>,
-};
 
 <span class="doccomment">/// Version number of this crate.</span>
 <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">VERSION</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="macro">env!</span>(<span class="string">&quot;CARGO_PKG_VERSION&quot;</span>);

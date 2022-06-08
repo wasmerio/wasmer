@@ -455,8 +455,6 @@
 <span id="453">453</span>
 <span id="454">454</span>
 <span id="455">455</span>
-<span id="456">456</span>
-<span id="457">457</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Support for compiling with Cranelift.</span>
 
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::address_map::get_function_address_map</span>;
@@ -477,7 +475,6 @@
 <span class="kw">use</span> <span class="ident">cranelift_codegen</span>::{<span class="ident">Context</span>, <span class="ident">MachTrap</span>};
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unwind&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">gimli::write</span>::{<span class="ident">Address</span>, <span class="ident">EhFrame</span>, <span class="ident">FrameTable</span>};
-<span class="kw">use</span> <span class="ident">loupe::MemoryUsage</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;rayon&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">rayon::prelude</span>::{<span class="ident">IntoParallelRefIterator</span>, <span class="ident">ParallelIterator</span>};
 <span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
@@ -497,7 +494,6 @@
 
 <span class="doccomment">/// A compiler that compiles a WebAssembly module with Cranelift, translating the Wasm to Cranelift IR,</span>
 <span class="doccomment">/// optimizing it and then translating to assembly.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">MemoryUsage</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">CraneliftCompiler</span> {
     <span class="ident">config</span>: <span class="ident">Cranelift</span>,
 }

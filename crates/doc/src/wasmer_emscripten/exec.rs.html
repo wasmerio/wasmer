@@ -51,40 +51,36 @@
 <span id="49">49</span>
 <span id="50">50</span>
 <span id="51">51</span>
-<span id="52">52</span>
-<span id="53">53</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::varargs::VarArgs</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::EmEnv</span>;
 <span class="kw">use</span> <span class="ident">libc::execvp</span> <span class="kw">as</span> <span class="ident">libc_execvp</span>;
-<span class="kw">use</span> <span class="ident">std::cell::Cell</span>;
 <span class="kw">use</span> <span class="ident">std::ffi::CString</span>;
+<span class="kw">use</span> <span class="ident">wasmer::WasmPtr</span>;
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">execvp</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">command_name_offset</span>: <span class="ident">u32</span>, <span class="ident">argv_offset</span>: <span class="ident">u32</span>) -&gt; <span class="ident">i32</span> {
     <span class="comment">// a single reference to re-use</span>
     <span class="kw">let</span> <span class="ident">emscripten_memory</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">memory</span>(<span class="number">0</span>);
 
     <span class="comment">// read command name as string</span>
-    <span class="kw">let</span> <span class="ident">command_name_string_vec</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">emscripten_memory</span>.<span class="ident">view</span>()
-        [(<span class="ident">command_name_offset</span> <span class="kw">as</span> <span class="ident">usize</span>)..]
-        .<span class="ident">iter</span>()
-        .<span class="ident">map</span>(<span class="op">|</span><span class="ident">cell</span><span class="op">|</span> <span class="ident">cell</span>.<span class="ident">get</span>())
-        .<span class="ident">take_while</span>(<span class="op">|</span><span class="kw-2">&amp;</span><span class="ident">byte</span><span class="op">|</span> <span class="ident">byte</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span>)
-        .<span class="ident">collect</span>();
+    <span class="kw">let</span> <span class="ident">command_name_string_vec</span> <span class="op">=</span> <span class="ident">WasmPtr</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="ident">::new</span>(<span class="ident">command_name_offset</span>)
+        .<span class="ident">read_until</span>(<span class="kw-2">&amp;</span><span class="ident">emscripten_memory</span>, <span class="op">|</span><span class="kw-2">&amp;</span><span class="ident">byte</span><span class="op">|</span> <span class="ident">byte</span> <span class="op">==</span> <span class="number">0</span>)
+        .<span class="ident">unwrap</span>();
     <span class="kw">let</span> <span class="ident">command_name_string</span> <span class="op">=</span> <span class="ident">CString::new</span>(<span class="ident">command_name_string_vec</span>).<span class="ident">unwrap</span>();
 
     <span class="comment">// get the array of args</span>
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">argv</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="kw-2">*const</span> <span class="ident">i8</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">emscripten_memory</span>.<span class="ident">view</span>()[((<span class="ident">argv_offset</span> <span class="op">/</span> <span class="number">4</span>) <span class="kw">as</span> <span class="ident">usize</span>)..]
-        .<span class="ident">iter</span>()
-        .<span class="ident">map</span>(<span class="op">|</span><span class="ident">cell</span>: <span class="kw-2">&amp;</span><span class="ident">Cell</span><span class="op">&lt;</span><span class="ident">u32</span><span class="op">&gt;</span><span class="op">|</span> <span class="ident">cell</span>.<span class="ident">get</span>())
-        .<span class="ident">take_while</span>(<span class="op">|</span><span class="kw-2">&amp;</span><span class="ident">byte</span><span class="op">|</span> <span class="ident">byte</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span>)
-        .<span class="ident">map</span>(<span class="op">|</span><span class="ident">offset</span><span class="op">|</span> {
-            <span class="kw">let</span> <span class="ident">p</span>: <span class="kw-2">*const</span> <span class="ident">i8</span> <span class="op">=</span> (<span class="ident">emscripten_memory</span>.<span class="ident">view</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>()[(<span class="ident">offset</span> <span class="kw">as</span> <span class="ident">usize</span>)..])
-                .<span class="ident">iter</span>()
-                .<span class="ident">map</span>(<span class="op">|</span><span class="ident">cell</span><span class="op">|</span> <span class="ident">cell</span>.<span class="ident">as_ptr</span>() <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">i8</span>)
-                .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw-2">*const</span> <span class="ident">i8</span><span class="op">&gt;</span><span class="op">&gt;</span>()[<span class="number">0</span>];
-            <span class="ident">p</span>
+    <span class="kw">let</span> <span class="ident">argv</span> <span class="op">=</span> <span class="ident">WasmPtr</span>::<span class="op">&lt;</span><span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::new</span>(<span class="ident">argv_offset</span>)
+        .<span class="ident">read_until</span>(<span class="kw-2">&amp;</span><span class="ident">emscripten_memory</span>, <span class="op">|</span><span class="kw-2">&amp;</span><span class="ident">ptr</span><span class="op">|</span> <span class="ident">ptr</span>.<span class="ident">is_null</span>())
+        .<span class="ident">unwrap</span>();
+    <span class="kw">let</span> <span class="ident">arg_strings</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">CString</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">argv</span>
+        .<span class="ident">into_iter</span>()
+        .<span class="ident">map</span>(<span class="op">|</span><span class="ident">ptr</span><span class="op">|</span> {
+            <span class="kw">let</span> <span class="ident">vec</span> <span class="op">=</span> <span class="ident">ptr</span>
+                .<span class="ident">read_until</span>(<span class="kw-2">&amp;</span><span class="ident">emscripten_memory</span>, <span class="op">|</span><span class="kw-2">&amp;</span><span class="ident">byte</span><span class="op">|</span> <span class="ident">byte</span> <span class="op">==</span> <span class="number">0</span>)
+                .<span class="ident">unwrap</span>();
+            <span class="ident">CString::new</span>(<span class="ident">vec</span>).<span class="ident">unwrap</span>()
         })
         .<span class="ident">collect</span>();
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">argv</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="kw-2">*const</span> <span class="ident">i8</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">arg_strings</span>.<span class="ident">iter</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">s</span><span class="op">|</span> <span class="ident">s</span>.<span class="ident">as_ptr</span>()).<span class="ident">collect</span>();
 
     <span class="comment">// push a nullptr on to the end of the args array</span>
     <span class="ident">argv</span>.<span class="ident">push</span>(<span class="ident">std::ptr::null</span>());

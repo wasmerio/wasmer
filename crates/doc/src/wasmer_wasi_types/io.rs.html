@@ -15,29 +15,21 @@
 <span id="13">13</span>
 <span id="14">14</span>
 <span id="15">15</span>
-<span id="16">16</span>
-<span id="17">17</span>
-<span id="18">18</span>
-<span id="19">19</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">wasmer_types::ValueType</span>;
+</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">wasmer_derive::ValueType</span>;
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">ValueType</span>)]</span>
 <span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">__wasi_ciovec_t</span> {
     <span class="kw">pub</span> <span class="ident">buf</span>: <span class="ident">u32</span>,
     <span class="kw">pub</span> <span class="ident">buf_len</span>: <span class="ident">u32</span>,
 }
 
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">ValueType</span> <span class="kw">for</span> <span class="ident">__wasi_ciovec_t</span> {}
-
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">ValueType</span>)]</span>
 <span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">__wasi_iovec_t</span> {
     <span class="kw">pub</span> <span class="ident">buf</span>: <span class="ident">u32</span>,
     <span class="kw">pub</span> <span class="ident">buf_len</span>: <span class="ident">u32</span>,
 }
-
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">ValueType</span> <span class="kw">for</span> <span class="ident">__wasi_iovec_t</span> {}
 </code></pre></div>
 </section><section id="search" class="content hidden"></section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_wasi_types" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.59.0 (9d1b2106e 2022-02-23)" ></div>
 </body></html>

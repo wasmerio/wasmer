@@ -356,8 +356,6 @@
 <span id="354">354</span>
 <span id="355">355</span>
 <span id="356">356</span>
-<span id="357">357</span>
-<span id="358">358</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Support for compiling with Singlepass.</span>
 <span class="comment">// Allow unused imports while developing.</span>
 <span class="attribute">#![<span class="ident">allow</span>(<span class="ident">unused_imports</span>, <span class="ident">dead_code</span>)]</span>
@@ -376,7 +374,6 @@
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::unwind</span>::{<span class="ident">create_systemv_cie</span>, <span class="ident">UnwindFrame</span>};
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unwind&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">gimli::write</span>::{<span class="ident">EhFrame</span>, <span class="ident">FrameTable</span>};
-<span class="kw">use</span> <span class="ident">loupe::MemoryUsage</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;rayon&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">rayon::prelude</span>::{<span class="ident">IntoParallelIterator</span>, <span class="ident">ParallelIterator</span>};
 <span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
@@ -395,7 +392,6 @@
 
 <span class="doccomment">/// A compiler that compiles a WebAssembly module with Singlepass.</span>
 <span class="doccomment">/// It does the compilation in one pass</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">MemoryUsage</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">SinglepassCompiler</span> {
     <span class="ident">config</span>: <span class="ident">Singlepass</span>,
 }

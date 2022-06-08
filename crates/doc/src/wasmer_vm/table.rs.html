@@ -402,13 +402,6 @@
 <span id="400">400</span>
 <span id="401">401</span>
 <span id="402">402</span>
-<span id="403">403</span>
-<span id="404">404</span>
-<span id="405">405</span>
-<span id="406">406</span>
-<span id="407">407</span>
-<span id="408">408</span>
-<span id="409">409</span>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
 
@@ -420,7 +413,6 @@
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::vmcontext::VMTableDefinition</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::Trap</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::VMExternRef</span>;
-<span class="kw">use</span> <span class="ident">loupe</span>::{<span class="ident">MemoryUsage</span>, <span class="ident">MemoryUsageTracker</span>};
 <span class="kw">use</span> <span class="ident">std::borrow</span>::{<span class="ident">Borrow</span>, <span class="ident">BorrowMut</span>};
 <span class="kw">use</span> <span class="ident">std::cell::UnsafeCell</span>;
 <span class="kw">use</span> <span class="ident">std::convert::TryFrom</span>;
@@ -430,7 +422,7 @@
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">ExternRef</span>, <span class="ident">TableStyle</span>, <span class="ident">TableType</span>, <span class="ident">TrapCode</span>, <span class="ident">Type</span> <span class="kw">as</span> <span class="ident">ValType</span>};
 
 <span class="doccomment">/// Trait for implementing the interface of a Wasm table.</span>
-<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">Table</span>: <span class="ident">fmt::Debug</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="ident">MemoryUsage</span> {
+<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">Table</span>: <span class="ident">fmt::Debug</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> {
     <span class="doccomment">/// Returns the style for this Table.</span>
     <span class="kw">fn</span> <span class="ident">style</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">TableStyle</span>;
 
@@ -545,12 +537,6 @@
     <span class="macro">assert_eq!</span>(<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">RawTableElement</span><span class="op">&gt;</span>(), <span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">VMFuncRef</span><span class="op">&gt;</span>());
 }
 
-<span class="kw">impl</span> <span class="ident">MemoryUsage</span> <span class="kw">for</span> <span class="ident">RawTableElement</span> {
-    <span class="kw">fn</span> <span class="ident">size_of_val</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;mut</span> <span class="kw">dyn</span> <span class="ident">MemoryUsageTracker</span>) -&gt; <span class="ident">usize</span> {
-        <span class="ident">std::mem::size_of_val</span>(<span class="self">self</span>)
-    }
-}
-
 <span class="kw">impl</span> <span class="ident">fmt::Debug</span> <span class="kw">for</span> <span class="ident">RawTableElement</span> {
     <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">fmt::Formatter</span>) -&gt; <span class="ident">fmt::Result</span> {
         <span class="ident">f</span>.<span class="ident">debug_struct</span>(<span class="string">&quot;RawTableElement&quot;</span>).<span class="ident">finish</span>()
@@ -572,7 +558,7 @@
 }
 
 <span class="doccomment">/// A table instance.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">MemoryUsage</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">LinearTable</span> {
     <span class="comment">// TODO: we can remove the mutex by using atomic swaps and preallocating the max table size</span>
     <span class="ident">vec</span>: <span class="ident">Mutex</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">RawTableElement</span><span class="op">&gt;</span><span class="op">&gt;</span>,
@@ -586,7 +572,7 @@
 
 <span class="doccomment">/// A type to help manage who is responsible for the backing table of the</span>
 <span class="doccomment">/// `VMTableDefinition`.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">MemoryUsage</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
 <span class="kw">enum</span> <span class="ident">VMTableDefinitionOwnership</span> {
     <span class="doccomment">/// The `VMTableDefinition` is owned by the `Instance` and we should use</span>
     <span class="doccomment">/// its table. This is how a local table that&#39;s exported should be stored.</span>

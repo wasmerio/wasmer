@@ -160,10 +160,8 @@
 <span id="158">158</span>
 <span id="159">159</span>
 <span id="160">160</span>
-<span id="161">161</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">DeserializeError</span>, <span class="ident">SerializeError</span>};
 <span class="kw">use</span> <span class="ident">enumset::EnumSet</span>;
-<span class="kw">use</span> <span class="ident">loupe::MemoryUsage</span>;
 <span class="kw">use</span> <span class="ident">std::any::Any</span>;
 <span class="kw">use</span> <span class="ident">std::convert::TryInto</span>;
 <span class="kw">use</span> <span class="ident">std::path::Path</span>;
@@ -181,7 +179,7 @@
 <span class="doccomment">/// The `Artifact` contains the compiled data for a given</span>
 <span class="doccomment">/// module as well as extra information needed to run the</span>
 <span class="doccomment">/// module at runtime, such as [`ModuleInfo`] and [`Features`].</span>
-<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">ArtifactCreate</span>: <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="ident">Upcastable</span> <span class="op">+</span> <span class="ident">MemoryUsage</span> {
+<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">ArtifactCreate</span>: <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="ident">Upcastable</span> {
     <span class="doccomment">/// Return a reference-counted pointer to the module</span>
     <span class="kw">fn</span> <span class="ident">module</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">ModuleInfo</span><span class="op">&gt;</span>;
 

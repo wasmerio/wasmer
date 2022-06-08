@@ -5,12 +5,10 @@
 <span id="3">3</span>
 <span id="4">4</span>
 <span id="5">5</span>
-<span id="6">6</span>
 </pre><pre class="rust"><code><span class="macro">macro_rules!</span> <span class="ident">emscripten_memory_pointer</span> {
-    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">memory</span>:<span class="ident">expr</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">pointer</span>:<span class="ident">expr</span>) =&gt; {{
-        <span class="kw">use</span> <span class="ident">std::cell::Cell</span>;
-        (<span class="kw-2">&amp;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">memory</span>.<span class="ident">view</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>()[(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">pointer</span> <span class="kw">as</span> <span class="ident">usize</span>)..]).<span class="ident">as_ptr</span>() <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">Cell</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span> <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">u8</span>
-    }};
+    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">memory</span>:<span class="ident">expr</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">pointer</span>:<span class="ident">expr</span>) =&gt; {
+        <span class="macro-nonterminal">$</span><span class="macro-nonterminal">memory</span>.<span class="ident">data_ptr</span>().<span class="ident">wrapping_add</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">pointer</span> <span class="kw">as</span> <span class="ident">usize</span>)
+    };
 }
 </code></pre></div>
 </section><section id="search" class="content hidden"></section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_emscripten" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.59.0 (9d1b2106e 2022-02-23)" ></div>

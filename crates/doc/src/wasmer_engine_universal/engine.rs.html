@@ -303,14 +303,9 @@
 <span id="301">301</span>
 <span id="302">302</span>
 <span id="303">303</span>
-<span id="304">304</span>
-<span id="305">305</span>
-<span id="306">306</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Universal compilation.</span>
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::CodeMemory</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::UniversalArtifact</span>;
-<span class="kw">use</span> <span class="ident">loupe::MemoryUsage</span>;
+<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">CodeMemory</span>, <span class="ident">UniversalArtifact</span>};
 <span class="kw">use</span> <span class="ident">std::sync</span>::{<span class="ident">Arc</span>, <span class="ident">Mutex</span>};
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">wasmer_compiler::Compiler</span>;
@@ -329,7 +324,7 @@
 };
 
 <span class="doccomment">/// A WebAssembly `Universal` Engine.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">MemoryUsage</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">UniversalEngine</span> {
     <span class="ident">inner</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">Mutex</span><span class="op">&lt;</span><span class="ident">UniversalEngineInner</span><span class="op">&gt;</span><span class="op">&gt;</span>,
     <span class="doccomment">/// The target for the compiler</span>
@@ -454,7 +449,6 @@
 }
 
 <span class="doccomment">/// The inner contents of `UniversalEngine`</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">MemoryUsage</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">UniversalEngineInner</span> {
     <span class="doccomment">/// The builder (include compiler and cpu features)</span>
     <span class="ident">builder</span>: <span class="ident">UniversalEngineBuilder</span>,

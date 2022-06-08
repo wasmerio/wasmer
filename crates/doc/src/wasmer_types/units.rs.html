@@ -185,11 +185,9 @@
 <span id="183">183</span>
 <span id="184">184</span>
 <span id="185">185</span>
-<span id="186">186</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::lib::std::convert::TryFrom</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::lib::std::fmt</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::lib::std::ops</span>::{<span class="ident">Add</span>, <span class="ident">Sub</span>};
-<span class="kw">use</span> <span class="ident">loupe::MemoryUsage</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-rkyv&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">rkyv</span>::{<span class="ident">Archive</span>, <span class="ident">Deserialize</span> <span class="kw">as</span> <span class="ident">RkyvDeserialize</span>, <span class="ident">Serialize</span> <span class="kw">as</span> <span class="ident">RkyvSerialize</span>};
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>)]</span>
@@ -210,7 +208,7 @@
 <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">WASM_MIN_PAGES</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0x100</span>;
 
 <span class="doccomment">/// Units of WebAssembly pages (as specified to be 65,536 bytes).</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">PartialOrd</span>, <span class="ident">Ord</span>, <span class="ident">Hash</span>, <span class="ident">MemoryUsage</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">PartialOrd</span>, <span class="ident">Ord</span>, <span class="ident">Hash</span>)]</span>
 <span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>))]</span>
 <span class="attribute">#[<span class="ident">cfg_attr</span>(
     <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-rkyv&quot;</span>,

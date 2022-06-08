@@ -191,15 +191,12 @@
 <span id="189">189</span>
 <span id="190">190</span>
 <span id="191">191</span>
-<span id="192">192</span>
-<span id="193">193</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::exports</span>::{<span class="ident">ExportError</span>, <span class="ident">Exportable</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::externals::Extern</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::store::Store</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::types</span>::{<span class="ident">Val</span>, <span class="ident">ValFuncRef</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::RuntimeError</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::TableType</span>;
-<span class="kw">use</span> <span class="ident">loupe::MemoryUsage</span>;
 <span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
 <span class="kw">use</span> <span class="ident">wasmer_engine::Export</span>;
 <span class="kw">use</span> <span class="ident">wasmer_vm</span>::{<span class="ident">Table</span> <span class="kw">as</span> <span class="ident">RuntimeTable</span>, <span class="ident">TableElement</span>, <span class="ident">VMTable</span>};
@@ -213,7 +210,6 @@
 <span class="doccomment">/// mutable from both host and WebAssembly.</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// Spec: &lt;https://webassembly.github.io/spec/core/exec/runtime.html#table-instances&gt;</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">MemoryUsage</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Table</span> {
     <span class="ident">store</span>: <span class="ident">Store</span>,
     <span class="ident">vm_table</span>: <span class="ident">VMTable</span>,

@@ -128,12 +128,20 @@
 <span id="126">126</span>
 <span id="127">127</span>
 <span id="128">128</span>
-</pre><pre class="rust"><code><span class="kw">mod</span> <span class="ident">cell</span>;
-<span class="kw">mod</span> <span class="ident">env</span>;
+<span id="129">129</span>
+<span id="130">130</span>
+<span id="131">131</span>
+<span id="132">132</span>
+<span id="133">133</span>
+<span id="134">134</span>
+<span id="135">135</span>
+<span id="136">136</span>
+</pre><pre class="rust"><code><span class="kw">mod</span> <span class="ident">env</span>;
 <span class="kw">mod</span> <span class="ident">exports</span>;
 <span class="kw">mod</span> <span class="ident">externals</span>;
-<span class="kw">mod</span> <span class="ident">import_object</span>;
+<span class="kw">mod</span> <span class="ident">imports</span>;
 <span class="kw">mod</span> <span class="ident">instance</span>;
+<span class="kw">mod</span> <span class="ident">mem_access</span>;
 <span class="kw">mod</span> <span class="ident">module</span>;
 <span class="kw">mod</span> <span class="ident">native</span>;
 <span class="kw">mod</span> <span class="ident">ptr</span>;
@@ -156,17 +164,18 @@
     <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::externals</span>::{<span class="ident">WithEnv</span>, <span class="ident">WithoutEnv</span>};
 }
 
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::cell::WasmCell</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::env</span>::{<span class="ident">HostEnvInitError</span>, <span class="ident">LazyInit</span>, <span class="ident">WasmerEnv</span>};
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::exports</span>::{<span class="ident">ExportError</span>, <span class="ident">Exportable</span>, <span class="ident">Exports</span>, <span class="ident">ExportsIterator</span>};
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::externals</span>::{
     <span class="ident">Extern</span>, <span class="ident">FromToNativeWasmType</span>, <span class="ident">Function</span>, <span class="ident">Global</span>, <span class="ident">HostFunction</span>, <span class="ident">Memory</span>, <span class="ident">Table</span>, <span class="ident">WasmTypeList</span>,
 };
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::import_object</span>::{<span class="ident">ImportObject</span>, <span class="ident">ImportObjectIterator</span>, <span class="ident">LikeNamespace</span>};
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::imports::Imports</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::instance</span>::{<span class="ident">Instance</span>, <span class="ident">InstantiationError</span>};
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::mem_access</span>::{<span class="ident">MemoryAccessError</span>, <span class="ident">WasmRef</span>, <span class="ident">WasmSlice</span>, <span class="ident">WasmSliceIter</span>};
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::module::Module</span>;
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::native::NativeFunc</span>;
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::ptr</span>::{<span class="ident">Array</span>, <span class="ident">Item</span>, <span class="ident">WasmPtr</span>};
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::native::TypedFunction</span>;
+
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::ptr</span>::{<span class="ident">Memory32</span>, <span class="ident">Memory64</span>, <span class="ident">MemorySize</span>, <span class="ident">WasmPtr</span>, <span class="ident">WasmPtr64</span>};
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::store</span>::{<span class="ident">Store</span>, <span class="ident">StoreObject</span>};
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::tunables::BaseTunables</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::types</span>::{
@@ -183,16 +192,16 @@
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{
     <span class="ident">CompileError</span>, <span class="ident">CpuFeature</span>, <span class="ident">Features</span>, <span class="ident">ParseCpuFeatureError</span>, <span class="ident">Target</span>, <span class="ident">WasmError</span>, <span class="ident">WasmResult</span>,
 };
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_derive::ValueType</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_engine</span>::{
-    <span class="ident">ChainableNamedResolver</span>, <span class="ident">DeserializeError</span>, <span class="ident">Engine</span>, <span class="ident">Export</span>, <span class="ident">FrameInfo</span>, <span class="ident">LinkError</span>, <span class="ident">NamedResolver</span>,
-    <span class="ident">NamedResolverChain</span>, <span class="ident">Resolver</span>, <span class="ident">RuntimeError</span>, <span class="ident">SerializeError</span>, <span class="ident">Tunables</span>,
+    <span class="ident">DeserializeError</span>, <span class="ident">Engine</span>, <span class="ident">Export</span>, <span class="ident">FrameInfo</span>, <span class="ident">LinkError</span>, <span class="ident">RuntimeError</span>, <span class="ident">SerializeError</span>, <span class="ident">Tunables</span>,
 };
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_types::is_wasm</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;experimental-reference-types-extern-ref&quot;</span>)]</span>
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_types::ExternRef</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_types</span>::{
-    <span class="ident">Atomically</span>, <span class="ident">Bytes</span>, <span class="ident">ExportIndex</span>, <span class="ident">GlobalInit</span>, <span class="ident">LocalFunctionIndex</span>, <span class="ident">MemoryView</span>, <span class="ident">Pages</span>, <span class="ident">ValueType</span>,
-    <span class="ident">WASM_MAX_PAGES</span>, <span class="ident">WASM_MIN_PAGES</span>, <span class="ident">WASM_PAGE_SIZE</span>,
+    <span class="ident">Bytes</span>, <span class="ident">ExportIndex</span>, <span class="ident">GlobalInit</span>, <span class="ident">LocalFunctionIndex</span>, <span class="ident">Pages</span>, <span class="ident">ValueType</span>, <span class="ident">WASM_MAX_PAGES</span>,
+    <span class="ident">WASM_MIN_PAGES</span>, <span class="ident">WASM_PAGE_SIZE</span>,
 };
 
 <span class="comment">// TODO: should those be moved into wasmer::vm as well?</span>
@@ -256,6 +265,13 @@ let store = Store::new(&amp;engine);
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;native&quot;</span>)]</span>
 <span class="attribute">#[<span class="ident">deprecated</span>(<span class="ident">since</span> <span class="op">=</span> <span class="string">&quot;2.0.0&quot;</span>, <span class="ident">note</span> <span class="op">=</span> <span class="string">&quot;Please use the `native` feature instead&quot;</span>)]</span>
 <span class="kw">pub</span> <span class="kw">type</span> <span class="ident">Native</span> <span class="op">=</span> <span class="ident">Dylib</span>;
+
+<span class="doccomment">/// This type is deprecated, it has been replaced by TypedFunction.</span>
+<span class="attribute">#[<span class="ident">deprecated</span>(
+    <span class="ident">since</span> <span class="op">=</span> <span class="string">&quot;3.0.0&quot;</span>,
+    <span class="ident">note</span> <span class="op">=</span> <span class="string">&quot;NativeFunc has been replaced by TypedFunction&quot;</span>
+)]</span>
+<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">NativeFunc</span><span class="op">&lt;</span><span class="ident">Args</span> <span class="op">=</span> (), <span class="ident">Rets</span> <span class="op">=</span> ()<span class="op">&gt;</span> <span class="op">=</span> <span class="ident">TypedFunction</span><span class="op">&lt;</span><span class="ident">Args</span>, <span class="ident">Rets</span><span class="op">&gt;</span>;
 </code></pre></div>
 </section><section id="search" class="content hidden"></section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.59.0 (9d1b2106e 2022-02-23)" ></div>
 </body></html>

@@ -909,9 +909,6 @@
 <span id="907">907</span>
 <span id="908">908</span>
 <span id="909">909</span>
-<span id="910">910</span>
-<span id="911">911</span>
-<span id="912">912</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Define `DylibArtifact` to allow compiling and instantiating</span>
 <span class="doccomment">//! to be done as separate steps.</span>
 
@@ -920,7 +917,6 @@
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::trampoline</span>::{<span class="ident">emit_trampolines</span>, <span class="ident">fill_trampoline_table</span>, <span class="ident">WASMER_TRAMPOLINES_SYMBOL</span>};
 <span class="kw">use</span> <span class="ident">enumset::EnumSet</span>;
 <span class="kw">use</span> <span class="ident">libloading</span>::{<span class="ident">Library</span>, <span class="ident">Symbol</span> <span class="kw">as</span> <span class="ident">LibrarySymbol</span>};
-<span class="kw">use</span> <span class="ident">loupe::MemoryUsage</span>;
 <span class="kw">use</span> <span class="ident">object</span>::{<span class="ident">write::CoffExportStyle</span>, <span class="ident">BinaryFormat</span>};
 <span class="kw">use</span> <span class="ident">std::error::Error</span>;
 <span class="kw">use</span> <span class="ident">std::fs</span>::{<span class="self">self</span>, <span class="ident">File</span>};
@@ -964,13 +960,11 @@
 };
 
 <span class="doccomment">/// A compiled Wasm module, ready to be instantiated.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">MemoryUsage</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">DylibArtifact</span> {
     <span class="ident">dylib_path</span>: <span class="ident">PathBuf</span>,
     <span class="ident">is_temporary</span>: <span class="ident">bool</span>,
     <span class="ident">metadata</span>: <span class="ident">ModuleMetadata</span>,
     <span class="ident">finished_functions</span>: <span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">FunctionBodyPtr</span><span class="op">&gt;</span>,
-    <span class="attribute">#[<span class="ident">loupe</span>(<span class="ident">skip</span>)]</span>
     <span class="ident">finished_function_call_trampolines</span>: <span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">SignatureIndex</span>, <span class="ident">VMTrampoline</span><span class="op">&gt;</span>,
     <span class="ident">finished_dynamic_function_trampolines</span>: <span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">FunctionIndex</span>, <span class="ident">FunctionBodyPtr</span><span class="op">&gt;</span>,
     <span class="ident">func_data_registry</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">FuncDataRegistry</span><span class="op">&gt;</span>,

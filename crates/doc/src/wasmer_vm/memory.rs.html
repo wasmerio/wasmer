@@ -368,21 +368,6 @@
 <span id="366">366</span>
 <span id="367">367</span>
 <span id="368">368</span>
-<span id="369">369</span>
-<span id="370">370</span>
-<span id="371">371</span>
-<span id="372">372</span>
-<span id="373">373</span>
-<span id="374">374</span>
-<span id="375">375</span>
-<span id="376">376</span>
-<span id="377">377</span>
-<span id="378">378</span>
-<span id="379">379</span>
-<span id="380">380</span>
-<span id="381">381</span>
-<span id="382">382</span>
-<span id="383">383</span>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
 
@@ -392,7 +377,6 @@
 
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::mmap::Mmap</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::vmcontext::VMMemoryDefinition</span>;
-<span class="kw">use</span> <span class="ident">loupe::MemoryUsage</span>;
 <span class="kw">use</span> <span class="ident">more_asserts::assert_ge</span>;
 <span class="kw">use</span> <span class="ident">std::borrow::BorrowMut</span>;
 <span class="kw">use</span> <span class="ident">std::cell::UnsafeCell</span>;
@@ -446,7 +430,7 @@
 }
 
 <span class="doccomment">/// Trait for implementing Wasm Memory used by Wasmer.</span>
-<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">Memory</span>: <span class="ident">fmt::Debug</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="ident">MemoryUsage</span> {
+<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">Memory</span>: <span class="ident">fmt::Debug</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> {
     <span class="doccomment">/// Returns the memory type for this memory.</span>
     <span class="kw">fn</span> <span class="ident">ty</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">MemoryType</span>;
 
@@ -466,7 +450,7 @@
 }
 
 <span class="doccomment">/// A linear memory instance.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">MemoryUsage</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">LinearMemory</span> {
     <span class="comment">// The underlying allocation.</span>
     <span class="ident">mmap</span>: <span class="ident">Mutex</span><span class="op">&lt;</span><span class="ident">WasmMmap</span><span class="op">&gt;</span>,
@@ -486,15 +470,11 @@
 
     <span class="doccomment">/// The owned memory definition used by the generated code</span>
     <span class="ident">vm_memory_definition</span>: <span class="ident">VMMemoryDefinitionOwnership</span>,
-
-    <span class="comment">// Records whether we&#39;re using a bounds-checking strategy which requires</span>
-    <span class="comment">// handlers to catch trapping accesses.</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">needs_signal_handlers</span>: <span class="ident">bool</span>,
 }
 
 <span class="doccomment">/// A type to help manage who is responsible for the backing memory of them</span>
 <span class="doccomment">/// `VMMemoryDefinition`.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">MemoryUsage</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
 <span class="kw">enum</span> <span class="ident">VMMemoryDefinitionOwnership</span> {
     <span class="doccomment">/// The `VMMemoryDefinition` is owned by the `Instance` and we should use</span>
     <span class="doccomment">/// its memory. This is how a local memory that&#39;s exported should be stored.</span>
@@ -517,7 +497,7 @@
 <span class="doccomment">/// This is correct because all internal mutability is protected by a mutex.</span>
 <span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">Sync</span> <span class="kw">for</span> <span class="ident">LinearMemory</span> {}
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">MemoryUsage</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
 <span class="kw">struct</span> <span class="ident">WasmMmap</span> {
     <span class="comment">// Our OS allocation of mmap&#39;d memory.</span>
     <span class="ident">alloc</span>: <span class="ident">Mmap</span>,
@@ -581,15 +561,6 @@
 
         <span class="kw">let</span> <span class="ident">offset_guard_bytes</span> <span class="op">=</span> <span class="ident">style</span>.<span class="ident">offset_guard_size</span>() <span class="kw">as</span> <span class="ident">usize</span>;
 
-        <span class="comment">// If we have an offset guard, or if we&#39;re doing the static memory</span>
-        <span class="comment">// allocation strategy, we need signal handlers to catch out of bounds</span>
-        <span class="comment">// acceses.</span>
-        <span class="kw">let</span> <span class="ident">needs_signal_handlers</span> <span class="op">=</span> <span class="ident">offset_guard_bytes</span> <span class="op">&gt;</span> <span class="number">0</span>
-            <span class="op">|</span><span class="op">|</span> <span class="kw">match</span> <span class="ident">style</span> {
-                <span class="ident">MemoryStyle::Dynamic</span> { .. } =&gt; <span class="bool-val">false</span>,
-                <span class="ident">MemoryStyle::Static</span> { .. } =&gt; <span class="bool-val">true</span>,
-            };
-
         <span class="kw">let</span> <span class="ident">minimum_pages</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">style</span> {
             <span class="ident">MemoryStyle::Dynamic</span> { .. } =&gt; <span class="ident">memory</span>.<span class="ident">minimum</span>,
             <span class="ident">MemoryStyle::Static</span> { <span class="ident">bound</span>, .. } =&gt; {
@@ -614,7 +585,6 @@
             <span class="ident">mmap</span>: <span class="ident">Mutex::new</span>(<span class="ident">mmap</span>),
             <span class="ident">maximum</span>: <span class="ident">memory</span>.<span class="ident">maximum</span>,
             <span class="ident">offset_guard_size</span>: <span class="ident">offset_guard_bytes</span>,
-            <span class="ident">needs_signal_handlers</span>,
             <span class="ident">vm_memory_definition</span>: <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">mem_loc</span>) <span class="op">=</span> <span class="ident">vm_memory_location</span> {
                 {
                     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">ptr</span> <span class="op">=</span> <span class="ident">mem_loc</span>;

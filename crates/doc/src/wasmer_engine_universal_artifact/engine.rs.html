@@ -61,17 +61,13 @@
 <span id="59">59</span>
 <span id="60">60</span>
 <span id="61">61</span>
-<span id="62">62</span>
-<span id="63">63</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Universal compilation.</span>
 
-<span class="kw">use</span> <span class="ident">loupe::MemoryUsage</span>;
 <span class="kw">use</span> <span class="ident">wasmer_compiler::CompileError</span>;
 <span class="kw">use</span> <span class="ident">wasmer_compiler::Compiler</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types::Features</span>;
 
 <span class="doccomment">/// The Builder contents of `UniversalEngine`</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">MemoryUsage</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">UniversalEngineBuilder</span> {
     <span class="doccomment">/// The compiler</span>
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>

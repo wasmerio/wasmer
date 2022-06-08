@@ -36,6 +36,7 @@
 <span id="34">34</span>
 <span id="35">35</span>
 <span id="36">36</span>
+<span id="37">37</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Macros to simplify some common WASI-specific tasks.</span>
 
 <span class="doccomment">/// Like the `try!` macro or `?` syntax: returns the value if the computation</span>
@@ -60,16 +61,17 @@
     }};
 }
 
-<span class="doccomment">/// Reads a string from Wasm memory and returns the invalid argument error</span>
-<span class="doccomment">/// code if it fails.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Safety</span>
-<span class="doccomment">/// See the safety docs for [`wasmer::WasmPtr::get_utf8_str`]: the returned value</span>
-<span class="doccomment">/// points into Wasm memory and care must be taken that it does not get</span>
-<span class="doccomment">/// corrupted.</span>
+<span class="doccomment">/// Like `wasi_try` but converts a `MemoryAccessError` to a __wasi_errno_t`.</span>
+<span class="macro">macro_rules!</span> <span class="ident">wasi_try_mem</span> {
+    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">expr</span>:<span class="ident">expr</span>) =&gt; {{
+        <span class="macro">wasi_try!</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">expr</span>.<span class="ident">map_err</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">crate::mem_error_to_wasi</span>))
+    }};
+}
+
+<span class="doccomment">/// Reads a string from Wasm memory.</span>
 <span class="macro">macro_rules!</span> <span class="ident">get_input_str</span> {
     (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">memory</span>:<span class="ident">expr</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">data</span>:<span class="ident">expr</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">len</span>:<span class="ident">expr</span>) =&gt; {{
-        <span class="macro">wasi_try!</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">data</span>.<span class="ident">get_utf8_string</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">memory</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">len</span>), <span class="ident">__WASI_EINVAL</span>)
+        <span class="macro">wasi_try_mem!</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">data</span>.<span class="ident">read_utf8_string</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">memory</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">len</span>))
     }};
 }
 </code></pre></div>

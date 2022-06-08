@@ -276,9 +276,6 @@
 <span id="274">274</span>
 <span id="275">275</span>
 <span id="276">276</span>
-<span id="277">277</span>
-<span id="278">278</span>
-<span id="279">279</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">super</span>::env</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::env::get_emscripten_data</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::storage::align_memory</span>;
@@ -289,7 +286,7 @@
 <span class="kw">use</span> <span class="ident">std::os::raw::c_char</span>;
 <span class="kw">use</span> <span class="ident">std::path::PathBuf</span>;
 <span class="kw">use</span> <span class="ident">std::slice</span>;
-<span class="kw">use</span> <span class="ident">wasmer</span>::{<span class="ident">GlobalInit</span>, <span class="ident">Memory</span>, <span class="ident">Module</span>, <span class="ident">Pages</span>};
+<span class="kw">use</span> <span class="ident">wasmer</span>::{<span class="ident">GlobalInit</span>, <span class="ident">Memory</span>, <span class="ident">Module</span>, <span class="ident">Pages</span>, <span class="ident">WasmPtr</span>};
 
 <span class="doccomment">/// We check if a provided module is an Emscripten generated one</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_emscripten_module</span>(<span class="ident">module</span>: <span class="kw-2">&amp;</span><span class="ident">Module</span>) -&gt; <span class="ident">bool</span> {
@@ -495,12 +492,9 @@
 
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span> <span class="comment">// it&#39;s used in `env/windows/mod.rs`.</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">read_string_from_wasm</span>(<span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">Memory</span>, <span class="ident">offset</span>: <span class="ident">u32</span>) -&gt; <span class="ident">String</span> {
-    <span class="kw">let</span> <span class="ident">v</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">memory</span>.<span class="ident">view</span>()[(<span class="ident">offset</span> <span class="kw">as</span> <span class="ident">usize</span>)..]
-        .<span class="ident">iter</span>()
-        .<span class="ident">map</span>(<span class="op">|</span><span class="ident">cell</span><span class="op">|</span> <span class="ident">cell</span>.<span class="ident">get</span>())
-        .<span class="ident">take_while</span>(<span class="op">|</span><span class="kw-2">&amp;</span><span class="ident">byte</span><span class="op">|</span> <span class="ident">byte</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span>)
-        .<span class="ident">collect</span>();
-    <span class="ident">String::from_utf8_lossy</span>(<span class="kw-2">&amp;</span><span class="ident">v</span>).<span class="ident">to_owned</span>().<span class="ident">to_string</span>()
+    <span class="ident">WasmPtr</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="ident">::new</span>(<span class="ident">offset</span>)
+        .<span class="ident">read_utf8_string_with_nul</span>(<span class="ident">memory</span>)
+        .<span class="ident">unwrap</span>()
 }
 
 <span class="doccomment">/// This function trys to find an entry in mapdir</span>

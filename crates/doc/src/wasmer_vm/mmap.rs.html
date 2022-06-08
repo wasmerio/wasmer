@@ -298,22 +298,12 @@
 <span id="296">296</span>
 <span id="297">297</span>
 <span id="298">298</span>
-<span id="299">299</span>
-<span id="300">300</span>
-<span id="301">301</span>
-<span id="302">302</span>
-<span id="303">303</span>
-<span id="304">304</span>
-<span id="305">305</span>
-<span id="306">306</span>
-<span id="307">307</span>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
 
 <span class="doccomment">//! Low-level abstraction for allocating and managing zero-filled pages</span>
 <span class="doccomment">//! of memory.</span>
 
-<span class="kw">use</span> <span class="ident">loupe</span>::{<span class="ident">MemoryUsage</span>, <span class="ident">MemoryUsageTracker</span>};
 <span class="kw">use</span> <span class="ident">more_asserts::assert_le</span>;
 <span class="kw">use</span> <span class="ident">more_asserts::assert_lt</span>;
 <span class="kw">use</span> <span class="ident">std::io</span>;
@@ -586,14 +576,6 @@
             <span class="kw">let</span> <span class="ident">r</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">VirtualFree</span>(<span class="self">self</span>.<span class="ident">ptr</span> <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">c_void</span>, <span class="number">0</span>, <span class="ident">MEM_RELEASE</span>) };
             <span class="macro">assert_ne!</span>(<span class="ident">r</span>, <span class="number">0</span>);
         }
-    }
-}
-
-<span class="kw">impl</span> <span class="ident">MemoryUsage</span> <span class="kw">for</span> <span class="ident">Mmap</span> {
-    <span class="kw">fn</span> <span class="ident">size_of_val</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">tracker</span>: <span class="kw-2">&amp;mut</span> <span class="kw">dyn</span> <span class="ident">MemoryUsageTracker</span>) -&gt; <span class="ident">usize</span> {
-        <span class="ident">tracker</span>.<span class="ident">track</span>(<span class="self">self</span>.<span class="ident">as_ptr</span>() <span class="kw">as</span> <span class="kw-2">*const</span> ());
-
-        <span class="self">self</span>.<span class="ident">len</span>()
     }
 }
 

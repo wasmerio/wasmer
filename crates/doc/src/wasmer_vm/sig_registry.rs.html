@@ -76,7 +76,6 @@
 <span id="74">74</span>
 <span id="75">75</span>
 <span id="76">76</span>
-<span id="77">77</span>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
 
@@ -84,7 +83,6 @@
 <span class="doccomment">//! signature checking.</span>
 
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::vmcontext::VMSharedSignatureIndex</span>;
-<span class="kw">use</span> <span class="ident">loupe::MemoryUsage</span>;
 <span class="kw">use</span> <span class="ident">more_asserts</span>::{<span class="ident">assert_lt</span>, <span class="ident">debug_assert_lt</span>};
 <span class="kw">use</span> <span class="ident">std::collections</span>::{<span class="ident">hash_map</span>, <span class="ident">HashMap</span>};
 <span class="kw">use</span> <span class="ident">std::convert::TryFrom</span>;
@@ -95,7 +93,7 @@
 <span class="doccomment">/// call must match. To implement this efficiently, keep a registry of all</span>
 <span class="doccomment">/// signatures, shared by all instances, so that call sites can just do an</span>
 <span class="doccomment">/// index comparison.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">MemoryUsage</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">SignatureRegistry</span> {
     <span class="comment">// This structure is stored in an `Engine` and is intended to be shared</span>
     <span class="comment">// across many instances. Ideally instances can themselves be sent across</span>
@@ -105,7 +103,7 @@
     <span class="ident">inner</span>: <span class="ident">RwLock</span><span class="op">&lt;</span><span class="ident">Inner</span><span class="op">&gt;</span>,
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Default</span>, <span class="ident">MemoryUsage</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Default</span>)]</span>
 <span class="kw">struct</span> <span class="ident">Inner</span> {
     <span class="ident">signature2index</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">FunctionType</span>, <span class="ident">VMSharedSignatureIndex</span><span class="op">&gt;</span>,
     <span class="ident">index2signature</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">VMSharedSignatureIndex</span>, <span class="ident">FunctionType</span><span class="op">&gt;</span>,

@@ -120,7 +120,6 @@
 <span id="118">118</span>
 <span id="119">119</span>
 <span id="120">120</span>
-<span id="121">121</span>
 </pre><pre class="rust"><code><span class="doccomment">//! A registry for `VMFuncRef`s. This allows us to deduplicate funcrefs so that</span>
 <span class="doccomment">//! identical `VMCallerCheckedAnyfunc`s will give us identical funcrefs.</span>
 <span class="doccomment">//!</span>
@@ -128,12 +127,11 @@
 <span class="doccomment">//! long as we need them to.</span>
 
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::vmcontext::VMCallerCheckedAnyfunc</span>;
-<span class="kw">use</span> <span class="ident">loupe::MemoryUsage</span>;
 <span class="kw">use</span> <span class="ident">std::collections::HashMap</span>;
 <span class="kw">use</span> <span class="ident">std::sync::Mutex</span>;
 
 <span class="doccomment">/// The registry that holds the values that `VMFuncRef`s point to.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">MemoryUsage</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">FuncDataRegistry</span> {
     <span class="comment">// This structure is stored in an `Engine` and is intended to be shared</span>
     <span class="comment">// across many instances. Ideally instances can themselves be sent across</span>
@@ -149,7 +147,7 @@
 
 <span class="doccomment">/// A function reference. A single word that points to metadata about a function.</span>
 <span class="attribute">#[<span class="ident">repr</span>(<span class="ident">transparent</span>)]</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>, <span class="ident">MemoryUsage</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">VMFuncRef</span>(<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw-2">*const</span> <span class="ident">VMCallerCheckedAnyfunc</span>);
 
 <span class="kw">impl</span> <span class="ident">wasmer_types::NativeWasmType</span> <span class="kw">for</span> <span class="ident">VMFuncRef</span> {
@@ -210,7 +208,7 @@
 <span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">Send</span> <span class="kw">for</span> <span class="ident">VMFuncRef</span> {}
 <span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">Sync</span> <span class="kw">for</span> <span class="ident">VMFuncRef</span> {}
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Default</span>, <span class="ident">MemoryUsage</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Default</span>)]</span>
 <span class="kw">struct</span> <span class="ident">Inner</span> {
     <span class="ident">func_data</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="ident">VMCallerCheckedAnyfunc</span><span class="op">&gt;</span><span class="op">&gt;</span>,
     <span class="ident">anyfunc_to_index</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">VMCallerCheckedAnyfunc</span>, <span class="ident">usize</span><span class="op">&gt;</span>,

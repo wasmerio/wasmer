@@ -450,10 +450,13 @@
 <span id="448">448</span>
 <span id="449">449</span>
 <span id="450">450</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::store::Store</span>;
+<span id="451">451</span>
+<span id="452">452</span>
+<span id="453">453</span>
+</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::exports::Exportable</span>;
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::store::Store</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::types</span>::{<span class="ident">ExportType</span>, <span class="ident">ImportType</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::InstantiationError</span>;
-<span class="kw">use</span> <span class="ident">loupe::MemoryUsage</span>;
 <span class="kw">use</span> <span class="ident">std::fmt</span>;
 <span class="kw">use</span> <span class="ident">std::io</span>;
 <span class="kw">use</span> <span class="ident">std::path::Path</span>;
@@ -462,7 +465,7 @@
 <span class="kw">use</span> <span class="ident">wasmer_compiler::CompileError</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wat&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">wasmer_compiler::WasmError</span>;
-<span class="kw">use</span> <span class="ident">wasmer_engine</span>::{<span class="ident">Artifact</span>, <span class="ident">DeserializeError</span>, <span class="ident">Resolver</span>, <span class="ident">SerializeError</span>};
+<span class="kw">use</span> <span class="ident">wasmer_engine</span>::{<span class="ident">Artifact</span>, <span class="ident">DeserializeError</span>, <span class="ident">SerializeError</span>};
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">ExportsIterator</span>, <span class="ident">ImportsIterator</span>, <span class="ident">ModuleInfo</span>};
 <span class="kw">use</span> <span class="ident">wasmer_vm::InstanceHandle</span>;
 
@@ -484,7 +487,7 @@
 <span class="doccomment">///</span>
 <span class="doccomment">/// Cloning a module is cheap: it does a shallow copy of the compiled</span>
 <span class="doccomment">/// contents rather than a deep copy.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">MemoryUsage</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Module</span> {
     <span class="comment">// The field ordering here is actually significant because of the drop</span>
     <span class="comment">// order: we want to drop the artifact before dropping the engine.</span>
@@ -728,12 +731,15 @@
 
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">instantiate</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">resolver</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">Resolver</span>,
+        <span class="ident">imports</span>: <span class="kw-2">&amp;</span>[<span class="ident"><span class="kw">crate</span>::Extern</span>],
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">InstanceHandle</span>, <span class="ident">InstantiationError</span><span class="op">&gt;</span> {
         <span class="kw">unsafe</span> {
             <span class="kw">let</span> <span class="ident">instance_handle</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">artifact</span>.<span class="ident">instantiate</span>(
                 <span class="self">self</span>.<span class="ident">store</span>.<span class="ident">tunables</span>(),
-                <span class="ident">resolver</span>,
+                <span class="kw-2">&amp;</span><span class="ident">imports</span>
+                    .<span class="ident">iter</span>()
+                    .<span class="ident">map</span>(<span class="ident"><span class="kw">crate</span>::Extern::to_export</span>)
+                    .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>(),
                 <span class="ident">Box::new</span>(<span class="self">self</span>.<span class="ident">clone</span>()),
             )<span class="question-mark">?</span>;
 

@@ -755,7 +755,6 @@
 <span id="753">753</span>
 <span id="754">754</span>
 <span id="755">755</span>
-<span id="756">756</span>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
 
@@ -768,7 +767,6 @@
     <span class="ident">FunctionIndex</span>, <span class="ident">GlobalIndex</span>, <span class="ident">LocalGlobalIndex</span>, <span class="ident">LocalMemoryIndex</span>, <span class="ident">LocalTableIndex</span>, <span class="ident">MemoryIndex</span>,
     <span class="ident">ModuleInfo</span>, <span class="ident">SignatureIndex</span>, <span class="ident">TableIndex</span>,
 };
-<span class="kw">use</span> <span class="ident">loupe::MemoryUsage</span>;
 <span class="kw">use</span> <span class="ident">more_asserts::assert_lt</span>;
 <span class="kw">use</span> <span class="ident">std::convert::TryFrom</span>;
 
@@ -909,7 +907,7 @@
 
 <span class="doccomment">/// This class computes offsets to fields within VMContext and other</span>
 <span class="doccomment">/// related structs that JIT code accesses directly.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Debug</span>, <span class="ident">MemoryUsage</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Debug</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">VMOffsets</span> {
     <span class="doccomment">/// The size in bytes of a pointer on the target.</span>
     <span class="kw">pub</span> <span class="ident">pointer_size</span>: <span class="ident">u8</span>,

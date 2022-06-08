@@ -965,40 +965,6 @@
 <span id="963">963</span>
 <span id="964">964</span>
 <span id="965">965</span>
-<span id="966">966</span>
-<span id="967">967</span>
-<span id="968">968</span>
-<span id="969">969</span>
-<span id="970">970</span>
-<span id="971">971</span>
-<span id="972">972</span>
-<span id="973">973</span>
-<span id="974">974</span>
-<span id="975">975</span>
-<span id="976">976</span>
-<span id="977">977</span>
-<span id="978">978</span>
-<span id="979">979</span>
-<span id="980">980</span>
-<span id="981">981</span>
-<span id="982">982</span>
-<span id="983">983</span>
-<span id="984">984</span>
-<span id="985">985</span>
-<span id="986">986</span>
-<span id="987">987</span>
-<span id="988">988</span>
-<span id="989">989</span>
-<span id="990">990</span>
-<span id="991">991</span>
-<span id="992">992</span>
-<span id="993">993</span>
-<span id="994">994</span>
-<span id="995">995</span>
-<span id="996">996</span>
-<span id="997">997</span>
-<span id="998">998</span>
-<span id="999">999</span>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
 
@@ -1013,11 +979,9 @@
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::trap</span>::{<span class="ident">Trap</span>, <span class="ident">TrapCode</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::VMBuiltinFunctionIndex</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::VMExternRef</span>;
-<span class="kw">use</span> <span class="ident">loupe</span>::{<span class="ident">MemoryUsage</span>, <span class="ident">MemoryUsageTracker</span>, <span class="ident">POINTER_BYTE_SIZE</span>};
 <span class="kw">use</span> <span class="ident">std::any::Any</span>;
 <span class="kw">use</span> <span class="ident">std::convert::TryFrom</span>;
 <span class="kw">use</span> <span class="ident">std::fmt</span>;
-<span class="kw">use</span> <span class="ident">std::mem</span>;
 <span class="kw">use</span> <span class="ident">std::ptr</span>::{<span class="self">self</span>, <span class="ident">NonNull</span>};
 <span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
 <span class="kw">use</span> <span class="ident">std::u32</span>;
@@ -1064,14 +1028,8 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">MemoryUsage</span> <span class="kw">for</span> <span class="ident">VMFunctionEnvironment</span> {
-    <span class="kw">fn</span> <span class="ident">size_of_val</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;mut</span> <span class="kw">dyn</span> <span class="ident">MemoryUsageTracker</span>) -&gt; <span class="ident">usize</span> {
-        <span class="ident">mem::size_of_val</span>(<span class="self">self</span>)
-    }
-}
-
 <span class="doccomment">/// An imported function.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">MemoryUsage</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>)]</span>
 <span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">VMFunctionImport</span> {
     <span class="doccomment">/// A pointer to the imported function body.</span>
@@ -1172,7 +1130,7 @@
 }
 
 <span class="doccomment">/// A function kind is a calling convention into and out of wasm code.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">MemoryUsage</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>)]</span>
 <span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">VMFunctionKind</span> {
     <span class="doccomment">/// A static function has the native signature:</span>
@@ -1193,7 +1151,7 @@
 
 <span class="doccomment">/// The fields compiled code needs to access to utilize a WebAssembly table</span>
 <span class="doccomment">/// imported from another instance.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">MemoryUsage</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
 <span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">VMTableImport</span> {
     <span class="doccomment">/// A pointer to the imported table description.</span>
@@ -1232,7 +1190,7 @@
 
 <span class="doccomment">/// The fields compiled code needs to access to utilize a WebAssembly linear</span>
 <span class="doccomment">/// memory imported from another instance.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">MemoryUsage</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
 <span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">VMMemoryImport</span> {
     <span class="doccomment">/// A pointer to the imported memory description.</span>
@@ -1271,7 +1229,7 @@
 
 <span class="doccomment">/// The fields compiled code needs to access to utilize a WebAssembly global</span>
 <span class="doccomment">/// variable imported from another instance.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">MemoryUsage</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
 <span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">VMGlobalImport</span> {
     <span class="doccomment">/// A pointer to the imported global variable description.</span>
@@ -1343,16 +1301,6 @@
 <span class="doccomment">/// really no difference between passing it by reference or by value as far as</span>
 <span class="doccomment">/// correctness in a multi-threaded context is concerned.</span>
 <span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">Sync</span> <span class="kw">for</span> <span class="ident">VMMemoryDefinition</span> {}
-
-<span class="kw">impl</span> <span class="ident">MemoryUsage</span> <span class="kw">for</span> <span class="ident">VMMemoryDefinition</span> {
-    <span class="kw">fn</span> <span class="ident">size_of_val</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">tracker</span>: <span class="kw-2">&amp;mut</span> <span class="kw">dyn</span> <span class="ident">MemoryUsageTracker</span>) -&gt; <span class="ident">usize</span> {
-        <span class="kw">if</span> <span class="ident">tracker</span>.<span class="ident">track</span>(<span class="self">self</span>.<span class="ident">base</span> <span class="kw">as</span> <span class="kw-2">*const</span> <span class="kw">_</span> <span class="kw">as</span> <span class="kw-2">*const</span> ()) {
-            <span class="ident">POINTER_BYTE_SIZE</span> <span class="op">*</span> <span class="self">self</span>.<span class="ident">current_length</span>
-        } <span class="kw">else</span> {
-            <span class="number">0</span>
-        }
-    }
-}
 
 <span class="kw">impl</span> <span class="ident">VMMemoryDefinition</span> {
     <span class="doccomment">/// Do an unsynchronized, non-atomic `memory.copy` for the memory.</span>
@@ -1458,16 +1406,6 @@
     <span class="kw">pub</span> <span class="ident">current_elements</span>: <span class="ident">u32</span>,
 }
 
-<span class="kw">impl</span> <span class="ident">MemoryUsage</span> <span class="kw">for</span> <span class="ident">VMTableDefinition</span> {
-    <span class="kw">fn</span> <span class="ident">size_of_val</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">tracker</span>: <span class="kw-2">&amp;mut</span> <span class="kw">dyn</span> <span class="ident">MemoryUsageTracker</span>) -&gt; <span class="ident">usize</span> {
-        <span class="kw">if</span> <span class="ident">tracker</span>.<span class="ident">track</span>(<span class="self">self</span>.<span class="ident">base</span> <span class="kw">as</span> <span class="kw-2">*const</span> <span class="kw">_</span> <span class="kw">as</span> <span class="kw-2">*const</span> ()) {
-            <span class="ident">POINTER_BYTE_SIZE</span> <span class="op">*</span> (<span class="self">self</span>.<span class="ident">current_elements</span> <span class="kw">as</span> <span class="ident">usize</span>)
-        } <span class="kw">else</span> {
-            <span class="number">0</span>
-        }
-    }
-}
-
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
 <span class="kw">mod</span> <span class="ident">test_vmtable_definition</span> {
     <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::VMTableDefinition</span>;
@@ -1525,17 +1463,11 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">MemoryUsage</span> <span class="kw">for</span> <span class="ident">VMGlobalDefinitionStorage</span> {
-    <span class="kw">fn</span> <span class="ident">size_of_val</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;mut</span> <span class="kw">dyn</span> <span class="ident">MemoryUsageTracker</span>) -&gt; <span class="ident">usize</span> {
-        <span class="ident">mem::size_of_val</span>(<span class="self">self</span>)
-    }
-}
-
 <span class="doccomment">/// The storage for a WebAssembly global defined within the instance.</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// TODO: Pack the globals more densely, rather than using the same size</span>
 <span class="doccomment">/// for every type.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">MemoryUsage</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
 <span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>, <span class="ident">align</span>(<span class="number">16</span>))]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">VMGlobalDefinition</span> {
     <span class="ident">storage</span>: <span class="ident">VMGlobalDefinitionStorage</span>,
@@ -1777,7 +1709,7 @@
 <span class="doccomment">/// An index into the shared signature registry, usable for checking signatures</span>
 <span class="doccomment">/// at indirect calls.</span>
 <span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Eq</span>, <span class="ident">PartialEq</span>, <span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">Hash</span>, <span class="ident">MemoryUsage</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Eq</span>, <span class="ident">PartialEq</span>, <span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">Hash</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">VMSharedSignatureIndex</span>(<span class="ident">u32</span>);
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
@@ -1821,7 +1753,7 @@
 <span class="doccomment">/// The VM caller-checked &quot;anyfunc&quot; record, for caller-side signature checking.</span>
 <span class="doccomment">/// It consists of the actual function pointer and a signature id to be checked</span>
 <span class="doccomment">/// by the caller.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">Hash</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">MemoryUsage</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">Hash</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
 <span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">VMCallerCheckedAnyfunc</span> {
     <span class="doccomment">/// Function body.</span>

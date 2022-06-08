@@ -1463,16 +1463,6 @@
 <span id="1461">1461</span>
 <span id="1462">1462</span>
 <span id="1463">1463</span>
-<span id="1464">1464</span>
-<span id="1465">1465</span>
-<span id="1466">1466</span>
-<span id="1467">1467</span>
-<span id="1468">1468</span>
-<span id="1469">1469</span>
-<span id="1470">1470</span>
-<span id="1471">1471</span>
-<span id="1472">1472</span>
-<span id="1473">1473</span>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
 
@@ -1503,7 +1493,6 @@
 };
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">FunctionBodyPtr</span>, <span class="ident">VMOffsets</span>};
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">VMFunction</span>, <span class="ident">VMGlobal</span>, <span class="ident">VMMemory</span>, <span class="ident">VMTable</span>};
-<span class="kw">use</span> <span class="ident">loupe</span>::{<span class="ident">MemoryUsage</span>, <span class="ident">MemoryUsageTracker</span>};
 <span class="kw">use</span> <span class="ident">memoffset::offset_of</span>;
 <span class="kw">use</span> <span class="ident">more_asserts::assert_lt</span>;
 <span class="kw">use</span> <span class="ident">std::any::Any</span>;
@@ -1534,7 +1523,6 @@
 <span class="doccomment">/// contain various data. That&#39;s why the type has a C representation</span>
 <span class="doccomment">/// to ensure that the `vmctx` field is last. See the documentation of</span>
 <span class="doccomment">/// the `vmctx` field to learn more.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">MemoryUsage</span>)]</span>
 <span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct</span> <span class="ident">Instance</span> {
     <span class="doccomment">/// The `ModuleInfo` this `Instance` was instantiated from.</span>
@@ -1556,7 +1544,6 @@
     <span class="ident">functions</span>: <span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">FunctionBodyPtr</span><span class="op">&gt;</span>,
 
     <span class="doccomment">/// Pointers to function call trampolines in executable memory.</span>
-    <span class="attribute">#[<span class="ident">loupe</span>(<span class="ident">skip</span>)]</span>
     <span class="ident">function_call_trampolines</span>: <span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">SignatureIndex</span>, <span class="ident">VMTrampoline</span><span class="op">&gt;</span>,
 
     <span class="doccomment">/// Passive elements in this instantiation. As `elem.drop`s happen, these</span>
@@ -1586,7 +1573,6 @@
     <span class="doccomment">/// field is last, and represents a dynamically-sized array that</span>
     <span class="doccomment">/// extends beyond the nominal end of the struct (similar to a</span>
     <span class="doccomment">/// flexible array member).</span>
-    <span class="attribute">#[<span class="ident">loupe</span>(<span class="ident">skip</span>)]</span>
     <span class="ident">vmctx</span>: <span class="ident">VMContext</span>,
 }
 
@@ -1669,12 +1655,6 @@
             }
             <span class="ident"><span class="self">Self</span>::NoEnv</span> =&gt; (),
         }
-    }
-}
-
-<span class="kw">impl</span> <span class="ident">MemoryUsage</span> <span class="kw">for</span> <span class="ident">ImportFunctionEnv</span> {
-    <span class="kw">fn</span> <span class="ident">size_of_val</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;mut</span> <span class="kw">dyn</span> <span class="ident">MemoryUsageTracker</span>) -&gt; <span class="ident">usize</span> {
-        <span class="ident">mem::size_of_val</span>(<span class="self">self</span>)
     }
 }
 
@@ -2344,7 +2324,7 @@
 <span class="doccomment">///</span>
 <span class="doccomment">/// This is more or less a public facade of the private `Instance`,</span>
 <span class="doccomment">/// providing useful higher-level API.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">MemoryUsage</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">PartialEq</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">InstanceHandle</span> {
     <span class="doccomment">/// The [`InstanceRef`]. See its documentation to learn more.</span>
     <span class="ident">instance</span>: <span class="ident">InstanceRef</span>,

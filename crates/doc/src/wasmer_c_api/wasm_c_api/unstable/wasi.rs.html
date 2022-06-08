@@ -200,7 +200,7 @@
     <span class="ident">externals::wasm_extern_t</span>, <span class="ident">module::wasm_module_t</span>, <span class="ident">store::wasm_store_t</span>, <span class="ident">types::wasm_name_t</span>,
     <span class="ident">wasi::wasi_env_t</span>,
 };
-<span class="kw">use</span> <span class="ident">wasmer_api::Extern</span>;
+<span class="kw">use</span> <span class="ident">wasmer_api</span>::{<span class="ident">Exportable</span>, <span class="ident">Extern</span>};
 <span class="kw">use</span> <span class="ident">wasmer_wasi</span>::{<span class="ident">generate_import_object_from_env</span>, <span class="ident">get_wasi_version</span>};
 
 <span class="doccomment">/// Unstable non-standard type wrapping `wasm_extern_t` with the</span>
@@ -370,10 +370,10 @@
     <span class="ident">imports</span>.<span class="ident">set_buffer</span>(
         <span class="ident">import_object</span>
             .<span class="ident">into_iter</span>()
-            .<span class="ident">map</span>(<span class="op">|</span>((<span class="ident">module</span>, <span class="ident">name</span>), <span class="ident">export</span>)<span class="op">|</span> {
+            .<span class="ident">map</span>(<span class="op">|</span>((<span class="ident">module</span>, <span class="ident">name</span>), <span class="ident">extern_</span>)<span class="op">|</span> {
                 <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">module</span>.<span class="ident">into</span>();
                 <span class="kw">let</span> <span class="ident">name</span> <span class="op">=</span> <span class="ident">name</span>.<span class="ident">into</span>();
-                <span class="kw">let</span> <span class="ident">extern_inner</span> <span class="op">=</span> <span class="ident">Extern::from_vm_export</span>(<span class="ident">store</span>, <span class="ident">export</span>);
+                <span class="kw">let</span> <span class="ident">extern_inner</span> <span class="op">=</span> <span class="ident">Extern::from_vm_export</span>(<span class="ident">store</span>, <span class="ident">extern_</span>.<span class="ident">to_export</span>());
 
                 <span class="prelude-val">Some</span>(<span class="ident">Box::new</span>(<span class="ident">wasmer_named_extern_t</span> {
                     <span class="ident">module</span>,

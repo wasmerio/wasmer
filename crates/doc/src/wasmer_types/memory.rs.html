@@ -45,16 +45,14 @@
 <span id="43">43</span>
 <span id="44">44</span>
 <span id="45">45</span>
-<span id="46">46</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::Pages</span>;
-<span class="kw">use</span> <span class="ident">loupe::MemoryUsage</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-rkyv&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">rkyv</span>::{<span class="ident">Archive</span>, <span class="ident">Deserialize</span> <span class="kw">as</span> <span class="ident">RkyvDeserialize</span>, <span class="ident">Serialize</span> <span class="kw">as</span> <span class="ident">RkyvSerialize</span>};
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
 
 <span class="doccomment">/// Implementation styles for WebAssembly linear memory.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>, <span class="ident">MemoryUsage</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>)]</span>
 <span class="attribute">#[<span class="ident">cfg_attr</span>(
     <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-rkyv&quot;</span>,
     <span class="ident">derive</span>(<span class="ident">RkyvSerialize</span>, <span class="ident">RkyvDeserialize</span>, <span class="ident">Archive</span>)

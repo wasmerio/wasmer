@@ -165,7 +165,6 @@
 <span id="163">163</span>
 <span id="164">164</span>
 <span id="165">165</span>
-<span id="166">166</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Relocation is the process of assigning load addresses for position-dependent</span>
 <span class="doccomment">//! code and data of a program and adjusting the code and data to reflect the</span>
 <span class="doccomment">//! assigned addresses.</span>
@@ -181,7 +180,6 @@
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::lib::std::vec::Vec</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::section::SectionIndex</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">Addend</span>, <span class="ident">CodeOffset</span>};
-<span class="kw">use</span> <span class="ident">loupe::MemoryUsage</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-rkyv&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">rkyv</span>::{<span class="ident">Archive</span>, <span class="ident">Deserialize</span> <span class="kw">as</span> <span class="ident">RkyvDeserialize</span>, <span class="ident">Serialize</span> <span class="kw">as</span> <span class="ident">RkyvSerialize</span>};
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>)]</span>
@@ -195,7 +193,7 @@
     <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-rkyv&quot;</span>,
     <span class="ident">derive</span>(<span class="ident">RkyvSerialize</span>, <span class="ident">RkyvDeserialize</span>, <span class="ident">Archive</span>)
 )]</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">MemoryUsage</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">RelocationKind</span> {
     <span class="doccomment">/// absolute 4-byte</span>
     <span class="ident">Abs4</span>,
@@ -248,7 +246,7 @@
     <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-rkyv&quot;</span>,
     <span class="ident">derive</span>(<span class="ident">RkyvSerialize</span>, <span class="ident">RkyvDeserialize</span>, <span class="ident">Archive</span>)
 )]</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">MemoryUsage</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Relocation</span> {
     <span class="doccomment">/// The relocation kind.</span>
     <span class="kw">pub</span> <span class="ident">kind</span>: <span class="ident">RelocationKind</span>,
@@ -266,7 +264,7 @@
     <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-rkyv&quot;</span>,
     <span class="ident">derive</span>(<span class="ident">RkyvSerialize</span>, <span class="ident">RkyvDeserialize</span>, <span class="ident">Archive</span>)
 )]</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">MemoryUsage</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">RelocationTarget</span> {
     <span class="doccomment">/// A relocation to a function defined locally in the wasm (not an imported one).</span>
     <span class="ident">LocalFunc</span>(<span class="ident">LocalFunctionIndex</span>),

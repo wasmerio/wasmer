@@ -496,7 +496,7 @@
 <span class="kw">use</span> <span class="ident">std::ffi::CStr</span>;
 <span class="kw">use</span> <span class="ident">std::os::raw::c_char</span>;
 <span class="kw">use</span> <span class="ident">std::slice</span>;
-<span class="kw">use</span> <span class="ident">wasmer_api</span>::{<span class="ident">Extern</span>, <span class="ident">NamedResolver</span>};
+<span class="kw">use</span> <span class="ident">wasmer_api</span>::{<span class="ident">Exportable</span>, <span class="ident">Extern</span>};
 <span class="kw">use</span> <span class="ident">wasmer_wasi</span>::{
     <span class="ident">generate_import_object_from_env</span>, <span class="ident">get_wasi_version</span>, <span class="ident">WasiEnv</span>, <span class="ident">WasiFile</span>, <span class="ident">WasiState</span>,
     <span class="ident">WasiStateBuilder</span>, <span class="ident">WasiVersion</span>,
@@ -830,8 +830,8 @@
         .<span class="ident">inner</span>
         .<span class="ident">imports</span>()
         .<span class="ident">map</span>(<span class="op">|</span><span class="ident">import_type</span><span class="op">|</span> {
-            <span class="kw">let</span> <span class="ident">export</span> <span class="op">=</span> <span class="ident">import_object</span>
-                .<span class="ident">resolve_by_name</span>(<span class="ident">import_type</span>.<span class="ident">module</span>(), <span class="ident">import_type</span>.<span class="ident">name</span>())
+            <span class="kw">let</span> <span class="ident">ext</span> <span class="op">=</span> <span class="ident">import_object</span>
+                .<span class="ident">get_export</span>(<span class="ident">import_type</span>.<span class="ident">module</span>(), <span class="ident">import_type</span>.<span class="ident">name</span>())
                 .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> {
                     <span class="macro">format!</span>(
                         <span class="string">&quot;Failed to resolve import \&quot;{}\&quot; \&quot;{}\&quot;&quot;</span>,
@@ -839,7 +839,7 @@
                         <span class="ident">import_type</span>.<span class="ident">name</span>()
                     )
                 })<span class="question-mark">?</span>;
-            <span class="kw">let</span> <span class="ident">inner</span> <span class="op">=</span> <span class="ident">Extern::from_vm_export</span>(<span class="ident">store</span>, <span class="ident">export</span>);
+            <span class="kw">let</span> <span class="ident">inner</span> <span class="op">=</span> <span class="ident">Extern::from_vm_export</span>(<span class="ident">store</span>, <span class="ident">ext</span>.<span class="ident">to_export</span>());
 
             <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(<span class="ident">Box::new</span>(<span class="ident">inner</span>.<span class="ident">into</span>())))
         })

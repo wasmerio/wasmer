@@ -479,15 +479,6 @@
 <span id="477">477</span>
 <span id="478">478</span>
 <span id="479">479</span>
-<span id="480">480</span>
-<span id="481">481</span>
-<span id="482">482</span>
-<span id="483">483</span>
-<span id="484">484</span>
-<span id="485">485</span>
-<span id="486">486</span>
-<span id="487">487</span>
-<span id="488">488</span>
 </pre><pre class="rust"><code><span class="doccomment">//! `metering` is a middleware for tracking how many operators are</span>
 <span class="doccomment">//! executed in total and putting a limit on the total number of</span>
 <span class="doccomment">//! operators executed. The WebAssemblt instance execution is stopped</span>
@@ -498,10 +489,8 @@
 <span class="doccomment">//! [See the `metering` detailed and complete</span>
 <span class="doccomment">//! example](https://github.com/wasmerio/wasmer/blob/master/examples/metering.rs).</span>
 
-<span class="kw">use</span> <span class="ident">loupe</span>::{<span class="ident">MemoryUsage</span>, <span class="ident">MemoryUsageTracker</span>};
 <span class="kw">use</span> <span class="ident">std::convert::TryInto</span>;
 <span class="kw">use</span> <span class="ident">std::fmt</span>;
-<span class="kw">use</span> <span class="ident">std::mem</span>;
 <span class="kw">use</span> <span class="ident">std::sync</span>::{<span class="ident">Arc</span>, <span class="ident">Mutex</span>};
 <span class="kw">use</span> <span class="ident">wasmer::wasmparser</span>::{<span class="ident">Operator</span>, <span class="ident">Type</span> <span class="kw">as</span> <span class="ident">WpType</span>, <span class="ident">TypeOrFuncType</span> <span class="kw">as</span> <span class="ident">WpTypeOrFuncType</span>};
 <span class="kw">use</span> <span class="ident">wasmer</span>::{
@@ -510,7 +499,7 @@
 };
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">GlobalIndex</span>, <span class="ident">ModuleInfo</span>};
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">MemoryUsage</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>)]</span>
 <span class="kw">struct</span> <span class="ident">MeteringGlobalIndexes</span>(<span class="ident">GlobalIndex</span>, <span class="ident">GlobalIndex</span>);
 
 <span class="kw">impl</span> <span class="ident">MeteringGlobalIndexes</span> {
@@ -685,13 +674,6 @@
             <span class="ident">remaining_points_global_index</span>,
             <span class="ident">points_exhausted_global_index</span>,
         ))
-    }
-}
-
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">F</span>: <span class="ident">Fn</span>(<span class="kw-2">&amp;</span><span class="ident">Operator</span>) -&gt; <span class="ident">u64</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span> <span class="ident">MemoryUsage</span> <span class="kw">for</span> <span class="ident">Metering</span><span class="op">&lt;</span><span class="ident">F</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">size_of_val</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">tracker</span>: <span class="kw-2">&amp;mut</span> <span class="kw">dyn</span> <span class="ident">MemoryUsageTracker</span>) -&gt; <span class="ident">usize</span> {
-        <span class="ident">mem::size_of_val</span>(<span class="self">self</span>) <span class="op">+</span> <span class="self">self</span>.<span class="ident">global_indexes</span>.<span class="ident">size_of_val</span>(<span class="ident">tracker</span>)
-            <span class="op">-</span> <span class="ident">mem::size_of_val</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">global_indexes</span>)
     }
 }
 

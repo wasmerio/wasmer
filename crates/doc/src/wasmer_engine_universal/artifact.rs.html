@@ -283,16 +283,12 @@
 <span id="281">281</span>
 <span id="282">282</span>
 <span id="283">283</span>
-<span id="284">284</span>
-<span id="285">285</span>
-<span id="286">286</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Define `UniversalArtifact`, based on `UniversalArtifactBuild`</span>
 <span class="doccomment">//! to allow compiling and instantiating to be done as separate steps.</span>
 
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::engine</span>::{<span class="ident">UniversalEngine</span>, <span class="ident">UniversalEngineInner</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::link::link_module</span>;
 <span class="kw">use</span> <span class="ident">enumset::EnumSet</span>;
-<span class="kw">use</span> <span class="ident">loupe::MemoryUsage</span>;
 <span class="kw">use</span> <span class="ident">std::sync</span>::{<span class="ident">Arc</span>, <span class="ident">Mutex</span>};
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">wasmer_compiler::ModuleEnvironment</span>;
@@ -316,11 +312,9 @@
 };
 
 <span class="doccomment">/// A compiled wasm module, ready to be instantiated.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">MemoryUsage</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">UniversalArtifact</span> {
     <span class="ident">artifact</span>: <span class="ident">UniversalArtifactBuild</span>,
     <span class="ident">finished_functions</span>: <span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">FunctionBodyPtr</span><span class="op">&gt;</span>,
-    <span class="attribute">#[<span class="ident">loupe</span>(<span class="ident">skip</span>)]</span>
     <span class="ident">finished_function_call_trampolines</span>: <span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">SignatureIndex</span>, <span class="ident">VMTrampoline</span><span class="op">&gt;</span>,
     <span class="ident">finished_dynamic_function_trampolines</span>: <span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">FunctionIndex</span>, <span class="ident">FunctionBodyPtr</span><span class="op">&gt;</span>,
     <span class="ident">signatures</span>: <span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">SignatureIndex</span>, <span class="ident">VMSharedSignatureIndex</span><span class="op">&gt;</span>,

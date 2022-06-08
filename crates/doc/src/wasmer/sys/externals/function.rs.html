@@ -1591,17 +1591,18 @@
 <span id="1589">1589</span>
 <span id="1590">1590</span>
 <span id="1591">1591</span>
+<span id="1592">1592</span>
+<span id="1593">1593</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::exports</span>::{<span class="ident">ExportError</span>, <span class="ident">Exportable</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::externals::Extern</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::store::Store</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::types</span>::{<span class="ident">Val</span>, <span class="ident">ValFuncRef</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::FunctionType</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::NativeFunc</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::RuntimeError</span>;
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::TypedFunction</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::WasmerEnv</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">inner</span>::{<span class="ident">FromToNativeWasmType</span>, <span class="ident">HostFunction</span>, <span class="ident">WasmTypeList</span>, <span class="ident">WithEnv</span>, <span class="ident">WithoutEnv</span>};
 
-<span class="kw">use</span> <span class="ident">loupe::MemoryUsage</span>;
 <span class="kw">use</span> <span class="ident">std::cmp::max</span>;
 <span class="kw">use</span> <span class="ident">std::ffi::c_void</span>;
 <span class="kw">use</span> <span class="ident">std::fmt</span>;
@@ -1630,7 +1631,7 @@
 <span class="doccomment">///   with native functions. Attempting to create a native `Function` with one will</span>
 <span class="doccomment">///   result in a panic.</span>
 <span class="doccomment">///   [Closures as host functions tracking issue](https://github.com/wasmerio/wasmer/issues/1840)</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">PartialEq</span>, <span class="ident">MemoryUsage</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">PartialEq</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Function</span> {
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">store</span>: <span class="ident">Store</span>,
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">exported</span>: <span class="ident">ExportFunction</span>,
@@ -2155,7 +2156,7 @@
     }
 
     <span class="doccomment">/// Transform this WebAssembly function into a function with the</span>
-    <span class="doccomment">/// native ABI. See [`NativeFunc`] to learn more.</span>
+    <span class="doccomment">/// native ABI. See [`TypedFunction`] to learn more.</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// # Examples</span>
     <span class="doccomment">///</span>
@@ -2229,7 +2230,7 @@
     <span class="doccomment">/// // This results in an error: `RuntimeError`</span>
     <span class="doccomment">/// let sum_native = sum.native::&lt;(i32, i32), i64&gt;().unwrap();</span>
     <span class="doccomment">/// ```</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">native</span><span class="op">&lt;</span><span class="ident">Args</span>, <span class="ident">Rets</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">NativeFunc</span><span class="op">&lt;</span><span class="ident">Args</span>, <span class="ident">Rets</span><span class="op">&gt;</span>, <span class="ident">RuntimeError</span><span class="op">&gt;</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">native</span><span class="op">&lt;</span><span class="ident">Args</span>, <span class="ident">Rets</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">TypedFunction</span><span class="op">&lt;</span><span class="ident">Args</span>, <span class="ident">Rets</span><span class="op">&gt;</span>, <span class="ident">RuntimeError</span><span class="op">&gt;</span>
     <span class="kw">where</span>
         <span class="ident">Args</span>: <span class="ident">WasmTypeList</span>,
         <span class="ident">Rets</span>: <span class="ident">WasmTypeList</span>,
@@ -2262,7 +2263,10 @@
             }
         }
 
-        <span class="prelude-val">Ok</span>(<span class="ident">NativeFunc::new</span>(<span class="self">self</span>.<span class="ident">store</span>.<span class="ident">clone</span>(), <span class="self">self</span>.<span class="ident">exported</span>.<span class="ident">clone</span>()))
+        <span class="prelude-val">Ok</span>(<span class="ident">TypedFunction::new</span>(
+            <span class="self">self</span>.<span class="ident">store</span>.<span class="ident">clone</span>(),
+            <span class="self">self</span>.<span class="ident">exported</span>.<span class="ident">clone</span>(),
+        ))
     }
 
     <span class="attribute">#[<span class="ident">track_caller</span>]</span>

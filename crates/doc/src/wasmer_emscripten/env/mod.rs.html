@@ -194,13 +194,6 @@
 <span id="192">192</span>
 <span id="193">193</span>
 <span id="194">194</span>
-<span id="195">195</span>
-<span id="196">196</span>
-<span id="197">197</span>
-<span id="198">198</span>
-<span id="199">199</span>
-<span id="200">200</span>
-<span id="201">201</span>
 </pre><pre class="rust"><code><span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">unix</span>)]</span>
 <span class="kw">mod</span> <span class="ident">unix</span>;
 
@@ -215,17 +208,14 @@
 
 <span class="kw">use</span> <span class="ident">libc::c_char</span>;
 
-<span class="kw">use</span> <span class="kw">crate</span>::{
-    <span class="ident">allocate_on_stack</span>,
-    <span class="ident">ptr</span>::{<span class="ident">Array</span>, <span class="ident">WasmPtr</span>},
-    <span class="ident">EmscriptenData</span>,
-};
+<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">allocate_on_stack</span>, <span class="ident">EmscriptenData</span>};
 
 <span class="kw">use</span> <span class="ident">std::os::raw::c_int</span>;
 <span class="kw">use</span> <span class="ident">std::sync::MutexGuard</span>;
 
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::EmEnv</span>;
 <span class="kw">use</span> <span class="ident">wasmer::ValueType</span>;
+<span class="kw">use</span> <span class="ident">wasmer::WasmPtr</span>;
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">call_malloc</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">size</span>: <span class="ident">u32</span>) -&gt; <span class="ident">u32</span> {
     <span class="ident">get_emscripten_data</span>(<span class="ident">ctx</span>)
@@ -236,7 +226,7 @@
 }
 
 <span class="attribute">#[<span class="ident">warn</span>(<span class="ident">dead_code</span>)]</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">call_malloc_with_cast</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Copy</span>, <span class="ident">Ty</span><span class="op">&gt;</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">size</span>: <span class="ident">u32</span>) -&gt; <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">Ty</span><span class="op">&gt;</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">call_malloc_with_cast</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Copy</span><span class="op">&gt;</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">size</span>: <span class="ident">u32</span>) -&gt; <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
     <span class="ident">WasmPtr::new</span>(<span class="ident">call_malloc</span>(<span class="ident">ctx</span>, <span class="ident">size</span>))
 }
 
@@ -369,7 +359,7 @@
     }
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Copy</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">ValueType</span>)]</span>
 <span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">EmAddrInfo</span> {
     <span class="comment">// int</span>
@@ -385,23 +375,19 @@
     <span class="comment">// struct sockaddr*</span>
     <span class="kw">pub</span> <span class="ident">ai_addr</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">EmSockAddr</span><span class="op">&gt;</span>,
     <span class="comment">// char*</span>
-    <span class="kw">pub</span> <span class="ident">ai_canonname</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">c_char</span>, <span class="ident">Array</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span> <span class="ident">ai_canonname</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">c_char</span><span class="op">&gt;</span>,
     <span class="comment">// struct addrinfo*</span>
     <span class="kw">pub</span> <span class="ident">ai_next</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">EmAddrInfo</span><span class="op">&gt;</span>,
 }
 
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">ValueType</span> <span class="kw">for</span> <span class="ident">EmAddrInfo</span> {}
-
 <span class="comment">// NOTE: from looking at emscripten JS, this should be a union</span>
 <span class="comment">// TODO: review this, highly likely to have bugs</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Copy</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">ValueType</span>)]</span>
 <span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">EmSockAddr</span> {
     <span class="kw">pub</span> <span class="ident">sa_family</span>: <span class="ident">i16</span>,
     <span class="kw">pub</span> <span class="ident">sa_data</span>: [<span class="ident">c_char</span>; <span class="number">14</span>],
 }
-
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">ValueType</span> <span class="kw">for</span> <span class="ident">EmSockAddr</span> {}
 </code></pre></div>
 </section><section id="search" class="content hidden"></section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_emscripten" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.59.0 (9d1b2106e 2022-02-23)" ></div>
 </body></html>

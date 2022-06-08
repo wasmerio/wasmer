@@ -228,8 +228,8 @@
         }
 
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">wasi_env</span> <span class="op">=</span> <span class="ident">wasi_state_builder</span>.<span class="ident">finalize</span>()<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">resolver</span> <span class="op">=</span> <span class="ident">wasi_env</span>.<span class="ident">import_object_for_all_wasi_versions</span>(<span class="kw-2">&amp;</span><span class="ident">module</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> <span class="ident">Instance::new</span>(<span class="kw-2">&amp;</span><span class="ident">module</span>, <span class="kw-2">&amp;</span><span class="ident">resolver</span>)<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">import_object</span> <span class="op">=</span> <span class="ident">wasi_env</span>.<span class="ident">import_object_for_all_wasi_versions</span>(<span class="kw-2">&amp;</span><span class="ident">module</span>)<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> <span class="ident">Instance::new</span>(<span class="kw-2">&amp;</span><span class="ident">module</span>, <span class="kw-2">&amp;</span><span class="ident">import_object</span>)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(<span class="ident">instance</span>)
     }
 

@@ -271,12 +271,12 @@
 <span id="269">269</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Native Functions.</span>
 <span class="doccomment">//!</span>
-<span class="doccomment">//! This module creates the helper `NativeFunc` that let us call WebAssembly</span>
+<span class="doccomment">//! This module creates the helper `TypedFunction` that let us call WebAssembly</span>
 <span class="doccomment">//! functions with the native ABI, that is:</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! ```ignore</span>
 <span class="doccomment">//! let add_one = instance.exports.get_function(&quot;function_name&quot;)?;</span>
-<span class="doccomment">//! let add_one_native: NativeFunc&lt;i32, i32&gt; = add_one.native().unwrap();</span>
+<span class="doccomment">//! let add_one_native: TypedFunction&lt;i32, i32&gt; = add_one.native().unwrap();</span>
 <span class="doccomment">//! ```</span>
 <span class="kw">use</span> <span class="ident">std::marker::PhantomData</span>;
 
@@ -289,15 +289,15 @@
 
 <span class="doccomment">/// A WebAssembly function that can be called natively</span>
 <span class="doccomment">/// (using the Native ABI).</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">NativeFunc</span><span class="op">&lt;</span><span class="ident">Args</span> <span class="op">=</span> (), <span class="ident">Rets</span> <span class="op">=</span> ()<span class="op">&gt;</span> {
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">TypedFunction</span><span class="op">&lt;</span><span class="ident">Args</span> <span class="op">=</span> (), <span class="ident">Rets</span> <span class="op">=</span> ()<span class="op">&gt;</span> {
     <span class="ident">store</span>: <span class="ident">Store</span>,
     <span class="ident">exported</span>: <span class="ident">ExportFunction</span>,
     <span class="ident">_phantom</span>: <span class="ident">PhantomData</span><span class="op">&lt;</span>(<span class="ident">Args</span>, <span class="ident">Rets</span>)<span class="op">&gt;</span>,
 }
 
-<span class="kw">unsafe</span> <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">Args</span>, <span class="ident">Rets</span><span class="op">&gt;</span> <span class="ident">Send</span> <span class="kw">for</span> <span class="ident">NativeFunc</span><span class="op">&lt;</span><span class="ident">Args</span>, <span class="ident">Rets</span><span class="op">&gt;</span> {}
+<span class="kw">unsafe</span> <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">Args</span>, <span class="ident">Rets</span><span class="op">&gt;</span> <span class="ident">Send</span> <span class="kw">for</span> <span class="ident">TypedFunction</span><span class="op">&lt;</span><span class="ident">Args</span>, <span class="ident">Rets</span><span class="op">&gt;</span> {}
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">Args</span>, <span class="ident">Rets</span><span class="op">&gt;</span> <span class="ident">NativeFunc</span><span class="op">&lt;</span><span class="ident">Args</span>, <span class="ident">Rets</span><span class="op">&gt;</span>
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">Args</span>, <span class="ident">Rets</span><span class="op">&gt;</span> <span class="ident">TypedFunction</span><span class="op">&lt;</span><span class="ident">Args</span>, <span class="ident">Rets</span><span class="op">&gt;</span>
 <span class="kw">where</span>
     <span class="ident">Args</span>: <span class="ident">WasmTypeList</span>,
     <span class="ident">Rets</span>: <span class="ident">WasmTypeList</span>,
@@ -340,12 +340,12 @@
 }
 
 <span class="comment">/*
-impl&lt;Args, Rets&gt; From&lt;&amp;NativeFunc&lt;Args, Rets&gt;&gt; for VMFunction
+impl&lt;Args, Rets&gt; From&lt;&amp;TypedFunction&lt;Args, Rets&gt;&gt; for VMFunction
 where
     Args: WasmTypeList,
     Rets: WasmTypeList,
 {
-    fn from(other: &amp;NativeFunc&lt;Args, Rets&gt;) -&gt; Self {
+    fn from(other: &amp;TypedFunction&lt;Args, Rets&gt;) -&gt; Self {
         let signature = FunctionType::new(Args::wasm_types(), Rets::wasm_types());
         Self {
             address: other.address,
@@ -358,7 +358,7 @@ where
     }
 }*/</span>
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">Args</span>: <span class="ident">WasmTypeList</span>, <span class="ident">Rets</span>: <span class="ident">WasmTypeList</span><span class="op">&gt;</span> <span class="ident">Clone</span> <span class="kw">for</span> <span class="ident">NativeFunc</span><span class="op">&lt;</span><span class="ident">Args</span>, <span class="ident">Rets</span><span class="op">&gt;</span> {
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">Args</span>: <span class="ident">WasmTypeList</span>, <span class="ident">Rets</span>: <span class="ident">WasmTypeList</span><span class="op">&gt;</span> <span class="ident">Clone</span> <span class="kw">for</span> <span class="ident">TypedFunction</span><span class="op">&lt;</span><span class="ident">Args</span>, <span class="ident">Rets</span><span class="op">&gt;</span> {
     <span class="kw">fn</span> <span class="ident">clone</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">exported</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">exported</span>.<span class="ident">clone</span>();
         <span class="ident">exported</span>.<span class="ident">vm_function</span>.<span class="ident">upgrade_instance_ref</span>().<span class="ident">unwrap</span>();
@@ -371,22 +371,22 @@ where
     }
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">Args</span>, <span class="ident">Rets</span><span class="op">&gt;</span> <span class="ident">From</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">NativeFunc</span><span class="op">&lt;</span><span class="ident">Args</span>, <span class="ident">Rets</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">ExportFunction</span>
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">Args</span>, <span class="ident">Rets</span><span class="op">&gt;</span> <span class="ident">From</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">TypedFunction</span><span class="op">&lt;</span><span class="ident">Args</span>, <span class="ident">Rets</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">ExportFunction</span>
 <span class="kw">where</span>
     <span class="ident">Args</span>: <span class="ident">WasmTypeList</span>,
     <span class="ident">Rets</span>: <span class="ident">WasmTypeList</span>,
 {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">other</span>: <span class="kw-2">&amp;</span><span class="ident">NativeFunc</span><span class="op">&lt;</span><span class="ident">Args</span>, <span class="ident">Rets</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">other</span>: <span class="kw-2">&amp;</span><span class="ident">TypedFunction</span><span class="op">&lt;</span><span class="ident">Args</span>, <span class="ident">Rets</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
         <span class="ident">other</span>.<span class="ident">exported</span>.<span class="ident">clone</span>()
     }
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">Args</span>, <span class="ident">Rets</span><span class="op">&gt;</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">NativeFunc</span><span class="op">&lt;</span><span class="ident">Args</span>, <span class="ident">Rets</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Function</span>
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">Args</span>, <span class="ident">Rets</span><span class="op">&gt;</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">TypedFunction</span><span class="op">&lt;</span><span class="ident">Args</span>, <span class="ident">Rets</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Function</span>
 <span class="kw">where</span>
     <span class="ident">Args</span>: <span class="ident">WasmTypeList</span>,
     <span class="ident">Rets</span>: <span class="ident">WasmTypeList</span>,
 {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">other</span>: <span class="ident">NativeFunc</span><span class="op">&lt;</span><span class="ident">Args</span>, <span class="ident">Rets</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">other</span>: <span class="ident">TypedFunction</span><span class="op">&lt;</span><span class="ident">Args</span>, <span class="ident">Rets</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
         <span class="self">Self</span> {
             <span class="ident">store</span>: <span class="ident">other</span>.<span class="ident">store</span>,
             <span class="ident">exported</span>: <span class="ident">other</span>.<span class="ident">exported</span>,
@@ -397,7 +397,7 @@ where
 <span class="macro">macro_rules!</span> <span class="ident">impl_native_traits</span> {
     (  $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>:<span class="ident">ident</span> ),<span class="op">*</span> ) =&gt; {
         <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unused_parens</span>, <span class="ident">non_snake_case</span>)]</span>
-        <span class="kw">impl</span><span class="op">&lt;</span>$( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span> , )<span class="op">*</span> <span class="ident">Rets</span><span class="op">&gt;</span> <span class="ident">NativeFunc</span><span class="op">&lt;</span>( $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span> ),<span class="op">*</span> ), <span class="ident">Rets</span><span class="op">&gt;</span>
+        <span class="kw">impl</span><span class="op">&lt;</span>$( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span> , )<span class="op">*</span> <span class="ident">Rets</span><span class="op">&gt;</span> <span class="ident">TypedFunction</span><span class="op">&lt;</span>( $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span> ),<span class="op">*</span> ), <span class="ident">Rets</span><span class="op">&gt;</span>
         <span class="kw">where</span>
             $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>: <span class="ident">FromToNativeWasmType</span>, )<span class="op">*</span>
             <span class="ident">Rets</span>: <span class="ident">WasmTypeList</span>,
@@ -494,7 +494,7 @@ where
         }
 
         <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unused_parens</span>)]</span>
-        <span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>, )<span class="op">*</span> <span class="ident">Rets</span><span class="op">&gt;</span> <span class="ident"><span class="kw">crate</span>::sys::exports::ExportableWithGenerics</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, ($( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span> ),<span class="kw-2">*</span>), <span class="ident">Rets</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">NativeFunc</span><span class="op">&lt;</span>( $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span> ),<span class="op">*</span> ), <span class="ident">Rets</span><span class="op">&gt;</span>
+        <span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>, )<span class="op">*</span> <span class="ident">Rets</span><span class="op">&gt;</span> <span class="ident"><span class="kw">crate</span>::sys::exports::ExportableWithGenerics</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, ($( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span> ),<span class="kw-2">*</span>), <span class="ident">Rets</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">TypedFunction</span><span class="op">&lt;</span>( $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span> ),<span class="op">*</span> ), <span class="ident">Rets</span><span class="op">&gt;</span>
         <span class="kw">where</span>
             $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>: <span class="ident">FromToNativeWasmType</span>, )<span class="op">*</span>
             <span class="ident">Rets</span>: <span class="ident">WasmTypeList</span>,

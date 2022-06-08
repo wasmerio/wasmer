@@ -71,11 +71,11 @@
     <span class="ident">CLOCK_REALTIME</span>, <span class="ident">CLOCK_THREAD_CPUTIME_ID</span>,
 };
 <span class="kw">use</span> <span class="ident">std::mem</span>;
-<span class="kw">use</span> <span class="ident">wasmer::WasmCell</span>;
+<span class="kw">use</span> <span class="ident">wasmer::WasmRef</span>;
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">platform_clock_res_get</span>(
     <span class="ident">clock_id</span>: <span class="ident">__wasi_clockid_t</span>,
-    <span class="ident">resolution</span>: <span class="ident">WasmCell</span><span class="op">&lt;</span><span class="ident">__wasi_timestamp_t</span><span class="op">&gt;</span>,
+    <span class="ident">resolution</span>: <span class="ident">WasmRef</span><span class="op">&lt;</span><span class="ident">__wasi_timestamp_t</span><span class="op">&gt;</span>,
 ) -&gt; <span class="ident">__wasi_errno_t</span> {
     <span class="kw">let</span> <span class="ident">unix_clock_id</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">clock_id</span> {
         <span class="ident">__WASI_CLOCK_MONOTONIC</span> =&gt; <span class="ident">CLOCK_MONOTONIC</span>,
@@ -94,7 +94,7 @@
     };
 
     <span class="kw">let</span> <span class="ident">t_out</span> <span class="op">=</span> (<span class="ident">timespec_out</span>.<span class="ident">tv_sec</span> <span class="op">*</span> <span class="number">1_000_000_000</span>).<span class="ident">wrapping_add</span>(<span class="ident">timespec_out</span>.<span class="ident">tv_nsec</span>);
-    <span class="ident">resolution</span>.<span class="ident">set</span>(<span class="ident">t_out</span> <span class="kw">as</span> <span class="ident">__wasi_timestamp_t</span>);
+    <span class="macro">wasi_try_mem!</span>(<span class="ident">resolution</span>.<span class="ident">write</span>(<span class="ident">t_out</span> <span class="kw">as</span> <span class="ident">__wasi_timestamp_t</span>));
 
     <span class="comment">// TODO: map output of clock_getres to __wasi_errno_t</span>
     <span class="ident">__WASI_ESUCCESS</span>
@@ -103,7 +103,7 @@
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">platform_clock_time_get</span>(
     <span class="ident">clock_id</span>: <span class="ident">__wasi_clockid_t</span>,
     <span class="ident">precision</span>: <span class="ident">__wasi_timestamp_t</span>,
-    <span class="ident">time</span>: <span class="ident">WasmCell</span><span class="op">&lt;</span><span class="ident">__wasi_timestamp_t</span><span class="op">&gt;</span>,
+    <span class="ident">time</span>: <span class="ident">WasmRef</span><span class="op">&lt;</span><span class="ident">__wasi_timestamp_t</span><span class="op">&gt;</span>,
 ) -&gt; <span class="ident">__wasi_errno_t</span> {
     <span class="kw">let</span> <span class="ident">unix_clock_id</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">clock_id</span> {
         <span class="ident">__WASI_CLOCK_MONOTONIC</span> =&gt; <span class="ident">CLOCK_MONOTONIC</span>,
@@ -125,7 +125,7 @@
     };
 
     <span class="kw">let</span> <span class="ident">t_out</span> <span class="op">=</span> (<span class="ident">timespec_out</span>.<span class="ident">tv_sec</span> <span class="op">*</span> <span class="number">1_000_000_000</span>).<span class="ident">wrapping_add</span>(<span class="ident">timespec_out</span>.<span class="ident">tv_nsec</span>);
-    <span class="ident">time</span>.<span class="ident">set</span>(<span class="ident">t_out</span> <span class="kw">as</span> <span class="ident">__wasi_timestamp_t</span>);
+    <span class="macro">wasi_try_mem!</span>(<span class="ident">time</span>.<span class="ident">write</span>(<span class="ident">t_out</span> <span class="kw">as</span> <span class="ident">__wasi_timestamp_t</span>));
 
     <span class="comment">// TODO: map output of clock_gettime to __wasi_errno_t</span>
     <span class="ident">__WASI_ESUCCESS</span>

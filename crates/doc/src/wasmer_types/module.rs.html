@@ -600,7 +600,6 @@
 <span id="598">598</span>
 <span id="599">599</span>
 <span id="600">600</span>
-<span id="601">601</span>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
 
@@ -617,7 +616,6 @@
     <span class="ident">TableIndex</span>, <span class="ident">TableInitializer</span>, <span class="ident">TableType</span>,
 };
 <span class="kw">use</span> <span class="ident">indexmap::IndexMap</span>;
-<span class="kw">use</span> <span class="ident">loupe::MemoryUsage</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-rkyv&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">rkyv</span>::{
     <span class="ident">de::SharedDeserializeRegistry</span>, <span class="ident">ser::ScratchSpace</span>, <span class="ident">ser::Serializer</span>,
@@ -634,7 +632,7 @@
 <span class="kw">use</span> <span class="ident">std::sync::atomic</span>::{<span class="ident">AtomicUsize</span>, <span class="ident">Ordering::SeqCst</span>};
 <span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">MemoryUsage</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
 <span class="attribute">#[<span class="ident">cfg_attr</span>(
     <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-rkyv&quot;</span>,
     <span class="ident">derive</span>(<span class="ident">RkyvSerialize</span>, <span class="ident">RkyvDeserialize</span>, <span class="ident">Archive</span>)
@@ -660,7 +658,7 @@
 
 <span class="doccomment">/// A translated WebAssembly module, excluding the function bodies and</span>
 <span class="doccomment">/// memory initializers.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Default</span>, <span class="ident">MemoryUsage</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Default</span>)]</span>
 <span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>))]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ModuleInfo</span> {
     <span class="doccomment">/// A unique identifier (within this process) for this module.</span>

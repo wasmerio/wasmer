@@ -231,33 +231,9 @@
 <span id="229">229</span>
 <span id="230">230</span>
 <span id="231">231</span>
-<span id="232">232</span>
-<span id="233">233</span>
-<span id="234">234</span>
-<span id="235">235</span>
-<span id="236">236</span>
-<span id="237">237</span>
-<span id="238">238</span>
-<span id="239">239</span>
-<span id="240">240</span>
-<span id="241">241</span>
-<span id="242">242</span>
-<span id="243">243</span>
-<span id="244">244</span>
-<span id="245">245</span>
-<span id="246">246</span>
-<span id="247">247</span>
-<span id="248">248</span>
-<span id="249">249</span>
-<span id="250">250</span>
-<span id="251">251</span>
-<span id="252">252</span>
-<span id="253">253</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">super</span>::Instance</span>;
-<span class="kw">use</span> <span class="ident">loupe</span>::{<span class="ident">MemoryUsage</span>, <span class="ident">MemoryUsageTracker</span>};
 <span class="kw">use</span> <span class="ident">std::alloc::Layout</span>;
 <span class="kw">use</span> <span class="ident">std::convert::TryFrom</span>;
-<span class="kw">use</span> <span class="ident">std::mem</span>;
 <span class="kw">use</span> <span class="ident">std::ptr</span>::{<span class="self">self</span>, <span class="ident">NonNull</span>};
 <span class="kw">use</span> <span class="ident">std::sync</span>::{<span class="ident">Arc</span>, <span class="ident">Weak</span>};
 
@@ -337,15 +313,6 @@
 <span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">Send</span> <span class="kw">for</span> <span class="ident">InstanceInner</span> {}
 <span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">Sync</span> <span class="kw">for</span> <span class="ident">InstanceInner</span> {}
 
-<span class="kw">impl</span> <span class="ident">MemoryUsage</span> <span class="kw">for</span> <span class="ident">InstanceInner</span> {
-    <span class="kw">fn</span> <span class="ident">size_of_val</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">tracker</span>: <span class="kw-2">&amp;mut</span> <span class="kw">dyn</span> <span class="ident">MemoryUsageTracker</span>) -&gt; <span class="ident">usize</span> {
-        <span class="ident">mem::size_of_val</span>(<span class="self">self</span>) <span class="op">+</span> <span class="self">self</span>.<span class="ident">instance_layout</span>.<span class="ident">size_of_val</span>(<span class="ident">tracker</span>)
-            <span class="op">-</span> <span class="ident">mem::size_of_val</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">instance_layout</span>)
-            <span class="op">+</span> <span class="self">self</span>.<span class="ident">as_ref</span>().<span class="ident">size_of_val</span>(<span class="ident">tracker</span>)
-            <span class="op">-</span> <span class="ident">mem::size_of_val</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">instance</span>)
-    }
-}
-
 <span class="doccomment">/// An `InstanceRef` is responsible to properly deallocate,</span>
 <span class="doccomment">/// and to give access to an `Instance`, in such a way that `Instance`</span>
 <span class="doccomment">/// is unique, can be shared, safely, across threads, without</span>
@@ -365,7 +332,7 @@
 <span class="doccomment">/// share an [`Instance`] between an [`InstanceHandle`] and the module</span>
 <span class="doccomment">/// exports, so that one can drop a [`InstanceHandle`] but still being</span>
 <span class="doccomment">/// able to use the exports properly.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Clone</span>, <span class="ident">MemoryUsage</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Clone</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">InstanceRef</span>(<span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">InstanceInner</span><span class="op">&gt;</span>);
 
 <span class="kw">impl</span> <span class="ident">InstanceRef</span> {
@@ -432,22 +399,11 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">MemoryUsage</span> <span class="kw">for</span> <span class="ident">WeakInstanceRef</span> {
-    <span class="kw">fn</span> <span class="ident">size_of_val</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">tracker</span>: <span class="kw-2">&amp;mut</span> <span class="kw">dyn</span> <span class="ident">MemoryUsageTracker</span>) -&gt; <span class="ident">usize</span> {
-        <span class="ident">mem::size_of_val</span>(<span class="self">self</span>)
-            <span class="op">+</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">ir</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">upgrade</span>() {
-                <span class="ident">ir</span>.<span class="ident">size_of_val</span>(<span class="ident">tracker</span>)
-            } <span class="kw">else</span> {
-                <span class="number">0</span>
-            }
-    }
-}
-
 <span class="doccomment">/// An `InstanceRef` that may or may not be keeping the `Instance` alive.</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// This type is useful for types that conditionally must keep / not keep the</span>
 <span class="doccomment">/// underlying `Instance` alive. For example, to prevent cycles in `WasmerEnv`s.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">MemoryUsage</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">WeakOrStrongInstanceRef</span> {
     <span class="doccomment">/// A weak instance ref.</span>
     <span class="ident">Weak</span>(<span class="ident">WeakInstanceRef</span>),

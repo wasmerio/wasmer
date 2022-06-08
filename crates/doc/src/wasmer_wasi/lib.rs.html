@@ -271,13 +271,21 @@
 <span id="269">269</span>
 <span id="270">270</span>
 <span id="271">271</span>
+<span id="272">272</span>
+<span id="273">273</span>
+<span id="274">274</span>
+<span id="275">275</span>
+<span id="276">276</span>
+<span id="277">277</span>
+<span id="278">278</span>
+<span id="279">279</span>
 </pre><pre class="rust"><code><span class="attribute">#![<span class="ident">deny</span>(<span class="ident">unused_mut</span>)]</span>
 <span class="attribute">#![<span class="ident">doc</span>(<span class="ident">html_favicon_url</span> <span class="op">=</span> <span class="string">&quot;https://wasmer.io/images/icons/favicon-32x32.png&quot;</span>)]</span>
 <span class="attribute">#![<span class="ident">doc</span>(<span class="ident">html_logo_url</span> <span class="op">=</span> <span class="string">&quot;https://github.com/wasmerio.png?size=200&quot;</span>)]</span>
 
 <span class="doccomment">//! Wasmer&#39;s WASI implementation</span>
 <span class="doccomment">//!</span>
-<span class="doccomment">//! Use `generate_import_object` to create an [`ImportObject`].  This [`ImportObject`]</span>
+<span class="doccomment">//! Use `generate_import_object` to create an [`Imports`].  This [`Imports`]</span>
 <span class="doccomment">//! can be combined with a module to create an `Instance` which can execute WASI</span>
 <span class="doccomment">//! Wasm functions.</span>
 <span class="doccomment">//!</span>
@@ -308,7 +316,6 @@
 
 <span class="attribute">#[<span class="ident">macro_use</span>]</span>
 <span class="kw">mod</span> <span class="ident">macros</span>;
-<span class="kw">mod</span> <span class="ident">ptr</span>;
 <span class="kw">mod</span> <span class="ident">state</span>;
 <span class="kw">mod</span> <span class="ident">syscalls</span>;
 <span class="kw">mod</span> <span class="ident">utils</span>;
@@ -329,8 +336,7 @@
 
 <span class="kw">use</span> <span class="ident">thiserror::Error</span>;
 <span class="kw">use</span> <span class="ident">wasmer</span>::{
-    <span class="ident">imports</span>, <span class="ident">ChainableNamedResolver</span>, <span class="ident">Function</span>, <span class="ident">ImportObject</span>, <span class="ident">LazyInit</span>, <span class="ident">Memory</span>, <span class="ident">Module</span>,
-    <span class="ident">NamedResolver</span>, <span class="ident">Store</span>, <span class="ident">WasmerEnv</span>,
+    <span class="ident">imports</span>, <span class="ident">Function</span>, <span class="ident">Imports</span>, <span class="ident">LazyInit</span>, <span class="ident">Memory</span>, <span class="ident">MemoryAccessError</span>, <span class="ident">Module</span>, <span class="ident">Store</span>, <span class="ident">WasmerEnv</span>,
 };
 
 <span class="kw">use</span> <span class="ident">std::sync</span>::{<span class="ident">Arc</span>, <span class="ident">Mutex</span>, <span class="ident">MutexGuard</span>};
@@ -367,8 +373,8 @@
         }
     }
 
-    <span class="doccomment">/// Get an `ImportObject` for a specific version of WASI detected in the module.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">import_object</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">module</span>: <span class="kw-2">&amp;</span><span class="ident">Module</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">ImportObject</span>, <span class="ident">WasiError</span><span class="op">&gt;</span> {
+    <span class="doccomment">/// Get an `Imports` for a specific version of WASI detected in the module.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">import_object</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">module</span>: <span class="kw-2">&amp;</span><span class="ident">Module</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Imports</span>, <span class="ident">WasiError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">wasi_version</span> <span class="op">=</span> <span class="ident">get_wasi_version</span>(<span class="ident">module</span>, <span class="bool-val">false</span>).<span class="ident">ok_or</span>(<span class="ident">WasiError::UnknownWasiVersion</span>)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(<span class="ident">generate_import_object_from_env</span>(
             <span class="ident">module</span>.<span class="ident">store</span>(),
@@ -382,16 +388,17 @@
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">import_object_for_all_wasi_versions</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">module</span>: <span class="kw-2">&amp;</span><span class="ident">Module</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">NamedResolver</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span>, <span class="ident">WasiError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Imports</span>, <span class="ident">WasiError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">wasi_versions</span> <span class="op">=</span>
             <span class="ident">get_wasi_versions</span>(<span class="ident">module</span>, <span class="bool-val">false</span>).<span class="ident">ok_or</span>(<span class="ident">WasiError::UnknownWasiVersion</span>)<span class="question-mark">?</span>;
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">resolver</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">NamedResolver</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span> <span class="op">=</span>
-            { <span class="ident">Box::new</span>(()) <span class="kw">as</span> <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">NamedResolver</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span> };
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">resolver</span> <span class="op">=</span> <span class="ident">Imports::new</span>();
         <span class="kw">for</span> <span class="ident">version</span> <span class="kw">in</span> <span class="ident">wasi_versions</span>.<span class="ident">iter</span>() {
             <span class="kw">let</span> <span class="ident">new_import_object</span> <span class="op">=</span>
                 <span class="ident">generate_import_object_from_env</span>(<span class="ident">module</span>.<span class="ident">store</span>(), <span class="self">self</span>.<span class="ident">clone</span>(), <span class="kw-2">*</span><span class="ident">version</span>);
-            <span class="ident">resolver</span> <span class="op">=</span> <span class="ident">Box::new</span>(<span class="ident">new_import_object</span>.<span class="ident">chain_front</span>(<span class="ident">resolver</span>));
+            <span class="kw">for</span> ((<span class="ident">n</span>, <span class="ident">m</span>), <span class="ident">e</span>) <span class="kw">in</span> <span class="ident">new_import_object</span>.<span class="ident">into_iter</span>() {
+                <span class="ident">resolver</span>.<span class="ident">define</span>(<span class="kw-2">&amp;</span><span class="ident">n</span>, <span class="kw-2">&amp;</span><span class="ident">m</span>, <span class="ident">e</span>);
+            }
         }
         <span class="prelude-val">Ok</span>(<span class="ident">resolver</span>)
     }
@@ -421,14 +428,14 @@
     }
 }
 
-<span class="doccomment">/// Create an [`ImportObject`] with an existing [`WasiEnv`]. `WasiEnv`</span>
+<span class="doccomment">/// Create an [`Imports`] with an existing [`WasiEnv`]. `WasiEnv`</span>
 <span class="doccomment">/// needs a [`WasiState`], that can be constructed from a</span>
 <span class="doccomment">/// [`WasiStateBuilder`](state::WasiStateBuilder).</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">generate_import_object_from_env</span>(
     <span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="ident">Store</span>,
     <span class="ident">wasi_env</span>: <span class="ident">WasiEnv</span>,
     <span class="ident">version</span>: <span class="ident">WasiVersion</span>,
-) -&gt; <span class="ident">ImportObject</span> {
+) -&gt; <span class="ident">Imports</span> {
     <span class="kw">match</span> <span class="ident">version</span> {
         <span class="ident">WasiVersion::Snapshot0</span> =&gt; <span class="ident">generate_import_object_snapshot0</span>(<span class="ident">store</span>, <span class="ident">wasi_env</span>),
         <span class="ident">WasiVersion::Snapshot1</span> <span class="op">|</span> <span class="ident">WasiVersion::Latest</span> =&gt; {
@@ -438,7 +445,7 @@
 }
 
 <span class="doccomment">/// Combines a state generating function with the import list for legacy WASI</span>
-<span class="kw">fn</span> <span class="ident">generate_import_object_snapshot0</span>(<span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="ident">Store</span>, <span class="ident">env</span>: <span class="ident">WasiEnv</span>) -&gt; <span class="ident">ImportObject</span> {
+<span class="kw">fn</span> <span class="ident">generate_import_object_snapshot0</span>(<span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="ident">Store</span>, <span class="ident">env</span>: <span class="ident">WasiEnv</span>) -&gt; <span class="ident">Imports</span> {
     <span class="macro">imports!</span> {
         <span class="string">&quot;wasi_unstable&quot;</span> =&gt; {
             <span class="string">&quot;args_get&quot;</span> =&gt; <span class="ident">Function::new_native_with_env</span>(<span class="ident">store</span>, <span class="ident">env</span>.<span class="ident">clone</span>(), <span class="ident">args_get</span>),
@@ -491,7 +498,7 @@
 }
 
 <span class="doccomment">/// Combines a state generating function with the import list for snapshot 1</span>
-<span class="kw">fn</span> <span class="ident">generate_import_object_snapshot1</span>(<span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="ident">Store</span>, <span class="ident">env</span>: <span class="ident">WasiEnv</span>) -&gt; <span class="ident">ImportObject</span> {
+<span class="kw">fn</span> <span class="ident">generate_import_object_snapshot1</span>(<span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="ident">Store</span>, <span class="ident">env</span>: <span class="ident">WasiEnv</span>) -&gt; <span class="ident">Imports</span> {
     <span class="macro">imports!</span> {
         <span class="string">&quot;wasi_snapshot_preview1&quot;</span> =&gt; {
             <span class="string">&quot;args_get&quot;</span> =&gt; <span class="ident">Function::new_native_with_env</span>(<span class="ident">store</span>, <span class="ident">env</span>.<span class="ident">clone</span>(), <span class="ident">args_get</span>),
@@ -540,6 +547,15 @@
             <span class="string">&quot;sock_send&quot;</span> =&gt; <span class="ident">Function::new_native_with_env</span>(<span class="ident">store</span>, <span class="ident">env</span>.<span class="ident">clone</span>(), <span class="ident">sock_send</span>),
             <span class="string">&quot;sock_shutdown&quot;</span> =&gt; <span class="ident">Function::new_native_with_env</span>(<span class="ident">store</span>, <span class="ident">env</span>, <span class="ident">sock_shutdown</span>),
         }
+    }
+}
+
+<span class="kw">fn</span> <span class="ident">mem_error_to_wasi</span>(<span class="ident">err</span>: <span class="ident">MemoryAccessError</span>) -&gt; <span class="ident">types::__wasi_errno_t</span> {
+    <span class="kw">match</span> <span class="ident">err</span> {
+        <span class="ident">MemoryAccessError::HeapOutOfBounds</span> =&gt; <span class="ident">types::__WASI_EFAULT</span>,
+        <span class="ident">MemoryAccessError::Overflow</span> =&gt; <span class="ident">types::__WASI_EOVERFLOW</span>,
+        <span class="ident">MemoryAccessError::NonUtf8String</span> =&gt; <span class="ident">types::__WASI_EINVAL</span>,
+        <span class="kw">_</span> =&gt; <span class="ident">types::__WASI_EINVAL</span>,
     }
 }
 </code></pre></div>

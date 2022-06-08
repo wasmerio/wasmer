@@ -228,9 +228,6 @@
 <span id="226">226</span>
 <span id="227">227</span>
 <span id="228">228</span>
-<span id="229">229</span>
-<span id="230">230</span>
-<span id="231">231</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::compiler::LLVMCompiler</span>;
 <span class="kw">use</span> <span class="ident">inkwell::targets</span>::{
     <span class="ident">CodeModel</span>, <span class="ident">InitializationConfig</span>, <span class="ident">RelocMode</span>, <span class="ident">Target</span> <span class="kw">as</span> <span class="ident">InkwellTarget</span>, <span class="ident">TargetMachine</span>,
@@ -238,7 +235,6 @@
 };
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">inkwell::OptimizationLevel</span> <span class="kw">as</span> <span class="ident">LLVMOptLevel</span>;
 <span class="kw">use</span> <span class="ident">itertools::Itertools</span>;
-<span class="kw">use</span> <span class="ident">loupe::MemoryUsage</span>;
 <span class="kw">use</span> <span class="ident">std::fmt::Debug</span>;
 <span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
 <span class="kw">use</span> <span class="ident">target_lexicon::Architecture</span>;
@@ -271,14 +267,12 @@
     <span class="kw">fn</span> <span class="ident">obj_memory_buffer</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">function</span>: <span class="kw-2">&amp;</span><span class="ident">CompiledKind</span>, <span class="ident">memory_buffer</span>: <span class="kw-2">&amp;</span><span class="ident">InkwellMemoryBuffer</span>);
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">MemoryUsage</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">LLVM</span> {
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">enable_nan_canonicalization</span>: <span class="ident">bool</span>,
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">enable_verifier</span>: <span class="ident">bool</span>,
-    <span class="attribute">#[<span class="ident">loupe</span>(<span class="ident">skip</span>)]</span>
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">opt_level</span>: <span class="ident">LLVMOptLevel</span>,
     <span class="ident">is_pic</span>: <span class="ident">bool</span>,
-    <span class="attribute">#[<span class="ident">loupe</span>(<span class="ident">skip</span>)]</span>
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">callbacks</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">LLVMCallbacks</span><span class="op">&gt;</span><span class="op">&gt;</span>,
     <span class="doccomment">/// The middleware chain.</span>
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">middlewares</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">ModuleMiddleware</span><span class="op">&gt;</span><span class="op">&gt;</span>,

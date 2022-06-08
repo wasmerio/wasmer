@@ -45,9 +45,6 @@
 <span id="43">43</span>
 <span id="44">44</span>
 <span id="45">45</span>
-<span id="46">46</span>
-<span id="47">47</span>
-<span id="48">48</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Generic Engine abstraction for Wasmer Engines.</span>
 
 <span class="attribute">#![<span class="ident">deny</span>(<span class="ident">missing_docs</span>, <span class="ident">trivial_numeric_casts</span>, <span class="ident">unused_extern_crates</span>)]</span>
@@ -85,10 +82,7 @@
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::engine</span>::{<span class="ident">Engine</span>, <span class="ident">EngineId</span>};
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::error</span>::{<span class="ident">InstantiationError</span>, <span class="ident">LinkError</span>};
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::export</span>::{<span class="ident">Export</span>, <span class="ident">ExportFunction</span>, <span class="ident">ExportFunctionMetadata</span>};
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::resolver</span>::{
-    <span class="ident">resolve_imports</span>, <span class="ident">ChainableNamedResolver</span>, <span class="ident">NamedResolver</span>, <span class="ident">NamedResolverChain</span>, <span class="ident">NullResolver</span>,
-    <span class="ident">Resolver</span>,
-};
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::resolver::resolve_imports</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::trap</span>::<span class="kw-2">*</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::tunables::Tunables</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_artifact</span>::{<span class="ident">ArtifactCreate</span>, <span class="ident">MetadataHeader</span>};

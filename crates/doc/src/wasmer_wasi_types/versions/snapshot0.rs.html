@@ -109,15 +109,59 @@
 <span id="107">107</span>
 <span id="108">108</span>
 <span id="109">109</span>
+<span id="110">110</span>
+<span id="111">111</span>
+<span id="112">112</span>
+<span id="113">113</span>
+<span id="114">114</span>
+<span id="115">115</span>
+<span id="116">116</span>
+<span id="117">117</span>
+<span id="118">118</span>
+<span id="119">119</span>
+<span id="120">120</span>
+<span id="121">121</span>
+<span id="122">122</span>
+<span id="123">123</span>
+<span id="124">124</span>
+<span id="125">125</span>
+<span id="126">126</span>
+<span id="127">127</span>
+<span id="128">128</span>
+<span id="129">129</span>
+<span id="130">130</span>
+<span id="131">131</span>
+<span id="132">132</span>
+<span id="133">133</span>
+<span id="134">134</span>
+<span id="135">135</span>
+<span id="136">136</span>
+<span id="137">137</span>
+<span id="138">138</span>
+<span id="139">139</span>
+<span id="140">140</span>
+<span id="141">141</span>
+<span id="142">142</span>
+<span id="143">143</span>
+<span id="144">144</span>
+<span id="145">145</span>
+<span id="146">146</span>
+<span id="147">147</span>
+<span id="148">148</span>
+<span id="149">149</span>
+<span id="150">150</span>
+<span id="151">151</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">crate</span>::<span class="kw-2">*</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
 <span class="kw">use</span> <span class="ident">std::fmt</span>;
+<span class="kw">use</span> <span class="ident">std::mem</span>::{<span class="self">self</span>, <span class="ident">MaybeUninit</span>};
+<span class="kw">use</span> <span class="ident">wasmer_derive::ValueType</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types::ValueType</span>;
 
 <span class="kw">pub</span> <span class="kw">type</span> <span class="ident">__wasi_linkcount_t</span> <span class="op">=</span> <span class="ident">u32</span>;
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">ValueType</span>)]</span>
 <span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">__wasi_subscription_clock_t</span> {
     <span class="kw">pub</span> <span class="ident">userdata</span>: <span class="ident">__wasi_userdata_t</span>,
@@ -142,14 +186,56 @@
     <span class="kw">pub</span> <span class="ident">u</span>: <span class="ident">__wasi_subscription_u</span>,
 }
 
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">ValueType</span> <span class="kw">for</span> <span class="ident">__wasi_subscription_t</span> {}
+<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">ValueType</span> <span class="kw">for</span> <span class="ident">__wasi_subscription_t</span> {
+    <span class="kw">fn</span> <span class="ident">zero_padding_bytes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">bytes</span>: <span class="kw-2">&amp;mut</span> [<span class="ident">MaybeUninit</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>]) {
+        <span class="macro">macro_rules!</span> <span class="ident">field</span> {
+            ($(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">f</span>:<span class="ident">tt</span>)<span class="kw-2">*</span>) =&gt; {
+                <span class="kw-2">&amp;</span><span class="self">self</span>.$(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">f</span>)<span class="op">*</span> <span class="kw">as</span> <span class="kw-2">*const</span> <span class="kw">_</span> <span class="kw">as</span> <span class="ident">usize</span> <span class="op">-</span> <span class="self">self</span> <span class="kw">as</span> <span class="kw-2">*const</span> <span class="kw">_</span> <span class="kw">as</span> <span class="ident">usize</span>
+            };
+        }
+        <span class="macro">macro_rules!</span> <span class="ident">field_end</span> {
+            ($(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">f</span>:<span class="ident">tt</span>)<span class="kw-2">*</span>) =&gt; {
+                <span class="macro">field!</span>($(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">f</span>)<span class="kw-2">*</span>) <span class="op">+</span> <span class="ident">mem::size_of_val</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.$(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">f</span>)<span class="kw-2">*</span>)
+            };
+        }
+        <span class="macro">macro_rules!</span> <span class="ident">zero</span> {
+            (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">start</span>:<span class="ident">expr</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">end</span>:<span class="ident">expr</span>) =&gt; {
+                <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">start</span>..<span class="macro-nonterminal">$</span><span class="macro-nonterminal">end</span> {
+                    <span class="ident">bytes</span>[<span class="ident">i</span>] <span class="op">=</span> <span class="ident">MaybeUninit::new</span>(<span class="number">0</span>);
+                }
+            };
+        }
+        <span class="self">self</span>.<span class="ident">userdata</span>
+            .<span class="ident">zero_padding_bytes</span>(<span class="kw-2">&amp;mut</span> <span class="ident">bytes</span>[<span class="macro">field!</span>(<span class="ident">userdata</span>)..<span class="macro">field_end!</span>(<span class="ident">userdata</span>)]);
+        <span class="macro">zero!</span>(<span class="macro">field_end!</span>(<span class="ident">userdata</span>), <span class="macro">field!</span>(<span class="ident">type_</span>));
+        <span class="self">self</span>.<span class="ident">type_</span>
+            .<span class="ident">zero_padding_bytes</span>(<span class="kw-2">&amp;mut</span> <span class="ident">bytes</span>[<span class="macro">field!</span>(<span class="ident">type_</span>)..<span class="macro">field_end!</span>(<span class="ident">type_</span>)]);
+        <span class="macro">zero!</span>(<span class="macro">field_end!</span>(<span class="ident">type_</span>), <span class="macro">field!</span>(<span class="ident">u</span>));
+        <span class="kw">match</span> <span class="self">self</span>.<span class="ident">type_</span> {
+            <span class="ident">__WASI_EVENTTYPE_FD_READ</span> <span class="op">|</span> <span class="ident">__WASI_EVENTTYPE_FD_WRITE</span> =&gt; <span class="kw">unsafe</span> {
+                <span class="self">self</span>.<span class="ident">u</span>.<span class="ident">fd_readwrite</span>.<span class="ident">zero_padding_bytes</span>(
+                    <span class="kw-2">&amp;mut</span> <span class="ident">bytes</span>[<span class="macro">field!</span>(<span class="ident">u</span>.<span class="ident">fd_readwrite</span>)..<span class="macro">field_end!</span>(<span class="ident">u</span>.<span class="ident">fd_readwrite</span>)],
+                );
+                <span class="macro">zero!</span>(<span class="macro">field_end!</span>(<span class="ident">u</span>.<span class="ident">fd_readwrite</span>), <span class="macro">field_end!</span>(<span class="ident">u</span>));
+            },
+            <span class="ident">__WASI_EVENTTYPE_CLOCK</span> =&gt; <span class="kw">unsafe</span> {
+                <span class="self">self</span>.<span class="ident">u</span>
+                    .<span class="ident">clock</span>
+                    .<span class="ident">zero_padding_bytes</span>(<span class="kw-2">&amp;mut</span> <span class="ident">bytes</span>[<span class="macro">field!</span>(<span class="ident">u</span>.<span class="ident">clock</span>)..<span class="macro">field_end!</span>(<span class="ident">u</span>.<span class="ident">clock</span>)]);
+                <span class="macro">zero!</span>(<span class="macro">field_end!</span>(<span class="ident">u</span>.<span class="ident">clock</span>), <span class="macro">field_end!</span>(<span class="ident">u</span>));
+            },
+            <span class="kw">_</span> =&gt; <span class="macro">zero!</span>(<span class="macro">field!</span>(<span class="ident">u</span>), <span class="macro">field_end!</span>(<span class="ident">u</span>)),
+        }
+        <span class="macro">zero!</span>(<span class="macro">field_end!</span>(<span class="ident">u</span>), <span class="ident">mem::size_of_val</span>(<span class="self">self</span>));
+    }
+}
 
 <span class="kw">pub</span> <span class="kw">type</span> <span class="ident">__wasi_whence_t</span> <span class="op">=</span> <span class="ident">u8</span>;
 <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">__WASI_WHENCE_CUR</span>: <span class="ident">u8</span> <span class="op">=</span> <span class="number">0</span>;
 <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">__WASI_WHENCE_END</span>: <span class="ident">u8</span> <span class="op">=</span> <span class="number">1</span>;
 <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">__WASI_WHENCE_SET</span>: <span class="ident">u8</span> <span class="op">=</span> <span class="number">2</span>;
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">ValueType</span>)]</span>
 <span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>))]</span>
 <span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">__wasi_filestat_t</span> {
@@ -162,8 +248,6 @@
     <span class="kw">pub</span> <span class="ident">st_mtim</span>: <span class="ident">__wasi_timestamp_t</span>,
     <span class="kw">pub</span> <span class="ident">st_ctim</span>: <span class="ident">__wasi_timestamp_t</span>,
 }
-
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">ValueType</span> <span class="kw">for</span> <span class="ident">__wasi_filestat_t</span> {}
 
 <span class="kw">impl</span> <span class="ident">fmt::Debug</span> <span class="kw">for</span> <span class="ident">__wasi_filestat_t</span> {
     <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">fmt::Result</span> {

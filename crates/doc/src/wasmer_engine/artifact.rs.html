@@ -163,9 +163,7 @@
 <span id="161">161</span>
 <span id="162">162</span>
 <span id="163">163</span>
-<span id="164">164</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">resolve_imports</span>, <span class="ident">InstantiationError</span>, <span class="ident">Resolver</span>, <span class="ident">RuntimeError</span>, <span class="ident">Tunables</span>};
-<span class="kw">use</span> <span class="ident">loupe::MemoryUsage</span>;
+</pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">resolve_imports</span>, <span class="ident">Export</span>, <span class="ident">InstantiationError</span>, <span class="ident">RuntimeError</span>, <span class="ident">Tunables</span>};
 <span class="kw">use</span> <span class="ident">std::any::Any</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_artifact::MetadataHeader</span>;
 <span class="kw">use</span> <span class="ident">wasmer_artifact</span>::{<span class="ident">ArtifactCreate</span>, <span class="ident">Upcastable</span>};
@@ -186,7 +184,7 @@
 <span class="doccomment">///</span>
 <span class="doccomment">/// The `ArtifactRun` contains the extra information needed to run the</span>
 <span class="doccomment">/// module at runtime, such as [`ModuleInfo`] and [`Features`].</span>
-<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">Artifact</span>: <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="ident">Upcastable</span> <span class="op">+</span> <span class="ident">MemoryUsage</span> <span class="op">+</span> <span class="ident">ArtifactCreate</span> {
+<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">Artifact</span>: <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="ident">Upcastable</span> <span class="op">+</span> <span class="ident">ArtifactCreate</span> {
     <span class="doccomment">/// Register thie `Artifact` stack frame information into the global scope.</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// This is required to ensure that any traps can be properly symbolicated.</span>
@@ -222,7 +220,7 @@
     <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">instantiate</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">tunables</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">Tunables</span>,
-        <span class="ident">resolver</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">Resolver</span>,
+        <span class="ident">imports</span>: <span class="kw-2">&amp;</span>[<span class="ident">Export</span>],
         <span class="ident">host_state</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Any</span><span class="op">&gt;</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">InstanceHandle</span>, <span class="ident">InstantiationError</span><span class="op">&gt;</span> {
         <span class="comment">// Validate the CPU features this module was compiled with against the</span>
@@ -241,7 +239,7 @@
         <span class="kw">let</span> (<span class="ident">imports</span>, <span class="ident">import_function_envs</span>) <span class="op">=</span> {
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">imports</span> <span class="op">=</span> <span class="ident">resolve_imports</span>(
                 <span class="kw-2">&amp;</span><span class="ident">module</span>,
-                <span class="ident">resolver</span>,
+                <span class="ident">imports</span>,
                 <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">finished_dynamic_function_trampolines</span>(),
                 <span class="self">self</span>.<span class="ident">memory_styles</span>(),
                 <span class="self">self</span>.<span class="ident">table_styles</span>(),

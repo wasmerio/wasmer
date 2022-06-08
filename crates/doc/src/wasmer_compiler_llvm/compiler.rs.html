@@ -371,8 +371,6 @@
 <span id="369">369</span>
 <span id="370">370</span>
 <span id="371">371</span>
-<span id="372">372</span>
-<span id="373">373</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::config::LLVM</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::trampoline::FuncTrampoline</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::translator::FuncTranslator</span>;
@@ -382,7 +380,6 @@
 <span class="kw">use</span> <span class="ident">inkwell::module</span>::{<span class="ident">Linkage</span>, <span class="ident">Module</span>};
 <span class="kw">use</span> <span class="ident">inkwell::targets::FileType</span>;
 <span class="kw">use</span> <span class="ident">inkwell::DLLStorageClass</span>;
-<span class="kw">use</span> <span class="ident">loupe::MemoryUsage</span>;
 <span class="kw">use</span> <span class="ident">rayon::iter::ParallelBridge</span>;
 <span class="kw">use</span> <span class="ident">rayon::prelude</span>::{<span class="ident">IntoParallelIterator</span>, <span class="ident">IntoParallelRefIterator</span>, <span class="ident">ParallelIterator</span>};
 <span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
@@ -398,7 +395,6 @@
 
 <span class="doccomment">/// A compiler that compiles a WebAssembly module with LLVM, translating the Wasm to LLVM IR,</span>
 <span class="doccomment">/// optimizing it and then translating to assembly.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">MemoryUsage</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">LLVMCompiler</span> {
     <span class="ident">config</span>: <span class="ident">LLVM</span>,
 }

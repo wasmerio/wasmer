@@ -267,16 +267,11 @@
 <span id="265">265</span>
 <span id="266">266</span>
 <span id="267">267</span>
-<span id="268">268</span>
-<span id="269">269</span>
-<span id="270">270</span>
-<span id="271">271</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Define `DummyArtifact` to allow compiling and instantiating to be</span>
 <span class="doccomment">//! done as separate steps.</span>
 
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::engine::DummyEngine</span>;
 <span class="kw">use</span> <span class="ident">enumset::EnumSet</span>;
-<span class="kw">use</span> <span class="ident">loupe::MemoryUsage</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;serialize&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
 <span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
@@ -297,7 +292,6 @@
 
 <span class="doccomment">/// Serializable struct for the artifact</span>
 <span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;serialize&quot;</span>, <span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>))]</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">MemoryUsage</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">DummyArtifactMetadata</span> {
     <span class="kw">pub</span> <span class="ident">module</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">ModuleInfo</span><span class="op">&gt;</span>,
     <span class="kw">pub</span> <span class="ident">features</span>: <span class="ident">Features</span>,
@@ -312,11 +306,9 @@
 <span class="doccomment">///</span>
 <span class="doccomment">/// This artifact will point to fake finished functions and trampolines</span>
 <span class="doccomment">/// as no functions are really compiled.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">MemoryUsage</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">DummyArtifact</span> {
     <span class="ident">metadata</span>: <span class="ident">DummyArtifactMetadata</span>,
     <span class="ident">finished_functions</span>: <span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">FunctionBodyPtr</span><span class="op">&gt;</span>,
-    <span class="attribute">#[<span class="ident">loupe</span>(<span class="ident">skip</span>)]</span>
     <span class="ident">finished_function_call_trampolines</span>: <span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">SignatureIndex</span>, <span class="ident">VMTrampoline</span><span class="op">&gt;</span>,
     <span class="ident">finished_dynamic_function_trampolines</span>: <span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">FunctionIndex</span>, <span class="ident">FunctionBodyPtr</span><span class="op">&gt;</span>,
     <span class="ident">signatures</span>: <span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">SignatureIndex</span>, <span class="ident">VMSharedSignatureIndex</span><span class="op">&gt;</span>,

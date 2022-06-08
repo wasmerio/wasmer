@@ -191,11 +191,9 @@
 <span id="189">189</span>
 <span id="190">190</span>
 <span id="191">191</span>
-<span id="192">192</span>
 </pre><pre class="rust"><code><span class="doccomment">//! The middleware parses the function binary bytecodes and transform them</span>
 <span class="doccomment">//! with the chosen functions.</span>
 
-<span class="kw">use</span> <span class="ident">loupe::MemoryUsage</span>;
 <span class="kw">use</span> <span class="ident">smallvec::SmallVec</span>;
 <span class="kw">use</span> <span class="ident">std::collections::VecDeque</span>;
 <span class="kw">use</span> <span class="ident">std::fmt::Debug</span>;
@@ -207,7 +205,7 @@
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::translator::environ::FunctionBinaryReader</span>;
 
 <span class="doccomment">/// A shared builder for function middlewares.</span>
-<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">ModuleMiddleware</span>: <span class="ident">Debug</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="ident">MemoryUsage</span> {
+<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">ModuleMiddleware</span>: <span class="ident">Debug</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> {
     <span class="doccomment">/// Generates a `FunctionMiddleware` for a given function.</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// Here we generate a separate object for each function instead of executing directly on per-function operators,</span>

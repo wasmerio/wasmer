@@ -139,19 +139,7 @@
 <span id="137">137</span>
 <span id="138">138</span>
 <span id="139">139</span>
-<span id="140">140</span>
-<span id="141">141</span>
-<span id="142">142</span>
-<span id="143">143</span>
-<span id="144">144</span>
-<span id="145">145</span>
-<span id="146">146</span>
-<span id="147">147</span>
-<span id="148">148</span>
-<span id="149">149</span>
-<span id="150">150</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">loupe::MemoryUsage</span>;
-<span class="kw">use</span> <span class="ident">rkyv</span>::{
+</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">rkyv</span>::{
     <span class="ident">archived_value</span>, <span class="ident">de::deserializers::SharedDeserializeMap</span>, <span class="ident">ser::serializers::AllocSerializer</span>,
     <span class="ident">ser::Serializer</span> <span class="kw">as</span> <span class="ident">RkyvSerializer</span>, <span class="ident">Archive</span>, <span class="ident">Deserialize</span> <span class="kw">as</span> <span class="ident">RkyvDeserialize</span>,
     <span class="ident">Serialize</span> <span class="kw">as</span> <span class="ident">RkyvSerialize</span>,
@@ -171,17 +159,7 @@
 }
 
 <span class="doccomment">/// Serializable struct that represents the compiled metadata.</span>
-<span class="attribute">#[<span class="ident">derive</span>(
-    <span class="ident">Serialize</span>,
-    <span class="ident">Deserialize</span>,
-    <span class="ident">Debug</span>,
-    <span class="ident">MemoryUsage</span>,
-    <span class="ident">RkyvSerialize</span>,
-    <span class="ident">RkyvDeserialize</span>,
-    <span class="ident">Archive</span>,
-    <span class="ident">PartialEq</span>,
-    <span class="ident">Eq</span>,
-)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>, <span class="ident">Debug</span>, <span class="ident">RkyvSerialize</span>, <span class="ident">RkyvDeserialize</span>, <span class="ident">Archive</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ModuleMetadata</span> {
     <span class="kw">pub</span> <span class="ident">compile_info</span>: <span class="ident">CompileModuleInfo</span>,
     <span class="kw">pub</span> <span class="ident">function_frame_info</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">CompiledFunctionFrameInfo</span><span class="op">&gt;</span><span class="op">&gt;</span>,

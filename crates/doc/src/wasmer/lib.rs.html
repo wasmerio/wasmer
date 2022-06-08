@@ -630,8 +630,8 @@
 <span class="doccomment">//! [`imports`] macro:</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! ```</span>
-<span class="doccomment">//! # use wasmer::{imports, Function, Memory, MemoryType, Store, ImportObject};</span>
-<span class="doccomment">//! # fn imports_example(store: &amp;Store) -&gt; ImportObject {</span>
+<span class="doccomment">//! # use wasmer::{imports, Function, Memory, MemoryType, Store, Imports};</span>
+<span class="doccomment">//! # fn imports_example(store: &amp;Store) -&gt; Imports {</span>
 <span class="doccomment">//! let memory = Memory::new(&amp;store, MemoryType::new(1, None, false)).unwrap();</span>
 <span class="doccomment">//! imports! {</span>
 <span class="doccomment">//!     &quot;env&quot; =&gt; {</span>
@@ -646,11 +646,11 @@
 <span class="doccomment">//! from any instance via `instance.exports`:</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! ```</span>
-<span class="doccomment">//! # use wasmer::{imports, Instance, Function, Memory, NativeFunc};</span>
+<span class="doccomment">//! # use wasmer::{imports, Instance, Function, Memory, TypedFunction};</span>
 <span class="doccomment">//! # fn exports_example(instance: &amp;Instance) -&gt; anyhow::Result&lt;()&gt; {</span>
 <span class="doccomment">//! let memory = instance.exports.get_memory(&quot;memory&quot;)?;</span>
 <span class="doccomment">//! let memory: &amp;Memory = instance.exports.get(&quot;some_other_memory&quot;)?;</span>
-<span class="doccomment">//! let add: NativeFunc&lt;(i32, i32), i32&gt; = instance.exports.get_native_function(&quot;add&quot;)?;</span>
+<span class="doccomment">//! let add: TypedFunction&lt;(i32, i32), i32&gt; = instance.exports.get_native_function(&quot;add&quot;)?;</span>
 <span class="doccomment">//! let result = add.call(5, 37)?;</span>
 <span class="doccomment">//! assert_eq!(result, 42);</span>
 <span class="doccomment">//! # Ok(())</span>
@@ -689,7 +689,7 @@
 <span class="doccomment">//!</span>
 <span class="doccomment">//! In the `wasmer` API we support functions which take their arguments and</span>
 <span class="doccomment">//! return their results dynamically, [`Function`], and functions which</span>
-<span class="doccomment">//! take their arguments and return their results statically, [`NativeFunc`].</span>
+<span class="doccomment">//! take their arguments and return their results statically, [`TypedFunction`].</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! ### Memories</span>
 <span class="doccomment">//!</span>

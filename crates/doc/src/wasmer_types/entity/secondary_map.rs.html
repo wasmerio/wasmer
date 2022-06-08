@@ -329,23 +329,6 @@
 <span id="327">327</span>
 <span id="328">328</span>
 <span id="329">329</span>
-<span id="330">330</span>
-<span id="331">331</span>
-<span id="332">332</span>
-<span id="333">333</span>
-<span id="334">334</span>
-<span id="335">335</span>
-<span id="336">336</span>
-<span id="337">337</span>
-<span id="338">338</span>
-<span id="339">339</span>
-<span id="340">340</span>
-<span id="341">341</span>
-<span id="342">342</span>
-<span id="343">343</span>
-<span id="344">344</span>
-<span id="345">345</span>
-<span id="346">346</span>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
 
@@ -359,7 +342,6 @@
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::lib::std::ops</span>::{<span class="ident">Index</span>, <span class="ident">IndexMut</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::lib::std::slice</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::lib::std::vec::Vec</span>;
-<span class="kw">use</span> <span class="ident">loupe</span>::{<span class="ident">MemoryUsage</span>, <span class="ident">MemoryUsageTracker</span>};
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-rkyv&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">rkyv</span>::{<span class="ident">Archive</span>, <span class="ident">Deserialize</span> <span class="kw">as</span> <span class="ident">RkyvDeserialize</span>, <span class="ident">Serialize</span> <span class="kw">as</span> <span class="ident">RkyvSerialize</span>};
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>)]</span>
@@ -368,7 +350,6 @@
     <span class="ident">ser</span>::{<span class="ident">SerializeSeq</span>, <span class="ident">Serializer</span>},
     <span class="ident">Deserialize</span>, <span class="ident">Serialize</span>,
 };
-<span class="kw">use</span> <span class="ident">std::mem</span>;
 
 <span class="doccomment">/// A mapping `K -&gt; V` for densely indexed entity references.</span>
 <span class="doccomment">///</span>
@@ -632,21 +613,6 @@
         <span class="ident">deserializer</span>.<span class="ident">deserialize_seq</span>(<span class="ident">SecondaryMapVisitor</span> {
             <span class="ident">unused</span>: <span class="ident">PhantomData</span> {},
         })
-    }
-}
-
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">K</span>, <span class="ident">V</span><span class="op">&gt;</span> <span class="ident">MemoryUsage</span> <span class="kw">for</span> <span class="ident">SecondaryMap</span><span class="op">&lt;</span><span class="ident">K</span>, <span class="ident">V</span><span class="op">&gt;</span>
-<span class="kw">where</span>
-    <span class="ident">K</span>: <span class="ident">EntityRef</span>,
-    <span class="ident">V</span>: <span class="ident">Clone</span> <span class="op">+</span> <span class="ident">MemoryUsage</span>,
-{
-    <span class="kw">fn</span> <span class="ident">size_of_val</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">tracker</span>: <span class="kw-2">&amp;mut</span> <span class="kw">dyn</span> <span class="ident">MemoryUsageTracker</span>) -&gt; <span class="ident">usize</span> {
-        <span class="ident">mem::size_of_val</span>(<span class="self">self</span>)
-            <span class="op">+</span> <span class="self">self</span>
-                .<span class="ident">elems</span>
-                .<span class="ident">iter</span>()
-                .<span class="ident">map</span>(<span class="op">|</span><span class="ident">value</span><span class="op">|</span> <span class="ident">value</span>.<span class="ident">size_of_val</span>(<span class="ident">tracker</span>) <span class="op">-</span> <span class="ident">mem::size_of_val</span>(<span class="ident">value</span>))
-                .<span class="ident">sum</span>::<span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>()
     }
 }
 

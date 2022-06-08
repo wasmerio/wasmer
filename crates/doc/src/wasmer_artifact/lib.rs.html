@@ -54,7 +54,6 @@
 <span id="52">52</span>
 <span id="53">53</span>
 <span id="54">54</span>
-<span id="55">55</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Generic Artifact abstraction for Wasmer Engines.</span>
 
 <span class="attribute">#![<span class="ident">deny</span>(<span class="ident">missing_docs</span>, <span class="ident">trivial_numeric_casts</span>, <span class="ident">unused_extern_crates</span>)]</span>
@@ -84,13 +83,12 @@
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::artifact</span>::{<span class="ident">ArtifactCreate</span>, <span class="ident">MetadataHeader</span>, <span class="ident">Upcastable</span>};
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::error</span>::{<span class="ident">DeserializeError</span>, <span class="ident">ImportError</span>, <span class="ident">PreInstantiationError</span>, <span class="ident">SerializeError</span>};
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::funcbody::VMFunctionBody</span>;
-<span class="kw">use</span> <span class="ident">loupe::MemoryUsage</span>;
 
 <span class="doccomment">/// Version number of this crate.</span>
 <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">VERSION</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="macro">env!</span>(<span class="string">&quot;CARGO_PKG_VERSION&quot;</span>);
 
 <span class="doccomment">/// A safe wrapper around `VMFunctionBody`.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">Debug</span>, <span class="ident">MemoryUsage</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">Debug</span>)]</span>
 <span class="attribute">#[<span class="ident">repr</span>(<span class="ident">transparent</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">FunctionBodyPtr</span>(<span class="kw">pub</span> <span class="kw-2">*const</span> <span class="ident">VMFunctionBody</span>);
 

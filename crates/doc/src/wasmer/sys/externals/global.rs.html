@@ -263,8 +263,6 @@
 <span id="261">261</span>
 <span id="262">262</span>
 <span id="263">263</span>
-<span id="264">264</span>
-<span id="265">265</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::exports</span>::{<span class="ident">ExportError</span>, <span class="ident">Exportable</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::externals::Extern</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::store</span>::{<span class="ident">Store</span>, <span class="ident">StoreObject</span>};
@@ -272,7 +270,6 @@
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::GlobalType</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::Mutability</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::RuntimeError</span>;
-<span class="kw">use</span> <span class="ident">loupe::MemoryUsage</span>;
 <span class="kw">use</span> <span class="ident">std::fmt</span>;
 <span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
 <span class="kw">use</span> <span class="ident">wasmer_engine::Export</span>;
@@ -284,7 +281,6 @@
 <span class="doccomment">/// It consists of an individual value and a flag indicating whether it is mutable.</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// Spec: &lt;https://webassembly.github.io/spec/core/exec/runtime.html#global-instances&gt;</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">MemoryUsage</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Global</span> {
     <span class="ident">store</span>: <span class="ident">Store</span>,
     <span class="ident">vm_global</span>: <span class="ident">VMGlobal</span>,

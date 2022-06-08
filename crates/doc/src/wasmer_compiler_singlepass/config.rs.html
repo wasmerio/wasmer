@@ -64,17 +64,15 @@
 <span id="62">62</span>
 <span id="63">63</span>
 <span id="64">64</span>
-<span id="65">65</span>
 </pre><pre class="rust"><code><span class="comment">// Allow unused imports while developing</span>
 <span class="attribute">#![<span class="ident">allow</span>(<span class="ident">unused_imports</span>, <span class="ident">dead_code</span>)]</span>
 
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::compiler::SinglepassCompiler</span>;
-<span class="kw">use</span> <span class="ident">loupe::MemoryUsage</span>;
 <span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
 <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">Compiler</span>, <span class="ident">CompilerConfig</span>, <span class="ident">CpuFeature</span>, <span class="ident">ModuleMiddleware</span>, <span class="ident">Target</span>};
 <span class="kw">use</span> <span class="ident">wasmer_types::Features</span>;
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">MemoryUsage</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Singlepass</span> {
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">enable_nan_canonicalization</span>: <span class="ident">bool</span>,
     <span class="doccomment">/// The middleware chain.</span>

@@ -1,3 +1,4 @@
 (function() {var implementors = {};
 implementors["wasmer"] = [];
+implementors["wasmer_emscripten"] = [{"text":"impl <a class=\"trait\" href=\"wasmer/sys/externals/function/inner/trait.FromToNativeWasmType.html\" title=\"trait wasmer::sys::externals::function::inner::FromToNativeWasmType\">FromToNativeWasmType</a> for <a class=\"struct\" href=\"wasmer_emscripten/varargs/struct.VarArgs.html\" title=\"struct wasmer_emscripten::varargs::VarArgs\">VarArgs</a>","synthetic":false,"types":["wasmer_emscripten::varargs::VarArgs"]}];
 if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

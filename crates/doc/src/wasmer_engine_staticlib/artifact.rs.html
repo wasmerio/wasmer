@@ -508,16 +508,12 @@
 <span id="506">506</span>
 <span id="507">507</span>
 <span id="508">508</span>
-<span id="509">509</span>
-<span id="510">510</span>
-<span id="511">511</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Define `StaticlibArtifact` to allow compiling and instantiating to be</span>
 <span class="doccomment">//! done as separate steps.</span>
 
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::engine</span>::{<span class="ident">StaticlibEngine</span>, <span class="ident">StaticlibEngineInner</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::serialize</span>::{<span class="ident">ModuleMetadata</span>, <span class="ident">ModuleMetadataSymbolRegistry</span>};
 <span class="kw">use</span> <span class="ident">enumset::EnumSet</span>;
-<span class="kw">use</span> <span class="ident">loupe::MemoryUsage</span>;
 <span class="kw">use</span> <span class="ident">std::collections::BTreeMap</span>;
 <span class="kw">use</span> <span class="ident">std::error::Error</span>;
 <span class="kw">use</span> <span class="ident">std::mem</span>;
@@ -552,12 +548,10 @@
 };
 
 <span class="doccomment">/// A compiled wasm module, ready to be instantiated.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">MemoryUsage</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">StaticlibArtifact</span> {
     <span class="ident">metadata</span>: <span class="ident">ModuleMetadata</span>,
     <span class="ident">module_bytes</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,
     <span class="ident">finished_functions</span>: <span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">FunctionBodyPtr</span><span class="op">&gt;</span>,
-    <span class="attribute">#[<span class="ident">loupe</span>(<span class="ident">skip</span>)]</span>
     <span class="ident">finished_function_call_trampolines</span>: <span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">SignatureIndex</span>, <span class="ident">VMTrampoline</span><span class="op">&gt;</span>,
     <span class="ident">finished_dynamic_function_trampolines</span>: <span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">FunctionIndex</span>, <span class="ident">FunctionBodyPtr</span><span class="op">&gt;</span>,
     <span class="ident">signatures</span>: <span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">SignatureIndex</span>, <span class="ident">VMSharedSignatureIndex</span><span class="op">&gt;</span>,
