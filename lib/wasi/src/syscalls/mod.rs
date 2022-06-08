@@ -27,28 +27,27 @@ use crate::utils::map_io_err;
 use crate::{
     mem_error_to_wasi,
     state::{
-        self, fs_error_into_wasi_err, net_error_into_wasi_err, iterate_poll_events, poll,
-        virtual_file_type_to_wasi_file_type, Fd, Inode, InodeVal, Kind, PollEvent,
-        PollEventBuilder, WasiState, MAX_SYMLINKS, InodeSocket, InodeSocketKind,
-        WasiPipe,
+        self, fs_error_into_wasi_err, iterate_poll_events, net_error_into_wasi_err, poll,
+        virtual_file_type_to_wasi_file_type, Fd, Inode, InodeSocket, InodeSocketKind, InodeVal,
+        Kind, PollEvent, PollEventBuilder, WasiPipe, WasiState, MAX_SYMLINKS,
     },
-    WasiEnv, WasiError, WasiThread, WasiThreadId
+    WasiEnv, WasiError, WasiThread, WasiThreadId,
 };
+use bytes::Bytes;
 use std::borrow::Borrow;
 use std::convert::{Infallible, TryInto};
 use std::io::{self, Read, Seek, Write};
-use std::sync::{Arc, mpsc};
-use std::sync::atomic::AtomicU64;
-use std::time::Duration;
-use std::ops::{Deref, DerefMut};
-use std::sync::{Mutex, atomic::Ordering};
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::mem::transmute;
-use bytes::Bytes;
-use tracing::{debug, trace, error};
-use wasmer::{Memory, RuntimeError, Value, WasmPtr, WasmSlice, MemorySize, Memory32, Memory64};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
+use std::ops::{Deref, DerefMut};
+use std::sync::atomic::AtomicU64;
+use std::sync::{atomic::Ordering, Mutex};
+use std::sync::{mpsc, Arc};
+use std::time::Duration;
+use tracing::{debug, error, trace};
+use wasmer::{Memory, Memory32, Memory64, MemorySize, RuntimeError, Value, WasmPtr, WasmSlice};
 use wasmer_vfs::{FsError, VirtualFile};
-use wasmer_vnet::{StreamSecurity, SocketHttpRequest};
+use wasmer_vnet::{SocketHttpRequest, StreamSecurity};
 
 #[cfg(any(
     target_os = "freebsd",
@@ -64,14 +63,12 @@ pub use windows::*;
 #[cfg(any(target_arch = "wasm32"))]
 pub use wasm32::*;
 
-fn to_offset<M: MemorySize>(offset: usize) -> Result<M::Offset, __wasi_errno_t>
-{
+fn to_offset<M: MemorySize>(offset: usize) -> Result<M::Offset, __wasi_errno_t> {
     let ret: M::Offset = offset.try_into().map_err(|_| __WASI_EINVAL)?;
     Ok(ret)
 }
 
-fn from_offset<M: MemorySize>(offset: M::Offset) -> Result<usize, __wasi_errno_t>
-{
+fn from_offset<M: MemorySize>(offset: M::Offset) -> Result<usize, __wasi_errno_t> {
     let ret: usize = offset.try_into().map_err(|_| __WASI_EINVAL)?;
     Ok(ret)
 }
@@ -139,9 +136,10 @@ fn __sock_actor<T, F>(
     thread: &WasiThread,
     sock: __wasi_fd_t,
     rights: __wasi_rights_t,
-    actor: F
+    actor: F,
 ) -> Result<T, __wasi_errno_t>
-where F: FnOnce(&crate::state::InodeSocket) -> Result<T, __wasi_errno_t>
+where
+    F: FnOnce(&crate::state::InodeSocket) -> Result<T, __wasi_errno_t>,
 {
     let (_, state, inodes) = thread.get_memory_and_wasi_state_and_inodes(0);
 
@@ -158,9 +156,7 @@ where F: FnOnce(&crate::state::InodeSocket) -> Result<T, __wasi_errno_t>
 
         let mut guard = inode.read();
         match guard.deref() {
-            Kind::Socket { socket } => {
-                actor(socket)?
-            }
+            Kind::Socket { socket } => actor(socket)?,
             _ => {
                 return Err(__WASI_ENOTSOCK);
             }
@@ -174,9 +170,10 @@ fn __sock_actor_mut<T, F>(
     thread: &WasiThread,
     sock: __wasi_fd_t,
     rights: __wasi_rights_t,
-    actor: F
+    actor: F,
 ) -> Result<T, __wasi_errno_t>
-where F: FnOnce(&mut crate::state::InodeSocket) -> Result<T, __wasi_errno_t>
+where
+    F: FnOnce(&mut crate::state::InodeSocket) -> Result<T, __wasi_errno_t>,
 {
     let (_, state, inodes) = thread.get_memory_and_wasi_state_and_inodes(0);
 
@@ -193,9 +190,7 @@ where F: FnOnce(&mut crate::state::InodeSocket) -> Result<T, __wasi_errno_t>
 
         let mut guard = inode.write();
         match guard.deref_mut() {
-            Kind::Socket { socket } => {
-                actor(socket)?
-            }
+            Kind::Socket { socket } => actor(socket)?,
             _ => {
                 return Err(__WASI_ENOTSOCK);
             }
@@ -209,9 +204,12 @@ fn __sock_upgrade<F>(
     thread: &WasiThread,
     sock: __wasi_fd_t,
     rights: __wasi_rights_t,
-    actor: F
+    actor: F,
 ) -> Result<(), __wasi_errno_t>
-where F: FnOnce(&mut crate::state::InodeSocket) -> Result<Option<crate::state::InodeSocket>, __wasi_errno_t>
+where
+    F: FnOnce(
+        &mut crate::state::InodeSocket,
+    ) -> Result<Option<crate::state::InodeSocket>, __wasi_errno_t>,
 {
     let (_, state, inodes) = thread.get_memory_and_wasi_state_and_inodes(0);
 
@@ -238,7 +236,7 @@ where F: FnOnce(&mut crate::state::InodeSocket) -> Result<Option<crate::state::I
             return Err(__WASI_ENOTSOCK);
         }
     }
-    
+
     Ok(())
 }
 
@@ -259,9 +257,13 @@ fn write_buffer_array<M: MemorySize>(
         let new_ptr = WasmPtr::new(buf_offset);
         wasi_try_mem!(ptr.write(new_ptr));
 
-        let data = wasi_try_mem!(new_ptr.slice(memory, wasi_try!(to_offset::<M>(sub_buffer.len()))));
+        let data =
+            wasi_try_mem!(new_ptr.slice(memory, wasi_try!(to_offset::<M>(sub_buffer.len()))));
         wasi_try_mem!(data.write_slice(sub_buffer));
-        wasi_try_mem!(wasi_try_mem!(new_ptr.add(wasi_try!(to_offset::<M>(sub_buffer.len())))).write(memory, 0));
+        wasi_try_mem!(
+            wasi_try_mem!(new_ptr.add_offset(wasi_try!(to_offset::<M>(sub_buffer.len()))))
+                .write(memory, 0)
+        );
 
         current_buffer_offset += sub_buffer.len() + 1;
     }
@@ -330,7 +332,8 @@ pub fn args_sizes_get<M: MemorySize>(
 
     let argc_val: M::Offset = wasi_try!(state.args.len().try_into().map_err(|_| __WASI_EOVERFLOW));
     let argv_buf_size_val: usize = state.args.iter().map(|v| v.len() + 1).sum();
-    let argv_buf_size_val: M::Offset = wasi_try!(argv_buf_size_val.try_into().map_err(|_| __WASI_EOVERFLOW));
+    let argv_buf_size_val: M::Offset =
+        wasi_try!(argv_buf_size_val.try_into().map_err(|_| __WASI_EOVERFLOW));
     wasi_try_mem!(argc.write(argc_val));
     wasi_try_mem!(argv_buf_size.write(argv_buf_size_val));
 
@@ -379,8 +382,7 @@ pub fn clock_time_get<M: MemorySize>(
 ) -> __wasi_errno_t {
     debug!(
         "wasi::clock_time_get clock_id: {}, precision: {}",
-        clock_id,
-        precision
+        clock_id, precision
     );
     let memory = thread.memory();
 
@@ -437,7 +439,8 @@ pub fn environ_sizes_get<M: MemorySize>(
     let environ_count = environ_count.deref(memory);
     let environ_buf_size = environ_buf_size.deref(memory);
 
-    let env_var_count: M::Offset = wasi_try!(state.envs.len().try_into().map_err(|_| __WASI_EOVERFLOW));
+    let env_var_count: M::Offset =
+        wasi_try!(state.envs.len().try_into().map_err(|_| __WASI_EOVERFLOW));
     let env_buf_size: usize = state.envs.iter().map(|v| v.len() + 1).sum();
     let env_buf_size: M::Offset = wasi_try!(env_buf_size.try_into().map_err(|_| __WASI_EOVERFLOW));
     wasi_try_mem!(environ_count.write(env_var_count));
@@ -588,7 +591,7 @@ pub fn fd_fdstat_get<M: MemorySize>(
     );
     let (memory, state, inodes) = thread.get_memory_and_wasi_state_and_inodes(0);
     let stat = wasi_try!(state.fs.fdstat(inodes.deref(), fd));
-    
+
     wasi_try_mem!(buf_ptr.write(memory, stat));
 
     __WASI_ESUCCESS
@@ -853,20 +856,12 @@ pub fn fd_pread<M: MemorySize>(
                     }
                 }
                 Kind::Socket { socket } => {
-                    wasi_try_ok!(
-                        socket.recv(memory, iovs),
-                        thread
-                    )
+                    wasi_try_ok!(socket.recv(memory, iovs), thread)
                 }
                 Kind::Pipe { pipe } => {
-                    wasi_try_ok!(
-                        pipe.recv(memory, iovs),
-                        thread
-                    )
+                    wasi_try_ok!(pipe.recv(memory, iovs), thread)
                 }
-                Kind::EventNotifications { .. } => {
-                    return Ok(__WASI_EINVAL)
-                }
+                Kind::EventNotifications { .. } => return Ok(__WASI_EINVAL),
                 Kind::Dir { .. } | Kind::Root { .. } => return Ok(__WASI_EISDIR),
                 Kind::Symlink { .. } => unimplemented!("Symlinks in wasi::fd_pread"),
                 Kind::Buffer { buffer } => {
@@ -944,7 +939,12 @@ pub fn fd_prestat_dir_name<M: MemorySize>(
                 __WASI_EOVERFLOW
             }
         }
-        Kind::Symlink { .. } | Kind::Buffer { .. } | Kind::File { .. } | Kind::Socket { .. } | Kind::Pipe { .. } | Kind::EventNotifications { .. } => __WASI_ENOTDIR,
+        Kind::Symlink { .. }
+        | Kind::Buffer { .. }
+        | Kind::File { .. }
+        | Kind::Socket { .. }
+        | Kind::Pipe { .. }
+        | Kind::EventNotifications { .. } => __WASI_ENOTDIR,
     }
 }
 
@@ -1031,24 +1031,16 @@ pub fn fd_pwrite<M: MemorySize>(
                     }
                 }
                 Kind::Socket { socket } => {
-                    wasi_try_ok!(
-                        socket.send(memory, iovs_arr),
-                        thread
-                    )
+                    wasi_try_ok!(socket.send(memory, iovs_arr), thread)
                 }
                 Kind::Pipe { pipe } => {
-                    wasi_try_ok!(
-                        pipe.send(memory, iovs_arr),
-                        thread
-                    )
+                    wasi_try_ok!(pipe.send(memory, iovs_arr), thread)
                 }
                 Kind::Dir { .. } | Kind::Root { .. } => {
                     // TODO: verify
                     return Ok(__WASI_EISDIR);
                 }
-                Kind::EventNotifications { .. } => {
-                    return Ok(__WASI_EINVAL)
-                }
+                Kind::EventNotifications { .. } => return Ok(__WASI_EINVAL),
                 Kind::Symlink { .. } => unimplemented!("Symlinks in wasi::fd_pwrite"),
                 Kind::Buffer { buffer } => {
                     wasi_try_ok!(
@@ -1060,7 +1052,8 @@ pub fn fd_pwrite<M: MemorySize>(
         }
     };
 
-    let bytes_written: M::Offset = wasi_try_ok!(bytes_written.try_into().map_err(|_| __WASI_EOVERFLOW));
+    let bytes_written: M::Offset =
+        wasi_try_ok!(bytes_written.try_into().map_err(|_| __WASI_EOVERFLOW));
     wasi_try_mem_ok!(nwritten_ref.write(bytes_written));
 
     Ok(__WASI_ESUCCESS)
@@ -1078,7 +1071,7 @@ pub fn fd_pwrite<M: MemorySize>(
 /// Output:
 /// - `u32 *nread`
 ///     Number of bytes read
-/// 
+///
 pub fn fd_read<M: MemorySize>(
     thread: &WasiThread,
     fd: __wasi_fd_t,
@@ -1136,22 +1129,20 @@ pub fn fd_read<M: MemorySize>(
                         }
                     }
                     Kind::Socket { socket } => {
-                        wasi_try_ok!(
-                            socket.recv(memory, iovs_arr),
-                            thread
-                        )
+                        wasi_try_ok!(socket.recv(memory, iovs_arr), thread)
                     }
                     Kind::Pipe { pipe } => {
-                        wasi_try_ok!(
-                            pipe.recv(memory, iovs_arr),
-                            thread
-                        )
+                        wasi_try_ok!(pipe.recv(memory, iovs_arr), thread)
                     }
                     Kind::Dir { .. } | Kind::Root { .. } => {
                         // TODO: verify
                         return Ok(__WASI_EISDIR);
                     }
-                    Kind::EventNotifications { counter, is_semaphore, wakers } => {
+                    Kind::EventNotifications {
+                        counter,
+                        is_semaphore,
+                        wakers,
+                    } => {
                         let counter = Arc::clone(counter);
                         let is_semaphore: bool = *is_semaphore;
                         let wakers = Arc::clone(wakers);
@@ -1169,9 +1160,20 @@ pub fn fd_read<M: MemorySize>(
                             let val = counter.load(Ordering::Acquire);
                             if val > 0 {
                                 let new_val = if is_semaphore { val - 1 } else { 0 };
-                                if counter.compare_exchange(val, new_val, Ordering::AcqRel, Ordering::Acquire).is_ok() {
+                                if counter
+                                    .compare_exchange(
+                                        val,
+                                        new_val,
+                                        Ordering::AcqRel,
+                                        Ordering::Acquire,
+                                    )
+                                    .is_ok()
+                                {
                                     let reader = val.to_ne_bytes();
-                                    ret = wasi_try_ok!(read_bytes(&reader[..], memory, iovs_arr), thread);
+                                    ret = wasi_try_ok!(
+                                        read_bytes(&reader[..], memory, iovs_arr),
+                                        thread
+                                    );
                                     break;
                                 } else {
                                     continue;
@@ -1189,7 +1191,7 @@ pub fn fd_read<M: MemorySize>(
                                 thread.sleep(Duration::from_millis(5))?;
                             }
                         }
-                        ret                        
+                        ret
                     }
                     Kind::Symlink { .. } => unimplemented!("Symlinks in wasi::fd_read"),
                     Kind::Buffer { buffer } => {
@@ -1202,7 +1204,7 @@ pub fn fd_read<M: MemorySize>(
             let mut fd_map = state.fs.fd_map.write().unwrap();
             let fd_entry = wasi_try_ok!(fd_map.get_mut(&fd).ok_or(__WASI_EBADF));
             fd_entry.offset += bytes_read as u64;
-            
+
             bytes_read
         }
     };
@@ -1302,9 +1304,12 @@ pub fn fd_readdir<M: MemorySize>(
                     })
                     .collect()
             }
-            Kind::File { .. } | Kind::Symlink { .. } | Kind::Buffer { .. } | Kind::Socket { .. } | Kind::Pipe { .. } | Kind::EventNotifications { .. } => {
-                return __WASI_ENOTDIR
-            }
+            Kind::File { .. }
+            | Kind::Symlink { .. }
+            | Kind::Buffer { .. }
+            | Kind::Socket { .. }
+            | Kind::Pipe { .. }
+            | Kind::EventNotifications { .. } => return __WASI_ENOTDIR,
         }
     };
 
@@ -1331,10 +1336,7 @@ pub fn fd_readdir<M: MemorySize>(
         if upper_limit != std::mem::size_of::<__wasi_dirent_t>() {
             break;
         }
-        let upper_limit = std::cmp::min(
-            (buf_len - buf_idx as u64) as usize,
-            namlen
-        );
+        let upper_limit = std::cmp::min((buf_len - buf_idx as u64) as usize, namlen);
         for (i, b) in entry_path_str.bytes().take(upper_limit).enumerate() {
             wasi_try_mem!(buf_arr.index((i + buf_idx) as u64).write(b));
         }
@@ -1392,9 +1394,7 @@ pub fn fd_dup<M: MemorySize>(
     let (memory, state) = thread.get_memory_and_wasi_state(0);
     let fd = wasi_try!(state.fs.clone_fd(fd));
 
-    wasi_try_mem!(
-        ret_fd.write(memory, fd)
-    );
+    wasi_try_mem!(ret_fd.write(memory, fd));
 
     __WASI_ESUCCESS
 }
@@ -1421,15 +1421,10 @@ pub fn fd_event<M: MemorySize>(
         inodes.deref_mut(),
         kind,
         false,
-        "event".to_string()
+        "event".to_string(),
     );
-    let rights = __WASI_RIGHT_FD_READ |
-                      __WASI_RIGHT_FD_WRITE |
-                      __WASI_RIGHT_POLL_FD_READWRITE;
-    let fd = wasi_try!(
-        state.fs
-            .create_fd(rights, rights, 0, 0, inode)
-    );
+    let rights = __WASI_RIGHT_FD_READ | __WASI_RIGHT_FD_WRITE | __WASI_RIGHT_POLL_FD_READWRITE;
+    let fd = wasi_try!(state.fs.create_fd(rights, rights, 0, 0, inode));
 
     wasi_try_mem!(ret_fd.write(memory, fd));
 
@@ -1493,7 +1488,11 @@ pub fn fd_seek<M: MemorySize>(
                 Kind::Symlink { .. } => {
                     unimplemented!("wasi::fd_seek not implemented for symlinks")
                 }
-                Kind::Dir { .. } | Kind::Root { .. } | Kind::Socket { .. } | Kind::Pipe { .. } | Kind::EventNotifications { .. } => {
+                Kind::Dir { .. }
+                | Kind::Root { .. }
+                | Kind::Socket { .. }
+                | Kind::Pipe { .. }
+                | Kind::EventNotifications { .. } => {
                     // TODO: check this
                     return Ok(__WASI_EINVAL);
                 }
@@ -1549,7 +1548,11 @@ pub fn fd_sync(thread: &WasiThread, fd: __wasi_fd_t) -> __wasi_errno_t {
                 }
             }
             Kind::Root { .. } | Kind::Dir { .. } => return __WASI_EISDIR,
-            Kind::Buffer { .. } | Kind::Symlink { .. } | Kind::Socket { .. } | Kind::Pipe { .. } | Kind::EventNotifications { .. } => return __WASI_EINVAL,
+            Kind::Buffer { .. }
+            | Kind::Symlink { .. }
+            | Kind::Socket { .. }
+            | Kind::Pipe { .. }
+            | Kind::EventNotifications { .. } => return __WASI_EINVAL,
         }
     }
 
@@ -1665,22 +1668,18 @@ pub fn fd_write<M: MemorySize>(
                         }
                     }
                     Kind::Socket { socket } => {
-                        wasi_try_ok!(
-                            socket.send(memory, iovs_arr),
-                            thread
-                        )
+                        wasi_try_ok!(socket.send(memory, iovs_arr), thread)
                     }
                     Kind::Pipe { pipe } => {
-                        wasi_try_ok!(
-                            pipe.send(memory, iovs_arr),
-                            thread
-                        )
+                        wasi_try_ok!(pipe.send(memory, iovs_arr), thread)
                     }
                     Kind::Dir { .. } | Kind::Root { .. } => {
                         // TODO: verify
                         return Ok(__WASI_EISDIR);
                     }
-                    Kind::EventNotifications { counter, wakers, .. } => {
+                    Kind::EventNotifications {
+                        counter, wakers, ..
+                    } => {
                         let mut val = 0u64.to_ne_bytes();
                         let written = wasi_try_ok!(write_bytes(&mut val[..], memory, iovs_arr));
                         if written != val.len() {
@@ -1719,7 +1718,8 @@ pub fn fd_write<M: MemorySize>(
         }
     };
 
-    let bytes_written: M::Offset = wasi_try_ok!(bytes_written.try_into().map_err(|_| __WASI_EOVERFLOW));
+    let bytes_written: M::Offset =
+        wasi_try_ok!(bytes_written.try_into().map_err(|_| __WASI_EOVERFLOW));
     wasi_try_mem_ok!(nwritten_ref.write(bytes_written));
 
     Ok(__WASI_ESUCCESS)
@@ -1740,31 +1740,25 @@ pub fn fd_pipe<M: MemorySize>(
     trace!("wasi::fd_pipe");
 
     let (memory, state, mut inodes) = thread.get_memory_and_wasi_state_and_inodes_mut(0);
-    
+
     let (pipe1, pipe2) = WasiPipe::new();
-    
+
     let inode1 = state.fs.create_inode_with_default_stat(
         inodes.deref_mut(),
         Kind::Pipe { pipe: pipe1 },
         false,
-        "pipe".to_string()
+        "pipe".to_string(),
     );
     let inode2 = state.fs.create_inode_with_default_stat(
         inodes.deref_mut(),
         Kind::Pipe { pipe: pipe2 },
         false,
-        "pipe".to_string()
+        "pipe".to_string(),
     );
-    
+
     let rights = super::state::all_socket_rights();
-    let fd1 = wasi_try!(
-        state.fs
-            .create_fd(rights, rights, 0, 0, inode1)
-    );
-    let fd2 = wasi_try!(
-        state.fs
-            .create_fd(rights, rights, 0, 0, inode2)
-    );
+    let fd1 = wasi_try!(state.fs.create_fd(rights, rights, 0, 0, inode1));
+    let fd2 = wasi_try!(state.fs.create_fd(rights, rights, 0, 0, inode2));
 
     wasi_try_mem!(ro_fd1.write(memory, fd1));
     wasi_try_mem!(ro_fd2.write(memory, fd2));
@@ -2139,9 +2133,12 @@ pub fn path_link<M: MemorySize>(
                 entries.insert(new_entry_name, source_inode);
             }
             Kind::Root { .. } => return __WASI_EINVAL,
-            Kind::File { .. } | Kind::Symlink { .. } | Kind::Buffer { .. } | Kind::Socket { .. } | Kind::Pipe { .. } | Kind::EventNotifications { .. } => {
-                return __WASI_ENOTDIR
-            }
+            Kind::File { .. }
+            | Kind::Symlink { .. }
+            | Kind::Buffer { .. }
+            | Kind::Socket { .. }
+            | Kind::Pipe { .. }
+            | Kind::EventNotifications { .. } => return __WASI_ENOTDIR,
         }
     }
     inodes.arena[source_inode].stat.write().unwrap().st_nlink += 1;
@@ -2285,7 +2282,11 @@ pub fn path_open<M: MemorySize>(
                     .map_err(fs_error_into_wasi_err)));
             }
             Kind::Buffer { .. } => unimplemented!("wasi::path_open for Buffer type files"),
-            Kind::Dir { .. } | Kind::Root { .. } | Kind::Socket { .. } | Kind::Pipe { .. } | Kind::EventNotifications { .. } => {}
+            Kind::Dir { .. }
+            | Kind::Root { .. }
+            | Kind::Socket { .. }
+            | Kind::Pipe { .. }
+            | Kind::EventNotifications { .. } => {}
             Kind::Symlink {
                 base_po_dir,
                 path_to_symlink,
@@ -2448,7 +2449,8 @@ pub fn path_readlink<M: MemorySize>(
             wasi_try_mem!(out.write_slice(&bytes[..]));
             // should we null terminate this?
 
-            let bytes_len: M::Offset = wasi_try!(bytes.len().try_into().map_err(|_| __WASI_EOVERFLOW));
+            let bytes_len: M::Offset =
+                wasi_try!(bytes.len().try_into().map_err(|_| __WASI_EOVERFLOW));
             wasi_try_mem!(buf_used.deref(memory).write(bytes_len));
         } else {
             return __WASI_EINVAL;
@@ -2595,7 +2597,9 @@ pub fn path_rename<M: MemorySize>(
                 out_path
             }
             Kind::Root { .. } => return __WASI_ENOTCAPABLE,
-            Kind::Socket { .. } | Kind::Pipe { .. } | Kind::EventNotifications { .. } => return __WASI_EINVAL,
+            Kind::Socket { .. } | Kind::Pipe { .. } | Kind::EventNotifications { .. } => {
+                return __WASI_EINVAL
+            }
             Kind::Symlink { .. } | Kind::File { .. } | Kind::Buffer { .. } => {
                 unreachable!("Fatal internal logic error: parent of inode is not a directory")
             }
@@ -2609,7 +2613,9 @@ pub fn path_rename<M: MemorySize>(
                 wasi_try!(entries.remove(&source_entry_name).ok_or(__WASI_ENOENT))
             }
             Kind::Root { .. } => return __WASI_ENOTCAPABLE,
-            Kind::Socket { .. } | Kind::Pipe { .. } | Kind::EventNotifications { .. } => return __WASI_EINVAL,
+            Kind::Socket { .. } | Kind::Pipe { .. } | Kind::EventNotifications { .. } => {
+                return __WASI_EINVAL
+            }
             Kind::Symlink { .. } | Kind::File { .. } | Kind::Buffer { .. } => {
                 unreachable!("Fatal internal logic error: parent of inode is not a directory")
             }
@@ -2746,7 +2752,9 @@ pub fn path_symlink<M: MemorySize>(
                 }
             }
             Kind::Root { .. } => return __WASI_ENOTCAPABLE,
-            Kind::Socket { .. } | Kind::Pipe { .. } | Kind::EventNotifications { .. } => return __WASI_EINVAL,
+            Kind::Socket { .. } | Kind::Pipe { .. } | Kind::EventNotifications { .. } => {
+                return __WASI_EINVAL
+            }
             Kind::File { .. } | Kind::Symlink { .. } | Kind::Buffer { .. } => {
                 unreachable!("get_parent_inode_at_path returned something other than a Dir or Root")
             }
@@ -2933,7 +2941,7 @@ pub fn poll_oneoff<M: MemorySize>(
     for sub in subscription_array.iter() {
         let s: WasiSubscription = wasi_try_ok!(wasi_try_mem_ok!(sub.read()).try_into());
         let mut peb = PollEventBuilder::new();
-        
+
         let fd = match s.event_type {
             EventType::Read(__wasi_subscription_fs_readwrite_t { fd }) => {
                 match fd {
@@ -3054,24 +3062,23 @@ pub fn poll_oneoff<M: MemorySize>(
         let now = platform_clock_time_get(__WASI_CLOCK_MONOTONIC, 1_000_000).unwrap() as u128;
         let delta = match now.checked_sub(start) {
             Some(a) => Duration::from_nanos(a as u64),
-            None => Duration::ZERO
+            None => Duration::ZERO,
         };
         match poll(
             fds.as_slice(),
             in_events.as_slice(),
             seen_events.as_mut_slice(),
             Duration::from_millis(1),
-        )
-        {
+        ) {
             Ok(0) => {
                 thread.yield_now()?;
-            },
+            }
             Ok(a) => {
                 triggered = a;
-            },
+            }
             Err(FsError::WouldBlock) => {
                 thread.sleep(Duration::from_millis(1))?;
-            },
+            }
             Err(err) => {
                 return Ok(fs_error_into_wasi_err(err));
             }
@@ -3129,7 +3136,7 @@ pub fn poll_oneoff<M: MemorySize>(
         wasi_try_mem_ok!(event_array.index(events_seen as u64).write(event));
         events_seen += 1;
     }
-    if triggered <= 0 {
+    if triggered == 0 {
         for (clock_info, userdata) in clock_subs {
             let event = __wasi_event_t {
                 userdata,
@@ -3194,7 +3201,7 @@ pub fn sched_yield(thread: &WasiThread) -> Result<__wasi_errno_t, WasiError> {
 pub fn random_get<M: MemorySize>(
     thread: &WasiThread,
     buf: WasmPtr<u8, M>,
-    buf_len: M::Offset
+    buf_len: M::Offset,
 ) -> __wasi_errno_t {
     trace!("wasi::random_get buf_len: {}", buf_len);
     let memory = thread.memory();
@@ -3260,7 +3267,7 @@ pub fn tty_set<M: MemorySize>(
     tty_state: WasmPtr<__wasi_tty_t, M>,
 ) -> __wasi_errno_t {
     debug!("wasi::tty_stdout");
-    
+
     let memory = thread.memory();
     let state = wasi_try_mem!(tty_state.read(memory));
     let state = super::runtime::WasiTtyState {
@@ -3271,27 +3278,27 @@ pub fn tty_set<M: MemorySize>(
         stdin_tty: match state.stdin_tty {
             __WASI_BOOL_FALSE => false,
             __WASI_BOOL_TRUE => true,
-            _ => return __WASI_EINVAL
+            _ => return __WASI_EINVAL,
         },
         stdout_tty: match state.stdout_tty {
             __WASI_BOOL_FALSE => false,
             __WASI_BOOL_TRUE => true,
-            _ => return __WASI_EINVAL
+            _ => return __WASI_EINVAL,
         },
         stderr_tty: match state.stderr_tty {
             __WASI_BOOL_FALSE => false,
             __WASI_BOOL_TRUE => true,
-            _ => return __WASI_EINVAL
+            _ => return __WASI_EINVAL,
         },
         echo: match state.echo {
             __WASI_BOOL_FALSE => false,
             __WASI_BOOL_TRUE => true,
-            _ => return __WASI_EINVAL
+            _ => return __WASI_EINVAL,
         },
         line_buffered: match state.line_buffered {
             __WASI_BOOL_FALSE => false,
             __WASI_BOOL_TRUE => true,
-            _ => return __WASI_EINVAL
+            _ => return __WASI_EINVAL,
         },
     };
 
@@ -3312,9 +3319,7 @@ pub fn getcwd<M: MemorySize>(
     debug!("wasi::getpwd");
     let (memory, state, mut inodes) = thread.get_memory_and_wasi_state_and_inodes_mut(0);
 
-    let (_, cur_dir) = wasi_try!(state.fs.get_current_dir(
-        inodes.deref_mut()
-    ));
+    let (_, cur_dir) = wasi_try!(state.fs.get_current_dir(inodes.deref_mut()));
     let cur_dir = cur_dir.as_bytes();
 
     let max_path_len = wasi_try_mem!(path_len.read(memory));
@@ -3378,21 +3383,19 @@ pub fn thread_spawn<M: MemorySize>(
     let reactor = match reactor {
         __WASI_BOOL_FALSE => false,
         __WASI_BOOL_TRUE => true,
-        _ => return __WASI_EINVAL
+        _ => return __WASI_EINVAL,
     };
-    let child = wasi_try!(
-        thread.env.runtime
-            .thread_spawn(method.as_str(), user_data, reactor)
-            .map_err(|err| {
-                let err: __wasi_errno_t = err.into();
-                err
-            })
-    );
+    let child = wasi_try!(thread
+        .env
+        .runtime
+        .thread_spawn(method.as_str(), user_data, reactor)
+        .map_err(|err| {
+            let err: __wasi_errno_t = err.into();
+            err
+        }));
     let child: __wasi_tid_t = child.into();
-    
-    wasi_try_mem!(
-        ret_tid.write(memory, child)
-    );
+
+    wasi_try_mem!(ret_tid.write(memory, child));
     __WASI_ESUCCESS
 }
 
@@ -3407,7 +3410,7 @@ pub fn thread_sleep(
     duration: __wasi_timestamp_t,
 ) -> Result<__wasi_errno_t, WasiError> {
     debug!("wasi::thread_sleep");
-    
+
     let duration = Duration::from_nanos(duration as u64);
     thread.sleep(duration)?;
     Ok(__WASI_ESUCCESS)
@@ -3423,9 +3426,7 @@ pub fn thread_id<M: MemorySize>(
     debug!("wasi::thread_id");
 
     let tid: __wasi_tid_t = thread.id.into();
-    wasi_try_mem!(
-        ret_tid.write(thread.memory(), tid)
-    );
+    wasi_try_mem!(ret_tid.write(thread.memory(), tid));
     __WASI_ESUCCESS
 }
 
@@ -3436,21 +3437,14 @@ pub fn thread_id<M: MemorySize>(
 /// ## Parameters
 ///
 /// * `tid` - Handle of the thread to wait on
-pub fn thread_join(
-    thread: &WasiThread,
-    tid: __wasi_tid_t,
-) -> __wasi_errno_t {
+pub fn thread_join(thread: &WasiThread, tid: __wasi_tid_t) -> __wasi_errno_t {
     debug!("wasi::thread_join");
-    
+
     let tid: WasiThreadId = tid.into();
-    wasi_try!(
-        thread.env.runtime()
-            .thread_join(tid)
-            .map_err(|err| {
-                let err: __wasi_errno_t = err.into();
-                err
-            })
-    );
+    wasi_try!(thread.env.runtime().thread_join(tid).map_err(|err| {
+        let err: __wasi_errno_t = err.into();
+        err
+    }));
 
     __WASI_ESUCCESS
 }
@@ -3463,19 +3457,13 @@ pub fn thread_parallelism<M: MemorySize>(
     ret_parallelism: WasmPtr<M::Offset, M>,
 ) -> __wasi_errno_t {
     debug!("wasi::thread_parallelism");
-    
-    let parallelism = wasi_try!(
-        thread.runtime()
-            .thread_parallelism()
-            .map_err(|err| {
-                let err: __wasi_errno_t = err.into();
-                err
-            })
-    );
+
+    let parallelism = wasi_try!(thread.runtime().thread_parallelism().map_err(|err| {
+        let err: __wasi_errno_t = err.into();
+        err
+    }));
     let parallelism: M::Offset = wasi_try!(parallelism.try_into().map_err(|_| __WASI_EOVERFLOW));
-    wasi_try_mem!(
-        ret_parallelism.write(thread.memory(), parallelism)
-    );
+    wasi_try_mem!(ret_parallelism.write(thread.memory(), parallelism));
     __WASI_ESUCCESS
 }
 
@@ -3489,9 +3477,7 @@ pub fn getpid<M: MemorySize>(
 
     let pid = thread.runtime().getpid();
     if let Some(pid) = pid {
-        wasi_try_mem!(
-            ret_pid.write(thread.memory(), pid as __wasi_pid_t)
-        );
+        wasi_try_mem!(ret_pid.write(thread.memory(), pid as __wasi_pid_t));
         __WASI_ESUCCESS
     } else {
         __WASI_ENOTSUP
@@ -3511,7 +3497,7 @@ pub fn thread_exit(
     thread: &WasiThread,
     exitcode: __wasi_exitcode_t,
 ) -> Result<__wasi_errno_t, WasiError> {
-    debug!("wasi::thread_exit");    
+    debug!("wasi::thread_exit");
     Err(WasiError::Exit(exitcode))
 }
 
@@ -3609,10 +3595,7 @@ pub fn bus_spawn_remote<M: MemorySize>(
 /// ## Parameters
 ///
 /// * `bid` - Handle of the bus process handle to be closed
-pub fn bus_close(
-    thread: &WasiThread,
-    bid: __wasi_bid_t,
-) -> __wasi_errno_t {
+pub fn bus_close(thread: &WasiThread, bid: __wasi_bid_t) -> __wasi_errno_t {
     debug!("wasi::bus_close");
     unimplemented!("wasi::bus_close")
 }
@@ -3655,11 +3638,7 @@ pub fn bus_invoke<M: MemorySize>(
 ///
 /// * `cid` - Handle of the call to raise a fault on
 /// * `fault` - Fault to be raised on the bus
-pub fn bus_fault(
-    thread: &WasiThread,
-    cid: __wasi_cid_t,
-    fault: __bus_errno_t,
-) -> __wasi_errno_t {
+pub fn bus_fault(thread: &WasiThread, cid: __wasi_cid_t, fault: __bus_errno_t) -> __wasi_errno_t {
     debug!("wasi::bus_fault");
     unimplemented!("wasi::bus_fault")
 }
@@ -3670,10 +3649,7 @@ pub fn bus_fault(
 /// ## Parameters
 ///
 /// * `cid` - Handle of the bus call handle to be dropped
-pub fn bus_drop(
-    thread: &WasiThread,
-    cid: __wasi_cid_t,
-) -> __wasi_errno_t {
+pub fn bus_drop(thread: &WasiThread, cid: __wasi_cid_t) -> __wasi_errno_t {
     debug!("wasi::bus_drop");
     unimplemented!("wasi::bus_drop")
 }
@@ -3816,28 +3792,26 @@ pub fn ws_connect<M: MemorySize>(
     debug!("wasi::ws_connect");
     let memory = thread.memory();
     let url = unsafe { get_input_str!(memory, url, url_len) };
-    
-    let socket = wasi_try!(
-        thread.net().ws_connect(url.as_str()).map_err(net_error_into_wasi_err)
-    );
+
+    let socket = wasi_try!(thread
+        .net()
+        .ws_connect(url.as_str())
+        .map_err(net_error_into_wasi_err));
 
     let (memory, state, mut inodes) = thread.get_memory_and_wasi_state_and_inodes_mut(0);
 
     let kind = Kind::Socket {
-        socket: InodeSocket::new(InodeSocketKind::WebSocket(socket))
+        socket: InodeSocket::new(InodeSocketKind::WebSocket(socket)),
     };
 
     let inode = state.fs.create_inode_with_default_stat(
         inodes.deref_mut(),
         kind,
         false,
-        "socket".to_string()
+        "socket".to_string(),
     );
     let rights = super::state::all_socket_rights();
-    let fd = wasi_try!(
-        state.fs
-            .create_fd(rights, rights, 0, 0, inode)
-    );
+    let fd = wasi_try!(state.fs.create_fd(rights, rights, 0, 0, inode));
 
     wasi_try_mem!(ret_sock.write(memory, fd));
 
@@ -3880,50 +3854,73 @@ pub fn http_request<M: MemorySize>(
     let gzip = match gzip {
         __WASI_BOOL_FALSE => false,
         __WASI_BOOL_TRUE => true,
-        _ => return __WASI_EINVAL
+        _ => return __WASI_EINVAL,
     };
-    
-    let socket = wasi_try!(
-        thread.net()
-            .http_request(url.as_str(), method.as_str(), headers.as_str(), gzip)
-            .map_err(net_error_into_wasi_err)
-    );
+
+    let socket = wasi_try!(thread
+        .net()
+        .http_request(url.as_str(), method.as_str(), headers.as_str(), gzip)
+        .map_err(net_error_into_wasi_err));
     let socket_req = SocketHttpRequest {
         request: socket.request,
         response: None,
         headers: None,
-        status: socket.status.clone()
+        status: socket.status.clone(),
     };
     let socket_res = SocketHttpRequest {
         request: None,
         response: socket.response,
         headers: None,
-        status: socket.status.clone()
+        status: socket.status.clone(),
     };
     let socket_hdr = SocketHttpRequest {
         request: None,
         response: None,
         headers: socket.headers,
-        status: socket.status.clone()
+        status: socket.status.clone(),
     };
 
     let (memory, state, mut inodes) = thread.get_memory_and_wasi_state_and_inodes_mut(0);
 
     let kind_req = Kind::Socket {
-        socket: InodeSocket::new(InodeSocketKind::HttpRequest(Mutex::new(socket_req), InodeHttpSocketType::Request))
+        socket: InodeSocket::new(InodeSocketKind::HttpRequest(
+            Mutex::new(socket_req),
+            InodeHttpSocketType::Request,
+        )),
     };
     let kind_res = Kind::Socket {
-        socket: InodeSocket::new(InodeSocketKind::HttpRequest(Mutex::new(socket_res), InodeHttpSocketType::Response))
+        socket: InodeSocket::new(InodeSocketKind::HttpRequest(
+            Mutex::new(socket_res),
+            InodeHttpSocketType::Response,
+        )),
     };
     let kind_hdr = Kind::Socket {
-        socket: InodeSocket::new(InodeSocketKind::HttpRequest(Mutex::new(socket_hdr), InodeHttpSocketType::Headers))
+        socket: InodeSocket::new(InodeSocketKind::HttpRequest(
+            Mutex::new(socket_hdr),
+            InodeHttpSocketType::Headers,
+        )),
     };
 
-    let inode_req = state.fs.create_inode_with_default_stat(inodes.deref_mut(), kind_req, false, "http_request".to_string());
-    let inode_res = state.fs.create_inode_with_default_stat(inodes.deref_mut(), kind_res, false, "http_response".to_string());
-    let inode_hdr = state.fs.create_inode_with_default_stat(inodes.deref_mut(), kind_hdr, false, "http_headers".to_string());
+    let inode_req = state.fs.create_inode_with_default_stat(
+        inodes.deref_mut(),
+        kind_req,
+        false,
+        "http_request".to_string(),
+    );
+    let inode_res = state.fs.create_inode_with_default_stat(
+        inodes.deref_mut(),
+        kind_res,
+        false,
+        "http_response".to_string(),
+    );
+    let inode_hdr = state.fs.create_inode_with_default_stat(
+        inodes.deref_mut(),
+        kind_hdr,
+        false,
+        "http_headers".to_string(),
+    );
     let rights = super::state::all_socket_rights();
-    
+
     let handles = __wasi_http_handles_t {
         req: wasi_try!(state.fs.create_fd(rights, rights, 0, 0, inode_req)),
         res: wasi_try!(state.fs.create_fd(rights, rights, 0, 0, inode_res)),
@@ -3952,24 +3949,22 @@ pub fn http_status<M: MemorySize>(
 
     let memory = thread.memory();
     let ref_status = status.deref(memory);
-    
-    let http_status = wasi_try!(
-        __sock_actor(thread, sock, 0, |socket| {
-            socket.http_status()
-        })
-    );
+
+    let http_status = wasi_try!(__sock_actor(thread, sock, 0, |socket| {
+        socket.http_status()
+    }));
 
     // Write everything else and return the status to the caller
     let status = __wasi_http_status_t {
         ok: __WASI_BOOL_TRUE,
         redirect: match http_status.redirected {
             true => __WASI_BOOL_TRUE,
-            false => __WASI_BOOL_FALSE
+            false => __WASI_BOOL_FALSE,
         },
         size: wasi_try!(http_status.size.try_into().map_err(|_| __WASI_EOVERFLOW)),
-        status: http_status.status
+        status: http_status.status,
     };
-    
+
     wasi_try_mem!(ref_status.write(status));
 
     __WASI_ESUCCESS
@@ -4000,36 +3995,29 @@ pub fn port_bridge<M: MemorySize>(
         __WASI_STREAM_SECURITY_ANY_ENCRYPTION => StreamSecurity::AnyEncyption,
         __WASI_STREAM_SECURITY_CLASSIC_ENCRYPTION => StreamSecurity::ClassicEncryption,
         __WASI_STREAM_SECURITY_DOUBLE_ENCRYPTION => StreamSecurity::DoubleEncryption,
-        _ => return __WASI_EINVAL
+        _ => return __WASI_EINVAL,
     };
-    
-    wasi_try!(
-        thread.net().bridge(network.as_str(), token.as_str(), security).map_err(net_error_into_wasi_err)
-    );
+
+    wasi_try!(thread
+        .net()
+        .bridge(network.as_str(), token.as_str(), security)
+        .map_err(net_error_into_wasi_err));
     __WASI_ESUCCESS
 }
 
 /// ### `port_unbridge()`
 /// Disconnects from a remote network
-pub fn port_unbridge(
-    thread: &WasiThread,
-) -> __wasi_errno_t {
+pub fn port_unbridge(thread: &WasiThread) -> __wasi_errno_t {
     debug!("wasi::port_unbridge");
-    wasi_try!(
-        thread.net().unbridge().map_err(net_error_into_wasi_err)
-    );
+    wasi_try!(thread.net().unbridge().map_err(net_error_into_wasi_err));
     __WASI_ESUCCESS
 }
 
 /// ### `port_dhcp_acquire()`
 /// Acquires a set of IP addresses using DHCP
-pub fn port_dhcp_acquire(
-    thread: &WasiThread,
-) -> __wasi_errno_t {
+pub fn port_dhcp_acquire(thread: &WasiThread) -> __wasi_errno_t {
     debug!("wasi::port_dhcp_acquire");
-    wasi_try!(
-        thread.net().dhcp_acquire().map_err(net_error_into_wasi_err)
-    );
+    wasi_try!(thread.net().dhcp_acquire().map_err(net_error_into_wasi_err));
     __WASI_ESUCCESS
 }
 
@@ -4046,9 +4034,10 @@ pub fn port_addr_add<M: MemorySize>(
     debug!("wasi::port_addr_add");
     let memory = thread.memory();
     let cidr = wasi_try!(super::state::read_cidr(memory, ip));
-    wasi_try!(
-        thread.net().ip_add(cidr.ip, cidr.prefix).map_err(net_error_into_wasi_err)
-    );
+    wasi_try!(thread
+        .net()
+        .ip_add(cidr.ip, cidr.prefix)
+        .map_err(net_error_into_wasi_err));
     __WASI_ESUCCESS
 }
 
@@ -4065,21 +4054,15 @@ pub fn port_addr_remove<M: MemorySize>(
     debug!("wasi::port_addr_remove");
     let memory = thread.memory();
     let ip = wasi_try!(super::state::read_ip(memory, ip));
-    wasi_try!(
-        thread.net().ip_remove(ip).map_err(net_error_into_wasi_err)
-    );
+    wasi_try!(thread.net().ip_remove(ip).map_err(net_error_into_wasi_err));
     __WASI_ESUCCESS
 }
 
 /// ### `port_addr_clear()`
 /// Clears all the addresses on the local port
-pub fn port_addr_clear(
-    thread: &WasiThread,
-) -> __wasi_errno_t {
+pub fn port_addr_clear(thread: &WasiThread) -> __wasi_errno_t {
     debug!("wasi::port_addr_clear");
-    wasi_try!(
-        thread.net().ip_clear().map_err(net_error_into_wasi_err)
-    );
+    wasi_try!(thread.net().ip_clear().map_err(net_error_into_wasi_err));
     __WASI_ESUCCESS
 }
 
@@ -4091,15 +4074,9 @@ pub fn port_mac<M: MemorySize>(
 ) -> __wasi_errno_t {
     debug!("wasi::port_mac");
     let memory = thread.memory();
-    let mac = wasi_try!(
-        thread.net().mac().map_err(net_error_into_wasi_err)
-    );
-    let mac = __wasi_hardwareaddress_t {
-        octs: mac
-    };
-    wasi_try_mem!(
-        ret_mac.write(memory, mac)
-    );
+    let mac = wasi_try!(thread.net().mac().map_err(net_error_into_wasi_err));
+    let mac = __wasi_hardwareaddress_t { octs: mac };
+    wasi_try_mem!(ret_mac.write(memory, mac));
     __WASI_ESUCCESS
 }
 
@@ -4125,13 +4102,10 @@ pub fn port_addr_list<M: MemorySize>(
     let memory = thread.memory();
     let max_addrs = wasi_try_mem!(naddrs.read(memory));
     let max_addrs: u64 = wasi_try!(max_addrs.try_into().map_err(|_| __WASI_EOVERFLOW));
-    let ref_addrs = wasi_try_mem!(addrs.slice(memory, wasi_try!(to_offset::<M>(max_addrs as usize))));
-    
-    let addrs = wasi_try!(
-        thread.net()
-            .ip_list()
-            .map_err(net_error_into_wasi_err)
-    );
+    let ref_addrs =
+        wasi_try_mem!(addrs.slice(memory, wasi_try!(to_offset::<M>(max_addrs as usize))));
+
+    let addrs = wasi_try!(thread.net().ip_list().map_err(net_error_into_wasi_err));
 
     let addrs_len: M::Offset = wasi_try!(addrs.len().try_into().map_err(|_| __WASI_EOVERFLOW));
     wasi_try_mem!(naddrs.write(memory, addrs_len));
@@ -4161,9 +4135,10 @@ pub fn port_gateway_set<M: MemorySize>(
     let memory = thread.memory();
     let ip = wasi_try!(super::state::read_ip(memory, ip));
 
-    wasi_try!(
-        thread.net().gateway_set(ip).map_err(net_error_into_wasi_err)
-    );
+    wasi_try!(thread
+        .net()
+        .gateway_set(ip)
+        .map_err(net_error_into_wasi_err));
     __WASI_ESUCCESS
 }
 
@@ -4183,23 +4158,20 @@ pub fn port_route_add<M: MemorySize>(
     let preferred_until = wasi_try_mem!(preferred_until.read(memory));
     let preferred_until = match preferred_until.tag {
         __WASI_OPTION_NONE => None,
-        __WASI_OPTION_SOME => {
-            Some(Duration::from_nanos(preferred_until.u))
-        },
-        _ => return __WASI_EINVAL
+        __WASI_OPTION_SOME => Some(Duration::from_nanos(preferred_until.u)),
+        _ => return __WASI_EINVAL,
     };
     let expires_at = wasi_try_mem!(expires_at.read(memory));
     let expires_at = match expires_at.tag {
         __WASI_OPTION_NONE => None,
-        __WASI_OPTION_SOME => {
-            Some(Duration::from_nanos(expires_at.u))
-        },
-        _ => return __WASI_EINVAL
+        __WASI_OPTION_SOME => Some(Duration::from_nanos(expires_at.u)),
+        _ => return __WASI_EINVAL,
     };
 
-    wasi_try!(
-        thread.net().route_add(cidr, via_router, preferred_until, expires_at).map_err(net_error_into_wasi_err)
-    );
+    wasi_try!(thread
+        .net()
+        .route_add(cidr, via_router, preferred_until, expires_at)
+        .map_err(net_error_into_wasi_err));
     __WASI_ESUCCESS
 }
 
@@ -4212,21 +4184,18 @@ pub fn port_route_remove<M: MemorySize>(
     debug!("wasi::port_route_remove");
     let memory = thread.memory();
     let ip = wasi_try!(super::state::read_ip(memory, ip));
-    wasi_try!(
-        thread.net().route_remove(ip).map_err(net_error_into_wasi_err)
-    );
+    wasi_try!(thread
+        .net()
+        .route_remove(ip)
+        .map_err(net_error_into_wasi_err));
     __WASI_ESUCCESS
 }
 
 /// ### `port_route_clear()`
 /// Clears all the routes in the local port
-pub fn port_route_clear(
-    thread: &WasiThread,
-) -> __wasi_errno_t {
+pub fn port_route_clear(thread: &WasiThread) -> __wasi_errno_t {
     debug!("wasi::port_route_clear");
-    wasi_try!(
-        thread.net().route_clear().map_err(net_error_into_wasi_err)
-    );
+    wasi_try!(thread.net().route_clear().map_err(net_error_into_wasi_err));
     __WASI_ESUCCESS
 }
 
@@ -4247,12 +4216,12 @@ pub fn port_route_list<M: MemorySize>(
     debug!("wasi::port_route_list");
     let memory = thread.memory();
     let nroutes = nroutes.deref(memory);
-    let max_routes: usize = wasi_try!(wasi_try_mem!(nroutes.read()).try_into().map_err(|_| __WASI_EINVAL));
+    let max_routes: usize = wasi_try!(wasi_try_mem!(nroutes.read())
+        .try_into()
+        .map_err(|_| __WASI_EINVAL));
     let ref_routes = wasi_try_mem!(routes.slice(memory, wasi_try!(to_offset::<M>(max_routes))));
-    
-    let routes = wasi_try!(
-        thread.net().route_list().map_err(net_error_into_wasi_err)
-    );
+
+    let routes = wasi_try!(thread.net().route_list().map_err(net_error_into_wasi_err));
 
     let routes_len: M::Offset = wasi_try!(routes.len().try_into().map_err(|_| __WASI_EINVAL));
     wasi_try_mem!(nroutes.write(routes_len));
@@ -4287,12 +4256,15 @@ pub fn sock_shutdown(
         __WASI_SHUT_RD => std::net::Shutdown::Read,
         __WASI_SHUT_WR => std::net::Shutdown::Write,
         a if a == both => std::net::Shutdown::Both,
-        _ => return __WASI_EINVAL
+        _ => return __WASI_EINVAL,
     };
 
-    wasi_try!(__sock_actor_mut(thread, sock, __WASI_RIGHT_SOCK_SHUTDOWN, |socket| {
-        socket.shutdown(how)
-    }));
+    wasi_try!(__sock_actor_mut(
+        thread,
+        sock,
+        __WASI_RIGHT_SOCK_SHUTDOWN,
+        |socket| { socket.shutdown(how) }
+    ));
 
     __WASI_ESUCCESS
 }
@@ -4302,15 +4274,11 @@ pub fn sock_shutdown(
 pub fn sock_status<M: MemorySize>(
     thread: &WasiThread,
     sock: __wasi_fd_t,
-    ret_status: WasmPtr<__wasi_sockstatus_t, M>
+    ret_status: WasmPtr<__wasi_sockstatus_t, M>,
 ) -> __wasi_errno_t {
     debug!("wasi::sock_status");
-    
-    let status = wasi_try!(
-        __sock_actor(thread, sock, 0, |socket| {
-            socket.status()
-        })
-    );
+
+    let status = wasi_try!(__sock_actor(thread, sock, 0, |socket| { socket.status() }));
 
     use super::state::WasiSocketStatus;
     let status = match status {
@@ -4321,7 +4289,7 @@ pub fn sock_status<M: MemorySize>(
     };
 
     wasi_try_mem!(ret_status.write(thread.memory(), status));
-    
+
     __WASI_ESUCCESS
 }
 
@@ -4342,15 +4310,16 @@ pub fn sock_addr_local<M: MemorySize>(
     ret_addr: WasmPtr<__wasi_addr_port_t, M>,
 ) -> __wasi_errno_t {
     debug!("wasi::sock_addr_local");
-    
-    let addr = wasi_try!(
-        __sock_actor(thread, sock, 0, |socket| {
-            socket.addr_local()
-        })
-    );    
-    wasi_try!(
-        super::state::write_ip_port(thread.memory(), ret_addr, addr.ip(), addr.port())
-    );
+
+    let addr = wasi_try!(__sock_actor(thread, sock, 0, |socket| {
+        socket.addr_local()
+    }));
+    wasi_try!(super::state::write_ip_port(
+        thread.memory(),
+        ret_addr,
+        addr.ip(),
+        addr.port()
+    ));
     __WASI_ESUCCESS
 }
 
@@ -4372,14 +4341,15 @@ pub fn sock_addr_peer<M: MemorySize>(
 ) -> __wasi_errno_t {
     debug!("wasi::sock_addr_peer");
 
-    let addr = wasi_try!(
-        __sock_actor(thread, sock, 0, |socket| {
-            socket.addr_peer()
-        })
-    );    
-    wasi_try!(
-        super::state::write_ip_port(thread.memory(), ro_addr, addr.ip(), addr.port())
-    );
+    let addr = wasi_try!(__sock_actor(thread, sock, 0, |socket| {
+        socket.addr_peer()
+    }));
+    wasi_try!(super::state::write_ip_port(
+        thread.memory(),
+        ro_addr,
+        addr.ip(),
+        addr.port()
+    ));
     __WASI_ESUCCESS
 }
 
@@ -4412,27 +4382,24 @@ pub fn sock_open<M: MemorySize>(
     debug!("wasi::sock_open");
 
     let (memory, state, mut inodes) = thread.get_memory_and_wasi_state_and_inodes_mut(0);
-    
+
     let kind = match ty {
-        __WASI_SOCK_TYPE_STREAM |
-        __WASI_SOCK_TYPE_DGRAM => {
-            Kind::Socket {
-                socket: InodeSocket::new(InodeSocketKind::PreSocket {
-                    family: af,
-                    ty,
-                    pt,
-                    addr: None,
-                    only_v6: false,
-                    reuse_port: false,
-                    reuse_addr: false,
-                    send_buf_size: None,
-                    recv_buf_size: None,
-                    send_timeout: None,
-                    recv_timeout: None,
-                    connect_timeout: None,
-                    accept_timeout: None,
-                })
-            }
+        __WASI_SOCK_TYPE_STREAM | __WASI_SOCK_TYPE_DGRAM => Kind::Socket {
+            socket: InodeSocket::new(InodeSocketKind::PreSocket {
+                family: af,
+                ty,
+                pt,
+                addr: None,
+                only_v6: false,
+                reuse_port: false,
+                reuse_addr: false,
+                send_buf_size: None,
+                recv_buf_size: None,
+                send_timeout: None,
+                recv_timeout: None,
+                connect_timeout: None,
+                accept_timeout: None,
+            }),
         },
         _ => return __WASI_ENOTSUP,
     };
@@ -4441,13 +4408,10 @@ pub fn sock_open<M: MemorySize>(
         inodes.deref_mut(),
         kind,
         false,
-        "socket".to_string()
+        "socket".to_string(),
     );
     let rights = super::state::all_socket_rights();
-    let fd = wasi_try!(
-        state.fs
-            .create_fd(rights, rights, 0, 0, inode)
-    );
+    let fd = wasi_try!(state.fs.create_fd(rights, rights, 0, 0, inode));
 
     wasi_try_mem!(ro_sock.write(memory, fd));
 
@@ -4478,11 +4442,9 @@ pub fn sock_set_opt_flag(
     };
 
     let option: super::state::WasiSocketOption = opt.into();
-    wasi_try!(
-        __sock_actor_mut(thread, sock, 0, |socket| {
-            socket.set_opt_flag(option, flag)
-        })
-    );
+    wasi_try!(__sock_actor_mut(thread, sock, 0, |socket| {
+        socket.set_opt_flag(option, flag)
+    }));
     __WASI_ESUCCESS
 }
 
@@ -4504,18 +4466,16 @@ pub fn sock_get_opt_flag<M: MemorySize>(
     let memory = thread.memory();
 
     let option: super::state::WasiSocketOption = opt.into();
-    let flag = wasi_try!(
-        __sock_actor(thread, sock, 0, |socket| {
-            socket.get_opt_flag(option)
-        })
-    );
+    let flag = wasi_try!(__sock_actor(thread, sock, 0, |socket| {
+        socket.get_opt_flag(option)
+    }));
     let flag = match flag {
         false => __WASI_BOOL_FALSE,
-        true => __WASI_BOOL_TRUE
+        true => __WASI_BOOL_TRUE,
     };
 
     wasi_try_mem!(ret_flag.write(memory, flag));
-    
+
     __WASI_ESUCCESS
 }
 
@@ -4539,10 +4499,8 @@ pub fn sock_set_opt_time<M: MemorySize>(
     let time = wasi_try_mem!(time.read(memory));
     let time = match time.tag {
         __WASI_OPTION_NONE => None,
-        __WASI_OPTION_SOME => {
-            Some(Duration::from_nanos(time.u))
-        },
-        _ => return __WASI_EINVAL
+        __WASI_OPTION_SOME => Some(Duration::from_nanos(time.u)),
+        _ => return __WASI_EINVAL,
     };
 
     let ty = match opt {
@@ -4551,15 +4509,13 @@ pub fn sock_set_opt_time<M: MemorySize>(
         __WASI_SOCK_OPTION_CONNECT_TIMEOUT => wasmer_vnet::TimeType::ConnectTimeout,
         __WASI_SOCK_OPTION_ACCEPT_TIMEOUT => wasmer_vnet::TimeType::AcceptTimeout,
         __WASI_SOCK_OPTION_LINGER => wasmer_vnet::TimeType::Linger,
-        _ => return __WASI_EINVAL
+        _ => return __WASI_EINVAL,
     };
 
     let option: super::state::WasiSocketOption = opt.into();
-    wasi_try!(
-        __sock_actor_mut(thread, sock, 0, |socket| {
-            socket.set_opt_time(ty, time)
-        })
-    );
+    wasi_try!(__sock_actor_mut(thread, sock, 0, |socket| {
+        socket.set_opt_time(ty, time)
+    }));
     __WASI_ESUCCESS
 }
 
@@ -4585,27 +4541,25 @@ pub fn sock_get_opt_time<M: MemorySize>(
         __WASI_SOCK_OPTION_CONNECT_TIMEOUT => wasmer_vnet::TimeType::ConnectTimeout,
         __WASI_SOCK_OPTION_ACCEPT_TIMEOUT => wasmer_vnet::TimeType::AcceptTimeout,
         __WASI_SOCK_OPTION_LINGER => wasmer_vnet::TimeType::Linger,
-        _ => return __WASI_EINVAL
+        _ => return __WASI_EINVAL,
     };
 
-    let time = wasi_try!(
-        __sock_actor(thread, sock, 0, |socket| {
-            socket.opt_time(ty)
-        })
-    );
+    let time = wasi_try!(__sock_actor(thread, sock, 0, |socket| {
+        socket.opt_time(ty)
+    }));
     let time = match time {
         None => __wasi_option_timestamp_t {
             tag: __WASI_OPTION_NONE,
-            u: 0
+            u: 0,
         },
         Some(timeout) => __wasi_option_timestamp_t {
             tag: __WASI_OPTION_SOME,
-            u: timeout.as_nanos() as __wasi_timestamp_t
+            u: timeout.as_nanos() as __wasi_timestamp_t,
         },
     };
-    
+
     wasi_try_mem!(ret_time.write(memory, time));
-    
+
     __WASI_ESUCCESS
 }
 
@@ -4632,29 +4586,19 @@ pub fn sock_set_opt_size(
         __WASI_SOCK_OPTION_CONNECT_TIMEOUT => wasmer_vnet::TimeType::ConnectTimeout,
         __WASI_SOCK_OPTION_ACCEPT_TIMEOUT => wasmer_vnet::TimeType::AcceptTimeout,
         __WASI_SOCK_OPTION_LINGER => wasmer_vnet::TimeType::Linger,
-        _ => return __WASI_EINVAL
+        _ => return __WASI_EINVAL,
     };
 
     let option: super::state::WasiSocketOption = opt.into();
-    wasi_try!(
-        __sock_actor_mut(thread, sock, 0, |socket| {
-            match opt {
-                __WASI_SOCK_OPTION_RECV_BUF_SIZE => {
-                    socket.set_recv_buf_size(size as usize)
-                },
-                __WASI_SOCK_OPTION_SEND_BUF_SIZE => {
-                    socket.set_send_buf_size(size as usize)
-                },
-                __WASI_SOCK_OPTION_TTL => {
-                    socket.set_ttl(size as u32)
-                },
-                __WASI_SOCK_OPTION_MULTICAST_TTL_V4 => {
-                    socket.set_multicast_ttl_v4(size as u32)
-                },
-                _ => Err(__WASI_EINVAL)
-            }
-        })
-    );
+    wasi_try!(__sock_actor_mut(thread, sock, 0, |socket| {
+        match opt {
+            __WASI_SOCK_OPTION_RECV_BUF_SIZE => socket.set_recv_buf_size(size as usize),
+            __WASI_SOCK_OPTION_SEND_BUF_SIZE => socket.set_send_buf_size(size as usize),
+            __WASI_SOCK_OPTION_TTL => socket.set_ttl(size as u32),
+            __WASI_SOCK_OPTION_MULTICAST_TTL_V4 => socket.set_multicast_ttl_v4(size as u32),
+            _ => Err(__WASI_EINVAL),
+        }
+    }));
     __WASI_ESUCCESS
 }
 
@@ -4675,27 +4619,23 @@ pub fn sock_get_opt_size<M: MemorySize>(
     debug!("wasi::sock_get_opt_size(ty={})", opt);
     let memory = thread.memory();
 
-    let size = wasi_try!(
-        __sock_actor(thread, sock, 0, |socket| {
-            match opt {
-                __WASI_SOCK_OPTION_RECV_BUF_SIZE => {
-                    socket.recv_buf_size().map(|a| a as __wasi_filesize_t)
-                },
-                __WASI_SOCK_OPTION_SEND_BUF_SIZE => {
-                    socket.send_buf_size().map(|a| a as __wasi_filesize_t)
-                },
-                __WASI_SOCK_OPTION_TTL => {
-                    socket.ttl().map(|a| a as __wasi_filesize_t)
-                },
-                __WASI_SOCK_OPTION_MULTICAST_TTL_V4 => {
-                    socket.multicast_ttl_v4().map(|a| a as __wasi_filesize_t)
-                },
-                _ => Err(__WASI_EINVAL)
+    let size = wasi_try!(__sock_actor(thread, sock, 0, |socket| {
+        match opt {
+            __WASI_SOCK_OPTION_RECV_BUF_SIZE => {
+                socket.recv_buf_size().map(|a| a as __wasi_filesize_t)
             }
-        })
-    );    
+            __WASI_SOCK_OPTION_SEND_BUF_SIZE => {
+                socket.send_buf_size().map(|a| a as __wasi_filesize_t)
+            }
+            __WASI_SOCK_OPTION_TTL => socket.ttl().map(|a| a as __wasi_filesize_t),
+            __WASI_SOCK_OPTION_MULTICAST_TTL_V4 => {
+                socket.multicast_ttl_v4().map(|a| a as __wasi_filesize_t)
+            }
+            _ => Err(__WASI_EINVAL),
+        }
+    }));
     wasi_try_mem!(ret_size.write(memory, size));
-    
+
     __WASI_ESUCCESS
 }
 
@@ -4714,15 +4654,13 @@ pub fn sock_join_multicast_v4<M: MemorySize>(
     iface: WasmPtr<__wasi_addr_ip4_t, M>,
 ) -> __wasi_errno_t {
     debug!("wasi::sock_join_multicast_v4");
-    
+
     let memory = thread.memory();
     let multiaddr = wasi_try!(super::state::read_ip_v4(memory, multiaddr));
     let iface = wasi_try!(super::state::read_ip_v4(memory, iface));
-    wasi_try!(
-        __sock_actor_mut(thread, sock, 0, |socket| {
-            socket.join_multicast_v4(multiaddr, iface)
-        })
-    );
+    wasi_try!(__sock_actor_mut(thread, sock, 0, |socket| {
+        socket.join_multicast_v4(multiaddr, iface)
+    }));
     __WASI_ESUCCESS
 }
 
@@ -4741,15 +4679,13 @@ pub fn sock_leave_multicast_v4<M: MemorySize>(
     iface: WasmPtr<__wasi_addr_ip4_t, M>,
 ) -> __wasi_errno_t {
     debug!("wasi::sock_leave_multicast_v4");
-    
+
     let memory = thread.memory();
     let multiaddr = wasi_try!(super::state::read_ip_v4(memory, multiaddr));
     let iface = wasi_try!(super::state::read_ip_v4(memory, iface));
-    wasi_try!(
-        __sock_actor_mut(thread, sock, 0, |socket| {
-            socket.leave_multicast_v4(multiaddr, iface)
-        })
-    );
+    wasi_try!(__sock_actor_mut(thread, sock, 0, |socket| {
+        socket.leave_multicast_v4(multiaddr, iface)
+    }));
     __WASI_ESUCCESS
 }
 
@@ -4768,14 +4704,12 @@ pub fn sock_join_multicast_v6<M: MemorySize>(
     iface: u32,
 ) -> __wasi_errno_t {
     debug!("wasi::sock_join_multicast_v6");
-    
+
     let memory = thread.memory();
     let multiaddr = wasi_try!(super::state::read_ip_v6(memory, multiaddr));
-    wasi_try!(
-        __sock_actor_mut(thread, sock, 0, |socket| {
-            socket.join_multicast_v6(multiaddr, iface)
-        })
-    );
+    wasi_try!(__sock_actor_mut(thread, sock, 0, |socket| {
+        socket.join_multicast_v6(multiaddr, iface)
+    }));
     __WASI_ESUCCESS
 }
 
@@ -4794,14 +4728,12 @@ pub fn sock_leave_multicast_v6<M: MemorySize>(
     iface: u32,
 ) -> __wasi_errno_t {
     debug!("wasi::sock_leave_multicast_v6");
-    
+
     let memory = thread.memory();
     let multiaddr = wasi_try!(super::state::read_ip_v6(memory, multiaddr));
-    wasi_try!(
-        __sock_actor_mut(thread, sock, 0, |socket| {
-            socket.leave_multicast_v6(multiaddr, iface)
-        })
-    );
+    wasi_try!(__sock_actor_mut(thread, sock, 0, |socket| {
+        socket.leave_multicast_v6(multiaddr, iface)
+    }));
     __WASI_ESUCCESS
 }
 
@@ -4822,11 +4754,12 @@ pub fn sock_bind<M: MemorySize>(
 
     let addr = wasi_try!(super::state::read_ip_port(thread.memory(), addr));
     let addr = SocketAddr::new(addr.0, addr.1);
-    wasi_try!(
-        __sock_upgrade(thread, sock, __WASI_RIGHT_SOCK_BIND, |socket| {
-            socket.bind(thread.net(), addr)
-        })
-    );
+    wasi_try!(__sock_upgrade(
+        thread,
+        sock,
+        __WASI_RIGHT_SOCK_BIND,
+        |socket| { socket.bind(thread.net(), addr) }
+    ));
     __WASI_ESUCCESS
 }
 
@@ -4850,11 +4783,12 @@ pub fn sock_listen<M: MemorySize>(
     debug!("wasi::sock_listen");
 
     let backlog: usize = wasi_try!(backlog.try_into().map_err(|_| __WASI_EINVAL));
-    wasi_try!(
-        __sock_upgrade(thread, sock, __WASI_RIGHT_SOCK_BIND, |socket| {
-            socket.listen(thread.net(), backlog)
-        })
-    );
+    wasi_try!(__sock_upgrade(
+        thread,
+        sock,
+        __WASI_RIGHT_SOCK_BIND,
+        |socket| { socket.listen(thread.net(), backlog) }
+    ));
     __WASI_ESUCCESS
 }
 
@@ -4884,26 +4818,22 @@ pub fn sock_accept<M: MemorySize>(
         let (_, state) = thread.get_memory_and_wasi_state(0);
         loop {
             wasi_try_ok!(
-                match __sock_actor
-                (
-                    thread,
-                    sock,
-                    __WASI_RIGHT_SOCK_ACCEPT,
-                    |socket| socket.accept_timeout(fd_flags, Duration::from_millis(5))
-                ) {
+                match __sock_actor(thread, sock, __WASI_RIGHT_SOCK_ACCEPT, |socket| socket
+                    .accept_timeout(fd_flags, Duration::from_millis(5)))
+                {
                     Ok(a) => {
                         ret = a;
                         break;
-                    },
+                    }
                     Err(__WASI_ETIMEDOUT) => {
                         thread.yield_now()?;
                         continue;
-                    },
+                    }
                     Err(__WASI_EAGAIN) => {
                         thread.sleep(Duration::from_millis(5))?;
                         continue;
                     }
-                    Err(err) => Err(err)
+                    Err(err) => Err(err),
                 }
             );
         }
@@ -4913,24 +4843,26 @@ pub fn sock_accept<M: MemorySize>(
     let (memory, state, mut inodes) = thread.get_memory_and_wasi_state_and_inodes_mut(0);
 
     let kind = Kind::Socket {
-        socket: InodeSocket::new(InodeSocketKind::TcpStream(child))
+        socket: InodeSocket::new(InodeSocketKind::TcpStream(child)),
     };
     let inode = state.fs.create_inode_with_default_stat(
         inodes.deref_mut(),
         kind,
         false,
-        "socket".to_string()
+        "socket".to_string(),
     );
 
     let rights = super::state::all_socket_rights();
-    let fd = wasi_try_ok!(
-        state.fs
-            .create_fd(rights, rights, 0, 0, inode)
-    );
+    let fd = wasi_try_ok!(state.fs.create_fd(rights, rights, 0, 0, inode));
 
-    wasi_try_mem_ok!(ro_fd.write(memory, fd));    
-    wasi_try_ok!(super::state::write_ip_port(memory, ro_addr, addr.ip(), addr.port()));
-    
+    wasi_try_mem_ok!(ro_fd.write(memory, fd));
+    wasi_try_ok!(super::state::write_ip_port(
+        memory,
+        ro_addr,
+        addr.ip(),
+        addr.port()
+    ));
+
     Ok(__WASI_ESUCCESS)
 }
 
@@ -4955,11 +4887,12 @@ pub fn sock_connect<M: MemorySize>(
 
     let addr = wasi_try!(super::state::read_ip_port(thread.memory(), addr));
     let addr = SocketAddr::new(addr.0, addr.1);
-    wasi_try!(
-        __sock_upgrade(thread, sock, __WASI_RIGHT_SOCK_CONNECT, |socket| {
-            socket.connect(thread.net(), addr)
-        })
-    );
+    wasi_try!(__sock_upgrade(
+        thread,
+        sock,
+        __WASI_RIGHT_SOCK_CONNECT,
+        |socket| { socket.connect(thread.net(), addr) }
+    ));
     __WASI_ESUCCESS
 }
 
@@ -4990,9 +4923,12 @@ pub fn sock_recv<M: MemorySize>(
     let memory = thread.memory();
     let iovs_arr = wasi_try_mem_ok!(ri_data.slice(memory, ri_data_len));
 
-    let bytes_read = wasi_try_ok!(__sock_actor_mut(thread, sock, __WASI_RIGHT_SOCK_RECV, |socket| {
-        socket.recv(memory, iovs_arr)
-    }));
+    let bytes_read = wasi_try_ok!(__sock_actor_mut(
+        thread,
+        sock,
+        __WASI_RIGHT_SOCK_RECV,
+        |socket| { socket.recv(memory, iovs_arr) }
+    ));
     let bytes_read: M::Offset = wasi_try_ok!(bytes_read.try_into().map_err(|_| __WASI_EOVERFLOW));
 
     wasi_try_mem_ok!(ro_flags.write(memory, 0));
@@ -5029,9 +4965,12 @@ pub fn sock_recv_from<M: MemorySize>(
     let memory = thread.memory();
     let iovs_arr = wasi_try_mem_ok!(ri_data.slice(memory, ri_data_len));
 
-    let bytes_read = wasi_try_ok!(__sock_actor_mut(thread, sock, __WASI_RIGHT_SOCK_RECV_FROM, |socket| {
-        socket.recv_from(memory, iovs_arr, ro_addr)
-    }));
+    let bytes_read = wasi_try_ok!(__sock_actor_mut(
+        thread,
+        sock,
+        __WASI_RIGHT_SOCK_RECV_FROM,
+        |socket| { socket.recv_from(memory, iovs_arr, ro_addr) }
+    ));
     let bytes_read: M::Offset = wasi_try_ok!(bytes_read.try_into().map_err(|_| __WASI_EOVERFLOW));
 
     wasi_try_mem_ok!(ro_flags.write(memory, 0));
@@ -5066,11 +5005,15 @@ pub fn sock_send<M: MemorySize>(
     let memory = thread.memory();
     let iovs_arr = wasi_try_mem_ok!(si_data.slice(memory, si_data_len));
 
-    let bytes_written = wasi_try_ok!(__sock_actor_mut(thread, sock, __WASI_RIGHT_SOCK_SEND, |socket| {
-        socket.send(memory, iovs_arr)
-    }));
+    let bytes_written = wasi_try_ok!(__sock_actor_mut(
+        thread,
+        sock,
+        __WASI_RIGHT_SOCK_SEND,
+        |socket| { socket.send(memory, iovs_arr) }
+    ));
 
-    let bytes_written: M::Offset = wasi_try_ok!(bytes_written.try_into().map_err(|_| __WASI_EOVERFLOW));
+    let bytes_written: M::Offset =
+        wasi_try_ok!(bytes_written.try_into().map_err(|_| __WASI_EOVERFLOW));
     wasi_try_mem_ok!(ret_data_len.write(memory, bytes_written));
 
     Ok(__WASI_ESUCCESS)
@@ -5100,15 +5043,19 @@ pub fn sock_send_to<M: MemorySize>(
     ret_data_len: WasmPtr<M::Offset, M>,
 ) -> Result<__wasi_errno_t, WasiError> {
     debug!("wasi::sock_send_to");
-    
+
     let memory = thread.memory();
     let iovs_arr = wasi_try_mem_ok!(si_data.slice(memory, si_data_len));
 
-    let bytes_written = wasi_try_ok!(__sock_actor_mut(thread, sock, __WASI_RIGHT_SOCK_SEND_TO, |socket| {
-        socket.send_to::<M>(memory, iovs_arr, addr)
-    }));
+    let bytes_written = wasi_try_ok!(__sock_actor_mut(
+        thread,
+        sock,
+        __WASI_RIGHT_SOCK_SEND_TO,
+        |socket| { socket.send_to::<M>(memory, iovs_arr, addr) }
+    ));
 
-    let bytes_written: M::Offset = wasi_try_ok!(bytes_written.try_into().map_err(|_| __WASI_EOVERFLOW));
+    let bytes_written: M::Offset =
+        wasi_try_ok!(bytes_written.try_into().map_err(|_| __WASI_EOVERFLOW));
     wasi_try_mem_ok!(ret_data_len.write(memory, bytes_written as M::Offset));
 
     Ok(__WASI_ESUCCESS)
@@ -5223,10 +5170,15 @@ pub unsafe fn sock_send_file<M: MemorySize>(
         };
 
         // Write it down to the socket
-        let bytes_written = wasi_try_ok!(__sock_actor_mut(thread, sock, __WASI_RIGHT_SOCK_SEND, |socket| {
-            let buf = (&buf[..]).to_vec();
-            socket.send_bytes::<M>(Bytes::from(buf))
-        }));
+        let bytes_written = wasi_try_ok!(__sock_actor_mut(
+            thread,
+            sock,
+            __WASI_RIGHT_SOCK_SEND,
+            |socket| {
+                let buf = (&buf[..]).to_vec();
+                socket.send_bytes::<M>(Bytes::from(buf))
+            }
+        ));
         total_written += bytes_written as u64;
     }
 
@@ -5269,17 +5221,12 @@ pub fn resolve<M: MemorySize>(
     let host_str = unsafe { get_input_str!(memory, host, host_len) };
     let addrs = wasi_try_mem!(addrs.slice(memory, wasi_try!(to_offset::<M>(naddrs))));
 
-    let port = if port > 0 {
-        Some(port)
-    } else {
-        None
-    };
-    
-    let found_ips = wasi_try!(
-        thread.net()
-            .resolve(host_str.as_str(), port, None)
-            .map_err(net_error_into_wasi_err)
-    );
+    let port = if port > 0 { Some(port) } else { None };
+
+    let found_ips = wasi_try!(thread
+        .net()
+        .resolve(host_str.as_str(), port, None)
+        .map_err(net_error_into_wasi_err));
 
     let mut idx = 0;
     for found_ip in found_ips.iter().take(naddrs) {

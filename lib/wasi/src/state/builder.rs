@@ -4,10 +4,10 @@ use crate::state::{default_fs_backing, WasiFs, WasiState};
 use crate::syscalls::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO};
 use crate::{WasiEnv, WasiInodes};
 use generational_arena::Arena;
-use std::sync::Arc;
 use std::collections::HashMap;
 use std::ops::{Deref, DerefMut};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::sync::RwLock;
 use thiserror::Error;
 use wasmer_vfs::{FsError, VirtualFile};
@@ -329,7 +329,8 @@ impl WasiStateBuilder {
     /// Sets the WASI runtime implementation and overrides the default
     /// implementation
     pub fn runtime<R>(&mut self, runtime: R) -> &mut Self
-    where R: crate::WasiRuntimeImplementation + Send + Sync + 'static
+    where
+        R: crate::WasiRuntimeImplementation + Send + Sync + 'static,
     {
         self.runtime_override = Some(Arc::new(runtime));
         self
@@ -456,7 +457,8 @@ impl WasiStateBuilder {
             }
 
             if let Some(f) = &self.setup_fs_fn {
-                f(inodes.deref_mut(), &mut wasi_fs).map_err(WasiStateCreationError::WasiFsSetupError)?;
+                f(inodes.deref_mut(), &mut wasi_fs)
+                    .map_err(WasiStateCreationError::WasiFsSetupError)?;
             }
             wasi_fs
         };

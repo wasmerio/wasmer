@@ -1,6 +1,6 @@
+use super::*;
 use wasmer_derive::ValueType;
 use wasmer_types::MemorySize;
-use super::*;
 
 pub type __wasi_busdatatype_t = u8;
 pub const __WASI_BUS_DATA_TYPE_CALL: __wasi_busdatatype_t = 0;
@@ -50,7 +50,7 @@ pub struct __wasi_bus_handles_t {
 #[derive(Debug, Copy, Clone, PartialEq, Eq, ValueType)]
 #[repr(C)]
 pub struct __wasi_busevent_exit_t {
-    pub rval: __wasi_exitcode_t
+    pub rval: __wasi_exitcode_t,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, ValueType)]

@@ -99,7 +99,10 @@ impl Config {
         }
     }
 
-    pub fn compiler_config(&self, #[allow(unused_variables)] canonicalize_nans: bool) -> Box<dyn CompilerConfig> {
+    pub fn compiler_config(
+        &self,
+        #[allow(unused_variables)] canonicalize_nans: bool,
+    ) -> Box<dyn CompilerConfig> {
         match &self.compiler {
             #[cfg(feature = "cranelift")]
             Compiler::Cranelift => {

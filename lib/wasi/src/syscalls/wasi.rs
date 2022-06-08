@@ -1,7 +1,7 @@
 #![deny(dead_code)]
+use crate::{WasiError, WasiState, WasiThread};
+use wasmer::{Memory, Memory32, MemorySize, WasmPtr, WasmSlice};
 use wasmer_wasi_types::*;
-use wasmer::{Memory, WasmPtr, WasmSlice, MemorySize, Memory32};
-use crate::{WasiThread, WasiState, WasiError};
 
 type MemoryType = Memory32;
 type MemoryOffset = u32;
@@ -193,7 +193,11 @@ pub(crate) fn fd_readdir(
     super::fd_readdir::<MemoryType>(thread, fd, buf, buf_len, cookie, bufused)
 }
 
-pub(crate) fn fd_renumber(thread: &WasiThread, from: __wasi_fd_t, to: __wasi_fd_t) -> __wasi_errno_t {
+pub(crate) fn fd_renumber(
+    thread: &WasiThread,
+    from: __wasi_fd_t,
+    to: __wasi_fd_t,
+) -> __wasi_errno_t {
     super::fd_renumber(thread, from, to)
 }
 
@@ -259,7 +263,9 @@ pub(crate) fn path_filestat_set_times(
     st_mtim: __wasi_timestamp_t,
     fst_flags: __wasi_fstflags_t,
 ) -> __wasi_errno_t {
-    super::path_filestat_set_times::<MemoryType>(thread, fd, flags, path, path_len, st_atim, st_mtim, fst_flags)
+    super::path_filestat_set_times::<MemoryType>(
+        thread, fd, flags, path, path_len, st_atim, st_mtim, fst_flags,
+    )
 }
 
 pub(crate) fn path_link(
@@ -272,7 +278,16 @@ pub(crate) fn path_link(
     new_path: WasmPtr<u8, MemoryType>,
     new_path_len: MemoryOffset,
 ) -> __wasi_errno_t {
-    super::path_link::<MemoryType>(thread, old_fd, old_flags, old_path, old_path_len, new_fd, new_path, new_path_len)
+    super::path_link::<MemoryType>(
+        thread,
+        old_fd,
+        old_flags,
+        old_path,
+        old_path_len,
+        new_fd,
+        new_path,
+        new_path_len,
+    )
 }
 
 pub(crate) fn path_open(
@@ -287,7 +302,18 @@ pub(crate) fn path_open(
     fs_flags: __wasi_fdflags_t,
     fd: WasmPtr<__wasi_fd_t, MemoryType>,
 ) -> __wasi_errno_t {
-    super::path_open::<MemoryType>(thread, dirfd, dirflags, path, path_len, o_flags, fs_rights_base, fs_rights_inheriting, fs_flags, fd)
+    super::path_open::<MemoryType>(
+        thread,
+        dirfd,
+        dirflags,
+        path,
+        path_len,
+        o_flags,
+        fs_rights_base,
+        fs_rights_inheriting,
+        fs_flags,
+        fd,
+    )
 }
 
 pub(crate) fn path_readlink(
@@ -320,7 +346,15 @@ pub(crate) fn path_rename(
     new_path: WasmPtr<u8, MemoryType>,
     new_path_len: MemoryOffset,
 ) -> __wasi_errno_t {
-    super::path_rename::<MemoryType>(thread, old_fd, old_path, old_path_len, new_fd, new_path, new_path_len)
+    super::path_rename::<MemoryType>(
+        thread,
+        old_fd,
+        old_path,
+        old_path_len,
+        new_fd,
+        new_path,
+        new_path_len,
+    )
 }
 
 pub(crate) fn path_symlink(
@@ -364,7 +398,7 @@ pub(crate) fn proc_raise(thread: &WasiThread, sig: __wasi_signal_t) -> __wasi_er
 pub(crate) fn random_get(
     thread: &WasiThread,
     buf: WasmPtr<u8, MemoryType>,
-    buf_len: MemoryOffset
+    buf_len: MemoryOffset,
 ) -> __wasi_errno_t {
     super::random_get::<MemoryType>(thread, buf, buf_len)
 }
@@ -382,7 +416,15 @@ pub(crate) fn sock_recv(
     ro_data_len: WasmPtr<MemoryOffset, MemoryType>,
     ro_flags: WasmPtr<__wasi_roflags_t, MemoryType>,
 ) -> Result<__wasi_errno_t, WasiError> {
-    super::sock_recv::<MemoryType>(thread, sock, ri_data, ri_data_len, ri_flags, ro_data_len, ro_flags)
+    super::sock_recv::<MemoryType>(
+        thread,
+        sock,
+        ri_data,
+        ri_data_len,
+        ri_flags,
+        ro_data_len,
+        ro_flags,
+    )
 }
 
 pub(crate) fn sock_send(

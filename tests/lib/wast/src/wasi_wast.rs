@@ -1,8 +1,8 @@
 use anyhow::Context;
 use std::fs::{read_dir, File, OpenOptions, ReadDir};
 use std::io::{self, Read, Seek, Write};
-use std::sync::{Arc, Mutex, mpsc};
 use std::path::{Path, PathBuf};
+use std::sync::{mpsc, Arc, Mutex};
 use wasmer::{Imports, Instance, Module, Store};
 use wasmer_vfs::{host_fs, mem_fs, FileSystem};
 use wasmer_wasi::types::{__wasi_filesize_t, __wasi_timestamp_t};
@@ -130,7 +130,12 @@ impl<'a> WasiTest<'a> {
     fn create_wasi_env(
         &self,
         filesystem_kind: WasiFileSystemKind,
-    ) -> anyhow::Result<(WasiEnv, Vec<tempfile::TempDir>, mpsc::Receiver<Vec<u8>>, mpsc::Receiver<Vec<u8>>)> {
+    ) -> anyhow::Result<(
+        WasiEnv,
+        Vec<tempfile::TempDir>,
+        mpsc::Receiver<Vec<u8>>,
+        mpsc::Receiver<Vec<u8>>,
+    )> {
         let mut builder = WasiState::new(self.wasm_path);
 
         let stdin_pipe = Pipe::new();
@@ -524,7 +529,12 @@ struct OutputCapturerer {
 impl OutputCapturerer {
     fn new() -> (Self, mpsc::Receiver<Vec<u8>>) {
         let (tx, rx) = mpsc::channel();
-        (Self { output: Arc::new(Mutex::new(tx)) }, rx)
+        (
+            Self {
+                output: Arc::new(Mutex::new(tx)),
+            },
+            rx,
+        )
     }
 }
 
@@ -564,29 +574,32 @@ impl Seek for OutputCapturerer {
 }
 impl Write for OutputCapturerer {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.output.lock().unwrap().send(buf.to_vec())
-            .map_err(|err| io::Error::new(
-                io::ErrorKind::BrokenPipe, err.to_string(),
-            ))?;
+        self.output
+            .lock()
+            .unwrap()
+            .send(buf.to_vec())
+            .map_err(|err| io::Error::new(io::ErrorKind::BrokenPipe, err.to_string()))?;
         Ok(buf.len())
     }
     fn flush(&mut self) -> io::Result<()> {
         Ok(())
     }
     fn write_all(&mut self, buf: &[u8]) -> io::Result<()> {
-        self.output.lock().unwrap().send(buf.to_vec())
-            .map_err(|err| io::Error::new(
-                io::ErrorKind::BrokenPipe, err.to_string(),
-            ))?;
+        self.output
+            .lock()
+            .unwrap()
+            .send(buf.to_vec())
+            .map_err(|err| io::Error::new(io::ErrorKind::BrokenPipe, err.to_string()))?;
         Ok(())
     }
     fn write_fmt(&mut self, fmt: std::fmt::Arguments) -> io::Result<()> {
         let mut buf = Vec::<u8>::new();
         buf.write_fmt(fmt)?;
-        self.output.lock().unwrap().send(buf)
-            .map_err(|err| io::Error::new(
-                io::ErrorKind::BrokenPipe, err.to_string(),
-            ))?;
+        self.output
+            .lock()
+            .unwrap()
+            .send(buf)
+            .map_err(|err| io::Error::new(io::ErrorKind::BrokenPipe, err.to_string()))?;
         Ok(())
     }
 }

@@ -1,7 +1,7 @@
 #![deny(dead_code)]
+use crate::{WasiError, WasiState, WasiThread};
+use wasmer::{Memory, Memory32, MemorySize, WasmPtr, WasmSlice};
 use wasmer_wasi_types::*;
-use wasmer::{Memory, WasmPtr, WasmSlice, MemorySize, Memory32};
-use crate::{WasiThread, WasiState, WasiError};
 
 type MemoryType = Memory32;
 type MemoryOffset = u32;
@@ -193,7 +193,11 @@ pub(crate) fn fd_readdir(
     super::fd_readdir::<MemoryType>(thread, fd, buf, buf_len, cookie, bufused)
 }
 
-pub(crate) fn fd_renumber(thread: &WasiThread, from: __wasi_fd_t, to: __wasi_fd_t) -> __wasi_errno_t {
+pub(crate) fn fd_renumber(
+    thread: &WasiThread,
+    from: __wasi_fd_t,
+    to: __wasi_fd_t,
+) -> __wasi_errno_t {
     super::fd_renumber(thread, from, to)
 }
 
@@ -259,7 +263,9 @@ pub(crate) fn path_filestat_set_times(
     st_mtim: __wasi_timestamp_t,
     fst_flags: __wasi_fstflags_t,
 ) -> __wasi_errno_t {
-    super::path_filestat_set_times::<MemoryType>(thread, fd, flags, path, path_len, st_atim, st_mtim, fst_flags)
+    super::path_filestat_set_times::<MemoryType>(
+        thread, fd, flags, path, path_len, st_atim, st_mtim, fst_flags,
+    )
 }
 
 pub(crate) fn path_link(
@@ -272,7 +278,16 @@ pub(crate) fn path_link(
     new_path: WasmPtr<u8, MemoryType>,
     new_path_len: MemoryOffset,
 ) -> __wasi_errno_t {
-    super::path_link::<MemoryType>(thread, old_fd, old_flags, old_path, old_path_len, new_fd, new_path, new_path_len)
+    super::path_link::<MemoryType>(
+        thread,
+        old_fd,
+        old_flags,
+        old_path,
+        old_path_len,
+        new_fd,
+        new_path,
+        new_path_len,
+    )
 }
 
 pub(crate) fn path_open(
@@ -287,7 +302,18 @@ pub(crate) fn path_open(
     fs_flags: __wasi_fdflags_t,
     fd: WasmPtr<__wasi_fd_t, MemoryType>,
 ) -> __wasi_errno_t {
-    super::path_open::<MemoryType>(thread, dirfd, dirflags, path, path_len, o_flags, fs_rights_base, fs_rights_inheriting, fs_flags, fd)
+    super::path_open::<MemoryType>(
+        thread,
+        dirfd,
+        dirflags,
+        path,
+        path_len,
+        o_flags,
+        fs_rights_base,
+        fs_rights_inheriting,
+        fs_flags,
+        fd,
+    )
 }
 
 pub(crate) fn path_readlink(
@@ -320,7 +346,15 @@ pub(crate) fn path_rename(
     new_path: WasmPtr<u8, MemoryType>,
     new_path_len: MemoryOffset,
 ) -> __wasi_errno_t {
-    super::path_rename::<MemoryType>(thread, old_fd, old_path, old_path_len, new_fd, new_path, new_path_len)
+    super::path_rename::<MemoryType>(
+        thread,
+        old_fd,
+        old_path,
+        old_path_len,
+        new_fd,
+        new_path,
+        new_path_len,
+    )
 }
 
 pub(crate) fn path_symlink(
@@ -364,7 +398,7 @@ pub(crate) fn proc_raise(thread: &WasiThread, sig: __wasi_signal_t) -> __wasi_er
 pub(crate) fn random_get(
     thread: &WasiThread,
     buf: WasmPtr<u8, MemoryType>,
-    buf_len: MemoryOffset
+    buf_len: MemoryOffset,
 ) -> __wasi_errno_t {
     super::random_get::<MemoryType>(thread, buf, buf_len)
 }
@@ -449,10 +483,7 @@ pub(crate) fn thread_id(
     super::thread_id::<MemoryType>(thread, ret_tid)
 }
 
-pub(crate) fn thread_join(
-    thread: &WasiThread,
-    tid: __wasi_tid_t,
-) -> __wasi_errno_t {
+pub(crate) fn thread_join(thread: &WasiThread, tid: __wasi_tid_t) -> __wasi_errno_t {
     super::thread_join(thread, tid)
 }
 
@@ -497,7 +528,22 @@ pub(crate) fn bus_spawn_local(
     working_dir_len: MemoryOffset,
     ret_handles: WasmPtr<__wasi_bus_handles_t, MemoryType>,
 ) -> __wasi_errno_t {
-    super::bus_spawn_local::<MemoryType>(thread, name, name_len, chroot, args, args_len, preopen, preopen_len, stdin, stdout, stderr, working_dir, working_dir_len, ret_handles)
+    super::bus_spawn_local::<MemoryType>(
+        thread,
+        name,
+        name_len,
+        chroot,
+        args,
+        args_len,
+        preopen,
+        preopen_len,
+        stdin,
+        stdout,
+        stderr,
+        working_dir,
+        working_dir_len,
+        ret_handles,
+    )
 }
 
 pub(crate) fn bus_spawn_remote(
@@ -520,13 +566,29 @@ pub(crate) fn bus_spawn_remote(
     token_len: MemoryOffset,
     ret_handles: WasmPtr<__wasi_bus_handles_t, MemoryType>,
 ) -> __wasi_errno_t {
-    super::bus_spawn_remote::<MemoryType>(thread, name, name_len, chroot, args, args_len, preopen, preopen_len, working_dir, working_dir_len, stdin, stdout, stderr, instance, instance_len, token, token_len, ret_handles)
+    super::bus_spawn_remote::<MemoryType>(
+        thread,
+        name,
+        name_len,
+        chroot,
+        args,
+        args_len,
+        preopen,
+        preopen_len,
+        working_dir,
+        working_dir_len,
+        stdin,
+        stdout,
+        stderr,
+        instance,
+        instance_len,
+        token,
+        token_len,
+        ret_handles,
+    )
 }
 
-pub(crate) fn bus_close(
-    thread: &WasiThread,
-    bid: __wasi_bid_t,
-) -> __wasi_errno_t {
+pub(crate) fn bus_close(thread: &WasiThread, bid: __wasi_bid_t) -> __wasi_errno_t {
     super::bus_close(thread, bid)
 }
 
@@ -542,7 +604,9 @@ pub(crate) fn bus_invoke(
     buf_len: MemoryOffset,
     ret_cid: WasmPtr<__wasi_cid_t, MemoryType>,
 ) -> __wasi_errno_t {
-    super::bus_invoke::<MemoryType>(thread, bid, cid, keep_alive, topic, topic_len, format, buf, buf_len, ret_cid)
+    super::bus_invoke::<MemoryType>(
+        thread, bid, cid, keep_alive, topic, topic_len, format, buf, buf_len, ret_cid,
+    )
 }
 
 pub(crate) fn bus_fault(
@@ -553,10 +617,7 @@ pub(crate) fn bus_fault(
     super::bus_fault(thread, cid, fault)
 }
 
-pub(crate) fn bus_drop(
-    thread: &WasiThread,
-    cid: __wasi_cid_t,
-) -> __wasi_errno_t {
+pub(crate) fn bus_drop(thread: &WasiThread, cid: __wasi_cid_t) -> __wasi_errno_t {
     super::bus_drop(thread, cid)
 }
 
@@ -612,7 +673,9 @@ pub(crate) fn bus_poll_data(
     buf_len: MemoryOffset,
     ret_evt: WasmPtr<__wasi_busevent_data_t<MemoryType>, MemoryType>,
 ) -> __wasi_errno_t {
-    super::bus_poll_data::<MemoryType>(thread, bid, timeout, topic, topic_len, buf, buf_len, ret_evt)
+    super::bus_poll_data::<MemoryType>(
+        thread, bid, timeout, topic, topic_len, buf, buf_len, ret_evt,
+    )
 }
 
 pub(crate) fn port_bridge(
@@ -626,15 +689,11 @@ pub(crate) fn port_bridge(
     super::port_bridge::<MemoryType>(thread, network, network_len, token, token_len, security)
 }
 
-pub(crate) fn port_unbridge(
-    thread: &WasiThread,
-) -> __wasi_errno_t {
+pub(crate) fn port_unbridge(thread: &WasiThread) -> __wasi_errno_t {
     super::port_unbridge(thread)
 }
 
-pub(crate) fn port_dhcp_acquire(
-    thread: &WasiThread,
-) -> __wasi_errno_t {
+pub(crate) fn port_dhcp_acquire(thread: &WasiThread) -> __wasi_errno_t {
     super::port_dhcp_acquire(thread)
 }
 
@@ -652,9 +711,7 @@ pub(crate) fn port_addr_remove(
     super::port_addr_remove::<MemoryType>(thread, addr)
 }
 
-pub(crate) fn port_addr_clear(
-    thread: &WasiThread,
-) -> __wasi_errno_t {
+pub(crate) fn port_addr_clear(thread: &WasiThread) -> __wasi_errno_t {
     super::port_addr_clear(thread)
 }
 
@@ -697,9 +754,7 @@ pub(crate) fn port_route_remove(
     super::port_route_remove::<MemoryType>(thread, ip)
 }
 
-pub(crate) fn port_route_clear(
-    thread: &WasiThread,
-) -> __wasi_errno_t {
+pub(crate) fn port_route_clear(thread: &WasiThread) -> __wasi_errno_t {
     super::port_route_clear(thread)
 }
 
@@ -731,7 +786,17 @@ pub(crate) fn http_request(
     gzip: __wasi_bool_t,
     ret_handles: WasmPtr<__wasi_http_handles_t, MemoryType>,
 ) -> __wasi_errno_t {
-    super::http_request::<MemoryType>(thread, url, url_len, method, method_len, headers, headers_len, gzip, ret_handles)
+    super::http_request::<MemoryType>(
+        thread,
+        url,
+        url_len,
+        method,
+        method_len,
+        headers,
+        headers_len,
+        gzip,
+        ret_handles,
+    )
 }
 
 pub(crate) fn http_status(
@@ -749,7 +814,7 @@ pub(crate) fn http_status(
 pub(crate) fn sock_status(
     thread: &WasiThread,
     sock: __wasi_fd_t,
-    ret_status: WasmPtr<__wasi_sockstatus_t, MemoryType>
+    ret_status: WasmPtr<__wasi_sockstatus_t, MemoryType>,
 ) -> __wasi_errno_t {
     super::sock_status::<MemoryType>(thread, sock, ret_status)
 }
@@ -913,7 +978,15 @@ pub(crate) fn sock_recv(
     ro_data_len: WasmPtr<MemoryOffset, MemoryType>,
     ro_flags: WasmPtr<__wasi_roflags_t, MemoryType>,
 ) -> Result<__wasi_errno_t, WasiError> {
-    super::sock_recv::<MemoryType>(thread, sock, ri_data, ri_data_len, ri_flags, ro_data_len, ro_flags)
+    super::sock_recv::<MemoryType>(
+        thread,
+        sock,
+        ri_data,
+        ri_data_len,
+        ri_flags,
+        ro_data_len,
+        ro_flags,
+    )
 }
 
 pub(crate) fn sock_recv_from(
@@ -926,7 +999,16 @@ pub(crate) fn sock_recv_from(
     ro_flags: WasmPtr<__wasi_roflags_t, MemoryType>,
     ro_addr: WasmPtr<__wasi_addr_port_t, MemoryType>,
 ) -> Result<__wasi_errno_t, WasiError> {
-    super::sock_recv_from::<MemoryType>(thread, sock, ri_data, ri_data_len, ri_flags, ro_data_len, ro_flags, ro_addr)
+    super::sock_recv_from::<MemoryType>(
+        thread,
+        sock,
+        ri_data,
+        ri_data_len,
+        ri_flags,
+        ro_data_len,
+        ro_flags,
+        ro_addr,
+    )
 }
 
 pub(crate) fn sock_send(
@@ -949,7 +1031,15 @@ pub(crate) fn sock_send_to(
     addr: WasmPtr<__wasi_addr_port_t, MemoryType>,
     ret_data_len: WasmPtr<MemoryOffset, MemoryType>,
 ) -> Result<__wasi_errno_t, WasiError> {
-    super::sock_send_to::<MemoryType>(thread, sock, si_data, si_data_len, si_flags, addr, ret_data_len)
+    super::sock_send_to::<MemoryType>(
+        thread,
+        sock,
+        si_data,
+        si_data_len,
+        si_flags,
+        addr,
+        ret_data_len,
+    )
 }
 
 pub(crate) fn sock_send_file(
@@ -960,9 +1050,7 @@ pub(crate) fn sock_send_file(
     count: __wasi_filesize_t,
     ret_sent: WasmPtr<__wasi_filesize_t, MemoryType>,
 ) -> Result<__wasi_errno_t, WasiError> {
-    unsafe {
-        super::sock_send_file::<MemoryType>(thread, out_fd, in_fd, offset, count, ret_sent)
-    }
+    unsafe { super::sock_send_file::<MemoryType>(thread, out_fd, in_fd, offset, count, ret_sent) }
 }
 
 pub(crate) fn sock_shutdown(

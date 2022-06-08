@@ -5,9 +5,9 @@ use serde::{Deserialize, Serialize};
 #[cfg(all(unix, feature = "sys-poll"))]
 use std::convert::TryInto;
 use std::{
-    sync::{Arc, Mutex},
     collections::VecDeque,
     io::{self, Read, Seek, Write},
+    sync::{Arc, Mutex},
     time::Duration,
 };
 
@@ -17,7 +17,7 @@ pub use wasmer_vfs::host_fs::{Stderr, Stdin, Stdout};
 pub use wasmer_vfs::mem_fs::{Stderr, Stdin, Stdout};
 
 use wasmer_vfs::{FsError, VirtualFile};
-use wasmer_vnet::{NetworkError};
+use wasmer_vnet::NetworkError;
 
 pub fn fs_error_from_wasi_err(err: __wasi_errno_t) -> FsError {
     match err {
@@ -237,7 +237,13 @@ pub(crate) fn poll(
             revents: 0,
         })
         .collect::<Vec<_>>();
-    let result = unsafe { libc::poll(fds.as_mut_ptr(), selfs.len() as _, timeout.as_millis() as i32) };
+    let result = unsafe {
+        libc::poll(
+            fds.as_mut_ptr(),
+            selfs.len() as _,
+            timeout.as_millis() as i32,
+        )
+    };
 
     if result < 0 {
         // TODO: check errno and return value
@@ -268,17 +274,19 @@ pub(crate) fn poll(
         let mut builder = PollEventBuilder::new();
 
         let file = files[n];
-        let can_read = file
-            .bytes_available_read()?
-            .map(|_| true)
-            .unwrap_or(false);
+        let can_read = file.bytes_available_read()?.map(|_| true).unwrap_or(false);
         let can_write = file
             .bytes_available_write()?
             .map(|s| s > 0)
             .unwrap_or(false);
         let is_closed = file.is_open() == false;
 
-        tracing::debug!("poll_evt can_read={} can_write={} is_closed={}", can_read, can_write, is_closed);
+        tracing::debug!(
+            "poll_evt can_read={} can_write={} is_closed={}",
+            can_read,
+            can_write,
+            is_closed
+        );
 
         for event in iterate_poll_events(events[n]) {
             match event {

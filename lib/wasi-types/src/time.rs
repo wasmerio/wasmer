@@ -1,5 +1,5 @@
-use wasmer_derive::ValueType;
 use super::io::__wasi_option_t;
+use wasmer_derive::ValueType;
 
 pub type __wasi_clockid_t = u32;
 pub const __WASI_CLOCK_REALTIME: __wasi_clockid_t = 0;
