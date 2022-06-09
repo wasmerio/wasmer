@@ -113,7 +113,7 @@ impl Engine for UniversalEngine {
         binary: &[u8],
         tunables: &dyn Tunables,
     ) -> Result<Arc<dyn Artifact>, CompileError> {
-        Ok(Arc::new(UniversalArtifact::new(&self, binary, tunables)?))
+        Ok(Arc::new(UniversalArtifact::new(self, binary, tunables)?))
     }
 
     /// Compile a WebAssembly binary
@@ -131,7 +131,7 @@ impl Engine for UniversalEngine {
 
     /// Deserializes a WebAssembly module
     unsafe fn deserialize(&self, bytes: &[u8]) -> Result<Arc<dyn Artifact>, DeserializeError> {
-        Ok(Arc::new(UniversalArtifact::deserialize(&self, &bytes)?))
+        Ok(Arc::new(UniversalArtifact::deserialize(self, bytes)?))
     }
 
     fn id(&self) -> &EngineId {
@@ -167,7 +167,7 @@ impl UniversalEngineInner {
     }
 
     /// Validate the module
-    pub fn validate<'data>(&self, data: &'data [u8]) -> Result<(), CompileError> {
+    pub fn validate(&self, data: &[u8]) -> Result<(), CompileError> {
         self.builder.validate(data)
     }
 

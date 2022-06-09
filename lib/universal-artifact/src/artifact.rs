@@ -224,7 +224,7 @@ impl ArtifactCreate for UniversalArtifactBuild {
 
         let mut metadata_binary = vec![];
         metadata_binary.extend(Self::MAGIC_HEADER);
-        metadata_binary.extend(MetadataHeader::new(serialized_data.len()));
+        metadata_binary.extend(MetadataHeader::new(serialized_data.len()).into_bytes());
         metadata_binary.extend(serialized_data);
         Ok(metadata_binary)
     }

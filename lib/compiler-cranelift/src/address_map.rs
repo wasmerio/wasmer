@@ -5,7 +5,7 @@ use cranelift_codegen::Context;
 use cranelift_codegen::MachSrcLoc;
 use wasmer_compiler::{wasmparser::Range, FunctionAddressMap, InstructionAddressMap, SourceLoc};
 
-pub fn get_function_address_map<'data>(
+pub fn get_function_address_map(
     context: &Context,
     range: Range,
     body_len: usize,

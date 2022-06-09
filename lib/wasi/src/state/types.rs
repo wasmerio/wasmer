@@ -72,6 +72,7 @@ pub fn fs_error_into_wasi_err(fs_error: FsError) -> __wasi_errno_t {
 }
 
 #[derive(Debug, Clone)]
+#[allow(clippy::enum_variant_names)]
 pub enum PollEvent {
     /// Data available to read
     PollIn = 1,

@@ -182,10 +182,9 @@ impl<'a> Exportable<'a> for Table {
         }
     }
 
-    fn into_weak_instance_ref(&mut self) {
-        self.vm_table
-            .instance_ref
-            .as_mut()
-            .map(|v| *v = v.downgrade());
+    fn convert_to_weak_instance_ref(&mut self) {
+        if let Some(v) = self.vm_table.instance_ref.as_mut() {
+            *v = v.downgrade();
+        }
     }
 }

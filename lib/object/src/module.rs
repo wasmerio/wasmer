@@ -100,7 +100,7 @@ pub fn emit_data(
         flags: SymbolFlags::None,
     });
     let section_id = obj.section_id(StandardSection::Data);
-    obj.add_symbol_data(symbol_id, section_id, &data, align);
+    obj.add_symbol_data(symbol_id, section_id, data, align);
 
     Ok(())
 }
@@ -150,7 +150,7 @@ pub fn emit_compilation(
     let custom_section_ids = custom_sections
         .into_iter()
         .map(|(section_index, custom_section)| {
-            if debug_index.map(|d| d == section_index).unwrap_or(false) {
+            if debug_index.map_or(false, |d| d == section_index) {
                 // If this is the debug section
                 let segment = obj.segment_name(StandardSegment::Debug).to_vec();
                 let section_id =
@@ -264,7 +264,7 @@ pub fn emit_compilation(
     }
 
     for (section_index, relocations) in custom_section_relocations.into_iter() {
-        if !debug_index.map(|d| d == section_index).unwrap_or(false) {
+        if !debug_index.map_or(false, |d| d == section_index) {
             // Skip DWARF relocations just yet
             let (section_id, symbol_id) = custom_section_ids.get(section_index).unwrap();
             all_relocations.push((*section_id, *symbol_id, relocations));

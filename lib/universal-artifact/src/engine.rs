@@ -17,7 +17,7 @@ impl UniversalEngineBuilder {
     /// Create a new builder with pre-made components
     #[cfg(feature = "compiler")]
     pub fn new(compiler: Option<Box<dyn Compiler>>, features: Features) -> Self {
-        UniversalEngineBuilder { compiler, features }
+        Self { compiler, features }
     }
 
     /// Gets the compiler associated to this engine.
@@ -41,7 +41,7 @@ impl UniversalEngineBuilder {
 
     /// Validate the module
     #[cfg(feature = "compiler")]
-    pub fn validate<'data>(&self, data: &'data [u8]) -> Result<(), CompileError> {
+    pub fn validate(&self, data: &[u8]) -> Result<(), CompileError> {
         self.compiler()?.validate_module(self.features(), data)
     }
 

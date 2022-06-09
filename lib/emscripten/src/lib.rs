@@ -7,6 +7,10 @@
     unused_unsafe,
     unreachable_patterns
 )]
+// This allow attribute is ignored when placed directly on fields that also
+// have a #[wasmer(...)] attribute. As a dirty workaround it is for now
+// allowed for the whole library.
+#![allow(clippy::type_complexity)]
 #![doc(html_favicon_url = "https://wasmer.io/images/icons/favicon-32x32.png")]
 #![doc(html_logo_url = "https://github.com/wasmerio.png?size=200")]
 
@@ -394,7 +398,7 @@ fn store_module_arguments(ctx: &EmEnv, args: Vec<&str>) -> (u32, u32) {
 
     let mut args_slice = vec![0; argc];
     for (slot, arg) in args_slice[0..argc].iter_mut().zip(args.iter()) {
-        *slot = unsafe { allocate_cstr_on_stack(ctx, &arg).0 };
+        *slot = unsafe { allocate_cstr_on_stack(ctx, arg).0 };
     }
 
     let (argv_offset, argv_slice): (_, &mut [u32]) =
@@ -462,8 +466,8 @@ impl EmscriptenGlobals {
             }
         }
 
-        let (table_min, table_max) = get_emscripten_table_size(&module)?;
-        let (memory_min, memory_max, shared) = get_emscripten_memory_size(&module)?;
+        let (table_min, table_max) = get_emscripten_table_size(module)?;
+        let (memory_min, memory_max, shared) = get_emscripten_memory_size(module)?;
 
         // Memory initialization
         let memory_type = MemoryType::new(memory_min, memory_max, shared);
@@ -488,7 +492,7 @@ impl EmscriptenGlobals {
             static_top += 16;
 
             let (dynamic_base, dynamictop_ptr) =
-                get_emscripten_metadata(&module)?.unwrap_or_else(|| {
+                get_emscripten_metadata(module)?.unwrap_or_else(|| {
                     let dynamictop_ptr = static_alloc(&mut static_top, 4);
                     (
                         align_memory(align_memory(static_top) + TOTAL_STACK),

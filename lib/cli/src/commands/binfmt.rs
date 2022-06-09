@@ -118,9 +118,8 @@ impl Binfmt {
                     .collect::<Vec<_>>()
                     .into_iter()
                     .collect::<Result<Vec<_>>>()?;
-                match (self.action, unregister.into_iter().any(|b| b)) {
-                    (Unregister, false) => bail!("Nothing unregistered"),
-                    _ => (),
+                if let (Unregister, false) = (self.action, unregister.into_iter().any(|b| b)) {
+                    bail!("Nothing unregistered");
                 }
             }
             _ => (),
@@ -139,7 +138,7 @@ impl Binfmt {
                         .open(register)
                         .context("Open binfmt misc for registration")?;
                     register
-                        .write_all(&spec)
+                        .write_all(spec)
                         .context("Couldn't register binfmt")?;
                     Ok(())
                 })

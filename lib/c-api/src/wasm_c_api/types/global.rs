@@ -38,7 +38,7 @@ impl wasm_globaltype_t {
 
     pub(crate) fn inner(&self) -> &WasmGlobalType {
         match &self.extern_type.inner {
-            WasmExternType::Global(wasm_global_type) => &wasm_global_type,
+            WasmExternType::Global(wasm_global_type) => wasm_global_type,
             _ => {
                 unreachable!("Data corruption: `wasm_globaltype_t` does not contain a global type")
             }

@@ -146,11 +146,13 @@ impl MachineX86_64 {
         }
         let mode = match (src, dst) {
             (Location::GPR(_), Location::GPR(_))
-                if (op as *const u8 == AssemblerX64::emit_imul as *const u8) =>
+                if std::ptr::eq(op as *const u8, AssemblerX64::emit_imul as *const u8) =>
             {
                 RelaxMode::Direct
             }
-            _ if (op as *const u8 == AssemblerX64::emit_imul as *const u8) => RelaxMode::BothToGPR,
+            _ if std::ptr::eq(op as *const u8, AssemblerX64::emit_imul as *const u8) => {
+                RelaxMode::BothToGPR
+            }
 
             (Location::Memory(_, _), Location::Memory(_, _)) => RelaxMode::SrcToGPR,
             (Location::Imm64(_), Location::Imm64(_)) | (Location::Imm64(_), Location::Imm32(_)) => {
@@ -431,6 +433,7 @@ impl MachineX86_64 {
         f(&mut self.assembler, Size::S32, Location::GPR(GPR::RCX), ret);
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn memory_op<F: FnOnce(&mut Self, GPR)>(
         &mut self,
         addr: Location,
@@ -548,6 +551,7 @@ impl MachineX86_64 {
         self.release_gpr(tmp_addr);
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn emit_compare_and_swap<F: FnOnce(&mut Self, GPR, GPR)>(
         &mut self,
         loc: Location,
@@ -608,6 +612,7 @@ impl MachineX86_64 {
     }
 
     // Checks for underflow/overflow/nan.
+    #[allow(clippy::too_many_arguments)]
     fn emit_f32_int_conv_check(
         &mut self,
         reg: XMM,
@@ -685,6 +690,7 @@ impl MachineX86_64 {
 
         self.emit_label(end);
     }
+    #[allow(clippy::too_many_arguments)]
     fn emit_f32_int_conv_check_sat<
         F1: FnOnce(&mut Self),
         F2: FnOnce(&mut Self),
@@ -743,6 +749,7 @@ impl MachineX86_64 {
         self.emit_label(end);
     }
     // Checks for underflow/overflow/nan.
+    #[allow(clippy::too_many_arguments)]
     fn emit_f64_int_conv_check(
         &mut self,
         reg: XMM,
@@ -817,6 +824,7 @@ impl MachineX86_64 {
 
         self.emit_label(end);
     }
+    #[allow(clippy::too_many_arguments)]
     fn emit_f64_int_conv_check_sat<
         F1: FnOnce(&mut Self),
         F2: FnOnce(&mut Self),
@@ -1676,26 +1684,14 @@ impl Machine for MachineX86_64 {
 
     fn get_used_gprs(&self) -> Vec<GPR> {
         GPR::iterator()
-            .filter_map(|x| {
-                if self.used_gprs & (1 << x.into_index()) != 0 {
-                    Some(x)
-                } else {
-                    None
-                }
-            })
+            .filter(|x| self.used_gprs & (1 << x.into_index()) != 0)
             .cloned()
             .collect()
     }
 
     fn get_used_simd(&self) -> Vec<XMM> {
         XMM::iterator()
-            .filter_map(|x| {
-                if self.used_simd & (1 << x.into_index()) != 0 {
-                    Some(x)
-                } else {
-                    None
-                }
-            })
+            .filter(|x| self.used_simd & (1 << x.into_index()) != 0)
             .cloned()
             .collect()
     }
@@ -1745,13 +1741,13 @@ impl Machine for MachineX86_64 {
         self.used_gprs_insert(gpr);
     }
 
-    fn push_used_gpr(&mut self, used_gprs: &Vec<GPR>) -> usize {
+    fn push_used_gpr(&mut self, used_gprs: &[GPR]) -> usize {
         for r in used_gprs.iter() {
             self.assembler.emit_push(Size::S64, Location::GPR(*r));
         }
         used_gprs.len() * 8
     }
-    fn pop_used_gpr(&mut self, used_gprs: &Vec<GPR>) {
+    fn pop_used_gpr(&mut self, used_gprs: &[GPR]) {
         for r in used_gprs.iter().rev() {
             self.assembler.emit_pop(Size::S64, Location::GPR(*r));
         }
@@ -1796,10 +1792,10 @@ impl Machine for MachineX86_64 {
 
     // Releases a temporary XMM register.
     fn release_simd(&mut self, simd: XMM) {
-        assert_eq!(self.used_simd_remove(&simd), true);
+        assert!(self.used_simd_remove(&simd));
     }
 
-    fn push_used_simd(&mut self, used_xmms: &Vec<XMM>) -> usize {
+    fn push_used_simd(&mut self, used_xmms: &[XMM]) -> usize {
         self.adjust_stack((used_xmms.len() * 8) as u32);
 
         for (i, r) in used_xmms.iter().enumerate() {
@@ -1812,7 +1808,7 @@ impl Machine for MachineX86_64 {
 
         used_xmms.len() * 8
     }
-    fn pop_used_simd(&mut self, used_xmms: &Vec<XMM>) {
+    fn pop_used_simd(&mut self, used_xmms: &[XMM]) {
         for (i, r) in used_xmms.iter().enumerate() {
             self.move_location(
                 Size::S64,
@@ -7009,17 +7005,15 @@ impl Machine for MachineX86_64 {
         {
             match calling_convention {
                 CallingConvention::WindowsFastcall => {
-                    let mut param_locations: Vec<Location> = vec![];
-                    for i in 0..sig.params().len() {
-                        let loc = match i {
-                            0..=2 => {
-                                static PARAM_REGS: &[GPR] = &[GPR::RDX, GPR::R8, GPR::R9];
-                                Location::GPR(PARAM_REGS[i])
-                            }
-                            _ => Location::Memory(GPR::RSP, 32 + 8 + ((i - 3) * 8) as i32), // will not be used anyway
-                        };
-                        param_locations.push(loc);
-                    }
+                    static PARAM_REGS: &[GPR] = &[GPR::RDX, GPR::R8, GPR::R9];
+                    let gpr_iter = PARAM_REGS.iter().map(|r| Location::GPR(*r));
+                    let memory_iter = (0i32..).map(|i| Location::Memory(GPR::RSP, 32 + 8 + i * 8));
+
+                    let param_locations: Vec<Location> = gpr_iter
+                        .chain(memory_iter)
+                        .take(sig.params().len())
+                        .collect();
+
                     // Copy Float arguments to XMM from GPR.
                     let mut argalloc = ArgumentRegisterAllocator::default();
                     for (i, ty) in sig.params().iter().enumerate() {
@@ -7034,8 +7028,6 @@ impl Machine for MachineX86_64 {
                     }
                 }
                 _ => {
-                    let mut param_locations: Vec<Location> = vec![];
-
                     // Allocate stack space for arguments.
                     let stack_offset: i32 = if sig.params().len() > 5 {
                         5 * 8
@@ -7051,21 +7043,15 @@ impl Machine for MachineX86_64 {
                     }
 
                     // Store all arguments to the stack to prevent overwrite.
-                    for i in 0..sig.params().len() {
-                        let loc = match i {
-                            0..=4 => {
-                                static PARAM_REGS: &[GPR] =
-                                    &[GPR::RSI, GPR::RDX, GPR::RCX, GPR::R8, GPR::R9];
-                                let loc = Location::Memory(GPR::RSP, (i * 8) as i32);
-                                a.emit_mov(Size::S64, Location::GPR(PARAM_REGS[i]), loc);
-                                loc
-                            }
-                            _ => {
-                                Location::Memory(GPR::RSP, stack_offset + 8 + ((i - 5) * 8) as i32)
-                            }
-                        };
-                        param_locations.push(loc);
-                    }
+                    static PARAM_REGS: &[GPR] = &[GPR::RSI, GPR::RDX, GPR::RCX, GPR::R8, GPR::R9];
+                    let gpr_iter = PARAM_REGS.iter().map(|r| Location::GPR(*r));
+                    let memory_iter =
+                        (0i32..).map(|i| Location::Memory(GPR::RSP, stack_offset + 8 + i * 8));
+
+                    let param_locations: Vec<Location> = gpr_iter
+                        .chain(memory_iter)
+                        .take(sig.params().len())
+                        .collect();
 
                     // Copy arguments.
                     let mut argalloc = ArgumentRegisterAllocator::default();
@@ -7156,8 +7142,8 @@ impl Machine for MachineX86_64 {
         let mut instructions = vec![];
         for &(instruction_offset, ref inst) in &self.unwind_ops {
             let instruction_offset = instruction_offset as u32;
-            match inst {
-                &UnwindOps::PushFP { up_to_sp } => {
+            match *inst {
+                UnwindOps::PushFP { up_to_sp } => {
                     instructions.push((
                         instruction_offset,
                         CallFrameInstruction::CfaOffset(up_to_sp as i32),
@@ -7167,17 +7153,17 @@ impl Machine for MachineX86_64 {
                         CallFrameInstruction::Offset(X86_64::RBP, -(up_to_sp as i32)),
                     ));
                 }
-                &UnwindOps::DefineNewFrame => {
+                UnwindOps::DefineNewFrame => {
                     instructions.push((
                         instruction_offset,
                         CallFrameInstruction::CfaRegister(X86_64::RBP),
                     ));
                 }
-                &UnwindOps::SaveRegister { reg, bp_neg_offset } => instructions.push((
+                UnwindOps::SaveRegister { reg, bp_neg_offset } => instructions.push((
                     instruction_offset,
                     CallFrameInstruction::Offset(dwarf_index(reg), -bp_neg_offset),
                 )),
-                &UnwindOps::Push2Regs { .. } => unimplemented!(),
+                UnwindOps::Push2Regs { .. } => unimplemented!(),
             }
         }
         Some(UnwindInstructions {

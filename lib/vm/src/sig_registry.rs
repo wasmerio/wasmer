@@ -15,7 +15,7 @@ use wasmer_types::FunctionType;
 /// call must match. To implement this efficiently, keep a registry of all
 /// signatures, shared by all instances, so that call sites can just do an
 /// index comparison.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct SignatureRegistry {
     // This structure is stored in an `Engine` and is intended to be shared
     // across many instances. Ideally instances can themselves be sent across
@@ -34,9 +34,7 @@ struct Inner {
 impl SignatureRegistry {
     /// Create a new `SignatureRegistry`.
     pub fn new() -> Self {
-        Self {
-            inner: Default::default(),
-        }
+        Default::default()
     }
 
     /// Register a signature and return its unique index.

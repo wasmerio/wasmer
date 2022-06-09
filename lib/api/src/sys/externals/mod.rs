@@ -70,12 +70,12 @@ impl<'a> Exportable<'a> for Extern {
         Ok(_extern)
     }
 
-    fn into_weak_instance_ref(&mut self) {
+    fn convert_to_weak_instance_ref(&mut self) {
         match self {
-            Self::Function(f) => f.into_weak_instance_ref(),
-            Self::Global(g) => g.into_weak_instance_ref(),
-            Self::Memory(m) => m.into_weak_instance_ref(),
-            Self::Table(t) => t.into_weak_instance_ref(),
+            Self::Function(f) => f.convert_to_weak_instance_ref(),
+            Self::Global(g) => g.convert_to_weak_instance_ref(),
+            Self::Memory(m) => m.convert_to_weak_instance_ref(),
+            Self::Table(t) => t.convert_to_weak_instance_ref(),
         }
     }
 }

@@ -59,14 +59,14 @@ impl Wasi {
     pub fn get_versions(module: &Module) -> Option<BTreeSet<WasiVersion>> {
         // Get the wasi version in strict mode, so no other imports are
         // allowed.
-        get_wasi_versions(&module, true)
+        get_wasi_versions(module, true)
     }
 
     /// Checks if a given module has any WASI imports at all.
     pub fn has_wasi_imports(module: &Module) -> bool {
         // Get the wasi version in non-strict mode, so no other imports
         // are allowed
-        get_wasi_versions(&module, false).is_some()
+        get_wasi_versions(module, false).is_some()
     }
 
     /// Helper function for instantiating a module with Wasi imports for the `Run` command.
@@ -94,8 +94,8 @@ impl Wasi {
         }
 
         let mut wasi_env = wasi_state_builder.finalize()?;
-        let import_object = wasi_env.import_object_for_all_wasi_versions(&module)?;
-        let instance = Instance::new(&module, &import_object)?;
+        let import_object = wasi_env.import_object_for_all_wasi_versions(module)?;
+        let instance = Instance::new(module, &import_object)?;
         Ok(instance)
     }
 
@@ -121,7 +121,7 @@ impl Wasi {
         use std::env;
         let dir = env::var_os("WASMER_BINFMT_MISC_PREOPEN")
             .map(Into::into)
-            .unwrap_or(PathBuf::from("."));
+            .unwrap_or_else(|| PathBuf::from("."));
         Ok(Self {
             deny_multiple_wasi_versions: true,
             env_vars: env::vars().collect(),

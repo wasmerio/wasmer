@@ -145,8 +145,7 @@ impl<T, M: MemorySize> WasmPtr<T, M> {
     ///
     /// This method returns an error if an address overflow occurs.
     #[inline]
-    #[must_use]
-    pub fn add(self, offset: M::Offset) -> Result<Self, MemoryAccessError> {
+    pub fn add_offset(self, offset: M::Offset) -> Result<Self, MemoryAccessError> {
         let base = self.offset.into();
         let index = offset.into();
         let offset = index
@@ -164,8 +163,7 @@ impl<T, M: MemorySize> WasmPtr<T, M> {
     ///
     /// This method returns an error if an address overflow occurs.
     #[inline]
-    #[must_use]
-    pub fn sub(self, offset: M::Offset) -> Result<Self, MemoryAccessError> {
+    pub fn sub_offset(self, offset: M::Offset) -> Result<Self, MemoryAccessError> {
         let base = self.offset.into();
         let index = offset.into();
         let offset = index
@@ -226,7 +224,7 @@ impl<T: ValueType, M: MemorySize> WasmPtr<T, M> {
         let mut vec = Vec::new();
         for i in 0u64.. {
             let i = M::Offset::try_from(i).map_err(|_| MemoryAccessError::Overflow)?;
-            let val = self.add(i)?.deref(memory).read()?;
+            let val = self.add_offset(i)?.deref(memory).read()?;
             if end(&val) {
                 break;
             }

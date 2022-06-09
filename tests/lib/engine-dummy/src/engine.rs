@@ -21,6 +21,7 @@ extern "C" fn dummy_trampoline(
 
 /// A WebAssembly `Dummy` Engine.
 #[derive(Clone)]
+#[cfg_attr(feature = "compiler", derive(Default))]
 pub struct DummyEngine {
     signatures: Arc<SignatureRegistry>,
     func_data: Arc<FuncDataRegistry>,
@@ -32,13 +33,7 @@ pub struct DummyEngine {
 impl DummyEngine {
     #[cfg(feature = "compiler")]
     pub fn new() -> Self {
-        Self {
-            signatures: Arc::new(SignatureRegistry::new()),
-            func_data: Arc::new(FuncDataRegistry::new()),
-            features: Arc::new(Default::default()),
-            target: Arc::new(Default::default()),
-            engine_id: EngineId::default(),
-        }
+        Default::default()
     }
 
     pub fn features(&self) -> &Features {
@@ -116,12 +111,12 @@ impl Engine for DummyEngine {
         binary: &[u8],
         tunables: &dyn Tunables,
     ) -> Result<Arc<dyn Artifact>, CompileError> {
-        Ok(Arc::new(DummyArtifact::new(&self, binary, tunables)?))
+        Ok(Arc::new(DummyArtifact::new(self, binary, tunables)?))
     }
 
     /// Deserializes a WebAssembly module (binary content of a Shared Object file)
     unsafe fn deserialize(&self, bytes: &[u8]) -> Result<Arc<dyn Artifact>, DeserializeError> {
-        Ok(Arc::new(DummyArtifact::deserialize(&self, &bytes)?))
+        Ok(Arc::new(DummyArtifact::deserialize(self, bytes)?))
     }
 
     fn id(&self) -> &EngineId {

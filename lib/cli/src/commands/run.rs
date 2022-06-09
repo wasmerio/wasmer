@@ -112,7 +112,7 @@ impl Run {
                     .map_err(|e| anyhow!("{}", e))?;
                 let mut em_env = EmEnv::new(&emscripten_globals.data, Default::default());
                 let import_object =
-                    generate_emscripten_env(module.store(), &mut emscripten_globals, &mut em_env);
+                    generate_emscripten_env(module.store(), &mut emscripten_globals, &em_env);
                 let mut instance = match Instance::new(&module, &import_object) {
                     Ok(instance) => instance,
                     Err(e) => {
@@ -200,7 +200,7 @@ impl Run {
         if let Some(ref invoke) = self.invoke {
             let imports = imports! {};
             let instance = Instance::new(&module, &imports)?;
-            let result = self.invoke_function(&instance, &invoke, &self.args)?;
+            let result = self.invoke_function(&instance, invoke, &self.args)?;
             println!(
                 "{}",
                 result
@@ -282,9 +282,9 @@ impl Run {
         let hash = self
             .cache_key
             .as_ref()
-            .and_then(|key| Hash::from_str(&key).ok())
-            .unwrap_or_else(|| Hash::generate(&contents));
-        match unsafe { cache.load(&store, hash) } {
+            .and_then(|key| Hash::from_str(key).ok())
+            .unwrap_or_else(|| Hash::generate(contents));
+        match unsafe { cache.load(store, hash) } {
             Ok(module) => Ok(module),
             Err(e) => {
                 match e {
@@ -295,7 +295,7 @@ impl Run {
                         warning!("cached module is corrupted: {}", err);
                     }
                 }
-                let module = Module::new(&store, &contents)?;
+                let module = Module::new(store, &contents)?;
                 // Store the compiled Module in cache
                 cache.store(hash, &module)?;
                 Ok(module)
@@ -344,7 +344,7 @@ impl Run {
     ) -> Result<Function> {
         Ok(instance
             .exports
-            .get_function(&name)
+            .get_function(name)
             .map_err(|e| {
                 if instance.module().info().functions.is_empty() {
                     anyhow!("The module has no exported functions to call.")
@@ -362,7 +362,7 @@ impl Run {
                         suggested_functions.get(0).unwrap_or(&String::new()),
                         args.join(" ")
                     );
-                    let suggestion = if suggested_functions.len() == 0 {
+                    let suggestion = if suggested_functions.is_empty() {
                         String::from("Can not find any export functions.")
                     } else {
                         format!(
@@ -391,7 +391,7 @@ impl Run {
         invoke: &str,
         args: &[String],
     ) -> Result<Box<[Val]>> {
-        let func: Function = self.try_find_function(&instance, invoke, args)?;
+        let func: Function = self.try_find_function(instance, invoke, args)?;
         let func_ty = func.ty();
         let required_arguments = func_ty.params().len();
         let provided_arguments = args.len();
@@ -482,7 +482,7 @@ impl Run {
             args,
             path: executable.into(),
             command_name: Some(original_executable),
-            store: store,
+            store,
             wasi: Wasi::for_binfmt_interpreter()?,
             ..Self::default()
         })

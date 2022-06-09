@@ -254,10 +254,9 @@ impl<'a> Exportable<'a> for Global {
         }
     }
 
-    fn into_weak_instance_ref(&mut self) {
-        self.vm_global
-            .instance_ref
-            .as_mut()
-            .map(|v| *v = v.downgrade());
+    fn convert_to_weak_instance_ref(&mut self) {
+        if let Some(v) = self.vm_global.instance_ref.as_mut() {
+            *v = v.downgrade();
+        }
     }
 }

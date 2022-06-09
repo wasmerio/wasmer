@@ -116,7 +116,7 @@ impl Clone for wasm_val_t {
     fn clone(&self) -> Self {
         wasm_val_t {
             kind: self.kind,
-            of: self.of.clone(),
+            of: self.of,
         }
     }
 }

@@ -40,6 +40,7 @@ impl CodeMemory {
     }
 
     /// Allocate a single contiguous block of memory for the functions and custom sections, and copy the data in place.
+    #[allow(clippy::type_complexity)]
     pub fn allocate(
         &mut self,
         functions: &[&FunctionBody],
@@ -188,7 +189,7 @@ impl CodeMemory {
             let padding = unwind_start - func_len;
             assert_eq!((func_len + padding) % 4, 0);
             let slice = remainder.split_at_mut(padding + unwind_size).0;
-            slice[padding..].copy_from_slice(&info);
+            slice[padding..].copy_from_slice(info);
         }
 
         if let Some(info) = &func.unwind_info {

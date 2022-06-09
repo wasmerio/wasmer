@@ -118,8 +118,9 @@ impl DylibArtifact {
         }
     }
 
-    #[cfg(feature = "compiler")]
     /// Generate a compilation
+    #[cfg(feature = "compiler")]
+    #[allow(clippy::type_complexity)]
     fn generate_metadata<'data>(
         data: &'data [u8],
         features: &Features,
@@ -221,7 +222,7 @@ impl DylibArtifact {
         let serialized_data = metadata.serialize()?;
 
         let mut metadata_binary = vec![];
-        metadata_binary.extend(MetadataHeader::new(serialized_data.len()));
+        metadata_binary.extend(MetadataHeader::new(serialized_data.len()).into_bytes());
         metadata_binary.extend(serialized_data);
 
         let (compile_info, symbol_registry) = metadata.split();
@@ -361,10 +362,9 @@ impl DylibArtifact {
         // Get the location of the 'ld' linker for clang
         let fuse_linker = {
             let ld_install = which::which("ld");
-            if ios_compile_target && ld_install.is_ok() {
-                ld_install.unwrap().into_os_string().into_string().unwrap()
-            } else {
-                "lld".to_string()
+            match (ios_compile_target, ld_install) {
+                (true, Ok(ld_install)) => ld_install.into_os_string().into_string().unwrap(),
+                _ => "lld".to_string(),
             }
         };
 
@@ -816,13 +816,7 @@ impl Artifact for DylibArtifact {
                 // and the emitted size by the address map
                 let ptr = function_pointer;
                 let length = current_size_by_ptr;
-                let first = (
-                    index,
-                    FunctionExtent {
-                        ptr: *ptr,
-                        length: length,
-                    },
-                );
+                let first = (index, FunctionExtent { ptr: *ptr, length });
                 std::iter::once(first)
                     .chain(iter.map(|(index, function_pointer)| {
                         let fp = **function_pointer as usize;
@@ -840,13 +834,7 @@ impl Artifact for DylibArtifact {
                         // and the emitted size by the address map
                         let ptr = function_pointer;
                         let length = current_size_by_ptr;
-                        (
-                            index,
-                            FunctionExtent {
-                                ptr: *ptr,
-                                length: length,
-                            },
-                        )
+                        (index, FunctionExtent { ptr: *ptr, length })
                     }))
                     .collect::<Vec<_>>()
             })

@@ -252,7 +252,7 @@ impl Compiler for LLVMCompiler {
                         input,
                         self.config(),
                         memory_styles,
-                        &table_styles,
+                        table_styles,
                         &ShortNames {},
                     )
                 },
@@ -353,7 +353,7 @@ impl Compiler for LLVMCompiler {
                     FuncTrampoline::new(target_machine)
                 },
                 |func_trampoline, func_type| {
-                    func_trampoline.dynamic_trampoline(&func_type, self.config(), "")
+                    func_trampoline.dynamic_trampoline(func_type, self.config(), "")
                 },
             )
             .collect::<Result<Vec<_>, CompileError>>()?

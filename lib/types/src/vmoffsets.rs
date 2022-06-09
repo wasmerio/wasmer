@@ -420,6 +420,7 @@ impl VMOffsets {
     }
 
     /// Return the size of `VMFuncRef`.
+    #[allow(clippy::identity_op)]
     pub const fn size_of_vm_funcref(&self) -> u8 {
         1 * self.pointer_size
     }

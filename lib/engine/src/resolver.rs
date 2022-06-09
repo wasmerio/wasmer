@@ -75,7 +75,7 @@ pub fn resolve_imports(
                 ImportError::UnknownImport(import_extern),
             ));
         };
-        let export_extern = get_extern_from_export(module, &resolved);
+        let export_extern = get_extern_from_export(module, resolved);
         if !export_extern.is_compatible_with(&import_extern) {
             return Err(LinkError::Import(
                 module_name.to_string(),

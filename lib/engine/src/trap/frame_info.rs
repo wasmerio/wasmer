@@ -60,14 +60,14 @@ struct ModuleInfoFrameInfo {
 
 impl ModuleInfoFrameInfo {
     fn function_debug_info(&self, local_index: LocalFunctionIndex) -> &CompiledFunctionFrameInfo {
-        &self.frame_infos.get(local_index).unwrap()
+        self.frame_infos.get(local_index).unwrap()
     }
 
     /// Gets a function given a pc
     fn function_info(&self, pc: usize) -> Option<&FunctionInfo> {
         let (end, func) = self.functions.range(pc..).next()?;
         if func.start <= pc && pc <= *end {
-            return Some(func);
+            Some(func)
         } else {
             None
         }

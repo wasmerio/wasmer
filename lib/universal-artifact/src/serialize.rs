@@ -81,9 +81,9 @@ impl SerializableModule {
     ///
     /// This method is unsafe.
     /// Please check `SerializableModule::deserialize` for more details.
-    unsafe fn archive_from_slice<'a>(
-        metadata_slice: &'a [u8],
-    ) -> Result<&'a ArchivedSerializableModule, DeserializeError> {
+    unsafe fn archive_from_slice(
+        metadata_slice: &[u8],
+    ) -> Result<&ArchivedSerializableModule, DeserializeError> {
         if metadata_slice.len() < 8 {
             return Err(DeserializeError::Incompatible(
                 "invalid serialized data".into(),
@@ -92,7 +92,7 @@ impl SerializableModule {
         let mut pos: [u8; 8] = Default::default();
         pos.copy_from_slice(&metadata_slice[metadata_slice.len() - 8..metadata_slice.len()]);
         let pos: u64 = u64::from_le_bytes(pos);
-        Ok(archived_value::<SerializableModule>(
+        Ok(archived_value::<Self>(
             &metadata_slice[..metadata_slice.len() - 8],
             pos as usize,
         ))

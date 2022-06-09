@@ -65,9 +65,16 @@ macro_rules! accessors {
 /// between the API and the VM internals, specifically with `wasmer_types::Value`.
 pub trait WasmValueType: std::fmt::Debug + 'static {
     /// Write the value
+    ///
+    /// # Safety
+    /// You shouldn't use this method directly as it writes the value to a mutable pointer.
     unsafe fn write_value_to(&self, p: *mut i128);
 
     /// read the value
+    ///
+    /// # Safety
+    /// It reads the value directly from a memory pointer, you need to make sure is not corrupted
+    //
     // TODO(reftypes): passing the store as `dyn Any` is a hack to work around the
     // structure of our crates. We need to talk about the store in the rest of the
     // VM (for example where this method is used) but cannot do so. Fixing this

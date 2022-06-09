@@ -1,4 +1,12 @@
 //! Target configuration
+
+// The clippy::use_self exception is due to a false positive indicating that
+// `CpuFeature` should be replaced by `Self`. Attaching the allowance to the
+// type itself has no effect, therefore it's disabled for the whole module.
+// Feel free to remove this allow attribute once the bug is fixed.
+// See https://github.com/rust-lang/rust-clippy/issues/6902
+#![allow(clippy::use_self)]
+
 use crate::error::ParseCpuFeatureError;
 use crate::lib::std::str::FromStr;
 use crate::lib::std::string::{String, ToString};

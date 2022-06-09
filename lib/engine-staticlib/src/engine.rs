@@ -131,7 +131,7 @@ impl Engine for StaticlibEngine {
         binary: &[u8],
         tunables: &dyn Tunables,
     ) -> Result<Arc<dyn Artifact>, CompileError> {
-        Ok(Arc::new(StaticlibArtifact::new(&self, binary, tunables)?))
+        Ok(Arc::new(StaticlibArtifact::new(self, binary, tunables)?))
     }
 
     /// Compile a WebAssembly binary (it will fail because the `compiler` flag is disabled).
@@ -149,7 +149,7 @@ impl Engine for StaticlibEngine {
 
     /// Deserializes a WebAssembly module (binary content of a static object file)
     unsafe fn deserialize(&self, bytes: &[u8]) -> Result<Arc<dyn Artifact>, DeserializeError> {
-        Ok(Arc::new(StaticlibArtifact::deserialize(&self, &bytes)?))
+        Ok(Arc::new(StaticlibArtifact::deserialize(self, bytes)?))
     }
 
     /// Deserializes a WebAssembly module from a path
@@ -217,7 +217,7 @@ impl StaticlibEngineInner {
     #[cfg(feature = "compiler")]
     pub(crate) fn get_prefix(&self, bytes: &[u8]) -> String {
         if let Some(prefixer) = &self.prefixer {
-            prefixer(&bytes)
+            prefixer(bytes)
         } else {
             "".to_string()
         }
@@ -230,13 +230,13 @@ impl StaticlibEngineInner {
 
     /// Validate the module
     #[cfg(feature = "compiler")]
-    pub fn validate<'data>(&self, data: &'data [u8]) -> Result<(), CompileError> {
+    pub fn validate(&self, data: &[u8]) -> Result<(), CompileError> {
         self.compiler()?.validate_module(self.features(), data)
     }
 
     /// Validate the module
     #[cfg(not(feature = "compiler"))]
-    pub fn validate<'data>(&self, _data: &'data [u8]) -> Result<(), CompileError> {
+    pub fn validate(&self, _data: &[u8]) -> Result<(), CompileError> {
         Err(CompileError::Validate(
             "The `StaticlibEngine` is not compiled with compiler support, which is required for validating".to_string(),
         ))

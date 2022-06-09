@@ -14,7 +14,7 @@ pub(crate) enum CraneliftUnwindInfo {
     WindowsX64(Vec<u8>),
     /// Dwarf FDE
     #[cfg(feature = "unwind")]
-    FDE(DwarfFDE),
+    Fde(DwarfFDE),
     /// No Unwind info attached
     None,
 }
@@ -52,7 +52,7 @@ pub(crate) fn compiled_function_unwind_info(
             unwind.emit(&mut data[..]);
             Ok(CraneliftUnwindInfo::WindowsX64(data))
         }
-        Some(UnwindInfo::SystemV(unwind)) => Ok(CraneliftUnwindInfo::FDE(unwind)),
+        Some(UnwindInfo::SystemV(unwind)) => Ok(CraneliftUnwindInfo::Fde(unwind)),
         Some(_) | None => Ok(CraneliftUnwindInfo::None),
     }
 }

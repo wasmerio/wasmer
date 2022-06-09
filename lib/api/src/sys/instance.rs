@@ -168,7 +168,7 @@ impl Instance {
     ///  * Runtime errors that happen when running the module `start` function.
     pub fn new_by_index(module: &Module, externs: &[Extern]) -> Result<Self, InstantiationError> {
         let store = module.store();
-        let imports = externs.iter().cloned().collect::<Vec<_>>();
+        let imports = externs.to_vec();
         let handle = module.instantiate(&imports)?;
         let exports = module
             .exports()

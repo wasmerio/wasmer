@@ -87,7 +87,7 @@ pub extern "C" fn wasmer_target_new(
     let cpu_features = cpu_features?;
 
     Some(Box::new(wasmer_target_t {
-        inner: Target::new(triple.inner.clone(), cpu_features.inner.clone()),
+        inner: Target::new(triple.inner.clone(), cpu_features.inner),
     }))
 }
 

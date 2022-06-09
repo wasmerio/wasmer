@@ -303,11 +303,11 @@ fn build_cdylib_link_arg() {
             // This is only set up to work on GNU toolchain versions of Rust
             lines.push(format!(
                 "-Wl,--out-implib,{}",
-                shared_object_dir.join("wasmer.dll.a".to_string()).display()
+                shared_object_dir.join("wasmer.dll.a").display()
             ));
             lines.push(format!(
                 "-Wl,--output-def,{}",
-                shared_object_dir.join("wasmer.def".to_string()).display()
+                shared_object_dir.join("wasmer.def").display()
             ));
         }
 

@@ -57,7 +57,7 @@ impl wasm_functype_t {
 
     pub(crate) fn inner(&self) -> &WasmFunctionType {
         match &self.extern_type.inner {
-            WasmExternType::Function(wasm_function_type) => &wasm_function_type,
+            WasmExternType::Function(wasm_function_type) => wasm_function_type,
             _ => {
                 unreachable!("Data corruption: `wasm_functype_t` does not contain a function type")
             }

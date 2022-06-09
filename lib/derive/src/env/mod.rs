@@ -137,9 +137,8 @@ fn derive_struct_fields(data: &DataStruct) -> (TokenStream, TokenStream) {
                         if optional {
                             quote_spanned! {
                                 f.span()=>
-                                    match #access_expr {
-                                        Ok(#name) => { self.#name.initialize(#name); },
-                                        Err(_) => (),
+                                    if let Ok(#name) = #access_expr {
+                                        self.#name.initialize(#name);
                                     };
                             }
                         } else {
@@ -149,43 +148,38 @@ fn derive_struct_fields(data: &DataStruct) -> (TokenStream, TokenStream) {
                                     self.#name.initialize(#name);
                             }
                         }
-                    } else {
-                        if let Some(identifier) = identifier {
-                            let mut access_expr = quote_spanned! {
-                                f.span() =>
-                                    instance.exports.get_with_generics_weak::<#inner_type, _, _>(#identifier)
+                    } else if let Some(identifier) = identifier {
+                        let mut access_expr = quote_spanned! {
+                            f.span() =>
+                                instance.exports.get_with_generics_weak::<#inner_type, _, _>(#identifier)
+                        };
+                        for alias in aliases {
+                            access_expr = quote_spanned! {
+                                f.span()=>
+                                    #access_expr .or_else(|_| instance.exports.get_with_generics_weak::<#inner_type, _, _>(#alias))
                             };
-                            for alias in aliases {
-                                access_expr = quote_spanned! {
-                                    f.span()=>
-                                        #access_expr .or_else(|_| instance.exports.get_with_generics_weak::<#inner_type, _, _>(#alias))
-                                };
-                            }
-                            let local_var =
-                                Ident::new(&format!("field_{}", field_num), identifier.span());
-                            if optional {
-                                quote_spanned! {
-                                    f.span()=>
-                                        match #access_expr {
-                                            Ok(#local_var) => {
-                                                self.#field_idx.initialize(#local_var);
-                                            },
-                                            Err(_) => (),
-                                        }
-                                }
-                            } else {
-                                quote_spanned! {
-                                    f.span()=>
-                                        let #local_var: #inner_type = #access_expr?;
-                                    self.#field_idx.initialize(#local_var);
-                                }
+                        }
+                        let local_var =
+                            Ident::new(&format!("field_{}", field_num), identifier.span());
+                        if optional {
+                            quote_spanned! {
+                                f.span()=>
+                                    if let Ok(#local_var) = #access_expr {
+                                        self.#field_idx.initialize(#local_var);
+                                    }
                             }
                         } else {
-                            abort!(
-                                span,
-                                "Expected `name` field on export attribute because field does not have a name. For example: `#[wasmer(export(name = \"wasm_ident\"))]`.",
-                            );
+                            quote_spanned! {
+                                f.span()=>
+                                    let #local_var: #inner_type = #access_expr?;
+                                self.#field_idx.initialize(#local_var);
+                            }
                         }
+                    } else {
+                        abort!(
+                            span,
+                            "Expected `name` field on export attribute because field does not have a name. For example: `#[wasmer(export(name = \"wasm_ident\"))]`.",
+                        );
                     };
 
                     finish.push(finish_tokens);

@@ -172,8 +172,8 @@ impl Compiler for SinglepassCompiler {
                             module,
                             &self.config,
                             &vmoffsets,
-                            &memory_styles,
-                            &table_styles,
+                            memory_styles,
+                            table_styles,
                             i,
                             &locals,
                             machine,
@@ -186,7 +186,7 @@ impl Compiler for SinglepassCompiler {
                             generator.feed_operator(op).map_err(to_compile_error)?;
                         }
 
-                        Ok(generator.finalize(&input))
+                        Ok(generator.finalize(input))
                     }
                     Architecture::Aarch64(_) => {
                         let machine = MachineARM64::new();
@@ -194,8 +194,8 @@ impl Compiler for SinglepassCompiler {
                             module,
                             &self.config,
                             &vmoffsets,
-                            &memory_styles,
-                            &table_styles,
+                            memory_styles,
+                            table_styles,
                             i,
                             &locals,
                             machine,
@@ -208,7 +208,7 @@ impl Compiler for SinglepassCompiler {
                             generator.feed_operator(op).map_err(to_compile_error)?;
                         }
 
-                        Ok(generator.finalize(&input))
+                        Ok(generator.finalize(input))
                     }
                     _ => unimplemented!(),
                 }
@@ -222,7 +222,7 @@ impl Compiler for SinglepassCompiler {
             .values()
             .collect::<Vec<_>>()
             .into_par_iter_if_rayon()
-            .map(|func_type| gen_std_trampoline(&func_type, target, calling_convention))
+            .map(|func_type| gen_std_trampoline(func_type, target, calling_convention))
             .collect::<Vec<_>>()
             .into_iter()
             .collect::<PrimaryMap<_, _>>();
@@ -245,11 +245,9 @@ impl Compiler for SinglepassCompiler {
 
         #[cfg(feature = "unwind")]
         let dwarf = if let Some((mut dwarf_frametable, cie_id)) = dwarf_frametable {
-            for fde in fdes {
-                if let Some(fde) = fde {
-                    match fde {
-                        UnwindFrame::SystemV(fde) => dwarf_frametable.add_fde(cie_id, fde),
-                    }
+            for fde in fdes.into_iter().flatten() {
+                match fde {
+                    UnwindFrame::SystemV(fde) => dwarf_frametable.add_fde(cie_id, fde),
                 }
             }
             let mut eh_frame = EhFrame(WriterRelocate::new(target.triple().endianness().ok()));

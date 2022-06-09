@@ -98,7 +98,7 @@ pub fn impl_value_type(input: &DeriveInput) -> TokenStream {
         _ => abort!(input, "ValueType can only be derived for structs"),
     };
 
-    let zero_padding = zero_padding(&fields);
+    let zero_padding = zero_padding(fields);
 
     quote! {
         unsafe impl #impl_generics ::wasmer::ValueType for #struct_name #ty_generics #where_clause {

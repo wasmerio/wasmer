@@ -44,7 +44,7 @@ impl Trap {
     ///
     /// Internally saves a backtrace when constructed.
     pub fn wasm(pc: usize, backtrace: Backtrace, signal_trap: Option<TrapCode>) -> Self {
-        Trap::Wasm {
+        Self::Wasm {
             pc,
             backtrace,
             signal_trap,
@@ -56,7 +56,7 @@ impl Trap {
     /// Internally saves a backtrace when constructed.
     pub fn lib(trap_code: TrapCode) -> Self {
         let backtrace = Backtrace::new_unresolved();
-        Trap::Lib {
+        Self::Lib {
             trap_code,
             backtrace,
         }
@@ -67,6 +67,6 @@ impl Trap {
     /// Internally saves a backtrace when constructed.
     pub fn oom() -> Self {
         let backtrace = Backtrace::new_unresolved();
-        Trap::OOM { backtrace }
+        Self::OOM { backtrace }
     }
 }

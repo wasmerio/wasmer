@@ -40,24 +40,16 @@ pub fn bytes_for_input_event(input_event: InputEvent) -> (u8, [u8; 8], usize) {
                 MouseButton::Middle => MOUSE_PRESS_MIDDLE,
             };
             let x_bytes = x.to_le_bytes();
-            for i in 0..4 {
-                data[i] = x_bytes[i];
-            }
+            data[..4].clone_from_slice(&x_bytes[..4]);
             let y_bytes = y.to_le_bytes();
-            for i in 0..4 {
-                data[i + 4] = y_bytes[i];
-            }
+            data[4..8].clone_from_slice(&y_bytes[..4]);
             (tag, data, 8)
         }
         InputEvent::MouseMoved(x, y) => {
             let x_bytes = x.to_le_bytes();
-            for i in 0..4 {
-                data[i] = x_bytes[i];
-            }
+            data[..4].clone_from_slice(&x_bytes[..4]);
             let y_bytes = y.to_le_bytes();
-            for i in 0..4 {
-                data[i + 4] = y_bytes[i];
-            }
+            data[4..8].clone_from_slice(&y_bytes[..4]);
             (MOUSE_MOVE, data, 8)
         }
         InputEvent::WindowClosed => (WINDOW_CLOSED, data, 0),

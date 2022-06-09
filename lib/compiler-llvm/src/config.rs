@@ -110,6 +110,7 @@ impl LLVM {
             //
             // Since both linux and darwin use SysV ABI, this should work.
             //  but not in the case of Aarch64, there the ABI is slightly different
+            #[allow(clippy::match_single_binding)]
             match target.triple().architecture {
                 _ => wasmer_compiler::OperatingSystem::Linux,
             }
@@ -174,7 +175,7 @@ impl LLVM {
             .map(|feature| format!("+{}", feature.to_string()))
             .join(",");
 
-        let target_triple = self.target_triple(&target);
+        let target_triple = self.target_triple(target);
         let llvm_target = InkwellTarget::from_triple(&target_triple).unwrap();
         llvm_target
             .create_target_machine(

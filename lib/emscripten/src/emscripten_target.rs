@@ -116,6 +116,7 @@ pub fn _getloadavg(_ctx: &EmEnv, _loadavg: i32, _nelem: i32) -> i32 {
     debug!("emscripten::getloadavg");
     0
 }
+#[allow(clippy::too_many_arguments)]
 pub fn _getnameinfo(
     _ctx: &EmEnv,
     _addr: i32,
@@ -272,6 +273,7 @@ pub fn invoke_iiiiii(ctx: &EmEnv, index: i32, a1: i32, a2: i32, a3: i32, a4: i32
         a5
     )
 }
+#[allow(clippy::too_many_arguments)]
 pub fn invoke_iiiiiii(
     ctx: &EmEnv,
     index: i32,
@@ -296,6 +298,7 @@ pub fn invoke_iiiiiii(
         a6
     )
 }
+#[allow(clippy::too_many_arguments)]
 pub fn invoke_iiiiiiii(
     ctx: &EmEnv,
     index: i32,
@@ -322,6 +325,7 @@ pub fn invoke_iiiiiiii(
         a7
     )
 }
+#[allow(clippy::too_many_arguments)]
 pub fn invoke_iiiiiiiii(
     ctx: &EmEnv,
     index: i32,
@@ -350,6 +354,7 @@ pub fn invoke_iiiiiiiii(
         a8
     )
 }
+#[allow(clippy::too_many_arguments)]
 pub fn invoke_iiiiiiiiii(
     ctx: &EmEnv,
     index: i32,
@@ -380,6 +385,7 @@ pub fn invoke_iiiiiiiiii(
         a9
     )
 }
+#[allow(clippy::too_many_arguments)]
 pub fn invoke_iiiiiiiiiii(
     ctx: &EmEnv,
     index: i32,
@@ -430,6 +436,7 @@ pub fn invoke_viiiii(ctx: &EmEnv, index: i32, a1: i32, a2: i32, a3: i32, a4: i32
         a5
     )
 }
+#[allow(clippy::too_many_arguments)]
 pub fn invoke_viiiiii(
     ctx: &EmEnv,
     index: i32,
@@ -454,6 +461,7 @@ pub fn invoke_viiiiii(
         a6
     )
 }
+#[allow(clippy::too_many_arguments)]
 pub fn invoke_viiiiiii(
     ctx: &EmEnv,
     index: i32,
@@ -480,6 +488,7 @@ pub fn invoke_viiiiiii(
         a7
     )
 }
+#[allow(clippy::too_many_arguments)]
 pub fn invoke_viiiiiiii(
     ctx: &EmEnv,
     index: i32,
@@ -508,6 +517,7 @@ pub fn invoke_viiiiiiii(
         a8
     )
 }
+#[allow(clippy::too_many_arguments)]
 pub fn invoke_viiiiiiiii(
     ctx: &EmEnv,
     index: i32,
@@ -538,6 +548,7 @@ pub fn invoke_viiiiiiiii(
         a9
     )
 }
+#[allow(clippy::too_many_arguments)]
 pub fn invoke_viiiiiiiiii(
     ctx: &EmEnv,
     index: i32,
@@ -586,6 +597,7 @@ pub fn invoke_iiji(ctx: &EmEnv, index: i32, a1: i32, a2: i32, a3: i32, a4: i32) 
     invoke!(ctx, dyn_call_iiji, dyn_call_iiji_ref, index, a1, a2, a3, a4)
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn invoke_iiijj(
     ctx: &EmEnv,
     index: i32,
@@ -645,6 +657,7 @@ pub fn invoke_viiij(ctx: &EmEnv, index: i32, a1: i32, a2: i32, a3: i32, a4: i32,
         a5
     )
 }
+#[allow(clippy::too_many_arguments)]
 pub fn invoke_viiijiiii(
     ctx: &EmEnv,
     index: i32,
@@ -675,6 +688,7 @@ pub fn invoke_viiijiiii(
         a9
     )
 }
+#[allow(clippy::too_many_arguments)]
 pub fn invoke_viiijiiiiii(
     ctx: &EmEnv,
     index: i32,
@@ -727,6 +741,7 @@ pub fn invoke_viiji(ctx: &EmEnv, index: i32, a1: i32, a2: i32, a3: i32, a4: i32,
         a5
     )
 }
+#[allow(clippy::too_many_arguments)]
 pub fn invoke_viijiii(
     ctx: &EmEnv,
     index: i32,
@@ -753,6 +768,7 @@ pub fn invoke_viijiii(
         a7
     )
 }
+#[allow(clippy::too_many_arguments)]
 pub fn invoke_viijj(ctx: &EmEnv, index: i32, a1: i32, a2: i32, a3: i32, a4: i32, a5: i32, a6: i32) {
     debug!("emscripten::invoke_viijj");
     invoke_no_stack_save!(
@@ -794,6 +810,7 @@ pub fn invoke_viji(ctx: &EmEnv, index: i32, a1: i32, a2: i32, a3: i32, a4: i32) 
     debug!("emscripten::invoke_viji");
     invoke_no_stack_save!(ctx, dyn_call_viji, dyn_call_viji_ref, index, a1, a2, a3, a4)
 }
+#[allow(clippy::too_many_arguments)]
 pub fn invoke_vijiii(
     ctx: &EmEnv,
     index: i32,
@@ -854,6 +871,7 @@ pub fn invoke_viidii(ctx: &EmEnv, index: i32, a1: i32, a2: i32, a3: f64, a4: i32
         a5
     );
 }
+#[allow(clippy::too_many_arguments)]
 pub fn invoke_viidddddddd(
     ctx: &EmEnv,
     index: i32,

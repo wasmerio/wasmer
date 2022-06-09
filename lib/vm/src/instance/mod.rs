@@ -33,7 +33,7 @@ use more_asserts::assert_lt;
 use std::any::Any;
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::convert::{TryFrom, TryInto};
+use std::convert::TryFrom;
 use std::ffi;
 use std::fmt;
 use std::mem;
@@ -1054,7 +1054,7 @@ impl InstanceHandle {
     pub fn lookup(&self, field: &str) -> Option<VMExtern> {
         let export = self.module_ref().exports.get(field)?;
 
-        Some(self.lookup_by_declaration(&export))
+        Some(self.lookup_by_declaration(export))
     }
 
     /// Lookup an export with the given export declaration.
@@ -1289,7 +1289,7 @@ unsafe fn get_memory_slice<'instance>(
         let import = instance.imported_memory(init.location.memory_index);
         *import.definition.as_ref()
     };
-    slice::from_raw_parts_mut(memory.base, memory.current_length.try_into().unwrap())
+    slice::from_raw_parts_mut(memory.base, memory.current_length)
 }
 
 /// Compute the offset for a table element initializer.
@@ -1377,7 +1377,7 @@ fn initialize_memories(
         let start = get_memory_init_start(init, instance);
         if start
             .checked_add(init.data.len())
-            .map_or(true, |end| end > memory.current_length.try_into().unwrap())
+            .map_or(true, |end| end > memory.current_length)
         {
             return Err(Trap::lib(TrapCode::HeapAccessOutOfBounds));
         }

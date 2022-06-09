@@ -435,8 +435,7 @@ pub extern "C" fn wasm_engine_new_with_config(
     #[allow(dead_code)]
     fn return_with_error(msg: &str) -> Option<Box<wasm_engine_t>> {
         update_last_error(msg);
-
-        return None;
+        None
     }
 
     let config = config?;

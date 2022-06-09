@@ -149,7 +149,7 @@ use wasmer_middlewares::{
 /// # Example
 ///
 /// See module's documentation.
-#[allow(non_camel_case_types)]
+#[allow(non_camel_case_types, clippy::type_complexity)]
 pub struct wasmer_metering_t {
     pub(crate) inner: Arc<Metering<Box<dyn Fn(&Operator) -> u64 + Send + Sync>>>,
 }

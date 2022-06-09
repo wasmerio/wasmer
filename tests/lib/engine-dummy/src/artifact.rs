@@ -105,7 +105,7 @@ impl DummyArtifact {
             table_styles,
             cpu_features: engine.target().cpu_features().as_u64(),
         };
-        Self::from_parts(&engine, metadata)
+        Self::from_parts(engine, metadata)
     }
 
     #[cfg(not(feature = "compiler"))]
@@ -127,7 +127,7 @@ impl DummyArtifact {
         let metadata: DummyArtifactMetadata = bincode::deserialize(inner_bytes)
             .map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
 
-        Self::from_parts(&engine, metadata).map_err(DeserializeError::Compiler)
+        Self::from_parts(engine, metadata).map_err(DeserializeError::Compiler)
     }
 
     #[cfg(not(feature = "serialize"))]
