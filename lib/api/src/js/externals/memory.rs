@@ -237,7 +237,9 @@ impl Memory {
         Ok(Pages(new_pages))
     }
 
-    pub(crate) fn uint8view(&self) -> js_sys::Uint8Array {
+    /// Used by tests
+    #[doc(hidden)]
+    pub fn uint8view(&self) -> js_sys::Uint8Array {
         js_sys::Uint8Array::new(&self.vm_memory.memory.buffer())
     }
 
