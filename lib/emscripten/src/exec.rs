@@ -1,5 +1,6 @@
 use crate::varargs::VarArgs;
 use crate::EmEnv;
+use libc::c_char;
 use libc::execvp as libc_execvp;
 use std::ffi::CString;
 use wasmer::WasmPtr;
@@ -27,7 +28,7 @@ pub fn execvp(ctx: &EmEnv, command_name_offset: u32, argv_offset: u32) -> i32 {
             CString::new(vec).unwrap()
         })
         .collect();
-    let mut argv: Vec<*const i8> = arg_strings.iter().map(|s| s.as_ptr()).collect();
+    let mut argv: Vec<*const c_char> = arg_strings.iter().map(|s| s.as_ptr()).collect();
 
     // push a nullptr on to the end of the args array
     argv.push(std::ptr::null());
