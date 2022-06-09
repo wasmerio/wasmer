@@ -511,7 +511,7 @@
         <span class="ident">T</span>: <span class="ident">ExportableWithGenerics</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">Args</span>, <span class="ident">Rets</span><span class="op">&gt;</span>,
     {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">out</span>: <span class="ident">T</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_with_generics</span>(<span class="ident">name</span>)<span class="question-mark">?</span>;
-        <span class="ident">out</span>.<span class="ident">into_weak_instance_ref</span>();
+        <span class="ident">out</span>.<span class="ident">convert_to_weak_instance_ref</span>();
         <span class="prelude-val">Ok</span>(<span class="ident">out</span>)
     }
 
@@ -620,7 +620,7 @@
     <span class="kw">type</span> <span class="ident">Item</span> <span class="op">=</span> (<span class="ident">String</span>, <span class="ident">Extern</span>);
 
     <span class="kw">fn</span> <span class="ident">into_iter</span>(<span class="self">self</span>) -&gt; <span class="ident"><span class="self">Self</span>::IntoIter</span> {
-        <span class="self">self</span>.<span class="ident">map</span>.<span class="ident">clone</span>().<span class="ident">into_iter</span>()
+        <span class="self">self</span>.<span class="ident">map</span>.<span class="ident">into_iter</span>()
     }
 }
 
@@ -652,7 +652,7 @@
     <span class="doccomment">/// Convert the extern internally to hold a weak reference to the `InstanceRef`.</span>
     <span class="doccomment">/// This is useful for preventing cycles, for example for data stored in a</span>
     <span class="doccomment">/// type implementing `WasmerEnv`.</span>
-    <span class="kw">fn</span> <span class="ident">into_weak_instance_ref</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>);
+    <span class="kw">fn</span> <span class="ident">convert_to_weak_instance_ref</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>);
 }
 
 <span class="doccomment">/// A trait for accessing exports (like [`Exportable`]) but it takes generic</span>
@@ -664,7 +664,7 @@
     <span class="doccomment">/// Convert the extern internally to hold a weak reference to the `InstanceRef`.</span>
     <span class="doccomment">/// This is useful for preventing cycles, for example for data stored in a</span>
     <span class="doccomment">/// type implementing `WasmerEnv`.</span>
-    <span class="kw">fn</span> <span class="ident">into_weak_instance_ref</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>);
+    <span class="kw">fn</span> <span class="ident">convert_to_weak_instance_ref</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>);
 }
 
 <span class="doccomment">/// We implement it for all concrete [`Exportable`] types (that are `Clone`)</span>
@@ -674,8 +674,8 @@
         <span class="ident">T::get_self_from_extern</span>(<span class="ident">_extern</span>).<span class="ident">map</span>(<span class="op">|</span><span class="ident">i</span><span class="op">|</span> <span class="ident">i</span>.<span class="ident">clone</span>())
     }
 
-    <span class="kw">fn</span> <span class="ident">into_weak_instance_ref</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) {
-        <span class="op">&lt;</span><span class="self">Self</span> <span class="kw">as</span> <span class="ident">Exportable</span><span class="op">&gt;</span><span class="ident">::into_weak_instance_ref</span>(<span class="self">self</span>);
+    <span class="kw">fn</span> <span class="ident">convert_to_weak_instance_ref</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) {
+        <span class="op">&lt;</span><span class="self">Self</span> <span class="kw">as</span> <span class="ident">Exportable</span><span class="op">&gt;</span><span class="ident">::convert_to_weak_instance_ref</span>(<span class="self">self</span>);
     }
 }
 </code></pre></div>

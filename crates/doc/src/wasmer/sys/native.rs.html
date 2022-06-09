@@ -269,6 +269,7 @@
 <span id="267">267</span>
 <span id="268">268</span>
 <span id="269">269</span>
+<span id="270">270</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Native Functions.</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! This module creates the helper `TypedFunction` that let us call WebAssembly</span>
@@ -403,6 +404,7 @@ where
             <span class="ident">Rets</span>: <span class="ident">WasmTypeList</span>,
         {
             <span class="doccomment">/// Call the typed func and return results.</span>
+            <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
             <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">call</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>: <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>, )<span class="op">*</span> ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Rets</span>, <span class="ident">RuntimeError</span><span class="op">&gt;</span> {
                 <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">is_host</span>() {
                     <span class="comment">// We assume the trampoline is always going to be present for</span>
@@ -504,7 +506,7 @@ where
                 <span class="ident"><span class="kw">crate</span>::Function::get_self_from_extern</span>(<span class="ident">_extern</span>)<span class="question-mark">?</span>.<span class="ident">native</span>().<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident"><span class="kw">crate</span>::sys::exports::ExportError::IncompatibleType</span>)
             }
 
-            <span class="kw">fn</span> <span class="ident">into_weak_instance_ref</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) {
+            <span class="kw">fn</span> <span class="ident">convert_to_weak_instance_ref</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) {
                 <span class="self">self</span>.<span class="ident">exported</span>.<span class="ident">vm_function</span>.<span class="ident">instance_ref</span>.<span class="ident">as_mut</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">v</span><span class="op">|</span> <span class="kw-2">*</span><span class="ident">v</span> <span class="op">=</span> <span class="ident">v</span>.<span class="ident">downgrade</span>());
             }
         }

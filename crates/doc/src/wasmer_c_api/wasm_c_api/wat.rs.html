@@ -83,6 +83,8 @@
 <span id="81">81</span>
 <span id="82">82</span>
 <span id="83">83</span>
+<span id="84">84</span>
+<span id="85">85</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">super</span>::types::wasm_byte_vec_t</span>;
 
 <span class="doccomment">/// Parses in-memory bytes as either the WAT format, or a binary Wasm</span>
@@ -93,6 +95,9 @@
 <span class="doccomment">/// # Example</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// See the module&#39;s documentation.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// # Safety</span>
+<span class="doccomment">/// This function is unsafe in order to be callable from C.</span>
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wat&quot;</span>)]</span>
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
 <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wat2wasm</span>(<span class="ident">wat</span>: <span class="kw-2">&amp;</span><span class="ident">wasm_byte_vec_t</span>, <span class="ident">out</span>: <span class="kw-2">&amp;mut</span> <span class="ident">wasm_byte_vec_t</span>) {
@@ -102,7 +107,6 @@
             <span class="ident"><span class="kw">crate</span>::error::update_last_error</span>(<span class="ident">err</span>);
             <span class="ident">out</span>.<span class="ident">data</span> <span class="op">=</span> <span class="ident">std::ptr::null_mut</span>();
             <span class="ident">out</span>.<span class="ident">size</span> <span class="op">=</span> <span class="number">0</span>;
-            <span class="kw">return</span>;
         }
     };
 }

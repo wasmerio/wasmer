@@ -11293,6 +11293,8 @@
 <span id="11291">11291</span>
 <span id="11292">11292</span>
 <span id="11293">11293</span>
+<span id="11294">11294</span>
+<span id="11295">11295</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">super</span>::{
     <span class="ident">intrinsics</span>::{
         <span class="ident">tbaa_label</span>, <span class="ident">type_to_llvm</span>, <span class="ident">CtxType</span>, <span class="ident">FunctionCache</span>, <span class="ident">GlobalCache</span>, <span class="ident">Intrinsics</span>, <span class="ident">MemoryCache</span>,
@@ -11354,6 +11356,7 @@
         }
     }
 
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">translate_to_module</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">wasm_module</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span>,
@@ -11387,7 +11390,7 @@
             .<span class="ident">unwrap</span>();
 
         <span class="comment">// TODO: pointer width</span>
-        <span class="kw">let</span> <span class="ident">offsets</span> <span class="op">=</span> <span class="ident">VMOffsets::new</span>(<span class="number">8</span>, <span class="kw-2">&amp;</span><span class="ident">wasm_module</span>);
+        <span class="kw">let</span> <span class="ident">offsets</span> <span class="op">=</span> <span class="ident">VMOffsets::new</span>(<span class="number">8</span>, <span class="ident">wasm_module</span>);
         <span class="kw">let</span> <span class="ident">intrinsics</span> <span class="op">=</span> <span class="ident">Intrinsics::declare</span>(<span class="kw-2">&amp;</span><span class="ident">module</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">ctx</span>, <span class="kw-2">&amp;</span><span class="ident">target_data</span>);
         <span class="kw">let</span> (<span class="ident">func_type</span>, <span class="ident">func_attrs</span>) <span class="op">=</span>
             <span class="self">self</span>.<span class="ident">abi</span>
@@ -11564,6 +11567,7 @@
         <span class="prelude-val">Ok</span>(<span class="ident">module</span>)
     }
 
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">translate</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">wasm_module</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span>,
@@ -11642,6 +11646,7 @@
 
     <span class="comment">// Convert floating point vector to integer and saturate when out of range.</span>
     <span class="comment">// https://github.com/WebAssembly/nontrapping-float-to-int-conversions/blob/master/proposals/nontrapping-float-to-int-conversion/Overview.md</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">trunc_sat</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">FloatMathType</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span><span class="op">&gt;</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">fvec_ty</span>: <span class="ident">T</span>,
@@ -11759,6 +11764,7 @@
 
     <span class="comment">// Convert floating point vector to integer and saturate when out of range.</span>
     <span class="comment">// https://github.com/WebAssembly/nontrapping-float-to-int-conversions/blob/master/proposals/nontrapping-float-to-int-conversion/Overview.md</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">trunc_sat_into_int</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">FloatMathType</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span><span class="op">&gt;</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">fvec_ty</span>: <span class="ident">T</span>,
@@ -12331,7 +12337,7 @@
         };
         <span class="self">self</span>.<span class="ident">mark_memaccess_nodelete</span>(<span class="ident">memory_index</span>, <span class="ident">memaccess</span>)<span class="question-mark">?</span>;
         <span class="ident">tbaa_label</span>(
-            <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">module</span>,
+            <span class="self">self</span>.<span class="ident">module</span>,
             <span class="self">self</span>.<span class="ident">intrinsics</span>,
             <span class="macro">format!</span>(<span class="string">&quot;memory {}&quot;</span>, <span class="ident">memory_index</span>.<span class="ident">as_u32</span>()),
             <span class="ident">memaccess</span>,
@@ -12536,7 +12542,7 @@
             <span class="kw">for</span> (<span class="ident">idx</span>, <span class="ident">value</span>) <span class="kw">in</span> <span class="ident">results</span>.<span class="ident">enumerate</span>() {
                 <span class="kw">let</span> <span class="ident">value</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_bitcast</span>(
                     <span class="ident">value</span>,
-                    <span class="ident">type_to_llvm</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">intrinsics</span>, <span class="ident">wasm_fn_type</span>.<span class="ident">results</span>()[<span class="ident">idx</span>])<span class="question-mark">?</span>,
+                    <span class="ident">type_to_llvm</span>(<span class="self">self</span>.<span class="ident">intrinsics</span>, <span class="ident">wasm_fn_type</span>.<span class="ident">results</span>()[<span class="ident">idx</span>])<span class="question-mark">?</span>,
                     <span class="string">&quot;&quot;</span>,
                 );
                 <span class="ident">struct_value</span> <span class="op">=</span> <span class="self">self</span>
@@ -12550,7 +12556,7 @@
         } <span class="kw">else</span> {
             <span class="self">self</span>.<span class="ident">builder</span>
                 .<span class="ident">build_return</span>(<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">abi</span>.<span class="ident">pack_values_for_register_return</span>(
-                    <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">intrinsics</span>,
+                    <span class="self">self</span>.<span class="ident">intrinsics</span>,
                     <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">builder</span>,
                     <span class="kw-2">&amp;</span><span class="ident">results</span>.<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>(),
                     <span class="kw-2">&amp;</span><span class="ident">func_type</span>,
@@ -13081,18 +13087,16 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                 <span class="kw">if</span> <span class="kw">let</span> <span class="ident">ControlFrame::IfElse</span> {
                     <span class="ident">if_else</span>,
                     <span class="ident">next</span>,
-                    <span class="ident">if_else_state</span>,
+                    <span class="ident">if_else_state</span>: <span class="ident">IfElseState::If</span>,
                     <span class="ident">else_phis</span>,
                     ..
                 } <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">frame</span>
                 {
-                    <span class="kw">if</span> <span class="kw">let</span> <span class="ident">IfElseState::If</span> <span class="op">=</span> <span class="ident">if_else_state</span> {
-                        <span class="kw">for</span> (<span class="ident">phi</span>, <span class="ident">else_phi</span>) <span class="kw">in</span> <span class="ident">frame</span>.<span class="ident">phis</span>().<span class="ident">iter</span>().<span class="ident">zip</span>(<span class="ident">else_phis</span>.<span class="ident">iter</span>()) {
-                            <span class="ident">phi</span>.<span class="ident">add_incoming</span>(<span class="kw-2">&amp;</span>[(<span class="kw-2">&amp;</span><span class="ident">else_phi</span>.<span class="ident">as_basic_value</span>(), <span class="kw-2">*</span><span class="ident">if_else</span>)]);
-                        }
-                        <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">position_at_end</span>(<span class="kw-2">*</span><span class="ident">if_else</span>);
-                        <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_unconditional_branch</span>(<span class="kw-2">*</span><span class="ident">next</span>);
+                    <span class="kw">for</span> (<span class="ident">phi</span>, <span class="ident">else_phi</span>) <span class="kw">in</span> <span class="ident">frame</span>.<span class="ident">phis</span>().<span class="ident">iter</span>().<span class="ident">zip</span>(<span class="ident">else_phis</span>.<span class="ident">iter</span>()) {
+                        <span class="ident">phi</span>.<span class="ident">add_incoming</span>(<span class="kw-2">&amp;</span>[(<span class="kw-2">&amp;</span><span class="ident">else_phi</span>.<span class="ident">as_basic_value</span>(), <span class="kw-2">*</span><span class="ident">if_else</span>)]);
                     }
+                    <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">position_at_end</span>(<span class="kw-2">*</span><span class="ident">if_else</span>);
+                    <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_unconditional_branch</span>(<span class="kw-2">*</span><span class="ident">next</span>);
                 }
 
                 <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">position_at_end</span>(<span class="kw-2">*</span><span class="ident">frame</span>.<span class="ident">code_after</span>());
@@ -13315,7 +13319,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                 <span class="kw">let</span> <span class="ident">pointer_value</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">locals</span>[<span class="ident">local_index</span> <span class="kw">as</span> <span class="ident">usize</span>];
                 <span class="kw">let</span> <span class="ident">v</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_load</span>(<span class="ident">pointer_value</span>, <span class="string">&quot;&quot;</span>);
                 <span class="ident">tbaa_label</span>(
-                    <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">module</span>,
+                    <span class="self">self</span>.<span class="ident">module</span>,
                     <span class="self">self</span>.<span class="ident">intrinsics</span>,
                     <span class="macro">format!</span>(<span class="string">&quot;local {}&quot;</span>, <span class="ident">local_index</span>),
                     <span class="ident">v</span>.<span class="ident">as_instruction_value</span>().<span class="ident">unwrap</span>(),
@@ -13328,7 +13332,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                 <span class="kw">let</span> <span class="ident">v</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">apply_pending_canonicalization</span>(<span class="ident">v</span>, <span class="ident">i</span>);
                 <span class="kw">let</span> <span class="ident">store</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_store</span>(<span class="ident">pointer_value</span>, <span class="ident">v</span>);
                 <span class="ident">tbaa_label</span>(
-                    <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">module</span>,
+                    <span class="self">self</span>.<span class="ident">module</span>,
                     <span class="self">self</span>.<span class="ident">intrinsics</span>,
                     <span class="macro">format!</span>(<span class="string">&quot;local {}&quot;</span>, <span class="ident">local_index</span>),
                     <span class="ident">store</span>,
@@ -13340,7 +13344,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                 <span class="kw">let</span> <span class="ident">v</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">apply_pending_canonicalization</span>(<span class="ident">v</span>, <span class="ident">i</span>);
                 <span class="kw">let</span> <span class="ident">store</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_store</span>(<span class="ident">pointer_value</span>, <span class="ident">v</span>);
                 <span class="ident">tbaa_label</span>(
-                    <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">module</span>,
+                    <span class="self">self</span>.<span class="ident">module</span>,
                     <span class="self">self</span>.<span class="ident">intrinsics</span>,
                     <span class="macro">format!</span>(<span class="string">&quot;local {}&quot;</span>, <span class="ident">local_index</span>),
                     <span class="ident">store</span>,
@@ -13555,7 +13559,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                 */</span>
 
                 <span class="self">self</span>.<span class="ident">abi</span>
-                    .<span class="ident">rets_from_call</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">builder</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">intrinsics</span>, <span class="ident">call_site</span>, <span class="ident">func_type</span>)
+                    .<span class="ident">rets_from_call</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">builder</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>, <span class="ident">call_site</span>, <span class="ident">func_type</span>)
                     .<span class="ident">iter</span>()
                     .<span class="ident">for_each</span>(<span class="op">|</span><span class="ident">ret</span><span class="op">|</span> <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">push1</span>(<span class="kw-2">*</span><span class="ident">ret</span>));
             }
@@ -13756,8 +13760,8 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                 <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">position_at_end</span>(<span class="ident">continue_block</span>);
 
                 <span class="kw">let</span> (<span class="ident">llvm_func_type</span>, <span class="ident">llvm_func_attrs</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">abi</span>.<span class="ident">func_type_to_llvm</span>(
-                    <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">context</span>,
-                    <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">intrinsics</span>,
+                    <span class="self">self</span>.<span class="ident">context</span>,
+                    <span class="self">self</span>.<span class="ident">intrinsics</span>,
                     <span class="prelude-val">Some</span>(<span class="self">self</span>.<span class="ident">ctx</span>.<span class="ident">get_offsets</span>()),
                     <span class="ident">func_type</span>,
                 )<span class="question-mark">?</span>;
@@ -13849,7 +13853,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                 */</span>
 
                 <span class="self">self</span>.<span class="ident">abi</span>
-                    .<span class="ident">rets_from_call</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">builder</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">intrinsics</span>, <span class="ident">call_site</span>, <span class="ident">func_type</span>)
+                    .<span class="ident">rets_from_call</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">builder</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>, <span class="ident">call_site</span>, <span class="ident">func_type</span>)
                     .<span class="ident">iter</span>()
                     .<span class="ident">for_each</span>(<span class="op">|</span><span class="ident">ret</span><span class="op">|</span> <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">push1</span>(<span class="kw-2">*</span><span class="ident">ret</span>));
             }
@@ -13910,7 +13914,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     ]),
                     <span class="string">&quot;&quot;</span>,
                 );
-                <span class="kw">let</span> <span class="ident">left</span> <span class="op">=</span> <span class="ident">extend_op</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">left</span>);
+                <span class="kw">let</span> <span class="ident">left</span> <span class="op">=</span> <span class="ident">extend_op</span>(<span class="self">self</span>, <span class="ident">left</span>);
                 <span class="kw">let</span> <span class="ident">right</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_shuffle_vector</span>(
                     <span class="ident">v</span>,
                     <span class="ident">v</span>.<span class="ident">get_type</span>().<span class="ident">get_undef</span>(),
@@ -13926,7 +13930,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     ]),
                     <span class="string">&quot;&quot;</span>,
                 );
-                <span class="kw">let</span> <span class="ident">right</span> <span class="op">=</span> <span class="ident">extend_op</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">right</span>);
+                <span class="kw">let</span> <span class="ident">right</span> <span class="op">=</span> <span class="ident">extend_op</span>(<span class="self">self</span>, <span class="ident">right</span>);
 
                 <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_int_add</span>(<span class="ident">left</span>, <span class="ident">right</span>, <span class="string">&quot;&quot;</span>);
                 <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_bitcast</span>(<span class="ident">res</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i128_ty</span>, <span class="string">&quot;&quot;</span>);
@@ -13964,7 +13968,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     ]),
                     <span class="string">&quot;&quot;</span>,
                 );
-                <span class="kw">let</span> <span class="ident">left</span> <span class="op">=</span> <span class="ident">extend_op</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">left</span>);
+                <span class="kw">let</span> <span class="ident">left</span> <span class="op">=</span> <span class="ident">extend_op</span>(<span class="self">self</span>, <span class="ident">left</span>);
                 <span class="kw">let</span> <span class="ident">right</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_shuffle_vector</span>(
                     <span class="ident">v</span>,
                     <span class="ident">v</span>.<span class="ident">get_type</span>().<span class="ident">get_undef</span>(),
@@ -13976,7 +13980,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     ]),
                     <span class="string">&quot;&quot;</span>,
                 );
-                <span class="kw">let</span> <span class="ident">right</span> <span class="op">=</span> <span class="ident">extend_op</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">right</span>);
+                <span class="kw">let</span> <span class="ident">right</span> <span class="op">=</span> <span class="ident">extend_op</span>(<span class="self">self</span>, <span class="ident">right</span>);
 
                 <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_int_add</span>(<span class="ident">left</span>, <span class="ident">right</span>, <span class="string">&quot;&quot;</span>);
                 <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_bitcast</span>(<span class="ident">res</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i128_ty</span>, <span class="string">&quot;&quot;</span>);
@@ -14199,10 +14203,8 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="kw">let</span> <span class="ident">max_values</span> <span class="op">=</span>
                         <span class="self">self</span>.<span class="ident">builder</span>
                             .<span class="ident">build_int_s_extend</span>(<span class="ident">max_values</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i32x8_ty</span>, <span class="string">&quot;&quot;</span>);
-                    <span class="kw">let</span> <span class="ident">saturate_up</span> <span class="op">=</span>
-                        <span class="self">self</span>.<span class="ident">builder</span>
-                            .<span class="ident">build_int_compare</span>(<span class="ident">IntPredicate::SGT</span>, <span class="ident">res</span>, <span class="ident">max_values</span>, <span class="string">&quot;&quot;</span>);
-                    <span class="ident">saturate_up</span>
+                    <span class="self">self</span>.<span class="ident">builder</span>
+                        .<span class="ident">build_int_compare</span>(<span class="ident">IntPredicate::SGT</span>, <span class="ident">res</span>, <span class="ident">max_values</span>, <span class="string">&quot;&quot;</span>)
                 };
 
                 <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>
@@ -14261,14 +14263,14 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="ident">VectorType::const_vector</span>(<span class="kw-2">&amp;</span><span class="ident">shuffle_array</span>),
                     <span class="string">&quot;&quot;</span>,
                 );
-                <span class="kw">let</span> <span class="ident">val1</span> <span class="op">=</span> <span class="ident">extend_op</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">val1</span>);
+                <span class="kw">let</span> <span class="ident">val1</span> <span class="op">=</span> <span class="ident">extend_op</span>(<span class="self">self</span>, <span class="ident">val1</span>);
                 <span class="kw">let</span> <span class="ident">val2</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_shuffle_vector</span>(
                     <span class="ident">v2</span>,
                     <span class="ident">v2</span>.<span class="ident">get_type</span>().<span class="ident">get_undef</span>(),
                     <span class="ident">VectorType::const_vector</span>(<span class="kw-2">&amp;</span><span class="ident">shuffle_array</span>),
                     <span class="string">&quot;&quot;</span>,
                 );
-                <span class="kw">let</span> <span class="ident">val2</span> <span class="op">=</span> <span class="ident">extend_op</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">val2</span>);
+                <span class="kw">let</span> <span class="ident">val2</span> <span class="op">=</span> <span class="ident">extend_op</span>(<span class="self">self</span>, <span class="ident">val2</span>);
                 <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_int_mul</span>(<span class="ident">val1</span>, <span class="ident">val2</span>, <span class="string">&quot;&quot;</span>);
                 <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_bitcast</span>(<span class="ident">res</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i128_ty</span>, <span class="string">&quot;&quot;</span>);
                 <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">res</span>);
@@ -14310,14 +14312,14 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="ident">VectorType::const_vector</span>(<span class="kw-2">&amp;</span><span class="ident">shuffle_array</span>),
                     <span class="string">&quot;&quot;</span>,
                 );
-                <span class="kw">let</span> <span class="ident">val1</span> <span class="op">=</span> <span class="ident">extend_op</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">val1</span>);
+                <span class="kw">let</span> <span class="ident">val1</span> <span class="op">=</span> <span class="ident">extend_op</span>(<span class="self">self</span>, <span class="ident">val1</span>);
                 <span class="kw">let</span> <span class="ident">val2</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_shuffle_vector</span>(
                     <span class="ident">v2</span>,
                     <span class="ident">v2</span>.<span class="ident">get_type</span>().<span class="ident">get_undef</span>(),
                     <span class="ident">VectorType::const_vector</span>(<span class="kw-2">&amp;</span><span class="ident">shuffle_array</span>),
                     <span class="string">&quot;&quot;</span>,
                 );
-                <span class="kw">let</span> <span class="ident">val2</span> <span class="op">=</span> <span class="ident">extend_op</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">val2</span>);
+                <span class="kw">let</span> <span class="ident">val2</span> <span class="op">=</span> <span class="ident">extend_op</span>(<span class="self">self</span>, <span class="ident">val2</span>);
                 <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_int_mul</span>(<span class="ident">val1</span>, <span class="ident">val2</span>, <span class="string">&quot;&quot;</span>);
                 <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_bitcast</span>(<span class="ident">res</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i128_ty</span>, <span class="string">&quot;&quot;</span>);
                 <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">res</span>);
@@ -14353,14 +14355,14 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="ident">VectorType::const_vector</span>(<span class="kw-2">&amp;</span><span class="ident">shuffle_array</span>),
                     <span class="string">&quot;&quot;</span>,
                 );
-                <span class="kw">let</span> <span class="ident">val1</span> <span class="op">=</span> <span class="ident">extend_op</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">val1</span>);
+                <span class="kw">let</span> <span class="ident">val1</span> <span class="op">=</span> <span class="ident">extend_op</span>(<span class="self">self</span>, <span class="ident">val1</span>);
                 <span class="kw">let</span> <span class="ident">val2</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_shuffle_vector</span>(
                     <span class="ident">v2</span>,
                     <span class="ident">v2</span>.<span class="ident">get_type</span>().<span class="ident">get_undef</span>(),
                     <span class="ident">VectorType::const_vector</span>(<span class="kw-2">&amp;</span><span class="ident">shuffle_array</span>),
                     <span class="string">&quot;&quot;</span>,
                 );
-                <span class="kw">let</span> <span class="ident">val2</span> <span class="op">=</span> <span class="ident">extend_op</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">val2</span>);
+                <span class="kw">let</span> <span class="ident">val2</span> <span class="op">=</span> <span class="ident">extend_op</span>(<span class="self">self</span>, <span class="ident">val2</span>);
                 <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_int_mul</span>(<span class="ident">val1</span>, <span class="ident">val2</span>, <span class="string">&quot;&quot;</span>);
                 <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_bitcast</span>(<span class="ident">res</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i128_ty</span>, <span class="string">&quot;&quot;</span>);
                 <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">res</span>);
@@ -18072,7 +18074,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="ident">VectorType::const_vector</span>(<span class="kw-2">&amp;</span><span class="ident">indices</span>),
                     <span class="string">&quot;&quot;</span>,
                 );
-                <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">extend</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">low</span>);
+                <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">extend</span>(<span class="self">self</span>, <span class="ident">low</span>);
                 <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_bitcast</span>(<span class="ident">res</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i128_ty</span>, <span class="string">&quot;&quot;</span>);
                 <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">res</span>);
             }
@@ -18754,7 +18756,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     ]),
                     <span class="string">&quot;&quot;</span>,
                 );
-                <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">extend</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">low</span>);
+                <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">extend</span>(<span class="self">self</span>, <span class="ident">low</span>);
                 <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>
                     .<span class="ident">builder</span>
                     .<span class="ident">build_signed_int_to_float</span>(<span class="ident">res</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">f64x2_ty</span>, <span class="string">&quot;&quot;</span>);
@@ -20528,7 +20530,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     )
                     .<span class="ident">unwrap</span>();
                 <span class="ident">tbaa_label</span>(
-                    <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">module</span>,
+                    <span class="self">self</span>.<span class="ident">module</span>,
                     <span class="self">self</span>.<span class="ident">intrinsics</span>,
                     <span class="macro">format!</span>(<span class="string">&quot;memory {}&quot;</span>, <span class="ident">memory_index</span>.<span class="ident">as_u32</span>()),
                     <span class="ident">old</span>.<span class="ident">as_instruction_value</span>().<span class="ident">unwrap</span>(),
@@ -20563,7 +20565,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     )
                     .<span class="ident">unwrap</span>();
                 <span class="ident">tbaa_label</span>(
-                    <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">module</span>,
+                    <span class="self">self</span>.<span class="ident">module</span>,
                     <span class="self">self</span>.<span class="ident">intrinsics</span>,
                     <span class="macro">format!</span>(<span class="string">&quot;memory {}&quot;</span>, <span class="ident">memory_index</span>.<span class="ident">as_u32</span>()),
                     <span class="ident">old</span>.<span class="ident">as_instruction_value</span>().<span class="ident">unwrap</span>(),
@@ -20595,7 +20597,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     )
                     .<span class="ident">unwrap</span>();
                 <span class="ident">tbaa_label</span>(
-                    <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">module</span>,
+                    <span class="self">self</span>.<span class="ident">module</span>,
                     <span class="self">self</span>.<span class="ident">intrinsics</span>,
                     <span class="macro">format!</span>(<span class="string">&quot;memory {}&quot;</span>, <span class="ident">memory_index</span>.<span class="ident">as_u32</span>()),
                     <span class="ident">old</span>.<span class="ident">as_instruction_value</span>().<span class="ident">unwrap</span>(),
@@ -22351,9 +22353,10 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
             <span class="ident">Operator::TableGet</span> { <span class="ident">table</span> } =&gt; {
                 <span class="kw">let</span> <span class="ident">table_index</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i32_ty</span>.<span class="ident">const_int</span>(<span class="ident">table</span>.<span class="ident">into</span>(), <span class="bool-val">false</span>);
                 <span class="kw">let</span> <span class="ident">elem</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">pop1</span>()<span class="question-mark">?</span>;
-                <span class="kw">let</span> <span class="ident">table_get</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="kw">_</span>) <span class="op">=</span> <span class="self">self</span>
+                <span class="kw">let</span> <span class="ident">table_get</span> <span class="op">=</span> <span class="kw">if</span> <span class="self">self</span>
                     .<span class="ident">wasm_module</span>
                     .<span class="ident">local_table_index</span>(<span class="ident">TableIndex::from_u32</span>(<span class="ident">table</span>))
+                    .<span class="ident">is_some</span>()
                 {
                     <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">table_get</span>
                 } <span class="kw">else</span> {
@@ -22389,9 +22392,10 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                 <span class="kw">let</span> <span class="ident">value</span> <span class="op">=</span> <span class="self">self</span>
                     .<span class="ident">builder</span>
                     .<span class="ident">build_bitcast</span>(<span class="ident">value</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">anyref_ty</span>, <span class="string">&quot;&quot;</span>);
-                <span class="kw">let</span> <span class="ident">table_set</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="kw">_</span>) <span class="op">=</span> <span class="self">self</span>
+                <span class="kw">let</span> <span class="ident">table_set</span> <span class="op">=</span> <span class="kw">if</span> <span class="self">self</span>
                     .<span class="ident">wasm_module</span>
                     .<span class="ident">local_table_index</span>(<span class="ident">TableIndex::from_u32</span>(<span class="ident">table</span>))
+                    .<span class="ident">is_some</span>()
                 {
                     <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">table_set</span>
                 } <span class="kw">else</span> {

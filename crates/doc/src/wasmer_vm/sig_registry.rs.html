@@ -74,8 +74,6 @@
 <span id="72">72</span>
 <span id="73">73</span>
 <span id="74">74</span>
-<span id="75">75</span>
-<span id="76">76</span>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
 
@@ -93,7 +91,7 @@
 <span class="doccomment">/// call must match. To implement this efficiently, keep a registry of all</span>
 <span class="doccomment">/// signatures, shared by all instances, so that call sites can just do an</span>
 <span class="doccomment">/// index comparison.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Default</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">SignatureRegistry</span> {
     <span class="comment">// This structure is stored in an `Engine` and is intended to be shared</span>
     <span class="comment">// across many instances. Ideally instances can themselves be sent across</span>
@@ -112,9 +110,7 @@
 <span class="kw">impl</span> <span class="ident">SignatureRegistry</span> {
     <span class="doccomment">/// Create a new `SignatureRegistry`.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>() -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> {
-            <span class="ident">inner</span>: <span class="ident">Default::default</span>(),
-        }
+        <span class="ident">Default::default</span>()
     }
 
     <span class="doccomment">/// Register a signature and return its unique index.</span>

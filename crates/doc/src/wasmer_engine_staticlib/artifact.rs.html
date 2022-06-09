@@ -508,6 +508,7 @@
 <span id="506">506</span>
 <span id="507">507</span>
 <span id="508">508</span>
+<span id="509">509</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Define `StaticlibArtifact` to allow compiling and instantiating to be</span>
 <span class="doccomment">//! done as separate steps.</span>
 
@@ -612,6 +613,7 @@
     }
 
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::type_complexity</span>)]</span>
     <span class="doccomment">/// Generate a compilation</span>
     <span class="kw">fn</span> <span class="ident">generate_metadata</span><span class="op">&lt;</span><span class="lifetime">&#39;data</span><span class="op">&gt;</span>(
         <span class="ident">data</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;data</span> [<span class="ident">u8</span>],
@@ -692,7 +694,7 @@
 
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">metadata</span> <span class="op">=</span> <span class="ident">ModuleMetadata</span> {
             <span class="ident">compile_info</span>,
-            <span class="ident">prefix</span>: <span class="ident">engine_inner</span>.<span class="ident">get_prefix</span>(<span class="kw-2">&amp;</span><span class="ident">data</span>),
+            <span class="ident">prefix</span>: <span class="ident">engine_inner</span>.<span class="ident">get_prefix</span>(<span class="ident">data</span>),
             <span class="ident">data_initializers</span>,
             <span class="ident">function_body_lengths</span>,
             <span class="ident">cpu_features</span>: <span class="ident">target</span>.<span class="ident">cpu_features</span>().<span class="ident">as_u64</span>(),
@@ -717,7 +719,7 @@
 
         <span class="kw">let</span> <span class="ident">serialized_data</span> <span class="op">=</span> <span class="ident">bincode::serialize</span>(<span class="kw-2">&amp;</span><span class="ident">metadata</span>).<span class="ident">map_err</span>(<span class="ident">to_compile_error</span>)<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">metadata_binary</span> <span class="op">=</span> <span class="macro">vec!</span>[];
-        <span class="ident">metadata_binary</span>.<span class="ident">extend</span>(<span class="ident">MetadataHeader::new</span>(<span class="ident">serialized_data</span>.<span class="ident">len</span>()));
+        <span class="ident">metadata_binary</span>.<span class="ident">extend</span>(<span class="ident">MetadataHeader::new</span>(<span class="ident">serialized_data</span>.<span class="ident">len</span>()).<span class="ident">into_bytes</span>());
         <span class="ident">metadata_binary</span>.<span class="ident">extend</span>(<span class="ident">serialized_data</span>);
         <span class="kw">let</span> <span class="ident">metadata_length</span> <span class="op">=</span> <span class="ident">metadata_binary</span>.<span class="ident">len</span>();
 
@@ -729,8 +731,8 @@
         <span class="ident">compile_info</span>.<span class="ident">module</span> <span class="op">=</span> <span class="ident">Arc::new</span>(<span class="ident">module</span>);
 
         <span class="kw">let</span> <span class="ident">maybe_obj_bytes</span> <span class="op">=</span> <span class="ident">compiler</span>.<span class="ident">experimental_native_compile_module</span>(
-            <span class="kw-2">&amp;</span><span class="ident">target</span>,
-            <span class="kw-2">&amp;</span><span class="ident">compile_info</span>,
+            <span class="ident">target</span>,
+            <span class="ident">compile_info</span>,
             <span class="ident">module_translation</span>.<span class="ident">as_ref</span>().<span class="ident">unwrap</span>(),
             <span class="kw-2">&amp;</span><span class="ident">function_body_inputs</span>,
             <span class="kw-2">&amp;</span><span class="ident">symbol_registry</span>,
@@ -741,7 +743,7 @@
             <span class="ident">obj_bytes</span><span class="question-mark">?</span>
         } <span class="kw">else</span> {
             <span class="kw">let</span> <span class="ident">compilation</span> <span class="op">=</span> <span class="ident">compiler</span>.<span class="ident">compile_module</span>(
-                <span class="kw-2">&amp;</span><span class="ident">target</span>,
+                <span class="ident">target</span>,
                 <span class="kw-2">&amp;</span><span class="ident">metadata</span>.<span class="ident">compile_info</span>,
                 <span class="ident">module_translation</span>.<span class="ident">as_ref</span>().<span class="ident">unwrap</span>(),
                 <span class="ident">function_body_inputs</span>,
@@ -755,10 +757,10 @@
             .map(|function_body| function_body.body.len() as u64)
             .collect::&lt;PrimaryMap&lt;LocalFunctionIndex, u64&gt;&gt;();
              */</span>
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">obj</span> <span class="op">=</span> <span class="ident">get_object_for_target</span>(<span class="kw-2">&amp;</span><span class="ident">target_triple</span>).<span class="ident">map_err</span>(<span class="ident">to_compile_error</span>)<span class="question-mark">?</span>;
+            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">obj</span> <span class="op">=</span> <span class="ident">get_object_for_target</span>(<span class="ident">target_triple</span>).<span class="ident">map_err</span>(<span class="ident">to_compile_error</span>)<span class="question-mark">?</span>;
             <span class="ident">emit_data</span>(<span class="kw-2">&amp;mut</span> <span class="ident">obj</span>, <span class="ident">WASMER_METADATA_SYMBOL</span>, <span class="kw-2">&amp;</span><span class="ident">metadata_binary</span>, <span class="number">1</span>)
                 .<span class="ident">map_err</span>(<span class="ident">to_compile_error</span>)<span class="question-mark">?</span>;
-            <span class="ident">emit_compilation</span>(<span class="kw-2">&amp;mut</span> <span class="ident">obj</span>, <span class="ident">compilation</span>, <span class="kw-2">&amp;</span><span class="ident">symbol_registry</span>, <span class="kw-2">&amp;</span><span class="ident">target_triple</span>)
+            <span class="ident">emit_compilation</span>(<span class="kw-2">&amp;mut</span> <span class="ident">obj</span>, <span class="ident">compilation</span>, <span class="kw-2">&amp;</span><span class="ident">symbol_registry</span>, <span class="ident">target_triple</span>)
                 .<span class="ident">map_err</span>(<span class="ident">to_compile_error</span>)<span class="question-mark">?</span>;
             <span class="ident">obj</span>.<span class="ident">write</span>().<span class="ident">map_err</span>(<span class="ident">to_compile_error</span>)<span class="question-mark">?</span>
         };
@@ -854,7 +856,7 @@
         <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">num_imported_functions</span> {
             <span class="kw">let</span> <span class="ident">sig_idx</span> <span class="op">=</span> <span class="ident">metadata</span>.<span class="ident">compile_info</span>.<span class="ident">module</span>.<span class="ident">functions</span>[<span class="ident">FunctionIndex::new</span>(<span class="ident">i</span>)];
             <span class="kw">let</span> <span class="ident">func_type</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">metadata</span>.<span class="ident">compile_info</span>.<span class="ident">module</span>.<span class="ident">signatures</span>[<span class="ident">sig_idx</span>];
-            <span class="kw">let</span> <span class="ident">vm_shared_idx</span> <span class="op">=</span> <span class="ident">signature_registry</span>.<span class="ident">register</span>(<span class="kw-2">&amp;</span><span class="ident">func_type</span>);
+            <span class="kw">let</span> <span class="ident">vm_shared_idx</span> <span class="op">=</span> <span class="ident">signature_registry</span>.<span class="ident">register</span>(<span class="ident">func_type</span>);
             <span class="ident">sig_map</span>.<span class="ident">insert</span>(<span class="ident">sig_idx</span>, <span class="ident">vm_shared_idx</span>);
         }
         <span class="comment">// read finished functions in order now...</span>
@@ -863,7 +865,7 @@
             <span class="kw">let</span> <span class="ident">func_idx</span> <span class="op">=</span> <span class="ident">metadata</span>.<span class="ident">compile_info</span>.<span class="ident">module</span>.<span class="ident">func_index</span>(<span class="ident">local_func_idx</span>);
             <span class="kw">let</span> <span class="ident">sig_idx</span> <span class="op">=</span> <span class="ident">metadata</span>.<span class="ident">compile_info</span>.<span class="ident">module</span>.<span class="ident">functions</span>[<span class="ident">func_idx</span>];
             <span class="kw">let</span> <span class="ident">func_type</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">metadata</span>.<span class="ident">compile_info</span>.<span class="ident">module</span>.<span class="ident">signatures</span>[<span class="ident">sig_idx</span>];
-            <span class="kw">let</span> <span class="ident">vm_shared_idx</span> <span class="op">=</span> <span class="ident">signature_registry</span>.<span class="ident">register</span>(<span class="kw-2">&amp;</span><span class="ident">func_type</span>);
+            <span class="kw">let</span> <span class="ident">vm_shared_idx</span> <span class="op">=</span> <span class="ident">signature_registry</span>.<span class="ident">register</span>(<span class="ident">func_type</span>);
             <span class="ident">sig_map</span>.<span class="ident">insert</span>(<span class="ident">sig_idx</span>, <span class="ident">vm_shared_idx</span>);
 
             <span class="ident">byte_buffer</span>[<span class="number">0</span>..<span class="ident">WORD_SIZE</span>]

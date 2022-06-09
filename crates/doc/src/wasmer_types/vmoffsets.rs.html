@@ -755,6 +755,7 @@
 <span id="753">753</span>
 <span id="754">754</span>
 <span id="755">755</span>
+<span id="756">756</span>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
 
@@ -1177,6 +1178,7 @@
     }
 
     <span class="doccomment">/// Return the size of `VMFuncRef`.</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::identity_op</span>)]</span>
     <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">size_of_vm_funcref</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u8</span> {
         <span class="number">1</span> <span class="op">*</span> <span class="self">self</span>.<span class="ident">pointer_size</span>
     }

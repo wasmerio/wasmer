@@ -2697,7 +2697,7 @@
 
         <span class="kw">let</span> <span class="ident">data</span> <span class="op">=</span> <span class="macro">wasi_try_mem!</span>(<span class="ident">new_ptr</span>.<span class="ident">slice</span>(<span class="ident">memory</span>, <span class="ident">sub_buffer</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">u32</span>));
         <span class="macro">wasi_try_mem!</span>(<span class="ident">data</span>.<span class="ident">write_slice</span>(<span class="ident">sub_buffer</span>));
-        <span class="macro">wasi_try_mem!</span>(<span class="macro">wasi_try_mem!</span>(<span class="ident">new_ptr</span>.<span class="ident">add</span>(<span class="ident">sub_buffer</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">u32</span>)).<span class="ident">write</span>(<span class="ident">memory</span>, <span class="number">0</span>));
+        <span class="macro">wasi_try_mem!</span>(<span class="macro">wasi_try_mem!</span>(<span class="ident">new_ptr</span>.<span class="ident">add_offset</span>(<span class="ident">sub_buffer</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">u32</span>)).<span class="ident">write</span>(<span class="ident">memory</span>, <span class="number">0</span>));
 
         <span class="ident">current_buffer_offset</span> <span class="op">+</span><span class="op">=</span> <span class="ident">sub_buffer</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">u32</span> <span class="op">+</span> <span class="number">1</span>;
     }
@@ -3622,8 +3622,8 @@
             <span class="ident">buf_len</span> <span class="kw">as</span> <span class="ident">usize</span> <span class="op">-</span> <span class="ident">buf_idx</span>,
             <span class="ident">std::mem::size_of</span>::<span class="op">&lt;</span><span class="ident">__wasi_dirent_t</span><span class="op">&gt;</span>(),
         );
-        <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">upper_limit</span> {
-            <span class="macro">wasi_try_mem!</span>(<span class="ident">buf_arr</span>.<span class="ident">index</span>((<span class="ident">i</span> <span class="op">+</span> <span class="ident">buf_idx</span>) <span class="kw">as</span> <span class="ident">u64</span>).<span class="ident">write</span>(<span class="ident">dirent_bytes</span>[<span class="ident">i</span>]));
+        <span class="kw">for</span> (<span class="ident">i</span>, <span class="ident">b</span>) <span class="kw">in</span> <span class="ident">dirent_bytes</span>.<span class="ident">iter</span>().<span class="ident">enumerate</span>().<span class="ident">take</span>(<span class="ident">upper_limit</span>) {
+            <span class="macro">wasi_try_mem!</span>(<span class="ident">buf_arr</span>.<span class="ident">index</span>((<span class="ident">i</span> <span class="op">+</span> <span class="ident">buf_idx</span>) <span class="kw">as</span> <span class="ident">u64</span>).<span class="ident">write</span>(<span class="kw-2">*</span><span class="ident">b</span>));
         }
         <span class="ident">buf_idx</span> <span class="op">+</span><span class="op">=</span> <span class="ident">upper_limit</span>;
         <span class="kw">if</span> <span class="ident">upper_limit</span> <span class="op">!</span><span class="op">=</span> <span class="ident">std::mem::size_of</span>::<span class="op">&lt;</span><span class="ident">__wasi_dirent_t</span><span class="op">&gt;</span>() {

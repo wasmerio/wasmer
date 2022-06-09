@@ -39,6 +39,27 @@
 <span id="37">37</span>
 <span id="38">38</span>
 <span id="39">39</span>
+<span id="40">40</span>
+<span id="41">41</span>
+<span id="42">42</span>
+<span id="43">43</span>
+<span id="44">44</span>
+<span id="45">45</span>
+<span id="46">46</span>
+<span id="47">47</span>
+<span id="48">48</span>
+<span id="49">49</span>
+<span id="50">50</span>
+<span id="51">51</span>
+<span id="52">52</span>
+<span id="53">53</span>
+<span id="54">54</span>
+<span id="55">55</span>
+<span id="56">56</span>
+<span id="57">57</span>
+<span id="58">58</span>
+<span id="59">59</span>
+<span id="60">60</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">crate</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident">std::mem</span>;
 <span class="kw">use</span> <span class="ident">wasmer_derive::ValueType</span>;
@@ -56,27 +77,48 @@
 }
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">dirent_to_le_bytes</span>(<span class="ident">ent</span>: <span class="kw-2">&amp;</span><span class="ident">__wasi_dirent_t</span>) -&gt; <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span> {
-    <span class="kw">use</span> <span class="ident">mem::transmute</span>;
+    <span class="kw">let</span> <span class="ident">out</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">std::iter::empty</span>()
+        .<span class="ident">chain</span>(<span class="ident">ent</span>.<span class="ident">d_next</span>.<span class="ident">to_le_bytes</span>())
+        .<span class="ident">chain</span>(<span class="ident">ent</span>.<span class="ident">d_ino</span>.<span class="ident">to_le_bytes</span>())
+        .<span class="ident">chain</span>(<span class="ident">ent</span>.<span class="ident">d_namlen</span>.<span class="ident">to_le_bytes</span>())
+        .<span class="ident">chain</span>(<span class="ident">u32::from</span>(<span class="ident">ent</span>.<span class="ident">d_type</span>).<span class="ident">to_le_bytes</span>())
+        .<span class="ident">collect</span>();
 
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">out</span> <span class="op">=</span> <span class="ident">Vec::with_capacity</span>(<span class="ident">mem::size_of</span>::<span class="op">&lt;</span><span class="ident">__wasi_dirent_t</span><span class="op">&gt;</span>());
-    <span class="kw">let</span> <span class="ident">bytes</span>: [<span class="ident">u8</span>; <span class="number">8</span>] <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">transmute</span>(<span class="ident">ent</span>.<span class="ident">d_next</span>.<span class="ident">to_le</span>()) };
-    <span class="kw">for</span> <span class="kw-2">&amp;</span><span class="ident">b</span> <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="ident">bytes</span> {
-        <span class="ident">out</span>.<span class="ident">push</span>(<span class="ident">b</span>);
-    }
-    <span class="kw">let</span> <span class="ident">bytes</span>: [<span class="ident">u8</span>; <span class="number">8</span>] <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">transmute</span>(<span class="ident">ent</span>.<span class="ident">d_ino</span>.<span class="ident">to_le</span>()) };
-    <span class="kw">for</span> <span class="kw-2">&amp;</span><span class="ident">b</span> <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="ident">bytes</span> {
-        <span class="ident">out</span>.<span class="ident">push</span>(<span class="ident">b</span>);
-    }
-    <span class="kw">let</span> <span class="ident">bytes</span>: [<span class="ident">u8</span>; <span class="number">4</span>] <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">transmute</span>(<span class="ident">ent</span>.<span class="ident">d_namlen</span>.<span class="ident">to_le</span>()) };
-    <span class="kw">for</span> <span class="kw-2">&amp;</span><span class="ident">b</span> <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="ident">bytes</span> {
-        <span class="ident">out</span>.<span class="ident">push</span>(<span class="ident">b</span>);
-    }
-    <span class="ident">out</span>.<span class="ident">push</span>(<span class="ident">ent</span>.<span class="ident">d_type</span>);
-    <span class="ident">out</span>.<span class="ident">push</span>(<span class="number">0</span>);
-    <span class="ident">out</span>.<span class="ident">push</span>(<span class="number">0</span>);
-    <span class="ident">out</span>.<span class="ident">push</span>(<span class="number">0</span>);
     <span class="macro">assert_eq!</span>(<span class="ident">out</span>.<span class="ident">len</span>(), <span class="ident">mem::size_of</span>::<span class="op">&lt;</span><span class="ident">__wasi_dirent_t</span><span class="op">&gt;</span>());
     <span class="ident">out</span>
+}
+
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
+<span class="kw">mod</span> <span class="ident">tests</span> {
+    <span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">__wasi_dirent_t</span>, <span class="ident">dirent_to_le_bytes</span>};
+
+    <span class="attribute">#[<span class="ident">test</span>]</span>
+    <span class="kw">fn</span> <span class="ident">test_dirent_to_le_bytes</span>() {
+        <span class="kw">let</span> <span class="ident">s</span> <span class="op">=</span> <span class="ident">__wasi_dirent_t</span> {
+            <span class="ident">d_next</span>: <span class="number">0x0123456789abcdef</span>,
+            <span class="ident">d_ino</span>: <span class="number">0xfedcba9876543210</span>,
+            <span class="ident">d_namlen</span>: <span class="number">0xaabbccdd</span>,
+            <span class="ident">d_type</span>: <span class="number">0x99</span>,
+        };
+
+        <span class="macro">assert_eq!</span>(
+            <span class="macro">vec!</span>[
+                <span class="comment">// d_next</span>
+                <span class="number">0xef</span>, <span class="number">0xcd</span>, <span class="number">0xab</span>, <span class="number">0x89</span>, <span class="number">0x67</span>, <span class="number">0x45</span>, <span class="number">0x23</span>, <span class="number">0x01</span>,
+                <span class="comment">//</span>
+                <span class="comment">// d_ino</span>
+                <span class="number">0x10</span>, <span class="number">0x32</span>, <span class="number">0x54</span>, <span class="number">0x76</span>, <span class="number">0x98</span>, <span class="number">0xba</span>, <span class="number">0xdc</span>, <span class="number">0xfe</span>,
+                <span class="comment">//</span>
+                <span class="comment">// d_namelen</span>
+                <span class="number">0xdd</span>, <span class="number">0xcc</span>, <span class="number">0xbb</span>, <span class="number">0xaa</span>,
+                <span class="comment">//</span>
+                <span class="comment">// d_type</span>
+                <span class="comment">// plus padding</span>
+                <span class="number">0x99</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>,
+            ],
+            <span class="ident">dirent_to_le_bytes</span>(<span class="kw-2">&amp;</span><span class="ident">s</span>)
+        );
+    }
 }
 </code></pre></div>
 </section><section id="search" class="content hidden"></section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_wasi_types" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.59.0 (9d1b2106e 2022-02-23)" ></div>

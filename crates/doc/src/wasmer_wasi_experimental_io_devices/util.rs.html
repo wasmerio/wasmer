@@ -172,14 +172,6 @@
 <span id="170">170</span>
 <span id="171">171</span>
 <span id="172">172</span>
-<span id="173">173</span>
-<span id="174">174</span>
-<span id="175">175</span>
-<span id="176">176</span>
-<span id="177">177</span>
-<span id="178">178</span>
-<span id="179">179</span>
-<span id="180">180</span>
 </pre><pre class="rust"><code><span class="comment">// input encoding</span>
 
 <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">KEY_PRESS</span>: <span class="ident">u8</span> <span class="op">=</span> <span class="number">1</span>;
@@ -222,24 +214,16 @@
                 <span class="ident">MouseButton::Middle</span> =&gt; <span class="ident">MOUSE_PRESS_MIDDLE</span>,
             };
             <span class="kw">let</span> <span class="ident">x_bytes</span> <span class="op">=</span> <span class="ident">x</span>.<span class="ident">to_le_bytes</span>();
-            <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="number">0</span>..<span class="number">4</span> {
-                <span class="ident">data</span>[<span class="ident">i</span>] <span class="op">=</span> <span class="ident">x_bytes</span>[<span class="ident">i</span>];
-            }
+            <span class="ident">data</span>[..<span class="number">4</span>].<span class="ident">clone_from_slice</span>(<span class="kw-2">&amp;</span><span class="ident">x_bytes</span>[..<span class="number">4</span>]);
             <span class="kw">let</span> <span class="ident">y_bytes</span> <span class="op">=</span> <span class="ident">y</span>.<span class="ident">to_le_bytes</span>();
-            <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="number">0</span>..<span class="number">4</span> {
-                <span class="ident">data</span>[<span class="ident">i</span> <span class="op">+</span> <span class="number">4</span>] <span class="op">=</span> <span class="ident">y_bytes</span>[<span class="ident">i</span>];
-            }
+            <span class="ident">data</span>[<span class="number">4</span>..<span class="number">8</span>].<span class="ident">clone_from_slice</span>(<span class="kw-2">&amp;</span><span class="ident">y_bytes</span>[..<span class="number">4</span>]);
             (<span class="ident">tag</span>, <span class="ident">data</span>, <span class="number">8</span>)
         }
         <span class="ident">InputEvent::MouseMoved</span>(<span class="ident">x</span>, <span class="ident">y</span>) =&gt; {
             <span class="kw">let</span> <span class="ident">x_bytes</span> <span class="op">=</span> <span class="ident">x</span>.<span class="ident">to_le_bytes</span>();
-            <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="number">0</span>..<span class="number">4</span> {
-                <span class="ident">data</span>[<span class="ident">i</span>] <span class="op">=</span> <span class="ident">x_bytes</span>[<span class="ident">i</span>];
-            }
+            <span class="ident">data</span>[..<span class="number">4</span>].<span class="ident">clone_from_slice</span>(<span class="kw-2">&amp;</span><span class="ident">x_bytes</span>[..<span class="number">4</span>]);
             <span class="kw">let</span> <span class="ident">y_bytes</span> <span class="op">=</span> <span class="ident">y</span>.<span class="ident">to_le_bytes</span>();
-            <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="number">0</span>..<span class="number">4</span> {
-                <span class="ident">data</span>[<span class="ident">i</span> <span class="op">+</span> <span class="number">4</span>] <span class="op">=</span> <span class="ident">y_bytes</span>[<span class="ident">i</span>];
-            }
+            <span class="ident">data</span>[<span class="number">4</span>..<span class="number">8</span>].<span class="ident">clone_from_slice</span>(<span class="kw-2">&amp;</span><span class="ident">y_bytes</span>[..<span class="number">4</span>]);
             (<span class="ident">MOUSE_MOVE</span>, <span class="ident">data</span>, <span class="number">8</span>)
         }
         <span class="ident">InputEvent::WindowClosed</span> =&gt; (<span class="ident">WINDOW_CLOSED</span>, <span class="ident">data</span>, <span class="number">0</span>),

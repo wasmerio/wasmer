@@ -192,9 +192,9 @@
     <span class="doccomment">///</span>
     <span class="doccomment">/// This method is unsafe.</span>
     <span class="doccomment">/// Please check `SerializableModule::deserialize` for more details.</span>
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">archive_from_slice</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>(
-        <span class="ident">metadata_slice</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> [<span class="ident">u8</span>],
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">ArchivedSerializableModule</span>, <span class="ident">DeserializeError</span><span class="op">&gt;</span> {
+    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">archive_from_slice</span>(
+        <span class="ident">metadata_slice</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>],
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">ArchivedSerializableModule</span>, <span class="ident">DeserializeError</span><span class="op">&gt;</span> {
         <span class="kw">if</span> <span class="ident">metadata_slice</span>.<span class="ident">len</span>() <span class="op">&lt;</span> <span class="number">8</span> {
             <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">DeserializeError::Incompatible</span>(
                 <span class="string">&quot;invalid serialized data&quot;</span>.<span class="ident">into</span>(),
@@ -203,7 +203,7 @@
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">pos</span>: [<span class="ident">u8</span>; <span class="number">8</span>] <span class="op">=</span> <span class="ident">Default::default</span>();
         <span class="ident">pos</span>.<span class="ident">copy_from_slice</span>(<span class="kw-2">&amp;</span><span class="ident">metadata_slice</span>[<span class="ident">metadata_slice</span>.<span class="ident">len</span>() <span class="op">-</span> <span class="number">8</span>..<span class="ident">metadata_slice</span>.<span class="ident">len</span>()]);
         <span class="kw">let</span> <span class="ident">pos</span>: <span class="ident">u64</span> <span class="op">=</span> <span class="ident">u64::from_le_bytes</span>(<span class="ident">pos</span>);
-        <span class="prelude-val">Ok</span>(<span class="ident">archived_value</span>::<span class="op">&lt;</span><span class="ident">SerializableModule</span><span class="op">&gt;</span>(
+        <span class="prelude-val">Ok</span>(<span class="ident">archived_value</span>::<span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span>(
             <span class="kw-2">&amp;</span><span class="ident">metadata_slice</span>[..<span class="ident">metadata_slice</span>.<span class="ident">len</span>() <span class="op">-</span> <span class="number">8</span>],
             <span class="ident">pos</span> <span class="kw">as</span> <span class="ident">usize</span>,
         ))

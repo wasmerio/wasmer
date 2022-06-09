@@ -580,7 +580,7 @@
         };
 
         <span class="kw">let</span> <span class="ident">base_ptr</span> <span class="op">=</span> <span class="ident">mmap</span>.<span class="ident">alloc</span>.<span class="ident">as_mut_ptr</span>();
-        <span class="kw">let</span> <span class="ident">mem_length</span> <span class="op">=</span> <span class="ident">memory</span>.<span class="ident">minimum</span>.<span class="ident">bytes</span>().<span class="number">0</span>.<span class="ident">try_into</span>().<span class="ident">unwrap</span>();
+        <span class="kw">let</span> <span class="ident">mem_length</span> <span class="op">=</span> <span class="ident">memory</span>.<span class="ident">minimum</span>.<span class="ident">bytes</span>().<span class="number">0</span>;
         <span class="prelude-val">Ok</span>(<span class="self">Self</span> {
             <span class="ident">mmap</span>: <span class="ident">Mutex::new</span>(<span class="ident">mmap</span>),
             <span class="ident">maximum</span>: <span class="ident">memory</span>.<span class="ident">maximum</span>,
@@ -625,7 +625,7 @@
     <span class="doccomment">/// Returns the type for this memory.</span>
     <span class="kw">fn</span> <span class="ident">ty</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">MemoryType</span> {
         <span class="kw">let</span> <span class="ident">minimum</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">size</span>();
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">out</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">memory</span>.<span class="ident">clone</span>();
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">out</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">memory</span>;
         <span class="ident">out</span>.<span class="ident">minimum</span> <span class="op">=</span> <span class="ident">minimum</span>;
 
         <span class="ident">out</span>
@@ -723,7 +723,7 @@
         <span class="kw">unsafe</span> {
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">md_ptr</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_vm_memory_definition</span>();
             <span class="kw">let</span> <span class="ident">md</span> <span class="op">=</span> <span class="ident">md_ptr</span>.<span class="ident">as_mut</span>();
-            <span class="ident">md</span>.<span class="ident">current_length</span> <span class="op">=</span> <span class="ident">new_pages</span>.<span class="ident">bytes</span>().<span class="number">0</span>.<span class="ident">try_into</span>().<span class="ident">unwrap</span>();
+            <span class="ident">md</span>.<span class="ident">current_length</span> <span class="op">=</span> <span class="ident">new_pages</span>.<span class="ident">bytes</span>().<span class="number">0</span>;
             <span class="ident">md</span>.<span class="ident">base</span> <span class="op">=</span> <span class="ident">mmap</span>.<span class="ident">alloc</span>.<span class="ident">as_mut_ptr</span>() <span class="kw">as</span> <span class="kw">_</span>;
         }
 

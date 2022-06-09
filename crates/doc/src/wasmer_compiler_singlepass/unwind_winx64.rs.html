@@ -303,9 +303,6 @@
 <span id="301">301</span>
 <span id="302">302</span>
 <span id="303">303</span>
-<span id="304">304</span>
-<span id="305">305</span>
-<span id="306">306</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Windows x64 ABI unwind information.</span>
 
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::unwind::UnwindOps</span>;
@@ -403,10 +400,7 @@
                 <span class="ident">reg</span>,
                 <span class="ident">stack_offset</span>,
             } =&gt; {
-                <span class="kw">let</span> <span class="ident">is_xmm</span> <span class="op">=</span> <span class="kw">match</span> <span class="self">self</span> {
-                    <span class="ident"><span class="self">Self</span>::SaveXmm</span> { .. } =&gt; <span class="bool-val">true</span>,
-                    <span class="kw">_</span> =&gt; <span class="bool-val">false</span>,
-                };
+                <span class="kw">let</span> <span class="ident">is_xmm</span> <span class="op">=</span> <span class="macro">matches!</span>(<span class="self">self</span>, <span class="ident"><span class="self">Self</span>::SaveXmm</span> { .. });
                 <span class="kw">let</span> (<span class="ident">op_small</span>, <span class="ident">op_large</span>) <span class="op">=</span> <span class="kw">if</span> <span class="ident">is_xmm</span> {
                     (<span class="ident">UnwindOperation::SaveXmm128</span>, <span class="ident">UnwindOperation::SaveXmm128Far</span>)
                 } <span class="kw">else</span> {
@@ -551,7 +545,7 @@
 
 <span class="kw">const</span> <span class="ident">UNWIND_RBP_REG</span>: <span class="ident">u8</span> <span class="op">=</span> <span class="number">5</span>;
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">create_unwind_info_from_insts</span>(<span class="ident">insts</span>: <span class="kw-2">&amp;</span><span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">usize</span>, <span class="ident">UnwindOps</span>)<span class="op">&gt;</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">UnwindInfo</span><span class="op">&gt;</span> {
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">create_unwind_info_from_insts</span>(<span class="ident">insts</span>: <span class="kw-2">&amp;</span>[(<span class="ident">usize</span>, <span class="ident">UnwindOps</span>)]) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">UnwindInfo</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">unwind_codes</span> <span class="op">=</span> <span class="macro">vec!</span>[];
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">frame_register_offset</span> <span class="op">=</span> <span class="number">0</span>;
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">max_unwind_offset</span> <span class="op">=</span> <span class="number">0</span>;

@@ -511,6 +511,7 @@
 <span id="509">509</span>
 <span id="510">510</span>
 <span id="511">511</span>
+<span id="512">512</span>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
 
@@ -742,6 +743,7 @@
     <span class="doccomment">///</span>
     <span class="doccomment">/// The `index` provided identifies the linear memory to query, and `heap` is the heap reference</span>
     <span class="doccomment">/// returned by `make_heap` for the same index.</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">translate_memory_copy</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">pos</span>: <span class="ident">FuncCursor</span>,

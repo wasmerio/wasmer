@@ -1935,14 +1935,14 @@
 }
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">Debug</span>, <span class="ident">Eq</span>, <span class="ident">PartialEq</span>)]</span>
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
+<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>, <span class="ident">clippy::upper_case_acronyms</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">XMMOrMemory</span> {
     <span class="ident">XMM</span>(<span class="ident">XMM</span>),
     <span class="ident">Memory</span>(<span class="ident">GPR</span>, <span class="ident">i32</span>),
 }
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">Debug</span>)]</span>
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
+<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>, <span class="ident">clippy::upper_case_acronyms</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">GPROrMemory</span> {
     <span class="ident">GPR</span>(<span class="ident">GPR</span>),
     <span class="ident">Memory</span>(<span class="ident">GPR</span>, <span class="ident">i32</span>),

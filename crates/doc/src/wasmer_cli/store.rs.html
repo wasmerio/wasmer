@@ -732,13 +732,13 @@
                         }
                         <span class="ident">CompiledKind::FunctionCallTrampoline</span>(<span class="ident">func_type</span>) =&gt; <span class="macro">format!</span>(
                             <span class="string">&quot;trampoline_call_{}_{}&quot;</span>,
-                            <span class="ident">types_to_signature</span>(<span class="kw-2">&amp;</span><span class="ident">func_type</span>.<span class="ident">params</span>()),
-                            <span class="ident">types_to_signature</span>(<span class="kw-2">&amp;</span><span class="ident">func_type</span>.<span class="ident">results</span>())
+                            <span class="ident">types_to_signature</span>(<span class="ident">func_type</span>.<span class="ident">params</span>()),
+                            <span class="ident">types_to_signature</span>(<span class="ident">func_type</span>.<span class="ident">results</span>())
                         ),
                         <span class="ident">CompiledKind::DynamicFunctionTrampoline</span>(<span class="ident">func_type</span>) =&gt; <span class="macro">format!</span>(
                             <span class="string">&quot;trampoline_dynamic_{}_{}&quot;</span>,
-                            <span class="ident">types_to_signature</span>(<span class="kw-2">&amp;</span><span class="ident">func_type</span>.<span class="ident">params</span>()),
-                            <span class="ident">types_to_signature</span>(<span class="kw-2">&amp;</span><span class="ident">func_type</span>.<span class="ident">results</span>())
+                            <span class="ident">types_to_signature</span>(<span class="ident">func_type</span>.<span class="ident">params</span>()),
+                            <span class="ident">types_to_signature</span>(<span class="ident">func_type</span>.<span class="ident">results</span>())
                         ),
                         <span class="ident">CompiledKind::Module</span> =&gt; <span class="string">&quot;module&quot;</span>.<span class="ident">into</span>(),
                     }

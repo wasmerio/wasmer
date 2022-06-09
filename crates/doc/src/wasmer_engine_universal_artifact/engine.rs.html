@@ -80,7 +80,7 @@
     <span class="doccomment">/// Create a new builder with pre-made components</span>
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">compiler</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Compiler</span><span class="op">&gt;</span><span class="op">&gt;</span>, <span class="ident">features</span>: <span class="ident">Features</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident">UniversalEngineBuilder</span> { <span class="ident">compiler</span>, <span class="ident">features</span> }
+        <span class="self">Self</span> { <span class="ident">compiler</span>, <span class="ident">features</span> }
     }
 
     <span class="doccomment">/// Gets the compiler associated to this engine.</span>
@@ -104,7 +104,7 @@
 
     <span class="doccomment">/// Validate the module</span>
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">validate</span><span class="op">&lt;</span><span class="lifetime">&#39;data</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">data</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;data</span> [<span class="ident">u8</span>]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">validate</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">data</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">compiler</span>()<span class="question-mark">?</span>.<span class="ident">validate_module</span>(<span class="self">self</span>.<span class="ident">features</span>(), <span class="ident">data</span>)
     }
 

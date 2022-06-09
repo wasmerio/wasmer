@@ -2856,7 +2856,6 @@
 <span id="2854">2854</span>
 <span id="2855">2855</span>
 <span id="2856">2856</span>
-<span id="2857">2857</span>
 </pre><pre class="rust"><code><span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::arm64_decl</span>::{<span class="ident">ARM64Register</span>, <span class="ident">ArgumentRegisterAllocator</span>, <span class="ident">GPR</span>, <span class="ident">NEON</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::common_decl::Size</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::location::Location</span> <span class="kw">as</span> <span class="ident">AbstractLocation</span>;
@@ -2929,14 +2928,14 @@
 }
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">Debug</span>, <span class="ident">Eq</span>, <span class="ident">PartialEq</span>)]</span>
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
+<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>, <span class="ident">clippy::upper_case_acronyms</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">NeonOrMemory</span> {
     <span class="ident">NEON</span>(<span class="ident">NEON</span>),
     <span class="ident">Memory</span>(<span class="ident">GPR</span>, <span class="ident">i32</span>),
 }
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">Debug</span>)]</span>
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
+<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>, <span class="ident">clippy::upper_case_acronyms</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">GPROrMemory</span> {
     <span class="ident">GPR</span>(<span class="ident">GPR</span>),
     <span class="ident">Memory</span>(<span class="ident">GPR</span>, <span class="ident">i32</span>),
@@ -4024,14 +4023,14 @@
             }
             (<span class="ident">Size::S64</span>, <span class="ident">Location::Imm32</span>(<span class="ident">imm</span>), <span class="ident">Location::GPR</span>(<span class="ident">dst</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">dst</span> <span class="op">=</span> <span class="ident">dst</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
-                <span class="kw">if</span> <span class="op">!</span><span class="ident">encode_logical_immediate_64bit</span>(<span class="ident">imm</span> <span class="kw">as</span> <span class="ident">u64</span>).<span class="ident">is_some</span>() {
+                <span class="kw">if</span> <span class="ident">encode_logical_immediate_64bit</span>(<span class="ident">imm</span> <span class="kw">as</span> <span class="ident">u64</span>).<span class="ident">is_none</span>() {
                     <span class="macro">unreachable!</span>();
                 }
                 <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">tst</span> <span class="ident">X</span>(<span class="ident">dst</span>), <span class="ident">imm</span> <span class="kw">as</span> <span class="ident">u64</span>);
             }
             (<span class="ident">Size::S64</span>, <span class="ident">Location::Imm64</span>(<span class="ident">imm</span>), <span class="ident">Location::GPR</span>(<span class="ident">dst</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">dst</span> <span class="op">=</span> <span class="ident">dst</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
-                <span class="kw">if</span> <span class="op">!</span><span class="ident">encode_logical_immediate_64bit</span>(<span class="ident">imm</span> <span class="kw">as</span> <span class="ident">u64</span>).<span class="ident">is_some</span>() {
+                <span class="kw">if</span> <span class="ident">encode_logical_immediate_64bit</span>(<span class="ident">imm</span> <span class="kw">as</span> <span class="ident">u64</span>).<span class="ident">is_none</span>() {
                     <span class="macro">unreachable!</span>();
                 }
                 <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">tst</span> <span class="ident">X</span>(<span class="ident">dst</span>), <span class="ident">imm</span> <span class="kw">as</span> <span class="ident">u64</span>);
@@ -4043,7 +4042,7 @@
             }
             (<span class="ident">Size::S32</span>, <span class="ident">Location::Imm32</span>(<span class="ident">imm</span>), <span class="ident">Location::GPR</span>(<span class="ident">dst</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">dst</span> <span class="op">=</span> <span class="ident">dst</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
-                <span class="kw">if</span> <span class="op">!</span><span class="ident">encode_logical_immediate_64bit</span>(<span class="ident">imm</span> <span class="kw">as</span> <span class="ident">u64</span>).<span class="ident">is_some</span>() {
+                <span class="kw">if</span> <span class="ident">encode_logical_immediate_64bit</span>(<span class="ident">imm</span> <span class="kw">as</span> <span class="ident">u64</span>).<span class="ident">is_none</span>() {
                     <span class="macro">unreachable!</span>();
                 }
                 <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">tst</span> <span class="ident">W</span>(<span class="ident">dst</span>), <span class="ident">imm</span>);
@@ -4317,7 +4316,7 @@
                 <span class="kw">let</span> <span class="ident">src1</span> <span class="op">=</span> <span class="ident">src1</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
                 <span class="kw">let</span> <span class="ident">src2</span> <span class="op">=</span> <span class="ident">src2</span> <span class="kw">as</span> <span class="ident">u64</span>;
                 <span class="kw">let</span> <span class="ident">dst</span> <span class="op">=</span> <span class="ident">dst</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
-                <span class="kw">if</span> <span class="op">!</span><span class="ident">encode_logical_immediate_64bit</span>(<span class="ident">src2</span> <span class="kw">as</span> <span class="ident">u64</span>).<span class="ident">is_some</span>() {
+                <span class="kw">if</span> <span class="ident">encode_logical_immediate_64bit</span>(<span class="ident">src2</span> <span class="kw">as</span> <span class="ident">u64</span>).<span class="ident">is_none</span>() {
                     <span class="macro">unreachable!</span>();
                 }
                 <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">orr</span> <span class="ident">X</span>(<span class="ident">dst</span>), <span class="ident">X</span>(<span class="ident">src1</span>), <span class="ident">src2</span>);
@@ -4326,7 +4325,7 @@
                 <span class="kw">let</span> <span class="ident">src1</span> <span class="op">=</span> <span class="ident">src1</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
                 <span class="kw">let</span> <span class="ident">src2</span> <span class="op">=</span> <span class="ident">src2</span> <span class="kw">as</span> <span class="ident">u32</span>;
                 <span class="kw">let</span> <span class="ident">dst</span> <span class="op">=</span> <span class="ident">dst</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
-                <span class="kw">if</span> <span class="op">!</span><span class="ident">encode_logical_immediate_32bit</span>(<span class="ident">src2</span>).<span class="ident">is_some</span>() {
+                <span class="kw">if</span> <span class="ident">encode_logical_immediate_32bit</span>(<span class="ident">src2</span>).<span class="ident">is_none</span>() {
                     <span class="macro">unreachable!</span>();
                 }
                 <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">orr</span> <span class="ident">W</span>(<span class="ident">dst</span>), <span class="ident">W</span>(<span class="ident">src1</span>), <span class="ident">src2</span>);
@@ -4355,7 +4354,7 @@
                 <span class="kw">let</span> <span class="ident">src1</span> <span class="op">=</span> <span class="ident">src1</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
                 <span class="kw">let</span> <span class="ident">src2</span> <span class="op">=</span> <span class="ident">src2</span> <span class="kw">as</span> <span class="ident">u64</span>;
                 <span class="kw">let</span> <span class="ident">dst</span> <span class="op">=</span> <span class="ident">dst</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
-                <span class="kw">if</span> <span class="op">!</span><span class="ident">encode_logical_immediate_64bit</span>(<span class="ident">src2</span> <span class="kw">as</span> <span class="ident">u64</span>).<span class="ident">is_some</span>() {
+                <span class="kw">if</span> <span class="ident">encode_logical_immediate_64bit</span>(<span class="ident">src2</span> <span class="kw">as</span> <span class="ident">u64</span>).<span class="ident">is_none</span>() {
                     <span class="macro">unreachable!</span>();
                 }
                 <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">and</span> <span class="ident">X</span>(<span class="ident">dst</span>), <span class="ident">X</span>(<span class="ident">src1</span>), <span class="ident">src2</span>);
@@ -4364,7 +4363,7 @@
                 <span class="kw">let</span> <span class="ident">src1</span> <span class="op">=</span> <span class="ident">src1</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
                 <span class="kw">let</span> <span class="ident">src2</span> <span class="op">=</span> <span class="ident">src2</span> <span class="kw">as</span> <span class="ident">u32</span>;
                 <span class="kw">let</span> <span class="ident">dst</span> <span class="op">=</span> <span class="ident">dst</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
-                <span class="kw">if</span> <span class="op">!</span><span class="ident">encode_logical_immediate_32bit</span>(<span class="ident">src2</span>).<span class="ident">is_some</span>() {
+                <span class="kw">if</span> <span class="ident">encode_logical_immediate_32bit</span>(<span class="ident">src2</span>).<span class="ident">is_none</span>() {
                     <span class="macro">unreachable!</span>();
                 }
                 <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">and</span> <span class="ident">W</span>(<span class="ident">dst</span>), <span class="ident">W</span>(<span class="ident">src1</span>), <span class="ident">src2</span>);
@@ -4393,7 +4392,7 @@
                 <span class="kw">let</span> <span class="ident">src1</span> <span class="op">=</span> <span class="ident">src1</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
                 <span class="kw">let</span> <span class="ident">src2</span> <span class="op">=</span> <span class="ident">src2</span> <span class="kw">as</span> <span class="ident">u64</span>;
                 <span class="kw">let</span> <span class="ident">dst</span> <span class="op">=</span> <span class="ident">dst</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
-                <span class="kw">if</span> <span class="op">!</span><span class="ident">encode_logical_immediate_64bit</span>(<span class="ident">src2</span> <span class="kw">as</span> <span class="ident">u64</span>).<span class="ident">is_some</span>() {
+                <span class="kw">if</span> <span class="ident">encode_logical_immediate_64bit</span>(<span class="ident">src2</span> <span class="kw">as</span> <span class="ident">u64</span>).<span class="ident">is_none</span>() {
                     <span class="macro">unreachable!</span>();
                 }
                 <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">eor</span> <span class="ident">X</span>(<span class="ident">dst</span>), <span class="ident">X</span>(<span class="ident">src1</span>), <span class="ident">src2</span>);
@@ -4402,7 +4401,7 @@
                 <span class="kw">let</span> <span class="ident">src1</span> <span class="op">=</span> <span class="ident">src1</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
                 <span class="kw">let</span> <span class="ident">src2</span> <span class="op">=</span> <span class="ident">src2</span> <span class="kw">as</span> <span class="ident">u32</span>;
                 <span class="kw">let</span> <span class="ident">dst</span> <span class="op">=</span> <span class="ident">dst</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
-                <span class="kw">if</span> <span class="op">!</span><span class="ident">encode_logical_immediate_32bit</span>(<span class="ident">src2</span>).<span class="ident">is_some</span>() {
+                <span class="kw">if</span> <span class="ident">encode_logical_immediate_32bit</span>(<span class="ident">src2</span>).<span class="ident">is_none</span>() {
                     <span class="macro">unreachable!</span>();
                 }
                 <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">eor</span> <span class="ident">W</span>(<span class="ident">dst</span>), <span class="ident">W</span>(<span class="ident">src1</span>), <span class="ident">src2</span>);
@@ -5312,6 +5311,7 @@
                 );
             }
             <span class="kw">_</span> =&gt; {
+                <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::single_match</span>)]</span>
                 <span class="kw">match</span> <span class="ident">calling_convention</span> {
                     <span class="ident">CallingConvention::AppleAarch64</span> =&gt; {
                         <span class="kw">match</span> <span class="ident">sz</span> {
@@ -5472,6 +5472,7 @@
         }
     }
 
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::match_single_binding</span>)]</span>
     <span class="kw">match</span> <span class="ident">calling_convention</span> {
         <span class="kw">_</span> =&gt; {
             <span class="comment">// Load target address.</span>
@@ -5553,10 +5554,9 @@
         .<span class="ident">iter</span>()
         .<span class="ident">any</span>(<span class="op">|</span><span class="kw-2">&amp;</span><span class="ident">x</span><span class="op">|</span> <span class="ident">x</span> <span class="op">==</span> <span class="ident">Type::F32</span> <span class="op">|</span><span class="op">|</span> <span class="ident">x</span> <span class="op">==</span> <span class="ident">Type::F64</span>)
     {
+        <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::match_single_binding</span>)]</span>
         <span class="kw">match</span> <span class="ident">calling_convention</span> {
             <span class="kw">_</span> =&gt; {
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">param_locations</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Location</span><span class="op">&gt;</span> <span class="op">=</span> <span class="macro">vec!</span>[];
-
                 <span class="comment">// Allocate stack space for arguments.</span>
                 <span class="kw">let</span> <span class="ident">stack_offset</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">sig</span>.<span class="ident">params</span>().<span class="ident">len</span>() <span class="op">&gt;</span> <span class="number">7</span> {
                     <span class="number">7</span> <span class="op">*</span> <span class="number">8</span>
@@ -5588,26 +5588,23 @@
                 }
 
                 <span class="comment">// Store all arguments to the stack to prevent overwrite.</span>
-                <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">sig</span>.<span class="ident">params</span>().<span class="ident">len</span>() {
-                    <span class="kw">let</span> <span class="ident">loc</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">i</span> {
-                        <span class="number">0</span>..<span class="op">=</span><span class="number">6</span> =&gt; {
-                            <span class="kw">static</span> <span class="ident">PARAM_REGS</span>: <span class="kw-2">&amp;</span>[<span class="ident">GPR</span>] <span class="op">=</span> <span class="kw-2">&amp;</span>[
-                                <span class="ident">GPR::X1</span>,
-                                <span class="ident">GPR::X2</span>,
-                                <span class="ident">GPR::X3</span>,
-                                <span class="ident">GPR::X4</span>,
-                                <span class="ident">GPR::X5</span>,
-                                <span class="ident">GPR::X6</span>,
-                                <span class="ident">GPR::X7</span>,
-                            ];
-                            <span class="kw">let</span> <span class="ident">loc</span> <span class="op">=</span> <span class="ident">Location::Memory</span>(<span class="ident">GPR::XzrSp</span>, (<span class="ident">i</span> <span class="op">*</span> <span class="number">8</span>) <span class="kw">as</span> <span class="ident">i32</span>);
-                            <span class="ident">a</span>.<span class="ident">emit_str</span>(<span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">PARAM_REGS</span>[<span class="ident">i</span>]), <span class="ident">loc</span>);
-                            <span class="ident">loc</span>
-                        }
-                        <span class="kw">_</span> =&gt; <span class="ident">Location::Memory</span>(<span class="ident">GPR::XzrSp</span>, <span class="ident">stack_offset</span> <span class="op">+</span> ((<span class="ident">i</span> <span class="op">-</span> <span class="number">7</span>) <span class="op">*</span> <span class="number">8</span>) <span class="kw">as</span> <span class="ident">i32</span>),
-                    };
-                    <span class="ident">param_locations</span>.<span class="ident">push</span>(<span class="ident">loc</span>);
-                }
+                <span class="kw">static</span> <span class="ident">PARAM_REGS</span>: <span class="kw-2">&amp;</span>[<span class="ident">GPR</span>] <span class="op">=</span> <span class="kw-2">&amp;</span>[
+                    <span class="ident">GPR::X1</span>,
+                    <span class="ident">GPR::X2</span>,
+                    <span class="ident">GPR::X3</span>,
+                    <span class="ident">GPR::X4</span>,
+                    <span class="ident">GPR::X5</span>,
+                    <span class="ident">GPR::X6</span>,
+                    <span class="ident">GPR::X7</span>,
+                ];
+                <span class="kw">let</span> <span class="ident">gpr_iter</span> <span class="op">=</span> <span class="ident">PARAM_REGS</span>.<span class="ident">iter</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">r</span><span class="op">|</span> <span class="ident">Location::GPR</span>(<span class="kw-2">*</span><span class="ident">r</span>));
+                <span class="kw">let</span> <span class="ident">memory_iter</span> <span class="op">=</span>
+                    (<span class="number">0i32</span>..).<span class="ident">map</span>(<span class="op">|</span><span class="ident">i</span><span class="op">|</span> <span class="ident">Location::Memory</span>(<span class="ident">GPR::XzrSp</span>, <span class="ident">stack_offset</span> <span class="op">+</span> <span class="ident">i</span> <span class="op">*</span> <span class="number">8</span>));
+
+                <span class="kw">let</span> <span class="ident">param_locations</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Location</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">gpr_iter</span>
+                    .<span class="ident">chain</span>(<span class="ident">memory_iter</span>)
+                    .<span class="ident">take</span>(<span class="ident">sig</span>.<span class="ident">params</span>().<span class="ident">len</span>())
+                    .<span class="ident">collect</span>();
 
                 <span class="comment">// Copy arguments.</span>
                 <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">caller_stack_offset</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="number">0</span>;
@@ -5675,6 +5672,7 @@
             );
             <span class="number">0</span>
         };
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::match_single_binding</span>)]</span>
     <span class="kw">match</span> <span class="ident">calling_convention</span> {
         <span class="kw">_</span> =&gt; {
             <span class="kw">if</span> (<span class="ident">offset</span> <span class="op">&amp;</span> <span class="number">7</span>) <span class="op">==</span> <span class="number">0</span> {

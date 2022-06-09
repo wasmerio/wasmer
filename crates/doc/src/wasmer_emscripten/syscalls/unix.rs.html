@@ -1139,6 +1139,10 @@
 <span id="1137">1137</span>
 <span id="1138">1138</span>
 <span id="1139">1139</span>
+<span id="1140">1140</span>
+<span id="1141">1141</span>
+<span id="1142">1142</span>
+<span id="1143">1143</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">varargs::VarArgs</span>, <span class="ident">LibcDirWrapper</span>};
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_vendor</span> <span class="op">=</span> <span class="string">&quot;apple&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">libc::size_t</span>;
@@ -1593,10 +1597,14 @@
     <span class="comment">// Set flags on newfd (https://www.gnu.org/software/libc/manual/html_node/Descriptor-Flags.html)</span>
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">old_flags</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">fcntl</span>(<span class="ident">newfd</span>, <span class="ident">F_GETFD</span>, <span class="number">0</span>) };
 
-    <span class="kw">if</span> <span class="ident">old_flags</span> <span class="op">&gt;</span> <span class="number">0</span> {
-        <span class="ident">old_flags</span> <span class="op">|</span><span class="op">=</span> <span class="ident">flags</span>;
-    } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">old_flags</span> <span class="op">==</span> <span class="number">0</span> {
-        <span class="ident">old_flags</span> <span class="op">&amp;=</span> <span class="op">!</span><span class="ident">flags</span>;
+    <span class="kw">match</span> <span class="ident">old_flags</span> {
+        <span class="ident">f</span> <span class="kw">if</span> <span class="ident">f</span> <span class="op">&gt;</span> <span class="number">0</span> =&gt; {
+            <span class="ident">old_flags</span> <span class="op">|</span><span class="op">=</span> <span class="ident">flags</span>;
+        }
+        <span class="number">0</span> =&gt; {
+            <span class="ident">old_flags</span> <span class="op">&amp;=</span> <span class="op">!</span><span class="ident">flags</span>;
+        }
+        <span class="kw">_</span> =&gt; {}
     }
 
     <span class="kw">unsafe</span> {

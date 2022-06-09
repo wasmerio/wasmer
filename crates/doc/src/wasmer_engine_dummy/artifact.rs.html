@@ -374,7 +374,7 @@
             <span class="ident">table_styles</span>,
             <span class="ident">cpu_features</span>: <span class="ident">engine</span>.<span class="ident">target</span>().<span class="ident">cpu_features</span>().<span class="ident">as_u64</span>(),
         };
-        <span class="ident"><span class="self">Self</span>::from_parts</span>(<span class="kw-2">&amp;</span><span class="ident">engine</span>, <span class="ident">metadata</span>)
+        <span class="ident"><span class="self">Self</span>::from_parts</span>(<span class="ident">engine</span>, <span class="ident">metadata</span>)
     }
 
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>))]</span>
@@ -396,7 +396,7 @@
         <span class="kw">let</span> <span class="ident">metadata</span>: <span class="ident">DummyArtifactMetadata</span> <span class="op">=</span> <span class="ident">bincode::deserialize</span>(<span class="ident">inner_bytes</span>)
             .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">DeserializeError::CorruptedBinary</span>(<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">e</span>)))<span class="question-mark">?</span>;
 
-        <span class="ident"><span class="self">Self</span>::from_parts</span>(<span class="kw-2">&amp;</span><span class="ident">engine</span>, <span class="ident">metadata</span>).<span class="ident">map_err</span>(<span class="ident">DeserializeError::Compiler</span>)
+        <span class="ident"><span class="self">Self</span>::from_parts</span>(<span class="ident">engine</span>, <span class="ident">metadata</span>).<span class="ident">map_err</span>(<span class="ident">DeserializeError::Compiler</span>)
     }
 
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;serialize&quot;</span>))]</span>

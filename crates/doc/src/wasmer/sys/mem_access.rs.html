@@ -372,6 +372,12 @@
 <span id="370">370</span>
 <span id="371">371</span>
 <span id="372">372</span>
+<span id="373">373</span>
+<span id="374">374</span>
+<span id="375">375</span>
+<span id="376">376</span>
+<span id="377">377</span>
+<span id="378">378</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::RuntimeError</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">Memory</span>, <span class="ident">Memory32</span>, <span class="ident">Memory64</span>, <span class="ident">WasmPtr</span>};
 <span class="kw">use</span> <span class="ident">std</span>::{
@@ -403,12 +409,12 @@
 
 <span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">MemoryAccessError</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">RuntimeError</span> {
     <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">err</span>: <span class="ident">MemoryAccessError</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident">RuntimeError::new</span>(<span class="ident">err</span>.<span class="ident">to_string</span>())
+        <span class="ident"><span class="self">Self</span>::new</span>(<span class="ident">err</span>.<span class="ident">to_string</span>())
     }
 }
 <span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">FromUtf8Error</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">MemoryAccessError</span> {
     <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">_err</span>: <span class="ident">FromUtf8Error</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident">MemoryAccessError::NonUtf8String</span>
+        <span class="ident"><span class="self">Self</span>::NonUtf8String</span>
     }
 }
 
@@ -565,6 +571,12 @@
         <span class="self">self</span>.<span class="ident">len</span>
     }
 
+    <span class="doccomment">/// Returns `true` if the number of elements is 0.</span>
+    <span class="attribute">#[<span class="ident">inline</span>]</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_empty</span>(<span class="self">self</span>) -&gt; <span class="ident">bool</span> {
+        <span class="self">self</span>.<span class="ident">len</span> <span class="op">==</span> <span class="number">0</span>
+    }
+
     <span class="doccomment">/// Get a reference to the Wasm memory backing this reference.</span>
     <span class="attribute">#[<span class="ident">inline</span>]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">memory</span>(<span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">Memory</span> {
@@ -717,7 +729,7 @@
     <span class="kw">type</span> <span class="ident">Item</span> <span class="op">=</span> <span class="ident">WasmRef</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">T</span><span class="op">&gt;</span>;
 
     <span class="kw">fn</span> <span class="ident">next</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::Item</span><span class="op">&gt;</span> {
-        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">slice</span>.<span class="ident">len</span>() <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
+        <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">slice</span>.<span class="ident">is_empty</span>() {
             <span class="kw">let</span> <span class="ident">elem</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">slice</span>.<span class="ident">index</span>(<span class="number">0</span>);
             <span class="self">self</span>.<span class="ident">slice</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">slice</span>.<span class="ident">subslice</span>(<span class="number">1</span>..<span class="self">self</span>.<span class="ident">slice</span>.<span class="ident">len</span>());
             <span class="prelude-val">Some</span>(<span class="ident">elem</span>)
@@ -733,7 +745,7 @@
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">T</span>: <span class="ident">ValueType</span><span class="op">&gt;</span> <span class="ident">DoubleEndedIterator</span> <span class="kw">for</span> <span class="ident">WasmSliceIter</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">T</span><span class="op">&gt;</span> {
     <span class="kw">fn</span> <span class="ident">next_back</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::Item</span><span class="op">&gt;</span> {
-        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">slice</span>.<span class="ident">len</span>() <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
+        <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">slice</span>.<span class="ident">is_empty</span>() {
             <span class="kw">let</span> <span class="ident">elem</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">slice</span>.<span class="ident">index</span>(<span class="self">self</span>.<span class="ident">slice</span>.<span class="ident">len</span>() <span class="op">-</span> <span class="number">1</span>);
             <span class="self">self</span>.<span class="ident">slice</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">slice</span>.<span class="ident">subslice</span>(<span class="number">0</span>..<span class="self">self</span>.<span class="ident">slice</span>.<span class="ident">len</span>() <span class="op">-</span> <span class="number">1</span>);
             <span class="prelude-val">Some</span>(<span class="ident">elem</span>)

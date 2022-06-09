@@ -211,7 +211,7 @@
         <span class="kw">_</span> =&gt; <span class="macro">abort!</span>(<span class="ident">input</span>, <span class="string">&quot;ValueType can only be derived for structs&quot;</span>),
     };
 
-    <span class="kw">let</span> <span class="ident">zero_padding</span> <span class="op">=</span> <span class="ident">zero_padding</span>(<span class="kw-2">&amp;</span><span class="ident">fields</span>);
+    <span class="kw">let</span> <span class="ident">zero_padding</span> <span class="op">=</span> <span class="ident">zero_padding</span>(<span class="ident">fields</span>);
 
     <span class="macro">quote!</span> {
         <span class="kw">unsafe</span> <span class="kw">impl</span> #<span class="ident">impl_generics</span> <span class="ident">::wasmer::ValueType</span> <span class="kw">for</span> #<span class="ident">struct_name</span> #<span class="ident">ty_generics</span> #<span class="ident">where_clause</span> {

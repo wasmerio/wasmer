@@ -1594,10 +1594,6 @@
 <span id="1592">1592</span>
 <span id="1593">1593</span>
 <span id="1594">1594</span>
-<span id="1595">1595</span>
-<span id="1596">1596</span>
-<span id="1597">1597</span>
-<span id="1598">1598</span>
 </pre><pre class="rust"><code><span class="doccomment">//! WARNING: the API exposed here is unstable and very experimental.  Certain things are not ready</span>
 <span class="doccomment">//! yet and may be broken in patch releases.  If you&#39;re using this and have any specific needs,</span>
 <span class="doccomment">//! please [let us know here](https://github.com/wasmerio/wasmer/issues/583) or by filing an issue.</span>
@@ -1887,13 +1883,10 @@
                 <span class="kw-2">&amp;</span><span class="ident">path</span>.<span class="ident">to_string_lossy</span>(),
                 <span class="kw-2">&amp;</span><span class="ident">alias</span>
             );
-            <span class="kw">let</span> <span class="ident">cur_dir_metadata</span> <span class="op">=</span> <span class="ident">wasi_fs</span>.<span class="ident">fs_backing</span>.<span class="ident">metadata</span>(<span class="ident">path</span>).<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> {
-                <span class="macro">format!</span>(
-                    <span class="string">&quot;Could not get metadata for file {:?}: {}&quot;</span>,
-                    <span class="ident">path</span>,
-                    <span class="ident">e</span>.<span class="ident">to_string</span>()
-                )
-            })<span class="question-mark">?</span>;
+            <span class="kw">let</span> <span class="ident">cur_dir_metadata</span> <span class="op">=</span> <span class="ident">wasi_fs</span>
+                .<span class="ident">fs_backing</span>
+                .<span class="ident">metadata</span>(<span class="ident">path</span>)
+                .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;Could not get metadata for file {:?}: {}&quot;</span>, <span class="ident">path</span>, <span class="ident">e</span>))<span class="question-mark">?</span>;
 
             <span class="kw">let</span> <span class="ident">kind</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">cur_dir_metadata</span>.<span class="ident">is_dir</span>() {
                 <span class="ident">Kind::Dir</span> {
@@ -2789,12 +2782,11 @@
                 <span class="kw">let</span> <span class="ident">inode</span> <span class="op">=</span> <span class="kw-2">&amp;mut</span> <span class="self">self</span>.<span class="ident">inodes</span>[<span class="ident">fd</span>.<span class="ident">inode</span>];
 
                 <span class="kw">match</span> <span class="kw-2">&amp;mut</span> <span class="ident">inode</span>.<span class="ident">kind</span> {
-                    <span class="ident">Kind::File</span> { <span class="ident">handle</span>, .. } =&gt; {
-                        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">file</span>) <span class="op">=</span> <span class="ident">handle</span> {
-                            <span class="ident">file</span>.<span class="ident">flush</span>().<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">__WASI_EIO</span>)<span class="question-mark">?</span>
-                        } <span class="kw">else</span> {
-                            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">__WASI_EIO</span>);
-                        }
+                    <span class="ident">Kind::File</span> {
+                        <span class="ident">handle</span>: <span class="prelude-val">Some</span>(<span class="ident">file</span>), ..
+                    } =&gt; <span class="ident">file</span>.<span class="ident">flush</span>().<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">__WASI_EIO</span>)<span class="question-mark">?</span>,
+                    <span class="ident">Kind::File</span> { <span class="ident">handle</span>: <span class="prelude-val">None</span>, .. } =&gt; {
+                        <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">__WASI_EIO</span>);
                     }
                     <span class="comment">// TODO: verify this behavior</span>
                     <span class="ident">Kind::Dir</span> { .. } =&gt; <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">__WASI_EISDIR</span>),

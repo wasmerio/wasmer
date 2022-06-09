@@ -444,9 +444,6 @@
 <span id="442">442</span>
 <span id="443">443</span>
 <span id="444">444</span>
-<span id="445">445</span>
-<span id="446">446</span>
-<span id="447">447</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">super</span>::utils</span>::{<span class="ident">copy_cstr_into_wasm</span>, <span class="ident">write_to_buf</span>};
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">allocate_on_stack</span>, <span class="ident">lazy_static</span>, <span class="ident">EmEnv</span>};
 <span class="kw">use</span> <span class="ident">libc</span>::{<span class="ident">c_char</span>, <span class="ident">c_int</span>};
@@ -766,12 +763,9 @@
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_ctime_r</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">time_p</span>: <span class="ident">u32</span>, <span class="ident">buf</span>: <span class="ident">u32</span>) -&gt; <span class="ident">u32</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_ctime_r {} {}&quot;</span>, <span class="ident">time_p</span>, <span class="ident">buf</span>);
 
-    <span class="comment">// var stack = stackSave();</span>
     <span class="kw">let</span> (<span class="ident">result_offset</span>, <span class="ident">_result_slice</span>): (<span class="ident">u32</span>, <span class="kw-2">&amp;mut</span> [<span class="ident">u8</span>]) <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">allocate_on_stack</span>(<span class="ident">ctx</span>, <span class="number">44</span>) };
     <span class="kw">let</span> <span class="ident">time</span> <span class="op">=</span> <span class="ident">_localtime_r</span>(<span class="ident">ctx</span>, <span class="ident">time_p</span>, <span class="ident">result_offset</span>) <span class="kw">as</span> <span class="ident">u32</span>;
-    <span class="kw">let</span> <span class="ident">rv</span> <span class="op">=</span> <span class="ident">_asctime_r</span>(<span class="ident">ctx</span>, <span class="ident">time</span>, <span class="ident">buf</span>);
-    <span class="comment">// stackRestore(stack);</span>
-    <span class="ident">rv</span>
+    <span class="ident">_asctime_r</span>(<span class="ident">ctx</span>, <span class="ident">time</span>, <span class="ident">buf</span>)
 }
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_ctime</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">time_p</span>: <span class="ident">u32</span>) -&gt; <span class="ident">u32</span> {
@@ -852,11 +846,11 @@
     <span class="kw">let</span> <span class="ident">tm</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">tm</span> };
 
     <span class="kw">let</span> <span class="ident">rust_date</span> <span class="op">=</span> <span class="ident">time::Date::try_from_ymd</span>(<span class="ident">tm</span>.<span class="ident">tm_year</span>, <span class="ident">tm</span>.<span class="ident">tm_mon</span> <span class="kw">as</span> <span class="ident">u8</span>, <span class="ident">tm</span>.<span class="ident">tm_mday</span> <span class="kw">as</span> <span class="ident">u8</span>);
-    <span class="kw">if</span> <span class="op">!</span><span class="ident">rust_date</span>.<span class="ident">is_ok</span>() {
+    <span class="kw">if</span> <span class="ident">rust_date</span>.<span class="ident">is_err</span>() {
         <span class="kw">return</span> <span class="number">0</span>;
     }
     <span class="kw">let</span> <span class="ident">rust_time</span> <span class="op">=</span> <span class="ident">time::Time::try_from_hms</span>(<span class="ident">tm</span>.<span class="ident">tm_hour</span> <span class="kw">as</span> <span class="ident">u8</span>, <span class="ident">tm</span>.<span class="ident">tm_min</span> <span class="kw">as</span> <span class="ident">u8</span>, <span class="ident">tm</span>.<span class="ident">tm_sec</span> <span class="kw">as</span> <span class="ident">u8</span>);
-    <span class="kw">if</span> <span class="op">!</span><span class="ident">rust_time</span>.<span class="ident">is_ok</span>() {
+    <span class="kw">if</span> <span class="ident">rust_time</span>.<span class="ident">is_err</span>() {
         <span class="kw">return</span> <span class="number">0</span>;
     }
     <span class="kw">let</span> <span class="ident">rust_datetime</span> <span class="op">=</span> <span class="ident">time::PrimitiveDateTime::new</span>(<span class="ident">rust_date</span>.<span class="ident">unwrap</span>(), <span class="ident">rust_time</span>.<span class="ident">unwrap</span>());

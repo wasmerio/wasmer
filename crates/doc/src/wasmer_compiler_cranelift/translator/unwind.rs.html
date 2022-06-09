@@ -83,7 +83,7 @@
     <span class="ident">WindowsX64</span>(<span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>),
     <span class="doccomment">/// Dwarf FDE</span>
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unwind&quot;</span>)]</span>
-    <span class="ident">FDE</span>(<span class="ident">DwarfFDE</span>),
+    <span class="ident">Fde</span>(<span class="ident">DwarfFDE</span>),
     <span class="doccomment">/// No Unwind info attached</span>
     <span class="prelude-val">None</span>,
 }
@@ -121,7 +121,7 @@
             <span class="ident">unwind</span>.<span class="ident">emit</span>(<span class="kw-2">&amp;mut</span> <span class="ident">data</span>[..]);
             <span class="prelude-val">Ok</span>(<span class="ident">CraneliftUnwindInfo::WindowsX64</span>(<span class="ident">data</span>))
         }
-        <span class="prelude-val">Some</span>(<span class="ident">UnwindInfo::SystemV</span>(<span class="ident">unwind</span>)) =&gt; <span class="prelude-val">Ok</span>(<span class="ident">CraneliftUnwindInfo::FDE</span>(<span class="ident">unwind</span>)),
+        <span class="prelude-val">Some</span>(<span class="ident">UnwindInfo::SystemV</span>(<span class="ident">unwind</span>)) =&gt; <span class="prelude-val">Ok</span>(<span class="ident">CraneliftUnwindInfo::Fde</span>(<span class="ident">unwind</span>)),
         <span class="prelude-val">Some</span>(<span class="kw">_</span>) <span class="op">|</span> <span class="prelude-val">None</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident">CraneliftUnwindInfo::None</span>),
     }
 }

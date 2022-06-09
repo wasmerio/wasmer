@@ -228,6 +228,7 @@
 <span id="226">226</span>
 <span id="227">227</span>
 <span id="228">228</span>
+<span id="229">229</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::compiler::LLVMCompiler</span>;
 <span class="kw">use</span> <span class="ident">inkwell::targets</span>::{
     <span class="ident">CodeModel</span>, <span class="ident">InitializationConfig</span>, <span class="ident">RelocMode</span>, <span class="ident">Target</span> <span class="kw">as</span> <span class="ident">InkwellTarget</span>, <span class="ident">TargetMachine</span>,
@@ -340,6 +341,7 @@
             <span class="comment">//</span>
             <span class="comment">// Since both linux and darwin use SysV ABI, this should work.</span>
             <span class="comment">//  but not in the case of Aarch64, there the ABI is slightly different</span>
+            <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::match_single_binding</span>)]</span>
             <span class="kw">match</span> <span class="ident">target</span>.<span class="ident">triple</span>().<span class="ident">architecture</span> {
                 <span class="kw">_</span> =&gt; <span class="ident">wasmer_compiler::OperatingSystem::Linux</span>,
             }
@@ -404,7 +406,7 @@
             .<span class="ident">map</span>(<span class="op">|</span><span class="ident">feature</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;+{}&quot;</span>, <span class="ident">feature</span>.<span class="ident">to_string</span>()))
             .<span class="ident">join</span>(<span class="string">&quot;,&quot;</span>);
 
-        <span class="kw">let</span> <span class="ident">target_triple</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">target_triple</span>(<span class="kw-2">&amp;</span><span class="ident">target</span>);
+        <span class="kw">let</span> <span class="ident">target_triple</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">target_triple</span>(<span class="ident">target</span>);
         <span class="kw">let</span> <span class="ident">llvm_target</span> <span class="op">=</span> <span class="ident">InkwellTarget::from_triple</span>(<span class="kw-2">&amp;</span><span class="ident">target_triple</span>).<span class="ident">unwrap</span>();
         <span class="ident">llvm_target</span>
             .<span class="ident">create_target_machine</span>(

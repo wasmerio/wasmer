@@ -140,7 +140,7 @@
 
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">inner</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">WasmTableType</span> {
         <span class="kw">match</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">extern_type</span>.<span class="ident">inner</span> {
-            <span class="ident">WasmExternType::Table</span>(<span class="ident">wasm_table_type</span>) =&gt; <span class="kw-2">&amp;</span><span class="ident">wasm_table_type</span>,
+            <span class="ident">WasmExternType::Table</span>(<span class="ident">wasm_table_type</span>) =&gt; <span class="ident">wasm_table_type</span>,
             <span class="kw">_</span> =&gt; <span class="macro">unreachable!</span>(<span class="string">&quot;Data corruption: `wasm_tabletype_t` does not contain a table type&quot;</span>),
         }
     }

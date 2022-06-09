@@ -28,6 +28,9 @@
 <span id="26">26</span>
 <span id="27">27</span>
 <span id="28">28</span>
+<span id="29">29</span>
+<span id="30">30</span>
+<span id="31">31</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Wasmer C API.</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! [Wasmer](https://github.com/wasmerio/wasmer) is the leading</span>
@@ -53,6 +56,9 @@
     <span class="ident">unused_unsafe</span>,
     <span class="ident">unreachable_patterns</span>
 )]</span>
+<span class="comment">// Because this crate exposes a lot of C APIs which are unsafe by definition,</span>
+<span class="comment">// we allow unsafe without explicit safety documentation for each of them.</span>
+<span class="attribute">#![<span class="ident">allow</span>(<span class="ident">clippy::missing_safety_doc</span>)]</span>
 
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">error</span>;
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">wasm_c_api</span>;

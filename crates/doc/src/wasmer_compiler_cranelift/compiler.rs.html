@@ -453,8 +453,6 @@
 <span id="451">451</span>
 <span id="452">452</span>
 <span id="453">453</span>
-<span id="454">454</span>
-<span id="455">455</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Support for compiling with Cranelift.</span>
 
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::address_map::get_function_address_map</span>;
@@ -680,8 +678,8 @@
                     <span class="ident">isa</span>.<span class="ident">frontend_config</span>(),
                     <span class="ident">module</span>,
                     <span class="kw-2">&amp;</span><span class="ident">signatures</span>,
-                    <span class="kw-2">&amp;</span><span class="ident">memory_styles</span>,
-                    <span class="kw-2">&amp;</span><span class="ident">table_styles</span>,
+                    <span class="ident">memory_styles</span>,
+                    <span class="ident">table_styles</span>,
                 );
                 <span class="ident">context</span>.<span class="ident">func</span>.<span class="ident">name</span> <span class="op">=</span> <span class="ident">get_function_name</span>(<span class="ident">func_index</span>);
                 <span class="ident">context</span>.<span class="ident">func</span>.<span class="ident">signature</span> <span class="op">=</span> <span class="ident">signatures</span>[<span class="ident">module</span>.<span class="ident">functions</span>[<span class="ident">func_index</span>]].<span class="ident">clone</span>();
@@ -713,20 +711,20 @@
                 <span class="kw">let</span> <span class="ident">func_relocs</span> <span class="op">=</span> <span class="ident">result</span>
                     .<span class="ident">buffer</span>
                     .<span class="ident">relocs</span>()
-                    .<span class="ident">into_iter</span>()
+                    .<span class="ident">iter</span>()
                     .<span class="ident">map</span>(<span class="op">|</span><span class="ident">r</span><span class="op">|</span> <span class="ident">mach_reloc_to_reloc</span>(<span class="ident">module</span>, <span class="ident">r</span>))
                     .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
 
                 <span class="kw">let</span> <span class="ident">traps</span> <span class="op">=</span> <span class="ident">result</span>
                     .<span class="ident">buffer</span>
                     .<span class="ident">traps</span>()
-                    .<span class="ident">into_iter</span>()
+                    .<span class="ident">iter</span>()
                     .<span class="ident">map</span>(<span class="ident">mach_trap_to_trap</span>)
                     .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
 
                 <span class="kw">let</span> (<span class="ident">unwind_info</span>, <span class="ident">fde</span>) <span class="op">=</span> <span class="kw">match</span> <span class="ident">compiled_function_unwind_info</span>(<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">isa</span>, <span class="kw-2">&amp;</span><span class="ident">context</span>)<span class="question-mark">?</span> {
                     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unwind&quot;</span>)]</span>
-                    <span class="ident">CraneliftUnwindInfo::FDE</span>(<span class="ident">fde</span>) =&gt; {
+                    <span class="ident">CraneliftUnwindInfo::Fde</span>(<span class="ident">fde</span>) =&gt; {
                         <span class="kw">if</span> <span class="ident">dwarf_frametable</span>.<span class="ident">is_some</span>() {
                             <span class="kw">let</span> <span class="ident">fde</span> <span class="op">=</span> <span class="ident">fde</span>.<span class="ident">to_fde</span>(<span class="ident">Address::Symbol</span> {
                                 <span class="comment">// The symbol is the kind of relocation.</span>
@@ -772,10 +770,8 @@
 
         <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unwind&quot;</span>)]</span>
         <span class="kw">let</span> <span class="ident">dwarf</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>((<span class="kw-2">mut</span> <span class="ident">dwarf_frametable</span>, <span class="ident">cie_id</span>)) <span class="op">=</span> <span class="ident">dwarf_frametable</span> {
-            <span class="kw">for</span> <span class="ident">fde</span> <span class="kw">in</span> <span class="ident">fdes</span> {
-                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">fde</span>) <span class="op">=</span> <span class="ident">fde</span> {
-                    <span class="ident">dwarf_frametable</span>.<span class="ident">add_fde</span>(<span class="ident">cie_id</span>, <span class="ident">fde</span>);
-                }
+            <span class="kw">for</span> <span class="ident">fde</span> <span class="kw">in</span> <span class="ident">fdes</span>.<span class="ident">into_iter</span>().<span class="ident">flatten</span>() {
+                <span class="ident">dwarf_frametable</span>.<span class="ident">add_fde</span>(<span class="ident">cie_id</span>, <span class="ident">fde</span>);
             }
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">eh_frame</span> <span class="op">=</span> <span class="ident">EhFrame</span>(<span class="ident">WriterRelocate::new</span>(<span class="ident">target</span>.<span class="ident">triple</span>().<span class="ident">endianness</span>().<span class="ident">ok</span>()));
             <span class="ident">dwarf_frametable</span>.<span class="ident">write_eh_frame</span>(<span class="kw-2">&amp;mut</span> <span class="ident">eh_frame</span>).<span class="ident">unwrap</span>();
@@ -808,8 +804,8 @@
             .<span class="ident">values</span>()
             .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>()
             .<span class="ident">par_iter</span>()
-            .<span class="ident">map_init</span>(<span class="ident">FunctionBuilderContext::new</span>, <span class="op">|</span><span class="kw-2">mut</span> <span class="ident">cx</span>, <span class="ident">sig</span><span class="op">|</span> {
-                <span class="ident">make_trampoline_function_call</span>(<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">isa</span>, <span class="kw-2">&amp;mut</span> <span class="ident">cx</span>, <span class="ident">sig</span>)
+            .<span class="ident">map_init</span>(<span class="ident">FunctionBuilderContext::new</span>, <span class="op">|</span><span class="ident">cx</span>, <span class="ident">sig</span><span class="op">|</span> {
+                <span class="ident">make_trampoline_function_call</span>(<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">isa</span>, <span class="ident">cx</span>, <span class="ident">sig</span>)
             })
             .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">FunctionBody</span><span class="op">&gt;</span>, <span class="ident">CompileError</span><span class="op">&gt;</span><span class="op">&gt;</span>()<span class="question-mark">?</span>
             .<span class="ident">into_iter</span>()
@@ -834,8 +830,8 @@
             .<span class="ident">imported_function_types</span>()
             .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>()
             .<span class="ident">par_iter</span>()
-            .<span class="ident">map_init</span>(<span class="ident">FunctionBuilderContext::new</span>, <span class="op">|</span><span class="kw-2">mut</span> <span class="ident">cx</span>, <span class="ident">func_type</span><span class="op">|</span> {
-                <span class="ident">make_trampoline_dynamic_function</span>(<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">isa</span>, <span class="kw-2">&amp;</span><span class="ident">offsets</span>, <span class="kw-2">&amp;mut</span> <span class="ident">cx</span>, <span class="kw-2">&amp;</span><span class="ident">func_type</span>)
+            .<span class="ident">map_init</span>(<span class="ident">FunctionBuilderContext::new</span>, <span class="op">|</span><span class="ident">cx</span>, <span class="ident">func_type</span><span class="op">|</span> {
+                <span class="ident">make_trampoline_dynamic_function</span>(<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">isa</span>, <span class="kw-2">&amp;</span><span class="ident">offsets</span>, <span class="ident">cx</span>, <span class="ident">func_type</span>)
             })
             .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span>, <span class="ident">CompileError</span><span class="op">&gt;</span><span class="op">&gt;</span>()<span class="question-mark">?</span>
             .<span class="ident">into_iter</span>()

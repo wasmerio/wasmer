@@ -278,18 +278,18 @@
 
     <span class="kw">fn</span> <span class="ident">from_str</span>(<span class="ident">s</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident"><span class="self">Self</span>::Err</span><span class="op">&gt;</span> {
         <span class="kw">match</span> <span class="ident">s</span> {
-            <span class="string">&quot;stk_ovf&quot;</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident">TrapCode::StackOverflow</span>),
-            <span class="string">&quot;heap_get_oob&quot;</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident">TrapCode::HeapAccessOutOfBounds</span>),
-            <span class="string">&quot;heap_misaligned&quot;</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident">TrapCode::HeapMisaligned</span>),
-            <span class="string">&quot;table_get_oob&quot;</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident">TrapCode::TableAccessOutOfBounds</span>),
-            <span class="string">&quot;oob&quot;</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident">TrapCode::OutOfBounds</span>),
-            <span class="string">&quot;icall_null&quot;</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident">TrapCode::IndirectCallToNull</span>),
-            <span class="string">&quot;bad_sig&quot;</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident">TrapCode::BadSignature</span>),
-            <span class="string">&quot;int_ovf&quot;</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident">TrapCode::IntegerOverflow</span>),
-            <span class="string">&quot;int_divz&quot;</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident">TrapCode::IntegerDivisionByZero</span>),
-            <span class="string">&quot;bad_toint&quot;</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident">TrapCode::BadConversionToInteger</span>),
-            <span class="string">&quot;unreachable&quot;</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident">TrapCode::UnreachableCodeReached</span>),
-            <span class="string">&quot;unalign_atom&quot;</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident">TrapCode::UnalignedAtomic</span>),
+            <span class="string">&quot;stk_ovf&quot;</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident"><span class="self">Self</span>::StackOverflow</span>),
+            <span class="string">&quot;heap_get_oob&quot;</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident"><span class="self">Self</span>::HeapAccessOutOfBounds</span>),
+            <span class="string">&quot;heap_misaligned&quot;</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident"><span class="self">Self</span>::HeapMisaligned</span>),
+            <span class="string">&quot;table_get_oob&quot;</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident"><span class="self">Self</span>::TableAccessOutOfBounds</span>),
+            <span class="string">&quot;oob&quot;</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident"><span class="self">Self</span>::OutOfBounds</span>),
+            <span class="string">&quot;icall_null&quot;</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident"><span class="self">Self</span>::IndirectCallToNull</span>),
+            <span class="string">&quot;bad_sig&quot;</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident"><span class="self">Self</span>::BadSignature</span>),
+            <span class="string">&quot;int_ovf&quot;</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident"><span class="self">Self</span>::IntegerOverflow</span>),
+            <span class="string">&quot;int_divz&quot;</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident"><span class="self">Self</span>::IntegerDivisionByZero</span>),
+            <span class="string">&quot;bad_toint&quot;</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident"><span class="self">Self</span>::BadConversionToInteger</span>),
+            <span class="string">&quot;unreachable&quot;</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident"><span class="self">Self</span>::UnreachableCodeReached</span>),
+            <span class="string">&quot;unalign_atom&quot;</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident"><span class="self">Self</span>::UnalignedAtomic</span>),
             <span class="kw">_</span> =&gt; <span class="prelude-val">Err</span>(()),
         }
     }

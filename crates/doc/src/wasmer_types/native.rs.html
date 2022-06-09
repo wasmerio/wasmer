@@ -298,6 +298,8 @@
 <span id="296">296</span>
 <span id="297">297</span>
 <span id="298">298</span>
+<span id="299">299</span>
+<span id="300">300</span>
 </pre><pre class="rust"><code><span class="doccomment">//! This module permits to create native functions</span>
 <span class="doccomment">//! easily in Rust, thanks to its advanced typing system.</span>
 
@@ -547,6 +549,8 @@
 
 <span class="doccomment">/// Trait for a Value type. A Value type is a type that is always valid and may</span>
 <span class="doccomment">/// be safely copied.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// # Safety</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// To maintain safety, types which implement this trait must be valid for all</span>
 <span class="doccomment">/// bit patterns. This means that it cannot contain enums, `bool`, references,</span>

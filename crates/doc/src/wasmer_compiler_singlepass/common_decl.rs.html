@@ -263,7 +263,6 @@
 <span id="261">261</span>
 <span id="262">262</span>
 <span id="263">263</span>
-<span id="264">264</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std::collections::BTreeMap</span>;
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">Debug</span>, <span class="ident">Eq</span>, <span class="ident">PartialEq</span>, <span class="ident">Hash</span>)]</span>
@@ -490,8 +489,7 @@
 <span class="kw">impl</span> <span class="ident">MachineStateDiff</span> {
     <span class="doccomment">/// Creates a `MachineState` from the given `&amp;FunctionStateMap`.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_build_state</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">m</span>: <span class="kw-2">&amp;</span><span class="ident">FunctionStateMap</span>) -&gt; <span class="ident">MachineState</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">chain</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">MachineStateDiff</span><span class="op">&gt;</span> <span class="op">=</span> <span class="macro">vec!</span>[];
-        <span class="ident">chain</span>.<span class="ident">push</span>(<span class="self">self</span>);
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">chain</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">MachineStateDiff</span><span class="op">&gt;</span> <span class="op">=</span> <span class="macro">vec!</span>[<span class="self">self</span>];
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">current</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">last</span>;
         <span class="kw">while</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">x</span>) <span class="op">=</span> <span class="ident">current</span> {
             <span class="kw">let</span> <span class="ident">that</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">m</span>.<span class="ident">diffs</span>[<span class="ident">x</span>];

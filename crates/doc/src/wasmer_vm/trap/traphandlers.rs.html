@@ -1052,6 +1052,8 @@
 <span id="1050">1050</span>
 <span id="1051">1051</span>
 <span id="1052">1052</span>
+<span id="1053">1053</span>
+<span id="1054">1054</span>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
 
@@ -1143,6 +1145,8 @@
 
 <span class="doccomment">/// A package of functionality needed by `catch_traps` to figure out what to do</span>
 <span class="doccomment">/// when handling a trap.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// # Safety</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// Note that this is an `unsafe` trait at least because it&#39;s being run in the</span>
 <span class="doccomment">/// context of a synchronous signal handler, so it needs to be careful to not</span>
@@ -1679,6 +1683,8 @@
 <span class="doccomment">/// Catches any wasm traps that happen within the execution of `closure`,</span>
 <span class="doccomment">/// returning them as a `Result`.</span>
 <span class="doccomment">///</span>
+<span class="doccomment">/// # Safety</span>
+<span class="doccomment">///</span>
 <span class="doccomment">/// Highly unsafe since `closure` won&#39;t have any dtors run.</span>
 <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">catch_traps</span><span class="op">&lt;</span><span class="ident">F</span>, <span class="ident">R</span><span class="op">&gt;</span>(
     <span class="ident">trap_handler</span>: <span class="kw-2">&amp;</span>(<span class="kw">dyn</span> <span class="ident">TrapHandler</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>),
@@ -1690,7 +1696,7 @@
     <span class="comment">// Ensure that per-thread initialization is done.</span>
     <span class="ident">lazy_per_thread_init</span>()<span class="question-mark">?</span>;
 
-    <span class="ident">on_wasm_stack</span>(<span class="ident">trap_handler</span>, <span class="ident">closure</span>).<span class="ident">map_err</span>(<span class="ident">UnwindReason::to_trap</span>)
+    <span class="ident">on_wasm_stack</span>(<span class="ident">trap_handler</span>, <span class="ident">closure</span>).<span class="ident">map_err</span>(<span class="ident">UnwindReason::into_trap</span>)
 }
 
 <span class="comment">// We need two separate thread-local variables here:</span>
@@ -1708,6 +1714,7 @@
 
 <span class="doccomment">/// Read-only information that is used by signal handlers to handle and recover</span>
 <span class="doccomment">/// from traps.</span>
+<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::type_complexity</span>)]</span>
 <span class="kw">struct</span> <span class="ident">TrapHandlerContext</span> {
     <span class="ident">inner</span>: <span class="kw-2">*const</span> <span class="ident">u8</span>,
     <span class="ident">handle_trap</span>: <span class="kw">fn</span>(
@@ -1754,7 +1761,7 @@
             }
         }
         <span class="kw">let</span> <span class="ident">inner</span> <span class="op">=</span> <span class="ident">TrapHandlerContextInner</span> { <span class="ident">coro_trap_handler</span> };
-        <span class="kw">let</span> <span class="ident">ctx</span> <span class="op">=</span> <span class="ident">TrapHandlerContext</span> {
+        <span class="kw">let</span> <span class="ident">ctx</span> <span class="op">=</span> <span class="self">Self</span> {
             <span class="ident">inner</span>: <span class="kw-2">&amp;</span><span class="ident">inner</span> <span class="kw">as</span> <span class="kw-2">*const</span> <span class="kw">_</span> <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">u8</span>,
             <span class="ident">handle_trap</span>: <span class="ident">func</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>,
             <span class="ident">custom_trap</span>,
@@ -1763,10 +1770,7 @@
         <span class="ident">compiler_fence</span>(<span class="ident">Ordering::Release</span>);
         <span class="kw">let</span> <span class="ident">prev</span> <span class="op">=</span> <span class="ident">TRAP_HANDLER</span>.<span class="ident">with</span>(<span class="op">|</span><span class="ident">ptr</span><span class="op">|</span> {
             <span class="kw">let</span> <span class="ident">prev</span> <span class="op">=</span> <span class="ident">ptr</span>.<span class="ident">load</span>(<span class="ident">Ordering::Relaxed</span>);
-            <span class="ident">ptr</span>.<span class="ident">store</span>(
-                <span class="kw-2">&amp;</span><span class="ident">ctx</span> <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">TrapHandlerContext</span> <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">TrapHandlerContext</span>,
-                <span class="ident">Ordering::Relaxed</span>,
-            );
+            <span class="ident">ptr</span>.<span class="ident">store</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span> <span class="kw">as</span> <span class="kw-2">*const</span> <span class="self">Self</span> <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="self">Self</span>, <span class="ident">Ordering::Relaxed</span>);
             <span class="ident">prev</span>
         });
 
@@ -1878,7 +1882,7 @@
 }
 
 <span class="kw">impl</span> <span class="ident">UnwindReason</span> {
-    <span class="kw">fn</span> <span class="ident">to_trap</span>(<span class="self">self</span>) -&gt; <span class="ident">Trap</span> {
+    <span class="kw">fn</span> <span class="ident">into_trap</span>(<span class="self">self</span>) -&gt; <span class="ident">Trap</span> {
         <span class="kw">match</span> <span class="self">self</span> {
             <span class="ident">UnwindReason::UserTrap</span>(<span class="ident">data</span>) =&gt; <span class="ident">Trap::User</span>(<span class="ident">data</span>),
             <span class="ident">UnwindReason::LibTrap</span>(<span class="ident">trap</span>) =&gt; <span class="ident">trap</span>,
@@ -2018,7 +2022,7 @@
     <span class="kw">const</span> <span class="ident">MIN_STACK_SIZE</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="number">16</span> <span class="op">*</span> <span class="number">4096</span>;
 
     <span class="kw">enum</span> <span class="ident">Tls</span> {
-        <span class="ident">OOM</span>,
+        <span class="ident">OutOfMemory</span>,
         <span class="ident">Allocated</span> {
             <span class="ident">mmap_ptr</span>: <span class="kw-2">*mut</span> <span class="ident">libc::c_void</span>,
             <span class="ident">mmap_size</span>: <span class="ident">usize</span>,
@@ -2051,7 +2055,7 @@
             <span class="number">0</span>,
         );
         <span class="kw">if</span> <span class="ident">ptr</span> <span class="op">==</span> <span class="ident">libc::MAP_FAILED</span> {
-            <span class="kw">return</span> <span class="ident">Tls::OOM</span>;
+            <span class="kw">return</span> <span class="ident">Tls::OutOfMemory</span>;
         }
 
         <span class="comment">// Prepare the stack with readable/writable memory and then register it</span>
@@ -2080,7 +2084,7 @@
     <span class="comment">// Ensure TLS runs its initializer and return an error if it failed to</span>
     <span class="comment">// set up a separate stack for signal handlers.</span>
     <span class="kw">return</span> <span class="ident">TLS</span>.<span class="ident">with</span>(<span class="op">|</span><span class="ident">tls</span><span class="op">|</span> {
-        <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Tls::OOM</span> <span class="op">=</span> <span class="ident">tls</span> {
+        <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Tls::OutOfMemory</span> <span class="op">=</span> <span class="ident">tls</span> {
             <span class="prelude-val">Err</span>(<span class="ident">Trap::oom</span>())
         } <span class="kw">else</span> {
             <span class="prelude-val">Ok</span>(())

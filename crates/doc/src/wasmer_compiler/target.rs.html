@@ -197,7 +197,23 @@
 <span id="195">195</span>
 <span id="196">196</span>
 <span id="197">197</span>
+<span id="198">198</span>
+<span id="199">199</span>
+<span id="200">200</span>
+<span id="201">201</span>
+<span id="202">202</span>
+<span id="203">203</span>
+<span id="204">204</span>
+<span id="205">205</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Target configuration</span>
+
+<span class="comment">// The clippy::use_self exception is due to a false positive indicating that</span>
+<span class="comment">// `CpuFeature` should be replaced by `Self`. Attaching the allowance to the</span>
+<span class="comment">// type itself has no effect, therefore it&#39;s disabled for the whole module.</span>
+<span class="comment">// Feel free to remove this allow attribute once the bug is fixed.</span>
+<span class="comment">// See https://github.com/rust-lang/rust-clippy/issues/6902</span>
+<span class="attribute">#![<span class="ident">allow</span>(<span class="ident">clippy::use_self</span>)]</span>
+
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::error::ParseCpuFeatureError</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::lib::std::str::FromStr</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::lib::std::string</span>::{<span class="ident">String</span>, <span class="ident">ToString</span>};

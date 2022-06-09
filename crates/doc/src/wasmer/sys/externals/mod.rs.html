@@ -204,12 +204,12 @@
         <span class="prelude-val">Ok</span>(<span class="ident">_extern</span>)
     }
 
-    <span class="kw">fn</span> <span class="ident">into_weak_instance_ref</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) {
+    <span class="kw">fn</span> <span class="ident">convert_to_weak_instance_ref</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) {
         <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident"><span class="self">Self</span>::Function</span>(<span class="ident">f</span>) =&gt; <span class="ident">f</span>.<span class="ident">into_weak_instance_ref</span>(),
-            <span class="ident"><span class="self">Self</span>::Global</span>(<span class="ident">g</span>) =&gt; <span class="ident">g</span>.<span class="ident">into_weak_instance_ref</span>(),
-            <span class="ident"><span class="self">Self</span>::Memory</span>(<span class="ident">m</span>) =&gt; <span class="ident">m</span>.<span class="ident">into_weak_instance_ref</span>(),
-            <span class="ident"><span class="self">Self</span>::Table</span>(<span class="ident">t</span>) =&gt; <span class="ident">t</span>.<span class="ident">into_weak_instance_ref</span>(),
+            <span class="ident"><span class="self">Self</span>::Function</span>(<span class="ident">f</span>) =&gt; <span class="ident">f</span>.<span class="ident">convert_to_weak_instance_ref</span>(),
+            <span class="ident"><span class="self">Self</span>::Global</span>(<span class="ident">g</span>) =&gt; <span class="ident">g</span>.<span class="ident">convert_to_weak_instance_ref</span>(),
+            <span class="ident"><span class="self">Self</span>::Memory</span>(<span class="ident">m</span>) =&gt; <span class="ident">m</span>.<span class="ident">convert_to_weak_instance_ref</span>(),
+            <span class="ident"><span class="self">Self</span>::Table</span>(<span class="ident">t</span>) =&gt; <span class="ident">t</span>.<span class="ident">convert_to_weak_instance_ref</span>(),
         }
     }
 }

@@ -93,7 +93,7 @@
     <span class="ident">Height</span> <span class="op">=</span> <span class="number">8</span>,
 }
 
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
+<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>, <span class="ident">clippy::upper_case_acronyms</span>)]</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">Debug</span>, <span class="ident">Eq</span>, <span class="ident">PartialEq</span>, <span class="ident">Ord</span>, <span class="ident">PartialOrd</span>, <span class="ident">Hash</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">Location</span><span class="op">&lt;</span><span class="ident">R</span>, <span class="ident">S</span><span class="op">&gt;</span> {
     <span class="ident">GPR</span>(<span class="ident">R</span>),

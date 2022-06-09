@@ -672,7 +672,6 @@
 <span id="670">670</span>
 <span id="671">671</span>
 <span id="672">672</span>
-<span id="673">673</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::error</span>::{<span class="ident">DirectiveError</span>, <span class="ident">DirectiveErrors</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::spectest::spectest_importobject</span>;
 <span class="kw">use</span> <span class="ident">anyhow</span>::{<span class="ident">anyhow</span>, <span class="ident">bail</span>, <span class="prelude-ty">Result</span>};
@@ -884,7 +883,7 @@
                     <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; <span class="ident">e</span>,
                 };
                 <span class="kw">let</span> <span class="ident">error_message</span> <span class="op">=</span> <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">err</span>);
-                <span class="kw">if</span> <span class="op">!</span><span class="ident"><span class="self">Self</span>::matches_message_assert_invalid</span>(<span class="kw-2">&amp;</span><span class="ident">message</span>, <span class="kw-2">&amp;</span><span class="ident">error_message</span>) {
+                <span class="kw">if</span> <span class="op">!</span><span class="ident"><span class="self">Self</span>::matches_message_assert_invalid</span>(<span class="ident">message</span>, <span class="kw-2">&amp;</span><span class="ident">error_message</span>) {
                     <span class="macro">bail!</span>(
                         <span class="string">&quot;assert_invalid: expected \&quot;{}\&quot;, got \&quot;{}\&quot;&quot;</span>,
                         <span class="ident">message</span>,
@@ -925,7 +924,7 @@
                     <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; <span class="ident">e</span>,
                 };
                 <span class="kw">let</span> <span class="ident">error_message</span> <span class="op">=</span> <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">err</span>);
-                <span class="kw">if</span> <span class="op">!</span><span class="ident"><span class="self">Self</span>::matches_message_assert_unlinkable</span>(<span class="kw-2">&amp;</span><span class="ident">message</span>, <span class="kw-2">&amp;</span><span class="ident">error_message</span>) {
+                <span class="kw">if</span> <span class="op">!</span><span class="ident"><span class="self">Self</span>::matches_message_assert_unlinkable</span>(<span class="ident">message</span>, <span class="kw-2">&amp;</span><span class="ident">error_message</span>) {
                     <span class="macro">bail!</span>(
                         <span class="string">&quot;assert_unlinkable: expected {}, got {}&quot;</span>,
                         <span class="ident">message</span>,
@@ -953,7 +952,7 @@
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">errors</span> <span class="op">=</span> <span class="ident">Vec::with_capacity</span>(<span class="ident">ast</span>.<span class="ident">directives</span>.<span class="ident">len</span>());
         <span class="kw">for</span> <span class="ident">directive</span> <span class="kw">in</span> <span class="ident">ast</span>.<span class="ident">directives</span> {
             <span class="kw">let</span> <span class="ident">sp</span> <span class="op">=</span> <span class="ident">directive</span>.<span class="ident">span</span>();
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">run_directive</span>(<span class="kw-2">&amp;</span><span class="ident">test</span>, <span class="ident">directive</span>) {
+            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">run_directive</span>(<span class="ident">test</span>, <span class="ident">directive</span>) {
                 <span class="kw">let</span> <span class="ident">message</span> <span class="op">=</span> <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">e</span>);
                 <span class="comment">// If depends on an instance that doesn&#39;t exist</span>
                 <span class="kw">if</span> <span class="ident">message</span>.<span class="ident">contains</span>(<span class="string">&quot;no previous instance found&quot;</span>) {
@@ -992,7 +991,7 @@
                 <span class="prelude-val">Ok</span>(<span class="ident">s</span>) =&gt; <span class="ident">ret</span>.<span class="ident">push_str</span>(<span class="ident">s</span>),
                 <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="macro">bail!</span>(<span class="string">&quot;malformed UTF-8 encoding&quot;</span>),
             }
-            <span class="ident">ret</span>.<span class="ident">push_str</span>(<span class="string">&quot; &quot;</span>);
+            <span class="ident">ret</span>.<span class="ident">push</span>(<span class="string">&#39; &#39;</span>);
         }
         <span class="kw">let</span> <span class="ident">buf</span> <span class="op">=</span> <span class="ident">wast::parser::ParseBuffer::new</span>(<span class="kw-2">&amp;</span><span class="ident">ret</span>)<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">wat</span> <span class="op">=</span> <span class="ident">wast::parser::parse</span>::<span class="op">&lt;</span><span class="ident">wast::Wat</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="ident">buf</span>)<span class="question-mark">?</span>;
@@ -1078,7 +1077,7 @@
         <span class="ident">field</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
         <span class="ident">args</span>: <span class="kw-2">&amp;</span>[<span class="ident">Val</span>],
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Val</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_instance</span>(<span class="ident">instance_name</span>.<span class="ident">as_deref</span>())<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_instance</span>(<span class="ident">instance_name</span>)<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="ident">func</span>: <span class="kw-2">&amp;</span><span class="ident">Function</span> <span class="op">=</span> <span class="ident">instance</span>.<span class="ident">exports</span>.<span class="ident">get</span>(<span class="ident">field</span>)<span class="question-mark">?</span>;
         <span class="kw">match</span> <span class="ident">func</span>.<span class="ident">call</span>(<span class="ident">args</span>) {
             <span class="prelude-val">Ok</span>(<span class="ident">result</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="ident">result</span>.<span class="ident">into</span>()),
@@ -1088,7 +1087,7 @@
 
     <span class="doccomment">/// Get the value of an exported global from an instance.</span>
     <span class="kw">fn</span> <span class="ident">get</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">instance_name</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">&gt;</span>, <span class="ident">field</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Val</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_instance</span>(<span class="ident">instance_name</span>.<span class="ident">as_deref</span>())<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_instance</span>(<span class="ident">instance_name</span>)<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="ident">global</span>: <span class="kw-2">&amp;</span><span class="ident">Global</span> <span class="op">=</span> <span class="ident">instance</span>.<span class="ident">exports</span>.<span class="ident">get</span>(<span class="ident">field</span>)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(<span class="macro">vec!</span>[<span class="ident">global</span>.<span class="ident">get</span>()])
     }
@@ -1148,8 +1147,7 @@
             <span class="op">|</span><span class="op">|</span> <span class="self">self</span>
                 .<span class="ident">match_trap_messages</span>
                 .<span class="ident">get</span>(<span class="ident">expected</span>)
-                .<span class="ident">map</span>(<span class="op">|</span><span class="ident">alternative</span><span class="op">|</span> <span class="ident">actual</span>.<span class="ident">contains</span>(<span class="ident">alternative</span>))
-                .<span class="ident">unwrap_or</span>(<span class="bool-val">false</span>)
+                .<span class="ident">map_or</span>(<span class="bool-val">false</span>, <span class="op">|</span><span class="ident">alternative</span><span class="op">|</span> <span class="ident">actual</span>.<span class="ident">contains</span>(<span class="ident">alternative</span>))
     }
 
     <span class="kw">fn</span> <span class="ident">val_matches</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">actual</span>: <span class="kw-2">&amp;</span><span class="ident">Val</span>, <span class="ident">expected</span>: <span class="kw-2">&amp;</span><span class="ident">wast::AssertExpression</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">bool</span><span class="op">&gt;</span> {

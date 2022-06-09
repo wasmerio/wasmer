@@ -5973,12 +5973,6 @@
 <span id="5971">5971</span>
 <span id="5972">5972</span>
 <span id="5973">5973</span>
-<span id="5974">5974</span>
-<span id="5975">5975</span>
-<span id="5976">5976</span>
-<span id="5977">5977</span>
-<span id="5978">5978</span>
-<span id="5979">5979</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::address_map::get_function_address_map</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unwind&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::dwarf::WriterRelocate</span>;
@@ -6141,7 +6135,7 @@
 }
 
 <span class="kw">impl</span> <span class="ident">CanonicalizeType</span> {
-    <span class="kw">fn</span> <span class="ident">to_size</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Size</span> {
+    <span class="kw">fn</span> <span class="ident">to_size</span>(<span class="self">self</span>) -&gt; <span class="ident">Size</span> {
         <span class="kw">match</span> <span class="self">self</span> {
             <span class="ident">CanonicalizeType::F32</span> =&gt; <span class="ident">Size::S32</span>,
             <span class="ident">CanonicalizeType::F64</span> =&gt; <span class="ident">Size::S64</span>,
@@ -6185,10 +6179,7 @@
 
 <span class="kw">impl</span> <span class="ident">WpTypeExt</span> <span class="kw">for</span> <span class="ident">WpType</span> {
     <span class="kw">fn</span> <span class="ident">is_float</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
-        <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident">WpType::F32</span> <span class="op">|</span> <span class="ident">WpType::F64</span> =&gt; <span class="bool-val">true</span>,
-            <span class="kw">_</span> =&gt; <span class="bool-val">false</span>,
-        }
+        <span class="macro">matches!</span>(<span class="self">self</span>, <span class="ident">WpType::F32</span> <span class="op">|</span> <span class="ident">WpType::F64</span>)
     }
 }
 
@@ -6586,14 +6577,14 @@
         <span class="comment">// Initialize all normal locals to zero.</span>
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">init_stack_loc_cnt</span> <span class="op">=</span> <span class="number">0</span>;
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">last_stack_loc</span> <span class="op">=</span> <span class="ident">Location::Memory</span>(<span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">local_pointer</span>(), <span class="ident">i32::MAX</span>);
-        <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="ident">sig</span>.<span class="ident">params</span>().<span class="ident">len</span>()..<span class="ident">n</span> {
-            <span class="kw">match</span> <span class="ident">locations</span>[<span class="ident">i</span>] {
+        <span class="kw">for</span> <span class="ident">location</span> <span class="kw">in</span> <span class="ident">locations</span>.<span class="ident">iter</span>().<span class="ident">take</span>(<span class="ident">n</span>).<span class="ident">skip</span>(<span class="ident">sig</span>.<span class="ident">params</span>().<span class="ident">len</span>()) {
+            <span class="kw">match</span> <span class="ident">location</span> {
                 <span class="ident">Location::Memory</span>(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; {
                     <span class="ident">init_stack_loc_cnt</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
-                    <span class="ident">last_stack_loc</span> <span class="op">=</span> <span class="ident">cmp::min</span>(<span class="ident">last_stack_loc</span>, <span class="ident">locations</span>[<span class="ident">i</span>]);
+                    <span class="ident">last_stack_loc</span> <span class="op">=</span> <span class="ident">cmp::min</span>(<span class="ident">last_stack_loc</span>, <span class="kw-2">*</span><span class="ident">location</span>);
                 }
                 <span class="ident">Location::GPR</span>(<span class="kw">_</span>) =&gt; {
-                    <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">zero_location</span>(<span class="ident">Size::S64</span>, <span class="ident">locations</span>[<span class="ident">i</span>]);
+                    <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">zero_location</span>(<span class="ident">Size::S64</span>, <span class="kw-2">*</span><span class="ident">location</span>);
                 }
                 <span class="kw">_</span> =&gt; <span class="macro">unreachable!</span>(),
             }
@@ -6737,7 +6728,7 @@
 
         <span class="comment">// Save used SIMD registers.</span>
         <span class="kw">let</span> <span class="ident">used_simds</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">get_used_simd</span>();
-        <span class="kw">if</span> <span class="ident">used_simds</span>.<span class="ident">len</span>() <span class="op">&gt;</span> <span class="number">0</span> {
+        <span class="kw">if</span> <span class="op">!</span><span class="ident">used_simds</span>.<span class="ident">is_empty</span>() {
             <span class="ident">used_stack</span> <span class="op">+</span><span class="op">=</span> <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">push_used_simd</span>(<span class="kw-2">&amp;</span><span class="ident">used_simds</span>);
 
             <span class="kw">for</span> <span class="ident">r</span> <span class="kw">in</span> <span class="ident">used_simds</span>.<span class="ident">iter</span>().<span class="ident">rev</span>() {
@@ -6784,6 +6775,7 @@
         }
         <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">adjust_stack</span>(<span class="ident">stack_offset</span> <span class="kw">as</span> <span class="ident">u32</span>);
 
+        <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::type_complexity</span>)]</span>
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">call_movs</span>: <span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">Location</span><span class="op">&lt;</span><span class="ident">M::GPR</span>, <span class="ident">M::SIMD</span><span class="op">&gt;</span>, <span class="ident">M::GPR</span>)<span class="op">&gt;</span> <span class="op">=</span> <span class="macro">vec!</span>[];
         <span class="comment">// Prepare register &amp; stack parameters.</span>
         <span class="kw">for</span> (<span class="ident">i</span>, <span class="ident">param</span>) <span class="kw">in</span> <span class="ident">params</span>.<span class="ident">iter</span>().<span class="ident">enumerate</span>().<span class="ident">rev</span>() {
@@ -7028,6 +7020,7 @@
         <span class="prelude-val">Ok</span>(())
     }
 
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(
         <span class="ident">module</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">ModuleInfo</span>,
         <span class="ident">config</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">Singlepass</span>,
@@ -7048,7 +7041,7 @@
             .<span class="ident">iter</span>()
             .<span class="ident">map</span>(<span class="op">|</span><span class="kw-2">&amp;</span><span class="ident">x</span><span class="op">|</span> <span class="ident">type_to_wp_type</span>(<span class="ident">x</span>))
             .<span class="ident">collect</span>();
-        <span class="ident">local_types</span>.<span class="ident">extend_from_slice</span>(<span class="kw-2">&amp;</span><span class="ident">local_types_excluding_arguments</span>);
+        <span class="ident">local_types</span>.<span class="ident">extend_from_slice</span>(<span class="ident">local_types_excluding_arguments</span>);
 
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">machine</span> <span class="op">=</span> <span class="ident">machine</span>;
         <span class="kw">let</span> <span class="ident">special_labels</span> <span class="op">=</span> <span class="ident">SpecialLabelSet</span> {
@@ -7085,7 +7078,7 @@
             <span class="ident">save_area_offset</span>: <span class="prelude-val">None</span>,
             <span class="ident">state</span>: <span class="ident">machine</span>.<span class="ident">new_machine_state</span>(),
             <span class="ident">track_state</span>: <span class="bool-val">true</span>,
-            <span class="ident">machine</span>: <span class="ident">machine</span>,
+            <span class="ident">machine</span>,
             <span class="ident">unreachable_depth</span>: <span class="number">0</span>,
             <span class="ident">fsm</span>,
             <span class="ident">relocations</span>: <span class="macro">vec!</span>[],
@@ -8901,8 +8894,8 @@
                 }
 
                 <span class="kw">let</span> <span class="ident">frame</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">control_stack</span>.<span class="ident">last_mut</span>().<span class="ident">unwrap</span>();
-                <span class="kw">let</span> <span class="ident">stack_depth</span> <span class="op">=</span> <span class="ident">frame</span>.<span class="ident">value_stack_depth</span>.<span class="ident">clone</span>();
-                <span class="kw">let</span> <span class="ident">fp_depth</span> <span class="op">=</span> <span class="ident">frame</span>.<span class="ident">fp_stack_depth</span>.<span class="ident">clone</span>();
+                <span class="kw">let</span> <span class="ident">stack_depth</span> <span class="op">=</span> <span class="ident">frame</span>.<span class="ident">value_stack_depth</span>;
+                <span class="kw">let</span> <span class="ident">fp_depth</span> <span class="op">=</span> <span class="ident">frame</span>.<span class="ident">fp_stack_depth</span>;
                 <span class="self">self</span>.<span class="ident">release_locations_value</span>(<span class="ident">stack_depth</span>);
                 <span class="self">self</span>.<span class="ident">value_stack</span>.<span class="ident">truncate</span>(<span class="ident">stack_depth</span>);
                 <span class="self">self</span>.<span class="ident">fp_stack</span>.<span class="ident">truncate</span>(<span class="ident">fp_depth</span>);
@@ -9442,7 +9435,7 @@
                             <span class="ident">target_value</span>,
                             <span class="ident">memarg</span>,
                             <span class="ident">target_addr</span>,
-                            <span class="ident">config_nan_canonicalization</span> <span class="op">&amp;&amp;</span> <span class="op">!</span><span class="ident">fp</span>.<span class="ident">canonicalization</span>.<span class="ident">is_none</span>(),
+                            <span class="ident">config_nan_canonicalization</span> <span class="op">&amp;&amp;</span> <span class="ident">fp</span>.<span class="ident">canonicalization</span>.<span class="ident">is_some</span>(),
                             <span class="ident">need_check</span>,
                             <span class="ident">imported_memories</span>,
                             <span class="ident">offset</span>,
@@ -9684,7 +9677,7 @@
                             <span class="ident">target_value</span>,
                             <span class="ident">memarg</span>,
                             <span class="ident">target_addr</span>,
-                            <span class="ident">config_nan_canonicalization</span> <span class="op">&amp;&amp;</span> <span class="op">!</span><span class="ident">fp</span>.<span class="ident">canonicalization</span>.<span class="ident">is_none</span>(),
+                            <span class="ident">config_nan_canonicalization</span> <span class="op">&amp;&amp;</span> <span class="ident">fp</span>.<span class="ident">canonicalization</span>.<span class="ident">is_some</span>(),
                             <span class="ident">need_check</span>,
                             <span class="ident">imported_memories</span>,
                             <span class="ident">offset</span>,
@@ -9772,7 +9765,7 @@
                         .<span class="ident">emit_function_return_value</span>(<span class="ident">first_return</span>, <span class="ident">canonicalize</span>, <span class="ident">loc</span>);
                 }
                 <span class="kw">let</span> <span class="ident">frame</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">control_stack</span>[<span class="number">0</span>];
-                <span class="kw">let</span> <span class="ident">frame_depth</span> <span class="op">=</span> <span class="ident">frame</span>.<span class="ident">value_stack_depth</span>.<span class="ident">clone</span>();
+                <span class="kw">let</span> <span class="ident">frame_depth</span> <span class="op">=</span> <span class="ident">frame</span>.<span class="ident">value_stack_depth</span>;
                 <span class="kw">let</span> <span class="ident">label</span> <span class="op">=</span> <span class="ident">frame</span>.<span class="ident">label</span>;
                 <span class="self">self</span>.<span class="ident">release_locations_keep_state</span>(<span class="ident">frame_depth</span>);
                 <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">jmp_unconditionnal</span>(<span class="ident">label</span>);
@@ -9802,7 +9795,7 @@
                 }
                 <span class="kw">let</span> <span class="ident">stack_len</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">control_stack</span>.<span class="ident">len</span>();
                 <span class="kw">let</span> <span class="ident">frame</span> <span class="op">=</span> <span class="kw-2">&amp;mut</span> <span class="self">self</span>.<span class="ident">control_stack</span>[<span class="ident">stack_len</span> <span class="op">-</span> <span class="number">1</span> <span class="op">-</span> (<span class="ident">relative_depth</span> <span class="kw">as</span> <span class="ident">usize</span>)];
-                <span class="kw">let</span> <span class="ident">frame_depth</span> <span class="op">=</span> <span class="ident">frame</span>.<span class="ident">value_stack_depth</span>.<span class="ident">clone</span>();
+                <span class="kw">let</span> <span class="ident">frame_depth</span> <span class="op">=</span> <span class="ident">frame</span>.<span class="ident">value_stack_depth</span>;
                 <span class="kw">let</span> <span class="ident">label</span> <span class="op">=</span> <span class="ident">frame</span>.<span class="ident">label</span>;
 
                 <span class="self">self</span>.<span class="ident">release_locations_keep_state</span>(<span class="ident">frame_depth</span>);
@@ -9840,8 +9833,8 @@
                 }
                 <span class="kw">let</span> <span class="ident">stack_len</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">control_stack</span>.<span class="ident">len</span>();
                 <span class="kw">let</span> <span class="ident">frame</span> <span class="op">=</span> <span class="kw-2">&amp;mut</span> <span class="self">self</span>.<span class="ident">control_stack</span>[<span class="ident">stack_len</span> <span class="op">-</span> <span class="number">1</span> <span class="op">-</span> (<span class="ident">relative_depth</span> <span class="kw">as</span> <span class="ident">usize</span>)];
-                <span class="kw">let</span> <span class="ident">stack_depth</span> <span class="op">=</span> <span class="ident">frame</span>.<span class="ident">value_stack_depth</span>.<span class="ident">clone</span>();
-                <span class="kw">let</span> <span class="ident">label</span> <span class="op">=</span> <span class="ident">frame</span>.<span class="ident">label</span>.<span class="ident">clone</span>();
+                <span class="kw">let</span> <span class="ident">stack_depth</span> <span class="op">=</span> <span class="ident">frame</span>.<span class="ident">value_stack_depth</span>;
+                <span class="kw">let</span> <span class="ident">label</span> <span class="op">=</span> <span class="ident">frame</span>.<span class="ident">label</span>;
                 <span class="self">self</span>.<span class="ident">release_locations_keep_state</span>(<span class="ident">stack_depth</span>);
                 <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">jmp_unconditionnal</span>(<span class="ident">label</span>);
 
@@ -9897,9 +9890,9 @@
                         <span class="self">self</span>.<span class="ident">machine</span>
                             .<span class="ident">emit_function_return_value</span>(<span class="ident">first_return</span>, <span class="ident">canonicalize</span>, <span class="ident">loc</span>);
                     }
-                    <span class="kw">let</span> <span class="ident">frame</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">control_stack</span>
-                        [<span class="self">self</span>.<span class="ident">control_stack</span>.<span class="ident">len</span>().<span class="ident">clone</span>() <span class="op">-</span> <span class="number">1</span> <span class="op">-</span> (<span class="kw-2">*</span><span class="ident">target</span> <span class="kw">as</span> <span class="ident">usize</span>)];
-                    <span class="kw">let</span> <span class="ident">stack_depth</span> <span class="op">=</span> <span class="ident">frame</span>.<span class="ident">value_stack_depth</span>.<span class="ident">clone</span>();
+                    <span class="kw">let</span> <span class="ident">frame</span> <span class="op">=</span>
+                        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">control_stack</span>[<span class="self">self</span>.<span class="ident">control_stack</span>.<span class="ident">len</span>() <span class="op">-</span> <span class="number">1</span> <span class="op">-</span> (<span class="kw-2">*</span><span class="ident">target</span> <span class="kw">as</span> <span class="ident">usize</span>)];
+                    <span class="kw">let</span> <span class="ident">stack_depth</span> <span class="op">=</span> <span class="ident">frame</span>.<span class="ident">value_stack_depth</span>;
                     <span class="kw">let</span> <span class="ident">label</span> <span class="op">=</span> <span class="ident">frame</span>.<span class="ident">label</span>;
                     <span class="self">self</span>.<span class="ident">release_locations_keep_state</span>(<span class="ident">stack_depth</span>);
                     <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">jmp_unconditionnal</span>(<span class="ident">label</span>);
@@ -9931,7 +9924,7 @@
                     }
                     <span class="kw">let</span> <span class="ident">frame</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">control_stack</span>
                         [<span class="self">self</span>.<span class="ident">control_stack</span>.<span class="ident">len</span>() <span class="op">-</span> <span class="number">1</span> <span class="op">-</span> (<span class="ident">default_target</span> <span class="kw">as</span> <span class="ident">usize</span>)];
-                    <span class="kw">let</span> <span class="ident">stack_depth</span> <span class="op">=</span> <span class="ident">frame</span>.<span class="ident">value_stack_depth</span>.<span class="ident">clone</span>();
+                    <span class="kw">let</span> <span class="ident">stack_depth</span> <span class="op">=</span> <span class="ident">frame</span>.<span class="ident">value_stack_depth</span>;
                     <span class="kw">let</span> <span class="ident">label</span> <span class="op">=</span> <span class="ident">frame</span>.<span class="ident">label</span>;
                     <span class="self">self</span>.<span class="ident">release_locations_keep_state</span>(<span class="ident">stack_depth</span>);
                     <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">jmp_unconditionnal</span>(<span class="ident">label</span>);
@@ -11896,21 +11889,16 @@
 
         (
             <span class="ident">CompiledFunction</span> {
-                <span class="ident">body</span>: <span class="ident">FunctionBody</span> {
-                    <span class="ident">body</span>: <span class="ident">body</span>,
-                    <span class="ident">unwind_info</span>,
-                },
+                <span class="ident">body</span>: <span class="ident">FunctionBody</span> { <span class="ident">body</span>, <span class="ident">unwind_info</span> },
                 <span class="ident">relocations</span>: <span class="self">self</span>.<span class="ident">relocations</span>.<span class="ident">clone</span>(),
-                <span class="ident">frame_info</span>: <span class="ident">CompiledFunctionFrameInfo</span> {
-                    <span class="ident">traps</span>: <span class="ident">traps</span>,
-                    <span class="ident">address_map</span>,
-                },
+                <span class="ident">frame_info</span>: <span class="ident">CompiledFunctionFrameInfo</span> { <span class="ident">traps</span>, <span class="ident">address_map</span> },
             },
             <span class="ident">fde</span>,
         )
     }
     <span class="comment">// FIXME: This implementation seems to be not enough to resolve all kinds of register dependencies</span>
     <span class="comment">// at call place.</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::type_complexity</span>)]</span>
     <span class="kw">fn</span> <span class="ident">sort_call_movs</span>(<span class="ident">movs</span>: <span class="kw-2">&amp;mut</span> [(<span class="ident">Location</span><span class="op">&lt;</span><span class="ident">M::GPR</span>, <span class="ident">M::SIMD</span><span class="op">&gt;</span>, <span class="ident">M::GPR</span>)]) {
         <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">movs</span>.<span class="ident">len</span>() {
             <span class="kw">for</span> <span class="ident">j</span> <span class="kw">in</span> (<span class="ident">i</span> <span class="op">+</span> <span class="number">1</span>)..<span class="ident">movs</span>.<span class="ident">len</span>() {

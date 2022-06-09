@@ -46,7 +46,7 @@
 <span class="kw">use</span> <span class="ident">cranelift_codegen::MachSrcLoc</span>;
 <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">wasmparser::Range</span>, <span class="ident">FunctionAddressMap</span>, <span class="ident">InstructionAddressMap</span>, <span class="ident">SourceLoc</span>};
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_function_address_map</span><span class="op">&lt;</span><span class="lifetime">&#39;data</span><span class="op">&gt;</span>(
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_function_address_map</span>(
     <span class="ident">context</span>: <span class="kw-2">&amp;</span><span class="ident">Context</span>,
     <span class="ident">range</span>: <span class="ident">Range</span>,
     <span class="ident">body_len</span>: <span class="ident">usize</span>,

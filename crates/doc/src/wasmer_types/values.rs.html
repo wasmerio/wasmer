@@ -474,6 +474,13 @@
 <span id="472">472</span>
 <span id="473">473</span>
 <span id="474">474</span>
+<span id="475">475</span>
+<span id="476">476</span>
+<span id="477">477</span>
+<span id="478">478</span>
+<span id="479">479</span>
+<span id="480">480</span>
+<span id="481">481</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::extern_ref::ExternRef</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::lib::std::convert::TryFrom</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::lib::std::fmt</span>;
@@ -541,9 +548,16 @@
 <span class="doccomment">/// between the API and the VM internals, specifically with `wasmer_types::Value`.</span>
 <span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">WasmValueType</span>: <span class="ident">std::fmt::Debug</span> <span class="op">+</span> <span class="lifetime">&#39;static</span> {
     <span class="doccomment">/// Write the value</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// # Safety</span>
+    <span class="doccomment">/// You shouldn&#39;t use this method directly as it writes the value to a mutable pointer.</span>
     <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">write_value_to</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">p</span>: <span class="kw-2">*mut</span> <span class="ident">i128</span>);
 
     <span class="doccomment">/// read the value</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// # Safety</span>
+    <span class="doccomment">/// It reads the value directly from a memory pointer, you need to make sure is not corrupted</span>
+    <span class="comment">//</span>
     <span class="comment">// TODO(reftypes): passing the store as `dyn Any` is a hack to work around the</span>
     <span class="comment">// structure of our crates. We need to talk about the store in the rest of the</span>
     <span class="comment">// VM (for example where this method is used) but cannot do so. Fixing this</span>

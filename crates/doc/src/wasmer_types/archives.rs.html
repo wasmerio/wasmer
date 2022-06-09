@@ -29,15 +29,6 @@
 <span id="27">27</span>
 <span id="28">28</span>
 <span id="29">29</span>
-<span id="30">30</span>
-<span id="31">31</span>
-<span id="32">32</span>
-<span id="33">33</span>
-<span id="34">34</span>
-<span id="35">35</span>
-<span id="36">36</span>
-<span id="37">37</span>
-<span id="38">38</span>
 </pre><pre class="rust"><code><span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;core&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">core::hash::Hash</span>;
 <span class="kw">use</span> <span class="ident">indexmap::IndexMap</span>;
@@ -55,25 +46,16 @@
     <span class="kw">for</span> <span class="ident">ArchivableIndexMap</span><span class="op">&lt;</span><span class="ident">K</span>, <span class="ident">V</span><span class="op">&gt;</span>
 {
     <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">it</span>: <span class="ident">IndexMap</span><span class="op">&lt;</span><span class="ident">K</span>, <span class="ident">V</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">r</span> <span class="op">=</span> <span class="self">Self</span> {
-            <span class="ident">entries</span>: <span class="ident">Vec::new</span>(),
-        };
-        <span class="kw">for</span> (<span class="ident">k</span>, <span class="ident">v</span>) <span class="kw">in</span> <span class="ident">it</span>.<span class="ident">into_iter</span>() {
-            <span class="ident">r</span>.<span class="ident">entries</span>.<span class="ident">push</span>((<span class="ident">k</span>, <span class="ident">v</span>));
-        }
-        <span class="ident">r</span>
+        <span class="kw">let</span> <span class="ident">entries</span> <span class="op">=</span> <span class="ident">it</span>.<span class="ident">into_iter</span>().<span class="ident">collect</span>();
+        <span class="self">Self</span> { <span class="ident">entries</span> }
     }
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">K</span>: <span class="ident">Hash</span> <span class="op">+</span> <span class="ident">Ord</span> <span class="op">+</span> <span class="ident">Archive</span> <span class="op">+</span> <span class="ident">Clone</span>, <span class="ident">V</span>: <span class="ident">Archive</span><span class="op">&gt;</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">IndexMap</span><span class="op">&lt;</span><span class="ident">K</span>, <span class="ident">V</span><span class="op">&gt;</span><span class="op">&gt;</span>
-    <span class="kw">for</span> <span class="ident">ArchivableIndexMap</span><span class="op">&lt;</span><span class="ident">K</span>, <span class="ident">V</span><span class="op">&gt;</span>
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">K</span>: <span class="ident">Hash</span> <span class="op">+</span> <span class="ident">Ord</span> <span class="op">+</span> <span class="ident">Archive</span> <span class="op">+</span> <span class="ident">Clone</span>, <span class="ident">V</span>: <span class="ident">Archive</span><span class="op">&gt;</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">ArchivableIndexMap</span><span class="op">&lt;</span><span class="ident">K</span>, <span class="ident">V</span><span class="op">&gt;</span><span class="op">&gt;</span>
+    <span class="kw">for</span> <span class="ident">IndexMap</span><span class="op">&lt;</span><span class="ident">K</span>, <span class="ident">V</span><span class="op">&gt;</span>
 {
-    <span class="kw">fn</span> <span class="ident">into</span>(<span class="self">self</span>) -&gt; <span class="ident">IndexMap</span><span class="op">&lt;</span><span class="ident">K</span>, <span class="ident">V</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">r</span> <span class="op">=</span> <span class="ident">IndexMap::new</span>();
-        <span class="kw">for</span> (<span class="ident">k</span>, <span class="ident">v</span>) <span class="kw">in</span> <span class="self">self</span>.<span class="ident">entries</span>.<span class="ident">into_iter</span>() {
-            <span class="ident">r</span>.<span class="ident">insert</span>(<span class="ident">k</span>, <span class="ident">v</span>);
-        }
-        <span class="ident">r</span>
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">other</span>: <span class="ident">ArchivableIndexMap</span><span class="op">&lt;</span><span class="ident">K</span>, <span class="ident">V</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
+        <span class="ident">other</span>.<span class="ident">entries</span>.<span class="ident">into_iter</span>().<span class="ident">collect</span>()
     }
 }
 </code></pre></div>

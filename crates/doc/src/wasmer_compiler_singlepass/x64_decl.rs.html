@@ -606,8 +606,8 @@
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">next</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">ty</span>: <span class="ident">Type</span>, <span class="ident">calling_convention</span>: <span class="ident">CallingConvention</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">X64Register</span><span class="op">&gt;</span> {
         <span class="kw">match</span> <span class="ident">calling_convention</span> {
             <span class="ident">CallingConvention::WindowsFastcall</span> =&gt; {
-                <span class="kw">static</span> <span class="ident">GPR_SEQ</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> [<span class="ident">GPR</span>] <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="ident">GPR::RCX</span>, <span class="ident">GPR::RDX</span>, <span class="ident">GPR::R8</span>, <span class="ident">GPR::R9</span>];
-                <span class="kw">static</span> <span class="ident">XMM_SEQ</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> [<span class="ident">XMM</span>] <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="ident">XMM::XMM0</span>, <span class="ident">XMM::XMM1</span>, <span class="ident">XMM::XMM2</span>, <span class="ident">XMM::XMM3</span>];
+                <span class="kw">static</span> <span class="ident">GPR_SEQ</span>: <span class="kw-2">&amp;</span>[<span class="ident">GPR</span>] <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="ident">GPR::RCX</span>, <span class="ident">GPR::RDX</span>, <span class="ident">GPR::R8</span>, <span class="ident">GPR::R9</span>];
+                <span class="kw">static</span> <span class="ident">XMM_SEQ</span>: <span class="kw-2">&amp;</span>[<span class="ident">XMM</span>] <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="ident">XMM::XMM0</span>, <span class="ident">XMM::XMM1</span>, <span class="ident">XMM::XMM2</span>, <span class="ident">XMM::XMM3</span>];
                 <span class="kw">let</span> <span class="ident">idx</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">n_gprs</span> <span class="op">+</span> <span class="self">self</span>.<span class="ident">n_xmms</span>;
                 <span class="kw">match</span> <span class="ident">ty</span> {
                     <span class="ident">Type::I32</span> <span class="op">|</span> <span class="ident">Type::I64</span> =&gt; {
@@ -635,9 +635,9 @@
                 }
             }
             <span class="kw">_</span> =&gt; {
-                <span class="kw">static</span> <span class="ident">GPR_SEQ</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> [<span class="ident">GPR</span>] <span class="op">=</span>
+                <span class="kw">static</span> <span class="ident">GPR_SEQ</span>: <span class="kw-2">&amp;</span>[<span class="ident">GPR</span>] <span class="op">=</span>
                     <span class="kw-2">&amp;</span>[<span class="ident">GPR::RDI</span>, <span class="ident">GPR::RSI</span>, <span class="ident">GPR::RDX</span>, <span class="ident">GPR::RCX</span>, <span class="ident">GPR::R8</span>, <span class="ident">GPR::R9</span>];
-                <span class="kw">static</span> <span class="ident">XMM_SEQ</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> [<span class="ident">XMM</span>] <span class="op">=</span> <span class="kw-2">&amp;</span>[
+                <span class="kw">static</span> <span class="ident">XMM_SEQ</span>: <span class="kw-2">&amp;</span>[<span class="ident">XMM</span>] <span class="op">=</span> <span class="kw-2">&amp;</span>[
                     <span class="ident">XMM::XMM0</span>,
                     <span class="ident">XMM::XMM1</span>,
                     <span class="ident">XMM::XMM2</span>,

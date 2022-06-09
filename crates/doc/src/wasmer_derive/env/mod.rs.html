@@ -249,12 +249,6 @@
 <span id="247">247</span>
 <span id="248">248</span>
 <span id="249">249</span>
-<span id="250">250</span>
-<span id="251">251</span>
-<span id="252">252</span>
-<span id="253">253</span>
-<span id="254">254</span>
-<span id="255">255</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">proc_macro2::TokenStream</span>;
 <span class="kw">use</span> <span class="ident">proc_macro_error</span>::{<span class="ident">abort</span>, <span class="ident">set_dummy</span>};
 <span class="kw">use</span> <span class="ident">quote</span>::{<span class="ident">quote</span>, <span class="ident">quote_spanned</span>, <span class="ident">ToTokens</span>};
@@ -394,9 +388,8 @@
                         <span class="kw">if</span> <span class="ident">optional</span> {
                             <span class="macro">quote_spanned!</span> {
                                 <span class="ident">f</span>.<span class="ident">span</span>()=&gt;
-                                    <span class="kw">match</span> #<span class="ident">access_expr</span> {
-                                        <span class="prelude-val">Ok</span>(#<span class="ident">name</span>) =&gt; { <span class="self">self</span>.#<span class="ident">name</span>.<span class="ident">initialize</span>(#<span class="ident">name</span>); },
-                                        <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; (),
+                                    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(#<span class="ident">name</span>) <span class="op">=</span> #<span class="ident">access_expr</span> {
+                                        <span class="self">self</span>.#<span class="ident">name</span>.<span class="ident">initialize</span>(#<span class="ident">name</span>);
                                     };
                             }
                         } <span class="kw">else</span> {
@@ -406,43 +399,38 @@
                                     <span class="self">self</span>.#<span class="ident">name</span>.<span class="ident">initialize</span>(#<span class="ident">name</span>);
                             }
                         }
-                    } <span class="kw">else</span> {
-                        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">identifier</span>) <span class="op">=</span> <span class="ident">identifier</span> {
-                            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">access_expr</span> <span class="op">=</span> <span class="macro">quote_spanned!</span> {
-                                <span class="ident">f</span>.<span class="ident">span</span>() =&gt;
-                                    <span class="ident">instance</span>.<span class="ident">exports</span>.<span class="ident">get_with_generics_weak</span>::<span class="op">&lt;</span>#<span class="ident">inner_type</span>, <span class="kw">_</span>, <span class="kw">_</span><span class="op">&gt;</span>(#<span class="ident">identifier</span>)
+                    } <span class="kw">else</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">identifier</span>) <span class="op">=</span> <span class="ident">identifier</span> {
+                        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">access_expr</span> <span class="op">=</span> <span class="macro">quote_spanned!</span> {
+                            <span class="ident">f</span>.<span class="ident">span</span>() =&gt;
+                                <span class="ident">instance</span>.<span class="ident">exports</span>.<span class="ident">get_with_generics_weak</span>::<span class="op">&lt;</span>#<span class="ident">inner_type</span>, <span class="kw">_</span>, <span class="kw">_</span><span class="op">&gt;</span>(#<span class="ident">identifier</span>)
+                        };
+                        <span class="kw">for</span> <span class="ident">alias</span> <span class="kw">in</span> <span class="ident">aliases</span> {
+                            <span class="ident">access_expr</span> <span class="op">=</span> <span class="macro">quote_spanned!</span> {
+                                <span class="ident">f</span>.<span class="ident">span</span>()=&gt;
+                                    #<span class="ident">access_expr</span> .<span class="ident">or_else</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">instance</span>.<span class="ident">exports</span>.<span class="ident">get_with_generics_weak</span>::<span class="op">&lt;</span>#<span class="ident">inner_type</span>, <span class="kw">_</span>, <span class="kw">_</span><span class="op">&gt;</span>(#<span class="ident">alias</span>))
                             };
-                            <span class="kw">for</span> <span class="ident">alias</span> <span class="kw">in</span> <span class="ident">aliases</span> {
-                                <span class="ident">access_expr</span> <span class="op">=</span> <span class="macro">quote_spanned!</span> {
-                                    <span class="ident">f</span>.<span class="ident">span</span>()=&gt;
-                                        #<span class="ident">access_expr</span> .<span class="ident">or_else</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">instance</span>.<span class="ident">exports</span>.<span class="ident">get_with_generics_weak</span>::<span class="op">&lt;</span>#<span class="ident">inner_type</span>, <span class="kw">_</span>, <span class="kw">_</span><span class="op">&gt;</span>(#<span class="ident">alias</span>))
-                                };
-                            }
-                            <span class="kw">let</span> <span class="ident">local_var</span> <span class="op">=</span>
-                                <span class="ident">Ident::new</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;field_{}&quot;</span>, <span class="ident">field_num</span>), <span class="ident">identifier</span>.<span class="ident">span</span>());
-                            <span class="kw">if</span> <span class="ident">optional</span> {
-                                <span class="macro">quote_spanned!</span> {
-                                    <span class="ident">f</span>.<span class="ident">span</span>()=&gt;
-                                        <span class="kw">match</span> #<span class="ident">access_expr</span> {
-                                            <span class="prelude-val">Ok</span>(#<span class="ident">local_var</span>) =&gt; {
-                                                <span class="self">self</span>.#<span class="ident">field_idx</span>.<span class="ident">initialize</span>(#<span class="ident">local_var</span>);
-                                            },
-                                            <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; (),
-                                        }
-                                }
-                            } <span class="kw">else</span> {
-                                <span class="macro">quote_spanned!</span> {
-                                    <span class="ident">f</span>.<span class="ident">span</span>()=&gt;
-                                        <span class="kw">let</span> #<span class="ident">local_var</span>: #<span class="ident">inner_type</span> <span class="op">=</span> #<span class="ident">access_expr</span><span class="question-mark">?</span>;
-                                    <span class="self">self</span>.#<span class="ident">field_idx</span>.<span class="ident">initialize</span>(#<span class="ident">local_var</span>);
-                                }
+                        }
+                        <span class="kw">let</span> <span class="ident">local_var</span> <span class="op">=</span>
+                            <span class="ident">Ident::new</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;field_{}&quot;</span>, <span class="ident">field_num</span>), <span class="ident">identifier</span>.<span class="ident">span</span>());
+                        <span class="kw">if</span> <span class="ident">optional</span> {
+                            <span class="macro">quote_spanned!</span> {
+                                <span class="ident">f</span>.<span class="ident">span</span>()=&gt;
+                                    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(#<span class="ident">local_var</span>) <span class="op">=</span> #<span class="ident">access_expr</span> {
+                                        <span class="self">self</span>.#<span class="ident">field_idx</span>.<span class="ident">initialize</span>(#<span class="ident">local_var</span>);
+                                    }
                             }
                         } <span class="kw">else</span> {
-                            <span class="macro">abort!</span>(
-                                <span class="ident">span</span>,
-                                <span class="string">&quot;Expected `name` field on export attribute because field does not have a name. For example: `#[wasmer(export(name = \&quot;wasm_ident\&quot;))]`.&quot;</span>,
-                            );
+                            <span class="macro">quote_spanned!</span> {
+                                <span class="ident">f</span>.<span class="ident">span</span>()=&gt;
+                                    <span class="kw">let</span> #<span class="ident">local_var</span>: #<span class="ident">inner_type</span> <span class="op">=</span> #<span class="ident">access_expr</span><span class="question-mark">?</span>;
+                                <span class="self">self</span>.#<span class="ident">field_idx</span>.<span class="ident">initialize</span>(#<span class="ident">local_var</span>);
+                            }
                         }
+                    } <span class="kw">else</span> {
+                        <span class="macro">abort!</span>(
+                            <span class="ident">span</span>,
+                            <span class="string">&quot;Expected `name` field on export attribute because field does not have a name. For example: `#[wasmer(export(name = \&quot;wasm_ident\&quot;))]`.&quot;</span>,
+                        );
                     };
 
                     <span class="ident">finish</span>.<span class="ident">push</span>(<span class="ident">finish_tokens</span>);

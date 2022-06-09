@@ -308,6 +308,7 @@
 <span id="306">306</span>
 <span id="307">307</span>
 <span id="308">308</span>
+<span id="309">309</span>
 </pre><pre class="rust"><code><span class="doccomment">/// types for use in the WASI filesystem</span>
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::syscalls::types</span>::<span class="kw-2">*</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>)]</span>
@@ -382,6 +383,7 @@
 }
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
+<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::enum_variant_names</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">PollEvent</span> {
     <span class="doccomment">/// Data available to read</span>
     <span class="ident">PollIn</span> <span class="op">=</span> <span class="number">1</span>,

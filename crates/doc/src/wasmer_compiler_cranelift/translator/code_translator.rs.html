@@ -3093,42 +3093,6 @@
 <span id="3091">3091</span>
 <span id="3092">3092</span>
 <span id="3093">3093</span>
-<span id="3094">3094</span>
-<span id="3095">3095</span>
-<span id="3096">3096</span>
-<span id="3097">3097</span>
-<span id="3098">3098</span>
-<span id="3099">3099</span>
-<span id="3100">3100</span>
-<span id="3101">3101</span>
-<span id="3102">3102</span>
-<span id="3103">3103</span>
-<span id="3104">3104</span>
-<span id="3105">3105</span>
-<span id="3106">3106</span>
-<span id="3107">3107</span>
-<span id="3108">3108</span>
-<span id="3109">3109</span>
-<span id="3110">3110</span>
-<span id="3111">3111</span>
-<span id="3112">3112</span>
-<span id="3113">3113</span>
-<span id="3114">3114</span>
-<span id="3115">3115</span>
-<span id="3116">3116</span>
-<span id="3117">3117</span>
-<span id="3118">3118</span>
-<span id="3119">3119</span>
-<span id="3120">3120</span>
-<span id="3121">3121</span>
-<span id="3122">3122</span>
-<span id="3123">3123</span>
-<span id="3124">3124</span>
-<span id="3125">3125</span>
-<span id="3126">3126</span>
-<span id="3127">3127</span>
-<span id="3128">3128</span>
-<span id="3129">3129</span>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
 
@@ -3245,7 +3209,7 @@
     <span class="ident">environ</span>: <span class="kw-2">&amp;mut</span> <span class="ident">FE</span>,
 ) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
     <span class="kw">if</span> <span class="op">!</span><span class="ident">state</span>.<span class="ident">reachable</span> {
-        <span class="ident">translate_unreachable_operator</span>(<span class="ident">module_translation_state</span>, <span class="kw-2">&amp;</span><span class="ident">op</span>, <span class="ident">builder</span>, <span class="ident">state</span>, <span class="ident">environ</span>)<span class="question-mark">?</span>;
+        <span class="ident">translate_unreachable_operator</span>(<span class="ident">module_translation_state</span>, <span class="ident">op</span>, <span class="ident">builder</span>, <span class="ident">state</span>, <span class="ident">environ</span>)<span class="question-mark">?</span>;
         <span class="kw">return</span> <span class="prelude-val">Ok</span>(());
     }
 
@@ -3259,13 +3223,7 @@
             <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">use_var</span>(<span class="ident">Variable::with_u32</span>(<span class="kw-2">*</span><span class="ident">local_index</span>));
             <span class="kw">let</span> <span class="ident">local_type</span> <span class="op">=</span> <span class="ident">environ</span>.<span class="ident">get_local_type</span>(<span class="kw-2">*</span><span class="ident">local_index</span>).<span class="ident">unwrap</span>();
             <span class="kw">let</span> <span class="ident">ref_counted</span> <span class="op">=</span> <span class="ident">local_type</span> <span class="op">==</span> <span class="ident">WasmerType::ExternRef</span>;
-            <span class="ident">state</span>.<span class="ident">push1_extra</span>((
-                <span class="ident">val</span>,
-                <span class="ident">ValueExtraInfo</span> {
-                    <span class="ident">ref_counted</span>,
-                    ..<span class="ident">Default::default</span>()
-                },
-            ));
+            <span class="ident">state</span>.<span class="ident">push1_extra</span>((<span class="ident">val</span>, <span class="ident">ValueExtraInfo</span> { <span class="ident">ref_counted</span> }));
             <span class="kw">let</span> <span class="ident">label</span> <span class="op">=</span> <span class="ident">ValueLabel::from_u32</span>(<span class="kw-2">*</span><span class="ident">local_index</span>);
             <span class="ident">builder</span>.<span class="ident">set_val_label</span>(<span class="ident">val</span>, <span class="ident">label</span>);
 
@@ -3330,13 +3288,7 @@
                         <span class="ident">environ</span>.<span class="ident">translate_externref_inc</span>(<span class="ident">builder</span>.<span class="ident">cursor</span>(), <span class="ident">value</span>)<span class="question-mark">?</span>;
                     }
 
-                    (
-                        <span class="ident">value</span>,
-                        <span class="ident">ValueExtraInfo</span> {
-                            <span class="ident">ref_counted</span>,
-                            ..<span class="ident">Default::default</span>()
-                        },
-                    )
+                    (<span class="ident">value</span>, <span class="ident">ValueExtraInfo</span> { <span class="ident">ref_counted</span> })
                 }
                 <span class="ident">GlobalVariable::Custom</span> =&gt; (
                     <span class="ident">environ</span>.<span class="ident">translate_custom_global_get</span>(<span class="ident">builder</span>.<span class="ident">cursor</span>(), <span class="ident">global_index</span>)<span class="question-mark">?</span>,
@@ -3399,13 +3351,7 @@
             <span class="kw">if</span> <span class="ident">ref_counted</span> {
                 <span class="kw">let</span> <span class="ident">selected_ref</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">select</span>(<span class="ident">cond</span>, <span class="ident">arg1</span>, <span class="ident">arg2</span>);
                 <span class="kw">let</span> <span class="ident">not_selected_ref</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">select</span>(<span class="ident">cond</span>, <span class="ident">arg2</span>, <span class="ident">arg1</span>);
-                <span class="ident">state</span>.<span class="ident">push1_extra</span>((
-                    <span class="ident">selected_ref</span>,
-                    <span class="ident">ValueExtraInfo</span> {
-                        <span class="ident">ref_counted</span>,
-                        ..<span class="ident">Default::default</span>()
-                    },
-                ));
+                <span class="ident">state</span>.<span class="ident">push1_extra</span>((<span class="ident">selected_ref</span>, <span class="ident">ValueExtraInfo</span> { <span class="ident">ref_counted</span> }));
                 <span class="ident">environ</span>.<span class="ident">translate_externref_dec</span>(<span class="ident">builder</span>.<span class="ident">cursor</span>(), <span class="ident">not_selected_ref</span>)<span class="question-mark">?</span>;
             } <span class="kw">else</span> {
                 <span class="ident">state</span>.<span class="ident">push1_extra</span>((
@@ -3769,7 +3715,7 @@
             <span class="kw">let</span> <span class="ident">callee_signature</span> <span class="op">=</span>
                 <span class="kw-2">&amp;</span><span class="ident">builder</span>.<span class="ident">func</span>.<span class="ident">dfg</span>.<span class="ident">signatures</span>[<span class="ident">builder</span>.<span class="ident">func</span>.<span class="ident">dfg</span>.<span class="ident">ext_funcs</span>[<span class="ident">fref</span>].<span class="ident">signature</span>];
             <span class="kw">let</span> <span class="ident">types</span> <span class="op">=</span> <span class="ident">wasm_param_types</span>(<span class="kw-2">&amp;</span><span class="ident">callee_signature</span>.<span class="ident">params</span>, <span class="op">|</span><span class="ident">i</span><span class="op">|</span> {
-                <span class="ident">environ</span>.<span class="ident">is_wasm_parameter</span>(<span class="kw-2">&amp;</span><span class="ident">callee_signature</span>, <span class="ident">i</span>)
+                <span class="ident">environ</span>.<span class="ident">is_wasm_parameter</span>(<span class="ident">callee_signature</span>, <span class="ident">i</span>)
             });
             <span class="ident">bitcast_arguments</span>(<span class="ident">args</span>, <span class="kw-2">&amp;</span><span class="ident">types</span>, <span class="ident">builder</span>);
             <span class="kw">let</span> <span class="ident">func_index</span> <span class="op">=</span> <span class="ident">FunctionIndex::from_u32</span>(<span class="kw-2">*</span><span class="ident">function_index</span>);
@@ -3787,10 +3733,7 @@
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">results_metadata</span> <span class="op">=</span> <span class="ident">Vec::with_capacity</span>(<span class="ident">func_type</span>.<span class="ident">results</span>().<span class="ident">len</span>());
             <span class="kw">for</span> <span class="ident">result</span> <span class="kw">in</span> <span class="ident">func_type</span>.<span class="ident">results</span>() {
                 <span class="ident">results_metadata</span>.<span class="ident">push</span>(<span class="kw">if</span> <span class="kw-2">*</span><span class="ident">result</span> <span class="op">==</span> <span class="ident">WasmerType::ExternRef</span> {
-                    <span class="ident">ValueExtraInfo</span> {
-                        <span class="ident">ref_counted</span>: <span class="bool-val">true</span>,
-                        ..<span class="ident">Default::default</span>()
-                    }
+                    <span class="ident">ValueExtraInfo</span> { <span class="ident">ref_counted</span>: <span class="bool-val">true</span> }
                 } <span class="kw">else</span> {
                     <span class="ident">Default::default</span>()
                 });
@@ -3809,7 +3752,7 @@
             <span class="kw">let</span> <span class="ident">callee_signature</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">builder</span>.<span class="ident">func</span>.<span class="ident">dfg</span>.<span class="ident">signatures</span>[<span class="ident">sigref</span>];
             <span class="kw">let</span> (<span class="ident">args</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">peekn_mut</span>(<span class="ident">num_args</span>);
             <span class="kw">let</span> <span class="ident">types</span> <span class="op">=</span> <span class="ident">wasm_param_types</span>(<span class="kw-2">&amp;</span><span class="ident">callee_signature</span>.<span class="ident">params</span>, <span class="op">|</span><span class="ident">i</span><span class="op">|</span> {
-                <span class="ident">environ</span>.<span class="ident">is_wasm_parameter</span>(<span class="kw-2">&amp;</span><span class="ident">callee_signature</span>, <span class="ident">i</span>)
+                <span class="ident">environ</span>.<span class="ident">is_wasm_parameter</span>(<span class="ident">callee_signature</span>, <span class="ident">i</span>)
             });
             <span class="ident">bitcast_arguments</span>(<span class="ident">args</span>, <span class="kw-2">&amp;</span><span class="ident">types</span>, <span class="ident">builder</span>);
 
@@ -3835,10 +3778,7 @@
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">results_metadata</span> <span class="op">=</span> <span class="ident">Vec::with_capacity</span>(<span class="ident">func_type</span>.<span class="ident">results</span>().<span class="ident">len</span>());
             <span class="kw">for</span> <span class="ident">result</span> <span class="kw">in</span> <span class="ident">func_type</span>.<span class="ident">results</span>() {
                 <span class="ident">results_metadata</span>.<span class="ident">push</span>(<span class="kw">if</span> <span class="kw-2">*</span><span class="ident">result</span> <span class="op">==</span> <span class="ident">WasmerType::ExternRef</span> {
-                    <span class="ident">ValueExtraInfo</span> {
-                        <span class="ident">ref_counted</span>: <span class="bool-val">true</span>,
-                        ..<span class="ident">Default::default</span>()
-                    }
+                    <span class="ident">ValueExtraInfo</span> { <span class="ident">ref_counted</span>: <span class="bool-val">true</span> }
                 } <span class="kw">else</span> {
                     <span class="ident">Default::default</span>()
                 });
@@ -4707,17 +4647,17 @@
         <span class="op">|</span> <span class="ident">Operator::V128Store32Lane</span> { <span class="ident">memarg</span>, <span class="ident">lane</span> }
         <span class="op">|</span> <span class="ident">Operator::V128Store64Lane</span> { <span class="ident">memarg</span>, <span class="ident">lane</span> } =&gt; {
             <span class="kw">let</span> <span class="ident">vector</span> <span class="op">=</span> <span class="ident">pop1_with_bitcast</span>(<span class="ident">state</span>, <span class="ident">type_of</span>(<span class="ident">op</span>), <span class="ident">builder</span>);
-            <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">extractlane</span>(<span class="ident">vector</span>, <span class="ident">lane</span>.<span class="ident">clone</span>()));
+            <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">extractlane</span>(<span class="ident">vector</span>, <span class="kw-2">*</span><span class="ident">lane</span>));
             <span class="ident">translate_store</span>(<span class="ident">memarg</span>, <span class="ident">ir::Opcode::Store</span>, <span class="ident">builder</span>, <span class="ident">state</span>, <span class="ident">environ</span>)<span class="question-mark">?</span>;
         }
         <span class="ident">Operator::I8x16ExtractLaneS</span> { <span class="ident">lane</span> } <span class="op">|</span> <span class="ident">Operator::I16x8ExtractLaneS</span> { <span class="ident">lane</span> } =&gt; {
             <span class="kw">let</span> <span class="ident">vector</span> <span class="op">=</span> <span class="ident">pop1_with_bitcast</span>(<span class="ident">state</span>, <span class="ident">type_of</span>(<span class="ident">op</span>), <span class="ident">builder</span>);
-            <span class="kw">let</span> <span class="ident">extracted</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">extractlane</span>(<span class="ident">vector</span>, <span class="ident">lane</span>.<span class="ident">clone</span>());
+            <span class="kw">let</span> <span class="ident">extracted</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">extractlane</span>(<span class="ident">vector</span>, <span class="kw-2">*</span><span class="ident">lane</span>);
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">sextend</span>(<span class="ident">I32</span>, <span class="ident">extracted</span>))
         }
         <span class="ident">Operator::I8x16ExtractLaneU</span> { <span class="ident">lane</span> } <span class="op">|</span> <span class="ident">Operator::I16x8ExtractLaneU</span> { <span class="ident">lane</span> } =&gt; {
             <span class="kw">let</span> <span class="ident">vector</span> <span class="op">=</span> <span class="ident">pop1_with_bitcast</span>(<span class="ident">state</span>, <span class="ident">type_of</span>(<span class="ident">op</span>), <span class="ident">builder</span>);
-            <span class="kw">let</span> <span class="ident">extracted</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">extractlane</span>(<span class="ident">vector</span>, <span class="ident">lane</span>.<span class="ident">clone</span>());
+            <span class="kw">let</span> <span class="ident">extracted</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">extractlane</span>(<span class="ident">vector</span>, <span class="kw-2">*</span><span class="ident">lane</span>);
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">uextend</span>(<span class="ident">I32</span>, <span class="ident">extracted</span>));
             <span class="comment">// On x86, PEXTRB zeroes the upper bits of the destination register of extractlane so</span>
             <span class="comment">// uextend could be elided; for now, uextend is needed for Cranelift&#39;s type checks to</span>
@@ -4728,7 +4668,7 @@
         <span class="op">|</span> <span class="ident">Operator::F32x4ExtractLane</span> { <span class="ident">lane</span> }
         <span class="op">|</span> <span class="ident">Operator::F64x2ExtractLane</span> { <span class="ident">lane</span> } =&gt; {
             <span class="kw">let</span> <span class="ident">vector</span> <span class="op">=</span> <span class="ident">pop1_with_bitcast</span>(<span class="ident">state</span>, <span class="ident">type_of</span>(<span class="ident">op</span>), <span class="ident">builder</span>);
-            <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">extractlane</span>(<span class="ident">vector</span>, <span class="ident">lane</span>.<span class="ident">clone</span>()))
+            <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">extractlane</span>(<span class="ident">vector</span>, <span class="kw-2">*</span><span class="ident">lane</span>))
         }
         <span class="ident">Operator::I8x16ReplaceLane</span> { <span class="ident">lane</span> } <span class="op">|</span> <span class="ident">Operator::I16x8ReplaceLane</span> { <span class="ident">lane</span> } =&gt; {
             <span class="kw">let</span> ((<span class="ident">vector</span>, <span class="kw">_</span>), (<span class="ident">replacement</span>, <span class="kw">_</span>)) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
@@ -5667,10 +5607,7 @@
             ))
         }
     };
-    <span class="kw">let</span> <span class="ident">w_ty_ok</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">widened_ty</span> {
-        <span class="ident">I32</span> <span class="op">|</span> <span class="ident">I64</span> =&gt; <span class="bool-val">true</span>,
-        <span class="kw">_</span> =&gt; <span class="bool-val">false</span>,
-    };
+    <span class="kw">let</span> <span class="ident">w_ty_ok</span> <span class="op">=</span> <span class="macro">matches!</span>(<span class="ident">widened_ty</span>, <span class="ident">I32</span> <span class="op">|</span> <span class="ident">I64</span>);
     <span class="macro">assert!</span>(<span class="ident">w_ty_ok</span> <span class="op">&amp;&amp;</span> <span class="ident">widened_ty</span>.<span class="ident">bytes</span>() <span class="op">&gt;</span><span class="op">=</span> <span class="ident">access_ty</span>.<span class="ident">bytes</span>());
 
     <span class="macro">assert!</span>(<span class="ident">arg2_ty</span>.<span class="ident">bytes</span>() <span class="op">&gt;</span><span class="op">=</span> <span class="ident">access_ty</span>.<span class="ident">bytes</span>());
@@ -5717,10 +5654,7 @@
             ))
         }
     };
-    <span class="kw">let</span> <span class="ident">w_ty_ok</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">widened_ty</span> {
-        <span class="ident">I32</span> <span class="op">|</span> <span class="ident">I64</span> =&gt; <span class="bool-val">true</span>,
-        <span class="kw">_</span> =&gt; <span class="bool-val">false</span>,
-    };
+    <span class="kw">let</span> <span class="ident">w_ty_ok</span> <span class="op">=</span> <span class="macro">matches!</span>(<span class="ident">widened_ty</span>, <span class="ident">I32</span> <span class="op">|</span> <span class="ident">I64</span>);
     <span class="macro">assert!</span>(<span class="ident">w_ty_ok</span> <span class="op">&amp;&amp;</span> <span class="ident">widened_ty</span>.<span class="ident">bytes</span>() <span class="op">&gt;</span><span class="op">=</span> <span class="ident">access_ty</span>.<span class="ident">bytes</span>());
 
     <span class="macro">assert!</span>(<span class="ident">expected_ty</span>.<span class="ident">bytes</span>() <span class="op">&gt;</span><span class="op">=</span> <span class="ident">access_ty</span>.<span class="ident">bytes</span>());
@@ -5769,10 +5703,7 @@
             ))
         }
     };
-    <span class="kw">let</span> <span class="ident">w_ty_ok</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">widened_ty</span> {
-        <span class="ident">I32</span> <span class="op">|</span> <span class="ident">I64</span> =&gt; <span class="bool-val">true</span>,
-        <span class="kw">_</span> =&gt; <span class="bool-val">false</span>,
-    };
+    <span class="kw">let</span> <span class="ident">w_ty_ok</span> <span class="op">=</span> <span class="macro">matches!</span>(<span class="ident">widened_ty</span>, <span class="ident">I32</span> <span class="op">|</span> <span class="ident">I64</span>);
     <span class="macro">assert!</span>(<span class="ident">w_ty_ok</span> <span class="op">&amp;&amp;</span> <span class="ident">widened_ty</span>.<span class="ident">bytes</span>() <span class="op">&gt;</span><span class="op">=</span> <span class="ident">access_ty</span>.<span class="ident">bytes</span>());
 
     <span class="kw">let</span> <span class="ident">final_effective_address</span> <span class="op">=</span>
@@ -5812,10 +5743,7 @@
             ))
         }
     };
-    <span class="kw">let</span> <span class="ident">d_ty_ok</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">data_ty</span> {
-        <span class="ident">I32</span> <span class="op">|</span> <span class="ident">I64</span> =&gt; <span class="bool-val">true</span>,
-        <span class="kw">_</span> =&gt; <span class="bool-val">false</span>,
-    };
+    <span class="kw">let</span> <span class="ident">d_ty_ok</span> <span class="op">=</span> <span class="macro">matches!</span>(<span class="ident">data_ty</span>, <span class="ident">I32</span> <span class="op">|</span> <span class="ident">I64</span>);
     <span class="macro">assert!</span>(<span class="ident">d_ty_ok</span> <span class="op">&amp;&amp;</span> <span class="ident">data_ty</span>.<span class="ident">bytes</span>() <span class="op">&gt;</span><span class="op">=</span> <span class="ident">access_ty</span>.<span class="ident">bytes</span>());
 
     <span class="kw">if</span> <span class="ident">data_ty</span>.<span class="ident">bytes</span>() <span class="op">&gt;</span> <span class="ident">access_ty</span>.<span class="ident">bytes</span>() {
@@ -6124,10 +6052,10 @@
 
 <span class="attribute">#[<span class="ident">inline</span>(<span class="ident">always</span>)]</span>
 <span class="kw">fn</span> <span class="ident">is_non_canonical_v128</span>(<span class="ident">ty</span>: <span class="ident">ir::Type</span>) -&gt; <span class="ident">bool</span> {
-    <span class="kw">match</span> <span class="ident">ty</span> {
-        <span class="ident">B8X16</span> <span class="op">|</span> <span class="ident">B16X8</span> <span class="op">|</span> <span class="ident">B32X4</span> <span class="op">|</span> <span class="ident">B64X2</span> <span class="op">|</span> <span class="ident">I64X2</span> <span class="op">|</span> <span class="ident">I32X4</span> <span class="op">|</span> <span class="ident">I16X8</span> <span class="op">|</span> <span class="ident">F32X4</span> <span class="op">|</span> <span class="ident">F64X2</span> =&gt; <span class="bool-val">true</span>,
-        <span class="kw">_</span> =&gt; <span class="bool-val">false</span>,
-    }
+    <span class="macro">matches!</span>(
+        <span class="ident">ty</span>,
+        <span class="ident">B8X16</span> <span class="op">|</span> <span class="ident">B16X8</span> <span class="op">|</span> <span class="ident">B32X4</span> <span class="op">|</span> <span class="ident">B64X2</span> <span class="op">|</span> <span class="ident">I64X2</span> <span class="op">|</span> <span class="ident">I32X4</span> <span class="op">|</span> <span class="ident">I16X8</span> <span class="op">|</span> <span class="ident">F32X4</span> <span class="op">|</span> <span class="ident">F64X2</span>
+    )
 }
 
 <span class="doccomment">/// Cast to I8X16, any vector values in `values` that are of &quot;non-canonical&quot; type (meaning, not</span>

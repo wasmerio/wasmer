@@ -35,9 +35,6 @@
 <span id="33">33</span>
 <span id="34">34</span>
 <span id="35">35</span>
-<span id="36">36</span>
-<span id="37">37</span>
-<span id="38">38</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::EmEnv</span>;
 <span class="kw">use</span> <span class="ident">std::mem</span>;
 <span class="kw">use</span> <span class="ident">wasmer::FromToNativeWasmType</span>;
@@ -57,12 +54,9 @@
         <span class="kw">unsafe</span> { (<span class="ident">ptr</span> <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">T</span>).<span class="ident">read</span>() }
     }
 
-    <span class="comment">// pub fn getStr&lt;&#39;a&gt;(&amp;mut self, ctx: &amp;mut Ctx) -&gt; &amp;&#39;a CStr {</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_str</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>) -&gt; <span class="kw-2">*const</span> <span class="ident">c_char</span> {
         <span class="kw">let</span> <span class="ident">ptr_addr</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
-        <span class="kw">let</span> <span class="ident">ptr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>.<span class="ident">memory</span>(<span class="number">0</span>), <span class="ident">ptr_addr</span>) <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">c_char</span>;
-        <span class="ident">ptr</span>
-        <span class="comment">// unsafe { CStr::from_ptr(ptr) }</span>
+        <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>.<span class="ident">memory</span>(<span class="number">0</span>), <span class="ident">ptr_addr</span>) <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">c_char</span>
     }
 }
 

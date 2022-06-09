@@ -457,7 +457,7 @@
 
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">metadata_binary</span> <span class="op">=</span> <span class="macro">vec!</span>[];
         <span class="ident">metadata_binary</span>.<span class="ident">extend</span>(<span class="ident"><span class="self">Self</span>::MAGIC_HEADER</span>);
-        <span class="ident">metadata_binary</span>.<span class="ident">extend</span>(<span class="ident">MetadataHeader::new</span>(<span class="ident">serialized_data</span>.<span class="ident">len</span>()));
+        <span class="ident">metadata_binary</span>.<span class="ident">extend</span>(<span class="ident">MetadataHeader::new</span>(<span class="ident">serialized_data</span>.<span class="ident">len</span>()).<span class="ident">into_bytes</span>());
         <span class="ident">metadata_binary</span>.<span class="ident">extend</span>(<span class="ident">serialized_data</span>);
         <span class="prelude-val">Ok</span>(<span class="ident">metadata_binary</span>)
     }

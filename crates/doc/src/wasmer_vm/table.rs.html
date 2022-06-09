@@ -402,6 +402,7 @@
 <span id="400">400</span>
 <span id="401">401</span>
 <span id="402">402</span>
+<span id="403">403</span>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
 
@@ -722,11 +723,12 @@
         <span class="kw">let</span> <span class="ident">element</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">init_value</span> {
             <span class="ident">TableElement::ExternRef</span>(<span class="ident">extern_ref</span>) =&gt; {
                 <span class="kw">let</span> <span class="ident">extern_ref</span>: <span class="ident">VMExternRef</span> <span class="op">=</span> <span class="ident">extern_ref</span>.<span class="ident">into</span>();
+
                 <span class="comment">// We reduce the amount we increment by because `into` prevents</span>
                 <span class="comment">// dropping `init_value` (which is a caller-inc&#39;d ref).</span>
-                (<span class="ident">new_len</span> <span class="kw">as</span> <span class="ident">usize</span>)
-                    .<span class="ident">checked_sub</span>(<span class="ident">size</span> <span class="kw">as</span> <span class="ident">usize</span> <span class="op">+</span> <span class="number">1</span>)
-                    .<span class="ident">map</span>(<span class="op">|</span><span class="ident">val</span><span class="op">|</span> <span class="ident">extern_ref</span>.<span class="ident">ref_inc_by</span>(<span class="ident">val</span>));
+                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">val</span>) <span class="op">=</span> (<span class="ident">new_len</span> <span class="kw">as</span> <span class="ident">usize</span>).<span class="ident">checked_sub</span>(<span class="ident">size</span> <span class="kw">as</span> <span class="ident">usize</span> <span class="op">+</span> <span class="number">1</span>) {
+                    <span class="ident">extern_ref</span>.<span class="ident">ref_inc_by</span>(<span class="ident">val</span>)
+                }
                 <span class="ident">RawTableElement</span> { <span class="ident">extern_ref</span> }
             }
             <span class="ident">TableElement::FuncRef</span>(<span class="ident">func_ref</span>) =&gt; <span class="ident">RawTableElement</span> { <span class="ident">func_ref</span> },

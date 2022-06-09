@@ -120,7 +120,7 @@
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">to_fde</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">address</span>: <span class="ident">Address</span>) -&gt; <span class="ident">UnwindFrame</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">fde</span> <span class="op">=</span> <span class="ident">FrameDescriptionEntry::new</span>(<span class="ident">address</span>, <span class="self">self</span>.<span class="ident">len</span>);
         <span class="kw">for</span> (<span class="ident">offset</span>, <span class="ident">inst</span>) <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">instructions</span> {
-            <span class="ident">fde</span>.<span class="ident">add_instruction</span>(<span class="kw-2">*</span><span class="ident">offset</span>, <span class="ident">inst</span>.<span class="ident">clone</span>().<span class="ident">into</span>());
+            <span class="ident">fde</span>.<span class="ident">add_instruction</span>(<span class="kw-2">*</span><span class="ident">offset</span>, <span class="ident">inst</span>.<span class="ident">clone</span>());
         }
         <span class="ident">UnwindFrame::SystemV</span>(<span class="ident">fde</span>)
     }

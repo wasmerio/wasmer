@@ -293,7 +293,7 @@
                 <span class="ident">ImportError::UnknownImport</span>(<span class="ident">import_extern</span>),
             ));
         };
-        <span class="kw">let</span> <span class="ident">export_extern</span> <span class="op">=</span> <span class="ident">get_extern_from_export</span>(<span class="ident">module</span>, <span class="kw-2">&amp;</span><span class="ident">resolved</span>);
+        <span class="kw">let</span> <span class="ident">export_extern</span> <span class="op">=</span> <span class="ident">get_extern_from_export</span>(<span class="ident">module</span>, <span class="ident">resolved</span>);
         <span class="kw">if</span> <span class="op">!</span><span class="ident">export_extern</span>.<span class="ident">is_compatible_with</span>(<span class="kw-2">&amp;</span><span class="ident">import_extern</span>) {
             <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">LinkError::Import</span>(
                 <span class="ident">module_name</span>.<span class="ident">to_string</span>(),

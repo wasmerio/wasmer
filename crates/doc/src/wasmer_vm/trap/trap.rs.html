@@ -118,7 +118,7 @@
     <span class="doccomment">///</span>
     <span class="doccomment">/// Internally saves a backtrace when constructed.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">wasm</span>(<span class="ident">pc</span>: <span class="ident">usize</span>, <span class="ident">backtrace</span>: <span class="ident">Backtrace</span>, <span class="ident">signal_trap</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">TrapCode</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident">Trap::Wasm</span> {
+        <span class="ident"><span class="self">Self</span>::Wasm</span> {
             <span class="ident">pc</span>,
             <span class="ident">backtrace</span>,
             <span class="ident">signal_trap</span>,
@@ -130,7 +130,7 @@
     <span class="doccomment">/// Internally saves a backtrace when constructed.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">lib</span>(<span class="ident">trap_code</span>: <span class="ident">TrapCode</span>) -&gt; <span class="self">Self</span> {
         <span class="kw">let</span> <span class="ident">backtrace</span> <span class="op">=</span> <span class="ident">Backtrace::new_unresolved</span>();
-        <span class="ident">Trap::Lib</span> {
+        <span class="ident"><span class="self">Self</span>::Lib</span> {
             <span class="ident">trap_code</span>,
             <span class="ident">backtrace</span>,
         }
@@ -141,7 +141,7 @@
     <span class="doccomment">/// Internally saves a backtrace when constructed.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">oom</span>() -&gt; <span class="self">Self</span> {
         <span class="kw">let</span> <span class="ident">backtrace</span> <span class="op">=</span> <span class="ident">Backtrace::new_unresolved</span>();
-        <span class="ident">Trap::OOM</span> { <span class="ident">backtrace</span> }
+        <span class="ident"><span class="self">Self</span>::OOM</span> { <span class="ident">backtrace</span> }
     }
 }
 </code></pre></div>

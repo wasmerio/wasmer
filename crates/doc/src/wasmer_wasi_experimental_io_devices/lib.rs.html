@@ -756,9 +756,9 @@
                 <span class="ident">FrameBufferFileType::Buffer</span> =&gt; {
                     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">bytes_copied</span> <span class="op">=</span> <span class="number">0</span>;
 
-                    <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">buf</span>.<span class="ident">len</span>() {
+                    <span class="kw">for</span> (<span class="ident">i</span>, <span class="ident">b</span>) <span class="kw">in</span> <span class="ident">buf</span>.<span class="ident">iter_mut</span>().<span class="ident">enumerate</span>() {
                         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">byte</span>) <span class="op">=</span> <span class="ident">fb_state</span>.<span class="ident">get_byte</span>(<span class="ident">cursor</span> <span class="op">+</span> <span class="ident">i</span>) {
-                            <span class="ident">buf</span>[<span class="ident">i</span>] <span class="op">=</span> <span class="ident">byte</span>;
+                            <span class="kw-2">*</span><span class="ident">b</span> <span class="op">=</span> <span class="ident">byte</span>;
                             <span class="ident">bytes_copied</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
                         } <span class="kw">else</span> {
                             <span class="kw">break</span>;
@@ -774,8 +774,8 @@
                     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">bytes</span> <span class="op">=</span> <span class="ident">resolution_data</span>.<span class="ident">bytes</span>().<span class="ident">skip</span>(<span class="ident">cursor</span>);
                     <span class="kw">let</span> <span class="ident">bytes_to_copy</span> <span class="op">=</span> <span class="ident">std::cmp::min</span>(<span class="ident">buf</span>.<span class="ident">len</span>(), <span class="ident">bytes</span>.<span class="ident">clone</span>().<span class="ident">count</span>());
 
-                    <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">bytes_to_copy</span> {
-                        <span class="ident">buf</span>[<span class="ident">i</span>] <span class="op">=</span> <span class="ident">bytes</span>.<span class="ident">next</span>().<span class="ident">unwrap</span>();
+                    <span class="kw">for</span> <span class="ident">byte</span> <span class="kw">in</span> <span class="ident">buf</span>.<span class="ident">iter_mut</span>().<span class="ident">take</span>(<span class="ident">bytes_to_copy</span>) {
+                        <span class="kw-2">*</span><span class="ident">byte</span> <span class="op">=</span> <span class="ident">bytes</span>.<span class="ident">next</span>().<span class="ident">unwrap</span>();
                     }
 
                     <span class="self">self</span>.<span class="ident">cursor</span> <span class="op">+</span><span class="op">=</span> <span class="ident">bytes_to_copy</span> <span class="kw">as</span> <span class="ident">u32</span>;

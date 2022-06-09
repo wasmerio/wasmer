@@ -387,7 +387,7 @@
         <span class="ident">binary</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>],
         <span class="ident">tunables</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">Tunables</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Artifact</span><span class="op">&gt;</span>, <span class="ident">CompileError</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Ok</span>(<span class="ident">Arc::new</span>(<span class="ident">StaticlibArtifact::new</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">binary</span>, <span class="ident">tunables</span>)<span class="question-mark">?</span>))
+        <span class="prelude-val">Ok</span>(<span class="ident">Arc::new</span>(<span class="ident">StaticlibArtifact::new</span>(<span class="self">self</span>, <span class="ident">binary</span>, <span class="ident">tunables</span>)<span class="question-mark">?</span>))
     }
 
     <span class="doccomment">/// Compile a WebAssembly binary (it will fail because the `compiler` flag is disabled).</span>
@@ -405,7 +405,7 @@
 
     <span class="doccomment">/// Deserializes a WebAssembly module (binary content of a static object file)</span>
     <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">deserialize</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">bytes</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Artifact</span><span class="op">&gt;</span>, <span class="ident">DeserializeError</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Ok</span>(<span class="ident">Arc::new</span>(<span class="ident">StaticlibArtifact::deserialize</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw-2">&amp;</span><span class="ident">bytes</span>)<span class="question-mark">?</span>))
+        <span class="prelude-val">Ok</span>(<span class="ident">Arc::new</span>(<span class="ident">StaticlibArtifact::deserialize</span>(<span class="self">self</span>, <span class="ident">bytes</span>)<span class="question-mark">?</span>))
     }
 
     <span class="doccomment">/// Deserializes a WebAssembly module from a path</span>
@@ -473,7 +473,7 @@
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">get_prefix</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">bytes</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="ident">String</span> {
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">prefixer</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">prefixer</span> {
-            <span class="ident">prefixer</span>(<span class="kw-2">&amp;</span><span class="ident">bytes</span>)
+            <span class="ident">prefixer</span>(<span class="ident">bytes</span>)
         } <span class="kw">else</span> {
             <span class="string">&quot;&quot;</span>.<span class="ident">to_string</span>()
         }
@@ -486,13 +486,13 @@
 
     <span class="doccomment">/// Validate the module</span>
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">validate</span><span class="op">&lt;</span><span class="lifetime">&#39;data</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">data</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;data</span> [<span class="ident">u8</span>]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">validate</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">data</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">compiler</span>()<span class="question-mark">?</span>.<span class="ident">validate_module</span>(<span class="self">self</span>.<span class="ident">features</span>(), <span class="ident">data</span>)
     }
 
     <span class="doccomment">/// Validate the module</span>
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>))]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">validate</span><span class="op">&lt;</span><span class="lifetime">&#39;data</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">_data</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;data</span> [<span class="ident">u8</span>]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">validate</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">_data</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="prelude-val">Err</span>(<span class="ident">CompileError::Validate</span>(
             <span class="string">&quot;The `StaticlibEngine` is not compiled with compiler support, which is required for validating&quot;</span>.<span class="ident">to_string</span>(),
         ))

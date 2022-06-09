@@ -22,9 +22,9 @@
 <span id="20">20</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">FunctionAddressMap</span>, <span class="ident">FunctionBodyData</span>, <span class="ident">InstructionAddressMap</span>, <span class="ident">SourceLoc</span>};
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_function_address_map</span><span class="op">&lt;</span><span class="lifetime">&#39;data</span><span class="op">&gt;</span>(
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_function_address_map</span>(
     <span class="ident">instructions</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">InstructionAddressMap</span><span class="op">&gt;</span>,
-    <span class="ident">data</span>: <span class="kw-2">&amp;</span><span class="ident">FunctionBodyData</span><span class="op">&lt;</span><span class="lifetime">&#39;data</span><span class="op">&gt;</span>,
+    <span class="ident">data</span>: <span class="kw-2">&amp;</span><span class="ident">FunctionBodyData</span>,
     <span class="ident">body_len</span>: <span class="ident">usize</span>,
 ) -&gt; <span class="ident">FunctionAddressMap</span> {
     <span class="comment">// Generate source loc for a function start/end to identify boundary within module.</span>

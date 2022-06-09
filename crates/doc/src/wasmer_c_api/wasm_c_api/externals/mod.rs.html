@@ -312,12 +312,6 @@
 <span id="310">310</span>
 <span id="311">311</span>
 <span id="312">312</span>
-<span id="313">313</span>
-<span id="314">314</span>
-<span id="315">315</span>
-<span id="316">316</span>
-<span id="317">317</span>
-<span id="318">318</span>
 </pre><pre class="rust"><code><span class="kw">mod</span> <span class="ident">function</span>;
 <span class="kw">mod</span> <span class="ident">global</span>;
 <span class="kw">mod</span> <span class="ident">memory</span>;
@@ -402,15 +396,9 @@
             <span class="ident">CApiExternTag::Function</span> =&gt; {
                 <span class="ident">ExternType::Function</span>(<span class="kw">unsafe</span> { <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">function</span>.<span class="ident">inner</span>.<span class="ident">ty</span>().<span class="ident">clone</span>() })
             }
-            <span class="ident">CApiExternTag::Memory</span> =&gt; {
-                <span class="ident">ExternType::Memory</span>(<span class="kw">unsafe</span> { <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">memory</span>.<span class="ident">inner</span>.<span class="ident">ty</span>().<span class="ident">clone</span>() })
-            }
-            <span class="ident">CApiExternTag::Global</span> =&gt; {
-                <span class="ident">ExternType::Global</span>(<span class="kw">unsafe</span> { <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">global</span>.<span class="ident">inner</span>.<span class="ident">ty</span>().<span class="ident">clone</span>() })
-            }
-            <span class="ident">CApiExternTag::Table</span> =&gt; {
-                <span class="ident">ExternType::Table</span>(<span class="kw">unsafe</span> { <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">table</span>.<span class="ident">inner</span>.<span class="ident">ty</span>().<span class="ident">clone</span>() })
-            }
+            <span class="ident">CApiExternTag::Memory</span> =&gt; <span class="ident">ExternType::Memory</span>(<span class="kw">unsafe</span> { <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">memory</span>.<span class="ident">inner</span>.<span class="ident">ty</span>() }),
+            <span class="ident">CApiExternTag::Global</span> =&gt; <span class="ident">ExternType::Global</span>(<span class="kw">unsafe</span> { <span class="kw-2">*</span><span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">global</span>.<span class="ident">inner</span>.<span class="ident">ty</span>() }),
+            <span class="ident">CApiExternTag::Table</span> =&gt; <span class="ident">ExternType::Table</span>(<span class="kw">unsafe</span> { <span class="kw-2">*</span><span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">table</span>.<span class="ident">inner</span>.<span class="ident">ty</span>() }),
         }
     }
 }

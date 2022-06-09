@@ -2313,6 +2313,92 @@
 <span id="2311">2311</span>
 <span id="2312">2312</span>
 <span id="2313">2313</span>
+<span id="2314">2314</span>
+<span id="2315">2315</span>
+<span id="2316">2316</span>
+<span id="2317">2317</span>
+<span id="2318">2318</span>
+<span id="2319">2319</span>
+<span id="2320">2320</span>
+<span id="2321">2321</span>
+<span id="2322">2322</span>
+<span id="2323">2323</span>
+<span id="2324">2324</span>
+<span id="2325">2325</span>
+<span id="2326">2326</span>
+<span id="2327">2327</span>
+<span id="2328">2328</span>
+<span id="2329">2329</span>
+<span id="2330">2330</span>
+<span id="2331">2331</span>
+<span id="2332">2332</span>
+<span id="2333">2333</span>
+<span id="2334">2334</span>
+<span id="2335">2335</span>
+<span id="2336">2336</span>
+<span id="2337">2337</span>
+<span id="2338">2338</span>
+<span id="2339">2339</span>
+<span id="2340">2340</span>
+<span id="2341">2341</span>
+<span id="2342">2342</span>
+<span id="2343">2343</span>
+<span id="2344">2344</span>
+<span id="2345">2345</span>
+<span id="2346">2346</span>
+<span id="2347">2347</span>
+<span id="2348">2348</span>
+<span id="2349">2349</span>
+<span id="2350">2350</span>
+<span id="2351">2351</span>
+<span id="2352">2352</span>
+<span id="2353">2353</span>
+<span id="2354">2354</span>
+<span id="2355">2355</span>
+<span id="2356">2356</span>
+<span id="2357">2357</span>
+<span id="2358">2358</span>
+<span id="2359">2359</span>
+<span id="2360">2360</span>
+<span id="2361">2361</span>
+<span id="2362">2362</span>
+<span id="2363">2363</span>
+<span id="2364">2364</span>
+<span id="2365">2365</span>
+<span id="2366">2366</span>
+<span id="2367">2367</span>
+<span id="2368">2368</span>
+<span id="2369">2369</span>
+<span id="2370">2370</span>
+<span id="2371">2371</span>
+<span id="2372">2372</span>
+<span id="2373">2373</span>
+<span id="2374">2374</span>
+<span id="2375">2375</span>
+<span id="2376">2376</span>
+<span id="2377">2377</span>
+<span id="2378">2378</span>
+<span id="2379">2379</span>
+<span id="2380">2380</span>
+<span id="2381">2381</span>
+<span id="2382">2382</span>
+<span id="2383">2383</span>
+<span id="2384">2384</span>
+<span id="2385">2385</span>
+<span id="2386">2386</span>
+<span id="2387">2387</span>
+<span id="2388">2388</span>
+<span id="2389">2389</span>
+<span id="2390">2390</span>
+<span id="2391">2391</span>
+<span id="2392">2392</span>
+<span id="2393">2393</span>
+<span id="2394">2394</span>
+<span id="2395">2395</span>
+<span id="2396">2396</span>
+<span id="2397">2397</span>
+<span id="2398">2398</span>
+<span id="2399">2399</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::common_decl</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::location</span>::{<span class="ident">Location</span>, <span class="ident">Reg</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::machine_arm64::MachineARM64</span>;
@@ -2398,9 +2484,9 @@
     <span class="doccomment">/// reserve a GPR</span>
     <span class="kw">fn</span> <span class="ident">reserve_gpr</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">gpr</span>: <span class="ident"><span class="self">Self</span>::GPR</span>);
     <span class="doccomment">/// Push used gpr to the stack. Return the bytes taken on the stack</span>
-    <span class="kw">fn</span> <span class="ident">push_used_gpr</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">grps</span>: <span class="kw-2">&amp;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span><span class="op">&gt;</span>) -&gt; <span class="ident">usize</span>;
+    <span class="kw">fn</span> <span class="ident">push_used_gpr</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">grps</span>: <span class="kw-2">&amp;</span>[<span class="ident"><span class="self">Self</span>::GPR</span>]) -&gt; <span class="ident">usize</span>;
     <span class="doccomment">/// Pop used gpr to the stack</span>
-    <span class="kw">fn</span> <span class="ident">pop_used_gpr</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">grps</span>: <span class="kw-2">&amp;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span><span class="op">&gt;</span>);
+    <span class="kw">fn</span> <span class="ident">pop_used_gpr</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">grps</span>: <span class="kw-2">&amp;</span>[<span class="ident"><span class="self">Self</span>::GPR</span>]);
     <span class="doccomment">/// Picks an unused SIMD register.</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// This method does not mark the register as used</span>
@@ -2416,9 +2502,9 @@
     <span class="doccomment">/// Releases a temporary XMM register.</span>
     <span class="kw">fn</span> <span class="ident">release_simd</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">simd</span>: <span class="ident"><span class="self">Self</span>::SIMD</span>);
     <span class="doccomment">/// Push used simd regs to the stack. Return bytes taken on the stack</span>
-    <span class="kw">fn</span> <span class="ident">push_used_simd</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">simds</span>: <span class="kw-2">&amp;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>) -&gt; <span class="ident">usize</span>;
+    <span class="kw">fn</span> <span class="ident">push_used_simd</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">simds</span>: <span class="kw-2">&amp;</span>[<span class="ident"><span class="self">Self</span>::SIMD</span>]) -&gt; <span class="ident">usize</span>;
     <span class="doccomment">/// Pop used simd regs to the stack</span>
-    <span class="kw">fn</span> <span class="ident">pop_used_simd</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">simds</span>: <span class="kw-2">&amp;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>);
+    <span class="kw">fn</span> <span class="ident">pop_used_simd</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">simds</span>: <span class="kw-2">&amp;</span>[<span class="ident"><span class="self">Self</span>::SIMD</span>]);
     <span class="doccomment">/// Return a rounded stack adjustement value (must be multiple of 16bytes on ARM64 for example)</span>
     <span class="kw">fn</span> <span class="ident">round_stack_adjust</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">value</span>: <span class="ident">usize</span>) -&gt; <span class="ident">usize</span>;
     <span class="doccomment">/// Set the source location of the Wasm to the given offset.</span>
@@ -2943,6 +3029,7 @@
         <span class="ident">ret</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
     );
     <span class="doccomment">/// i32 load</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i32_load</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">addr</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -2954,6 +3041,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i32 load of an unsigned 8bits</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i32_load_8u</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">addr</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -2965,6 +3053,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i32 load of an signed 8bits</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i32_load_8s</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">addr</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -2976,6 +3065,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i32 load of an unsigned 16bits</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i32_load_16u</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">addr</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -2987,6 +3077,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i32 load of an signed 16bits</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i32_load_16s</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">addr</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -2998,6 +3089,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i32 atomic load</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i32_atomic_load</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">addr</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3009,6 +3101,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i32 atomic load of an unsigned 8bits</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i32_atomic_load_8u</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">addr</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3020,6 +3113,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i32 atomic load of an unsigned 16bits</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i32_atomic_load_16u</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">addr</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3031,6 +3125,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i32 save</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i32_save</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">value</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3042,6 +3137,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i32 save of the lower 8bits</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i32_save_8</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">value</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3053,6 +3149,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i32 save of the lower 16bits</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i32_save_16</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">value</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3064,6 +3161,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i32 atomic save</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i32_atomic_save</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">value</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3075,6 +3173,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i32 atomic save of a the lower 8bits</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i32_atomic_save_8</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">value</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3086,6 +3185,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i32 atomic save of a the lower 16bits</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i32_atomic_save_16</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">value</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3097,6 +3197,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i32 atomic Add with i32</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i32_atomic_add</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">loc</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3109,6 +3210,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i32 atomic Add with unsigned 8bits</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i32_atomic_add_8u</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">loc</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3121,6 +3223,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i32 atomic Add with unsigned 16bits</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i32_atomic_add_16u</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">loc</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3133,6 +3236,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i32 atomic Sub with i32</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i32_atomic_sub</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">loc</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3145,6 +3249,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i32 atomic Sub with unsigned 8bits</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i32_atomic_sub_8u</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">loc</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3157,6 +3262,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i32 atomic Sub with unsigned 16bits</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i32_atomic_sub_16u</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">loc</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3169,6 +3275,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i32 atomic And with i32</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i32_atomic_and</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">loc</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3181,6 +3288,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i32 atomic And with unsigned 8bits</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i32_atomic_and_8u</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">loc</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3193,6 +3301,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i32 atomic And with unsigned 16bits</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i32_atomic_and_16u</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">loc</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3205,6 +3314,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i32 atomic Or with i32</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i32_atomic_or</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">loc</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3217,6 +3327,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i32 atomic Or with unsigned 8bits</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i32_atomic_or_8u</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">loc</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3229,6 +3340,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i32 atomic Or with unsigned 16bits</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i32_atomic_or_16u</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">loc</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3241,6 +3353,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i32 atomic Xor with i32</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i32_atomic_xor</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">loc</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3253,6 +3366,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i32 atomic Xor with unsigned 8bits</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i32_atomic_xor_8u</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">loc</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3265,6 +3379,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i32 atomic Xor with unsigned 16bits</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i32_atomic_xor_16u</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">loc</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3277,6 +3392,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i32 atomic Exchange with i32</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i32_atomic_xchg</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">loc</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3289,6 +3405,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i32 atomic Exchange with u8</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i32_atomic_xchg_8u</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">loc</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3301,6 +3418,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i32 atomic Exchange with u16</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i32_atomic_xchg_16u</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">loc</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3313,6 +3431,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i32 atomic Compare and Exchange with i32</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i32_atomic_cmpxchg</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">new</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3326,6 +3445,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i32 atomic Compare and Exchange with u8</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i32_atomic_cmpxchg_8u</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">new</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3339,6 +3459,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i32 atomic Compare and Exchange with u16</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i32_atomic_cmpxchg_16u</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">new</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3560,6 +3681,7 @@
         <span class="ident">ret</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
     );
     <span class="doccomment">/// i64 load</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i64_load</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">addr</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3571,6 +3693,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i64 load of an unsigned 8bits</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i64_load_8u</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">addr</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3582,6 +3705,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i64 load of an signed 8bits</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i64_load_8s</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">addr</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3593,6 +3717,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i64 load of an unsigned 32bits</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i64_load_32u</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">addr</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3604,6 +3729,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i64 load of an signed 32bits</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i64_load_32s</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">addr</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3615,6 +3741,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i64 load of an signed 16bits</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i64_load_16u</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">addr</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3626,6 +3753,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i64 load of an signed 16bits</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i64_load_16s</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">addr</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3637,6 +3765,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i64 atomic load</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i64_atomic_load</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">addr</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3648,6 +3777,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i64 atomic load from unsigned 8bits</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i64_atomic_load_8u</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">addr</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3659,6 +3789,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i64 atomic load from unsigned 16bits</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i64_atomic_load_16u</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">addr</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3670,6 +3801,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i64 atomic load from unsigned 32bits</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i64_atomic_load_32u</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">addr</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3681,6 +3813,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i64 save</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i64_save</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">value</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3692,6 +3825,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i64 save of the lower 8bits</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i64_save_8</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">value</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3703,6 +3837,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i64 save of the lower 16bits</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i64_save_16</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">value</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3714,6 +3849,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i64 save of the lower 32bits</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i64_save_32</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">value</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3725,6 +3861,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i64 atomic save</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i64_atomic_save</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">value</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3736,6 +3873,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i64 atomic save of a the lower 8bits</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i64_atomic_save_8</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">value</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3747,6 +3885,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i64 atomic save of a the lower 16bits</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i64_atomic_save_16</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">value</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3758,6 +3897,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i64 atomic save of a the lower 32bits</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i64_atomic_save_32</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">value</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3769,6 +3909,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i64 atomic Add with i64</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i64_atomic_add</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">loc</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3781,6 +3922,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i64 atomic Add with unsigned 8bits</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i64_atomic_add_8u</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">loc</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3793,6 +3935,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i64 atomic Add with unsigned 16bits</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i64_atomic_add_16u</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">loc</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3805,6 +3948,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i64 atomic Add with unsigned 32bits</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i64_atomic_add_32u</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">loc</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3817,6 +3961,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i64 atomic Sub with i64</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i64_atomic_sub</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">loc</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3829,6 +3974,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i64 atomic Sub with unsigned 8bits</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i64_atomic_sub_8u</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">loc</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3841,6 +3987,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i64 atomic Sub with unsigned 16bits</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i64_atomic_sub_16u</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">loc</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3853,6 +4000,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i64 atomic Sub with unsigned 32bits</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i64_atomic_sub_32u</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">loc</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3865,6 +4013,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i64 atomic And with i64</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i64_atomic_and</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">loc</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3877,6 +4026,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i64 atomic And with unsigned 8bits</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i64_atomic_and_8u</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">loc</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3889,6 +4039,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i64 atomic And with unsigned 16bits</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i64_atomic_and_16u</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">loc</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3901,6 +4052,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i64 atomic And with unsigned 32bits</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i64_atomic_and_32u</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">loc</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3913,6 +4065,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i64 atomic Or with i64</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i64_atomic_or</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">loc</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3925,6 +4078,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i64 atomic Or with unsigned 8bits</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i64_atomic_or_8u</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">loc</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3937,6 +4091,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i64 atomic Or with unsigned 16bits</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i64_atomic_or_16u</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">loc</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3949,6 +4104,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i64 atomic Or with unsigned 32bits</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i64_atomic_or_32u</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">loc</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3961,6 +4117,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i64 atomic Xor with i64</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i64_atomic_xor</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">loc</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3973,6 +4130,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i64 atomic Xor with unsigned 8bits</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i64_atomic_xor_8u</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">loc</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3985,6 +4143,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i64 atomic Xor with unsigned 16bits</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i64_atomic_xor_16u</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">loc</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -3997,6 +4156,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i64 atomic Xor with unsigned 32bits</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i64_atomic_xor_32u</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">loc</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -4009,6 +4169,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i64 atomic Exchange with i64</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i64_atomic_xchg</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">loc</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -4021,6 +4182,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i64 atomic Exchange with u8</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i64_atomic_xchg_8u</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">loc</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -4033,6 +4195,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i64 atomic Exchange with u16</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i64_atomic_xchg_16u</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">loc</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -4045,6 +4208,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i64 atomic Exchange with u32</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i64_atomic_xchg_32u</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">loc</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -4057,6 +4221,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i64 atomic Compare and Exchange with i32</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i64_atomic_cmpxchg</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">new</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -4070,6 +4235,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i64 atomic Compare and Exchange with u8</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i64_atomic_cmpxchg_8u</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">new</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -4083,6 +4249,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i64 atomic Compare and Exchange with u16</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i64_atomic_cmpxchg_16u</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">new</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -4096,6 +4263,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// i64 atomic Compare and Exchange with u32</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">i64_atomic_cmpxchg_32u</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">new</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -4110,6 +4278,7 @@
     );
 
     <span class="doccomment">/// load an F32</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">f32_load</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">addr</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -4121,6 +4290,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// f32 save</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">f32_save</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">value</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -4133,6 +4303,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// load an F64</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">f64_load</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">addr</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
@@ -4144,6 +4315,7 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
     );
     <span class="doccomment">/// f64 save</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">f64_save</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">value</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,

@@ -842,7 +842,7 @@
         }
 
         <span class="kw">let</span> <span class="ident">callable_func</span> <span class="op">=</span> <span class="ident">inkwell::values::CallableValue::try_from</span>(<span class="ident">func_ptr</span>).<span class="ident">unwrap</span>();
-        <span class="kw">let</span> <span class="ident">call_site</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">build_call</span>(<span class="ident">callable_func</span>, <span class="ident">args_vec</span>.<span class="ident">as_slice</span>().<span class="ident">into</span>(), <span class="string">&quot;call&quot;</span>);
+        <span class="kw">let</span> <span class="ident">call_site</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">build_call</span>(<span class="ident">callable_func</span>, <span class="ident">args_vec</span>.<span class="ident">as_slice</span>(), <span class="string">&quot;call&quot;</span>);
         <span class="kw">for</span> (<span class="ident">attr</span>, <span class="ident">attr_loc</span>) <span class="kw">in</span> <span class="ident">func_attrs</span> {
             <span class="ident">call_site</span>.<span class="ident">add_attribute</span>(<span class="kw-2">*</span><span class="ident">attr_loc</span>, <span class="kw-2">*</span><span class="ident">attr</span>);
         }
@@ -977,7 +977,7 @@
                 <span class="kw">for</span> (<span class="ident">idx</span>, <span class="ident">value</span>) <span class="kw">in</span> <span class="ident">results</span>.<span class="ident">iter</span>().<span class="ident">enumerate</span>() {
                     <span class="kw">let</span> <span class="ident">value</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">build_bitcast</span>(
                         <span class="kw-2">*</span><span class="ident">value</span>,
-                        <span class="ident">type_to_llvm</span>(<span class="kw-2">&amp;</span><span class="ident">intrinsics</span>, <span class="ident">func_sig</span>.<span class="ident">results</span>()[<span class="ident">idx</span>])<span class="question-mark">?</span>,
+                        <span class="ident">type_to_llvm</span>(<span class="ident">intrinsics</span>, <span class="ident">func_sig</span>.<span class="ident">results</span>()[<span class="ident">idx</span>])<span class="question-mark">?</span>,
                         <span class="string">&quot;&quot;</span>,
                     );
                     <span class="ident">struct_value</span> <span class="op">=</span> <span class="ident">builder</span>
@@ -989,9 +989,9 @@
                 <span class="ident">builder</span>.<span class="ident">build_return</span>(<span class="prelude-val">None</span>);
             } <span class="kw">else</span> {
                 <span class="ident">builder</span>.<span class="ident">build_return</span>(<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">abi</span>.<span class="ident">pack_values_for_register_return</span>(
-                    <span class="kw-2">&amp;</span><span class="ident">intrinsics</span>,
+                    <span class="ident">intrinsics</span>,
                     <span class="kw-2">&amp;</span><span class="ident">builder</span>,
-                    <span class="kw-2">&amp;</span><span class="ident">results</span>.<span class="ident">as_slice</span>(),
+                    <span class="ident">results</span>.<span class="ident">as_slice</span>(),
                     <span class="kw-2">&amp;</span><span class="ident">trampoline_func</span>.<span class="ident">get_type</span>(),
                 )<span class="question-mark">?</span>));
             }
