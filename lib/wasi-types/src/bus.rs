@@ -1,6 +1,7 @@
 use super::*;
 use wasmer_derive::ValueType;
-use wasmer_types::MemorySize;
+
+pub type __wasi_hash_t = u128;
 
 pub type __wasi_busdataformat_t = u8;
 pub const __WASI_BUS_DATA_FORMAT_RAW: __wasi_busdataformat_t = 0;
@@ -28,7 +29,7 @@ pub struct __wasi_option_bid_t {
     pub bid: __wasi_bid_t,
 }
 
-pub type __wasi_cid_t = u8;
+pub type __wasi_cid_t = u64;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, ValueType)]
 #[repr(C)]
@@ -62,23 +63,20 @@ pub struct __wasi_busevent_exit_t {
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, ValueType)]
 #[repr(C)]
-pub struct __wasi_busevent_call_t<M: MemorySize> {
+pub struct __wasi_busevent_call_t {
     pub parent: __wasi_option_cid_t,
     pub cid: __wasi_cid_t,
     pub format: __wasi_busdataformat_t,
-    pub topic_ptr: M::Offset,
-    pub topic_len: M::Offset,
-    pub buf_ptr: M::Offset,
-    pub buf_len: M::Offset,
+    pub topic_hash: __wasi_hash_t,
+    pub fd: __wasi_fd_t,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, ValueType)]
 #[repr(C)]
-pub struct __wasi_busevent_result_t<M: MemorySize> {
+pub struct __wasi_busevent_result_t {
     pub format: __wasi_busdataformat_t,
     pub cid: __wasi_cid_t,
-    pub buf_ptr: M::Offset,
-    pub buf_len: M::Offset,
+    pub fd: __wasi_fd_t,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, ValueType)]
@@ -96,18 +94,25 @@ pub struct __wasi_busevent_close_t {
 
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub union __wasi_busevent_u<M: MemorySize> {
+pub union __wasi_busevent_u {
     pub noop: u8,
     pub exit: __wasi_busevent_exit_t,
-    pub call: __wasi_busevent_call_t<M>,
-    pub result: __wasi_busevent_result_t<M>,
+    pub call: __wasi_busevent_call_t,
+    pub result: __wasi_busevent_result_t,
     pub fault: __wasi_busevent_fault_t,
     pub close: __wasi_busevent_close_t,
 }
 
+#[derive(Copy, Clone, ValueType)]
+#[repr(C)]
+pub struct __wasi_busevent_t {
+    pub tag: __wasi_buseventtype_t,
+    pub padding: [u8; 63],
+}
+
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct __wasi_busevent_t<M: MemorySize> {
+pub struct __wasi_busevent_t2 {
     pub tag: __wasi_buseventtype_t,
-    pub u: __wasi_busevent_u<M>,
+    pub u: __wasi_busevent_u,
 }

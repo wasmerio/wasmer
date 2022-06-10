@@ -6,6 +6,7 @@ use std::collections::HashMap;
 use std::fmt;
 use wasmer_compiler::LinkError;
 use wasmer_types::ImportError;
+use tracing::trace;
 
 /// All of the import data used when instantiating.
 ///
@@ -132,7 +133,10 @@ impl Imports {
     /// Resolve and return a vector of imports in the order they are defined in the `module`'s source code.
     ///
     /// This means the returned `Vec<Extern>` might be a subset of the imports contained in `self`.
-    pub fn imports_for_module(&self, module: &Module) -> Result<Vec<Extern>, LinkError> {
+    pub fn imports_for_module(
+        &self,
+        module: &Module
+    ) -> Result<Vec<Extern>, LinkError> {
         let mut ret = vec![];
         for import in module.imports() {
             if let Some(imp) = self
@@ -141,6 +145,9 @@ impl Imports {
             {
                 ret.push(imp.clone());
             } else {
+                for (k1, k2) in self.map.keys() {
+                    trace!("import extern ({}, {})", k1, k2);
+                }
                 return Err(LinkError::Import(
                     import.module().to_string(),
                     import.name().to_string(),
@@ -149,6 +156,36 @@ impl Imports {
             }
         }
         Ok(ret)
+    }
+
+    /// Iterates through all the imports in this structure
+    pub fn iter<'a>(&'a self) -> ImportsIterator<'a> {
+        ImportsIterator::new(self)
+    }
+}
+
+pub struct ImportsIterator<'a> {
+    iter: std::collections::hash_map::Iter<'a, (String, String), Extern>
+}
+
+impl<'a> ImportsIterator<'a>
+{
+    fn new(imports: &'a Imports) -> Self {
+        let iter = imports.map.iter();
+        Self { iter }
+    }
+}
+
+impl<'a> Iterator
+for ImportsIterator<'a> {
+    type Item = (&'a str, &'a str, &'a Extern);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter
+            .next()
+            .map(|(k, v)| {
+                (k.0.as_str(), k.1.as_str(), v)
+            })
     }
 }
 

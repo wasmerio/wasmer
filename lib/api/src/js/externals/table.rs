@@ -128,7 +128,7 @@ impl Table {
     /// Returns an error if the `delta` is out of bounds for the table.
     pub fn grow(
         &self,
-        store: &mut AsStoreMut,
+        _store: &mut dyn AsStoreMut,
         _delta: u32,
         _init: Value,
     ) -> Result<u32, RuntimeError> {

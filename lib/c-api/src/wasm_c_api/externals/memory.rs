@@ -66,7 +66,8 @@ pub unsafe extern "C" fn wasm_memory_data(memory: &mut wasm_memory_t) -> *mut u8
     memory
         .extern_
         .memory()
-        .data_ptr(&memory.extern_.store.store())
+        .lock(&memory.extern_.store.store())
+        .data_ptr()
 }
 
 // size in bytes

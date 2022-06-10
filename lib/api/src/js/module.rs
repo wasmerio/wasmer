@@ -5,6 +5,7 @@ use crate::js::error::{CompileError, InstantiationError};
 use crate::js::error::{DeserializeError, SerializeError};
 use crate::js::externals::Extern;
 use crate::js::imports::Imports;
+#[allow(unused_imports)]
 use crate::js::store::Store;
 use crate::js::store::{AsStoreMut, StoreHandle};
 use crate::js::types::{AsJs, ExportType, ImportType};
@@ -21,6 +22,7 @@ use wasmer_types::{
     ExportsIterator, ExternType, FunctionType, GlobalType, ImportsIterator, MemoryType, Mutability,
     Pages, TableType, Type,
 };
+use tracing::{debug, warn};
 
 #[derive(Debug)]
 #[cfg_attr(feature = "std", derive(Error))]
@@ -237,6 +239,18 @@ impl Module {
         let mut import_externs: Vec<Extern> = vec![];
         for import_type in self.imports() {
             let resolved_import = imports.get_export(import_type.module(), import_type.name());
+            if let wasmer_types::ExternType::Memory(mem_ty) = import_type.ty() {
+                if resolved_import.is_some() {
+                    debug!("imported shared memory {:?}", &mem_ty);
+                } else {
+                    warn!(
+                        "Error while importing {0:?}.{1:?}: memory. Expected {2:?}",
+                        import_type.module(),
+                        import_type.name(),
+                        import_type.ty(),
+                    );
+                }
+            }
             if let Some(import) = resolved_import {
                 let val = js_sys::Reflect::get(&imports_object, &import_type.module().into())?;
                 if !val.is_undefined() {
@@ -261,6 +275,8 @@ impl Module {
                     )?;
                 }
                 import_externs.push(import);
+            } else {
+                warn!("import not found {}:{}", import_type.module(), import_type.name());
             }
             // in case the import is not found, the JS Wasm VM will handle
             // the error for us, so we don't need to handle it
@@ -384,7 +400,8 @@ impl Module {
         let imports = WebAssembly::Module::imports(&self.module);
         let iter = imports
             .iter()
-            .map(move |val| {
+            .enumerate()
+            .map(move |(i, val)| {
                 let module = Reflect::get(val.as_ref(), &"module".into())
                     .unwrap()
                     .as_string()
@@ -397,24 +414,34 @@ impl Module {
                     .unwrap()
                     .as_string()
                     .unwrap();
-                let extern_type = match kind.as_str() {
-                    "function" => {
-                        let func_type = FunctionType::new(vec![], vec![]);
-                        ExternType::Function(func_type)
+                let type_hint = self
+                    .type_hints
+                    .as_ref()
+                    .map(|hints| hints.imports.get(i).unwrap().clone());
+                let extern_type = if let Some(hint) = type_hint {
+                    hint
+                } else {
+                    match kind.as_str() {
+                        "function" => {
+                            let func_type = FunctionType::new(vec![], vec![]);
+                            ExternType::Function(func_type)
+                        }
+                        "global" => {
+                            let global_type = GlobalType::new(Type::I32, Mutability::Const);
+                            ExternType::Global(global_type)
+                        }
+                        "memory" => {
+                            // The javascript API does not yet expose these properties so without
+                            // the type_hints we don't know what memory to import.
+                            let memory_type = MemoryType::new(Pages(1), None, false);
+                            ExternType::Memory(memory_type)
+                        }
+                        "table" => {
+                            let table_type = TableType::new(Type::FuncRef, 1, None);
+                            ExternType::Table(table_type)
+                        }
+                        _ => unimplemented!(),
                     }
-                    "global" => {
-                        let global_type = GlobalType::new(Type::I32, Mutability::Const);
-                        ExternType::Global(global_type)
-                    }
-                    "memory" => {
-                        let memory_type = MemoryType::new(Pages(1), None, false);
-                        ExternType::Memory(memory_type)
-                    }
-                    "table" => {
-                        let table_type = TableType::new(Type::FuncRef, 1, None);
-                        ExternType::Table(table_type)
-                    }
-                    _ => unimplemented!(),
                 };
                 ImportType::new(&module, &field, extern_type)
             })

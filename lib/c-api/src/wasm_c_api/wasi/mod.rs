@@ -204,8 +204,8 @@ pub unsafe extern "C" fn wasi_env_read_stdout(
     buffer_len: usize,
 ) -> isize {
     let inner_buffer = slice::from_raw_parts_mut(buffer as *mut _, buffer_len as usize);
-    let mut store_mut = env.store.store_mut();
-    let state = env.inner.data_mut(&mut store_mut).state();
+    let store = env.store.store();
+    let state = env.inner.data(&store).state();
 
     if let Ok(mut stdout) = state.stdout() {
         if let Some(stdout) = stdout.as_mut() {

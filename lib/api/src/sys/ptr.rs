@@ -76,7 +76,7 @@ impl<T, M: MemorySize> WasmPtr<T, M> {
 
     /// Get the offset into Wasm linear memory for this `WasmPtr`.
     #[inline]
-    pub fn offset(self) -> M::Offset {
+    pub fn offset(&self) -> M::Offset {
         self.offset
     }
 
@@ -97,7 +97,7 @@ impl<T, M: MemorySize> WasmPtr<T, M> {
 
     /// Checks whether the `WasmPtr` is null.
     #[inline]
-    pub fn is_null(self) -> bool {
+    pub fn is_null(&self) -> bool {
         self.offset.into() == 0
     }
 
@@ -142,20 +142,20 @@ impl<T: ValueType, M: MemorySize> WasmPtr<T, M> {
     /// Creates a `WasmRef` from this `WasmPtr` which allows reading and
     /// mutating of the value being pointed to.
     #[inline]
-    pub fn deref<'a>(self, store: &'a impl AsStoreRef, memory: &'a Memory) -> WasmRef<'a, T> {
+    pub fn deref<'a>(&self, store: &'a impl AsStoreRef, memory: &'a Memory) -> WasmRef<'a, T> {
         WasmRef::new(store, memory, self.offset.into())
     }
 
     /// Reads the address pointed to by this `WasmPtr` in a memory.
     #[inline]
-    pub fn read(self, store: &impl AsStoreRef, memory: &Memory) -> Result<T, MemoryAccessError> {
+    pub fn read(&self, store: &impl AsStoreRef, memory: &Memory) -> Result<T, MemoryAccessError> {
         self.deref(&store, memory).read()
     }
 
     /// Writes to the address pointed to by this `WasmPtr` in a memory.
     #[inline]
     pub fn write(
-        self,
+        &self,
         store: &impl AsStoreRef,
         memory: &Memory,
         val: T,
@@ -170,7 +170,7 @@ impl<T: ValueType, M: MemorySize> WasmPtr<T, M> {
     /// address.
     #[inline]
     pub fn slice<'a>(
-        self,
+        &self,
         store: &'a impl AsStoreRef,
         memory: &'a Memory,
         len: M::Offset,
@@ -184,7 +184,7 @@ impl<T: ValueType, M: MemorySize> WasmPtr<T, M> {
     /// This last value is not included in the returned vector.
     #[inline]
     pub fn read_until(
-        self,
+        &self,
         store: &impl AsStoreRef,
         memory: &Memory,
         mut end: impl FnMut(&T) -> bool,
@@ -209,7 +209,7 @@ impl<M: MemorySize> WasmPtr<u8, M> {
     /// modified.
     #[inline]
     pub fn read_utf8_string(
-        self,
+        &self,
         store: &impl AsStoreRef,
         memory: &Memory,
         len: M::Offset,
@@ -224,7 +224,7 @@ impl<M: MemorySize> WasmPtr<u8, M> {
     /// modified.
     #[inline]
     pub fn read_utf8_string_with_nul(
-        self,
+        &self,
         store: &impl AsStoreRef,
         memory: &Memory,
     ) -> Result<String, MemoryAccessError> {

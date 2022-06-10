@@ -114,11 +114,11 @@ impl Instance {
         module: &Module,
         imports: &Imports,
     ) -> Result<Self, InstantiationError> {
-        let imports = imports
+        let externs = imports
             .imports_for_module(module)
             .map_err(InstantiationError::Link)?;
-        let mut handle = module.instantiate(store, &imports)?;
-        let exports = module
+        let mut handle = module.instantiate(store, &externs)?;
+        let mut exports = module
             .exports()
             .map(|export| {
                 let name = export.name().to_string();
@@ -127,6 +127,13 @@ impl Instance {
                 (name, extern_)
             })
             .collect::<Exports>();
+
+        // If the memory is imported then also export it so that others can access it
+        if exports.get_memory("memory").is_err() {
+            if let Some(memory) = externs.iter().filter(|a| a.ty(store).memory().is_some()).next() {
+                exports.insert("memory", memory.clone());
+            }
+        }
 
         let instance = Self {
             _handle: StoreHandle::new(store.objects_mut(), handle),
@@ -152,8 +159,8 @@ impl Instance {
         module: &Module,
         externs: &[Extern],
     ) -> Result<Self, InstantiationError> {
-        let imports = externs.to_vec();
-        let mut handle = module.instantiate(store, &imports)?;
+        let externs = externs.to_vec();
+        let mut handle = module.instantiate(store, &externs)?;
         let exports = module
             .exports()
             .map(|export| {

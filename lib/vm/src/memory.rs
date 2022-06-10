@@ -11,6 +11,7 @@ use more_asserts::assert_ge;
 use std::cell::UnsafeCell;
 use std::convert::TryInto;
 use std::ptr::NonNull;
+use std::sync::{RwLock, Arc};
 use thiserror::Error;
 use wasmer_types::{Bytes, MemoryStyle, MemoryType, Pages};
 
@@ -56,10 +57,28 @@ pub enum MemoryError {
     Generic(String),
 }
 
-/// A linear memory instance.
-pub struct VMMemory {
+/// Protected area of the memory map 
+#[derive(Debug)]
+struct VMMemoryMmap {
     // The underlying allocation.
     mmap: WasmMmap,
+
+    /// The owned memory definition used by the generated code
+    vm_memory_definition: MaybeInstanceOwned<VMMemoryDefinition>,
+}
+
+// VMMemoryMmap is protected by a RwLock and Arc referencing counting
+// however if the user supplies their own direct memory references then
+// they need to wait for all threads to exit before they free the memory
+// or else it with sigfault.
+unsafe impl Send for VMMemoryMmap { }
+unsafe impl Sync for VMMemoryMmap { }
+
+/// A linear memory instance.
+#[derive(Debug, Clone)]
+pub struct VMMemory {
+    // The underlying allocation.
+    mmap: Arc<RwLock<VMMemoryMmap>>,
 
     // The optional maximum size in wasm pages of this linear memory.
     maximum: Option<Pages>,
@@ -73,9 +92,6 @@ pub struct VMMemory {
     // Size in bytes of extra guard pages after the end to optimize loads and stores with
     // constant offsets.
     offset_guard_size: usize,
-
-    /// The owned memory definition used by the generated code
-    vm_memory_definition: MaybeInstanceOwned<VMMemoryDefinition>,
 }
 
 #[derive(Debug)]
@@ -163,23 +179,27 @@ impl VMMemory {
         let base_ptr = mmap.alloc.as_mut_ptr();
         let mem_length = memory.minimum.bytes().0;
         Ok(Self {
-            mmap,
+            mmap: Arc::new(RwLock::new(
+                VMMemoryMmap {
+                    mmap,
+                    vm_memory_definition: if let Some(mem_loc) = vm_memory_location {
+                        {
+                            let mut ptr = mem_loc;
+                            let md = ptr.as_mut();
+                            md.base = base_ptr;
+                            md.current_length = mem_length;
+                        }
+                        MaybeInstanceOwned::Instance(mem_loc)
+                    } else {
+                        MaybeInstanceOwned::Host(Box::new(UnsafeCell::new(VMMemoryDefinition {
+                            base: base_ptr,
+                            current_length: mem_length,
+                        })))
+                    },
+                }
+            )),
             maximum: memory.maximum,
             offset_guard_size: offset_guard_bytes,
-            vm_memory_definition: if let Some(mem_loc) = vm_memory_location {
-                {
-                    let mut ptr = mem_loc;
-                    let md = ptr.as_mut();
-                    md.base = base_ptr;
-                    md.current_length = mem_length;
-                }
-                MaybeInstanceOwned::Instance(mem_loc)
-            } else {
-                MaybeInstanceOwned::Host(Box::new(UnsafeCell::new(VMMemoryDefinition {
-                    base: base_ptr,
-                    current_length: mem_length,
-                })))
-            },
             memory: *memory,
             style: style.clone(),
         })
@@ -187,7 +207,8 @@ impl VMMemory {
 
     /// Get the `VMMemoryDefinition`.
     fn get_vm_memory_definition(&self) -> NonNull<VMMemoryDefinition> {
-        self.vm_memory_definition.as_ptr()
+        let guard = self.mmap.read().unwrap();
+        guard.vm_memory_definition.as_ptr()
     }
 
     /// Returns the type for this memory.
@@ -219,25 +240,27 @@ impl VMMemory {
     /// Returns `None` if memory can't be grown by the specified amount
     /// of wasm pages.
     pub fn grow(&mut self, delta: Pages) -> Result<Pages, MemoryError> {
+        let mut guard = self.mmap.write().unwrap();
+
         // Optimization of memory.grow 0 calls.
         if delta.0 == 0 {
-            return Ok(self.mmap.size);
+            return Ok(guard.mmap.size);
         }
 
-        let new_pages = self
+        let new_pages = guard
             .mmap
             .size
             .checked_add(delta)
             .ok_or(MemoryError::CouldNotGrow {
-                current: self.mmap.size,
+                current: guard.mmap.size,
                 attempted_delta: delta,
             })?;
-        let prev_pages = self.mmap.size;
+        let prev_pages = guard.mmap.size;
 
         if let Some(maximum) = self.maximum {
             if new_pages > maximum {
                 return Err(MemoryError::CouldNotGrow {
-                    current: self.mmap.size,
+                    current: guard.mmap.size,
                     attempted_delta: delta,
                 });
             }
@@ -249,7 +272,7 @@ impl VMMemory {
         if new_pages >= Pages::max_value() {
             // Linear memory size would exceed the index range.
             return Err(MemoryError::CouldNotGrow {
-                current: self.mmap.size,
+                current: guard.mmap.size,
                 attempted_delta: delta,
             });
         }
@@ -258,7 +281,7 @@ impl VMMemory {
         let prev_bytes = prev_pages.bytes().0;
         let new_bytes = new_pages.bytes().0;
 
-        if new_bytes > self.mmap.alloc.len() - self.offset_guard_size {
+        if new_bytes > guard.mmap.alloc.len() - self.offset_guard_size {
             // If the new size is within the declared maximum, but needs more memory than we
             // have on hand, it's a dynamic heap and it can move.
             let guard_bytes = self.offset_guard_size;
@@ -273,27 +296,27 @@ impl VMMemory {
             let mut new_mmap =
                 Mmap::accessible_reserved(new_bytes, request_bytes).map_err(MemoryError::Region)?;
 
-            let copy_len = self.mmap.alloc.len() - self.offset_guard_size;
+            let copy_len = guard.mmap.alloc.len() - self.offset_guard_size;
             new_mmap.as_mut_slice()[..copy_len]
-                .copy_from_slice(&self.mmap.alloc.as_slice()[..copy_len]);
+                .copy_from_slice(&guard.mmap.alloc.as_slice()[..copy_len]);
 
-            self.mmap.alloc = new_mmap;
+            guard.mmap.alloc = new_mmap;
         } else if delta_bytes > 0 {
             // Make the newly allocated pages accessible.
-            self.mmap
+            guard.mmap
                 .alloc
                 .make_accessible(prev_bytes, delta_bytes)
                 .map_err(MemoryError::Region)?;
         }
 
-        self.mmap.size = new_pages;
+        guard.mmap.size = new_pages;
 
         // update memory definition
         unsafe {
-            let mut md_ptr = self.get_vm_memory_definition();
+            let mut md_ptr = guard.vm_memory_definition.as_ptr();
             let md = md_ptr.as_mut();
             md.current_length = new_pages.bytes().0;
-            md.base = self.mmap.alloc.as_mut_ptr() as _;
+            md.base = guard.mmap.alloc.as_mut_ptr() as _;
         }
 
         Ok(prev_pages)

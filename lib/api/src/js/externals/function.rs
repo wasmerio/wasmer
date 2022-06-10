@@ -115,7 +115,7 @@ impl Function {
         let wrapped_func: JsValue = match function_type.results().len() {
             0 => Closure::wrap(Box::new(move |args: &Array| {
                 let mut store: StoreMut = unsafe { StoreMut::from_raw(raw_store as _) };
-                let mut env: FunctionEnvMut<T> = raw_env.clone().into_mut(&mut store);
+                let env: FunctionEnvMut<T> = raw_env.clone().into_mut(&mut store);
                 let wasm_arguments = function_type
                     .params()
                     .iter()
@@ -129,7 +129,7 @@ impl Function {
             .into_js_value(),
             1 => Closure::wrap(Box::new(move |args: &Array| {
                 let mut store: StoreMut = unsafe { StoreMut::from_raw(raw_store as _) };
-                let mut env: FunctionEnvMut<T> = raw_env.clone().into_mut(&mut store);
+                let env: FunctionEnvMut<T> = raw_env.clone().into_mut(&mut store);
                 let wasm_arguments = function_type
                     .params()
                     .iter()
@@ -143,7 +143,7 @@ impl Function {
             .into_js_value(),
             _n => Closure::wrap(Box::new(move |args: &Array| {
                 let mut store: StoreMut = unsafe { StoreMut::from_raw(raw_store as _) };
-                let mut env: FunctionEnvMut<T> = raw_env.clone().into_mut(&mut store);
+                let env: FunctionEnvMut<T> = raw_env.clone().into_mut(&mut store);
                 let wasm_arguments = function_type
                     .params()
                     .iter()
@@ -509,6 +509,7 @@ mod inner {
     use super::RuntimeError;
     use super::VMFunctionBody;
     use crate::js::function_env::{FunctionEnvMut, VMFunctionEnvironment};
+    #[allow(unused_imports)]
     use crate::js::store::{AsStoreMut, InternalStoreHandle, StoreHandle, StoreInner, StoreMut};
     use crate::js::FunctionEnv;
     use crate::js::NativeWasmTypeInto;

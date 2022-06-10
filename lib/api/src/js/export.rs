@@ -7,18 +7,31 @@ use std::fmt;
 use wasm_bindgen::{JsCast, JsValue};
 use wasmer_types::{ExternType, FunctionType, GlobalType, MemoryType, TableType};
 
+/// Reference to the memory of the web assembly instance hosted within the javascript runtime
 #[derive(Clone, Debug, PartialEq)]
 pub struct VMMemory {
     pub(crate) memory: Memory,
     pub(crate) ty: MemoryType,
 }
 
-unsafe impl Send for VMMemory {}
-unsafe impl Sync for VMMemory {}
+/// This is most definately not safe to pass between threads!
+//unsafe impl Send for VMMemory {}
+//unsafe impl Sync for VMMemory {}
 
 impl VMMemory {
-    pub(crate) fn new(memory: Memory, ty: MemoryType) -> Self {
+    /// Creates the linear memory object from an existing javascript runtime and its memory type
+    pub fn new(memory: Memory, ty: MemoryType) -> Self {
         Self { memory, ty }
+    }
+
+    /// Returns the type of memory held here
+    pub fn ty(&self) -> MemoryType {
+        self.ty.clone()
+    }
+
+    /// Returns the memory as a JsValue so that it can be passed to other threads
+    pub fn as_memory(&self) -> Memory {
+        self.memory.clone()
     }
 }
 

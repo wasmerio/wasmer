@@ -1,8 +1,10 @@
 use std::{any::Any, marker::PhantomData};
+use std::sync::Arc;
 
-use crate::js::{StoreHandle, StoreObjects};
-
+use crate::js::{StoreHandle, StoreObjects}; 
 use crate::js::{AsStoreMut, AsStoreRef, StoreMut, StoreRef};
+
+use super::store::PackagedStore;
 
 #[derive(Debug)]
 #[repr(transparent)]
@@ -36,7 +38,7 @@ impl<T> FunctionEnv<T> {
     }
 
     /// Get the data as reference
-    pub fn as_ref<'a>(&self, store: &'a impl AsStoreMut) -> &'a T
+    pub fn as_ref<'a>(&self, store: &'a impl AsStoreRef) -> &'a T
     where
         T: Any + Send + 'static + Sized,
     {
@@ -47,16 +49,18 @@ impl<T> FunctionEnv<T> {
             .unwrap()
     }
 
-    /// Get the data as mutable
-    pub fn as_mut<'a>(&self, store: &'a mut impl AsStoreMut) -> &'a mut T
+    /// Get the data as mutable reference
+    /// (this will only return a mutable reference as long as the environment
+    ///  has not been cloned - environments are cloned during multithreading)
+    pub fn as_mut<'a>(&mut self, store: &'a mut impl AsStoreMut) -> Option<&'a mut T>
     where
         T: Any + Send + 'static + Sized,
     {
         self.handle
             .get_mut(store.objects_mut())
             .as_mut()
-            .downcast_mut::<T>()
-            .unwrap()
+            .map(|a| a.downcast_mut::<T>())
+            .flatten()
     }
 
     /// Convert it into a `FunctionEnvMut`
@@ -93,7 +97,9 @@ impl<T: Send + 'static> FunctionEnvMut<'_, T> {
     }
 
     /// Returns a mutable- reference to the host state in this context.
-    pub fn data_mut<'a>(&'a mut self) -> &'a mut T {
+    /// (this will only return a mutable reference as long as the environment
+    ///  has not been cloned - environments are cloned during multithreading)
+    pub fn data_mut<'a>(&'a mut self) -> Option<&'a mut T> {
         self.func_env.as_mut(&mut self.store_mut)
     }
 
@@ -103,6 +109,11 @@ impl<T: Send + 'static> FunctionEnvMut<'_, T> {
             store_mut: self.store_mut.as_store_mut(),
             func_env: self.func_env.clone(),
         }
+    }
+
+    /// Packages up an empty store that can be passed to another thread
+    pub fn package_store(&self) -> PackagedStore {
+        self.store_mut.package()
     }
 }
 
@@ -128,14 +139,14 @@ impl<T> AsStoreMut for FunctionEnvMut<'_, T> {
 
 /// Underlying FunctionEnvironment used by a `VMFunction`.
 pub struct VMFunctionEnvironment {
-    contents: Box<dyn Any + Send + 'static>,
+    contents: Arc<dyn Any + Send + 'static>,
 }
 
 impl VMFunctionEnvironment {
     /// Wraps the given value to expose it to Wasm code as a function context.
     pub fn new(val: impl Any + Send + 'static) -> Self {
         Self {
-            contents: Box::new(val),
+            contents: Arc::new(val),
         }
     }
 
@@ -146,8 +157,8 @@ impl VMFunctionEnvironment {
     }
 
     #[allow(clippy::should_implement_trait)]
-    /// Returns a mutable reference to the underlying value.
-    pub fn as_mut(&mut self) -> &mut (dyn Any + Send + 'static) {
-        &mut *self.contents
+    /// Returns a reference to the underlying value.
+    pub fn as_mut(&mut self) -> Option<&mut (dyn Any + Send + 'static)> {
+        Arc::get_mut(&mut self.contents)
     }
 }

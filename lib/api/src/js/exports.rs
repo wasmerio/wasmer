@@ -183,22 +183,6 @@ impl Exports {
         }
     }
 
-    /// Like `get_with_generics` but with a WeakReference to the `InstanceRef` internally.
-    /// This is useful for passing data into Context data, for example.
-    pub fn get_with_generics_weak<'a, T, Args, Rets>(
-        &'a self,
-        store: &impl AsStoreRef,
-        name: &str,
-    ) -> Result<T, ExportError>
-    where
-        Args: WasmTypeList,
-        Rets: WasmTypeList,
-        T: ExportableWithGenerics<'a, Args, Rets>,
-    {
-        let out: T = self.get_with_generics(store, name)?;
-        Ok(out)
-    }
-
     /// Get an export as an `Extern`.
     pub fn get_extern(&self, name: &str) -> Option<&Extern> {
         self.map.get(name)

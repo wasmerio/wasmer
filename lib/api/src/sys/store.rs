@@ -1,5 +1,6 @@
 use crate::sys::tunables::BaseTunables;
 use std::fmt;
+use std::ops::Deref;
 use std::sync::Arc;
 use wasmer_compiler::CompilerConfig;
 use wasmer_compiler::{Engine, Tunables, Universal};
@@ -13,8 +14,8 @@ use wasmer_vm::StoreObjects;
 pub(crate) struct StoreInner {
     pub(crate) objects: StoreObjects,
     pub(crate) engine: Arc<dyn Engine + Send + Sync>,
-    pub(crate) tunables: Box<dyn Tunables + Send + Sync>,
-    pub(crate) trap_handler: Option<Box<TrapHandlerFn<'static>>>,
+    pub(crate) tunables: Arc<dyn Tunables + Send + Sync>,
+    pub(crate) trap_handler: Option<Arc<TrapHandlerFn<'static>>>,
 }
 
 /// The store represents all global state that can be manipulated by
@@ -43,11 +44,12 @@ impl Store {
     where
         E: Engine + ?Sized,
     {
-        Self::new_with_tunables(engine, BaseTunables::for_target(engine.target()))
+        let ret = Self::new_with_tunables(engine, BaseTunables::for_target(engine.target()));
+        ret
     }
 
     /// Set the trap handler in this store.
-    pub fn set_trap_handler(&mut self, handler: Option<Box<TrapHandlerFn<'static>>>) {
+    pub fn set_trap_handler(&mut self, handler: Option<Arc<TrapHandlerFn<'static>>>) {
         self.inner.trap_handler = handler;
     }
 
@@ -64,9 +66,53 @@ impl Store {
             inner: Box::new(StoreInner {
                 objects: Default::default(),
                 engine: engine.cloned(),
-                tunables: Box::new(tunables),
+                tunables: Arc::new(tunables),
                 trap_handler: None,
             }),
+        }
+    }
+
+    /// Packages an empty copy of store so that it can be passed to other threads
+    pub fn package(&self) -> PackagedStore
+    {
+        self.inner.package()
+    }
+}
+
+impl StoreInner
+{
+    /// Packages an empty copy of store so that it can be passed to other threads
+    pub fn package(&self) -> PackagedStore
+    {
+        PackagedStore
+        {
+            engine: self.engine.clone(),
+            tunables: self.tunables.clone(),
+            trap_handler: self.trap_handler.clone()
+        }
+    }
+}
+
+/// Represents a packaged store that can be passed around and then created locally
+pub struct PackagedStore
+{
+    engine: Arc<dyn Engine + Send + Sync>,
+    tunables: Arc<dyn Tunables + Send + Sync>,
+    trap_handler: Option<Arc<TrapHandlerFn<'static>>>,
+}
+
+impl PackagedStore
+{
+    /// Creates a store in from an earlier packaged store
+    pub fn unpack(self) -> Store
+    {
+        Store {
+            inner: Box::new(StoreInner {
+                objects: StoreObjects::default(),
+                engine: self.engine,
+                tunables: self.tunables,
+                trap_handler: self.trap_handler
+            })
         }
     }
 }
@@ -178,7 +224,7 @@ impl<'a> StoreRef<'a> {
         self.inner
             .trap_handler
             .as_ref()
-            .map(|handler| &*handler as *const _)
+            .map(|handler| handler.deref() as *const _)
     }
 }
 
@@ -215,6 +261,11 @@ impl<'a> StoreMut<'a> {
 
     pub(crate) unsafe fn from_raw(raw: *mut StoreInner) -> Self {
         Self { inner: &mut *raw }
+    }
+    
+    /// Packages the store so that it can be passed to another thread and unpackaged
+    pub fn package(&self) -> PackagedStore {
+        self.inner.package()
     }
 }
 

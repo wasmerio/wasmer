@@ -330,7 +330,7 @@ fn static_host_function_with_env(config: crate::Config) -> anyhow::Result<()> {
     let mut store = config.store();
 
     fn f(mut ctx: FunctionEnvMut<Env>, a: i32, b: i64, c: f32, d: f64) -> (f64, f32, i64, i32) {
-        let mut guard = ctx.data_mut().0.lock().unwrap();
+        let mut guard = ctx.data().0.lock().unwrap();
         assert_eq!(*guard, 100);
         *guard = 101;
 
@@ -344,7 +344,7 @@ fn static_host_function_with_env(config: crate::Config) -> anyhow::Result<()> {
         c: f32,
         d: f64,
     ) -> Result<(f64, f32, i64, i32), Infallible> {
-        let mut guard = ctx.data_mut().0.lock().unwrap();
+        let mut guard = ctx.data().0.lock().unwrap();
         assert_eq!(*guard, 100);
         *guard = 101;
 
@@ -370,12 +370,12 @@ fn static_host_function_with_env(config: crate::Config) -> anyhow::Result<()> {
         let f_native: TypedFunction<(i32, i64, f32, f64), (f64, f32, i64, i32)> =
             f.native(&mut store).unwrap();
 
-        assert_eq!(*env.as_mut(&mut store).0.lock().unwrap(), 100);
+        assert_eq!(*env.as_mut(&mut store).unwrap().0.lock().unwrap(), 100);
 
         let result = f_native.call(&mut store, 1, 3, 5.0, 7.0)?;
 
         assert_eq!(result, (28.0, 15.0, 6, 1));
-        assert_eq!(*env.as_mut(&mut store).0.lock().unwrap(), 101);
+        assert_eq!(*env.as_mut(&mut store).unwrap().0.lock().unwrap(), 101);
     }
 
     // Native static host function that returns a result of a tuple.
@@ -387,12 +387,12 @@ fn static_host_function_with_env(config: crate::Config) -> anyhow::Result<()> {
         let f_native: TypedFunction<(i32, i64, f32, f64), (f64, f32, i64, i32)> =
             f.native(&mut store).unwrap();
 
-        assert_eq!(*env.as_mut(&mut store).0.lock().unwrap(), 100);
+        assert_eq!(*env.as_mut(&mut store).unwrap().0.lock().unwrap(), 100);
 
         let result = f_native.call(&mut store, 1, 3, 5.0, 7.0)?;
 
         assert_eq!(result, (28.0, 15.0, 6, 1));
-        assert_eq!(*env.as_mut(&mut store).0.lock().unwrap(), 101);
+        assert_eq!(*env.as_mut(&mut store).unwrap().0.lock().unwrap(), 101);
     }
 
     Ok(())
@@ -471,7 +471,7 @@ fn dynamic_host_function_with_env(config: crate::Config) -> anyhow::Result<()> {
             ],
         ),
         |mut ctx, values| {
-            let mut guard = ctx.data_mut().0.lock().unwrap();
+            let mut guard = ctx.data().0.lock().unwrap();
             assert_eq!(*guard, 100);
 
             *guard = 101;
@@ -488,12 +488,12 @@ fn dynamic_host_function_with_env(config: crate::Config) -> anyhow::Result<()> {
     let f_native: TypedFunction<(i32, i64, f32, f64), (f64, f32, i64, i32)> =
         f.native(&mut store).unwrap();
 
-    assert_eq!(*env.as_mut(&mut store).0.lock().unwrap(), 100);
+    assert_eq!(*env.as_mut(&mut store).unwrap().0.lock().unwrap(), 100);
 
     let result = f_native.call(&mut store, 1, 3, 5.0, 7.0)?;
 
     assert_eq!(result, (28.0, 15.0, 6, 1));
-    assert_eq!(*env.as_mut(&mut store).0.lock().unwrap(), 101);
+    assert_eq!(*env.as_mut(&mut store).unwrap().0.lock().unwrap(), 101);
 
     Ok(())
 }

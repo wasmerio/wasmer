@@ -43,6 +43,9 @@ mod trap;
 mod types;
 mod value;
 mod wasm_bindgen_polyfill;
+mod thread;
+#[path = "../common/reactors.rs"]
+mod reactors;
 
 pub use crate::js::error::{DeserializeError, InstantiationError, SerializeError};
 pub use crate::js::export::Export;
@@ -61,6 +64,8 @@ pub use crate::js::native::TypedFunction;
 pub use crate::js::native_type::NativeWasmTypeInto;
 pub use crate::js::ptr::{Memory32, Memory64, MemorySize, WasmPtr, WasmPtr64};
 pub use crate::js::trap::RuntimeError;
+pub use crate::js::thread::ThreadControl;
+pub use crate::js::reactors::Reactors;
 
 pub use crate::js::store::{
     AsStoreMut, AsStoreRef, Store, StoreHandle, StoreMut, StoreObject, StoreObjects, StoreRef,
@@ -72,6 +77,12 @@ pub use crate::js::types::{
 };
 pub use crate::js::value::Value;
 pub use crate::js::value::Value as Val;
+
+pub mod vm {
+    //! The (fake) `vm` module re-exports wasmer-vm types.
+    //! 
+    pub use crate::js::export::VMMemory;
+}
 
 pub use wasmer_types::is_wasm;
 pub use wasmer_types::{

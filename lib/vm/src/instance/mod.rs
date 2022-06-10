@@ -32,7 +32,7 @@ use std::fmt;
 use std::mem;
 use std::ptr::{self, NonNull};
 use std::slice;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use wasmer_types::entity::{packed_option::ReservedValue, BoxedSlice, EntityRef, PrimaryMap};
 use wasmer_types::{
     DataIndex, DataInitializer, ElemIndex, ExportIndex, FunctionIndex, GlobalIndex, GlobalInit,
@@ -999,16 +999,16 @@ impl InstanceHandle {
                     // exported.
                     let signature = instance.module.signatures[*sig_index].clone();
                     let vm_function = VMFunction {
-                        anyfunc: MaybeInstanceOwned::Instance(NonNull::from(
+                        anyfunc: Arc::new(MaybeInstanceOwned::Instance(NonNull::from(
                             &instance.funcrefs[def_index],
-                        )),
+                        ))),
                         signature,
                         // Any function received is already static at this point as:
                         // 1. All locally defined functions in the Wasm have a static signature.
                         // 2. All the imported functions are already static (because
                         //    they point to the trampolines rather than the dynamic addresses).
                         kind: VMFunctionKind::Static,
-                        host_data: Box::new(()),
+                        host_data: Arc::new(RwLock::new(Box::new(()))),
                     };
                     InternalStoreHandle::new(self.instance_mut().context_mut(), vm_function)
                 } else {

@@ -10,7 +10,7 @@ use std::{
     sync::{Arc, Mutex},
     time::Duration,
 };
-use wasmer_vbus::BusError;
+use wasmer_vbus::VirtualBusError;
 
 #[cfg(feature = "host-fs")]
 pub use wasmer_vfs::host_fs::{Stderr, Stdin, Stdout};
@@ -102,8 +102,8 @@ pub fn net_error_into_wasi_err(net_error: NetworkError) -> __wasi_errno_t {
     }
 }
 
-pub fn bus_error_into_wasi_err(bus_error: BusError) -> __bus_errno_t {
-    use BusError::*;
+pub fn bus_error_into_wasi_err(bus_error: VirtualBusError) -> __bus_errno_t {
+    use VirtualBusError::*;
     match bus_error {
         Serialization => __BUS_ESER,
         Deserialization => __BUS_EDES,
@@ -127,8 +127,8 @@ pub fn bus_error_into_wasi_err(bus_error: BusError) -> __bus_errno_t {
     }
 }
 
-pub fn wasi_error_into_bus_err(bus_error: __bus_errno_t) -> BusError {
-    use BusError::*;
+pub fn wasi_error_into_bus_err(bus_error: __bus_errno_t) -> VirtualBusError {
+    use VirtualBusError::*;
     match bus_error {
         __BUS_ESER => Serialization,
         __BUS_EDES => Deserialization,
@@ -148,7 +148,7 @@ pub fn wasi_error_into_bus_err(bus_error: __bus_errno_t) -> BusError {
         __BUS_EINVOKE => InvokeFailed,
         __BUS_ECONSUMED => AlreadyConsumed,
         __BUS_EMEMVIOLATION => MemoryAccessViolation,
-        /*__BUS_EUNKNOWN |*/ _ => UnknownError,
+        __BUS_EUNKNOWN | _ => UnknownError,
     }
 }
 
@@ -446,6 +446,20 @@ impl VirtualFile for Pipe {
         let buffer = self.buffer.lock().unwrap();
         Ok(Some(buffer.len()))
     }
+}
+
+pub(crate) fn bus_read_rights() -> __wasi_rights_t {
+    __WASI_RIGHT_FD_FDSTAT_SET_FLAGS
+        | __WASI_RIGHT_FD_FILESTAT_GET
+        | __WASI_RIGHT_FD_READ
+        | __WASI_RIGHT_POLL_FD_READWRITE
+}
+
+pub(crate) fn bus_write_rights() -> __wasi_rights_t {
+    __WASI_RIGHT_FD_FDSTAT_SET_FLAGS
+        | __WASI_RIGHT_FD_FILESTAT_GET
+        | __WASI_RIGHT_FD_WRITE
+        | __WASI_RIGHT_POLL_FD_READWRITE
 }
 
 /*

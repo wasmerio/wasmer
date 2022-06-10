@@ -139,10 +139,10 @@ impl Run {
             // TODO: refactor this
             if is_emscripten_module(&module) {
                 // create an EmEnv with default global
-                let env = FunctionEnv::new(&mut store, EmEnv::new());
+                let mut env = FunctionEnv::new(&mut store, EmEnv::new());
                 let mut emscripten_globals = EmscriptenGlobals::new(&mut store, &env, &module)
                     .map_err(|e| anyhow!("{}", e))?;
-                env.as_mut(&mut store)
+                env.as_mut(&mut store).unwrap()
                     .set_data(&emscripten_globals.data, Default::default());
                 let import_object =
                     generate_emscripten_env(&mut store, &env, &mut emscripten_globals);
@@ -257,6 +257,7 @@ impl Run {
                 compiler_type.to_string()
             )
         })?;
+        
         // We set the name outside the cache, to make sure we dont cache the name
         module.set_name(&self.path.file_name().unwrap_or_default().to_string_lossy());
 
