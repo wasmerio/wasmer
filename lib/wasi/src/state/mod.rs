@@ -913,6 +913,9 @@ impl WasiFs {
 
         let path: &Path = Path::new(path);
         let mut cur_inode = self.get_fd_inode(base)?;
+        if path.to_str().unwrap() == "/" && base == VIRTUAL_ROOT_FD {
+            return Ok(cur_inode);
+        }
         let n_components = path.components().count();
 
         // If this is the start of the path search and it starts with the
