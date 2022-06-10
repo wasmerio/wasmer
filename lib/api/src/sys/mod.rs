@@ -12,6 +12,9 @@ mod ptr;
 mod store;
 mod tunables;
 mod value;
+mod thread;
+#[path = "../common/reactors.rs"]
+mod reactors;
 
 pub use crate::sys::exports::{ExportError, Exportable, Exports, ExportsIterator};
 pub use crate::sys::extern_ref::ExternRef;
@@ -26,6 +29,8 @@ pub use crate::sys::module::Module;
 pub use crate::sys::native::TypedFunction;
 pub use crate::sys::native_type::NativeWasmTypeInto;
 pub use crate::sys::store::{AsStoreMut, AsStoreRef, StoreMut, StoreRef};
+pub use crate::sys::thread::ThreadControl;
+pub use crate::sys::reactors::Reactors;
 
 pub use crate::sys::ptr::{Memory32, Memory64, MemorySize, WasmPtr, WasmPtr64};
 pub use crate::sys::store::Store;

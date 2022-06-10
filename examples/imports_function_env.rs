@@ -70,7 +70,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // This struct may have been anything. The only constraint is it must be
     // possible to know the size of the `Env` at compile time (i.e it has to
     // implement the `Sized` trait).
-    // The Env is then accessed using `data()` or `data_mut()` method.
+    // The Env is then accessed using `data()` method.
     #[derive(Clone)]
     struct Env {
         counter: Arc<Mutex<i32>>,
@@ -81,7 +81,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         *env.data().counter.lock().unwrap()
     }
     fn add_to_counter(mut env: FunctionEnvMut<Env>, add: i32) -> i32 {
-        let mut counter_ref = env.data_mut().counter.lock().unwrap();
+        let mut counter_ref = env.data().counter.lock().unwrap();
 
         *counter_ref += add;
         *counter_ref

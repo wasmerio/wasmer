@@ -8,6 +8,18 @@ pub struct VMGlobal {
     vm_global_definition: MaybeInstanceOwned<VMGlobalDefinition>,
 }
 
+impl Clone
+for VMGlobal
+{
+    fn clone(&self) -> Self {
+        let val = self.vm_global_definition.as_ptr().clone();
+        Self {
+            ty: self.ty.clone(),
+            vm_global_definition: MaybeInstanceOwned::Instance(val),
+        }
+    }
+}
+
 impl VMGlobal {
     /// Create a new, zero bit-pattern initialized global from a [`GlobalType`].
     pub fn new(global_type: GlobalType) -> Self {

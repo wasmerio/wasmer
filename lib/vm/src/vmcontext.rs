@@ -108,7 +108,8 @@ mod test_vmfunction_import {
 /// containing the relevant context for running the function indicated
 /// in `address`.
 #[repr(C)]
-pub struct VMDynamicFunctionContext<T> {
+pub struct VMDynamicFunctionContext<T>
+{
     /// The address of the inner dynamic function.
     ///
     /// Note: The function must be on the form of

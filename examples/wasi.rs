@@ -51,9 +51,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let instance = Instance::new(&mut store, &module, &import_object)?;
 
     println!("Attach WASI memory...");
-    // Attach the memory export
-    let memory = instance.exports.get_memory("memory")?;
-    wasi_env.data_mut(&mut store).set_memory(memory.clone());
+    wasi_env.initialize(&mut store, &instance).unwrap();
 
     println!("Call WASI `_start` function...");
     // And we just call the `_start` function!

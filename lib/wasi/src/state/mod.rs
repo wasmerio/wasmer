@@ -26,18 +26,23 @@ pub use self::guard::*;
 pub use self::pipe::*;
 pub use self::socket::*;
 pub use self::types::*;
+pub use self::guard::*;
+use crate::WasiThreadId;
 use crate::syscalls::types::*;
 use crate::utils::map_io_err;
 use crate::WasiBusProcessId;
-use crate::WasiThread;
-use crate::WasiThreadId;
+use derivative::Derivative;
 use generational_arena::Arena;
 pub use generational_arena::Index as Inode;
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
+use wasmer::ThreadControl;
+use wasmer_vbus::VirtualBusCalled;
+use wasmer_vbus::VirtualBusInvocation;
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::collections::VecDeque;
+use std::sync::Condvar;
 use std::sync::mpsc;
 use std::sync::Arc;
 use std::{
@@ -83,7 +88,7 @@ pub const MAX_SYMLINKS: u32 = 128;
 pub struct InodeVal {
     pub stat: RwLock<__wasi_filestat_t>,
     pub is_preopened: bool,
-    pub name: String,
+    pub name: Cow<'static, str>,
     pub kind: RwLock<Kind>,
 }
 
@@ -668,7 +673,7 @@ impl WasiFs {
                         inodes,
                         kind,
                         false,
-                        segment_name.clone(),
+                        segment_name.clone().into(),
                     );
 
                     // reborrow to insert
@@ -1000,7 +1005,7 @@ impl WasiFs {
                                         inodes,
                                         kind,
                                         false,
-                                        file.to_string_lossy().to_string(),
+                                        file.to_string_lossy().to_string().into(),
                                         __wasi_filestat_t {
                                             st_filetype: file_type,
                                             ..__wasi_filestat_t::default()
@@ -1428,7 +1433,7 @@ impl WasiFs {
         name: String,
     ) -> Result<Inode, __wasi_errno_t> {
         let stat = self.get_stat_for_kind(inodes, &kind)?;
-        Ok(self.create_inode_with_stat(inodes, kind, is_preopened, name, stat))
+        Ok(self.create_inode_with_stat(inodes, kind, is_preopened, name.into(), stat))
     }
 
     /// Creates an inode and inserts it given a Kind, does not assume the file exists.
@@ -1437,7 +1442,7 @@ impl WasiFs {
         inodes: &mut WasiInodes,
         kind: Kind,
         is_preopened: bool,
-        name: String,
+        name: Cow<'static, str>,
     ) -> Inode {
         let stat = __wasi_filestat_t::default();
         self.create_inode_with_stat(inodes, kind, is_preopened, name, stat)
@@ -1449,7 +1454,7 @@ impl WasiFs {
         inodes: &mut WasiInodes,
         kind: Kind,
         is_preopened: bool,
-        name: String,
+        name: Cow<'static, str>,
         mut stat: __wasi_filestat_t,
     ) -> Inode {
         stat.st_ino = self.get_next_inode_index();
@@ -1527,7 +1532,7 @@ impl WasiFs {
         inodes.arena.insert(InodeVal {
             stat: RwLock::new(stat),
             is_preopened: true,
-            name: "/".to_string(),
+            name: "/".into(),
             kind: RwLock::new(root_kind),
         })
     }
@@ -1586,7 +1591,7 @@ impl WasiFs {
             inodes.arena.insert(InodeVal {
                 stat: RwLock::new(stat),
                 is_preopened: true,
-                name: name.to_string(),
+                name: name.to_string().into(),
                 kind: RwLock::new(kind),
             })
         };
@@ -1798,14 +1803,115 @@ impl WasiState {
 ///
 /// These internal implementation details are hidden away from the
 /// consumer who should instead implement the vbus trait on the runtime
-#[derive(Debug, Default)]
+
+#[derive(Derivative, Default)]
+#[derivative(Debug)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub(crate) struct WasiStateThreading {
-    pub threads: HashMap<WasiThreadId, WasiThread>,
-    pub thread_seed: u32,
-    pub processes: HashMap<WasiBusProcessId, BusSpawnedProcess>,
+    threads: Arc<RwLock<HashMap<WasiThreadId, ThreadControl>>>,
+    thread_seed: WasiThreadId,
+    thread_count: Arc<AtomicU32>,
+    pub processes: HashMap<WasiBusProcessId, Box<BusSpawnedProcess>>,
     pub process_reuse: HashMap<Cow<'static, str>, WasiBusProcessId>,
     pub process_seed: u32,
+    pub thread_local: HashMap<(WasiThreadId, u32), u64>,
+    pub thread_local_user_data: HashMap<u32, u64>,
+    pub thread_local_seed: u32,
+    #[derivative(Debug = "ignore")]
+    pub chained_worker: Option<Box<dyn FnOnce() -> u32 + Send + Sync>>,
+}
+
+impl WasiStateThreading
+{
+    /// Creates a a thread and returns it
+    pub fn new_thread(&mut self) -> WasiThreadHandle {
+        let id = self.thread_seed.inc();
+        let ctrl = ThreadControl::new(id.raw());
+        {
+            let mut guard = self.threads.write().unwrap();
+            guard.insert(id, ctrl);
+        }
+        self.thread_count.fetch_add(1, Ordering::AcqRel);
+        
+        WasiThreadHandle {
+            id,
+            threads: self.threads.clone(),
+            thread_count: self.thread_count.clone()
+        }
+    }
+
+    pub fn get(&self, tid: &WasiThreadId) -> Option<ThreadControl> {
+        let guard = self.threads.read().unwrap();
+        guard.get(tid).map(|a| a.clone())
+    }
+
+    pub fn active_threads(&self) -> u32 {
+        self.thread_count.load(Ordering::Acquire)
+    }
+}
+
+#[derive(Debug)]
+pub struct WasiThreadHandle {
+    id: WasiThreadId,
+    threads: Arc<RwLock<HashMap<WasiThreadId, ThreadControl>>>,
+    thread_count: Arc<AtomicU32>,
+}
+
+impl WasiThreadHandle {
+    pub fn id(&self) -> WasiThreadId {
+        self.id
+    }
+}
+
+impl Drop
+for WasiThreadHandle {
+    fn drop(&mut self) {
+        if let Some(ctrl) = {
+            let mut guard = self.threads.write().unwrap();
+            guard.remove(&self.id)
+        } {
+            ctrl.mark_exited();
+        }
+        self.thread_count.fetch_sub(1, Ordering::AcqRel);
+    }
+}
+
+/// Represents a futex which will make threads wait for completion in a more
+/// CPU efficient manner
+#[derive(Debug, Clone)]
+pub struct WasiFutex {
+    pub(crate) refcnt: Arc<AtomicU32>,
+    pub(crate) inner: Arc<(Mutex<()>, Condvar)>,
+}
+
+#[derive(Debug)]
+pub struct WasiBusCall
+{
+    pub bid: WasiBusProcessId,
+    pub invocation: Box<dyn VirtualBusInvocation + Sync>,
+}
+
+/// Structure that holds the state of BUS calls to this process and from
+/// this process. BUS calls are the equivalent of RPC's with support
+/// for all the major serializers
+#[derive(Debug)]
+pub struct WasiBusState
+{
+    pub call_seed: u64,
+    pub called: HashMap<u64, Box<dyn VirtualBusCalled + Sync + Unpin>>, 
+    pub calls: HashMap<u64, WasiBusCall>,
+}
+
+impl Default
+for WasiBusState
+{
+    fn default() -> Self {
+        Self {
+            call_seed: 0,
+            called: Default::default(),
+            calls: Default::default(),
+        }
+    }
 }
 
 /// Top level data type containing all* the state with which WASI can
@@ -1841,7 +1947,9 @@ pub(crate) struct WasiStateThreading {
 pub struct WasiState {
     pub fs: WasiFs,
     pub inodes: Arc<RwLock<WasiInodes>>,
-    pub(crate) threading: Mutex<WasiStateThreading>,
+    pub(crate) threading: RwLock<WasiStateThreading>,
+    pub(crate) futexs: Mutex<HashMap<u64, WasiFutex>>,
+    pub(crate) bus: Mutex<WasiBusState>,
     pub args: Vec<Vec<u8>>,
     pub envs: Vec<Vec<u8>>,
 }
@@ -1918,11 +2026,17 @@ impl WasiState {
         fd: __wasi_fd_t,
     ) -> Result<Option<Box<dyn VirtualFile + Send + Sync + 'static>>, FsError> {
         let ret = WasiStateFileGuard::new(self, fd)?.map(|a| {
-            let ret = Box::new(a);
-            let ret: Box<dyn VirtualFile + Send + Sync + 'static> = ret;
-            ret
-        });
+                let ret = Box::new(a);
+                let ret: Box<dyn VirtualFile + Send + Sync + 'static> = ret;
+                ret
+            });
         Ok(ret)
+    }
+
+    /// Grabs the next chained work (if there is one)
+    pub fn next_chained_worker(&self) -> Option<Box<dyn FnOnce() -> u32 + Send + Sync>> {
+        let mut guard = self.threading.write().unwrap();
+        guard.chained_worker.take()
     }
 }
 

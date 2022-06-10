@@ -509,7 +509,8 @@ mod inner {
     use super::RuntimeError;
     use super::VMFunctionBody;
     use crate::js::function_env::{FunctionEnvMut, VMFunctionEnvironment};
-    use crate::js::store::{AsStoreMut, InternalStoreHandle, StoreHandle, StoreMut};
+    #[allow(unused_imports)]
+    use crate::js::store::{AsStoreMut, InternalStoreHandle, StoreHandle, StoreInner, StoreMut};
     use crate::js::FunctionEnv;
     use crate::js::NativeWasmTypeInto;
     use std::array::TryFromSliceError;

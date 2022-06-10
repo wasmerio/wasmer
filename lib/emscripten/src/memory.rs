@@ -106,6 +106,8 @@ pub fn sbrk(mut ctx: FunctionEnvMut<EmEnv>, increment: i32) -> i32 {
         increment,
         total_memory
     );
+    drop(dynamictop_ptr);
+    
     if increment > 0 && new_dynamic_top < old_dynamic_top || new_dynamic_top < 0 {
         abort_on_cannot_grow_memory_old(ctx);
         return -1;

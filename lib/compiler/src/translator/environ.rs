@@ -1,7 +1,6 @@
 // This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 use super::state::ModuleTranslationState;
-use crate::lib::std::borrow::ToOwned;
 use crate::lib::std::string::ToString;
 use crate::lib::std::{boxed::Box, string::String, vec::Vec};
 use crate::translate_module;
@@ -15,7 +14,7 @@ use wasmer_types::{
     LocalFunctionIndex, MemoryIndex, MemoryType, ModuleInfo, SignatureIndex, TableIndex,
     TableInitializer, TableType,
 };
-use wasmer_types::{WasmError, WasmResult};
+use wasmer_types::WasmResult;
 
 /// Contains function data: bytecode and its offset in the module.
 #[derive(Hash)]
@@ -254,11 +253,15 @@ impl<'data> ModuleEnvironment<'data> {
     }
 
     pub(crate) fn declare_memory(&mut self, memory: MemoryType) -> WasmResult<()> {
+        /*
+         * Shared memories are now supported by WASIX but they are not imported (still exported)
+
         if memory.shared {
-            return Err(WasmError::Unsupported(
+            return Err(wasmer_types::WasmError::Unsupported(
                 "shared memories are not supported yet".to_owned(),
             ));
         }
+        */
         self.module.memories.push(memory);
         Ok(())
     }

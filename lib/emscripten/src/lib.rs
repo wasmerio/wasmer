@@ -98,7 +98,7 @@ impl EmEnv {
         }
     }
 
-    pub fn set_memory(&mut self, memory: Memory) {
+    pub fn set_memory(&self, memory: Memory) {
         let mut w = self.memory.write().unwrap();
         *w = Some(memory);
     }
@@ -113,12 +113,13 @@ impl EmEnv {
         self.memory(mem_idx).view(store)
     }
 
-    pub fn set_functions(&mut self, funcs: EmscriptenFunctions) {
-        self.funcs = Arc::new(Mutex::new(funcs));
+    pub fn set_functions(&self, funcs: EmscriptenFunctions) {
+        let mut w = self.funcs.lock().unwrap();
+        *w = funcs;
     }
 
     pub fn set_data(
-        &mut self,
+        &self,
         data: &EmscriptenGlobalsData,
         mapped_dirs: HashMap<String, PathBuf>,
     ) {
@@ -603,7 +604,7 @@ pub fn run_emscripten_instance(
     args: Vec<&str>,
     entrypoint: Option<String>,
 ) -> Result<(), RuntimeError> {
-    let env = &mut ctx.data_mut();
+    let env = ctx.data_mut().unwrap();
     env.set_memory(globals.memory.clone());
     // get emscripten export
     let mut emfuncs = EmscriptenFunctions::new();
@@ -828,7 +829,7 @@ pub fn run_emscripten_instance(
     if let Ok(func) = instance.exports.get_typed_function(&ctx, "setThrew") {
         emfuncs.set_threw = Some(func);
     }
-    ctx.data_mut().set_functions(emfuncs);
+    ctx.data().set_functions(emfuncs);
 
     set_up_emscripten(&mut ctx, instance)?;
 
@@ -869,12 +870,12 @@ fn store_module_arguments(ctx: &mut FunctionEnvMut<EmEnv>, args: Vec<&str>) -> (
 }
 
 pub fn emscripten_set_up_memory(
-    store: &mut impl AsStoreMut,
+    store: &impl AsStoreRef,
     ctx: &FunctionEnv<EmEnv>,
     memory: &Memory,
     globals: &EmscriptenGlobalsData,
 ) -> Result<(), String> {
-    ctx.as_mut(store).set_memory(memory.clone());
+    ctx.as_ref(store).set_memory(memory.clone());
     let memory = memory.view(store);
     let dynamictop_ptr = WasmPtr::<i32>::new(globals.dynamictop_ptr).deref(&memory);
     let dynamic_base = globals.dynamic_base;

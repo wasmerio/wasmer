@@ -11,6 +11,7 @@ pub use inner::{FromToNativeWasmType, HostFunction, WasmTypeList};
 use std::cell::UnsafeCell;
 use std::cmp::max;
 use std::ffi::c_void;
+use std::sync::Arc;
 use wasmer_types::RawValue;
 use wasmer_vm::{
     on_host_stack, raise_user_trap, resume_panic, wasmer_call_trampoline, InternalStoreHandle,
@@ -124,11 +125,12 @@ impl Function {
             }
             Ok(())
         };
-        let mut host_data = Box::new(VMDynamicFunctionContext {
+        let mut host_data = VMDynamicFunctionContext {
             address: std::ptr::null(),
             ctx: DynamicFunction { func: wrapper },
-        });
+        };
         host_data.address = host_data.ctx.func_body_ptr();
+        let host_data = Arc::new(host_data);
 
         // We don't yet have the address with the Wasm ABI signature.
         // The engine linker will replace the address with one pointing to a
@@ -150,10 +152,10 @@ impl Function {
         };
 
         let vm_function = VMFunction {
-            anyfunc: MaybeInstanceOwned::Host(Box::new(UnsafeCell::new(anyfunc))),
+            anyfunc: Arc::new(MaybeInstanceOwned::Host(Box::new(UnsafeCell::new(anyfunc)))),
             kind: VMFunctionKind::Dynamic,
             signature: function_type,
-            host_data,
+            host_data: Arc::new(host_data),
         };
         Self {
             handle: StoreHandle::new(store.as_store_mut().objects_mut(), vm_function),
@@ -191,7 +193,7 @@ impl Function {
     {
         // println!("new native {:p}", &new_env);
 
-        let host_data = Box::new(StaticFunction {
+        let host_data = Arc::new(StaticFunction {
             raw_store: store.as_store_mut().as_raw() as *mut u8,
             env: env.clone(),
             func,
@@ -215,7 +217,7 @@ impl Function {
         };
 
         let vm_function = VMFunction {
-            anyfunc: MaybeInstanceOwned::Host(Box::new(UnsafeCell::new(anyfunc))),
+            anyfunc: Arc::new(MaybeInstanceOwned::Host(Box::new(UnsafeCell::new(anyfunc)))),
             kind: VMFunctionKind::Static,
             signature: function_type,
             host_data,
@@ -434,12 +436,12 @@ impl Function {
             .lookup_signature(funcref.0.as_ref().type_index)
             .expect("Signature not found in store");
         let vm_function = VMFunction {
-            anyfunc: MaybeInstanceOwned::Instance(funcref.0),
+            anyfunc: Arc::new(MaybeInstanceOwned::Instance(funcref.0)),
             signature,
             // All functions in tables are already Static (as dynamic functions
             // are converted to use the trampolines with static signatures).
             kind: wasmer_vm::VMFunctionKind::Static,
-            host_data: Box::new(()),
+            host_data: Arc::new(()),
         };
         Self {
             handle: StoreHandle::new(store.as_store_mut().objects_mut(), vm_function),

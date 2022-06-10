@@ -76,7 +76,7 @@ impl<T, M: MemorySize> WasmPtr<T, M> {
 
     /// Get the offset into Wasm linear memory for this `WasmPtr`.
     #[inline]
-    pub fn offset(self) -> M::Offset {
+    pub fn offset(&self) -> M::Offset {
         self.offset
     }
 
@@ -97,7 +97,7 @@ impl<T, M: MemorySize> WasmPtr<T, M> {
 
     /// Checks whether the `WasmPtr` is null.
     #[inline]
-    pub fn is_null(self) -> bool {
+    pub fn is_null(&self) -> bool {
         self.offset.into() == 0
     }
 

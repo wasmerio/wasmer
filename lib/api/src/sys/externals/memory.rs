@@ -59,6 +59,13 @@ impl Memory {
         })
     }
 
+    /// Create a memory object from an existing memory and attaches it to the store
+    pub fn new_from_existing(new_store: &mut impl AsStoreMut, memory: VMMemory) -> Self {
+        Self {
+            handle: StoreHandle::new(new_store.objects_mut(), memory)
+        }
+    }
+
     /// Returns the [`MemoryType`] of the `Memory`.
     ///
     /// # Example
@@ -139,6 +146,12 @@ impl Memory {
     /// Checks whether this `Memory` can be used with the given context.
     pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
         self.handle.store_id() == store.as_store_ref().objects().id()
+    }
+
+    /// Convert this external to a cloned copy of the memory
+    pub fn to_vm_memory(&self, store: &impl AsStoreRef) -> VMMemory {
+        let mem = self.handle.get(store.as_store_ref().objects());
+        mem.clone()
     }
 
     pub(crate) fn to_vm_extern(&self) -> VMExtern {

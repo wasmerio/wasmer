@@ -37,6 +37,41 @@ impl Store {
     pub fn same(_a: &Self, _b: &Self) -> bool {
         true
     }
+    
+    /// Packages an empty copy of store so that it can be passed to other threads
+    pub fn package(&self) -> PackagedStore
+    {
+        self.inner.package()
+    }
+}
+
+impl StoreInner
+{
+    /// Packages an empty copy of store so that it can be passed to other threads
+    pub fn package(&self) -> PackagedStore
+    {
+        PackagedStore
+        {
+        }
+    }
+}
+
+/// Represents a packaged store that can be passed around and then created locally
+pub struct PackagedStore
+{
+}
+
+impl PackagedStore
+{
+    /// Creates a store in from an earlier packaged store
+    pub fn unpack(self) -> Store
+    {
+        Store {
+            inner: Box::new(StoreInner {
+                objects: StoreObjects::default(),
+            })
+        }
+    }
 }
 
 impl PartialEq for Store {
@@ -123,6 +158,11 @@ impl<'a> StoreMut<'a> {
 
     pub(crate) unsafe fn from_raw(raw: *mut StoreInner) -> Self {
         Self { inner: &mut *raw }
+    }
+    
+    /// Packages the store so that it can be passed to another thread and unpackaged
+    pub fn package(&self) -> PackagedStore {
+        self.inner.package()
     }
 }
 
@@ -222,19 +262,19 @@ mod objects {
     }
 
     macro_rules! impl_store_object {
-    ($($field:ident => $ty:ty,)*) => {
-        $(
-            impl StoreObject for $ty {
-                fn list(store: &StoreObjects) -> &Vec<Self> {
-                    &store.$field
+        ($($field:ident => $ty:ty,)*) => {
+            $(
+                impl StoreObject for $ty {
+                    fn list(store: &StoreObjects) -> &Vec<Self> {
+                        &store.$field
+                    }
+                    fn list_mut(store: &mut StoreObjects) -> &mut Vec<Self> {
+                        &mut store.$field
+                    }
                 }
-                fn list_mut(store: &mut StoreObjects) -> &mut Vec<Self> {
-                    &mut store.$field
-                }
-            }
-        )*
-    };
-}
+            )*
+        };
+    }
 
     impl_store_object! {
         functions => VMFunction,
@@ -441,6 +481,7 @@ mod objects {
         Instance(NonNull<T>),
     }
 
+    #[allow(dead_code)]
     impl<T> MaybeInstanceOwned<T> {
         /// Returns underlying pointer to the VM data.
         #[allow(dead_code)]
