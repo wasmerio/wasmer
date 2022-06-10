@@ -19,11 +19,13 @@ mod builder;
 mod pipe;
 mod socket;
 mod types;
+mod guard;
 
 pub use self::builder::*;
 pub use self::pipe::*;
 pub use self::socket::*;
 pub use self::types::*;
+pub use self::guard::*;
 use crate::syscalls::types::*;
 use crate::utils::map_io_err;
 use generational_arena::Arena;
@@ -32,6 +34,7 @@ pub use generational_arena::Index as Inode;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::collections::VecDeque;
+use std::io::Read;
 use std::sync::mpsc;
 use std::sync::Arc;
 use std::{
@@ -90,45 +93,6 @@ impl InodeVal {
     }
 }
 
-#[derive(Debug)]
-pub struct InodeValFileReadGuard<'a> {
-    pub(crate) guard: RwLockReadGuard<'a, Kind>,
-}
-
-impl<'a> Deref for InodeValFileReadGuard<'a> {
-    type Target = Option<Box<dyn VirtualFile + Sync + 'static>>;
-    fn deref(&self) -> &Self::Target {
-        if let Kind::File { handle, .. } = self.guard.deref() {
-            return handle;
-        }
-        unreachable!()
-    }
-}
-
-#[derive(Debug)]
-pub struct InodeValFileWriteGuard<'a> {
-    pub(crate) guard: RwLockWriteGuard<'a, Kind>,
-}
-
-impl<'a> Deref for InodeValFileWriteGuard<'a> {
-    type Target = Option<Box<dyn VirtualFile + Sync + 'static>>;
-    fn deref(&self) -> &Self::Target {
-        if let Kind::File { handle, .. } = self.guard.deref() {
-            return handle;
-        }
-        unreachable!()
-    }
-}
-
-impl<'a> DerefMut for InodeValFileWriteGuard<'a> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        if let Kind::File { handle, .. } = self.guard.deref_mut() {
-            return handle;
-        }
-        unreachable!()
-    }
-}
-
 /// The core of the filesystem abstraction.  Includes directories,
 /// files, and symlinks.
 #[derive(Debug)]
@@ -136,7 +100,7 @@ impl<'a> DerefMut for InodeValFileWriteGuard<'a> {
 pub enum Kind {
     File {
         /// The open file, if it's open
-        handle: Option<Box<dyn VirtualFile + Sync + 'static>>,
+        handle: Option<Box<dyn VirtualFile + Send + Sync + 'static>>,
         /// The path on the host system where the file is located
         /// This is deprecated and will be removed soon
         path: PathBuf,
@@ -264,14 +228,14 @@ impl WasiInodes {
     }
 
     /// Get the `VirtualFile` object at stdout
-    pub fn stdout(
+    pub(crate) fn stdout(
         &self,
         fd_map: &RwLock<HashMap<u32, Fd>>,
     ) -> Result<InodeValFileReadGuard, FsError> {
         self.std_dev_get(fd_map, __WASI_STDOUT_FILENO)
     }
     /// Get the `VirtualFile` object at stdout mutably
-    pub fn stdout_mut(
+    pub(crate) fn stdout_mut(
         &self,
         fd_map: &RwLock<HashMap<u32, Fd>>,
     ) -> Result<InodeValFileWriteGuard, FsError> {
@@ -279,14 +243,14 @@ impl WasiInodes {
     }
 
     /// Get the `VirtualFile` object at stderr
-    pub fn stderr(
+    pub(crate) fn stderr(
         &self,
         fd_map: &RwLock<HashMap<u32, Fd>>,
     ) -> Result<InodeValFileReadGuard, FsError> {
         self.std_dev_get(fd_map, __WASI_STDERR_FILENO)
     }
     /// Get the `VirtualFile` object at stderr mutably
-    pub fn stderr_mut(
+    pub(crate) fn stderr_mut(
         &self,
         fd_map: &RwLock<HashMap<u32, Fd>>,
     ) -> Result<InodeValFileWriteGuard, FsError> {
@@ -294,14 +258,14 @@ impl WasiInodes {
     }
 
     /// Get the `VirtualFile` object at stdin
-    pub fn stdin(
+    pub(crate) fn stdin(
         &self,
         fd_map: &RwLock<HashMap<u32, Fd>>,
     ) -> Result<InodeValFileReadGuard, FsError> {
         self.std_dev_get(fd_map, __WASI_STDIN_FILENO)
     }
     /// Get the `VirtualFile` object at stdin mutably
-    pub fn stdin_mut(
+    pub(crate) fn stdin_mut(
         &self,
         fd_map: &RwLock<HashMap<u32, Fd>>,
     ) -> Result<InodeValFileWriteGuard, FsError> {
@@ -310,18 +274,18 @@ impl WasiInodes {
 
     /// Internal helper function to get a standard device handle.
     /// Expects one of `__WASI_STDIN_FILENO`, `__WASI_STDOUT_FILENO`, `__WASI_STDERR_FILENO`.
-    fn std_dev_get(
-        &self,
+    fn std_dev_get<'a>(
+        &'a self,
         fd_map: &RwLock<HashMap<u32, Fd>>,
         fd: __wasi_fd_t,
-    ) -> Result<InodeValFileReadGuard, FsError> {
+    ) -> Result<InodeValFileReadGuard<'a>, FsError> {
         if let Some(fd) = fd_map.read().unwrap().get(&fd) {
             let guard = self.arena[fd.inode].read();
             if let Kind::File { .. } = guard.deref() {
                 Ok(InodeValFileReadGuard { guard })
             } else {
                 // Our public API should ensure that this is not possible
-                unreachable!("Non-file found in standard device location")
+                Err(FsError::NotAFile)
             }
         } else {
             // this should only trigger if we made a mistake in this crate
@@ -330,18 +294,18 @@ impl WasiInodes {
     }
     /// Internal helper function to mutably get a standard device handle.
     /// Expects one of `__WASI_STDIN_FILENO`, `__WASI_STDOUT_FILENO`, `__WASI_STDERR_FILENO`.
-    fn std_dev_get_mut(
-        &self,
+    fn std_dev_get_mut<'a>(
+        &'a self,
         fd_map: &RwLock<HashMap<u32, Fd>>,
         fd: __wasi_fd_t,
-    ) -> Result<InodeValFileWriteGuard, FsError> {
+    ) -> Result<InodeValFileWriteGuard<'a>, FsError> {
         if let Some(fd) = fd_map.read().unwrap().get(&fd) {
             let guard = self.arena[fd.inode].write();
             if let Kind::File { .. } = guard.deref() {
                 Ok(InodeValFileWriteGuard { guard })
             } else {
                 // Our public API should ensure that this is not possible
-                unreachable!("Non-file found in standard device location")
+                Err(FsError::NotAFile)
             }
         } else {
             // this should only trigger if we made a mistake in this crate
@@ -742,7 +706,7 @@ impl WasiFs {
         &mut self,
         inodes: &mut WasiInodes,
         base: __wasi_fd_t,
-        file: Box<dyn VirtualFile + Sync>,
+        file: Box<dyn VirtualFile + Send + Sync + 'static>,
         open_flags: u16,
         name: String,
         rights: __wasi_rights_t,
@@ -800,8 +764,8 @@ impl WasiFs {
         &self,
         inodes: &WasiInodes,
         fd: __wasi_fd_t,
-        file: Box<dyn VirtualFile + Sync>,
-    ) -> Result<Option<Box<dyn VirtualFile + Sync>>, FsError> {
+        file: Box<dyn VirtualFile + Send + Sync + 'static>,
+    ) -> Result<Option<Box<dyn VirtualFile + Send + Sync + 'static>>, FsError> {
         let mut ret = Some(file);
         match fd {
             __WASI_STDIN_FILENO => {
@@ -1602,7 +1566,7 @@ impl WasiFs {
     fn create_std_dev_inner(
         &self,
         inodes: &mut WasiInodes,
-        handle: Box<dyn VirtualFile + Sync>,
+        handle: Box<dyn VirtualFile + Send + Sync + 'static>,
         name: &'static str,
         raw_fd: __wasi_fd_t,
         rights: __wasi_rights_t,
@@ -1862,7 +1826,7 @@ impl WasiState {
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct WasiState {
     pub fs: WasiFs,
-    pub inodes: RwLock<WasiInodes>,
+    pub inodes: Arc<RwLock<WasiInodes>>,
     pub args: Vec<Vec<u8>>,
     pub envs: Vec<Vec<u8>>,
 }
@@ -1885,6 +1849,38 @@ impl WasiState {
     #[cfg(feature = "enable-serde")]
     pub fn unfreeze(bytes: &[u8]) -> Option<Self> {
         bincode::deserialize(bytes).ok()
+    }
+
+    /// Get the `VirtualFile` object at stdout
+    pub fn stdout(
+        &self,
+    ) -> Result<Box<dyn VirtualFile + Send + Sync + 'static>, FsError> {
+        self.std_dev_get(__WASI_STDOUT_FILENO)
+    }
+
+    /// Get the `VirtualFile` object at stderr
+    pub fn stderr(
+        &self,
+    ) -> Result<Box<dyn VirtualFile + Send + Sync + 'static>, FsError> {
+        self.std_dev_get(__WASI_STDERR_FILENO)
+    }
+
+    /// Get the `VirtualFile` object at stdin
+    pub fn stdin(
+        &self,
+    ) -> Result<Box<dyn VirtualFile + Send + Sync + 'static>, FsError> {
+        self.std_dev_get(__WASI_STDIN_FILENO)
+    }
+
+    /// Internal helper function to get a standard device handle.
+    /// Expects one of `__WASI_STDIN_FILENO`, `__WASI_STDOUT_FILENO`, `__WASI_STDERR_FILENO`.
+    fn std_dev_get(
+        &self,
+        fd: __wasi_fd_t,
+    ) -> Result<Box<dyn VirtualFile + Send + Sync + 'static>, FsError> {
+        Ok(
+            Box::new(WasiStateFileGuard::new(self, fd)?)
+        )
     }
 }
 

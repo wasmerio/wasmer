@@ -90,9 +90,7 @@ impl<'a> WasiTest<'a> {
 
         if let Some(stdin) = &self.stdin {
             let state = env.state();
-            let inodes = state.inodes.write().unwrap();
-            let mut wasi_stdin = inodes.stdin_mut(&state.fs.fd_map)?;
-            let wasi_stdin = wasi_stdin.as_mut().unwrap();
+            let mut wasi_stdin = state.stdin().unwrap();
             // Then we can write to it!
             write!(wasi_stdin, "{}", stdin.stream)?;
         }

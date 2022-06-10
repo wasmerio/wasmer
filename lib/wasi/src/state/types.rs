@@ -218,7 +218,7 @@ impl PollEventBuilder {
 
 #[cfg(all(unix, feature = "sys-poll"))]
 pub(crate) fn poll(
-    selfs: &[&(dyn VirtualFile + Sync)],
+    selfs: &[&(dyn VirtualFile + Send + Sync + 'static)],
     events: &[PollEventSet],
     seen_events: &mut [PollEventSet],
     timeout: Duration,
@@ -258,7 +258,7 @@ pub(crate) fn poll(
 
 #[cfg(any(not(unix), not(feature = "sys-poll")))]
 pub(crate) fn poll(
-    files: &[&(dyn VirtualFile + Sync)],
+    files: &[&(dyn VirtualFile + Send + Sync + 'static)],
     events: &[PollEventSet],
     seen_events: &mut [PollEventSet],
     timeout: Duration,
