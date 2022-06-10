@@ -10,6 +10,7 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ### Fixed
 - [#2942](https://github.com/wasmerio/wasmer/pull/2942) Fix clippy lints.
+- [#2943](https://github.com/wasmerio/wasmer/pull/2943) Fix build error on some archs by using c_char instead of i8
 
 ## 2.3.0 - 2022/06/06
 
