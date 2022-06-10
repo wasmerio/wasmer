@@ -14,7 +14,7 @@ impl crate::FileOpener for FileOpener {
         &mut self,
         path: &Path,
         conf: &OpenOptionsConfig,
-    ) -> Result<Box<dyn VirtualFile + Sync>> {
+    ) -> Result<Box<dyn VirtualFile + Send + Sync + 'static>> {
         let read = conf.read();
         let mut write = conf.write();
         let append = conf.append();

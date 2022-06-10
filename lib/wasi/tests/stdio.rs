@@ -1,10 +1,45 @@
-#![cfg(feature = "js")]
+use std::io::{Read, Write};
 
+#[cfg(feature = "js")]
 use wasm_bindgen_test::*;
 use wasmer::{Instance, Module, Store};
-use wasmer_wasi::{Stdin, Stdout, WasiState};
+use wasmer_wasi::{Pipe, WasiState};
 
-#[wasm_bindgen_test]
+mod sys {
+    #[test]
+    fn test_stdout() {
+        super::test_stdout()
+    }
+
+    #[test]
+    fn test_stdin() {
+        super::test_stdin()
+    }
+
+    #[test]
+    fn test_env() {
+        super::test_env()
+    }
+}
+
+#[cfg(feature = "js")]
+mod js {
+    #[wasm_bindgen_test]
+    fn test_stdout() {
+        super::test_stdout()
+    }
+
+    #[wasm_bindgen_test]
+    fn test_stdin() {
+        super::test_stdin()
+    }
+
+    #[wasm_bindgen_test]
+    fn test_env() {
+        super::test_env()
+    }
+}
+
 fn test_stdout() {
     let store = Store::default();
     let module = Module::new(&store, br#"
@@ -38,10 +73,10 @@ fn test_stdout() {
     "#).unwrap();
 
     // Create the `WasiEnv`.
-    // let stdout = Stdout::default();
+    let mut stdout = Pipe::default();
     let wasi_env = WasiState::new("command-name")
         .args(&["Gordon"])
-        // .stdout(Box::new(stdout))
+        .stdout(Box::new(stdout.clone()))
         .finalize()
         .unwrap();
 
@@ -56,17 +91,17 @@ fn test_stdout() {
     let start = instance.exports.get_function("_start").unwrap();
     start.call(&[]).unwrap();
 
-    let state = wasi_env.state();
-    let stdout = state.fs.stdout().unwrap().as_ref().unwrap();
-    let stdout = stdout.downcast_ref::<Stdout>().unwrap();
-    let stdout_as_str = std::str::from_utf8(&stdout.buf).unwrap();
+    let mut stdout_str = String::new();
+    stdout.read_to_string(&mut stdout_str).unwrap();
+    let stdout_as_str = stdout_str.as_str();
     assert_eq!(stdout_as_str, "hello world\n");
 }
-#[wasm_bindgen_test]
+
 fn test_env() {
     let store = Store::default();
     let module = Module::new(&store, include_bytes!("envvar.wasm")).unwrap();
 
+    #[cfg(feature = "js")]
     tracing_wasm::set_as_global_default_with_config({
         let mut builder = tracing_wasm::WASMLayerConfigBuilder::new();
         builder.set_console_config(tracing_wasm::ConsoleConfig::ReportWithoutConsoleColor);
@@ -74,7 +109,7 @@ fn test_env() {
     });
 
     // Create the `WasiEnv`.
-    // let stdout = Stdout::default();
+    let mut stdout = Pipe::new();
     let mut wasi_state_builder = WasiState::new("command-name");
     wasi_state_builder
         .args(&["Gordon"])
@@ -83,7 +118,7 @@ fn test_env() {
         .env("TEST2", "VALUE2");
     // panic!("envs: {:?}", wasi_state_builder.envs);
     let wasi_env = wasi_state_builder
-        // .stdout(Box::new(stdout))
+        .stdout(Box::new(stdout.clone()))
         .finalize()
         .unwrap();
 
@@ -98,28 +133,30 @@ fn test_env() {
     let start = instance.exports.get_function("_start").unwrap();
     start.call(&[]).unwrap();
 
-    let state = wasi_env.state();
-    let stdout = state.fs.stdout().unwrap().as_ref().unwrap();
-    let stdout = stdout.downcast_ref::<Stdout>().unwrap();
-    let stdout_as_str = std::str::from_utf8(&stdout.buf).unwrap();
+    let mut stdout_str = String::new();
+    stdout.read_to_string(&mut stdout_str).unwrap();
+    let stdout_as_str = stdout_str.as_str();
     assert_eq!(stdout_as_str, "Env vars:\nDOG=X\nTEST2=VALUE2\nTEST=VALUE\nDOG Ok(\"X\")\nDOG_TYPE Err(NotPresent)\nSET VAR Ok(\"HELLO\")\n");
 }
 
-#[wasm_bindgen_test]
 fn test_stdin() {
     let store = Store::default();
     let module = Module::new(&store, include_bytes!("stdin-hello.wasm")).unwrap();
 
     // Create the `WasiEnv`.
-    let mut stdin = Stdin::default();
-    stdin.buf = "Hello, stdin!".as_bytes().to_owned();
-    let mut wasi_env = WasiState::new("command-name")
-        .stdin(Box::new(stdin))
+    let mut stdin = Pipe::new();
+    let wasi_env = WasiState::new("command-name")
+        .stdin(Box::new(stdin.clone()))
         .finalize()
         .unwrap();
 
+    // Write to STDIN
+    let buf = "Hello, stdin!\n".as_bytes().to_owned();
+    stdin.write(&buf[..]).unwrap();
+
     // Generate an `ImportObject`.
-    let import_object = wasi_env.import_object(&module).unwrap();
+    let mut wasi_thread = wasi_env.new_thread();
+    let import_object = wasi_thread.import_object(&module).unwrap();
 
     // Let's instantiate the module with the imports.
     let instance = Instance::new(&module, &import_object).unwrap();
@@ -127,11 +164,10 @@ fn test_stdin() {
     // Let's call the `_start` function, which is our `main` function in Rust.
     let start = instance.exports.get_function("_start").unwrap();
     let result = start.call(&[]);
-    assert!(result.is_err());
-    // let status = result.unwrap_err().downcast::<WasiError>().unwrap();
-    let state = wasi_env.state();
-    let stdin = state.fs.stdin().unwrap().as_ref().unwrap();
-    let stdin = stdin.downcast_ref::<Stdin>().unwrap();
+    assert!(result.is_err() == false);
+    
     // We assure stdin is now empty
-    assert_eq!(stdin.buf.len(), 0);
+    let mut buf = Vec::new();
+    stdin.read_to_end(&mut buf).unwrap();
+    assert_eq!(buf.len(), 0);
 }

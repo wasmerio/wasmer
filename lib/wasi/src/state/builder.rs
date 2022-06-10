@@ -46,9 +46,9 @@ pub struct WasiStateBuilder {
     vfs_preopens: Vec<String>,
     #[allow(clippy::type_complexity)]
     setup_fs_fn: Option<Box<dyn Fn(&mut WasiInodes, &mut WasiFs) -> Result<(), String> + Send>>,
-    stdout_override: Option<Box<dyn VirtualFile + Sync>>,
-    stderr_override: Option<Box<dyn VirtualFile + Sync>>,
-    stdin_override: Option<Box<dyn VirtualFile + Sync>>,
+    stdout_override: Option<Box<dyn VirtualFile + Send + Sync + 'static>>,
+    stderr_override: Option<Box<dyn VirtualFile + Send + Sync + 'static>>,
+    stdin_override: Option<Box<dyn VirtualFile + Send + Sync + 'static>>,
     fs_override: Option<Box<dyn wasmer_vfs::FileSystem>>,
     runtime_override: Option<Arc<dyn crate::WasiRuntimeImplementation + Send + Sync + 'static>>,
 }
@@ -284,7 +284,7 @@ impl WasiStateBuilder {
 
     /// Overwrite the default WASI `stdout`, if you want to hold on to the
     /// original `stdout` use [`WasiFs::swap_file`] after building.
-    pub fn stdout(&mut self, new_file: Box<dyn VirtualFile + Sync>) -> &mut Self {
+    pub fn stdout(&mut self, new_file: Box<dyn VirtualFile + Send + Sync + 'static>) -> &mut Self {
         self.stdout_override = Some(new_file);
 
         self
@@ -292,7 +292,7 @@ impl WasiStateBuilder {
 
     /// Overwrite the default WASI `stderr`, if you want to hold on to the
     /// original `stderr` use [`WasiFs::swap_file`] after building.
-    pub fn stderr(&mut self, new_file: Box<dyn VirtualFile + Sync>) -> &mut Self {
+    pub fn stderr(&mut self, new_file: Box<dyn VirtualFile + Send + Sync + 'static>) -> &mut Self {
         self.stderr_override = Some(new_file);
 
         self
@@ -300,7 +300,7 @@ impl WasiStateBuilder {
 
     /// Overwrite the default WASI `stdin`, if you want to hold on to the
     /// original `stdin` use [`WasiFs::swap_file`] after building.
-    pub fn stdin(&mut self, new_file: Box<dyn VirtualFile + Sync>) -> &mut Self {
+    pub fn stdin(&mut self, new_file: Box<dyn VirtualFile + Send + Sync + 'static>) -> &mut Self {
         self.stdin_override = Some(new_file);
 
         self
@@ -465,7 +465,7 @@ impl WasiStateBuilder {
 
         Ok(WasiState {
             fs: wasi_fs,
-            inodes,
+            inodes: Arc::new(inodes),
             args: self.args.clone(),
             envs: self
                 .envs

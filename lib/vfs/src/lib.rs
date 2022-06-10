@@ -55,7 +55,7 @@ pub trait FileOpener {
         &mut self,
         path: &Path,
         conf: &OpenOptionsConfig,
-    ) -> Result<Box<dyn VirtualFile + Sync>>;
+    ) -> Result<Box<dyn VirtualFile + Send + Sync + 'static>>;
 }
 
 #[derive(Debug, Clone)]
@@ -150,14 +150,14 @@ impl OpenOptions {
         self
     }
 
-    pub fn open<P: AsRef<Path>>(&mut self, path: P) -> Result<Box<dyn VirtualFile + Sync>> {
+    pub fn open<P: AsRef<Path>>(&mut self, path: P) -> Result<Box<dyn VirtualFile + Send + Sync + 'static>> {
         self.opener.open(path.as_ref(), &self.conf)
     }
 }
 
 /// This trait relies on your file closing when it goes out of scope via `Drop`
 #[cfg_attr(feature = "enable-serde", typetag::serde)]
-pub trait VirtualFile: fmt::Debug + Send + Write + Read + Seek + 'static + Upcastable {
+pub trait VirtualFile: fmt::Debug + Write + Read + Seek + Upcastable {
     /// the last time the file was accessed in nanoseconds as a UNIX timestamp
     fn last_accessed(&self) -> u64;
 
