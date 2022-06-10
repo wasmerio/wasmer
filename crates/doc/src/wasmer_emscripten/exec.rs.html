@@ -51,8 +51,10 @@
 <span id="49">49</span>
 <span id="50">50</span>
 <span id="51">51</span>
+<span id="52">52</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::varargs::VarArgs</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::EmEnv</span>;
+<span class="kw">use</span> <span class="ident">libc::c_char</span>;
 <span class="kw">use</span> <span class="ident">libc::execvp</span> <span class="kw">as</span> <span class="ident">libc_execvp</span>;
 <span class="kw">use</span> <span class="ident">std::ffi::CString</span>;
 <span class="kw">use</span> <span class="ident">wasmer::WasmPtr</span>;
@@ -80,7 +82,7 @@
             <span class="ident">CString::new</span>(<span class="ident">vec</span>).<span class="ident">unwrap</span>()
         })
         .<span class="ident">collect</span>();
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">argv</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="kw-2">*const</span> <span class="ident">i8</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">arg_strings</span>.<span class="ident">iter</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">s</span><span class="op">|</span> <span class="ident">s</span>.<span class="ident">as_ptr</span>()).<span class="ident">collect</span>();
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">argv</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="kw-2">*const</span> <span class="ident">c_char</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">arg_strings</span>.<span class="ident">iter</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">s</span><span class="op">|</span> <span class="ident">s</span>.<span class="ident">as_ptr</span>()).<span class="ident">collect</span>();
 
     <span class="comment">// push a nullptr on to the end of the args array</span>
     <span class="ident">argv</span>.<span class="ident">push</span>(<span class="ident">std::ptr::null</span>());
