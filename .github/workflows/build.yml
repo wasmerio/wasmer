@@ -38,18 +38,19 @@ jobs:
     runs-on: ${{ matrix.os }}
     needs: setup
     strategy:
+      fail-fast: false
       matrix:
         include:
           - build: linux-x64
             os: ubuntu-18.04
             artifact_name: 'wasmer-linux-amd64'
-            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz'
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/13.x/llvm-linux-amd64.tar.xz'
             cross_compilation_artifact_name: 'cross_compiled_from_linux'
             use_sccache: true
             use_llvm: true
           - build: macos-x64
             os: macos-11
-            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-apple-darwin.tar.xz'
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/13.x/llvm-darwin-amd64.tar.xz'
             artifact_name: 'wasmer-darwin-amd64'
             cross_compilation_artifact_name: 'cross_compiled_from_mac'
             use_sccache: true
@@ -63,14 +64,14 @@ jobs:
           - build: windows-x64
             os: windows-2019
             artifact_name: 'wasmer-windows-amd64'
-            # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/12.x/windows-amd64.tar.gz'
-            #llvm_choco_version: 13.0.0
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/13.x/llvm-windows-amd64.tar.xz'
             cross_compilation_artifact_name: 'cross_compiled_from_win'
             use_sccache: true
-            use_llvm: false
+            use_llvm: true
           - build: linux-musl-x64
             os: ubuntu-latest
             artifact_name: 'wasmer-linux-musl-amd64'
+            #llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/13.x/llvm-linux-amd64.tar.xz'
             container: alpine:latest
             use_sccache: false
             use_llvm: false
@@ -98,14 +99,6 @@ jobs:
           override: true
       - uses: Swatinem/rust-cache@v1
         if: matrix.use_sccache != true
-      - name: Install LLVM (Choco - Windows)
-        if: matrix.llvm_choco_version
-        shell: bash
-        run: |
-          choco install llvm --version ${{ matrix.llvm_choco_version }} --allow-downgrade
-          cd 'C:\Program Files\LLVM\'
-          LLVM_DIR=$(pwd)
-          echo "LLVM_SYS_120_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
       - name: Install LLVM (macOS Apple Silicon)
         if: matrix.os == 'macos-11.0' && !matrix.llvm_url
         run: |
@@ -114,10 +107,9 @@ jobs:
         if: matrix.llvm_url
         shell: bash
         run: |
-          curl --proto '=https' --tlsv1.2 -sSf ${{ matrix.llvm_url }} -L -o llvm.tar.xz
           LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
-          mkdir ${LLVM_DIR}
-          tar xf llvm.tar.xz --strip-components=1 -C ${LLVM_DIR}
+          mkdir -p ${LLVM_DIR}
+          curl --proto '=https' --tlsv1.2 -sSf "${{ matrix.llvm_url }}" -L -o - | tar xJv -C ${LLVM_DIR}
           echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
           echo "LLVM_SYS_120_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
         env:
@@ -184,16 +176,19 @@ jobs:
           echo 'RUSTC_WRAPPER=${{ runner.tool_cache }}/cargo-sccache/bin/sccache' >> $GITHUB_ENV
         shell: bash
       - name: Build C API
+        shell: bash
         run: |
           make build-capi
       - name: Build Wasmer binary with LLVM
         if: matrix.use_llvm
+        shell: bash
         run: |
           make build-wasmer
         env:
           ENABLE_LLVM: 1
       - name: Build Wasmer binary without LLVM
         if: matrix.use_llvm != true
+        shell: bash
         run: |
           make build-wasmer
       - name: Build Wapm binary
@@ -256,17 +251,6 @@ jobs:
           docker build -t wasmer/aarch64 /home/runner/work/wasmer/wasmer/.github/cross-linux-aarch64/
         env:
           CROSS_DOCKER_IN_DOCKER: true
-            #- name: Install LLVM
-            #  shell: bash
-            #  run: |
-            #    curl --proto '=https' --tlsv1.2 -sSf "https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-aarch64-linux-gnu.tar.xz" -L -o llvm.tar.xz
-            #    LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
-            #    mkdir ${LLVM_DIR}
-            #    tar xf llvm.tar.xz --strip-components=1 -C ${LLVM_DIR}
-            #    echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
-            #    echo "LLVM_SYS_120_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
-            #  env:
-            #    LLVM_DIR: .llvm
       - name: Build Wasmer binary
         run: |
           make build-wasmer
