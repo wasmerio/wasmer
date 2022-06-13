@@ -1,10 +1,12 @@
+//! Generic Artifact abstraction for Wasmer Engines.
+
+use crate::{CpuFeature, Features};
 use enumset::EnumSet;
 use std::any::Any;
 use std::convert::TryInto;
 use std::path::Path;
 use std::sync::Arc;
 use std::{fs, mem};
-use wasmer_compiler::{CpuFeature, Features};
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::{DeserializeError, SerializeError};
 use wasmer_types::{

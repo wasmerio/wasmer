@@ -50,9 +50,10 @@ pub use target_lexicon::{Architecture, CallingConvention, OperatingSystem, Tripl
 pub use wasmer_compiler::{
     wasmparser, CompilerConfig, FunctionMiddleware, MiddlewareReaderState, ModuleMiddleware,
 };
-pub use wasmer_compiler::{CpuFeature, Features, Target};
+pub use wasmer_compiler::{
+    CpuFeature, Engine, Export, Features, FrameInfo, LinkError, RuntimeError, Target, Tunables,
+};
 pub use wasmer_derive::ValueType;
-pub use wasmer_engine::{Engine, Export, FrameInfo, LinkError, RuntimeError, Tunables};
 pub use wasmer_types::is_wasm;
 #[cfg(feature = "experimental-reference-types-extern-ref")]
 pub use wasmer_types::ExternRef;

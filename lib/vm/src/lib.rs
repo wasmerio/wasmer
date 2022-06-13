@@ -54,7 +54,6 @@ pub use crate::vmcontext::{
     VMFunctionImport, VMFunctionKind, VMGlobalDefinition, VMGlobalImport, VMMemoryDefinition,
     VMMemoryImport, VMSharedSignatureIndex, VMTableDefinition, VMTableImport, VMTrampoline,
 };
-pub use wasmer_artifact::{FunctionBodyPtr, VMFunctionBody};
 pub use wasmer_types::LibCall;
 pub use wasmer_types::MemoryStyle;
 pub use wasmer_types::TableStyle;
@@ -82,3 +81,43 @@ impl std::ops::Deref for SectionBodyPtr {
         &self.0
     }
 }
+
+/// A placeholder byte-sized type which is just used to provide some amount of type
+/// safety when dealing with pointers to JIT-compiled function bodies. Note that it's
+/// deliberately not Copy, as we shouldn't be carelessly copying function body bytes
+/// around.
+#[repr(C)]
+pub struct VMFunctionBody(u8);
+
+#[cfg(test)]
+mod test_vmfunction_body {
+    use super::VMFunctionBody;
+    use std::mem::size_of;
+
+    #[test]
+    fn check_vmfunction_body_offsets() {
+        assert_eq!(size_of::<VMFunctionBody>(), 1);
+    }
+}
+
+/// A safe wrapper around `VMFunctionBody`.
+#[derive(Clone, Copy, Debug)]
+#[repr(transparent)]
+pub struct FunctionBodyPtr(pub *const VMFunctionBody);
+
+impl std::ops::Deref for FunctionBodyPtr {
+    type Target = *const VMFunctionBody;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+/// # Safety
+/// The VMFunctionBody that this points to is opaque, so there's no data to
+/// read or write through this pointer. This is essentially a usize.
+unsafe impl Send for FunctionBodyPtr {}
+/// # Safety
+/// The VMFunctionBody that this points to is opaque, so there's no data to
+/// read or write through this pointer. This is essentially a usize.
+unsafe impl Sync for FunctionBodyPtr {}

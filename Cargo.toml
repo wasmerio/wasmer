@@ -16,7 +16,6 @@ wasmer-compiler-cranelift = { version = "=2.3.0", path = "lib/compiler-cranelift
 wasmer-compiler-singlepass = { version = "=2.3.0", path = "lib/compiler-singlepass", optional = true }
 wasmer-compiler-llvm = { version = "=2.3.0", path = "lib/compiler-llvm", optional = true }
 wasmer-emscripten = { version = "=2.3.0", path = "lib/emscripten", optional = true }
-wasmer-engine = { version = "=2.3.0", path = "lib/engine" }
 wasmer-engine-universal = { version = "=2.3.0", path = "lib/engine-universal", optional = true }
 wasmer-wasi = { version = "=2.3.0", path = "lib/wasi", optional = true }
 wasmer-wast = { version = "=2.3.0", path = "tests/lib/wast", optional = true }
@@ -39,7 +38,6 @@ members = [
     "lib/compiler-llvm",
     "lib/derive",
     "lib/emscripten",
-    "lib/engine",
     "lib/engine-universal",
     "lib/object",
     "lib/vfs",
@@ -72,7 +70,6 @@ anyhow = "1.0"
 criterion = "0.3"
 lazy_static = "1.4"
 serial_test = "0.5"
-wasmer-engine-dummy = { path = "tests/lib/engine-dummy" }
 compiler-test-derive = { path = "tests/lib/compiler-test-derive" }
 tempfile = "3.1"
 # For logging tests using the `RUST_LOG=debug` when testing
@@ -95,7 +92,6 @@ default = [
 engine = []
 universal = [
     "wasmer-engine-universal",
-    "engine",
 ]
 cache = ["wasmer-cache"]
 wast = ["wasmer-wast"]

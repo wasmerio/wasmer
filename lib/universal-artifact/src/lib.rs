@@ -28,7 +28,7 @@ pub use crate::artifact::UniversalArtifactBuild;
 pub use crate::engine::UniversalEngineBuilder;
 pub use crate::serialize::SerializableModule;
 pub use crate::trampoline::*;
-pub use wasmer_artifact::{ArtifactCreate, MetadataHeader, Upcastable};
+pub use wasmer_compiler::{ArtifactCreate, MetadataHeader, Upcastable};
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

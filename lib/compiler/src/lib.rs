@@ -9,7 +9,10 @@
 #![warn(unused_import_braces)]
 #![cfg_attr(feature = "std", deny(unstable_features))]
 #![cfg_attr(not(feature = "std"), no_std)]
-#![cfg_attr(feature = "cargo-clippy", allow(clippy::new_without_default))]
+#![cfg_attr(
+    feature = "cargo-clippy",
+    allow(clippy::new_without_default, clippy::upper_case_acronyms)
+)]
 #![cfg_attr(
     feature = "cargo-clippy",
     warn(
@@ -47,6 +50,14 @@ mod lib {
         pub use std::{borrow, boxed, collections, fmt, str, string, sync, vec};
     }
 }
+
+mod artifact;
+#[cfg(not(target_arch = "wasm32"))]
+mod engine;
+
+pub use crate::artifact::*;
+#[cfg(not(target_arch = "wasm32"))]
+pub use crate::engine::*;
 
 #[cfg(feature = "translator")]
 mod compiler;

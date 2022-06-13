@@ -1,8 +1,7 @@
+use crate::CpuFeature;
 use crate::{resolve_imports, Export, InstantiationError, RuntimeError, Tunables};
+use crate::{ArtifactCreate, Upcastable};
 use std::any::Any;
-pub use wasmer_artifact::MetadataHeader;
-use wasmer_artifact::{ArtifactCreate, Upcastable};
-use wasmer_compiler::CpuFeature;
 use wasmer_types::entity::BoxedSlice;
 use wasmer_types::{DataInitializer, FunctionIndex, LocalFunctionIndex, SignatureIndex};
 use wasmer_vm::{

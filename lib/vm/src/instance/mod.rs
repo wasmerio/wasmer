@@ -21,12 +21,11 @@ use crate::memory::{Memory, MemoryError};
 use crate::table::{Table, TableElement};
 use crate::trap::{catch_traps, Trap, TrapCode, TrapHandler};
 use crate::vmcontext::{
-    VMBuiltinFunctionsArray, VMCallerCheckedAnyfunc, VMContext, VMFunctionBody,
-    VMFunctionEnvironment, VMFunctionImport, VMFunctionKind, VMGlobalDefinition, VMGlobalImport,
-    VMMemoryDefinition, VMMemoryImport, VMSharedSignatureIndex, VMTableDefinition, VMTableImport,
-    VMTrampoline,
+    VMBuiltinFunctionsArray, VMCallerCheckedAnyfunc, VMContext, VMFunctionEnvironment,
+    VMFunctionImport, VMFunctionKind, VMGlobalDefinition, VMGlobalImport, VMMemoryDefinition,
+    VMMemoryImport, VMSharedSignatureIndex, VMTableDefinition, VMTableImport, VMTrampoline,
 };
-use crate::{FunctionBodyPtr, VMOffsets};
+use crate::{FunctionBodyPtr, VMFunctionBody, VMOffsets};
 use crate::{VMFunction, VMGlobal, VMMemory, VMTable};
 use memoffset::offset_of;
 use more_asserts::assert_lt;

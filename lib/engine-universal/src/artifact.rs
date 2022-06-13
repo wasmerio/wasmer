@@ -7,12 +7,12 @@ use enumset::EnumSet;
 use std::sync::{Arc, Mutex};
 #[cfg(feature = "compiler")]
 use wasmer_compiler::ModuleEnvironment;
-use wasmer_compiler::{CpuFeature, Features, Triple};
-use wasmer_engine::{
+use wasmer_compiler::{
     register_frame_info, Artifact, FunctionExtent, GlobalFrameInfoRegistration, MetadataHeader,
 };
+use wasmer_compiler::{CpuFeature, Features, Triple};
 #[cfg(feature = "compiler")]
-use wasmer_engine::{Engine, Tunables};
+use wasmer_compiler::{Engine, Tunables};
 use wasmer_engine_universal_artifact::ArtifactCreate;
 use wasmer_engine_universal_artifact::{SerializableModule, UniversalArtifactBuild};
 use wasmer_types::entity::{BoxedSlice, PrimaryMap};

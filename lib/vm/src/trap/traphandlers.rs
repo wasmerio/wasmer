@@ -4,8 +4,8 @@
 //! WebAssembly trap handling, which is built on top of the lower-level
 //! signalhandling mechanisms.
 
-use crate::vmcontext::{VMFunctionBody, VMFunctionEnvironment, VMTrampoline};
-use crate::Trap;
+use crate::vmcontext::{VMFunctionEnvironment, VMTrampoline};
+use crate::{Trap, VMFunctionBody};
 use backtrace::Backtrace;
 use core::ptr::{read, read_unaligned};
 use corosensei::stack::DefaultStack;

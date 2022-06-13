@@ -2789,29 +2789,17 @@ dependencies = [
  "thiserror",
  "wasm-bindgen",
  "wasm-bindgen-test",
- "wasmer-artifact",
  "wasmer-compiler",
  "wasmer-compiler-cranelift",
  "wasmer-compiler-llvm",
  "wasmer-compiler-singlepass",
  "wasmer-derive",
- "wasmer-engine",
  "wasmer-engine-universal",
  "wasmer-types",
  "wasmer-vm",
  "wasmparser 0.83.0",
  "wat",
  "winapi",
-]
-
-[[package]]
-name = "wasmer-artifact"
-version = "2.3.0"
-dependencies = [
- "enumset",
- "thiserror",
- "wasmer-compiler",
- "wasmer-types",
 ]
 
 [[package]]
@@ -2846,11 +2834,11 @@ dependencies = [
  "thiserror",
  "typetag",
  "wasmer",
+ "wasmer-compiler",
  "wasmer-compiler-cranelift",
  "wasmer-compiler-llvm",
  "wasmer-compiler-singlepass",
  "wasmer-emscripten",
- "wasmer-engine",
  "wasmer-engine-universal",
  "wasmer-middlewares",
  "wasmer-types",
@@ -2894,7 +2882,6 @@ dependencies = [
  "wasmer-compiler-llvm",
  "wasmer-compiler-singlepass",
  "wasmer-emscripten",
- "wasmer-engine",
  "wasmer-engine-universal",
  "wasmer-types",
  "wasmer-vfs",
@@ -2908,15 +2895,21 @@ dependencies = [
 name = "wasmer-compiler"
 version = "2.3.0"
 dependencies = [
+ "backtrace",
  "enumset",
  "hashbrown 0.11.2",
+ "lazy_static",
+ "memmap2",
+ "more-asserts",
  "rkyv",
+ "rustc-demangle",
  "serde",
  "serde_bytes",
  "smallvec",
  "target-lexicon 0.12.4",
  "thiserror",
  "wasmer-types",
+ "wasmer-vm",
  "wasmparser 0.83.0",
 ]
 
@@ -3027,41 +3020,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "wasmer-engine"
-version = "2.3.0"
-dependencies = [
- "backtrace",
- "enumset",
- "lazy_static",
- "memmap2",
- "more-asserts",
- "rustc-demangle",
- "serde",
- "serde_bytes",
- "target-lexicon 0.12.4",
- "thiserror",
- "wasmer-artifact",
- "wasmer-compiler",
- "wasmer-types",
- "wasmer-vm",
-]
-
-[[package]]
-name = "wasmer-engine-dummy"
-version = "2.3.0"
-dependencies = [
- "bincode",
- "enumset",
- "serde",
- "serde_bytes",
- "wasmer-artifact",
- "wasmer-compiler",
- "wasmer-engine",
- "wasmer-types",
- "wasmer-vm",
-]
-
-[[package]]
 name = "wasmer-engine-universal"
 version = "2.3.0"
 dependencies = [
@@ -3071,7 +3029,6 @@ dependencies = [
  "region",
  "rkyv",
  "wasmer-compiler",
- "wasmer-engine",
  "wasmer-engine-universal-artifact",
  "wasmer-types",
  "wasmer-vm",
@@ -3086,7 +3043,6 @@ dependencies = [
  "enumset",
  "rkyv",
  "thiserror",
- "wasmer-artifact",
  "wasmer-compiler",
  "wasmer-types",
 ]
@@ -3180,7 +3136,6 @@ dependencies = [
  "scopeguard",
  "serde",
  "thiserror",
- "wasmer-artifact",
  "wasmer-types",
  "winapi",
 ]
@@ -3301,8 +3256,6 @@ dependencies = [
  "wasmer-compiler-llvm",
  "wasmer-compiler-singlepass",
  "wasmer-emscripten",
- "wasmer-engine",
- "wasmer-engine-dummy",
  "wasmer-engine-universal",
  "wasmer-middlewares",
  "wasmer-types",

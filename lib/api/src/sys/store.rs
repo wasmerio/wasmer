@@ -3,7 +3,7 @@ use std::fmt;
 use std::sync::{Arc, RwLock};
 #[cfg(all(feature = "compiler", feature = "engine"))]
 use wasmer_compiler::CompilerConfig;
-use wasmer_engine::{Engine, Tunables};
+use wasmer_compiler::{Engine, Tunables};
 use wasmer_vm::{init_traps, TrapHandler, TrapHandlerFn};
 
 /// The store represents all global state that can be manipulated by

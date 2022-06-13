@@ -12,7 +12,6 @@ edition = "2018"
 
 [dependencies]
 wasmer-types = { path = "../types", version = "=2.3.0" }
-wasmer-artifact = { path = "../artifact", version = "=2.3.0" }
 libc = { version = "^0.2", default-features = false }
 memoffset = "0.6"
 indexmap = { version = "1.6", features = ["serde-1"] }

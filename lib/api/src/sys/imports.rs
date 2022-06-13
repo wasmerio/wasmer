@@ -4,7 +4,7 @@
 use crate::{Exports, Extern, Module};
 use std::collections::HashMap;
 use std::fmt;
-use wasmer_engine::LinkError;
+use wasmer_compiler::LinkError;
 use wasmer_types::ImportError;
 
 /// All of the import data used when instantiating.

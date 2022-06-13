@@ -12,13 +12,13 @@ use crate::table::Table;
 use crate::trap::{Trap, TrapCode};
 use crate::VMBuiltinFunctionIndex;
 use crate::VMExternRef;
+use crate::VMFunctionBody;
 use std::any::Any;
 use std::convert::TryFrom;
 use std::fmt;
 use std::ptr::{self, NonNull};
 use std::sync::Arc;
 use std::u32;
-pub use wasmer_artifact::VMFunctionBody;
 
 /// Union representing the first parameter passed when calling a function.
 ///

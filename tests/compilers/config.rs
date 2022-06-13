@@ -57,8 +57,6 @@ impl Config {
     }
 
     pub fn engine(&self, compiler_config: Box<dyn CompilerConfig>) -> Box<dyn WasmerEngine> {
-        #[cfg(not(feature = "engine"))]
-        compile_error!("Plese enable at least one engine via the features");
         match &self.engine {
             #[cfg(feature = "universal")]
             Engine::Universal => {

@@ -9,7 +9,7 @@ use crate::{ArtifactCreate, UniversalEngineBuilder};
 use enumset::EnumSet;
 use std::mem;
 use std::sync::Arc;
-use wasmer_artifact::MetadataHeader;
+use wasmer_compiler::MetadataHeader;
 use wasmer_compiler::{
     CpuFeature, Features, ModuleEnvironment, ModuleMiddlewareChain, Target, Triple,
 };

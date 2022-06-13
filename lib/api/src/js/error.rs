@@ -90,7 +90,7 @@ pub enum WasmError {
 
 /// The Serialize error can occur when serializing a
 /// compiled Module into a binary.
-/// Copied from wasmer_engine::SerializeError
+/// Copied from wasmer_compiler::SerializeError
 #[derive(Debug)]
 #[cfg_attr(feature = "std", derive(Error))]
 pub enum SerializeError {
@@ -104,7 +104,7 @@ pub enum SerializeError {
 
 /// The Deserialize error can occur when loading a
 /// compiled Module from a binary.
-/// Copied from wasmer_engine::DeSerializeError
+/// Copied from wasmer_compiler::DeSerializeError
 #[derive(Error, Debug)]
 pub enum DeserializeError {
     /// An IO error

@@ -1,5 +1,5 @@
 //! The WebAssembly possible errors
-use crate::trap::RuntimeError;
+use crate::engine::trap::RuntimeError;
 use thiserror::Error;
 pub use wasmer_types::{DeserializeError, ImportError, SerializeError};
 

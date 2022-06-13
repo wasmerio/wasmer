@@ -1,4 +1,4 @@
-use crate::error::LinkError;
+use crate::engine::error::LinkError;
 use std::ptr::NonNull;
 use std::sync::Arc;
 use wasmer_types::entity::{EntityRef, PrimaryMap};

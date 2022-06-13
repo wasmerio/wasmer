@@ -7,7 +7,7 @@ use std::io;
 use std::path::Path;
 use std::sync::Arc;
 use thiserror::Error;
-use wasmer_engine::Artifact;
+use wasmer_compiler::Artifact;
 #[cfg(feature = "wat")]
 use wasmer_types::WasmError;
 use wasmer_types::{
