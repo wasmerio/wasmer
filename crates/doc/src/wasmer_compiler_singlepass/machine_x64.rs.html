@@ -7196,6 +7196,16 @@
 <span id="7194">7194</span>
 <span id="7195">7195</span>
 <span id="7196">7196</span>
+<span id="7197">7197</span>
+<span id="7198">7198</span>
+<span id="7199">7199</span>
+<span id="7200">7200</span>
+<span id="7201">7201</span>
+<span id="7202">7202</span>
+<span id="7203">7203</span>
+<span id="7204">7204</span>
+<span id="7205">7205</span>
+<span id="7206">7206</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::common_decl</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::emitter_x64</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::location::Location</span> <span class="kw">as</span> <span class="ident">AbstractLocation</span>;
@@ -14203,14 +14213,16 @@
         {
             <span class="kw">match</span> <span class="ident">calling_convention</span> {
                 <span class="ident">CallingConvention::WindowsFastcall</span> =&gt; {
+                    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">param_locations</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Location</span><span class="op">&gt;</span> <span class="op">=</span> <span class="macro">vec!</span>[];
                     <span class="kw">static</span> <span class="ident">PARAM_REGS</span>: <span class="kw-2">&amp;</span>[<span class="ident">GPR</span>] <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="ident">GPR::RDX</span>, <span class="ident">GPR::R8</span>, <span class="ident">GPR::R9</span>];
-                    <span class="kw">let</span> <span class="ident">gpr_iter</span> <span class="op">=</span> <span class="ident">PARAM_REGS</span>.<span class="ident">iter</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">r</span><span class="op">|</span> <span class="ident">Location::GPR</span>(<span class="kw-2">*</span><span class="ident">r</span>));
-                    <span class="kw">let</span> <span class="ident">memory_iter</span> <span class="op">=</span> (<span class="number">0i32</span>..).<span class="ident">map</span>(<span class="op">|</span><span class="ident">i</span><span class="op">|</span> <span class="ident">Location::Memory</span>(<span class="ident">GPR::RSP</span>, <span class="number">32</span> <span class="op">+</span> <span class="number">8</span> <span class="op">+</span> <span class="ident">i</span> <span class="op">*</span> <span class="number">8</span>));
-
-                    <span class="kw">let</span> <span class="ident">param_locations</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Location</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">gpr_iter</span>
-                        .<span class="ident">chain</span>(<span class="ident">memory_iter</span>)
-                        .<span class="ident">take</span>(<span class="ident">sig</span>.<span class="ident">params</span>().<span class="ident">len</span>())
-                        .<span class="ident">collect</span>();
+                    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::needless_range_loop</span>)]</span>
+                    <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">sig</span>.<span class="ident">params</span>().<span class="ident">len</span>() {
+                        <span class="kw">let</span> <span class="ident">loc</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">i</span> {
+                            <span class="number">0</span>..<span class="op">=</span><span class="number">2</span> =&gt; <span class="ident">Location::GPR</span>(<span class="ident">PARAM_REGS</span>[<span class="ident">i</span>]),
+                            <span class="kw">_</span> =&gt; <span class="ident">Location::Memory</span>(<span class="ident">GPR::RSP</span>, <span class="number">32</span> <span class="op">+</span> <span class="number">8</span> <span class="op">+</span> ((<span class="ident">i</span> <span class="op">-</span> <span class="number">3</span>) <span class="op">*</span> <span class="number">8</span>) <span class="kw">as</span> <span class="ident">i32</span>), <span class="comment">// will not be used anyway</span>
+                        };
+                        <span class="ident">param_locations</span>.<span class="ident">push</span>(<span class="ident">loc</span>);
+                    }
 
                     <span class="comment">// Copy Float arguments to XMM from GPR.</span>
                     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">argalloc</span> <span class="op">=</span> <span class="ident">ArgumentRegisterAllocator::default</span>();
@@ -14226,6 +14238,8 @@
                     }
                 }
                 <span class="kw">_</span> =&gt; {
+                    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">param_locations</span> <span class="op">=</span> <span class="macro">vec!</span>[];
+
                     <span class="comment">// Allocate stack space for arguments.</span>
                     <span class="kw">let</span> <span class="ident">stack_offset</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">sig</span>.<span class="ident">params</span>().<span class="ident">len</span>() <span class="op">&gt;</span> <span class="number">5</span> {
                         <span class="number">5</span> <span class="op">*</span> <span class="number">8</span>
@@ -14242,14 +14256,20 @@
 
                     <span class="comment">// Store all arguments to the stack to prevent overwrite.</span>
                     <span class="kw">static</span> <span class="ident">PARAM_REGS</span>: <span class="kw-2">&amp;</span>[<span class="ident">GPR</span>] <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="ident">GPR::RSI</span>, <span class="ident">GPR::RDX</span>, <span class="ident">GPR::RCX</span>, <span class="ident">GPR::R8</span>, <span class="ident">GPR::R9</span>];
-                    <span class="kw">let</span> <span class="ident">gpr_iter</span> <span class="op">=</span> <span class="ident">PARAM_REGS</span>.<span class="ident">iter</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">r</span><span class="op">|</span> <span class="ident">Location::GPR</span>(<span class="kw-2">*</span><span class="ident">r</span>));
-                    <span class="kw">let</span> <span class="ident">memory_iter</span> <span class="op">=</span>
-                        (<span class="number">0i32</span>..).<span class="ident">map</span>(<span class="op">|</span><span class="ident">i</span><span class="op">|</span> <span class="ident">Location::Memory</span>(<span class="ident">GPR::RSP</span>, <span class="ident">stack_offset</span> <span class="op">+</span> <span class="number">8</span> <span class="op">+</span> <span class="ident">i</span> <span class="op">*</span> <span class="number">8</span>));
-
-                    <span class="kw">let</span> <span class="ident">param_locations</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Location</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">gpr_iter</span>
-                        .<span class="ident">chain</span>(<span class="ident">memory_iter</span>)
-                        .<span class="ident">take</span>(<span class="ident">sig</span>.<span class="ident">params</span>().<span class="ident">len</span>())
-                        .<span class="ident">collect</span>();
+                    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::needless_range_loop</span>)]</span>
+                    <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">sig</span>.<span class="ident">params</span>().<span class="ident">len</span>() {
+                        <span class="kw">let</span> <span class="ident">loc</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">i</span> {
+                            <span class="number">0</span>..<span class="op">=</span><span class="number">4</span> =&gt; {
+                                <span class="kw">let</span> <span class="ident">loc</span> <span class="op">=</span> <span class="ident">Location::Memory</span>(<span class="ident">GPR::RSP</span>, (<span class="ident">i</span> <span class="op">*</span> <span class="number">8</span>) <span class="kw">as</span> <span class="ident">i32</span>);
+                                <span class="ident">a</span>.<span class="ident">emit_mov</span>(<span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">PARAM_REGS</span>[<span class="ident">i</span>]), <span class="ident">loc</span>);
+                                <span class="ident">loc</span>
+                            }
+                            <span class="kw">_</span> =&gt; {
+                                <span class="ident">Location::Memory</span>(<span class="ident">GPR::RSP</span>, <span class="ident">stack_offset</span> <span class="op">+</span> <span class="number">8</span> <span class="op">+</span> ((<span class="ident">i</span> <span class="op">-</span> <span class="number">5</span>) <span class="op">*</span> <span class="number">8</span>) <span class="kw">as</span> <span class="ident">i32</span>)
+                            }
+                        };
+                        <span class="ident">param_locations</span>.<span class="ident">push</span>(<span class="ident">loc</span>);
+                    }
 
                     <span class="comment">// Copy arguments.</span>
                     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">argalloc</span> <span class="op">=</span> <span class="ident">ArgumentRegisterAllocator::default</span>();
