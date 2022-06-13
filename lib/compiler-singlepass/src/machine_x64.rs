@@ -7005,14 +7005,16 @@ impl Machine for MachineX86_64 {
         {
             match calling_convention {
                 CallingConvention::WindowsFastcall => {
+                    let mut param_locations: Vec<Location> = vec![];
                     static PARAM_REGS: &[GPR] = &[GPR::RDX, GPR::R8, GPR::R9];
-                    let gpr_iter = PARAM_REGS.iter().map(|r| Location::GPR(*r));
-                    let memory_iter = (0i32..).map(|i| Location::Memory(GPR::RSP, 32 + 8 + i * 8));
-
-                    let param_locations: Vec<Location> = gpr_iter
-                        .chain(memory_iter)
-                        .take(sig.params().len())
-                        .collect();
+                    #[allow(clippy::needless_range_loop)]
+                    for i in 0..sig.params().len() {
+                        let loc = match i {
+                            0..=2 => Location::GPR(PARAM_REGS[i]),
+                            _ => Location::Memory(GPR::RSP, 32 + 8 + ((i - 3) * 8) as i32), // will not be used anyway
+                        };
+                        param_locations.push(loc);
+                    }
 
                     // Copy Float arguments to XMM from GPR.
                     let mut argalloc = ArgumentRegisterAllocator::default();
@@ -7028,6 +7030,8 @@ impl Machine for MachineX86_64 {
                     }
                 }
                 _ => {
+                    let mut param_locations = vec![];
+
                     // Allocate stack space for arguments.
                     let stack_offset: i32 = if sig.params().len() > 5 {
                         5 * 8
@@ -7044,14 +7048,20 @@ impl Machine for MachineX86_64 {
 
                     // Store all arguments to the stack to prevent overwrite.
                     static PARAM_REGS: &[GPR] = &[GPR::RSI, GPR::RDX, GPR::RCX, GPR::R8, GPR::R9];
-                    let gpr_iter = PARAM_REGS.iter().map(|r| Location::GPR(*r));
-                    let memory_iter =
-                        (0i32..).map(|i| Location::Memory(GPR::RSP, stack_offset + 8 + i * 8));
-
-                    let param_locations: Vec<Location> = gpr_iter
-                        .chain(memory_iter)
-                        .take(sig.params().len())
-                        .collect();
+                    #[allow(clippy::needless_range_loop)]
+                    for i in 0..sig.params().len() {
+                        let loc = match i {
+                            0..=4 => {
+                                let loc = Location::Memory(GPR::RSP, (i * 8) as i32);
+                                a.emit_mov(Size::S64, Location::GPR(PARAM_REGS[i]), loc);
+                                loc
+                            }
+                            _ => {
+                                Location::Memory(GPR::RSP, stack_offset + 8 + ((i - 5) * 8) as i32)
+                            }
+                        };
+                        param_locations.push(loc);
+                    }
 
                     // Copy arguments.
                     let mut argalloc = ArgumentRegisterAllocator::default();
