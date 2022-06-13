@@ -51,8 +51,8 @@ use wasmer::Instance;
 use wasmer::Module;
 use wasmer::Store;
 use wasmer::Value;
+use wasmer_compiler::Universal;
 use wasmer_compiler_cranelift::Cranelift;
-use wasmer_engine_universal::Universal;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // First step, let's compile the Wasm module and serialize it.

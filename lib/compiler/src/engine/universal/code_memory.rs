@@ -2,7 +2,7 @@
 // Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
 //! Memory management for executable code.
-use crate::unwind::UnwindRegistry;
+use super::unwind::UnwindRegistry;
 use wasmer_types::{CompiledFunctionUnwindInfo, CustomSection, FunctionBody};
 use wasmer_vm::{Mmap, VMFunctionBody};
 

@@ -3,8 +3,8 @@ use crate::warning;
 use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
 use structopt::StructOpt;
+use wasmer_compiler::{ArtifactCreate, UniversalArtifactBuild};
 use wasmer_compiler::{CpuFeature, ModuleEnvironment, Target, Triple};
-use wasmer_engine_universal_artifact::{ArtifactCreate, UniversalArtifactBuild};
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::{CompileError, MemoryIndex, MemoryStyle, TableIndex, TableStyle};
 
@@ -43,9 +43,7 @@ impl Compile {
     ) -> Result<&'static str> {
         Ok(match engine_type {
             EngineType::Universal => {
-                wasmer_engine_universal_artifact::UniversalArtifactBuild::get_default_extension(
-                    target_triple,
-                )
+                wasmer_compiler::UniversalArtifactBuild::get_default_extension(target_triple)
             }
         })
     }

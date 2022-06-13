@@ -5,8 +5,8 @@ use std::sync::Arc;
 use wasm_smith::{Config, ConfiguredModule};
 use wasmer::wasmparser::Operator;
 use wasmer::{imports, CompilerConfig, Instance, Module, Store};
+use wasmer_compiler::Universal;
 use wasmer_compiler_cranelift::Cranelift;
-use wasmer_engine_universal::Universal;
 use wasmer_middlewares::Metering;
 
 #[derive(Arbitrary, Debug, Default, Copy, Clone)]

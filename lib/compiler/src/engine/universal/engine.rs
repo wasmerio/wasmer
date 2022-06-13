@@ -1,12 +1,12 @@
 //! Universal compilation.
 
+#[cfg(feature = "universal_engine")]
+use crate::Compiler;
+use crate::Target;
+use crate::UniversalEngineBuilder;
+use crate::{Artifact, Engine, EngineId, FunctionExtent, Tunables};
 use crate::{CodeMemory, UniversalArtifact};
 use std::sync::{Arc, Mutex};
-#[cfg(feature = "compiler")]
-use wasmer_compiler::Compiler;
-use wasmer_compiler::Target;
-use wasmer_compiler::{Artifact, Engine, EngineId, FunctionExtent, Tunables};
-use wasmer_engine_universal_artifact::UniversalEngineBuilder;
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::FunctionBody;
 use wasmer_types::{
@@ -30,7 +30,7 @@ pub struct UniversalEngine {
 
 impl UniversalEngine {
     /// Create a new `UniversalEngine` with the given config
-    #[cfg(feature = "compiler")]
+    #[cfg(feature = "universal_engine")]
     pub fn new(compiler: Box<dyn Compiler>, target: Target, features: Features) -> Self {
         Self {
             inner: Arc::new(Mutex::new(UniversalEngineInner {
@@ -108,7 +108,7 @@ impl Engine for UniversalEngine {
     }
 
     /// Compile a WebAssembly binary
-    #[cfg(feature = "compiler")]
+    #[cfg(feature = "universal_engine")]
     fn compile(
         &self,
         binary: &[u8],
@@ -118,7 +118,7 @@ impl Engine for UniversalEngine {
     }
 
     /// Compile a WebAssembly binary
-    #[cfg(not(feature = "compiler"))]
+    #[cfg(not(feature = "universal_engine"))]
     fn compile(
         &self,
         _binary: &[u8],
@@ -162,7 +162,7 @@ pub struct UniversalEngineInner {
 
 impl UniversalEngineInner {
     /// Gets the compiler associated to this engine.
-    #[cfg(feature = "compiler")]
+    #[cfg(feature = "universal_engine")]
     pub fn compiler(&self) -> Result<&dyn Compiler, CompileError> {
         self.builder.compiler()
     }

@@ -41,7 +41,7 @@ impl Compile {
         Ok(match engine_type {
             #[cfg(feature = "universal")]
             EngineType::Universal => {
-                wasmer_engine_universal::UniversalArtifact::get_default_extension(target_triple)
+                wasmer_compiler::UniversalArtifact::get_default_extension(target_triple)
             }
             #[cfg(not(all(feature = "universal")))]
             _ => bail!("selected engine type is not compiled in"),

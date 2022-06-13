@@ -1,8 +1,8 @@
 //! Linking for Universal-compiled code.
 
+use crate::get_libcall_trampoline;
+use crate::FunctionExtent;
 use std::ptr::{read_unaligned, write_unaligned};
-use wasmer_compiler::FunctionExtent;
-use wasmer_engine_universal_artifact::get_libcall_trampoline;
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::{LocalFunctionIndex, ModuleInfo};
 use wasmer_types::{Relocation, RelocationKind, RelocationTarget, Relocations, SectionIndex};

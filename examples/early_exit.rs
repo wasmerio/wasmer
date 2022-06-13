@@ -17,8 +17,8 @@
 use anyhow::bail;
 use std::fmt;
 use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, TypedFunction};
+use wasmer_compiler::Universal;
 use wasmer_compiler_cranelift::Cranelift;
-use wasmer_engine_universal::Universal;
 
 // First we need to create an error type that we'll use to signal the end of execution.
 #[derive(Debug, Clone, Copy)]

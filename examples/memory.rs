@@ -16,8 +16,8 @@
 
 use std::mem;
 use wasmer::{imports, wat2wasm, Bytes, Instance, Module, Pages, Store, TypedFunction};
+use wasmer_compiler::Universal;
 use wasmer_compiler_cranelift::Cranelift;
-use wasmer_engine_universal::Universal;
 
 // this example is a work in progress:
 // TODO: clean it up and comment it https://github.com/wasmerio/wasmer/issues/1749

@@ -129,7 +129,7 @@ impl CompilerOptions {
         let engine: Box<dyn Engine + Send + Sync> = match engine_type {
             #[cfg(feature = "universal")]
             EngineType::Universal => Box::new(
-                wasmer_engine_universal::Universal::new(compiler_config)
+                wasmer_compiler::Universal::new(compiler_config)
                     .features(features)
                     .target(target)
                     .engine(),
@@ -392,9 +392,7 @@ impl StoreOptions {
         let engine_type = self.get_engine()?;
         let engine: Arc<dyn Engine + Send + Sync> = match engine_type {
             #[cfg(feature = "universal")]
-            EngineType::Universal => {
-                Arc::new(wasmer_engine_universal::Universal::headless().engine())
-            }
+            EngineType::Universal => Arc::new(wasmer_compiler::Universal::headless().engine()),
             #[cfg(not(all(feature = "universal")))]
             engine => bail!(
                 "The `{}` engine is not included in this binary.",

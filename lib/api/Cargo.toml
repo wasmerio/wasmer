@@ -41,7 +41,6 @@ target-lexicon = { version = "0.12.2", default-features = false }
 wasmer-compiler-singlepass = { path = "../compiler-singlepass", version = "=2.3.0", optional = true }
 wasmer-compiler-cranelift = { path = "../compiler-cranelift", version = "=2.3.0", optional = true }
 wasmer-compiler-llvm = { path = "../compiler-llvm", version = "=2.3.0", optional = true }
-wasmer-engine-universal = { path = "../engine-universal", version = "=2.3.0", optional = true }
 # - Mandatory dependencies for `sys` on Windows.
 [target.'cfg(all(not(target_arch = "wasm32"), target_os = "windows"))'.dependencies]
 winapi = "0.3"
@@ -89,7 +88,6 @@ sys-default = ["sys", "wat", "default-cranelift", "default-universal"]
 compiler = [
     "sys",
     "wasmer-compiler/translator",
-    "wasmer-engine-universal/compiler",
 ]
     singlepass = [
         "compiler",
@@ -118,15 +116,14 @@ default-compiler = []
     ]
 # - Engines.
 engine = ["sys"]
-    universal = [
-        "engine",
-        "wasmer-engine-universal",
-    ]
+universal = [
+    "engine",
+]
 default-engine = []
-    default-universal = [
-        "default-engine",
-        "universal",
-    ]
+default-universal = [
+    "default-engine",
+    "universal",
+]
 # - Experimental / in-development features
 experimental-reference-types-extern-ref = [
     "sys",

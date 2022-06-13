@@ -1,5 +1,5 @@
-use crate::UniversalEngine;
-use wasmer_compiler::{CompilerConfig, Features, Target};
+use super::UniversalEngine;
+use crate::{CompilerConfig, Features, Target};
 
 /// The Universal builder
 pub struct Universal {
@@ -44,7 +44,7 @@ impl Universal {
     }
 
     /// Build the `UniversalEngine` for this configuration
-    #[cfg(feature = "compiler")]
+    #[cfg(feature = "universal_engine")]
     pub fn engine(self) -> UniversalEngine {
         let target = self.target.unwrap_or_default();
         if let Some(compiler_config) = self.compiler_config {
@@ -59,7 +59,7 @@ impl Universal {
     }
 
     /// Build the `UniversalEngine` for this configuration
-    #[cfg(not(feature = "compiler"))]
+    #[cfg(not(feature = "universal_engine"))]
     pub fn engine(self) -> UniversalEngine {
         UniversalEngine::headless()
     }

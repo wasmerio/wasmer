@@ -16,8 +16,8 @@
 //! Ready?
 
 use wasmer::{Instance, Module, Store};
+use wasmer_compiler::Universal;
 use wasmer_compiler_cranelift::Cranelift;
-use wasmer_engine_universal::Universal;
 use wasmer_wasi::WasiState;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

@@ -2794,7 +2794,6 @@ dependencies = [
  "wasmer-compiler-llvm",
  "wasmer-compiler-singlepass",
  "wasmer-derive",
- "wasmer-engine-universal",
  "wasmer-types",
  "wasmer-vm",
  "wasmparser 0.83.0",
@@ -2810,10 +2809,10 @@ dependencies = [
  "libfuzzer-sys",
  "wasm-smith",
  "wasmer",
+ "wasmer-compiler",
  "wasmer-compiler-cranelift",
  "wasmer-compiler-llvm",
  "wasmer-compiler-singlepass",
- "wasmer-engine-universal",
  "wasmer-middlewares",
  "wasmprinter",
 ]
@@ -2839,7 +2838,6 @@ dependencies = [
  "wasmer-compiler-llvm",
  "wasmer-compiler-singlepass",
  "wasmer-emscripten",
- "wasmer-engine-universal",
  "wasmer-middlewares",
  "wasmer-types",
  "wasmer-wasi",
@@ -2856,8 +2854,8 @@ dependencies = [
  "tempfile",
  "thiserror",
  "wasmer",
+ "wasmer-compiler",
  "wasmer-compiler-singlepass",
- "wasmer-engine-universal",
 ]
 
 [[package]]
@@ -2882,7 +2880,6 @@ dependencies = [
  "wasmer-compiler-llvm",
  "wasmer-compiler-singlepass",
  "wasmer-emscripten",
- "wasmer-engine-universal",
  "wasmer-types",
  "wasmer-vfs",
  "wasmer-vm",
@@ -2896,11 +2893,15 @@ name = "wasmer-compiler"
 version = "2.3.0"
 dependencies = [
  "backtrace",
+ "cfg-if 1.0.0",
+ "enum-iterator",
  "enumset",
  "hashbrown 0.11.2",
  "lazy_static",
+ "leb128",
  "memmap2",
  "more-asserts",
+ "region",
  "rkyv",
  "rustc-demangle",
  "serde",
@@ -2911,6 +2912,7 @@ dependencies = [
  "wasmer-types",
  "wasmer-vm",
  "wasmparser 0.83.0",
+ "winapi",
 ]
 
 [[package]]
@@ -2931,7 +2933,6 @@ dependencies = [
  "wasmer-compiler",
  "wasmer-compiler-cranelift",
  "wasmer-compiler-singlepass",
- "wasmer-engine-universal-artifact",
  "wasmer-types",
 ]
 
@@ -3017,34 +3018,6 @@ dependencies = [
  "log",
  "time",
  "wasmer",
-]
-
-[[package]]
-name = "wasmer-engine-universal"
-version = "2.3.0"
-dependencies = [
- "cfg-if 1.0.0",
- "enumset",
- "leb128",
- "region",
- "rkyv",
- "wasmer-compiler",
- "wasmer-engine-universal-artifact",
- "wasmer-types",
- "wasmer-vm",
- "winapi",
-]
-
-[[package]]
-name = "wasmer-engine-universal-artifact"
-version = "2.3.0"
-dependencies = [
- "enum-iterator",
- "enumset",
- "rkyv",
- "thiserror",
- "wasmer-compiler",
- "wasmer-types",
 ]
 
 [[package]]
@@ -3256,7 +3229,6 @@ dependencies = [
  "wasmer-compiler-llvm",
  "wasmer-compiler-singlepass",
  "wasmer-emscripten",
- "wasmer-engine-universal",
  "wasmer-middlewares",
  "wasmer-types",
  "wasmer-wasi",

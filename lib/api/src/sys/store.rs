@@ -119,7 +119,7 @@ impl Default for Store {
         fn get_engine(mut config: impl CompilerConfig + 'static) -> impl Engine + Send + Sync {
             cfg_if::cfg_if! {
                 if #[cfg(feature = "default-universal")] {
-                    wasmer_engine_universal::Universal::new(config)
+                    wasmer_compiler::Universal::new(config)
                         .engine()
                 } else {
                     compile_error!("No default engine chosen")

@@ -21,8 +21,8 @@
 
 use std::sync::{Arc, Mutex};
 use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, WasmerEnv};
+use wasmer_compiler::Universal;
 use wasmer_compiler_cranelift::Cranelift;
-use wasmer_engine_universal::Universal;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Let's declare the Wasm module with the text representation.

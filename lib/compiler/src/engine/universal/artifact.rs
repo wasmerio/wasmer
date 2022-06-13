@@ -1,20 +1,18 @@
 //! Define `UniversalArtifact`, based on `UniversalArtifactBuild`
 //! to allow compiling and instantiating to be done as separate steps.
 
-use crate::engine::{UniversalEngine, UniversalEngineInner};
-use crate::link::link_module;
-use enumset::EnumSet;
-use std::sync::{Arc, Mutex};
-#[cfg(feature = "compiler")]
-use wasmer_compiler::ModuleEnvironment;
-use wasmer_compiler::{
+use super::engine::{UniversalEngine, UniversalEngineInner};
+use crate::engine::universal::link::link_module;
+use crate::ArtifactCreate;
+use crate::{
     register_frame_info, Artifact, FunctionExtent, GlobalFrameInfoRegistration, MetadataHeader,
 };
-use wasmer_compiler::{CpuFeature, Features, Triple};
-#[cfg(feature = "compiler")]
-use wasmer_compiler::{Engine, Tunables};
-use wasmer_engine_universal_artifact::ArtifactCreate;
-use wasmer_engine_universal_artifact::{SerializableModule, UniversalArtifactBuild};
+use crate::{CpuFeature, Features, Triple};
+#[cfg(feature = "universal_engine")]
+use crate::{Engine, ModuleEnvironment, Tunables};
+use crate::{SerializableModule, UniversalArtifactBuild};
+use enumset::EnumSet;
+use std::sync::{Arc, Mutex};
 use wasmer_types::entity::{BoxedSlice, PrimaryMap};
 use wasmer_types::{
     CompileError, DeserializeError, FunctionIndex, LocalFunctionIndex, MemoryIndex, ModuleInfo,
@@ -39,7 +37,7 @@ pub struct UniversalArtifact {
 
 impl UniversalArtifact {
     /// Compile a data buffer into a `UniversalArtifactBuild`, which may then be instantiated.
-    #[cfg(feature = "compiler")]
+    #[cfg(feature = "universal_engine")]
     pub fn new(
         engine: &UniversalEngine,
         data: &[u8],
@@ -72,7 +70,7 @@ impl UniversalArtifact {
     }
 
     /// Compile a data buffer into a `UniversalArtifactBuild`, which may then be instantiated.
-    #[cfg(not(feature = "compiler"))]
+    #[cfg(not(feature = "universal_engine"))]
     pub fn new(_engine: &UniversalEngine, _data: &[u8]) -> Result<Self, CompileError> {
         Err(CompileError::Codegen(
             "Compilation is not enabled in the engine".to_string(),

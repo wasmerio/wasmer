@@ -20,9 +20,9 @@
 
 use std::str::FromStr;
 use wasmer::{wat2wasm, Module, RuntimeError, Store};
+use wasmer_compiler::Universal;
 use wasmer_compiler::{CpuFeature, Target, Triple};
 use wasmer_compiler_cranelift::Cranelift;
-use wasmer_engine_universal::Universal;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Let's declare the Wasm module with the text representation.

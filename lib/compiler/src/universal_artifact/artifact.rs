@@ -1,26 +1,29 @@
 //! Define `UniversalArtifactBuild` to allow compiling and instantiating to be
 //! done as separate steps.
 
-use crate::serialize::SerializableCompilation;
-use crate::serialize::SerializableModule;
-#[cfg(feature = "compiler")]
-use crate::trampoline::{libcall_trampoline_len, make_libcall_trampolines};
+#[cfg(feature = "universal_engine")]
+use super::serialize::SerializableCompilation;
+use super::serialize::SerializableModule;
+#[cfg(feature = "universal_engine")]
+use super::trampoline::{libcall_trampoline_len, make_libcall_trampolines};
+use crate::MetadataHeader;
 use crate::{ArtifactCreate, UniversalEngineBuilder};
+use crate::{CpuFeature, Features, Triple};
+#[cfg(feature = "universal_engine")]
+use crate::{ModuleEnvironment, ModuleMiddlewareChain, Target};
 use enumset::EnumSet;
 use std::mem;
 use std::sync::Arc;
-use wasmer_compiler::MetadataHeader;
-use wasmer_compiler::{
-    CpuFeature, Features, ModuleEnvironment, ModuleMiddlewareChain, Target, Triple,
-};
 use wasmer_types::entity::PrimaryMap;
+#[cfg(feature = "universal_engine")]
+use wasmer_types::CompileModuleInfo;
 use wasmer_types::SerializeError;
 use wasmer_types::{
     CompileError, CustomSection, Dwarf, FunctionIndex, LocalFunctionIndex, MemoryIndex,
     MemoryStyle, ModuleInfo, OwnedDataInitializer, Relocation, SectionIndex, SignatureIndex,
     TableIndex, TableStyle,
 };
-use wasmer_types::{CompileModuleInfo, CompiledFunctionFrameInfo, FunctionBody};
+use wasmer_types::{CompiledFunctionFrameInfo, FunctionBody};
 
 /// A compiled wasm module, ready to be instantiated.
 pub struct UniversalArtifactBuild {
@@ -37,7 +40,7 @@ impl UniversalArtifactBuild {
     }
 
     /// Compile a data buffer into a `UniversalArtifactBuild`, which may then be instantiated.
-    #[cfg(feature = "compiler")]
+    #[cfg(feature = "universal_engine")]
     pub fn new(
         inner_engine: &mut UniversalEngineBuilder,
         data: &[u8],
@@ -116,7 +119,7 @@ impl UniversalArtifactBuild {
     }
 
     /// Compile a data buffer into a `UniversalArtifactBuild`, which may then be instantiated.
-    #[cfg(not(feature = "compiler"))]
+    #[cfg(not(feature = "universal_engine"))]
     pub fn new(_engine: &UniversalEngineBuilder, _data: &[u8]) -> Result<Self, CompileError> {
         Err(CompileError::Codegen(
             "Compilation is not enabled in the engine".to_string(),

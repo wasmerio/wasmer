@@ -50,7 +50,7 @@ impl RuntimeError {
     ///
     /// # Example
     /// ```
-    /// let trap = wasmer_engine::RuntimeError::new("unexpected error");
+    /// let trap = wasmer_compiler::RuntimeError::new("unexpected error");
     /// assert_eq!("unexpected error", trap.message());
     /// ```
     pub fn new<I: Into<String>>(message: I) -> Self {

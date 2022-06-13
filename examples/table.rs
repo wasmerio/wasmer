@@ -1,8 +1,8 @@
 use wasmer::{
     imports, wat2wasm, Function, Instance, Module, Store, TableType, Type, TypedFunction, Value,
 };
+use wasmer_compiler::Universal;
 use wasmer_compiler_cranelift::Cranelift;
-use wasmer_engine_universal::Universal;
 
 /// A function we'll call through a table.
 fn host_callback(arg1: i32, arg2: i32) -> i32 {

@@ -60,7 +60,7 @@ impl Config {
         match &self.engine {
             #[cfg(feature = "universal")]
             Engine::Universal => {
-                let mut engine = wasmer_engine_universal::Universal::new(compiler_config);
+                let mut engine = wasmer_compiler::Universal::new(compiler_config);
                 if let Some(ref features) = self.features {
                     engine = engine.features(features.clone())
                 }
@@ -77,7 +77,7 @@ impl Config {
     pub fn engine_headless(&self) -> Box<dyn WasmerEngine> {
         match &self.engine {
             #[cfg(feature = "universal")]
-            Engine::Universal => Box::new(wasmer_engine_universal::Universal::headless().engine()),
+            Engine::Universal => Box::new(wasmer_compiler::Universal::headless().engine()),
             #[allow(unreachable_patterns)]
             engine => panic!(
                 "The {:?} Engine is not enabled. Please enable it using the features",

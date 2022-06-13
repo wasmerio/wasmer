@@ -7,8 +7,8 @@
 //! ```
 
 use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, TypedFunction};
+use wasmer_compiler::Universal;
 use wasmer_compiler_cranelift::Cranelift;
-use wasmer_engine_universal::Universal;
 
 fn main() -> anyhow::Result<()> {
     // First we create a simple Wasm program to use with Wasmer.

@@ -7,8 +7,8 @@ use std::string::ToString;
 #[allow(unused_imports)]
 use std::sync::Arc;
 use structopt::StructOpt;
+use wasmer_compiler::UniversalEngineBuilder;
 use wasmer_compiler::{CompilerConfig, Features, PointerWidth, Target};
-use wasmer_engine_universal_artifact::UniversalEngineBuilder;
 use wasmer_types::{MemoryStyle, MemoryType, Pages, TableStyle, TableType};
 
 /// Minimul Subset of Tunable parameters for WebAssembly compilation.

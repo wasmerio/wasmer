@@ -60,6 +60,12 @@ pub use crate::artifact::*;
 pub use crate::engine::*;
 
 #[cfg(feature = "translator")]
+mod universal_artifact;
+
+#[cfg(feature = "translator")]
+pub use self::universal_artifact::*;
+
+#[cfg(feature = "translator")]
 mod compiler;
 mod target;
 

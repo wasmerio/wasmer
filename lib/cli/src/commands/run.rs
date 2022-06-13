@@ -225,8 +225,8 @@ impl Run {
         let contents = std::fs::read(self.path.clone())?;
         #[cfg(feature = "universal")]
         {
-            if wasmer_engine_universal::UniversalArtifact::is_deserializable(&contents) {
-                let engine = wasmer_engine_universal::Universal::headless().engine();
+            if wasmer_compiler::UniversalArtifact::is_deserializable(&contents) {
+                let engine = wasmer_compiler::Universal::headless().engine();
                 let store = Store::new(&engine);
                 let module = unsafe { Module::deserialize_from_file(&store, &self.path)? };
                 return Ok(module);
@@ -309,7 +309,7 @@ impl Run {
         let extension = match *engine_type {
             #[cfg(feature = "universal")]
             EngineType::Universal => {
-                wasmer_engine_universal::UniversalArtifact::get_default_extension(&Triple::host())
+                wasmer_compiler::UniversalArtifact::get_default_extension(&Triple::host())
                     .to_string()
             }
             // We use the compiler type as the default extension

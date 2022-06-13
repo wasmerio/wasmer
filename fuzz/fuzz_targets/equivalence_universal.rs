@@ -5,13 +5,13 @@ use anyhow::Result;
 use libfuzzer_sys::{arbitrary, arbitrary::Arbitrary, fuzz_target};
 use wasm_smith::{Config, ConfiguredModule};
 use wasmer::{imports, CompilerConfig, Instance, Module, Store, Val};
+use wasmer_compiler::Universal;
 #[cfg(feature = "cranelift")]
 use wasmer_compiler_cranelift::Cranelift;
 #[cfg(feature = "llvm")]
 use wasmer_compiler_llvm::LLVM;
 #[cfg(feature = "singlepass")]
 use wasmer_compiler_singlepass::Singlepass;
-use wasmer_engine_universal::Universal;
 
 #[derive(Arbitrary, Debug, Default, Copy, Clone)]
 struct ExportedFunctionConfig;

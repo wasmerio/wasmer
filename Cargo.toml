@@ -11,12 +11,11 @@ autoexamples = false
 
 [dependencies]
 wasmer = { version = "=2.3.0", path = "lib/api", default-features = false }
-wasmer-compiler = { version = "=2.3.0", path = "lib/compiler" }
+wasmer-compiler = { version = "=2.3.0", path = "lib/compiler", features = ["universal_engine"] }
 wasmer-compiler-cranelift = { version = "=2.3.0", path = "lib/compiler-cranelift", optional = true }
 wasmer-compiler-singlepass = { version = "=2.3.0", path = "lib/compiler-singlepass", optional = true }
 wasmer-compiler-llvm = { version = "=2.3.0", path = "lib/compiler-llvm", optional = true }
 wasmer-emscripten = { version = "=2.3.0", path = "lib/emscripten", optional = true }
-wasmer-engine-universal = { version = "=2.3.0", path = "lib/engine-universal", optional = true }
 wasmer-wasi = { version = "=2.3.0", path = "lib/wasi", optional = true }
 wasmer-wast = { version = "=2.3.0", path = "tests/lib/wast", optional = true }
 wasi-test-generator = { version = "=2.3.0", path = "tests/wasi-wast", optional = true }
@@ -38,7 +37,6 @@ members = [
     "lib/compiler-llvm",
     "lib/derive",
     "lib/emscripten",
-    "lib/engine-universal",
     "lib/object",
     "lib/vfs",
     "lib/vnet",
@@ -83,16 +81,14 @@ tracing-subscriber = { version = "0.3", default-features = false, features = ["e
 default = [
     "wat",
     "wast",
-    "universal",
     "cache",
     "wasi",
+    "engine",
     "emscripten",
     "middlewares",
 ]
-engine = []
-universal = [
-    "wasmer-engine-universal",
-]
+engine = ["universal"]
+universal = []
 cache = ["wasmer-cache"]
 wast = ["wasmer-wast"]
 wasi = ["wasmer-wasi"]
@@ -101,7 +97,6 @@ wat = ["wasmer/wat"]
 compiler = [
     "wasmer/compiler",
     "wasmer-compiler/translator",
-    "wasmer-engine-universal/compiler",
 ]
 singlepass = [
     "wasmer-compiler-singlepass",
@@ -129,7 +124,6 @@ test-llvm = [
 ]
 
 test-universal = [
-    "universal",
     "test-generator/test-universal",
 ]
 

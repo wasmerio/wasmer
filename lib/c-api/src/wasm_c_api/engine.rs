@@ -14,7 +14,7 @@ use cfg_if::cfg_if;
 use std::sync::Arc;
 use wasmer_api::Engine;
 #[cfg(feature = "universal")]
-use wasmer_engine_universal::Universal;
+use wasmer_compiler::Universal;
 
 /// Kind of compilers that can be used by the engines.
 ///

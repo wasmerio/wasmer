@@ -11,8 +11,8 @@
 //! Ready?
 
 use wasmer::{imports, wat2wasm, Features, Instance, Module, Store, Value};
+use wasmer_compiler::Universal;
 use wasmer_compiler_cranelift::Cranelift;
-use wasmer_engine_universal::Universal;
 
 fn main() -> anyhow::Result<()> {
     // Let's declare the Wasm module with the text representation.

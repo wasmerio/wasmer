@@ -28,8 +28,16 @@ memmap2 = "0.5"
 more-asserts = "0.2"
 lazy_static = "1.4"
 
+cfg-if = "1.0"
+leb128 = "0.2"
+enum-iterator = "0.7.0"
+
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 wasmer-vm = { path = "../vm", version = "=2.3.0" }
+region = { version = "3.0" }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+winapi = { version = "0.3", features = ["winnt", "impl-default"] }
 
 [features]
 default = ["std", "enable-serde" ]
@@ -37,6 +45,7 @@ default = ["std", "enable-serde" ]
 # `CompilerConfig`, as well as the included wasmparser.
 # Disable this feature if you just want a headless engine.
 translator = ["wasmparser"]
+universal_engine = []
 std = ["wasmer-types/std"]
 core = ["hashbrown", "wasmer-types/core"]
 enable-serde = ["serde", "serde_bytes", "wasmer-types/enable-serde"]
