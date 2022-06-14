@@ -372,6 +372,18 @@ endif
 # install will go through.
 all: build-wasmer build-capi
 
+check: check-wasmer check-wasmer-wasm check-capi
+
+check-wasmer:
+	$(CARGO_BINARY) check $(CARGO_TARGET) --manifest-path lib/cli/Cargo.toml $(compiler_features) --bin wasmer
+
+check-wasmer-wasm:
+	$(CARGO_BINARY) check --manifest-path lib/cli-compiler/Cargo.toml --target wasm32-wasi --features singlepass,cranelift,universal --bin wasmer-compiler
+
+check-capi: capi-setup
+	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) check $(CARGO_TARGET) --manifest-path lib/c-api/Cargo.toml  \
+		--no-default-features --features wat,universal,dylib,staticlib,wasi,middlewares $(capi_compiler_features)
+
 build-wasmer:
 	$(CARGO_BINARY) build $(CARGO_TARGET) --release --manifest-path lib/cli/Cargo.toml $(compiler_features) --bin wasmer
 
@@ -382,7 +394,7 @@ bench:
 	$(CARGO_BINARY) bench $(CARGO_TARGET) $(compiler_features)
 
 build-wasmer-wasm:
-	cargo build --release --manifest-path lib/cli-compiler/Cargo.toml --target wasm32-wasi --features singlepass,cranelift,universal --bin wasmer-compiler
+	$(CARGO_BINARY) build --release --manifest-path lib/cli-compiler/Cargo.toml --target wasm32-wasi --features singlepass,cranelift,universal --bin wasmer-compiler
 
 # For best results ensure the release profile looks like the following
 # in Cargo.toml:
