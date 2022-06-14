@@ -446,51 +446,31 @@ impl MachineX86_64 {
         heap_access_oob: Label,
         cb: F,
     ) {
+        // This function as been re-writen to use only 2 temporary register instead of 3
+        // without compromisong on the perfomances.
+        // The number of memory move should be equivalent to previous 3-temp regs version
+        // Register pressure is high on x86_64, and this is needed to be able to use
+        // instruction that neead RAX, like cmpxchg for example
         let tmp_addr = self.acquire_temp_gpr().unwrap();
+        let tmp2 = self.acquire_temp_gpr().unwrap();
 
         // Reusing `tmp_addr` for temporary indirection here, since it's not used before the last reference to `{base,bound}_loc`.
-        let (base_loc, bound_loc) = if imported_memories {
+        let base_loc = if imported_memories {
             // Imported memories require one level of indirection.
             self.emit_relaxed_binop(
                 AssemblerX64::emit_mov,
                 Size::S64,
                 Location::Memory(self.get_vmctx_reg(), offset),
-                Location::GPR(tmp_addr),
+                Location::GPR(tmp2),
             );
-            (Location::Memory(tmp_addr, 0), Location::Memory(tmp_addr, 8))
+            Location::Memory(tmp2, 0)
         } else {
-            (
-                Location::Memory(self.get_vmctx_reg(), offset),
-                Location::Memory(self.get_vmctx_reg(), offset + 8),
-            )
+            Location::Memory(self.get_vmctx_reg(), offset)
         };
-
-        let tmp_base = self.acquire_temp_gpr().unwrap();
-        let tmp_bound = self.acquire_temp_gpr().unwrap();
 
         // Load base into temporary register.
         self.assembler
-            .emit_mov(Size::S64, base_loc, Location::GPR(tmp_base));
-
-        // Load bound into temporary register, if needed.
-        if need_check {
-            self.assembler
-                .emit_mov(Size::S64, bound_loc, Location::GPR(tmp_bound));
-
-            // Wasm -> Effective.
-            // Assuming we never underflow - should always be true on Linux/macOS and Windows >=8,
-            // since the first page from 0x0 to 0x1000 is not accepted by mmap.
-
-            // This `lea` calculates the upper bound allowed for the beginning of the word.
-            // Since the upper bound of the memory is (exclusively) `tmp_bound + tmp_base`,
-            // the maximum allowed beginning of word is (inclusively)
-            // `tmp_bound + tmp_base - value_size`.
-            self.assembler.emit_lea(
-                Size::S64,
-                Location::Memory2(tmp_bound, tmp_base, Multiplier::One, -(value_size as i32)),
-                Location::GPR(tmp_bound),
-            );
-        }
+            .emit_mov(Size::S64, base_loc, Location::GPR(tmp2));
 
         // Load effective address.
         // `base_loc` and `bound_loc` becomes INVALID after this line, because `tmp_addr`
@@ -510,21 +490,53 @@ impl MachineX86_64 {
             self.assembler.emit_jmp(Condition::Carry, heap_access_oob);
         }
 
-        // Wasm linear memory -> real memory
-        self.assembler
-            .emit_add(Size::S64, Location::GPR(tmp_base), Location::GPR(tmp_addr));
-
         if need_check {
+            let bound_loc = if imported_memories {
+                // Imported memories require one level of indirection.
+                self.emit_relaxed_binop(
+                    AssemblerX64::emit_mov,
+                    Size::S64,
+                    Location::Memory(self.get_vmctx_reg(), offset),
+                    Location::GPR(tmp2),
+                );
+                Location::Memory(tmp2, 8)
+            } else {
+                Location::Memory(self.get_vmctx_reg(), offset + 8)
+            };
+            self.assembler
+                .emit_mov(Size::S64, bound_loc, Location::GPR(tmp2));
+
+            // We will compare the upper bound limit without having add the "temp_base" value, as it's a constant
+            self.assembler.emit_lea(
+                Size::S64,
+                Location::Memory(tmp2, -(value_size as i32)),
+                Location::GPR(tmp2),
+            );
             // Trap if the end address of the requested area is above that of the linear memory.
             self.assembler
-                .emit_cmp(Size::S64, Location::GPR(tmp_bound), Location::GPR(tmp_addr));
+                .emit_cmp(Size::S64, Location::GPR(tmp2), Location::GPR(tmp_addr));
 
             // `tmp_bound` is inclusive. So trap only if `tmp_addr > tmp_bound`.
             self.assembler.emit_jmp(Condition::Above, heap_access_oob);
         }
+        // get back baseloc, as it might have been destroid with the upper memory test
+        let base_loc = if imported_memories {
+            // Imported memories require one level of indirection.
+            self.emit_relaxed_binop(
+                AssemblerX64::emit_mov,
+                Size::S64,
+                Location::Memory(self.get_vmctx_reg(), offset),
+                Location::GPR(tmp2),
+            );
+            Location::Memory(tmp2, 0)
+        } else {
+            Location::Memory(self.get_vmctx_reg(), offset)
+        };
+        // Wasm linear memory -> real memory
+        self.assembler
+            .emit_add(Size::S64, base_loc, Location::GPR(tmp_addr));
 
-        self.release_gpr(tmp_bound);
-        self.release_gpr(tmp_base);
+        self.release_gpr(tmp2);
 
         let align = memarg.align;
         if check_alignment && align != 1 {
@@ -2146,19 +2158,23 @@ impl Machine for MachineX86_64 {
             _ => unreachable!(),
         };
         match source {
-            Location::GPR(_) | Location::Memory(_, _) | Location::Memory2(_, _, _, _) => {
-                match size_val {
-                    Size::S32 | Size::S64 => self.assembler.emit_mov(size_val, source, dst),
-                    Size::S16 | Size::S8 => {
-                        if signed {
-                            self.assembler.emit_movsx(size_val, source, size_op, dst)
-                        } else {
-                            self.assembler.emit_movzx(size_val, source, size_op, dst)
-                        }
+            Location::GPR(_)
+            | Location::Memory(_, _)
+            | Location::Memory2(_, _, _, _)
+            | Location::Imm32(_) => match size_val {
+                Size::S32 | Size::S64 => self.assembler.emit_mov(size_val, source, dst),
+                Size::S16 | Size::S8 => {
+                    if signed {
+                        self.assembler.emit_movsx(size_val, source, size_op, dst)
+                    } else {
+                        self.assembler.emit_movzx(size_val, source, size_op, dst)
                     }
                 }
-            }
-            _ => unreachable!(),
+            },
+            _ => panic!(
+                "unimplemented move_location_extend({:?}, {}, {:?}, {:?}, {:?}",
+                size_val, signed, source, size_op, dest
+            ),
         }
         if dst != dest {
             self.assembler.emit_mov(size_op, dst, dest);
@@ -3135,6 +3151,7 @@ impl Machine for MachineX86_64 {
             },
         );
     }
+    // x86_64 have a strong memory model, aligned move is guarantied to be atomic, too or from memory
     fn i32_atomic_save(
         &mut self,
         value: Location,
@@ -3155,7 +3172,12 @@ impl Machine for MachineX86_64 {
             offset,
             heap_access_oob,
             |this, addr| {
-                this.emit_relaxed_atomic_xchg(Size::S32, value, Location::Memory(addr, 0));
+                this.emit_relaxed_binop(
+                    AssemblerX64::emit_mov,
+                    Size::S32,
+                    value,
+                    Location::Memory(addr, 0),
+                );
             },
         );
     }
@@ -3179,7 +3201,12 @@ impl Machine for MachineX86_64 {
             offset,
             heap_access_oob,
             |this, addr| {
-                this.emit_relaxed_atomic_xchg(Size::S8, value, Location::Memory(addr, 0));
+                this.emit_relaxed_binop(
+                    AssemblerX64::emit_mov,
+                    Size::S8,
+                    value,
+                    Location::Memory(addr, 0),
+                );
             },
         );
     }
@@ -3203,7 +3230,12 @@ impl Machine for MachineX86_64 {
             offset,
             heap_access_oob,
             |this, addr| {
-                this.emit_relaxed_atomic_xchg(Size::S16, value, Location::Memory(addr, 0));
+                this.emit_relaxed_binop(
+                    AssemblerX64::emit_mov,
+                    Size::S16,
+                    value,
+                    Location::Memory(addr, 0),
+                );
             },
         );
     }
