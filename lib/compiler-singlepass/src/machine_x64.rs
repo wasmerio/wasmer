@@ -3151,7 +3151,9 @@ impl Machine for MachineX86_64 {
             },
         );
     }
-    // x86_64 have a strong memory model, aligned move is guarantied to be atomic, too or from memory
+    // x86_64 have a strong memory model, so coherency between all threads (core) is garantied
+    // and aligned move is guarantied to be atomic, too or from memory
+    // so store/load an atomic is a simple mov on x86_64
     fn i32_atomic_save(
         &mut self,
         value: Location,
