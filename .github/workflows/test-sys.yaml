@@ -240,3 +240,12 @@ jobs:
       - run: |
           cargo install cargo-audit --version ${{ env.CARGO_AUDIT_VERSION }} --root '${{ runner.tool_cache }}/cargo-audit'
           cargo audit
+
+  test-wasm-build:
+    name: Test wasm build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - run: |
+          rustup target add wasm32-wasi
+          make build-wasmer-wasm
