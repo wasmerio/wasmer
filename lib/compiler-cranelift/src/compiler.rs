@@ -168,7 +168,7 @@ impl Compiler for CraneliftCompiler {
 
                 let (unwind_info, fde) = match compiled_function_unwind_info(&*isa, &context)? {
                     #[cfg(feature = "unwind")]
-                    CraneliftUnwindInfo::FDE(fde) => {
+                    CraneliftUnwindInfo::Fde(fde) => {
                         if dwarf_frametable.is_some() {
                             let fde = fde.to_fde(Address::Symbol {
                                 // The symbol is the kind of relocation.
