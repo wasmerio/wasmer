@@ -863,7 +863,7 @@
     <span class="kw">fn</span> <span class="ident">get_remaining_points_works</span>() {
         <span class="kw">let</span> <span class="ident">metering</span> <span class="op">=</span> <span class="ident">Arc::new</span>(<span class="ident">Metering::new</span>(<span class="number">10</span>, <span class="ident">cost_function</span>));
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">compiler_config</span> <span class="op">=</span> <span class="ident">Cranelift::default</span>();
-        <span class="ident">compiler_config</span>.<span class="ident">push_middleware</span>(<span class="ident">metering</span>.<span class="ident">clone</span>());
+        <span class="ident">compiler_config</span>.<span class="ident">push_middleware</span>(<span class="ident">metering</span>);
         <span class="kw">let</span> <span class="ident">store</span> <span class="op">=</span> <span class="ident">Store::new</span>(<span class="kw-2">&amp;</span><span class="ident">Universal::new</span>(<span class="ident">compiler_config</span>).<span class="ident">engine</span>());
         <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">Module::new</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>, <span class="ident">bytecode</span>()).<span class="ident">unwrap</span>();
 
@@ -908,7 +908,7 @@
     <span class="kw">fn</span> <span class="ident">set_remaining_points_works</span>() {
         <span class="kw">let</span> <span class="ident">metering</span> <span class="op">=</span> <span class="ident">Arc::new</span>(<span class="ident">Metering::new</span>(<span class="number">10</span>, <span class="ident">cost_function</span>));
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">compiler_config</span> <span class="op">=</span> <span class="ident">Cranelift::default</span>();
-        <span class="ident">compiler_config</span>.<span class="ident">push_middleware</span>(<span class="ident">metering</span>.<span class="ident">clone</span>());
+        <span class="ident">compiler_config</span>.<span class="ident">push_middleware</span>(<span class="ident">metering</span>);
         <span class="kw">let</span> <span class="ident">store</span> <span class="op">=</span> <span class="ident">Store::new</span>(<span class="kw-2">&amp;</span><span class="ident">Universal::new</span>(<span class="ident">compiler_config</span>).<span class="ident">engine</span>());
         <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">Module::new</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>, <span class="ident">bytecode</span>()).<span class="ident">unwrap</span>();
 

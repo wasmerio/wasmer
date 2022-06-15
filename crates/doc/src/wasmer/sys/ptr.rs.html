@@ -267,109 +267,17 @@
 <span id="265">265</span>
 <span id="266">266</span>
 <span id="267">267</span>
-<span id="268">268</span>
-<span id="269">269</span>
-<span id="270">270</span>
-<span id="271">271</span>
-<span id="272">272</span>
-<span id="273">273</span>
-<span id="274">274</span>
-<span id="275">275</span>
-<span id="276">276</span>
-<span id="277">277</span>
-<span id="278">278</span>
-<span id="279">279</span>
-<span id="280">280</span>
-<span id="281">281</span>
-<span id="282">282</span>
-<span id="283">283</span>
-<span id="284">284</span>
-<span id="285">285</span>
-<span id="286">286</span>
-<span id="287">287</span>
-<span id="288">288</span>
-<span id="289">289</span>
-<span id="290">290</span>
-<span id="291">291</span>
-<span id="292">292</span>
-<span id="293">293</span>
-<span id="294">294</span>
-<span id="295">295</span>
-<span id="296">296</span>
-<span id="297">297</span>
-<span id="298">298</span>
-<span id="299">299</span>
-<span id="300">300</span>
-<span id="301">301</span>
-<span id="302">302</span>
-<span id="303">303</span>
-<span id="304">304</span>
-<span id="305">305</span>
-<span id="306">306</span>
-<span id="307">307</span>
-<span id="308">308</span>
-<span id="309">309</span>
-<span id="310">310</span>
-<span id="311">311</span>
-<span id="312">312</span>
-<span id="313">313</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys</span>::{<span class="ident">externals::Memory</span>, <span class="ident">FromToNativeWasmType</span>};
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">MemoryAccessError</span>, <span class="ident">WasmRef</span>, <span class="ident">WasmSlice</span>};
 <span class="kw">use</span> <span class="ident">std::convert::TryFrom</span>;
 <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">fmt</span>, <span class="ident">marker::PhantomData</span>, <span class="ident">mem</span>};
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">NativeWasmType</span>, <span class="ident">ValueType</span>};
+<span class="kw">use</span> <span class="ident">wasmer_types::ValueType</span>;
 
-<span class="doccomment">/// Trait for the `Memory32` and `Memory64` marker types.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// This allows code to be generic over 32-bit and 64-bit memories.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Safety</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// Used for raw memory access.</span>
-<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">trait</span> <span class="ident">MemorySize</span> {
-    <span class="doccomment">/// Type used to represent an offset into a memory. This is `u32` or `u64`.</span>
-    <span class="kw">type</span> <span class="ident">Offset</span>: <span class="ident">Copy</span> <span class="op">+</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">TryFrom</span><span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span>;
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_types::MemorySize</span>;
 
-    <span class="doccomment">/// Type used to pass this value as an argument or return value for a Wasm function.</span>
-    <span class="kw">type</span> <span class="ident">Native</span>: <span class="ident">NativeWasmType</span>;
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_types::Memory32</span>;
 
-    <span class="doccomment">/// Zero value used for `WasmPtr::is_null`.</span>
-    <span class="kw">const</span> <span class="ident">ZERO</span>: <span class="ident"><span class="self">Self</span>::Offset</span>;
-
-    <span class="doccomment">/// Convert an `Offset` to a `Native`.</span>
-    <span class="kw">fn</span> <span class="ident">offset_to_native</span>(<span class="ident">offset</span>: <span class="ident"><span class="self">Self</span>::Offset</span>) -&gt; <span class="ident"><span class="self">Self</span>::Native</span>;
-
-    <span class="doccomment">/// Convert a `Native` to an `Offset`.</span>
-    <span class="kw">fn</span> <span class="ident">native_to_offset</span>(<span class="ident">native</span>: <span class="ident"><span class="self">Self</span>::Native</span>) -&gt; <span class="ident"><span class="self">Self</span>::Offset</span>;
-}
-
-<span class="doccomment">/// Marker trait for 32-bit memories.</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Memory32</span>;
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">MemorySize</span> <span class="kw">for</span> <span class="ident">Memory32</span> {
-    <span class="kw">type</span> <span class="ident">Offset</span> <span class="op">=</span> <span class="ident">u32</span>;
-    <span class="kw">type</span> <span class="ident">Native</span> <span class="op">=</span> <span class="ident">i32</span>;
-    <span class="kw">const</span> <span class="ident">ZERO</span>: <span class="ident"><span class="self">Self</span>::Offset</span> <span class="op">=</span> <span class="number">0</span>;
-    <span class="kw">fn</span> <span class="ident">offset_to_native</span>(<span class="ident">offset</span>: <span class="ident"><span class="self">Self</span>::Offset</span>) -&gt; <span class="ident"><span class="self">Self</span>::Native</span> {
-        <span class="ident">offset</span> <span class="kw">as</span> <span class="ident"><span class="self">Self</span>::Native</span>
-    }
-    <span class="kw">fn</span> <span class="ident">native_to_offset</span>(<span class="ident">native</span>: <span class="ident"><span class="self">Self</span>::Native</span>) -&gt; <span class="ident"><span class="self">Self</span>::Offset</span> {
-        <span class="ident">native</span> <span class="kw">as</span> <span class="ident"><span class="self">Self</span>::Offset</span>
-    }
-}
-
-<span class="doccomment">/// Marker trait for 64-bit memories.</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Memory64</span>;
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">MemorySize</span> <span class="kw">for</span> <span class="ident">Memory64</span> {
-    <span class="kw">type</span> <span class="ident">Offset</span> <span class="op">=</span> <span class="ident">u64</span>;
-    <span class="kw">type</span> <span class="ident">Native</span> <span class="op">=</span> <span class="ident">i64</span>;
-    <span class="kw">const</span> <span class="ident">ZERO</span>: <span class="ident"><span class="self">Self</span>::Offset</span> <span class="op">=</span> <span class="number">0</span>;
-    <span class="kw">fn</span> <span class="ident">offset_to_native</span>(<span class="ident">offset</span>: <span class="ident"><span class="self">Self</span>::Offset</span>) -&gt; <span class="ident"><span class="self">Self</span>::Native</span> {
-        <span class="ident">offset</span> <span class="kw">as</span> <span class="ident"><span class="self">Self</span>::Native</span>
-    }
-    <span class="kw">fn</span> <span class="ident">native_to_offset</span>(<span class="ident">native</span>: <span class="ident"><span class="self">Self</span>::Native</span>) -&gt; <span class="ident"><span class="self">Self</span>::Offset</span> {
-        <span class="ident">native</span> <span class="kw">as</span> <span class="ident"><span class="self">Self</span>::Offset</span>
-    }
-}
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_types::Memory64</span>;
 
 <span class="doccomment">/// Alias for `WasmPtr&lt;T, Memory64&gt;.</span>
 <span class="kw">pub</span> <span class="kw">type</span> <span class="ident">WasmPtr64</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">Memory64</span><span class="op">&gt;</span>;

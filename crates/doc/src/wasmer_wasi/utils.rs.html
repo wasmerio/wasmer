@@ -181,7 +181,114 @@
 <span id="179">179</span>
 <span id="180">180</span>
 <span id="181">181</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std::collections::BTreeSet</span>;
+<span id="182">182</span>
+<span id="183">183</span>
+<span id="184">184</span>
+<span id="185">185</span>
+<span id="186">186</span>
+<span id="187">187</span>
+<span id="188">188</span>
+<span id="189">189</span>
+<span id="190">190</span>
+<span id="191">191</span>
+<span id="192">192</span>
+<span id="193">193</span>
+<span id="194">194</span>
+<span id="195">195</span>
+<span id="196">196</span>
+<span id="197">197</span>
+<span id="198">198</span>
+<span id="199">199</span>
+<span id="200">200</span>
+<span id="201">201</span>
+<span id="202">202</span>
+<span id="203">203</span>
+<span id="204">204</span>
+<span id="205">205</span>
+<span id="206">206</span>
+<span id="207">207</span>
+<span id="208">208</span>
+<span id="209">209</span>
+<span id="210">210</span>
+<span id="211">211</span>
+<span id="212">212</span>
+<span id="213">213</span>
+<span id="214">214</span>
+<span id="215">215</span>
+<span id="216">216</span>
+<span id="217">217</span>
+<span id="218">218</span>
+<span id="219">219</span>
+<span id="220">220</span>
+<span id="221">221</span>
+<span id="222">222</span>
+<span id="223">223</span>
+<span id="224">224</span>
+<span id="225">225</span>
+<span id="226">226</span>
+<span id="227">227</span>
+<span id="228">228</span>
+<span id="229">229</span>
+<span id="230">230</span>
+<span id="231">231</span>
+<span id="232">232</span>
+<span id="233">233</span>
+<span id="234">234</span>
+<span id="235">235</span>
+<span id="236">236</span>
+<span id="237">237</span>
+<span id="238">238</span>
+<span id="239">239</span>
+<span id="240">240</span>
+<span id="241">241</span>
+<span id="242">242</span>
+<span id="243">243</span>
+<span id="244">244</span>
+<span id="245">245</span>
+<span id="246">246</span>
+<span id="247">247</span>
+<span id="248">248</span>
+<span id="249">249</span>
+<span id="250">250</span>
+<span id="251">251</span>
+<span id="252">252</span>
+<span id="253">253</span>
+<span id="254">254</span>
+<span id="255">255</span>
+<span id="256">256</span>
+<span id="257">257</span>
+<span id="258">258</span>
+<span id="259">259</span>
+<span id="260">260</span>
+<span id="261">261</span>
+<span id="262">262</span>
+<span id="263">263</span>
+<span id="264">264</span>
+<span id="265">265</span>
+<span id="266">266</span>
+<span id="267">267</span>
+<span id="268">268</span>
+<span id="269">269</span>
+<span id="270">270</span>
+<span id="271">271</span>
+<span id="272">272</span>
+<span id="273">273</span>
+<span id="274">274</span>
+<span id="275">275</span>
+<span id="276">276</span>
+<span id="277">277</span>
+<span id="278">278</span>
+<span id="279">279</span>
+<span id="280">280</span>
+<span id="281">281</span>
+<span id="282">282</span>
+<span id="283">283</span>
+<span id="284">284</span>
+<span id="285">285</span>
+<span id="286">286</span>
+<span id="287">287</span>
+</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">super</span>::types</span>::<span class="kw-2">*</span>;
+<span class="kw">use</span> <span class="ident">std::collections::BTreeSet</span>;
 <span class="kw">use</span> <span class="ident">wasmer::Module</span>;
 
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
@@ -189,6 +296,44 @@
 <span class="doccomment">/// Use [`get_wasi_version`] to find out which version of WASI the module is.</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_wasi_module</span>(<span class="ident">module</span>: <span class="kw-2">&amp;</span><span class="ident">Module</span>) -&gt; <span class="ident">bool</span> {
     <span class="ident">get_wasi_version</span>(<span class="ident">module</span>, <span class="bool-val">false</span>).<span class="ident">is_some</span>()
+}
+
+<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
+<span class="doccomment">/// Returns if the module is WASIX or not</span>
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_wasix_module</span>(<span class="ident">module</span>: <span class="kw-2">&amp;</span><span class="ident">Module</span>) -&gt; <span class="ident">bool</span> {
+    <span class="kw">match</span> <span class="ident">get_wasi_versions</span>(<span class="ident">module</span>, <span class="bool-val">false</span>).<span class="ident">ok_or</span>(<span class="bool-val">false</span>) {
+        <span class="prelude-val">Ok</span>(<span class="ident">wasi_versions</span>) =&gt; {
+            <span class="ident">wasi_versions</span>.<span class="ident">contains</span>(<span class="kw-2">&amp;</span><span class="ident">WasiVersion::Wasix32v1</span>)
+                <span class="op">|</span><span class="op">|</span> <span class="ident">wasi_versions</span>.<span class="ident">contains</span>(<span class="kw-2">&amp;</span><span class="ident">WasiVersion::Wasix64v1</span>)
+        }
+        <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="bool-val">false</span>,
+    }
+}
+
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">map_io_err</span>(<span class="ident">err</span>: <span class="ident">std::io::Error</span>) -&gt; <span class="ident">__wasi_errno_t</span> {
+    <span class="kw">use</span> <span class="ident">std::io::ErrorKind</span>;
+    <span class="kw">match</span> <span class="ident">err</span>.<span class="ident">kind</span>() {
+        <span class="ident">ErrorKind::NotFound</span> =&gt; <span class="ident">__WASI_ENOENT</span>,
+        <span class="ident">ErrorKind::PermissionDenied</span> =&gt; <span class="ident">__WASI_EPERM</span>,
+        <span class="ident">ErrorKind::ConnectionRefused</span> =&gt; <span class="ident">__WASI_ECONNREFUSED</span>,
+        <span class="ident">ErrorKind::ConnectionReset</span> =&gt; <span class="ident">__WASI_ECONNRESET</span>,
+        <span class="ident">ErrorKind::ConnectionAborted</span> =&gt; <span class="ident">__WASI_ECONNABORTED</span>,
+        <span class="ident">ErrorKind::NotConnected</span> =&gt; <span class="ident">__WASI_ENOTCONN</span>,
+        <span class="ident">ErrorKind::AddrInUse</span> =&gt; <span class="ident">__WASI_EADDRINUSE</span>,
+        <span class="ident">ErrorKind::AddrNotAvailable</span> =&gt; <span class="ident">__WASI_EADDRNOTAVAIL</span>,
+        <span class="ident">ErrorKind::BrokenPipe</span> =&gt; <span class="ident">__WASI_EPIPE</span>,
+        <span class="ident">ErrorKind::AlreadyExists</span> =&gt; <span class="ident">__WASI_EEXIST</span>,
+        <span class="ident">ErrorKind::WouldBlock</span> =&gt; <span class="ident">__WASI_EAGAIN</span>,
+        <span class="ident">ErrorKind::InvalidInput</span> =&gt; <span class="ident">__WASI_EIO</span>,
+        <span class="ident">ErrorKind::InvalidData</span> =&gt; <span class="ident">__WASI_EIO</span>,
+        <span class="ident">ErrorKind::TimedOut</span> =&gt; <span class="ident">__WASI_ETIMEDOUT</span>,
+        <span class="ident">ErrorKind::WriteZero</span> =&gt; <span class="ident">__WASI_EIO</span>,
+        <span class="ident">ErrorKind::Interrupted</span> =&gt; <span class="ident">__WASI_EINTR</span>,
+        <span class="ident">ErrorKind::Other</span> =&gt; <span class="ident">__WASI_EIO</span>,
+        <span class="ident">ErrorKind::UnexpectedEof</span> =&gt; <span class="ident">__WASI_EIO</span>,
+        <span class="ident">ErrorKind::Unsupported</span> =&gt; <span class="ident">__WASI_ENOTSUP</span>,
+        <span class="kw">_</span> =&gt; <span class="ident">__WASI_EIO</span>,
+    }
 }
 
 <span class="doccomment">/// The version of WASI. This is determined by the imports namespace</span>
@@ -200,6 +345,12 @@
 
     <span class="doccomment">/// `wasi_snapshot_preview1`.</span>
     <span class="ident">Snapshot1</span>,
+
+    <span class="doccomment">/// `wasix_32v1`.</span>
+    <span class="ident">Wasix32v1</span>,
+
+    <span class="doccomment">/// `wasix_64v1`.</span>
+    <span class="ident">Wasix64v1</span>,
 
     <span class="doccomment">/// Latest version.</span>
     <span class="doccomment">///</span>
@@ -220,6 +371,8 @@
         <span class="kw">match</span> <span class="kw-2">*</span><span class="self">self</span> {
             <span class="ident">WasiVersion::Snapshot0</span> =&gt; <span class="ident">SNAPSHOT0_NAMESPACE</span>,
             <span class="ident">WasiVersion::Snapshot1</span> =&gt; <span class="ident">SNAPSHOT1_NAMESPACE</span>,
+            <span class="ident">WasiVersion::Wasix32v1</span> =&gt; <span class="ident">WASIX_32V1_NAMESPACE</span>,
+            <span class="ident">WasiVersion::Wasix64v1</span> =&gt; <span class="ident">WASIX_64V1_NAMESPACE</span>,
             <span class="ident">WasiVersion::Latest</span> =&gt; <span class="ident">SNAPSHOT1_NAMESPACE</span>,
         }
     }
@@ -234,6 +387,8 @@
                 <span class="op">|</span> (<span class="ident"><span class="self">Self</span>::Latest</span>, <span class="ident"><span class="self">Self</span>::Latest</span>)
                 <span class="op">|</span> (<span class="ident"><span class="self">Self</span>::Snapshot0</span>, <span class="ident"><span class="self">Self</span>::Snapshot0</span>)
                 <span class="op">|</span> (<span class="ident"><span class="self">Self</span>::Snapshot1</span>, <span class="ident"><span class="self">Self</span>::Snapshot1</span>)
+                <span class="op">|</span> (<span class="ident"><span class="self">Self</span>::Wasix32v1</span>, <span class="ident"><span class="self">Self</span>::Wasix32v1</span>)
+                <span class="op">|</span> (<span class="ident"><span class="self">Self</span>::Wasix64v1</span>, <span class="ident"><span class="self">Self</span>::Wasix64v1</span>)
         )
     }
 }
@@ -250,12 +405,19 @@
             <span class="kw">return</span> <span class="ident">std::cmp::Ordering::Equal</span>;
         }
         <span class="kw">match</span> (<span class="kw-2">*</span><span class="self">self</span>, <span class="kw-2">*</span><span class="ident">other</span>) {
-            <span class="comment">// if snapshot0 is not equal, it must be less</span>
-            (<span class="ident"><span class="self">Self</span>::Snapshot0</span>, <span class="kw">_</span>) =&gt; <span class="ident">std::cmp::Ordering::Less</span>,
-            (<span class="ident"><span class="self">Self</span>::Snapshot1</span>, <span class="ident"><span class="self">Self</span>::Snapshot0</span>) <span class="op">|</span> (<span class="ident"><span class="self">Self</span>::Latest</span>, <span class="ident"><span class="self">Self</span>::Snapshot0</span>) =&gt; {
+            (<span class="ident"><span class="self">Self</span>::Snapshot1</span>, <span class="ident"><span class="self">Self</span>::Snapshot0</span>) =&gt; <span class="ident">std::cmp::Ordering::Greater</span>,
+            (<span class="ident"><span class="self">Self</span>::Wasix32v1</span>, <span class="ident"><span class="self">Self</span>::Snapshot1</span>) <span class="op">|</span> (<span class="ident"><span class="self">Self</span>::Wasix32v1</span>, <span class="ident"><span class="self">Self</span>::Snapshot0</span>) =&gt; {
                 <span class="ident">std::cmp::Ordering::Greater</span>
             }
-            <span class="kw">_</span> =&gt; <span class="macro">unreachable!</span>(<span class="string">&quot;Missing info about ordering of WasiVerison&quot;</span>),
+            (<span class="ident"><span class="self">Self</span>::Wasix64v1</span>, <span class="ident"><span class="self">Self</span>::Wasix32v1</span>)
+            <span class="op">|</span> (<span class="ident"><span class="self">Self</span>::Wasix64v1</span>, <span class="ident"><span class="self">Self</span>::Snapshot1</span>)
+            <span class="op">|</span> (<span class="ident"><span class="self">Self</span>::Wasix64v1</span>, <span class="ident"><span class="self">Self</span>::Snapshot0</span>) =&gt; <span class="ident">std::cmp::Ordering::Greater</span>,
+            (<span class="ident"><span class="self">Self</span>::Latest</span>, <span class="ident"><span class="self">Self</span>::Wasix64v1</span>)
+            <span class="op">|</span> (<span class="ident"><span class="self">Self</span>::Latest</span>, <span class="ident"><span class="self">Self</span>::Wasix32v1</span>)
+            <span class="op">|</span> (<span class="ident"><span class="self">Self</span>::Latest</span>, <span class="ident"><span class="self">Self</span>::Snapshot1</span>)
+            <span class="op">|</span> (<span class="ident"><span class="self">Self</span>::Latest</span>, <span class="ident"><span class="self">Self</span>::Snapshot0</span>) =&gt; <span class="ident">std::cmp::Ordering::Greater</span>,
+            <span class="comment">// they are not equal and not greater so they must be less</span>
+            (<span class="kw">_</span>, <span class="kw">_</span>) =&gt; <span class="ident">std::cmp::Ordering::Less</span>,
         }
     }
 }
@@ -265,6 +427,12 @@
 
 <span class="doccomment">/// Namespace for the `Snapshot1` version.</span>
 <span class="kw">const</span> <span class="ident">SNAPSHOT1_NAMESPACE</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;wasi_snapshot_preview1&quot;</span>;
+
+<span class="doccomment">/// Namespace for the `wasix` version.</span>
+<span class="kw">const</span> <span class="ident">WASIX_32V1_NAMESPACE</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;wasix_32v1&quot;</span>;
+
+<span class="doccomment">/// Namespace for the `wasix` version.</span>
+<span class="kw">const</span> <span class="ident">WASIX_64V1_NAMESPACE</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;wasix_64v1&quot;</span>;
 
 <span class="doccomment">/// Detect the version of WASI being used based on the import</span>
 <span class="doccomment">/// namespaces.</span>
@@ -282,6 +450,8 @@
             <span class="kw">match</span> <span class="ident">first_module</span>.<span class="ident">as_str</span>() {
                 <span class="ident">SNAPSHOT0_NAMESPACE</span> =&gt; <span class="prelude-val">Some</span>(<span class="ident">WasiVersion::Snapshot0</span>),
                 <span class="ident">SNAPSHOT1_NAMESPACE</span> =&gt; <span class="prelude-val">Some</span>(<span class="ident">WasiVersion::Snapshot1</span>),
+                <span class="ident">WASIX_32V1_NAMESPACE</span> =&gt; <span class="prelude-val">Some</span>(<span class="ident">WasiVersion::Wasix32v1</span>),
+                <span class="ident">WASIX_64V1_NAMESPACE</span> =&gt; <span class="prelude-val">Some</span>(<span class="ident">WasiVersion::Wasix64v1</span>),
                 <span class="kw">_</span> =&gt; <span class="prelude-val">None</span>,
             }
         } <span class="kw">else</span> {
@@ -293,6 +463,8 @@
         <span class="ident">imports</span>.<span class="ident">find_map</span>(<span class="op">|</span><span class="ident">module</span><span class="op">|</span> <span class="kw">match</span> <span class="ident">module</span>.<span class="ident">as_str</span>() {
             <span class="ident">SNAPSHOT0_NAMESPACE</span> =&gt; <span class="prelude-val">Some</span>(<span class="ident">WasiVersion::Snapshot0</span>),
             <span class="ident">SNAPSHOT1_NAMESPACE</span> =&gt; <span class="prelude-val">Some</span>(<span class="ident">WasiVersion::Snapshot1</span>),
+            <span class="ident">WASIX_32V1_NAMESPACE</span> =&gt; <span class="prelude-val">Some</span>(<span class="ident">WasiVersion::Wasix32v1</span>),
+            <span class="ident">WASIX_64V1_NAMESPACE</span> =&gt; <span class="prelude-val">Some</span>(<span class="ident">WasiVersion::Wasix64v1</span>),
             <span class="kw">_</span> =&gt; <span class="prelude-val">None</span>,
         })
     }
@@ -315,6 +487,12 @@
             <span class="ident">SNAPSHOT1_NAMESPACE</span> =&gt; {
                 <span class="ident">out</span>.<span class="ident">insert</span>(<span class="ident">WasiVersion::Snapshot1</span>);
             }
+            <span class="ident">WASIX_32V1_NAMESPACE</span> =&gt; {
+                <span class="ident">out</span>.<span class="ident">insert</span>(<span class="ident">WasiVersion::Wasix32v1</span>);
+            }
+            <span class="ident">WASIX_64V1_NAMESPACE</span> =&gt; {
+                <span class="ident">out</span>.<span class="ident">insert</span>(<span class="ident">WasiVersion::Wasix64v1</span>);
+            }
             <span class="kw">_</span> =&gt; {
                 <span class="ident">non_wasi_seen</span> <span class="op">=</span> <span class="bool-val">true</span>;
             }
@@ -334,32 +512,66 @@
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">wasi_version_equality</span>() {
         <span class="macro">assert_eq!</span>(<span class="ident">WasiVersion::Snapshot0</span>, <span class="ident">WasiVersion::Snapshot0</span>);
+        <span class="macro">assert_eq!</span>(<span class="ident">WasiVersion::Wasix64v1</span>, <span class="ident">WasiVersion::Wasix64v1</span>);
+        <span class="macro">assert_eq!</span>(<span class="ident">WasiVersion::Wasix32v1</span>, <span class="ident">WasiVersion::Wasix32v1</span>);
         <span class="macro">assert_eq!</span>(<span class="ident">WasiVersion::Snapshot1</span>, <span class="ident">WasiVersion::Snapshot1</span>);
         <span class="macro">assert_eq!</span>(<span class="ident">WasiVersion::Snapshot1</span>, <span class="ident">WasiVersion::Latest</span>);
         <span class="macro">assert_eq!</span>(<span class="ident">WasiVersion::Latest</span>, <span class="ident">WasiVersion::Snapshot1</span>);
         <span class="macro">assert_eq!</span>(<span class="ident">WasiVersion::Latest</span>, <span class="ident">WasiVersion::Latest</span>);
+        <span class="macro">assert!</span>(<span class="ident">WasiVersion::Wasix32v1</span> <span class="op">!</span><span class="op">=</span> <span class="ident">WasiVersion::Wasix64v1</span>);
+        <span class="macro">assert!</span>(<span class="ident">WasiVersion::Wasix64v1</span> <span class="op">!</span><span class="op">=</span> <span class="ident">WasiVersion::Wasix32v1</span>);
+        <span class="macro">assert!</span>(<span class="ident">WasiVersion::Snapshot1</span> <span class="op">!</span><span class="op">=</span> <span class="ident">WasiVersion::Wasix64v1</span>);
+        <span class="macro">assert!</span>(<span class="ident">WasiVersion::Wasix64v1</span> <span class="op">!</span><span class="op">=</span> <span class="ident">WasiVersion::Snapshot1</span>);
+        <span class="macro">assert!</span>(<span class="ident">WasiVersion::Snapshot1</span> <span class="op">!</span><span class="op">=</span> <span class="ident">WasiVersion::Wasix32v1</span>);
+        <span class="macro">assert!</span>(<span class="ident">WasiVersion::Wasix32v1</span> <span class="op">!</span><span class="op">=</span> <span class="ident">WasiVersion::Snapshot1</span>);
         <span class="macro">assert!</span>(<span class="ident">WasiVersion::Snapshot0</span> <span class="op">!</span><span class="op">=</span> <span class="ident">WasiVersion::Snapshot1</span>);
         <span class="macro">assert!</span>(<span class="ident">WasiVersion::Snapshot1</span> <span class="op">!</span><span class="op">=</span> <span class="ident">WasiVersion::Snapshot0</span>);
         <span class="macro">assert!</span>(<span class="ident">WasiVersion::Snapshot0</span> <span class="op">!</span><span class="op">=</span> <span class="ident">WasiVersion::Latest</span>);
         <span class="macro">assert!</span>(<span class="ident">WasiVersion::Latest</span> <span class="op">!</span><span class="op">=</span> <span class="ident">WasiVersion::Snapshot0</span>);
+        <span class="macro">assert!</span>(<span class="ident">WasiVersion::Snapshot0</span> <span class="op">!</span><span class="op">=</span> <span class="ident">WasiVersion::Latest</span>);
+        <span class="macro">assert!</span>(<span class="ident">WasiVersion::Latest</span> <span class="op">!</span><span class="op">=</span> <span class="ident">WasiVersion::Snapshot0</span>);
+        <span class="macro">assert!</span>(<span class="ident">WasiVersion::Wasix32v1</span> <span class="op">!</span><span class="op">=</span> <span class="ident">WasiVersion::Latest</span>);
+        <span class="macro">assert!</span>(<span class="ident">WasiVersion::Wasix64v1</span> <span class="op">!</span><span class="op">=</span> <span class="ident">WasiVersion::Latest</span>);
     }
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">wasi_version_ordering</span>() {
         <span class="macro">assert!</span>(<span class="ident">WasiVersion::Snapshot0</span> <span class="op">&lt;</span><span class="op">=</span> <span class="ident">WasiVersion::Snapshot0</span>);
         <span class="macro">assert!</span>(<span class="ident">WasiVersion::Snapshot1</span> <span class="op">&lt;</span><span class="op">=</span> <span class="ident">WasiVersion::Snapshot1</span>);
+        <span class="macro">assert!</span>(<span class="ident">WasiVersion::Wasix32v1</span> <span class="op">&lt;</span><span class="op">=</span> <span class="ident">WasiVersion::Wasix32v1</span>);
+        <span class="macro">assert!</span>(<span class="ident">WasiVersion::Wasix64v1</span> <span class="op">&lt;</span><span class="op">=</span> <span class="ident">WasiVersion::Wasix64v1</span>);
         <span class="macro">assert!</span>(<span class="ident">WasiVersion::Latest</span> <span class="op">&lt;</span><span class="op">=</span> <span class="ident">WasiVersion::Latest</span>);
         <span class="macro">assert!</span>(<span class="ident">WasiVersion::Snapshot0</span> <span class="op">&gt;</span><span class="op">=</span> <span class="ident">WasiVersion::Snapshot0</span>);
         <span class="macro">assert!</span>(<span class="ident">WasiVersion::Snapshot1</span> <span class="op">&gt;</span><span class="op">=</span> <span class="ident">WasiVersion::Snapshot1</span>);
+        <span class="macro">assert!</span>(<span class="ident">WasiVersion::Wasix32v1</span> <span class="op">&gt;</span><span class="op">=</span> <span class="ident">WasiVersion::Wasix32v1</span>);
+        <span class="macro">assert!</span>(<span class="ident">WasiVersion::Wasix64v1</span> <span class="op">&gt;</span><span class="op">=</span> <span class="ident">WasiVersion::Wasix64v1</span>);
         <span class="macro">assert!</span>(<span class="ident">WasiVersion::Latest</span> <span class="op">&gt;</span><span class="op">=</span> <span class="ident">WasiVersion::Latest</span>);
 
-        <span class="macro">assert!</span>(<span class="ident">WasiVersion::Snapshot0</span> <span class="op">&lt;</span> <span class="ident">WasiVersion::Snapshot1</span>);
-        <span class="macro">assert!</span>(<span class="ident">WasiVersion::Snapshot1</span> <span class="op">&gt;</span> <span class="ident">WasiVersion::Snapshot0</span>);
         <span class="macro">assert!</span>(<span class="ident">WasiVersion::Snapshot0</span> <span class="op">&lt;</span> <span class="ident">WasiVersion::Latest</span>);
+        <span class="macro">assert!</span>(<span class="ident">WasiVersion::Snapshot0</span> <span class="op">&lt;</span> <span class="ident">WasiVersion::Wasix32v1</span>);
+        <span class="macro">assert!</span>(<span class="ident">WasiVersion::Snapshot0</span> <span class="op">&lt;</span> <span class="ident">WasiVersion::Wasix64v1</span>);
+        <span class="macro">assert!</span>(<span class="ident">WasiVersion::Snapshot0</span> <span class="op">&lt;</span> <span class="ident">WasiVersion::Snapshot1</span>);
         <span class="macro">assert!</span>(<span class="ident">WasiVersion::Latest</span> <span class="op">&gt;</span> <span class="ident">WasiVersion::Snapshot0</span>);
+        <span class="macro">assert!</span>(<span class="ident">WasiVersion::Wasix32v1</span> <span class="op">&gt;</span> <span class="ident">WasiVersion::Snapshot0</span>);
+        <span class="macro">assert!</span>(<span class="ident">WasiVersion::Wasix64v1</span> <span class="op">&gt;</span> <span class="ident">WasiVersion::Snapshot0</span>);
+        <span class="macro">assert!</span>(<span class="ident">WasiVersion::Snapshot1</span> <span class="op">&gt;</span> <span class="ident">WasiVersion::Snapshot0</span>);
 
-        <span class="macro">assert!</span>(<span class="op">!</span>(<span class="ident">WasiVersion::Snapshot1</span> <span class="op">&lt;</span> <span class="ident">WasiVersion::Latest</span>));
-        <span class="macro">assert!</span>(<span class="op">!</span>(<span class="ident">WasiVersion::Latest</span> <span class="op">&gt;</span> <span class="ident">WasiVersion::Snapshot1</span>));
+        <span class="macro">assert!</span>(<span class="ident">WasiVersion::Snapshot1</span> <span class="op">&lt;</span> <span class="ident">WasiVersion::Wasix32v1</span>);
+        <span class="macro">assert!</span>(<span class="ident">WasiVersion::Snapshot1</span> <span class="op">&lt;</span> <span class="ident">WasiVersion::Wasix64v1</span>);
+        <span class="macro">assert!</span>(<span class="ident">WasiVersion::Wasix32v1</span> <span class="op">&gt;</span> <span class="ident">WasiVersion::Snapshot1</span>);
+        <span class="macro">assert!</span>(<span class="ident">WasiVersion::Wasix64v1</span> <span class="op">&gt;</span> <span class="ident">WasiVersion::Snapshot1</span>);
+
+        <span class="macro">assert!</span>(<span class="ident">WasiVersion::Wasix32v1</span> <span class="op">&lt;</span> <span class="ident">WasiVersion::Latest</span>);
+        <span class="macro">assert!</span>(<span class="ident">WasiVersion::Wasix32v1</span> <span class="op">&gt;</span> <span class="ident">WasiVersion::Snapshot1</span>);
+        <span class="macro">assert!</span>(<span class="ident">WasiVersion::Wasix64v1</span> <span class="op">&lt;</span> <span class="ident">WasiVersion::Latest</span>);
+        <span class="macro">assert!</span>(<span class="ident">WasiVersion::Wasix64v1</span> <span class="op">&gt;</span> <span class="ident">WasiVersion::Snapshot1</span>);
+        <span class="macro">assert!</span>(<span class="ident">WasiVersion::Latest</span> <span class="op">&gt;</span> <span class="ident">WasiVersion::Wasix32v1</span>);
+        <span class="macro">assert!</span>(<span class="ident">WasiVersion::Snapshot1</span> <span class="op">&lt;</span> <span class="ident">WasiVersion::Wasix32v1</span>);
+        <span class="macro">assert!</span>(<span class="ident">WasiVersion::Latest</span> <span class="op">&gt;</span> <span class="ident">WasiVersion::Wasix64v1</span>);
+        <span class="macro">assert!</span>(<span class="ident">WasiVersion::Snapshot1</span> <span class="op">&lt;</span> <span class="ident">WasiVersion::Wasix32v1</span>);
+
+        <span class="macro">assert!</span>(<span class="ident">WasiVersion::Wasix32v1</span> <span class="op">&lt;</span> <span class="ident">WasiVersion::Wasix64v1</span>);
+        <span class="macro">assert!</span>(<span class="ident">WasiVersion::Wasix64v1</span> <span class="op">&gt;</span> <span class="ident">WasiVersion::Wasix32v1</span>);
     }
 }
 </code></pre></div>

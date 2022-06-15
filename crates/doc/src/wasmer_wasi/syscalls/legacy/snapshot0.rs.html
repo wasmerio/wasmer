@@ -173,9 +173,11 @@
 <span id="171">171</span>
 <span id="172">172</span>
 <span id="173">173</span>
+<span id="174">174</span>
+<span id="175">175</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::syscalls</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::syscalls::types</span>::{<span class="self">self</span>, <span class="ident">snapshot0</span>};
-<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">mem_error_to_wasi</span>, <span class="ident">WasiEnv</span>};
+<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">mem_error_to_wasi</span>, <span class="ident">Memory32</span>, <span class="ident">MemorySize</span>, <span class="ident">WasiEnv</span>, <span class="ident">WasiError</span>, <span class="ident">WasiThread</span>};
 <span class="kw">use</span> <span class="ident">wasmer::WasmPtr</span>;
 
 <span class="doccomment">/// Wrapper around `syscalls::fd_filestat_get` with extra logic to handle the size</span>
@@ -187,21 +189,21 @@
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">fd_filestat_get</span>(
     <span class="ident">env</span>: <span class="kw-2">&amp;</span><span class="ident">WasiEnv</span>,
     <span class="ident">fd</span>: <span class="ident">types::__wasi_fd_t</span>,
-    <span class="ident">buf</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">snapshot0::__wasi_filestat_t</span><span class="op">&gt;</span>,
+    <span class="ident">buf</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">snapshot0::__wasi_filestat_t</span>, <span class="ident">Memory32</span><span class="op">&gt;</span>,
 ) -&gt; <span class="ident">types::__wasi_errno_t</span> {
     <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">memory</span>();
 
     <span class="comment">// transmute the WasmPtr&lt;T1&gt; into a WasmPtr&lt;T2&gt; where T2 &gt; T1, this will read extra memory.</span>
     <span class="comment">// The edge case of this cenv.mausing an OOB is not handled, if the new field is OOB, then the entire</span>
     <span class="comment">// memory access will fail.</span>
-    <span class="kw">let</span> <span class="ident">new_buf</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">types::__wasi_filestat_t</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">buf</span>.<span class="ident">cast</span>();
+    <span class="kw">let</span> <span class="ident">new_buf</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">types::__wasi_filestat_t</span>, <span class="ident">Memory32</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">buf</span>.<span class="ident">cast</span>();
 
     <span class="comment">// Copy the data including the extra data</span>
     <span class="kw">let</span> <span class="ident">new_filestat_setup</span>: <span class="ident">types::__wasi_filestat_t</span> <span class="op">=</span> <span class="macro">wasi_try_mem!</span>(<span class="ident">new_buf</span>.<span class="ident">read</span>(<span class="ident">memory</span>));
 
     <span class="comment">// Set up complete, make the call with the pointer that will write to the</span>
     <span class="comment">// struct and some unrelated memory after the struct.</span>
-    <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">syscalls::fd_filestat_get</span>(<span class="ident">env</span>, <span class="ident">fd</span>, <span class="ident">new_buf</span>);
+    <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">syscalls::fd_filestat_get</span>::<span class="op">&lt;</span><span class="ident">Memory32</span><span class="op">&gt;</span>(<span class="ident">env</span>, <span class="ident">fd</span>, <span class="ident">new_buf</span>);
 
     <span class="comment">// reborrow memory</span>
     <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">memory</span>();
@@ -237,17 +239,17 @@
     <span class="ident">env</span>: <span class="kw-2">&amp;</span><span class="ident">WasiEnv</span>,
     <span class="ident">fd</span>: <span class="ident">types::__wasi_fd_t</span>,
     <span class="ident">flags</span>: <span class="ident">types::__wasi_lookupflags_t</span>,
-    <span class="ident">path</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,
+    <span class="ident">path</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">Memory32</span><span class="op">&gt;</span>,
     <span class="ident">path_len</span>: <span class="ident">u32</span>,
-    <span class="ident">buf</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">snapshot0::__wasi_filestat_t</span><span class="op">&gt;</span>,
+    <span class="ident">buf</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">snapshot0::__wasi_filestat_t</span>, <span class="ident">Memory32</span><span class="op">&gt;</span>,
 ) -&gt; <span class="ident">types::__wasi_errno_t</span> {
     <span class="comment">// see `fd_filestat_get` in this file for an explanation of this strange behavior</span>
     <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">memory</span>();
 
-    <span class="kw">let</span> <span class="ident">new_buf</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">types::__wasi_filestat_t</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">buf</span>.<span class="ident">cast</span>();
+    <span class="kw">let</span> <span class="ident">new_buf</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">types::__wasi_filestat_t</span>, <span class="ident">Memory32</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">buf</span>.<span class="ident">cast</span>();
     <span class="kw">let</span> <span class="ident">new_filestat_setup</span>: <span class="ident">types::__wasi_filestat_t</span> <span class="op">=</span> <span class="macro">wasi_try_mem!</span>(<span class="ident">new_buf</span>.<span class="ident">read</span>(<span class="ident">memory</span>));
 
-    <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">syscalls::path_filestat_get</span>(<span class="ident">env</span>, <span class="ident">fd</span>, <span class="ident">flags</span>, <span class="ident">path</span>, <span class="ident">path_len</span>, <span class="ident">new_buf</span>);
+    <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">syscalls::path_filestat_get</span>::<span class="op">&lt;</span><span class="ident">Memory32</span><span class="op">&gt;</span>(<span class="ident">env</span>, <span class="ident">fd</span>, <span class="ident">flags</span>, <span class="ident">path</span>, <span class="ident">path_len</span>, <span class="ident">new_buf</span>);
 
     <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">memory</span>();
     <span class="kw">let</span> <span class="ident">new_filestat</span> <span class="op">=</span> <span class="macro">wasi_try_mem!</span>(<span class="ident">new_buf</span>.<span class="ident">deref</span>(<span class="ident">memory</span>).<span class="ident">read</span>());
@@ -275,8 +277,8 @@
     <span class="ident">fd</span>: <span class="ident">types::__wasi_fd_t</span>,
     <span class="ident">offset</span>: <span class="ident">types::__wasi_filedelta_t</span>,
     <span class="ident">whence</span>: <span class="ident">snapshot0::__wasi_whence_t</span>,
-    <span class="ident">newoffset</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">types::__wasi_filesize_t</span><span class="op">&gt;</span>,
-) -&gt; <span class="ident">types::__wasi_errno_t</span> {
+    <span class="ident">newoffset</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">types::__wasi_filesize_t</span>, <span class="ident">Memory32</span><span class="op">&gt;</span>,
+) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">types::__wasi_errno_t</span>, <span class="ident">WasiError</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="ident">new_whence</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">whence</span> {
         <span class="ident">snapshot0::__WASI_WHENCE_CUR</span> =&gt; <span class="ident">types::__WASI_WHENCE_CUR</span>,
         <span class="ident">snapshot0::__WASI_WHENCE_END</span> =&gt; <span class="ident">types::__WASI_WHENCE_END</span>,
@@ -284,34 +286,35 @@
         <span class="comment">// if it&#39;s invalid, let the new fd_seek handle it</span>
         <span class="kw">_</span> =&gt; <span class="ident">whence</span>,
     };
-    <span class="ident">syscalls::fd_seek</span>(<span class="ident">env</span>, <span class="ident">fd</span>, <span class="ident">offset</span>, <span class="ident">new_whence</span>, <span class="ident">newoffset</span>)
+    <span class="ident">syscalls::fd_seek</span>::<span class="op">&lt;</span><span class="ident">Memory32</span><span class="op">&gt;</span>(<span class="ident">env</span>, <span class="ident">fd</span>, <span class="ident">offset</span>, <span class="ident">new_whence</span>, <span class="ident">newoffset</span>)
 }
 
 <span class="doccomment">/// Wrapper around `syscalls::poll_oneoff` with extra logic to add the removed</span>
 <span class="doccomment">/// userdata field back</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">poll_oneoff</span>(
     <span class="ident">env</span>: <span class="kw-2">&amp;</span><span class="ident">WasiEnv</span>,
-    <span class="ident">in_</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">snapshot0::__wasi_subscription_t</span><span class="op">&gt;</span>,
-    <span class="ident">out_</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">types::__wasi_event_t</span><span class="op">&gt;</span>,
+    <span class="ident">in_</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">snapshot0::__wasi_subscription_t</span>, <span class="ident">Memory32</span><span class="op">&gt;</span>,
+    <span class="ident">out_</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">types::__wasi_event_t</span>, <span class="ident">Memory32</span><span class="op">&gt;</span>,
     <span class="ident">nsubscriptions</span>: <span class="ident">u32</span>,
-    <span class="ident">nevents</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u32</span><span class="op">&gt;</span>,
-) -&gt; <span class="ident">types::__wasi_errno_t</span> {
+    <span class="ident">nevents</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u32</span>, <span class="ident">Memory32</span><span class="op">&gt;</span>,
+) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">types::__wasi_errno_t</span>, <span class="ident">WasiError</span><span class="op">&gt;</span> {
     <span class="comment">// in this case the new type is smaller than the old type, so it all fits into memory,</span>
     <span class="comment">// we just need to readjust and copy it</span>
 
     <span class="comment">// we start by adjusting `in_` into a format that the new code can understand</span>
     <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">memory</span>();
-    <span class="kw">let</span> <span class="ident">in_origs</span> <span class="op">=</span> <span class="macro">wasi_try_mem!</span>(<span class="ident">in_</span>.<span class="ident">slice</span>(<span class="ident">memory</span>, <span class="ident">nsubscriptions</span>));
-    <span class="kw">let</span> <span class="ident">in_origs</span> <span class="op">=</span> <span class="macro">wasi_try_mem!</span>(<span class="ident">in_origs</span>.<span class="ident">read_to_vec</span>());
+    <span class="kw">let</span> <span class="ident">nsubscriptions_offset</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="ident">nsubscriptions</span>;
+    <span class="kw">let</span> <span class="ident">in_origs</span> <span class="op">=</span> <span class="macro">wasi_try_mem_ok!</span>(<span class="ident">in_</span>.<span class="ident">slice</span>(<span class="ident">memory</span>, <span class="ident">nsubscriptions_offset</span>));
+    <span class="kw">let</span> <span class="ident">in_origs</span> <span class="op">=</span> <span class="macro">wasi_try_mem_ok!</span>(<span class="ident">in_origs</span>.<span class="ident">read_to_vec</span>());
 
     <span class="comment">// get a pointer to the smaller new type</span>
-    <span class="kw">let</span> <span class="ident">in_new_type_ptr</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">types::__wasi_subscription_t</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">in_</span>.<span class="ident">cast</span>();
+    <span class="kw">let</span> <span class="ident">in_new_type_ptr</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">types::__wasi_subscription_t</span>, <span class="ident">Memory32</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">in_</span>.<span class="ident">cast</span>();
 
-    <span class="kw">for</span> (<span class="ident">in_sub_new</span>, <span class="ident">orig</span>) <span class="kw">in</span> <span class="macro">wasi_try_mem!</span>(<span class="ident">in_new_type_ptr</span>.<span class="ident">slice</span>(<span class="ident">memory</span>, <span class="ident">nsubscriptions</span>))
+    <span class="kw">for</span> (<span class="ident">in_sub_new</span>, <span class="ident">orig</span>) <span class="kw">in</span> <span class="macro">wasi_try_mem_ok!</span>(<span class="ident">in_new_type_ptr</span>.<span class="ident">slice</span>(<span class="ident">memory</span>, <span class="ident">nsubscriptions_offset</span>))
         .<span class="ident">iter</span>()
         .<span class="ident">zip</span>(<span class="ident">in_origs</span>.<span class="ident">iter</span>())
     {
-        <span class="macro">wasi_try_mem!</span>(<span class="ident">in_sub_new</span>.<span class="ident">write</span>(<span class="ident">types::__wasi_subscription_t</span> {
+        <span class="macro">wasi_try_mem_ok!</span>(<span class="ident">in_sub_new</span>.<span class="ident">write</span>(<span class="ident">types::__wasi_subscription_t</span> {
             <span class="ident">userdata</span>: <span class="ident">orig</span>.<span class="ident">userdata</span>,
             <span class="ident">type_</span>: <span class="ident">orig</span>.<span class="ident">type_</span>,
             <span class="ident">u</span>: <span class="kw">if</span> <span class="ident">orig</span>.<span class="ident">type_</span> <span class="op">==</span> <span class="ident">types::__WASI_EVENTTYPE_CLOCK</span> {
@@ -332,16 +335,17 @@
     }
 
     <span class="comment">// make the call</span>
-    <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">syscalls::poll_oneoff</span>(<span class="ident">env</span>, <span class="ident">in_new_type_ptr</span>, <span class="ident">out_</span>, <span class="ident">nsubscriptions</span>, <span class="ident">nevents</span>);
+    <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span>
+        <span class="ident">syscalls::poll_oneoff</span>::<span class="op">&lt;</span><span class="ident">Memory32</span><span class="op">&gt;</span>(<span class="ident">env</span>, <span class="ident">in_new_type_ptr</span>, <span class="ident">out_</span>, <span class="ident">nsubscriptions</span>, <span class="ident">nevents</span>);
 
     <span class="comment">// replace the old values of in, in case the calling code reuses the memory</span>
     <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">memory</span>();
 
-    <span class="kw">for</span> (<span class="ident">in_sub</span>, <span class="ident">orig</span>) <span class="kw">in</span> <span class="macro">wasi_try_mem!</span>(<span class="ident">in_</span>.<span class="ident">slice</span>(<span class="ident">memory</span>, <span class="ident">nsubscriptions</span>))
+    <span class="kw">for</span> (<span class="ident">in_sub</span>, <span class="ident">orig</span>) <span class="kw">in</span> <span class="macro">wasi_try_mem_ok!</span>(<span class="ident">in_</span>.<span class="ident">slice</span>(<span class="ident">memory</span>, <span class="ident">nsubscriptions_offset</span>))
         .<span class="ident">iter</span>()
         .<span class="ident">zip</span>(<span class="ident">in_origs</span>.<span class="ident">into_iter</span>())
     {
-        <span class="macro">wasi_try_mem!</span>(<span class="ident">in_sub</span>.<span class="ident">write</span>(<span class="ident">orig</span>));
+        <span class="macro">wasi_try_mem_ok!</span>(<span class="ident">in_sub</span>.<span class="ident">write</span>(<span class="ident">orig</span>));
     }
 
     <span class="ident">result</span>

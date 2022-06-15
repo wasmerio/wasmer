@@ -515,12 +515,17 @@
 <span id="513">513</span>
 <span id="514">514</span>
 <span id="515">515</span>
+<span id="516">516</span>
+<span id="517">517</span>
+<span id="518">518</span>
+<span id="519">519</span>
+<span id="520">520</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
 <span class="kw">use</span> <span class="ident">std::collections</span>::{<span class="ident">BTreeSet</span>, <span class="ident">VecDeque</span>};
 <span class="kw">use</span> <span class="ident">std::convert::TryInto</span>;
 <span class="kw">use</span> <span class="ident">std::io</span>::{<span class="ident">Read</span>, <span class="ident">Seek</span>, <span class="ident">SeekFrom</span>, <span class="ident">Write</span>};
 <span class="kw">use</span> <span class="ident">tracing::debug</span>;
-<span class="kw">use</span> <span class="ident">wasmer_wasi::types</span>::<span class="kw-2">*</span>;
+<span class="kw">use</span> <span class="ident">wasmer_wasi</span>::{<span class="ident">types</span>::<span class="kw-2">*</span>, <span class="ident">WasiInodes</span>};
 <span class="kw">use</span> <span class="ident">wasmer_wasi</span>::{<span class="ident">Fd</span>, <span class="ident">VirtualFile</span>, <span class="ident">WasiFs</span>, <span class="ident">WasiFsError</span>, <span class="ident">ALL_RIGHTS</span>, <span class="ident">VIRTUAL_ROOT_FD</span>};
 
 <span class="kw">use</span> <span class="ident">minifb</span>::{<span class="ident">Key</span>, <span class="ident">KeyRepeat</span>, <span class="ident">MouseButton</span>, <span class="ident">Scale</span>, <span class="ident">Window</span>, <span class="ident">WindowOptions</span>};
@@ -943,7 +948,7 @@
     }
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">initialize</span>(<span class="ident">fs</span>: <span class="kw-2">&amp;mut</span> <span class="ident">WasiFs</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">String</span><span class="op">&gt;</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">initialize</span>(<span class="ident">inodes</span>: <span class="kw-2">&amp;mut</span> <span class="ident">WasiInodes</span>, <span class="ident">fs</span>: <span class="kw-2">&amp;mut</span> <span class="ident">WasiFs</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">String</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="ident">frame_buffer_file</span> <span class="op">=</span> <span class="ident">Box::new</span>(<span class="ident">FrameBuffer</span> {
         <span class="ident">fb_type</span>: <span class="ident">FrameBufferFileType::Buffer</span>,
         <span class="ident">cursor</span>: <span class="number">0</span>,
@@ -963,6 +968,7 @@
 
     <span class="kw">let</span> <span class="ident">base_dir_fd</span> <span class="op">=</span> <span class="kw">unsafe</span> {
         <span class="ident">fs</span>.<span class="ident">open_dir_all</span>(
+            <span class="ident">inodes</span>,
             <span class="ident">VIRTUAL_ROOT_FD</span>,
             <span class="string">&quot;_wasmer/dev/fb0&quot;</span>.<span class="ident">to_string</span>(),
             <span class="ident">ALL_RIGHTS</span>,
@@ -974,6 +980,7 @@
 
     <span class="kw">let</span> <span class="ident">_fd</span> <span class="op">=</span> <span class="ident">fs</span>
         .<span class="ident">open_file_at</span>(
+            <span class="ident">inodes</span>,
             <span class="ident">base_dir_fd</span>,
             <span class="ident">input_file</span>,
             <span class="ident">Fd::READ</span>,
@@ -988,6 +995,7 @@
 
     <span class="kw">let</span> <span class="ident">_fd</span> <span class="op">=</span> <span class="ident">fs</span>
         .<span class="ident">open_file_at</span>(
+            <span class="ident">inodes</span>,
             <span class="ident">base_dir_fd</span>,
             <span class="ident">frame_buffer_file</span>,
             <span class="ident">Fd::READ</span> <span class="op">|</span> <span class="ident">Fd::WRITE</span>,
@@ -1002,6 +1010,7 @@
 
     <span class="kw">let</span> <span class="ident">_fd</span> <span class="op">=</span> <span class="ident">fs</span>
         .<span class="ident">open_file_at</span>(
+            <span class="ident">inodes</span>,
             <span class="ident">base_dir_fd</span>,
             <span class="ident">resolution_file</span>,
             <span class="ident">Fd::READ</span> <span class="op">|</span> <span class="ident">Fd::WRITE</span>,
@@ -1016,6 +1025,7 @@
 
     <span class="kw">let</span> <span class="ident">_fd</span> <span class="op">=</span> <span class="ident">fs</span>
         .<span class="ident">open_file_at</span>(
+            <span class="ident">inodes</span>,
             <span class="ident">base_dir_fd</span>,
             <span class="ident">draw_file</span>,
             <span class="ident">Fd::READ</span> <span class="op">|</span> <span class="ident">Fd::WRITE</span>,

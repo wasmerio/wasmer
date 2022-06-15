@@ -475,13 +475,9 @@
 <span id="473">473</span>
 <span id="474">474</span>
 <span id="475">475</span>
-<span id="476">476</span>
-<span id="477">477</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Unofficial API for WASI integrating with the standard Wasm C API.</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! This API will be superseded by a standard WASI API when/if such a standard is created.</span>
-
-<span class="kw">mod</span> <span class="ident">capture_files</span>;
 
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::unstable::wasi::wasi_get_unordered_imports</span>;
 <span class="kw">use</span> <span class="kw">super</span>::{
@@ -491,14 +487,13 @@
     <span class="ident">store::wasm_store_t</span>,
 };
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::error::update_last_error</span>;
-<span class="kw">use</span> <span class="ident">std::cmp::min</span>;
 <span class="kw">use</span> <span class="ident">std::convert::TryFrom</span>;
 <span class="kw">use</span> <span class="ident">std::ffi::CStr</span>;
 <span class="kw">use</span> <span class="ident">std::os::raw::c_char</span>;
 <span class="kw">use</span> <span class="ident">std::slice</span>;
 <span class="kw">use</span> <span class="ident">wasmer_api</span>::{<span class="ident">Exportable</span>, <span class="ident">Extern</span>};
 <span class="kw">use</span> <span class="ident">wasmer_wasi</span>::{
-    <span class="ident">generate_import_object_from_env</span>, <span class="ident">get_wasi_version</span>, <span class="ident">WasiEnv</span>, <span class="ident">WasiFile</span>, <span class="ident">WasiState</span>,
+    <span class="ident">generate_import_object_from_env</span>, <span class="ident">get_wasi_version</span>, <span class="ident">Pipe</span>, <span class="ident">WasiEnv</span>, <span class="ident">WasiFile</span>, <span class="ident">WasiState</span>,
     <span class="ident">WasiStateBuilder</span>, <span class="ident">WasiVersion</span>,
 };
 
@@ -654,15 +649,11 @@
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
 <span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasi_env_new</span>(<span class="kw-2">mut</span> <span class="ident">config</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasi_config_t</span><span class="op">&gt;</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasi_env_t</span><span class="op">&gt;</span><span class="op">&gt;</span> {
     <span class="kw">if</span> <span class="op">!</span><span class="ident">config</span>.<span class="ident">inherit_stdout</span> {
-        <span class="ident">config</span>
-            .<span class="ident">state_builder</span>
-            .<span class="ident">stdout</span>(<span class="ident">Box::new</span>(<span class="ident">capture_files::OutputCapturer::new</span>()));
+        <span class="ident">config</span>.<span class="ident">state_builder</span>.<span class="ident">stdout</span>(<span class="ident">Box::new</span>(<span class="ident">Pipe::new</span>()));
     }
 
     <span class="kw">if</span> <span class="op">!</span><span class="ident">config</span>.<span class="ident">inherit_stderr</span> {
-        <span class="ident">config</span>
-            .<span class="ident">state_builder</span>
-            .<span class="ident">stderr</span>(<span class="ident">Box::new</span>(<span class="ident">capture_files::OutputCapturer::new</span>()));
+        <span class="ident">config</span>.<span class="ident">state_builder</span>.<span class="ident">stderr</span>(<span class="ident">Box::new</span>(<span class="ident">Pipe::new</span>()));
     }
 
     <span class="comment">// TODO: impl capturer for stdin</span>
@@ -685,19 +676,19 @@
     <span class="ident">buffer_len</span>: <span class="ident">usize</span>,
 ) -&gt; <span class="ident">isize</span> {
     <span class="kw">let</span> <span class="ident">inner_buffer</span> <span class="op">=</span> <span class="ident">slice::from_raw_parts_mut</span>(<span class="ident">buffer</span> <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="kw">_</span>, <span class="ident">buffer_len</span> <span class="kw">as</span> <span class="ident">usize</span>);
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">state</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">inner</span>.<span class="ident">state</span>();
+    <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">inner</span>.<span class="ident">state</span>();
 
-    <span class="kw">let</span> <span class="ident">stdout</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">stdout</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">stdout_mut</span>() {
+    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="kw-2">mut</span> <span class="ident">stdout</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">stdout</span>() {
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">stdout</span>) <span class="op">=</span> <span class="ident">stdout</span>.<span class="ident">as_mut</span>() {
-            <span class="ident">stdout</span>
+            <span class="ident">read_inner</span>(<span class="ident">stdout</span>, <span class="ident">inner_buffer</span>)
         } <span class="kw">else</span> {
             <span class="ident">update_last_error</span>(<span class="string">&quot;could not find a file handle for `stdout`&quot;</span>);
-            <span class="kw">return</span> <span class="op">-</span><span class="number">1</span>;
+            <span class="op">-</span><span class="number">1</span>
         }
     } <span class="kw">else</span> {
-        <span class="kw">return</span> <span class="op">-</span><span class="number">1</span>;
-    };
-    <span class="ident">read_inner</span>(<span class="ident">stdout</span>, <span class="ident">inner_buffer</span>)
+        <span class="ident">update_last_error</span>(<span class="string">&quot;could not find a file handle for `stdout`&quot;</span>);
+        <span class="op">-</span><span class="number">1</span>
+    }
 }
 
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
@@ -707,35 +698,30 @@
     <span class="ident">buffer_len</span>: <span class="ident">usize</span>,
 ) -&gt; <span class="ident">isize</span> {
     <span class="kw">let</span> <span class="ident">inner_buffer</span> <span class="op">=</span> <span class="ident">slice::from_raw_parts_mut</span>(<span class="ident">buffer</span> <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="kw">_</span>, <span class="ident">buffer_len</span> <span class="kw">as</span> <span class="ident">usize</span>);
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">state</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">inner</span>.<span class="ident">state</span>();
-    <span class="kw">let</span> <span class="ident">stderr</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">stderr</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">stderr_mut</span>() {
+    <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">inner</span>.<span class="ident">state</span>();
+    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="kw-2">mut</span> <span class="ident">stderr</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">stderr</span>() {
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">stderr</span>) <span class="op">=</span> <span class="ident">stderr</span>.<span class="ident">as_mut</span>() {
-            <span class="ident">stderr</span>
+            <span class="ident">read_inner</span>(<span class="ident">stderr</span>, <span class="ident">inner_buffer</span>)
         } <span class="kw">else</span> {
             <span class="ident">update_last_error</span>(<span class="string">&quot;could not find a file handle for `stderr`&quot;</span>);
-            <span class="kw">return</span> <span class="op">-</span><span class="number">1</span>;
+            <span class="op">-</span><span class="number">1</span>
         }
     } <span class="kw">else</span> {
         <span class="ident">update_last_error</span>(<span class="string">&quot;could not find a file handle for `stderr`&quot;</span>);
-        <span class="kw">return</span> <span class="op">-</span><span class="number">1</span>;
-    };
-    <span class="ident">read_inner</span>(<span class="ident">stderr</span>, <span class="ident">inner_buffer</span>)
+        <span class="op">-</span><span class="number">1</span>
+    }
 }
 
-<span class="kw">fn</span> <span class="ident">read_inner</span>(<span class="ident">wasi_file</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">WasiFile</span><span class="op">&gt;</span>, <span class="ident">inner_buffer</span>: <span class="kw-2">&amp;mut</span> [<span class="ident">u8</span>]) -&gt; <span class="ident">isize</span> {
-    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">oc</span>) <span class="op">=</span> <span class="ident">wasi_file</span>.<span class="ident">downcast_mut</span>::<span class="op">&lt;</span><span class="ident">capture_files::OutputCapturer</span><span class="op">&gt;</span>() {
-        <span class="kw">let</span> <span class="ident">total_to_read</span> <span class="op">=</span> <span class="ident">min</span>(<span class="ident">inner_buffer</span>.<span class="ident">len</span>(), <span class="ident">oc</span>.<span class="ident">buffer</span>.<span class="ident">len</span>());
-
-        <span class="kw">for</span> (<span class="ident">address</span>, <span class="ident">value</span>) <span class="kw">in</span> <span class="ident">inner_buffer</span>
-            .<span class="ident">iter_mut</span>()
-            .<span class="ident">zip</span>(<span class="ident">oc</span>.<span class="ident">buffer</span>.<span class="ident">drain</span>(..<span class="ident">total_to_read</span>))
-        {
-            <span class="kw-2">*</span><span class="ident">address</span> <span class="op">=</span> <span class="ident">value</span>;
+<span class="kw">fn</span> <span class="ident">read_inner</span>(
+    <span class="ident">wasi_file</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">WasiFile</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span>,
+    <span class="ident">inner_buffer</span>: <span class="kw-2">&amp;mut</span> [<span class="ident">u8</span>],
+) -&gt; <span class="ident">isize</span> {
+    <span class="kw">match</span> <span class="ident">wasi_file</span>.<span class="ident">read</span>(<span class="ident">inner_buffer</span>) {
+        <span class="prelude-val">Ok</span>(<span class="ident">a</span>) =&gt; <span class="ident">a</span> <span class="kw">as</span> <span class="ident">isize</span>,
+        <span class="prelude-val">Err</span>(<span class="ident">err</span>) =&gt; {
+            <span class="ident">update_last_error</span>(<span class="macro">format!</span>(<span class="string">&quot;failed to read wasi_file: {}&quot;</span>, <span class="ident">err</span>));
+            <span class="op">-</span><span class="number">1</span>
         }
-
-        <span class="ident">total_to_read</span> <span class="kw">as</span> <span class="ident">isize</span>
-    } <span class="kw">else</span> {
-        <span class="op">-</span><span class="number">1</span>
     }
 }
 
@@ -765,6 +751,12 @@
 
     <span class="doccomment">/// `wasi_snapshot_preview1`.</span>
     <span class="ident">SNAPSHOT1</span> <span class="op">=</span> <span class="number">2</span>,
+
+    <span class="doccomment">/// `wasix_32v1`.</span>
+    <span class="ident">WASIX32V1</span> <span class="op">=</span> <span class="number">3</span>,
+
+    <span class="doccomment">/// `wasix_64v1`.</span>
+    <span class="ident">WASIX64V1</span> <span class="op">=</span> <span class="number">4</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">WasiVersion</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">wasi_version_t</span> {
@@ -772,6 +764,8 @@
         <span class="kw">match</span> <span class="ident">other</span> {
             <span class="ident">WasiVersion::Snapshot0</span> =&gt; <span class="ident">wasi_version_t::SNAPSHOT0</span>,
             <span class="ident">WasiVersion::Snapshot1</span> =&gt; <span class="ident">wasi_version_t::SNAPSHOT1</span>,
+            <span class="ident">WasiVersion::Wasix32v1</span> =&gt; <span class="ident">wasi_version_t::WASIX32V1</span>,
+            <span class="ident">WasiVersion::Wasix64v1</span> =&gt; <span class="ident">wasi_version_t::WASIX64V1</span>,
             <span class="ident">WasiVersion::Latest</span> =&gt; <span class="ident">wasi_version_t::LATEST</span>,
         }
     }
@@ -785,6 +779,8 @@
             <span class="ident">wasi_version_t::INVALID_VERSION</span> =&gt; <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="string">&quot;Invalid WASI version cannot be used&quot;</span>),
             <span class="ident">wasi_version_t::SNAPSHOT0</span> =&gt; <span class="ident">WasiVersion::Snapshot0</span>,
             <span class="ident">wasi_version_t::SNAPSHOT1</span> =&gt; <span class="ident">WasiVersion::Snapshot1</span>,
+            <span class="ident">wasi_version_t::WASIX32V1</span> =&gt; <span class="ident">WasiVersion::Wasix32v1</span>,
+            <span class="ident">wasi_version_t::WASIX64V1</span> =&gt; <span class="ident">WasiVersion::Wasix64v1</span>,
             <span class="ident">wasi_version_t::LATEST</span> =&gt; <span class="ident">WasiVersion::Latest</span>,
         })
     }

@@ -378,8 +378,19 @@
 <span id="376">376</span>
 <span id="377">377</span>
 <span id="378">378</span>
+<span id="379">379</span>
+<span id="380">380</span>
+<span id="381">381</span>
+<span id="382">382</span>
+<span id="383">383</span>
+<span id="384">384</span>
+<span id="385">385</span>
+<span id="386">386</span>
+<span id="387">387</span>
+<span id="388">388</span>
+<span id="389">389</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::RuntimeError</span>;
-<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">Memory</span>, <span class="ident">Memory32</span>, <span class="ident">Memory64</span>, <span class="ident">WasmPtr</span>};
+<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">Memory</span>, <span class="ident">Memory32</span>, <span class="ident">Memory64</span>, <span class="ident">MemorySize</span>, <span class="ident">WasmPtr</span>};
 <span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">convert::TryInto</span>,
     <span class="ident">fmt</span>,
@@ -463,6 +474,17 @@
     <span class="attribute">#[<span class="ident">inline</span>]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">as_ptr64</span>(<span class="self">self</span>) -&gt; <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">Memory64</span><span class="op">&gt;</span> {
         <span class="ident">WasmPtr::new</span>(<span class="self">self</span>.<span class="ident">offset</span>)
+    }
+
+    <span class="doccomment">/// Get a `WasmPtr` fror this `WasmRef`.</span>
+    <span class="attribute">#[<span class="ident">inline</span>]</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">as_ptr</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MemorySize</span><span class="op">&gt;</span>(<span class="self">self</span>) -&gt; <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">M</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">offset</span>: <span class="ident">M::Offset</span> <span class="op">=</span> <span class="self">self</span>
+            .<span class="ident">offset</span>
+            .<span class="ident">try_into</span>()
+            .<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="string">&quot;invalid offset into memory&quot;</span>)
+            .<span class="ident">unwrap</span>();
+        <span class="ident">WasmPtr</span>::<span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">M</span><span class="op">&gt;</span><span class="ident">::new</span>(<span class="ident">offset</span>)
     }
 
     <span class="doccomment">/// Get a reference to the Wasm memory backing this reference.</span>

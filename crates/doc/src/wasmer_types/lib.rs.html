@@ -109,6 +109,7 @@
 <span id="107">107</span>
 <span id="108">108</span>
 <span id="109">109</span>
+<span id="110">110</span>
 </pre><pre class="rust"><code><span class="doccomment">//! This are the common types and utility tools for using WebAssembly</span>
 <span class="doccomment">//! in a Rust environment.</span>
 <span class="doccomment">//!</span>
@@ -194,6 +195,7 @@
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::initializers</span>::{
     <span class="ident">DataInitializer</span>, <span class="ident">DataInitializerLocation</span>, <span class="ident">OwnedDataInitializer</span>, <span class="ident">TableInitializer</span>,
 };
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::memory</span>::{<span class="ident">Memory32</span>, <span class="ident">Memory64</span>, <span class="ident">MemorySize</span>};
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::module</span>::{<span class="ident">ExportsIterator</span>, <span class="ident">ImportsIterator</span>, <span class="ident">ModuleInfo</span>};
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::native</span>::{<span class="ident">NativeWasmType</span>, <span class="ident">ValueType</span>};
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::units</span>::{

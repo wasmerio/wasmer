@@ -651,10 +651,23 @@
 <span id="649">649</span>
 <span id="650">650</span>
 <span id="651">651</span>
+<span id="652">652</span>
+<span id="653">653</span>
+<span id="654">654</span>
+<span id="655">655</span>
+<span id="656">656</span>
+<span id="657">657</span>
+<span id="658">658</span>
+<span id="659">659</span>
+<span id="660">660</span>
+<span id="661">661</span>
+<span id="662">662</span>
+<span id="663">663</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">anyhow::Context</span>;
 <span class="kw">use</span> <span class="ident">std::fs</span>::{<span class="ident">read_dir</span>, <span class="ident">File</span>, <span class="ident">OpenOptions</span>, <span class="ident">ReadDir</span>};
 <span class="kw">use</span> <span class="ident">std::io</span>::{<span class="self">self</span>, <span class="ident">Read</span>, <span class="ident">Seek</span>, <span class="ident">Write</span>};
 <span class="kw">use</span> <span class="ident">std::path</span>::{<span class="ident">Path</span>, <span class="ident">PathBuf</span>};
+<span class="kw">use</span> <span class="ident">std::sync</span>::{<span class="ident">mpsc</span>, <span class="ident">Arc</span>, <span class="ident">Mutex</span>};
 <span class="kw">use</span> <span class="ident">wasmer</span>::{<span class="ident">Imports</span>, <span class="ident">Instance</span>, <span class="ident">Module</span>, <span class="ident">Store</span>};
 <span class="kw">use</span> <span class="ident">wasmer_vfs</span>::{<span class="ident">host_fs</span>, <span class="ident">mem_fs</span>, <span class="ident">FileSystem</span>};
 <span class="kw">use</span> <span class="ident">wasmer_wasi::types</span>::{<span class="ident">__wasi_filesize_t</span>, <span class="ident">__wasi_timestamp_t</span>};
@@ -692,33 +705,18 @@
 <span class="comment">// TODO: add `test_fs` here to sandbox better</span>
 <span class="kw">const</span> <span class="ident">BASE_TEST_DIR</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="macro">concat!</span>(<span class="macro">env!</span>(<span class="string">&quot;CARGO_MANIFEST_DIR&quot;</span>), <span class="string">&quot;/../../wasi-wast/wasi/&quot;</span>);
 
-<span class="kw">fn</span> <span class="ident">get_stdout_output</span>(<span class="ident">wasi_state</span>: <span class="kw-2">&amp;</span><span class="ident">WasiState</span>) -&gt; <span class="ident">anyhow::Result</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">stdout_boxed</span> <span class="op">=</span> <span class="ident">wasi_state</span>.<span class="ident">fs</span>.<span class="ident">stdout</span>()<span class="question-mark">?</span>.<span class="ident">as_ref</span>().<span class="ident">unwrap</span>();
-    <span class="kw">let</span> <span class="ident">stdout</span> <span class="op">=</span> (<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="kw-2">*</span><span class="ident">stdout_boxed</span>)
-        .<span class="ident">downcast_ref</span>::<span class="op">&lt;</span><span class="ident">OutputCapturerer</span><span class="op">&gt;</span>()
-        .<span class="ident">unwrap</span>();
-    <span class="kw">let</span> <span class="ident">stdout_str</span> <span class="op">=</span> <span class="ident">std::str::from_utf8</span>(<span class="kw-2">&amp;</span><span class="ident">stdout</span>.<span class="ident">output</span>)<span class="question-mark">?</span>;
+<span class="kw">fn</span> <span class="ident">get_stdio_output</span>(<span class="ident">rx</span>: <span class="kw-2">&amp;</span><span class="ident">mpsc::Receiver</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span>) -&gt; <span class="ident">anyhow::Result</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span> {
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">stdio</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
+    <span class="kw">while</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="kw-2">mut</span> <span class="ident">buf</span>) <span class="op">=</span> <span class="ident">rx</span>.<span class="ident">try_recv</span>() {
+        <span class="ident">stdio</span>.<span class="ident">append</span>(<span class="kw-2">&amp;mut</span> <span class="ident">buf</span>);
+    }
+    <span class="kw">let</span> <span class="ident">stdout_str</span> <span class="op">=</span> <span class="ident">std::str::from_utf8</span>(<span class="kw-2">&amp;</span><span class="ident">stdio</span>[..])<span class="question-mark">?</span>;
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>)]</span>
     <span class="comment">// normalize line endings</span>
     <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">stdout_str</span>.<span class="ident">replace</span>(<span class="string">&quot;\r\n&quot;</span>, <span class="string">&quot;\n&quot;</span>));
 
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>))]</span>
     <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">stdout_str</span>.<span class="ident">to_string</span>());
-}
-
-<span class="kw">fn</span> <span class="ident">get_stderr_output</span>(<span class="ident">wasi_state</span>: <span class="kw-2">&amp;</span><span class="ident">WasiState</span>) -&gt; <span class="ident">anyhow::Result</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">stderr_boxed</span> <span class="op">=</span> <span class="ident">wasi_state</span>.<span class="ident">fs</span>.<span class="ident">stderr</span>()<span class="question-mark">?</span>.<span class="ident">as_ref</span>().<span class="ident">unwrap</span>();
-    <span class="kw">let</span> <span class="ident">stderr</span> <span class="op">=</span> (<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="kw-2">*</span><span class="ident">stderr_boxed</span>)
-        .<span class="ident">downcast_ref</span>::<span class="op">&lt;</span><span class="ident">OutputCapturerer</span><span class="op">&gt;</span>()
-        .<span class="ident">unwrap</span>();
-    <span class="kw">let</span> <span class="ident">stderr_str</span> <span class="op">=</span> <span class="ident">std::str::from_utf8</span>(<span class="kw-2">&amp;</span><span class="ident">stderr</span>.<span class="ident">output</span>)<span class="question-mark">?</span>;
-
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>)]</span>
-    <span class="comment">// normalize line endings</span>
-    <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">stderr_str</span>.<span class="ident">replace</span>(<span class="string">&quot;\r\n&quot;</span>, <span class="string">&quot;\n&quot;</span>));
-
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>))]</span>
-    <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">stderr_str</span>.<span class="ident">to_string</span>());
 }
 
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
@@ -749,15 +747,15 @@
             <span class="ident">out</span>
         };
         <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">Module::new</span>(<span class="ident">store</span>, <span class="kw-2">&amp;</span><span class="ident">wasm_bytes</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> (<span class="ident">env</span>, <span class="ident">_tempdirs</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">create_wasi_env</span>(<span class="ident">filesystem_kind</span>)<span class="question-mark">?</span>;
+        <span class="kw">let</span> (<span class="ident">env</span>, <span class="ident">_tempdirs</span>, <span class="ident">stdout_rx</span>, <span class="ident">stderr_rx</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">create_wasi_env</span>(<span class="ident">filesystem_kind</span>)<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="ident">imports</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_imports</span>(<span class="ident">store</span>, <span class="kw-2">&amp;</span><span class="ident">module</span>, <span class="ident">env</span>.<span class="ident">clone</span>())<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> <span class="ident">Instance::new</span>(<span class="kw-2">&amp;</span><span class="ident">module</span>, <span class="kw-2">&amp;</span><span class="ident">imports</span>)<span class="question-mark">?</span>;
 
         <span class="kw">let</span> <span class="ident">start</span> <span class="op">=</span> <span class="ident">instance</span>.<span class="ident">exports</span>.<span class="ident">get_function</span>(<span class="string">&quot;_start&quot;</span>)<span class="question-mark">?</span>;
 
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">stdin</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">stdin</span> {
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">state</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">state</span>();
-            <span class="kw">let</span> <span class="ident">wasi_stdin</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">stdin_mut</span>()<span class="question-mark">?</span>.<span class="ident">as_mut</span>().<span class="ident">unwrap</span>();
+            <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">state</span>();
+            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">wasi_stdin</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">stdin</span>().<span class="ident">unwrap</span>().<span class="ident">unwrap</span>();
             <span class="comment">// Then we can write to it!</span>
             <span class="macro">write!</span>(<span class="ident">wasi_stdin</span>, <span class="string">&quot;{}&quot;</span>, <span class="ident">stdin</span>.<span class="ident">stream</span>)<span class="question-mark">?</span>;
         }
@@ -766,9 +764,8 @@
         <span class="kw">match</span> <span class="ident">start</span>.<span class="ident">call</span>(<span class="kw-2">&amp;</span>[]) {
             <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; {}
             <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; {
-                <span class="kw">let</span> <span class="ident">wasi_state</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">state</span>();
-                <span class="kw">let</span> <span class="ident">stdout_str</span> <span class="op">=</span> <span class="ident">get_stdout_output</span>(<span class="kw-2">&amp;</span><span class="ident">wasi_state</span>)<span class="question-mark">?</span>;
-                <span class="kw">let</span> <span class="ident">stderr_str</span> <span class="op">=</span> <span class="ident">get_stderr_output</span>(<span class="kw-2">&amp;</span><span class="ident">wasi_state</span>)<span class="question-mark">?</span>;
+                <span class="kw">let</span> <span class="ident">stdout_str</span> <span class="op">=</span> <span class="ident">get_stdio_output</span>(<span class="kw-2">&amp;</span><span class="ident">stdout_rx</span>)<span class="question-mark">?</span>;
+                <span class="kw">let</span> <span class="ident">stderr_str</span> <span class="op">=</span> <span class="ident">get_stdio_output</span>(<span class="kw-2">&amp;</span><span class="ident">stderr_rx</span>)<span class="question-mark">?</span>;
                 <span class="prelude-val">Err</span>(<span class="ident">e</span>).<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> {
                     <span class="macro">format!</span>(
                         <span class="string">&quot;failed to run WASI `_start` function: failed with stdout: \&quot;{}\&quot;\nstderr: \&quot;{}\&quot;&quot;</span>,
@@ -779,15 +776,13 @@
             }
         }
 
-        <span class="kw">let</span> <span class="ident">wasi_state</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">state</span>();
-
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">expected_stdout</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">assert_stdout</span> {
-            <span class="kw">let</span> <span class="ident">stdout_str</span> <span class="op">=</span> <span class="ident">get_stdout_output</span>(<span class="kw-2">&amp;</span><span class="ident">wasi_state</span>)<span class="question-mark">?</span>;
+            <span class="kw">let</span> <span class="ident">stdout_str</span> <span class="op">=</span> <span class="ident">get_stdio_output</span>(<span class="kw-2">&amp;</span><span class="ident">stdout_rx</span>)<span class="question-mark">?</span>;
             <span class="macro">assert_eq!</span>(<span class="ident">stdout_str</span>, <span class="ident">expected_stdout</span>.<span class="ident">expected</span>);
         }
 
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">expected_stderr</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">assert_stderr</span> {
-            <span class="kw">let</span> <span class="ident">stderr_str</span> <span class="op">=</span> <span class="ident">get_stderr_output</span>(<span class="kw-2">&amp;</span><span class="ident">wasi_state</span>)<span class="question-mark">?</span>;
+            <span class="kw">let</span> <span class="ident">stderr_str</span> <span class="op">=</span> <span class="ident">get_stdio_output</span>(<span class="kw-2">&amp;</span><span class="ident">stderr_rx</span>)<span class="question-mark">?</span>;
             <span class="macro">assert_eq!</span>(<span class="ident">stderr_str</span>, <span class="ident">expected_stderr</span>.<span class="ident">expected</span>);
         }
 
@@ -795,10 +790,16 @@
     }
 
     <span class="doccomment">/// Create the wasi env with the given metadata.</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::type_complexity</span>)]</span>
     <span class="kw">fn</span> <span class="ident">create_wasi_env</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">filesystem_kind</span>: <span class="ident">WasiFileSystemKind</span>,
-    ) -&gt; <span class="ident">anyhow::Result</span><span class="op">&lt;</span>(<span class="ident">WasiEnv</span>, <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">tempfile::TempDir</span><span class="op">&gt;</span>)<span class="op">&gt;</span> {
+    ) -&gt; <span class="ident">anyhow::Result</span><span class="op">&lt;</span>(
+        <span class="ident">WasiEnv</span>,
+        <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">tempfile::TempDir</span><span class="op">&gt;</span>,
+        <span class="ident">mpsc::Receiver</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+        <span class="ident">mpsc::Receiver</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    )<span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">builder</span> <span class="op">=</span> <span class="ident">WasiState::new</span>(<span class="self">self</span>.<span class="ident">wasm_path</span>);
 
         <span class="kw">let</span> <span class="ident">stdin_pipe</span> <span class="op">=</span> <span class="ident">Pipe::new</span>();
@@ -869,15 +870,17 @@
             }
         }
 
+        <span class="kw">let</span> (<span class="ident">stdout</span>, <span class="ident">stdout_rx</span>) <span class="op">=</span> <span class="ident">OutputCapturerer::new</span>();
+        <span class="kw">let</span> (<span class="ident">stderr</span>, <span class="ident">stderr_rx</span>) <span class="op">=</span> <span class="ident">OutputCapturerer::new</span>();
         <span class="kw">let</span> <span class="ident">out</span> <span class="op">=</span> <span class="ident">builder</span>
             .<span class="ident">args</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">args</span>)
             <span class="comment">// adding this causes some tests to fail. TODO: investigate this</span>
             <span class="comment">//.env(&quot;RUST_BACKTRACE&quot;, &quot;1&quot;)</span>
-            .<span class="ident">stdout</span>(<span class="ident">Box::new</span>(<span class="ident">OutputCapturerer::new</span>()))
-            .<span class="ident">stderr</span>(<span class="ident">Box::new</span>(<span class="ident">OutputCapturerer::new</span>()))
+            .<span class="ident">stdout</span>(<span class="ident">Box::new</span>(<span class="ident">stdout</span>))
+            .<span class="ident">stderr</span>(<span class="ident">Box::new</span>(<span class="ident">stderr</span>))
             .<span class="ident">finalize</span>()<span class="question-mark">?</span>;
 
-        <span class="prelude-val">Ok</span>((<span class="ident">out</span>, <span class="ident">host_temp_dirs_to_not_drop</span>))
+        <span class="prelude-val">Ok</span>((<span class="ident">out</span>, <span class="ident">host_temp_dirs_to_not_drop</span>, <span class="ident">stdout_rx</span>, <span class="ident">stderr_rx</span>))
     }
 
     <span class="doccomment">/// Get the correct [`WasiVersion`] from the Wasm [`Module`].</span>
@@ -1181,14 +1184,20 @@
     }
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
 <span class="kw">struct</span> <span class="ident">OutputCapturerer</span> {
-    <span class="ident">output</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,
+    <span class="ident">output</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">Mutex</span><span class="op">&lt;</span><span class="ident">mpsc::Sender</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">OutputCapturerer</span> {
-    <span class="kw">fn</span> <span class="ident">new</span>() -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> { <span class="ident">output</span>: <span class="macro">vec!</span>[] }
+    <span class="kw">fn</span> <span class="ident">new</span>() -&gt; (<span class="self">Self</span>, <span class="ident">mpsc::Receiver</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span>) {
+        <span class="kw">let</span> (<span class="ident">tx</span>, <span class="ident">rx</span>) <span class="op">=</span> <span class="ident">mpsc::channel</span>();
+        (
+            <span class="self">Self</span> {
+                <span class="ident">output</span>: <span class="ident">Arc::new</span>(<span class="ident">Mutex::new</span>(<span class="ident">tx</span>)),
+            },
+            <span class="ident">rx</span>,
+        )
     }
 }
 
@@ -1228,18 +1237,33 @@
 }
 <span class="kw">impl</span> <span class="ident">Write</span> <span class="kw">for</span> <span class="ident">OutputCapturerer</span> {
     <span class="kw">fn</span> <span class="ident">write</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="ident">io::Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">output</span>.<span class="ident">extend_from_slice</span>(<span class="ident">buf</span>);
+        <span class="self">self</span>.<span class="ident">output</span>
+            .<span class="ident">lock</span>()
+            .<span class="ident">unwrap</span>()
+            .<span class="ident">send</span>(<span class="ident">buf</span>.<span class="ident">to_vec</span>())
+            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">err</span><span class="op">|</span> <span class="ident">io::Error::new</span>(<span class="ident">io::ErrorKind::BrokenPipe</span>, <span class="ident">err</span>.<span class="ident">to_string</span>()))<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(<span class="ident">buf</span>.<span class="ident">len</span>())
     }
     <span class="kw">fn</span> <span class="ident">flush</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="ident">io::Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
         <span class="prelude-val">Ok</span>(())
     }
     <span class="kw">fn</span> <span class="ident">write_all</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="ident">io::Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">output</span>.<span class="ident">extend_from_slice</span>(<span class="ident">buf</span>);
+        <span class="self">self</span>.<span class="ident">output</span>
+            .<span class="ident">lock</span>()
+            .<span class="ident">unwrap</span>()
+            .<span class="ident">send</span>(<span class="ident">buf</span>.<span class="ident">to_vec</span>())
+            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">err</span><span class="op">|</span> <span class="ident">io::Error::new</span>(<span class="ident">io::ErrorKind::BrokenPipe</span>, <span class="ident">err</span>.<span class="ident">to_string</span>()))<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(())
     }
     <span class="kw">fn</span> <span class="ident">write_fmt</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">fmt</span>: <span class="ident">std::fmt::Arguments</span>) -&gt; <span class="ident">io::Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">output</span>.<span class="ident">write_fmt</span>(<span class="ident">fmt</span>)
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">buf</span> <span class="op">=</span> <span class="ident">Vec</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="ident">::new</span>();
+        <span class="ident">buf</span>.<span class="ident">write_fmt</span>(<span class="ident">fmt</span>)<span class="question-mark">?</span>;
+        <span class="self">self</span>.<span class="ident">output</span>
+            .<span class="ident">lock</span>()
+            .<span class="ident">unwrap</span>()
+            .<span class="ident">send</span>(<span class="ident">buf</span>)
+            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">err</span><span class="op">|</span> <span class="ident">io::Error::new</span>(<span class="ident">io::ErrorKind::BrokenPipe</span>, <span class="ident">err</span>.<span class="ident">to_string</span>()))<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(())
     }
 }
 

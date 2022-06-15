@@ -730,6 +730,10 @@
 <span id="728">728</span>
 <span id="729">729</span>
 <span id="730">730</span>
+<span id="731">731</span>
+<span id="732">732</span>
+<span id="733">733</span>
+<span id="734">734</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">DirEntry</span>, <span class="ident">FileDescriptor</span>, <span class="ident">FileType</span>, <span class="ident">FsError</span>, <span class="ident">Metadata</span>, <span class="ident">OpenOptions</span>, <span class="ident">OpenOptionsConfig</span>, <span class="ident">ReadDir</span>,
     <span class="prelude-ty">Result</span>, <span class="ident">VirtualFile</span>,
@@ -909,7 +913,11 @@
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">FileOpener</span>;
 
 <span class="kw">impl</span> <span class="ident"><span class="kw">crate</span>::FileOpener</span> <span class="kw">for</span> <span class="ident">FileOpener</span> {
-    <span class="kw">fn</span> <span class="ident">open</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>, <span class="ident">conf</span>: <span class="kw-2">&amp;</span><span class="ident">OpenOptionsConfig</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">VirtualFile</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">open</span>(
+        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
+        <span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>,
+        <span class="ident">conf</span>: <span class="kw-2">&amp;</span><span class="ident">OpenOptionsConfig</span>,
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">VirtualFile</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="comment">// TODO: handle create implying write, etc.</span>
         <span class="kw">let</span> <span class="ident">read</span> <span class="op">=</span> <span class="ident">conf</span>.<span class="ident">read</span>();
         <span class="kw">let</span> <span class="ident">write</span> <span class="op">=</span> <span class="ident">conf</span>.<span class="ident">write</span>();
@@ -925,7 +933,7 @@
             .<span class="ident">map_err</span>(<span class="ident">Into::into</span>)
             .<span class="ident">map</span>(<span class="op">|</span><span class="ident">file</span><span class="op">|</span> {
                 <span class="ident">Box::new</span>(<span class="ident">File::new</span>(<span class="ident">file</span>, <span class="ident">path</span>.<span class="ident">to_owned</span>(), <span class="ident">read</span>, <span class="ident">write</span>, <span class="ident">append</span>))
-                    <span class="kw">as</span> <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">VirtualFile</span><span class="op">&gt;</span>
+                    <span class="kw">as</span> <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">VirtualFile</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span>
             })
     }
 }

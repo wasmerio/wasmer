@@ -15,21 +15,101 @@
 <span id="13">13</span>
 <span id="14">14</span>
 <span id="15">15</span>
+<span id="16">16</span>
+<span id="17">17</span>
+<span id="18">18</span>
+<span id="19">19</span>
+<span id="20">20</span>
+<span id="21">21</span>
+<span id="22">22</span>
+<span id="23">23</span>
+<span id="24">24</span>
+<span id="25">25</span>
+<span id="26">26</span>
+<span id="27">27</span>
+<span id="28">28</span>
+<span id="29">29</span>
+<span id="30">30</span>
+<span id="31">31</span>
+<span id="32">32</span>
+<span id="33">33</span>
+<span id="34">34</span>
+<span id="35">35</span>
+<span id="36">36</span>
+<span id="37">37</span>
+<span id="38">38</span>
+<span id="39">39</span>
+<span id="40">40</span>
+<span id="41">41</span>
+<span id="42">42</span>
+<span id="43">43</span>
+<span id="44">44</span>
+<span id="45">45</span>
+<span id="46">46</span>
+<span id="47">47</span>
+<span id="48">48</span>
+<span id="49">49</span>
+<span id="50">50</span>
+<span id="51">51</span>
+<span id="52">52</span>
+<span id="53">53</span>
+<span id="54">54</span>
+<span id="55">55</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">wasmer_derive::ValueType</span>;
+<span class="kw">use</span> <span class="ident">wasmer_types::MemorySize</span>;
+
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::__wasi_fd_t</span>;
+
+<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">__wasi_count_t</span> <span class="op">=</span> <span class="ident">u32</span>;
+
+<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">__wasi_option_t</span> <span class="op">=</span> <span class="ident">u8</span>;
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">__WASI_OPTION_NONE</span>: <span class="ident">__wasi_option_t</span> <span class="op">=</span> <span class="number">0</span>;
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">__WASI_OPTION_SOME</span>: <span class="ident">__wasi_option_t</span> <span class="op">=</span> <span class="number">1</span>;
+
+<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">__wasi_bool_t</span> <span class="op">=</span> <span class="ident">u8</span>;
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">__WASI_BOOL_FALSE</span>: <span class="ident">__wasi_bool_t</span> <span class="op">=</span> <span class="number">0</span>;
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">__WASI_BOOL_TRUE</span>: <span class="ident">__wasi_bool_t</span> <span class="op">=</span> <span class="number">1</span>;
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">ValueType</span>)]</span>
 <span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">__wasi_ciovec_t</span> {
-    <span class="kw">pub</span> <span class="ident">buf</span>: <span class="ident">u32</span>,
-    <span class="kw">pub</span> <span class="ident">buf_len</span>: <span class="ident">u32</span>,
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">__wasi_ciovec_t</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MemorySize</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="ident">buf</span>: <span class="ident">M::Offset</span>,
+    <span class="kw">pub</span> <span class="ident">buf_len</span>: <span class="ident">M::Offset</span>,
 }
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">ValueType</span>)]</span>
 <span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">__wasi_iovec_t</span> {
-    <span class="kw">pub</span> <span class="ident">buf</span>: <span class="ident">u32</span>,
-    <span class="kw">pub</span> <span class="ident">buf_len</span>: <span class="ident">u32</span>,
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">__wasi_iovec_t</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MemorySize</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="ident">buf</span>: <span class="ident">M::Offset</span>,
+    <span class="kw">pub</span> <span class="ident">buf_len</span>: <span class="ident">M::Offset</span>,
 }
+
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">ValueType</span>)]</span>
+<span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">__wasi_tty_t</span> {
+    <span class="kw">pub</span> <span class="ident">cols</span>: <span class="ident">u32</span>,
+    <span class="kw">pub</span> <span class="ident">rows</span>: <span class="ident">u32</span>,
+    <span class="kw">pub</span> <span class="ident">width</span>: <span class="ident">u32</span>,
+    <span class="kw">pub</span> <span class="ident">height</span>: <span class="ident">u32</span>,
+    <span class="kw">pub</span> <span class="ident">stdin_tty</span>: <span class="ident">__wasi_bool_t</span>,
+    <span class="kw">pub</span> <span class="ident">stdout_tty</span>: <span class="ident">__wasi_bool_t</span>,
+    <span class="kw">pub</span> <span class="ident">stderr_tty</span>: <span class="ident">__wasi_bool_t</span>,
+    <span class="kw">pub</span> <span class="ident">echo</span>: <span class="ident">__wasi_bool_t</span>,
+    <span class="kw">pub</span> <span class="ident">line_buffered</span>: <span class="ident">__wasi_bool_t</span>,
+}
+
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">ValueType</span>)]</span>
+<span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">__wasi_pipe_handles_t</span> {
+    <span class="kw">pub</span> <span class="ident">pipe</span>: <span class="ident">__wasi_fd_t</span>,
+    <span class="kw">pub</span> <span class="ident">other</span>: <span class="ident">__wasi_fd_t</span>,
+}
+
+<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">__wasi_stdiomode_t</span> <span class="op">=</span> <span class="ident">u8</span>;
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">__WASI_STDIO_MODE_PIPED</span>: <span class="ident">__wasi_stdiomode_t</span> <span class="op">=</span> <span class="number">1</span>;
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">__WASI_STDIO_MODE_INHERIT</span>: <span class="ident">__wasi_stdiomode_t</span> <span class="op">=</span> <span class="number">2</span>;
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">__WASI_STDIO_MODE_NULL</span>: <span class="ident">__wasi_stdiomode_t</span> <span class="op">=</span> <span class="number">3</span>;
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">__WASI_STDIO_MODE_LOG</span>: <span class="ident">__wasi_stdiomode_t</span> <span class="op">=</span> <span class="number">4</span>;
 </code></pre></div>
 </section><section id="search" class="content hidden"></section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_wasi_types" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.59.0 (9d1b2106e 2022-02-23)" ></div>
 </body></html>
