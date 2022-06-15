@@ -74,7 +74,6 @@ pub fn compiler_test(attrs: TokenStream, input: TokenStream) -> TokenStream {
                                  engine_feature_name: &str|
      -> ::proc_macro2::TokenStream {
         let config_compiler = ::quote::format_ident!("{}", compiler_name);
-        let config_engine = ::quote::format_ident!("{}", engine_name);
         let test_name = ::quote::format_ident!("{}", engine_name.to_lowercase());
         let mut new_sig = func.sig.clone();
         let attrs = func
@@ -89,7 +88,7 @@ pub fn compiler_test(attrs: TokenStream, input: TokenStream) -> TokenStream {
             #attrs
             #[cfg(feature = #engine_feature_name)]
             #new_sig {
-                #fn_name(crate::Config::new(crate::Engine::#config_engine, crate::Compiler::#config_compiler))
+                #fn_name(crate::Config::new(crate::Compiler::#config_compiler))
             }
         };
         if should_ignore(

@@ -59,7 +59,6 @@ gen_tests! {
                 #[cfg(feature = "universal")]
                 fn universal() {
                     foo(crate::Config::new(
-                        crate::Engine::Universal,
                         crate::Compiler::Singlepass
                     ))
                 }
@@ -73,7 +72,6 @@ gen_tests! {
                 #[cfg(feature = "universal")]
                 fn universal() {
                     foo(crate::Config::new(
-                        crate::Engine::Universal,
                         crate::Compiler::Cranelift
                     ))
                 }
@@ -87,7 +85,6 @@ gen_tests! {
                 #[cfg(feature = "universal")]
                 fn universal() {
                     foo(crate::Config::new(
-                        crate::Engine::Universal,
                         crate::Compiler::LLVM
                     ))
                 }

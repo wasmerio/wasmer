@@ -19,19 +19,6 @@ impl Compiler {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
-pub enum Engine {
-    Universal,
-}
-
-impl Engine {
-    pub const fn to_flag(self) -> &'static str {
-        match self {
-            Engine::Universal => "--universal",
-        }
-    }
-}
-
 pub fn run_code(
     operating_dir: &Path,
     executable_path: &Path,
