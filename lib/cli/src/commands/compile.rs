@@ -1,4 +1,4 @@
-use crate::store::{EngineType, StoreOptions};
+use crate::store::StoreOptions;
 use crate::warning;
 use anyhow::{Context, Result};
 use std::path::PathBuf;
@@ -34,20 +34,6 @@ impl Compile {
             .context(format!("failed to compile `{}`", self.path.display()))
     }
 
-    pub(crate) fn get_recommend_extension(
-        engine_type: &EngineType,
-        target_triple: &Triple,
-    ) -> Result<&'static str> {
-        Ok(match engine_type {
-            #[cfg(feature = "universal")]
-            EngineType::Universal => {
-                wasmer_compiler::UniversalArtifact::get_default_extension(target_triple)
-            }
-            #[cfg(not(all(feature = "universal")))]
-            _ => bail!("selected engine type is not compiled in"),
-        })
-    }
-
     fn inner_execute(&self) -> Result<()> {
         let target = self
             .target_triple
@@ -64,14 +50,14 @@ impl Compile {
                 Target::new(target_triple.clone(), features)
             })
             .unwrap_or_default();
-        let (store, engine_type, compiler_type) =
-            self.store.get_store_for_target(target.clone())?;
+        let (store, compiler_type) = self.store.get_store_for_target(target.clone())?;
         let output_filename = self
             .output
             .file_stem()
             .map(|osstr| osstr.to_string_lossy().to_string())
             .unwrap_or_default();
-        let recommended_extension = Self::get_recommend_extension(&engine_type, target.triple())?;
+        let recommended_extension =
+            wasmer_compiler::UniversalArtifact::get_default_extension(target.triple());
         match self.output.extension() {
             Some(ext) => {
                 if ext != recommended_extension {
@@ -82,7 +68,6 @@ impl Compile {
                 warning!("the output file has no extension. We recommend using `{}.{}` for the chosen target", &output_filename, &recommended_extension)
             }
         }
-        println!("Engine: {}", engine_type.to_string());
         println!("Compiler: {}", compiler_type.to_string());
         println!("Target: {}", target.triple());
 
