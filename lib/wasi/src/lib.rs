@@ -64,7 +64,7 @@ use std::ops::Deref;
 use thiserror::Error;
 use wasmer::{
     imports, Function, Imports, LazyInit, Memory, Memory32, MemoryAccessError, MemorySize, Module,
-    Store, WasmerEnv, TypedFunction,
+    Store, TypedFunction, WasmerEnv,
 };
 
 pub use runtime::{
@@ -92,9 +92,9 @@ impl From<u32> for WasiThreadId {
         Self(id)
     }
 }
-impl Into<u32> for WasiThreadId {
-    fn into(self) -> u32 {
-        self.0 as u32
+impl From<WasiThreadId> for u32 {
+    fn from(t: WasiThreadId) -> u32 {
+        t.0 as u32
     }
 }
 
@@ -107,9 +107,9 @@ impl From<u32> for WasiBusProcessId {
         Self(id)
     }
 }
-impl Into<u32> for WasiBusProcessId {
-    fn into(self) -> u32 {
-        self.0 as u32
+impl From<WasiBusProcessId> for u32 {
+    fn from(id: WasiBusProcessId) -> u32 {
+        id.0 as u32
     }
 }
 
@@ -190,7 +190,7 @@ impl WasiEnv {
     }
 
     /// Returns a copy of the current runtime implementation for this environment
-    pub fn runtime<'a>(&'a self) -> &'a (dyn WasiRuntimeImplementation) {
+    pub fn runtime(&self) -> &(dyn WasiRuntimeImplementation) {
         self.runtime.deref()
     }
 
@@ -321,12 +321,12 @@ impl WasiEnv {
     }
 
     /// Accesses the virtual networking implementation
-    pub fn net<'a>(&'a self) -> &'a (dyn VirtualNetworking) {
+    pub fn net(&self) -> &(dyn VirtualNetworking) {
         self.runtime.networking()
     }
 
     /// Accesses the virtual bus implementation
-    pub fn bus<'a>(&'a self) -> &'a (dyn VirtualBus) {
+    pub fn bus(&self) -> &(dyn VirtualBus) {
         self.runtime.bus()
     }
     pub(crate) fn get_memory_and_wasi_state(&self, _mem_index: u32) -> (&Memory, &WasiState) {
@@ -593,7 +593,7 @@ fn generate_import_object_wasix32_v1(store: &Store, env: WasiEnv) -> Imports {
             "sock_send_to" => Function::new_native_with_env(store, env.clone(), sock_send_to),
             "sock_send_file" => Function::new_native_with_env(store, env.clone(), sock_send_file),
             "sock_shutdown" => Function::new_native_with_env(store, env.clone(), sock_shutdown),
-            "resolve" => Function::new_native_with_env(store, env.clone(), resolve),
+            "resolve" => Function::new_native_with_env(store, env, resolve),
         }
     }
 }
@@ -708,7 +708,7 @@ fn generate_import_object_wasix64_v1(store: &Store, env: WasiEnv) -> Imports {
             "sock_send_to" => Function::new_native_with_env(store, env.clone(), sock_send_to),
             "sock_send_file" => Function::new_native_with_env(store, env.clone(), sock_send_file),
             "sock_shutdown" => Function::new_native_with_env(store, env.clone(), sock_shutdown),
-            "resolve" => Function::new_native_with_env(store, env.clone(), resolve),
+            "resolve" => Function::new_native_with_env(store, env, resolve),
         }
     }
 }

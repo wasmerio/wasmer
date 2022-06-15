@@ -50,7 +50,7 @@ mod sys {
 
         fn imported_fn(env: &Env, args: &[Val]) -> Result<Vec<Val>, RuntimeError> {
             let value = env.multiplier * args[0].unwrap_i32() as u32;
-            return Ok(vec![Val::I32(value as _)]);
+            Ok(vec![Val::I32(value as _)])
         }
 
         let imported_signature = FunctionType::new(vec![Type::I32], vec![Type::I32]);

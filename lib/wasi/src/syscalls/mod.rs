@@ -147,10 +147,8 @@ where
 
     let fd_entry = state.fs.get_fd(sock)?;
     let ret = {
-        if rights != 0 {
-            if !has_rights(fd_entry.rights, rights) {
-                return Err(__WASI_EACCES);
-            }
+        if rights != 0 && !has_rights(fd_entry.rights, rights) {
+            return Err(__WASI_EACCES);
         }
 
         let inode_idx = fd_entry.inode;
@@ -181,10 +179,8 @@ where
 
     let fd_entry = state.fs.get_fd(sock)?;
     let ret = {
-        if rights != 0 {
-            if !has_rights(fd_entry.rights, rights) {
-                return Err(__WASI_EACCES);
-            }
+        if rights != 0 && !has_rights(fd_entry.rights, rights) {
+            return Err(__WASI_EACCES);
         }
 
         let inode_idx = fd_entry.inode;
@@ -216,10 +212,8 @@ where
     let (_, state, inodes) = env.get_memory_and_wasi_state_and_inodes(0);
 
     let fd_entry = state.fs.get_fd(sock)?;
-    if rights != 0 {
-        if !has_rights(fd_entry.rights, rights) {
-            return Err(__WASI_EACCES);
-        }
+    if rights != 0 && !has_rights(fd_entry.rights, rights) {
+        return Err(__WASI_EACCES);
     }
 
     let inode_idx = fd_entry.inode;
@@ -262,10 +256,10 @@ fn write_buffer_array<M: MemorySize>(
         let data =
             wasi_try_mem!(new_ptr.slice(memory, wasi_try!(to_offset::<M>(sub_buffer.len()))));
         wasi_try_mem!(data.write_slice(sub_buffer));
-        wasi_try_mem!(
-            wasi_try_mem!(new_ptr.add_offset(wasi_try!(to_offset::<M>(sub_buffer.len()))))
-                .write(memory, 0)
-        );
+        wasi_try_mem!(wasi_try_mem!(
+            new_ptr.add_offset(wasi_try!(to_offset::<M>(sub_buffer.len())))
+        )
+        .write(memory, 0));
 
         current_buffer_offset += sub_buffer.len() + 1;
     }
@@ -1259,7 +1253,7 @@ pub fn fd_readdir<M: MemorySize>(
                 // maintain consistent order via lexacographic sorting
                 let fs_info = wasi_try!(wasi_try!(state.fs_read_dir(path))
                     .collect::<Result<Vec<_>, _>>()
-                    .map_err(|e| fs_error_into_wasi_err(e)));
+                    .map_err(fs_error_into_wasi_err));
                 let mut entry_vec = wasi_try!(fs_info
                     .into_iter()
                     .map(|entry| {
@@ -1968,12 +1962,7 @@ pub fn path_filestat_get_internal(
         flags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0,
     )?;
     if inodes.arena[file_inode].is_preopened {
-        Ok(inodes.arena[file_inode]
-            .stat
-            .read()
-            .unwrap()
-            .deref()
-            .clone())
+        Ok(*inodes.arena[file_inode].stat.read().unwrap().deref())
     } else {
         let guard = inodes.arena[file_inode].read();
         state.fs.get_stat_for_kind(inodes.deref(), guard.deref())
@@ -2650,7 +2639,7 @@ pub fn path_rename<M: MemorySize>(
                     out
                 };
                 // if the above operation failed we have to revert the previous change and then fail
-                if let Err(e) = result.clone() {
+                if let Err(e) = result {
                     let mut guard = inodes.arena[source_parent_inode].write();
                     if let Kind::Dir { entries, .. } = guard.deref_mut() {
                         entries.insert(source_entry_name, source_entry);
@@ -3502,11 +3491,11 @@ pub fn thread_join(env: &WasiEnv, tid: __wasi_tid_t) -> Result<__wasi_errno_t, W
     let tid: WasiThreadId = tid.into();
     let other_thread = {
         let guard = env.state.threading.lock().unwrap();
-        guard.threads.get(&tid).map(|a| a.clone())
+        guard.threads.get(&tid).cloned()
     };
     if let Some(other_thread) = other_thread {
         loop {
-            if other_thread.join(Duration::from_millis(5)) == true {
+            if other_thread.join(Duration::from_millis(5)) {
                 break;
             }
             env.yield_now()?;
@@ -3621,7 +3610,7 @@ pub fn process_spawn<M: MemorySize>(
         __WASI_STDIO_MODE_PIPED => StdioMode::Piped,
         __WASI_STDIO_MODE_INHERIT => StdioMode::Inherit,
         __WASI_STDIO_MODE_LOG => StdioMode::Log,
-        __WASI_STDIO_MODE_NULL | _ => StdioMode::Null,
+        /*__WASI_STDIO_MODE_NULL |*/ _ => StdioMode::Null,
     };
 
     let process = wasi_try_bus!(bus
@@ -3662,7 +3651,7 @@ pub fn process_spawn<M: MemorySize>(
     };
 
     let handles = __wasi_bus_handles_t {
-        bid: bid,
+        bid,
         stdin,
         stdout,
         stderr,
@@ -3757,7 +3746,7 @@ fn bus_open_local_internal<M: MemorySize>(
         let guard = env.state.threading.lock().unwrap();
         if let Some(bid) = guard.process_reuse.get(&name) {
             if guard.processes.contains_key(bid) {
-                wasi_try_mem_bus!(ret_bid.write(memory, bid.clone().into()));
+                wasi_try_mem_bus!(ret_bid.write(memory, (*bid).into()));
                 return __BUS_ESUCCESS;
             }
         }
@@ -4074,7 +4063,7 @@ pub fn http_request<M: MemorySize>(
         request: None,
         response: None,
         headers: socket.headers,
-        status: socket.status.clone(),
+        status: socket.status,
     };
 
     let (memory, state, mut inodes) = env.get_memory_and_wasi_state_and_inodes_mut(0);
@@ -4158,7 +4147,7 @@ pub fn http_status<M: MemorySize>(
             true => __WASI_BOOL_TRUE,
             false => __WASI_BOOL_FALSE,
         },
-        size: wasi_try!(http_status.size.try_into().map_err(|_| __WASI_EOVERFLOW)),
+        size: wasi_try!(Ok(http_status.size)),
         status: http_status.status,
     };
 
@@ -4312,7 +4301,7 @@ pub fn port_addr_list<M: MemorySize>(
 
     for n in 0..addrs.len() {
         let nip = ref_addrs.index(n as u64);
-        super::state::write_cidr(memory, nip.as_ptr::<M>(), addrs.get(n).unwrap().clone());
+        super::state::write_cidr(memory, nip.as_ptr::<M>(), *addrs.get(n).unwrap());
     }
 
     __WASI_ESUCCESS
@@ -5411,7 +5400,7 @@ pub fn resolve<M: MemorySize>(
 
     let mut idx = 0;
     for found_ip in found_ips.iter().take(naddrs) {
-        super::state::write_ip(memory, addrs.index(idx).as_ptr::<M>(), found_ip.clone());
+        super::state::write_ip(memory, addrs.index(idx).as_ptr::<M>(), *found_ip);
         idx += 1;
     }
 

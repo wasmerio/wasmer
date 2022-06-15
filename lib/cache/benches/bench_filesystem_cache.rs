@@ -47,7 +47,7 @@ pub fn load_cache_universal(c: &mut Criterion) {
     fs_cache.store(key, &module).unwrap();
 
     c.bench_function("load universal module in filesystem cache", |b| {
-        b.iter(|| unsafe { fs_cache.load(&store, key.clone()).unwrap() })
+        b.iter(|| unsafe { fs_cache.load(&store, key).unwrap() })
     });
 }
 
@@ -84,7 +84,7 @@ pub fn load_cache_native(c: &mut Criterion) {
     fs_cache.store(key, &module).unwrap();
 
     c.bench_function("load native module in filesystem cache", |b| {
-        b.iter(|| unsafe { fs_cache.load(&store, key.clone()).unwrap() })
+        b.iter(|| unsafe { fs_cache.load(&store, key).unwrap() })
     });
 }
 

@@ -23,7 +23,7 @@ mod sys {
 #[cfg(feature = "js")]
 mod js {
     use wasm_bindgen_test::*;
-    
+
     #[wasm_bindgen_test]
     fn test_stdout() {
         super::test_stdout()
@@ -161,8 +161,8 @@ fn test_stdin() {
     // Let's call the `_start` function, which is our `main` function in Rust.
     let start = instance.exports.get_function("_start").unwrap();
     let result = start.call(&[]);
-    assert!(result.is_err() == false);
-    
+    assert!(!result.is_err());
+
     // We assure stdin is now empty
     let mut buf = Vec::new();
     stdin.read_to_end(&mut buf).unwrap();

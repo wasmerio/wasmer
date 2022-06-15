@@ -1,7 +1,8 @@
-use std::{sync::{
-    RwLockReadGuard, RwLockWriteGuard
-}, io::{Seek, Read}};
 use super::*;
+use std::{
+    io::{Read, Seek},
+    sync::{RwLockReadGuard, RwLockWriteGuard},
+};
 
 #[derive(Debug)]
 pub(crate) struct InodeValFileReadGuard<'a> {
@@ -48,34 +49,30 @@ pub(crate) struct WasiStateFileGuard {
     inode: generational_arena::Index,
 }
 
-impl WasiStateFileGuard
-{
+impl WasiStateFileGuard {
     pub fn new(state: &WasiState, fd: __wasi_fd_t) -> Result<Option<Self>, FsError> {
         let inodes = state.inodes.read().unwrap();
         let fd_map = state.fs.fd_map.read().unwrap();
         if let Some(fd) = fd_map.get(&fd) {
             let guard = inodes.arena[fd.inode].read();
             if let Kind::File { .. } = guard.deref() {
-                Ok(
-                    Some(
-                        Self {
-                            inodes: state.inodes.clone(),
-                            inode: fd.inode
-                        }
-                    )
-                )
+                Ok(Some(Self {
+                    inodes: state.inodes.clone(),
+                    inode: fd.inode,
+                }))
             } else {
                 // Our public API should ensure that this is not possible
                 Err(FsError::NotAFile)
             }
-            
         } else {
             Ok(None)
         }
     }
 
-    pub fn lock_read<'a>(&self, inodes: &'a RwLockReadGuard<WasiInodes>) -> InodeValFileReadGuard<'a>
-    {
+    pub fn lock_read<'a>(
+        &self,
+        inodes: &'a RwLockReadGuard<WasiInodes>,
+    ) -> InodeValFileReadGuard<'a> {
         let guard = inodes.arena[self.inode].read();
         if let Kind::File { .. } = guard.deref() {
             InodeValFileReadGuard { guard }
@@ -85,8 +82,10 @@ impl WasiStateFileGuard
         }
     }
 
-    pub fn lock_write<'a>(&self, inodes: &'a RwLockReadGuard<WasiInodes>) -> InodeValFileWriteGuard<'a>
-    {
+    pub fn lock_write<'a>(
+        &self,
+        inodes: &'a RwLockReadGuard<WasiInodes>,
+    ) -> InodeValFileWriteGuard<'a> {
         let guard = inodes.arena[self.inode].write();
         if let Kind::File { .. } = guard.deref() {
             InodeValFileWriteGuard { guard }
@@ -97,9 +96,7 @@ impl WasiStateFileGuard
     }
 }
 
-impl VirtualFile
-for WasiStateFileGuard
-{
+impl VirtualFile for WasiStateFileGuard {
     fn last_accessed(&self) -> u64 {
         let inodes = self.inodes.read().unwrap();
         let guard = self.lock_read(&inodes);
@@ -221,9 +218,7 @@ for WasiStateFileGuard
     }
 }
 
-impl Write
-for WasiStateFileGuard
-{
+impl Write for WasiStateFileGuard {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         let inodes = self.inodes.read().unwrap();
         let mut guard = self.lock_write(&inodes);
@@ -255,9 +250,7 @@ for WasiStateFileGuard
     }
 }
 
-impl Read
-for WasiStateFileGuard
-{
+impl Read for WasiStateFileGuard {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         let inodes = self.inodes.read().unwrap();
         let mut guard = self.lock_write(&inodes);
@@ -279,9 +272,7 @@ for WasiStateFileGuard
     }
 }
 
-impl Seek
-for WasiStateFileGuard
-{
+impl Seek for WasiStateFileGuard {
     fn seek(&mut self, pos: std::io::SeekFrom) -> std::io::Result<u64> {
         let inodes = self.inodes.read().unwrap();
         let mut guard = self.lock_write(&inodes);

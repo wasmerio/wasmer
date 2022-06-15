@@ -361,7 +361,7 @@ mod test {
                 "small" => g.clone()
             },
             "cat" => {
-                "small" => g.clone()
+                "small" => g
             }
         };
 

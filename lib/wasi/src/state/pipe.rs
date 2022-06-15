@@ -109,7 +109,7 @@ impl Read for WasiPipe {
             let data = rx.recv().map_err(|_| {
                 io::Error::new(
                     io::ErrorKind::BrokenPipe,
-                    format!("the wasi pipe is not connected"),
+                    "the wasi pipe is not connected".to_string(),
                 )
             })?;
             self.read_buffer.replace(Bytes::from(data));

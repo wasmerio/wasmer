@@ -81,7 +81,7 @@ impl<'a> WasiTest<'a> {
             wasm_module.read_to_end(&mut out)?;
             out
         };
-        let module = Module::new(&store, &wasm_bytes)?;
+        let module = Module::new(store, &wasm_bytes)?;
         let (env, _tempdirs, stdout_rx, stderr_rx) = self.create_wasi_env(filesystem_kind)?;
         let imports = self.get_imports(store, &module, env.clone())?;
         let instance = Instance::new(&module, &imports)?;
@@ -125,6 +125,7 @@ impl<'a> WasiTest<'a> {
     }
 
     /// Create the wasi env with the given metadata.
+    #[allow(clippy::type_complexity)]
     fn create_wasi_env(
         &self,
         filesystem_kind: WasiFileSystemKind,

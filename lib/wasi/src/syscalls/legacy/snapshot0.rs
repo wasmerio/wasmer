@@ -126,7 +126,7 @@ pub fn poll_oneoff(
 
     // we start by adjusting `in_` into a format that the new code can understand
     let memory = env.memory();
-    let nsubscriptions_offset: u32 = nsubscriptions.into();
+    let nsubscriptions_offset: u32 = nsubscriptions;
     let in_origs = wasi_try_mem_ok!(in_.slice(memory, nsubscriptions_offset));
     let in_origs = wasi_try_mem_ok!(in_origs.read_to_vec());
 

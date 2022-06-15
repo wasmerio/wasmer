@@ -32,10 +32,10 @@ static BASIC_WAT: &str = r#"(module
 )"#;
 
 pub fn run_basic_static_function(store: &Store, compiler_name: &str, c: &mut Criterion) {
-    let module = Module::new(&store, BASIC_WAT).unwrap();
+    let module = Module::new(store, BASIC_WAT).unwrap();
     let import_object = imports! {
         "env" => {
-            "multiply" => Function::new_native(&store, |a: i32, b: i32| a * b),
+            "multiply" => Function::new_native(store, |a: i32, b: i32| a * b),
         },
     };
     let instance = Instance::new(&module, &import_object).unwrap();
@@ -93,10 +93,10 @@ pub fn run_basic_static_function(store: &Store, compiler_name: &str, c: &mut Cri
 }
 
 pub fn run_basic_dynamic_function(store: &Store, compiler_name: &str, c: &mut Criterion) {
-    let module = Module::new(&store, BASIC_WAT).unwrap();
+    let module = Module::new(store, BASIC_WAT).unwrap();
     let import_object = imports! {
         "env" => {
-            "multiply" => Function::new_native(&store, |a: i32, b: i32| a * b),
+            "multiply" => Function::new_native(store, |a: i32, b: i32| a * b),
         },
     };
     let instance = Instance::new(&module, &import_object).unwrap();

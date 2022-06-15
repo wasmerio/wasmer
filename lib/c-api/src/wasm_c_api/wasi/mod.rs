@@ -16,8 +16,8 @@ use std::os::raw::c_char;
 use std::slice;
 use wasmer_api::{Exportable, Extern};
 use wasmer_wasi::{
-    generate_import_object_from_env, get_wasi_version, WasiEnv, WasiFile, WasiState,
-    WasiStateBuilder, WasiVersion, Pipe,
+    generate_import_object_from_env, get_wasi_version, Pipe, WasiEnv, WasiFile, WasiState,
+    WasiStateBuilder, WasiVersion,
 };
 
 #[derive(Debug)]
@@ -172,15 +172,11 @@ pub struct wasi_env_t {
 #[no_mangle]
 pub extern "C" fn wasi_env_new(mut config: Box<wasi_config_t>) -> Option<Box<wasi_env_t>> {
     if !config.inherit_stdout {
-        config
-            .state_builder
-            .stdout(Box::new(Pipe::new()));
+        config.state_builder.stdout(Box::new(Pipe::new()));
     }
 
     if !config.inherit_stderr {
-        config
-            .state_builder
-            .stderr(Box::new(Pipe::new()));
+        config.state_builder.stderr(Box::new(Pipe::new()));
     }
 
     // TODO: impl capturer for stdin
@@ -210,11 +206,11 @@ pub unsafe extern "C" fn wasi_env_read_stdout(
             read_inner(stdout, inner_buffer)
         } else {
             update_last_error("could not find a file handle for `stdout`");
-            return -1;
+            -1
         }
     } else {
         update_last_error("could not find a file handle for `stdout`");
-        return -1;
+        -1
     }
 }
 
@@ -231,20 +227,23 @@ pub unsafe extern "C" fn wasi_env_read_stderr(
             read_inner(stderr, inner_buffer)
         } else {
             update_last_error("could not find a file handle for `stderr`");
-            return -1;
+            -1
         }
     } else {
         update_last_error("could not find a file handle for `stderr`");
-        return -1;
-    }    
+        -1
+    }
 }
 
-fn read_inner(wasi_file: &mut Box<dyn WasiFile + Send + Sync + 'static>, inner_buffer: &mut [u8]) -> isize {
+fn read_inner(
+    wasi_file: &mut Box<dyn WasiFile + Send + Sync + 'static>,
+    inner_buffer: &mut [u8],
+) -> isize {
     match wasi_file.read(inner_buffer) {
         Ok(a) => a as isize,
         Err(err) => {
             update_last_error(format!("failed to read wasi_file: {}", err));
-            -1    
+            -1
         }
     }
 }

@@ -98,12 +98,12 @@ impl Wasi {
 
         let mut wasi_env = wasi_state_builder.finalize()?;
         wasi_env.state.fs.is_wasix.store(
-            is_wasix_module(&module),
+            is_wasix_module(module),
             std::sync::atomic::Ordering::Release,
         );
 
         let import_object = wasi_env.import_object_for_all_wasi_versions(module)?;
-        let instance = Instance::new(&module, &import_object)?;
+        let instance = Instance::new(module, &import_object)?;
         Ok(instance)
     }
 

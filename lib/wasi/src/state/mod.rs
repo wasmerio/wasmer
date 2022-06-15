@@ -16,16 +16,16 @@
 #![allow(clippy::cognitive_complexity, clippy::too_many_arguments)]
 
 mod builder;
+mod guard;
 mod pipe;
 mod socket;
 mod types;
-mod guard;
 
 pub use self::builder::*;
+pub use self::guard::*;
 pub use self::pipe::*;
 pub use self::socket::*;
 pub use self::types::*;
-pub use self::guard::*;
 use crate::syscalls::types::*;
 use crate::utils::map_io_err;
 use crate::WasiBusProcessId;
@@ -1232,13 +1232,12 @@ impl WasiFs {
         path: &str,
         follow_symlinks: bool,
     ) -> Result<Inode, __wasi_errno_t> {
-        let start_inode;
-        if path.starts_with("/") == false && self.is_wasix.load(Ordering::Acquire) {
+        let start_inode = if !path.starts_with('/') && self.is_wasix.load(Ordering::Acquire) {
             let (cur_inode, _) = self.get_current_dir(inodes, base)?;
-            start_inode = cur_inode;
+            cur_inode
         } else {
-            start_inode = self.get_fd_inode(base)?;
-        }
+            self.get_fd_inode(base)?
+        };
 
         self.get_inode_at_path_inner(inodes, start_inode, path, 0, follow_symlinks)
     }
@@ -1294,7 +1293,7 @@ impl WasiFs {
         fd: __wasi_fd_t,
     ) -> Result<__wasi_filestat_t, __wasi_errno_t> {
         let inode = self.get_fd_inode(fd)?;
-        Ok(inodes.arena[inode].stat.read().unwrap().deref().clone())
+        Ok(*inodes.arena[inode].stat.read().unwrap().deref())
     }
 
     pub fn fdstat(
@@ -1390,7 +1389,7 @@ impl WasiFs {
                 .stdout_mut(&self.fd_map)
                 .map_err(fs_error_into_wasi_err)?
                 .as_mut()
-                .and_then(|f| Some(f.flush().map_err(map_io_err)))
+                .map(|f| f.flush().map_err(map_io_err))
                 .unwrap_or_else(|| Err(__WASI_EIO))?,
             __WASI_STDERR_FILENO => inodes
                 .stderr_mut(&self.fd_map)
@@ -1406,13 +1405,9 @@ impl WasiFs {
 
                 let mut guard = inodes.arena[fd.inode].write();
                 match guard.deref_mut() {
-                    Kind::File { handle, .. } => {
-                        if let Some(file) = handle {
-                            file.flush().map_err(|_| __WASI_EIO)?
-                        } else {
-                            return Err(__WASI_EIO);
-                        }
-                    }
+                    Kind::File {
+                        handle: Some(file), ..
+                    } => file.flush().map_err(|_| __WASI_EIO)?,
                     // TODO: verify this behavior
                     Kind::Dir { .. } => return Err(__WASI_EISDIR),
                     Kind::Symlink { .. } => unimplemented!("WasiFs::flush Kind::Symlink"),
@@ -1872,9 +1867,7 @@ impl WasiState {
     }
 
     /// Get the `VirtualFile` object at stdout
-    pub fn stdout(
-        &self,
-    ) -> Result<Option<Box<dyn VirtualFile + Send + Sync + 'static>>, FsError> {
+    pub fn stdout(&self) -> Result<Option<Box<dyn VirtualFile + Send + Sync + 'static>>, FsError> {
         self.std_dev_get(__WASI_STDOUT_FILENO)
     }
 
@@ -1883,15 +1876,13 @@ impl WasiState {
         note = "stdout_mut() is no longer needed - just use stdout() instead"
     )]
     pub fn stdout_mut(
-        &self
+        &self,
     ) -> Result<Option<Box<dyn VirtualFile + Send + Sync + 'static>>, FsError> {
         self.stdout()
     }
-    
+
     /// Get the `VirtualFile` object at stderr
-    pub fn stderr(
-        &self,
-    ) -> Result<Option<Box<dyn VirtualFile + Send + Sync + 'static>>, FsError> {
+    pub fn stderr(&self) -> Result<Option<Box<dyn VirtualFile + Send + Sync + 'static>>, FsError> {
         self.std_dev_get(__WASI_STDERR_FILENO)
     }
 
@@ -1900,15 +1891,13 @@ impl WasiState {
         note = "stderr_mut() is no longer needed - just use stderr() instead"
     )]
     pub fn stderr_mut(
-        &self
+        &self,
     ) -> Result<Option<Box<dyn VirtualFile + Send + Sync + 'static>>, FsError> {
         self.stderr()
     }
 
     /// Get the `VirtualFile` object at stdin
-    pub fn stdin(
-        &self,
-    ) -> Result<Option<Box<dyn VirtualFile + Send + Sync + 'static>>, FsError> {
+    pub fn stdin(&self) -> Result<Option<Box<dyn VirtualFile + Send + Sync + 'static>>, FsError> {
         self.std_dev_get(__WASI_STDIN_FILENO)
     }
 
@@ -1917,7 +1906,7 @@ impl WasiState {
         note = "stdin_mut() is no longer needed - just use stdin() instead"
     )]
     pub fn stdin_mut(
-        &self
+        &self,
     ) -> Result<Option<Box<dyn VirtualFile + Send + Sync + 'static>>, FsError> {
         self.stdin()
     }
@@ -1928,15 +1917,12 @@ impl WasiState {
         &self,
         fd: __wasi_fd_t,
     ) -> Result<Option<Box<dyn VirtualFile + Send + Sync + 'static>>, FsError> {
-        let ret = WasiStateFileGuard::new(self, fd)?
-            .map(|a| {
-                let ret = Box::new(a);
-                let ret: Box<dyn VirtualFile + Send + Sync + 'static> = ret;
-                ret
-            });
-        Ok(
+        let ret = WasiStateFileGuard::new(self, fd)?.map(|a| {
+            let ret = Box::new(a);
+            let ret: Box<dyn VirtualFile + Send + Sync + 'static> = ret;
             ret
-        )
+        });
+        Ok(ret)
     }
 }
 

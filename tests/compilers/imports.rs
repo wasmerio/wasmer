@@ -38,7 +38,7 @@ fn get_module(store: &Store) -> Result<Module> {
         (start $foo)
     "#;
 
-    let module = Module::new(&store, &wat)?;
+    let module = Module::new(store, &wat)?;
     Ok(module)
 }
 
@@ -311,7 +311,7 @@ fn get_module2(store: &Store) -> Result<Module> {
           (call 0))
     "#;
 
-    let module = Module::new(&store, &wat)?;
+    let module = Module::new(store, &wat)?;
     Ok(module)
 }
 
@@ -334,7 +334,7 @@ fn dynamic_function_with_env_wasmer_env_init_works(config: crate::Config) -> Res
         &module,
         &imports! {
             "host" => {
-                "fn" => Function::new_with_env(&store, FunctionType::new(vec![], vec![]), env.clone(), |env, _values| {
+                "fn" => Function::new_with_env(&store, FunctionType::new(vec![], vec![]), env, |env, _values| {
                     assert!(env.memory_ref().is_some());
                     Ok(vec![])
                 }),
@@ -375,7 +375,7 @@ fn multi_use_host_fn_manages_memory_correctly(config: crate::Config) -> Result<(
 
     let imports = imports! {
         "host" => {
-            "fn" => Function::new_native_with_env(&store, env.clone(), host_fn),
+            "fn" => Function::new_native_with_env(&store, env, host_fn),
         },
     };
     let instance1 = Instance::new(&module, &imports)?;

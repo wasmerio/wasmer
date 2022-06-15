@@ -101,7 +101,7 @@ fn complex_loop(mut config: crate::Config) -> Result<()> {
     //    }
     //    return y;
     // }
-    static WAT: &'static str = r#"
+    static WAT: &str = r#"
     (module
         (type $t0 (func (param i32 i32) (result i32)))
         (type $t1 (func))

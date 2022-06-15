@@ -28,9 +28,9 @@ impl From<u32> for FileDescriptor {
     }
 }
 
-impl Into<u32> for FileDescriptor {
-    fn into(self) -> u32 {
-        self.0 as u32
+impl From<FileDescriptor> for u32 {
+    fn from(a: FileDescriptor) -> u32 {
+        a.0 as u32
     }
 }
 
@@ -162,7 +162,10 @@ impl OpenOptions {
         self
     }
 
-    pub fn open<P: AsRef<Path>>(&mut self, path: P) -> Result<Box<dyn VirtualFile + Send + Sync + 'static>> {
+    pub fn open<P: AsRef<Path>>(
+        &mut self,
+        path: P,
+    ) -> Result<Box<dyn VirtualFile + Send + Sync + 'static>> {
         self.opener.open(path.as_ref(), &self.conf)
     }
 }
@@ -198,8 +201,8 @@ pub trait VirtualFile: fmt::Debug + Write + Read + Seek + Upcastable {
 
     /// Returns the number of bytes available.  This function must not block
     fn bytes_available(&self) -> Result<usize> {
-        return Ok(self.bytes_available_read()?.unwrap_or(0usize)
-            + self.bytes_available_write()?.unwrap_or(0usize));
+        Ok(self.bytes_available_read()?.unwrap_or(0usize)
+            + self.bytes_available_write()?.unwrap_or(0usize))
     }
 
     /// Returns the number of bytes available.  This function must not block

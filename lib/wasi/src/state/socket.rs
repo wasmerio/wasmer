@@ -120,7 +120,7 @@ impl From<__wasi_sockoption_t> for WasiSocketOption {
             __WASI_SOCK_OPTION_MULTICAST_TTL_V4 => MulticastTtlV4,
             __WASI_SOCK_OPTION_TYPE => Type,
             __WASI_SOCK_OPTION_PROTO => Proto,
-            _ => return Noop,
+            _ => Noop,
         }
     }
 }
@@ -174,12 +174,12 @@ impl InodeSocket {
             } => {
                 match *family {
                     __WASI_ADDRESS_FAMILY_INET4 => {
-                        if set_addr.is_ipv4() == false {
+                        if !set_addr.is_ipv4() {
                             return Err(__WASI_EINVAL);
                         }
                     }
                     __WASI_ADDRESS_FAMILY_INET6 => {
-                        if set_addr.is_ipv6() == false {
+                        if !set_addr.is_ipv6() {
                             return Err(__WASI_EINVAL);
                         }
                     }
@@ -189,7 +189,7 @@ impl InodeSocket {
                 }
 
                 addr.replace(set_addr);
-                let addr = addr.clone().unwrap();
+                let addr = (*addr).unwrap();
 
                 Ok(match *ty {
                     __WASI_SOCK_TYPE_STREAM => {
@@ -229,13 +229,13 @@ impl InodeSocket {
                     if addr.is_none() {
                         return Err(__WASI_EINVAL);
                     }
-                    let addr = addr.as_ref().unwrap().clone();
+                    let addr = *addr.as_ref().unwrap();
                     let mut socket = net
                         .listen_tcp(addr, *only_v6, *reuse_port, *reuse_addr)
                         .map_err(net_error_into_wasi_err)?;
                     if let Some(accept_timeout) = accept_timeout {
                         socket
-                            .set_timeout(Some(accept_timeout.clone()))
+                            .set_timeout(Some(*accept_timeout))
                             .map_err(net_error_into_wasi_err)?;
                     }
                     Some(InodeSocket::new(InodeSocketKind::TcpListener(socket)))
@@ -292,7 +292,7 @@ impl InodeSocket {
             } => Ok(match *ty {
                 __WASI_SOCK_TYPE_STREAM => {
                     let addr = match addr {
-                        Some(a) => a.clone(),
+                        Some(a) => *a,
                         None => {
                             let ip = match peer.is_ipv4() {
                                 true => IpAddr::V4(Ipv4Addr::UNSPECIFIED),
@@ -302,16 +302,16 @@ impl InodeSocket {
                         }
                     };
                     let mut socket = net
-                        .connect_tcp(addr, peer, connect_timeout.clone())
+                        .connect_tcp(addr, peer, *connect_timeout)
                         .map_err(net_error_into_wasi_err)?;
                     if let Some(timeout) = send_timeout {
                         socket
-                            .set_opt_time(TimeType::WriteTimeout, Some(timeout.clone()))
+                            .set_opt_time(TimeType::WriteTimeout, Some(*timeout))
                             .map_err(net_error_into_wasi_err)?;
                     }
                     if let Some(timeout) = recv_timeout {
                         socket
-                            .set_opt_time(TimeType::ReadTimeout, Some(timeout.clone()))
+                            .set_opt_time(TimeType::ReadTimeout, Some(*timeout))
                             .map_err(net_error_into_wasi_err)?;
                     }
                     Some(InodeSocket::new(InodeSocketKind::TcpStream(socket)))
@@ -366,12 +366,12 @@ impl InodeSocket {
         Ok(match &self.kind {
             InodeSocketKind::PreSocket { family, addr, .. } => {
                 if let Some(addr) = addr {
-                    addr.clone()
+                    *addr
                 } else {
                     SocketAddr::new(
-                        match family {
-                            &__WASI_ADDRESS_FAMILY_INET4 => IpAddr::V4(Ipv4Addr::UNSPECIFIED),
-                            &__WASI_ADDRESS_FAMILY_INET6 => IpAddr::V6(Ipv6Addr::UNSPECIFIED),
+                        match *family {
+                            __WASI_ADDRESS_FAMILY_INET4 => IpAddr::V4(Ipv4Addr::UNSPECIFIED),
+                            __WASI_ADDRESS_FAMILY_INET6 => IpAddr::V6(Ipv6Addr::UNSPECIFIED),
                             _ => return Err(__WASI_EINVAL),
                         },
                         0,
@@ -396,9 +396,9 @@ impl InodeSocket {
     pub fn addr_peer(&self) -> Result<SocketAddr, __wasi_errno_t> {
         Ok(match &self.kind {
             InodeSocketKind::PreSocket { family, .. } => SocketAddr::new(
-                match family {
-                    &__WASI_ADDRESS_FAMILY_INET4 => IpAddr::V4(Ipv4Addr::UNSPECIFIED),
-                    &__WASI_ADDRESS_FAMILY_INET6 => IpAddr::V6(Ipv6Addr::UNSPECIFIED),
+                match *family {
+                    __WASI_ADDRESS_FAMILY_INET4 => IpAddr::V4(Ipv4Addr::UNSPECIFIED),
+                    __WASI_ADDRESS_FAMILY_INET6 => IpAddr::V6(Ipv6Addr::UNSPECIFIED),
                     _ => return Err(__WASI_EINVAL),
                 },
                 0,
@@ -409,7 +409,7 @@ impl InodeSocket {
             InodeSocketKind::UdpSocket(sock) => sock
                 .addr_peer()
                 .map_err(net_error_into_wasi_err)?
-                .map(|addr| Ok(addr))
+                .map(Ok)
                 .unwrap_or_else(|| {
                     sock.addr_local()
                         .map_err(net_error_into_wasi_err)
@@ -533,7 +533,7 @@ impl InodeSocket {
     pub fn send_buf_size(&self) -> Result<usize, __wasi_errno_t> {
         match &self.kind {
             InodeSocketKind::PreSocket { send_buf_size, .. } => {
-                Ok(send_buf_size.clone().unwrap_or_default())
+                Ok((*send_buf_size).unwrap_or_default())
             }
             InodeSocketKind::TcpStream(sock) => {
                 sock.send_buf_size().map_err(net_error_into_wasi_err)
@@ -561,7 +561,7 @@ impl InodeSocket {
     pub fn recv_buf_size(&self) -> Result<usize, __wasi_errno_t> {
         match &self.kind {
             InodeSocketKind::PreSocket { recv_buf_size, .. } => {
-                Ok(recv_buf_size.clone().unwrap_or_default())
+                Ok((*recv_buf_size).unwrap_or_default())
             }
             InodeSocketKind::TcpStream(sock) => {
                 sock.recv_buf_size().map_err(net_error_into_wasi_err)
@@ -653,10 +653,10 @@ impl InodeSocket {
                 accept_timeout,
                 ..
             } => match ty {
-                TimeType::ConnectTimeout => Ok(connect_timeout.clone()),
-                TimeType::AcceptTimeout => Ok(accept_timeout.clone()),
-                TimeType::ReadTimeout => Ok(recv_timeout.clone()),
-                TimeType::WriteTimeout => Ok(send_timeout.clone()),
+                TimeType::ConnectTimeout => Ok(*connect_timeout),
+                TimeType::AcceptTimeout => Ok(*accept_timeout),
+                TimeType::ReadTimeout => Ok(*recv_timeout),
+                TimeType::WriteTimeout => Ok(*send_timeout),
                 _ => Err(__WASI_EINVAL),
             },
             InodeSocketKind::Closed => Err(__WASI_EIO),
@@ -781,7 +781,7 @@ impl InodeSocket {
         write_bytes(&mut buf, memory, iov)?;
         match &mut self.kind {
             InodeSocketKind::HttpRequest(sock, ty) => {
-                let sock = sock.lock().unwrap();
+                let sock = sock.get_mut().unwrap();
                 match ty {
                     InodeHttpSocketType::Request => {
                         if sock.request.is_none() {
@@ -819,7 +819,7 @@ impl InodeSocket {
         let buf_len = buf.len();
         match &mut self.kind {
             InodeSocketKind::HttpRequest(sock, ty) => {
-                let sock = sock.lock().unwrap();
+                let sock = sock.get_mut().unwrap();
                 match ty {
                     InodeHttpSocketType::Request => {
                         if sock.request.is_none() {
@@ -901,7 +901,7 @@ impl InodeSocket {
             }
             let data = match &mut self.kind {
                 InodeSocketKind::HttpRequest(sock, ty) => {
-                    let sock = sock.lock().unwrap();
+                    let sock = sock.get_mut().unwrap();
                     match ty {
                         InodeHttpSocketType::Response => {
                             if sock.response.is_none() {
@@ -957,12 +957,11 @@ impl InodeSocket {
     ) -> Result<usize, __wasi_errno_t> {
         loop {
             if let Some(buf) = self.read_buffer.as_mut() {
-                if buf.len() > 0 {
+                if !buf.is_empty() {
                     let reader = buf.as_ref();
                     let ret = read_bytes(reader, memory, iov)?;
                     let peer = self
                         .read_addr
-                        .clone()
                         .unwrap_or_else(|| SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0));
                     write_ip_port(memory, addr, peer.ip(), peer.port())?;
                     return Ok(ret);
@@ -989,7 +988,7 @@ impl InodeSocket {
                 sock.shutdown(how).map_err(net_error_into_wasi_err)?;
             }
             InodeSocketKind::HttpRequest(http, ..) => {
-                let mut http = http.lock().unwrap();
+                let http = http.get_mut().unwrap();
                 match how {
                     Shutdown::Read => {
                         http.response.take();
@@ -1027,20 +1026,20 @@ impl Read for InodeSocket {
             }
             let data = match &mut self.kind {
                 InodeSocketKind::HttpRequest(sock, ty) => {
-                    let sock = sock.lock().unwrap();
+                    let sock = sock.get_mut().unwrap();
                     match ty {
                         InodeHttpSocketType::Response => {
                             if sock.response.is_none() {
                                 return Err(io::Error::new(
                                     io::ErrorKind::BrokenPipe,
-                                    format!("the socket is not connected"),
+                                    "the socket is not connected".to_string(),
                                 ));
                             }
                             let response = sock.response.as_ref().unwrap();
                             Bytes::from(response.recv().map_err(|_| {
                                 io::Error::new(
                                     io::ErrorKind::BrokenPipe,
-                                    format!("the wasi pipe is not connected"),
+                                    "the wasi pipe is not connected".to_string(),
                                 )
                             })?)
                         }
@@ -1048,14 +1047,14 @@ impl Read for InodeSocket {
                             if sock.headers.is_none() {
                                 return Err(io::Error::new(
                                     io::ErrorKind::BrokenPipe,
-                                    format!("the socket is not connected"),
+                                    "the socket is not connected".to_string(),
                                 ));
                             }
                             let headers = sock.headers.as_ref().unwrap();
                             let headers = headers.recv().map_err(|_| {
                                 io::Error::new(
                                     io::ErrorKind::BrokenPipe,
-                                    format!("the wasi pipe is not connected"),
+                                    "the wasi pipe is not connected".to_string(),
                                 )
                             })?;
                             let headers = format!("{}: {}", headers.0, headers.1);
@@ -1064,7 +1063,7 @@ impl Read for InodeSocket {
                         _ => {
                             return Err(io::Error::new(
                                 io::ErrorKind::Unsupported,
-                                format!("the socket is of an unsupported type"),
+                                "the socket is of an unsupported type".to_string(),
                             ));
                         }
                     }
@@ -1088,19 +1087,19 @@ impl Read for InodeSocket {
                 InodeSocketKind::PreSocket { .. } => {
                     return Err(io::Error::new(
                         io::ErrorKind::NotConnected,
-                        format!("the socket is not connected"),
+                        "the socket is not connected".to_string(),
                     ))
                 }
                 InodeSocketKind::Closed => {
                     return Err(io::Error::new(
                         io::ErrorKind::BrokenPipe,
-                        format!("the socket has been closed"),
+                        "the socket has been closed".to_string(),
                     ))
                 }
                 _ => {
                     return Err(io::Error::new(
                         io::ErrorKind::Unsupported,
-                        format!("the socket type is not supported"),
+                        "the socket type is not supported".to_string(),
                     ))
                 }
             };
@@ -1112,22 +1111,19 @@ impl Read for InodeSocket {
 
 impl Drop for InodeSocket {
     fn drop(&mut self) {
-        match &self.kind {
-            InodeSocketKind::HttpRequest(http, ty) => {
-                let mut guard = http.lock().unwrap();
-                match ty {
-                    InodeHttpSocketType::Request => {
-                        guard.request.take();
-                    }
-                    InodeHttpSocketType::Response => {
-                        guard.response.take();
-                    }
-                    InodeHttpSocketType::Headers => {
-                        guard.headers.take();
-                    }
+        if let InodeSocketKind::HttpRequest(http, ty) = &self.kind {
+            let mut guard = http.lock().unwrap();
+            match ty {
+                InodeHttpSocketType::Request => {
+                    guard.request.take();
+                }
+                InodeHttpSocketType::Response => {
+                    guard.response.take();
+                }
+                InodeHttpSocketType::Headers => {
+                    guard.headers.take();
                 }
             }
-            _ => {}
         }
     }
 }

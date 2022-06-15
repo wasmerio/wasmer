@@ -85,11 +85,11 @@ impl SpawnOptionsConfig {
     }
 
     pub fn remote_instance(&self) -> Option<&str> {
-        self.remote_instance.as_ref().map(|a| a.as_str())
+        self.remote_instance.as_deref()
     }
 
     pub fn access_token(&self) -> Option<&str> {
-        self.access_token.as_ref().map(|a| a.as_str())
+        self.access_token.as_deref()
     }
 }
 

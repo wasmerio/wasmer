@@ -17,9 +17,9 @@ pub enum WasiThreadError {
     MethodNotFound,
 }
 
-impl Into<__wasi_errno_t> for WasiThreadError {
-    fn into(self) -> __wasi_errno_t {
-        match self {
+impl From<WasiThreadError> for __wasi_errno_t {
+    fn from(a: WasiThreadError) -> __wasi_errno_t {
+        match a {
             WasiThreadError::Unsupported => __WASI_ENOTSUP,
             WasiThreadError::MethodNotFound => __WASI_EINVAL,
         }
@@ -46,11 +46,11 @@ pub trait WasiRuntimeImplementation: fmt::Debug + Sync {
     /// which allows runtimes to pass serialized messages between each other similar to
     /// RPC's. BUS implementation can be implemented that communicate across runtimes
     /// thus creating a distributed computing architecture.
-    fn bus<'a>(&'a self) -> &'a (dyn VirtualBus);
+    fn bus(&self) -> &(dyn VirtualBus);
 
     /// Provides access to all the networking related functions such as sockets.
     /// By default networking is not implemented.
-    fn networking<'a>(&'a self) -> &'a (dyn VirtualNetworking);
+    fn networking(&self) -> &(dyn VirtualNetworking);
 
     /// Generates a new thread ID
     fn thread_generate_id(&self) -> WasiThreadId;
@@ -137,11 +137,11 @@ impl Default for PluggableRuntimeImplementation {
 }
 
 impl WasiRuntimeImplementation for PluggableRuntimeImplementation {
-    fn bus<'a>(&'a self) -> &'a (dyn VirtualBus) {
+    fn bus(&self) -> &(dyn VirtualBus) {
         self.bus.deref()
     }
 
-    fn networking<'a>(&'a self) -> &'a (dyn VirtualNetworking) {
+    fn networking(&self) -> &(dyn VirtualNetworking) {
         self.networking.deref()
     }
 

@@ -174,7 +174,7 @@ pub struct LocalTcpListener {
 impl VirtualTcpListener for LocalTcpListener {
     fn accept(&self) -> Result<(Box<dyn VirtualTcpSocket + Sync>, SocketAddr)> {
         if let Some(timeout) = &self.timeout {
-            return self.accept_timeout(timeout.clone());
+            return self.accept_timeout(*timeout);
         }
         let (sock, addr) = self
             .stream
@@ -183,7 +183,7 @@ impl VirtualTcpListener for LocalTcpListener {
                 (
                     Box::new(LocalTcpStream {
                         stream: sock,
-                        addr: addr.clone(),
+                        addr,
                         connect_timeout: None,
                     }),
                     addr,
@@ -231,7 +231,7 @@ impl VirtualTcpListener for LocalTcpListener {
 
     /// Gets the accept timeout
     fn timeout(&self) -> Result<Option<Duration>> {
-        Ok(self.timeout.clone())
+        Ok(self.timeout)
     }
 
     fn addr_local(&self) -> Result<SocketAddr> {
@@ -287,7 +287,7 @@ impl VirtualTcpSocket for LocalTcpStream {
         match ty {
             TimeType::ReadTimeout => self.stream.read_timeout().map_err(io_err_into_net_error),
             TimeType::WriteTimeout => self.stream.write_timeout().map_err(io_err_into_net_error),
-            TimeType::ConnectTimeout => Ok(self.connect_timeout.clone()),
+            TimeType::ConnectTimeout => Ok(self.connect_timeout),
             #[cfg(feature = "wasix")]
             TimeType::Linger => self.stream.linger().map_err(io_err_into_net_error),
             _ => Err(NetworkError::InvalidInput),
@@ -321,7 +321,7 @@ impl VirtualTcpSocket for LocalTcpStream {
     }
 
     fn addr_peer(&self) -> Result<SocketAddr> {
-        Ok(self.addr.clone())
+        Ok(self.addr)
     }
 
     fn flush(&mut self) -> Result<()> {
@@ -483,10 +483,7 @@ impl VirtualUdpSocket for LocalUdpSocket {
     }
 
     fn addr_peer(&self) -> Result<Option<SocketAddr>> {
-        self.0
-            .peer_addr()
-            .map(|a| Some(a))
-            .map_err(io_err_into_net_error)
+        self.0.peer_addr().map(Some).map_err(io_err_into_net_error)
     }
 }
 

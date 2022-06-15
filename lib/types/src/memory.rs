@@ -50,6 +50,8 @@ impl MemoryStyle {
 /// Trait for the `Memory32` and `Memory64` marker types.
 ///
 /// This allows code to be generic over 32-bit and 64-bit memories.
+/// # Safety
+/// Direct memory access is unsafe
 pub unsafe trait MemorySize: Copy {
     /// Type used to represent an offset into a memory. This is `u32` or `u64`.
     type Offset: Default

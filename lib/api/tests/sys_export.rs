@@ -114,10 +114,10 @@ mod sys {
 
         let host_fn = |env: &MemEnv| {
             let mem = env.memory_ref().unwrap();
-            assert_eq!(is_memory_instance_ref_strong(&mem), Some(false));
+            assert_eq!(is_memory_instance_ref_strong(mem), Some(false));
             let mem_clone = mem.clone();
             assert_eq!(is_memory_instance_ref_strong(&mem_clone), Some(true));
-            assert_eq!(is_memory_instance_ref_strong(&mem), Some(false));
+            assert_eq!(is_memory_instance_ref_strong(mem), Some(false));
         };
 
         let f: TypedFunction<(), ()> = {
@@ -136,7 +136,7 @@ mod sys {
 
             {
                 let mem = instance.exports.get_memory("memory")?;
-                assert_eq!(is_memory_instance_ref_strong(&mem), Some(true));
+                assert_eq!(is_memory_instance_ref_strong(mem), Some(true));
             }
 
             let f: TypedFunction<(), ()> = instance.exports.get_native_function("call_host_fn")?;
@@ -158,10 +158,10 @@ mod sys {
 
         let host_fn = |env: &GlobalEnv| {
             let global = env.global_ref().unwrap();
-            assert_eq!(is_global_instance_ref_strong(&global), Some(false));
+            assert_eq!(is_global_instance_ref_strong(global), Some(false));
             let global_clone = global.clone();
             assert_eq!(is_global_instance_ref_strong(&global_clone), Some(true));
-            assert_eq!(is_global_instance_ref_strong(&global), Some(false));
+            assert_eq!(is_global_instance_ref_strong(global), Some(false));
         };
 
         let f: TypedFunction<(), ()> = {
@@ -180,7 +180,7 @@ mod sys {
 
             {
                 let global = instance.exports.get_global("global")?;
-                assert_eq!(is_global_instance_ref_strong(&global), Some(true));
+                assert_eq!(is_global_instance_ref_strong(global), Some(true));
             }
 
             let f: TypedFunction<(), ()> = instance.exports.get_native_function("call_host_fn")?;
@@ -202,10 +202,10 @@ mod sys {
 
         let host_fn = |env: &TableEnv| {
             let table = env.table_ref().unwrap();
-            assert_eq!(is_table_instance_ref_strong(&table), Some(false));
+            assert_eq!(is_table_instance_ref_strong(table), Some(false));
             let table_clone = table.clone();
             assert_eq!(is_table_instance_ref_strong(&table_clone), Some(true));
-            assert_eq!(is_table_instance_ref_strong(&table), Some(false));
+            assert_eq!(is_table_instance_ref_strong(table), Some(false));
         };
 
         let f: TypedFunction<(), ()> = {
@@ -224,7 +224,7 @@ mod sys {
 
             {
                 let table = instance.exports.get_table("table")?;
-                assert_eq!(is_table_instance_ref_strong(&table), Some(true));
+                assert_eq!(is_table_instance_ref_strong(table), Some(true));
             }
 
             let f: TypedFunction<(), ()> = instance.exports.get_native_function("call_host_fn")?;
@@ -246,10 +246,10 @@ mod sys {
 
         let host_fn = |env: &FunctionEnv| {
             let function = env.call_host_fn_ref().unwrap();
-            assert_eq!(is_function_instance_ref_strong(&function), Some(false));
+            assert_eq!(is_function_instance_ref_strong(function), Some(false));
             let function_clone = function.clone();
             assert_eq!(is_function_instance_ref_strong(&function_clone), Some(true));
-            assert_eq!(is_function_instance_ref_strong(&function), Some(false));
+            assert_eq!(is_function_instance_ref_strong(function), Some(false));
         };
 
         let f: TypedFunction<(), ()> = {
@@ -268,7 +268,7 @@ mod sys {
 
             {
                 let function = instance.exports.get_function("call_host_fn")?;
-                assert_eq!(is_function_instance_ref_strong(&function), Some(true));
+                assert_eq!(is_function_instance_ref_strong(function), Some(true));
             }
 
             let f: TypedFunction<(), ()> = instance.exports.get_native_function("call_host_fn")?;
@@ -291,7 +291,7 @@ mod sys {
         let host_fn = |env: &FunctionEnv| {
             let function = env.call_host_fn_ref().unwrap();
             assert_eq!(
-                is_native_function_instance_ref_strong(&function),
+                is_native_function_instance_ref_strong(function),
                 Some(false)
             );
             let function_clone = function.clone();
@@ -300,7 +300,7 @@ mod sys {
                 Some(true)
             );
             assert_eq!(
-                is_native_function_instance_ref_strong(&function),
+                is_native_function_instance_ref_strong(function),
                 Some(false)
             );
         };
