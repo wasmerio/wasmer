@@ -12,11 +12,13 @@
 extern crate wasmer_types as wasmer;
 
 mod advice;
+mod bus;
 mod directory;
 mod error;
 mod event;
 mod file;
 mod io;
+mod net;
 mod signal;
 mod subscription;
 mod time;
@@ -24,11 +26,13 @@ mod versions;
 
 pub use crate::time::*;
 pub use advice::*;
+pub use bus::*;
 pub use directory::*;
 pub use error::*;
 pub use event::*;
 pub use file::*;
 pub use io::*;
+pub use net::*;
 pub use signal::*;
 pub use subscription::*;
 pub use versions::*;

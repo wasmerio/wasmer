@@ -2,12 +2,15 @@
 use crate::syscalls::types::*;
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
-#[cfg(unix)]
+#[cfg(all(unix, feature = "sys-poll"))]
 use std::convert::TryInto;
 use std::{
     collections::VecDeque,
     io::{self, Read, Seek, Write},
+    sync::{Arc, Mutex},
+    time::Duration,
 };
+use wasmer_vbus::BusError;
 
 #[cfg(feature = "host-fs")]
 pub use wasmer_vfs::host_fs::{Stderr, Stdin, Stdout};
@@ -15,6 +18,7 @@ pub use wasmer_vfs::host_fs::{Stderr, Stdin, Stdout};
 pub use wasmer_vfs::mem_fs::{Stderr, Stdin, Stdout};
 
 use wasmer_vfs::{FsError, VirtualFile};
+use wasmer_vnet::NetworkError;
 
 pub fn fs_error_from_wasi_err(err: __wasi_errno_t) -> FsError {
     match err {
@@ -68,6 +72,83 @@ pub fn fs_error_into_wasi_err(fs_error: FsError) -> __wasi_errno_t {
         FsError::WriteZero => __WASI_ENOSPC,
         FsError::DirectoryNotEmpty => __WASI_ENOTEMPTY,
         FsError::Lock | FsError::UnknownError => __WASI_EIO,
+    }
+}
+
+pub fn net_error_into_wasi_err(net_error: NetworkError) -> __wasi_errno_t {
+    match net_error {
+        NetworkError::InvalidFd => __WASI_EBADF,
+        NetworkError::AlreadyExists => __WASI_EEXIST,
+        NetworkError::Lock => __WASI_EIO,
+        NetworkError::IOError => __WASI_EIO,
+        NetworkError::AddressInUse => __WASI_EADDRINUSE,
+        NetworkError::AddressNotAvailable => __WASI_EADDRNOTAVAIL,
+        NetworkError::BrokenPipe => __WASI_EPIPE,
+        NetworkError::ConnectionAborted => __WASI_ECONNABORTED,
+        NetworkError::ConnectionRefused => __WASI_ECONNREFUSED,
+        NetworkError::ConnectionReset => __WASI_ECONNRESET,
+        NetworkError::Interrupted => __WASI_EINTR,
+        NetworkError::InvalidData => __WASI_EIO,
+        NetworkError::InvalidInput => __WASI_EINVAL,
+        NetworkError::NotConnected => __WASI_ENOTCONN,
+        NetworkError::NoDevice => __WASI_ENODEV,
+        NetworkError::PermissionDenied => __WASI_EPERM,
+        NetworkError::TimedOut => __WASI_ETIMEDOUT,
+        NetworkError::UnexpectedEof => __WASI_EPROTO,
+        NetworkError::WouldBlock => __WASI_EAGAIN,
+        NetworkError::WriteZero => __WASI_ENOSPC,
+        NetworkError::Unsupported => __WASI_ENOTSUP,
+        NetworkError::UnknownError => __WASI_EIO,
+    }
+}
+
+pub fn bus_error_into_wasi_err(bus_error: BusError) -> __bus_errno_t {
+    use BusError::*;
+    match bus_error {
+        Serialization => __BUS_ESER,
+        Deserialization => __BUS_EDES,
+        InvalidWapm => __BUS_EWAPM,
+        FetchFailed => __BUS_EFETCH,
+        CompileError => __BUS_ECOMPILE,
+        InvalidABI => __BUS_EABI,
+        Aborted => __BUS_EABORTED,
+        BadHandle => __BUS_EBADHANDLE,
+        InvalidTopic => __BUS_ETOPIC,
+        BadCallback => __BUS_EBADCB,
+        Unsupported => __BUS_EUNSUPPORTED,
+        BadRequest => __BUS_EBADREQUEST,
+        AccessDenied => __BUS_EDENIED,
+        InternalError => __BUS_EINTERNAL,
+        MemoryAllocationFailed => __BUS_EALLOC,
+        InvokeFailed => __BUS_EINVOKE,
+        AlreadyConsumed => __BUS_ECONSUMED,
+        MemoryAccessViolation => __BUS_EMEMVIOLATION,
+        UnknownError => __BUS_EUNKNOWN,
+    }
+}
+
+pub fn wasi_error_into_bus_err(bus_error: __bus_errno_t) -> BusError {
+    use BusError::*;
+    match bus_error {
+        __BUS_ESER => Serialization,
+        __BUS_EDES => Deserialization,
+        __BUS_EWAPM => InvalidWapm,
+        __BUS_EFETCH => FetchFailed,
+        __BUS_ECOMPILE => CompileError,
+        __BUS_EABI => InvalidABI,
+        __BUS_EABORTED => Aborted,
+        __BUS_EBADHANDLE => BadHandle,
+        __BUS_ETOPIC => InvalidTopic,
+        __BUS_EBADCB => BadCallback,
+        __BUS_EUNSUPPORTED => Unsupported,
+        __BUS_EBADREQUEST => BadRequest,
+        __BUS_EDENIED => AccessDenied,
+        __BUS_EINTERNAL => InternalError,
+        __BUS_EALLOC => MemoryAllocationFailed,
+        __BUS_EINVOKE => InvokeFailed,
+        __BUS_ECONSUMED => AlreadyConsumed,
+        __BUS_EMEMVIOLATION => MemoryAccessViolation,
+        /*__BUS_EUNKNOWN |*/ _ => UnknownError,
     }
 }
 
@@ -137,7 +218,7 @@ pub fn iterate_poll_events(pes: PollEventSet) -> PollEventIter {
     PollEventIter { pes, i: 0 }
 }
 
-#[cfg(unix)]
+#[cfg(all(unix, feature = "sys-poll"))]
 fn poll_event_set_to_platform_poll_events(mut pes: PollEventSet) -> i16 {
     let mut out = 0;
     for i in 0..16 {
@@ -154,7 +235,7 @@ fn poll_event_set_to_platform_poll_events(mut pes: PollEventSet) -> i16 {
     out
 }
 
-#[cfg(unix)]
+#[cfg(all(unix, feature = "sys-poll"))]
 fn platform_poll_events_to_pollevent_set(mut num: i16) -> PollEventSet {
     let mut peb = PollEventBuilder::new();
     for i in 0..16 {
@@ -171,6 +252,7 @@ fn platform_poll_events_to_pollevent_set(mut num: i16) -> PollEventSet {
     peb.build()
 }
 
+#[allow(dead_code)]
 impl PollEventBuilder {
     pub fn new() -> PollEventBuilder {
         PollEventBuilder { inner: 0 }
@@ -186,11 +268,12 @@ impl PollEventBuilder {
     }
 }
 
-#[cfg(unix)]
+#[cfg(all(unix, feature = "sys-poll"))]
 pub(crate) fn poll(
-    selfs: &[&dyn VirtualFile],
+    selfs: &[&(dyn VirtualFile + Send + Sync + 'static)],
     events: &[PollEventSet],
     seen_events: &mut [PollEventSet],
+    timeout: Duration,
 ) -> Result<u32, FsError> {
     if !(selfs.len() == events.len() && events.len() == seen_events.len()) {
         return Err(FsError::InvalidInput);
@@ -205,7 +288,13 @@ pub(crate) fn poll(
             revents: 0,
         })
         .collect::<Vec<_>>();
-    let result = unsafe { libc::poll(fds.as_mut_ptr(), selfs.len() as _, 1) };
+    let result = unsafe {
+        libc::poll(
+            fds.as_mut_ptr(),
+            selfs.len() as _,
+            timeout.as_millis() as i32,
+        )
+    };
 
     if result < 0 {
         // TODO: check errno and return value
@@ -219,22 +308,78 @@ pub(crate) fn poll(
     Ok(result.try_into().unwrap())
 }
 
-#[cfg(not(unix))]
+#[cfg(any(not(unix), not(feature = "sys-poll")))]
 pub(crate) fn poll(
-    _selfs: &[&dyn VirtualFile],
-    _events: &[PollEventSet],
-    _seen_events: &mut [PollEventSet],
-) -> Result<(), FsError> {
-    unimplemented!("VirtualFile::poll is not implemented for non-Unix-like targets yet");
+    files: &[&(dyn VirtualFile + Send + Sync + 'static)],
+    events: &[PollEventSet],
+    seen_events: &mut [PollEventSet],
+    timeout: Duration,
+) -> Result<u32, FsError> {
+    if !(files.len() == events.len() && events.len() == seen_events.len()) {
+        tracing::debug!("the slice length of 'files', 'events' and 'seen_events' must be the same (files={}, events={}, seen_events={})", files.len(), events.len(), seen_events.len());
+        return Err(FsError::InvalidInput);
+    }
+
+    let mut ret = 0;
+    for n in 0..files.len() {
+        let mut builder = PollEventBuilder::new();
+
+        let file = files[n];
+        let can_read = file.bytes_available_read()?.map(|_| true).unwrap_or(false);
+        let can_write = file
+            .bytes_available_write()?
+            .map(|s| s > 0)
+            .unwrap_or(false);
+        let is_closed = file.is_open() == false;
+
+        tracing::debug!(
+            "poll_evt can_read={} can_write={} is_closed={}",
+            can_read,
+            can_write,
+            is_closed
+        );
+
+        for event in iterate_poll_events(events[n]) {
+            match event {
+                PollEvent::PollIn if can_read => {
+                    builder = builder.add(PollEvent::PollIn);
+                }
+                PollEvent::PollOut if can_write => {
+                    builder = builder.add(PollEvent::PollOut);
+                }
+                PollEvent::PollHangUp if is_closed => {
+                    builder = builder.add(PollEvent::PollHangUp);
+                }
+                PollEvent::PollInvalid if is_closed => {
+                    builder = builder.add(PollEvent::PollInvalid);
+                }
+                PollEvent::PollError if is_closed => {
+                    builder = builder.add(PollEvent::PollError);
+                }
+                _ => {}
+            }
+        }
+        let revents = builder.build();
+        if revents != 0 {
+            ret += 1;
+        }
+        seen_events[n] = revents;
+    }
+
+    if ret == 0 && timeout > Duration::ZERO {
+        return Err(FsError::WouldBlock);
+    }
+
+    Ok(ret)
 }
 
 pub trait WasiPath {}
 
 /// For piping stdio. Stores all output / input in a byte-vector.
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, Default)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct Pipe {
-    buffer: VecDeque<u8>,
+    buffer: Arc<Mutex<VecDeque<u8>>>,
 }
 
 impl Pipe {
@@ -245,8 +390,9 @@ impl Pipe {
 
 impl Read for Pipe {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        let amt = std::cmp::min(buf.len(), self.buffer.len());
-        for (i, byte) in self.buffer.drain(..amt).enumerate() {
+        let mut buffer = self.buffer.lock().unwrap();
+        let amt = std::cmp::min(buf.len(), buffer.len());
+        for (i, byte) in buffer.drain(..amt).enumerate() {
             buf[i] = byte;
         }
         Ok(amt)
@@ -255,7 +401,8 @@ impl Read for Pipe {
 
 impl Write for Pipe {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.buffer.extend(buf);
+        let mut buffer = self.buffer.lock().unwrap();
+        buffer.extend(buf);
         Ok(buf.len())
     }
     fn flush(&mut self) -> io::Result<()> {
@@ -284,17 +431,20 @@ impl VirtualFile for Pipe {
         0
     }
     fn size(&self) -> u64 {
-        self.buffer.len() as u64
+        let buffer = self.buffer.lock().unwrap();
+        buffer.len() as u64
     }
     fn set_len(&mut self, len: u64) -> Result<(), FsError> {
-        self.buffer.resize(len as usize, 0);
+        let mut buffer = self.buffer.lock().unwrap();
+        buffer.resize(len as usize, 0);
         Ok(())
     }
     fn unlink(&mut self) -> Result<(), FsError> {
         Ok(())
     }
-    fn bytes_available(&self) -> Result<usize, FsError> {
-        Ok(self.buffer.len())
+    fn bytes_available_read(&self) -> Result<Option<usize>, FsError> {
+        let buffer = self.buffer.lock().unwrap();
+        Ok(Some(buffer.len()))
     }
 }
 

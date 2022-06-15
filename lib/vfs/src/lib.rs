@@ -22,6 +22,18 @@ pub type Result<T> = std::result::Result<T, FsError>;
 #[repr(transparent)]
 pub struct FileDescriptor(usize);
 
+impl From<u32> for FileDescriptor {
+    fn from(a: u32) -> Self {
+        Self(a as usize)
+    }
+}
+
+impl From<FileDescriptor> for u32 {
+    fn from(a: FileDescriptor) -> u32 {
+        a.0 as u32
+    }
+}
+
 pub trait FileSystem: fmt::Debug + Send + Sync + 'static + Upcastable {
     fn read_dir(&self, path: &Path) -> Result<ReadDir>;
     fn create_dir(&self, path: &Path) -> Result<()>;
@@ -51,7 +63,11 @@ impl dyn FileSystem + 'static {
 }
 
 pub trait FileOpener {
-    fn open(&mut self, path: &Path, conf: &OpenOptionsConfig) -> Result<Box<dyn VirtualFile>>;
+    fn open(
+        &mut self,
+        path: &Path,
+        conf: &OpenOptionsConfig,
+    ) -> Result<Box<dyn VirtualFile + Send + Sync + 'static>>;
 }
 
 #[derive(Debug, Clone)]
@@ -111,6 +127,10 @@ impl OpenOptions {
             },
         }
     }
+    pub fn options(&mut self, options: OpenOptionsConfig) -> &mut Self {
+        self.conf = options;
+        self
+    }
 
     pub fn read(&mut self, read: bool) -> &mut Self {
         self.conf.read = read;
@@ -142,14 +162,17 @@ impl OpenOptions {
         self
     }
 
-    pub fn open<P: AsRef<Path>>(&mut self, path: P) -> Result<Box<dyn VirtualFile>> {
+    pub fn open<P: AsRef<Path>>(
+        &mut self,
+        path: P,
+    ) -> Result<Box<dyn VirtualFile + Send + Sync + 'static>> {
         self.opener.open(path.as_ref(), &self.conf)
     }
 }
 
 /// This trait relies on your file closing when it goes out of scope via `Drop`
 #[cfg_attr(feature = "enable-serde", typetag::serde)]
-pub trait VirtualFile: fmt::Debug + Send + Write + Read + Seek + 'static + Upcastable {
+pub trait VirtualFile: fmt::Debug + Write + Read + Seek + Upcastable {
     /// the last time the file was accessed in nanoseconds as a UNIX timestamp
     fn last_accessed(&self) -> u64;
 
@@ -177,7 +200,28 @@ pub trait VirtualFile: fmt::Debug + Send + Write + Read + Seek + 'static + Upcas
     }
 
     /// Returns the number of bytes available.  This function must not block
-    fn bytes_available(&self) -> Result<usize>;
+    fn bytes_available(&self) -> Result<usize> {
+        Ok(self.bytes_available_read()?.unwrap_or(0usize)
+            + self.bytes_available_write()?.unwrap_or(0usize))
+    }
+
+    /// Returns the number of bytes available.  This function must not block
+    /// Defaults to `None` which means the number of bytes is unknown
+    fn bytes_available_read(&self) -> Result<Option<usize>> {
+        Ok(None)
+    }
+
+    /// Returns the number of bytes available.  This function must not block
+    /// Defaults to `None` which means the number of bytes is unknown
+    fn bytes_available_write(&self) -> Result<Option<usize>> {
+        Ok(None)
+    }
+
+    /// Indicates if the file is opened or closed. This function must not block
+    /// Defaults to a status of being constantly open
+    fn is_open(&self) -> bool {
+        true
+    }
 
     /// Used for polling.  Default returns `None` because this method cannot be implemented for most types
     /// Returns the underlying host fd
@@ -209,15 +253,17 @@ impl<T: Any + fmt::Debug + 'static> Upcastable for T {
     }
 }
 
-impl dyn VirtualFile + 'static {
-    #[inline]
-    pub fn downcast_ref<T: 'static>(&'_ self) -> Option<&'_ T> {
-        self.upcast_any_ref().downcast_ref::<T>()
-    }
-    #[inline]
-    pub fn downcast_mut<T: 'static>(&'_ mut self) -> Option<&'_ mut T> {
-        self.upcast_any_mut().downcast_mut::<T>()
-    }
+/// Determines the mode that stdio handlers will operate in
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum StdioMode {
+    /// Stdio will be piped to a file descriptor
+    Piped,
+    /// Stdio will inherit the file handlers of its parent
+    Inherit,
+    /// Stdio will be dropped
+    Null,
+    /// Stdio will be sent to the log handler
+    Log,
 }
 
 /// Error type for external users

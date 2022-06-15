@@ -94,7 +94,7 @@ mod sys {
             maximum: Some(1),
         };
         let f = Function::new_native(&store, |num: i32| num + 1);
-        let table = Table::new(&store, table_type, Value::FuncRef(Some(f.clone())))?;
+        let table = Table::new(&store, table_type, Value::FuncRef(Some(f)))?;
         assert_eq!(*table.ty(), table_type);
         let _elem = table.get(0).unwrap();
         // assert_eq!(elem.funcref().unwrap(), f);
@@ -123,7 +123,7 @@ mod sys {
         assert!(old_len.is_err());
 
         // Growing to a bigger maximum should return None
-        let old_len = table.grow(5, Value::FuncRef(Some(f.clone())))?;
+        let old_len = table.grow(5, Value::FuncRef(Some(f)))?;
         assert_eq!(old_len, 0);
 
         Ok(())
@@ -238,11 +238,10 @@ mod sys {
             function.ty().clone(),
             FunctionType::new(vec![], vec![Type::I32])
         );
-        let function = Function::new_native_with_env(
-            &store,
-            my_env.clone(),
-            |_env: &MyEnv| -> (i32, i64, f32, f64) { (1, 2, 3.0, 4.0) },
-        );
+        let function =
+            Function::new_native_with_env(&store, my_env, |_env: &MyEnv| -> (i32, i64, f32, f64) {
+                (1, 2, 3.0, 4.0)
+            });
         assert_eq!(
             function.ty().clone(),
             FunctionType::new(vec![], vec![Type::I32, Type::I64, Type::F32, Type::F64])
@@ -338,7 +337,7 @@ mod sys {
         let function = Function::new_with_env(
             &store,
             function_type,
-            my_env.clone(),
+            my_env,
             |_env: &MyEnv, _values: &[Value]| unimplemented!(),
         );
         assert_eq!(function.ty().params(), [Type::V128]);

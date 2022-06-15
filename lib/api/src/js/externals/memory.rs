@@ -240,7 +240,7 @@ impl Memory {
     /// Used by tests
     #[doc(hidden)]
     pub fn uint8view(&self) -> js_sys::Uint8Array {
-        self.view.clone()
+        js_sys::Uint8Array::new(&self.vm_memory.memory.buffer())
     }
 
     pub(crate) fn from_vm_export(store: &Store, vm_memory: VMMemory) -> Self {
@@ -276,16 +276,17 @@ impl Memory {
     /// This method is guaranteed to be safe (from the host side) in the face of
     /// concurrent writes.
     pub fn read(&self, offset: u64, buf: &mut [u8]) -> Result<(), MemoryAccessError> {
+        let view = self.uint8view();
         let offset: u32 = offset.try_into().map_err(|_| MemoryAccessError::Overflow)?;
         let len: u32 = buf
             .len()
             .try_into()
             .map_err(|_| MemoryAccessError::Overflow)?;
         let end = offset.checked_add(len).ok_or(MemoryAccessError::Overflow)?;
-        if end > self.view.length() {
+        if end > view.length() {
             Err(MemoryAccessError::HeapOutOfBounds)?;
         }
-        self.view.subarray(offset, end).copy_to(buf);
+        view.subarray(offset, end).copy_to(buf);
         Ok(())
     }
 
@@ -304,13 +305,14 @@ impl Memory {
         offset: u64,
         buf: &'a mut [MaybeUninit<u8>],
     ) -> Result<&'a mut [u8], MemoryAccessError> {
+        let view = self.uint8view();
         let offset: u32 = offset.try_into().map_err(|_| MemoryAccessError::Overflow)?;
         let len: u32 = buf
             .len()
             .try_into()
             .map_err(|_| MemoryAccessError::Overflow)?;
         let end = offset.checked_add(len).ok_or(MemoryAccessError::Overflow)?;
-        if end > self.view.length() {
+        if end > view.length() {
             Err(MemoryAccessError::HeapOutOfBounds)?;
         }
 
@@ -321,7 +323,7 @@ impl Memory {
         }
         let buf = unsafe { slice::from_raw_parts_mut(buf.as_mut_ptr() as *mut u8, buf.len()) };
 
-        self.view.subarray(offset, end).copy_to(buf);
+        view.subarray(offset, end).copy_to(buf);
         Ok(buf)
     }
 
@@ -333,16 +335,18 @@ impl Memory {
     /// This method is guaranteed to be safe (from the host side) in the face of
     /// concurrent reads/writes.
     pub fn write(&self, offset: u64, data: &[u8]) -> Result<(), MemoryAccessError> {
+        let view = self.uint8view();
         let offset: u32 = offset.try_into().map_err(|_| MemoryAccessError::Overflow)?;
         let len: u32 = data
             .len()
             .try_into()
             .map_err(|_| MemoryAccessError::Overflow)?;
+        let view = self.uint8view();
         let end = offset.checked_add(len).ok_or(MemoryAccessError::Overflow)?;
-        if end > self.view.length() {
+        if end > view.length() {
             Err(MemoryAccessError::HeapOutOfBounds)?;
         }
-        self.view.subarray(offset, end).copy_from(data);
+        view.subarray(offset, end).copy_from(data);
         Ok(())
     }
 }

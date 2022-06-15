@@ -3,7 +3,7 @@ use anyhow::Result;
 use std::collections::BTreeSet;
 use std::path::PathBuf;
 use wasmer::{Instance, Module, RuntimeError, Val};
-use wasmer_wasi::{get_wasi_versions, WasiError, WasiState, WasiVersion};
+use wasmer_wasi::{get_wasi_versions, is_wasix_module, WasiError, WasiState, WasiVersion};
 
 use structopt::StructOpt;
 
@@ -41,7 +41,10 @@ pub struct Wasi {
 
     /// Enable experimental IO devices
     #[cfg(feature = "experimental-io-devices")]
-    #[structopt(long = "enable-experimental-io-devices")]
+    #[cfg_attr(
+        feature = "experimental-io-devices",
+        structopt(long = "enable-experimental-io-devices")
+    )]
     enable_experimental_io_devices: bool,
 
     /// Allow WASI modules to import multiple versions of WASI without a warning.
@@ -94,6 +97,11 @@ impl Wasi {
         }
 
         let mut wasi_env = wasi_state_builder.finalize()?;
+        wasi_env.state.fs.is_wasix.store(
+            is_wasix_module(module),
+            std::sync::atomic::Ordering::Release,
+        );
+
         let import_object = wasi_env.import_object_for_all_wasi_versions(module)?;
         let instance = Instance::new(module, &import_object)?;
         Ok(instance)

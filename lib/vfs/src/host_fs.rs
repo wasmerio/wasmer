@@ -177,7 +177,11 @@ impl TryInto<Metadata> for fs::Metadata {
 pub struct FileOpener;
 
 impl crate::FileOpener for FileOpener {
-    fn open(&mut self, path: &Path, conf: &OpenOptionsConfig) -> Result<Box<dyn VirtualFile>> {
+    fn open(
+        &mut self,
+        path: &Path,
+        conf: &OpenOptionsConfig,
+    ) -> Result<Box<dyn VirtualFile + Send + Sync + 'static>> {
         // TODO: handle create implying write, etc.
         let read = conf.read();
         let write = conf.write();
@@ -193,7 +197,7 @@ impl crate::FileOpener for FileOpener {
             .map_err(Into::into)
             .map(|file| {
                 Box::new(File::new(file, path.to_owned(), read, write, append))
-                    as Box<dyn VirtualFile>
+                    as Box<dyn VirtualFile + Send + Sync + 'static>
             })
     }
 }

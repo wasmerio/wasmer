@@ -1,0 +1,24 @@
+[package]
+name = "wasmer-wasi-local-networking"
+version = "2.3.0"
+description = "An WASIX extension for local networking"
+categories = ["wasm"]
+keywords = ["wasm", "webassembly", "types"]
+authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
+repository = "https://github.com/wasmerio/wasmer"
+license = "MIT"
+readme = "README.md"
+edition = "2018"
+
+[badges]
+maintenance = { status = "experimental" }
+
+[dependencies]
+wasmer-vnet = { version = "=2.3.0", path = "../vnet", default-features = false }
+wasmer-vfs = { path = "../vfs", version = "=2.3.0", default-features = false, features = [ "host-fs" ] }
+tracing = "0.1"
+bytes = "1.1"
+
+[features]
+default = [ ]
+wasix = [ ]

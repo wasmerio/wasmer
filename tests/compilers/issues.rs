@@ -67,7 +67,7 @@ fn issue_2329(mut config: crate::Config) -> Result<()> {
         "env" => {
             "__read_memory" => Function::new_native_with_env(
                 &store,
-                env.clone(),
+                env,
                 read_memory
             ),
         }
@@ -210,10 +210,7 @@ fn call_with_static_data_pointers(mut config: crate::Config) -> Result<()> {
         "mango",
         Function::new_native_with_env(&store, env.clone(), mango),
     );
-    exports.insert(
-        "gas",
-        Function::new_native_with_env(&store, env.clone(), gas),
-    );
+    exports.insert("gas", Function::new_native_with_env(&store, env, gas));
     let mut imports = Imports::new();
     imports.register_namespace("env", exports);
     let instance = Instance::new(&module, &imports)?;

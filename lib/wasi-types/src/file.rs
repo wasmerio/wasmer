@@ -11,19 +11,25 @@ use wasmer_types::ValueType;
 pub type __wasi_device_t = u64;
 
 pub type __wasi_fd_t = u32;
-pub const __WASI_STDIN_FILENO: u32 = 0;
-pub const __WASI_STDOUT_FILENO: u32 = 1;
-pub const __WASI_STDERR_FILENO: u32 = 2;
+pub const __WASI_STDIN_FILENO: __wasi_fd_t = 0;
+pub const __WASI_STDOUT_FILENO: __wasi_fd_t = 1;
+pub const __WASI_STDERR_FILENO: __wasi_fd_t = 2;
+
+pub type __wasi_pid_t = u32;
+pub type __wasi_tid_t = u32;
 
 pub type __wasi_fdflags_t = u16;
-pub const __WASI_FDFLAG_APPEND: u16 = 1 << 0;
-pub const __WASI_FDFLAG_DSYNC: u16 = 1 << 1;
-pub const __WASI_FDFLAG_NONBLOCK: u16 = 1 << 2;
-pub const __WASI_FDFLAG_RSYNC: u16 = 1 << 3;
-pub const __WASI_FDFLAG_SYNC: u16 = 1 << 4;
+pub const __WASI_FDFLAG_APPEND: __wasi_fdflags_t = 1 << 0;
+pub const __WASI_FDFLAG_DSYNC: __wasi_fdflags_t = 1 << 1;
+pub const __WASI_FDFLAG_NONBLOCK: __wasi_fdflags_t = 1 << 2;
+pub const __WASI_FDFLAG_RSYNC: __wasi_fdflags_t = 1 << 3;
+pub const __WASI_FDFLAG_SYNC: __wasi_fdflags_t = 1 << 4;
+
+pub type __wasi_eventfdflags = u16;
+pub const __WASI_EVENTFDFLAGS_SEMAPHORE: __wasi_eventfdflags = 1 << 0;
 
 pub type __wasi_preopentype_t = u8;
-pub const __WASI_PREOPENTYPE_DIR: u8 = 0;
+pub const __WASI_PREOPENTYPE_DIR: __wasi_preopentype_t = 0;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, ValueType)]
 #[repr(C)]
@@ -204,64 +210,76 @@ pub fn wasi_filetype_to_name(ft: __wasi_filetype_t) -> &'static str {
 }
 
 pub type __wasi_filetype_t = u8;
-pub const __WASI_FILETYPE_UNKNOWN: u8 = 0;
-pub const __WASI_FILETYPE_BLOCK_DEVICE: u8 = 1;
-pub const __WASI_FILETYPE_CHARACTER_DEVICE: u8 = 2;
-pub const __WASI_FILETYPE_DIRECTORY: u8 = 3;
-pub const __WASI_FILETYPE_REGULAR_FILE: u8 = 4;
-pub const __WASI_FILETYPE_SOCKET_DGRAM: u8 = 5;
-pub const __WASI_FILETYPE_SOCKET_STREAM: u8 = 6;
-pub const __WASI_FILETYPE_SYMBOLIC_LINK: u8 = 7;
+pub const __WASI_FILETYPE_UNKNOWN: __wasi_filetype_t = 0;
+pub const __WASI_FILETYPE_BLOCK_DEVICE: __wasi_filetype_t = 1;
+pub const __WASI_FILETYPE_CHARACTER_DEVICE: __wasi_filetype_t = 2;
+pub const __WASI_FILETYPE_DIRECTORY: __wasi_filetype_t = 3;
+pub const __WASI_FILETYPE_REGULAR_FILE: __wasi_filetype_t = 4;
+pub const __WASI_FILETYPE_SOCKET_DGRAM: __wasi_filetype_t = 5;
+pub const __WASI_FILETYPE_SOCKET_STREAM: __wasi_filetype_t = 6;
+pub const __WASI_FILETYPE_SYMBOLIC_LINK: __wasi_filetype_t = 7;
+pub const __WASI_FILETYPE_SOCKET_RAW: __wasi_filetype_t = 8;
+pub const __WASI_FILETYPE_SOCKET_SEQPACKET: __wasi_filetype_t = 9;
 
 pub type __wasi_fstflags_t = u16;
-pub const __WASI_FILESTAT_SET_ATIM: u16 = 1 << 0;
-pub const __WASI_FILESTAT_SET_ATIM_NOW: u16 = 1 << 1;
-pub const __WASI_FILESTAT_SET_MTIM: u16 = 1 << 2;
-pub const __WASI_FILESTAT_SET_MTIM_NOW: u16 = 1 << 3;
+pub const __WASI_FILESTAT_SET_ATIM: __wasi_fstflags_t = 1 << 0;
+pub const __WASI_FILESTAT_SET_ATIM_NOW: __wasi_fstflags_t = 1 << 1;
+pub const __WASI_FILESTAT_SET_MTIM: __wasi_fstflags_t = 1 << 2;
+pub const __WASI_FILESTAT_SET_MTIM_NOW: __wasi_fstflags_t = 1 << 3;
 
 pub type __wasi_inode_t = u64;
 
 pub type __wasi_linkcount_t = u64;
 
 pub type __wasi_lookupflags_t = u32;
-pub const __WASI_LOOKUP_SYMLINK_FOLLOW: u32 = 1 << 0;
+pub const __WASI_LOOKUP_SYMLINK_FOLLOW: __wasi_lookupflags_t = 1 << 0;
 
 pub type __wasi_oflags_t = u16;
-pub const __WASI_O_CREAT: u16 = 1 << 0;
-pub const __WASI_O_DIRECTORY: u16 = 1 << 1;
-pub const __WASI_O_EXCL: u16 = 1 << 2;
-pub const __WASI_O_TRUNC: u16 = 1 << 3;
+pub const __WASI_O_CREAT: __wasi_oflags_t = 1 << 0;
+pub const __WASI_O_DIRECTORY: __wasi_oflags_t = 1 << 1;
+pub const __WASI_O_EXCL: __wasi_oflags_t = 1 << 2;
+pub const __WASI_O_TRUNC: __wasi_oflags_t = 1 << 3;
 
 pub type __wasi_rights_t = u64;
-pub const __WASI_RIGHT_FD_DATASYNC: u64 = 1 << 0;
-pub const __WASI_RIGHT_FD_READ: u64 = 1 << 1;
-pub const __WASI_RIGHT_FD_SEEK: u64 = 1 << 2;
-pub const __WASI_RIGHT_FD_FDSTAT_SET_FLAGS: u64 = 1 << 3;
-pub const __WASI_RIGHT_FD_SYNC: u64 = 1 << 4;
-pub const __WASI_RIGHT_FD_TELL: u64 = 1 << 5;
-pub const __WASI_RIGHT_FD_WRITE: u64 = 1 << 6;
-pub const __WASI_RIGHT_FD_ADVISE: u64 = 1 << 7;
-pub const __WASI_RIGHT_FD_ALLOCATE: u64 = 1 << 8;
-pub const __WASI_RIGHT_PATH_CREATE_DIRECTORY: u64 = 1 << 9;
-pub const __WASI_RIGHT_PATH_CREATE_FILE: u64 = 1 << 10;
-pub const __WASI_RIGHT_PATH_LINK_SOURCE: u64 = 1 << 11;
-pub const __WASI_RIGHT_PATH_LINK_TARGET: u64 = 1 << 12;
-pub const __WASI_RIGHT_PATH_OPEN: u64 = 1 << 13;
-pub const __WASI_RIGHT_FD_READDIR: u64 = 1 << 14;
-pub const __WASI_RIGHT_PATH_READLINK: u64 = 1 << 15;
-pub const __WASI_RIGHT_PATH_RENAME_SOURCE: u64 = 1 << 16;
-pub const __WASI_RIGHT_PATH_RENAME_TARGET: u64 = 1 << 17;
-pub const __WASI_RIGHT_PATH_FILESTAT_GET: u64 = 1 << 18;
-pub const __WASI_RIGHT_PATH_FILESTAT_SET_SIZE: u64 = 1 << 19;
-pub const __WASI_RIGHT_PATH_FILESTAT_SET_TIMES: u64 = 1 << 20;
-pub const __WASI_RIGHT_FD_FILESTAT_GET: u64 = 1 << 21;
-pub const __WASI_RIGHT_FD_FILESTAT_SET_SIZE: u64 = 1 << 22;
-pub const __WASI_RIGHT_FD_FILESTAT_SET_TIMES: u64 = 1 << 23;
-pub const __WASI_RIGHT_PATH_SYMLINK: u64 = 1 << 24;
-pub const __WASI_RIGHT_PATH_REMOVE_DIRECTORY: u64 = 1 << 25;
-pub const __WASI_RIGHT_PATH_UNLINK_FILE: u64 = 1 << 26;
-pub const __WASI_RIGHT_POLL_FD_READWRITE: u64 = 1 << 27;
-pub const __WASI_RIGHT_SOCK_SHUTDOWN: u64 = 1 << 28;
+pub const __WASI_RIGHT_FD_DATASYNC: __wasi_rights_t = 1 << 0;
+pub const __WASI_RIGHT_FD_READ: __wasi_rights_t = 1 << 1;
+pub const __WASI_RIGHT_FD_SEEK: __wasi_rights_t = 1 << 2;
+pub const __WASI_RIGHT_FD_FDSTAT_SET_FLAGS: __wasi_rights_t = 1 << 3;
+pub const __WASI_RIGHT_FD_SYNC: __wasi_rights_t = 1 << 4;
+pub const __WASI_RIGHT_FD_TELL: __wasi_rights_t = 1 << 5;
+pub const __WASI_RIGHT_FD_WRITE: __wasi_rights_t = 1 << 6;
+pub const __WASI_RIGHT_FD_ADVISE: __wasi_rights_t = 1 << 7;
+pub const __WASI_RIGHT_FD_ALLOCATE: __wasi_rights_t = 1 << 8;
+pub const __WASI_RIGHT_PATH_CREATE_DIRECTORY: __wasi_rights_t = 1 << 9;
+pub const __WASI_RIGHT_PATH_CREATE_FILE: __wasi_rights_t = 1 << 10;
+pub const __WASI_RIGHT_PATH_LINK_SOURCE: __wasi_rights_t = 1 << 11;
+pub const __WASI_RIGHT_PATH_LINK_TARGET: __wasi_rights_t = 1 << 12;
+pub const __WASI_RIGHT_PATH_OPEN: __wasi_rights_t = 1 << 13;
+pub const __WASI_RIGHT_FD_READDIR: __wasi_rights_t = 1 << 14;
+pub const __WASI_RIGHT_PATH_READLINK: __wasi_rights_t = 1 << 15;
+pub const __WASI_RIGHT_PATH_RENAME_SOURCE: __wasi_rights_t = 1 << 16;
+pub const __WASI_RIGHT_PATH_RENAME_TARGET: __wasi_rights_t = 1 << 17;
+pub const __WASI_RIGHT_PATH_FILESTAT_GET: __wasi_rights_t = 1 << 18;
+pub const __WASI_RIGHT_PATH_FILESTAT_SET_SIZE: __wasi_rights_t = 1 << 19;
+pub const __WASI_RIGHT_PATH_FILESTAT_SET_TIMES: __wasi_rights_t = 1 << 20;
+pub const __WASI_RIGHT_FD_FILESTAT_GET: __wasi_rights_t = 1 << 21;
+pub const __WASI_RIGHT_FD_FILESTAT_SET_SIZE: __wasi_rights_t = 1 << 22;
+pub const __WASI_RIGHT_FD_FILESTAT_SET_TIMES: __wasi_rights_t = 1 << 23;
+pub const __WASI_RIGHT_PATH_SYMLINK: __wasi_rights_t = 1 << 24;
+pub const __WASI_RIGHT_PATH_REMOVE_DIRECTORY: __wasi_rights_t = 1 << 25;
+pub const __WASI_RIGHT_PATH_UNLINK_FILE: __wasi_rights_t = 1 << 26;
+pub const __WASI_RIGHT_POLL_FD_READWRITE: __wasi_rights_t = 1 << 27;
+pub const __WASI_RIGHT_SOCK_SHUTDOWN: __wasi_rights_t = 1 << 28;
+pub const __WASI_RIGHT_SOCK_ACCEPT: __wasi_rights_t = 1 << 29;
+pub const __WASI_RIGHT_SOCK_CONNECT: __wasi_rights_t = 1 << 30;
+pub const __WASI_RIGHT_SOCK_LISTEN: __wasi_rights_t = 1 << 31;
+pub const __WASI_RIGHT_SOCK_BIND: __wasi_rights_t = 1 << 32;
+pub const __WASI_RIGHT_SOCK_RECV: __wasi_rights_t = 1 << 33;
+pub const __WASI_RIGHT_SOCK_SEND: __wasi_rights_t = 1 << 34;
+pub const __WASI_RIGHT_SOCK_ADDR_LOCAL: __wasi_rights_t = 1 << 35;
+pub const __WASI_RIGHT_SOCK_ADDR_REMOTE: __wasi_rights_t = 1 << 36;
+pub const __WASI_RIGHT_SOCK_RECV_FROM: __wasi_rights_t = 1 << 37;
+pub const __WASI_RIGHT_SOCK_SEND_TO: __wasi_rights_t = 1 << 38;
 
 /// function for debugging rights issues
 #[allow(dead_code)]
@@ -313,20 +331,7 @@ pub fn right_to_string(right: __wasi_rights_t) -> Option<&'static str> {
     })
 }
 
-pub type __wasi_riflags_t = u16;
-pub const __WASI_SOCK_RECV_PEEK: u16 = 1 << 0;
-pub const __WASI_SOCK_RECV_WAITALL: u16 = 1 << 1;
-
-pub type __wasi_roflags_t = u16;
-pub const __WASI_SOCK_RECV_DATA_TRUNCATED: u16 = 1 << 0;
-
 pub type __wasi_whence_t = u8;
-pub const __WASI_WHENCE_SET: u8 = 0;
-pub const __WASI_WHENCE_CUR: u8 = 1;
-pub const __WASI_WHENCE_END: u8 = 2;
-
-pub type __wasi_sdflags_t = u8;
-pub const __WASI_SHUT_RD: u8 = 1 << 0;
-pub const __WASI_SHUT_WR: u8 = 1 << 1;
-
-pub type __wasi_siflags_t = u16;
+pub const __WASI_WHENCE_SET: __wasi_whence_t = 0;
+pub const __WASI_WHENCE_CUR: __wasi_whence_t = 1;
+pub const __WASI_WHENCE_END: __wasi_whence_t = 2;

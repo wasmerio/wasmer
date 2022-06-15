@@ -83,6 +83,7 @@ pub use crate::indexes::{
 pub use crate::initializers::{
     DataInitializer, DataInitializerLocation, OwnedDataInitializer, TableInitializer,
 };
+pub use crate::memory::{Memory32, Memory64, MemorySize};
 pub use crate::module::{ExportsIterator, ImportsIterator, ModuleInfo};
 pub use crate::native::{NativeWasmType, ValueType};
 pub use crate::units::{

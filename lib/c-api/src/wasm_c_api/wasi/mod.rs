@@ -2,8 +2,6 @@
 //!
 //! This API will be superseded by a standard WASI API when/if such a standard is created.
 
-mod capture_files;
-
 pub use super::unstable::wasi::wasi_get_unordered_imports;
 use super::{
     externals::{wasm_extern_vec_t, wasm_func_t},
@@ -12,14 +10,13 @@ use super::{
     store::wasm_store_t,
 };
 use crate::error::update_last_error;
-use std::cmp::min;
 use std::convert::TryFrom;
 use std::ffi::CStr;
 use std::os::raw::c_char;
 use std::slice;
 use wasmer_api::{Exportable, Extern};
 use wasmer_wasi::{
-    generate_import_object_from_env, get_wasi_version, WasiEnv, WasiFile, WasiState,
+    generate_import_object_from_env, get_wasi_version, Pipe, WasiEnv, WasiFile, WasiState,
     WasiStateBuilder, WasiVersion,
 };
 
@@ -175,15 +172,11 @@ pub struct wasi_env_t {
 #[no_mangle]
 pub extern "C" fn wasi_env_new(mut config: Box<wasi_config_t>) -> Option<Box<wasi_env_t>> {
     if !config.inherit_stdout {
-        config
-            .state_builder
-            .stdout(Box::new(capture_files::OutputCapturer::new()));
+        config.state_builder.stdout(Box::new(Pipe::new()));
     }
 
     if !config.inherit_stderr {
-        config
-            .state_builder
-            .stderr(Box::new(capture_files::OutputCapturer::new()));
+        config.state_builder.stderr(Box::new(Pipe::new()));
     }
 
     // TODO: impl capturer for stdin
@@ -206,19 +199,19 @@ pub unsafe extern "C" fn wasi_env_read_stdout(
     buffer_len: usize,
 ) -> isize {
     let inner_buffer = slice::from_raw_parts_mut(buffer as *mut _, buffer_len as usize);
-    let mut state = env.inner.state();
+    let state = env.inner.state();
 
-    let stdout = if let Ok(stdout) = state.fs.stdout_mut() {
+    if let Ok(mut stdout) = state.stdout() {
         if let Some(stdout) = stdout.as_mut() {
-            stdout
+            read_inner(stdout, inner_buffer)
         } else {
             update_last_error("could not find a file handle for `stdout`");
-            return -1;
+            -1
         }
     } else {
-        return -1;
-    };
-    read_inner(stdout, inner_buffer)
+        update_last_error("could not find a file handle for `stdout`");
+        -1
+    }
 }
 
 #[no_mangle]
@@ -228,35 +221,30 @@ pub unsafe extern "C" fn wasi_env_read_stderr(
     buffer_len: usize,
 ) -> isize {
     let inner_buffer = slice::from_raw_parts_mut(buffer as *mut _, buffer_len as usize);
-    let mut state = env.inner.state();
-    let stderr = if let Ok(stderr) = state.fs.stderr_mut() {
+    let state = env.inner.state();
+    if let Ok(mut stderr) = state.stderr() {
         if let Some(stderr) = stderr.as_mut() {
-            stderr
+            read_inner(stderr, inner_buffer)
         } else {
             update_last_error("could not find a file handle for `stderr`");
-            return -1;
+            -1
         }
     } else {
         update_last_error("could not find a file handle for `stderr`");
-        return -1;
-    };
-    read_inner(stderr, inner_buffer)
+        -1
+    }
 }
 
-fn read_inner(wasi_file: &mut Box<dyn WasiFile>, inner_buffer: &mut [u8]) -> isize {
-    if let Some(oc) = wasi_file.downcast_mut::<capture_files::OutputCapturer>() {
-        let total_to_read = min(inner_buffer.len(), oc.buffer.len());
-
-        for (address, value) in inner_buffer
-            .iter_mut()
-            .zip(oc.buffer.drain(..total_to_read))
-        {
-            *address = value;
+fn read_inner(
+    wasi_file: &mut Box<dyn WasiFile + Send + Sync + 'static>,
+    inner_buffer: &mut [u8],
+) -> isize {
+    match wasi_file.read(inner_buffer) {
+        Ok(a) => a as isize,
+        Err(err) => {
+            update_last_error(format!("failed to read wasi_file: {}", err));
+            -1
         }
-
-        total_to_read as isize
-    } else {
-        -1
     }
 }
 
@@ -286,6 +274,12 @@ pub enum wasi_version_t {
 
     /// `wasi_snapshot_preview1`.
     SNAPSHOT1 = 2,
+
+    /// `wasix_32v1`.
+    WASIX32V1 = 3,
+
+    /// `wasix_64v1`.
+    WASIX64V1 = 4,
 }
 
 impl From<WasiVersion> for wasi_version_t {
@@ -293,6 +287,8 @@ impl From<WasiVersion> for wasi_version_t {
         match other {
             WasiVersion::Snapshot0 => wasi_version_t::SNAPSHOT0,
             WasiVersion::Snapshot1 => wasi_version_t::SNAPSHOT1,
+            WasiVersion::Wasix32v1 => wasi_version_t::WASIX32V1,
+            WasiVersion::Wasix64v1 => wasi_version_t::WASIX64V1,
             WasiVersion::Latest => wasi_version_t::LATEST,
         }
     }
@@ -306,6 +302,8 @@ impl TryFrom<wasi_version_t> for WasiVersion {
             wasi_version_t::INVALID_VERSION => return Err("Invalid WASI version cannot be used"),
             wasi_version_t::SNAPSHOT0 => WasiVersion::Snapshot0,
             wasi_version_t::SNAPSHOT1 => WasiVersion::Snapshot1,
+            wasi_version_t::WASIX32V1 => WasiVersion::Wasix32v1,
+            wasi_version_t::WASIX64V1 => WasiVersion::Wasix64v1,
             wasi_version_t::LATEST => WasiVersion::Latest,
         })
     }

@@ -2,8 +2,13 @@
 
 use crate::state::{default_fs_backing, WasiFs, WasiState};
 use crate::syscalls::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO};
-use crate::WasiEnv;
+use crate::{WasiEnv, WasiInodes};
+use generational_arena::Arena;
+use std::collections::HashMap;
+use std::ops::{Deref, DerefMut};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
+use std::sync::RwLock;
 use thiserror::Error;
 use wasmer_vfs::{FsError, VirtualFile};
 
@@ -40,11 +45,12 @@ pub struct WasiStateBuilder {
     preopens: Vec<PreopenedDir>,
     vfs_preopens: Vec<String>,
     #[allow(clippy::type_complexity)]
-    setup_fs_fn: Option<Box<dyn Fn(&mut WasiFs) -> Result<(), String> + Send>>,
-    stdout_override: Option<Box<dyn VirtualFile>>,
-    stderr_override: Option<Box<dyn VirtualFile>>,
-    stdin_override: Option<Box<dyn VirtualFile>>,
+    setup_fs_fn: Option<Box<dyn Fn(&mut WasiInodes, &mut WasiFs) -> Result<(), String> + Send>>,
+    stdout_override: Option<Box<dyn VirtualFile + Send + Sync + 'static>>,
+    stderr_override: Option<Box<dyn VirtualFile + Send + Sync + 'static>>,
+    stdin_override: Option<Box<dyn VirtualFile + Send + Sync + 'static>>,
     fs_override: Option<Box<dyn wasmer_vfs::FileSystem>>,
+    runtime_override: Option<Arc<dyn crate::WasiRuntimeImplementation + Send + Sync + 'static>>,
 }
 
 impl std::fmt::Debug for WasiStateBuilder {
@@ -58,6 +64,7 @@ impl std::fmt::Debug for WasiStateBuilder {
             .field("stdout_override exists", &self.stdout_override.is_some())
             .field("stderr_override exists", &self.stderr_override.is_some())
             .field("stdin_override exists", &self.stdin_override.is_some())
+            .field("runtime_override_exists", &self.runtime_override.is_some())
             .finish()
     }
 }
@@ -277,7 +284,7 @@ impl WasiStateBuilder {
 
     /// Overwrite the default WASI `stdout`, if you want to hold on to the
     /// original `stdout` use [`WasiFs::swap_file`] after building.
-    pub fn stdout(&mut self, new_file: Box<dyn VirtualFile>) -> &mut Self {
+    pub fn stdout(&mut self, new_file: Box<dyn VirtualFile + Send + Sync + 'static>) -> &mut Self {
         self.stdout_override = Some(new_file);
 
         self
@@ -285,7 +292,7 @@ impl WasiStateBuilder {
 
     /// Overwrite the default WASI `stderr`, if you want to hold on to the
     /// original `stderr` use [`WasiFs::swap_file`] after building.
-    pub fn stderr(&mut self, new_file: Box<dyn VirtualFile>) -> &mut Self {
+    pub fn stderr(&mut self, new_file: Box<dyn VirtualFile + Send + Sync + 'static>) -> &mut Self {
         self.stderr_override = Some(new_file);
 
         self
@@ -293,7 +300,7 @@ impl WasiStateBuilder {
 
     /// Overwrite the default WASI `stdin`, if you want to hold on to the
     /// original `stdin` use [`WasiFs::swap_file`] after building.
-    pub fn stdin(&mut self, new_file: Box<dyn VirtualFile>) -> &mut Self {
+    pub fn stdin(&mut self, new_file: Box<dyn VirtualFile + Send + Sync + 'static>) -> &mut Self {
         self.stdin_override = Some(new_file);
 
         self
@@ -312,10 +319,20 @@ impl WasiStateBuilder {
     // TODO: improve ergonomics on this function
     pub fn setup_fs(
         &mut self,
-        setup_fs_fn: Box<dyn Fn(&mut WasiFs) -> Result<(), String> + Send>,
+        setup_fs_fn: Box<dyn Fn(&mut WasiInodes, &mut WasiFs) -> Result<(), String> + Send>,
     ) -> &mut Self {
         self.setup_fs_fn = Some(setup_fs_fn);
 
+        self
+    }
+
+    /// Sets the WASI runtime implementation and overrides the default
+    /// implementation
+    pub fn runtime<R>(&mut self, runtime: R) -> &mut Self
+    where
+        R: crate::WasiRuntimeImplementation + Send + Sync + 'static,
+    {
+        self.runtime_override = Some(Arc::new(runtime));
         self
     }
 
@@ -404,35 +421,53 @@ impl WasiStateBuilder {
         let fs_backing = self.fs_override.take().unwrap_or_else(default_fs_backing);
 
         // self.preopens are checked in [`PreopenDirBuilder::build`]
-        let mut wasi_fs = WasiFs::new_with_preopen(&self.preopens, &self.vfs_preopens, fs_backing)
+        let inodes = RwLock::new(crate::state::WasiInodes {
+            arena: Arena::new(),
+            orphan_fds: HashMap::new(),
+        });
+        let wasi_fs = {
+            let mut inodes = inodes.write().unwrap();
+
+            // self.preopens are checked in [`PreopenDirBuilder::build`]
+            let mut wasi_fs = WasiFs::new_with_preopen(
+                inodes.deref_mut(),
+                &self.preopens,
+                &self.vfs_preopens,
+                fs_backing,
+            )
             .map_err(WasiStateCreationError::WasiFsCreationError)?;
 
-        // set up the file system, overriding base files and calling the setup function
-        if let Some(stdin_override) = self.stdin_override.take() {
-            wasi_fs
-                .swap_file(__WASI_STDIN_FILENO, stdin_override)
-                .map_err(WasiStateCreationError::FileSystemError)?;
-        }
+            // set up the file system, overriding base files and calling the setup function
+            if let Some(stdin_override) = self.stdin_override.take() {
+                wasi_fs
+                    .swap_file(inodes.deref(), __WASI_STDIN_FILENO, stdin_override)
+                    .map_err(WasiStateCreationError::FileSystemError)?;
+            }
 
-        if let Some(stdout_override) = self.stdout_override.take() {
-            wasi_fs
-                .swap_file(__WASI_STDOUT_FILENO, stdout_override)
-                .map_err(WasiStateCreationError::FileSystemError)?;
-        }
+            if let Some(stdout_override) = self.stdout_override.take() {
+                wasi_fs
+                    .swap_file(inodes.deref(), __WASI_STDOUT_FILENO, stdout_override)
+                    .map_err(WasiStateCreationError::FileSystemError)?;
+            }
 
-        if let Some(stderr_override) = self.stderr_override.take() {
-            wasi_fs
-                .swap_file(__WASI_STDERR_FILENO, stderr_override)
-                .map_err(WasiStateCreationError::FileSystemError)?;
-        }
+            if let Some(stderr_override) = self.stderr_override.take() {
+                wasi_fs
+                    .swap_file(inodes.deref(), __WASI_STDERR_FILENO, stderr_override)
+                    .map_err(WasiStateCreationError::FileSystemError)?;
+            }
 
-        if let Some(f) = &self.setup_fs_fn {
-            f(&mut wasi_fs).map_err(WasiStateCreationError::WasiFsSetupError)?;
-        }
+            if let Some(f) = &self.setup_fs_fn {
+                f(inodes.deref_mut(), &mut wasi_fs)
+                    .map_err(WasiStateCreationError::WasiFsSetupError)?;
+            }
+            wasi_fs
+        };
 
         Ok(WasiState {
             fs: wasi_fs,
+            inodes: Arc::new(inodes),
             args: self.args.clone(),
+            threading: Default::default(),
             envs: self
                 .envs
                 .iter()
@@ -461,7 +496,11 @@ impl WasiStateBuilder {
     pub fn finalize(&mut self) -> Result<WasiEnv, WasiStateCreationError> {
         let state = self.build()?;
 
-        Ok(WasiEnv::new(state))
+        let mut env = WasiEnv::new(state);
+        if let Some(runtime) = self.runtime_override.as_ref() {
+            env.runtime = runtime.clone();
+        }
+        Ok(env)
     }
 }
 

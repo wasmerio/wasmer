@@ -247,6 +247,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "14c189c53d098945499cdfa7ecc63567cf3886b3332b312a5b4585d8d3a6a610"
 
 [[package]]
+name = "bytes"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c4872d67bab6358e59559027aa3b9157c53d9358c51423c17554809a8858e0f8"
+
+[[package]]
 name = "bytesize"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -306,6 +312,20 @@ name = "cfg-if"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
+
+[[package]]
+name = "chrono"
+version = "0.4.19"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "670ad68c9088c2a963aaa298cb369688cf3f9465ce5e2d4ca10e6e0098a1ce73"
+dependencies = [
+ "js-sys",
+ "libc",
+ "num-integer",
+ "num-traits",
+ "wasm-bindgen",
+ "winapi",
+]
 
 [[package]]
 name = "clang-sys"
@@ -661,6 +681,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9c972679f83bdf9c42bd905396b6c3588a843a17f0f16dfcfa3e2c5d57441835"
 dependencies = [
  "darling_core",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "derivative"
+version = "2.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fcc3dd5e9e9c0b295d6e1e4d811fb6f157d5ffd784b8d202fc62eac8035a770b"
+dependencies = [
+ "proc-macro2",
  "quote",
  "syn",
 ]
@@ -1386,6 +1417,16 @@ name = "normalize-line-endings"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "61807f77802ff30975e01f4f071c8ba10c022052f98b3294119f3e615d13e5be"
+
+[[package]]
+name = "num-integer"
+version = "0.1.45"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "225d3389fb3509a24c93f5c29eb6bde2586b98d9f016636dff58d7c6f7569cd9"
+dependencies = [
+ "autocfg",
+ "num-traits",
+]
 
 [[package]]
 name = "num-traits"
@@ -3134,6 +3175,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasmer-vbus"
+version = "2.3.0"
+dependencies = [
+ "libc",
+ "serde",
+ "slab",
+ "thiserror",
+ "tracing",
+ "typetag",
+ "wasmer-vfs",
+]
+
+[[package]]
 name = "wasmer-vfs"
 version = "2.3.0"
 dependencies = [
@@ -3171,11 +3225,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasmer-vnet"
+version = "2.3.0"
+dependencies = [
+ "bytes",
+ "libc",
+ "serde",
+ "slab",
+ "thiserror",
+ "tracing",
+ "typetag",
+ "wasmer-vfs",
+]
+
+[[package]]
 name = "wasmer-wasi"
 version = "2.3.0"
 dependencies = [
  "bincode",
+ "bytes",
  "cfg-if 1.0.0",
+ "chrono",
+ "derivative",
  "generational-arena",
  "getrandom",
  "libc",
@@ -3187,7 +3258,10 @@ dependencies = [
  "wasm-bindgen",
  "wasm-bindgen-test",
  "wasmer",
+ "wasmer-vbus",
  "wasmer-vfs",
+ "wasmer-vnet",
+ "wasmer-wasi-local-networking",
  "wasmer-wasi-types",
  "winapi",
 ]
@@ -3203,6 +3277,16 @@ dependencies = [
  "tracing",
  "typetag",
  "wasmer-wasi",
+]
+
+[[package]]
+name = "wasmer-wasi-local-networking"
+version = "2.3.0"
+dependencies = [
+ "bytes",
+ "tracing",
+ "wasmer-vfs",
+ "wasmer-vnet",
 ]
 
 [[package]]
