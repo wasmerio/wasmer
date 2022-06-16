@@ -104,7 +104,7 @@ impl CompilerOptions {
     pub fn get_store_for_target(&self, target: Target) -> Result<(Store, CompilerType)> {
         let (compiler_config, compiler_type) = self.get_compiler_config()?;
         let engine = self.get_engine(target, compiler_config)?;
-        let store = Store::new(&*engine);
+        let store = Store::new_with_engine(&*engine);
         Ok((store, compiler_type))
     }
 
@@ -313,7 +313,7 @@ impl StoreOptions {
     pub fn get_store_for_target(&self, target: Target) -> Result<(Store, CompilerType)> {
         let (compiler_config, compiler_type) = self.compiler.get_compiler_config()?;
         let engine = self.get_engine_with_compiler(target, compiler_config)?;
-        let store = Store::new(&*engine);
+        let store = Store::new_with_engine(&*engine);
         Ok((store, compiler_type))
     }
 
@@ -340,7 +340,7 @@ impl StoreOptions {
     /// Get the store (headless engine)
     pub fn get_store(&self) -> Result<(Store, CompilerType)> {
         let engine = self.get_engine_headless()?;
-        let store = Store::new(&*engine);
+        let store = Store::new_with_engine(&*engine);
         Ok((store, CompilerType::Headless))
     }
 }

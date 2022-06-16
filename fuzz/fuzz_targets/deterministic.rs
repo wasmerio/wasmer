@@ -24,7 +24,7 @@ impl Config for NoImportsConfig {
 }
 
 fn compile_and_compare(name: &str, engine: impl Engine, wasm: &[u8]) {
-    let store = Store::new(&engine);
+    let store = Store::new_with_engine(&engine);
 
     // compile for first time
     let module = Module::new(&store, wasm).unwrap();

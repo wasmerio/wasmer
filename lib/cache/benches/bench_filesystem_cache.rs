@@ -17,7 +17,7 @@ pub fn store_cache_universal(c: &mut Criterion) {
     let tmp_dir = TempDir::new().unwrap();
     let mut fs_cache = FileSystemCache::new(tmp_dir.path()).unwrap();
     let compiler = Singlepass::default();
-    let store = Store::new(&Universal::new(compiler).engine());
+    let store = Store::new_with_engine(&Universal::new(compiler).engine());
     let module = Module::new(
         &store,
         std::fs::read("../../lib/c-api/examples/assets/qjs.wasm").unwrap(),
@@ -36,7 +36,7 @@ pub fn load_cache_universal(c: &mut Criterion) {
     let tmp_dir = TempDir::new().unwrap();
     let mut fs_cache = FileSystemCache::new(tmp_dir.path()).unwrap();
     let compiler = Singlepass::default();
-    let store = Store::new(&Universal::new(compiler).engine());
+    let store = Store::new_with_engine(&Universal::new(compiler).engine());
     let module = Module::new(
         &store,
         std::fs::read("../../lib/c-api/examples/assets/qjs.wasm").unwrap(),
@@ -54,7 +54,7 @@ pub fn store_cache_native(c: &mut Criterion) {
     let tmp_dir = TempDir::new().unwrap();
     let mut fs_cache = FileSystemCache::new(tmp_dir.path()).unwrap();
     let compiler = Singlepass::default();
-    let store = Store::new(&Universal::new(compiler).engine());
+    let store = Store::new_with_engine(&Universal::new(compiler).engine());
     let module = Module::new(
         &store,
         std::fs::read("../../lib/c-api/examples/assets/qjs.wasm").unwrap(),
@@ -73,7 +73,7 @@ pub fn load_cache_native(c: &mut Criterion) {
     let tmp_dir = TempDir::new().unwrap();
     let mut fs_cache = FileSystemCache::new(tmp_dir.path()).unwrap();
     let compiler = Singlepass::default();
-    let store = Store::new(&Universal::new(compiler).engine());
+    let store = Store::new_with_engine(&Universal::new(compiler).engine());
     let module = Module::new(
         &store,
         std::fs::read("../../lib/c-api/examples/assets/qjs.wasm").unwrap(),

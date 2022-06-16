@@ -383,7 +383,7 @@ mod tests {
         let metering = Arc::new(Metering::new(10, cost_function));
         let mut compiler_config = Cranelift::default();
         compiler_config.push_middleware(metering);
-        let store = Store::new(&Universal::new(compiler_config).engine());
+        let store = Store::new_with_engine(&Universal::new(compiler_config).engine());
         let module = Module::new(&store, bytecode()).unwrap();
 
         // Instantiate
@@ -428,7 +428,7 @@ mod tests {
         let metering = Arc::new(Metering::new(10, cost_function));
         let mut compiler_config = Cranelift::default();
         compiler_config.push_middleware(metering);
-        let store = Store::new(&Universal::new(compiler_config).engine());
+        let store = Store::new_with_engine(&Universal::new(compiler_config).engine());
         let module = Module::new(&store, bytecode()).unwrap();
 
         // Instantiate

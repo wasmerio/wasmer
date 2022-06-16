@@ -1,9 +1,8 @@
 use crate::sys::tunables::BaseTunables;
 use std::fmt;
 use std::sync::{Arc, RwLock};
-#[cfg(all(feature = "compiler", feature = "engine"))]
 use wasmer_compiler::CompilerConfig;
-use wasmer_compiler::{Engine, Tunables};
+use wasmer_compiler::{Engine, Tunables, Universal};
 use wasmer_vm::{init_traps, TrapHandler, TrapHandlerFn};
 
 /// The store represents all global state that can be manipulated by
@@ -24,8 +23,14 @@ pub struct Store {
 }
 
 impl Store {
+    /// Creates a new `Store` with a specific [`CompilerConfig`].
+    pub fn new(compiler_config: Box<dyn CompilerConfig>) -> Self {
+        let engine = Universal::new(compiler_config).engine();
+        Self::new_with_tunables(&engine, BaseTunables::for_target(engine.target()))
+    }
+
     /// Creates a new `Store` with a specific [`Engine`].
-    pub fn new<E>(engine: &E) -> Self
+    pub fn new_with_engine<E>(engine: &E) -> Self
     where
         E: Engine + ?Sized,
     {

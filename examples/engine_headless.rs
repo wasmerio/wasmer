@@ -84,7 +84,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let engine = Universal::new(compiler_config).engine();
 
         // Create a store, that holds the engine.
-        let store = Store::new(&engine);
+        let store = Store::new_with_engine(&engine);
 
         println!("Compiling module...");
         // Let's compile the Wasm module.
@@ -105,7 +105,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("Creating headless Universal engine...");
         // We create a headless Universal engine.
         let engine = Universal::headless().engine();
-        let store = Store::new(&engine);
+        let store = Store::new_with_engine(&engine);
 
         println!("Deserializing module...");
         // Here we go.

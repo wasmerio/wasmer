@@ -41,12 +41,12 @@ impl Config {
     pub fn store(&self) -> Store {
         let compiler_config = self.compiler_config(self.canonicalize_nans);
         let engine = self.engine(compiler_config);
-        Store::new(&*engine)
+        Store::new_with_engine(&*engine)
     }
 
     pub fn headless_store(&self) -> Store {
         let engine = self.engine_headless();
-        Store::new(&*engine)
+        Store::new_with_engine(&*engine)
     }
 
     pub fn engine(&self, compiler_config: Box<dyn CompilerConfig>) -> Box<dyn Engine> {

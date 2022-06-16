@@ -33,7 +33,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let compiler = Cranelift::default();
 
     // Create the store
-    let store = Store::new(&Universal::new(compiler).engine());
+    let store = Store::new_with_engine(&Universal::new(compiler).engine());
 
     println!("Compiling module...");
     // Let's compile the Wasm module.

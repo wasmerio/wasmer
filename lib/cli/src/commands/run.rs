@@ -225,7 +225,7 @@ impl Run {
         let contents = std::fs::read(self.path.clone())?;
         if wasmer_compiler::UniversalArtifact::is_deserializable(&contents) {
             let engine = wasmer_compiler::Universal::headless().engine();
-            let store = Store::new(&engine);
+            let store = Store::new_with_engine(&engine);
             let module = unsafe { Module::deserialize_from_file(&store, &self.path)? };
             return Ok(module);
         }

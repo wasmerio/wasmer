@@ -93,7 +93,7 @@ If you wish to use more than one compiler, you can simply create the own store. 
 use wasmer::{Store, Universal, Singlepass};
 
 let engine = Universal::new(Singlepass::default()).engine();
-let store = Store::new(&engine);
+let store = Store::new_with_engine(&engine);
 ```"#
 );
 
