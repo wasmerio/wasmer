@@ -352,9 +352,6 @@
 <span id="350">350</span>
 <span id="351">351</span>
 <span id="352">352</span>
-<span id="353">353</span>
-<span id="354">354</span>
-<span id="355">355</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Support for compiling with Singlepass.</span>
 <span class="comment">// Allow unused imports while developing.</span>
 <span class="attribute">#![<span class="ident">allow</span>(<span class="ident">unused_imports</span>, <span class="ident">dead_code</span>)]</span>
@@ -447,9 +444,6 @@
             }
             <span class="kw">_</span> =&gt; <span class="prelude-val">None</span>,
         };
-        <span class="kw">if</span> <span class="ident">compile_info</span>.<span class="ident">features</span>.<span class="ident">multi_value</span> {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CompileError::UnsupportedFeature</span>(<span class="string">&quot;multivalue&quot;</span>.<span class="ident">to_string</span>()));
-        }
         <span class="kw">let</span> <span class="ident">calling_convention</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">target</span>.<span class="ident">triple</span>().<span class="ident">default_calling_convention</span>() {
             <span class="prelude-val">Ok</span>(<span class="ident">CallingConvention::WindowsFastcall</span>) =&gt; <span class="ident">CallingConvention::WindowsFastcall</span>,
             <span class="prelude-val">Ok</span>(<span class="ident">CallingConvention::SystemV</span>) =&gt; <span class="ident">CallingConvention::SystemV</span>,
