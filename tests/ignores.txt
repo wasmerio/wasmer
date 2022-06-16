@@ -1,5 +1,4 @@
 # Compilers
-singlepass spec::multi_value # Singlepass has not implemented multivalue (functions that returns "structs"/"tuples")
 singlepass spec::simd # Singlepass doesn't support yet SIMD (no one asked for this feature)
 
 # Traps
@@ -22,8 +21,6 @@ macos+aarch64    traps::call_signature_mismatch
 singlepass+aarch64+macos traps::start_trap_pretty
 llvm       traps::start_trap_pretty
 cranelift+aarch64    traps::start_trap_pretty
-
-singlepass multi_value_imports::dynamic # Singlepass doesn't support multivalue
 
 # Also neither LLVM nor Cranelift currently implement stack probing on AArch64.
 # https://github.com/wasmerio/wasmer/issues/2808
