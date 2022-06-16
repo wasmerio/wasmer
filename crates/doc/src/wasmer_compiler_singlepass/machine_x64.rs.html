@@ -7206,6 +7206,40 @@
 <span id="7204">7204</span>
 <span id="7205">7205</span>
 <span id="7206">7206</span>
+<span id="7207">7207</span>
+<span id="7208">7208</span>
+<span id="7209">7209</span>
+<span id="7210">7210</span>
+<span id="7211">7211</span>
+<span id="7212">7212</span>
+<span id="7213">7213</span>
+<span id="7214">7214</span>
+<span id="7215">7215</span>
+<span id="7216">7216</span>
+<span id="7217">7217</span>
+<span id="7218">7218</span>
+<span id="7219">7219</span>
+<span id="7220">7220</span>
+<span id="7221">7221</span>
+<span id="7222">7222</span>
+<span id="7223">7223</span>
+<span id="7224">7224</span>
+<span id="7225">7225</span>
+<span id="7226">7226</span>
+<span id="7227">7227</span>
+<span id="7228">7228</span>
+<span id="7229">7229</span>
+<span id="7230">7230</span>
+<span id="7231">7231</span>
+<span id="7232">7232</span>
+<span id="7233">7233</span>
+<span id="7234">7234</span>
+<span id="7235">7235</span>
+<span id="7236">7236</span>
+<span id="7237">7237</span>
+<span id="7238">7238</span>
+<span id="7239">7239</span>
+<span id="7240">7240</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::common_decl</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::emitter_x64</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::location::Location</span> <span class="kw">as</span> <span class="ident">AbstractLocation</span>;
@@ -7654,51 +7688,31 @@
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
         <span class="ident">cb</span>: <span class="ident">F</span>,
     ) {
+        <span class="comment">// This function as been re-writen to use only 2 temporary register instead of 3</span>
+        <span class="comment">// without compromisong on the perfomances.</span>
+        <span class="comment">// The number of memory move should be equivalent to previous 3-temp regs version</span>
+        <span class="comment">// Register pressure is high on x86_64, and this is needed to be able to use</span>
+        <span class="comment">// instruction that neead RAX, like cmpxchg for example</span>
         <span class="kw">let</span> <span class="ident">tmp_addr</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">acquire_temp_gpr</span>().<span class="ident">unwrap</span>();
+        <span class="kw">let</span> <span class="ident">tmp2</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">acquire_temp_gpr</span>().<span class="ident">unwrap</span>();
 
         <span class="comment">// Reusing `tmp_addr` for temporary indirection here, since it&#39;s not used before the last reference to `{base,bound}_loc`.</span>
-        <span class="kw">let</span> (<span class="ident">base_loc</span>, <span class="ident">bound_loc</span>) <span class="op">=</span> <span class="kw">if</span> <span class="ident">imported_memories</span> {
+        <span class="kw">let</span> <span class="ident">base_loc</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">imported_memories</span> {
             <span class="comment">// Imported memories require one level of indirection.</span>
             <span class="self">self</span>.<span class="ident">emit_relaxed_binop</span>(
                 <span class="ident">AssemblerX64::emit_mov</span>,
                 <span class="ident">Size::S64</span>,
                 <span class="ident">Location::Memory</span>(<span class="self">self</span>.<span class="ident">get_vmctx_reg</span>(), <span class="ident">offset</span>),
-                <span class="ident">Location::GPR</span>(<span class="ident">tmp_addr</span>),
+                <span class="ident">Location::GPR</span>(<span class="ident">tmp2</span>),
             );
-            (<span class="ident">Location::Memory</span>(<span class="ident">tmp_addr</span>, <span class="number">0</span>), <span class="ident">Location::Memory</span>(<span class="ident">tmp_addr</span>, <span class="number">8</span>))
+            <span class="ident">Location::Memory</span>(<span class="ident">tmp2</span>, <span class="number">0</span>)
         } <span class="kw">else</span> {
-            (
-                <span class="ident">Location::Memory</span>(<span class="self">self</span>.<span class="ident">get_vmctx_reg</span>(), <span class="ident">offset</span>),
-                <span class="ident">Location::Memory</span>(<span class="self">self</span>.<span class="ident">get_vmctx_reg</span>(), <span class="ident">offset</span> <span class="op">+</span> <span class="number">8</span>),
-            )
+            <span class="ident">Location::Memory</span>(<span class="self">self</span>.<span class="ident">get_vmctx_reg</span>(), <span class="ident">offset</span>)
         };
-
-        <span class="kw">let</span> <span class="ident">tmp_base</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">acquire_temp_gpr</span>().<span class="ident">unwrap</span>();
-        <span class="kw">let</span> <span class="ident">tmp_bound</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">acquire_temp_gpr</span>().<span class="ident">unwrap</span>();
 
         <span class="comment">// Load base into temporary register.</span>
         <span class="self">self</span>.<span class="ident">assembler</span>
-            .<span class="ident">emit_mov</span>(<span class="ident">Size::S64</span>, <span class="ident">base_loc</span>, <span class="ident">Location::GPR</span>(<span class="ident">tmp_base</span>));
-
-        <span class="comment">// Load bound into temporary register, if needed.</span>
-        <span class="kw">if</span> <span class="ident">need_check</span> {
-            <span class="self">self</span>.<span class="ident">assembler</span>
-                .<span class="ident">emit_mov</span>(<span class="ident">Size::S64</span>, <span class="ident">bound_loc</span>, <span class="ident">Location::GPR</span>(<span class="ident">tmp_bound</span>));
-
-            <span class="comment">// Wasm -&gt; Effective.</span>
-            <span class="comment">// Assuming we never underflow - should always be true on Linux/macOS and Windows &gt;=8,</span>
-            <span class="comment">// since the first page from 0x0 to 0x1000 is not accepted by mmap.</span>
-
-            <span class="comment">// This `lea` calculates the upper bound allowed for the beginning of the word.</span>
-            <span class="comment">// Since the upper bound of the memory is (exclusively) `tmp_bound + tmp_base`,</span>
-            <span class="comment">// the maximum allowed beginning of word is (inclusively)</span>
-            <span class="comment">// `tmp_bound + tmp_base - value_size`.</span>
-            <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_lea</span>(
-                <span class="ident">Size::S64</span>,
-                <span class="ident">Location::Memory2</span>(<span class="ident">tmp_bound</span>, <span class="ident">tmp_base</span>, <span class="ident">Multiplier::One</span>, <span class="op">-</span>(<span class="ident">value_size</span> <span class="kw">as</span> <span class="ident">i32</span>)),
-                <span class="ident">Location::GPR</span>(<span class="ident">tmp_bound</span>),
-            );
-        }
+            .<span class="ident">emit_mov</span>(<span class="ident">Size::S64</span>, <span class="ident">base_loc</span>, <span class="ident">Location::GPR</span>(<span class="ident">tmp2</span>));
 
         <span class="comment">// Load effective address.</span>
         <span class="comment">// `base_loc` and `bound_loc` becomes INVALID after this line, because `tmp_addr`</span>
@@ -7718,21 +7732,53 @@
             <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_jmp</span>(<span class="ident">Condition::Carry</span>, <span class="ident">heap_access_oob</span>);
         }
 
-        <span class="comment">// Wasm linear memory -&gt; real memory</span>
-        <span class="self">self</span>.<span class="ident">assembler</span>
-            .<span class="ident">emit_add</span>(<span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">tmp_base</span>), <span class="ident">Location::GPR</span>(<span class="ident">tmp_addr</span>));
-
         <span class="kw">if</span> <span class="ident">need_check</span> {
+            <span class="kw">let</span> <span class="ident">bound_loc</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">imported_memories</span> {
+                <span class="comment">// Imported memories require one level of indirection.</span>
+                <span class="self">self</span>.<span class="ident">emit_relaxed_binop</span>(
+                    <span class="ident">AssemblerX64::emit_mov</span>,
+                    <span class="ident">Size::S64</span>,
+                    <span class="ident">Location::Memory</span>(<span class="self">self</span>.<span class="ident">get_vmctx_reg</span>(), <span class="ident">offset</span>),
+                    <span class="ident">Location::GPR</span>(<span class="ident">tmp2</span>),
+                );
+                <span class="ident">Location::Memory</span>(<span class="ident">tmp2</span>, <span class="number">8</span>)
+            } <span class="kw">else</span> {
+                <span class="ident">Location::Memory</span>(<span class="self">self</span>.<span class="ident">get_vmctx_reg</span>(), <span class="ident">offset</span> <span class="op">+</span> <span class="number">8</span>)
+            };
+            <span class="self">self</span>.<span class="ident">assembler</span>
+                .<span class="ident">emit_mov</span>(<span class="ident">Size::S64</span>, <span class="ident">bound_loc</span>, <span class="ident">Location::GPR</span>(<span class="ident">tmp2</span>));
+
+            <span class="comment">// We will compare the upper bound limit without having add the &quot;temp_base&quot; value, as it&#39;s a constant</span>
+            <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_lea</span>(
+                <span class="ident">Size::S64</span>,
+                <span class="ident">Location::Memory</span>(<span class="ident">tmp2</span>, <span class="op">-</span>(<span class="ident">value_size</span> <span class="kw">as</span> <span class="ident">i32</span>)),
+                <span class="ident">Location::GPR</span>(<span class="ident">tmp2</span>),
+            );
             <span class="comment">// Trap if the end address of the requested area is above that of the linear memory.</span>
             <span class="self">self</span>.<span class="ident">assembler</span>
-                .<span class="ident">emit_cmp</span>(<span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">tmp_bound</span>), <span class="ident">Location::GPR</span>(<span class="ident">tmp_addr</span>));
+                .<span class="ident">emit_cmp</span>(<span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">tmp2</span>), <span class="ident">Location::GPR</span>(<span class="ident">tmp_addr</span>));
 
             <span class="comment">// `tmp_bound` is inclusive. So trap only if `tmp_addr &gt; tmp_bound`.</span>
             <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_jmp</span>(<span class="ident">Condition::Above</span>, <span class="ident">heap_access_oob</span>);
         }
+        <span class="comment">// get back baseloc, as it might have been destroid with the upper memory test</span>
+        <span class="kw">let</span> <span class="ident">base_loc</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">imported_memories</span> {
+            <span class="comment">// Imported memories require one level of indirection.</span>
+            <span class="self">self</span>.<span class="ident">emit_relaxed_binop</span>(
+                <span class="ident">AssemblerX64::emit_mov</span>,
+                <span class="ident">Size::S64</span>,
+                <span class="ident">Location::Memory</span>(<span class="self">self</span>.<span class="ident">get_vmctx_reg</span>(), <span class="ident">offset</span>),
+                <span class="ident">Location::GPR</span>(<span class="ident">tmp2</span>),
+            );
+            <span class="ident">Location::Memory</span>(<span class="ident">tmp2</span>, <span class="number">0</span>)
+        } <span class="kw">else</span> {
+            <span class="ident">Location::Memory</span>(<span class="self">self</span>.<span class="ident">get_vmctx_reg</span>(), <span class="ident">offset</span>)
+        };
+        <span class="comment">// Wasm linear memory -&gt; real memory</span>
+        <span class="self">self</span>.<span class="ident">assembler</span>
+            .<span class="ident">emit_add</span>(<span class="ident">Size::S64</span>, <span class="ident">base_loc</span>, <span class="ident">Location::GPR</span>(<span class="ident">tmp_addr</span>));
 
-        <span class="self">self</span>.<span class="ident">release_gpr</span>(<span class="ident">tmp_bound</span>);
-        <span class="self">self</span>.<span class="ident">release_gpr</span>(<span class="ident">tmp_base</span>);
+        <span class="self">self</span>.<span class="ident">release_gpr</span>(<span class="ident">tmp2</span>);
 
         <span class="kw">let</span> <span class="ident">align</span> <span class="op">=</span> <span class="ident">memarg</span>.<span class="ident">align</span>;
         <span class="kw">if</span> <span class="ident">check_alignment</span> <span class="op">&amp;&amp;</span> <span class="ident">align</span> <span class="op">!</span><span class="op">=</span> <span class="number">1</span> {
@@ -9354,19 +9400,23 @@
             <span class="kw">_</span> =&gt; <span class="macro">unreachable!</span>(),
         };
         <span class="kw">match</span> <span class="ident">source</span> {
-            <span class="ident">Location::GPR</span>(<span class="kw">_</span>) <span class="op">|</span> <span class="ident">Location::Memory</span>(<span class="kw">_</span>, <span class="kw">_</span>) <span class="op">|</span> <span class="ident">Location::Memory2</span>(<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>) =&gt; {
-                <span class="kw">match</span> <span class="ident">size_val</span> {
-                    <span class="ident">Size::S32</span> <span class="op">|</span> <span class="ident">Size::S64</span> =&gt; <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_mov</span>(<span class="ident">size_val</span>, <span class="ident">source</span>, <span class="ident">dst</span>),
-                    <span class="ident">Size::S16</span> <span class="op">|</span> <span class="ident">Size::S8</span> =&gt; {
-                        <span class="kw">if</span> <span class="ident">signed</span> {
-                            <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_movsx</span>(<span class="ident">size_val</span>, <span class="ident">source</span>, <span class="ident">size_op</span>, <span class="ident">dst</span>)
-                        } <span class="kw">else</span> {
-                            <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_movzx</span>(<span class="ident">size_val</span>, <span class="ident">source</span>, <span class="ident">size_op</span>, <span class="ident">dst</span>)
-                        }
+            <span class="ident">Location::GPR</span>(<span class="kw">_</span>)
+            <span class="op">|</span> <span class="ident">Location::Memory</span>(<span class="kw">_</span>, <span class="kw">_</span>)
+            <span class="op">|</span> <span class="ident">Location::Memory2</span>(<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>)
+            <span class="op">|</span> <span class="ident">Location::Imm32</span>(<span class="kw">_</span>) =&gt; <span class="kw">match</span> <span class="ident">size_val</span> {
+                <span class="ident">Size::S32</span> <span class="op">|</span> <span class="ident">Size::S64</span> =&gt; <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_mov</span>(<span class="ident">size_val</span>, <span class="ident">source</span>, <span class="ident">dst</span>),
+                <span class="ident">Size::S16</span> <span class="op">|</span> <span class="ident">Size::S8</span> =&gt; {
+                    <span class="kw">if</span> <span class="ident">signed</span> {
+                        <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_movsx</span>(<span class="ident">size_val</span>, <span class="ident">source</span>, <span class="ident">size_op</span>, <span class="ident">dst</span>)
+                    } <span class="kw">else</span> {
+                        <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_movzx</span>(<span class="ident">size_val</span>, <span class="ident">source</span>, <span class="ident">size_op</span>, <span class="ident">dst</span>)
                     }
                 }
-            }
-            <span class="kw">_</span> =&gt; <span class="macro">unreachable!</span>(),
+            },
+            <span class="kw">_</span> =&gt; <span class="macro">panic!</span>(
+                <span class="string">&quot;unimplemented move_location_extend({:?}, {}, {:?}, {:?}, {:?}&quot;</span>,
+                <span class="ident">size_val</span>, <span class="ident">signed</span>, <span class="ident">source</span>, <span class="ident">size_op</span>, <span class="ident">dest</span>
+            ),
         }
         <span class="kw">if</span> <span class="ident">dst</span> <span class="op">!</span><span class="op">=</span> <span class="ident">dest</span> {
             <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_mov</span>(<span class="ident">size_op</span>, <span class="ident">dst</span>, <span class="ident">dest</span>);
@@ -10343,6 +10393,9 @@
             },
         );
     }
+    <span class="comment">// x86_64 have a strong memory model, so coherency between all threads (core) is garantied</span>
+    <span class="comment">// and aligned move is guarantied to be atomic, too or from memory</span>
+    <span class="comment">// so store/load an atomic is a simple mov on x86_64</span>
     <span class="kw">fn</span> <span class="ident">i32_atomic_save</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">value</span>: <span class="ident">Location</span>,
@@ -10363,7 +10416,12 @@
             <span class="ident">offset</span>,
             <span class="ident">heap_access_oob</span>,
             <span class="op">|</span><span class="ident">this</span>, <span class="ident">addr</span><span class="op">|</span> {
-                <span class="ident">this</span>.<span class="ident">emit_relaxed_atomic_xchg</span>(<span class="ident">Size::S32</span>, <span class="ident">value</span>, <span class="ident">Location::Memory</span>(<span class="ident">addr</span>, <span class="number">0</span>));
+                <span class="ident">this</span>.<span class="ident">emit_relaxed_binop</span>(
+                    <span class="ident">AssemblerX64::emit_mov</span>,
+                    <span class="ident">Size::S32</span>,
+                    <span class="ident">value</span>,
+                    <span class="ident">Location::Memory</span>(<span class="ident">addr</span>, <span class="number">0</span>),
+                );
             },
         );
     }
@@ -10387,7 +10445,12 @@
             <span class="ident">offset</span>,
             <span class="ident">heap_access_oob</span>,
             <span class="op">|</span><span class="ident">this</span>, <span class="ident">addr</span><span class="op">|</span> {
-                <span class="ident">this</span>.<span class="ident">emit_relaxed_atomic_xchg</span>(<span class="ident">Size::S8</span>, <span class="ident">value</span>, <span class="ident">Location::Memory</span>(<span class="ident">addr</span>, <span class="number">0</span>));
+                <span class="ident">this</span>.<span class="ident">emit_relaxed_binop</span>(
+                    <span class="ident">AssemblerX64::emit_mov</span>,
+                    <span class="ident">Size::S8</span>,
+                    <span class="ident">value</span>,
+                    <span class="ident">Location::Memory</span>(<span class="ident">addr</span>, <span class="number">0</span>),
+                );
             },
         );
     }
@@ -10411,7 +10474,12 @@
             <span class="ident">offset</span>,
             <span class="ident">heap_access_oob</span>,
             <span class="op">|</span><span class="ident">this</span>, <span class="ident">addr</span><span class="op">|</span> {
-                <span class="ident">this</span>.<span class="ident">emit_relaxed_atomic_xchg</span>(<span class="ident">Size::S16</span>, <span class="ident">value</span>, <span class="ident">Location::Memory</span>(<span class="ident">addr</span>, <span class="number">0</span>));
+                <span class="ident">this</span>.<span class="ident">emit_relaxed_binop</span>(
+                    <span class="ident">AssemblerX64::emit_mov</span>,
+                    <span class="ident">Size::S16</span>,
+                    <span class="ident">value</span>,
+                    <span class="ident">Location::Memory</span>(<span class="ident">addr</span>, <span class="number">0</span>),
+                );
             },
         );
     }
