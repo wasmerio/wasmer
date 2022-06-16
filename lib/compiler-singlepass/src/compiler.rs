@@ -89,9 +89,6 @@ impl Compiler for SinglepassCompiler {
             }
             _ => None,
         };
-        if compile_info.features.multi_value {
-            return Err(CompileError::UnsupportedFeature("multivalue".to_string()));
-        }
         let calling_convention = match target.triple().default_calling_convention() {
             Ok(CallingConvention::WindowsFastcall) => CallingConvention::WindowsFastcall,
             Ok(CallingConvention::SystemV) => CallingConvention::SystemV,
