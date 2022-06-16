@@ -12,12 +12,14 @@ and provide examples to make migrating to the new API as simple as possible.
 - [Project structure](#project-structure)
 - [Differences](#differences)
   - [Managing imports](#managing-imports)
+  - [Engines](#engines)
 
 ## Rationale for changes in 3.0.0
 
 This version introduces the following changes to make the Wasmer API more ergonomic and safe:
 
 1. `ImportsObject` and the traits `Resolver`, `NamedResolver`, etc have been removed and replaced with a single simple type `Imports`. This reduces the complexity of setting up an `Instance`. The helper macro `imports!` can still be used.
+2. The `Engine`s API has been simplified, Instead of the `wasmer` user choosing and setting up an engine explicitly, everything now uses the universal engine. All functionalites of the `staticlib`,`dylib` Engines should be available unless explicitly stated as unsupported.
 
 ## How to use Wasmer 3.0.0
 
@@ -76,11 +78,44 @@ imports2.extend(&imports);
 // }
 ```
 
+### Engines
+
+#### Before
+
+In Wasmer 2.0, you had to explicitly define the Engine you want to use:
+
+```rust
+let wasm_bytes = wat2wasm(
+    "..".as_bytes(),
+)?;
+
+let compiler_config = Cranelift::default();
+let engine = Universal::new(compiler_config).engine();
+let store = Store::new(&engine);
+let module = Module::new(&store, wasm_bytes)?;
+let instance = Instance::new(&module, &imports! {})?;
+```
+
+#### After
+
+In Wasmer 3.0, there's only the universal engine. The user can ignore the engine details when using the API:
+
+
+```rust
+let wasm_bytes = wat2wasm(
+    "..".as_bytes(),
+)?;
+
+let compiler_config = Cranelift::default();
+let store = Store::new(&compiler_config);
+let module = Module::new(&store, wasm_bytes)?;
+let instance = Instance::new(&module, &imports! {})?;
+```
+
 [examples]: https://docs.wasmer.io/integrations/examples
 [wasmer]: https://crates.io/crates/wasmer
 [wasmer-wasi]: https://crates.io/crates/wasmer-wasi
 [wasmer-emscripten]: https://crates.io/crates/wasmer-emscripten
-[wasmer-engine]: https://crates.io/crates/wasmer-engine
 [wasmer-compiler]: https://crates.io/crates/wasmer-compiler
 [wasmer.io]: https://wasmer.io
 [wasmer-nightly]: https://github.com/wasmerio/wasmer-nightly/
