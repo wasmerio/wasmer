@@ -17,49 +17,53 @@ use std::str::FromStr;
 use wasmer::{wat2wasm, Module, RuntimeError, Store};
 use wasmer_compiler::{CpuFeature, Target, Triple};
 use wasmer_compiler_cranelift::Cranelift;
+/*
 use wasmer_engine_dylib::Dylib;
+*/
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Let's declare the Wasm module with the text representation.
-    let wasm_bytes = wat2wasm(
-        r#"
-(module
-(type $sum_t (func (param i32 i32) (result i32)))
-(func $sum_f (type $sum_t) (param $x i32) (param $y i32) (result i32)
-local.get $x
-local.get $y
-i32.add)
-(export "sum" (func $sum_f)))
-"#
-        .as_bytes(),
-    )?;
+    /*
+        // Let's declare the Wasm module with the text representation.
+        let wasm_bytes = wat2wasm(
+            r#"
+    (module
+    (type $sum_t (func (param i32 i32) (result i32)))
+    (func $sum_f (type $sum_t) (param $x i32) (param $y i32) (result i32)
+    local.get $x
+    local.get $y
+    i32.add)
+    (export "sum" (func $sum_f)))
+    "#
+            .as_bytes(),
+        )?;
 
-    // Create a compiler for iOS
-    let compiler_config = Cranelift::default();
-    // Change it to `x86_64-apple-ios` if you want to target the iOS simulator
-    let triple = Triple::from_str("aarch64-apple-ios")
-        .map_err(|error| RuntimeError::new(error.to_string()))?;
+        // Create a compiler for iOS
+        let compiler_config = Cranelift::default();
+        // Change it to `x86_64-apple-ios` if you want to target the iOS simulator
+        let triple = Triple::from_str("aarch64-apple-ios")
+            .map_err(|error| RuntimeError::new(error.to_string()))?;
 
-    // Let's build the target.
-    let mut cpu_feature = CpuFeature::set();
-    cpu_feature.insert(CpuFeature::from_str("sse2")?);
-    let target = Target::new(triple, cpu_feature);
-    println!("Chosen target: {:?}", target);
+        // Let's build the target.
+        let mut cpu_feature = CpuFeature::set();
+        cpu_feature.insert(CpuFeature::from_str("sse2")?);
+        let target = Target::new(triple, cpu_feature);
+        println!("Chosen target: {:?}", target);
 
-    println!("Creating Dylib engine...");
-    let engine = Dylib::new(compiler_config).target(target).engine();
+        println!("Creating Dylib engine...");
+        let engine = Dylib::new(compiler_config).target(target).engine();
 
-    // Create a store, that holds the engine.
-    let store = Store::new(&engine);
+        // Create a store, that holds the engine.
+        let store = Store::new_with_engine(&engine);
 
-    println!("Compiling module...");
-    // Let's compile the Wasm module.
-    let module = Module::new(&store, wasm_bytes)?;
-    // Here we go. Let's serialize the compiled Wasm module in a
-    // file.
-    println!("Serializing module...");
-    let dylib_file = Path::new("./sum.dylib");
-    module.serialize_to_file(dylib_file)?;
+        println!("Compiling module...");
+        // Let's compile the Wasm module.
+        let module = Module::new(&store, wasm_bytes)?;
+        // Here we go. Let's serialize the compiled Wasm module in a
+        // file.
+        println!("Serializing module...");
+        let dylib_file = Path::new("./sum.dylib");
+        module.serialize_to_file(dylib_file)?;
+    */
 
     Ok(())
 }

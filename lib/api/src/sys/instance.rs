@@ -69,12 +69,12 @@ pub enum InstantiationError {
     HostEnvInitialization(HostEnvInitError),
 }
 
-impl From<wasmer_engine::InstantiationError> for InstantiationError {
-    fn from(other: wasmer_engine::InstantiationError) -> Self {
+impl From<wasmer_compiler::InstantiationError> for InstantiationError {
+    fn from(other: wasmer_compiler::InstantiationError) -> Self {
         match other {
-            wasmer_engine::InstantiationError::Link(e) => Self::Link(e),
-            wasmer_engine::InstantiationError::Start(e) => Self::Start(e),
-            wasmer_engine::InstantiationError::CpuFeature(e) => Self::CpuFeature(e),
+            wasmer_compiler::InstantiationError::Link(e) => Self::Link(e),
+            wasmer_compiler::InstantiationError::Start(e) => Self::Start(e),
+            wasmer_compiler::InstantiationError::CpuFeature(e) => Self::CpuFeature(e),
         }
     }
 }

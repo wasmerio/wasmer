@@ -93,10 +93,10 @@ use smallvec::SmallVec;
 use std::vec::Vec;
 
 use wasmer_compiler::wasmparser::{MemoryImmediate, Operator, Type as WPType};
-use wasmer_compiler::WasmResult;
-use wasmer_compiler::{wasm_unsupported, ModuleTranslationState};
+use wasmer_compiler::{from_binaryreadererror_wasmerror, wasm_unsupported, ModuleTranslationState};
 use wasmer_types::{
     FunctionIndex, GlobalIndex, MemoryIndex, SignatureIndex, TableIndex, Type as WasmerType,
+    WasmResult,
 };
 
 // Clippy warns about "align: _" but its important to document that the align field is ignored
@@ -486,7 +486,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             let default = table.default();
             let mut min_depth = default;
             for depth in table.targets() {
-                let depth = depth?;
+                let depth = depth.map_err(from_binaryreadererror_wasmerror)?;
                 if depth < min_depth {
                     min_depth = depth;
                 }
@@ -505,7 +505,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             if jump_args_count == 0 {
                 // No jump arguments
                 for depth in table.targets() {
-                    let depth = depth?;
+                    let depth = depth.map_err(from_binaryreadererror_wasmerror)?;
                     let block = {
                         let i = state.control_stack.len() - 1 - (depth as usize);
                         let frame = &mut state.control_stack[i];
@@ -529,7 +529,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
                 let mut dest_block_sequence = vec![];
                 let mut dest_block_map = HashMap::new();
                 for depth in table.targets() {
-                    let depth = depth?;
+                    let depth = depth.map_err(from_binaryreadererror_wasmerror)?;
                     let branch_block = match dest_block_map.entry(depth as usize) {
                         hash_map::Entry::Occupied(entry) => *entry.get(),
                         hash_map::Entry::Vacant(entry) => {

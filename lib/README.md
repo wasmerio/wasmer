@@ -34,14 +34,6 @@ composed of a set of crates. We can group them as follows:
   differ:
   * `engine-universal` — stores the code in a custom file format, and
     loads it in memory,
-  * `engine-dylib` — stores Position-Independent Code in a native
-    shared object library (`.dylib`, `.so`, `.dll`) and loads it with
-    Operating System shared library loader (via `dlopen`),
-  * `engine-staticlib` — stores executable code in a native static
-    object library, in addition to emitting a C header file, which
-    both can be linked against a sandboxed WebAssembly runtime
-    environment for the compiled module with no need for runtime
-    compilation,
   * `object` — A library to cross-generate native objects for various
     platforms.
 * `middlewares` — A collection of middlewares, like `metering` that

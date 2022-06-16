@@ -49,12 +49,6 @@ Wasmer is not only fast, but also designed to be *highly customizable*:
   compilation process and to store the generated executable code
   somewhere, either:
   * in-memory (with [`wasmer-engine-universal`]),
-  * in a native shared object file (with [`wasmer-engine-dylib`],
-    `.dylib`, `.so`, `.dll`), then load it with `dlopen`,
-  * in a native static object file (with [`wasmer-engine-staticlib`]),
-    in addition to emitting a C header file, which both can be linked
-    against a sandboxed WebAssembly runtime environment for the
-    compiled module with no need for runtime compilation.
 
 * **Pluggable compilers** — A compiler is used by an engine to
   transform WebAssembly into executable code:
@@ -101,8 +95,6 @@ more](https://wasmerio.github.io/wasmer/crates/doc/wasmer/).
 Made with ❤️ by the Wasmer team, for the community
 
 [`wasmer-engine-universal`]: https://github.com/wasmerio/wasmer/tree/master/lib/engine-universal
-[`wasmer-engine-dylib`]: https://github.com/wasmerio/wasmer/tree/master/lib/engine-dylib
-[`wasmer-engine-staticlib`]: https://github.com/wasmerio/wasmer/tree/master/lib/engine-staticlib 
 [`wasmer-compiler-singlepass`]: https://github.com/wasmerio/wasmer/tree/master/lib/compiler-singlepass
 [`wasmer-compiler-cranelift`]: https://github.com/wasmerio/wasmer/tree/master/lib/compiler-cranelift
 [`wasmer-compiler-llvm`]: https://github.com/wasmerio/wasmer/tree/master/lib/compiler-llvm

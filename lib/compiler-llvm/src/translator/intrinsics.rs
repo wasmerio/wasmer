@@ -23,11 +23,10 @@ use inkwell::{
     AddressSpace,
 };
 use std::collections::{hash_map::Entry, HashMap};
-use wasmer_compiler::CompileError;
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{
-    FunctionIndex, FunctionType as FuncType, GlobalIndex, LocalFunctionIndex, MemoryIndex,
-    ModuleInfo as WasmerCompilerModule, Mutability, SignatureIndex, TableIndex, Type,
+    CompileError, FunctionIndex, FunctionType as FuncType, GlobalIndex, LocalFunctionIndex,
+    MemoryIndex, ModuleInfo as WasmerCompilerModule, Mutability, SignatureIndex, TableIndex, Type,
 };
 use wasmer_vm::{MemoryStyle, TrapCode, VMBuiltinFunctionIndex, VMOffsets};
 

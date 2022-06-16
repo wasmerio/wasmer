@@ -18,8 +18,7 @@ path = "src/bin/wasmer_compiler.rs"
 doc = false
 
 [dependencies]
-wasmer-engine-universal-artifact = { version = "=2.3.0", path = "../universal-artifact", features = ["compiler"] }
-wasmer-compiler = { version = "=2.3.0", path = "../compiler" }
+wasmer-compiler = { version = "=2.3.0", path = "../compiler", features = ["universal_engine"] }
 wasmer-types = { version = "=2.3.0", path = "../types" }
 atty = "0.2"
 colored = "2.0"

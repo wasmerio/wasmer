@@ -19,8 +19,8 @@ use std::sync::Arc;
 use wasmer::wasmparser::Operator;
 use wasmer::CompilerConfig;
 use wasmer::{imports, wat2wasm, Instance, Module, Store};
+use wasmer_compiler::Universal;
 use wasmer_compiler_cranelift::Cranelift;
-use wasmer_engine_universal::Universal;
 use wasmer_middlewares::{
     metering::{get_remaining_points, set_remaining_points, MeteringPoints},
     Metering,
@@ -70,7 +70,7 @@ fn main() -> anyhow::Result<()> {
     //
     // We use our previously create compiler configuration
     // with the Universal engine.
-    let store = Store::new(&Universal::new(compiler_config).engine());
+    let store = Store::new_with_engine(&Universal::new(compiler_config).engine());
 
     println!("Compiling module...");
     // Let's compile the Wasm module.

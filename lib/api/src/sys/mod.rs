@@ -48,22 +48,19 @@ pub use crate::sys::types::{Val as Value, ValType as Type};
 pub use target_lexicon::{Architecture, CallingConvention, OperatingSystem, Triple, HOST};
 #[cfg(feature = "compiler")]
 pub use wasmer_compiler::{
-    wasmparser, CompilerConfig, FunctionMiddleware, MiddlewareError, MiddlewareReaderState,
-    ModuleMiddleware,
+    wasmparser, CompilerConfig, FunctionMiddleware, MiddlewareReaderState, ModuleMiddleware,
 };
 pub use wasmer_compiler::{
-    CompileError, CpuFeature, Features, ParseCpuFeatureError, Target, WasmError, WasmResult,
+    CpuFeature, Engine, Export, Features, FrameInfo, LinkError, RuntimeError, Target, Tunables,
 };
 pub use wasmer_derive::ValueType;
-pub use wasmer_engine::{
-    DeserializeError, Engine, Export, FrameInfo, LinkError, RuntimeError, SerializeError, Tunables,
-};
 pub use wasmer_types::is_wasm;
 #[cfg(feature = "experimental-reference-types-extern-ref")]
 pub use wasmer_types::ExternRef;
 pub use wasmer_types::{
-    Bytes, ExportIndex, GlobalInit, LocalFunctionIndex, Pages, ValueType, WASM_MAX_PAGES,
-    WASM_MIN_PAGES, WASM_PAGE_SIZE,
+    Bytes, CompileError, DeserializeError, ExportIndex, GlobalInit, LocalFunctionIndex,
+    MiddlewareError, Pages, ParseCpuFeatureError, SerializeError, ValueType, WasmError, WasmResult,
+    WASM_MAX_PAGES, WASM_MIN_PAGES, WASM_PAGE_SIZE,
 };
 
 // TODO: should those be moved into wasmer::vm as well?
@@ -96,7 +93,7 @@ If you wish to use more than one compiler, you can simply create the own store. 
 use wasmer::{Store, Universal, Singlepass};
 
 let engine = Universal::new(Singlepass::default()).engine();
-let store = Store::new(&engine);
+let store = Store::new_with_engine(&engine);
 ```"#
 );
 
@@ -110,10 +107,7 @@ pub use wasmer_compiler_cranelift::{Cranelift, CraneliftOptLevel};
 pub use wasmer_compiler_llvm::{LLVMOptLevel, LLVM};
 
 #[cfg(feature = "universal")]
-pub use wasmer_engine_universal::{Universal, UniversalArtifact, UniversalEngine};
-
-#[cfg(feature = "dylib")]
-pub use wasmer_engine_dylib::{Dylib, DylibArtifact, DylibEngine};
+pub use wasmer_compiler::{Universal, UniversalArtifact, UniversalEngine};
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -122,11 +116,6 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 #[cfg(feature = "jit")]
 #[deprecated(since = "2.0.0", note = "Please use the `universal` feature instead")]
 pub type JIT = Universal;
-
-/// The Deprecated Native Engine (please use `Dylib` instead)
-#[cfg(feature = "native")]
-#[deprecated(since = "2.0.0", note = "Please use the `native` feature instead")]
-pub type Native = Dylib;
 
 /// This type is deprecated, it has been replaced by TypedFunction.
 #[deprecated(

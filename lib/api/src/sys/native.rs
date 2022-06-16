@@ -12,7 +12,7 @@ use std::marker::PhantomData;
 use crate::sys::externals::function::{DynamicFunction, VMDynamicFunction};
 use crate::sys::{FromToNativeWasmType, Function, RuntimeError, Store, WasmTypeList};
 use std::panic::{catch_unwind, AssertUnwindSafe};
-use wasmer_engine::ExportFunction;
+use wasmer_compiler::ExportFunction;
 use wasmer_types::NativeWasmType;
 use wasmer_vm::{VMDynamicFunctionContext, VMFunctionBody, VMFunctionEnvironment, VMFunctionKind};
 

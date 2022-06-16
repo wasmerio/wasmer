@@ -11,15 +11,11 @@ autoexamples = false
 
 [dependencies]
 wasmer = { version = "=2.3.0", path = "lib/api", default-features = false }
-wasmer-compiler = { version = "=2.3.0", path = "lib/compiler" }
+wasmer-compiler = { version = "=2.3.0", path = "lib/compiler", features = ["universal_engine"] }
 wasmer-compiler-cranelift = { version = "=2.3.0", path = "lib/compiler-cranelift", optional = true }
 wasmer-compiler-singlepass = { version = "=2.3.0", path = "lib/compiler-singlepass", optional = true }
 wasmer-compiler-llvm = { version = "=2.3.0", path = "lib/compiler-llvm", optional = true }
 wasmer-emscripten = { version = "=2.3.0", path = "lib/emscripten", optional = true }
-wasmer-engine = { version = "=2.3.0", path = "lib/engine" }
-wasmer-engine-universal = { version = "=2.3.0", path = "lib/engine-universal", optional = true }
-wasmer-engine-dylib = { version = "=2.3.0", path = "lib/engine-dylib", optional = true }
-wasmer-engine-staticlib = { version = "=2.3.0", path = "lib/engine-staticlib", optional = true }
 wasmer-wasi = { version = "=2.3.0", path = "lib/wasi", optional = true }
 wasmer-wast = { version = "=2.3.0", path = "tests/lib/wast", optional = true }
 wasi-test-generator = { version = "=2.3.0", path = "tests/wasi-wast", optional = true }
@@ -41,10 +37,6 @@ members = [
     "lib/compiler-llvm",
     "lib/derive",
     "lib/emscripten",
-    "lib/engine",
-    "lib/engine-universal",
-    "lib/engine-dylib",
-    "lib/engine-staticlib",
     "lib/object",
     "lib/vfs",
     "lib/vnet",
@@ -76,7 +68,6 @@ anyhow = "1.0"
 criterion = "0.3"
 lazy_static = "1.4"
 serial_test = "0.5"
-wasmer-engine-dummy = { path = "tests/lib/engine-dummy" }
 compiler-test-derive = { path = "tests/lib/compiler-test-derive" }
 tempfile = "3.1"
 # For logging tests using the `RUST_LOG=debug` when testing
@@ -90,27 +81,14 @@ tracing-subscriber = { version = "0.3", default-features = false, features = ["e
 default = [
     "wat",
     "wast",
-    "universal",
-    "dylib",
-    "staticlib",
     "cache",
     "wasi",
+    "engine",
     "emscripten",
     "middlewares",
 ]
-engine = []
-universal = [
-    "wasmer-engine-universal",
-    "engine",
-]
-dylib = [
-    "wasmer-engine-dylib",
-    "engine",
-]
-staticlib = [
-    "wasmer-engine-staticlib",
-    "engine",
-]
+engine = ["universal"]
+universal = []
 cache = ["wasmer-cache"]
 wast = ["wasmer-wast"]
 wasi = ["wasmer-wasi"]
@@ -119,9 +97,6 @@ wat = ["wasmer/wat"]
 compiler = [
     "wasmer/compiler",
     "wasmer-compiler/translator",
-    "wasmer-engine-universal/compiler",
-    "wasmer-engine-dylib/compiler",
-    "wasmer-engine-staticlib/compiler",
 ]
 singlepass = [
     "wasmer-compiler-singlepass",
@@ -148,12 +123,7 @@ test-llvm = [
     "llvm",
 ]
 
-test-dylib = [
-    "dylib",
-    "test-generator/test-dylib",
-]
 test-universal = [
-    "universal",
     "test-generator/test-universal",
 ]
 
@@ -176,11 +146,6 @@ required-features = ["cranelift"]
 [[example]]
 name = "engine-universal"
 path = "examples/engine_universal.rs"
-required-features = ["cranelift"]
-
-[[example]]
-name = "engine-dylib"
-path = "examples/engine_dylib.rs"
 required-features = ["cranelift"]
 
 [[example]]

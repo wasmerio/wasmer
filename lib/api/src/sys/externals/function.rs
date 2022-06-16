@@ -12,7 +12,7 @@ use std::cmp::max;
 use std::ffi::c_void;
 use std::fmt;
 use std::sync::Arc;
-use wasmer_engine::{Export, ExportFunction, ExportFunctionMetadata};
+use wasmer_compiler::{Export, ExportFunction, ExportFunctionMetadata};
 use wasmer_vm::{
     on_host_stack, raise_user_trap, resume_panic, wasmer_call_trampoline, ImportInitializerFuncPtr,
     VMCallerCheckedAnyfunc, VMDynamicFunctionContext, VMFuncRef, VMFunction, VMFunctionBody,

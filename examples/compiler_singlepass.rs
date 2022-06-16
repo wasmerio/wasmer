@@ -11,8 +11,8 @@
 //! Ready?
 
 use wasmer::{imports, wat2wasm, Instance, Module, Store, Value};
+use wasmer_compiler::Universal;
 use wasmer_compiler_singlepass::Singlepass;
-use wasmer_engine_universal::Universal;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Let's declare the Wasm module with the text representation.
@@ -33,7 +33,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let compiler = Singlepass::default();
 
     // Create the store
-    let store = Store::new(&Universal::new(compiler).engine());
+    let store = Store::new_with_engine(&Universal::new(compiler).engine());
 
     println!("Compiling module...");
     // Let's compile the Wasm module.

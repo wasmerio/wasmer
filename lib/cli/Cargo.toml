@@ -26,15 +26,11 @@ required-features = ["headless"]
 
 [dependencies]
 wasmer = { version = "=2.3.0", path = "../api", default-features = false }
-wasmer-compiler = { version = "=2.3.0", path = "../compiler" }
+wasmer-compiler = { version = "=2.3.0", path = "../compiler", features = ["universal_engine", ] }
 wasmer-compiler-cranelift = { version = "=2.3.0", path = "../compiler-cranelift", optional = true }
 wasmer-compiler-singlepass = { version = "=2.3.0", path = "../compiler-singlepass", optional = true }
 wasmer-compiler-llvm = { version = "=2.3.0", path = "../compiler-llvm", optional = true }
 wasmer-emscripten = { version = "=2.3.0", path = "../emscripten", optional = true }
-wasmer-engine = { version = "=2.3.0", path = "../engine" }
-wasmer-engine-universal = { version = "=2.3.0", path = "../engine-universal", optional = true }
-wasmer-engine-dylib = { version = "=2.3.0", path = "../engine-dylib", optional = true }
-wasmer-engine-staticlib = { version = "=2.3.0", path = "../engine-staticlib", optional = true }
 wasmer-vm = { version = "=2.3.0", path = "../vm" }
 wasmer-wasi = { version = "=2.3.0", path = "../wasi", optional = true }
 wasmer-wasi-experimental-io-devices = { version = "=2.3.0", path = "../wasi-experimental-io-devices", optional = true }
@@ -65,25 +61,9 @@ unix_mode = "0.1.3"
 default = [
     "wat",
     "wast",
-    "universal",
-    "dylib",
-    "staticlib",
     "cache",
     "wasi",
     "emscripten",
-]
-engine = []
-universal = [
-    "wasmer-engine-universal",
-    "engine",
-]
-dylib = [
-    "wasmer-engine-dylib",
-    "engine",
-]
-staticlib = [
-    "wasmer-engine-staticlib",
-    "engine",
 ]
 cache = ["wasmer-cache"]
 cache-blake3-pure = ["wasmer-cache/blake3-pure"]
@@ -93,9 +73,6 @@ emscripten = ["wasmer-emscripten"]
 wat = ["wasmer/wat"]
 compiler = [
     "wasmer-compiler/translator",
-    "wasmer-engine-universal/compiler",
-    "wasmer-engine-dylib/compiler",
-    "wasmer-engine-staticlib/compiler",
 ]
 experimental-io-devices = [
     "wasmer-wasi-experimental-io-devices",
@@ -116,8 +93,4 @@ llvm = [
 debug = ["fern", "log", "wasmer-wasi/logging"]
 disable-all-logging = ["wasmer-wasi/disable-all-logging"]
 headless = []
-headless-minimal = ["headless", "disable-all-logging", "wasi", "dylib", "universal"]
-
-# Deprecated features.
-jit = ["universal"]
-native = ["dylib"] 
+headless-minimal = ["headless", "disable-all-logging", "wasi"]

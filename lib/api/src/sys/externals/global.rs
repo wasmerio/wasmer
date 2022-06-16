@@ -7,7 +7,7 @@ use crate::sys::Mutability;
 use crate::sys::RuntimeError;
 use std::fmt;
 use std::sync::Arc;
-use wasmer_engine::Export;
+use wasmer_compiler::Export;
 use wasmer_vm::{Global as RuntimeGlobal, VMGlobal};
 
 /// A WebAssembly `global` instance.

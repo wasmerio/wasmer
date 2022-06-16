@@ -14,7 +14,6 @@ use cranelift_codegen::isa::TargetFrontendConfig;
 use cranelift_frontend::{FunctionBuilder, Variable};
 use std::convert::TryFrom;
 use wasmer_compiler::wasmparser::Type;
-use wasmer_compiler::{WasmError, WasmResult};
 use wasmer_types::entity::EntityRef;
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::VMBuiltinFunctionIndex;
@@ -24,6 +23,7 @@ use wasmer_types::{
     SignatureIndex, TableIndex, Type as WasmerType,
 };
 use wasmer_types::{MemoryStyle, TableStyle};
+use wasmer_types::{WasmError, WasmResult};
 
 /// Compute an `ir::ExternalName` for a given wasm function index.
 pub fn get_function_name(func_index: FunctionIndex) -> ir::ExternalName {

@@ -15,9 +15,7 @@ use std::cmp;
 use std::mem;
 
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
-use wasmer_compiler::{CompileError, FunctionBody};
-use wasmer_types::FunctionType;
-use wasmer_types::VMOffsets;
+use wasmer_types::{CompileError, FunctionBody, FunctionType, VMOffsets};
 
 /// Create a trampoline for invoking a WebAssembly function.
 pub fn make_trampoline_dynamic_function(

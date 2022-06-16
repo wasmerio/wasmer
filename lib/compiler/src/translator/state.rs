@@ -1,10 +1,10 @@
 // This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
-use crate::{wasm_unsupported, WasmResult};
+use crate::wasm_unsupported;
 use std::boxed::Box;
 use wasmer_types::entity::PrimaryMap;
-use wasmer_types::SignatureIndex;
+use wasmer_types::{SignatureIndex, WasmResult};
 
 /// Map of signatures to a function's parameter and return types.
 pub(crate) type WasmTypes =

@@ -59,16 +59,6 @@ gen_tests! {
                 #[cfg(feature = "universal")]
                 fn universal() {
                     foo(crate::Config::new(
-                        crate::Engine::Universal,
-                        crate::Compiler::Singlepass
-                    ))
-                }
-                #[test_log::test]
-                #[cold]
-                #[cfg(feature = "dylib")]
-                fn dylib() {
-                    foo(crate::Config::new(
-                        crate::Engine::Dylib,
                         crate::Compiler::Singlepass
                     ))
                 }
@@ -82,16 +72,6 @@ gen_tests! {
                 #[cfg(feature = "universal")]
                 fn universal() {
                     foo(crate::Config::new(
-                        crate::Engine::Universal,
-                        crate::Compiler::Cranelift
-                    ))
-                }
-                #[test_log::test]
-                #[cold]
-                #[cfg(feature = "dylib")]
-                fn dylib() {
-                    foo(crate::Config::new(
-                        crate::Engine::Dylib,
                         crate::Compiler::Cranelift
                     ))
                 }
@@ -105,16 +85,6 @@ gen_tests! {
                 #[cfg(feature = "universal")]
                 fn universal() {
                     foo(crate::Config::new(
-                        crate::Engine::Universal,
-                        crate::Compiler::LLVM
-                    ))
-                }
-                #[test_log::test]
-                #[cold]
-                #[cfg(feature = "dylib")]
-                fn dylib() {
-                    foo(crate::Config::new(
-                        crate::Engine::Dylib,
                         crate::Compiler::LLVM
                     ))
                 }

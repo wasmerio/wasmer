@@ -13,12 +13,8 @@ use crate::error::update_last_error;
 use cfg_if::cfg_if;
 use std::sync::Arc;
 use wasmer_api::Engine;
-#[cfg(feature = "dylib")]
-use wasmer_engine_dylib::Dylib;
-#[cfg(feature = "staticlib")]
-use wasmer_engine_staticlib::Staticlib;
 #[cfg(feature = "universal")]
-use wasmer_engine_universal::Universal;
+use wasmer_compiler::Universal;
 
 /// Kind of compilers that can be used by the engines.
 ///
@@ -69,14 +65,6 @@ pub enum wasmer_engine_t {
     /// Variant to represent the Universal engine. See the
     /// [`wasmer_engine_universal`] Rust crate.
     UNIVERSAL = 0,
-
-    /// Variant to represent the Dylib engine. See the
-    /// [`wasmer_engine_dylib`] Rust crate.
-    DYLIB = 1,
-
-    /// Variant to represent the Staticlib engine. See the
-    /// [`wasmer_engine_staticlib`] Rust crate.
-    STATICLIB = 2,
 }
 
 impl Default for wasmer_engine_t {
@@ -84,10 +72,6 @@ impl Default for wasmer_engine_t {
         cfg_if! {
             if #[cfg(feature = "universal")] {
                 Self::UNIVERSAL
-            } else if #[cfg(feature = "dylib")] {
-                Self::DYLIB
-            } else if #[cfg(feature = "staticlib")] {
-                Self::STATICLIB
             } else {
                 compile_error!("Please enable one of the engines")
             }
@@ -251,10 +235,6 @@ pub extern "C" fn wasm_config_set_compiler(
 ///     if (wasmer_is_engine_available(UNIVERSAL)) {
 ///         wasm_config_set_engine(config, UNIVERSAL);
 ///     }
-///     // Or maybe the Dylib engine?
-///     else if (wasmer_is_engine_available(DYLIB)) {
-///         wasm_config_set_engine(config, DYLIB);
-///     }
 ///     // OK, let's do not specify any particular engine.
 ///
 ///     // Create the engine.
@@ -330,49 +310,6 @@ cfg_if! {
         #[no_mangle]
         pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
             let engine: Arc<dyn Engine + Send + Sync> = Arc::new(Universal::headless().engine());
-            Box::new(wasm_engine_t { inner: engine })
-        }
-    } else if #[cfg(all(feature = "dylib", feature = "compiler"))] {
-        /// Creates a new Dylib engine with the default compiler.
-        ///
-        /// # Example
-        ///
-        /// See [`wasm_engine_delete`].
-        ///
-        /// cbindgen:ignore
-        #[no_mangle]
-        pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
-            let compiler_config: Box<dyn CompilerConfig> = get_default_compiler_config();
-            let engine: Arc<dyn Engine + Send + Sync> = Arc::new(Dylib::new(compiler_config).engine());
-            Box::new(wasm_engine_t { inner: engine })
-        }
-    } else if #[cfg(feature = "dylib")] {
-        /// Creates a new headless Dylib engine.
-        ///
-        /// # Example
-        ///
-        /// See [`wasm_engine_delete`].
-        ///
-        /// cbindgen:ignore
-        #[no_mangle]
-        pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
-            let engine: Arc<dyn Engine + Send + Sync> = Arc::new(Dylib::headless().engine());
-            Box::new(wasm_engine_t { inner: engine })
-        }
-    }
-    // There are currently no uses of the Staticlib engine + compiler from the C API.
-    // So if we get here, we default to headless mode regardless of if `compiler` is enabled.
-    else if #[cfg(feature = "staticlib")] {
-        /// Creates a new headless Staticlib engine.
-        ///
-        /// # Example
-        ///
-        /// See [`wasm_engine_delete`].
-        ///
-        /// cbindgen:ignore
-        #[no_mangle]
-        pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
-            let engine: Arc<dyn Engine + Send + Sync> = Arc::new(Staticlib::headless().engine());
             Box::new(wasm_engine_t { inner: engine })
         }
     } else {
@@ -502,46 +439,6 @@ pub extern "C" fn wasm_engine_new_with_config(
                         }
                     }
                 },
-                wasmer_engine_t::DYLIB => {
-                    cfg_if! {
-                        if #[cfg(feature = "dylib")] {
-                            let mut builder = Dylib::new(compiler_config);
-
-                            if let Some(target) = config.target {
-                                builder = builder.target(target.inner);
-                            }
-
-                            if let Some(features) = config.features {
-                                builder = builder.features(features.inner);
-                            }
-
-                            Arc::new(builder.engine())
-                        } else {
-                            return return_with_error("Wasmer has not been compiled with the `dylib` feature.");
-                        }
-                    }
-                },
-                wasmer_engine_t::STATICLIB => {
-                    cfg_if! {
-                        // There are currently no uses of the Staticlib engine + compiler from the C API.
-                        // So we run in headless mode.
-                        if #[cfg(feature = "staticlib")] {
-                            let mut builder = Staticlib::headless();
-
-                            if let Some(target) = config.target {
-                                builder = builder.target(target.inner);
-                            }
-
-                            if let Some(features) = config.features {
-                                builder = builder.features(features.inner);
-                            }
-
-                            Arc::new(builder.engine())
-                        } else {
-                            return return_with_error("Wasmer has not been compiled with the `staticlib` feature.");
-                        }
-                    }
-                },
             };
             Some(Box::new(wasm_engine_t { inner }))
         } else {
@@ -562,44 +459,6 @@ pub extern "C" fn wasm_engine_new_with_config(
                             Arc::new(builder.engine())
                         } else {
                             return return_with_error("Wasmer has not been compiled with the `universal` feature.");
-                        }
-                    }
-                },
-                wasmer_engine_t::DYLIB => {
-                    cfg_if! {
-                        if #[cfg(feature = "dylib")] {
-                            let mut builder = Dylib::headless();
-
-                            if let Some(target) = config.target {
-                                builder = builder.target(target.inner);
-                            }
-
-                            if let Some(features) = config.features {
-                                builder = builder.features(features.inner);
-                            }
-
-                            Arc::new(builder.engine())
-                        } else {
-                            return return_with_error("Wasmer has not been compiled with the `dylib` feature.");
-                        }
-                    }
-                },
-                wasmer_engine_t::STATICLIB => {
-                    cfg_if! {
-                        if #[cfg(feature = "staticlib")] {
-                            let mut builder = Staticlib::headless();
-
-                            if let Some(target) = config.target {
-                                builder = builder.target(target.inner);
-                            }
-
-                            if let Some(features) = config.features {
-                                builder = builder.features(features.inner);
-                            }
-
-                            Arc::new(builder.engine())
-                        } else {
-                            return return_with_error("Wasmer has not been compiled with the `staticlib` feature.");
                         }
                     }
                 },

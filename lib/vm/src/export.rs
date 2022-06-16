@@ -5,7 +5,8 @@ use crate::global::Global;
 use crate::instance::WeakOrStrongInstanceRef;
 use crate::memory::Memory;
 use crate::table::Table;
-use crate::vmcontext::{VMFunctionBody, VMFunctionEnvironment, VMFunctionKind, VMTrampoline};
+use crate::vmcontext::{VMFunctionEnvironment, VMFunctionKind, VMTrampoline};
+use crate::VMFunctionBody;
 use std::sync::Arc;
 use wasmer_types::{FunctionType, MemoryStyle, MemoryType, TableStyle, TableType};
 
