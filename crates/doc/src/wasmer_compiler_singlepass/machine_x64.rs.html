@@ -7240,6 +7240,7 @@
 <span id="7238">7238</span>
 <span id="7239">7239</span>
 <span id="7240">7240</span>
+<span id="7241">7241</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::common_decl</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::emitter_x64</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::location::Location</span> <span class="kw">as</span> <span class="ident">AbstractLocation</span>;
@@ -7255,11 +7256,12 @@
 <span class="kw">use</span> <span class="ident">gimli</span>::{<span class="ident">write::CallFrameInstruction</span>, <span class="ident">X86_64</span>};
 <span class="kw">use</span> <span class="ident">std::ops</span>::{<span class="ident">Deref</span>, <span class="ident">DerefMut</span>};
 <span class="kw">use</span> <span class="ident">wasmer_compiler::wasmparser::Type</span> <span class="kw">as</span> <span class="ident">WpType</span>;
-<span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{
-    <span class="ident">CallingConvention</span>, <span class="ident">CpuFeature</span>, <span class="ident">CustomSection</span>, <span class="ident">CustomSectionProtection</span>, <span class="ident">FunctionBody</span>,
-    <span class="ident">InstructionAddressMap</span>, <span class="ident">Relocation</span>, <span class="ident">RelocationKind</span>, <span class="ident">RelocationTarget</span>, <span class="ident">SectionBody</span>, <span class="ident">SourceLoc</span>,
-    <span class="ident">TrapInformation</span>,
+<span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">CallingConvention</span>, <span class="ident">CpuFeature</span>};
+<span class="kw">use</span> <span class="ident">wasmer_types</span>::{
+    <span class="ident">CustomSection</span>, <span class="ident">CustomSectionProtection</span>, <span class="ident">Relocation</span>, <span class="ident">RelocationKind</span>, <span class="ident">RelocationTarget</span>,
+    <span class="ident">SectionBody</span>,
 };
+<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">FunctionBody</span>, <span class="ident">InstructionAddressMap</span>, <span class="ident">SourceLoc</span>, <span class="ident">TrapInformation</span>};
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">FunctionIndex</span>, <span class="ident">FunctionType</span>, <span class="ident">TrapCode</span>, <span class="ident">Type</span>, <span class="ident">VMOffsets</span>};
 
 <span class="kw">type</span> <span class="ident">Assembler</span> <span class="op">=</span> <span class="ident">VecAssembler</span><span class="op">&lt;</span><span class="ident">X64Relocation</span><span class="op">&gt;</span>;

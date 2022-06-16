@@ -1,1 +1,0 @@
-initSidebarItems({"struct":[["ModuleMetadata","Serializable struct that represents the compiled metadata."],["ModuleMetadataSymbolRegistry",""]]});

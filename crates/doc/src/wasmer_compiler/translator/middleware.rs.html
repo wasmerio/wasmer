@@ -191,6 +191,25 @@
 <span id="189">189</span>
 <span id="190">190</span>
 <span id="191">191</span>
+<span id="192">192</span>
+<span id="193">193</span>
+<span id="194">194</span>
+<span id="195">195</span>
+<span id="196">196</span>
+<span id="197">197</span>
+<span id="198">198</span>
+<span id="199">199</span>
+<span id="200">200</span>
+<span id="201">201</span>
+<span id="202">202</span>
+<span id="203">203</span>
+<span id="204">204</span>
+<span id="205">205</span>
+<span id="206">206</span>
+<span id="207">207</span>
+<span id="208">208</span>
+<span id="209">209</span>
+<span id="210">210</span>
 </pre><pre class="rust"><code><span class="doccomment">//! The middleware parses the function binary bytecodes and transform them</span>
 <span class="doccomment">//! with the chosen functions.</span>
 
@@ -198,10 +217,10 @@
 <span class="kw">use</span> <span class="ident">std::collections::VecDeque</span>;
 <span class="kw">use</span> <span class="ident">std::fmt::Debug</span>;
 <span class="kw">use</span> <span class="ident">std::ops::Deref</span>;
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">LocalFunctionIndex</span>, <span class="ident">ModuleInfo</span>};
+<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">LocalFunctionIndex</span>, <span class="ident">MiddlewareError</span>, <span class="ident">ModuleInfo</span>, <span class="ident">WasmResult</span>};
 <span class="kw">use</span> <span class="ident">wasmparser</span>::{<span class="ident">BinaryReader</span>, <span class="ident">Operator</span>, <span class="ident">Range</span>, <span class="ident">Type</span>};
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::error</span>::{<span class="ident">MiddlewareError</span>, <span class="ident">WasmResult</span>};
+<span class="kw">use</span> <span class="ident"><span class="kw">super</span>::error::from_binaryreadererror_wasmerror</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::translator::environ::FunctionBinaryReader</span>;
 
 <span class="doccomment">/// A shared builder for function middlewares.</span>
@@ -324,24 +343,43 @@
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">FunctionBinaryReader</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">MiddlewareBinaryReader</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
     <span class="kw">fn</span> <span class="ident">read_local_count</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span><span class="ident">u32</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Ok</span>(<span class="self">self</span>.<span class="ident">state</span>.<span class="ident">inner</span>.<span class="ident">read_var_u32</span>()<span class="question-mark">?</span>)
+        <span class="self">self</span>.<span class="ident">state</span>
+            .<span class="ident">inner</span>
+            .<span class="ident">read_var_u32</span>()
+            .<span class="ident">map_err</span>(<span class="ident">from_binaryreadererror_wasmerror</span>)
     }
 
     <span class="kw">fn</span> <span class="ident">read_local_decl</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span>(<span class="ident">u32</span>, <span class="ident">Type</span>)<span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">count</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">inner</span>.<span class="ident">read_var_u32</span>()<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">ty</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">inner</span>.<span class="ident">read_type</span>()<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">count</span> <span class="op">=</span> <span class="self">self</span>
+            .<span class="ident">state</span>
+            .<span class="ident">inner</span>
+            .<span class="ident">read_var_u32</span>()
+            .<span class="ident">map_err</span>(<span class="ident">from_binaryreadererror_wasmerror</span>)<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">ty</span> <span class="op">=</span> <span class="self">self</span>
+            .<span class="ident">state</span>
+            .<span class="ident">inner</span>
+            .<span class="ident">read_type</span>()
+            .<span class="ident">map_err</span>(<span class="ident">from_binaryreadererror_wasmerror</span>)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>((<span class="ident">count</span>, <span class="ident">ty</span>))
     }
 
     <span class="kw">fn</span> <span class="ident">read_operator</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span><span class="ident">Operator</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="kw">if</span> <span class="self">self</span>.<span class="ident">chain</span>.<span class="ident">is_empty</span>() {
             <span class="comment">// We short-circuit in case no chain is used</span>
-            <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="self">self</span>.<span class="ident">state</span>.<span class="ident">inner</span>.<span class="ident">read_operator</span>()<span class="question-mark">?</span>);
+            <span class="kw">return</span> <span class="self">self</span>
+                .<span class="ident">state</span>
+                .<span class="ident">inner</span>
+                .<span class="ident">read_operator</span>()
+                .<span class="ident">map_err</span>(<span class="ident">from_binaryreadererror_wasmerror</span>);
         }
 
         <span class="comment">// Try to fill the `self.pending_operations` buffer, until it is non-empty.</span>
         <span class="kw">while</span> <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">pending_operations</span>.<span class="ident">is_empty</span>() {
-            <span class="kw">let</span> <span class="ident">raw_op</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">inner</span>.<span class="ident">read_operator</span>()<span class="question-mark">?</span>;
+            <span class="kw">let</span> <span class="ident">raw_op</span> <span class="op">=</span> <span class="self">self</span>
+                .<span class="ident">state</span>
+                .<span class="ident">inner</span>
+                .<span class="ident">read_operator</span>()
+                .<span class="ident">map_err</span>(<span class="ident">from_binaryreadererror_wasmerror</span>)<span class="question-mark">?</span>;
 
             <span class="comment">// Fill the initial raw operator into pending buffer.</span>
             <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">pending_operations</span>.<span class="ident">push_back</span>(<span class="ident">raw_op</span>);

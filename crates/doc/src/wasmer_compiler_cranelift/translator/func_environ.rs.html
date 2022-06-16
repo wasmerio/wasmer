@@ -511,7 +511,6 @@
 <span id="509">509</span>
 <span id="510">510</span>
 <span id="511">511</span>
-<span id="512">512</span>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
 
@@ -527,10 +526,9 @@
 <span class="kw">use</span> <span class="ident">cranelift_codegen::isa::TargetFrontendConfig</span>;
 <span class="kw">use</span> <span class="ident">cranelift_frontend::FunctionBuilder</span>;
 <span class="kw">use</span> <span class="ident">wasmer_compiler::wasmparser</span>::{<span class="ident">Operator</span>, <span class="ident">Type</span>};
-<span class="kw">use</span> <span class="ident">wasmer_compiler::WasmResult</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{
     <span class="ident">FunctionIndex</span>, <span class="ident">FunctionType</span>, <span class="ident">GlobalIndex</span>, <span class="ident">LocalFunctionIndex</span>, <span class="ident">MemoryIndex</span>, <span class="ident">SignatureIndex</span>,
-    <span class="ident">TableIndex</span>, <span class="ident">Type</span> <span class="kw">as</span> <span class="ident">WasmerType</span>,
+    <span class="ident">TableIndex</span>, <span class="ident">Type</span> <span class="kw">as</span> <span class="ident">WasmerType</span>, <span class="ident">WasmResult</span>,
 };
 
 <span class="doccomment">/// The value of a WebAssembly global variable.</span>

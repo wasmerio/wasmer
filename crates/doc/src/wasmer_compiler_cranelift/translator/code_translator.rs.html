@@ -3188,10 +3188,10 @@
 <span class="kw">use</span> <span class="ident">std::vec::Vec</span>;
 
 <span class="kw">use</span> <span class="ident">wasmer_compiler::wasmparser</span>::{<span class="ident">MemoryImmediate</span>, <span class="ident">Operator</span>, <span class="ident">Type</span> <span class="kw">as</span> <span class="ident">WPType</span>};
-<span class="kw">use</span> <span class="ident">wasmer_compiler::WasmResult</span>;
-<span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">wasm_unsupported</span>, <span class="ident">ModuleTranslationState</span>};
+<span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">from_binaryreadererror_wasmerror</span>, <span class="ident">wasm_unsupported</span>, <span class="ident">ModuleTranslationState</span>};
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{
     <span class="ident">FunctionIndex</span>, <span class="ident">GlobalIndex</span>, <span class="ident">MemoryIndex</span>, <span class="ident">SignatureIndex</span>, <span class="ident">TableIndex</span>, <span class="ident">Type</span> <span class="kw">as</span> <span class="ident">WasmerType</span>,
+    <span class="ident">WasmResult</span>,
 };
 
 <span class="comment">// Clippy warns about &quot;align: _&quot; but its important to document that the align field is ignored</span>
@@ -3581,7 +3581,7 @@
             <span class="kw">let</span> <span class="ident">default</span> <span class="op">=</span> <span class="ident">table</span>.<span class="ident">default</span>();
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">min_depth</span> <span class="op">=</span> <span class="ident">default</span>;
             <span class="kw">for</span> <span class="ident">depth</span> <span class="kw">in</span> <span class="ident">table</span>.<span class="ident">targets</span>() {
-                <span class="kw">let</span> <span class="ident">depth</span> <span class="op">=</span> <span class="ident">depth</span><span class="question-mark">?</span>;
+                <span class="kw">let</span> <span class="ident">depth</span> <span class="op">=</span> <span class="ident">depth</span>.<span class="ident">map_err</span>(<span class="ident">from_binaryreadererror_wasmerror</span>)<span class="question-mark">?</span>;
                 <span class="kw">if</span> <span class="ident">depth</span> <span class="op">&lt;</span> <span class="ident">min_depth</span> {
                     <span class="ident">min_depth</span> <span class="op">=</span> <span class="ident">depth</span>;
                 }
@@ -3600,7 +3600,7 @@
             <span class="kw">if</span> <span class="ident">jump_args_count</span> <span class="op">==</span> <span class="number">0</span> {
                 <span class="comment">// No jump arguments</span>
                 <span class="kw">for</span> <span class="ident">depth</span> <span class="kw">in</span> <span class="ident">table</span>.<span class="ident">targets</span>() {
-                    <span class="kw">let</span> <span class="ident">depth</span> <span class="op">=</span> <span class="ident">depth</span><span class="question-mark">?</span>;
+                    <span class="kw">let</span> <span class="ident">depth</span> <span class="op">=</span> <span class="ident">depth</span>.<span class="ident">map_err</span>(<span class="ident">from_binaryreadererror_wasmerror</span>)<span class="question-mark">?</span>;
                     <span class="kw">let</span> <span class="ident">block</span> <span class="op">=</span> {
                         <span class="kw">let</span> <span class="ident">i</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">control_stack</span>.<span class="ident">len</span>() <span class="op">-</span> <span class="number">1</span> <span class="op">-</span> (<span class="ident">depth</span> <span class="kw">as</span> <span class="ident">usize</span>);
                         <span class="kw">let</span> <span class="ident">frame</span> <span class="op">=</span> <span class="kw-2">&amp;mut</span> <span class="ident">state</span>.<span class="ident">control_stack</span>[<span class="ident">i</span>];
@@ -3624,7 +3624,7 @@
                 <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">dest_block_sequence</span> <span class="op">=</span> <span class="macro">vec!</span>[];
                 <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">dest_block_map</span> <span class="op">=</span> <span class="ident">HashMap::new</span>();
                 <span class="kw">for</span> <span class="ident">depth</span> <span class="kw">in</span> <span class="ident">table</span>.<span class="ident">targets</span>() {
-                    <span class="kw">let</span> <span class="ident">depth</span> <span class="op">=</span> <span class="ident">depth</span><span class="question-mark">?</span>;
+                    <span class="kw">let</span> <span class="ident">depth</span> <span class="op">=</span> <span class="ident">depth</span>.<span class="ident">map_err</span>(<span class="ident">from_binaryreadererror_wasmerror</span>)<span class="question-mark">?</span>;
                     <span class="kw">let</span> <span class="ident">branch_block</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">dest_block_map</span>.<span class="ident">entry</span>(<span class="ident">depth</span> <span class="kw">as</span> <span class="ident">usize</span>) {
                         <span class="ident">hash_map::Entry::Occupied</span>(<span class="ident">entry</span>) =&gt; <span class="kw-2">*</span><span class="ident">entry</span>.<span class="ident">get</span>(),
                         <span class="ident">hash_map::Entry::Vacant</span>(<span class="ident">entry</span>) =&gt; {

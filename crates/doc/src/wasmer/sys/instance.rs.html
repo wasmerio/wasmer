@@ -302,12 +302,12 @@
     <span class="ident">HostEnvInitialization</span>(<span class="ident">HostEnvInitError</span>),
 }
 
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">wasmer_engine::InstantiationError</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">InstantiationError</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">other</span>: <span class="ident">wasmer_engine::InstantiationError</span>) -&gt; <span class="self">Self</span> {
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">wasmer_compiler::InstantiationError</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">InstantiationError</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">other</span>: <span class="ident">wasmer_compiler::InstantiationError</span>) -&gt; <span class="self">Self</span> {
         <span class="kw">match</span> <span class="ident">other</span> {
-            <span class="ident">wasmer_engine::InstantiationError::Link</span>(<span class="ident">e</span>) =&gt; <span class="ident"><span class="self">Self</span>::Link</span>(<span class="ident">e</span>),
-            <span class="ident">wasmer_engine::InstantiationError::Start</span>(<span class="ident">e</span>) =&gt; <span class="ident"><span class="self">Self</span>::Start</span>(<span class="ident">e</span>),
-            <span class="ident">wasmer_engine::InstantiationError::CpuFeature</span>(<span class="ident">e</span>) =&gt; <span class="ident"><span class="self">Self</span>::CpuFeature</span>(<span class="ident">e</span>),
+            <span class="ident">wasmer_compiler::InstantiationError::Link</span>(<span class="ident">e</span>) =&gt; <span class="ident"><span class="self">Self</span>::Link</span>(<span class="ident">e</span>),
+            <span class="ident">wasmer_compiler::InstantiationError::Start</span>(<span class="ident">e</span>) =&gt; <span class="ident"><span class="self">Self</span>::Start</span>(<span class="ident">e</span>),
+            <span class="ident">wasmer_compiler::InstantiationError::CpuFeature</span>(<span class="ident">e</span>) =&gt; <span class="ident"><span class="self">Self</span>::CpuFeature</span>(<span class="ident">e</span>),
         }
     }
 }

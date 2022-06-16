@@ -979,13 +979,13 @@
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::trap</span>::{<span class="ident">Trap</span>, <span class="ident">TrapCode</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::VMBuiltinFunctionIndex</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::VMExternRef</span>;
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::VMFunctionBody</span>;
 <span class="kw">use</span> <span class="ident">std::any::Any</span>;
 <span class="kw">use</span> <span class="ident">std::convert::TryFrom</span>;
 <span class="kw">use</span> <span class="ident">std::fmt</span>;
 <span class="kw">use</span> <span class="ident">std::ptr</span>::{<span class="self">self</span>, <span class="ident">NonNull</span>};
 <span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
 <span class="kw">use</span> <span class="ident">std::u32</span>;
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_artifact::VMFunctionBody</span>;
 
 <span class="doccomment">/// Union representing the first parameter passed when calling a function.</span>
 <span class="doccomment">///</span>

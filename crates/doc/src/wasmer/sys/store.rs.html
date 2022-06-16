@@ -150,12 +150,13 @@
 <span id="148">148</span>
 <span id="149">149</span>
 <span id="150">150</span>
+<span id="151">151</span>
+<span id="152">152</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::tunables::BaseTunables</span>;
 <span class="kw">use</span> <span class="ident">std::fmt</span>;
 <span class="kw">use</span> <span class="ident">std::sync</span>::{<span class="ident">Arc</span>, <span class="ident">RwLock</span>};
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;engine&quot;</span>))]</span>
 <span class="kw">use</span> <span class="ident">wasmer_compiler::CompilerConfig</span>;
-<span class="kw">use</span> <span class="ident">wasmer_engine</span>::{<span class="ident">Engine</span>, <span class="ident">Tunables</span>};
+<span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">Engine</span>, <span class="ident">Tunables</span>, <span class="ident">Universal</span>};
 <span class="kw">use</span> <span class="ident">wasmer_vm</span>::{<span class="ident">init_traps</span>, <span class="ident">TrapHandler</span>, <span class="ident">TrapHandlerFn</span>};
 
 <span class="doccomment">/// The store represents all global state that can be manipulated by</span>
@@ -176,8 +177,14 @@
 }
 
 <span class="kw">impl</span> <span class="ident">Store</span> {
+    <span class="doccomment">/// Creates a new `Store` with a specific [`CompilerConfig`].</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">compiler_config</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">CompilerConfig</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
+        <span class="kw">let</span> <span class="ident">engine</span> <span class="op">=</span> <span class="ident">Universal::new</span>(<span class="ident">compiler_config</span>).<span class="ident">engine</span>();
+        <span class="ident"><span class="self">Self</span>::new_with_tunables</span>(<span class="kw-2">&amp;</span><span class="ident">engine</span>, <span class="ident">BaseTunables::for_target</span>(<span class="ident">engine</span>.<span class="ident">target</span>()))
+    }
+
     <span class="doccomment">/// Creates a new `Store` with a specific [`Engine`].</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span><span class="op">&lt;</span><span class="ident">E</span><span class="op">&gt;</span>(<span class="ident">engine</span>: <span class="kw-2">&amp;</span><span class="ident">E</span>) -&gt; <span class="self">Self</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_with_engine</span><span class="op">&lt;</span><span class="ident">E</span><span class="op">&gt;</span>(<span class="ident">engine</span>: <span class="kw-2">&amp;</span><span class="ident">E</span>) -&gt; <span class="self">Self</span>
     <span class="kw">where</span>
         <span class="ident">E</span>: <span class="ident">Engine</span> <span class="op">+</span> <span class="question-mark">?</span><span class="ident">Sized</span>,
     {
@@ -271,10 +278,7 @@
         <span class="kw">fn</span> <span class="ident">get_engine</span>(<span class="kw-2">mut</span> <span class="ident">config</span>: <span class="kw">impl</span> <span class="ident">CompilerConfig</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>) -&gt; <span class="kw">impl</span> <span class="ident">Engine</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> {
             <span class="macro">cfg_if::cfg_if!</span> {
                 <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;default-universal&quot;</span>)]</span> {
-                    <span class="ident">wasmer_engine_universal::Universal::new</span>(<span class="ident">config</span>)
-                        .<span class="ident">engine</span>()
-                } <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;default-dylib&quot;</span>)]</span> {
-                    <span class="ident">wasmer_engine_dylib::Dylib::new</span>(<span class="ident">config</span>)
+                    <span class="ident">wasmer_compiler::Universal::new</span>(<span class="ident">config</span>)
                         .<span class="ident">engine</span>()
                 } <span class="kw">else</span> {
                     <span class="macro">compile_error!</span>(<span class="string">&quot;No default engine chosen&quot;</span>)

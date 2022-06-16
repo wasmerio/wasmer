@@ -452,6 +452,7 @@
 <span id="450">450</span>
 <span id="451">451</span>
 <span id="452">452</span>
+<span id="453">453</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::exports::Exportable</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::store::Store</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::types</span>::{<span class="ident">ExportType</span>, <span class="ident">ImportType</span>};
@@ -461,11 +462,12 @@
 <span class="kw">use</span> <span class="ident">std::path::Path</span>;
 <span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
 <span class="kw">use</span> <span class="ident">thiserror::Error</span>;
-<span class="kw">use</span> <span class="ident">wasmer_compiler::CompileError</span>;
+<span class="kw">use</span> <span class="ident">wasmer_compiler::Artifact</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wat&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident">wasmer_compiler::WasmError</span>;
-<span class="kw">use</span> <span class="ident">wasmer_engine</span>::{<span class="ident">Artifact</span>, <span class="ident">DeserializeError</span>, <span class="ident">SerializeError</span>};
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">ExportsIterator</span>, <span class="ident">ImportsIterator</span>, <span class="ident">ModuleInfo</span>};
+<span class="kw">use</span> <span class="ident">wasmer_types::WasmError</span>;
+<span class="kw">use</span> <span class="ident">wasmer_types</span>::{
+    <span class="ident">CompileError</span>, <span class="ident">DeserializeError</span>, <span class="ident">ExportsIterator</span>, <span class="ident">ImportsIterator</span>, <span class="ident">ModuleInfo</span>, <span class="ident">SerializeError</span>,
+};
 <span class="kw">use</span> <span class="ident">wasmer_vm::InstanceHandle</span>;
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Error</span>, <span class="ident">Debug</span>)]</span>

@@ -456,22 +456,6 @@
 <span id="454">454</span>
 <span id="455">455</span>
 <span id="456">456</span>
-<span id="457">457</span>
-<span id="458">458</span>
-<span id="459">459</span>
-<span id="460">460</span>
-<span id="461">461</span>
-<span id="462">462</span>
-<span id="463">463</span>
-<span id="464">464</span>
-<span id="465">465</span>
-<span id="466">466</span>
-<span id="467">467</span>
-<span id="468">468</span>
-<span id="469">469</span>
-<span id="470">470</span>
-<span id="471">471</span>
-<span id="472">472</span>
 </pre><pre class="rust"><code><span class="attribute">#![<span class="ident">doc</span>(
     <span class="ident">html_logo_url</span> <span class="op">=</span> <span class="string">&quot;https://github.com/wasmerio.png?size=200&quot;</span>,
     <span class="ident">html_favicon_url</span> <span class="op">=</span> <span class="string">&quot;https://wasmer.io/images/icons/favicon-32x32.png&quot;</span>
@@ -551,12 +535,6 @@
 <span class="doccomment">//!   compilation process and to store the generated executable code</span>
 <span class="doccomment">//!   somewhere, either:</span>
 <span class="doccomment">//!   * in-memory (with [`wasmer-engine-universal`]),</span>
-<span class="doccomment">//!   * in a native shared object file (with [`wasmer-engine-dylib`],</span>
-<span class="doccomment">//!     `.dylib`, `.so`, `.dll`), then load it with `dlopen`,</span>
-<span class="doccomment">//!   * in a native static object file (with [`wasmer-engine-staticlib`]),</span>
-<span class="doccomment">//!     in addition to emitting a C header file, which both can be linked</span>
-<span class="doccomment">//!     against a sandboxed WebAssembly runtime environment for the</span>
-<span class="doccomment">//!     compiled module with no need for runtime compilation.</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! * **Pluggable compilers** — A compiler is used by an engine to</span>
 <span class="doccomment">//!   transform WebAssembly into executable code:</span>
@@ -798,11 +776,7 @@
 <span class="doccomment">//! - `universal`</span>
 <span class="attribute">#![<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;universal&quot;</span>, <span class="ident">doc</span> <span class="op">=</span> <span class="string">&quot;(enabled),&quot;</span>)]</span>
 <span class="attribute">#![<span class="ident">cfg_attr</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;universal&quot;</span>), <span class="ident">doc</span> <span class="op">=</span> <span class="string">&quot;(disabled),&quot;</span>)]</span>
-<span class="doccomment">//!   enables [the Universal engine][`wasmer-engine-universal`],</span>
-<span class="doccomment">//! - `dylib`</span>
-<span class="attribute">#![<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;dylib&quot;</span>, <span class="ident">doc</span> <span class="op">=</span> <span class="string">&quot;(enabled),&quot;</span>)]</span>
-<span class="attribute">#![<span class="ident">cfg_attr</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;dylib&quot;</span>), <span class="ident">doc</span> <span class="op">=</span> <span class="string">&quot;(disabled),&quot;</span>)]</span>
-<span class="doccomment">//!   enables [the Dylib engine][`wasmer-engine-dylib`].</span>
+<span class="doccomment">//!   enables [the Universal engine][`wasmer-engine-universal`].</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! The features that set defaults come in sets that are mutually exclusive.</span>
 <span class="doccomment">//!</span>
@@ -824,11 +798,7 @@
 <span class="doccomment">//! - `default-universal`</span>
 <span class="attribute">#![<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;default-universal&quot;</span>, <span class="ident">doc</span> <span class="op">=</span> <span class="string">&quot;(enabled),&quot;</span>)]</span>
 <span class="attribute">#![<span class="ident">cfg_attr</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;default-universal&quot;</span>), <span class="ident">doc</span> <span class="op">=</span> <span class="string">&quot;(disabled),&quot;</span>)]</span>
-<span class="doccomment">//!   set the Universal engine as the default,</span>
-<span class="doccomment">//! - `default-dylib`</span>
-<span class="attribute">#![<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;default-dylib&quot;</span>, <span class="ident">doc</span> <span class="op">=</span> <span class="string">&quot;(enabled),&quot;</span>)]</span>
-<span class="attribute">#![<span class="ident">cfg_attr</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;default-dylib&quot;</span>), <span class="ident">doc</span> <span class="op">=</span> <span class="string">&quot;(disabled),&quot;</span>)]</span>
-<span class="doccomment">//!   set the Dylib engine as the default.</span>
+<span class="doccomment">//!   set the Universal engine as the default.</span>
 <span class="doccomment">//!</span>
 <span class="attribute">#![<span class="ident">cfg_attr</span>(
     <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;js&quot;</span>,
@@ -908,8 +878,6 @@
 <span class="doccomment">//! [`wasmer-emscripten`]: https://docs.rs/wasmer-emscripten/</span>
 <span class="doccomment">//! [wasmer-engine]: https://docs.rs/wasmer-engine/</span>
 <span class="doccomment">//! [`wasmer-engine-universal`]: https://docs.rs/wasmer-engine-universal/</span>
-<span class="doccomment">//! [`wasmer-engine-dylib`]: https://docs.rs/wasmer-engine-dylib/</span>
-<span class="doccomment">//! [`wasmer-engine-staticlib`]: https://docs.rs/wasmer-engine-staticlib/</span>
 <span class="doccomment">//! [`wasmer-compiler-singlepass`]: https://docs.rs/wasmer-compiler-singlepass/</span>
 <span class="doccomment">//! [`wasmer-compiler-llvm`]: https://docs.rs/wasmer-compiler-llvm/</span>
 <span class="doccomment">//! [`wasmer-compiler-cranelift`]: https://docs.rs/wasmer-compiler-cranelift/</span>

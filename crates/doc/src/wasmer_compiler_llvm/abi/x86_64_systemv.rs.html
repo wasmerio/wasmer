@@ -654,7 +654,6 @@
 <span id="652">652</span>
 <span id="653">653</span>
 <span id="654">654</span>
-<span id="655">655</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::abi::Abi</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::translator::intrinsics</span>::{<span class="ident">type_to_llvm</span>, <span class="ident">Intrinsics</span>};
 <span class="kw">use</span> <span class="ident">inkwell</span>::{
@@ -668,8 +667,7 @@
     },
     <span class="ident">AddressSpace</span>,
 };
-<span class="kw">use</span> <span class="ident">wasmer_compiler::CompileError</span>;
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">FunctionType</span> <span class="kw">as</span> <span class="ident">FuncSig</span>, <span class="ident">Type</span>};
+<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">CompileError</span>, <span class="ident">FunctionType</span> <span class="kw">as</span> <span class="ident">FuncSig</span>, <span class="ident">Type</span>};
 <span class="kw">use</span> <span class="ident">wasmer_vm::VMOffsets</span>;
 
 <span class="kw">use</span> <span class="ident">std::convert::TryInto</span>;

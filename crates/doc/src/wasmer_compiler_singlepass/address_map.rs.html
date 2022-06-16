@@ -20,7 +20,9 @@
 <span id="18">18</span>
 <span id="19">19</span>
 <span id="20">20</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">FunctionAddressMap</span>, <span class="ident">FunctionBodyData</span>, <span class="ident">InstructionAddressMap</span>, <span class="ident">SourceLoc</span>};
+<span id="21">21</span>
+</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">wasmer_compiler::FunctionBodyData</span>;
+<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">FunctionAddressMap</span>, <span class="ident">InstructionAddressMap</span>, <span class="ident">SourceLoc</span>};
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_function_address_map</span>(
     <span class="ident">instructions</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">InstructionAddressMap</span><span class="op">&gt;</span>,

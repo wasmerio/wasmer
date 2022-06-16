@@ -144,8 +144,6 @@
 <span id="142">142</span>
 <span id="143">143</span>
 <span id="144">144</span>
-<span id="145">145</span>
-<span id="146">146</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Helper functions and structures for the translation.</span>
 
 <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::func_environ::TargetEnvironment</span>;
@@ -157,9 +155,7 @@
 <span class="kw">use</span> <span class="ident">cranelift_frontend::FunctionBuilder</span>;
 <span class="kw">use</span> <span class="ident">wasmer_compiler::wasm_unsupported</span>;
 <span class="kw">use</span> <span class="ident">wasmer_compiler::wasmparser</span>;
-<span class="kw">use</span> <span class="ident">wasmer_compiler::RelocationKind</span>;
-<span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">WasmError</span>, <span class="ident">WasmResult</span>};
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">FunctionType</span>, <span class="ident">LibCall</span>, <span class="ident">Type</span>};
+<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">FunctionType</span>, <span class="ident">LibCall</span>, <span class="ident">RelocationKind</span>, <span class="ident">Type</span>, <span class="ident">WasmError</span>, <span class="ident">WasmResult</span>};
 
 <span class="doccomment">/// Helper function translate a Function signature into Cranelift Ir</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">signature_to_cranelift_ir</span>(

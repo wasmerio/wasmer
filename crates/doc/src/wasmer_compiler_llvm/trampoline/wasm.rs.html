@@ -500,6 +500,7 @@
 <span id="498">498</span>
 <span id="499">499</span>
 <span id="500">500</span>
+<span id="501">501</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::abi</span>::{<span class="ident">get_abi</span>, <span class="ident">Abi</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::config</span>::{<span class="ident">CompiledKind</span>, <span class="ident">LLVM</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::object_file</span>::{<span class="ident">load_object_file</span>, <span class="ident">CompiledFunction</span>};
@@ -518,8 +519,9 @@
 <span class="kw">use</span> <span class="ident">std::cmp</span>;
 <span class="kw">use</span> <span class="ident">std::convert::TryFrom</span>;
 <span class="kw">use</span> <span class="ident">std::convert::TryInto</span>;
-<span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">CompileError</span>, <span class="ident">FunctionBody</span>, <span class="ident">RelocationTarget</span>};
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">FunctionType</span>, <span class="ident">LocalFunctionIndex</span>};
+<span class="kw">use</span> <span class="ident">wasmer_types</span>::{
+    <span class="ident">CompileError</span>, <span class="ident">FunctionBody</span>, <span class="ident">FunctionType</span>, <span class="ident">LocalFunctionIndex</span>, <span class="ident">RelocationTarget</span>,
+};
 
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">FuncTrampoline</span> {
     <span class="ident">ctx</span>: <span class="ident">Context</span>,

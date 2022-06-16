@@ -436,13 +436,15 @@
 <span id="434">434</span>
 <span id="435">435</span>
 <span id="436">436</span>
+<span id="437">437</span>
 </pre><pre class="rust"><code><span class="doccomment">//! The import module contains the implementation data structures and helper functions used to</span>
 <span class="doccomment">//! manipulate and access a wasm module&#39;s imports including memories, tables, globals, and</span>
 <span class="doccomment">//! functions.</span>
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">Exports</span>, <span class="ident">Extern</span>, <span class="ident">Module</span>};
 <span class="kw">use</span> <span class="ident">std::collections::HashMap</span>;
 <span class="kw">use</span> <span class="ident">std::fmt</span>;
-<span class="kw">use</span> <span class="ident">wasmer_engine</span>::{<span class="ident">ImportError</span>, <span class="ident">LinkError</span>};
+<span class="kw">use</span> <span class="ident">wasmer_compiler::LinkError</span>;
+<span class="kw">use</span> <span class="ident">wasmer_types::ImportError</span>;
 
 <span class="doccomment">/// All of the import data used when instantiating.</span>
 <span class="doccomment">///</span>

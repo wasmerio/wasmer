@@ -15,10 +15,6 @@ state associated with the current instance.</p>
 functions will receive when called (rather than <code>vmctx</code>).
 A dynamic function is a function for which we don’t know the signature
 until runtime.</p>
-</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.VMFunctionBody.html" title="wasmer_vm::vmcontext::VMFunctionBody struct">VMFunctionBody</a></div><div class="item-right docblock-short"><p>A placeholder byte-sized type which is just used to provide some amount of type
-safety when dealing with pointers to JIT-compiled function bodies. Note that it’s
-deliberately not Copy, as we shouldn’t be carelessly copying function body bytes
-around.</p>
 </div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.VMFunctionImport.html" title="wasmer_vm::vmcontext::VMFunctionImport struct">VMFunctionImport</a></div><div class="item-right docblock-short"><p>An imported function.</p>
 </div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.VMGlobalDefinition.html" title="wasmer_vm::vmcontext::VMGlobalDefinition struct">VMGlobalDefinition</a></div><div class="item-right docblock-short"><p>The storage for a WebAssembly global defined within the instance.</p>
 </div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.VMGlobalImport.html" title="wasmer_vm::vmcontext::VMGlobalImport struct">VMGlobalImport</a></div><div class="item-right docblock-short"><p>The fields compiled code needs to access to utilize a WebAssembly global

@@ -63,10 +63,10 @@
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
 
-<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">wasm_unsupported</span>, <span class="ident">WasmResult</span>};
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::wasm_unsupported</span>;
 <span class="kw">use</span> <span class="ident">std::boxed::Box</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types::entity::PrimaryMap</span>;
-<span class="kw">use</span> <span class="ident">wasmer_types::SignatureIndex</span>;
+<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">SignatureIndex</span>, <span class="ident">WasmResult</span>};
 
 <span class="doccomment">/// Map of signatures to a function&#39;s parameter and return types.</span>
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type</span> <span class="ident">WasmTypes</span> <span class="op">=</span>

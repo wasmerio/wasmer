@@ -1462,7 +1462,6 @@
 <span id="1460">1460</span>
 <span id="1461">1461</span>
 <span id="1462">1462</span>
-<span id="1463">1463</span>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
 
@@ -1486,12 +1485,11 @@
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::table</span>::{<span class="ident">Table</span>, <span class="ident">TableElement</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::trap</span>::{<span class="ident">catch_traps</span>, <span class="ident">Trap</span>, <span class="ident">TrapCode</span>, <span class="ident">TrapHandler</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::vmcontext</span>::{
-    <span class="ident">VMBuiltinFunctionsArray</span>, <span class="ident">VMCallerCheckedAnyfunc</span>, <span class="ident">VMContext</span>, <span class="ident">VMFunctionBody</span>,
-    <span class="ident">VMFunctionEnvironment</span>, <span class="ident">VMFunctionImport</span>, <span class="ident">VMFunctionKind</span>, <span class="ident">VMGlobalDefinition</span>, <span class="ident">VMGlobalImport</span>,
-    <span class="ident">VMMemoryDefinition</span>, <span class="ident">VMMemoryImport</span>, <span class="ident">VMSharedSignatureIndex</span>, <span class="ident">VMTableDefinition</span>, <span class="ident">VMTableImport</span>,
-    <span class="ident">VMTrampoline</span>,
+    <span class="ident">VMBuiltinFunctionsArray</span>, <span class="ident">VMCallerCheckedAnyfunc</span>, <span class="ident">VMContext</span>, <span class="ident">VMFunctionEnvironment</span>,
+    <span class="ident">VMFunctionImport</span>, <span class="ident">VMFunctionKind</span>, <span class="ident">VMGlobalDefinition</span>, <span class="ident">VMGlobalImport</span>, <span class="ident">VMMemoryDefinition</span>,
+    <span class="ident">VMMemoryImport</span>, <span class="ident">VMSharedSignatureIndex</span>, <span class="ident">VMTableDefinition</span>, <span class="ident">VMTableImport</span>, <span class="ident">VMTrampoline</span>,
 };
-<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">FunctionBodyPtr</span>, <span class="ident">VMOffsets</span>};
+<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">FunctionBodyPtr</span>, <span class="ident">VMFunctionBody</span>, <span class="ident">VMOffsets</span>};
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">VMFunction</span>, <span class="ident">VMGlobal</span>, <span class="ident">VMMemory</span>, <span class="ident">VMTable</span>};
 <span class="kw">use</span> <span class="ident">memoffset::offset_of</span>;
 <span class="kw">use</span> <span class="ident">more_asserts::assert_lt</span>;

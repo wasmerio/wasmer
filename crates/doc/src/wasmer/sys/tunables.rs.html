@@ -191,13 +191,11 @@
 <span id="189">189</span>
 <span id="190">190</span>
 <span id="191">191</span>
-<span id="192">192</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys</span>::{<span class="ident">MemoryType</span>, <span class="ident">Pages</span>, <span class="ident">TableType</span>};
 <span class="kw">use</span> <span class="ident">std::ptr::NonNull</span>;
 <span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
 <span class="kw">use</span> <span class="ident">target_lexicon::PointerWidth</span>;
-<span class="kw">use</span> <span class="ident">wasmer_compiler::Target</span>;
-<span class="kw">use</span> <span class="ident">wasmer_engine::Tunables</span>;
+<span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">Target</span>, <span class="ident">Tunables</span>};
 <span class="kw">use</span> <span class="ident">wasmer_vm::MemoryError</span>;
 <span class="kw">use</span> <span class="ident">wasmer_vm</span>::{
     <span class="ident">LinearMemory</span>, <span class="ident">LinearTable</span>, <span class="ident">Memory</span>, <span class="ident">MemoryStyle</span>, <span class="ident">Table</span>, <span class="ident">TableStyle</span>, <span class="ident">VMMemoryDefinition</span>,

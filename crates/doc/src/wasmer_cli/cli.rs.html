@@ -127,23 +127,12 @@
 <span id="125">125</span>
 <span id="126">126</span>
 <span id="127">127</span>
-<span id="128">128</span>
-<span id="129">129</span>
-<span id="130">130</span>
-<span id="131">131</span>
-<span id="132">132</span>
-<span id="133">133</span>
-<span id="134">134</span>
-<span id="135">135</span>
-<span id="136">136</span>
 </pre><pre class="rust"><code><span class="doccomment">//! The logic for the Wasmer CLI tool.</span>
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::commands::Binfmt</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::commands::Compile</span>;
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;staticlib&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>))]</span>
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::commands::CreateExe</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wast&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::commands::Wast</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::commands</span>::{<span class="ident">Cache</span>, <span class="ident">Config</span>, <span class="ident">Inspect</span>, <span class="ident">Run</span>, <span class="ident">SelfUpdate</span>, <span class="ident">Validate</span>};
@@ -184,11 +173,6 @@
     <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;compile&quot;</span>)]</span>
     <span class="ident">Compile</span>(<span class="ident">Compile</span>),
 
-    <span class="doccomment">/// Compile a WebAssembly binary into a native executable</span>
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;staticlib&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>))]</span>
-    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;create-exe&quot;</span>)]</span>
-    <span class="ident">CreateExe</span>(<span class="ident">CreateExe</span>),
-
     <span class="doccomment">/// Get various configuration information needed</span>
     <span class="doccomment">/// to compile programs which use Wasmer</span>
     <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;config&quot;</span>)]</span>
@@ -222,8 +206,6 @@
             <span class="ident"><span class="self">Self</span>::Validate</span>(<span class="ident">validate</span>) =&gt; <span class="ident">validate</span>.<span class="ident">execute</span>(),
             <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
             <span class="ident"><span class="self">Self</span>::Compile</span>(<span class="ident">compile</span>) =&gt; <span class="ident">compile</span>.<span class="ident">execute</span>(),
-            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;staticlib&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>))]</span>
-            <span class="ident"><span class="self">Self</span>::CreateExe</span>(<span class="ident">create_exe</span>) =&gt; <span class="ident">create_exe</span>.<span class="ident">execute</span>(),
             <span class="ident"><span class="self">Self</span>::Config</span>(<span class="ident">config</span>) =&gt; <span class="ident">config</span>.<span class="ident">execute</span>(),
             <span class="ident"><span class="self">Self</span>::Inspect</span>(<span class="ident">inspect</span>) =&gt; <span class="ident">inspect</span>.<span class="ident">execute</span>(),
             <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wast&quot;</span>)]</span>

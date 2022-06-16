@@ -176,17 +176,17 @@
 </pre><pre class="rust"><code><span class="doccomment">//! This module mainly outputs the `Compiler` trait that custom</span>
 <span class="doccomment">//! compilers will need to implement.</span>
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::error::CompileError</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::function::Compilation</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::lib::std::boxed::Box</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::lib::std::sync::Arc</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::module::CompileModuleInfo</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::target::Target</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::translator::ModuleMiddleware</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::FunctionBodyData</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::ModuleTranslationState</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::SectionIndex</span>;
+<span class="kw">use</span> <span class="ident">wasmer_types::compilation::function::Compilation</span>;
+<span class="kw">use</span> <span class="ident">wasmer_types::compilation::module::CompileModuleInfo</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types::entity::PrimaryMap</span>;
+<span class="kw">use</span> <span class="ident">wasmer_types::error::CompileError</span>;
+<span class="kw">use</span> <span class="ident">wasmer_types::SectionIndex</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">Features</span>, <span class="ident">FunctionIndex</span>, <span class="ident">LocalFunctionIndex</span>, <span class="ident">SignatureIndex</span>};
 <span class="kw">use</span> <span class="ident">wasmparser</span>::{<span class="ident">Validator</span>, <span class="ident">WasmFeatures</span>};
 

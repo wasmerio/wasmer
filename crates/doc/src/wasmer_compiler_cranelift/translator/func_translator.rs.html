@@ -316,9 +316,9 @@
 <span class="kw">use</span> <span class="ident">tracing::info</span>;
 <span class="kw">use</span> <span class="ident">wasmer_compiler::wasmparser</span>;
 <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{
-    <span class="ident">wasm_unsupported</span>, <span class="ident">wptype_to_type</span>, <span class="ident">FunctionBinaryReader</span>, <span class="ident">ModuleTranslationState</span>, <span class="ident">WasmResult</span>,
+    <span class="ident">wasm_unsupported</span>, <span class="ident">wptype_to_type</span>, <span class="ident">FunctionBinaryReader</span>, <span class="ident">ModuleTranslationState</span>,
 };
-<span class="kw">use</span> <span class="ident">wasmer_types::LocalFunctionIndex</span>;
+<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">LocalFunctionIndex</span>, <span class="ident">WasmResult</span>};
 
 <span class="doccomment">/// WebAssembly to Cranelift IR function translator.</span>
 <span class="doccomment">///</span>

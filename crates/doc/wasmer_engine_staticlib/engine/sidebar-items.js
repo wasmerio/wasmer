@@ -1,1 +1,0 @@
-initSidebarItems({"struct":[["StaticlibEngine","A WebAssembly `Staticlib` Engine."],["StaticlibEngineInner","The inner contents of `StaticlibEngine`"]]});

@@ -491,147 +491,6 @@
 <span id="489">489</span>
 <span id="490">490</span>
 <span id="491">491</span>
-<span id="492">492</span>
-<span id="493">493</span>
-<span id="494">494</span>
-<span id="495">495</span>
-<span id="496">496</span>
-<span id="497">497</span>
-<span id="498">498</span>
-<span id="499">499</span>
-<span id="500">500</span>
-<span id="501">501</span>
-<span id="502">502</span>
-<span id="503">503</span>
-<span id="504">504</span>
-<span id="505">505</span>
-<span id="506">506</span>
-<span id="507">507</span>
-<span id="508">508</span>
-<span id="509">509</span>
-<span id="510">510</span>
-<span id="511">511</span>
-<span id="512">512</span>
-<span id="513">513</span>
-<span id="514">514</span>
-<span id="515">515</span>
-<span id="516">516</span>
-<span id="517">517</span>
-<span id="518">518</span>
-<span id="519">519</span>
-<span id="520">520</span>
-<span id="521">521</span>
-<span id="522">522</span>
-<span id="523">523</span>
-<span id="524">524</span>
-<span id="525">525</span>
-<span id="526">526</span>
-<span id="527">527</span>
-<span id="528">528</span>
-<span id="529">529</span>
-<span id="530">530</span>
-<span id="531">531</span>
-<span id="532">532</span>
-<span id="533">533</span>
-<span id="534">534</span>
-<span id="535">535</span>
-<span id="536">536</span>
-<span id="537">537</span>
-<span id="538">538</span>
-<span id="539">539</span>
-<span id="540">540</span>
-<span id="541">541</span>
-<span id="542">542</span>
-<span id="543">543</span>
-<span id="544">544</span>
-<span id="545">545</span>
-<span id="546">546</span>
-<span id="547">547</span>
-<span id="548">548</span>
-<span id="549">549</span>
-<span id="550">550</span>
-<span id="551">551</span>
-<span id="552">552</span>
-<span id="553">553</span>
-<span id="554">554</span>
-<span id="555">555</span>
-<span id="556">556</span>
-<span id="557">557</span>
-<span id="558">558</span>
-<span id="559">559</span>
-<span id="560">560</span>
-<span id="561">561</span>
-<span id="562">562</span>
-<span id="563">563</span>
-<span id="564">564</span>
-<span id="565">565</span>
-<span id="566">566</span>
-<span id="567">567</span>
-<span id="568">568</span>
-<span id="569">569</span>
-<span id="570">570</span>
-<span id="571">571</span>
-<span id="572">572</span>
-<span id="573">573</span>
-<span id="574">574</span>
-<span id="575">575</span>
-<span id="576">576</span>
-<span id="577">577</span>
-<span id="578">578</span>
-<span id="579">579</span>
-<span id="580">580</span>
-<span id="581">581</span>
-<span id="582">582</span>
-<span id="583">583</span>
-<span id="584">584</span>
-<span id="585">585</span>
-<span id="586">586</span>
-<span id="587">587</span>
-<span id="588">588</span>
-<span id="589">589</span>
-<span id="590">590</span>
-<span id="591">591</span>
-<span id="592">592</span>
-<span id="593">593</span>
-<span id="594">594</span>
-<span id="595">595</span>
-<span id="596">596</span>
-<span id="597">597</span>
-<span id="598">598</span>
-<span id="599">599</span>
-<span id="600">600</span>
-<span id="601">601</span>
-<span id="602">602</span>
-<span id="603">603</span>
-<span id="604">604</span>
-<span id="605">605</span>
-<span id="606">606</span>
-<span id="607">607</span>
-<span id="608">608</span>
-<span id="609">609</span>
-<span id="610">610</span>
-<span id="611">611</span>
-<span id="612">612</span>
-<span id="613">613</span>
-<span id="614">614</span>
-<span id="615">615</span>
-<span id="616">616</span>
-<span id="617">617</span>
-<span id="618">618</span>
-<span id="619">619</span>
-<span id="620">620</span>
-<span id="621">621</span>
-<span id="622">622</span>
-<span id="623">623</span>
-<span id="624">624</span>
-<span id="625">625</span>
-<span id="626">626</span>
-<span id="627">627</span>
-<span id="628">628</span>
-<span id="629">629</span>
-<span id="630">630</span>
-<span id="631">631</span>
-<span id="632">632</span>
 </pre><pre class="rust"><code><span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::unstable::engine::wasmer_is_compiler_available</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::unstable::engine</span>::{
@@ -647,12 +506,8 @@
 <span class="kw">use</span> <span class="ident">cfg_if::cfg_if</span>;
 <span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
 <span class="kw">use</span> <span class="ident">wasmer_api::Engine</span>;
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;dylib&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident">wasmer_engine_dylib::Dylib</span>;
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;staticlib&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident">wasmer_engine_staticlib::Staticlib</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;universal&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident">wasmer_engine_universal::Universal</span>;
+<span class="kw">use</span> <span class="ident">wasmer_compiler::Universal</span>;
 
 <span class="doccomment">/// Kind of compilers that can be used by the engines.</span>
 <span class="doccomment">///</span>
@@ -703,14 +558,6 @@
     <span class="doccomment">/// Variant to represent the Universal engine. See the</span>
     <span class="doccomment">/// [`wasmer_engine_universal`] Rust crate.</span>
     <span class="ident">UNIVERSAL</span> <span class="op">=</span> <span class="number">0</span>,
-
-    <span class="doccomment">/// Variant to represent the Dylib engine. See the</span>
-    <span class="doccomment">/// [`wasmer_engine_dylib`] Rust crate.</span>
-    <span class="ident">DYLIB</span> <span class="op">=</span> <span class="number">1</span>,
-
-    <span class="doccomment">/// Variant to represent the Staticlib engine. See the</span>
-    <span class="doccomment">/// [`wasmer_engine_staticlib`] Rust crate.</span>
-    <span class="ident">STATICLIB</span> <span class="op">=</span> <span class="number">2</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">Default</span> <span class="kw">for</span> <span class="ident">wasmer_engine_t</span> {
@@ -718,10 +565,6 @@
         <span class="macro">cfg_if!</span> {
             <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;universal&quot;</span>)]</span> {
                 <span class="ident"><span class="self">Self</span>::UNIVERSAL</span>
-            } <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;dylib&quot;</span>)]</span> {
-                <span class="ident"><span class="self">Self</span>::DYLIB</span>
-            } <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;staticlib&quot;</span>)]</span> {
-                <span class="ident"><span class="self">Self</span>::STATICLIB</span>
             } <span class="kw">else</span> {
                 <span class="macro">compile_error!</span>(<span class="string">&quot;Please enable one of the engines&quot;</span>)
             }
@@ -885,10 +728,6 @@
 <span class="doccomment">///     if (wasmer_is_engine_available(UNIVERSAL)) {</span>
 <span class="doccomment">///         wasm_config_set_engine(config, UNIVERSAL);</span>
 <span class="doccomment">///     }</span>
-<span class="doccomment">///     // Or maybe the Dylib engine?</span>
-<span class="doccomment">///     else if (wasmer_is_engine_available(DYLIB)) {</span>
-<span class="doccomment">///         wasm_config_set_engine(config, DYLIB);</span>
-<span class="doccomment">///     }</span>
 <span class="doccomment">///     // OK, let&#39;s do not specify any particular engine.</span>
 <span class="doccomment">///</span>
 <span class="doccomment">///     // Create the engine.</span>
@@ -964,49 +803,6 @@
         <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
         <span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_engine_new</span>() -&gt; <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasm_engine_t</span><span class="op">&gt;</span> {
             <span class="kw">let</span> <span class="ident">engine</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Engine</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Arc::new</span>(<span class="ident">Universal::headless</span>().<span class="ident">engine</span>());
-            <span class="ident">Box::new</span>(<span class="ident">wasm_engine_t</span> { <span class="ident">inner</span>: <span class="ident">engine</span> })
-        }
-    } <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;dylib&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>))]</span> {
-        <span class="doccomment">/// Creates a new Dylib engine with the default compiler.</span>
-        <span class="doccomment">///</span>
-        <span class="doccomment">/// # Example</span>
-        <span class="doccomment">///</span>
-        <span class="doccomment">/// See [`wasm_engine_delete`].</span>
-        <span class="doccomment">///</span>
-        <span class="doccomment">/// cbindgen:ignore</span>
-        <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-        <span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_engine_new</span>() -&gt; <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasm_engine_t</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> <span class="ident">compiler_config</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">CompilerConfig</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">get_default_compiler_config</span>();
-            <span class="kw">let</span> <span class="ident">engine</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Engine</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Arc::new</span>(<span class="ident">Dylib::new</span>(<span class="ident">compiler_config</span>).<span class="ident">engine</span>());
-            <span class="ident">Box::new</span>(<span class="ident">wasm_engine_t</span> { <span class="ident">inner</span>: <span class="ident">engine</span> })
-        }
-    } <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;dylib&quot;</span>)]</span> {
-        <span class="doccomment">/// Creates a new headless Dylib engine.</span>
-        <span class="doccomment">///</span>
-        <span class="doccomment">/// # Example</span>
-        <span class="doccomment">///</span>
-        <span class="doccomment">/// See [`wasm_engine_delete`].</span>
-        <span class="doccomment">///</span>
-        <span class="doccomment">/// cbindgen:ignore</span>
-        <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-        <span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_engine_new</span>() -&gt; <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasm_engine_t</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> <span class="ident">engine</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Engine</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Arc::new</span>(<span class="ident">Dylib::headless</span>().<span class="ident">engine</span>());
-            <span class="ident">Box::new</span>(<span class="ident">wasm_engine_t</span> { <span class="ident">inner</span>: <span class="ident">engine</span> })
-        }
-    }
-    <span class="comment">// There are currently no uses of the Staticlib engine + compiler from the C API.</span>
-    <span class="comment">// So if we get here, we default to headless mode regardless of if `compiler` is enabled.</span>
-    <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;staticlib&quot;</span>)]</span> {
-        <span class="doccomment">/// Creates a new headless Staticlib engine.</span>
-        <span class="doccomment">///</span>
-        <span class="doccomment">/// # Example</span>
-        <span class="doccomment">///</span>
-        <span class="doccomment">/// See [`wasm_engine_delete`].</span>
-        <span class="doccomment">///</span>
-        <span class="doccomment">/// cbindgen:ignore</span>
-        <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-        <span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_engine_new</span>() -&gt; <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasm_engine_t</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> <span class="ident">engine</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Engine</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Arc::new</span>(<span class="ident">Staticlib::headless</span>().<span class="ident">engine</span>());
             <span class="ident">Box::new</span>(<span class="ident">wasm_engine_t</span> { <span class="ident">inner</span>: <span class="ident">engine</span> })
         }
     } <span class="kw">else</span> {
@@ -1136,46 +932,6 @@
                         }
                     }
                 },
-                <span class="ident">wasmer_engine_t::DYLIB</span> =&gt; {
-                    <span class="macro">cfg_if!</span> {
-                        <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;dylib&quot;</span>)]</span> {
-                            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">builder</span> <span class="op">=</span> <span class="ident">Dylib::new</span>(<span class="ident">compiler_config</span>);
-
-                            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">target</span>) <span class="op">=</span> <span class="ident">config</span>.<span class="ident">target</span> {
-                                <span class="ident">builder</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">target</span>(<span class="ident">target</span>.<span class="ident">inner</span>);
-                            }
-
-                            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">features</span>) <span class="op">=</span> <span class="ident">config</span>.<span class="ident">features</span> {
-                                <span class="ident">builder</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">features</span>(<span class="ident">features</span>.<span class="ident">inner</span>);
-                            }
-
-                            <span class="ident">Arc::new</span>(<span class="ident">builder</span>.<span class="ident">engine</span>())
-                        } <span class="kw">else</span> {
-                            <span class="kw">return</span> <span class="ident">return_with_error</span>(<span class="string">&quot;Wasmer has not been compiled with the `dylib` feature.&quot;</span>);
-                        }
-                    }
-                },
-                <span class="ident">wasmer_engine_t::STATICLIB</span> =&gt; {
-                    <span class="macro">cfg_if!</span> {
-                        <span class="comment">// There are currently no uses of the Staticlib engine + compiler from the C API.</span>
-                        <span class="comment">// So we run in headless mode.</span>
-                        <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;staticlib&quot;</span>)]</span> {
-                            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">builder</span> <span class="op">=</span> <span class="ident">Staticlib::headless</span>();
-
-                            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">target</span>) <span class="op">=</span> <span class="ident">config</span>.<span class="ident">target</span> {
-                                <span class="ident">builder</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">target</span>(<span class="ident">target</span>.<span class="ident">inner</span>);
-                            }
-
-                            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">features</span>) <span class="op">=</span> <span class="ident">config</span>.<span class="ident">features</span> {
-                                <span class="ident">builder</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">features</span>(<span class="ident">features</span>.<span class="ident">inner</span>);
-                            }
-
-                            <span class="ident">Arc::new</span>(<span class="ident">builder</span>.<span class="ident">engine</span>())
-                        } <span class="kw">else</span> {
-                            <span class="kw">return</span> <span class="ident">return_with_error</span>(<span class="string">&quot;Wasmer has not been compiled with the `staticlib` feature.&quot;</span>);
-                        }
-                    }
-                },
             };
             <span class="prelude-val">Some</span>(<span class="ident">Box::new</span>(<span class="ident">wasm_engine_t</span> { <span class="ident">inner</span> }))
         } <span class="kw">else</span> {
@@ -1196,44 +952,6 @@
                             <span class="ident">Arc::new</span>(<span class="ident">builder</span>.<span class="ident">engine</span>())
                         } <span class="kw">else</span> {
                             <span class="kw">return</span> <span class="ident">return_with_error</span>(<span class="string">&quot;Wasmer has not been compiled with the `universal` feature.&quot;</span>);
-                        }
-                    }
-                },
-                <span class="ident">wasmer_engine_t::DYLIB</span> =&gt; {
-                    <span class="macro">cfg_if!</span> {
-                        <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;dylib&quot;</span>)]</span> {
-                            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">builder</span> <span class="op">=</span> <span class="ident">Dylib::headless</span>();
-
-                            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">target</span>) <span class="op">=</span> <span class="ident">config</span>.<span class="ident">target</span> {
-                                <span class="ident">builder</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">target</span>(<span class="ident">target</span>.<span class="ident">inner</span>);
-                            }
-
-                            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">features</span>) <span class="op">=</span> <span class="ident">config</span>.<span class="ident">features</span> {
-                                <span class="ident">builder</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">features</span>(<span class="ident">features</span>.<span class="ident">inner</span>);
-                            }
-
-                            <span class="ident">Arc::new</span>(<span class="ident">builder</span>.<span class="ident">engine</span>())
-                        } <span class="kw">else</span> {
-                            <span class="kw">return</span> <span class="ident">return_with_error</span>(<span class="string">&quot;Wasmer has not been compiled with the `dylib` feature.&quot;</span>);
-                        }
-                    }
-                },
-                <span class="ident">wasmer_engine_t::STATICLIB</span> =&gt; {
-                    <span class="macro">cfg_if!</span> {
-                        <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;staticlib&quot;</span>)]</span> {
-                            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">builder</span> <span class="op">=</span> <span class="ident">Staticlib::headless</span>();
-
-                            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">target</span>) <span class="op">=</span> <span class="ident">config</span>.<span class="ident">target</span> {
-                                <span class="ident">builder</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">target</span>(<span class="ident">target</span>.<span class="ident">inner</span>);
-                            }
-
-                            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">features</span>) <span class="op">=</span> <span class="ident">config</span>.<span class="ident">features</span> {
-                                <span class="ident">builder</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">features</span>(<span class="ident">features</span>.<span class="ident">inner</span>);
-                            }
-
-                            <span class="ident">Arc::new</span>(<span class="ident">builder</span>.<span class="ident">engine</span>())
-                        } <span class="kw">else</span> {
-                            <span class="kw">return</span> <span class="ident">return_with_error</span>(<span class="string">&quot;Wasmer has not been compiled with the `staticlib` feature.&quot;</span>);
                         }
                     }
                 },

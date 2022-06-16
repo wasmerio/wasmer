@@ -460,44 +460,10 @@
 <span id="458">458</span>
 <span id="459">459</span>
 <span id="460">460</span>
-<span id="461">461</span>
-<span id="462">462</span>
-<span id="463">463</span>
-<span id="464">464</span>
-<span id="465">465</span>
-<span id="466">466</span>
-<span id="467">467</span>
-<span id="468">468</span>
-<span id="469">469</span>
-<span id="470">470</span>
-<span id="471">471</span>
-<span id="472">472</span>
-<span id="473">473</span>
-<span id="474">474</span>
-<span id="475">475</span>
-<span id="476">476</span>
-<span id="477">477</span>
-<span id="478">478</span>
-<span id="479">479</span>
-<span id="480">480</span>
-<span id="481">481</span>
-<span id="482">482</span>
-<span id="483">483</span>
-<span id="484">484</span>
-<span id="485">485</span>
-<span id="486">486</span>
-<span id="487">487</span>
-<span id="488">488</span>
-<span id="489">489</span>
-<span id="490">490</span>
-<span id="491">491</span>
-<span id="492">492</span>
-<span id="493">493</span>
-<span id="494">494</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::common::get_cache_dir</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::logging</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::store</span>::{<span class="ident">CompilerType</span>, <span class="ident">EngineType</span>, <span class="ident">StoreOptions</span>};
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::store</span>::{<span class="ident">CompilerType</span>, <span class="ident">StoreOptions</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::suggestions::suggest_function_exports</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::warning</span>;
 <span class="kw">use</span> <span class="ident">anyhow</span>::{<span class="ident">anyhow</span>, <span class="ident">Context</span>, <span class="prelude-ty">Result</span>};
@@ -719,28 +685,16 @@
 
     <span class="kw">fn</span> <span class="ident">get_module</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Module</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">contents</span> <span class="op">=</span> <span class="ident">std::fs::read</span>(<span class="self">self</span>.<span class="ident">path</span>.<span class="ident">clone</span>())<span class="question-mark">?</span>;
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;dylib&quot;</span>)]</span>
-        {
-            <span class="kw">if</span> <span class="ident">wasmer_engine_dylib::DylibArtifact::is_deserializable</span>(<span class="kw-2">&amp;</span><span class="ident">contents</span>) {
-                <span class="kw">let</span> <span class="ident">engine</span> <span class="op">=</span> <span class="ident">wasmer_engine_dylib::Dylib::headless</span>().<span class="ident">engine</span>();
-                <span class="kw">let</span> <span class="ident">store</span> <span class="op">=</span> <span class="ident">Store::new</span>(<span class="kw-2">&amp;</span><span class="ident">engine</span>);
-                <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">Module::deserialize_from_file</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">path</span>)<span class="question-mark">?</span> };
-                <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">module</span>);
-            }
+        <span class="kw">if</span> <span class="ident">wasmer_compiler::UniversalArtifact::is_deserializable</span>(<span class="kw-2">&amp;</span><span class="ident">contents</span>) {
+            <span class="kw">let</span> <span class="ident">engine</span> <span class="op">=</span> <span class="ident">wasmer_compiler::Universal::headless</span>().<span class="ident">engine</span>();
+            <span class="kw">let</span> <span class="ident">store</span> <span class="op">=</span> <span class="ident">Store::new_with_engine</span>(<span class="kw-2">&amp;</span><span class="ident">engine</span>);
+            <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">Module::deserialize_from_file</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">path</span>)<span class="question-mark">?</span> };
+            <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">module</span>);
         }
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;universal&quot;</span>)]</span>
-        {
-            <span class="kw">if</span> <span class="ident">wasmer_engine_universal::UniversalArtifact::is_deserializable</span>(<span class="kw-2">&amp;</span><span class="ident">contents</span>) {
-                <span class="kw">let</span> <span class="ident">engine</span> <span class="op">=</span> <span class="ident">wasmer_engine_universal::Universal::headless</span>().<span class="ident">engine</span>();
-                <span class="kw">let</span> <span class="ident">store</span> <span class="op">=</span> <span class="ident">Store::new</span>(<span class="kw-2">&amp;</span><span class="ident">engine</span>);
-                <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">Module::deserialize_from_file</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">path</span>)<span class="question-mark">?</span> };
-                <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">module</span>);
-            }
-        }
-        <span class="kw">let</span> (<span class="ident">store</span>, <span class="ident">engine_type</span>, <span class="ident">compiler_type</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">store</span>.<span class="ident">get_store</span>()<span class="question-mark">?</span>;
+        <span class="kw">let</span> (<span class="ident">store</span>, <span class="ident">compiler_type</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">store</span>.<span class="ident">get_store</span>()<span class="question-mark">?</span>;
         <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;cache&quot;</span>)]</span>
         <span class="kw">let</span> <span class="ident">module_result</span>: <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Module</span><span class="op">&gt;</span> <span class="op">=</span> <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">disable_cache</span> <span class="op">&amp;&amp;</span> <span class="ident">contents</span>.<span class="ident">len</span>() <span class="op">&gt;</span> <span class="number">0x1000</span> {
-            <span class="self">self</span>.<span class="ident">get_module_from_cache</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>, <span class="kw-2">&amp;</span><span class="ident">contents</span>, <span class="kw-2">&amp;</span><span class="ident">engine_type</span>, <span class="kw-2">&amp;</span><span class="ident">compiler_type</span>)
+            <span class="self">self</span>.<span class="ident">get_module_from_cache</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>, <span class="kw-2">&amp;</span><span class="ident">contents</span>, <span class="kw-2">&amp;</span><span class="ident">compiler_type</span>)
         } <span class="kw">else</span> {
             <span class="ident">Module::new</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>, <span class="kw-2">&amp;</span><span class="ident">contents</span>).<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">e</span>.<span class="ident">into</span>())
         };
@@ -749,8 +703,7 @@
 
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">module_result</span>.<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> {
             <span class="macro">format!</span>(
-                <span class="string">&quot;module instantiation failed (engine: {}, compiler: {})&quot;</span>,
-                <span class="ident">engine_type</span>.<span class="ident">to_string</span>(),
+                <span class="string">&quot;module instantiation failed (compiler: {})&quot;</span>,
                 <span class="ident">compiler_type</span>.<span class="ident">to_string</span>()
             )
         })<span class="question-mark">?</span>;
@@ -765,14 +718,13 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="ident">Store</span>,
         <span class="ident">contents</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>],
-        <span class="ident">engine_type</span>: <span class="kw-2">&amp;</span><span class="ident">EngineType</span>,
         <span class="ident">compiler_type</span>: <span class="kw-2">&amp;</span><span class="ident">CompilerType</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Module</span><span class="op">&gt;</span> {
         <span class="comment">// We try to get it from cache, in case caching is enabled</span>
         <span class="comment">// and the file length is greater than 4KB.</span>
         <span class="comment">// For files smaller than 4KB caching is not worth,</span>
         <span class="comment">// as it takes space and the speedup is minimal.</span>
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">cache</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_cache</span>(<span class="ident">engine_type</span>, <span class="ident">compiler_type</span>)<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">cache</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_cache</span>(<span class="ident">compiler_type</span>)<span class="question-mark">?</span>;
         <span class="comment">// Try to get the hash from the provided `--cache-key`, otherwise</span>
         <span class="comment">// generate one from the provided file `.wasm` contents.</span>
         <span class="kw">let</span> <span class="ident">hash</span> <span class="op">=</span> <span class="self">self</span>
@@ -801,33 +753,13 @@
 
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;cache&quot;</span>)]</span>
     <span class="doccomment">/// Get the Compiler Filesystem cache</span>
-    <span class="kw">fn</span> <span class="ident">get_cache</span>(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">engine_type</span>: <span class="kw-2">&amp;</span><span class="ident">EngineType</span>,
-        <span class="ident">compiler_type</span>: <span class="kw-2">&amp;</span><span class="ident">CompilerType</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">FileSystemCache</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">get_cache</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">compiler_type</span>: <span class="kw-2">&amp;</span><span class="ident">CompilerType</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">FileSystemCache</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">cache_dir_root</span> <span class="op">=</span> <span class="ident">get_cache_dir</span>();
         <span class="ident">cache_dir_root</span>.<span class="ident">push</span>(<span class="ident">compiler_type</span>.<span class="ident">to_string</span>());
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">cache</span> <span class="op">=</span> <span class="ident">FileSystemCache::new</span>(<span class="ident">cache_dir_root</span>)<span class="question-mark">?</span>;
 
-        <span class="comment">// Important: Dylib files need to have a `.dll` extension on</span>
-        <span class="comment">// Windows, otherwise they will not load, so we just add an</span>
-        <span class="comment">// extension always to make it easier to recognize as well.</span>
-        <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unreachable_patterns</span>)]</span>
-        <span class="kw">let</span> <span class="ident">extension</span> <span class="op">=</span> <span class="kw">match</span> <span class="kw-2">*</span><span class="ident">engine_type</span> {
-            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;dylib&quot;</span>)]</span>
-            <span class="ident">EngineType::Dylib</span> =&gt; {
-                <span class="ident">wasmer_engine_dylib::DylibArtifact::get_default_extension</span>(<span class="kw-2">&amp;</span><span class="ident">Triple::host</span>())
-                    .<span class="ident">to_string</span>()
-            }
-            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;universal&quot;</span>)]</span>
-            <span class="ident">EngineType::Universal</span> =&gt; {
-                <span class="ident">wasmer_engine_universal::UniversalArtifact::get_default_extension</span>(<span class="kw-2">&amp;</span><span class="ident">Triple::host</span>())
-                    .<span class="ident">to_string</span>()
-            }
-            <span class="comment">// We use the compiler type as the default extension</span>
-            <span class="kw">_</span> =&gt; <span class="ident">compiler_type</span>.<span class="ident">to_string</span>(),
-        };
+        <span class="kw">let</span> <span class="ident">extension</span> <span class="op">=</span>
+            <span class="ident">wasmer_compiler::UniversalArtifact::get_default_extension</span>(<span class="kw-2">&amp;</span><span class="ident">Triple::host</span>()).<span class="ident">to_string</span>();
         <span class="ident">cache</span>.<span class="ident">set_cache_extension</span>(<span class="prelude-val">Some</span>(<span class="ident">extension</span>));
         <span class="prelude-val">Ok</span>(<span class="ident">cache</span>)
     }

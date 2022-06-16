@@ -1750,7 +1750,6 @@
 <span id="1748">1748</span>
 <span id="1749">1749</span>
 <span id="1750">1750</span>
-<span id="1751">1751</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Code for dealing with [LLVM][llvm-intrinsics] and VM intrinsics.</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! VM intrinsics are used to interact with the host VM.</span>
@@ -1776,11 +1775,10 @@
     <span class="ident">AddressSpace</span>,
 };
 <span class="kw">use</span> <span class="ident">std::collections</span>::{<span class="ident">hash_map::Entry</span>, <span class="ident">HashMap</span>};
-<span class="kw">use</span> <span class="ident">wasmer_compiler::CompileError</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types::entity</span>::{<span class="ident">EntityRef</span>, <span class="ident">PrimaryMap</span>};
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{
-    <span class="ident">FunctionIndex</span>, <span class="ident">FunctionType</span> <span class="kw">as</span> <span class="ident">FuncType</span>, <span class="ident">GlobalIndex</span>, <span class="ident">LocalFunctionIndex</span>, <span class="ident">MemoryIndex</span>,
-    <span class="ident">ModuleInfo</span> <span class="kw">as</span> <span class="ident">WasmerCompilerModule</span>, <span class="ident">Mutability</span>, <span class="ident">SignatureIndex</span>, <span class="ident">TableIndex</span>, <span class="ident">Type</span>,
+    <span class="ident">CompileError</span>, <span class="ident">FunctionIndex</span>, <span class="ident">FunctionType</span> <span class="kw">as</span> <span class="ident">FuncType</span>, <span class="ident">GlobalIndex</span>, <span class="ident">LocalFunctionIndex</span>,
+    <span class="ident">MemoryIndex</span>, <span class="ident">ModuleInfo</span> <span class="kw">as</span> <span class="ident">WasmerCompilerModule</span>, <span class="ident">Mutability</span>, <span class="ident">SignatureIndex</span>, <span class="ident">TableIndex</span>, <span class="ident">Type</span>,
 };
 <span class="kw">use</span> <span class="ident">wasmer_vm</span>::{<span class="ident">MemoryStyle</span>, <span class="ident">TrapCode</span>, <span class="ident">VMBuiltinFunctionIndex</span>, <span class="ident">VMOffsets</span>};
 

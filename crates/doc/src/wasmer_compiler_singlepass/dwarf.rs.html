@@ -102,12 +102,16 @@
 <span id="100">100</span>
 <span id="101">101</span>
 <span id="102">102</span>
+<span id="103">103</span>
+<span id="104">104</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">gimli::write</span>::{<span class="ident">Address</span>, <span class="ident">EndianVec</span>, <span class="prelude-ty">Result</span>, <span class="ident">Writer</span>};
 <span class="kw">use</span> <span class="ident">gimli</span>::{<span class="ident">RunTimeEndian</span>, <span class="ident">SectionId</span>};
-<span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">CustomSection</span>, <span class="ident">CustomSectionProtection</span>, <span class="ident">SectionBody</span>};
-<span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">Endianness</span>, <span class="ident">Relocation</span>, <span class="ident">RelocationKind</span>, <span class="ident">RelocationTarget</span>};
+<span class="kw">use</span> <span class="ident">wasmer_compiler::Endianness</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types::entity::EntityRef</span>;
-<span class="kw">use</span> <span class="ident">wasmer_types::LocalFunctionIndex</span>;
+<span class="kw">use</span> <span class="ident">wasmer_types</span>::{
+    <span class="ident">CustomSection</span>, <span class="ident">CustomSectionProtection</span>, <span class="ident">LocalFunctionIndex</span>, <span class="ident">Relocation</span>, <span class="ident">RelocationKind</span>,
+    <span class="ident">RelocationTarget</span>, <span class="ident">SectionBody</span>,
+};
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Debug</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">WriterRelocate</span> {

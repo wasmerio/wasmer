@@ -1060,8 +1060,8 @@
 <span class="doccomment">//! WebAssembly trap handling, which is built on top of the lower-level</span>
 <span class="doccomment">//! signalhandling mechanisms.</span>
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::vmcontext</span>::{<span class="ident">VMFunctionBody</span>, <span class="ident">VMFunctionEnvironment</span>, <span class="ident">VMTrampoline</span>};
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::Trap</span>;
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::vmcontext</span>::{<span class="ident">VMFunctionEnvironment</span>, <span class="ident">VMTrampoline</span>};
+<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">Trap</span>, <span class="ident">VMFunctionBody</span>};
 <span class="kw">use</span> <span class="ident">backtrace::Backtrace</span>;
 <span class="kw">use</span> <span class="ident">core::ptr</span>::{<span class="ident">read</span>, <span class="ident">read_unaligned</span>};
 <span class="kw">use</span> <span class="ident">corosensei::stack::DefaultStack</span>;

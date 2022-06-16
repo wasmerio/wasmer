@@ -122,17 +122,15 @@
 <span id="120">120</span>
 <span id="121">121</span>
 <span id="122">122</span>
-<span id="123">123</span>
-<span id="124">124</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::store</span>::{<span class="ident">EngineType</span>, <span class="ident">StoreOptions</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::warning</span>;
 <span class="kw">use</span> <span class="ident">anyhow</span>::{<span class="ident">Context</span>, <span class="prelude-ty">Result</span>};
 <span class="kw">use</span> <span class="ident">std::path</span>::{<span class="ident">Path</span>, <span class="ident">PathBuf</span>};
 <span class="kw">use</span> <span class="ident">structopt::StructOpt</span>;
-<span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">CompileError</span>, <span class="ident">CpuFeature</span>, <span class="ident">ModuleEnvironment</span>, <span class="ident">Target</span>, <span class="ident">Triple</span>};
-<span class="kw">use</span> <span class="ident">wasmer_engine_universal_artifact</span>::{<span class="ident">ArtifactCreate</span>, <span class="ident">UniversalArtifactBuild</span>};
+<span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">ArtifactCreate</span>, <span class="ident">UniversalArtifactBuild</span>};
+<span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">CpuFeature</span>, <span class="ident">ModuleEnvironment</span>, <span class="ident">Target</span>, <span class="ident">Triple</span>};
 <span class="kw">use</span> <span class="ident">wasmer_types::entity::PrimaryMap</span>;
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">MemoryIndex</span>, <span class="ident">MemoryStyle</span>, <span class="ident">TableIndex</span>, <span class="ident">TableStyle</span>};
+<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">CompileError</span>, <span class="ident">MemoryIndex</span>, <span class="ident">MemoryStyle</span>, <span class="ident">TableIndex</span>, <span class="ident">TableStyle</span>};
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">StructOpt</span>)]</span>
 <span class="doccomment">/// The options for the `wasmer compile` subcommand</span>
@@ -169,9 +167,7 @@
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span><span class="op">&gt;</span> {
         <span class="prelude-val">Ok</span>(<span class="kw">match</span> <span class="ident">engine_type</span> {
             <span class="ident">EngineType::Universal</span> =&gt; {
-                <span class="ident">wasmer_engine_universal_artifact::UniversalArtifactBuild::get_default_extension</span>(
-                    <span class="ident">target_triple</span>,
-                )
+                <span class="ident">wasmer_compiler::UniversalArtifactBuild::get_default_extension</span>(<span class="ident">target_triple</span>)
             }
         })
     }

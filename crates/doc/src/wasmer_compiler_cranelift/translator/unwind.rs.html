@@ -67,6 +67,7 @@
 <span id="65">65</span>
 <span id="66">66</span>
 <span id="67">67</span>
+<span id="68">68</span>
 </pre><pre class="rust"><code><span class="doccomment">//! A `Compilation` contains the compiled function bodies for a WebAssembly</span>
 <span class="doccomment">//! module.</span>
 
@@ -74,7 +75,8 @@
 <span class="kw">use</span> <span class="ident">cranelift_codegen::isa::unwind</span>::{<span class="ident">systemv::UnwindInfo</span> <span class="kw">as</span> <span class="ident">DwarfFDE</span>, <span class="ident">UnwindInfo</span>};
 <span class="kw">use</span> <span class="ident">cranelift_codegen::print_errors::pretty_error</span>;
 <span class="kw">use</span> <span class="ident">cranelift_codegen</span>::{<span class="ident">isa</span>, <span class="ident">Context</span>};
-<span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">CompileError</span>, <span class="ident">CompiledFunctionUnwindInfo</span>};
+<span class="kw">use</span> <span class="ident">wasmer_types::CompileError</span>;
+<span class="kw">use</span> <span class="ident">wasmer_types::CompiledFunctionUnwindInfo</span>;
 
 <span class="doccomment">/// Cranelift specific unwind info</span>
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum</span> <span class="ident">CraneliftUnwindInfo</span> {

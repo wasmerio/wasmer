@@ -99,7 +99,7 @@
             .<span class="ident">context</span>(<span class="macro">format!</span>(<span class="string">&quot;failed to inspect `{}`&quot;</span>, <span class="self">self</span>.<span class="ident">path</span>.<span class="ident">display</span>()))
     }
     <span class="kw">fn</span> <span class="ident">inner_execute</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="kw">let</span> (<span class="ident">store</span>, <span class="ident">_engine_type</span>, <span class="ident">_compiler_type</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">store</span>.<span class="ident">get_store</span>()<span class="question-mark">?</span>;
+        <span class="kw">let</span> (<span class="ident">store</span>, <span class="ident">_compiler_type</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">store</span>.<span class="ident">get_store</span>()<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="ident">module_contents</span> <span class="op">=</span> <span class="ident">std::fs::read</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">path</span>)<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">Module::new</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>, <span class="kw-2">&amp;</span><span class="ident">module_contents</span>)<span class="question-mark">?</span>;
         <span class="macro">println!</span>(

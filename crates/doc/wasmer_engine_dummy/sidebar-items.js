@@ -1,1 +1,0 @@
-initSidebarItems({"mod":[["artifact","Define `DummyArtifact` to allow compiling and instantiating to be done as separate steps."],["engine","Dummy Engine."]],"struct":[["DummyArtifact","A Dummy artifact."],["DummyEngine","A WebAssembly `Dummy` Engine."]]});

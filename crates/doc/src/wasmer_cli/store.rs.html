@@ -346,148 +346,6 @@
 <span id="344">344</span>
 <span id="345">345</span>
 <span id="346">346</span>
-<span id="347">347</span>
-<span id="348">348</span>
-<span id="349">349</span>
-<span id="350">350</span>
-<span id="351">351</span>
-<span id="352">352</span>
-<span id="353">353</span>
-<span id="354">354</span>
-<span id="355">355</span>
-<span id="356">356</span>
-<span id="357">357</span>
-<span id="358">358</span>
-<span id="359">359</span>
-<span id="360">360</span>
-<span id="361">361</span>
-<span id="362">362</span>
-<span id="363">363</span>
-<span id="364">364</span>
-<span id="365">365</span>
-<span id="366">366</span>
-<span id="367">367</span>
-<span id="368">368</span>
-<span id="369">369</span>
-<span id="370">370</span>
-<span id="371">371</span>
-<span id="372">372</span>
-<span id="373">373</span>
-<span id="374">374</span>
-<span id="375">375</span>
-<span id="376">376</span>
-<span id="377">377</span>
-<span id="378">378</span>
-<span id="379">379</span>
-<span id="380">380</span>
-<span id="381">381</span>
-<span id="382">382</span>
-<span id="383">383</span>
-<span id="384">384</span>
-<span id="385">385</span>
-<span id="386">386</span>
-<span id="387">387</span>
-<span id="388">388</span>
-<span id="389">389</span>
-<span id="390">390</span>
-<span id="391">391</span>
-<span id="392">392</span>
-<span id="393">393</span>
-<span id="394">394</span>
-<span id="395">395</span>
-<span id="396">396</span>
-<span id="397">397</span>
-<span id="398">398</span>
-<span id="399">399</span>
-<span id="400">400</span>
-<span id="401">401</span>
-<span id="402">402</span>
-<span id="403">403</span>
-<span id="404">404</span>
-<span id="405">405</span>
-<span id="406">406</span>
-<span id="407">407</span>
-<span id="408">408</span>
-<span id="409">409</span>
-<span id="410">410</span>
-<span id="411">411</span>
-<span id="412">412</span>
-<span id="413">413</span>
-<span id="414">414</span>
-<span id="415">415</span>
-<span id="416">416</span>
-<span id="417">417</span>
-<span id="418">418</span>
-<span id="419">419</span>
-<span id="420">420</span>
-<span id="421">421</span>
-<span id="422">422</span>
-<span id="423">423</span>
-<span id="424">424</span>
-<span id="425">425</span>
-<span id="426">426</span>
-<span id="427">427</span>
-<span id="428">428</span>
-<span id="429">429</span>
-<span id="430">430</span>
-<span id="431">431</span>
-<span id="432">432</span>
-<span id="433">433</span>
-<span id="434">434</span>
-<span id="435">435</span>
-<span id="436">436</span>
-<span id="437">437</span>
-<span id="438">438</span>
-<span id="439">439</span>
-<span id="440">440</span>
-<span id="441">441</span>
-<span id="442">442</span>
-<span id="443">443</span>
-<span id="444">444</span>
-<span id="445">445</span>
-<span id="446">446</span>
-<span id="447">447</span>
-<span id="448">448</span>
-<span id="449">449</span>
-<span id="450">450</span>
-<span id="451">451</span>
-<span id="452">452</span>
-<span id="453">453</span>
-<span id="454">454</span>
-<span id="455">455</span>
-<span id="456">456</span>
-<span id="457">457</span>
-<span id="458">458</span>
-<span id="459">459</span>
-<span id="460">460</span>
-<span id="461">461</span>
-<span id="462">462</span>
-<span id="463">463</span>
-<span id="464">464</span>
-<span id="465">465</span>
-<span id="466">466</span>
-<span id="467">467</span>
-<span id="468">468</span>
-<span id="469">469</span>
-<span id="470">470</span>
-<span id="471">471</span>
-<span id="472">472</span>
-<span id="473">473</span>
-<span id="474">474</span>
-<span id="475">475</span>
-<span id="476">476</span>
-<span id="477">477</span>
-<span id="478">478</span>
-<span id="479">479</span>
-<span id="480">480</span>
-<span id="481">481</span>
-<span id="482">482</span>
-<span id="483">483</span>
-<span id="484">484</span>
-<span id="485">485</span>
-<span id="486">486</span>
-<span id="487">487</span>
-<span id="488">488</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Common module with common used structures across different</span>
 <span class="doccomment">//! commands.</span>
 
@@ -506,35 +364,11 @@
 <span class="kw">use</span> <span class="ident">wasmer_compiler::CompilerConfig</span>;
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">StructOpt</span>, <span class="ident">Default</span>)]</span>
-<span class="doccomment">/// The compiler and engine options</span>
+<span class="doccomment">/// The compiler options</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">StoreOptions</span> {
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
     <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">flatten</span>)]</span>
     <span class="ident">compiler</span>: <span class="ident">CompilerOptions</span>,
-
-    <span class="doccomment">/// Use the Universal Engine.</span>
-    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span>, <span class="ident">conflicts_with_all</span> <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="string">&quot;dylib&quot;</span>, <span class="string">&quot;staticlib&quot;</span>, <span class="string">&quot;jit&quot;</span>, <span class="string">&quot;native&quot;</span>, <span class="string">&quot;object_file&quot;</span>]</span>)]
-    <span class="ident">universal</span>: <span class="ident">bool</span>,
-
-    <span class="doccomment">/// Use the Dylib Engine.</span>
-    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span>, <span class="ident">conflicts_with_all</span> <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="string">&quot;universal&quot;</span>, <span class="string">&quot;staticlib&quot;</span>, <span class="string">&quot;jit&quot;</span>, <span class="string">&quot;native&quot;</span>, <span class="string">&quot;object_file&quot;</span>]</span>)]
-    <span class="ident">dylib</span>: <span class="ident">bool</span>,
-
-    <span class="doccomment">/// Use the Staticlib Engine.</span>
-    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span>, <span class="ident">conflicts_with_all</span> <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="string">&quot;universal&quot;</span>, <span class="string">&quot;dylib&quot;</span>, <span class="string">&quot;jit&quot;</span>, <span class="string">&quot;native&quot;</span>, <span class="string">&quot;object_file&quot;</span>]</span>)]
-    <span class="ident">staticlib</span>: <span class="ident">bool</span>,
-
-    <span class="doccomment">/// Use the JIT (Universal) Engine.</span>
-    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span>, <span class="ident">hidden</span> <span class="op">=</span> <span class="bool-val">true</span>, <span class="ident">conflicts_with_all</span> <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="string">&quot;universal&quot;</span>, <span class="string">&quot;dylib&quot;</span>, <span class="string">&quot;staticlib&quot;</span>, <span class="string">&quot;native&quot;</span>, <span class="string">&quot;object_file&quot;</span>]</span>)]
-    <span class="ident">jit</span>: <span class="ident">bool</span>,
-
-    <span class="doccomment">/// Use the Native (Dylib) Engine.</span>
-    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span>, <span class="ident">hidden</span> <span class="op">=</span> <span class="bool-val">true</span>, <span class="ident">conflicts_with_all</span> <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="string">&quot;universal&quot;</span>, <span class="string">&quot;dylib&quot;</span>, <span class="string">&quot;staticlib&quot;</span>, <span class="string">&quot;jit&quot;</span>, <span class="string">&quot;object_file&quot;</span>]</span>)]
-    <span class="ident">native</span>: <span class="ident">bool</span>,
-
-    <span class="doccomment">/// Use the ObjectFile (Staticlib) Engine.</span>
-    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span>, <span class="ident">hidden</span> <span class="op">=</span> <span class="bool-val">true</span>, <span class="ident">conflicts_with_all</span> <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="string">&quot;universal&quot;</span>, <span class="string">&quot;dylib&quot;</span>, <span class="string">&quot;staticlib&quot;</span>, <span class="string">&quot;jit&quot;</span>, <span class="string">&quot;native&quot;</span>]</span>)]
-    <span class="ident">object_file</span>: <span class="ident">bool</span>,
 }
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
@@ -555,6 +389,7 @@
 
     <span class="doccomment">/// Enable compiler internal verification.</span>
     <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span>)]</span>
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;singlepass&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;cranelift&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;llvm&quot;</span>))]</span>
     <span class="ident">enable_verifier</span>: <span class="ident">bool</span>,
 
     <span class="doccomment">/// LLVM debug directory, where IR and object files will be written to.</span>
@@ -613,53 +448,26 @@
         <span class="prelude-val">Ok</span>(<span class="ident">features</span>)
     }
 
-    <span class="doccomment">/// Gets the Store for a given target and engine.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_store_for_target_and_engine</span>(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">target</span>: <span class="ident">Target</span>,
-        <span class="ident">engine_type</span>: <span class="ident">EngineType</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">Store</span>, <span class="ident">CompilerType</span>)<span class="op">&gt;</span> {
+    <span class="doccomment">/// Gets the Store for a given target.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_store_for_target</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">target</span>: <span class="ident">Target</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">Store</span>, <span class="ident">CompilerType</span>)<span class="op">&gt;</span> {
         <span class="kw">let</span> (<span class="ident">compiler_config</span>, <span class="ident">compiler_type</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_compiler_config</span>()<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">engine</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_engine_by_type</span>(<span class="ident">target</span>, <span class="ident">compiler_config</span>, <span class="ident">engine_type</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">store</span> <span class="op">=</span> <span class="ident">Store::new</span>(<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">engine</span>);
+        <span class="kw">let</span> <span class="ident">engine</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_engine</span>(<span class="ident">target</span>, <span class="ident">compiler_config</span>)<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">store</span> <span class="op">=</span> <span class="ident">Store::new_with_engine</span>(<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">engine</span>);
         <span class="prelude-val">Ok</span>((<span class="ident">store</span>, <span class="ident">compiler_type</span>))
     }
 
-    <span class="kw">fn</span> <span class="ident">get_engine_by_type</span>(
+    <span class="kw">fn</span> <span class="ident">get_engine</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">target</span>: <span class="ident">Target</span>,
         <span class="ident">compiler_config</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">CompilerConfig</span><span class="op">&gt;</span>,
-        <span class="ident">engine_type</span>: <span class="ident">EngineType</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Engine</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">features</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_features</span>(<span class="ident">compiler_config</span>.<span class="ident">default_features_for_target</span>(<span class="kw-2">&amp;</span><span class="ident">target</span>))<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">engine</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Engine</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">engine_type</span> {
-            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;universal&quot;</span>)]</span>
-            <span class="ident">EngineType::Universal</span> =&gt; <span class="ident">Box::new</span>(
-                <span class="ident">wasmer_engine_universal::Universal::new</span>(<span class="ident">compiler_config</span>)
-                    .<span class="ident">features</span>(<span class="ident">features</span>)
-                    .<span class="ident">target</span>(<span class="ident">target</span>)
-                    .<span class="ident">engine</span>(),
-            ),
-            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;dylib&quot;</span>)]</span>
-            <span class="ident">EngineType::Dylib</span> =&gt; <span class="ident">Box::new</span>(
-                <span class="ident">wasmer_engine_dylib::Dylib::new</span>(<span class="ident">compiler_config</span>)
-                    .<span class="ident">target</span>(<span class="ident">target</span>)
-                    .<span class="ident">features</span>(<span class="ident">features</span>)
-                    .<span class="ident">engine</span>(),
-            ),
-            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;staticlib&quot;</span>)]</span>
-            <span class="ident">EngineType::Staticlib</span> =&gt; <span class="ident">Box::new</span>(
-                <span class="ident">wasmer_engine_staticlib::Staticlib::new</span>(<span class="ident">compiler_config</span>)
-                    .<span class="ident">target</span>(<span class="ident">target</span>)
-                    .<span class="ident">features</span>(<span class="ident">features</span>)
-                    .<span class="ident">engine</span>(),
-            ),
-            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">all</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;universal&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;dylib&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;staticlib&quot;</span>)))]</span>
-            <span class="ident">engine</span> =&gt; <span class="macro">bail!</span>(
-                <span class="string">&quot;The `{}` engine is not included in this binary.&quot;</span>,
-                <span class="ident">engine</span>.<span class="ident">to_string</span>()
-            ),
-        };
+        <span class="kw">let</span> <span class="ident">engine</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Engine</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Box::new</span>(
+            <span class="ident">wasmer_compiler::Universal::new</span>(<span class="ident">compiler_config</span>)
+                .<span class="ident">features</span>(<span class="ident">features</span>)
+                .<span class="ident">target</span>(<span class="ident">target</span>)
+                .<span class="ident">engine</span>(),
+        );
 
         <span class="prelude-val">Ok</span>(<span class="ident">engine</span>)
     }
@@ -841,139 +649,47 @@
     }
 }
 
-<span class="doccomment">/// The engine used for the store</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Clone</span>, <span class="ident">Copy</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">EngineType</span> {
-    <span class="doccomment">/// Universal Engine</span>
-    <span class="ident">Universal</span>,
-    <span class="doccomment">/// Dylib Engine</span>
-    <span class="ident">Dylib</span>,
-    <span class="doccomment">/// Static Engine</span>
-    <span class="ident">Staticlib</span>,
-}
-
-<span class="kw">impl</span> <span class="ident">ToString</span> <span class="kw">for</span> <span class="ident">EngineType</span> {
-    <span class="kw">fn</span> <span class="ident">to_string</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">String</span> {
-        <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident"><span class="self">Self</span>::Universal</span> =&gt; <span class="string">&quot;universal&quot;</span>.<span class="ident">to_string</span>(),
-            <span class="ident"><span class="self">Self</span>::Dylib</span> =&gt; <span class="string">&quot;dylib&quot;</span>.<span class="ident">to_string</span>(),
-            <span class="ident"><span class="self">Self</span>::Staticlib</span> =&gt; <span class="string">&quot;staticlib&quot;</span>.<span class="ident">to_string</span>(),
-        }
-    }
-}
-
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;engine&quot;</span>))]</span>
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>))]</span>
 <span class="kw">impl</span> <span class="ident">StoreOptions</span> {
-    <span class="doccomment">/// Gets the store for the host target, with the engine name and compiler name selected</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_store</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">Store</span>, <span class="ident">EngineType</span>, <span class="ident">CompilerType</span>)<span class="op">&gt;</span> {
+    <span class="doccomment">/// Gets the store for the host target, with the compiler name selected</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_store</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">Store</span>, <span class="ident">CompilerType</span>)<span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">target</span> <span class="op">=</span> <span class="ident">Target::default</span>();
         <span class="self">self</span>.<span class="ident">get_store_for_target</span>(<span class="ident">target</span>)
     }
 
-    <span class="doccomment">/// Gets the store for a given target, with the engine name and compiler name selected, as</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_store_for_target</span>(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">target</span>: <span class="ident">Target</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">Store</span>, <span class="ident">EngineType</span>, <span class="ident">CompilerType</span>)<span class="op">&gt;</span> {
+    <span class="doccomment">/// Gets the store for a given target, with the compiler name selected.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_store_for_target</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">target</span>: <span class="ident">Target</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">Store</span>, <span class="ident">CompilerType</span>)<span class="op">&gt;</span> {
         <span class="kw">let</span> (<span class="ident">compiler_config</span>, <span class="ident">compiler_type</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">compiler</span>.<span class="ident">get_compiler_config</span>()<span class="question-mark">?</span>;
-        <span class="kw">let</span> (<span class="ident">engine</span>, <span class="ident">engine_type</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_engine_with_compiler</span>(<span class="ident">target</span>, <span class="ident">compiler_config</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">store</span> <span class="op">=</span> <span class="ident">Store::new</span>(<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">engine</span>);
-        <span class="prelude-val">Ok</span>((<span class="ident">store</span>, <span class="ident">engine_type</span>, <span class="ident">compiler_type</span>))
+        <span class="kw">let</span> <span class="ident">engine</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_engine_with_compiler</span>(<span class="ident">target</span>, <span class="ident">compiler_config</span>)<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">store</span> <span class="op">=</span> <span class="ident">Store::new_with_engine</span>(<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">engine</span>);
+        <span class="prelude-val">Ok</span>((<span class="ident">store</span>, <span class="ident">compiler_type</span>))
     }
 
     <span class="kw">fn</span> <span class="ident">get_engine_with_compiler</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">target</span>: <span class="ident">Target</span>,
         <span class="ident">compiler_config</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">CompilerConfig</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Engine</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span>, <span class="ident">EngineType</span>)<span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">engine_type</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_engine</span>()<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">engine</span> <span class="op">=</span> <span class="self">self</span>
-            .<span class="ident">compiler</span>
-            .<span class="ident">get_engine_by_type</span>(<span class="ident">target</span>, <span class="ident">compiler_config</span>, <span class="ident">engine_type</span>)<span class="question-mark">?</span>;
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Engine</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">engine</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">compiler</span>.<span class="ident">get_engine</span>(<span class="ident">target</span>, <span class="ident">compiler_config</span>)<span class="question-mark">?</span>;
 
-        <span class="prelude-val">Ok</span>((<span class="ident">engine</span>, <span class="ident">engine_type</span>))
-    }
-}
-
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;engine&quot;</span>)]</span>
-<span class="kw">impl</span> <span class="ident">StoreOptions</span> {
-    <span class="kw">fn</span> <span class="ident">get_engine</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">EngineType</span><span class="op">&gt;</span> {
-        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">universal</span> <span class="op">|</span><span class="op">|</span> <span class="self">self</span>.<span class="ident">jit</span> {
-            <span class="prelude-val">Ok</span>(<span class="ident">EngineType::Universal</span>)
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="self">self</span>.<span class="ident">dylib</span> <span class="op">|</span><span class="op">|</span> <span class="self">self</span>.<span class="ident">native</span> {
-            <span class="prelude-val">Ok</span>(<span class="ident">EngineType::Dylib</span>)
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="self">self</span>.<span class="ident">staticlib</span> <span class="op">|</span><span class="op">|</span> <span class="self">self</span>.<span class="ident">object_file</span> {
-            <span class="prelude-val">Ok</span>(<span class="ident">EngineType::Staticlib</span>)
-        } <span class="kw">else</span> {
-            <span class="comment">// Auto mode, we choose the best engine for that platform</span>
-            <span class="kw">if</span> <span class="macro">cfg!</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;universal&quot;</span>) {
-                <span class="prelude-val">Ok</span>(<span class="ident">EngineType::Universal</span>)
-            } <span class="kw">else</span> <span class="kw">if</span> <span class="macro">cfg!</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;dylib&quot;</span>) {
-                <span class="prelude-val">Ok</span>(<span class="ident">EngineType::Dylib</span>)
-            } <span class="kw">else</span> <span class="kw">if</span> <span class="macro">cfg!</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;staticlib&quot;</span>) {
-                <span class="prelude-val">Ok</span>(<span class="ident">EngineType::Staticlib</span>)
-            } <span class="kw">else</span> {
-                <span class="macro">bail!</span>(<span class="string">&quot;There are no available engines for your architecture&quot;</span>)
-            }
-        }
+        <span class="prelude-val">Ok</span>(<span class="ident">engine</span>)
     }
 }
 
 <span class="comment">// If we don&#39;t have a compiler, but we have an engine</span>
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>), <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;engine&quot;</span>))]</span>
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>))]</span>
 <span class="kw">impl</span> <span class="ident">StoreOptions</span> {
-    <span class="kw">fn</span> <span class="ident">get_engine_headless</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Engine</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span>, <span class="ident">EngineType</span>)<span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">engine_type</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_engine</span>()<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">engine</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Engine</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">engine_type</span> {
-            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;universal&quot;</span>)]</span>
-            <span class="ident">EngineType::Universal</span> =&gt; {
-                <span class="ident">Arc::new</span>(<span class="ident">wasmer_engine_universal::Universal::headless</span>().<span class="ident">engine</span>())
-            }
-            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;dylib&quot;</span>)]</span>
-            <span class="ident">EngineType::Dylib</span> =&gt; <span class="ident">Arc::new</span>(<span class="ident">wasmer_engine_dylib::Dylib::headless</span>().<span class="ident">engine</span>()),
-            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;staticlib&quot;</span>)]</span>
-            <span class="ident">EngineType::Staticlib</span> =&gt; {
-                <span class="ident">Arc::new</span>(<span class="ident">wasmer_engine_staticlib::Staticlib::headless</span>().<span class="ident">engine</span>())
-            }
-            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">all</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;universal&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;dylib&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;staticlib&quot;</span>)))]</span>
-            <span class="ident">engine</span> =&gt; <span class="macro">bail!</span>(
-                <span class="string">&quot;The `{}` engine is not included in this binary.&quot;</span>,
-                <span class="ident">engine</span>.<span class="ident">to_string</span>()
-            ),
-        };
-        <span class="prelude-val">Ok</span>((<span class="ident">engine</span>, <span class="ident">engine_type</span>))
+    <span class="kw">fn</span> <span class="ident">get_engine_headless</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Engine</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">engine</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Engine</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span> <span class="op">=</span>
+            <span class="ident">Arc::new</span>(<span class="ident">wasmer_compiler::Universal::headless</span>().<span class="ident">engine</span>());
+        <span class="prelude-val">Ok</span>(<span class="ident">engine</span>)
     }
 
     <span class="doccomment">/// Get the store (headless engine)</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_store</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">Store</span>, <span class="ident">EngineType</span>, <span class="ident">CompilerType</span>)<span class="op">&gt;</span> {
-        <span class="kw">let</span> (<span class="ident">engine</span>, <span class="ident">engine_type</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_engine_headless</span>()<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">store</span> <span class="op">=</span> <span class="ident">Store::new</span>(<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">engine</span>);
-        <span class="prelude-val">Ok</span>((<span class="ident">store</span>, <span class="ident">engine_type</span>, <span class="ident">CompilerType::Headless</span>))
-    }
-
-    <span class="doccomment">/// Gets the store for provided host target</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_store_for_target</span>(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">_target</span>: <span class="ident">Target</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">Store</span>, <span class="ident">EngineType</span>, <span class="ident">CompilerType</span>)<span class="op">&gt;</span> {
-        <span class="macro">bail!</span>(<span class="string">&quot;You need compilers to retrieve a store for a specific target&quot;</span>);
-    }
-}
-
-<span class="comment">// If we don&#39;t have any engine enabled</span>
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;engine&quot;</span>))]</span>
-<span class="kw">impl</span> <span class="ident">StoreOptions</span> {
-    <span class="doccomment">/// Get the store (headless engine)</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_store</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">Store</span>, <span class="ident">EngineType</span>, <span class="ident">CompilerType</span>)<span class="op">&gt;</span> {
-        <span class="macro">bail!</span>(<span class="string">&quot;No engines are enabled&quot;</span>);
-    }
-
-    <span class="doccomment">/// Gets the store for the host target</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_store_for_target</span>(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">_target</span>: <span class="ident">Target</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">Store</span>, <span class="ident">EngineType</span>, <span class="ident">CompilerType</span>)<span class="op">&gt;</span> {
-        <span class="macro">bail!</span>(<span class="string">&quot;No engines are enabled&quot;</span>);
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_store</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">Store</span>, <span class="ident">CompilerType</span>)<span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">engine</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_engine_headless</span>()<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">store</span> <span class="op">=</span> <span class="ident">Store::new_with_engine</span>(<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">engine</span>);
+        <span class="prelude-val">Ok</span>((<span class="ident">store</span>, <span class="ident">CompilerType::Headless</span>))
     }
 }
 </code></pre></div>

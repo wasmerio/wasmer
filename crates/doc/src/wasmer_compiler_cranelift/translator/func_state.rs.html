@@ -596,6 +596,7 @@
 <span id="594">594</span>
 <span id="595">595</span>
 <span id="596">596</span>
+<span id="597">597</span>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
 
@@ -611,8 +612,9 @@
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">HashMap</span>, <span class="ident">Occupied</span>, <span class="ident">Vacant</span>};
 <span class="kw">use</span> <span class="ident">cranelift_codegen::ir</span>::{<span class="self">self</span>, <span class="ident">Block</span>, <span class="ident">Inst</span>, <span class="ident">Value</span>};
 <span class="kw">use</span> <span class="ident">std::vec::Vec</span>;
-<span class="kw">use</span> <span class="ident">wasmer_compiler::WasmResult</span>;
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">FunctionIndex</span>, <span class="ident">GlobalIndex</span>, <span class="ident">MemoryIndex</span>, <span class="ident">SignatureIndex</span>, <span class="ident">TableIndex</span>};
+<span class="kw">use</span> <span class="ident">wasmer_types</span>::{
+    <span class="ident">FunctionIndex</span>, <span class="ident">GlobalIndex</span>, <span class="ident">MemoryIndex</span>, <span class="ident">SignatureIndex</span>, <span class="ident">TableIndex</span>, <span class="ident">WasmResult</span>,
+};
 
 <span class="doccomment">/// Information about the presence of an associated `else` for an `if`, or the</span>
 <span class="doccomment">/// lack thereof.</span>

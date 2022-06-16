@@ -118,8 +118,6 @@
 <span id="116">116</span>
 <span id="117">117</span>
 <span id="118">118</span>
-<span id="119">119</span>
-<span id="120">120</span>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
 
@@ -137,9 +135,7 @@
 <span class="kw">use</span> <span class="ident">std::mem</span>;
 
 <span class="kw">use</span> <span class="ident">cranelift_frontend</span>::{<span class="ident">FunctionBuilder</span>, <span class="ident">FunctionBuilderContext</span>};
-<span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">CompileError</span>, <span class="ident">FunctionBody</span>};
-<span class="kw">use</span> <span class="ident">wasmer_types::FunctionType</span>;
-<span class="kw">use</span> <span class="ident">wasmer_types::VMOffsets</span>;
+<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">CompileError</span>, <span class="ident">FunctionBody</span>, <span class="ident">FunctionType</span>, <span class="ident">VMOffsets</span>};
 
 <span class="doccomment">/// Create a trampoline for invoking a WebAssembly function.</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">make_trampoline_dynamic_function</span>(

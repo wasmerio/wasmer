@@ -354,7 +354,7 @@
             <span class="ident">flags</span>.<span class="ident">enable</span>(<span class="string">&quot;is_pic&quot;</span>).<span class="ident">expect</span>(<span class="string">&quot;should be a valid flag&quot;</span>);
         }
 
-        <span class="comment">// We set up libcall trampolines in engine-dylib and engine-universal.</span>
+        <span class="comment">// We set up libcall trampolines in engine-universal.</span>
         <span class="comment">// These trampolines are always reachable through short jumps.</span>
         <span class="ident">flags</span>
             .<span class="ident">enable</span>(<span class="string">&quot;use_colocated_libcalls&quot;</span>)

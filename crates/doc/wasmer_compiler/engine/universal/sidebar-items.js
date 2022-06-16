@@ -1,0 +1,1 @@
+initSidebarItems({"mod":[["artifact","Define `UniversalArtifact`, based on `UniversalArtifactBuild` to allow compiling and instantiating to be done as separate steps."],["builder",""],["code_memory","Memory management for executable code."],["engine","Universal compilation."],["link","Linking for Universal-compiled code."],["unwind",""]]});

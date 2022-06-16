@@ -465,7 +465,6 @@
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::lib::std</span>::{<span class="ident">boxed::Box</span>, <span class="ident">string::String</span>, <span class="ident">vec::Vec</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::translate_module</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::wasmparser</span>::{<span class="ident">Operator</span>, <span class="ident">Range</span>, <span class="ident">Type</span>};
-<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">WasmError</span>, <span class="ident">WasmResult</span>};
 <span class="kw">use</span> <span class="ident">std::convert</span>::{<span class="ident">TryFrom</span>, <span class="ident">TryInto</span>};
 <span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types::entity::PrimaryMap</span>;
@@ -476,6 +475,7 @@
     <span class="ident">LocalFunctionIndex</span>, <span class="ident">MemoryIndex</span>, <span class="ident">MemoryType</span>, <span class="ident">ModuleInfo</span>, <span class="ident">SignatureIndex</span>, <span class="ident">TableIndex</span>,
     <span class="ident">TableInitializer</span>, <span class="ident">TableType</span>,
 };
+<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">WasmError</span>, <span class="ident">WasmResult</span>};
 
 <span class="doccomment">/// Contains function data: bytecode and its offset in the module.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Hash</span>)]</span>
