@@ -1,4 +1,5 @@
-use wasmer_compiler::{FunctionAddressMap, FunctionBodyData, InstructionAddressMap, SourceLoc};
+use wasmer_compiler::FunctionBodyData;
+use wasmer_types::{FunctionAddressMap, InstructionAddressMap, SourceLoc};
 
 pub fn get_function_address_map(
     instructions: Vec<InstructionAddressMap>,

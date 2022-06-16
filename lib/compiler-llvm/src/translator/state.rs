@@ -4,7 +4,7 @@ use inkwell::{
 };
 use smallvec::SmallVec;
 use std::ops::{BitAnd, BitOr, BitOrAssign};
-use wasmer_compiler::CompileError;
+use wasmer_types::CompileError;
 
 #[derive(Debug)]
 pub enum ControlFrame<'ctx> {

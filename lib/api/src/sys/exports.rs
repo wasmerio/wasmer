@@ -5,7 +5,7 @@ use indexmap::IndexMap;
 use std::fmt;
 use std::iter::{ExactSizeIterator, FromIterator};
 use thiserror::Error;
-use wasmer_engine::Export;
+use wasmer_compiler::Export;
 
 /// The `ExportError` can happen when trying to get a specific
 /// export [`Extern`] from the [`Instance`] exports.

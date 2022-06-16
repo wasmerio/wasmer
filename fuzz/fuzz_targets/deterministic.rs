@@ -3,11 +3,10 @@
 use libfuzzer_sys::{arbitrary, arbitrary::Arbitrary, fuzz_target};
 use wasm_smith::{Config, ConfiguredModule};
 use wasmer::{CompilerConfig, Engine, Module, Store};
+use wasmer_compiler::Universal;
 use wasmer_compiler_cranelift::Cranelift;
 use wasmer_compiler_llvm::LLVM;
 use wasmer_compiler_singlepass::Singlepass;
-use wasmer_engine_dylib::Dylib;
-use wasmer_engine_universal::Universal;
 
 #[derive(Arbitrary, Debug, Default, Copy, Clone)]
 struct NoImportsConfig;
@@ -25,7 +24,7 @@ impl Config for NoImportsConfig {
 }
 
 fn compile_and_compare(name: &str, engine: impl Engine, wasm: &[u8]) {
-    let store = Store::new(&engine);
+    let store = Store::new_with_engine(&engine);
 
     // compile for first time
     let module = Module::new(&store, wasm).unwrap();
@@ -51,11 +50,6 @@ fuzz_target!(|module: ConfiguredModule<NoImportsConfig>| {
         Universal::new(compiler.clone()).engine(),
         &wasm_bytes,
     );
-    //compile_and_compare(
-    //    "dylib-cranelift",
-    //    Dylib::new(compiler).engine(),
-    //    &wasm_bytes,
-    //);
 
     let mut compiler = LLVM::default();
     compiler.canonicalize_nans(true);
@@ -65,7 +59,6 @@ fuzz_target!(|module: ConfiguredModule<NoImportsConfig>| {
         Universal::new(compiler.clone()).engine(),
         &wasm_bytes,
     );
-    //compile_and_compare("dylib-llvm", Dylib::new(compiler).engine(), &wasm_bytes);
 
     let compiler = Singlepass::default();
     compile_and_compare(
@@ -73,9 +66,4 @@ fuzz_target!(|module: ConfiguredModule<NoImportsConfig>| {
         Universal::new(compiler.clone()).engine(),
         &wasm_bytes,
     );
-    //compile_and_compare(
-    //    "dylib-singlepass",
-    //    Dylib::new(compiler).engine(),
-    //    &wasm_bytes,
-    //);
 });

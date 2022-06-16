@@ -115,7 +115,7 @@ impl Ignores {
                             arch = Some(alias.to_string());
                         }
                         // Engines
-                        "universal" | "dylib" => {
+                        "universal" => {
                             engine = Some(alias.to_string());
                         }
                         // Compilers

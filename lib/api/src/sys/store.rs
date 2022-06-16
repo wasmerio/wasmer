@@ -1,9 +1,8 @@
 use crate::sys::tunables::BaseTunables;
 use std::fmt;
 use std::sync::{Arc, RwLock};
-#[cfg(all(feature = "compiler", feature = "engine"))]
 use wasmer_compiler::CompilerConfig;
-use wasmer_engine::{Engine, Tunables};
+use wasmer_compiler::{Engine, Tunables, Universal};
 use wasmer_vm::{init_traps, TrapHandler, TrapHandlerFn};
 
 /// The store represents all global state that can be manipulated by
@@ -24,8 +23,14 @@ pub struct Store {
 }
 
 impl Store {
+    /// Creates a new `Store` with a specific [`CompilerConfig`].
+    pub fn new(compiler_config: Box<dyn CompilerConfig>) -> Self {
+        let engine = Universal::new(compiler_config).engine();
+        Self::new_with_tunables(&engine, BaseTunables::for_target(engine.target()))
+    }
+
     /// Creates a new `Store` with a specific [`Engine`].
-    pub fn new<E>(engine: &E) -> Self
+    pub fn new_with_engine<E>(engine: &E) -> Self
     where
         E: Engine + ?Sized,
     {
@@ -119,10 +124,7 @@ impl Default for Store {
         fn get_engine(mut config: impl CompilerConfig + 'static) -> impl Engine + Send + Sync {
             cfg_if::cfg_if! {
                 if #[cfg(feature = "default-universal")] {
-                    wasmer_engine_universal::Universal::new(config)
-                        .engine()
-                } else if #[cfg(feature = "default-dylib")] {
-                    wasmer_engine_dylib::Dylib::new(config)
+                    wasmer_compiler::Universal::new(config)
                         .engine()
                 } else {
                     compile_error!("No default engine chosen")

@@ -1,6 +1,6 @@
 //! Defining an engine in Wasmer is one of the fundamental steps.
 //!
-//! This example illustrates how to use the `wasmer_engine_universal`,
+//! This example illustrates how to use the `wasmer_compiler`,
 //! aka the Universal engine. An engine applies roughly 2 steps:
 //!
 //!   1. It compiles the Wasm module bytes to executable code, through
@@ -19,8 +19,8 @@
 //! Ready?
 
 use wasmer::{imports, wat2wasm, Instance, Module, Store, Value};
+use wasmer_compiler::Universal;
 use wasmer_compiler_cranelift::Cranelift;
-use wasmer_engine_universal::Universal;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Let's declare the Wasm module with the text representation.
@@ -47,12 +47,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Creating Universal engine...");
     // Define the engine that will drive everything.
     //
-    // In this case, the engine is `wasmer_engine_universal` which roughly
+    // In this case, the engine is `wasmer_compiler` which roughly
     // means that the executable code will live in memory.
     let engine = Universal::new(compiler_config).engine();
 
     // Create a store, that holds the engine.
-    let store = Store::new(&engine);
+    let store = Store::new_with_engine(&engine);
 
     println!("Compiling module...");
     // Here we go.

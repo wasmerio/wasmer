@@ -42,18 +42,6 @@
 <path fill="none" stroke="orange" stroke-dasharray="5,2" d="M488.06,-373.25C467.43,-368.88 440.95,-362.59 418,-355 394.49,-347.23 369.06,-336.52 348.38,-327.2"/>
 <polygon fill="orange" stroke="orange" points="349.79,-323.99 339.24,-323.02 346.88,-330.36 349.79,-323.99"/>
 </g>
-<!-- n7 -->
-<g id="node5" class="node">
-<title>n7</title>
-<ellipse fill="none" stroke="orange" cx="102" cy="-306" rx="85.59" ry="18"/>
-<text text-anchor="middle" x="102" y="-302.3" font-family="Times,serif" font-size="14.00">wasmer&#45;engine&#45;dylib</text>
-</g>
-<!-- n0&#45;&gt;n7 -->
-<g id="edge13" class="edge">
-<title>n0&#45;&gt;n7</title>
-<path fill="none" stroke="orange" stroke-dasharray="5,2" d="M484.8,-378.93C410.73,-376.56 250.17,-369.84 197,-355 175.78,-349.08 153.72,-338.26 136.21,-328.39"/>
-<polygon fill="orange" stroke="orange" points="137.9,-325.33 127.49,-323.35 134.39,-331.39 137.9,-325.33"/>
-</g>
 <!-- n2 -->
 <g id="node13" class="node">
 <title>n2</title>

@@ -5,7 +5,6 @@ digraph dependencies {
 	n1 [label="wasmer-compiler", color=orange];
 	n5 [label="wasmer-engine", color=orange];
 	n6 [label="wasmer-engine-universal", color=orange];
-	n7 [label="wasmer-engine-dylib", color=orange];
 	n8 [label="wasmer-types", color=orange];
 	n9 [label="wasmer-vm", color=orange];
 	n10 [label="wasmer-c-api", color=orange];
@@ -29,7 +28,6 @@ digraph dependencies {
 		color=brown;
 
 		n6 [label="wasmer-engine-universal", color=orange];
-		n7 [label="wasmer-engine-dylib", color=orange];
 	}
 
         {

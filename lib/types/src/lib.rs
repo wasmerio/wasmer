@@ -53,8 +53,8 @@ pub mod lib {
     }
 }
 
-#[cfg(feature = "enable-rkyv")]
-mod archives;
+pub mod compilation;
+pub mod error;
 mod extern_ref;
 mod features;
 mod indexes;
@@ -70,6 +70,11 @@ mod units;
 mod utils;
 mod values;
 mod vmoffsets;
+
+pub use error::{
+    CompileError, DeserializeError, ImportError, MiddlewareError, ParseCpuFeatureError,
+    PreInstantiationError, SerializeError, WasmError, WasmResult,
+};
 
 /// The entity module, with common helpers for Rust structures
 pub mod entity;
@@ -95,9 +100,6 @@ pub use types::{
     Mutability, TableType, Type, V128,
 };
 
-#[cfg(feature = "enable-rkyv")]
-pub use archives::ArchivableIndexMap;
-
 pub use crate::libcalls::LibCall;
 pub use crate::memory::MemoryStyle;
 pub use crate::table::TableStyle;
@@ -105,6 +107,29 @@ pub use crate::trapcode::TrapCode;
 pub use crate::vmoffsets::{TargetSharedSignatureIndex, VMBuiltinFunctionIndex, VMOffsets};
 
 pub use crate::utils::is_wasm;
+
+pub use crate::compilation::relocation::{
+    Relocation, RelocationKind, RelocationTarget, Relocations,
+};
+pub use crate::compilation::section::{
+    CustomSection, CustomSectionProtection, SectionBody, SectionIndex,
+};
+
+pub use crate::compilation::address_map::{FunctionAddressMap, InstructionAddressMap};
+pub use crate::compilation::function::{
+    Compilation, CompiledFunction, CompiledFunctionFrameInfo, CustomSections, Dwarf, FunctionBody,
+    Functions,
+};
+pub use crate::compilation::module::CompileModuleInfo;
+pub use crate::compilation::sourceloc::SourceLoc;
+pub use crate::compilation::trap::TrapInformation;
+pub use crate::compilation::unwind::CompiledFunctionUnwindInfo;
+
+/// Offset in bytes from the beginning of the function.
+pub type CodeOffset = u32;
+
+/// Addend to add to the symbol value.
+pub type Addend = i64;
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

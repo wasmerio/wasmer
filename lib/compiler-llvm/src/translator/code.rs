@@ -27,13 +27,13 @@ use crate::object_file::{load_object_file, CompiledFunction};
 use std::convert::TryFrom;
 use wasmer_compiler::wasmparser::{MemoryImmediate, Operator};
 use wasmer_compiler::{
-    wptype_to_type, CompileError, FunctionBinaryReader, FunctionBodyData, MiddlewareBinaryReader,
-    ModuleMiddlewareChain, ModuleTranslationState, RelocationTarget, Symbol, SymbolRegistry,
+    from_binaryreadererror_wasmerror, wptype_to_type, FunctionBinaryReader, FunctionBodyData,
+    MiddlewareBinaryReader, ModuleMiddlewareChain, ModuleTranslationState, Symbol, SymbolRegistry,
 };
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::{
-    FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex, ModuleInfo,
-    SignatureIndex, TableIndex, Type,
+    CompileError, FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex,
+    ModuleInfo, RelocationTarget, SignatureIndex, TableIndex, Type,
 };
 use wasmer_vm::{MemoryStyle, TableStyle, VMOffsets};
 
@@ -1615,7 +1615,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .targets()
                     .enumerate()
                     .map(|(case_index, depth)| {
-                        let depth = depth?;
+                        let depth = depth.map_err(from_binaryreadererror_wasmerror)?;
                         let frame_result: Result<&ControlFrame, CompileError> =
                             self.state.frame_at_depth(depth);
                         let frame = match frame_result {

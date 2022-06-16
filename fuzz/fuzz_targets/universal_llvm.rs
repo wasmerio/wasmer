@@ -3,8 +3,8 @@
 use libfuzzer_sys::{arbitrary, arbitrary::Arbitrary, fuzz_target};
 use wasm_smith::{Config, ConfiguredModule};
 use wasmer::{imports, CompilerConfig, Instance, Module, Store};
+use wasmer_compiler::Universal;
 use wasmer_compiler_llvm::LLVM;
-use wasmer_engine_universal::Universal;
 
 #[derive(Arbitrary, Debug, Default, Copy, Clone)]
 struct NoImportsConfig;
@@ -42,7 +42,7 @@ fuzz_target!(|module: WasmSmithModule| {
     let mut compiler = LLVM::default();
     compiler.canonicalize_nans(true);
     compiler.enable_verifier();
-    let store = Store::new(&Universal::new(compiler).engine());
+    let store = Store::new_with_engine(&Universal::new(compiler).engine());
     let module = Module::new(&store, &wasm_bytes).unwrap();
     match Instance::new(&module, &imports! {}) {
         Ok(_) => {}

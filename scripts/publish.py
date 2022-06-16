@@ -59,26 +59,6 @@ dep_graph = {
             "wasmer-engine",
         ]
     ),
-    "wasmer-engine-dylib": set(
-        [
-            "wasmer-artifact",
-            "wasmer-types",
-            "wasmer-compiler",
-            "wasmer-vm",
-            "wasmer-engine",
-            "wasmer-object",
-        ]
-    ),
-    "wasmer-engine-staticlib": set(
-        [
-            "wasmer-artifact",
-            "wasmer-types",
-            "wasmer-compiler",
-            "wasmer-vm",
-            "wasmer-engine",
-            "wasmer-object",
-        ]
-    ),
     "wasmer": set(
         [
             "wasmer-artifact",
@@ -91,7 +71,6 @@ dep_graph = {
             "wasmer-compiler-cranelift",
             "wasmer-compiler-llvm",
             "wasmer-engine-universal",
-            "wasmer-engine-dylib",
         ]
     ),
     "wasmer-vfs": set([]),
@@ -110,8 +89,6 @@ dep_graph = {
             "wasmer-emscripten",
             "wasmer-engine",
             "wasmer-engine-universal",
-            "wasmer-engine-dylib",
-            "wasmer-engine-staticlib",
             "wasmer-middlewares",
             "wasmer-wasi",
             "wasmer-types",
@@ -129,8 +106,6 @@ dep_graph = {
             "wasmer-emscripten",
             "wasmer-engine",
             "wasmer-engine-universal",
-            "wasmer-engine-dylib",
-            "wasmer-engine-staticlib",
             "wasmer-vm",
             "wasmer-wasi",
             "wasmer-wasi-experimental-io-devices",
@@ -159,8 +134,6 @@ location = {
     "wasmer-compiler-llvm": "compiler-llvm",
     "wasmer-engine": "engine",
     "wasmer-engine-universal": "engine-universal",
-    "wasmer-engine-dylib": "engine-dylib",
-    "wasmer-engine-staticlib": "engine-staticlib",
     "wasmer-cache": "cache",
     "wasmer": "api",
     "wasmer-wasi": "wasi",

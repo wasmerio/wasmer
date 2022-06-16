@@ -8,7 +8,7 @@ use std::mem;
 use std::mem::MaybeUninit;
 use std::slice;
 use std::sync::Arc;
-use wasmer_engine::Export;
+use wasmer_compiler::Export;
 use wasmer_types::Pages;
 use wasmer_vm::{MemoryError, VMMemory};
 
