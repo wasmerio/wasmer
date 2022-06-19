@@ -139,7 +139,7 @@ mod sys {
                 assert_eq!(is_memory_instance_ref_strong(mem), Some(true));
             }
 
-            let f: TypedFunction<(), ()> = instance.exports.get_native_function("call_host_fn")?;
+            let f: TypedFunction<(), ()> = instance.exports.get_typed_function("call_host_fn")?;
             f.call()?;
             f
         };
@@ -183,7 +183,7 @@ mod sys {
                 assert_eq!(is_global_instance_ref_strong(global), Some(true));
             }
 
-            let f: TypedFunction<(), ()> = instance.exports.get_native_function("call_host_fn")?;
+            let f: TypedFunction<(), ()> = instance.exports.get_typed_function("call_host_fn")?;
             f.call()?;
             f
         };
@@ -227,7 +227,7 @@ mod sys {
                 assert_eq!(is_table_instance_ref_strong(table), Some(true));
             }
 
-            let f: TypedFunction<(), ()> = instance.exports.get_native_function("call_host_fn")?;
+            let f: TypedFunction<(), ()> = instance.exports.get_typed_function("call_host_fn")?;
             f.call()?;
             f
         };
@@ -271,7 +271,7 @@ mod sys {
                 assert_eq!(is_function_instance_ref_strong(function), Some(true));
             }
 
-            let f: TypedFunction<(), ()> = instance.exports.get_native_function("call_host_fn")?;
+            let f: TypedFunction<(), ()> = instance.exports.get_typed_function("call_host_fn")?;
             f.call()?;
             f
         };
@@ -321,14 +321,14 @@ mod sys {
 
             {
                 let function: TypedFunction<(), ()> =
-                    instance.exports.get_native_function("call_host_fn")?;
+                    instance.exports.get_typed_function("call_host_fn")?;
                 assert_eq!(
                     is_native_function_instance_ref_strong(&function),
                     Some(true)
                 );
             }
 
-            let f: TypedFunction<(), ()> = instance.exports.get_native_function("call_host_fn")?;
+            let f: TypedFunction<(), ()> = instance.exports.get_typed_function("call_host_fn")?;
             f.call()?;
             f
         };

@@ -396,7 +396,7 @@ mod sys {
         let f = {
             let module = Module::new(&store, wat)?;
             let instance = Instance::new(&module, &imports! {})?;
-            let f: TypedFunction<(i32, i32), i32> = instance.exports.get_native_function("sum")?;
+            let f: TypedFunction<(i32, i32), i32> = instance.exports.get_typed_function("sum")?;
 
             assert_eq!(f.call(4, 5)?, 9);
             f
