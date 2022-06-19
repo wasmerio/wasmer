@@ -52,7 +52,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let load = instance
         .exports
-        .get_native_function::<(), (WasmPtr<u8>, i32)>("load")?;
+        .get_typed_function::<(), (WasmPtr<u8>, i32)>("load")?;
 
     // Here we go.
     //

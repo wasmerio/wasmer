@@ -73,9 +73,9 @@ fn main() -> anyhow::Result<()> {
     // The module exports some utility functions, let's get them.
     //
     // These function will be used later in this example.
-    let mem_size: TypedFunction<(), i32> = instance.exports.get_native_function("mem_size")?;
-    let get_at: TypedFunction<i32, i32> = instance.exports.get_native_function("get_at")?;
-    let set_at: TypedFunction<(i32, i32), ()> = instance.exports.get_native_function("set_at")?;
+    let mem_size: TypedFunction<(), i32> = instance.exports.get_typed_function("mem_size")?;
+    let get_at: TypedFunction<i32, i32> = instance.exports.get_typed_function("get_at")?;
+    let set_at: TypedFunction<(i32, i32), ()> = instance.exports.get_typed_function("set_at")?;
     let memory = instance.exports.get_memory("memory")?;
 
     // We now have an instance ready to be used.
