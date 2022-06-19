@@ -251,35 +251,35 @@ mod js {
 
     //     let f1: TypedFunction<(), ()> = instance
     //         .exports
-    //         .get_native_function("call_host_func1")
+    //         .get_typed_function("call_host_func1")
     //         .unwrap();
     //     let f2: TypedFunction<(), ()> = instance
     //         .exports
-    //         .get_native_function("call_host_func2")
+    //         .get_typed_function("call_host_func2")
     //         .unwrap();
     //     let f3: TypedFunction<(), ()> = instance
     //         .exports
-    //         .get_native_function("call_host_func3")
+    //         .get_typed_function("call_host_func3")
     //         .unwrap();
     //     let f4: TypedFunction<(), ()> = instance
     //         .exports
-    //         .get_native_function("call_host_func4")
+    //         .get_typed_function("call_host_func4")
     //         .unwrap();
     //     let f5: TypedFunction<(), ()> = instance
     //         .exports
-    //         .get_native_function("call_host_func5")
+    //         .get_typed_function("call_host_func5")
     //         .unwrap();
     //     let f6: TypedFunction<(), ()> = instance
     //         .exports
-    //         .get_native_function("call_host_func6")
+    //         .get_typed_function("call_host_func6")
     //         .unwrap();
     //     let f7: TypedFunction<(), ()> = instance
     //         .exports
-    //         .get_native_function("call_host_func7")
+    //         .get_typed_function("call_host_func7")
     //         .unwrap();
     //     let f8: TypedFunction<(), ()> = instance
     //         .exports
-    //         .get_native_function("call_host_func8")
+    //         .get_typed_function("call_host_func8")
     //         .unwrap();
 
     //     f1.call().unwrap();

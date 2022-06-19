@@ -116,7 +116,7 @@ mod sys {
         {
             let f: TypedFunction<(), i32> = instance
                 .exports
-                .get_native_function("call_host_func_with_wasm_func")?;
+                .get_typed_function("call_host_func_with_wasm_func")?;
             let result = f.call()?;
             assert_eq!(result, 63);
         }
@@ -183,7 +183,7 @@ mod sys {
                 panic!("result is not an extern ref!");
             }
 
-            let f: TypedFunction<(), ExternRef> = instance.exports.get_native_function(run)?;
+            let f: TypedFunction<(), ExternRef> = instance.exports.get_typed_function(run)?;
             let result: ExternRef = f.call()?;
             assert!(result.is_null());
         }
@@ -200,7 +200,7 @@ mod sys {
             }
 
             let f: TypedFunction<(), ExternRef> =
-                instance.exports.get_native_function(get_hashmap)?;
+                instance.exports.get_typed_function(get_hashmap)?;
 
             let result: ExternRef = f.call()?;
             let inner: &HashMap<String, String> = result.downcast().unwrap();
@@ -222,7 +222,7 @@ mod sys {
 )"#;
         let module = Module::new(&store, wat)?;
         let instance = Instance::new(&module, &imports! {})?;
-        let f: TypedFunction<ExternRef, ()> = instance.exports.get_native_function("drop")?;
+        let f: TypedFunction<ExternRef, ()> = instance.exports.get_typed_function("drop")?;
 
         let er = ExternRef::new(3u32);
         f.call(er.clone())?;
@@ -316,7 +316,7 @@ mod sys {
         let instance = Instance::new(&module, &imports! {})?;
 
         let f: TypedFunction<(ExternRef, i32), ExternRef> =
-            instance.exports.get_native_function("insert_into_table")?;
+            instance.exports.get_typed_function("insert_into_table")?;
 
         let er = ExternRef::new(3usize);
 
@@ -359,7 +359,7 @@ mod sys {
             assert_eq!(er.strong_count(), 2);
         }
         let get_from_global: TypedFunction<(), ExternRef> =
-            instance.exports.get_native_function("get_from_global")?;
+            instance.exports.get_typed_function("get_from_global")?;
 
         let er = get_from_global.call()?;
         assert_eq!(er.strong_count(), 2);
@@ -383,7 +383,7 @@ mod sys {
         let instance = Instance::new(&module, &imports! {})?;
 
         let pass_extern_ref: TypedFunction<ExternRef, ()> =
-            instance.exports.get_native_function("pass_extern_ref")?;
+            instance.exports.get_typed_function("pass_extern_ref")?;
 
         let er = ExternRef::new(3usize);
         assert_eq!(er.strong_count(), 1);
@@ -411,14 +411,12 @@ mod sys {
         let module = Module::new(&store, wat)?;
         let instance = Instance::new(&module, &imports! {})?;
 
-        let grow_table_with_ref: TypedFunction<(ExternRef, i32), i32> = instance
-            .exports
-            .get_native_function("grow_table_with_ref")?;
-        let fill_table_with_ref: TypedFunction<(ExternRef, i32, i32), ()> = instance
-            .exports
-            .get_native_function("fill_table_with_ref")?;
+        let grow_table_with_ref: TypedFunction<(ExternRef, i32), i32> =
+            instance.exports.get_typed_function("grow_table_with_ref")?;
+        let fill_table_with_ref: TypedFunction<(ExternRef, i32, i32), ()> =
+            instance.exports.get_typed_function("fill_table_with_ref")?;
         let copy_into_table2: TypedFunction<(), ()> =
-            instance.exports.get_native_function("copy_into_table2")?;
+            instance.exports.get_typed_function("copy_into_table2")?;
         let table1: &Table = instance.exports.get_table("table1")?;
         let table2: &Table = instance.exports.get_table("table2")?;
 
