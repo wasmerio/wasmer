@@ -134,8 +134,25 @@ impl Exports {
         self.get(name)
     }
 
+    #[deprecated(
+        since = "3.0.0",
+        note = "get_native_function() has been renamed to get_typed_function(), just like NativeFunc has been renamed to TypedFunction."
+    )]
     /// Get an export as a `TypedFunction`.
     pub fn get_native_function<Args, Rets>(
+        &self,
+        ctx: &impl AsContextRef,
+        name: &str,
+    ) -> Result<TypedFunction<Args, Rets>, ExportError>
+    where
+        Args: WasmTypeList,
+        Rets: WasmTypeList,
+    {
+        self.get_typed_function(ctx, name)
+    }
+
+    /// Get an export as a `TypedFunction`.
+    pub fn get_typed_function<Args, Rets>(
         &self,
         ctx: &impl AsContextRef,
         name: &str,

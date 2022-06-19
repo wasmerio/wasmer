@@ -10,6 +10,7 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ### Changed
 - #2946 Remove dylib,staticlib engines in favor of a single Universal engine
+- #2892 Renamed `get_native_function` to `get_typed_function`, marked former as deprecated.
 
 ### Fixed
 - [#2942](https://github.com/wasmerio/wasmer/pull/2942) Fix clippy lints.

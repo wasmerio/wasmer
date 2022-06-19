@@ -170,7 +170,7 @@
 //! # fn exports_example(instance: &Instance) -> anyhow::Result<()> {
 //! let memory = instance.exports.get_memory("memory")?;
 //! let memory: &Memory = instance.exports.get("some_other_memory")?;
-//! let add: TypedFunction<(i32, i32), i32> = instance.exports.get_native_function("add")?;
+//! let add: TypedFunction<(i32, i32), i32> = instance.exports.get_typed_function("add")?;
 //! let result = add.call(5, 37)?;
 //! assert_eq!(result, 42);
 //! # Ok(())
