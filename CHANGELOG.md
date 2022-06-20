@@ -12,6 +12,7 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 - #2946 Remove dylib,staticlib engines in favor of a single Universal engine
 
 ### Fixed
+- [#2963](https://github.com/wasmerio/wasmer/pull/2963) Remove accidental dependency on libwayland and libxcb in ClI
 - [#2942](https://github.com/wasmerio/wasmer/pull/2942) Fix clippy lints.
 - [#2943](https://github.com/wasmerio/wasmer/pull/2943) Fix build error on some archs by using c_char instead of i8
 
