@@ -1,3 +1,5 @@
+#![cfg(feature = "link_external_libs")]
+
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeSet, VecDeque};
 use std::convert::TryInto;

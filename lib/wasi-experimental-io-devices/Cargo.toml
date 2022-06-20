@@ -16,7 +16,7 @@ maintenance = { status = "experimental" }
 [dependencies]
 wasmer-wasi = { version = "=2.3.0", path = "../wasi", default-features=false }
 tracing = "0.1"
-minifb = "0.19"
+minifb = { version = "0.19", optional = true }
 nix = "0.20.2"
 ref_thread_local = "0.1"
 serde = "1"
@@ -28,4 +28,11 @@ default = [
 ]
 enable-serde = [
     "wasmer-wasi/enable-serde"
+]
+# This feature exists, so that "cargo build --all" doesn't
+# accidentally link libxcbcommon and libwayland into the CLI 
+# libraries. When using wasi-experimental-io-devices, users
+# have to enable this feature manually
+link_external_libs = [
+    "minifb"
 ]
