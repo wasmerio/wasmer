@@ -8,5 +8,4 @@ RUN cargo install cross
 RUN dpkg --add-architecture arm64 && \
     apt-get update && \
     apt-get install -qy curl && \
-    curl -sSL https://get.docker.com/ | sh && \
-    apt-get install --assume-yes libxkbcommon0:arm64 libwayland-cursor0:arm64 libxkbcommon-dev:arm64 libwayland-dev:arm64 libxkbcommon-x11-dev:arm64
+    curl -sSL https://get.docker.com/ | sh
