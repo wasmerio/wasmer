@@ -180,7 +180,7 @@ impl Exports {
     }
 
     /// Like `get_with_generics` but with a WeakReference to the `InstanceRef` internally.
-    /// This is useful for passing data into `WasmerEnv`, for example.
+    /// This is useful for passing data into Context data, for example.
     pub fn get_with_generics_weak<'a, T, Args, Rets>(&'a self, name: &str) -> Result<T, ExportError>
     where
         Args: WasmTypeList,

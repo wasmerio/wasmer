@@ -1,14 +1,13 @@
-use crate::js::exports::Exportable;
+use crate::js::context::{AsContextMut, ContextHandle};
+#[cfg(feature = "wat")]
+use crate::js::error::WasmError;
+use crate::js::error::{CompileError, InstantiationError};
+#[cfg(feature = "js-serializable-module")]
+use crate::js::error::{DeserializeError, SerializeError};
 use crate::js::externals::Extern;
 use crate::js::imports::Imports;
 use crate::js::store::Store;
-use crate::js::types::{ExportType, ImportType};
-// use crate::js::InstantiationError;
-use crate::js::error::CompileError;
-#[cfg(feature = "wat")]
-use crate::js::error::WasmError;
-#[cfg(feature = "js-serializable-module")]
-use crate::js::error::{DeserializeError, SerializeError};
+use crate::js::types::{AsJs, ExportType, ImportType};
 use crate::js::RuntimeError;
 use js_sys::{Reflect, Uint8Array, WebAssembly};
 use std::fmt;
@@ -220,8 +219,17 @@ impl Module {
 
     pub(crate) fn instantiate(
         &self,
+        ctx: &mut impl AsContextMut,
         imports: &Imports,
-    ) -> Result<(WebAssembly::Instance, Vec<Extern>), RuntimeError> {
+    ) -> Result<(ContextHandle<WebAssembly::Instance>, Vec<Extern>), RuntimeError> {
+        // Ensure all imports come from the same context.
+        if imports
+            .into_iter()
+            .any(|(_, import)| !import.is_from_context(ctx))
+        {
+            // FIXME is RuntimeError::User appropriate?
+            return Err(RuntimeError::user(Box::new(InstantiationError::BadContext)));
+        }
         let imports_object = js_sys::Object::new();
         let mut import_externs: Vec<Extern> = vec![];
         for import_type in self.imports() {
@@ -233,7 +241,7 @@ impl Module {
                     js_sys::Reflect::set(
                         &val,
                         &import_type.name().into(),
-                        import.to_export().as_jsvalue(),
+                        &import.as_jsvalue(&ctx.as_context_ref()),
                     )?;
                 } else {
                     // If the namespace doesn't exist
@@ -241,7 +249,7 @@ impl Module {
                     js_sys::Reflect::set(
                         &import_namespace,
                         &import_type.name().into(),
-                        import.to_export().as_jsvalue(),
+                        &import.as_jsvalue(&ctx.as_context_ref()),
                     )?;
                     js_sys::Reflect::set(
                         &imports_object,
@@ -255,8 +263,11 @@ impl Module {
             // the error for us, so we don't need to handle it
         }
         Ok((
-            WebAssembly::Instance::new(&self.module, &imports_object)
-                .map_err(|e: JsValue| -> RuntimeError { e.into() })?,
+            ContextHandle::new(
+                ctx.as_context_mut().objects_mut(),
+                WebAssembly::Instance::new(&self.module, &imports_object)
+                    .map_err(|e: JsValue| -> RuntimeError { e.into() })?,
+            ),
             import_externs,
         ))
     }

@@ -27,7 +27,7 @@ pub(crate) struct ContextInner<T> {
 /// The `T` generic parameter allows arbitrary data to be attached to a context.
 /// This data can be accessed using the [`Context::data`] and
 /// [`Context::data_mut`] methods. Host functions defined using
-/// [`Function::new_with_env`] and [`Function::new_native_with_env`] receive
+/// [`Function::new`] and [`Function::new_native`] receive
 /// a reference to the context when they are called.
 pub struct Context<T> {
     pub(crate) inner: Box<ContextInner<T>>,

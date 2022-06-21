@@ -50,7 +50,7 @@ pub use crate::syscalls::types;
 pub use crate::utils::{
     get_wasi_version, get_wasi_versions, is_wasi_module, is_wasix_module, WasiVersion,
 };
-use wasmer::{Context, ContextMut};
+use wasmer::ContextMut;
 pub use wasmer_vbus::{UnsupportedVirtualBus, VirtualBus};
 #[deprecated(since = "2.1.0", note = "Please use `wasmer_vfs::FsError`")]
 pub use wasmer_vfs::FsError as WasiFsError;
@@ -230,29 +230,29 @@ impl WasiEnv {
     }
 
     /// Get an `Imports` for a specific version of WASI detected in the module.
-    pub fn import_object(&mut self, module: &Module) -> Result<Imports, WasiError> {
+    pub fn import_object(
+        &mut self,
+        ctx: &mut ContextMut<'_, WasiEnv>,
+        module: &Module,
+    ) -> Result<Imports, WasiError> {
         let wasi_version = get_wasi_version(module, false).ok_or(WasiError::UnknownWasiVersion)?;
-        let mut context = Context::new(module.store(), self.clone());
-        Ok(generate_import_object_from_ctx(
-            &mut context.as_context_mut(),
-            wasi_version,
-        ))
+        Ok(generate_import_object_from_ctx(ctx, wasi_version))
     }
 
     /// Like `import_object` but containing all the WASI versions detected in
     /// the module.
     pub fn import_object_for_all_wasi_versions(
         &mut self,
+        ctx: &mut ContextMut<'_, WasiEnv>,
         module: &Module,
     ) -> Result<Imports, WasiError> {
         let wasi_versions =
             get_wasi_versions(module, false).ok_or(WasiError::UnknownWasiVersion)?;
 
         let mut resolver = Imports::new();
-        let mut context = Context::new(module.store(), self.clone());
         for version in wasi_versions.iter() {
             let new_import_object =
-                generate_import_object_from_ctx(&mut context.as_context_mut(), *version);
+                generate_import_object_from_ctx(&mut ctx.as_context_mut(), *version);
             for ((n, m), e) in new_import_object.into_iter() {
                 resolver.define(&n, &m, e);
             }
