@@ -1,6 +1,6 @@
 use std::io::{Read, Write};
 
-use wasmer::{Instance, Module, Store};
+use wasmer::{AsContextMut, Context, Instance, Module, Store};
 use wasmer_wasi::{Pipe, WasiState};
 
 mod sys {
@@ -80,15 +80,22 @@ fn test_stdout() {
         .finalize()
         .unwrap();
 
+    // Create a context state that will hold all objects created by this Instance
+    let mut ctx = Context::new(&store, wasi_env.clone());
+
     // Generate an `ImportObject`.
-    let import_object = wasi_env.import_object(&module).unwrap();
+    let import_object = wasi_env
+        .import_object(&mut ctx.as_context_mut(), &module)
+        .unwrap();
 
     // Let's instantiate the module with the imports.
-    let instance = Instance::new(&module, &import_object).unwrap();
+    let instance = Instance::new(&mut ctx, &module, &import_object).unwrap();
+    let memory = instance.exports.get_memory("memory").unwrap();
+    ctx.data_mut().set_memory(memory.clone());
 
     // Let's call the `_start` function, which is our `main` function in Rust.
     let start = instance.exports.get_function("_start").unwrap();
-    start.call(&[]).unwrap();
+    start.call(&mut ctx, &[]).unwrap();
 
     let mut stdout_str = String::new();
     stdout.read_to_string(&mut stdout_str).unwrap();
@@ -121,15 +128,22 @@ fn test_env() {
         .finalize()
         .unwrap();
 
+    // Create a context state that will hold all objects created by this Instance
+    let mut ctx = Context::new(&store, wasi_env.clone());
+
     // Generate an `ImportObject`.
-    let import_object = wasi_env.import_object(&module).unwrap();
+    let import_object = wasi_env
+        .import_object(&mut ctx.as_context_mut(), &module)
+        .unwrap();
 
     // Let's instantiate the module with the imports.
-    let instance = Instance::new(&module, &import_object).unwrap();
+    let instance = Instance::new(&mut ctx, &module, &import_object).unwrap();
+    let memory = instance.exports.get_memory("memory").unwrap();
+    ctx.data_mut().set_memory(memory.clone());
 
     // Let's call the `_start` function, which is our `main` function in Rust.
     let start = instance.exports.get_function("_start").unwrap();
-    start.call(&[]).unwrap();
+    start.call(&mut ctx, &[]).unwrap();
 
     let mut stdout_str = String::new();
     stdout.read_to_string(&mut stdout_str).unwrap();
@@ -152,15 +166,22 @@ fn test_stdin() {
     let buf = "Hello, stdin!\n".as_bytes().to_owned();
     stdin.write(&buf[..]).unwrap();
 
+    // Create a context state that will hold all objects created by this Instance
+    let mut ctx = Context::new(&store, wasi_env.clone());
+
     // Generate an `ImportObject`.
-    let import_object = wasi_env.import_object(&module).unwrap();
+    let import_object = wasi_env
+        .import_object(&mut ctx.as_context_mut(), &module)
+        .unwrap();
 
     // Let's instantiate the module with the imports.
-    let instance = Instance::new(&module, &import_object).unwrap();
+    let instance = Instance::new(&mut ctx, &module, &import_object).unwrap();
+    let memory = instance.exports.get_memory("memory").unwrap();
+    ctx.data_mut().set_memory(memory.clone());
 
     // Let's call the `_start` function, which is our `main` function in Rust.
     let start = instance.exports.get_function("_start").unwrap();
-    let result = start.call(&[]);
+    let result = start.call(&mut ctx, &[]);
     assert!(!result.is_err());
 
     // We assure stdin is now empty

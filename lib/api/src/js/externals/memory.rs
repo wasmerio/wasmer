@@ -1,9 +1,12 @@
-use crate::js::export::{Export, VMMemory};
+use crate::js::context::{
+    AsContextMut, AsContextRef, ContextHandle, ContextObjects, InternalContextHandle,
+};
+use crate::js::export::VMMemory;
 use crate::js::exports::{ExportError, Exportable};
 use crate::js::externals::Extern;
-use crate::js::store::Store;
 use crate::js::{MemoryAccessError, MemoryType};
 use std::convert::TryInto;
+use std::marker::PhantomData;
 use std::mem::MaybeUninit;
 use std::slice;
 use thiserror::Error;
@@ -77,8 +80,8 @@ extern "C" {
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#memory-instances>
 #[derive(Debug, Clone)]
 pub struct Memory {
-    store: Store,
-    vm_memory: VMMemory,
+    pub(crate) handle: ContextHandle<VMMemory>,
+    #[allow(dead_code)]
     view: js_sys::Uint8Array,
 }
 
@@ -99,7 +102,7 @@ impl Memory {
     /// #
     /// let m = Memory::new(&store, MemoryType::new(1, None, false)).unwrap();
     /// ```
-    pub fn new(store: &Store, ty: MemoryType) -> Result<Self, MemoryError> {
+    pub fn new(ctx: &mut impl AsContextMut, ty: MemoryType) -> Result<Self, MemoryError> {
         let descriptor = js_sys::Object::new();
         js_sys::Reflect::set(&descriptor, &"initial".into(), &ty.minimum.0.into()).unwrap();
         if let Some(max) = ty.maximum {
@@ -110,13 +113,8 @@ impl Memory {
         let js_memory = js_sys::WebAssembly::Memory::new(&descriptor)
             .map_err(|_e| MemoryError::Generic("Error while creating the memory".to_owned()))?;
 
-        let memory = VMMemory::new(js_memory, ty);
-        let view = js_sys::Uint8Array::new(&memory.memory.buffer());
-        Ok(Self {
-            store: store.clone(),
-            vm_memory: memory,
-            view,
-        })
+        let vm_memory = VMMemory::new(js_memory, ty);
+        Ok(Self::from_vm_export(ctx, vm_memory))
     }
 
     /// Returns the [`MemoryType`] of the `Memory`.
@@ -132,26 +130,8 @@ impl Memory {
     ///
     /// assert_eq!(m.ty(), mt);
     /// ```
-    pub fn ty(&self) -> MemoryType {
-        let mut ty = self.vm_memory.ty.clone();
-        ty.minimum = self.size();
-        ty
-    }
-
-    /// Returns the [`Store`] where the `Memory` belongs.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use wasmer::{Memory, MemoryType, Pages, Store, Type, Value};
-    /// # let store = Store::default();
-    /// #
-    /// let m = Memory::new(&store, MemoryType::new(1, None, false)).unwrap();
-    ///
-    /// assert_eq!(m.store(), &store);
-    /// ```
-    pub fn store(&self) -> &Store {
-        &self.store
+    pub fn ty(&self, ctx: &impl AsContextRef) -> MemoryType {
+        self.handle.get(ctx.as_context_ref().objects()).ty
     }
 
     /// Returns the pointer to the raw bytes of the `Memory`.
@@ -161,11 +141,18 @@ impl Memory {
     }
 
     /// Returns the size (in bytes) of the `Memory`.
-    pub fn data_size(&self) -> u64 {
-        js_sys::Reflect::get(&self.vm_memory.memory.buffer(), &"byteLength".into())
-            .unwrap()
-            .as_f64()
-            .unwrap() as _
+    pub fn data_size(&self, ctx: &impl AsContextRef) -> u64 {
+        js_sys::Reflect::get(
+            &self
+                .handle
+                .get(ctx.as_context_ref().objects())
+                .memory
+                .buffer(),
+            &"byteLength".into(),
+        )
+        .unwrap()
+        .as_f64()
+        .unwrap() as _
     }
 
     /// Returns the size (in [`Pages`]) of the `Memory`.
@@ -180,11 +167,18 @@ impl Memory {
     ///
     /// assert_eq!(m.size(), Pages(1));
     /// ```
-    pub fn size(&self) -> Pages {
-        let bytes = js_sys::Reflect::get(&self.vm_memory.memory.buffer(), &"byteLength".into())
-            .unwrap()
-            .as_f64()
-            .unwrap() as u64;
+    pub fn size(&self, ctx: &impl AsContextRef) -> Pages {
+        let bytes = js_sys::Reflect::get(
+            &self
+                .handle
+                .get(ctx.as_context_ref().objects())
+                .memory
+                .buffer(),
+            &"byteLength".into(),
+        )
+        .unwrap()
+        .as_f64()
+        .unwrap() as u64;
         Bytes(bytes as usize).try_into().unwrap()
     }
 
@@ -218,16 +212,22 @@ impl Memory {
     /// // This results in an error: `MemoryError::CouldNotGrow`.
     /// let s = m.grow(1).unwrap();
     /// ```
-    pub fn grow<IntoPages>(&self, delta: IntoPages) -> Result<Pages, MemoryError>
+    pub fn grow<IntoPages>(
+        &self,
+        ctx: &mut impl AsContextMut,
+        delta: IntoPages,
+    ) -> Result<Pages, MemoryError>
     where
         IntoPages: Into<Pages>,
     {
         let pages = delta.into();
-        let js_memory = self.vm_memory.memory.clone().unchecked_into::<JSMemory>();
-        let new_pages = js_memory.grow(pages.0).map_err(|err| {
+        let mut ctx_mut = ctx.as_context_mut();
+        let js_memory = &self.handle.get_mut(ctx_mut.objects_mut()).memory;
+        let our_js_memory: &JSMemory = JsCast::unchecked_from_js_ref(js_memory);
+        let new_pages = our_js_memory.grow(pages.0).map_err(|err| {
             if err.is_instance_of::<js_sys::RangeError>() {
                 MemoryError::CouldNotGrow {
-                    current: self.size(),
+                    current: self.size(&ctx.as_context_ref()),
                     attempted_delta: pages,
                 }
             } else {
@@ -239,33 +239,43 @@ impl Memory {
 
     /// Used by tests
     #[doc(hidden)]
-    pub fn uint8view(&self) -> js_sys::Uint8Array {
-        js_sys::Uint8Array::new(&self.vm_memory.memory.buffer())
+    pub fn uint8view(&self, ctx: &impl AsContextRef) -> js_sys::Uint8Array {
+        js_sys::Uint8Array::new(
+            &self
+                .handle
+                .get(ctx.as_context_ref().objects())
+                .memory
+                .buffer(),
+        )
     }
 
-    pub(crate) fn from_vm_export(store: &Store, vm_memory: VMMemory) -> Self {
+    pub(crate) fn buffer<'a>(&'a self, _ctx: &'a impl AsContextRef) -> MemoryBuffer<'a> {
+        MemoryBuffer {
+            base: &self.view as *const _ as *mut _,
+            marker: PhantomData,
+        }
+    }
+
+    pub(crate) fn from_vm_export(ctx: &mut impl AsContextMut, vm_memory: VMMemory) -> Self {
         let view = js_sys::Uint8Array::new(&vm_memory.memory.buffer());
         Self {
-            store: store.clone(),
-            vm_memory,
+            handle: ContextHandle::new(ctx.as_context_mut().objects_mut(), vm_memory),
             view,
         }
     }
 
-    /// Returns whether or not these two memories refer to the same data.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use wasmer::{Memory, MemoryType, Store, Value};
-    /// # let store = Store::default();
-    /// #
-    /// let m = Memory::new(&store, MemoryType::new(1, None, false)).unwrap();
-    ///
-    /// assert!(m.same(&m));
-    /// ```
-    pub fn same(&self, other: &Self) -> bool {
-        self.vm_memory == other.vm_memory
+    pub(crate) fn from_vm_extern(
+        ctx: &mut impl AsContextMut,
+        internal: InternalContextHandle<VMMemory>,
+    ) -> Self {
+        let view =
+            js_sys::Uint8Array::new(&internal.get(ctx.as_context_ref().objects()).memory.buffer());
+        Self {
+            handle: unsafe {
+                ContextHandle::from_internal(ctx.as_context_ref().objects().id(), internal)
+            },
+            view,
+        }
     }
 
     /// Safely reads bytes from the memory at the given offset.
@@ -275,10 +285,15 @@ impl Memory {
     ///
     /// This method is guaranteed to be safe (from the host side) in the face of
     /// concurrent writes.
-    pub fn read(&self, offset: u64, buf: &mut [u8]) -> Result<(), MemoryAccessError> {
-        let view = self.uint8view();
+    pub fn read(
+        &self,
+        _ctx: &impl AsContextRef,
+        offset: u64,
+        data: &mut [u8],
+    ) -> Result<(), MemoryAccessError> {
+        let view = &self.view;
         let offset: u32 = offset.try_into().map_err(|_| MemoryAccessError::Overflow)?;
-        let len: u32 = buf
+        let len: u32 = data
             .len()
             .try_into()
             .map_err(|_| MemoryAccessError::Overflow)?;
@@ -286,7 +301,7 @@ impl Memory {
         if end > view.length() {
             Err(MemoryAccessError::HeapOutOfBounds)?;
         }
-        view.subarray(offset, end).copy_to(buf);
+        view.subarray(offset, end).copy_to(data);
         Ok(())
     }
 
@@ -302,10 +317,11 @@ impl Memory {
     /// concurrent writes.
     pub fn read_uninit<'a>(
         &self,
+        _ctx: &impl AsContextRef,
         offset: u64,
         buf: &'a mut [MaybeUninit<u8>],
     ) -> Result<&'a mut [u8], MemoryAccessError> {
-        let view = self.uint8view();
+        let view = &self.view;
         let offset: u32 = offset.try_into().map_err(|_| MemoryAccessError::Overflow)?;
         let len: u32 = buf
             .len()
@@ -334,14 +350,18 @@ impl Memory {
     ///
     /// This method is guaranteed to be safe (from the host side) in the face of
     /// concurrent reads/writes.
-    pub fn write(&self, offset: u64, data: &[u8]) -> Result<(), MemoryAccessError> {
-        let view = self.uint8view();
+    pub fn write(
+        &self,
+        _ctx: &mut impl AsContextMut,
+        offset: u64,
+        data: &[u8],
+    ) -> Result<(), MemoryAccessError> {
         let offset: u32 = offset.try_into().map_err(|_| MemoryAccessError::Overflow)?;
         let len: u32 = data
             .len()
             .try_into()
             .map_err(|_| MemoryAccessError::Overflow)?;
-        let view = self.uint8view();
+        let view = &self.view;
         let end = offset.checked_add(len).ok_or(MemoryAccessError::Overflow)?;
         if end > view.length() {
             Err(MemoryAccessError::HeapOutOfBounds)?;
@@ -349,17 +369,72 @@ impl Memory {
         view.subarray(offset, end).copy_from(data);
         Ok(())
     }
+
+    /// Checks whether this `Global` can be used with the given context.
+    pub fn is_from_context(&self, ctx: &impl AsContextRef) -> bool {
+        self.handle.context_id() == ctx.as_context_ref().objects().id()
+    }
 }
 
 impl<'a> Exportable<'a> for Memory {
-    fn to_export(&self) -> Export {
-        Export::Memory(self.vm_memory.clone())
-    }
-
     fn get_self_from_extern(_extern: &'a Extern) -> Result<&'a Self, ExportError> {
         match _extern {
             Extern::Memory(memory) => Ok(memory),
             _ => Err(ExportError::IncompatibleType),
         }
+    }
+}
+
+/// Underlying buffer for a memory.
+#[derive(Copy, Clone)]
+pub(crate) struct MemoryBuffer<'a> {
+    base: *mut js_sys::Uint8Array,
+    marker: PhantomData<(&'a Memory, &'a ContextObjects)>,
+}
+
+impl<'a> MemoryBuffer<'a> {
+    pub(crate) fn read(&self, offset: u64, buf: &mut [u8]) -> Result<(), MemoryAccessError> {
+        let end = offset
+            .checked_add(buf.len() as u64)
+            .ok_or(MemoryAccessError::Overflow)?;
+        let view = unsafe { &*(self.base) };
+        if end > view.length().into() {
+            return Err(MemoryAccessError::HeapOutOfBounds);
+        }
+        view.subarray(offset as _, end as _)
+            .copy_to(unsafe { &mut slice::from_raw_parts_mut(buf.as_mut_ptr(), buf.len()) });
+        Ok(())
+    }
+
+    pub(crate) fn read_uninit<'b>(
+        &self,
+        offset: u64,
+        buf: &'b mut [MaybeUninit<u8>],
+    ) -> Result<&'b mut [u8], MemoryAccessError> {
+        let end = offset
+            .checked_add(buf.len() as u64)
+            .ok_or(MemoryAccessError::Overflow)?;
+        let view = unsafe { &*(self.base) };
+        if end > view.length().into() {
+            return Err(MemoryAccessError::HeapOutOfBounds);
+        }
+        let buf_ptr = buf.as_mut_ptr() as *mut u8;
+        view.subarray(offset as _, end as _)
+            .copy_to(unsafe { &mut slice::from_raw_parts_mut(buf_ptr, buf.len()) });
+
+        Ok(unsafe { slice::from_raw_parts_mut(buf_ptr, buf.len()) })
+    }
+
+    pub(crate) fn write(&self, offset: u64, data: &[u8]) -> Result<(), MemoryAccessError> {
+        let end = offset
+            .checked_add(data.len() as u64)
+            .ok_or(MemoryAccessError::Overflow)?;
+        let view = unsafe { &mut *(self.base) };
+        if end > view.length().into() {
+            return Err(MemoryAccessError::HeapOutOfBounds);
+        }
+        view.subarray(offset as _, end as _).copy_from(data);
+
+        Ok(())
     }
 }
