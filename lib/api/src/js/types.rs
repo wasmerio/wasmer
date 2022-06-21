@@ -1,8 +1,9 @@
-use crate::js::externals::Function;
+//use crate::js::externals::Function;
 // use crate::js::store::{Store, StoreObject};
 // use crate::js::RuntimeError;
+use crate::js::context::AsContextRef;
+use crate::js::value::Value;
 use wasm_bindgen::JsValue;
-use wasmer_types::Value;
 pub use wasmer_types::{
     ExportType, ExternType, FunctionType, GlobalType, ImportType, MemoryType, Mutability,
     TableType, Type as ValType,
@@ -14,20 +15,20 @@ pub use wasmer_types::{
 /// * Vectors (128 bits, with 32 or 64 bit lanes)
 ///
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#values>
-// pub type Val = ();
-pub type Val = Value<Function>;
+// pub type Value = ();
+//pub type Value = Value<Function>;
 
 pub trait AsJs {
-    fn as_jsvalue(&self) -> JsValue;
+    fn as_jsvalue(&self, ctx: &impl AsContextRef) -> JsValue;
 }
 
 #[inline]
-pub fn param_from_js(ty: &ValType, js_val: &JsValue) -> Val {
+pub fn param_from_js(ty: &ValType, js_val: &JsValue) -> Value {
     match ty {
-        ValType::I32 => Val::I32(js_val.as_f64().unwrap() as _),
-        ValType::I64 => Val::I64(js_val.as_f64().unwrap() as _),
-        ValType::F32 => Val::F32(js_val.as_f64().unwrap() as _),
-        ValType::F64 => Val::F64(js_val.as_f64().unwrap()),
+        ValType::I32 => Value::I32(js_val.as_f64().unwrap() as _),
+        ValType::I64 => Value::I64(js_val.as_f64().unwrap() as _),
+        ValType::F32 => Value::F32(js_val.as_f64().unwrap() as _),
+        ValType::F64 => Value::F64(js_val.as_f64().unwrap()),
         t => unimplemented!(
             "The type `{:?}` is not yet supported in the JS Function API",
             t
@@ -35,18 +36,20 @@ pub fn param_from_js(ty: &ValType, js_val: &JsValue) -> Val {
     }
 }
 
-impl AsJs for Val {
-    fn as_jsvalue(&self) -> JsValue {
+impl AsJs for Value {
+    fn as_jsvalue(&self, ctx: &impl AsContextRef) -> JsValue {
         match self {
             Self::I32(i) => JsValue::from_f64(*i as f64),
             Self::I64(i) => JsValue::from_f64(*i as f64),
             Self::F32(f) => JsValue::from_f64(*f as f64),
             Self::F64(f) => JsValue::from_f64(*f),
-            Self::FuncRef(func) => func.as_ref().unwrap().exported.function.clone().into(),
-            v => unimplemented!(
-                "The value `{:?}` is not yet supported in the JS Function API",
-                v
-            ),
+            Self::FuncRef(Some(func)) => func
+                .handle
+                .get(ctx.as_context_ref().objects())
+                .function
+                .clone()
+                .into(),
+            Self::FuncRef(None) => JsValue::null(),
         }
     }
 }

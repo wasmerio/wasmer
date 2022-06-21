@@ -26,7 +26,6 @@
     )
 )]
 #![cfg_attr(feature = "js", crate_type = "cdylib")]
-#![cfg_attr(feature = "js", crate_type = "rlib")]
 
 //! [`Wasmer`](https://wasmer.io/) is the most popular
 //! [WebAssembly](https://webassembly.org/) runtime for Rust. It supports

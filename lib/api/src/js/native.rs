@@ -9,7 +9,9 @@
 //! ```
 use std::marker::PhantomData;
 
-use crate::js::{FromToNativeWasmType, Function, RuntimeError, Store, WasmTypeList};
+use crate::js::context::{AsContextMut, AsContextRef, ContextHandle};
+use crate::js::externals::Function;
+use crate::js::{FromToNativeWasmType, RuntimeError, WasmTypeList};
 // use std::panic::{catch_unwind, AssertUnwindSafe};
 use crate::js::export::VMFunction;
 use crate::js::types::param_from_js;
@@ -21,8 +23,7 @@ use wasm_bindgen::JsValue;
 /// (using the Native ABI).
 #[derive(Clone)]
 pub struct TypedFunction<Args = (), Rets = ()> {
-    store: Store,
-    exported: VMFunction,
+    pub(crate) handle: ContextHandle<VMFunction>,
     _phantom: PhantomData<(Args, Rets)>,
 }
 
@@ -34,34 +35,18 @@ where
     Args: WasmTypeList,
     Rets: WasmTypeList,
 {
-    pub(crate) fn new(store: Store, exported: VMFunction) -> Self {
+    #[allow(dead_code)]
+    pub(crate) fn new<T>(ctx: &mut impl AsContextMut<Data = T>, vm_function: VMFunction) -> Self {
         Self {
-            store,
-            exported,
+            handle: ContextHandle::new(ctx.as_context_mut().objects_mut(), vm_function),
             _phantom: PhantomData,
         }
     }
-}
 
-impl<Args, Rets> From<&TypedFunction<Args, Rets>> for VMFunction
-where
-    Args: WasmTypeList,
-    Rets: WasmTypeList,
-{
-    fn from(other: &TypedFunction<Args, Rets>) -> Self {
-        other.exported.clone()
-    }
-}
-
-impl<Args, Rets> From<TypedFunction<Args, Rets>> for Function
-where
-    Args: WasmTypeList,
-    Rets: WasmTypeList,
-{
-    fn from(other: TypedFunction<Args, Rets>) -> Self {
+    pub(crate) fn from_handle(f: Function) -> Self {
         Self {
-            store: other.store,
-            exported: other.exported,
+            handle: f.handle,
+            _phantom: PhantomData,
         }
     }
 }
@@ -75,20 +60,23 @@ macro_rules! impl_native_traits {
             Rets: WasmTypeList,
         {
             /// Call the typed func and return results.
-            pub fn call(&self, $( $x: $x, )* ) -> Result<Rets, RuntimeError> {
-                let params_list: Vec<JsValue> = vec![ $( JsValue::from_f64($x.to_native().to_binary() as f64) ),* ];
-                let results = self.exported.function.apply(
+            #[allow(clippy::too_many_arguments)]
+            pub fn call(&self, ctx: &mut impl AsContextMut, $( $x: $x, )* ) -> Result<Rets, RuntimeError> where
+            $( $x: FromToNativeWasmType + crate::js::NativeWasmTypeInto, )*
+            {
+                let params_list: Vec<JsValue> = vec![ $( JsValue::from_f64($x.into_raw(ctx))),* ];
+                let results = self.handle.get(ctx.as_context_ref().objects()).function.apply(
                     &JsValue::UNDEFINED,
                     &Array::from_iter(params_list.iter())
                 )?;
                 let mut rets_list_array = Rets::empty_array();
-                let mut_rets = rets_list_array.as_mut() as *mut [i128] as *mut i128;
+                let mut_rets = rets_list_array.as_mut() as *mut [f64] as *mut f64;
                 match Rets::size() {
                     0 => {},
                     1 => unsafe {
                         let ty = Rets::wasm_types()[0];
                         let val = param_from_js(&ty, &results);
-                        val.write_value_to(mut_rets);
+                        *mut_rets = val.as_raw(&mut ctx.as_context_mut());
                     }
                     _n => {
                         let results: Array = results.into();
@@ -96,12 +84,13 @@ macro_rules! impl_native_traits {
                             let ret = results.get(i as u32);
                             unsafe {
                                 let val = param_from_js(&ret_type, &ret);
-                                val.write_value_to(mut_rets.add(i));
+                                let slot = mut_rets.add(i);
+                                *slot = val.as_raw(&mut ctx.as_context_mut());
                             }
                         }
                     }
                 }
-                Ok(Rets::from_array(rets_list_array))
+                Ok(unsafe { Rets::from_array(ctx, rets_list_array) })
             }
 
         }
@@ -112,9 +101,9 @@ macro_rules! impl_native_traits {
             $( $x: FromToNativeWasmType, )*
             Rets: WasmTypeList,
         {
-            fn get_self_from_extern_with_generics(_extern: &crate::js::externals::Extern) -> Result<Self, crate::js::exports::ExportError> {
+            fn get_self_from_extern_with_generics(ctx: &impl AsContextRef, _extern: &crate::js::externals::Extern) -> Result<Self, crate::js::exports::ExportError> {
                 use crate::js::exports::Exportable;
-                crate::js::Function::get_self_from_extern(_extern)?.native().map_err(|_| crate::js::exports::ExportError::IncompatibleType)
+                crate::js::Function::get_self_from_extern(_extern)?.native(ctx).map_err(|_| crate::js::exports::ExportError::IncompatibleType)
             }
         }
     };

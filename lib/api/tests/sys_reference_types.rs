@@ -39,11 +39,11 @@ mod sys {
             panic!("funcref not found!");
         }
 
-        #[derive(Clone, Debug, WasmerEnv)]
+        #[derive(Clone, Debug)]
         pub struct Env(Arc<AtomicBool>);
         let env = Env(Arc::new(AtomicBool::new(false)));
 
-        let func_to_call = Function::new_native_with_env(&store, env.clone(), |env: &Env| -> i32 {
+        let func_to_call = Function::new_native(&store, env.clone(), |env: &Env| -> i32 {
             env.0.store(true, Ordering::SeqCst);
             343
         });

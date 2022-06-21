@@ -1,9 +1,8 @@
-use crate::js::export::Export;
+use crate::js::context::{AsContextMut, AsContextRef, ContextHandle, InternalContextHandle};
 use crate::js::export::VMGlobal;
 use crate::js::exports::{ExportError, Exportable};
 use crate::js::externals::Extern;
-use crate::js::store::Store;
-use crate::js::types::{Val, ValType};
+use crate::js::value::Value;
 use crate::js::wasm_bindgen_polyfill::Global as JSGlobal;
 use crate::js::GlobalType;
 use crate::js::Mutability;
@@ -18,12 +17,11 @@ use wasm_bindgen::JsValue;
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#global-instances>
 #[derive(Debug, Clone, PartialEq)]
 pub struct Global {
-    store: Store,
-    vm_global: VMGlobal,
+    pub(crate) handle: ContextHandle<VMGlobal>,
 }
 
 impl Global {
-    /// Create a new `Global` with the initial value [`Val`].
+    /// Create a new `Global` with the initial value [`Value`].
     ///
     /// # Example
     ///
@@ -36,11 +34,11 @@ impl Global {
     /// assert_eq!(g.get(), Value::I32(1));
     /// assert_eq!(g.ty().mutability, Mutability::Const);
     /// ```
-    pub fn new(store: &Store, val: Val) -> Self {
-        Self::from_value(store, val, Mutability::Const).unwrap()
+    pub fn new(ctx: &mut impl AsContextMut, val: Value) -> Self {
+        Self::from_value(ctx, val, Mutability::Const).unwrap()
     }
 
-    /// Create a mutable `Global` with the initial value [`Val`].
+    /// Create a mutable `Global` with the initial value [`Value`].
     ///
     /// # Example
     ///
@@ -53,22 +51,31 @@ impl Global {
     /// assert_eq!(g.get(), Value::I32(1));
     /// assert_eq!(g.ty().mutability, Mutability::Var);
     /// ```
-    pub fn new_mut(store: &Store, val: Val) -> Self {
-        Self::from_value(store, val, Mutability::Var).unwrap()
+    pub fn new_mut(ctx: &mut impl AsContextMut, val: Value) -> Self {
+        Self::from_value(ctx, val, Mutability::Var).unwrap()
     }
 
-    /// Create a `Global` with the initial value [`Val`] and the provided [`Mutability`].
-    fn from_value(store: &Store, val: Val, mutability: Mutability) -> Result<Self, RuntimeError> {
+    /// Create a `Global` with the initial value [`Value`] and the provided [`Mutability`].
+    fn from_value(
+        ctx: &mut impl AsContextMut,
+        val: Value,
+        mutability: Mutability,
+    ) -> Result<Self, RuntimeError> {
+        if !val.is_from_context(ctx) {
+            return Err(RuntimeError::new(
+                "cross-`Context` values are not supported",
+            ));
+        }
         let global_ty = GlobalType {
             mutability,
             ty: val.ty(),
         };
         let descriptor = js_sys::Object::new();
         let (type_str, value) = match val {
-            Val::I32(i) => ("i32", JsValue::from_f64(i as _)),
-            Val::I64(i) => ("i64", JsValue::from_f64(i as _)),
-            Val::F32(f) => ("f32", JsValue::from_f64(f as _)),
-            Val::F64(f) => ("f64", JsValue::from_f64(f)),
+            Value::I32(i) => ("i32", JsValue::from_f64(i as _)),
+            Value::I64(i) => ("i64", JsValue::from_f64(i as _)),
+            Value::F32(f) => ("f32", JsValue::from_f64(f as _)),
+            Value::F64(f) => ("f64", JsValue::from_f64(f)),
             _ => unimplemented!("The type is not yet supported in the JS Global API"),
         };
         // This is the value type as string, even though is incorrectly called "value"
@@ -81,12 +88,9 @@ impl Global {
         )?;
 
         let js_global = JSGlobal::new(&descriptor, &value).unwrap();
-        let global = VMGlobal::new(js_global, global_ty);
+        let vm_global = VMGlobal::new(js_global, global_ty);
 
-        Ok(Self {
-            store: store.clone(),
-            vm_global: global,
-        })
+        Ok(Self::from_vm_export(ctx, vm_global))
     }
 
     /// Returns the [`GlobalType`] of the `Global`.
@@ -103,27 +107,11 @@ impl Global {
     /// assert_eq!(c.ty(), &GlobalType::new(Type::I32, Mutability::Const));
     /// assert_eq!(v.ty(), &GlobalType::new(Type::I64, Mutability::Var));
     /// ```
-    pub fn ty(&self) -> &GlobalType {
-        &self.vm_global.ty
+    pub fn ty(&self, ctx: &impl AsContextRef) -> GlobalType {
+        self.handle.get(ctx.as_context_ref().objects()).ty
     }
 
-    /// Returns the [`Store`] where the `Global` belongs.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use wasmer::{Global, Store, Value};
-    /// # let store = Store::default();
-    /// #
-    /// let g = Global::new(&store, Value::I32(1));
-    ///
-    /// assert_eq!(g.store(), &store);
-    /// ```
-    pub fn store(&self) -> &Store {
-        &self.store
-    }
-
-    /// Retrieves the current value [`Val`] that the Global has.
+    /// Retrieves the current value [`Value`] that the Global has.
     ///
     /// # Example
     ///
@@ -135,17 +123,30 @@ impl Global {
     ///
     /// assert_eq!(g.get(), Value::I32(1));
     /// ```
-    pub fn get(&self) -> Val {
+    pub fn get(&self, ctx: &impl AsContextRef) -> Value {
+        unsafe {
+            let raw = self
+                .handle
+                .get(ctx.as_context_ref().objects())
+                .global
+                .value()
+                .as_f64()
+                .unwrap();
+            let ty = self.handle.get(ctx.as_context_ref().objects()).ty;
+            Value::from_raw(ctx, ty.ty, raw)
+        }
+        /*
         match self.vm_global.ty.ty {
-            ValType::I32 => Val::I32(self.vm_global.global.value().as_f64().unwrap() as _),
-            ValType::I64 => Val::I64(self.vm_global.global.value().as_f64().unwrap() as _),
-            ValType::F32 => Val::F32(self.vm_global.global.value().as_f64().unwrap() as _),
-            ValType::F64 => Val::F64(self.vm_global.global.value().as_f64().unwrap()),
+            ValType::I32 => Value::I32(self.vm_global.global.value().as_f64().unwrap() as _),
+            ValType::I64 => Value::I64(self.vm_global.global.value().as_f64().unwrap() as _),
+            ValType::F32 => Value::F32(self.vm_global.global.value().as_f64().unwrap() as _),
+            ValType::F64 => Value::F64(self.vm_global.global.value().as_f64().unwrap()),
             _ => unimplemented!("The type is not yet supported in the JS Global API"),
         }
+        */
     }
 
-    /// Sets a custom value [`Val`] to the runtime Global.
+    /// Sets a custom value [`Value`] to the runtime Global.
     ///
     /// # Example
     ///
@@ -186,53 +187,61 @@ impl Global {
     /// // This results in an error: `RuntimeError`.
     /// g.set(Value::I64(2)).unwrap();
     /// ```
-    pub fn set(&self, val: Val) -> Result<(), RuntimeError> {
-        if self.vm_global.ty.mutability == Mutability::Const {
+    pub fn set(&self, ctx: &mut impl AsContextMut, val: Value) -> Result<(), RuntimeError> {
+        if !val.is_from_context(ctx) {
+            return Err(RuntimeError::new(
+                "cross-`Context` values are not supported",
+            ));
+        }
+        let global_ty = self.ty(&ctx);
+        if global_ty.mutability == Mutability::Const {
             return Err(RuntimeError::new("The global is immutable".to_owned()));
         }
-        if val.ty() != self.vm_global.ty.ty {
+        if val.ty() != global_ty.ty {
             return Err(RuntimeError::new("The types don't match".to_owned()));
         }
         let new_value = match val {
-            Val::I32(i) => JsValue::from_f64(i as _),
-            Val::I64(i) => JsValue::from_f64(i as _),
-            Val::F32(f) => JsValue::from_f64(f as _),
-            Val::F64(f) => JsValue::from_f64(f),
-            _ => unimplemented!("The type is not yet supported in the JS Global API"),
+            Value::I32(i) => JsValue::from_f64(i as _),
+            Value::I64(i) => JsValue::from_f64(i as _),
+            Value::F32(f) => JsValue::from_f64(f as _),
+            Value::F64(f) => JsValue::from_f64(f),
+            _ => {
+                return Err(RuntimeError::new(
+                    "The type is not yet supported in the JS Global API".to_owned(),
+                ))
+            }
         };
-        self.vm_global.global.set_value(&new_value);
+        self.handle
+            .get_mut(ctx.as_context_mut().objects_mut())
+            .global
+            .set_value(&new_value);
         Ok(())
     }
 
-    pub(crate) fn from_vm_export(store: &Store, vm_global: VMGlobal) -> Self {
+    pub(crate) fn from_vm_export(ctx: &mut impl AsContextMut, vm_global: VMGlobal) -> Self {
         Self {
-            store: store.clone(),
-            vm_global,
+            handle: ContextHandle::new(ctx.as_context_mut().objects_mut(), vm_global),
         }
     }
 
-    /// Returns whether or not these two globals refer to the same data.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use wasmer::{Global, Store, Value};
-    /// # let store = Store::default();
-    /// #
-    /// let g = Global::new(&store, Value::I32(1));
-    ///
-    /// assert!(g.same(&g));
-    /// ```
-    pub fn same(&self, other: &Self) -> bool {
-        self.vm_global == other.vm_global
+    pub(crate) fn from_vm_extern(
+        ctx: &mut impl AsContextMut,
+        internal: InternalContextHandle<VMGlobal>,
+    ) -> Self {
+        Self {
+            handle: unsafe {
+                ContextHandle::from_internal(ctx.as_context_ref().objects().id(), internal)
+            },
+        }
+    }
+
+    /// Checks whether this `Global` can be used with the given context.
+    pub fn is_from_context(&self, ctx: &impl AsContextRef) -> bool {
+        self.handle.context_id() == ctx.as_context_ref().objects().id()
     }
 }
 
 impl<'a> Exportable<'a> for Global {
-    fn to_export(&self) -> Export {
-        Export::Global(self.vm_global.clone())
-    }
-
     fn get_self_from_extern(_extern: &'a Extern) -> Result<&'a Self, ExportError> {
         match _extern {
             Extern::Global(global) => Ok(global),

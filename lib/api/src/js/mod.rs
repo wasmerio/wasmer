@@ -23,7 +23,7 @@ mod lib {
     }
 }
 
-mod env;
+mod context;
 mod error;
 mod export;
 mod exports;
@@ -36,19 +36,16 @@ mod module;
 #[cfg(feature = "wasm-types-polyfill")]
 mod module_info_polyfill;
 mod native;
+mod native_type;
 mod ptr;
 mod store;
 mod trap;
 mod types;
+mod value;
 mod wasm_bindgen_polyfill;
 
-/// Implement [`WasmerEnv`] for your type with `#[derive(WasmerEnv)]`.
-///
-/// See the [`WasmerEnv`] trait for more information.
-pub use wasmer_derive::WasmerEnv;
-
-pub use crate::js::env::{HostEnvInitError, LazyInit, WasmerEnv};
-pub use crate::js::error::{DeserializeError, SerializeError};
+pub use crate::js::context::{AsContextMut, AsContextRef, Context, ContextMut, ContextRef};
+pub use crate::js::error::{DeserializeError, InstantiationError, SerializeError};
 pub use crate::js::export::Export;
 pub use crate::js::exports::{ExportError, Exportable, Exports, ExportsIterator};
 pub use crate::js::externals::{
@@ -56,20 +53,23 @@ pub use crate::js::externals::{
     WasmTypeList,
 };
 pub use crate::js::imports::Imports;
-pub use crate::js::instance::{Instance, InstantiationError};
+pub use crate::js::instance::Instance;
 pub use crate::js::js_import_object::JsImportObject;
 pub use crate::js::mem_access::{MemoryAccessError, WasmRef, WasmSlice, WasmSliceIter};
 pub use crate::js::module::{Module, ModuleTypeHints};
 pub use crate::js::native::TypedFunction;
+pub use crate::js::native_type::NativeWasmTypeInto;
 pub use crate::js::ptr::{Memory32, Memory64, MemorySize, WasmPtr, WasmPtr64};
 pub use crate::js::trap::RuntimeError;
 
 pub use crate::js::store::{Store, StoreObject};
+pub use crate::js::types::ValType as Type;
 pub use crate::js::types::{
     ExportType, ExternType, FunctionType, GlobalType, ImportType, MemoryType, Mutability,
-    TableType, Val, ValType,
+    TableType, ValType,
 };
-pub use crate::js::types::{Val as Value, ValType as Type};
+pub use crate::js::value::Value;
+pub use crate::js::value::Value as Val;
 
 pub use wasmer_types::is_wasm;
 pub use wasmer_types::{

@@ -132,6 +132,7 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 mod native {
     use super::Type;
+    use crate::memory::{Memory32, Memory64, MemorySize};
     use std::fmt;
 
     /// `NativeWasmType` represents a Wasm type that has a direct
@@ -181,6 +182,16 @@ mod native {
     impl NativeWasmType for u128 {
         const WASM_TYPE: Type = Type::V128;
         type Abi = Self;
+    }
+
+    impl NativeWasmType for Memory32 {
+        const WASM_TYPE: Type = <<Self as MemorySize>::Native as NativeWasmType>::WASM_TYPE;
+        type Abi = <<Self as MemorySize>::Native as NativeWasmType>::Abi;
+    }
+
+    impl NativeWasmType for Memory64 {
+        const WASM_TYPE: Type = <<Self as MemorySize>::Native as NativeWasmType>::WASM_TYPE;
+        type Abi = <<Self as MemorySize>::Native as NativeWasmType>::Abi;
     }
 
     impl<T: NativeWasmType> NativeWasmType for Option<T> {

@@ -43,7 +43,7 @@ mod sys {
     #[test]
     fn unit_native_function_env() -> Result<()> {
         let store = Store::default();
-        #[derive(WasmerEnv, Clone)]
+        #[derive(Clone)]
         struct Env {
             multiplier: u32,
         }
@@ -54,7 +54,7 @@ mod sys {
         }
 
         let imported_signature = FunctionType::new(vec![Type::I32], vec![Type::I32]);
-        let imported = Function::new_with_env(
+        let imported = Function::new(
             &store,
             imported_signature,
             Env { multiplier: 3 },
