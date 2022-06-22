@@ -1017,8 +1017,8 @@ impl MachineARM64 {
                 self.assembler.emit_sub(
                     Size::S64,
                     Location::GPR(tmp_bound),
-                    Location::GPR(tmp_bound),
                     Location::Imm32(value_size as _),
+                    Location::GPR(tmp_bound),
                 )?;
             } else {
                 let tmp2 = self.acquire_temp_gpr().ok_or(CodegenError {
