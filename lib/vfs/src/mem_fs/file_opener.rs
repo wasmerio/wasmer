@@ -1,5 +1,5 @@
 use super::*;
-use crate::{FileType, FsError, Metadata, OpenOptionsConfig, Result, VirtualFile};
+use crate::{FsError, KeyType, Metadata, OpenOptionsConfig, Result, VirtualFile};
 use std::io::{self, Seek};
 use std::path::Path;
 
@@ -84,12 +84,12 @@ impl crate::FileOpener for FileOpener {
                 match fs.storage.get_mut(inode_of_file) {
                     Some(Node::File { metadata, file, .. }) => {
                         // Update the accessed time.
-                        metadata.accessed = time();
+                        metadata.atime = time() as _;
 
                         // Truncate if needed.
                         if truncate {
                             file.truncate();
-                            metadata.len = 0;
+                            metadata.size = 0;
                         }
 
                         // Move the cursor to the end if needed.
@@ -128,17 +128,18 @@ impl crate::FileOpener for FileOpener {
                     name: name_of_file,
                     file,
                     metadata: {
-                        let time = time();
+                        let time = time() as _;
 
                         Metadata {
-                            ft: FileType {
-                                file: true,
-                                ..Default::default()
-                            },
-                            accessed: time,
-                            created: time,
-                            modified: time,
-                            len: 0,
+                            type_: KeyType::Blob,
+                            atime: time,
+                            mtime: time,
+                            ctime: time,
+                            size: 0,
+                            uid: 0,
+                            gid: 0,
+                            inode: 0,
+                            mode: 0,
                         }
                     },
                 });

@@ -56,7 +56,7 @@ impl VirtualFile for FileHandle {
             _ => return 0,
         };
 
-        node.metadata().accessed
+        node.metadata().atime as _
     }
 
     fn last_modified(&self) -> u64 {
@@ -70,7 +70,7 @@ impl VirtualFile for FileHandle {
             _ => return 0,
         };
 
-        node.metadata().modified
+        node.metadata().mtime as _
     }
 
     fn created_time(&self) -> u64 {
@@ -84,7 +84,7 @@ impl VirtualFile for FileHandle {
             _ => return 0,
         };
 
-        node.metadata().created
+        node.metadata().ctime as _
     }
 
     fn size(&self) -> u64 {
@@ -110,7 +110,7 @@ impl VirtualFile for FileHandle {
             Some(Node::File { file, metadata, .. }) => {
                 file.buffer
                     .resize(new_size.try_into().map_err(|_| FsError::UnknownError)?, 0);
-                metadata.len = new_size;
+                metadata.size = new_size as _;
             }
             _ => return Err(FsError::NotAFile),
         }
@@ -575,7 +575,7 @@ impl Write for FileHandle {
 
         let bytes_written = file.write(buf)?;
 
-        metadata.len = file.len().try_into().unwrap();
+        metadata.size = file.len().try_into().unwrap();
 
         Ok(bytes_written)
     }
@@ -694,7 +694,7 @@ mod test_read_write_seek {
             .expect("failed to create a new file");
 
         assert!(
-            matches!(fs.metadata(path!("/foo.txt")), Ok(Metadata { len: 0, .. })),
+            matches!(fs.metadata(path!("/foo.txt")), Ok(Metadata { size: 0, .. })),
             "checking the `metadata.len` is 0",
         );
         assert!(
@@ -726,7 +726,10 @@ mod test_read_write_seek {
         );
         assert_eq!(buffer[..12], b"foobarbazqux"[..], "checking the 12 bytes");
         assert!(
-            matches!(fs.metadata(path!("/foo.txt")), Ok(Metadata { len: 12, .. })),
+            matches!(
+                fs.metadata(path!("/foo.txt")),
+                Ok(Metadata { size: 12, .. })
+            ),
             "checking the `metadata.len` is 0",
         );
     }

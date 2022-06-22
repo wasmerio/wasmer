@@ -1,5 +1,5 @@
 use crate::{
-    DirEntry, FileDescriptor, FileType, FsError, Metadata, OpenOptions, OpenOptionsConfig, ReadDir,
+    DirEntry, FileDescriptor, FsError, KeyType, Metadata, OpenOptions, OpenOptionsConfig, ReadDir,
     Result, VirtualFile,
 };
 #[cfg(feature = "enable-serde")]
@@ -80,6 +80,7 @@ impl crate::FileSystem for FileSystem {
                 let metadata = entry.metadata()?;
                 Ok(DirEntry {
                     path: entry.path(),
+                    full_path: entry.path(),
                     metadata: Ok(metadata.try_into()?),
                 })
             })
@@ -137,38 +138,67 @@ impl TryInto<Metadata> for fs::Metadata {
             }
         };
 
+        let mut mode = 0;
+        let mut inode = 0;
+        let mut uid = 0;
+        let mut gid = 0;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::MetadataExt;
+            mode = self.mode() as _;
+            inode = self.ino() as _;
+            uid = self.uid() as _;
+            gid = self.gid() as _;
+        }
+        let type_ = {
+            if filetype.is_dir() {
+                KeyType::Dir
+            } else if filetype.is_symlink() {
+                KeyType::SymLink
+            } else if char_device {
+                KeyType::CharDevice
+            } else if block_device {
+                KeyType::BlockDevice
+            } else if socket {
+                KeyType::Socket
+            } else if fifo {
+                KeyType::Fifo
+            } else if filetype.is_symlink() {
+                KeyType::SymLink
+            } else if filetype.is_file() {
+                KeyType::Blob
+            } else {
+                KeyType::Null
+            }
+        };
         Ok(Metadata {
-            ft: FileType {
-                dir: filetype.is_dir(),
-                file: filetype.is_file(),
-                symlink: filetype.is_symlink(),
-                char_device,
-                block_device,
-                socket,
-                fifo,
-            },
-            accessed: self
+            mode,
+            uid,
+            gid,
+            inode,
+            type_,
+            atime: self
                 .accessed()
                 .and_then(|time| {
                     time.duration_since(UNIX_EPOCH)
                         .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
                 })
-                .map_or(0, |time| time.as_nanos() as u64),
-            created: self
+                .map_or(0, |time| time.as_nanos() as u64) as _,
+            ctime: self
                 .created()
                 .and_then(|time| {
                     time.duration_since(UNIX_EPOCH)
                         .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
                 })
-                .map_or(0, |time| time.as_nanos() as u64),
-            modified: self
+                .map_or(0, |time| time.as_nanos() as u64) as _,
+            mtime: self
                 .modified()
                 .and_then(|time| {
                     time.duration_since(UNIX_EPOCH)
                         .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
                 })
-                .map_or(0, |time| time.as_nanos() as u64),
-            len: self.len(),
+                .map_or(0, |time| time.as_nanos() as u64) as _,
+            size: self.len() as _,
         })
     }
 }

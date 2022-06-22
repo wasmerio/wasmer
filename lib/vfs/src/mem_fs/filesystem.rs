@@ -1,7 +1,7 @@
 //! This module contains the [`FileSystem`] type itself.
 
 use super::*;
-use crate::{DirEntry, FileType, FsError, Metadata, OpenOptions, ReadDir, Result};
+use crate::{DirEntry, FsError, KeyType, Metadata, OpenOptions, ReadDir, Result};
 use slab::Slab;
 use std::convert::identity;
 use std::ffi::OsString;
@@ -39,7 +39,13 @@ impl crate::FileSystem for FileSystem {
 
                         entry_path
                     },
-                    metadata: Ok(node.metadata().clone()),
+                    full_path: {
+                        let mut entry_path = path.to_path_buf();
+                        entry_path.push(node.name());
+
+                        entry_path
+                    },
+                    metadata: Ok(*node.metadata()),
                 })
                 .collect(),
 
@@ -84,17 +90,18 @@ impl crate::FileSystem for FileSystem {
                 name: name_of_directory,
                 children: Vec::new(),
                 metadata: {
-                    let time = time();
+                    let time = time() as _;
 
                     Metadata {
-                        ft: FileType {
-                            dir: true,
-                            ..Default::default()
-                        },
-                        accessed: time,
-                        created: time,
-                        modified: time,
-                        len: 0,
+                        type_: KeyType::Dir,
+                        atime: time,
+                        mtime: time,
+                        ctime: time,
+                        size: 0,
+                        uid: 0,
+                        gid: 0,
+                        mode: 0,
+                        inode: 0,
                     }
                 },
             });
@@ -213,9 +220,12 @@ impl crate::FileSystem for FileSystem {
             else {
                 match fs.storage.get_mut(inode_of_from_parent) {
                     Some(Node::Directory {
-                        metadata: Metadata { modified, .. },
+                        metadata:
+                            Metadata {
+                                mtime: modified, ..
+                            },
                         ..
-                    }) => *modified = time(),
+                    }) => *modified = time() as _,
                     _ => return Err(FsError::UnknownError),
                 }
             }
@@ -228,12 +238,11 @@ impl crate::FileSystem for FileSystem {
         // Read lock.
         let fs = self.inner.try_read().map_err(|_| FsError::Lock)?;
 
-        Ok(fs
+        Ok(*fs
             .storage
             .get(fs.inode_of(path)?)
             .ok_or(FsError::UnknownError)?
-            .metadata()
-            .clone())
+            .metadata())
     }
 
     fn remove_file(&self, path: &Path) -> Result<()> {
@@ -440,7 +449,7 @@ impl FileSystemInner {
         let node = self.storage.get_mut(inode).ok_or(FsError::UnknownError)?;
 
         node.set_name(new_name);
-        node.metadata_mut().modified = time();
+        node.metadata_mut().mtime = time() as _;
 
         Ok(())
     }
@@ -456,11 +465,11 @@ impl FileSystemInner {
         match self.storage.get_mut(inode) {
             Some(Node::Directory {
                 children,
-                metadata: Metadata { modified, .. },
+                metadata: Metadata { mtime, .. },
                 ..
             }) => {
                 children.push(new_child);
-                *modified = time();
+                *mtime = time() as _;
 
                 Ok(())
             }
@@ -480,11 +489,11 @@ impl FileSystemInner {
         match self.storage.get_mut(inode) {
             Some(Node::Directory {
                 children,
-                metadata: Metadata { modified, .. },
+                metadata: Metadata { mtime, .. },
                 ..
             }) => {
                 children.remove(position);
-                *modified = time();
+                *mtime = time() as _;
 
                 Ok(())
             }
@@ -607,7 +616,7 @@ impl fmt::Debug for FileSystemInner {
 
 impl Default for FileSystemInner {
     fn default() -> Self {
-        let time = time();
+        let time = time() as _;
 
         let mut slab = Slab::new();
         slab.insert(Node::Directory {
@@ -615,14 +624,15 @@ impl Default for FileSystemInner {
             name: OsString::from("/"),
             children: Vec::new(),
             metadata: Metadata {
-                ft: FileType {
-                    dir: true,
-                    ..Default::default()
-                },
-                accessed: time,
-                created: time,
-                modified: time,
-                len: 0,
+                type_: KeyType::Dir,
+                atime: time,
+                ctime: time,
+                mtime: time,
+                size: 0,
+                uid: 0,
+                gid: 0,
+                inode: 0,
+                mode: 0,
             },
         });
 
@@ -632,7 +642,7 @@ impl Default for FileSystemInner {
 
 #[cfg(test)]
 mod test_filesystem {
-    use crate::{mem_fs::*, DirEntry, FileSystem as FS, FileType, FsError};
+    use crate::{mem_fs::*, DirEntry, FileSystem as FS, FsError, KeyType};
 
     macro_rules! path {
         ($path:expr) => {
@@ -1053,12 +1063,13 @@ mod test_filesystem {
         assert!(matches!(
             root_metadata,
             Ok(Metadata {
-                ft: FileType { dir: true, .. },
-                accessed,
-                created,
-                modified,
-                len: 0
-            }) if accessed == created && created == modified && modified > 0
+                type_: KeyType::Dir,
+                atime,
+                ctime,
+                mtime,
+                size: 0,
+                ..
+            }) if atime == ctime && ctime == mtime && mtime > 0
         ));
 
         assert_eq!(fs.create_dir(path!("/foo")), Ok(()));
@@ -1070,12 +1081,12 @@ mod test_filesystem {
         assert!(matches!(
             foo_metadata,
             Metadata {
-                ft: FileType { dir: true, .. },
-                accessed,
-                created,
-                modified,
-                len: 0
-            } if accessed == created && created == modified && modified > 0
+                type_: KeyType::Dir,
+                atime,
+                ctime,
+                mtime,
+                size: 0, ..
+            } if atime == ctime && ctime == mtime && mtime > 0
         ));
 
         sleep(Duration::from_secs(3));
@@ -1086,15 +1097,15 @@ mod test_filesystem {
             matches!(
                 fs.metadata(path!("/bar")),
                 Ok(Metadata {
-                    ft: FileType { dir: true, .. },
-                    accessed,
-                    created,
-                    modified,
-                    len: 0
+                    type_: KeyType::Dir,
+                    atime,
+                    ctime,
+                    mtime,
+                    size: 0,..
                 }) if
-                    accessed == foo_metadata.accessed &&
-                    created == foo_metadata.created &&
-                    modified > foo_metadata.modified
+                    atime == foo_metadata.atime &&
+                    ctime == foo_metadata.ctime &&
+                    mtime > foo_metadata.mtime
             ),
             "the modified time is updated when file is renamed",
         );
@@ -1102,15 +1113,15 @@ mod test_filesystem {
             matches!(
                 fs.metadata(path!("/")),
                 Ok(Metadata {
-                    ft: FileType { dir: true, .. },
-                    accessed,
-                    created,
-                    modified,
-                    len: 0
+                    type_: KeyType::Dir,
+                    atime,
+                    ctime,
+                    mtime,
+                    size: 0, ..
                 }) if
-                    accessed == foo_metadata.accessed &&
-                    created == foo_metadata.created &&
-                    modified > foo_metadata.modified
+                    atime == foo_metadata.atime &&
+                    ctime == foo_metadata.ctime &&
+                    mtime > foo_metadata.mtime
             ),
             "the modified time of the parent is updated when file is renamed",
         );
@@ -1231,9 +1242,10 @@ mod test_filesystem {
                 readdir.next(),
                 Some(Ok(DirEntry {
                     path,
-                    metadata: Ok(Metadata { ft, .. }),
+                    full_path: _,
+                    metadata: Ok(Metadata { type_, .. }),
                 }))
-                    if path == path!(buf "/foo") && ft.is_dir()
+                    if path == path!(buf "/foo") && type_.is_dir()
             ),
             "checking entry #1",
         );
@@ -1242,9 +1254,10 @@ mod test_filesystem {
                 readdir.next(),
                 Some(Ok(DirEntry {
                     path,
-                    metadata: Ok(Metadata { ft, .. }),
+                    full_path: _,
+                    metadata: Ok(Metadata { type_, .. }),
                 }))
-                    if path == path!(buf "/bar") && ft.is_dir()
+                    if path == path!(buf "/bar") && type_.is_dir()
             ),
             "checking entry #2",
         );
@@ -1253,9 +1266,10 @@ mod test_filesystem {
                 readdir.next(),
                 Some(Ok(DirEntry {
                     path,
-                    metadata: Ok(Metadata { ft, .. }),
+                    full_path: _,
+                    metadata: Ok(Metadata { type_, .. }),
                 }))
-                    if path == path!(buf "/baz") && ft.is_dir()
+                    if path == path!(buf "/baz") && type_.is_dir()
             ),
             "checking entry #3",
         );
@@ -1264,9 +1278,10 @@ mod test_filesystem {
                 readdir.next(),
                 Some(Ok(DirEntry {
                     path,
-                    metadata: Ok(Metadata { ft, .. }),
+                    full_path: _,
+                    metadata: Ok(Metadata { type_, .. }),
                 }))
-                    if path == path!(buf "/a.txt") && ft.is_file()
+                    if path == path!(buf "/a.txt") && type_.is_file()
             ),
             "checking entry #4",
         );
@@ -1275,9 +1290,10 @@ mod test_filesystem {
                 readdir.next(),
                 Some(Ok(DirEntry {
                     path,
-                    metadata: Ok(Metadata { ft, .. }),
+                    full_path: _,
+                    metadata: Ok(Metadata { type_, .. }),
                 }))
-                    if path == path!(buf "/b.txt") && ft.is_file()
+                    if path == path!(buf "/b.txt") && type_.is_file()
             ),
             "checking entry #5",
         );
