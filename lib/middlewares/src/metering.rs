@@ -13,8 +13,8 @@ use std::fmt;
 use std::sync::{Arc, Mutex};
 use wasmer::wasmparser::{Operator, Type as WpType, TypeOrFuncType as WpTypeOrFuncType};
 use wasmer::{
-    AsContextMut, ExportIndex, FunctionMiddleware, GlobalInit, GlobalType, Instance, LocalFunctionIndex,
-    MiddlewareError, MiddlewareReaderState, ModuleMiddleware, Mutability, Type,
+    AsContextMut, ExportIndex, FunctionMiddleware, GlobalInit, GlobalType, Instance,
+    LocalFunctionIndex, MiddlewareError, MiddlewareReaderState, ModuleMiddleware, Mutability, Type,
 };
 use wasmer_types::{GlobalIndex, ModuleInfo};
 
@@ -424,7 +424,10 @@ mod tests {
 
         // Third call fails due to limit
         assert!(add_one.call(1).is_err());
-        assert_eq!(get_remaining_points(&mut ctx.as_context_mut(), &instance), MeteringPoints::Exhausted);
+        assert_eq!(
+            get_remaining_points(&mut ctx.as_context_mut(), &instance),
+            MeteringPoints::Exhausted
+        );
     }
 
     #[test]
