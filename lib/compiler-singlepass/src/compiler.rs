@@ -33,6 +33,12 @@ use wasmer_types::{
     SectionIndex, TableIndex, TrapCode, VMOffsets,
 };
 
+impl From<CodegenError> for CompileError {
+    fn from(err: CodegenError) -> Self {
+        Self::Codegen(err.message)
+    }
+}
+
 /// A compiler that compiles a WebAssembly module with Singlepass.
 /// It does the compilation in one pass
 pub struct SinglepassCompiler {
@@ -94,7 +100,11 @@ impl Compiler for SinglepassCompiler {
             Ok(CallingConvention::WindowsFastcall) => CallingConvention::WindowsFastcall,
             Ok(CallingConvention::SystemV) => CallingConvention::SystemV,
             Ok(CallingConvention::AppleAarch64) => CallingConvention::AppleAarch64,
-            _ => panic!("Unsupported Calling convention for Singlepass compiler"),
+            _ => {
+                return Err(CompileError::UnsupportedTarget(
+                    "Unsupported Calling convention for Singlepass compiler".to_string(),
+                ))
+            }
         };
 
         // Generate the frametable
@@ -184,7 +194,7 @@ impl Compiler for SinglepassCompiler {
                             generator.feed_operator(op).map_err(to_compile_error)?;
                         }
 
-                        Ok(generator.finalize(input))
+                        generator.finalize(input).map_err(to_compile_error)
                     }
                     Architecture::Aarch64(_) => {
                         let machine = MachineARM64::new();
@@ -206,7 +216,7 @@ impl Compiler for SinglepassCompiler {
                             generator.feed_operator(op).map_err(to_compile_error)?;
                         }
 
-                        Ok(generator.finalize(input))
+                        generator.finalize(input).map_err(to_compile_error)
                     }
                     _ => unimplemented!(),
                 }

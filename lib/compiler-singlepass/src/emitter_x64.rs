@@ -1,6 +1,8 @@
+use crate::codegen_error;
 use crate::common_decl::Size;
 use crate::location::Location as AbstractLocation;
 pub use crate::location::Multiplier;
+use crate::machine::CodegenError;
 pub use crate::machine::{Label, Offset};
 use crate::machine_x64::AssemblerX64;
 pub use crate::x64_decl::{GPR, XMM};
@@ -66,223 +68,379 @@ pub trait EmitterX64 {
     fn get_offset(&self) -> Offset;
     fn get_jmp_instr_size(&self) -> u8;
 
-    fn finalize_function(&mut self) {}
+    fn finalize_function(&mut self) -> Result<(), CodegenError> {
+        Ok(())
+    }
 
-    fn emit_u64(&mut self, x: u64);
-    fn emit_bytes(&mut self, bytes: &[u8]);
+    fn emit_u64(&mut self, x: u64) -> Result<(), CodegenError>;
+    fn emit_bytes(&mut self, bytes: &[u8]) -> Result<(), CodegenError>;
 
-    fn emit_label(&mut self, label: Label);
+    fn emit_label(&mut self, label: Label) -> Result<(), CodegenError>;
 
-    fn emit_nop(&mut self);
+    fn emit_nop(&mut self) -> Result<(), CodegenError>;
 
     /// A high-level assembler method. Emits an instruction sequence of length `n` that is functionally
     /// equivalent to a `nop` instruction, without guarantee about the underlying implementation.
-    fn emit_nop_n(&mut self, n: usize);
+    fn emit_nop_n(&mut self, n: usize) -> Result<(), CodegenError>;
 
-    fn emit_mov(&mut self, sz: Size, src: Location, dst: Location);
-    fn emit_lea(&mut self, sz: Size, src: Location, dst: Location);
-    fn emit_lea_label(&mut self, label: Label, dst: Location);
-    fn emit_cdq(&mut self);
-    fn emit_cqo(&mut self);
-    fn emit_xor(&mut self, sz: Size, src: Location, dst: Location);
-    fn emit_jmp(&mut self, condition: Condition, label: Label);
-    fn emit_jmp_location(&mut self, loc: Location);
-    fn emit_set(&mut self, condition: Condition, dst: GPR);
-    fn emit_push(&mut self, sz: Size, src: Location);
-    fn emit_pop(&mut self, sz: Size, dst: Location);
-    fn emit_cmp(&mut self, sz: Size, left: Location, right: Location);
-    fn emit_add(&mut self, sz: Size, src: Location, dst: Location);
-    fn emit_sub(&mut self, sz: Size, src: Location, dst: Location);
-    fn emit_neg(&mut self, sz: Size, value: Location);
-    fn emit_imul(&mut self, sz: Size, src: Location, dst: Location);
-    fn emit_imul_imm32_gpr64(&mut self, src: u32, dst: GPR);
-    fn emit_div(&mut self, sz: Size, divisor: Location);
-    fn emit_idiv(&mut self, sz: Size, divisor: Location);
-    fn emit_shl(&mut self, sz: Size, src: Location, dst: Location);
-    fn emit_shr(&mut self, sz: Size, src: Location, dst: Location);
-    fn emit_sar(&mut self, sz: Size, src: Location, dst: Location);
-    fn emit_rol(&mut self, sz: Size, src: Location, dst: Location);
-    fn emit_ror(&mut self, sz: Size, src: Location, dst: Location);
-    fn emit_and(&mut self, sz: Size, src: Location, dst: Location);
-    fn emit_test(&mut self, sz: Size, src: Location, dst: Location);
-    fn emit_or(&mut self, sz: Size, src: Location, dst: Location);
-    fn emit_bsr(&mut self, sz: Size, src: Location, dst: Location);
-    fn emit_bsf(&mut self, sz: Size, src: Location, dst: Location);
-    fn emit_popcnt(&mut self, sz: Size, src: Location, dst: Location);
-    fn emit_movzx(&mut self, sz_src: Size, src: Location, sz_dst: Size, dst: Location);
-    fn emit_movsx(&mut self, sz_src: Size, src: Location, sz_dst: Size, dst: Location);
-    fn emit_xchg(&mut self, sz: Size, src: Location, dst: Location);
-    fn emit_lock_xadd(&mut self, sz: Size, src: Location, dst: Location);
-    fn emit_lock_cmpxchg(&mut self, sz: Size, src: Location, dst: Location);
-    fn emit_rep_stosq(&mut self);
+    fn emit_mov(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CodegenError>;
+    fn emit_lea(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CodegenError>;
+    fn emit_lea_label(&mut self, label: Label, dst: Location) -> Result<(), CodegenError>;
+    fn emit_cdq(&mut self) -> Result<(), CodegenError>;
+    fn emit_cqo(&mut self) -> Result<(), CodegenError>;
+    fn emit_xor(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CodegenError>;
+    fn emit_jmp(&mut self, condition: Condition, label: Label) -> Result<(), CodegenError>;
+    fn emit_jmp_location(&mut self, loc: Location) -> Result<(), CodegenError>;
+    fn emit_set(&mut self, condition: Condition, dst: GPR) -> Result<(), CodegenError>;
+    fn emit_push(&mut self, sz: Size, src: Location) -> Result<(), CodegenError>;
+    fn emit_pop(&mut self, sz: Size, dst: Location) -> Result<(), CodegenError>;
+    fn emit_cmp(&mut self, sz: Size, left: Location, right: Location) -> Result<(), CodegenError>;
+    fn emit_add(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CodegenError>;
+    fn emit_sub(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CodegenError>;
+    fn emit_neg(&mut self, sz: Size, value: Location) -> Result<(), CodegenError>;
+    fn emit_imul(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CodegenError>;
+    fn emit_imul_imm32_gpr64(&mut self, src: u32, dst: GPR) -> Result<(), CodegenError>;
+    fn emit_div(&mut self, sz: Size, divisor: Location) -> Result<(), CodegenError>;
+    fn emit_idiv(&mut self, sz: Size, divisor: Location) -> Result<(), CodegenError>;
+    fn emit_shl(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CodegenError>;
+    fn emit_shr(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CodegenError>;
+    fn emit_sar(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CodegenError>;
+    fn emit_rol(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CodegenError>;
+    fn emit_ror(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CodegenError>;
+    fn emit_and(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CodegenError>;
+    fn emit_test(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CodegenError>;
+    fn emit_or(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CodegenError>;
+    fn emit_bsr(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CodegenError>;
+    fn emit_bsf(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CodegenError>;
+    fn emit_popcnt(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CodegenError>;
+    fn emit_movzx(
+        &mut self,
+        sz_src: Size,
+        src: Location,
+        sz_dst: Size,
+        dst: Location,
+    ) -> Result<(), CodegenError>;
+    fn emit_movsx(
+        &mut self,
+        sz_src: Size,
+        src: Location,
+        sz_dst: Size,
+        dst: Location,
+    ) -> Result<(), CodegenError>;
+    fn emit_xchg(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CodegenError>;
+    fn emit_lock_xadd(
+        &mut self,
+        sz: Size,
+        src: Location,
+        dst: Location,
+    ) -> Result<(), CodegenError>;
+    fn emit_lock_cmpxchg(
+        &mut self,
+        sz: Size,
+        src: Location,
+        dst: Location,
+    ) -> Result<(), CodegenError>;
+    fn emit_rep_stosq(&mut self) -> Result<(), CodegenError>;
 
-    fn emit_btc_gpr_imm8_32(&mut self, src: u8, dst: GPR);
-    fn emit_btc_gpr_imm8_64(&mut self, src: u8, dst: GPR);
+    fn emit_btc_gpr_imm8_32(&mut self, src: u8, dst: GPR) -> Result<(), CodegenError>;
+    fn emit_btc_gpr_imm8_64(&mut self, src: u8, dst: GPR) -> Result<(), CodegenError>;
 
-    fn emit_cmovae_gpr_32(&mut self, src: GPR, dst: GPR);
-    fn emit_cmovae_gpr_64(&mut self, src: GPR, dst: GPR);
+    fn emit_cmovae_gpr_32(&mut self, src: GPR, dst: GPR) -> Result<(), CodegenError>;
+    fn emit_cmovae_gpr_64(&mut self, src: GPR, dst: GPR) -> Result<(), CodegenError>;
 
-    fn emit_vmovaps(&mut self, src: XMMOrMemory, dst: XMMOrMemory);
-    fn emit_vmovapd(&mut self, src: XMMOrMemory, dst: XMMOrMemory);
-    fn emit_vxorps(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
-    fn emit_vxorpd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
+    fn emit_vmovaps(&mut self, src: XMMOrMemory, dst: XMMOrMemory) -> Result<(), CodegenError>;
+    fn emit_vmovapd(&mut self, src: XMMOrMemory, dst: XMMOrMemory) -> Result<(), CodegenError>;
+    fn emit_vxorps(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) -> Result<(), CodegenError>;
+    fn emit_vxorpd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) -> Result<(), CodegenError>;
 
-    fn emit_vaddss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
-    fn emit_vaddsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
-    fn emit_vsubss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
-    fn emit_vsubsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
-    fn emit_vmulss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
-    fn emit_vmulsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
-    fn emit_vdivss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
-    fn emit_vdivsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
-    fn emit_vmaxss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
-    fn emit_vmaxsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
-    fn emit_vminss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
-    fn emit_vminsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
+    fn emit_vaddss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) -> Result<(), CodegenError>;
+    fn emit_vaddsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) -> Result<(), CodegenError>;
+    fn emit_vsubss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) -> Result<(), CodegenError>;
+    fn emit_vsubsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) -> Result<(), CodegenError>;
+    fn emit_vmulss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) -> Result<(), CodegenError>;
+    fn emit_vmulsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) -> Result<(), CodegenError>;
+    fn emit_vdivss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) -> Result<(), CodegenError>;
+    fn emit_vdivsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) -> Result<(), CodegenError>;
+    fn emit_vmaxss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) -> Result<(), CodegenError>;
+    fn emit_vmaxsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) -> Result<(), CodegenError>;
+    fn emit_vminss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) -> Result<(), CodegenError>;
+    fn emit_vminsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) -> Result<(), CodegenError>;
 
-    fn emit_vcmpeqss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
-    fn emit_vcmpeqsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
+    fn emit_vcmpeqss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM)
+        -> Result<(), CodegenError>;
+    fn emit_vcmpeqsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM)
+        -> Result<(), CodegenError>;
 
-    fn emit_vcmpneqss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
-    fn emit_vcmpneqsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
+    fn emit_vcmpneqss(
+        &mut self,
+        src1: XMM,
+        src2: XMMOrMemory,
+        dst: XMM,
+    ) -> Result<(), CodegenError>;
+    fn emit_vcmpneqsd(
+        &mut self,
+        src1: XMM,
+        src2: XMMOrMemory,
+        dst: XMM,
+    ) -> Result<(), CodegenError>;
 
-    fn emit_vcmpltss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
-    fn emit_vcmpltsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
+    fn emit_vcmpltss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM)
+        -> Result<(), CodegenError>;
+    fn emit_vcmpltsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM)
+        -> Result<(), CodegenError>;
 
-    fn emit_vcmpless(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
-    fn emit_vcmplesd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
+    fn emit_vcmpless(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM)
+        -> Result<(), CodegenError>;
+    fn emit_vcmplesd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM)
+        -> Result<(), CodegenError>;
 
-    fn emit_vcmpgtss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
-    fn emit_vcmpgtsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
+    fn emit_vcmpgtss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM)
+        -> Result<(), CodegenError>;
+    fn emit_vcmpgtsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM)
+        -> Result<(), CodegenError>;
 
-    fn emit_vcmpgess(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
-    fn emit_vcmpgesd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
+    fn emit_vcmpgess(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM)
+        -> Result<(), CodegenError>;
+    fn emit_vcmpgesd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM)
+        -> Result<(), CodegenError>;
 
-    fn emit_vcmpunordss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
-    fn emit_vcmpunordsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
+    fn emit_vcmpunordss(
+        &mut self,
+        src1: XMM,
+        src2: XMMOrMemory,
+        dst: XMM,
+    ) -> Result<(), CodegenError>;
+    fn emit_vcmpunordsd(
+        &mut self,
+        src1: XMM,
+        src2: XMMOrMemory,
+        dst: XMM,
+    ) -> Result<(), CodegenError>;
 
-    fn emit_vcmpordss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
-    fn emit_vcmpordsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
+    fn emit_vcmpordss(
+        &mut self,
+        src1: XMM,
+        src2: XMMOrMemory,
+        dst: XMM,
+    ) -> Result<(), CodegenError>;
+    fn emit_vcmpordsd(
+        &mut self,
+        src1: XMM,
+        src2: XMMOrMemory,
+        dst: XMM,
+    ) -> Result<(), CodegenError>;
 
-    fn emit_vsqrtss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
-    fn emit_vsqrtsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
+    fn emit_vsqrtss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) -> Result<(), CodegenError>;
+    fn emit_vsqrtsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) -> Result<(), CodegenError>;
 
-    fn emit_vroundss_nearest(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
-    fn emit_vroundss_floor(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
-    fn emit_vroundss_ceil(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
-    fn emit_vroundss_trunc(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
-    fn emit_vroundsd_nearest(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
-    fn emit_vroundsd_floor(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
-    fn emit_vroundsd_ceil(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
-    fn emit_vroundsd_trunc(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
+    fn emit_vroundss_nearest(
+        &mut self,
+        src1: XMM,
+        src2: XMMOrMemory,
+        dst: XMM,
+    ) -> Result<(), CodegenError>;
+    fn emit_vroundss_floor(
+        &mut self,
+        src1: XMM,
+        src2: XMMOrMemory,
+        dst: XMM,
+    ) -> Result<(), CodegenError>;
+    fn emit_vroundss_ceil(
+        &mut self,
+        src1: XMM,
+        src2: XMMOrMemory,
+        dst: XMM,
+    ) -> Result<(), CodegenError>;
+    fn emit_vroundss_trunc(
+        &mut self,
+        src1: XMM,
+        src2: XMMOrMemory,
+        dst: XMM,
+    ) -> Result<(), CodegenError>;
+    fn emit_vroundsd_nearest(
+        &mut self,
+        src1: XMM,
+        src2: XMMOrMemory,
+        dst: XMM,
+    ) -> Result<(), CodegenError>;
+    fn emit_vroundsd_floor(
+        &mut self,
+        src1: XMM,
+        src2: XMMOrMemory,
+        dst: XMM,
+    ) -> Result<(), CodegenError>;
+    fn emit_vroundsd_ceil(
+        &mut self,
+        src1: XMM,
+        src2: XMMOrMemory,
+        dst: XMM,
+    ) -> Result<(), CodegenError>;
+    fn emit_vroundsd_trunc(
+        &mut self,
+        src1: XMM,
+        src2: XMMOrMemory,
+        dst: XMM,
+    ) -> Result<(), CodegenError>;
 
-    fn emit_vcvtss2sd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
-    fn emit_vcvtsd2ss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
+    fn emit_vcvtss2sd(
+        &mut self,
+        src1: XMM,
+        src2: XMMOrMemory,
+        dst: XMM,
+    ) -> Result<(), CodegenError>;
+    fn emit_vcvtsd2ss(
+        &mut self,
+        src1: XMM,
+        src2: XMMOrMemory,
+        dst: XMM,
+    ) -> Result<(), CodegenError>;
 
-    fn emit_ucomiss(&mut self, src: XMMOrMemory, dst: XMM);
-    fn emit_ucomisd(&mut self, src: XMMOrMemory, dst: XMM);
+    fn emit_ucomiss(&mut self, src: XMMOrMemory, dst: XMM) -> Result<(), CodegenError>;
+    fn emit_ucomisd(&mut self, src: XMMOrMemory, dst: XMM) -> Result<(), CodegenError>;
 
-    fn emit_cvttss2si_32(&mut self, src: XMMOrMemory, dst: GPR);
-    fn emit_cvttss2si_64(&mut self, src: XMMOrMemory, dst: GPR);
-    fn emit_cvttsd2si_32(&mut self, src: XMMOrMemory, dst: GPR);
-    fn emit_cvttsd2si_64(&mut self, src: XMMOrMemory, dst: GPR);
+    fn emit_cvttss2si_32(&mut self, src: XMMOrMemory, dst: GPR) -> Result<(), CodegenError>;
+    fn emit_cvttss2si_64(&mut self, src: XMMOrMemory, dst: GPR) -> Result<(), CodegenError>;
+    fn emit_cvttsd2si_32(&mut self, src: XMMOrMemory, dst: GPR) -> Result<(), CodegenError>;
+    fn emit_cvttsd2si_64(&mut self, src: XMMOrMemory, dst: GPR) -> Result<(), CodegenError>;
 
-    fn emit_vcvtsi2ss_32(&mut self, src1: XMM, src2: GPROrMemory, dst: XMM);
-    fn emit_vcvtsi2ss_64(&mut self, src1: XMM, src2: GPROrMemory, dst: XMM);
-    fn emit_vcvtsi2sd_32(&mut self, src1: XMM, src2: GPROrMemory, dst: XMM);
-    fn emit_vcvtsi2sd_64(&mut self, src1: XMM, src2: GPROrMemory, dst: XMM);
+    fn emit_vcvtsi2ss_32(
+        &mut self,
+        src1: XMM,
+        src2: GPROrMemory,
+        dst: XMM,
+    ) -> Result<(), CodegenError>;
+    fn emit_vcvtsi2ss_64(
+        &mut self,
+        src1: XMM,
+        src2: GPROrMemory,
+        dst: XMM,
+    ) -> Result<(), CodegenError>;
+    fn emit_vcvtsi2sd_32(
+        &mut self,
+        src1: XMM,
+        src2: GPROrMemory,
+        dst: XMM,
+    ) -> Result<(), CodegenError>;
+    fn emit_vcvtsi2sd_64(
+        &mut self,
+        src1: XMM,
+        src2: GPROrMemory,
+        dst: XMM,
+    ) -> Result<(), CodegenError>;
 
-    fn emit_vblendvps(&mut self, src1: XMM, src2: XMMOrMemory, mask: XMM, dst: XMM);
-    fn emit_vblendvpd(&mut self, src1: XMM, src2: XMMOrMemory, mask: XMM, dst: XMM);
+    fn emit_vblendvps(
+        &mut self,
+        src1: XMM,
+        src2: XMMOrMemory,
+        mask: XMM,
+        dst: XMM,
+    ) -> Result<(), CodegenError>;
+    fn emit_vblendvpd(
+        &mut self,
+        src1: XMM,
+        src2: XMMOrMemory,
+        mask: XMM,
+        dst: XMM,
+    ) -> Result<(), CodegenError>;
 
-    fn emit_test_gpr_64(&mut self, reg: GPR);
+    fn emit_test_gpr_64(&mut self, reg: GPR) -> Result<(), CodegenError>;
 
-    fn emit_ud2(&mut self);
-    fn emit_ud1_payload(&mut self, payload: u8);
-    fn emit_ret(&mut self);
-    fn emit_call_label(&mut self, label: Label);
-    fn emit_call_location(&mut self, loc: Location);
+    fn emit_ud2(&mut self) -> Result<(), CodegenError>;
+    fn emit_ud1_payload(&mut self, payload: u8) -> Result<(), CodegenError>;
+    fn emit_ret(&mut self) -> Result<(), CodegenError>;
+    fn emit_call_label(&mut self, label: Label) -> Result<(), CodegenError>;
+    fn emit_call_location(&mut self, loc: Location) -> Result<(), CodegenError>;
 
-    fn emit_call_register(&mut self, reg: GPR);
+    fn emit_call_register(&mut self, reg: GPR) -> Result<(), CodegenError>;
 
-    fn emit_bkpt(&mut self);
+    fn emit_bkpt(&mut self) -> Result<(), CodegenError>;
 
-    fn emit_host_redirection(&mut self, target: GPR);
+    fn emit_host_redirection(&mut self, target: GPR) -> Result<(), CodegenError>;
 
     fn arch_has_itruncf(&self) -> bool {
         false
     }
-    fn arch_emit_i32_trunc_sf32(&mut self, _src: XMM, _dst: GPR) {
-        unimplemented!()
+    fn arch_emit_i32_trunc_sf32(&mut self, _src: XMM, _dst: GPR) -> Result<(), CodegenError> {
+        codegen_error!("singplepass arch_emit_i32_trunc_sf32 unimplemented")
     }
-    fn arch_emit_i32_trunc_sf64(&mut self, _src: XMM, _dst: GPR) {
-        unimplemented!()
+    fn arch_emit_i32_trunc_sf64(&mut self, _src: XMM, _dst: GPR) -> Result<(), CodegenError> {
+        codegen_error!("singplepass arch_emit_i32_trunc_sf64 unimplemented")
     }
-    fn arch_emit_i32_trunc_uf32(&mut self, _src: XMM, _dst: GPR) {
-        unimplemented!()
+    fn arch_emit_i32_trunc_uf32(&mut self, _src: XMM, _dst: GPR) -> Result<(), CodegenError> {
+        codegen_error!("singplepass arch_emit_i32_trunc_uf32 unimplemented")
     }
-    fn arch_emit_i32_trunc_uf64(&mut self, _src: XMM, _dst: GPR) {
-        unimplemented!()
+    fn arch_emit_i32_trunc_uf64(&mut self, _src: XMM, _dst: GPR) -> Result<(), CodegenError> {
+        codegen_error!("singplepass arch_emit_i32_trunc_uf64 unimplemented")
     }
-    fn arch_emit_i64_trunc_sf32(&mut self, _src: XMM, _dst: GPR) {
-        unimplemented!()
+    fn arch_emit_i64_trunc_sf32(&mut self, _src: XMM, _dst: GPR) -> Result<(), CodegenError> {
+        codegen_error!("singplepass arch_emit_i64_trunc_sf32 unimplemented")
     }
-    fn arch_emit_i64_trunc_sf64(&mut self, _src: XMM, _dst: GPR) {
-        unimplemented!()
+    fn arch_emit_i64_trunc_sf64(&mut self, _src: XMM, _dst: GPR) -> Result<(), CodegenError> {
+        codegen_error!("singplepass arch_emit_i64_trunc_sf64 unimplemented")
     }
-    fn arch_emit_i64_trunc_uf32(&mut self, _src: XMM, _dst: GPR) {
-        unimplemented!()
+    fn arch_emit_i64_trunc_uf32(&mut self, _src: XMM, _dst: GPR) -> Result<(), CodegenError> {
+        codegen_error!("singplepass arch_emit_i64_trunc_uf32 unimplemented")
     }
-    fn arch_emit_i64_trunc_uf64(&mut self, _src: XMM, _dst: GPR) {
-        unimplemented!()
+    fn arch_emit_i64_trunc_uf64(&mut self, _src: XMM, _dst: GPR) -> Result<(), CodegenError> {
+        codegen_error!("singplepass arch_emit_i64_trunc_uf64 unimplemented")
     }
 
     fn arch_has_fconverti(&self) -> bool {
         false
     }
-    fn arch_emit_f32_convert_si32(&mut self, _src: GPR, _dst: XMM) {
-        unimplemented!()
+    fn arch_emit_f32_convert_si32(&mut self, _src: GPR, _dst: XMM) -> Result<(), CodegenError> {
+        codegen_error!("singlepass arch_emit_f32_convert_si32 unimplemented")
     }
-    fn arch_emit_f32_convert_si64(&mut self, _src: GPR, _dst: XMM) {
-        unimplemented!()
+    fn arch_emit_f32_convert_si64(&mut self, _src: GPR, _dst: XMM) -> Result<(), CodegenError> {
+        codegen_error!("singlepass arch_emit_f32_convert_si64 unimplemented")
     }
-    fn arch_emit_f32_convert_ui32(&mut self, _src: GPR, _dst: XMM) {
-        unimplemented!()
+    fn arch_emit_f32_convert_ui32(&mut self, _src: GPR, _dst: XMM) -> Result<(), CodegenError> {
+        codegen_error!("singlepass arch_emit_f32_convert_ui32 unimplemented")
     }
-    fn arch_emit_f32_convert_ui64(&mut self, _src: GPR, _dst: XMM) {
-        unimplemented!()
+    fn arch_emit_f32_convert_ui64(&mut self, _src: GPR, _dst: XMM) -> Result<(), CodegenError> {
+        codegen_error!("singlepass arch_emit_f32_convert_ui64 unimplemented")
     }
-    fn arch_emit_f64_convert_si32(&mut self, _src: GPR, _dst: XMM) {
-        unimplemented!()
+    fn arch_emit_f64_convert_si32(&mut self, _src: GPR, _dst: XMM) -> Result<(), CodegenError> {
+        codegen_error!("singlepass arch_emit_f64_convert_si32 unimplemented")
     }
-    fn arch_emit_f64_convert_si64(&mut self, _src: GPR, _dst: XMM) {
-        unimplemented!()
+    fn arch_emit_f64_convert_si64(&mut self, _src: GPR, _dst: XMM) -> Result<(), CodegenError> {
+        codegen_error!("singlepass arch_emit_f64_convert_si64 unimplemented")
     }
-    fn arch_emit_f64_convert_ui32(&mut self, _src: GPR, _dst: XMM) {
-        unimplemented!()
+    fn arch_emit_f64_convert_ui32(&mut self, _src: GPR, _dst: XMM) -> Result<(), CodegenError> {
+        codegen_error!("singlepass arch_emit_f64_convert_ui32 unimplemented")
     }
-    fn arch_emit_f64_convert_ui64(&mut self, _src: GPR, _dst: XMM) {
-        unimplemented!()
+    fn arch_emit_f64_convert_ui64(&mut self, _src: GPR, _dst: XMM) -> Result<(), CodegenError> {
+        codegen_error!("singlepass arch_emit_f64_convert_ui64 unimplemented")
     }
 
     fn arch_has_fneg(&self) -> bool {
         false
     }
-    fn arch_emit_f32_neg(&mut self, _src: XMM, _dst: XMM) {
-        unimplemented!()
+    fn arch_emit_f32_neg(&mut self, _src: XMM, _dst: XMM) -> Result<(), CodegenError> {
+        codegen_error!("singlepass arch_emit_f32_neg unimplemented")
     }
-    fn arch_emit_f64_neg(&mut self, _src: XMM, _dst: XMM) {
-        unimplemented!()
+    fn arch_emit_f64_neg(&mut self, _src: XMM, _dst: XMM) -> Result<(), CodegenError> {
+        codegen_error!("singlepass arch_emit_f64_neg unimplemented")
     }
 
     fn arch_has_xzcnt(&self) -> bool {
         false
     }
-    fn arch_emit_lzcnt(&mut self, _sz: Size, _src: Location, _dst: Location) {
-        unimplemented!()
+    fn arch_emit_lzcnt(
+        &mut self,
+        _sz: Size,
+        _src: Location,
+        _dst: Location,
+    ) -> Result<(), CodegenError> {
+        codegen_error!("singlepass arch_emit_lzcnt unimplemented")
     }
-    fn arch_emit_tzcnt(&mut self, _sz: Size, _src: Location, _dst: Location) {
-        unimplemented!()
+    fn arch_emit_tzcnt(
+        &mut self,
+        _sz: Size,
+        _src: Location,
+        _dst: Location,
+    ) -> Result<(), CodegenError> {
+        codegen_error!("singlepass arch_emit_tzcnt unimplemented")
     }
 
     fn arch_supports_canonicalize_nan(&self) -> bool {
@@ -293,17 +451,22 @@ pub trait EmitterX64 {
         false
     }
 
-    fn arch_emit_indirect_call_with_trampoline(&mut self, _loc: Location) {
-        unimplemented!()
+    fn arch_emit_indirect_call_with_trampoline(
+        &mut self,
+        _loc: Location,
+    ) -> Result<(), CodegenError> {
+        codegen_error!("singlepass arch_emit_indirect_call_with_trampoline unimplemented")
     }
 
     // Emits entry trampoline just before the real function.
-    fn arch_emit_entry_trampoline(&mut self) {}
+    fn arch_emit_entry_trampoline(&mut self) -> Result<(), CodegenError> {
+        Ok(())
+    }
 
     // Byte offset from the beginning of a `mov Imm64, GPR` instruction to the imm64 value.
     // Required to support emulation on Aarch64.
-    fn arch_mov64_imm_offset(&self) -> usize {
-        unimplemented!()
+    fn arch_mov64_imm_offset(&self) -> Result<usize, CodegenError> {
+        codegen_error!("singlepass arch_mov64_imm_offset unimplemented")
     }
 }
 
@@ -771,7 +934,7 @@ impl EmitterX64 for AssemblerX64 {
         5
     }
 
-    fn finalize_function(&mut self) {
+    fn finalize_function(&mut self) -> Result<(), CodegenError> {
         dynasm!(
             self
             ; const_neg_one_32:
@@ -781,27 +944,32 @@ impl EmitterX64 for AssemblerX64 {
             ; const_pos_one_32:
             ; .dword 1
         );
+        Ok(())
     }
 
-    fn emit_u64(&mut self, x: u64) {
+    fn emit_u64(&mut self, x: u64) -> Result<(), CodegenError> {
         self.push_u64(x);
+        Ok(())
     }
 
-    fn emit_bytes(&mut self, bytes: &[u8]) {
+    fn emit_bytes(&mut self, bytes: &[u8]) -> Result<(), CodegenError> {
         for &b in bytes {
             self.push(b);
         }
+        Ok(())
     }
 
-    fn emit_label(&mut self, label: Label) {
+    fn emit_label(&mut self, label: Label) -> Result<(), CodegenError> {
         dynasm!(self ; => label);
+        Ok(())
     }
 
-    fn emit_nop(&mut self) {
+    fn emit_nop(&mut self) -> Result<(), CodegenError> {
         dynasm!(self ; nop);
+        Ok(())
     }
 
-    fn emit_nop_n(&mut self, mut n: usize) {
+    fn emit_nop_n(&mut self, mut n: usize) -> Result<(), CodegenError> {
         /*
             1      90H                            NOP
             2      66 90H                         66 NOP
@@ -815,7 +983,7 @@ impl EmitterX64 for AssemblerX64 {
         */
         while n >= 9 {
             n -= 9;
-            self.emit_bytes(&[0x66, 0x0f, 0x1f, 0x84, 0x00, 0x00, 0x00, 0x00, 0x00]);
+            self.emit_bytes(&[0x66, 0x0f, 0x1f, 0x84, 0x00, 0x00, 0x00, 0x00, 0x00])?;
             // 9-byte nop
         }
         let seq: &[u8] = match n {
@@ -828,16 +996,16 @@ impl EmitterX64 for AssemblerX64 {
             6 => &[0x66, 0x0f, 0x1f, 0x44, 0x00, 0x00],
             7 => &[0x0f, 0x1f, 0x80, 0x00, 0x00, 0x00, 0x00],
             8 => &[0x0f, 0x1f, 0x84, 0x00, 0x00, 0x00, 0x00, 0x00],
-            _ => unreachable!(),
+            _ => codegen_error!("singlepass emit_nop_n unreachable"),
         };
-        self.emit_bytes(seq);
+        self.emit_bytes(seq)
     }
 
-    fn emit_mov(&mut self, sz: Size, src: Location, dst: Location) {
+    fn emit_mov(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CodegenError> {
         // fast path
         if let (Location::Imm32(0), Location::GPR(x)) = (src, dst) {
             dynasm!(self ; xor Rd(x as u8), Rd(x as u8));
-            return;
+            return Ok(());
         }
 
         binop_all_nofp!(mov, self, sz, src, dst, {
@@ -914,12 +1082,13 @@ impl EmitterX64 for AssemblerX64 {
                         dynasm!(self ; movq Rx(dst as u8), Rx(src as u8));
                     }
 
-                    _ => panic!("singlepass can't emit MOV {:?} {:?} {:?}", sz, src, dst),
+                    _ => codegen_error!("singlepass can't emit MOV {:?} {:?} {:?}", sz, src, dst),
                 }
             })
         });
+        Ok(())
     }
-    fn emit_lea(&mut self, sz: Size, src: Location, dst: Location) {
+    fn emit_lea(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CodegenError> {
         match (sz, src, dst) {
             (Size::S32, Location::Memory(src, disp), Location::GPR(dst)) => {
                 dynasm!(self ; lea Rd(dst as u8), [Rq(src as u8) + disp]);
@@ -961,29 +1130,34 @@ impl EmitterX64 for AssemblerX64 {
                     }
                 };
             }
-            _ => panic!("singlepass can't emit LEA {:?} {:?} {:?}", sz, src, dst),
+            _ => codegen_error!("singlepass can't emit LEA {:?} {:?} {:?}", sz, src, dst),
         }
+        Ok(())
     }
-    fn emit_lea_label(&mut self, label: Label, dst: Location) {
+    fn emit_lea_label(&mut self, label: Label, dst: Location) -> Result<(), CodegenError> {
         match dst {
             Location::GPR(x) => {
                 dynasm!(self ; lea Rq(x as u8), [=>label]);
             }
-            _ => panic!("singlepass can't emit LEA label={:?} {:?}", label, dst),
+            _ => codegen_error!("singlepass can't emit LEA label={:?} {:?}", label, dst),
         }
+        Ok(())
     }
-    fn emit_cdq(&mut self) {
+    fn emit_cdq(&mut self) -> Result<(), CodegenError> {
         dynasm!(self ; cdq);
+        Ok(())
     }
-    fn emit_cqo(&mut self) {
+    fn emit_cqo(&mut self) -> Result<(), CodegenError> {
         dynasm!(self ; cqo);
+        Ok(())
     }
-    fn emit_xor(&mut self, sz: Size, src: Location, dst: Location) {
+    fn emit_xor(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CodegenError> {
         binop_all_nofp!(xor, self, sz, src, dst, {
-            panic!("singlepass can't emit XOR {:?} {:?} {:?}", sz, src, dst)
+            codegen_error!("singlepass can't emit XOR {:?} {:?} {:?}", sz, src, dst)
         });
+        Ok(())
     }
-    fn emit_jmp(&mut self, condition: Condition, label: Label) {
+    fn emit_jmp(&mut self, condition: Condition, label: Label) -> Result<(), CodegenError> {
         match condition {
             Condition::None => jmp_op!(jmp, self, label),
             Condition::Above => jmp_op!(ja, self, label),
@@ -999,15 +1173,17 @@ impl EmitterX64 for AssemblerX64 {
             Condition::Signed => jmp_op!(js, self, label),
             Condition::Carry => jmp_op!(jc, self, label),
         }
+        Ok(())
     }
-    fn emit_jmp_location(&mut self, loc: Location) {
+    fn emit_jmp_location(&mut self, loc: Location) -> Result<(), CodegenError> {
         match loc {
             Location::GPR(x) => dynasm!(self ; jmp Rq(x as u8)),
             Location::Memory(base, disp) => dynasm!(self ; jmp QWORD [Rq(base as u8) + disp]),
-            _ => panic!("singlepass can't emit JMP {:?}", loc),
+            _ => codegen_error!("singlepass can't emit JMP {:?}", loc),
         }
+        Ok(())
     }
-    fn emit_set(&mut self, condition: Condition, dst: GPR) {
+    fn emit_set(&mut self, condition: Condition, dst: GPR) -> Result<(), CodegenError> {
         match condition {
             Condition::Above => dynasm!(self ; seta Rb(dst as u8)),
             Condition::AboveEqual => dynasm!(self ; setae Rb(dst as u8)),
@@ -1021,29 +1197,32 @@ impl EmitterX64 for AssemblerX64 {
             Condition::NotEqual => dynasm!(self ; setne Rb(dst as u8)),
             Condition::Signed => dynasm!(self ; sets Rb(dst as u8)),
             Condition::Carry => dynasm!(self ; setc Rb(dst as u8)),
-            _ => panic!("singlepass can't emit SET {:?} {:?}", condition, dst),
+            _ => codegen_error!("singlepass can't emit SET {:?} {:?}", condition, dst),
         }
+        Ok(())
     }
-    fn emit_push(&mut self, sz: Size, src: Location) {
+    fn emit_push(&mut self, sz: Size, src: Location) -> Result<(), CodegenError> {
         match (sz, src) {
             (Size::S64, Location::Imm32(src)) => dynasm!(self ; push src as i32),
             (Size::S64, Location::GPR(src)) => dynasm!(self ; push Rq(src as u8)),
             (Size::S64, Location::Memory(src, disp)) => {
                 dynasm!(self ; push QWORD [Rq(src as u8) + disp])
             }
-            _ => panic!("singlepass can't emit PUSH {:?} {:?}", sz, src),
+            _ => codegen_error!("singlepass can't emit PUSH {:?} {:?}", sz, src),
         }
+        Ok(())
     }
-    fn emit_pop(&mut self, sz: Size, dst: Location) {
+    fn emit_pop(&mut self, sz: Size, dst: Location) -> Result<(), CodegenError> {
         match (sz, dst) {
             (Size::S64, Location::GPR(dst)) => dynasm!(self ; pop Rq(dst as u8)),
             (Size::S64, Location::Memory(dst, disp)) => {
                 dynasm!(self ; pop QWORD [Rq(dst as u8) + disp])
             }
-            _ => panic!("singlepass can't emit POP {:?} {:?}", sz, dst),
+            _ => codegen_error!("singlepass can't emit POP {:?} {:?}", sz, dst),
         }
+        Ok(())
     }
-    fn emit_cmp(&mut self, sz: Size, left: Location, right: Location) {
+    fn emit_cmp(&mut self, sz: Size, left: Location, right: Location) -> Result<(), CodegenError> {
         // Constant elimination for comparison between consts.
         //
         // Only needed for `emit_cmp`, since other binary operators actually write to `right` and `right` must
@@ -1063,29 +1242,32 @@ impl EmitterX64 for AssemblerX64 {
                 Ordering::Greater => dynasm!(self ; cmp DWORD [>const_pos_one_32], 0),
             },
             None => binop_all_nofp!(cmp, self, sz, left, right, {
-                panic!("singlepass can't emit CMP {:?} {:?} {:?}", sz, left, right);
+                codegen_error!("singlepass can't emit CMP {:?} {:?} {:?}", sz, left, right);
             }),
         }
+        Ok(())
     }
-    fn emit_add(&mut self, sz: Size, src: Location, dst: Location) {
+    fn emit_add(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CodegenError> {
         // Fast path
         if let Location::Imm32(0) = src {
-            return;
+            return Ok(());
         }
         binop_all_nofp!(add, self, sz, src, dst, {
-            panic!("singlepass can't emit ADD {:?} {:?} {:?}", sz, src, dst)
+            codegen_error!("singlepass can't emit ADD {:?} {:?} {:?}", sz, src, dst)
         });
+        Ok(())
     }
-    fn emit_sub(&mut self, sz: Size, src: Location, dst: Location) {
+    fn emit_sub(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CodegenError> {
         // Fast path
         if let Location::Imm32(0) = src {
-            return;
+            return Ok(());
         }
         binop_all_nofp!(sub, self, sz, src, dst, {
-            panic!("singlepass can't emit SUB {:?} {:?} {:?}", sz, src, dst)
+            codegen_error!("singlepass can't emit SUB {:?} {:?} {:?}", sz, src, dst)
         });
+        Ok(())
     }
-    fn emit_neg(&mut self, sz: Size, value: Location) {
+    fn emit_neg(&mut self, sz: Size, value: Location) -> Result<(), CodegenError> {
         match (sz, value) {
             (Size::S8, Location::GPR(value)) => dynasm!(self ; neg Rb(value as u8)),
             (Size::S8, Location::Memory(value, disp)) => {
@@ -1103,91 +1285,113 @@ impl EmitterX64 for AssemblerX64 {
             (Size::S64, Location::Memory(value, disp)) => {
                 dynasm!(self ; neg [Rq(value as u8) + disp])
             }
-            _ => panic!("singlepass can't emit NEG {:?} {:?}", sz, value),
+            _ => codegen_error!("singlepass can't emit NEG {:?} {:?}", sz, value),
         }
+        Ok(())
     }
-    fn emit_imul(&mut self, sz: Size, src: Location, dst: Location) {
+    fn emit_imul(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CodegenError> {
         binop_gpr_gpr!(imul, self, sz, src, dst, {
             binop_mem_gpr!(imul, self, sz, src, dst, {
-                panic!("singlepass can't emit IMUL {:?} {:?} {:?}", sz, src, dst)
+                codegen_error!("singlepass can't emit IMUL {:?} {:?} {:?}", sz, src, dst)
             })
         });
+        Ok(())
     }
-    fn emit_imul_imm32_gpr64(&mut self, src: u32, dst: GPR) {
+    fn emit_imul_imm32_gpr64(&mut self, src: u32, dst: GPR) -> Result<(), CodegenError> {
         dynasm!(self ; imul Rq(dst as u8), Rq(dst as u8), src as i32);
+        Ok(())
     }
-    fn emit_div(&mut self, sz: Size, divisor: Location) {
+    fn emit_div(&mut self, sz: Size, divisor: Location) -> Result<(), CodegenError> {
         unop_gpr_or_mem!(div, self, sz, divisor, {
-            panic!("singlepass can't emit DIV {:?} {:?}", sz, divisor)
+            codegen_error!("singlepass can't emit DIV {:?} {:?}", sz, divisor)
         });
+        Ok(())
     }
-    fn emit_idiv(&mut self, sz: Size, divisor: Location) {
+    fn emit_idiv(&mut self, sz: Size, divisor: Location) -> Result<(), CodegenError> {
         unop_gpr_or_mem!(idiv, self, sz, divisor, {
-            panic!("singlepass can't emit IDIV {:?} {:?}", sz, divisor)
+            codegen_error!("singlepass can't emit IDIV {:?} {:?}", sz, divisor)
         });
+        Ok(())
     }
-    fn emit_shl(&mut self, sz: Size, src: Location, dst: Location) {
+    fn emit_shl(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CodegenError> {
         binop_shift!(shl, self, sz, src, dst, {
-            panic!("singlepass can't emit SHL {:?} {:?} {:?}", sz, src, dst)
+            codegen_error!("singlepass can't emit SHL {:?} {:?} {:?}", sz, src, dst)
         });
+        Ok(())
     }
-    fn emit_shr(&mut self, sz: Size, src: Location, dst: Location) {
+    fn emit_shr(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CodegenError> {
         binop_shift!(shr, self, sz, src, dst, {
-            panic!("singlepass can't emit SHR {:?} {:?} {:?}", sz, src, dst)
+            codegen_error!("singlepass can't emit SHR {:?} {:?} {:?}", sz, src, dst)
         });
+        Ok(())
     }
-    fn emit_sar(&mut self, sz: Size, src: Location, dst: Location) {
+    fn emit_sar(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CodegenError> {
         binop_shift!(sar, self, sz, src, dst, {
-            panic!("singlepass can't emit SAR {:?} {:?} {:?}", sz, src, dst)
+            codegen_error!("singlepass can't emit SAR {:?} {:?} {:?}", sz, src, dst)
         });
+        Ok(())
     }
-    fn emit_rol(&mut self, sz: Size, src: Location, dst: Location) {
+    fn emit_rol(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CodegenError> {
         binop_shift!(rol, self, sz, src, dst, {
-            panic!("singlepass can't emit ROL {:?} {:?} {:?}", sz, src, dst)
+            codegen_error!("singlepass can't emit ROL {:?} {:?} {:?}", sz, src, dst)
         });
+        Ok(())
     }
-    fn emit_ror(&mut self, sz: Size, src: Location, dst: Location) {
+    fn emit_ror(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CodegenError> {
         binop_shift!(ror, self, sz, src, dst, {
-            panic!("singlepass can't emit ROR {:?} {:?} {:?}", sz, src, dst)
+            codegen_error!("singlepass can't emit ROR {:?} {:?} {:?}", sz, src, dst)
         });
+        Ok(())
     }
-    fn emit_and(&mut self, sz: Size, src: Location, dst: Location) {
+    fn emit_and(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CodegenError> {
         binop_all_nofp!(and, self, sz, src, dst, {
-            panic!("singlepass can't emit AND {:?} {:?} {:?}", sz, src, dst)
+            codegen_error!("singlepass can't emit AND {:?} {:?} {:?}", sz, src, dst)
         });
+        Ok(())
     }
-    fn emit_test(&mut self, sz: Size, src: Location, dst: Location) {
+    fn emit_test(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CodegenError> {
         binop_all_nofp!(test, self, sz, src, dst, {
-            panic!("singlepass can't emit TEST {:?} {:?} {:?}", sz, src, dst)
+            codegen_error!("singlepass can't emit TEST {:?} {:?} {:?}", sz, src, dst)
         });
+        Ok(())
     }
-    fn emit_or(&mut self, sz: Size, src: Location, dst: Location) {
+    fn emit_or(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CodegenError> {
         binop_all_nofp!(or, self, sz, src, dst, {
-            panic!("singlepass can't emit OR {:?} {:?} {:?}", sz, src, dst)
+            codegen_error!("singlepass can't emit OR {:?} {:?} {:?}", sz, src, dst)
         });
+        Ok(())
     }
-    fn emit_bsr(&mut self, sz: Size, src: Location, dst: Location) {
+    fn emit_bsr(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CodegenError> {
         binop_gpr_gpr!(bsr, self, sz, src, dst, {
             binop_mem_gpr!(bsr, self, sz, src, dst, {
-                panic!("singlepass can't emit BSR {:?} {:?} {:?}", sz, src, dst)
+                codegen_error!("singlepass can't emit BSR {:?} {:?} {:?}", sz, src, dst)
             })
         });
+        Ok(())
     }
-    fn emit_bsf(&mut self, sz: Size, src: Location, dst: Location) {
+    fn emit_bsf(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CodegenError> {
         binop_gpr_gpr!(bsf, self, sz, src, dst, {
             binop_mem_gpr!(bsf, self, sz, src, dst, {
-                panic!("singlepass can't emit BSF {:?} {:?} {:?}", sz, src, dst)
+                codegen_error!("singlepass can't emit BSF {:?} {:?} {:?}", sz, src, dst)
             })
         });
+        Ok(())
     }
-    fn emit_popcnt(&mut self, sz: Size, src: Location, dst: Location) {
+    fn emit_popcnt(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CodegenError> {
         binop_gpr_gpr!(popcnt, self, sz, src, dst, {
             binop_mem_gpr!(popcnt, self, sz, src, dst, {
-                panic!("singlepass can't emit POPCNT {:?} {:?} {:?}", sz, src, dst)
+                codegen_error!("singlepass can't emit POPCNT {:?} {:?} {:?}", sz, src, dst)
             })
         });
+        Ok(())
     }
-    fn emit_movzx(&mut self, sz_src: Size, src: Location, sz_dst: Size, dst: Location) {
+    fn emit_movzx(
+        &mut self,
+        sz_src: Size,
+        src: Location,
+        sz_dst: Size,
+        dst: Location,
+    ) -> Result<(), CodegenError> {
         match (sz_src, src, sz_dst, dst) {
             (Size::S8, Location::GPR(src), Size::S32, Location::GPR(dst)) => {
                 dynasm!(self ; movzx Rd(dst as u8), Rb(src as u8));
@@ -1214,14 +1418,24 @@ impl EmitterX64 for AssemblerX64 {
                 dynasm!(self ; movzx Rq(dst as u8), WORD [Rq(src as u8) + disp]);
             }
             _ => {
-                panic!(
+                codegen_error!(
                     "singlepass can't emit MOVZX {:?} {:?} {:?} {:?}",
-                    sz_src, src, sz_dst, dst
+                    sz_src,
+                    src,
+                    sz_dst,
+                    dst
                 )
             }
         }
+        Ok(())
     }
-    fn emit_movsx(&mut self, sz_src: Size, src: Location, sz_dst: Size, dst: Location) {
+    fn emit_movsx(
+        &mut self,
+        sz_src: Size,
+        src: Location,
+        sz_dst: Size,
+        dst: Location,
+    ) -> Result<(), CodegenError> {
         match (sz_src, src, sz_dst, dst) {
             (Size::S8, Location::GPR(src), Size::S32, Location::GPR(dst)) => {
                 dynasm!(self ; movsx Rd(dst as u8), Rb(src as u8));
@@ -1254,15 +1468,19 @@ impl EmitterX64 for AssemblerX64 {
                 dynasm!(self ; movsx Rq(dst as u8), DWORD [Rq(src as u8) + disp]);
             }
             _ => {
-                panic!(
+                codegen_error!(
                     "singlepass can't emit MOVSX {:?} {:?} {:?} {:?}",
-                    sz_src, src, sz_dst, dst
+                    sz_src,
+                    src,
+                    sz_dst,
+                    dst
                 )
             }
         }
+        Ok(())
     }
 
-    fn emit_xchg(&mut self, sz: Size, src: Location, dst: Location) {
+    fn emit_xchg(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CodegenError> {
         match (sz, src, dst) {
             (Size::S8, Location::GPR(src), Location::GPR(dst)) => {
                 dynasm!(self ; xchg Rb(dst as u8), Rb(src as u8));
@@ -1300,11 +1518,17 @@ impl EmitterX64 for AssemblerX64 {
             (Size::S64, Location::GPR(src), Location::Memory(dst, disp)) => {
                 dynasm!(self ; xchg [Rq(dst as u8) + disp], Rq(src as u8));
             }
-            _ => panic!("singlepass can't emit XCHG {:?} {:?} {:?}", sz, src, dst),
+            _ => codegen_error!("singlepass can't emit XCHG {:?} {:?} {:?}", sz, src, dst),
         }
+        Ok(())
     }
 
-    fn emit_lock_xadd(&mut self, sz: Size, src: Location, dst: Location) {
+    fn emit_lock_xadd(
+        &mut self,
+        sz: Size,
+        src: Location,
+        dst: Location,
+    ) -> Result<(), CodegenError> {
         match (sz, src, dst) {
             (Size::S8, Location::GPR(src), Location::Memory(dst, disp)) => {
                 dynasm!(self ; lock xadd [Rq(dst as u8) + disp], Rb(src as u8));
@@ -1318,14 +1542,22 @@ impl EmitterX64 for AssemblerX64 {
             (Size::S64, Location::GPR(src), Location::Memory(dst, disp)) => {
                 dynasm!(self ; lock xadd [Rq(dst as u8) + disp], Rq(src as u8));
             }
-            _ => panic!(
+            _ => codegen_error!(
                 "singlepass can't emit LOCK XADD {:?} {:?} {:?}",
-                sz, src, dst
+                sz,
+                src,
+                dst
             ),
         }
+        Ok(())
     }
 
-    fn emit_lock_cmpxchg(&mut self, sz: Size, src: Location, dst: Location) {
+    fn emit_lock_cmpxchg(
+        &mut self,
+        sz: Size,
+        src: Location,
+        dst: Location,
+    ) -> Result<(), CodegenError> {
         match (sz, src, dst) {
             (Size::S8, Location::GPR(src), Location::Memory(dst, disp)) => {
                 dynasm!(self ; lock cmpxchg [Rq(dst as u8) + disp], Rb(src as u8));
@@ -1339,33 +1571,41 @@ impl EmitterX64 for AssemblerX64 {
             (Size::S64, Location::GPR(src), Location::Memory(dst, disp)) => {
                 dynasm!(self ; lock cmpxchg [Rq(dst as u8) + disp], Rq(src as u8));
             }
-            _ => panic!(
+            _ => codegen_error!(
                 "singlepass can't emit LOCK CMPXCHG {:?} {:?} {:?}",
-                sz, src, dst
+                sz,
+                src,
+                dst
             ),
         }
+        Ok(())
     }
 
-    fn emit_rep_stosq(&mut self) {
+    fn emit_rep_stosq(&mut self) -> Result<(), CodegenError> {
         dynasm!(self ; rep stosq);
+        Ok(())
     }
-    fn emit_btc_gpr_imm8_32(&mut self, src: u8, dst: GPR) {
+    fn emit_btc_gpr_imm8_32(&mut self, src: u8, dst: GPR) -> Result<(), CodegenError> {
         dynasm!(self ; btc Rd(dst as u8), BYTE src as i8);
+        Ok(())
     }
 
-    fn emit_btc_gpr_imm8_64(&mut self, src: u8, dst: GPR) {
+    fn emit_btc_gpr_imm8_64(&mut self, src: u8, dst: GPR) -> Result<(), CodegenError> {
         dynasm!(self ; btc Rq(dst as u8), BYTE src as i8);
+        Ok(())
     }
 
-    fn emit_cmovae_gpr_32(&mut self, src: GPR, dst: GPR) {
+    fn emit_cmovae_gpr_32(&mut self, src: GPR, dst: GPR) -> Result<(), CodegenError> {
         dynasm!(self ; cmovae Rd(dst as u8), Rd(src as u8));
+        Ok(())
     }
 
-    fn emit_cmovae_gpr_64(&mut self, src: GPR, dst: GPR) {
+    fn emit_cmovae_gpr_64(&mut self, src: GPR, dst: GPR) -> Result<(), CodegenError> {
         dynasm!(self ; cmovae Rq(dst as u8), Rq(src as u8));
+        Ok(())
     }
 
-    fn emit_vmovaps(&mut self, src: XMMOrMemory, dst: XMMOrMemory) {
+    fn emit_vmovaps(&mut self, src: XMMOrMemory, dst: XMMOrMemory) -> Result<(), CodegenError> {
         match (src, dst) {
             (XMMOrMemory::XMM(src), XMMOrMemory::XMM(dst)) => {
                 dynasm!(self ; movaps Rx(dst as u8), Rx(src as u8))
@@ -1376,11 +1616,12 @@ impl EmitterX64 for AssemblerX64 {
             (XMMOrMemory::XMM(src), XMMOrMemory::Memory(base, disp)) => {
                 dynasm!(self ; movaps [Rq(base as u8) + disp], Rx(src as u8))
             }
-            _ => panic!("singlepass can't emit VMOVAPS {:?} {:?}", src, dst),
+            _ => codegen_error!("singlepass can't emit VMOVAPS {:?} {:?}", src, dst),
         };
+        Ok(())
     }
 
-    fn emit_vmovapd(&mut self, src: XMMOrMemory, dst: XMMOrMemory) {
+    fn emit_vmovapd(&mut self, src: XMMOrMemory, dst: XMMOrMemory) -> Result<(), CodegenError> {
         match (src, dst) {
             (XMMOrMemory::XMM(src), XMMOrMemory::XMM(dst)) => {
                 dynasm!(self ; movapd Rx(dst as u8), Rx(src as u8))
@@ -1391,248 +1632,378 @@ impl EmitterX64 for AssemblerX64 {
             (XMMOrMemory::XMM(src), XMMOrMemory::Memory(base, disp)) => {
                 dynasm!(self ; movapd [Rq(base as u8) + disp], Rx(src as u8))
             }
-            _ => panic!("singlepass can't emit VMOVAPD {:?} {:?}", src, dst),
+            _ => codegen_error!("singlepass can't emit VMOVAPD {:?} {:?}", src, dst),
         };
+        Ok(())
     }
-    fn emit_vxorps(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+    fn emit_vxorps(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) -> Result<(), CodegenError> {
         match self.get_simd_arch() {
             Some(CpuFeature::AVX) => avx_fn!(vxorps)(self, src1, src2, dst),
             Some(CpuFeature::SSE42) => sse_fn!(xorps)(self, Precision::Single, src1, src2, dst),
             _ => {}
         }
+        Ok(())
     }
-    fn emit_vxorpd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+    fn emit_vxorpd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) -> Result<(), CodegenError> {
         match self.get_simd_arch() {
             Some(CpuFeature::AVX) => avx_fn!(vxorpd)(self, src1, src2, dst),
             Some(CpuFeature::SSE42) => sse_fn!(xorpd)(self, Precision::Double, src1, src2, dst),
             _ => {}
         }
+        Ok(())
     }
-    fn emit_vaddss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+    fn emit_vaddss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) -> Result<(), CodegenError> {
         match self.get_simd_arch() {
             Some(CpuFeature::AVX) => avx_fn!(vaddss)(self, src1, src2, dst),
             Some(CpuFeature::SSE42) => sse_fn!(addss)(self, Precision::Single, src1, src2, dst),
             _ => {}
         }
+        Ok(())
     }
-    fn emit_vaddsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+    fn emit_vaddsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) -> Result<(), CodegenError> {
         match self.get_simd_arch() {
             Some(CpuFeature::AVX) => avx_fn!(vaddsd)(self, src1, src2, dst),
             Some(CpuFeature::SSE42) => sse_fn!(addsd)(self, Precision::Double, src1, src2, dst),
             _ => {}
         }
+        Ok(())
     }
-    fn emit_vsubss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+    fn emit_vsubss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) -> Result<(), CodegenError> {
         match self.get_simd_arch() {
             Some(CpuFeature::AVX) => avx_fn!(vsubss)(self, src1, src2, dst),
             Some(CpuFeature::SSE42) => sse_fn!(subss)(self, Precision::Single, src1, src2, dst),
             _ => {}
         }
+        Ok(())
     }
-    fn emit_vsubsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+    fn emit_vsubsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) -> Result<(), CodegenError> {
         match self.get_simd_arch() {
             Some(CpuFeature::AVX) => avx_fn!(vsubsd)(self, src1, src2, dst),
             Some(CpuFeature::SSE42) => sse_fn!(subsd)(self, Precision::Double, src1, src2, dst),
             _ => {}
         }
+        Ok(())
     }
-    fn emit_vmulss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+    fn emit_vmulss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) -> Result<(), CodegenError> {
         match self.get_simd_arch() {
             Some(CpuFeature::AVX) => avx_fn!(vmulss)(self, src1, src2, dst),
             Some(CpuFeature::SSE42) => sse_fn!(mulss)(self, Precision::Single, src1, src2, dst),
             _ => {}
         }
+        Ok(())
     }
-    fn emit_vmulsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+    fn emit_vmulsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) -> Result<(), CodegenError> {
         match self.get_simd_arch() {
             Some(CpuFeature::AVX) => avx_fn!(vmulsd)(self, src1, src2, dst),
             Some(CpuFeature::SSE42) => sse_fn!(mulsd)(self, Precision::Double, src1, src2, dst),
             _ => {}
         }
+        Ok(())
     }
-    fn emit_vdivss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+    fn emit_vdivss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) -> Result<(), CodegenError> {
         match self.get_simd_arch() {
             Some(CpuFeature::AVX) => avx_fn!(vdivss)(self, src1, src2, dst),
             Some(CpuFeature::SSE42) => sse_fn!(divss)(self, Precision::Single, src1, src2, dst),
             _ => {}
         }
+        Ok(())
     }
-    fn emit_vdivsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+    fn emit_vdivsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) -> Result<(), CodegenError> {
         match self.get_simd_arch() {
             Some(CpuFeature::AVX) => avx_fn!(vdivsd)(self, src1, src2, dst),
             Some(CpuFeature::SSE42) => sse_fn!(divsd)(self, Precision::Double, src1, src2, dst),
             _ => {}
         }
+        Ok(())
     }
-    fn emit_vmaxss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+    fn emit_vmaxss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) -> Result<(), CodegenError> {
         match self.get_simd_arch() {
             Some(CpuFeature::AVX) => avx_fn!(vmaxss)(self, src1, src2, dst),
             Some(CpuFeature::SSE42) => sse_fn!(maxss)(self, Precision::Single, src1, src2, dst),
             _ => {}
         }
+        Ok(())
     }
-    fn emit_vmaxsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+    fn emit_vmaxsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) -> Result<(), CodegenError> {
         match self.get_simd_arch() {
             Some(CpuFeature::AVX) => avx_fn!(vmaxsd)(self, src1, src2, dst),
             Some(CpuFeature::SSE42) => sse_fn!(maxsd)(self, Precision::Double, src1, src2, dst),
             _ => {}
         }
+        Ok(())
     }
-    fn emit_vminss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+    fn emit_vminss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) -> Result<(), CodegenError> {
         match self.get_simd_arch() {
             Some(CpuFeature::AVX) => avx_fn!(vminss)(self, src1, src2, dst),
             Some(CpuFeature::SSE42) => sse_fn!(minss)(self, Precision::Single, src1, src2, dst),
             _ => {}
         }
+        Ok(())
     }
-    fn emit_vminsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+    fn emit_vminsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) -> Result<(), CodegenError> {
         match self.get_simd_arch() {
             Some(CpuFeature::AVX) => avx_fn!(vminsd)(self, src1, src2, dst),
             Some(CpuFeature::SSE42) => sse_fn!(minsd)(self, Precision::Double, src1, src2, dst),
             _ => {}
         }
+        Ok(())
     }
-    fn emit_vcmpeqss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+    fn emit_vcmpeqss(
+        &mut self,
+        src1: XMM,
+        src2: XMMOrMemory,
+        dst: XMM,
+    ) -> Result<(), CodegenError> {
         match self.get_simd_arch() {
             Some(CpuFeature::AVX) => avx_fn!(vcmpeqss)(self, src1, src2, dst),
             Some(CpuFeature::SSE42) => sse_fn!(cmpss, 0)(self, Precision::Single, src1, src2, dst),
             _ => {}
         }
+        Ok(())
     }
-    fn emit_vcmpeqsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+    fn emit_vcmpeqsd(
+        &mut self,
+        src1: XMM,
+        src2: XMMOrMemory,
+        dst: XMM,
+    ) -> Result<(), CodegenError> {
         match self.get_simd_arch() {
             Some(CpuFeature::AVX) => avx_fn!(vcmpeqsd)(self, src1, src2, dst),
             Some(CpuFeature::SSE42) => sse_fn!(cmpsd, 0)(self, Precision::Double, src1, src2, dst),
             _ => {}
         }
+        Ok(())
     }
-    fn emit_vcmpneqss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+    fn emit_vcmpneqss(
+        &mut self,
+        src1: XMM,
+        src2: XMMOrMemory,
+        dst: XMM,
+    ) -> Result<(), CodegenError> {
         match self.get_simd_arch() {
             Some(CpuFeature::AVX) => avx_fn!(vcmpneqss)(self, src1, src2, dst),
             Some(CpuFeature::SSE42) => sse_fn!(cmpss, 4)(self, Precision::Single, src1, src2, dst),
             _ => {}
         }
+        Ok(())
     }
-    fn emit_vcmpneqsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+    fn emit_vcmpneqsd(
+        &mut self,
+        src1: XMM,
+        src2: XMMOrMemory,
+        dst: XMM,
+    ) -> Result<(), CodegenError> {
         match self.get_simd_arch() {
             Some(CpuFeature::AVX) => avx_fn!(vcmpneqsd)(self, src1, src2, dst),
             Some(CpuFeature::SSE42) => sse_fn!(cmpsd, 4)(self, Precision::Double, src1, src2, dst),
             _ => {}
         }
+        Ok(())
     }
-    fn emit_vcmpltss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+    fn emit_vcmpltss(
+        &mut self,
+        src1: XMM,
+        src2: XMMOrMemory,
+        dst: XMM,
+    ) -> Result<(), CodegenError> {
         match self.get_simd_arch() {
             Some(CpuFeature::AVX) => avx_fn!(vcmpltss)(self, src1, src2, dst),
             Some(CpuFeature::SSE42) => sse_fn!(cmpss, 1)(self, Precision::Single, src1, src2, dst),
             _ => {}
         }
+        Ok(())
     }
-    fn emit_vcmpltsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+    fn emit_vcmpltsd(
+        &mut self,
+        src1: XMM,
+        src2: XMMOrMemory,
+        dst: XMM,
+    ) -> Result<(), CodegenError> {
         match self.get_simd_arch() {
             Some(CpuFeature::AVX) => avx_fn!(vcmpltsd)(self, src1, src2, dst),
             Some(CpuFeature::SSE42) => sse_fn!(cmpsd, 1)(self, Precision::Double, src1, src2, dst),
             _ => {}
         }
+        Ok(())
     }
-    fn emit_vcmpless(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+    fn emit_vcmpless(
+        &mut self,
+        src1: XMM,
+        src2: XMMOrMemory,
+        dst: XMM,
+    ) -> Result<(), CodegenError> {
         match self.get_simd_arch() {
             Some(CpuFeature::AVX) => avx_fn!(vcmpless)(self, src1, src2, dst),
             Some(CpuFeature::SSE42) => sse_fn!(cmpss, 2)(self, Precision::Single, src1, src2, dst),
             _ => {}
         }
+        Ok(())
     }
-    fn emit_vcmplesd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+    fn emit_vcmplesd(
+        &mut self,
+        src1: XMM,
+        src2: XMMOrMemory,
+        dst: XMM,
+    ) -> Result<(), CodegenError> {
         match self.get_simd_arch() {
             Some(CpuFeature::AVX) => avx_fn!(vcmplesd)(self, src1, src2, dst),
             Some(CpuFeature::SSE42) => sse_fn!(cmpsd, 2)(self, Precision::Double, src1, src2, dst),
             _ => {}
         }
+        Ok(())
     }
-    fn emit_vcmpgtss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+    fn emit_vcmpgtss(
+        &mut self,
+        src1: XMM,
+        src2: XMMOrMemory,
+        dst: XMM,
+    ) -> Result<(), CodegenError> {
         match self.get_simd_arch() {
             Some(CpuFeature::AVX) => avx_fn!(vcmpgtss)(self, src1, src2, dst),
             Some(CpuFeature::SSE42) => sse_fn!(cmpss, 6)(self, Precision::Single, src1, src2, dst),
             _ => {}
         }
+        Ok(())
     }
-    fn emit_vcmpgtsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+    fn emit_vcmpgtsd(
+        &mut self,
+        src1: XMM,
+        src2: XMMOrMemory,
+        dst: XMM,
+    ) -> Result<(), CodegenError> {
         match self.get_simd_arch() {
             Some(CpuFeature::AVX) => avx_fn!(vcmpgtsd)(self, src1, src2, dst),
             Some(CpuFeature::SSE42) => sse_fn!(cmpsd, 6)(self, Precision::Double, src1, src2, dst),
             _ => {}
         }
+        Ok(())
     }
-    fn emit_vcmpgess(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+    fn emit_vcmpgess(
+        &mut self,
+        src1: XMM,
+        src2: XMMOrMemory,
+        dst: XMM,
+    ) -> Result<(), CodegenError> {
         match self.get_simd_arch() {
             Some(CpuFeature::AVX) => avx_fn!(vcmpgess)(self, src1, src2, dst),
             Some(CpuFeature::SSE42) => sse_fn!(cmpss, 5)(self, Precision::Single, src1, src2, dst),
             _ => {}
         }
+        Ok(())
     }
-    fn emit_vcmpgesd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+    fn emit_vcmpgesd(
+        &mut self,
+        src1: XMM,
+        src2: XMMOrMemory,
+        dst: XMM,
+    ) -> Result<(), CodegenError> {
         match self.get_simd_arch() {
             Some(CpuFeature::AVX) => avx_fn!(vcmpgesd)(self, src1, src2, dst),
             Some(CpuFeature::SSE42) => sse_fn!(cmpsd, 5)(self, Precision::Double, src1, src2, dst),
             _ => {}
         }
+        Ok(())
     }
-    fn emit_vcmpunordss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+    fn emit_vcmpunordss(
+        &mut self,
+        src1: XMM,
+        src2: XMMOrMemory,
+        dst: XMM,
+    ) -> Result<(), CodegenError> {
         match self.get_simd_arch() {
             Some(CpuFeature::AVX) => avx_fn!(vcmpunordss)(self, src1, src2, dst),
             Some(CpuFeature::SSE42) => sse_fn!(cmpss, 3)(self, Precision::Single, src1, src2, dst),
             _ => {}
         }
+        Ok(())
     }
-    fn emit_vcmpunordsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+    fn emit_vcmpunordsd(
+        &mut self,
+        src1: XMM,
+        src2: XMMOrMemory,
+        dst: XMM,
+    ) -> Result<(), CodegenError> {
         match self.get_simd_arch() {
             Some(CpuFeature::AVX) => avx_fn!(vcmpunordsd)(self, src1, src2, dst),
             Some(CpuFeature::SSE42) => sse_fn!(cmpsd, 3)(self, Precision::Double, src1, src2, dst),
             _ => {}
         }
+        Ok(())
     }
-    fn emit_vcmpordss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+    fn emit_vcmpordss(
+        &mut self,
+        src1: XMM,
+        src2: XMMOrMemory,
+        dst: XMM,
+    ) -> Result<(), CodegenError> {
         match self.get_simd_arch() {
             Some(CpuFeature::AVX) => avx_fn!(vcmpordss)(self, src1, src2, dst),
             Some(CpuFeature::SSE42) => sse_fn!(cmpss, 7)(self, Precision::Single, src1, src2, dst),
             _ => {}
         }
+        Ok(())
     }
-    fn emit_vcmpordsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+    fn emit_vcmpordsd(
+        &mut self,
+        src1: XMM,
+        src2: XMMOrMemory,
+        dst: XMM,
+    ) -> Result<(), CodegenError> {
         match self.get_simd_arch() {
             Some(CpuFeature::AVX) => avx_fn!(vcmpordsd)(self, src1, src2, dst),
             Some(CpuFeature::SSE42) => sse_fn!(cmpsd, 7)(self, Precision::Double, src1, src2, dst),
             _ => {}
         }
+        Ok(())
     }
-    fn emit_vsqrtss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+    fn emit_vsqrtss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) -> Result<(), CodegenError> {
         match self.get_simd_arch() {
             Some(CpuFeature::AVX) => avx_fn!(vsqrtss)(self, src1, src2, dst),
             Some(CpuFeature::SSE42) => sse_fn!(sqrtss)(self, Precision::Single, src1, src2, dst),
             _ => {}
         }
+        Ok(())
     }
-    fn emit_vsqrtsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+    fn emit_vsqrtsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) -> Result<(), CodegenError> {
         match self.get_simd_arch() {
             Some(CpuFeature::AVX) => avx_fn!(vsqrtsd)(self, src1, src2, dst),
             Some(CpuFeature::SSE42) => sse_fn!(sqrtsd)(self, Precision::Double, src1, src2, dst),
             _ => {}
         }
+        Ok(())
     }
-    fn emit_vcvtss2sd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+    fn emit_vcvtss2sd(
+        &mut self,
+        src1: XMM,
+        src2: XMMOrMemory,
+        dst: XMM,
+    ) -> Result<(), CodegenError> {
         match self.get_simd_arch() {
             Some(CpuFeature::AVX) => avx_fn!(vcvtss2sd)(self, src1, src2, dst),
             Some(CpuFeature::SSE42) => sse_fn!(cvtss2sd)(self, Precision::Single, src1, src2, dst),
             _ => {}
         }
+        Ok(())
     }
-    fn emit_vcvtsd2ss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+    fn emit_vcvtsd2ss(
+        &mut self,
+        src1: XMM,
+        src2: XMMOrMemory,
+        dst: XMM,
+    ) -> Result<(), CodegenError> {
         match self.get_simd_arch() {
             Some(CpuFeature::AVX) => avx_fn!(vcvtsd2ss)(self, src1, src2, dst),
             Some(CpuFeature::SSE42) => sse_fn!(cvtsd2ss)(self, Precision::Double, src1, src2, dst),
             _ => {}
         }
+        Ok(())
     }
-    fn emit_vroundss_nearest(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+    fn emit_vroundss_nearest(
+        &mut self,
+        src1: XMM,
+        src2: XMMOrMemory,
+        dst: XMM,
+    ) -> Result<(), CodegenError> {
         match self.get_simd_arch() {
             Some(CpuFeature::AVX) => avx_round_fn!(vroundss, 0)(self, src1, src2, dst),
             Some(CpuFeature::SSE42) => {
@@ -1640,8 +2011,14 @@ impl EmitterX64 for AssemblerX64 {
             }
             _ => {}
         }
+        Ok(())
     }
-    fn emit_vroundsd_nearest(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+    fn emit_vroundsd_nearest(
+        &mut self,
+        src1: XMM,
+        src2: XMMOrMemory,
+        dst: XMM,
+    ) -> Result<(), CodegenError> {
         match self.get_simd_arch() {
             Some(CpuFeature::AVX) => avx_round_fn!(vroundsd, 0)(self, src1, src2, dst),
             Some(CpuFeature::SSE42) => {
@@ -1649,8 +2026,14 @@ impl EmitterX64 for AssemblerX64 {
             }
             _ => {}
         }
+        Ok(())
     }
-    fn emit_vroundss_floor(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+    fn emit_vroundss_floor(
+        &mut self,
+        src1: XMM,
+        src2: XMMOrMemory,
+        dst: XMM,
+    ) -> Result<(), CodegenError> {
         match self.get_simd_arch() {
             Some(CpuFeature::AVX) => avx_round_fn!(vroundss, 1)(self, src1, src2, dst),
             Some(CpuFeature::SSE42) => {
@@ -1658,8 +2041,14 @@ impl EmitterX64 for AssemblerX64 {
             }
             _ => {}
         }
+        Ok(())
     }
-    fn emit_vroundsd_floor(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+    fn emit_vroundsd_floor(
+        &mut self,
+        src1: XMM,
+        src2: XMMOrMemory,
+        dst: XMM,
+    ) -> Result<(), CodegenError> {
         match self.get_simd_arch() {
             Some(CpuFeature::AVX) => avx_round_fn!(vroundsd, 1)(self, src1, src2, dst),
             Some(CpuFeature::SSE42) => {
@@ -1667,8 +2056,14 @@ impl EmitterX64 for AssemblerX64 {
             }
             _ => {}
         }
+        Ok(())
     }
-    fn emit_vroundss_ceil(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+    fn emit_vroundss_ceil(
+        &mut self,
+        src1: XMM,
+        src2: XMMOrMemory,
+        dst: XMM,
+    ) -> Result<(), CodegenError> {
         match self.get_simd_arch() {
             Some(CpuFeature::AVX) => avx_round_fn!(vroundss, 2)(self, src1, src2, dst),
             Some(CpuFeature::SSE42) => {
@@ -1676,8 +2071,14 @@ impl EmitterX64 for AssemblerX64 {
             }
             _ => {}
         }
+        Ok(())
     }
-    fn emit_vroundsd_ceil(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+    fn emit_vroundsd_ceil(
+        &mut self,
+        src1: XMM,
+        src2: XMMOrMemory,
+        dst: XMM,
+    ) -> Result<(), CodegenError> {
         match self.get_simd_arch() {
             Some(CpuFeature::AVX) => avx_round_fn!(vroundsd, 2)(self, src1, src2, dst),
             Some(CpuFeature::SSE42) => {
@@ -1685,8 +2086,14 @@ impl EmitterX64 for AssemblerX64 {
             }
             _ => {}
         }
+        Ok(())
     }
-    fn emit_vroundss_trunc(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+    fn emit_vroundss_trunc(
+        &mut self,
+        src1: XMM,
+        src2: XMMOrMemory,
+        dst: XMM,
+    ) -> Result<(), CodegenError> {
         match self.get_simd_arch() {
             Some(CpuFeature::AVX) => avx_round_fn!(vroundss, 3)(self, src1, src2, dst),
             Some(CpuFeature::SSE42) => {
@@ -1694,8 +2101,14 @@ impl EmitterX64 for AssemblerX64 {
             }
             _ => {}
         }
+        Ok(())
     }
-    fn emit_vroundsd_trunc(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+    fn emit_vroundsd_trunc(
+        &mut self,
+        src1: XMM,
+        src2: XMMOrMemory,
+        dst: XMM,
+    ) -> Result<(), CodegenError> {
         match self.get_simd_arch() {
             Some(CpuFeature::AVX) => avx_round_fn!(vroundsd, 3)(self, src1, src2, dst),
             Some(CpuFeature::SSE42) => {
@@ -1703,8 +2116,14 @@ impl EmitterX64 for AssemblerX64 {
             }
             _ => {}
         }
+        Ok(())
     }
-    fn emit_vcvtsi2ss_32(&mut self, src1: XMM, src2: GPROrMemory, dst: XMM) {
+    fn emit_vcvtsi2ss_32(
+        &mut self,
+        src1: XMM,
+        src2: GPROrMemory,
+        dst: XMM,
+    ) -> Result<(), CodegenError> {
         match self.get_simd_arch() {
             Some(CpuFeature::AVX) => avx_i2f_32_fn!(vcvtsi2ss)(self, src1, src2, dst),
             Some(CpuFeature::SSE42) => {
@@ -1712,8 +2131,14 @@ impl EmitterX64 for AssemblerX64 {
             }
             _ => {}
         }
+        Ok(())
     }
-    fn emit_vcvtsi2sd_32(&mut self, src1: XMM, src2: GPROrMemory, dst: XMM) {
+    fn emit_vcvtsi2sd_32(
+        &mut self,
+        src1: XMM,
+        src2: GPROrMemory,
+        dst: XMM,
+    ) -> Result<(), CodegenError> {
         match self.get_simd_arch() {
             Some(CpuFeature::AVX) => avx_i2f_32_fn!(vcvtsi2sd)(self, src1, src2, dst),
             Some(CpuFeature::SSE42) => {
@@ -1721,8 +2146,14 @@ impl EmitterX64 for AssemblerX64 {
             }
             _ => {}
         }
+        Ok(())
     }
-    fn emit_vcvtsi2ss_64(&mut self, src1: XMM, src2: GPROrMemory, dst: XMM) {
+    fn emit_vcvtsi2ss_64(
+        &mut self,
+        src1: XMM,
+        src2: GPROrMemory,
+        dst: XMM,
+    ) -> Result<(), CodegenError> {
         match self.get_simd_arch() {
             Some(CpuFeature::AVX) => avx_i2f_64_fn!(vcvtsi2ss)(self, src1, src2, dst),
             Some(CpuFeature::SSE42) => {
@@ -1730,8 +2161,14 @@ impl EmitterX64 for AssemblerX64 {
             }
             _ => {}
         }
+        Ok(())
     }
-    fn emit_vcvtsi2sd_64(&mut self, src1: XMM, src2: GPROrMemory, dst: XMM) {
+    fn emit_vcvtsi2sd_64(
+        &mut self,
+        src1: XMM,
+        src2: GPROrMemory,
+        dst: XMM,
+    ) -> Result<(), CodegenError> {
         match self.get_simd_arch() {
             Some(CpuFeature::AVX) => avx_i2f_64_fn!(vcvtsi2sd)(self, src1, src2, dst),
             Some(CpuFeature::SSE42) => {
@@ -1739,9 +2176,16 @@ impl EmitterX64 for AssemblerX64 {
             }
             _ => {}
         }
+        Ok(())
     }
 
-    fn emit_vblendvps(&mut self, src1: XMM, src2: XMMOrMemory, mask: XMM, dst: XMM) {
+    fn emit_vblendvps(
+        &mut self,
+        src1: XMM,
+        src2: XMMOrMemory,
+        mask: XMM,
+        dst: XMM,
+    ) -> Result<(), CodegenError> {
         // this implementation works only for sse 4.1 and greater
         match self.get_simd_arch() {
             Some(CpuFeature::AVX) => match src2 {
@@ -1765,9 +2209,16 @@ impl EmitterX64 for AssemblerX64 {
             },
             _ => {}
         }
+        Ok(())
     }
 
-    fn emit_vblendvpd(&mut self, src1: XMM, src2: XMMOrMemory, mask: XMM, dst: XMM) {
+    fn emit_vblendvpd(
+        &mut self,
+        src1: XMM,
+        src2: XMMOrMemory,
+        mask: XMM,
+        dst: XMM,
+    ) -> Result<(), CodegenError> {
         // this implementation works only for sse 4.1 and greater
         match self.get_simd_arch() {
             Some(CpuFeature::AVX) => match src2 {
@@ -1791,101 +2242,116 @@ impl EmitterX64 for AssemblerX64 {
             },
             _ => {}
         }
+        Ok(())
     }
 
-    fn emit_ucomiss(&mut self, src: XMMOrMemory, dst: XMM) {
+    fn emit_ucomiss(&mut self, src: XMMOrMemory, dst: XMM) -> Result<(), CodegenError> {
         match src {
             XMMOrMemory::XMM(x) => dynasm!(self ; ucomiss Rx(dst as u8), Rx(x as u8)),
             XMMOrMemory::Memory(base, disp) => {
                 dynasm!(self ; ucomiss Rx(dst as u8), [Rq(base as u8) + disp])
             }
         }
+        Ok(())
     }
 
-    fn emit_ucomisd(&mut self, src: XMMOrMemory, dst: XMM) {
+    fn emit_ucomisd(&mut self, src: XMMOrMemory, dst: XMM) -> Result<(), CodegenError> {
         match src {
             XMMOrMemory::XMM(x) => dynasm!(self ; ucomisd Rx(dst as u8), Rx(x as u8)),
             XMMOrMemory::Memory(base, disp) => {
                 dynasm!(self ; ucomisd Rx(dst as u8), [Rq(base as u8) + disp])
             }
         }
+        Ok(())
     }
 
-    fn emit_cvttss2si_32(&mut self, src: XMMOrMemory, dst: GPR) {
+    fn emit_cvttss2si_32(&mut self, src: XMMOrMemory, dst: GPR) -> Result<(), CodegenError> {
         match src {
             XMMOrMemory::XMM(x) => dynasm!(self ; cvttss2si Rd(dst as u8), Rx(x as u8)),
             XMMOrMemory::Memory(base, disp) => {
                 dynasm!(self ; cvttss2si Rd(dst as u8), [Rq(base as u8) + disp])
             }
         }
+        Ok(())
     }
 
-    fn emit_cvttss2si_64(&mut self, src: XMMOrMemory, dst: GPR) {
+    fn emit_cvttss2si_64(&mut self, src: XMMOrMemory, dst: GPR) -> Result<(), CodegenError> {
         match src {
             XMMOrMemory::XMM(x) => dynasm!(self ; cvttss2si Rq(dst as u8), Rx(x as u8)),
             XMMOrMemory::Memory(base, disp) => {
                 dynasm!(self ; cvttss2si Rq(dst as u8), [Rq(base as u8) + disp])
             }
         }
+        Ok(())
     }
 
-    fn emit_cvttsd2si_32(&mut self, src: XMMOrMemory, dst: GPR) {
+    fn emit_cvttsd2si_32(&mut self, src: XMMOrMemory, dst: GPR) -> Result<(), CodegenError> {
         match src {
             XMMOrMemory::XMM(x) => dynasm!(self ; cvttsd2si Rd(dst as u8), Rx(x as u8)),
             XMMOrMemory::Memory(base, disp) => {
                 dynasm!(self ; cvttsd2si Rd(dst as u8), [Rq(base as u8) + disp])
             }
         }
+        Ok(())
     }
 
-    fn emit_cvttsd2si_64(&mut self, src: XMMOrMemory, dst: GPR) {
+    fn emit_cvttsd2si_64(&mut self, src: XMMOrMemory, dst: GPR) -> Result<(), CodegenError> {
         match src {
             XMMOrMemory::XMM(x) => dynasm!(self ; cvttsd2si Rq(dst as u8), Rx(x as u8)),
             XMMOrMemory::Memory(base, disp) => {
                 dynasm!(self ; cvttsd2si Rq(dst as u8), [Rq(base as u8) + disp])
             }
         }
+        Ok(())
     }
 
-    fn emit_test_gpr_64(&mut self, reg: GPR) {
+    fn emit_test_gpr_64(&mut self, reg: GPR) -> Result<(), CodegenError> {
         dynasm!(self ; test Rq(reg as u8), Rq(reg as u8));
+        Ok(())
     }
 
-    fn emit_ud2(&mut self) {
+    fn emit_ud2(&mut self) -> Result<(), CodegenError> {
         dynasm!(self ; ud2);
+        Ok(())
     }
-    fn emit_ud1_payload(&mut self, payload: u8) {
+    fn emit_ud1_payload(&mut self, payload: u8) -> Result<(), CodegenError> {
         assert!(payload & 0xf0 == 0);
         dynasm!(self ; ud1 Rd((payload>>3)&1), Rd(payload&7));
+        Ok(())
     }
-    fn emit_ret(&mut self) {
+    fn emit_ret(&mut self) -> Result<(), CodegenError> {
         dynasm!(self ; ret);
+        Ok(())
     }
 
-    fn emit_call_label(&mut self, label: Label) {
+    fn emit_call_label(&mut self, label: Label) -> Result<(), CodegenError> {
         dynasm!(self ; call =>label);
+        Ok(())
     }
-    fn emit_call_location(&mut self, loc: Location) {
+    fn emit_call_location(&mut self, loc: Location) -> Result<(), CodegenError> {
         match loc {
             Location::GPR(x) => dynasm!(self ; call Rq(x as u8)),
             Location::Memory(base, disp) => dynasm!(self ; call QWORD [Rq(base as u8) + disp]),
-            _ => panic!("singlepass can't emit CALL {:?}", loc),
+            _ => codegen_error!("singlepass can't emit CALL {:?}", loc),
         }
+        Ok(())
     }
 
-    fn emit_call_register(&mut self, reg: GPR) {
+    fn emit_call_register(&mut self, reg: GPR) -> Result<(), CodegenError> {
         dynasm!(self ; call Rq(reg as u8));
+        Ok(())
     }
 
-    fn emit_bkpt(&mut self) {
+    fn emit_bkpt(&mut self) -> Result<(), CodegenError> {
         dynasm!(self ; int3);
+        Ok(())
     }
 
-    fn emit_host_redirection(&mut self, target: GPR) {
-        self.emit_jmp_location(Location::GPR(target));
+    fn emit_host_redirection(&mut self, target: GPR) -> Result<(), CodegenError> {
+        self.emit_jmp_location(Location::GPR(target))
     }
 
-    fn arch_mov64_imm_offset(&self) -> usize {
-        2
+    fn arch_mov64_imm_offset(&self) -> Result<usize, CodegenError> {
+        Ok(2)
     }
 }
