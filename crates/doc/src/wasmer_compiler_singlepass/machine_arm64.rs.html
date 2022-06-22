@@ -6948,8 +6948,8 @@
                 <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_sub</span>(
                     <span class="ident">Size::S64</span>,
                     <span class="ident">Location::GPR</span>(<span class="ident">tmp_bound</span>),
-                    <span class="ident">Location::GPR</span>(<span class="ident">tmp_bound</span>),
                     <span class="ident">Location::Imm32</span>(<span class="ident">value_size</span> <span class="kw">as</span> <span class="kw">_</span>),
+                    <span class="ident">Location::GPR</span>(<span class="ident">tmp_bound</span>),
                 )<span class="question-mark">?</span>;
             } <span class="kw">else</span> {
                 <span class="kw">let</span> <span class="ident">tmp2</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">acquire_temp_gpr</span>().<span class="ident">ok_or</span>(<span class="ident">CodegenError</span> {
