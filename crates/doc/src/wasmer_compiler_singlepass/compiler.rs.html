@@ -352,6 +352,16 @@
 <span id="350">350</span>
 <span id="351">351</span>
 <span id="352">352</span>
+<span id="353">353</span>
+<span id="354">354</span>
+<span id="355">355</span>
+<span id="356">356</span>
+<span id="357">357</span>
+<span id="358">358</span>
+<span id="359">359</span>
+<span id="360">360</span>
+<span id="361">361</span>
+<span id="362">362</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Support for compiling with Singlepass.</span>
 <span class="comment">// Allow unused imports while developing.</span>
 <span class="attribute">#![<span class="ident">allow</span>(<span class="ident">unused_imports</span>, <span class="ident">dead_code</span>)]</span>
@@ -386,6 +396,12 @@
     <span class="ident">CompileError</span>, <span class="ident">FunctionIndex</span>, <span class="ident">FunctionType</span>, <span class="ident">LocalFunctionIndex</span>, <span class="ident">MemoryIndex</span>, <span class="ident">ModuleInfo</span>,
     <span class="ident">SectionIndex</span>, <span class="ident">TableIndex</span>, <span class="ident">TrapCode</span>, <span class="ident">VMOffsets</span>,
 };
+
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">CodegenError</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">CompileError</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">err</span>: <span class="ident">CodegenError</span>) -&gt; <span class="self">Self</span> {
+        <span class="ident"><span class="self">Self</span>::Codegen</span>(<span class="ident">err</span>.<span class="ident">message</span>)
+    }
+}
 
 <span class="doccomment">/// A compiler that compiles a WebAssembly module with Singlepass.</span>
 <span class="doccomment">/// It does the compilation in one pass</span>
@@ -448,7 +464,11 @@
             <span class="prelude-val">Ok</span>(<span class="ident">CallingConvention::WindowsFastcall</span>) =&gt; <span class="ident">CallingConvention::WindowsFastcall</span>,
             <span class="prelude-val">Ok</span>(<span class="ident">CallingConvention::SystemV</span>) =&gt; <span class="ident">CallingConvention::SystemV</span>,
             <span class="prelude-val">Ok</span>(<span class="ident">CallingConvention::AppleAarch64</span>) =&gt; <span class="ident">CallingConvention::AppleAarch64</span>,
-            <span class="kw">_</span> =&gt; <span class="macro">panic!</span>(<span class="string">&quot;Unsupported Calling convention for Singlepass compiler&quot;</span>),
+            <span class="kw">_</span> =&gt; {
+                <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CompileError::UnsupportedTarget</span>(
+                    <span class="string">&quot;Unsupported Calling convention for Singlepass compiler&quot;</span>.<span class="ident">to_string</span>(),
+                ))
+            }
         };
 
         <span class="comment">// Generate the frametable</span>
@@ -538,7 +558,7 @@
                             <span class="ident">generator</span>.<span class="ident">feed_operator</span>(<span class="ident">op</span>).<span class="ident">map_err</span>(<span class="ident">to_compile_error</span>)<span class="question-mark">?</span>;
                         }
 
-                        <span class="prelude-val">Ok</span>(<span class="ident">generator</span>.<span class="ident">finalize</span>(<span class="ident">input</span>))
+                        <span class="ident">generator</span>.<span class="ident">finalize</span>(<span class="ident">input</span>).<span class="ident">map_err</span>(<span class="ident">to_compile_error</span>)
                     }
                     <span class="ident">Architecture::Aarch64</span>(<span class="kw">_</span>) =&gt; {
                         <span class="kw">let</span> <span class="ident">machine</span> <span class="op">=</span> <span class="ident">MachineARM64::new</span>();
@@ -560,7 +580,7 @@
                             <span class="ident">generator</span>.<span class="ident">feed_operator</span>(<span class="ident">op</span>).<span class="ident">map_err</span>(<span class="ident">to_compile_error</span>)<span class="question-mark">?</span>;
                         }
 
-                        <span class="prelude-val">Ok</span>(<span class="ident">generator</span>.<span class="ident">finalize</span>(<span class="ident">input</span>))
+                        <span class="ident">generator</span>.<span class="ident">finalize</span>(<span class="ident">input</span>).<span class="ident">map_err</span>(<span class="ident">to_compile_error</span>)
                     }
                     <span class="kw">_</span> =&gt; <span class="macro">unimplemented!</span>(),
                 }
