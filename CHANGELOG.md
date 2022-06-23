@@ -9,7 +9,8 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 ## **Unreleased**
 
 ### Changed
-- #2946 Remove dylib,staticlib engines in favor of a single Universal engine
+- [#2971](https://github.com/wasmerio/wasmer/pull/2971) Allow `--invoke` CLI option for Emscripten files without a `main` function
+- [#2946](https://github.com/wasmerio/wasmer/pull/2946) Remove dylib,staticlib engines in favor of a single Universal engine
 - [#2949](https://github.com/wasmerio/wasmer/pull/2949) Switch back to using custom LLVM builds on CI
 
 ### Fixed
