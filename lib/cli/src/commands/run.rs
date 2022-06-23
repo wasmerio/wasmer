@@ -137,7 +137,7 @@ impl Run {
                         self.path.to_str().unwrap()
                     },
                     self.args.iter().map(|arg| arg.as_str()).collect(),
-                    None, //run.em_entrypoint.clone(),
+                    self.invoke.clone(),
                 )?;
                 return Ok(());
             }
