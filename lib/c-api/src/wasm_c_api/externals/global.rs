@@ -1,10 +1,13 @@
+use super::super::context::wasm_context_t;
 use super::super::store::wasm_store_t;
 use super::super::types::wasm_globaltype_t;
 use super::super::value::wasm_val_t;
 use super::CApiExternTag;
 use crate::error::update_last_error;
+use std::cell::RefCell;
 use std::convert::TryInto;
-use wasmer_api::{Global, Val};
+use std::rc::Rc;
+use wasmer_api::{Global, Value};
 
 #[allow(non_camel_case_types)]
 #[repr(C)]
@@ -12,6 +15,7 @@ use wasmer_api::{Global, Val};
 pub struct wasm_global_t {
     pub(crate) tag: CApiExternTag,
     pub(crate) inner: Box<Global>,
+    pub(crate) context: Option<Rc<RefCell<wasm_context_t>>>,
 }
 
 impl wasm_global_t {
@@ -19,6 +23,7 @@ impl wasm_global_t {
         Self {
             tag: CApiExternTag::Global,
             inner: Box::new(global),
+            context: None,
         }
     }
 }
@@ -29,20 +34,25 @@ pub unsafe extern "C" fn wasm_global_new(
     global_type: Option<&wasm_globaltype_t>,
     val: Option<&wasm_val_t>,
 ) -> Option<Box<wasm_global_t>> {
-    let store = store?;
     let global_type = global_type?;
+    let store = store?;
+    if store.context.is_none() {
+        crate::error::update_last_error(wasm_store_t::CTX_ERR_STR);
+    }
+    let mut ctx = store.context.as_ref()?.borrow_mut();
     let val = val?;
 
     let global_type = &global_type.inner().global_type;
     let wasm_val = val.try_into().ok()?;
-    let store = &store.inner;
     let global = if global_type.mutability.is_mutable() {
-        Global::new_mut(store, wasm_val)
+        Global::new_mut(&mut ctx.inner, wasm_val)
     } else {
-        Global::new(store, wasm_val)
+        Global::new(&mut ctx.inner, wasm_val)
     };
+    let mut retval = Box::new(wasm_global_t::new(global));
+    retval.context = store.context.clone();
 
-    Some(Box::new(wasm_global_t::new(global)))
+    Some(retval)
 }
 
 #[no_mangle]
@@ -60,32 +70,47 @@ pub unsafe extern "C" fn wasm_global_get(
     // own
     out: &mut wasm_val_t,
 ) {
-    let value = global.inner.get();
-    *out = value.try_into().unwrap();
+    match global.context.as_ref() {
+        Some(ctx) => {
+            let value = global.inner.get(&mut ctx.borrow_mut().inner);
+            *out = value.try_into().unwrap();
+        }
+        None => {
+            crate::error::update_last_error(wasm_store_t::CTX_ERR_STR);
+        }
+    }
 }
 
 /// Note: This function returns nothing by design but it can raise an
 /// error if setting a new value fails.
 #[no_mangle]
 pub unsafe extern "C" fn wasm_global_set(global: &mut wasm_global_t, val: &wasm_val_t) {
-    let value: Val = val.try_into().unwrap();
+    match global.context.as_ref() {
+        Some(ctx) => {
+            let value: Value = val.try_into().unwrap();
 
-    if let Err(e) = global.inner.set(value) {
-        update_last_error(e);
+            if let Err(e) = global.inner.set(&mut ctx.borrow_mut().inner, value) {
+                update_last_error(e);
+            }
+        }
+        None => {
+            crate::error::update_last_error(wasm_store_t::CTX_ERR_STR);
+        }
     }
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn wasm_global_same(
-    wasm_global1: &wasm_global_t,
-    wasm_global2: &wasm_global_t,
-) -> bool {
-    wasm_global1.inner.same(&wasm_global2.inner)
-}
-
-#[no_mangle]
-pub extern "C" fn wasm_global_type(global: &wasm_global_t) -> Box<wasm_globaltype_t> {
-    Box::new(wasm_globaltype_t::new(*global.inner.ty()))
+pub extern "C" fn wasm_global_type(
+    global: Option<&wasm_global_t>,
+) -> Option<Box<wasm_globaltype_t>> {
+    let global = global?;
+    if global.context.is_none() {
+        crate::error::update_last_error(wasm_store_t::CTX_ERR_STR);
+    }
+    let ctx = global.context.as_ref()?.borrow();
+    Some(Box::new(wasm_globaltype_t::new(
+        global.inner.ty(&ctx.inner),
+    )))
 }
 
 #[cfg(test)]
@@ -100,6 +125,8 @@ mod tests {
             int main() {
                 wasm_engine_t* engine = wasm_engine_new();
                 wasm_store_t* store = wasm_store_new(engine);
+                wasm_context_t* ctx = wasm_context_new(store, 0);
+                wasm_store_context_set(store, ctx);
 
                 wasm_val_t forty_two = WASM_F32_VAL(42);
                 wasm_val_t forty_three = WASM_F32_VAL(43);
@@ -132,6 +159,8 @@ mod tests {
             int main() {
                 wasm_engine_t* engine = wasm_engine_new();
                 wasm_store_t* store = wasm_store_new(engine);
+                wasm_context_t* ctx = wasm_context_new(store, 0);
+                wasm_store_context_set(store, ctx);
 
                 wasm_byte_vec_t wat;
                 wasmer_byte_vec_new_from_string(&wat, "(module (global $global (export \"global\") f32 (f32.const 1)))");

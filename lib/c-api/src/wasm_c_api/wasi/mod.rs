@@ -14,7 +14,7 @@ use std::convert::TryFrom;
 use std::ffi::CStr;
 use std::os::raw::c_char;
 use std::slice;
-use wasmer_api::{Exportable, Extern};
+use wasmer_api::{AsContextMut, Extern};
 use wasmer_wasi::{
     generate_import_object_from_ctx, get_wasi_version, Pipe, WasiEnv, WasiFile, WasiState,
     WasiStateBuilder, WasiVersion,
@@ -322,28 +322,28 @@ pub unsafe extern "C" fn wasi_get_wasi_version(module: &wasm_module_t) -> wasi_v
 pub unsafe extern "C" fn wasi_get_imports(
     store: Option<&wasm_store_t>,
     module: Option<&wasm_module_t>,
-    wasi_env: Option<&wasi_env_t>,
     imports: &mut wasm_extern_vec_t,
 ) -> bool {
-    wasi_get_imports_inner(store, module, wasi_env, imports).is_some()
+    wasi_get_imports_inner(store, module, imports).is_some()
 }
 
 fn wasi_get_imports_inner(
     store: Option<&wasm_store_t>,
     module: Option<&wasm_module_t>,
-    wasi_env: Option<&wasi_env_t>,
     imports: &mut wasm_extern_vec_t,
 ) -> Option<()> {
     let store = store?;
+    if store.context.is_none() {
+        crate::error::update_last_error(wasm_store_t::CTX_ERR_STR);
+    }
+    let mut ctx = store.context.as_ref()?.borrow_mut();
     let module = module?;
-    let wasi_env = wasi_env?;
-
-    let store = &store.inner;
 
     let version = c_try!(get_wasi_version(&module.inner, false)
         .ok_or("could not detect a WASI version on the given module"));
 
-    let import_object = generate_import_object_from_ctx(store, wasi_env.inner.clone(), version);
+    let inner = unsafe { ctx.inner.transmute_data::<wasmer_wasi::WasiEnv>() };
+    let import_object = generate_import_object_from_ctx(&mut inner.as_context_mut(), version);
 
     imports.set_buffer(c_try!(module
         .inner
@@ -358,7 +358,7 @@ fn wasi_get_imports_inner(
                         import_type.name()
                     )
                 })?;
-            let inner = Extern::from_vm_export(store, ext.to_vm_extern());
+            let inner = Extern::from_vm_extern(&mut ctx.inner, ext.to_vm_extern());
 
             Ok(Some(Box::new(inner.into())))
         })
@@ -388,6 +388,7 @@ mod tests {
             int main() {
                 wasm_engine_t* engine = wasm_engine_new();
                 wasm_store_t* store = wasm_store_new(engine);
+                wasm_context_t* ctx = wasm_context_new(store, 0);
 
                 wasm_byte_vec_t wat;
                 wasmer_byte_vec_new_from_string(&wat, "(module (import \"wasi_unstable\" \"args_get\" (func (param i32 i32) (result i32))))");
@@ -402,6 +403,7 @@ mod tests {
                 wasm_module_delete(module);
                 wasm_byte_vec_delete(&wasm);
                 wasm_byte_vec_delete(&wat);
+                wasm_context_delete(ctx);
                 wasm_store_delete(store);
                 wasm_engine_delete(engine);
 
@@ -419,6 +421,7 @@ mod tests {
             int main() {
                 wasm_engine_t* engine = wasm_engine_new();
                 wasm_store_t* store = wasm_store_new(engine);
+                wasm_context_t* ctx = wasm_context_new(store, 0);
 
                 wasm_byte_vec_t wat;
                 wasmer_byte_vec_new_from_string(&wat, "(module (import \"wasi_snapshot_preview1\" \"args_get\" (func (param i32 i32) (result i32))))");
@@ -433,6 +436,7 @@ mod tests {
                 wasm_module_delete(module);
                 wasm_byte_vec_delete(&wasm);
                 wasm_byte_vec_delete(&wat);
+                wasm_context_delete(ctx);
                 wasm_store_delete(store);
                 wasm_engine_delete(engine);
 
@@ -450,6 +454,7 @@ mod tests {
             int main() {
                 wasm_engine_t* engine = wasm_engine_new();
                 wasm_store_t* store = wasm_store_new(engine);
+                wasm_context_t* ctx = wasm_context_new(store, 0);
 
                 wasm_byte_vec_t wat;
                 wasmer_byte_vec_new_from_string(&wat, "(module (import \"wasi_snpsht_prvw1\" \"args_get\" (func (param i32 i32) (result i32))))");
@@ -464,6 +469,7 @@ mod tests {
                 wasm_module_delete(module);
                 wasm_byte_vec_delete(&wasm);
                 wasm_byte_vec_delete(&wat);
+                wasm_context_delete(ctx);
                 wasm_store_delete(store);
                 wasm_engine_delete(engine);
 

@@ -1,6 +1,7 @@
 use super::{wasm_externtype_t, wasm_valtype_vec_t, WasmExternType};
 use std::fmt;
-use wasmer_api::{ExternType, FunctionType, ValType};
+use wasmer_api::{ExternType, FunctionType};
+use wasmer_types::Type;
 
 pub(crate) struct WasmFunctionType {
     pub(crate) function_type: FunctionType,
@@ -76,12 +77,12 @@ pub unsafe extern "C" fn wasm_functype_new(
     let params = params?;
     let results = results?;
 
-    let params_as_valtype: Vec<ValType> = params
+    let params_as_valtype: Vec<Type> = params
         .take()
         .into_iter()
         .map(|val| val.as_ref().unwrap().as_ref().into())
         .collect::<Vec<_>>();
-    let results_as_valtype: Vec<ValType> = results
+    let results_as_valtype: Vec<Type> = results
         .take()
         .into_iter()
         .map(|val| val.as_ref().unwrap().as_ref().into())

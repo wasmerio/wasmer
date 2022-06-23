@@ -9,7 +9,7 @@
 
 // A function to be called from Wasm code.
 auto callback(
-  const wasm::vec<wasm::Val>& args, wasm::vec<wasm::Val>& results
+  const wasm::vec<wasm::Value>& args, wasm::vec<wasm::Value>& results
 ) -> wasm::own<wasm::Trap> {
   std::cout << "Calling back..." << std::endl;
   std::cout << "> " << (args[0].ref() ? args[0].ref()->get_host_info() : nullptr) << std::endl;
@@ -45,8 +45,8 @@ auto get_export_table(wasm::ownvec<wasm::Extern>& exports, size_t i) -> wasm::Ta
 
 void call_r_v(const wasm::Func* func, const wasm::Ref* ref) {
   std::cout << "call_r_v... " << std::flush;
-  auto args = wasm::vec<wasm::Val>::make(wasm::Val::ref(ref ? ref->copy() : wasm::own<wasm::Ref>()));
-  auto results = wasm::vec<wasm::Val>::make();
+  auto args = wasm::vec<wasm::Value>::make(wasm::Value::ref(ref ? ref->copy() : wasm::own<wasm::Ref>()));
+  auto results = wasm::vec<wasm::Value>::make();
   if (func->call(args, results)) {
     std::cout << "> Error calling function!" << std::endl;
     exit(1);
@@ -56,8 +56,8 @@ void call_r_v(const wasm::Func* func, const wasm::Ref* ref) {
 
 auto call_v_r(const wasm::Func* func) -> wasm::own<wasm::Ref> {
   std::cout << "call_v_r... " << std::flush;
-  auto args = wasm::vec<wasm::Val>::make();
-  auto results = wasm::vec<wasm::Val>::make_uninitialized(1);
+  auto args = wasm::vec<wasm::Value>::make();
+  auto results = wasm::vec<wasm::Value>::make_uninitialized(1);
   if (func->call(args, results)) {
     std::cout << "> Error calling function!" << std::endl;
     exit(1);
@@ -68,8 +68,8 @@ auto call_v_r(const wasm::Func* func) -> wasm::own<wasm::Ref> {
 
 auto call_r_r(const wasm::Func* func, const wasm::Ref* ref) -> wasm::own<wasm::Ref> {
   std::cout << "call_r_r... " << std::flush;
-  auto args = wasm::vec<wasm::Val>::make(wasm::Val::ref(ref ? ref->copy() : wasm::own<wasm::Ref>()));
-  auto results = wasm::vec<wasm::Val>::make_uninitialized(1);
+  auto args = wasm::vec<wasm::Value>::make(wasm::Value::ref(ref ? ref->copy() : wasm::own<wasm::Ref>()));
+  auto results = wasm::vec<wasm::Value>::make_uninitialized(1);
   if (func->call(args, results)) {
     std::cout << "> Error calling function!" << std::endl;
     exit(1);
@@ -80,9 +80,9 @@ auto call_r_r(const wasm::Func* func, const wasm::Ref* ref) -> wasm::own<wasm::R
 
 void call_ir_v(const wasm::Func* func, int32_t i, const wasm::Ref* ref) {
   std::cout << "call_ir_v... " << std::flush;
-  auto args = wasm::vec<wasm::Val>::make(
-    wasm::Val::i32(i), wasm::Val::ref(ref ? ref->copy() : wasm::own<wasm::Ref>()));
-  auto results = wasm::vec<wasm::Val>::make();
+  auto args = wasm::vec<wasm::Value>::make(
+    wasm::Value::i32(i), wasm::Value::ref(ref ? ref->copy() : wasm::own<wasm::Ref>()));
+  auto results = wasm::vec<wasm::Value>::make();
   if (func->call(args, results)) {
     std::cout << "> Error calling function!" << std::endl;
     exit(1);
@@ -92,8 +92,8 @@ void call_ir_v(const wasm::Func* func, int32_t i, const wasm::Ref* ref) {
 
 auto call_i_r(const wasm::Func* func, int32_t i) -> wasm::own<wasm::Ref> {
   std::cout << "call_i_r... " << std::flush;
-  auto args = wasm::vec<wasm::Val>::make(wasm::Val::i32(i));
-  auto results = wasm::vec<wasm::Val>::make_uninitialized(1);
+  auto args = wasm::vec<wasm::Value>::make(wasm::Value::i32(i));
+  auto results = wasm::vec<wasm::Value>::make_uninitialized(1);
   if (func->call(args, results)) {
     std::cout << "> Error calling function!" << std::endl;
     exit(1);
@@ -144,8 +144,8 @@ void run() {
   // Create external callback function.
   std::cout << "Creating callback..." << std::endl;
   auto callback_type = wasm::FuncType::make(
-    wasm::ownvec<wasm::ValType>::make(wasm::ValType::make(wasm::ValKind::ANYREF)),
-    wasm::ownvec<wasm::ValType>::make(wasm::ValType::make(wasm::ValKind::ANYREF))
+    wasm::ownvec<wasm::ValueType>::make(wasm::ValueType::make(wasm::ValueKind::ANYREF)),
+    wasm::ownvec<wasm::ValueType>::make(wasm::ValueType::make(wasm::ValueKind::ANYREF))
   );
   auto callback_func = wasm::Func::make(store, callback_type.get(), callback);
 
@@ -182,7 +182,7 @@ void run() {
   check(host1->copy(), host1.get());
   check(host2->copy(), host2.get());
 
-  wasm::Val val = wasm::Val::ref(host1->copy());
+  wasm::Value val = wasm::Value::ref(host1->copy());
   check(val.ref()->copy(), host1.get());
   auto ref = val.release_ref();
   assert(val.ref() == nullptr);
@@ -199,7 +199,7 @@ void run() {
   check(call_v_r(global_get), nullptr);
 
   check(global->get().release_ref(), nullptr);
-  global->set(wasm::Val(host2->copy()));
+  global->set(wasm::Value(host2->copy()));
   check(call_v_r(global_get), host2.get());
   check(global->get().release_ref(), host2.get());
 

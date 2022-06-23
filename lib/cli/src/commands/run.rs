@@ -111,7 +111,7 @@ impl Run {
             let imports = imports! {};
             let instance = Instance::new(&mut ctx, &module, &imports)?;
             let result =
-                self.invoke_function(&mut ctx.as_context_mut(), &instance, &invoke, &self.args)?;
+                self.invoke_function(&mut ctx.as_context_mut(), &instance, invoke, &self.args)?;
             println!(
                 "{}",
                 result
@@ -383,7 +383,7 @@ impl Run {
         invoke: &str,
         args: &[String],
     ) -> Result<Box<[Value]>> {
-        let func: Function = self.try_find_function(&instance, invoke, args)?;
+        let func: Function = self.try_find_function(instance, invoke, args)?;
         let func_ty = func.ty(ctx);
         let required_arguments = func_ty.params().len();
         let provided_arguments = args.len();

@@ -21,6 +21,9 @@
 //! Every module comes with examples and entry points to guide the
 //! discovery of this API.
 
+/// `Context`.
+mod context;
+
 /// Private Rust macros.
 #[macro_use]
 mod macros;
@@ -89,6 +92,8 @@ pub mod externals;
 ///     // Create the engine and the store.
 ///     wasm_engine_t* engine = wasm_engine_new();
 ///     wasm_store_t* store = wasm_store_new(engine);
+///     wasm_context_t* ctx = wasm_context_new(store, 0);
+///     wasm_store_context_set(store, ctx);
 ///
 ///     // Create a WebAssembly module from a WAT definition.
 ///     wasm_byte_vec_t wat;

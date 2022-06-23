@@ -7,14 +7,16 @@
 
 #define own
 
+wasm_store_t* store = NULL;
+
 // A function to be called from Wasm code.
 own wasm_trap_t* fail_callback(
-  void* env, const wasm_val_vec_t* args, wasm_val_vec_t* results
+  const wasm_val_vec_t* args, wasm_val_vec_t* results
 ) {
   printf("Calling back...\n");
   own wasm_name_t message;
   wasm_name_new_from_string_nt(&message, "callback abort");
-  own wasm_trap_t* trap = wasm_trap_new((wasm_store_t*)env, &message);
+  own wasm_trap_t* trap = wasm_trap_new(store, &message);
   wasm_name_delete(&message);
   return trap;
 }
@@ -34,7 +36,7 @@ int main(int argc, const char* argv[]) {
   // Initialize.
   printf("Initializing...\n");
   wasm_engine_t* engine = wasm_engine_new();
-  wasm_store_t* store = wasm_store_new(engine);
+  store = wasm_store_new(engine);
 
   // Load binary.
   printf("Loading binary...\n");
@@ -69,7 +71,7 @@ int main(int argc, const char* argv[]) {
   own wasm_functype_t* fail_type =
     wasm_functype_new_0_1(wasm_valtype_new_i32());
   own wasm_func_t* fail_func =
-    wasm_func_new_with_env(store, fail_type, fail_callback, store, NULL);
+    wasm_func_new(store, fail_type, fail_callback);
 
   wasm_functype_delete(fail_type);
 

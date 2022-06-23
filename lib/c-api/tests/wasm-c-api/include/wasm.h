@@ -143,6 +143,13 @@ WASM_DECLARE_OWN(store)
 
 WASM_API_EXTERN own wasm_store_t* wasm_store_new(wasm_engine_t*);
 
+// Context
+
+WASM_DECLARE_OWN(context)
+
+WASM_API_EXTERN own void wasm_store_context_set(own wasm_store_t*, own wasm_context_t*);
+WASM_API_EXTERN own void wasm_store_data_set(own wasm_store_t*, own void*);
+WASM_API_EXTERN own void* wasm_store_data_get(own wasm_store_t*);
 
 ///////////////////////////////////////////////////////////////////////////////
 // Type Representations
@@ -420,9 +427,6 @@ typedef own wasm_trap_t* (*wasm_func_callback_with_env_t)(
 
 WASM_API_EXTERN own wasm_func_t* wasm_func_new(
   wasm_store_t*, const wasm_functype_t*, wasm_func_callback_t);
-WASM_API_EXTERN own wasm_func_t* wasm_func_new_with_env(
-  wasm_store_t*, const wasm_functype_t* type, wasm_func_callback_with_env_t,
-  void* env, void (*finalizer)(void*));
 
 WASM_API_EXTERN own wasm_functype_t* wasm_func_type(const wasm_func_t*);
 WASM_API_EXTERN size_t wasm_func_param_arity(const wasm_func_t*);
