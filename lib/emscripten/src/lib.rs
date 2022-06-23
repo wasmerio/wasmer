@@ -411,9 +411,11 @@ pub fn run_emscripten_instance(
             .map_err(|e| RuntimeError::new(e.to_string()))?;
         func.call(&[Val::I32(arg as i32)])?;
     } else if let Ok(name) = emscripten_get_main_func_name(instance, &main_func_names) {
-        emscripten_call_main(instance, &name, env, path, &args)?;
+        emscripten_call_main(instance, name, env, path, &args)?;
     } else {
-        return Err(RuntimeError::new(format!("No main function found (searched: {main_func_names:?}) and no entrypoint specified")));
+        return Err(RuntimeError::new(format!(
+            "No main function found (searched: {main_func_names:?}) and no entrypoint specified"
+        )));
     }
 
     // TODO atexit for emscripten
