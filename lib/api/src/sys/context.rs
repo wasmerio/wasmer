@@ -65,6 +65,14 @@ impl<T> Context<T> {
     pub fn store(&self) -> &Store {
         &self.inner.store
     }
+
+    /// For use with the C API
+    /// # Safety
+    ///
+    /// This is unsafe.
+    pub unsafe fn transmute_data<U>(&mut self) -> &mut Context<U> {
+        core::mem::transmute::<&mut Self, &mut Context<U>>(self)
+    }
 }
 
 /// A temporary handle to a [`Context`].

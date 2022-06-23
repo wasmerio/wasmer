@@ -44,7 +44,7 @@ impl Extern {
     }
 
     /// Create an `Extern` from an `wasmer_engine::Export`.
-    pub(crate) fn from_vm_extern(ctx: &mut impl AsContextMut, vm_extern: VMExtern) -> Self {
+    pub fn from_vm_extern(ctx: &mut impl AsContextMut, vm_extern: VMExtern) -> Self {
         match vm_extern {
             VMExtern::Function(f) => Self::Function(Function::from_vm_extern(ctx, f)),
             VMExtern::Memory(m) => Self::Memory(Memory::from_vm_extern(ctx, m)),
@@ -63,7 +63,8 @@ impl Extern {
         }
     }
 
-    pub(crate) fn to_vm_extern(&self) -> VMExtern {
+    /// To `VMExtern`.
+    pub fn to_vm_extern(&self) -> VMExtern {
         match self {
             Self::Function(f) => f.to_vm_extern(),
             Self::Global(g) => g.to_vm_extern(),

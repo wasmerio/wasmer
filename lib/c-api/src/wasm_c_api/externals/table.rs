@@ -1,6 +1,9 @@
+use super::super::context::wasm_context_t;
 use super::super::store::wasm_store_t;
 use super::super::types::{wasm_ref_t, wasm_table_size_t, wasm_tabletype_t};
 use super::CApiExternTag;
+use std::cell::RefCell;
+use std::rc::Rc;
 use wasmer_api::Table;
 
 #[allow(non_camel_case_types)]
@@ -9,6 +12,7 @@ use wasmer_api::Table;
 pub struct wasm_table_t {
     pub(crate) tag: CApiExternTag,
     pub(crate) inner: Box<Table>,
+    pub(crate) context: Option<Rc<RefCell<wasm_context_t>>>,
 }
 
 impl wasm_table_t {
@@ -16,6 +20,7 @@ impl wasm_table_t {
         Self {
             tag: CApiExternTag::Table,
             inner: Box::new(table),
+            context: None,
         }
     }
 }
@@ -39,13 +44,13 @@ pub unsafe extern "C" fn wasm_table_copy(table: &wasm_table_t) -> Box<wasm_table
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn wasm_table_same(table1: &wasm_table_t, table2: &wasm_table_t) -> bool {
-    table1.inner.same(&table2.inner)
-}
-
-#[no_mangle]
 pub unsafe extern "C" fn wasm_table_size(table: &wasm_table_t) -> usize {
-    table.inner.size() as _
+    let ctx = table
+        .context
+        .as_ref()
+        .expect(wasm_store_t::CTX_ERR_STR)
+        .borrow();
+    table.inner.size(&ctx.inner) as _
 }
 
 #[no_mangle]

@@ -7,6 +7,8 @@
 
 #define own
 
+wasm_store_t* global_store = NULL;
+
 // Print a Wasm value
 void wasm_val_print(wasm_val_t val) {
   switch (val.kind) {
@@ -48,9 +50,9 @@ own wasm_trap_t* print_callback(
 
 // A function closure.
 own wasm_trap_t* closure_callback(
-  void* env, const wasm_val_vec_t* args, wasm_val_vec_t* results
+  const wasm_val_vec_t* args, wasm_val_vec_t* results
 ) {
-  int i = *(int*)env;
+  int i = *(int*) wasm_store_data_get(global_store);
   printf("Calling back closure...\n");
   printf("> %d\n", i);
 
@@ -64,7 +66,10 @@ int main(int argc, const char* argv[]) {
   // Initialize.
   printf("Initializing...\n");
   wasm_engine_t* engine = wasm_engine_new();
-  wasm_store_t* store = wasm_store_new(engine);
+  global_store = wasm_store_new(engine);
+  int i = 42;
+  wasm_context_t* ctx = wasm_context_new(global_store, &i);
+  wasm_store_context_set(global_store, ctx);
 
   // Load binary.
   printf("Loading binary...\n");
@@ -86,7 +91,7 @@ int main(int argc, const char* argv[]) {
 
   // Compile.
   printf("Compiling module...\n");
-  own wasm_module_t* module = wasm_module_new(store, &binary);
+  own wasm_module_t* module = wasm_module_new(global_store, &binary);
   if (!module) {
     printf("> Error compiling module!\n");
     return 1;
@@ -97,11 +102,10 @@ int main(int argc, const char* argv[]) {
   // Create external print functions.
   printf("Creating callback...\n");
   own wasm_functype_t* print_type = wasm_functype_new_1_1(wasm_valtype_new_i32(), wasm_valtype_new_i32());
-  own wasm_func_t* print_func = wasm_func_new(store, print_type, print_callback);
+  own wasm_func_t* print_func = wasm_func_new(global_store, print_type, print_callback);
 
-  int i = 42;
   own wasm_functype_t* closure_type = wasm_functype_new_0_1(wasm_valtype_new_i32());
-  own wasm_func_t* closure_func = wasm_func_new_with_env(store, closure_type, closure_callback, &i, NULL);
+  own wasm_func_t* closure_func = wasm_func_new(global_store, closure_type, closure_callback);
 
   wasm_functype_delete(print_type);
   wasm_functype_delete(closure_type);
@@ -113,7 +117,7 @@ int main(int argc, const char* argv[]) {
   };
   wasm_extern_vec_t imports = WASM_ARRAY_VEC(externs);
   own wasm_instance_t* instance =
-    wasm_instance_new(store, module, &imports, NULL);
+    wasm_instance_new(global_store, module, &imports, NULL);
   if (!instance) {
     printf("> Error instantiating module!\n");
     return 1;
@@ -158,7 +162,7 @@ int main(int argc, const char* argv[]) {
 
   // Shut down.
   printf("Shutting down...\n");
-  wasm_store_delete(store);
+  wasm_store_delete(global_store);
   wasm_engine_delete(engine);
 
   // All done.
