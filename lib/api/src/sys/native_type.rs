@@ -205,7 +205,7 @@ mod test_native_type {
         assert_eq!(f64::WASM_TYPE, Type::F64);
         assert_eq!(u128::WASM_TYPE, Type::V128);
     }
-
+    /*
     #[test]
     fn test_roundtrip() {
         unsafe {
@@ -216,6 +216,7 @@ mod test_native_type {
             assert_eq!(u128::from_raw(42u128.into_raw()), 42u128);
         }
     }
+    */
 }
 
 // pub trait IntegerAtomic
