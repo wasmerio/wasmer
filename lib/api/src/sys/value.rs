@@ -190,6 +190,19 @@ impl ToString for Value {
     }
 }
 
+impl PartialEq for Value {
+    fn eq(&self, o: &Self) -> bool {
+        match (self, o) {
+            (Self::I32(a), Self::I32(b)) => a == b,
+            (Self::I64(a), Self::I64(b)) => a == b,
+            (Self::F32(a), Self::F32(b)) => a == b,
+            (Self::F64(a), Self::F64(b)) => a == b,
+            (Self::V128(a), Self::V128(b)) => a == b,
+            _ => false,
+        }
+    }
+}
+
 impl From<i32> for Value {
     fn from(val: i32) -> Self {
         Self::I32(val)
@@ -336,127 +349,127 @@ mod tests {
     #[test]
     fn test_value_i32_from_u32() {
         let bytes = [0x00, 0x00, 0x00, 0x00];
-        let v = Value::<()>::from(u32::from_be_bytes(bytes));
+        let v = Value::from(u32::from_be_bytes(bytes));
         assert_eq!(v, Value::I32(i32::from_be_bytes(bytes)));
 
         let bytes = [0x00, 0x00, 0x00, 0x01];
-        let v = Value::<()>::from(u32::from_be_bytes(bytes));
+        let v = Value::from(u32::from_be_bytes(bytes));
         assert_eq!(v, Value::I32(i32::from_be_bytes(bytes)));
 
         let bytes = [0xAA, 0xBB, 0xCC, 0xDD];
-        let v = Value::<()>::from(u32::from_be_bytes(bytes));
+        let v = Value::from(u32::from_be_bytes(bytes));
         assert_eq!(v, Value::I32(i32::from_be_bytes(bytes)));
 
         let bytes = [0xFF, 0xFF, 0xFF, 0xFF];
-        let v = Value::<()>::from(u32::from_be_bytes(bytes));
+        let v = Value::from(u32::from_be_bytes(bytes));
         assert_eq!(v, Value::I32(i32::from_be_bytes(bytes)));
     }
 
     #[test]
     fn test_value_i64_from_u64() {
         let bytes = [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
-        let v = Value::<()>::from(u64::from_be_bytes(bytes));
+        let v = Value::from(u64::from_be_bytes(bytes));
         assert_eq!(v, Value::I64(i64::from_be_bytes(bytes)));
 
         let bytes = [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01];
-        let v = Value::<()>::from(u64::from_be_bytes(bytes));
+        let v = Value::from(u64::from_be_bytes(bytes));
         assert_eq!(v, Value::I64(i64::from_be_bytes(bytes)));
 
         let bytes = [0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x00, 0x11];
-        let v = Value::<()>::from(u64::from_be_bytes(bytes));
+        let v = Value::from(u64::from_be_bytes(bytes));
         assert_eq!(v, Value::I64(i64::from_be_bytes(bytes)));
 
         let bytes = [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF];
-        let v = Value::<()>::from(u64::from_be_bytes(bytes));
+        let v = Value::from(u64::from_be_bytes(bytes));
         assert_eq!(v, Value::I64(i64::from_be_bytes(bytes)));
     }
 
     #[test]
     fn convert_value_to_i32() {
-        let value = Value::<()>::I32(5678);
+        let value = Value::I32(5678);
         let result = i32::try_from(value);
         assert_eq!(result.unwrap(), 5678);
 
-        let value = Value::<()>::from(u32::MAX);
+        let value = Value::from(u32::MAX);
         let result = i32::try_from(value);
         assert_eq!(result.unwrap(), -1);
 
-        let value = Value::<()>::V128(42);
+        let value = Value::V128(42);
         let result = i32::try_from(value);
         assert_eq!(result.unwrap_err(), "Value is not of Wasm type i32");
     }
 
     #[test]
     fn convert_value_to_u32() {
-        let value = Value::<()>::from(u32::MAX);
+        let value = Value::from(u32::MAX);
         let result = u32::try_from(value);
         assert_eq!(result.unwrap(), u32::MAX);
 
-        let value = Value::<()>::I32(-1);
+        let value = Value::I32(-1);
         let result = u32::try_from(value);
         assert_eq!(result.unwrap(), u32::MAX);
 
-        let value = Value::<()>::V128(42);
+        let value = Value::V128(42);
         let result = u32::try_from(value);
         assert_eq!(result.unwrap_err(), "Value is not of Wasm type i32");
     }
 
     #[test]
     fn convert_value_to_i64() {
-        let value = Value::<()>::I64(5678);
+        let value = Value::I64(5678);
         let result = i64::try_from(value);
         assert_eq!(result.unwrap(), 5678);
 
-        let value = Value::<()>::from(u64::MAX);
+        let value = Value::from(u64::MAX);
         let result = i64::try_from(value);
         assert_eq!(result.unwrap(), -1);
 
-        let value = Value::<()>::V128(42);
+        let value = Value::V128(42);
         let result = i64::try_from(value);
         assert_eq!(result.unwrap_err(), "Value is not of Wasm type i64");
     }
 
     #[test]
     fn convert_value_to_u64() {
-        let value = Value::<()>::from(u64::MAX);
+        let value = Value::from(u64::MAX);
         let result = u64::try_from(value);
         assert_eq!(result.unwrap(), u64::MAX);
 
-        let value = Value::<()>::I64(-1);
+        let value = Value::I64(-1);
         let result = u64::try_from(value);
         assert_eq!(result.unwrap(), u64::MAX);
 
-        let value = Value::<()>::V128(42);
+        let value = Value::V128(42);
         let result = u64::try_from(value);
         assert_eq!(result.unwrap_err(), "Value is not of Wasm type i64");
     }
 
     #[test]
     fn convert_value_to_f32() {
-        let value = Value::<()>::F32(1.234);
+        let value = Value::F32(1.234);
         let result = f32::try_from(value);
         assert_eq!(result.unwrap(), 1.234);
 
-        let value = Value::<()>::V128(42);
+        let value = Value::V128(42);
         let result = f32::try_from(value);
         assert_eq!(result.unwrap_err(), "Value is not of Wasm type f32");
 
-        let value = Value::<()>::F64(1.234);
+        let value = Value::F64(1.234);
         let result = f32::try_from(value);
         assert_eq!(result.unwrap_err(), "Value is not of Wasm type f32");
     }
 
     #[test]
     fn convert_value_to_f64() {
-        let value = Value::<()>::F64(1.234);
+        let value = Value::F64(1.234);
         let result = f64::try_from(value);
         assert_eq!(result.unwrap(), 1.234);
 
-        let value = Value::<()>::V128(42);
+        let value = Value::V128(42);
         let result = f64::try_from(value);
         assert_eq!(result.unwrap_err(), "Value is not of Wasm type f64");
 
-        let value = Value::<()>::F32(1.234);
+        let value = Value::F32(1.234);
         let result = f64::try_from(value);
         assert_eq!(result.unwrap_err(), "Value is not of Wasm type f64");
     }

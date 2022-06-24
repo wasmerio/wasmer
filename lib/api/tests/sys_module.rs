@@ -1,6 +1,7 @@
 #[cfg(feature = "sys")]
 mod sys {
     use anyhow::Result;
+    use wasmer::Context as WasmerContext;
     use wasmer::*;
 
     #[test]
@@ -190,61 +191,78 @@ mod sys {
           (call 7 (i32.const -1)))
 )"#;
         let module = Module::new(&store, wat)?;
+        let mut ctx = WasmerContext::new(&store, ());
         let imports = imports! {
             "host" => {
-                "host_func1" => Function::new_native(&store, |p: u64| {
+                "host_func1" => Function::new_native(&mut ctx, |_ctx: ContextMut<()>, p: u64| {
                     println!("host_func1: Found number {}", p);
                     assert_eq!(p, u64::max_value());
                 }),
-                "host_func2" => Function::new_native(&store, |p: u32| {
+                "host_func2" => Function::new_native(&mut ctx, |_ctx: ContextMut<()>, p: u32| {
                     println!("host_func2: Found number {}", p);
                     assert_eq!(p, u32::max_value());
                 }),
-                "host_func3" => Function::new_native(&store, |p: i64| {
+                "host_func3" => Function::new_native(&mut ctx, |_ctx: ContextMut<()>, p: i64| {
                     println!("host_func3: Found number {}", p);
                     assert_eq!(p, -1);
                 }),
-                "host_func4" => Function::new_native(&store, |p: i32| {
+                "host_func4" => Function::new_native(&mut ctx, |_ctx: ContextMut<()>, p: i32| {
                     println!("host_func4: Found number {}", p);
                     assert_eq!(p, -1);
                 }),
-                "host_func5" => Function::new_native(&store, |p: i16| {
+                "host_func5" => Function::new_native(&mut ctx, |_ctx: ContextMut<()>, p: i16| {
                     println!("host_func5: Found number {}", p);
                     assert_eq!(p, -1);
                 }),
-                "host_func6" => Function::new_native(&store, |p: u16| {
+                "host_func6" => Function::new_native(&mut ctx, |_ctx: ContextMut<()>, p: u16| {
                     println!("host_func6: Found number {}", p);
                     assert_eq!(p, u16::max_value());
                 }),
-                "host_func7" => Function::new_native(&store, |p: i8| {
+                "host_func7" => Function::new_native(&mut ctx, |_ctx: ContextMut<()>, p: i8| {
                     println!("host_func7: Found number {}", p);
                     assert_eq!(p, -1);
                 }),
-                "host_func8" => Function::new_native(&store, |p: u8| {
+                "host_func8" => Function::new_native(&mut ctx, |_ctx: ContextMut<()>, p: u8| {
                     println!("host_func8: Found number {}", p);
                     assert_eq!(p, u8::max_value());
                 }),
             }
         };
-        let instance = Instance::new(&module, &imports)?;
+        let instance = Instance::new(&mut ctx, &module, &imports)?;
 
-        let f1: TypedFunction<(), ()> = instance.exports.get_typed_function("call_host_func1")?;
-        let f2: TypedFunction<(), ()> = instance.exports.get_typed_function("call_host_func2")?;
-        let f3: TypedFunction<(), ()> = instance.exports.get_typed_function("call_host_func3")?;
-        let f4: TypedFunction<(), ()> = instance.exports.get_typed_function("call_host_func4")?;
-        let f5: TypedFunction<(), ()> = instance.exports.get_typed_function("call_host_func5")?;
-        let f6: TypedFunction<(), ()> = instance.exports.get_typed_function("call_host_func6")?;
-        let f7: TypedFunction<(), ()> = instance.exports.get_typed_function("call_host_func7")?;
-        let f8: TypedFunction<(), ()> = instance.exports.get_typed_function("call_host_func8")?;
+        let f1: TypedFunction<(), ()> = instance
+            .exports
+            .get_typed_function(&mut ctx, "call_host_func1")?;
+        let f2: TypedFunction<(), ()> = instance
+            .exports
+            .get_typed_function(&mut ctx, "call_host_func2")?;
+        let f3: TypedFunction<(), ()> = instance
+            .exports
+            .get_typed_function(&mut ctx, "call_host_func3")?;
+        let f4: TypedFunction<(), ()> = instance
+            .exports
+            .get_typed_function(&mut ctx, "call_host_func4")?;
+        let f5: TypedFunction<(), ()> = instance
+            .exports
+            .get_typed_function(&mut ctx, "call_host_func5")?;
+        let f6: TypedFunction<(), ()> = instance
+            .exports
+            .get_typed_function(&mut ctx, "call_host_func6")?;
+        let f7: TypedFunction<(), ()> = instance
+            .exports
+            .get_typed_function(&mut ctx, "call_host_func7")?;
+        let f8: TypedFunction<(), ()> = instance
+            .exports
+            .get_typed_function(&mut ctx, "call_host_func8")?;
 
-        f1.call()?;
-        f2.call()?;
-        f3.call()?;
-        f4.call()?;
-        f5.call()?;
-        f6.call()?;
-        f7.call()?;
-        f8.call()?;
+        f1.call(&mut ctx)?;
+        f2.call(&mut ctx)?;
+        f3.call(&mut ctx)?;
+        f4.call(&mut ctx)?;
+        f5.call(&mut ctx)?;
+        f6.call(&mut ctx)?;
+        f7.call(&mut ctx)?;
+        f8.call(&mut ctx)?;
 
         Ok(())
     }

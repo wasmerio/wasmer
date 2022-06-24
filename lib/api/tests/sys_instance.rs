@@ -1,11 +1,13 @@
 #[cfg(feature = "sys")]
 mod sys {
     use anyhow::Result;
+    use wasmer::Context as WasmerContext;
     use wasmer::*;
 
     #[test]
     fn exports_work_after_multiple_instances_have_been_freed() -> Result<()> {
         let store = Store::default();
+        let mut ctx = WasmerContext::new(&store, ());
         let module = Module::new(
             &store,
             "
@@ -20,7 +22,7 @@ mod sys {
         )?;
 
         let imports = Imports::new();
-        let instance = Instance::new(&module, &imports)?;
+        let instance = Instance::new(&mut ctx, &module, &imports)?;
         let instance2 = instance.clone();
         let instance3 = instance.clone();
 
@@ -33,7 +35,8 @@ mod sys {
 
         // All instances have been dropped, but `sum` continues to work!
         assert_eq!(
-            sum.call(&[Value::I32(1), Value::I32(2)])?.into_vec(),
+            sum.call(&mut ctx, &[Value::I32(1), Value::I32(2)])?
+                .into_vec(),
             vec![Value::I32(3)],
         );
 
@@ -48,21 +51,18 @@ mod sys {
             multiplier: u32,
         }
 
-        fn imported_fn(env: &Env, args: &[Val]) -> Result<Vec<Val>, RuntimeError> {
-            let value = env.multiplier * args[0].unwrap_i32() as u32;
-            Ok(vec![Val::I32(value as _)])
+        fn imported_fn(ctx: ContextMut<Env>, args: &[Value]) -> Result<Vec<Value>, RuntimeError> {
+            let value = ctx.data().multiplier * args[0].unwrap_i32() as u32;
+            Ok(vec![Value::I32(value as _)])
         }
 
+        let env = Env { multiplier: 3 };
+        let mut ctx = WasmerContext::new(&store, env);
         let imported_signature = FunctionType::new(vec![Type::I32], vec![Type::I32]);
-        let imported = Function::new(
-            &store,
-            imported_signature,
-            Env { multiplier: 3 },
-            imported_fn,
-        );
+        let imported = Function::new(&mut ctx, imported_signature, imported_fn);
 
-        let expected = vec![Val::I32(12)].into_boxed_slice();
-        let result = imported.call(&[Val::I32(4)])?;
+        let expected = vec![Value::I32(12)].into_boxed_slice();
+        let result = imported.call(&mut ctx, &[Value::I32(4)])?;
         assert_eq!(result, expected);
 
         Ok(())

@@ -1,5 +1,6 @@
 //! This file is mainly to assure specific issues are working well
 use anyhow::Result;
+use wasmer::Context as WasmerContext;
 use wasmer::*;
 
 /// Corruption of WasmerEnv when using call indirect.
@@ -12,22 +13,19 @@ use wasmer::*;
 fn issue_2329(mut config: crate::Config) -> Result<()> {
     let store = config.store();
 
-    #[derive(Clone, Default, WasmerEnv)]
+    #[derive(Clone, Default)]
     pub struct Env {
-        #[wasmer(export)]
-        memory: LazyInit<Memory>,
+        memory: Option<Memory>,
     }
 
     impl Env {
         pub fn new() -> Self {
-            Self {
-                memory: LazyInit::new(),
-            }
+            Self { memory: None }
         }
     }
 
-    pub fn read_memory(env: &Env, guest_ptr: u32) -> u32 {
-        dbg!(env.memory_ref());
+    pub fn read_memory(ctx: ContextMut<Env>, guest_ptr: u32) -> u32 {
+        dbg!(ctx.data().memory.as_ref());
         dbg!(guest_ptr);
         0
     }
@@ -63,36 +61,34 @@ fn issue_2329(mut config: crate::Config) -> Result<()> {
     "#;
     let module = Module::new(&store, wat)?;
     let env = Env::new();
+    let mut ctx = WasmerContext::new(&store, env);
     let imports: Imports = imports! {
         "env" => {
-            "__read_memory" => Function::new_native_with_env(
-                &store,
-                env,
+            "__read_memory" => Function::new_native(
+                &mut ctx,
                 read_memory
             ),
         }
     };
-    let instance = Instance::new(&module, &imports)?;
-    instance.exports.get_function("read_memory")?.call(&[])?;
+    let instance = Instance::new(&mut ctx, &module, &imports)?;
+    instance
+        .exports
+        .get_function("read_memory")?
+        .call(&mut ctx, &[])?;
     Ok(())
 }
 
 #[compiler_test(issues)]
 fn call_with_static_data_pointers(mut config: crate::Config) -> Result<()> {
     let store = config.store();
-    let memory = Memory::new(
-        &store,
-        MemoryType::new(Pages(1024), Some(Pages(2048)), false),
-    )
-    .unwrap();
 
-    #[derive(Clone, WasmerEnv)]
+    #[derive(Clone)]
     pub struct Env {
-        memory: Memory,
+        memory: Option<Memory>,
     }
 
     pub fn banana(
-        env: &Env,
+        mut ctx: ContextMut<Env>,
         a: u64,
         b: u64,
         c: u64,
@@ -104,23 +100,24 @@ fn call_with_static_data_pointers(mut config: crate::Config) -> Result<()> {
     ) -> u64 {
         println!("{:?}", (a, b, c, d, e, f, g, h));
         let mut buf = vec![0; d as usize];
-        env.memory.read(e, &mut buf).unwrap();
+        let memory = ctx.data().memory.as_ref().unwrap();
+        memory.read(&ctx, e, &mut buf).unwrap();
         let input_string = std::str::from_utf8(&buf).unwrap();
         assert_eq!(input_string, "bananapeach");
         0
     }
 
-    pub fn mango(env: &Env, a: u64) {}
+    pub fn mango(ctx: ContextMut<Env>, a: u64) {}
 
-    pub fn chaenomeles(env: &Env, a: u64) -> u64 {
+    pub fn chaenomeles(ctx: ContextMut<Env>, a: u64) -> u64 {
         0
     }
 
-    pub fn peach(env: &Env, a: u64, b: u64) -> u64 {
+    pub fn peach(ctx: ContextMut<Env>, a: u64, b: u64) -> u64 {
         0
     }
 
-    pub fn gas(env: &Env, a: u32) {}
+    pub fn gas(ctx: ContextMut<Env>, a: u32) {}
 
     let wat = r#"
     (module
@@ -189,32 +186,28 @@ fn call_with_static_data_pointers(mut config: crate::Config) -> Result<()> {
     "#;
 
     let module = Module::new(&store, wat)?;
-    let env = Env {
-        memory: memory.clone(),
-    };
+    let env = Env { memory: None };
+    let mut ctx = WasmerContext::new(&store, env);
+    let memory = Memory::new(
+        &mut ctx,
+        MemoryType::new(Pages(1024), Some(Pages(2048)), false),
+    )
+    .unwrap();
+    ctx.data_mut().memory = Some(memory.clone());
     let mut exports = Exports::new();
     exports.insert("memory", memory);
-    exports.insert(
-        "banana",
-        Function::new_native_with_env(&store, env.clone(), banana),
-    );
-    exports.insert(
-        "peach",
-        Function::new_native_with_env(&store, env.clone(), peach),
-    );
-    exports.insert(
-        "chaenomeles",
-        Function::new_native_with_env(&store, env.clone(), chaenomeles),
-    );
-    exports.insert(
-        "mango",
-        Function::new_native_with_env(&store, env.clone(), mango),
-    );
-    exports.insert("gas", Function::new_native_with_env(&store, env, gas));
+    exports.insert("banana", Function::new_native(&mut ctx, banana));
+    exports.insert("peach", Function::new_native(&mut ctx, peach));
+    exports.insert("chaenomeles", Function::new_native(&mut ctx, chaenomeles));
+    exports.insert("mango", Function::new_native(&mut ctx, mango));
+    exports.insert("gas", Function::new_native(&mut ctx, gas));
     let mut imports = Imports::new();
     imports.register_namespace("env", exports);
-    let instance = Instance::new(&module, &imports)?;
-    instance.exports.get_function("repro")?.call(&[])?;
+    let instance = Instance::new(&mut ctx, &module, &imports)?;
+    instance
+        .exports
+        .get_function("repro")?
+        .call(&mut ctx, &[])?;
     Ok(())
 }
 
@@ -251,8 +244,9 @@ fn regression_gpr_exhaustion_for_calls(mut config: crate::Config) -> Result<()> 
             i32.const 0)
           (table (;0;) 1 1 funcref))
     "#;
+    let mut ctx = WasmerContext::new(&store, ());
     let module = Module::new(&store, wat)?;
     let imports: Imports = imports! {};
-    let instance = Instance::new(&module, &imports)?;
+    let instance = Instance::new(&mut ctx, &module, &imports)?;
     Ok(())
 }
