@@ -13,6 +13,7 @@ pub union RawValue {
     pub u64: u64,
     pub f32: f32,
     pub f64: f64,
+    pub i128: i128,
     pub u128: u128,
     pub funcref: usize,
     pub externref: usize,
@@ -30,6 +31,32 @@ impl fmt::Debug for RawValue {
         f.debug_struct("RawValue")
             .field("bytes", unsafe { &self.bytes })
             .finish()
+    }
+}
+
+macro_rules! partial_eq {
+    ($($t:ty => $f:tt),*) => ($(
+        impl PartialEq<$t> for RawValue {
+            fn eq(&self, o: &$t) -> bool {
+                unsafe { self.$f == *o }
+            }
+        }
+    )*)
+}
+partial_eq! {
+    i32 => i32,
+    u32 => u32,
+    i64 => i64,
+    u64 => u64,
+    f32 => f32,
+    f64 => f64,
+    i128 => i128,
+    u128 => u128
+}
+
+impl PartialEq for RawValue {
+    fn eq(&self, o: &Self) -> bool {
+        unsafe { self.u128 == o.u128 }
     }
 }
 

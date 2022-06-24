@@ -2,6 +2,7 @@ use anyhow::Result;
 
 use std::sync::Arc;
 use wasmer::wasmparser::Operator;
+use wasmer::Context as WasmerContext;
 use wasmer::*;
 
 #[derive(Debug)]
@@ -99,13 +100,14 @@ fn middleware_basic(mut config: crate::Config) -> Result<()> {
                     (local.get 1)))
 )"#;
     let module = Module::new(&store, wat).unwrap();
+    let mut ctx = WasmerContext::new(&store, ());
 
     let import_object = imports! {};
 
-    let instance = Instance::new(&module, &import_object)?;
+    let instance = Instance::new(&mut ctx, &module, &import_object)?;
 
-    let f: TypedFunction<(i32, i32), i32> = instance.exports.get_typed_function("add")?;
-    let result = f.call(4, 6)?;
+    let f: TypedFunction<(i32, i32), i32> = instance.exports.get_typed_function(&mut ctx, "add")?;
+    let result = f.call(&mut ctx, 4, 6)?;
     assert_eq!(result, 24);
     Ok(())
 }
@@ -122,13 +124,13 @@ fn middleware_one_to_multi(mut config: crate::Config) -> Result<()> {
                     (local.get 1)))
 )"#;
     let module = Module::new(&store, wat).unwrap();
-
+    let mut ctx = WasmerContext::new(&store, ());
     let import_object = imports! {};
 
-    let instance = Instance::new(&module, &import_object)?;
+    let instance = Instance::new(&mut ctx, &module, &import_object)?;
 
-    let f: TypedFunction<(i32, i32), i32> = instance.exports.get_typed_function("add")?;
-    let result = f.call(4, 6)?;
+    let f: TypedFunction<(i32, i32), i32> = instance.exports.get_typed_function(&mut ctx, "add")?;
+    let result = f.call(&mut ctx, 4, 6)?;
     assert_eq!(result, 25);
     Ok(())
 }
@@ -146,13 +148,14 @@ fn middleware_multi_to_one(mut config: crate::Config) -> Result<()> {
            (i32.mul))
 )"#;
     let module = Module::new(&store, wat).unwrap();
-
+    let mut ctx = WasmerContext::new(&store, ());
     let import_object = imports! {};
 
-    let instance = Instance::new(&module, &import_object)?;
+    let instance = Instance::new(&mut ctx, &module, &import_object)?;
 
-    let f: TypedFunction<(i32, i32), i32> = instance.exports.get_typed_function("testfunc")?;
-    let result = f.call(10, 20)?;
+    let f: TypedFunction<(i32, i32), i32> =
+        instance.exports.get_typed_function(&mut ctx, "testfunc")?;
+    let result = f.call(&mut ctx, 10, 20)?;
     assert_eq!(result, 10);
     Ok(())
 }
@@ -170,13 +173,13 @@ fn middleware_chain_order_1(mut config: crate::Config) -> Result<()> {
                     (local.get 1)))
 )"#;
     let module = Module::new(&store, wat).unwrap();
-
+    let mut ctx = WasmerContext::new(&store, ());
     let import_object = imports! {};
 
-    let instance = Instance::new(&module, &import_object)?;
+    let instance = Instance::new(&mut ctx, &module, &import_object)?;
 
-    let f: TypedFunction<(i32, i32), i32> = instance.exports.get_typed_function("add")?;
-    let result = f.call(4, 6)?;
+    let f: TypedFunction<(i32, i32), i32> = instance.exports.get_typed_function(&mut ctx, "add")?;
+    let result = f.call(&mut ctx, 4, 6)?;
     assert_eq!(result, 24);
     Ok(())
 }
@@ -194,13 +197,13 @@ fn middleware_chain_order_2(mut config: crate::Config) -> Result<()> {
                     (local.get 1)))
 )"#;
     let module = Module::new(&store, wat).unwrap();
-
+    let mut ctx = WasmerContext::new(&store, ());
     let import_object = imports! {};
 
-    let instance = Instance::new(&module, &import_object)?;
+    let instance = Instance::new(&mut ctx, &module, &import_object)?;
 
-    let f: TypedFunction<(i32, i32), i32> = instance.exports.get_typed_function("add")?;
-    let result = f.call(4, 6)?;
+    let f: TypedFunction<(i32, i32), i32> = instance.exports.get_typed_function(&mut ctx, "add")?;
+    let result = f.call(&mut ctx, 4, 6)?;
     assert_eq!(result, 48);
     Ok(())
 }
