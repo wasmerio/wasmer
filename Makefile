@@ -704,3 +704,7 @@ lint: lint-formatting lint-packages
 
 install-local: package
 	tar -C ~/.wasmer -zxvf wasmer.tar.gz
+
+test-minimal-versions:
+	rm -f Cargo.lock
+	cargo +nightly build --tests -Z minimal-versions --all-features
