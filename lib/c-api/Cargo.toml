@@ -31,7 +31,7 @@ wasmer-compiler = { version = "=2.3.0", path = "../compiler" }
 wasmer-middlewares = { version = "=2.3.0", path = "../middlewares", optional = true }
 wasmer-wasi = { version = "=2.3.0", path = "../wasi", default-features = false, features = ["host-fs", "sys"], optional = true }
 wasmer-types = { version = "=2.3.0", path = "../types" }
-enumset = "1.0"
+enumset = "1.0.2"
 cfg-if = "1.0"
 lazy_static = "1.4"
 libc = { version = "^0.2", default-features = false }
