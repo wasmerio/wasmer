@@ -17,6 +17,7 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 - [#2942](https://github.com/wasmerio/wasmer/pull/2942) Fix clippy lints.
 - [#2943](https://github.com/wasmerio/wasmer/pull/2943) Fix build error on some archs by using c_char instead of i8
 - [2976](https://github.com/wasmerio/wasmer/pull/2976) Upgrade minimum enumset to one that compiles
+- [2988](https://github.com/wasmerio/wasmer/pull/2988) Have make targets install-capi-lib,install-pkgconfig work without building the wasmer binary
 
 ## 2.3.0 - 2022/06/06
 
