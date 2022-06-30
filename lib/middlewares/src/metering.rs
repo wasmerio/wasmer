@@ -273,12 +273,13 @@ impl<F: Fn(&Operator) -> u64 + Send + Sync> FunctionMiddleware for FunctionMeter
 ///
 /// ```rust
 /// use wasmer::Instance;
+/// use wasmer::AsContextMut;
 /// use wasmer_middlewares::metering::{get_remaining_points, MeteringPoints};
 ///
 /// /// Check whether the instance can continue to run based on the
 /// /// number of remaining points.
-/// fn can_continue_to_run(instance: &Instance) -> bool {
-///     matches!(get_remaining_points(instance), MeteringPoints::Remaining(points) if points > 0)
+/// fn can_continue_to_run(ctx: &mut impl AsContextMut, instance: &Instance) -> bool {
+///     matches!(get_remaining_points(&mut ctx.as_context_mut(), instance), MeteringPoints::Remaining(points) if points > 0)
 /// }
 /// ```
 pub fn get_remaining_points(ctx: &mut impl AsContextMut, instance: &Instance) -> MeteringPoints {
@@ -320,15 +321,15 @@ pub fn get_remaining_points(ctx: &mut impl AsContextMut, instance: &Instance) ->
 /// # Example
 ///
 /// ```rust
-/// use wasmer::Instance;
+/// use wasmer::{AsContextMut, Instance};
 /// use wasmer_middlewares::metering::set_remaining_points;
 ///
-/// fn update_remaining_points(instance: &Instance) {
+/// fn update_remaining_points(ctx: &mut impl AsContextMut, instance: &Instance) {
 ///     // The new limit.
 ///     let new_limit = 10;
 ///
 ///     // Update the remaining points to the `new_limit`.
-///     set_remaining_points(instance, new_limit);
+///     set_remaining_points(&mut ctx.as_context_mut(), instance, new_limit);
 /// }
 /// ```
 pub fn set_remaining_points(ctx: &mut impl AsContextMut, instance: &Instance, points: u64) {
@@ -383,6 +384,7 @@ mod tests {
 
     #[test]
     fn get_remaining_points_works() {
+        use wasmer::Context as WasmerContext;
         let metering = Arc::new(Metering::new(10, cost_function));
         let mut compiler_config = Cranelift::default();
         compiler_config.push_middleware(metering);

@@ -108,7 +108,7 @@ mod sys {
 
         let instance = Instance::new(&mut ctx, &module, &imports)?;
         {
-            fn sum(ctx: ContextMut<()>, a: i32, b: i32) -> i32 {
+            fn sum(_ctx: ContextMut<()>, a: i32, b: i32) -> i32 {
                 a + b
             }
             let sum_func = Function::new_native(&mut ctx, sum);
