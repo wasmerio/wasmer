@@ -14,7 +14,7 @@ edition = "2018"
 wasmer-types = { path = "../types", version = "=2.3.0", default-features = false }
 wasmparser = { version = "0.83", optional = true, default-features = false }
 target-lexicon = { version = "0.12.2", default-features = false }
-enumset = "1.0"
+enumset = "1.0.2"
 hashbrown = { version = "0.11", optional = true }
 serde = { version = "1.0", features = ["derive"], optional = true }
 thiserror = "1.0"
