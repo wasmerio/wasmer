@@ -815,14 +815,6 @@ wasm_func_t* wasm_func_new(
     store, type, wasm_callback, reinterpret_cast<void*>(callback)));
 }
 
-wasm_func_t *wasm_func_new_with_env(
-  wasm_store_t* store, const wasm_functype_t* type,
-  wasm_func_callback_with_env_t callback, void *env, void (*finalizer)(void*)
-) {
-  auto env2 = new wasm_callback_env_t{callback, env, finalizer};
-  return release_func(Func::make(store, type, wasm_callback_with_env, env2, wasm_callback_env_finalizer));
-}
-
 wasm_functype_t* wasm_func_type(const wasm_func_t* func) {
   return release_functype(func->type());
 }

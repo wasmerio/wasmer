@@ -8,7 +8,7 @@
 
 // A function to be called from Wasm code.
 auto callback(
-  const wasm::vec<wasm::Val>& args, wasm::vec<wasm::Val>& results
+  const wasm::vec<wasm::Value>& args, wasm::vec<wasm::Value>& results
 ) -> wasm::own<wasm::Trap> {
   std::cout << "Calling back..." << std::endl;
   std::cout << "> " << args[0].i32();
@@ -54,11 +54,11 @@ void run() {
 
   // Create external print functions.
   std::cout << "Creating callback..." << std::endl;
-  auto tuple = wasm::ownvec<wasm::ValType>::make(
-    wasm::ValType::make(wasm::ValKind::I32),
-    wasm::ValType::make(wasm::ValKind::I64),
-    wasm::ValType::make(wasm::ValKind::I64),
-    wasm::ValType::make(wasm::ValKind::I32)
+  auto tuple = wasm::ownvec<wasm::ValueType>::make(
+    wasm::ValueType::make(wasm::ValueKind::I32),
+    wasm::ValueType::make(wasm::ValueKind::I64),
+    wasm::ValueType::make(wasm::ValueKind::I64),
+    wasm::ValueType::make(wasm::ValueKind::I32)
   );
   auto callback_type =
     wasm::FuncType::make(tuple.deep_copy(), tuple.deep_copy());
@@ -84,10 +84,10 @@ void run() {
 
   // Call.
   std::cout << "Calling export..." << std::endl;
-  auto args = wasm::vec<wasm::Val>::make(
-    wasm::Val::i32(1), wasm::Val::i64(2), wasm::Val::i64(3), wasm::Val::i32(4)
+  auto args = wasm::vec<wasm::Value>::make(
+    wasm::Value::i32(1), wasm::Value::i64(2), wasm::Value::i64(3), wasm::Value::i32(4)
   );
-  auto results = wasm::vec<wasm::Val>::make_uninitialized(4);
+  auto results = wasm::vec<wasm::Value>::make_uninitialized(4);
   if (wasm::own<wasm::Trap> trap = run_func->call(args, results)) {
     std::cout << "> Error calling function! " << trap->message().get() << std::endl;
     exit(1);

@@ -10,9 +10,9 @@ const int N_REPS = 3;
 
 // A function to be called from Wasm code.
 auto callback(
-  void* env, const wasm::vec<wasm::Val>& args, wasm::vec<wasm::Val>& results
+  void* env, const wasm::vec<wasm::Value>& args, wasm::vec<wasm::Value>& results
 ) -> wasm::own<wasm::Trap> {
-  assert(args[0].kind() == wasm::ValKind::I32);
+  assert(args[0].kind() == wasm::ValueKind::I32);
   std::lock_guard<std::mutex> lock(*reinterpret_cast<std::mutex*>(env));
   std::cout << "Thread " << args[0].i32() << " running..." << std::endl;
   std::cout.flush();
@@ -42,15 +42,15 @@ void run(
 
     // Create imports.
     auto func_type = wasm::FuncType::make(
-      wasm::ownvec<wasm::ValType>::make(wasm::ValType::make(wasm::ValKind::I32)),
-      wasm::ownvec<wasm::ValType>::make()
+      wasm::ownvec<wasm::ValueType>::make(wasm::ValueType::make(wasm::ValueKind::I32)),
+      wasm::ownvec<wasm::ValueType>::make()
     );
     auto func = wasm::Func::make(store, func_type.get(), callback, mutex);
 
     auto global_type = wasm::GlobalType::make(
-      wasm::ValType::make(wasm::ValKind::I32), wasm::Mutability::CONST);
+      wasm::ValueType::make(wasm::ValueKind::I32), wasm::Mutability::CONST);
     auto global = wasm::Global::make(
-      store, global_type.get(), wasm::Val::i32(i));
+      store, global_type.get(), wasm::Value::i32(i));
 
     // Instantiate.
     auto imports = wasm::vec<wasm::Extern*>::make(func.get(), global.get());
@@ -71,7 +71,7 @@ void run(
     auto run_func = exports[0]->func();
 
     // Call.
-    auto empty = wasm::vec<wasm::Val>::make();
+    auto empty = wasm::vec<wasm::Value>::make();
     run_func->call(empty, empty);
   }
 }

@@ -31,9 +31,9 @@ void check(T actual, U expected) {
   }
 }
 
-auto call(const wasm::Func* func) -> wasm::Val {
-  auto args = wasm::vec<wasm::Val>::make();
-  auto results = wasm::vec<wasm::Val>::make_uninitialized(1);
+auto call(const wasm::Func* func) -> wasm::Value {
+  auto args = wasm::vec<wasm::Value>::make();
+  auto results = wasm::vec<wasm::Value>::make_uninitialized(1);
   if (func->call(args, results)) {
     std::cout << "> Error calling function!" << std::endl;
     exit(1);
@@ -41,9 +41,9 @@ auto call(const wasm::Func* func) -> wasm::Val {
   return results[0].copy();
 }
 
-void call(const wasm::Func* func, wasm::Val&& arg) {
-  auto args = wasm::vec<wasm::Val>::make(std::move(arg));
-  auto results = wasm::vec<wasm::Val>::make();
+void call(const wasm::Func* func, wasm::Value&& arg) {
+  auto args = wasm::vec<wasm::Value>::make(std::move(arg));
+  auto results = wasm::vec<wasm::Value>::make();
   if (func->call(args, results)) {
     std::cout << "> Error calling function!" << std::endl;
     exit(1);
@@ -83,17 +83,17 @@ void run() {
   // Create external globals.
   std::cout << "Creating globals..." << std::endl;
   auto const_f32_type = wasm::GlobalType::make(
-    wasm::ValType::make(wasm::ValKind::F32), wasm::Mutability::CONST);
+    wasm::ValueType::make(wasm::ValueKind::F32), wasm::Mutability::CONST);
   auto const_i64_type = wasm::GlobalType::make(
-    wasm::ValType::make(wasm::ValKind::I64), wasm::Mutability::CONST);
+    wasm::ValueType::make(wasm::ValueKind::I64), wasm::Mutability::CONST);
   auto var_f32_type = wasm::GlobalType::make(
-    wasm::ValType::make(wasm::ValKind::F32), wasm::Mutability::VAR);
+    wasm::ValueType::make(wasm::ValueKind::F32), wasm::Mutability::VAR);
   auto var_i64_type = wasm::GlobalType::make(
-    wasm::ValType::make(wasm::ValKind::I64), wasm::Mutability::VAR);
-  auto const_f32_import = wasm::Global::make(store, const_f32_type.get(), wasm::Val::f32(1));
-  auto const_i64_import = wasm::Global::make(store, const_i64_type.get(), wasm::Val::i64(2));
-  auto var_f32_import = wasm::Global::make(store, var_f32_type.get(), wasm::Val::f32(3));
-  auto var_i64_import = wasm::Global::make(store, var_i64_type.get(), wasm::Val::i64(4));
+    wasm::ValueType::make(wasm::ValueKind::I64), wasm::Mutability::VAR);
+  auto const_f32_import = wasm::Global::make(store, const_f32_type.get(), wasm::Value::f32(1));
+  auto const_i64_import = wasm::Global::make(store, const_i64_type.get(), wasm::Value::i64(2));
+  auto var_f32_import = wasm::Global::make(store, var_f32_type.get(), wasm::Value::f32(3));
+  auto var_i64_import = wasm::Global::make(store, var_i64_type.get(), wasm::Value::i64(4));
 
   // Instantiate.
   std::cout << "Instantiating module..." << std::endl;
@@ -154,10 +154,10 @@ void run() {
   check(call(get_var_i64_export).i64(), 8);
 
   // Modify variables through API and check again.
-  var_f32_import->set(wasm::Val::f32(33));
-  var_i64_import->set(wasm::Val::i64(34));
-  var_f32_export->set(wasm::Val::f32(37));
-  var_i64_export->set(wasm::Val::i64(38));
+  var_f32_import->set(wasm::Value::f32(33));
+  var_i64_import->set(wasm::Value::i64(34));
+  var_f32_export->set(wasm::Value::f32(37));
+  var_i64_export->set(wasm::Value::i64(38));
 
   check(var_f32_import->get().f32(), 33);
   check(var_i64_import->get().i64(), 34);
@@ -170,10 +170,10 @@ void run() {
   check(call(get_var_i64_export).i64(), 38);
 
   // Modify variables through calls and check again.
-  call(set_var_f32_import, wasm::Val::f32(73));
-  call(set_var_i64_import, wasm::Val::i64(74));
-  call(set_var_f32_export, wasm::Val::f32(77));
-  call(set_var_i64_export, wasm::Val::i64(78));
+  call(set_var_f32_import, wasm::Value::f32(73));
+  call(set_var_i64_import, wasm::Value::i64(74));
+  call(set_var_f32_export, wasm::Value::f32(77));
+  call(set_var_i64_export, wasm::Value::i64(78));
 
   check(var_f32_import->get().f32(), 73);
   check(var_i64_import->get().i64(), 74);
