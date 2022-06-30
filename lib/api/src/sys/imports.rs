@@ -16,19 +16,19 @@ use wasmer_types::ImportError;
 ///
 /// # Usage:
 /// ```no_run
-/// use wasmer::{Exports, Module, Store, Instance, imports, Imports, Function};
-/// # fn foo_test(module: Module, store: Store) {
+/// use wasmer::{ContextMut, Exports, Module, Instance, imports, Imports, Function};
+/// # fn foo_test(mut ctx: ContextMut<()>, module: Module) {
 ///
-/// let host_fn = Function::new_native(&store, foo);
+/// let host_fn = Function::new_native(&mut ctx, foo);
 /// let import_object: Imports = imports! {
 ///     "env" => {
 ///         "foo" => host_fn,
 ///     },
 /// };
 ///
-/// let instance = Instance::new(&module, &import_object).expect("Could not instantiate module.");
+/// let instance = Instance::new(&mut ctx, &module, &import_object).expect("Could not instantiate module.");
 ///
-/// fn foo(n: i32) -> i32 {
+/// fn foo(_ctx: ContextMut<()>, n: i32) -> i32 {
 ///     n
 /// }
 ///
@@ -97,13 +97,15 @@ impl Imports {
     ///
     /// # Usage
     /// ```no_run
+    /// # use wasmer::Context as WasmerContext;
     /// # let store = Default::default();
-    /// use wasmer::{Imports, Function};
-    /// fn foo(n: i32) -> i32 {
+    /// # let mut ctx = WasmerContext::new(&store, ());
+    /// use wasmer::{ContextMut, Imports, Function};
+    /// fn foo(_ctx: ContextMut<()>, n: i32) -> i32 {
     ///     n
     /// }
     /// let mut import_object = Imports::new();
-    /// import_object.define("env", "foo", Function::new_native(&store, foo));
+    /// import_object.define("env", "foo", Function::new_native(&mut ctx, foo));
     /// ```
     pub fn define(&mut self, ns: &str, name: &str, val: impl Into<Extern>) {
         self.map
@@ -208,17 +210,19 @@ impl fmt::Debug for Imports {
 /// # Usage
 ///
 /// ```
-/// # use wasmer::{Function, Store};
+/// # use wasmer::{ContextMut, Function, Store};
+/// # use wasmer::Context as WasmerContext;
 /// # let store = Store::default();
+/// # let mut ctx = WasmerContext::new(&store, ());
 /// use wasmer::imports;
 ///
 /// let import_object = imports! {
 ///     "env" => {
-///         "foo" => Function::new_native(&store, foo)
+///         "foo" => Function::new_native(&mut ctx, foo)
 ///     },
 /// };
 ///
-/// fn foo(n: i32) -> i32 {
+/// fn foo(_ctx: ContextMut<()>, n: i32) -> i32 {
 ///     n
 /// }
 /// ```
