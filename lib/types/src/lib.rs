@@ -143,7 +143,6 @@ mod native {
     ///
     /// ```
     /// use wasmer_types::{NativeWasmType, Type};
-    /// use wasmer_types::{NativeWasmType, Type};
     ///
     /// let wasm_type = i32::WASM_TYPE;
     /// assert_eq!(wasm_type, Type::I32);

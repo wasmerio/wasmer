@@ -371,7 +371,7 @@ impl GlobalType {
     /// Create a new Global variable
     /// # Usage:
     /// ```
-    /// use wasmer_types::{GlobalType, Type, Mutability, Value};
+    /// use wasmer_types::{GlobalType, Type, Mutability};
     ///
     /// // An I32 constant global
     /// let global = GlobalType::new(Type::I32, Mutability::Const);

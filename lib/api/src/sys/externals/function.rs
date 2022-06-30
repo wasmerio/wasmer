@@ -51,11 +51,13 @@ impl Function {
     ///
     /// ```
     /// # use wasmer::{Function, FunctionType, Type, Store, Value};
+    /// # use wasmer::Context as WasmerContext;
     /// # let store = Store::default();
+    /// # let mut ctx = WasmerContext::new(&store, ());
     /// #
     /// let signature = FunctionType::new(vec![Type::I32, Type::I32], vec![Type::I32]);
     ///
-    /// let f = Function::new(&store, &signature, |args| {
+    /// let f = Function::new(&mut ctx, &signature, |_ctx, args| {
     ///     let sum = args[0].unwrap_i32() + args[1].unwrap_i32();
     ///     Ok(vec![Value::I32(sum)])
     /// });
@@ -65,11 +67,13 @@ impl Function {
     ///
     /// ```
     /// # use wasmer::{Function, FunctionType, Type, Store, Value};
+    /// # use wasmer::Context as WasmerContext;
     /// # let store = Store::default();
+    /// # let mut ctx = WasmerContext::new(&store, ());
     /// #
     /// const I32_I32_TO_I32: ([Type; 2], [Type; 1]) = ([Type::I32, Type::I32], [Type::I32]);
     ///
-    /// let f = Function::new(&store, I32_I32_TO_I32, |args| {
+    /// let f = Function::new(&mut ctx, I32_I32_TO_I32, |_ctx, args| {
     ///     let sum = args[0].unwrap_i32() + args[1].unwrap_i32();
     ///     Ok(vec![Value::I32(sum)])
     /// });
@@ -152,14 +156,16 @@ impl Function {
     /// # Example
     ///
     /// ```
-    /// # use wasmer::{Store, Function};
+    /// # use wasmer::{ContextMut, Store, Function};
+    /// # use wasmer::Context as WasmerContext;
     /// # let store = Store::default();
+    /// # let mut ctx = WasmerContext::new(&store, ());
     /// #
-    /// fn sum(a: i32, b: i32) -> i32 {
+    /// fn sum(_ctx: ContextMut<()>, a: i32, b: i32) -> i32 {
     ///     a + b
     /// }
     ///
-    /// let f = Function::new_native(&store, sum);
+    /// let f = Function::new_native(&mut ctx, sum);
     /// ```
     pub fn new_native<T, F, Args, Rets>(ctx: &mut impl AsContextMut<Data = T>, func: F) -> Self
     where
@@ -203,17 +209,19 @@ impl Function {
     /// # Example
     ///
     /// ```
-    /// # use wasmer::{Function, Store, Type};
+    /// # use wasmer::{ContextMut, Function, Store, Type};
+    /// # use wasmer::Context as WasmerContext;
     /// # let store = Store::default();
+    /// # let mut ctx = WasmerContext::new(&store, ());
     /// #
-    /// fn sum(a: i32, b: i32) -> i32 {
+    /// fn sum(_ctx: ContextMut<()>, a: i32, b: i32) -> i32 {
     ///     a + b
     /// }
     ///
-    /// let f = Function::new_native(&store, sum);
+    /// let f = Function::new_native(&mut ctx, sum);
     ///
-    /// assert_eq!(f.ty().params(), vec![Type::I32, Type::I32]);
-    /// assert_eq!(f.ty().results(), vec![Type::I32]);
+    /// assert_eq!(f.ty(&mut ctx).params(), vec![Type::I32, Type::I32]);
+    /// assert_eq!(f.ty(&mut ctx).results(), vec![Type::I32]);
     /// ```
     pub fn ty(&self, ctx: &impl AsContextRef) -> FunctionType {
         self.handle
@@ -302,16 +310,18 @@ impl Function {
     /// # Example
     ///
     /// ```
-    /// # use wasmer::{Function, Store, Type};
+    /// # use wasmer::{ContextMut, Function, Store, Type};
+    /// # use wasmer::Context as WasmerContext;
     /// # let store = Store::default();
+    /// # let mut ctx = WasmerContext::new(&store, ());
     /// #
-    /// fn sum(a: i32, b: i32) -> i32 {
+    /// fn sum(_ctx: ContextMut<()>, a: i32, b: i32) -> i32 {
     ///     a + b
     /// }
     ///
-    /// let f = Function::new_native(&store, sum);
+    /// let f = Function::new_native(&mut ctx, sum);
     ///
-    /// assert_eq!(f.param_arity(), 2);
+    /// assert_eq!(f.param_arity(&mut ctx), 2);
     /// ```
     pub fn param_arity(&self, ctx: &impl AsContextRef) -> usize {
         self.ty(ctx).params().len()
@@ -322,16 +332,18 @@ impl Function {
     /// # Example
     ///
     /// ```
-    /// # use wasmer::{Function, Store, Type};
+    /// # use wasmer::{ContextMut, Function, Store, Type};
+    /// # use wasmer::Context as WasmerContext;
     /// # let store = Store::default();
+    /// # let mut ctx = WasmerContext::new(&store, ());
     /// #
-    /// fn sum(a: i32, b: i32) -> i32 {
+    /// fn sum(_ctx: ContextMut<()>, a: i32, b: i32) -> i32 {
     ///     a + b
     /// }
     ///
-    /// let f = Function::new_native(&store, sum);
+    /// let f = Function::new_native(&mut ctx, sum);
     ///
-    /// assert_eq!(f.result_arity(), 1);
+    /// assert_eq!(f.result_arity(&mut ctx), 1);
     /// ```
     pub fn result_arity(&self, ctx: &impl AsContextRef) -> usize {
         self.ty(ctx).results().len()
@@ -349,7 +361,9 @@ impl Function {
     ///
     /// ```
     /// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, Value};
+    /// # use wasmer::Context as WasmerContext;
     /// # let store = Store::default();
+    /// # let mut ctx = WasmerContext::new(&store, ());
     /// # let wasm_bytes = wat2wasm(r#"
     /// # (module
     /// #   (func (export "sum") (param $x i32) (param $y i32) (result i32)
@@ -360,11 +374,11 @@ impl Function {
     /// # "#.as_bytes()).unwrap();
     /// # let module = Module::new(&store, wasm_bytes).unwrap();
     /// # let import_object = imports! {};
-    /// # let instance = Instance::new(&module, &import_object).unwrap();
+    /// # let instance = Instance::new(&mut ctx, &module, &import_object).unwrap();
     /// #
     /// let sum = instance.exports.get_function("sum").unwrap();
     ///
-    /// assert_eq!(sum.call(&[Value::I32(1), Value::I32(2)]).unwrap().to_vec(), vec![Value::I32(3)]);
+    /// assert_eq!(sum.call(&mut ctx, &[Value::I32(1), Value::I32(2)]).unwrap().to_vec(), vec![Value::I32(3)]);
     /// ```
     pub fn call(
         &self,
@@ -418,8 +432,10 @@ impl Function {
     /// # Examples
     ///
     /// ```
-    /// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, Value};
+    /// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, TypedFunction, Value};
+    /// # use wasmer::Context as WasmerContext;
     /// # let store = Store::default();
+    /// # let mut ctx = WasmerContext::new(&store, ());
     /// # let wasm_bytes = wat2wasm(r#"
     /// # (module
     /// #   (func (export "sum") (param $x i32) (param $y i32) (result i32)
@@ -430,12 +446,12 @@ impl Function {
     /// # "#.as_bytes()).unwrap();
     /// # let module = Module::new(&store, wasm_bytes).unwrap();
     /// # let import_object = imports! {};
-    /// # let instance = Instance::new(&module, &import_object).unwrap();
+    /// # let instance = Instance::new(&mut ctx, &module, &import_object).unwrap();
     /// #
     /// let sum = instance.exports.get_function("sum").unwrap();
-    /// let sum_native = sum.native::<(i32, i32), i32>().unwrap();
+    /// let sum_native: TypedFunction<(i32, i32), i32> = sum.native(&mut ctx).unwrap();
     ///
-    /// assert_eq!(sum_native.call(1, 2).unwrap(), 3);
+    /// assert_eq!(sum_native.call(&mut ctx, 1, 2).unwrap(), 3);
     /// ```
     ///
     /// # Errors
@@ -444,8 +460,10 @@ impl Function {
     /// an error will be raised:
     ///
     /// ```should_panic
-    /// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, Value};
+    /// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, TypedFunction, Value};
+    /// # use wasmer::Context as WasmerContext;
     /// # let store = Store::default();
+    /// # let mut ctx = WasmerContext::new(&store, ());
     /// # let wasm_bytes = wat2wasm(r#"
     /// # (module
     /// #   (func (export "sum") (param $x i32) (param $y i32) (result i32)
@@ -456,20 +474,22 @@ impl Function {
     /// # "#.as_bytes()).unwrap();
     /// # let module = Module::new(&store, wasm_bytes).unwrap();
     /// # let import_object = imports! {};
-    /// # let instance = Instance::new(&module, &import_object).unwrap();
+    /// # let instance = Instance::new(&mut ctx, &module, &import_object).unwrap();
     /// #
     /// let sum = instance.exports.get_function("sum").unwrap();
     ///
     /// // This results in an error: `RuntimeError`
-    /// let sum_native = sum.native::<(i64, i64), i32>().unwrap();
+    /// let sum_native : TypedFunction<(i64, i64), i32> = sum.native(&mut ctx).unwrap();
     /// ```
     ///
     /// If the `Rets` generic parameter does not match the exported function
     /// an error will be raised:
     ///
     /// ```should_panic
-    /// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, Value};
+    /// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, TypedFunction, Value};
+    /// # use wasmer::Context as WasmerContext;
     /// # let store = Store::default();
+    /// # let mut ctx = WasmerContext::new(&store, ());
     /// # let wasm_bytes = wat2wasm(r#"
     /// # (module
     /// #   (func (export "sum") (param $x i32) (param $y i32) (result i32)
@@ -480,12 +500,12 @@ impl Function {
     /// # "#.as_bytes()).unwrap();
     /// # let module = Module::new(&store, wasm_bytes).unwrap();
     /// # let import_object = imports! {};
-    /// # let instance = Instance::new(&module, &import_object).unwrap();
+    /// # let instance = Instance::new(&mut ctx, &module, &import_object).unwrap();
     /// #
     /// let sum = instance.exports.get_function("sum").unwrap();
     ///
     /// // This results in an error: `RuntimeError`
-    /// let sum_native = sum.native::<(i32, i32), i64>().unwrap();
+    /// let sum_native: TypedFunction<(i32, i32), i64> = sum.native(&mut ctx).unwrap();
     /// ```
     pub fn native<Args, Rets>(
         &self,
