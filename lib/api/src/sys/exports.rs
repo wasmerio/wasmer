@@ -18,14 +18,16 @@ use thiserror::Error;
 ///
 /// ```should_panic
 /// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, Value, ExportError};
+/// # use wasmer::Context as WasmerContext;
 /// # let store = Store::default();
+/// # let mut ctx = WasmerContext::new(&store, ());
 /// # let wasm_bytes = wat2wasm(r#"
 /// # (module
 /// #   (global $one (export "glob") f32 (f32.const 1)))
 /// # "#.as_bytes()).unwrap();
 /// # let module = Module::new(&store, wasm_bytes).unwrap();
 /// # let import_object = imports! {};
-/// # let instance = Instance::new(&module, &import_object).unwrap();
+/// # let instance = Instance::new(&mut ctx, &module, &import_object).unwrap();
 /// #
 /// // This results with an error: `ExportError::IncompatibleType`.
 /// let export = instance.exports.get_function("glob").unwrap();
@@ -35,11 +37,13 @@ use thiserror::Error;
 ///
 /// ```should_panic
 /// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, Value, ExportError};
+/// # use wasmer::Context as WasmerContext;
 /// # let store = Store::default();
+/// # let mut ctx = WasmerContext::new(&store, ());
 /// # let wasm_bytes = wat2wasm("(module)".as_bytes()).unwrap();
 /// # let module = Module::new(&store, wasm_bytes).unwrap();
 /// # let import_object = imports! {};
-/// # let instance = Instance::new(&module, &import_object).unwrap();
+/// # let instance = Instance::new(&mut ctx, &module, &import_object).unwrap();
 /// #
 /// // This results with an error: `ExportError::Missing`.
 /// let export = instance.exports.get_function("unknown").unwrap();
