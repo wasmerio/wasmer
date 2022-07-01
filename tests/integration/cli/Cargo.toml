@@ -7,6 +7,9 @@ repository = "https://github.com/wasmerio/wasmer"
 edition = "2018"
 publish = false
 
+[dev-dependencies]
+rand = "0.8.5"
+
 [dependencies]
 anyhow = "1"
 tempfile = "3"
