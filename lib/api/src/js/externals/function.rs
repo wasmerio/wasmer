@@ -1000,6 +1000,14 @@ mod inner {
         }
     }
 
+    /// C-compatible `Result` with stable layout,
+    /// equivalent to `std::result::Result`
+    #[repr(C, u8)]
+    pub enum HostFunctionResult<O, E> {
+        Ok(O),
+        Err(E),
+    }
+
     macro_rules! impl_host_function {
         ( [$c_struct_representation:ident]
            $c_struct_name:ident,
@@ -1116,7 +1124,8 @@ mod inner {
                     /// This is a function that wraps the real host
                     /// function. Its address will be used inside the
                     /// runtime.
-                    extern fn func_wrapper<$( $x, )* Rets, RetsAsResult, Func>( _: usize, $( $x: $x::Native, )* ) -> Rets::CStruct
+                    extern fn func_wrapper<$( $x, )* Rets, RetsAsResult, Func>( _: usize, $( $x: $x::Native, )* )
+                    -> HostFunctionResult<Rets::CStruct, RetsAsResult::Error>
                     where
                         $( $x: FromToNativeWasmType, )*
                         Rets: WasmTypeList,
@@ -1128,8 +1137,8 @@ mod inner {
                             func( $( FromToNativeWasmType::from_native($x) ),* ).into_result()
                         }));
                         match result {
-                            Ok(Ok(result)) => return result.into_c_struct(),
-                            Ok(Err(trap)) => RuntimeError::raise(Box::new(trap)),
+                            Ok(Ok(result)) => HostFunctionResult::Ok(result.into_c_struct()),
+                            Ok(Err(trap)) => HostFunctionResult::Err(trap),
                             _ => unimplemented!(),
                             // Ok(Err(trap)) => unsafe { raise_user_trap(Box::new(trap)) },
                             // Err(panic) => unsafe { resume_panic(panic) },
@@ -1159,7 +1168,8 @@ mod inner {
                     /// This is a function that wraps the real host
                     /// function. Its address will be used inside the
                     /// runtime.
-                    extern fn func_wrapper<$( $x, )* Rets, RetsAsResult, Env, Func>( ptr: usize, $( $x: $x::Native, )* ) -> Rets::CStruct
+                    extern fn func_wrapper<$( $x, )* Rets, RetsAsResult, Env, Func>( ptr: usize, $( $x: $x::Native, )* )
+                    -> HostFunctionResult<Rets::CStruct, RetsAsResult::Error>
                     where
                         $( $x: FromToNativeWasmType, )*
                         Rets: WasmTypeList,
@@ -1174,8 +1184,8 @@ mod inner {
                             func(env, $( FromToNativeWasmType::from_native($x) ),* ).into_result()
                         }));
                         match result {
-                            Ok(Ok(result)) => return result.into_c_struct(),
-                            Ok(Err(trap)) => RuntimeError::raise(Box::new(trap)),
+                            Ok(Ok(result)) => HostFunctionResult::Ok(result.into_c_struct()),
+                            Ok(Err(trap)) => HostFunctionResult::Err(trap),
                             _ => unimplemented!(),
                             // Ok(Err(trap)) => unsafe { raise_user_trap(Box::new(trap)) },
                             // Err(panic) => unsafe { resume_panic(panic) },
