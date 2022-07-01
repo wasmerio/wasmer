@@ -20,7 +20,6 @@ serde = { version = "1.0", features = ["derive"], optional = true }
 thiserror = "1.0"
 serde_bytes = { version = "0.11", optional = true }
 smallvec = "1.6"
-rkyv = { version = "0.7.38", features = ["indexmap"] }
 
 backtrace = "0.3"
 rustc-demangle = "0.1"
