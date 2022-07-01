@@ -1,13 +1,12 @@
 //! Engine trait and associated types.
 
 use crate::engine::tunables::Tunables;
-use crate::Artifact;
-use crate::Target;
+use crate::UniversalArtifact;
 use memmap2::Mmap;
 use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 use std::sync::Arc;
-use wasmer_types::{CompileError, DeserializeError, FunctionType};
+use wasmer_types::{CompileError, DeserializeError, FunctionType, Target};
 use wasmer_vm::VMSharedSignatureIndex;
 
 /// A unimplemented Wasmer `Engine`.
@@ -34,14 +33,14 @@ pub trait Engine {
         &self,
         binary: &[u8],
         tunables: &dyn Tunables,
-    ) -> Result<Arc<dyn Artifact>, CompileError>;
+    ) -> Result<Arc<UniversalArtifact>, CompileError>;
 
     /// Deserializes a WebAssembly module
     ///
     /// # Safety
     ///
     /// The serialized content must represent a serialized WebAssembly module.
-    unsafe fn deserialize(&self, bytes: &[u8]) -> Result<Arc<dyn Artifact>, DeserializeError>;
+    unsafe fn deserialize(&self, bytes: &[u8]) -> Result<Arc<UniversalArtifact>, DeserializeError>;
 
     /// Deserializes a WebAssembly module from a path
     ///
@@ -51,7 +50,7 @@ pub trait Engine {
     unsafe fn deserialize_from_file(
         &self,
         file_ref: &Path,
-    ) -> Result<Arc<dyn Artifact>, DeserializeError> {
+    ) -> Result<Arc<UniversalArtifact>, DeserializeError> {
         let file = std::fs::File::open(file_ref)?;
         let mmap = Mmap::map(&file)?;
         self.deserialize(&mmap)

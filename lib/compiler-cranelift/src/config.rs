@@ -3,9 +3,8 @@ use cranelift_codegen::isa::{lookup, TargetIsa};
 use cranelift_codegen::settings::{self, Configurable};
 use cranelift_codegen::CodegenResult;
 use std::sync::Arc;
-use wasmer_compiler::{
-    Architecture, Compiler, CompilerConfig, CpuFeature, ModuleMiddleware, Target,
-};
+use wasmer_compiler::{Compiler, CompilerConfig, ModuleMiddleware};
+use wasmer_types::{Architecture, CpuFeature, Target};
 
 // Runtime Environment
 

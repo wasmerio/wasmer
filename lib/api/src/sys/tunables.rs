@@ -1,7 +1,7 @@
 use crate::sys::{MemoryType, Pages, TableType};
 use std::ptr::NonNull;
-use target_lexicon::PointerWidth;
-use wasmer_compiler::{Target, Tunables};
+use wasmer_compiler::Tunables;
+use wasmer_types::{PointerWidth, Target};
 use wasmer_vm::MemoryError;
 use wasmer_vm::{
     MemoryStyle, TableStyle, VMMemory, VMMemoryDefinition, VMTable, VMTableDefinition,

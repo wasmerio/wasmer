@@ -11,10 +11,11 @@ use dynasmrt::{aarch64::Aarch64Relocation, VecAssembler};
 #[cfg(feature = "unwind")]
 use gimli::{write::CallFrameInstruction, AArch64};
 use wasmer_compiler::wasmparser::Type as WpType;
-use wasmer_compiler::CallingConvention;
-use wasmer_types::{CustomSection, Relocation, RelocationKind, RelocationTarget};
-use wasmer_types::{FunctionBody, InstructionAddressMap, SourceLoc, TrapInformation};
-use wasmer_types::{FunctionIndex, FunctionType, TrapCode, VMOffsets};
+use wasmer_types::{
+    CallingConvention, CustomSection, FunctionBody, FunctionIndex, FunctionType,
+    InstructionAddressMap, Relocation, RelocationKind, RelocationTarget, SourceLoc, TrapCode,
+    TrapInformation, VMOffsets,
+};
 
 type Assembler = VecAssembler<Aarch64Relocation>;
 type Location = AbstractLocation<GPR, NEON>;

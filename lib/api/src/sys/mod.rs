@@ -36,14 +36,12 @@ pub use target_lexicon::{Architecture, CallingConvention, OperatingSystem, Tripl
 pub use wasmer_compiler::{
     wasmparser, CompilerConfig, FunctionMiddleware, MiddlewareReaderState, ModuleMiddleware,
 };
-pub use wasmer_compiler::{
-    CpuFeature, Engine, Features, FrameInfo, LinkError, RuntimeError, Target, Tunables,
-};
+pub use wasmer_compiler::{Engine, Features, FrameInfo, LinkError, RuntimeError, Tunables};
 pub use wasmer_derive::ValueType;
 pub use wasmer_types::is_wasm;
 pub use wasmer_types::{
-    ExportType, ExternType, FunctionType, GlobalType, ImportType, MemoryType, Mutability,
-    TableType, Type,
+    CpuFeature, ExportType, ExternType, FunctionType, GlobalType, ImportType, MemoryType,
+    Mutability, TableType, Target, Type,
 };
 
 pub use wasmer_types::{

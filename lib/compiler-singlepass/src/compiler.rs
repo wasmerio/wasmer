@@ -20,17 +20,15 @@ use gimli::write::{EhFrame, FrameTable};
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use std::sync::Arc;
 use wasmer_compiler::{
-    Architecture, CallingConvention, Compiler, CompilerConfig, CpuFeature, FunctionBinaryReader,
-    FunctionBodyData, MiddlewareBinaryReader, ModuleMiddleware, ModuleMiddlewareChain,
-    ModuleTranslationState, OperatingSystem, Target,
+    Compiler, CompilerConfig, FunctionBinaryReader, FunctionBodyData, MiddlewareBinaryReader,
+    ModuleMiddleware, ModuleMiddlewareChain, ModuleTranslationState,
 };
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{
-    Compilation, CompileModuleInfo, CompiledFunction, Dwarf, FunctionBody, TrapInformation,
-};
-use wasmer_types::{
-    CompileError, FunctionIndex, FunctionType, LocalFunctionIndex, MemoryIndex, ModuleInfo,
-    SectionIndex, TableIndex, TrapCode, VMOffsets,
+    Architecture, CallingConvention, Compilation, CompileError, CompileModuleInfo,
+    CompiledFunction, CpuFeature, Dwarf, FunctionBody, FunctionIndex, FunctionType,
+    LocalFunctionIndex, MemoryIndex, ModuleInfo, OperatingSystem, SectionIndex, TableIndex, Target,
+    TrapCode, TrapInformation, VMOffsets,
 };
 
 impl From<CodegenError> for CompileError {
@@ -318,8 +316,8 @@ mod tests {
     use super::*;
     use std::str::FromStr;
     use target_lexicon::triple;
-    use wasmer_compiler::{CpuFeature, Features, Triple};
-    use wasmer_types::{MemoryStyle, TableStyle};
+    use wasmer_compiler::Features;
+    use wasmer_types::{CpuFeature, MemoryStyle, TableStyle, Triple};
 
     fn dummy_compilation_ingredients<'a>() -> (
         CompileModuleInfo,
@@ -328,7 +326,7 @@ mod tests {
     ) {
         let compile_info = CompileModuleInfo {
             features: Features::new(),
-            module: Arc::new(ModuleInfo::new()),
+            module: ModuleInfo::new(),
             memory_styles: PrimaryMap::<MemoryIndex, MemoryStyle>::new(),
             table_styles: PrimaryMap::<TableIndex, TableStyle>::new(),
         };

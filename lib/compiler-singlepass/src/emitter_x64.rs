@@ -8,7 +8,7 @@ use crate::machine_x64::AssemblerX64;
 pub use crate::x64_decl::{GPR, XMM};
 use dynasm::dynasm;
 use dynasmrt::{AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi};
-use wasmer_compiler::CpuFeature;
+use wasmer_types::CpuFeature;
 
 /// Force `dynasm!` to use the correct arch (x64) when cross-compiling.
 /// `dynasm!` proc-macro tries to auto-detect it by default by looking at the
