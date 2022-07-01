@@ -8,10 +8,11 @@ use std::collections::BTreeMap;
 use std::fmt::Debug;
 pub use wasmer_compiler::wasmparser::MemoryImmediate;
 use wasmer_compiler::wasmparser::Type as WpType;
-use wasmer_compiler::{Architecture, CallingConvention, CpuFeature, Target};
-use wasmer_types::{CustomSection, Relocation, RelocationTarget};
-use wasmer_types::{FunctionBody, InstructionAddressMap, TrapInformation};
-use wasmer_types::{FunctionIndex, FunctionType, TrapCode, VMOffsets};
+use wasmer_types::{
+    Architecture, CallingConvention, CpuFeature, CustomSection, FunctionBody, FunctionIndex,
+    FunctionType, InstructionAddressMap, Relocation, RelocationTarget, Target, TrapCode,
+    TrapInformation, VMOffsets,
+};
 
 pub type Label = DynamicLabel;
 pub type Offset = AssemblyOffset;

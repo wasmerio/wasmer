@@ -2,16 +2,15 @@
 
 #[cfg(feature = "universal_engine")]
 use crate::Compiler;
-use crate::Target;
 use crate::UniversalEngineBuilder;
-use crate::{Artifact, Engine, EngineId, FunctionExtent, Tunables};
 use crate::{CodeMemory, UniversalArtifact};
+use crate::{Engine, EngineId, FunctionExtent, Tunables};
 use std::sync::{Arc, Mutex};
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::FunctionBody;
 use wasmer_types::{
     CompileError, DeserializeError, Features, FunctionIndex, FunctionType, LocalFunctionIndex,
-    ModuleInfo, SignatureIndex,
+    ModuleInfo, SignatureIndex, Target,
 };
 use wasmer_types::{CustomSection, CustomSectionProtection, SectionIndex};
 use wasmer_vm::{
@@ -106,7 +105,7 @@ impl Engine for UniversalEngine {
         &self,
         binary: &[u8],
         tunables: &dyn Tunables,
-    ) -> Result<Arc<dyn Artifact>, CompileError> {
+    ) -> Result<Arc<UniversalArtifact>, CompileError> {
         Ok(Arc::new(UniversalArtifact::new(self, binary, tunables)?))
     }
 
@@ -116,7 +115,7 @@ impl Engine for UniversalEngine {
         &self,
         _binary: &[u8],
         _tunables: &dyn Tunables,
-    ) -> Result<Arc<dyn Artifact>, CompileError> {
+    ) -> Result<Arc<UniversalArtifact>, CompileError> {
         Err(CompileError::Codegen(
             "The UniversalEngine is operating in headless mode, so it can not compile Modules."
                 .to_string(),
@@ -124,7 +123,7 @@ impl Engine for UniversalEngine {
     }
 
     /// Deserializes a WebAssembly module
-    unsafe fn deserialize(&self, bytes: &[u8]) -> Result<Arc<dyn Artifact>, DeserializeError> {
+    unsafe fn deserialize(&self, bytes: &[u8]) -> Result<Arc<UniversalArtifact>, DeserializeError> {
         Ok(Arc::new(UniversalArtifact::deserialize(self, bytes)?))
     }
 

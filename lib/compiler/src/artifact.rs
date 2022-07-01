@@ -1,16 +1,16 @@
 //! Generic Artifact abstraction for Wasmer Engines.
 
-use crate::{CpuFeature, Features};
+use crate::Features;
 use enumset::EnumSet;
 use std::any::Any;
 use std::convert::TryInto;
 use std::path::Path;
 use std::{fs, mem};
 use wasmer_types::entity::PrimaryMap;
-use wasmer_types::{DeserializeError, SerializeError};
 use wasmer_types::{
-    MemoryIndex, MemoryStyle, ModuleInfo, OwnedDataInitializer, TableIndex, TableStyle,
+    CpuFeature, MemoryIndex, MemoryStyle, ModuleInfo, OwnedDataInitializer, TableIndex, TableStyle,
 };
+use wasmer_types::{DeserializeError, SerializeError};
 
 /// An `Artifact` is the product that the `Engine`
 /// implementation produce and use.

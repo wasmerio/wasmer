@@ -12,12 +12,12 @@ use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator, ParallelIter
 use std::sync::Arc;
 use wasmer_compiler::{
     Compiler, FunctionBodyData, ModuleMiddleware, ModuleTranslationState, Symbol, SymbolRegistry,
-    Target,
 };
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{
     Compilation, CompileError, CompileModuleInfo, CustomSection, CustomSectionProtection, Dwarf,
     FunctionIndex, LocalFunctionIndex, RelocationTarget, SectionBody, SectionIndex, SignatureIndex,
+    Target,
 };
 
 //use std::sync::Mutex;

@@ -15,8 +15,8 @@
 use std::path::Path;
 use std::str::FromStr;
 use wasmer::{wat2wasm, Module, RuntimeError, Store};
-use wasmer_compiler::{CpuFeature, Target, Triple};
 use wasmer_compiler_cranelift::Cranelift;
+use wasmer_types::{CpuFeature, Target, Triple};
 /*
 use wasmer_engine_dylib::Dylib;
 */

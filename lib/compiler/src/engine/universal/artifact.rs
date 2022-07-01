@@ -4,20 +4,24 @@
 use super::engine::{UniversalEngine, UniversalEngineInner};
 use crate::engine::universal::link::link_module;
 use crate::ArtifactCreate;
+use crate::Features;
 use crate::UniversalArtifactBuild;
 use crate::{
-    register_frame_info, Artifact, FunctionExtent, GlobalFrameInfoRegistration, MetadataHeader,
+    register_frame_info, resolve_imports, FunctionExtent, GlobalFrameInfoRegistration,
+    InstantiationError, MetadataHeader, RuntimeError, Tunables,
 };
-use crate::{CpuFeature, Features, Triple};
 #[cfg(feature = "universal_engine")]
-use crate::{Engine, ModuleEnvironment, Tunables};
+use crate::{Engine, ModuleEnvironment};
 use enumset::EnumSet;
+use std::sync::Arc;
 use std::sync::Mutex;
 use wasmer_types::entity::{BoxedSlice, PrimaryMap};
 use wasmer_types::{
-    CompileError, DeserializeError, FunctionIndex, LocalFunctionIndex, MemoryIndex, ModuleInfo,
-    OwnedDataInitializer, SerializableModule, SerializeError, SignatureIndex, TableIndex,
+    CompileError, CpuFeature, DataInitializer, DeserializeError, FunctionIndex, LocalFunctionIndex,
+    MemoryIndex, ModuleInfo, OwnedDataInitializer, SerializableModule, SerializeError,
+    SignatureIndex, TableIndex, Triple,
 };
+use wasmer_vm::{ContextObjects, InstanceAllocator, InstanceHandle, TrapHandler, VMExtern};
 use wasmer_vm::{FunctionBodyPtr, MemoryStyle, TableStyle, VMSharedSignatureIndex, VMTrampoline};
 
 /// A compiled wasm module, ready to be instantiated.
@@ -219,8 +223,11 @@ impl ArtifactCreate for UniversalArtifact {
     }
 }
 
-impl Artifact for UniversalArtifact {
-    fn register_frame_info(&self) {
+impl UniversalArtifact {
+    /// Register thie `Artifact` stack frame information into the global scope.
+    ///
+    /// This is required to ensure that any traps can be properly symbolicated.
+    pub fn register_frame_info(&self) {
         let mut info = self.frame_info_registration.lock().unwrap();
 
         if info.is_some() {
@@ -244,19 +251,136 @@ impl Artifact for UniversalArtifact {
         );
     }
 
-    fn finished_functions(&self) -> &BoxedSlice<LocalFunctionIndex, FunctionBodyPtr> {
+    /// Returns the functions allocated in memory or this `Artifact`
+    /// ready to be run.
+    pub fn finished_functions(&self) -> &BoxedSlice<LocalFunctionIndex, FunctionBodyPtr> {
         &self.finished_functions
     }
 
-    fn finished_function_call_trampolines(&self) -> &BoxedSlice<SignatureIndex, VMTrampoline> {
+    /// Returns the function call trampolines allocated in memory of this
+    /// `Artifact`, ready to be run.
+    pub fn finished_function_call_trampolines(&self) -> &BoxedSlice<SignatureIndex, VMTrampoline> {
         &self.finished_function_call_trampolines
     }
 
-    fn finished_dynamic_function_trampolines(&self) -> &BoxedSlice<FunctionIndex, FunctionBodyPtr> {
+    /// Returns the dynamic function trampolines allocated in memory
+    /// of this `Artifact`, ready to be run.
+    pub fn finished_dynamic_function_trampolines(
+        &self,
+    ) -> &BoxedSlice<FunctionIndex, FunctionBodyPtr> {
         &self.finished_dynamic_function_trampolines
     }
 
-    fn signatures(&self) -> &BoxedSlice<SignatureIndex, VMSharedSignatureIndex> {
+    /// Returns the associated VM signatures for this `Artifact`.
+    pub fn signatures(&self) -> &BoxedSlice<SignatureIndex, VMSharedSignatureIndex> {
         &self.signatures
+    }
+
+    /// Do preinstantiation logic that is executed before instantiating
+    pub fn preinstantiate(&self) -> Result<(), InstantiationError> {
+        Ok(())
+    }
+
+    /// Crate an `Instance` from this `Artifact`.
+    ///
+    /// # Safety
+    ///
+    /// See [`InstanceHandle::new`].
+    pub unsafe fn instantiate(
+        &self,
+        tunables: &dyn Tunables,
+        imports: &[VMExtern],
+        context: &mut ContextObjects,
+    ) -> Result<InstanceHandle, InstantiationError> {
+        // Validate the CPU features this module was compiled with against the
+        // host CPU features.
+        let host_cpu_features = CpuFeature::for_host();
+        if !host_cpu_features.is_superset(self.cpu_features()) {
+            return Err(InstantiationError::CpuFeature(format!(
+                "{:?}",
+                self.cpu_features().difference(host_cpu_features)
+            )));
+        }
+
+        self.preinstantiate()?;
+
+        let module = Arc::new(self.create_module_info());
+        let imports = resolve_imports(
+            &module,
+            imports,
+            context,
+            self.finished_dynamic_function_trampolines(),
+            self.memory_styles(),
+            self.table_styles(),
+        )
+        .map_err(InstantiationError::Link)?;
+
+        // Get pointers to where metadata about local memories should live in VM memory.
+        // Get pointers to where metadata about local tables should live in VM memory.
+
+        let (allocator, memory_definition_locations, table_definition_locations) =
+            InstanceAllocator::new(&*module);
+        let finished_memories = tunables
+            .create_memories(
+                context,
+                &module,
+                self.memory_styles(),
+                &memory_definition_locations,
+            )
+            .map_err(InstantiationError::Link)?
+            .into_boxed_slice();
+        let finished_tables = tunables
+            .create_tables(
+                context,
+                &module,
+                self.table_styles(),
+                &table_definition_locations,
+            )
+            .map_err(InstantiationError::Link)?
+            .into_boxed_slice();
+        let finished_globals = tunables
+            .create_globals(context, &module)
+            .map_err(InstantiationError::Link)?
+            .into_boxed_slice();
+
+        self.register_frame_info();
+
+        let handle = InstanceHandle::new(
+            allocator,
+            module,
+            context,
+            self.finished_functions().clone(),
+            self.finished_function_call_trampolines().clone(),
+            finished_memories,
+            finished_tables,
+            finished_globals,
+            imports,
+            self.signatures().clone(),
+        )
+        .map_err(|trap| InstantiationError::Start(RuntimeError::from_trap(trap)))?;
+        Ok(handle)
+    }
+
+    /// Finishes the instantiation of a just created `InstanceHandle`.
+    ///
+    /// # Safety
+    ///
+    /// See [`InstanceHandle::finish_instantiation`].
+    pub unsafe fn finish_instantiation(
+        &self,
+        trap_handler: &(dyn TrapHandler + 'static),
+        handle: &mut InstanceHandle,
+    ) -> Result<(), InstantiationError> {
+        let data_initializers = self
+            .data_initializers()
+            .iter()
+            .map(|init| DataInitializer {
+                location: init.location.clone(),
+                data: &*init.data,
+            })
+            .collect::<Vec<_>>();
+        handle
+            .finish_instantiation(trap_handler, &data_initializers)
+            .map_err(|trap| InstantiationError::Start(RuntimeError::from_trap(trap)))
     }
 }

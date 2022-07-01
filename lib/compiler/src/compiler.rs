@@ -3,12 +3,12 @@
 
 use crate::lib::std::boxed::Box;
 use crate::lib::std::sync::Arc;
-use crate::target::Target;
 use crate::translator::ModuleMiddleware;
 use crate::FunctionBodyData;
 use crate::ModuleTranslationState;
 use wasmer_types::compilation::function::Compilation;
 use wasmer_types::compilation::module::CompileModuleInfo;
+use wasmer_types::compilation::target::Target;
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::error::CompileError;
 use wasmer_types::SectionIndex;
