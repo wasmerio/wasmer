@@ -123,6 +123,14 @@ impl<T: ContextObject> fmt::Debug for ContextHandle<T> {
     }
 }
 
+impl<T: ContextObject> PartialEq for ContextHandle<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id && self.internal == other.internal
+    }
+}
+
+impl<T: ContextObject> Eq for ContextHandle<T> {}
+
 impl<T: ContextObject> ContextHandle<T> {
     /// Moves the given object into a context and returns a handle to it.
     pub fn new(ctx: &mut ContextObjects, val: T) -> Self {

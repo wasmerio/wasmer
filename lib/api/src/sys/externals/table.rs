@@ -196,6 +196,14 @@ impl Table {
     }
 }
 
+impl std::cmp::PartialEq for Table {
+    fn eq(&self, other: &Self) -> bool {
+        self.handle == other.handle
+    }
+}
+
+impl std::cmp::Eq for Table {}
+
 impl<'a> Exportable<'a> for Table {
     fn get_self_from_extern(_extern: &'a Extern) -> Result<&'a Self, ExportError> {
         match _extern {

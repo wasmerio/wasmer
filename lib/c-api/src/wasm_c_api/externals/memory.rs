@@ -54,6 +54,14 @@ pub unsafe extern "C" fn wasm_memory_copy(memory: &wasm_memory_t) -> Box<wasm_me
 }
 
 #[no_mangle]
+pub unsafe extern "C" fn wasm_memory_same(
+    wasm_memory1: &wasm_memory_t,
+    wasm_memory2: &wasm_memory_t,
+) -> bool {
+    wasm_memory1.inner == wasm_memory2.inner
+}
+
+#[no_mangle]
 pub unsafe extern "C" fn wasm_memory_type(
     memory: Option<&wasm_memory_t>,
 ) -> Option<Box<wasm_memorytype_t>> {

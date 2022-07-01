@@ -100,6 +100,14 @@ pub unsafe extern "C" fn wasm_global_set(global: &mut wasm_global_t, val: &wasm_
 }
 
 #[no_mangle]
+pub unsafe extern "C" fn wasm_global_same(
+    wasm_global1: &wasm_global_t,
+    wasm_global2: &wasm_global_t,
+) -> bool {
+    wasm_global1.inner == wasm_global2.inner
+}
+
+#[no_mangle]
 pub extern "C" fn wasm_global_type(
     global: Option<&wasm_global_t>,
 ) -> Option<Box<wasm_globaltype_t>> {
