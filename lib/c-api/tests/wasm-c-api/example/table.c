@@ -9,7 +9,7 @@
 
 // A function to be called from Wasm code.
 own wasm_trap_t* neg_callback(
-  const wasm_val_vec_t* args, wasm_val_vec_t* results
+  wasm_context_ref_mut_t* ctx_mut, const wasm_val_vec_t* args, wasm_val_vec_t* results
 ) {
   printf("Calling back...\n");
   results->data[0].kind = WASM_I32;
@@ -78,6 +78,8 @@ int main(int argc, const char* argv[]) {
   printf("Initializing...\n");
   wasm_engine_t* engine = wasm_engine_new();
   wasm_store_t* store = wasm_store_new(engine);
+  wasm_context_t* ctx = wasm_context_new(store, 0);
+  wasm_store_context_set(store, ctx);
 
   // Load binary.
   printf("Loading binary...\n");

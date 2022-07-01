@@ -11,7 +11,7 @@ wasm_store_t* store = NULL;
 
 // A function to be called from Wasm code.
 own wasm_trap_t* fail_callback(
-  const wasm_val_vec_t* args, wasm_val_vec_t* results
+    wasm_context_ref_mut_t* ctx, const wasm_val_vec_t* args, wasm_val_vec_t* results
 ) {
   printf("Calling back...\n");
   own wasm_name_t message;
@@ -37,6 +37,8 @@ int main(int argc, const char* argv[]) {
   printf("Initializing...\n");
   wasm_engine_t* engine = wasm_engine_new();
   store = wasm_store_new(engine);
+  wasm_context_t* ctx = wasm_context_new(store, 0);
+  wasm_store_context_set(store, ctx);
 
   // Load binary.
   printf("Loading binary...\n");

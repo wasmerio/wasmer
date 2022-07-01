@@ -146,6 +146,7 @@ WASM_API_EXTERN own wasm_store_t* wasm_store_new(wasm_engine_t*);
 // Context
 
 WASM_DECLARE_OWN(context)
+WASM_DECLARE_OWN(context_ref_mut)
 
 WASM_API_EXTERN own void wasm_store_context_set(own wasm_store_t*, own wasm_context_t*);
 WASM_API_EXTERN own void wasm_store_data_set(own wasm_store_t*, own void*);
@@ -421,9 +422,7 @@ WASM_API_EXTERN own wasm_module_t* wasm_module_deserialize(wasm_store_t*, const 
 WASM_DECLARE_REF(func)
 
 typedef own wasm_trap_t* (*wasm_func_callback_t)(
-  const wasm_val_vec_t* args, own wasm_val_vec_t* results);
-typedef own wasm_trap_t* (*wasm_func_callback_with_env_t)(
-  void* env, const wasm_val_vec_t* args, wasm_val_vec_t* results);
+  wasm_context_ref_mut_t*, const wasm_val_vec_t* args, own wasm_val_vec_t* results);
 
 WASM_API_EXTERN own wasm_func_t* wasm_func_new(
   wasm_store_t*, const wasm_functype_t*, wasm_func_callback_t);
