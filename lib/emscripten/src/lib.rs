@@ -23,9 +23,9 @@ use std::f64;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, RwLock};
 use wasmer::{
-    imports, namespace, Exports, Function, FunctionType, Global, Imports, Instance, LazyInit,
-    Memory, MemoryType, Module, Pages, RuntimeError, Store, Table, TableType, TypedFunction, Val,
-    ValType, WasmPtr, WasmerEnv,
+    imports, namespace, ExportError, Exports, Function, FunctionType, Global, Imports, Instance,
+    LazyInit, Memory, MemoryType, Module, Pages, RuntimeError, Store, Table, TableType,
+    TypedFunction, Val, ValType, WasmPtr, WasmerEnv,
 };
 
 #[cfg(unix)]
@@ -313,24 +313,51 @@ pub fn set_up_emscripten(instance: &mut Instance) -> Result<(), RuntimeError> {
     Ok(())
 }
 
+/// Looks for variations of the main function (usually
+/// `["_main", "main"])`, then returns a reference to
+/// the found function. Useful for determining whether
+/// a module is executable.
+pub fn emscripten_get_main_func_name<'a>(
+    instance: &Instance,
+    main_func_names: &[&'a str],
+) -> Result<&'a str, ExportError> {
+    let mut function_name = None;
+    let mut last_err = None;
+
+    for func_name in main_func_names.iter() {
+        match instance.exports.get::<Function>(func_name) {
+            Ok(_) => {
+                function_name = Some(func_name);
+                break;
+            }
+            Err(e) => {
+                last_err = Some(e);
+            }
+        }
+    }
+
+    match (function_name, last_err) {
+        (Some(s), _) => Ok(s),
+        (None, None) => Err(ExportError::Missing(format!("{main_func_names:?}"))),
+        (None, Some(e)) => Err(e),
+    }
+}
+
 /// Call the main function in emscripten, assumes that the emscripten state is
 /// set up.
 ///
 /// If you don't want to set it up yourself, consider using [`run_emscripten_instance`].
 pub fn emscripten_call_main(
     instance: &mut Instance,
+    function_name: &str,
     env: &EmEnv,
     path: &str,
     args: &[&str],
 ) -> Result<(), RuntimeError> {
-    let (function_name, main_func) = match instance.exports.get::<Function>("_main") {
-        Ok(func) => Ok(("_main", func)),
-        Err(_e) => instance
-            .exports
-            .get::<Function>("main")
-            .map(|func| ("main", func)),
-    }
-    .map_err(|e| RuntimeError::new(e.to_string()))?;
+    let main_func = instance
+        .exports
+        .get::<Function>(function_name)
+        .map_err(|e| RuntimeError::new(e.to_string()))?;
     let num_params = main_func.ty().params().len();
     let _result = match num_params {
         2 => {
@@ -373,8 +400,7 @@ pub fn run_emscripten_instance(
     env.set_memory(globals.memory.clone());
     set_up_emscripten(instance)?;
 
-    // println!("running emscripten instance");
-
+    let main_func_names = ["_main", "main"];
     if let Some(ep) = entrypoint {
         debug!("Running entry point: {}", &ep);
         let arg = unsafe { allocate_cstr_on_stack(env, args[0]).0 };
@@ -384,8 +410,12 @@ pub fn run_emscripten_instance(
             .get(&ep)
             .map_err(|e| RuntimeError::new(e.to_string()))?;
         func.call(&[Val::I32(arg as i32)])?;
+    } else if let Ok(name) = emscripten_get_main_func_name(instance, &main_func_names) {
+        emscripten_call_main(instance, name, env, path, &args)?;
     } else {
-        emscripten_call_main(instance, env, path, &args)?;
+        return Err(RuntimeError::new(format!(
+            "No main function found (searched: {main_func_names:?}) and no entrypoint specified"
+        )));
     }
 
     // TODO atexit for emscripten

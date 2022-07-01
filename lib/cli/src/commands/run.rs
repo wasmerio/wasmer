@@ -105,9 +105,6 @@ impl Run {
             };
             // TODO: refactor this
             if is_emscripten_module(&module) {
-                if self.invoke.is_some() {
-                    bail!("--invoke is not supported with emscripten modules");
-                }
                 let mut emscripten_globals = EmscriptenGlobals::new(module.store(), &module)
                     .map_err(|e| anyhow!("{}", e))?;
                 let mut em_env = EmEnv::new(&emscripten_globals.data, Default::default());
@@ -137,7 +134,7 @@ impl Run {
                         self.path.to_str().unwrap()
                     },
                     self.args.iter().map(|arg| arg.as_str()).collect(),
-                    None, //run.em_entrypoint.clone(),
+                    self.invoke.clone(),
                 )?;
                 return Ok(());
             }
