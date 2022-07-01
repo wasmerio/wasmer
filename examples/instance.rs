@@ -14,7 +14,7 @@
 //!
 //! Ready?
 
-use wasmer::{imports, wat2wasm, Instance, Module, Store};
+use wasmer::{imports, wat2wasm, Context, Instance, Module, Store, TypedFunction};
 use wasmer_compiler::Universal;
 use wasmer_compiler_cranelift::Cranelift;
 
@@ -40,6 +40,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // the default provided by Wasmer.
     // You can use `Store::default()` for that.
     let store = Store::new_with_engine(&Universal::new(Cranelift::default()).engine());
+    let mut ctx = Context::new(&store, ());
 
     println!("Compiling module...");
     // Let's compile the Wasm module.
@@ -50,7 +51,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Instantiating module...");
     // Let's instantiate the Wasm module.
-    let instance = Instance::new(&module, &import_object)?;
+    let instance = Instance::new(&mut ctx, &module, &import_object)?;
 
     // We now have an instance ready to be used.
     //
@@ -60,13 +61,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Here we are retrieving the exported function. We won't go into details here
     // as the main focus of this example is to show how to create an instance out
     // of a Wasm module and have basic interactions with it.
-    let add_one = instance
-        .exports
-        .get_function("add_one")?
-        .native::<i32, i32>()?;
+    let add_one: TypedFunction<i32, i32> =
+        instance.exports.get_function("add_one")?.native(&mut ctx)?;
 
     println!("Calling `add_one` function...");
-    let result = add_one.call(1)?;
+    let result = add_one.call(&mut ctx, 1)?;
 
     println!("Results of `add_one`: {:?}", result);
     assert_eq!(result, 2);

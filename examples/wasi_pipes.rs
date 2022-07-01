@@ -12,7 +12,7 @@
 //! Ready?
 
 use std::io::{Read, Write};
-use wasmer::{Instance, Module, Store};
+use wasmer::{AsContextMut, Context, Instance, Module, Store};
 use wasmer_compiler::Universal;
 use wasmer_compiler_cranelift::Cranelift;
 use wasmer_wasi::{Pipe, WasiState};
@@ -43,12 +43,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .stdin(Box::new(input.clone()))
         .stdout(Box::new(output.clone()))
         .finalize()?;
+    let mut ctx = Context::new(&store, wasi_env.clone());
 
     println!("Instantiating module with WASI imports...");
     // Then, we get the import object related to our WASI
     // and attach it to the Wasm instance.
-    let import_object = wasi_env.import_object(&module)?;
-    let instance = Instance::new(&module, &import_object)?;
+    let import_object = wasi_env.import_object(&mut ctx.as_context_mut(), &module)?;
+    let instance = Instance::new(&mut ctx, &module, &import_object)?;
+
+    println!("Attach WASI memory...");
+    // Attach the memory export
+    let memory = instance.exports.get_memory("memory")?;
+    ctx.data_mut().set_memory(memory.clone());
 
     let msg = "racecar go zoom";
     println!("Writing \"{}\" to the WASI stdin...", msg);
@@ -58,7 +64,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Call WASI `_start` function...");
     // And we just call the `_start` function!
     let start = instance.exports.get_function("_start")?;
-    start.call(&[])?;
+    start.call(&mut ctx, &[])?;
 
     println!("Reading from the WASI stdout...");
 
