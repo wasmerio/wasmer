@@ -3,10 +3,12 @@ use crate::warning;
 use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
 use structopt::StructOpt;
+use wasmer_compiler::ModuleEnvironment;
 use wasmer_compiler::{ArtifactCreate, UniversalArtifactBuild};
-use wasmer_compiler::{CpuFeature, ModuleEnvironment, Target, Triple};
 use wasmer_types::entity::PrimaryMap;
-use wasmer_types::{CompileError, MemoryIndex, MemoryStyle, TableIndex, TableStyle};
+use wasmer_types::{
+    CompileError, CpuFeature, MemoryIndex, MemoryStyle, TableIndex, TableStyle, Target, Triple,
+};
 
 #[derive(Debug, StructOpt)]
 /// The options for the `wasmer compile` subcommand

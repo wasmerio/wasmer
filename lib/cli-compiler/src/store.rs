@@ -8,8 +8,8 @@ use std::string::ToString;
 use std::sync::Arc;
 use structopt::StructOpt;
 use wasmer_compiler::UniversalEngineBuilder;
-use wasmer_compiler::{CompilerConfig, Features, PointerWidth, Target};
-use wasmer_types::{MemoryStyle, MemoryType, Pages, TableStyle, TableType};
+use wasmer_compiler::{CompilerConfig, Features};
+use wasmer_types::{MemoryStyle, MemoryType, Pages, PointerWidth, TableStyle, TableType, Target};
 
 /// Minimul Subset of Tunable parameters for WebAssembly compilation.
 #[derive(Clone)]

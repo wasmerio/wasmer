@@ -3,11 +3,11 @@
 
 #[cfg(feature = "universal_engine")]
 use super::trampoline::{libcall_trampoline_len, make_libcall_trampolines};
+use crate::Features;
 use crate::MetadataHeader;
 use crate::{ArtifactCreate, UniversalEngineBuilder};
-use crate::{CpuFeature, Features, Triple};
 #[cfg(feature = "universal_engine")]
-use crate::{ModuleEnvironment, ModuleMiddlewareChain, Target};
+use crate::{ModuleEnvironment, ModuleMiddlewareChain};
 use enumset::EnumSet;
 use std::mem;
 use wasmer_types::entity::PrimaryMap;
@@ -15,9 +15,9 @@ use wasmer_types::entity::PrimaryMap;
 use wasmer_types::CompileModuleInfo;
 use wasmer_types::SerializeError;
 use wasmer_types::{
-    CompileError, CustomSection, Dwarf, FunctionIndex, LocalFunctionIndex, MemoryIndex,
+    CompileError, CpuFeature, CustomSection, Dwarf, FunctionIndex, LocalFunctionIndex, MemoryIndex,
     MemoryStyle, ModuleInfo, OwnedDataInitializer, Relocation, SectionIndex, SignatureIndex,
-    TableIndex, TableStyle,
+    TableIndex, TableStyle, Target, Triple,
 };
 use wasmer_types::{
     CompiledFunctionFrameInfo, FunctionBody, SerializableCompilation, SerializableModule,

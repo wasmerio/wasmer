@@ -3,8 +3,7 @@ use anyhow::{bail, Context, Result};
 use std::path::PathBuf;
 use std::str::FromStr;
 use structopt::StructOpt;
-use wasmer_compiler::{CpuFeature, Target, Triple};
-use wasmer_types::is_wasm;
+use wasmer_types::{is_wasm, CpuFeature, Target, Triple};
 
 #[derive(Debug, StructOpt)]
 /// The options for the `wasmer validate` subcommand

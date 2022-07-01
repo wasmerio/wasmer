@@ -1,5 +1,6 @@
 use super::UniversalEngine;
-use crate::{CompilerConfig, Features, Target};
+use crate::{CompilerConfig, Features};
+use wasmer_types::Target;
 
 /// The Universal builder
 pub struct Universal {

@@ -1,10 +1,9 @@
 use gimli::write::{Address, EndianVec, Result, Writer};
 use gimli::{RunTimeEndian, SectionId};
-use wasmer_compiler::Endianness;
 use wasmer_types::entity::EntityRef;
 use wasmer_types::{
-    CustomSection, CustomSectionProtection, LocalFunctionIndex, Relocation, RelocationKind,
-    RelocationTarget, SectionBody,
+    CustomSection, CustomSectionProtection, Endianness, LocalFunctionIndex, Relocation,
+    RelocationKind, RelocationTarget, SectionBody,
 };
 
 #[derive(Clone, Debug)]
