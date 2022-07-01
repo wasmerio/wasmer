@@ -29,7 +29,7 @@ void print_frame(wasm_frame_t* frame) {
 
 wasm_store_t *store = NULL;
 
-own wasm_trap_t* early_exit(const wasm_val_vec_t* args, wasm_val_vec_t* results) {
+own wasm_trap_t* early_exit(wasm_context_ref_mut_t* ctx_mut, const wasm_val_vec_t* args, wasm_val_vec_t* results) {
   own wasm_message_t trap_message;
   wasm_name_new_from_string_nt(&trap_message, "trapping from a host import");
   own wasm_trap_t *trap = wasm_trap_new(store, &trap_message);
@@ -42,6 +42,8 @@ int main(int argc, const char *argv[]) {
   printf("Initializing...\n");
   wasm_engine_t *engine = wasm_engine_new();
   store = wasm_store_new(engine);
+  wasm_context_t* ctx = wasm_context_new(store, 0);
+  wasm_store_context_set(store, ctx);
 
   // Load binary.
   printf("Loading binary...\n");
