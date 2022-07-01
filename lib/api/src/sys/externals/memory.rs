@@ -239,6 +239,14 @@ impl Memory {
     }
 }
 
+impl std::cmp::PartialEq for Memory {
+    fn eq(&self, other: &Self) -> bool {
+        self.handle == other.handle
+    }
+}
+
+impl std::cmp::Eq for Memory {}
+
 impl<'a> Exportable<'a> for Memory {
     fn get_self_from_extern(_extern: &'a Extern) -> Result<&'a Self, ExportError> {
         match _extern {
