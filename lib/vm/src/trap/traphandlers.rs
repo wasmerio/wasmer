@@ -183,7 +183,7 @@ cfg_if::cfg_if! {
 
                 task_set_exception_ports(
                     mach_task_self(),
-                    EXC_MASK_BAD_ACCESS | EXC_MASK_ARITHMETIC,
+                    EXC_MASK_BAD_ACCESS | EXC_MASK_ARITHMETIC | EXC_MASK_BAD_INSTRUCTION,
                     MACH_PORT_NULL,
                     EXCEPTION_STATE_IDENTITY as exception_behavior_t,
                     MACHINE_THREAD_STATE,
