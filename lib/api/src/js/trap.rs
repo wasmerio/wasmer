@@ -62,14 +62,6 @@ impl RuntimeError {
         }
     }
 
-    /// Raises a custom user Error
-    #[deprecated(since = "2.1.1", note = "return a Result from host functions instead")]
-    pub fn raise(error: Box<dyn Error + Send + Sync>) -> ! {
-        let error = Self::user(error);
-        let js_error: JsValue = error.into();
-        wasm_bindgen::throw_val(js_error)
-    }
-
     /// Creates a custom user Error.
     ///
     /// This error object can be passed through Wasm frames and later retrieved
