@@ -224,9 +224,11 @@ mod tests {
 
             // The `sum` host function implementation.
             wasm_trap_t* sum_callback(
+                wasm_context_ref_mut_t* ctx_mut,
                 const wasm_val_vec_t* arguments,
                 wasm_val_vec_t* results
             ) {
+                (void) ctx_mut;
                 wasm_val_t sum = {
                     .kind = WASM_I32,
                     .of = { arguments->data[0].of.i32 + arguments->data[1].of.i32 },

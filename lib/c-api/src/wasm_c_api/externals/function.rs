@@ -1,4 +1,4 @@
-use super::super::context::wasm_context_t;
+use super::super::context::{wasm_context_ref_mut_t, wasm_context_t};
 use super::super::store::wasm_store_t;
 use super::super::trap::wasm_trap_t;
 use super::super::types::{wasm_functype_t, wasm_valkind_enum};
@@ -32,19 +32,10 @@ impl wasm_func_t {
 
 #[allow(non_camel_case_types)]
 pub type wasm_func_callback_t = unsafe extern "C" fn(
+    context: &mut wasm_context_ref_mut_t,
     args: &wasm_val_vec_t,
     results: &mut wasm_val_vec_t,
 ) -> Option<Box<wasm_trap_t>>;
-
-#[allow(non_camel_case_types)]
-pub type wasm_func_callback_with_env_t = unsafe extern "C" fn(
-    env: *mut c_void,
-    args: &wasm_val_vec_t,
-    results: &mut wasm_val_vec_t,
-) -> Option<Box<wasm_trap_t>>;
-
-#[allow(non_camel_case_types)]
-pub type wasm_env_finalizer_t = unsafe extern "C" fn(*mut c_void);
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_func_new(
@@ -62,7 +53,7 @@ pub unsafe extern "C" fn wasm_func_new(
 
     let func_sig = &function_type.inner().function_type;
     let num_rets = func_sig.results().len();
-    let inner_callback = move |_ctx: wasmer_api::ContextMut<'_, *mut c_void>,
+    let inner_callback = move |ctx: wasmer_api::ContextMut<'_, *mut c_void>,
                                args: &[Value]|
           -> Result<Vec<Value>, RuntimeError> {
         let processed_args: wasm_val_vec_t = args
@@ -81,7 +72,11 @@ pub unsafe extern "C" fn wasm_func_new(
         ]
         .into();
 
-        let trap = callback(&processed_args, &mut results);
+        let trap = callback(
+            &mut wasm_context_ref_mut_t { inner: ctx },
+            &processed_args,
+            &mut results,
+        );
 
         if let Some(trap) = trap {
             return Err(trap.inner);
