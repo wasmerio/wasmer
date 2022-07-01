@@ -54,6 +54,14 @@ pub unsafe extern "C" fn wasm_table_size(table: &wasm_table_t) -> usize {
 }
 
 #[no_mangle]
+pub unsafe extern "C" fn wasm_table_same(
+    wasm_table1: &wasm_table_t,
+    wasm_table2: &wasm_table_t,
+) -> bool {
+    wasm_table1.inner == wasm_table2.inner
+}
+
+#[no_mangle]
 pub unsafe extern "C" fn wasm_table_grow(
     _table: &mut wasm_table_t,
     _delta: wasm_table_size_t,

@@ -222,6 +222,14 @@ impl Global {
     }
 }
 
+impl std::cmp::PartialEq for Global {
+    fn eq(&self, other: &Self) -> bool {
+        self.handle == other.handle
+    }
+}
+
+impl std::cmp::Eq for Global {}
+
 impl<'a> Exportable<'a> for Global {
     fn get_self_from_extern(_extern: &'a Extern) -> Result<&'a Self, ExportError> {
         match _extern {
