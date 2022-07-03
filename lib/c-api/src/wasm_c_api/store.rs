@@ -9,12 +9,7 @@ use wasmer_api::Store;
 #[allow(non_camel_case_types)]
 pub struct wasm_store_t {
     pub(crate) inner: Store,
-    pub(crate) context: Option<Rc<RefCell<wasm_context_t>>>,
-}
-
-impl wasm_store_t {
-    pub(crate) const CTX_ERR_STR: &'static str =
-    "store used without a Context set; use wasm_store_context_set() after initializing your store.";
+    pub(crate) context: Rc<RefCell<wasm_context_t>>,
 }
 
 /// Creates a new WebAssembly store given a specific [engine][super::engine].
@@ -28,10 +23,14 @@ pub unsafe extern "C" fn wasm_store_new(
 ) -> Option<Box<wasm_store_t>> {
     let engine = engine?;
     let store = Store::new_with_engine(&*engine.inner);
+    // Default context.
+    let context = Rc::new(RefCell::new(wasm_context_t {
+        inner: wasmer_api::Context::new(&store, std::ptr::null_mut()),
+    }));
 
     Some(Box::new(wasm_store_t {
         inner: store,
-        context: None,
+        context,
     }))
 }
 
@@ -42,17 +41,10 @@ pub unsafe extern "C" fn wasm_store_new(
 /// See the module's documentation.
 #[no_mangle]
 pub unsafe extern "C" fn wasm_store_context_set(
-    store: Option<&mut wasm_store_t>,
-    context: Option<Box<wasm_context_t>>,
+    store: &mut wasm_store_t,
+    context: Box<wasm_context_t>,
 ) {
-    let _result = (move |store: Option<&mut wasm_store_t>,
-                         context: Option<Box<wasm_context_t>>|
-          -> Option<()> {
-        let mut store = store?;
-        let context = context?;
-        store.context = Some(Rc::new(RefCell::new(*context)));
-        Some(())
-    })(store, context);
+    store.context = Rc::new(RefCell::new(*context));
 }
 
 /// Get the value of Context data.
@@ -62,13 +54,7 @@ pub unsafe extern "C" fn wasm_store_context_set(
 /// See the module's documentation.
 #[no_mangle]
 pub unsafe extern "C" fn wasm_store_data_get(store: &wasm_store_t) -> *mut c_void {
-    *store
-        .context
-        .as_ref()
-        .expect(wasm_store_t::CTX_ERR_STR)
-        .borrow()
-        .inner
-        .data()
+    *store.context.borrow().inner.data()
 }
 
 /// Set the value of Context data.
@@ -78,13 +64,7 @@ pub unsafe extern "C" fn wasm_store_data_get(store: &wasm_store_t) -> *mut c_voi
 /// See the module's documentation.
 #[no_mangle]
 pub unsafe extern "C" fn wasm_store_data_set(store: &mut wasm_store_t, new_val: *mut c_void) {
-    *store
-        .context
-        .as_mut()
-        .expect(wasm_store_t::CTX_ERR_STR)
-        .borrow_mut()
-        .inner
-        .data_mut() = new_val;
+    *store.context.borrow_mut().inner.data_mut() = new_val;
 }
 
 /// Deletes a WebAssembly store.

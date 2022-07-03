@@ -12,7 +12,7 @@ use wasmer_api::{Extern, Instance, InstantiationError};
 #[allow(non_camel_case_types)]
 pub struct wasm_instance_t {
     pub(crate) inner: Arc<Instance>,
-    pub(crate) context: Option<Rc<RefCell<wasm_context_t>>>,
+    pub(crate) context: Rc<RefCell<wasm_context_t>>,
 }
 
 /// Creates a new instance from a WebAssembly module and a
@@ -46,10 +46,7 @@ pub unsafe extern "C" fn wasm_instance_new(
     trap: Option<&mut *mut wasm_trap_t>,
 ) -> Option<Box<wasm_instance_t>> {
     let store = store?;
-    if store.context.is_none() {
-        crate::error::update_last_error(wasm_store_t::CTX_ERR_STR);
-    }
-    let mut ctx = store.context.as_ref()?.borrow_mut();
+    let mut ctx = store.context.borrow_mut();
     let module = module?;
     let imports = imports?;
 
@@ -93,6 +90,7 @@ pub unsafe extern "C" fn wasm_instance_new(
             return None;
         }
     };
+    drop(ctx);
 
     Some(Box::new(wasm_instance_t {
         inner: instance,
@@ -122,8 +120,6 @@ pub unsafe extern "C" fn wasm_instance_delete(_instance: Option<Box<wasm_instanc
 ///     // Create the engine and the store.
 ///     wasm_engine_t* engine = wasm_engine_new();
 ///     wasm_store_t* store = wasm_store_new(engine);
-///     wasm_context_t* ctx = wasm_context_new(store, 0);
-///     wasm_store_context_set(store, ctx);
 ///
 ///     // Create a WebAssembly module from a WAT definition.
 ///     wasm_byte_vec_t wat;
@@ -201,14 +197,15 @@ pub unsafe extern "C" fn wasm_instance_exports(
 ) {
     let original_instance = instance;
     let instance = &instance.inner;
-    let mut extern_vec: Vec<Option<Box<wasm_extern_t>>> = instance
+    let extern_vec: Vec<Option<Box<wasm_extern_t>>> = instance
         .exports
         .iter()
-        .map(|(_name, r#extern)| Some(Box::new(r#extern.clone().into())))
+        .map(|(_name, r#extern)| {
+            Some(Box::new(
+                (r#extern.clone(), original_instance.context.clone()).into(),
+            ))
+        })
         .collect();
-    for ex in extern_vec.iter_mut().flatten() {
-        ex.set_context(original_instance.context.clone());
-    }
 
     out.set_buffer(extern_vec);
 }
@@ -242,8 +239,6 @@ mod tests {
                 // Create the engine and the store.
                 wasm_engine_t* engine = wasm_engine_new();
                 wasm_store_t* store = wasm_store_new(engine);
-                wasm_context_t* ctx = wasm_context_new(store, 0);
-                wasm_store_context_set(store, ctx);
 
                 // Create a WebAssembly module from a WAT definition.
                 wasm_byte_vec_t wat;

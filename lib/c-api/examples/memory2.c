@@ -20,8 +20,6 @@ int main(int argc, const char *argv[]) {
   printf("Initializing...\n");
   own wasm_engine_t* engine = wasm_engine_new();
   own wasm_store_t* store = wasm_store_new(engine);
-  wasm_context_t* ctx = wasm_context_new(store, 0);
-  wasm_store_context_set(store, ctx);
 
   // =====================
   wasm_limits_t limits1 = {

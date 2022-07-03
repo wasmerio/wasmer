@@ -12,15 +12,15 @@ use wasmer_api::Table;
 pub struct wasm_table_t {
     pub(crate) tag: CApiExternTag,
     pub(crate) inner: Box<Table>,
-    pub(crate) context: Option<Rc<RefCell<wasm_context_t>>>,
+    pub(crate) context: Rc<RefCell<wasm_context_t>>,
 }
 
 impl wasm_table_t {
-    pub(crate) fn new(table: Table) -> Self {
+    pub(crate) fn new(table: Table, context: Rc<RefCell<wasm_context_t>>) -> Self {
         Self {
             tag: CApiExternTag::Table,
             inner: Box::new(table),
-            context: None,
+            context,
         }
     }
 }
@@ -40,16 +40,15 @@ pub unsafe extern "C" fn wasm_table_delete(_table: Option<Box<wasm_table_t>>) {}
 #[no_mangle]
 pub unsafe extern "C" fn wasm_table_copy(table: &wasm_table_t) -> Box<wasm_table_t> {
     // do shallow copy
-    Box::new(wasm_table_t::new((&*table.inner).clone()))
+    Box::new(wasm_table_t::new(
+        (&*table.inner).clone(),
+        table.context.clone(),
+    ))
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_table_size(table: &wasm_table_t) -> usize {
-    let ctx = table
-        .context
-        .as_ref()
-        .expect(wasm_store_t::CTX_ERR_STR)
-        .borrow();
+    let ctx = table.context.borrow();
     table.inner.size(&ctx.inner) as _
 }
 

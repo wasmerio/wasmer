@@ -162,10 +162,8 @@ fn wasi_get_unordered_imports_inner(
     imports: &mut wasmer_named_extern_vec_t,
 ) -> Option<()> {
     let store = store?;
-    if store.context.is_none() {
-        crate::error::update_last_error(wasm_store_t::CTX_ERR_STR);
-    }
-    let mut ctx = store.context.as_ref()?.borrow_mut();
+    let context_copy = store.context.clone();
+    let mut ctx = store.context.borrow_mut();
     let module = module?;
     let _wasi_env = wasi_env?;
 
@@ -186,7 +184,7 @@ fn wasi_get_unordered_imports_inner(
                 Some(Box::new(wasmer_named_extern_t {
                     module,
                     name,
-                    r#extern: Box::new(extern_inner.into()),
+                    r#extern: Box::new((extern_inner, context_copy.clone()).into()),
                 }))
             })
             .collect::<Vec<_>>(),

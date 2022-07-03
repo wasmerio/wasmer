@@ -17,15 +17,15 @@ use wasmer_api::{Function, RuntimeError, Value};
 pub struct wasm_func_t {
     pub(crate) tag: CApiExternTag,
     pub(crate) inner: Box<Function>,
-    pub(crate) context: Option<Rc<RefCell<wasm_context_t>>>,
+    pub(crate) context: Rc<RefCell<wasm_context_t>>,
 }
 
 impl wasm_func_t {
-    pub(crate) fn new(function: Function) -> Self {
+    pub(crate) fn new(function: Function, context: Rc<RefCell<wasm_context_t>>) -> Self {
         Self {
             tag: CApiExternTag::Function,
             inner: Box::new(function),
-            context: None,
+            context,
         }
     }
 }
@@ -46,10 +46,7 @@ pub unsafe extern "C" fn wasm_func_new(
     let function_type = function_type?;
     let callback = callback?;
     let store = store?;
-    if store.context.is_none() {
-        crate::error::update_last_error(wasm_store_t::CTX_ERR_STR);
-    }
-    let mut ctx = store.context.as_ref()?.borrow_mut();
+    let mut ctx = store.context.borrow_mut();
 
     let func_sig = &function_type.inner().function_type;
     let num_rets = func_sig.results().len();
@@ -93,10 +90,7 @@ pub unsafe extern "C" fn wasm_func_new(
     };
     let function = Function::new(&mut ctx.inner, func_sig, inner_callback);
     drop(ctx);
-    let mut retval = Box::new(wasm_func_t::new(function));
-    retval.context = store.context.clone();
-
-    Some(retval)
+    Some(Box::new(wasm_func_t::new(function, store.context.clone())))
 }
 
 #[no_mangle]
@@ -115,10 +109,7 @@ pub unsafe extern "C" fn wasm_func_call(
 ) -> Option<Box<wasm_trap_t>> {
     let func = func?;
     let args = args?;
-    if func.context.is_none() {
-        crate::error::update_last_error(wasm_store_t::CTX_ERR_STR);
-    }
-    let mut ctx = func.context.as_ref()?.borrow_mut();
+    let mut ctx = func.context.borrow_mut();
 
     let params = args
         .as_slice()
@@ -146,31 +137,20 @@ pub unsafe extern "C" fn wasm_func_call(
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_func_param_arity(func: &wasm_func_t) -> usize {
-    let ctx = func
-        .context
-        .as_ref()
-        .expect(wasm_store_t::CTX_ERR_STR)
-        .borrow();
+    let ctx = func.context.borrow();
     func.inner.ty(&ctx.inner).params().len()
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_func_result_arity(func: &wasm_func_t) -> usize {
-    let ctx = func
-        .context
-        .as_ref()
-        .expect(wasm_store_t::CTX_ERR_STR)
-        .borrow();
+    let ctx = func.context.borrow();
     func.inner.ty(&ctx.inner).results().len()
 }
 
 #[no_mangle]
 pub extern "C" fn wasm_func_type(func: Option<&wasm_func_t>) -> Option<Box<wasm_functype_t>> {
     let func = func?;
-    if func.context.is_none() {
-        crate::error::update_last_error(wasm_store_t::CTX_ERR_STR);
-    }
-    let ctx = func.context.as_ref()?.borrow();
+    let ctx = func.context.borrow();
 
     Some(Box::new(wasm_functype_t::new(func.inner.ty(&ctx.inner))))
 }

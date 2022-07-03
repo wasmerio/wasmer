@@ -43,8 +43,7 @@ int main(int argc, const char* argv[]) {
     return 1;
   }
 
-  wasm_context_t* ctx = wasm_context_new(store, wasi_env);
-  wasm_store_context_set(store, ctx);
+  wasm_store_data_set(store, (void *)wasi_env);
 
   // Load binary.
   printf("Loading binary...\n");

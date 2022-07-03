@@ -4,7 +4,6 @@ mod memory;
 mod table;
 
 use super::context::wasm_context_t;
-use super::store::wasm_store_t;
 pub use function::*;
 pub use global::*;
 pub use memory::*;
@@ -84,61 +83,20 @@ impl wasm_extern_t {
     pub(crate) fn ty(&self) -> ExternType {
         match self.get_tag() {
             CApiExternTag::Function => unsafe {
-                let ctx = self
-                    .inner
-                    .function
-                    .context
-                    .as_ref()
-                    .expect(wasm_store_t::CTX_ERR_STR)
-                    .borrow();
+                let ctx = self.inner.function.context.borrow();
                 ExternType::Function(self.inner.function.inner.ty(&ctx.inner))
             },
             CApiExternTag::Memory => unsafe {
-                let ctx = self
-                    .inner
-                    .memory
-                    .context
-                    .as_ref()
-                    .expect(wasm_store_t::CTX_ERR_STR)
-                    .borrow();
+                let ctx = self.inner.memory.context.borrow();
                 ExternType::Memory(self.inner.memory.inner.ty(&ctx.inner))
             },
             CApiExternTag::Global => unsafe {
-                let ctx = self
-                    .inner
-                    .global
-                    .context
-                    .as_ref()
-                    .expect(wasm_store_t::CTX_ERR_STR)
-                    .borrow();
+                let ctx = self.inner.global.context.borrow();
                 ExternType::Global(self.inner.global.inner.ty(&ctx.inner))
             },
             CApiExternTag::Table => unsafe {
-                let ctx = self
-                    .inner
-                    .table
-                    .context
-                    .as_ref()
-                    .expect(wasm_store_t::CTX_ERR_STR)
-                    .borrow();
+                let ctx = self.inner.table.context.borrow();
                 ExternType::Table(self.inner.table.inner.ty(&ctx.inner))
-            },
-        }
-    }
-
-    pub(crate) fn set_context(&mut self, new_val: Option<Rc<RefCell<wasm_context_t>>>) {
-        match self.get_tag() {
-            CApiExternTag::Function => unsafe {
-                (*self.inner.function).context = new_val;
-            },
-            CApiExternTag::Memory => unsafe {
-                (*self.inner.memory).context = new_val;
-            },
-            CApiExternTag::Global => unsafe {
-                (*self.inner.global).context = new_val;
-            },
-            CApiExternTag::Table => unsafe {
-                (*self.inner.table).context = new_val;
             },
         }
     }
@@ -171,27 +129,27 @@ impl Clone for wasm_extern_t {
     }
 }
 
-impl From<Extern> for wasm_extern_t {
-    fn from(other: Extern) -> Self {
+impl From<(Extern, Rc<RefCell<wasm_context_t>>)> for wasm_extern_t {
+    fn from((other, context): (Extern, Rc<RefCell<wasm_context_t>>)) -> Self {
         match other {
             Extern::Function(function) => Self {
                 inner: wasm_extern_inner {
-                    function: mem::ManuallyDrop::new(wasm_func_t::new(function)),
+                    function: mem::ManuallyDrop::new(wasm_func_t::new(function, context)),
                 },
             },
             Extern::Memory(memory) => Self {
                 inner: wasm_extern_inner {
-                    memory: mem::ManuallyDrop::new(wasm_memory_t::new(memory)),
+                    memory: mem::ManuallyDrop::new(wasm_memory_t::new(memory, context)),
                 },
             },
             Extern::Table(table) => Self {
                 inner: wasm_extern_inner {
-                    table: mem::ManuallyDrop::new(wasm_table_t::new(table)),
+                    table: mem::ManuallyDrop::new(wasm_table_t::new(table, context)),
                 },
             },
             Extern::Global(global) => Self {
                 inner: wasm_extern_inner {
-                    global: mem::ManuallyDrop::new(wasm_global_t::new(global)),
+                    global: mem::ManuallyDrop::new(wasm_global_t::new(global, context)),
                 },
             },
         }
@@ -320,8 +278,6 @@ mod tests {
             int main() {
                 wasm_engine_t* engine = wasm_engine_new();
                 wasm_store_t* store = wasm_store_new(engine);
-                wasm_context_t* ctx = wasm_context_new(store, 0);
-                wasm_store_context_set(store, ctx);
 
                 wasm_byte_vec_t wat;
                 wasmer_byte_vec_new_from_string(
