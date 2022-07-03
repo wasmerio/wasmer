@@ -327,7 +327,9 @@ impl WasiEnv {
 
     /// Get memory, that needs to have been set fist
     pub fn memory(&self) -> &Memory {
-        self.memory.as_ref().unwrap()
+        self.memory
+            .as_ref()
+            .expect("You must call set_memory() before using a WasiEnv!")
     }
 
     /// Get the WASI state

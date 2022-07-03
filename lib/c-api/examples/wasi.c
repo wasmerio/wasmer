@@ -42,8 +42,7 @@ int main(int argc, const char* argv[]) {
     print_wasmer_error();
     return 1;
   }
-
-  wasm_store_data_replace(store, wasi_env);
+  wasm_store_data_set(store, wasi_env);
 
   // Load binary.
   printf("Loading binary...\n");
@@ -101,7 +100,26 @@ int main(int argc, const char* argv[]) {
     printf("> Error accessing exports!\n");
     return 1;
   }
+
   fprintf(stderr, "found %zu exports\n", exports.size);
+
+  wasm_memory_t* mem = NULL;
+  for (int i = 0; i<exports.size; i++) {
+    wasm_extern_t* e = exports.data[i];
+    printf("extern i = %d is %d\n", i, wasm_extern_kind(e));
+    if (wasm_extern_kind(e) == WASM_EXTERN_MEMORY) {
+      printf("> Found a memory object\n");
+      mem = wasm_extern_as_memory(e);
+      assert(mem);
+      wasi_set_memory(wasi_env, mem);
+      break;
+    }
+  }
+
+  if (mem == NULL) {
+    printf("> Error finding a Memory object from instance exports!\n");
+    return 1;
+  }
 
   wasm_func_t* run_func = wasi_get_start_function(instance);
   if (run_func == NULL) {
@@ -119,6 +137,7 @@ int main(int argc, const char* argv[]) {
 
   wasm_val_vec_t args = WASM_EMPTY_VEC;
   wasm_val_vec_t res = WASM_EMPTY_VEC;
+
 
   if (wasm_func_call(run_func, &args, &res)) {
     printf("> Error calling function!\n");

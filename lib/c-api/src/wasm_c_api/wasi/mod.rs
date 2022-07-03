@@ -4,7 +4,7 @@
 
 pub use super::unstable::wasi::wasi_get_unordered_imports;
 use super::{
-    externals::{wasm_extern_vec_t, wasm_func_t},
+    externals::{wasm_extern_vec_t, wasm_func_t, wasm_memory_t},
     instance::wasm_instance_t,
     module::wasm_module_t,
     store::wasm_store_t,
@@ -375,6 +375,12 @@ pub unsafe extern "C" fn wasi_get_start_function(
         start.clone(),
         instance.context.clone(),
     )))
+}
+
+/// Set the [`Memory`] for this `WasiEnv`.
+#[no_mangle]
+pub unsafe extern "C" fn wasi_set_memory(wasi_env: &mut wasi_env_t, memory: &wasm_memory_t) {
+    wasi_env.inner.set_memory((&*memory.inner).clone());
 }
 
 #[cfg(test)]

@@ -206,6 +206,11 @@ pub unsafe extern "C" fn wasm_instance_exports(
             ))
         })
         .collect();
+    for e in &extern_vec {
+        if let Some(e) = e.as_ref() {
+            println!("e = {:?}", crate::wasm_c_api::types::wasm_extern_kind(e));
+        }
+    }
 
     out.set_buffer(extern_vec);
 }

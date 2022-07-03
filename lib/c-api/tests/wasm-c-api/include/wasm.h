@@ -151,6 +151,7 @@ WASM_DECLARE_OWN(context_ref_mut)
 WASM_API_EXTERN own void wasm_store_context_set(own wasm_store_t*, own wasm_context_t*);
 WASM_API_EXTERN own void wasm_store_data_set(own wasm_store_t*, own void*);
 WASM_API_EXTERN own void* wasm_store_data_get(own wasm_store_t*);
+WASM_API_EXTERN own void wasm_store_data_replace(own wasm_store_t*, own void*);
 
 ///////////////////////////////////////////////////////////////////////////////
 // Type Representations
