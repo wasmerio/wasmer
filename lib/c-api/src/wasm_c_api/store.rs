@@ -67,6 +67,16 @@ pub unsafe extern "C" fn wasm_store_data_set(store: &mut wasm_store_t, new_val: 
     *store.context.borrow_mut().inner.data_mut() = new_val;
 }
 
+/// Set the value of Context data.
+///
+/// # Example
+///
+/// See the module's documentation.
+#[no_mangle]
+pub unsafe extern "C" fn wasm_store_data_replace(store: &mut wasm_store_t, new_val: *mut c_void) {
+    let _old = store.context.borrow_mut().inner.data_replace(new_val);
+}
+
 /// Deletes a WebAssembly store.
 ///
 /// # Example

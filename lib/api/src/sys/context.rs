@@ -56,6 +56,11 @@ impl<T> Context<T> {
         &mut self.inner.data
     }
 
+    /// Replace the host state in this context.
+    pub fn data_replace(&mut self, new_val: T) -> T {
+        std::mem::replace(&mut self.inner.data, new_val)
+    }
+
     /// Drops the context and returns the host state that was stored in it.
     pub fn into_data(self) -> T {
         self.inner.data
