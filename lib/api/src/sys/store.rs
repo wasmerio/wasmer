@@ -2,7 +2,7 @@ use crate::sys::tunables::BaseTunables;
 use std::fmt;
 use std::sync::{Arc, RwLock};
 use wasmer_compiler::CompilerConfig;
-use wasmer_compiler::{Engine, Tunables, Universal};
+use wasmer_compiler::{Tunables, Universal, UniversalEngine};
 use wasmer_vm::{init_traps, TrapHandler, TrapHandlerFn};
 
 /// The store represents all global state that can be manipulated by
@@ -17,7 +17,7 @@ use wasmer_vm::{init_traps, TrapHandler, TrapHandlerFn};
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#store>
 #[derive(Clone)]
 pub struct Store {
-    engine: Arc<dyn Engine + Send + Sync>,
+    engine: Arc<UniversalEngine>,
     tunables: Arc<dyn Tunables + Send + Sync>,
     trap_handler: Arc<RwLock<Option<Box<TrapHandlerFn>>>>,
 }
@@ -30,10 +30,7 @@ impl Store {
     }
 
     /// Creates a new `Store` with a specific [`Engine`].
-    pub fn new_with_engine<E>(engine: &E) -> Self
-    where
-        E: Engine + ?Sized,
-    {
+    pub fn new_with_engine(engine: &UniversalEngine) -> Self {
         Self::new_with_tunables(engine, BaseTunables::for_target(engine.target()))
     }
 
@@ -44,10 +41,10 @@ impl Store {
     }
 
     /// Creates a new `Store` with a specific [`Engine`] and [`Tunables`].
-    pub fn new_with_tunables<E>(engine: &E, tunables: impl Tunables + Send + Sync + 'static) -> Self
-    where
-        E: Engine + ?Sized,
-    {
+    pub fn new_with_tunables(
+        engine: &UniversalEngine,
+        tunables: impl Tunables + Send + Sync + 'static,
+    ) -> Self {
         // Make sure the signal handlers are installed.
         // This is required for handling traps.
         init_traps();
@@ -65,7 +62,7 @@ impl Store {
     }
 
     /// Returns the [`Engine`].
-    pub fn engine(&self) -> &Arc<dyn Engine + Send + Sync> {
+    pub fn engine(&self) -> &Arc<UniversalEngine> {
         &self.engine
     }
 
@@ -121,7 +118,7 @@ impl Default for Store {
         }
 
         #[allow(unreachable_code, unused_mut)]
-        fn get_engine(mut config: impl CompilerConfig + 'static) -> impl Engine + Send + Sync {
+        fn get_engine(mut config: impl CompilerConfig + 'static) -> UniversalEngine {
             cfg_if::cfg_if! {
                 if #[cfg(feature = "default-universal")] {
                     wasmer_compiler::Universal::new(config)

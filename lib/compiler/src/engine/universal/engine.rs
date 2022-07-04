@@ -4,7 +4,10 @@
 use crate::Compiler;
 use crate::UniversalEngineBuilder;
 use crate::{CodeMemory, UniversalArtifact};
-use crate::{Engine, EngineId, FunctionExtent, Tunables};
+use crate::{FunctionExtent, Tunables};
+use memmap2::Mmap;
+use std::path::Path;
+use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 use std::sync::{Arc, Mutex};
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::FunctionBody;
@@ -74,34 +77,32 @@ impl UniversalEngine {
     pub(crate) fn inner_mut(&self) -> std::sync::MutexGuard<'_, UniversalEngineInner> {
         self.inner.lock().unwrap()
     }
-}
 
-impl Engine for UniversalEngine {
-    /// The target
-    fn target(&self) -> &Target {
+    /// Gets the target
+    pub fn target(&self) -> &Target {
         &self.target
     }
 
     /// Register a signature
-    fn register_signature(&self, func_type: &FunctionType) -> VMSharedSignatureIndex {
+    pub fn register_signature(&self, func_type: &FunctionType) -> VMSharedSignatureIndex {
         let compiler = self.inner();
         compiler.signatures().register(func_type)
     }
 
     /// Lookup a signature
-    fn lookup_signature(&self, sig: VMSharedSignatureIndex) -> Option<FunctionType> {
+    pub fn lookup_signature(&self, sig: VMSharedSignatureIndex) -> Option<FunctionType> {
         let compiler = self.inner();
         compiler.signatures().lookup(sig)
     }
 
     /// Validates a WebAssembly module
-    fn validate(&self, binary: &[u8]) -> Result<(), CompileError> {
+    pub fn validate(&self, binary: &[u8]) -> Result<(), CompileError> {
         self.inner().validate(binary)
     }
 
     /// Compile a WebAssembly binary
     #[cfg(feature = "universal_engine")]
-    fn compile(
+    pub fn compile(
         &self,
         binary: &[u8],
         tunables: &dyn Tunables,
@@ -111,7 +112,7 @@ impl Engine for UniversalEngine {
 
     /// Compile a WebAssembly binary
     #[cfg(not(feature = "universal_engine"))]
-    fn compile(
+    pub fn compile(
         &self,
         _binary: &[u8],
         _tunables: &dyn Tunables,
@@ -123,15 +124,42 @@ impl Engine for UniversalEngine {
     }
 
     /// Deserializes a WebAssembly module
-    unsafe fn deserialize(&self, bytes: &[u8]) -> Result<Arc<UniversalArtifact>, DeserializeError> {
+    ///
+    /// # Safety
+    ///
+    /// The serialized content must represent a serialized WebAssembly module.
+    pub unsafe fn deserialize(
+        &self,
+        bytes: &[u8],
+    ) -> Result<Arc<UniversalArtifact>, DeserializeError> {
         Ok(Arc::new(UniversalArtifact::deserialize(self, bytes)?))
     }
 
-    fn id(&self) -> &EngineId {
+    /// Deserializes a WebAssembly module from a path
+    ///
+    /// # Safety
+    ///
+    /// The file's content must represent a serialized WebAssembly module.
+    pub unsafe fn deserialize_from_file(
+        &self,
+        file_ref: &Path,
+    ) -> Result<Arc<UniversalArtifact>, DeserializeError> {
+        let file = std::fs::File::open(file_ref)?;
+        let mmap = Mmap::map(&file)?;
+        self.deserialize(&mmap)
+    }
+
+    /// A unique identifier for this object.
+    ///
+    /// This exists to allow us to compare two Engines for equality. Otherwise,
+    /// comparing two trait objects unsafely relies on implementation details
+    /// of trait representation.
+    pub fn id(&self) -> &EngineId {
         &self.engine_id
     }
 
-    fn cloned(&self) -> Arc<dyn Engine + Send + Sync> {
+    /// Clone the engine
+    pub fn cloned(&self) -> Arc<Self> {
         Arc::new(self.clone())
     }
 }
@@ -283,5 +311,34 @@ impl UniversalEngineInner {
     /// Shared signature registry.
     pub fn signatures(&self) -> &SignatureRegistry {
         &self.signatures
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[repr(transparent)]
+/// A unique identifier for an Engine.
+pub struct EngineId {
+    id: usize,
+}
+
+impl EngineId {
+    /// Format this identifier as a string.
+    pub fn id(&self) -> String {
+        format!("{}", &self.id)
+    }
+}
+
+impl Clone for EngineId {
+    fn clone(&self) -> Self {
+        Self::default()
+    }
+}
+
+impl Default for EngineId {
+    fn default() -> Self {
+        static NEXT_ID: AtomicUsize = AtomicUsize::new(0);
+        Self {
+            id: NEXT_ID.fetch_add(1, SeqCst),
+        }
     }
 }

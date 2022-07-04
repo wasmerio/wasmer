@@ -35,7 +35,7 @@ pub use target_lexicon::{Architecture, CallingConvention, OperatingSystem, Tripl
 pub use wasmer_compiler::{
     wasmparser, CompilerConfig, FunctionMiddleware, MiddlewareReaderState, ModuleMiddleware,
 };
-pub use wasmer_compiler::{Engine, Features, FrameInfo, LinkError, RuntimeError, Tunables};
+pub use wasmer_compiler::{Features, FrameInfo, LinkError, RuntimeError, Tunables};
 pub use wasmer_derive::ValueType;
 pub use wasmer_types::is_wasm;
 pub use wasmer_types::{

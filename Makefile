@@ -9,22 +9,22 @@ SHELL=/usr/bin/env bash
 
 # The matrix is the product of the following columns:
 #
-# |------------|-----------|----------|--------------|-------|
-# | Compiler   ⨯ Engine    ⨯ Platform ⨯ Architecture ⨯ libc  |
-# |------------|-----------|----------|--------------|-------|
-# | Cranelift  | Universal | Linux    | amd64        | glibc |
-# | LLVM       |           | Darwin   | aarch64      | musl  |
-# | Singlepass |           | Windows  |              |       |
-# |------------|-----------|----------|--------------|-------|
+# |------------|----------|--------------|-------|
+# | Compiler   ⨯ Platform ⨯ Architecture ⨯ libc  |
+# |------------|----------|--------------|-------|
+# | Cranelift  | Linux    | amd64        | glibc |
+# | LLVM       | Darwin   | aarch64      | musl  |
+# | Singlepass | Windows  |              |       |
+# |------------|----------|--------------|-------|
 #
 # Here is what works and what doesn't:
 #
-# * Cranelift with the Universal engine works everywhere,
+# * Cranelift works everywhere,
 #
-# * LLVM with the Universal engine works on Linux+Darwin/`amd64`,
+# * LLVM works on Linux+Darwin/`amd64`,
 #   but it doesn't work on */`aarch64` or Windows/*.
 #
-# * Singlepass with the Universal engine works on Linux+Darwin/`amd64`, but
+# * Singlepass works on Linux+Darwin/`amd64`, but
 #   it doesn't work on */`aarch64` or Windows/*.
 #
 # * Windows isn't tested on `aarch64`, that's why we consider it's not
