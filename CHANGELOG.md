@@ -13,6 +13,7 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 - [#3008](https://github.com/wasmerio/wasmer/pull/3008) Add a new CI check that uses cargo public-api to track changes in the API between master and the last deployed version on crates.io
 - [#3003](https://github.com/wasmerio/wasmer/pull/3003) Remove RuntimeError::raise from public API
 - [#2999](https://github.com/wasmerio/wasmer/pull/2999) Allow `--invoke` CLI option for Emscripten files without a `main` function
+- [#2997](https://github.com/wasmerio/wasmer/pull/2997) Fix "run --invoke [function]" to behave the same as "run"
 - [#2946](https://github.com/wasmerio/wasmer/pull/2946) Remove dylib,staticlib engines in favor of a single Universal engine
 - [#2949](https://github.com/wasmerio/wasmer/pull/2949) Switch back to using custom LLVM builds on CI
 - #2892 Renamed `get_native_function` to `get_typed_function`, marked former as deprecated.
