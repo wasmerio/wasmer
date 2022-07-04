@@ -99,16 +99,10 @@ impl Wasi {
             }
         }
 
-        let wasi_env = wasi_state_builder.finalize()?;
-        wasi_env.state.fs.is_wasix.store(
-            is_wasix_module(module),
-            std::sync::atomic::Ordering::Release,
-        );
+        let wasi_env = wasi_state_builder.finalize(module)?;
         let mut ctx = Context::new(module.store(), wasi_env);
         let import_object = import_object_for_all_wasi_versions(&mut ctx.as_context_mut());
         let instance = Instance::new(&mut ctx, module, &import_object)?;
-        let memory = instance.exports.get_memory("memory")?;
-        ctx.data_mut().set_memory(memory.clone());
         Ok((ctx, instance))
     }
 

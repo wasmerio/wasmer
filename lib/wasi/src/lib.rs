@@ -151,7 +151,7 @@ pub struct WasiEnv {
     /// ID of this thread (zero is the main thread)
     id: WasiThreadId,
     /// Represents a reference to the memory
-    memory: Option<Memory>,
+    memory: Memory,
     /// If the module has it then map the thread start
     #[derivative(Debug = "ignore")]
     thread_start: Option<TypedFunction<u64, ()>>,
@@ -172,18 +172,21 @@ pub struct WasiEnv {
 
 impl WasiEnv {
     /// Create a new WasiEnv from a WasiState (memory will be set to None)
-    pub fn new(state: WasiState) -> Self {
-        Self {
-            id: 0u32.into(),
-            state: Arc::new(state),
-            memory: None,
-            thread_start: None,
-            reactor_work: None,
-            reactor_finish: None,
-            malloc: None,
-            free: None,
-            runtime: Arc::new(PluggableRuntimeImplementation::default()),
-        }
+    pub fn new(state: WasiState, module: &Module) -> Result<Self, WasiStateCreationError> {
+        let exports = module.externs();
+        Ok(
+            Self {
+                id: 0u32.into(),
+                state: Arc::new(state),
+                memory: exports.get_memory("memory").map_err(|e| WasiStateCreationError::ExportsError(e))?,
+                thread_start: exports.get_function("_thread_spawn").ok(),
+                reactor_work: exports.get_function("_reactor_work").ok(),
+                reactor_finish: exports.get_function("_reactor_finish").ok(),
+                malloc: exports.get_function("_malloc").ok(),
+                free: exports.get_function("_free").ok(),
+                runtime: Arc::new(PluggableRuntimeImplementation::default()),
+            }
+        )
     }
 
     /// Returns a copy of the current runtime implementation for this environment
@@ -225,7 +228,7 @@ impl WasiEnv {
 
     /// Copy the lazy reference so that when it's initialized during the
     /// export phase, all the other references get a copy of it
-    pub fn memory_clone(&self) -> Option<Memory> {
+    pub fn memory_clone(&self) -> Memory {
         self.memory.clone()
     }
 

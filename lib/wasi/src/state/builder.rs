@@ -2,8 +2,9 @@
 
 use crate::state::{default_fs_backing, WasiFs, WasiState};
 use crate::syscalls::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO};
-use crate::{WasiEnv, WasiInodes};
+use crate::{WasiEnv, WasiInodes, is_wasix_module};
 use generational_arena::Arena;
+use wasmer::{Module, ExportError};
 use std::collections::HashMap;
 use std::ops::{Deref, DerefMut};
 use std::path::{Path, PathBuf};
@@ -88,6 +89,8 @@ pub enum WasiStateCreationError {
     WasiFsSetupError(String),
     #[error(transparent)]
     FileSystemError(FsError),
+    #[error(transparent)]
+    ExportsError(ExportError),
 }
 
 fn validate_mapped_dir_alias(alias: &str) -> Result<(), WasiStateCreationError> {
@@ -493,10 +496,11 @@ impl WasiStateBuilder {
     /// determinisic result. This method is calling [Self::build],
     /// which is changing the builder's internal state. See
     /// [Self::build]'s documentation to learn more.
-    pub fn finalize(&mut self) -> Result<WasiEnv, WasiStateCreationError> {
-        let state = self.build()?;
+    pub fn finalize(&mut self, module: &Module) -> Result<WasiEnv, WasiStateCreationError> {
+        let mut state = self.build()?;
+        state.fs.is_wasix = is_wasix_module(module);
 
-        let mut env = WasiEnv::new(state);
+        let mut env = WasiEnv::new(state, module)?;
         if let Some(runtime) = self.runtime_override.as_ref() {
             env.runtime = runtime.clone();
         }

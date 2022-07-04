@@ -91,25 +91,7 @@ impl Instance {
         imports: Imports,
     ) -> Result<Self, InstantiationError> {
         let instance_exports = instance.get(ctx.as_context_ref().objects()).exports();
-        let exports = module
-            .exports()
-            .map(|export_type| {
-                let name = export_type.name();
-                let extern_type = export_type.ty().clone();
-                let js_export =
-                    js_sys::Reflect::get(&instance_exports, &name.into()).map_err(|_e| {
-                        InstantiationError::Link(format!(
-                            "Can't get {} from the instance exports",
-                            &name
-                        ))
-                    })?;
-                let export: Export =
-                    Export::from_js_value(js_export, &mut ctx.as_context_mut(), extern_type)?
-                        .into();
-                let extern_ = Extern::from_vm_export(&mut ctx.as_context_mut(), export);
-                Ok((name.to_string(), extern_))
-            })
-            .collect::<Result<Exports, InstantiationError>>()?;
+        let exports = module.externs()?;
 
         Ok(Self {
             _handle: instance,

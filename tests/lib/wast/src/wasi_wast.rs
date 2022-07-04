@@ -83,7 +83,7 @@ impl<'a> WasiTest<'a> {
             out
         };
         let module = Module::new(store, &wasm_bytes)?;
-        let (env, _tempdirs, stdout_rx, stderr_rx) = self.create_wasi_env(filesystem_kind)?;
+        let (env, _tempdirs, stdout_rx, stderr_rx) = self.create_wasi_env(filesystem_kind, &module)?;
         let mut ctx = WasmerContext::new(store, env.clone());
         let imports = self.get_imports(&mut ctx.as_context_mut(), &module)?;
         let instance = Instance::new(&mut ctx, &module, &imports)?;
@@ -133,6 +133,7 @@ impl<'a> WasiTest<'a> {
     fn create_wasi_env(
         &self,
         filesystem_kind: WasiFileSystemKind,
+        module: &Module,
     ) -> anyhow::Result<(
         WasiEnv,
         Vec<tempfile::TempDir>,
@@ -217,7 +218,7 @@ impl<'a> WasiTest<'a> {
             //.env("RUST_BACKTRACE", "1")
             .stdout(Box::new(stdout))
             .stderr(Box::new(stderr))
-            .finalize()?;
+            .finalize(module)?;
 
         Ok((out, host_temp_dirs_to_not_drop, stdout_rx, stderr_rx))
     }

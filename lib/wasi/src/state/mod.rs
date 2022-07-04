@@ -330,7 +330,7 @@ pub struct WasiFs {
     pub next_fd: AtomicU32,
     inode_counter: AtomicU64,
     pub current_dir: Mutex<String>,
-    pub is_wasix: AtomicBool,
+    pub is_wasix: bool,
     #[cfg_attr(feature = "enable-serde", serde(skip, default = "default_fs_backing"))]
     pub fs_backing: Box<dyn FileSystem>,
 }

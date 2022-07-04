@@ -77,7 +77,7 @@ fn test_stdout() {
     let mut wasi_env = WasiState::new("command-name")
         .args(&["Gordon"])
         .stdout(Box::new(stdout.clone()))
-        .finalize()
+        .finalize(&module)
         .unwrap();
 
     // Create a context state that will hold all objects created by this Instance
@@ -90,8 +90,6 @@ fn test_stdout() {
 
     // Let's instantiate the module with the imports.
     let instance = Instance::new(&mut ctx, &module, &import_object).unwrap();
-    let memory = instance.exports.get_memory("memory").unwrap();
-    ctx.data_mut().set_memory(memory.clone());
 
     // Let's call the `_start` function, which is our `main` function in Rust.
     let start = instance.exports.get_function("_start").unwrap();
@@ -125,7 +123,7 @@ fn test_env() {
     // panic!("envs: {:?}", wasi_state_builder.envs);
     let mut wasi_env = wasi_state_builder
         .stdout(Box::new(stdout.clone()))
-        .finalize()
+        .finalize(&module)
         .unwrap();
 
     // Create a context state that will hold all objects created by this Instance
@@ -138,8 +136,6 @@ fn test_env() {
 
     // Let's instantiate the module with the imports.
     let instance = Instance::new(&mut ctx, &module, &import_object).unwrap();
-    let memory = instance.exports.get_memory("memory").unwrap();
-    ctx.data_mut().set_memory(memory.clone());
 
     // Let's call the `_start` function, which is our `main` function in Rust.
     let start = instance.exports.get_function("_start").unwrap();
@@ -159,7 +155,7 @@ fn test_stdin() {
     let mut stdin = Pipe::new();
     let mut wasi_env = WasiState::new("command-name")
         .stdin(Box::new(stdin.clone()))
-        .finalize()
+        .finalize(&module)
         .unwrap();
 
     // Write to STDIN
@@ -176,8 +172,6 @@ fn test_stdin() {
 
     // Let's instantiate the module with the imports.
     let instance = Instance::new(&mut ctx, &module, &import_object).unwrap();
-    let memory = instance.exports.get_memory("memory").unwrap();
-    ctx.data_mut().set_memory(memory.clone());
 
     // Let's call the `_start` function, which is our `main` function in Rust.
     let start = instance.exports.get_function("_start").unwrap();

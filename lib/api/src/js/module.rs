@@ -520,6 +520,49 @@ impl Module {
         ExportsIterator::new(iter, exports.length() as usize)
     }
 
+    /// Returns an vector of externss derived from the exports.
+    ///
+    /// The order of the externs is guaranteed to be the same as in the
+    /// WebAssembly bytecode.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use wasmer::*;
+    /// # fn main() -> anyhow::Result<()> {
+    /// # let store = Store::default();
+    /// let wat = r#"(module
+    ///     (func (export "namedfunc"))
+    ///     (memory (export "namedmemory") 1)
+    /// )"#;
+    /// let module = Module::new(&store, wat)?;
+    /// let externs = module.externs();
+    /// let memory = externs.get_memory();
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn externs(&self) -> Result<Exports, InstantiationError> {
+        let exports = module
+            .exports()
+            .map(|export_type| {
+                let name = export_type.name();
+                let extern_type = export_type.ty().clone();
+                let js_export =
+                    js_sys::Reflect::get(&instance_exports, &name.into()).map_err(|_e| {
+                        InstantiationError::Link(format!(
+                            "Can't get {} from the instance exports",
+                            &name
+                        ))
+                    })?;
+                let export: Export =
+                    Export::from_js_value(js_export, &mut ctx.as_context_mut(), extern_type)?
+                        .into();
+                let extern_ = Extern::from_vm_export(&mut ctx.as_context_mut(), export);
+                Ok((name.to_string(), extern_))
+            })
+            .collect::<Result<Exports, InstantiationError>>()?;
+    }
+
     // /// Get the custom sections of the module given a `name`.
     // ///
     // /// # Important

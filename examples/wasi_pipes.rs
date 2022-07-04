@@ -42,7 +42,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut wasi_env = WasiState::new("hello")
         .stdin(Box::new(input.clone()))
         .stdout(Box::new(output.clone()))
-        .finalize()?;
+        .finalize(&module)?;
     let mut ctx = Context::new(&store, wasi_env.clone());
 
     println!("Instantiating module with WASI imports...");
@@ -50,11 +50,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // and attach it to the Wasm instance.
     let import_object = wasi_env.import_object(&mut ctx.as_context_mut(), &module)?;
     let instance = Instance::new(&mut ctx, &module, &import_object)?;
-
-    println!("Attach WASI memory...");
-    // Attach the memory export
-    let memory = instance.exports.get_memory("memory")?;
-    ctx.data_mut().set_memory(memory.clone());
 
     let msg = "racecar go zoom";
     println!("Writing \"{}\" to the WASI stdin...", msg);

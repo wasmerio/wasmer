@@ -1,3 +1,4 @@
+use crate::Exports;
 use crate::sys::store::Store;
 use crate::sys::InstantiationError;
 use std::fmt;
@@ -414,6 +415,39 @@ impl Module {
     /// ```
     pub fn exports(&self) -> ExportsIterator<impl Iterator<Item = ExportType> + '_> {
         self.artifact.module_ref().exports()
+    }
+
+    /// Returns an vector of externss derived from the exports.
+    ///
+    /// The order of the externs is guaranteed to be the same as in the
+    /// WebAssembly bytecode.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use wasmer::*;
+    /// # fn main() -> anyhow::Result<()> {
+    /// # let store = Store::default();
+    /// let wat = r#"(module
+    ///     (func (export "namedfunc"))
+    ///     (memory (export "namedmemory") 1)
+    /// )"#;
+    /// let module = Module::new(&store, wat)?;
+    /// let externs = module.externs();
+    /// let memory = externs.get_memory();
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn externs(&self) -> Exports {
+        module
+            .exports()
+            .map(|export| {
+                let name = export.name().to_string();
+                let export = handle.lookup(&name).expect("export");
+                let extern_ = Extern::from_vm_extern(ctx, export);
+                (name, extern_)
+            })
+            .collect::<Exports>()
     }
 
     /// Get the custom sections of the module given a `name`.
