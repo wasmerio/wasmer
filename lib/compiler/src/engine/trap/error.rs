@@ -3,7 +3,7 @@ use backtrace::Backtrace;
 use std::error::Error;
 use std::fmt;
 use std::sync::Arc;
-use wasmer_vm::{raise_user_trap, Trap, TrapCode};
+use wasmer_vm::{Trap, TrapCode};
 
 /// A struct representing an aborted instruction execution, with a message
 /// indicating the cause.
@@ -104,12 +104,6 @@ impl RuntimeError {
                 backtrace,
             } => Self::new_with_trace(&info, None, RuntimeErrorSource::Trap(trap_code), backtrace),
         }
-    }
-
-    /// Raises a custom user Error
-    #[deprecated(since = "2.1.1", note = "return a Result from host functions instead")]
-    pub fn raise(error: Box<dyn Error + Send + Sync>) -> ! {
-        unsafe { raise_user_trap(error) }
     }
 
     /// Creates a custom user Error.
