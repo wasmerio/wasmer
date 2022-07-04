@@ -1239,7 +1239,7 @@
 
                 <span class="ident">task_set_exception_ports</span>(
                     <span class="ident">mach_task_self</span>(),
-                    <span class="ident">EXC_MASK_BAD_ACCESS</span> <span class="op">|</span> <span class="ident">EXC_MASK_ARITHMETIC</span>,
+                    <span class="ident">EXC_MASK_BAD_ACCESS</span> <span class="op">|</span> <span class="ident">EXC_MASK_ARITHMETIC</span> <span class="op">|</span> <span class="ident">EXC_MASK_BAD_INSTRUCTION</span>,
                     <span class="ident">MACH_PORT_NULL</span>,
                     <span class="ident">EXCEPTION_STATE_IDENTITY</span> <span class="kw">as</span> <span class="ident">exception_behavior_t</span>,
                     <span class="ident">MACHINE_THREAD_STATE</span>,
