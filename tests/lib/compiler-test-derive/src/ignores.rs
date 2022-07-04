@@ -115,7 +115,7 @@ impl Ignores {
                             arch = Some(alias.to_string());
                         }
                         // Engines
-                        "universal" => {
+                        "universal" | "engine" => {
                             engine = Some(alias.to_string());
                         }
                         // Compilers

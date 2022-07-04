@@ -1,7 +1,6 @@
-//! Generic Engine abstraction for Wasmer Engines.
+//! The Wasmer Engine.
 
 mod error;
-mod inner;
 mod resolver;
 mod trap;
 mod tunables;
@@ -10,7 +9,6 @@ mod tunables;
 mod universal;
 
 pub use self::error::{InstantiationError, LinkError};
-pub use self::inner::{Engine, EngineId};
 pub use self::resolver::resolve_imports;
 pub use self::trap::*;
 pub use self::tunables::Tunables;

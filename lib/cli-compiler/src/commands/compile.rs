@@ -1,4 +1,4 @@
-use crate::store::{EngineType, StoreOptions};
+use crate::store::StoreOptions;
 use crate::warning;
 use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
@@ -39,15 +39,8 @@ impl Compile {
             .context(format!("failed to compile `{}`", self.path.display()))
     }
 
-    pub(crate) fn get_recommend_extension(
-        engine_type: &EngineType,
-        target_triple: &Triple,
-    ) -> Result<&'static str> {
-        Ok(match engine_type {
-            EngineType::Universal => {
-                wasmer_compiler::UniversalArtifactBuild::get_default_extension(target_triple)
-            }
-        })
+    pub(crate) fn get_recommend_extension(target_triple: &Triple) -> Result<&'static str> {
+        Ok(wasmer_compiler::UniversalArtifactBuild::get_default_extension(target_triple))
     }
 
     fn inner_execute(&self) -> Result<()> {
@@ -66,14 +59,13 @@ impl Compile {
                 Target::new(target_triple.clone(), features)
             })
             .unwrap_or_default();
-        let (mut engine, engine_type, compiler_type) =
-            self.store.get_engine_for_target(target.clone())?;
+        let (mut engine, compiler_type) = self.store.get_engine_for_target(target.clone())?;
         let output_filename = self
             .output
             .file_stem()
             .map(|osstr| osstr.to_string_lossy().to_string())
             .unwrap_or_default();
-        let recommended_extension = Self::get_recommend_extension(&engine_type, target.triple())?;
+        let recommended_extension = Self::get_recommend_extension(target.triple())?;
         match self.output.extension() {
             Some(ext) => {
                 if ext != recommended_extension {
@@ -86,7 +78,6 @@ impl Compile {
         }
         let tunables = self.store.get_tunables_for_target(&target)?;
 
-        println!("Engine: {}", engine_type.to_string());
         println!("Compiler: {}", compiler_type.to_string());
         println!("Target: {}", target.triple());
 
