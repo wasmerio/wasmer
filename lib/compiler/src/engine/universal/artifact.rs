@@ -5,13 +5,13 @@ use super::engine::{UniversalEngine, UniversalEngineInner};
 use crate::engine::universal::link::link_module;
 use crate::ArtifactCreate;
 use crate::Features;
+#[cfg(feature = "universal_engine")]
+use crate::ModuleEnvironment;
 use crate::UniversalArtifactBuild;
 use crate::{
     register_frame_info, resolve_imports, FunctionExtent, GlobalFrameInfoRegistration,
     InstantiationError, MetadataHeader, RuntimeError, Tunables,
 };
-#[cfg(feature = "universal_engine")]
-use crate::{Engine, ModuleEnvironment};
 use enumset::EnumSet;
 use std::sync::Arc;
 use std::sync::Mutex;

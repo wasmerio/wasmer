@@ -2,7 +2,7 @@
 
 use libfuzzer_sys::{arbitrary, arbitrary::Arbitrary, fuzz_target};
 use wasm_smith::{Config, ConfiguredModule};
-use wasmer::{CompilerConfig, Engine, Module, Store};
+use wasmer::{CompilerConfig, Module, Store, UniversalEngine};
 use wasmer_compiler::Universal;
 use wasmer_compiler_cranelift::Cranelift;
 use wasmer_compiler_llvm::LLVM;
@@ -23,8 +23,8 @@ impl Config for NoImportsConfig {
     }
 }
 
-fn compile_and_compare(name: &str, engine: impl Engine, wasm: &[u8]) {
-    let mut store = Store::new_with_engine(&engine);
+fn compile_and_compare(name: &str, engine: UniversalEngine, wasm: &[u8]) {
+    let store = Store::new_with_engine(&engine);
 
     // compile for first time
     let module = Module::new(&store, wasm).unwrap();

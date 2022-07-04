@@ -1,12 +1,11 @@
 use crate::sys::tunables::BaseTunables;
 use std::fmt;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 #[cfg(feature = "compiler")]
 use wasmer_compiler::CompilerConfig;
 #[cfg(feature = "compiler")]
-use wasmer_compiler::Universal;
-use wasmer_compiler::{Engine, Tunables};
-use wasmer_vm::{init_traps, TrapHandlerFn};
+use wasmer_compiler::{Tunables, Universal, UniversalEngine};
+use wasmer_vm::{init_traps, TrapHandler, TrapHandlerFn};
 
 use wasmer_vm::StoreObjects;
 
@@ -15,7 +14,7 @@ use wasmer_vm::StoreObjects;
 /// wrap the actual context in a box.
 pub(crate) struct StoreInner {
     pub(crate) objects: StoreObjects,
-    pub(crate) engine: Arc<dyn Engine + Send + Sync>,
+    pub(crate) engine: Arc<UniversalEngine>,
     pub(crate) tunables: Box<dyn Tunables + Send + Sync>,
     pub(crate) trap_handler: Option<Box<TrapHandlerFn<'static>>>,
 }
@@ -32,6 +31,8 @@ pub(crate) struct StoreInner {
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#store>
 pub struct Store {
     pub(crate) inner: Box<StoreInner>,
+    engine: Arc<UniversalEngine>,
+    trap_handler: Arc<RwLock<Option<Box<TrapHandlerFn<'static>>>>>,
 }
 
 impl Store {
@@ -43,10 +44,7 @@ impl Store {
     }
 
     /// Creates a new `Store` with a specific [`Engine`].
-    pub fn new_with_engine<E>(engine: &E) -> Self
-    where
-        E: Engine + ?Sized,
-    {
+    pub fn new_with_engine(engine: &UniversalEngine) -> Self {
         Self::new_with_tunables(engine, BaseTunables::for_target(engine.target()))
     }
 
@@ -56,10 +54,10 @@ impl Store {
     }
 
     /// Creates a new `Store` with a specific [`Engine`] and [`Tunables`].
-    pub fn new_with_tunables<E>(engine: &E, tunables: impl Tunables + Send + Sync + 'static) -> Self
-    where
-        E: Engine + ?Sized,
-    {
+    pub fn new_with_tunables(
+        engine: &UniversalEngine,
+        tunables: impl Tunables + Send + Sync + 'static,
+    ) -> Self {
         // Make sure the signal handlers are installed.
         // This is required for handling traps.
         init_traps();
@@ -71,6 +69,41 @@ impl Store {
                 tunables: Box::new(tunables),
                 trap_handler: None,
             }),
+            engine: engine.cloned(),
+            trap_handler: Arc::new(RwLock::new(None)),
+        }
+    }
+
+    /// Returns the [`Tunables`].
+    pub fn tunables(&self) -> &dyn Tunables {
+        self.inner.tunables.as_ref()
+    }
+
+    /// Returns the [`Engine`].
+    pub fn engine(&self) -> &Arc<UniversalEngine> {
+        &self.engine
+    }
+
+    /// Checks whether two stores are identical. A store is considered
+    /// equal to another store if both have the same engine. The
+    /// tunables are excluded from the logic.
+    pub fn same(a: &Self, b: &Self) -> bool {
+        a.engine.id() == b.engine.id()
+    }
+}
+
+impl PartialEq for Store {
+    fn eq(&self, other: &Self) -> bool {
+        Self::same(self, other)
+    }
+}
+
+unsafe impl TrapHandler for Store {
+    fn custom_trap_handler(&self, call: &dyn Fn(&TrapHandlerFn) -> bool) -> bool {
+        if let Some(handler) = self.trap_handler.read().unwrap().as_ref() {
+            call(handler)
+        } else {
+            false
         }
     }
 }
@@ -109,7 +142,7 @@ impl Default for Store {
         }
 
         #[allow(unreachable_code, unused_mut)]
-        fn get_engine(mut config: impl CompilerConfig + 'static) -> impl Engine + Send + Sync {
+        fn get_engine(mut config: impl CompilerConfig + 'static) -> UniversalEngine {
             cfg_if::cfg_if! {
                 if #[cfg(feature = "default-universal")] {
                     wasmer_compiler::Universal::new(config)
@@ -165,7 +198,7 @@ impl<'a> StoreRef<'a> {
     }
 
     /// Returns the [`Engine`].
-    pub fn engine(&self) -> &Arc<dyn Engine + Send + Sync> {
+    pub fn engine(&self) -> &Arc<UniversalEngine> {
         &self.inner.engine
     }
 
@@ -198,7 +231,7 @@ impl<'a> StoreMut<'a> {
     }
 
     /// Returns the [`Engine`].
-    pub fn engine(&self) -> &Arc<dyn Engine + Send + Sync> {
+    pub fn engine(&self) -> &Arc<UniversalEngine> {
         &self.inner.engine
     }
 
