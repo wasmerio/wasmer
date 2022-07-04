@@ -315,20 +315,21 @@ pub fn set_up_emscripten(instance: &mut Instance) -> Result<(), RuntimeError> {
 
 /// Looks for variations of the main function (usually
 /// `["_main", "main"])`, then returns a reference to
-/// the found function. Useful for determining whether
-/// a module is executable.
+/// the name of the first found function. Useful for
+/// determining whether a module is executable.
+///
+/// Returns `ExportError` if none of the `main_func_names`
+/// were found.
 pub fn emscripten_get_main_func_name<'a>(
     instance: &Instance,
     main_func_names: &[&'a str],
 ) -> Result<&'a str, ExportError> {
-    let mut function_name = None;
     let mut last_err = None;
 
     for func_name in main_func_names.iter() {
         match instance.exports.get::<Function>(func_name) {
             Ok(_) => {
-                function_name = Some(func_name);
-                break;
+                return Ok(func_name);
             }
             Err(e) => {
                 last_err = Some(e);
@@ -336,10 +337,9 @@ pub fn emscripten_get_main_func_name<'a>(
         }
     }
 
-    match (function_name, last_err) {
-        (Some(s), _) => Ok(s),
-        (None, None) => Err(ExportError::Missing(format!("{main_func_names:?}"))),
-        (None, Some(e)) => Err(e),
+    match last_err {
+        None => Err(ExportError::Missing(format!("{main_func_names:?}"))),
+        Some(e) => Err(e),
     }
 }
 
@@ -401,15 +401,9 @@ pub fn run_emscripten_instance(
     set_up_emscripten(instance)?;
 
     let main_func_names = ["_main", "main"];
-    if let Some(ep) = entrypoint {
-        debug!("Running entry point: {}", &ep);
-        let arg = unsafe { allocate_cstr_on_stack(env, args[0]).0 };
-        //let (argc, argv) = store_module_arguments(instance.context_mut(), args);
-        let func: &Function = instance
-            .exports
-            .get(&ep)
-            .map_err(|e| RuntimeError::new(e.to_string()))?;
-        func.call(&[Val::I32(arg as i32)])?;
+    if let Some(ep) = entrypoint.as_ref() {
+        debug!("Running entry point: {}", ep);
+        emscripten_call_main(instance, ep, env, path, &args)?;
     } else if let Ok(name) = emscripten_get_main_func_name(instance, &main_func_names) {
         emscripten_call_main(instance, name, env, path, &args)?;
     } else {
