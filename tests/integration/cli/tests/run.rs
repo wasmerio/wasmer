@@ -16,46 +16,6 @@ fn test_no_start_wat_path() -> String {
     format!("{}/{}", ASSET_PATH, "no_start.wat")
 }
 
-// This test verifies that "wasmer run --invoke _start module.emscripten.wat"
-// works the same as "wasmer run module.emscripten.wat" (without --invoke).
-#[test]
-fn run_invoke_works_with_nomain_emscripten() -> anyhow::Result<()> {
-    // In this example the function "wasi_unstable.arg_sizes_get"
-    // is a function that is imported from the WASI env.
-    let emscripten_wat = include_bytes("");
-    let random = rand::random::<u64>();
-    let module_file = std::env::temp_dir().join(&format!("{random}.emscripten.wat"));
-    std::fs::write(&module_file, wasi_wat.as_bytes()).unwrap();
-    let output = Command::new(WASMER_PATH)
-        .arg("run")
-        .arg(&module_file)
-        .output()?;
-
-    let stderr = std::str::from_utf8(&output.stderr).unwrap().to_string();
-    let success = output.status.success();
-    if !success {
-        println!("ERROR in 'wasmer run [module.emscripten.wat]':\r\n{stderr}");
-        panic!();
-    }
-
-    let output = Command::new(WASMER_PATH)
-        .arg("run")
-        .arg("--invoke")
-        .arg("_start")
-        .arg(&module_file)
-        .output()?;
-
-    let stderr = std::str::from_utf8(&output.stderr).unwrap().to_string();
-    let success = output.status.success();
-    if !success {
-        println!("ERROR in 'wasmer run --invoke _start [module.emscripten.wat]':\r\n{stderr}");
-        panic!();
-    }
-
-    std::fs::remove_file(&module_file).unwrap();
-    Ok(())
-}
-
 #[test]
 fn run_wasi_works() -> anyhow::Result<()> {
     let output = Command::new(WASMER_PATH)
