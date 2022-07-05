@@ -133,8 +133,8 @@ path = "examples/early_exit.rs"
 required-features = ["cranelift"]
 
 [[example]]
-name = "engine-universal"
-path = "examples/engine_universal.rs"
+name = "engine"
+path = "examples/engine.rs"
 required-features = ["cranelift"]
 
 [[example]]

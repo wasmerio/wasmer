@@ -5,7 +5,7 @@
 use super::trampoline::{libcall_trampoline_len, make_libcall_trampolines};
 use crate::Features;
 use crate::MetadataHeader;
-use crate::{ArtifactCreate, UniversalEngineBuilder};
+use crate::{ArtifactCreate, EngineBuilder};
 #[cfg(feature = "universal_engine")]
 use crate::{ModuleEnvironment, ModuleMiddlewareChain};
 use enumset::EnumSet;
@@ -40,7 +40,7 @@ impl UniversalArtifactBuild {
     /// Compile a data buffer into a `UniversalArtifactBuild`, which may then be instantiated.
     #[cfg(feature = "universal_engine")]
     pub fn new(
-        inner_engine: &mut UniversalEngineBuilder,
+        inner_engine: &mut EngineBuilder,
         data: &[u8],
         target: &Target,
         memory_styles: PrimaryMap<MemoryIndex, MemoryStyle>,
@@ -118,7 +118,7 @@ impl UniversalArtifactBuild {
 
     /// Compile a data buffer into a `UniversalArtifactBuild`, which may then be instantiated.
     #[cfg(not(feature = "universal_engine"))]
-    pub fn new(_engine: &UniversalEngineBuilder, _data: &[u8]) -> Result<Self, CompileError> {
+    pub fn new(_engine: &EngineBuilder, _data: &[u8]) -> Result<Self, CompileError> {
         Err(CompileError::Codegen(
             "Compilation is not enabled in the engine".to_string(),
         ))

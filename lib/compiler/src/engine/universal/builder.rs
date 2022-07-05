@@ -1,4 +1,4 @@
-use super::UniversalEngine;
+use super::Engine;
 use crate::{CompilerConfig, Features};
 use wasmer_types::Target;
 
@@ -44,24 +44,24 @@ impl Universal {
         self
     }
 
-    /// Build the `UniversalEngine` for this configuration
+    /// Build the `Engine` for this configuration
     #[cfg(feature = "universal_engine")]
-    pub fn engine(self) -> UniversalEngine {
+    pub fn engine(self) -> Engine {
         let target = self.target.unwrap_or_default();
         if let Some(compiler_config) = self.compiler_config {
             let features = self
                 .features
                 .unwrap_or_else(|| compiler_config.default_features_for_target(&target));
             let compiler = compiler_config.compiler();
-            UniversalEngine::new(compiler, target, features)
+            Engine::new(compiler, target, features)
         } else {
-            UniversalEngine::headless()
+            Engine::headless()
         }
     }
 
-    /// Build the `UniversalEngine` for this configuration
+    /// Build the `Engine` for this configuration
     #[cfg(not(feature = "universal_engine"))]
-    pub fn engine(self) -> UniversalEngine {
-        UniversalEngine::headless()
+    pub fn engine(self) -> Engine {
+        Engine::headless()
     }
 }

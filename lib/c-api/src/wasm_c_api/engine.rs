@@ -13,7 +13,7 @@ use crate::error::update_last_error;
 use cfg_if::cfg_if;
 use std::sync::Arc;
 #[cfg(feature = "universal")]
-use wasmer_compiler::{Universal, UniversalEngine};
+use wasmer_compiler::{Engine, Universal};
 
 /// Kind of compilers that can be used by the engines.
 ///
@@ -262,7 +262,7 @@ pub extern "C" fn wasm_config_set_engine(config: &mut wasm_config_t, engine: was
 /// cbindgen:ignore
 #[repr(C)]
 pub struct wasm_engine_t {
-    pub(crate) inner: Arc<UniversalEngine>,
+    pub(crate) inner: Arc<Engine>,
 }
 
 #[cfg(feature = "compiler")]
@@ -295,7 +295,7 @@ cfg_if! {
         #[no_mangle]
         pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
             let compiler_config: Box<dyn CompilerConfig> = get_default_compiler_config();
-            let engine: Arc<UniversalEngine> = Arc::new(Universal::new(compiler_config).engine());
+            let engine: Arc<Engine> = Arc::new(Universal::new(compiler_config).engine());
             Box::new(wasm_engine_t { inner: engine })
         }
     } else if #[cfg(feature = "universal")] {
@@ -308,7 +308,7 @@ cfg_if! {
         /// cbindgen:ignore
         #[no_mangle]
         pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
-            let engine: Arc<UniversalEngine> = Arc::new(Universal::headless().engine());
+            let engine: Arc<Engine> = Arc::new(Universal::headless().engine());
             Box::new(wasm_engine_t { inner: engine })
         }
     } else {
@@ -421,7 +421,7 @@ pub extern "C" fn wasm_engine_new_with_config(
             #[cfg(not(feature = "universal"))]
             return return_with_error("Wasmer has not been compiled with the `universal` feature.");
             #[cfg(feature = "universal")]
-            let inner: Arc<UniversalEngine> =
+            let inner: Arc<Engine> =
                          {
                             let mut builder = Universal::new(compiler_config);
 
@@ -437,7 +437,7 @@ pub extern "C" fn wasm_engine_new_with_config(
                         };
             Some(Box::new(wasm_engine_t { inner }))
         } else {
-            let inner: Arc<UniversalEngine> =
+            let inner: Arc<Engine> =
                     cfg_if! {
                         if #[cfg(feature = "universal")] {
                             let mut builder = Universal::headless();

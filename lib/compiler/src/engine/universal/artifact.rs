@@ -1,7 +1,7 @@
 //! Define `UniversalArtifact`, based on `UniversalArtifactBuild`
 //! to allow compiling and instantiating to be done as separate steps.
 
-use super::engine::{UniversalEngine, UniversalEngineInner};
+use super::engine::{Engine, EngineInner};
 use crate::engine::universal::link::link_module;
 use crate::ArtifactCreate;
 use crate::Features;
@@ -39,7 +39,7 @@ impl UniversalArtifact {
     /// Compile a data buffer into a `UniversalArtifactBuild`, which may then be instantiated.
     #[cfg(feature = "universal_engine")]
     pub fn new(
-        engine: &UniversalEngine,
+        engine: &Engine,
         data: &[u8],
         tunables: &dyn Tunables,
     ) -> Result<Self, CompileError> {
@@ -71,7 +71,7 @@ impl UniversalArtifact {
 
     /// Compile a data buffer into a `UniversalArtifactBuild`, which may then be instantiated.
     #[cfg(not(feature = "universal_engine"))]
-    pub fn new(_engine: &UniversalEngine, _data: &[u8]) -> Result<Self, CompileError> {
+    pub fn new(_engine: &Engine, _data: &[u8]) -> Result<Self, CompileError> {
         Err(CompileError::Codegen(
             "Compilation is not enabled in the engine".to_string(),
         ))
@@ -82,10 +82,7 @@ impl UniversalArtifact {
     /// # Safety
     /// This function is unsafe because rkyv reads directly without validating
     /// the data.
-    pub unsafe fn deserialize(
-        engine: &UniversalEngine,
-        bytes: &[u8],
-    ) -> Result<Self, DeserializeError> {
+    pub unsafe fn deserialize(engine: &Engine, bytes: &[u8]) -> Result<Self, DeserializeError> {
         if !UniversalArtifactBuild::is_deserializable(bytes) {
             return Err(DeserializeError::Incompatible(
                 "The provided bytes are not wasmer-universal".to_string(),
@@ -102,7 +99,7 @@ impl UniversalArtifact {
 
     /// Construct a `UniversalArtifactBuild` from component parts.
     pub fn from_parts(
-        engine_inner: &mut UniversalEngineInner,
+        engine_inner: &mut EngineInner,
         artifact: UniversalArtifactBuild,
     ) -> Result<Self, CompileError> {
         let module_info = artifact.create_module_info();

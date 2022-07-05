@@ -7,7 +7,7 @@ use std::string::ToString;
 #[allow(unused_imports)]
 use std::sync::Arc;
 use structopt::StructOpt;
-use wasmer_compiler::UniversalEngineBuilder;
+use wasmer_compiler::EngineBuilder;
 use wasmer_compiler::{CompilerConfig, Features};
 use wasmer_types::{MemoryStyle, MemoryType, Pages, PointerWidth, TableStyle, TableType, Target};
 
@@ -172,10 +172,9 @@ impl CompilerOptions {
         &self,
         target: Target,
         compiler_config: Box<dyn CompilerConfig>,
-    ) -> Result<UniversalEngineBuilder> {
+    ) -> Result<EngineBuilder> {
         let features = self.get_features(compiler_config.default_features_for_target(&target))?;
-        let engine: UniversalEngineBuilder =
-            UniversalEngineBuilder::new(Some(compiler_config.compiler()), features);
+        let engine: EngineBuilder = EngineBuilder::new(Some(compiler_config.compiler()), features);
 
         Ok(engine)
     }
@@ -358,11 +357,8 @@ impl ToString for CompilerType {
 }
 
 impl StoreOptions {
-    /// Get a UniversalEngineBulder for the Target
-    pub fn get_engine_for_target(
-        &self,
-        target: Target,
-    ) -> Result<(UniversalEngineBuilder, CompilerType)> {
+    /// Get a EngineBulder for the Target
+    pub fn get_engine_for_target(&self, target: Target) -> Result<(EngineBuilder, CompilerType)> {
         let (compiler_config, compiler_type) = self.compiler.get_compiler_config()?;
         let engine = self.get_engine_with_compiler(target, compiler_config)?;
         Ok((engine, compiler_type))
@@ -372,7 +368,7 @@ impl StoreOptions {
         &self,
         target: Target,
         compiler_config: Box<dyn CompilerConfig>,
-    ) -> Result<UniversalEngineBuilder> {
+    ) -> Result<EngineBuilder> {
         self.compiler.get_engine_by_type(target, compiler_config)
     }
 
