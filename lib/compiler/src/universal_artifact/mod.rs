@@ -5,5 +5,5 @@ mod engine;
 mod trampoline;
 
 pub use self::artifact::UniversalArtifactBuild;
-pub use self::engine::UniversalEngineBuilder;
+pub use self::engine::EngineBuilder;
 pub use self::trampoline::*;

@@ -3,15 +3,15 @@
 use crate::Compiler;
 use wasmer_types::{CompileError, Features};
 
-/// The Builder contents of `UniversalEngine`
-pub struct UniversalEngineBuilder {
+/// The Builder contents of `Engine`
+pub struct EngineBuilder {
     /// The compiler
     compiler: Option<Box<dyn Compiler>>,
     /// The features to compile the Wasm module with
     features: Features,
 }
 
-impl UniversalEngineBuilder {
+impl EngineBuilder {
     /// Create a new builder with pre-made components
     pub fn new(compiler: Option<Box<dyn Compiler>>, features: Features) -> Self {
         Self { compiler, features }
@@ -21,7 +21,7 @@ impl UniversalEngineBuilder {
     pub fn compiler(&self) -> Result<&dyn Compiler, CompileError> {
         if self.compiler.is_none() {
             return Err(CompileError::Codegen(
-                "The UniversalEngine is not compiled in.".to_string(),
+                "The Engine is not compiled in.".to_string(),
             ));
         }
         Ok(&**self.compiler.as_ref().unwrap())

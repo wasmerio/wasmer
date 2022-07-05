@@ -2,7 +2,7 @@
 
 #[cfg(feature = "universal_engine")]
 use crate::Compiler;
-use crate::UniversalEngineBuilder;
+use crate::EngineBuilder;
 use crate::{CodeMemory, UniversalArtifact};
 use crate::{FunctionExtent, Tunables};
 use memmap2::Mmap;
@@ -23,20 +23,20 @@ use wasmer_vm::{
 
 /// A WebAssembly `Universal` Engine.
 #[derive(Clone)]
-pub struct UniversalEngine {
-    inner: Arc<Mutex<UniversalEngineInner>>,
+pub struct Engine {
+    inner: Arc<Mutex<EngineInner>>,
     /// The target for the compiler
     target: Arc<Target>,
     engine_id: EngineId,
 }
 
-impl UniversalEngine {
-    /// Create a new `UniversalEngine` with the given config
+impl Engine {
+    /// Create a new `Engine` with the given config
     #[cfg(feature = "universal_engine")]
     pub fn new(compiler: Box<dyn Compiler>, target: Target, features: Features) -> Self {
         Self {
-            inner: Arc::new(Mutex::new(UniversalEngineInner {
-                builder: UniversalEngineBuilder::new(Some(compiler), features),
+            inner: Arc::new(Mutex::new(EngineInner {
+                builder: EngineBuilder::new(Some(compiler), features),
                 code_memory: vec![],
                 signatures: SignatureRegistry::new(),
             })),
@@ -45,7 +45,7 @@ impl UniversalEngine {
         }
     }
 
-    /// Create a headless `UniversalEngine`
+    /// Create a headless `Engine`
     ///
     /// A headless engine is an engine without any compiler attached.
     /// This is useful for assuring a minimal runtime for running
@@ -60,8 +60,8 @@ impl UniversalEngine {
     /// they just take already processed Modules (via `Module::serialize`).
     pub fn headless() -> Self {
         Self {
-            inner: Arc::new(Mutex::new(UniversalEngineInner {
-                builder: UniversalEngineBuilder::new(None, Features::default()),
+            inner: Arc::new(Mutex::new(EngineInner {
+                builder: EngineBuilder::new(None, Features::default()),
                 code_memory: vec![],
                 signatures: SignatureRegistry::new(),
             })),
@@ -70,11 +70,11 @@ impl UniversalEngine {
         }
     }
 
-    pub(crate) fn inner(&self) -> std::sync::MutexGuard<'_, UniversalEngineInner> {
+    pub(crate) fn inner(&self) -> std::sync::MutexGuard<'_, EngineInner> {
         self.inner.lock().unwrap()
     }
 
-    pub(crate) fn inner_mut(&self) -> std::sync::MutexGuard<'_, UniversalEngineInner> {
+    pub(crate) fn inner_mut(&self) -> std::sync::MutexGuard<'_, EngineInner> {
         self.inner.lock().unwrap()
     }
 
@@ -118,8 +118,7 @@ impl UniversalEngine {
         _tunables: &dyn Tunables,
     ) -> Result<Arc<UniversalArtifact>, CompileError> {
         Err(CompileError::Codegen(
-            "The UniversalEngine is operating in headless mode, so it can not compile Modules."
-                .to_string(),
+            "The Engine is operating in headless mode, so it can not compile Modules.".to_string(),
         ))
     }
 
@@ -164,10 +163,10 @@ impl UniversalEngine {
     }
 }
 
-/// The inner contents of `UniversalEngine`
-pub struct UniversalEngineInner {
+/// The inner contents of `Engine`
+pub struct EngineInner {
     /// The builder (include compiler and cpu features)
-    builder: UniversalEngineBuilder,
+    builder: EngineBuilder,
     /// The code memory is responsible of publishing the compiled
     /// functions to memory.
     code_memory: Vec<CodeMemory>,
@@ -176,7 +175,7 @@ pub struct UniversalEngineInner {
     signatures: SignatureRegistry,
 }
 
-impl UniversalEngineInner {
+impl EngineInner {
     /// Gets the compiler associated to this engine.
     #[cfg(feature = "universal_engine")]
     pub fn compiler(&self) -> Result<&dyn Compiler, CompileError> {
@@ -193,7 +192,7 @@ impl UniversalEngineInner {
         self.builder.features()
     }
 
-    pub fn builder_mut(&mut self) -> &mut UniversalEngineBuilder {
+    pub fn builder_mut(&mut self) -> &mut EngineBuilder {
         &mut self.builder
     }
 
