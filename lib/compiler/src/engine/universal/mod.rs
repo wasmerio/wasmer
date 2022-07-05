@@ -14,5 +14,5 @@ mod unwind;
 pub use self::artifact::UniversalArtifact;
 pub use self::builder::Universal;
 pub use self::code_memory::CodeMemory;
-pub use self::engine::UniversalEngine;
+pub use self::engine::Engine;
 pub use self::link::link_module;
