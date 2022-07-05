@@ -138,7 +138,7 @@ let wasm_bytes = wat2wasm(
 let compiler_config = Cranelift::default();
 let mut store = Store::new(&compiler_config);
 let module = Module::new(&store, wasm_bytes)?;
-let instance = Instance::new(&module, &imports! {})?;
+let instance = Instance::new(&mut store, &module, &imports! {})?;
 ```
 
 [examples]: https://docs.wasmer.io/integrations/examples

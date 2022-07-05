@@ -3,7 +3,7 @@
 #[cfg(feature = "universal_engine")]
 use crate::Compiler;
 use crate::EngineBuilder;
-use crate::{CodeMemory, UniversalArtifact};
+use crate::{Artifact, CodeMemory};
 use crate::{FunctionExtent, Tunables};
 use memmap2::Mmap;
 use std::path::Path;
@@ -106,8 +106,8 @@ impl Engine {
         &self,
         binary: &[u8],
         tunables: &dyn Tunables,
-    ) -> Result<Arc<UniversalArtifact>, CompileError> {
-        Ok(Arc::new(UniversalArtifact::new(self, binary, tunables)?))
+    ) -> Result<Arc<Artifact>, CompileError> {
+        Ok(Arc::new(Artifact::new(self, binary, tunables)?))
     }
 
     /// Compile a WebAssembly binary
@@ -116,7 +116,7 @@ impl Engine {
         &self,
         _binary: &[u8],
         _tunables: &dyn Tunables,
-    ) -> Result<Arc<UniversalArtifact>, CompileError> {
+    ) -> Result<Arc<Artifact>, CompileError> {
         Err(CompileError::Codegen(
             "The Engine is operating in headless mode, so it can not compile Modules.".to_string(),
         ))
@@ -127,11 +127,8 @@ impl Engine {
     /// # Safety
     ///
     /// The serialized content must represent a serialized WebAssembly module.
-    pub unsafe fn deserialize(
-        &self,
-        bytes: &[u8],
-    ) -> Result<Arc<UniversalArtifact>, DeserializeError> {
-        Ok(Arc::new(UniversalArtifact::deserialize(self, bytes)?))
+    pub unsafe fn deserialize(&self, bytes: &[u8]) -> Result<Arc<Artifact>, DeserializeError> {
+        Ok(Arc::new(Artifact::deserialize(self, bytes)?))
     }
 
     /// Deserializes a WebAssembly module from a path
@@ -142,7 +139,7 @@ impl Engine {
     pub unsafe fn deserialize_from_file(
         &self,
         file_ref: &Path,
-    ) -> Result<Arc<UniversalArtifact>, DeserializeError> {
+    ) -> Result<Arc<Artifact>, DeserializeError> {
         let file = std::fs::File::open(file_ref)?;
         let mmap = Mmap::map(&file)?;
         self.deserialize(&mmap)

@@ -6,8 +6,8 @@ use std::io;
 use std::path::Path;
 use std::sync::Arc;
 use thiserror::Error;
+use wasmer_compiler::Artifact;
 use wasmer_compiler::ArtifactCreate;
-use wasmer_compiler::UniversalArtifact;
 #[cfg(feature = "wat")]
 use wasmer_types::WasmError;
 use wasmer_types::{
@@ -50,7 +50,7 @@ pub struct Module {
     //
     // In the future, this code should be refactored to properly describe the
     // ownership of the code and its metadata.
-    artifact: Arc<UniversalArtifact>,
+    artifact: Arc<Artifact>,
     module_info: Arc<ModuleInfo>,
 }
 
@@ -281,7 +281,7 @@ impl Module {
         Ok(Self::from_artifact(artifact))
     }
 
-    fn from_artifact(artifact: Arc<UniversalArtifact>) -> Self {
+    fn from_artifact(artifact: Arc<Artifact>) -> Self {
         Self {
             module_info: Arc::new(artifact.create_module_info()),
             artifact,
@@ -456,7 +456,7 @@ impl Module {
     /// this functionality is required for some core functionality though, like
     /// the object file engine.
     #[doc(hidden)]
-    pub fn artifact(&self) -> &Arc<UniversalArtifact> {
+    pub fn artifact(&self) -> &Arc<Artifact> {
         &self.artifact
     }
 }
