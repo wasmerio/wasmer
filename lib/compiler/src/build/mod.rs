@@ -1,43 +1,44 @@
-//! Define `UniversalArtifactBuild` to allow compiling and instantiating to be
+//! Define `ArtifactBuild` to allow compiling and instantiating to be
 //! done as separate steps.
+//!
+//! Generic Artifact abstraction for Wasmer Engines.
 
-#[cfg(feature = "universal_engine")]
-use super::trampoline::{libcall_trampoline_len, make_libcall_trampolines};
-use crate::Features;
-use crate::MetadataHeader;
-use crate::{ArtifactCreate, EngineBuilder};
+mod builder;
+mod trampoline;
+
+pub use self::builder::EngineBuilder;
+pub use self::trampoline::*;
+
+use self::trampoline::{libcall_trampoline_len, make_libcall_trampolines};
+use crate::{ArtifactMetadata, Features, MetadataHeader};
 #[cfg(feature = "universal_engine")]
 use crate::{ModuleEnvironment, ModuleMiddlewareChain};
 use enumset::EnumSet;
 use std::mem;
-use wasmer_types::entity::PrimaryMap;
 #[cfg(feature = "universal_engine")]
 use wasmer_types::CompileModuleInfo;
-use wasmer_types::SerializeError;
 use wasmer_types::{
-    CompileError, CpuFeature, CustomSection, Dwarf, FunctionIndex, LocalFunctionIndex, MemoryIndex,
-    MemoryStyle, ModuleInfo, OwnedDataInitializer, Relocation, SectionIndex, SignatureIndex,
-    TableIndex, TableStyle, Target, Triple,
-};
-use wasmer_types::{
-    CompiledFunctionFrameInfo, FunctionBody, SerializableCompilation, SerializableModule,
+    entity::PrimaryMap, CompileError, CompiledFunctionFrameInfo, CpuFeature, CustomSection, Dwarf,
+    FunctionBody, FunctionIndex, LocalFunctionIndex, MemoryIndex, MemoryStyle, ModuleInfo,
+    OwnedDataInitializer, Relocation, SectionIndex, SerializableCompilation, SerializableModule,
+    SerializeError, SignatureIndex, TableIndex, TableStyle, Target, Triple,
 };
 
 /// A compiled wasm module, ready to be instantiated.
-pub struct UniversalArtifactBuild {
+pub struct ArtifactBuild {
     serializable: SerializableModule,
 }
 
-impl UniversalArtifactBuild {
+impl ArtifactBuild {
     /// Header signature for wasmu binary
     pub const MAGIC_HEADER: &'static [u8; 16] = b"wasmer-universal";
 
-    /// Check if the provided bytes look like a serialized `UniversalArtifactBuild`.
+    /// Check if the provided bytes look like a serialized `ArtifactBuild`.
     pub fn is_deserializable(bytes: &[u8]) -> bool {
         bytes.starts_with(Self::MAGIC_HEADER)
     }
 
-    /// Compile a data buffer into a `UniversalArtifactBuild`, which may then be instantiated.
+    /// Compile a data buffer into a `ArtifactBuild`, which may then be instantiated.
     #[cfg(feature = "universal_engine")]
     pub fn new(
         inner_engine: &mut EngineBuilder,
@@ -116,7 +117,7 @@ impl UniversalArtifactBuild {
         Ok(Self { serializable })
     }
 
-    /// Compile a data buffer into a `UniversalArtifactBuild`, which may then be instantiated.
+    /// Compile a data buffer into a `ArtifactBuild`, which may then be instantiated.
     #[cfg(not(feature = "universal_engine"))]
     pub fn new(_engine: &EngineBuilder, _data: &[u8]) -> Result<Self, CompileError> {
         Err(CompileError::Codegen(
@@ -124,7 +125,7 @@ impl UniversalArtifactBuild {
         ))
     }
 
-    /// Create a new UniversalArtifactBuild from a SerializableModule
+    /// Create a new ArtifactBuild from a SerializableModule
     pub fn from_serializable(serializable: SerializableModule) -> Self {
         Self { serializable }
     }
@@ -187,7 +188,7 @@ impl UniversalArtifactBuild {
     }
 }
 
-impl ArtifactCreate for UniversalArtifactBuild {
+impl ArtifactMetadata for ArtifactBuild {
     fn create_module_info(&self) -> ModuleInfo {
         self.serializable.compile_info.module.clone()
     }

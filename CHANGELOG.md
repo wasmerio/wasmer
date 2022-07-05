@@ -12,6 +12,7 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 - #2946 Remove dylib,staticlib engines in favor of a single Universal engine
 - [#2949](https://github.com/wasmerio/wasmer/pull/2949) Switch back to using custom LLVM builds on CI
 - #2892 Renamed `get_native_function` to `get_typed_function`, marked former as deprecated.
+- [#2869](https://github.com/wasmerio/wasmer/pull/2869) Removed Artifact, Engine traits. Renamed UniversalArtifact to Artifact, and UniversalEngine to Engine.
 
 ### Fixed
 - [#2963](https://github.com/wasmerio/wasmer/pull/2963) Remove accidental dependency on libwayland and libxcb in ClI

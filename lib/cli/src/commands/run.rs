@@ -248,7 +248,7 @@ impl Run {
 
     fn get_module(&self) -> Result<Module> {
         let contents = std::fs::read(self.path.clone())?;
-        if wasmer_compiler::UniversalArtifact::is_deserializable(&contents) {
+        if wasmer_compiler::Artifact::is_deserializable(&contents) {
             let engine = wasmer_compiler::Universal::headless().engine();
             let store = Store::new_with_engine(&engine);
             let module = unsafe { Module::deserialize_from_file(&store, &self.path)? };
@@ -322,7 +322,7 @@ impl Run {
         let mut cache = FileSystemCache::new(cache_dir_root)?;
 
         let extension =
-            wasmer_compiler::UniversalArtifact::get_default_extension(&Triple::host()).to_string();
+            wasmer_compiler::Artifact::get_default_extension(&Triple::host()).to_string();
         cache.set_cache_extension(Some(extension));
         Ok(cache)
     }

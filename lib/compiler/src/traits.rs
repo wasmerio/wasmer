@@ -2,7 +2,6 @@
 
 use crate::Features;
 use enumset::EnumSet;
-use std::any::Any;
 use std::convert::TryInto;
 use std::path::Path;
 use std::{fs, mem};
@@ -18,7 +17,7 @@ use wasmer_types::{DeserializeError, SerializeError};
 /// The `Artifact` contains the compiled data for a given
 /// module as well as extra information needed to run the
 /// module at runtime, such as [`ModuleInfo`] and [`Features`].
-pub trait ArtifactCreate: Send + Sync + Upcastable {
+pub trait ArtifactMetadata: Send + Sync {
     /// Create a `ModuleInfo` for instantiation
     fn create_module_info(&self) -> ModuleInfo;
 
@@ -45,46 +44,6 @@ pub trait ArtifactCreate: Send + Sync + Upcastable {
         let serialized = self.serialize()?;
         fs::write(&path, serialized)?;
         Ok(())
-    }
-}
-
-// Implementation of `Upcastable` taken from https://users.rust-lang.org/t/why-does-downcasting-not-work-for-subtraits/33286/7 .
-/// Trait needed to get downcasting of `Engine`s to work.
-pub trait Upcastable {
-    /// upcast ref
-    fn upcast_any_ref(&'_ self) -> &'_ dyn Any;
-    /// upcast mut ref
-    fn upcast_any_mut(&'_ mut self) -> &'_ mut dyn Any;
-    /// upcast boxed dyn
-    fn upcast_any_box(self: Box<Self>) -> Box<dyn Any>;
-}
-
-impl<T: Any + Send + Sync + 'static> Upcastable for T {
-    #[inline]
-    fn upcast_any_ref(&'_ self) -> &'_ dyn Any {
-        self
-    }
-    #[inline]
-    fn upcast_any_mut(&'_ mut self) -> &'_ mut dyn Any {
-        self
-    }
-    #[inline]
-    fn upcast_any_box(self: Box<Self>) -> Box<dyn Any> {
-        self
-    }
-}
-
-impl dyn ArtifactCreate + 'static {
-    /// Try to downcast the artifact into a given type.
-    #[inline]
-    pub fn downcast_ref<T: 'static>(&'_ self) -> Option<&'_ T> {
-        self.upcast_any_ref().downcast_ref::<T>()
-    }
-
-    /// Try to downcast the artifact into a given type mutably.
-    #[inline]
-    pub fn downcast_mut<T: 'static>(&'_ mut self) -> Option<&'_ mut T> {
-        self.upcast_any_mut().downcast_mut::<T>()
     }
 }
 

@@ -57,7 +57,7 @@ impl Compile {
             .map(|osstr| osstr.to_string_lossy().to_string())
             .unwrap_or_default();
         let recommended_extension =
-            wasmer_compiler::UniversalArtifact::get_default_extension(target.triple());
+            wasmer_compiler::Artifact::get_default_extension(target.triple());
         match self.output.extension() {
             Some(ext) => {
                 if ext != recommended_extension {

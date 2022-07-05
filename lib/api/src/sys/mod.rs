@@ -93,7 +93,7 @@ pub use wasmer_compiler_cranelift::{Cranelift, CraneliftOptLevel};
 pub use wasmer_compiler_llvm::{LLVMOptLevel, LLVM};
 
 #[cfg(feature = "universal")]
-pub use wasmer_compiler::{Engine, Universal, UniversalArtifact};
+pub use wasmer_compiler::{Artifact, Engine, Universal};
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

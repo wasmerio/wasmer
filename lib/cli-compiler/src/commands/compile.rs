@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
 use structopt::StructOpt;
 use wasmer_compiler::ModuleEnvironment;
-use wasmer_compiler::{ArtifactCreate, UniversalArtifactBuild};
+use wasmer_compiler::{ArtifactBuild, ArtifactMetadata};
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::{
     CompileError, CpuFeature, MemoryIndex, MemoryStyle, TableIndex, TableStyle, Target, Triple,
@@ -40,7 +40,9 @@ impl Compile {
     }
 
     pub(crate) fn get_recommend_extension(target_triple: &Triple) -> Result<&'static str> {
-        Ok(wasmer_compiler::UniversalArtifactBuild::get_default_extension(target_triple))
+        Ok(wasmer_compiler::ArtifactBuild::get_default_extension(
+            target_triple,
+        ))
     }
 
     fn inner_execute(&self) -> Result<()> {
@@ -97,7 +99,7 @@ impl Compile {
             .values()
             .map(|table_type| tunables.table_style(table_type))
             .collect();
-        let artifact = UniversalArtifactBuild::new(
+        let artifact = ArtifactBuild::new(
             &mut engine,
             &wasm_bytes,
             &target,

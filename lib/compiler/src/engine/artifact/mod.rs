@@ -1,13 +1,30 @@
-//! Define `UniversalArtifact`, based on `UniversalArtifactBuild`
+//! Compiled artifact for Wasmer compilers.
+//!
+//! Given a compiler (such as `CraneliftCompiler` or `LLVMCompiler`)
+//! it generates the compiled machine code, and publishes it into
+//! memory so it can be used externally.
+//!
+//! Define `Artifact`, based on `ArtifactBuild`
 //! to allow compiling and instantiating to be done as separate steps.
+//!
 
-use super::engine::{Engine, EngineInner};
-use crate::engine::universal::link::link_module;
-use crate::ArtifactCreate;
+mod builder;
+mod code_memory;
+mod engine;
+mod link;
+mod unwind;
+
+pub use self::builder::Universal;
+pub use self::code_memory::CodeMemory;
+pub use self::engine::Engine;
+pub use self::link::link_module;
+
+use self::engine::EngineInner;
+use crate::ArtifactBuild;
+use crate::ArtifactMetadata;
 use crate::Features;
 #[cfg(feature = "universal_engine")]
 use crate::ModuleEnvironment;
-use crate::UniversalArtifactBuild;
 use crate::{
     register_frame_info, resolve_imports, FunctionExtent, GlobalFrameInfoRegistration,
     InstantiationError, MetadataHeader, RuntimeError, Tunables,
@@ -25,8 +42,8 @@ use wasmer_vm::{ContextObjects, InstanceAllocator, InstanceHandle, TrapHandler, 
 use wasmer_vm::{FunctionBodyPtr, MemoryStyle, TableStyle, VMSharedSignatureIndex, VMTrampoline};
 
 /// A compiled wasm module, ready to be instantiated.
-pub struct UniversalArtifact {
-    artifact: UniversalArtifactBuild,
+pub struct Artifact {
+    artifact: ArtifactBuild,
     finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
     finished_function_call_trampolines: BoxedSlice<SignatureIndex, VMTrampoline>,
     finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, FunctionBodyPtr>,
@@ -35,8 +52,8 @@ pub struct UniversalArtifact {
     finished_function_lengths: BoxedSlice<LocalFunctionIndex, usize>,
 }
 
-impl UniversalArtifact {
-    /// Compile a data buffer into a `UniversalArtifactBuild`, which may then be instantiated.
+impl Artifact {
+    /// Compile a data buffer into a `ArtifactBuild`, which may then be instantiated.
     #[cfg(feature = "universal_engine")]
     pub fn new(
         engine: &Engine,
@@ -58,7 +75,7 @@ impl UniversalArtifact {
             .map(|table_type| tunables.table_style(table_type))
             .collect();
 
-        let artifact = UniversalArtifactBuild::new(
+        let artifact = ArtifactBuild::new(
             inner_engine.builder_mut(),
             data,
             engine.target(),
@@ -69,7 +86,7 @@ impl UniversalArtifact {
         Self::from_parts(&mut inner_engine, artifact)
     }
 
-    /// Compile a data buffer into a `UniversalArtifactBuild`, which may then be instantiated.
+    /// Compile a data buffer into a `ArtifactBuild`, which may then be instantiated.
     #[cfg(not(feature = "universal_engine"))]
     pub fn new(_engine: &Engine, _data: &[u8]) -> Result<Self, CompileError> {
         Err(CompileError::Codegen(
@@ -77,30 +94,30 @@ impl UniversalArtifact {
         ))
     }
 
-    /// Deserialize a UniversalArtifactBuild
+    /// Deserialize a ArtifactBuild
     ///
     /// # Safety
     /// This function is unsafe because rkyv reads directly without validating
     /// the data.
     pub unsafe fn deserialize(engine: &Engine, bytes: &[u8]) -> Result<Self, DeserializeError> {
-        if !UniversalArtifactBuild::is_deserializable(bytes) {
+        if !ArtifactBuild::is_deserializable(bytes) {
             return Err(DeserializeError::Incompatible(
                 "The provided bytes are not wasmer-universal".to_string(),
             ));
         }
-        let bytes = &bytes[UniversalArtifactBuild::MAGIC_HEADER.len()..];
+        let bytes = &bytes[ArtifactBuild::MAGIC_HEADER.len()..];
         let metadata_len = MetadataHeader::parse(bytes)?;
         let metadata_slice: &[u8] = &bytes[MetadataHeader::LEN..][..metadata_len];
         let serializable = SerializableModule::deserialize(metadata_slice)?;
-        let artifact = UniversalArtifactBuild::from_serializable(serializable);
+        let artifact = ArtifactBuild::from_serializable(serializable);
         let mut inner_engine = engine.inner_mut();
         Self::from_parts(&mut inner_engine, artifact).map_err(DeserializeError::Compiler)
     }
 
-    /// Construct a `UniversalArtifactBuild` from component parts.
+    /// Construct a `ArtifactBuild` from component parts.
     pub fn from_parts(
         engine_inner: &mut EngineInner,
-        artifact: UniversalArtifactBuild,
+        artifact: ArtifactBuild,
     ) -> Result<Self, CompileError> {
         let module_info = artifact.create_module_info();
         let (
@@ -182,15 +199,15 @@ impl UniversalArtifact {
     }
     /// Get the default extension when serializing this artifact
     pub fn get_default_extension(triple: &Triple) -> &'static str {
-        UniversalArtifactBuild::get_default_extension(triple)
+        ArtifactBuild::get_default_extension(triple)
     }
-    /// Check if the provided bytes look like a serialized `UniversalArtifactBuild`.
+    /// Check if the provided bytes look like a serialized `ArtifactBuild`.
     pub fn is_deserializable(bytes: &[u8]) -> bool {
-        UniversalArtifactBuild::is_deserializable(bytes)
+        ArtifactBuild::is_deserializable(bytes)
     }
 }
 
-impl ArtifactCreate for UniversalArtifact {
+impl ArtifactMetadata for Artifact {
     fn create_module_info(&self) -> ModuleInfo {
         self.artifact.create_module_info()
     }
@@ -220,7 +237,7 @@ impl ArtifactCreate for UniversalArtifact {
     }
 }
 
-impl UniversalArtifact {
+impl Artifact {
     /// Register thie `Artifact` stack frame information into the global scope.
     ///
     /// This is required to ensure that any traps can be properly symbolicated.

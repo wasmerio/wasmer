@@ -34,8 +34,7 @@ pub struct SerializableCompilation {
     pub libcall_trampoline_len: u32,
 }
 
-/// Serializable struct that is able to serialize from and to
-/// a `UniversalArtifactInfo`.
+/// Serializable struct that is able to serialize from and to a `ArtifactInfo`.
 #[derive(Archive, RkyvDeserialize, RkyvSerialize)]
 #[allow(missing_docs)]
 pub struct SerializableModule {
