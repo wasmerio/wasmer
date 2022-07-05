@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
 use structopt::StructOpt;
 use wasmer_compiler::ModuleEnvironment;
-use wasmer_compiler::{ArtifactCreate, UniversalArtifactBuild};
+use wasmer_compiler::{ArtifactBuild, ArtifactCreate};
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::{
     CompileError, CpuFeature, MemoryIndex, MemoryStyle, TableIndex, TableStyle, Target, Triple,
@@ -39,10 +39,6 @@ impl Compile {
             .context(format!("failed to compile `{}`", self.path.display()))
     }
 
-    pub(crate) fn get_recommend_extension(target_triple: &Triple) -> Result<&'static str> {
-        Ok(wasmer_compiler::UniversalArtifactBuild::get_default_extension(target_triple))
-    }
-
     fn inner_execute(&self) -> Result<()> {
         let target = self
             .target_triple
@@ -65,7 +61,9 @@ impl Compile {
             .file_stem()
             .map(|osstr| osstr.to_string_lossy().to_string())
             .unwrap_or_default();
-        let recommended_extension = Self::get_recommend_extension(target.triple())?;
+        // `.wasmu` is the default extension for all the triples. It
+        // stands for “Wasm Universal”.
+        let recommended_extension = "wasmu";
         match self.output.extension() {
             Some(ext) => {
                 if ext != recommended_extension {
@@ -97,7 +95,7 @@ impl Compile {
             .values()
             .map(|table_type| tunables.table_style(table_type))
             .collect();
-        let artifact = UniversalArtifactBuild::new(
+        let artifact = ArtifactBuild::new(
             &mut engine,
             &wasm_bytes,
             &target,

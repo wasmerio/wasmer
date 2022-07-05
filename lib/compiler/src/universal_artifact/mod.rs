@@ -1,9 +1,9 @@
 //! Generic Artifact abstraction for Wasmer Engines.
 
 mod artifact;
-mod engine;
+mod builder;
 mod trampoline;
 
-pub use self::artifact::UniversalArtifactBuild;
-pub use self::engine::EngineBuilder;
+pub use self::artifact::ArtifactBuild;
+pub use self::builder::EngineBuilder;
 pub use self::trampoline::*;
