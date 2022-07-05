@@ -3,6 +3,9 @@ use std::io::{Read, Write};
 use wasmer::{Instance, Module, Store};
 use wasmer_wasi::{Pipe, WasiState};
 
+#[cfg(not(feature = "compiler-cranelift"))]
+compile_error! {"These tests run only with the feature \"compiler-cranelift\" enabled. Use \"--features compiler-cranelift\" to enable it."}
+
 mod sys {
     #[test]
     fn test_stdout() {

@@ -4,6 +4,9 @@
 
 use std::env;
 
+#[cfg(not(feature = "compiler-cranelift"))]
+compile_error! {"These tests run only with the feature \"compiler-cranelift\" enabled. Use \"--features compiler-cranelift\" to enable it."}
+
 fn get_env_var(var_name: &str) -> Result<String, env::VarError> {
     env::var(var_name)
 }

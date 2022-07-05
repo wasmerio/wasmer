@@ -529,7 +529,7 @@ test-capi-integration-%:
 	cd lib/c-api/examples; WASMER_CAPI_CONFIG=$(shell echo $@ | sed -e s/test-capi-integration-//) WASMER_DIR=`pwd`/../../../package make run
 
 test-wasi-unit:
-	$(CARGO_BINARY) test $(CARGO_TARGET) --manifest-path lib/wasi/Cargo.toml --release
+	$(CARGO_BINARY) test $(CARGO_TARGET) --manifest-path lib/wasi/Cargo.toml --release --features compiler-cranelift
 
 test-wasi:
 	$(CARGO_BINARY) test $(CARGO_TARGET) --release --tests $(compiler_features) -- wasi::wasitests

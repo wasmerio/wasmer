@@ -106,7 +106,7 @@ pub use wasmer_compiler_cranelift::{Cranelift, CraneliftOptLevel};
 #[cfg(feature = "llvm")]
 pub use wasmer_compiler_llvm::{LLVMOptLevel, LLVM};
 
-#[cfg(feature = "universal")]
+#[cfg(feature = "compiler")]
 pub use wasmer_compiler::{Universal, UniversalArtifact, UniversalEngine};
 
 /// Version number of this crate.

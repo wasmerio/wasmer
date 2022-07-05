@@ -101,7 +101,9 @@ compiler = [
         "compiler",
         "wasmer-compiler-llvm",
     ]
-default-compiler = []
+    default-compiler = [
+        "wasmer-compiler/translator"
+    ]
     default-singlepass = [
         "default-compiler",
         "singlepass",
@@ -118,8 +120,9 @@ default-compiler = []
 engine = ["sys"]
 universal = [
     "engine",
+    "wasmer-compiler/universal_engine"
 ]
-default-engine = []
+default-engine = ["default-universal"]
 default-universal = [
     "default-engine",
     "universal",
