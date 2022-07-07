@@ -1,9 +1,9 @@
 // This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
-use crate::context::InternalContextHandle;
 use crate::global::VMGlobal;
 use crate::memory::VMMemory;
+use crate::store::InternalStoreHandle;
 use crate::table::VMTable;
 use crate::vmcontext::VMFunctionKind;
 use crate::{MaybeInstanceOwned, VMCallerCheckedAnyfunc};
@@ -13,16 +13,16 @@ use wasmer_types::FunctionType;
 /// The value of an export passed from one instance to another.
 pub enum VMExtern {
     /// A function export value.
-    Function(InternalContextHandle<VMFunction>),
+    Function(InternalStoreHandle<VMFunction>),
 
     /// A table export value.
-    Table(InternalContextHandle<VMTable>),
+    Table(InternalStoreHandle<VMTable>),
 
     /// A memory export value.
-    Memory(InternalContextHandle<VMMemory>),
+    Memory(InternalStoreHandle<VMMemory>),
 
     /// A global export value.
-    Global(InternalContextHandle<VMGlobal>),
+    Global(InternalStoreHandle<VMGlobal>),
 }
 
 /// A function export value.

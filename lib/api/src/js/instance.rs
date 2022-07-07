@@ -1,4 +1,4 @@
-use crate::js::context::{AsContextMut, AsContextRef, ContextHandle};
+use crate::js::context::{AsContextMut, AsContextRef, StoreHandle};
 use crate::js::error::InstantiationError;
 use crate::js::export::Export;
 use crate::js::exports::Exports;
@@ -18,7 +18,7 @@ use std::fmt;
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#module-instances>
 #[derive(Clone)]
 pub struct Instance {
-    _handle: ContextHandle<WebAssembly::Instance>,
+    _handle: StoreHandle<WebAssembly::Instance>,
     module: Module,
     #[allow(dead_code)]
     imports: Imports,
@@ -66,7 +66,7 @@ impl Instance {
         imports: &Imports,
     ) -> Result<Self, InstantiationError> {
         let import_copy = imports.clone();
-        let (instance, _imports): (ContextHandle<WebAssembly::Instance>, Vec<Extern>) = module
+        let (instance, _imports): (StoreHandle<WebAssembly::Instance>, Vec<Extern>) = module
             .instantiate(&mut ctx.as_context_mut(), imports)
             .map_err(|e| InstantiationError::Start(e))?;
 
@@ -87,7 +87,7 @@ impl Instance {
     pub fn from_module_and_instance(
         ctx: &mut impl AsContextMut,
         module: &Module,
-        instance: ContextHandle<WebAssembly::Instance>,
+        instance: StoreHandle<WebAssembly::Instance>,
         imports: Imports,
     ) -> Result<Self, InstantiationError> {
         let instance_exports = instance.get(store.objects()).exports();

@@ -9,9 +9,7 @@ use std::mem;
 use std::mem::MaybeUninit;
 use std::slice;
 use wasmer_types::Pages;
-use wasmer_vm::{
-    ContextHandle, ContextObjects, InternalContextHandle, MemoryError, VMExtern, VMMemory,
-};
+use wasmer_vm::{InternalStoreHandle, MemoryError, StoreHandle, StoreObjects, VMExtern, VMMemory};
 
 /// A WebAssembly `memory` instance.
 ///
@@ -29,7 +27,7 @@ use wasmer_vm::{
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#memory-instances>
 #[derive(Debug, Clone)]
 pub struct Memory {
-    handle: ContextHandle<VMMemory>,
+    handle: StoreHandle<VMMemory>,
 }
 
 impl Memory {
@@ -44,7 +42,6 @@ impl Memory {
     /// # use wasmer::{Memory, MemoryType, Pages, Store, Type, Value};
     /// # use wasmer::Context as WasmerContext;
     /// # let store = Store::default();
-    /// # let mut store = WasmerContext::new(&store, ());
     /// #
     /// let m = Memory::new(&mut store, MemoryType::new(1, None, false)).unwrap();
     /// ```
@@ -54,7 +51,7 @@ impl Memory {
         let memory = tunables.create_host_memory(&ty, &style)?;
 
         Ok(Self {
-            handle: ContextHandle::new(store.objects_mut(), memory),
+            handle: StoreHandle::new(store.objects_mut(), memory),
         })
     }
 
@@ -64,9 +61,7 @@ impl Memory {
     ///
     /// ```
     /// # use wasmer::{Memory, MemoryType, Pages, Store, Type, Value};
-    /// # use wasmer::Context as WasmerContext;
-    /// # let store = Store::default();
-    /// # let mut store = WasmerContext::new(&store, ());
+    /// # let mut store = Store::default();
     /// #
     /// let mt = MemoryType::new(1, None, false);
     /// let m = Memory::new(&mut store, mt).unwrap();
@@ -206,9 +201,9 @@ impl Memory {
         }
     }
 
-    pub(crate) fn from_vm_extern(store: &Store, internal: InternalContextHandle<VMMemory>) -> Self {
+    pub(crate) fn from_vm_extern(store: &Store, internal: InternalStoreHandle<VMMemory>) -> Self {
         Self {
-            handle: unsafe { ContextHandle::from_internal(store.objects().id(), internal) },
+            handle: unsafe { StoreHandle::from_internal(store.objects().id(), internal) },
         }
     }
 
@@ -244,7 +239,7 @@ impl<'a> Exportable<'a> for Memory {
 pub(crate) struct MemoryBuffer<'a> {
     base: *mut u8,
     len: usize,
-    marker: PhantomData<(&'a Memory, &'a ContextObjects)>,
+    marker: PhantomData<(&'a Memory, &'a StoreObjects)>,
 }
 
 impl<'a> MemoryBuffer<'a> {

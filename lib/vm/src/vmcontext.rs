@@ -4,10 +4,10 @@
 //! This file declares `VMContext` and several related structs which contain
 //! fields that compiled wasm code accesses directly.
 
-use crate::context::InternalContextHandle;
 use crate::global::VMGlobal;
 use crate::instance::Instance;
 use crate::memory::VMMemory;
+use crate::store::InternalStoreHandle;
 use crate::trap::{Trap, TrapCode};
 use crate::VMFunctionBody;
 use crate::VMTable;
@@ -69,7 +69,7 @@ pub struct VMFunctionImport {
     pub environment: VMFunctionEnvironment,
 
     /// Handle to the `VMFunction` in the context.
-    pub handle: InternalContextHandle<VMFunction>,
+    pub handle: InternalStoreHandle<VMFunction>,
 }
 
 #[cfg(test)]
@@ -191,7 +191,7 @@ pub struct VMTableImport {
     pub definition: NonNull<VMTableDefinition>,
 
     /// Handle to the `VMTable` in the context.
-    pub handle: InternalContextHandle<VMTable>,
+    pub handle: InternalStoreHandle<VMTable>,
 }
 
 #[cfg(test)]
@@ -226,7 +226,7 @@ pub struct VMMemoryImport {
     pub definition: NonNull<VMMemoryDefinition>,
 
     /// A handle to the `Memory` that owns the memory description.
-    pub handle: InternalContextHandle<VMMemory>,
+    pub handle: InternalStoreHandle<VMMemory>,
 }
 
 #[cfg(test)]
@@ -265,7 +265,7 @@ pub struct VMGlobalImport {
     pub definition: NonNull<VMGlobalDefinition>,
 
     /// A handle to the `Global` that owns the global description.
-    pub handle: InternalContextHandle<VMGlobal>,
+    pub handle: InternalStoreHandle<VMGlobal>,
 }
 
 /// # Safety

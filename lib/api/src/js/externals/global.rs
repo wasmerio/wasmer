@@ -1,4 +1,4 @@
-use crate::js::context::{AsContextMut, AsContextRef, ContextHandle, InternalContextHandle};
+use crate::js::context::{AsContextMut, AsContextRef, InternalStoreHandle, StoreHandle};
 use crate::js::export::VMGlobal;
 use crate::js::exports::{ExportError, Exportable};
 use crate::js::externals::Extern;
@@ -17,7 +17,7 @@ use wasm_bindgen::JsValue;
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#global-instances>
 #[derive(Debug, Clone, PartialEq)]
 pub struct Global {
-    pub(crate) handle: ContextHandle<VMGlobal>,
+    pub(crate) handle: StoreHandle<VMGlobal>,
 }
 
 impl Global {
@@ -220,16 +220,16 @@ impl Global {
 
     pub(crate) fn from_vm_export(ctx: &mut impl AsContextMut, vm_global: VMGlobal) -> Self {
         Self {
-            handle: ContextHandle::new(store.objects_mut(), vm_global),
+            handle: StoreHandle::new(store.objects_mut(), vm_global),
         }
     }
 
     pub(crate) fn from_vm_extern(
         ctx: &mut impl AsContextMut,
-        internal: InternalContextHandle<VMGlobal>,
+        internal: InternalStoreHandle<VMGlobal>,
     ) -> Self {
         Self {
-            handle: unsafe { ContextHandle::from_internal(store.objects().id(), internal) },
+            handle: unsafe { StoreHandle::from_internal(store.objects().id(), internal) },
         }
     }
 

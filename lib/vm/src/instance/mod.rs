@@ -8,10 +8,10 @@
 
 mod allocator;
 
-use crate::context::{ContextObjects, InternalContextHandle};
 use crate::export::VMExtern;
 use crate::imports::Imports;
 use crate::memory::MemoryError;
+use crate::store::{InternalStoreHandle, StoreObjects};
 use crate::table::TableElement;
 use crate::trap::{catch_traps, Trap, TrapCode, TrapHandler};
 use crate::vmcontext::{
@@ -52,19 +52,19 @@ pub(crate) struct Instance {
     module: Arc<ModuleInfo>,
 
     /// Pointer to the object store of the context owning this instance.
-    context: *mut ContextObjects,
+    context: *mut StoreObjects,
 
     /// Offsets in the `vmctx` region.
     offsets: VMOffsets,
 
     /// WebAssembly linear memory data.
-    memories: BoxedSlice<LocalMemoryIndex, InternalContextHandle<VMMemory>>,
+    memories: BoxedSlice<LocalMemoryIndex, InternalStoreHandle<VMMemory>>,
 
     /// WebAssembly table data.
-    tables: BoxedSlice<LocalTableIndex, InternalContextHandle<VMTable>>,
+    tables: BoxedSlice<LocalTableIndex, InternalStoreHandle<VMTable>>,
 
     /// WebAssembly global data.
-    globals: BoxedSlice<LocalGlobalIndex, InternalContextHandle<VMGlobal>>,
+    globals: BoxedSlice<LocalGlobalIndex, InternalStoreHandle<VMGlobal>>,
 
     /// Pointers to functions in executable memory.
     functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
@@ -119,11 +119,11 @@ impl Instance {
         &*self.module
     }
 
-    fn context(&self) -> &ContextObjects {
+    fn context(&self) -> &StoreObjects {
         unsafe { &*self.context }
     }
 
-    fn context_mut(&mut self) -> &mut ContextObjects {
+    fn context_mut(&mut self) -> &mut StoreObjects {
         unsafe { &mut *self.context }
     }
 
@@ -760,7 +760,7 @@ impl Instance {
     pub(crate) fn get_table_handle(
         &mut self,
         table_index: TableIndex,
-    ) -> InternalContextHandle<VMTable> {
+    ) -> InternalStoreHandle<VMTable> {
         if let Some(local_table_index) = self.module.local_table_index(table_index) {
             self.tables[local_table_index]
         } else {
@@ -816,12 +816,12 @@ impl InstanceHandle {
     pub unsafe fn new(
         allocator: InstanceAllocator,
         module: Arc<ModuleInfo>,
-        context: &mut ContextObjects,
+        context: &mut StoreObjects,
         finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
         finished_function_call_trampolines: BoxedSlice<SignatureIndex, VMTrampoline>,
-        finished_memories: BoxedSlice<LocalMemoryIndex, InternalContextHandle<VMMemory>>,
-        finished_tables: BoxedSlice<LocalTableIndex, InternalContextHandle<VMTable>>,
-        finished_globals: BoxedSlice<LocalGlobalIndex, InternalContextHandle<VMGlobal>>,
+        finished_memories: BoxedSlice<LocalMemoryIndex, InternalStoreHandle<VMMemory>>,
+        finished_tables: BoxedSlice<LocalTableIndex, InternalStoreHandle<VMTable>>,
+        finished_globals: BoxedSlice<LocalGlobalIndex, InternalStoreHandle<VMGlobal>>,
         imports: Imports,
         vmshared_signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
     ) -> Result<Self, Trap> {
@@ -1010,7 +1010,7 @@ impl InstanceHandle {
                         kind: VMFunctionKind::Static,
                         host_data: Box::new(()),
                     };
-                    InternalContextHandle::new(self.instance_mut().context_mut(), vm_function)
+                    InternalStoreHandle::new(self.instance_mut().context_mut(), vm_function)
                 } else {
                     let import = instance.imported_function(index);
                     import.handle
@@ -1290,7 +1290,7 @@ fn initialize_globals(instance: &Instance) {
 /// future funcref operations are just looking up this data.
 fn build_funcrefs(
     module_info: &ModuleInfo,
-    ctx: &ContextObjects,
+    ctx: &StoreObjects,
     imports: &Imports,
     finished_functions: &BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
     vmshared_signatures: &BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,

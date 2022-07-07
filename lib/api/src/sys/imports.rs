@@ -303,55 +303,54 @@ mod test {
     */
     #[test]
     fn imports_macro_allows_trailing_comma_and_none() {
-        use crate::sys::ContextMut;
         use crate::sys::Function;
         use crate::sys::Store;
 
         let mut store: Store = Default::default();
-        let mut ctx = WasmerContext::new(());
+        let mut ctx = WasmerContext::new(&mut store, ());
 
-        fn func(_ctx: ContextMut<()>, arg: i32) -> i32 {
+        fn func(&mut _ctx: &mut (), arg: i32) -> i32 {
             arg + 1
         }
 
         let _ = imports! {
             "env" => {
-                "func" => Function::new_native(&mut store, &mut ctx, func),
+                "func" => Function::new_native(&mut store, &ctx, func),
             },
         };
         let _ = imports! {
             "env" => {
-                "func" => Function::new_native(&mut store, &mut ctx, func),
+                "func" => Function::new_native(&mut store, &ctx, func),
             }
         };
         let _ = imports! {
             "env" => {
-                "func" => Function::new_native(&mut store, &mut ctx, func),
+                "func" => Function::new_native(&mut store, &ctx, func),
             },
             "abc" => {
-                "def" => Function::new_native(&mut store, &mut ctx, func),
+                "def" => Function::new_native(&mut store, &ctx, func),
             }
         };
         let _ = imports! {
             "env" => {
-                "func" => Function::new_native(&mut store, &mut ctx, func)
+                "func" => Function::new_native(&mut store, &ctx, func)
             },
         };
         let _ = imports! {
             "env" => {
-                "func" => Function::new_native(&mut store, &mut ctx, func)
+                "func" => Function::new_native(&mut store, &ctx, func)
             }
         };
         let _ = imports! {
             "env" => {
-                "func1" => Function::new_native(&mut store, &mut ctx, func),
-                "func2" => Function::new_native(&mut store, &mut ctx, func)
+                "func1" => Function::new_native(&mut store, &ctx, func),
+                "func2" => Function::new_native(&mut store, &ctx, func)
             }
         };
         let _ = imports! {
             "env" => {
-                "func1" => Function::new_native(&mut store, &mut ctx, func),
-                "func2" => Function::new_native(&mut store, &mut ctx, func),
+                "func1" => Function::new_native(&mut store, &ctx, func),
+                "func2" => Function::new_native(&mut store, &ctx, func),
             }
         };
     }
@@ -391,7 +390,6 @@ mod test {
     #[test]
     fn extending_conflict_overwrites() {
         let mut store = Store::default();
-        let mut ctx = WasmerContext::new(());
         let g1 = Global::new(&mut store, Value::I32(0));
         let g2 = Global::new(&mut store, Value::I64(0));
 

@@ -1,5 +1,5 @@
 use crate::js::context::{
-    AsContextMut, AsContextRef, ContextHandle, ContextObjects, InternalContextHandle,
+    AsContextMut, AsContextRef, InternalStoreHandle, StoreHandle, StoreObjects,
 };
 use crate::js::export::VMMemory;
 use crate::js::exports::{ExportError, Exportable};
@@ -80,7 +80,7 @@ extern "C" {
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#memory-instances>
 #[derive(Debug, Clone)]
 pub struct Memory {
-    pub(crate) handle: ContextHandle<VMMemory>,
+    pub(crate) handle: StoreHandle<VMMemory>,
     #[allow(dead_code)]
     view: js_sys::Uint8Array,
 }
@@ -245,18 +245,18 @@ impl Memory {
     pub(crate) fn from_vm_export(ctx: &mut impl AsContextMut, vm_memory: VMMemory) -> Self {
         let view = js_sys::Uint8Array::new(&vm_memory.memory.buffer());
         Self {
-            handle: ContextHandle::new(store.objects_mut(), vm_memory),
+            handle: StoreHandle::new(store.objects_mut(), vm_memory),
             view,
         }
     }
 
     pub(crate) fn from_vm_extern(
         ctx: &mut impl AsContextMut,
-        internal: InternalContextHandle<VMMemory>,
+        internal: InternalStoreHandle<VMMemory>,
     ) -> Self {
         let view = js_sys::Uint8Array::new(&internal.get(store.objects()).memory.buffer());
         Self {
-            handle: unsafe { ContextHandle::from_internal(store.objects().id(), internal) },
+            handle: unsafe { StoreHandle::from_internal(store.objects().id(), internal) },
             view,
         }
     }
@@ -372,7 +372,7 @@ impl<'a> Exportable<'a> for Memory {
 #[derive(Copy, Clone)]
 pub(crate) struct MemoryBuffer<'a> {
     base: *mut js_sys::Uint8Array,
-    marker: PhantomData<(&'a Memory, &'a ContextObjects)>,
+    marker: PhantomData<(&'a Memory, &'a StoreObjects)>,
 }
 
 impl<'a> MemoryBuffer<'a> {

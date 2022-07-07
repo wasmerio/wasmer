@@ -6,7 +6,7 @@
 //! `Memory` is to WebAssembly linear memories what `Table` is to WebAssembly tables.
 
 use crate::vmcontext::VMMemoryDefinition;
-use crate::{context::MaybeInstanceOwned, mmap::Mmap};
+use crate::{mmap::Mmap, store::MaybeInstanceOwned};
 use more_asserts::assert_ge;
 use std::cell::UnsafeCell;
 use std::convert::TryInto;

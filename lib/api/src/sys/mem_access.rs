@@ -12,7 +12,6 @@ use std::{
 use thiserror::Error;
 use wasmer_types::ValueType;
 
-use super::context::AsContextRef;
 use super::externals::memory::MemoryBuffer;
 use super::store::Store;
 

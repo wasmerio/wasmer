@@ -1,15 +1,13 @@
 use crate::sys::Store;
 use std::any::Any;
 
-use wasmer_vm::{ContextHandle, VMExternObj, VMExternRef};
-
-use super::context::{AsContextMut, AsContextRef};
+use wasmer_vm::{StoreHandle, VMExternObj, VMExternRef};
 
 #[derive(Debug, Clone)]
 #[repr(transparent)]
 /// An opaque reference to some data. This reference can be passed through Wasm.
 pub struct ExternRef {
-    handle: ContextHandle<VMExternObj>,
+    handle: StoreHandle<VMExternObj>,
 }
 
 impl ExternRef {
@@ -19,7 +17,7 @@ impl ExternRef {
         T: Any + Send + Sync + 'static + Sized,
     {
         Self {
-            handle: ContextHandle::new(store.objects_mut(), VMExternObj::new(value)),
+            handle: StoreHandle::new(store.objects_mut(), VMExternObj::new(value)),
         }
     }
 
@@ -40,7 +38,7 @@ impl ExternRef {
 
     pub(crate) unsafe fn from_vm_externref(store: &Store, vm_externref: VMExternRef) -> Self {
         Self {
-            handle: ContextHandle::from_internal(store.objects().id(), vm_externref.0),
+            handle: StoreHandle::from_internal(store.objects().id(), vm_externref.0),
         }
     }
 

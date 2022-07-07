@@ -30,6 +30,7 @@ mod memory;
 mod mmap;
 mod probestack;
 mod sig_registry;
+mod store;
 mod table;
 mod trap;
 mod vmcontext;
@@ -38,9 +39,7 @@ pub mod libcalls;
 
 use std::ptr::NonNull;
 
-pub use crate::context::{
-    ContextHandle, ContextId, ContextObjects, InternalContextHandle, MaybeInstanceOwned,
-};
+pub use crate::context::VMFunctionContext;
 pub use crate::export::*;
 pub use crate::extern_ref::{VMExternObj, VMExternRef};
 pub use crate::global::*;
@@ -50,6 +49,9 @@ pub use crate::memory::{MemoryError, VMMemory};
 pub use crate::mmap::Mmap;
 pub use crate::probestack::PROBESTACK;
 pub use crate::sig_registry::SignatureRegistry;
+pub use crate::store::{
+    InternalStoreHandle, MaybeInstanceOwned, StoreHandle, StoreId, StoreObjects,
+};
 pub use crate::table::{TableElement, VMTable};
 pub use crate::trap::*;
 pub use crate::vmcontext::{

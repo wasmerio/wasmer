@@ -8,7 +8,7 @@ use wasmer_types::{
 };
 
 use wasmer_vm::{
-    ContextObjects, FunctionBodyPtr, Imports, MemoryStyle, TableStyle, VMExtern, VMFunctionBody,
+    FunctionBodyPtr, Imports, MemoryStyle, StoreObjects, TableStyle, VMExtern, VMFunctionBody,
     VMFunctionImport, VMFunctionKind, VMGlobalImport, VMMemoryImport, VMTableImport,
 };
 
@@ -35,7 +35,7 @@ fn get_extern_from_import(module: &ModuleInfo, import_index: &ImportIndex) -> Ex
 }
 
 /// Get an `ExternType` given an export (and Engine signatures in case is a function).
-fn get_extern_type(context: &ContextObjects, extern_: &VMExtern) -> ExternType {
+fn get_extern_type(context: &StoreObjects, extern_: &VMExtern) -> ExternType {
     match extern_ {
         VMExtern::Function(f) => ExternType::Function(f.get(context).signature.clone()),
         VMExtern::Table(t) => ExternType::Table(*t.get(context).ty()),
@@ -54,7 +54,7 @@ fn get_extern_type(context: &ContextObjects, extern_: &VMExtern) -> ExternType {
 pub fn resolve_imports(
     module: &ModuleInfo,
     imports: &[VMExtern],
-    context: &ContextObjects,
+    context: &StoreObjects,
     finished_dynamic_function_trampolines: &BoxedSlice<FunctionIndex, FunctionBodyPtr>,
     memory_styles: &PrimaryMap<MemoryIndex, MemoryStyle>,
     _table_styles: &PrimaryMap<TableIndex, TableStyle>,

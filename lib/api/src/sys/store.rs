@@ -3,12 +3,23 @@ use std::fmt;
 use std::sync::{Arc, RwLock};
 use wasmer_compiler::CompilerConfig;
 use wasmer_compiler::{Engine, Tunables, Universal};
-use wasmer_vm::{init_traps, ContextObjects, TrapHandler, TrapHandlerFn};
+use wasmer_vm::{init_traps, StoreObjects, TrapHandler, TrapHandlerFn};
 
 /// The store represents all global state that can be manipulated by
 /// WebAssembly programs. It consists of the runtime representation
 /// of all instances of functions, tables, memories, and globals that
 /// have been allocated during the lifetime of the abstract machine.
+///
+/// All WebAssembly instances must exist within a Store. In the majority of
+/// cases each instance will have its own Store, but it is possible to have
+/// multiple instances in a Store when these instances need to interact with
+/// each other, for example sharing a memory between instances or calling
+/// functions in another instance.
+///
+/// The lifetimes of run-time WebAssembly objects, notably [`Instance`],
+/// [`Memory`], [`Global`], [`Table`] and [`Function`] is tied to a Store:
+/// the backing memory for these objects is only freed when the context is
+/// freed.
 ///
 /// The `Store` holds the engine (that is —amongst many things— used to compile
 /// the Wasm bytes into a valid module artifact), in addition to the
@@ -16,7 +27,7 @@ use wasmer_vm::{init_traps, ContextObjects, TrapHandler, TrapHandlerFn};
 ///
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#store>
 pub struct Store {
-    pub(crate) objects: ContextObjects,
+    pub(crate) objects: StoreObjects,
     engine: Arc<dyn Engine + Send + Sync>,
     tunables: Arc<dyn Tunables + Send + Sync>,
     trap_handler: Arc<RwLock<Option<Box<TrapHandlerFn>>>>,
@@ -65,6 +76,10 @@ impl Store {
         self.tunables.as_ref()
     }
 
+    pub(crate) fn tunables_and_objects_mut(&mut self) -> (&dyn Tunables, &mut StoreObjects) {
+        (self.tunables.as_ref(), &mut self.objects)
+    }
+
     /// Returns the [`Engine`].
     pub fn engine(&self) -> &Arc<dyn Engine + Send + Sync> {
         &self.engine
@@ -77,11 +92,11 @@ impl Store {
         a.engine.id() == b.engine.id()
     }
 
-    pub(crate) fn objects(&self) -> &ContextObjects {
+    pub(crate) fn objects(&self) -> &StoreObjects {
         &self.objects
     }
 
-    pub(crate) fn objects_mut(&mut self) -> &mut ContextObjects {
+    pub(crate) fn objects_mut(&mut self) -> &mut StoreObjects {
         &mut self.objects
     }
 }

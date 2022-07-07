@@ -9,7 +9,7 @@
 //! ```
 use std::marker::PhantomData;
 
-use crate::js::context::{AsContextMut, AsContextRef, ContextHandle};
+use crate::js::context::{AsContextMut, AsContextRef, StoreHandle};
 use crate::js::externals::Function;
 use crate::js::{FromToNativeWasmType, RuntimeError, WasmTypeList};
 // use std::panic::{catch_unwind, AssertUnwindSafe};
@@ -23,7 +23,7 @@ use wasm_bindgen::JsValue;
 /// (using the Native ABI).
 #[derive(Clone)]
 pub struct TypedFunction<Args = (), Rets = ()> {
-    pub(crate) handle: ContextHandle<VMFunction>,
+    pub(crate) handle: StoreHandle<VMFunction>,
     _phantom: PhantomData<(Args, Rets)>,
 }
 
@@ -38,7 +38,7 @@ where
     #[allow(dead_code)]
     pub(crate) fn new<T>(ctx: &mut impl AsContextMut<Data = T>, vm_function: VMFunction) -> Self {
         Self {
-            handle: ContextHandle::new(store.objects_mut(), vm_function),
+            handle: StoreHandle::new(store.objects_mut(), vm_function),
             _phantom: PhantomData,
         }
     }

@@ -10,8 +10,7 @@
 use std::marker::PhantomData;
 
 use crate::sys::{
-    AsContextMut, FromToNativeWasmType, Function, NativeWasmTypeInto, RuntimeError, Store,
-    WasmTypeList,
+    FromToNativeWasmType, Function, NativeWasmTypeInto, RuntimeError, Store, WasmTypeList,
 };
 use wasmer_types::RawValue;
 
@@ -67,7 +66,7 @@ macro_rules! impl_native_traits {
             /// Call the typed func and return results.
             #[allow(unused_mut)]
             #[allow(clippy::too_many_arguments)]
-            pub fn call(&self, store: &mut Store, ctx: &mut impl AsContextMut, $( $x: $x, )* ) -> Result<Rets, RuntimeError> {
+            pub fn call(&self, store: &mut Store, $( $x: $x, )* ) -> Result<Rets, RuntimeError> {
                 let anyfunc = unsafe {
                     *self.func
                         .handle

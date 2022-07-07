@@ -1,6 +1,6 @@
 pub use self::inner::{FromToNativeWasmType, HostFunction, WasmTypeList};
 use crate::js::context::{
-    AsContextMut, AsContextRef, ContextHandle, ContextMut, InternalContextHandle,
+    AsContextMut, AsContextRef, ContextMut, InternalStoreHandle, StoreHandle,
 };
 use crate::js::exports::{ExportError, Exportable};
 use crate::js::externals::Extern;
@@ -58,7 +58,7 @@ fn results_to_js_array(values: &[Value]) -> Array {
 ///   [Closures as host functions tracking issue](https://github.com/wasmerio/wasmer/issues/1840)
 #[derive(Clone, PartialEq)]
 pub struct Function {
-    pub(crate) handle: ContextHandle<VMFunction>,
+    pub(crate) handle: StoreHandle<VMFunction>,
 }
 
 impl Function {
@@ -198,7 +198,7 @@ impl Function {
         let ty = function.ty();
         let vm_function = VMFunction::new(binded_func, ty);
         Self {
-            handle: ContextHandle::new(store.objects_mut(), vm_function),
+            handle: StoreHandle::new(store.objects_mut(), vm_function),
         }
     }
 
@@ -333,16 +333,16 @@ impl Function {
 
     pub(crate) fn from_vm_export(ctx: &mut impl AsContextMut, vm_function: VMFunction) -> Self {
         Self {
-            handle: ContextHandle::new(store.objects_mut(), vm_function),
+            handle: StoreHandle::new(store.objects_mut(), vm_function),
         }
     }
 
     pub(crate) fn from_vm_extern(
         ctx: &mut impl AsContextMut,
-        internal: InternalContextHandle<VMFunction>,
+        internal: InternalStoreHandle<VMFunction>,
     ) -> Self {
         Self {
-            handle: unsafe { ContextHandle::from_internal(store.objects().id(), internal) },
+            handle: unsafe { StoreHandle::from_internal(store.objects().id(), internal) },
         }
     }
 

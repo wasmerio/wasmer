@@ -6,8 +6,8 @@ mod sys {
 
     #[test]
     fn exports_work_after_multiple_instances_have_been_freed() -> Result<()> {
-        let store = Store::default();
-        let mut ctx = WasmerContext::new(());
+        let mut store = Store::default();
+        let mut ctx = WasmerContext::new(&mut store, ());
         let module = Module::new(
             &store,
             "
@@ -35,7 +35,7 @@ mod sys {
 
         // All instances have been dropped, but `sum` continues to work!
         assert_eq!(
-            sum.call(&mut store, &mut ctx, &[Value::I32(1), Value::I32(2)])?
+            sum.call(&mut store, &[Value::I32(1), Value::I32(2)])?
                 .into_vec(),
             vec![Value::I32(3)],
         );
@@ -45,24 +45,24 @@ mod sys {
 
     #[test]
     fn unit_native_function_env() -> Result<()> {
-        let store = Store::default();
+        let mut store = Store::default();
         #[derive(Clone)]
         struct Env {
             multiplier: u32,
         }
 
-        fn imported_fn(ctx: ContextMut<Env>, args: &[Value]) -> Result<Vec<Value>, RuntimeError> {
-            let value = ctx.data().multiplier * args[0].unwrap_i32() as u32;
+        fn imported_fn(ctx: &mut Env, args: &[Value]) -> Result<Vec<Value>, RuntimeError> {
+            let value = ctx.multiplier * args[0].unwrap_i32() as u32;
             Ok(vec![Value::I32(value as _)])
         }
 
         let env = Env { multiplier: 3 };
-        let mut ctx = WasmerContext::new(env);
+        let mut ctx = WasmerContext::new(&mut store, env);
         let imported_signature = FunctionType::new(vec![Type::I32], vec![Type::I32]);
         let imported = Function::new(&mut store, &mut ctx, imported_signature, imported_fn);
 
         let expected = vec![Value::I32(12)].into_boxed_slice();
-        let result = imported.call(&mut store, &mut ctx, &[Value::I32(4)])?;
+        let result = imported.call(&mut store, &[Value::I32(4)])?;
         assert_eq!(result, expected);
 
         Ok(())

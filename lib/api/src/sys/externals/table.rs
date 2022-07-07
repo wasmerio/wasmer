@@ -4,7 +4,7 @@ use crate::sys::RuntimeError;
 use crate::sys::Store;
 use crate::sys::TableType;
 use crate::{ExternRef, Function, Value};
-use wasmer_vm::{ContextHandle, InternalContextHandle, TableElement, VMExtern, VMTable};
+use wasmer_vm::{InternalStoreHandle, StoreHandle, TableElement, VMExtern, VMTable};
 
 /// A WebAssembly `table` instance.
 ///
@@ -17,7 +17,7 @@ use wasmer_vm::{ContextHandle, InternalContextHandle, TableElement, VMExtern, VM
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#table-instances>
 #[derive(Debug, Clone)]
 pub struct Table {
-    handle: ContextHandle<VMTable>,
+    handle: StoreHandle<VMTable>,
 }
 
 fn set_table_item(
@@ -65,7 +65,7 @@ impl Table {
     /// This function will construct the `Table` using the store
     /// [`BaseTunables`][crate::sys::BaseTunables].
     pub fn new(store: &mut Store, ty: TableType, init: Value) -> Result<Self, RuntimeError> {
-        let item = value_to_table_element(&mut store, init)?;
+        let item = value_to_table_element(store, init)?;
         let tunables = store.tunables();
         let style = tunables.table_style(&ty);
         let mut table = tunables
@@ -78,7 +78,7 @@ impl Table {
         }
 
         Ok(Self {
-            handle: ContextHandle::new(store.objects_mut(), table),
+            handle: StoreHandle::new(store.objects_mut(), table),
         })
     }
 
@@ -157,10 +157,10 @@ impl Table {
 
     pub(crate) fn from_vm_extern(
         store: &mut Store,
-        internal: InternalContextHandle<VMTable>,
+        internal: InternalStoreHandle<VMTable>,
     ) -> Self {
         Self {
-            handle: unsafe { ContextHandle::from_internal(store.objects().id(), internal) },
+            handle: unsafe { StoreHandle::from_internal(store.objects().id(), internal) },
         }
     }
 

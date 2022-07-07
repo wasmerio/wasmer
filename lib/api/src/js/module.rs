@@ -1,4 +1,4 @@
-use crate::js::context::{AsContextMut, ContextHandle};
+use crate::js::context::{AsContextMut, StoreHandle};
 #[cfg(feature = "wat")]
 use crate::js::error::WasmError;
 use crate::js::error::{CompileError, InstantiationError};
@@ -219,7 +219,7 @@ impl Module {
         &self,
         ctx: &mut impl AsContextMut,
         imports: &Imports,
-    ) -> Result<(ContextHandle<WebAssembly::Instance>, Vec<Extern>), RuntimeError> {
+    ) -> Result<(StoreHandle<WebAssembly::Instance>, Vec<Extern>), RuntimeError> {
         // Ensure all imports come from the same context.
         if imports
             .into_iter()
@@ -261,7 +261,7 @@ impl Module {
             // the error for us, so we don't need to handle it
         }
         Ok((
-            ContextHandle::new(
+            StoreHandle::new(
                 store.objects_mut(),
                 WebAssembly::Instance::new(&self.module, &imports_object)
                     .map_err(|e: JsValue| -> RuntimeError { e.into() })?,

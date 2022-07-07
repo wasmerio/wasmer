@@ -1,4 +1,4 @@
-use crate::js::context::{AsContextMut, AsContextRef, ContextHandle, InternalContextHandle};
+use crate::js::context::{AsContextMut, AsContextRef, InternalStoreHandle, StoreHandle};
 use crate::js::export::{VMFunction, VMTable};
 use crate::js::exports::{ExportError, Exportable};
 use crate::js::externals::Extern;
@@ -18,7 +18,7 @@ use js_sys::Function;
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#table-instances>
 #[derive(Debug, Clone, PartialEq)]
 pub struct Table {
-    pub(crate) handle: ContextHandle<VMTable>,
+    pub(crate) handle: StoreHandle<VMTable>,
 }
 
 fn set_table_item(table: &VMTable, item_index: u32, item: &Function) -> Result<(), RuntimeError> {
@@ -68,7 +68,7 @@ impl Table {
         }
 
         Ok(Self {
-            handle: ContextHandle::new(ctx.objects_mut(), table),
+            handle: StoreHandle::new(ctx.objects_mut(), table),
         })
     }
 
@@ -137,10 +137,10 @@ impl Table {
 
     pub(crate) fn from_vm_extern(
         ctx: &mut impl AsContextMut,
-        internal: InternalContextHandle<VMTable>,
+        internal: InternalStoreHandle<VMTable>,
     ) -> Self {
         Self {
-            handle: unsafe { ContextHandle::from_internal(store.objects().id(), internal) },
+            handle: unsafe { StoreHandle::from_internal(store.objects().id(), internal) },
         }
     }
 

@@ -1,4 +1,3 @@
-use crate::sys::context::{AsContextMut, AsContextRef};
 use crate::sys::exports::{ExportError, Exportable};
 use crate::sys::externals::Extern;
 use crate::sys::value::Value;
@@ -6,7 +5,7 @@ use crate::sys::GlobalType;
 use crate::sys::Mutability;
 use crate::sys::RuntimeError;
 use crate::sys::Store;
-use wasmer_vm::{ContextHandle, InternalContextHandle, VMExtern, VMGlobal};
+use wasmer_vm::{InternalStoreHandle, StoreHandle, VMExtern, VMGlobal};
 
 /// A WebAssembly `global` instance.
 ///
@@ -16,7 +15,7 @@ use wasmer_vm::{ContextHandle, InternalContextHandle, VMExtern, VMGlobal};
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#global-instances>
 #[derive(Debug, Clone)]
 pub struct Global {
-    handle: ContextHandle<VMGlobal>,
+    handle: StoreHandle<VMGlobal>,
 }
 
 impl Global {
@@ -74,7 +73,7 @@ impl Global {
         }
 
         Ok(Self {
-            handle: ContextHandle::new(store.objects_mut(), global),
+            handle: StoreHandle::new(store.objects_mut(), global),
         })
     }
 
@@ -185,10 +184,10 @@ impl Global {
 
     pub(crate) fn from_vm_extern(
         store: &mut Store,
-        internal: InternalContextHandle<VMGlobal>,
+        internal: InternalStoreHandle<VMGlobal>,
     ) -> Self {
         Self {
-            handle: unsafe { ContextHandle::from_internal(store.objects().id(), internal) },
+            handle: unsafe { StoreHandle::from_internal(store.objects().id(), internal) },
         }
     }
 

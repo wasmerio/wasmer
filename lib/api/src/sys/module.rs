@@ -282,14 +282,15 @@ impl Module {
             }
         }
 
+        let (tunables, objects) = store.tunables_and_objects_mut();
         unsafe {
             let mut instance_handle = self.artifact.instantiate(
-                store.tunables(),
+                tunables,
                 &imports
                     .iter()
                     .map(crate::Extern::to_vm_extern)
                     .collect::<Vec<_>>(),
-                store.objects_mut(),
+                objects,
             )?;
 
             // After the instance handle is created, we need to initialize

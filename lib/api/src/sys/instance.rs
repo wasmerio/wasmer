@@ -6,9 +6,7 @@ use crate::sys::Store;
 use crate::sys::{LinkError, RuntimeError};
 use std::fmt;
 use thiserror::Error;
-use wasmer_vm::{ContextHandle, InstanceHandle};
-
-use super::context::AsContextMut;
+use wasmer_vm::{InstanceHandle, StoreHandle};
 
 /// A WebAssembly Instance is a stateful, executable
 /// instance of a WebAssembly [`Module`].
@@ -20,7 +18,7 @@ use super::context::AsContextMut;
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#module-instances>
 #[derive(Clone)]
 pub struct Instance {
-    _handle: ContextHandle<InstanceHandle>,
+    _handle: StoreHandle<InstanceHandle>,
     module: Module,
     /// The exports for an instance.
     pub exports: Exports,
@@ -130,7 +128,7 @@ impl Instance {
             .collect::<Exports>();
 
         let instance = Self {
-            _handle: ContextHandle::new(store.objects_mut(), handle),
+            _handle: StoreHandle::new(store.objects_mut(), handle),
             module: module.clone(),
             exports,
         };
@@ -166,7 +164,7 @@ impl Instance {
             .collect::<Exports>();
 
         let instance = Self {
-            _handle: ContextHandle::new(store.objects_mut(), handle),
+            _handle: StoreHandle::new(store.objects_mut(), handle),
             module: module.clone(),
             exports,
         };

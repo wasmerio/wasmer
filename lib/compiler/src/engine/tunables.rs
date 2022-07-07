@@ -5,7 +5,7 @@ use wasmer_types::{
     GlobalType, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, MemoryType,
     ModuleInfo, TableIndex, TableType,
 };
-use wasmer_vm::{ContextObjects, InternalContextHandle, MemoryError};
+use wasmer_vm::{InternalStoreHandle, MemoryError, StoreObjects};
 use wasmer_vm::{MemoryStyle, TableStyle};
 use wasmer_vm::{VMGlobal, VMMemory, VMTable};
 use wasmer_vm::{VMMemoryDefinition, VMTableDefinition};
@@ -62,11 +62,11 @@ pub trait Tunables {
     /// - `memory_definition_locations` must point to a valid locations in VM memory.
     unsafe fn create_memories(
         &self,
-        context: &mut ContextObjects,
+        context: &mut StoreObjects,
         module: &ModuleInfo,
         memory_styles: &PrimaryMap<MemoryIndex, MemoryStyle>,
         memory_definition_locations: &[NonNull<VMMemoryDefinition>],
-    ) -> Result<PrimaryMap<LocalMemoryIndex, InternalContextHandle<VMMemory>>, LinkError> {
+    ) -> Result<PrimaryMap<LocalMemoryIndex, InternalStoreHandle<VMMemory>>, LinkError> {
         let num_imports = module.num_imported_memories;
         let mut memories: PrimaryMap<LocalMemoryIndex, _> =
             PrimaryMap::with_capacity(module.memories.len() - num_imports);
@@ -79,7 +79,7 @@ pub trait Tunables {
             let mi = MemoryIndex::new(index);
             let ty = &module.memories[mi];
             let style = &memory_styles[mi];
-            memories.push(InternalContextHandle::new(
+            memories.push(InternalStoreHandle::new(
                 context,
                 self.create_vm_memory(ty, style, *mdl)
                     .map_err(|e| LinkError::Resource(format!("Failed to create memory: {}", e)))?,
@@ -95,11 +95,11 @@ pub trait Tunables {
     /// To be done
     unsafe fn create_tables(
         &self,
-        context: &mut ContextObjects,
+        context: &mut StoreObjects,
         module: &ModuleInfo,
         table_styles: &PrimaryMap<TableIndex, TableStyle>,
         table_definition_locations: &[NonNull<VMTableDefinition>],
-    ) -> Result<PrimaryMap<LocalTableIndex, InternalContextHandle<VMTable>>, LinkError> {
+    ) -> Result<PrimaryMap<LocalTableIndex, InternalStoreHandle<VMTable>>, LinkError> {
         let num_imports = module.num_imported_tables;
         let mut tables: PrimaryMap<LocalTableIndex, _> =
             PrimaryMap::with_capacity(module.tables.len() - num_imports);
@@ -112,7 +112,7 @@ pub trait Tunables {
             let ti = TableIndex::new(index);
             let ty = &module.tables[ti];
             let style = &table_styles[ti];
-            tables.push(InternalContextHandle::new(
+            tables.push(InternalStoreHandle::new(
                 context,
                 self.create_vm_table(ty, style, *tdl)
                     .map_err(LinkError::Resource)?,
@@ -125,14 +125,14 @@ pub trait Tunables {
     /// with initializers applied.
     fn create_globals(
         &self,
-        context: &mut ContextObjects,
+        context: &mut StoreObjects,
         module: &ModuleInfo,
-    ) -> Result<PrimaryMap<LocalGlobalIndex, InternalContextHandle<VMGlobal>>, LinkError> {
+    ) -> Result<PrimaryMap<LocalGlobalIndex, InternalStoreHandle<VMGlobal>>, LinkError> {
         let num_imports = module.num_imported_globals;
         let mut vmctx_globals = PrimaryMap::with_capacity(module.globals.len() - num_imports);
 
         for &global_type in module.globals.values().skip(num_imports) {
-            vmctx_globals.push(InternalContextHandle::new(
+            vmctx_globals.push(InternalStoreHandle::new(
                 context,
                 self.create_global(global_type)
                     .map_err(LinkError::Resource)?,
