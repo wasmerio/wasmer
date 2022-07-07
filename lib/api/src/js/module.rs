@@ -59,7 +59,6 @@ pub struct ModuleTypeHints {
 /// contents rather than a deep copy.
 #[derive(Clone)]
 pub struct Module {
-    store: Store,
     module: WebAssembly::Module,
     name: Option<String>,
     // WebAssembly type hints
@@ -194,7 +193,6 @@ impl Module {
         let (type_hints, name) = (None, None);
 
         Ok(Self {
-            store: store.clone(),
             module,
             type_hints,
             name,
@@ -225,7 +223,7 @@ impl Module {
         // Ensure all imports come from the same context.
         if imports
             .into_iter()
-            .any(|(_, import)| !import.is_from_context(ctx))
+            .any(|(_, import)| !import.is_from_store(ctx))
         {
             // FIXME is RuntimeError::User appropriate?
             return Err(RuntimeError::user(Box::new(InstantiationError::BadContext)));
@@ -264,7 +262,7 @@ impl Module {
         }
         Ok((
             ContextHandle::new(
-                ctx.as_context_mut().objects_mut(),
+                store.objects_mut(),
                 WebAssembly::Instance::new(&self.module, &imports_object)
                     .map_err(|e: JsValue| -> RuntimeError { e.into() })?,
             ),
@@ -548,7 +546,6 @@ impl fmt::Debug for Module {
 impl From<WebAssembly::Module> for Module {
     fn from(module: WebAssembly::Module) -> Module {
         Module {
-            store: Store::default(),
             module,
             name: None,
             type_hints: None,

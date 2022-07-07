@@ -191,38 +191,38 @@ mod sys {
           (call 7 (i32.const -1)))
 )"#;
         let module = Module::new(&store, wat)?;
-        let mut ctx = WasmerContext::new(&store, ());
+        let mut ctx = WasmerContext::new(());
         let imports = imports! {
             "host" => {
-                "host_func1" => Function::new_native(&mut ctx, |_ctx: ContextMut<()>, p: u64| {
+                "host_func1" => Function::new_native(&mut store, &mut ctx, |_ctx: ContextMut<()>, p: u64| {
                     println!("host_func1: Found number {}", p);
                     assert_eq!(p, u64::max_value());
                 }),
-                "host_func2" => Function::new_native(&mut ctx, |_ctx: ContextMut<()>, p: u32| {
+                "host_func2" => Function::new_native(&mut store, &mut ctx, |_ctx: ContextMut<()>, p: u32| {
                     println!("host_func2: Found number {}", p);
                     assert_eq!(p, u32::max_value());
                 }),
-                "host_func3" => Function::new_native(&mut ctx, |_ctx: ContextMut<()>, p: i64| {
+                "host_func3" => Function::new_native(&mut store, &mut ctx, |_ctx: ContextMut<()>, p: i64| {
                     println!("host_func3: Found number {}", p);
                     assert_eq!(p, -1);
                 }),
-                "host_func4" => Function::new_native(&mut ctx, |_ctx: ContextMut<()>, p: i32| {
+                "host_func4" => Function::new_native(&mut store, &mut ctx, |_ctx: ContextMut<()>, p: i32| {
                     println!("host_func4: Found number {}", p);
                     assert_eq!(p, -1);
                 }),
-                "host_func5" => Function::new_native(&mut ctx, |_ctx: ContextMut<()>, p: i16| {
+                "host_func5" => Function::new_native(&mut store, &mut ctx, |_ctx: ContextMut<()>, p: i16| {
                     println!("host_func5: Found number {}", p);
                     assert_eq!(p, -1);
                 }),
-                "host_func6" => Function::new_native(&mut ctx, |_ctx: ContextMut<()>, p: u16| {
+                "host_func6" => Function::new_native(&mut store, &mut ctx, |_ctx: ContextMut<()>, p: u16| {
                     println!("host_func6: Found number {}", p);
                     assert_eq!(p, u16::max_value());
                 }),
-                "host_func7" => Function::new_native(&mut ctx, |_ctx: ContextMut<()>, p: i8| {
+                "host_func7" => Function::new_native(&mut store, &mut ctx, |_ctx: ContextMut<()>, p: i8| {
                     println!("host_func7: Found number {}", p);
                     assert_eq!(p, -1);
                 }),
-                "host_func8" => Function::new_native(&mut ctx, |_ctx: ContextMut<()>, p: u8| {
+                "host_func8" => Function::new_native(&mut store, &mut ctx, |_ctx: ContextMut<()>, p: u8| {
                     println!("host_func8: Found number {}", p);
                     assert_eq!(p, u8::max_value());
                 }),
@@ -255,14 +255,14 @@ mod sys {
             .exports
             .get_typed_function(&mut ctx, "call_host_func8")?;
 
-        f1.call(&mut ctx)?;
-        f2.call(&mut ctx)?;
-        f3.call(&mut ctx)?;
-        f4.call(&mut ctx)?;
-        f5.call(&mut ctx)?;
-        f6.call(&mut ctx)?;
-        f7.call(&mut ctx)?;
-        f8.call(&mut ctx)?;
+        f1.call(&mut store, &mut ctx)?;
+        f2.call(&mut store, &mut ctx)?;
+        f3.call(&mut store, &mut ctx)?;
+        f4.call(&mut store, &mut ctx)?;
+        f5.call(&mut store, &mut ctx)?;
+        f6.call(&mut store, &mut ctx)?;
+        f7.call(&mut store, &mut ctx)?;
+        f8.call(&mut store, &mut ctx)?;
 
         Ok(())
     }

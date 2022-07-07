@@ -11,10 +11,9 @@ pub use self::table::Table;
 
 use crate::sys::exports::{ExportError, Exportable};
 use crate::sys::ExternType;
+use crate::sys::Store;
 use std::fmt;
 use wasmer_vm::VMExtern;
-
-use super::context::{AsContextMut, AsContextRef};
 
 /// An `Extern` is the runtime representation of an entity that
 /// can be imported or exported.
@@ -34,32 +33,32 @@ pub enum Extern {
 
 impl Extern {
     /// Return the underlying type of the inner `Extern`.
-    pub fn ty(&self, ctx: &impl AsContextRef) -> ExternType {
+    pub fn ty(&self, store: &Store) -> ExternType {
         match self {
-            Self::Function(ft) => ExternType::Function(ft.ty(ctx)),
-            Self::Memory(ft) => ExternType::Memory(ft.ty(ctx)),
-            Self::Table(tt) => ExternType::Table(tt.ty(ctx)),
-            Self::Global(gt) => ExternType::Global(gt.ty(ctx)),
+            Self::Function(ft) => ExternType::Function(ft.ty(store)),
+            Self::Memory(ft) => ExternType::Memory(ft.ty(store)),
+            Self::Table(tt) => ExternType::Table(tt.ty(store)),
+            Self::Global(gt) => ExternType::Global(gt.ty(store)),
         }
     }
 
     /// Create an `Extern` from an `wasmer_engine::Export`.
-    pub fn from_vm_extern(ctx: &mut impl AsContextMut, vm_extern: VMExtern) -> Self {
+    pub fn from_vm_extern(store: &mut Store, vm_extern: VMExtern) -> Self {
         match vm_extern {
-            VMExtern::Function(f) => Self::Function(Function::from_vm_extern(ctx, f)),
-            VMExtern::Memory(m) => Self::Memory(Memory::from_vm_extern(ctx, m)),
-            VMExtern::Global(g) => Self::Global(Global::from_vm_extern(ctx, g)),
-            VMExtern::Table(t) => Self::Table(Table::from_vm_extern(ctx, t)),
+            VMExtern::Function(f) => Self::Function(Function::from_vm_extern(store, f)),
+            VMExtern::Memory(m) => Self::Memory(Memory::from_vm_extern(store, m)),
+            VMExtern::Global(g) => Self::Global(Global::from_vm_extern(store, g)),
+            VMExtern::Table(t) => Self::Table(Table::from_vm_extern(store, t)),
         }
     }
 
-    /// Checks whether this `Extern` can be used with the given context.
-    pub fn is_from_context(&self, ctx: &impl AsContextRef) -> bool {
+    /// Checks whether this `Extern` can be used with the given store.
+    pub fn is_from_store(&self, store: &Store) -> bool {
         match self {
-            Self::Function(f) => f.is_from_context(ctx),
-            Self::Global(g) => g.is_from_context(ctx),
-            Self::Memory(m) => m.is_from_context(ctx),
-            Self::Table(t) => t.is_from_context(ctx),
+            Self::Function(f) => f.is_from_store(store),
+            Self::Global(g) => g.is_from_store(store),
+            Self::Memory(m) => m.is_from_store(store),
+            Self::Table(t) => t.is_from_store(store),
         }
     }
 

@@ -9,8 +9,7 @@ use wasmer_vm::VMFuncRef;
 use crate::ExternRef;
 use crate::Function;
 
-use super::context::AsContextMut;
-use super::context::AsContextRef;
+use super::store::Store;
 
 pub use wasmer_types::RawValue;
 
@@ -92,14 +91,14 @@ impl Value {
     }
 
     /// Converts the `Value` into a `RawValue`.
-    pub fn as_raw(&self, ctx: &impl AsContextRef) -> RawValue {
+    pub fn as_raw(&self, store: &Store) -> RawValue {
         match *self {
             Self::I32(i32) => RawValue { i32 },
             Self::I64(i64) => RawValue { i64 },
             Self::F32(f32) => RawValue { f32 },
             Self::F64(f64) => RawValue { f64 },
             Self::V128(u128) => RawValue { u128 },
-            Self::FuncRef(Some(ref f)) => f.vm_funcref(ctx).into_raw(),
+            Self::FuncRef(Some(ref f)) => f.vm_funcref(store).into_raw(),
 
             Self::FuncRef(None) => RawValue { funcref: 0 },
             Self::ExternRef(Some(ref e)) => e.vm_externref().into_raw(),
@@ -111,7 +110,7 @@ impl Value {
     ///
     /// # Safety
     ///
-    pub unsafe fn from_raw(ctx: &mut impl AsContextMut, ty: Type, raw: RawValue) -> Self {
+    pub unsafe fn from_raw(store: &Store, ty: Type, raw: RawValue) -> Self {
         match ty {
             Type::I32 => Self::I32(raw.i32),
             Type::I64 => Self::I64(raw.i64),
@@ -119,22 +118,22 @@ impl Value {
             Type::F64 => Self::F64(raw.f64),
             Type::V128 => Self::V128(raw.u128),
             Type::FuncRef => {
-                Self::FuncRef(VMFuncRef::from_raw(raw).map(|f| Function::from_vm_funcref(ctx, f)))
+                Self::FuncRef(VMFuncRef::from_raw(raw).map(|f| Function::from_vm_funcref(store, f)))
             }
             Type::ExternRef => Self::ExternRef(
-                VMExternRef::from_raw(raw).map(|e| ExternRef::from_vm_externref(ctx, e)),
+                VMExternRef::from_raw(raw).map(|e| ExternRef::from_vm_externref(store, e)),
             ),
         }
     }
 
-    /// Checks whether a value can be used with the given context.
+    /// Checks whether a value can be used with the given store.
     ///
     /// Primitive (`i32`, `i64`, etc) and null funcref/externref values are not
     /// tied to a context and can be freely shared between contexts.
     ///
     /// Externref and funcref values are tied to a context and can only be used
     /// with that context.
-    pub fn is_from_context(&self, ctx: &impl AsContextRef) -> bool {
+    pub fn is_from_store(&self, store: &Store) -> bool {
         match self {
             Self::I32(_)
             | Self::I64(_)
@@ -143,8 +142,8 @@ impl Value {
             | Self::V128(_)
             | Self::ExternRef(None)
             | Self::FuncRef(None) => true,
-            Self::ExternRef(Some(e)) => e.is_from_context(ctx),
-            Self::FuncRef(Some(f)) => f.is_from_context(ctx),
+            Self::ExternRef(Some(e)) => e.is_from_store(store),
+            Self::FuncRef(Some(f)) => f.is_from_store(store),
         }
     }
 

@@ -131,7 +131,7 @@ impl Memory {
     /// assert_eq!(m.ty(), mt);
     /// ```
     pub fn ty(&self, ctx: &impl AsContextRef) -> MemoryType {
-        self.handle.get(ctx.as_context_ref().objects()).ty
+        self.handle.get(store.objects()).ty
     }
 
     /// Returns the pointer to the raw bytes of the `Memory`.
@@ -143,11 +143,7 @@ impl Memory {
     /// Returns the size (in bytes) of the `Memory`.
     pub fn data_size(&self, ctx: &impl AsContextRef) -> u64 {
         js_sys::Reflect::get(
-            &self
-                .handle
-                .get(ctx.as_context_ref().objects())
-                .memory
-                .buffer(),
+            &self.handle.get(store.objects()).memory.buffer(),
             &"byteLength".into(),
         )
         .unwrap()
@@ -169,11 +165,7 @@ impl Memory {
     /// ```
     pub fn size(&self, ctx: &impl AsContextRef) -> Pages {
         let bytes = js_sys::Reflect::get(
-            &self
-                .handle
-                .get(ctx.as_context_ref().objects())
-                .memory
-                .buffer(),
+            &self.handle.get(store.objects()).memory.buffer(),
             &"byteLength".into(),
         )
         .unwrap()
@@ -240,13 +232,7 @@ impl Memory {
     /// Used by tests
     #[doc(hidden)]
     pub fn uint8view(&self, ctx: &impl AsContextRef) -> js_sys::Uint8Array {
-        js_sys::Uint8Array::new(
-            &self
-                .handle
-                .get(ctx.as_context_ref().objects())
-                .memory
-                .buffer(),
-        )
+        js_sys::Uint8Array::new(&self.handle.get(store.objects()).memory.buffer())
     }
 
     pub(crate) fn buffer<'a>(&'a self, _ctx: &'a impl AsContextRef) -> MemoryBuffer<'a> {
@@ -259,7 +245,7 @@ impl Memory {
     pub(crate) fn from_vm_export(ctx: &mut impl AsContextMut, vm_memory: VMMemory) -> Self {
         let view = js_sys::Uint8Array::new(&vm_memory.memory.buffer());
         Self {
-            handle: ContextHandle::new(ctx.as_context_mut().objects_mut(), vm_memory),
+            handle: ContextHandle::new(store.objects_mut(), vm_memory),
             view,
         }
     }
@@ -268,12 +254,9 @@ impl Memory {
         ctx: &mut impl AsContextMut,
         internal: InternalContextHandle<VMMemory>,
     ) -> Self {
-        let view =
-            js_sys::Uint8Array::new(&internal.get(ctx.as_context_ref().objects()).memory.buffer());
+        let view = js_sys::Uint8Array::new(&internal.get(store.objects()).memory.buffer());
         Self {
-            handle: unsafe {
-                ContextHandle::from_internal(ctx.as_context_ref().objects().id(), internal)
-            },
+            handle: unsafe { ContextHandle::from_internal(store.objects().id(), internal) },
             view,
         }
     }
@@ -370,9 +353,9 @@ impl Memory {
         Ok(())
     }
 
-    /// Checks whether this `Global` can be used with the given context.
-    pub fn is_from_context(&self, ctx: &impl AsContextRef) -> bool {
-        self.handle.context_id() == ctx.as_context_ref().objects().id()
+    /// Checks whether this `Global` can be used with the given store.
+    pub fn is_from_store(&self, ctx: &impl AsContextRef) -> bool {
+        self.handle.store_id() == store.objects().id()
     }
 }
 

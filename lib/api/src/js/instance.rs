@@ -90,7 +90,7 @@ impl Instance {
         instance: ContextHandle<WebAssembly::Instance>,
         imports: Imports,
     ) -> Result<Self, InstantiationError> {
-        let instance_exports = instance.get(ctx.as_context_ref().objects()).exports();
+        let instance_exports = instance.get(store.objects()).exports();
         let exports = module
             .exports()
             .map(|export_type| {
@@ -130,7 +130,7 @@ impl Instance {
         &self,
         ctx: &'context impl AsContextRef,
     ) -> &'context WebAssembly::Instance {
-        &self._handle.get(ctx.as_context_ref().objects())
+        &self._handle.get(store.objects())
     }
 }
 

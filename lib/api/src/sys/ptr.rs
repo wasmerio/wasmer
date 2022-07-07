@@ -5,7 +5,7 @@ use std::convert::TryFrom;
 use std::{fmt, marker::PhantomData, mem};
 use wasmer_types::ValueType;
 
-use super::context::AsContextRef;
+use super::store::Store;
 
 pub use wasmer_types::MemorySize;
 
@@ -144,25 +144,20 @@ impl<T: ValueType, M: MemorySize> WasmPtr<T, M> {
     /// Creates a `WasmRef` from this `WasmPtr` which allows reading and
     /// mutating of the value being pointed to.
     #[inline]
-    pub fn deref<'a>(self, ctx: &'a impl AsContextRef, memory: &'a Memory) -> WasmRef<'a, T> {
-        WasmRef::new(ctx, memory, self.offset.into())
+    pub fn deref<'a>(self, store: &'a Store, memory: &'a Memory) -> WasmRef<'a, T> {
+        WasmRef::new(store, memory, self.offset.into())
     }
 
     /// Reads the address pointed to by this `WasmPtr` in a memory.
     #[inline]
-    pub fn read(self, ctx: &impl AsContextRef, memory: &Memory) -> Result<T, MemoryAccessError> {
-        self.deref(&ctx, memory).read()
+    pub fn read(self, store: &Store, memory: &Memory) -> Result<T, MemoryAccessError> {
+        self.deref(&store, memory).read()
     }
 
     /// Writes to the address pointed to by this `WasmPtr` in a memory.
     #[inline]
-    pub fn write(
-        self,
-        ctx: &impl AsContextRef,
-        memory: &Memory,
-        val: T,
-    ) -> Result<(), MemoryAccessError> {
-        self.deref(&ctx, memory).write(val)
+    pub fn write(self, store: &Store, memory: &Memory, val: T) -> Result<(), MemoryAccessError> {
+        self.deref(&store, memory).write(val)
     }
 
     /// Creates a `WasmSlice` starting at this `WasmPtr` which allows reading
@@ -173,11 +168,11 @@ impl<T: ValueType, M: MemorySize> WasmPtr<T, M> {
     #[inline]
     pub fn slice<'a>(
         self,
-        ctx: &'a impl AsContextRef,
+        store: &'a Store,
         memory: &'a Memory,
         len: M::Offset,
     ) -> Result<WasmSlice<'a, T>, MemoryAccessError> {
-        WasmSlice::new(ctx, memory, self.offset.into(), len.into())
+        WasmSlice::new(store, memory, self.offset.into(), len.into())
     }
 
     /// Reads a sequence of values from this `WasmPtr` until a value that
@@ -187,14 +182,14 @@ impl<T: ValueType, M: MemorySize> WasmPtr<T, M> {
     #[inline]
     pub fn read_until(
         self,
-        ctx: &impl AsContextRef,
+        store: &Store,
         memory: &Memory,
         mut end: impl FnMut(&T) -> bool,
     ) -> Result<Vec<T>, MemoryAccessError> {
         let mut vec = Vec::new();
         for i in 0u64.. {
             let i = M::Offset::try_from(i).map_err(|_| MemoryAccessError::Overflow)?;
-            let val = self.add_offset(i)?.deref(&ctx, memory).read()?;
+            let val = self.add_offset(i)?.deref(&store, memory).read()?;
             if end(&val) {
                 break;
             }
@@ -212,11 +207,11 @@ impl<M: MemorySize> WasmPtr<u8, M> {
     #[inline]
     pub fn read_utf8_string(
         self,
-        ctx: &impl AsContextRef,
+        store: &Store,
         memory: &Memory,
         len: M::Offset,
     ) -> Result<String, MemoryAccessError> {
-        let vec = self.slice(&ctx, memory, len)?.read_to_vec()?;
+        let vec = self.slice(&store, memory, len)?.read_to_vec()?;
         Ok(String::from_utf8(vec)?)
     }
 
@@ -227,10 +222,10 @@ impl<M: MemorySize> WasmPtr<u8, M> {
     #[inline]
     pub fn read_utf8_string_with_nul(
         self,
-        ctx: &impl AsContextRef,
+        store: &Store,
         memory: &Memory,
     ) -> Result<String, MemoryAccessError> {
-        let vec = self.read_until(ctx, memory, |&byte| byte == 0)?;
+        let vec = self.read_until(store, memory, |&byte| byte == 0)?;
         Ok(String::from_utf8(vec)?)
     }
 }

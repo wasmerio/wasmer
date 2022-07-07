@@ -25,10 +25,10 @@ mod sys {
         #[derive(Clone, Debug)]
         pub struct Env(Arc<AtomicBool>);
         let env = Env(Arc::new(AtomicBool::new(false)));
-        let mut ctx = WasmerContext::new(&store, env);
+        let mut ctx = WasmerContext::new(env);
         let imports = imports! {
             "env" => {
-                "func_ref_identity" => Function::new(&mut ctx, FunctionType::new([Type::FuncRef], [Type::FuncRef]), |_ctx: ContextMut<Env>, values: &[Value]| -> Result<Vec<_>, _> {
+                "func_ref_identity" => Function::new(&mut store, &mut ctx, FunctionType::new([Type::FuncRef], [Type::FuncRef]), |_ctx: ContextMut<Env>, values: &[Value]| -> Result<Vec<_>, _> {
                     Ok(vec![values[0].clone()])
                 })
             },
@@ -37,20 +37,21 @@ mod sys {
         let instance = Instance::new(&mut ctx, &module, &imports)?;
 
         let f: &Function = instance.exports.get_function("run")?;
-        let results = f.call(&mut ctx, &[]).unwrap();
+        let results = f.call(&mut store, &mut ctx, &[]).unwrap();
         if let Value::FuncRef(fr) = &results[0] {
             assert!(fr.is_none());
         } else {
             panic!("funcref not found!");
         }
 
-        let func_to_call = Function::new_native(&mut ctx, |mut ctx: ContextMut<Env>| -> i32 {
-            ctx.data_mut().0.store(true, Ordering::SeqCst);
-            343
-        });
+        let func_to_call =
+            Function::new_native(&mut store, &mut ctx, |mut ctx: ContextMut<Env>| -> i32 {
+                ctx.data_mut().0.store(true, Ordering::SeqCst);
+                343
+            });
         let call_set_value: &Function = instance.exports.get_function("call_set_value")?;
         let results: Box<[Value]> =
-            call_set_value.call(&mut ctx, &[Value::FuncRef(Some(func_to_call))])?;
+            call_set_value.call(&mut store, &mut ctx, &[Value::FuncRef(Some(func_to_call))])?;
         assert!(ctx.data().0.load(Ordering::SeqCst));
         assert_eq!(&*results, &[Value::I32(343)]);
 
@@ -78,20 +79,21 @@ mod sys {
           (call $func_ref_call (ref.func $product)))
 )"#;
         let module = Module::new(&store, wat)?;
-        let mut ctx = WasmerContext::new(&store, ());
+        let mut ctx = WasmerContext::new(());
         fn func_ref_call(
             mut ctx: ContextMut<()>,
             values: &[Value],
         ) -> Result<Vec<Value>, RuntimeError> {
             // TODO: look into `Box<[Value]>` being returned breakage
             let f = values[0].unwrap_funcref().as_ref().unwrap();
-            let f: TypedFunction<(i32, i32), i32> = f.native(&mut ctx)?;
+            let f: TypedFunction<(i32, i32), i32> = f.native(&mut store)?;
             Ok(vec![Value::I32(f.call(&mut ctx, 7, 9)?)])
         }
 
         let imports = imports! {
             "env" => {
                 "func_ref_call" => Function::new(
+                    &mut store,
                     &mut ctx,
                     FunctionType::new([Type::FuncRef], [Type::I32]),
                     func_ref_call
@@ -111,18 +113,18 @@ mod sys {
             fn sum(_ctx: ContextMut<()>, a: i32, b: i32) -> i32 {
                 a + b
             }
-            let sum_func = Function::new_native(&mut ctx, sum);
+            let sum_func = Function::new_native(&mut store, &mut ctx, sum);
 
             let call_func: &Function = instance.exports.get_function("call_func")?;
-            let result = call_func.call(&mut ctx, &[Value::FuncRef(Some(sum_func))])?;
+            let result = call_func.call(&mut store, &mut ctx, &[Value::FuncRef(Some(sum_func))])?;
             assert_eq!(result[0].unwrap_i32(), 16);
         }
 
         {
             let f: TypedFunction<(), i32> = instance
                 .exports
-                .get_typed_function(&mut ctx, "call_host_func_with_wasm_func")?;
-            let result = f.call(&mut ctx)?;
+                .get_typed_function(&mut store, "call_host_func_with_wasm_func")?;
+            let result = f.call(&mut store, &mut ctx)?;
             assert_eq!(result, 63);
         }
 

@@ -14,8 +14,6 @@ use wasmer_types::{
 use wasmer_types::{ExportType, ImportType};
 use wasmer_vm::InstanceHandle;
 
-use super::context::AsContextMut;
-
 #[derive(Error, Debug)]
 pub enum IoCompileError {
     /// An IO error
@@ -51,7 +49,6 @@ pub struct Module {
     // In the future, this code should be refactored to properly describe the
     // ownership of the code and its metadata.
     artifact: Arc<dyn Artifact>,
-    store: Store,
 }
 
 impl Module {
@@ -270,32 +267,29 @@ impl Module {
     }
 
     fn from_artifact(store: &Store, artifact: Arc<dyn Artifact>) -> Self {
-        Self {
-            store: store.clone(),
-            artifact,
-        }
+        Self { artifact }
     }
 
     pub(crate) fn instantiate(
         &self,
-        ctx: &mut impl AsContextMut,
+        store: &mut Store,
         imports: &[crate::Extern],
     ) -> Result<InstanceHandle, InstantiationError> {
         // Ensure all imports come from the same context.
         for import in imports {
-            if !import.is_from_context(ctx) {
+            if !import.is_from_store(store) {
                 return Err(InstantiationError::BadContext);
             }
         }
 
         unsafe {
             let mut instance_handle = self.artifact.instantiate(
-                self.store.tunables(),
+                store.tunables(),
                 &imports
                     .iter()
                     .map(crate::Extern::to_vm_extern)
                     .collect::<Vec<_>>(),
-                ctx.as_context_mut().objects_mut(),
+                store.objects_mut(),
             )?;
 
             // After the instance handle is created, we need to initialize
@@ -304,7 +298,7 @@ impl Module {
             // as some of the Instance elements may have placed in other
             // instance tables.
             self.artifact
-                .finish_instantiation(&self.store, &mut instance_handle)?;
+                .finish_instantiation(store, &mut instance_handle)?;
 
             Ok(instance_handle)
         }
@@ -425,11 +419,6 @@ impl Module {
     /// is returned.
     pub fn custom_sections<'a>(&'a self, name: &'a str) -> impl Iterator<Item = Arc<[u8]>> + 'a {
         self.artifact.module_ref().custom_sections(name)
-    }
-
-    /// Returns the [`Store`] where the `Instance` belongs.
-    pub fn store(&self) -> &Store {
-        &self.store
     }
 
     /// The ABI of the ModuleInfo is very unstable, we refactor it very often.

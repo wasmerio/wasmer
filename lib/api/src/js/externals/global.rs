@@ -61,7 +61,7 @@ impl Global {
         val: Value,
         mutability: Mutability,
     ) -> Result<Self, RuntimeError> {
-        if !val.is_from_context(ctx) {
+        if !val.is_from_store(ctx) {
             return Err(RuntimeError::new(
                 "cross-`Context` values are not supported",
             ));
@@ -108,7 +108,7 @@ impl Global {
     /// assert_eq!(v.ty(), &GlobalType::new(Type::I64, Mutability::Var));
     /// ```
     pub fn ty(&self, ctx: &impl AsContextRef) -> GlobalType {
-        self.handle.get(ctx.as_context_ref().objects()).ty
+        self.handle.get(store.objects()).ty
     }
 
     /// Retrieves the current value [`Value`] that the Global has.
@@ -127,12 +127,12 @@ impl Global {
         unsafe {
             let raw = self
                 .handle
-                .get(ctx.as_context_ref().objects())
+                .get(store.objects())
                 .global
                 .value()
                 .as_f64()
                 .unwrap();
-            let ty = self.handle.get(ctx.as_context_ref().objects()).ty;
+            let ty = self.handle.get(store.objects()).ty;
             Value::from_raw(ctx, ty.ty, raw)
         }
         /*
@@ -188,7 +188,7 @@ impl Global {
     /// g.set(Value::I64(2)).unwrap();
     /// ```
     pub fn set(&self, ctx: &mut impl AsContextMut, val: Value) -> Result<(), RuntimeError> {
-        if !val.is_from_context(ctx) {
+        if !val.is_from_store(ctx) {
             return Err(RuntimeError::new(
                 "cross-`Context` values are not supported",
             ));
@@ -212,7 +212,7 @@ impl Global {
             }
         };
         self.handle
-            .get_mut(ctx.as_context_mut().objects_mut())
+            .get_mut(store.objects_mut())
             .global
             .set_value(&new_value);
         Ok(())
@@ -220,7 +220,7 @@ impl Global {
 
     pub(crate) fn from_vm_export(ctx: &mut impl AsContextMut, vm_global: VMGlobal) -> Self {
         Self {
-            handle: ContextHandle::new(ctx.as_context_mut().objects_mut(), vm_global),
+            handle: ContextHandle::new(store.objects_mut(), vm_global),
         }
     }
 
@@ -229,15 +229,13 @@ impl Global {
         internal: InternalContextHandle<VMGlobal>,
     ) -> Self {
         Self {
-            handle: unsafe {
-                ContextHandle::from_internal(ctx.as_context_ref().objects().id(), internal)
-            },
+            handle: unsafe { ContextHandle::from_internal(store.objects().id(), internal) },
         }
     }
 
-    /// Checks whether this `Global` can be used with the given context.
-    pub fn is_from_context(&self, ctx: &impl AsContextRef) -> bool {
-        self.handle.context_id() == ctx.as_context_ref().objects().id()
+    /// Checks whether this `Global` can be used with the given store.
+    pub fn is_from_store(&self, ctx: &impl AsContextRef) -> bool {
+        self.handle.store_id() == store.objects().id()
     }
 }
 

@@ -45,7 +45,7 @@ mod js {
         let instance = Instance::new(&mut ctx, &module, &import_object).unwrap();
 
         let memory = instance.exports.get_memory("mem").unwrap();
-        assert!(memory.is_from_context(&ctx));
+        assert!(memory.is_from_store(&ctx));
         assert_eq!(memory.ty(&ctx), MemoryType::new(Pages(1), None, false));
         assert_eq!(memory.size(&ctx), Pages(1));
         assert_eq!(memory.data_size(&ctx), 65536);
@@ -344,7 +344,7 @@ mod js {
 
         fn imported_fn(ctx: ContextMut<'_, Env>, arg: u32) -> u32 {
             log!("inside imported_fn: ctx.data is {:?}", ctx.data());
-            // log!("inside call id is {:?}", ctx.as_context_ref().objects().id);
+            // log!("inside call id is {:?}", store.objects().id);
             return ctx.data().multiplier * arg;
         }
 

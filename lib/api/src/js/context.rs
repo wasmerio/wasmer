@@ -6,7 +6,6 @@ use crate::Store;
 /// wrap the actual context in a box.
 pub(crate) struct ContextInner<T> {
     pub(crate) objects: ContextObjects,
-    pub(crate) store: Store,
     pub(crate) data: T,
 }
 
@@ -35,11 +34,10 @@ pub struct Context<T> {
 impl<T> Context<T> {
     /// Creates a new context with the given host state.
     // TODO: Eliminate the Store type and move its functionality into Engine.
-    pub fn new(store: &Store, data: T) -> Self {
+    pub fn new(data: T) -> Self {
         Self {
             inner: Box::new(ContextInner {
                 objects: Default::default(),
-                store: store.clone(),
                 data,
             }),
         }
@@ -58,11 +56,6 @@ impl<T> Context<T> {
     /// Drops the context and returns the host state that was stored in it.
     pub fn into_data(self) -> T {
         self.inner.data
-    }
-
-    /// Returns a reference to the `Store` of this context.
-    pub fn store(&self) -> &Store {
-        &self.inner.store
     }
 }
 
@@ -347,7 +340,7 @@ mod objects {
         }
 
         /// Returns the ID of the context associated with the handle.
-        pub fn context_id(&self) -> ContextId {
+        pub fn store_id(&self) -> ContextId {
             self.id
         }
 

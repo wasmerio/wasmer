@@ -90,7 +90,7 @@ impl Value {
             Self::F64(v) => v,
             Self::FuncRef(Some(ref f)) => f
                 .handle
-                .get(ctx.as_context_ref().objects())
+                .get(store.objects())
                 .function
                 .as_f64()
                 .unwrap_or(0_f64), //TODO is this correct?
@@ -121,14 +121,14 @@ impl Value {
         }
     }
 
-    /// Checks whether a value can be used with the given context.
+    /// Checks whether a value can be used with the given store.
     ///
     /// Primitive (`i32`, `i64`, etc) and null funcref/externref values are not
     /// tied to a context and can be freely shared between contexts.
     ///
     /// Externref and funcref values are tied to a context and can only be used
     /// with that context.
-    pub fn is_from_context(&self, ctx: &impl AsContextRef) -> bool {
+    pub fn is_from_store(&self, ctx: &impl AsContextRef) -> bool {
         match self {
             Self::I32(_)
             | Self::I64(_)
@@ -136,8 +136,8 @@ impl Value {
             | Self::F64(_)
             //| Self::ExternRef(None)
             | Self::FuncRef(None) => true,
-            //Self::ExternRef(Some(e)) => e.is_from_context(ctx),
-            Self::FuncRef(Some(f)) => f.is_from_context(ctx),
+            //Self::ExternRef(Some(e)) => e.is_from_store(ctx),
+            Self::FuncRef(Some(f)) => f.is_from_store(ctx),
         }
     }
 

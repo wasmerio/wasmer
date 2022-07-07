@@ -198,7 +198,7 @@ impl Function {
         let ty = function.ty();
         let vm_function = VMFunction::new(binded_func, ty);
         Self {
-            handle: ContextHandle::new(ctx.as_context_mut().objects_mut(), vm_function),
+            handle: ContextHandle::new(store.objects_mut(), vm_function),
         }
     }
 
@@ -220,7 +220,7 @@ impl Function {
     /// assert_eq!(f.ty().results(), vec![Type::I32]);
     /// ```
     pub fn ty<'context>(&self, ctx: &'context impl AsContextRef) -> &'context FunctionType {
-        &self.handle.get(ctx.as_context_ref().objects()).ty
+        &self.handle.get(store.objects()).ty
     }
 
     /// Returns the number of parameters that this function takes.
@@ -307,12 +307,12 @@ impl Function {
             arr.set(i as u32, js_value);
         }
         let result = js_sys::Reflect::apply(
-            &self.handle.get(ctx.as_context_ref().objects()).function,
+            &self.handle.get(store.objects()).function,
             &wasm_bindgen::JsValue::NULL,
             &arr,
         )?;
 
-        let result_types = self.handle.get(ctx.as_context_ref().objects()).ty.results();
+        let result_types = self.handle.get(store.objects()).ty.results();
         match result_types.len() {
             0 => Ok(Box::new([])),
             1 => {
@@ -333,7 +333,7 @@ impl Function {
 
     pub(crate) fn from_vm_export(ctx: &mut impl AsContextMut, vm_function: VMFunction) -> Self {
         Self {
-            handle: ContextHandle::new(ctx.as_context_mut().objects_mut(), vm_function),
+            handle: ContextHandle::new(store.objects_mut(), vm_function),
         }
     }
 
@@ -342,9 +342,7 @@ impl Function {
         internal: InternalContextHandle<VMFunction>,
     ) -> Self {
         Self {
-            handle: unsafe {
-                ContextHandle::from_internal(ctx.as_context_ref().objects().id(), internal)
-            },
+            handle: unsafe { ContextHandle::from_internal(store.objects().id(), internal) },
         }
     }
 
@@ -431,7 +429,7 @@ impl Function {
         Args: WasmTypeList,
         Rets: WasmTypeList,
     {
-        let vm_function = self.handle.get(ctx.as_context_ref().objects());
+        let vm_function = self.handle.get(store.objects());
 
         // type check
         {
@@ -469,9 +467,9 @@ impl Function {
         unimplemented!("Closures (functions with captured environments) are currently unsupported with native functions. See: https://github.com/wasmerio/wasmer/issues/1840")
     }
 
-    /// Checks whether this `Function` can be used with the given context.
-    pub fn is_from_context(&self, ctx: &impl AsContextRef) -> bool {
-        self.handle.context_id() == ctx.as_context_ref().objects().id()
+    /// Checks whether this `Function` can be used with the given store.
+    pub fn is_from_store(&self, ctx: &impl AsContextRef) -> bool {
+        self.handle.store_id() == store.objects().id()
     }
 }
 

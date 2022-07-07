@@ -1,7 +1,7 @@
-use crate::sys::context::{AsContextMut, AsContextRef};
 use crate::sys::exports::{ExportError, Exportable};
 use crate::sys::externals::Extern;
 use crate::sys::MemoryType;
+use crate::sys::Store;
 use crate::MemoryAccessError;
 use std::convert::TryInto;
 use std::marker::PhantomData;
@@ -44,18 +44,17 @@ impl Memory {
     /// # use wasmer::{Memory, MemoryType, Pages, Store, Type, Value};
     /// # use wasmer::Context as WasmerContext;
     /// # let store = Store::default();
-    /// # let mut ctx = WasmerContext::new(&store, ());
+    /// # let mut store = WasmerContext::new(&store, ());
     /// #
-    /// let m = Memory::new(&mut ctx, MemoryType::new(1, None, false)).unwrap();
+    /// let m = Memory::new(&mut store, MemoryType::new(1, None, false)).unwrap();
     /// ```
-    pub fn new(ctx: &mut impl AsContextMut, ty: MemoryType) -> Result<Self, MemoryError> {
-        let mut ctx = ctx.as_context_mut();
-        let tunables = ctx.store().tunables();
+    pub fn new(store: &mut Store, ty: MemoryType) -> Result<Self, MemoryError> {
+        let tunables = store.tunables();
         let style = tunables.memory_style(&ty);
         let memory = tunables.create_host_memory(&ty, &style)?;
 
         Ok(Self {
-            handle: ContextHandle::new(ctx.objects_mut(), memory),
+            handle: ContextHandle::new(store.objects_mut(), memory),
         })
     }
 
@@ -67,15 +66,15 @@ impl Memory {
     /// # use wasmer::{Memory, MemoryType, Pages, Store, Type, Value};
     /// # use wasmer::Context as WasmerContext;
     /// # let store = Store::default();
-    /// # let mut ctx = WasmerContext::new(&store, ());
+    /// # let mut store = WasmerContext::new(&store, ());
     /// #
     /// let mt = MemoryType::new(1, None, false);
-    /// let m = Memory::new(&mut ctx, mt).unwrap();
+    /// let m = Memory::new(&mut store, mt).unwrap();
     ///
-    /// assert_eq!(m.ty(&mut ctx), mt);
+    /// assert_eq!(m.ty(&mut store), mt);
     /// ```
-    pub fn ty(&self, ctx: &impl AsContextRef) -> MemoryType {
-        self.handle.get(ctx.as_context_ref().objects()).ty()
+    pub fn ty(&self, store: &Store) -> MemoryType {
+        self.handle.get(store.objects()).ty()
     }
 
     /// Returns the pointer to the raw bytes of the `Memory`.
@@ -83,13 +82,13 @@ impl Memory {
     // This used by wasmer-emscripten and wasmer-c-api, but should be treated
     // as deprecated and not used in future code.
     #[doc(hidden)]
-    pub fn data_ptr(&self, ctx: &impl AsContextRef) -> *mut u8 {
-        self.buffer(ctx).base
+    pub fn data_ptr(&self, store: &Store) -> *mut u8 {
+        self.buffer(store).base
     }
 
     /// Returns the size (in bytes) of the `Memory`.
-    pub fn data_size(&self, ctx: &impl AsContextRef) -> u64 {
-        self.buffer(ctx).len.try_into().unwrap()
+    pub fn data_size(&self, store: &Store) -> u64 {
+        self.buffer(store).len.try_into().unwrap()
     }
 
     /// Returns the size (in [`Pages`]) of the `Memory`.
@@ -100,14 +99,14 @@ impl Memory {
     /// # use wasmer::{Memory, MemoryType, Pages, Store, Type, Value};
     /// # use wasmer::Context as WasmerContext;
     /// # let store = Store::default();
-    /// # let mut ctx = WasmerContext::new(&store, ());
+    /// # let mut store = WasmerContext::new(&store, ());
     /// #
-    /// let m = Memory::new(&mut ctx, MemoryType::new(1, None, false)).unwrap();
+    /// let m = Memory::new(&mut store, MemoryType::new(1, None, false)).unwrap();
     ///
-    /// assert_eq!(m.size(&mut ctx), Pages(1));
+    /// assert_eq!(m.size(&mut store), Pages(1));
     /// ```
-    pub fn size(&self, ctx: &impl AsContextRef) -> Pages {
-        self.handle.get(ctx.as_context_ref().objects()).size()
+    pub fn size(&self, store: &Store) -> Pages {
+        self.handle.get(store.objects()).size()
     }
 
     /// Grow memory by the specified amount of WebAssembly [`Pages`] and return
@@ -119,13 +118,13 @@ impl Memory {
     /// # use wasmer::{Memory, MemoryType, Pages, Store, Type, Value, WASM_MAX_PAGES};
     /// # use wasmer::Context as WasmerContext;
     /// # let store = Store::default();
-    /// # let mut ctx = WasmerContext::new(&store, ());
+    /// # let mut store = WasmerContext::new(&store, ());
     /// #
-    /// let m = Memory::new(&mut ctx, MemoryType::new(1, Some(3), false)).unwrap();
-    /// let p = m.grow(&mut ctx, 2).unwrap();
+    /// let m = Memory::new(&mut store, MemoryType::new(1, Some(3), false)).unwrap();
+    /// let p = m.grow(&mut store, 2).unwrap();
     ///
     /// assert_eq!(p, Pages(1));
-    /// assert_eq!(m.size(&mut ctx), Pages(3));
+    /// assert_eq!(m.size(&mut store), Pages(3));
     /// ```
     ///
     /// # Errors
@@ -137,24 +136,18 @@ impl Memory {
     /// # use wasmer::{Memory, MemoryType, Pages, Store, Type, Value, WASM_MAX_PAGES};
     /// # use wasmer::Context as WasmerContext;
     /// # let store = Store::default();
-    /// # let mut ctx = WasmerContext::new(&store, ());
+    /// # let mut store = WasmerContext::new(&store, ());
     /// #
-    /// let m = Memory::new(&mut ctx, MemoryType::new(1, Some(1), false)).unwrap();
+    /// let m = Memory::new(&mut store, MemoryType::new(1, Some(1), false)).unwrap();
     ///
     /// // This results in an error: `MemoryError::CouldNotGrow`.
-    /// let s = m.grow(&mut ctx, 1).unwrap();
+    /// let s = m.grow(&mut store, 1).unwrap();
     /// ```
-    pub fn grow<IntoPages>(
-        &self,
-        ctx: &mut impl AsContextMut,
-        delta: IntoPages,
-    ) -> Result<Pages, MemoryError>
+    pub fn grow<IntoPages>(&self, store: &mut Store, delta: IntoPages) -> Result<Pages, MemoryError>
     where
         IntoPages: Into<Pages>,
     {
-        self.handle
-            .get_mut(ctx.as_context_mut().objects_mut())
-            .grow(delta.into())
+        self.handle.get_mut(store.objects_mut()).grow(delta.into())
     }
 
     /// Safely reads bytes from the memory at the given offset.
@@ -166,11 +159,11 @@ impl Memory {
     /// concurrent writes.
     pub fn read(
         &self,
-        ctx: &impl AsContextRef,
+        store: &Store,
         offset: u64,
         buf: &mut [u8],
     ) -> Result<(), MemoryAccessError> {
-        self.buffer(ctx).read(offset, buf)
+        self.buffer(store).read(offset, buf)
     }
 
     /// Safely reads bytes from the memory at the given offset.
@@ -185,11 +178,11 @@ impl Memory {
     /// concurrent writes.
     pub fn read_uninit<'a>(
         &self,
-        ctx: &impl AsContextRef,
+        store: &Store,
         offset: u64,
         buf: &'a mut [MaybeUninit<u8>],
     ) -> Result<&'a mut [u8], MemoryAccessError> {
-        self.buffer(ctx).read_uninit(offset, buf)
+        self.buffer(store).read_uninit(offset, buf)
     }
 
     /// Safely writes bytes to the memory at the given offset.
@@ -199,17 +192,12 @@ impl Memory {
     ///
     /// This method is guaranteed to be safe (from the host side) in the face of
     /// concurrent reads/writes.
-    pub fn write(
-        &self,
-        ctx: &impl AsContextRef,
-        offset: u64,
-        data: &[u8],
-    ) -> Result<(), MemoryAccessError> {
-        self.buffer(ctx).write(offset, data)
+    pub fn write(&self, store: &Store, offset: u64, data: &[u8]) -> Result<(), MemoryAccessError> {
+        self.buffer(store).write(offset, data)
     }
 
-    pub(crate) fn buffer<'a>(&'a self, ctx: &'a impl AsContextRef) -> MemoryBuffer<'a> {
-        let definition = self.handle.get(ctx.as_context_ref().objects()).vmmemory();
+    pub(crate) fn buffer<'a>(&'a self, store: &'a Store) -> MemoryBuffer<'a> {
+        let definition = self.handle.get(store.objects()).vmmemory();
         let def = unsafe { definition.as_ref() };
         MemoryBuffer {
             base: def.base,
@@ -218,20 +206,15 @@ impl Memory {
         }
     }
 
-    pub(crate) fn from_vm_extern(
-        ctx: &impl AsContextRef,
-        internal: InternalContextHandle<VMMemory>,
-    ) -> Self {
+    pub(crate) fn from_vm_extern(store: &Store, internal: InternalContextHandle<VMMemory>) -> Self {
         Self {
-            handle: unsafe {
-                ContextHandle::from_internal(ctx.as_context_ref().objects().id(), internal)
-            },
+            handle: unsafe { ContextHandle::from_internal(store.objects().id(), internal) },
         }
     }
 
-    /// Checks whether this `Memory` can be used with the given context.
-    pub fn is_from_context(&self, ctx: &impl AsContextRef) -> bool {
-        self.handle.context_id() == ctx.as_context_ref().objects().id()
+    /// Checks whether this `Memory` can be used with the given store.
+    pub fn is_from_store(&self, store: &Store) -> bool {
+        self.handle.store_id() == store.objects().id()
     }
 
     pub(crate) fn to_vm_extern(&self) -> VMExtern {

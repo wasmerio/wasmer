@@ -1,13 +1,7 @@
-use wasmer_vm::ContextObjects;
-
-use crate::Store;
-
 /// We require the context to have a fixed memory address for its lifetime since
 /// various bits of the VM have raw pointers that point back to it. Hence we
 /// wrap the actual context in a box.
 pub(crate) struct ContextInner<T> {
-    pub(crate) objects: ContextObjects,
-    pub(crate) store: Store,
     pub(crate) data: T,
 }
 
@@ -36,13 +30,9 @@ pub struct Context<T> {
 impl<T> Context<T> {
     /// Creates a new context with the given host state.
     // TODO: Eliminate the Store type and move its functionality into Engine.
-    pub fn new(store: &Store, data: T) -> Self {
+    pub fn new(data: T) -> Self {
         Self {
-            inner: Box::new(ContextInner {
-                objects: Default::default(),
-                store: store.clone(),
-                data,
-            }),
+            inner: Box::new(ContextInner { data }),
         }
     }
 
@@ -59,11 +49,6 @@ impl<T> Context<T> {
     /// Drops the context and returns the host state that was stored in it.
     pub fn into_data(self) -> T {
         self.inner.data
-    }
-
-    /// Returns a reference to the `Store` of this context.
-    pub fn store(&self) -> &Store {
-        &self.inner.store
     }
 
     /// For use with the C API
@@ -85,15 +70,6 @@ impl<'a, T> ContextRef<'a, T> {
     pub fn data(&self) -> &'a T {
         &self.inner.data
     }
-
-    /// Returns a reference to the `Store` of this context.
-    pub fn store(&self) -> &Store {
-        &self.inner.store
-    }
-
-    pub(crate) fn objects(&self) -> &'a ContextObjects {
-        &self.inner.objects
-    }
 }
 
 /// A temporary handle to a [`Context`].
@@ -110,15 +86,6 @@ impl<T> ContextMut<'_, T> {
     /// Returns a mutable- reference to the host state in this context.
     pub fn data_mut(&mut self) -> &mut T {
         &mut self.inner.data
-    }
-
-    pub(crate) fn objects_mut(&mut self) -> &mut ContextObjects {
-        &mut self.inner.objects
-    }
-
-    /// Returns a reference to the `Store` of this context.
-    pub fn store(&self) -> &Store {
-        &self.inner.store
     }
 
     pub(crate) fn as_raw(&self) -> *mut ContextInner<T> {

@@ -6,133 +6,133 @@ use wasmer_vm::{VMExternRef, VMFuncRef};
 
 use crate::{ExternRef, Function};
 
-use super::context::AsContextMut;
+use super::store::Store;
 
 /// `NativeWasmTypeInto` performs conversions from and into `NativeWasmType`
 /// types with a context.
 pub trait NativeWasmTypeInto: NativeWasmType + Sized {
     #[doc(hidden)]
-    fn into_abi(self, ctx: &mut impl AsContextMut) -> Self::Abi;
+    fn into_abi(self, store: &mut Store) -> Self::Abi;
 
     #[doc(hidden)]
-    unsafe fn from_abi(ctx: &mut impl AsContextMut, abi: Self::Abi) -> Self;
+    unsafe fn from_abi(store: &mut Store, abi: Self::Abi) -> Self;
 
     /// Convert self to raw value representation.
-    fn into_raw(self, ctx: &mut impl AsContextMut) -> RawValue;
+    fn into_raw(self, store: &mut Store) -> RawValue;
 
     /// Convert to self from raw value representation.
     ///
     /// # Safety
     ///
-    unsafe fn from_raw(ctx: &mut impl AsContextMut, raw: RawValue) -> Self;
+    unsafe fn from_raw(store: &mut Store, raw: RawValue) -> Self;
 }
 
 impl NativeWasmTypeInto for i32 {
     #[inline]
-    unsafe fn from_abi(_ctx: &mut impl AsContextMut, abi: Self::Abi) -> Self {
+    unsafe fn from_abi(_store: &mut Store, abi: Self::Abi) -> Self {
         abi
     }
 
     #[inline]
-    fn into_abi(self, _ctx: &mut impl AsContextMut) -> Self::Abi {
+    fn into_abi(self, _store: &mut Store) -> Self::Abi {
         self
     }
 
     #[inline]
-    fn into_raw(self, _ctx: &mut impl AsContextMut) -> RawValue {
+    fn into_raw(self, _store: &mut Store) -> RawValue {
         RawValue { i32: self }
     }
 
     #[inline]
-    unsafe fn from_raw(_ctx: &mut impl AsContextMut, raw: RawValue) -> Self {
+    unsafe fn from_raw(_store: &mut Store, raw: RawValue) -> Self {
         raw.i32
     }
 }
 
 impl NativeWasmTypeInto for i64 {
     #[inline]
-    unsafe fn from_abi(_ctx: &mut impl AsContextMut, abi: Self::Abi) -> Self {
+    unsafe fn from_abi(_store: &mut Store, abi: Self::Abi) -> Self {
         abi
     }
 
     #[inline]
-    fn into_abi(self, _ctx: &mut impl AsContextMut) -> Self::Abi {
+    fn into_abi(self, _store: &mut Store) -> Self::Abi {
         self
     }
 
     #[inline]
-    fn into_raw(self, _ctx: &mut impl AsContextMut) -> RawValue {
+    fn into_raw(self, _store: &mut Store) -> RawValue {
         RawValue { i64: self }
     }
 
     #[inline]
-    unsafe fn from_raw(_ctx: &mut impl AsContextMut, raw: RawValue) -> Self {
+    unsafe fn from_raw(_store: &mut Store, raw: RawValue) -> Self {
         raw.i64
     }
 }
 
 impl NativeWasmTypeInto for f32 {
     #[inline]
-    unsafe fn from_abi(_ctx: &mut impl AsContextMut, abi: Self::Abi) -> Self {
+    unsafe fn from_abi(_store: &mut Store, abi: Self::Abi) -> Self {
         abi
     }
 
     #[inline]
-    fn into_abi(self, _ctx: &mut impl AsContextMut) -> Self::Abi {
+    fn into_abi(self, _store: &mut Store) -> Self::Abi {
         self
     }
 
     #[inline]
-    fn into_raw(self, _ctx: &mut impl AsContextMut) -> RawValue {
+    fn into_raw(self, _store: &mut Store) -> RawValue {
         RawValue { f32: self }
     }
 
     #[inline]
-    unsafe fn from_raw(_ctx: &mut impl AsContextMut, raw: RawValue) -> Self {
+    unsafe fn from_raw(_store: &mut Store, raw: RawValue) -> Self {
         raw.f32
     }
 }
 
 impl NativeWasmTypeInto for f64 {
     #[inline]
-    unsafe fn from_abi(_ctx: &mut impl AsContextMut, abi: Self::Abi) -> Self {
+    unsafe fn from_abi(_store: &mut Store, abi: Self::Abi) -> Self {
         abi
     }
 
     #[inline]
-    fn into_abi(self, _ctx: &mut impl AsContextMut) -> Self::Abi {
+    fn into_abi(self, _store: &mut Store) -> Self::Abi {
         self
     }
 
     #[inline]
-    fn into_raw(self, _ctx: &mut impl AsContextMut) -> RawValue {
+    fn into_raw(self, _store: &mut Store) -> RawValue {
         RawValue { f64: self }
     }
 
     #[inline]
-    unsafe fn from_raw(_ctx: &mut impl AsContextMut, raw: RawValue) -> Self {
+    unsafe fn from_raw(_store: &mut Store, raw: RawValue) -> Self {
         raw.f64
     }
 }
 
 impl NativeWasmTypeInto for u128 {
     #[inline]
-    unsafe fn from_abi(_ctx: &mut impl AsContextMut, abi: Self::Abi) -> Self {
+    unsafe fn from_abi(_store: &mut Store, abi: Self::Abi) -> Self {
         abi
     }
 
     #[inline]
-    fn into_abi(self, _ctx: &mut impl AsContextMut) -> Self::Abi {
+    fn into_abi(self, _store: &mut Store) -> Self::Abi {
         self
     }
 
     #[inline]
-    fn into_raw(self, _ctx: &mut impl AsContextMut) -> RawValue {
+    fn into_raw(self, _store: &mut Store) -> RawValue {
         RawValue { u128: self }
     }
 
     #[inline]
-    unsafe fn from_raw(_ctx: &mut impl AsContextMut, raw: RawValue) -> Self {
+    unsafe fn from_raw(_store: &mut Store, raw: RawValue) -> Self {
         raw.u128
     }
 }
@@ -144,24 +144,24 @@ impl NativeWasmType for ExternRef {
 
 impl NativeWasmTypeInto for Option<ExternRef> {
     #[inline]
-    unsafe fn from_abi(ctx: &mut impl AsContextMut, abi: Self::Abi) -> Self {
+    unsafe fn from_abi(store: &mut Store, abi: Self::Abi) -> Self {
         VMExternRef::from_raw(RawValue { externref: abi })
-            .map(|e| ExternRef::from_vm_externref(ctx, e))
+            .map(|e| ExternRef::from_vm_externref(store, e))
     }
 
     #[inline]
-    fn into_abi(self, _ctx: &mut impl AsContextMut) -> Self::Abi {
+    fn into_abi(self, _store: &mut Store) -> Self::Abi {
         self.map_or(0, |e| unsafe { e.vm_externref().into_raw().externref })
     }
 
     #[inline]
-    fn into_raw(self, _ctx: &mut impl AsContextMut) -> RawValue {
+    fn into_raw(self, _store: &mut Store) -> RawValue {
         self.map_or(RawValue { externref: 0 }, |e| e.vm_externref().into_raw())
     }
 
     #[inline]
-    unsafe fn from_raw(ctx: &mut impl AsContextMut, raw: RawValue) -> Self {
-        VMExternRef::from_raw(raw).map(|e| ExternRef::from_vm_externref(ctx, e))
+    unsafe fn from_raw(store: &mut Store, raw: RawValue) -> Self {
+        VMExternRef::from_raw(raw).map(|e| ExternRef::from_vm_externref(store, e))
     }
 }
 
@@ -172,23 +172,25 @@ impl NativeWasmType for Function {
 
 impl NativeWasmTypeInto for Option<Function> {
     #[inline]
-    unsafe fn from_abi(ctx: &mut impl AsContextMut, abi: Self::Abi) -> Self {
-        VMFuncRef::from_raw(RawValue { funcref: abi }).map(|f| Function::from_vm_funcref(ctx, f))
+    unsafe fn from_abi(store: &mut Store, abi: Self::Abi) -> Self {
+        VMFuncRef::from_raw(RawValue { funcref: abi }).map(|f| Function::from_vm_funcref(store, f))
     }
 
     #[inline]
-    fn into_abi(self, ctx: &mut impl AsContextMut) -> Self::Abi {
-        self.map_or(0, |f| unsafe { f.vm_funcref(ctx).into_raw().externref })
+    fn into_abi(self, store: &mut Store) -> Self::Abi {
+        self.map_or(0, |f| unsafe { f.vm_funcref(store).into_raw().externref })
     }
 
     #[inline]
-    fn into_raw(self, ctx: &mut impl AsContextMut) -> RawValue {
-        self.map_or(RawValue { externref: 0 }, |e| e.vm_funcref(ctx).into_raw())
+    fn into_raw(self, store: &mut Store) -> RawValue {
+        self.map_or(RawValue { externref: 0 }, |e| {
+            e.vm_funcref(store).into_raw()
+        })
     }
 
     #[inline]
-    unsafe fn from_raw(ctx: &mut impl AsContextMut, raw: RawValue) -> Self {
-        VMFuncRef::from_raw(raw).map(|f| Function::from_vm_funcref(ctx, f))
+    unsafe fn from_raw(store: &mut Store, raw: RawValue) -> Self {
+        VMFuncRef::from_raw(raw).map(|f| Function::from_vm_funcref(store, f))
     }
 }
 

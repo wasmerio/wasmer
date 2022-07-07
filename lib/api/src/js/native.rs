@@ -38,7 +38,7 @@ where
     #[allow(dead_code)]
     pub(crate) fn new<T>(ctx: &mut impl AsContextMut<Data = T>, vm_function: VMFunction) -> Self {
         Self {
-            handle: ContextHandle::new(ctx.as_context_mut().objects_mut(), vm_function),
+            handle: ContextHandle::new(store.objects_mut(), vm_function),
             _phantom: PhantomData,
         }
     }
@@ -65,7 +65,7 @@ macro_rules! impl_native_traits {
             $( $x: FromToNativeWasmType + crate::js::NativeWasmTypeInto, )*
             {
                 let params_list: Vec<JsValue> = vec![ $( JsValue::from_f64($x.into_raw(ctx))),* ];
-                let results = self.handle.get(ctx.as_context_ref().objects()).function.apply(
+                let results = self.handle.get(store.objects()).function.apply(
                     &JsValue::UNDEFINED,
                     &Array::from_iter(params_list.iter())
                 )?;

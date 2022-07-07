@@ -3,7 +3,7 @@ use std::fmt;
 use std::sync::{Arc, RwLock};
 use wasmer_compiler::CompilerConfig;
 use wasmer_compiler::{Engine, Tunables, Universal};
-use wasmer_vm::{init_traps, TrapHandler, TrapHandlerFn};
+use wasmer_vm::{init_traps, ContextObjects, TrapHandler, TrapHandlerFn};
 
 /// The store represents all global state that can be manipulated by
 /// WebAssembly programs. It consists of the runtime representation
@@ -15,8 +15,8 @@ use wasmer_vm::{init_traps, TrapHandler, TrapHandlerFn};
 /// [`Tunables`] (that are used to create the memories, tables and globals).
 ///
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#store>
-#[derive(Clone)]
 pub struct Store {
+    pub(crate) objects: ContextObjects,
     engine: Arc<dyn Engine + Send + Sync>,
     tunables: Arc<dyn Tunables + Send + Sync>,
     trap_handler: Arc<RwLock<Option<Box<TrapHandlerFn>>>>,
@@ -53,6 +53,7 @@ impl Store {
         init_traps();
 
         Self {
+            objects: Default::default(),
             engine: engine.cloned(),
             tunables: Arc::new(tunables),
             trap_handler: Arc::new(RwLock::new(None)),
@@ -74,6 +75,14 @@ impl Store {
     /// tunables are excluded from the logic.
     pub fn same(a: &Self, b: &Self) -> bool {
         a.engine.id() == b.engine.id()
+    }
+
+    pub(crate) fn objects(&self) -> &ContextObjects {
+        &self.objects
+    }
+
+    pub(crate) fn objects_mut(&mut self) -> &mut ContextObjects {
+        &mut self.objects
     }
 }
 

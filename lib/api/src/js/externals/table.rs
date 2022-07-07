@@ -26,16 +26,13 @@ fn set_table_item(table: &VMTable, item_index: u32, item: &Function) -> Result<(
 }
 
 fn get_function(ctx: &mut impl AsContextMut, val: Value) -> Result<Function, RuntimeError> {
-    if !val.is_from_context(ctx) {
+    if !val.is_from_store(ctx) {
         return Err(RuntimeError::new("cannot pass Value across contexts"));
     }
     match val {
-        Value::FuncRef(Some(ref func)) => Ok(func
-            .handle
-            .get(&ctx.as_context_ref().objects())
-            .function
-            .clone()
-            .into()),
+        Value::FuncRef(Some(ref func)) => {
+            Ok(func.handle.get(&store.objects()).function.clone().into())
+        }
         // Only funcrefs is supported by the spec atm
         _ => unimplemented!(),
     }
@@ -77,18 +74,12 @@ impl Table {
 
     /// Returns the [`TableType`] of the `Table`.
     pub fn ty(&self, ctx: &impl AsContextRef) -> TableType {
-        self.handle.get(ctx.as_context_ref().objects()).ty
+        self.handle.get(store.objects()).ty
     }
 
     /// Retrieves an element of the table at the provided `index`.
     pub fn get(&self, ctx: &mut impl AsContextMut, index: u32) -> Option<Value> {
-        if let Some(func) = self
-            .handle
-            .get(ctx.as_context_ref().objects())
-            .table
-            .get(index)
-            .ok()
-        {
+        if let Some(func) = self.handle.get(store.objects()).table.get(index).ok() {
             let ty = FunctionType::new(vec![], vec![]);
             let vm_function = VMFunction::new(func, ty);
             let function = crate::js::externals::Function::from_vm_export(ctx, vm_function);
@@ -106,19 +97,12 @@ impl Table {
         val: Value,
     ) -> Result<(), RuntimeError> {
         let item = get_function(ctx, val)?;
-        set_table_item(
-            self.handle.get_mut(ctx.as_context_mut().objects_mut()),
-            index,
-            &item,
-        )
+        set_table_item(self.handle.get_mut(store.objects_mut()), index, &item)
     }
 
     /// Retrieves the size of the `Table` (in elements)
     pub fn size(&self, ctx: &impl AsContextRef) -> u32 {
-        self.handle
-            .get(ctx.as_context_ref().objects())
-            .table
-            .length()
+        self.handle.get(store.objects()).table.length()
     }
 
     /// Grows the size of the `Table` by `delta`, initializating
@@ -156,15 +140,13 @@ impl Table {
         internal: InternalContextHandle<VMTable>,
     ) -> Self {
         Self {
-            handle: unsafe {
-                ContextHandle::from_internal(ctx.as_context_ref().objects().id(), internal)
-            },
+            handle: unsafe { ContextHandle::from_internal(store.objects().id(), internal) },
         }
     }
 
-    /// Checks whether this `Table` can be used with the given context.
-    pub fn is_from_context(&self, ctx: &impl AsContextRef) -> bool {
-        self.handle.context_id() == ctx.as_context_ref().objects().id()
+    /// Checks whether this `Table` can be used with the given store.
+    pub fn is_from_store(&self, ctx: &impl AsContextRef) -> bool {
+        self.handle.store_id() == store.objects().id()
     }
 
     /// Get access to the backing VM value for this extern. This function is for
@@ -179,7 +161,7 @@ impl Table {
         &self,
         ctx: &'context impl AsContextRef,
     ) -> &'context VMTable {
-        self.handle.get(ctx.as_context_ref().objects())
+        self.handle.get(store.objects())
     }
 }
 

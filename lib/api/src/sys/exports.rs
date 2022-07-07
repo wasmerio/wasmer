@@ -1,4 +1,4 @@
-use super::context::AsContextRef;
+use super::store::Store;
 use crate::sys::externals::{Extern, Function, Global, Memory, Table};
 use crate::sys::native::TypedFunction;
 use crate::sys::WasmTypeList;
@@ -145,20 +145,20 @@ impl Exports {
     /// Get an export as a `TypedFunction`.
     pub fn get_native_function<Args, Rets>(
         &self,
-        ctx: &impl AsContextRef,
+        store: &Store,
         name: &str,
     ) -> Result<TypedFunction<Args, Rets>, ExportError>
     where
         Args: WasmTypeList,
         Rets: WasmTypeList,
     {
-        self.get_typed_function(ctx, name)
+        self.get_typed_function(store, name)
     }
 
     /// Get an export as a `TypedFunction`.
     pub fn get_typed_function<Args, Rets>(
         &self,
-        ctx: &impl AsContextRef,
+        store: &Store,
         name: &str,
     ) -> Result<TypedFunction<Args, Rets>, ExportError>
     where
@@ -166,7 +166,7 @@ impl Exports {
         Rets: WasmTypeList,
     {
         self.get_function(name)?
-            .native(ctx)
+            .native(store)
             .map_err(|_| ExportError::IncompatibleType)
     }
 

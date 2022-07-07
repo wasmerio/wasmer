@@ -158,7 +158,7 @@ impl<T: ContextObject> ContextHandle<T> {
     }
 
     /// Returns the ID of the context associated with the handle.
-    pub fn context_id(&self) -> ContextId {
+    pub fn store_id(&self) -> ContextId {
         self.id
     }
 

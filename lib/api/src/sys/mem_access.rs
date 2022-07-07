@@ -14,6 +14,7 @@ use wasmer_types::ValueType;
 
 use super::context::AsContextRef;
 use super::externals::memory::MemoryBuffer;
+use super::store::Store;
 
 /// Error for invalid [`Memory`] access.
 #[derive(Clone, Copy, Debug, Error)]
@@ -62,9 +63,9 @@ pub struct WasmRef<'a, T: ValueType> {
 impl<'a, T: ValueType> WasmRef<'a, T> {
     /// Creates a new `WasmRef` at the given offset in a memory.
     #[inline]
-    pub fn new(ctx: &'a impl AsContextRef, memory: &'a Memory, offset: u64) -> Self {
+    pub fn new(store: &'a Store, memory: &'a Memory, offset: u64) -> Self {
         Self {
-            buffer: memory.buffer(ctx),
+            buffer: memory.buffer(store),
             offset,
             marker: PhantomData,
         }
@@ -161,7 +162,7 @@ impl<'a, T: ValueType> WasmSlice<'a, T> {
     /// Returns a `MemoryAccessError` if the slice length overflows.
     #[inline]
     pub fn new(
-        ctx: &'a impl AsContextRef,
+        store: &'a Store,
         memory: &'a Memory,
         offset: u64,
         len: u64,
@@ -173,7 +174,7 @@ impl<'a, T: ValueType> WasmSlice<'a, T> {
             .checked_add(total_len)
             .ok_or(MemoryAccessError::Overflow)?;
         Ok(Self {
-            buffer: memory.buffer(ctx),
+            buffer: memory.buffer(store),
             offset,
             len,
             marker: PhantomData,

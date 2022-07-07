@@ -2,6 +2,7 @@ use crate::sys::exports::Exports;
 use crate::sys::externals::Extern;
 use crate::sys::imports::Imports;
 use crate::sys::module::Module;
+use crate::sys::Store;
 use crate::sys::{LinkError, RuntimeError};
 use std::fmt;
 use thiserror::Error;
@@ -110,26 +111,26 @@ impl Instance {
     ///  * Link errors that happen when plugging the imports into the instance
     ///  * Runtime errors that happen when running the module `start` function.
     pub fn new(
-        ctx: &mut impl AsContextMut,
+        store: &mut Store,
         module: &Module,
         imports: &Imports,
     ) -> Result<Self, InstantiationError> {
         let imports = imports
             .imports_for_module(module)
             .map_err(InstantiationError::Link)?;
-        let mut handle = module.instantiate(ctx, &imports)?;
+        let mut handle = module.instantiate(store, &imports)?;
         let exports = module
             .exports()
             .map(|export| {
                 let name = export.name().to_string();
                 let export = handle.lookup(&name).expect("export");
-                let extern_ = Extern::from_vm_extern(ctx, export);
+                let extern_ = Extern::from_vm_extern(store, export);
                 (name, extern_)
             })
             .collect::<Exports>();
 
         let instance = Self {
-            _handle: ContextHandle::new(ctx.as_context_mut().objects_mut(), handle),
+            _handle: ContextHandle::new(store.objects_mut(), handle),
             module: module.clone(),
             exports,
         };
@@ -148,24 +149,24 @@ impl Instance {
     ///  * Link errors that happen when plugging the imports into the instance
     ///  * Runtime errors that happen when running the module `start` function.
     pub fn new_by_index(
-        ctx: &mut impl AsContextMut,
+        store: &mut Store,
         module: &Module,
         externs: &[Extern],
     ) -> Result<Self, InstantiationError> {
         let imports = externs.to_vec();
-        let mut handle = module.instantiate(ctx, &imports)?;
+        let mut handle = module.instantiate(store, &imports)?;
         let exports = module
             .exports()
             .map(|export| {
                 let name = export.name().to_string();
                 let export = handle.lookup(&name).expect("export");
-                let extern_ = Extern::from_vm_extern(ctx, export);
+                let extern_ = Extern::from_vm_extern(store, export);
                 (name, extern_)
             })
             .collect::<Exports>();
 
         let instance = Self {
-            _handle: ContextHandle::new(ctx.as_context_mut().objects_mut(), handle),
+            _handle: ContextHandle::new(store.objects_mut(), handle),
             module: module.clone(),
             exports,
         };

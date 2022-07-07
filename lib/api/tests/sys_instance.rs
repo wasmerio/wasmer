@@ -7,7 +7,7 @@ mod sys {
     #[test]
     fn exports_work_after_multiple_instances_have_been_freed() -> Result<()> {
         let store = Store::default();
-        let mut ctx = WasmerContext::new(&store, ());
+        let mut ctx = WasmerContext::new(());
         let module = Module::new(
             &store,
             "
@@ -22,7 +22,7 @@ mod sys {
         )?;
 
         let imports = Imports::new();
-        let instance = Instance::new(&mut ctx, &module, &imports)?;
+        let instance = Instance::new(&mut store, &module, &imports)?;
         let instance2 = instance.clone();
         let instance3 = instance.clone();
 
@@ -35,7 +35,7 @@ mod sys {
 
         // All instances have been dropped, but `sum` continues to work!
         assert_eq!(
-            sum.call(&mut ctx, &[Value::I32(1), Value::I32(2)])?
+            sum.call(&mut store, &mut ctx, &[Value::I32(1), Value::I32(2)])?
                 .into_vec(),
             vec![Value::I32(3)],
         );
@@ -57,12 +57,12 @@ mod sys {
         }
 
         let env = Env { multiplier: 3 };
-        let mut ctx = WasmerContext::new(&store, env);
+        let mut ctx = WasmerContext::new(env);
         let imported_signature = FunctionType::new(vec![Type::I32], vec![Type::I32]);
-        let imported = Function::new(&mut ctx, imported_signature, imported_fn);
+        let imported = Function::new(&mut store, &mut ctx, imported_signature, imported_fn);
 
         let expected = vec![Value::I32(12)].into_boxed_slice();
-        let result = imported.call(&mut ctx, &[Value::I32(4)])?;
+        let result = imported.call(&mut store, &mut ctx, &[Value::I32(4)])?;
         assert_eq!(result, expected);
 
         Ok(())
