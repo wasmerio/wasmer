@@ -307,7 +307,7 @@ mod test {
         use crate::sys::Function;
         use crate::sys::Store;
 
-        let store: Store = Default::default();
+        let mut store: Store = Default::default();
         let mut ctx = WasmerContext::new(());
 
         fn func(_ctx: ContextMut<()>, arg: i32) -> i32 {
