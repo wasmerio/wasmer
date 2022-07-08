@@ -12,14 +12,9 @@ use crate::{
     TableIndex, TableInitializer, TableType,
 };
 use indexmap::IndexMap;
-use rkyv::{
-    de::SharedDeserializeRegistry, ser::ScratchSpace, ser::Serializer,
-    ser::SharedSerializeRegistry, Archive, Archived, Deserialize as RkyvDeserialize, Fallible,
-    Serialize as RkyvSerialize,
-};
+use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::fmt;
 use std::iter::ExactSizeIterator;
@@ -45,9 +40,31 @@ impl Default for ModuleId {
     }
 }
 
+/// Hash key of an import
+#[derive(Debug, Hash, Eq, PartialEq, Clone, Default, RkyvSerialize, RkyvDeserialize, Archive)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+pub struct ImportKey {
+    /// Module name
+    pub module: String,
+    /// Field name
+    pub field: String,
+    /// Import index
+    pub import_idx: u32,
+}
+
+impl From<(String, String, u32)> for ImportKey {
+    fn from((module, field, import_idx): (String, String, u32)) -> Self {
+        Self {
+            module,
+            field,
+            import_idx,
+        }
+    }
+}
+
 /// A translated WebAssembly module, excluding the function bodies and
 /// memory initializers.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, RkyvSerialize, RkyvDeserialize, Archive)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct ModuleInfo {
     /// A unique identifier (within this process) for this module.
@@ -67,7 +84,7 @@ pub struct ModuleInfo {
     /// Keeping the `index_of_the_import` is important, as there can be
     /// two same references to the same import, and we don't want to confuse
     /// them.
-    pub imports: IndexMap<(String, String, u32), ImportIndex>,
+    pub imports: IndexMap<ImportKey, ImportIndex>,
 
     /// Exported entities.
     pub exports: IndexMap<String, ExportIndex>,
@@ -122,119 +139,6 @@ pub struct ModuleInfo {
 
     /// Number of imported globals in the module.
     pub num_imported_globals: usize,
-}
-
-/// Mirror version of ModuleInfo that can derive rkyv traits
-#[derive(RkyvSerialize, RkyvDeserialize, Archive)]
-pub struct ArchivableModuleInfo {
-    name: Option<String>,
-    imports: IndexMap<(String, String, u32), ImportIndex>,
-    exports: IndexMap<String, ExportIndex>,
-    start_function: Option<FunctionIndex>,
-    table_initializers: Vec<TableInitializer>,
-    passive_elements: BTreeMap<ElemIndex, Box<[FunctionIndex]>>,
-    passive_data: BTreeMap<DataIndex, Box<[u8]>>,
-    global_initializers: PrimaryMap<LocalGlobalIndex, GlobalInit>,
-    function_names: BTreeMap<FunctionIndex, String>,
-    signatures: PrimaryMap<SignatureIndex, FunctionType>,
-    functions: PrimaryMap<FunctionIndex, SignatureIndex>,
-    tables: PrimaryMap<TableIndex, TableType>,
-    memories: PrimaryMap<MemoryIndex, MemoryType>,
-    globals: PrimaryMap<GlobalIndex, GlobalType>,
-    custom_sections: IndexMap<String, CustomSectionIndex>,
-    custom_sections_data: PrimaryMap<CustomSectionIndex, Box<[u8]>>,
-    num_imported_functions: usize,
-    num_imported_tables: usize,
-    num_imported_memories: usize,
-    num_imported_globals: usize,
-}
-
-impl From<ModuleInfo> for ArchivableModuleInfo {
-    fn from(it: ModuleInfo) -> Self {
-        Self {
-            name: it.name,
-            imports: it.imports,
-            exports: it.exports,
-            start_function: it.start_function,
-            table_initializers: it.table_initializers,
-            passive_elements: it.passive_elements.into_iter().collect(),
-            passive_data: it.passive_data.into_iter().collect(),
-            global_initializers: it.global_initializers,
-            function_names: it.function_names.into_iter().collect(),
-            signatures: it.signatures,
-            functions: it.functions,
-            tables: it.tables,
-            memories: it.memories,
-            globals: it.globals,
-            custom_sections: it.custom_sections,
-            custom_sections_data: it.custom_sections_data,
-            num_imported_functions: it.num_imported_functions,
-            num_imported_tables: it.num_imported_tables,
-            num_imported_memories: it.num_imported_memories,
-            num_imported_globals: it.num_imported_globals,
-        }
-    }
-}
-
-impl From<ArchivableModuleInfo> for ModuleInfo {
-    fn from(it: ArchivableModuleInfo) -> Self {
-        Self {
-            id: Default::default(),
-            name: it.name,
-            imports: it.imports,
-            exports: it.exports,
-            start_function: it.start_function,
-            table_initializers: it.table_initializers,
-            passive_elements: it.passive_elements.into_iter().collect(),
-            passive_data: it.passive_data.into_iter().collect(),
-            global_initializers: it.global_initializers,
-            function_names: it.function_names.into_iter().collect(),
-            signatures: it.signatures,
-            functions: it.functions,
-            tables: it.tables,
-            memories: it.memories,
-            globals: it.globals,
-            custom_sections: it.custom_sections,
-            custom_sections_data: it.custom_sections_data,
-            num_imported_functions: it.num_imported_functions,
-            num_imported_tables: it.num_imported_tables,
-            num_imported_memories: it.num_imported_memories,
-            num_imported_globals: it.num_imported_globals,
-        }
-    }
-}
-
-impl From<&ModuleInfo> for ArchivableModuleInfo {
-    fn from(it: &ModuleInfo) -> Self {
-        Self::from(it.clone())
-    }
-}
-
-impl Archive for ModuleInfo {
-    type Archived = <ArchivableModuleInfo as Archive>::Archived;
-    type Resolver = <ArchivableModuleInfo as Archive>::Resolver;
-
-    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
-        ArchivableModuleInfo::from(self).resolve(pos, resolver, out)
-    }
-}
-
-impl<S: Serializer + SharedSerializeRegistry + ScratchSpace + ?Sized> RkyvSerialize<S>
-    for ModuleInfo
-{
-    fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
-        ArchivableModuleInfo::from(self).serialize(serializer)
-    }
-}
-
-impl<D: Fallible + ?Sized + SharedDeserializeRegistry> RkyvDeserialize<ModuleInfo, D>
-    for Archived<ModuleInfo>
-{
-    fn deserialize(&self, deserializer: &mut D) -> Result<ModuleInfo, D::Error> {
-        let r: ArchivableModuleInfo =
-            RkyvDeserialize::<ArchivableModuleInfo, D>::deserialize(self, deserializer)?;
-        Ok(ModuleInfo::from(r))
-    }
 }
 
 // For test serialization correctness, everything except module id should be same
@@ -320,31 +224,31 @@ impl ModuleInfo {
 
     /// Get the import types of the module
     pub fn imports(&'_ self) -> ImportsIterator<impl Iterator<Item = ImportType> + '_> {
-        let iter = self
-            .imports
-            .iter()
-            .map(move |((module, field, _), import_index)| {
-                let extern_type = match import_index {
-                    ImportIndex::Function(i) => {
-                        let signature = self.functions.get(*i).unwrap();
-                        let func_type = self.signatures.get(*signature).unwrap();
-                        ExternType::Function(func_type.clone())
-                    }
-                    ImportIndex::Table(i) => {
-                        let table_type = self.tables.get(*i).unwrap();
-                        ExternType::Table(*table_type)
-                    }
-                    ImportIndex::Memory(i) => {
-                        let memory_type = self.memories.get(*i).unwrap();
-                        ExternType::Memory(*memory_type)
-                    }
-                    ImportIndex::Global(i) => {
-                        let global_type = self.globals.get(*i).unwrap();
-                        ExternType::Global(*global_type)
-                    }
-                };
-                ImportType::new(module, field, extern_type)
-            });
+        let iter =
+            self.imports
+                .iter()
+                .map(move |(ImportKey { module, field, .. }, import_index)| {
+                    let extern_type = match import_index {
+                        ImportIndex::Function(i) => {
+                            let signature = self.functions.get(*i).unwrap();
+                            let func_type = self.signatures.get(*signature).unwrap();
+                            ExternType::Function(func_type.clone())
+                        }
+                        ImportIndex::Table(i) => {
+                            let table_type = self.tables.get(*i).unwrap();
+                            ExternType::Table(*table_type)
+                        }
+                        ImportIndex::Memory(i) => {
+                            let memory_type = self.memories.get(*i).unwrap();
+                            ExternType::Memory(*memory_type)
+                        }
+                        ImportIndex::Global(i) => {
+                            let global_type = self.globals.get(*i).unwrap();
+                            ExternType::Global(*global_type)
+                        }
+                    };
+                    ImportType::new(module, field, extern_type)
+                });
         ImportsIterator::new(iter, self.imports.len())
     }
 

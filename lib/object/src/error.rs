@@ -17,4 +17,7 @@ pub enum ObjectError {
     /// The object was provided a not-supported architecture
     #[error("Error when writing the object: {0}")]
     Write(#[from] ObjectWriteError),
+    /// The module provided could not be serialized into bytes
+    #[error("Error when serializing the given module: {0}")]
+    Serialize(#[from] wasmer_types::SerializeError),
 }

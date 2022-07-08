@@ -21,7 +21,7 @@ const DWARF_SECTION_NAME: &[u8] = b".eh_frame";
 /// # Usage
 ///
 /// ```rust
-/// # use wasmer_types::Triple;
+/// # use wasmer_compiler::Triple;
 /// # use wasmer_object::ObjectError;
 /// use wasmer_object::get_object_for_target;
 ///
@@ -73,7 +73,7 @@ pub fn get_object_for_target(triple: &Triple) -> Result<Object, ObjectError> {
 /// # Usage
 ///
 /// ```rust
-/// # use wasmer_types::Triple;
+/// # use wasmer_compiler::Triple;
 /// # use wasmer_object::ObjectError;
 /// use wasmer_object::{get_object_for_target, emit_data};
 ///
@@ -111,8 +111,8 @@ pub fn emit_data(
 /// # Usage
 ///
 /// ```rust
-/// # use wasmer_compiler::SymbolRegistry;
-/// # use wasmer_types::{Compilation, Triple};
+/// # use wasmer_compiler::{SymbolRegistry, Triple};
+/// # use wasmer_types::Compilation;
 /// # use wasmer_object::ObjectError;
 /// use wasmer_object::{get_object_for_target, emit_compilation};
 ///
@@ -381,6 +381,74 @@ pub fn emit_compilation(
             };
         }
     }
+
+    Ok(())
+}
+
+/// Emit the compilation result into an existing object.
+///
+/// # Usage
+///
+/// ```rust
+/// # use wasmer_compiler::SymbolRegistry;
+/// # use wasmer_types::{SerializableModule, Triple};
+/// # use wasmer_object::ObjectError;
+/// use wasmer_object::{get_object_for_target, emit_compilation};
+///
+/// # fn emit_compilation_into_object(
+/// #     triple: &Triple,
+/// #     compilation: SerializableModule,
+/// #     symbol_registry: impl SymbolRegistry,
+/// # ) -> Result<(), ObjectError> {
+/// let mut object = get_object_for_target(&triple)?;
+/// emit_compilation(&mut object, compilation, &symbol_registry, &triple)?;
+/// # Ok(())
+/// # }
+/// ```
+pub fn emit_serialized(
+    obj: &mut Object,
+    sercomp: &[u8],
+    triple: &Triple,
+) -> Result<(), ObjectError> {
+    obj.set_mangling(object::write::Mangling::None);
+    //let module_name = module.compile_info.module.name.clone();
+    let len_name = "WASMER_MODULE_LENGTH";
+    let data_name = "WASMER_MODULE_DATA";
+    //let metadata_name = "WASMER_MODULE_METADATA";
+
+    let align = match triple.architecture {
+        Architecture::X86_64 => 1,
+        // In Arm64 is recommended a 4-byte alignment
+        Architecture::Aarch64(_) => 4,
+        _ => 1,
+    };
+
+    let len = sercomp.len();
+    let section_id = obj.section_id(StandardSection::Data);
+    let symbol_id = obj.add_symbol(ObjSymbol {
+        name: len_name.as_bytes().to_vec(),
+        value: 0,
+        size: len.to_le_bytes().len() as _,
+        kind: SymbolKind::Data,
+        scope: SymbolScope::Dynamic,
+        weak: false,
+        section: SymbolSection::Section(section_id),
+        flags: SymbolFlags::None,
+    });
+    obj.add_symbol_data(symbol_id, section_id, &len.to_le_bytes(), align);
+
+    let section_id = obj.section_id(StandardSection::Data);
+    let symbol_id = obj.add_symbol(ObjSymbol {
+        name: data_name.as_bytes().to_vec(),
+        value: 0,
+        size: sercomp.len() as _,
+        kind: SymbolKind::Data,
+        scope: SymbolScope::Dynamic,
+        weak: false,
+        section: SymbolSection::Section(section_id),
+        flags: SymbolFlags::None,
+    });
+    obj.add_symbol_data(symbol_id, section_id, sercomp, align);
 
     Ok(())
 }

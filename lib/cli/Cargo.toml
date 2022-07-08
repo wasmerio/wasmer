@@ -38,6 +38,7 @@ wasmer-wast = { version = "=2.3.0", path = "../../tests/lib/wast", optional = tr
 wasmer-cache = { version = "=2.3.0", path = "../cache", optional = true }
 wasmer-types = { version = "=2.3.0", path = "../types" }
 wasmer-vfs  = { version = "=2.3.0", path = "../vfs", default-features = false, features = ["host-fs"] }
+wasmer-object = { version = "=2.3.0", path = "../object" }
 atty = "0.2"
 colored = "2.0"
 anyhow = "1.0"

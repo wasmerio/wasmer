@@ -37,6 +37,26 @@ pub unsafe extern "C" fn wasm_module_new(
     Some(Box::new(wasm_module_t { inner: module }))
 }
 
+/// sadfasfa
+///
+/// # Safety
+/// asdfasdfa
+#[no_mangle]
+pub unsafe extern "C" fn wasmer_module_new(
+    store: Option<&wasm_store_t>,
+    len: usize,
+    bytes: *const u8,
+) -> Option<Box<wasm_module_t>> {
+    let store = store?;
+    let slice = std::slice::from_raw_parts(bytes, len);
+
+    let module = c_try!(Module::deserialize(&store.inner, slice));
+
+    Some(Box::new(wasm_module_t {
+        inner: Arc::new(module),
+    }))
+}
+
 /// Deletes a WebAssembly module.
 ///
 /// # Example
