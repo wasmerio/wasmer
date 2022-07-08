@@ -56,7 +56,7 @@ fuzz_target!(|module: WasmSmithModule| {
     compiler.enable_verifier();
     let metering = Arc::new(Metering::new(10, cost));
     compiler.push_middleware(metering);
-    let store = Store::new_with_engine(&Universal::new(compiler).engine());
+    let mut store = Store::new_with_engine(&Universal::new(compiler).engine());
     let module = Module::new(&store, &wasm_bytes).unwrap();
     match Instance::new(&module, &imports! {}) {
         Ok(_) => {}

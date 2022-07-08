@@ -41,7 +41,7 @@
 //!
 //! ```rust
 //! use wasmer::{Store, Module, Instance, Value, imports};
-//! use wasmer::Context as WasmerContext;
+//! use wasmer::FunctionEnv;
 //!
 //! fn main() -> anyhow::Result<()> {
 //!     let module_wat = r#"
@@ -53,15 +53,15 @@
 //!         i32.add))
 //!     "#;
 //!
-//!     let store = Store::default();
-//!     let mut ctx = WasmerContext::new(&store, ());
+//!     let mut store = Store::default();
+//!     let env = FunctionEnv::new(&mut store, ());
 //!     let module = Module::new(&store, &module_wat)?;
 //!     // The module doesn't import anything, so we create an empty import object.
 //!     let import_object = imports! {};
-//!     let instance = Instance::new(&mut ctx, &module, &import_object)?;
+//!     let instance = Instance::new(&mut store, &module, &import_object)?;
 //!
 //!     let add_one = instance.exports.get_function("add_one")?;
-//!     let result = add_one.call(&mut ctx, &[Value::I32(42)])?;
+//!     let result = add_one.call(&mut store, &[Value::I32(42)])?;
 //!     assert_eq!(result[0], Value::I32(43));
 //!
 //!     Ok(())
@@ -151,13 +151,12 @@
 //! [`imports`] macro:
 //!
 //! ```
-//! # use wasmer::{imports, Function, Memory, MemoryType, Store, Imports};
-//! # use wasmer::ContextMut;
-//! # fn imports_example(mut ctx: ContextMut<()>, store: &Store) -> Imports {
-//! let memory = Memory::new(&mut ctx, MemoryType::new(1, None, false)).unwrap();
+//! # use wasmer::{imports, Function, FunctionEnv, FunctionEnvMut, Memory, MemoryType, Store, Imports};
+//! # fn imports_example(mut ctx: FunctionEnv<()>, mut store: &mut Store) -> Imports {
+//! let memory = Memory::new(&mut store, MemoryType::new(1, None, false)).unwrap();
 //! imports! {
 //!     "env" => {
-//!          "my_function" => Function::new_native(&mut ctx, |_ctx: ContextMut<()>| println!("Hello")),
+//!          "my_function" => Function::new_native(&mut store, &ctx, |_ctx: FunctionEnvMut<()>| println!("Hello")),
 //!          "memory" => memory,
 //!     }
 //! }
@@ -168,12 +167,12 @@
 //! from any instance via `instance.exports`:
 //!
 //! ```
-//! # use wasmer::{imports, Instance, Function, Memory, TypedFunction, ContextMut};
-//! # fn exports_example(mut ctx: ContextMut<()>, instance: &Instance) -> anyhow::Result<()> {
+//! # use wasmer::{imports, Instance, FunctionEnv, Memory, TypedFunction, Store};
+//! # fn exports_example(mut ctx: FunctionEnv<()>, mut store: &mut Store, instance: &Instance) -> anyhow::Result<()> {
 //! let memory = instance.exports.get_memory("memory")?;
 //! let memory: &Memory = instance.exports.get("some_other_memory")?;
-//! let add: TypedFunction<(i32, i32), i32> = instance.exports.get_typed_function(&mut ctx, "add")?;
-//! let result = add.call(&mut ctx, 5, 37)?;
+//! let add: TypedFunction<(i32, i32), i32> = instance.exports.get_typed_function(&mut store, "add")?;
+//! let result = add.call(&mut store, 5, 37)?;
 //! assert_eq!(result, 42);
 //! # Ok(())
 //! # }
@@ -395,7 +394,7 @@
 //!         i32.const 1
 //!         i32.add))
 //!     "#;
-//!     let store = Store::default();
+//!     let mut store = Store::default();
 //!     let module = Module::new(&store, &module_wat).unwrap();
 //!     // The module doesn't import anything, so we create an empty import object.
 //!     let import_object = imports! {};

@@ -1,6 +1,6 @@
-use crate::js::context::AsContextRef;
 use crate::js::externals::{Extern, Function, Global, Memory, Table};
 use crate::js::native::TypedFunction;
+use crate::js::store::AsStoreRef;
 use crate::js::WasmTypeList;
 use indexmap::IndexMap;
 use std::fmt;
@@ -18,7 +18,7 @@ use thiserror::Error;
 ///
 /// ```should_panic
 /// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, Value, ExportError};
-/// # let store = Store::default();
+/// # let mut store = Store::default();
 /// # let wasm_bytes = wat2wasm(r#"
 /// # (module
 /// #   (global $one (export "glob") f32 (f32.const 1)))
@@ -35,7 +35,7 @@ use thiserror::Error;
 ///
 /// ```should_panic
 /// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, Value, ExportError};
-/// # let store = Store::default();
+/// # let mut store = Store::default();
 /// # let wasm_bytes = wat2wasm("(module)".as_bytes()).unwrap();
 /// # let module = Module::new(&store, wasm_bytes).unwrap();
 /// # let import_object = imports! {};
@@ -141,7 +141,7 @@ impl Exports {
     /// Get an export as a `TypedFunction`.
     pub fn get_native_function<Args, Rets>(
         &self,
-        ctx: &impl AsContextRef,
+        ctx: &impl AsStoreRef,
         name: &str,
     ) -> Result<TypedFunction<Args, Rets>, ExportError>
     where
@@ -154,7 +154,7 @@ impl Exports {
     /// Get an export as a `TypedFunction`.
     pub fn get_typed_function<Args, Rets>(
         &self,
-        ctx: &impl AsContextRef,
+        store: &impl AsStoreRef,
         name: &str,
     ) -> Result<TypedFunction<Args, Rets>, ExportError>
     where
@@ -162,14 +162,14 @@ impl Exports {
         Rets: WasmTypeList,
     {
         self.get_function(name)?
-            .native(ctx)
+            .native(store)
             .map_err(|_| ExportError::IncompatibleType)
     }
 
     /// Hack to get this working with nativefunc too
     pub fn get_with_generics<'a, T, Args, Rets>(
         &'a self,
-        ctx: &impl AsContextRef,
+        ctx: &impl AsStoreRef,
         name: &str,
     ) -> Result<T, ExportError>
     where
@@ -187,7 +187,7 @@ impl Exports {
     /// This is useful for passing data into Context data, for example.
     pub fn get_with_generics_weak<'a, T, Args, Rets>(
         &'a self,
-        ctx: &impl AsContextRef,
+        ctx: &impl AsStoreRef,
         name: &str,
     ) -> Result<T, ExportError>
     where
@@ -334,7 +334,7 @@ pub trait Exportable<'a>: Sized {
 pub trait ExportableWithGenerics<'a, Args: WasmTypeList, Rets: WasmTypeList>: Sized {
     /// Get an export with the given generics.
     fn get_self_from_extern_with_generics(
-        ctx: &impl AsContextRef,
+        ctx: &impl AsStoreRef,
         _extern: &'a Extern,
     ) -> Result<Self, ExportError>;
 }
@@ -343,7 +343,7 @@ pub trait ExportableWithGenerics<'a, Args: WasmTypeList, Rets: WasmTypeList>: Si
 /// with empty `Args` and `Rets`.
 impl<'a, T: Exportable<'a> + Clone + 'static> ExportableWithGenerics<'a, (), ()> for T {
     fn get_self_from_extern_with_generics(
-        _ctx: &impl AsContextRef,
+        _ctx: &impl AsStoreRef,
         _extern: &'a Extern,
     ) -> Result<Self, ExportError> {
         T::get_self_from_extern(_extern).map(|i| i.clone())

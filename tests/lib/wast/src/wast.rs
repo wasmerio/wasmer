@@ -8,6 +8,7 @@ use wasmer::*;
 
 /// The wast test script language allows modules to be defined and actions
 /// to be performed on them.
+#[allow(dead_code)]
 pub struct Wast {
     /// Wast files have a concept of a "current" module, which is the most
     /// recently defined.
@@ -23,8 +24,10 @@ pub struct Wast {
     match_trap_messages: HashMap<String, String>,
     /// If the current module was an allowed failure, we allow test to fail
     current_is_allowed_failure: bool,
+    /// The store in which the tests are executing.
+    store: Store,
     /// The context in which the tests are executing.
-    context: Context<()>,
+    context: FunctionEnv<()>,
     /// A flag indicating if Wast tests should stop as soon as one test fails.
     pub fail_fast: bool,
     /// A flag indicating that assert_trap and assert_exhaustion should be skipped.
@@ -34,9 +37,10 @@ pub struct Wast {
 
 impl Wast {
     /// Construct a new instance of `Wast` with a given imports.
-    pub fn new(context: Context<()>, import_object: Imports) -> Self {
+    pub fn new(store: Store, context: FunctionEnv<()>, import_object: Imports) -> Self {
         Self {
             current: None,
+            store,
             context,
             import_object,
             allowed_instantiation_failures: HashSet::new(),
@@ -68,9 +72,10 @@ impl Wast {
     }
 
     /// Construct a new instance of `Wast` with the spectests imports.
-    pub fn new_with_spectest(mut context: Context<()>) -> Self {
-        let import_object = spectest_importobject(&mut context);
-        Self::new(context, import_object)
+    pub fn new_with_spectest(mut store: Store) -> Self {
+        let context = FunctionEnv::new(&mut store, ());
+        let import_object = spectest_importobject(&mut store, &context);
+        Self::new(store, context, import_object)
     }
 
     fn get_instance(&self, instance_name: Option<&str>) -> Result<Instance> {
@@ -366,7 +371,7 @@ impl Wast {
     }
 
     fn instantiate(&mut self, module: &[u8]) -> Result<Instance> {
-        let module = Module::new(self.context.store(), module)?;
+        let module = Module::new(&self.store, module)?;
         let mut imports = self.import_object.clone();
 
         for import in module.imports() {
@@ -381,7 +386,7 @@ impl Wast {
             imports.register_namespace(module_name, instance.exports.clone());
         }
 
-        let instance = Instance::new(&mut self.context, &module, &imports)?;
+        let instance = Instance::new(&mut self.store, &module, &imports)?;
         Ok(instance)
     }
 
@@ -401,7 +406,7 @@ impl Wast {
     ) -> Result<Vec<Value>> {
         let instance = self.get_instance(instance_name)?;
         let func: &Function = instance.exports.get(field)?;
-        match func.call(&mut self.context, args) {
+        match func.call(&mut self.store, args) {
             Ok(result) => Ok(result.into()),
             Err(e) => Err(e.into()),
         }
@@ -411,7 +416,7 @@ impl Wast {
     fn get(&mut self, instance_name: Option<&str>, field: &str) -> Result<Vec<Value>> {
         let instance = self.get_instance(instance_name)?;
         let global: &Global = instance.exports.get(field)?;
-        Ok(vec![global.get(&mut self.context)])
+        Ok(vec![global.get(&mut self.store)])
     }
 
     /// Translate from a `script::Value` to a `Value`.
@@ -429,7 +434,7 @@ impl Wast {
             V128Const(x) => Value::V128(u128::from_le_bytes(x.to_le_bytes())),
             RefNull(wast::HeapType::Func) => Value::FuncRef(None),
             RefNull(wast::HeapType::Extern) => Value::null(),
-            RefExtern(number) => Value::ExternRef(Some(ExternRef::new(&mut self.context, *number))),
+            RefExtern(number) => Value::ExternRef(Some(ExternRef::new(&mut self.store, *number))),
             other => bail!("couldn't convert {:?} to a runtime value", other),
         })
     }
@@ -489,7 +494,7 @@ impl Wast {
 
             (Value::ExternRef(Some(_)), wast::AssertExpression::RefNull(_)) => false,
             (Value::ExternRef(Some(extern_ref)), wast::AssertExpression::RefExtern(num)) => {
-                extern_ref.downcast(&self.context) == Some(num)
+                extern_ref.downcast(&self.store) == Some(num)
             }
             _ => bail!(
                 "don't know how to compare {:?} and {:?} yet",

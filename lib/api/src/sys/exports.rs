@@ -1,4 +1,4 @@
-use super::context::AsContextRef;
+use super::store::AsStoreRef;
 use crate::sys::externals::{Extern, Function, Global, Memory, Table};
 use crate::sys::native::TypedFunction;
 use crate::sys::WasmTypeList;
@@ -18,16 +18,16 @@ use thiserror::Error;
 ///
 /// ```should_panic
 /// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, Value, ExportError};
-/// # use wasmer::Context as WasmerContext;
-/// # let store = Store::default();
-/// # let mut ctx = WasmerContext::new(&store, ());
+/// # use wasmer::FunctionEnv;
+/// # let mut store = Store::default();
+/// # let env = FunctionEnv::new(&mut store, ());
 /// # let wasm_bytes = wat2wasm(r#"
 /// # (module
 /// #   (global $one (export "glob") f32 (f32.const 1)))
 /// # "#.as_bytes()).unwrap();
 /// # let module = Module::new(&store, wasm_bytes).unwrap();
 /// # let import_object = imports! {};
-/// # let instance = Instance::new(&mut ctx, &module, &import_object).unwrap();
+/// # let instance = Instance::new(&mut store, &module, &import_object).unwrap();
 /// #
 /// // This results with an error: `ExportError::IncompatibleType`.
 /// let export = instance.exports.get_function("glob").unwrap();
@@ -37,13 +37,13 @@ use thiserror::Error;
 ///
 /// ```should_panic
 /// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, Value, ExportError};
-/// # use wasmer::Context as WasmerContext;
-/// # let store = Store::default();
-/// # let mut ctx = WasmerContext::new(&store, ());
+/// # use wasmer::FunctionEnv;
+/// # let mut store = Store::default();
+/// # let env = FunctionEnv::new(&mut store, ());
 /// # let wasm_bytes = wat2wasm("(module)".as_bytes()).unwrap();
 /// # let module = Module::new(&store, wasm_bytes).unwrap();
 /// # let import_object = imports! {};
-/// # let instance = Instance::new(&mut ctx, &module, &import_object).unwrap();
+/// # let instance = Instance::new(&mut store, &module, &import_object).unwrap();
 /// #
 /// // This results with an error: `ExportError::Missing`.
 /// let export = instance.exports.get_function("unknown").unwrap();
@@ -145,7 +145,7 @@ impl Exports {
     /// Get an export as a `TypedFunction`.
     pub fn get_native_function<Args, Rets>(
         &self,
-        ctx: &impl AsContextRef,
+        ctx: &impl AsStoreRef,
         name: &str,
     ) -> Result<TypedFunction<Args, Rets>, ExportError>
     where
@@ -158,7 +158,7 @@ impl Exports {
     /// Get an export as a `TypedFunction`.
     pub fn get_typed_function<Args, Rets>(
         &self,
-        ctx: &impl AsContextRef,
+        ctx: &impl AsStoreRef,
         name: &str,
     ) -> Result<TypedFunction<Args, Rets>, ExportError>
     where

@@ -1,4 +1,4 @@
-use ::wasmer::{Context, Features};
+use ::wasmer::Features;
 use std::path::Path;
 use wasmer_wast::Wast;
 
@@ -34,9 +34,8 @@ pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()
     config.set_features(features);
     config.set_nan_canonicalization(try_nan_canonicalization);
 
-    let store = config.store();
-    let context = Context::new(&store, ());
-    let mut wast = Wast::new_with_spectest(context);
+    let mut store = config.store();
+    let mut wast = Wast::new_with_spectest(store);
     // `bulk-memory-operations/bulk.wast` checks for a message that
     // specifies which element is uninitialized, but our traps don't
     // shepherd that information out.

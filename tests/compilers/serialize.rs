@@ -1,10 +1,10 @@
 use anyhow::Result;
-use wasmer::Context as WasmerContext;
+use wasmer::FunctionEnv;
 use wasmer::*;
 
 #[compiler_test(serialize)]
 fn test_serialize(config: crate::Config) -> Result<()> {
-    let store = config.store();
+    let mut store = config.store();
     let wat = r#"
         (module
         (func $hello (import "" "hello"))
@@ -20,7 +20,7 @@ fn test_serialize(config: crate::Config) -> Result<()> {
 
 #[compiler_test(serialize)]
 fn test_deserialize(config: crate::Config) -> Result<()> {
-    let store = config.store();
+    let mut store = config.store();
     let wat = r#"
         (module $name
             (import "host" "sum_part" (func (param i32 i64 i32 f32 f64) (result i64)))
@@ -54,8 +54,8 @@ fn test_deserialize(config: crate::Config) -> Result<()> {
         vec![Type::I32, Type::I64, Type::I32, Type::F32, Type::F64],
         vec![Type::I64],
     );
-    let mut ctx = WasmerContext::new(&store, ());
-    let f0 = Function::new(&mut ctx, &func_type, |_ctx, params| {
+    let mut ctx = FunctionEnv::new(&mut store, ());
+    let f0 = Function::new(&mut store, &ctx, &func_type, |_ctx, params| {
         let param_0: i64 = params[0].unwrap_i32() as i64;
         let param_1: i64 = params[1].unwrap_i64() as i64;
         let param_2: i64 = params[2].unwrap_i32() as i64;
@@ -66,7 +66,7 @@ fn test_deserialize(config: crate::Config) -> Result<()> {
         )])
     });
     let instance = Instance::new(
-        &mut ctx,
+        &mut store,
         &module,
         &imports! {
             "host" => {
@@ -76,7 +76,7 @@ fn test_deserialize(config: crate::Config) -> Result<()> {
     )?;
 
     let test_call = instance.exports.get_function("test_call")?;
-    let result = test_call.call(&mut ctx, &[])?;
+    let result = test_call.call(&mut store, &[])?;
     assert_eq!(result.to_vec(), vec![Value::I64(1500)]);
     Ok(())
 }

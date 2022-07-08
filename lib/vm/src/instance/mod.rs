@@ -8,18 +8,18 @@
 
 mod allocator;
 
-use crate::context::{ContextObjects, InternalContextHandle};
 use crate::export::VMExtern;
 use crate::imports::Imports;
 use crate::memory::MemoryError;
+use crate::store::{InternalStoreHandle, StoreObjects};
 use crate::table::TableElement;
-use crate::trap::{catch_traps, Trap, TrapCode, TrapHandler};
+use crate::trap::{catch_traps, Trap, TrapCode};
 use crate::vmcontext::{
-    VMBuiltinFunctionsArray, VMCallerCheckedAnyfunc, VMContext, VMFunctionEnvironment,
+    VMBuiltinFunctionsArray, VMCallerCheckedAnyfunc, VMContext, VMFunctionContext,
     VMFunctionImport, VMFunctionKind, VMGlobalDefinition, VMGlobalImport, VMMemoryDefinition,
     VMMemoryImport, VMSharedSignatureIndex, VMTableDefinition, VMTableImport, VMTrampoline,
 };
-use crate::{FunctionBodyPtr, MaybeInstanceOwned, VMFunctionBody};
+use crate::{FunctionBodyPtr, MaybeInstanceOwned, TrapHandlerFn, VMFunctionBody};
 use crate::{VMFuncRef, VMFunction, VMGlobal, VMMemory, VMTable};
 pub use allocator::InstanceAllocator;
 use memoffset::offset_of;
@@ -52,19 +52,19 @@ pub(crate) struct Instance {
     module: Arc<ModuleInfo>,
 
     /// Pointer to the object store of the context owning this instance.
-    context: *mut ContextObjects,
+    context: *mut StoreObjects,
 
     /// Offsets in the `vmctx` region.
     offsets: VMOffsets,
 
     /// WebAssembly linear memory data.
-    memories: BoxedSlice<LocalMemoryIndex, InternalContextHandle<VMMemory>>,
+    memories: BoxedSlice<LocalMemoryIndex, InternalStoreHandle<VMMemory>>,
 
     /// WebAssembly table data.
-    tables: BoxedSlice<LocalTableIndex, InternalContextHandle<VMTable>>,
+    tables: BoxedSlice<LocalTableIndex, InternalStoreHandle<VMTable>>,
 
     /// WebAssembly global data.
-    globals: BoxedSlice<LocalGlobalIndex, InternalContextHandle<VMGlobal>>,
+    globals: BoxedSlice<LocalGlobalIndex, InternalStoreHandle<VMGlobal>>,
 
     /// Pointers to functions in executable memory.
     functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
@@ -119,11 +119,11 @@ impl Instance {
         &*self.module
     }
 
-    fn context(&self) -> &ContextObjects {
+    fn context(&self) -> &StoreObjects {
         unsafe { &*self.context }
     }
 
-    fn context_mut(&mut self) -> &mut ContextObjects {
+    fn context_mut(&mut self) -> &mut StoreObjects {
         unsafe { &mut *self.context }
     }
 
@@ -283,7 +283,7 @@ impl Instance {
     /// Invoke the WebAssembly start function of the instance, if one is present.
     fn invoke_start_function(
         &self,
-        trap_handler: &(dyn TrapHandler + 'static),
+        trap_handler: Option<*const TrapHandlerFn<'static>>,
     ) -> Result<(), Trap> {
         let start_index = match self.module.start_function {
             Some(idx) => idx,
@@ -299,7 +299,7 @@ impl Instance {
                     .0;
                 (
                     body as *const _,
-                    VMFunctionEnvironment {
+                    VMFunctionContext {
                         vmctx: self.vmctx_ptr(),
                     },
                 )
@@ -314,7 +314,7 @@ impl Instance {
         // Make the call.
         unsafe {
             catch_traps(trap_handler, || {
-                mem::transmute::<*const VMFunctionBody, unsafe extern "C" fn(VMFunctionEnvironment)>(
+                mem::transmute::<*const VMFunctionBody, unsafe extern "C" fn(VMFunctionContext)>(
                     callee_address,
                 )(callee_vmctx)
             })
@@ -760,7 +760,7 @@ impl Instance {
     pub(crate) fn get_table_handle(
         &mut self,
         table_index: TableIndex,
-    ) -> InternalContextHandle<VMTable> {
+    ) -> InternalStoreHandle<VMTable> {
         if let Some(local_table_index) = self.module.local_table_index(table_index) {
             self.tables[local_table_index]
         } else {
@@ -816,12 +816,12 @@ impl InstanceHandle {
     pub unsafe fn new(
         allocator: InstanceAllocator,
         module: Arc<ModuleInfo>,
-        context: &mut ContextObjects,
+        context: &mut StoreObjects,
         finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
         finished_function_call_trampolines: BoxedSlice<SignatureIndex, VMTrampoline>,
-        finished_memories: BoxedSlice<LocalMemoryIndex, InternalContextHandle<VMMemory>>,
-        finished_tables: BoxedSlice<LocalTableIndex, InternalContextHandle<VMTable>>,
-        finished_globals: BoxedSlice<LocalGlobalIndex, InternalContextHandle<VMGlobal>>,
+        finished_memories: BoxedSlice<LocalMemoryIndex, InternalStoreHandle<VMMemory>>,
+        finished_tables: BoxedSlice<LocalTableIndex, InternalStoreHandle<VMTable>>,
+        finished_globals: BoxedSlice<LocalGlobalIndex, InternalStoreHandle<VMGlobal>>,
         imports: Imports,
         vmshared_signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
     ) -> Result<Self, Trap> {
@@ -938,7 +938,7 @@ impl InstanceHandle {
     /// Only safe to call immediately after instantiation.
     pub unsafe fn finish_instantiation(
         &mut self,
-        trap_handler: &(dyn TrapHandler + 'static),
+        trap_handler: Option<*const TrapHandlerFn<'static>>,
         data_initializers: &[DataInitializer<'_>],
     ) -> Result<(), Trap> {
         let instance = self.instance_mut();
@@ -1010,7 +1010,7 @@ impl InstanceHandle {
                         kind: VMFunctionKind::Static,
                         host_data: Box::new(()),
                     };
-                    InternalContextHandle::new(self.instance_mut().context_mut(), vm_function)
+                    InternalStoreHandle::new(self.instance_mut().context_mut(), vm_function)
                 } else {
                     let import = instance.imported_function(index);
                     import.handle
@@ -1290,7 +1290,7 @@ fn initialize_globals(instance: &Instance) {
 /// future funcref operations are just looking up this data.
 fn build_funcrefs(
     module_info: &ModuleInfo,
-    ctx: &ContextObjects,
+    ctx: &StoreObjects,
     imports: &Imports,
     finished_functions: &BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
     vmshared_signatures: &BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
@@ -1318,7 +1318,7 @@ fn build_funcrefs(
         let anyfunc = VMCallerCheckedAnyfunc {
             func_ptr: func_ptr.0,
             type_index,
-            vmctx: VMFunctionEnvironment { vmctx: vmctx_ptr },
+            vmctx: VMFunctionContext { vmctx: vmctx_ptr },
             call_trampoline,
         };
         func_refs.push(anyfunc);

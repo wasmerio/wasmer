@@ -35,7 +35,7 @@ void wasm_val_print(wasm_val_t val) {
 
 // A function to be called from Wasm code.
 own wasm_trap_t* print_callback(
-  wasm_context_ref_mut_t* ctx_mut, const wasm_val_vec_t* args, wasm_val_vec_t* results
+  const wasm_val_vec_t* args, wasm_val_vec_t* results
 ) {
   printf("Calling back...\n> ");
   wasm_val_print(args->data[0]);
@@ -48,9 +48,9 @@ own wasm_trap_t* print_callback(
 
 // A function closure.
 own wasm_trap_t* closure_callback(
-  wasm_context_ref_mut_t* ctx_mut, const wasm_val_vec_t* args, wasm_val_vec_t* results
+  void* env, const wasm_val_vec_t* args, wasm_val_vec_t* results
 ) {
-  int i = *(int*) wasm_context_ref_mut_get(ctx_mut);
+  int i = *(int*)env;
   printf("Calling back closure...\n");
   printf("> %d\n", i);
 
@@ -65,9 +65,6 @@ int main(int argc, const char* argv[]) {
   printf("Initializing...\n");
   wasm_engine_t* engine = wasm_engine_new();
   wasm_store_t* store = wasm_store_new(engine);
-  int i = 42;
-  wasm_context_t* ctx = wasm_context_new(store, &i);
-  wasm_store_context_set(store, ctx);
 
   // Load binary.
   printf("Loading binary...\n");
@@ -102,8 +99,9 @@ int main(int argc, const char* argv[]) {
   own wasm_functype_t* print_type = wasm_functype_new_1_1(wasm_valtype_new_i32(), wasm_valtype_new_i32());
   own wasm_func_t* print_func = wasm_func_new(store, print_type, print_callback);
 
+  int i = 42;
   own wasm_functype_t* closure_type = wasm_functype_new_0_1(wasm_valtype_new_i32());
-  own wasm_func_t* closure_func = wasm_func_new(store, closure_type, closure_callback);
+  own wasm_func_t* closure_func = wasm_func_new_with_env(store, closure_type, closure_callback, &i, NULL);
 
   wasm_functype_delete(print_type);
   wasm_functype_delete(closure_type);

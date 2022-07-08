@@ -1,4 +1,4 @@
-use crate::{context::MaybeInstanceOwned, vmcontext::VMGlobalDefinition};
+use crate::{store::MaybeInstanceOwned, vmcontext::VMGlobalDefinition};
 use std::{cell::UnsafeCell, ptr::NonNull};
 use wasmer_types::GlobalType;
 

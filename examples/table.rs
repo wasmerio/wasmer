@@ -1,12 +1,12 @@
 use wasmer::{
-    imports, wat2wasm, Context, ContextMut, Function, Instance, Module, Store, TableType, Type,
-    TypedFunction, Value,
+    imports, wat2wasm, Function, FunctionEnv, FunctionEnvMut, Instance, Module, Store, TableType,
+    Type, TypedFunction, Value,
 };
 use wasmer_compiler::Universal;
 use wasmer_compiler_cranelift::Cranelift;
 
 /// A function we'll call through a table.
-fn host_callback(_ctx: ContextMut<()>, arg1: i32, arg2: i32) -> i32 {
+fn host_callback(_ctx: FunctionEnvMut<()>, arg1: i32, arg2: i32) -> i32 {
     arg1 + arg2
 }
 
@@ -52,23 +52,23 @@ fn main() -> anyhow::Result<()> {
     )?;
 
     // We set up our store with an engine and a compiler.
-    let store = Store::new_with_engine(&Universal::new(Cranelift::default()).engine());
-    let mut ctx = Context::new(&store, ());
+    let mut store = Store::new_with_engine(&Universal::new(Cranelift::default()).engine());
+    let mut ctx = FunctionEnv::new(&mut store, ());
     // Then compile our Wasm.
     let module = Module::new(&store, wasm_bytes)?;
     let import_object = imports! {};
     // And instantiate it with no imports.
-    let instance = Instance::new(&mut ctx, &module, &import_object)?;
+    let instance = Instance::new(&mut store, &module, &import_object)?;
 
     // We get our function that calls (i32, i32) -> i32 functions via table.
     // The first argument is the table index and the next 2 are the 2 arguments
     // to be passed to the function found in the table.
     let call_via_table: TypedFunction<(i32, i32, i32), i32> = instance
         .exports
-        .get_typed_function(&mut ctx, "call_callback")?;
+        .get_typed_function(&mut store, "call_callback")?;
 
     // And then call it with table index 1 and arguments 2 and 7.
-    let result = call_via_table.call(&mut ctx, 1, 2, 7)?;
+    let result = call_via_table.call(&mut store, 1, 2, 7)?;
     // Because it's the default function, we expect it to double each number and
     // then sum it, giving us 18.
     assert_eq!(result, 18);
@@ -76,9 +76,9 @@ fn main() -> anyhow::Result<()> {
     // We then get the table from the instance.
     let guest_table = instance.exports.get_table("__indirect_function_table")?;
     // And demonstrate that it has the properties that we set in the Wasm.
-    assert_eq!(guest_table.size(&mut ctx), 3);
+    assert_eq!(guest_table.size(&mut store), 3);
     assert_eq!(
-        guest_table.ty(&mut ctx),
+        guest_table.ty(&store),
         TableType {
             ty: Type::FuncRef,
             minimum: 3,
@@ -89,30 +89,30 @@ fn main() -> anyhow::Result<()> {
     // == Setting elements in a table ==
 
     // We first construct a `Function` over our host_callback.
-    let func = Function::new_native(&mut ctx, host_callback);
+    let func = Function::new_native(&mut store, &ctx, host_callback);
 
     // And set table index 1 of that table to the host_callback `Function`.
-    guest_table.set(&mut ctx, 1, func.into())?;
+    guest_table.set(&mut store, 1, func.into())?;
 
     // We then repeat the call from before but this time it will find the host function
     // that we put at table index 1.
-    let result = call_via_table.call(&mut ctx, 1, 2, 7)?;
+    let result = call_via_table.call(&mut store, 1, 2, 7)?;
     // And because our host function simply sums the numbers, we expect 9.
     assert_eq!(result, 9);
 
     // == Growing a table ==
 
     // We again construct a `Function` over our host_callback.
-    let func = Function::new_native(&mut ctx, host_callback);
+    let func = Function::new_native(&mut store, &ctx, host_callback);
 
     // And grow the table by 3 elements, filling in our host_callback in all the
     // new elements of the table.
-    let previous_size = guest_table.grow(&mut ctx, 3, func.into())?;
+    let previous_size = guest_table.grow(&mut store, 3, func.into())?;
     assert_eq!(previous_size, 3);
 
-    assert_eq!(guest_table.size(&mut ctx), 6);
+    assert_eq!(guest_table.size(&mut store), 6);
     assert_eq!(
-        guest_table.ty(&mut ctx),
+        guest_table.ty(&store),
         TableType {
             ty: Type::FuncRef,
             minimum: 3,
@@ -121,8 +121,8 @@ fn main() -> anyhow::Result<()> {
     );
     // Now demonstrate that the function we grew the table with is actually in the table.
     for table_index in 3..6 {
-        if let Value::FuncRef(Some(f)) = guest_table.get(&mut ctx, table_index as _).unwrap() {
-            let result = f.call(&mut ctx, &[Value::I32(1), Value::I32(9)])?;
+        if let Value::FuncRef(Some(f)) = guest_table.get(&mut store, table_index as _).unwrap() {
+            let result = f.call(&mut store, &[Value::I32(1), Value::I32(9)])?;
             assert_eq!(result[0], Value::I32(10));
         } else {
             panic!("expected to find funcref in table!");
@@ -130,26 +130,26 @@ fn main() -> anyhow::Result<()> {
     }
 
     // Call function at index 0 to show that it's still the same.
-    let result = call_via_table.call(&mut ctx, 0, 2, 7)?;
+    let result = call_via_table.call(&mut store, 0, 2, 7)?;
     assert_eq!(result, 18);
 
     // Now overwrite index 0 with our host_callback.
-    let func = Function::new_native(&mut ctx, host_callback);
-    guest_table.set(&mut ctx, 0, func.into())?;
+    let func = Function::new_native(&mut store, &ctx, host_callback);
+    guest_table.set(&mut store, 0, func.into())?;
     // And verify that it does what we expect.
-    let result = call_via_table.call(&mut ctx, 0, 2, 7)?;
+    let result = call_via_table.call(&mut store, 0, 2, 7)?;
     assert_eq!(result, 9);
 
     // Now demonstrate that the host and guest see the same table and that both
     // get the same result.
     for table_index in 3..6 {
-        if let Value::FuncRef(Some(f)) = guest_table.get(&mut ctx, table_index as _).unwrap() {
-            let result = f.call(&mut ctx, &[Value::I32(1), Value::I32(9)])?;
+        if let Value::FuncRef(Some(f)) = guest_table.get(&mut store, table_index as _).unwrap() {
+            let result = f.call(&mut store, &[Value::I32(1), Value::I32(9)])?;
             assert_eq!(result[0], Value::I32(10));
         } else {
             panic!("expected to find funcref in table!");
         }
-        let result = call_via_table.call(&mut ctx, table_index, 1, 9)?;
+        let result = call_via_table.call(&mut store, table_index, 1, 9)?;
         assert_eq!(result, 10);
     }
 

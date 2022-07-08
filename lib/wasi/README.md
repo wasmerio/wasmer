@@ -57,7 +57,7 @@ Hello, Some("Gordon")
 use wasmer::{Store, Module, Instance};
 use wasmer_wasi::WasiState;
 
-let store = Store::default();
+let mut store = Store::default();
 let module = Module::from_file(&store, "hello.wasm")?;
 
 // Create the `WasiEnv`.

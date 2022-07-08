@@ -1,5 +1,5 @@
-use crate::js::context::AsContextMut;
 use crate::js::error::WasmError;
+use crate::js::store::AsStoreMut;
 use crate::js::{Export, ExternType, Module};
 use std::collections::HashMap;
 
@@ -53,7 +53,7 @@ impl JsImportObject {
     /// ```
     pub fn get_export(
         &self,
-        ctx: &mut impl AsContextMut,
+        ctx: &mut impl AsStoreMut,
         module: &str,
         name: &str,
     ) -> Result<Export, WasmError> {

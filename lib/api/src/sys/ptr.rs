@@ -5,13 +5,11 @@ use std::convert::TryFrom;
 use std::{fmt, marker::PhantomData, mem};
 use wasmer_types::ValueType;
 
-use super::context::AsContextRef;
-
-pub use wasmer_types::MemorySize;
+use super::store::AsStoreRef;
 
 pub use wasmer_types::Memory32;
-
 pub use wasmer_types::Memory64;
+pub use wasmer_types::MemorySize;
 
 /// Alias for `WasmPtr<T, Memory64>.
 pub type WasmPtr64<T> = WasmPtr<T, Memory64>;
@@ -23,8 +21,8 @@ pub type WasmPtr64<T> = WasmPtr<T, Memory64>;
 /// ```
 /// # use wasmer::Memory;
 /// # use wasmer::WasmPtr;
-/// # use wasmer::ContextMut;
-/// pub fn host_import(mut ctx: ContextMut<()>, memory: Memory, ptr: WasmPtr<u32>) {
+/// # use wasmer::FunctionEnvMut;
+/// pub fn host_import(mut ctx: FunctionEnvMut<()>, memory: Memory, ptr: WasmPtr<u32>) {
 ///     let derefed_ptr = ptr.deref(&mut ctx, &memory);
 ///     let inner_val: u32 = derefed_ptr.read().expect("pointer in bounds");
 ///     println!("Got {} from Wasm memory address 0x{:X}", inner_val, ptr.offset());
@@ -39,7 +37,7 @@ pub type WasmPtr64<T> = WasmPtr<T, Memory64>;
 /// # use wasmer::Memory;
 /// # use wasmer::WasmPtr;
 /// # use wasmer::ValueType;
-/// # use wasmer::ContextMut;
+/// # use wasmer::FunctionEnvMut;
 ///
 /// // This is safe as the 12 bytes represented by this struct
 /// // are valid for all bit combinations.
@@ -51,7 +49,7 @@ pub type WasmPtr64<T> = WasmPtr<T, Memory64>;
 ///     z: f32
 /// }
 ///
-/// fn update_vector_3(mut ctx: ContextMut<()>, memory: Memory, ptr: WasmPtr<V3>) {
+/// fn update_vector_3(mut ctx: FunctionEnvMut<()>, memory: Memory, ptr: WasmPtr<V3>) {
 ///     let derefed_ptr = ptr.deref(&mut ctx, &memory);
 ///     let mut inner_val: V3 = derefed_ptr.read().expect("pointer in bounds");
 ///     println!("Got {:?} from Wasm memory address 0x{:X}", inner_val, ptr.offset());
@@ -144,13 +142,13 @@ impl<T: ValueType, M: MemorySize> WasmPtr<T, M> {
     /// Creates a `WasmRef` from this `WasmPtr` which allows reading and
     /// mutating of the value being pointed to.
     #[inline]
-    pub fn deref<'a>(self, ctx: &'a impl AsContextRef, memory: &'a Memory) -> WasmRef<'a, T> {
+    pub fn deref<'a>(self, ctx: &'a impl AsStoreRef, memory: &'a Memory) -> WasmRef<'a, T> {
         WasmRef::new(ctx, memory, self.offset.into())
     }
 
     /// Reads the address pointed to by this `WasmPtr` in a memory.
     #[inline]
-    pub fn read(self, ctx: &impl AsContextRef, memory: &Memory) -> Result<T, MemoryAccessError> {
+    pub fn read(self, ctx: &impl AsStoreRef, memory: &Memory) -> Result<T, MemoryAccessError> {
         self.deref(&ctx, memory).read()
     }
 
@@ -158,7 +156,7 @@ impl<T: ValueType, M: MemorySize> WasmPtr<T, M> {
     #[inline]
     pub fn write(
         self,
-        ctx: &impl AsContextRef,
+        ctx: &impl AsStoreRef,
         memory: &Memory,
         val: T,
     ) -> Result<(), MemoryAccessError> {
@@ -173,7 +171,7 @@ impl<T: ValueType, M: MemorySize> WasmPtr<T, M> {
     #[inline]
     pub fn slice<'a>(
         self,
-        ctx: &'a impl AsContextRef,
+        ctx: &'a impl AsStoreRef,
         memory: &'a Memory,
         len: M::Offset,
     ) -> Result<WasmSlice<'a, T>, MemoryAccessError> {
@@ -187,7 +185,7 @@ impl<T: ValueType, M: MemorySize> WasmPtr<T, M> {
     #[inline]
     pub fn read_until(
         self,
-        ctx: &impl AsContextRef,
+        ctx: &impl AsStoreRef,
         memory: &Memory,
         mut end: impl FnMut(&T) -> bool,
     ) -> Result<Vec<T>, MemoryAccessError> {
@@ -212,7 +210,7 @@ impl<M: MemorySize> WasmPtr<u8, M> {
     #[inline]
     pub fn read_utf8_string(
         self,
-        ctx: &impl AsContextRef,
+        ctx: &impl AsStoreRef,
         memory: &Memory,
         len: M::Offset,
     ) -> Result<String, MemoryAccessError> {
@@ -227,7 +225,7 @@ impl<M: MemorySize> WasmPtr<u8, M> {
     #[inline]
     pub fn read_utf8_string_with_nul(
         self,
-        ctx: &impl AsContextRef,
+        ctx: &impl AsStoreRef,
         memory: &Memory,
     ) -> Result<String, MemoryAccessError> {
         let vec = self.read_until(ctx, memory, |&byte| byte == 0)?;

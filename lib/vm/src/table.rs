@@ -5,7 +5,7 @@
 //!
 //! `Table` is to WebAssembly tables what `Memory` is to WebAssembly linear memories.
 
-use crate::context::MaybeInstanceOwned;
+use crate::store::MaybeInstanceOwned;
 use crate::vmcontext::VMTableDefinition;
 use crate::Trap;
 use crate::VMExternRef;

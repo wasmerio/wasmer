@@ -4,20 +4,18 @@
 
 pub use super::unstable::wasi::wasi_get_unordered_imports;
 use super::{
-    externals::{wasm_extern_vec_t, wasm_func_t},
+    externals::{wasm_extern_t, wasm_extern_vec_t, wasm_func_t},
     instance::wasm_instance_t,
     module::wasm_module_t,
-    store::wasm_store_t,
+    store::{wasm_store_t, StoreRef},
 };
 use crate::error::update_last_error;
 use std::convert::TryFrom;
 use std::ffi::CStr;
 use std::os::raw::c_char;
 use std::slice;
-use wasmer_api::{AsContextMut, Extern};
 use wasmer_wasi::{
-    generate_import_object_from_ctx, get_wasi_version, Pipe, WasiEnv, WasiFile, WasiState,
-    WasiStateBuilder, WasiVersion,
+    get_wasi_version, Pipe, WasiFile, WasiFunctionEnv, WasiState, WasiStateBuilder, WasiVersion,
 };
 
 #[derive(Debug)]
@@ -163,14 +161,20 @@ pub extern "C" fn wasi_config_inherit_stdin(config: &mut wasi_config_t) {
 #[allow(non_camel_case_types)]
 pub struct wasi_env_t {
     /// cbindgen:ignore
-    pub(super) inner: WasiEnv,
+    pub(super) inner: WasiFunctionEnv,
+    pub(super) store: StoreRef,
 }
 
 /// Create a new WASI environment.
 ///
 /// It take ownership over the `wasi_config_t`.
 #[no_mangle]
-pub extern "C" fn wasi_env_new(mut config: Box<wasi_config_t>) -> Option<Box<wasi_env_t>> {
+pub unsafe extern "C" fn wasi_env_new(
+    store: Option<&mut wasm_store_t>,
+    mut config: Box<wasi_config_t>,
+) -> Option<Box<wasi_env_t>> {
+    let store = &mut store?.inner;
+    let mut store_mut = store.store_mut();
     if !config.inherit_stdout {
         config.state_builder.stdout(Box::new(Pipe::new()));
     }
@@ -181,10 +185,11 @@ pub extern "C" fn wasi_env_new(mut config: Box<wasi_config_t>) -> Option<Box<was
 
     // TODO: impl capturer for stdin
 
-    let wasi_state = c_try!(config.state_builder.build());
+    let wasi_state = c_try!(config.state_builder.finalize(&mut store_mut));
 
     Some(Box::new(wasi_env_t {
-        inner: WasiEnv::new(wasi_state),
+        inner: wasi_state,
+        store: store.clone(),
     }))
 }
 
@@ -199,7 +204,8 @@ pub unsafe extern "C" fn wasi_env_read_stdout(
     buffer_len: usize,
 ) -> isize {
     let inner_buffer = slice::from_raw_parts_mut(buffer as *mut _, buffer_len as usize);
-    let state = env.inner.state();
+    let mut store_mut = env.store.store_mut();
+    let state = env.inner.data_mut(&mut store_mut).state();
 
     if let Ok(mut stdout) = state.stdout() {
         if let Some(stdout) = stdout.as_mut() {
@@ -221,7 +227,8 @@ pub unsafe extern "C" fn wasi_env_read_stderr(
     buffer_len: usize,
 ) -> isize {
     let inner_buffer = slice::from_raw_parts_mut(buffer as *mut _, buffer_len as usize);
-    let state = env.inner.state();
+    let mut store_mut = env.store.store_mut();
+    let state = env.inner.data_mut(&mut store_mut).state();
     if let Ok(mut stderr) = state.stderr() {
         if let Some(stderr) = stderr.as_mut() {
             read_inner(stderr, inner_buffer)
@@ -320,30 +327,25 @@ pub unsafe extern "C" fn wasi_get_wasi_version(module: &wasm_module_t) -> wasi_v
 /// implementation ordered as expected by the `wasm_module_t`.
 #[no_mangle]
 pub unsafe extern "C" fn wasi_get_imports(
-    store: Option<&wasm_store_t>,
+    _store: Option<&wasm_store_t>,
+    wasi_env: Option<&mut wasi_env_t>,
     module: Option<&wasm_module_t>,
     imports: &mut wasm_extern_vec_t,
 ) -> bool {
-    wasi_get_imports_inner(store, module, imports).is_some()
+    wasi_get_imports_inner(wasi_env, module, imports).is_some()
 }
 
-fn wasi_get_imports_inner(
-    store: Option<&wasm_store_t>,
+unsafe fn wasi_get_imports_inner(
+    wasi_env: Option<&mut wasi_env_t>,
     module: Option<&wasm_module_t>,
     imports: &mut wasm_extern_vec_t,
 ) -> Option<()> {
-    let store = store?;
-    if store.context.is_none() {
-        crate::error::update_last_error(wasm_store_t::CTX_ERR_STR);
-    }
-    let mut ctx = store.context.as_ref()?.borrow_mut();
+    let wasi_env = wasi_env?;
+    let store = &mut wasi_env.store;
+    let mut store_mut = store.store_mut();
     let module = module?;
 
-    let version = c_try!(get_wasi_version(&module.inner, false)
-        .ok_or("could not detect a WASI version on the given module"));
-
-    let inner = unsafe { ctx.inner.transmute_data::<wasmer_wasi::WasiEnv>() };
-    let import_object = generate_import_object_from_ctx(&mut inner.as_context_mut(), version);
+    let import_object = c_try!(wasi_env.inner.import_object(&mut store_mut, &module.inner));
 
     imports.set_buffer(c_try!(module
         .inner
@@ -358,13 +360,26 @@ fn wasi_get_imports_inner(
                         import_type.name()
                     )
                 })?;
-            let inner = Extern::from_vm_extern(&mut ctx.inner, ext.to_vm_extern());
 
-            Ok(Some(Box::new(inner.into())))
+            Ok(Some(Box::new(wasm_extern_t::new(store.clone(), ext))))
         })
         .collect::<Result<Vec<_>, String>>()));
 
     Some(())
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasi_env_initialize_instance(
+    wasi_env: &mut wasi_env_t,
+    store: &mut wasm_store_t,
+    instance: &mut wasm_instance_t,
+) -> bool {
+    let mem = c_try!(instance.inner.exports.get_memory("memory"); otherwise false);
+    wasi_env
+        .inner
+        .data_mut(&mut store.inner.store_mut())
+        .set_memory(mem.clone());
+    true
 }
 
 #[no_mangle]
@@ -373,7 +388,9 @@ pub unsafe extern "C" fn wasi_get_start_function(
 ) -> Option<Box<wasm_func_t>> {
     let start = c_try!(instance.inner.exports.get_function("_start"));
 
-    Some(Box::new(wasm_func_t::new(start.clone())))
+    Some(Box::new(wasm_func_t {
+        extern_: wasm_extern_t::new(instance.store.clone(), start.clone().into()),
+    }))
 }
 
 #[cfg(test)]
@@ -388,7 +405,7 @@ mod tests {
             int main() {
                 wasm_engine_t* engine = wasm_engine_new();
                 wasm_store_t* store = wasm_store_new(engine);
-                wasm_context_t* ctx = wasm_context_new(store, 0);
+                wasmer_funcenv_t* ctx = wasmer_funcenv_new(store, 0);
 
                 wasm_byte_vec_t wat;
                 wasmer_byte_vec_new_from_string(&wat, "(module (import \"wasi_unstable\" \"args_get\" (func (param i32 i32) (result i32))))");
@@ -403,7 +420,7 @@ mod tests {
                 wasm_module_delete(module);
                 wasm_byte_vec_delete(&wasm);
                 wasm_byte_vec_delete(&wat);
-                wasm_context_delete(ctx);
+                wasmer_funcenv_delete(ctx);
                 wasm_store_delete(store);
                 wasm_engine_delete(engine);
 
@@ -421,7 +438,7 @@ mod tests {
             int main() {
                 wasm_engine_t* engine = wasm_engine_new();
                 wasm_store_t* store = wasm_store_new(engine);
-                wasm_context_t* ctx = wasm_context_new(store, 0);
+                wasmer_funcenv_t* ctx = wasmer_funcenv_new(store, 0);
 
                 wasm_byte_vec_t wat;
                 wasmer_byte_vec_new_from_string(&wat, "(module (import \"wasi_snapshot_preview1\" \"args_get\" (func (param i32 i32) (result i32))))");
@@ -436,7 +453,7 @@ mod tests {
                 wasm_module_delete(module);
                 wasm_byte_vec_delete(&wasm);
                 wasm_byte_vec_delete(&wat);
-                wasm_context_delete(ctx);
+                wasmer_funcenv_delete(ctx);
                 wasm_store_delete(store);
                 wasm_engine_delete(engine);
 
@@ -454,7 +471,7 @@ mod tests {
             int main() {
                 wasm_engine_t* engine = wasm_engine_new();
                 wasm_store_t* store = wasm_store_new(engine);
-                wasm_context_t* ctx = wasm_context_new(store, 0);
+                wasmer_funcenv_t* ctx = wasmer_funcenv_new(store, 0);
 
                 wasm_byte_vec_t wat;
                 wasmer_byte_vec_new_from_string(&wat, "(module (import \"wasi_snpsht_prvw1\" \"args_get\" (func (param i32 i32) (result i32))))");
@@ -469,7 +486,7 @@ mod tests {
                 wasm_module_delete(module);
                 wasm_byte_vec_delete(&wasm);
                 wasm_byte_vec_delete(&wat);
-                wasm_context_delete(ctx);
+                wasmer_funcenv_delete(ctx);
                 wasm_store_delete(store);
                 wasm_engine_delete(engine);
 

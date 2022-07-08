@@ -4,7 +4,7 @@
 //! WebAssembly trap handling, which is built on top of the lower-level
 //! signalhandling mechanisms.
 
-use crate::vmcontext::{VMFunctionEnvironment, VMTrampoline};
+use crate::vmcontext::{VMFunctionContext, VMTrampoline};
 use crate::{Trap, VMFunctionBody};
 use backtrace::Backtrace;
 use core::ptr::{read, read_unaligned};
@@ -32,10 +32,10 @@ static MAGIC: u8 = 0xc0;
 cfg_if::cfg_if! {
     if #[cfg(unix)] {
         /// Function which may handle custom signals while processing traps.
-        pub type TrapHandlerFn = dyn Fn(libc::c_int, *const libc::siginfo_t, *const libc::c_void) -> bool;
+        pub type TrapHandlerFn<'a> = dyn Fn(libc::c_int, *const libc::siginfo_t, *const libc::c_void) -> bool + Send + Sync + 'a;
     } else if #[cfg(target_os = "windows")] {
         /// Function which may handle custom signals while processing traps.
-        pub type TrapHandlerFn = dyn Fn(winapi::um::winnt::PEXCEPTION_POINTERS) -> bool;
+        pub type TrapHandlerFn<'a> = dyn Fn(winapi::um::winnt::PEXCEPTION_POINTERS) -> bool + Send + Sync + 'a;
     }
 }
 
@@ -611,14 +611,14 @@ pub unsafe fn resume_panic(payload: Box<dyn Any + Send>) -> ! {
 /// Wildly unsafe because it calls raw function pointers and reads/writes raw
 /// function pointers.
 pub unsafe fn wasmer_call_trampoline(
-    trap_handler: &(impl TrapHandler + 'static),
-    vmctx: VMFunctionEnvironment,
+    trap_handler: Option<*const TrapHandlerFn<'static>>,
+    vmctx: VMFunctionContext,
     trampoline: VMTrampoline,
     callee: *const VMFunctionBody,
     values_vec: *mut u8,
 ) -> Result<(), Trap> {
     catch_traps(trap_handler, || {
-        mem::transmute::<_, extern "C" fn(VMFunctionEnvironment, *const VMFunctionBody, *mut u8)>(
+        mem::transmute::<_, extern "C" fn(VMFunctionContext, *const VMFunctionBody, *mut u8)>(
             trampoline,
         )(vmctx, callee, values_vec);
     })
@@ -631,7 +631,7 @@ pub unsafe fn wasmer_call_trampoline(
 ///
 /// Highly unsafe since `closure` won't have any dtors run.
 pub unsafe fn catch_traps<F, R>(
-    trap_handler: &(dyn TrapHandler + 'static),
+    trap_handler: Option<*const TrapHandlerFn<'static>>,
     closure: F,
 ) -> Result<R, Trap>
 where
@@ -669,7 +669,7 @@ struct TrapHandlerContext {
         Option<TrapCode>,
         &mut dyn FnMut(TrapHandlerRegs),
     ) -> bool,
-    custom_trap: *const dyn TrapHandler,
+    custom_trap: Option<*const TrapHandlerFn<'static>>,
 }
 struct TrapHandlerContextInner<T> {
     /// Information about the currently running coroutine. This is used to
@@ -681,7 +681,7 @@ impl TrapHandlerContext {
     /// Runs the given function with a trap handler context. The previous
     /// trap handler context is preserved and restored afterwards.
     fn install<T, R>(
-        custom_trap: &(dyn TrapHandler + 'static),
+        custom_trap: Option<*const TrapHandlerFn<'static>>,
         coro_trap_handler: CoroutineTrapHandler<Result<T, UnwindReason>>,
         f: impl FnOnce() -> R,
     ) -> R {
@@ -733,7 +733,7 @@ impl TrapHandlerContext {
         maybe_fault_address: Option<usize>,
         trap_code: Option<TrapCode>,
         mut update_regs: impl FnMut(TrapHandlerRegs),
-        call_handler: impl Fn(&TrapHandlerFn) -> bool,
+        call_handler: impl Fn(&TrapHandlerFn<'static>) -> bool,
     ) -> bool {
         let ptr = TRAP_HANDLER.with(|ptr| ptr.load(Ordering::Relaxed));
         if ptr.is_null() {
@@ -743,8 +743,10 @@ impl TrapHandlerContext {
         let ctx = &*ptr;
 
         // Check if this trap is handled by a custom trap handler.
-        if (*ctx.custom_trap).custom_trap_handler(&call_handler) {
-            return true;
+        if let Some(trap_handler) = ctx.custom_trap {
+            if call_handler(&*trap_handler) {
+                return true;
+            }
         }
 
         (ctx.handle_trap)(
@@ -855,7 +857,7 @@ unsafe fn unwind_with(reason: UnwindReason) -> ! {
 /// bounded. Stack overflows and other traps can be caught and execution
 /// returned to the root of the stack.
 fn on_wasm_stack<F: FnOnce() -> T, T>(
-    trap_handler: &(dyn TrapHandler + 'static),
+    trap_handler: Option<*const TrapHandlerFn<'static>>,
     f: F,
 ) -> Result<T, UnwindReason> {
     // Allocating a new stack is pretty expensive since it involves several

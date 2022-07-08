@@ -3,7 +3,6 @@ use crate::store::StoreOptions;
 use anyhow::{Context, Result};
 use std::path::PathBuf;
 use structopt::StructOpt;
-use wasmer::Context as WasmerContext;
 use wasmer_wast::Wast as WastSpectest;
 
 #[derive(Debug, StructOpt)]
@@ -29,8 +28,7 @@ impl Wast {
     }
     fn inner_execute(&self) -> Result<()> {
         let (store, _compiler_name) = self.store.get_store()?;
-        let ctx = WasmerContext::new(&store, ());
-        let mut wast = WastSpectest::new_with_spectest(ctx);
+        let mut wast = WastSpectest::new_with_spectest(store);
         wast.fail_fast = self.fail_fast;
         wast.run_file(&self.path).with_context(|| "tests failed")?;
         eprintln!("Wast tests succeeded for `{}`.", self.path.display());

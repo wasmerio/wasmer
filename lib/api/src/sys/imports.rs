@@ -16,19 +16,19 @@ use wasmer_types::ImportError;
 ///
 /// # Usage:
 /// ```no_run
-/// use wasmer::{ContextMut, Exports, Module, Instance, imports, Imports, Function};
-/// # fn foo_test(mut ctx: ContextMut<()>, module: Module) {
+/// use wasmer::{Store, Exports, Module, Instance, imports, Imports, Function, FunctionEnv, FunctionEnvMut};
+/// # fn foo_test(mut ctx: FunctionEnv<()>, mut store: &mut Store, module: Module) {
 ///
-/// let host_fn = Function::new_native(&mut ctx, foo);
+/// let host_fn = Function::new_native(&mut store, &ctx, foo);
 /// let import_object: Imports = imports! {
 ///     "env" => {
 ///         "foo" => host_fn,
 ///     },
 /// };
 ///
-/// let instance = Instance::new(&mut ctx, &module, &import_object).expect("Could not instantiate module.");
+/// let instance = Instance::new(&mut store, &module, &import_object).expect("Could not instantiate module.");
 ///
-/// fn foo(_ctx: ContextMut<()>, n: i32) -> i32 {
+/// fn foo(_ctx: FunctionEnvMut<()>, n: i32) -> i32 {
 ///     n
 /// }
 ///
@@ -97,15 +97,15 @@ impl Imports {
     ///
     /// # Usage
     /// ```no_run
-    /// # use wasmer::Context as WasmerContext;
-    /// # let store = Default::default();
-    /// # let mut ctx = WasmerContext::new(&store, ());
-    /// use wasmer::{ContextMut, Imports, Function};
-    /// fn foo(_ctx: ContextMut<()>, n: i32) -> i32 {
+    /// # use wasmer::{FunctionEnv, Store};
+    /// # let mut store: Store = Default::default();
+    /// # let env = FunctionEnv::new(&mut store, ());
+    /// use wasmer::{StoreMut, Imports, Function, FunctionEnvMut};
+    /// fn foo(_ctx: FunctionEnvMut<()>, n: i32) -> i32 {
     ///     n
     /// }
     /// let mut import_object = Imports::new();
-    /// import_object.define("env", "foo", Function::new_native(&mut ctx, foo));
+    /// import_object.define("env", "foo", Function::new_native(&mut store, &env, foo));
     /// ```
     pub fn define(&mut self, ns: &str, name: &str, val: impl Into<Extern>) {
         self.map
@@ -210,19 +210,18 @@ impl fmt::Debug for Imports {
 /// # Usage
 ///
 /// ```
-/// # use wasmer::{ContextMut, Function, Store};
-/// # use wasmer::Context as WasmerContext;
-/// # let store = Store::default();
-/// # let mut ctx = WasmerContext::new(&store, ());
+/// # use wasmer::{StoreMut, Function, Store, FunctionEnv, FunctionEnvMut};
+/// # let mut store = Store::default();
+/// # let env = FunctionEnv::new(&mut store, ());
 /// use wasmer::imports;
 ///
 /// let import_object = imports! {
 ///     "env" => {
-///         "foo" => Function::new_native(&mut ctx, foo)
+///         "foo" => Function::new_native(&mut store, &env, foo)
 ///     },
 /// };
 ///
-/// fn foo(_ctx: ContextMut<()>, n: i32) -> i32 {
+/// fn foo(_env: FunctionEnvMut<()>, n: i32) -> i32 {
 ///     n
 /// }
 /// ```
@@ -271,18 +270,15 @@ macro_rules! import_namespace {
 
 #[cfg(test)]
 mod test {
-    use crate::sys::exports::Exportable;
-    use crate::sys::Context as WasmerContext;
-    use crate::sys::Exports;
-    use crate::sys::{Global, Store, Value};
+    use crate::sys::FunctionEnv;
+    use crate::sys::{AsStoreMut, Global, Store, Value};
     use wasmer_types::Type;
     use wasmer_vm::VMExtern;
-    /*
+
     #[test]
     fn namespace() {
-        let store = Store::default();
-        let mut ctx = WasmerContext::new(&store, ());
-        let g1 = Global::new(&mut ctx, Value::I32(0));
+        let mut store = Store::default();
+        let g1 = Global::new(&mut store, Value::I32(0));
         let namespace = namespace! {
             "happy" => g1
         };
@@ -294,73 +290,72 @@ mod test {
 
         assert!(
             if let VMExtern::Global(happy_dog_global) = happy_dog_entry.to_vm_extern() {
-                happy_dog_global.get(&mut ctx).ty == Type::I32
+                (*happy_dog_global.get(store.objects_mut()).ty()).ty == Type::I32
             } else {
                 false
             }
         );
     }
-    */
+
     #[test]
     fn imports_macro_allows_trailing_comma_and_none() {
-        use crate::sys::ContextMut;
         use crate::sys::Function;
+        use crate::sys::FunctionEnvMut;
 
-        let store = Default::default();
-        let mut ctx = WasmerContext::new(&store, ());
+        let mut store: Store = Default::default();
+        let ctx = FunctionEnv::new(&mut store, ());
 
-        fn func(_ctx: ContextMut<()>, arg: i32) -> i32 {
+        fn func(_ctx: FunctionEnvMut<()>, arg: i32) -> i32 {
             arg + 1
         }
 
         let _ = imports! {
             "env" => {
-                "func" => Function::new_native(&mut ctx, func),
+                "func" => Function::new_native(&mut store, &ctx, func),
             },
         };
         let _ = imports! {
             "env" => {
-                "func" => Function::new_native(&mut ctx, func),
+                "func" => Function::new_native(&mut store, &ctx, func),
             }
         };
         let _ = imports! {
             "env" => {
-                "func" => Function::new_native(&mut ctx, func),
+                "func" => Function::new_native(&mut store, &ctx, func),
             },
             "abc" => {
-                "def" => Function::new_native(&mut ctx, func),
+                "def" => Function::new_native(&mut store, &ctx, func),
             }
         };
         let _ = imports! {
             "env" => {
-                "func" => Function::new_native(&mut ctx, func)
+                "func" => Function::new_native(&mut store, &ctx, func)
             },
         };
         let _ = imports! {
             "env" => {
-                "func" => Function::new_native(&mut ctx, func)
+                "func" => Function::new_native(&mut store, &ctx, func)
             }
         };
         let _ = imports! {
             "env" => {
-                "func1" => Function::new_native(&mut ctx, func),
-                "func2" => Function::new_native(&mut ctx, func)
+                "func1" => Function::new_native(&mut store, &ctx, func),
+                "func2" => Function::new_native(&mut store, &ctx, func)
             }
         };
         let _ = imports! {
             "env" => {
-                "func1" => Function::new_native(&mut ctx, func),
-                "func2" => Function::new_native(&mut ctx, func),
+                "func1" => Function::new_native(&mut store, &ctx, func),
+                "func2" => Function::new_native(&mut store, &ctx, func),
             }
         };
     }
 
     #[test]
     fn chaining_works() {
-        let store = Store::default();
-        let mut ctx = WasmerContext::new(&store, ());
+        let mut store = Store::default();
 
-        let g = Global::new(&mut ctx, Value::I32(0));
+        let g = Global::new(&mut store, Value::I32(0));
 
         let mut imports1 = imports! {
             "dog" => {
@@ -390,10 +385,9 @@ mod test {
 
     #[test]
     fn extending_conflict_overwrites() {
-        let store = Store::default();
-        let mut ctx = WasmerContext::new(&store, ());
-        let g1 = Global::new(&mut ctx, Value::I32(0));
-        let g2 = Global::new(&mut ctx, Value::I64(0));
+        let mut store = Store::default();
+        let g1 = Global::new(&mut store, Value::I32(0));
+        let g2 = Global::new(&mut store, Value::I64(0));
 
         let mut imports1 = imports! {
             "dog" => {
@@ -408,7 +402,7 @@ mod test {
         };
 
         imports1.extend(&imports2);
-        let happy_dog_entry = imports1.get_export("dog", "happy").unwrap();
+        let _happy_dog_entry = imports1.get_export("dog", "happy").unwrap();
         /*
         assert!(
             if let Exports::Global(happy_dog_global) = happy_dog_entry.to_vm_extern() {
@@ -419,10 +413,9 @@ mod test {
         );
         */
         // now test it in reverse
-        let store = Store::default();
-        let mut ctx = WasmerContext::new(&store, ());
-        let g1 = Global::new(&mut ctx, Value::I32(0));
-        let g2 = Global::new(&mut ctx, Value::I64(0));
+        let mut store = Store::default();
+        let g1 = Global::new(&mut store, Value::I32(0));
+        let g2 = Global::new(&mut store, Value::I64(0));
 
         let imports1 = imports! {
             "dog" => {
@@ -437,7 +430,7 @@ mod test {
         };
 
         imports2.extend(&imports1);
-        let happy_dog_entry = imports2.get_export("dog", "happy").unwrap();
+        let _happy_dog_entry = imports2.get_export("dog", "happy").unwrap();
         /*
         assert!(
             if let Exports::Global(happy_dog_global) = happy_dog_entry.to_vm_extern() {

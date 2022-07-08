@@ -4,10 +4,10 @@
 //! This file declares `VMContext` and several related structs which contain
 //! fields that compiled wasm code accesses directly.
 
-use crate::context::InternalContextHandle;
 use crate::global::VMGlobal;
 use crate::instance::Instance;
 use crate::memory::VMMemory;
+use crate::store::InternalStoreHandle;
 use crate::trap::{Trap, TrapCode};
 use crate::VMFunctionBody;
 use crate::VMTable;
@@ -22,35 +22,35 @@ use wasmer_types::RawValue;
 /// It may either be a pointer to the [`VMContext`] if it's a Wasm function
 /// or a pointer to arbitrary data controlled by the host if it's a host function.
 #[derive(Copy, Clone, Eq)]
-pub union VMFunctionEnvironment {
+pub union VMFunctionContext {
     /// Wasm functions take a pointer to [`VMContext`].
     pub vmctx: *mut VMContext,
     /// Host functions can have custom environments.
     pub host_env: *mut std::ffi::c_void,
 }
 
-impl VMFunctionEnvironment {
+impl VMFunctionContext {
     /// Check whether the pointer stored is null or not.
     pub fn is_null(&self) -> bool {
         unsafe { self.host_env.is_null() }
     }
 }
 
-impl std::fmt::Debug for VMFunctionEnvironment {
+impl std::fmt::Debug for VMFunctionContext {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        f.debug_struct("VMFunctionEnvironment")
+        f.debug_struct("VMFunctionContext")
             .field("vmctx_or_hostenv", unsafe { &self.host_env })
             .finish()
     }
 }
 
-impl std::cmp::PartialEq for VMFunctionEnvironment {
+impl std::cmp::PartialEq for VMFunctionContext {
     fn eq(&self, rhs: &Self) -> bool {
         unsafe { self.host_env as usize == rhs.host_env as usize }
     }
 }
 
-impl std::hash::Hash for VMFunctionEnvironment {
+impl std::hash::Hash for VMFunctionContext {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         unsafe {
             self.vmctx.hash(state);
@@ -66,10 +66,10 @@ pub struct VMFunctionImport {
     pub body: *const VMFunctionBody,
 
     /// A pointer to the `VMContext` that owns the function or host env data.
-    pub environment: VMFunctionEnvironment,
+    pub environment: VMFunctionContext,
 
     /// Handle to the `VMFunction` in the context.
-    pub handle: InternalContextHandle<VMFunction>,
+    pub handle: InternalStoreHandle<VMFunction>,
 }
 
 #[cfg(test)]
@@ -191,7 +191,7 @@ pub struct VMTableImport {
     pub definition: NonNull<VMTableDefinition>,
 
     /// Handle to the `VMTable` in the context.
-    pub handle: InternalContextHandle<VMTable>,
+    pub handle: InternalStoreHandle<VMTable>,
 }
 
 #[cfg(test)]
@@ -226,7 +226,7 @@ pub struct VMMemoryImport {
     pub definition: NonNull<VMMemoryDefinition>,
 
     /// A handle to the `Memory` that owns the memory description.
-    pub handle: InternalContextHandle<VMMemory>,
+    pub handle: InternalStoreHandle<VMMemory>,
 }
 
 #[cfg(test)]
@@ -265,7 +265,7 @@ pub struct VMGlobalImport {
     pub definition: NonNull<VMGlobalDefinition>,
 
     /// A handle to the `Global` that owns the global description.
-    pub handle: InternalContextHandle<VMGlobal>,
+    pub handle: InternalStoreHandle<VMGlobal>,
 }
 
 /// # Safety
@@ -569,7 +569,7 @@ pub struct VMCallerCheckedAnyfunc {
     /// Function signature id.
     pub type_index: VMSharedSignatureIndex,
     /// Function `VMContext` or host env.
-    pub vmctx: VMFunctionEnvironment,
+    pub vmctx: VMFunctionContext,
     /// Address of the function call trampoline to invoke this function using
     /// a dynamic argument list.
     pub call_trampoline: VMTrampoline,
