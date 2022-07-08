@@ -1686,7 +1686,7 @@ pub fn tbaa_label<'ctx>(
 
     let context = module.get_context();
 
-    // TODO: ContextRef can't return us the lifetime from module through Deref.
+    // TODO: StoreRef can't return us the lifetime from module through Deref.
     // This could be fixed once generic_associated_types is stable.
     let context = {
         let context2 = &*context;

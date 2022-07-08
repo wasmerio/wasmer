@@ -23,7 +23,7 @@ mod js {
 
     #[wasm_bindgen_test]
     fn test_exported_memory() {
-        let store = Store::default();
+        let mut store = Store::default();
         let mut module = Module::new(
             &store,
             br#"
@@ -41,24 +41,24 @@ mod js {
             .unwrap();
 
         let import_object = imports! {};
-        let mut ctx = Context::new(&store, ());
-        let instance = Instance::new(&mut ctx, &module, &import_object).unwrap();
+        let mut env = FunctionEnv::new(&mut store, ());
+        let instance = Instance::new(&mut store, &module, &import_object).unwrap();
 
         let memory = instance.exports.get_memory("mem").unwrap();
-        assert!(memory.is_from_context(&ctx));
-        assert_eq!(memory.ty(&ctx), MemoryType::new(Pages(1), None, false));
-        assert_eq!(memory.size(&ctx), Pages(1));
-        assert_eq!(memory.data_size(&ctx), 65536);
+        assert!(memory.is_from_store(&store));
+        assert_eq!(memory.ty(&store), MemoryType::new(Pages(1), None, false));
+        assert_eq!(memory.size(&store), Pages(1));
+        assert_eq!(memory.data_size(&store), 65536);
 
-        memory.grow(&mut ctx, Pages(1)).unwrap();
-        assert_eq!(memory.ty(&ctx), MemoryType::new(Pages(1), None, false));
-        assert_eq!(memory.size(&ctx), Pages(2));
-        assert_eq!(memory.data_size(&ctx), 65536 * 2);
+        memory.grow(&mut store, Pages(1)).unwrap();
+        assert_eq!(memory.ty(&store), MemoryType::new(Pages(1), None, false));
+        assert_eq!(memory.size(&store), Pages(2));
+        assert_eq!(memory.data_size(&store), 65536 * 2);
     }
 
     #[wasm_bindgen_test]
     fn test_exported_function() {
-        let store = Store::default();
+        let mut store = Store::default();
         let mut module = Module::new(
             &store,
             br#"
@@ -81,22 +81,22 @@ mod js {
             .unwrap();
 
         let import_object = imports! {};
-        let mut ctx = Context::new(&store, ());
-        let instance = Instance::new(&mut ctx, &module, &import_object).unwrap();
+        let mut env = FunctionEnv::new(&mut store, ());
+        let instance = Instance::new(&mut store, &module, &import_object).unwrap();
 
         let get_magic = instance.exports.get_function("get_magic").unwrap();
         assert_eq!(
-            get_magic.ty(&ctx).clone(),
+            get_magic.ty(&store).clone(),
             FunctionType::new(vec![], vec![Type::I32])
         );
 
         let expected = vec![Val::I32(42)].into_boxed_slice();
-        assert_eq!(get_magic.call(&mut ctx, &[]).unwrap(), expected);
+        assert_eq!(get_magic.call(&mut store, &[]).unwrap(), expected);
     }
 
     #[wasm_bindgen_test]
     fn test_imported_function_dynamic() {
-        let store = Store::default();
+        let mut store = Store::default();
         let mut module = Module::new(
             &store,
             br#"
@@ -121,11 +121,11 @@ mod js {
                 ))],
             })
             .unwrap();
-        let mut ctx = Context::new(&store, ());
+        let mut env = FunctionEnv::new(&mut store, ());
 
         let imported_signature = FunctionType::new(vec![Type::I32], vec![Type::I32]);
 
-        let imported = Function::new(&mut ctx, imported_signature, |_env, args| {
+        let imported = Function::new(&mut store, &env, imported_signature, |_env, args| {
             log!("Calling `imported`...");
             let result = args[0].unwrap_i32() * 2;
             log!("Result of `imported`: {:?}", result);
@@ -137,19 +137,19 @@ mod js {
                 "imported" => imported,
             }
         };
-        let instance = Instance::new(&mut ctx, &module, &import_object).unwrap();
+        let instance = Instance::new(&mut store, &module, &import_object).unwrap();
 
         let exported = instance.exports.get_function("exported").unwrap();
 
         let expected = vec![Val::I32(6)].into_boxed_slice();
-        assert_eq!(exported.call(&mut ctx, &[Val::I32(3)]).unwrap(), expected);
+        assert_eq!(exported.call(&mut store, &[Val::I32(3)]).unwrap(), expected);
     }
 
     // We comment it for now because in old versions of Node, only single return values are supported
 
     // #[wasm_bindgen_test]
     // fn test_imported_function_dynamic_multivalue() {
-    //     let store = Store::default();
+    //     let mut store = Store::default();
     //     let mut module = Module::new(
     //         &store,
     //         br#"
@@ -207,7 +207,7 @@ mod js {
 
     #[wasm_bindgen_test]
     fn test_imported_function_dynamic_with_env() {
-        let store = Store::default();
+        let mut store = Store::default();
         let mut module = Module::new(
             &store,
             br#"
@@ -238,10 +238,10 @@ mod js {
             multiplier: i32,
         }
 
-        let mut ctx = Context::new(&store, Env { multiplier: 3 });
+        let mut env = FunctionEnv::new(&mut store, Env { multiplier: 3 });
 
         let imported_signature = FunctionType::new(vec![Type::I32], vec![Type::I32]);
-        let imported = Function::new(&mut ctx, &imported_signature, |ctx, args| {
+        let imported = Function::new(&mut store, &env, &imported_signature, |ctx, args| {
             log!("Calling `imported`...");
             let result = args[0].unwrap_i32() * ctx.data().multiplier;
             log!("Result of `imported`: {:?}", result);
@@ -253,17 +253,17 @@ mod js {
                 "imported" => imported,
             }
         };
-        let instance = Instance::new(&mut ctx, &module, &import_object).unwrap();
+        let instance = Instance::new(&mut store, &module, &import_object).unwrap();
 
         let exported = instance.exports.get_function("exported").unwrap();
 
         let expected = vec![Val::I32(9)].into_boxed_slice();
-        assert_eq!(exported.call(&mut ctx, &[Val::I32(3)]), Ok(expected));
+        assert_eq!(exported.call(&mut store, &[Val::I32(3)]), Ok(expected));
     }
 
     #[wasm_bindgen_test]
     fn test_imported_function_native() {
-        let store = Store::default();
+        let mut store = Store::default();
         let mut module = Module::new(
             &store,
             br#"
@@ -289,29 +289,29 @@ mod js {
             })
             .unwrap();
 
-        fn imported_fn(_: ContextMut<'_, ()>, arg: u32) -> u32 {
+        fn imported_fn(_: FunctionEnvMut<'_, ()>, arg: u32) -> u32 {
             return arg + 1;
         }
 
-        let mut ctx = Context::new(&store, ());
-        let imported = Function::new_native(&mut ctx, imported_fn);
+        let mut env = FunctionEnv::new(&mut store, ());
+        let imported = Function::new_native(&mut store, &env, imported_fn);
 
         let import_object = imports! {
             "env" => {
                 "imported" => imported,
             }
         };
-        let instance = Instance::new(&mut ctx, &module, &import_object).unwrap();
+        let instance = Instance::new(&mut store, &module, &import_object).unwrap();
 
         let exported = instance.exports.get_function("exported").unwrap();
 
         let expected = vec![Val::I32(5)].into_boxed_slice();
-        assert_eq!(exported.call(&mut ctx, &[Val::I32(4)]), Ok(expected));
+        assert_eq!(exported.call(&mut store, &[Val::I32(4)]), Ok(expected));
     }
 
     #[wasm_bindgen_test]
     fn test_imported_function_native_with_env() {
-        let store = Store::default();
+        let mut store = Store::default();
         let mut module = Module::new(
             &store,
             br#"
@@ -342,33 +342,33 @@ mod js {
             multiplier: u32,
         }
 
-        fn imported_fn(ctx: ContextMut<'_, Env>, arg: u32) -> u32 {
+        fn imported_fn(ctx: FunctionEnvMut<'_, Env>, arg: u32) -> u32 {
             log!("inside imported_fn: ctx.data is {:?}", ctx.data());
-            // log!("inside call id is {:?}", ctx.as_context_ref().objects().id);
+            // log!("inside call id is {:?}", ctx.as_store_ref().objects().id);
             return ctx.data().multiplier * arg;
         }
 
-        let mut ctx = Context::new(&store, Env { multiplier: 3 });
+        let mut env = FunctionEnv::new(&mut store, Env { multiplier: 3 });
 
-        let imported = Function::new_native(&mut ctx, imported_fn);
+        let imported = Function::new_native(&mut store, &env, imported_fn);
 
         let import_object = imports! {
             "env" => {
                 "imported" => imported,
             }
         };
-        let instance = Instance::new(&mut ctx, &module, &import_object).unwrap();
+        let instance = Instance::new(&mut store, &module, &import_object).unwrap();
 
         let exported = instance.exports.get_function("exported").unwrap();
 
         let expected = vec![Val::I32(12)].into_boxed_slice();
-        ctx.data_mut().multiplier = 3;
-        assert_eq!(exported.call(&mut ctx, &[Val::I32(4)]), Ok(expected));
+        env.as_mut(&mut store).multiplier = 3;
+        assert_eq!(exported.call(&mut store, &[Val::I32(4)]), Ok(expected));
     }
 
     #[wasm_bindgen_test]
     fn test_imported_function_native_with_wasmer_env() {
-        let store = Store::default();
+        let mut store = Store::default();
         let mut module = Module::new(
             &store,
             br#"
@@ -401,76 +401,79 @@ mod js {
             memory: Option<Memory>,
         }
 
-        fn imported_fn(ctx: ContextMut<'_, Env>, arg: u32) -> u32 {
+        fn imported_fn(ctx: FunctionEnvMut<'_, Env>, arg: u32) -> u32 {
             let memory: &Memory = ctx.data().memory.as_ref().unwrap();
             let memory_val = memory.uint8view(&ctx).get_index(0);
             return (memory_val as u32) * ctx.data().multiplier * arg;
         }
 
-        let mut ctx = Context::new(
-            &store,
+        let mut env = FunctionEnv::new(
+            &mut store,
             Env {
                 multiplier: 3,
                 memory: None,
             },
         );
-        let imported = Function::new_native(&mut ctx, imported_fn);
+        let imported = Function::new_native(&mut store, &env, imported_fn);
 
         let import_object = imports! {
             "env" => {
                 "imported" => imported,
             }
         };
-        let instance = Instance::new(&mut ctx, &module, &import_object).unwrap();
+        let instance = Instance::new(&mut store, &module, &import_object).unwrap();
 
         let memory = instance.exports.get_memory("memory").unwrap();
-        assert_eq!(memory.data_size(&ctx), 65536);
-        let memory_val = memory.uint8view(&ctx).get_index(0);
+        assert_eq!(memory.data_size(&store), 65536);
+        let memory_val = memory.uint8view(&store).get_index(0);
         assert_eq!(memory_val, 0);
 
-        memory.uint8view(&ctx).set_index(0, 2);
-        let memory_val = memory.uint8view(&ctx).get_index(0);
+        memory.uint8view(&store).set_index(0, 2);
+        let memory_val = memory.uint8view(&store).get_index(0);
         assert_eq!(memory_val, 2);
 
-        ctx.data_mut().memory = Some(memory.clone());
+        env.as_mut(&mut store).memory = Some(memory.clone());
 
         let exported = instance.exports.get_function("exported").unwrap();
 
         // It works with the provided memory
         let expected = vec![Val::I32(24)].into_boxed_slice();
-        assert_eq!(exported.call(&mut ctx, &[Val::I32(4)]), Ok(expected));
+        assert_eq!(exported.call(&mut store, &[Val::I32(4)]), Ok(expected));
 
         // It works if we update the memory
-        memory.uint8view(&ctx).set_index(0, 3);
+        memory.uint8view(&store).set_index(0, 3);
         let expected = vec![Val::I32(36)].into_boxed_slice();
-        assert_eq!(exported.call(&mut ctx, &[Val::I32(4)]), Ok(expected));
+        assert_eq!(exported.call(&mut store, &[Val::I32(4)]), Ok(expected));
     }
 
     #[wasm_bindgen_test]
     fn test_unit_native_function_env() {
-        let store = Store::default();
+        let mut store = Store::default();
         #[derive(Clone)]
         struct Env {
             multiplier: u32,
         }
 
-        let mut ctx = Context::new(&store, Env { multiplier: 3 });
+        let mut env = FunctionEnv::new(&mut store, Env { multiplier: 3 });
 
-        fn imported_fn(ctx: ContextMut<'_, Env>, args: &[Val]) -> Result<Vec<Val>, RuntimeError> {
+        fn imported_fn(
+            ctx: FunctionEnvMut<'_, Env>,
+            args: &[Val],
+        ) -> Result<Vec<Val>, RuntimeError> {
             let value = ctx.data().multiplier * args[0].unwrap_i32() as u32;
             return Ok(vec![Val::I32(value as _)]);
         }
 
         let imported_signature = FunctionType::new(vec![Type::I32], vec![Type::I32]);
-        let imported = Function::new(&mut ctx, imported_signature, imported_fn);
+        let imported = Function::new(&mut store, &env, imported_signature, imported_fn);
 
         let expected = vec![Val::I32(12)].into_boxed_slice();
-        assert_eq!(imported.call(&mut ctx, &[Val::I32(4)]), Ok(expected));
+        assert_eq!(imported.call(&mut store, &[Val::I32(4)]), Ok(expected));
     }
 
     #[wasm_bindgen_test]
     fn test_imported_function_with_wasmer_env() {
-        let store = Store::default();
+        let mut store = Store::default();
         let mut module = Module::new(
             &store,
             br#"
@@ -503,15 +506,18 @@ mod js {
             memory: Option<Memory>,
         }
 
-        fn imported_fn(ctx: ContextMut<'_, Env>, args: &[Val]) -> Result<Vec<Val>, RuntimeError> {
+        fn imported_fn(
+            ctx: FunctionEnvMut<'_, Env>,
+            args: &[Val],
+        ) -> Result<Vec<Val>, RuntimeError> {
             let memory: &Memory = ctx.data().memory.as_ref().unwrap();
             let memory_val = memory.uint8view(&ctx).get_index(0);
             let value = (memory_val as u32) * ctx.data().multiplier * args[0].unwrap_i32() as u32;
             return Ok(vec![Val::I32(value as _)]);
         }
 
-        let mut ctx = Context::new(
-            &store,
+        let mut env = FunctionEnv::new(
+            &mut store,
             Env {
                 multiplier: 3,
                 memory: None,
@@ -519,41 +525,41 @@ mod js {
         );
 
         let imported_signature = FunctionType::new(vec![Type::I32], vec![Type::I32]);
-        let imported = Function::new(&mut ctx, imported_signature, imported_fn);
+        let imported = Function::new(&mut store, &env, imported_signature, imported_fn);
 
         let import_object = imports! {
             "env" => {
                 "imported" => imported,
             }
         };
-        let instance = Instance::new(&mut ctx, &module, &import_object).unwrap();
+        let instance = Instance::new(&mut store, &module, &import_object).unwrap();
 
         let memory = instance.exports.get_memory("memory").unwrap();
-        assert_eq!(memory.data_size(&ctx), 65536);
-        let memory_val = memory.uint8view(&ctx).get_index(0);
+        assert_eq!(memory.data_size(&store), 65536);
+        let memory_val = memory.uint8view(&store).get_index(0);
         assert_eq!(memory_val, 0);
 
-        memory.uint8view(&ctx).set_index(0, 2);
-        let memory_val = memory.uint8view(&ctx).get_index(0);
+        memory.uint8view(&store).set_index(0, 2);
+        let memory_val = memory.uint8view(&store).get_index(0);
         assert_eq!(memory_val, 2);
 
-        ctx.data_mut().memory = Some(memory.clone());
+        env.as_mut(&mut store).memory = Some(memory.clone());
 
         let exported = instance.exports.get_function("exported").unwrap();
 
         // It works with the provided memory
         let expected = vec![Val::I32(24)].into_boxed_slice();
-        assert_eq!(exported.call(&mut ctx, &[Val::I32(4)]), Ok(expected));
+        assert_eq!(exported.call(&mut store, &[Val::I32(4)]), Ok(expected));
 
         // It works if we update the memory
-        memory.uint8view(&ctx).set_index(0, 3);
+        memory.uint8view(&store).set_index(0, 3);
         let expected = vec![Val::I32(36)].into_boxed_slice();
-        assert_eq!(exported.call(&mut ctx, &[Val::I32(4)]), Ok(expected));
+        assert_eq!(exported.call(&mut store, &[Val::I32(4)]), Ok(expected));
     }
 
     #[wasm_bindgen_test]
     fn test_imported_exported_global() {
-        let store = Store::default();
+        let mut store = Store::default();
         let mut module = Module::new(
             &store,
             br#"
@@ -579,39 +585,39 @@ mod js {
                 ],
             })
             .unwrap();
-        let mut ctx = Context::new(&store, ());
-        let global = Global::new_mut(&mut ctx, Value::I32(0));
+        let mut env = FunctionEnv::new(&mut store, ());
+        let global = Global::new_mut(&mut store, Value::I32(0));
         let import_object = imports! {
             "" => {
                 "global" => global.clone()
             }
         };
-        let instance = Instance::new(&mut ctx, &module, &import_object).unwrap();
+        let instance = Instance::new(&mut store, &module, &import_object).unwrap();
 
         let get_global = instance.exports.get_function("getGlobal").unwrap();
         assert_eq!(
-            get_global.call(&mut ctx, &[]),
+            get_global.call(&mut store, &[]),
             Ok(vec![Val::I32(0)].into_boxed_slice())
         );
 
-        global.set(&mut ctx, Value::I32(42)).unwrap();
+        global.set(&mut store, Value::I32(42)).unwrap();
         assert_eq!(
-            get_global.call(&mut ctx, &[]),
+            get_global.call(&mut store, &[]),
             Ok(vec![Val::I32(42)].into_boxed_slice())
         );
 
         let inc_global = instance.exports.get_function("incGlobal").unwrap();
-        inc_global.call(&mut ctx, &[]).unwrap();
+        inc_global.call(&mut store, &[]).unwrap();
         assert_eq!(
-            get_global.call(&mut ctx, &[]),
+            get_global.call(&mut store, &[]),
             Ok(vec![Val::I32(43)].into_boxed_slice())
         );
-        assert_eq!(global.get(&ctx), Val::I32(43));
+        assert_eq!(global.get(&store), Val::I32(43));
     }
 
     #[wasm_bindgen_test]
     fn test_native_function() {
-        let store = Store::default();
+        let mut store = Store::default();
         let module = Module::new(
             &store,
             br#"(module
@@ -623,30 +629,30 @@ mod js {
         )
         .unwrap();
 
-        fn sum(_: ContextMut<'_, ()>, a: i32, b: i32) -> i32 {
+        fn sum(_: FunctionEnvMut<'_, ()>, a: i32, b: i32) -> i32 {
             a + b
         }
 
-        let mut ctx = Context::new(&store, ());
+        let mut env = FunctionEnv::new(&mut store, ());
 
         let import_object = imports! {
             "env" => {
-                "sum" => Function::new_native(&mut ctx, sum),
+                "sum" => Function::new_native(&mut store, &env, sum),
             }
         };
 
-        let instance = Instance::new(&mut ctx, &module, &import_object).unwrap();
+        let instance = Instance::new(&mut store, &module, &import_object).unwrap();
 
         let add_one: TypedFunction<i32, i32> = instance
             .exports
-            .get_typed_function(&ctx, "add_one")
+            .get_typed_function(&mut store, "add_one")
             .unwrap();
-        assert_eq!(add_one.call(&mut ctx, 1), Ok(2));
+        assert_eq!(add_one.call(&mut store, 1), Ok(2));
     }
 
     #[wasm_bindgen_test]
     fn test_panic() {
-        let store = Store::default();
+        let mut store = Store::default();
         let module = Module::new(
             &store,
             br#"
@@ -664,30 +670,32 @@ mod js {
         )
         .unwrap();
 
-        fn early_exit(_: ContextMut<'_, ()>) {
+        fn early_exit(_: FunctionEnvMut<'_, ()>) {
             panic!("Do panic")
         }
-        let mut ctx = Context::new(&store, ());
+        let mut env = FunctionEnv::new(&mut store, ());
 
         let import_object = imports! {
             "env" => {
-                "early_exit" => Function::new_native(&mut ctx, early_exit),
+                "early_exit" => Function::new_native(&mut store, &env, early_exit),
             }
         };
-        let instance = Instance::new(&mut ctx, &module, &import_object).unwrap();
+        let instance = Instance::new(&mut store, &module, &import_object).unwrap();
 
-        let run_func: TypedFunction<(i32, i32), i32> =
-            instance.exports.get_typed_function(&ctx, "run").unwrap();
+        let run_func: TypedFunction<(i32, i32), i32> = instance
+            .exports
+            .get_typed_function(&mut store, "run")
+            .unwrap();
 
         assert!(
-            run_func.call(&mut ctx, 1, 7).is_err(),
+            run_func.call(&mut store, 1, 7).is_err(),
             "Expected early termination",
         );
         let run_func = instance.exports.get_function("run").unwrap();
 
         assert!(
             run_func
-                .call(&mut ctx, &[Val::I32(1), Val::I32(7)])
+                .call(&mut store, &[Val::I32(1), Val::I32(7)])
                 .is_err(),
             "Expected early termination",
         );
@@ -695,7 +703,7 @@ mod js {
 
     #[wasm_bindgen_test]
     fn test_custom_error() {
-        let store = Store::default();
+        let mut store = Store::default();
         let module = Module::new(
             &store,
             br#"
@@ -713,7 +721,7 @@ mod js {
         )
         .unwrap();
 
-        let mut ctx = Context::new(&store, ());
+        let mut env = FunctionEnv::new(&mut store, ());
 
         use std::fmt;
 
@@ -728,17 +736,17 @@ mod js {
 
         impl std::error::Error for ExitCode {}
 
-        fn early_exit(_: ContextMut<'_, ()>) -> Result<(), ExitCode> {
+        fn early_exit(_: FunctionEnvMut<'_, ()>) -> Result<(), ExitCode> {
             Err(ExitCode(1))
         }
 
         let import_object = imports! {
             "env" => {
-                "early_exit" => Function::new_native(&mut ctx, early_exit),
+                "early_exit" => Function::new_native(&mut store, &env, early_exit),
             }
         };
 
-        let instance = Instance::new(&mut ctx, &module, &import_object).unwrap();
+        let instance = Instance::new(&mut store, &module, &import_object).unwrap();
 
         fn test_result<T: core::fmt::Debug>(result: Result<T, RuntimeError>) {
             match result {
@@ -763,17 +771,19 @@ mod js {
             }
         }
 
-        let run_func: TypedFunction<(i32, i32), i32> =
-            instance.exports.get_typed_function(&ctx, "run").unwrap();
-        test_result(run_func.call(&mut ctx, 1, 7));
+        let run_func: TypedFunction<(i32, i32), i32> = instance
+            .exports
+            .get_typed_function(&mut store, "run")
+            .unwrap();
+        test_result(run_func.call(&mut store, 1, 7));
 
         let run_func = instance.exports.get_function("run").unwrap();
-        test_result(run_func.call(&mut ctx, &[Val::I32(1), Val::I32(7)]));
+        test_result(run_func.call(&mut store, &[Val::I32(1), Val::I32(7)]));
     }
 
     #[wasm_bindgen_test]
     fn test_start_function_fails() {
-        let store = Store::default();
+        let mut store = Store::default();
         let module = Module::new(
             &store,
             br#"
@@ -792,8 +802,8 @@ mod js {
         .unwrap();
 
         let import_object = imports! {};
-        let mut ctx = Context::new(&store, ());
-        let result = Instance::new(&mut ctx, &module, &import_object);
+        let mut env = FunctionEnv::new(&mut store, ());
+        let result = Instance::new(&mut store, &module, &import_object);
         let err = result.unwrap_err();
         assert!(format!("{:?}", err).contains("zero"))
     }

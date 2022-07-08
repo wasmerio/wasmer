@@ -1,5 +1,6 @@
-use crate::sys::store::Store;
 use crate::sys::InstantiationError;
+use crate::AsStoreMut;
+use crate::AsStoreRef;
 use std::fmt;
 use std::io;
 use std::path::Path;
@@ -13,8 +14,6 @@ use wasmer_types::{
 };
 use wasmer_types::{ExportType, ImportType};
 use wasmer_vm::InstanceHandle;
-
-use super::context::AsContextMut;
 
 #[derive(Error, Debug)]
 pub enum IoCompileError {
@@ -51,7 +50,6 @@ pub struct Module {
     // In the future, this code should be refactored to properly describe the
     // ownership of the code and its metadata.
     artifact: Arc<dyn Artifact>,
-    store: Store,
 }
 
 impl Module {
@@ -81,7 +79,7 @@ impl Module {
     /// ```
     /// use wasmer::*;
     /// # fn main() -> anyhow::Result<()> {
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// let wat = "(module)";
     /// let module = Module::new(&store, wat)?;
     /// # Ok(())
@@ -93,7 +91,7 @@ impl Module {
     /// ```
     /// use wasmer::*;
     /// # fn main() -> anyhow::Result<()> {
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// // The following is the same as:
     /// // (module
     /// //   (type $t0 (func (param i32) (result i32)))
@@ -115,7 +113,7 @@ impl Module {
     /// # }
     /// ```
     #[allow(unreachable_code)]
-    pub fn new(store: &Store, bytes: impl AsRef<[u8]>) -> Result<Self, CompileError> {
+    pub fn new(store: &impl AsStoreRef, bytes: impl AsRef<[u8]>) -> Result<Self, CompileError> {
         #[cfg(feature = "wat")]
         let bytes = wat::parse_bytes(bytes.as_ref()).map_err(|e| {
             CompileError::Wasm(WasmError::Generic(format!(
@@ -128,7 +126,10 @@ impl Module {
     }
 
     /// Creates a new WebAssembly module from a file path.
-    pub fn from_file(store: &Store, file: impl AsRef<Path>) -> Result<Self, IoCompileError> {
+    pub fn from_file(
+        store: &impl AsStoreRef,
+        file: impl AsRef<Path>,
+    ) -> Result<Self, IoCompileError> {
         let file_ref = file.as_ref();
         let canonical = file_ref.canonicalize()?;
         let wasm_bytes = std::fs::read(file_ref)?;
@@ -145,7 +146,7 @@ impl Module {
     /// Opposed to [`Module::new`], this function is not compatible with
     /// the WebAssembly text format (if the "wat" feature is enabled for
     /// this crate).
-    pub fn from_binary(store: &Store, binary: &[u8]) -> Result<Self, CompileError> {
+    pub fn from_binary(store: &impl AsStoreRef, binary: &[u8]) -> Result<Self, CompileError> {
         Self::validate(store, binary)?;
         unsafe { Self::from_binary_unchecked(store, binary) }
     }
@@ -158,7 +159,7 @@ impl Module {
     /// in environments where the WebAssembly modules are trusted and validated
     /// beforehand.
     pub unsafe fn from_binary_unchecked(
-        store: &Store,
+        store: &impl AsStoreRef,
         binary: &[u8],
     ) -> Result<Self, CompileError> {
         let module = Self::compile(store, binary)?;
@@ -171,13 +172,16 @@ impl Module {
     /// This validation is normally pretty fast and checks the enabled
     /// WebAssembly features in the Store Engine to assure deterministic
     /// validation of the Module.
-    pub fn validate(store: &Store, binary: &[u8]) -> Result<(), CompileError> {
-        store.engine().validate(binary)
+    pub fn validate(store: &impl AsStoreRef, binary: &[u8]) -> Result<(), CompileError> {
+        store.as_store_ref().engine().validate(binary)
     }
 
-    fn compile(store: &Store, binary: &[u8]) -> Result<Self, CompileError> {
-        let artifact = store.engine().compile(binary, store.tunables())?;
-        Ok(Self::from_artifact(store, artifact))
+    fn compile(store: &impl AsStoreRef, binary: &[u8]) -> Result<Self, CompileError> {
+        let artifact = store
+            .as_store_ref()
+            .engine()
+            .compile(binary, store.as_store_ref().tunables())?;
+        Ok(Self::from_artifact(artifact))
     }
 
     /// Serializes a module into a binary representation that the `Engine`
@@ -188,7 +192,7 @@ impl Module {
     /// ```ignore
     /// # use wasmer::*;
     /// # fn main() -> anyhow::Result<()> {
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// # let module = Module::from_file(&store, "path/to/foo.wasm")?;
     /// let serialized = module.serialize()?;
     /// # Ok(())
@@ -206,7 +210,7 @@ impl Module {
     /// ```ignore
     /// # use wasmer::*;
     /// # fn main() -> anyhow::Result<()> {
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// # let module = Module::from_file(&store, "path/to/foo.wasm")?;
     /// module.serialize_to_file("path/to/foo.so")?;
     /// # Ok(())
@@ -234,14 +238,17 @@ impl Module {
     /// ```ignore
     /// # use wasmer::*;
     /// # fn main() -> anyhow::Result<()> {
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// let module = Module::deserialize(&store, serialized_data)?;
     /// # Ok(())
     /// # }
     /// ```
-    pub unsafe fn deserialize(store: &Store, bytes: &[u8]) -> Result<Self, DeserializeError> {
-        let artifact = store.engine().deserialize(bytes)?;
-        Ok(Self::from_artifact(store, artifact))
+    pub unsafe fn deserialize(
+        store: &impl AsStoreRef,
+        bytes: &[u8],
+    ) -> Result<Self, DeserializeError> {
+        let artifact = store.as_store_ref().engine().deserialize(bytes)?;
+        Ok(Self::from_artifact(artifact))
     }
 
     /// Deserializes a a serialized Module located in a `Path` into a `Module`.
@@ -255,47 +262,48 @@ impl Module {
     ///
     /// ```ignore
     /// # use wasmer::*;
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// # fn main() -> anyhow::Result<()> {
     /// let module = Module::deserialize_from_file(&store, path)?;
     /// # Ok(())
     /// # }
     /// ```
     pub unsafe fn deserialize_from_file(
-        store: &Store,
+        store: &impl AsStoreRef,
         path: impl AsRef<Path>,
     ) -> Result<Self, DeserializeError> {
-        let artifact = store.engine().deserialize_from_file(path.as_ref())?;
-        Ok(Self::from_artifact(store, artifact))
+        let artifact = store
+            .as_store_ref()
+            .engine()
+            .deserialize_from_file(path.as_ref())?;
+        Ok(Self::from_artifact(artifact))
     }
 
-    fn from_artifact(store: &Store, artifact: Arc<dyn Artifact>) -> Self {
-        Self {
-            store: store.clone(),
-            artifact,
-        }
+    fn from_artifact(artifact: Arc<dyn Artifact>) -> Self {
+        Self { artifact }
     }
 
     pub(crate) fn instantiate(
         &self,
-        ctx: &mut impl AsContextMut,
+        store: &mut impl AsStoreMut,
         imports: &[crate::Extern],
     ) -> Result<InstanceHandle, InstantiationError> {
         // Ensure all imports come from the same context.
         for import in imports {
-            if !import.is_from_context(ctx) {
-                return Err(InstantiationError::BadContext);
+            if !import.is_from_store(store) {
+                return Err(InstantiationError::DifferentStores);
             }
         }
-
+        let mut store_mut = store.as_store_mut();
+        let (tunables, objects) = store_mut.tunables_and_objects_mut();
         unsafe {
             let mut instance_handle = self.artifact.instantiate(
-                self.store.tunables(),
+                tunables,
                 &imports
                     .iter()
                     .map(crate::Extern::to_vm_extern)
                     .collect::<Vec<_>>(),
-                ctx.as_context_mut().objects_mut(),
+                objects,
             )?;
 
             // After the instance handle is created, we need to initialize
@@ -303,8 +311,10 @@ impl Module {
             // of this steps traps, we still need to keep the instance alive
             // as some of the Instance elements may have placed in other
             // instance tables.
-            self.artifact
-                .finish_instantiation(&self.store, &mut instance_handle)?;
+            self.artifact.finish_instantiation(
+                store.as_store_ref().signal_handler(),
+                &mut instance_handle,
+            )?;
 
             Ok(instance_handle)
         }
@@ -320,7 +330,7 @@ impl Module {
     /// ```
     /// # use wasmer::*;
     /// # fn main() -> anyhow::Result<()> {
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// let wat = "(module $moduleName)";
     /// let module = Module::new(&store, wat)?;
     /// assert_eq!(module.name(), Some("moduleName"));
@@ -343,7 +353,7 @@ impl Module {
     /// ```
     /// # use wasmer::*;
     /// # fn main() -> anyhow::Result<()> {
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// let wat = "(module)";
     /// let mut module = Module::new(&store, wat)?;
     /// assert_eq!(module.name(), None);
@@ -371,7 +381,7 @@ impl Module {
     /// ```
     /// # use wasmer::*;
     /// # fn main() -> anyhow::Result<()> {
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// let wat = r#"(module
     ///     (import "host" "func1" (func))
     ///     (import "host" "func2" (func))
@@ -399,7 +409,7 @@ impl Module {
     /// ```
     /// # use wasmer::*;
     /// # fn main() -> anyhow::Result<()> {
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// let wat = r#"(module
     ///     (func (export "namedfunc"))
     ///     (memory (export "namedmemory") 1)
@@ -425,11 +435,6 @@ impl Module {
     /// is returned.
     pub fn custom_sections<'a>(&'a self, name: &'a str) -> impl Iterator<Item = Arc<[u8]>> + 'a {
         self.artifact.module_ref().custom_sections(name)
-    }
-
-    /// Returns the [`Store`] where the `Instance` belongs.
-    pub fn store(&self) -> &Store {
-        &self.store
     }
 
     /// The ABI of the ModuleInfo is very unstable, we refactor it very often.

@@ -1,7 +1,7 @@
-use crate::js::context::AsContextRef;
 use crate::js::externals::memory::MemoryBuffer;
-use crate::RuntimeError;
-use crate::{Memory, Memory32, Memory64, WasmPtr};
+use crate::js::store::AsStoreRef;
+use crate::js::RuntimeError;
+use crate::js::{Memory, Memory32, Memory64, WasmPtr};
 use std::{
     convert::TryInto,
     fmt,
@@ -61,7 +61,7 @@ pub struct WasmRef<'a, T: ValueType> {
 impl<'a, T: ValueType> WasmRef<'a, T> {
     /// Creates a new `WasmRef` at the given offset in a memory.
     #[inline]
-    pub fn new(ctx: &'a impl AsContextRef, memory: &'a Memory, offset: u64) -> Self {
+    pub fn new(ctx: &'a impl AsStoreRef, memory: &'a Memory, offset: u64) -> Self {
         Self {
             buffer: memory.buffer(ctx),
             offset,
@@ -160,7 +160,7 @@ impl<'a, T: ValueType> WasmSlice<'a, T> {
     /// Returns a `MemoryAccessError` if the slice length overflows.
     #[inline]
     pub fn new(
-        ctx: &'a impl AsContextRef,
+        ctx: &'a impl AsStoreRef,
         memory: &'a Memory,
         offset: u64,
         len: u64,

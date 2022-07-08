@@ -2,11 +2,8 @@
 //! API.
 
 use super::super::{
-    externals::wasm_extern_t, module::wasm_module_t, store::wasm_store_t, types::wasm_name_t,
-    wasi::wasi_env_t,
+    externals::wasm_extern_t, module::wasm_module_t, types::wasm_name_t, wasi::wasi_env_t,
 };
-use wasmer_api::{AsContextMut, Extern};
-use wasmer_wasi::{generate_import_object_from_ctx, get_wasi_version};
 
 /// Unstable non-standard type wrapping `wasm_extern_t` with the
 /// addition of two `wasm_name_t` respectively for the module name and
@@ -147,46 +144,36 @@ pub extern "C" fn wasmer_named_extern_unwrap(
 /// based on the `wasm_module_t` requirements.
 #[no_mangle]
 pub unsafe extern "C" fn wasi_get_unordered_imports(
-    store: Option<&wasm_store_t>,
+    wasi_env: Option<&mut wasi_env_t>,
     module: Option<&wasm_module_t>,
-    wasi_env: Option<&wasi_env_t>,
     imports: &mut wasmer_named_extern_vec_t,
 ) -> bool {
-    wasi_get_unordered_imports_inner(store, module, wasi_env, imports).is_some()
+    wasi_get_unordered_imports_inner(wasi_env, module, imports).is_some()
 }
 
-fn wasi_get_unordered_imports_inner(
-    store: Option<&wasm_store_t>,
+unsafe fn wasi_get_unordered_imports_inner(
+    wasi_env: Option<&mut wasi_env_t>,
     module: Option<&wasm_module_t>,
-    wasi_env: Option<&wasi_env_t>,
     imports: &mut wasmer_named_extern_vec_t,
 ) -> Option<()> {
-    let store = store?;
-    if store.context.is_none() {
-        crate::error::update_last_error(wasm_store_t::CTX_ERR_STR);
-    }
-    let mut ctx = store.context.as_ref()?.borrow_mut();
+    let wasi_env = wasi_env?;
+    let store = &mut wasi_env.store;
+    let mut store_mut = store.store_mut();
     let module = module?;
-    let _wasi_env = wasi_env?;
 
-    let version = c_try!(get_wasi_version(&module.inner, false)
-        .ok_or("could not detect a WASI version on the given module"));
-
-    let inner = unsafe { ctx.inner.transmute_data::<wasmer_wasi::WasiEnv>() };
-    let import_object = generate_import_object_from_ctx(&mut inner.as_context_mut(), version);
+    let import_object = c_try!(wasi_env.inner.import_object(&mut store_mut, &module.inner));
 
     imports.set_buffer(
         import_object
             .into_iter()
-            .map(|((module, name), extern_)| {
+            .map(move |((module, name), extern_)| {
                 let module = module.into();
                 let name = name.into();
-                let extern_inner = Extern::from_vm_extern(&mut ctx.inner, extern_.to_vm_extern());
 
                 Some(Box::new(wasmer_named_extern_t {
                     module,
                     name,
-                    r#extern: Box::new(extern_inner.into()),
+                    r#extern: Box::new(wasm_extern_t::new(store.clone(), extern_)),
                 }))
             })
             .collect::<Vec<_>>(),

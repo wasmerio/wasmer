@@ -16,8 +16,8 @@
 //! Ready?
 
 use wasmer::{
-    imports, wat2wasm, Context, Function, FunctionType, Global, Instance, Memory, Module, Store,
-    Table, Type, Value,
+    imports, wat2wasm, Function, FunctionEnv, FunctionType, Global, Instance, Memory, Module,
+    Store, Table, Type, Value,
 };
 use wasmer_compiler::Universal;
 use wasmer_compiler_cranelift::Cranelift;
@@ -44,8 +44,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Note that we don't need to specify the engine/compiler if we want to use
     // the default provided by Wasmer.
     // You can use `Store::default()` for that.
-    let store = Store::new_with_engine(&Universal::new(Cranelift::default()).engine());
-    let mut ctx = Context::new(&store, ());
+    let mut store = Store::new_with_engine(&Universal::new(Cranelift::default()).engine());
+    let mut env = FunctionEnv::new(&mut store, ());
 
     println!("Compiling module...");
     // Let's compile the Wasm module.
@@ -60,12 +60,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // covered in more detail in other examples.
     println!("Creating the imported function...");
     let host_function_signature = FunctionType::new(vec![], vec![Type::I32]);
-    let host_function = Function::new(&mut ctx, &host_function_signature, |_ctx, _args| {
+    let host_function = Function::new(&mut store, &env, &host_function_signature, |_ctx, _args| {
         Ok(vec![Value::I32(42)])
     });
 
     println!("Creating the imported global...");
-    let host_global = Global::new(&mut ctx, Value::I32(42));
+    let host_global = Global::new(&mut store, Value::I32(42));
 
     // Create an import object.
     //
@@ -90,7 +90,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Instantiating module...");
     // Let's instantiate the Wasm module.
-    let instance = Instance::new(&mut ctx, &module, &import_object)?;
+    let instance = Instance::new(&mut store, &module, &import_object)?;
 
     // Here we go.
     //
@@ -103,19 +103,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Let's get them.
     println!("Getting the exported function...");
     let function = instance.exports.get::<Function>("guest_function")?;
-    println!("Got exported function of type: {:?}", function.ty(&mut ctx));
+    println!("Got exported function of type: {:?}", function.ty(&store));
 
     println!("Getting the exported global...");
     let global = instance.exports.get::<Global>("guest_global")?;
-    println!("Got exported global of type: {:?}", global.ty(&mut ctx));
+    println!("Got exported global of type: {:?}", global.ty(&store));
 
     println!("Getting the exported memory...");
     let memory = instance.exports.get::<Memory>("guest_memory")?;
-    println!("Got exported memory of type: {:?}", memory.ty(&mut ctx));
+    println!("Got exported memory of type: {:?}", memory.ty(&store));
 
     println!("Getting the exported table...");
     let table = instance.exports.get::<Table>("guest_table")?;
-    println!("Got exported table of type: {:?}", table.ty(&mut ctx));
+    println!("Got exported table of type: {:?}", table.ty(&store));
 
     Ok(())
 }

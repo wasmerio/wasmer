@@ -33,8 +33,8 @@ void check(T actual, U expected) {
 
 template<class... Args>
 void check_ok(const wasm::Func* func, Args... xs) {
-  auto args = wasm::vec<wasm::Value>::make(wasm::Value::i32(xs)...);
-  auto results = wasm::vec<wasm::Value>::make();
+  auto args = wasm::vec<wasm::Val>::make(wasm::Val::i32(xs)...);
+  auto results = wasm::vec<wasm::Val>::make();
   if (func->call(args, results)) {
     std::cout << "> Error on result, expected return" << std::endl;
     exit(1);
@@ -43,8 +43,8 @@ void check_ok(const wasm::Func* func, Args... xs) {
 
 template<class... Args>
 void check_trap(const wasm::Func* func, Args... xs) {
-  auto args = wasm::vec<wasm::Value>::make(wasm::Value::i32(xs)...);
-  auto results = wasm::vec<wasm::Value>::make();
+  auto args = wasm::vec<wasm::Val>::make(wasm::Val::i32(xs)...);
+  auto results = wasm::vec<wasm::Val>::make();
   if (! func->call(args, results)) {
     std::cout << "> Error on result, expected trap" << std::endl;
     exit(1);
@@ -53,8 +53,8 @@ void check_trap(const wasm::Func* func, Args... xs) {
 
 template<class... Args>
 auto call(const wasm::Func* func, Args... xs) -> int32_t {
-  auto args = wasm::vec<wasm::Value>::make(wasm::Value::i32(xs)...);
-  auto results = wasm::vec<wasm::Value>::make_uninitialized(1);
+  auto args = wasm::vec<wasm::Val>::make(wasm::Val::i32(xs)...);
+  auto results = wasm::vec<wasm::Val>::make_uninitialized(1);
   if (func->call(args, results)) {
     std::cout << "> Error on result, expected return" << std::endl;
     exit(1);

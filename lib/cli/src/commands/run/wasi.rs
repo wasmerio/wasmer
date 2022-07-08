@@ -2,7 +2,7 @@ use crate::utils::{parse_envvar, parse_mapdir};
 use anyhow::Result;
 use std::collections::BTreeSet;
 use std::path::PathBuf;
-use wasmer::{AsContextMut, Context, Instance, Module, RuntimeError, Value};
+use wasmer::{AsStoreMut, FunctionEnv, Instance, Module, RuntimeError, Value};
 use wasmer_wasi::{
     get_wasi_versions, import_object_for_all_wasi_versions, is_wasix_module, WasiEnv, WasiError,
     WasiState, WasiVersion,
@@ -78,10 +78,11 @@ impl Wasi {
     /// Helper function for instantiating a module with Wasi imports for the `Run` command.
     pub fn instantiate(
         &self,
+        store: &mut impl AsStoreMut,
         module: &Module,
         program_name: String,
         args: Vec<String>,
-    ) -> Result<(Context<WasiEnv>, Instance)> {
+    ) -> Result<(FunctionEnv<WasiEnv>, Instance)> {
         let args = args.iter().cloned().map(|arg| arg.into_bytes());
 
         let mut wasi_state_builder = WasiState::new(program_name);
@@ -99,17 +100,16 @@ impl Wasi {
             }
         }
 
-        let wasi_env = wasi_state_builder.finalize()?;
-        wasi_env.state.fs.is_wasix.store(
+        let wasi_env = wasi_state_builder.finalize(store)?;
+        wasi_env.env.as_mut(store).state.fs.is_wasix.store(
             is_wasix_module(module),
             std::sync::atomic::Ordering::Release,
         );
-        let mut ctx = Context::new(module.store(), wasi_env);
-        let import_object = import_object_for_all_wasi_versions(&mut ctx.as_context_mut());
-        let instance = Instance::new(&mut ctx, module, &import_object)?;
+        let import_object = import_object_for_all_wasi_versions(store, &wasi_env.env);
+        let instance = Instance::new(store, module, &import_object)?;
         let memory = instance.exports.get_memory("memory")?;
-        ctx.data_mut().set_memory(memory.clone());
-        Ok((ctx, instance))
+        wasi_env.data_mut(store).set_memory(memory.clone());
+        Ok((wasi_env.env, instance))
     }
 
     /// Helper function for handling the result of a Wasi _start function.

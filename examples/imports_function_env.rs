@@ -21,7 +21,8 @@
 
 use std::sync::{Arc, Mutex};
 use wasmer::{
-    imports, wat2wasm, Context, ContextMut, Function, Instance, Module, Store, TypedFunction,
+    imports, wat2wasm, Function, FunctionEnv, FunctionEnvMut, Instance, Module, Store,
+    TypedFunction,
 };
 use wasmer_compiler::Universal;
 use wasmer_compiler_cranelift::Cranelift;
@@ -51,7 +52,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Note that we don't need to specify the engine/compiler if we want to use
     // the default provided by Wasmer.
     // You can use `Store::default()` for that.
-    let store = Store::new_with_engine(&Universal::new(Cranelift::default()).engine());
+    let mut store = Store::new_with_engine(&Universal::new(Cranelift::default()).engine());
 
     println!("Compiling module...");
     // Let's compile the Wasm module.
@@ -65,7 +66,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let shared_counter: Arc<Mutex<i32>> = Arc::new(Mutex::new(0));
 
     // Once we have our counter we'll wrap it inside en `Env` which we'll pass
-    // to our imported functionsvia the Context.
+    // to our imported functionsvia the FunctionEnv.
     //
     // This struct may have been anything. The only constraint is it must be
     // possible to know the size of the `Env` at compile time (i.e it has to
@@ -77,18 +78,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // Create the functions
-    fn get_counter(ctx: ContextMut<Env>) -> i32 {
+    fn get_counter(ctx: FunctionEnvMut<Env>) -> i32 {
         *ctx.data().counter.lock().unwrap()
     }
-    fn add_to_counter(mut ctx: ContextMut<Env>, add: i32) -> i32 {
+    fn add_to_counter(mut ctx: FunctionEnvMut<Env>, add: i32) -> i32 {
         let mut counter_ref = ctx.data_mut().counter.lock().unwrap();
 
         *counter_ref += add;
         *counter_ref
     }
 
-    let mut ctx = Context::new(
-        &store,
+    let mut env = FunctionEnv::new(
+        &mut store,
         Env {
             counter: shared_counter.clone(),
         },
@@ -97,14 +98,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create an import object.
     let import_object = imports! {
         "env" => {
-            "get_counter" => Function::new_native(&mut ctx, get_counter),
-            "add_to_counter" => Function::new_native(&mut ctx, add_to_counter),
+            "get_counter" => Function::new_native(&mut store, &env, get_counter),
+            "add_to_counter" => Function::new_native(&mut store, &env, add_to_counter),
         }
     };
 
     println!("Instantiating module...");
     // Let's instantiate the Wasm module.
-    let instance = Instance::new(&mut ctx, &module, &import_object)?;
+    let instance = Instance::new(&mut store, &module, &import_object)?;
 
     // Here we go.
     //
@@ -112,7 +113,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let increment_counter_loop: TypedFunction<i32, i32> = instance
         .exports
         .get_function("increment_counter_loop")?
-        .native(&mut ctx)?;
+        .native(&mut store)?;
 
     let counter_value: i32 = *shared_counter.lock().unwrap();
     println!("Initial ounter value: {:?}", counter_value);
@@ -121,7 +122,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Let's call the `increment_counter_loop` exported function.
     //
     // It will loop five times thus incrementing our counter five times.
-    let result = increment_counter_loop.call(&mut ctx, 5)?;
+    let result = increment_counter_loop.call(&mut store, 5)?;
 
     let counter_value: i32 = *shared_counter.lock().unwrap();
     println!("New counter value (host): {:?}", counter_value);

@@ -9,10 +9,10 @@
 
 // A function to be called from Wasm code.
 auto neg_callback(
-  const wasm::vec<wasm::Value>& args, wasm::vec<wasm::Value>& results
+  const wasm::vec<wasm::Val>& args, wasm::vec<wasm::Val>& results
 ) -> wasm::own<wasm::Trap> {
   std::cout << "Calling back..." << std::endl;
-  results[0] = wasm::Value(-args[0].i32());
+  results[0] = wasm::Val(-args[0].i32());
   return nullptr;
 }
 
@@ -49,10 +49,10 @@ void check(bool success) {
 }
 
 auto call(
-  const wasm::Func* func, wasm::Value&& arg1, wasm::Value&& arg2
-) -> wasm::Value {
-  auto args = wasm::vec<wasm::Value>::make(std::move(arg1), std::move(arg2));
-  auto results = wasm::vec<wasm::Value>::make_uninitialized(1);
+  const wasm::Func* func, wasm::Val&& arg1, wasm::Val&& arg2
+) -> wasm::Val {
+  auto args = wasm::vec<wasm::Val>::make(std::move(arg1), std::move(arg2));
+  auto results = wasm::vec<wasm::Val>::make_uninitialized(1);
   if (func->call(args, results)) {
     std::cout << "> Error on result, expected return" << std::endl;
     exit(1);
@@ -60,9 +60,9 @@ auto call(
   return results[0].copy();
 }
 
-void check_trap(const wasm::Func* func, wasm::Value&& arg1, wasm::Value&& arg2) {
-  auto args = wasm::vec<wasm::Value>::make(std::move(arg1), std::move(arg2));
-  auto results = wasm::vec<wasm::Value>::make_uninitialized(1);
+void check_trap(const wasm::Func* func, wasm::Val&& arg1, wasm::Val&& arg2) {
+  auto args = wasm::vec<wasm::Val>::make(std::move(arg1), std::move(arg2));
+  auto results = wasm::vec<wasm::Val>::make_uninitialized(1);
   if (! func->call(args, results)) {
     std::cout << "> Error on result, expected trap" << std::endl;
     exit(1);
@@ -119,8 +119,8 @@ void run() {
   // Create external function.
   std::cout << "Creating callback..." << std::endl;
   auto neg_type = wasm::FuncType::make(
-    wasm::ownvec<wasm::ValueType>::make(wasm::ValueType::make(wasm::ValueKind::I32)),
-    wasm::ownvec<wasm::ValueType>::make(wasm::ValueType::make(wasm::ValueKind::I32))
+    wasm::ownvec<wasm::ValType>::make(wasm::ValType::make(wasm::ValKind::I32)),
+    wasm::ownvec<wasm::ValType>::make(wasm::ValType::make(wasm::ValKind::I32))
   );
   auto h = wasm::Func::make(store, neg_type.get(), neg_callback);
 
@@ -132,9 +132,9 @@ void run() {
   check(table->size(), 2u);
   check(table->get(0) == nullptr);
   check(table->get(1) != nullptr);
-  check_trap(call_indirect, wasm::Value::i32(0), wasm::Value::i32(0));
-  check(call(call_indirect, wasm::Value::i32(7), wasm::Value::i32(1)).i32(), 7);
-  check_trap(call_indirect, wasm::Value::i32(0), wasm::Value::i32(2));
+  check_trap(call_indirect, wasm::Val::i32(0), wasm::Val::i32(0));
+  check(call(call_indirect, wasm::Val::i32(7), wasm::Val::i32(1)).i32(), 7);
+  check_trap(call_indirect, wasm::Val::i32(0), wasm::Val::i32(2));
 
   // Mutate table.
   std::cout << "Mutating table..." << std::endl;
@@ -143,9 +143,9 @@ void run() {
   check(! table->set(2, f));
   check(table->get(0) != nullptr);
   check(table->get(1) == nullptr);
-  check(call(call_indirect, wasm::Value::i32(7), wasm::Value::i32(0)).i32(), 666);
-  check_trap(call_indirect, wasm::Value::i32(0), wasm::Value::i32(1));
-  check_trap(call_indirect, wasm::Value::i32(0), wasm::Value::i32(2));
+  check(call(call_indirect, wasm::Val::i32(7), wasm::Val::i32(0)).i32(), 666);
+  check_trap(call_indirect, wasm::Val::i32(0), wasm::Val::i32(1));
+  check_trap(call_indirect, wasm::Val::i32(0), wasm::Val::i32(2));
 
   // Grow table.
   std::cout << "Growing table..." << std::endl;
@@ -157,10 +157,10 @@ void run() {
   check(table->get(2) != nullptr);
   check(table->get(3) != nullptr);
   check(table->get(4) == nullptr);
-  check(call(call_indirect, wasm::Value::i32(5), wasm::Value::i32(2)).i32(), 5);
-  check(call(call_indirect, wasm::Value::i32(6), wasm::Value::i32(3)).i32(), -6);
-  check_trap(call_indirect, wasm::Value::i32(0), wasm::Value::i32(4));
-  check_trap(call_indirect, wasm::Value::i32(0), wasm::Value::i32(5));
+  check(call(call_indirect, wasm::Val::i32(5), wasm::Val::i32(2)).i32(), 5);
+  check(call(call_indirect, wasm::Val::i32(6), wasm::Val::i32(3)).i32(), -6);
+  check_trap(call_indirect, wasm::Val::i32(0), wasm::Val::i32(4));
+  check_trap(call_indirect, wasm::Val::i32(0), wasm::Val::i32(5));
 
   check(table->grow(2, f));
   check(table->size(), 7u);
@@ -175,7 +175,7 @@ void run() {
   // TODO(wasm+): Once Wasm allows multiple tables, turn this into import.
   std::cout << "Creating stand-alone table..." << std::endl;
   auto tabletype = wasm::TableType::make(
-    wasm::ValueType::make(wasm::ValueKind::FUNCREF), wasm::Limits(5, 5));
+    wasm::ValType::make(wasm::ValKind::FUNCREF), wasm::Limits(5, 5));
   auto table2 = wasm::Table::make(store, tabletype.get());
   check(table2->size() == 5);
   check(! table2->grow(1));

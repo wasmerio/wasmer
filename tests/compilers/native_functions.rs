@@ -2,12 +2,12 @@ use anyhow::Result;
 use std::convert::Infallible;
 use std::sync::{Arc, Mutex};
 
-use wasmer::Context as WasmerContext;
+use wasmer::FunctionEnv;
 use wasmer::Type as ValueType;
 use wasmer::*;
 
 fn long_f(
-    _ctx: ContextMut<()>,
+    _ctx: FunctionEnvMut<()>,
     a: u32,
     b: u32,
     c: u32,
@@ -31,7 +31,7 @@ fn long_f(
         + a as u64 * 1000000000
 }
 
-fn long_f_dynamic(_ctx: ContextMut<()>, values: &[Value]) -> Result<Vec<Value>, RuntimeError> {
+fn long_f_dynamic(_ctx: FunctionEnvMut<()>, values: &[Value]) -> Result<Vec<Value>, RuntimeError> {
     Ok(vec![Value::I64(
         values[9].unwrap_i32() as i64
             + values[8].unwrap_i32() as i64 * 10
@@ -48,7 +48,7 @@ fn long_f_dynamic(_ctx: ContextMut<()>, values: &[Value]) -> Result<Vec<Value>, 
 
 #[compiler_test(native_functions)]
 fn native_function_works_for_wasm(config: crate::Config) -> anyhow::Result<()> {
-    let store = config.store();
+    let mut store = config.store();
     let wat = r#"(module
         (func $multiply (import "env" "multiply") (param i32 i32) (result i32))
         (func (export "add") (param i32 i32) (result i32)
@@ -59,32 +59,32 @@ fn native_function_works_for_wasm(config: crate::Config) -> anyhow::Result<()> {
                     (call $multiply (local.get 1) (i32.const 2))))
 )"#;
     let module = Module::new(&store, wat).unwrap();
-    let mut ctx = WasmerContext::new(&store, ());
+    let mut env = FunctionEnv::new(&mut store, ());
 
     let import_object = imports! {
         "env" => {
-            "multiply" => Function::new_native(&mut ctx, |_ctx: ContextMut<_>, a: i32, b: i32| a * b),
+            "multiply" => Function::new_native(&mut store, &env, |_ctx: FunctionEnvMut<_>, a: i32, b: i32| a * b),
         },
     };
-    let instance = Instance::new(&mut ctx, &module, &import_object)?;
+    let instance = Instance::new(&mut store, &module, &import_object)?;
 
     {
         let f: TypedFunction<(i32, i32), i32> =
-            instance.exports.get_typed_function(&mut ctx, "add")?;
-        let result = f.call(&mut ctx, 4, 6)?;
+            instance.exports.get_typed_function(&mut store, "add")?;
+        let result = f.call(&mut store, 4, 6)?;
         assert_eq!(result, 10);
     }
 
     {
         let f: &Function = instance.exports.get("double_then_add")?;
-        let result = f.call(&mut ctx, &[Value::I32(4), Value::I32(6)])?;
+        let result = f.call(&mut store, &[Value::I32(4), Value::I32(6)])?;
         assert_eq!(result[0], Value::I32(20));
     }
 
     {
         let dyn_f: &Function = instance.exports.get("double_then_add")?;
-        let f: TypedFunction<(i32, i32), i32> = dyn_f.native(&mut ctx).unwrap();
-        let result = f.call(&mut ctx, 4, 6)?;
+        let f: TypedFunction<(i32, i32), i32> = dyn_f.native(&mut store).unwrap();
+        let result = f.call(&mut store, 4, 6)?;
         assert_eq!(result, 20);
     }
 
@@ -93,28 +93,32 @@ fn native_function_works_for_wasm(config: crate::Config) -> anyhow::Result<()> {
 
 #[compiler_test(native_functions)]
 fn native_host_function_closure_panics(config: crate::Config) {
-    let store = config.store();
-    let mut ctx = WasmerContext::new(&store, ());
+    let mut store = config.store();
+    let mut env = FunctionEnv::new(&mut store, ());
     let state = 3;
-    Function::new_native(&mut ctx, move |_ctx: ContextMut<_>, _: i32| {
+    Function::new_native(&mut store, &env, move |_ctx: FunctionEnvMut<_>, _: i32| {
         println!("{}", state);
     });
 }
 
 #[compiler_test(native_functions)]
 fn native_with_env_host_function_closure_panics(config: crate::Config) {
-    let store = config.store();
+    let mut store = config.store();
     let env: i32 = 4;
-    let mut ctx = WasmerContext::new(&store, env);
+    let mut env = FunctionEnv::new(&mut store, env);
     let state = 3;
-    Function::new_native(&mut ctx, move |_ctx: ContextMut<i32>, _: i32| {
-        println!("{}", state);
-    });
+    Function::new_native(
+        &mut store,
+        &env,
+        move |_ctx: FunctionEnvMut<i32>, _: i32| {
+            println!("{}", state);
+        },
+    );
 }
 
 #[compiler_test(native_functions)]
 fn non_native_functions_and_closures_with_no_env_work(config: crate::Config) -> anyhow::Result<()> {
-    let store = config.store();
+    let mut store = config.store();
     let wat = r#"(module
         (func $multiply1 (import "env" "multiply1") (param i32 i32) (result i32))
         (func $multiply2 (import "env" "multiply2") (param i32 i32) (result i32))
@@ -134,38 +138,38 @@ fn non_native_functions_and_closures_with_no_env_work(config: crate::Config) -> 
 )"#;
     let module = Module::new(&store, wat).unwrap();
     let env: i32 = 10;
-    let mut ctx = WasmerContext::new(&store, env);
+    let mut env = FunctionEnv::new(&mut store, env);
     let ty = FunctionType::new(vec![Type::I32, Type::I32], vec![Type::I32]);
     let captured_by_closure = 20;
     let import_object = imports! {
         "env" => {
-            "multiply1" => Function::new(&mut ctx, &ty, move |_ctx, args| {
+            "multiply1" => Function::new(&mut store, &env, &ty, move |_ctx, args| {
                 if let (Value::I32(v1), Value::I32(v2)) = (&args[0], &args[1]) {
                     Ok(vec![Value::I32(v1 * v2 * captured_by_closure)])
                 } else {
                     panic!("Invalid arguments");
                 }
             }),
-            "multiply2" => Function::new(&mut ctx, &ty, move |ctx, args| {
+            "multiply2" => Function::new(&mut store, &env, &ty, move |ctx, args| {
                 if let (Value::I32(v1), Value::I32(v2)) = (&args[0], &args[1]) {
                     Ok(vec![Value::I32(v1 * v2 * captured_by_closure * ctx.data())])
                 } else {
                     panic!("Invalid arguments");
                 }
             }),
-            "multiply3" => Function::new_native(&mut ctx, |_ctx: ContextMut<_>, arg1: i32, arg2: i32| -> i32
+            "multiply3" => Function::new_native(&mut store, &env, |_ctx: FunctionEnvMut<_>, arg1: i32, arg2: i32| -> i32
                                                 {arg1 * arg2 }),
-            "multiply4" => Function::new_native(&mut ctx, |ctx: ContextMut<i32>, arg1: i32, arg2: i32| -> i32
+            "multiply4" => Function::new_native(&mut store, &env, |ctx: FunctionEnvMut<i32>, arg1: i32, arg2: i32| -> i32
                                                          {arg1 * arg2 * ctx.data() }),
         },
     };
 
-    let instance = Instance::new(&mut ctx, &module, &import_object)?;
+    let instance = Instance::new(&mut store, &module, &import_object)?;
 
     let test: TypedFunction<(i32, i32, i32, i32, i32), i32> =
-        instance.exports.get_typed_function(&mut ctx, "test")?;
+        instance.exports.get_typed_function(&mut store, "test")?;
 
-    let result = test.call(&mut ctx, 2, 3, 4, 5, 6)?;
+    let result = test.call(&mut store, 2, 3, 4, 5, 6)?;
     let manually_computed_result = 6 * (5 * (4 * (3 * 2 * 20) * 10 * 20)) * 10;
     assert_eq!(result, manually_computed_result);
     Ok(())
@@ -173,7 +177,7 @@ fn non_native_functions_and_closures_with_no_env_work(config: crate::Config) -> 
 
 #[compiler_test(native_functions)]
 fn native_function_works_for_wasm_function_manyparams(config: crate::Config) -> anyhow::Result<()> {
-    let store = config.store();
+    let mut store = config.store();
     let wat = r#"(module
         (func $longf (import "env" "longf") (param i32 i32 i32 i32 i32 i32 i64 i64 i32 i32) (result i64))
         (func (export "longf_pure") (param i32 i32 i32 i32 i32 i32 i64 i64 i32 i32) (result i64)
@@ -182,27 +186,27 @@ fn native_function_works_for_wasm_function_manyparams(config: crate::Config) -> 
            (call $longf (i32.const 1) (i32.const 2) (i32.const 3) (i32.const 4) (i32.const 5) (i32.const 6) (i64.const 7) (i64.const 8) (i32.const 9) (i32.const 0)))
 )"#;
     let module = Module::new(&store, wat).unwrap();
-    let mut ctx = WasmerContext::new(&store, ());
+    let mut env = FunctionEnv::new(&mut store, ());
     let import_object = imports! {
         "env" => {
-            "longf" => Function::new_native(&mut ctx, long_f),
+            "longf" => Function::new_native(&mut store, &env, long_f),
         },
     };
 
-    let instance = Instance::new(&mut ctx, &module, &import_object)?;
+    let instance = Instance::new(&mut store, &module, &import_object)?;
 
     {
         let dyn_f: &Function = instance.exports.get("longf")?;
-        let f: TypedFunction<(), i64> = dyn_f.native(&mut ctx).unwrap();
-        let result = f.call(&mut ctx)?;
+        let f: TypedFunction<(), i64> = dyn_f.native(&mut store).unwrap();
+        let result = f.call(&mut store)?;
         assert_eq!(result, 1234567890);
     }
 
     {
         let dyn_f: &Function = instance.exports.get("longf_pure")?;
         let f: TypedFunction<(u32, u32, u32, u32, u32, u16, u64, u64, u16, u32), i64> =
-            dyn_f.native(&mut ctx).unwrap();
-        let result = f.call(&mut ctx, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0)?;
+            dyn_f.native(&mut store).unwrap();
+        let result = f.call(&mut store, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0)?;
         assert_eq!(result, 1234567890);
     }
 
@@ -213,8 +217,8 @@ fn native_function_works_for_wasm_function_manyparams(config: crate::Config) -> 
 fn native_function_works_for_wasm_function_manyparams_dynamic(
     config: crate::Config,
 ) -> anyhow::Result<()> {
-    let store = config.store();
-    let mut ctx = WasmerContext::new(&store, ());
+    let mut store = config.store();
+    let mut env = FunctionEnv::new(&mut store, ());
     let wat = r#"(module
         (func $longf (import "env" "longf") (param i32 i32 i32 i32 i32 i32 i64 i64 i32 i32) (result i64))
         (func (export "longf_pure") (param i32 i32 i32 i32 i32 i32 i64 i64 i32 i32) (result i64)
@@ -226,24 +230,24 @@ fn native_function_works_for_wasm_function_manyparams_dynamic(
 
     let import_object = imports! {
         "env" => {
-            "longf" => Function::new(&mut ctx, FunctionType::new(vec![ValueType::I32, ValueType::I32, ValueType::I32, ValueType::I32, ValueType::I32, ValueType::I32, ValueType::I64 , ValueType::I64 ,ValueType::I32, ValueType::I32], vec![ValueType::I64]), long_f_dynamic),
+            "longf" => Function::new(&mut store, &env, FunctionType::new(vec![ValueType::I32, ValueType::I32, ValueType::I32, ValueType::I32, ValueType::I32, ValueType::I32, ValueType::I64 , ValueType::I64 ,ValueType::I32, ValueType::I32], vec![ValueType::I64]), long_f_dynamic),
         },
     };
 
-    let instance = Instance::new(&mut ctx, &module, &import_object)?;
+    let instance = Instance::new(&mut store, &module, &import_object)?;
 
     {
         let dyn_f: &Function = instance.exports.get("longf")?;
-        let f: TypedFunction<(), i64> = dyn_f.native(&mut ctx).unwrap();
-        let result = f.call(&mut ctx)?;
+        let f: TypedFunction<(), i64> = dyn_f.native(&mut store).unwrap();
+        let result = f.call(&mut store)?;
         assert_eq!(result, 1234567890);
     }
 
     {
         let dyn_f: &Function = instance.exports.get("longf_pure")?;
         let f: TypedFunction<(u32, u32, u32, u32, u32, u16, u64, u64, u16, u32), i64> =
-            dyn_f.native(&mut ctx).unwrap();
-        let result = f.call(&mut ctx, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0)?;
+            dyn_f.native(&mut store).unwrap();
+        let result = f.call(&mut store, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0)?;
         assert_eq!(result, 1234567890);
     }
 
@@ -252,15 +256,15 @@ fn native_function_works_for_wasm_function_manyparams_dynamic(
 
 #[compiler_test(native_functions)]
 fn static_host_function_without_env(config: crate::Config) -> anyhow::Result<()> {
-    let store = config.store();
-    let mut ctx = WasmerContext::new(&store, ());
+    let mut store = config.store();
+    let mut env = FunctionEnv::new(&mut store, ());
 
-    fn f(_ctx: ContextMut<()>, a: i32, b: i64, c: f32, d: f64) -> (f64, f32, i64, i32) {
+    fn f(_ctx: FunctionEnvMut<()>, a: i32, b: i64, c: f32, d: f64) -> (f64, f32, i64, i32) {
         (d * 4.0, c * 3.0, b * 2, a * 1)
     }
 
     fn f_ok(
-        _ctx: ContextMut<()>,
+        _ctx: FunctionEnvMut<()>,
         a: i32,
         b: i64,
         c: f32,
@@ -270,7 +274,7 @@ fn static_host_function_without_env(config: crate::Config) -> anyhow::Result<()>
     }
 
     fn long_f(
-        _ctx: ContextMut<()>,
+        _ctx: FunctionEnvMut<()>,
         a: u32,
         b: u32,
         c: u32,
@@ -291,30 +295,30 @@ fn static_host_function_without_env(config: crate::Config) -> anyhow::Result<()>
 
     // Native static host function that returns a tuple.
     {
-        let f = Function::new_native(&mut ctx, f);
+        let f = Function::new_native(&mut store, &env, f);
         let f_native: TypedFunction<(i32, i64, f32, f64), (f64, f32, i64, i32)> =
-            f.native(&mut ctx).unwrap();
-        let result = f_native.call(&mut ctx, 1, 3, 5.0, 7.0)?;
+            f.native(&mut store).unwrap();
+        let result = f_native.call(&mut store, 1, 3, 5.0, 7.0)?;
         assert_eq!(result, (28.0, 15.0, 6, 1));
     }
 
     // Native static host function that returns a tuple.
     {
-        let long_f = Function::new_native(&mut ctx, long_f);
+        let long_f = Function::new_native(&mut store, &env, long_f);
         let long_f_native: TypedFunction<
             (u32, u32, u32, u32, u32, u16, u64, u64, u16, u32),
             (u32, u64, u32),
-        > = long_f.native(&mut ctx).unwrap();
-        let result = long_f_native.call(&mut ctx, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0)?;
+        > = long_f.native(&mut store).unwrap();
+        let result = long_f_native.call(&mut store, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0)?;
         assert_eq!(result, (654321, 87, 09));
     }
 
     // Native static host function that returns a result of a tuple.
     {
-        let f = Function::new_native(&mut ctx, f_ok);
+        let f = Function::new_native(&mut store, &env, f_ok);
         let f_native: TypedFunction<(i32, i64, f32, f64), (f64, f32, i64, i32)> =
-            f.native(&mut ctx).unwrap();
-        let result = f_native.call(&mut ctx, 1, 3, 5.0, 7.0)?;
+            f.native(&mut store).unwrap();
+        let result = f_native.call(&mut store, 1, 3, 5.0, 7.0)?;
         assert_eq!(result, (28.0, 15.0, 6, 1));
     }
 
@@ -323,9 +327,9 @@ fn static_host_function_without_env(config: crate::Config) -> anyhow::Result<()>
 
 #[compiler_test(native_functions)]
 fn static_host_function_with_env(config: crate::Config) -> anyhow::Result<()> {
-    let store = config.store();
+    let mut store = config.store();
 
-    fn f(mut ctx: ContextMut<Env>, a: i32, b: i64, c: f32, d: f64) -> (f64, f32, i64, i32) {
+    fn f(mut ctx: FunctionEnvMut<Env>, a: i32, b: i64, c: f32, d: f64) -> (f64, f32, i64, i32) {
         let mut guard = ctx.data_mut().0.lock().unwrap();
         assert_eq!(*guard, 100);
         *guard = 101;
@@ -334,7 +338,7 @@ fn static_host_function_with_env(config: crate::Config) -> anyhow::Result<()> {
     }
 
     fn f_ok(
-        mut ctx: ContextMut<Env>,
+        mut ctx: FunctionEnvMut<Env>,
         a: i32,
         b: i64,
         c: f32,
@@ -360,35 +364,35 @@ fn static_host_function_with_env(config: crate::Config) -> anyhow::Result<()> {
     // Native static host function that returns a tuple.
     {
         let env = Env(Arc::new(Mutex::new(100)));
-        let mut ctx = WasmerContext::new(&store, env);
+        let mut env = FunctionEnv::new(&mut store, env);
 
-        let f = Function::new_native(&mut ctx, f);
+        let f = Function::new_native(&mut store, &env, f);
         let f_native: TypedFunction<(i32, i64, f32, f64), (f64, f32, i64, i32)> =
-            f.native(&mut ctx).unwrap();
+            f.native(&mut store).unwrap();
 
-        assert_eq!(*ctx.data_mut().0.lock().unwrap(), 100);
+        assert_eq!(*env.as_mut(&mut store).0.lock().unwrap(), 100);
 
-        let result = f_native.call(&mut ctx, 1, 3, 5.0, 7.0)?;
+        let result = f_native.call(&mut store, 1, 3, 5.0, 7.0)?;
 
         assert_eq!(result, (28.0, 15.0, 6, 1));
-        assert_eq!(*ctx.data_mut().0.lock().unwrap(), 101);
+        assert_eq!(*env.as_mut(&mut store).0.lock().unwrap(), 101);
     }
 
     // Native static host function that returns a result of a tuple.
     {
         let env = Env(Arc::new(Mutex::new(100)));
-        let mut ctx = WasmerContext::new(&store, env);
+        let mut env = FunctionEnv::new(&mut store, env);
 
-        let f = Function::new_native(&mut ctx, f_ok);
+        let f = Function::new_native(&mut store, &env, f_ok);
         let f_native: TypedFunction<(i32, i64, f32, f64), (f64, f32, i64, i32)> =
-            f.native(&mut ctx).unwrap();
+            f.native(&mut store).unwrap();
 
-        assert_eq!(*ctx.data_mut().0.lock().unwrap(), 100);
+        assert_eq!(*env.as_mut(&mut store).0.lock().unwrap(), 100);
 
-        let result = f_native.call(&mut ctx, 1, 3, 5.0, 7.0)?;
+        let result = f_native.call(&mut store, 1, 3, 5.0, 7.0)?;
 
         assert_eq!(result, (28.0, 15.0, 6, 1));
-        assert_eq!(*ctx.data_mut().0.lock().unwrap(), 101);
+        assert_eq!(*env.as_mut(&mut store).0.lock().unwrap(), 101);
     }
 
     Ok(())
@@ -396,10 +400,11 @@ fn static_host_function_with_env(config: crate::Config) -> anyhow::Result<()> {
 
 #[compiler_test(native_functions)]
 fn dynamic_host_function_without_env(config: crate::Config) -> anyhow::Result<()> {
-    let store = config.store();
-    let mut ctx = WasmerContext::new(&store, ());
+    let mut store = config.store();
+    let mut env = FunctionEnv::new(&mut store, ());
     let f = Function::new(
-        &mut ctx,
+        &mut store,
+        &env,
         FunctionType::new(
             vec![
                 ValueType::I32,
@@ -414,7 +419,7 @@ fn dynamic_host_function_without_env(config: crate::Config) -> anyhow::Result<()
                 ValueType::I32,
             ],
         ),
-        |_ctx: ContextMut<_>, values| {
+        |_ctx: FunctionEnvMut<_>, values| {
             Ok(vec![
                 Value::F64(values[3].unwrap_f64() * 4.0),
                 Value::F32(values[2].unwrap_f32() * 3.0),
@@ -424,8 +429,8 @@ fn dynamic_host_function_without_env(config: crate::Config) -> anyhow::Result<()
         },
     );
     let f_native: TypedFunction<(i32, i64, f32, f64), (f64, f32, i64, i32)> =
-        f.native(&mut ctx).unwrap();
-    let result = f_native.call(&mut ctx, 1, 3, 5.0, 7.0)?;
+        f.native(&mut store).unwrap();
+    let result = f_native.call(&mut store, 1, 3, 5.0, 7.0)?;
 
     assert_eq!(result, (28.0, 15.0, 6, 1));
 
@@ -434,7 +439,7 @@ fn dynamic_host_function_without_env(config: crate::Config) -> anyhow::Result<()
 
 #[compiler_test(native_functions)]
 fn dynamic_host_function_with_env(config: crate::Config) -> anyhow::Result<()> {
-    let store = config.store();
+    let mut store = config.store();
 
     #[derive(Clone)]
     struct Env(Arc<Mutex<i32>>);
@@ -447,9 +452,10 @@ fn dynamic_host_function_with_env(config: crate::Config) -> anyhow::Result<()> {
     }
 
     let env = Env(Arc::new(Mutex::new(100)));
-    let mut ctx = WasmerContext::new(&store, env);
+    let mut env = FunctionEnv::new(&mut store, env);
     let f = Function::new(
-        &mut ctx,
+        &mut store,
+        &env,
         FunctionType::new(
             vec![
                 ValueType::I32,
@@ -480,14 +486,14 @@ fn dynamic_host_function_with_env(config: crate::Config) -> anyhow::Result<()> {
     );
 
     let f_native: TypedFunction<(i32, i64, f32, f64), (f64, f32, i64, i32)> =
-        f.native(&mut ctx).unwrap();
+        f.native(&mut store).unwrap();
 
-    assert_eq!(*ctx.data().0.lock().unwrap(), 100);
+    assert_eq!(*env.as_mut(&mut store).0.lock().unwrap(), 100);
 
-    let result = f_native.call(&mut ctx, 1, 3, 5.0, 7.0)?;
+    let result = f_native.call(&mut store, 1, 3, 5.0, 7.0)?;
 
     assert_eq!(result, (28.0, 15.0, 6, 1));
-    assert_eq!(*ctx.data().0.lock().unwrap(), 101);
+    assert_eq!(*env.as_mut(&mut store).0.lock().unwrap(), 101);
 
     Ok(())
 }

@@ -1,7 +1,7 @@
-use crate::js::context::{AsContextMut, AsContextRef, ContextHandle, InternalContextHandle};
 use crate::js::export::VMGlobal;
 use crate::js::exports::{ExportError, Exportable};
 use crate::js::externals::Extern;
+use crate::js::store::{AsStoreMut, AsStoreRef, InternalStoreHandle, StoreHandle};
 use crate::js::value::Value;
 use crate::js::wasm_bindgen_polyfill::Global as JSGlobal;
 use crate::js::GlobalType;
@@ -17,7 +17,7 @@ use wasm_bindgen::JsValue;
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#global-instances>
 #[derive(Debug, Clone, PartialEq)]
 pub struct Global {
-    pub(crate) handle: ContextHandle<VMGlobal>,
+    pub(crate) handle: StoreHandle<VMGlobal>,
 }
 
 impl Global {
@@ -27,14 +27,14 @@ impl Global {
     ///
     /// ```
     /// # use wasmer::{Global, Mutability, Store, Value};
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// #
     /// let g = Global::new(&store, Value::I32(1));
     ///
     /// assert_eq!(g.get(), Value::I32(1));
     /// assert_eq!(g.ty().mutability, Mutability::Const);
     /// ```
-    pub fn new(ctx: &mut impl AsContextMut, val: Value) -> Self {
+    pub fn new(ctx: &mut impl AsStoreMut, val: Value) -> Self {
         Self::from_value(ctx, val, Mutability::Const).unwrap()
     }
 
@@ -44,26 +44,26 @@ impl Global {
     ///
     /// ```
     /// # use wasmer::{Global, Mutability, Store, Value};
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// #
     /// let g = Global::new_mut(&store, Value::I32(1));
     ///
     /// assert_eq!(g.get(), Value::I32(1));
     /// assert_eq!(g.ty().mutability, Mutability::Var);
     /// ```
-    pub fn new_mut(ctx: &mut impl AsContextMut, val: Value) -> Self {
+    pub fn new_mut(ctx: &mut impl AsStoreMut, val: Value) -> Self {
         Self::from_value(ctx, val, Mutability::Var).unwrap()
     }
 
     /// Create a `Global` with the initial value [`Value`] and the provided [`Mutability`].
     fn from_value(
-        ctx: &mut impl AsContextMut,
+        ctx: &mut impl AsStoreMut,
         val: Value,
         mutability: Mutability,
     ) -> Result<Self, RuntimeError> {
-        if !val.is_from_context(ctx) {
+        if !val.is_from_store(ctx) {
             return Err(RuntimeError::new(
-                "cross-`Context` values are not supported",
+                "cross-`WasmerEnv` values are not supported",
             ));
         }
         let global_ty = GlobalType {
@@ -99,7 +99,7 @@ impl Global {
     ///
     /// ```
     /// # use wasmer::{Global, Mutability, Store, Type, Value, GlobalType};
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// #
     /// let c = Global::new(&store, Value::I32(1));
     /// let v = Global::new_mut(&store, Value::I64(1));
@@ -107,8 +107,8 @@ impl Global {
     /// assert_eq!(c.ty(), &GlobalType::new(Type::I32, Mutability::Const));
     /// assert_eq!(v.ty(), &GlobalType::new(Type::I64, Mutability::Var));
     /// ```
-    pub fn ty(&self, ctx: &impl AsContextRef) -> GlobalType {
-        self.handle.get(ctx.as_context_ref().objects()).ty
+    pub fn ty(&self, store: &impl AsStoreRef) -> GlobalType {
+        self.handle.get(store.as_store_ref().objects()).ty
     }
 
     /// Retrieves the current value [`Value`] that the Global has.
@@ -117,23 +117,23 @@ impl Global {
     ///
     /// ```
     /// # use wasmer::{Global, Store, Value};
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// #
     /// let g = Global::new(&store, Value::I32(1));
     ///
     /// assert_eq!(g.get(), Value::I32(1));
     /// ```
-    pub fn get(&self, ctx: &impl AsContextRef) -> Value {
+    pub fn get(&self, store: &impl AsStoreRef) -> Value {
         unsafe {
             let raw = self
                 .handle
-                .get(ctx.as_context_ref().objects())
+                .get(store.as_store_ref().objects())
                 .global
                 .value()
                 .as_f64()
                 .unwrap();
-            let ty = self.handle.get(ctx.as_context_ref().objects()).ty;
-            Value::from_raw(ctx, ty.ty, raw)
+            let ty = self.handle.get(store.as_store_ref().objects()).ty;
+            Value::from_raw(store, ty.ty, raw)
         }
         /*
         match self.vm_global.ty.ty {
@@ -152,7 +152,7 @@ impl Global {
     ///
     /// ```
     /// # use wasmer::{Global, Store, Value};
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// #
     /// let g = Global::new_mut(&store, Value::I32(1));
     ///
@@ -169,7 +169,7 @@ impl Global {
     ///
     /// ```should_panic
     /// # use wasmer::{Global, Store, Value};
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// #
     /// let g = Global::new(&store, Value::I32(1));
     ///
@@ -180,20 +180,20 @@ impl Global {
     ///
     /// ```should_panic
     /// # use wasmer::{Global, Store, Value};
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// #
     /// let g = Global::new(&store, Value::I32(1));
     ///
     /// // This results in an error: `RuntimeError`.
     /// g.set(Value::I64(2)).unwrap();
     /// ```
-    pub fn set(&self, ctx: &mut impl AsContextMut, val: Value) -> Result<(), RuntimeError> {
-        if !val.is_from_context(ctx) {
+    pub fn set(&self, store: &mut impl AsStoreMut, val: Value) -> Result<(), RuntimeError> {
+        if !val.is_from_store(store) {
             return Err(RuntimeError::new(
-                "cross-`Context` values are not supported",
+                "cross-`WasmerEnv` values are not supported",
             ));
         }
-        let global_ty = self.ty(&ctx);
+        let global_ty = self.ty(&store);
         if global_ty.mutability == Mutability::Const {
             return Err(RuntimeError::new("The global is immutable".to_owned()));
         }
@@ -212,32 +212,32 @@ impl Global {
             }
         };
         self.handle
-            .get_mut(ctx.as_context_mut().objects_mut())
+            .get_mut(store.objects_mut())
             .global
             .set_value(&new_value);
         Ok(())
     }
 
-    pub(crate) fn from_vm_export(ctx: &mut impl AsContextMut, vm_global: VMGlobal) -> Self {
+    pub(crate) fn from_vm_export(store: &mut impl AsStoreMut, vm_global: VMGlobal) -> Self {
         Self {
-            handle: ContextHandle::new(ctx.as_context_mut().objects_mut(), vm_global),
+            handle: StoreHandle::new(store.objects_mut(), vm_global),
         }
     }
 
     pub(crate) fn from_vm_extern(
-        ctx: &mut impl AsContextMut,
-        internal: InternalContextHandle<VMGlobal>,
+        store: &mut impl AsStoreMut,
+        internal: InternalStoreHandle<VMGlobal>,
     ) -> Self {
         Self {
             handle: unsafe {
-                ContextHandle::from_internal(ctx.as_context_ref().objects().id(), internal)
+                StoreHandle::from_internal(store.as_store_ref().objects().id(), internal)
             },
         }
     }
 
-    /// Checks whether this `Global` can be used with the given context.
-    pub fn is_from_context(&self, ctx: &impl AsContextRef) -> bool {
-        self.handle.context_id() == ctx.as_context_ref().objects().id()
+    /// Checks whether this `Global` can be used with the given store.
+    pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
+        self.handle.store_id() == store.as_store_ref().objects().id()
     }
 }
 

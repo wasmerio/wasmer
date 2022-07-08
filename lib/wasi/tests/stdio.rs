@@ -1,6 +1,6 @@
 use std::io::{Read, Write};
 
-use wasmer::{AsContextMut, Context, Instance, Module, Store};
+use wasmer::{Instance, Module, Store};
 use wasmer_wasi::{Pipe, WasiState};
 
 mod sys {
@@ -41,8 +41,8 @@ mod js {
 }
 
 fn test_stdout() {
-    let store = Store::default();
-    let module = Module::new(&store, br#"
+    let mut store = Store::default();
+    let module = Module::new(&mut store, br#"
     (module
         ;; Import the required fd_write WASI function which will write the given io vectors to stdout
         ;; The function signature for fd_write is:
@@ -74,28 +74,23 @@ fn test_stdout() {
 
     // Create the `WasiEnv`.
     let mut stdout = Pipe::default();
-    let mut wasi_env = WasiState::new("command-name")
+    let wasi_env = WasiState::new("command-name")
         .args(&["Gordon"])
         .stdout(Box::new(stdout.clone()))
-        .finalize()
+        .finalize(&mut store)
         .unwrap();
-
-    // Create a context state that will hold all objects created by this Instance
-    let mut ctx = Context::new(&store, wasi_env.clone());
 
     // Generate an `ImportObject`.
-    let import_object = wasi_env
-        .import_object(&mut ctx.as_context_mut(), &module)
-        .unwrap();
+    let import_object = wasi_env.import_object(&mut store, &module).unwrap();
 
     // Let's instantiate the module with the imports.
-    let instance = Instance::new(&mut ctx, &module, &import_object).unwrap();
+    let instance = Instance::new(&mut store, &module, &import_object).unwrap();
     let memory = instance.exports.get_memory("memory").unwrap();
-    ctx.data_mut().set_memory(memory.clone());
+    wasi_env.data_mut(&mut store).set_memory(memory.clone());
 
     // Let's call the `_start` function, which is our `main` function in Rust.
     let start = instance.exports.get_function("_start").unwrap();
-    start.call(&mut ctx, &[]).unwrap();
+    start.call(&mut store, &[]).unwrap();
 
     let mut stdout_str = String::new();
     stdout.read_to_string(&mut stdout_str).unwrap();
@@ -104,7 +99,7 @@ fn test_stdout() {
 }
 
 fn test_env() {
-    let store = Store::default();
+    let mut store = Store::default();
     let module = Module::new(&store, include_bytes!("envvar.wasm")).unwrap();
 
     #[cfg(feature = "js")]
@@ -123,27 +118,22 @@ fn test_env() {
         .env("TEST", "VALUE")
         .env("TEST2", "VALUE2");
     // panic!("envs: {:?}", wasi_state_builder.envs);
-    let mut wasi_env = wasi_state_builder
+    let wasi_env = wasi_state_builder
         .stdout(Box::new(stdout.clone()))
-        .finalize()
+        .finalize(&mut store)
         .unwrap();
-
-    // Create a context state that will hold all objects created by this Instance
-    let mut ctx = Context::new(&store, wasi_env.clone());
 
     // Generate an `ImportObject`.
-    let import_object = wasi_env
-        .import_object(&mut ctx.as_context_mut(), &module)
-        .unwrap();
+    let import_object = wasi_env.import_object(&mut store, &module).unwrap();
 
     // Let's instantiate the module with the imports.
-    let instance = Instance::new(&mut ctx, &module, &import_object).unwrap();
+    let instance = Instance::new(&mut store, &module, &import_object).unwrap();
     let memory = instance.exports.get_memory("memory").unwrap();
-    ctx.data_mut().set_memory(memory.clone());
+    wasi_env.data_mut(&mut store).set_memory(memory.clone());
 
     // Let's call the `_start` function, which is our `main` function in Rust.
     let start = instance.exports.get_function("_start").unwrap();
-    start.call(&mut ctx, &[]).unwrap();
+    start.call(&mut store, &[]).unwrap();
 
     let mut stdout_str = String::new();
     stdout.read_to_string(&mut stdout_str).unwrap();
@@ -152,36 +142,31 @@ fn test_env() {
 }
 
 fn test_stdin() {
-    let store = Store::default();
+    let mut store = Store::default();
     let module = Module::new(&store, include_bytes!("stdin-hello.wasm")).unwrap();
 
     // Create the `WasiEnv`.
     let mut stdin = Pipe::new();
-    let mut wasi_env = WasiState::new("command-name")
+    let wasi_env = WasiState::new("command-name")
         .stdin(Box::new(stdin.clone()))
-        .finalize()
+        .finalize(&mut store)
         .unwrap();
 
     // Write to STDIN
     let buf = "Hello, stdin!\n".as_bytes().to_owned();
     stdin.write(&buf[..]).unwrap();
 
-    // Create a context state that will hold all objects created by this Instance
-    let mut ctx = Context::new(&store, wasi_env.clone());
-
     // Generate an `ImportObject`.
-    let import_object = wasi_env
-        .import_object(&mut ctx.as_context_mut(), &module)
-        .unwrap();
+    let import_object = wasi_env.import_object(&mut store, &module).unwrap();
 
     // Let's instantiate the module with the imports.
-    let instance = Instance::new(&mut ctx, &module, &import_object).unwrap();
+    let instance = Instance::new(&mut store, &module, &import_object).unwrap();
     let memory = instance.exports.get_memory("memory").unwrap();
-    ctx.data_mut().set_memory(memory.clone());
+    wasi_env.data_mut(&mut store).set_memory(memory.clone());
 
     // Let's call the `_start` function, which is our `main` function in Rust.
     let start = instance.exports.get_function("_start").unwrap();
-    let result = start.call(&mut ctx, &[]);
+    let result = start.call(&mut store, &[]);
     assert!(!result.is_err());
 
     // We assure stdin is now empty

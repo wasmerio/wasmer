@@ -13,7 +13,7 @@ const int N_THREADS = 10;
 const int N_REPS = 3;
 
 // A function to be called from Wasm code.
-own wasm_trap_t* callback(wasm_context_ref_mut_t* ctx, const wasm_val_vec_t* args, wasm_val_vec_t* results) {
+own wasm_trap_t* callback(const wasm_val_vec_t* args, wasm_val_vec_t* results) {
   assert(args->data[0].kind == WASM_I32);
   printf("> Thread %d running\n", args->data[0].of.i32);
   return NULL;
@@ -31,8 +31,6 @@ void* run(void* args_abs) {
 
   // Rereate store and module.
   own wasm_store_t* store = wasm_store_new(args->engine);
-  wasm_context_t* ctx = wasm_context_new(store, 0);
-  wasm_store_context_set(store, ctx);
   own wasm_module_t* module = wasm_module_obtain(store, args->module);
 
   // Run the example N times.
@@ -121,9 +119,6 @@ int main(int argc, const char *argv[]) {
 
   // Compile and share.
   own wasm_store_t* store = wasm_store_new(engine);
-  wasm_context_t* ctx = wasm_context_new(store, 0);
-  wasm_store_context_set(store, ctx);
-
   own wasm_module_t* module = wasm_module_new(store, &binary);
   if (!module) {
     printf("> Error compiling module!\n");

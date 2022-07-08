@@ -5,9 +5,9 @@ use crate::sys::module::Module;
 use crate::sys::{LinkError, RuntimeError};
 use std::fmt;
 use thiserror::Error;
-use wasmer_vm::{ContextHandle, InstanceHandle};
+use wasmer_vm::{InstanceHandle, StoreHandle};
 
-use super::context::AsContextMut;
+use super::store::AsStoreMut;
 
 /// A WebAssembly Instance is a stateful, executable
 /// instance of a WebAssembly [`Module`].
@@ -19,7 +19,7 @@ use super::context::AsContextMut;
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#module-instances>
 #[derive(Clone)]
 pub struct Instance {
-    _handle: ContextHandle<InstanceHandle>,
+    _handle: StoreHandle<InstanceHandle>,
     module: Module,
     /// The exports for an instance.
     pub exports: Exports,
@@ -59,13 +59,13 @@ pub enum InstantiationError {
 
     /// The module was compiled with a CPU feature that is not available on
     /// the current host.
-    #[error("missing requires CPU features: {0:?}")]
+    #[error("missing required CPU features: {0:?}")]
     CpuFeature(String),
 
-    /// Import from a different [`Context`].
-    /// This error occurs when an import from a different context is used.
-    #[error("cannot mix imports from different contexts")]
-    BadContext,
+    /// Import from a different [`Store`].
+    /// This error occurs when an import from a different store is used.
+    #[error("cannot mix imports from different stores")]
+    DifferentStores,
 }
 
 impl From<wasmer_compiler::InstantiationError> for InstantiationError {
@@ -87,17 +87,17 @@ impl Instance {
     ///
     /// ```
     /// # use wasmer::{imports, Store, Module, Global, Value, Instance};
-    /// # use wasmer::Context as WasmerContext;
+    /// # use wasmer::FunctionEnv;
     /// # fn main() -> anyhow::Result<()> {
-    /// let store = Store::default();
-    /// let mut ctx = WasmerContext::new(&store, ());
+    /// let mut store = Store::default();
+    /// let env = FunctionEnv::new(&mut store, ());
     /// let module = Module::new(&store, "(module)")?;
     /// let imports = imports!{
     ///   "host" => {
-    ///     "var" => Global::new(&mut ctx, Value::I32(2))
+    ///     "var" => Global::new(&mut store, Value::I32(2))
     ///   }
     /// };
-    /// let instance = Instance::new(&mut ctx, &module, &imports)?;
+    /// let instance = Instance::new(&mut store, &module, &imports)?;
     /// # Ok(())
     /// # }
     /// ```
@@ -110,7 +110,7 @@ impl Instance {
     ///  * Link errors that happen when plugging the imports into the instance
     ///  * Runtime errors that happen when running the module `start` function.
     pub fn new(
-        ctx: &mut impl AsContextMut,
+        ctx: &mut impl AsStoreMut,
         module: &Module,
         imports: &Imports,
     ) -> Result<Self, InstantiationError> {
@@ -129,7 +129,7 @@ impl Instance {
             .collect::<Exports>();
 
         let instance = Self {
-            _handle: ContextHandle::new(ctx.as_context_mut().objects_mut(), handle),
+            _handle: StoreHandle::new(ctx.objects_mut(), handle),
             module: module.clone(),
             exports,
         };
@@ -148,7 +148,7 @@ impl Instance {
     ///  * Link errors that happen when plugging the imports into the instance
     ///  * Runtime errors that happen when running the module `start` function.
     pub fn new_by_index(
-        ctx: &mut impl AsContextMut,
+        ctx: &mut impl AsStoreMut,
         module: &Module,
         externs: &[Extern],
     ) -> Result<Self, InstantiationError> {
@@ -165,7 +165,7 @@ impl Instance {
             .collect::<Exports>();
 
         let instance = Self {
-            _handle: ContextHandle::new(ctx.as_context_mut().objects_mut(), handle),
+            _handle: StoreHandle::new(ctx.objects_mut(), handle),
             module: module.clone(),
             exports,
         };

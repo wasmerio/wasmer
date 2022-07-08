@@ -4,7 +4,7 @@ use crate::{ArtifactCreate, Upcastable};
 use wasmer_types::entity::BoxedSlice;
 use wasmer_types::{DataInitializer, FunctionIndex, LocalFunctionIndex, SignatureIndex};
 use wasmer_vm::{
-    ContextObjects, FunctionBodyPtr, InstanceAllocator, InstanceHandle, TrapHandler, VMExtern,
+    FunctionBodyPtr, InstanceAllocator, InstanceHandle, StoreObjects, TrapHandlerFn, VMExtern,
     VMSharedSignatureIndex, VMTrampoline,
 };
 
@@ -51,7 +51,7 @@ pub trait Artifact: Send + Sync + Upcastable + ArtifactCreate {
         &self,
         tunables: &dyn Tunables,
         imports: &[VMExtern],
-        context: &mut ContextObjects,
+        context: &mut StoreObjects,
     ) -> Result<InstanceHandle, InstantiationError> {
         // Validate the CPU features this module was compiled with against the
         // host CPU features.
@@ -128,7 +128,7 @@ pub trait Artifact: Send + Sync + Upcastable + ArtifactCreate {
     /// See [`InstanceHandle::finish_instantiation`].
     unsafe fn finish_instantiation(
         &self,
-        trap_handler: &(dyn TrapHandler + 'static),
+        trap_handler: Option<*const TrapHandlerFn<'static>>,
         handle: &mut InstanceHandle,
     ) -> Result<(), InstantiationError> {
         let data_initializers = self

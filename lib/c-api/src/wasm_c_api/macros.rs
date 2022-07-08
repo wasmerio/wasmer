@@ -297,6 +297,16 @@ macro_rules! wasm_impl_copy_delete {
 }
 
 macro_rules! c_try {
+    ($expr:expr; otherwise ()) => {{
+        let res: Result<_, _> = $expr;
+        match res {
+            Ok(val) => val,
+            Err(err) => {
+                crate::error::update_last_error(err);
+                return;
+            }
+        }
+    }};
     ($expr:expr; otherwise $return:expr) => {{
         let res: Result<_, _> = $expr;
         match res {

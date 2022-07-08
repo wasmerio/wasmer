@@ -23,11 +23,11 @@ mod lib {
     }
 }
 
-mod context;
 mod error;
 mod export;
 mod exports;
 mod externals;
+mod function_env;
 mod imports;
 mod instance;
 mod js_import_object;
@@ -44,7 +44,6 @@ mod types;
 mod value;
 mod wasm_bindgen_polyfill;
 
-pub use crate::js::context::{AsContextMut, AsContextRef, Context, ContextMut, ContextRef};
 pub use crate::js::error::{DeserializeError, InstantiationError, SerializeError};
 pub use crate::js::export::Export;
 pub use crate::js::exports::{ExportError, Exportable, Exports, ExportsIterator};
@@ -52,6 +51,7 @@ pub use crate::js::externals::{
     Extern, FromToNativeWasmType, Function, Global, HostFunction, Memory, MemoryError, Table,
     WasmTypeList,
 };
+pub use crate::js::function_env::{FunctionEnv, FunctionEnvMut};
 pub use crate::js::imports::Imports;
 pub use crate::js::instance::Instance;
 pub use crate::js::js_import_object::JsImportObject;
@@ -62,7 +62,9 @@ pub use crate::js::native_type::NativeWasmTypeInto;
 pub use crate::js::ptr::{Memory32, Memory64, MemorySize, WasmPtr, WasmPtr64};
 pub use crate::js::trap::RuntimeError;
 
-pub use crate::js::store::{Store, StoreObject};
+pub use crate::js::store::{
+    AsStoreMut, AsStoreRef, Store, StoreHandle, StoreMut, StoreObject, StoreObjects, StoreRef,
+};
 pub use crate::js::types::ValType as Type;
 pub use crate::js::types::{
     ExportType, ExternType, FunctionType, GlobalType, ImportType, MemoryType, Mutability,

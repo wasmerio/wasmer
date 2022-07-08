@@ -1,7 +1,7 @@
-use crate::js::context::AsContextRef;
+use crate::js::store::AsStoreRef;
 use crate::js::NativeWasmTypeInto;
 use crate::js::{externals::Memory, FromToNativeWasmType};
-use crate::{MemoryAccessError, WasmRef, WasmSlice};
+use crate::js::{MemoryAccessError, WasmRef, WasmSlice};
 use std::convert::TryFrom;
 use std::{fmt, marker::PhantomData, mem};
 pub use wasmer_types::Memory32;
@@ -138,13 +138,13 @@ impl<T: ValueType, M: MemorySize> WasmPtr<T, M> {
     /// Creates a `WasmRef` from this `WasmPtr` which allows reading and
     /// mutating of the value being pointed to.
     #[inline]
-    pub fn deref<'a>(self, ctx: &'a impl AsContextRef, memory: &'a Memory) -> WasmRef<'a, T> {
+    pub fn deref<'a>(self, ctx: &'a impl AsStoreRef, memory: &'a Memory) -> WasmRef<'a, T> {
         WasmRef::new(ctx, memory, self.offset.into())
     }
 
     /// Reads the address pointed to by this `WasmPtr` in a memory.
     #[inline]
-    pub fn read(self, ctx: &impl AsContextRef, memory: &Memory) -> Result<T, MemoryAccessError> {
+    pub fn read(self, ctx: &impl AsStoreRef, memory: &Memory) -> Result<T, MemoryAccessError> {
         self.deref(ctx, memory).read()
     }
 
@@ -152,7 +152,7 @@ impl<T: ValueType, M: MemorySize> WasmPtr<T, M> {
     #[inline]
     pub fn write(
         self,
-        ctx: &impl AsContextRef,
+        ctx: &impl AsStoreRef,
         memory: &Memory,
         val: T,
     ) -> Result<(), MemoryAccessError> {
@@ -167,7 +167,7 @@ impl<T: ValueType, M: MemorySize> WasmPtr<T, M> {
     #[inline]
     pub fn slice<'a>(
         self,
-        ctx: &'a impl AsContextRef,
+        ctx: &'a impl AsStoreRef,
         memory: &'a Memory,
         len: M::Offset,
     ) -> Result<WasmSlice<'a, T>, MemoryAccessError> {
@@ -181,7 +181,7 @@ impl<T: ValueType, M: MemorySize> WasmPtr<T, M> {
     #[inline]
     pub fn read_until<'a>(
         self,
-        ctx: &'a impl AsContextRef,
+        ctx: &'a impl AsStoreRef,
         memory: &'a Memory,
         mut end: impl FnMut(&T) -> bool,
     ) -> Result<Vec<T>, MemoryAccessError> {
@@ -206,7 +206,7 @@ impl<M: MemorySize> WasmPtr<u8, M> {
     #[inline]
     pub fn read_utf8_string<'a>(
         self,
-        ctx: &'a impl AsContextRef,
+        ctx: &'a impl AsStoreRef,
         memory: &'a Memory,
         len: M::Offset,
     ) -> Result<String, MemoryAccessError> {
@@ -221,7 +221,7 @@ impl<M: MemorySize> WasmPtr<u8, M> {
     #[inline]
     pub fn read_utf8_string_with_nul<'a>(
         self,
-        ctx: &'a impl AsContextRef,
+        ctx: &'a impl AsStoreRef,
         memory: &'a Memory,
     ) -> Result<String, MemoryAccessError> {
         let vec = self.read_until(ctx, memory, |&byte| byte == 0)?;

@@ -13,7 +13,7 @@ use std::fmt;
 use std::sync::{Arc, Mutex};
 use wasmer::wasmparser::{Operator, Type as WpType, TypeOrFuncType as WpTypeOrFuncType};
 use wasmer::{
-    AsContextMut, ExportIndex, FunctionMiddleware, GlobalInit, GlobalType, Instance,
+    AsStoreMut, ExportIndex, FunctionMiddleware, GlobalInit, GlobalType, Instance,
     LocalFunctionIndex, MiddlewareError, MiddlewareReaderState, ModuleMiddleware, Mutability, Type,
 };
 use wasmer_types::{GlobalIndex, ModuleInfo};
@@ -273,16 +273,16 @@ impl<F: Fn(&Operator) -> u64 + Send + Sync> FunctionMiddleware for FunctionMeter
 ///
 /// ```rust
 /// use wasmer::Instance;
-/// use wasmer::AsContextMut;
+/// use wasmer::AsStoreMut;
 /// use wasmer_middlewares::metering::{get_remaining_points, MeteringPoints};
 ///
 /// /// Check whether the instance can continue to run based on the
 /// /// number of remaining points.
-/// fn can_continue_to_run(ctx: &mut impl AsContextMut, instance: &Instance) -> bool {
-///     matches!(get_remaining_points(&mut ctx.as_context_mut(), instance), MeteringPoints::Remaining(points) if points > 0)
+/// fn can_continue_to_run(store: &mut impl AsStoreMut, instance: &Instance) -> bool {
+///     matches!(get_remaining_points(store, instance), MeteringPoints::Remaining(points) if points > 0)
 /// }
 /// ```
-pub fn get_remaining_points(ctx: &mut impl AsContextMut, instance: &Instance) -> MeteringPoints {
+pub fn get_remaining_points(ctx: &mut impl AsStoreMut, instance: &Instance) -> MeteringPoints {
     let exhausted: i32 = instance
         .exports
         .get_global("wasmer_metering_points_exhausted")
@@ -321,18 +321,18 @@ pub fn get_remaining_points(ctx: &mut impl AsContextMut, instance: &Instance) ->
 /// # Example
 ///
 /// ```rust
-/// use wasmer::{AsContextMut, Instance};
+/// use wasmer::{AsStoreMut, Instance};
 /// use wasmer_middlewares::metering::set_remaining_points;
 ///
-/// fn update_remaining_points(ctx: &mut impl AsContextMut, instance: &Instance) {
+/// fn update_remaining_points(store: &mut impl AsStoreMut, instance: &Instance) {
 ///     // The new limit.
 ///     let new_limit = 10;
 ///
 ///     // Update the remaining points to the `new_limit`.
-///     set_remaining_points(&mut ctx.as_context_mut(), instance, new_limit);
+///     set_remaining_points(store, instance, new_limit);
 /// }
 /// ```
-pub fn set_remaining_points(ctx: &mut impl AsContextMut, instance: &Instance, points: u64) {
+pub fn set_remaining_points(ctx: &mut impl AsStoreMut, instance: &Instance, points: u64) {
     instance
         .exports
         .get_global("wasmer_metering_remaining_points")
@@ -354,8 +354,7 @@ mod tests {
 
     use std::sync::Arc;
     use wasmer::{
-        imports, wat2wasm, CompilerConfig, Context, Cranelift, Module, Store, TypedFunction,
-        Universal,
+        imports, wat2wasm, CompilerConfig, Cranelift, Module, Store, TypedFunction, Universal,
     };
 
     fn cost_function(operator: &Operator) -> u64 {
@@ -384,18 +383,16 @@ mod tests {
 
     #[test]
     fn get_remaining_points_works() {
-        use wasmer::Context as WasmerContext;
         let metering = Arc::new(Metering::new(10, cost_function));
         let mut compiler_config = Cranelift::default();
         compiler_config.push_middleware(metering);
-        let store = Store::new_with_engine(&Universal::new(compiler_config).engine());
+        let mut store = Store::new_with_engine(&Universal::new(compiler_config).engine());
         let module = Module::new(&store, bytecode()).unwrap();
-        let mut ctx = Context::new(&store, ());
 
         // Instantiate
-        let instance = Instance::new(&mut ctx, &module, &imports! {}).unwrap();
+        let instance = Instance::new(&mut store, &module, &imports! {}).unwrap();
         assert_eq!(
-            get_remaining_points(&mut ctx.as_context_mut(), &instance),
+            get_remaining_points(&mut store, &instance),
             MeteringPoints::Remaining(10)
         );
 
@@ -409,25 +406,25 @@ mod tests {
             .exports
             .get_function("add_one")
             .unwrap()
-            .native(&ctx)
+            .native(&store)
             .unwrap();
-        add_one.call(&mut ctx.as_context_mut(), 1).unwrap();
+        add_one.call(&mut store, 1).unwrap();
         assert_eq!(
-            get_remaining_points(&mut ctx.as_context_mut(), &instance),
+            get_remaining_points(&mut store, &instance),
             MeteringPoints::Remaining(6)
         );
 
         // Second call
-        add_one.call(&mut ctx.as_context_mut(), 1).unwrap();
+        add_one.call(&mut store, 1).unwrap();
         assert_eq!(
-            get_remaining_points(&mut ctx.as_context_mut(), &instance),
+            get_remaining_points(&mut store, &instance),
             MeteringPoints::Remaining(2)
         );
 
         // Third call fails due to limit
-        assert!(add_one.call(&mut ctx.as_context_mut(), 1).is_err());
+        assert!(add_one.call(&mut store, 1).is_err());
         assert_eq!(
-            get_remaining_points(&mut ctx.as_context_mut(), &instance),
+            get_remaining_points(&mut store, &instance),
             MeteringPoints::Exhausted
         );
     }
@@ -437,55 +434,54 @@ mod tests {
         let metering = Arc::new(Metering::new(10, cost_function));
         let mut compiler_config = Cranelift::default();
         compiler_config.push_middleware(metering);
-        let store = Store::new_with_engine(&Universal::new(compiler_config).engine());
+        let mut store = Store::new_with_engine(&Universal::new(compiler_config).engine());
         let module = Module::new(&store, bytecode()).unwrap();
-        let mut ctx = Context::new(module.store(), ());
 
         // Instantiate
-        let instance = Instance::new(&mut ctx, &module, &imports! {}).unwrap();
+        let instance = Instance::new(&mut store, &module, &imports! {}).unwrap();
         assert_eq!(
-            get_remaining_points(&mut ctx, &instance),
+            get_remaining_points(&mut store, &instance),
             MeteringPoints::Remaining(10)
         );
         let add_one: TypedFunction<i32, i32> = instance
             .exports
             .get_function("add_one")
             .unwrap()
-            .native(&ctx)
+            .native(&store)
             .unwrap();
 
         // Increase a bit to have enough for 3 calls
-        set_remaining_points(&mut ctx, &instance, 12);
+        set_remaining_points(&mut store, &instance, 12);
 
         // Ensure we can use the new points now
-        add_one.call(&mut &mut ctx, 1).unwrap();
+        add_one.call(&mut store, 1).unwrap();
         assert_eq!(
-            get_remaining_points(&mut ctx, &instance),
+            get_remaining_points(&mut store, &instance),
             MeteringPoints::Remaining(8)
         );
 
-        add_one.call(&mut &mut ctx, 1).unwrap();
+        add_one.call(&mut store, 1).unwrap();
         assert_eq!(
-            get_remaining_points(&mut ctx, &instance),
+            get_remaining_points(&mut store, &instance),
             MeteringPoints::Remaining(4)
         );
 
-        add_one.call(&mut &mut ctx, 1).unwrap();
+        add_one.call(&mut store, 1).unwrap();
         assert_eq!(
-            get_remaining_points(&mut ctx, &instance),
+            get_remaining_points(&mut store, &instance),
             MeteringPoints::Remaining(0)
         );
 
-        assert!(add_one.call(&mut &mut ctx, 1).is_err());
+        assert!(add_one.call(&mut store, 1).is_err());
         assert_eq!(
-            get_remaining_points(&mut ctx, &instance),
+            get_remaining_points(&mut store, &instance),
             MeteringPoints::Exhausted
         );
 
         // Add some points for another call
-        set_remaining_points(&mut ctx, &instance, 4);
+        set_remaining_points(&mut store, &instance, 4);
         assert_eq!(
-            get_remaining_points(&mut ctx, &instance),
+            get_remaining_points(&mut store, &instance),
             MeteringPoints::Remaining(4)
         );
     }

@@ -15,7 +15,9 @@
 //!
 //! Ready?
 
-use wasmer::{imports, wat2wasm, Context, Global, Instance, Module, Store, TypedFunction, Value};
+use wasmer::{
+    imports, wat2wasm, FunctionEnv, Global, Instance, Module, Store, TypedFunction, Value,
+};
 use wasmer_compiler::Universal;
 use wasmer_compiler_cranelift::Cranelift;
 
@@ -38,16 +40,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Note that we don't need to specify the engine/compiler if we want to use
     // the default provided by Wasmer.
     // You can use `Store::default()` for that.
-    let store = Store::new_with_engine(&Universal::new(Cranelift::default()).engine());
-    let mut ctx = Context::new(&store, ());
+    let mut store = Store::new_with_engine(&Universal::new(Cranelift::default()).engine());
+    let mut env = FunctionEnv::new(&mut store, ());
 
     println!("Compiling module...");
     // Let's compile the Wasm module.
     let module = Module::new(&store, wasm_bytes)?;
 
     // Create the globals
-    let some = Global::new(&mut ctx, Value::F32(1.0));
-    let other = Global::new_mut(&mut ctx, Value::F32(2.0));
+    let some = Global::new(&mut store, Value::F32(1.0));
+    let other = Global::new_mut(&mut store, Value::F32(2.0));
 
     // Create an import object.
     // We add the two required globals in the `env` namespace.
@@ -60,7 +62,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Instantiating module...");
     // Let's instantiate the Wasm module.
-    let instance = Instance::new(&mut ctx, &module, &import_object)?;
+    let instance = Instance::new(&mut store, &module, &import_object)?;
 
     // Here we go.
     //
@@ -69,34 +71,34 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let get_some: TypedFunction<(), f32> = instance
         .exports
         .get_function("get_some")?
-        .native(&mut ctx)?;
+        .native(&mut store)?;
     let get_other: TypedFunction<(), f32> = instance
         .exports
         .get_function("get_other")?
-        .native(&mut ctx)?;
+        .native(&mut store)?;
 
-    let some_result = get_some.call(&mut ctx)?;
-    let other_result = get_other.call(&mut ctx)?;
+    let some_result = get_some.call(&mut store)?;
+    let other_result = get_other.call(&mut store)?;
 
     println!("some value (via `get_some`): {:?}", some_result);
-    println!("some value (via Global API): {:?}", some.get(&mut ctx));
+    println!("some value (via Global API): {:?}", some.get(&mut store));
     println!("other value (via `get_other`): {:?}", other_result);
-    println!("other value (via Global API): {:?}", other.get(&mut ctx));
+    println!("other value (via Global API): {:?}", other.get(&mut store));
 
-    assert_eq!(some_result, some.get(&mut ctx).f32().unwrap());
-    assert_eq!(other_result, other.get(&mut ctx).f32().unwrap());
+    assert_eq!(some_result, some.get(&mut store).f32().unwrap());
+    assert_eq!(other_result, other.get(&mut store).f32().unwrap());
 
     println!("Setting global values...");
     // Trying to set the value of a immutable global (`const`)
     // will result in a `RuntimeError`.
-    let result = some.set(&mut ctx, Value::F32(42.0));
+    let result = some.set(&mut store, Value::F32(42.0));
     assert_eq!(
         result.expect_err("Expected an error").message(),
         "Attempted to set an immutable global"
     );
 
-    other.set(&mut ctx, Value::F32(21.0))?;
-    let other_result = other.get(&mut ctx);
+    other.set(&mut store, Value::F32(21.0))?;
+    let other_result = other.get(&mut store);
     println!("other value after `set`: {:?}", other_result);
     assert_eq!(other_result, Value::F32(21.0));
 
@@ -106,11 +108,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let set_other: TypedFunction<f32, ()> = instance
         .exports
         .get_function("set_other")?
-        .native(&mut ctx)?;
-    set_other.call(&mut ctx, 42.0)?;
+        .native(&mut store)?;
+    set_other.call(&mut store, 42.0)?;
 
-    println!("other value (via Global API): {:?}", other.get(&mut ctx));
-    assert_eq!(other.get(&mut ctx), Value::F32(42.0));
+    println!("other value (via Global API): {:?}", other.get(&mut store));
+    assert_eq!(other.get(&mut store), Value::F32(42.0));
 
     Ok(())
 }
