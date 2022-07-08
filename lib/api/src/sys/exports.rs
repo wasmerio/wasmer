@@ -1,4 +1,4 @@
-use super::context::AsContextRef;
+use super::context::AsStoreRef;
 use crate::sys::externals::{Extern, Function, Global, Memory, Table};
 use crate::sys::native::TypedFunction;
 use crate::sys::WasmTypeList;
@@ -19,7 +19,7 @@ use thiserror::Error;
 /// ```should_panic
 /// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, Value, ExportError};
 /// # use wasmer::Context as WasmerContext;
-/// # let store = Store::default();
+/// # let mut store = Store::default();
 /// # let mut ctx = WasmerContext::new(&store, ());
 /// # let wasm_bytes = wat2wasm(r#"
 /// # (module
@@ -38,7 +38,7 @@ use thiserror::Error;
 /// ```should_panic
 /// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, Value, ExportError};
 /// # use wasmer::Context as WasmerContext;
-/// # let store = Store::default();
+/// # let mut store = Store::default();
 /// # let mut ctx = WasmerContext::new(&store, ());
 /// # let wasm_bytes = wat2wasm("(module)".as_bytes()).unwrap();
 /// # let module = Module::new(&store, wasm_bytes).unwrap();
@@ -145,7 +145,7 @@ impl Exports {
     /// Get an export as a `TypedFunction`.
     pub fn get_native_function<Args, Rets>(
         &self,
-        ctx: &impl AsContextRef,
+        ctx: &impl AsStoreRef,
         name: &str,
     ) -> Result<TypedFunction<Args, Rets>, ExportError>
     where
@@ -158,7 +158,7 @@ impl Exports {
     /// Get an export as a `TypedFunction`.
     pub fn get_typed_function<Args, Rets>(
         &self,
-        ctx: &impl AsContextRef,
+        ctx: &impl AsStoreRef,
         name: &str,
     ) -> Result<TypedFunction<Args, Rets>, ExportError>
     where

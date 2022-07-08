@@ -7,7 +7,7 @@ use wasmer_types::Type;
 //use crate::ExternRef;
 use crate::js::externals::function::Function;
 
-use super::context::AsContextRef;
+use super::context::AsStoreRef;
 
 /// WebAssembly computations manipulate values of basic value types:
 /// * Integers (32 or 64 bit width)
@@ -82,7 +82,7 @@ impl Value {
     }
 
     /// Converts the `Value` into a `f64`.
-    pub fn as_raw(&self, ctx: &impl AsContextRef) -> f64 {
+    pub fn as_raw(&self, ctx: &impl AsStoreRef) -> f64 {
         match *self {
             Self::I32(v) => v as f64,
             Self::I64(v) => v as f64,
@@ -105,7 +105,7 @@ impl Value {
     ///
     /// # Safety
     ///
-    pub unsafe fn from_raw(_ctx: &impl AsContextRef, ty: Type, raw: f64) -> Self {
+    pub unsafe fn from_raw(_ctx: &impl AsStoreRef, ty: Type, raw: f64) -> Self {
         match ty {
             Type::I32 => Self::I32(raw as i32),
             Type::I64 => Self::I64(raw as i64),
@@ -128,7 +128,7 @@ impl Value {
     ///
     /// Externref and funcref values are tied to a context and can only be used
     /// with that context.
-    pub fn is_from_context(&self, ctx: &impl AsContextRef) -> bool {
+    pub fn is_from_context(&self, ctx: &impl AsStoreRef) -> bool {
         match self {
             Self::I32(_)
             | Self::I64(_)

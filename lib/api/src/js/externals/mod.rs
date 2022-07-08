@@ -8,7 +8,7 @@ pub use self::global::Global;
 pub use self::memory::{Memory, MemoryError};
 pub use self::table::Table;
 
-use crate::js::context::{AsContextMut, AsContextRef};
+use crate::js::context::{AsStoreMut, AsStoreRef};
 use crate::js::export::Export;
 use crate::js::exports::{ExportError, Exportable};
 use crate::js::store::StoreObject;
@@ -34,7 +34,7 @@ pub enum Extern {
 
 impl Extern {
     /// Return the underlying type of the inner `Extern`.
-    pub fn ty(&self, ctx: &impl AsContextRef) -> ExternType {
+    pub fn ty(&self, ctx: &impl AsStoreRef) -> ExternType {
         match self {
             Self::Function(ft) => ExternType::Function(ft.ty(ctx).clone()),
             Self::Memory(ft) => ExternType::Memory(ft.ty(ctx)),
@@ -44,7 +44,7 @@ impl Extern {
     }
 
     /// Create an `Extern` from an `wasmer_compiler::Export`.
-    pub fn from_vm_export(ctx: &mut impl AsContextMut, export: Export) -> Self {
+    pub fn from_vm_export(ctx: &mut impl AsStoreMut, export: Export) -> Self {
         match export {
             Export::Function(f) => Self::Function(Function::from_vm_extern(ctx, f)),
             Export::Memory(m) => Self::Memory(Memory::from_vm_extern(ctx, m)),
@@ -54,7 +54,7 @@ impl Extern {
     }
 
     /// Checks whether this `Extern` can be used with the given context.
-    pub fn is_from_context(&self, ctx: &impl AsContextRef) -> bool {
+    pub fn is_from_context(&self, ctx: &impl AsStoreRef) -> bool {
         match self {
             Self::Function(val) => val.is_from_context(ctx),
             Self::Memory(val) => val.is_from_context(ctx),
@@ -74,7 +74,7 @@ impl Extern {
 }
 
 impl AsJs for Extern {
-    fn as_jsvalue(&self, ctx: &impl AsContextRef) -> wasm_bindgen::JsValue {
+    fn as_jsvalue(&self, ctx: &impl AsStoreRef) -> wasm_bindgen::JsValue {
         match self {
             Self::Function(_) => self.to_export().as_jsvalue(ctx),
             Self::Global(_) => self.to_export().as_jsvalue(ctx),

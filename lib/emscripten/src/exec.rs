@@ -3,9 +3,9 @@ use crate::EmEnv;
 use libc::c_char;
 use libc::execvp as libc_execvp;
 use std::ffi::CString;
-use wasmer::{ContextMut, WasmPtr};
+use wasmer::{StoreMut, WasmPtr};
 
-pub fn execvp(ctx: ContextMut<'_, EmEnv>, command_name_offset: u32, argv_offset: u32) -> i32 {
+pub fn execvp(ctx: FunctionEnv<'_, EmEnv>, command_name_offset: u32, argv_offset: u32) -> i32 {
     // a single reference to re-use
     let emscripten_memory = ctx.data().memory(0);
 
@@ -41,7 +41,7 @@ pub fn execvp(ctx: ContextMut<'_, EmEnv>, command_name_offset: u32, argv_offset:
 
 /// execl
 pub fn execl(
-    _ctx: ContextMut<'_, EmEnv>,
+    _ctx: FunctionEnv<'_, EmEnv>,
     _path_ptr: i32,
     _arg0_ptr: i32,
     _varargs: VarArgs,
@@ -52,7 +52,7 @@ pub fn execl(
 
 /// execle
 pub fn execle(
-    _ctx: ContextMut<'_, EmEnv>,
+    _ctx: FunctionEnv<'_, EmEnv>,
     _path_ptr: i32,
     _arg0_ptr: i32,
     _varargs: VarArgs,

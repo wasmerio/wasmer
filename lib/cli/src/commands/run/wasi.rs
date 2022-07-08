@@ -2,7 +2,7 @@ use crate::utils::{parse_envvar, parse_mapdir};
 use anyhow::Result;
 use std::collections::BTreeSet;
 use std::path::PathBuf;
-use wasmer::{AsContextMut, Context, Instance, Module, RuntimeError, Value};
+use wasmer::{AsStoreMut, Context, Instance, Module, RuntimeError, Value};
 use wasmer_wasi::{
     get_wasi_versions, import_object_for_all_wasi_versions, is_wasix_module, WasiEnv, WasiError,
     WasiState, WasiVersion,
@@ -105,7 +105,7 @@ impl Wasi {
             std::sync::atomic::Ordering::Release,
         );
         let mut ctx = Context::new(module.store(), wasi_env);
-        let import_object = import_object_for_all_wasi_versions(&mut ctx.as_context_mut());
+        let import_object = import_object_for_all_wasi_versions(&mut ctx.as_store_mut());
         let instance = Instance::new(&mut ctx, module, &import_object)?;
         let memory = instance.exports.get_memory("memory")?;
         ctx.data_mut().set_memory(memory.clone());

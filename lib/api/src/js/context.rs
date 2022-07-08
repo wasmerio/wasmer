@@ -5,7 +5,7 @@ use crate::Store;
 /// various bits of the VM have raw pointers that point back to it. Hence we
 /// wrap the actual context in a box.
 pub(crate) struct ContextInner<T> {
-    pub(crate) objects: ContextObjects,
+    pub(crate) objects: StoreObjects,
     pub(crate) store: Store,
     pub(crate) data: T,
 }
@@ -67,11 +67,11 @@ impl<T> Context<T> {
 }
 
 /// A temporary handle to a [`Context`].
-pub struct ContextRef<'a, T: 'a> {
+pub struct StoreRef<'a, T: 'a> {
     inner: &'a ContextInner<T>,
 }
 
-impl<'a, T> ContextRef<'a, T> {
+impl<'a, T> StoreRef<'a, T> {
     /// Returns a reference to the host state in this context.
     pub fn data(&self) -> &'a T {
         &self.inner.data
@@ -82,17 +82,17 @@ impl<'a, T> ContextRef<'a, T> {
         &self.inner.store
     }
 
-    pub(crate) fn objects(&self) -> &'a ContextObjects {
+    pub(crate) fn objects(&self) -> &'a StoreObjects {
         &self.inner.objects
     }
 }
 
 /// A temporary handle to a [`Context`].
-pub struct ContextMut<'a, T: 'a> {
+pub struct FunctionEnv<'a, T: 'a> {
     inner: &'a mut ContextInner<T>,
 }
 
-impl<T> ContextMut<'_, T> {
+impl<T> FunctionEnv<'_, T> {
     /// Returns a reference to the host state in this context.
     pub fn data(&self) -> &T {
         &self.inner.data
@@ -103,7 +103,7 @@ impl<T> ContextMut<'_, T> {
         &mut self.inner.data
     }
 
-    pub(crate) fn objects_mut(&mut self) -> &mut ContextObjects {
+    pub(crate) fn objects_mut(&mut self) -> &mut StoreObjects {
         &mut self.inner.objects
     }
 
@@ -123,70 +123,70 @@ impl<T> ContextMut<'_, T> {
     }
 }
 
-/// Helper trait for a value that is convertible to a [`ContextRef`].
-pub trait AsContextRef {
+/// Helper trait for a value that is convertible to a [`StoreRef`].
+pub trait AsStoreRef {
     /// Host state associated with the [`Context`].
     type Data;
 
-    /// Returns a `ContextRef` pointing to the underlying context.
-    fn as_context_ref(&self) -> ContextRef<'_, Self::Data>;
+    /// Returns a `StoreRef` pointing to the underlying context.
+    fn as_context_ref(&self) -> StoreRef<'_, Self::Data>;
 }
 
-/// Helper trait for a value that is convertible to a [`ContextMut`].
-pub trait AsContextMut: AsContextRef {
-    /// Returns a `ContextMut` pointing to the underlying context.
-    fn as_context_mut(&mut self) -> ContextMut<'_, Self::Data>;
+/// Helper trait for a value that is convertible to a [`StoreMut`].
+pub trait AsStoreMut: AsStoreRef {
+    /// Returns a `StoreMut` pointing to the underlying context.
+    fn as_context_mut(&mut self) -> FunctionEnv<'_, Self::Data>;
 }
 
-impl<T> AsContextRef for Context<T> {
+impl<T> AsStoreRef for Context<T> {
     type Data = T;
 
-    fn as_context_ref(&self) -> ContextRef<'_, Self::Data> {
-        ContextRef { inner: &self.inner }
+    fn as_context_ref(&self) -> StoreRef<'_, Self::Data> {
+        StoreRef { inner: &self.inner }
     }
 }
-impl<T> AsContextMut for Context<T> {
-    fn as_context_mut(&mut self) -> ContextMut<'_, Self::Data> {
-        ContextMut {
+impl<T> AsStoreMut for Context<T> {
+    fn as_context_mut(&mut self) -> FunctionEnv<'_, Self::Data> {
+        FunctionEnv {
             inner: &mut self.inner,
         }
     }
 }
-impl<T> AsContextRef for ContextRef<'_, T> {
+impl<T> AsStoreRef for StoreRef<'_, T> {
     type Data = T;
 
-    fn as_context_ref(&self) -> ContextRef<'_, Self::Data> {
-        ContextRef { inner: self.inner }
+    fn as_context_ref(&self) -> StoreRef<'_, Self::Data> {
+        StoreRef { inner: self.inner }
     }
 }
-impl<T> AsContextRef for ContextMut<'_, T> {
+impl<T> AsStoreRef for FunctionEnv<'_, T> {
     type Data = T;
 
-    fn as_context_ref(&self) -> ContextRef<'_, Self::Data> {
-        ContextRef { inner: self.inner }
+    fn as_context_ref(&self) -> StoreRef<'_, Self::Data> {
+        StoreRef { inner: self.inner }
     }
 }
-impl<T> AsContextMut for ContextMut<'_, T> {
-    fn as_context_mut(&mut self) -> ContextMut<'_, Self::Data> {
-        ContextMut { inner: self.inner }
+impl<T> AsStoreMut for FunctionEnv<'_, T> {
+    fn as_context_mut(&mut self) -> FunctionEnv<'_, Self::Data> {
+        FunctionEnv { inner: self.inner }
     }
 }
-impl<T: AsContextRef> AsContextRef for &'_ T {
+impl<T: AsStoreRef> AsStoreRef for &'_ T {
     type Data = T::Data;
 
-    fn as_context_ref(&self) -> ContextRef<'_, Self::Data> {
+    fn as_context_ref(&self) -> StoreRef<'_, Self::Data> {
         T::as_context_ref(*self)
     }
 }
-impl<T: AsContextRef> AsContextRef for &'_ mut T {
+impl<T: AsStoreRef> AsStoreRef for &'_ mut T {
     type Data = T::Data;
 
-    fn as_context_ref(&self) -> ContextRef<'_, Self::Data> {
+    fn as_context_ref(&self) -> StoreRef<'_, Self::Data> {
         T::as_context_ref(*self)
     }
 }
-impl<T: AsContextMut> AsContextMut for &'_ mut T {
-    fn as_context_mut(&mut self) -> ContextMut<'_, Self::Data> {
+impl<T: AsStoreMut> AsStoreMut for &'_ mut T {
+    fn as_context_mut(&mut self) -> FunctionEnv<'_, Self::Data> {
         T::as_context_mut(*self)
     }
 }
@@ -209,9 +209,9 @@ mod objects {
     /// context. This is used to check that a handle is always used with the
     /// correct context.
     #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-    pub struct ContextId(NonZeroU64);
+    pub struct StoreId(NonZeroU64);
 
-    impl Default for ContextId {
+    impl Default for StoreId {
         // Allocates a unique ID for a new context.
         fn default() -> Self {
             // No overflow checking is needed here: overflowing this would take
@@ -223,19 +223,19 @@ mod objects {
 
     /// Trait to represent an object managed by a context. This is implemented on
     /// the VM types managed by the context.
-    pub trait ContextObject: Sized {
-        fn list(ctx: &ContextObjects) -> &Vec<Self>;
-        fn list_mut(ctx: &mut ContextObjects) -> &mut Vec<Self>;
+    pub trait StoreObject: Sized {
+        fn list(ctx: &StoreObjects) -> &Vec<Self>;
+        fn list_mut(ctx: &mut StoreObjects) -> &mut Vec<Self>;
     }
 
     macro_rules! impl_context_object {
     ($($field:ident => $ty:ty,)*) => {
         $(
-            impl ContextObject for $ty {
-                fn list(ctx: &ContextObjects) -> &Vec<Self> {
+            impl StoreObject for $ty {
+                fn list(ctx: &StoreObjects) -> &Vec<Self> {
                     &ctx.$field
                 }
-                fn list_mut(ctx: &mut ContextObjects) -> &mut Vec<Self> {
+                fn list_mut(ctx: &mut StoreObjects) -> &mut Vec<Self> {
                     &mut ctx.$field
                 }
             }
@@ -253,8 +253,8 @@ mod objects {
 
     /// Set of objects managed by a context.
     #[derive(Default)]
-    pub struct ContextObjects {
-        id: ContextId,
+    pub struct StoreObjects {
+        id: StoreId,
         memories: Vec<VMMemory>,
         tables: Vec<VMTable>,
         globals: Vec<VMGlobal>,
@@ -262,19 +262,19 @@ mod objects {
         instances: Vec<js_sys::WebAssembly::Instance>,
     }
 
-    impl ContextObjects {
+    impl StoreObjects {
         /// Returns the ID of this context.
-        pub fn id(&self) -> ContextId {
+        pub fn id(&self) -> StoreId {
             self.id
         }
 
         /// Returns a pair of mutable references from two handles.
         ///
         /// Panics if both handles point to the same object.
-        pub fn get_2_mut<T: ContextObject>(
+        pub fn get_2_mut<T: StoreObject>(
             &mut self,
-            a: InternalContextHandle<T>,
-            b: InternalContextHandle<T>,
+            a: InternalStoreHandle<T>,
+            b: InternalStoreHandle<T>,
         ) -> (&mut T, &mut T) {
             assert_ne!(a.index(), b.index());
             let list = T::list_mut(self);
@@ -292,17 +292,17 @@ mod objects {
     ///
     /// Internally this is just an integer index into a context. A reference to the
     /// context must be passed in separately to access the actual object.
-    pub struct ContextHandle<T> {
-        id: ContextId,
-        internal: InternalContextHandle<T>,
+    pub struct StoreHandle<T> {
+        id: StoreId,
+        internal: InternalStoreHandle<T>,
     }
 
-    impl<T> core::cmp::PartialEq for ContextHandle<T> {
+    impl<T> core::cmp::PartialEq for StoreHandle<T> {
         fn eq(&self, other: &Self) -> bool {
             self.id == other.id
         }
     }
-    impl<T> Clone for ContextHandle<T> {
+    impl<T> Clone for StoreHandle<T> {
         fn clone(&self) -> Self {
             Self {
                 id: self.id,
@@ -311,90 +311,90 @@ mod objects {
         }
     }
 
-    impl<T: ContextObject> fmt::Debug for ContextHandle<T> {
+    impl<T: StoreObject> fmt::Debug for StoreHandle<T> {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            f.debug_struct("ContextHandle")
+            f.debug_struct("StoreHandle")
                 .field("id", &self.id)
                 .field("internal", &self.internal.index())
                 .finish()
         }
     }
 
-    impl<T: ContextObject> ContextHandle<T> {
+    impl<T: StoreObject> StoreHandle<T> {
         /// Moves the given object into a context and returns a handle to it.
-        pub fn new(ctx: &mut ContextObjects, val: T) -> Self {
+        pub fn new(ctx: &mut StoreObjects, val: T) -> Self {
             Self {
                 id: ctx.id,
-                internal: InternalContextHandle::new(ctx, val),
+                internal: InternalStoreHandle::new(ctx, val),
             }
         }
 
         /// Returns a reference to the object that this handle points to.
-        pub fn get<'a>(&self, ctx: &'a ContextObjects) -> &'a T {
+        pub fn get<'a>(&self, ctx: &'a StoreObjects) -> &'a T {
             assert_eq!(self.id, ctx.id, "object used with the wrong context");
             self.internal.get(ctx)
         }
 
         /// Returns a mutable reference to the object that this handle points to.
-        pub fn get_mut<'a>(&self, ctx: &'a mut ContextObjects) -> &'a mut T {
+        pub fn get_mut<'a>(&self, ctx: &'a mut StoreObjects) -> &'a mut T {
             assert_eq!(self.id, ctx.id, "object used with the wrong context");
             self.internal.get_mut(ctx)
         }
 
         /// Returns the internal handle contains within this handle.
-        pub fn internal_handle(&self) -> InternalContextHandle<T> {
+        pub fn internal_handle(&self) -> InternalStoreHandle<T> {
             self.internal
         }
 
         /// Returns the ID of the context associated with the handle.
-        pub fn context_id(&self) -> ContextId {
+        pub fn context_id(&self) -> StoreId {
             self.id
         }
 
-        /// Constructs a `ContextHandle` from a `ContextId` and an `InternalContextHandle`.
+        /// Constructs a `StoreHandle` from a `StoreId` and an `InternalStoreHandle`.
         ///
         /// # Safety
-        /// Handling `InternalContextHandle` values is unsafe because they do not track context ID.
-        pub unsafe fn from_internal(id: ContextId, internal: InternalContextHandle<T>) -> Self {
+        /// Handling `InternalStoreHandle` values is unsafe because they do not track context ID.
+        pub unsafe fn from_internal(id: StoreId, internal: InternalStoreHandle<T>) -> Self {
             Self { id, internal }
         }
     }
 
     /// Internal handle to an object owned by the current context.
     ///
-    /// Unlike `ContextHandle` this does not track the context ID: it is only
+    /// Unlike `StoreHandle` this does not track the context ID: it is only
     /// intended to be used within objects already owned by a context.
     #[repr(transparent)]
-    pub struct InternalContextHandle<T> {
-        // Use a NonZero here to reduce the size of Option<InternalContextHandle>.
+    pub struct InternalStoreHandle<T> {
+        // Use a NonZero here to reduce the size of Option<InternalStoreHandle>.
         idx: NonZeroUsize,
         marker: PhantomData<fn() -> T>,
     }
 
-    impl<T> Clone for InternalContextHandle<T> {
+    impl<T> Clone for InternalStoreHandle<T> {
         fn clone(&self) -> Self {
             *self
         }
     }
-    impl<T> Copy for InternalContextHandle<T> {}
+    impl<T> Copy for InternalStoreHandle<T> {}
 
-    impl<T> fmt::Debug for InternalContextHandle<T> {
+    impl<T> fmt::Debug for InternalStoreHandle<T> {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            f.debug_struct("InternalContextHandle")
+            f.debug_struct("InternalStoreHandle")
                 .field("idx", &self.idx)
                 .finish()
         }
     }
-    impl<T> PartialEq for InternalContextHandle<T> {
+    impl<T> PartialEq for InternalStoreHandle<T> {
         fn eq(&self, other: &Self) -> bool {
             self.idx == other.idx
         }
     }
-    impl<T> Eq for InternalContextHandle<T> {}
+    impl<T> Eq for InternalStoreHandle<T> {}
 
-    impl<T: ContextObject> InternalContextHandle<T> {
+    impl<T: StoreObject> InternalStoreHandle<T> {
         /// Moves the given object into a context and returns a handle to it.
-        pub fn new(ctx: &mut ContextObjects, val: T) -> Self {
+        pub fn new(ctx: &mut StoreObjects, val: T) -> Self {
             let list = T::list_mut(ctx);
             let idx = NonZeroUsize::new(list.len() + 1).unwrap();
             list.push(val);
@@ -405,12 +405,12 @@ mod objects {
         }
 
         /// Returns a reference to the object that this handle points to.
-        pub fn get<'a>(&self, ctx: &'a ContextObjects) -> &'a T {
+        pub fn get<'a>(&self, ctx: &'a StoreObjects) -> &'a T {
             &T::list(ctx)[self.idx.get() - 1]
         }
 
         /// Returns a mutable reference to the object that this handle points to.
-        pub fn get_mut<'a>(&self, ctx: &'a mut ContextObjects) -> &'a mut T {
+        pub fn get_mut<'a>(&self, ctx: &'a mut StoreObjects) -> &'a mut T {
             &mut T::list_mut(ctx)[self.idx.get() - 1]
         }
 

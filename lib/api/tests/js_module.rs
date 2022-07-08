@@ -6,7 +6,7 @@ mod js {
 
     #[wasm_bindgen_test]
     fn module_get_name() {
-        let store = Store::default();
+        let mut store = Store::default();
         let wat = r#"(module)"#;
         let module = Module::new(&store, wat).unwrap();
         assert_eq!(module.name(), None);
@@ -14,7 +14,7 @@ mod js {
 
     #[wasm_bindgen_test]
     fn module_set_name() {
-        let store = Store::default();
+        let mut store = Store::default();
         let wat = r#"(module $name)"#;
         let mut module = Module::new(&store, wat).unwrap();
 
@@ -37,7 +37,7 @@ mod js {
 
     #[wasm_bindgen_test]
     fn imports() {
-        let store = Store::default();
+        let mut store = Store::default();
         let wat = r#"(module
     (import "host" "func" (func))
     (import "host" "memory" (memory 1))
@@ -108,7 +108,7 @@ mod js {
 
     #[wasm_bindgen_test]
     fn exports() {
-        let store = Store::default();
+        let mut store = Store::default();
         let wat = r#"(module
     (func (export "func") nop)
     (memory (export "memory") 2)
@@ -182,7 +182,7 @@ mod js {
 
     // #[wasm_bindgen_test]
     // fn calling_host_functions_with_negative_values_works() {
-    //     let store = Store::default();
+    //     let mut store = Store::default();
     //     let wat = r#"(module
     //     (import "host" "host_func1" (func (param i64)))
     //     (import "host" "host_func2" (func (param i32)))

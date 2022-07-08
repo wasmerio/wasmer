@@ -111,7 +111,7 @@ impl Run {
             let imports = imports! {};
             let instance = Instance::new(&mut ctx, &module, &imports)?;
             let result =
-                self.invoke_function(&mut ctx.as_context_mut(), &instance, invoke, &self.args)?;
+                self.invoke_function(&mut ctx.as_store_mut(), &instance, invoke, &self.args)?;
             println!(
                 "{}",
                 result
@@ -147,14 +147,14 @@ impl Run {
                 }
                 // create an EmEnv with default global
                 let mut ctx = WasmerContext::new(module.store(), EmEnv::new());
-                let mut emscripten_globals = EmscriptenGlobals::new(ctx.as_context_mut(), &module)
+                let mut emscripten_globals = EmscriptenGlobals::new(ctx.as_store_mut(), &module)
                     .map_err(|e| anyhow!("{}", e))?;
                 ctx.data_mut()
                     .set_data(&emscripten_globals.data, Default::default());
                 let import_object =
-                    generate_emscripten_env(&mut ctx.as_context_mut(), &mut emscripten_globals);
+                    generate_emscripten_env(&mut ctx.as_store_mut(), &mut emscripten_globals);
                 let mut instance = match Instance::new(
-                    &mut ctx.as_context_mut(),
+                    &mut ctx.as_store_mut(),
                     &module,
                     &import_object,
                 ) {
@@ -173,7 +173,7 @@ impl Run {
 
                 run_emscripten_instance(
                     &mut instance,
-                    ctx.as_context_mut(),
+                    ctx.as_store_mut(),
                     &mut emscripten_globals,
                     if let Some(cn) = &self.command_name {
                         cn
@@ -250,7 +250,7 @@ impl Run {
         let contents = std::fs::read(self.path.clone())?;
         if wasmer_compiler::UniversalArtifact::is_deserializable(&contents) {
             let engine = wasmer_compiler::Universal::headless().engine();
-            let store = Store::new_with_engine(&engine);
+            let mut store = Store::new_with_engine(&engine);
             let module = unsafe { Module::deserialize_from_file(&store, &self.path)? };
             return Ok(module);
         }
@@ -378,7 +378,7 @@ impl Run {
 
     fn invoke_function(
         &self,
-        ctx: &mut impl AsContextMut,
+        ctx: &mut impl AsStoreMut,
         instance: &Instance,
         invoke: &str,
         args: &[String],
@@ -468,7 +468,7 @@ impl Run {
             .clone()
             .into_string()
             .map_err(|s| anyhow!("Cannot convert executable name {:?} to UTF-8 string", s))?;
-        let store = StoreOptions::default();
+        let mut store = StoreOptions::default();
         // TODO: store.compiler.features.all = true; ?
         Ok(Self {
             args,

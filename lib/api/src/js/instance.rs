@@ -1,4 +1,4 @@
-use crate::js::context::{AsContextMut, AsContextRef, ContextHandle};
+use crate::js::context::{AsStoreMut, AsStoreRef, StoreHandle};
 use crate::js::error::InstantiationError;
 use crate::js::export::Export;
 use crate::js::exports::Exports;
@@ -18,7 +18,7 @@ use std::fmt;
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#module-instances>
 #[derive(Clone)]
 pub struct Instance {
-    _handle: ContextHandle<WebAssembly::Instance>,
+    _handle: StoreHandle<WebAssembly::Instance>,
     module: Module,
     #[allow(dead_code)]
     imports: Imports,
@@ -41,7 +41,7 @@ impl Instance {
     /// ```
     /// # use wasmer::{imports, Store, Module, Global, Value, Instance};
     /// # fn main() -> anyhow::Result<()> {
-    /// let store = Store::default();
+    /// let mut store = Store::default();
     /// let module = Module::new(&store, "(module)")?;
     /// let imports = imports!{
     ///   "host" => {
@@ -61,12 +61,12 @@ impl Instance {
     ///  * Link errors that happen when plugging the imports into the instance
     ///  * Runtime errors that happen when running the module `start` function.
     pub fn new(
-        ctx: &mut impl AsContextMut,
+        ctx: &mut impl AsStoreMut,
         module: &Module,
         imports: &Imports,
     ) -> Result<Self, InstantiationError> {
         let import_copy = imports.clone();
-        let (instance, _imports): (ContextHandle<WebAssembly::Instance>, Vec<Extern>) = module
+        let (instance, _imports): (StoreHandle<WebAssembly::Instance>, Vec<Extern>) = module
             .instantiate(&mut ctx.as_context_mut(), imports)
             .map_err(|e| InstantiationError::Start(e))?;
 
@@ -85,9 +85,9 @@ impl Instance {
     ///
     /// *This method is only available when targeting JS environments*
     pub fn from_module_and_instance(
-        ctx: &mut impl AsContextMut,
+        ctx: &mut impl AsStoreMut,
         module: &Module,
-        instance: ContextHandle<WebAssembly::Instance>,
+        instance: StoreHandle<WebAssembly::Instance>,
         imports: Imports,
     ) -> Result<Self, InstantiationError> {
         let instance_exports = instance.get(ctx.as_context_ref().objects()).exports();
@@ -128,7 +128,7 @@ impl Instance {
     #[doc(hidden)]
     pub fn raw<'context>(
         &self,
-        ctx: &'context impl AsContextRef,
+        ctx: &'context impl AsStoreRef,
     ) -> &'context WebAssembly::Instance {
         &self._handle.get(ctx.as_context_ref().objects())
     }

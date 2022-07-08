@@ -1,6 +1,6 @@
 use std::io::{Read, Write};
 
-use wasmer::{AsContextMut, Context, Instance, Module, Store};
+use wasmer::{AsStoreMut, Context, Instance, Module, Store};
 use wasmer_wasi::{Pipe, WasiState};
 
 mod sys {
@@ -41,7 +41,7 @@ mod js {
 }
 
 fn test_stdout() {
-    let store = Store::default();
+    let mut store = Store::default();
     let module = Module::new(&store, br#"
     (module
         ;; Import the required fd_write WASI function which will write the given io vectors to stdout
@@ -85,7 +85,7 @@ fn test_stdout() {
 
     // Generate an `ImportObject`.
     let import_object = wasi_env
-        .import_object(&mut ctx.as_context_mut(), &module)
+        .import_object(&mut ctx.as_store_mut(), &module)
         .unwrap();
 
     // Let's instantiate the module with the imports.
@@ -104,7 +104,7 @@ fn test_stdout() {
 }
 
 fn test_env() {
-    let store = Store::default();
+    let mut store = Store::default();
     let module = Module::new(&store, include_bytes!("envvar.wasm")).unwrap();
 
     #[cfg(feature = "js")]
@@ -133,7 +133,7 @@ fn test_env() {
 
     // Generate an `ImportObject`.
     let import_object = wasi_env
-        .import_object(&mut ctx.as_context_mut(), &module)
+        .import_object(&mut ctx.as_store_mut(), &module)
         .unwrap();
 
     // Let's instantiate the module with the imports.
@@ -152,7 +152,7 @@ fn test_env() {
 }
 
 fn test_stdin() {
-    let store = Store::default();
+    let mut store = Store::default();
     let module = Module::new(&store, include_bytes!("stdin-hello.wasm")).unwrap();
 
     // Create the `WasiEnv`.
@@ -171,7 +171,7 @@ fn test_stdin() {
 
     // Generate an `ImportObject`.
     let import_object = wasi_env
-        .import_object(&mut ctx.as_context_mut(), &module)
+        .import_object(&mut ctx.as_store_mut(), &module)
         .unwrap();
 
     // Let's instantiate the module with the imports.

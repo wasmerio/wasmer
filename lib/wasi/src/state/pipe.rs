@@ -8,7 +8,7 @@ use std::ops::DerefMut;
 use std::sync::mpsc;
 use std::sync::Mutex;
 use wasmer::MemorySize;
-use wasmer::{ContextMut, Memory, WasmSlice};
+use wasmer::{StoreMut, Memory, WasmSlice};
 
 #[derive(Debug)]
 pub struct WasiPipe {
@@ -42,7 +42,7 @@ impl WasiPipe {
 
     pub fn recv<M: MemorySize>(
         &mut self,
-        ctx: &ContextMut<'_, WasiEnv>,
+        ctx: &FunctionEnv<'_, WasiEnv>,
         memory: &Memory,
         iov: WasmSlice<__wasi_iovec_t<M>>,
     ) -> Result<usize, __wasi_errno_t> {
@@ -64,7 +64,7 @@ impl WasiPipe {
 
     pub fn send<M: MemorySize>(
         &mut self,
-        ctx: &ContextMut<'_, WasiEnv>,
+        ctx: &FunctionEnv<'_, WasiEnv>,
         memory: &Memory,
         iov: WasmSlice<__wasi_ciovec_t<M>>,
     ) -> Result<usize, __wasi_errno_t> {

@@ -1,4 +1,4 @@
-use crate::js::context::{AsContextMut, AsContextRef, ContextHandle, InternalContextHandle};
+use crate::js::context::{AsStoreMut, AsStoreRef, StoreHandle, InternalStoreHandle};
 use crate::js::export::{VMFunction, VMTable};
 use crate::js::exports::{ExportError, Exportable};
 use crate::js::externals::Extern;
@@ -18,14 +18,14 @@ use js_sys::Function;
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#table-instances>
 #[derive(Debug, Clone, PartialEq)]
 pub struct Table {
-    pub(crate) handle: ContextHandle<VMTable>,
+    pub(crate) handle: StoreHandle<VMTable>,
 }
 
 fn set_table_item(table: &VMTable, item_index: u32, item: &Function) -> Result<(), RuntimeError> {
     table.table.set(item_index, item).map_err(|e| e.into())
 }
 
-fn get_function(ctx: &mut impl AsContextMut, val: Value) -> Result<Function, RuntimeError> {
+fn get_function(ctx: &mut impl AsStoreMut, val: Value) -> Result<Function, RuntimeError> {
     if !val.is_from_context(ctx) {
         return Err(RuntimeError::new("cannot pass Value across contexts"));
     }
@@ -49,7 +49,7 @@ impl Table {
     /// This function will construct the `Table` using the store
     /// [`BaseTunables`][crate::js::tunables::BaseTunables].
     pub fn new(
-        ctx: &mut impl AsContextMut,
+        ctx: &mut impl AsStoreMut,
         ty: TableType,
         init: Value,
     ) -> Result<Self, RuntimeError> {
@@ -71,17 +71,17 @@ impl Table {
         }
 
         Ok(Self {
-            handle: ContextHandle::new(ctx.objects_mut(), table),
+            handle: StoreHandle::new(ctx.objects_mut(), table),
         })
     }
 
     /// Returns the [`TableType`] of the `Table`.
-    pub fn ty(&self, ctx: &impl AsContextRef) -> TableType {
+    pub fn ty(&self, ctx: &impl AsStoreRef) -> TableType {
         self.handle.get(ctx.as_context_ref().objects()).ty
     }
 
     /// Retrieves an element of the table at the provided `index`.
-    pub fn get(&self, ctx: &mut impl AsContextMut, index: u32) -> Option<Value> {
+    pub fn get(&self, ctx: &mut impl AsStoreMut, index: u32) -> Option<Value> {
         if let Some(func) = self
             .handle
             .get(ctx.as_context_ref().objects())
@@ -101,7 +101,7 @@ impl Table {
     /// Sets an element `val` in the Table at the provided `index`.
     pub fn set(
         &self,
-        ctx: &mut impl AsContextMut,
+        ctx: &mut impl AsStoreMut,
         index: u32,
         val: Value,
     ) -> Result<(), RuntimeError> {
@@ -114,7 +114,7 @@ impl Table {
     }
 
     /// Retrieves the size of the `Table` (in elements)
-    pub fn size(&self, ctx: &impl AsContextRef) -> u32 {
+    pub fn size(&self, ctx: &impl AsStoreRef) -> u32 {
         self.handle
             .get(ctx.as_context_ref().objects())
             .table
@@ -152,18 +152,18 @@ impl Table {
     }
 
     pub(crate) fn from_vm_extern(
-        ctx: &mut impl AsContextMut,
-        internal: InternalContextHandle<VMTable>,
+        ctx: &mut impl AsStoreMut,
+        internal: InternalStoreHandle<VMTable>,
     ) -> Self {
         Self {
             handle: unsafe {
-                ContextHandle::from_internal(ctx.as_context_ref().objects().id(), internal)
+                StoreHandle::from_internal(ctx.as_context_ref().objects().id(), internal)
             },
         }
     }
 
     /// Checks whether this `Table` can be used with the given context.
-    pub fn is_from_context(&self, ctx: &impl AsContextRef) -> bool {
+    pub fn is_from_context(&self, ctx: &impl AsStoreRef) -> bool {
         self.handle.context_id() == ctx.as_context_ref().objects().id()
     }
 
@@ -177,7 +177,7 @@ impl Table {
     #[doc(hidden)]
     pub unsafe fn get_vm_table<'context>(
         &self,
-        ctx: &'context impl AsContextRef,
+        ctx: &'context impl AsStoreRef,
     ) -> &'context VMTable {
         self.handle.get(ctx.as_context_ref().objects())
     }

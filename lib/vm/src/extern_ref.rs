@@ -2,7 +2,7 @@ use std::any::Any;
 
 use wasmer_types::RawValue;
 
-use crate::context::InternalContextHandle;
+use crate::context::InternalStoreHandle;
 
 /// Underlying object referenced by a `VMExternRef`.
 pub struct VMExternObj {
@@ -27,7 +27,7 @@ impl VMExternObj {
 /// Represents an opaque reference to any data within WebAssembly.
 #[repr(transparent)]
 #[derive(Debug, Clone, Copy)]
-pub struct VMExternRef(pub InternalContextHandle<VMExternObj>);
+pub struct VMExternRef(pub InternalStoreHandle<VMExternObj>);
 
 impl VMExternRef {
     /// Converts the `VMExternRef` into a `RawValue`.
@@ -42,6 +42,6 @@ impl VMExternRef {
     /// # Safety
     /// `raw` must be a valid `VMExternRef` instance.
     pub unsafe fn from_raw(raw: RawValue) -> Option<Self> {
-        InternalContextHandle::from_index(raw.externref).map(Self)
+        InternalStoreHandle::from_index(raw.externref).map(Self)
     }
 }

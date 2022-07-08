@@ -45,15 +45,15 @@ pub unsafe extern "C" fn wasm_func_new(
 ) -> Option<Box<wasm_func_t>> {
     let function_type = function_type?;
     let callback = callback?;
-    let store = store?;
+    let mut store = Store?;
     if store.context.is_none() {
         crate::error::update_last_error(wasm_store_t::CTX_ERR_STR);
     }
-    let mut ctx = store.context.as_ref()?.borrow_mut();
+    let mut ctx = store.as_ref()?.borrow_mut();
 
     let func_sig = &function_type.inner().function_type;
     let num_rets = func_sig.results().len();
-    let inner_callback = move |ctx: wasmer_api::ContextMut<'_, *mut c_void>,
+    let inner_callback = move |ctx: wasmer_api::FunctionEnv<'_, *mut c_void>,
                                args: &[Value]|
           -> Result<Vec<Value>, RuntimeError> {
         let processed_args: wasm_val_vec_t = args

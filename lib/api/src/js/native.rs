@@ -9,7 +9,7 @@
 //! ```
 use std::marker::PhantomData;
 
-use crate::js::context::{AsContextMut, AsContextRef, ContextHandle};
+use crate::js::context::{AsStoreMut, AsStoreRef, StoreHandle};
 use crate::js::externals::Function;
 use crate::js::{FromToNativeWasmType, RuntimeError, WasmTypeList};
 // use std::panic::{catch_unwind, AssertUnwindSafe};
@@ -23,7 +23,7 @@ use wasm_bindgen::JsValue;
 /// (using the Native ABI).
 #[derive(Clone)]
 pub struct TypedFunction<Args = (), Rets = ()> {
-    pub(crate) handle: ContextHandle<VMFunction>,
+    pub(crate) handle: StoreHandle<VMFunction>,
     _phantom: PhantomData<(Args, Rets)>,
 }
 
@@ -36,9 +36,9 @@ where
     Rets: WasmTypeList,
 {
     #[allow(dead_code)]
-    pub(crate) fn new<T>(ctx: &mut impl AsContextMut<Data = T>, vm_function: VMFunction) -> Self {
+    pub(crate) fn new<T>(ctx: &mut impl AsFunctionEnv<Data = T>, vm_function: VMFunction) -> Self {
         Self {
-            handle: ContextHandle::new(ctx.as_context_mut().objects_mut(), vm_function),
+            handle: StoreHandle::new(ctx.as_context_mut().objects_mut(), vm_function),
             _phantom: PhantomData,
         }
     }
@@ -61,7 +61,7 @@ macro_rules! impl_native_traits {
         {
             /// Call the typed func and return results.
             #[allow(clippy::too_many_arguments)]
-            pub fn call(&self, ctx: &mut impl AsContextMut, $( $x: $x, )* ) -> Result<Rets, RuntimeError> where
+            pub fn call(&self, ctx: &mut impl AsStoreMut, $( $x: $x, )* ) -> Result<Rets, RuntimeError> where
             $( $x: FromToNativeWasmType + crate::js::NativeWasmTypeInto, )*
             {
                 let params_list: Vec<JsValue> = vec![ $( JsValue::from_f64($x.into_raw(ctx))),* ];
@@ -101,7 +101,7 @@ macro_rules! impl_native_traits {
             $( $x: FromToNativeWasmType, )*
             Rets: WasmTypeList,
         {
-            fn get_self_from_extern_with_generics(ctx: &impl AsContextRef, _extern: &crate::js::externals::Extern) -> Result<Self, crate::js::exports::ExportError> {
+            fn get_self_from_extern_with_generics(ctx: &impl AsStoreRef, _extern: &crate::js::externals::Extern) -> Result<Self, crate::js::exports::ExportError> {
                 use crate::js::exports::Exportable;
                 crate::js::Function::get_self_from_extern(_extern)?.native(ctx).map_err(|_| crate::js::exports::ExportError::IncompatibleType)
             }

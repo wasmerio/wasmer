@@ -44,7 +44,7 @@ mod types;
 mod value;
 mod wasm_bindgen_polyfill;
 
-pub use crate::js::context::{AsContextMut, AsContextRef, Context, ContextMut, ContextRef};
+pub use crate::js::context::{AsStoreMut, AsStoreRef, Context, FunctionEnv, StoreRef};
 pub use crate::js::error::{DeserializeError, InstantiationError, SerializeError};
 pub use crate::js::export::Export;
 pub use crate::js::exports::{ExportError, Exportable, Exports, ExportsIterator};

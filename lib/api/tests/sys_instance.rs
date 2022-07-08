@@ -6,7 +6,7 @@ mod sys {
 
     #[test]
     fn exports_work_after_multiple_instances_have_been_freed() -> Result<()> {
-        let store = Store::default();
+        let mut store = Store::default();
         let mut ctx = WasmerContext::new(&store, ());
         let module = Module::new(
             &store,
@@ -45,13 +45,13 @@ mod sys {
 
     #[test]
     fn unit_native_function_env() -> Result<()> {
-        let store = Store::default();
+        let mut store = Store::default();
         #[derive(Clone)]
         struct Env {
             multiplier: u32,
         }
 
-        fn imported_fn(ctx: ContextMut<Env>, args: &[Value]) -> Result<Vec<Value>, RuntimeError> {
+        fn imported_fn(ctx: FunctionEnv<Env>, args: &[Value]) -> Result<Vec<Value>, RuntimeError> {
             let value = ctx.data().multiplier * args[0].unwrap_i32() as u32;
             Ok(vec![Value::I32(value as _)])
         }

@@ -13,7 +13,7 @@ mod store;
 mod tunables;
 mod value;
 
-pub use crate::sys::context::{AsContextMut, AsContextRef, Context, ContextMut, ContextRef};
+pub use crate::sys::context::{AsStoreMut, AsStoreRef, Context, FunctionEnv, StoreRef};
 pub use crate::sys::exports::{ExportError, Exportable, Exports, ExportsIterator};
 pub use crate::sys::extern_ref::ExternRef;
 pub use crate::sys::externals::{
@@ -81,7 +81,7 @@ If you wish to use more than one compiler, you can simply create the own store. 
 use wasmer::{Store, Universal, Singlepass};
 
 let engine = Universal::new(Singlepass::default()).engine();
-let store = Store::new_with_engine(&engine);
+let mut store = Store::new_with_engine(&engine);
 ```"#
 );
 

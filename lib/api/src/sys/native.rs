@@ -10,7 +10,7 @@
 use std::marker::PhantomData;
 
 use crate::sys::{
-    AsContextMut, FromToNativeWasmType, Function, NativeWasmTypeInto, RuntimeError, WasmTypeList,
+    AsStoreMut, FromToNativeWasmType, Function, NativeWasmTypeInto, RuntimeError, WasmTypeList,
 };
 use wasmer_types::RawValue;
 
@@ -66,11 +66,11 @@ macro_rules! impl_native_traits {
             /// Call the typed func and return results.
             #[allow(unused_mut)]
             #[allow(clippy::too_many_arguments)]
-            pub fn call(&self, ctx: &mut impl AsContextMut, $( $x: $x, )* ) -> Result<Rets, RuntimeError> {
+            pub fn call(&self, ctx: &mut impl AsStoreMut, $( $x: $x, )* ) -> Result<Rets, RuntimeError> {
                 let anyfunc = unsafe {
                     *self.func
                         .handle
-                        .get(ctx.as_context_ref().objects())
+                        .get(ctx.as_store_ref().objects())
                         .anyfunc
                         .as_ptr()
                         .as_ref()
@@ -99,7 +99,7 @@ macro_rules! impl_native_traits {
                 };
                 unsafe {
                     wasmer_vm::wasmer_call_trampoline(
-                        ctx.as_context_ref().store(),
+                        ctx.as_store_ref().store(),
                         anyfunc.vmctx,
                         anyfunc.call_trampoline,
                         anyfunc.func_ptr,

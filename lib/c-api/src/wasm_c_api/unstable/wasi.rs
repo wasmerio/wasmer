@@ -5,7 +5,7 @@ use super::super::{
     externals::wasm_extern_t, module::wasm_module_t, store::wasm_store_t, types::wasm_name_t,
     wasi::wasi_env_t,
 };
-use wasmer_api::{AsContextMut, Extern};
+use wasmer_api::{AsStoreMut, Extern};
 use wasmer_wasi::{generate_import_object_from_ctx, get_wasi_version};
 
 /// Unstable non-standard type wrapping `wasm_extern_t` with the
@@ -161,7 +161,7 @@ fn wasi_get_unordered_imports_inner(
     wasi_env: Option<&wasi_env_t>,
     imports: &mut wasmer_named_extern_vec_t,
 ) -> Option<()> {
-    let store = store?;
+    let mut store = Store?;
     if store.context.is_none() {
         crate::error::update_last_error(wasm_store_t::CTX_ERR_STR);
     }
@@ -173,7 +173,7 @@ fn wasi_get_unordered_imports_inner(
         .ok_or("could not detect a WASI version on the given module"));
 
     let inner = unsafe { ctx.inner.transmute_data::<wasmer_wasi::WasiEnv>() };
-    let import_object = generate_import_object_from_ctx(&mut inner.as_context_mut(), version);
+    let import_object = generate_import_object_from_ctx(&mut inner.as_store_mut(), version);
 
     imports.set_buffer(
         import_object

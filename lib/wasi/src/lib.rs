@@ -50,7 +50,7 @@ pub use crate::syscalls::types;
 pub use crate::utils::{
     get_wasi_version, get_wasi_versions, is_wasi_module, is_wasix_module, WasiVersion,
 };
-use wasmer::ContextMut;
+use wasmer::FunctionEnv;
 pub use wasmer_vbus::{UnsupportedVirtualBus, VirtualBus};
 #[deprecated(since = "2.1.0", note = "Please use `wasmer_vfs::FsError`")]
 pub use wasmer_vfs::FsError as WasiFsError;
@@ -64,7 +64,7 @@ use derivative::*;
 use std::ops::Deref;
 use thiserror::Error;
 use wasmer::{
-    imports, namespace, AsContextMut, Exports, Function, Imports, Memory, Memory32,
+    imports, namespace, AsStoreMut, Exports, Function, Imports, Memory, Memory32,
     MemoryAccessError, MemorySize, Module, TypedFunction,
 };
 
@@ -232,7 +232,7 @@ impl WasiEnv {
     /// Get an `Imports` for a specific version of WASI detected in the module.
     pub fn import_object(
         &mut self,
-        ctx: &mut ContextMut<'_, WasiEnv>,
+        ctx: &mut FunctionEnv<'_, WasiEnv>,
         module: &Module,
     ) -> Result<Imports, WasiError> {
         let wasi_version = get_wasi_version(module, false).ok_or(WasiError::UnknownWasiVersion)?;
@@ -243,7 +243,7 @@ impl WasiEnv {
     /// the module.
     pub fn import_object_for_all_wasi_versions(
         &mut self,
-        ctx: &mut ContextMut<'_, WasiEnv>,
+        ctx: &mut FunctionEnv<'_, WasiEnv>,
         module: &Module,
     ) -> Result<Imports, WasiError> {
         let wasi_versions =
@@ -252,7 +252,7 @@ impl WasiEnv {
         let mut resolver = Imports::new();
         for version in wasi_versions.iter() {
             let new_import_object =
-                generate_import_object_from_ctx(&mut ctx.as_context_mut(), *version);
+                generate_import_object_from_ctx(&mut ctx.as_store_mut(), *version);
             for ((n, m), e) in new_import_object.into_iter() {
                 resolver.define(&n, &m, e);
             }
@@ -358,7 +358,7 @@ impl WasiEnv {
 
 /// Create an [`Imports`]  from a [`Context`]
 pub fn generate_import_object_from_ctx(
-    ctx: &mut ContextMut<'_, WasiEnv>,
+    ctx: &mut FunctionEnv<'_, WasiEnv>,
     version: WasiVersion,
 ) -> Imports {
     match version {
@@ -369,7 +369,7 @@ pub fn generate_import_object_from_ctx(
     }
 }
 
-fn wasi_unstable_exports(ctx: &mut ContextMut<'_, WasiEnv>) -> Exports {
+fn wasi_unstable_exports(ctx: &mut FunctionEnv<'_, WasiEnv>) -> Exports {
     let namespace = namespace! {
         "args_get" => Function::new_native(ctx, args_get::<Memory32>),
         "args_sizes_get" => Function::new_native(ctx, args_sizes_get::<Memory32>),
@@ -420,7 +420,7 @@ fn wasi_unstable_exports(ctx: &mut ContextMut<'_, WasiEnv>) -> Exports {
     namespace
 }
 
-fn wasi_snapshot_preview1_exports(ctx: &mut ContextMut<'_, WasiEnv>) -> Exports {
+fn wasi_snapshot_preview1_exports(ctx: &mut FunctionEnv<'_, WasiEnv>) -> Exports {
     let namespace = namespace! {
         "args_get" => Function::new_native(ctx, args_get::<Memory32>),
         "args_sizes_get" => Function::new_native(ctx, args_sizes_get::<Memory32>),
@@ -470,7 +470,7 @@ fn wasi_snapshot_preview1_exports(ctx: &mut ContextMut<'_, WasiEnv>) -> Exports 
     };
     namespace
 }
-pub fn import_object_for_all_wasi_versions(ctx: &mut ContextMut<'_, WasiEnv>) -> Imports {
+pub fn import_object_for_all_wasi_versions(ctx: &mut FunctionEnv<'_, WasiEnv>) -> Imports {
     let wasi_unstable_exports = wasi_unstable_exports(ctx);
     let wasi_snapshot_preview1_exports = wasi_snapshot_preview1_exports(ctx);
     imports! {
@@ -480,14 +480,14 @@ pub fn import_object_for_all_wasi_versions(ctx: &mut ContextMut<'_, WasiEnv>) ->
 }
 
 /// Combines a state generating function with the import list for legacy WASI
-fn generate_import_object_snapshot0(ctx: &mut ContextMut<'_, WasiEnv>) -> Imports {
+fn generate_import_object_snapshot0(ctx: &mut FunctionEnv<'_, WasiEnv>) -> Imports {
     let wasi_unstable_exports = wasi_unstable_exports(ctx);
     imports! {
         "wasi_unstable" => wasi_unstable_exports
     }
 }
 
-fn generate_import_object_snapshot1(ctx: &mut ContextMut<'_, WasiEnv>) -> Imports {
+fn generate_import_object_snapshot1(ctx: &mut FunctionEnv<'_, WasiEnv>) -> Imports {
     let wasi_snapshot_preview1_exports = wasi_snapshot_preview1_exports(ctx);
     imports! {
         "wasi_snapshot_preview1" => wasi_snapshot_preview1_exports
@@ -495,7 +495,7 @@ fn generate_import_object_snapshot1(ctx: &mut ContextMut<'_, WasiEnv>) -> Import
 }
 
 /// Combines a state generating function with the import list for snapshot 1
-fn generate_import_object_wasix32_v1(ctx: &mut ContextMut<'_, WasiEnv>) -> Imports {
+fn generate_import_object_wasix32_v1(ctx: &mut FunctionEnv<'_, WasiEnv>) -> Imports {
     use self::wasix32::*;
     imports! {
         "wasix_32v1" => {
@@ -610,7 +610,7 @@ fn generate_import_object_wasix32_v1(ctx: &mut ContextMut<'_, WasiEnv>) -> Impor
     }
 }
 
-fn generate_import_object_wasix64_v1(ctx: &mut ContextMut<'_, WasiEnv>) -> Imports {
+fn generate_import_object_wasix64_v1(ctx: &mut FunctionEnv<'_, WasiEnv>) -> Imports {
     use self::wasix64::*;
     imports! {
         "wasix_64v1" => {

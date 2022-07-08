@@ -9,7 +9,7 @@ mod sys {
 
     #[test]
     fn func_ref_passed_and_returned() -> Result<()> {
-        let store = Store::default();
+        let mut store = Store::default();
         let wat = r#"(module
     (import "env" "func_ref_identity" (func (param funcref) (result funcref)))
     (type $ret_i32_ty (func (result i32)))
@@ -28,7 +28,7 @@ mod sys {
         let mut ctx = WasmerContext::new(&store, env);
         let imports = imports! {
             "env" => {
-                "func_ref_identity" => Function::new(&mut ctx, FunctionType::new([Type::FuncRef], [Type::FuncRef]), |_ctx: ContextMut<Env>, values: &[Value]| -> Result<Vec<_>, _> {
+                "func_ref_identity" => Function::new(&mut ctx, FunctionType::new([Type::FuncRef], [Type::FuncRef]), |_ctx: FunctionEnv<Env>, values: &[Value]| -> Result<Vec<_>, _> {
                     Ok(vec![values[0].clone()])
                 })
             },
@@ -44,7 +44,7 @@ mod sys {
             panic!("funcref not found!");
         }
 
-        let func_to_call = Function::new_native(&mut ctx, |mut ctx: ContextMut<Env>| -> i32 {
+        let func_to_call = Function::new_native(&mut ctx, |mut ctx: FunctionEnv<Env>| -> i32 {
             ctx.data_mut().0.store(true, Ordering::SeqCst);
             343
         });
@@ -59,7 +59,7 @@ mod sys {
 
     #[test]
     fn func_ref_passed_and_called() -> Result<()> {
-        let store = Store::default();
+        let mut store = Store::default();
         let wat = r#"(module
     (func $func_ref_call (import "env" "func_ref_call") (param funcref) (result i32))
     (type $ret_i32_ty (func (result i32)))
@@ -80,7 +80,7 @@ mod sys {
         let module = Module::new(&store, wat)?;
         let mut ctx = WasmerContext::new(&store, ());
         fn func_ref_call(
-            mut ctx: ContextMut<()>,
+            mut ctx: FunctionEnv<()>,
             values: &[Value],
         ) -> Result<Vec<Value>, RuntimeError> {
             // TODO: look into `Box<[Value]>` being returned breakage
@@ -108,7 +108,7 @@ mod sys {
 
         let instance = Instance::new(&mut ctx, &module, &imports)?;
         {
-            fn sum(_ctx: ContextMut<()>, a: i32, b: i32) -> i32 {
+            fn sum(_ctx: FunctionEnv<()>, a: i32, b: i32) -> i32 {
                 a + b
             }
             let sum_func = Function::new_native(&mut ctx, sum);
@@ -131,7 +131,7 @@ mod sys {
     /*
         #[test]
         fn extern_ref_passed_and_returned() -> Result<()> {
-            let store = Store::default();
+            let mut store = Store::default();
             let mut ctx = WasmerContext::new(&store, ());
             let wat = r#"(module
         (func $extern_ref_identity (import "env" "extern_ref_identity") (param externref) (result externref))
@@ -154,7 +154,7 @@ mod sys {
                     "extern_ref_identity" => Function::new(&mut ctx, FunctionType::new([Type::ExternRef], [Type::ExternRef]), |_ctx, values| -> Result<Vec<_>, _> {
                         Ok(vec![values[0].clone()])
                     }),
-                    "extern_ref_identity_native" => Function::new_native(&mut ctx, |_ctx: ContextMut<()>, er: ExternRef| -> ExternRef {
+                    "extern_ref_identity_native" => Function::new_native(&mut ctx, |_ctx: FunctionEnv<()>, er: ExternRef| -> ExternRef {
                         er
                     }),
                     "get_new_extern_ref" => Function::new(&mut ctx, FunctionType::new([], [Type::ExternRef]), |_ctx, _| -> Result<Vec<_>, _> {
@@ -221,7 +221,7 @@ mod sys {
         // TODO(reftypes): reenable this test
         #[ignore]
         fn extern_ref_ref_counting_basic() -> Result<()> {
-            let store = Store::default();
+            let mut store = Store::default();
             let wat = r#"(module
         (func (export "drop") (param $er externref) (result)
               (drop (local.get $er)))
@@ -241,7 +241,7 @@ mod sys {
 
         #[test]
         fn refs_in_globals() -> Result<()> {
-            let store = Store::default();
+            let mut store = Store::default();
             let wat = r#"(module
         (global $er_global (export "er_global") (mut externref) (ref.null extern))
         (global $fr_global (export "fr_global") (mut funcref) (ref.null func))
@@ -306,7 +306,7 @@ mod sys {
 
         #[test]
         fn extern_ref_ref_counting_table_basic() -> Result<()> {
-            let store = Store::default();
+            let mut store = Store::default();
             let wat = r#"(module
         (global $global (export "global") (mut externref) (ref.null extern))
         (table $table (export "table") 4 4 externref)
@@ -348,7 +348,7 @@ mod sys {
         // TODO(reftypes): reenable this test
         #[ignore]
         fn extern_ref_ref_counting_global_basic() -> Result<()> {
-            let store = Store::default();
+            let mut store = Store::default();
             let wat = r#"(module
         (global $global (export "global") (mut externref) (ref.null extern))
         (func $get_from_global (export "get_from_global") (result externref)
@@ -379,7 +379,7 @@ mod sys {
         // TODO(reftypes): reenable this test
         #[ignore]
         fn extern_ref_ref_counting_traps() -> Result<()> {
-            let store = Store::default();
+            let mut store = Store::default();
             let wat = r#"(module
         (func $pass_er (export "pass_extern_ref") (param externref)
               (local.get 0)
@@ -403,7 +403,7 @@ mod sys {
 
         #[test]
         fn extern_ref_ref_counting_table_instructions() -> Result<()> {
-            let store = Store::default();
+            let mut store = Store::default();
             let wat = r#"(module
         (table $table1 (export "table1") 2 12 externref)
         (table $table2 (export "table2") 6 12 externref)

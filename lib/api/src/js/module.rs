@@ -1,4 +1,4 @@
-use crate::js::context::{AsContextMut, ContextHandle};
+use crate::js::context::{AsStoreMut, StoreHandle};
 #[cfg(feature = "wat")]
 use crate::js::error::WasmError;
 use crate::js::error::{CompileError, InstantiationError};
@@ -95,7 +95,7 @@ impl Module {
     /// ```
     /// use wasmer::*;
     /// # fn main() -> anyhow::Result<()> {
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// let wat = "(module)";
     /// let module = Module::new(&store, wat)?;
     /// # Ok(())
@@ -107,7 +107,7 @@ impl Module {
     /// ```
     /// use wasmer::*;
     /// # fn main() -> anyhow::Result<()> {
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// // The following is the same as:
     /// // (module
     /// //   (type $t0 (func (param i32) (result i32)))
@@ -219,9 +219,9 @@ impl Module {
 
     pub(crate) fn instantiate(
         &self,
-        ctx: &mut impl AsContextMut,
+        ctx: &mut impl AsStoreMut,
         imports: &Imports,
-    ) -> Result<(ContextHandle<WebAssembly::Instance>, Vec<Extern>), RuntimeError> {
+    ) -> Result<(StoreHandle<WebAssembly::Instance>, Vec<Extern>), RuntimeError> {
         // Ensure all imports come from the same context.
         if imports
             .into_iter()
@@ -263,7 +263,7 @@ impl Module {
             // the error for us, so we don't need to handle it
         }
         Ok((
-            ContextHandle::new(
+            StoreHandle::new(
                 ctx.as_context_mut().objects_mut(),
                 WebAssembly::Instance::new(&self.module, &imports_object)
                     .map_err(|e: JsValue| -> RuntimeError { e.into() })?,
@@ -282,7 +282,7 @@ impl Module {
     /// ```
     /// # use wasmer::*;
     /// # fn main() -> anyhow::Result<()> {
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// let wat = "(module $moduleName)";
     /// let module = Module::new(&store, wat)?;
     /// assert_eq!(module.name(), Some("moduleName"));
@@ -325,7 +325,7 @@ impl Module {
     /// ```
     /// # use wasmer::*;
     /// # fn main() -> anyhow::Result<()> {
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// let wat = "(module)";
     /// let mut module = Module::new(&store, wat)?;
     /// assert_eq!(module.name(), None);
@@ -360,7 +360,7 @@ impl Module {
     /// ```
     /// # use wasmer::*;
     /// # fn main() -> anyhow::Result<()> {
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// let wat = r#"(module
     ///     (import "host" "func1" (func))
     ///     (import "host" "func2" (func))
@@ -458,7 +458,7 @@ impl Module {
     /// ```
     /// # use wasmer::*;
     /// # fn main() -> anyhow::Result<()> {
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// let wat = r#"(module
     ///     (func (export "namedfunc"))
     ///     (memory (export "namedmemory") 1)

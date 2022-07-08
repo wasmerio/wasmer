@@ -14,7 +14,7 @@ use crate::sys::ExternType;
 use std::fmt;
 use wasmer_vm::VMExtern;
 
-use super::context::{AsContextMut, AsContextRef};
+use super::context::{AsStoreMut, AsStoreRef};
 
 /// An `Extern` is the runtime representation of an entity that
 /// can be imported or exported.
@@ -34,7 +34,7 @@ pub enum Extern {
 
 impl Extern {
     /// Return the underlying type of the inner `Extern`.
-    pub fn ty(&self, ctx: &impl AsContextRef) -> ExternType {
+    pub fn ty(&self, ctx: &impl AsStoreRef) -> ExternType {
         match self {
             Self::Function(ft) => ExternType::Function(ft.ty(ctx)),
             Self::Memory(ft) => ExternType::Memory(ft.ty(ctx)),
@@ -44,7 +44,7 @@ impl Extern {
     }
 
     /// Create an `Extern` from an `wasmer_engine::Export`.
-    pub fn from_vm_extern(ctx: &mut impl AsContextMut, vm_extern: VMExtern) -> Self {
+    pub fn from_vm_extern(ctx: &mut impl AsStoreMut, vm_extern: VMExtern) -> Self {
         match vm_extern {
             VMExtern::Function(f) => Self::Function(Function::from_vm_extern(ctx, f)),
             VMExtern::Memory(m) => Self::Memory(Memory::from_vm_extern(ctx, m)),
@@ -54,7 +54,7 @@ impl Extern {
     }
 
     /// Checks whether this `Extern` can be used with the given context.
-    pub fn is_from_context(&self, ctx: &impl AsContextRef) -> bool {
+    pub fn is_from_context(&self, ctx: &impl AsStoreRef) -> bool {
         match self {
             Self::Function(f) => f.is_from_context(ctx),
             Self::Global(g) => g.is_from_context(ctx),

@@ -39,7 +39,7 @@ pub mod libcalls;
 use std::ptr::NonNull;
 
 pub use crate::context::{
-    ContextHandle, ContextId, ContextObjects, InternalContextHandle, MaybeInstanceOwned,
+    StoreHandle, StoreId, StoreObjects, InternalStoreHandle, MaybeInstanceOwned,
 };
 pub use crate::export::*;
 pub use crate::extern_ref::{VMExternObj, VMExternRef};

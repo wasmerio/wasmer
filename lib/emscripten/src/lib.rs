@@ -23,7 +23,7 @@ use std::f64;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, RwLock};
 use wasmer::{
-    imports, namespace, AsContextMut, ContextMut, Exports, Function, FunctionType, Global, Imports,
+    imports, namespace, AsStoreMut, FunctionEnv, Exports, Function, FunctionType, Global, Imports,
     Instance, Memory, MemoryType, Module, Pages, RuntimeError, Table, TableType, TypedFunction,
     Value, WasmPtr,
 };
@@ -491,20 +491,20 @@ impl EmscriptenFunctions {
 /// before calling this function, please initialize `Ctx::data` with a pointer
 /// to [`EmscriptenData`].
 pub fn set_up_emscripten(
-    ctx: &mut ContextMut<'_, EmEnv>,
+    ctx: &mut FunctionEnv<'_, EmEnv>,
     instance: &mut Instance,
 ) -> Result<(), RuntimeError> {
     // ATINIT
     // (used by C++)
     if let Ok(func) = instance.exports.get_function("globalCtors") {
-        func.call(&mut ctx.as_context_mut(), &[])?;
+        func.call(&mut ctx.as_store_mut(), &[])?;
     }
 
     if let Ok(func) = instance
         .exports
         .get_function("___emscripten_environ_constructor")
     {
-        func.call(&mut ctx.as_context_mut(), &[])?;
+        func.call(&mut ctx.as_store_mut(), &[])?;
     }
     Ok(())
 }
@@ -515,7 +515,7 @@ pub fn set_up_emscripten(
 /// If you don't want to set it up yourself, consider using [`run_emscripten_instance`].
 pub fn emscripten_call_main(
     instance: &mut Instance,
-    mut ctx: ContextMut<'_, EmEnv>,
+    mut ctx: FunctionEnv<'_, EmEnv>,
     path: &str,
     args: &[&str],
 ) -> Result<(), RuntimeError> {
@@ -532,7 +532,7 @@ pub fn emscripten_call_main(
         2 => {
             let mut new_args = vec![path];
             new_args.extend(args);
-            let (argc, argv) = store_module_arguments(ctx.as_context_mut(), new_args);
+            let (argc, argv) = store_module_arguments(ctx.as_store_mut(), new_args);
             let func: &Function = instance
                 .exports
                 .get(function_name)
@@ -563,7 +563,7 @@ pub fn emscripten_call_main(
 /// Top level function to execute emscripten
 pub fn run_emscripten_instance(
     instance: &mut Instance,
-    mut ctx: ContextMut<'_, EmEnv>,
+    mut ctx: FunctionEnv<'_, EmEnv>,
     globals: &mut EmscriptenGlobals,
     path: &str,
     args: Vec<&str>,
@@ -796,13 +796,13 @@ pub fn run_emscripten_instance(
     }
     ctx.data_mut().set_functions(emfuncs);
 
-    set_up_emscripten(&mut ctx.as_context_mut(), instance)?;
+    set_up_emscripten(&mut ctx.as_store_mut(), instance)?;
 
     // println!("running emscripten instance");
 
     if let Some(ep) = entrypoint {
         debug!("Running entry point: {}", &ep);
-        let arg = unsafe { allocate_cstr_on_stack(&mut ctx.as_context_mut(), args[0]).0 };
+        let arg = unsafe { allocate_cstr_on_stack(&mut ctx.as_store_mut(), args[0]).0 };
         //let (argc, argv) = store_module_arguments(instance.context_mut(), args);
         let func: &Function = instance
             .exports
@@ -818,12 +818,12 @@ pub fn run_emscripten_instance(
     Ok(())
 }
 
-fn store_module_arguments(mut ctx: ContextMut<'_, EmEnv>, args: Vec<&str>) -> (u32, u32) {
+fn store_module_arguments(mut ctx: FunctionEnv<'_, EmEnv>, args: Vec<&str>) -> (u32, u32) {
     let argc = args.len() + 1;
 
     let mut args_slice = vec![0; argc];
     for (slot, arg) in args_slice[0..argc].iter_mut().zip(args.iter()) {
-        *slot = unsafe { allocate_cstr_on_stack(&mut ctx.as_context_mut(), arg).0 };
+        *slot = unsafe { allocate_cstr_on_stack(&mut ctx.as_store_mut(), arg).0 };
     }
 
     let (argv_offset, argv_slice): (_, &mut [u32]) =
@@ -838,7 +838,7 @@ fn store_module_arguments(mut ctx: ContextMut<'_, EmEnv>, args: Vec<&str>) -> (u
 }
 
 pub fn emscripten_set_up_memory(
-    mut ctx: ContextMut<'_, EmEnv>,
+    mut ctx: FunctionEnv<'_, EmEnv>,
     memory: &Memory,
     globals: &EmscriptenGlobalsData,
 ) -> Result<(), String> {
@@ -880,7 +880,7 @@ pub struct EmscriptenGlobals {
 
 impl EmscriptenGlobals {
     pub fn new(
-        mut ctx: ContextMut<'_, EmEnv>,
+        mut ctx: FunctionEnv<'_, EmEnv>,
         module: &Module, /*, static_bump: u32 */
     ) -> Result<Self, String> {
         let mut use_old_abort_on_cannot_grow_memory = false;
@@ -967,7 +967,7 @@ impl EmscriptenGlobals {
 }
 
 pub fn generate_emscripten_env(
-    ctx: &mut ContextMut<'_, EmEnv>,
+    ctx: &mut FunctionEnv<'_, EmEnv>,
     globals: &mut EmscriptenGlobals,
 ) -> Imports {
     let abort_on_cannot_grow_memory_export = if globals.data.use_old_abort_on_cannot_grow_memory {
@@ -1458,7 +1458,7 @@ pub fn generate_emscripten_env(
     import_object
 }
 
-pub fn nullfunc(ctx: ContextMut<'_, EmEnv>, _x: u32) {
+pub fn nullfunc(ctx: FunctionEnv<'_, EmEnv>, _x: u32) {
     use crate::process::abort_with_message;
     debug!("emscripten::nullfunc_i {}", _x);
     abort_with_message(

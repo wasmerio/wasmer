@@ -5,9 +5,9 @@ use crate::sys::module::Module;
 use crate::sys::{LinkError, RuntimeError};
 use std::fmt;
 use thiserror::Error;
-use wasmer_vm::{ContextHandle, InstanceHandle};
+use wasmer_vm::{StoreHandle, InstanceHandle};
 
-use super::context::AsContextMut;
+use super::context::AsStoreMut;
 
 /// A WebAssembly Instance is a stateful, executable
 /// instance of a WebAssembly [`Module`].
@@ -19,7 +19,7 @@ use super::context::AsContextMut;
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#module-instances>
 #[derive(Clone)]
 pub struct Instance {
-    _handle: ContextHandle<InstanceHandle>,
+    _handle: StoreHandle<InstanceHandle>,
     module: Module,
     /// The exports for an instance.
     pub exports: Exports,
@@ -89,7 +89,7 @@ impl Instance {
     /// # use wasmer::{imports, Store, Module, Global, Value, Instance};
     /// # use wasmer::Context as WasmerContext;
     /// # fn main() -> anyhow::Result<()> {
-    /// let store = Store::default();
+    /// let mut store = Store::default();
     /// let mut ctx = WasmerContext::new(&store, ());
     /// let module = Module::new(&store, "(module)")?;
     /// let imports = imports!{
@@ -110,7 +110,7 @@ impl Instance {
     ///  * Link errors that happen when plugging the imports into the instance
     ///  * Runtime errors that happen when running the module `start` function.
     pub fn new(
-        ctx: &mut impl AsContextMut,
+        ctx: &mut impl AsStoreMut,
         module: &Module,
         imports: &Imports,
     ) -> Result<Self, InstantiationError> {
@@ -129,7 +129,7 @@ impl Instance {
             .collect::<Exports>();
 
         let instance = Self {
-            _handle: ContextHandle::new(ctx.as_context_mut().objects_mut(), handle),
+            _handle: StoreHandle::new(ctx.as_store_mut().objects_mut(), handle),
             module: module.clone(),
             exports,
         };
@@ -148,7 +148,7 @@ impl Instance {
     ///  * Link errors that happen when plugging the imports into the instance
     ///  * Runtime errors that happen when running the module `start` function.
     pub fn new_by_index(
-        ctx: &mut impl AsContextMut,
+        ctx: &mut impl AsStoreMut,
         module: &Module,
         externs: &[Extern],
     ) -> Result<Self, InstantiationError> {
@@ -165,7 +165,7 @@ impl Instance {
             .collect::<Exports>();
 
         let instance = Self {
-            _handle: ContextHandle::new(ctx.as_context_mut().objects_mut(), handle),
+            _handle: StoreHandle::new(ctx.as_store_mut().objects_mut(), handle),
             module: module.clone(),
             exports,
         };

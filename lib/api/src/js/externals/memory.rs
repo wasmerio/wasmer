@@ -1,5 +1,5 @@
 use crate::js::context::{
-    AsContextMut, AsContextRef, ContextHandle, ContextObjects, InternalContextHandle,
+    AsStoreMut, AsStoreRef, StoreHandle, StoreObjects, InternalStoreHandle,
 };
 use crate::js::export::VMMemory;
 use crate::js::exports::{ExportError, Exportable};
@@ -80,7 +80,7 @@ extern "C" {
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#memory-instances>
 #[derive(Debug, Clone)]
 pub struct Memory {
-    pub(crate) handle: ContextHandle<VMMemory>,
+    pub(crate) handle: StoreHandle<VMMemory>,
     #[allow(dead_code)]
     view: js_sys::Uint8Array,
 }
@@ -98,11 +98,11 @@ impl Memory {
     ///
     /// ```
     /// # use wasmer::{Memory, MemoryType, Pages, Store, Type, Value};
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// #
     /// let m = Memory::new(&store, MemoryType::new(1, None, false)).unwrap();
     /// ```
-    pub fn new(ctx: &mut impl AsContextMut, ty: MemoryType) -> Result<Self, MemoryError> {
+    pub fn new(ctx: &mut impl AsStoreMut, ty: MemoryType) -> Result<Self, MemoryError> {
         let descriptor = js_sys::Object::new();
         js_sys::Reflect::set(&descriptor, &"initial".into(), &ty.minimum.0.into()).unwrap();
         if let Some(max) = ty.maximum {
@@ -123,14 +123,14 @@ impl Memory {
     ///
     /// ```
     /// # use wasmer::{Memory, MemoryType, Pages, Store, Type, Value};
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// #
     /// let mt = MemoryType::new(1, None, false);
     /// let m = Memory::new(&store, mt).unwrap();
     ///
     /// assert_eq!(m.ty(), mt);
     /// ```
-    pub fn ty(&self, ctx: &impl AsContextRef) -> MemoryType {
+    pub fn ty(&self, ctx: &impl AsStoreRef) -> MemoryType {
         self.handle.get(ctx.as_context_ref().objects()).ty
     }
 
@@ -141,7 +141,7 @@ impl Memory {
     }
 
     /// Returns the size (in bytes) of the `Memory`.
-    pub fn data_size(&self, ctx: &impl AsContextRef) -> u64 {
+    pub fn data_size(&self, ctx: &impl AsStoreRef) -> u64 {
         js_sys::Reflect::get(
             &self
                 .handle
@@ -161,13 +161,13 @@ impl Memory {
     ///
     /// ```
     /// # use wasmer::{Memory, MemoryType, Pages, Store, Type, Value};
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// #
     /// let m = Memory::new(&store, MemoryType::new(1, None, false)).unwrap();
     ///
     /// assert_eq!(m.size(), Pages(1));
     /// ```
-    pub fn size(&self, ctx: &impl AsContextRef) -> Pages {
+    pub fn size(&self, ctx: &impl AsStoreRef) -> Pages {
         let bytes = js_sys::Reflect::get(
             &self
                 .handle
@@ -189,7 +189,7 @@ impl Memory {
     ///
     /// ```
     /// # use wasmer::{Memory, MemoryType, Pages, Store, Type, Value, WASM_MAX_PAGES};
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// #
     /// let m = Memory::new(&store, MemoryType::new(1, Some(3), false)).unwrap();
     /// let p = m.grow(2).unwrap();
@@ -205,7 +205,7 @@ impl Memory {
     ///
     /// ```should_panic
     /// # use wasmer::{Memory, MemoryType, Pages, Store, Type, Value, WASM_MAX_PAGES};
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// #
     /// let m = Memory::new(&store, MemoryType::new(1, Some(1), false)).unwrap();
     ///
@@ -214,7 +214,7 @@ impl Memory {
     /// ```
     pub fn grow<IntoPages>(
         &self,
-        ctx: &mut impl AsContextMut,
+        ctx: &mut impl AsStoreMut,
         delta: IntoPages,
     ) -> Result<Pages, MemoryError>
     where
@@ -239,7 +239,7 @@ impl Memory {
 
     /// Used by tests
     #[doc(hidden)]
-    pub fn uint8view(&self, ctx: &impl AsContextRef) -> js_sys::Uint8Array {
+    pub fn uint8view(&self, ctx: &impl AsStoreRef) -> js_sys::Uint8Array {
         js_sys::Uint8Array::new(
             &self
                 .handle
@@ -249,30 +249,30 @@ impl Memory {
         )
     }
 
-    pub(crate) fn buffer<'a>(&'a self, _ctx: &'a impl AsContextRef) -> MemoryBuffer<'a> {
+    pub(crate) fn buffer<'a>(&'a self, _ctx: &'a impl AsStoreRef) -> MemoryBuffer<'a> {
         MemoryBuffer {
             base: &self.view as *const _ as *mut _,
             marker: PhantomData,
         }
     }
 
-    pub(crate) fn from_vm_export(ctx: &mut impl AsContextMut, vm_memory: VMMemory) -> Self {
+    pub(crate) fn from_vm_export(ctx: &mut impl AsStoreMut, vm_memory: VMMemory) -> Self {
         let view = js_sys::Uint8Array::new(&vm_memory.memory.buffer());
         Self {
-            handle: ContextHandle::new(ctx.as_context_mut().objects_mut(), vm_memory),
+            handle: StoreHandle::new(ctx.as_context_mut().objects_mut(), vm_memory),
             view,
         }
     }
 
     pub(crate) fn from_vm_extern(
-        ctx: &mut impl AsContextMut,
-        internal: InternalContextHandle<VMMemory>,
+        ctx: &mut impl AsStoreMut,
+        internal: InternalStoreHandle<VMMemory>,
     ) -> Self {
         let view =
             js_sys::Uint8Array::new(&internal.get(ctx.as_context_ref().objects()).memory.buffer());
         Self {
             handle: unsafe {
-                ContextHandle::from_internal(ctx.as_context_ref().objects().id(), internal)
+                StoreHandle::from_internal(ctx.as_context_ref().objects().id(), internal)
             },
             view,
         }
@@ -287,7 +287,7 @@ impl Memory {
     /// concurrent writes.
     pub fn read(
         &self,
-        _ctx: &impl AsContextRef,
+        _ctx: &impl AsStoreRef,
         offset: u64,
         data: &mut [u8],
     ) -> Result<(), MemoryAccessError> {
@@ -317,7 +317,7 @@ impl Memory {
     /// concurrent writes.
     pub fn read_uninit<'a>(
         &self,
-        _ctx: &impl AsContextRef,
+        _ctx: &impl AsStoreRef,
         offset: u64,
         buf: &'a mut [MaybeUninit<u8>],
     ) -> Result<&'a mut [u8], MemoryAccessError> {
@@ -352,7 +352,7 @@ impl Memory {
     /// concurrent reads/writes.
     pub fn write(
         &self,
-        _ctx: &mut impl AsContextMut,
+        _ctx: &mut impl AsStoreMut,
         offset: u64,
         data: &[u8],
     ) -> Result<(), MemoryAccessError> {
@@ -371,7 +371,7 @@ impl Memory {
     }
 
     /// Checks whether this `Global` can be used with the given context.
-    pub fn is_from_context(&self, ctx: &impl AsContextRef) -> bool {
+    pub fn is_from_context(&self, ctx: &impl AsStoreRef) -> bool {
         self.handle.context_id() == ctx.as_context_ref().objects().id()
     }
 }
@@ -389,7 +389,7 @@ impl<'a> Exportable<'a> for Memory {
 #[derive(Copy, Clone)]
 pub(crate) struct MemoryBuffer<'a> {
     base: *mut js_sys::Uint8Array,
-    marker: PhantomData<(&'a Memory, &'a ContextObjects)>,
+    marker: PhantomData<(&'a Memory, &'a StoreObjects)>,
 }
 
 impl<'a> MemoryBuffer<'a> {

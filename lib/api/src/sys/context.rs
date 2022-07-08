@@ -1,4 +1,4 @@
-use wasmer_vm::ContextObjects;
+use wasmer_vm::StoreObjects;
 
 use crate::Store;
 
@@ -6,7 +6,7 @@ use crate::Store;
 /// various bits of the VM have raw pointers that point back to it. Hence we
 /// wrap the actual context in a box.
 pub(crate) struct ContextInner<T> {
-    pub(crate) objects: ContextObjects,
+    pub(crate) objects: StoreObjects,
     pub(crate) store: Store,
     pub(crate) data: T,
 }
@@ -76,11 +76,11 @@ impl<T> Context<T> {
 }
 
 /// A temporary handle to a [`Context`].
-pub struct ContextRef<'a, T: 'a> {
+pub struct StoreRef<'a, T: 'a> {
     inner: &'a ContextInner<T>,
 }
 
-impl<'a, T> ContextRef<'a, T> {
+impl<'a, T> StoreRef<'a, T> {
     /// Returns a reference to the host state in this context.
     pub fn data(&self) -> &'a T {
         &self.inner.data
@@ -91,17 +91,17 @@ impl<'a, T> ContextRef<'a, T> {
         &self.inner.store
     }
 
-    pub(crate) fn objects(&self) -> &'a ContextObjects {
+    pub(crate) fn objects(&self) -> &'a StoreObjects {
         &self.inner.objects
     }
 }
 
 /// A temporary handle to a [`Context`].
-pub struct ContextMut<'a, T: 'a> {
+pub struct FunctionEnv<'a, T: 'a> {
     inner: &'a mut ContextInner<T>,
 }
 
-impl<T> ContextMut<'_, T> {
+impl<T> FunctionEnv<'_, T> {
     /// Returns a reference to the host state in this context.
     pub fn data(&self) -> &T {
         &self.inner.data
@@ -112,7 +112,7 @@ impl<T> ContextMut<'_, T> {
         &mut self.inner.data
     }
 
-    pub(crate) fn objects_mut(&mut self) -> &mut ContextObjects {
+    pub(crate) fn objects_mut(&mut self) -> &mut StoreObjects {
         &mut self.inner.objects
     }
 
@@ -130,70 +130,70 @@ impl<T> ContextMut<'_, T> {
     }
 }
 
-/// Helper trait for a value that is convertible to a [`ContextRef`].
-pub trait AsContextRef {
+/// Helper trait for a value that is convertible to a [`StoreRef`].
+pub trait AsStoreRef {
     /// Host state associated with the [`Context`].
     type Data;
 
-    /// Returns a `ContextRef` pointing to the underlying context.
-    fn as_context_ref(&self) -> ContextRef<'_, Self::Data>;
+    /// Returns a `StoreRef` pointing to the underlying context.
+    fn as_store_ref(&self) -> StoreRef<'_, Self::Data>;
 }
 
-/// Helper trait for a value that is convertible to a [`ContextMut`].
-pub trait AsContextMut: AsContextRef {
-    /// Returns a `ContextMut` pointing to the underlying context.
-    fn as_context_mut(&mut self) -> ContextMut<'_, Self::Data>;
+/// Helper trait for a value that is convertible to a [`StoreMut`].
+pub trait AsStoreMut: AsStoreRef {
+    /// Returns a `StoreMut` pointing to the underlying context.
+    fn as_store_mut(&mut self) -> FunctionEnv<'_, Self::Data>;
 }
 
-impl<T> AsContextRef for Context<T> {
+impl<T> AsStoreRef for Context<T> {
     type Data = T;
 
-    fn as_context_ref(&self) -> ContextRef<'_, Self::Data> {
-        ContextRef { inner: &self.inner }
+    fn as_store_ref(&self) -> StoreRef<'_, Self::Data> {
+        StoreRef { inner: &self.inner }
     }
 }
-impl<T> AsContextMut for Context<T> {
-    fn as_context_mut(&mut self) -> ContextMut<'_, Self::Data> {
-        ContextMut {
+impl<T> AsStoreMut for Context<T> {
+    fn as_store_mut(&mut self) -> FunctionEnv<'_, Self::Data> {
+        FunctionEnv {
             inner: &mut self.inner,
         }
     }
 }
-impl<T> AsContextRef for ContextRef<'_, T> {
+impl<T> AsStoreRef for StoreRef<'_, T> {
     type Data = T;
 
-    fn as_context_ref(&self) -> ContextRef<'_, Self::Data> {
-        ContextRef { inner: self.inner }
+    fn as_store_ref(&self) -> StoreRef<'_, Self::Data> {
+        StoreRef { inner: self.inner }
     }
 }
-impl<T> AsContextRef for ContextMut<'_, T> {
+impl<T> AsStoreRef for FunctionEnv<'_, T> {
     type Data = T;
 
-    fn as_context_ref(&self) -> ContextRef<'_, Self::Data> {
-        ContextRef { inner: self.inner }
+    fn as_store_ref(&self) -> StoreRef<'_, Self::Data> {
+        StoreRef { inner: self.inner }
     }
 }
-impl<T> AsContextMut for ContextMut<'_, T> {
-    fn as_context_mut(&mut self) -> ContextMut<'_, Self::Data> {
-        ContextMut { inner: self.inner }
+impl<T> AsStoreMut for FunctionEnv<'_, T> {
+    fn as_store_mut(&mut self) -> FunctionEnv<'_, Self::Data> {
+        FunctionEnv { inner: self.inner }
     }
 }
-impl<T: AsContextRef> AsContextRef for &'_ T {
+impl<T: AsStoreRef> AsStoreRef for &'_ T {
     type Data = T::Data;
 
-    fn as_context_ref(&self) -> ContextRef<'_, Self::Data> {
-        T::as_context_ref(*self)
+    fn as_store_ref(&self) -> StoreRef<'_, Self::Data> {
+        T::as_store_ref(*self)
     }
 }
-impl<T: AsContextRef> AsContextRef for &'_ mut T {
+impl<T: AsStoreRef> AsStoreRef for &'_ mut T {
     type Data = T::Data;
 
-    fn as_context_ref(&self) -> ContextRef<'_, Self::Data> {
-        T::as_context_ref(*self)
+    fn as_store_ref(&self) -> StoreRef<'_, Self::Data> {
+        T::as_store_ref(*self)
     }
 }
-impl<T: AsContextMut> AsContextMut for &'_ mut T {
-    fn as_context_mut(&mut self) -> ContextMut<'_, Self::Data> {
-        T::as_context_mut(*self)
+impl<T: AsStoreMut> AsStoreMut for &'_ mut T {
+    fn as_store_mut(&mut self) -> FunctionEnv<'_, Self::Data> {
+        T::as_store_mut(*self)
     }
 }
