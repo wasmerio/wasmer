@@ -235,7 +235,7 @@ impl fmt::Debug for Imports {
 ///
 /// ```
 /// # use wasmer::{Function, Store};
-/// # let store = Store::default();
+/// # let mut store = Store::default();
 /// use wasmer::imports;
 ///
 /// let import_object = imports! {
@@ -300,7 +300,7 @@ mod test {
     use crate::js::export::Export;
     use wasm_bindgen_test::*;
     fn namespace() {
-        let store = Store::default();
+        let mut store = Store::default();
         let g1 = Global::new(&store, Val::I32(0));
         let namespace = namespace! {
             "happy" => g1
@@ -372,7 +372,7 @@ mod test {
     }
 
     fn chaining_works() {
-        let store = Store::default();
+        let mut store = Store::default();
         let g = Global::new(&store, Val::I32(0));
 
         let mut imports1 = imports! {
@@ -402,7 +402,7 @@ mod test {
     }
 
     fn extending_conflict_overwrites() {
-        let store = Store::default();
+        let mut store = Store::default();
         let g1 = Global::new(&store, Val::I32(0));
         let g2 = Global::new(&store, Val::F32(0.));
 
@@ -430,7 +430,7 @@ mod test {
         );
 
         // now test it in reverse
-        let store = Store::default();
+        let mut store = Store::default();
         let g1 = Global::new(&store, Val::I32(0));
         let g2 = Global::new(&store, Val::F32(0.));
 

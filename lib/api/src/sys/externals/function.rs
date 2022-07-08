@@ -52,8 +52,8 @@ impl Function {
     /// ```
     /// # use wasmer::{Function, FunctionType, Type, Store, Value};
     /// # use wasmer::Context as WasmerContext;
-    /// # let store = Store::default();
-    /// # let ctx = WasmerContext::new(&store, ());
+    /// # let mut store = Store::default();
+    /// # let ctx = WasmerContext::new(&mut store, ());
     /// #
     /// let signature = FunctionType::new(vec![Type::I32, Type::I32], vec![Type::I32]);
     ///
@@ -68,7 +68,7 @@ impl Function {
     /// ```
     /// # use wasmer::{Function, FunctionType, Type, Store, Value};
     /// # use wasmer::Context as WasmerContext;
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// #
     /// const I32_I32_TO_I32: ([Type; 2], [Type; 1]) = ([Type::I32, Type::I32], [Type::I32]);
     ///
@@ -160,16 +160,16 @@ impl Function {
     /// # Example
     ///
     /// ```
-    /// # use wasmer::{ContextMut, Store, Function};
+    /// # use wasmer::{Store, Function};
     /// # use wasmer::Context as WasmerContext;
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// # let ctx = WasmerContext::new(&mut store, ());
     /// #
-    /// fn sum(_ctx: ContextMut<()>, a: i32, b: i32) -> i32 {
+    /// fn sum(_ctx: &mut (), a: i32, b: i32) -> i32 {
     ///     a + b
     /// }
     ///
-    /// let f = Function::new_native(&mut ctx, sum);
+    /// let f = Function::new_native(&mut store, ctx, sum);
     /// ```
     pub fn new_native<T: Send + 'static, F, Args, Rets>(
         store: &mut Store,
@@ -220,16 +220,16 @@ impl Function {
     /// # Example
     ///
     /// ```
-    /// # use wasmer::{ContextMut, Function, Store, Type};
+    /// # use wasmer::{Function, Store, Type};
     /// # use wasmer::Context as WasmerContext;
-    /// # let store = Store::default();
-    /// # let ctx = WasmerContext::new(&store, ());
+    /// # let mut store = Store::default();
+    /// # let ctx = WasmerContext::new(&mut store, ());
     /// #
-    /// fn sum(_ctx: ContextMut<()>, a: i32, b: i32) -> i32 {
+    /// fn sum(_ctx: &mut (), a: i32, b: i32) -> i32 {
     ///     a + b
     /// }
     ///
-    /// let f = Function::new_native(&mut ctx, sum);
+    /// let f = Function::new_native(&mut store, &ctx, sum);
     ///
     /// assert_eq!(f.ty(&mut ctx).params(), vec![Type::I32, Type::I32]);
     /// assert_eq!(f.ty(&mut ctx).results(), vec![Type::I32]);
@@ -318,16 +318,16 @@ impl Function {
     /// # Example
     ///
     /// ```
-    /// # use wasmer::{ContextMut, Function, Store, Type};
+    /// # use wasmer::{Function, Store, Type};
     /// # use wasmer::Context as WasmerContext;
-    /// # let store = Store::default();
-    /// # let ctx = WasmerContext::new(&store, ());
+    /// # let mut store = Store::default();
+    /// # let ctx = WasmerContext::new(&mut store, ());
     /// #
-    /// fn sum(_ctx: ContextMut<()>, a: i32, b: i32) -> i32 {
+    /// fn sum(_ctx: &mut (), a: i32, b: i32) -> i32 {
     ///     a + b
     /// }
     ///
-    /// let f = Function::new_native(&mut ctx, sum);
+    /// let f = Function::new_native(&mut store, &ctx, sum);
     ///
     /// assert_eq!(f.param_arity(&mut ctx), 2);
     /// ```
@@ -340,16 +340,16 @@ impl Function {
     /// # Example
     ///
     /// ```
-    /// # use wasmer::{ContextMut, Function, Store, Type};
+    /// # use wasmer::{Function, Store, Type};
     /// # use wasmer::Context as WasmerContext;
-    /// # let store = Store::default();
-    /// # let ctx = WasmerContext::new(&store, ());
+    /// # let mut store = Store::default();
+    /// # let ctx = WasmerContext::new(&mut store, ());
     /// #
-    /// fn sum(_ctx: ContextMut<()>, a: i32, b: i32) -> i32 {
+    /// fn sum(_ctx: &mut (), a: i32, b: i32) -> i32 {
     ///     a + b
     /// }
     ///
-    /// let f = Function::new_native(&mut ctx, sum);
+    /// let f = Function::new_native(&mut store, &ctx, sum);
     ///
     /// assert_eq!(f.result_arity(&mut ctx), 1);
     /// ```
@@ -370,8 +370,8 @@ impl Function {
     /// ```
     /// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, Value};
     /// # use wasmer::Context as WasmerContext;
-    /// # let store = Store::default();
-    /// # let ctx = WasmerContext::new(&store, ());
+    /// # let mut store = Store::default();
+    /// # let ctx = WasmerContext::new(&mut store, ());
     /// # let wasm_bytes = wat2wasm(r#"
     /// # (module
     /// #   (func (export "sum") (param $x i32) (param $y i32) (result i32)
@@ -436,8 +436,8 @@ impl Function {
     /// ```
     /// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, TypedFunction, Value};
     /// # use wasmer::Context as WasmerContext;
-    /// # let store = Store::default();
-    /// # let ctx = WasmerContext::new(&store, ());
+    /// # let mut store = Store::default();
+    /// # let ctx = WasmerContext::new(&mut store, ());
     /// # let wasm_bytes = wat2wasm(r#"
     /// # (module
     /// #   (func (export "sum") (param $x i32) (param $y i32) (result i32)
@@ -464,8 +464,8 @@ impl Function {
     /// ```should_panic
     /// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, TypedFunction, Value};
     /// # use wasmer::Context as WasmerContext;
-    /// # let store = Store::default();
-    /// # let ctx = WasmerContext::new(&store, ());
+    /// # let mut store = Store::default();
+    /// # let ctx = WasmerContext::new(&mut store, ());
     /// # let wasm_bytes = wat2wasm(r#"
     /// # (module
     /// #   (func (export "sum") (param $x i32) (param $y i32) (result i32)
@@ -490,8 +490,8 @@ impl Function {
     /// ```should_panic
     /// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, TypedFunction, Value};
     /// # use wasmer::Context as WasmerContext;
-    /// # let store = Store::default();
-    /// # let ctx = WasmerContext::new(&store, ());
+    /// # let mut store = Store::default();
+    /// # let ctx = WasmerContext::new(&mut store, ());
     /// # let wasm_bytes = wat2wasm(r#"
     /// # (module
     /// #   (func (export "sum") (param $x i32) (param $y i32) (result i32)
@@ -1262,8 +1262,8 @@ mod inner {
         /*
         #[test]
         fn test_from_array() {
-            let store = Store::default();
-            let ctx = WasmerContext::new(&store, ());
+            let mut store = Store::default();
+            let ctx = WasmerContext::new(&mut store, ());
             assert_eq!(<()>::from_array(&mut ctx, []), ());
             assert_eq!(<i32>::from_array(&mut ctx, [RawValue{i32: 1}]), (1i32));
             assert_eq!(<(i32, i64)>::from_array(&mut ctx, [RawValue{i32:1}, RawValue{i64:2}]), (1i32, 2i64));
@@ -1280,8 +1280,8 @@ mod inner {
 
         #[test]
         fn test_into_array() {
-            let store = Store::default();
-            let ctx = WasmerContext::new(&store, ());
+            let mut store = Store::default();
+            let ctx = WasmerContext::new(&mut store, ());
             assert_eq!(().into_array(&mut ctx), [0i128; 0]);
             assert_eq!((1i32).into_array(&mut ctx), [1i32]);
             assert_eq!((1i32, 2i64).into_array(&mut ctx), [RawValue{i32: 1}, RawValue{i64: 2}]);
@@ -1300,8 +1300,8 @@ mod inner {
         /*
         #[test]
         fn test_from_c_struct() {
-            let store = Store::default();
-            let ctx = WasmerContext::new(&store, ());
+            let mut store = Store::default();
+            let ctx = WasmerContext::new(&mut store, ());
             assert_eq!(<()>::from_c_struct(&mut ctx, S0()), ());
             assert_eq!(<i32>::from_c_struct(&mut ctx, S1(1)), (1i32));
             assert_eq!(<(i32, i64)>::from_c_struct(&mut ctx, S2(1, 2)), (1i32, 2i64));
@@ -1361,8 +1361,8 @@ mod inner {
 
             #[test]
             fn test_function_types() {
-                let store = Store::default();
-                let ctx = WasmerContext::new(&store, ());
+                let mut store = Store::default();
+                let ctx = WasmerContext::new(&mut store, ());
                 use wasmer_types::FunctionType;
                 assert_eq!(
                     StaticFunction::new(func).ty(&mut ctx),

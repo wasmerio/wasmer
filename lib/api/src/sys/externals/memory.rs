@@ -41,7 +41,7 @@ impl Memory {
     /// ```
     /// # use wasmer::{Memory, MemoryType, Pages, Store, Type, Value};
     /// # use wasmer::Context as WasmerContext;
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// #
     /// let m = Memory::new(&mut store, MemoryType::new(1, None, false)).unwrap();
     /// ```
@@ -93,8 +93,8 @@ impl Memory {
     /// ```
     /// # use wasmer::{Memory, MemoryType, Pages, Store, Type, Value};
     /// # use wasmer::Context as WasmerContext;
-    /// # let store = Store::default();
-    /// # let mut store = WasmerContext::new(&store, ());
+    /// # let mut store = Store::default();
+    /// # let mut store = WasmerContext::new(&mut store, ());
     /// #
     /// let m = Memory::new(&mut store, MemoryType::new(1, None, false)).unwrap();
     ///
@@ -112,8 +112,8 @@ impl Memory {
     /// ```
     /// # use wasmer::{Memory, MemoryType, Pages, Store, Type, Value, WASM_MAX_PAGES};
     /// # use wasmer::Context as WasmerContext;
-    /// # let store = Store::default();
-    /// # let mut store = WasmerContext::new(&store, ());
+    /// # let mut store = Store::default();
+    /// # let mut store = WasmerContext::new(&mut store, ());
     /// #
     /// let m = Memory::new(&mut store, MemoryType::new(1, Some(3), false)).unwrap();
     /// let p = m.grow(&mut store, 2).unwrap();
@@ -130,8 +130,8 @@ impl Memory {
     /// ```should_panic
     /// # use wasmer::{Memory, MemoryType, Pages, Store, Type, Value, WASM_MAX_PAGES};
     /// # use wasmer::Context as WasmerContext;
-    /// # let store = Store::default();
-    /// # let mut store = WasmerContext::new(&store, ());
+    /// # let mut store = Store::default();
+    /// # let mut store = WasmerContext::new(&mut store, ());
     /// #
     /// let m = Memory::new(&mut store, MemoryType::new(1, Some(1), false)).unwrap();
     ///

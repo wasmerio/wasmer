@@ -78,7 +78,7 @@ impl Module {
     /// ```
     /// use wasmer::*;
     /// # fn main() -> anyhow::Result<()> {
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// let wat = "(module)";
     /// let module = Module::new(&store, wat)?;
     /// # Ok(())
@@ -90,7 +90,7 @@ impl Module {
     /// ```
     /// use wasmer::*;
     /// # fn main() -> anyhow::Result<()> {
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// // The following is the same as:
     /// // (module
     /// //   (type $t0 (func (param i32) (result i32)))
@@ -185,7 +185,7 @@ impl Module {
     /// ```ignore
     /// # use wasmer::*;
     /// # fn main() -> anyhow::Result<()> {
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// # let module = Module::from_file(&store, "path/to/foo.wasm")?;
     /// let serialized = module.serialize()?;
     /// # Ok(())
@@ -203,7 +203,7 @@ impl Module {
     /// ```ignore
     /// # use wasmer::*;
     /// # fn main() -> anyhow::Result<()> {
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// # let module = Module::from_file(&store, "path/to/foo.wasm")?;
     /// module.serialize_to_file("path/to/foo.so")?;
     /// # Ok(())
@@ -231,7 +231,7 @@ impl Module {
     /// ```ignore
     /// # use wasmer::*;
     /// # fn main() -> anyhow::Result<()> {
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// let module = Module::deserialize(&store, serialized_data)?;
     /// # Ok(())
     /// # }
@@ -252,7 +252,7 @@ impl Module {
     ///
     /// ```ignore
     /// # use wasmer::*;
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// # fn main() -> anyhow::Result<()> {
     /// let module = Module::deserialize_from_file(&store, path)?;
     /// # Ok(())
@@ -315,7 +315,7 @@ impl Module {
     /// ```
     /// # use wasmer::*;
     /// # fn main() -> anyhow::Result<()> {
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// let wat = "(module $moduleName)";
     /// let module = Module::new(&store, wat)?;
     /// assert_eq!(module.name(), Some("moduleName"));
@@ -338,7 +338,7 @@ impl Module {
     /// ```
     /// # use wasmer::*;
     /// # fn main() -> anyhow::Result<()> {
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// let wat = "(module)";
     /// let mut module = Module::new(&store, wat)?;
     /// assert_eq!(module.name(), None);
@@ -366,7 +366,7 @@ impl Module {
     /// ```
     /// # use wasmer::*;
     /// # fn main() -> anyhow::Result<()> {
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// let wat = r#"(module
     ///     (import "host" "func1" (func))
     ///     (import "host" "func2" (func))
@@ -394,7 +394,7 @@ impl Module {
     /// ```
     /// # use wasmer::*;
     /// # fn main() -> anyhow::Result<()> {
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// let wat = r#"(module
     ///     (func (export "namedfunc"))
     ///     (memory (export "namedmemory") 1)

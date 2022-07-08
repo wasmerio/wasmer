@@ -71,7 +71,7 @@ impl Function {
     ///
     /// ```
     /// # use wasmer::{Function, FunctionType, Type, Store, Value};
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// #
     /// let signature = FunctionType::new(vec![Type::I32, Type::I32], vec![Type::I32]);
     ///
@@ -85,7 +85,7 @@ impl Function {
     ///
     /// ```
     /// # use wasmer::{Function, FunctionType, Type, Store, Value};
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// #
     /// const I32_I32_TO_I32: ([Type; 2], [Type; 1]) = ([Type::I32, Type::I32], [Type::I32]);
     ///
@@ -166,7 +166,7 @@ impl Function {
     ///
     /// ```
     /// # use wasmer::{Store, Function};
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// #
     /// fn sum(a: i32, b: i32) -> i32 {
     ///     a + b
@@ -208,7 +208,7 @@ impl Function {
     ///
     /// ```
     /// # use wasmer::{Function, Store, Type};
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// #
     /// fn sum(a: i32, b: i32) -> i32 {
     ///     a + b
@@ -229,7 +229,7 @@ impl Function {
     ///
     /// ```
     /// # use wasmer::{Function, Store, Type};
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// #
     /// fn sum(a: i32, b: i32) -> i32 {
     ///     a + b
@@ -249,7 +249,7 @@ impl Function {
     ///
     /// ```
     /// # use wasmer::{Function, Store, Type};
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// #
     /// fn sum(a: i32, b: i32) -> i32 {
     ///     a + b
@@ -275,7 +275,7 @@ impl Function {
     ///
     /// ```
     /// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, Value};
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// # let wasm_bytes = wat2wasm(r#"
     /// # (module
     /// #   (func (export "sum") (param $x i32) (param $y i32) (result i32)
@@ -353,7 +353,7 @@ impl Function {
     ///
     /// ```
     /// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, Value};
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// # let wasm_bytes = wat2wasm(r#"
     /// # (module
     /// #   (func (export "sum") (param $x i32) (param $y i32) (result i32)
@@ -379,7 +379,7 @@ impl Function {
     ///
     /// ```should_panic
     /// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, Value};
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// # let wasm_bytes = wat2wasm(r#"
     /// # (module
     /// #   (func (export "sum") (param $x i32) (param $y i32) (result i32)
@@ -403,7 +403,7 @@ impl Function {
     ///
     /// ```should_panic
     /// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, Value};
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// # let wasm_bytes = wat2wasm(r#"
     /// # (module
     /// #   (func (export "sum") (param $x i32) (param $y i32) (result i32)

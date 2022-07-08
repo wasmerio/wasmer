@@ -16,10 +16,10 @@ use wasmer_types::ImportError;
 ///
 /// # Usage:
 /// ```no_run
-/// use wasmer::{ContextMut, Exports, Module, Instance, imports, Imports, Function};
-/// # fn foo_test(mut ctx: ContextMut<()>, module: Module) {
+/// use wasmer::{Store, Context, Exports, Module, Instance, imports, Imports, Function};
+/// # fn foo_test(mut ctx: Context<()>, mut store: Store, module: Module) {
 ///
-/// let host_fn = Function::new_native(&mut ctx, foo);
+/// let host_fn = Function::new_native(&mut store, &ctx, foo);
 /// let import_object: Imports = imports! {
 ///     "env" => {
 ///         "foo" => host_fn,
@@ -28,7 +28,7 @@ use wasmer_types::ImportError;
 ///
 /// let instance = Instance::new(&mut ctx, &module, &import_object).expect("Could not instantiate module.");
 ///
-/// fn foo(_ctx: ContextMut<()>, n: i32) -> i32 {
+/// fn foo(_ctx: &mut (), n: i32) -> i32 {
 ///     n
 /// }
 ///
@@ -99,9 +99,9 @@ impl Imports {
     /// ```no_run
     /// # use wasmer::Context as WasmerContext;
     /// # let store = Default::default();
-    /// # let ctx = WasmerContext::new(&store, ());
-    /// use wasmer::{ContextMut, Imports, Function};
-    /// fn foo(_ctx: ContextMut<()>, n: i32) -> i32 {
+    /// # let ctx = WasmerContext::new(&mut store, ());
+    /// use wasmer::{Imports, Function};
+    /// fn foo(_ctx: &mut (), n: i32) -> i32 {
     ///     n
     /// }
     /// let mut import_object = Imports::new();
@@ -210,10 +210,10 @@ impl fmt::Debug for Imports {
 /// # Usage
 ///
 /// ```
-/// # use wasmer::{ContextMut, Function, Store};
+/// # use wasmer::{Function, Store};
 /// # use wasmer::Context as WasmerContext;
-/// # let store = Store::default();
-/// # let ctx = WasmerContext::new(&store, ());
+/// # let mut store = Store::default();
+/// # let ctx = WasmerContext::new(&mut store, ());
 /// use wasmer::imports;
 ///
 /// let import_object = imports! {
@@ -222,7 +222,7 @@ impl fmt::Debug for Imports {
 ///     },
 /// };
 ///
-/// fn foo(_ctx: ContextMut<()>, n: i32) -> i32 {
+/// fn foo(_ctx: &mut (), n: i32) -> i32 {
 ///     n
 /// }
 /// ```
@@ -280,8 +280,8 @@ mod test {
     /*
     #[test]
     fn namespace() {
-        let store = Store::default();
-        let ctx = WasmerContext::new(&store, ());
+        let mut store = Store::default();
+        let ctx = WasmerContext::new(&mut store, ());
         let g1 = Global::new(&mut ctx, Value::I32(0));
         let namespace = namespace! {
             "happy" => g1
