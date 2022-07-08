@@ -99,7 +99,7 @@ impl Imports {
     /// ```no_run
     /// # use wasmer::Context as WasmerContext;
     /// # let store = Default::default();
-    /// # let mut ctx = WasmerContext::new(&store, ());
+    /// # let ctx = WasmerContext::new(&store, ());
     /// use wasmer::{ContextMut, Imports, Function};
     /// fn foo(_ctx: ContextMut<()>, n: i32) -> i32 {
     ///     n
@@ -213,7 +213,7 @@ impl fmt::Debug for Imports {
 /// # use wasmer::{ContextMut, Function, Store};
 /// # use wasmer::Context as WasmerContext;
 /// # let store = Store::default();
-/// # let mut ctx = WasmerContext::new(&store, ());
+/// # let ctx = WasmerContext::new(&store, ());
 /// use wasmer::imports;
 ///
 /// let import_object = imports! {
@@ -281,7 +281,7 @@ mod test {
     #[test]
     fn namespace() {
         let store = Store::default();
-        let mut ctx = WasmerContext::new(&store, ());
+        let ctx = WasmerContext::new(&store, ());
         let g1 = Global::new(&mut ctx, Value::I32(0));
         let namespace = namespace! {
             "happy" => g1
@@ -307,7 +307,7 @@ mod test {
         use crate::sys::Store;
 
         let mut store: Store = Default::default();
-        let mut ctx = WasmerContext::new(&mut store, ());
+        let ctx = WasmerContext::new(&mut store, ());
 
         fn func(&mut _ctx: &mut (), arg: i32) -> i32 {
             arg + 1

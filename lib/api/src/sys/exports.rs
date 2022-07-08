@@ -20,7 +20,7 @@ use thiserror::Error;
 /// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, Value, ExportError};
 /// # use wasmer::Context as WasmerContext;
 /// # let store = Store::default();
-/// # let mut ctx = WasmerContext::new(&store, ());
+/// # let ctx = WasmerContext::new(&store, ());
 /// # let wasm_bytes = wat2wasm(r#"
 /// # (module
 /// #   (global $one (export "glob") f32 (f32.const 1)))
@@ -39,7 +39,7 @@ use thiserror::Error;
 /// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, Value, ExportError};
 /// # use wasmer::Context as WasmerContext;
 /// # let store = Store::default();
-/// # let mut ctx = WasmerContext::new(&store, ());
+/// # let ctx = WasmerContext::new(&store, ());
 /// # let wasm_bytes = wat2wasm("(module)".as_bytes()).unwrap();
 /// # let module = Module::new(&store, wasm_bytes).unwrap();
 /// # let import_object = imports! {};

@@ -5,6 +5,7 @@ use wasmer_vm::{StoreHandle, VMFunctionContext};
 use crate::Store;
 
 #[derive(Debug)]
+#[repr(transparent)]
 /// An opaque reference to a function context.
 pub struct Context<T> {
     handle: StoreHandle<VMFunctionContext>,
@@ -15,7 +16,7 @@ impl<T> Context<T> {
     /// Make a new extern reference
     pub fn new(store: &mut Store, value: T) -> Self
     where
-        T: Any + Send + Sync + 'static + Sized,
+        T: Any + Send + 'static + Sized,
     {
         Self {
             handle: StoreHandle::new(store.objects_mut(), VMFunctionContext::new(value)),
@@ -36,7 +37,7 @@ impl<T> Context<T> {
     }
 
     /// Try to downcast to the given value.
-    pub fn downcast_mut<'a>(&mut self, store: &'a mut Store) -> &'a mut T
+    pub fn downcast_mut<'a>(&self, store: &'a mut Store) -> &'a mut T
     where
         T: Any + Send + 'static + Sized,
     {

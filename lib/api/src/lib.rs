@@ -54,7 +54,7 @@
 //!     "#;
 //!
 //!     let store = Store::default();
-//!     let mut ctx = WasmerContext::new(&store, ());
+//!     let ctx = WasmerContext::new(&store, ());
 //!     let module = Module::new(&store, &module_wat)?;
 //!     // The module doesn't import anything, so we create an empty import object.
 //!     let import_object = imports! {};

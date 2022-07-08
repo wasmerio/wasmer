@@ -89,7 +89,7 @@ impl Instance {
     /// # use wasmer::Context as WasmerContext;
     /// # fn main() -> anyhow::Result<()> {
     /// let store = Store::default();
-    /// let mut ctx = WasmerContext::new(&store, ());
+    /// let ctx = WasmerContext::new(&store, ());
     /// let module = Module::new(&store, "(module)")?;
     /// let imports = imports!{
     ///   "host" => {

@@ -7,7 +7,7 @@ mod sys {
     #[test]
     fn exports_work_after_multiple_instances_have_been_freed() -> Result<()> {
         let mut store = Store::default();
-        let mut ctx = WasmerContext::new(&mut store, ());
+        let ctx = WasmerContext::new(&mut store, ());
         let module = Module::new(
             &store,
             "
@@ -57,9 +57,9 @@ mod sys {
         }
 
         let env = Env { multiplier: 3 };
-        let mut ctx = WasmerContext::new(&mut store, env);
+        let ctx = WasmerContext::new(&mut store, env);
         let imported_signature = FunctionType::new(vec![Type::I32], vec![Type::I32]);
-        let imported = Function::new(&mut store, &mut ctx, imported_signature, imported_fn);
+        let imported = Function::new(&mut store, &ctx, imported_signature, imported_fn);
 
         let expected = vec![Value::I32(12)].into_boxed_slice();
         let result = imported.call(&mut store, &[Value::I32(4)])?;

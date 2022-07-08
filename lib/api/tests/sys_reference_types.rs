@@ -25,10 +25,10 @@ mod sys {
         #[derive(Clone, Debug)]
         pub struct Env(Arc<AtomicBool>);
         let env = Env(Arc::new(AtomicBool::new(false)));
-        let mut ctx = WasmerContext::new(&mut store, env);
+        let ctx = WasmerContext::new(&mut store, env);
         let imports = imports! {
             "env" => {
-                "func_ref_identity" => Function::new(&mut store, &mut ctx, FunctionType::new([Type::FuncRef], [Type::FuncRef]), |_ctx: &mut Env, values: &[Value]| -> Result<Vec<_>, _> {
+                "func_ref_identity" => Function::new(&mut store, &ctx, FunctionType::new([Type::FuncRef], [Type::FuncRef]), |_ctx: &mut Env, values: &[Value]| -> Result<Vec<_>, _> {
                     Ok(vec![values[0].clone()])
                 })
             },
@@ -44,7 +44,7 @@ mod sys {
             panic!("funcref not found!");
         }
 
-        let func_to_call = Function::new_native(&mut store, &mut ctx, |mut ctx: &mut Env| -> i32 {
+        let func_to_call = Function::new_native(&mut store, &ctx, |mut ctx: &mut Env| -> i32 {
             ctx.0.store(true, Ordering::SeqCst);
             343
         });
@@ -78,7 +78,7 @@ mod sys {
     //           (call $func_ref_call (ref.func $product)))
     // )"#;
     //         let module = Module::new(&store, wat)?;
-    //         let mut ctx = WasmerContext::new(&mut store, ());
+    //         let ctx = WasmerContext::new(&mut store, ());
     //         fn func_ref_call(
     //             mut ctx: &mut (),
     //             values: &[Value],
@@ -133,7 +133,7 @@ mod sys {
         #[test]
         fn extern_ref_passed_and_returned() -> Result<()> {
             let store = Store::default();
-            let mut ctx = WasmerContext::new(&store, ());
+            let ctx = WasmerContext::new(&store, ());
             let wat = r#"(module
         (func $extern_ref_identity (import "env" "extern_ref_identity") (param externref) (result externref))
         (func $extern_ref_identity_native (import "env" "extern_ref_identity_native") (param externref) (result externref))

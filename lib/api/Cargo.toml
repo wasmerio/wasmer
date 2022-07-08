@@ -101,6 +101,7 @@ default-llvm = ["default-compiler", "llvm"]
 engine = ["sys"]
 universal = [
     "engine",
+    "wasmer-compiler/universal_engine"
 ]
 default-engine = []
 default-universal = [

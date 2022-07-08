@@ -90,7 +90,7 @@ mod sys {
     #[ignore]
     fn table_get() -> Result<()> {
         let mut store = Store::default();
-        let mut ctx = WasmerContext::new(&mut store, ());
+        let ctx = WasmerContext::new(&mut store, ());
         let table_type = TableType {
             ty: Type::FuncRef,
             minimum: 0,
@@ -114,7 +114,7 @@ mod sys {
     #[test]
     fn table_grow() -> Result<()> {
         let mut store = Store::default();
-        let mut ctx = WasmerContext::new(&mut store, ());
+        let ctx = WasmerContext::new(&mut store, ());
         let table_type = TableType {
             ty: Type::FuncRef,
             minimum: 0,
@@ -143,7 +143,7 @@ mod sys {
     #[test]
     fn memory_new() -> Result<()> {
         let mut store = Store::default();
-        let mut ctx = WasmerContext::new(&mut store, ());
+        let ctx = WasmerContext::new(&mut store, ());
         let memory_type = MemoryType {
             shared: false,
             minimum: Pages(0),
@@ -158,7 +158,7 @@ mod sys {
     #[test]
     fn memory_grow() -> Result<()> {
         let mut store = Store::default();
-        let mut ctx = WasmerContext::new(&mut store, ());
+        let ctx = WasmerContext::new(&mut store, ());
         let desc = MemoryType::new(Pages(10), Some(Pages(16)), false);
         let memory = Memory::new(&mut store, desc)?;
         assert_eq!(memory.size(&mut store), Pages(10));
@@ -187,7 +187,7 @@ mod sys {
     #[test]
     fn function_new() -> Result<()> {
         let mut store = Store::default();
-        let mut ctx = WasmerContext::new(&mut store, ());
+        let ctx = WasmerContext::new(&mut store, ());
         let function = Function::new_native(&mut store, &ctx, |_ctx: &mut ()| {});
         assert_eq!(
             function.ty(&mut store).clone(),
@@ -230,7 +230,7 @@ mod sys {
         struct MyEnv {}
 
         let my_env = MyEnv {};
-        let mut ctx = WasmerContext::new(&mut store, my_env);
+        let ctx = WasmerContext::new(&mut store, my_env);
         let function = Function::new_native(&mut store, &ctx, |_ctx: &mut MyEnv| {});
         assert_eq!(
             function.ty(&mut store).clone(),
@@ -270,7 +270,7 @@ mod sys {
     #[test]
     fn function_new_dynamic() -> Result<()> {
         let mut store = Store::default();
-        let mut ctx = WasmerContext::new(&mut store, ());
+        let ctx = WasmerContext::new(&mut store, ());
 
         // Using &FunctionType signature
         let function_type = FunctionType::new(vec![], vec![]);
@@ -339,7 +339,7 @@ mod sys {
         #[derive(Clone)]
         struct MyEnv {}
         let my_env = MyEnv {};
-        let mut ctx = WasmerContext::new(&mut store, my_env);
+        let ctx = WasmerContext::new(&mut store, my_env);
 
         // Using &FunctionType signature
         let function_type = FunctionType::new(vec![], vec![]);
@@ -405,7 +405,7 @@ mod sys {
     //     #[test]
     //     fn native_function_works() -> Result<()> {
     //         let mut store = Store::default();
-    //         let mut ctx = WasmerContext::new(&mut store, ());
+    //         let ctx = WasmerContext::new(&mut store, ());
     //         let function = Function::new_native(&mut store, &ctx, |_ctx: &mut ()| {});
     //         let native_function: TypedFunction<(), ()> = function.native(&mut store).unwrap();
     //         let result = native_function.call(&mut store);
@@ -446,7 +446,7 @@ mod sys {
     //     #[test]
     //     fn function_outlives_instance() -> Result<()> {
     //         let mut store = Store::default();
-    //         let mut ctx = WasmerContext::new(&mut store, ());
+    //         let ctx = WasmerContext::new(&mut store, ());
     //         let wat = r#"(module
     //   (type $sum_t (func (param i32 i32) (result i32)))
     //   (func $sum_f (type $sum_t) (param $x i32) (param $y i32) (result i32)
@@ -474,7 +474,7 @@ mod sys {
     //         #[test]
     //         fn weak_instance_ref_externs_after_instance() -> Result<()> {
     //             let mut store = Store::default();
-    //             let mut ctx = WasmerContext::new(&mut store, ());
+    //             let ctx = WasmerContext::new(&mut store, ());
     //             let wat = r#"(module
     //       (memory (export "mem") 1)
     //       (type $sum_t (func (param i32 i32) (result i32)))
@@ -517,7 +517,7 @@ mod sys {
     //             val: 5,
     //             memory: None,
     //         };
-    //         let mut ctx = WasmerContext::new(&mut store, env);
+    //         let ctx = WasmerContext::new(&mut store, env);
 
     //         let result = host_function(ctx.as_context_mut(), 7, 9);
     //         assert_eq!(result, 21);
