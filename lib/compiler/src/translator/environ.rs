@@ -108,7 +108,8 @@ impl<'data> ModuleEnvironment<'data> {
                 String::from(module),
                 String::from(field),
                 self.module.imports.len().try_into().unwrap(),
-            ),
+            )
+                .into(),
             import,
         );
         Ok(())
