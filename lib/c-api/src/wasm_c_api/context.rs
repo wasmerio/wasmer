@@ -1,6 +1,6 @@
 use crate::wasm_c_api::store::wasm_store_t;
 use libc::c_void;
-use wasmer_api::{Context, FunctionEnv};
+use wasmer_api::{Context, FunctionEnvMut};
 
 /// Opaque type representing a WebAssembly context.
 #[allow(non_camel_case_types)]
@@ -42,7 +42,7 @@ pub unsafe extern "C" fn wasm_context_delete(_context: Option<Box<wasm_context_t
 /// Opaque type representing a mut ref of a WebAssembly context.
 #[allow(non_camel_case_types)]
 pub struct wasm_context_ref_mut_t<'a> {
-    pub(crate) inner: FunctionEnv<'a, *mut c_void>,
+    pub(crate) inner: FunctionEnvMut<'a, *mut c_void>,
 }
 
 /// Get the value of `wasm_context_ref_mut_t` data.

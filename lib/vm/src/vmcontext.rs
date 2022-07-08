@@ -22,35 +22,35 @@ use wasmer_types::RawValue;
 /// It may either be a pointer to the [`VMContext`] if it's a Wasm function
 /// or a pointer to arbitrary data controlled by the host if it's a host function.
 #[derive(Copy, Clone, Eq)]
-pub union VMFunctionEnvironment {
+pub union VMFunctionEnvMutironment {
     /// Wasm functions take a pointer to [`VMContext`].
     pub vmctx: *mut VMContext,
     /// Host functions can have custom environments.
     pub host_env: *mut std::ffi::c_void,
 }
 
-impl VMFunctionEnvironment {
+impl VMFunctionEnvMutironment {
     /// Check whether the pointer stored is null or not.
     pub fn is_null(&self) -> bool {
         unsafe { self.host_env.is_null() }
     }
 }
 
-impl std::fmt::Debug for VMFunctionEnvironment {
+impl std::fmt::Debug for VMFunctionEnvMutironment {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        f.debug_struct("VMFunctionEnvironment")
+        f.debug_struct("VMFunctionEnvMutironment")
             .field("vmctx_or_hostenv", unsafe { &self.host_env })
             .finish()
     }
 }
 
-impl std::cmp::PartialEq for VMFunctionEnvironment {
+impl std::cmp::PartialEq for VMFunctionEnvMutironment {
     fn eq(&self, rhs: &Self) -> bool {
         unsafe { self.host_env as usize == rhs.host_env as usize }
     }
 }
 
-impl std::hash::Hash for VMFunctionEnvironment {
+impl std::hash::Hash for VMFunctionEnvMutironment {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         unsafe {
             self.vmctx.hash(state);
@@ -66,7 +66,7 @@ pub struct VMFunctionImport {
     pub body: *const VMFunctionBody,
 
     /// A pointer to the `VMContext` that owns the function or host env data.
-    pub environment: VMFunctionEnvironment,
+    pub environment: VMFunctionEnvMutironment,
 
     /// Handle to the `VMFunction` in the context.
     pub handle: InternalStoreHandle<VMFunction>,
@@ -569,7 +569,7 @@ pub struct VMCallerCheckedAnyfunc {
     /// Function signature id.
     pub type_index: VMSharedSignatureIndex,
     /// Function `VMContext` or host env.
-    pub vmctx: VMFunctionEnvironment,
+    pub vmctx: VMFunctionEnvMutironment,
     /// Address of the function call trampoline to invoke this function using
     /// a dynamic argument list.
     pub call_trampoline: VMTrampoline,

@@ -45,7 +45,7 @@ mod js {
         let instance = Instance::new(&mut ctx, &module, &import_object).unwrap();
 
         let memory = instance.exports.get_memory("mem").unwrap();
-        assert!(memory.is_from_context(&ctx));
+        assert!(memory.is_from_store(&ctx));
         assert_eq!(memory.ty(&ctx), MemoryType::new(Pages(1), None, false));
         assert_eq!(memory.size(&ctx), Pages(1));
         assert_eq!(memory.data_size(&ctx), 65536);
@@ -289,7 +289,7 @@ mod js {
             })
             .unwrap();
 
-        fn imported_fn(_: FunctionEnv<'_, ()>, arg: u32) -> u32 {
+        fn imported_fn(_: FunctionEnvMut<'_, ()>, arg: u32) -> u32 {
             return arg + 1;
         }
 
@@ -342,7 +342,7 @@ mod js {
             multiplier: u32,
         }
 
-        fn imported_fn(ctx: FunctionEnv<'_, Env>, arg: u32) -> u32 {
+        fn imported_fn(ctx: FunctionEnvMut<'_, Env>, arg: u32) -> u32 {
             log!("inside imported_fn: ctx.data is {:?}", ctx.data());
             // log!("inside call id is {:?}", ctx.as_store_ref().objects().id);
             return ctx.data().multiplier * arg;
@@ -401,7 +401,7 @@ mod js {
             memory: Option<Memory>,
         }
 
-        fn imported_fn(ctx: FunctionEnv<'_, Env>, arg: u32) -> u32 {
+        fn imported_fn(ctx: FunctionEnvMut<'_, Env>, arg: u32) -> u32 {
             let memory: &Memory = ctx.data().memory.as_ref().unwrap();
             let memory_val = memory.uint8view(&ctx).get_index(0);
             return (memory_val as u32) * ctx.data().multiplier * arg;
@@ -456,7 +456,7 @@ mod js {
 
         let mut ctx = Context::new(&store, Env { multiplier: 3 });
 
-        fn imported_fn(ctx: FunctionEnv<'_, Env>, args: &[Val]) -> Result<Vec<Val>, RuntimeError> {
+        fn imported_fn(ctx: FunctionEnvMut<'_, Env>, args: &[Val]) -> Result<Vec<Val>, RuntimeError> {
             let value = ctx.data().multiplier * args[0].unwrap_i32() as u32;
             return Ok(vec![Val::I32(value as _)]);
         }
@@ -503,7 +503,7 @@ mod js {
             memory: Option<Memory>,
         }
 
-        fn imported_fn(ctx: FunctionEnv<'_, Env>, args: &[Val]) -> Result<Vec<Val>, RuntimeError> {
+        fn imported_fn(ctx: FunctionEnvMut<'_, Env>, args: &[Val]) -> Result<Vec<Val>, RuntimeError> {
             let memory: &Memory = ctx.data().memory.as_ref().unwrap();
             let memory_val = memory.uint8view(&ctx).get_index(0);
             let value = (memory_val as u32) * ctx.data().multiplier * args[0].unwrap_i32() as u32;
@@ -623,7 +623,7 @@ mod js {
         )
         .unwrap();
 
-        fn sum(_: FunctionEnv<'_, ()>, a: i32, b: i32) -> i32 {
+        fn sum(_: FunctionEnvMut<'_, ()>, a: i32, b: i32) -> i32 {
             a + b
         }
 
@@ -664,7 +664,7 @@ mod js {
         )
         .unwrap();
 
-        fn early_exit(_: FunctionEnv<'_, ()>) {
+        fn early_exit(_: FunctionEnvMut<'_, ()>) {
             panic!("Do panic")
         }
         let mut ctx = Context::new(&store, ());
@@ -728,7 +728,7 @@ mod js {
 
         impl std::error::Error for ExitCode {}
 
-        fn early_exit(_: FunctionEnv<'_, ()>) -> Result<(), ExitCode> {
+        fn early_exit(_: FunctionEnvMut<'_, ()>) -> Result<(), ExitCode> {
             Err(ExitCode(1))
         }
 

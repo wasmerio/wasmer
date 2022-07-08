@@ -283,7 +283,7 @@ impl Module {
     ) -> Result<InstanceHandle, InstantiationError> {
         // Ensure all imports come from the same context.
         for import in imports {
-            if !import.is_from_context(ctx) {
+            if !import.is_from_store(ctx) {
                 return Err(InstantiationError::BadContext);
             }
         }

@@ -4,7 +4,7 @@ use crate::Store;
 /// We require the context to have a fixed memory address for its lifetime since
 /// various bits of the VM have raw pointers that point back to it. Hence we
 /// wrap the actual context in a box.
-pub(crate) struct ContextInner<T> {
+pub(crate) struct StoreInner<T> {
     pub(crate) objects: StoreObjects,
     pub(crate) store: Store,
     pub(crate) data: T,
@@ -29,7 +29,7 @@ pub(crate) struct ContextInner<T> {
 /// [`Function::new`] and [`Function::new_native`] receive
 /// a reference to the context when they are called.
 pub struct Context<T> {
-    pub(crate) inner: Box<ContextInner<T>>,
+    pub(crate) inner: Box<StoreInner<T>>,
 }
 
 impl<T> Context<T> {
@@ -37,7 +37,7 @@ impl<T> Context<T> {
     // TODO: Eliminate the Store type and move its functionality into Engine.
     pub fn new(store: &Store, data: T) -> Self {
         Self {
-            inner: Box::new(ContextInner {
+            inner: Box::new(StoreInner {
                 objects: Default::default(),
                 store: store.clone(),
                 data,
@@ -68,7 +68,7 @@ impl<T> Context<T> {
 
 /// A temporary handle to a [`Context`].
 pub struct StoreRef<'a, T: 'a> {
-    inner: &'a ContextInner<T>,
+    inner: &'a StoreInner<T>,
 }
 
 impl<'a, T> StoreRef<'a, T> {
@@ -88,11 +88,11 @@ impl<'a, T> StoreRef<'a, T> {
 }
 
 /// A temporary handle to a [`Context`].
-pub struct FunctionEnv<'a, T: 'a> {
-    inner: &'a mut ContextInner<T>,
+pub struct FunctionEnvMut<'a, T: 'a> {
+    inner: &'a mut StoreInner<T>,
 }
 
-impl<T> FunctionEnv<'_, T> {
+impl<T> FunctionEnvMut<'_, T> {
     /// Returns a reference to the host state in this context.
     pub fn data(&self) -> &T {
         &self.inner.data
@@ -113,12 +113,12 @@ impl<T> FunctionEnv<'_, T> {
     }
 
     /// Returns the raw pointer of the context
-    pub(crate) fn as_raw(&self) -> *mut ContextInner<T> {
-        self.inner as *const ContextInner<T> as *mut ContextInner<T>
+    pub(crate) fn as_raw(&self) -> *mut StoreInner<T> {
+        self.inner as *const StoreInner<T> as *mut StoreInner<T>
     }
 
     /// Constructs the context from the raw pointer
-    pub(crate) unsafe fn from_raw(raw: *mut ContextInner<T>) -> Self {
+    pub(crate) unsafe fn from_raw(raw: *mut StoreInner<T>) -> Self {
         Self { inner: &mut *raw }
     }
 }
@@ -135,7 +135,7 @@ pub trait AsStoreRef {
 /// Helper trait for a value that is convertible to a [`StoreMut`].
 pub trait AsStoreMut: AsStoreRef {
     /// Returns a `StoreMut` pointing to the underlying context.
-    fn as_context_mut(&mut self) -> FunctionEnv<'_, Self::Data>;
+    fn as_context_mut(&mut self) -> FunctionEnvMut<'_, Self::Data>;
 }
 
 impl<T> AsStoreRef for Context<T> {
@@ -146,8 +146,8 @@ impl<T> AsStoreRef for Context<T> {
     }
 }
 impl<T> AsStoreMut for Context<T> {
-    fn as_context_mut(&mut self) -> FunctionEnv<'_, Self::Data> {
-        FunctionEnv {
+    fn as_context_mut(&mut self) -> FunctionEnvMut<'_, Self::Data> {
+        FunctionEnvMut {
             inner: &mut self.inner,
         }
     }
@@ -159,16 +159,16 @@ impl<T> AsStoreRef for StoreRef<'_, T> {
         StoreRef { inner: self.inner }
     }
 }
-impl<T> AsStoreRef for FunctionEnv<'_, T> {
+impl<T> AsStoreRef for FunctionEnvMut<'_, T> {
     type Data = T;
 
     fn as_context_ref(&self) -> StoreRef<'_, Self::Data> {
         StoreRef { inner: self.inner }
     }
 }
-impl<T> AsStoreMut for FunctionEnv<'_, T> {
-    fn as_context_mut(&mut self) -> FunctionEnv<'_, Self::Data> {
-        FunctionEnv { inner: self.inner }
+impl<T> AsStoreMut for FunctionEnvMut<'_, T> {
+    fn as_context_mut(&mut self) -> FunctionEnvMut<'_, Self::Data> {
+        FunctionEnvMut { inner: self.inner }
     }
 }
 impl<T: AsStoreRef> AsStoreRef for &'_ T {
@@ -186,7 +186,7 @@ impl<T: AsStoreRef> AsStoreRef for &'_ mut T {
     }
 }
 impl<T: AsStoreMut> AsStoreMut for &'_ mut T {
-    fn as_context_mut(&mut self) -> FunctionEnv<'_, Self::Data> {
+    fn as_context_mut(&mut self) -> FunctionEnvMut<'_, Self::Data> {
         T::as_context_mut(*self)
     }
 }

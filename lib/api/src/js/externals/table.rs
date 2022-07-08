@@ -26,7 +26,7 @@ fn set_table_item(table: &VMTable, item_index: u32, item: &Function) -> Result<(
 }
 
 fn get_function(ctx: &mut impl AsStoreMut, val: Value) -> Result<Function, RuntimeError> {
-    if !val.is_from_context(ctx) {
+    if !val.is_from_store(ctx) {
         return Err(RuntimeError::new("cannot pass Value across contexts"));
     }
     match val {
@@ -163,7 +163,7 @@ impl Table {
     }
 
     /// Checks whether this `Table` can be used with the given context.
-    pub fn is_from_context(&self, ctx: &impl AsStoreRef) -> bool {
+    pub fn is_from_store(&self, ctx: &impl AsStoreRef) -> bool {
         self.handle.context_id() == ctx.as_context_ref().objects().id()
     }
 

@@ -76,7 +76,7 @@ macro_rules! impl_native_traits {
                         .as_ref()
                 };
                 // Ensure all parameters come from the same context.
-                if $(!FromToNativeWasmType::is_from_context(&$x, ctx) ||)* false {
+                if $(!FromToNativeWasmType::is_from_store(&$x, ctx) ||)* false {
                     return Err(RuntimeError::new(
                         "cross-`Context` values are not supported",
                     ));

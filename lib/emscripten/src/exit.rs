@@ -1,8 +1,8 @@
 use crate::EmEnv;
-use wasmer::FunctionEnv;
+use wasmer::FunctionEnvMut;
 
 // __exit
-pub fn exit(mut _ctx: FunctionEnv<'_, EmEnv>, value: i32) {
+pub fn exit(mut _ctx: FunctionEnvMut<'_, EmEnv>, value: i32) {
     debug!("emscripten::exit {}", value);
     ::std::process::exit(value);
 }

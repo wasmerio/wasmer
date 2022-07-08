@@ -53,7 +53,7 @@ pub use crate::sig_registry::SignatureRegistry;
 pub use crate::table::{TableElement, VMTable};
 pub use crate::trap::*;
 pub use crate::vmcontext::{
-    VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionContext, VMFunctionEnvironment,
+    VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionContext, VMFunctionEnvMutironment,
     VMFunctionImport, VMFunctionKind, VMGlobalDefinition, VMGlobalImport, VMMemoryDefinition,
     VMMemoryImport, VMSharedSignatureIndex, VMTableDefinition, VMTableImport, VMTrampoline,
 };

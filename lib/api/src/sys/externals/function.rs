@@ -1,11 +1,11 @@
-use crate::sys::context::{AsStoreMut, AsStoreRef, ContextInner, FunctionEnv};
 use crate::sys::exports::{ExportError, Exportable};
 use crate::sys::externals::Extern;
 use crate::sys::FunctionType;
 use crate::sys::RuntimeError;
+use crate::sys::Store;
 use crate::sys::TypedFunction;
 
-use crate::Value;
+use crate::{Context, Value, AsStoreMut, AsStoreRef};
 use inner::StaticFunction;
 pub use inner::{FromToNativeWasmType, HostFunction, WasmTypeList};
 use std::cell::UnsafeCell;
@@ -13,10 +13,10 @@ use std::cmp::max;
 use std::ffi::c_void;
 use wasmer_types::RawValue;
 use wasmer_vm::{
-    on_host_stack, raise_user_trap, resume_panic, wasmer_call_trampoline, StoreHandle,
-    InternalStoreHandle, MaybeInstanceOwned, VMCallerCheckedAnyfunc, VMContext,
-    VMDynamicFunctionContext, VMExtern, VMFuncRef, VMFunction, VMFunctionBody,
-    VMFunctionEnvironment, VMFunctionKind, VMTrampoline,
+    on_host_stack, raise_user_trap, resume_panic, wasmer_call_trampoline, InternalStoreHandle,
+    MaybeInstanceOwned, StoreHandle, VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionContext,
+    VMExtern, VMFuncRef, VMFunction, VMFunctionBody, VMFunctionEnvMutironment, VMFunctionKind,
+    VMTrampoline,
 };
 
 /// A WebAssembly `function` instance.
@@ -53,11 +53,11 @@ impl Function {
     /// # use wasmer::{Function, FunctionType, Type, Store, Value};
     /// # use wasmer::Context as WasmerContext;
     /// # let mut store = Store::default();
-    /// # let mut ctx = WasmerContext::new(&store, ());
+    /// # let ctx = WasmerContext::new(&mut store, ());
     /// #
     /// let signature = FunctionType::new(vec![Type::I32, Type::I32], vec![Type::I32]);
     ///
-    /// let f = Function::new(&mut ctx, &signature, |_ctx, args| {
+    /// let f = Function::new(&mut store, &signature, &ctx, |_ctx, args| {
     ///     let sum = args[0].unwrap_i32() + args[1].unwrap_i32();
     ///     Ok(vec![Value::I32(sum)])
     /// });
@@ -69,55 +69,59 @@ impl Function {
     /// # use wasmer::{Function, FunctionType, Type, Store, Value};
     /// # use wasmer::Context as WasmerContext;
     /// # let mut store = Store::default();
-    /// # let mut ctx = WasmerContext::new(&store, ());
     /// #
     /// const I32_I32_TO_I32: ([Type; 2], [Type; 1]) = ([Type::I32, Type::I32], [Type::I32]);
     ///
-    /// let f = Function::new(&mut ctx, I32_I32_TO_I32, |_ctx, args| {
+    /// let f = Function::new(&mut store, I32_I32_TO_I32, |args| {
     ///     let sum = args[0].unwrap_i32() + args[1].unwrap_i32();
     ///     Ok(vec![Value::I32(sum)])
     /// });
     /// ```
-    pub fn new<FT, F, T>(ctx: &mut impl AsStoreMut<Data = T>, ty: FT, func: F) -> Self
+    pub fn new<FT, F, T: Send + 'static>(
+        store: &mut impl AsStoreMut,
+        ctx: &Context<T>,
+        ty: FT,
+        func: F,
+    ) -> Self
     where
         FT: Into<FunctionType>,
-        F: Fn(FunctionEnv<'_, T>, &[Value]) -> Result<Vec<Value>, RuntimeError>
-            + 'static
-            + Send
-            + Sync,
+        F: Fn(&mut T, &[Value]) -> Result<Vec<Value>, RuntimeError> + 'static + Send + Sync,
     {
-        let mut ctx = ctx.as_store_mut();
         let function_type = ty.into();
         let func_ty = function_type.clone();
-        let raw_ctx = ctx.as_raw() as *mut u8;
-        let wrapper = move |values_vec: *mut RawValue| -> Result<(), RuntimeError> {
-            unsafe {
-                let mut ctx = FunctionEnv::from_raw(raw_ctx as *mut ContextInner<T>);
-                let mut args = Vec::with_capacity(func_ty.params().len());
-                for (i, ty) in func_ty.params().iter().enumerate() {
-                    args.push(Value::from_raw(&mut ctx, *ty, *values_vec.add(i)));
-                }
-                let returns = func(ctx.as_store_mut(), &args)?;
+        let mut new_ctx = ctx.clone();
+        let wrapper =
+            move |store: &mut Store, values_vec: *mut RawValue| -> Result<(), RuntimeError> {
+                unsafe {
+                    let mut args = Vec::with_capacity(func_ty.params().len());
+                    for (i, ty) in func_ty.params().iter().enumerate() {
+                        args.push(Value::from_raw(store, *ty, *values_vec.add(i)));
+                    }
+                    let data: &mut T = new_ctx.downcast_mut(store);
+                    let returns = func(data, &args)?;
 
-                // We need to dynamically check that the returns
-                // match the expected types, as well as expected length.
-                let return_types = returns.iter().map(|ret| ret.ty());
-                if return_types.ne(func_ty.results().iter().copied()) {
-                    return Err(RuntimeError::new(format!(
-                        "Dynamic function returned wrong signature. Expected {:?} but got {:?}",
-                        func_ty.results(),
-                        returns.iter().map(|ret| ret.ty())
-                    )));
+                    // We need to dynamically check that the returns
+                    // match the expected types, as well as expected length.
+                    let return_types = returns.iter().map(|ret| ret.ty());
+                    if return_types.ne(func_ty.results().iter().copied()) {
+                        return Err(RuntimeError::new(format!(
+                            "Dynamic function returned wrong signature. Expected {:?} but got {:?}",
+                            func_ty.results(),
+                            returns.iter().map(|ret| ret.ty())
+                        )));
+                    }
+                    for (i, ret) in returns.iter().enumerate() {
+                        *values_vec.add(i) = ret.as_raw(&store);
+                    }
                 }
-                for (i, ret) in returns.iter().enumerate() {
-                    *values_vec.add(i) = ret.as_raw(&ctx);
-                }
-            }
-            Ok(())
-        };
+                Ok(())
+            };
         let mut host_data = Box::new(VMDynamicFunctionContext {
             address: std::ptr::null(),
-            ctx: DynamicFunction { func: wrapper },
+            ctx: DynamicFunction {
+                func: wrapper,
+                store: store as *mut _,
+            },
         });
         host_data.address = host_data.ctx.func_body_ptr();
 
@@ -125,8 +129,8 @@ impl Function {
         // The engine linker will replace the address with one pointing to a
         // generated dynamic trampoline.
         let func_ptr = std::ptr::null() as *const VMFunctionBody;
-        let type_index = ctx.store().engine().register_signature(&function_type);
-        let vmctx = VMFunctionEnvironment {
+        let type_index = store.engine().register_signature(&function_type);
+        let vmctx = VMFunctionEnvMutironment {
             host_env: host_data.as_ref() as *const _ as *mut c_void,
         };
         let call_trampoline = host_data.ctx.call_trampoline_address();
@@ -144,7 +148,7 @@ impl Function {
             host_data,
         };
         Self {
-            handle: StoreHandle::new(ctx.objects_mut(), vm_function),
+            handle: StoreHandle::new(store.objects_mut(), vm_function),
         }
     }
 
@@ -156,33 +160,40 @@ impl Function {
     /// # Example
     ///
     /// ```
-    /// # use wasmer::{StoreMut, Store, Function};
+    /// # use wasmer::{Store, Function};
     /// # use wasmer::Context as WasmerContext;
     /// # let mut store = Store::default();
-    /// # let mut ctx = WasmerContext::new(&store, ());
+    /// # let ctx = WasmerContext::new(&mut store, ());
     /// #
-    /// fn sum(_ctx: FunctionEnv<()>, a: i32, b: i32) -> i32 {
+    /// fn sum(_ctx: &mut (), a: i32, b: i32) -> i32 {
     ///     a + b
     /// }
     ///
-    /// let f = Function::new_native(&mut ctx, sum);
+    /// let f = Function::new_native(&mut store, ctx, sum);
     /// ```
-    pub fn new_native<T, F, Args, Rets>(ctx: &mut impl AsStoreMut<Data = T>, func: F) -> Self
+    pub fn new_native<T: Send + 'static, F, Args, Rets>(
+        store: &mut impl AsStoreMut,
+        ctx: &Context<T>,
+        func: F,
+    ) -> Self
     where
         F: HostFunction<T, Args, Rets> + 'static + Send + Sync,
         Args: WasmTypeList,
         Rets: WasmTypeList,
     {
-        let mut ctx = ctx.as_store_mut();
+        let new_ctx = ctx.clone();
+        // println!("new native {:p}", &new_ctx);
+
         let host_data = Box::new(StaticFunction {
-            raw_ctx: ctx.as_raw() as *mut u8,
+            raw_ctx: new_ctx,
+            store: store as *mut _,
             func,
         });
         let function_type = FunctionType::new(Args::wasm_types(), Rets::wasm_types());
 
         let func_ptr = <F as HostFunction<T, Args, Rets>>::function_body_ptr();
-        let type_index = ctx.store().engine().register_signature(&function_type);
-        let vmctx = VMFunctionEnvironment {
+        let type_index = store.as_store_mut().store().engine().register_signature(&function_type);
+        let vmctx = VMFunctionEnvMutironment {
             host_env: host_data.as_ref() as *const _ as *mut c_void,
         };
         let call_trampoline = <F as HostFunction<T, Args, Rets>>::call_trampoline_address();
@@ -200,7 +211,7 @@ impl Function {
             host_data,
         };
         Self {
-            handle: StoreHandle::new(ctx.objects_mut(), vm_function),
+            handle: StoreHandle::new(store.as_store_mut().objects_mut(), vm_function),
         }
     }
 
@@ -209,30 +220,27 @@ impl Function {
     /// # Example
     ///
     /// ```
-    /// # use wasmer::{StoreMut, Function, Store, Type};
+    /// # use wasmer::{Function, Store, Type};
     /// # use wasmer::Context as WasmerContext;
     /// # let mut store = Store::default();
-    /// # let mut ctx = WasmerContext::new(&store, ());
+    /// # let ctx = WasmerContext::new(&mut store, ());
     /// #
-    /// fn sum(_ctx: FunctionEnv<()>, a: i32, b: i32) -> i32 {
+    /// fn sum(_ctx: &mut (), a: i32, b: i32) -> i32 {
     ///     a + b
     /// }
     ///
-    /// let f = Function::new_native(&mut ctx, sum);
+    /// let f = Function::new_native(&mut store, &ctx, sum);
     ///
     /// assert_eq!(f.ty(&mut ctx).params(), vec![Type::I32, Type::I32]);
     /// assert_eq!(f.ty(&mut ctx).results(), vec![Type::I32]);
     /// ```
-    pub fn ty(&self, ctx: &impl AsStoreRef) -> FunctionType {
-        self.handle
-            .get(ctx.as_store_ref().objects())
-            .signature
-            .clone()
+    pub fn ty(&self, store: &impl AsStoreRef) -> FunctionType {
+        self.handle.get(store.as_store_ref().objects()).signature.clone()
     }
 
     fn call_wasm(
         &self,
-        ctx: &mut impl AsStoreMut,
+        store: &mut impl AsStoreMut,
         trampoline: VMTrampoline,
         params: &[Value],
         results: &mut [Value],
@@ -245,7 +253,7 @@ impl Function {
                 .join(", ")
         };
         // TODO: Avoid cloning the signature here, it's expensive.
-        let signature = self.ty(ctx);
+        let signature = self.ty(store);
         if signature.params().len() != params.len() {
             return Err(RuntimeError::new(format!(
                 "Parameters of type [{}] did not match signature {}",
@@ -273,19 +281,19 @@ impl Function {
                     param_types, &signature,
                 )));
             }
-            if !arg.is_from_context(ctx) {
+            if !arg.is_from_store(store) {
                 return Err(RuntimeError::new(
                     "cross-`Context` values are not supported",
                 ));
             }
-            *slot = arg.as_raw(ctx);
+            *slot = arg.as_raw(store);
         }
 
         // Call the trampoline.
-        let vm_function = self.handle.get(ctx.as_store_ref().objects());
+        let vm_function = self.handle.get(store.as_store_ref().objects());
         if let Err(error) = unsafe {
             wasmer_call_trampoline(
-                ctx.as_store_ref().store(),
+                store.as_store_ref().store(),
                 vm_function.anyfunc.as_ptr().as_ref().vmctx,
                 trampoline,
                 vm_function.anyfunc.as_ptr().as_ref().func_ptr,
@@ -298,7 +306,7 @@ impl Function {
         // Load the return values out of `values_vec`.
         for (index, &value_type) in signature.results().iter().enumerate() {
             unsafe {
-                results[index] = Value::from_raw(ctx, value_type, values_vec[index]);
+                results[index] = Value::from_raw(store, value_type, values_vec[index]);
             }
         }
 
@@ -310,21 +318,21 @@ impl Function {
     /// # Example
     ///
     /// ```
-    /// # use wasmer::{StoreMut, Function, Store, Type};
+    /// # use wasmer::{Function, Store, Type};
     /// # use wasmer::Context as WasmerContext;
     /// # let mut store = Store::default();
-    /// # let mut ctx = WasmerContext::new(&store, ());
+    /// # let ctx = WasmerContext::new(&mut store, ());
     /// #
-    /// fn sum(_ctx: FunctionEnv<()>, a: i32, b: i32) -> i32 {
+    /// fn sum(_ctx: &mut (), a: i32, b: i32) -> i32 {
     ///     a + b
     /// }
     ///
-    /// let f = Function::new_native(&mut ctx, sum);
+    /// let f = Function::new_native(&mut store, &ctx, sum);
     ///
     /// assert_eq!(f.param_arity(&mut ctx), 2);
     /// ```
-    pub fn param_arity(&self, ctx: &impl AsStoreRef) -> usize {
-        self.ty(ctx).params().len()
+    pub fn param_arity(&self, store: &impl AsStoreRef) -> usize {
+        self.ty(store).params().len()
     }
 
     /// Returns the number of results this function produces.
@@ -332,21 +340,21 @@ impl Function {
     /// # Example
     ///
     /// ```
-    /// # use wasmer::{StoreMut, Function, Store, Type};
+    /// # use wasmer::{Function, Store, Type};
     /// # use wasmer::Context as WasmerContext;
     /// # let mut store = Store::default();
-    /// # let mut ctx = WasmerContext::new(&store, ());
+    /// # let ctx = WasmerContext::new(&mut store, ());
     /// #
-    /// fn sum(_ctx: FunctionEnv<()>, a: i32, b: i32) -> i32 {
+    /// fn sum(_ctx: &mut (), a: i32, b: i32) -> i32 {
     ///     a + b
     /// }
     ///
-    /// let f = Function::new_native(&mut ctx, sum);
+    /// let f = Function::new_native(&mut store, &ctx, sum);
     ///
     /// assert_eq!(f.result_arity(&mut ctx), 1);
     /// ```
-    pub fn result_arity(&self, ctx: &impl AsStoreRef) -> usize {
-        self.ty(ctx).results().len()
+    pub fn result_arity(&self, store: &impl AsStoreRef) -> usize {
+        self.ty(store).results().len()
     }
 
     /// Call the `Function` function.
@@ -363,7 +371,7 @@ impl Function {
     /// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, Value};
     /// # use wasmer::Context as WasmerContext;
     /// # let mut store = Store::default();
-    /// # let mut ctx = WasmerContext::new(&store, ());
+    /// # let ctx = WasmerContext::new(&mut store, ());
     /// # let wasm_bytes = wat2wasm(r#"
     /// # (module
     /// #   (func (export "sum") (param $x i32) (param $y i32) (result i32)
@@ -380,36 +388,30 @@ impl Function {
     ///
     /// assert_eq!(sum.call(&mut ctx, &[Value::I32(1), Value::I32(2)]).unwrap().to_vec(), vec![Value::I32(3)]);
     /// ```
-    pub fn call(
-        &self,
-        ctx: &mut impl AsStoreMut,
-        params: &[Value],
-    ) -> Result<Box<[Value]>, RuntimeError> {
+    pub fn call(&self, store: &mut impl AsStoreMut, params: &[Value]) -> Result<Box<[Value]>, RuntimeError> {
         let trampoline = unsafe {
             self.handle
-                .get(ctx.as_store_ref().objects())
+                .get(store.as_store_ref().objects())
                 .anyfunc
                 .as_ptr()
                 .as_ref()
                 .call_trampoline
         };
-        let mut results = vec![Value::null(); self.result_arity(ctx)];
-        self.call_wasm(ctx, trampoline, params, &mut results)?;
+        let mut results = vec![Value::null(); self.result_arity(store)];
+        self.call_wasm(store, trampoline, params, &mut results)?;
         Ok(results.into_boxed_slice())
     }
 
-    pub(crate) fn vm_funcref(&self, ctx: &impl AsStoreRef) -> VMFuncRef {
-        let vm_function = self.handle.get(ctx.as_store_ref().objects());
+    pub(crate) fn vm_funcref(&self, store: &impl AsStoreRef) -> VMFuncRef {
+        let vm_function = self.handle.get(store.as_store_ref().objects());
         if vm_function.kind == VMFunctionKind::Dynamic {
             panic!("dynamic functions cannot be used in tables or as funcrefs");
         }
         VMFuncRef(vm_function.anyfunc.as_ptr())
     }
 
-    pub(crate) unsafe fn from_vm_funcref(ctx: &mut impl AsStoreMut, funcref: VMFuncRef) -> Self {
-        let signature = ctx
-            .as_store_mut()
-            .store()
+    pub(crate) unsafe fn from_vm_funcref(store: &mut impl AsStoreMut, funcref: VMFuncRef) -> Self {
+        let signature = store.as_store_ref().store()
             .engine()
             .lookup_signature(funcref.0.as_ref().type_index)
             .expect("Signature not found in store");
@@ -422,7 +424,7 @@ impl Function {
             host_data: Box::new(()),
         };
         Self {
-            handle: StoreHandle::new(ctx.as_store_mut().objects_mut(), vm_function),
+            handle: StoreHandle::new(store.as_store_mut().objects_mut(), vm_function),
         }
     }
 
@@ -435,7 +437,7 @@ impl Function {
     /// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, TypedFunction, Value};
     /// # use wasmer::Context as WasmerContext;
     /// # let mut store = Store::default();
-    /// # let mut ctx = WasmerContext::new(&store, ());
+    /// # let ctx = WasmerContext::new(&mut store, ());
     /// # let wasm_bytes = wat2wasm(r#"
     /// # (module
     /// #   (func (export "sum") (param $x i32) (param $y i32) (result i32)
@@ -463,7 +465,7 @@ impl Function {
     /// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, TypedFunction, Value};
     /// # use wasmer::Context as WasmerContext;
     /// # let mut store = Store::default();
-    /// # let mut ctx = WasmerContext::new(&store, ());
+    /// # let ctx = WasmerContext::new(&mut store, ());
     /// # let wasm_bytes = wat2wasm(r#"
     /// # (module
     /// #   (func (export "sum") (param $x i32) (param $y i32) (result i32)
@@ -489,7 +491,7 @@ impl Function {
     /// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, TypedFunction, Value};
     /// # use wasmer::Context as WasmerContext;
     /// # let mut store = Store::default();
-    /// # let mut ctx = WasmerContext::new(&store, ());
+    /// # let ctx = WasmerContext::new(&mut store, ());
     /// # let wasm_bytes = wat2wasm(r#"
     /// # (module
     /// #   (func (export "sum") (param $x i32) (param $y i32) (result i32)
@@ -509,13 +511,13 @@ impl Function {
     /// ```
     pub fn native<Args, Rets>(
         &self,
-        ctx: &impl AsStoreRef,
+        store: &impl AsStoreRef,
     ) -> Result<TypedFunction<Args, Rets>, RuntimeError>
     where
         Args: WasmTypeList,
         Rets: WasmTypeList,
     {
-        let vm_function = self.handle.get(ctx.as_store_ref().objects());
+        let vm_function = self.handle.get(store.as_store_ref().objects());
 
         // type check
         {
@@ -549,19 +551,17 @@ impl Function {
     }
 
     pub(crate) fn from_vm_extern(
-        ctx: &mut impl AsStoreMut,
+        store: &mut impl AsStoreMut,
         internal: InternalStoreHandle<VMFunction>,
     ) -> Self {
         Self {
-            handle: unsafe {
-                StoreHandle::from_internal(ctx.as_store_ref().objects().id(), internal)
-            },
+            handle: unsafe { StoreHandle::from_internal(store.as_store_ref().objects().id(), internal) },
         }
     }
 
-    /// Checks whether this `Function` can be used with the given context.
-    pub fn is_from_context(&self, ctx: &impl AsStoreRef) -> bool {
-        self.handle.context_id() == ctx.as_store_ref().objects().id()
+    /// Checks whether this `Function` can be used with the given store.
+    pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
+        self.handle.store_id() == store.as_store_ref().objects().id()
     }
 
     pub(crate) fn to_vm_extern(&self) -> VMExtern {
@@ -581,21 +581,26 @@ impl<'a> Exportable<'a> for Function {
 /// Host state for a dynamic function.
 pub(crate) struct DynamicFunction<F> {
     func: F,
+    store: *mut Store,
 }
 
 impl<F> DynamicFunction<F>
 where
-    F: Fn(*mut RawValue) -> Result<(), RuntimeError> + 'static,
+    F: FnMut(&mut Store, *mut RawValue) -> Result<(), RuntimeError> + 'static
 {
     // This function wraps our func, to make it compatible with the
     // reverse trampoline signature
     unsafe extern "C" fn func_wrapper(
-        this: &VMDynamicFunctionContext<Self>,
+        this: &mut VMDynamicFunctionContext<Self>,
         values_vec: *mut RawValue,
     ) {
         use std::panic::{self, AssertUnwindSafe};
-        let result =
-            on_host_stack(|| panic::catch_unwind(AssertUnwindSafe(|| (this.ctx.func)(values_vec))));
+
+        let result = on_host_stack(|| {
+            panic::catch_unwind(AssertUnwindSafe(|| {
+                (this.ctx.func)(&mut *this.ctx.store, values_vec)
+            }))
+        });
 
         match result {
             Ok(Ok(())) => {}
@@ -635,10 +640,11 @@ mod inner {
 
     use wasmer_types::{NativeWasmType, RawValue, Type};
     use wasmer_vm::{raise_user_trap, resume_panic, VMFunctionBody};
+    use crate::sys::context::FunctionEnvMut;
 
-    use crate::sys::context::{ContextInner, FunctionEnv};
     use crate::sys::NativeWasmTypeInto;
-    use crate::{AsStoreMut, AsStoreRef, ExternRef, Function};
+    use crate::sys::Store;
+    use crate::{Context, ExternRef, Function, AsStoreMut, AsStoreRef};
 
     /// A trait to convert a Rust value to a `WasmNativeType` value,
     /// or to convert `WasmNativeType` value to a Rust value.
@@ -674,11 +680,11 @@ mod inner {
         /// `Self::Native` type.
         fn to_native(self) -> Self::Native;
 
-        /// Returns whether the given value is from the given context.
+        /// Returns whether the given value is from the given store.
         ///
         /// This always returns true for primitive types that can be used with
         /// any context.
-        fn is_from_context(&self, _ctx: &impl AsStoreRef) -> bool {
+        fn is_from_store(&self, _ctx: &impl AsStoreRef) -> bool {
             true
         }
     }
@@ -750,8 +756,8 @@ mod inner {
         fn from_native(n: Self::Native) -> Self {
             n
         }
-        fn is_from_context(&self, ctx: &impl AsStoreRef) -> bool {
-            self.as_ref().map_or(true, |e| e.is_from_context(ctx))
+        fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
+            self.as_ref().map_or(true, |e| e.is_from_store(store))
         }
     }
 
@@ -764,8 +770,8 @@ mod inner {
         fn from_native(n: Self::Native) -> Self {
             n
         }
-        fn is_from_context(&self, ctx: &impl AsStoreRef) -> bool {
-            self.as_ref().map_or(true, |f| f.is_from_context(ctx))
+        fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
+            self.as_ref().map_or(true, |f| f.is_from_store(store))
         }
     }
 
@@ -831,7 +837,7 @@ mod inner {
         /// (list) of values.
         ///
         /// # Safety
-        unsafe fn into_array(self, ctx: &mut impl AsStoreMut) -> Self::Array;
+        unsafe fn into_array(self, store: &mut impl AsStoreMut) -> Self::Array;
 
         /// Allocates and return an empty array of type `Array` that
         /// will hold a tuple (list) of values, usually to hold the
@@ -842,13 +848,13 @@ mod inner {
         /// `CStruct`.
         ///
         /// # Safety
-        unsafe fn from_c_struct(ctx: &mut impl AsStoreMut, c_struct: Self::CStruct) -> Self;
+        unsafe fn from_c_struct(store: &mut impl AsStoreMut, c_struct: Self::CStruct) -> Self;
 
         /// Builds and returns a C struct of type `CStruct` from a
         /// tuple (list) of values.
         ///
         /// # Safety
-        unsafe fn into_c_struct(self, ctx: &mut impl AsStoreMut) -> Self::CStruct;
+        unsafe fn into_c_struct(self, store: &mut impl AsStoreMut) -> Self::CStruct;
 
         /// Writes the contents of a C struct to an array of `RawValue`.
         ///
@@ -963,8 +969,9 @@ mod inner {
 
     /// Represents a low-level Wasm static host function. See
     /// `super::Function::new_native` to learn more.
-    pub(crate) struct StaticFunction<F> {
-        pub(crate) raw_ctx: *mut u8,
+    pub(crate) struct StaticFunction<F, T> {
+        pub(crate) raw_ctx: Context<T>,
+        pub(crate) store: *mut Store,
         pub(crate) func: F,
     }
 
@@ -996,7 +1003,7 @@ mod inner {
                 #[allow(unused_mut)]
                 #[allow(clippy::unused_unit)]
                 #[allow(clippy::missing_safety_doc)]
-                unsafe fn from_array(mut _ctx: &mut impl AsStoreMut, array: Self::Array) -> Self {
+                unsafe fn from_array(mut _store: &mut impl AsStoreMut, array: Self::Array) -> Self {
                     // Unpack items of the array.
                     #[allow(non_snake_case)]
                     let [ $( $x ),* ] = array;
@@ -1004,19 +1011,19 @@ mod inner {
                     // Build the tuple.
                     (
                         $(
-                            FromToNativeWasmType::from_native(NativeWasmTypeInto::from_raw(_ctx, $x))
+                            FromToNativeWasmType::from_native(NativeWasmTypeInto::from_raw(_store, $x))
                         ),*
                     )
                 }
 
                 #[allow(clippy::missing_safety_doc)]
-                unsafe fn from_slice(ctx: &mut impl AsStoreMut, slice: &[RawValue]) -> Result<Self, TryFromSliceError> {
-                    Ok(Self::from_array(ctx, slice.try_into()?))
+                unsafe fn from_slice(store: &mut impl AsStoreMut, slice: &[RawValue]) -> Result<Self, TryFromSliceError> {
+                    Ok(Self::from_array(store, slice.try_into()?))
                 }
 
                 #[allow(unused_mut)]
                 #[allow(clippy::missing_safety_doc)]
-                unsafe fn into_array(self, mut _ctx: &mut impl AsStoreMut) -> Self::Array {
+                unsafe fn into_array(self, mut _store: &mut impl AsStoreMut) -> Self::Array {
                     // Unpack items of the tuple.
                     #[allow(non_snake_case)]
                     let ( $( $x ),* ) = self;
@@ -1024,7 +1031,7 @@ mod inner {
                     // Build the array.
                     [
                         $(
-                            FromToNativeWasmType::to_native($x).into_raw(_ctx)
+                            FromToNativeWasmType::to_native($x).into_raw(_store)
                         ),*
                     ]
                 }
@@ -1037,28 +1044,28 @@ mod inner {
                 #[allow(unused_mut)]
                 #[allow(clippy::unused_unit)]
                 #[allow(clippy::missing_safety_doc)]
-                unsafe fn from_c_struct(mut _ctx: &mut impl AsStoreMut, c_struct: Self::CStruct) -> Self {
+                unsafe fn from_c_struct(mut _store: &mut impl AsStoreMut, c_struct: Self::CStruct) -> Self {
                     // Unpack items of the C structure.
                     #[allow(non_snake_case)]
                     let $c_struct_name( $( $x ),* ) = c_struct;
 
                     (
                         $(
-                            FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(_ctx, $x))
+                            FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(_store, $x))
                         ),*
                     )
                 }
 
                 #[allow(unused_parens, non_snake_case, unused_mut)]
                 #[allow(clippy::missing_safety_doc)]
-                unsafe fn into_c_struct(self, mut _ctx: &mut impl AsStoreMut) -> Self::CStruct {
+                unsafe fn into_c_struct(self, mut _store: &mut impl AsStoreMut) -> Self::CStruct {
                     // Unpack items of the tuple.
                     let ( $( $x ),* ) = self;
 
                     // Build the C structure.
                     $c_struct_name(
                         $(
-                            FromToNativeWasmType::to_native($x).into_abi(_ctx)
+                            FromToNativeWasmType::to_native($x).into_abi(_store)
                         ),*
                     )
                 }
@@ -1086,7 +1093,7 @@ mod inner {
 
             // Implement `HostFunction` for a function that has the same arity than the tuple.
             #[allow(unused_parens)]
-            impl< $( $x, )* Rets, RetsAsResult, T, Func >
+            impl< $( $x, )* Rets, RetsAsResult, T: Send + 'static, Func >
                 HostFunction<T, ( $( $x ),* ), Rets>
             for
                 Func
@@ -1094,33 +1101,37 @@ mod inner {
                 $( $x: FromToNativeWasmType, )*
                 Rets: WasmTypeList,
                 RetsAsResult: IntoResult<Rets>,
-                Func: Fn(FunctionEnv<'_, T>, $( $x , )*) -> RetsAsResult + 'static,
+                Func: Fn(FunctionEnvMut<T>, $( $x , )*) -> RetsAsResult + 'static,
             {
                 #[allow(non_snake_case)]
                 fn function_body_ptr() -> *const VMFunctionBody {
                     /// This is a function that wraps the real host
                     /// function. Its address will be used inside the
                     /// runtime.
-                    unsafe extern "C" fn func_wrapper<T, $( $x, )* Rets, RetsAsResult, Func>( env: &StaticFunction<Func>, $( $x: <$x::Native as NativeWasmType>::Abi, )* ) -> Rets::CStruct
+                    unsafe extern "C" fn func_wrapper<T: Send + 'static, $( $x, )* Rets, RetsAsResult, Func>( env: &StaticFunction<Func, T>, $( $x: <$x::Native as NativeWasmType>::Abi, )* ) -> Rets::CStruct
                     where
                         $( $x: FromToNativeWasmType, )*
                         Rets: WasmTypeList,
                         RetsAsResult: IntoResult<Rets>,
-                        Func: Fn(FunctionEnv<'_, T>, $( $x , )*) -> RetsAsResult + 'static,
+                        Func: Fn(FunctionEnvMut<T>, $( $x , )*) -> RetsAsResult + 'static,
                     {
-                        let mut ctx = FunctionEnv::from_raw(env.raw_ctx as *mut ContextInner<T>);
-
+                        // println!("func wrapper");
+                        let mut store = &mut *env.store;
                         let result = on_host_stack(|| {
+                            // println!("func wrapper1");
                             panic::catch_unwind(AssertUnwindSafe(|| {
                                 $(
-                                    let $x = FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(&mut ctx, $x));
+                                    let $x = FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(&mut store, $x));
                                 )*
-                                (env.func)(ctx.as_store_mut(), $($x),* ).into_result()
+                                // println!("func wrapper2 {:p}", *env.raw_ctx);
+                                let mut ctx = env.raw_ctx;
+                                // println!("func wrapper3");
+                                (env.func)(&mut ctx, $($x),* ).into_result()
                             }))
                         });
 
                         match result {
-                            Ok(Ok(result)) => return result.into_c_struct(&mut ctx),
+                            Ok(Ok(result)) => return result.into_c_struct(&mut store),
                             Ok(Err(trap)) => raise_user_trap(Box::new(trap)),
                             Err(panic) => resume_panic(panic) ,
                         }
@@ -1216,10 +1227,7 @@ mod inner {
             unreachable!()
         }
 
-        unsafe fn from_slice(
-            _: &mut impl AsStoreMut,
-            _: &[RawValue],
-        ) -> Result<Self, TryFromSliceError> {
+        unsafe fn from_slice(_: &mut impl AsStoreMut, _: &[RawValue]) -> Result<Self, TryFromSliceError> {
             unreachable!()
         }
 
@@ -1256,7 +1264,7 @@ mod inner {
         #[test]
         fn test_from_array() {
             let mut store = Store::default();
-            let mut ctx = WasmerContext::new(&store, ());
+            let ctx = WasmerContext::new(&mut store, ());
             assert_eq!(<()>::from_array(&mut ctx, []), ());
             assert_eq!(<i32>::from_array(&mut ctx, [RawValue{i32: 1}]), (1i32));
             assert_eq!(<(i32, i64)>::from_array(&mut ctx, [RawValue{i32:1}, RawValue{i64:2}]), (1i32, 2i64));
@@ -1274,7 +1282,7 @@ mod inner {
         #[test]
         fn test_into_array() {
             let mut store = Store::default();
-            let mut ctx = WasmerContext::new(&store, ());
+            let ctx = WasmerContext::new(&mut store, ());
             assert_eq!(().into_array(&mut ctx), [0i128; 0]);
             assert_eq!((1i32).into_array(&mut ctx), [1i32]);
             assert_eq!((1i32, 2i64).into_array(&mut ctx), [RawValue{i32: 1}, RawValue{i64: 2}]);
@@ -1294,7 +1302,7 @@ mod inner {
         #[test]
         fn test_from_c_struct() {
             let mut store = Store::default();
-            let mut ctx = WasmerContext::new(&store, ());
+            let ctx = WasmerContext::new(&mut store, ());
             assert_eq!(<()>::from_c_struct(&mut ctx, S0()), ());
             assert_eq!(<i32>::from_c_struct(&mut ctx, S1(1)), (1i32));
             assert_eq!(<(i32, i64)>::from_c_struct(&mut ctx, S2(1, 2)), (1i32, 2i64));
@@ -1355,7 +1363,7 @@ mod inner {
             #[test]
             fn test_function_types() {
                 let mut store = Store::default();
-                let mut ctx = WasmerContext::new(&store, ());
+                let ctx = WasmerContext::new(&mut store, ());
                 use wasmer_types::FunctionType;
                 assert_eq!(
                     StaticFunction::new(func).ty(&mut ctx),

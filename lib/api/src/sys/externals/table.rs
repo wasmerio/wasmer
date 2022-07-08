@@ -32,7 +32,7 @@ fn value_to_table_element(
     ctx: &mut impl AsStoreMut,
     val: Value,
 ) -> Result<wasmer_vm::TableElement, RuntimeError> {
-    if !val.is_from_context(ctx) {
+    if !val.is_from_store(ctx) {
         return Err(RuntimeError::new("cannot pass Value across contexts"));
     }
     Ok(match val {
@@ -69,8 +69,8 @@ impl Table {
         ty: TableType,
         init: Value,
     ) -> Result<Self, RuntimeError> {
-        let mut ctx = ctx.as_store_mut();
         let item = value_to_table_element(&mut ctx, init)?;
+        let mut ctx = ctx.as_store_mut();
         let tunables = ctx.store().tunables();
         let style = tunables.table_style(&ty);
         let mut table = tunables
@@ -155,7 +155,7 @@ impl Table {
         src_index: u32,
         len: u32,
     ) -> Result<(), RuntimeError> {
-        if dst_table.handle.context_id() != src_table.handle.context_id() {
+        if dst_table.handle.store_id() != src_table.handle.store_id() {
             return Err(RuntimeError::new(
                 "cross-`Context` table copies are not supported",
             ));
@@ -187,8 +187,8 @@ impl Table {
     }
 
     /// Checks whether this `Table` can be used with the given context.
-    pub fn is_from_context(&self, ctx: &impl AsStoreRef) -> bool {
-        self.handle.context_id() == ctx.as_store_ref().objects().id()
+    pub fn is_from_store(&self, ctx: &impl AsStoreRef) -> bool {
+        self.handle.store_id() == ctx.as_store_ref().objects().id()
     }
 
     pub(crate) fn to_vm_extern(&self) -> VMExtern {

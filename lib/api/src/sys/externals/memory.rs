@@ -230,8 +230,8 @@ impl Memory {
     }
 
     /// Checks whether this `Memory` can be used with the given context.
-    pub fn is_from_context(&self, ctx: &impl AsStoreRef) -> bool {
-        self.handle.context_id() == ctx.as_store_ref().objects().id()
+    pub fn is_from_store(&self, ctx: &impl AsStoreRef) -> bool {
+        self.handle.store_id() == ctx.as_store_ref().objects().id()
     }
 
     pub(crate) fn to_vm_extern(&self) -> VMExtern {

@@ -23,8 +23,8 @@ pub type WasmPtr64<T> = WasmPtr<T, Memory64>;
 /// ```
 /// # use wasmer::Memory;
 /// # use wasmer::WasmPtr;
-/// # use wasmer::FunctionEnv;
-/// pub fn host_import(mut ctx: FunctionEnv<()>, memory: Memory, ptr: WasmPtr<u32>) {
+/// # use wasmer::FunctionEnvMut;
+/// pub fn host_import(mut ctx: FunctionEnvMut<()>, memory: Memory, ptr: WasmPtr<u32>) {
 ///     let derefed_ptr = ptr.deref(&mut ctx, &memory);
 ///     let inner_val: u32 = derefed_ptr.read().expect("pointer in bounds");
 ///     println!("Got {} from Wasm memory address 0x{:X}", inner_val, ptr.offset());
@@ -39,7 +39,7 @@ pub type WasmPtr64<T> = WasmPtr<T, Memory64>;
 /// # use wasmer::Memory;
 /// # use wasmer::WasmPtr;
 /// # use wasmer::ValueType;
-/// # use wasmer::FunctionEnv;
+/// # use wasmer::FunctionEnvMut;
 ///
 /// // This is safe as the 12 bytes represented by this struct
 /// // are valid for all bit combinations.
@@ -51,7 +51,7 @@ pub type WasmPtr64<T> = WasmPtr<T, Memory64>;
 ///     z: f32
 /// }
 ///
-/// fn update_vector_3(mut ctx: FunctionEnv<()>, memory: Memory, ptr: WasmPtr<V3>) {
+/// fn update_vector_3(mut ctx: FunctionEnvMut<()>, memory: Memory, ptr: WasmPtr<V3>) {
 ///     let derefed_ptr = ptr.deref(&mut ctx, &memory);
 ///     let mut inner_val: V3 = derefed_ptr.read().expect("pointer in bounds");
 ///     println!("Got {:?} from Wasm memory address 0x{:X}", inner_val, ptr.offset());

@@ -1,6 +1,6 @@
 pub use self::inner::{FromToNativeWasmType, HostFunction, WasmTypeList};
 use crate::js::context::{
-    AsStoreMut, AsStoreRef, StoreHandle, FunctionEnv, InternalStoreHandle,
+    AsStoreMut, AsStoreRef, StoreHandle, FunctionEnvMut, InternalStoreHandle,
 };
 use crate::js::exports::{ExportError, Exportable};
 use crate::js::externals::Extern;
@@ -95,10 +95,10 @@ impl Function {
     /// });
     /// ```
     #[allow(clippy::cast_ptr_alignment)]
-    pub fn new<FT, F, T>(ctx: &mut impl AsFunctionEnv<Data = T>, ty: FT, func: F) -> Self
+    pub fn new<FT, F, T>(ctx: &mut impl AsFunctionEnvMut<Data = T>, ty: FT, func: F) -> Self
     where
         FT: Into<FunctionType>,
-        F: Fn(FunctionEnv<'_, T>, &[Value]) -> Result<Vec<Value>, RuntimeError>
+        F: Fn(FunctionEnvMut<'_, T>, &[Value]) -> Result<Vec<Value>, RuntimeError>
             + 'static
             + Send
             + Sync,
@@ -110,7 +110,7 @@ impl Function {
 
         let wrapped_func: JsValue = match function_type.results().len() {
             0 => Closure::wrap(Box::new(move |args: &Array| {
-                let mut ctx: FunctionEnv<T> = unsafe { FunctionEnv::from_raw(raw_ctx as _) };
+                let mut ctx: FunctionEnvMut<T> = unsafe { FunctionEnvMut::from_raw(raw_ctx as _) };
                 let wasm_arguments = function_type
                     .params()
                     .iter()
@@ -123,7 +123,7 @@ impl Function {
                 as Box<dyn FnMut(&Array) -> Result<(), JsValue>>)
             .into_js_value(),
             1 => Closure::wrap(Box::new(move |args: &Array| {
-                let mut ctx: FunctionEnv<T> = unsafe { FunctionEnv::from_raw(raw_ctx as _) };
+                let mut ctx: FunctionEnvMut<T> = unsafe { FunctionEnvMut::from_raw(raw_ctx as _) };
                 let wasm_arguments = function_type
                     .params()
                     .iter()
@@ -136,7 +136,7 @@ impl Function {
                 as Box<dyn FnMut(&Array) -> Result<JsValue, JsValue>>)
             .into_js_value(),
             _n => Closure::wrap(Box::new(move |args: &Array| {
-                let mut ctx: FunctionEnv<T> = unsafe { FunctionEnv::from_raw(raw_ctx as _) };
+                let mut ctx: FunctionEnvMut<T> = unsafe { FunctionEnvMut::from_raw(raw_ctx as _) };
                 let wasm_arguments = function_type
                     .params()
                     .iter()
@@ -174,7 +174,7 @@ impl Function {
     ///
     /// let f = Function::new_native(&store, sum);
     /// ```
-    pub fn new_native<T, F, Args, Rets>(ctx: &mut impl AsFunctionEnv<Data = T>, func: F) -> Self
+    pub fn new_native<T, F, Args, Rets>(ctx: &mut impl AsFunctionEnvMut<Data = T>, func: F) -> Self
     where
         F: HostFunction<T, Args, Rets>,
         Args: WasmTypeList,
@@ -294,13 +294,13 @@ impl Function {
     /// ```
     pub fn call<T>(
         &self,
-        ctx: &mut impl AsFunctionEnv<Data = T>,
+        ctx: &mut impl AsFunctionEnvMut<Data = T>,
         params: &[Value],
     ) -> Result<Box<[Value]>, RuntimeError> {
         let arr = js_sys::Array::new_with_length(params.len() as u32);
 
         // let raw_ctx = ctx.as_context_mut().as_raw() as *mut u8;
-        // let mut ctx = unsafe { FunctionEnv::from_raw(raw_ctx as *mut ContextInner<()>) };
+        // let mut ctx = unsafe { FunctionEnvMut::from_raw(raw_ctx as *mut StoreInner<()>) };
 
         for (i, param) in params.iter().enumerate() {
             let js_value = param.as_jsvalue(&ctx.as_context_ref());
@@ -470,7 +470,7 @@ impl Function {
     }
 
     /// Checks whether this `Function` can be used with the given context.
-    pub fn is_from_context(&self, ctx: &impl AsStoreRef) -> bool {
+    pub fn is_from_store(&self, ctx: &impl AsStoreRef) -> bool {
         self.handle.context_id() == ctx.as_context_ref().objects().id()
     }
 }
@@ -495,7 +495,7 @@ impl fmt::Debug for Function {
 mod inner {
     use super::RuntimeError;
     use super::VMFunctionBody;
-    use crate::js::context::{AsStoreMut, ContextInner, FunctionEnv};
+    use crate::js::context::{AsStoreMut, StoreInner, FunctionEnvMut};
     use crate::js::NativeWasmTypeInto;
     use std::array::TryFromSliceError;
     use std::convert::{Infallible, TryInto};
@@ -961,7 +961,7 @@ mod inner {
                 $( $x: FromToNativeWasmType, )*
                 Rets: WasmTypeList,
                 RetsAsResult: IntoResult<Rets>,
-                Func: Fn(FunctionEnv<'_, T>, $( $x , )*) -> RetsAsResult + 'static,
+                Func: Fn(FunctionEnvMut<'_, T>, $( $x , )*) -> RetsAsResult + 'static,
             {
                 #[allow(non_snake_case)]
                 fn function_body_ptr(self) -> *const VMFunctionBody {
@@ -973,11 +973,11 @@ mod inner {
                         $( $x: FromToNativeWasmType, )*
                         Rets: WasmTypeList,
                         RetsAsResult: IntoResult<Rets>,
-                        Func: Fn(FunctionEnv<'_, T>, $( $x , )*) -> RetsAsResult + 'static,
+                        Func: Fn(FunctionEnvMut<'_, T>, $( $x , )*) -> RetsAsResult + 'static,
                     {
                         let func: &Func = &*(&() as *const () as *const Func);
-                        let mut ctx = FunctionEnv::from_raw(ctx_ptr as *mut ContextInner<T>);
-                        let mut ctx2 = FunctionEnv::from_raw(ctx_ptr as *mut ContextInner<T>);
+                        let mut ctx = FunctionEnvMut::from_raw(ctx_ptr as *mut StoreInner<T>);
+                        let mut ctx2 = FunctionEnvMut::from_raw(ctx_ptr as *mut StoreInner<T>);
 
                         let result = panic::catch_unwind(AssertUnwindSafe(|| {
                             func(ctx2.as_context_mut(), $( FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(&mut ctx, $x)) ),* ).into_result()

@@ -17,7 +17,7 @@ use wasmer_types::ImportError;
 /// # Usage:
 /// ```no_run
 /// use wasmer::{StoreMut, Exports, Module, Instance, imports, Imports, Function};
-/// # fn foo_test(mut ctx: FunctionEnv<()>, module: Module) {
+/// # fn foo_test(mut ctx: FunctionEnvMut<()>, module: Module) {
 ///
 /// let host_fn = Function::new_native(&mut ctx, foo);
 /// let import_object: Imports = imports! {
@@ -28,7 +28,7 @@ use wasmer_types::ImportError;
 ///
 /// let instance = Instance::new(&mut ctx, &module, &import_object).expect("Could not instantiate module.");
 ///
-/// fn foo(_ctx: FunctionEnv<()>, n: i32) -> i32 {
+/// fn foo(_ctx: FunctionEnvMut<()>, n: i32) -> i32 {
 ///     n
 /// }
 ///
@@ -101,7 +101,7 @@ impl Imports {
     /// # let store = Default::default();
     /// # let mut ctx = WasmerContext::new(&store, ());
     /// use wasmer::{StoreMut, Imports, Function};
-    /// fn foo(_ctx: FunctionEnv<()>, n: i32) -> i32 {
+    /// fn foo(_ctx: FunctionEnvMut<()>, n: i32) -> i32 {
     ///     n
     /// }
     /// let mut import_object = Imports::new();
@@ -222,7 +222,7 @@ impl fmt::Debug for Imports {
 ///     },
 /// };
 ///
-/// fn foo(_ctx: FunctionEnv<()>, n: i32) -> i32 {
+/// fn foo(_ctx: FunctionEnvMut<()>, n: i32) -> i32 {
 ///     n
 /// }
 /// ```
@@ -303,19 +303,19 @@ mod test {
     */
     #[test]
     fn imports_macro_allows_trailing_comma_and_none() {
-        use crate::sys::FunctionEnv;
+        use crate::sys::FunctionEnvMut;
         use crate::sys::Function;
 
         let store = Default::default();
         let mut ctx = WasmerContext::new(&store, ());
 
-        fn func(_ctx: FunctionEnv<()>, arg: i32) -> i32 {
+        fn func(_ctx: FunctionEnvMut<()>, arg: i32) -> i32 {
             arg + 1
         }
 
         let _ = imports! {
             "env" => {
-                "func" => Function::new_native(&mut ctx, func),
+                "func" => Function::new_native(&mut ctx, &mut ctx, func),
             },
         };
         let _ = imports! {

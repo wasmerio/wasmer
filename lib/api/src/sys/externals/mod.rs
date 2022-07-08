@@ -54,12 +54,12 @@ impl Extern {
     }
 
     /// Checks whether this `Extern` can be used with the given context.
-    pub fn is_from_context(&self, ctx: &impl AsStoreRef) -> bool {
+    pub fn is_from_store(&self, ctx: &impl AsStoreRef) -> bool {
         match self {
-            Self::Function(f) => f.is_from_context(ctx),
-            Self::Global(g) => g.is_from_context(ctx),
-            Self::Memory(m) => m.is_from_context(ctx),
-            Self::Table(t) => t.is_from_context(ctx),
+            Self::Function(f) => f.is_from_store(ctx),
+            Self::Global(g) => g.is_from_store(ctx),
+            Self::Memory(m) => m.is_from_store(ctx),
+            Self::Table(t) => t.is_from_store(ctx),
         }
     }
 

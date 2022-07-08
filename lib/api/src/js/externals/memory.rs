@@ -371,7 +371,7 @@ impl Memory {
     }
 
     /// Checks whether this `Global` can be used with the given context.
-    pub fn is_from_context(&self, ctx: &impl AsStoreRef) -> bool {
+    pub fn is_from_store(&self, ctx: &impl AsStoreRef) -> bool {
         self.handle.context_id() == ctx.as_context_ref().objects().id()
     }
 }

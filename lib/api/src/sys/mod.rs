@@ -13,7 +13,7 @@ mod store;
 mod tunables;
 mod value;
 
-pub use crate::sys::context::{AsStoreMut, AsStoreRef, Context, FunctionEnv, StoreRef};
+pub use crate::sys::context::{AsStoreMut, AsStoreRef, Context, FunctionEnvMut, StoreRef};
 pub use crate::sys::exports::{ExportError, Exportable, Exports, ExportsIterator};
 pub use crate::sys::extern_ref::ExternRef;
 pub use crate::sys::externals::{

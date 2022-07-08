@@ -51,7 +51,7 @@ mod sys {
             multiplier: u32,
         }
 
-        fn imported_fn(ctx: FunctionEnv<Env>, args: &[Value]) -> Result<Vec<Value>, RuntimeError> {
+        fn imported_fn(ctx: FunctionEnvMut<Env>, args: &[Value]) -> Result<Vec<Value>, RuntimeError> {
             let value = ctx.data().multiplier * args[0].unwrap_i32() as u32;
             Ok(vec![Value::I32(value as _)])
         }

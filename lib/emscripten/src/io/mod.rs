@@ -11,22 +11,22 @@ pub use self::unix::*;
 pub use self::windows::*;
 
 use crate::EmEnv;
-use wasmer::FunctionEnv;
+use wasmer::FunctionEnvMut;
 
 /// getprotobyname
-pub fn getprotobyname(_ctx: FunctionEnv<'_, EmEnv>, _name_ptr: i32) -> i32 {
+pub fn getprotobyname(_ctx: FunctionEnvMut<'_, EmEnv>, _name_ptr: i32) -> i32 {
     debug!("emscripten::getprotobyname");
     unimplemented!("emscripten::getprotobyname")
 }
 
 /// getprotobynumber
-pub fn getprotobynumber(_ctx: FunctionEnv<'_, EmEnv>, _one: i32) -> i32 {
+pub fn getprotobynumber(_ctx: FunctionEnvMut<'_, EmEnv>, _one: i32) -> i32 {
     debug!("emscripten::getprotobynumber");
     unimplemented!("emscripten::getprotobynumber")
 }
 
 /// sigdelset
-pub fn sigdelset(ctx: FunctionEnv<'_, EmEnv>, set: i32, signum: i32) -> i32 {
+pub fn sigdelset(ctx: FunctionEnvMut<'_, EmEnv>, set: i32, signum: i32) -> i32 {
     debug!("emscripten::sigdelset");
     let memory = ctx.data().memory(0);
     #[allow(clippy::cast_ptr_alignment)]
@@ -38,7 +38,7 @@ pub fn sigdelset(ctx: FunctionEnv<'_, EmEnv>, set: i32, signum: i32) -> i32 {
 }
 
 /// sigfillset
-pub fn sigfillset(ctx: FunctionEnv<'_, EmEnv>, set: i32) -> i32 {
+pub fn sigfillset(ctx: FunctionEnvMut<'_, EmEnv>, set: i32) -> i32 {
     debug!("emscripten::sigfillset");
     let memory = ctx.data().memory(0);
     #[allow(clippy::cast_ptr_alignment)]
@@ -52,13 +52,13 @@ pub fn sigfillset(ctx: FunctionEnv<'_, EmEnv>, set: i32) -> i32 {
 }
 
 /// tzset
-pub fn tzset(_ctx: FunctionEnv<'_, EmEnv>) {
+pub fn tzset(_ctx: FunctionEnvMut<'_, EmEnv>) {
     debug!("emscripten::tzset - stub");
     //unimplemented!("emscripten::tzset - stub")
 }
 
 /// strptime
-pub fn strptime(_ctx: FunctionEnv<'_, EmEnv>, _one: i32, _two: i32, _three: i32) -> i32 {
+pub fn strptime(_ctx: FunctionEnvMut<'_, EmEnv>, _one: i32, _two: i32, _three: i32) -> i32 {
     debug!("emscripten::strptime");
     unimplemented!("emscripten::strptime")
 }

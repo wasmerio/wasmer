@@ -225,7 +225,7 @@ impl Module {
         // Ensure all imports come from the same context.
         if imports
             .into_iter()
-            .any(|(_, import)| !import.is_from_context(ctx))
+            .any(|(_, import)| !import.is_from_store(ctx))
         {
             // FIXME is RuntimeError::User appropriate?
             return Err(RuntimeError::user(Box::new(InstantiationError::BadContext)));

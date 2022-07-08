@@ -63,7 +63,7 @@ impl Global {
         val: Value,
         mutability: Mutability,
     ) -> Result<Self, RuntimeError> {
-        if !val.is_from_context(ctx) {
+        if !val.is_from_store(ctx) {
             return Err(RuntimeError::new(
                 "cross-`Context` values are not supported",
             ));
@@ -176,7 +176,7 @@ impl Global {
     /// g.set(&mut ctx, Value::I64(2)).unwrap();
     /// ```
     pub fn set(&self, ctx: &mut impl AsStoreMut, val: Value) -> Result<(), RuntimeError> {
-        if !val.is_from_context(ctx) {
+        if !val.is_from_store(ctx) {
             return Err(RuntimeError::new(
                 "cross-`Context` values are not supported",
             ));
@@ -213,8 +213,8 @@ impl Global {
     }
 
     /// Checks whether this `Global` can be used with the given context.
-    pub fn is_from_context(&self, ctx: &impl AsStoreRef) -> bool {
-        self.handle.context_id() == ctx.as_store_ref().objects().id()
+    pub fn is_from_store(&self, ctx: &impl AsStoreRef) -> bool {
+        self.handle.store_id() == ctx.as_store_ref().objects().id()
     }
 
     pub(crate) fn to_vm_extern(&self) -> VMExtern {

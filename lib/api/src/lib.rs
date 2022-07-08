@@ -152,12 +152,12 @@
 //!
 //! ```
 //! # use wasmer::{imports, Function, Memory, MemoryType, Store, Imports};
-//! # use wasmer::FunctionEnv;
-//! # fn imports_example(mut ctx: FunctionEnv<()>, store: &Store) -> Imports {
+//! # use wasmer::FunctionEnvMut;
+//! # fn imports_example(mut ctx: FunctionEnvMut<()>, store: &Store) -> Imports {
 //! let memory = Memory::new(&mut ctx, MemoryType::new(1, None, false)).unwrap();
 //! imports! {
 //!     "env" => {
-//!          "my_function" => Function::new_native(&mut ctx, |_ctx: FunctionEnv<()>| println!("Hello")),
+//!          "my_function" => Function::new_native(&mut ctx, |_ctx: FunctionEnvMut<()>| println!("Hello")),
 //!          "memory" => memory,
 //!     }
 //! }
@@ -168,8 +168,8 @@
 //! from any instance via `instance.exports`:
 //!
 //! ```
-//! # use wasmer::{imports, Instance, Function, Memory, TypedFunction, FunctionEnv};
-//! # fn exports_example(mut ctx: FunctionEnv<()>, instance: &Instance) -> anyhow::Result<()> {
+//! # use wasmer::{imports, Instance, Function, Memory, TypedFunction, FunctionEnvMut};
+//! # fn exports_example(mut ctx: FunctionEnvMut<()>, instance: &Instance) -> anyhow::Result<()> {
 //! let memory = instance.exports.get_memory("memory")?;
 //! let memory: &Memory = instance.exports.get("some_other_memory")?;
 //! let add: TypedFunction<(i32, i32), i32> = instance.exports.get_typed_function(&mut ctx, "add")?;

@@ -53,7 +53,7 @@ pub unsafe extern "C" fn wasm_func_new(
 
     let func_sig = &function_type.inner().function_type;
     let num_rets = func_sig.results().len();
-    let inner_callback = move |ctx: wasmer_api::FunctionEnv<'_, *mut c_void>,
+    let inner_callback = move |ctx: wasmer_api::FunctionEnvMut<'_, *mut c_void>,
                                args: &[Value]|
           -> Result<Vec<Value>, RuntimeError> {
         let processed_args: wasm_val_vec_t = args

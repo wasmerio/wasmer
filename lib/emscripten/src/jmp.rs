@@ -5,10 +5,10 @@ use libc::c_int;
 use crate::EmEnv;
 use std::error::Error;
 use std::fmt;
-use wasmer::{AsStoreMut, FunctionEnv};
+use wasmer::{AsStoreMut, FunctionEnvMut};
 
 /// setjmp
-pub fn __setjmp(ctx: FunctionEnv<'_, EmEnv>, _env_addr: u32) -> c_int {
+pub fn __setjmp(ctx: FunctionEnvMut<'_, EmEnv>, _env_addr: u32) -> c_int {
     debug!("emscripten::__setjmp (setjmp)");
     abort_with_message(ctx, "missing function: _setjmp");
     unreachable!()
@@ -31,7 +31,7 @@ pub fn __setjmp(ctx: FunctionEnv<'_, EmEnv>, _env_addr: u32) -> c_int {
 
 /// longjmp
 #[allow(unreachable_code)]
-pub fn __longjmp(ctx: FunctionEnv<'_, EmEnv>, _env_addr: u32, _val: c_int) {
+pub fn __longjmp(ctx: FunctionEnvMut<'_, EmEnv>, _env_addr: u32, _val: c_int) {
     debug!("emscripten::__longjmp (longmp)");
     abort_with_message(ctx, "missing function: _longjmp");
     // unsafe {
@@ -59,7 +59,7 @@ impl Error for LongJumpRet {}
 // This function differs from the js implementation, it should return Result<(), &'static str>
 #[allow(unreachable_code)]
 pub fn _longjmp(
-    mut ctx: FunctionEnv<'_, EmEnv>,
+    mut ctx: FunctionEnvMut<'_, EmEnv>,
     env_addr: i32,
     val: c_int,
 ) -> Result<(), LongJumpRet> {

@@ -8,7 +8,7 @@ use std::os::raw::c_char;
 use crate::env::{call_malloc, EmAddrInfo};
 use crate::utils::{copy_cstr_into_wasm, read_string_from_wasm};
 use crate::EmEnv;
-use wasmer::{AsStoreMut, FunctionEnv, WasmPtr};
+use wasmer::{AsStoreMut, FunctionEnvMut, WasmPtr};
 
 extern "C" {
     #[link_name = "_putenv"]
@@ -17,7 +17,7 @@ extern "C" {
 
 // #[no_mangle]
 /// emscripten: _getenv // (name: *const char) -> *const c_char;
-pub fn _getenv(mut ctx: FunctionEnv<'_, EmEnv>, name: u32) -> u32 {
+pub fn _getenv(mut ctx: FunctionEnvMut<'_, EmEnv>, name: u32) -> u32 {
     debug!("emscripten::_getenv");
     let memory = ctx.data().memory(0);
     let name_string = read_string_from_wasm(ctx.as_store_mut(), &memory, name);
@@ -30,7 +30,7 @@ pub fn _getenv(mut ctx: FunctionEnv<'_, EmEnv>, name: u32) -> u32 {
 }
 
 /// emscripten: _setenv // (name: *const char, name: *const value, overwrite: int);
-pub fn _setenv(mut ctx: FunctionEnv<'_, EmEnv>, name: u32, value: u32, _overwrite: u32) -> c_int {
+pub fn _setenv(mut ctx: FunctionEnvMut<'_, EmEnv>, name: u32, value: u32, _overwrite: u32) -> c_int {
     debug!("emscripten::_setenv");
     let memory = ctx.data().memory(0);
     // setenv does not exist on windows, so we hack it with _putenv
@@ -45,7 +45,7 @@ pub fn _setenv(mut ctx: FunctionEnv<'_, EmEnv>, name: u32, value: u32, _overwrit
 }
 
 /// emscripten: _putenv // (name: *const char);
-pub fn _putenv(ctx: FunctionEnv<'_, EmEnv>, name: c_int) -> c_int {
+pub fn _putenv(ctx: FunctionEnvMut<'_, EmEnv>, name: c_int) -> c_int {
     debug!("emscripten::_putenv");
     let memory = ctx.data().memory(0);
     let name_addr = emscripten_memory_pointer!(ctx, &memory, name) as *const c_char;
@@ -56,7 +56,7 @@ pub fn _putenv(ctx: FunctionEnv<'_, EmEnv>, name: c_int) -> c_int {
 }
 
 /// emscripten: _unsetenv // (name: *const char);
-pub fn _unsetenv(ctx: FunctionEnv<'_, EmEnv>, name: u32) -> c_int {
+pub fn _unsetenv(ctx: FunctionEnvMut<'_, EmEnv>, name: u32) -> c_int {
     debug!("emscripten::_unsetenv");
     let memory = ctx.data().memory(0);
     let name = read_string_from_wasm(ctx, &memory, name);
@@ -69,7 +69,7 @@ pub fn _unsetenv(ctx: FunctionEnv<'_, EmEnv>, name: u32) -> c_int {
 }
 
 #[allow(clippy::cast_ptr_alignment)]
-pub fn _getpwnam(mut ctx: FunctionEnv<'_, EmEnv>, name_ptr: c_int) -> c_int {
+pub fn _getpwnam(mut ctx: FunctionEnvMut<'_, EmEnv>, name_ptr: c_int) -> c_int {
     debug!("emscripten::_getpwnam {}", name_ptr);
     #[cfg(not(feature = "debug"))]
     let _ = name_ptr;
@@ -105,7 +105,7 @@ pub fn _getpwnam(mut ctx: FunctionEnv<'_, EmEnv>, name_ptr: c_int) -> c_int {
 }
 
 #[allow(clippy::cast_ptr_alignment)]
-pub fn _getgrnam(mut ctx: FunctionEnv<'_, EmEnv>, name_ptr: c_int) -> c_int {
+pub fn _getgrnam(mut ctx: FunctionEnvMut<'_, EmEnv>, name_ptr: c_int) -> c_int {
     debug!("emscripten::_getgrnam {}", name_ptr);
     #[cfg(not(feature = "debug"))]
     let _ = name_ptr;
@@ -133,7 +133,7 @@ pub fn _getgrnam(mut ctx: FunctionEnv<'_, EmEnv>, name_ptr: c_int) -> c_int {
     }
 }
 
-pub fn _sysconf(_ctx: FunctionEnv<'_, EmEnv>, name: c_int) -> c_long {
+pub fn _sysconf(_ctx: FunctionEnvMut<'_, EmEnv>, name: c_int) -> c_long {
     debug!("emscripten::_sysconf {}", name);
     #[cfg(not(feature = "debug"))]
     let _ = name;
@@ -141,13 +141,13 @@ pub fn _sysconf(_ctx: FunctionEnv<'_, EmEnv>, name: c_int) -> c_long {
     0
 }
 
-pub fn _gai_strerror(_ctx: FunctionEnv<'_, EmEnv>, _ecode: i32) -> i32 {
+pub fn _gai_strerror(_ctx: FunctionEnvMut<'_, EmEnv>, _ecode: i32) -> i32 {
     debug!("emscripten::_gai_strerror({}) - stub", _ecode);
     -1
 }
 
 pub fn _getaddrinfo(
-    _ctx: FunctionEnv<'_, EmEnv>,
+    _ctx: FunctionEnvMut<'_, EmEnv>,
     _node_ptr: WasmPtr<c_char>,
     _service_str_ptr: WasmPtr<c_char>,
     _hints_ptr: WasmPtr<EmAddrInfo>,

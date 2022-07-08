@@ -28,7 +28,7 @@ mod sys {
         let mut ctx = WasmerContext::new(&store, env);
         let imports = imports! {
             "env" => {
-                "func_ref_identity" => Function::new(&mut ctx, FunctionType::new([Type::FuncRef], [Type::FuncRef]), |_ctx: FunctionEnv<Env>, values: &[Value]| -> Result<Vec<_>, _> {
+                "func_ref_identity" => Function::new(&mut ctx, FunctionType::new([Type::FuncRef], [Type::FuncRef]), |_ctx: FunctionEnvMut<Env>, values: &[Value]| -> Result<Vec<_>, _> {
                     Ok(vec![values[0].clone()])
                 })
             },
@@ -44,7 +44,7 @@ mod sys {
             panic!("funcref not found!");
         }
 
-        let func_to_call = Function::new_native(&mut ctx, |mut ctx: FunctionEnv<Env>| -> i32 {
+        let func_to_call = Function::new_native(&mut ctx, |mut ctx: FunctionEnvMut<Env>| -> i32 {
             ctx.data_mut().0.store(true, Ordering::SeqCst);
             343
         });
@@ -80,7 +80,7 @@ mod sys {
         let module = Module::new(&store, wat)?;
         let mut ctx = WasmerContext::new(&store, ());
         fn func_ref_call(
-            mut ctx: FunctionEnv<()>,
+            mut ctx: FunctionEnvMut<()>,
             values: &[Value],
         ) -> Result<Vec<Value>, RuntimeError> {
             // TODO: look into `Box<[Value]>` being returned breakage
@@ -108,7 +108,7 @@ mod sys {
 
         let instance = Instance::new(&mut ctx, &module, &imports)?;
         {
-            fn sum(_ctx: FunctionEnv<()>, a: i32, b: i32) -> i32 {
+            fn sum(_ctx: FunctionEnvMut<()>, a: i32, b: i32) -> i32 {
                 a + b
             }
             let sum_func = Function::new_native(&mut ctx, sum);
@@ -154,7 +154,7 @@ mod sys {
                     "extern_ref_identity" => Function::new(&mut ctx, FunctionType::new([Type::ExternRef], [Type::ExternRef]), |_ctx, values| -> Result<Vec<_>, _> {
                         Ok(vec![values[0].clone()])
                     }),
-                    "extern_ref_identity_native" => Function::new_native(&mut ctx, |_ctx: FunctionEnv<()>, er: ExternRef| -> ExternRef {
+                    "extern_ref_identity_native" => Function::new_native(&mut ctx, |_ctx: FunctionEnvMut<()>, er: ExternRef| -> ExternRef {
                         er
                     }),
                     "get_new_extern_ref" => Function::new(&mut ctx, FunctionType::new([], [Type::ExternRef]), |_ctx, _| -> Result<Vec<_>, _> {

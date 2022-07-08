@@ -4,33 +4,33 @@ use crate::env::{get_emscripten_data, get_emscripten_funcs};
 use crate::EmEnv;
 #[cfg(target_os = "linux")]
 use libc::getdtablesize;
-use wasmer::{AsStoreMut, FunctionEnv};
+use wasmer::{AsStoreMut, FunctionEnvMut};
 
-pub fn asm_const_i(_ctx: FunctionEnv<'_, EmEnv>, _val: i32) -> i32 {
+pub fn asm_const_i(_ctx: FunctionEnvMut<'_, EmEnv>, _val: i32) -> i32 {
     debug!("emscripten::asm_const_i: {}", _val);
     0
 }
 
-pub fn exit_with_live_runtime(_ctx: FunctionEnv<'_, EmEnv>) {
+pub fn exit_with_live_runtime(_ctx: FunctionEnvMut<'_, EmEnv>) {
     debug!("emscripten::exit_with_live_runtime");
 }
 
-pub fn setTempRet0(ctx: FunctionEnv<'_, EmEnv>, val: i32) {
+pub fn setTempRet0(ctx: FunctionEnvMut<'_, EmEnv>, val: i32) {
     trace!("emscripten::setTempRet0: {}", val);
     get_emscripten_data(&ctx).as_mut().unwrap().temp_ret_0 = val;
 }
 
-pub fn getTempRet0(ctx: FunctionEnv<'_, EmEnv>) -> i32 {
+pub fn getTempRet0(ctx: FunctionEnvMut<'_, EmEnv>) -> i32 {
     trace!("emscripten::getTempRet0");
     get_emscripten_data(&ctx).as_ref().unwrap().temp_ret_0
 }
 
-pub fn _alarm(_ctx: FunctionEnv<'_, EmEnv>, _seconds: u32) -> i32 {
+pub fn _alarm(_ctx: FunctionEnvMut<'_, EmEnv>, _seconds: u32) -> i32 {
     debug!("emscripten::_alarm({})", _seconds);
     0
 }
 
-pub fn _atexit(_ctx: FunctionEnv<'_, EmEnv>, _func: i32) -> i32 {
+pub fn _atexit(_ctx: FunctionEnvMut<'_, EmEnv>, _func: i32) -> i32 {
     debug!("emscripten::_atexit");
     // TODO: implement atexit properly
     // __ATEXIT__.unshift({
@@ -39,38 +39,38 @@ pub fn _atexit(_ctx: FunctionEnv<'_, EmEnv>, _func: i32) -> i32 {
     // });
     0
 }
-pub fn __Unwind_Backtrace(_ctx: FunctionEnv<'_, EmEnv>, _a: i32, _b: i32) -> i32 {
+pub fn __Unwind_Backtrace(_ctx: FunctionEnvMut<'_, EmEnv>, _a: i32, _b: i32) -> i32 {
     debug!("emscripten::__Unwind_Backtrace");
     0
 }
-pub fn __Unwind_FindEnclosingFunction(_ctx: FunctionEnv<'_, EmEnv>, _a: i32) -> i32 {
+pub fn __Unwind_FindEnclosingFunction(_ctx: FunctionEnvMut<'_, EmEnv>, _a: i32) -> i32 {
     debug!("emscripten::__Unwind_FindEnclosingFunction");
     0
 }
-pub fn __Unwind_GetIPInfo(_ctx: FunctionEnv<'_, EmEnv>, _a: i32, _b: i32) -> i32 {
+pub fn __Unwind_GetIPInfo(_ctx: FunctionEnvMut<'_, EmEnv>, _a: i32, _b: i32) -> i32 {
     debug!("emscripten::__Unwind_GetIPInfo");
     0
 }
-pub fn ___cxa_find_matching_catch_2(_ctx: FunctionEnv<'_, EmEnv>) -> i32 {
+pub fn ___cxa_find_matching_catch_2(_ctx: FunctionEnvMut<'_, EmEnv>) -> i32 {
     debug!("emscripten::___cxa_find_matching_catch_2");
     0
 }
-pub fn ___cxa_find_matching_catch_3(_ctx: FunctionEnv<'_, EmEnv>, _a: i32) -> i32 {
+pub fn ___cxa_find_matching_catch_3(_ctx: FunctionEnvMut<'_, EmEnv>, _a: i32) -> i32 {
     debug!("emscripten::___cxa_find_matching_catch_3");
     0
 }
-pub fn ___cxa_free_exception(_ctx: FunctionEnv<'_, EmEnv>, _a: i32) {
+pub fn ___cxa_free_exception(_ctx: FunctionEnvMut<'_, EmEnv>, _a: i32) {
     debug!("emscripten::___cxa_free_exception");
 }
-pub fn ___resumeException(_ctx: FunctionEnv<'_, EmEnv>, _a: i32) {
+pub fn ___resumeException(_ctx: FunctionEnvMut<'_, EmEnv>, _a: i32) {
     debug!("emscripten::___resumeException");
 }
-pub fn _dladdr(_ctx: FunctionEnv<'_, EmEnv>, _a: i32, _b: i32) -> i32 {
+pub fn _dladdr(_ctx: FunctionEnvMut<'_, EmEnv>, _a: i32, _b: i32) -> i32 {
     debug!("emscripten::_dladdr");
     0
 }
 pub fn ___gxx_personality_v0(
-    _ctx: FunctionEnv<'_, EmEnv>,
+    _ctx: FunctionEnvMut<'_, EmEnv>,
     _a: i32,
     _b: i32,
     _c: i32,
@@ -83,25 +83,25 @@ pub fn ___gxx_personality_v0(
 }
 
 #[cfg(target_os = "linux")]
-pub fn _getdtablesize(_ctx: FunctionEnv<'_, EmEnv>) -> i32 {
+pub fn _getdtablesize(_ctx: FunctionEnvMut<'_, EmEnv>) -> i32 {
     debug!("emscripten::getdtablesize");
     unsafe { getdtablesize() }
 }
 #[cfg(not(target_os = "linux"))]
-pub fn _getdtablesize(_ctx: FunctionEnv<'_, EmEnv>) -> i32 {
+pub fn _getdtablesize(_ctx: FunctionEnvMut<'_, EmEnv>) -> i32 {
     debug!("emscripten::getdtablesize");
     -1
 }
-pub fn _gethostbyaddr(_ctx: FunctionEnv<'_, EmEnv>, _addr: i32, _addrlen: i32, _atype: i32) -> i32 {
+pub fn _gethostbyaddr(_ctx: FunctionEnvMut<'_, EmEnv>, _addr: i32, _addrlen: i32, _atype: i32) -> i32 {
     debug!("emscripten::gethostbyaddr");
     0
 }
-pub fn _gethostbyname(_ctx: FunctionEnv<'_, EmEnv>, _name: i32) -> i32 {
+pub fn _gethostbyname(_ctx: FunctionEnvMut<'_, EmEnv>, _name: i32) -> i32 {
     debug!("emscripten::gethostbyname_r");
     0
 }
 pub fn _gethostbyname_r(
-    _ctx: FunctionEnv<'_, EmEnv>,
+    _ctx: FunctionEnvMut<'_, EmEnv>,
     _name: i32,
     _ret: i32,
     _buf: i32,
@@ -113,13 +113,13 @@ pub fn _gethostbyname_r(
     0
 }
 // NOTE: php.js has proper impl; libc has proper impl for linux
-pub fn _getloadavg(_ctx: FunctionEnv<'_, EmEnv>, _loadavg: i32, _nelem: i32) -> i32 {
+pub fn _getloadavg(_ctx: FunctionEnvMut<'_, EmEnv>, _loadavg: i32, _nelem: i32) -> i32 {
     debug!("emscripten::getloadavg");
     0
 }
 #[allow(clippy::too_many_arguments)]
 pub fn _getnameinfo(
-    _ctx: FunctionEnv<'_, EmEnv>,
+    _ctx: FunctionEnvMut<'_, EmEnv>,
     _addr: i32,
     _addrlen: i32,
     _host: i32,
@@ -188,45 +188,45 @@ macro_rules! invoke_no_stack_save {
 }
 
 // Invoke functions
-pub fn invoke_i(mut ctx: FunctionEnv<'_, EmEnv>, index: i32) -> i32 {
+pub fn invoke_i(mut ctx: FunctionEnvMut<'_, EmEnv>, index: i32) -> i32 {
     debug!("emscripten::invoke_i");
     invoke!(ctx, dyn_call_i, dyn_call_i_ref, index)
 }
-pub fn invoke_ii(mut ctx: FunctionEnv<'_, EmEnv>, index: i32, a1: i32) -> i32 {
+pub fn invoke_ii(mut ctx: FunctionEnvMut<'_, EmEnv>, index: i32, a1: i32) -> i32 {
     debug!("emscripten::invoke_ii");
     invoke!(ctx, dyn_call_ii, dyn_call_ii_ref, index, a1)
 }
-pub fn invoke_iii(mut ctx: FunctionEnv<'_, EmEnv>, index: i32, a1: i32, a2: i32) -> i32 {
+pub fn invoke_iii(mut ctx: FunctionEnvMut<'_, EmEnv>, index: i32, a1: i32, a2: i32) -> i32 {
     debug!("emscripten::invoke_iii");
     invoke!(ctx, dyn_call_iii, dyn_call_iii_ref, index, a1, a2)
 }
-pub fn invoke_iiii(mut ctx: FunctionEnv<'_, EmEnv>, index: i32, a1: i32, a2: i32, a3: i32) -> i32 {
+pub fn invoke_iiii(mut ctx: FunctionEnvMut<'_, EmEnv>, index: i32, a1: i32, a2: i32, a3: i32) -> i32 {
     debug!("emscripten::invoke_iiii");
     invoke!(ctx, dyn_call_iiii, dyn_call_iiii_ref, index, a1, a2, a3)
 }
-pub fn invoke_iifi(mut ctx: FunctionEnv<'_, EmEnv>, index: i32, a1: i32, a2: f64, a3: i32) -> i32 {
+pub fn invoke_iifi(mut ctx: FunctionEnvMut<'_, EmEnv>, index: i32, a1: i32, a2: f64, a3: i32) -> i32 {
     debug!("emscripten::invoke_iifi");
     invoke!(ctx, dyn_call_iifi, dyn_call_iifi_ref, index, a1, a2, a3)
 }
-pub fn invoke_v(mut ctx: FunctionEnv<'_, EmEnv>, index: i32) {
+pub fn invoke_v(mut ctx: FunctionEnvMut<'_, EmEnv>, index: i32) {
     debug!("emscripten::invoke_v");
     invoke_no_return!(ctx, dyn_call_v, dyn_call_v_ref, index);
 }
-pub fn invoke_vi(mut ctx: FunctionEnv<'_, EmEnv>, index: i32, a1: i32) {
+pub fn invoke_vi(mut ctx: FunctionEnvMut<'_, EmEnv>, index: i32, a1: i32) {
     debug!("emscripten::invoke_vi");
     invoke_no_return!(ctx, dyn_call_vi, dyn_call_vi_ref, index, a1);
 }
-pub fn invoke_vii(mut ctx: FunctionEnv<'_, EmEnv>, index: i32, a1: i32, a2: i32) {
+pub fn invoke_vii(mut ctx: FunctionEnvMut<'_, EmEnv>, index: i32, a1: i32, a2: i32) {
     debug!("emscripten::invoke_vii");
     invoke_no_return!(ctx, dyn_call_vii, dyn_call_vii_ref, index, a1, a2);
 }
 
-pub fn invoke_viii(mut ctx: FunctionEnv<'_, EmEnv>, index: i32, a1: i32, a2: i32, a3: i32) {
+pub fn invoke_viii(mut ctx: FunctionEnvMut<'_, EmEnv>, index: i32, a1: i32, a2: i32, a3: i32) {
     debug!("emscripten::invoke_viii");
     invoke_no_return!(ctx, dyn_call_viii, dyn_call_viii_ref, index, a1, a2, a3);
 }
 pub fn invoke_viiii(
-    mut ctx: FunctionEnv<'_, EmEnv>,
+    mut ctx: FunctionEnvMut<'_, EmEnv>,
     index: i32,
     a1: i32,
     a2: i32,
@@ -245,12 +245,12 @@ pub fn invoke_viiii(
         a4
     );
 }
-pub fn invoke_dii(mut ctx: FunctionEnv<'_, EmEnv>, index: i32, a1: i32, a2: i32) -> f64 {
+pub fn invoke_dii(mut ctx: FunctionEnvMut<'_, EmEnv>, index: i32, a1: i32, a2: i32) -> f64 {
     debug!("emscripten::invoke_dii");
     invoke!(ctx, dyn_call_dii, dyn_call_dii_ref, index, a1, a2)
 }
 pub fn invoke_diiii(
-    mut ctx: FunctionEnv<'_, EmEnv>,
+    mut ctx: FunctionEnvMut<'_, EmEnv>,
     index: i32,
     a1: i32,
     a2: i32,
@@ -270,7 +270,7 @@ pub fn invoke_diiii(
     )
 }
 pub fn invoke_iiiii(
-    mut ctx: FunctionEnv<'_, EmEnv>,
+    mut ctx: FunctionEnvMut<'_, EmEnv>,
     index: i32,
     a1: i32,
     a2: i32,
@@ -290,7 +290,7 @@ pub fn invoke_iiiii(
     )
 }
 pub fn invoke_iiiiii(
-    mut ctx: FunctionEnv<'_, EmEnv>,
+    mut ctx: FunctionEnvMut<'_, EmEnv>,
     index: i32,
     a1: i32,
     a2: i32,
@@ -313,7 +313,7 @@ pub fn invoke_iiiiii(
 }
 #[allow(clippy::too_many_arguments)]
 pub fn invoke_iiiiiii(
-    mut ctx: FunctionEnv<'_, EmEnv>,
+    mut ctx: FunctionEnvMut<'_, EmEnv>,
     index: i32,
     a1: i32,
     a2: i32,
@@ -338,7 +338,7 @@ pub fn invoke_iiiiiii(
 }
 #[allow(clippy::too_many_arguments)]
 pub fn invoke_iiiiiiii(
-    mut ctx: FunctionEnv<'_, EmEnv>,
+    mut ctx: FunctionEnvMut<'_, EmEnv>,
     index: i32,
     a1: i32,
     a2: i32,
@@ -365,7 +365,7 @@ pub fn invoke_iiiiiiii(
 }
 #[allow(clippy::too_many_arguments)]
 pub fn invoke_iiiiiiiii(
-    mut ctx: FunctionEnv<'_, EmEnv>,
+    mut ctx: FunctionEnvMut<'_, EmEnv>,
     index: i32,
     a1: i32,
     a2: i32,
@@ -394,7 +394,7 @@ pub fn invoke_iiiiiiiii(
 }
 #[allow(clippy::too_many_arguments)]
 pub fn invoke_iiiiiiiiii(
-    mut ctx: FunctionEnv<'_, EmEnv>,
+    mut ctx: FunctionEnvMut<'_, EmEnv>,
     index: i32,
     a1: i32,
     a2: i32,
@@ -425,7 +425,7 @@ pub fn invoke_iiiiiiiiii(
 }
 #[allow(clippy::too_many_arguments)]
 pub fn invoke_iiiiiiiiiii(
-    mut ctx: FunctionEnv<'_, EmEnv>,
+    mut ctx: FunctionEnvMut<'_, EmEnv>,
     index: i32,
     a1: i32,
     a2: i32,
@@ -456,12 +456,12 @@ pub fn invoke_iiiiiiiiiii(
         a10
     )
 }
-pub fn invoke_vd(mut ctx: FunctionEnv<'_, EmEnv>, index: i32, a1: f64) {
+pub fn invoke_vd(mut ctx: FunctionEnvMut<'_, EmEnv>, index: i32, a1: f64) {
     debug!("emscripten::invoke_vd");
     invoke_no_return!(ctx, dyn_call_vd, dyn_call_vd_ref, index, a1)
 }
 pub fn invoke_viiiii(
-    mut ctx: FunctionEnv<'_, EmEnv>,
+    mut ctx: FunctionEnvMut<'_, EmEnv>,
     index: i32,
     a1: i32,
     a2: i32,
@@ -484,7 +484,7 @@ pub fn invoke_viiiii(
 }
 #[allow(clippy::too_many_arguments)]
 pub fn invoke_viiiiii(
-    mut ctx: FunctionEnv<'_, EmEnv>,
+    mut ctx: FunctionEnvMut<'_, EmEnv>,
     index: i32,
     a1: i32,
     a2: i32,
@@ -509,7 +509,7 @@ pub fn invoke_viiiiii(
 }
 #[allow(clippy::too_many_arguments)]
 pub fn invoke_viiiiiii(
-    mut ctx: FunctionEnv<'_, EmEnv>,
+    mut ctx: FunctionEnvMut<'_, EmEnv>,
     index: i32,
     a1: i32,
     a2: i32,
@@ -536,7 +536,7 @@ pub fn invoke_viiiiiii(
 }
 #[allow(clippy::too_many_arguments)]
 pub fn invoke_viiiiiiii(
-    mut ctx: FunctionEnv<'_, EmEnv>,
+    mut ctx: FunctionEnvMut<'_, EmEnv>,
     index: i32,
     a1: i32,
     a2: i32,
@@ -565,7 +565,7 @@ pub fn invoke_viiiiiiii(
 }
 #[allow(clippy::too_many_arguments)]
 pub fn invoke_viiiiiiiii(
-    mut ctx: FunctionEnv<'_, EmEnv>,
+    mut ctx: FunctionEnvMut<'_, EmEnv>,
     index: i32,
     a1: i32,
     a2: i32,
@@ -596,7 +596,7 @@ pub fn invoke_viiiiiiiii(
 }
 #[allow(clippy::too_many_arguments)]
 pub fn invoke_viiiiiiiiii(
-    mut ctx: FunctionEnv<'_, EmEnv>,
+    mut ctx: FunctionEnvMut<'_, EmEnv>,
     index: i32,
     a1: i32,
     a2: i32,
@@ -628,18 +628,18 @@ pub fn invoke_viiiiiiiiii(
     )
 }
 
-pub fn invoke_iij(mut ctx: FunctionEnv<'_, EmEnv>, index: i32, a1: i32, a2: i32, a3: i32) -> i32 {
+pub fn invoke_iij(mut ctx: FunctionEnvMut<'_, EmEnv>, index: i32, a1: i32, a2: i32, a3: i32) -> i32 {
     debug!("emscripten::invoke_iij");
     invoke!(ctx, dyn_call_iij, dyn_call_iij_ref, index, a1, a2, a3)
 }
 
-pub fn invoke_iji(mut ctx: FunctionEnv<'_, EmEnv>, index: i32, a1: i32, a2: i32, a3: i32) -> i32 {
+pub fn invoke_iji(mut ctx: FunctionEnvMut<'_, EmEnv>, index: i32, a1: i32, a2: i32, a3: i32) -> i32 {
     debug!("emscripten::invoke_iji");
     invoke!(ctx, dyn_call_iji, dyn_call_iji_ref, index, a1, a2, a3)
 }
 
 pub fn invoke_iiji(
-    mut ctx: FunctionEnv<'_, EmEnv>,
+    mut ctx: FunctionEnvMut<'_, EmEnv>,
     index: i32,
     a1: i32,
     a2: i32,
@@ -652,7 +652,7 @@ pub fn invoke_iiji(
 
 #[allow(clippy::too_many_arguments)]
 pub fn invoke_iiijj(
-    mut ctx: FunctionEnv<'_, EmEnv>,
+    mut ctx: FunctionEnvMut<'_, EmEnv>,
     index: i32,
     a1: i32,
     a2: i32,
@@ -675,25 +675,25 @@ pub fn invoke_iiijj(
         a6
     )
 }
-pub fn invoke_j(mut ctx: FunctionEnv<'_, EmEnv>, index: i32) -> i32 {
+pub fn invoke_j(mut ctx: FunctionEnvMut<'_, EmEnv>, index: i32) -> i32 {
     debug!("emscripten::invoke_j");
     invoke_no_stack_save!(ctx, dyn_call_j, dyn_call_j_ref, index)
 }
-pub fn invoke_ji(mut ctx: FunctionEnv<'_, EmEnv>, index: i32, a1: i32) -> i32 {
+pub fn invoke_ji(mut ctx: FunctionEnvMut<'_, EmEnv>, index: i32, a1: i32) -> i32 {
     debug!("emscripten::invoke_ji");
     invoke_no_stack_save!(ctx, dyn_call_ji, dyn_call_ji_ref, index, a1)
 }
-pub fn invoke_jii(mut ctx: FunctionEnv<'_, EmEnv>, index: i32, a1: i32, a2: i32) -> i32 {
+pub fn invoke_jii(mut ctx: FunctionEnvMut<'_, EmEnv>, index: i32, a1: i32, a2: i32) -> i32 {
     debug!("emscripten::invoke_jii");
     invoke_no_stack_save!(ctx, dyn_call_jii, dyn_call_jii_ref, index, a1, a2)
 }
 
-pub fn invoke_jij(mut ctx: FunctionEnv<'_, EmEnv>, index: i32, a1: i32, a2: i32, a3: i32) -> i32 {
+pub fn invoke_jij(mut ctx: FunctionEnvMut<'_, EmEnv>, index: i32, a1: i32, a2: i32, a3: i32) -> i32 {
     debug!("emscripten::invoke_jij");
     invoke_no_stack_save!(ctx, dyn_call_jij, dyn_call_jij_ref, index, a1, a2, a3)
 }
 pub fn invoke_jjj(
-    mut ctx: FunctionEnv<'_, EmEnv>,
+    mut ctx: FunctionEnvMut<'_, EmEnv>,
     index: i32,
     a1: i32,
     a2: i32,
@@ -704,7 +704,7 @@ pub fn invoke_jjj(
     invoke_no_stack_save!(ctx, dyn_call_jjj, dyn_call_jjj_ref, index, a1, a2, a3, a4)
 }
 pub fn invoke_viiij(
-    mut ctx: FunctionEnv<'_, EmEnv>,
+    mut ctx: FunctionEnvMut<'_, EmEnv>,
     index: i32,
     a1: i32,
     a2: i32,
@@ -727,7 +727,7 @@ pub fn invoke_viiij(
 }
 #[allow(clippy::too_many_arguments)]
 pub fn invoke_viiijiiii(
-    mut ctx: FunctionEnv<'_, EmEnv>,
+    mut ctx: FunctionEnvMut<'_, EmEnv>,
     index: i32,
     a1: i32,
     a2: i32,
@@ -758,7 +758,7 @@ pub fn invoke_viiijiiii(
 }
 #[allow(clippy::too_many_arguments)]
 pub fn invoke_viiijiiiiii(
-    mut ctx: FunctionEnv<'_, EmEnv>,
+    mut ctx: FunctionEnvMut<'_, EmEnv>,
     index: i32,
     a1: i32,
     a2: i32,
@@ -791,12 +791,12 @@ pub fn invoke_viiijiiiiii(
         a11
     )
 }
-pub fn invoke_viij(mut ctx: FunctionEnv<'_, EmEnv>, index: i32, a1: i32, a2: i32, a3: i32, a4: i32) {
+pub fn invoke_viij(mut ctx: FunctionEnvMut<'_, EmEnv>, index: i32, a1: i32, a2: i32, a3: i32, a4: i32) {
     debug!("emscripten::invoke_viij");
     invoke_no_stack_save!(ctx, dyn_call_viij, dyn_call_viij_ref, index, a1, a2, a3, a4)
 }
 pub fn invoke_viiji(
-    mut ctx: FunctionEnv<'_, EmEnv>,
+    mut ctx: FunctionEnvMut<'_, EmEnv>,
     index: i32,
     a1: i32,
     a2: i32,
@@ -819,7 +819,7 @@ pub fn invoke_viiji(
 }
 #[allow(clippy::too_many_arguments)]
 pub fn invoke_viijiii(
-    mut ctx: FunctionEnv<'_, EmEnv>,
+    mut ctx: FunctionEnvMut<'_, EmEnv>,
     index: i32,
     a1: i32,
     a2: i32,
@@ -846,7 +846,7 @@ pub fn invoke_viijiii(
 }
 #[allow(clippy::too_many_arguments)]
 pub fn invoke_viijj(
-    mut ctx: FunctionEnv<'_, EmEnv>,
+    mut ctx: FunctionEnvMut<'_, EmEnv>,
     index: i32,
     a1: i32,
     a2: i32,
@@ -869,12 +869,12 @@ pub fn invoke_viijj(
         a6
     )
 }
-pub fn invoke_vj(mut ctx: FunctionEnv<'_, EmEnv>, index: i32, a1: i32, a2: i32) {
+pub fn invoke_vj(mut ctx: FunctionEnvMut<'_, EmEnv>, index: i32, a1: i32, a2: i32) {
     debug!("emscripten::invoke_vj");
     invoke_no_stack_save!(ctx, dyn_call_vj, dyn_call_vj_ref, index, a1, a2)
 }
 pub fn invoke_vjji(
-    mut ctx: FunctionEnv<'_, EmEnv>,
+    mut ctx: FunctionEnvMut<'_, EmEnv>,
     index: i32,
     a1: i32,
     a2: i32,
@@ -895,17 +895,17 @@ pub fn invoke_vjji(
         a5
     )
 }
-pub fn invoke_vij(mut ctx: FunctionEnv<'_, EmEnv>, index: i32, a1: i32, a2: i32, a3: i32) {
+pub fn invoke_vij(mut ctx: FunctionEnvMut<'_, EmEnv>, index: i32, a1: i32, a2: i32, a3: i32) {
     debug!("emscripten::invoke_vij");
     invoke_no_stack_save!(ctx, dyn_call_vij, dyn_call_vij_ref, index, a1, a2, a3)
 }
-pub fn invoke_viji(mut ctx: FunctionEnv<'_, EmEnv>, index: i32, a1: i32, a2: i32, a3: i32, a4: i32) {
+pub fn invoke_viji(mut ctx: FunctionEnvMut<'_, EmEnv>, index: i32, a1: i32, a2: i32, a3: i32, a4: i32) {
     debug!("emscripten::invoke_viji");
     invoke_no_stack_save!(ctx, dyn_call_viji, dyn_call_viji_ref, index, a1, a2, a3, a4)
 }
 #[allow(clippy::too_many_arguments)]
 pub fn invoke_vijiii(
-    mut ctx: FunctionEnv<'_, EmEnv>,
+    mut ctx: FunctionEnvMut<'_, EmEnv>,
     index: i32,
     a1: i32,
     a2: i32,
@@ -929,7 +929,7 @@ pub fn invoke_vijiii(
     )
 }
 pub fn invoke_vijj(
-    mut ctx: FunctionEnv<'_, EmEnv>,
+    mut ctx: FunctionEnvMut<'_, EmEnv>,
     index: i32,
     a1: i32,
     a2: i32,
@@ -950,16 +950,16 @@ pub fn invoke_vijj(
         a5
     )
 }
-pub fn invoke_vidd(mut ctx: FunctionEnv<'_, EmEnv>, index: i32, a1: i32, a2: f64, a3: f64) {
+pub fn invoke_vidd(mut ctx: FunctionEnvMut<'_, EmEnv>, index: i32, a1: i32, a2: f64, a3: f64) {
     debug!("emscripten::invoke_viid");
     invoke_no_return!(ctx, dyn_call_vidd, dyn_call_vidd_ref, index, a1, a2, a3);
 }
-pub fn invoke_viid(mut ctx: FunctionEnv<'_, EmEnv>, index: i32, a1: i32, a2: i32, a3: f64) {
+pub fn invoke_viid(mut ctx: FunctionEnvMut<'_, EmEnv>, index: i32, a1: i32, a2: i32, a3: f64) {
     debug!("emscripten::invoke_viid");
     invoke_no_return!(ctx, dyn_call_viid, dyn_call_viid_ref, index, a1, a2, a3);
 }
 pub fn invoke_viidii(
-    mut ctx: FunctionEnv<'_, EmEnv>,
+    mut ctx: FunctionEnvMut<'_, EmEnv>,
     index: i32,
     a1: i32,
     a2: i32,
@@ -982,7 +982,7 @@ pub fn invoke_viidii(
 }
 #[allow(clippy::too_many_arguments)]
 pub fn invoke_viidddddddd(
-    mut ctx: FunctionEnv<'_, EmEnv>,
+    mut ctx: FunctionEnvMut<'_, EmEnv>,
     index: i32,
     a1: i32,
     a2: i32,

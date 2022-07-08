@@ -5,10 +5,9 @@ use crate::Store;
 /// We require the context to have a fixed memory address for its lifetime since
 /// various bits of the VM have raw pointers that point back to it. Hence we
 /// wrap the actual context in a box.
-pub(crate) struct ContextInner<T> {
+pub(crate) struct StoreInner {
     pub(crate) objects: StoreObjects,
     pub(crate) store: Store,
-    pub(crate) data: T,
 }
 
 /// A context containing a set of WebAssembly instances, along with host state.
@@ -30,7 +29,8 @@ pub(crate) struct ContextInner<T> {
 /// [`Function::new`] and [`Function::new_native`] receive
 /// a reference to the context when they are called.
 pub struct Context<T> {
-    pub(crate) inner: Box<ContextInner<T>>,
+    pub(crate) inner: Box<StoreInner>,
+    pub(crate) data: T,
 }
 
 impl<T> Context<T> {
@@ -38,27 +38,27 @@ impl<T> Context<T> {
     // TODO: Eliminate the Store type and move its functionality into Engine.
     pub fn new(store: &Store, data: T) -> Self {
         Self {
-            inner: Box::new(ContextInner {
+            inner: Box::new(StoreInner {
                 objects: Default::default(),
                 store: store.clone(),
-                data,
             }),
+            data,
         }
     }
 
     /// Returns a reference to the host state in this context.
     pub fn data(&self) -> &T {
-        &self.inner.data
+        &self.data
     }
 
     /// Returns a mutable- reference to the host state in this context.
     pub fn data_mut(&mut self) -> &mut T {
-        &mut self.inner.data
+        &mut self.data
     }
 
     /// Drops the context and returns the host state that was stored in it.
     pub fn into_data(self) -> T {
-        self.inner.data
+        self.data
     }
 
     /// Returns a reference to the `Store` of this context.
@@ -76,15 +76,11 @@ impl<T> Context<T> {
 }
 
 /// A temporary handle to a [`Context`].
-pub struct StoreRef<'a, T: 'a> {
-    inner: &'a ContextInner<T>,
+pub struct StoreRef<'a> {
+    inner: &'a StoreInner,
 }
 
-impl<'a, T> StoreRef<'a, T> {
-    /// Returns a reference to the host state in this context.
-    pub fn data(&self) -> &'a T {
-        &self.inner.data
-    }
+impl<'a> StoreRef<'a> {
 
     /// Returns a reference to the `Store` of this context.
     pub fn store(&self) -> &Store {
@@ -96,20 +92,38 @@ impl<'a, T> StoreRef<'a, T> {
     }
 }
 
+
 /// A temporary handle to a [`Context`].
-pub struct FunctionEnv<'a, T: 'a> {
-    inner: &'a mut ContextInner<T>,
+pub struct StoreMut<'a> {
+    inner: &'a mut StoreInner,
 }
 
-impl<T> FunctionEnv<'_, T> {
+impl StoreMut<'_> {
+    pub(crate) fn objects_mut(&mut self) -> &mut StoreObjects {
+        &mut self.inner.objects
+    }
+
+    /// Returns a reference to the `Store` of this context.
+    pub fn store(&self) -> &Store {
+        &self.inner.store
+    }
+}
+
+/// A temporary handle to a [`Context`].
+pub struct FunctionEnvMut<'a, T: 'a> {
+    inner: &'a mut StoreInner,
+    data: &'a mut T,
+}
+
+impl<T> FunctionEnvMut<'_, T> {
     /// Returns a reference to the host state in this context.
     pub fn data(&self) -> &T {
-        &self.inner.data
+        &self.data
     }
 
     /// Returns a mutable- reference to the host state in this context.
     pub fn data_mut(&mut self) -> &mut T {
-        &mut self.inner.data
+        &mut self.data
     }
 
     pub(crate) fn objects_mut(&mut self) -> &mut StoreObjects {
@@ -121,79 +135,66 @@ impl<T> FunctionEnv<'_, T> {
         &self.inner.store
     }
 
-    pub(crate) fn as_raw(&self) -> *mut ContextInner<T> {
-        self.inner as *const ContextInner<T> as *mut ContextInner<T>
+    pub(crate) fn as_raw(&self) -> *mut StoreInner {
+        self.inner as *const StoreInner as *mut StoreInner
     }
 
-    pub(crate) unsafe fn from_raw(raw: *mut ContextInner<T>) -> Self {
-        Self { inner: &mut *raw }
+    pub(crate) unsafe fn from_raw(raw: *mut StoreInner, data: *mut T) -> Self {
+        Self { inner: &mut *raw, data: &mut *data }
     }
 }
 
 /// Helper trait for a value that is convertible to a [`StoreRef`].
 pub trait AsStoreRef {
-    /// Host state associated with the [`Context`].
-    type Data;
-
     /// Returns a `StoreRef` pointing to the underlying context.
-    fn as_store_ref(&self) -> StoreRef<'_, Self::Data>;
+    fn as_store_ref(&self) -> StoreRef<'_>;
 }
 
 /// Helper trait for a value that is convertible to a [`StoreMut`].
 pub trait AsStoreMut: AsStoreRef {
     /// Returns a `StoreMut` pointing to the underlying context.
-    fn as_store_mut(&mut self) -> FunctionEnv<'_, Self::Data>;
+    fn as_store_mut(&mut self) -> StoreMut<'_>;
 }
 
 impl<T> AsStoreRef for Context<T> {
-    type Data = T;
-
-    fn as_store_ref(&self) -> StoreRef<'_, Self::Data> {
+    fn as_store_ref(&self) -> StoreRef<'_> {
         StoreRef { inner: &self.inner }
     }
 }
 impl<T> AsStoreMut for Context<T> {
-    fn as_store_mut(&mut self) -> FunctionEnv<'_, Self::Data> {
-        FunctionEnv {
+    fn as_store_mut(&mut self) -> StoreMut<'_> {
+        StoreMut {
             inner: &mut self.inner,
         }
     }
 }
-impl<T> AsStoreRef for StoreRef<'_, T> {
-    type Data = T;
-
-    fn as_store_ref(&self) -> StoreRef<'_, Self::Data> {
+impl AsStoreRef for StoreRef<'_> {
+    fn as_store_ref(&self) -> StoreRef<'_> {
         StoreRef { inner: self.inner }
     }
 }
-impl<T> AsStoreRef for FunctionEnv<'_, T> {
-    type Data = T;
-
-    fn as_store_ref(&self) -> StoreRef<'_, Self::Data> {
+impl<T> AsStoreRef for FunctionEnvMut<'_, T> {
+    fn as_store_ref(&self) -> StoreRef<'_> {
         StoreRef { inner: self.inner }
     }
 }
-impl<T> AsStoreMut for FunctionEnv<'_, T> {
-    fn as_store_mut(&mut self) -> FunctionEnv<'_, Self::Data> {
-        FunctionEnv { inner: self.inner }
+impl<T> AsStoreMut for FunctionEnvMut<'_, T> {
+    fn as_store_mut(&mut self) -> StoreMut<'_> {
+        StoreMut { inner: self.inner }
     }
 }
 impl<T: AsStoreRef> AsStoreRef for &'_ T {
-    type Data = T::Data;
-
-    fn as_store_ref(&self) -> StoreRef<'_, Self::Data> {
+    fn as_store_ref(&self) -> StoreRef<'_> {
         T::as_store_ref(*self)
     }
 }
 impl<T: AsStoreRef> AsStoreRef for &'_ mut T {
-    type Data = T::Data;
-
-    fn as_store_ref(&self) -> StoreRef<'_, Self::Data> {
+    fn as_store_ref(&self) -> StoreRef<'_> {
         T::as_store_ref(*self)
     }
 }
 impl<T: AsStoreMut> AsStoreMut for &'_ mut T {
-    fn as_store_mut(&mut self) -> FunctionEnv<'_, Self::Data> {
+    fn as_store_mut(&mut self) -> StoreMut<'_> {
         T::as_store_mut(*self)
     }
 }

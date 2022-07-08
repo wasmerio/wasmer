@@ -1,8 +1,8 @@
 // use std::collections::HashMap;
 use crate::EmEnv;
-use wasmer::FunctionEnv;
+use wasmer::FunctionEnvMut;
 
-pub fn ___seterrno(mut _ctx: FunctionEnv<'_, EmEnv>, _value: i32) {
+pub fn ___seterrno(mut _ctx: FunctionEnvMut<'_, EmEnv>, _value: i32) {
     debug!("emscripten::___seterrno {}", _value);
     // TODO: Incomplete impl
     eprintln!("failed to set errno!");

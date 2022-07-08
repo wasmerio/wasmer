@@ -1,5 +1,5 @@
 use crate::EmEnv;
-use wasmer::FunctionEnv;
+use wasmer::FunctionEnvMut;
 
 // This may be problematic for msvc which uses inline functions for the printf family
 // this cfg_attr will try to link with the legacy lib that does not inline printf
@@ -15,12 +15,12 @@ use wasmer::FunctionEnv;
 //}
 
 /// putchar
-pub fn putchar(_ctx: FunctionEnv<'_, EmEnv>, chr: i32) {
+pub fn putchar(_ctx: FunctionEnvMut<'_, EmEnv>, chr: i32) {
     unsafe { libc::putchar(chr) };
 }
 
 /// printf
-pub fn printf(_ctx: FunctionEnv<'_, EmEnv>, memory_offset: i32, extra: i32) -> i32 {
+pub fn printf(_ctx: FunctionEnvMut<'_, EmEnv>, memory_offset: i32, extra: i32) -> i32 {
     debug!("emscripten::printf {}, {}", memory_offset, extra);
     #[cfg(not(feature = "debug"))]
     {
@@ -35,13 +35,13 @@ pub fn printf(_ctx: FunctionEnv<'_, EmEnv>, memory_offset: i32, extra: i32) -> i
 }
 
 /// chroot
-pub fn chroot(_ctx: FunctionEnv<'_, EmEnv>, _name_ptr: i32) -> i32 {
+pub fn chroot(_ctx: FunctionEnvMut<'_, EmEnv>, _name_ptr: i32) -> i32 {
     debug!("emscripten::chroot");
     unimplemented!("emscripten::chroot")
 }
 
 /// getpwuid
-pub fn getpwuid(_ctx: FunctionEnv<'_, EmEnv>, _uid: i32) -> i32 {
+pub fn getpwuid(_ctx: FunctionEnvMut<'_, EmEnv>, _uid: i32) -> i32 {
     debug!("emscripten::getpwuid");
     unimplemented!("emscripten::getpwuid")
 }

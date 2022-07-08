@@ -47,7 +47,7 @@ use std::sync::{mpsc, Arc};
 use std::time::Duration;
 use tracing::{debug, error, trace, warn};
 use wasmer::{
-    AsStoreMut, FunctionEnv, Memory, Memory32, Memory64, MemorySize, RuntimeError, Value, WasmPtr,
+    AsStoreMut, FunctionEnvMut, Memory, Memory32, Memory64, MemorySize, RuntimeError, Value, WasmPtr,
     WasmSlice,
 };
 use wasmer_vbus::{FileDescriptor, StdioMode};
@@ -79,7 +79,7 @@ fn from_offset<M: MemorySize>(offset: M::Offset) -> Result<usize, __wasi_errno_t
 }
 
 fn write_bytes_inner<T: Write, M: MemorySize>(
-    ctx: &FunctionEnv<'_, WasiEnv>,
+    ctx: &FunctionEnvMut<'_, WasiEnv>,
     mut write_loc: T,
     memory: &Memory,
     iovs_arr_cell: WasmSlice<__wasi_ciovec_t<M>>,
@@ -99,7 +99,7 @@ fn write_bytes_inner<T: Write, M: MemorySize>(
 }
 
 pub(crate) fn write_bytes<T: Write, M: MemorySize>(
-    ctx: &FunctionEnv<'_, WasiEnv>,
+    ctx: &FunctionEnvMut<'_, WasiEnv>,
     mut write_loc: T,
     memory: &Memory,
     iovs_arr: WasmSlice<__wasi_ciovec_t<M>>,
@@ -110,7 +110,7 @@ pub(crate) fn write_bytes<T: Write, M: MemorySize>(
 }
 
 pub(crate) fn read_bytes<T: Read, M: MemorySize>(
-    ctx: &FunctionEnv<'_, WasiEnv>,
+    ctx: &FunctionEnvMut<'_, WasiEnv>,
     mut reader: T,
     memory: &Memory,
     iovs_arr: WasmSlice<__wasi_iovec_t<M>>,
@@ -141,7 +141,7 @@ fn has_rights(rights_set: __wasi_rights_t, rights_check_set: __wasi_rights_t) ->
 }
 
 fn __sock_actor<T, F>(
-    ctx: &FunctionEnv<'_, WasiEnv>,
+    ctx: &FunctionEnvMut<'_, WasiEnv>,
     sock: __wasi_fd_t,
     rights: __wasi_rights_t,
     actor: F,
@@ -174,7 +174,7 @@ where
 }
 
 fn __sock_actor_mut<T, F>(
-    ctx: &FunctionEnv<'_, WasiEnv>,
+    ctx: &FunctionEnvMut<'_, WasiEnv>,
     sock: __wasi_fd_t,
     rights: __wasi_rights_t,
     actor: F,
@@ -207,7 +207,7 @@ where
 }
 
 fn __sock_upgrade<F>(
-    ctx: &FunctionEnv<'_, WasiEnv>,
+    ctx: &FunctionEnvMut<'_, WasiEnv>,
     sock: __wasi_fd_t,
     rights: __wasi_rights_t,
     actor: F,
@@ -247,7 +247,7 @@ where
 
 #[must_use]
 fn write_buffer_array<M: MemorySize>(
-    ctx: &FunctionEnv<'_, WasiEnv>,
+    ctx: &FunctionEnvMut<'_, WasiEnv>,
     memory: &Memory,
     from: &[Vec<u8>],
     ptr_buffer: WasmPtr<WasmPtr<u8, M>, M>,
@@ -297,7 +297,7 @@ fn get_current_time_in_nanos() -> Result<__wasi_timestamp_t, __wasi_errno_t> {
 ///     A pointer to a buffer to write the argument string data.
 ///
 pub fn args_get<M: MemorySize>(
-    mut ctx: FunctionEnv<'_, WasiEnv>,
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
     argv: WasmPtr<WasmPtr<u8, M>, M>,
     argv_buf: WasmPtr<u8, M>,
 ) -> __wasi_errno_t {
@@ -329,7 +329,7 @@ pub fn args_get<M: MemorySize>(
 /// - `size_t *argv_buf_size`
 ///     The size of the argument string data.
 pub fn args_sizes_get<M: MemorySize>(
-    mut ctx: FunctionEnv<'_, WasiEnv>,
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
     argc: WasmPtr<M::Offset, M>,
     argv_buf_size: WasmPtr<M::Offset, M>,
 ) -> __wasi_errno_t {
@@ -361,7 +361,7 @@ pub fn args_sizes_get<M: MemorySize>(
 /// - `__wasi_timestamp_t *resolution`
 ///     The resolution of the clock in nanoseconds
 pub fn clock_res_get<M: MemorySize>(
-    mut ctx: FunctionEnv<'_, WasiEnv>,
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
     clock_id: __wasi_clockid_t,
     resolution: WasmPtr<__wasi_timestamp_t, M>,
 ) -> __wasi_errno_t {
@@ -386,7 +386,7 @@ pub fn clock_res_get<M: MemorySize>(
 /// - `__wasi_timestamp_t *time`
 ///     The value of the clock in nanoseconds
 pub fn clock_time_get<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     clock_id: __wasi_clockid_t,
     precision: __wasi_timestamp_t,
     time: WasmPtr<__wasi_timestamp_t, M>,
@@ -419,7 +419,7 @@ pub fn clock_time_get<M: MemorySize>(
 /// - `char *environ_buf`
 ///     A pointer to a buffer to write the environment variable string data.
 pub fn environ_get<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     environ: WasmPtr<WasmPtr<u8, M>, M>,
     environ_buf: WasmPtr<u8, M>,
 ) -> __wasi_errno_t {
@@ -442,7 +442,7 @@ pub fn environ_get<M: MemorySize>(
 /// - `size_t *environ_buf_size`
 ///     The size of the environment variable string data.
 pub fn environ_sizes_get<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     environ_count: WasmPtr<M::Offset, M>,
     environ_buf_size: WasmPtr<M::Offset, M>,
 ) -> __wasi_errno_t {
@@ -481,7 +481,7 @@ pub fn environ_sizes_get<M: MemorySize>(
 /// - `__wasi_advice_t advice`
 ///     The advice to give
 pub fn fd_advise(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: __wasi_fd_t,
     offset: __wasi_filesize_t,
     len: __wasi_filesize_t,
@@ -504,7 +504,7 @@ pub fn fd_advise(
 /// - `__wasi_filesize_t len`
 ///     The length from the offset marking the end of the allocation
 pub fn fd_allocate(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: __wasi_fd_t,
     offset: __wasi_filesize_t,
     len: __wasi_filesize_t,
@@ -555,7 +555,7 @@ pub fn fd_allocate(
 ///     If `fd` is a directory
 /// - `__WASI_EBADF`
 ///     If `fd` is invalid or not open
-pub fn fd_close(ctx: FunctionEnv<'_, WasiEnv>, fd: __wasi_fd_t) -> __wasi_errno_t {
+pub fn fd_close(ctx: FunctionEnvMut<'_, WasiEnv>, fd: __wasi_fd_t) -> __wasi_errno_t {
     debug!("wasi::fd_close: fd={}", fd);
     let env = ctx.data();
     let (_, mut state, inodes) = env.get_memory_and_wasi_state_and_inodes(0);
@@ -572,7 +572,7 @@ pub fn fd_close(ctx: FunctionEnv<'_, WasiEnv>, fd: __wasi_fd_t) -> __wasi_errno_
 /// Inputs:
 /// - `__wasi_fd_t fd`
 ///     The file descriptor to sync
-pub fn fd_datasync(ctx: FunctionEnv<'_, WasiEnv>, fd: __wasi_fd_t) -> __wasi_errno_t {
+pub fn fd_datasync(ctx: FunctionEnvMut<'_, WasiEnv>, fd: __wasi_fd_t) -> __wasi_errno_t {
     debug!("wasi::fd_datasync");
     let env = ctx.data();
     let (_, mut state, inodes) = env.get_memory_and_wasi_state_and_inodes(0);
@@ -597,7 +597,7 @@ pub fn fd_datasync(ctx: FunctionEnv<'_, WasiEnv>, fd: __wasi_fd_t) -> __wasi_err
 /// - `__wasi_fdstat_t *buf`
 ///     The location where the metadata will be written
 pub fn fd_fdstat_get<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: __wasi_fd_t,
     buf_ptr: WasmPtr<__wasi_fdstat_t, M>,
 ) -> __wasi_errno_t {
@@ -625,7 +625,7 @@ pub fn fd_fdstat_get<M: MemorySize>(
 /// - `__wasi_fdflags_t flags`
 ///     The flags to apply to `fd`
 pub fn fd_fdstat_set_flags(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: __wasi_fd_t,
     flags: __wasi_fdflags_t,
 ) -> __wasi_errno_t {
@@ -653,7 +653,7 @@ pub fn fd_fdstat_set_flags(
 /// - `__wasi_rights_t fs_rights_inheriting`
 ///     The inheriting rights to apply to `fd`
 pub fn fd_fdstat_set_rights(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: __wasi_fd_t,
     fs_rights_base: __wasi_rights_t,
     fs_rights_inheriting: __wasi_rights_t,
@@ -686,7 +686,7 @@ pub fn fd_fdstat_set_rights(
 /// - `__wasi_filestat_t *buf`
 ///     Where the metadata from `fd` will be written
 pub fn fd_filestat_get<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: __wasi_fd_t,
     buf: WasmPtr<__wasi_filestat_t, M>,
 ) -> __wasi_errno_t {
@@ -714,7 +714,7 @@ pub fn fd_filestat_get<M: MemorySize>(
 /// - `__wasi_filesize_t st_size`
 ///     New size that `fd` will be set to
 pub fn fd_filestat_set_size(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: __wasi_fd_t,
     st_size: __wasi_filesize_t,
 ) -> __wasi_errno_t {
@@ -763,7 +763,7 @@ pub fn fd_filestat_set_size(
 /// - `__wasi_fstflags_t fst_flags`
 ///     Bit-vector for controlling which times get set
 pub fn fd_filestat_set_times(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: __wasi_fd_t,
     st_atim: __wasi_timestamp_t,
     st_mtim: __wasi_timestamp_t,
@@ -825,7 +825,7 @@ pub fn fd_filestat_set_times(
 /// - `size_t nread`
 ///     The number of bytes read
 pub fn fd_pread<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: __wasi_fd_t,
     iovs: WasmPtr<__wasi_iovec_t<M>, M>,
     iovs_len: M::Offset,
@@ -916,7 +916,7 @@ pub fn fd_pread<M: MemorySize>(
 /// - `__wasi_prestat *buf`
 ///     Where the metadata will be written
 pub fn fd_prestat_get<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: __wasi_fd_t,
     buf: WasmPtr<__wasi_prestat_t, M>,
 ) -> __wasi_errno_t {
@@ -931,7 +931,7 @@ pub fn fd_prestat_get<M: MemorySize>(
 }
 
 pub fn fd_prestat_dir_name<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: __wasi_fd_t,
     path: WasmPtr<u8, M>,
     path_len: M::Offset,
@@ -993,7 +993,7 @@ pub fn fd_prestat_dir_name<M: MemorySize>(
 /// - `u32 *nwritten`
 ///     Number of bytes written
 pub fn fd_pwrite<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: __wasi_fd_t,
     iovs: WasmPtr<__wasi_ciovec_t<M>, M>,
     iovs_len: M::Offset,
@@ -1104,7 +1104,7 @@ pub fn fd_pwrite<M: MemorySize>(
 ///     Number of bytes read
 ///
 pub fn fd_read<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: __wasi_fd_t,
     iovs: WasmPtr<__wasi_iovec_t<M>, M>,
     iovs_len: M::Offset,
@@ -1263,7 +1263,7 @@ pub fn fd_read<M: MemorySize>(
 ///     The Number of bytes stored in `buf`; if less than `buf_len` then entire
 ///     directory has been read
 pub fn fd_readdir<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: __wasi_fd_t,
     buf: WasmPtr<u8, M>,
     buf_len: M::Offset,
@@ -1392,7 +1392,7 @@ pub fn fd_readdir<M: MemorySize>(
 /// - `__wasi_fd_t to`
 ///     Location to copy file descriptor to
 pub fn fd_renumber(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     from: __wasi_fd_t,
     to: __wasi_fd_t,
 ) -> __wasi_errno_t {
@@ -1423,7 +1423,7 @@ pub fn fd_renumber(
 /// - `__wasi_fd_t fd`
 ///   The new file handle that is a duplicate of the original
 pub fn fd_dup<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: __wasi_fd_t,
     ret_fd: WasmPtr<__wasi_fd_t, M>,
 ) -> __wasi_errno_t {
@@ -1441,7 +1441,7 @@ pub fn fd_dup<M: MemorySize>(
 /// ### `fd_event()`
 /// Creates a file handle for event notifications
 pub fn fd_event<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     initial_val: u64,
     flags: __wasi_eventfdflags,
     ret_fd: WasmPtr<__wasi_fd_t, M>,
@@ -1484,7 +1484,7 @@ pub fn fd_event<M: MemorySize>(
 /// - `__wasi_filesize_t *fd`
 ///     The new offset relative to the start of the file
 pub fn fd_seek<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: __wasi_fd_t,
     offset: __wasi_filedelta_t,
     whence: __wasi_whence_t,
@@ -1567,7 +1567,7 @@ pub fn fd_seek<M: MemorySize>(
 /// TODO: figure out which errors this should return
 /// - `__WASI_EPERM`
 /// - `__WASI_ENOTCAPABLE`
-pub fn fd_sync(ctx: FunctionEnv<'_, WasiEnv>, fd: __wasi_fd_t) -> __wasi_errno_t {
+pub fn fd_sync(ctx: FunctionEnvMut<'_, WasiEnv>, fd: __wasi_fd_t) -> __wasi_errno_t {
     debug!("wasi::fd_sync");
     debug!("=> fd={}", fd);
     let env = ctx.data();
@@ -1610,7 +1610,7 @@ pub fn fd_sync(ctx: FunctionEnv<'_, WasiEnv>, fd: __wasi_fd_t) -> __wasi_errno_t
 /// - `__wasi_filesize_t *offset`
 ///     The offset of `fd` relative to the start of the file
 pub fn fd_tell<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: __wasi_fd_t,
     offset: WasmPtr<__wasi_filesize_t, M>,
 ) -> __wasi_errno_t {
@@ -1645,7 +1645,7 @@ pub fn fd_tell<M: MemorySize>(
 /// Errors:
 ///
 pub fn fd_write<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: __wasi_fd_t,
     iovs: WasmPtr<__wasi_ciovec_t<M>, M>,
     iovs_len: M::Offset,
@@ -1781,7 +1781,7 @@ pub fn fd_write<M: MemorySize>(
 /// - `__wasi_fd_t`
 ///     Second file handle that represents the other end of the pipe
 pub fn fd_pipe<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     ro_fd1: WasmPtr<__wasi_fd_t, M>,
     ro_fd2: WasmPtr<__wasi_fd_t, M>,
 ) -> __wasi_errno_t {
@@ -1829,7 +1829,7 @@ pub fn fd_pipe<M: MemorySize>(
 /// - __WASI_RIGHT_PATH_CREATE_DIRECTORY
 ///     This right must be set on the directory that the file is created in (TODO: verify that this is true)
 pub fn path_create_directory<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: __wasi_fd_t,
     path: WasmPtr<u8, M>,
     path_len: M::Offset,
@@ -1957,7 +1957,7 @@ pub fn path_create_directory<M: MemorySize>(
 /// - `__wasi_file_stat_t *buf`
 ///     The location where the metadata will be stored
 pub fn path_filestat_get<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: __wasi_fd_t,
     flags: __wasi_lookupflags_t,
     path: WasmPtr<u8, M>,
@@ -2045,7 +2045,7 @@ pub fn path_filestat_get_internal(
 /// - `__wasi_fstflags_t fst_flags`
 ///     A bitmask controlling which attributes are set
 pub fn path_filestat_set_times<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: __wasi_fd_t,
     flags: __wasi_lookupflags_t,
     path: WasmPtr<u8, M>,
@@ -2123,7 +2123,7 @@ pub fn path_filestat_set_times<M: MemorySize>(
 /// - `u32 old_path_len`
 ///     Length of the `new_path` string
 pub fn path_link<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     old_fd: __wasi_fd_t,
     old_flags: __wasi_lookupflags_t,
     old_path: WasmPtr<u8, M>,
@@ -2219,7 +2219,7 @@ pub fn path_link<M: MemorySize>(
 /// Possible Errors:
 /// - `__WASI_EACCES`, `__WASI_EBADF`, `__WASI_EFAULT`, `__WASI_EFBIG?`, `__WASI_EINVAL`, `__WASI_EIO`, `__WASI_ELOOP`, `__WASI_EMFILE`, `__WASI_ENAMETOOLONG?`, `__WASI_ENFILE`, `__WASI_ENOENT`, `__WASI_ENOTDIR`, `__WASI_EROFS`, and `__WASI_ENOTCAPABLE`
 pub fn path_open<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     dirfd: __wasi_fd_t,
     dirflags: __wasi_lookupflags_t,
     path: WasmPtr<u8, M>,
@@ -2462,7 +2462,7 @@ pub fn path_open<M: MemorySize>(
 /// - `u32 buf_used`
 ///     The number of bytes written to `buf`
 pub fn path_readlink<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     dir_fd: __wasi_fd_t,
     path: WasmPtr<u8, M>,
     path_len: M::Offset,
@@ -2513,7 +2513,7 @@ pub fn path_readlink<M: MemorySize>(
 
 /// Returns __WASI_ENOTEMTPY if directory is not empty
 pub fn path_remove_directory<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: __wasi_fd_t,
     path: WasmPtr<u8, M>,
     path_len: M::Offset,
@@ -2598,7 +2598,7 @@ pub fn path_remove_directory<M: MemorySize>(
 /// - `u32 new_path_len`
 ///     The number of bytes to read from `new_path`
 pub fn path_rename<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     old_fd: __wasi_fd_t,
     old_path: WasmPtr<u8, M>,
     old_path_len: M::Offset,
@@ -2762,7 +2762,7 @@ pub fn path_rename<M: MemorySize>(
 /// - `u32 new_path_len`
 ///     The number of bytes to read from `new_path`
 pub fn path_symlink<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     old_path: WasmPtr<u8, M>,
     old_path_len: M::Offset,
     fd: __wasi_fd_t,
@@ -2862,7 +2862,7 @@ pub fn path_symlink<M: MemorySize>(
 /// - `u32 path_len`
 ///     The number of bytes in the `path` array
 pub fn path_unlink_file<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: __wasi_fd_t,
     path: WasmPtr<u8, M>,
     path_len: M::Offset,
@@ -2973,7 +2973,7 @@ pub fn path_unlink_file<M: MemorySize>(
 /// - `u32 nevents`
 ///     The number of events seen
 pub fn poll_oneoff<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     in_: WasmPtr<__wasi_subscription_t, M>,
     out_: WasmPtr<__wasi_event_t, M>,
     nsubscriptions: M::Offset,
@@ -3223,7 +3223,7 @@ pub fn poll_oneoff<M: MemorySize>(
 /// Inputs:
 /// - `__wasi_exitcode_t`
 ///   Exit code to return to the operating system
-pub fn proc_exit(ctx: FunctionEnv<'_, WasiEnv>, code: __wasi_exitcode_t) -> Result<(), WasiError> {
+pub fn proc_exit(ctx: FunctionEnvMut<'_, WasiEnv>, code: __wasi_exitcode_t) -> Result<(), WasiError> {
     debug!("wasi::proc_exit, {}", code);
     Err(WasiError::Exit(code))
 }
@@ -3234,14 +3234,14 @@ pub fn proc_exit(ctx: FunctionEnv<'_, WasiEnv>, code: __wasi_exitcode_t) -> Resu
 /// Inputs:
 /// - `__wasi_signal_t`
 ///   Signal to be raised for this process
-pub fn proc_raise(ctx: FunctionEnv<'_, WasiEnv>, sig: __wasi_signal_t) -> __wasi_errno_t {
+pub fn proc_raise(ctx: FunctionEnvMut<'_, WasiEnv>, sig: __wasi_signal_t) -> __wasi_errno_t {
     debug!("wasi::proc_raise");
     unimplemented!("wasi::proc_raise")
 }
 
 /// ### `sched_yield()`
 /// Yields execution of the thread
-pub fn sched_yield(ctx: FunctionEnv<'_, WasiEnv>) -> Result<__wasi_errno_t, WasiError> {
+pub fn sched_yield(ctx: FunctionEnvMut<'_, WasiEnv>) -> Result<__wasi_errno_t, WasiError> {
     trace!("wasi::sched_yield");
     let env = ctx.data();
     env.yield_now()?;
@@ -3256,7 +3256,7 @@ pub fn sched_yield(ctx: FunctionEnv<'_, WasiEnv>) -> Result<__wasi_errno_t, Wasi
 /// - `size_t buf_len`
 ///     The number of bytes that will be written
 pub fn random_get<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     buf: WasmPtr<u8, M>,
     buf_len: M::Offset,
 ) -> __wasi_errno_t {
@@ -3279,7 +3279,7 @@ pub fn random_get<M: MemorySize>(
 /// ### `tty_get()`
 /// Retrieves the current state of the TTY
 pub fn tty_get<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     tty_state: WasmPtr<__wasi_tty_t, M>,
 ) -> __wasi_errno_t {
     debug!("wasi::tty_stdin");
@@ -3322,7 +3322,7 @@ pub fn tty_get<M: MemorySize>(
 /// ### `tty_set()`
 /// Updates the properties of the rect
 pub fn tty_set<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     tty_state: WasmPtr<__wasi_tty_t, M>,
 ) -> __wasi_errno_t {
     debug!("wasi::tty_set");
@@ -3372,7 +3372,7 @@ pub fn tty_set<M: MemorySize>(
 /// If the path exceeds the size of the buffer then this function
 /// will fill the path_len with the needed size and return EOVERFLOW
 pub fn getcwd<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     path: WasmPtr<u8, M>,
     path_len: WasmPtr<M::Offset, M>,
 ) -> __wasi_errno_t {
@@ -3413,7 +3413,7 @@ pub fn getcwd<M: MemorySize>(
 /// ### `chdir()`
 /// Sets the current working directory
 pub fn chdir<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     path: WasmPtr<u8, M>,
     path_len: M::Offset,
 ) -> __wasi_errno_t {
@@ -3445,7 +3445,7 @@ pub fn chdir<M: MemorySize>(
 /// Returns the thread index of the newly created thread
 /// (indices always start from zero)
 pub fn thread_spawn<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     method: WasmPtr<u8, M>,
     method_len: M::Offset,
     user_data: u64,
@@ -3532,7 +3532,7 @@ pub fn thread_spawn<M: MemorySize>(
 ///
 /// * `duration` - Amount of time that the thread should sleep
 pub fn thread_sleep(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     duration: __wasi_timestamp_t,
 ) -> Result<__wasi_errno_t, WasiError> {
     debug!("wasi::thread_sleep");
@@ -3547,7 +3547,7 @@ pub fn thread_sleep(
 /// Returns the index of the current thread
 /// (threads indices are sequencial from zero)
 pub fn thread_id<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     ret_tid: WasmPtr<__wasi_tid_t, M>,
 ) -> __wasi_errno_t {
     debug!("wasi::thread_id");
@@ -3566,7 +3566,7 @@ pub fn thread_id<M: MemorySize>(
 ///
 /// * `tid` - Handle of the thread to wait on
 pub fn thread_join(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     tid: __wasi_tid_t,
 ) -> Result<__wasi_errno_t, WasiError> {
     debug!("wasi::thread_join");
@@ -3594,7 +3594,7 @@ pub fn thread_join(
 /// Returns the available parallelism which is normally the
 /// number of available cores that can run concurrently
 pub fn thread_parallelism<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     ret_parallelism: WasmPtr<M::Offset, M>,
 ) -> __wasi_errno_t {
     debug!("wasi::thread_parallelism");
@@ -3612,7 +3612,7 @@ pub fn thread_parallelism<M: MemorySize>(
 /// ### `getpid()`
 /// Returns the handle of the current process
 pub fn getpid<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     ret_pid: WasmPtr<__wasi_pid_t, M>,
 ) -> __wasi_errno_t {
     debug!("wasi::getpid");
@@ -3637,7 +3637,7 @@ pub fn getpid<M: MemorySize>(
 ///
 /// * `rval` - The exit code returned by the process.
 pub fn thread_exit(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     exitcode: __wasi_exitcode_t,
 ) -> Result<__wasi_errno_t, WasiError> {
     debug!("wasi::thread_exit");
@@ -3664,7 +3664,7 @@ pub fn thread_exit(
 ///
 /// Returns a bus process id that can be used to invoke calls
 pub fn process_spawn<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     name: WasmPtr<u8, M>,
     name_len: M::Offset,
     chroot: __wasi_bool_t,
@@ -3765,7 +3765,7 @@ pub fn process_spawn<M: MemorySize>(
 ///
 /// Returns a bus process id that can be used to invoke calls
 pub fn bus_open_local<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     name: WasmPtr<u8, M>,
     name_len: M::Offset,
     reuse: __wasi_bool_t,
@@ -3796,7 +3796,7 @@ pub fn bus_open_local<M: MemorySize>(
 ///
 /// Returns a bus process id that can be used to invoke calls
 pub fn bus_open_remote<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     name: WasmPtr<u8, M>,
     name_len: M::Offset,
     reuse: __wasi_bool_t,
@@ -3822,7 +3822,7 @@ pub fn bus_open_remote<M: MemorySize>(
 }
 
 fn bus_open_local_internal<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     name: String,
     reuse: bool,
     instance: Option<String>,
@@ -3884,7 +3884,7 @@ fn bus_open_local_internal<M: MemorySize>(
 /// ## Parameters
 ///
 /// * `bid` - Handle of the bus process handle to be closed
-pub fn bus_close(ctx: FunctionEnv<'_, WasiEnv>, bid: __wasi_bid_t) -> __bus_errno_t {
+pub fn bus_close(ctx: FunctionEnvMut<'_, WasiEnv>, bid: __wasi_bid_t) -> __bus_errno_t {
     trace!("wasi::bus_close (bid={})", bid);
     let bid: WasiBusProcessId = bid.into();
 
@@ -3907,7 +3907,7 @@ pub fn bus_close(ctx: FunctionEnv<'_, WasiEnv>, bid: __wasi_bid_t) -> __bus_errn
 /// * `format` - Format of the data pushed onto the bus
 /// * `buf` - The buffer where data to be transmitted is stored
 pub fn bus_call<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     bid: __wasi_bid_t,
     keep_alive: __wasi_bool_t,
     topic: WasmPtr<u8, M>,
@@ -3944,7 +3944,7 @@ pub fn bus_call<M: MemorySize>(
 /// * `format` - Format of the data pushed onto the bus
 /// * `buf` - The buffer where data to be transmitted is stored
 pub fn bus_subcall<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     parent: __wasi_cid_t,
     keep_alive: __wasi_bool_t,
     topic: WasmPtr<u8, M>,
@@ -3984,7 +3984,7 @@ pub fn bus_subcall<M: MemorySize>(
 ///
 /// Returns the number of events that have occured
 pub fn bus_poll<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     timeout: __wasi_timestamp_t,
     events: WasmPtr<u8, M>,
     nevents: M::Offset,
@@ -4012,7 +4012,7 @@ pub fn bus_poll<M: MemorySize>(
 /// * `format` - Format of the data pushed onto the bus
 /// * `buf` - The buffer where data to be transmitted is stored
 pub fn call_reply<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     cid: __wasi_cid_t,
     format: __wasi_busdataformat_t,
     buf: WasmPtr<u8, M>,
@@ -4039,7 +4039,7 @@ pub fn call_reply<M: MemorySize>(
 /// * `cid` - Handle of the call to raise a fault on
 /// * `fault` - Fault to be raised on the bus
 pub fn call_fault(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     cid: __wasi_cid_t,
     fault: __bus_errno_t,
 ) -> __bus_errno_t {
@@ -4055,7 +4055,7 @@ pub fn call_fault(
 /// ## Parameters
 ///
 /// * `cid` - Handle of the bus call handle to be dropped
-pub fn call_close(ctx: FunctionEnv<'_, WasiEnv>, cid: __wasi_cid_t) -> __bus_errno_t {
+pub fn call_close(ctx: FunctionEnvMut<'_, WasiEnv>, cid: __wasi_cid_t) -> __bus_errno_t {
     let env = ctx.data();
     let bus = env.runtime.bus();
     trace!("wasi::call_close (cid={})", cid);
@@ -4074,7 +4074,7 @@ pub fn call_close(ctx: FunctionEnv<'_, WasiEnv>, cid: __wasi_cid_t) -> __bus_err
 ///
 /// Returns a socket handle which is used to send and receive data
 pub fn ws_connect<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     url: WasmPtr<u8, M>,
     url_len: M::Offset,
     ret_sock: WasmPtr<__wasi_fd_t, M>,
@@ -4126,7 +4126,7 @@ pub fn ws_connect<M: MemorySize>(
 /// The body of the response can be streamed from the returned
 /// file handle
 pub fn http_request<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     url: WasmPtr<u8, M>,
     url_len: M::Offset,
     method: WasmPtr<u8, M>,
@@ -4233,7 +4233,7 @@ pub fn http_request<M: MemorySize>(
 /// * `status` - Pointer to a buffer that will be filled with the current
 ///   status of this HTTP request
 pub fn http_status<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: __wasi_fd_t,
     status: WasmPtr<__wasi_http_status_t, M>,
 ) -> __wasi_errno_t {
@@ -4272,7 +4272,7 @@ pub fn http_status<M: MemorySize>(
 /// * `token` - Access token used to authenticate with the network
 /// * `security` - Level of encryption to encapsulate the network connection with
 pub fn port_bridge<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     network: WasmPtr<u8, M>,
     network_len: M::Offset,
     token: WasmPtr<u8, M>,
@@ -4301,7 +4301,7 @@ pub fn port_bridge<M: MemorySize>(
 
 /// ### `port_unbridge()`
 /// Disconnects from a remote network
-pub fn port_unbridge(ctx: FunctionEnv<'_, WasiEnv>) -> __wasi_errno_t {
+pub fn port_unbridge(ctx: FunctionEnvMut<'_, WasiEnv>) -> __wasi_errno_t {
     debug!("wasi::port_unbridge");
     let env = ctx.data();
     wasi_try!(env.net().unbridge().map_err(net_error_into_wasi_err));
@@ -4310,7 +4310,7 @@ pub fn port_unbridge(ctx: FunctionEnv<'_, WasiEnv>) -> __wasi_errno_t {
 
 /// ### `port_dhcp_acquire()`
 /// Acquires a set of IP addresses using DHCP
-pub fn port_dhcp_acquire(ctx: FunctionEnv<'_, WasiEnv>) -> __wasi_errno_t {
+pub fn port_dhcp_acquire(ctx: FunctionEnvMut<'_, WasiEnv>) -> __wasi_errno_t {
     debug!("wasi::port_dhcp_acquire");
     let env = ctx.data();
     wasi_try!(env.net().dhcp_acquire().map_err(net_error_into_wasi_err));
@@ -4324,7 +4324,7 @@ pub fn port_dhcp_acquire(ctx: FunctionEnv<'_, WasiEnv>) -> __wasi_errno_t {
 ///
 /// * `addr` - Address to be added
 pub fn port_addr_add<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     ip: WasmPtr<__wasi_cidr_t, M>,
 ) -> __wasi_errno_t {
     debug!("wasi::port_addr_add");
@@ -4345,7 +4345,7 @@ pub fn port_addr_add<M: MemorySize>(
 ///
 /// * `addr` - Address to be removed
 pub fn port_addr_remove<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     ip: WasmPtr<__wasi_addr_t, M>,
 ) -> __wasi_errno_t {
     debug!("wasi::port_addr_remove");
@@ -4358,7 +4358,7 @@ pub fn port_addr_remove<M: MemorySize>(
 
 /// ### `port_addr_clear()`
 /// Clears all the addresses on the local port
-pub fn port_addr_clear(ctx: FunctionEnv<'_, WasiEnv>) -> __wasi_errno_t {
+pub fn port_addr_clear(ctx: FunctionEnvMut<'_, WasiEnv>) -> __wasi_errno_t {
     debug!("wasi::port_addr_clear");
     let env = ctx.data();
     wasi_try!(env.net().ip_clear().map_err(net_error_into_wasi_err));
@@ -4368,7 +4368,7 @@ pub fn port_addr_clear(ctx: FunctionEnv<'_, WasiEnv>) -> __wasi_errno_t {
 /// ### `port_mac()`
 /// Returns the MAC address of the local port
 pub fn port_mac<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     ret_mac: WasmPtr<__wasi_hardwareaddress_t, M>,
 ) -> __wasi_errno_t {
     debug!("wasi::port_mac");
@@ -4394,7 +4394,7 @@ pub fn port_mac<M: MemorySize>(
 ///
 /// The number of addresses returned.
 pub fn port_addr_list<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     addrs: WasmPtr<__wasi_cidr_t, M>,
     naddrs: WasmPtr<M::Offset, M>,
 ) -> __wasi_errno_t {
@@ -4429,7 +4429,7 @@ pub fn port_addr_list<M: MemorySize>(
 ///
 /// * `addr` - Address of the default gateway
 pub fn port_gateway_set<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     ip: WasmPtr<__wasi_addr_t, M>,
 ) -> __wasi_errno_t {
     debug!("wasi::port_gateway_set");
@@ -4444,7 +4444,7 @@ pub fn port_gateway_set<M: MemorySize>(
 /// ### `port_route_add()`
 /// Adds a new route to the local port
 pub fn port_route_add<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     cidr: WasmPtr<__wasi_cidr_t, M>,
     via_router: WasmPtr<__wasi_addr_t, M>,
     preferred_until: WasmPtr<__wasi_option_timestamp_t, M>,
@@ -4478,7 +4478,7 @@ pub fn port_route_add<M: MemorySize>(
 /// ### `port_route_remove()`
 /// Removes an existing route from the local port
 pub fn port_route_remove<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     ip: WasmPtr<__wasi_addr_t, M>,
 ) -> __wasi_errno_t {
     debug!("wasi::port_route_remove");
@@ -4491,7 +4491,7 @@ pub fn port_route_remove<M: MemorySize>(
 
 /// ### `port_route_clear()`
 /// Clears all the routes in the local port
-pub fn port_route_clear(ctx: FunctionEnv<'_, WasiEnv>) -> __wasi_errno_t {
+pub fn port_route_clear(ctx: FunctionEnvMut<'_, WasiEnv>) -> __wasi_errno_t {
     debug!("wasi::port_route_clear");
     let env = ctx.data();
     wasi_try!(env.net().route_clear().map_err(net_error_into_wasi_err));
@@ -4508,7 +4508,7 @@ pub fn port_route_clear(ctx: FunctionEnv<'_, WasiEnv>) -> __wasi_errno_t {
 ///
 /// * `routes` - The buffer where routes will be stored
 pub fn port_route_list<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     routes: WasmPtr<__wasi_route_t, M>,
     nroutes: WasmPtr<M::Offset, M>,
 ) -> __wasi_errno_t {
@@ -4551,7 +4551,7 @@ pub fn port_route_list<M: MemorySize>(
 ///
 /// * `how` - Which channels on the socket to shut down.
 pub fn sock_shutdown(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: __wasi_fd_t,
     how: __wasi_sdflags_t,
 ) -> __wasi_errno_t {
@@ -4578,7 +4578,7 @@ pub fn sock_shutdown(
 /// ### `sock_status()`
 /// Returns the current status of a socket
 pub fn sock_status<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: __wasi_fd_t,
     ret_status: WasmPtr<__wasi_sockstatus_t, M>,
 ) -> __wasi_errno_t {
@@ -4612,7 +4612,7 @@ pub fn sock_status<M: MemorySize>(
 ///
 /// * `fd` - Socket that the address is bound to
 pub fn sock_addr_local<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: __wasi_fd_t,
     ret_addr: WasmPtr<__wasi_addr_port_t, M>,
 ) -> __wasi_errno_t {
@@ -4644,7 +4644,7 @@ pub fn sock_addr_local<M: MemorySize>(
 ///
 /// * `fd` - Socket that the address is bound to
 pub fn sock_addr_peer<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: __wasi_fd_t,
     ro_addr: WasmPtr<__wasi_addr_port_t, M>,
 ) -> __wasi_errno_t {
@@ -4682,7 +4682,7 @@ pub fn sock_addr_peer<M: MemorySize>(
 ///
 /// The file descriptor of the socket that has been opened.
 pub fn sock_open<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     af: __wasi_addressfamily_t,
     ty: __wasi_socktype_t,
     pt: __wasi_sockproto_t,
@@ -4738,7 +4738,7 @@ pub fn sock_open<M: MemorySize>(
 /// * `sockopt` - Socket option to be set
 /// * `flag` - Value to set the option to
 pub fn sock_set_opt_flag(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: __wasi_fd_t,
     opt: __wasi_sockoption_t,
     flag: __wasi_bool_t,
@@ -4767,7 +4767,7 @@ pub fn sock_set_opt_flag(
 /// * `fd` - Socket descriptor
 /// * `sockopt` - Socket option to be retrieved
 pub fn sock_get_opt_flag<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: __wasi_fd_t,
     opt: __wasi_sockoption_t,
     ret_flag: WasmPtr<__wasi_bool_t, M>,
@@ -4799,7 +4799,7 @@ pub fn sock_get_opt_flag<M: MemorySize>(
 /// * `sockopt` - Socket option to be set
 /// * `time` - Value to set the time to
 pub fn sock_set_opt_time<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: __wasi_fd_t,
     opt: __wasi_sockoption_t,
     time: WasmPtr<__wasi_option_timestamp_t, M>,
@@ -4839,7 +4839,7 @@ pub fn sock_set_opt_time<M: MemorySize>(
 /// * `fd` - Socket descriptor
 /// * `sockopt` - Socket option to be retrieved
 pub fn sock_get_opt_time<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: __wasi_fd_t,
     opt: __wasi_sockoption_t,
     ret_time: WasmPtr<__wasi_option_timestamp_t, M>,
@@ -4886,7 +4886,7 @@ pub fn sock_get_opt_time<M: MemorySize>(
 /// * `opt` - Socket option to be set
 /// * `size` - Buffer size
 pub fn sock_set_opt_size(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: __wasi_fd_t,
     opt: __wasi_sockoption_t,
     size: __wasi_filesize_t,
@@ -4924,7 +4924,7 @@ pub fn sock_set_opt_size(
 /// * `fd` - Socket descriptor
 /// * `sockopt` - Socket option to be retrieved
 pub fn sock_get_opt_size<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: __wasi_fd_t,
     opt: __wasi_sockoption_t,
     ret_size: WasmPtr<__wasi_filesize_t, M>,
@@ -4962,7 +4962,7 @@ pub fn sock_get_opt_size<M: MemorySize>(
 /// * `multiaddr` - Multicast group to joined
 /// * `interface` - Interface that will join
 pub fn sock_join_multicast_v4<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: __wasi_fd_t,
     multiaddr: WasmPtr<__wasi_addr_ip4_t, M>,
     iface: WasmPtr<__wasi_addr_ip4_t, M>,
@@ -4988,7 +4988,7 @@ pub fn sock_join_multicast_v4<M: MemorySize>(
 /// * `multiaddr` - Multicast group to leave
 /// * `interface` - Interface that will left
 pub fn sock_leave_multicast_v4<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: __wasi_fd_t,
     multiaddr: WasmPtr<__wasi_addr_ip4_t, M>,
     iface: WasmPtr<__wasi_addr_ip4_t, M>,
@@ -5014,7 +5014,7 @@ pub fn sock_leave_multicast_v4<M: MemorySize>(
 /// * `multiaddr` - Multicast group to joined
 /// * `interface` - Interface that will join
 pub fn sock_join_multicast_v6<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: __wasi_fd_t,
     multiaddr: WasmPtr<__wasi_addr_ip6_t, M>,
     iface: u32,
@@ -5039,7 +5039,7 @@ pub fn sock_join_multicast_v6<M: MemorySize>(
 /// * `multiaddr` - Multicast group to leave
 /// * `interface` - Interface that will left
 pub fn sock_leave_multicast_v6<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: __wasi_fd_t,
     multiaddr: WasmPtr<__wasi_addr_ip6_t, M>,
     iface: u32,
@@ -5064,7 +5064,7 @@ pub fn sock_leave_multicast_v6<M: MemorySize>(
 /// * `fd` - File descriptor of the socket to be bind
 /// * `addr` - Address to bind the socket to
 pub fn sock_bind<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: __wasi_fd_t,
     addr: WasmPtr<__wasi_addr_port_t, M>,
 ) -> __wasi_errno_t {
@@ -5095,7 +5095,7 @@ pub fn sock_bind<M: MemorySize>(
 /// * `fd` - File descriptor of the socket to be bind
 /// * `backlog` - Maximum size of the queue for pending connections
 pub fn sock_listen<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: __wasi_fd_t,
     backlog: M::Offset,
 ) -> __wasi_errno_t {
@@ -5125,7 +5125,7 @@ pub fn sock_listen<M: MemorySize>(
 ///
 /// New socket connection
 pub fn sock_accept<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: __wasi_fd_t,
     fd_flags: __wasi_fdflags_t,
     ro_fd: WasmPtr<__wasi_fd_t, M>,
@@ -5201,7 +5201,7 @@ pub fn sock_accept<M: MemorySize>(
 /// * `fd` - Socket descriptor
 /// * `addr` - Address of the socket to connect to
 pub fn sock_connect<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: __wasi_fd_t,
     addr: WasmPtr<__wasi_addr_port_t, M>,
 ) -> __wasi_errno_t {
@@ -5233,7 +5233,7 @@ pub fn sock_connect<M: MemorySize>(
 ///
 /// Number of bytes stored in ri_data and message flags.
 pub fn sock_recv<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: __wasi_fd_t,
     ri_data: WasmPtr<__wasi_iovec_t<M>, M>,
     ri_data_len: M::Offset,
@@ -5275,7 +5275,7 @@ pub fn sock_recv<M: MemorySize>(
 ///
 /// Number of bytes stored in ri_data and message flags.
 pub fn sock_recv_from<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: __wasi_fd_t,
     ri_data: WasmPtr<__wasi_iovec_t<M>, M>,
     ri_data_len: M::Offset,
@@ -5318,7 +5318,7 @@ pub fn sock_recv_from<M: MemorySize>(
 ///
 /// Number of bytes transmitted.
 pub fn sock_send<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: __wasi_fd_t,
     si_data: WasmPtr<__wasi_ciovec_t<M>, M>,
     si_data_len: M::Offset,
@@ -5360,7 +5360,7 @@ pub fn sock_send<M: MemorySize>(
 ///
 /// Number of bytes transmitted.
 pub fn sock_send_to<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: __wasi_fd_t,
     si_data: WasmPtr<__wasi_ciovec_t<M>, M>,
     si_data_len: M::Offset,
@@ -5401,7 +5401,7 @@ pub fn sock_send_to<M: MemorySize>(
 ///
 /// Number of bytes transmitted.
 pub unsafe fn sock_send_file<M: MemorySize>(
-    mut ctx: FunctionEnv<'_, WasiEnv>,
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: __wasi_fd_t,
     in_fd: __wasi_fd_t,
     offset: __wasi_filesize_t,
@@ -5534,7 +5534,7 @@ pub unsafe fn sock_send_file<M: MemorySize>(
 ///
 /// The number of IP addresses returned during the DNS resolution.
 pub fn resolve<M: MemorySize>(
-    ctx: FunctionEnv<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     host: WasmPtr<u8, M>,
     host_len: M::Offset,
     port: u16,

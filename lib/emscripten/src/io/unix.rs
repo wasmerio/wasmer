@@ -4,15 +4,15 @@ use libc::{chroot as _chroot, getpwuid as _getpwuid, printf as _printf};
 use std::mem;
 
 use crate::EmEnv;
-use wasmer::{AsStoreMut, FunctionEnv};
+use wasmer::{AsStoreMut, FunctionEnvMut};
 
 /// putchar
-pub fn putchar(_ctx: FunctionEnv<'_, EmEnv>, chr: i32) {
+pub fn putchar(_ctx: FunctionEnvMut<'_, EmEnv>, chr: i32) {
     unsafe { libc::putchar(chr) };
 }
 
 /// printf
-pub fn printf(ctx: FunctionEnv<'_, EmEnv>, memory_offset: i32, extra: i32) -> i32 {
+pub fn printf(ctx: FunctionEnvMut<'_, EmEnv>, memory_offset: i32, extra: i32) -> i32 {
     debug!("emscripten::printf {}, {}", memory_offset, extra);
     unsafe {
         let addr = emscripten_memory_pointer!(ctx, ctx.data().memory(0), memory_offset) as _;
@@ -21,7 +21,7 @@ pub fn printf(ctx: FunctionEnv<'_, EmEnv>, memory_offset: i32, extra: i32) -> i3
 }
 
 /// chroot
-pub fn chroot(ctx: FunctionEnv<'_, EmEnv>, name_ptr: i32) -> i32 {
+pub fn chroot(ctx: FunctionEnvMut<'_, EmEnv>, name_ptr: i32) -> i32 {
     debug!("emscripten::chroot");
     let name = emscripten_memory_pointer!(ctx, ctx.data().memory(0), name_ptr) as *const i8;
     unsafe { _chroot(name as *const _) }
@@ -29,7 +29,7 @@ pub fn chroot(ctx: FunctionEnv<'_, EmEnv>, name_ptr: i32) -> i32 {
 
 /// getpwuid
 #[allow(clippy::cast_ptr_alignment)]
-pub fn getpwuid(mut ctx: FunctionEnv<'_, EmEnv>, uid: i32) -> i32 {
+pub fn getpwuid(mut ctx: FunctionEnvMut<'_, EmEnv>, uid: i32) -> i32 {
     debug!("emscripten::getpwuid {}", uid);
 
     #[repr(C)]

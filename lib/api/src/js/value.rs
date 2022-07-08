@@ -128,7 +128,7 @@ impl Value {
     ///
     /// Externref and funcref values are tied to a context and can only be used
     /// with that context.
-    pub fn is_from_context(&self, ctx: &impl AsStoreRef) -> bool {
+    pub fn is_from_store(&self, ctx: &impl AsStoreRef) -> bool {
         match self {
             Self::I32(_)
             | Self::I64(_)
@@ -136,8 +136,8 @@ impl Value {
             | Self::F64(_)
             //| Self::ExternRef(None)
             | Self::FuncRef(None) => true,
-            //Self::ExternRef(Some(e)) => e.is_from_context(ctx),
-            Self::FuncRef(Some(f)) => f.is_from_context(ctx),
+            //Self::ExternRef(Some(e)) => e.is_from_store(ctx),
+            Self::FuncRef(Some(f)) => f.is_from_store(ctx),
         }
     }
 

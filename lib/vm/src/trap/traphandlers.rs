@@ -4,7 +4,7 @@
 //! WebAssembly trap handling, which is built on top of the lower-level
 //! signalhandling mechanisms.
 
-use crate::vmcontext::{VMFunctionEnvironment, VMTrampoline};
+use crate::vmcontext::{VMFunctionEnvMutironment, VMTrampoline};
 use crate::{Trap, VMFunctionBody};
 use backtrace::Backtrace;
 use core::ptr::{read, read_unaligned};
@@ -612,13 +612,13 @@ pub unsafe fn resume_panic(payload: Box<dyn Any + Send>) -> ! {
 /// function pointers.
 pub unsafe fn wasmer_call_trampoline(
     trap_handler: &(impl TrapHandler + 'static),
-    vmctx: VMFunctionEnvironment,
+    vmctx: VMFunctionEnvMutironment,
     trampoline: VMTrampoline,
     callee: *const VMFunctionBody,
     values_vec: *mut u8,
 ) -> Result<(), Trap> {
     catch_traps(trap_handler, || {
-        mem::transmute::<_, extern "C" fn(VMFunctionEnvironment, *const VMFunctionBody, *mut u8)>(
+        mem::transmute::<_, extern "C" fn(VMFunctionEnvMutironment, *const VMFunctionBody, *mut u8)>(
             trampoline,
         )(vmctx, callee, values_vec);
     })
@@ -671,7 +671,7 @@ struct TrapHandlerContext {
     ) -> bool,
     custom_trap: *const dyn TrapHandler,
 }
-struct TrapHandlerContextInner<T> {
+struct TrapHandlerStoreInner<T> {
     /// Information about the currently running coroutine. This is used to
     /// reset execution to the root of the coroutine when a trap is handled.
     coro_trap_handler: CoroutineTrapHandler<Result<T, UnwindReason>>,
@@ -695,7 +695,7 @@ impl TrapHandlerContext {
             update_regs: &mut dyn FnMut(TrapHandlerRegs),
         ) -> bool {
             unsafe {
-                (*(ptr as *const TrapHandlerContextInner<T>)).handle_trap(
+                (*(ptr as *const TrapHandlerStoreInner<T>)).handle_trap(
                     pc,
                     sp,
                     maybe_fault_address,
@@ -704,7 +704,7 @@ impl TrapHandlerContext {
                 )
             }
         }
-        let inner = TrapHandlerContextInner { coro_trap_handler };
+        let inner = TrapHandlerStoreInner { coro_trap_handler };
         let ctx = Self {
             inner: &inner as *const _ as *const u8,
             handle_trap: func::<T>,
@@ -758,7 +758,7 @@ impl TrapHandlerContext {
     }
 }
 
-impl<T> TrapHandlerContextInner<T> {
+impl<T> TrapHandlerStoreInner<T> {
     unsafe fn handle_trap(
         &self,
         pc: usize,

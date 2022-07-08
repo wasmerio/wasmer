@@ -15,7 +15,7 @@ use crate::memory::MemoryError;
 use crate::table::TableElement;
 use crate::trap::{catch_traps, Trap, TrapCode, TrapHandler};
 use crate::vmcontext::{
-    VMBuiltinFunctionsArray, VMCallerCheckedAnyfunc, VMContext, VMFunctionEnvironment,
+    VMBuiltinFunctionsArray, VMCallerCheckedAnyfunc, VMContext, VMFunctionEnvMutironment,
     VMFunctionImport, VMFunctionKind, VMGlobalDefinition, VMGlobalImport, VMMemoryDefinition,
     VMMemoryImport, VMSharedSignatureIndex, VMTableDefinition, VMTableImport, VMTrampoline,
 };
@@ -299,7 +299,7 @@ impl Instance {
                     .0;
                 (
                     body as *const _,
-                    VMFunctionEnvironment {
+                    VMFunctionEnvMutironment {
                         vmctx: self.vmctx_ptr(),
                     },
                 )
@@ -314,7 +314,7 @@ impl Instance {
         // Make the call.
         unsafe {
             catch_traps(trap_handler, || {
-                mem::transmute::<*const VMFunctionBody, unsafe extern "C" fn(VMFunctionEnvironment)>(
+                mem::transmute::<*const VMFunctionBody, unsafe extern "C" fn(VMFunctionEnvMutironment)>(
                     callee_address,
                 )(callee_vmctx)
             })
@@ -1318,7 +1318,7 @@ fn build_funcrefs(
         let anyfunc = VMCallerCheckedAnyfunc {
             func_ptr: func_ptr.0,
             type_index,
-            vmctx: VMFunctionEnvironment { vmctx: vmctx_ptr },
+            vmctx: VMFunctionEnvMutironment { vmctx: vmctx_ptr },
             call_trampoline,
         };
         func_refs.push(anyfunc);
