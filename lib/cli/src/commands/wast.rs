@@ -28,8 +28,8 @@ impl Wast {
             .context(format!("failed to test the wast `{}`", self.path.display()))
     }
     fn inner_execute(&self) -> Result<()> {
-        let (store, _compiler_name) = self.store.get_store()?;
-        let ctx = WasmerContext::new(&store, ());
+        let (mut store, _compiler_name) = self.store.get_store()?;
+        let ctx = FunctionEnv::new(&mut store, ());
         let mut wast = WastSpectest::new_with_spectest(ctx);
         wast.fail_fast = self.fail_fast;
         wast.run_file(&self.path).with_context(|| "tests failed")?;

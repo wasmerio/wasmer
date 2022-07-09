@@ -294,7 +294,7 @@ mod js {
         }
 
         let mut ctx = Context::new(&store, ());
-        let imported = Function::new_native(&mut ctx, imported_fn);
+        let imported = Function::new_native(&mut store, &ctx, imported_fn);
 
         let import_object = imports! {
             "env" => {
@@ -350,7 +350,7 @@ mod js {
 
         let mut ctx = Context::new(&store, Env { multiplier: 3 });
 
-        let imported = Function::new_native(&mut ctx, imported_fn);
+        let imported = Function::new_native(&mut store, &ctx, imported_fn);
 
         let import_object = imports! {
             "env" => {
@@ -414,7 +414,7 @@ mod js {
                 memory: None,
             },
         );
-        let imported = Function::new_native(&mut ctx, imported_fn);
+        let imported = Function::new_native(&mut store, &ctx, imported_fn);
 
         let import_object = imports! {
             "env" => {
@@ -637,7 +637,7 @@ mod js {
 
         let import_object = imports! {
             "env" => {
-                "sum" => Function::new_native(&mut ctx, sum),
+                "sum" => Function::new_native(&mut store, &ctx, sum),
             }
         };
 
@@ -677,7 +677,7 @@ mod js {
 
         let import_object = imports! {
             "env" => {
-                "early_exit" => Function::new_native(&mut ctx, early_exit),
+                "early_exit" => Function::new_native(&mut store, &ctx, early_exit),
             }
         };
         let instance = Instance::new(&mut store, &module, &import_object).unwrap();
@@ -740,7 +740,7 @@ mod js {
 
         let import_object = imports! {
             "env" => {
-                "early_exit" => Function::new_native(&mut ctx, early_exit),
+                "early_exit" => Function::new_native(&mut store, &ctx, early_exit),
             }
         };
 

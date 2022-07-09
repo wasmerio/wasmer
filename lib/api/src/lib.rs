@@ -157,7 +157,7 @@
 //! let memory = Memory::new(&mut ctx, MemoryType::new(1, None, false)).unwrap();
 //! imports! {
 //!     "env" => {
-//!          "my_function" => Function::new_native(&mut ctx, |_ctx: FunctionEnvMut<()>| println!("Hello")),
+//!          "my_function" => Function::new_native(&mut store, &ctx, |_ctx: FunctionEnvMut<()>| println!("Hello")),
 //!          "memory" => memory,
 //!     }
 //! }
