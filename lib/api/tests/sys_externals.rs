@@ -532,7 +532,7 @@ mod sys {
     //         assert_eq!(result, 21);
 
     //         let memory = Memory::new(&mut store, MemoryType::new(0, None, false))?;
-    //         ctx.data_mut().memory = Some(memory);
+    //         ctx.as_mut(&mut store).memory = Some(memory);
 
     //         let result = host_function(ctx.as_context_mut(), 1, 2);
     //         assert_eq!(result, 8);

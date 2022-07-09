@@ -46,7 +46,7 @@ mod sys {
 
         let func_to_call =
             Function::new_native(&mut store, &ctx, |mut ctx: FunctionEnvMut<Env>| -> i32 {
-                ctx.data_mut().0.store(true, Ordering::SeqCst);
+                ctx.as_mut(&mut store).0.store(true, Ordering::SeqCst);
                 343
             });
         let call_set_value: &Function = instance.exports.get_function("call_set_value")?;

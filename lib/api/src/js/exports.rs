@@ -154,7 +154,7 @@ impl Exports {
     /// Get an export as a `TypedFunction`.
     pub fn get_typed_function<Args, Rets>(
         &self,
-        ctx: &impl AsStoreRef,
+        store: &impl AsStoreRef,
         name: &str,
     ) -> Result<TypedFunction<Args, Rets>, ExportError>
     where
@@ -162,7 +162,7 @@ impl Exports {
         Rets: WasmTypeList,
     {
         self.get_function(name)?
-            .native(ctx)
+            .native(store)
             .map_err(|_| ExportError::IncompatibleType)
     }
 
