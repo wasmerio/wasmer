@@ -1,4 +1,4 @@
-use crate::js::context::{AsStoreMut, AsStoreRef, StoreHandle, InternalStoreHandle};
+use crate::js::context::{AsStoreMut, AsStoreRef, InternalStoreHandle, StoreHandle};
 use crate::js::export::{VMFunction, VMTable};
 use crate::js::exports::{ExportError, Exportable};
 use crate::js::externals::Extern;

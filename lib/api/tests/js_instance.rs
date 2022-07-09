@@ -456,7 +456,10 @@ mod js {
 
         let mut ctx = Context::new(&store, Env { multiplier: 3 });
 
-        fn imported_fn(ctx: FunctionEnvMut<'_, Env>, args: &[Val]) -> Result<Vec<Val>, RuntimeError> {
+        fn imported_fn(
+            ctx: FunctionEnvMut<'_, Env>,
+            args: &[Val],
+        ) -> Result<Vec<Val>, RuntimeError> {
             let value = ctx.data().multiplier * args[0].unwrap_i32() as u32;
             return Ok(vec![Val::I32(value as _)]);
         }
@@ -503,7 +506,10 @@ mod js {
             memory: Option<Memory>,
         }
 
-        fn imported_fn(ctx: FunctionEnvMut<'_, Env>, args: &[Val]) -> Result<Vec<Val>, RuntimeError> {
+        fn imported_fn(
+            ctx: FunctionEnvMut<'_, Env>,
+            args: &[Val],
+        ) -> Result<Vec<Val>, RuntimeError> {
             let memory: &Memory = ctx.data().memory.as_ref().unwrap();
             let memory_val = memory.uint8view(&ctx).get_index(0);
             let value = (memory_val as u32) * ctx.data().multiplier * args[0].unwrap_i32() as u32;

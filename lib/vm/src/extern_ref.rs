@@ -2,7 +2,7 @@ use std::any::Any;
 
 use wasmer_types::RawValue;
 
-use crate::context::InternalStoreHandle;
+use crate::store::InternalStoreHandle;
 
 /// Underlying object referenced by a `VMExternRef`.
 pub struct VMExternObj {

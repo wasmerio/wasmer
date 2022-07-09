@@ -99,7 +99,9 @@ mod sys {
             minimum: 0,
             maximum: Some(1),
         };
-        let f = Function::new_native(&mut ctx, |_ctx: FunctionEnvMut<()>, num: i32| num + 1);
+        let f = Function::new_native(&mut store, &ctx, |_ctx: FunctionEnvMut<()>, num: i32| {
+            num + 1
+        });
         let table = Table::new(&mut ctx, table_type, Value::FuncRef(Some(f)))?;
         assert_eq!(table.ty(&mut ctx), table_type);
         let _elem = table.get(&mut ctx, 0).unwrap();
@@ -214,10 +216,10 @@ mod sys {
             function.ty(&mut ctx).clone(),
             FunctionType::new(vec![], vec![Type::I32])
         );
-        let function =
-            Function::new_native(&mut ctx, |_ctx: FunctionEnvMut<_>| -> (i32, i64, f32, f64) {
-                (1, 2, 3.0, 4.0)
-            });
+        let function = Function::new_native(
+            &mut ctx,
+            |_ctx: FunctionEnvMut<_>| -> (i32, i64, f32, f64) { (1, 2, 3.0, 4.0) },
+        );
         assert_eq!(
             function.ty(&mut ctx).clone(),
             FunctionType::new(vec![], vec![Type::I32, Type::I64, Type::F32, Type::F64])
@@ -399,8 +401,9 @@ mod sys {
         let result = native_function.call(&mut ctx);
         assert!(result.is_ok());
 
-        let function =
-            Function::new_native(&mut ctx, |_ctx: FunctionEnvMut<()>, a: i32| -> i32 { a + 1 });
+        let function = Function::new_native(&mut ctx, |_ctx: FunctionEnvMut<()>, a: i32| -> i32 {
+            a + 1
+        });
         let native_function: TypedFunction<i32, i32> = function.native(&mut ctx).unwrap();
         assert_eq!(native_function.call(&mut ctx, 3).unwrap(), 4);
 
@@ -420,10 +423,10 @@ mod sys {
         let native_function: TypedFunction<i32, ()> = function.native(&mut ctx).unwrap();
         assert!(native_function.call(&mut ctx, 4).is_ok());
 
-        let function =
-            Function::new_native(&mut ctx, |_ctx: FunctionEnvMut<()>| -> (i32, i64, f32, f64) {
-                (1, 2, 3.0, 4.0)
-            });
+        let function = Function::new_native(
+            &mut ctx,
+            |_ctx: FunctionEnvMut<()>| -> (i32, i64, f32, f64) { (1, 2, 3.0, 4.0) },
+        );
         let native_function: TypedFunction<(), (i32, i64, f32, f64)> =
             function.native(&mut ctx).unwrap();
         assert_eq!(native_function.call(&mut ctx).unwrap(), (1, 2, 3.0, 4.0));

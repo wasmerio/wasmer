@@ -30,7 +30,12 @@ pub fn _getenv(mut ctx: FunctionEnvMut<'_, EmEnv>, name: u32) -> u32 {
 }
 
 /// emscripten: _setenv // (name: *const char, name: *const value, overwrite: int);
-pub fn _setenv(mut ctx: FunctionEnvMut<'_, EmEnv>, name: u32, value: u32, _overwrite: u32) -> c_int {
+pub fn _setenv(
+    mut ctx: FunctionEnvMut<'_, EmEnv>,
+    name: u32,
+    value: u32,
+    _overwrite: u32,
+) -> c_int {
     debug!("emscripten::_setenv");
     let memory = ctx.data().memory(0);
     // setenv does not exist on windows, so we hack it with _putenv

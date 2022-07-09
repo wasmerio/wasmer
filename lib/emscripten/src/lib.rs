@@ -23,9 +23,9 @@ use std::f64;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, RwLock};
 use wasmer::{
-    imports, namespace, AsStoreMut, FunctionEnvMut, Exports, Function, FunctionType, Global, Imports,
-    Instance, Memory, MemoryType, Module, Pages, RuntimeError, Table, TableType, TypedFunction,
-    Value, WasmPtr,
+    imports, namespace, AsStoreMut, Exports, Function, FunctionEnvMut, FunctionType, Global,
+    Imports, Instance, Memory, MemoryType, Module, Pages, RuntimeError, Table, TableType,
+    TypedFunction, Value, WasmPtr,
 };
 use wasmer_types::Type as ValType;
 

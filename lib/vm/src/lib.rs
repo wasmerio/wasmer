@@ -20,9 +20,9 @@
     )
 )]
 
-mod context;
 mod export;
 mod extern_ref;
+mod function_env;
 mod global;
 mod imports;
 mod instance;
@@ -30,6 +30,7 @@ mod memory;
 mod mmap;
 mod probestack;
 mod sig_registry;
+mod store;
 mod table;
 mod trap;
 mod vmcontext;
@@ -38,11 +39,9 @@ pub mod libcalls;
 
 use std::ptr::NonNull;
 
-pub use crate::context::{
-    StoreHandle, StoreId, StoreObjects, InternalStoreHandle, MaybeInstanceOwned,
-};
 pub use crate::export::*;
 pub use crate::extern_ref::{VMExternObj, VMExternRef};
+pub use crate::function_env::VMFunctionEnvironment;
 pub use crate::global::*;
 pub use crate::imports::Imports;
 pub use crate::instance::{InstanceAllocator, InstanceHandle};
@@ -50,10 +49,13 @@ pub use crate::memory::{MemoryError, VMMemory};
 pub use crate::mmap::Mmap;
 pub use crate::probestack::PROBESTACK;
 pub use crate::sig_registry::SignatureRegistry;
+pub use crate::store::{
+    InternalStoreHandle, MaybeInstanceOwned, StoreHandle, StoreId, StoreObjects,
+};
 pub use crate::table::{TableElement, VMTable};
 pub use crate::trap::*;
 pub use crate::vmcontext::{
-    VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionContext, VMFunctionEnvMutironment,
+    VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionContext, VMFunctionContext,
     VMFunctionImport, VMFunctionKind, VMGlobalDefinition, VMGlobalImport, VMMemoryDefinition,
     VMMemoryImport, VMSharedSignatureIndex, VMTableDefinition, VMTableImport, VMTrampoline,
 };

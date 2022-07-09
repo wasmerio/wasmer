@@ -92,7 +92,12 @@ pub fn _getdtablesize(_ctx: FunctionEnvMut<'_, EmEnv>) -> i32 {
     debug!("emscripten::getdtablesize");
     -1
 }
-pub fn _gethostbyaddr(_ctx: FunctionEnvMut<'_, EmEnv>, _addr: i32, _addrlen: i32, _atype: i32) -> i32 {
+pub fn _gethostbyaddr(
+    _ctx: FunctionEnvMut<'_, EmEnv>,
+    _addr: i32,
+    _addrlen: i32,
+    _atype: i32,
+) -> i32 {
     debug!("emscripten::gethostbyaddr");
     0
 }
@@ -200,11 +205,23 @@ pub fn invoke_iii(mut ctx: FunctionEnvMut<'_, EmEnv>, index: i32, a1: i32, a2: i
     debug!("emscripten::invoke_iii");
     invoke!(ctx, dyn_call_iii, dyn_call_iii_ref, index, a1, a2)
 }
-pub fn invoke_iiii(mut ctx: FunctionEnvMut<'_, EmEnv>, index: i32, a1: i32, a2: i32, a3: i32) -> i32 {
+pub fn invoke_iiii(
+    mut ctx: FunctionEnvMut<'_, EmEnv>,
+    index: i32,
+    a1: i32,
+    a2: i32,
+    a3: i32,
+) -> i32 {
     debug!("emscripten::invoke_iiii");
     invoke!(ctx, dyn_call_iiii, dyn_call_iiii_ref, index, a1, a2, a3)
 }
-pub fn invoke_iifi(mut ctx: FunctionEnvMut<'_, EmEnv>, index: i32, a1: i32, a2: f64, a3: i32) -> i32 {
+pub fn invoke_iifi(
+    mut ctx: FunctionEnvMut<'_, EmEnv>,
+    index: i32,
+    a1: i32,
+    a2: f64,
+    a3: i32,
+) -> i32 {
     debug!("emscripten::invoke_iifi");
     invoke!(ctx, dyn_call_iifi, dyn_call_iifi_ref, index, a1, a2, a3)
 }
@@ -628,12 +645,24 @@ pub fn invoke_viiiiiiiiii(
     )
 }
 
-pub fn invoke_iij(mut ctx: FunctionEnvMut<'_, EmEnv>, index: i32, a1: i32, a2: i32, a3: i32) -> i32 {
+pub fn invoke_iij(
+    mut ctx: FunctionEnvMut<'_, EmEnv>,
+    index: i32,
+    a1: i32,
+    a2: i32,
+    a3: i32,
+) -> i32 {
     debug!("emscripten::invoke_iij");
     invoke!(ctx, dyn_call_iij, dyn_call_iij_ref, index, a1, a2, a3)
 }
 
-pub fn invoke_iji(mut ctx: FunctionEnvMut<'_, EmEnv>, index: i32, a1: i32, a2: i32, a3: i32) -> i32 {
+pub fn invoke_iji(
+    mut ctx: FunctionEnvMut<'_, EmEnv>,
+    index: i32,
+    a1: i32,
+    a2: i32,
+    a3: i32,
+) -> i32 {
     debug!("emscripten::invoke_iji");
     invoke!(ctx, dyn_call_iji, dyn_call_iji_ref, index, a1, a2, a3)
 }
@@ -688,7 +717,13 @@ pub fn invoke_jii(mut ctx: FunctionEnvMut<'_, EmEnv>, index: i32, a1: i32, a2: i
     invoke_no_stack_save!(ctx, dyn_call_jii, dyn_call_jii_ref, index, a1, a2)
 }
 
-pub fn invoke_jij(mut ctx: FunctionEnvMut<'_, EmEnv>, index: i32, a1: i32, a2: i32, a3: i32) -> i32 {
+pub fn invoke_jij(
+    mut ctx: FunctionEnvMut<'_, EmEnv>,
+    index: i32,
+    a1: i32,
+    a2: i32,
+    a3: i32,
+) -> i32 {
     debug!("emscripten::invoke_jij");
     invoke_no_stack_save!(ctx, dyn_call_jij, dyn_call_jij_ref, index, a1, a2, a3)
 }
@@ -791,7 +826,14 @@ pub fn invoke_viiijiiiiii(
         a11
     )
 }
-pub fn invoke_viij(mut ctx: FunctionEnvMut<'_, EmEnv>, index: i32, a1: i32, a2: i32, a3: i32, a4: i32) {
+pub fn invoke_viij(
+    mut ctx: FunctionEnvMut<'_, EmEnv>,
+    index: i32,
+    a1: i32,
+    a2: i32,
+    a3: i32,
+    a4: i32,
+) {
     debug!("emscripten::invoke_viij");
     invoke_no_stack_save!(ctx, dyn_call_viij, dyn_call_viij_ref, index, a1, a2, a3, a4)
 }
@@ -899,7 +941,14 @@ pub fn invoke_vij(mut ctx: FunctionEnvMut<'_, EmEnv>, index: i32, a1: i32, a2: i
     debug!("emscripten::invoke_vij");
     invoke_no_stack_save!(ctx, dyn_call_vij, dyn_call_vij_ref, index, a1, a2, a3)
 }
-pub fn invoke_viji(mut ctx: FunctionEnvMut<'_, EmEnv>, index: i32, a1: i32, a2: i32, a3: i32, a4: i32) {
+pub fn invoke_viji(
+    mut ctx: FunctionEnvMut<'_, EmEnv>,
+    index: i32,
+    a1: i32,
+    a2: i32,
+    a3: i32,
+    a4: i32,
+) {
     debug!("emscripten::invoke_viji");
     invoke_no_stack_save!(ctx, dyn_call_viji, dyn_call_viji_ref, index, a1, a2, a3, a4)
 }

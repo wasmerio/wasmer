@@ -57,7 +57,12 @@ pub fn _pthread_cond_signal(mut _ctx: FunctionEnvMut<'_, EmEnv>, _a: i32) -> i32
     0
 }
 
-pub fn _pthread_cond_timedwait(mut _ctx: FunctionEnvMut<'_, EmEnv>, _a: i32, _b: i32, _c: i32) -> i32 {
+pub fn _pthread_cond_timedwait(
+    mut _ctx: FunctionEnvMut<'_, EmEnv>,
+    _a: i32,
+    _b: i32,
+    _c: i32,
+) -> i32 {
     trace!("emscripten::_pthread_cond_timedwait");
     0
 }
@@ -82,7 +87,13 @@ pub fn _pthread_condattr_setclock(mut _ctx: FunctionEnvMut<'_, EmEnv>, _a: i32, 
     0
 }
 
-pub fn _pthread_create(mut _ctx: FunctionEnvMut<'_, EmEnv>, _a: i32, _b: i32, _c: i32, _d: i32) -> i32 {
+pub fn _pthread_create(
+    mut _ctx: FunctionEnvMut<'_, EmEnv>,
+    _a: i32,
+    _b: i32,
+    _c: i32,
+    _d: i32,
+) -> i32 {
     trace!("emscripten::_pthread_create");
     // 11 seems to mean "no"
     11

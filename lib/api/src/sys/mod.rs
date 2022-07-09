@@ -1,7 +1,7 @@
-mod context;
 mod exports;
 mod extern_ref;
 mod externals;
+mod function_env;
 mod imports;
 mod instance;
 mod mem_access;
@@ -13,18 +13,19 @@ mod store;
 mod tunables;
 mod value;
 
-pub use crate::sys::context::{AsStoreMut, AsStoreRef, Context, FunctionEnvMut, StoreRef};
 pub use crate::sys::exports::{ExportError, Exportable, Exports, ExportsIterator};
 pub use crate::sys::extern_ref::ExternRef;
 pub use crate::sys::externals::{
     Extern, FromToNativeWasmType, Function, Global, HostFunction, Memory, Table, WasmTypeList,
 };
+pub use crate::sys::function_env::{FunctionEnv, FunctionEnvMut};
 pub use crate::sys::imports::Imports;
 pub use crate::sys::instance::{Instance, InstantiationError};
 pub use crate::sys::mem_access::{MemoryAccessError, WasmRef, WasmSlice, WasmSliceIter};
 pub use crate::sys::module::Module;
 pub use crate::sys::native::TypedFunction;
 pub use crate::sys::native_type::NativeWasmTypeInto;
+pub use crate::sys::store::{AsStoreMut, AsStoreRef, StoreMut, StoreRef};
 
 pub use crate::sys::ptr::{Memory32, Memory64, MemorySize, WasmPtr, WasmPtr64};
 pub use crate::sys::store::Store;

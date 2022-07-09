@@ -1,6 +1,6 @@
 pub use self::inner::{FromToNativeWasmType, HostFunction, WasmTypeList};
 use crate::js::context::{
-    AsStoreMut, AsStoreRef, StoreHandle, FunctionEnvMut, InternalStoreHandle,
+    AsStoreMut, AsStoreRef, FunctionEnvMut, InternalStoreHandle, StoreHandle,
 };
 use crate::js::exports::{ExportError, Exportable};
 use crate::js::externals::Extern;
@@ -495,7 +495,7 @@ impl fmt::Debug for Function {
 mod inner {
     use super::RuntimeError;
     use super::VMFunctionBody;
-    use crate::js::context::{AsStoreMut, StoreInner, FunctionEnvMut};
+    use crate::js::context::{AsStoreMut, FunctionEnvMut, StoreInner};
     use crate::js::NativeWasmTypeInto;
     use std::array::TryFromSliceError;
     use std::convert::{Infallible, TryInto};

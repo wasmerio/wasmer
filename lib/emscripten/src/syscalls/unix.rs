@@ -157,7 +157,11 @@ use libc::SO_NOSIGPIPE;
 const SO_NOSIGPIPE: c_int = 0;
 
 /// open
-pub fn ___syscall5(mut ctx: FunctionEnvMut<'_, EmEnv>, _which: c_int, mut varargs: VarArgs) -> c_int {
+pub fn ___syscall5(
+    mut ctx: FunctionEnvMut<'_, EmEnv>,
+    _which: c_int,
+    mut varargs: VarArgs,
+) -> c_int {
     debug!("emscripten::___syscall5 (open) {}", _which);
     let pathname_addr = varargs.get_str(&ctx);
     let flags: i32 = varargs.get(&ctx);
@@ -209,7 +213,11 @@ pub fn ___syscall77(ctx: FunctionEnvMut<'_, EmEnv>, _which: c_int, mut varargs: 
 }
 
 /// symlink
-pub fn ___syscall83(mut ctx: FunctionEnvMut<'_, EmEnv>, _which: c_int, mut varargs: VarArgs) -> c_int {
+pub fn ___syscall83(
+    mut ctx: FunctionEnvMut<'_, EmEnv>,
+    _which: c_int,
+    mut varargs: VarArgs,
+) -> c_int {
     debug!("emscripten::___syscall83 (symlink) {}", _which);
 
     let path1 = varargs.get_str(&ctx);
@@ -237,7 +245,11 @@ pub fn ___syscall83(mut ctx: FunctionEnvMut<'_, EmEnv>, _which: c_int, mut varar
 }
 
 /// readlink
-pub fn ___syscall85(mut ctx: FunctionEnvMut<'_, EmEnv>, _which: c_int, mut varargs: VarArgs) -> i32 {
+pub fn ___syscall85(
+    mut ctx: FunctionEnvMut<'_, EmEnv>,
+    _which: c_int,
+    mut varargs: VarArgs,
+) -> i32 {
     debug!("emscripten::___syscall85 (readlink)");
     let pathname_addr = varargs.get_str(&ctx);
     let buf = varargs.get_str(&ctx);
@@ -283,7 +295,11 @@ pub fn ___syscall194(ctx: FunctionEnvMut<'_, EmEnv>, _which: c_int, mut varargs:
 }
 
 /// lchown
-pub fn ___syscall198(mut ctx: FunctionEnvMut<'_, EmEnv>, _which: c_int, mut varargs: VarArgs) -> c_int {
+pub fn ___syscall198(
+    mut ctx: FunctionEnvMut<'_, EmEnv>,
+    _which: c_int,
+    mut varargs: VarArgs,
+) -> c_int {
     debug!("emscripten::___syscall198 (lchown) {}", _which);
     let path_ptr = varargs.get_str(&ctx);
     let real_path_owned = utils::get_cstr_path(ctx.as_store_mut(), path_ptr as *const _);
@@ -323,7 +339,11 @@ pub fn ___syscall205(ctx: FunctionEnvMut<'_, EmEnv>, _which: c_int, mut varargs:
 }
 
 // chown
-pub fn ___syscall212(mut ctx: FunctionEnvMut<'_, EmEnv>, _which: c_int, mut varargs: VarArgs) -> c_int {
+pub fn ___syscall212(
+    mut ctx: FunctionEnvMut<'_, EmEnv>,
+    _which: c_int,
+    mut varargs: VarArgs,
+) -> c_int {
     debug!("emscripten::___syscall212 (chown) {}", _which);
 
     let pathname_addr = varargs.get_str(&ctx);
@@ -353,7 +373,11 @@ pub fn ___syscall219(ctx: FunctionEnvMut<'_, EmEnv>, _which: c_int, mut varargs:
 }
 
 /// access
-pub fn ___syscall33(mut ctx: FunctionEnvMut<'_, EmEnv>, _which: c_int, mut varargs: VarArgs) -> c_int {
+pub fn ___syscall33(
+    mut ctx: FunctionEnvMut<'_, EmEnv>,
+    _which: c_int,
+    mut varargs: VarArgs,
+) -> c_int {
     debug!("emscripten::___syscall33 (access) {}", _which);
     let path = varargs.get_str(&ctx);
     let real_path_owned = utils::get_cstr_path(ctx.as_store_mut(), path as *const _);
@@ -381,7 +405,11 @@ pub fn ___syscall34(ctx: FunctionEnvMut<'_, EmEnv>, _which: c_int, mut varargs: 
 }
 
 // mkdir
-pub fn ___syscall39(mut ctx: FunctionEnvMut<'_, EmEnv>, _which: c_int, mut varargs: VarArgs) -> c_int {
+pub fn ___syscall39(
+    mut ctx: FunctionEnvMut<'_, EmEnv>,
+    _which: c_int,
+    mut varargs: VarArgs,
+) -> c_int {
     debug!("emscripten::___syscall39 (mkdir) {}", _which);
     let pathname_addr = varargs.get_str(&ctx);
     let real_path_owned = utils::get_cstr_path(ctx.as_store_mut(), pathname_addr as *const _);

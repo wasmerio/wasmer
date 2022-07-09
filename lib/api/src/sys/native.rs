@@ -99,7 +99,7 @@ macro_rules! impl_native_traits {
                 };
                 unsafe {
                     wasmer_vm::wasmer_call_trampoline(
-                        ctx.as_store_ref().store(),
+                        ctx.as_store_ref().signal_handler(),
                         anyfunc.vmctx,
                         anyfunc.call_trampoline,
                         anyfunc.func_ptr,

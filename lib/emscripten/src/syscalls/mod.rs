@@ -163,7 +163,11 @@ pub fn ___syscall36(_ctx: FunctionEnvMut<'_, EmEnv>, _one: i32, _two: i32) -> i3
 }
 
 // rename
-pub fn ___syscall38(mut ctx: FunctionEnvMut<'_, EmEnv>, _which: c_int, mut varargs: VarArgs) -> i32 {
+pub fn ___syscall38(
+    mut ctx: FunctionEnvMut<'_, EmEnv>,
+    _which: c_int,
+    mut varargs: VarArgs,
+) -> i32 {
     debug!("emscripten::___syscall38 (rename)");
     let old_path = varargs.get_str(&ctx);
     let new_path = varargs.get_str(&ctx);
@@ -347,7 +351,11 @@ pub fn ___syscall163(_ctx: FunctionEnvMut<'_, EmEnv>, _one: i32, _two: i32) -> i
 }
 
 // getcwd
-pub fn ___syscall183(mut ctx: FunctionEnvMut<'_, EmEnv>, _which: c_int, mut varargs: VarArgs) -> i32 {
+pub fn ___syscall183(
+    mut ctx: FunctionEnvMut<'_, EmEnv>,
+    _which: c_int,
+    mut varargs: VarArgs,
+) -> i32 {
     debug!("emscripten::___syscall183");
     let buf_offset: WasmPtr<libc::c_char> = varargs.get(&ctx);
     let _size: c_int = varargs.get(&ctx);
@@ -365,7 +373,11 @@ pub fn ___syscall183(mut ctx: FunctionEnvMut<'_, EmEnv>, _which: c_int, mut vara
 }
 
 // mmap2
-pub fn ___syscall192(mut ctx: FunctionEnvMut<'_, EmEnv>, _which: c_int, mut varargs: VarArgs) -> c_int {
+pub fn ___syscall192(
+    mut ctx: FunctionEnvMut<'_, EmEnv>,
+    _which: c_int,
+    mut varargs: VarArgs,
+) -> c_int {
     debug!("emscripten::___syscall192 (mmap2) {}", _which);
     let _addr: i32 = varargs.get(&ctx);
     let len: u32 = varargs.get(&ctx);
@@ -534,7 +546,11 @@ pub fn ___syscall193(_ctx: FunctionEnvMut<'_, EmEnv>, _one: i32, _two: i32) -> i
 }
 
 // stat64
-pub fn ___syscall195(mut ctx: FunctionEnvMut<'_, EmEnv>, _which: c_int, mut varargs: VarArgs) -> c_int {
+pub fn ___syscall195(
+    mut ctx: FunctionEnvMut<'_, EmEnv>,
+    _which: c_int,
+    mut varargs: VarArgs,
+) -> c_int {
     debug!("emscripten::___syscall195 (stat64) {}", _which);
     let pathname_addr = varargs.get_str(&ctx);
     let buf: u32 = varargs.get(&ctx);
@@ -680,7 +696,11 @@ pub fn ___syscall308(_ctx: FunctionEnvMut<'_, EmEnv>, _one: i32, _two: i32) -> i
 }
 
 // utimensat
-pub fn ___syscall320(_ctx: FunctionEnvMut<'_, EmEnv>, _which: c_int, mut _varargs: VarArgs) -> c_int {
+pub fn ___syscall320(
+    _ctx: FunctionEnvMut<'_, EmEnv>,
+    _which: c_int,
+    mut _varargs: VarArgs,
+) -> c_int {
     debug!("emscripten::___syscall320 (utimensat), {}", _which);
     0
 }

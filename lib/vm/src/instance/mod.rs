@@ -8,18 +8,18 @@
 
 mod allocator;
 
-use crate::context::{StoreObjects, InternalStoreHandle};
 use crate::export::VMExtern;
 use crate::imports::Imports;
 use crate::memory::MemoryError;
+use crate::store::{InternalStoreHandle, StoreObjects};
 use crate::table::TableElement;
 use crate::trap::{catch_traps, Trap, TrapCode, TrapHandler};
 use crate::vmcontext::{
-    VMBuiltinFunctionsArray, VMCallerCheckedAnyfunc, VMContext, VMFunctionEnvMutironment,
+    VMBuiltinFunctionsArray, VMCallerCheckedAnyfunc, VMContext, VMFunctionContext,
     VMFunctionImport, VMFunctionKind, VMGlobalDefinition, VMGlobalImport, VMMemoryDefinition,
     VMMemoryImport, VMSharedSignatureIndex, VMTableDefinition, VMTableImport, VMTrampoline,
 };
-use crate::{FunctionBodyPtr, MaybeInstanceOwned, VMFunctionBody};
+use crate::{FunctionBodyPtr, MaybeInstanceOwned, TrapHandlerFn, VMFunctionBody};
 use crate::{VMFuncRef, VMFunction, VMGlobal, VMMemory, VMTable};
 pub use allocator::InstanceAllocator;
 use memoffset::offset_of;
@@ -283,7 +283,7 @@ impl Instance {
     /// Invoke the WebAssembly start function of the instance, if one is present.
     fn invoke_start_function(
         &self,
-        trap_handler: &(dyn TrapHandler + 'static),
+        trap_handler: Option<*const TrapHandlerFn<'static>>,
     ) -> Result<(), Trap> {
         let start_index = match self.module.start_function {
             Some(idx) => idx,
@@ -299,7 +299,7 @@ impl Instance {
                     .0;
                 (
                     body as *const _,
-                    VMFunctionEnvMutironment {
+                    VMFunctionContext {
                         vmctx: self.vmctx_ptr(),
                     },
                 )
@@ -314,7 +314,7 @@ impl Instance {
         // Make the call.
         unsafe {
             catch_traps(trap_handler, || {
-                mem::transmute::<*const VMFunctionBody, unsafe extern "C" fn(VMFunctionEnvMutironment)>(
+                mem::transmute::<*const VMFunctionBody, unsafe extern "C" fn(VMFunctionContext)>(
                     callee_address,
                 )(callee_vmctx)
             })
@@ -938,7 +938,7 @@ impl InstanceHandle {
     /// Only safe to call immediately after instantiation.
     pub unsafe fn finish_instantiation(
         &mut self,
-        trap_handler: &(dyn TrapHandler + 'static),
+        trap_handler: Option<*const TrapHandlerFn<'static>>,
         data_initializers: &[DataInitializer<'_>],
     ) -> Result<(), Trap> {
         let instance = self.instance_mut();
@@ -1318,7 +1318,7 @@ fn build_funcrefs(
         let anyfunc = VMCallerCheckedAnyfunc {
             func_ptr: func_ptr.0,
             type_index,
-            vmctx: VMFunctionEnvMutironment { vmctx: vmctx_ptr },
+            vmctx: VMFunctionContext { vmctx: vmctx_ptr },
             call_trampoline,
         };
         func_refs.push(anyfunc);

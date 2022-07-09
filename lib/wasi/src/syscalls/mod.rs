@@ -47,8 +47,8 @@ use std::sync::{mpsc, Arc};
 use std::time::Duration;
 use tracing::{debug, error, trace, warn};
 use wasmer::{
-    AsStoreMut, FunctionEnvMut, Memory, Memory32, Memory64, MemorySize, RuntimeError, Value, WasmPtr,
-    WasmSlice,
+    AsStoreMut, FunctionEnvMut, Memory, Memory32, Memory64, MemorySize, RuntimeError, Value,
+    WasmPtr, WasmSlice,
 };
 use wasmer_vbus::{FileDescriptor, StdioMode};
 use wasmer_vfs::{FsError, VirtualFile};
@@ -3223,7 +3223,10 @@ pub fn poll_oneoff<M: MemorySize>(
 /// Inputs:
 /// - `__wasi_exitcode_t`
 ///   Exit code to return to the operating system
-pub fn proc_exit(ctx: FunctionEnvMut<'_, WasiEnv>, code: __wasi_exitcode_t) -> Result<(), WasiError> {
+pub fn proc_exit(
+    ctx: FunctionEnvMut<'_, WasiEnv>,
+    code: __wasi_exitcode_t,
+) -> Result<(), WasiError> {
     debug!("wasi::proc_exit, {}", code);
     Err(WasiError::Exit(code))
 }

@@ -55,8 +55,7 @@ pub fn getpwuid(mut ctx: FunctionEnvMut<'_, EmEnv>, uid: i32) -> i32 {
             0
         );
         (*passwd_struct_ptr).pw_name = copy_cstr_into_wasm(ctx.as_store_mut(), passwd.pw_name);
-        (*passwd_struct_ptr).pw_passwd =
-            copy_cstr_into_wasm(ctx.as_store_mut(), passwd.pw_passwd);
+        (*passwd_struct_ptr).pw_passwd = copy_cstr_into_wasm(ctx.as_store_mut(), passwd.pw_passwd);
         (*passwd_struct_ptr).pw_gecos = copy_cstr_into_wasm(ctx.as_store_mut(), passwd.pw_gecos);
         (*passwd_struct_ptr).pw_dir = copy_cstr_into_wasm(ctx.as_store_mut(), passwd.pw_dir);
         (*passwd_struct_ptr).pw_shell = copy_cstr_into_wasm(ctx.as_store_mut(), passwd.pw_shell);

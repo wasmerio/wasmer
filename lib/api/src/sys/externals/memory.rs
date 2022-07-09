@@ -1,6 +1,6 @@
-use crate::sys::context::{AsStoreMut, AsStoreRef};
 use crate::sys::exports::{ExportError, Exportable};
 use crate::sys::externals::Extern;
+use crate::sys::store::{AsStoreMut, AsStoreRef};
 use crate::sys::MemoryType;
 use crate::MemoryAccessError;
 use std::convert::TryInto;
@@ -9,9 +9,7 @@ use std::mem;
 use std::mem::MaybeUninit;
 use std::slice;
 use wasmer_types::Pages;
-use wasmer_vm::{
-    StoreHandle, StoreObjects, InternalStoreHandle, MemoryError, VMExtern, VMMemory,
-};
+use wasmer_vm::{InternalStoreHandle, MemoryError, StoreHandle, StoreObjects, VMExtern, VMMemory};
 
 /// A WebAssembly `memory` instance.
 ///
@@ -50,7 +48,7 @@ impl Memory {
     /// ```
     pub fn new(ctx: &mut impl AsStoreMut, ty: MemoryType) -> Result<Self, MemoryError> {
         let mut ctx = ctx.as_store_mut();
-        let tunables = ctx.store().tunables();
+        let tunables = ctx.tunables();
         let style = tunables.memory_style(&ty);
         let memory = tunables.create_host_memory(&ty, &style)?;
 

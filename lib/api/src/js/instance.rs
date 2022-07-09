@@ -126,10 +126,7 @@ impl Instance {
 
     /// Returns the inner WebAssembly Instance
     #[doc(hidden)]
-    pub fn raw<'context>(
-        &self,
-        ctx: &'context impl AsStoreRef,
-    ) -> &'context WebAssembly::Instance {
+    pub fn raw<'context>(&self, ctx: &'context impl AsStoreRef) -> &'context WebAssembly::Instance {
         &self._handle.get(ctx.as_context_ref().objects())
     }
 }

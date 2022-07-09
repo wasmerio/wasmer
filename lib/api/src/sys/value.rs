@@ -9,8 +9,7 @@ use wasmer_vm::VMFuncRef;
 use crate::ExternRef;
 use crate::Function;
 
-use super::context::AsStoreMut;
-use super::context::AsStoreRef;
+use super::store::{AsStoreMut, AsStoreRef};
 
 pub use wasmer_types::RawValue;
 

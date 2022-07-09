@@ -1,11 +1,12 @@
 use crate::sys::exports::{ExportError, Exportable};
 use crate::sys::externals::Extern;
+use crate::sys::store::{AsStoreMut, AsStoreRef, StoreInner, StoreMut};
 use crate::sys::FunctionType;
 use crate::sys::RuntimeError;
 use crate::sys::Store;
 use crate::sys::TypedFunction;
 
-use crate::{Context, Value, AsStoreMut, AsStoreRef};
+use crate::{FunctionEnv, FunctionEnvMut, Value};
 use inner::StaticFunction;
 pub use inner::{FromToNativeWasmType, HostFunction, WasmTypeList};
 use std::cell::UnsafeCell;
@@ -15,7 +16,7 @@ use wasmer_types::RawValue;
 use wasmer_vm::{
     on_host_stack, raise_user_trap, resume_panic, wasmer_call_trampoline, InternalStoreHandle,
     MaybeInstanceOwned, StoreHandle, VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionContext,
-    VMExtern, VMFuncRef, VMFunction, VMFunctionBody, VMFunctionEnvMutironment, VMFunctionKind,
+    VMExtern, VMFuncRef, VMFunction, VMFunctionBody, VMFunctionContext, VMFunctionKind,
     VMTrampoline,
 };
 
@@ -79,48 +80,57 @@ impl Function {
     /// ```
     pub fn new<FT, F, T: Send + 'static>(
         store: &mut impl AsStoreMut,
-        ctx: &Context<T>,
+        ctx: &FunctionEnv<T>,
         ty: FT,
         func: F,
     ) -> Self
     where
         FT: Into<FunctionType>,
-        F: Fn(&mut T, &[Value]) -> Result<Vec<Value>, RuntimeError> + 'static + Send + Sync,
+        F: Fn(FunctionEnvMut<T>, &[Value]) -> Result<Vec<Value>, RuntimeError>
+            + 'static
+            + Send
+            + Sync,
     {
         let function_type = ty.into();
         let func_ty = function_type.clone();
         let mut new_ctx = ctx.clone();
-        let wrapper =
-            move |store: &mut Store, values_vec: *mut RawValue| -> Result<(), RuntimeError> {
-                unsafe {
-                    let mut args = Vec::with_capacity(func_ty.params().len());
-                    for (i, ty) in func_ty.params().iter().enumerate() {
-                        args.push(Value::from_raw(store, *ty, *values_vec.add(i)));
-                    }
-                    let data: &mut T = new_ctx.downcast_mut(store);
-                    let returns = func(data, &args)?;
-
-                    // We need to dynamically check that the returns
-                    // match the expected types, as well as expected length.
-                    let return_types = returns.iter().map(|ret| ret.ty());
-                    if return_types.ne(func_ty.results().iter().copied()) {
-                        return Err(RuntimeError::new(format!(
-                            "Dynamic function returned wrong signature. Expected {:?} but got {:?}",
-                            func_ty.results(),
-                            returns.iter().map(|ret| ret.ty())
-                        )));
-                    }
-                    for (i, ret) in returns.iter().enumerate() {
-                        *values_vec.add(i) = ret.as_raw(&store);
-                    }
+        let raw_store = store.as_store_mut().as_raw() as *mut u8;
+        let wrapper = move |values_vec: *mut RawValue| -> Result<(), RuntimeError> {
+            unsafe {
+                let mut store = StoreMut::from_raw(raw_store as *mut StoreInner);
+                let mut args = Vec::with_capacity(func_ty.params().len());
+                for (i, ty) in func_ty.params().iter().enumerate() {
+                    args.push(Value::from_raw(&mut store, *ty, *values_vec.add(i)));
                 }
-                Ok(())
-            };
+                let data = new_ctx.as_mut(&mut store);
+                let store_mut = StoreMut::from_raw(raw_store as *mut StoreInner);
+                let env = FunctionEnvMut {
+                    store_mut: store_mut,
+                    data,
+                };
+                let returns = func(env, &args)?;
+
+                // We need to dynamically check that the returns
+                // match the expected types, as well as expected length.
+                let return_types = returns.iter().map(|ret| ret.ty());
+                if return_types.ne(func_ty.results().iter().copied()) {
+                    return Err(RuntimeError::new(format!(
+                        "Dynamic function returned wrong signature. Expected {:?} but got {:?}",
+                        func_ty.results(),
+                        returns.iter().map(|ret| ret.ty())
+                    )));
+                }
+                for (i, ret) in returns.iter().enumerate() {
+                    *values_vec.add(i) = ret.as_raw(&store);
+                }
+            }
+            Ok(())
+        };
         let mut host_data = Box::new(VMDynamicFunctionContext {
             address: std::ptr::null(),
             ctx: DynamicFunction {
+                raw_store: store.as_store_mut().as_raw() as *mut u8,
                 func: wrapper,
-                store: store as *mut _,
             },
         });
         host_data.address = host_data.ctx.func_body_ptr();
@@ -129,8 +139,11 @@ impl Function {
         // The engine linker will replace the address with one pointing to a
         // generated dynamic trampoline.
         let func_ptr = std::ptr::null() as *const VMFunctionBody;
-        let type_index = store.engine().register_signature(&function_type);
-        let vmctx = VMFunctionEnvMutironment {
+        let type_index = store
+            .as_store_mut()
+            .engine()
+            .register_signature(&function_type);
+        let vmctx = VMFunctionContext {
             host_env: host_data.as_ref() as *const _ as *mut c_void,
         };
         let call_trampoline = host_data.ctx.call_trampoline_address();
@@ -148,7 +161,7 @@ impl Function {
             host_data,
         };
         Self {
-            handle: StoreHandle::new(store.objects_mut(), vm_function),
+            handle: StoreHandle::new(store.as_store_mut().objects_mut(), vm_function),
         }
     }
 
@@ -173,7 +186,7 @@ impl Function {
     /// ```
     pub fn new_native<T: Send + 'static, F, Args, Rets>(
         store: &mut impl AsStoreMut,
-        ctx: &Context<T>,
+        ctx: &FunctionEnv<T>,
         func: F,
     ) -> Self
     where
@@ -181,19 +194,21 @@ impl Function {
         Args: WasmTypeList,
         Rets: WasmTypeList,
     {
-        let new_ctx = ctx.clone();
         // println!("new native {:p}", &new_ctx);
 
         let host_data = Box::new(StaticFunction {
-            raw_ctx: new_ctx,
-            store: store as *mut _,
+            raw_store: store.as_store_mut().as_raw() as *mut u8,
+            env: ctx.clone(),
             func,
         });
         let function_type = FunctionType::new(Args::wasm_types(), Rets::wasm_types());
 
         let func_ptr = <F as HostFunction<T, Args, Rets>>::function_body_ptr();
-        let type_index = store.as_store_mut().store().engine().register_signature(&function_type);
-        let vmctx = VMFunctionEnvMutironment {
+        let type_index = store
+            .as_store_mut()
+            .engine()
+            .register_signature(&function_type);
+        let vmctx = VMFunctionContext {
             host_env: host_data.as_ref() as *const _ as *mut c_void,
         };
         let call_trampoline = <F as HostFunction<T, Args, Rets>>::call_trampoline_address();
@@ -235,7 +250,10 @@ impl Function {
     /// assert_eq!(f.ty(&mut ctx).results(), vec![Type::I32]);
     /// ```
     pub fn ty(&self, store: &impl AsStoreRef) -> FunctionType {
-        self.handle.get(store.as_store_ref().objects()).signature.clone()
+        self.handle
+            .get(store.as_store_ref().objects())
+            .signature
+            .clone()
     }
 
     fn call_wasm(
@@ -293,7 +311,7 @@ impl Function {
         let vm_function = self.handle.get(store.as_store_ref().objects());
         if let Err(error) = unsafe {
             wasmer_call_trampoline(
-                store.as_store_ref().store(),
+                store.as_store_ref().signal_handler(),
                 vm_function.anyfunc.as_ptr().as_ref().vmctx,
                 trampoline,
                 vm_function.anyfunc.as_ptr().as_ref().func_ptr,
@@ -388,7 +406,11 @@ impl Function {
     ///
     /// assert_eq!(sum.call(&mut ctx, &[Value::I32(1), Value::I32(2)]).unwrap().to_vec(), vec![Value::I32(3)]);
     /// ```
-    pub fn call(&self, store: &mut impl AsStoreMut, params: &[Value]) -> Result<Box<[Value]>, RuntimeError> {
+    pub fn call(
+        &self,
+        store: &mut impl AsStoreMut,
+        params: &[Value],
+    ) -> Result<Box<[Value]>, RuntimeError> {
         let trampoline = unsafe {
             self.handle
                 .get(store.as_store_ref().objects())
@@ -411,7 +433,8 @@ impl Function {
     }
 
     pub(crate) unsafe fn from_vm_funcref(store: &mut impl AsStoreMut, funcref: VMFuncRef) -> Self {
-        let signature = store.as_store_ref().store()
+        let signature = store
+            .as_store_ref()
             .engine()
             .lookup_signature(funcref.0.as_ref().type_index)
             .expect("Signature not found in store");
@@ -555,7 +578,9 @@ impl Function {
         internal: InternalStoreHandle<VMFunction>,
     ) -> Self {
         Self {
-            handle: unsafe { StoreHandle::from_internal(store.as_store_ref().objects().id(), internal) },
+            handle: unsafe {
+                StoreHandle::from_internal(store.as_store_ref().objects().id(), internal)
+            },
         }
     }
 
@@ -580,13 +605,13 @@ impl<'a> Exportable<'a> for Function {
 
 /// Host state for a dynamic function.
 pub(crate) struct DynamicFunction<F> {
+    raw_store: *mut u8,
     func: F,
-    store: *mut Store,
 }
 
 impl<F> DynamicFunction<F>
 where
-    F: FnMut(&mut Store, *mut RawValue) -> Result<(), RuntimeError> + 'static
+    F: FnMut(*mut RawValue) -> Result<(), RuntimeError> + 'static,
 {
     // This function wraps our func, to make it compatible with the
     // reverse trampoline signature
@@ -596,11 +621,8 @@ where
     ) {
         use std::panic::{self, AssertUnwindSafe};
 
-        let result = on_host_stack(|| {
-            panic::catch_unwind(AssertUnwindSafe(|| {
-                (this.ctx.func)(&mut *this.ctx.store, values_vec)
-            }))
-        });
+        let result =
+            on_host_stack(|| panic::catch_unwind(AssertUnwindSafe(|| (this.ctx.func)(values_vec))));
 
         match result {
             Ok(Ok(())) => {}
@@ -638,13 +660,13 @@ mod inner {
     use std::panic::{self, AssertUnwindSafe};
     use wasmer_vm::{on_host_stack, VMContext, VMTrampoline};
 
+    use crate::sys::function_env::FunctionEnvMut;
     use wasmer_types::{NativeWasmType, RawValue, Type};
     use wasmer_vm::{raise_user_trap, resume_panic, VMFunctionBody};
-    use crate::sys::context::FunctionEnvMut;
 
     use crate::sys::NativeWasmTypeInto;
     use crate::sys::Store;
-    use crate::{Context, ExternRef, Function, AsStoreMut, AsStoreRef};
+    use crate::{AsStoreMut, AsStoreRef, ExternRef, Function, FunctionEnv, StoreMut};
 
     /// A trait to convert a Rust value to a `WasmNativeType` value,
     /// or to convert `WasmNativeType` value to a Rust value.
@@ -970,8 +992,8 @@ mod inner {
     /// Represents a low-level Wasm static host function. See
     /// `super::Function::new_native` to learn more.
     pub(crate) struct StaticFunction<F, T> {
-        pub(crate) raw_ctx: Context<T>,
-        pub(crate) store: *mut Store,
+        pub(crate) raw_store: *mut u8,
+        pub(crate) env: FunctionEnv<T>,
         pub(crate) func: F,
     }
 
@@ -1116,7 +1138,7 @@ mod inner {
                         Func: Fn(FunctionEnvMut<T>, $( $x , )*) -> RetsAsResult + 'static,
                     {
                         // println!("func wrapper");
-                        let mut store = &mut *env.store;
+                        let mut store = StoreMut::from_raw(env.raw_store as *mut _);
                         let result = on_host_stack(|| {
                             // println!("func wrapper1");
                             panic::catch_unwind(AssertUnwindSafe(|| {
@@ -1124,9 +1146,14 @@ mod inner {
                                     let $x = FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(&mut store, $x));
                                 )*
                                 // println!("func wrapper2 {:p}", *env.raw_ctx);
-                                let mut ctx = env.raw_ctx;
+                                let store_mut = StoreMut::from_raw(env.raw_store as *mut _);
+                                let data = env.env.as_mut(&mut store);
+                                let f_env = FunctionEnvMut {
+                                    store_mut,
+                                    data,
+                                };
                                 // println!("func wrapper3");
-                                (env.func)(&mut ctx, $($x),* ).into_result()
+                                (env.func)(f_env, $($x),* ).into_result()
                             }))
                         });
 
@@ -1227,7 +1254,10 @@ mod inner {
             unreachable!()
         }
 
-        unsafe fn from_slice(_: &mut impl AsStoreMut, _: &[RawValue]) -> Result<Self, TryFromSliceError> {
+        unsafe fn from_slice(
+            _: &mut impl AsStoreMut,
+            _: &[RawValue],
+        ) -> Result<Self, TryFromSliceError> {
             unreachable!()
         }
 
@@ -1257,7 +1287,6 @@ mod inner {
     #[cfg(test)]
     mod test_wasm_type_list {
         use super::*;
-        use crate::Context as WasmerContext;
         use crate::Store;
         use wasmer_types::Type;
         /*

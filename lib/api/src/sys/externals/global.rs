@@ -1,11 +1,11 @@
-use crate::sys::context::{AsStoreMut, AsStoreRef};
 use crate::sys::exports::{ExportError, Exportable};
 use crate::sys::externals::Extern;
+use crate::sys::store::{AsStoreMut, AsStoreRef};
 use crate::sys::value::Value;
 use crate::sys::GlobalType;
 use crate::sys::Mutability;
 use crate::sys::RuntimeError;
-use wasmer_vm::{StoreHandle, InternalStoreHandle, VMExtern, VMGlobal};
+use wasmer_vm::{InternalStoreHandle, StoreHandle, VMExtern, VMGlobal};
 
 /// A WebAssembly `global` instance.
 ///

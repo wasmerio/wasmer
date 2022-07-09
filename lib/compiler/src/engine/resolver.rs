@@ -8,7 +8,7 @@ use wasmer_types::{
 };
 
 use wasmer_vm::{
-    StoreObjects, FunctionBodyPtr, Imports, MemoryStyle, TableStyle, VMExtern, VMFunctionBody,
+    FunctionBodyPtr, Imports, MemoryStyle, StoreObjects, TableStyle, VMExtern, VMFunctionBody,
     VMFunctionImport, VMFunctionKind, VMGlobalImport, VMMemoryImport, VMTableImport,
 };
 

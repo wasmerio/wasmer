@@ -8,7 +8,12 @@ use wasmer::{
 };
 
 /// emscripten: _emscripten_memcpy_big
-pub fn _emscripten_memcpy_big(ctx: FunctionEnvMut<'_, EmEnv>, dest: u32, src: u32, len: u32) -> u32 {
+pub fn _emscripten_memcpy_big(
+    ctx: FunctionEnvMut<'_, EmEnv>,
+    dest: u32,
+    src: u32,
+    len: u32,
+) -> u32 {
     debug!(
         "emscripten::_emscripten_memcpy_big {}, {}, {}",
         dest, src, len

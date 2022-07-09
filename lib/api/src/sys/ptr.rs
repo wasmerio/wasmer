@@ -5,13 +5,11 @@ use std::convert::TryFrom;
 use std::{fmt, marker::PhantomData, mem};
 use wasmer_types::ValueType;
 
-use super::context::AsStoreRef;
-
-pub use wasmer_types::MemorySize;
+use super::store::AsStoreRef;
 
 pub use wasmer_types::Memory32;
-
 pub use wasmer_types::Memory64;
+pub use wasmer_types::MemorySize;
 
 /// Alias for `WasmPtr<T, Memory64>.
 pub type WasmPtr64<T> = WasmPtr<T, Memory64>;

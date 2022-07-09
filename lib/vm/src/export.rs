@@ -1,9 +1,9 @@
 // This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
-use crate::context::InternalStoreHandle;
 use crate::global::VMGlobal;
 use crate::memory::VMMemory;
+use crate::store::InternalStoreHandle;
 use crate::table::VMTable;
 use crate::vmcontext::VMFunctionKind;
 use crate::{MaybeInstanceOwned, VMCallerCheckedAnyfunc};

@@ -5,9 +5,9 @@ use crate::sys::module::Module;
 use crate::sys::{LinkError, RuntimeError};
 use std::fmt;
 use thiserror::Error;
-use wasmer_vm::{StoreHandle, InstanceHandle};
+use wasmer_vm::{InstanceHandle, StoreHandle};
 
-use super::context::AsStoreMut;
+use super::store::AsStoreMut;
 
 /// A WebAssembly Instance is a stateful, executable
 /// instance of a WebAssembly [`Module`].
@@ -59,7 +59,7 @@ pub enum InstantiationError {
 
     /// The module was compiled with a CPU feature that is not available on
     /// the current host.
-    #[error("missing requires CPU features: {0:?}")]
+    #[error("missing required CPU features: {0:?}")]
     CpuFeature(String),
 
     /// Import from a different [`Context`].

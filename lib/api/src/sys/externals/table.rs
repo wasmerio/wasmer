@@ -1,10 +1,10 @@
-use crate::sys::context::{AsStoreMut, AsStoreRef};
 use crate::sys::exports::{ExportError, Exportable};
 use crate::sys::externals::Extern;
+use crate::sys::store::{AsStoreMut, AsStoreRef};
 use crate::sys::RuntimeError;
 use crate::sys::TableType;
 use crate::{ExternRef, Function, Value};
-use wasmer_vm::{StoreHandle, InternalStoreHandle, TableElement, VMExtern, VMTable};
+use wasmer_vm::{InternalStoreHandle, StoreHandle, TableElement, VMExtern, VMTable};
 
 /// A WebAssembly `table` instance.
 ///
@@ -65,13 +65,13 @@ impl Table {
     /// This function will construct the `Table` using the store
     /// [`BaseTunables`][crate::sys::BaseTunables].
     pub fn new(
-        ctx: &mut impl AsStoreMut,
+        mut ctx: &mut impl AsStoreMut,
         ty: TableType,
         init: Value,
     ) -> Result<Self, RuntimeError> {
         let item = value_to_table_element(&mut ctx, init)?;
         let mut ctx = ctx.as_store_mut();
-        let tunables = ctx.store().tunables();
+        let tunables = ctx.tunables();
         let style = tunables.table_style(&ty);
         let mut table = tunables
             .create_host_table(&ty, &style)

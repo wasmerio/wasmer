@@ -381,8 +381,9 @@ mod js {
         let result = typed_function.call(&mut ctx);
         assert!(result.is_ok());
 
-        let function =
-            Function::new_native(&mut ctx, |_: FunctionEnvMut<'_, ()>, a: i32| -> i32 { a + 1 });
+        let function = Function::new_native(&mut ctx, |_: FunctionEnvMut<'_, ()>, a: i32| -> i32 {
+            a + 1
+        });
         let typed_function: TypedFunction<i32, i32> = function.native(&mut ctx).unwrap();
         assert_eq!(typed_function.call(&mut ctx, 3).unwrap(), 4);
 

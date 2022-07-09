@@ -12,8 +12,8 @@ use std::{
 use thiserror::Error;
 use wasmer_types::ValueType;
 
-use super::context::AsStoreRef;
 use super::externals::memory::MemoryBuffer;
+use super::store::AsStoreRef;
 
 /// Error for invalid [`Memory`] access.
 #[derive(Clone, Copy, Debug, Error)]

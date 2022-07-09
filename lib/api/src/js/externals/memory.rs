@@ -1,6 +1,4 @@
-use crate::js::context::{
-    AsStoreMut, AsStoreRef, StoreHandle, StoreObjects, InternalStoreHandle,
-};
+use crate::js::context::{AsStoreMut, AsStoreRef, InternalStoreHandle, StoreHandle, StoreObjects};
 use crate::js::export::VMMemory;
 use crate::js::exports::{ExportError, Exportable};
 use crate::js::externals::Extern;

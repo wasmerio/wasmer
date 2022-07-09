@@ -5,7 +5,7 @@ use wasmer_types::{
     GlobalType, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, MemoryType,
     ModuleInfo, TableIndex, TableType,
 };
-use wasmer_vm::{StoreObjects, InternalStoreHandle, MemoryError};
+use wasmer_vm::{InternalStoreHandle, MemoryError, StoreObjects};
 use wasmer_vm::{MemoryStyle, TableStyle};
 use wasmer_vm::{VMGlobal, VMMemory, VMTable};
 use wasmer_vm::{VMMemoryDefinition, VMTableDefinition};

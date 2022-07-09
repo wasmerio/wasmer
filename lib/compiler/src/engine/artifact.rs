@@ -4,8 +4,8 @@ use crate::{ArtifactCreate, Upcastable};
 use wasmer_types::entity::BoxedSlice;
 use wasmer_types::{DataInitializer, FunctionIndex, LocalFunctionIndex, SignatureIndex};
 use wasmer_vm::{
-    StoreObjects, FunctionBodyPtr, InstanceAllocator, InstanceHandle, TrapHandler, VMExtern,
-    VMSharedSignatureIndex, VMTrampoline,
+    FunctionBodyPtr, InstanceAllocator, InstanceHandle, StoreObjects, TrapHandler, TrapHandlerFn,
+    VMExtern, VMSharedSignatureIndex, VMTrampoline,
 };
 
 /// An `Artifact` is the product that the `Engine`
@@ -128,7 +128,7 @@ pub trait Artifact: Send + Sync + Upcastable + ArtifactCreate {
     /// See [`InstanceHandle::finish_instantiation`].
     unsafe fn finish_instantiation(
         &self,
-        trap_handler: &(dyn TrapHandler + 'static),
+        trap_handler: Option<*const TrapHandlerFn<'static>>,
         handle: &mut InstanceHandle,
     ) -> Result<(), InstantiationError> {
         let data_initializers = self

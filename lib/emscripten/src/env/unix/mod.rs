@@ -30,7 +30,12 @@ pub fn _getenv(ctx: FunctionEnvMut<'_, EmEnv>, name: i32) -> u32 {
 }
 
 /// emscripten: _setenv // (name: *const char, name: *const value, overwrite: int);
-pub fn _setenv(ctx: FunctionEnvMut<'_, EmEnv>, name: c_int, value: c_int, overwrite: c_int) -> c_int {
+pub fn _setenv(
+    ctx: FunctionEnvMut<'_, EmEnv>,
+    name: c_int,
+    value: c_int,
+    overwrite: c_int,
+) -> c_int {
     debug!("emscripten::_setenv");
 
     let name_addr = emscripten_memory_pointer!(ctx, ctx.data().memory(0), name) as *const c_char;
@@ -96,8 +101,7 @@ pub fn _getpwnam(mut ctx: FunctionEnvMut<'_, EmEnv>, name_ptr: c_int) -> c_int {
         let passwd_struct_ptr =
             emscripten_memory_pointer!(ctx, memory, passwd_struct_offset) as *mut GuestPasswd;
         (*passwd_struct_ptr).pw_name = copy_cstr_into_wasm(ctx.as_store_mut(), passwd.pw_name);
-        (*passwd_struct_ptr).pw_passwd =
-            copy_cstr_into_wasm(ctx.as_store_mut(), passwd.pw_passwd);
+        (*passwd_struct_ptr).pw_passwd = copy_cstr_into_wasm(ctx.as_store_mut(), passwd.pw_passwd);
         (*passwd_struct_ptr).pw_gecos = copy_cstr_into_wasm(ctx.as_store_mut(), passwd.pw_gecos);
         (*passwd_struct_ptr).pw_dir = copy_cstr_into_wasm(ctx.as_store_mut(), passwd.pw_dir);
         (*passwd_struct_ptr).pw_shell = copy_cstr_into_wasm(ctx.as_store_mut(), passwd.pw_shell);

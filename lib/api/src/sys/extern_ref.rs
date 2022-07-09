@@ -2,7 +2,7 @@ use std::any::Any;
 
 use wasmer_vm::{StoreHandle, VMExternObj, VMExternRef};
 
-use super::context::{AsStoreMut, AsStoreRef};
+use super::store::{AsStoreMut, AsStoreRef};
 
 #[derive(Debug, Clone)]
 #[repr(transparent)]

@@ -36,7 +36,10 @@ where
     Rets: WasmTypeList,
 {
     #[allow(dead_code)]
-    pub(crate) fn new<T>(ctx: &mut impl AsFunctionEnvMut<Data = T>, vm_function: VMFunction) -> Self {
+    pub(crate) fn new<T>(
+        ctx: &mut impl AsFunctionEnvMut<Data = T>,
+        vm_function: VMFunction,
+    ) -> Self {
         Self {
             handle: StoreHandle::new(ctx.as_context_mut().objects_mut(), vm_function),
             _phantom: PhantomData,

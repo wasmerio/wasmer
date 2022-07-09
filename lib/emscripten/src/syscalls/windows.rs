@@ -14,7 +14,11 @@ use wasmer::{AsStoreMut, FunctionEnvMut};
 type pid_t = c_int;
 
 /// open
-pub fn ___syscall5(mut ctx: FunctionEnvMut<'_, EmEnv>, which: c_int, mut varargs: VarArgs) -> c_int {
+pub fn ___syscall5(
+    mut ctx: FunctionEnvMut<'_, EmEnv>,
+    which: c_int,
+    mut varargs: VarArgs,
+) -> c_int {
     debug!("emscripten::___syscall5 (open) {}", which);
     #[cfg(not(feature = "debug"))]
     let _ = which;
@@ -79,7 +83,11 @@ pub fn ___syscall194(_ctx: FunctionEnvMut<'_, EmEnv>, _one: i32, _two: i32) -> i
 }
 
 // chown
-pub fn ___syscall212(_ctx: FunctionEnvMut<'_, EmEnv>, which: c_int, mut _varargs: VarArgs) -> c_int {
+pub fn ___syscall212(
+    _ctx: FunctionEnvMut<'_, EmEnv>,
+    which: c_int,
+    mut _varargs: VarArgs,
+) -> c_int {
     debug!("emscripten::___syscall212 (chown) {}", which);
     #[cfg(not(feature = "debug"))]
     let _ = which;
@@ -87,13 +95,21 @@ pub fn ___syscall212(_ctx: FunctionEnvMut<'_, EmEnv>, which: c_int, mut _varargs
 }
 
 /// access
-pub fn ___syscall33(_ctx: FunctionEnvMut<'_, EmEnv>, _which: c_int, mut _varargs: VarArgs) -> c_int {
+pub fn ___syscall33(
+    _ctx: FunctionEnvMut<'_, EmEnv>,
+    _which: c_int,
+    mut _varargs: VarArgs,
+) -> c_int {
     debug!("emscripten::___syscall33 (access) {}", _which);
     unimplemented!("emscripten::___syscall33 (access) {}", _which);
 }
 
 /// nice
-pub fn ___syscall34(_ctx: FunctionEnvMut<'_, EmEnv>, _which: c_int, mut _varargs: VarArgs) -> c_int {
+pub fn ___syscall34(
+    _ctx: FunctionEnvMut<'_, EmEnv>,
+    _which: c_int,
+    mut _varargs: VarArgs,
+) -> c_int {
     debug!("emscripten::___syscall34 (nice) {}", _which);
     unimplemented!("emscripten::___syscall34 (nice) {}", _which);
 }
@@ -138,7 +154,11 @@ pub fn ___syscall85(_ctx: FunctionEnvMut<'_, EmEnv>, _which: c_int, _varargs: Va
 }
 
 /// getpgid
-pub fn ___syscall132(_ctx: FunctionEnvMut<'_, EmEnv>, _which: c_int, mut _varargs: VarArgs) -> c_int {
+pub fn ___syscall132(
+    _ctx: FunctionEnvMut<'_, EmEnv>,
+    _which: c_int,
+    mut _varargs: VarArgs,
+) -> c_int {
     debug!("emscripten::___syscall132 (getpgid)");
     -1
 }
@@ -181,7 +201,11 @@ pub fn ___syscall219(_ctx: FunctionEnvMut<'_, EmEnv>, _which: c_int, _varargs: V
 }
 
 /// dup3
-pub fn ___syscall330(_ctx: FunctionEnvMut<'_, EmEnv>, _which: c_int, mut _varargs: VarArgs) -> pid_t {
+pub fn ___syscall330(
+    _ctx: FunctionEnvMut<'_, EmEnv>,
+    _which: c_int,
+    mut _varargs: VarArgs,
+) -> pid_t {
     debug!("emscripten::___syscall330 (dup3)");
     -1
 }
@@ -202,7 +226,11 @@ pub fn ___syscall94(_ctx: FunctionEnvMut<'_, EmEnv>, _which: c_int, _varargs: Va
 
 // socketcall
 #[allow(clippy::cast_ptr_alignment)]
-pub fn ___syscall102(_ctx: FunctionEnvMut<'_, EmEnv>, which: c_int, mut _varargs: VarArgs) -> c_int {
+pub fn ___syscall102(
+    _ctx: FunctionEnvMut<'_, EmEnv>,
+    which: c_int,
+    mut _varargs: VarArgs,
+) -> c_int {
     debug!("emscripten::___syscall102 (socketcall) {}", which);
     #[cfg(not(feature = "debug"))]
     let _ = which;
@@ -216,7 +244,11 @@ pub fn ___syscall118(_ctx: FunctionEnvMut<'_, EmEnv>, _which: c_int, _varargs: V
 }
 
 // pread
-pub fn ___syscall180(_ctx: FunctionEnvMut<'_, EmEnv>, which: c_int, mut _varargs: VarArgs) -> c_int {
+pub fn ___syscall180(
+    _ctx: FunctionEnvMut<'_, EmEnv>,
+    which: c_int,
+    mut _varargs: VarArgs,
+) -> c_int {
     debug!("emscripten::___syscall180 (pread) {}", which);
     #[cfg(not(feature = "debug"))]
     let _ = which;
@@ -224,7 +256,11 @@ pub fn ___syscall180(_ctx: FunctionEnvMut<'_, EmEnv>, which: c_int, mut _varargs
 }
 
 // pwrite
-pub fn ___syscall181(_ctx: FunctionEnvMut<'_, EmEnv>, which: c_int, mut _varargs: VarArgs) -> c_int {
+pub fn ___syscall181(
+    _ctx: FunctionEnvMut<'_, EmEnv>,
+    which: c_int,
+    mut _varargs: VarArgs,
+) -> c_int {
     debug!("emscripten::___syscall181 (pwrite) {}", which);
     #[cfg(not(feature = "debug"))]
     let _ = which;
@@ -233,14 +269,22 @@ pub fn ___syscall181(_ctx: FunctionEnvMut<'_, EmEnv>, which: c_int, mut _varargs
 
 /// wait4
 #[allow(clippy::cast_ptr_alignment)]
-pub fn ___syscall114(_ctx: FunctionEnvMut<'_, EmEnv>, _which: c_int, mut _varargs: VarArgs) -> pid_t {
+pub fn ___syscall114(
+    _ctx: FunctionEnvMut<'_, EmEnv>,
+    _which: c_int,
+    mut _varargs: VarArgs,
+) -> pid_t {
     debug!("emscripten::___syscall114 (wait4)");
     -1
 }
 
 // select
 #[allow(clippy::cast_ptr_alignment)]
-pub fn ___syscall142(_ctx: FunctionEnvMut<'_, EmEnv>, which: c_int, mut _varargs: VarArgs) -> c_int {
+pub fn ___syscall142(
+    _ctx: FunctionEnvMut<'_, EmEnv>,
+    which: c_int,
+    mut _varargs: VarArgs,
+) -> c_int {
     debug!("emscripten::___syscall142 (newselect) {}", which);
     #[cfg(not(feature = "debug"))]
     let _ = which;
@@ -263,7 +307,11 @@ pub fn ___syscall57(_ctx: FunctionEnvMut<'_, EmEnv>, which: c_int, mut _varargs:
 
 /// uname
 // NOTE: Wondering if we should return custom utsname, like Emscripten.
-pub fn ___syscall122(_ctx: FunctionEnvMut<'_, EmEnv>, which: c_int, mut _varargs: VarArgs) -> c_int {
+pub fn ___syscall122(
+    _ctx: FunctionEnvMut<'_, EmEnv>,
+    which: c_int,
+    mut _varargs: VarArgs,
+) -> c_int {
     debug!("emscripten::___syscall122 (uname) {}", which);
     #[cfg(not(feature = "debug"))]
     let _ = which;
@@ -295,7 +343,11 @@ pub fn ___syscall220(_ctx: FunctionEnvMut<'_, EmEnv>, _one: i32, _two: i32) -> i
 }
 
 // fcntl64
-pub fn ___syscall221(_ctx: FunctionEnvMut<'_, EmEnv>, _which: c_int, mut _varargs: VarArgs) -> c_int {
+pub fn ___syscall221(
+    _ctx: FunctionEnvMut<'_, EmEnv>,
+    _which: c_int,
+    mut _varargs: VarArgs,
+) -> c_int {
     debug!("emscripten::___syscall221 (fcntl64) {}", _which);
     -1
 }

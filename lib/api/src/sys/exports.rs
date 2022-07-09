@@ -1,4 +1,4 @@
-use super::context::AsStoreRef;
+use super::store::AsStoreRef;
 use crate::sys::externals::{Extern, Function, Global, Memory, Table};
 use crate::sys::native::TypedFunction;
 use crate::sys::WasmTypeList;
