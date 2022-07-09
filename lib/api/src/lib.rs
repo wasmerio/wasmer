@@ -151,9 +151,8 @@
 //! [`imports`] macro:
 //!
 //! ```
-//! # use wasmer::{imports, Function, Memory, MemoryType, Store, Imports};
-//! # use wasmer::FunctionEnvMut;
-//! # fn imports_example(mut ctx: FunctionEnvMut<()>, store: &Store) -> Imports {
+//! # use wasmer::{imports, Function, FunctionEnv, FunctionEnvMut, Memory, MemoryType, Store, Imports};
+//! # fn imports_example(mut ctx: FunctionEnv<()>, mut store: &mut Store) -> Imports {
 //! let memory = Memory::new(&mut store, MemoryType::new(1, None, false)).unwrap();
 //! imports! {
 //!     "env" => {
@@ -168,11 +167,11 @@
 //! from any instance via `instance.exports`:
 //!
 //! ```
-//! # use wasmer::{imports, Instance, Function, Memory, TypedFunction, FunctionEnvMut};
-//! # fn exports_example(mut ctx: FunctionEnvMut<()>, instance: &Instance) -> anyhow::Result<()> {
+//! # use wasmer::{imports, Instance, FunctionEnv, Memory, TypedFunction, Store};
+//! # fn exports_example(mut ctx: FunctionEnv<()>, mut store: &mut Store, instance: &Instance) -> anyhow::Result<()> {
 //! let memory = instance.exports.get_memory("memory")?;
 //! let memory: &Memory = instance.exports.get("some_other_memory")?;
-//! let add: TypedFunction<(i32, i32), i32> = instance.exports.get_typed_function(&mut ctx, "add")?;
+//! let add: TypedFunction<(i32, i32), i32> = instance.exports.get_typed_function(&mut store, "add")?;
 //! let result = add.call(&mut store, 5, 37)?;
 //! assert_eq!(result, 42);
 //! # Ok(())

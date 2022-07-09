@@ -243,16 +243,17 @@ impl Function {
     /// # Example
     ///
     /// ```
-    /// # use wasmer::{Function, Store, Type};
+    /// # use wasmer::{Function, FunctionEnv, FunctionEnvMut, Store, Type};
     /// # let mut store = Store::default();
+    /// # let ctx = FunctionEnv::new(&mut store, ());
     /// #
-    /// fn sum(a: i32, b: i32) -> i32 {
+    /// fn sum(_ctx: FunctionEnvMut<()>, a: i32, b: i32) -> i32 {
     ///     a + b
     /// }
     ///
-    /// let f = Function::new_native(&store, sum);
+    /// let f = Function::new_native(&store, &ctx, sum);
     ///
-    /// assert_eq!(f.param_arity(), 2);
+    /// assert_eq!(f.param_arity(&store), 2);
     /// ```
     pub fn param_arity(&self, ctx: &impl AsStoreRef) -> usize {
         self.ty(ctx).params().len()
@@ -263,16 +264,17 @@ impl Function {
     /// # Example
     ///
     /// ```
-    /// # use wasmer::{Function, Store, Type};
+    /// # use wasmer::{Function, FunctionEnv, FunctionEnvMut, Store, Type};
     /// # let mut store = Store::default();
+    /// # let ctx = FunctionEnv::new(&mut store, ());
     /// #
-    /// fn sum(a: i32, b: i32) -> i32 {
+    /// fn sum(_ctx: FunctionEnvMut<()>, a: i32, b: i32) -> i32 {
     ///     a + b
     /// }
     ///
-    /// let f = Function::new_native(&store, sum);
+    /// let f = Function::new_native(&store, &ctx, sum);
     ///
-    /// assert_eq!(f.result_arity(), 1);
+    /// assert_eq!(f.result_arity(&store), 1);
     /// ```
     pub fn result_arity(&self, ctx: &impl AsStoreRef) -> usize {
         self.ty(ctx).results().len()
@@ -386,7 +388,7 @@ impl Function {
     /// let sum = instance.exports.get_function("sum").unwrap();
     /// let sum_native = sum.native::<(i32, i32), i32>().unwrap();
     ///
-    /// assert_eq!(sum_native.call(1, 2).unwrap(), 3);
+    /// assert_eq!(sum_native.call(&mut store, 1, 2).unwrap(), 3);
     /// ```
     ///
     /// # Errors
@@ -412,7 +414,7 @@ impl Function {
     /// let sum = instance.exports.get_function("sum").unwrap();
     ///
     /// // This results in an error: `RuntimeError`
-    /// let sum_native = sum.native::<(i64, i64), i32>().unwrap();
+    /// let sum_native = sum.native::<(i64, i64), i32>(&mut store).unwrap();
     /// ```
     ///
     /// If the `Rets` generic parameter does not match the exported function
@@ -436,7 +438,7 @@ impl Function {
     /// let sum = instance.exports.get_function("sum").unwrap();
     ///
     /// // This results in an error: `RuntimeError`
-    /// let sum_native = sum.native::<(i32, i32), i64>().unwrap();
+    /// let sum_native = sum.native::<(i32, i32), i64>(&mut store).unwrap();
     /// ```
     pub fn native<Args, Rets>(
         &self,

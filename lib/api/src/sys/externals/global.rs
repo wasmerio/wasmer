@@ -25,14 +25,12 @@ impl Global {
     ///
     /// ```
     /// # use wasmer::{Global, Mutability, Store, Value};
-    /// # use wasmer::FunctionEnv;
     /// # let mut store = Store::default();
-    /// # let env = FunctionEnv::new(&mut store, ());
     /// #
     /// let g = Global::new(&mut store, Value::I32(1));
     ///
     /// assert_eq!(g.get(&mut store), Value::I32(1));
-    /// assert_eq!(g.ty(&mut ctx).mutability, Mutability::Const);
+    /// assert_eq!(g.ty(&mut store).mutability, Mutability::Const);
     /// ```
     pub fn new(ctx: &mut impl AsStoreMut, val: Value) -> Self {
         Self::from_value(ctx, val, Mutability::Const).unwrap()
@@ -44,14 +42,12 @@ impl Global {
     ///
     /// ```
     /// # use wasmer::{Global, Mutability, Store, Value};
-    /// # use wasmer::FunctionEnv;
     /// # let mut store = Store::default();
-    /// # let env = FunctionEnv::new(&mut store, ());
     /// #
     /// let g = Global::new_mut(&mut store, Value::I32(1));
     ///
     /// assert_eq!(g.get(&mut store), Value::I32(1));
-    /// assert_eq!(g.ty(&mut ctx).mutability, Mutability::Var);
+    /// assert_eq!(g.ty(&mut store).mutability, Mutability::Var);
     /// ```
     pub fn new_mut(ctx: &mut impl AsStoreMut, val: Value) -> Self {
         Self::from_value(ctx, val, Mutability::Var).unwrap()
@@ -87,15 +83,13 @@ impl Global {
     ///
     /// ```
     /// # use wasmer::{Global, Mutability, Store, Type, Value, GlobalType};
-    /// # use wasmer::FunctionEnv;
     /// # let mut store = Store::default();
-    /// # let env = FunctionEnv::new(&mut store, ());
     /// #
     /// let c = Global::new(&mut store, Value::I32(1));
     /// let v = Global::new_mut(&mut store, Value::I64(1));
     ///
-    /// assert_eq!(c.ty(&mut ctx), GlobalType::new(Type::I32, Mutability::Const));
-    /// assert_eq!(v.ty(&mut ctx), GlobalType::new(Type::I64, Mutability::Var));
+    /// assert_eq!(c.ty(&mut store), GlobalType::new(Type::I32, Mutability::Const));
+    /// assert_eq!(v.ty(&mut store), GlobalType::new(Type::I64, Mutability::Var));
     /// ```
     pub fn ty(&self, ctx: &impl AsStoreRef) -> GlobalType {
         *self.handle.get(ctx.as_store_ref().objects()).ty()
@@ -107,7 +101,6 @@ impl Global {
     ///
     /// ```
     /// # use wasmer::{Global, Store, Value};
-    /// # use wasmer::FunctionEnv;
     /// # let mut store = Store::default();
     /// #
     /// let g = Global::new(&mut store, Value::I32(1));
@@ -133,9 +126,7 @@ impl Global {
     ///
     /// ```
     /// # use wasmer::{Global, Store, Value};
-    /// # use wasmer::FunctionEnv;
     /// # let mut store = Store::default();
-    /// # let env = FunctionEnv::new(&mut store, ());
     /// #
     /// let g = Global::new_mut(&mut store, Value::I32(1));
     ///
@@ -152,9 +143,7 @@ impl Global {
     ///
     /// ```should_panic
     /// # use wasmer::{Global, Store, Value};
-    /// # use wasmer::FunctionEnv;
     /// # let mut store = Store::default();
-    /// # let env = FunctionEnv::new(&mut store, ());
     /// #
     /// let g = Global::new(&mut store, Value::I32(1));
     ///
@@ -165,9 +154,7 @@ impl Global {
     ///
     /// ```should_panic
     /// # use wasmer::{Global, Store, Value};
-    /// # use wasmer::FunctionEnv;
     /// # let mut store = Store::default();
-    /// # let env = FunctionEnv::new(&mut store, ());
     /// #
     /// let g = Global::new(&mut store, Value::I32(1));
     ///

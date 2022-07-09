@@ -16,8 +16,8 @@ use wasmer_types::ImportError;
 ///
 /// # Usage:
 /// ```no_run
-/// use wasmer::{StoreMut, Exports, Module, Instance, imports, Imports, Function, FunctionEnv, FunctionEnvMut};
-/// # fn foo_test(mut ctx: FunctionEnvMut<()>, module: Module) {
+/// use wasmer::{Store, Exports, Module, Instance, imports, Imports, Function, FunctionEnv, FunctionEnvMut};
+/// # fn foo_test(mut ctx: FunctionEnv<()>, mut store: &mut Store, module: Module) {
 ///
 /// let host_fn = Function::new_native(&mut store, &ctx, foo);
 /// let import_object: Imports = imports! {
@@ -97,15 +97,15 @@ impl Imports {
     ///
     /// # Usage
     /// ```no_run
-    /// # use wasmer::FunctionEnv;
-    /// # let mut store = Default::default();
+    /// # use wasmer::{FunctionEnv, Store};
+    /// # let mut store: Store = Default::default();
     /// # let env = FunctionEnv::new(&mut store, ());
     /// use wasmer::{StoreMut, Imports, Function, FunctionEnvMut};
     /// fn foo(_ctx: FunctionEnvMut<()>, n: i32) -> i32 {
     ///     n
     /// }
     /// let mut import_object = Imports::new();
-    /// import_object.define("env", "foo", Function::new_native(&mut store, &ctx, foo));
+    /// import_object.define("env", "foo", Function::new_native(&mut store, &env, foo));
     /// ```
     pub fn define(&mut self, ns: &str, name: &str, val: impl Into<Extern>) {
         self.map
@@ -217,11 +217,11 @@ impl fmt::Debug for Imports {
 ///
 /// let import_object = imports! {
 ///     "env" => {
-///         "foo" => Function::new_native(&mut store, &ctx, foo)
+///         "foo" => Function::new_native(&mut store, &env, foo)
 ///     },
 /// };
 ///
-/// fn foo(_ctx: FunctionEnvMut<()>, n: i32) -> i32 {
+/// fn foo(_env: FunctionEnvMut<()>, n: i32) -> i32 {
 ///     n
 /// }
 /// ```

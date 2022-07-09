@@ -51,14 +51,13 @@ impl Function {
     /// # Examples
     ///
     /// ```
-    /// # use wasmer::{Function, FunctionType, Type, Store, Value};
-    /// # use wasmer::FunctionEnv;
+    /// # use wasmer::{Function, FunctionEnv, FunctionType, Type, Store, Value};
     /// # let mut store = Store::default();
     /// # let ctx = FunctionEnv::new(&mut store, ());
     /// #
     /// let signature = FunctionType::new(vec![Type::I32, Type::I32], vec![Type::I32]);
     ///
-    /// let f = Function::new(&mut store, &signature, &ctx, |_ctx, args| {
+    /// let f = Function::new(&mut store, &ctx, &signature, |_ctx, args| {
     ///     let sum = args[0].unwrap_i32() + args[1].unwrap_i32();
     ///     Ok(vec![Value::I32(sum)])
     /// });
@@ -67,13 +66,13 @@ impl Function {
     /// With constant signature:
     ///
     /// ```
-    /// # use wasmer::{Function, FunctionType, Type, Store, Value};
-    /// # use wasmer::FunctionEnv;
+    /// # use wasmer::{Function, FunctionEnv, FunctionType, Type, Store, Value};
     /// # let mut store = Store::default();
+    /// # let ctx = FunctionEnv::new(&mut store, ());
     /// #
     /// const I32_I32_TO_I32: ([Type; 2], [Type; 1]) = ([Type::I32, Type::I32], [Type::I32]);
     ///
-    /// let f = Function::new(&mut store, I32_I32_TO_I32, |args| {
+    /// let f = Function::new(&mut store, &ctx, I32_I32_TO_I32, |_ctx, args| {
     ///     let sum = args[0].unwrap_i32() + args[1].unwrap_i32();
     ///     Ok(vec![Value::I32(sum)])
     /// });
@@ -173,16 +172,15 @@ impl Function {
     /// # Example
     ///
     /// ```
-    /// # use wasmer::{Store, Function};
-    /// # use wasmer::FunctionEnv;
+    /// # use wasmer::{Store, Function, FunctionEnv, FunctionEnvMut};
     /// # let mut store = Store::default();
     /// # let ctx = FunctionEnv::new(&mut store, ());
     /// #
-    /// fn sum(_ctx: &mut (), a: i32, b: i32) -> i32 {
+    /// fn sum(_ctx: FunctionEnvMut<()>, a: i32, b: i32) -> i32 {
     ///     a + b
     /// }
     ///
-    /// let f = Function::new_native(&mut store, ctx, sum);
+    /// let f = Function::new_native(&mut store, &ctx, sum);
     /// ```
     pub fn new_native<T: Send + 'static, F, Args, Rets>(
         store: &mut impl AsStoreMut,
@@ -235,19 +233,18 @@ impl Function {
     /// # Example
     ///
     /// ```
-    /// # use wasmer::{Function, Store, Type};
-    /// # use wasmer::FunctionEnv;
+    /// # use wasmer::{Function, FunctionEnv, FunctionEnvMut, Store, Type};
     /// # let mut store = Store::default();
     /// # let ctx = FunctionEnv::new(&mut store, ());
     /// #
-    /// fn sum(_ctx: &mut (), a: i32, b: i32) -> i32 {
+    /// fn sum(_ctx: FunctionEnvMut<()>, a: i32, b: i32) -> i32 {
     ///     a + b
     /// }
     ///
     /// let f = Function::new_native(&mut store, &ctx, sum);
     ///
-    /// assert_eq!(f.ty(&mut ctx).params(), vec![Type::I32, Type::I32]);
-    /// assert_eq!(f.ty(&mut ctx).results(), vec![Type::I32]);
+    /// assert_eq!(f.ty(&mut store).params(), vec![Type::I32, Type::I32]);
+    /// assert_eq!(f.ty(&mut store).results(), vec![Type::I32]);
     /// ```
     pub fn ty(&self, store: &impl AsStoreRef) -> FunctionType {
         self.handle
@@ -336,18 +333,17 @@ impl Function {
     /// # Example
     ///
     /// ```
-    /// # use wasmer::{Function, Store, Type};
-    /// # use wasmer::FunctionEnv;
+    /// # use wasmer::{Function, FunctionEnv, FunctionEnvMut, Store, Type};
     /// # let mut store = Store::default();
     /// # let ctx = FunctionEnv::new(&mut store, ());
     /// #
-    /// fn sum(_ctx: &mut (), a: i32, b: i32) -> i32 {
+    /// fn sum(_ctx: FunctionEnvMut<()>, a: i32, b: i32) -> i32 {
     ///     a + b
     /// }
     ///
     /// let f = Function::new_native(&mut store, &ctx, sum);
     ///
-    /// assert_eq!(f.param_arity(&mut ctx), 2);
+    /// assert_eq!(f.param_arity(&mut store), 2);
     /// ```
     pub fn param_arity(&self, store: &impl AsStoreRef) -> usize {
         self.ty(store).params().len()
@@ -358,18 +354,17 @@ impl Function {
     /// # Example
     ///
     /// ```
-    /// # use wasmer::{Function, Store, Type};
-    /// # use wasmer::FunctionEnv;
+    /// # use wasmer::{Function, FunctionEnv, FunctionEnvMut, Store, Type};
     /// # let mut store = Store::default();
     /// # let ctx = FunctionEnv::new(&mut store, ());
     /// #
-    /// fn sum(_ctx: &mut (), a: i32, b: i32) -> i32 {
+    /// fn sum(_ctx: FunctionEnvMut<()>, a: i32, b: i32) -> i32 {
     ///     a + b
     /// }
     ///
     /// let f = Function::new_native(&mut store, &ctx, sum);
     ///
-    /// assert_eq!(f.result_arity(&mut ctx), 1);
+    /// assert_eq!(f.result_arity(&mut store), 1);
     /// ```
     pub fn result_arity(&self, store: &impl AsStoreRef) -> usize {
         self.ty(store).results().len()
@@ -1395,11 +1390,11 @@ mod inner {
                 let ctx = FunctionEnv::new(&mut store, ());
                 use wasmer_types::FunctionType;
                 assert_eq!(
-                    StaticFunction::new(func).ty(&mut ctx),
+                    StaticFunction::new(func).ty(&mut store),
                     FunctionType::new(vec![], vec![])
                 );
                 assert_eq!(
-                    StaticFunction::new(func__i32).ty(&mut ctx),
+                    StaticFunction::new(func__i32).ty(&mut store),
                     FunctionType::new(vec![], vec![Type::I32])
                 );
                 assert_eq!(
