@@ -1,6 +1,6 @@
 #![deny(dead_code)]
 use crate::{WasiEnv, WasiError, WasiState, WasiThread};
-use wasmer::{Memory, Memory64, MemorySize, StoreMut, WasmPtr, WasmSlice, FunctionEnvMut};
+use wasmer::{FunctionEnvMut, Memory, Memory64, MemorySize, StoreMut, WasmPtr, WasmSlice};
 use wasmer_wasi_types::*;
 
 type MemoryType = Memory64;

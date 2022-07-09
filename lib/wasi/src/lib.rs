@@ -64,8 +64,8 @@ use derivative::*;
 use std::ops::Deref;
 use thiserror::Error;
 use wasmer::{
-    imports, namespace, AsStoreMut, Exports, Function, Imports, Memory, Memory32,
-    MemoryAccessError, MemorySize, Module, TypedFunction, FunctionEnv,
+    imports, namespace, AsStoreMut, Exports, Function, FunctionEnv, Imports, Memory, Memory32,
+    MemoryAccessError, MemorySize, Module, TypedFunction,
 };
 
 pub use runtime::{
@@ -149,7 +149,9 @@ pub struct WasiFunctionEnv {
 
 impl WasiFunctionEnv {
     pub fn new(store: &mut impl AsStoreMut, env: WasiEnv) -> Self {
-        Self { env: FunctionEnv::new(store, env) }
+        Self {
+            env: FunctionEnv::new(store, env),
+        }
     }
 
     /// Get an `Imports` for a specific version of WASI detected in the module.
@@ -159,12 +161,15 @@ impl WasiFunctionEnv {
         module: &Module,
     ) -> Result<Imports, WasiError> {
         let wasi_version = get_wasi_version(module, false).ok_or(WasiError::UnknownWasiVersion)?;
-        Ok(generate_import_object_from_ctx(store, &self.env, wasi_version))
+        Ok(generate_import_object_from_ctx(
+            store,
+            &self.env,
+            wasi_version,
+        ))
     }
 
-    fn data_mut<'a>(&'a self, store: &'a mut impl AsStoreMut) -> &'a mut WasiEnv {
-        let mut s= store.as_store_mut();
-        s.get_function_env(&self.env)
+    pub fn data_mut<'a>(&'a self, store: &'a mut impl AsStoreMut) -> &'a mut WasiEnv {
+        self.env.as_mut(store)
     }
 
     /// Like `import_object` but containing all the WASI versions detected in
@@ -179,8 +184,7 @@ impl WasiFunctionEnv {
 
         let mut resolver = Imports::new();
         for version in wasi_versions.iter() {
-            let new_import_object =
-                generate_import_object_from_ctx(store, &self.env, *version);
+            let new_import_object = generate_import_object_from_ctx(store, &self.env, *version);
             for ((n, m), e) in new_import_object.into_iter() {
                 resolver.define(&n, &m, e);
             }
@@ -379,7 +383,9 @@ pub fn generate_import_object_from_ctx(
 ) -> Imports {
     match version {
         WasiVersion::Snapshot0 => generate_import_object_snapshot0(store, ctx),
-        WasiVersion::Snapshot1 | WasiVersion::Latest => generate_import_object_snapshot1(store, ctx),
+        WasiVersion::Snapshot1 | WasiVersion::Latest => {
+            generate_import_object_snapshot1(store, ctx)
+        }
         WasiVersion::Wasix32v1 => generate_import_object_wasix32_v1(store, ctx),
         WasiVersion::Wasix64v1 => generate_import_object_wasix64_v1(store, ctx),
     }
@@ -436,7 +442,10 @@ fn wasi_unstable_exports(mut store: &mut impl AsStoreMut, ctx: &FunctionEnv<Wasi
     namespace
 }
 
-fn wasi_snapshot_preview1_exports(mut store: &mut impl AsStoreMut, ctx: &FunctionEnv<WasiEnv>) -> Exports {
+fn wasi_snapshot_preview1_exports(
+    mut store: &mut impl AsStoreMut,
+    ctx: &FunctionEnv<WasiEnv>,
+) -> Exports {
     let namespace = namespace! {
         "args_get" => Function::new_native(&mut store, &ctx,args_get::<Memory32>),
         "args_sizes_get" => Function::new_native(&mut store, &ctx,args_sizes_get::<Memory32>),
@@ -486,7 +495,10 @@ fn wasi_snapshot_preview1_exports(mut store: &mut impl AsStoreMut, ctx: &Functio
     };
     namespace
 }
-pub fn import_object_for_all_wasi_versions(store: &mut impl AsStoreMut, ctx: &FunctionEnv<WasiEnv>) -> Imports {
+pub fn import_object_for_all_wasi_versions(
+    store: &mut impl AsStoreMut,
+    ctx: &FunctionEnv<WasiEnv>,
+) -> Imports {
     let wasi_unstable_exports = wasi_unstable_exports(store, ctx);
     let wasi_snapshot_preview1_exports = wasi_snapshot_preview1_exports(store, ctx);
     imports! {
@@ -496,14 +508,20 @@ pub fn import_object_for_all_wasi_versions(store: &mut impl AsStoreMut, ctx: &Fu
 }
 
 /// Combines a state generating function with the import list for legacy WASI
-fn generate_import_object_snapshot0(store: &mut impl AsStoreMut, ctx: &FunctionEnv<WasiEnv>) -> Imports {
+fn generate_import_object_snapshot0(
+    store: &mut impl AsStoreMut,
+    ctx: &FunctionEnv<WasiEnv>,
+) -> Imports {
     let wasi_unstable_exports = wasi_unstable_exports(store, ctx);
     imports! {
         "wasi_unstable" => wasi_unstable_exports
     }
 }
 
-fn generate_import_object_snapshot1(store: &mut impl AsStoreMut, ctx: &FunctionEnv<WasiEnv>) -> Imports {
+fn generate_import_object_snapshot1(
+    store: &mut impl AsStoreMut,
+    ctx: &FunctionEnv<WasiEnv>,
+) -> Imports {
     let wasi_snapshot_preview1_exports = wasi_snapshot_preview1_exports(store, ctx);
     imports! {
         "wasi_snapshot_preview1" => wasi_snapshot_preview1_exports
@@ -511,7 +529,10 @@ fn generate_import_object_snapshot1(store: &mut impl AsStoreMut, ctx: &FunctionE
 }
 
 /// Combines a state generating function with the import list for snapshot 1
-fn generate_import_object_wasix32_v1(mut store: &mut impl AsStoreMut, ctx: &FunctionEnv<WasiEnv>) -> Imports {
+fn generate_import_object_wasix32_v1(
+    mut store: &mut impl AsStoreMut,
+    ctx: &FunctionEnv<WasiEnv>,
+) -> Imports {
     use self::wasix32::*;
     imports! {
         "wasix_32v1" => {
@@ -626,7 +647,10 @@ fn generate_import_object_wasix32_v1(mut store: &mut impl AsStoreMut, ctx: &Func
     }
 }
 
-fn generate_import_object_wasix64_v1(mut store: &mut impl AsStoreMut, ctx: &FunctionEnv<WasiEnv>) -> Imports {
+fn generate_import_object_wasix64_v1(
+    mut store: &mut impl AsStoreMut,
+    ctx: &FunctionEnv<WasiEnv>,
+) -> Imports {
     use self::wasix64::*;
     imports! {
         "wasix_64v1" => {

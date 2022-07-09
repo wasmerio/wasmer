@@ -2,15 +2,15 @@
 
 use crate::state::{default_fs_backing, WasiFs, WasiState};
 use crate::syscalls::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO};
-use crate::{WasiEnv, WasiInodes, WasiFunctionEnv};
+use crate::{WasiEnv, WasiFunctionEnv, WasiInodes};
 use generational_arena::Arena;
-use wasmer::AsStoreMut;
 use std::collections::HashMap;
 use std::ops::{Deref, DerefMut};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::RwLock;
 use thiserror::Error;
+use wasmer::AsStoreMut;
 use wasmer_vfs::{FsError, VirtualFile};
 
 /// Creates an empty [`WasiStateBuilder`].
@@ -494,7 +494,10 @@ impl WasiStateBuilder {
     /// determinisic result. This method is calling [Self::build],
     /// which is changing the builder's internal state. See
     /// [Self::build]'s documentation to learn more.
-    pub fn finalize(&mut self, store: &mut impl AsStoreMut) -> Result<WasiFunctionEnv, WasiStateCreationError> {
+    pub fn finalize(
+        &mut self,
+        store: &mut impl AsStoreMut,
+    ) -> Result<WasiFunctionEnv, WasiStateCreationError> {
         let state = self.build()?;
 
         let mut env = WasiEnv::new(state);

@@ -11,7 +11,7 @@ use std::sync::Mutex;
 use std::time::Duration;
 #[allow(unused_imports)]
 use tracing::{debug, error, info, warn};
-use wasmer::{Memory, MemorySize, FunctionEnvMut, WasmPtr, WasmSlice};
+use wasmer::{FunctionEnvMut, Memory, MemorySize, WasmPtr, WasmSlice};
 use wasmer_vnet::{net_error_into_io_err, TimeType};
 use wasmer_vnet::{
     IpCidr, IpRoute, SocketHttpRequest, VirtualIcmpSocket, VirtualNetworking, VirtualRawSocket,

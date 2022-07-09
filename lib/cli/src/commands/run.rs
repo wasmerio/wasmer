@@ -110,8 +110,7 @@ impl Run {
         if let Some(ref invoke) = self.invoke {
             let imports = imports! {};
             let instance = Instance::new(&mut store, &module, &imports)?;
-            let result =
-                self.invoke_function(&mut store, &instance, invoke, &self.args)?;
+            let result = self.invoke_function(&mut store, &instance, invoke, &self.args)?;
             println!(
                 "{}",
                 result
@@ -151,13 +150,8 @@ impl Run {
                     .map_err(|e| anyhow!("{}", e))?;
                 ctx.data_mut()
                     .set_data(&emscripten_globals.data, Default::default());
-                let import_object =
-                    generate_emscripten_env(&mut store, &mut emscripten_globals);
-                let mut instance = match Instance::new(
-                    &mut store,
-                    &module,
-                    &import_object,
-                ) {
+                let import_object = generate_emscripten_env(&mut store, &mut emscripten_globals);
+                let mut instance = match Instance::new(&mut store, &module, &import_object) {
                     Ok(instance) => instance,
                     Err(e) => {
                         let err: Result<(), _> = Err(e);

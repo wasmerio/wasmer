@@ -354,7 +354,7 @@ mod tests {
 
     use std::sync::Arc;
     use wasmer::{
-        imports, wat2wasm, CompilerConfig, FunctionEnv, Cranelift, Module, Store, TypedFunction,
+        imports, wat2wasm, CompilerConfig, Cranelift, FunctionEnv, Module, Store, TypedFunction,
         Universal,
     };
 
@@ -390,7 +390,7 @@ mod tests {
         compiler_config.push_middleware(metering);
         let mut store = Store::new_with_engine(&Universal::new(compiler_config).engine());
         let module = Module::new(&store, bytecode()).unwrap();
-        let mut ctx = FunctionEnv::new(&mut store,  ());
+        let mut ctx = FunctionEnv::new(&mut store, ());
 
         // Instantiate
         let instance = Instance::new(&mut store, &module, &imports! {}).unwrap();

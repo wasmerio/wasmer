@@ -75,14 +75,7 @@ pub fn path_filestat_get(
     let new_buf: WasmPtr<types::__wasi_filestat_t, Memory32> = buf.cast();
     let new_filestat_setup: types::__wasi_filestat_t = wasi_try_mem!(new_buf.read(&ctx, memory));
 
-    let result = syscalls::path_filestat_get::<Memory32>(
-        ctx,
-        fd,
-        flags,
-        path,
-        path_len,
-        new_buf,
-    );
+    let result = syscalls::path_filestat_get::<Memory32>(ctx, fd, flags, path, path_len, new_buf);
 
     // // need to re-borrow
     // let env = ctx.data();
@@ -172,13 +165,8 @@ pub fn poll_oneoff(
     }
 
     // make the call
-    let result = syscalls::poll_oneoff::<Memory32>(
-        ctx,
-        in_new_type_ptr,
-        out_,
-        nsubscriptions,
-        nevents,
-    );
+    let result =
+        syscalls::poll_oneoff::<Memory32>(ctx, in_new_type_ptr, out_, nsubscriptions, nevents);
 
     // // replace the old values of in, in case the calling code reuses the memory
     // let env = ctx.data();

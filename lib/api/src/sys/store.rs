@@ -1,5 +1,5 @@
-use crate::FunctionEnv;
 use crate::sys::tunables::BaseTunables;
+use crate::FunctionEnv;
 use std::fmt;
 use std::sync::{Arc, RwLock};
 use wasmer_compiler::CompilerConfig;
@@ -135,6 +135,9 @@ impl AsStoreMut for Store {
             inner: &mut self.inner,
         }
     }
+    fn objects_mut(&mut self) -> &mut StoreObjects {
+        &mut self.inner.objects
+    }
 }
 
 impl fmt::Debug for Store {
@@ -187,10 +190,6 @@ pub struct StoreMut<'a> {
 }
 
 impl<'a> StoreMut<'a> {
-    pub(crate) fn objects_mut(&mut self) -> &mut StoreObjects {
-        &mut self.inner.objects
-    }
-
     /// Returns the [`Tunables`].
     pub fn tunables(&self) -> &dyn Tunables {
         self.inner.tunables.as_ref()
@@ -240,6 +239,9 @@ pub trait AsStoreRef {
 pub trait AsStoreMut: AsStoreRef {
     /// Returns a `StoreMut` pointing to the underlying context.
     fn as_store_mut(&mut self) -> StoreMut<'_>;
+
+    /// Returns the ObjectMutable
+    fn objects_mut(&mut self) -> &mut StoreObjects;
 }
 
 impl AsStoreRef for StoreRef<'_> {
@@ -247,6 +249,7 @@ impl AsStoreRef for StoreRef<'_> {
         StoreRef { inner: self.inner }
     }
 }
+
 impl AsStoreRef for StoreMut<'_> {
     fn as_store_ref(&self) -> StoreRef<'_> {
         StoreRef { inner: self.inner }
@@ -255,6 +258,9 @@ impl AsStoreRef for StoreMut<'_> {
 impl AsStoreMut for StoreMut<'_> {
     fn as_store_mut(&mut self) -> StoreMut<'_> {
         StoreMut { inner: self.inner }
+    }
+    fn objects_mut(&mut self) -> &mut StoreObjects {
+        &mut self.inner.objects
     }
 }
 
@@ -271,5 +277,8 @@ impl<T: AsStoreRef> AsStoreRef for &'_ mut T {
 impl<T: AsStoreMut> AsStoreMut for &'_ mut T {
     fn as_store_mut(&mut self) -> StoreMut<'_> {
         T::as_store_mut(*self)
+    }
+    fn objects_mut(&mut self) -> &mut StoreObjects {
+        T::objects_mut(*self)
     }
 }

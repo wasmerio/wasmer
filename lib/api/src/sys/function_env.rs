@@ -2,9 +2,7 @@ use std::{any::Any, marker::PhantomData};
 
 use wasmer_vm::{StoreHandle, StoreObjects, VMFunctionEnvironment};
 
-use crate::{AsStoreMut, AsStoreRef, Store, StoreMut, StoreRef};
-
-use super::store::StoreInner;
+use crate::{AsStoreMut, AsStoreRef, StoreMut, StoreRef};
 
 #[derive(Debug)]
 #[repr(transparent)]
@@ -31,7 +29,7 @@ impl<T> FunctionEnv<T> {
     }
 
     /// Get the context as mutable
-    pub fn as_mut<'a>(&self, store: &'a mut StoreMut) -> &'a mut T
+    pub fn as_mut<'a>(&self, store: &'a mut impl AsStoreMut) -> &'a mut T
     // FunctionEnvMut<'a, T>
     where
         T: Any + Send + 'static + Sized,
@@ -41,14 +39,6 @@ impl<T> FunctionEnv<T> {
             .as_mut()
             .downcast_mut::<T>()
             .unwrap()
-        // unsafe {
-        //     FunctionEnvMut {
-        //         store_mut: StoreMut {
-        //             inner: &mut *store_mut.as_raw(),
-        //         },
-        //         data,
-        //     }
-        // }
     }
 }
 
@@ -96,5 +86,8 @@ impl<T> AsStoreMut for FunctionEnvMut<'_, T> {
         StoreMut {
             inner: self.store_mut.inner,
         }
+    }
+    fn objects_mut(&mut self) -> &mut StoreObjects {
+        &mut self.store_mut.inner.objects
     }
 }
