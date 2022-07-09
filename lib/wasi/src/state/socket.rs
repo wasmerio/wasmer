@@ -968,7 +968,7 @@ impl InodeSocket {
                     let peer = self
                         .read_addr
                         .unwrap_or_else(|| SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0));
-                    write_ip_port(&ctx, memory, addr, peer.ip(), peer.port())?;
+                    write_ip_port(ctx, memory, addr, peer.ip(), peer.port())?;
                     return Ok(ret);
                 }
             }
