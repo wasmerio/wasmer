@@ -89,8 +89,8 @@ mod sys {
         ) -> Result<Vec<Value>, RuntimeError> {
             // TODO: look into `Box<[Value]>` being returned breakage
             let f = values[0].unwrap_funcref().as_ref().unwrap();
-            let f: TypedFunction<(i32, i32), i32> = f.native(&mut ctx)?;
-            Ok(vec![Value::I32(f.call(&mut ctx, 7, 9)?)])
+            let f: TypedFunction<(i32, i32), i32> = f.native(&mut store)?;
+            Ok(vec![Value::I32(f.call(&mut store, 7, 9)?)])
         }
 
         let imports = imports! {

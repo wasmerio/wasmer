@@ -48,7 +48,7 @@ impl Global {
     /// # let mut store = Store::default();
     /// # let env = FunctionEnv::new(&mut store, ());
     /// #
-    /// let g = Global::new_mut(&mut ctx, Value::I32(1));
+    /// let g = Global::new_mut(&mut store, Value::I32(1));
     ///
     /// assert_eq!(g.get(&mut store), Value::I32(1));
     /// assert_eq!(g.ty(&mut ctx).mutability, Mutability::Var);
@@ -92,7 +92,7 @@ impl Global {
     /// # let env = FunctionEnv::new(&mut store, ());
     /// #
     /// let c = Global::new(&mut store, Value::I32(1));
-    /// let v = Global::new_mut(&mut ctx, Value::I64(1));
+    /// let v = Global::new_mut(&mut store, Value::I64(1));
     ///
     /// assert_eq!(c.ty(&mut ctx), GlobalType::new(Type::I32, Mutability::Const));
     /// assert_eq!(v.ty(&mut ctx), GlobalType::new(Type::I64, Mutability::Var));
@@ -137,7 +137,7 @@ impl Global {
     /// # let mut store = Store::default();
     /// # let env = FunctionEnv::new(&mut store, ());
     /// #
-    /// let g = Global::new_mut(&mut ctx, Value::I32(1));
+    /// let g = Global::new_mut(&mut store, Value::I32(1));
     ///
     /// assert_eq!(g.get(&mut store), Value::I32(1));
     ///

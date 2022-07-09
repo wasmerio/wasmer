@@ -212,20 +212,19 @@ impl Memory {
     /// ```
     pub fn grow<IntoPages>(
         &self,
-        ctx: &mut impl AsStoreMut,
+        store: &mut impl AsStoreMut,
         delta: IntoPages,
     ) -> Result<Pages, MemoryError>
     where
         IntoPages: Into<Pages>,
     {
         let pages = delta.into();
-        let mut ctx_mut = ctx.as_store_mut();
-        let js_memory = &self.handle.get_mut(ctx_mut.objects_mut()).memory;
+        let js_memory = &self.handle.get_mut(store.objects_mut()).memory;
         let our_js_memory: &JSMemory = JsCast::unchecked_from_js_ref(js_memory);
         let new_pages = our_js_memory.grow(pages.0).map_err(|err| {
             if err.is_instance_of::<js_sys::RangeError>() {
                 MemoryError::CouldNotGrow {
-                    current: self.size(&ctx.as_store_ref()),
+                    current: self.size(&store.as_store_ref()),
                     attempted_delta: pages,
                 }
             } else {

@@ -109,44 +109,53 @@ impl Function {
 
         let wrapped_func: JsValue = match function_type.results().len() {
             0 => Closure::wrap(Box::new(move |args: &Array| {
-                let mut store: StoreMut = unsafe { StoreMut::from_raw(raw_ctx as _) };
-                let mut ctx: FunctionEnvMut<T> = unsafe { FunctionEnvMut::from_raw(raw_ctx as _) };
-                let wasm_arguments = function_type
-                    .params()
-                    .iter()
-                    .enumerate()
-                    .map(|(i, param)| param_from_js(param, &args.get(i as u32)))
-                    .collect::<Vec<_>>();
-                let _results = func(ctx, &wasm_arguments)?;
-                Ok(())
+                Err(JsValue::from_str(
+                    "Native functions with more than one result are not yet supported",
+                ))
+                // let mut store: StoreMut = unsafe { StoreMut::from_raw(raw_ctx as _) };
+                // let mut ctx: FunctionEnvMut<T> = unsafe { FunctionEnvMut::from_raw(raw_ctx as _) };
+                // let wasm_arguments = function_type
+                //     .params()
+                //     .iter()
+                //     .enumerate()
+                //     .map(|(i, param)| param_from_js(param, &args.get(i as u32)))
+                //     .collect::<Vec<_>>();
+                // let _results = func(ctx, &wasm_arguments)?;
+                // Ok(())
             })
                 as Box<dyn FnMut(&Array) -> Result<(), JsValue>>)
             .into_js_value(),
             1 => Closure::wrap(Box::new(move |args: &Array| {
-                let mut store: StoreMut = unsafe { StoreMut::from_raw(raw_ctx as _) };
-                let mut ctx: FunctionEnvMut<T> = unsafe { FunctionEnvMut::from_raw(raw_ctx as _) };
-                let wasm_arguments = function_type
-                    .params()
-                    .iter()
-                    .enumerate()
-                    .map(|(i, param)| param_from_js(param, &args.get(i as u32)))
-                    .collect::<Vec<_>>();
-                let results = func(ctx, &wasm_arguments)?;
-                return Ok(result_to_js(&results[0]));
+                Err(JsValue::from_str(
+                    "Native functions with more than one result are not yet supported",
+                ))
+                // let mut store: StoreMut = unsafe { StoreMut::from_raw(raw_ctx as _) };
+                // let mut ctx: FunctionEnvMut<T> = unsafe { FunctionEnvMut::from_raw(raw_ctx as _) };
+                // let wasm_arguments = function_type
+                //     .params()
+                //     .iter()
+                //     .enumerate()
+                //     .map(|(i, param)| param_from_js(param, &args.get(i as u32)))
+                //     .collect::<Vec<_>>();
+                // let results = func(ctx, &wasm_arguments)?;
+                // return Ok(result_to_js(&results[0]));
             })
                 as Box<dyn FnMut(&Array) -> Result<JsValue, JsValue>>)
             .into_js_value(),
             _n => Closure::wrap(Box::new(move |args: &Array| {
-                let mut store: StoreMut = unsafe { StoreMut::from_raw(raw_ctx as _) };
-                let mut ctx: FunctionEnvMut<T> = unsafe { FunctionEnvMut::from_raw(raw_ctx as _) };
-                let wasm_arguments = function_type
-                    .params()
-                    .iter()
-                    .enumerate()
-                    .map(|(i, param)| param_from_js(param, &args.get(i as u32)))
-                    .collect::<Vec<_>>();
-                let results = func(ctx, &wasm_arguments)?;
-                return Ok(results_to_js_array(&results));
+                Err(JsValue::from_str(
+                    "Native functions with more than one result are not yet supported",
+                ))
+                // let mut store: StoreMut = unsafe { StoreMut::from_raw(raw_ctx as _) };
+                // let mut ctx: FunctionEnvMut<T> = unsafe { FunctionEnvMut::from_raw(raw_ctx as _) };
+                // let wasm_arguments = function_type
+                //     .params()
+                //     .iter()
+                //     .enumerate()
+                //     .map(|(i, param)| param_from_js(param, &args.get(i as u32)))
+                //     .collect::<Vec<_>>();
+                // let results = func(ctx, &wasm_arguments)?;
+                // return Ok(results_to_js_array(&results));
             })
                 as Box<dyn FnMut(&Array) -> Result<Array, JsValue>>)
             .into_js_value(),
@@ -298,7 +307,7 @@ impl Function {
     ///
     /// assert_eq!(sum.call(&[Value::I32(1), Value::I32(2)]).unwrap().to_vec(), vec![Value::I32(3)]);
     /// ```
-    pub fn call<T>(
+    pub fn call(
         &self,
         store: &mut impl AsStoreMut,
         params: &[Value],
@@ -982,20 +991,22 @@ mod inner {
                         RetsAsResult: IntoResult<Rets>,
                         Func: Fn(FunctionEnvMut<'_, T>, $( $x , )*) -> RetsAsResult + 'static,
                     {
-                        let func: &Func = &*(&() as *const () as *const Func);
-                        let mut store = StoreMut::from_raw(ctx_ptr as *mut _);
-                        let mut store2 = StoreMut::from_raw(ctx_ptr as *mut _);
+                        unimplemented!();
+                        // RuntimeError::raise(Box::new(JsValue::from_str("Native functions with more than one result are not yet supported")))
+                        // let func: &Func = &*(&() as *const () as *const Func);
+                        // let mut store = StoreMut::from_raw(ctx_ptr as *mut _);
+                        // let mut store2 = StoreMut::from_raw(ctx_ptr as *mut _);
 
-                        let result = panic::catch_unwind(AssertUnwindSafe(|| {
-                            func(store2.as_store_mut(), $( FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(&mut ctx, $x)) ),* ).into_result()
-                        }));
+                        // let result = panic::catch_unwind(AssertUnwindSafe(|| {
+                        //     func(store2.as_store_mut(), $( FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(&mut ctx, $x)) ),* ).into_result()
+                        // }));
 
-                        match result {
-                            Ok(Ok(result)) => return result.into_c_struct(&mut store),
-                            #[allow(deprecated)]
-                            Ok(Err(trap)) => RuntimeError::raise(Box::new(trap)),
-                            Err(_panic) => unimplemented!(),
-                        }
+                        // match result {
+                        //     Ok(Ok(result)) => return result.into_c_struct(&mut store),
+                        //     #[allow(deprecated)]
+                        //     Ok(Err(trap)) => RuntimeError::raise(Box::new(trap)),
+                        //     Err(_panic) => unimplemented!(),
+                        // }
                     }
 
                     func_wrapper::< T, $( $x, )* Rets, RetsAsResult, Self > as *const VMFunctionBody

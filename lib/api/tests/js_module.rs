@@ -32,7 +32,6 @@ mod js {
         let js_bytes = unsafe { Uint8Array::view(&binary) };
         let js_module = WebAssembly::Module::new(&js_bytes.into()).unwrap();
         let module: Module = js_module.into();
-        assert_eq!(module.store(), &Store::default());
     }
 
     #[wasm_bindgen_test]

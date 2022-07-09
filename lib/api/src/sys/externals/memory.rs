@@ -44,7 +44,7 @@ impl Memory {
     /// # let mut store = Store::default();
     /// # let env = FunctionEnv::new(&mut store, ());
     /// #
-    /// let m = Memory::new(&mut ctx, MemoryType::new(1, None, false)).unwrap();
+    /// let m = Memory::new(&mut store, MemoryType::new(1, None, false)).unwrap();
     /// ```
     pub fn new(ctx: &mut impl AsStoreMut, ty: MemoryType) -> Result<Self, MemoryError> {
         let mut ctx = ctx.as_store_mut();
@@ -68,7 +68,7 @@ impl Memory {
     /// # let env = FunctionEnv::new(&mut store, ());
     /// #
     /// let mt = MemoryType::new(1, None, false);
-    /// let m = Memory::new(&mut ctx, mt).unwrap();
+    /// let m = Memory::new(&mut store, mt).unwrap();
     ///
     /// assert_eq!(m.ty(&mut ctx), mt);
     /// ```
@@ -100,9 +100,9 @@ impl Memory {
     /// # let mut store = Store::default();
     /// # let env = FunctionEnv::new(&mut store, ());
     /// #
-    /// let m = Memory::new(&mut ctx, MemoryType::new(1, None, false)).unwrap();
+    /// let m = Memory::new(&mut store, MemoryType::new(1, None, false)).unwrap();
     ///
-    /// assert_eq!(m.size(&mut ctx), Pages(1));
+    /// assert_eq!(m.size(&mut store), Pages(1));
     /// ```
     pub fn size(&self, ctx: &impl AsStoreRef) -> Pages {
         self.handle.get(ctx.as_store_ref().objects()).size()
@@ -119,11 +119,11 @@ impl Memory {
     /// # let mut store = Store::default();
     /// # let env = FunctionEnv::new(&mut store, ());
     /// #
-    /// let m = Memory::new(&mut ctx, MemoryType::new(1, Some(3), false)).unwrap();
-    /// let p = m.grow(&mut ctx, 2).unwrap();
+    /// let m = Memory::new(&mut store, MemoryType::new(1, Some(3), false)).unwrap();
+    /// let p = m.grow(&mut store, 2).unwrap();
     ///
     /// assert_eq!(p, Pages(1));
-    /// assert_eq!(m.size(&mut ctx), Pages(3));
+    /// assert_eq!(m.size(&mut store), Pages(3));
     /// ```
     ///
     /// # Errors
@@ -137,10 +137,10 @@ impl Memory {
     /// # let mut store = Store::default();
     /// # let env = FunctionEnv::new(&mut store, ());
     /// #
-    /// let m = Memory::new(&mut ctx, MemoryType::new(1, Some(1), false)).unwrap();
+    /// let m = Memory::new(&mut store, MemoryType::new(1, Some(1), false)).unwrap();
     ///
     /// // This results in an error: `MemoryError::CouldNotGrow`.
-    /// let s = m.grow(&mut ctx, 1).unwrap();
+    /// let s = m.grow(&mut store, 1).unwrap();
     /// ```
     pub fn grow<IntoPages>(
         &self,

@@ -404,7 +404,7 @@ impl Function {
     /// #
     /// let sum = instance.exports.get_function("sum").unwrap();
     ///
-    /// assert_eq!(sum.call(&mut ctx, &[Value::I32(1), Value::I32(2)]).unwrap().to_vec(), vec![Value::I32(3)]);
+    /// assert_eq!(sum.call(&mut store, &[Value::I32(1), Value::I32(2)]).unwrap().to_vec(), vec![Value::I32(3)]);
     /// ```
     pub fn call(
         &self,
@@ -474,9 +474,9 @@ impl Function {
     /// # let instance = Instance::new(&mut store, &module, &import_object).unwrap();
     /// #
     /// let sum = instance.exports.get_function("sum").unwrap();
-    /// let sum_native: TypedFunction<(i32, i32), i32> = sum.native(&mut ctx).unwrap();
+    /// let sum_native: TypedFunction<(i32, i32), i32> = sum.native(&mut store).unwrap();
     ///
-    /// assert_eq!(sum_native.call(&mut ctx, 1, 2).unwrap(), 3);
+    /// assert_eq!(sum_native.call(&mut store, 1, 2).unwrap(), 3);
     /// ```
     ///
     /// # Errors
@@ -504,7 +504,7 @@ impl Function {
     /// let sum = instance.exports.get_function("sum").unwrap();
     ///
     /// // This results in an error: `RuntimeError`
-    /// let sum_native : TypedFunction<(i64, i64), i32> = sum.native(&mut ctx).unwrap();
+    /// let sum_native : TypedFunction<(i64, i64), i32> = sum.native(&mut store).unwrap();
     /// ```
     ///
     /// If the `Rets` generic parameter does not match the exported function
@@ -530,7 +530,7 @@ impl Function {
     /// let sum = instance.exports.get_function("sum").unwrap();
     ///
     /// // This results in an error: `RuntimeError`
-    /// let sum_native: TypedFunction<(i32, i32), i64> = sum.native(&mut ctx).unwrap();
+    /// let sum_native: TypedFunction<(i32, i32), i64> = sum.native(&mut store).unwrap();
     /// ```
     pub fn native<Args, Rets>(
         &self,
