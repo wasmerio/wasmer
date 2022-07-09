@@ -161,7 +161,7 @@ fn wasi_get_unordered_imports_inner(
     wasi_env: Option<&wasi_env_t>,
     imports: &mut wasmer_named_extern_vec_t,
 ) -> Option<()> {
-    let mut store = Store?;
+    let mut store = store?;
     if store.context.is_none() {
         crate::error::update_last_error(wasm_store_t::CTX_ERR_STR);
     }

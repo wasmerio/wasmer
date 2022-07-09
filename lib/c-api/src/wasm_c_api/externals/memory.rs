@@ -31,7 +31,7 @@ pub unsafe extern "C" fn wasm_memory_new(
     memory_type: Option<&wasm_memorytype_t>,
 ) -> Option<Box<wasm_memory_t>> {
     let memory_type = memory_type?;
-    let mut store = Store?;
+    let mut store = store?;
     if store.context.is_none() {
         crate::error::update_last_error(wasm_store_t::CTX_ERR_STR);
     }

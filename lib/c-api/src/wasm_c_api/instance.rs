@@ -45,7 +45,7 @@ pub unsafe extern "C" fn wasm_instance_new(
     imports: Option<&wasm_extern_vec_t>,
     trap: Option<&mut *mut wasm_trap_t>,
 ) -> Option<Box<wasm_instance_t>> {
-    let mut store = Store?;
+    let mut store = store?;
     if store.context.is_none() {
         crate::error::update_last_error(wasm_store_t::CTX_ERR_STR);
     }

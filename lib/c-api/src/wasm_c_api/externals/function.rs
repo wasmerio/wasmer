@@ -45,7 +45,7 @@ pub unsafe extern "C" fn wasm_func_new(
 ) -> Option<Box<wasm_func_t>> {
     let function_type = function_type?;
     let callback = callback?;
-    let mut store = Store?;
+    let mut store = store?;
     if store.context.is_none() {
         crate::error::update_last_error(wasm_store_t::CTX_ERR_STR);
     }

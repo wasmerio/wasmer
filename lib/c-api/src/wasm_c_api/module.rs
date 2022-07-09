@@ -30,7 +30,7 @@ pub unsafe extern "C" fn wasm_module_new(
     store: Option<&wasm_store_t>,
     bytes: Option<&wasm_byte_vec_t>,
 ) -> Option<Box<wasm_module_t>> {
-    let mut store = Store?;
+    let mut store = store?;
     let bytes = bytes?;
 
     let module = c_try!(Module::from_binary(&store.inner, bytes.as_slice()));

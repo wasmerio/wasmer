@@ -46,7 +46,7 @@ mod sys {
 
         let func_to_call =
             Function::new_native(&mut store, &ctx, |mut ctx: FunctionEnvMut<Env>| -> i32 {
-                ctx.as_mut(&mut store).0.store(true, Ordering::SeqCst);
+                ctx.data_mut().0.store(true, Ordering::SeqCst);
                 343
             });
         let call_set_value: &Function = instance.exports.get_function("call_set_value")?;
@@ -89,8 +89,8 @@ mod sys {
         ) -> Result<Vec<Value>, RuntimeError> {
             // TODO: look into `Box<[Value]>` being returned breakage
             let f = values[0].unwrap_funcref().as_ref().unwrap();
-            let f: TypedFunction<(i32, i32), i32> = f.native(&mut store)?;
-            Ok(vec![Value::I32(f.call(&mut store, 7, 9)?)])
+            let f: TypedFunction<(i32, i32), i32> = f.native(&mut ctx)?;
+            Ok(vec![Value::I32(f.call(&mut ctx, 7, 9)?)])
         }
 
         let imports = imports! {
@@ -130,6 +130,7 @@ mod sys {
 
         Ok(())
     }
+
     /*
         #[test]
         fn extern_ref_passed_and_returned() -> Result<()> {
@@ -151,12 +152,13 @@ mod sys {
               (call $get_new_extern_ref_native))
     )"#;
             let module = Module::new(&store, wat)?;
+            let ctx = FunctionEnv::new(&mut store, ());
             let imports = imports! {
                 "env" => {
                     "extern_ref_identity" => Function::new(&mut store, &ctx, FunctionType::new([Type::ExternRef], [Type::ExternRef]), |_ctx, values| -> Result<Vec<_>, _> {
                         Ok(vec![values[0].clone()])
                     }),
-                    "extern_ref_identity_native" => Function::new_native(&mut store, &ctx,|_ctx: FunctionEnvMut<()>, er: ExternRef| -> ExternRef {
+                    "extern_ref_identity_native" => Function::new_native(&mut store, &ctx, |_ctx: FunctionEnvMut<()>, er: ExternRef| -> ExternRef {
                         er
                     }),
                     "get_new_extern_ref" => Function::new(&mut store, &ctx, FunctionType::new([], [Type::ExternRef]), |_ctx, _| -> Result<Vec<_>, _> {
@@ -219,7 +221,7 @@ mod sys {
             Ok(())
         }
 
-        #[test]
+    #[test]
         // TODO(reftypes): reenable this test
         #[ignore]
         fn extern_ref_ref_counting_basic() -> Result<()> {

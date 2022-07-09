@@ -35,7 +35,7 @@ pub unsafe extern "C" fn wasm_global_new(
     val: Option<&wasm_val_t>,
 ) -> Option<Box<wasm_global_t>> {
     let global_type = global_type?;
-    let mut store = Store?;
+    let mut store = store?;
     if store.context.is_none() {
         crate::error::update_last_error(wasm_store_t::CTX_ERR_STR);
     }

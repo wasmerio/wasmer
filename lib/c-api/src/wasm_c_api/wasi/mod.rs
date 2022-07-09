@@ -332,7 +332,7 @@ fn wasi_get_imports_inner(
     module: Option<&wasm_module_t>,
     imports: &mut wasm_extern_vec_t,
 ) -> Option<()> {
-    let mut store = Store?;
+    let mut store = store?;
     if store.context.is_none() {
         crate::error::update_last_error(wasm_store_t::CTX_ERR_STR);
     }
