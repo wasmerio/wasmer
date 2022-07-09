@@ -156,7 +156,7 @@ impl Table {
                 "cross-`Context` table copies are not supported",
             ));
         }
-        let mut ctx = ctx;
+        let ctx = ctx;
         if dst_table.handle.internal_handle() == src_table.handle.internal_handle() {
             let table = dst_table.handle.get_mut(ctx.objects_mut());
             table.copy_within(dst_index, src_index, len)

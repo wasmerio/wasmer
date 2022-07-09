@@ -147,7 +147,6 @@ mod sys {
     #[test]
     fn memory_new() -> Result<()> {
         let mut store = Store::default();
-        let ctx = FunctionEnv::new(&mut store, ());
         let memory_type = MemoryType {
             shared: false,
             minimum: Pages(0),
@@ -162,7 +161,6 @@ mod sys {
     #[test]
     fn memory_grow() -> Result<()> {
         let mut store = Store::default();
-        let ctx = FunctionEnv::new(&mut store, ());
         let desc = MemoryType::new(Pages(10), Some(Pages(16)), false);
         let memory = Memory::new(&mut store, desc)?;
         assert_eq!(memory.size(&mut store), Pages(10));

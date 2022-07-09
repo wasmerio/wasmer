@@ -3,7 +3,6 @@ use crate::sys::externals::Extern;
 use crate::sys::store::{AsStoreMut, AsStoreRef, StoreInner, StoreMut};
 use crate::sys::FunctionType;
 use crate::sys::RuntimeError;
-use crate::sys::Store;
 use crate::sys::TypedFunction;
 
 use crate::{FunctionEnv, FunctionEnvMut, Value};
@@ -92,7 +91,7 @@ impl Function {
     {
         let function_type = ty.into();
         let func_ty = function_type.clone();
-        let mut new_ctx = ctx.clone();
+        let new_ctx = ctx.clone();
         let raw_store = store.as_store_mut().as_raw() as *mut u8;
         let wrapper = move |values_vec: *mut RawValue| -> Result<(), RuntimeError> {
             unsafe {
@@ -127,10 +126,7 @@ impl Function {
         };
         let mut host_data = Box::new(VMDynamicFunctionContext {
             address: std::ptr::null(),
-            ctx: DynamicFunction {
-                raw_store: store.as_store_mut().as_raw() as *mut u8,
-                func: wrapper,
-            },
+            ctx: DynamicFunction { func: wrapper },
         });
         host_data.address = host_data.ctx.func_body_ptr();
 
@@ -600,7 +596,6 @@ impl<'a> Exportable<'a> for Function {
 
 /// Host state for a dynamic function.
 pub(crate) struct DynamicFunction<F> {
-    raw_store: *mut u8,
     func: F,
 }
 
@@ -660,7 +655,6 @@ mod inner {
     use wasmer_vm::{raise_user_trap, resume_panic, VMFunctionBody};
 
     use crate::sys::NativeWasmTypeInto;
-    use crate::sys::Store;
     use crate::{AsStoreMut, AsStoreRef, ExternRef, Function, FunctionEnv, StoreMut};
 
     /// A trait to convert a Rust value to a `WasmNativeType` value,
@@ -1282,7 +1276,6 @@ mod inner {
     #[cfg(test)]
     mod test_wasm_type_list {
         use super::*;
-        use crate::Store;
         use wasmer_types::Type;
         /*
         #[test]

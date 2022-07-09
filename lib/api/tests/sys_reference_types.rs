@@ -1,7 +1,6 @@
 #[cfg(feature = "sys")]
 mod sys {
     use anyhow::Result;
-    use std::collections::HashMap;
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::Arc;
     use wasmer::FunctionEnv;
@@ -25,7 +24,7 @@ mod sys {
         #[derive(Clone, Debug)]
         pub struct Env(Arc<AtomicBool>);
         let env = Env(Arc::new(AtomicBool::new(false)));
-        let mut ctx = FunctionEnv::new(&mut store, env);
+        let ctx = FunctionEnv::new(&mut store, env);
         let imports = imports! {
             "env" => {
                 "func_ref_identity" => Function::new(&mut store, &ctx, FunctionType::new([Type::FuncRef], [Type::FuncRef]), |_ctx: FunctionEnvMut<Env>, values: &[Value]| -> Result<Vec<_>, _> {

@@ -1,4 +1,3 @@
-use crate::sys::store::Store;
 use crate::sys::InstantiationError;
 use crate::AsStoreMut;
 use crate::AsStoreRef;

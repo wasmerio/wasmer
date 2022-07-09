@@ -50,7 +50,6 @@ pub use crate::syscalls::types;
 pub use crate::utils::{
     get_wasi_version, get_wasi_versions, is_wasi_module, is_wasix_module, WasiVersion,
 };
-use wasmer::FunctionEnvMut;
 pub use wasmer_vbus::{UnsupportedVirtualBus, VirtualBus};
 #[deprecated(since = "2.1.0", note = "Please use `wasmer_vfs::FsError`")]
 pub use wasmer_vfs::FsError as WasiFsError;

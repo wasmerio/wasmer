@@ -7,7 +7,6 @@ mod sys {
     #[test]
     fn exports_work_after_multiple_instances_have_been_freed() -> Result<()> {
         let mut store = Store::default();
-        let ctx = FunctionEnv::new(&mut store, ());
         let module = Module::new(
             &store,
             "
@@ -46,6 +45,7 @@ mod sys {
     #[test]
     fn unit_native_function_env() -> Result<()> {
         let mut store = Store::default();
+
         #[derive(Clone)]
         struct Env {
             multiplier: u32,
@@ -59,8 +59,11 @@ mod sys {
             Ok(vec![Value::I32(value as _)])
         }
 
+        // We create the environment
         let env = Env { multiplier: 3 };
+        // We move the environment to the store, so it can be used by the `Function`
         let ctx = FunctionEnv::new(&mut store, env);
+
         let imported_signature = FunctionType::new(vec![Type::I32], vec![Type::I32]);
         let imported = Function::new(&mut store, &ctx, imported_signature, imported_fn);
 

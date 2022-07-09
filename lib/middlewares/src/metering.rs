@@ -390,7 +390,7 @@ mod tests {
         compiler_config.push_middleware(metering);
         let mut store = Store::new_with_engine(&Universal::new(compiler_config).engine());
         let module = Module::new(&store, bytecode()).unwrap();
-        let mut ctx = FunctionEnv::new(&mut store, ());
+        let ctx = FunctionEnv::new(&mut store, ());
 
         // Instantiate
         let instance = Instance::new(&mut store, &module, &imports! {}).unwrap();
@@ -439,7 +439,7 @@ mod tests {
         compiler_config.push_middleware(metering);
         let mut store = Store::new_with_engine(&Universal::new(compiler_config).engine());
         let module = Module::new(&store, bytecode()).unwrap();
-        let mut ctx = FunctionEnv::new(&mut store, ());
+        let ctx = FunctionEnv::new(&mut store, ());
 
         // Instantiate
         let instance = Instance::new(&mut store, &module, &imports! {}).unwrap();

@@ -270,17 +270,14 @@ macro_rules! import_namespace {
 
 #[cfg(test)]
 mod test {
-    use crate::sys::exports::Exportable;
-    use crate::sys::Exports;
     use crate::sys::FunctionEnv;
-    use crate::sys::{Global, Store, Value};
+    use crate::sys::{AsStoreMut, Global, Store, Value};
     use wasmer_types::Type;
     use wasmer_vm::VMExtern;
-    /*
+
     #[test]
     fn namespace() {
         let mut store = Store::default();
-        let env = FunctionEnv::new(&mut store, ());
         let g1 = Global::new(&mut store, Value::I32(0));
         let namespace = namespace! {
             "happy" => g1
@@ -293,20 +290,20 @@ mod test {
 
         assert!(
             if let VMExtern::Global(happy_dog_global) = happy_dog_entry.to_vm_extern() {
-                happy_dog_global.get(&mut store).ty == Type::I32
+                (*happy_dog_global.get(store.objects_mut()).ty()).ty == Type::I32
             } else {
                 false
             }
         );
     }
-    */
+
     #[test]
     fn imports_macro_allows_trailing_comma_and_none() {
         use crate::sys::Function;
         use crate::sys::FunctionEnvMut;
 
         let mut store: Store = Default::default();
-        let mut ctx = FunctionEnv::new(&mut store, ());
+        let ctx = FunctionEnv::new(&mut store, ());
 
         fn func(_ctx: FunctionEnvMut<()>, arg: i32) -> i32 {
             arg + 1
@@ -405,7 +402,7 @@ mod test {
         };
 
         imports1.extend(&imports2);
-        let happy_dog_entry = imports1.get_export("dog", "happy").unwrap();
+        let _happy_dog_entry = imports1.get_export("dog", "happy").unwrap();
         /*
         assert!(
             if let Exports::Global(happy_dog_global) = happy_dog_entry.to_vm_extern() {
@@ -433,7 +430,7 @@ mod test {
         };
 
         imports2.extend(&imports1);
-        let happy_dog_entry = imports2.get_export("dog", "happy").unwrap();
+        let _happy_dog_entry = imports2.get_export("dog", "happy").unwrap();
         /*
         assert!(
             if let Exports::Global(happy_dog_global) = happy_dog_entry.to_vm_extern() {

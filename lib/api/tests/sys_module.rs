@@ -6,7 +6,7 @@ mod sys {
 
     #[test]
     fn module_get_name() -> Result<()> {
-        let mut store = Store::default();
+        let store = Store::default();
         let wat = r#"(module)"#;
         let module = Module::new(&store, wat)?;
         assert_eq!(module.name(), None);
@@ -16,7 +16,7 @@ mod sys {
 
     #[test]
     fn module_set_name() -> Result<()> {
-        let mut store = Store::default();
+        let store = Store::default();
         let wat = r#"(module $name)"#;
         let mut module = Module::new(&store, wat)?;
         assert_eq!(module.name(), Some("name"));
@@ -29,7 +29,7 @@ mod sys {
 
     #[test]
     fn imports() -> Result<()> {
-        let mut store = Store::default();
+        let store = Store::default();
         let wat = r#"(module
     (import "host" "func" (func))
     (import "host" "memory" (memory 1))
@@ -101,7 +101,7 @@ mod sys {
 
     #[test]
     fn exports() -> Result<()> {
-        let mut store = Store::default();
+        let store = Store::default();
         let wat = r#"(module
     (func (export "func") nop)
     (memory (export "memory") 1)
@@ -191,7 +191,7 @@ mod sys {
           (call 7 (i32.const -1)))
 )"#;
         let module = Module::new(&store, wat)?;
-        let mut ctx = FunctionEnv::new(&mut store, ());
+        let ctx = FunctionEnv::new(&mut store, ());
         let imports = imports! {
             "host" => {
                 "host_func1" => Function::new_native(&mut store, &ctx,|_ctx: FunctionEnvMut<()>, p: u64| {

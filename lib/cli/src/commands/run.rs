@@ -151,7 +151,8 @@ impl Run {
                     EmscriptenGlobals::new(ctx, &module).map_err(|e| anyhow!("{}", e))?;
                 ctx.data_mut()
                     .set_data(&emscripten_globals.data, Default::default());
-                let import_object = generate_emscripten_env(&mut store, &mut emscripten_globals);
+                let import_object =
+                    generate_emscripten_env(&mut store, &ctx, &mut emscripten_globals);
                 let mut instance = match Instance::new(&mut store, &module, &import_object) {
                     Ok(instance) => instance,
                     Err(e) => {

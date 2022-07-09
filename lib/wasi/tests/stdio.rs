@@ -1,6 +1,6 @@
 use std::io::{Read, Write};
 
-use wasmer::{AsStoreMut, FunctionEnv, Instance, Module, Store};
+use wasmer::{Instance, Module, Store};
 use wasmer_wasi::{Pipe, WasiState};
 
 mod sys {
@@ -74,7 +74,7 @@ fn test_stdout() {
 
     // Create the `WasiEnv`.
     let mut stdout = Pipe::default();
-    let mut wasi_env = WasiState::new("command-name")
+    let wasi_env = WasiState::new("command-name")
         .args(&["Gordon"])
         .stdout(Box::new(stdout.clone()))
         .finalize(&mut store)
@@ -118,7 +118,7 @@ fn test_env() {
         .env("TEST", "VALUE")
         .env("TEST2", "VALUE2");
     // panic!("envs: {:?}", wasi_state_builder.envs);
-    let mut wasi_env = wasi_state_builder
+    let wasi_env = wasi_state_builder
         .stdout(Box::new(stdout.clone()))
         .finalize(&mut store)
         .unwrap();
@@ -147,7 +147,7 @@ fn test_stdin() {
 
     // Create the `WasiEnv`.
     let mut stdin = Pipe::new();
-    let mut wasi_env = WasiState::new("command-name")
+    let wasi_env = WasiState::new("command-name")
         .stdin(Box::new(stdin.clone()))
         .finalize(&mut store)
         .unwrap();

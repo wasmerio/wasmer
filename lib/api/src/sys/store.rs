@@ -1,10 +1,9 @@
 use crate::sys::tunables::BaseTunables;
-use crate::FunctionEnv;
 use std::fmt;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 use wasmer_compiler::CompilerConfig;
 use wasmer_compiler::{Engine, Tunables, Universal};
-use wasmer_vm::{init_traps, TrapHandler, TrapHandlerFn};
+use wasmer_vm::{init_traps, TrapHandlerFn};
 
 use wasmer_vm::StoreObjects;
 

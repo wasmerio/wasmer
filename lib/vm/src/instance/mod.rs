@@ -13,7 +13,7 @@ use crate::imports::Imports;
 use crate::memory::MemoryError;
 use crate::store::{InternalStoreHandle, StoreObjects};
 use crate::table::TableElement;
-use crate::trap::{catch_traps, Trap, TrapCode, TrapHandler};
+use crate::trap::{catch_traps, Trap, TrapCode};
 use crate::vmcontext::{
     VMBuiltinFunctionsArray, VMCallerCheckedAnyfunc, VMContext, VMFunctionContext,
     VMFunctionImport, VMFunctionKind, VMGlobalDefinition, VMGlobalImport, VMMemoryDefinition,
