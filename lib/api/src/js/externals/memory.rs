@@ -1,7 +1,7 @@
-use crate::js::context::{AsStoreMut, AsStoreRef, InternalStoreHandle, StoreHandle, StoreObjects};
 use crate::js::export::VMMemory;
 use crate::js::exports::{ExportError, Exportable};
 use crate::js::externals::Extern;
+use crate::js::store::{AsStoreMut, AsStoreRef, InternalStoreHandle, StoreHandle, StoreObjects};
 use crate::js::{MemoryAccessError, MemoryType};
 use std::convert::TryInto;
 use std::marker::PhantomData;
@@ -129,7 +129,7 @@ impl Memory {
     /// assert_eq!(m.ty(), mt);
     /// ```
     pub fn ty(&self, ctx: &impl AsStoreRef) -> MemoryType {
-        self.handle.get(ctx.as_context_ref().objects()).ty
+        self.handle.get(ctx.as_store_ref().objects()).ty
     }
 
     /// Returns the pointer to the raw bytes of the `Memory`.
@@ -143,7 +143,7 @@ impl Memory {
         js_sys::Reflect::get(
             &self
                 .handle
-                .get(ctx.as_context_ref().objects())
+                .get(ctx.as_store_ref().objects())
                 .memory
                 .buffer(),
             &"byteLength".into(),
@@ -169,7 +169,7 @@ impl Memory {
         let bytes = js_sys::Reflect::get(
             &self
                 .handle
-                .get(ctx.as_context_ref().objects())
+                .get(ctx.as_store_ref().objects())
                 .memory
                 .buffer(),
             &"byteLength".into(),
@@ -219,13 +219,13 @@ impl Memory {
         IntoPages: Into<Pages>,
     {
         let pages = delta.into();
-        let mut ctx_mut = ctx.as_context_mut();
+        let mut ctx_mut = ctx.as_store_mut();
         let js_memory = &self.handle.get_mut(ctx_mut.objects_mut()).memory;
         let our_js_memory: &JSMemory = JsCast::unchecked_from_js_ref(js_memory);
         let new_pages = our_js_memory.grow(pages.0).map_err(|err| {
             if err.is_instance_of::<js_sys::RangeError>() {
                 MemoryError::CouldNotGrow {
-                    current: self.size(&ctx.as_context_ref()),
+                    current: self.size(&ctx.as_store_ref()),
                     attempted_delta: pages,
                 }
             } else {
@@ -241,7 +241,7 @@ impl Memory {
         js_sys::Uint8Array::new(
             &self
                 .handle
-                .get(ctx.as_context_ref().objects())
+                .get(ctx.as_store_ref().objects())
                 .memory
                 .buffer(),
         )
@@ -257,7 +257,7 @@ impl Memory {
     pub(crate) fn from_vm_export(ctx: &mut impl AsStoreMut, vm_memory: VMMemory) -> Self {
         let view = js_sys::Uint8Array::new(&vm_memory.memory.buffer());
         Self {
-            handle: StoreHandle::new(ctx.as_context_mut().objects_mut(), vm_memory),
+            handle: StoreHandle::new(ctx.as_store_mut().objects_mut(), vm_memory),
             view,
         }
     }
@@ -267,10 +267,10 @@ impl Memory {
         internal: InternalStoreHandle<VMMemory>,
     ) -> Self {
         let view =
-            js_sys::Uint8Array::new(&internal.get(ctx.as_context_ref().objects()).memory.buffer());
+            js_sys::Uint8Array::new(&internal.get(ctx.as_store_ref().objects()).memory.buffer());
         Self {
             handle: unsafe {
-                StoreHandle::from_internal(ctx.as_context_ref().objects().id(), internal)
+                StoreHandle::from_internal(ctx.as_store_ref().objects().id(), internal)
             },
             view,
         }
@@ -370,7 +370,7 @@ impl Memory {
 
     /// Checks whether this `Global` can be used with the given context.
     pub fn is_from_store(&self, ctx: &impl AsStoreRef) -> bool {
-        self.handle.context_id() == ctx.as_context_ref().objects().id()
+        self.handle.store_id() == ctx.as_store_ref().objects().id()
     }
 }
 

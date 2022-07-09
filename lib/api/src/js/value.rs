@@ -7,7 +7,7 @@ use wasmer_types::Type;
 //use crate::ExternRef;
 use crate::js::externals::function::Function;
 
-use super::context::AsStoreRef;
+use super::store::AsStoreRef;
 
 /// WebAssembly computations manipulate values of basic value types:
 /// * Integers (32 or 64 bit width)
@@ -90,7 +90,7 @@ impl Value {
             Self::F64(v) => v,
             Self::FuncRef(Some(ref f)) => f
                 .handle
-                .get(ctx.as_context_ref().objects())
+                .get(ctx.as_store_ref().objects())
                 .function
                 .as_f64()
                 .unwrap_or(0_f64), //TODO is this correct?

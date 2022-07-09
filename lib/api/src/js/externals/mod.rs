@@ -8,10 +8,10 @@ pub use self::global::Global;
 pub use self::memory::{Memory, MemoryError};
 pub use self::table::Table;
 
-use crate::js::context::{AsStoreMut, AsStoreRef};
 use crate::js::export::Export;
 use crate::js::exports::{ExportError, Exportable};
 use crate::js::store::StoreObject;
+use crate::js::store::{AsStoreMut, AsStoreRef};
 use crate::js::types::AsJs;
 use crate::js::ExternType;
 use std::fmt;

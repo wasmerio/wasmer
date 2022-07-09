@@ -218,15 +218,6 @@ impl<'a> StoreMut<'a> {
     pub(crate) unsafe fn from_raw(raw: *mut StoreInner) -> Self {
         Self { inner: &mut *raw }
     }
-
-    /// Get function env
-    pub fn get_function_env<T: 'static>(&'a mut self, func: &FunctionEnv<T>) -> &'a mut T {
-        func.handle
-            .get_mut(self.objects_mut())
-            .as_mut()
-            .downcast_mut::<T>()
-            .unwrap()
-    }
 }
 
 /// Helper trait for a value that is convertible to a [`StoreRef`].

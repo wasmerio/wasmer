@@ -1,10 +1,10 @@
-use crate::js::context::{AsStoreMut, AsStoreRef, StoreHandle};
 use crate::js::error::InstantiationError;
 use crate::js::export::Export;
 use crate::js::exports::Exports;
 use crate::js::externals::Extern;
 use crate::js::imports::Imports;
 use crate::js::module::Module;
+use crate::js::store::{AsStoreMut, AsStoreRef, StoreHandle};
 use js_sys::WebAssembly;
 use std::fmt;
 
@@ -67,7 +67,7 @@ impl Instance {
     ) -> Result<Self, InstantiationError> {
         let import_copy = imports.clone();
         let (instance, _imports): (StoreHandle<WebAssembly::Instance>, Vec<Extern>) = module
-            .instantiate(&mut ctx.as_context_mut(), imports)
+            .instantiate(&mut ctx.as_store_mut(), imports)
             .map_err(|e| InstantiationError::Start(e))?;
 
         let self_instance = Self::from_module_and_instance(ctx, module, instance, import_copy)?;
@@ -90,7 +90,7 @@ impl Instance {
         instance: StoreHandle<WebAssembly::Instance>,
         imports: Imports,
     ) -> Result<Self, InstantiationError> {
-        let instance_exports = instance.get(ctx.as_context_ref().objects()).exports();
+        let instance_exports = instance.get(ctx.as_store_ref().objects()).exports();
         let exports = module
             .exports()
             .map(|export_type| {
@@ -104,9 +104,8 @@ impl Instance {
                         ))
                     })?;
                 let export: Export =
-                    Export::from_js_value(js_export, &mut ctx.as_context_mut(), extern_type)?
-                        .into();
-                let extern_ = Extern::from_vm_export(&mut ctx.as_context_mut(), export);
+                    Export::from_js_value(js_export, &mut ctx.as_store_mut(), extern_type)?.into();
+                let extern_ = Extern::from_vm_export(&mut ctx.as_store_mut(), export);
                 Ok((name.to_string(), extern_))
             })
             .collect::<Result<Exports, InstantiationError>>()?;
@@ -127,7 +126,7 @@ impl Instance {
     /// Returns the inner WebAssembly Instance
     #[doc(hidden)]
     pub fn raw<'context>(&self, ctx: &'context impl AsStoreRef) -> &'context WebAssembly::Instance {
-        &self._handle.get(ctx.as_context_ref().objects())
+        &self._handle.get(ctx.as_store_ref().objects())
     }
 }
 

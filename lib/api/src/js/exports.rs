@@ -1,6 +1,6 @@
-use crate::js::context::AsStoreRef;
 use crate::js::externals::{Extern, Function, Global, Memory, Table};
 use crate::js::native::TypedFunction;
+use crate::js::store::AsStoreRef;
 use crate::js::WasmTypeList;
 use indexmap::IndexMap;
 use std::fmt;

@@ -1,7 +1,7 @@
-use crate::js::context::{AsStoreMut, AsStoreRef, InternalStoreHandle, StoreHandle};
 use crate::js::export::{VMFunction, VMTable};
 use crate::js::exports::{ExportError, Exportable};
 use crate::js::externals::Extern;
+use crate::js::store::{AsStoreMut, AsStoreRef, InternalStoreHandle, StoreHandle};
 use crate::js::value::Value;
 use crate::js::RuntimeError;
 use crate::js::{FunctionType, TableType};
@@ -32,7 +32,7 @@ fn get_function(ctx: &mut impl AsStoreMut, val: Value) -> Result<Function, Runti
     match val {
         Value::FuncRef(Some(ref func)) => Ok(func
             .handle
-            .get(&ctx.as_context_ref().objects())
+            .get(&ctx.as_store_ref().objects())
             .function
             .clone()
             .into()),
@@ -53,7 +53,7 @@ impl Table {
         ty: TableType,
         init: Value,
     ) -> Result<Self, RuntimeError> {
-        let mut ctx = ctx.as_context_mut();
+        let mut ctx = ctx.as_store_mut();
         let descriptor = js_sys::Object::new();
         js_sys::Reflect::set(&descriptor, &"initial".into(), &ty.minimum.into())?;
         if let Some(max) = ty.maximum {
@@ -77,14 +77,14 @@ impl Table {
 
     /// Returns the [`TableType`] of the `Table`.
     pub fn ty(&self, ctx: &impl AsStoreRef) -> TableType {
-        self.handle.get(ctx.as_context_ref().objects()).ty
+        self.handle.get(ctx.as_store_ref().objects()).ty
     }
 
     /// Retrieves an element of the table at the provided `index`.
     pub fn get(&self, ctx: &mut impl AsStoreMut, index: u32) -> Option<Value> {
         if let Some(func) = self
             .handle
-            .get(ctx.as_context_ref().objects())
+            .get(ctx.as_store_ref().objects())
             .table
             .get(index)
             .ok()
@@ -107,7 +107,7 @@ impl Table {
     ) -> Result<(), RuntimeError> {
         let item = get_function(ctx, val)?;
         set_table_item(
-            self.handle.get_mut(ctx.as_context_mut().objects_mut()),
+            self.handle.get_mut(ctx.as_store_mut().objects_mut()),
             index,
             &item,
         )
@@ -115,10 +115,7 @@ impl Table {
 
     /// Retrieves the size of the `Table` (in elements)
     pub fn size(&self, ctx: &impl AsStoreRef) -> u32 {
-        self.handle
-            .get(ctx.as_context_ref().objects())
-            .table
-            .length()
+        self.handle.get(ctx.as_store_ref().objects()).table.length()
     }
 
     /// Grows the size of the `Table` by `delta`, initializating
@@ -157,14 +154,14 @@ impl Table {
     ) -> Self {
         Self {
             handle: unsafe {
-                StoreHandle::from_internal(ctx.as_context_ref().objects().id(), internal)
+                StoreHandle::from_internal(ctx.as_store_ref().objects().id(), internal)
             },
         }
     }
 
     /// Checks whether this `Table` can be used with the given context.
     pub fn is_from_store(&self, ctx: &impl AsStoreRef) -> bool {
-        self.handle.context_id() == ctx.as_context_ref().objects().id()
+        self.handle.store_id() == ctx.as_store_ref().objects().id()
     }
 
     /// Get access to the backing VM value for this extern. This function is for
@@ -179,7 +176,7 @@ impl Table {
         &self,
         ctx: &'context impl AsStoreRef,
     ) -> &'context VMTable {
-        self.handle.get(ctx.as_context_ref().objects())
+        self.handle.get(ctx.as_store_ref().objects())
     }
 }
 

@@ -1,7 +1,7 @@
 //use crate::js::externals::Function;
 // use crate::js::store::{Store, StoreObject};
 // use crate::js::RuntimeError;
-use crate::js::context::AsStoreRef;
+use crate::js::store::AsStoreRef;
 use crate::js::value::Value;
 use wasm_bindgen::JsValue;
 pub use wasmer_types::{
@@ -45,7 +45,7 @@ impl AsJs for Value {
             Self::F64(f) => JsValue::from_f64(*f),
             Self::FuncRef(Some(func)) => func
                 .handle
-                .get(ctx.as_context_ref().objects())
+                .get(ctx.as_store_ref().objects())
                 .function
                 .clone()
                 .into(),

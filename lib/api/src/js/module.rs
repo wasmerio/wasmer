@@ -1,4 +1,3 @@
-use crate::js::context::{AsStoreMut, StoreHandle};
 #[cfg(feature = "wat")]
 use crate::js::error::WasmError;
 use crate::js::error::{CompileError, InstantiationError};
@@ -7,6 +6,7 @@ use crate::js::error::{DeserializeError, SerializeError};
 use crate::js::externals::Extern;
 use crate::js::imports::Imports;
 use crate::js::store::Store;
+use crate::js::store::{AsStoreMut, StoreHandle};
 use crate::js::types::{AsJs, ExportType, ImportType};
 use crate::js::RuntimeError;
 use js_sys::{Reflect, Uint8Array, WebAssembly};
@@ -59,7 +59,6 @@ pub struct ModuleTypeHints {
 /// contents rather than a deep copy.
 #[derive(Clone)]
 pub struct Module {
-    store: Store,
     module: WebAssembly::Module,
     name: Option<String>,
     // WebAssembly type hints
@@ -194,7 +193,6 @@ impl Module {
         let (type_hints, name) = (None, None);
 
         Ok(Self {
-            store: store.clone(),
             module,
             type_hints,
             name,
@@ -219,13 +217,13 @@ impl Module {
 
     pub(crate) fn instantiate(
         &self,
-        ctx: &mut impl AsStoreMut,
+        store: &mut impl AsStoreMut,
         imports: &Imports,
     ) -> Result<(StoreHandle<WebAssembly::Instance>, Vec<Extern>), RuntimeError> {
         // Ensure all imports come from the same context.
         if imports
             .into_iter()
-            .any(|(_, import)| !import.is_from_store(ctx))
+            .any(|(_, import)| !import.is_from_store(store))
         {
             // FIXME is RuntimeError::User appropriate?
             return Err(RuntimeError::user(Box::new(InstantiationError::BadContext)));
@@ -241,7 +239,7 @@ impl Module {
                     js_sys::Reflect::set(
                         &val,
                         &import_type.name().into(),
-                        &import.as_jsvalue(&ctx.as_context_ref()),
+                        &import.as_jsvalue(&store.as_store_ref()),
                     )?;
                 } else {
                     // If the namespace doesn't exist
@@ -249,7 +247,7 @@ impl Module {
                     js_sys::Reflect::set(
                         &import_namespace,
                         &import_type.name().into(),
-                        &import.as_jsvalue(&ctx.as_context_ref()),
+                        &import.as_jsvalue(&store.as_store_ref()),
                     )?;
                     js_sys::Reflect::set(
                         &imports_object,
@@ -264,7 +262,7 @@ impl Module {
         }
         Ok((
             StoreHandle::new(
-                ctx.as_context_mut().objects_mut(),
+                store.as_store_mut().objects_mut(),
                 WebAssembly::Instance::new(&self.module, &imports_object)
                     .map_err(|e: JsValue| -> RuntimeError { e.into() })?,
             ),
@@ -530,11 +528,6 @@ impl Module {
     // pub fn custom_sections<'a>(&'a self, name: &'a str) -> impl Iterator<Item = Arc<[u8]>> + 'a {
     //     unimplemented!();
     // }
-
-    /// Returns the [`Store`] where the `Instance` belongs.
-    pub fn store(&self) -> &Store {
-        &self.store
-    }
 }
 
 impl fmt::Debug for Module {
@@ -548,7 +541,6 @@ impl fmt::Debug for Module {
 impl From<WebAssembly::Module> for Module {
     fn from(module: WebAssembly::Module) -> Module {
         Module {
-            store: Store::default(),
             module,
             name: None,
             type_hints: None,

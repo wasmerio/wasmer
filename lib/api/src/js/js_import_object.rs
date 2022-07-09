@@ -1,5 +1,5 @@
-use crate::js::context::AsStoreMut;
 use crate::js::error::WasmError;
+use crate::js::store::AsStoreMut;
 use crate::js::{Export, ExternType, Module};
 use std::collections::HashMap;
 

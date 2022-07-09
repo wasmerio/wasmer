@@ -9,8 +9,9 @@
 //! ```
 use std::marker::PhantomData;
 
-use crate::js::context::{AsStoreMut, AsStoreRef, StoreHandle};
 use crate::js::externals::Function;
+use crate::js::store::{AsStoreMut, AsStoreRef, StoreHandle};
+use crate::js::FunctionEnv;
 use crate::js::{FromToNativeWasmType, RuntimeError, WasmTypeList};
 // use std::panic::{catch_unwind, AssertUnwindSafe};
 use crate::js::export::VMFunction;
@@ -37,11 +38,12 @@ where
 {
     #[allow(dead_code)]
     pub(crate) fn new<T>(
-        ctx: &mut impl AsFunctionEnvMut<Data = T>,
+        store: &mut impl AsStoreMut,
+        env: &FunctionEnv<T>,
         vm_function: VMFunction,
     ) -> Self {
         Self {
-            handle: StoreHandle::new(ctx.as_context_mut().objects_mut(), vm_function),
+            handle: StoreHandle::new(store.as_store_mut().objects_mut(), vm_function),
             _phantom: PhantomData,
         }
     }
@@ -68,7 +70,7 @@ macro_rules! impl_native_traits {
             $( $x: FromToNativeWasmType + crate::js::NativeWasmTypeInto, )*
             {
                 let params_list: Vec<JsValue> = vec![ $( JsValue::from_f64($x.into_raw(ctx))),* ];
-                let results = self.handle.get(ctx.as_context_ref().objects()).function.apply(
+                let results = self.handle.get(ctx.as_store_ref().objects()).function.apply(
                     &JsValue::UNDEFINED,
                     &Array::from_iter(params_list.iter())
                 )?;
@@ -79,7 +81,7 @@ macro_rules! impl_native_traits {
                     1 => unsafe {
                         let ty = Rets::wasm_types()[0];
                         let val = param_from_js(&ty, &results);
-                        *mut_rets = val.as_raw(&mut ctx.as_context_mut());
+                        *mut_rets = val.as_raw(&mut ctx.as_store_mut());
                     }
                     _n => {
                         let results: Array = results.into();
@@ -88,7 +90,7 @@ macro_rules! impl_native_traits {
                             unsafe {
                                 let val = param_from_js(&ret_type, &ret);
                                 let slot = mut_rets.add(i);
-                                *slot = val.as_raw(&mut ctx.as_context_mut());
+                                *slot = val.as_raw(&mut ctx.as_store_mut());
                             }
                         }
                     }

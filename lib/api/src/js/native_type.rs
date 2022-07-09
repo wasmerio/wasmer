@@ -3,9 +3,9 @@
 
 use wasmer_types::{NativeWasmType, Type};
 
-use crate::Function;
+use crate::js::Function;
 
-use super::context::AsStoreMut;
+use super::store::AsStoreMut;
 
 /// `NativeWasmTypeInto` performs conversions from and into `NativeWasmType`
 /// types with a context.

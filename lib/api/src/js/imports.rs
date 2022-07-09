@@ -1,10 +1,10 @@
 //! The import module contains the implementation data structures and helper functions used to
 //! manipulate and access a wasm module's imports including memories, tables, globals, and
 //! functions.
-use crate::js::context::AsStoreRef;
 use crate::js::error::InstantiationError;
 use crate::js::exports::Exports;
 use crate::js::module::Module;
+use crate::js::store::AsStoreRef;
 use crate::js::types::AsJs;
 use crate::Extern;
 use std::collections::HashMap;

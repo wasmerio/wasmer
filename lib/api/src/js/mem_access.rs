@@ -1,7 +1,7 @@
-use crate::js::context::AsStoreRef;
 use crate::js::externals::memory::MemoryBuffer;
-use crate::RuntimeError;
-use crate::{Memory, Memory32, Memory64, WasmPtr};
+use crate::js::store::AsStoreRef;
+use crate::js::RuntimeError;
+use crate::js::{Memory, Memory32, Memory64, WasmPtr};
 use std::{
     convert::TryInto,
     fmt,
