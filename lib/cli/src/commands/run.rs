@@ -7,7 +7,7 @@ use crate::warning;
 use anyhow::{anyhow, Context, Result};
 use std::path::PathBuf;
 use std::str::FromStr;
-use wasmer::Context as WasmerContext;
+use wasmer::FunctionEnv;
 use wasmer::*;
 #[cfg(feature = "cache")]
 use wasmer_cache::{Cache, FileSystemCache, Hash};
@@ -109,7 +109,7 @@ impl Run {
         // Do we want to invoke a function?
         if let Some(ref invoke) = self.invoke {
             let imports = imports! {};
-            let instance = Instance::new(&mut ctx, &module, &imports)?;
+            let instance = Instance::new(&mut store, &module, &imports)?;
             let result =
                 self.invoke_function(&mut ctx.as_store_mut(), &instance, invoke, &self.args)?;
             println!(
@@ -231,7 +231,7 @@ impl Run {
                 // not WASI
                 _ => {
                     let mut ctx = WasmerContext::new(module.store(), ());
-                    let instance = Instance::new(&mut ctx, &module, &imports! {})?;
+                    let instance = Instance::new(&mut store, &module, &imports! {})?;
                     self.inner_run(ctx, instance)
                 }
             }
@@ -239,7 +239,7 @@ impl Run {
         #[cfg(not(feature = "wasi"))]
         let ret = {
             let mut ctx = WasmerContext::new(module.store(), ());
-            let instance = Instance::new(&mut ctx, &module, &imports! {})?;
+            let instance = Instance::new(&mut store, &module, &imports! {})?;
             self.inner_run(ctx, instance)
         };
 

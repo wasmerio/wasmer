@@ -106,7 +106,7 @@ impl Wasi {
         );
         let mut ctx = Context::new(module.store(), wasi_env);
         let import_object = import_object_for_all_wasi_versions(&mut ctx.as_store_mut());
-        let instance = Instance::new(&mut ctx, module, &import_object)?;
+        let instance = Instance::new(&mut store, module, &import_object)?;
         let memory = instance.exports.get_memory("memory")?;
         ctx.data_mut().set_memory(memory.clone());
         Ok((ctx, instance))

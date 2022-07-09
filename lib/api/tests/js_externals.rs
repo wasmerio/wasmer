@@ -7,7 +7,7 @@ mod js {
     fn global_new() {
         let mut store = Store::default();
         let mut ctx = Context::new(&store, ());
-        let global = Global::new(&mut ctx, Value::I32(10));
+        let global = Global::new(&mut store, Value::I32(10));
         assert_eq!(
             global.ty(&ctx),
             GlobalType {
@@ -30,14 +30,14 @@ mod js {
     fn global_get() {
         let mut store = Store::default();
         let mut ctx = Context::new(&store, ());
-        let global_i32 = Global::new(&mut ctx, Value::I32(10));
+        let global_i32 = Global::new(&mut store, Value::I32(10));
         assert_eq!(global_i32.get(&ctx), Value::I32(10));
         // 64-bit values are not yet fully supported in some versions of Node
         // Commenting this tests for now:
 
         // let global_i64 = Global::new(&store, Value::I64(20));
         // assert_eq!(global_i64.get(), Value::I64(20));
-        let global_f32 = Global::new(&mut ctx, Value::F32(10.0));
+        let global_f32 = Global::new(&mut store, Value::F32(10.0));
         assert_eq!(global_f32.get(&ctx), Value::F32(10.0));
         // let global_f64 = Global::new(&store, Value::F64(20.0));
         // assert_eq!(global_f64.get(), Value::F64(20.0));
@@ -47,16 +47,16 @@ mod js {
     fn global_set() {
         let mut store = Store::default();
         let mut ctx = Context::new(&store, ());
-        let global_i32 = Global::new(&mut ctx, Value::I32(10));
+        let global_i32 = Global::new(&mut store, Value::I32(10));
         // Set on a constant should error
-        assert!(global_i32.set(&mut ctx, Value::I32(20)).is_err());
+        assert!(global_i32.set(&mut store, Value::I32(20)).is_err());
 
         let global_i32_mut = Global::new_mut(&mut ctx, Value::I32(10));
         // Set on different type should error
-        assert!(global_i32_mut.set(&mut ctx, Value::I64(20)).is_err());
+        assert!(global_i32_mut.set(&mut store, Value::I64(20)).is_err());
 
         // Set on same type should succeed
-        global_i32_mut.set(&mut ctx, Value::I32(20)).unwrap();
+        global_i32_mut.set(&mut store, Value::I32(20)).unwrap();
         assert_eq!(global_i32_mut.get(&ctx), Value::I32(20));
     }
 
@@ -422,7 +422,7 @@ mod js {
 
         let f = {
             let module = Module::new(&store, wat).unwrap();
-            let instance = Instance::new(&mut ctx, &module, &imports! {}).unwrap();
+            let instance = Instance::new(&mut store, &module, &imports! {}).unwrap();
             let f = instance.exports.get_function("sum").unwrap();
 
             assert_eq!(

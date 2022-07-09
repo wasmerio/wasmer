@@ -41,7 +41,7 @@
 //!
 //! ```rust
 //! use wasmer::{Store, Module, Instance, Value, imports};
-//! use wasmer::Context as WasmerContext;
+//! use wasmer::FunctionEnv;
 //!
 //! fn main() -> anyhow::Result<()> {
 //!     let module_wat = r#"
@@ -54,11 +54,11 @@
 //!     "#;
 //!
 //!     let mut store = Store::default();
-//!     let mut ctx = WasmerContext::new(&store, ());
+//!     let env = FunctionEnv::new(&mut store, ());
 //!     let module = Module::new(&store, &module_wat)?;
 //!     // The module doesn't import anything, so we create an empty import object.
 //!     let import_object = imports! {};
-//!     let instance = Instance::new(&mut ctx, &module, &import_object)?;
+//!     let instance = Instance::new(&mut store, &module, &import_object)?;
 //!
 //!     let add_one = instance.exports.get_function("add_one")?;
 //!     let result = add_one.call(&mut ctx, &[Value::I32(42)])?;

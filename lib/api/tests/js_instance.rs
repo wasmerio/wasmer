@@ -42,7 +42,7 @@ mod js {
 
         let import_object = imports! {};
         let mut ctx = Context::new(&store, ());
-        let instance = Instance::new(&mut ctx, &module, &import_object).unwrap();
+        let instance = Instance::new(&mut store, &module, &import_object).unwrap();
 
         let memory = instance.exports.get_memory("mem").unwrap();
         assert!(memory.is_from_store(&ctx));
@@ -82,7 +82,7 @@ mod js {
 
         let import_object = imports! {};
         let mut ctx = Context::new(&store, ());
-        let instance = Instance::new(&mut ctx, &module, &import_object).unwrap();
+        let instance = Instance::new(&mut store, &module, &import_object).unwrap();
 
         let get_magic = instance.exports.get_function("get_magic").unwrap();
         assert_eq!(
@@ -137,7 +137,7 @@ mod js {
                 "imported" => imported,
             }
         };
-        let instance = Instance::new(&mut ctx, &module, &import_object).unwrap();
+        let instance = Instance::new(&mut store, &module, &import_object).unwrap();
 
         let exported = instance.exports.get_function("exported").unwrap();
 
@@ -253,7 +253,7 @@ mod js {
                 "imported" => imported,
             }
         };
-        let instance = Instance::new(&mut ctx, &module, &import_object).unwrap();
+        let instance = Instance::new(&mut store, &module, &import_object).unwrap();
 
         let exported = instance.exports.get_function("exported").unwrap();
 
@@ -301,7 +301,7 @@ mod js {
                 "imported" => imported,
             }
         };
-        let instance = Instance::new(&mut ctx, &module, &import_object).unwrap();
+        let instance = Instance::new(&mut store, &module, &import_object).unwrap();
 
         let exported = instance.exports.get_function("exported").unwrap();
 
@@ -357,7 +357,7 @@ mod js {
                 "imported" => imported,
             }
         };
-        let instance = Instance::new(&mut ctx, &module, &import_object).unwrap();
+        let instance = Instance::new(&mut store, &module, &import_object).unwrap();
 
         let exported = instance.exports.get_function("exported").unwrap();
 
@@ -421,7 +421,7 @@ mod js {
                 "imported" => imported,
             }
         };
-        let instance = Instance::new(&mut ctx, &module, &import_object).unwrap();
+        let instance = Instance::new(&mut store, &module, &import_object).unwrap();
 
         let memory = instance.exports.get_memory("memory").unwrap();
         assert_eq!(memory.data_size(&ctx), 65536);
@@ -532,7 +532,7 @@ mod js {
                 "imported" => imported,
             }
         };
-        let instance = Instance::new(&mut ctx, &module, &import_object).unwrap();
+        let instance = Instance::new(&mut store, &module, &import_object).unwrap();
 
         let memory = instance.exports.get_memory("memory").unwrap();
         assert_eq!(memory.data_size(&ctx), 65536);
@@ -592,7 +592,7 @@ mod js {
                 "global" => global.clone()
             }
         };
-        let instance = Instance::new(&mut ctx, &module, &import_object).unwrap();
+        let instance = Instance::new(&mut store, &module, &import_object).unwrap();
 
         let get_global = instance.exports.get_function("getGlobal").unwrap();
         assert_eq!(
@@ -600,7 +600,7 @@ mod js {
             Ok(vec![Val::I32(0)].into_boxed_slice())
         );
 
-        global.set(&mut ctx, Value::I32(42)).unwrap();
+        global.set(&mut store, Value::I32(42)).unwrap();
         assert_eq!(
             get_global.call(&mut ctx, &[]),
             Ok(vec![Val::I32(42)].into_boxed_slice())
@@ -641,7 +641,7 @@ mod js {
             }
         };
 
-        let instance = Instance::new(&mut ctx, &module, &import_object).unwrap();
+        let instance = Instance::new(&mut store, &module, &import_object).unwrap();
 
         let add_one: TypedFunction<i32, i32> = instance
             .exports
@@ -680,7 +680,7 @@ mod js {
                 "early_exit" => Function::new_native(&mut ctx, early_exit),
             }
         };
-        let instance = Instance::new(&mut ctx, &module, &import_object).unwrap();
+        let instance = Instance::new(&mut store, &module, &import_object).unwrap();
 
         let run_func: TypedFunction<(i32, i32), i32> =
             instance.exports.get_typed_function(&ctx, "run").unwrap();
@@ -744,7 +744,7 @@ mod js {
             }
         };
 
-        let instance = Instance::new(&mut ctx, &module, &import_object).unwrap();
+        let instance = Instance::new(&mut store, &module, &import_object).unwrap();
 
         fn test_result<T: core::fmt::Debug>(result: Result<T, RuntimeError>) {
             match result {
@@ -799,7 +799,7 @@ mod js {
 
         let import_object = imports! {};
         let mut ctx = Context::new(&store, ());
-        let result = Instance::new(&mut ctx, &module, &import_object);
+        let result = Instance::new(&mut store, &module, &import_object);
         let err = result.unwrap_err();
         assert!(format!("{:?}", err).contains("zero"))
     }

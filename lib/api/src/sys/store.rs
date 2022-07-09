@@ -172,8 +172,11 @@ impl<'a> StoreRef<'a> {
     /// The signal handler
     #[inline]
     pub fn signal_handler(&self) -> Option<*const TrapHandlerFn<'static>> {
-        let handler = self.inner.trap_handler.as_ref().unwrap();
-        Some(&*handler as *const _)
+        if let Some(handler) = self.inner.trap_handler.as_ref() {
+            Some(&*handler as *const _)
+        } else {
+            None
+        }
     }
 }
 

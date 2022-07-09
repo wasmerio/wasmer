@@ -40,9 +40,9 @@ impl Memory {
     ///
     /// ```
     /// # use wasmer::{Memory, MemoryType, Pages, Store, Type, Value};
-    /// # use wasmer::Context as WasmerContext;
+    /// # use wasmer::FunctionEnv;
     /// # let mut store = Store::default();
-    /// # let mut ctx = WasmerContext::new(&store, ());
+    /// # let env = FunctionEnv::new(&mut store, ());
     /// #
     /// let m = Memory::new(&mut ctx, MemoryType::new(1, None, false)).unwrap();
     /// ```
@@ -63,9 +63,9 @@ impl Memory {
     ///
     /// ```
     /// # use wasmer::{Memory, MemoryType, Pages, Store, Type, Value};
-    /// # use wasmer::Context as WasmerContext;
+    /// # use wasmer::FunctionEnv;
     /// # let mut store = Store::default();
-    /// # let mut ctx = WasmerContext::new(&store, ());
+    /// # let env = FunctionEnv::new(&mut store, ());
     /// #
     /// let mt = MemoryType::new(1, None, false);
     /// let m = Memory::new(&mut ctx, mt).unwrap();
@@ -96,9 +96,9 @@ impl Memory {
     ///
     /// ```
     /// # use wasmer::{Memory, MemoryType, Pages, Store, Type, Value};
-    /// # use wasmer::Context as WasmerContext;
+    /// # use wasmer::FunctionEnv;
     /// # let mut store = Store::default();
-    /// # let mut ctx = WasmerContext::new(&store, ());
+    /// # let env = FunctionEnv::new(&mut store, ());
     /// #
     /// let m = Memory::new(&mut ctx, MemoryType::new(1, None, false)).unwrap();
     ///
@@ -115,9 +115,9 @@ impl Memory {
     ///
     /// ```
     /// # use wasmer::{Memory, MemoryType, Pages, Store, Type, Value, WASM_MAX_PAGES};
-    /// # use wasmer::Context as WasmerContext;
+    /// # use wasmer::FunctionEnv;
     /// # let mut store = Store::default();
-    /// # let mut ctx = WasmerContext::new(&store, ());
+    /// # let env = FunctionEnv::new(&mut store, ());
     /// #
     /// let m = Memory::new(&mut ctx, MemoryType::new(1, Some(3), false)).unwrap();
     /// let p = m.grow(&mut ctx, 2).unwrap();
@@ -133,9 +133,9 @@ impl Memory {
     ///
     /// ```should_panic
     /// # use wasmer::{Memory, MemoryType, Pages, Store, Type, Value, WASM_MAX_PAGES};
-    /// # use wasmer::Context as WasmerContext;
+    /// # use wasmer::FunctionEnv;
     /// # let mut store = Store::default();
-    /// # let mut ctx = WasmerContext::new(&store, ());
+    /// # let env = FunctionEnv::new(&mut store, ());
     /// #
     /// let m = Memory::new(&mut ctx, MemoryType::new(1, Some(1), false)).unwrap();
     ///

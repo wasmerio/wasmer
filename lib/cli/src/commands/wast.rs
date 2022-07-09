@@ -3,7 +3,7 @@ use crate::store::StoreOptions;
 use anyhow::{Context, Result};
 use std::path::PathBuf;
 use structopt::StructOpt;
-use wasmer::Context as WasmerContext;
+use wasmer::FunctionEnv;
 use wasmer_wast::Wast as WastSpectest;
 
 #[derive(Debug, StructOpt)]

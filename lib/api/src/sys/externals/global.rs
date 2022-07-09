@@ -25,13 +25,13 @@ impl Global {
     ///
     /// ```
     /// # use wasmer::{Global, Mutability, Store, Value};
-    /// # use wasmer::Context as WasmerContext;
+    /// # use wasmer::FunctionEnv;
     /// # let mut store = Store::default();
-    /// # let mut ctx = WasmerContext::new(&store, ());
+    /// # let env = FunctionEnv::new(&mut store, ());
     /// #
-    /// let g = Global::new(&mut ctx, Value::I32(1));
+    /// let g = Global::new(&mut store, Value::I32(1));
     ///
-    /// assert_eq!(g.get(&mut ctx), Value::I32(1));
+    /// assert_eq!(g.get(&mut store), Value::I32(1));
     /// assert_eq!(g.ty(&mut ctx).mutability, Mutability::Const);
     /// ```
     pub fn new(ctx: &mut impl AsStoreMut, val: Value) -> Self {
@@ -44,13 +44,13 @@ impl Global {
     ///
     /// ```
     /// # use wasmer::{Global, Mutability, Store, Value};
-    /// # use wasmer::Context as WasmerContext;
+    /// # use wasmer::FunctionEnv;
     /// # let mut store = Store::default();
-    /// # let mut ctx = WasmerContext::new(&store, ());
+    /// # let env = FunctionEnv::new(&mut store, ());
     /// #
     /// let g = Global::new_mut(&mut ctx, Value::I32(1));
     ///
-    /// assert_eq!(g.get(&mut ctx), Value::I32(1));
+    /// assert_eq!(g.get(&mut store), Value::I32(1));
     /// assert_eq!(g.ty(&mut ctx).mutability, Mutability::Var);
     /// ```
     pub fn new_mut(ctx: &mut impl AsStoreMut, val: Value) -> Self {
@@ -87,11 +87,11 @@ impl Global {
     ///
     /// ```
     /// # use wasmer::{Global, Mutability, Store, Type, Value, GlobalType};
-    /// # use wasmer::Context as WasmerContext;
+    /// # use wasmer::FunctionEnv;
     /// # let mut store = Store::default();
-    /// # let mut ctx = WasmerContext::new(&store, ());
+    /// # let env = FunctionEnv::new(&mut store, ());
     /// #
-    /// let c = Global::new(&mut ctx, Value::I32(1));
+    /// let c = Global::new(&mut store, Value::I32(1));
     /// let v = Global::new_mut(&mut ctx, Value::I64(1));
     ///
     /// assert_eq!(c.ty(&mut ctx), GlobalType::new(Type::I32, Mutability::Const));
@@ -107,13 +107,12 @@ impl Global {
     ///
     /// ```
     /// # use wasmer::{Global, Store, Value};
-    /// # use wasmer::Context as WasmerContext;
+    /// # use wasmer::FunctionEnv;
     /// # let mut store = Store::default();
-    /// # let mut ctx = WasmerContext::new(&store, ());
     /// #
-    /// let g = Global::new(&mut ctx, Value::I32(1));
+    /// let g = Global::new(&mut store, Value::I32(1));
     ///
-    /// assert_eq!(g.get(&mut ctx), Value::I32(1));
+    /// assert_eq!(g.get(&mut store), Value::I32(1));
     /// ```
     pub fn get(&self, ctx: &mut impl AsStoreMut) -> Value {
         unsafe {
@@ -134,17 +133,17 @@ impl Global {
     ///
     /// ```
     /// # use wasmer::{Global, Store, Value};
-    /// # use wasmer::Context as WasmerContext;
+    /// # use wasmer::FunctionEnv;
     /// # let mut store = Store::default();
-    /// # let mut ctx = WasmerContext::new(&store, ());
+    /// # let env = FunctionEnv::new(&mut store, ());
     /// #
     /// let g = Global::new_mut(&mut ctx, Value::I32(1));
     ///
-    /// assert_eq!(g.get(&mut ctx), Value::I32(1));
+    /// assert_eq!(g.get(&mut store), Value::I32(1));
     ///
-    /// g.set(&mut ctx, Value::I32(2));
+    /// g.set(&mut store, Value::I32(2));
     ///
-    /// assert_eq!(g.get(&mut ctx), Value::I32(2));
+    /// assert_eq!(g.get(&mut store), Value::I32(2));
     /// ```
     ///
     /// # Errors
@@ -153,27 +152,27 @@ impl Global {
     ///
     /// ```should_panic
     /// # use wasmer::{Global, Store, Value};
-    /// # use wasmer::Context as WasmerContext;
+    /// # use wasmer::FunctionEnv;
     /// # let mut store = Store::default();
-    /// # let mut ctx = WasmerContext::new(&store, ());
+    /// # let env = FunctionEnv::new(&mut store, ());
     /// #
-    /// let g = Global::new(&mut ctx, Value::I32(1));
+    /// let g = Global::new(&mut store, Value::I32(1));
     ///
-    /// g.set(&mut ctx, Value::I32(2)).unwrap();
+    /// g.set(&mut store, Value::I32(2)).unwrap();
     /// ```
     ///
     /// Trying to set a value of a incompatible type will raise an error:
     ///
     /// ```should_panic
     /// # use wasmer::{Global, Store, Value};
-    /// # use wasmer::Context as WasmerContext;
+    /// # use wasmer::FunctionEnv;
     /// # let mut store = Store::default();
-    /// # let mut ctx = WasmerContext::new(&store, ());
+    /// # let env = FunctionEnv::new(&mut store, ());
     /// #
-    /// let g = Global::new(&mut ctx, Value::I32(1));
+    /// let g = Global::new(&mut store, Value::I32(1));
     ///
     /// // This results in an error: `RuntimeError`.
-    /// g.set(&mut ctx, Value::I64(2)).unwrap();
+    /// g.set(&mut store, Value::I64(2)).unwrap();
     /// ```
     pub fn set(&self, ctx: &mut impl AsStoreMut, val: Value) -> Result<(), RuntimeError> {
         if !val.is_from_store(ctx) {

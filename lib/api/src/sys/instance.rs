@@ -87,17 +87,17 @@ impl Instance {
     ///
     /// ```
     /// # use wasmer::{imports, Store, Module, Global, Value, Instance};
-    /// # use wasmer::Context as WasmerContext;
+    /// # use wasmer::FunctionEnv;
     /// # fn main() -> anyhow::Result<()> {
     /// let mut store = Store::default();
-    /// let mut ctx = WasmerContext::new(&store, ());
+    /// let env = FunctionEnv::new(&mut store, ());
     /// let module = Module::new(&store, "(module)")?;
     /// let imports = imports!{
     ///   "host" => {
-    ///     "var" => Global::new(&mut ctx, Value::I32(2))
+    ///     "var" => Global::new(&mut store, Value::I32(2))
     ///   }
     /// };
-    /// let instance = Instance::new(&mut ctx, &module, &imports)?;
+    /// let instance = Instance::new(&mut store, &module, &imports)?;
     /// # Ok(())
     /// # }
     /// ```

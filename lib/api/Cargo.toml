@@ -100,7 +100,7 @@ default-llvm = ["default-compiler", "llvm"]
 # - Engines.
 engine = ["sys"]
 universal = [
-    "engine",
+    "engine", "wasmer-compiler/universal_engine"
 ]
 default-engine = []
 default-universal = [

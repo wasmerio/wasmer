@@ -384,7 +384,7 @@ mod tests {
 
     #[test]
     fn get_remaining_points_works() {
-        use wasmer::Context as WasmerContext;
+        use wasmer::FunctionEnv;
         let metering = Arc::new(Metering::new(10, cost_function));
         let mut compiler_config = Cranelift::default();
         compiler_config.push_middleware(metering);
@@ -393,7 +393,7 @@ mod tests {
         let mut ctx = Context::new(&store, ());
 
         // Instantiate
-        let instance = Instance::new(&mut ctx, &module, &imports! {}).unwrap();
+        let instance = Instance::new(&mut store, &module, &imports! {}).unwrap();
         assert_eq!(
             get_remaining_points(&mut ctx.as_store_mut(), &instance),
             MeteringPoints::Remaining(10)
@@ -442,7 +442,7 @@ mod tests {
         let mut ctx = Context::new(module.store(), ());
 
         // Instantiate
-        let instance = Instance::new(&mut ctx, &module, &imports! {}).unwrap();
+        let instance = Instance::new(&mut store, &module, &imports! {}).unwrap();
         assert_eq!(
             get_remaining_points(&mut ctx, &instance),
             MeteringPoints::Remaining(10)

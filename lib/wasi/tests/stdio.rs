@@ -89,7 +89,7 @@ fn test_stdout() {
         .unwrap();
 
     // Let's instantiate the module with the imports.
-    let instance = Instance::new(&mut ctx, &module, &import_object).unwrap();
+    let instance = Instance::new(&mut store, &module, &import_object).unwrap();
     let memory = instance.exports.get_memory("memory").unwrap();
     ctx.data_mut().set_memory(memory.clone());
 
@@ -137,7 +137,7 @@ fn test_env() {
         .unwrap();
 
     // Let's instantiate the module with the imports.
-    let instance = Instance::new(&mut ctx, &module, &import_object).unwrap();
+    let instance = Instance::new(&mut store, &module, &import_object).unwrap();
     let memory = instance.exports.get_memory("memory").unwrap();
     ctx.data_mut().set_memory(memory.clone());
 
@@ -175,7 +175,7 @@ fn test_stdin() {
         .unwrap();
 
     // Let's instantiate the module with the imports.
-    let instance = Instance::new(&mut ctx, &module, &import_object).unwrap();
+    let instance = Instance::new(&mut store, &module, &import_object).unwrap();
     let memory = instance.exports.get_memory("memory").unwrap();
     ctx.data_mut().set_memory(memory.clone());
 

@@ -52,7 +52,7 @@ impl Function {
     ///
     /// ```
     /// # use wasmer::{Function, FunctionType, Type, Store, Value};
-    /// # use wasmer::Context as WasmerContext;
+    /// # use wasmer::FunctionEnv;
     /// # let mut store = Store::default();
     /// # let ctx = WasmerContext::new(&mut store, ());
     /// #
@@ -68,7 +68,7 @@ impl Function {
     ///
     /// ```
     /// # use wasmer::{Function, FunctionType, Type, Store, Value};
-    /// # use wasmer::Context as WasmerContext;
+    /// # use wasmer::FunctionEnv;
     /// # let mut store = Store::default();
     /// #
     /// const I32_I32_TO_I32: ([Type; 2], [Type; 1]) = ([Type::I32, Type::I32], [Type::I32]);
@@ -174,7 +174,7 @@ impl Function {
     ///
     /// ```
     /// # use wasmer::{Store, Function};
-    /// # use wasmer::Context as WasmerContext;
+    /// # use wasmer::FunctionEnv;
     /// # let mut store = Store::default();
     /// # let ctx = WasmerContext::new(&mut store, ());
     /// #
@@ -236,7 +236,7 @@ impl Function {
     ///
     /// ```
     /// # use wasmer::{Function, Store, Type};
-    /// # use wasmer::Context as WasmerContext;
+    /// # use wasmer::FunctionEnv;
     /// # let mut store = Store::default();
     /// # let ctx = WasmerContext::new(&mut store, ());
     /// #
@@ -337,7 +337,7 @@ impl Function {
     ///
     /// ```
     /// # use wasmer::{Function, Store, Type};
-    /// # use wasmer::Context as WasmerContext;
+    /// # use wasmer::FunctionEnv;
     /// # let mut store = Store::default();
     /// # let ctx = WasmerContext::new(&mut store, ());
     /// #
@@ -359,7 +359,7 @@ impl Function {
     ///
     /// ```
     /// # use wasmer::{Function, Store, Type};
-    /// # use wasmer::Context as WasmerContext;
+    /// # use wasmer::FunctionEnv;
     /// # let mut store = Store::default();
     /// # let ctx = WasmerContext::new(&mut store, ());
     /// #
@@ -387,7 +387,7 @@ impl Function {
     ///
     /// ```
     /// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, Value};
-    /// # use wasmer::Context as WasmerContext;
+    /// # use wasmer::FunctionEnv;
     /// # let mut store = Store::default();
     /// # let ctx = WasmerContext::new(&mut store, ());
     /// # let wasm_bytes = wat2wasm(r#"
@@ -400,7 +400,7 @@ impl Function {
     /// # "#.as_bytes()).unwrap();
     /// # let module = Module::new(&store, wasm_bytes).unwrap();
     /// # let import_object = imports! {};
-    /// # let instance = Instance::new(&mut ctx, &module, &import_object).unwrap();
+    /// # let instance = Instance::new(&mut store, &module, &import_object).unwrap();
     /// #
     /// let sum = instance.exports.get_function("sum").unwrap();
     ///
@@ -458,7 +458,7 @@ impl Function {
     ///
     /// ```
     /// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, TypedFunction, Value};
-    /// # use wasmer::Context as WasmerContext;
+    /// # use wasmer::FunctionEnv;
     /// # let mut store = Store::default();
     /// # let ctx = WasmerContext::new(&mut store, ());
     /// # let wasm_bytes = wat2wasm(r#"
@@ -471,7 +471,7 @@ impl Function {
     /// # "#.as_bytes()).unwrap();
     /// # let module = Module::new(&store, wasm_bytes).unwrap();
     /// # let import_object = imports! {};
-    /// # let instance = Instance::new(&mut ctx, &module, &import_object).unwrap();
+    /// # let instance = Instance::new(&mut store, &module, &import_object).unwrap();
     /// #
     /// let sum = instance.exports.get_function("sum").unwrap();
     /// let sum_native: TypedFunction<(i32, i32), i32> = sum.native(&mut ctx).unwrap();
@@ -486,7 +486,7 @@ impl Function {
     ///
     /// ```should_panic
     /// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, TypedFunction, Value};
-    /// # use wasmer::Context as WasmerContext;
+    /// # use wasmer::FunctionEnv;
     /// # let mut store = Store::default();
     /// # let ctx = WasmerContext::new(&mut store, ());
     /// # let wasm_bytes = wat2wasm(r#"
@@ -499,7 +499,7 @@ impl Function {
     /// # "#.as_bytes()).unwrap();
     /// # let module = Module::new(&store, wasm_bytes).unwrap();
     /// # let import_object = imports! {};
-    /// # let instance = Instance::new(&mut ctx, &module, &import_object).unwrap();
+    /// # let instance = Instance::new(&mut store, &module, &import_object).unwrap();
     /// #
     /// let sum = instance.exports.get_function("sum").unwrap();
     ///
@@ -512,7 +512,7 @@ impl Function {
     ///
     /// ```should_panic
     /// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, TypedFunction, Value};
-    /// # use wasmer::Context as WasmerContext;
+    /// # use wasmer::FunctionEnv;
     /// # let mut store = Store::default();
     /// # let ctx = WasmerContext::new(&mut store, ());
     /// # let wasm_bytes = wat2wasm(r#"
@@ -525,7 +525,7 @@ impl Function {
     /// # "#.as_bytes()).unwrap();
     /// # let module = Module::new(&store, wasm_bytes).unwrap();
     /// # let import_object = imports! {};
-    /// # let instance = Instance::new(&mut ctx, &module, &import_object).unwrap();
+    /// # let instance = Instance::new(&mut store, &module, &import_object).unwrap();
     /// #
     /// let sum = instance.exports.get_function("sum").unwrap();
     ///
@@ -1368,7 +1368,7 @@ mod inner {
         mod test_function {
             use super::*;
             use crate::Store;
-            use crate::Context as WasmerContext;
+            use crate::FunctionEnv;
             use wasmer_types::Type;
 
             fn func() {}

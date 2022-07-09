@@ -26,7 +26,7 @@ use wasmer_types::ImportError;
 ///     },
 /// };
 ///
-/// let instance = Instance::new(&mut ctx, &module, &import_object).expect("Could not instantiate module.");
+/// let instance = Instance::new(&mut store, &module, &import_object).expect("Could not instantiate module.");
 ///
 /// fn foo(_ctx: FunctionEnvMut<()>, n: i32) -> i32 {
 ///     n
@@ -97,9 +97,9 @@ impl Imports {
     ///
     /// # Usage
     /// ```no_run
-    /// # use wasmer::Context as WasmerContext;
+    /// # use wasmer::FunctionEnv;
     /// # let store = Default::default();
-    /// # let mut ctx = WasmerContext::new(&store, ());
+    /// # let env = FunctionEnv::new(&mut store, ());
     /// use wasmer::{StoreMut, Imports, Function};
     /// fn foo(_ctx: FunctionEnvMut<()>, n: i32) -> i32 {
     ///     n
@@ -211,9 +211,9 @@ impl fmt::Debug for Imports {
 ///
 /// ```
 /// # use wasmer::{StoreMut, Function, Store};
-/// # use wasmer::Context as WasmerContext;
+/// # use wasmer::FunctionEnv;
 /// # let mut store = Store::default();
-/// # let mut ctx = WasmerContext::new(&store, ());
+/// # let env = FunctionEnv::new(&mut store, ());
 /// use wasmer::imports;
 ///
 /// let import_object = imports! {
@@ -281,8 +281,8 @@ mod test {
     #[test]
     fn namespace() {
         let mut store = Store::default();
-        let mut ctx = WasmerContext::new(&store, ());
-        let g1 = Global::new(&mut ctx, Value::I32(0));
+        let env = FunctionEnv::new(&mut store, ());
+        let g1 = Global::new(&mut store, Value::I32(0));
         let namespace = namespace! {
             "happy" => g1
         };
@@ -294,7 +294,7 @@ mod test {
 
         assert!(
             if let VMExtern::Global(happy_dog_global) = happy_dog_entry.to_vm_extern() {
-                happy_dog_global.get(&mut ctx).ty == Type::I32
+                happy_dog_global.get(&mut store).ty == Type::I32
             } else {
                 false
             }
