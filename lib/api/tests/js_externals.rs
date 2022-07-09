@@ -97,7 +97,7 @@ mod js {
     //         minimum: 0,
     //         maximum: Some(1),
     //     };
-    //     let f = Function::new(&mut ctx, |num: i32| num + 1);
+    //     let f = Function::new(&mut store, &ctx, |num: i32| num + 1);
     //     let table = Table::new(&store, table_type, Value::FuncRef(Some(f.clone())))?;
     //     assert_eq!(*table.ty(&store), table_type);
     //     let _elem = table.get(0).unwrap();
@@ -121,7 +121,7 @@ mod js {
     //         minimum: 0,
     //         maximum: Some(10),
     //     };
-    //     let f = Function::new(&mut ctx, |num: i32| num + 1);
+    //     let f = Function::new(&mut store, &ctx, |num: i32| num + 1);
     //     let table = Table::new(&store, table_type, Value::FuncRef(Some(f.clone())))?;
     //     // Growing to a bigger maximum should return None
     //     let old_len = table.grow(12, Value::FuncRef(Some(f.clone())));
@@ -422,7 +422,7 @@ mod js {
         // fn rust_abi(a: i32, b: i64, c: f32, d: f64) -> u64 {
         //     (a as u64 * 1000) + (b as u64 * 100) + (c as u64 * 10) + (d as u64)
         // }
-        // let function = Function::new(&mut ctx, rust_abi);
+        // let function = Function::new(&mut store, &ctx, rust_abi);
         // let typed_function: TypedFunction<(i32, i64, f32, f64), u64> = function.native(&mut store).unwrap();
         // assert_eq!(typed_function.call(8, 4, 1.5, 5.).unwrap(), 8415);
 
@@ -436,7 +436,7 @@ mod js {
         let typed_function: TypedFunction<i32, ()> = function.native(&mut store).unwrap();
         assert!(typed_function.call(&mut store, 4).is_ok());
 
-        // let function = Function::new(&mut ctx, || -> (i32, i64, f32, f64) { (1, 2, 3.0, 4.0) });
+        // let function = Function::new(&mut store, &ctx, || -> (i32, i64, f32, f64) { (1, 2, 3.0, 4.0) });
         // let typed_function: TypedFunction<(), (i32, i64, f32, f64)> = function.native(&mut store).unwrap();
         // assert_eq!(typed_function.call().unwrap(), (1, 2, 3.0, 4.0));
     }

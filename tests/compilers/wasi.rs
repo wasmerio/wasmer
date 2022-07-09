@@ -23,7 +23,7 @@ pub fn run_wasi(
     filesystem_kind: WasiFileSystemKind,
 ) -> anyhow::Result<()> {
     println!("Running wasi wast `{}`", wast_path);
-    let store = config.store();
+    let mut store = config.store();
 
     let source = {
         let mut out = String::new();

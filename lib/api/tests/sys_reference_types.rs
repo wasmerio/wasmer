@@ -153,13 +153,13 @@ mod sys {
             let module = Module::new(&store, wat)?;
             let imports = imports! {
                 "env" => {
-                    "extern_ref_identity" => Function::new(&mut ctx, FunctionType::new([Type::ExternRef], [Type::ExternRef]), |_ctx, values| -> Result<Vec<_>, _> {
+                    "extern_ref_identity" => Function::new(&mut store, &ctx, FunctionType::new([Type::ExternRef], [Type::ExternRef]), |_ctx, values| -> Result<Vec<_>, _> {
                         Ok(vec![values[0].clone()])
                     }),
                     "extern_ref_identity_native" => Function::new_native(&mut store, &ctx,|_ctx: FunctionEnvMut<()>, er: ExternRef| -> ExternRef {
                         er
                     }),
-                    "get_new_extern_ref" => Function::new(&mut ctx, FunctionType::new([], [Type::ExternRef]), |_ctx, _| -> Result<Vec<_>, _> {
+                    "get_new_extern_ref" => Function::new(&mut store, &ctx, FunctionType::new([], [Type::ExternRef]), |_ctx, _| -> Result<Vec<_>, _> {
                         let inner =
                             [("hello".to_string(), "world".to_string()),
                              ("color".to_string(), "orange".to_string())]

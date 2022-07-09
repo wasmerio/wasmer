@@ -1,11 +1,11 @@
 use anyhow::Result;
 use std::panic::{self, AssertUnwindSafe};
-use wasmer::Context as WasmerContext;
+use wasmer::FunctionEnv;
 use wasmer::*;
 
 #[compiler_test(traps)]
 fn test_trap_return(config: crate::Config) -> Result<()> {
-    let store = config.store();
+    let mut store = config.store();
     let wat = r#"
         (module
         (func $hello (import "" "hello"))
@@ -14,9 +14,9 @@ fn test_trap_return(config: crate::Config) -> Result<()> {
     "#;
 
     let module = Module::new(&store, wat)?;
-    let mut ctx = WasmerContext::new(&store, ());
+    let mut ctx = FunctionEnv::new(&mut store, ());
     let hello_type = FunctionType::new(vec![], vec![]);
-    let hello_func = Function::new(&mut ctx, &hello_type, |_ctx, _| {
+    let hello_func = Function::new(&mut store, &ctx, &hello_type, |_ctx, _| {
         Err(RuntimeError::new("test 123"))
     });
 
@@ -47,7 +47,7 @@ fn test_trap_return(config: crate::Config) -> Result<()> {
 #[cfg_attr(target_env = "musl", ignore)]
 #[compiler_test(traps)]
 fn test_trap_trace(config: crate::Config) -> Result<()> {
-    let store = config.store();
+    let mut store = config.store();
     let wat = r#"
         (module $hello_mod
             (func (export "run") (call $hello))
@@ -55,7 +55,7 @@ fn test_trap_trace(config: crate::Config) -> Result<()> {
         )
     "#;
 
-    let mut ctx = WasmerContext::new(&store, ());
+    let mut ctx = FunctionEnv::new(&mut store, ());
     let module = Module::new(&store, wat)?;
     let instance = Instance::new(&mut ctx, &module, &imports! {})?;
     let run_func = instance
@@ -87,7 +87,7 @@ fn test_trap_trace(config: crate::Config) -> Result<()> {
 
 #[compiler_test(traps)]
 fn test_trap_trace_cb(config: crate::Config) -> Result<()> {
-    let store = config.store();
+    let mut store = config.store();
     let wat = r#"
         (module $hello_mod
             (import "" "throw" (func $throw))
@@ -96,9 +96,9 @@ fn test_trap_trace_cb(config: crate::Config) -> Result<()> {
         )
     "#;
 
-    let mut ctx = WasmerContext::new(&store, ());
+    let mut ctx = FunctionEnv::new(&mut store, ());
     let fn_type = FunctionType::new(vec![], vec![]);
-    let fn_func = Function::new(&mut ctx, &fn_type, |_ctx, _| {
+    let fn_func = Function::new(&mut store, &ctx, &fn_type, |_ctx, _| {
         Err(RuntimeError::new("cb throw"))
     });
 
@@ -138,7 +138,7 @@ fn test_trap_trace_cb(config: crate::Config) -> Result<()> {
 #[cfg_attr(target_env = "musl", ignore)]
 #[compiler_test(traps)]
 fn test_trap_stack_overflow(config: crate::Config) -> Result<()> {
-    let store = config.store();
+    let mut store = config.store();
     let wat = r#"
         (module $rec_mod
             (func $run (export "run") (call $run))
@@ -146,7 +146,7 @@ fn test_trap_stack_overflow(config: crate::Config) -> Result<()> {
     "#;
 
     let module = Module::new(&store, wat)?;
-    let mut ctx = WasmerContext::new(&store, ());
+    let mut ctx = FunctionEnv::new(&mut store, ());
     let instance = Instance::new(&mut ctx, &module, &imports! {})?;
     let run_func = instance
         .exports
@@ -169,7 +169,7 @@ fn test_trap_stack_overflow(config: crate::Config) -> Result<()> {
 #[cfg_attr(target_env = "musl", ignore)]
 #[compiler_test(traps)]
 fn trap_display_pretty(config: crate::Config) -> Result<()> {
-    let store = config.store();
+    let mut store = config.store();
     let wat = r#"
         (module $m
             (func $die unreachable)
@@ -180,7 +180,7 @@ fn trap_display_pretty(config: crate::Config) -> Result<()> {
     "#;
 
     let module = Module::new(&store, wat)?;
-    let mut ctx = WasmerContext::new(&store, ());
+    let mut ctx = FunctionEnv::new(&mut store, ());
     let instance = Instance::new(&mut ctx, &module, &imports! {})?;
     let run_func = instance
         .exports
@@ -206,7 +206,7 @@ RuntimeError: unreachable
 #[cfg_attr(target_env = "musl", ignore)]
 #[compiler_test(traps)]
 fn trap_display_multi_module(config: crate::Config) -> Result<()> {
-    let store = config.store();
+    let mut store = config.store();
     let wat = r#"
         (module $a
             (func $die unreachable)
@@ -217,7 +217,7 @@ fn trap_display_multi_module(config: crate::Config) -> Result<()> {
     "#;
 
     let module = Module::new(&store, wat)?;
-    let mut ctx = WasmerContext::new(&store, ());
+    let mut ctx = FunctionEnv::new(&mut store, ());
     let instance = Instance::new(&mut ctx, &module, &imports! {})?;
     let bar = instance.exports.get_function("bar")?.clone();
 
@@ -263,7 +263,7 @@ RuntimeError: unreachable
 
 #[compiler_test(traps)]
 fn trap_start_function_import(config: crate::Config) -> Result<()> {
-    let store = config.store();
+    let mut store = config.store();
     let binary = r#"
         (module $a
             (import "" "" (func $foo))
@@ -272,9 +272,9 @@ fn trap_start_function_import(config: crate::Config) -> Result<()> {
     "#;
 
     let module = Module::new(&store, &binary)?;
-    let mut ctx = WasmerContext::new(&store, ());
+    let mut ctx = FunctionEnv::new(&mut store, ());
     let sig = FunctionType::new(vec![], vec![]);
-    let func = Function::new(&mut ctx, &sig, |_ctx, _| {
+    let func = Function::new(&mut store, &ctx, &sig, |_ctx, _| {
         Err(RuntimeError::new("user trap"))
     });
     let err = Instance::new(
@@ -304,7 +304,7 @@ fn trap_start_function_import(config: crate::Config) -> Result<()> {
 
 #[compiler_test(traps)]
 fn rust_panic_import(config: crate::Config) -> Result<()> {
-    let store = config.store();
+    let mut store = config.store();
     let binary = r#"
         (module $a
             (import "" "foo" (func $foo))
@@ -315,10 +315,10 @@ fn rust_panic_import(config: crate::Config) -> Result<()> {
     "#;
 
     let module = Module::new(&store, &binary)?;
-    let mut ctx = WasmerContext::new(&store, ());
+    let mut ctx = FunctionEnv::new(&mut store, ());
     let sig = FunctionType::new(vec![], vec![]);
-    let func = Function::new(&mut ctx, &sig, |_ctx, _| panic!("this is a panic"));
-    let f0 = Function::new_native(&mut ctx, |_ctx: ContextMut<_>| {
+    let func = Function::new(&mut store, &ctx, &sig, |_ctx, _| panic!("this is a panic"));
+    let f0 = Function::new_native(&mut store, &ctx, |_ctx: ContextMut<_>| {
         panic!("this is another panic")
     });
     let instance = Instance::new(
@@ -354,7 +354,7 @@ fn rust_panic_import(config: crate::Config) -> Result<()> {
 
 #[compiler_test(traps)]
 fn rust_panic_start_function(config: crate::Config) -> Result<()> {
-    let store = config.store();
+    let mut store = config.store();
     let binary = r#"
         (module $a
             (import "" "" (func $foo))
@@ -363,9 +363,9 @@ fn rust_panic_start_function(config: crate::Config) -> Result<()> {
     "#;
 
     let module = Module::new(&store, &binary)?;
-    let mut ctx = WasmerContext::new(&store, ());
+    let mut ctx = FunctionEnv::new(&mut store, ());
     let sig = FunctionType::new(vec![], vec![]);
-    let func = Function::new(&mut ctx, &sig, |_ctx, _| panic!("this is a panic"));
+    let func = Function::new(&mut store, &ctx, &sig, |_ctx, _| panic!("this is a panic"));
     let err = panic::catch_unwind(AssertUnwindSafe(|| {
         drop(Instance::new(
             &mut ctx,
@@ -380,7 +380,7 @@ fn rust_panic_start_function(config: crate::Config) -> Result<()> {
     .unwrap_err();
     assert_eq!(err.downcast_ref::<&'static str>(), Some(&"this is a panic"));
 
-    let func = Function::new_native(&mut ctx, |_ctx: ContextMut<_>| {
+    let func = Function::new_native(&mut store, &ctx, |_ctx: ContextMut<_>| {
         panic!("this is another panic")
     });
     let err = panic::catch_unwind(AssertUnwindSafe(|| {
@@ -404,7 +404,7 @@ fn rust_panic_start_function(config: crate::Config) -> Result<()> {
 
 #[compiler_test(traps)]
 fn mismatched_arguments(config: crate::Config) -> Result<()> {
-    let store = config.store();
+    let mut store = config.store();
     let binary = r#"
         (module $a
             (func (export "foo") (param i32))
@@ -412,7 +412,7 @@ fn mismatched_arguments(config: crate::Config) -> Result<()> {
     "#;
 
     let module = Module::new(&store, &binary)?;
-    let mut ctx = WasmerContext::new(&store, ());
+    let mut ctx = FunctionEnv::new(&mut store, ());
     let instance = Instance::new(&mut ctx, &module, &imports! {})?;
     let func: &Function = instance.exports.get("foo")?;
     assert_eq!(
@@ -437,7 +437,7 @@ fn mismatched_arguments(config: crate::Config) -> Result<()> {
 #[cfg_attr(target_env = "musl", ignore)]
 #[compiler_test(traps)]
 fn call_signature_mismatch(config: crate::Config) -> Result<()> {
-    let store = config.store();
+    let mut store = config.store();
     let binary = r#"
         (module $a
             (func $foo
@@ -452,7 +452,7 @@ fn call_signature_mismatch(config: crate::Config) -> Result<()> {
     "#;
 
     let module = Module::new(&store, &binary)?;
-    let mut ctx = WasmerContext::new(&store, ());
+    let mut ctx = FunctionEnv::new(&mut store, ());
     let err = Instance::new(&mut ctx, &module, &imports! {})
         .err()
         .expect("expected error");
@@ -469,7 +469,7 @@ RuntimeError: indirect call type mismatch
 #[compiler_test(traps)]
 #[cfg_attr(target_env = "musl", ignore)]
 fn start_trap_pretty(config: crate::Config) -> Result<()> {
-    let store = config.store();
+    let mut store = config.store();
     let wat = r#"
         (module $m
             (func $die unreachable)
@@ -481,7 +481,7 @@ fn start_trap_pretty(config: crate::Config) -> Result<()> {
     "#;
 
     let module = Module::new(&store, wat)?;
-    let mut ctx = WasmerContext::new(&store, ());
+    let mut ctx = FunctionEnv::new(&mut store, ());
     let err = Instance::new(&mut ctx, &module, &imports! {})
         .err()
         .expect("expected error");
@@ -501,9 +501,9 @@ RuntimeError: unreachable
 
 #[compiler_test(traps)]
 fn present_after_module_drop(config: crate::Config) -> Result<()> {
-    let store = config.store();
+    let mut store = config.store();
     let module = Module::new(&store, r#"(func (export "foo") unreachable)"#)?;
-    let mut ctx = WasmerContext::new(&store, ());
+    let mut ctx = FunctionEnv::new(&mut store, ());
     let instance = Instance::new(&mut ctx, &module, &imports! {})?;
     let func: Function = instance.exports.get_function("foo")?.clone();
 

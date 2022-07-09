@@ -79,7 +79,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .engine();
 
     // Create a store, that holds the engine.
-    let store = Store::new_with_engine(&engine);
+    let mut store = Store::new_with_engine(&engine);
 
     println!("Compiling module...");
     // Let's compile the Wasm module.

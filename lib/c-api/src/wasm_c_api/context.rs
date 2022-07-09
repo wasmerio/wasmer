@@ -27,7 +27,7 @@ pub unsafe extern "C" fn wasm_context_new(
     let mut store = Store?;
 
     Some(Box::new(wasm_context_t {
-        inner: Context::new(&store.inner, data),
+        inner: FunctionEnv::new(&mut store.inner, data),
     }))
 }
 

@@ -49,7 +49,7 @@ TODO
 You need a Store to create a context. Simple context is created using:
 
 ```rust
-let ctx = Context::new(&store, ());
+let ctx = FunctionEnv::new(&mut store, ());
 ```
 
 For a Context with a custom Env, it will be similar:
@@ -59,7 +59,7 @@ For a Context with a custom Env, it will be similar:
 struct Env {
     counter: i32,
 }
-let ctx = Context::new(&store, Env{counter: 0});
+let ctx = FunctionEnv::new(&mut store, Env{counter: 0});
 ```
 
 ### Managing imports
@@ -87,7 +87,7 @@ For WASI, don't forget to import memory to `WasiEnv`
 
 ```rust
 let mut wasi_env = WasiState::new("hello").finalize()?;
-let mut ctx = Context::new(&store, wasi_env.clone());
+let mut ctx = FunctionEnv::new(&mut store, wasi_env.clone());
 let import_object = wasi_env.import_object(&mut ctx.as_context_mut(), &module)?;
 let instance = Instance::new(&mut ctx, &module, &import_object).expect("Could not instantiate module.");
 let memory = instance.exports.get_memory("memory")?;
@@ -122,7 +122,7 @@ let wasm_bytes = wat2wasm(
 
 let compiler_config = Cranelift::default();
 let engine = Universal::new(compiler_config).engine();
-let store = Store::new(&engine);
+let mut store = Store::new(&engine);
 let module = Module::new(&store, wasm_bytes)?;
 let instance = Instance::new(&module, &imports! {})?;
 ```
@@ -137,7 +137,7 @@ let wasm_bytes = wat2wasm(
 )?;
 
 let compiler_config = Cranelift::default();
-let store = Store::new(&compiler_config);
+let mut store = Store::new(&compiler_config);
 let module = Module::new(&store, wasm_bytes)?;
 let instance = Instance::new(&module, &imports! {})?;
 ```

@@ -70,7 +70,7 @@ fn main() -> anyhow::Result<()> {
     //
     // We use our previously create compiler configuration
     // with the Universal engine.
-    let store = Store::new_with_engine(&Universal::new(compiler_config).engine());
+    let mut store = Store::new_with_engine(&Universal::new(compiler_config).engine());
     let mut ctx = FunctionEnv::new(&mut store, ());
 
     println!("Compiling module...");

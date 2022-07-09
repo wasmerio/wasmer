@@ -3,13 +3,13 @@ use std::fs::{read_dir, File, OpenOptions, ReadDir};
 use std::io::{self, Read, Seek, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{mpsc, Arc, Mutex};
-use wasmer::Context as WasmerContext;
-use wasmer::{AsContextMut, ContextMut, Imports, Instance, Module, Store};
+use wasmer::{FunctionEnv, FunctionEnvMut};
+use wasmer::{Imports, Instance, Module, Store};
 use wasmer_vfs::{host_fs, mem_fs, FileSystem};
 use wasmer_wasi::types::{__wasi_filesize_t, __wasi_timestamp_t};
 use wasmer_wasi::{
     generate_import_object_from_ctx, get_wasi_version, FsError, Pipe, VirtualFile, WasiEnv,
-    WasiState, WasiVersion,
+    WasiFunctionEnv, WasiState, WasiVersion,
 };
 use wast::parser::{self, Parse, ParseBuffer, Parser};
 
@@ -70,7 +70,7 @@ impl<'a> WasiTest<'a> {
     /// Execute the WASI test and assert.
     pub fn run(
         &self,
-        store: &Store,
+        store: &mut Store,
         base_path: &str,
         filesystem_kind: WasiFileSystemKind,
     ) -> anyhow::Result<bool> {
@@ -83,24 +83,25 @@ impl<'a> WasiTest<'a> {
             out
         };
         let module = Module::new(store, &wasm_bytes)?;
-        let (env, _tempdirs, stdout_rx, stderr_rx) = self.create_wasi_env(filesystem_kind)?;
-        let mut ctx = WasmerContext::new(store, env.clone());
-        let imports = self.get_imports(&mut ctx.as_context_mut(), &module)?;
-        let instance = Instance::new(&mut ctx, &module, &imports)?;
+        let (env, _tempdirs, stdout_rx, stderr_rx) =
+            self.create_wasi_env(store, filesystem_kind)?;
+        let imports = self.get_imports(&mut store, &env.env, &module)?;
+        let instance = Instance::new(&mut store, &module, &imports)?;
 
         let start = instance.exports.get_function("_start")?;
         let memory = instance.exports.get_memory("memory")?;
-        ctx.data_mut().set_memory(memory.clone());
+        let wasi_env = env.data_mut(&mut store);
+        wasi_env.set_memory(memory.clone());
 
         if let Some(stdin) = &self.stdin {
-            let state = env.state();
+            let state = wasi_env.state();
             let mut wasi_stdin = state.stdin().unwrap().unwrap();
             // Then we can write to it!
             write!(wasi_stdin, "{}", stdin.stream)?;
         }
 
         // TODO: handle errors here when the error fix gets shipped
-        match start.call(&mut ctx, &[]) {
+        match start.call(&mut store, &[]) {
             Ok(_) => {}
             Err(e) => {
                 let stdout_str = get_stdio_output(&stdout_rx)?;
@@ -132,9 +133,10 @@ impl<'a> WasiTest<'a> {
     #[allow(clippy::type_complexity)]
     fn create_wasi_env(
         &self,
+        store: &mut Store,
         filesystem_kind: WasiFileSystemKind,
     ) -> anyhow::Result<(
-        WasiEnv,
+        WasiFunctionEnv,
         Vec<tempfile::TempDir>,
         mpsc::Receiver<Vec<u8>>,
         mpsc::Receiver<Vec<u8>>,
@@ -217,7 +219,7 @@ impl<'a> WasiTest<'a> {
             //.env("RUST_BACKTRACE", "1")
             .stdout(Box::new(stdout))
             .stderr(Box::new(stderr))
-            .finalize()?;
+            .finalize(&mut store)?;
 
         Ok((out, host_temp_dirs_to_not_drop, stdout_rx, stderr_rx))
     }
@@ -233,11 +235,12 @@ impl<'a> WasiTest<'a> {
     /// [`WasiEnv`].
     fn get_imports(
         &self,
-        ctx: &mut ContextMut<'_, WasiEnv>,
+        store: &mut Store,
+        ctx: &FunctionEnv<WasiEnv>,
         module: &Module,
     ) -> anyhow::Result<Imports> {
         let version = self.get_version(module)?;
-        Ok(generate_import_object_from_ctx(ctx, version))
+        Ok(generate_import_object_from_ctx(store, ctx, version))
     }
 }
 

@@ -61,7 +61,7 @@
 //!     let instance = Instance::new(&mut store, &module, &import_object)?;
 //!
 //!     let add_one = instance.exports.get_function("add_one")?;
-//!     let result = add_one.call(&mut ctx, &[Value::I32(42)])?;
+//!     let result = add_one.call(&mut store, &[Value::I32(42)])?;
 //!     assert_eq!(result[0], Value::I32(43));
 //!
 //!     Ok(())
@@ -154,7 +154,7 @@
 //! # use wasmer::{imports, Function, Memory, MemoryType, Store, Imports};
 //! # use wasmer::FunctionEnvMut;
 //! # fn imports_example(mut ctx: FunctionEnvMut<()>, store: &Store) -> Imports {
-//! let memory = Memory::new(&mut ctx, MemoryType::new(1, None, false)).unwrap();
+//! let memory = Memory::new(&mut store, MemoryType::new(1, None, false)).unwrap();
 //! imports! {
 //!     "env" => {
 //!          "my_function" => Function::new_native(&mut store, &ctx, |_ctx: FunctionEnvMut<()>| println!("Hello")),
@@ -173,7 +173,7 @@
 //! let memory = instance.exports.get_memory("memory")?;
 //! let memory: &Memory = instance.exports.get("some_other_memory")?;
 //! let add: TypedFunction<(i32, i32), i32> = instance.exports.get_typed_function(&mut ctx, "add")?;
-//! let result = add.call(&mut ctx, 5, 37)?;
+//! let result = add.call(&mut store, 5, 37)?;
 //! assert_eq!(result, 42);
 //! # Ok(())
 //! # }

@@ -2,7 +2,7 @@ use anyhow::Result;
 
 use std::sync::Arc;
 use wasmer::wasmparser::Operator;
-use wasmer::Context as WasmerContext;
+use wasmer::FunctionEnv;
 use wasmer::*;
 
 #[derive(Debug)]
@@ -93,14 +93,14 @@ fn middleware_basic(mut config: crate::Config) -> Result<()> {
     config.set_middlewares(vec![
         Arc::new(Add2MulGen { value_off: 0 }) as Arc<dyn ModuleMiddleware>
     ]);
-    let store = config.store();
+    let mut store = config.store();
     let wat = r#"(module
         (func (export "add") (param i32 i32) (result i32)
            (i32.add (local.get 0)
                     (local.get 1)))
 )"#;
     let module = Module::new(&store, wat).unwrap();
-    let mut ctx = WasmerContext::new(&store, ());
+    let mut ctx = FunctionEnv::new(&mut store, ());
 
     let import_object = imports! {};
 
@@ -117,14 +117,14 @@ fn middleware_one_to_multi(mut config: crate::Config) -> Result<()> {
     config.set_middlewares(vec![
         Arc::new(Add2MulGen { value_off: 1 }) as Arc<dyn ModuleMiddleware>
     ]);
-    let store = config.store();
+    let mut store = config.store();
     let wat = r#"(module
         (func (export "add") (param i32 i32) (result i32)
            (i32.add (local.get 0)
                     (local.get 1)))
 )"#;
     let module = Module::new(&store, wat).unwrap();
-    let mut ctx = WasmerContext::new(&store, ());
+    let mut ctx = FunctionEnv::new(&mut store, ());
     let import_object = imports! {};
 
     let instance = Instance::new(&mut ctx, &module, &import_object)?;
@@ -138,7 +138,7 @@ fn middleware_one_to_multi(mut config: crate::Config) -> Result<()> {
 #[compiler_test(middlewares)]
 fn middleware_multi_to_one(mut config: crate::Config) -> Result<()> {
     config.set_middlewares(vec![Arc::new(FusionGen) as Arc<dyn ModuleMiddleware>]);
-    let store = config.store();
+    let mut store = config.store();
     let wat = r#"(module
         (func (export "testfunc") (param i32 i32) (result i32)
            (local.get 0)
@@ -148,7 +148,7 @@ fn middleware_multi_to_one(mut config: crate::Config) -> Result<()> {
            (i32.mul))
 )"#;
     let module = Module::new(&store, wat).unwrap();
-    let mut ctx = WasmerContext::new(&store, ());
+    let mut ctx = FunctionEnv::new(&mut store, ());
     let import_object = imports! {};
 
     let instance = Instance::new(&mut ctx, &module, &import_object)?;
@@ -166,14 +166,14 @@ fn middleware_chain_order_1(mut config: crate::Config) -> Result<()> {
         Arc::new(Add2MulGen { value_off: 0 }) as Arc<dyn ModuleMiddleware>,
         Arc::new(Add2MulGen { value_off: 2 }) as Arc<dyn ModuleMiddleware>,
     ]);
-    let store = config.store();
+    let mut store = config.store();
     let wat = r#"(module
         (func (export "add") (param i32 i32) (result i32)
            (i32.add (local.get 0)
                     (local.get 1)))
 )"#;
     let module = Module::new(&store, wat).unwrap();
-    let mut ctx = WasmerContext::new(&store, ());
+    let mut ctx = FunctionEnv::new(&mut store, ());
     let import_object = imports! {};
 
     let instance = Instance::new(&mut ctx, &module, &import_object)?;
@@ -190,14 +190,14 @@ fn middleware_chain_order_2(mut config: crate::Config) -> Result<()> {
         Arc::new(Add2MulGen { value_off: 2 }) as Arc<dyn ModuleMiddleware>,
         Arc::new(Add2MulGen { value_off: 0 }) as Arc<dyn ModuleMiddleware>,
     ]);
-    let store = config.store();
+    let mut store = config.store();
     let wat = r#"(module
         (func (export "add") (param i32 i32) (result i32)
            (i32.add (local.get 0)
                     (local.get 1)))
 )"#;
     let module = Module::new(&store, wat).unwrap();
-    let mut ctx = WasmerContext::new(&store, ());
+    let mut ctx = FunctionEnv::new(&mut store, ());
     let import_object = imports! {};
 
     let instance = Instance::new(&mut ctx, &module, &import_object)?;

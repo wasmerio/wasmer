@@ -24,7 +24,7 @@ pub struct Wast {
     /// If the current module was an allowed failure, we allow test to fail
     current_is_allowed_failure: bool,
     /// The context in which the tests are executing.
-    context: Context<()>,
+    context: FunctionEnv<()>,
     /// A flag indicating if Wast tests should stop as soon as one test fails.
     pub fail_fast: bool,
     /// A flag indicating that assert_trap and assert_exhaustion should be skipped.
@@ -34,7 +34,7 @@ pub struct Wast {
 
 impl Wast {
     /// Construct a new instance of `Wast` with a given imports.
-    pub fn new(context: Context<()>, import_object: Imports) -> Self {
+    pub fn new(context: FunctionEnv<()>, import_object: Imports) -> Self {
         Self {
             current: None,
             context,
@@ -68,7 +68,7 @@ impl Wast {
     }
 
     /// Construct a new instance of `Wast` with the spectests imports.
-    pub fn new_with_spectest(mut context: Context<()>) -> Self {
+    pub fn new_with_spectest(store: &mut Store, mut context: FunctionEnv<()>) -> Self {
         let import_object = spectest_importobject(&mut context);
         Self::new(context, import_object)
     }

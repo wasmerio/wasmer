@@ -144,7 +144,7 @@ impl WasiThread {
 }
 
 pub struct WasiFunctionEnv {
-    env: FunctionEnv<WasiEnv>,
+    pub env: FunctionEnv<WasiEnv>,
 }
 
 impl WasiFunctionEnv {

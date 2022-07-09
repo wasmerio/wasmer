@@ -3,7 +3,7 @@ use wasmer_middlewares::Metering;
 
 use std::sync::Arc;
 use wasmer::wasmparser::Operator;
-use wasmer::Context as WasmerContext;
+use wasmer::FunctionEnv;
 use wasmer::*;
 
 fn cost_always_one(_: &Operator) -> u64 {
@@ -14,13 +14,13 @@ fn run_add_with_limit(mut config: crate::Config, limit: u64) -> Result<()> {
     config
         .middlewares
         .push(Arc::new(Metering::new(limit, cost_always_one)));
-    let store = config.store();
+    let mut store = config.store();
     let wat = r#"(module
         (func (export "add") (param i32 i32) (result i32)
            (i32.add (local.get 0)
                     (local.get 1)))
 )"#;
-    let mut ctx = WasmerContext::new(&store, ());
+    let mut ctx = FunctionEnv::new(&mut store, ());
 
     let import_object = imports! {};
 
@@ -36,7 +36,7 @@ fn run_loop(mut config: crate::Config, limit: u64, iter_count: i32) -> Result<()
     config
         .middlewares
         .push(Arc::new(Metering::new(limit, cost_always_one)));
-    let store = config.store();
+    let mut store = config.store();
     let wat = r#"(module
         (func (export "test") (param i32)
            (local i32)
@@ -53,7 +53,7 @@ fn run_loop(mut config: crate::Config, limit: u64, iter_count: i32) -> Result<()
         )
 )"#;
     let module = Module::new(&store, wat).unwrap();
-    let mut ctx = WasmerContext::new(&store, ());
+    let mut ctx = FunctionEnv::new(&mut store, ());
 
     let import_object = imports! {};
 
@@ -154,8 +154,8 @@ fn complex_loop(mut config: crate::Config) -> Result<()> {
     config
         .middlewares
         .push(Arc::new(Metering::new(100, cost_always_one)));
-    let store = config.store();
-    let mut ctx = WasmerContext::new(&store, ());
+    let mut store = config.store();
+    let mut ctx = FunctionEnv::new(&mut store, ());
 
     let module = Module::new(&store, WAT).unwrap();
 

@@ -145,7 +145,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let tunables = LimitingTunables::new(base, Pages(24));
 
     // Create a store, that holds the engine and our custom tunables
-    let store = Store::new_with_tunables(&engine, tunables);
+    let mut store = Store::new_with_tunables(&engine, tunables);
     let mut ctx = FunctionEnv::new(&mut store, ());
 
     println!("Compiling module...");

@@ -40,7 +40,7 @@ fuzz_target!(|module: WasmSmithModule| {
     }
 
     let compiler = Singlepass::default();
-    let store = Store::new_with_engine(&Universal::new(compiler).engine());
+    let mut store = Store::new_with_engine(&Universal::new(compiler).engine());
     let module = Module::new(&store, &wasm_bytes);
     let module = match module {
         Ok(m) => m,

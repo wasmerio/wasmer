@@ -39,7 +39,7 @@ fn main() -> anyhow::Result<()> {
     let engine = Universal::new(compiler).features(features);
 
     // Now, let's define the store, and compile the module.
-    let store = Store::new_with_engine(&engine.engine());
+    let mut store = Store::new_with_engine(&engine.engine());
     let mut ctx = FunctionEnv::new(&mut store, ());
     let module = Module::new(&store, wasm_bytes)?;
 

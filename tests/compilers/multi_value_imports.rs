@@ -37,7 +37,7 @@ macro_rules! mvr_test {
 
             #[compiler_test(multi_value_imports)]
             fn native(config: crate::Config) -> anyhow::Result<()> {
-                let store = config.store();
+                let mut store = config.store();
                 let module = get_module(&store)?;
                 let instance = wasmer::Instance::new(
                     &module,
@@ -62,7 +62,7 @@ macro_rules! mvr_test {
 
             #[compiler_test(multi_value_imports)]
             fn dynamic(config: crate::Config) -> anyhow::Result<()> {
-                let store = config.store();
+                let mut store = config.store();
                 let module = get_module(&store)?;
                 let callback_fn = wasmer::Function::new(&store, &wasmer::FunctionType::new(vec![wasmer::ValType::I32], vec![ $( <$result_type>::expected_valtype() ),* ]), dynamic_callback_fn);
                 let instance = wasmer::Instance::new(

@@ -94,7 +94,7 @@ pub unsafe extern "C" fn wasm_module_validate(
     store: Option<&wasm_store_t>,
     bytes: Option<&wasm_byte_vec_t>,
 ) -> bool {
-    let store = match store {
+    let mut store = match store {
         Some(store) => store,
         None => return false,
     };
