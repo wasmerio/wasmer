@@ -79,7 +79,7 @@ fn dynamic_function(config: crate::Config) -> Result<()> {
                 }),
         }
     };
-    Instance::new(&mut ctx, &module, &imports)?;
+    Instance::new(&mut store, &module, &imports)?;
     assert_eq!(HITS.swap(0, SeqCst), 4);
     Ok(())
 }
@@ -459,8 +459,8 @@ fn multi_use_host_fn_manages_memory_correctly(config: crate::Config) -> Result<(
             "fn" => Function::new_native(&mut store, &ctx, host_fn),
         },
     };
-    let instance1 = Instance::new(&mut ctx, &module, &imports)?;
-    let instance2 = Instance::new(&mut ctx, &module, &imports)?;
+    let instance1 = Instance::new(&mut store, &module, &imports)?;
+    let instance2 = Instance::new(&mut store, &module, &imports)?;
     {
         let f1: TypedFunction<(), ()> = instance1.exports.get_typed_function(&mut ctx, "main")?;
         let memory = instance1.exports.get_memory("memory")?;
@@ -488,7 +488,7 @@ fn instance_local_memory_lifetime(config: crate::Config) -> Result<()> {
     (export "memory" (memory $mem))
 )"#;
         let module = Module::new(&store, wat)?;
-        let instance = Instance::new(&mut ctx, &module, &imports! {})?;
+        let instance = Instance::new(&mut store, &module, &imports! {})?;
         instance.exports.get_memory("memory")?.clone()
     };
 
@@ -509,7 +509,7 @@ fn instance_local_memory_lifetime(config: crate::Config) -> Result<()> {
             "memory" => memory,
         },
     };
-    let instance = Instance::new(&mut ctx, &module, &imports)?;
+    let instance = Instance::new(&mut store, &module, &imports)?;
     let set_at: TypedFunction<(i32, i32), ()> =
         instance.exports.get_typed_function(&mut ctx, "set_at")?;
     let get_at: TypedFunction<i32, i32> =

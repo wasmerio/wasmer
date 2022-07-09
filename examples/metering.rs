@@ -88,8 +88,10 @@ fn main() -> anyhow::Result<()> {
     //
     // Our module exports a single `add_one`  function. We want to
     // measure the cost of executing this function.
-    let add_one: TypedFunction<i32, i32> =
-        instance.exports.get_function("add_one")?.native(&mut ctx)?;
+    let add_one: TypedFunction<i32, i32> = instance
+        .exports
+        .get_function("add_one")?
+        .native(&mut store)?;
 
     println!("Calling `add_one` function once...");
     add_one.call(&mut store, 1)?;
@@ -100,7 +102,7 @@ fn main() -> anyhow::Result<()> {
     // * `local.get $value` is a `Operator::LocalGet` which costs 1 point;
     // * `i32.const` is a `Operator::I32Const` which costs 1 point;
     // * `i32.add` is a `Operator::I32Add` which costs 2 points.
-    let remaining_points_after_first_call = get_remaining_points(&mut ctx, &instance);
+    let remaining_points_after_first_call = get_remaining_points(&mut store, &instance);
     assert_eq!(
         remaining_points_after_first_call,
         MeteringPoints::Remaining(6)
@@ -116,7 +118,7 @@ fn main() -> anyhow::Result<()> {
 
     // We spent 4 more points with the second call.
     // We have 2 remaining points.
-    let remaining_points_after_second_call = get_remaining_points(&mut ctx, &instance);
+    let remaining_points_after_second_call = get_remaining_points(&mut store, &instance);
     assert_eq!(
         remaining_points_after_second_call,
         MeteringPoints::Remaining(2)
@@ -142,7 +144,7 @@ fn main() -> anyhow::Result<()> {
             println!("Calling `add_one` failed.");
 
             // Because the last needed more than the remaining points, we should have an error.
-            let remaining_points = get_remaining_points(&mut ctx, &instance);
+            let remaining_points = get_remaining_points(&mut store, &instance);
 
             match remaining_points {
                 MeteringPoints::Remaining(..) => {
@@ -156,9 +158,9 @@ fn main() -> anyhow::Result<()> {
     // Now let's see how we can set a new limit...
     println!("Set new remaining points to 10");
     let new_limit = 10;
-    set_remaining_points(&mut ctx, &instance, new_limit);
+    set_remaining_points(&mut store, &instance, new_limit);
 
-    let remaining_points = get_remaining_points(&mut ctx, &instance);
+    let remaining_points = get_remaining_points(&mut store, &instance);
     assert_eq!(remaining_points, MeteringPoints::Remaining(new_limit));
 
     println!("Remaining points: {:?}", remaining_points);

@@ -64,8 +64,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     //
     // The first thing we might be intersted in is the size of the memory.
     // Let's get it!
-    println!("Memory size (pages) {:?}", memory.size(&mut ctx));
-    println!("Memory size (bytes) {:?}", memory.data_size(&mut ctx));
+    println!("Memory size (pages) {:?}", memory.size(&mut store));
+    println!("Memory size (bytes) {:?}", memory.data_size(&mut store));
 
     // Oh! Wait, before reading the contents, we need to know
     // where to find what we are looking for.
@@ -81,7 +81,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // We will get bytes out of the memory so we need to
     // decode them into a string.
     let str = ptr
-        .read_utf8_string(&mut ctx, memory, length as u32)
+        .read_utf8_string(&mut store, memory, length as u32)
         .unwrap();
     println!("Memory contents: {:?}", str);
 
@@ -91,7 +91,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // To do that, we'll make a slice from our pointer and change the content
     // of each element.
     let new_str = b"Hello, Wasmer!";
-    let values = ptr.slice(&mut ctx, memory, new_str.len() as u32).unwrap();
+    let values = ptr.slice(&mut store, memory, new_str.len() as u32).unwrap();
     for i in 0..new_str.len() {
         values.index(i as u64).write(new_str[i]).unwrap();
     }
@@ -104,7 +104,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("New string length: {:?}", new_str.len());
 
     let str = ptr
-        .read_utf8_string(&mut ctx, memory, new_str.len() as u32)
+        .read_utf8_string(&mut store, memory, new_str.len() as u32)
         .unwrap();
     println!("New memory contents: {:?}", str);
 

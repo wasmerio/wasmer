@@ -87,7 +87,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // `Rets`, respectively for the parameters and the results. If
     // those values don't match the exported function signature, an
     // error will be raised.
-    let sum_native: TypedFunction<(i32, i32), i32> = sum.native(&mut ctx)?;
+    let sum_native: TypedFunction<(i32, i32), i32> = sum.native(&mut store)?;
 
     println!("Calling `sum` function (natively)...");
     // Let's call the `sum` exported function. The parameters are

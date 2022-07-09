@@ -70,7 +70,7 @@ impl<'a> WasiTest<'a> {
     /// Execute the WASI test and assert.
     pub fn run(
         &self,
-        store: &mut Store,
+        mut store: &mut Store,
         base_path: &str,
         filesystem_kind: WasiFileSystemKind,
     ) -> anyhow::Result<bool> {
@@ -133,7 +133,7 @@ impl<'a> WasiTest<'a> {
     #[allow(clippy::type_complexity)]
     fn create_wasi_env(
         &self,
-        store: &mut Store,
+        mut store: &mut Store,
         filesystem_kind: WasiFileSystemKind,
     ) -> anyhow::Result<(
         WasiFunctionEnv,

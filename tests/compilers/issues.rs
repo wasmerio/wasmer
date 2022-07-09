@@ -71,7 +71,7 @@ fn issue_2329(mut config: crate::Config) -> Result<()> {
             ),
         }
     };
-    let instance = Instance::new(&mut ctx, &module, &imports)?;
+    let instance = Instance::new(&mut store, &module, &imports)?;
     instance
         .exports
         .get_function("read_memory")?
@@ -251,6 +251,6 @@ fn regression_gpr_exhaustion_for_calls(mut config: crate::Config) -> Result<()> 
     let mut ctx = FunctionEnv::new(&mut store, ());
     let module = Module::new(&store, wat)?;
     let imports: Imports = imports! {};
-    let instance = Instance::new(&mut ctx, &module, &imports)?;
+    let instance = Instance::new(&mut store, &module, &imports)?;
     Ok(())
 }

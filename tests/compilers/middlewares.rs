@@ -104,7 +104,7 @@ fn middleware_basic(mut config: crate::Config) -> Result<()> {
 
     let import_object = imports! {};
 
-    let instance = Instance::new(&mut ctx, &module, &import_object)?;
+    let instance = Instance::new(&mut store, &module, &import_object)?;
 
     let f: TypedFunction<(i32, i32), i32> = instance.exports.get_typed_function(&mut ctx, "add")?;
     let result = f.call(&mut ctx, 4, 6)?;
@@ -127,7 +127,7 @@ fn middleware_one_to_multi(mut config: crate::Config) -> Result<()> {
     let mut ctx = FunctionEnv::new(&mut store, ());
     let import_object = imports! {};
 
-    let instance = Instance::new(&mut ctx, &module, &import_object)?;
+    let instance = Instance::new(&mut store, &module, &import_object)?;
 
     let f: TypedFunction<(i32, i32), i32> = instance.exports.get_typed_function(&mut ctx, "add")?;
     let result = f.call(&mut ctx, 4, 6)?;
@@ -151,7 +151,7 @@ fn middleware_multi_to_one(mut config: crate::Config) -> Result<()> {
     let mut ctx = FunctionEnv::new(&mut store, ());
     let import_object = imports! {};
 
-    let instance = Instance::new(&mut ctx, &module, &import_object)?;
+    let instance = Instance::new(&mut store, &module, &import_object)?;
 
     let f: TypedFunction<(i32, i32), i32> =
         instance.exports.get_typed_function(&mut ctx, "testfunc")?;
@@ -176,7 +176,7 @@ fn middleware_chain_order_1(mut config: crate::Config) -> Result<()> {
     let mut ctx = FunctionEnv::new(&mut store, ());
     let import_object = imports! {};
 
-    let instance = Instance::new(&mut ctx, &module, &import_object)?;
+    let instance = Instance::new(&mut store, &module, &import_object)?;
 
     let f: TypedFunction<(i32, i32), i32> = instance.exports.get_typed_function(&mut ctx, "add")?;
     let result = f.call(&mut ctx, 4, 6)?;
@@ -200,7 +200,7 @@ fn middleware_chain_order_2(mut config: crate::Config) -> Result<()> {
     let mut ctx = FunctionEnv::new(&mut store, ());
     let import_object = imports! {};
 
-    let instance = Instance::new(&mut ctx, &module, &import_object)?;
+    let instance = Instance::new(&mut store, &module, &import_object)?;
 
     let f: TypedFunction<(i32, i32), i32> = instance.exports.get_typed_function(&mut ctx, "add")?;
     let result = f.call(&mut ctx, 4, 6)?;

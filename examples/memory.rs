@@ -96,15 +96,15 @@ fn main() -> anyhow::Result<()> {
     // The size in bytes can be found either by querying its pages or by
     // querying the memory directly.
     println!("Querying memory size...");
-    assert_eq!(memory.size(&mut ctx), Pages::from(1));
-    assert_eq!(memory.size(&mut ctx).bytes(), Bytes::from(65536 as usize));
-    assert_eq!(memory.data_size(&mut ctx), 65536);
+    assert_eq!(memory.size(&mut store), Pages::from(1));
+    assert_eq!(memory.size(&mut store).bytes(), Bytes::from(65536 as usize));
+    assert_eq!(memory.data_size(&mut store), 65536);
 
     // Sometimes, the guest module may also export a function to let you
     // query the memory. Here we have a `mem_size` function, let's try it:
     let result = mem_size.call(&mut store)?;
     println!("Memory size: {:?}", result);
-    assert_eq!(Pages::from(result as u32), memory.size(&mut ctx));
+    assert_eq!(Pages::from(result as u32), memory.size(&mut store));
 
     // Now that we know the size of our memory, it's time to see how wa
     // can change this.
@@ -113,9 +113,9 @@ fn main() -> anyhow::Result<()> {
     // see how we can do that:
     println!("Growing memory...");
     // Here we are requesting two more pages for our memory.
-    memory.grow(&mut ctx, 2)?;
-    assert_eq!(memory.size(&mut ctx), Pages::from(3));
-    assert_eq!(memory.data_size(&mut ctx), 65536 * 3);
+    memory.grow(&mut store, 2)?;
+    assert_eq!(memory.size(&mut store), Pages::from(3));
+    assert_eq!(memory.data_size(&mut store), 65536 * 3);
 
     // Now that we know how to query and adjust the size of the memory,
     // let's see how wa can write to it or read from it.

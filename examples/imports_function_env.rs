@@ -113,7 +113,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let increment_counter_loop: TypedFunction<i32, i32> = instance
         .exports
         .get_function("increment_counter_loop")?
-        .native(&mut ctx)?;
+        .native(&mut store)?;
 
     let counter_value: i32 = *shared_counter.lock().unwrap();
     println!("Initial ounter value: {:?}", counter_value);

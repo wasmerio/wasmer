@@ -91,11 +91,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     //
     // We will use an exported function for the `one` global
     // and the Global API for `some`.
-    let get_one: TypedFunction<(), f32> =
-        instance.exports.get_function("get_one")?.native(&mut ctx)?;
+    let get_one: TypedFunction<(), f32> = instance
+        .exports
+        .get_function("get_one")?
+        .native(&mut store)?;
 
     let one_value = get_one.call(&mut store)?;
-    let some_value = some.get(&mut ctx);
+    let some_value = some.get(&mut store);
 
     println!("`one` value: {:?}", one_value);
     assert_eq!(one_value, 1.0);
@@ -106,13 +108,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Setting global values...");
     // Trying to set the value of a immutable global (`const`)
     // will result in a `RuntimeError`.
-    let result = one.set(&mut ctx, Value::F32(42.0));
+    let result = one.set(&mut store, Value::F32(42.0));
     assert_eq!(
         result.expect_err("Expected an error").message(),
         "Attempted to set an immutable global"
     );
 
-    let one_result = one.get(&mut ctx);
+    let one_result = one.get(&mut store);
     println!("`one` value after `set`: {:?}", one_result);
     assert_eq!(one_result, Value::F32(1.0));
 
@@ -124,14 +126,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let set_some: TypedFunction<f32, ()> = instance
         .exports
         .get_function("set_some")?
-        .native(&mut ctx)?;
+        .native(&mut store)?;
     set_some.call(&mut store, 21.0)?;
-    let some_result = some.get(&mut ctx);
+    let some_result = some.get(&mut store);
     println!("`some` value after `set_some`: {:?}", some_result);
     assert_eq!(some_result, Value::F32(21.0));
 
-    some.set(&mut ctx, Value::F32(42.0))?;
-    let some_result = some.get(&mut ctx);
+    some.set(&mut store, Value::F32(42.0))?;
+    let some_result = some.get(&mut store);
     println!("`some` value after `set`: {:?}", some_result);
     assert_eq!(some_result, Value::F32(42.0));
 

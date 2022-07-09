@@ -15,7 +15,7 @@
 //!
 //! Ready?
 
-use wasmer::{AsFunctionEnvMut, FunctionEnv, Instance, Module, Store};
+use wasmer::{FunctionEnv, Instance, Module, Store};
 use wasmer_compiler::Universal;
 use wasmer_compiler_cranelift::Cranelift;
 use wasmer_wasi::WasiState;
@@ -54,7 +54,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Attach WASI memory...");
     // Attach the memory export
     let memory = instance.exports.get_memory("memory")?;
-    ctx.data_mut().set_memory(memory.clone());
+    wasi_env.data_mut(&mut store).set_memory(memory.clone());
 
     println!("Call WASI `_start` function...");
     // And we just call the `_start` function!

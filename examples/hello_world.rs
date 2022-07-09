@@ -86,7 +86,7 @@ fn main() -> anyhow::Result<()> {
 
     // Finally, we call our exported Wasm function which will call our "say_hello"
     // function and return.
-    run_func.call(&mut context)?;
+    run_func.call(&mut store)?;
 
     Ok(())
 }

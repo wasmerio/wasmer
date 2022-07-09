@@ -57,7 +57,7 @@ fn test_trap_trace(config: crate::Config) -> Result<()> {
 
     let mut ctx = FunctionEnv::new(&mut store, ());
     let module = Module::new(&store, wat)?;
-    let instance = Instance::new(&mut ctx, &module, &imports! {})?;
+    let instance = Instance::new(&mut store, &module, &imports! {})?;
     let run_func = instance
         .exports
         .get_function("run")
@@ -147,7 +147,7 @@ fn test_trap_stack_overflow(config: crate::Config) -> Result<()> {
 
     let module = Module::new(&store, wat)?;
     let mut ctx = FunctionEnv::new(&mut store, ());
-    let instance = Instance::new(&mut ctx, &module, &imports! {})?;
+    let instance = Instance::new(&mut store, &module, &imports! {})?;
     let run_func = instance
         .exports
         .get_function("run")
@@ -181,7 +181,7 @@ fn trap_display_pretty(config: crate::Config) -> Result<()> {
 
     let module = Module::new(&store, wat)?;
     let mut ctx = FunctionEnv::new(&mut store, ());
-    let instance = Instance::new(&mut ctx, &module, &imports! {})?;
+    let instance = Instance::new(&mut store, &module, &imports! {})?;
     let run_func = instance
         .exports
         .get_function("bar")
@@ -218,7 +218,7 @@ fn trap_display_multi_module(config: crate::Config) -> Result<()> {
 
     let module = Module::new(&store, wat)?;
     let mut ctx = FunctionEnv::new(&mut store, ());
-    let instance = Instance::new(&mut ctx, &module, &imports! {})?;
+    let instance = Instance::new(&mut store, &module, &imports! {})?;
     let bar = instance.exports.get_function("bar")?.clone();
 
     let wat = r#"
@@ -413,7 +413,7 @@ fn mismatched_arguments(config: crate::Config) -> Result<()> {
 
     let module = Module::new(&store, &binary)?;
     let mut ctx = FunctionEnv::new(&mut store, ());
-    let instance = Instance::new(&mut ctx, &module, &imports! {})?;
+    let instance = Instance::new(&mut store, &module, &imports! {})?;
     let func: &Function = instance.exports.get("foo")?;
     assert_eq!(
         func.call(&mut ctx, &[]).unwrap_err().message(),
@@ -453,7 +453,7 @@ fn call_signature_mismatch(config: crate::Config) -> Result<()> {
 
     let module = Module::new(&store, &binary)?;
     let mut ctx = FunctionEnv::new(&mut store, ());
-    let err = Instance::new(&mut ctx, &module, &imports! {})
+    let err = Instance::new(&mut store, &module, &imports! {})
         .err()
         .expect("expected error");
     assert_eq!(
@@ -482,7 +482,7 @@ fn start_trap_pretty(config: crate::Config) -> Result<()> {
 
     let module = Module::new(&store, wat)?;
     let mut ctx = FunctionEnv::new(&mut store, ());
-    let err = Instance::new(&mut ctx, &module, &imports! {})
+    let err = Instance::new(&mut store, &module, &imports! {})
         .err()
         .expect("expected error");
 
@@ -504,7 +504,7 @@ fn present_after_module_drop(config: crate::Config) -> Result<()> {
     let mut store = config.store();
     let module = Module::new(&store, r#"(func (export "foo") unreachable)"#)?;
     let mut ctx = FunctionEnv::new(&mut store, ());
-    let instance = Instance::new(&mut ctx, &module, &imports! {})?;
+    let instance = Instance::new(&mut store, &module, &imports! {})?;
     let func: Function = instance.exports.get_function("foo")?.clone();
 
     println!("asserting before we drop modules");

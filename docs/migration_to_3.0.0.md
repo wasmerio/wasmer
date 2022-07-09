@@ -72,7 +72,7 @@ let import_object: Imports = imports! {
         "host_function" => host_function,
     },
 };
-let instance = Instance::new(&mut ctx, &module, &import_object).expect("Could not instantiate module.");
+let instance = Instance::new(&mut store, &module, &import_object).expect("Could not instantiate module.");
 ```
 
 You can also build the `Imports` object manually:
@@ -80,18 +80,17 @@ You can also build the `Imports` object manually:
 ```rust
 let mut import_object: Imports = Imports::new();
 import_object.define("env", "host_function", host_function);
-let instance = Instance::new(&mut ctx, &module, &import_object).expect("Could not instantiate module.");
+let instance = Instance::new(&mut store, &module, &import_object).expect("Could not instantiate module.");
 ```
 
 For WASI, don't forget to import memory to `WasiEnv`
 
 ```rust
 let mut wasi_env = WasiState::new("hello").finalize()?;
-let mut ctx = FunctionEnv::new(&mut store, wasi_env.clone());
-let import_object = wasi_env.import_object(&mut ctx.as_context_mut(), &module)?;
-let instance = Instance::new(&mut ctx, &module, &import_object).expect("Could not instantiate module.");
+let import_object = wasi_env.import_object(&mut store, &module)?;
+let instance = Instance::new(&mut store, &module, &import_object).expect("Could not instantiate module.");
 let memory = instance.exports.get_memory("memory")?;
-ctx.data_mut().set_memory(memory.clone());
+wasi_env.data_mut(&mut store).set_memory(memory.clone());
 ```
 
 #### `ChainableNamedResolver` is removed

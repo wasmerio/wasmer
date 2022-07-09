@@ -12,7 +12,7 @@
 //! Ready?
 
 use std::io::{Read, Write};
-use wasmer::{AsFunctionEnvMut, FunctionEnv, Instance, Module, Store};
+use wasmer::{FunctionEnv, Instance, Module, Store};
 use wasmer_compiler::Universal;
 use wasmer_compiler_cranelift::Cranelift;
 use wasmer_wasi::{Pipe, WasiState};
@@ -42,8 +42,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut wasi_env = WasiState::new("hello")
         .stdin(Box::new(input.clone()))
         .stdout(Box::new(output.clone()))
-        .finalize()?;
-    let mut ctx = FunctionEnv::new(&mut store, wasi_env.clone());
+        .finalize(&mut store)?;
 
     println!("Instantiating module with WASI imports...");
     // Then, we get the import object related to our WASI
@@ -54,7 +53,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Attach WASI memory...");
     // Attach the memory export
     let memory = instance.exports.get_memory("memory")?;
-    ctx.data_mut().set_memory(memory.clone());
+    wasi_env.data_mut(&mut store).set_memory(memory.clone());
 
     let msg = "racecar go zoom";
     println!("Writing \"{}\" to the WASI stdin...", msg);

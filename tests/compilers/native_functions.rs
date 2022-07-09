@@ -66,7 +66,7 @@ fn native_function_works_for_wasm(config: crate::Config) -> anyhow::Result<()> {
             "multiply" => Function::new_native(&mut store, &ctx, |_ctx: ContextMut<_>, a: i32, b: i32| a * b),
         },
     };
-    let instance = Instance::new(&mut ctx, &module, &import_object)?;
+    let instance = Instance::new(&mut store, &module, &import_object)?;
 
     {
         let f: TypedFunction<(i32, i32), i32> =
@@ -160,7 +160,7 @@ fn non_native_functions_and_closures_with_no_env_work(config: crate::Config) -> 
         },
     };
 
-    let instance = Instance::new(&mut ctx, &module, &import_object)?;
+    let instance = Instance::new(&mut store, &module, &import_object)?;
 
     let test: TypedFunction<(i32, i32, i32, i32, i32), i32> =
         instance.exports.get_typed_function(&mut ctx, "test")?;
@@ -189,7 +189,7 @@ fn native_function_works_for_wasm_function_manyparams(config: crate::Config) -> 
         },
     };
 
-    let instance = Instance::new(&mut ctx, &module, &import_object)?;
+    let instance = Instance::new(&mut store, &module, &import_object)?;
 
     {
         let dyn_f: &Function = instance.exports.get("longf")?;
@@ -230,7 +230,7 @@ fn native_function_works_for_wasm_function_manyparams_dynamic(
         },
     };
 
-    let instance = Instance::new(&mut ctx, &module, &import_object)?;
+    let instance = Instance::new(&mut store, &module, &import_object)?;
 
     {
         let dyn_f: &Function = instance.exports.get("longf")?;

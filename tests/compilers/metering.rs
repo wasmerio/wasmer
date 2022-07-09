@@ -25,7 +25,7 @@ fn run_add_with_limit(mut config: crate::Config, limit: u64) -> Result<()> {
     let import_object = imports! {};
 
     let module = Module::new(&store, wat).unwrap();
-    let instance = Instance::new(&mut ctx, &module, &import_object)?;
+    let instance = Instance::new(&mut store, &module, &import_object)?;
 
     let f: TypedFunction<(i32, i32), i32> = instance.exports.get_typed_function(&mut ctx, "add")?;
     f.call(&mut ctx, 4, 6)?;
@@ -57,7 +57,7 @@ fn run_loop(mut config: crate::Config, limit: u64, iter_count: i32) -> Result<()
 
     let import_object = imports! {};
 
-    let instance = Instance::new(&mut ctx, &module, &import_object)?;
+    let instance = Instance::new(&mut store, &module, &import_object)?;
 
     let f: TypedFunction<i32, ()> = instance.exports.get_typed_function(&mut ctx, "test")?;
     f.call(&mut ctx, iter_count)?;
@@ -161,7 +161,7 @@ fn complex_loop(mut config: crate::Config) -> Result<()> {
 
     let import_object = imports! {};
 
-    let instance = Instance::new(&mut ctx, &module, &import_object)?;
+    let instance = Instance::new(&mut store, &module, &import_object)?;
 
     let f: TypedFunction<(i32, i32), i32> =
         instance.exports.get_typed_function(&mut ctx, "add_to")?;

@@ -127,12 +127,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         println!("Instantiating module...");
         // Let's instantiate the Wasm module.
-        let instance = Instance::new(&mut ctx, &module, &import_object)?;
+        let instance = Instance::new(&mut store, &module, &import_object)?;
 
         println!("Calling `sum` function...");
         // The Wasm module exports a function called `sum`.
         let sum = instance.exports.get_function("sum")?;
-        let results = sum.call(&mut ctx, &[Value::I32(1), Value::I32(2)])?;
+        let results = sum.call(&mut store, &[Value::I32(1), Value::I32(2)])?;
 
         println!("Results: {:?}", results);
         assert_eq!(results.to_vec(), vec![Value::I32(3)]);

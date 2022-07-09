@@ -76,7 +76,7 @@ fn main() -> anyhow::Result<()> {
     // We then get the table from the instance.
     let guest_table = instance.exports.get_table("__indirect_function_table")?;
     // And demonstrate that it has the properties that we set in the Wasm.
-    assert_eq!(guest_table.size(&mut ctx), 3);
+    assert_eq!(guest_table.size(&mut store), 3);
     assert_eq!(
         guest_table.ty(&store),
         TableType {
@@ -92,7 +92,7 @@ fn main() -> anyhow::Result<()> {
     let func = Function::new_native(&mut store, &ctx, host_callback);
 
     // And set table index 1 of that table to the host_callback `Function`.
-    guest_table.set(&mut ctx, 1, func.into())?;
+    guest_table.set(&mut store, 1, func.into())?;
 
     // We then repeat the call from before but this time it will find the host function
     // that we put at table index 1.
@@ -110,7 +110,7 @@ fn main() -> anyhow::Result<()> {
     let previous_size = guest_table.grow(&mut store, 3, func.into())?;
     assert_eq!(previous_size, 3);
 
-    assert_eq!(guest_table.size(&mut ctx), 6);
+    assert_eq!(guest_table.size(&mut store), 6);
     assert_eq!(
         guest_table.ty(&store),
         TableType {
@@ -121,7 +121,7 @@ fn main() -> anyhow::Result<()> {
     );
     // Now demonstrate that the function we grew the table with is actually in the table.
     for table_index in 3..6 {
-        if let Value::FuncRef(Some(f)) = guest_table.get(&mut ctx, table_index as _).unwrap() {
+        if let Value::FuncRef(Some(f)) = guest_table.get(&mut store, table_index as _).unwrap() {
             let result = f.call(&mut store, &[Value::I32(1), Value::I32(9)])?;
             assert_eq!(result[0], Value::I32(10));
         } else {
@@ -135,7 +135,7 @@ fn main() -> anyhow::Result<()> {
 
     // Now overwrite index 0 with our host_callback.
     let func = Function::new_native(&mut store, &ctx, host_callback);
-    guest_table.set(&mut ctx, 0, func.into())?;
+    guest_table.set(&mut store, 0, func.into())?;
     // And verify that it does what we expect.
     let result = call_via_table.call(&mut store, 0, 2, 7)?;
     assert_eq!(result, 9);
@@ -143,7 +143,7 @@ fn main() -> anyhow::Result<()> {
     // Now demonstrate that the host and guest see the same table and that both
     // get the same result.
     for table_index in 3..6 {
-        if let Value::FuncRef(Some(f)) = guest_table.get(&mut ctx, table_index as _).unwrap() {
+        if let Value::FuncRef(Some(f)) = guest_table.get(&mut store, table_index as _).unwrap() {
             let result = f.call(&mut store, &[Value::I32(1), Value::I32(9)])?;
             assert_eq!(result[0], Value::I32(10));
         } else {

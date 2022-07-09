@@ -2,7 +2,7 @@ use wasmer::*;
 
 /// Return an instance implementing the "spectest" interface used in the
 /// spec testsuite.
-pub fn spectest_importobject(store: &mut Store, context: FunctionEnv<()>) -> Imports {
+pub fn spectest_importobject(store: &mut Store, context: &FunctionEnv<()>) -> Imports {
     let print = Function::new_native(store, &context, |_: FunctionEnvMut<()>| {});
     let print_i32 = Function::new_native(store, &context, |_: FunctionEnvMut<()>, val: i32| {
         println!("{}: i32", val)

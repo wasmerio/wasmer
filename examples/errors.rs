@@ -63,7 +63,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let div_by_zero: TypedFunction<(), i32> = instance
         .exports
         .get_function("div_by_zero")?
-        .native(&mut ctx)?;
+        .native(&mut store)?;
 
     println!("Calling `div_by_zero` function...");
     // Let's call the `div_by_zero` exported function.

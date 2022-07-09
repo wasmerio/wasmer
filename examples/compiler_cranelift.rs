@@ -34,7 +34,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Create the store
     let mut store = Store::new_with_engine(&Universal::new(compiler).engine());
-    let mut ctx = FunctionEnv::new(&mut store, ());
 
     println!("Compiling module...");
     // Let's compile the Wasm module.
