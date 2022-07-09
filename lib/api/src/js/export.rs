@@ -127,7 +127,7 @@ impl Export {
             ExternType::Memory(memory_type) => {
                 if val.is_instance_of::<Memory>() {
                     Ok(Self::Memory(InternalStoreHandle::new(
-                        &mut ctx.as_store_mut().objects_mut(),
+                        &mut ctx.objects_mut(),
                         VMMemory::new(val.unchecked_into::<Memory>(), memory_type),
                     )))
                 } else {
@@ -143,7 +143,7 @@ impl Export {
             ExternType::Global(global_type) => {
                 if val.is_instance_of::<Global>() {
                     Ok(Self::Global(InternalStoreHandle::new(
-                        &mut ctx.as_store_mut().objects_mut(),
+                        &mut ctx.objects_mut(),
                         VMGlobal::new(val.unchecked_into::<Global>(), global_type),
                     )))
                 } else {
@@ -153,7 +153,7 @@ impl Export {
             ExternType::Function(function_type) => {
                 if val.is_instance_of::<Function>() {
                     Ok(Self::Function(InternalStoreHandle::new(
-                        &mut ctx.as_store_mut().objects_mut(),
+                        &mut ctx.objects_mut(),
                         VMFunction::new(val.unchecked_into::<Function>(), function_type),
                     )))
                 } else {
@@ -163,7 +163,7 @@ impl Export {
             ExternType::Table(table_type) => {
                 if val.is_instance_of::<Table>() {
                     Ok(Self::Table(InternalStoreHandle::new(
-                        &mut ctx.as_store_mut().objects_mut(),
+                        &mut ctx.objects_mut(),
                         VMTable::new(val.unchecked_into::<Table>(), table_type),
                     )))
                 } else {

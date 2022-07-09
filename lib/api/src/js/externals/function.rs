@@ -314,7 +314,7 @@ impl Function {
     ) -> Result<Box<[Value]>, RuntimeError> {
         let arr = js_sys::Array::new_with_length(params.len() as u32);
 
-        // let raw_ctx = ctx.as_store_mut().as_raw() as *mut u8;
+        // let raw_ctx = ctx.as_raw() as *mut u8;
         // let mut ctx = unsafe { FunctionEnvMut::from_raw(raw_ctx as *mut StoreInner<()>) };
 
         for (i, param) in params.iter().enumerate() {
@@ -348,7 +348,7 @@ impl Function {
 
     pub(crate) fn from_vm_export(ctx: &mut impl AsStoreMut, vm_function: VMFunction) -> Self {
         Self {
-            handle: StoreHandle::new(ctx.as_store_mut().objects_mut(), vm_function),
+            handle: StoreHandle::new(ctx.objects_mut(), vm_function),
         }
     }
 

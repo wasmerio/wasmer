@@ -67,7 +67,7 @@ impl Instance {
     ) -> Result<Self, InstantiationError> {
         let import_copy = imports.clone();
         let (instance, _imports): (StoreHandle<WebAssembly::Instance>, Vec<Extern>) = module
-            .instantiate(&mut ctx.as_store_mut(), imports)
+            .instantiate(&mut ctx, imports)
             .map_err(|e| InstantiationError::Start(e))?;
 
         let self_instance = Self::from_module_and_instance(ctx, module, instance, import_copy)?;
@@ -104,8 +104,8 @@ impl Instance {
                         ))
                     })?;
                 let export: Export =
-                    Export::from_js_value(js_export, &mut ctx.as_store_mut(), extern_type)?.into();
-                let extern_ = Extern::from_vm_export(&mut ctx.as_store_mut(), export);
+                    Export::from_js_value(js_export, &mut ctx, extern_type)?.into();
+                let extern_ = Extern::from_vm_export(&mut ctx, export);
                 Ok((name.to_string(), extern_))
             })
             .collect::<Result<Exports, InstantiationError>>()?;

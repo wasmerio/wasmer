@@ -5,7 +5,7 @@ use libc::execvp as libc_execvp;
 use std::ffi::CString;
 use wasmer::{FunctionEnvMut, WasmPtr};
 
-pub fn execvp(ctx: FunctionEnvMut<'_, EmEnv>, command_name_offset: u32, argv_offset: u32) -> i32 {
+pub fn execvp(ctx: FunctionEnvMut<EmEnv>, command_name_offset: u32, argv_offset: u32) -> i32 {
     // a single reference to re-use
     let emscripten_memory = ctx.data().memory(0);
 
@@ -41,7 +41,7 @@ pub fn execvp(ctx: FunctionEnvMut<'_, EmEnv>, command_name_offset: u32, argv_off
 
 /// execl
 pub fn execl(
-    _ctx: FunctionEnvMut<'_, EmEnv>,
+    _ctx: FunctionEnvMut<EmEnv>,
     _path_ptr: i32,
     _arg0_ptr: i32,
     _varargs: VarArgs,
@@ -52,7 +52,7 @@ pub fn execl(
 
 /// execle
 pub fn execle(
-    _ctx: FunctionEnvMut<'_, EmEnv>,
+    _ctx: FunctionEnvMut<EmEnv>,
     _path_ptr: i32,
     _arg0_ptr: i32,
     _varargs: VarArgs,

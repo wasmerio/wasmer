@@ -81,7 +81,7 @@ macro_rules! impl_native_traits {
                     1 => unsafe {
                         let ty = Rets::wasm_types()[0];
                         let val = param_from_js(&ty, &results);
-                        *mut_rets = val.as_raw(&mut ctx.as_store_mut());
+                        *mut_rets = val.as_raw(&mut ctx);
                     }
                     _n => {
                         let results: Array = results.into();
@@ -90,7 +90,7 @@ macro_rules! impl_native_traits {
                             unsafe {
                                 let val = param_from_js(&ret_type, &ret);
                                 let slot = mut_rets.add(i);
-                                *slot = val.as_raw(&mut ctx.as_store_mut());
+                                *slot = val.as_raw(&mut ctx);
                             }
                         }
                     }

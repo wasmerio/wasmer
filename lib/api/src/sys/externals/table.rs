@@ -106,11 +106,7 @@ impl Table {
         val: Value,
     ) -> Result<(), RuntimeError> {
         let item = value_to_table_element(ctx, val)?;
-        set_table_item(
-            self.handle.get_mut(ctx.as_store_mut().objects_mut()),
-            index,
-            item,
-        )
+        set_table_item(self.handle.get_mut(ctx.objects_mut()), index, item)
     }
 
     /// Retrieves the size of the `Table` (in elements)
@@ -135,7 +131,7 @@ impl Table {
     ) -> Result<u32, RuntimeError> {
         let item = value_to_table_element(ctx, init)?;
         self.handle
-            .get_mut(ctx.as_store_mut().objects_mut())
+            .get_mut(ctx.objects_mut())
             .grow(delta, item)
             .ok_or_else(|| RuntimeError::new(format!("failed to grow table by `{}`", delta)))
     }
@@ -160,7 +156,7 @@ impl Table {
                 "cross-`Context` table copies are not supported",
             ));
         }
-        let mut ctx = ctx.as_store_mut();
+        let mut ctx = ctx;
         if dst_table.handle.internal_handle() == src_table.handle.internal_handle() {
             let table = dst_table.handle.get_mut(ctx.objects_mut());
             table.copy_within(dst_index, src_index, len)

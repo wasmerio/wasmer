@@ -2,7 +2,7 @@
 use crate::EmEnv;
 use wasmer::FunctionEnvMut;
 
-pub fn ___seterrno(mut _ctx: FunctionEnvMut<'_, EmEnv>, _value: i32) {
+pub fn ___seterrno(mut _ctx: FunctionEnvMut<EmEnv>, _value: i32) {
     debug!("emscripten::___seterrno {}", _value);
     // TODO: Incomplete impl
     eprintln!("failed to set errno!");

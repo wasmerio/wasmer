@@ -53,7 +53,7 @@ impl Table {
         ty: TableType,
         init: Value,
     ) -> Result<Self, RuntimeError> {
-        let mut ctx = ctx.as_store_mut();
+        let mut ctx = ctx;
         let descriptor = js_sys::Object::new();
         js_sys::Reflect::set(&descriptor, &"initial".into(), &ty.minimum.into())?;
         if let Some(max) = ty.maximum {
@@ -106,11 +106,7 @@ impl Table {
         val: Value,
     ) -> Result<(), RuntimeError> {
         let item = get_function(ctx, val)?;
-        set_table_item(
-            self.handle.get_mut(ctx.as_store_mut().objects_mut()),
-            index,
-            &item,
-        )
+        set_table_item(self.handle.get_mut(ctx.objects_mut()), index, &item)
     }
 
     /// Retrieves the size of the `Table` (in elements)

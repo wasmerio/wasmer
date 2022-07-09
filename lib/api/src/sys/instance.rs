@@ -129,7 +129,7 @@ impl Instance {
             .collect::<Exports>();
 
         let instance = Self {
-            _handle: StoreHandle::new(ctx.as_store_mut().objects_mut(), handle),
+            _handle: StoreHandle::new(ctx.objects_mut(), handle),
             module: module.clone(),
             exports,
         };
@@ -165,7 +165,7 @@ impl Instance {
             .collect::<Exports>();
 
         let instance = Self {
-            _handle: StoreHandle::new(ctx.as_store_mut().objects_mut(), handle),
+            _handle: StoreHandle::new(ctx.objects_mut(), handle),
             module: module.clone(),
             exports,
         };

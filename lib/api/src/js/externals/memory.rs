@@ -256,7 +256,7 @@ impl Memory {
     pub(crate) fn from_vm_export(ctx: &mut impl AsStoreMut, vm_memory: VMMemory) -> Self {
         let view = js_sys::Uint8Array::new(&vm_memory.memory.buffer());
         Self {
-            handle: StoreHandle::new(ctx.as_store_mut().objects_mut(), vm_memory),
+            handle: StoreHandle::new(ctx.objects_mut(), vm_memory),
             view,
         }
     }

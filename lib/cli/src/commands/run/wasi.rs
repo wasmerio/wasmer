@@ -105,7 +105,7 @@ impl Wasi {
             std::sync::atomic::Ordering::Release,
         );
         let mut ctx = Context::new(module.store(), wasi_env);
-        let import_object = import_object_for_all_wasi_versions(&mut ctx.as_store_mut());
+        let import_object = import_object_for_all_wasi_versions(&mut ctx);
         let instance = Instance::new(&mut store, module, &import_object)?;
         let memory = instance.exports.get_memory("memory")?;
         ctx.data_mut().set_memory(memory.clone());

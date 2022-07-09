@@ -150,9 +150,7 @@ impl Memory {
     where
         IntoPages: Into<Pages>,
     {
-        self.handle
-            .get_mut(ctx.as_store_mut().objects_mut())
-            .grow(delta.into())
+        self.handle.get_mut(ctx.objects_mut()).grow(delta.into())
     }
 
     /// Safely reads bytes from the memory at the given offset.

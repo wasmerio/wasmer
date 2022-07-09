@@ -77,7 +77,7 @@ impl Global {
         }
 
         Ok(Self {
-            handle: StoreHandle::new(ctx.as_store_mut().objects_mut(), global),
+            handle: StoreHandle::new(ctx.objects_mut(), global),
         })
     }
 
@@ -192,7 +192,7 @@ impl Global {
         }
         unsafe {
             self.handle
-                .get_mut(ctx.as_store_mut().objects_mut())
+                .get_mut(ctx.objects_mut())
                 .vmglobal()
                 .as_mut()
                 .val = val.as_raw(ctx);
