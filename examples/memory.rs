@@ -15,7 +15,9 @@
 //! Ready?
 
 use std::mem;
-use wasmer::{imports, wat2wasm, Bytes, Context, Instance, Module, Pages, Store, TypedFunction};
+use wasmer::{
+    imports, wat2wasm, Bytes, FunctionEnv, Instance, Module, Pages, Store, TypedFunction,
+};
 use wasmer_compiler::Universal;
 use wasmer_compiler_cranelift::Cranelift;
 
@@ -58,7 +60,7 @@ fn main() -> anyhow::Result<()> {
     // the default provided by Wasmer.
     // You can use `Store::default()` for that.
     let store = Store::new_with_engine(&Universal::new(Cranelift::default()).engine());
-    let mut ctx = Context::new(&store, ());
+    let mut ctx = FunctionEnv::new(&mut store, ());
 
     println!("Compiling module...");
     // Let's compile the Wasm module.
@@ -69,17 +71,18 @@ fn main() -> anyhow::Result<()> {
 
     println!("Instantiating module...");
     // Let's instantiate the Wasm module.
-    let instance = Instance::new(&mut ctx, &module, &import_object)?;
+    let instance = Instance::new(&mut store, &module, &import_object)?;
 
     // The module exports some utility functions, let's get them.
     //
     // These function will be used later in this example.
-    let mem_size: TypedFunction<(), i32> =
-        instance.exports.get_typed_function(&mut ctx, "mem_size")?;
+    let mem_size: TypedFunction<(), i32> = instance
+        .exports
+        .get_typed_function(&mut store, "mem_size")?;
     let get_at: TypedFunction<i32, i32> =
-        instance.exports.get_typed_function(&mut ctx, "get_at")?;
+        instance.exports.get_typed_function(&mut store, "get_at")?;
     let set_at: TypedFunction<(i32, i32), ()> =
-        instance.exports.get_typed_function(&mut ctx, "set_at")?;
+        instance.exports.get_typed_function(&mut store, "set_at")?;
     let memory = instance.exports.get_memory("memory")?;
 
     // We now have an instance ready to be used.
@@ -99,7 +102,7 @@ fn main() -> anyhow::Result<()> {
 
     // Sometimes, the guest module may also export a function to let you
     // query the memory. Here we have a `mem_size` function, let's try it:
-    let result = mem_size.call(&mut ctx)?;
+    let result = mem_size.call(&mut store)?;
     println!("Memory size: {:?}", result);
     assert_eq!(Pages::from(result as u32), memory.size(&mut ctx));
 
@@ -122,9 +125,9 @@ fn main() -> anyhow::Result<()> {
     // addresses to write and read a value.
     let mem_addr = 0x2220;
     let val = 0xFEFEFFE;
-    set_at.call(&mut ctx, mem_addr, val)?;
+    set_at.call(&mut store, mem_addr, val)?;
 
-    let result = get_at.call(&mut ctx, mem_addr)?;
+    let result = get_at.call(&mut store, mem_addr)?;
     println!("Value at {:#x?}: {:?}", mem_addr, result);
     assert_eq!(result, val);
 
@@ -133,9 +136,9 @@ fn main() -> anyhow::Result<()> {
     let page_size = 0x1_0000;
     let mem_addr = (page_size * 2) - mem::size_of_val(&val) as i32;
     let val = 0xFEA09;
-    set_at.call(&mut ctx, mem_addr, val)?;
+    set_at.call(&mut store, mem_addr, val)?;
 
-    let result = get_at.call(&mut ctx, mem_addr)?;
+    let result = get_at.call(&mut store, mem_addr)?;
     println!("Value at {:#x?}: {:?}", mem_addr, result);
     assert_eq!(result, val);
 

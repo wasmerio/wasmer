@@ -98,7 +98,7 @@ impl Imports {
     /// # Usage
     /// ```no_run
     /// # use wasmer::FunctionEnv;
-    /// # let store = Default::default();
+    /// # let mut store = Default::default();
     /// # let env = FunctionEnv::new(&mut store, ());
     /// use wasmer::{StoreMut, Imports, Function, FunctionEnvMut};
     /// fn foo(_ctx: FunctionEnvMut<()>, n: i32) -> i32 {

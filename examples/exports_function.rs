@@ -17,7 +17,7 @@
 //!
 //! Ready?
 
-use wasmer::{imports, wat2wasm, Context, Instance, Module, Store, TypedFunction, Value};
+use wasmer::{imports, wat2wasm, FunctionEnv, Instance, Module, Store, TypedFunction, Value};
 use wasmer_compiler::Universal;
 use wasmer_compiler_cranelift::Cranelift;
 
@@ -41,7 +41,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // the default provided by Wasmer.
     // You can use `Store::default()` for that.
     let store = Store::new_with_engine(&Universal::new(Cranelift::default()).engine());
-    let mut ctx = Context::new(&store, ());
+    let mut ctx = FunctionEnv::new(&mut store, ());
 
     println!("Compiling module...");
     // Let's compile the Wasm module.
@@ -52,7 +52,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Instantiating module...");
     // Let's instantiate the Wasm module.
-    let instance = Instance::new(&mut ctx, &module, &import_object)?;
+    let instance = Instance::new(&mut store, &module, &import_object)?;
 
     // Here we go.
     //
@@ -74,7 +74,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Let's call the `sum` exported function. The parameters are a
     // slice of `Value`s. The results are a boxed slice of `Value`s.
     let args = [Value::I32(1), Value::I32(2)];
-    let result = sum.call(&mut ctx, &args)?;
+    let result = sum.call(&mut store, &args)?;
 
     println!("Results: {:?}", result);
     assert_eq!(result.to_vec(), vec![Value::I32(3)]);
@@ -93,7 +93,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Let's call the `sum` exported function. The parameters are
     // statically typed Rust values of type `i32` and `i32`. The
     // result, in this case particular case, in a unit of type `i32`.
-    let result = sum_native.call(&mut ctx, 3, 4)?;
+    let result = sum_native.call(&mut store, 3, 4)?;
 
     println!("Results: {:?}", result);
     assert_eq!(result, 7);

@@ -15,7 +15,9 @@
 //!
 //! Ready?
 
-use wasmer::{imports, wat2wasm, Context, Global, Instance, Module, Store, TypedFunction, Value};
+use wasmer::{
+    imports, wat2wasm, FunctionEnv, Global, Instance, Module, Store, TypedFunction, Value,
+};
 use wasmer_compiler::Universal;
 use wasmer_compiler_cranelift::Cranelift;
 
@@ -39,14 +41,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // the default provided by Wasmer.
     // You can use `Store::default()` for that.
     let store = Store::new_with_engine(&Universal::new(Cranelift::default()).engine());
-    let mut ctx = Context::new(&store, ());
+    let mut ctx = FunctionEnv::new(&mut store, ());
 
     println!("Compiling module...");
     // Let's compile the Wasm module.
     let module = Module::new(&store, wasm_bytes)?;
 
     // Create the globals
-    let some = Global::new(&mut ctx, Value::F32(1.0));
+    let some = Global::new(&mut store, Value::F32(1.0));
     let other = Global::new_mut(&mut ctx, Value::F32(2.0));
 
     // Create an import object.
@@ -60,7 +62,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Instantiating module...");
     // Let's instantiate the Wasm module.
-    let instance = Instance::new(&mut ctx, &module, &import_object)?;
+    let instance = Instance::new(&mut store, &module, &import_object)?;
 
     // Here we go.
     //
@@ -75,8 +77,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .get_function("get_other")?
         .native(&mut ctx)?;
 
-    let some_result = get_some.call(&mut ctx)?;
-    let other_result = get_other.call(&mut ctx)?;
+    let some_result = get_some.call(&mut store)?;
+    let other_result = get_other.call(&mut store)?;
 
     println!("some value (via `get_some`): {:?}", some_result);
     println!("some value (via Global API): {:?}", some.get(&mut ctx));
@@ -107,7 +109,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .exports
         .get_function("set_other")?
         .native(&mut ctx)?;
-    set_other.call(&mut ctx, 42.0)?;
+    set_other.call(&mut store, 42.0)?;
 
     println!("other value (via Global API): {:?}", other.get(&mut ctx));
     assert_eq!(other.get(&mut ctx), Value::F32(42.0));

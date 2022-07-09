@@ -15,7 +15,7 @@
 //!
 //! Ready?
 
-use wasmer::{AsContextMut, Context, Instance, Module, Store};
+use wasmer::{AsFunctionEnvMut, FunctionEnv, Instance, Module, Store};
 use wasmer_compiler::Universal;
 use wasmer_compiler_cranelift::Cranelift;
 use wasmer_wasi::WasiState;
@@ -43,15 +43,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut wasi_env = WasiState::new("hello")
         // .args(&["world"])
         // .env("KEY", "Value")
-        .finalize()?;
-    // And now the context,using the newly created WasiEnv
-    let mut ctx = Context::new(&store, wasi_env.clone());
+        .finalize(&mut store)?;
 
     println!("Instantiating module with WASI imports...");
     // Then, we get the import object related to our WASI
     // and attach it to the Wasm instance.
-    let import_object = wasi_env.import_object(&mut ctx.as_context_mut(), &module)?;
-    let instance = Instance::new(&mut ctx, &module, &import_object)?;
+    let import_object = wasi_env.import_object(&mut store, &module)?;
+    let instance = Instance::new(&mut store, &module, &import_object)?;
 
     println!("Attach WASI memory...");
     // Attach the memory export
@@ -61,7 +59,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Call WASI `_start` function...");
     // And we just call the `_start` function!
     let start = instance.exports.get_function("_start")?;
-    start.call(&mut ctx, &[])?;
+    start.call(&mut store, &[])?;
 
     Ok(())
 }

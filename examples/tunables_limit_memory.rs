@@ -3,8 +3,8 @@ use std::ptr::NonNull;
 use wasmer::{
     imports,
     vm::{self, MemoryError, MemoryStyle, TableStyle, VMMemoryDefinition, VMTableDefinition},
-    wat2wasm, BaseTunables, Context, Instance, Memory, MemoryType, Module, Pages, Store, TableType,
-    Target, Tunables,
+    wat2wasm, BaseTunables, FunctionEnv, Instance, Memory, MemoryType, Module, Pages, Store,
+    TableType, Target, Tunables,
 };
 use wasmer_compiler::Universal;
 use wasmer_compiler_cranelift::Cranelift;
@@ -146,7 +146,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Create a store, that holds the engine and our custom tunables
     let store = Store::new_with_tunables(&engine, tunables);
-    let mut ctx = Context::new(&store, ());
+    let mut ctx = FunctionEnv::new(&mut store, ());
 
     println!("Compiling module...");
     let module = Module::new(&store, wasm_bytes)?;
@@ -155,7 +155,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let import_object = imports! {};
 
     // Now at this point, our custom tunables are used
-    let instance = Instance::new(&mut ctx, &module, &import_object)?;
+    let instance = Instance::new(&mut store, &module, &import_object)?;
 
     // Check what happened
     let mut memories: Vec<Memory> = instance
@@ -168,7 +168,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let first_memory = memories.pop().unwrap();
     println!("Memory of this instance: {:?}", first_memory);
-    assert_eq!(first_memory.ty(&mut ctx).maximum.unwrap(), Pages(24));
+    assert_eq!(first_memory.ty(&store).maximum.unwrap(), Pages(24));
 
     Ok(())
 }

@@ -7,7 +7,8 @@
 //! ```
 
 use wasmer::{
-    imports, wat2wasm, Context, ContextMut, Function, Instance, Module, Store, TypedFunction,
+    imports, wat2wasm, Function, FunctionEnv, FunctionEnvMut, Instance, Module, Store,
+    TypedFunction,
 };
 use wasmer_compiler::Universal;
 use wasmer_compiler_cranelift::Cranelift;
@@ -53,12 +54,12 @@ fn main() -> anyhow::Result<()> {
     let module = Module::new(&store, wasm_bytes)?;
 
     // Next we'll set up our `Module` so that we can execute it. First, create
-    // a `Context` in which to instantiate our `Module`.
-    let mut context = Context::new(&store, ());
+    // a `FunctionEnv` in which to instantiate our `Module`.
+    let mut context = FunctionEnv::new(&mut store, ());
 
     // We define a function to act as our "env" "say_hello" function imported in the
     // Wasm program above.
-    fn say_hello_world(_ctx: ContextMut<'_, ()>) {
+    fn say_hello_world(_ctx: FunctionEnvMut<'_, ()>) {
         println!("Hello, world!")
     }
 
@@ -67,7 +68,7 @@ fn main() -> anyhow::Result<()> {
         // We use the default namespace "env".
         "env" => {
             // And call our function "say_hello".
-            "say_hello" => Function::new_native(&mut context, say_hello_world),
+            "say_hello" => Function::new_native(&mut store, &context, say_hello_world),
         }
     };
 
@@ -75,14 +76,13 @@ fn main() -> anyhow::Result<()> {
     //
     // An `Instance` is a compiled WebAssembly module that has been set up
     // and is ready to execute.
-    let instance = Instance::new(&mut context, &module, &import_object)?;
+    let instance = Instance::new(&mut store, &module, &import_object)?;
 
     // We get the `TypedFunction` with no parameters and no results from the instance.
     //
     // Recall that the Wasm module exported a function named "run", this is getting
     // that exported function from the `Instance`.
-    let run_func: TypedFunction<(), ()> =
-        instance.exports.get_typed_function(&mut context, "run")?;
+    let run_func: TypedFunction<(), ()> = instance.exports.get_typed_function(&mut store, "run")?;
 
     // Finally, we call our exported Wasm function which will call our "say_hello"
     // function and return.

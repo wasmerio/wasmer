@@ -9,6 +9,7 @@ use crate::js::store::Store;
 use crate::js::store::{AsStoreMut, StoreHandle};
 use crate::js::types::{AsJs, ExportType, ImportType};
 use crate::js::RuntimeError;
+use crate::AsStoreRef;
 use js_sys::{Reflect, Uint8Array, WebAssembly};
 use std::fmt;
 use std::io;
@@ -128,7 +129,7 @@ impl Module {
     /// # }
     /// ```
     #[allow(unreachable_code)]
-    pub fn new(store: &Store, bytes: impl AsRef<[u8]>) -> Result<Self, CompileError> {
+    pub fn new(_store: &impl AsStoreRef, bytes: impl AsRef<[u8]>) -> Result<Self, CompileError> {
         #[cfg(feature = "wat")]
         let bytes = wat::parse_bytes(bytes.as_ref()).map_err(|e| {
             CompileError::Wasm(WasmError::Generic(format!(
@@ -136,11 +137,14 @@ impl Module {
                 e
             )))
         })?;
-        Self::from_binary(store, bytes.as_ref())
+        Self::from_binary(_store, bytes.as_ref())
     }
 
     /// Creates a new WebAssembly module from a file path.
-    pub fn from_file(_store: &Store, _file: impl AsRef<Path>) -> Result<Self, IoCompileError> {
+    pub fn from_file(
+        _store: &impl AsStoreRef,
+        _file: impl AsRef<Path>,
+    ) -> Result<Self, IoCompileError> {
         unimplemented!();
     }
 
@@ -149,10 +153,10 @@ impl Module {
     /// Opposed to [`Module::new`], this function is not compatible with
     /// the WebAssembly text format (if the "wat" feature is enabled for
     /// this crate).
-    pub fn from_binary(store: &Store, binary: &[u8]) -> Result<Self, CompileError> {
+    pub fn from_binary(_store: &impl AsStoreRef, binary: &[u8]) -> Result<Self, CompileError> {
         //
         // Self::validate(store, binary)?;
-        unsafe { Self::from_binary_unchecked(store, binary) }
+        unsafe { Self::from_binary_unchecked(_store, binary) }
     }
 
     /// Creates a new WebAssembly module skipping any kind of validation.
@@ -162,7 +166,7 @@ impl Module {
     /// This is safe since the JS vm should be safe already.
     /// We maintain the `unsafe` to preserve the same API as Wasmer
     pub unsafe fn from_binary_unchecked(
-        store: &Store,
+        _store: &impl AsStoreRef,
         binary: &[u8],
     ) -> Result<Self, CompileError> {
         let js_bytes = Uint8Array::view(binary);
@@ -207,7 +211,7 @@ impl Module {
     /// This validation is normally pretty fast and checks the enabled
     /// WebAssembly features in the Store Engine to assure deterministic
     /// validation of the Module.
-    pub fn validate(_store: &Store, binary: &[u8]) -> Result<(), CompileError> {
+    pub fn validate(_store: &impl AsStoreRef, binary: &[u8]) -> Result<(), CompileError> {
         let js_bytes = unsafe { Uint8Array::view(binary) };
         match WebAssembly::validate(&js_bytes.into()) {
             Ok(true) => Ok(()),
@@ -307,8 +311,11 @@ impl Module {
     /// This is safe since deserialization under `js` is essentially same as reconstructing `Module`.
     /// We maintain the `unsafe` to preserve the same API as Wasmer
     #[cfg(feature = "js-serializable-module")]
-    pub unsafe fn deserialize(store: &Store, bytes: &[u8]) -> Result<Self, DeserializeError> {
-        Self::new(store, bytes).map_err(|e| DeserializeError::Compiler(e))
+    pub unsafe fn deserialize(
+        _store: &impl AsStoreRef,
+        bytes: &[u8],
+    ) -> Result<Self, DeserializeError> {
+        Self::new(_store, bytes).map_err(|e| DeserializeError::Compiler(e))
     }
 
     /// Sets the name of the current module.

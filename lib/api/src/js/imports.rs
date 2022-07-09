@@ -97,7 +97,7 @@ impl Imports {
     ///
     /// # Usage
     /// ```no_run
-    /// # let store = Default::default();
+    /// # let mut store = Default::default();
     /// use wasmer::{Imports, Function};
     /// fn foo(n: i32) -> i32 {
     ///     n
@@ -323,7 +323,7 @@ mod test {
     fn imports_macro_allows_trailing_comma_and_none() {
         use crate::js::Function;
 
-        let store = Default::default();
+        let mut store = Default::default();
 
         fn func(arg: i32) -> i32 {
             arg + 1

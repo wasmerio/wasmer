@@ -18,7 +18,7 @@ use anyhow::bail;
 use std::sync::Arc;
 use wasmer::wasmparser::Operator;
 use wasmer::CompilerConfig;
-use wasmer::{imports, wat2wasm, Context, Instance, Module, Store, TypedFunction};
+use wasmer::{imports, wat2wasm, FunctionEnv, Instance, Module, Store, TypedFunction};
 use wasmer_compiler::Universal;
 use wasmer_compiler_cranelift::Cranelift;
 use wasmer_middlewares::{
@@ -71,7 +71,7 @@ fn main() -> anyhow::Result<()> {
     // We use our previously create compiler configuration
     // with the Universal engine.
     let store = Store::new_with_engine(&Universal::new(compiler_config).engine());
-    let mut ctx = Context::new(&store, ());
+    let mut ctx = FunctionEnv::new(&mut store, ());
 
     println!("Compiling module...");
     // Let's compile the Wasm module.
@@ -82,7 +82,7 @@ fn main() -> anyhow::Result<()> {
 
     println!("Instantiating module...");
     // Let's instantiate the Wasm module.
-    let instance = Instance::new(&mut ctx, &module, &import_object)?;
+    let instance = Instance::new(&mut store, &module, &import_object)?;
 
     // We now have an instance ready to be used.
     //
@@ -92,7 +92,7 @@ fn main() -> anyhow::Result<()> {
         instance.exports.get_function("add_one")?.native(&mut ctx)?;
 
     println!("Calling `add_one` function once...");
-    add_one.call(&mut ctx, 1)?;
+    add_one.call(&mut store, 1)?;
 
     // As you can see here, after the first call we have 6 remaining points.
     //
@@ -112,7 +112,7 @@ fn main() -> anyhow::Result<()> {
     );
 
     println!("Calling `add_one` function twice...");
-    add_one.call(&mut ctx, 1)?;
+    add_one.call(&mut store, 1)?;
 
     // We spent 4 more points with the second call.
     // We have 2 remaining points.
@@ -131,7 +131,7 @@ fn main() -> anyhow::Result<()> {
     // calling it a third time will fail: we already consume 8
     // points, there are only two remaining.
     println!("Calling `add_one` function a third time...");
-    match add_one.call(&mut ctx, 1) {
+    match add_one.call(&mut store, 1) {
         Ok(result) => {
             bail!(
                 "Expected failure while calling `add_one`, found: {}",

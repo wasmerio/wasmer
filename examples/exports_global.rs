@@ -16,7 +16,7 @@
 //! Ready?
 
 use wasmer::{
-    imports, wat2wasm, Context, Instance, Module, Mutability, Store, Type, TypedFunction, Value,
+    imports, wat2wasm, FunctionEnv, Instance, Module, Mutability, Store, Type, TypedFunction, Value,
 };
 use wasmer_compiler::Universal;
 use wasmer_compiler_cranelift::Cranelift;
@@ -41,7 +41,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // the default provided by Wasmer.
     // You can use `Store::default()` for that.
     let store = Store::new_with_engine(&Universal::new(Cranelift::default()).engine());
-    let mut ctx = Context::new(&store, ());
+    let mut ctx = FunctionEnv::new(&mut store, ());
 
     println!("Compiling module...");
     // Let's compile the Wasm module.
@@ -52,7 +52,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Instantiating module...");
     // Let's instantiate the Wasm module.
-    let instance = Instance::new(&mut ctx, &module, &import_object)?;
+    let instance = Instance::new(&mut store, &module, &import_object)?;
 
     // Here we go.
     //
@@ -73,8 +73,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Getting globals types information...");
     // Let's get the globals types. The results are `GlobalType`s.
-    let one_type = one.ty(&mut ctx);
-    let some_type = some.ty(&mut ctx);
+    let one_type = one.ty(&store);
+    let some_type = some.ty(&store);
 
     println!("`one` type: {:?} {:?}", one_type.mutability, one_type.ty);
     assert_eq!(one_type.mutability, Mutability::Const);
@@ -94,7 +94,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let get_one: TypedFunction<(), f32> =
         instance.exports.get_function("get_one")?.native(&mut ctx)?;
 
-    let one_value = get_one.call(&mut ctx)?;
+    let one_value = get_one.call(&mut store)?;
     let some_value = some.get(&mut ctx);
 
     println!("`one` value: {:?}", one_value);
@@ -125,7 +125,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .exports
         .get_function("set_some")?
         .native(&mut ctx)?;
-    set_some.call(&mut ctx, 21.0)?;
+    set_some.call(&mut store, 21.0)?;
     let some_result = some.get(&mut ctx);
     println!("`some` value after `set_some`: {:?}", some_result);
     assert_eq!(some_result, Value::F32(21.0));

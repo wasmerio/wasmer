@@ -11,7 +11,7 @@
 //!
 //! Ready?
 
-use wasmer::{imports, wat2wasm, Context, Instance, Module, Store, TypedFunction, WasmPtr};
+use wasmer::{imports, wat2wasm, FunctionEnv, Instance, Module, Store, TypedFunction, WasmPtr};
 use wasmer_compiler::Universal;
 use wasmer_compiler_cranelift::Cranelift;
 
@@ -38,7 +38,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // the default provided by Wasmer.
     // You can use `Store::default()` for that.
     let store = Store::new_with_engine(&Universal::new(Cranelift::default()).engine());
-    let mut ctx = Context::new(&store, ());
+    let mut ctx = FunctionEnv::new(&mut store, ());
 
     println!("Compiling module...");
     // Let's compile the Wasm module.
@@ -49,10 +49,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Instantiating module...");
     // Let's instantiate the Wasm module.
-    let instance = Instance::new(&mut ctx, &module, &import_object)?;
+    let instance = Instance::new(&mut store, &module, &import_object)?;
 
     let load: TypedFunction<(), (WasmPtr<u8>, i32)> =
-        instance.exports.get_typed_function(&mut ctx, "load")?;
+        instance.exports.get_typed_function(&mut store, "load")?;
 
     // Here we go.
     //
@@ -72,7 +72,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     //
     // Fortunately, the Wasm module exports a `load` function
     // which will tell us the offset and length of the string.
-    let (ptr, length) = load.call(&mut ctx)?;
+    let (ptr, length) = load.call(&mut store)?;
     println!("String offset: {:?}", ptr.offset());
     println!("String length: {:?}", length);
 
