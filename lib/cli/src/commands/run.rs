@@ -111,7 +111,7 @@ impl Run {
             let imports = imports! {};
             let instance = Instance::new(&mut store, &module, &imports)?;
             let result =
-                self.invoke_function(&mut ctx.as_store_mut(), &instance, invoke, &self.args)?;
+                self.invoke_function(&mut store, &instance, invoke, &self.args)?;
             println!(
                 "{}",
                 result
@@ -152,9 +152,9 @@ impl Run {
                 ctx.data_mut()
                     .set_data(&emscripten_globals.data, Default::default());
                 let import_object =
-                    generate_emscripten_env(&mut ctx.as_store_mut(), &mut emscripten_globals);
+                    generate_emscripten_env(&mut store, &mut emscripten_globals);
                 let mut instance = match Instance::new(
-                    &mut ctx.as_store_mut(),
+                    &mut store,
                     &module,
                     &import_object,
                 ) {

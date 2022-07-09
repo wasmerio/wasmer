@@ -10,7 +10,7 @@ use wasmer::{AsStoreMut, FunctionEnvMut, WasmPtr};
 /// Wasm memory.  If the memory clobbered by the current syscall is also used by
 /// that syscall, then it may break.
 pub fn fd_filestat_get(
-    mut ctx: FunctionEnvMut<'_, WasiEnv>,
+    mut ctx: FunctionEnvMut<WasiEnv>,
     fd: types::__wasi_fd_t,
     buf: WasmPtr<snapshot0::__wasi_filestat_t, Memory32>,
 ) -> types::__wasi_errno_t {
@@ -27,33 +27,33 @@ pub fn fd_filestat_get(
 
     // Set up complete, make the call with the pointer that will write to the
     // struct and some unrelated memory after the struct.
-    let result = syscalls::fd_filestat_get::<Memory32>(ctx.as_store_mut(), fd, new_buf);
+    let result = syscalls::fd_filestat_get::<Memory32>(ctx, fd, new_buf);
 
-    // reborrow memory
-    let env = ctx.data();
-    let memory = env.memory();
+    // // reborrow memory
+    // let env = ctx.data();
+    // let memory = env.memory();
 
-    // get the values written to memory
-    let new_filestat = wasi_try_mem!(new_buf.deref(&ctx, memory).read());
-    // translate the new struct into the old struct in host memory
-    let old_stat = snapshot0::__wasi_filestat_t {
-        st_dev: new_filestat.st_dev,
-        st_ino: new_filestat.st_ino,
-        st_filetype: new_filestat.st_filetype,
-        st_nlink: new_filestat.st_nlink as u32,
-        st_size: new_filestat.st_size,
-        st_atim: new_filestat.st_atim,
-        st_mtim: new_filestat.st_mtim,
-        st_ctim: new_filestat.st_ctim,
-    };
+    // // get the values written to memory
+    // let new_filestat = wasi_try_mem!(new_buf.deref(&ctx, memory).read());
+    // // translate the new struct into the old struct in host memory
+    // let old_stat = snapshot0::__wasi_filestat_t {
+    //     st_dev: new_filestat.st_dev,
+    //     st_ino: new_filestat.st_ino,
+    //     st_filetype: new_filestat.st_filetype,
+    //     st_nlink: new_filestat.st_nlink as u32,
+    //     st_size: new_filestat.st_size,
+    //     st_atim: new_filestat.st_atim,
+    //     st_mtim: new_filestat.st_mtim,
+    //     st_ctim: new_filestat.st_ctim,
+    // };
 
-    // write back the original values at the pointer's memory locations
-    // (including the memory unrelated to the pointer)
-    wasi_try_mem!(new_buf.deref(&ctx, memory).write(new_filestat_setup));
+    // // write back the original values at the pointer's memory locations
+    // // (including the memory unrelated to the pointer)
+    // wasi_try_mem!(new_buf.deref(&ctx, memory).write(new_filestat_setup));
 
-    // Now that this memory is back as it was, write the translated filestat
-    // into memory leaving it as it should be
-    wasi_try_mem!(buf.deref(&ctx, memory).write(old_stat));
+    // // Now that this memory is back as it was, write the translated filestat
+    // // into memory leaving it as it should be
+    // wasi_try_mem!(buf.deref(&ctx, memory).write(old_stat));
 
     result
 }
@@ -61,7 +61,7 @@ pub fn fd_filestat_get(
 /// Wrapper around `syscalls::path_filestat_get` with extra logic to handle the size
 /// difference of `wasi_filestat_t`
 pub fn path_filestat_get(
-    mut ctx: FunctionEnvMut<'_, WasiEnv>,
+    mut ctx: FunctionEnvMut<WasiEnv>,
     fd: types::__wasi_fd_t,
     flags: types::__wasi_lookupflags_t,
     path: WasmPtr<u8, Memory32>,
@@ -76,7 +76,7 @@ pub fn path_filestat_get(
     let new_filestat_setup: types::__wasi_filestat_t = wasi_try_mem!(new_buf.read(&ctx, memory));
 
     let result = syscalls::path_filestat_get::<Memory32>(
-        ctx.as_store_mut(),
+        ctx,
         fd,
         flags,
         path,
@@ -84,23 +84,23 @@ pub fn path_filestat_get(
         new_buf,
     );
 
-    // need to re-borrow
-    let env = ctx.data();
-    let memory = env.memory();
-    let new_filestat = wasi_try_mem!(new_buf.deref(&ctx, memory).read());
-    let old_stat = snapshot0::__wasi_filestat_t {
-        st_dev: new_filestat.st_dev,
-        st_ino: new_filestat.st_ino,
-        st_filetype: new_filestat.st_filetype,
-        st_nlink: new_filestat.st_nlink as u32,
-        st_size: new_filestat.st_size,
-        st_atim: new_filestat.st_atim,
-        st_mtim: new_filestat.st_mtim,
-        st_ctim: new_filestat.st_ctim,
-    };
+    // // need to re-borrow
+    // let env = ctx.data();
+    // let memory = env.memory();
+    // let new_filestat = wasi_try_mem!(new_buf.deref(&ctx, memory).read());
+    // let old_stat = snapshot0::__wasi_filestat_t {
+    //     st_dev: new_filestat.st_dev,
+    //     st_ino: new_filestat.st_ino,
+    //     st_filetype: new_filestat.st_filetype,
+    //     st_nlink: new_filestat.st_nlink as u32,
+    //     st_size: new_filestat.st_size,
+    //     st_atim: new_filestat.st_atim,
+    //     st_mtim: new_filestat.st_mtim,
+    //     st_ctim: new_filestat.st_ctim,
+    // };
 
-    wasi_try_mem!(new_buf.deref(&ctx, memory).write(new_filestat_setup));
-    wasi_try_mem!(buf.deref(&ctx, memory).write(old_stat));
+    // wasi_try_mem!(new_buf.deref(&ctx, memory).write(new_filestat_setup));
+    // wasi_try_mem!(buf.deref(&ctx, memory).write(old_stat));
 
     result
 }
@@ -108,7 +108,7 @@ pub fn path_filestat_get(
 /// Wrapper around `syscalls::fd_seek` with extra logic to remap the values
 /// of `__wasi_whence_t`
 pub fn fd_seek(
-    ctx: FunctionEnvMut<'_, WasiEnv>,
+    ctx: FunctionEnvMut<WasiEnv>,
     fd: types::__wasi_fd_t,
     offset: types::__wasi_filedelta_t,
     whence: snapshot0::__wasi_whence_t,
@@ -127,7 +127,7 @@ pub fn fd_seek(
 /// Wrapper around `syscalls::poll_oneoff` with extra logic to add the removed
 /// userdata field back
 pub fn poll_oneoff(
-    mut ctx: FunctionEnvMut<'_, WasiEnv>,
+    mut ctx: FunctionEnvMut<WasiEnv>,
     in_: WasmPtr<snapshot0::__wasi_subscription_t, Memory32>,
     out_: WasmPtr<types::__wasi_event_t, Memory32>,
     nsubscriptions: u32,
@@ -173,23 +173,23 @@ pub fn poll_oneoff(
 
     // make the call
     let result = syscalls::poll_oneoff::<Memory32>(
-        ctx.as_store_mut(),
+        ctx,
         in_new_type_ptr,
         out_,
         nsubscriptions,
         nevents,
     );
 
-    // replace the old values of in, in case the calling code reuses the memory
-    let env = ctx.data();
-    let memory = env.memory();
+    // // replace the old values of in, in case the calling code reuses the memory
+    // let env = ctx.data();
+    // let memory = env.memory();
 
-    for (in_sub, orig) in wasi_try_mem_ok!(in_.slice(&ctx, memory, nsubscriptions_offset))
-        .iter()
-        .zip(in_origs.into_iter())
-    {
-        wasi_try_mem_ok!(in_sub.write(orig));
-    }
+    // for (in_sub, orig) in wasi_try_mem_ok!(in_.slice(&ctx, memory, nsubscriptions_offset))
+    //     .iter()
+    //     .zip(in_origs.into_iter())
+    // {
+    //     wasi_try_mem_ok!(in_sub.write(orig));
+    // }
 
     result
 }

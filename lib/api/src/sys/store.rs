@@ -1,3 +1,4 @@
+use crate::FunctionEnv;
 use crate::sys::tunables::BaseTunables;
 use std::fmt;
 use std::sync::{Arc, RwLock};
@@ -185,7 +186,7 @@ pub struct StoreMut<'a> {
     pub(crate) inner: &'a mut StoreInner,
 }
 
-impl StoreMut<'_> {
+impl<'a> StoreMut<'a> {
     pub(crate) fn objects_mut(&mut self) -> &mut StoreObjects {
         &mut self.inner.objects
     }
@@ -217,6 +218,15 @@ impl StoreMut<'_> {
 
     pub(crate) unsafe fn from_raw(raw: *mut StoreInner) -> Self {
         Self { inner: &mut *raw }
+    }
+
+    /// Get function env
+    pub fn get_function_env<T: 'static>(&'a mut self, func: &FunctionEnv<T>) -> &'a mut T {
+        func.handle
+            .get_mut(self.objects_mut())
+            .as_mut()
+            .downcast_mut::<T>()
+            .unwrap()
     }
 }
 

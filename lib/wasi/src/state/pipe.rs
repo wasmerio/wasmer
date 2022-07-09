@@ -8,7 +8,7 @@ use std::ops::DerefMut;
 use std::sync::mpsc;
 use std::sync::Mutex;
 use wasmer::MemorySize;
-use wasmer::{Memory, StoreMut, WasmSlice};
+use wasmer::{Memory, FunctionEnvMut, WasmSlice};
 
 #[derive(Debug)]
 pub struct WasiPipe {

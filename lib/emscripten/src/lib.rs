@@ -497,14 +497,14 @@ pub fn set_up_emscripten(
     // ATINIT
     // (used by C++)
     if let Ok(func) = instance.exports.get_function("globalCtors") {
-        func.call(&mut ctx.as_store_mut(), &[])?;
+        func.call(&mut store, &[])?;
     }
 
     if let Ok(func) = instance
         .exports
         .get_function("___emscripten_environ_constructor")
     {
-        func.call(&mut ctx.as_store_mut(), &[])?;
+        func.call(&mut store, &[])?;
     }
     Ok(())
 }
@@ -532,7 +532,7 @@ pub fn emscripten_call_main(
         2 => {
             let mut new_args = vec![path];
             new_args.extend(args);
-            let (argc, argv) = store_module_arguments(ctx.as_store_mut(), new_args);
+            let (argc, argv) = store_module_arguments(ctx, new_args);
             let func: &Function = instance
                 .exports
                 .get(function_name)
@@ -796,13 +796,13 @@ pub fn run_emscripten_instance(
     }
     ctx.data_mut().set_functions(emfuncs);
 
-    set_up_emscripten(&mut ctx.as_store_mut(), instance)?;
+    set_up_emscripten(&mut store, instance)?;
 
     // println!("running emscripten instance");
 
     if let Some(ep) = entrypoint {
         debug!("Running entry point: {}", &ep);
-        let arg = unsafe { allocate_cstr_on_stack(&mut ctx.as_store_mut(), args[0]).0 };
+        let arg = unsafe { allocate_cstr_on_stack(&mut store, args[0]).0 };
         //let (argc, argv) = store_module_arguments(instance.context_mut(), args);
         let func: &Function = instance
             .exports
@@ -823,7 +823,7 @@ fn store_module_arguments(mut ctx: FunctionEnvMut<'_, EmEnv>, args: Vec<&str>) -
 
     let mut args_slice = vec![0; argc];
     for (slot, arg) in args_slice[0..argc].iter_mut().zip(args.iter()) {
-        *slot = unsafe { allocate_cstr_on_stack(&mut ctx.as_store_mut(), arg).0 };
+        *slot = unsafe { allocate_cstr_on_stack(&mut store, arg).0 };
     }
 
     let (argv_offset, argv_slice): (_, &mut [u32]) =
@@ -967,7 +967,7 @@ impl EmscriptenGlobals {
 }
 
 pub fn generate_emscripten_env(
-    ctx: &mut FunctionEnvMut<'_, EmEnv>,
+    ctx: &FunctionEnv<EmEnv>,
     globals: &mut EmscriptenGlobals,
 ) -> Imports {
     let abort_on_cannot_grow_memory_export = if globals.data.use_old_abort_on_cannot_grow_memory {
@@ -994,7 +994,7 @@ pub fn generate_emscripten_env(
         "tempDoublePtr" => Global::new(ctx, Value::I32(globals.data.temp_double_ptr as i32)),
 
         // inet
-        "_inet_addr" => Function::new_native(ctx, crate::inet::addr),
+        "_inet_addr" => Function::new_native(ctx, ctx, crate::inet::addr),
 
         // IO
         "printf" => Function::new_native(ctx, crate::io::printf),

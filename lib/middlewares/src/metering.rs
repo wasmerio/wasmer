@@ -279,7 +279,7 @@ impl<F: Fn(&Operator) -> u64 + Send + Sync> FunctionMiddleware for FunctionMeter
 /// /// Check whether the instance can continue to run based on the
 /// /// number of remaining points.
 /// fn can_continue_to_run(ctx: &mut impl AsStoreMut, instance: &Instance) -> bool {
-///     matches!(get_remaining_points(&mut ctx.as_store_mut(), instance), MeteringPoints::Remaining(points) if points > 0)
+///     matches!(get_remaining_points(&mut store, instance), MeteringPoints::Remaining(points) if points > 0)
 /// }
 /// ```
 pub fn get_remaining_points(ctx: &mut impl AsStoreMut, instance: &Instance) -> MeteringPoints {
@@ -329,7 +329,7 @@ pub fn get_remaining_points(ctx: &mut impl AsStoreMut, instance: &Instance) -> M
 ///     let new_limit = 10;
 ///
 ///     // Update the remaining points to the `new_limit`.
-///     set_remaining_points(&mut ctx.as_store_mut(), instance, new_limit);
+///     set_remaining_points(&mut store, instance, new_limit);
 /// }
 /// ```
 pub fn set_remaining_points(ctx: &mut impl AsStoreMut, instance: &Instance, points: u64) {
@@ -354,7 +354,7 @@ mod tests {
 
     use std::sync::Arc;
     use wasmer::{
-        imports, wat2wasm, CompilerConfig, Context, Cranelift, Module, Store, TypedFunction,
+        imports, wat2wasm, CompilerConfig, FunctionEnv, Cranelift, Module, Store, TypedFunction,
         Universal,
     };
 
@@ -390,12 +390,12 @@ mod tests {
         compiler_config.push_middleware(metering);
         let mut store = Store::new_with_engine(&Universal::new(compiler_config).engine());
         let module = Module::new(&store, bytecode()).unwrap();
-        let mut ctx = Context::new(&store, ());
+        let mut ctx = FunctionEnv::new(&mut store,  ());
 
         // Instantiate
         let instance = Instance::new(&mut store, &module, &imports! {}).unwrap();
         assert_eq!(
-            get_remaining_points(&mut ctx.as_store_mut(), &instance),
+            get_remaining_points(&mut store, &instance),
             MeteringPoints::Remaining(10)
         );
 
@@ -409,25 +409,25 @@ mod tests {
             .exports
             .get_function("add_one")
             .unwrap()
-            .native(&ctx)
+            .native(&store)
             .unwrap();
-        add_one.call(&mut ctx.as_store_mut(), 1).unwrap();
+        add_one.call(&mut store, 1).unwrap();
         assert_eq!(
-            get_remaining_points(&mut ctx.as_store_mut(), &instance),
+            get_remaining_points(&mut store, &instance),
             MeteringPoints::Remaining(6)
         );
 
         // Second call
-        add_one.call(&mut ctx.as_store_mut(), 1).unwrap();
+        add_one.call(&mut store, 1).unwrap();
         assert_eq!(
-            get_remaining_points(&mut ctx.as_store_mut(), &instance),
+            get_remaining_points(&mut store, &instance),
             MeteringPoints::Remaining(2)
         );
 
         // Third call fails due to limit
-        assert!(add_one.call(&mut ctx.as_store_mut(), 1).is_err());
+        assert!(add_one.call(&mut store, 1).is_err());
         assert_eq!(
-            get_remaining_points(&mut ctx.as_store_mut(), &instance),
+            get_remaining_points(&mut store, &instance),
             MeteringPoints::Exhausted
         );
     }
@@ -439,53 +439,53 @@ mod tests {
         compiler_config.push_middleware(metering);
         let mut store = Store::new_with_engine(&Universal::new(compiler_config).engine());
         let module = Module::new(&store, bytecode()).unwrap();
-        let mut ctx = Context::new(module.store(), ());
+        let mut ctx = FunctionEnv::new(&mut store, ());
 
         // Instantiate
         let instance = Instance::new(&mut store, &module, &imports! {}).unwrap();
         assert_eq!(
-            get_remaining_points(&mut ctx, &instance),
+            get_remaining_points(&mut store, &instance),
             MeteringPoints::Remaining(10)
         );
         let add_one: TypedFunction<i32, i32> = instance
             .exports
             .get_function("add_one")
             .unwrap()
-            .native(&ctx)
+            .native(&store)
             .unwrap();
 
         // Increase a bit to have enough for 3 calls
-        set_remaining_points(&mut ctx, &instance, 12);
+        set_remaining_points(&mut store, &instance, 12);
 
         // Ensure we can use the new points now
-        add_one.call(&mut &mut ctx, 1).unwrap();
+        add_one.call(&mut store, 1).unwrap();
         assert_eq!(
-            get_remaining_points(&mut ctx, &instance),
+            get_remaining_points(&mut store, &instance),
             MeteringPoints::Remaining(8)
         );
 
-        add_one.call(&mut &mut ctx, 1).unwrap();
+        add_one.call(&mut store, 1).unwrap();
         assert_eq!(
-            get_remaining_points(&mut ctx, &instance),
+            get_remaining_points(&mut store, &instance),
             MeteringPoints::Remaining(4)
         );
 
-        add_one.call(&mut &mut ctx, 1).unwrap();
+        add_one.call(&mut store, 1).unwrap();
         assert_eq!(
-            get_remaining_points(&mut ctx, &instance),
+            get_remaining_points(&mut store, &instance),
             MeteringPoints::Remaining(0)
         );
 
-        assert!(add_one.call(&mut &mut ctx, 1).is_err());
+        assert!(add_one.call(&mut store, 1).is_err());
         assert_eq!(
-            get_remaining_points(&mut ctx, &instance),
+            get_remaining_points(&mut store, &instance),
             MeteringPoints::Exhausted
         );
 
         // Add some points for another call
-        set_remaining_points(&mut ctx, &instance, 4);
+        set_remaining_points(&mut store, &instance, 4);
         assert_eq!(
-            get_remaining_points(&mut ctx, &instance),
+            get_remaining_points(&mut store, &instance),
             MeteringPoints::Remaining(4)
         );
     }

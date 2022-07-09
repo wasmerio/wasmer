@@ -11,7 +11,7 @@ use super::store::StoreInner;
 /// An opaque reference to a function environment.
 /// The function environment data is owned by the `Store`.
 pub struct FunctionEnv<T> {
-    handle: StoreHandle<VMFunctionEnvironment>,
+    pub(crate) handle: StoreHandle<VMFunctionEnvironment>,
     _phantom: PhantomData<T>,
 }
 

@@ -65,7 +65,7 @@ use std::ops::Deref;
 use thiserror::Error;
 use wasmer::{
     imports, namespace, AsStoreMut, Exports, Function, Imports, Memory, Memory32,
-    MemoryAccessError, MemorySize, Module, TypedFunction,
+    MemoryAccessError, MemorySize, Module, TypedFunction, FunctionEnv,
 };
 
 pub use runtime::{
@@ -140,6 +140,60 @@ impl WasiThread {
             Err(mpsc::RecvTimeoutError::Disconnected) => true,
             Err(mpsc::RecvTimeoutError::Timeout) => false,
         }
+    }
+}
+
+pub struct WasiFunctionEnv {
+    env: FunctionEnv<WasiEnv>,
+}
+
+impl WasiFunctionEnv {
+    pub fn new(store: &mut impl AsStoreMut, env: WasiEnv) -> Self {
+        Self { env: FunctionEnv::new(store, env) }
+    }
+
+    /// Get an `Imports` for a specific version of WASI detected in the module.
+    pub fn import_object(
+        &self,
+        store: &mut impl AsStoreMut,
+        module: &Module,
+    ) -> Result<Imports, WasiError> {
+        let wasi_version = get_wasi_version(module, false).ok_or(WasiError::UnknownWasiVersion)?;
+        Ok(generate_import_object_from_ctx(store, &self.env, wasi_version))
+    }
+
+    fn data_mut<'a>(&'a self, store: &'a mut impl AsStoreMut) -> &'a mut WasiEnv {
+        let mut s= store.as_store_mut();
+        s.get_function_env(&self.env)
+    }
+
+    /// Like `import_object` but containing all the WASI versions detected in
+    /// the module.
+    pub fn import_object_for_all_wasi_versions(
+        &self,
+        store: &mut impl AsStoreMut,
+        module: &Module,
+    ) -> Result<Imports, WasiError> {
+        let wasi_versions =
+            get_wasi_versions(module, false).ok_or(WasiError::UnknownWasiVersion)?;
+
+        let mut resolver = Imports::new();
+        for version in wasi_versions.iter() {
+            let new_import_object =
+                generate_import_object_from_ctx(store, &self.env, *version);
+            for ((n, m), e) in new_import_object.into_iter() {
+                resolver.define(&n, &m, e);
+            }
+        }
+
+        // if is_wasix_module(module) {
+        //     self.state
+        //         .fs
+        //         .is_wasix
+        //         .store(true, std::sync::atomic::Ordering::Release);
+        // }
+
+        Ok(resolver)
     }
 }
 
@@ -227,45 +281,6 @@ impl WasiEnv {
     /// export phase, all the other references get a copy of it
     pub fn memory_clone(&self) -> Option<Memory> {
         self.memory.clone()
-    }
-
-    /// Get an `Imports` for a specific version of WASI detected in the module.
-    pub fn import_object(
-        &mut self,
-        ctx: &mut FunctionEnvMut<'_, WasiEnv>,
-        module: &Module,
-    ) -> Result<Imports, WasiError> {
-        let wasi_version = get_wasi_version(module, false).ok_or(WasiError::UnknownWasiVersion)?;
-        Ok(generate_import_object_from_ctx(ctx, wasi_version))
-    }
-
-    /// Like `import_object` but containing all the WASI versions detected in
-    /// the module.
-    pub fn import_object_for_all_wasi_versions(
-        &mut self,
-        ctx: &mut FunctionEnvMut<'_, WasiEnv>,
-        module: &Module,
-    ) -> Result<Imports, WasiError> {
-        let wasi_versions =
-            get_wasi_versions(module, false).ok_or(WasiError::UnknownWasiVersion)?;
-
-        let mut resolver = Imports::new();
-        for version in wasi_versions.iter() {
-            let new_import_object =
-                generate_import_object_from_ctx(&mut ctx.as_store_mut(), *version);
-            for ((n, m), e) in new_import_object.into_iter() {
-                resolver.define(&n, &m, e);
-            }
-        }
-
-        if is_wasix_module(module) {
-            self.state
-                .fs
-                .is_wasix
-                .store(true, std::sync::atomic::Ordering::Release);
-        }
-
-        Ok(resolver)
     }
 
     // Yields execution
@@ -358,121 +373,122 @@ impl WasiEnv {
 
 /// Create an [`Imports`]  from a [`Context`]
 pub fn generate_import_object_from_ctx(
-    ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+    store: &mut impl AsStoreMut,
+    ctx: &FunctionEnv<WasiEnv>,
     version: WasiVersion,
 ) -> Imports {
     match version {
-        WasiVersion::Snapshot0 => generate_import_object_snapshot0(ctx),
-        WasiVersion::Snapshot1 | WasiVersion::Latest => generate_import_object_snapshot1(ctx),
-        WasiVersion::Wasix32v1 => generate_import_object_wasix32_v1(ctx),
-        WasiVersion::Wasix64v1 => generate_import_object_wasix64_v1(ctx),
+        WasiVersion::Snapshot0 => generate_import_object_snapshot0(store, ctx),
+        WasiVersion::Snapshot1 | WasiVersion::Latest => generate_import_object_snapshot1(store, ctx),
+        WasiVersion::Wasix32v1 => generate_import_object_wasix32_v1(store, ctx),
+        WasiVersion::Wasix64v1 => generate_import_object_wasix64_v1(store, ctx),
     }
 }
 
-fn wasi_unstable_exports(ctx: &mut FunctionEnvMut<'_, WasiEnv>) -> Exports {
+fn wasi_unstable_exports(mut store: &mut impl AsStoreMut, ctx: &FunctionEnv<WasiEnv>) -> Exports {
     let namespace = namespace! {
-        "args_get" => Function::new_native(ctx, args_get::<Memory32>),
-        "args_sizes_get" => Function::new_native(ctx, args_sizes_get::<Memory32>),
-        "clock_res_get" => Function::new_native(ctx, clock_res_get::<Memory32>),
-        "clock_time_get" => Function::new_native(ctx, clock_time_get::<Memory32>),
-        "environ_get" => Function::new_native(ctx, environ_get::<Memory32>),
-        "environ_sizes_get" => Function::new_native(ctx, environ_sizes_get::<Memory32>),
-        "fd_advise" => Function::new_native(ctx, fd_advise),
-        "fd_allocate" => Function::new_native(ctx, fd_allocate),
-        "fd_close" => Function::new_native(ctx, fd_close),
-        "fd_datasync" => Function::new_native(ctx, fd_datasync),
-        "fd_fdstat_get" => Function::new_native(ctx, fd_fdstat_get::<Memory32>),
-        "fd_fdstat_set_flags" => Function::new_native(ctx, fd_fdstat_set_flags),
-        "fd_fdstat_set_rights" => Function::new_native(ctx, fd_fdstat_set_rights),
-        "fd_filestat_get" => Function::new_native(ctx, legacy::snapshot0::fd_filestat_get),
-        "fd_filestat_set_size" => Function::new_native(ctx, fd_filestat_set_size),
-        "fd_filestat_set_times" => Function::new_native(ctx, fd_filestat_set_times),
-        "fd_pread" => Function::new_native(ctx, fd_pread::<Memory32>),
-        "fd_prestat_get" => Function::new_native(ctx, fd_prestat_get::<Memory32>),
-        "fd_prestat_dir_name" => Function::new_native(ctx, fd_prestat_dir_name::<Memory32>),
-        "fd_pwrite" => Function::new_native(ctx, fd_pwrite::<Memory32>),
-        "fd_read" => Function::new_native(ctx, fd_read::<Memory32>),
-        "fd_readdir" => Function::new_native(ctx, fd_readdir::<Memory32>),
-        "fd_renumber" => Function::new_native(ctx, fd_renumber),
-        "fd_seek" => Function::new_native(ctx, legacy::snapshot0::fd_seek),
-        "fd_sync" => Function::new_native(ctx, fd_sync),
-        "fd_tell" => Function::new_native(ctx, fd_tell::<Memory32>),
-        "fd_write" => Function::new_native(ctx, fd_write::<Memory32>),
-        "path_create_directory" => Function::new_native(ctx, path_create_directory::<Memory32>),
-        "path_filestat_get" => Function::new_native(ctx, legacy::snapshot0::path_filestat_get),
-        "path_filestat_set_times" => Function::new_native(ctx, path_filestat_set_times::<Memory32>),
-        "path_link" => Function::new_native(ctx, path_link::<Memory32>),
-        "path_open" => Function::new_native(ctx, path_open::<Memory32>),
-        "path_readlink" => Function::new_native(ctx, path_readlink::<Memory32>),
-        "path_remove_directory" => Function::new_native(ctx, path_remove_directory::<Memory32>),
-        "path_rename" => Function::new_native(ctx, path_rename::<Memory32>),
-        "path_symlink" => Function::new_native(ctx, path_symlink::<Memory32>),
-        "path_unlink_file" => Function::new_native(ctx, path_unlink_file::<Memory32>),
-        "poll_oneoff" => Function::new_native(ctx, legacy::snapshot0::poll_oneoff),
-        "proc_exit" => Function::new_native(ctx, proc_exit),
-        "proc_raise" => Function::new_native(ctx, proc_raise),
-        "random_get" => Function::new_native(ctx, random_get::<Memory32>),
-        "sched_yield" => Function::new_native(ctx, sched_yield),
-        "sock_recv" => Function::new_native(ctx, sock_recv::<Memory32>),
-        "sock_send" => Function::new_native(ctx, sock_send::<Memory32>),
-        "sock_shutdown" => Function::new_native(ctx, sock_shutdown),
+        "args_get" => Function::new_native(&mut store, &ctx ,args_get::<Memory32>),
+        "args_sizes_get" => Function::new_native(&mut store, &ctx, args_sizes_get::<Memory32>),
+        "clock_res_get" => Function::new_native(&mut store, &ctx,clock_res_get::<Memory32>),
+        "clock_time_get" => Function::new_native(&mut store, &ctx,clock_time_get::<Memory32>),
+        "environ_get" => Function::new_native(&mut store, &ctx,environ_get::<Memory32>),
+        "environ_sizes_get" => Function::new_native(&mut store, &ctx,environ_sizes_get::<Memory32>),
+        "fd_advise" => Function::new_native(&mut store, &ctx,fd_advise),
+        "fd_allocate" => Function::new_native(&mut store, &ctx,fd_allocate),
+        "fd_close" => Function::new_native(&mut store, &ctx,fd_close),
+        "fd_datasync" => Function::new_native(&mut store, &ctx,fd_datasync),
+        "fd_fdstat_get" => Function::new_native(&mut store, &ctx,fd_fdstat_get::<Memory32>),
+        "fd_fdstat_set_flags" => Function::new_native(&mut store, &ctx,fd_fdstat_set_flags),
+        "fd_fdstat_set_rights" => Function::new_native(&mut store, &ctx,fd_fdstat_set_rights),
+        "fd_filestat_get" => Function::new_native(&mut store, &ctx, legacy::snapshot0::fd_filestat_get),
+        "fd_filestat_set_size" => Function::new_native(&mut store, &ctx,fd_filestat_set_size),
+        "fd_filestat_set_times" => Function::new_native(&mut store, &ctx,fd_filestat_set_times),
+        "fd_pread" => Function::new_native(&mut store, &ctx,fd_pread::<Memory32>),
+        "fd_prestat_get" => Function::new_native(&mut store, &ctx,fd_prestat_get::<Memory32>),
+        "fd_prestat_dir_name" => Function::new_native(&mut store, &ctx,fd_prestat_dir_name::<Memory32>),
+        "fd_pwrite" => Function::new_native(&mut store, &ctx,fd_pwrite::<Memory32>),
+        "fd_read" => Function::new_native(&mut store, &ctx,fd_read::<Memory32>),
+        "fd_readdir" => Function::new_native(&mut store, &ctx,fd_readdir::<Memory32>),
+        "fd_renumber" => Function::new_native(&mut store, &ctx,fd_renumber),
+        "fd_seek" => Function::new_native(&mut store, &ctx,legacy::snapshot0::fd_seek),
+        "fd_sync" => Function::new_native(&mut store, &ctx,fd_sync),
+        "fd_tell" => Function::new_native(&mut store, &ctx,fd_tell::<Memory32>),
+        "fd_write" => Function::new_native(&mut store, &ctx,fd_write::<Memory32>),
+        "path_create_directory" => Function::new_native(&mut store, &ctx,path_create_directory::<Memory32>),
+        "path_filestat_get" => Function::new_native(&mut store, &ctx,legacy::snapshot0::path_filestat_get),
+        "path_filestat_set_times" => Function::new_native(&mut store, &ctx,path_filestat_set_times::<Memory32>),
+        "path_link" => Function::new_native(&mut store, &ctx,path_link::<Memory32>),
+        "path_open" => Function::new_native(&mut store, &ctx,path_open::<Memory32>),
+        "path_readlink" => Function::new_native(&mut store, &ctx,path_readlink::<Memory32>),
+        "path_remove_directory" => Function::new_native(&mut store, &ctx,path_remove_directory::<Memory32>),
+        "path_rename" => Function::new_native(&mut store, &ctx,path_rename::<Memory32>),
+        "path_symlink" => Function::new_native(&mut store, &ctx,path_symlink::<Memory32>),
+        "path_unlink_file" => Function::new_native(&mut store, &ctx,path_unlink_file::<Memory32>),
+        "poll_oneoff" => Function::new_native(&mut store, &ctx,legacy::snapshot0::poll_oneoff),
+        "proc_exit" => Function::new_native(&mut store, &ctx,proc_exit),
+        "proc_raise" => Function::new_native(&mut store, &ctx,proc_raise),
+        "random_get" => Function::new_native(&mut store, &ctx,random_get::<Memory32>),
+        "sched_yield" => Function::new_native(&mut store, &ctx,sched_yield),
+        "sock_recv" => Function::new_native(&mut store, &ctx,sock_recv::<Memory32>),
+        "sock_send" => Function::new_native(&mut store, &ctx,sock_send::<Memory32>),
+        "sock_shutdown" => Function::new_native(&mut store, &ctx,sock_shutdown),
     };
     namespace
 }
 
-fn wasi_snapshot_preview1_exports(ctx: &mut FunctionEnvMut<'_, WasiEnv>) -> Exports {
+fn wasi_snapshot_preview1_exports(mut store: &mut impl AsStoreMut, ctx: &FunctionEnv<WasiEnv>) -> Exports {
     let namespace = namespace! {
-        "args_get" => Function::new_native(ctx, args_get::<Memory32>),
-        "args_sizes_get" => Function::new_native(ctx, args_sizes_get::<Memory32>),
-        "clock_res_get" => Function::new_native(ctx, clock_res_get::<Memory32>),
-        "clock_time_get" => Function::new_native(ctx, clock_time_get::<Memory32>),
-        "environ_get" => Function::new_native(ctx, environ_get::<Memory32>),
-        "environ_sizes_get" => Function::new_native(ctx, environ_sizes_get::<Memory32>),
-        "fd_advise" => Function::new_native(ctx, fd_advise),
-        "fd_allocate" => Function::new_native(ctx, fd_allocate),
-        "fd_close" => Function::new_native(ctx, fd_close),
-        "fd_datasync" => Function::new_native(ctx, fd_datasync),
-        "fd_fdstat_get" => Function::new_native(ctx, fd_fdstat_get::<Memory32>),
-        "fd_fdstat_set_flags" => Function::new_native(ctx, fd_fdstat_set_flags),
-        "fd_fdstat_set_rights" => Function::new_native(ctx, fd_fdstat_set_rights),
-        "fd_filestat_get" => Function::new_native(ctx, fd_filestat_get::<Memory32>),
-        "fd_filestat_set_size" => Function::new_native(ctx, fd_filestat_set_size),
-        "fd_filestat_set_times" => Function::new_native(ctx, fd_filestat_set_times),
-        "fd_pread" => Function::new_native(ctx, fd_pread::<Memory32>),
-        "fd_prestat_get" => Function::new_native(ctx, fd_prestat_get::<Memory32>),
-        "fd_prestat_dir_name" => Function::new_native(ctx, fd_prestat_dir_name::<Memory32>),
-        "fd_pwrite" => Function::new_native(ctx, fd_pwrite::<Memory32>),
-        "fd_read" => Function::new_native(ctx, fd_read::<Memory32>),
-        "fd_readdir" => Function::new_native(ctx, fd_readdir::<Memory32>),
-        "fd_renumber" => Function::new_native(ctx, fd_renumber),
-        "fd_seek" => Function::new_native(ctx, fd_seek::<Memory32>),
-        "fd_sync" => Function::new_native(ctx, fd_sync),
-        "fd_tell" => Function::new_native(ctx, fd_tell::<Memory32>),
-        "fd_write" => Function::new_native(ctx, fd_write::<Memory32>),
-        "path_create_directory" => Function::new_native(ctx, path_create_directory::<Memory32>),
-        "path_filestat_get" => Function::new_native(ctx, path_filestat_get::<Memory32>),
-        "path_filestat_set_times" => Function::new_native(ctx, path_filestat_set_times::<Memory32>),
-        "path_link" => Function::new_native(ctx, path_link::<Memory32>),
-        "path_open" => Function::new_native(ctx, path_open::<Memory32>),
-        "path_readlink" => Function::new_native(ctx, path_readlink::<Memory32>),
-        "path_remove_directory" => Function::new_native(ctx, path_remove_directory::<Memory32>),
-        "path_rename" => Function::new_native(ctx, path_rename::<Memory32>),
-        "path_symlink" => Function::new_native(ctx, path_symlink::<Memory32>),
-        "path_unlink_file" => Function::new_native(ctx, path_unlink_file::<Memory32>),
-        "poll_oneoff" => Function::new_native(ctx, poll_oneoff::<Memory32>),
-        "proc_exit" => Function::new_native(ctx, proc_exit),
-        "proc_raise" => Function::new_native(ctx, proc_raise),
-        "random_get" => Function::new_native(ctx, random_get::<Memory32>),
-        "sched_yield" => Function::new_native(ctx, sched_yield),
-        "sock_recv" => Function::new_native(ctx, sock_recv::<Memory32>),
-        "sock_send" => Function::new_native(ctx, sock_send::<Memory32>),
-        "sock_shutdown" => Function::new_native(ctx, sock_shutdown),
+        "args_get" => Function::new_native(&mut store, &ctx,args_get::<Memory32>),
+        "args_sizes_get" => Function::new_native(&mut store, &ctx,args_sizes_get::<Memory32>),
+        "clock_res_get" => Function::new_native(&mut store, &ctx,clock_res_get::<Memory32>),
+        "clock_time_get" => Function::new_native(&mut store, &ctx,clock_time_get::<Memory32>),
+        "environ_get" => Function::new_native(&mut store, &ctx,environ_get::<Memory32>),
+        "environ_sizes_get" => Function::new_native(&mut store, &ctx,environ_sizes_get::<Memory32>),
+        "fd_advise" => Function::new_native(&mut store, &ctx,fd_advise),
+        "fd_allocate" => Function::new_native(&mut store, &ctx,fd_allocate),
+        "fd_close" => Function::new_native(&mut store, &ctx,fd_close),
+        "fd_datasync" => Function::new_native(&mut store, &ctx,fd_datasync),
+        "fd_fdstat_get" => Function::new_native(&mut store, &ctx,fd_fdstat_get::<Memory32>),
+        "fd_fdstat_set_flags" => Function::new_native(&mut store, &ctx,fd_fdstat_set_flags),
+        "fd_fdstat_set_rights" => Function::new_native(&mut store, &ctx,fd_fdstat_set_rights),
+        "fd_filestat_get" => Function::new_native(&mut store, &ctx,fd_filestat_get::<Memory32>),
+        "fd_filestat_set_size" => Function::new_native(&mut store, &ctx,fd_filestat_set_size),
+        "fd_filestat_set_times" => Function::new_native(&mut store, &ctx,fd_filestat_set_times),
+        "fd_pread" => Function::new_native(&mut store, &ctx,fd_pread::<Memory32>),
+        "fd_prestat_get" => Function::new_native(&mut store, &ctx,fd_prestat_get::<Memory32>),
+        "fd_prestat_dir_name" => Function::new_native(&mut store, &ctx,fd_prestat_dir_name::<Memory32>),
+        "fd_pwrite" => Function::new_native(&mut store, &ctx,fd_pwrite::<Memory32>),
+        "fd_read" => Function::new_native(&mut store, &ctx,fd_read::<Memory32>),
+        "fd_readdir" => Function::new_native(&mut store, &ctx,fd_readdir::<Memory32>),
+        "fd_renumber" => Function::new_native(&mut store, &ctx,fd_renumber),
+        "fd_seek" => Function::new_native(&mut store, &ctx,fd_seek::<Memory32>),
+        "fd_sync" => Function::new_native(&mut store, &ctx,fd_sync),
+        "fd_tell" => Function::new_native(&mut store, &ctx,fd_tell::<Memory32>),
+        "fd_write" => Function::new_native(&mut store, &ctx,fd_write::<Memory32>),
+        "path_create_directory" => Function::new_native(&mut store, &ctx,path_create_directory::<Memory32>),
+        "path_filestat_get" => Function::new_native(&mut store, &ctx,path_filestat_get::<Memory32>),
+        "path_filestat_set_times" => Function::new_native(&mut store, &ctx,path_filestat_set_times::<Memory32>),
+        "path_link" => Function::new_native(&mut store, &ctx,path_link::<Memory32>),
+        "path_open" => Function::new_native(&mut store, &ctx,path_open::<Memory32>),
+        "path_readlink" => Function::new_native(&mut store, &ctx,path_readlink::<Memory32>),
+        "path_remove_directory" => Function::new_native(&mut store, &ctx,path_remove_directory::<Memory32>),
+        "path_rename" => Function::new_native(&mut store, &ctx,path_rename::<Memory32>),
+        "path_symlink" => Function::new_native(&mut store, &ctx,path_symlink::<Memory32>),
+        "path_unlink_file" => Function::new_native(&mut store, &ctx,path_unlink_file::<Memory32>),
+        "poll_oneoff" => Function::new_native(&mut store, &ctx,poll_oneoff::<Memory32>),
+        "proc_exit" => Function::new_native(&mut store, &ctx,proc_exit),
+        "proc_raise" => Function::new_native(&mut store, &ctx,proc_raise),
+        "random_get" => Function::new_native(&mut store, &ctx,random_get::<Memory32>),
+        "sched_yield" => Function::new_native(&mut store, &ctx,sched_yield),
+        "sock_recv" => Function::new_native(&mut store, &ctx,sock_recv::<Memory32>),
+        "sock_send" => Function::new_native(&mut store, &ctx,sock_send::<Memory32>),
+        "sock_shutdown" => Function::new_native(&mut store, &ctx,sock_shutdown),
     };
     namespace
 }
-pub fn import_object_for_all_wasi_versions(ctx: &mut FunctionEnvMut<'_, WasiEnv>) -> Imports {
-    let wasi_unstable_exports = wasi_unstable_exports(ctx);
-    let wasi_snapshot_preview1_exports = wasi_snapshot_preview1_exports(ctx);
+pub fn import_object_for_all_wasi_versions(store: &mut impl AsStoreMut, ctx: &FunctionEnv<WasiEnv>) -> Imports {
+    let wasi_unstable_exports = wasi_unstable_exports(store, ctx);
+    let wasi_snapshot_preview1_exports = wasi_snapshot_preview1_exports(store, ctx);
     imports! {
         "wasi_unstable" => wasi_unstable_exports,
         "wasi_snapshot_preview1" => wasi_snapshot_preview1_exports,
@@ -480,247 +496,247 @@ pub fn import_object_for_all_wasi_versions(ctx: &mut FunctionEnvMut<'_, WasiEnv>
 }
 
 /// Combines a state generating function with the import list for legacy WASI
-fn generate_import_object_snapshot0(ctx: &mut FunctionEnvMut<'_, WasiEnv>) -> Imports {
-    let wasi_unstable_exports = wasi_unstable_exports(ctx);
+fn generate_import_object_snapshot0(store: &mut impl AsStoreMut, ctx: &FunctionEnv<WasiEnv>) -> Imports {
+    let wasi_unstable_exports = wasi_unstable_exports(store, ctx);
     imports! {
         "wasi_unstable" => wasi_unstable_exports
     }
 }
 
-fn generate_import_object_snapshot1(ctx: &mut FunctionEnvMut<'_, WasiEnv>) -> Imports {
-    let wasi_snapshot_preview1_exports = wasi_snapshot_preview1_exports(ctx);
+fn generate_import_object_snapshot1(store: &mut impl AsStoreMut, ctx: &FunctionEnv<WasiEnv>) -> Imports {
+    let wasi_snapshot_preview1_exports = wasi_snapshot_preview1_exports(store, ctx);
     imports! {
         "wasi_snapshot_preview1" => wasi_snapshot_preview1_exports
     }
 }
 
 /// Combines a state generating function with the import list for snapshot 1
-fn generate_import_object_wasix32_v1(ctx: &mut FunctionEnvMut<'_, WasiEnv>) -> Imports {
+fn generate_import_object_wasix32_v1(mut store: &mut impl AsStoreMut, ctx: &FunctionEnv<WasiEnv>) -> Imports {
     use self::wasix32::*;
     imports! {
         "wasix_32v1" => {
-            "args_get" => Function::new_native(ctx, args_get),
-            "args_sizes_get" => Function::new_native(ctx, args_sizes_get),
-            "clock_res_get" => Function::new_native(ctx, clock_res_get),
-            "clock_time_get" => Function::new_native(ctx, clock_time_get),
-            "environ_get" => Function::new_native(ctx, environ_get),
-            "environ_sizes_get" => Function::new_native(ctx, environ_sizes_get),
-            "fd_advise" => Function::new_native(ctx, fd_advise),
-            "fd_allocate" => Function::new_native(ctx, fd_allocate),
-            "fd_close" => Function::new_native(ctx, fd_close),
-            "fd_datasync" => Function::new_native(ctx, fd_datasync),
-            "fd_fdstat_get" => Function::new_native(ctx, fd_fdstat_get),
-            "fd_fdstat_set_flags" => Function::new_native(ctx, fd_fdstat_set_flags),
-            "fd_fdstat_set_rights" => Function::new_native(ctx, fd_fdstat_set_rights),
-            "fd_filestat_get" => Function::new_native(ctx, fd_filestat_get),
-            "fd_filestat_set_size" => Function::new_native(ctx, fd_filestat_set_size),
-            "fd_filestat_set_times" => Function::new_native(ctx, fd_filestat_set_times),
-            "fd_pread" => Function::new_native(ctx, fd_pread),
-            "fd_prestat_get" => Function::new_native(ctx, fd_prestat_get),
-            "fd_prestat_dir_name" => Function::new_native(ctx, fd_prestat_dir_name),
-            "fd_pwrite" => Function::new_native(ctx, fd_pwrite),
-            "fd_read" => Function::new_native(ctx, fd_read),
-            "fd_readdir" => Function::new_native(ctx, fd_readdir),
-            "fd_renumber" => Function::new_native(ctx, fd_renumber),
-            "fd_dup" => Function::new_native(ctx, fd_dup),
-            "fd_event" => Function::new_native(ctx, fd_event),
-            "fd_seek" => Function::new_native(ctx, fd_seek),
-            "fd_sync" => Function::new_native(ctx, fd_sync),
-            "fd_tell" => Function::new_native(ctx, fd_tell),
-            "fd_write" => Function::new_native(ctx, fd_write),
-            "fd_pipe" => Function::new_native(ctx, fd_pipe),
-            "path_create_directory" => Function::new_native(ctx, path_create_directory),
-            "path_filestat_get" => Function::new_native(ctx, path_filestat_get),
-            "path_filestat_set_times" => Function::new_native(ctx, path_filestat_set_times),
-            "path_link" => Function::new_native(ctx, path_link),
-            "path_open" => Function::new_native(ctx, path_open),
-            "path_readlink" => Function::new_native(ctx, path_readlink),
-            "path_remove_directory" => Function::new_native(ctx, path_remove_directory),
-            "path_rename" => Function::new_native(ctx, path_rename),
-            "path_symlink" => Function::new_native(ctx, path_symlink),
-            "path_unlink_file" => Function::new_native(ctx, path_unlink_file),
-            "poll_oneoff" => Function::new_native(ctx, poll_oneoff),
-            "proc_exit" => Function::new_native(ctx, proc_exit),
-            "proc_raise" => Function::new_native(ctx, proc_raise),
-            "random_get" => Function::new_native(ctx, random_get),
-            "tty_get" => Function::new_native(ctx, tty_get),
-            "tty_set" => Function::new_native(ctx, tty_set),
-            "getcwd" => Function::new_native(ctx, getcwd),
-            "chdir" => Function::new_native(ctx, chdir),
-            "thread_spawn" => Function::new_native(ctx, thread_spawn),
-            "thread_sleep" => Function::new_native(ctx, thread_sleep),
-            "thread_id" => Function::new_native(ctx, thread_id),
-            "thread_join" => Function::new_native(ctx, thread_join),
-            "thread_parallelism" => Function::new_native(ctx, thread_parallelism),
-            "thread_exit" => Function::new_native(ctx, thread_exit),
-            "sched_yield" => Function::new_native(ctx, sched_yield),
-            "getpid" => Function::new_native(ctx, getpid),
-            "process_spawn" => Function::new_native(ctx, process_spawn),
-            "bus_open_local" => Function::new_native(ctx, bus_open_local),
-            "bus_open_remote" => Function::new_native(ctx, bus_open_remote),
-            "bus_close" => Function::new_native(ctx, bus_close),
-            "bus_call" => Function::new_native(ctx, bus_call),
-            "bus_subcall" => Function::new_native(ctx, bus_subcall),
-            "bus_poll" => Function::new_native(ctx, bus_poll),
-            "call_reply" => Function::new_native(ctx, call_reply),
-            "call_fault" => Function::new_native(ctx, call_fault),
-            "call_close" => Function::new_native(ctx, call_close),
-            "ws_connect" => Function::new_native(ctx, ws_connect),
-            "http_request" => Function::new_native(ctx, http_request),
-            "http_status" => Function::new_native(ctx, http_status),
-            "port_bridge" => Function::new_native(ctx, port_bridge),
-            "port_unbridge" => Function::new_native(ctx, port_unbridge),
-            "port_dhcp_acquire" => Function::new_native(ctx, port_dhcp_acquire),
-            "port_addr_add" => Function::new_native(ctx, port_addr_add),
-            "port_addr_remove" => Function::new_native(ctx, port_addr_remove),
-            "port_addr_clear" => Function::new_native(ctx, port_addr_clear),
-            "port_addr_list" => Function::new_native(ctx, port_addr_list),
-            "port_mac" => Function::new_native(ctx, port_mac),
-            "port_gateway_set" => Function::new_native(ctx, port_gateway_set),
-            "port_route_add" => Function::new_native(ctx, port_route_add),
-            "port_route_remove" => Function::new_native(ctx, port_route_remove),
-            "port_route_clear" => Function::new_native(ctx, port_route_clear),
-            "port_route_list" => Function::new_native(ctx, port_route_list),
-            "sock_status" => Function::new_native(ctx, sock_status),
-            "sock_addr_local" => Function::new_native(ctx, sock_addr_local),
-            "sock_addr_peer" => Function::new_native(ctx, sock_addr_peer),
-            "sock_open" => Function::new_native(ctx, sock_open),
-            "sock_set_opt_flag" => Function::new_native(ctx, sock_set_opt_flag),
-            "sock_get_opt_flag" => Function::new_native(ctx, sock_get_opt_flag),
-            "sock_set_opt_time" => Function::new_native(ctx, sock_set_opt_time),
-            "sock_get_opt_time" => Function::new_native(ctx, sock_get_opt_time),
-            "sock_set_opt_size" => Function::new_native(ctx, sock_set_opt_size),
-            "sock_get_opt_size" => Function::new_native(ctx, sock_get_opt_size),
-            "sock_join_multicast_v4" => Function::new_native(ctx, sock_join_multicast_v4),
-            "sock_leave_multicast_v4" => Function::new_native(ctx, sock_leave_multicast_v4),
-            "sock_join_multicast_v6" => Function::new_native(ctx, sock_join_multicast_v6),
-            "sock_leave_multicast_v6" => Function::new_native(ctx, sock_leave_multicast_v6),
-            "sock_bind" => Function::new_native(ctx, sock_bind),
-            "sock_listen" => Function::new_native(ctx, sock_listen),
-            "sock_accept" => Function::new_native(ctx, sock_accept),
-            "sock_connect" => Function::new_native(ctx, sock_connect),
-            "sock_recv" => Function::new_native(ctx, sock_recv),
-            "sock_recv_from" => Function::new_native(ctx, sock_recv_from),
-            "sock_send" => Function::new_native(ctx, sock_send),
-            "sock_send_to" => Function::new_native(ctx, sock_send_to),
-            "sock_send_file" => Function::new_native(ctx, sock_send_file),
-            "sock_shutdown" => Function::new_native(ctx, sock_shutdown),
-            "resolve" => Function::new_native(ctx, resolve),
+            "args_get" => Function::new_native(&mut store, &ctx,args_get),
+            "args_sizes_get" => Function::new_native(&mut store, &ctx,args_sizes_get),
+            "clock_res_get" => Function::new_native(&mut store, &ctx,clock_res_get),
+            "clock_time_get" => Function::new_native(&mut store, &ctx,clock_time_get),
+            "environ_get" => Function::new_native(&mut store, &ctx,environ_get),
+            "environ_sizes_get" => Function::new_native(&mut store, &ctx,environ_sizes_get),
+            "fd_advise" => Function::new_native(&mut store, &ctx,fd_advise),
+            "fd_allocate" => Function::new_native(&mut store, &ctx,fd_allocate),
+            "fd_close" => Function::new_native(&mut store, &ctx,fd_close),
+            "fd_datasync" => Function::new_native(&mut store, &ctx,fd_datasync),
+            "fd_fdstat_get" => Function::new_native(&mut store, &ctx,fd_fdstat_get),
+            "fd_fdstat_set_flags" => Function::new_native(&mut store, &ctx,fd_fdstat_set_flags),
+            "fd_fdstat_set_rights" => Function::new_native(&mut store, &ctx,fd_fdstat_set_rights),
+            "fd_filestat_get" => Function::new_native(&mut store, &ctx,fd_filestat_get),
+            "fd_filestat_set_size" => Function::new_native(&mut store, &ctx,fd_filestat_set_size),
+            "fd_filestat_set_times" => Function::new_native(&mut store, &ctx,fd_filestat_set_times),
+            "fd_pread" => Function::new_native(&mut store, &ctx,fd_pread),
+            "fd_prestat_get" => Function::new_native(&mut store, &ctx,fd_prestat_get),
+            "fd_prestat_dir_name" => Function::new_native(&mut store, &ctx,fd_prestat_dir_name),
+            "fd_pwrite" => Function::new_native(&mut store, &ctx,fd_pwrite),
+            "fd_read" => Function::new_native(&mut store, &ctx,fd_read),
+            "fd_readdir" => Function::new_native(&mut store, &ctx,fd_readdir),
+            "fd_renumber" => Function::new_native(&mut store, &ctx,fd_renumber),
+            "fd_dup" => Function::new_native(&mut store, &ctx,fd_dup),
+            "fd_event" => Function::new_native(&mut store, &ctx,fd_event),
+            "fd_seek" => Function::new_native(&mut store, &ctx,fd_seek),
+            "fd_sync" => Function::new_native(&mut store, &ctx,fd_sync),
+            "fd_tell" => Function::new_native(&mut store, &ctx,fd_tell),
+            "fd_write" => Function::new_native(&mut store, &ctx,fd_write),
+            "fd_pipe" => Function::new_native(&mut store, &ctx,fd_pipe),
+            "path_create_directory" => Function::new_native(&mut store, &ctx,path_create_directory),
+            "path_filestat_get" => Function::new_native(&mut store, &ctx,path_filestat_get),
+            "path_filestat_set_times" => Function::new_native(&mut store, &ctx,path_filestat_set_times),
+            "path_link" => Function::new_native(&mut store, &ctx,path_link),
+            "path_open" => Function::new_native(&mut store, &ctx,path_open),
+            "path_readlink" => Function::new_native(&mut store, &ctx,path_readlink),
+            "path_remove_directory" => Function::new_native(&mut store, &ctx,path_remove_directory),
+            "path_rename" => Function::new_native(&mut store, &ctx,path_rename),
+            "path_symlink" => Function::new_native(&mut store, &ctx,path_symlink),
+            "path_unlink_file" => Function::new_native(&mut store, &ctx,path_unlink_file),
+            "poll_oneoff" => Function::new_native(&mut store, &ctx,poll_oneoff),
+            "proc_exit" => Function::new_native(&mut store, &ctx,proc_exit),
+            "proc_raise" => Function::new_native(&mut store, &ctx,proc_raise),
+            "random_get" => Function::new_native(&mut store, &ctx,random_get),
+            "tty_get" => Function::new_native(&mut store, &ctx,tty_get),
+            "tty_set" => Function::new_native(&mut store, &ctx,tty_set),
+            "getcwd" => Function::new_native(&mut store, &ctx,getcwd),
+            "chdir" => Function::new_native(&mut store, &ctx,chdir),
+            "thread_spawn" => Function::new_native(&mut store, &ctx,thread_spawn),
+            "thread_sleep" => Function::new_native(&mut store, &ctx,thread_sleep),
+            "thread_id" => Function::new_native(&mut store, &ctx,thread_id),
+            "thread_join" => Function::new_native(&mut store, &ctx,thread_join),
+            "thread_parallelism" => Function::new_native(&mut store, &ctx,thread_parallelism),
+            "thread_exit" => Function::new_native(&mut store, &ctx,thread_exit),
+            "sched_yield" => Function::new_native(&mut store, &ctx,sched_yield),
+            "getpid" => Function::new_native(&mut store, &ctx,getpid),
+            "process_spawn" => Function::new_native(&mut store, &ctx,process_spawn),
+            "bus_open_local" => Function::new_native(&mut store, &ctx,bus_open_local),
+            "bus_open_remote" => Function::new_native(&mut store, &ctx,bus_open_remote),
+            "bus_close" => Function::new_native(&mut store, &ctx,bus_close),
+            "bus_call" => Function::new_native(&mut store, &ctx,bus_call),
+            "bus_subcall" => Function::new_native(&mut store, &ctx,bus_subcall),
+            "bus_poll" => Function::new_native(&mut store, &ctx,bus_poll),
+            "call_reply" => Function::new_native(&mut store, &ctx,call_reply),
+            "call_fault" => Function::new_native(&mut store, &ctx,call_fault),
+            "call_close" => Function::new_native(&mut store, &ctx,call_close),
+            "ws_connect" => Function::new_native(&mut store, &ctx,ws_connect),
+            "http_request" => Function::new_native(&mut store, &ctx,http_request),
+            "http_status" => Function::new_native(&mut store, &ctx,http_status),
+            "port_bridge" => Function::new_native(&mut store, &ctx,port_bridge),
+            "port_unbridge" => Function::new_native(&mut store, &ctx,port_unbridge),
+            "port_dhcp_acquire" => Function::new_native(&mut store, &ctx,port_dhcp_acquire),
+            "port_addr_add" => Function::new_native(&mut store, &ctx,port_addr_add),
+            "port_addr_remove" => Function::new_native(&mut store, &ctx,port_addr_remove),
+            "port_addr_clear" => Function::new_native(&mut store, &ctx,port_addr_clear),
+            "port_addr_list" => Function::new_native(&mut store, &ctx,port_addr_list),
+            "port_mac" => Function::new_native(&mut store, &ctx,port_mac),
+            "port_gateway_set" => Function::new_native(&mut store, &ctx,port_gateway_set),
+            "port_route_add" => Function::new_native(&mut store, &ctx,port_route_add),
+            "port_route_remove" => Function::new_native(&mut store, &ctx,port_route_remove),
+            "port_route_clear" => Function::new_native(&mut store, &ctx,port_route_clear),
+            "port_route_list" => Function::new_native(&mut store, &ctx,port_route_list),
+            "sock_status" => Function::new_native(&mut store, &ctx,sock_status),
+            "sock_addr_local" => Function::new_native(&mut store, &ctx,sock_addr_local),
+            "sock_addr_peer" => Function::new_native(&mut store, &ctx,sock_addr_peer),
+            "sock_open" => Function::new_native(&mut store, &ctx,sock_open),
+            "sock_set_opt_flag" => Function::new_native(&mut store, &ctx,sock_set_opt_flag),
+            "sock_get_opt_flag" => Function::new_native(&mut store, &ctx,sock_get_opt_flag),
+            "sock_set_opt_time" => Function::new_native(&mut store, &ctx,sock_set_opt_time),
+            "sock_get_opt_time" => Function::new_native(&mut store, &ctx,sock_get_opt_time),
+            "sock_set_opt_size" => Function::new_native(&mut store, &ctx,sock_set_opt_size),
+            "sock_get_opt_size" => Function::new_native(&mut store, &ctx,sock_get_opt_size),
+            "sock_join_multicast_v4" => Function::new_native(&mut store, &ctx,sock_join_multicast_v4),
+            "sock_leave_multicast_v4" => Function::new_native(&mut store, &ctx,sock_leave_multicast_v4),
+            "sock_join_multicast_v6" => Function::new_native(&mut store, &ctx,sock_join_multicast_v6),
+            "sock_leave_multicast_v6" => Function::new_native(&mut store, &ctx,sock_leave_multicast_v6),
+            "sock_bind" => Function::new_native(&mut store, &ctx,sock_bind),
+            "sock_listen" => Function::new_native(&mut store, &ctx,sock_listen),
+            "sock_accept" => Function::new_native(&mut store, &ctx,sock_accept),
+            "sock_connect" => Function::new_native(&mut store, &ctx,sock_connect),
+            "sock_recv" => Function::new_native(&mut store, &ctx,sock_recv),
+            "sock_recv_from" => Function::new_native(&mut store, &ctx,sock_recv_from),
+            "sock_send" => Function::new_native(&mut store, &ctx,sock_send),
+            "sock_send_to" => Function::new_native(&mut store, &ctx,sock_send_to),
+            "sock_send_file" => Function::new_native(&mut store, &ctx,sock_send_file),
+            "sock_shutdown" => Function::new_native(&mut store, &ctx,sock_shutdown),
+            "resolve" => Function::new_native(&mut store, &ctx,resolve),
         }
     }
 }
 
-fn generate_import_object_wasix64_v1(ctx: &mut FunctionEnvMut<'_, WasiEnv>) -> Imports {
+fn generate_import_object_wasix64_v1(mut store: &mut impl AsStoreMut, ctx: &FunctionEnv<WasiEnv>) -> Imports {
     use self::wasix64::*;
     imports! {
         "wasix_64v1" => {
-            "args_get" => Function::new_native(ctx, args_get),
-            "args_sizes_get" => Function::new_native(ctx, args_sizes_get),
-            "clock_res_get" => Function::new_native(ctx, clock_res_get),
-            "clock_time_get" => Function::new_native(ctx, clock_time_get),
-            "environ_get" => Function::new_native(ctx, environ_get),
-            "environ_sizes_get" => Function::new_native(ctx, environ_sizes_get),
-            "fd_advise" => Function::new_native(ctx, fd_advise),
-            "fd_allocate" => Function::new_native(ctx, fd_allocate),
-            "fd_close" => Function::new_native(ctx, fd_close),
-            "fd_datasync" => Function::new_native(ctx, fd_datasync),
-            "fd_fdstat_get" => Function::new_native(ctx, fd_fdstat_get),
-            "fd_fdstat_set_flags" => Function::new_native(ctx, fd_fdstat_set_flags),
-            "fd_fdstat_set_rights" => Function::new_native(ctx, fd_fdstat_set_rights),
-            "fd_filestat_get" => Function::new_native(ctx, fd_filestat_get),
-            "fd_filestat_set_size" => Function::new_native(ctx, fd_filestat_set_size),
-            "fd_filestat_set_times" => Function::new_native(ctx, fd_filestat_set_times),
-            "fd_pread" => Function::new_native(ctx, fd_pread),
-            "fd_prestat_get" => Function::new_native(ctx, fd_prestat_get),
-            "fd_prestat_dir_name" => Function::new_native(ctx, fd_prestat_dir_name),
-            "fd_pwrite" => Function::new_native(ctx, fd_pwrite),
-            "fd_read" => Function::new_native(ctx, fd_read),
-            "fd_readdir" => Function::new_native(ctx, fd_readdir),
-            "fd_renumber" => Function::new_native(ctx, fd_renumber),
-            "fd_dup" => Function::new_native(ctx, fd_dup),
-            "fd_event" => Function::new_native(ctx, fd_event),
-            "fd_seek" => Function::new_native(ctx, fd_seek),
-            "fd_sync" => Function::new_native(ctx, fd_sync),
-            "fd_tell" => Function::new_native(ctx, fd_tell),
-            "fd_write" => Function::new_native(ctx, fd_write),
-            "fd_pipe" => Function::new_native(ctx, fd_pipe),
-            "path_create_directory" => Function::new_native(ctx, path_create_directory),
-            "path_filestat_get" => Function::new_native(ctx, path_filestat_get),
-            "path_filestat_set_times" => Function::new_native(ctx, path_filestat_set_times),
-            "path_link" => Function::new_native(ctx, path_link),
-            "path_open" => Function::new_native(ctx, path_open),
-            "path_readlink" => Function::new_native(ctx, path_readlink),
-            "path_remove_directory" => Function::new_native(ctx, path_remove_directory),
-            "path_rename" => Function::new_native(ctx, path_rename),
-            "path_symlink" => Function::new_native(ctx, path_symlink),
-            "path_unlink_file" => Function::new_native(ctx, path_unlink_file),
-            "poll_oneoff" => Function::new_native(ctx, poll_oneoff),
-            "proc_exit" => Function::new_native(ctx, proc_exit),
-            "proc_raise" => Function::new_native(ctx, proc_raise),
-            "random_get" => Function::new_native(ctx, random_get),
-            "tty_get" => Function::new_native(ctx, tty_get),
-            "tty_set" => Function::new_native(ctx, tty_set),
-            "getcwd" => Function::new_native(ctx, getcwd),
-            "chdir" => Function::new_native(ctx, chdir),
-            "thread_spawn" => Function::new_native(ctx, thread_spawn),
-            "thread_sleep" => Function::new_native(ctx, thread_sleep),
-            "thread_id" => Function::new_native(ctx, thread_id),
-            "thread_join" => Function::new_native(ctx, thread_join),
-            "thread_parallelism" => Function::new_native(ctx, thread_parallelism),
-            "thread_exit" => Function::new_native(ctx, thread_exit),
-            "sched_yield" => Function::new_native(ctx, sched_yield),
-            "getpid" => Function::new_native(ctx, getpid),
-            "process_spawn" => Function::new_native(ctx, process_spawn),
-            "bus_open_local" => Function::new_native(ctx, bus_open_local),
-            "bus_open_remote" => Function::new_native(ctx, bus_open_remote),
-            "bus_close" => Function::new_native(ctx, bus_close),
-            "bus_call" => Function::new_native(ctx, bus_call),
-            "bus_subcall" => Function::new_native(ctx, bus_subcall),
-            "bus_poll" => Function::new_native(ctx, bus_poll),
-            "call_reply" => Function::new_native(ctx, call_reply),
-            "call_fault" => Function::new_native(ctx, call_fault),
-            "call_close" => Function::new_native(ctx, call_close),
-            "ws_connect" => Function::new_native(ctx, ws_connect),
-            "http_request" => Function::new_native(ctx, http_request),
-            "http_status" => Function::new_native(ctx, http_status),
-            "port_bridge" => Function::new_native(ctx, port_bridge),
-            "port_unbridge" => Function::new_native(ctx, port_unbridge),
-            "port_dhcp_acquire" => Function::new_native(ctx, port_dhcp_acquire),
-            "port_addr_add" => Function::new_native(ctx, port_addr_add),
-            "port_addr_remove" => Function::new_native(ctx, port_addr_remove),
-            "port_addr_clear" => Function::new_native(ctx, port_addr_clear),
-            "port_addr_list" => Function::new_native(ctx, port_addr_list),
-            "port_mac" => Function::new_native(ctx, port_mac),
-            "port_gateway_set" => Function::new_native(ctx, port_gateway_set),
-            "port_route_add" => Function::new_native(ctx, port_route_add),
-            "port_route_remove" => Function::new_native(ctx, port_route_remove),
-            "port_route_clear" => Function::new_native(ctx, port_route_clear),
-            "port_route_list" => Function::new_native(ctx, port_route_list),
-            "sock_status" => Function::new_native(ctx, sock_status),
-            "sock_addr_local" => Function::new_native(ctx, sock_addr_local),
-            "sock_addr_peer" => Function::new_native(ctx, sock_addr_peer),
-            "sock_open" => Function::new_native(ctx, sock_open),
-            "sock_set_opt_flag" => Function::new_native(ctx, sock_set_opt_flag),
-            "sock_get_opt_flag" => Function::new_native(ctx, sock_get_opt_flag),
-            "sock_set_opt_time" => Function::new_native(ctx, sock_set_opt_time),
-            "sock_get_opt_time" => Function::new_native(ctx, sock_get_opt_time),
-            "sock_set_opt_size" => Function::new_native(ctx, sock_set_opt_size),
-            "sock_get_opt_size" => Function::new_native(ctx, sock_get_opt_size),
-            "sock_join_multicast_v4" => Function::new_native(ctx, sock_join_multicast_v4),
-            "sock_leave_multicast_v4" => Function::new_native(ctx, sock_leave_multicast_v4),
-            "sock_join_multicast_v6" => Function::new_native(ctx, sock_join_multicast_v6),
-            "sock_leave_multicast_v6" => Function::new_native(ctx, sock_leave_multicast_v6),
-            "sock_bind" => Function::new_native(ctx, sock_bind),
-            "sock_listen" => Function::new_native(ctx, sock_listen),
-            "sock_accept" => Function::new_native(ctx, sock_accept),
-            "sock_connect" => Function::new_native(ctx, sock_connect),
-            "sock_recv" => Function::new_native(ctx, sock_recv),
-            "sock_recv_from" => Function::new_native(ctx, sock_recv_from),
-            "sock_send" => Function::new_native(ctx, sock_send),
-            "sock_send_to" => Function::new_native(ctx, sock_send_to),
-            "sock_send_file" => Function::new_native(ctx, sock_send_file),
-            "sock_shutdown" => Function::new_native(ctx, sock_shutdown),
-            "resolve" => Function::new_native(ctx, resolve),
+            "args_get" => Function::new_native(&mut store, &ctx,args_get),
+            "args_sizes_get" => Function::new_native(&mut store, &ctx,args_sizes_get),
+            "clock_res_get" => Function::new_native(&mut store, &ctx,clock_res_get),
+            "clock_time_get" => Function::new_native(&mut store, &ctx,clock_time_get),
+            "environ_get" => Function::new_native(&mut store, &ctx,environ_get),
+            "environ_sizes_get" => Function::new_native(&mut store, &ctx,environ_sizes_get),
+            "fd_advise" => Function::new_native(&mut store, &ctx,fd_advise),
+            "fd_allocate" => Function::new_native(&mut store, &ctx,fd_allocate),
+            "fd_close" => Function::new_native(&mut store, &ctx,fd_close),
+            "fd_datasync" => Function::new_native(&mut store, &ctx,fd_datasync),
+            "fd_fdstat_get" => Function::new_native(&mut store, &ctx,fd_fdstat_get),
+            "fd_fdstat_set_flags" => Function::new_native(&mut store, &ctx,fd_fdstat_set_flags),
+            "fd_fdstat_set_rights" => Function::new_native(&mut store, &ctx,fd_fdstat_set_rights),
+            "fd_filestat_get" => Function::new_native(&mut store, &ctx,fd_filestat_get),
+            "fd_filestat_set_size" => Function::new_native(&mut store, &ctx,fd_filestat_set_size),
+            "fd_filestat_set_times" => Function::new_native(&mut store, &ctx,fd_filestat_set_times),
+            "fd_pread" => Function::new_native(&mut store, &ctx,fd_pread),
+            "fd_prestat_get" => Function::new_native(&mut store, &ctx,fd_prestat_get),
+            "fd_prestat_dir_name" => Function::new_native(&mut store, &ctx,fd_prestat_dir_name),
+            "fd_pwrite" => Function::new_native(&mut store, &ctx,fd_pwrite),
+            "fd_read" => Function::new_native(&mut store, &ctx,fd_read),
+            "fd_readdir" => Function::new_native(&mut store, &ctx,fd_readdir),
+            "fd_renumber" => Function::new_native(&mut store, &ctx,fd_renumber),
+            "fd_dup" => Function::new_native(&mut store, &ctx,fd_dup),
+            "fd_event" => Function::new_native(&mut store, &ctx,fd_event),
+            "fd_seek" => Function::new_native(&mut store, &ctx,fd_seek),
+            "fd_sync" => Function::new_native(&mut store, &ctx,fd_sync),
+            "fd_tell" => Function::new_native(&mut store, &ctx,fd_tell),
+            "fd_write" => Function::new_native(&mut store, &ctx,fd_write),
+            "fd_pipe" => Function::new_native(&mut store, &ctx,fd_pipe),
+            "path_create_directory" => Function::new_native(&mut store, &ctx,path_create_directory),
+            "path_filestat_get" => Function::new_native(&mut store, &ctx,path_filestat_get),
+            "path_filestat_set_times" => Function::new_native(&mut store, &ctx,path_filestat_set_times),
+            "path_link" => Function::new_native(&mut store, &ctx,path_link),
+            "path_open" => Function::new_native(&mut store, &ctx,path_open),
+            "path_readlink" => Function::new_native(&mut store, &ctx,path_readlink),
+            "path_remove_directory" => Function::new_native(&mut store, &ctx,path_remove_directory),
+            "path_rename" => Function::new_native(&mut store, &ctx,path_rename),
+            "path_symlink" => Function::new_native(&mut store, &ctx,path_symlink),
+            "path_unlink_file" => Function::new_native(&mut store, &ctx,path_unlink_file),
+            "poll_oneoff" => Function::new_native(&mut store, &ctx,poll_oneoff),
+            "proc_exit" => Function::new_native(&mut store, &ctx,proc_exit),
+            "proc_raise" => Function::new_native(&mut store, &ctx,proc_raise),
+            "random_get" => Function::new_native(&mut store, &ctx,random_get),
+            "tty_get" => Function::new_native(&mut store, &ctx,tty_get),
+            "tty_set" => Function::new_native(&mut store, &ctx,tty_set),
+            "getcwd" => Function::new_native(&mut store, &ctx,getcwd),
+            "chdir" => Function::new_native(&mut store, &ctx,chdir),
+            "thread_spawn" => Function::new_native(&mut store, &ctx,thread_spawn),
+            "thread_sleep" => Function::new_native(&mut store, &ctx,thread_sleep),
+            "thread_id" => Function::new_native(&mut store, &ctx,thread_id),
+            "thread_join" => Function::new_native(&mut store, &ctx,thread_join),
+            "thread_parallelism" => Function::new_native(&mut store, &ctx,thread_parallelism),
+            "thread_exit" => Function::new_native(&mut store, &ctx,thread_exit),
+            "sched_yield" => Function::new_native(&mut store, &ctx,sched_yield),
+            "getpid" => Function::new_native(&mut store, &ctx,getpid),
+            "process_spawn" => Function::new_native(&mut store, &ctx,process_spawn),
+            "bus_open_local" => Function::new_native(&mut store, &ctx,bus_open_local),
+            "bus_open_remote" => Function::new_native(&mut store, &ctx,bus_open_remote),
+            "bus_close" => Function::new_native(&mut store, &ctx,bus_close),
+            "bus_call" => Function::new_native(&mut store, &ctx,bus_call),
+            "bus_subcall" => Function::new_native(&mut store, &ctx,bus_subcall),
+            "bus_poll" => Function::new_native(&mut store, &ctx,bus_poll),
+            "call_reply" => Function::new_native(&mut store, &ctx,call_reply),
+            "call_fault" => Function::new_native(&mut store, &ctx,call_fault),
+            "call_close" => Function::new_native(&mut store, &ctx,call_close),
+            "ws_connect" => Function::new_native(&mut store, &ctx,ws_connect),
+            "http_request" => Function::new_native(&mut store, &ctx,http_request),
+            "http_status" => Function::new_native(&mut store, &ctx,http_status),
+            "port_bridge" => Function::new_native(&mut store, &ctx,port_bridge),
+            "port_unbridge" => Function::new_native(&mut store, &ctx,port_unbridge),
+            "port_dhcp_acquire" => Function::new_native(&mut store, &ctx,port_dhcp_acquire),
+            "port_addr_add" => Function::new_native(&mut store, &ctx,port_addr_add),
+            "port_addr_remove" => Function::new_native(&mut store, &ctx,port_addr_remove),
+            "port_addr_clear" => Function::new_native(&mut store, &ctx,port_addr_clear),
+            "port_addr_list" => Function::new_native(&mut store, &ctx,port_addr_list),
+            "port_mac" => Function::new_native(&mut store, &ctx,port_mac),
+            "port_gateway_set" => Function::new_native(&mut store, &ctx,port_gateway_set),
+            "port_route_add" => Function::new_native(&mut store, &ctx,port_route_add),
+            "port_route_remove" => Function::new_native(&mut store, &ctx,port_route_remove),
+            "port_route_clear" => Function::new_native(&mut store, &ctx,port_route_clear),
+            "port_route_list" => Function::new_native(&mut store, &ctx,port_route_list),
+            "sock_status" => Function::new_native(&mut store, &ctx,sock_status),
+            "sock_addr_local" => Function::new_native(&mut store, &ctx,sock_addr_local),
+            "sock_addr_peer" => Function::new_native(&mut store, &ctx,sock_addr_peer),
+            "sock_open" => Function::new_native(&mut store, &ctx,sock_open),
+            "sock_set_opt_flag" => Function::new_native(&mut store, &ctx,sock_set_opt_flag),
+            "sock_get_opt_flag" => Function::new_native(&mut store, &ctx,sock_get_opt_flag),
+            "sock_set_opt_time" => Function::new_native(&mut store, &ctx,sock_set_opt_time),
+            "sock_get_opt_time" => Function::new_native(&mut store, &ctx,sock_get_opt_time),
+            "sock_set_opt_size" => Function::new_native(&mut store, &ctx,sock_set_opt_size),
+            "sock_get_opt_size" => Function::new_native(&mut store, &ctx,sock_get_opt_size),
+            "sock_join_multicast_v4" => Function::new_native(&mut store, &ctx,sock_join_multicast_v4),
+            "sock_leave_multicast_v4" => Function::new_native(&mut store, &ctx,sock_leave_multicast_v4),
+            "sock_join_multicast_v6" => Function::new_native(&mut store, &ctx,sock_join_multicast_v6),
+            "sock_leave_multicast_v6" => Function::new_native(&mut store, &ctx,sock_leave_multicast_v6),
+            "sock_bind" => Function::new_native(&mut store, &ctx,sock_bind),
+            "sock_listen" => Function::new_native(&mut store, &ctx,sock_listen),
+            "sock_accept" => Function::new_native(&mut store, &ctx,sock_accept),
+            "sock_connect" => Function::new_native(&mut store, &ctx,sock_connect),
+            "sock_recv" => Function::new_native(&mut store, &ctx,sock_recv),
+            "sock_recv_from" => Function::new_native(&mut store, &ctx,sock_recv_from),
+            "sock_send" => Function::new_native(&mut store, &ctx,sock_send),
+            "sock_send_to" => Function::new_native(&mut store, &ctx,sock_send_to),
+            "sock_send_file" => Function::new_native(&mut store, &ctx,sock_send_file),
+            "sock_shutdown" => Function::new_native(&mut store, &ctx,sock_shutdown),
+            "resolve" => Function::new_native(&mut store, &ctx,resolve),
         }
     }
 }

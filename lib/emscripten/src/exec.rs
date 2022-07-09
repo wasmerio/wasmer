@@ -3,7 +3,7 @@ use crate::EmEnv;
 use libc::c_char;
 use libc::execvp as libc_execvp;
 use std::ffi::CString;
-use wasmer::{StoreMut, WasmPtr};
+use wasmer::{FunctionEnvMut, WasmPtr};
 
 pub fn execvp(ctx: FunctionEnvMut<'_, EmEnv>, command_name_offset: u32, argv_offset: u32) -> i32 {
     // a single reference to re-use
