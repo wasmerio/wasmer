@@ -102,10 +102,7 @@ impl Function {
                 }
                 let data = new_ctx.as_mut(&mut store);
                 let store_mut = StoreMut::from_raw(raw_store as *mut StoreInner);
-                let env = FunctionEnvMut {
-                    store_mut: store_mut,
-                    data,
-                };
+                let env = FunctionEnvMut { store_mut, data };
                 let returns = func(env, &args)?;
 
                 // We need to dynamically check that the returns

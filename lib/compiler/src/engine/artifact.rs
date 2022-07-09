@@ -4,8 +4,8 @@ use crate::{ArtifactCreate, Upcastable};
 use wasmer_types::entity::BoxedSlice;
 use wasmer_types::{DataInitializer, FunctionIndex, LocalFunctionIndex, SignatureIndex};
 use wasmer_vm::{
-    FunctionBodyPtr, InstanceAllocator, InstanceHandle, StoreObjects, TrapHandlerFn,
-    VMExtern, VMSharedSignatureIndex, VMTrampoline,
+    FunctionBodyPtr, InstanceAllocator, InstanceHandle, StoreObjects, TrapHandlerFn, VMExtern,
+    VMSharedSignatureIndex, VMTrampoline,
 };
 
 /// An `Artifact` is the product that the `Engine`

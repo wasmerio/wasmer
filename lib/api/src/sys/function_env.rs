@@ -60,12 +60,12 @@ pub struct FunctionEnvMut<'a, T: 'a> {
 impl<T> FunctionEnvMut<'_, T> {
     /// Returns a reference to the host state in this context.
     pub fn data(&self) -> &T {
-        &self.data
+        self.data
     }
 
     /// Returns a mutable- reference to the host state in this context.
     pub fn data_mut(&mut self) -> &mut T {
-        &mut self.data
+        self.data
     }
 
     // pub(crate) unsafe fn from_raw(raw: *mut StoreInner, data: *mut T) -> Self {
