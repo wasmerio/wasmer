@@ -8,6 +8,7 @@ license = "MIT"
 edition = "2018"
 publish = false
 autoexamples = false
+build = "build.rs"
 
 [dependencies]
 wasmer = { version = "=2.3.0", path = "lib/api", default-features = false }
