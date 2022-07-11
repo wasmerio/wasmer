@@ -10,7 +10,7 @@ use crate::Features;
 use crate::ModuleEnvironment;
 use crate::{
     register_frame_info, resolve_imports, FunctionExtent, GlobalFrameInfoRegistration,
-    InstantiationError, MetadataHeader, RuntimeError, Tunables,
+    InstantiationError, RuntimeError, Tunables,
 };
 use enumset::EnumSet;
 use std::sync::Arc;
@@ -18,8 +18,8 @@ use std::sync::Mutex;
 use wasmer_types::entity::{BoxedSlice, PrimaryMap};
 use wasmer_types::{
     CompileError, CpuFeature, DataInitializer, DeserializeError, FunctionIndex, LocalFunctionIndex,
-    MemoryIndex, ModuleInfo, OwnedDataInitializer, SerializableModule, SerializeError,
-    SignatureIndex, TableIndex,
+    MemoryIndex, MetadataHeader, ModuleInfo, OwnedDataInitializer, SerializableModule,
+    SerializeError, SignatureIndex, TableIndex,
 };
 use wasmer_vm::{FunctionBodyPtr, MemoryStyle, TableStyle, VMSharedSignatureIndex, VMTrampoline};
 use wasmer_vm::{InstanceAllocator, InstanceHandle, StoreObjects, TrapHandlerFn, VMExtern};

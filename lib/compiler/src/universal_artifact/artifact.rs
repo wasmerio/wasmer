@@ -4,7 +4,6 @@
 #[cfg(feature = "universal_engine")]
 use super::trampoline::{libcall_trampoline_len, make_libcall_trampolines};
 use crate::Features;
-use crate::MetadataHeader;
 use crate::{ArtifactCreate, EngineBuilder};
 #[cfg(feature = "universal_engine")]
 use crate::{ModuleEnvironment, ModuleMiddlewareChain};
@@ -16,8 +15,8 @@ use wasmer_types::CompileModuleInfo;
 use wasmer_types::SerializeError;
 use wasmer_types::{
     CompileError, CpuFeature, CustomSection, Dwarf, FunctionIndex, LocalFunctionIndex, MemoryIndex,
-    MemoryStyle, ModuleInfo, OwnedDataInitializer, Relocation, SectionIndex, SignatureIndex,
-    TableIndex, TableStyle, Target,
+    MemoryStyle, MetadataHeader, ModuleInfo, OwnedDataInitializer, Relocation, SectionIndex,
+    SignatureIndex, TableIndex, TableStyle, Target,
 };
 use wasmer_types::{
     CompiledFunctionFrameInfo, FunctionBody, SerializableCompilation, SerializableModule,

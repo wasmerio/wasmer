@@ -205,15 +205,17 @@ impl MetadataHeader {
 
     /// Parses the header and returns the length of the metadata following it.
     pub fn parse(bytes: &[u8]) -> Result<usize, DeserializeError> {
-        if bytes.as_ptr() as usize % 16 != 0 {
+        if bytes.as_ptr() as usize % 8 != 0 {
             return Err(DeserializeError::CorruptedBinary(
-                "misaligned metadata".to_string(),
+                "misaligned metadata (bytes length not a multiple of 8)".to_string(),
             ));
         }
         let bytes: [u8; 16] = bytes
             .get(..16)
             .ok_or_else(|| {
-                DeserializeError::CorruptedBinary("invalid metadata header".to_string())
+                DeserializeError::CorruptedBinary(
+                    "invalid metadata header (bytes length < 16)".to_string(),
+                )
             })?
             .try_into()
             .unwrap();

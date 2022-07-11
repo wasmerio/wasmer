@@ -1,7 +1,7 @@
 use super::store::wasm_store_t;
 use super::types::{wasm_byte_vec_t, wasm_exporttype_vec_t, wasm_importtype_vec_t};
 use std::ptr::NonNull;
-use wasmer_api::Module;
+use wasmer_api::{AsStoreRef, Module};
 
 /// Opaque type representing a WebAssembly module.
 #[derive(Clone)]
@@ -37,10 +37,10 @@ pub unsafe extern "C" fn wasm_module_new(
     Some(Box::new(wasm_module_t { inner: module }))
 }
 
-/// sadfasfa
+/// Deserializes a module out of a byte slice
 ///
 /// # Safety
-/// asdfasdfa
+/// `bytes` must be a valid pointer and `(bytes, len)` a valid slice.
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_module_new(
     store: Option<&wasm_store_t>,
@@ -50,11 +50,12 @@ pub unsafe extern "C" fn wasmer_module_new(
     let store = store?;
     let slice = std::slice::from_raw_parts(bytes, len);
 
-    let module = c_try!(Module::deserialize(&store.inner, slice));
+    let module = c_try!(Module::deserialize(
+        &store.inner.store().as_store_ref(),
+        slice
+    ));
 
-    Some(Box::new(wasm_module_t {
-        inner: Arc::new(module),
-    }))
+    Some(Box::new(wasm_module_t { inner: module }))
 }
 
 /// Deletes a WebAssembly module.
