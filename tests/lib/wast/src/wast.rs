@@ -8,6 +8,7 @@ use wasmer::*;
 
 /// The wast test script language allows modules to be defined and actions
 /// to be performed on them.
+#[allow(dead_code)]
 pub struct Wast {
     /// Wast files have a concept of a "current" module, which is the most
     /// recently defined.

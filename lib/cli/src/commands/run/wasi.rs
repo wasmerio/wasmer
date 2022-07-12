@@ -2,7 +2,7 @@ use crate::utils::{parse_envvar, parse_mapdir};
 use anyhow::Result;
 use std::collections::BTreeSet;
 use std::path::PathBuf;
-use wasmer::{AsStoreMut, FunctionEnv, Instance, Module, RuntimeError, Store, Value};
+use wasmer::{AsStoreMut, FunctionEnv, Instance, Module, RuntimeError, Value};
 use wasmer_wasi::{
     get_wasi_versions, import_object_for_all_wasi_versions, is_wasix_module, WasiEnv, WasiError,
     WasiState, WasiVersion,

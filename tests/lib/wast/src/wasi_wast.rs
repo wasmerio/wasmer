@@ -3,7 +3,7 @@ use std::fs::{read_dir, File, OpenOptions, ReadDir};
 use std::io::{self, Read, Seek, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{mpsc, Arc, Mutex};
-use wasmer::{FunctionEnv, FunctionEnvMut};
+use wasmer::FunctionEnv;
 use wasmer::{Imports, Instance, Module, Store};
 use wasmer_vfs::{host_fs, mem_fs, FileSystem};
 use wasmer_wasi::types::{__wasi_filesize_t, __wasi_timestamp_t};

@@ -458,7 +458,7 @@ impl Run {
             .clone()
             .into_string()
             .map_err(|s| anyhow!("Cannot convert executable name {:?} to UTF-8 string", s))?;
-        let mut store = StoreOptions::default();
+        let store = StoreOptions::default();
         // TODO: store.compiler.features.all = true; ?
         Ok(Self {
             args,
