@@ -242,6 +242,14 @@ impl Default for LinkCode {
 
 impl LinkCode {
     fn run(&self) -> anyhow::Result<()> {
+        let libwasmer_path = self
+            .libwasmer_path
+            .canonicalize()
+            .context("Failed to find libwasmer")?;
+        println!(
+            "Using path `{}` as libwasmer path.",
+            libwasmer_path.display()
+        );
         let mut command = Command::new(&self.linker_path);
         let command = command
             .arg(&self.optimization_flag)
@@ -250,12 +258,7 @@ impl LinkCode {
                     .iter()
                     .map(|path| path.canonicalize().unwrap()),
             )
-            .arg(
-                &self
-                    .libwasmer_path
-                    .canonicalize()
-                    .context("Failed to find libwasmer")?,
-            );
+            .arg(&libwasmer_path);
         let command = if let Some(target) = &self.target {
             command.arg("-target").arg(format!("{}", target))
         } else {
@@ -272,11 +275,11 @@ impl LinkCode {
         // On unix we need dlopen-related symbols, libmath for a few things, and pthreads.
         #[cfg(not(windows))]
         let command = command.arg("-ldl").arg("-lm").arg("-pthread");
-        let link_aganist_extra_libs = self
+        let link_against_extra_libs = self
             .additional_libraries
             .iter()
             .map(|lib| format!("-l{}", lib));
-        let command = command.args(link_aganist_extra_libs);
+        let command = command.args(link_against_extra_libs);
         let output = command.arg("-o").arg(&self.output_path).output()?;
 
         if !output.status.success() {

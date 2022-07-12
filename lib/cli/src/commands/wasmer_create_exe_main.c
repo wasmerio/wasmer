@@ -1,7 +1,4 @@
-
 #include "wasmer.h"
-//#include "my_wasm.h"
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -94,10 +91,9 @@ int main(int argc, char *argv[]) {
   wasm_config_t *config = wasm_config_new();
   wasm_engine_t *engine = wasm_engine_new_with_config(config);
   wasm_store_t *store = wasm_store_new(engine);
-  wasm_context_t* ctx = wasm_context_new(store, 0);
-  wasm_store_context_set(store, ctx);
 
-  wasm_module_t *module = wasmer_module_new(store, WASMER_MODULE_LENGTH, (const char*)&WASMER_MODULE_DATA);
+  wasm_module_t *module = wasmer_module_new(store, WASMER_MODULE_LENGTH,
+                                            (const char *)&WASMER_MODULE_DATA);
 
   if (!module) {
     fprintf(stderr, "Failed to create module\n");
@@ -112,7 +108,7 @@ int main(int argc, char *argv[]) {
   wasi_config_t *wasi_config = wasi_config_new(argv[0]);
   handle_arguments(wasi_config, argc, argv);
 
-  wasi_env_t *wasi_env = wasi_env_new(wasi_config);
+  wasi_env_t *wasi_env = wasi_env_new(store, wasi_config);
   if (!wasi_env) {
     fprintf(stderr, "Error building WASI env!\n");
     print_wasmer_error();
@@ -128,8 +124,7 @@ int main(int argc, char *argv[]) {
   wasm_importtype_vec_delete(&import_types);
 
 #ifdef WASI
-  bool get_imports_result = wasi_get_imports(store, module, &imports);
-  wasi_env_delete(wasi_env);
+  bool get_imports_result = wasi_get_imports(store, wasi_env, module, &imports);
 
   if (!get_imports_result) {
     fprintf(stderr, "Error getting WASI imports!\n");
@@ -148,6 +143,8 @@ int main(int argc, char *argv[]) {
   }
 
 #ifdef WASI
+  wasi_env_initialize_instance(wasi_env, store, instance);
+
   own wasm_func_t *start_function = wasi_get_start_function(instance);
   if (!start_function) {
     fprintf(stderr, "`_start` function not found\n");
@@ -166,6 +163,9 @@ int main(int argc, char *argv[]) {
 
   // TODO: handle non-WASI start (maybe with invoke?)
 
+#ifdef WASI
+  wasi_env_delete(wasi_env);
+#endif
   wasm_instance_delete(instance);
   wasm_module_delete(module);
   wasm_store_delete(store);
