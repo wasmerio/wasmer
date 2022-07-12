@@ -278,8 +278,8 @@ impl<F: Fn(&Operator) -> u64 + Send + Sync> FunctionMiddleware for FunctionMeter
 ///
 /// /// Check whether the instance can continue to run based on the
 /// /// number of remaining points.
-/// fn can_continue_to_run(ctx: &mut impl AsStoreMut, instance: &Instance) -> bool {
-///     matches!(get_remaining_points(&mut store, instance), MeteringPoints::Remaining(points) if points > 0)
+/// fn can_continue_to_run(store: &mut impl AsStoreMut, instance: &Instance) -> bool {
+///     matches!(get_remaining_points(store, instance), MeteringPoints::Remaining(points) if points > 0)
 /// }
 /// ```
 pub fn get_remaining_points(ctx: &mut impl AsStoreMut, instance: &Instance) -> MeteringPoints {
@@ -324,12 +324,12 @@ pub fn get_remaining_points(ctx: &mut impl AsStoreMut, instance: &Instance) -> M
 /// use wasmer::{AsStoreMut, Instance};
 /// use wasmer_middlewares::metering::set_remaining_points;
 ///
-/// fn update_remaining_points(ctx: &mut impl AsStoreMut, instance: &Instance) {
+/// fn update_remaining_points(store: &mut impl AsStoreMut, instance: &Instance) {
 ///     // The new limit.
 ///     let new_limit = 10;
 ///
 ///     // Update the remaining points to the `new_limit`.
-///     set_remaining_points(&mut store, instance, new_limit);
+///     set_remaining_points(store, instance, new_limit);
 /// }
 /// ```
 pub fn set_remaining_points(ctx: &mut impl AsStoreMut, instance: &Instance, points: u64) {
