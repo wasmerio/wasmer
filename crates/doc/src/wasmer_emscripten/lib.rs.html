@@ -1056,6 +1056,30 @@
 <span id="1054">1054</span>
 <span id="1055">1055</span>
 <span id="1056">1056</span>
+<span id="1057">1057</span>
+<span id="1058">1058</span>
+<span id="1059">1059</span>
+<span id="1060">1060</span>
+<span id="1061">1061</span>
+<span id="1062">1062</span>
+<span id="1063">1063</span>
+<span id="1064">1064</span>
+<span id="1065">1065</span>
+<span id="1066">1066</span>
+<span id="1067">1067</span>
+<span id="1068">1068</span>
+<span id="1069">1069</span>
+<span id="1070">1070</span>
+<span id="1071">1071</span>
+<span id="1072">1072</span>
+<span id="1073">1073</span>
+<span id="1074">1074</span>
+<span id="1075">1075</span>
+<span id="1076">1076</span>
+<span id="1077">1077</span>
+<span id="1078">1078</span>
+<span id="1079">1079</span>
+<span id="1080">1080</span>
 </pre><pre class="rust"><code><span class="attribute">#![<span class="ident">deny</span>(
     <span class="ident">dead_code</span>,
     <span class="ident">nonstandard_style</span>,
@@ -1081,9 +1105,9 @@
 <span class="kw">use</span> <span class="ident">std::path::PathBuf</span>;
 <span class="kw">use</span> <span class="ident">std::sync</span>::{<span class="ident">Arc</span>, <span class="ident">Mutex</span>, <span class="ident">RwLock</span>};
 <span class="kw">use</span> <span class="ident">wasmer</span>::{
-    <span class="ident">imports</span>, <span class="ident">namespace</span>, <span class="ident">Exports</span>, <span class="ident">Function</span>, <span class="ident">FunctionType</span>, <span class="ident">Global</span>, <span class="ident">Imports</span>, <span class="ident">Instance</span>, <span class="ident">LazyInit</span>,
-    <span class="ident">Memory</span>, <span class="ident">MemoryType</span>, <span class="ident">Module</span>, <span class="ident">Pages</span>, <span class="ident">RuntimeError</span>, <span class="ident">Store</span>, <span class="ident">Table</span>, <span class="ident">TableType</span>, <span class="ident">TypedFunction</span>, <span class="ident">Val</span>,
-    <span class="ident">ValType</span>, <span class="ident">WasmPtr</span>, <span class="ident">WasmerEnv</span>,
+    <span class="ident">imports</span>, <span class="ident">namespace</span>, <span class="ident">ExportError</span>, <span class="ident">Exports</span>, <span class="ident">Function</span>, <span class="ident">FunctionType</span>, <span class="ident">Global</span>, <span class="ident">Imports</span>, <span class="ident">Instance</span>,
+    <span class="ident">LazyInit</span>, <span class="ident">Memory</span>, <span class="ident">MemoryType</span>, <span class="ident">Module</span>, <span class="ident">Pages</span>, <span class="ident">RuntimeError</span>, <span class="ident">Store</span>, <span class="ident">Table</span>, <span class="ident">TableType</span>,
+    <span class="ident">TypedFunction</span>, <span class="ident">Val</span>, <span class="ident">ValType</span>, <span class="ident">WasmPtr</span>, <span class="ident">WasmerEnv</span>,
 };
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">unix</span>)]</span>
@@ -1371,24 +1395,51 @@
     <span class="prelude-val">Ok</span>(())
 }
 
+<span class="doccomment">/// Looks for variations of the main function (usually</span>
+<span class="doccomment">/// `[&quot;_main&quot;, &quot;main&quot;])`, then returns a reference to</span>
+<span class="doccomment">/// the name of the first found function. Useful for</span>
+<span class="doccomment">/// determining whether a module is executable.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// Returns `ExportError` if none of the `main_func_names`</span>
+<span class="doccomment">/// were found.</span>
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">emscripten_get_main_func_name</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>(
+    <span class="ident">instance</span>: <span class="kw-2">&amp;</span><span class="ident">Instance</span>,
+    <span class="ident">main_func_names</span>: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">str</span>],
+) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">str</span>, <span class="ident">ExportError</span><span class="op">&gt;</span> {
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">last_err</span> <span class="op">=</span> <span class="prelude-val">None</span>;
+
+    <span class="kw">for</span> <span class="ident">func_name</span> <span class="kw">in</span> <span class="ident">main_func_names</span>.<span class="ident">iter</span>() {
+        <span class="kw">match</span> <span class="ident">instance</span>.<span class="ident">exports</span>.<span class="ident">get</span>::<span class="op">&lt;</span><span class="ident">Function</span><span class="op">&gt;</span>(<span class="ident">func_name</span>) {
+            <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; {
+                <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">func_name</span>);
+            }
+            <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; {
+                <span class="ident">last_err</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">e</span>);
+            }
+        }
+    }
+
+    <span class="kw">match</span> <span class="ident">last_err</span> {
+        <span class="prelude-val">None</span> =&gt; <span class="prelude-val">Err</span>(<span class="ident">ExportError::Missing</span>(<span class="macro">format!</span>(<span class="string">&quot;{main_func_names:?}&quot;</span>))),
+        <span class="prelude-val">Some</span>(<span class="ident">e</span>) =&gt; <span class="prelude-val">Err</span>(<span class="ident">e</span>),
+    }
+}
+
 <span class="doccomment">/// Call the main function in emscripten, assumes that the emscripten state is</span>
 <span class="doccomment">/// set up.</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// If you don&#39;t want to set it up yourself, consider using [`run_emscripten_instance`].</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">emscripten_call_main</span>(
     <span class="ident">instance</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Instance</span>,
+    <span class="ident">function_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
     <span class="ident">env</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>,
     <span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
     <span class="ident">args</span>: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span><span class="ident">str</span>],
 ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">RuntimeError</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> (<span class="ident">function_name</span>, <span class="ident">main_func</span>) <span class="op">=</span> <span class="kw">match</span> <span class="ident">instance</span>.<span class="ident">exports</span>.<span class="ident">get</span>::<span class="op">&lt;</span><span class="ident">Function</span><span class="op">&gt;</span>(<span class="string">&quot;_main&quot;</span>) {
-        <span class="prelude-val">Ok</span>(<span class="ident">func</span>) =&gt; <span class="prelude-val">Ok</span>((<span class="string">&quot;_main&quot;</span>, <span class="ident">func</span>)),
-        <span class="prelude-val">Err</span>(<span class="ident">_e</span>) =&gt; <span class="ident">instance</span>
-            .<span class="ident">exports</span>
-            .<span class="ident">get</span>::<span class="op">&lt;</span><span class="ident">Function</span><span class="op">&gt;</span>(<span class="string">&quot;main&quot;</span>)
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">func</span><span class="op">|</span> (<span class="string">&quot;main&quot;</span>, <span class="ident">func</span>)),
-    }
-    .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">RuntimeError::new</span>(<span class="ident">e</span>.<span class="ident">to_string</span>()))<span class="question-mark">?</span>;
+    <span class="kw">let</span> <span class="ident">main_func</span> <span class="op">=</span> <span class="ident">instance</span>
+        .<span class="ident">exports</span>
+        .<span class="ident">get</span>::<span class="op">&lt;</span><span class="ident">Function</span><span class="op">&gt;</span>(<span class="ident">function_name</span>)
+        .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">RuntimeError::new</span>(<span class="ident">e</span>.<span class="ident">to_string</span>()))<span class="question-mark">?</span>;
     <span class="kw">let</span> <span class="ident">num_params</span> <span class="op">=</span> <span class="ident">main_func</span>.<span class="ident">ty</span>().<span class="ident">params</span>().<span class="ident">len</span>();
     <span class="kw">let</span> <span class="ident">_result</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">num_params</span> {
         <span class="number">2</span> =&gt; {
@@ -1431,19 +1482,16 @@
     <span class="ident">env</span>.<span class="ident">set_memory</span>(<span class="ident">globals</span>.<span class="ident">memory</span>.<span class="ident">clone</span>());
     <span class="ident">set_up_emscripten</span>(<span class="ident">instance</span>)<span class="question-mark">?</span>;
 
-    <span class="comment">// println!(&quot;running emscripten instance&quot;);</span>
-
-    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">ep</span>) <span class="op">=</span> <span class="ident">entrypoint</span> {
-        <span class="macro">debug!</span>(<span class="string">&quot;Running entry point: {}&quot;</span>, <span class="kw-2">&amp;</span><span class="ident">ep</span>);
-        <span class="kw">let</span> <span class="ident">arg</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">allocate_cstr_on_stack</span>(<span class="ident">env</span>, <span class="ident">args</span>[<span class="number">0</span>]).<span class="number">0</span> };
-        <span class="comment">//let (argc, argv) = store_module_arguments(instance.context_mut(), args);</span>
-        <span class="kw">let</span> <span class="ident">func</span>: <span class="kw-2">&amp;</span><span class="ident">Function</span> <span class="op">=</span> <span class="ident">instance</span>
-            .<span class="ident">exports</span>
-            .<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">ep</span>)
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">RuntimeError::new</span>(<span class="ident">e</span>.<span class="ident">to_string</span>()))<span class="question-mark">?</span>;
-        <span class="ident">func</span>.<span class="ident">call</span>(<span class="kw-2">&amp;</span>[<span class="ident">Val::I32</span>(<span class="ident">arg</span> <span class="kw">as</span> <span class="ident">i32</span>)])<span class="question-mark">?</span>;
+    <span class="kw">let</span> <span class="ident">main_func_names</span> <span class="op">=</span> [<span class="string">&quot;_main&quot;</span>, <span class="string">&quot;main&quot;</span>];
+    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">ep</span>) <span class="op">=</span> <span class="ident">entrypoint</span>.<span class="ident">as_ref</span>() {
+        <span class="macro">debug!</span>(<span class="string">&quot;Running entry point: {}&quot;</span>, <span class="ident">ep</span>);
+        <span class="ident">emscripten_call_main</span>(<span class="ident">instance</span>, <span class="ident">ep</span>, <span class="ident">env</span>, <span class="ident">path</span>, <span class="kw-2">&amp;</span><span class="ident">args</span>)<span class="question-mark">?</span>;
+    } <span class="kw">else</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">name</span>) <span class="op">=</span> <span class="ident">emscripten_get_main_func_name</span>(<span class="ident">instance</span>, <span class="kw-2">&amp;</span><span class="ident">main_func_names</span>) {
+        <span class="ident">emscripten_call_main</span>(<span class="ident">instance</span>, <span class="ident">name</span>, <span class="ident">env</span>, <span class="ident">path</span>, <span class="kw-2">&amp;</span><span class="ident">args</span>)<span class="question-mark">?</span>;
     } <span class="kw">else</span> {
-        <span class="ident">emscripten_call_main</span>(<span class="ident">instance</span>, <span class="ident">env</span>, <span class="ident">path</span>, <span class="kw-2">&amp;</span><span class="ident">args</span>)<span class="question-mark">?</span>;
+        <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">RuntimeError::new</span>(<span class="macro">format!</span>(
+            <span class="string">&quot;No main function found (searched: {main_func_names:?}) and no entrypoint specified&quot;</span>
+        )));
     }
 
     <span class="comment">// TODO atexit for emscripten</span>
