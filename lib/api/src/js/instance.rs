@@ -61,7 +61,7 @@ impl Instance {
     ///  * Link errors that happen when plugging the imports into the instance
     ///  * Runtime errors that happen when running the module `start` function.
     pub fn new(
-        ctx: &mut impl AsStoreMut,
+        mut ctx: &mut impl AsStoreMut,
         module: &Module,
         imports: &Imports,
     ) -> Result<Self, InstantiationError> {
@@ -85,7 +85,7 @@ impl Instance {
     ///
     /// *This method is only available when targeting JS environments*
     pub fn from_module_and_instance(
-        ctx: &mut impl AsStoreMut,
+        mut ctx: &mut impl AsStoreMut,
         module: &Module,
         instance: StoreHandle<WebAssembly::Instance>,
         imports: Imports,

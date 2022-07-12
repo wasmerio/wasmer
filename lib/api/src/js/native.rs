@@ -66,10 +66,10 @@ macro_rules! impl_native_traits {
         {
             /// Call the typed func and return results.
             #[allow(clippy::too_many_arguments)]
-            pub fn call(&self, ctx: &mut impl AsStoreMut, $( $x: $x, )* ) -> Result<Rets, RuntimeError> where
+            pub fn call(&self, mut ctx: &mut impl AsStoreMut, $( $x: $x, )* ) -> Result<Rets, RuntimeError> where
             $( $x: FromToNativeWasmType + crate::js::NativeWasmTypeInto, )*
             {
-                let params_list: Vec<JsValue> = vec![ $( JsValue::from_f64($x.into_raw(ctx))),* ];
+                let params_list: Vec<JsValue> = vec![ $( JsValue::from_f64($x.into_raw(&mut ctx))),* ];
                 let results = self.handle.get(ctx.as_store_ref().objects()).function.apply(
                     &JsValue::UNDEFINED,
                     &Array::from_iter(params_list.iter())

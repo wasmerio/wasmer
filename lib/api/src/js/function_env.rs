@@ -4,6 +4,7 @@ use crate::js::{StoreHandle, StoreObjects};
 
 use crate::js::{AsStoreMut, AsStoreRef, StoreMut, StoreRef};
 
+#[derive(Debug)]
 #[repr(transparent)]
 /// An opaque reference to a function environment.
 /// The function environment data is owned by the `Store`.
@@ -27,9 +28,27 @@ impl<T> FunctionEnv<T> {
         }
     }
 
-    /// Get the context as mutable
+    pub(crate) fn from_handle(handle: StoreHandle<VMFunctionEnvironment>) -> Self {
+        Self {
+            handle,
+            _phantom: PhantomData,
+        }
+    }
+
+    /// Get the data as reference
+    pub fn as_ref<'a>(&self, store: &'a impl AsStoreMut) -> &'a T
+    where
+        T: Any + Send + 'static + Sized,
+    {
+        self.handle
+            .get(store.as_store_ref().objects())
+            .as_ref()
+            .downcast_ref::<T>()
+            .unwrap()
+    }
+
+    /// Get the data as mutable
     pub fn as_mut<'a>(&self, store: &'a mut impl AsStoreMut) -> &'a mut T
-    // FunctionEnvMut<'a, T>
     where
         T: Any + Send + 'static + Sized,
     {
@@ -38,6 +57,17 @@ impl<T> FunctionEnv<T> {
             .as_mut()
             .downcast_mut::<T>()
             .unwrap()
+    }
+
+    /// Convert it into a `FunctionEnvMut`
+    pub fn into_mut(self, store: &mut impl AsStoreMut) -> FunctionEnvMut<T>
+    where
+        T: Any + Send + 'static + Sized,
+    {
+        FunctionEnvMut {
+            store_mut: store.as_store_mut(),
+            func_env: self,
+        }
     }
 }
 
@@ -53,23 +83,27 @@ impl<T> Clone for FunctionEnv<T> {
 /// A temporary handle to a [`Context`].
 pub struct FunctionEnvMut<'a, T: 'a> {
     pub(crate) store_mut: StoreMut<'a>,
-    pub(crate) data: &'a mut T,
+    pub(crate) func_env: FunctionEnv<T>,
 }
 
-impl<T> FunctionEnvMut<'_, T> {
+impl<T: Send + 'static> FunctionEnvMut<'_, T> {
     /// Returns a reference to the host state in this context.
     pub fn data(&self) -> &T {
-        &self.data
+        self.func_env.as_ref(&self.store_mut)
     }
 
     /// Returns a mutable- reference to the host state in this context.
-    pub fn data_mut(&mut self) -> &mut T {
-        &mut self.data
+    pub fn data_mut<'a>(&'a mut self) -> &'a mut T {
+        self.func_env.as_mut(&mut self.store_mut)
     }
 
-    // pub(crate) unsafe fn from_raw(raw: *mut StoreInner, data: *mut T) -> Self {
-    //     Self { inner: &mut *raw, data: &mut *data }
-    // }
+    /// Borrows a new mutable reference
+    pub fn as_mut<'a>(&'a mut self) -> FunctionEnvMut<'a, T> {
+        FunctionEnvMut {
+            store_mut: self.store_mut.as_store_mut(),
+            func_env: self.func_env.clone(),
+        }
+    }
 }
 
 impl<T> AsStoreRef for FunctionEnvMut<'_, T> {
@@ -86,6 +120,7 @@ impl<T> AsStoreMut for FunctionEnvMut<'_, T> {
             inner: self.store_mut.inner,
         }
     }
+    #[inline]
     fn objects_mut(&mut self) -> &mut StoreObjects {
         &mut self.store_mut.inner.objects
     }

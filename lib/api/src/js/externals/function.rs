@@ -94,7 +94,12 @@ impl Function {
     /// });
     /// ```
     #[allow(clippy::cast_ptr_alignment)]
-    pub fn new<FT, F, T>(store: &mut impl AsStoreMut, ctx: &FunctionEnv<T>, ty: FT, func: F) -> Self
+    pub fn new<FT, F, T: Send + 'static>(
+        store: &mut impl AsStoreMut,
+        ctx: &FunctionEnv<T>,
+        ty: FT,
+        func: F,
+    ) -> Self
     where
         FT: Into<FunctionType>,
         F: Fn(FunctionEnvMut<'_, T>, &[Value]) -> Result<Vec<Value>, RuntimeError>
@@ -105,57 +110,48 @@ impl Function {
         let mut store = store.as_store_mut();
         let function_type = ty.into();
         let func_ty = function_type.clone();
-        let raw_ctx = store.as_raw() as *mut u8;
-
+        let raw_store = store.as_raw() as *mut u8;
+        let raw_ctx = ctx.clone();
         let wrapped_func: JsValue = match function_type.results().len() {
             0 => Closure::wrap(Box::new(move |args: &Array| {
-                Err(JsValue::from_str(
-                    "Native functions with more than one result are not yet supported",
-                ))
-                // let mut store: StoreMut = unsafe { StoreMut::from_raw(raw_ctx as _) };
-                // let mut ctx: FunctionEnvMut<T> = unsafe { FunctionEnvMut::from_raw(raw_ctx as _) };
-                // let wasm_arguments = function_type
-                //     .params()
-                //     .iter()
-                //     .enumerate()
-                //     .map(|(i, param)| param_from_js(param, &args.get(i as u32)))
-                //     .collect::<Vec<_>>();
-                // let _results = func(ctx, &wasm_arguments)?;
-                // Ok(())
+                let mut store: StoreMut = unsafe { StoreMut::from_raw(raw_store as _) };
+                let mut ctx: FunctionEnvMut<T> = raw_ctx.clone().into_mut(&mut store);
+                let wasm_arguments = function_type
+                    .params()
+                    .iter()
+                    .enumerate()
+                    .map(|(i, param)| param_from_js(param, &args.get(i as u32)))
+                    .collect::<Vec<_>>();
+                let _results = func(ctx, &wasm_arguments)?;
+                Ok(())
             })
                 as Box<dyn FnMut(&Array) -> Result<(), JsValue>>)
             .into_js_value(),
             1 => Closure::wrap(Box::new(move |args: &Array| {
-                Err(JsValue::from_str(
-                    "Native functions with more than one result are not yet supported",
-                ))
-                // let mut store: StoreMut = unsafe { StoreMut::from_raw(raw_ctx as _) };
-                // let mut ctx: FunctionEnvMut<T> = unsafe { FunctionEnvMut::from_raw(raw_ctx as _) };
-                // let wasm_arguments = function_type
-                //     .params()
-                //     .iter()
-                //     .enumerate()
-                //     .map(|(i, param)| param_from_js(param, &args.get(i as u32)))
-                //     .collect::<Vec<_>>();
-                // let results = func(ctx, &wasm_arguments)?;
-                // return Ok(result_to_js(&results[0]));
+                let mut store: StoreMut = unsafe { StoreMut::from_raw(raw_store as _) };
+                let mut ctx: FunctionEnvMut<T> = raw_ctx.clone().into_mut(&mut store);
+                let wasm_arguments = function_type
+                    .params()
+                    .iter()
+                    .enumerate()
+                    .map(|(i, param)| param_from_js(param, &args.get(i as u32)))
+                    .collect::<Vec<_>>();
+                let results = func(ctx, &wasm_arguments)?;
+                return Ok(result_to_js(&results[0]));
             })
                 as Box<dyn FnMut(&Array) -> Result<JsValue, JsValue>>)
             .into_js_value(),
             _n => Closure::wrap(Box::new(move |args: &Array| {
-                Err(JsValue::from_str(
-                    "Native functions with more than one result are not yet supported",
-                ))
-                // let mut store: StoreMut = unsafe { StoreMut::from_raw(raw_ctx as _) };
-                // let mut ctx: FunctionEnvMut<T> = unsafe { FunctionEnvMut::from_raw(raw_ctx as _) };
-                // let wasm_arguments = function_type
-                //     .params()
-                //     .iter()
-                //     .enumerate()
-                //     .map(|(i, param)| param_from_js(param, &args.get(i as u32)))
-                //     .collect::<Vec<_>>();
-                // let results = func(ctx, &wasm_arguments)?;
-                // return Ok(results_to_js_array(&results));
+                let mut store: StoreMut = unsafe { StoreMut::from_raw(raw_store as _) };
+                let mut ctx: FunctionEnvMut<T> = raw_ctx.clone().into_mut(&mut store);
+                let wasm_arguments = function_type
+                    .params()
+                    .iter()
+                    .enumerate()
+                    .map(|(i, param)| param_from_js(param, &args.get(i as u32)))
+                    .collect::<Vec<_>>();
+                let results = func(ctx, &wasm_arguments)?;
+                return Ok(results_to_js_array(&results));
             })
                 as Box<dyn FnMut(&Array) -> Result<Array, JsValue>>)
             .into_js_value(),
@@ -206,9 +202,10 @@ impl Function {
         let as_table = ft.unchecked_ref::<js_sys::WebAssembly::Table>();
         let func = as_table.get(address).unwrap();
 
-        let binded_func = func.bind1(
+        let binded_func = func.bind2(
             &JsValue::UNDEFINED,
             &JsValue::from_f64(store.as_raw() as *mut u8 as usize as f64),
+            &JsValue::from_f64(ctx.handle.internal_handle().index() as f64),
         );
         let ty = function.ty();
         let vm_function = VMFunction::new(binded_func, ty);
@@ -512,8 +509,9 @@ impl fmt::Debug for Function {
 mod inner {
     use super::RuntimeError;
     use super::VMFunctionBody;
-    use crate::js::function_env::FunctionEnvMut;
-    use crate::js::store::{AsStoreMut, StoreInner, StoreMut};
+    use crate::js::function_env::{FunctionEnvMut, VMFunctionEnvironment};
+    use crate::js::store::{AsStoreMut, InternalStoreHandle, StoreHandle, StoreInner, StoreMut};
+    use crate::js::FunctionEnv;
     use crate::js::NativeWasmTypeInto;
     use std::array::TryFromSliceError;
     use std::convert::{Infallible, TryInto};
@@ -979,6 +977,7 @@ mod inner {
                 $( $x: FromToNativeWasmType, )*
                 Rets: WasmTypeList,
                 RetsAsResult: IntoResult<Rets>,
+                T: Send + 'static,
                 Func: Fn(FunctionEnvMut<'_, T>, $( $x , )*) -> RetsAsResult + 'static,
             {
                 #[allow(non_snake_case)]
@@ -986,29 +985,31 @@ mod inner {
                     /// This is a function that wraps the real host
                     /// function. Its address will be used inside the
                     /// runtime.
-                    unsafe extern "C" fn func_wrapper<T, $( $x, )* Rets, RetsAsResult, Func>( ctx_ptr: usize, $( $x: <$x::Native as NativeWasmType>::Abi, )* ) -> Rets::CStruct
+                    unsafe extern "C" fn func_wrapper<T, $( $x, )* Rets, RetsAsResult, Func>( store_ptr: usize, handle_index: usize, $( $x: <$x::Native as NativeWasmType>::Abi, )* ) -> Rets::CStruct
                     where
                         $( $x: FromToNativeWasmType, )*
                         Rets: WasmTypeList,
                         RetsAsResult: IntoResult<Rets>,
+                        T: Send + 'static,
                         Func: Fn(FunctionEnvMut<'_, T>, $( $x , )*) -> RetsAsResult + 'static,
                     {
-                        unimplemented!();
-                        // RuntimeError::raise(Box::new(JsValue::from_str("Native functions with more than one result are not yet supported")))
-                        // let func: &Func = &*(&() as *const () as *const Func);
-                        // let mut store = StoreMut::from_raw(ctx_ptr as *mut _);
-                        // let mut store2 = StoreMut::from_raw(ctx_ptr as *mut _);
+                        // let env: &Env = unsafe { &*(ptr as *const u8 as *const Env) };
+                        let func: &Func = &*(&() as *const () as *const Func);
+                        let mut store = StoreMut::from_raw(store_ptr as *mut _);
+                        let mut store2 = StoreMut::from_raw(store_ptr as *mut _);
 
-                        // let result = panic::catch_unwind(AssertUnwindSafe(|| {
-                        //     func(store2.as_store_mut(), $( FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(&mut ctx, $x)) ),* ).into_result()
-                        // }));
+                        let result = panic::catch_unwind(AssertUnwindSafe(|| {
+                            let handle: StoreHandle<VMFunctionEnvironment> = StoreHandle::from_internal(store2.objects_mut().id(), InternalStoreHandle::from_index(handle_index).unwrap());
+                            let ctx: FunctionEnvMut<T> = FunctionEnv::from_handle(handle).into_mut(&mut store2);
+                            func(ctx, $( FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(&mut store, $x)) ),* ).into_result()
+                        }));
 
-                        // match result {
-                        //     Ok(Ok(result)) => return result.into_c_struct(&mut store),
-                        //     #[allow(deprecated)]
-                        //     Ok(Err(trap)) => RuntimeError::raise(Box::new(trap)),
-                        //     Err(_panic) => unimplemented!(),
-                        // }
+                        match result {
+                            Ok(Ok(result)) => return result.into_c_struct(&mut store),
+                            #[allow(deprecated)]
+                            Ok(Err(trap)) => RuntimeError::raise(Box::new(trap)),
+                            Err(_panic) => unimplemented!(),
+                        }
                     }
 
                     func_wrapper::< T, $( $x, )* Rets, RetsAsResult, Self > as *const VMFunctionBody
