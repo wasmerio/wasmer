@@ -24,8 +24,8 @@ fn issue_2329(mut config: crate::Config) -> Result<()> {
         }
     }
 
-    pub fn read_memory(ctx: ContextMut<Env>, guest_ptr: u32) -> u32 {
-        dbg!(ctx.data().memory.as_ref());
+    pub fn read_memory(mut ctx: FunctionEnvMut<Env>, guest_ptr: u32) -> u32 {
+        dbg!(ctx.data_mut().memory.as_ref());
         dbg!(guest_ptr);
         0
     }
@@ -75,7 +75,7 @@ fn issue_2329(mut config: crate::Config) -> Result<()> {
     instance
         .exports
         .get_function("read_memory")?
-        .call(&mut ctx, &[])?;
+        .call(&mut store, &[])?;
     Ok(())
 }
 
@@ -89,7 +89,7 @@ fn call_with_static_data_pointers(mut config: crate::Config) -> Result<()> {
     }
 
     pub fn banana(
-        mut ctx: ContextMut<Env>,
+        mut ctx: FunctionEnvMut<Env>,
         a: u64,
         b: u64,
         c: u64,
@@ -101,24 +101,24 @@ fn call_with_static_data_pointers(mut config: crate::Config) -> Result<()> {
     ) -> u64 {
         println!("{:?}", (a, b, c, d, e, f, g, h));
         let mut buf = vec![0; d as usize];
-        let memory = ctx.data().memory.as_ref().unwrap();
-        memory.read(&ctx, e, &mut buf).unwrap();
+        let memory = ctx.data_mut().memory.as_ref().unwrap().clone();
+        memory.read(&mut ctx, e, &mut buf).unwrap();
         let input_string = std::str::from_utf8(&buf).unwrap();
         assert_eq!(input_string, "bananapeach");
         0
     }
 
-    pub fn mango(ctx: ContextMut<Env>, a: u64) {}
+    pub fn mango(ctx: FunctionEnvMut<Env>, a: u64) {}
 
-    pub fn chaenomeles(ctx: ContextMut<Env>, a: u64) -> u64 {
+    pub fn chaenomeles(ctx: FunctionEnvMut<Env>, a: u64) -> u64 {
         0
     }
 
-    pub fn peach(ctx: ContextMut<Env>, a: u64, b: u64) -> u64 {
+    pub fn peach(ctx: FunctionEnvMut<Env>, a: u64, b: u64) -> u64 {
         0
     }
 
-    pub fn gas(ctx: ContextMut<Env>, a: u32) {}
+    pub fn gas(ctx: FunctionEnvMut<Env>, a: u32) {}
 
     let wat = r#"
     (module
@@ -190,11 +190,11 @@ fn call_with_static_data_pointers(mut config: crate::Config) -> Result<()> {
     let env = Env { memory: None };
     let mut ctx = FunctionEnv::new(&mut store, env);
     let memory = Memory::new(
-        &mut ctx,
+        &mut store,
         MemoryType::new(Pages(1024), Some(Pages(2048)), false),
     )
     .unwrap();
-    ctx.data_mut().memory = Some(memory.clone());
+    ctx.as_mut(&mut store).memory = Some(memory.clone());
     let mut exports = Exports::new();
     exports.insert("memory", memory);
     exports.insert("banana", Function::new_native(&mut store, &ctx, banana));

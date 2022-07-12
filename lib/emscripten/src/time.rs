@@ -206,7 +206,7 @@ pub fn _asctime(mut ctx: FunctionEnvMut<EmEnv>, time: u32) -> u32 {
     debug!("emscripten::_asctime {}", time);
 
     unsafe {
-        let time_str_ptr = fmt_time(ctx, time);
+        let time_str_ptr = fmt_time(ctx.as_mut(), time);
         copy_cstr_into_wasm(&mut ctx, time_str_ptr)
 
         // let c_str = emscripten_memory_pointer!(ctx, ctx.data().memory(0), res) as *mut i8;
@@ -224,7 +224,7 @@ pub fn _asctime_r(mut ctx: FunctionEnvMut<EmEnv>, time: u32, buf: u32) -> u32 {
         //      to write out more than 26 bytes (including the null terminator).
         //      See http://pubs.opengroup.org/onlinepubs/9699919799/functions/asctime.html
         //      Our undefined behavior is to truncate the write to at most 26 bytes, including null terminator.
-        let time_str_ptr = fmt_time(ctx, time);
+        let time_str_ptr = fmt_time(ctx.as_mut(), time);
         write_to_buf(ctx, time_str_ptr, buf, 26)
 
         // let c_str = emscripten_memory_pointer!(ctx, ctx.data().memory(0), res) as *mut i8;
@@ -324,7 +324,7 @@ pub fn _ctime_r(mut ctx: FunctionEnvMut<EmEnv>, time_p: u32, buf: u32) -> u32 {
     // var stack = stackSave();
     let (result_offset, _result_slice): (u32, &mut [u8]) =
         unsafe { allocate_on_stack(&mut ctx, 44) };
-    let time = _localtime_r(ctx, time_p, result_offset) as u32;
+    let time = _localtime_r(ctx.as_mut(), time_p, result_offset) as u32;
     _asctime_r(ctx, time, buf)
     // stackRestore(stack);
 }

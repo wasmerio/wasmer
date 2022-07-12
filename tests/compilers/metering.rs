@@ -27,8 +27,9 @@ fn run_add_with_limit(mut config: crate::Config, limit: u64) -> Result<()> {
     let module = Module::new(&store, wat).unwrap();
     let instance = Instance::new(&mut store, &module, &import_object)?;
 
-    let f: TypedFunction<(i32, i32), i32> = instance.exports.get_typed_function(&mut ctx, "add")?;
-    f.call(&mut ctx, 4, 6)?;
+    let f: TypedFunction<(i32, i32), i32> =
+        instance.exports.get_typed_function(&mut store, "add")?;
+    f.call(&mut store, 4, 6)?;
     Ok(())
 }
 
@@ -59,8 +60,8 @@ fn run_loop(mut config: crate::Config, limit: u64, iter_count: i32) -> Result<()
 
     let instance = Instance::new(&mut store, &module, &import_object)?;
 
-    let f: TypedFunction<i32, ()> = instance.exports.get_typed_function(&mut ctx, "test")?;
-    f.call(&mut ctx, iter_count)?;
+    let f: TypedFunction<i32, ()> = instance.exports.get_typed_function(&mut store, "test")?;
+    f.call(&mut store, iter_count)?;
     Ok(())
 }
 
@@ -164,10 +165,10 @@ fn complex_loop(mut config: crate::Config) -> Result<()> {
     let instance = Instance::new(&mut store, &module, &import_object)?;
 
     let f: TypedFunction<(i32, i32), i32> =
-        instance.exports.get_typed_function(&mut ctx, "add_to")?;
+        instance.exports.get_typed_function(&mut store, "add_to")?;
 
     // FIXME: Since now a metering error is signaled with an `unreachable`, it is impossible to verify
     // the error type. Fix this later.
-    f.call(&mut ctx, 10_000_000, 4).unwrap_err();
+    f.call(&mut store, 10_000_000, 4).unwrap_err();
     Ok(())
 }

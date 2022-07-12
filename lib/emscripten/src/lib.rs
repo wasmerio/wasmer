@@ -492,20 +492,19 @@ impl EmscriptenFunctions {
 /// to [`EmscriptenData`].
 pub fn set_up_emscripten(
     store: &mut impl AsStoreMut,
-    ctx: &mut FunctionEnvMut<EmEnv>,
     instance: &mut Instance,
 ) -> Result<(), RuntimeError> {
     // ATINIT
     // (used by C++)
     if let Ok(func) = instance.exports.get_function("globalCtors") {
-        func.call(&mut store, &[])?;
+        func.call(store, &[])?;
     }
 
     if let Ok(func) = instance
         .exports
         .get_function("___emscripten_environ_constructor")
     {
-        func.call(&mut store, &[])?;
+        func.call(store, &[])?;
     }
     Ok(())
 }
@@ -564,7 +563,6 @@ pub fn emscripten_call_main(
 /// Top level function to execute emscripten
 pub fn run_emscripten_instance(
     instance: &mut Instance,
-    store: &mut impl AsStoreMut,
     mut ctx: FunctionEnvMut<EmEnv>,
     globals: &mut EmscriptenGlobals,
     path: &str,
@@ -575,236 +573,311 @@ pub fn run_emscripten_instance(
     env.set_memory(globals.memory.clone());
     // get emscripten export
     let mut emfuncs = EmscriptenFunctions::new();
-    if let Ok(func) = instance.exports.get_typed_function(&ctx, "malloc") {
+    if let Ok(func) = instance.exports.get_typed_function(&mut ctx, "malloc") {
         emfuncs.malloc = Some(func);
-    } else if let Ok(func) = instance.exports.get_typed_function(&ctx, "_malloc") {
+    } else if let Ok(func) = instance.exports.get_typed_function(&mut ctx, "_malloc") {
         emfuncs.malloc = Some(func);
     }
-    if let Ok(func) = instance.exports.get_typed_function(&ctx, "free") {
+    if let Ok(func) = instance.exports.get_typed_function(&&mut ctx, "free") {
         emfuncs.free = Some(func);
-    } else if let Ok(func) = instance.exports.get_typed_function(&ctx, "_free") {
+    } else if let Ok(func) = instance.exports.get_typed_function(&mut ctx, "_free") {
         emfuncs.free = Some(func);
     }
-    if let Ok(func) = instance.exports.get_typed_function(&ctx, "memalign") {
+    if let Ok(func) = instance.exports.get_typed_function(&mut ctx, "memalign") {
         emfuncs.memalign = Some(func);
-    } else if let Ok(func) = instance.exports.get_typed_function(&ctx, "_memalign") {
+    } else if let Ok(func) = instance.exports.get_typed_function(&mut ctx, "_memalign") {
         emfuncs.memalign = Some(func);
     }
-    if let Ok(func) = instance.exports.get_typed_function(&ctx, "memset") {
+    if let Ok(func) = instance.exports.get_typed_function(&mut ctx, "memset") {
         emfuncs.memset = Some(func);
-    } else if let Ok(func) = instance.exports.get_typed_function(&ctx, "_memset") {
+    } else if let Ok(func) = instance.exports.get_typed_function(&mut ctx, "_memset") {
         emfuncs.memset = Some(func);
     }
-    if let Ok(func) = instance.exports.get_typed_function(&ctx, "stackAlloc") {
+    if let Ok(func) = instance.exports.get_typed_function(&mut ctx, "stackAlloc") {
         emfuncs.stack_alloc = Some(func);
     }
-    if let Ok(func) = instance.exports.get_typed_function(&ctx, "dynCall_i") {
+    if let Ok(func) = instance.exports.get_typed_function(&mut ctx, "dynCall_i") {
         emfuncs.dyn_call_i = Some(func);
     }
-    if let Ok(func) = instance.exports.get_typed_function(&ctx, "dynCall_ii") {
+    if let Ok(func) = instance.exports.get_typed_function(&mut ctx, "dynCall_ii") {
         emfuncs.dyn_call_ii = Some(func);
     }
-    if let Ok(func) = instance.exports.get_typed_function(&ctx, "dynCall_iii") {
+    if let Ok(func) = instance.exports.get_typed_function(&mut ctx, "dynCall_iii") {
         emfuncs.dyn_call_iii = Some(func);
     }
-    if let Ok(func) = instance.exports.get_typed_function(&ctx, "dynCall_iiii") {
+    if let Ok(func) = instance
+        .exports
+        .get_typed_function(&mut ctx, "dynCall_iiii")
+    {
         emfuncs.dyn_call_iiii = Some(func);
     }
-    if let Ok(func) = instance.exports.get_typed_function(&ctx, "dynCall_iifi") {
+    if let Ok(func) = instance
+        .exports
+        .get_typed_function(&mut ctx, "dynCall_iifi")
+    {
         emfuncs.dyn_call_iifi = Some(func);
     }
-    if let Ok(func) = instance.exports.get_typed_function(&ctx, "dynCall_v") {
+    if let Ok(func) = instance.exports.get_typed_function(&mut ctx, "dynCall_v") {
         emfuncs.dyn_call_v = Some(func);
     }
-    if let Ok(func) = instance.exports.get_typed_function(&ctx, "dynCall_vi") {
+    if let Ok(func) = instance.exports.get_typed_function(&mut ctx, "dynCall_vi") {
         emfuncs.dyn_call_vi = Some(func);
     }
-    if let Ok(func) = instance.exports.get_typed_function(&ctx, "dynCall_vii") {
+    if let Ok(func) = instance.exports.get_typed_function(&mut ctx, "dynCall_vii") {
         emfuncs.dyn_call_vii = Some(func);
     }
-    if let Ok(func) = instance.exports.get_typed_function(&ctx, "dynCall_viii") {
+    if let Ok(func) = instance
+        .exports
+        .get_typed_function(&mut ctx, "dynCall_viii")
+    {
         emfuncs.dyn_call_viii = Some(func);
     }
-    if let Ok(func) = instance.exports.get_typed_function(&ctx, "dynCall_viiii") {
+    if let Ok(func) = instance
+        .exports
+        .get_typed_function(&mut ctx, "dynCall_viiii")
+    {
         emfuncs.dyn_call_viiii = Some(func);
     }
-    if let Ok(func) = instance.exports.get_typed_function(&ctx, "dynCall_dii") {
+    if let Ok(func) = instance.exports.get_typed_function(&mut ctx, "dynCall_dii") {
         emfuncs.dyn_call_dii = Some(func);
     }
-    if let Ok(func) = instance.exports.get_typed_function(&ctx, "dynCall_diiii") {
+    if let Ok(func) = instance
+        .exports
+        .get_typed_function(&mut ctx, "dynCall_diiii")
+    {
         emfuncs.dyn_call_diiii = Some(func);
     }
-    if let Ok(func) = instance.exports.get_typed_function(&ctx, "dynCall_iiiii") {
+    if let Ok(func) = instance
+        .exports
+        .get_typed_function(&mut ctx, "dynCall_iiiii")
+    {
         emfuncs.dyn_call_iiiii = Some(func);
     }
-    if let Ok(func) = instance.exports.get_typed_function(&ctx, "dynCall_iiiiii") {
+    if let Ok(func) = instance
+        .exports
+        .get_typed_function(&mut ctx, "dynCall_iiiiii")
+    {
         emfuncs.dyn_call_iiiiii = Some(func);
     }
-    if let Ok(func) = instance.exports.get_typed_function(&ctx, "dynCall_iiiiiii") {
+    if let Ok(func) = instance
+        .exports
+        .get_typed_function(&mut ctx, "dynCall_iiiiiii")
+    {
         emfuncs.dyn_call_iiiiiii = Some(func);
     }
     if let Ok(func) = instance
         .exports
-        .get_typed_function(&ctx, "dynCall_iiiiiiii")
+        .get_typed_function(&mut ctx, "dynCall_iiiiiiii")
     {
         emfuncs.dyn_call_iiiiiiii = Some(func);
     }
     if let Ok(func) = instance
         .exports
-        .get_typed_function(&ctx, "dynCall_iiiiiiiii")
+        .get_typed_function(&mut ctx, "dynCall_iiiiiiiii")
     {
         emfuncs.dyn_call_iiiiiiiii = Some(func);
     }
     if let Ok(func) = instance
         .exports
-        .get_typed_function(&ctx, "dynCall_iiiiiiiiii")
+        .get_typed_function(&mut ctx, "dynCall_iiiiiiiiii")
     {
         emfuncs.dyn_call_iiiiiiiiii = Some(func);
     }
     if let Ok(func) = instance
         .exports
-        .get_typed_function(&ctx, "dynCall_iiiiiiiiiii")
+        .get_typed_function(&mut ctx, "dynCall_iiiiiiiiiii")
     {
         emfuncs.dyn_call_iiiiiiiiiii = Some(func);
     }
-    if let Ok(func) = instance.exports.get_typed_function(&ctx, "dynCall_vd") {
+    if let Ok(func) = instance.exports.get_typed_function(&mut ctx, "dynCall_vd") {
         emfuncs.dyn_call_vd = Some(func);
     }
-    if let Ok(func) = instance.exports.get_typed_function(&ctx, "dynCall_viiiii") {
+    if let Ok(func) = instance
+        .exports
+        .get_typed_function(&mut ctx, "dynCall_viiiii")
+    {
         emfuncs.dyn_call_viiiii = Some(func);
     }
-    if let Ok(func) = instance.exports.get_typed_function(&ctx, "dynCall_viiiiii") {
+    if let Ok(func) = instance
+        .exports
+        .get_typed_function(&mut ctx, "dynCall_viiiiii")
+    {
         emfuncs.dyn_call_viiiiii = Some(func);
     }
     if let Ok(func) = instance
         .exports
-        .get_typed_function(&ctx, "dynCall_viiiiiii")
+        .get_typed_function(&mut ctx, "dynCall_viiiiiii")
     {
         emfuncs.dyn_call_viiiiiii = Some(func);
     }
     if let Ok(func) = instance
         .exports
-        .get_typed_function(&ctx, "dynCall_viiiiiiii")
+        .get_typed_function(&mut ctx, "dynCall_viiiiiiii")
     {
         emfuncs.dyn_call_viiiiiiii = Some(func);
     }
     if let Ok(func) = instance
         .exports
-        .get_typed_function(&ctx, "dynCall_viiiiiiiii")
+        .get_typed_function(&mut ctx, "dynCall_viiiiiiiii")
     {
         emfuncs.dyn_call_viiiiiiiii = Some(func);
     }
     if let Ok(func) = instance
         .exports
-        .get_typed_function(&ctx, "dynCall_viiiiiiiiii")
+        .get_typed_function(&mut ctx, "dynCall_viiiiiiiiii")
     {
         emfuncs.dyn_call_viiiiiiiiii = Some(func);
     }
-    if let Ok(func) = instance.exports.get_typed_function(&ctx, "dynCall_iij") {
+    if let Ok(func) = instance.exports.get_typed_function(&mut ctx, "dynCall_iij") {
         emfuncs.dyn_call_iij = Some(func);
     }
-    if let Ok(func) = instance.exports.get_typed_function(&ctx, "dynCall_iji") {
+    if let Ok(func) = instance.exports.get_typed_function(&mut ctx, "dynCall_iji") {
         emfuncs.dyn_call_iji = Some(func);
     }
-    if let Ok(func) = instance.exports.get_typed_function(&ctx, "dynCall_iiji") {
+    if let Ok(func) = instance
+        .exports
+        .get_typed_function(&mut ctx, "dynCall_iiji")
+    {
         emfuncs.dyn_call_iiji = Some(func);
     }
-    if let Ok(func) = instance.exports.get_typed_function(&ctx, "dynCall_iiijj") {
+    if let Ok(func) = instance
+        .exports
+        .get_typed_function(&mut ctx, "dynCall_iiijj")
+    {
         emfuncs.dyn_call_iiijj = Some(func);
     }
-    if let Ok(func) = instance.exports.get_typed_function(&ctx, "dynCall_j") {
+    if let Ok(func) = instance.exports.get_typed_function(&mut ctx, "dynCall_j") {
         emfuncs.dyn_call_j = Some(func);
     }
-    if let Ok(func) = instance.exports.get_typed_function(&ctx, "dynCall_ji") {
+    if let Ok(func) = instance.exports.get_typed_function(&mut ctx, "dynCall_ji") {
         emfuncs.dyn_call_ji = Some(func);
     }
-    if let Ok(func) = instance.exports.get_typed_function(&ctx, "dynCall_jii") {
+    if let Ok(func) = instance.exports.get_typed_function(&mut ctx, "dynCall_jii") {
         emfuncs.dyn_call_jii = Some(func);
     }
-    if let Ok(func) = instance.exports.get_typed_function(&ctx, "dynCall_jij") {
+    if let Ok(func) = instance.exports.get_typed_function(&mut ctx, "dynCall_jij") {
         emfuncs.dyn_call_jij = Some(func);
     }
-    if let Ok(func) = instance.exports.get_typed_function(&ctx, "dynCall_jjj") {
+    if let Ok(func) = instance.exports.get_typed_function(&mut ctx, "dynCall_jjj") {
         emfuncs.dyn_call_jjj = Some(func);
     }
-    if let Ok(func) = instance.exports.get_typed_function(&ctx, "dynCall_viiij") {
+    if let Ok(func) = instance
+        .exports
+        .get_typed_function(&mut ctx, "dynCall_viiij")
+    {
         emfuncs.dyn_call_viiij = Some(func);
     }
     if let Ok(func) = instance
         .exports
-        .get_typed_function(&ctx, "dynCall_viiijiiii")
+        .get_typed_function(&mut ctx, "dynCall_viiijiiii")
     {
         emfuncs.dyn_call_viiijiiii = Some(func);
     }
     if let Ok(func) = instance
         .exports
-        .get_typed_function(&ctx, "dynCall_viiijiiiiii")
+        .get_typed_function(&mut ctx, "dynCall_viiijiiiiii")
     {
         emfuncs.dyn_call_viiijiiiiii = Some(func);
     }
-    if let Ok(func) = instance.exports.get_typed_function(&ctx, "dynCall_viij") {
+    if let Ok(func) = instance
+        .exports
+        .get_typed_function(&mut ctx, "dynCall_viij")
+    {
         emfuncs.dyn_call_viij = Some(func);
     }
-    if let Ok(func) = instance.exports.get_typed_function(&ctx, "dynCall_viiji") {
+    if let Ok(func) = instance
+        .exports
+        .get_typed_function(&mut ctx, "dynCall_viiji")
+    {
         emfuncs.dyn_call_viiji = Some(func);
     }
-    if let Ok(func) = instance.exports.get_typed_function(&ctx, "dynCall_viijiii") {
+    if let Ok(func) = instance
+        .exports
+        .get_typed_function(&mut ctx, "dynCall_viijiii")
+    {
         emfuncs.dyn_call_viijiii = Some(func);
     }
-    if let Ok(func) = instance.exports.get_typed_function(&ctx, "dynCall_viijj") {
+    if let Ok(func) = instance
+        .exports
+        .get_typed_function(&mut ctx, "dynCall_viijj")
+    {
         emfuncs.dyn_call_viijj = Some(func);
     }
-    if let Ok(func) = instance.exports.get_typed_function(&ctx, "dynCall_vj") {
+    if let Ok(func) = instance.exports.get_typed_function(&mut ctx, "dynCall_vj") {
         emfuncs.dyn_call_vj = Some(func);
     }
-    if let Ok(func) = instance.exports.get_typed_function(&ctx, "dynCall_vjji") {
+    if let Ok(func) = instance
+        .exports
+        .get_typed_function(&mut ctx, "dynCall_vjji")
+    {
         emfuncs.dyn_call_vjji = Some(func);
     }
-    if let Ok(func) = instance.exports.get_typed_function(&ctx, "dynCall_vij") {
+    if let Ok(func) = instance.exports.get_typed_function(&mut ctx, "dynCall_vij") {
         emfuncs.dyn_call_vij = Some(func);
     }
-    if let Ok(func) = instance.exports.get_typed_function(&ctx, "dynCall_viji") {
+    if let Ok(func) = instance
+        .exports
+        .get_typed_function(&mut ctx, "dynCall_viji")
+    {
         emfuncs.dyn_call_viji = Some(func);
     }
-    if let Ok(func) = instance.exports.get_typed_function(&ctx, "dynCall_vijiii") {
+    if let Ok(func) = instance
+        .exports
+        .get_typed_function(&mut ctx, "dynCall_vijiii")
+    {
         emfuncs.dyn_call_vijiii = Some(func);
     }
-    if let Ok(func) = instance.exports.get_typed_function(&ctx, "dynCall_vijj") {
+    if let Ok(func) = instance
+        .exports
+        .get_typed_function(&mut ctx, "dynCall_vijj")
+    {
         emfuncs.dyn_call_vijj = Some(func);
     }
-    if let Ok(func) = instance.exports.get_typed_function(&ctx, "dynCall_viid") {
+    if let Ok(func) = instance
+        .exports
+        .get_typed_function(&mut ctx, "dynCall_viid")
+    {
         emfuncs.dyn_call_viid = Some(func);
     }
-    if let Ok(func) = instance.exports.get_typed_function(&ctx, "dynCall_vidd") {
+    if let Ok(func) = instance
+        .exports
+        .get_typed_function(&mut ctx, "dynCall_vidd")
+    {
         emfuncs.dyn_call_vidd = Some(func);
     }
-    if let Ok(func) = instance.exports.get_typed_function(&ctx, "dynCall_viidii") {
+    if let Ok(func) = instance
+        .exports
+        .get_typed_function(&mut ctx, "dynCall_viidii")
+    {
         emfuncs.dyn_call_viidii = Some(func);
     }
     if let Ok(func) = instance
         .exports
-        .get_typed_function(&ctx, "dynCall_viidddddddd")
+        .get_typed_function(&mut ctx, "dynCall_viidddddddd")
     {
         emfuncs.dyn_call_viidddddddd = Some(func);
     }
-    if let Ok(func) = instance.exports.get_typed_function(&ctx, "stackSave") {
+    if let Ok(func) = instance.exports.get_typed_function(&mut ctx, "stackSave") {
         emfuncs.stack_save = Some(func);
     }
-    if let Ok(func) = instance.exports.get_typed_function(&ctx, "stackRestore") {
+    if let Ok(func) = instance
+        .exports
+        .get_typed_function(&mut ctx, "stackRe&mut ctx")
+    {
         emfuncs.stack_restore = Some(func);
     }
-    if let Ok(func) = instance.exports.get_typed_function(&ctx, "setThrew") {
+    if let Ok(func) = instance.exports.get_typed_function(&mut ctx, "setThrew") {
         emfuncs.set_threw = Some(func);
     }
     ctx.data_mut().set_functions(emfuncs);
 
-    set_up_emscripten(&mut store, &mut ctx, instance)?;
+    set_up_emscripten(&mut ctx, instance)?;
 
     // println!("running emscripten instance");
 
     if let Some(ep) = entrypoint {
         debug!("Running entry point: {}", &ep);
-        let arg = unsafe { allocate_cstr_on_stack(&mut ctx, args[0]).0 };
+        let arg = unsafe { allocate_cstr_on_stack(&mut ctx.as_mut(), args[0]).0 };
         //let (argc, argv) = store_module_arguments(instance.context_mut(), args);
         let func: &Function = instance
             .exports
@@ -825,11 +898,11 @@ fn store_module_arguments(ctx: &mut FunctionEnvMut<EmEnv>, args: Vec<&str>) -> (
 
     let mut args_slice = vec![0; argc];
     for (slot, arg) in args_slice[0..argc].iter_mut().zip(args.iter()) {
-        *slot = unsafe { allocate_cstr_on_stack(ctx, arg).0 };
+        *slot = unsafe { allocate_cstr_on_stack(&mut ctx.as_mut(), arg).0 };
     }
 
     let (argv_offset, argv_slice): (_, &mut [u32]) =
-        unsafe { allocate_on_stack(&mut ctx, ((argc) * 4) as u32) };
+        unsafe { allocate_on_stack(&mut ctx.as_mut(), ((argc) * 4) as u32) };
     assert!(!argv_slice.is_empty());
     for (slot, arg) in argv_slice[0..argc].iter_mut().zip(args_slice.iter()) {
         *slot = *arg
@@ -840,15 +913,16 @@ fn store_module_arguments(ctx: &mut FunctionEnvMut<EmEnv>, args: Vec<&str>) -> (
 }
 
 pub fn emscripten_set_up_memory(
-    mut ctx: FunctionEnvMut<EmEnv>,
+    store: &mut impl AsStoreMut,
+    ctx: &FunctionEnv<EmEnv>,
     memory: &Memory,
     globals: &EmscriptenGlobalsData,
 ) -> Result<(), String> {
-    ctx.data_mut().set_memory(memory.clone());
-    let dynamictop_ptr = WasmPtr::<i32>::new(globals.dynamictop_ptr).deref(&ctx, memory);
+    ctx.as_mut(store).set_memory(memory.clone());
+    let dynamictop_ptr = WasmPtr::<i32>::new(globals.dynamictop_ptr).deref(store, memory);
     let dynamic_base = globals.dynamic_base;
 
-    if dynamictop_ptr.offset() >= memory.data_size(&ctx) {
+    if dynamictop_ptr.offset() >= memory.data_size(store) {
         return Err("dynamictop_ptr beyond memory len".to_string());
     }
     dynamictop_ptr.write(dynamic_base as i32).unwrap();
@@ -882,7 +956,8 @@ pub struct EmscriptenGlobals {
 
 impl EmscriptenGlobals {
     pub fn new(
-        mut ctx: FunctionEnvMut<EmEnv>,
+        mut store: &mut impl AsStoreMut,
+        ctx: &FunctionEnv<EmEnv>,
         module: &Module, /*, static_bump: u32 */
     ) -> Result<Self, String> {
         let mut use_old_abort_on_cannot_grow_memory = false;
@@ -900,14 +975,14 @@ impl EmscriptenGlobals {
 
         // Memory initialization
         let memory_type = MemoryType::new(memory_min, memory_max, shared);
-        let memory = Memory::new(&mut ctx, memory_type).unwrap();
+        let memory = Memory::new(&mut store, memory_type).unwrap();
 
         let table_type = TableType {
             ty: ValType::FuncRef,
             minimum: table_min,
             maximum: table_max,
         };
-        let table = Table::new(&mut ctx, table_type, Value::FuncRef(None)).unwrap();
+        let table = Table::new(&mut store, table_type, Value::FuncRef(None)).unwrap();
 
         let data = {
             let static_bump = STATIC_BUMP;
@@ -945,7 +1020,7 @@ impl EmscriptenGlobals {
             }
         };
 
-        emscripten_set_up_memory(ctx, &memory, &data)?;
+        emscripten_set_up_memory(store, ctx, &memory, &data)?;
 
         let mut null_function_names = vec![];
         for import in module.imports().functions() {

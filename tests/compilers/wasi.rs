@@ -34,7 +34,7 @@ pub fn run_wasi(
     let tokens = WasiTest::lex_string(&source)?;
     let wasi_test = WasiTest::parse_tokens(&tokens)?;
 
-    let succeeded = wasi_test.run(&store, base_dir, filesystem_kind)?;
+    let succeeded = wasi_test.run(&mut store, base_dir, filesystem_kind)?;
 
     assert!(succeeded);
 

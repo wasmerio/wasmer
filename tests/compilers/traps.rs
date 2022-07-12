@@ -21,7 +21,7 @@ fn test_trap_return(config: crate::Config) -> Result<()> {
     });
 
     let instance = Instance::new(
-        &mut ctx,
+        &mut store,
         &module,
         &imports! {
             "" => {
@@ -35,7 +35,7 @@ fn test_trap_return(config: crate::Config) -> Result<()> {
         .expect("expected function export");
 
     let e = run_func
-        .call(&mut ctx, &[])
+        .call(&mut store, &[])
         .err()
         .expect("error calling function");
 
@@ -64,7 +64,7 @@ fn test_trap_trace(config: crate::Config) -> Result<()> {
         .expect("expected function export");
 
     let e = run_func
-        .call(&mut ctx, &[])
+        .call(&mut store, &[])
         .err()
         .expect("error calling function");
 
@@ -104,7 +104,7 @@ fn test_trap_trace_cb(config: crate::Config) -> Result<()> {
 
     let module = Module::new(&store, wat)?;
     let instance = Instance::new(
-        &mut ctx,
+        &mut store,
         &module,
         &imports! {
             "" => {
@@ -118,7 +118,7 @@ fn test_trap_trace_cb(config: crate::Config) -> Result<()> {
         .expect("expected function export");
 
     let e = run_func
-        .call(&mut ctx, &[])
+        .call(&mut store, &[])
         .err()
         .expect("error calling function");
 
@@ -154,7 +154,7 @@ fn test_trap_stack_overflow(config: crate::Config) -> Result<()> {
         .expect("expected function export");
 
     let e = run_func
-        .call(&mut ctx, &[])
+        .call(&mut store, &[])
         .err()
         .expect("error calling function");
 
@@ -188,7 +188,7 @@ fn trap_display_pretty(config: crate::Config) -> Result<()> {
         .expect("expected function export");
 
     let e = run_func
-        .call(&mut ctx, &[])
+        .call(&mut store, &[])
         .err()
         .expect("error calling function");
     assert_eq!(
@@ -230,7 +230,7 @@ fn trap_display_multi_module(config: crate::Config) -> Result<()> {
     "#;
     let module = Module::new(&store, wat)?;
     let instance = Instance::new(
-        &mut ctx,
+        &mut store,
         &module,
         &imports! {
             "" => {
@@ -244,7 +244,7 @@ fn trap_display_multi_module(config: crate::Config) -> Result<()> {
         .expect("expected function export");
 
     let e = bar2
-        .call(&mut ctx, &[])
+        .call(&mut store, &[])
         .err()
         .expect("error calling function");
     assert_eq!(
@@ -278,7 +278,7 @@ fn trap_start_function_import(config: crate::Config) -> Result<()> {
         Err(RuntimeError::new("user trap"))
     });
     let err = Instance::new(
-        &mut ctx,
+        &mut store,
         &module,
         &imports! {
             "" => {
@@ -318,11 +318,11 @@ fn rust_panic_import(config: crate::Config) -> Result<()> {
     let mut ctx = FunctionEnv::new(&mut store, ());
     let sig = FunctionType::new(vec![], vec![]);
     let func = Function::new(&mut store, &ctx, &sig, |_ctx, _| panic!("this is a panic"));
-    let f0 = Function::new_native(&mut store, &ctx, |_ctx: ContextMut<_>| {
+    let f0 = Function::new_native(&mut store, &ctx, |_ctx: FunctionEnvMut<_>| {
         panic!("this is another panic")
     });
     let instance = Instance::new(
-        &mut ctx,
+        &mut store,
         &module,
         &imports! {
             "" => {
@@ -333,7 +333,7 @@ fn rust_panic_import(config: crate::Config) -> Result<()> {
     )?;
     let func = instance.exports.get_function("foo")?.clone();
     let err = panic::catch_unwind(AssertUnwindSafe(|| {
-        drop(func.call(&mut ctx, &[]));
+        drop(func.call(&mut store, &[]));
     }))
     .unwrap_err();
     assert_eq!(err.downcast_ref::<&'static str>(), Some(&"this is a panic"));
@@ -368,7 +368,7 @@ fn rust_panic_start_function(config: crate::Config) -> Result<()> {
     let func = Function::new(&mut store, &ctx, &sig, |_ctx, _| panic!("this is a panic"));
     let err = panic::catch_unwind(AssertUnwindSafe(|| {
         drop(Instance::new(
-            &mut ctx,
+            &mut store,
             &module,
             &imports! {
                 "" => {
@@ -380,12 +380,12 @@ fn rust_panic_start_function(config: crate::Config) -> Result<()> {
     .unwrap_err();
     assert_eq!(err.downcast_ref::<&'static str>(), Some(&"this is a panic"));
 
-    let func = Function::new_native(&mut store, &ctx, |_ctx: ContextMut<_>| {
+    let func = Function::new_native(&mut store, &ctx, |_ctx: FunctionEnvMut<_>| {
         panic!("this is another panic")
     });
     let err = panic::catch_unwind(AssertUnwindSafe(|| {
         drop(Instance::new(
-            &mut ctx,
+            &mut store,
             &module,
             &imports! {
                 "" => {
@@ -416,17 +416,17 @@ fn mismatched_arguments(config: crate::Config) -> Result<()> {
     let instance = Instance::new(&mut store, &module, &imports! {})?;
     let func: &Function = instance.exports.get("foo")?;
     assert_eq!(
-        func.call(&mut ctx, &[]).unwrap_err().message(),
+        func.call(&mut store, &[]).unwrap_err().message(),
         "Parameters of type [] did not match signature [I32] -> []"
     );
     assert_eq!(
-        func.call(&mut ctx, &[Value::F32(0.0)])
+        func.call(&mut store, &[Value::F32(0.0)])
             .unwrap_err()
             .message(),
         "Parameters of type [F32] did not match signature [I32] -> []",
     );
     assert_eq!(
-        func.call(&mut ctx, &[Value::I32(0), Value::I32(1)])
+        func.call(&mut store, &[Value::I32(0), Value::I32(1)])
             .unwrap_err()
             .message(),
         "Parameters of type [I32, I32] did not match signature [I32] -> []"
@@ -508,11 +508,11 @@ fn present_after_module_drop(config: crate::Config) -> Result<()> {
     let func: Function = instance.exports.get_function("foo")?.clone();
 
     println!("asserting before we drop modules");
-    assert_trap(func.call(&mut ctx, &[]).unwrap_err());
+    assert_trap(func.call(&mut store, &[]).unwrap_err());
     drop((instance, module));
 
     println!("asserting after drop");
-    assert_trap(func.call(&mut ctx, &[]).unwrap_err());
+    assert_trap(func.call(&mut store, &[]).unwrap_err());
     return Ok(());
 
     fn assert_trap(t: RuntimeError) {

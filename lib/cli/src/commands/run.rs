@@ -97,19 +97,16 @@ impl Run {
         })
     }
 
-    fn inner_run<T>(&self, mut ctx: FunctionEnv<T>, instance: Instance) -> Result<()> {
-        let module = self.get_module()?;
+    fn inner_module_run(&self, mut store: Store, instance: Instance) -> Result<()> {
         // If this module exports an _initialize function, run that first.
         if let Ok(initialize) = instance.exports.get_function("_initialize") {
             initialize
-                .call(&mut ctx, &[])
+                .call(&mut store, &[])
                 .with_context(|| "failed to run _initialize function")?;
         }
 
         // Do we want to invoke a function?
         if let Some(ref invoke) = self.invoke {
-            let imports = imports! {};
-            let instance = Instance::new(&mut store, &module, &imports)?;
             let result = self.invoke_function(&mut store, &instance, invoke, &self.args)?;
             println!(
                 "{}",
@@ -121,7 +118,7 @@ impl Run {
             );
         } else {
             let start: Function = self.try_find_function(&instance, "_start", &[])?;
-            let result = start.call(&mut ctx, &[]);
+            let result = start.call(&mut store, &[]);
             #[cfg(feature = "wasi")]
             self.wasi.handle_result(result)?;
             #[cfg(not(feature = "wasi"))]
@@ -132,7 +129,7 @@ impl Run {
     }
 
     fn inner_execute(&self) -> Result<()> {
-        let module = self.get_module()?;
+        let (mut store, module) = self.get_store_module()?;
         #[cfg(feature = "emscripten")]
         {
             use wasmer_emscripten::{
@@ -145,11 +142,10 @@ impl Run {
                     bail!("--invoke is not supported with emscripten modules");
                 }
                 // create an EmEnv with default global
-                let store = module.store();
-                let mut ctx = FunctionEnv::new(module.store(), EmEnv::new());
-                let mut emscripten_globals =
-                    EmscriptenGlobals::new(ctx, &module).map_err(|e| anyhow!("{}", e))?;
-                ctx.data_mut()
+                let ctx = FunctionEnv::new(&mut store, EmEnv::new());
+                let mut emscripten_globals = EmscriptenGlobals::new(&mut store, &ctx, &module)
+                    .map_err(|e| anyhow!("{}", e))?;
+                ctx.as_mut(&mut store)
                     .set_data(&emscripten_globals.data, Default::default());
                 let import_object =
                     generate_emscripten_env(&mut store, &ctx, &mut emscripten_globals);
@@ -169,8 +165,7 @@ impl Run {
 
                 run_emscripten_instance(
                     &mut instance,
-                    &mut store,
-                    ctx,
+                    ctx.into_mut(&mut store),
                     &mut emscripten_globals,
                     if let Some(cn) = &self.command_name {
                         cn
@@ -219,23 +214,21 @@ impl Run {
                                 .map(|f| f.to_string_lossy().to_string())
                         })
                         .unwrap_or_default();
-                    let (ctx, instance) = self
+                    let (_ctx, instance) = self
                         .wasi
-                        .instantiate(&module, program_name, self.args.clone())
+                        .instantiate(&mut store, &module, program_name, self.args.clone())
                         .with_context(|| "failed to instantiate WASI module")?;
-                    self.inner_run(ctx, instance)
+                    self.inner_module_run(store, instance)
                 }
                 // not WASI
                 _ => {
-                    let mut ctx = FunctionEnv::new(module.store(), ());
                     let instance = Instance::new(&mut store, &module, &imports! {})?;
-                    self.inner_run(ctx, instance)
+                    self.inner_module_run(store, instance)
                 }
             }
         };
         #[cfg(not(feature = "wasi"))]
         let ret = {
-            let mut ctx = FunctionEnv::new(module.store(), ());
             let instance = Instance::new(&mut store, &module, &imports! {})?;
             self.inner_run(ctx, instance)
         };
@@ -243,13 +236,13 @@ impl Run {
         ret
     }
 
-    fn get_module(&self) -> Result<Module> {
+    fn get_store_module(&self) -> Result<(Store, Module)> {
         let contents = std::fs::read(self.path.clone())?;
         if wasmer_compiler::UniversalArtifact::is_deserializable(&contents) {
             let engine = wasmer_compiler::Universal::headless().engine();
-            let mut store = Store::new_with_engine(&engine);
+            let store = Store::new_with_engine(&engine);
             let module = unsafe { Module::deserialize_from_file(&store, &self.path)? };
-            return Ok(module);
+            return Ok((store, module));
         }
         let (store, compiler_type) = self.store.get_store()?;
         #[cfg(feature = "cache")]
@@ -270,7 +263,7 @@ impl Run {
         // We set the name outside the cache, to make sure we dont cache the name
         module.set_name(&self.path.file_name().unwrap_or_default().to_string_lossy());
 
-        Ok(module)
+        Ok((store, module))
     }
 
     #[cfg(feature = "cache")]

@@ -4,9 +4,9 @@ use crate::EmEnv;
 use wasmer::FunctionEnvMut;
 
 /// emscripten: ___cxa_allocate_exception
-pub fn ___cxa_allocate_exception(ctx: FunctionEnvMut<EmEnv>, size: u32) -> u32 {
+pub fn ___cxa_allocate_exception(mut ctx: FunctionEnvMut<EmEnv>, size: u32) -> u32 {
     debug!("emscripten::___cxa_allocate_exception");
-    env::call_malloc(&mut ctx, size as _)
+    env::call_malloc(&mut ctx.as_mut(), size as _)
 }
 
 pub fn ___cxa_current_primary_exception(_ctx: FunctionEnvMut<EmEnv>) -> u32 {

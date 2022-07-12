@@ -14,7 +14,7 @@ use wasmer::{FunctionEnvMut, WasmPtr};
 
 // #[no_mangle]
 /// emscripten: _getenv // (name: *const char) -> *const c_char;
-pub fn _getenv(ctx: FunctionEnvMut<EmEnv>, name: i32) -> u32 {
+pub fn _getenv(mut ctx: FunctionEnvMut<EmEnv>, name: i32) -> u32 {
     debug!("emscripten::_getenv");
 
     let name_addr = emscripten_memory_pointer!(ctx, ctx.data().memory(0), name) as *const c_char;

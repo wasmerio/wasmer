@@ -65,7 +65,7 @@ fn resize_heap(ctx: &mut FunctionEnvMut<EmEnv>, requested_size: u32) -> u32 {
     if let Ok(_pages_allocated) = ctx
         .data()
         .memory(0)
-        .grow(&mut ctx, Pages(amount_to_grow as u32))
+        .grow(&mut ctx.as_mut(), Pages(amount_to_grow as u32))
     {
         debug!("{} pages allocated", _pages_allocated.0);
         1

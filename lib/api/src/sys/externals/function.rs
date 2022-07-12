@@ -91,7 +91,7 @@ impl Function {
     {
         let function_type = ty.into();
         let func_ty = function_type.clone();
-        let new_ctx = ctx.clone();
+        let func_env = ctx.clone();
         let raw_store = store.as_store_mut().as_raw() as *mut u8;
         let wrapper = move |values_vec: *mut RawValue| -> Result<(), RuntimeError> {
             unsafe {
@@ -100,9 +100,11 @@ impl Function {
                 for (i, ty) in func_ty.params().iter().enumerate() {
                     args.push(Value::from_raw(&mut store, *ty, *values_vec.add(i)));
                 }
-                let data = new_ctx.as_mut(&mut store);
                 let store_mut = StoreMut::from_raw(raw_store as *mut StoreInner);
-                let env = FunctionEnvMut { store_mut, data };
+                let env = FunctionEnvMut {
+                    store_mut,
+                    func_env: func_env.clone(),
+                };
                 let returns = func(env, &args)?;
 
                 // We need to dynamically check that the returns
@@ -598,7 +600,7 @@ pub(crate) struct DynamicFunction<F> {
 
 impl<F> DynamicFunction<F>
 where
-    F: FnMut(*mut RawValue) -> Result<(), RuntimeError> + 'static,
+    F: Fn(*mut RawValue) -> Result<(), RuntimeError> + 'static,
 {
     // This function wraps our func, to make it compatible with the
     // reverse trampoline signature
@@ -1133,10 +1135,9 @@ mod inner {
                                 )*
                                 // println!("func wrapper2 {:p}", *env.raw_ctx);
                                 let store_mut = StoreMut::from_raw(env.raw_store as *mut _);
-                                let data = env.env.as_mut(&mut store);
                                 let f_env = FunctionEnvMut {
                                     store_mut,
-                                    data,
+                                    func_env: env.env.clone(),
                                 };
                                 // println!("func wrapper3");
                                 (env.func)(f_env, $($x),* ).into_result()

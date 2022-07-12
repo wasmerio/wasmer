@@ -28,7 +28,7 @@ pub fn call_malloc(mut ctx: &mut FunctionEnvMut<EmEnv>, size: u32) -> u32 {
 
 #[warn(dead_code)]
 pub fn call_malloc_with_cast<T: Copy>(ctx: &mut FunctionEnvMut<EmEnv>, size: u32) -> WasmPtr<T> {
-    WasmPtr::new(call_malloc(&mut ctx, size))
+    WasmPtr::new(call_malloc(ctx, size))
 }
 
 pub fn call_memalign(mut ctx: &mut FunctionEnvMut<EmEnv>, alignment: u32, size: u32) -> u32 {
@@ -63,7 +63,7 @@ pub fn _getpagesize(_ctx: FunctionEnvMut<EmEnv>) -> u32 {
     16384
 }
 
-pub fn _times(ctx: FunctionEnvMut<EmEnv>, buffer: u32) -> u32 {
+pub fn _times(mut ctx: FunctionEnvMut<EmEnv>, buffer: u32) -> u32 {
     if buffer != 0 {
         call_memset(&mut ctx, buffer, 0, 16);
     }

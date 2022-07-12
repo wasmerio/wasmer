@@ -66,7 +66,7 @@ fn test_deserialize(config: crate::Config) -> Result<()> {
         )])
     });
     let instance = Instance::new(
-        &mut ctx,
+        &mut store,
         &module,
         &imports! {
             "host" => {
@@ -76,7 +76,7 @@ fn test_deserialize(config: crate::Config) -> Result<()> {
     )?;
 
     let test_call = instance.exports.get_function("test_call")?;
-    let result = test_call.call(&mut ctx, &[])?;
+    let result = test_call.call(&mut store, &[])?;
     assert_eq!(result.to_vec(), vec![Value::I64(1500)]);
     Ok(())
 }

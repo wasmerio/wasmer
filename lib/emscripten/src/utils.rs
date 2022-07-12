@@ -131,7 +131,7 @@ pub unsafe fn copy_cstr_into_wasm(mut ctx: &mut FunctionEnvMut<EmEnv>, cstr: *co
 /// # Safety
 /// This method is unsafe because it operates directly with the slice of memory represented by the address
 pub unsafe fn allocate_on_stack<'a, T: Copy>(
-    ctx: &mut FunctionEnvMut<'a, EmEnv>,
+    mut ctx: &mut FunctionEnvMut<'a, EmEnv>,
     count: u32,
 ) -> (u32, &'a mut [T]) {
     let stack_alloc_ref = get_emscripten_funcs(ctx).stack_alloc_ref().unwrap().clone();

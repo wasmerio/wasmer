@@ -167,7 +167,7 @@ pub fn ___syscall38(mut ctx: FunctionEnvMut<EmEnv>, _which: c_int, mut varargs: 
     debug!("emscripten::___syscall38 (rename)");
     let old_path = varargs.get_str(&ctx);
     let new_path = varargs.get_str(&ctx);
-    let real_old_path_owned = get_cstr_path(ctx, old_path as *const _);
+    let real_old_path_owned = get_cstr_path(ctx.as_mut(), old_path as *const _);
     let real_old_path = if let Some(ref rp) = real_old_path_owned {
         rp.as_c_str().as_ptr()
     } else {
@@ -351,7 +351,7 @@ pub fn ___syscall183(mut ctx: FunctionEnvMut<EmEnv>, _which: c_int, mut varargs:
     debug!("emscripten::___syscall183");
     let buf_offset: WasmPtr<libc::c_char> = varargs.get(&ctx);
     let _size: c_int = varargs.get(&ctx);
-    let path = get_current_directory(ctx);
+    let path = get_current_directory(ctx.as_mut());
     let path_string = path.unwrap().display().to_string();
     let len = path_string.len();
     let memory = ctx.data().memory(0);
@@ -539,7 +539,7 @@ pub fn ___syscall195(mut ctx: FunctionEnvMut<EmEnv>, _which: c_int, mut varargs:
     let pathname_addr = varargs.get_str(&ctx);
     let buf: u32 = varargs.get(&ctx);
 
-    let real_path_owned = get_cstr_path(ctx, pathname_addr as *const _);
+    let real_path_owned = get_cstr_path(ctx.as_mut(), pathname_addr as *const _);
     let real_path = if let Some(ref rp) = real_path_owned {
         rp.as_c_str().as_ptr()
     } else {

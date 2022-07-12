@@ -157,7 +157,7 @@ use libc::SO_NOSIGPIPE;
 const SO_NOSIGPIPE: c_int = 0;
 
 /// open
-pub fn ___syscall5(mut ctx: FunctionEnvMut<EmEnv>, _which: c_int, mut varargs: VarArgs) -> c_int {
+pub fn ___syscall5(ctx: FunctionEnvMut<EmEnv>, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall5 (open) {}", _which);
     let pathname_addr = varargs.get_str(&ctx);
     let flags: i32 = varargs.get(&ctx);
@@ -214,7 +214,7 @@ pub fn ___syscall83(mut ctx: FunctionEnvMut<EmEnv>, _which: c_int, mut varargs: 
 
     let path1 = varargs.get_str(&ctx);
     let path2 = varargs.get_str(&ctx);
-    let real_path1_owned = utils::get_cstr_path(ctx, path1 as *const _);
+    let real_path1_owned = utils::get_cstr_path(ctx.as_mut(), path1 as *const _);
     let real_path1 = if let Some(ref rp) = real_path1_owned {
         rp.as_c_str().as_ptr()
     } else {
@@ -237,7 +237,7 @@ pub fn ___syscall83(mut ctx: FunctionEnvMut<EmEnv>, _which: c_int, mut varargs: 
 }
 
 /// readlink
-pub fn ___syscall85(mut ctx: FunctionEnvMut<EmEnv>, _which: c_int, mut varargs: VarArgs) -> i32 {
+pub fn ___syscall85(ctx: FunctionEnvMut<EmEnv>, _which: c_int, mut varargs: VarArgs) -> i32 {
     debug!("emscripten::___syscall85 (readlink)");
     let pathname_addr = varargs.get_str(&ctx);
     let buf = varargs.get_str(&ctx);
@@ -286,7 +286,7 @@ pub fn ___syscall194(ctx: FunctionEnvMut<EmEnv>, _which: c_int, mut varargs: Var
 pub fn ___syscall198(mut ctx: FunctionEnvMut<EmEnv>, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall198 (lchown) {}", _which);
     let path_ptr = varargs.get_str(&ctx);
-    let real_path_owned = utils::get_cstr_path(ctx, path_ptr as *const _);
+    let real_path_owned = utils::get_cstr_path(ctx.as_mut(), path_ptr as *const _);
     let real_path = if let Some(ref rp) = real_path_owned {
         rp.as_c_str().as_ptr()
     } else {
@@ -327,7 +327,7 @@ pub fn ___syscall212(mut ctx: FunctionEnvMut<EmEnv>, _which: c_int, mut varargs:
     debug!("emscripten::___syscall212 (chown) {}", _which);
 
     let pathname_addr = varargs.get_str(&ctx);
-    let real_path_owned = utils::get_cstr_path(ctx, pathname_addr as *const _);
+    let real_path_owned = utils::get_cstr_path(ctx.as_mut(), pathname_addr as *const _);
     let real_path = if let Some(ref rp) = real_path_owned {
         rp.as_c_str().as_ptr()
     } else {
@@ -356,7 +356,7 @@ pub fn ___syscall219(ctx: FunctionEnvMut<EmEnv>, _which: c_int, mut varargs: Var
 pub fn ___syscall33(mut ctx: FunctionEnvMut<EmEnv>, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall33 (access) {}", _which);
     let path = varargs.get_str(&ctx);
-    let real_path_owned = utils::get_cstr_path(ctx, path as *const _);
+    let real_path_owned = utils::get_cstr_path(ctx.as_mut(), path as *const _);
     let real_path = if let Some(ref rp) = real_path_owned {
         rp.as_c_str().as_ptr()
     } else {
@@ -384,7 +384,7 @@ pub fn ___syscall34(ctx: FunctionEnvMut<EmEnv>, _which: c_int, mut varargs: VarA
 pub fn ___syscall39(mut ctx: FunctionEnvMut<EmEnv>, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall39 (mkdir) {}", _which);
     let pathname_addr = varargs.get_str(&ctx);
-    let real_path_owned = utils::get_cstr_path(ctx, pathname_addr as *const _);
+    let real_path_owned = utils::get_cstr_path(ctx.as_mut(), pathname_addr as *const _);
     let real_path = if let Some(ref rp) = real_path_owned {
         rp.as_c_str().as_ptr()
     } else {
@@ -1006,7 +1006,7 @@ pub fn ___syscall122(ctx: FunctionEnvMut<EmEnv>, _which: c_int, mut varargs: Var
 pub fn ___syscall196(mut ctx: FunctionEnvMut<EmEnv>, _which: i32, mut varargs: VarArgs) -> i32 {
     debug!("emscripten::___syscall196 (lstat64) {}", _which);
     let path = varargs.get_str(&ctx);
-    let real_path_owned = utils::get_cstr_path(ctx, path as *const _);
+    let real_path_owned = utils::get_cstr_path(ctx.as_mut(), path as *const _);
     let real_path = if let Some(ref rp) = real_path_owned {
         rp.as_c_str().as_ptr()
     } else {
