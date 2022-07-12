@@ -27,33 +27,33 @@ pub fn fd_filestat_get(
 
     // Set up complete, make the call with the pointer that will write to the
     // struct and some unrelated memory after the struct.
-    let result = syscalls::fd_filestat_get::<Memory32>(ctx, fd, new_buf);
+    let result = syscalls::fd_filestat_get::<Memory32>(ctx.as_mut(), fd, new_buf);
 
-    // // reborrow memory
-    // let env = ctx.data();
-    // let memory = env.memory();
+    // reborrow memory
+    let env = ctx.data();
+    let memory = env.memory();
 
-    // // get the values written to memory
-    // let new_filestat = wasi_try_mem!(new_buf.deref(&ctx, memory).read());
-    // // translate the new struct into the old struct in host memory
-    // let old_stat = snapshot0::__wasi_filestat_t {
-    //     st_dev: new_filestat.st_dev,
-    //     st_ino: new_filestat.st_ino,
-    //     st_filetype: new_filestat.st_filetype,
-    //     st_nlink: new_filestat.st_nlink as u32,
-    //     st_size: new_filestat.st_size,
-    //     st_atim: new_filestat.st_atim,
-    //     st_mtim: new_filestat.st_mtim,
-    //     st_ctim: new_filestat.st_ctim,
-    // };
+    // get the values written to memory
+    let new_filestat = wasi_try_mem!(new_buf.deref(&ctx, memory).read());
+    // translate the new struct into the old struct in host memory
+    let old_stat = snapshot0::__wasi_filestat_t {
+        st_dev: new_filestat.st_dev,
+        st_ino: new_filestat.st_ino,
+        st_filetype: new_filestat.st_filetype,
+        st_nlink: new_filestat.st_nlink as u32,
+        st_size: new_filestat.st_size,
+        st_atim: new_filestat.st_atim,
+        st_mtim: new_filestat.st_mtim,
+        st_ctim: new_filestat.st_ctim,
+    };
 
-    // // write back the original values at the pointer's memory locations
-    // // (including the memory unrelated to the pointer)
-    // wasi_try_mem!(new_buf.deref(&ctx, memory).write(new_filestat_setup));
+    // write back the original values at the pointer's memory locations
+    // (including the memory unrelated to the pointer)
+    wasi_try_mem!(new_buf.deref(&ctx, memory).write(new_filestat_setup));
 
-    // // Now that this memory is back as it was, write the translated filestat
-    // // into memory leaving it as it should be
-    // wasi_try_mem!(buf.deref(&ctx, memory).write(old_stat));
+    // Now that this memory is back as it was, write the translated filestat
+    // into memory leaving it as it should be
+    wasi_try_mem!(buf.deref(&ctx, memory).write(old_stat));
 
     result
 }
@@ -75,25 +75,26 @@ pub fn path_filestat_get(
     let new_buf: WasmPtr<types::__wasi_filestat_t, Memory32> = buf.cast();
     let new_filestat_setup: types::__wasi_filestat_t = wasi_try_mem!(new_buf.read(&ctx, memory));
 
-    let result = syscalls::path_filestat_get::<Memory32>(ctx, fd, flags, path, path_len, new_buf);
+    let result =
+        syscalls::path_filestat_get::<Memory32>(ctx.as_mut(), fd, flags, path, path_len, new_buf);
 
-    // // need to re-borrow
-    // let env = ctx.data();
-    // let memory = env.memory();
-    // let new_filestat = wasi_try_mem!(new_buf.deref(&ctx, memory).read());
-    // let old_stat = snapshot0::__wasi_filestat_t {
-    //     st_dev: new_filestat.st_dev,
-    //     st_ino: new_filestat.st_ino,
-    //     st_filetype: new_filestat.st_filetype,
-    //     st_nlink: new_filestat.st_nlink as u32,
-    //     st_size: new_filestat.st_size,
-    //     st_atim: new_filestat.st_atim,
-    //     st_mtim: new_filestat.st_mtim,
-    //     st_ctim: new_filestat.st_ctim,
-    // };
+    // need to re-borrow
+    let env = ctx.data();
+    let memory = env.memory();
+    let new_filestat = wasi_try_mem!(new_buf.deref(&ctx, memory).read());
+    let old_stat = snapshot0::__wasi_filestat_t {
+        st_dev: new_filestat.st_dev,
+        st_ino: new_filestat.st_ino,
+        st_filetype: new_filestat.st_filetype,
+        st_nlink: new_filestat.st_nlink as u32,
+        st_size: new_filestat.st_size,
+        st_atim: new_filestat.st_atim,
+        st_mtim: new_filestat.st_mtim,
+        st_ctim: new_filestat.st_ctim,
+    };
 
-    // wasi_try_mem!(new_buf.deref(&ctx, memory).write(new_filestat_setup));
-    // wasi_try_mem!(buf.deref(&ctx, memory).write(old_stat));
+    wasi_try_mem!(new_buf.deref(&ctx, memory).write(new_filestat_setup));
+    wasi_try_mem!(buf.deref(&ctx, memory).write(old_stat));
 
     result
 }
@@ -165,19 +166,24 @@ pub fn poll_oneoff(
     }
 
     // make the call
-    let result =
-        syscalls::poll_oneoff::<Memory32>(ctx, in_new_type_ptr, out_, nsubscriptions, nevents);
+    let result = syscalls::poll_oneoff::<Memory32>(
+        ctx.as_mut(),
+        in_new_type_ptr,
+        out_,
+        nsubscriptions,
+        nevents,
+    );
 
-    // // replace the old values of in, in case the calling code reuses the memory
-    // let env = ctx.data();
-    // let memory = env.memory();
+    // replace the old values of in, in case the calling code reuses the memory
+    let env = ctx.data();
+    let memory = env.memory();
 
-    // for (in_sub, orig) in wasi_try_mem_ok!(in_.slice(&ctx, memory, nsubscriptions_offset))
-    //     .iter()
-    //     .zip(in_origs.into_iter())
-    // {
-    //     wasi_try_mem_ok!(in_sub.write(orig));
-    // }
+    for (in_sub, orig) in wasi_try_mem_ok!(in_.slice(&ctx, memory, nsubscriptions_offset))
+        .iter()
+        .zip(in_origs.into_iter())
+    {
+        wasi_try_mem_ok!(in_sub.write(orig));
+    }
 
     result
 }
