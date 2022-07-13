@@ -57,26 +57,26 @@ pub trait SymbolRegistry: Send + Sync {
 #[derive(Debug, RkyvSerialize, RkyvDeserialize, Archive)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct ModuleMetadata {
-    /// FIXME
+    /// Compile info
     pub compile_info: CompileModuleInfo,
-    /// FIXME
+    /// Prefix for function etc symbols
     pub prefix: String,
-    /// FIXME
+    /// Data initializers
     pub data_initializers: Box<[OwnedDataInitializer]>,
     /// The function body lengths (used to find function by address)
     pub function_body_lengths: PrimaryMap<LocalFunctionIndex, u64>,
-    /// FIXME
+    /// CPU features used (See [`CpuFeature`])
     pub cpu_features: u64,
 }
 
-/// FIXME
+/// A simple metadata registry
 pub struct ModuleMetadataSymbolRegistry {
-    /// FIXME
+    /// Symbol prefix stirng
     pub prefix: String,
 }
 
 impl ModuleMetadata {
-    /// FIXME
+    /// Get mutable ref to compile info and a copy of the registry
     pub fn split(&mut self) -> (&mut CompileModuleInfo, ModuleMetadataSymbolRegistry) {
         let compile_info = &mut self.compile_info;
         let symbol_registry = ModuleMetadataSymbolRegistry {
@@ -85,7 +85,7 @@ impl ModuleMetadata {
         (compile_info, symbol_registry)
     }
 
-    /// FIXME
+    /// Returns symbol registry.
     pub fn get_symbol_registry(&self) -> ModuleMetadataSymbolRegistry {
         ModuleMetadataSymbolRegistry {
             prefix: self.prefix.clone(),

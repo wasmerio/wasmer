@@ -106,6 +106,10 @@ singlepass = ["wasmer-compiler-singlepass", "compiler"]
 cranelift = ["wasmer-compiler-cranelift", "compiler"]
 llvm = ["wasmer-compiler-llvm", "compiler"]
 middlewares = ["wasmer-middlewares"]
+wasmer-artifact-load = ["wasmer-compiler/wasmer-artifact-load"]
+wasmer-artifact-create = ["wasmer-compiler/wasmer-artifact-create"]
+static-artifact-load = ["wasmer-compiler/static-artifact-load"]
+static-artifact-create = ["wasmer-compiler/static-artifact-create"]
 
 # Testing features
 test-singlepass = ["singlepass"]

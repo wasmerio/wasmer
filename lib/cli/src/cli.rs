@@ -6,6 +6,8 @@ use crate::commands::Binfmt;
 use crate::commands::Compile;
 #[cfg(any(feature = "static-artifact-create", feature = "wasmer-artifact-create"))]
 use crate::commands::CreateExe;
+#[cfg(feature = "static-artifact-create")]
+use crate::commands::CreateObj;
 #[cfg(feature = "wast")]
 use crate::commands::Wast;
 use crate::commands::{Cache, Config, Inspect, Run, SelfUpdate, Validate};
@@ -51,6 +53,11 @@ enum WasmerCLIOptions {
     #[structopt(name = "create-exe")]
     CreateExe(CreateExe),
 
+    /// Compile a WebAssembly binary into an object file
+    #[cfg(feature = "static-artifact-create")]
+    #[structopt(name = "create-obj")]
+    CreateObj(CreateObj),
+
     /// Get various configuration information needed
     /// to compile programs which use Wasmer
     #[structopt(name = "config")]
@@ -86,6 +93,8 @@ impl WasmerCLIOptions {
             Self::Compile(compile) => compile.execute(),
             #[cfg(any(feature = "static-artifact-create", feature = "wasmer-artifact-create"))]
             Self::CreateExe(create_exe) => create_exe.execute(),
+            #[cfg(feature = "static-artifact-create")]
+            Self::CreateObj(create_obj) => create_obj.execute(),
             Self::Config(config) => config.execute(),
             Self::Inspect(inspect) => inspect.execute(),
             #[cfg(feature = "wast")]

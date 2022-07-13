@@ -67,6 +67,7 @@ default = [
     "emscripten",
     "compiler",
     "wasmer-artifact-create",
+    "static-artifact-create",
 ]
 cache = ["wasmer-cache"]
 cache-blake3-pure = ["wasmer-cache/blake3-pure"]
@@ -78,8 +79,28 @@ compiler = [
     "wasmer-compiler/translator",
     "wasmer-compiler/compiler",
 ]
-wasmer-artifact-create = ["compiler", "wasmer-compiler/wasmer-artifact-create", "wasmer-object"]
-static-artifact-create = ["compiler", "wasmer-compiler/static-artifact-create", "wasmer-object"]
+wasmer-artifact-create = ["compiler",
+ "wasmer/wasmer-artifact-load",
+ "wasmer/wasmer-artifact-create",
+ "wasmer-compiler/wasmer-artifact-load",
+ "wasmer-compiler/wasmer-artifact-create",
+ "wasmer-object",
+ ]
+static-artifact-create = ["compiler",
+ "wasmer/static-artifact-load",
+ "wasmer/static-artifact-create",
+ "wasmer-compiler/static-artifact-load",
+ "wasmer-compiler/static-artifact-create",
+ "wasmer-object",
+ ]
+wasmer-artifact-load = ["compiler",
+ "wasmer/wasmer-artifact-load",
+ "wasmer-compiler/wasmer-artifact-load",
+ ]
+static-artifact-load = ["compiler",
+ "wasmer/static-artifact-load",
+ "wasmer-compiler/static-artifact-load",
+ ]
 
 experimental-io-devices = [
     "wasmer-wasi-experimental-io-devices",

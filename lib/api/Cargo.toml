@@ -120,5 +120,10 @@ enable-serde = [
   "wasmer-types/enable-serde",
 ]
 
+wasmer-artifact-load = ["wasmer-compiler/wasmer-artifact-load"]
+wasmer-artifact-create = ["wasmer-compiler/wasmer-artifact-create"]
+static-artifact-load = ["wasmer-compiler/static-artifact-load"]
+static-artifact-create = ["wasmer-compiler/static-artifact-create"]
+
 [package.metadata.docs.rs]
 features = ["compiler", "core", "cranelift", "engine", "jit", "native", "singlepass", "sys", "sys-default" ]
