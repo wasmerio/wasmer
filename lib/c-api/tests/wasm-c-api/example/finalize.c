@@ -74,8 +74,6 @@ int main(int argc, const char* argv[]) {
   printf("Live count %d\n", live_count);
   printf("Creating store 1...\n");
   wasm_store_t* store1 = wasm_store_new(engine);
-  wasm_context_t* ctx1 = wasm_context_new(store1, 0);
-  wasm_store_context_set(store1, ctx1);
 
   printf("Running in store 1...\n");
   run_in_store(store1);
@@ -83,8 +81,6 @@ int main(int argc, const char* argv[]) {
 
   printf("Creating store 2...\n");
   wasm_store_t* store2 = wasm_store_new(engine);
-  wasm_context_t* ctx2 = wasm_context_new(store2, 0);
-  wasm_store_context_set(store2, ctx2);
 
   printf("Running in store 2...\n");
   run_in_store(store2);

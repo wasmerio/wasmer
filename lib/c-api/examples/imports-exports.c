@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include "wasmer.h"
 
-wasm_trap_t* host_func_callback(wasm_context_ref_mut_t* ctx_mut, const wasm_val_vec_t* args, wasm_val_vec_t* results) {
+wasm_trap_t* host_func_callback(const wasm_val_vec_t* args, wasm_val_vec_t* results) {
     printf("Calling back...\n> ");
 
     wasm_val_t val = WASM_I32_VAL(42);

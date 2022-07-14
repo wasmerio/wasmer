@@ -70,10 +70,26 @@ int main(int argc, const char* argv[]) {
   }
 
   wasm_byte_vec_delete(&binary);
+
+  printf("Setting up WASI...\n");
+  wasi_config_t* config = wasi_config_new("example_program");
+  // TODO: error checking
+  const char* js_string = "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));";
+  wasi_config_arg(config, "--eval");
+  wasi_config_arg(config, js_string);
+  wasi_config_capture_stdout(config);
+
+  wasi_env_t* wasi_env = wasi_env_new(config);
+  if (!wasi_env) {
+    printf("> Error building WASI env!\n");
+    print_wasmer_error();
+    return 1;
+  }
+
   // Instantiate.
   printf("Instantiating module...\n");
   wasm_extern_vec_t imports;
-  bool get_imports_result = wasi_get_imports(store, module, &imports);
+  bool get_imports_result = wasi_get_imports(store, module, wasi_env, &imports);
 
   if (!get_imports_result) {
     printf("> Error getting WASI imports!\n");

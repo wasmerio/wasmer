@@ -1,3 +1,5 @@
+use crate::wasm_c_api::function_env::FunctionCEnv;
+
 use super::super::store::wasm_store_t;
 use super::super::trap::wasm_trap_t;
 use super::super::types::{wasm_functype_t, wasm_valkind_enum};
@@ -5,6 +7,7 @@ use super::super::value::{wasm_val_inner, wasm_val_t, wasm_val_vec_t};
 use super::wasm_extern_t;
 use std::convert::TryInto;
 use std::mem::MaybeUninit;
+use libc::c_void;
 use wasmer_api::{Extern, Function, FunctionEnv, FunctionEnvMut, RuntimeError, Value};
 
 #[derive(Clone)]
@@ -25,10 +28,19 @@ impl wasm_func_t {
 
 #[allow(non_camel_case_types)]
 pub type wasm_func_callback_t = unsafe extern "C" fn(
-    context: &mut (),
     args: &wasm_val_vec_t,
     results: &mut wasm_val_vec_t,
 ) -> Option<Box<wasm_trap_t>>;
+
+#[allow(non_camel_case_types)]
+pub type wasm_func_callback_with_env_t = unsafe extern "C" fn(
+    env: *mut c_void,
+    args: &wasm_val_vec_t,
+    results: &mut wasm_val_vec_t,
+) -> Option<Box<wasm_trap_t>>;
+
+#[allow(non_camel_case_types)]
+pub type wasm_env_finalizer_t = unsafe extern "C" fn(*mut c_void);
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_func_new(
@@ -43,7 +55,7 @@ pub unsafe extern "C" fn wasm_func_new(
 
     let func_sig = &function_type.inner().function_type;
     let num_rets = func_sig.results().len();
-    let inner_callback = move |mut ctx: FunctionEnvMut<'_, ()>,
+    let inner_callback = move |mut _ctx: FunctionEnvMut<'_, FunctionCEnv>,
                                args: &[Value]|
           -> Result<Vec<Value>, RuntimeError> {
         let processed_args: wasm_val_vec_t = args
@@ -62,7 +74,7 @@ pub unsafe extern "C" fn wasm_func_new(
         ]
         .into();
 
-        let trap = callback(ctx.data_mut(), &processed_args, &mut results);
+        let trap = callback(&processed_args, &mut results);
 
         if let Some(trap) = trap {
             return Err(trap.inner);
@@ -77,7 +89,7 @@ pub unsafe extern "C" fn wasm_func_new(
 
         Ok(processed_results)
     };
-    let env = FunctionEnv::new(&mut store_mut, ());
+    let env = FunctionEnv::new(&mut store_mut, FunctionCEnv::new(0 as *mut c_void ));
     let function = Function::new(&mut store_mut, &env, func_sig, inner_callback);
     Some(Box::new(wasm_func_t {
         extern_: wasm_extern_t::new(store.store.clone(), function.into()),
