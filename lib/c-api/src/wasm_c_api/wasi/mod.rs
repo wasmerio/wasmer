@@ -16,7 +16,7 @@ use std::os::raw::c_char;
 use std::slice;
 use wasmer_api::{AsStoreMut, Extern};
 use wasmer_wasi::{
-    generate_import_object_from_ctx, get_wasi_version, Pipe, WasiEnv, WasiFile, WasiState,
+    generate_import_object_from_env, get_wasi_version, Pipe, WasiEnv, WasiFile, WasiState,
     WasiStateBuilder, WasiVersion,
 };
 
@@ -343,7 +343,7 @@ fn wasi_get_imports_inner(
         .ok_or("could not detect a WASI version on the given module"));
 
     let inner = unsafe { ctx.inner.transmute_data::<wasmer_wasi::WasiEnv>() };
-    let import_object = generate_import_object_from_ctx(&mut inner.as_store_mut(), version);
+    let import_object = generate_import_object_from_env(&mut inner.as_store_mut(), version);
 
     imports.set_buffer(c_try!(module
         .inner

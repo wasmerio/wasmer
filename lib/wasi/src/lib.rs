@@ -160,7 +160,7 @@ impl WasiFunctionEnv {
         module: &Module,
     ) -> Result<Imports, WasiError> {
         let wasi_version = get_wasi_version(module, false).ok_or(WasiError::UnknownWasiVersion)?;
-        Ok(generate_import_object_from_ctx(
+        Ok(generate_import_object_from_env(
             store,
             &self.env,
             wasi_version,
@@ -183,18 +183,19 @@ impl WasiFunctionEnv {
 
         let mut resolver = Imports::new();
         for version in wasi_versions.iter() {
-            let new_import_object = generate_import_object_from_ctx(store, &self.env, *version);
+            let new_import_object = generate_import_object_from_env(store, &self.env, *version);
             for ((n, m), e) in new_import_object.into_iter() {
                 resolver.define(&n, &m, e);
             }
         }
 
-        // if is_wasix_module(module) {
-        //     self.state
-        //         .fs
-        //         .is_wasix
-        //         .store(true, std::sync::atomic::Ordering::Release);
-        // }
+        if is_wasix_module(module) {
+            self.data_mut(&mut store)
+                .state
+                .fs
+                .is_wasix
+                .store(true, std::sync::atomic::Ordering::Release);
+        }
 
         Ok(resolver)
     }
@@ -375,7 +376,7 @@ impl WasiEnv {
 }
 
 /// Create an [`Imports`]  from a [`Context`]
-pub fn generate_import_object_from_ctx(
+pub fn generate_import_object_from_env(
     store: &mut impl AsStoreMut,
     ctx: &FunctionEnv<WasiEnv>,
     version: WasiVersion,
