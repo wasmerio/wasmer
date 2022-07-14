@@ -43,9 +43,6 @@ int main(int argc, const char* argv[]) {
     return 1;
   }
 
-  wasm_context_t* ctx = wasm_context_new(store, wasi_env);
-  wasm_store_context_set(store, ctx);
-
   // Load binary.
   printf("Loading binary...\n");
   FILE* file = fopen("assets/qjs.wasm", "r");

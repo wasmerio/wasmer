@@ -1,18 +1,14 @@
-use super::context::wasm_context_t;
 use super::externals::{wasm_extern_t, wasm_extern_vec_t};
 use super::module::wasm_module_t;
-use super::store::wasm_store_t;
+use super::store::{wasm_store_t, StoreRef};
 use super::trap::wasm_trap_t;
-use std::cell::RefCell;
-use std::rc::Rc;
-use std::sync::Arc;
 use wasmer_api::{Extern, Instance, InstantiationError};
 
 /// Opaque type representing a WebAssembly instance.
 #[allow(non_camel_case_types)]
 pub struct wasm_instance_t {
-    pub(crate) inner: Arc<Instance>,
-    pub(crate) context: Option<Rc<RefCell<wasm_context_t>>>,
+    pub(crate) store: StoreRef,
+    pub(crate) inner: Instance,
 }
 
 /// Creates a new instance from a WebAssembly module and a
@@ -40,16 +36,13 @@ pub struct wasm_instance_t {
 /// See the module's documentation.
 #[no_mangle]
 pub unsafe extern "C" fn wasm_instance_new(
-    store: Option<&wasm_store_t>,
+    store: Option<&mut wasm_store_t>,
     module: Option<&wasm_module_t>,
     imports: Option<&wasm_extern_vec_t>,
     trap: Option<&mut *mut wasm_trap_t>,
 ) -> Option<Box<wasm_instance_t>> {
-    let mut store = store?;
-    if store.context.is_none() {
-        crate::error::update_last_error(wasm_store_t::CTX_ERR_STR);
-    }
-    let mut ctx = store.context.as_ref()?.borrow_mut();
+    let store = store?;
+    let mut store_mut = store.store.store_mut();
     let module = module?;
     let imports = imports?;
 
@@ -63,8 +56,8 @@ pub unsafe extern "C" fn wasm_instance_new(
         .take(module_import_count)
         .collect::<Vec<Extern>>();
 
-    let instance = match Instance::new_by_index(&mut ctx.inner, wasm_module, &externs) {
-        Ok(instance) => Arc::new(instance),
+    let instance = match Instance::new_by_index(&mut store_mut, wasm_module, &externs) {
+        Ok(instance) => instance,
 
         Err(InstantiationError::Link(link_error)) => {
             crate::error::update_last_error(link_error);
@@ -95,8 +88,8 @@ pub unsafe extern "C" fn wasm_instance_new(
     };
 
     Some(Box::new(wasm_instance_t {
+        store: store.store.clone(),
         inner: instance,
-        context: store.context.clone(),
     }))
 }
 
@@ -122,8 +115,6 @@ pub unsafe extern "C" fn wasm_instance_delete(_instance: Option<Box<wasm_instanc
 ///     // Create the engine and the store.
 ///     wasm_engine_t* engine = wasm_engine_new();
 ///     wasm_store_t* store = wasm_store_new(engine);
-///     wasm_context_t* ctx = wasm_context_new(store, 0);
-///     wasm_store_context_set(store, ctx);
 ///
 ///     // Create a WebAssembly module from a WAT definition.
 ///     wasm_byte_vec_t wat;
@@ -206,10 +197,6 @@ pub unsafe extern "C" fn wasm_instance_exports(
         .iter()
         .map(|(_name, r#extern)| Some(Box::new(r#extern.clone().into())))
         .collect();
-    for ex in extern_vec.iter_mut().flatten() {
-        ex.set_context(original_instance.context.clone());
-    }
-
     out.set_buffer(extern_vec);
 }
 
@@ -224,7 +211,7 @@ mod tests {
 
             // The `sum` host function implementation.
             wasm_trap_t* sum_callback(
-                wasm_context_ref_mut_t* ctx_mut,
+                wasmer_funcenv_ref_mut_t* ctx_mut,
                 const wasm_val_vec_t* arguments,
                 wasm_val_vec_t* results
             ) {
@@ -242,8 +229,6 @@ mod tests {
                 // Create the engine and the store.
                 wasm_engine_t* engine = wasm_engine_new();
                 wasm_store_t* store = wasm_store_new(engine);
-                wasm_context_t* ctx = wasm_context_new(store, 0);
-                wasm_store_context_set(store, ctx);
 
                 // Create a WebAssembly module from a WAT definition.
                 wasm_byte_vec_t wat;

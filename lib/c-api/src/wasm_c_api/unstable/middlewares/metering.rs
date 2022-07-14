@@ -45,8 +45,6 @@
 //!     // Create the engine and the store based on the configuration.
 //!     wasm_engine_t* engine = wasm_engine_new_with_config(config);
 //!     wasm_store_t* store = wasm_store_new(engine);
-//!     wasm_context_t* ctx = wasm_context_new(store, 0);
-//!     wasm_store_context_set(store, ctx);
 //!     
 //!     // Create the new WebAssembly module.
 //!     wasm_byte_vec_t wat;
@@ -134,7 +132,6 @@
 //! ```
 
 use super::super::super::instance::wasm_instance_t;
-use super::super::super::store::wasm_store_t;
 use super::super::parser::operator::wasmer_parser_operator_t;
 use super::wasmer_middleware_t;
 use std::sync::Arc;
@@ -205,12 +202,7 @@ pub extern "C" fn wasmer_metering_delete(_metering: Option<Box<wasmer_metering_t
 /// See module's documentation.
 #[no_mangle]
 pub extern "C" fn wasmer_metering_get_remaining_points(instance: &wasm_instance_t) -> u64 {
-    let mut ctx = instance
-        .context
-        .as_ref()
-        .expect(wasm_store_t::CTX_ERR_STR)
-        .borrow_mut();
-    match get_remaining_points(&mut ctx.inner, &instance.inner) {
+    match get_remaining_points(&mut instance.store.store_mut(), &instance.inner) {
         MeteringPoints::Remaining(value) => value,
         MeteringPoints::Exhausted => std::u64::MAX,
     }
@@ -223,13 +215,8 @@ pub extern "C" fn wasmer_metering_get_remaining_points(instance: &wasm_instance_
 /// See module's documentation.
 #[no_mangle]
 pub extern "C" fn wasmer_metering_points_are_exhausted(instance: &wasm_instance_t) -> bool {
-    let mut ctx = instance
-        .context
-        .as_ref()
-        .expect(wasm_store_t::CTX_ERR_STR)
-        .borrow_mut();
     matches!(
-        get_remaining_points(&mut ctx.inner, &instance.inner),
+        get_remaining_points(&mut instance.store.store_mut(), &instance.inner),
         MeteringPoints::Exhausted,
     )
 }
@@ -271,8 +258,6 @@ pub extern "C" fn wasmer_metering_points_are_exhausted(instance: &wasm_instance_
 ///     wasm_engine_t* engine = wasm_engine_new_with_config(config);
 ///
 ///     wasm_store_t* store = wasm_store_new(engine);
-///     wasm_context_t* ctx = wasm_context_new(store, 0);
-///     wasm_store_context_set(store, ctx);
 ///     
 ///     // Create the module and instantiate it.
 ///     wasm_byte_vec_t wat;
@@ -310,12 +295,7 @@ pub extern "C" fn wasmer_metering_points_are_exhausted(instance: &wasm_instance_
 /// ```
 #[no_mangle]
 pub extern "C" fn wasmer_metering_set_remaining_points(instance: &wasm_instance_t, new_limit: u64) {
-    let mut ctx = instance
-        .context
-        .as_ref()
-        .expect(wasm_store_t::CTX_ERR_STR)
-        .borrow_mut();
-    set_remaining_points(&mut ctx.inner, &instance.inner, new_limit);
+    set_remaining_points(&mut instance.store.store_mut(), &instance.inner, new_limit);
 }
 
 /// Transforms a [`wasmer_metering_t`] into a generic

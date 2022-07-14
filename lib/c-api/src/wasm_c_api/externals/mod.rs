@@ -3,229 +3,78 @@ mod global;
 mod memory;
 mod table;
 
-use super::context::wasm_context_t;
-use super::store::wasm_store_t;
+use super::store::StoreRef;
+use super::types::{wasm_externkind_enum, wasm_externkind_t};
 pub use function::*;
 pub use global::*;
 pub use memory::*;
-use std::cell::RefCell;
-use std::mem::{self, ManuallyDrop};
-use std::rc::Rc;
 pub use table::*;
-use wasmer_api::{Extern, ExternType};
+use wasmer_api::{Extern, ExternType, Function, Global, Memory, Table};
 
 #[allow(non_camel_case_types)]
-#[repr(transparent)]
+#[derive(Clone)]
 pub struct wasm_extern_t {
-    pub(crate) inner: wasm_extern_inner,
-}
-
-/// All elements in this union must be `repr(C)` and have a
-/// `CApiExternTag` as their first element.
-#[allow(non_camel_case_types)]
-pub(crate) union wasm_extern_inner {
-    function: mem::ManuallyDrop<wasm_func_t>,
-    memory: mem::ManuallyDrop<wasm_memory_t>,
-    global: mem::ManuallyDrop<wasm_global_t>,
-    table: mem::ManuallyDrop<wasm_table_t>,
-}
-
-#[cfg(test)]
-mod extern_tests {
-    use super::*;
-
-    #[test]
-    fn externs_are_the_same_size() {
-        use std::mem::{align_of, size_of};
-        assert_eq!(size_of::<wasm_extern_t>(), size_of::<wasm_func_t>());
-        assert_eq!(size_of::<wasm_extern_t>(), size_of::<wasm_memory_t>());
-        assert_eq!(size_of::<wasm_extern_t>(), size_of::<wasm_global_t>());
-        assert_eq!(size_of::<wasm_extern_t>(), size_of::<wasm_table_t>());
-
-        assert_eq!(align_of::<wasm_extern_t>(), align_of::<wasm_func_t>());
-        assert_eq!(align_of::<wasm_extern_t>(), align_of::<wasm_memory_t>());
-        assert_eq!(align_of::<wasm_extern_t>(), align_of::<wasm_global_t>());
-        assert_eq!(align_of::<wasm_extern_t>(), align_of::<wasm_table_t>());
-    }
-
-    #[test]
-    fn tags_are_the_same_offset_away() {
-        use field_offset::offset_of;
-
-        let func_tag_offset = offset_of!(wasm_func_t => tag).get_byte_offset();
-        let memory_tag_offset = offset_of!(wasm_memory_t => tag).get_byte_offset();
-        let global_tag_offset = offset_of!(wasm_global_t => tag).get_byte_offset();
-        let table_tag_offset = offset_of!(wasm_table_t => tag).get_byte_offset();
-
-        assert_eq!(func_tag_offset, memory_tag_offset);
-        assert_eq!(global_tag_offset, table_tag_offset);
-        assert_eq!(func_tag_offset, global_tag_offset);
-    }
-}
-
-impl Drop for wasm_extern_inner {
-    fn drop(&mut self) {
-        unsafe {
-            match self.function.tag {
-                CApiExternTag::Function => mem::ManuallyDrop::drop(&mut self.function),
-                CApiExternTag::Global => mem::ManuallyDrop::drop(&mut self.global),
-                CApiExternTag::Table => mem::ManuallyDrop::drop(&mut self.table),
-                CApiExternTag::Memory => mem::ManuallyDrop::drop(&mut self.memory),
-            }
-        }
-    }
+    pub(crate) inner: Extern,
+    pub(crate) store: StoreRef,
 }
 
 impl wasm_extern_t {
-    pub(crate) fn get_tag(&self) -> CApiExternTag {
-        unsafe { self.inner.function.tag }
-    }
-
-    pub(crate) fn ty(&self) -> ExternType {
-        match self.get_tag() {
-            CApiExternTag::Function => unsafe {
-                let ctx = self
-                    .inner
-                    .function
-                    .context
-                    .as_ref()
-                    .expect(wasm_store_t::CTX_ERR_STR)
-                    .borrow();
-                ExternType::Function(self.inner.function.inner.ty(&ctx.inner))
-            },
-            CApiExternTag::Memory => unsafe {
-                let ctx = self
-                    .inner
-                    .memory
-                    .context
-                    .as_ref()
-                    .expect(wasm_store_t::CTX_ERR_STR)
-                    .borrow();
-                ExternType::Memory(self.inner.memory.inner.ty(&ctx.inner))
-            },
-            CApiExternTag::Global => unsafe {
-                let ctx = self
-                    .inner
-                    .global
-                    .context
-                    .as_ref()
-                    .expect(wasm_store_t::CTX_ERR_STR)
-                    .borrow();
-                ExternType::Global(self.inner.global.inner.ty(&ctx.inner))
-            },
-            CApiExternTag::Table => unsafe {
-                let ctx = self
-                    .inner
-                    .table
-                    .context
-                    .as_ref()
-                    .expect(wasm_store_t::CTX_ERR_STR)
-                    .borrow();
-                ExternType::Table(self.inner.table.inner.ty(&ctx.inner))
-            },
+    pub(crate) fn new(store: StoreRef, inner: Extern) -> Self {
+        Self {
+            inner,
+            store: store,
         }
     }
 
-    pub(crate) fn set_context(&mut self, new_val: Option<Rc<RefCell<wasm_context_t>>>) {
-        match self.get_tag() {
-            CApiExternTag::Function => unsafe {
-                (*self.inner.function).context = new_val;
-            },
-            CApiExternTag::Memory => unsafe {
-                (*self.inner.memory).context = new_val;
-            },
-            CApiExternTag::Global => unsafe {
-                (*self.inner.global).context = new_val;
-            },
-            CApiExternTag::Table => unsafe {
-                (*self.inner.table).context = new_val;
-            },
+    pub(crate) fn global(&self) -> Global {
+        match self.inner {
+            Extern::Global(g) => g,
+            _ => unsafe { std::hint::unreachable_unchecked() },
+        }
+    }
+
+    pub(crate) fn function(&self) -> Function {
+        match self.inner {
+            Extern::Function(f) => f,
+            _ => unsafe { std::hint::unreachable_unchecked() },
+        }
+    }
+
+    pub(crate) fn table(&self) -> Table {
+        match self.inner {
+            Extern::Table(t) => t,
+            _ => unsafe { std::hint::unreachable_unchecked() },
+        }
+    }
+
+    pub(crate) fn memory(&self) -> Memory {
+        match self.inner {
+            Extern::Memory(m) => m,
+            _ => unsafe { std::hint::unreachable_unchecked() },
         }
     }
 }
 
-impl Clone for wasm_extern_t {
-    fn clone(&self) -> Self {
-        match self.get_tag() {
-            CApiExternTag::Function => Self {
-                inner: wasm_extern_inner {
-                    function: unsafe { self.inner.function.clone() },
-                },
-            },
-            CApiExternTag::Memory => Self {
-                inner: wasm_extern_inner {
-                    memory: unsafe { self.inner.memory.clone() },
-                },
-            },
-            CApiExternTag::Global => Self {
-                inner: wasm_extern_inner {
-                    global: unsafe { self.inner.global.clone() },
-                },
-            },
-            CApiExternTag::Table => Self {
-                inner: wasm_extern_inner {
-                    table: unsafe { self.inner.table.clone() },
-                },
-            },
-        }
-    }
+#[no_mangle]
+pub extern "C" fn wasm_extern_kind(e: &wasm_extern_t) -> wasm_externkind_t {
+    (match e.inner {
+        Extern::Function(_) => wasm_externkind_enum::WASM_EXTERN_FUNC,
+        Extern::Table(_) => wasm_externkind_enum::WASM_EXTERN_TABLE,
+        Extern::Global(_) => wasm_externkind_enum::WASM_EXTERN_GLOBAL,
+        Extern::Memory(_) => wasm_externkind_enum::WASM_EXTERN_MEMORY,
+    }) as wasm_externkind_t
 }
 
-impl From<Extern> for wasm_extern_t {
-    fn from(other: Extern) -> Self {
-        match other {
-            Extern::Function(function) => Self {
-                inner: wasm_extern_inner {
-                    function: mem::ManuallyDrop::new(wasm_func_t::new(function)),
-                },
-            },
-            Extern::Memory(memory) => Self {
-                inner: wasm_extern_inner {
-                    memory: mem::ManuallyDrop::new(wasm_memory_t::new(memory)),
-                },
-            },
-            Extern::Table(table) => Self {
-                inner: wasm_extern_inner {
-                    table: mem::ManuallyDrop::new(wasm_table_t::new(table)),
-                },
-            },
-            Extern::Global(global) => Self {
-                inner: wasm_extern_inner {
-                    global: mem::ManuallyDrop::new(wasm_global_t::new(global)),
-                },
-            },
-        }
+impl wasm_extern_t {
+    pub(crate) unsafe fn ty(&self) -> ExternType {
+        self.inner.ty(&self.store.store())
     }
 }
 
 impl From<wasm_extern_t> for Extern {
     fn from(mut other: wasm_extern_t) -> Self {
-        let out = match other.get_tag() {
-            CApiExternTag::Function => unsafe {
-                (*ManuallyDrop::take(&mut other.inner.function).inner).into()
-            },
-            CApiExternTag::Memory => unsafe {
-                (*ManuallyDrop::take(&mut other.inner.memory).inner).into()
-            },
-            CApiExternTag::Table => unsafe {
-                (*ManuallyDrop::take(&mut other.inner.table).inner).into()
-            },
-            CApiExternTag::Global => unsafe {
-                (*ManuallyDrop::take(&mut other.inner.global).inner).into()
-            },
-        };
-        mem::forget(other);
-        out
+        other.inner.clone()
     }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[repr(C)]
-pub(crate) enum CApiExternTag {
-    Function,
-    Global,
-    Table,
-    Memory,
 }
 
 wasm_declare_boxed_vec!(extern);
@@ -242,70 +91,46 @@ pub unsafe extern "C" fn wasm_extern_delete(_extern: Option<Box<wasm_extern_t>>)
 
 #[no_mangle]
 pub extern "C" fn wasm_func_as_extern(func: Option<&wasm_func_t>) -> Option<&wasm_extern_t> {
-    unsafe { mem::transmute::<Option<&wasm_func_t>, Option<&wasm_extern_t>>(func) }
+    Some(&func?.extern_)
 }
 
 #[no_mangle]
 pub extern "C" fn wasm_global_as_extern(global: Option<&wasm_global_t>) -> Option<&wasm_extern_t> {
-    unsafe { mem::transmute::<Option<&wasm_global_t>, Option<&wasm_extern_t>>(global) }
+    Some(&global?.extern_)
 }
 
 #[no_mangle]
 pub extern "C" fn wasm_memory_as_extern(memory: Option<&wasm_memory_t>) -> Option<&wasm_extern_t> {
-    unsafe { mem::transmute::<Option<&wasm_memory_t>, Option<&wasm_extern_t>>(memory) }
+    Some(&memory?.extern_)
 }
 
 #[no_mangle]
 pub extern "C" fn wasm_table_as_extern(table: Option<&wasm_table_t>) -> Option<&wasm_extern_t> {
-    unsafe { mem::transmute::<Option<&wasm_table_t>, Option<&wasm_extern_t>>(table) }
+    Some(&table?.extern_)
 }
 
 #[no_mangle]
 pub extern "C" fn wasm_extern_as_func(r#extern: Option<&wasm_extern_t>) -> Option<&wasm_func_t> {
-    let r#extern = r#extern?;
-
-    if r#extern.get_tag() == CApiExternTag::Function {
-        Some(unsafe { mem::transmute::<&wasm_extern_t, &wasm_func_t>(r#extern) })
-    } else {
-        None
-    }
+    wasm_func_t::try_from(r#extern?)
 }
 
 #[no_mangle]
 pub extern "C" fn wasm_extern_as_global(
     r#extern: Option<&wasm_extern_t>,
 ) -> Option<&wasm_global_t> {
-    let r#extern = r#extern?;
-
-    if r#extern.get_tag() == CApiExternTag::Global {
-        Some(unsafe { mem::transmute::<&wasm_extern_t, &wasm_global_t>(r#extern) })
-    } else {
-        None
-    }
+    wasm_global_t::try_from(r#extern?)
 }
 
 #[no_mangle]
 pub extern "C" fn wasm_extern_as_memory(
     r#extern: Option<&wasm_extern_t>,
 ) -> Option<&wasm_memory_t> {
-    let r#extern = r#extern?;
-
-    if r#extern.get_tag() == CApiExternTag::Memory {
-        Some(unsafe { mem::transmute::<&wasm_extern_t, &wasm_memory_t>(r#extern) })
-    } else {
-        None
-    }
+    wasm_memory_t::try_from(r#extern?)
 }
 
 #[no_mangle]
 pub extern "C" fn wasm_extern_as_table(r#extern: Option<&wasm_extern_t>) -> Option<&wasm_table_t> {
-    let r#extern = r#extern?;
-
-    if r#extern.get_tag() == CApiExternTag::Table {
-        Some(unsafe { mem::transmute::<&wasm_extern_t, &wasm_table_t>(r#extern) })
-    } else {
-        None
-    }
+    wasm_table_t::try_from(r#extern?)
 }
 
 #[cfg(test)]
@@ -320,8 +145,6 @@ mod tests {
             int main() {
                 wasm_engine_t* engine = wasm_engine_new();
                 wasm_store_t* store = wasm_store_new(engine);
-                wasm_context_t* ctx = wasm_context_new(store, 0);
-                wasm_store_context_set(store, ctx);
 
                 wasm_byte_vec_t wat;
                 wasmer_byte_vec_new_from_string(

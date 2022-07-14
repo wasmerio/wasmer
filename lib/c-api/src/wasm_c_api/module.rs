@@ -1,14 +1,13 @@
 use super::store::wasm_store_t;
 use super::types::{wasm_byte_vec_t, wasm_exporttype_vec_t, wasm_importtype_vec_t};
-use crate::error::update_last_error;
 use std::ptr::NonNull;
-use std::sync::Arc;
 use wasmer_api::Module;
 
 /// Opaque type representing a WebAssembly module.
+#[derive(Clone)]
 #[allow(non_camel_case_types)]
 pub struct wasm_module_t {
-    pub(crate) inner: Arc<Module>,
+    pub(crate) inner: Module,
 }
 
 /// A WebAssembly module contains stateless WebAssembly code that has
@@ -27,17 +26,15 @@ pub struct wasm_module_t {
 /// See the module's documentation.
 #[no_mangle]
 pub unsafe extern "C" fn wasm_module_new(
-    store: Option<&wasm_store_t>,
+    store: Option<&mut wasm_store_t>,
     bytes: Option<&wasm_byte_vec_t>,
 ) -> Option<Box<wasm_module_t>> {
-    let mut store = store?;
+    let mut store = store?.store.store_mut();
     let bytes = bytes?;
 
-    let module = c_try!(Module::from_binary(&store.inner, bytes.as_slice()));
+    let module = c_try!(Module::from_binary(&mut store, bytes.as_slice()));
 
-    Some(Box::new(wasm_module_t {
-        inner: Arc::new(module),
-    }))
+    Some(Box::new(wasm_module_t { inner: module }))
 }
 
 /// Deletes a WebAssembly module.
@@ -91,11 +88,11 @@ pub unsafe extern "C" fn wasm_module_delete(_module: Option<Box<wasm_module_t>>)
 /// ```
 #[no_mangle]
 pub unsafe extern "C" fn wasm_module_validate(
-    store: Option<&wasm_store_t>,
+    store: Option<&mut wasm_store_t>,
     bytes: Option<&wasm_byte_vec_t>,
 ) -> bool {
     let mut store = match store {
-        Some(store) => store,
+        Some(store) => store.store.store_mut(),
         None => return false,
     };
     let bytes = match bytes {
@@ -103,13 +100,9 @@ pub unsafe extern "C" fn wasm_module_validate(
         None => return false,
     };
 
-    if let Err(error) = Module::validate(&store.inner, bytes.as_slice()) {
-        update_last_error(error);
-
-        false
-    } else {
-        true
-    }
+    Module::validate(&mut store, bytes.as_slice())
+        .map(|_| true)
+        .unwrap_or(false);
 }
 
 /// Returns an array of the exported types in the module.
@@ -465,12 +458,10 @@ pub unsafe extern "C" fn wasm_module_deserialize(
 ) -> Option<NonNull<wasm_module_t>> {
     let bytes = bytes?;
 
-    let module = c_try!(Module::deserialize(&store.inner, bytes.as_slice()));
+    let module = c_try!(Module::deserialize(&store.store.store(), bytes.as_slice()));
 
     Some(NonNull::new_unchecked(Box::into_raw(Box::new(
-        wasm_module_t {
-            inner: Arc::new(module),
-        },
+        wasm_module_t { inner: module },
     ))))
 }
 
@@ -483,13 +474,7 @@ pub unsafe extern "C" fn wasm_module_deserialize(
 /// See [`wasm_module_deserialize`].
 #[no_mangle]
 pub unsafe extern "C" fn wasm_module_serialize(module: &wasm_module_t, out: &mut wasm_byte_vec_t) {
-    let byte_vec = match module.inner.serialize() {
-        Ok(byte_vec) => byte_vec,
-        Err(err) => {
-            crate::error::update_last_error(err);
-            return;
-        }
-    };
+    let byte_vec = c_try!(module.inner.serialize());
     out.set_buffer(byte_vec);
 }
 

@@ -1,5 +1,4 @@
 use super::types::{wasm_ref_t, wasm_valkind_enum};
-use crate::error::update_last_error;
 use std::convert::{TryFrom, TryInto};
 use wasmer_api::Value;
 
@@ -137,8 +136,8 @@ pub unsafe extern "C" fn wasm_val_copy(
     val: &wasm_val_t,
 ) {
     out.kind = val.kind;
-    out.of = match val.kind.try_into() {
-        Ok(kind) => match kind {
+    out.of = c_try!(val.kind.try_into().map(|kind| {
+        match kind {
             wasm_valkind_enum::WASM_I32 => wasm_val_inner {
                 int32_t: val.of.int32_t,
             },
@@ -153,14 +152,8 @@ pub unsafe extern "C" fn wasm_val_copy(
             },
             wasm_valkind_enum::WASM_ANYREF => wasm_val_inner { wref: val.of.wref },
             wasm_valkind_enum::WASM_FUNCREF => wasm_val_inner { wref: val.of.wref },
-        },
-
-        Err(e) => {
-            update_last_error(e);
-
-            return;
         }
-    };
+    }));
 }
 
 #[no_mangle]
