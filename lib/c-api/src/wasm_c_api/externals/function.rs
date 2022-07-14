@@ -32,7 +32,7 @@ pub type wasm_func_callback_t = unsafe extern "C" fn(
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_func_new(
-    store: Option<&wasm_store_t>,
+    store: Option<&mut wasm_store_t>,
     function_type: Option<&wasm_functype_t>,
     callback: Option<wasm_func_callback_t>,
 ) -> Option<Box<wasm_func_t>> {
@@ -43,45 +43,42 @@ pub unsafe extern "C" fn wasm_func_new(
 
     let func_sig = &function_type.inner().function_type;
     let num_rets = func_sig.results().len();
-    let inner_callback =
-        move |ctx: FunctionEnvMut<'_, ()>, args: &[Value]| -> Result<Vec<Value>, RuntimeError> {
-            let processed_args: wasm_val_vec_t = args
-                .iter()
-                .map(TryInto::try_into)
-                .collect::<Result<Vec<wasm_val_t>, _>>()
-                .expect("Argument conversion failed")
-                .into();
-
-            let mut results: wasm_val_vec_t = vec![
-                wasm_val_t {
-                    kind: wasm_valkind_enum::WASM_I64 as _,
-                    of: wasm_val_inner { int64_t: 0 },
-                };
-                num_rets
-            ]
+    let inner_callback = move |mut ctx: FunctionEnvMut<'_, ()>,
+                               args: &[Value]|
+          -> Result<Vec<Value>, RuntimeError> {
+        let processed_args: wasm_val_vec_t = args
+            .iter()
+            .map(TryInto::try_into)
+            .collect::<Result<Vec<wasm_val_t>, _>>()
+            .expect("Argument conversion failed")
             .into();
 
-            let trap = callback(ctx.data_mut(), &processed_args, &mut results);
+        let mut results: wasm_val_vec_t = vec![
+            wasm_val_t {
+                kind: wasm_valkind_enum::WASM_I64 as _,
+                of: wasm_val_inner { int64_t: 0 },
+            };
+            num_rets
+        ]
+        .into();
 
-            if let Some(trap) = trap {
-                return Err(trap.inner);
-            }
+        let trap = callback(ctx.data_mut(), &processed_args, &mut results);
 
-            let processed_results = results
-                .take()
-                .into_iter()
-                .map(TryInto::try_into)
-                .collect::<Result<Vec<Value>, _>>()
-                .expect("Result conversion failed");
+        if let Some(trap) = trap {
+            return Err(trap.inner);
+        }
 
-            Ok(processed_results)
-        };
-    let function = Function::new(
-        &mut store_mut,
-        &FunctionEnv::new(&mut store_mut, ()),
-        func_sig,
-        inner_callback,
-    );
+        let processed_results = results
+            .take()
+            .into_iter()
+            .map(TryInto::try_into)
+            .collect::<Result<Vec<Value>, _>>()
+            .expect("Result conversion failed");
+
+        Ok(processed_results)
+    };
+    let env = FunctionEnv::new(&mut store_mut, ());
+    let function = Function::new(&mut store_mut, &env, func_sig, inner_callback);
     Some(Box::new(wasm_func_t {
         extern_: wasm_extern_t::new(store.store.clone(), function.into()),
     }))
@@ -97,13 +94,14 @@ pub unsafe extern "C" fn wasm_func_delete(_func: Option<Box<wasm_func_t>>) {}
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_func_call(
-    func: Option<&wasm_func_t>,
+    func: Option<&mut wasm_func_t>,
     args: Option<&wasm_val_vec_t>,
     results: &mut wasm_val_vec_t,
 ) -> Option<Box<wasm_trap_t>> {
     let func = func?;
     let args = args?;
-    let mut store = func.extern_.store.store_mut();
+    let mut store = func.extern_.store.clone();
+    let mut store_mut = store.store_mut();
     let params = args
         .as_slice()
         .iter()
@@ -112,7 +110,7 @@ pub unsafe extern "C" fn wasm_func_call(
         .collect::<Result<Vec<Value>, _>>()
         .expect("Arguments conversion failed");
 
-    match func.extern_.function().call(&mut store, &params) {
+    match func.extern_.function().call(&mut store_mut, &params) {
         Ok(wasm_results) => {
             for (slot, val) in results
                 .as_uninit_slice()

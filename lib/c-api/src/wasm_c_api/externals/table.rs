@@ -1,6 +1,6 @@
-use crate::wasm_c_api::{
-    wasm_extern_t, wasm_ref_t, wasm_store_t, wasm_table_size_t, wasm_tabletype_t,
-};
+use super::super::store::wasm_store_t;
+use super::super::types::{wasm_ref_t, wasm_table_size_t, wasm_tabletype_t};
+use super::wasm_extern_t;
 use wasmer_api::Extern;
 
 #[allow(non_camel_case_types)]

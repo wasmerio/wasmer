@@ -55,7 +55,7 @@ pub unsafe extern "C" fn wasm_global_copy(global: &wasm_global_t) -> Box<wasm_gl
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_global_get(
-    global: &wasm_global_t,
+    global: &mut wasm_global_t,
     // own
     out: &mut wasm_val_t,
 ) {
@@ -86,7 +86,7 @@ pub unsafe extern "C" fn wasm_global_same(
 }
 
 #[no_mangle]
-pub extern "C" fn wasm_global_type(
+pub unsafe extern "C" fn wasm_global_type(
     global: Option<&wasm_global_t>,
 ) -> Option<Box<wasm_globaltype_t>> {
     let global = global?;

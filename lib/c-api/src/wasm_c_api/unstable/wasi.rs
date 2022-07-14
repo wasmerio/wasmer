@@ -182,7 +182,10 @@ fn wasi_get_unordered_imports_inner(
                 Some(Box::new(wasmer_named_extern_t {
                     module,
                     name,
-                    r#extern: Box::new(wasm_extern_t::new(store.store.clone(), extern_inner.clone())),
+                    r#extern: Box::new(wasm_extern_t::new(
+                        store.store.clone(),
+                        extern_inner.clone(),
+                    )),
                 }))
             })
             .collect::<Vec<_>>(),

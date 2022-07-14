@@ -4,7 +4,7 @@ mod memory;
 mod table;
 
 use super::store::StoreRef;
-use super::types::{wasm_externkind_enum, wasm_externkind_t};
+// use super::types::{wasm_externkind_enum, wasm_externkind_t};
 pub use function::*;
 pub use global::*;
 pub use memory::*;
@@ -27,43 +27,43 @@ impl wasm_extern_t {
     }
 
     pub(crate) fn global(&self) -> Global {
-        match self.inner {
-            Extern::Global(g) => g,
+        match &self.inner {
+            Extern::Global(g) => g.clone(),
             _ => unsafe { std::hint::unreachable_unchecked() },
         }
     }
 
     pub(crate) fn function(&self) -> Function {
-        match self.inner {
-            Extern::Function(f) => f,
+        match &self.inner {
+            Extern::Function(f) => f.clone(),
             _ => unsafe { std::hint::unreachable_unchecked() },
         }
     }
 
     pub(crate) fn table(&self) -> Table {
-        match self.inner {
-            Extern::Table(t) => t,
+        match &self.inner {
+            Extern::Table(t) => t.clone(),
             _ => unsafe { std::hint::unreachable_unchecked() },
         }
     }
 
     pub(crate) fn memory(&self) -> Memory {
-        match self.inner {
-            Extern::Memory(m) => m,
+        match &self.inner {
+            Extern::Memory(m) => m.clone(),
             _ => unsafe { std::hint::unreachable_unchecked() },
         }
     }
 }
 
-#[no_mangle]
-pub extern "C" fn wasm_extern_kind(e: &wasm_extern_t) -> wasm_externkind_t {
-    (match e.inner {
-        Extern::Function(_) => wasm_externkind_enum::WASM_EXTERN_FUNC,
-        Extern::Table(_) => wasm_externkind_enum::WASM_EXTERN_TABLE,
-        Extern::Global(_) => wasm_externkind_enum::WASM_EXTERN_GLOBAL,
-        Extern::Memory(_) => wasm_externkind_enum::WASM_EXTERN_MEMORY,
-    }) as wasm_externkind_t
-}
+// #[no_mangle]
+// pub extern "C" fn wasm_extern_kind(e: &wasm_extern_t) -> wasm_externkind_t {
+//     (match e.inner {
+//         Extern::Function(_) => wasm_externkind_enum::WASM_EXTERN_FUNC,
+//         Extern::Table(_) => wasm_externkind_enum::WASM_EXTERN_TABLE,
+//         Extern::Global(_) => wasm_externkind_enum::WASM_EXTERN_GLOBAL,
+//         Extern::Memory(_) => wasm_externkind_enum::WASM_EXTERN_MEMORY,
+//     }) as wasm_externkind_t
+// }
 
 impl wasm_extern_t {
     pub(crate) unsafe fn ty(&self) -> ExternType {
@@ -72,7 +72,7 @@ impl wasm_extern_t {
 }
 
 impl From<wasm_extern_t> for Extern {
-    fn from(mut other: wasm_extern_t) -> Self {
+    fn from(other: wasm_extern_t) -> Self {
         other.inner.clone()
     }
 }

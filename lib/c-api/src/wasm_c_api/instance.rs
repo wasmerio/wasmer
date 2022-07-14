@@ -192,10 +192,15 @@ pub unsafe extern "C" fn wasm_instance_exports(
 ) {
     let original_instance = instance;
     let instance = &instance.inner;
-    let mut extern_vec: Vec<Option<Box<wasm_extern_t>>> = instance
+    let extern_vec: Vec<Option<Box<wasm_extern_t>>> = instance
         .exports
         .iter()
-        .map(|(_name, r#extern)| Some(Box::new(wasm_extern_t::new(original_instance.store.clone(), #extern.clone().into()))))
+        .map(|(_name, r#extern)| {
+            Some(Box::new(wasm_extern_t::new(
+                original_instance.store.clone(),
+                r#extern.clone(),
+            )))
+        })
         .collect();
     out.set_buffer(extern_vec);
 }
