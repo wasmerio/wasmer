@@ -161,14 +161,15 @@ fn wasi_get_unordered_imports_inner(
     wasi_env: Option<&wasi_env_t>,
     imports: &mut wasmer_named_extern_vec_t,
 ) -> Option<()> {
-    let mut store = store?.store.store_mut();
+    let store = store?;
+    let mut store_mut = store.store.store_mut();
     let module = module?;
     let _wasi_env = wasi_env?;
 
     let version = c_try!(get_wasi_version(&module.inner, false)
         .ok_or("could not detect a WASI version on the given module"));
 
-    let import_object = generate_import_object_from_env(&mut store, version);
+    let import_object = generate_import_object_from_env(&mut store_mut, version);
 
     imports.set_buffer(
         import_object
@@ -176,12 +177,12 @@ fn wasi_get_unordered_imports_inner(
             .map(|((module, name), extern_)| {
                 let module = module.into();
                 let name = name.into();
-                let extern_inner = Extern::from_vm_extern(&mut store, extern_.to_vm_extern());
+                let extern_inner = Extern::from_vm_extern(&mut store_mut, extern_.to_vm_extern());
 
                 Some(Box::new(wasmer_named_extern_t {
                     module,
                     name,
-                    r#extern: Box::new(extern_inner.into()),
+                    r#extern: Box::new(wasm_extern_t::new(store.store.clone(), extern_inner.clone())),
                 }))
             })
             .collect::<Vec<_>>(),

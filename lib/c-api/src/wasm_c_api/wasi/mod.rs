@@ -332,7 +332,7 @@ fn wasi_get_imports_inner(
     module: Option<&wasm_module_t>,
     imports: &mut wasm_extern_vec_t,
 ) -> Option<()> {
-    let store = store?;
+    let mut store = store?;
     let mut store_mut = store.store.store_mut();
     let module = module?;
 

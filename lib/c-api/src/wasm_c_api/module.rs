@@ -102,7 +102,7 @@ pub unsafe extern "C" fn wasm_module_validate(
 
     Module::validate(&mut store, bytes.as_slice())
         .map(|_| true)
-        .unwrap_or(false);
+        .unwrap_or(false)
 }
 
 /// Returns an array of the exported types in the module.
@@ -474,7 +474,7 @@ pub unsafe extern "C" fn wasm_module_deserialize(
 /// See [`wasm_module_deserialize`].
 #[no_mangle]
 pub unsafe extern "C" fn wasm_module_serialize(module: &wasm_module_t, out: &mut wasm_byte_vec_t) {
-    let byte_vec = c_try!(module.inner.serialize());
+    let byte_vec = c_try!(module.inner.serialize(); otherwise ());
     out.set_buffer(byte_vec);
 }
 

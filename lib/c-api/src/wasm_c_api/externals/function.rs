@@ -1,4 +1,3 @@
-use super::super::function_env::wasmer_funcenv_ref_mut_t;
 use super::super::store::wasm_store_t;
 use super::super::trap::wasm_trap_t;
 use super::super::types::{wasm_functype_t, wasm_valkind_enum};
@@ -26,7 +25,7 @@ impl wasm_func_t {
 
 #[allow(non_camel_case_types)]
 pub type wasm_func_callback_t = unsafe extern "C" fn(
-    context: &mut wasmer_funcenv_ref_mut_t,
+    context: &mut (),
     args: &wasm_val_vec_t,
     results: &mut wasm_val_vec_t,
 ) -> Option<Box<wasm_trap_t>>;
@@ -39,7 +38,8 @@ pub unsafe extern "C" fn wasm_func_new(
 ) -> Option<Box<wasm_func_t>> {
     let function_type = function_type?;
     let callback = callback?;
-    let mut store = store?.store.store_mut();
+    let store = store?;
+    let mut store_mut = store.store.store_mut();
 
     let func_sig = &function_type.inner().function_type;
     let num_rets = func_sig.results().len();
@@ -61,7 +61,7 @@ pub unsafe extern "C" fn wasm_func_new(
             ]
             .into();
 
-            let trap = callback(ctx.data_mut().data, &processed_args, &mut results);
+            let trap = callback(ctx.data_mut(), &processed_args, &mut results);
 
             if let Some(trap) = trap {
                 return Err(trap.inner);
@@ -77,13 +77,13 @@ pub unsafe extern "C" fn wasm_func_new(
             Ok(processed_results)
         };
     let function = Function::new(
-        &mut store,
-        &FunctionEnv::new(&mut store, ()),
+        &mut store_mut,
+        &FunctionEnv::new(&mut store_mut, ()),
         func_sig,
         inner_callback,
     );
     Some(Box::new(wasm_func_t {
-        extern_: wasm_extern_t::new(store.clone(), function.into()),
+        extern_: wasm_extern_t::new(store.store.clone(), function.into()),
     }))
 }
 

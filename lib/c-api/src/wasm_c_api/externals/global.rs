@@ -28,18 +28,19 @@ pub unsafe extern "C" fn wasm_global_new(
     val: Option<&wasm_val_t>,
 ) -> Option<Box<wasm_global_t>> {
     let global_type = global_type?;
-    let mut store = store?.store.store_mut();
+    let store = store?;
+    let mut store_mut = store.store.store_mut();
     let val = val?;
 
     let global_type = &global_type.inner().global_type;
     let wasm_val = val.try_into().ok()?;
     let global = if global_type.mutability.is_mutable() {
-        Global::new_mut(&mut store, wasm_val)
+        Global::new_mut(&mut store_mut, wasm_val)
     } else {
-        Global::new(&mut store, wasm_val)
+        Global::new(&mut store_mut, wasm_val)
     };
     Some(Box::new(wasm_global_t {
-        extern_: wasm_extern_t::new(store, global.into()),
+        extern_: wasm_extern_t::new(store.store.clone(), global.into()),
     }))
 }
 
@@ -73,7 +74,7 @@ pub unsafe extern "C" fn wasm_global_set(global: &mut wasm_global_t, val: &wasm_
     c_try!(global
         .extern_
         .global()
-        .set(&mut global.extern_.store.store_mut(), value));
+        .set(&mut global.extern_.store.store_mut(), value); otherwise ());
 }
 
 #[no_mangle]

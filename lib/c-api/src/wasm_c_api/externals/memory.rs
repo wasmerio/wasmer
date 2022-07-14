@@ -24,7 +24,8 @@ pub unsafe extern "C" fn wasm_memory_new(
     memory_type: Option<&wasm_memorytype_t>,
 ) -> Option<Box<wasm_memory_t>> {
     let memory_type = memory_type?;
-    let mut store_mut = store?.store.store_mut();
+    let store = store?;
+    let mut store_mut = store.store.store_mut();
     let memory_type = memory_type.inner().memory_type;
     let memory = c_try!(Memory::new(&mut store_mut, memory_type));
     Some(Box::new(wasm_memory_t {

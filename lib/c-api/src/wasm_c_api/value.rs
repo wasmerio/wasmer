@@ -153,7 +153,7 @@ pub unsafe extern "C" fn wasm_val_copy(
             wasm_valkind_enum::WASM_ANYREF => wasm_val_inner { wref: val.of.wref },
             wasm_valkind_enum::WASM_FUNCREF => wasm_val_inner { wref: val.of.wref },
         }
-    }));
+    }); otherwise ());
 }
 
 #[no_mangle]
