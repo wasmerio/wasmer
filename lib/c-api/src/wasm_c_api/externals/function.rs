@@ -5,9 +5,9 @@ use super::super::trap::wasm_trap_t;
 use super::super::types::{wasm_functype_t, wasm_valkind_enum};
 use super::super::value::{wasm_val_inner, wasm_val_t, wasm_val_vec_t};
 use super::wasm_extern_t;
+use libc::c_void;
 use std::convert::TryInto;
 use std::mem::MaybeUninit;
-use libc::c_void;
 use wasmer_api::{Extern, Function, FunctionEnv, FunctionEnvMut, RuntimeError, Value};
 
 #[derive(Clone)]
@@ -89,7 +89,7 @@ pub unsafe extern "C" fn wasm_func_new(
 
         Ok(processed_results)
     };
-    let env = FunctionEnv::new(&mut store_mut, FunctionCEnv::new(0 as *mut c_void ));
+    let env = FunctionEnv::new(&mut store_mut, FunctionCEnv::new(0 as *mut c_void));
     let function = Function::new(&mut store_mut, &env, func_sig, inner_callback);
     Some(Box::new(wasm_func_t {
         extern_: wasm_extern_t::new(store.store.clone(), function.into()),

@@ -7,17 +7,15 @@ use super::{
     externals::{wasm_extern_t, wasm_extern_vec_t, wasm_func_t},
     instance::wasm_instance_t,
     module::wasm_module_t,
-    store::wasm_store_t,
+    store::{wasm_store_t, StoreRef},
 };
 use crate::error::update_last_error;
 use std::convert::TryFrom;
 use std::ffi::CStr;
 use std::os::raw::c_char;
 use std::slice;
-use wasmer_api::Extern;
 use wasmer_wasi::{
-    generate_import_object_from_env, get_wasi_version, Pipe, WasiFile, WasiFunctionEnv, WasiState,
-    WasiStateBuilder, WasiVersion,
+    get_wasi_version, Pipe, WasiFile, WasiFunctionEnv, WasiState, WasiStateBuilder, WasiVersion,
 };
 
 #[derive(Debug)]
@@ -164,13 +162,19 @@ pub extern "C" fn wasi_config_inherit_stdin(config: &mut wasi_config_t) {
 pub struct wasi_env_t {
     /// cbindgen:ignore
     pub(super) inner: WasiFunctionEnv,
+    pub(super) store: StoreRef,
 }
 
 /// Create a new WASI environment.
 ///
 /// It take ownership over the `wasi_config_t`.
 #[no_mangle]
-pub extern "C" fn wasi_env_new(mut config: Box<wasi_config_t>) -> Option<Box<wasi_env_t>> {
+pub unsafe extern "C" fn wasi_env_new(
+    store: Option<&mut wasm_store_t>,
+    mut config: Box<wasi_config_t>,
+) -> Option<Box<wasi_env_t>> {
+    let store = &mut store?.store;
+    let mut store_mut = store.store_mut();
     if !config.inherit_stdout {
         config.state_builder.stdout(Box::new(Pipe::new()));
     }
@@ -181,10 +185,11 @@ pub extern "C" fn wasi_env_new(mut config: Box<wasi_config_t>) -> Option<Box<was
 
     // TODO: impl capturer for stdin
 
-    let wasi_state = c_try!(config.state_builder.build());
+    let wasi_state = c_try!(config.state_builder.finalize(&mut store_mut));
 
     Some(Box::new(wasi_env_t {
-        inner: WasiFunctionEnv::new(wasi_state),
+        inner: wasi_state,
+        store: store.clone(),
     }))
 }
 
@@ -199,7 +204,8 @@ pub unsafe extern "C" fn wasi_env_read_stdout(
     buffer_len: usize,
 ) -> isize {
     let inner_buffer = slice::from_raw_parts_mut(buffer as *mut _, buffer_len as usize);
-    let state = env.inner.state();
+    let mut store_mut = env.store.store_mut();
+    let state = env.inner.data_mut(&mut store_mut).state();
 
     if let Ok(mut stdout) = state.stdout() {
         if let Some(stdout) = stdout.as_mut() {
@@ -221,7 +227,8 @@ pub unsafe extern "C" fn wasi_env_read_stderr(
     buffer_len: usize,
 ) -> isize {
     let inner_buffer = slice::from_raw_parts_mut(buffer as *mut _, buffer_len as usize);
-    let state = env.inner.state();
+    let mut store_mut = env.store.store_mut();
+    let state = env.inner.data_mut(&mut store_mut).state();
     if let Ok(mut stderr) = state.stderr() {
         if let Some(stderr) = stderr.as_mut() {
             read_inner(stderr, inner_buffer)
@@ -320,27 +327,24 @@ pub unsafe extern "C" fn wasi_get_wasi_version(module: &wasm_module_t) -> wasi_v
 /// implementation ordered as expected by the `wasm_module_t`.
 #[no_mangle]
 pub unsafe extern "C" fn wasi_get_imports(
-    store: Option<&wasm_store_t>,
+    wasi_env: Option<&mut wasi_env_t>,
     module: Option<&wasm_module_t>,
     imports: &mut wasm_extern_vec_t,
 ) -> bool {
-    wasi_get_imports_inner(store, module, imports).is_some()
+    wasi_get_imports_inner(wasi_env, module, imports).is_some()
 }
 
-fn wasi_get_imports_inner(
-    store: Option<&wasm_store_t>,
+unsafe fn wasi_get_imports_inner(
+    wasi_env: Option<&mut wasi_env_t>,
     module: Option<&wasm_module_t>,
     imports: &mut wasm_extern_vec_t,
 ) -> Option<()> {
-    let mut store = store?;
-    let mut store_mut = store.store.store_mut();
+    let wasi_env = wasi_env?;
+    let store = &mut wasi_env.store;
+    let mut store_mut = store.store_mut();
     let module = module?;
 
-    let version = c_try!(get_wasi_version(&module.inner, false)
-        .ok_or("could not detect a WASI version on the given module"));
-
-    let ctx = unimplemented!();
-    let import_object = generate_import_object_from_env(&mut store_mut, version);
+    let import_object = c_try!(wasi_env.inner.import_object(&mut store_mut, &module.inner));
 
     imports.set_buffer(c_try!(module
         .inner
@@ -355,11 +359,10 @@ fn wasi_get_imports_inner(
                         import_type.name()
                     )
                 })?;
-            let inner = Extern::from_vm_extern(&mut store_mut, ext.to_vm_extern());
 
             Ok(Some(Box::new(wasm_extern_t::new(
-                store.store.clone(),
-                inner.into(),
+                store.clone(),
+                ext.into(),
             ))))
         })
         .collect::<Result<Vec<_>, String>>()));
