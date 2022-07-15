@@ -42,7 +42,7 @@ pub unsafe extern "C" fn wasm_instance_new(
     trap: Option<&mut *mut wasm_trap_t>,
 ) -> Option<Box<wasm_instance_t>> {
     let store = store?;
-    let mut store_mut = store.store.store_mut();
+    let mut store_mut = store.inner.store_mut();
     let module = module?;
     let imports = imports?;
 
@@ -88,7 +88,7 @@ pub unsafe extern "C" fn wasm_instance_new(
     };
 
     Some(Box::new(wasm_instance_t {
-        store: store.store.clone(),
+        store: store.inner.clone(),
         inner: instance,
     }))
 }

@@ -173,7 +173,7 @@ pub unsafe extern "C" fn wasi_env_new(
     store: Option<&mut wasm_store_t>,
     mut config: Box<wasi_config_t>,
 ) -> Option<Box<wasi_env_t>> {
-    let store = &mut store?.store;
+    let store = &mut store?.inner;
     let mut store_mut = store.store_mut();
     if !config.inherit_stdout {
         config.state_builder.stdout(Box::new(Pipe::new()));
@@ -360,10 +360,7 @@ unsafe fn wasi_get_imports_inner(
                     )
                 })?;
 
-            Ok(Some(Box::new(wasm_extern_t::new(
-                store.clone(),
-                ext.into(),
-            ))))
+            Ok(Some(Box::new(wasm_extern_t::new(store.clone(), ext))))
         })
         .collect::<Result<Vec<_>, String>>()));
 

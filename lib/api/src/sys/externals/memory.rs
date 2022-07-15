@@ -110,10 +110,7 @@ impl Memory {
     #[allow(clippy::mut_from_ref)]
     #[doc(hidden)]
     pub unsafe fn data_unchecked_mut(&self, ctx: &impl AsStoreRef) -> &mut [u8] {
-        slice::from_raw_parts_mut(
-            self.buffer(ctx).base,
-            self.buffer(ctx).len.try_into().unwrap(),
-        )
+        slice::from_raw_parts_mut(self.buffer(ctx).base, self.buffer(ctx).len)
     }
 
     /// Returns the size (in [`Pages`]) of the `Memory`.

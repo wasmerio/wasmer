@@ -20,10 +20,7 @@ pub struct wasm_extern_t {
 
 impl wasm_extern_t {
     pub(crate) fn new(store: StoreRef, inner: Extern) -> Self {
-        Self {
-            inner,
-            store: store,
-        }
+        Self { inner, store }
     }
 
     pub(crate) fn global(&self) -> Global {
@@ -73,7 +70,7 @@ impl wasm_extern_t {
 
 impl From<wasm_extern_t> for Extern {
     fn from(other: wasm_extern_t) -> Self {
-        other.inner.clone()
+        other.inner
     }
 }
 

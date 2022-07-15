@@ -85,7 +85,7 @@ impl<'a> WasiTest<'a> {
         let module = Module::new(store, &wasm_bytes)?;
         let (env, _tempdirs, stdout_rx, stderr_rx) =
             self.create_wasi_env(store, filesystem_kind)?;
-        let imports = self.get_imports(&mut store, &env.env, &module)?;
+        let imports = self.get_imports(store, &env.env, &module)?;
         let instance = Instance::new(&mut store, &module, &imports)?;
 
         let start = instance.exports.get_function("_start")?;

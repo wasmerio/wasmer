@@ -109,10 +109,10 @@ pub unsafe fn write_to_buf(
 }
 
 /// This function expects nullbyte to be appended.
-pub unsafe fn copy_cstr_into_wasm(mut ctx: &mut FunctionEnvMut<EmEnv>, cstr: *const c_char) -> u32 {
+pub unsafe fn copy_cstr_into_wasm(ctx: &mut FunctionEnvMut<EmEnv>, cstr: *const c_char) -> u32 {
     let s = CStr::from_ptr(cstr).to_str().unwrap();
     let cstr_len = s.len();
-    let space_offset = env::call_malloc(&mut ctx, (cstr_len as u32) + 1);
+    let space_offset = env::call_malloc(ctx, (cstr_len as u32) + 1);
     let raw_memory =
         emscripten_memory_pointer!(ctx, ctx.data().memory(0), space_offset) as *mut c_char;
     let slice = slice::from_raw_parts_mut(raw_memory, cstr_len);

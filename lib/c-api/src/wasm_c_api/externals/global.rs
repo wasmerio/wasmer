@@ -29,7 +29,7 @@ pub unsafe extern "C" fn wasm_global_new(
 ) -> Option<Box<wasm_global_t>> {
     let global_type = global_type?;
     let store = store?;
-    let mut store_mut = store.store.store_mut();
+    let mut store_mut = store.inner.store_mut();
     let val = val?;
 
     let global_type = &global_type.inner().global_type;
@@ -40,7 +40,7 @@ pub unsafe extern "C" fn wasm_global_new(
         Global::new(&mut store_mut, wasm_val)
     };
     Some(Box::new(wasm_global_t {
-        extern_: wasm_extern_t::new(store.store.clone(), global.into()),
+        extern_: wasm_extern_t::new(store.inner.clone(), global.into()),
     }))
 }
 

@@ -86,12 +86,12 @@ impl<T: Send + 'static> FunctionEnvMut<'_, T> {
     }
 
     /// Returns a mutable- reference to the host state in this context.
-    pub fn data_mut<'a>(&'a mut self) -> &'a mut T {
+    pub fn data_mut(&mut self) -> &mut T {
         self.func_env.as_mut(&mut self.store_mut)
     }
 
     /// Borrows a new mutable reference
-    pub fn as_mut<'a>(&'a mut self) -> FunctionEnvMut<'a, T> {
+    pub fn as_mut(&mut self) -> FunctionEnvMut<'_, T> {
         FunctionEnvMut {
             store_mut: self.store_mut.as_store_mut(),
             func_env: self.func_env.clone(),

@@ -29,10 +29,10 @@ pub unsafe extern "C" fn wasm_module_new(
     store: Option<&mut wasm_store_t>,
     bytes: Option<&wasm_byte_vec_t>,
 ) -> Option<Box<wasm_module_t>> {
-    let mut store = store?.store.store_mut();
+    let store = store?.inner.store_mut();
     let bytes = bytes?;
 
-    let module = c_try!(Module::from_binary(&mut store, bytes.as_slice()));
+    let module = c_try!(Module::from_binary(&store, bytes.as_slice()));
 
     Some(Box::new(wasm_module_t { inner: module }))
 }
@@ -91,8 +91,8 @@ pub unsafe extern "C" fn wasm_module_validate(
     store: Option<&mut wasm_store_t>,
     bytes: Option<&wasm_byte_vec_t>,
 ) -> bool {
-    let mut store = match store {
-        Some(store) => store.store.store_mut(),
+    let store = match store {
+        Some(store) => store.inner.store_mut(),
         None => return false,
     };
     let bytes = match bytes {
@@ -100,7 +100,7 @@ pub unsafe extern "C" fn wasm_module_validate(
         None => return false,
     };
 
-    Module::validate(&mut store, bytes.as_slice())
+    Module::validate(&store, bytes.as_slice())
         .map(|_| true)
         .unwrap_or(false)
 }
@@ -458,7 +458,7 @@ pub unsafe extern "C" fn wasm_module_deserialize(
 ) -> Option<NonNull<wasm_module_t>> {
     let bytes = bytes?;
 
-    let module = c_try!(Module::deserialize(&store.store.store(), bytes.as_slice()));
+    let module = c_try!(Module::deserialize(&store.inner.store(), bytes.as_slice()));
 
     Some(NonNull::new_unchecked(Box::into_raw(Box::new(
         wasm_module_t { inner: module },

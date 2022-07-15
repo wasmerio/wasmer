@@ -371,7 +371,7 @@ impl Wast {
     }
 
     fn instantiate(&mut self, module: &[u8]) -> Result<Instance> {
-        let module = Module::new(&mut self.store, module)?;
+        let module = Module::new(&self.store, module)?;
         let mut imports = self.import_object.clone();
 
         for import in module.imports() {

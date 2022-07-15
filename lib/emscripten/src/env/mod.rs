@@ -22,7 +22,7 @@ use wasmer::ValueType;
 use wasmer::{FunctionEnvMut, WasmPtr};
 
 pub fn call_malloc(mut ctx: &mut FunctionEnvMut<EmEnv>, size: u32) -> u32 {
-    let malloc_ref = get_emscripten_funcs(&ctx).malloc_ref().unwrap().clone();
+    let malloc_ref = get_emscripten_funcs(ctx).malloc_ref().unwrap().clone();
     malloc_ref.call(&mut ctx, size).unwrap()
 }
 
@@ -32,7 +32,7 @@ pub fn call_malloc_with_cast<T: Copy>(ctx: &mut FunctionEnvMut<EmEnv>, size: u32
 }
 
 pub fn call_memalign(mut ctx: &mut FunctionEnvMut<EmEnv>, alignment: u32, size: u32) -> u32 {
-    let memalign_ref = get_emscripten_funcs(&ctx).memalign_ref().unwrap().clone();
+    let memalign_ref = get_emscripten_funcs(ctx).memalign_ref().unwrap().clone();
     memalign_ref.call(&mut ctx, alignment, size).unwrap()
 }
 
@@ -42,7 +42,7 @@ pub fn call_memset(
     value: u32,
     size: u32,
 ) -> u32 {
-    let memset_ref = get_emscripten_funcs(&ctx).memset_ref().unwrap().clone();
+    let memset_ref = get_emscripten_funcs(ctx).memset_ref().unwrap().clone();
     memset_ref.call(&mut ctx, pointer, value, size).unwrap()
 }
 
