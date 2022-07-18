@@ -91,7 +91,7 @@ jobs:
       SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
       SCCACHE_AZURE_CONNECTION_STRING: ${{ secrets.SCCACHE_AZURE_CONNECTION_STRING }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Set up libstdc++ on Linux
         if: matrix.build == 'linux-x64'
         run: |
@@ -103,10 +103,10 @@ jobs:
         run: |
             apk add build-base bash musl-dev curl make libtool libffi-dev gcc automake autoconf git openssl-dev g++
       - name: Install Rust
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@stable
         with:
+          toolchain: 1.59
           target: ${{ matrix.target }}
-          override: true
       - uses: Swatinem/rust-cache@v1
         if: matrix.use_sccache != true
       - name: Install LLVM (Choco - Windows)

@@ -28,13 +28,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Install Rust
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@stabke
         with:
-          profile: minimal
-          override: true
+          toolchain: 1.59
 
       - name: Install NodeJS
         uses: actions/setup-node@v2
