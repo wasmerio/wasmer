@@ -8,7 +8,7 @@ use std::ffi::CString;
 use std::fs::File;
 use std::io::Write;
 use std::os::raw::c_int;
-use wasmer::{AsStoreMut, FunctionEnvMut};
+use wasmer::FunctionEnvMut;
 
 #[allow(non_camel_case_types)]
 type pid_t = c_int;
@@ -19,7 +19,7 @@ pub fn ___syscall5(mut ctx: FunctionEnvMut<EmEnv>, which: c_int, mut varargs: Va
     #[cfg(not(feature = "debug"))]
     let _ = which;
     let pathname_addr = varargs.get_str(&ctx);
-    let real_path_owned = get_cstr_path(ctx, pathname_addr);
+    let real_path_owned = get_cstr_path(ctx.as_mut(), pathname_addr);
     let real_path = if let Some(ref rp) = real_path_owned {
         rp.as_c_str().as_ptr()
     } else {

@@ -8,7 +8,7 @@ use std::os::raw::c_char;
 use crate::env::{call_malloc, EmAddrInfo};
 use crate::utils::{copy_cstr_into_wasm, read_string_from_wasm};
 use crate::EmEnv;
-use wasmer::{AsStoreMut, FunctionEnvMut, WasmPtr};
+use wasmer::{FunctionEnvMut, WasmPtr};
 
 extern "C" {
     #[link_name = "_putenv"]
@@ -20,7 +20,7 @@ extern "C" {
 pub fn _getenv(mut ctx: FunctionEnvMut<EmEnv>, name: u32) -> u32 {
     debug!("emscripten::_getenv");
     let memory = ctx.data().memory(0);
-    let name_string = read_string_from_wasm(ctx, &memory, name);
+    let name_string = read_string_from_wasm(ctx.as_mut(), &memory, name);
     debug!("=> name({:?})", name_string);
     let c_str = unsafe { getenv(name_string.as_ptr() as *const libc::c_char) };
     if c_str.is_null() {
@@ -34,7 +34,7 @@ pub fn _setenv(mut ctx: FunctionEnvMut<EmEnv>, name: u32, value: u32, _overwrite
     debug!("emscripten::_setenv");
     let memory = ctx.data().memory(0);
     // setenv does not exist on windows, so we hack it with _putenv
-    let name = read_string_from_wasm(ctx, &memory, name);
+    let name = read_string_from_wasm(ctx.as_mut(), &memory, name);
     let value = read_string_from_wasm(ctx, &memory, value);
     let putenv_string = format!("{}={}", name, value);
     let putenv_cstring = CString::new(putenv_string).unwrap();
