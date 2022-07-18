@@ -62,10 +62,10 @@ mod sys {
         // We create the environment
         let env = Env { multiplier: 3 };
         // We move the environment to the store, so it can be used by the `Function`
-        let ctx = FunctionEnv::new(&mut store, env);
+        let env = FunctionEnv::new(&mut store, env);
 
         let imported_signature = FunctionType::new(vec![Type::I32], vec![Type::I32]);
-        let imported = Function::new(&mut store, &ctx, imported_signature, imported_fn);
+        let imported = Function::new(&mut store, &env, imported_signature, imported_fn);
 
         let expected = vec![Value::I32(12)].into_boxed_slice();
         let result = imported.call(&mut store, &[Value::I32(4)])?;

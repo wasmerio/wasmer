@@ -20,7 +20,7 @@ fn run_add_with_limit(mut config: crate::Config, limit: u64) -> Result<()> {
            (i32.add (local.get 0)
                     (local.get 1)))
 )"#;
-    let mut ctx = FunctionEnv::new(&mut store, ());
+    let mut env = FunctionEnv::new(&mut store, ());
 
     let import_object = imports! {};
 
@@ -54,7 +54,7 @@ fn run_loop(mut config: crate::Config, limit: u64, iter_count: i32) -> Result<()
         )
 )"#;
     let module = Module::new(&store, wat).unwrap();
-    let mut ctx = FunctionEnv::new(&mut store, ());
+    let mut env = FunctionEnv::new(&mut store, ());
 
     let import_object = imports! {};
 
@@ -156,7 +156,7 @@ fn complex_loop(mut config: crate::Config) -> Result<()> {
         .middlewares
         .push(Arc::new(Metering::new(100, cost_always_one)));
     let mut store = config.store();
-    let mut ctx = FunctionEnv::new(&mut store, ());
+    let mut env = FunctionEnv::new(&mut store, ());
 
     let module = Module::new(&store, WAT).unwrap();
 

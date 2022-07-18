@@ -24,10 +24,10 @@ mod sys {
         #[derive(Clone, Debug)]
         pub struct Env(Arc<AtomicBool>);
         let env = Env(Arc::new(AtomicBool::new(false)));
-        let ctx = FunctionEnv::new(&mut store, env);
+        let env = FunctionEnv::new(&mut store, env);
         let imports = imports! {
             "env" => {
-                "func_ref_identity" => Function::new(&mut store, &ctx, FunctionType::new([Type::FuncRef], [Type::FuncRef]), |_ctx: FunctionEnvMut<Env>, values: &[Value]| -> Result<Vec<_>, _> {
+                "func_ref_identity" => Function::new(&mut store, &env, FunctionType::new([Type::FuncRef], [Type::FuncRef]), |_ctx: FunctionEnvMut<Env>, values: &[Value]| -> Result<Vec<_>, _> {
                     Ok(vec![values[0].clone()])
                 })
             },
@@ -44,14 +44,14 @@ mod sys {
         }
 
         let func_to_call =
-            Function::new_native(&mut store, &ctx, |mut ctx: FunctionEnvMut<Env>| -> i32 {
+            Function::new_native(&mut store, &env, |mut ctx: FunctionEnvMut<Env>| -> i32 {
                 ctx.data_mut().0.store(true, Ordering::SeqCst);
                 343
             });
         let call_set_value: &Function = instance.exports.get_function("call_set_value")?;
         let results: Box<[Value]> =
             call_set_value.call(&mut store, &[Value::FuncRef(Some(func_to_call))])?;
-        assert!(ctx
+        assert!(env
             .as_mut(&mut store.as_store_mut())
             .0
             .load(Ordering::SeqCst));
@@ -81,7 +81,7 @@ mod sys {
           (call $func_ref_call (ref.func $product)))
 )"#;
         let module = Module::new(&store, wat)?;
-        let ctx = FunctionEnv::new(&mut store, ());
+        let env = FunctionEnv::new(&mut store, ());
         fn func_ref_call(
             mut ctx: FunctionEnvMut<()>,
             values: &[Value],
@@ -96,11 +96,11 @@ mod sys {
             "env" => {
                 "func_ref_call" => Function::new(
                     &mut store,
-                    &ctx,
+                    &env,
                     FunctionType::new([Type::FuncRef], [Type::I32]),
                     func_ref_call
                 ),
-                // "func_ref_call_native" => Function::new_native(&mut store, &ctx, |_ctx: FunctionEnvMut<()>, f: Function| -> Result<i32, RuntimeError> {
+                // "func_ref_call_native" => Function::new_native(&mut store, &env, |_ctx: FunctionEnvMut<()>, f: Function| -> Result<i32, RuntimeError> {
                 //     let f: TypedFunction::<(i32, i32), i32> = f.native(&mut store)?;
                 //     f.call(&mut store, 7, 9)
                 // })
@@ -112,7 +112,7 @@ mod sys {
             fn sum(_ctx: FunctionEnvMut<()>, a: i32, b: i32) -> i32 {
                 a + b
             }
-            let sum_func = Function::new_native(&mut store, &ctx, sum);
+            let sum_func = Function::new_native(&mut store, &env, sum);
 
             let call_func: &Function = instance.exports.get_function("call_func")?;
             let result = call_func.call(&mut store, &[Value::FuncRef(Some(sum_func))])?;
@@ -151,16 +151,16 @@ mod sys {
               (call $get_new_extern_ref_native))
     )"#;
             let module = Module::new(&store, wat)?;
-            let ctx = FunctionEnv::new(&mut store, ());
+            let env = FunctionEnv::new(&mut store, ());
             let imports = imports! {
                 "env" => {
-                    "extern_ref_identity" => Function::new(&mut store, &ctx, FunctionType::new([Type::ExternRef], [Type::ExternRef]), |_ctx, values| -> Result<Vec<_>, _> {
+                    "extern_ref_identity" => Function::new(&mut store, &env, FunctionType::new([Type::ExternRef], [Type::ExternRef]), |_ctx, values| -> Result<Vec<_>, _> {
                         Ok(vec![values[0].clone()])
                     }),
-                    "extern_ref_identity_native" => Function::new_native(&mut store, &ctx, |_ctx: FunctionEnvMut<()>, er: ExternRef| -> ExternRef {
+                    "extern_ref_identity_native" => Function::new_native(&mut store, &env, |_ctx: FunctionEnvMut<()>, er: ExternRef| -> ExternRef {
                         er
                     }),
-                    "get_new_extern_ref" => Function::new(&mut store, &ctx, FunctionType::new([], [Type::ExternRef]), |_ctx, _| -> Result<Vec<_>, _> {
+                    "get_new_extern_ref" => Function::new(&mut store, &env, FunctionType::new([], [Type::ExternRef]), |_ctx, _| -> Result<Vec<_>, _> {
                         let inner =
                             [("hello".to_string(), "world".to_string()),
                              ("color".to_string(), "orange".to_string())]
@@ -170,7 +170,7 @@ mod sys {
                         let new_extern_ref = ExternRef::new(&mut ctx, inner);
                         Ok(vec![Value::ExternRef(new_extern_ref)])
                     }),
-                    "get_new_extern_ref_native" => Function::new_native(&mut store, &ctx,|_ctx| -> ExternRef {
+                    "get_new_extern_ref_native" => Function::new_native(&mut store, &env,|_ctx| -> ExternRef {
                         let inner =
                             [("hello".to_string(), "world".to_string()),
                              ("color".to_string(), "orange".to_string())]

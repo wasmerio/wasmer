@@ -80,7 +80,7 @@ pub unsafe extern "C" fn wasm_instance_new(
             return None;
         }
 
-        Err(e @ InstantiationError::BadContext) => {
+        Err(e @ InstantiationError::DifferentStores) => {
             crate::error::update_last_error(e);
 
             return None;

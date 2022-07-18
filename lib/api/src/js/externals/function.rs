@@ -183,7 +183,7 @@ impl Function {
     /// ```
     pub fn new_native<T, F, Args, Rets>(
         store: &mut impl AsStoreMut,
-        ctx: &FunctionEnv<T>,
+        env: &FunctionEnv<T>,
         func: F,
     ) -> Self
     where
@@ -205,7 +205,7 @@ impl Function {
         let binded_func = func.bind2(
             &JsValue::UNDEFINED,
             &JsValue::from_f64(store.as_raw() as *mut u8 as usize as f64),
-            &JsValue::from_f64(ctx.handle.internal_handle().index() as f64),
+            &JsValue::from_f64(env.handle.internal_handle().index() as f64),
         );
         let ty = function.ty();
         let vm_function = VMFunction::new(binded_func, ty);
@@ -242,13 +242,13 @@ impl Function {
     /// ```
     /// # use wasmer::{Function, FunctionEnv, FunctionEnvMut, Store, Type};
     /// # let mut store = Store::default();
-    /// # let ctx = FunctionEnv::new(&mut store, ());
+    /// # let env = FunctionEnv::new(&mut store, ());
     /// #
     /// fn sum(_ctx: FunctionEnvMut<()>, a: i32, b: i32) -> i32 {
     ///     a + b
     /// }
     ///
-    /// let f = Function::new_native(&store, &ctx, sum);
+    /// let f = Function::new_native(&store, &env, sum);
     ///
     /// assert_eq!(f.param_arity(&store), 2);
     /// ```
@@ -263,13 +263,13 @@ impl Function {
     /// ```
     /// # use wasmer::{Function, FunctionEnv, FunctionEnvMut, Store, Type};
     /// # let mut store = Store::default();
-    /// # let ctx = FunctionEnv::new(&mut store, ());
+    /// # let env = FunctionEnv::new(&mut store, ());
     /// #
     /// fn sum(_ctx: FunctionEnvMut<()>, a: i32, b: i32) -> i32 {
     ///     a + b
     /// }
     ///
-    /// let f = Function::new_native(&store, &ctx, sum);
+    /// let f = Function::new_native(&store, &env, sum);
     ///
     /// assert_eq!(f.result_arity(&store), 1);
     /// ```
@@ -314,7 +314,7 @@ impl Function {
         let arr = js_sys::Array::new_with_length(params.len() as u32);
 
         // let raw_ctx = ctx.as_raw() as *mut u8;
-        // let mut ctx = unsafe { FunctionEnvMut::from_raw(raw_ctx as *mut StoreInner<()>) };
+        // let mut env = unsafe { FunctionEnvMut::from_raw(raw_ctx as *mut StoreInner<()>) };
 
         for (i, param) in params.iter().enumerate() {
             let js_value = param.as_jsvalue(&store.as_store_ref());

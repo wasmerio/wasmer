@@ -405,7 +405,7 @@ mod tests {
             int main() {
                 wasm_engine_t* engine = wasm_engine_new();
                 wasm_store_t* store = wasm_store_new(engine);
-                wasmer_funcenv_t* ctx = wasmer_funcenv_new(store, 0);
+                wasmer_funcenv_t* env = wasmer_funcenv_new(store, 0);
 
                 wasm_byte_vec_t wat;
                 wasmer_byte_vec_new_from_string(&wat, "(module (import \"wasi_unstable\" \"args_get\" (func (param i32 i32) (result i32))))");
@@ -420,7 +420,7 @@ mod tests {
                 wasm_module_delete(module);
                 wasm_byte_vec_delete(&wasm);
                 wasm_byte_vec_delete(&wat);
-                wasmer_funcenv_delete(ctx);
+                wasmer_funcenv_delete(env);
                 wasm_store_delete(store);
                 wasm_engine_delete(engine);
 
@@ -438,7 +438,7 @@ mod tests {
             int main() {
                 wasm_engine_t* engine = wasm_engine_new();
                 wasm_store_t* store = wasm_store_new(engine);
-                wasmer_funcenv_t* ctx = wasmer_funcenv_new(store, 0);
+                wasmer_funcenv_t* env = wasmer_funcenv_new(store, 0);
 
                 wasm_byte_vec_t wat;
                 wasmer_byte_vec_new_from_string(&wat, "(module (import \"wasi_snapshot_preview1\" \"args_get\" (func (param i32 i32) (result i32))))");
@@ -453,7 +453,7 @@ mod tests {
                 wasm_module_delete(module);
                 wasm_byte_vec_delete(&wasm);
                 wasm_byte_vec_delete(&wat);
-                wasmer_funcenv_delete(ctx);
+                wasmer_funcenv_delete(env);
                 wasm_store_delete(store);
                 wasm_engine_delete(engine);
 
@@ -471,7 +471,7 @@ mod tests {
             int main() {
                 wasm_engine_t* engine = wasm_engine_new();
                 wasm_store_t* store = wasm_store_new(engine);
-                wasmer_funcenv_t* ctx = wasmer_funcenv_new(store, 0);
+                wasmer_funcenv_t* env = wasmer_funcenv_new(store, 0);
 
                 wasm_byte_vec_t wat;
                 wasmer_byte_vec_new_from_string(&wat, "(module (import \"wasi_snpsht_prvw1\" \"args_get\" (func (param i32 i32) (result i32))))");
@@ -486,7 +486,7 @@ mod tests {
                 wasm_module_delete(module);
                 wasm_byte_vec_delete(&wasm);
                 wasm_byte_vec_delete(&wat);
-                wasmer_funcenv_delete(ctx);
+                wasmer_funcenv_delete(env);
                 wasm_store_delete(store);
                 wasm_engine_delete(engine);
 

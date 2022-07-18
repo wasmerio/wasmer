@@ -41,7 +41,7 @@ mod js {
             .unwrap();
 
         let import_object = imports! {};
-        let mut ctx = FunctionEnv::new(&mut store, ());
+        let mut env = FunctionEnv::new(&mut store, ());
         let instance = Instance::new(&mut store, &module, &import_object).unwrap();
 
         let memory = instance.exports.get_memory("mem").unwrap();
@@ -81,7 +81,7 @@ mod js {
             .unwrap();
 
         let import_object = imports! {};
-        let mut ctx = FunctionEnv::new(&mut store, ());
+        let mut env = FunctionEnv::new(&mut store, ());
         let instance = Instance::new(&mut store, &module, &import_object).unwrap();
 
         let get_magic = instance.exports.get_function("get_magic").unwrap();
@@ -121,11 +121,11 @@ mod js {
                 ))],
             })
             .unwrap();
-        let mut ctx = FunctionEnv::new(&mut store, ());
+        let mut env = FunctionEnv::new(&mut store, ());
 
         let imported_signature = FunctionType::new(vec![Type::I32], vec![Type::I32]);
 
-        let imported = Function::new(&mut store, &ctx, imported_signature, |_env, args| {
+        let imported = Function::new(&mut store, &env, imported_signature, |_env, args| {
             log!("Calling `imported`...");
             let result = args[0].unwrap_i32() * 2;
             log!("Result of `imported`: {:?}", result);
@@ -238,10 +238,10 @@ mod js {
             multiplier: i32,
         }
 
-        let mut ctx = FunctionEnv::new(&mut store, Env { multiplier: 3 });
+        let mut env = FunctionEnv::new(&mut store, Env { multiplier: 3 });
 
         let imported_signature = FunctionType::new(vec![Type::I32], vec![Type::I32]);
-        let imported = Function::new(&mut store, &ctx, &imported_signature, |ctx, args| {
+        let imported = Function::new(&mut store, &env, &imported_signature, |ctx, args| {
             log!("Calling `imported`...");
             let result = args[0].unwrap_i32() * ctx.data().multiplier;
             log!("Result of `imported`: {:?}", result);
@@ -293,8 +293,8 @@ mod js {
             return arg + 1;
         }
 
-        let mut ctx = FunctionEnv::new(&mut store, ());
-        let imported = Function::new_native(&mut store, &ctx, imported_fn);
+        let mut env = FunctionEnv::new(&mut store, ());
+        let imported = Function::new_native(&mut store, &env, imported_fn);
 
         let import_object = imports! {
             "env" => {
@@ -348,9 +348,9 @@ mod js {
             return ctx.data().multiplier * arg;
         }
 
-        let mut ctx = FunctionEnv::new(&mut store, Env { multiplier: 3 });
+        let mut env = FunctionEnv::new(&mut store, Env { multiplier: 3 });
 
-        let imported = Function::new_native(&mut store, &ctx, imported_fn);
+        let imported = Function::new_native(&mut store, &env, imported_fn);
 
         let import_object = imports! {
             "env" => {
@@ -362,7 +362,7 @@ mod js {
         let exported = instance.exports.get_function("exported").unwrap();
 
         let expected = vec![Val::I32(12)].into_boxed_slice();
-        ctx.as_mut(&mut store).multiplier = 3;
+        env.as_mut(&mut store).multiplier = 3;
         assert_eq!(exported.call(&mut store, &[Val::I32(4)]), Ok(expected));
     }
 
@@ -407,14 +407,14 @@ mod js {
             return (memory_val as u32) * ctx.data().multiplier * arg;
         }
 
-        let mut ctx = FunctionEnv::new(
+        let mut env = FunctionEnv::new(
             &mut store,
             Env {
                 multiplier: 3,
                 memory: None,
             },
         );
-        let imported = Function::new_native(&mut store, &ctx, imported_fn);
+        let imported = Function::new_native(&mut store, &env, imported_fn);
 
         let import_object = imports! {
             "env" => {
@@ -432,7 +432,7 @@ mod js {
         let memory_val = memory.uint8view(&store).get_index(0);
         assert_eq!(memory_val, 2);
 
-        ctx.as_mut(&mut store).memory = Some(memory.clone());
+        env.as_mut(&mut store).memory = Some(memory.clone());
 
         let exported = instance.exports.get_function("exported").unwrap();
 
@@ -454,7 +454,7 @@ mod js {
             multiplier: u32,
         }
 
-        let mut ctx = FunctionEnv::new(&mut store, Env { multiplier: 3 });
+        let mut env = FunctionEnv::new(&mut store, Env { multiplier: 3 });
 
         fn imported_fn(
             ctx: FunctionEnvMut<'_, Env>,
@@ -465,7 +465,7 @@ mod js {
         }
 
         let imported_signature = FunctionType::new(vec![Type::I32], vec![Type::I32]);
-        let imported = Function::new(&mut store, &ctx, imported_signature, imported_fn);
+        let imported = Function::new(&mut store, &env, imported_signature, imported_fn);
 
         let expected = vec![Val::I32(12)].into_boxed_slice();
         assert_eq!(imported.call(&mut store, &[Val::I32(4)]), Ok(expected));
@@ -516,7 +516,7 @@ mod js {
             return Ok(vec![Val::I32(value as _)]);
         }
 
-        let mut ctx = FunctionEnv::new(
+        let mut env = FunctionEnv::new(
             &mut store,
             Env {
                 multiplier: 3,
@@ -525,7 +525,7 @@ mod js {
         );
 
         let imported_signature = FunctionType::new(vec![Type::I32], vec![Type::I32]);
-        let imported = Function::new(&mut store, &ctx, imported_signature, imported_fn);
+        let imported = Function::new(&mut store, &env, imported_signature, imported_fn);
 
         let import_object = imports! {
             "env" => {
@@ -543,7 +543,7 @@ mod js {
         let memory_val = memory.uint8view(&store).get_index(0);
         assert_eq!(memory_val, 2);
 
-        ctx.as_mut(&mut store).memory = Some(memory.clone());
+        env.as_mut(&mut store).memory = Some(memory.clone());
 
         let exported = instance.exports.get_function("exported").unwrap();
 
@@ -585,7 +585,7 @@ mod js {
                 ],
             })
             .unwrap();
-        let mut ctx = FunctionEnv::new(&mut store, ());
+        let mut env = FunctionEnv::new(&mut store, ());
         let global = Global::new_mut(&mut store, Value::I32(0));
         let import_object = imports! {
             "" => {
@@ -633,11 +633,11 @@ mod js {
             a + b
         }
 
-        let mut ctx = FunctionEnv::new(&mut store, ());
+        let mut env = FunctionEnv::new(&mut store, ());
 
         let import_object = imports! {
             "env" => {
-                "sum" => Function::new_native(&mut store, &ctx, sum),
+                "sum" => Function::new_native(&mut store, &env, sum),
             }
         };
 
@@ -673,11 +673,11 @@ mod js {
         fn early_exit(_: FunctionEnvMut<'_, ()>) {
             panic!("Do panic")
         }
-        let mut ctx = FunctionEnv::new(&mut store, ());
+        let mut env = FunctionEnv::new(&mut store, ());
 
         let import_object = imports! {
             "env" => {
-                "early_exit" => Function::new_native(&mut store, &ctx, early_exit),
+                "early_exit" => Function::new_native(&mut store, &env, early_exit),
             }
         };
         let instance = Instance::new(&mut store, &module, &import_object).unwrap();
@@ -721,7 +721,7 @@ mod js {
         )
         .unwrap();
 
-        let mut ctx = FunctionEnv::new(&mut store, ());
+        let mut env = FunctionEnv::new(&mut store, ());
 
         use std::fmt;
 
@@ -742,7 +742,7 @@ mod js {
 
         let import_object = imports! {
             "env" => {
-                "early_exit" => Function::new_native(&mut store, &ctx, early_exit),
+                "early_exit" => Function::new_native(&mut store, &env, early_exit),
             }
         };
 
@@ -802,7 +802,7 @@ mod js {
         .unwrap();
 
         let import_object = imports! {};
-        let mut ctx = FunctionEnv::new(&mut store, ());
+        let mut env = FunctionEnv::new(&mut store, ());
         let result = Instance::new(&mut store, &module, &import_object);
         let err = result.unwrap_err();
         assert!(format!("{:?}", err).contains("zero"))

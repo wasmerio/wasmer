@@ -61,12 +61,12 @@ fn issue_2329(mut config: crate::Config) -> Result<()> {
     "#;
     let module = Module::new(&store, wat)?;
     let env = Env::new();
-    let mut ctx = FunctionEnv::new(&mut store, env);
+    let mut env = FunctionEnv::new(&mut store, env);
     let imports: Imports = imports! {
         "env" => {
             "__read_memory" => Function::new_native(
                 &mut store,
-                &ctx,
+                &env,
                 read_memory
             ),
         }
@@ -188,23 +188,23 @@ fn call_with_static_data_pointers(mut config: crate::Config) -> Result<()> {
 
     let module = Module::new(&store, wat)?;
     let env = Env { memory: None };
-    let mut ctx = FunctionEnv::new(&mut store, env);
+    let mut env = FunctionEnv::new(&mut store, env);
     let memory = Memory::new(
         &mut store,
         MemoryType::new(Pages(1024), Some(Pages(2048)), false),
     )
     .unwrap();
-    ctx.as_mut(&mut store).memory = Some(memory.clone());
+    env.as_mut(&mut store).memory = Some(memory.clone());
     let mut exports = Exports::new();
     exports.insert("memory", memory);
-    exports.insert("banana", Function::new_native(&mut store, &ctx, banana));
-    exports.insert("peach", Function::new_native(&mut store, &ctx, peach));
+    exports.insert("banana", Function::new_native(&mut store, &env, banana));
+    exports.insert("peach", Function::new_native(&mut store, &env, peach));
     exports.insert(
         "chaenomeles",
-        Function::new_native(&mut store, &ctx, chaenomeles),
+        Function::new_native(&mut store, &env, chaenomeles),
     );
-    exports.insert("mango", Function::new_native(&mut store, &ctx, mango));
-    exports.insert("gas", Function::new_native(&mut store, &ctx, gas));
+    exports.insert("mango", Function::new_native(&mut store, &env, mango));
+    exports.insert("gas", Function::new_native(&mut store, &env, gas));
     let mut imports = Imports::new();
     imports.register_namespace("env", exports);
     let instance = Instance::new(&mut store, &module, &imports)?;
@@ -248,7 +248,7 @@ fn regression_gpr_exhaustion_for_calls(mut config: crate::Config) -> Result<()> 
             i32.const 0)
           (table (;0;) 1 1 funcref))
     "#;
-    let mut ctx = FunctionEnv::new(&mut store, ());
+    let mut env = FunctionEnv::new(&mut store, ());
     let module = Module::new(&store, wat)?;
     let imports: Imports = imports! {};
     let instance = Instance::new(&mut store, &module, &imports)?;

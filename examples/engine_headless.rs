@@ -107,7 +107,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // We create a headless Universal engine.
         let engine = Universal::headless().engine();
         let mut store = Store::new_with_engine(&engine);
-        let mut ctx = FunctionEnv::new(&mut store, ());
+        let mut env = FunctionEnv::new(&mut store, ());
 
         println!("Deserializing module...");
         // Here we go.

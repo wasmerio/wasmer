@@ -163,10 +163,10 @@ pub enum InstantiationError {
     #[cfg_attr(feature = "std", error(transparent))]
     Start(RuntimeError),
 
-    /// Import from a different [`Context`].
-    /// This error occurs when an import from a different context is used.
-    #[cfg_attr(feature = "std", error("cannot mix imports from different contexts"))]
-    BadContext,
+    /// Import from a different [`Store`].
+    /// This error occurs when an import from a different store is used.
+    #[cfg_attr(feature = "std", error("cannot mix imports from different stores"))]
+    DifferentStores,
 
     /// A generic error occured while invoking API functions
     #[cfg_attr(feature = "std", error(transparent))]

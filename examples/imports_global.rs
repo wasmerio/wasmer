@@ -41,7 +41,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // the default provided by Wasmer.
     // You can use `Store::default()` for that.
     let mut store = Store::new_with_engine(&Universal::new(Cranelift::default()).engine());
-    let mut ctx = FunctionEnv::new(&mut store, ());
+    let mut env = FunctionEnv::new(&mut store, ());
 
     println!("Compiling module...");
     // Let's compile the Wasm module.

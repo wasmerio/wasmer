@@ -17,9 +17,9 @@ use wasmer_types::ImportError;
 /// # Usage:
 /// ```no_run
 /// use wasmer::{Store, Exports, Module, Instance, imports, Imports, Function, FunctionEnv, FunctionEnvMut};
-/// # fn foo_test(mut ctx: FunctionEnv<()>, mut store: &mut Store, module: Module) {
+/// # fn foo_test(mut env: FunctionEnv<()>, mut store: &mut Store, module: Module) {
 ///
-/// let host_fn = Function::new_native(&mut store, &ctx, foo);
+/// let host_fn = Function::new_native(&mut store, &env, foo);
 /// let import_object: Imports = imports! {
 ///     "env" => {
 ///         "foo" => host_fn,
@@ -303,7 +303,7 @@ mod test {
         use crate::sys::FunctionEnvMut;
 
         let mut store: Store = Default::default();
-        let ctx = FunctionEnv::new(&mut store, ());
+        let env = FunctionEnv::new(&mut store, ());
 
         fn func(_ctx: FunctionEnvMut<()>, arg: i32) -> i32 {
             arg + 1
@@ -311,42 +311,42 @@ mod test {
 
         let _ = imports! {
             "env" => {
-                "func" => Function::new_native(&mut store, &ctx, func),
+                "func" => Function::new_native(&mut store, &env, func),
             },
         };
         let _ = imports! {
             "env" => {
-                "func" => Function::new_native(&mut store, &ctx, func),
+                "func" => Function::new_native(&mut store, &env, func),
             }
         };
         let _ = imports! {
             "env" => {
-                "func" => Function::new_native(&mut store, &ctx, func),
+                "func" => Function::new_native(&mut store, &env, func),
             },
             "abc" => {
-                "def" => Function::new_native(&mut store, &ctx, func),
+                "def" => Function::new_native(&mut store, &env, func),
             }
         };
         let _ = imports! {
             "env" => {
-                "func" => Function::new_native(&mut store, &ctx, func)
+                "func" => Function::new_native(&mut store, &env, func)
             },
         };
         let _ = imports! {
             "env" => {
-                "func" => Function::new_native(&mut store, &ctx, func)
+                "func" => Function::new_native(&mut store, &env, func)
             }
         };
         let _ = imports! {
             "env" => {
-                "func1" => Function::new_native(&mut store, &ctx, func),
-                "func2" => Function::new_native(&mut store, &ctx, func)
+                "func1" => Function::new_native(&mut store, &env, func),
+                "func2" => Function::new_native(&mut store, &env, func)
             }
         };
         let _ = imports! {
             "env" => {
-                "func1" => Function::new_native(&mut store, &ctx, func),
-                "func2" => Function::new_native(&mut store, &ctx, func),
+                "func1" => Function::new_native(&mut store, &env, func),
+                "func2" => Function::new_native(&mut store, &env, func),
             }
         };
     }

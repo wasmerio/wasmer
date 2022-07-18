@@ -40,7 +40,7 @@ fn main() -> anyhow::Result<()> {
 
     // Now, let's define the store, and compile the module.
     let mut store = Store::new_with_engine(&engine.engine());
-    let mut ctx = FunctionEnv::new(&mut store, ());
+    let mut env = FunctionEnv::new(&mut store, ());
     let module = Module::new(&store, wasm_bytes)?;
 
     // Finally, let's instantiate the module, and execute something

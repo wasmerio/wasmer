@@ -224,13 +224,14 @@ impl Module {
         store: &mut impl AsStoreMut,
         imports: &Imports,
     ) -> Result<(StoreHandle<WebAssembly::Instance>, Vec<Extern>), RuntimeError> {
-        // Ensure all imports come from the same context.
+        // Ensure all imports come from the same store.
         if imports
             .into_iter()
             .any(|(_, import)| !import.is_from_store(store))
         {
-            // FIXME is RuntimeError::User appropriate?
-            return Err(RuntimeError::user(Box::new(InstantiationError::BadContext)));
+            return Err(RuntimeError::user(Box::new(
+                InstantiationError::DifferentStores,
+            )));
         }
         let imports_object = js_sys::Object::new();
         let mut import_externs: Vec<Extern> = vec![];

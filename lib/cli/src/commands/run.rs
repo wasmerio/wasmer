@@ -142,13 +142,13 @@ impl Run {
                     bail!("--invoke is not supported with emscripten modules");
                 }
                 // create an EmEnv with default global
-                let ctx = FunctionEnv::new(&mut store, EmEnv::new());
-                let mut emscripten_globals = EmscriptenGlobals::new(&mut store, &ctx, &module)
+                let env = FunctionEnv::new(&mut store, EmEnv::new());
+                let mut emscripten_globals = EmscriptenGlobals::new(&mut store, &env, &module)
                     .map_err(|e| anyhow!("{}", e))?;
-                ctx.as_mut(&mut store)
+                env.as_mut(&mut store)
                     .set_data(&emscripten_globals.data, Default::default());
                 let import_object =
-                    generate_emscripten_env(&mut store, &ctx, &mut emscripten_globals);
+                    generate_emscripten_env(&mut store, &env, &mut emscripten_globals);
                 let mut instance = match Instance::new(&mut store, &module, &import_object) {
                     Ok(instance) => instance,
                     Err(e) => {
@@ -165,7 +165,7 @@ impl Run {
 
                 run_emscripten_instance(
                     &mut instance,
-                    ctx.into_mut(&mut store),
+                    env.into_mut(&mut store),
                     &mut emscripten_globals,
                     if let Some(cn) = &self.command_name {
                         cn

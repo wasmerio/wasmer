@@ -88,7 +88,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         *counter_ref
     }
 
-    let mut ctx = FunctionEnv::new(
+    let mut env = FunctionEnv::new(
         &mut store,
         Env {
             counter: shared_counter.clone(),
@@ -98,8 +98,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create an import object.
     let import_object = imports! {
         "env" => {
-            "get_counter" => Function::new_native(&mut store, &ctx, get_counter),
-            "add_to_counter" => Function::new_native(&mut store, &ctx, add_to_counter),
+            "get_counter" => Function::new_native(&mut store, &env, get_counter),
+            "add_to_counter" => Function::new_native(&mut store, &env, add_to_counter),
         }
     };
 

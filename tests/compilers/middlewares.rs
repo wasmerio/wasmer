@@ -100,7 +100,7 @@ fn middleware_basic(mut config: crate::Config) -> Result<()> {
                     (local.get 1)))
 )"#;
     let module = Module::new(&store, wat).unwrap();
-    let mut ctx = FunctionEnv::new(&mut store, ());
+    let mut env = FunctionEnv::new(&mut store, ());
 
     let import_object = imports! {};
 
@@ -125,7 +125,7 @@ fn middleware_one_to_multi(mut config: crate::Config) -> Result<()> {
                     (local.get 1)))
 )"#;
     let module = Module::new(&store, wat).unwrap();
-    let mut ctx = FunctionEnv::new(&mut store, ());
+    let mut env = FunctionEnv::new(&mut store, ());
     let import_object = imports! {};
 
     let instance = Instance::new(&mut store, &module, &import_object)?;
@@ -150,7 +150,7 @@ fn middleware_multi_to_one(mut config: crate::Config) -> Result<()> {
            (i32.mul))
 )"#;
     let module = Module::new(&store, wat).unwrap();
-    let mut ctx = FunctionEnv::new(&mut store, ());
+    let mut env = FunctionEnv::new(&mut store, ());
     let import_object = imports! {};
 
     let instance = Instance::new(&mut store, &module, &import_object)?;
