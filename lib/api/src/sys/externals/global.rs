@@ -32,8 +32,8 @@ impl Global {
     /// assert_eq!(g.get(&mut store), Value::I32(1));
     /// assert_eq!(g.ty(&mut store).mutability, Mutability::Const);
     /// ```
-    pub fn new(ctx: &mut impl AsStoreMut, val: Value) -> Self {
-        Self::from_value(ctx, val, Mutability::Const).unwrap()
+    pub fn new(store: &mut impl AsStoreMut, val: Value) -> Self {
+        Self::from_value(store, val, Mutability::Const).unwrap()
     }
 
     /// Create a mutable `Global` with the initial value [`Value`].
@@ -49,17 +49,17 @@ impl Global {
     /// assert_eq!(g.get(&mut store), Value::I32(1));
     /// assert_eq!(g.ty(&mut store).mutability, Mutability::Var);
     /// ```
-    pub fn new_mut(ctx: &mut impl AsStoreMut, val: Value) -> Self {
-        Self::from_value(ctx, val, Mutability::Var).unwrap()
+    pub fn new_mut(store: &mut impl AsStoreMut, val: Value) -> Self {
+        Self::from_value(store, val, Mutability::Var).unwrap()
     }
 
     /// Create a `Global` with the initial value [`Value`] and the provided [`Mutability`].
     fn from_value(
-        ctx: &mut impl AsStoreMut,
+        store: &mut impl AsStoreMut,
         val: Value,
         mutability: Mutability,
     ) -> Result<Self, RuntimeError> {
-        if !val.is_from_store(ctx) {
+        if !val.is_from_store(store) {
             return Err(RuntimeError::new(
                 "cross-`Context` values are not supported",
             ));
@@ -69,11 +69,11 @@ impl Global {
             ty: val.ty(),
         });
         unsafe {
-            global.vmglobal().as_mut().val = val.as_raw(ctx);
+            global.vmglobal().as_mut().val = val.as_raw(store);
         }
 
         Ok(Self {
-            handle: StoreHandle::new(ctx.objects_mut(), global),
+            handle: StoreHandle::new(store.objects_mut(), global),
         })
     }
 
@@ -91,8 +91,8 @@ impl Global {
     /// assert_eq!(c.ty(&mut store), GlobalType::new(Type::I32, Mutability::Const));
     /// assert_eq!(v.ty(&mut store), GlobalType::new(Type::I64, Mutability::Var));
     /// ```
-    pub fn ty(&self, ctx: &impl AsStoreRef) -> GlobalType {
-        *self.handle.get(ctx.as_store_ref().objects()).ty()
+    pub fn ty(&self, store: &impl AsStoreRef) -> GlobalType {
+        *self.handle.get(store.as_store_ref().objects()).ty()
     }
 
     /// Retrieves the current value [`Value`] that the Global has.
@@ -107,16 +107,16 @@ impl Global {
     ///
     /// assert_eq!(g.get(&mut store), Value::I32(1));
     /// ```
-    pub fn get(&self, ctx: &mut impl AsStoreMut) -> Value {
+    pub fn get(&self, store: &mut impl AsStoreMut) -> Value {
         unsafe {
             let raw = self
                 .handle
-                .get(ctx.as_store_ref().objects())
+                .get(store.as_store_ref().objects())
                 .vmglobal()
                 .as_ref()
                 .val;
-            let ty = self.handle.get(ctx.as_store_ref().objects()).ty().ty;
-            Value::from_raw(ctx, ty, raw)
+            let ty = self.handle.get(store.as_store_ref().objects()).ty().ty;
+            Value::from_raw(store, ty, raw)
         }
     }
 
@@ -161,46 +161,46 @@ impl Global {
     /// // This results in an error: `RuntimeError`.
     /// g.set(&mut store, Value::I64(2)).unwrap();
     /// ```
-    pub fn set(&self, ctx: &mut impl AsStoreMut, val: Value) -> Result<(), RuntimeError> {
-        if !val.is_from_store(ctx) {
+    pub fn set(&self, store: &mut impl AsStoreMut, val: Value) -> Result<(), RuntimeError> {
+        if !val.is_from_store(store) {
             return Err(RuntimeError::new(
                 "cross-`Context` values are not supported",
             ));
         }
-        if self.ty(ctx).mutability != Mutability::Var {
+        if self.ty(store).mutability != Mutability::Var {
             return Err(RuntimeError::new("Attempted to set an immutable global"));
         }
-        if val.ty() != self.ty(ctx).ty {
+        if val.ty() != self.ty(store).ty {
             return Err(RuntimeError::new(format!(
                 "Attempted to operate on a global of type {expected} as a global of type {found}",
-                expected = self.ty(ctx).ty,
+                expected = self.ty(store).ty,
                 found = val.ty(),
             )));
         }
         unsafe {
             self.handle
-                .get_mut(ctx.objects_mut())
+                .get_mut(store.objects_mut())
                 .vmglobal()
                 .as_mut()
-                .val = val.as_raw(ctx);
+                .val = val.as_raw(store);
         }
         Ok(())
     }
 
     pub(crate) fn from_vm_extern(
-        ctx: &mut impl AsStoreMut,
+        store: &mut impl AsStoreMut,
         internal: InternalStoreHandle<VMGlobal>,
     ) -> Self {
         Self {
             handle: unsafe {
-                StoreHandle::from_internal(ctx.as_store_ref().objects().id(), internal)
+                StoreHandle::from_internal(store.as_store_ref().objects().id(), internal)
             },
         }
     }
 
     /// Checks whether this `Global` can be used with the given context.
-    pub fn is_from_store(&self, ctx: &impl AsStoreRef) -> bool {
-        self.handle.store_id() == ctx.as_store_ref().objects().id()
+    pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
+        self.handle.store_id() == store.as_store_ref().objects().id()
     }
 
     pub(crate) fn to_vm_extern(&self) -> VMExtern {

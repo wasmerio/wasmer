@@ -241,9 +241,9 @@ mod js {
         let mut env = FunctionEnv::new(&mut store, Env { multiplier: 3 });
 
         let imported_signature = FunctionType::new(vec![Type::I32], vec![Type::I32]);
-        let imported = Function::new(&mut store, &env, &imported_signature, |ctx, args| {
+        let imported = Function::new(&mut store, &env, &imported_signature, |env, args| {
             log!("Calling `imported`...");
-            let result = args[0].unwrap_i32() * ctx.data().multiplier;
+            let result = args[0].unwrap_i32() * env.data().multiplier;
             log!("Result of `imported`: {:?}", result);
             Ok(vec![Value::I32(result)])
         });
@@ -342,10 +342,10 @@ mod js {
             multiplier: u32,
         }
 
-        fn imported_fn(ctx: FunctionEnvMut<'_, Env>, arg: u32) -> u32 {
-            log!("inside imported_fn: ctx.data is {:?}", ctx.data());
-            // log!("inside call id is {:?}", ctx.as_store_ref().objects().id);
-            return ctx.data().multiplier * arg;
+        fn imported_fn(env: FunctionEnvMut<'_, Env>, arg: u32) -> u32 {
+            log!("inside imported_fn: env.data is {:?}", env.data());
+            // log!("inside call id is {:?}", env.as_store_ref().objects().id);
+            return env.data().multiplier * arg;
         }
 
         let mut env = FunctionEnv::new(&mut store, Env { multiplier: 3 });
@@ -401,10 +401,10 @@ mod js {
             memory: Option<Memory>,
         }
 
-        fn imported_fn(ctx: FunctionEnvMut<'_, Env>, arg: u32) -> u32 {
-            let memory: &Memory = ctx.data().memory.as_ref().unwrap();
-            let memory_val = memory.uint8view(&ctx).get_index(0);
-            return (memory_val as u32) * ctx.data().multiplier * arg;
+        fn imported_fn(env: FunctionEnvMut<'_, Env>, arg: u32) -> u32 {
+            let memory: &Memory = env.data().memory.as_ref().unwrap();
+            let memory_val = memory.uint8view(&env).get_index(0);
+            return (memory_val as u32) * env.data().multiplier * arg;
         }
 
         let mut env = FunctionEnv::new(
@@ -457,10 +457,10 @@ mod js {
         let mut env = FunctionEnv::new(&mut store, Env { multiplier: 3 });
 
         fn imported_fn(
-            ctx: FunctionEnvMut<'_, Env>,
+            env: FunctionEnvMut<'_, Env>,
             args: &[Val],
         ) -> Result<Vec<Val>, RuntimeError> {
-            let value = ctx.data().multiplier * args[0].unwrap_i32() as u32;
+            let value = env.data().multiplier * args[0].unwrap_i32() as u32;
             return Ok(vec![Val::I32(value as _)]);
         }
 
@@ -507,12 +507,12 @@ mod js {
         }
 
         fn imported_fn(
-            ctx: FunctionEnvMut<'_, Env>,
+            env: FunctionEnvMut<'_, Env>,
             args: &[Val],
         ) -> Result<Vec<Val>, RuntimeError> {
-            let memory: &Memory = ctx.data().memory.as_ref().unwrap();
-            let memory_val = memory.uint8view(&ctx).get_index(0);
-            let value = (memory_val as u32) * ctx.data().multiplier * args[0].unwrap_i32() as u32;
+            let memory: &Memory = env.data().memory.as_ref().unwrap();
+            let memory_val = memory.uint8view(&env).get_index(0);
+            let value = (memory_val as u32) * env.data().multiplier * args[0].unwrap_i32() as u32;
             return Ok(vec![Val::I32(value as _)]);
         }
 

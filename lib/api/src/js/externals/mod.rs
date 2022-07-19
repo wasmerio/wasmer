@@ -34,32 +34,32 @@ pub enum Extern {
 
 impl Extern {
     /// Return the underlying type of the inner `Extern`.
-    pub fn ty(&self, ctx: &impl AsStoreRef) -> ExternType {
+    pub fn ty(&self, store: &impl AsStoreRef) -> ExternType {
         match self {
-            Self::Function(ft) => ExternType::Function(ft.ty(ctx).clone()),
-            Self::Memory(ft) => ExternType::Memory(ft.ty(ctx)),
-            Self::Table(tt) => ExternType::Table(tt.ty(ctx)),
-            Self::Global(gt) => ExternType::Global(gt.ty(ctx)),
+            Self::Function(ft) => ExternType::Function(ft.ty(store).clone()),
+            Self::Memory(ft) => ExternType::Memory(ft.ty(store)),
+            Self::Table(tt) => ExternType::Table(tt.ty(store)),
+            Self::Global(gt) => ExternType::Global(gt.ty(store)),
         }
     }
 
     /// Create an `Extern` from an `wasmer_compiler::Export`.
-    pub fn from_vm_export(ctx: &mut impl AsStoreMut, export: Export) -> Self {
+    pub fn from_vm_export(store: &mut impl AsStoreMut, export: Export) -> Self {
         match export {
-            Export::Function(f) => Self::Function(Function::from_vm_extern(ctx, f)),
-            Export::Memory(m) => Self::Memory(Memory::from_vm_extern(ctx, m)),
-            Export::Global(g) => Self::Global(Global::from_vm_extern(ctx, g)),
-            Export::Table(t) => Self::Table(Table::from_vm_extern(ctx, t)),
+            Export::Function(f) => Self::Function(Function::from_vm_extern(store, f)),
+            Export::Memory(m) => Self::Memory(Memory::from_vm_extern(store, m)),
+            Export::Global(g) => Self::Global(Global::from_vm_extern(store, g)),
+            Export::Table(t) => Self::Table(Table::from_vm_extern(store, t)),
         }
     }
 
     /// Checks whether this `Extern` can be used with the given context.
-    pub fn is_from_store(&self, ctx: &impl AsStoreRef) -> bool {
+    pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
         match self {
-            Self::Function(val) => val.is_from_store(ctx),
-            Self::Memory(val) => val.is_from_store(ctx),
-            Self::Global(val) => val.is_from_store(ctx),
-            Self::Table(val) => val.is_from_store(ctx),
+            Self::Function(val) => val.is_from_store(store),
+            Self::Memory(val) => val.is_from_store(store),
+            Self::Global(val) => val.is_from_store(store),
+            Self::Table(val) => val.is_from_store(store),
         }
     }
 
@@ -74,12 +74,12 @@ impl Extern {
 }
 
 impl AsJs for Extern {
-    fn as_jsvalue(&self, ctx: &impl AsStoreRef) -> wasm_bindgen::JsValue {
+    fn as_jsvalue(&self, store: &impl AsStoreRef) -> wasm_bindgen::JsValue {
         match self {
-            Self::Function(_) => self.to_export().as_jsvalue(ctx),
-            Self::Global(_) => self.to_export().as_jsvalue(ctx),
-            Self::Table(_) => self.to_export().as_jsvalue(ctx),
-            Self::Memory(_) => self.to_export().as_jsvalue(ctx),
+            Self::Function(_) => self.to_export().as_jsvalue(store),
+            Self::Global(_) => self.to_export().as_jsvalue(store),
+            Self::Table(_) => self.to_export().as_jsvalue(store),
+            Self::Memory(_) => self.to_export().as_jsvalue(store),
         }
         .clone()
     }

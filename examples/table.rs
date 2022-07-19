@@ -6,7 +6,7 @@ use wasmer_compiler::Universal;
 use wasmer_compiler_cranelift::Cranelift;
 
 /// A function we'll call through a table.
-fn host_callback(_ctx: FunctionEnvMut<()>, arg1: i32, arg2: i32) -> i32 {
+fn host_callback(_env: FunctionEnvMut<()>, arg1: i32, arg2: i32) -> i32 {
     arg1 + arg2
 }
 

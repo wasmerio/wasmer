@@ -183,13 +183,13 @@ mod js {
     fn function_new() {
         let mut store = Store::default();
         let mut env = FunctionEnv::new(&mut store, ());
-        let function = Function::new_native(&mut store, &env, |_ctx: FunctionEnvMut<'_, ()>| {});
+        let function = Function::new_native(&mut store, &env, |_env: FunctionEnvMut<'_, ()>| {});
         assert_eq!(
             function.ty(&store).clone(),
             FunctionType::new(vec![], vec![])
         );
         let function =
-            Function::new_native(&mut store, &env, |_ctx: FunctionEnvMut<'_, ()>, _a: i32| {});
+            Function::new_native(&mut store, &env, |_env: FunctionEnvMut<'_, ()>, _a: i32| {});
         assert_eq!(
             function.ty(&store).clone(),
             FunctionType::new(vec![Type::I32], vec![])
@@ -197,14 +197,14 @@ mod js {
         let function = Function::new_native(
             &mut store,
             &env,
-            |_ctx: FunctionEnvMut<'_, ()>, _a: i32, _b: i64, _c: f32, _d: f64| {},
+            |_env: FunctionEnvMut<'_, ()>, _a: i32, _b: i64, _c: f32, _d: f64| {},
         );
         assert_eq!(
             function.ty(&store).clone(),
             FunctionType::new(vec![Type::I32, Type::I64, Type::F32, Type::F64], vec![])
         );
         let function =
-            Function::new_native(&mut store, &env, |_ctx: FunctionEnvMut<'_, ()>| -> i32 {
+            Function::new_native(&mut store, &env, |_env: FunctionEnvMut<'_, ()>| -> i32 {
                 1
             });
         assert_eq!(
@@ -214,7 +214,7 @@ mod js {
         let function = Function::new_native(
             &mut store,
             &env,
-            |_ctx: FunctionEnvMut<'_, ()>| -> (i32, i64, f32, f64) { (1, 2, 3.0, 4.0) },
+            |_env: FunctionEnvMut<'_, ()>| -> (i32, i64, f32, f64) { (1, 2, 3.0, 4.0) },
         );
         assert_eq!(
             function.ty(&store).clone(),
@@ -281,7 +281,7 @@ mod js {
             &mut store,
             &env,
             &function_type,
-            |_ctx: FunctionEnvMut<'_, ()>, _values: &[Value]| unimplemented!(),
+            |_env: FunctionEnvMut<'_, ()>, _values: &[Value]| unimplemented!(),
         );
         assert_eq!(function.ty(&store).clone(), function_type);
         let function_type = FunctionType::new(vec![Type::I32], vec![]);
@@ -289,7 +289,7 @@ mod js {
             &mut store,
             &env,
             &function_type,
-            |_ctx: FunctionEnvMut<'_, ()>, _values: &[Value]| unimplemented!(),
+            |_env: FunctionEnvMut<'_, ()>, _values: &[Value]| unimplemented!(),
         );
         assert_eq!(function.ty(&store).clone(), function_type);
         let function_type =
@@ -298,7 +298,7 @@ mod js {
             &mut store,
             &env,
             &function_type,
-            |_ctx: FunctionEnvMut<'_, ()>, _values: &[Value]| unimplemented!(),
+            |_env: FunctionEnvMut<'_, ()>, _values: &[Value]| unimplemented!(),
         );
         assert_eq!(function.ty(&store).clone(), function_type);
         let function_type = FunctionType::new(vec![], vec![Type::I32]);
@@ -306,7 +306,7 @@ mod js {
             &mut store,
             &env,
             &function_type,
-            |_ctx: FunctionEnvMut<'_, ()>, _values: &[Value]| unimplemented!(),
+            |_env: FunctionEnvMut<'_, ()>, _values: &[Value]| unimplemented!(),
         );
         assert_eq!(function.ty(&store).clone(), function_type);
         let function_type =
@@ -315,7 +315,7 @@ mod js {
             &mut store,
             &env,
             &function_type,
-            |_ctx: FunctionEnvMut<'_, ()>, _values: &[Value]| unimplemented!(),
+            |_env: FunctionEnvMut<'_, ()>, _values: &[Value]| unimplemented!(),
         );
         assert_eq!(function.ty(&store).clone(), function_type);
 
@@ -325,7 +325,7 @@ mod js {
             &mut store,
             &env,
             function_type,
-            |_ctx: FunctionEnvMut<'_, ()>, _values: &[Value]| unimplemented!(),
+            |_env: FunctionEnvMut<'_, ()>, _values: &[Value]| unimplemented!(),
         );
         assert_eq!(function.ty(&store).params(), [Type::V128]);
         assert_eq!(
@@ -349,7 +349,7 @@ mod js {
             &mut store,
             &env,
             &function_type,
-            |_ctx: FunctionEnvMut<'_, MyEnv>, _values: &[Value]| unimplemented!(),
+            |_env: FunctionEnvMut<'_, MyEnv>, _values: &[Value]| unimplemented!(),
         );
         assert_eq!(function.ty(&store).clone(), function_type);
         let function_type = FunctionType::new(vec![Type::I32], vec![]);
@@ -357,7 +357,7 @@ mod js {
             &mut store,
             &env,
             &function_type,
-            |_ctx: FunctionEnvMut<'_, MyEnv>, _values: &[Value]| unimplemented!(),
+            |_env: FunctionEnvMut<'_, MyEnv>, _values: &[Value]| unimplemented!(),
         );
         assert_eq!(function.ty(&store).clone(), function_type);
         let function_type =
@@ -366,7 +366,7 @@ mod js {
             &mut store,
             &env,
             &function_type,
-            |_ctx: FunctionEnvMut<'_, MyEnv>, _values: &[Value]| unimplemented!(),
+            |_env: FunctionEnvMut<'_, MyEnv>, _values: &[Value]| unimplemented!(),
         );
         assert_eq!(function.ty(&store).clone(), function_type);
         let function_type = FunctionType::new(vec![], vec![Type::I32]);
@@ -374,7 +374,7 @@ mod js {
             &mut store,
             &env,
             &function_type,
-            |_ctx: FunctionEnvMut<'_, MyEnv>, _values: &[Value]| unimplemented!(),
+            |_env: FunctionEnvMut<'_, MyEnv>, _values: &[Value]| unimplemented!(),
         );
         assert_eq!(function.ty(&store).clone(), function_type);
         let function_type =
@@ -383,7 +383,7 @@ mod js {
             &mut store,
             &env,
             &function_type,
-            |_ctx: FunctionEnvMut<'_, MyEnv>, _values: &[Value]| unimplemented!(),
+            |_env: FunctionEnvMut<'_, MyEnv>, _values: &[Value]| unimplemented!(),
         );
         assert_eq!(function.ty(&store).clone(), function_type);
 
@@ -393,7 +393,7 @@ mod js {
             &mut store,
             &env,
             function_type,
-            |_ctx: FunctionEnvMut<'_, MyEnv>, _values: &[Value]| unimplemented!(),
+            |_env: FunctionEnvMut<'_, MyEnv>, _values: &[Value]| unimplemented!(),
         );
         assert_eq!(function.ty(&store).params(), [Type::V128]);
         assert_eq!(

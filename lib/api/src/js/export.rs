@@ -99,19 +99,22 @@ pub enum Export {
 
 impl Export {
     /// Return the export as a `JSValue`.
-    pub fn as_jsvalue<'context>(&self, ctx: &'context impl AsStoreRef) -> &'context JsValue {
+    pub fn as_jsvalue<'context>(&self, store: &'context impl AsStoreRef) -> &'context JsValue {
         match self {
             Self::Memory(js_wasm_memory) => js_wasm_memory
-                .get(ctx.as_store_ref().objects())
+                .get(store.as_store_ref().objects())
                 .memory
                 .as_ref(),
-            Self::Function(js_func) => js_func.get(ctx.as_store_ref().objects()).function.as_ref(),
+            Self::Function(js_func) => js_func
+                .get(store.as_store_ref().objects())
+                .function
+                .as_ref(),
             Self::Table(js_wasm_table) => js_wasm_table
-                .get(ctx.as_store_ref().objects())
+                .get(store.as_store_ref().objects())
                 .table
                 .as_ref(),
             Self::Global(js_wasm_global) => js_wasm_global
-                .get(ctx.as_store_ref().objects())
+                .get(store.as_store_ref().objects())
                 .global
                 .as_ref(),
         }
@@ -120,14 +123,14 @@ impl Export {
     /// Convert a `JsValue` into an `Export` within a given `Context`.
     pub fn from_js_value(
         val: JsValue,
-        ctx: &mut impl AsStoreMut,
+        store: &mut impl AsStoreMut,
         extern_type: ExternType,
     ) -> Result<Self, WasmError> {
         match extern_type {
             ExternType::Memory(memory_type) => {
                 if val.is_instance_of::<Memory>() {
                     Ok(Self::Memory(InternalStoreHandle::new(
-                        &mut ctx.objects_mut(),
+                        &mut store.objects_mut(),
                         VMMemory::new(val.unchecked_into::<Memory>(), memory_type),
                     )))
                 } else {
@@ -143,7 +146,7 @@ impl Export {
             ExternType::Global(global_type) => {
                 if val.is_instance_of::<Global>() {
                     Ok(Self::Global(InternalStoreHandle::new(
-                        &mut ctx.objects_mut(),
+                        &mut store.objects_mut(),
                         VMGlobal::new(val.unchecked_into::<Global>(), global_type),
                     )))
                 } else {
@@ -153,7 +156,7 @@ impl Export {
             ExternType::Function(function_type) => {
                 if val.is_instance_of::<Function>() {
                     Ok(Self::Function(InternalStoreHandle::new(
-                        &mut ctx.objects_mut(),
+                        &mut store.objects_mut(),
                         VMFunction::new(val.unchecked_into::<Function>(), function_type),
                     )))
                 } else {
@@ -163,7 +166,7 @@ impl Export {
             ExternType::Table(table_type) => {
                 if val.is_instance_of::<Table>() {
                     Ok(Self::Table(InternalStoreHandle::new(
-                        &mut ctx.objects_mut(),
+                        &mut store.objects_mut(),
                         VMTable::new(val.unchecked_into::<Table>(), table_type),
                     )))
                 } else {

@@ -53,7 +53,7 @@ impl JsImportObject {
     /// ```
     pub fn get_export(
         &self,
-        ctx: &mut impl AsStoreMut,
+        store: &mut impl AsStoreMut,
         module: &str,
         name: &str,
     ) -> Result<Export, WasmError> {
@@ -63,7 +63,11 @@ impl JsImportObject {
             .module_imports
             .get(&(module.to_string(), name.to_string()))
         {
-            Some(extern_type) => Ok(Export::from_js_value(js_export, ctx, extern_type.clone())?),
+            Some(extern_type) => Ok(Export::from_js_value(
+                js_export,
+                store,
+                extern_type.clone(),
+            )?),
             None => Err(WasmError::Generic(format!(
                 "Name {} not found in module {}",
                 name, module

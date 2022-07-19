@@ -61,16 +61,16 @@ impl Instance {
     ///  * Link errors that happen when plugging the imports into the instance
     ///  * Runtime errors that happen when running the module `start` function.
     pub fn new(
-        mut ctx: &mut impl AsStoreMut,
+        mut store: &mut impl AsStoreMut,
         module: &Module,
         imports: &Imports,
     ) -> Result<Self, InstantiationError> {
         let import_copy = imports.clone();
         let (instance, _imports): (StoreHandle<WebAssembly::Instance>, Vec<Extern>) = module
-            .instantiate(&mut ctx, imports)
+            .instantiate(&mut store, imports)
             .map_err(|e| InstantiationError::Start(e))?;
 
-        let self_instance = Self::from_module_and_instance(ctx, module, instance, import_copy)?;
+        let self_instance = Self::from_module_and_instance(store, module, instance, import_copy)?;
         //self_instance.init_envs(&imports.iter().map(Extern::to_export).collect::<Vec<_>>())?;
         Ok(self_instance)
     }
@@ -85,12 +85,12 @@ impl Instance {
     ///
     /// *This method is only available when targeting JS environments*
     pub fn from_module_and_instance(
-        mut ctx: &mut impl AsStoreMut,
+        mut store: &mut impl AsStoreMut,
         module: &Module,
         instance: StoreHandle<WebAssembly::Instance>,
         imports: Imports,
     ) -> Result<Self, InstantiationError> {
-        let instance_exports = instance.get(ctx.as_store_ref().objects()).exports();
+        let instance_exports = instance.get(store.as_store_ref().objects()).exports();
         let exports = module
             .exports()
             .map(|export_type| {
@@ -104,8 +104,8 @@ impl Instance {
                         ))
                     })?;
                 let export: Export =
-                    Export::from_js_value(js_export, &mut ctx, extern_type)?.into();
-                let extern_ = Extern::from_vm_export(&mut ctx, export);
+                    Export::from_js_value(js_export, &mut store, extern_type)?.into();
+                let extern_ = Extern::from_vm_export(&mut store, export);
                 Ok((name.to_string(), extern_))
             })
             .collect::<Result<Exports, InstantiationError>>()?;
@@ -125,8 +125,11 @@ impl Instance {
 
     /// Returns the inner WebAssembly Instance
     #[doc(hidden)]
-    pub fn raw<'context>(&self, ctx: &'context impl AsStoreRef) -> &'context WebAssembly::Instance {
-        &self._handle.get(ctx.as_store_ref().objects())
+    pub fn raw<'context>(
+        &self,
+        store: &'context impl AsStoreRef,
+    ) -> &'context WebAssembly::Instance {
+        &self._handle.get(store.as_store_ref().objects())
     }
 }
 

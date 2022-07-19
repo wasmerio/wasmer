@@ -66,24 +66,24 @@ macro_rules! impl_native_traits {
             /// Call the typed func and return results.
             #[allow(unused_mut)]
             #[allow(clippy::too_many_arguments)]
-            pub fn call(&self, ctx: &mut impl AsStoreMut, $( $x: $x, )* ) -> Result<Rets, RuntimeError> {
+            pub fn call(&self, store: &mut impl AsStoreMut, $( $x: $x, )* ) -> Result<Rets, RuntimeError> {
                 let anyfunc = unsafe {
                     *self.func
                         .handle
-                        .get(ctx.as_store_ref().objects())
+                        .get(store.as_store_ref().objects())
                         .anyfunc
                         .as_ptr()
                         .as_ref()
                 };
                 // Ensure all parameters come from the same context.
-                if $(!FromToNativeWasmType::is_from_store(&$x, ctx) ||)* false {
+                if $(!FromToNativeWasmType::is_from_store(&$x, store) ||)* false {
                     return Err(RuntimeError::new(
                         "cross-`Context` values are not supported",
                     ));
                 }
                 // TODO: when `const fn` related features mature more, we can declare a single array
                 // of the correct size here.
-                let mut params_list = [ $( $x.to_native().into_raw(ctx) ),* ];
+                let mut params_list = [ $( $x.to_native().into_raw(store) ),* ];
                 let mut rets_list_array = Rets::empty_array();
                 let rets_list: &mut [RawValue] = rets_list_array.as_mut();
                 let using_rets_array;
@@ -99,7 +99,7 @@ macro_rules! impl_native_traits {
                 };
                 unsafe {
                     wasmer_vm::wasmer_call_trampoline(
-                        ctx.as_store_ref().signal_handler(),
+                        store.as_store_ref().signal_handler(),
                         anyfunc.vmctx,
                         anyfunc.call_trampoline,
                         anyfunc.func_ptr,
@@ -118,7 +118,7 @@ macro_rules! impl_native_traits {
                                                         num_rets);
                     }
                 }
-                Ok(unsafe { Rets::from_array(ctx, rets_list_array) })
+                Ok(unsafe { Rets::from_array(store, rets_list_array) })
                 // TODO: When the Host ABI and Wasm ABI are the same, we could do this instead:
                 // but we can't currently detect whether that's safe.
                 //

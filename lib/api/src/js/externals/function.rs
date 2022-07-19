@@ -96,7 +96,7 @@ impl Function {
     #[allow(clippy::cast_ptr_alignment)]
     pub fn new<FT, F, T: Send + 'static>(
         store: &mut impl AsStoreMut,
-        ctx: &FunctionEnv<T>,
+        env: &FunctionEnv<T>,
         ty: FT,
         func: F,
     ) -> Self
@@ -111,46 +111,46 @@ impl Function {
         let function_type = ty.into();
         let func_ty = function_type.clone();
         let raw_store = store.as_raw() as *mut u8;
-        let raw_ctx = ctx.clone();
+        let raw_env = env.clone();
         let wrapped_func: JsValue = match function_type.results().len() {
             0 => Closure::wrap(Box::new(move |args: &Array| {
                 let mut store: StoreMut = unsafe { StoreMut::from_raw(raw_store as _) };
-                let mut ctx: FunctionEnvMut<T> = raw_ctx.clone().into_mut(&mut store);
+                let mut env: FunctionEnvMut<T> = raw_env.clone().into_mut(&mut store);
                 let wasm_arguments = function_type
                     .params()
                     .iter()
                     .enumerate()
                     .map(|(i, param)| param_from_js(param, &args.get(i as u32)))
                     .collect::<Vec<_>>();
-                let _results = func(ctx, &wasm_arguments)?;
+                let _results = func(env, &wasm_arguments)?;
                 Ok(())
             })
                 as Box<dyn FnMut(&Array) -> Result<(), JsValue>>)
             .into_js_value(),
             1 => Closure::wrap(Box::new(move |args: &Array| {
                 let mut store: StoreMut = unsafe { StoreMut::from_raw(raw_store as _) };
-                let mut ctx: FunctionEnvMut<T> = raw_ctx.clone().into_mut(&mut store);
+                let mut env: FunctionEnvMut<T> = raw_env.clone().into_mut(&mut store);
                 let wasm_arguments = function_type
                     .params()
                     .iter()
                     .enumerate()
                     .map(|(i, param)| param_from_js(param, &args.get(i as u32)))
                     .collect::<Vec<_>>();
-                let results = func(ctx, &wasm_arguments)?;
+                let results = func(env, &wasm_arguments)?;
                 return Ok(result_to_js(&results[0]));
             })
                 as Box<dyn FnMut(&Array) -> Result<JsValue, JsValue>>)
             .into_js_value(),
             _n => Closure::wrap(Box::new(move |args: &Array| {
                 let mut store: StoreMut = unsafe { StoreMut::from_raw(raw_store as _) };
-                let mut ctx: FunctionEnvMut<T> = raw_ctx.clone().into_mut(&mut store);
+                let mut env: FunctionEnvMut<T> = raw_env.clone().into_mut(&mut store);
                 let wasm_arguments = function_type
                     .params()
                     .iter()
                     .enumerate()
                     .map(|(i, param)| param_from_js(param, &args.get(i as u32)))
                     .collect::<Vec<_>>();
-                let results = func(ctx, &wasm_arguments)?;
+                let results = func(env, &wasm_arguments)?;
                 return Ok(results_to_js_array(&results));
             })
                 as Box<dyn FnMut(&Array) -> Result<Array, JsValue>>)
@@ -231,8 +231,8 @@ impl Function {
     /// assert_eq!(f.ty().params(), vec![Type::I32, Type::I32]);
     /// assert_eq!(f.ty().results(), vec![Type::I32]);
     /// ```
-    pub fn ty<'context>(&self, ctx: &'context impl AsStoreRef) -> &'context FunctionType {
-        &self.handle.get(ctx.as_store_ref().objects()).ty
+    pub fn ty<'context>(&self, store: &'context impl AsStoreRef) -> &'context FunctionType {
+        &self.handle.get(store.as_store_ref().objects()).ty
     }
 
     /// Returns the number of parameters that this function takes.
@@ -244,7 +244,7 @@ impl Function {
     /// # let mut store = Store::default();
     /// # let env = FunctionEnv::new(&mut store, ());
     /// #
-    /// fn sum(_ctx: FunctionEnvMut<()>, a: i32, b: i32) -> i32 {
+    /// fn sum(_env: FunctionEnvMut<()>, a: i32, b: i32) -> i32 {
     ///     a + b
     /// }
     ///
@@ -252,8 +252,8 @@ impl Function {
     ///
     /// assert_eq!(f.param_arity(&store), 2);
     /// ```
-    pub fn param_arity(&self, ctx: &impl AsStoreRef) -> usize {
-        self.ty(ctx).params().len()
+    pub fn param_arity(&self, store: &impl AsStoreRef) -> usize {
+        self.ty(store).params().len()
     }
 
     /// Returns the number of results this function produces.
@@ -265,7 +265,7 @@ impl Function {
     /// # let mut store = Store::default();
     /// # let env = FunctionEnv::new(&mut store, ());
     /// #
-    /// fn sum(_ctx: FunctionEnvMut<()>, a: i32, b: i32) -> i32 {
+    /// fn sum(_env: FunctionEnvMut<()>, a: i32, b: i32) -> i32 {
     ///     a + b
     /// }
     ///
@@ -273,8 +273,8 @@ impl Function {
     ///
     /// assert_eq!(f.result_arity(&store), 1);
     /// ```
-    pub fn result_arity(&self, ctx: &impl AsStoreRef) -> usize {
-        self.ty(ctx).results().len()
+    pub fn result_arity(&self, store: &impl AsStoreRef) -> usize {
+        self.ty(store).results().len()
     }
 
     /// Call the `Function` function.
@@ -313,8 +313,8 @@ impl Function {
     ) -> Result<Box<[Value]>, RuntimeError> {
         let arr = js_sys::Array::new_with_length(params.len() as u32);
 
-        // let raw_ctx = ctx.as_raw() as *mut u8;
-        // let mut env = unsafe { FunctionEnvMut::from_raw(raw_ctx as *mut StoreInner<()>) };
+        // let raw_env = env.as_raw() as *mut u8;
+        // let mut env = unsafe { FunctionEnvMut::from_raw(raw_env as *mut StoreInner<()>) };
 
         for (i, param) in params.iter().enumerate() {
             let js_value = param.as_jsvalue(&store.as_store_ref());
@@ -345,19 +345,19 @@ impl Function {
         }
     }
 
-    pub(crate) fn from_vm_export(ctx: &mut impl AsStoreMut, vm_function: VMFunction) -> Self {
+    pub(crate) fn from_vm_export(store: &mut impl AsStoreMut, vm_function: VMFunction) -> Self {
         Self {
-            handle: StoreHandle::new(ctx.objects_mut(), vm_function),
+            handle: StoreHandle::new(store.objects_mut(), vm_function),
         }
     }
 
     pub(crate) fn from_vm_extern(
-        ctx: &mut impl AsStoreMut,
+        store: &mut impl AsStoreMut,
         internal: InternalStoreHandle<VMFunction>,
     ) -> Self {
         Self {
             handle: unsafe {
-                StoreHandle::from_internal(ctx.as_store_ref().objects().id(), internal)
+                StoreHandle::from_internal(store.as_store_ref().objects().id(), internal)
             },
         }
     }
@@ -439,17 +439,16 @@ impl Function {
     /// ```
     pub fn native<Args, Rets>(
         &self,
-        ctx: &impl AsStoreRef,
+        store: &impl AsStoreRef,
     ) -> Result<TypedFunction<Args, Rets>, RuntimeError>
     where
         Args: WasmTypeList,
         Rets: WasmTypeList,
     {
-        let vm_function = self.handle.get(ctx.as_store_ref().objects());
-
+        let ty = self.ty(store);
         // type check
         {
-            let expected = vm_function.ty.params();
+            let expected = ty.params();
             let given = Args::wasm_types();
 
             if expected != given {
@@ -462,7 +461,7 @@ impl Function {
         }
 
         {
-            let expected = vm_function.ty.results();
+            let expected = ty.results();
             let given = Rets::wasm_types();
 
             if expected != given {
@@ -484,8 +483,8 @@ impl Function {
     }
 
     /// Checks whether this `Function` can be used with the given context.
-    pub fn is_from_store(&self, ctx: &impl AsStoreRef) -> bool {
-        self.handle.store_id() == ctx.as_store_ref().objects().id()
+    pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
+        self.handle.store_id() == store.as_store_ref().objects().id()
     }
 }
 
@@ -657,7 +656,7 @@ mod inner {
         /// Constructs `Self` based on an array of values.
         ///
         /// # Safety
-        unsafe fn from_array(ctx: &mut impl AsStoreMut, array: Self::Array) -> Self;
+        unsafe fn from_array(store: &mut impl AsStoreMut, array: Self::Array) -> Self;
 
         /// Constructs `Self` based on a slice of values.
         ///
@@ -668,7 +667,7 @@ mod inner {
         ///
         /// # Safety
         unsafe fn from_slice(
-            ctx: &mut impl AsStoreMut,
+            store: &mut impl AsStoreMut,
             slice: &[f64],
         ) -> Result<Self, TryFromSliceError>;
 
@@ -676,7 +675,7 @@ mod inner {
         /// (list) of values.
         ///
         /// # Safety
-        unsafe fn into_array(self, ctx: &mut impl AsStoreMut) -> Self::Array;
+        unsafe fn into_array(self, store: &mut impl AsStoreMut) -> Self::Array;
 
         /// Allocates and return an empty array of type `Array` that
         /// will hold a tuple (list) of values, usually to hold the
@@ -687,13 +686,13 @@ mod inner {
         /// `CStruct`.
         ///
         /// # Safety
-        unsafe fn from_c_struct(ctx: &mut impl AsStoreMut, c_struct: Self::CStruct) -> Self;
+        unsafe fn from_c_struct(store: &mut impl AsStoreMut, c_struct: Self::CStruct) -> Self;
 
         /// Builds and returns a C struct of type `CStruct` from a
         /// tuple (list) of values.
         ///
         /// # Safety
-        unsafe fn into_c_struct(self, ctx: &mut impl AsStoreMut) -> Self::CStruct;
+        unsafe fn into_c_struct(self, store: &mut impl AsStoreMut) -> Self::CStruct;
 
         /// Writes the contents of a C struct to an array of `f64`.
         ///
@@ -879,7 +878,7 @@ mod inner {
                 #[allow(unused_mut)]
                 #[allow(clippy::unused_unit)]
                 #[allow(clippy::missing_safety_doc)]
-                unsafe fn from_array(mut _ctx: &mut impl AsStoreMut, array: Self::Array) -> Self {
+                unsafe fn from_array(mut _store: &mut impl AsStoreMut, array: Self::Array) -> Self {
                     // Unpack items of the array.
                     #[allow(non_snake_case)]
                     let [ $( $x ),* ] = array;
@@ -887,19 +886,19 @@ mod inner {
                     // Build the tuple.
                     (
                         $(
-                            FromToNativeWasmType::from_native(NativeWasmTypeInto::from_raw(_ctx, $x))
+                            FromToNativeWasmType::from_native(NativeWasmTypeInto::from_raw(_store, $x))
                         ),*
                     )
                 }
 
                 #[allow(clippy::missing_safety_doc)]
-                unsafe fn from_slice(ctx: &mut impl AsStoreMut, slice: &[f64]) -> Result<Self, TryFromSliceError> {
-                    Ok(Self::from_array(ctx, slice.try_into()?))
+                unsafe fn from_slice(store: &mut impl AsStoreMut, slice: &[f64]) -> Result<Self, TryFromSliceError> {
+                    Ok(Self::from_array(store, slice.try_into()?))
                 }
 
                 #[allow(unused_mut)]
                 #[allow(clippy::missing_safety_doc)]
-                unsafe fn into_array(self, mut _ctx: &mut impl AsStoreMut) -> Self::Array {
+                unsafe fn into_array(self, mut _store: &mut impl AsStoreMut) -> Self::Array {
                     // Unpack items of the tuple.
                     #[allow(non_snake_case)]
                     let ( $( $x ),* ) = self;
@@ -907,7 +906,7 @@ mod inner {
                     // Build the array.
                     [
                         $(
-                            FromToNativeWasmType::to_native($x).into_raw(_ctx)
+                            FromToNativeWasmType::to_native($x).into_raw(_store)
                         ),*
                     ]
                 }
@@ -920,28 +919,28 @@ mod inner {
                 #[allow(unused_mut)]
                 #[allow(clippy::unused_unit)]
                 #[allow(clippy::missing_safety_doc)]
-                unsafe fn from_c_struct(mut _ctx: &mut impl AsStoreMut, c_struct: Self::CStruct) -> Self {
+                unsafe fn from_c_struct(mut _store: &mut impl AsStoreMut, c_struct: Self::CStruct) -> Self {
                     // Unpack items of the C structure.
                     #[allow(non_snake_case)]
                     let $c_struct_name( $( $x ),* ) = c_struct;
 
                     (
                         $(
-                            FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(_ctx, $x))
+                            FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(_store, $x))
                         ),*
                     )
                 }
 
                 #[allow(unused_parens, non_snake_case, unused_mut)]
                 #[allow(clippy::missing_safety_doc)]
-                unsafe fn into_c_struct(self, mut _ctx: &mut impl AsStoreMut) -> Self::CStruct {
+                unsafe fn into_c_struct(self, mut _store: &mut impl AsStoreMut) -> Self::CStruct {
                     // Unpack items of the tuple.
                     let ( $( $x ),* ) = self;
 
                     // Build the C structure.
                     $c_struct_name(
                         $(
-                            FromToNativeWasmType::to_native($x).into_abi(_ctx)
+                            FromToNativeWasmType::to_native($x).into_abi(_store)
                         ),*
                     )
                 }
@@ -1000,8 +999,8 @@ mod inner {
 
                         let result = panic::catch_unwind(AssertUnwindSafe(|| {
                             let handle: StoreHandle<VMFunctionEnvironment> = StoreHandle::from_internal(store2.objects_mut().id(), InternalStoreHandle::from_index(handle_index).unwrap());
-                            let ctx: FunctionEnvMut<T> = FunctionEnv::from_handle(handle).into_mut(&mut store2);
-                            func(ctx, $( FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(&mut store, $x)) ),* ).into_result()
+                            let env: FunctionEnvMut<T> = FunctionEnv::from_handle(handle).into_mut(&mut store2);
+                            func(env, $( FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(&mut store, $x)) ),* ).into_result()
                         }));
 
                         match result {

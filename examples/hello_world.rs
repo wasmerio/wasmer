@@ -59,7 +59,7 @@ fn main() -> anyhow::Result<()> {
 
     // We define a function to act as our "env" "say_hello" function imported in the
     // Wasm program above.
-    fn say_hello_world(_ctx: FunctionEnvMut<'_, ()>) {
+    fn say_hello_world(_env: FunctionEnvMut<'_, ()>) {
         println!("Hello, world!")
     }
 

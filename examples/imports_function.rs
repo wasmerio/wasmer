@@ -46,9 +46,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // the default provided by Wasmer.
     // You can use `Store::default()` for that.
     let mut store = Store::new_with_engine(&Universal::new(Cranelift::default()).engine());
-    let mut ctx1 = FunctionEnv::new(&mut store, ());
+    let mut env1 = FunctionEnv::new(&mut store, ());
     struct MyEnv;
-    let mut ctx2 = FunctionEnv::new(&mut store, MyEnv {});
+    let mut env2 = FunctionEnv::new(&mut store, MyEnv {});
 
     println!("Compiling module...");
     // Let's compile the Wasm module.
@@ -58,9 +58,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let multiply_dynamic_signature = FunctionType::new(vec![Type::I32], vec![Type::I32]);
     let multiply_dynamic = Function::new(
         &mut store,
-        &ctx1,
+        &env1,
         &multiply_dynamic_signature,
-        |_ctx, args| {
+        |_env, args| {
             println!("Calling `multiply_dynamic`...");
 
             let result = args[0].unwrap_i32() * 2;
@@ -71,7 +71,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         },
     );
 
-    fn multiply(_ctx: FunctionEnvMut<MyEnv>, a: i32) -> i32 {
+    fn multiply(_env: FunctionEnvMut<MyEnv>, a: i32) -> i32 {
         println!("Calling `multiply_native`...");
         let result = a * 3;
 
@@ -79,7 +79,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         result
     }
-    let multiply_native = Function::new_native(&mut store, &ctx2, multiply);
+    let multiply_native = Function::new_native(&mut store, &env2, multiply);
 
     // Create an import object.
     let import_object = imports! {

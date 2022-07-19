@@ -19,7 +19,7 @@ pub use wasmer_types::{
 //pub type Value = Value<Function>;
 
 pub trait AsJs {
-    fn as_jsvalue(&self, ctx: &impl AsStoreRef) -> JsValue;
+    fn as_jsvalue(&self, store: &impl AsStoreRef) -> JsValue;
 }
 
 #[inline]
@@ -37,7 +37,7 @@ pub fn param_from_js(ty: &ValType, js_val: &JsValue) -> Value {
 }
 
 impl AsJs for Value {
-    fn as_jsvalue(&self, ctx: &impl AsStoreRef) -> JsValue {
+    fn as_jsvalue(&self, store: &impl AsStoreRef) -> JsValue {
         match self {
             Self::I32(i) => JsValue::from_f64(*i as f64),
             Self::I64(i) => JsValue::from_f64(*i as f64),
@@ -45,7 +45,7 @@ impl AsJs for Value {
             Self::F64(f) => JsValue::from_f64(*f),
             Self::FuncRef(Some(func)) => func
                 .handle
-                .get(ctx.as_store_ref().objects())
+                .get(store.as_store_ref().objects())
                 .function
                 .clone()
                 .into(),

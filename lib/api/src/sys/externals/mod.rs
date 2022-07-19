@@ -34,32 +34,32 @@ pub enum Extern {
 
 impl Extern {
     /// Return the underlying type of the inner `Extern`.
-    pub fn ty(&self, ctx: &impl AsStoreRef) -> ExternType {
+    pub fn ty(&self, store: &impl AsStoreRef) -> ExternType {
         match self {
-            Self::Function(ft) => ExternType::Function(ft.ty(ctx)),
-            Self::Memory(ft) => ExternType::Memory(ft.ty(ctx)),
-            Self::Table(tt) => ExternType::Table(tt.ty(ctx)),
-            Self::Global(gt) => ExternType::Global(gt.ty(ctx)),
+            Self::Function(ft) => ExternType::Function(ft.ty(store)),
+            Self::Memory(ft) => ExternType::Memory(ft.ty(store)),
+            Self::Table(tt) => ExternType::Table(tt.ty(store)),
+            Self::Global(gt) => ExternType::Global(gt.ty(store)),
         }
     }
 
     /// Create an `Extern` from an `wasmer_engine::Export`.
-    pub fn from_vm_extern(ctx: &mut impl AsStoreMut, vm_extern: VMExtern) -> Self {
+    pub fn from_vm_extern(store: &mut impl AsStoreMut, vm_extern: VMExtern) -> Self {
         match vm_extern {
-            VMExtern::Function(f) => Self::Function(Function::from_vm_extern(ctx, f)),
-            VMExtern::Memory(m) => Self::Memory(Memory::from_vm_extern(ctx, m)),
-            VMExtern::Global(g) => Self::Global(Global::from_vm_extern(ctx, g)),
-            VMExtern::Table(t) => Self::Table(Table::from_vm_extern(ctx, t)),
+            VMExtern::Function(f) => Self::Function(Function::from_vm_extern(store, f)),
+            VMExtern::Memory(m) => Self::Memory(Memory::from_vm_extern(store, m)),
+            VMExtern::Global(g) => Self::Global(Global::from_vm_extern(store, g)),
+            VMExtern::Table(t) => Self::Table(Table::from_vm_extern(store, t)),
         }
     }
 
     /// Checks whether this `Extern` can be used with the given context.
-    pub fn is_from_store(&self, ctx: &impl AsStoreRef) -> bool {
+    pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
         match self {
-            Self::Function(f) => f.is_from_store(ctx),
-            Self::Global(g) => g.is_from_store(ctx),
-            Self::Memory(m) => m.is_from_store(ctx),
-            Self::Table(t) => t.is_from_store(ctx),
+            Self::Function(f) => f.is_from_store(store),
+            Self::Global(g) => g.is_from_store(store),
+            Self::Memory(m) => m.is_from_store(store),
+            Self::Table(t) => t.is_from_store(store),
         }
     }
 

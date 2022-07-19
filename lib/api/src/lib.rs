@@ -54,7 +54,6 @@
 //!     "#;
 //!
 //!     let mut store = Store::default();
-//!     let env = FunctionEnv::new(&mut store, ());
 //!     let module = Module::new(&store, &module_wat)?;
 //!     // The module doesn't import anything, so we create an empty import object.
 //!     let import_object = imports! {};
@@ -152,11 +151,11 @@
 //!
 //! ```
 //! # use wasmer::{imports, Function, FunctionEnv, FunctionEnvMut, Memory, MemoryType, Store, Imports};
-//! # fn imports_example(mut ctx: FunctionEnv<()>, mut store: &mut Store) -> Imports {
+//! # fn imports_example(mut env: FunctionEnv<()>, mut store: &mut Store) -> Imports {
 //! let memory = Memory::new(&mut store, MemoryType::new(1, None, false)).unwrap();
 //! imports! {
 //!     "env" => {
-//!          "my_function" => Function::new_native(&mut store, &ctx, |_ctx: FunctionEnvMut<()>| println!("Hello")),
+//!          "my_function" => Function::new_native(&mut store, &env, |_env: FunctionEnvMut<()>| println!("Hello")),
 //!          "memory" => memory,
 //!     }
 //! }
@@ -168,7 +167,7 @@
 //!
 //! ```
 //! # use wasmer::{imports, Instance, FunctionEnv, Memory, TypedFunction, Store};
-//! # fn exports_example(mut ctx: FunctionEnv<()>, mut store: &mut Store, instance: &Instance) -> anyhow::Result<()> {
+//! # fn exports_example(mut env: FunctionEnv<()>, mut store: &mut Store, instance: &Instance) -> anyhow::Result<()> {
 //! let memory = instance.exports.get_memory("memory")?;
 //! let memory: &Memory = instance.exports.get("some_other_memory")?;
 //! let add: TypedFunction<(i32, i32), i32> = instance.exports.get_typed_function(&mut store, "add")?;
