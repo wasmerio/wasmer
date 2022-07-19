@@ -19,7 +19,7 @@ pub struct Global {
 }
 
 impl Global {
-    /// Create a new `Global` with the initial value [`Val`].
+    /// Create a new `Global` with the initial value [`Value`].
     ///
     /// # Example
     ///
@@ -36,7 +36,7 @@ impl Global {
         Self::from_value(ctx, val, Mutability::Const).unwrap()
     }
 
-    /// Create a mutable `Global` with the initial value [`Val`].
+    /// Create a mutable `Global` with the initial value [`Value`].
     ///
     /// # Example
     ///
@@ -53,7 +53,7 @@ impl Global {
         Self::from_value(ctx, val, Mutability::Var).unwrap()
     }
 
-    /// Create a `Global` with the initial value [`Val`] and the provided [`Mutability`].
+    /// Create a `Global` with the initial value [`Value`] and the provided [`Mutability`].
     fn from_value(
         ctx: &mut impl AsStoreMut,
         val: Value,
@@ -95,7 +95,7 @@ impl Global {
         *self.handle.get(ctx.as_store_ref().objects()).ty()
     }
 
-    /// Retrieves the current value [`Val`] that the Global has.
+    /// Retrieves the current value [`Value`] that the Global has.
     ///
     /// # Example
     ///
@@ -120,7 +120,7 @@ impl Global {
         }
     }
 
-    /// Sets a custom value [`Val`] to the runtime Global.
+    /// Sets a custom value [`Value`] to the runtime Global.
     ///
     /// # Example
     ///
