@@ -145,7 +145,7 @@ impl fmt::Debug for Store {
     }
 }
 
-/// A temporary handle to a [`Context`].
+/// A temporary handle to a [`Store`].
 pub struct StoreRef<'a> {
     pub(crate) inner: &'a StoreInner,
 }
@@ -182,7 +182,7 @@ impl<'a> StoreRef<'a> {
     }
 }
 
-/// A temporary handle to a [`Context`].
+/// A temporary handle to a [`Store`].
 pub struct StoreMut<'a> {
     pub(crate) inner: &'a mut StoreInner,
 }

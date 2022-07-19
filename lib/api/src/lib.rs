@@ -196,10 +196,6 @@
 //! A Host function is any function implemented on the host, in this case in
 //! Rust.
 //!
-//! Host functions can optionally be created with an environment that
-//! implements [`WasmerEnv`]. This environment is useful for maintaining
-//! host state (for example the filesystem in WASI).
-//!
 //! Thus WebAssembly modules by themselves cannot do anything but computation
 //! on the core types in [`Value`]. In order to make them more useful we
 //! give them access to the outside world with [`imports`].

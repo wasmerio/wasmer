@@ -62,7 +62,7 @@ pub enum InstantiationError {
     #[error("missing required CPU features: {0:?}")]
     CpuFeature(String),
 
-    /// Import from a different [`Store`].
+    /// Import from a different Store.
     /// This error occurs when an import from a different store is used.
     #[error("cannot mix imports from different stores")]
     DifferentStores,

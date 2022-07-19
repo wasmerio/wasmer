@@ -73,19 +73,19 @@ impl<T> Clone for FunctionEnv<T> {
     }
 }
 
-/// A temporary handle to a [`Context`].
+/// A temporary handle to a [`FunctionEnv`].
 pub struct FunctionEnvMut<'a, T: 'a> {
     pub(crate) store_mut: StoreMut<'a>,
     pub(crate) func_env: FunctionEnv<T>,
 }
 
 impl<T: Send + 'static> FunctionEnvMut<'_, T> {
-    /// Returns a reference to the host state in this context.
+    /// Returns a reference to the host state in this function environement.
     pub fn data(&self) -> &T {
         self.func_env.as_ref(&self.store_mut)
     }
 
-    /// Returns a mutable- reference to the host state in this context.
+    /// Returns a mutable- reference to the host state in this function environement.
     pub fn data_mut(&mut self) -> &mut T {
         self.func_env.as_mut(&mut self.store_mut)
     }
