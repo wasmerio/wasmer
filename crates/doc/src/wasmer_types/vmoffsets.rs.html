@@ -756,6 +756,8 @@
 <span id="754">754</span>
 <span id="755">755</span>
 <span id="756">756</span>
+<span id="757">757</span>
+<span id="758">758</span>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
 
@@ -873,17 +875,9 @@
     <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">get_table_fill_index</span>() -&gt; <span class="self">Self</span> {
         <span class="self">Self</span>(<span class="number">23</span>)
     }
-    <span class="doccomment">/// Returns an index for a function to increment the externref count.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">get_externref_inc_index</span>() -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span>(<span class="number">24</span>)
-    }
-    <span class="doccomment">/// Returns an index for a function to decrement the externref count.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">get_externref_dec_index</span>() -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span>(<span class="number">25</span>)
-    }
     <span class="doccomment">/// Returns the total number of builtin functions.</span>
     <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">builtin_functions_total_number</span>() -&gt; <span class="ident">u32</span> {
-        <span class="number">26</span>
+        <span class="number">24</span>
     }
 
     <span class="doccomment">/// Return the index as an u32 number.</span>
@@ -979,9 +973,14 @@
         <span class="number">1</span> <span class="op">*</span> <span class="self">self</span>.<span class="ident">pointer_size</span>
     }
 
+    <span class="doccomment">/// The offset of the `handle` field.</span>
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">vmfunction_import_handle</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u8</span> {
+        <span class="number">2</span> <span class="op">*</span> <span class="self">self</span>.<span class="ident">pointer_size</span>
+    }
+
     <span class="doccomment">/// Return the size of `VMFunctionImport`.</span>
     <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">size_of_vmfunction_import</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u8</span> {
-        <span class="number">2</span> <span class="op">*</span> <span class="self">self</span>.<span class="ident">pointer_size</span>
+        <span class="number">3</span> <span class="op">*</span> <span class="self">self</span>.<span class="ident">pointer_size</span>
     }
 }
 
@@ -1022,15 +1021,15 @@
         <span class="number">0</span> <span class="op">*</span> <span class="self">self</span>.<span class="ident">pointer_size</span>
     }
 
-    <span class="doccomment">/// The offset of the `from` field.</span>
+    <span class="doccomment">/// The offset of the `handle` field.</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::identity_op</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">vmtable_import_from</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u8</span> {
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">vmtable_import_handle</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u8</span> {
         <span class="number">1</span> <span class="op">*</span> <span class="self">self</span>.<span class="ident">pointer_size</span>
     }
 
     <span class="doccomment">/// Return the size of `VMTableImport`.</span>
     <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">size_of_vmtable_import</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u8</span> {
-        <span class="number">3</span> <span class="op">*</span> <span class="self">self</span>.<span class="ident">pointer_size</span>
+        <span class="number">2</span> <span class="op">*</span> <span class="self">self</span>.<span class="ident">pointer_size</span>
     }
 }
 
@@ -1067,15 +1066,15 @@
         <span class="number">0</span> <span class="op">*</span> <span class="self">self</span>.<span class="ident">pointer_size</span>
     }
 
-    <span class="doccomment">/// The offset of the `from` field.</span>
+    <span class="doccomment">/// The offset of the `handle` field.</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::identity_op</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">vmmemory_import_from</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u8</span> {
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">vmmemory_import_handle</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u8</span> {
         <span class="number">1</span> <span class="op">*</span> <span class="self">self</span>.<span class="ident">pointer_size</span>
     }
 
     <span class="doccomment">/// Return the size of `VMMemoryImport`.</span>
     <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">size_of_vmmemory_import</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u8</span> {
-        <span class="number">3</span> <span class="op">*</span> <span class="self">self</span>.<span class="ident">pointer_size</span>
+        <span class="number">2</span> <span class="op">*</span> <span class="self">self</span>.<span class="ident">pointer_size</span>
     }
 }
 
@@ -1112,9 +1111,9 @@
         <span class="number">0</span> <span class="op">*</span> <span class="self">self</span>.<span class="ident">pointer_size</span>
     }
 
-    <span class="doccomment">/// The offset of the `from` field.</span>
+    <span class="doccomment">/// The offset of the `handle` field.</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::identity_op</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">vmglobal_import_from</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u8</span> {
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">vmglobal_import_handle</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u8</span> {
         <span class="number">1</span> <span class="op">*</span> <span class="self">self</span>.<span class="ident">pointer_size</span>
     }
 
@@ -1163,9 +1162,14 @@
         <span class="number">2</span> <span class="op">*</span> <span class="self">self</span>.<span class="ident">pointer_size</span>
     }
 
+    <span class="doccomment">/// The offset of the `call_trampoline` field.</span>
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">vmcaller_checked_anyfunc_call_trampoline</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u8</span> {
+        <span class="number">3</span> <span class="op">*</span> <span class="self">self</span>.<span class="ident">pointer_size</span>
+    }
+
     <span class="doccomment">/// Return the size of `VMCallerCheckedAnyfunc`.</span>
     <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">size_of_vmcaller_checked_anyfunc</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u8</span> {
-        <span class="number">3</span> <span class="op">*</span> <span class="self">self</span>.<span class="ident">pointer_size</span>
+        <span class="number">4</span> <span class="op">*</span> <span class="self">self</span>.<span class="ident">pointer_size</span>
     }
 }
 
@@ -1441,9 +1445,9 @@
     }
 
     <span class="doccomment">/// Return the offset to the `vmctx` field in `VMMemoryImport` index `index`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">vmctx_vmmemory_import_from</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">index</span>: <span class="ident">MemoryIndex</span>) -&gt; <span class="ident">u32</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">vmctx_vmmemory_import_handle</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">index</span>: <span class="ident">MemoryIndex</span>) -&gt; <span class="ident">u32</span> {
         <span class="self">self</span>.<span class="ident">vmctx_vmmemory_import</span>(<span class="ident">index</span>)
-            .<span class="ident">checked_add</span>(<span class="ident">u32::from</span>(<span class="self">self</span>.<span class="ident">vmmemory_import_from</span>()))
+            .<span class="ident">checked_add</span>(<span class="ident">u32::from</span>(<span class="self">self</span>.<span class="ident">vmmemory_import_handle</span>()))
             .<span class="ident">unwrap</span>()
     }
 

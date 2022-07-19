@@ -160,16 +160,13 @@
 <span id="158">158</span>
 <span id="159">159</span>
 <span id="160">160</span>
-<span id="161">161</span>
-<span id="162">162</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::CpuFeature</span>;
-<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">resolve_imports</span>, <span class="ident">Export</span>, <span class="ident">InstantiationError</span>, <span class="ident">RuntimeError</span>, <span class="ident">Tunables</span>};
+<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">resolve_imports</span>, <span class="ident">InstantiationError</span>, <span class="ident">RuntimeError</span>, <span class="ident">Tunables</span>};
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">ArtifactCreate</span>, <span class="ident">Upcastable</span>};
-<span class="kw">use</span> <span class="ident">std::any::Any</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types::entity::BoxedSlice</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">DataInitializer</span>, <span class="ident">FunctionIndex</span>, <span class="ident">LocalFunctionIndex</span>, <span class="ident">SignatureIndex</span>};
 <span class="kw">use</span> <span class="ident">wasmer_vm</span>::{
-    <span class="ident">FuncDataRegistry</span>, <span class="ident">FunctionBodyPtr</span>, <span class="ident">InstanceAllocator</span>, <span class="ident">InstanceHandle</span>, <span class="ident">TrapHandler</span>,
+    <span class="ident">FunctionBodyPtr</span>, <span class="ident">InstanceAllocator</span>, <span class="ident">InstanceHandle</span>, <span class="ident">StoreObjects</span>, <span class="ident">TrapHandlerFn</span>, <span class="ident">VMExtern</span>,
     <span class="ident">VMSharedSignatureIndex</span>, <span class="ident">VMTrampoline</span>,
 };
 
@@ -203,9 +200,6 @@
     <span class="doccomment">/// Returns the associated VM signatures for this `Artifact`.</span>
     <span class="kw">fn</span> <span class="ident">signatures</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">SignatureIndex</span>, <span class="ident">VMSharedSignatureIndex</span><span class="op">&gt;</span>;
 
-    <span class="doccomment">/// Get the func data registry</span>
-    <span class="kw">fn</span> <span class="ident">func_data_registry</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">FuncDataRegistry</span>;
-
     <span class="doccomment">/// Do preinstantiation logic that is executed before instantiating</span>
     <span class="kw">fn</span> <span class="ident">preinstantiate</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">InstantiationError</span><span class="op">&gt;</span> {
         <span class="prelude-val">Ok</span>(())
@@ -218,8 +212,8 @@
     <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">instantiate</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">tunables</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">Tunables</span>,
-        <span class="ident">imports</span>: <span class="kw-2">&amp;</span>[<span class="ident">Export</span>],
-        <span class="ident">host_state</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Any</span><span class="op">&gt;</span>,
+        <span class="ident">imports</span>: <span class="kw-2">&amp;</span>[<span class="ident">VMExtern</span>],
+        <span class="ident">context</span>: <span class="kw-2">&amp;mut</span> <span class="ident">StoreObjects</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">InstanceHandle</span>, <span class="ident">InstantiationError</span><span class="op">&gt;</span> {
         <span class="comment">// Validate the CPU features this module was compiled with against the</span>
         <span class="comment">// host CPU features.</span>
@@ -234,22 +228,15 @@
         <span class="self">self</span>.<span class="ident">preinstantiate</span>()<span class="question-mark">?</span>;
 
         <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">module</span>();
-        <span class="kw">let</span> (<span class="ident">imports</span>, <span class="ident">import_function_envs</span>) <span class="op">=</span> {
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">imports</span> <span class="op">=</span> <span class="ident">resolve_imports</span>(
-                <span class="kw-2">&amp;</span><span class="ident">module</span>,
-                <span class="ident">imports</span>,
-                <span class="self">self</span>.<span class="ident">finished_dynamic_function_trampolines</span>(),
-                <span class="self">self</span>.<span class="ident">memory_styles</span>(),
-                <span class="self">self</span>.<span class="ident">table_styles</span>(),
-            )
-            .<span class="ident">map_err</span>(<span class="ident">InstantiationError::Link</span>)<span class="question-mark">?</span>;
-
-            <span class="comment">// Get the `WasmerEnv::init_with_instance` function pointers and the pointers</span>
-            <span class="comment">// to the envs to call it on.</span>
-            <span class="kw">let</span> <span class="ident">import_function_envs</span> <span class="op">=</span> <span class="ident">imports</span>.<span class="ident">get_imported_function_envs</span>();
-
-            (<span class="ident">imports</span>, <span class="ident">import_function_envs</span>)
-        };
+        <span class="kw">let</span> <span class="ident">imports</span> <span class="op">=</span> <span class="ident">resolve_imports</span>(
+            <span class="kw-2">&amp;</span><span class="ident">module</span>,
+            <span class="ident">imports</span>,
+            <span class="ident">context</span>,
+            <span class="self">self</span>.<span class="ident">finished_dynamic_function_trampolines</span>(),
+            <span class="self">self</span>.<span class="ident">memory_styles</span>(),
+            <span class="self">self</span>.<span class="ident">table_styles</span>(),
+        )
+        .<span class="ident">map_err</span>(<span class="ident">InstantiationError::Link</span>)<span class="question-mark">?</span>;
 
         <span class="comment">// Get pointers to where metadata about local memories should live in VM memory.</span>
         <span class="comment">// Get pointers to where metadata about local tables should live in VM memory.</span>
@@ -257,15 +244,25 @@
         <span class="kw">let</span> (<span class="ident">allocator</span>, <span class="ident">memory_definition_locations</span>, <span class="ident">table_definition_locations</span>) <span class="op">=</span>
             <span class="ident">InstanceAllocator::new</span>(<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">module</span>);
         <span class="kw">let</span> <span class="ident">finished_memories</span> <span class="op">=</span> <span class="ident">tunables</span>
-            .<span class="ident">create_memories</span>(<span class="kw-2">&amp;</span><span class="ident">module</span>, <span class="self">self</span>.<span class="ident">memory_styles</span>(), <span class="kw-2">&amp;</span><span class="ident">memory_definition_locations</span>)
+            .<span class="ident">create_memories</span>(
+                <span class="ident">context</span>,
+                <span class="kw-2">&amp;</span><span class="ident">module</span>,
+                <span class="self">self</span>.<span class="ident">memory_styles</span>(),
+                <span class="kw-2">&amp;</span><span class="ident">memory_definition_locations</span>,
+            )
             .<span class="ident">map_err</span>(<span class="ident">InstantiationError::Link</span>)<span class="question-mark">?</span>
             .<span class="ident">into_boxed_slice</span>();
         <span class="kw">let</span> <span class="ident">finished_tables</span> <span class="op">=</span> <span class="ident">tunables</span>
-            .<span class="ident">create_tables</span>(<span class="kw-2">&amp;</span><span class="ident">module</span>, <span class="self">self</span>.<span class="ident">table_styles</span>(), <span class="kw-2">&amp;</span><span class="ident">table_definition_locations</span>)
+            .<span class="ident">create_tables</span>(
+                <span class="ident">context</span>,
+                <span class="kw-2">&amp;</span><span class="ident">module</span>,
+                <span class="self">self</span>.<span class="ident">table_styles</span>(),
+                <span class="kw-2">&amp;</span><span class="ident">table_definition_locations</span>,
+            )
             .<span class="ident">map_err</span>(<span class="ident">InstantiationError::Link</span>)<span class="question-mark">?</span>
             .<span class="ident">into_boxed_slice</span>();
         <span class="kw">let</span> <span class="ident">finished_globals</span> <span class="op">=</span> <span class="ident">tunables</span>
-            .<span class="ident">create_globals</span>(<span class="kw-2">&amp;</span><span class="ident">module</span>)
+            .<span class="ident">create_globals</span>(<span class="ident">context</span>, <span class="kw-2">&amp;</span><span class="ident">module</span>)
             .<span class="ident">map_err</span>(<span class="ident">InstantiationError::Link</span>)<span class="question-mark">?</span>
             .<span class="ident">into_boxed_slice</span>();
 
@@ -274,6 +271,7 @@
         <span class="kw">let</span> <span class="ident">handle</span> <span class="op">=</span> <span class="ident">InstanceHandle::new</span>(
             <span class="ident">allocator</span>,
             <span class="ident">module</span>,
+            <span class="ident">context</span>,
             <span class="self">self</span>.<span class="ident">finished_functions</span>().<span class="ident">clone</span>(),
             <span class="self">self</span>.<span class="ident">finished_function_call_trampolines</span>().<span class="ident">clone</span>(),
             <span class="ident">finished_memories</span>,
@@ -281,8 +279,6 @@
             <span class="ident">finished_globals</span>,
             <span class="ident">imports</span>,
             <span class="self">self</span>.<span class="ident">signatures</span>().<span class="ident">clone</span>(),
-            <span class="ident">host_state</span>,
-            <span class="ident">import_function_envs</span>,
         )
         .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">trap</span><span class="op">|</span> <span class="ident">InstantiationError::Start</span>(<span class="ident">RuntimeError::from_trap</span>(<span class="ident">trap</span>)))<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(<span class="ident">handle</span>)
@@ -294,8 +290,8 @@
     <span class="doccomment">/// See [`InstanceHandle::finish_instantiation`].</span>
     <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">finish_instantiation</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">trap_handler</span>: <span class="kw-2">&amp;</span>(<span class="kw">dyn</span> <span class="ident">TrapHandler</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>),
-        <span class="ident">handle</span>: <span class="kw-2">&amp;</span><span class="ident">InstanceHandle</span>,
+        <span class="ident">trap_handler</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">*const</span> <span class="ident">TrapHandlerFn</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+        <span class="ident">handle</span>: <span class="kw-2">&amp;mut</span> <span class="ident">InstanceHandle</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">InstantiationError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">data_initializers</span> <span class="op">=</span> <span class="self">self</span>
             .<span class="ident">data_initializers</span>()

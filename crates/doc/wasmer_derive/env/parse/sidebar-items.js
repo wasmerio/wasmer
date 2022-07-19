@@ -1,1 +1,0 @@
-initSidebarItems({"enum":[["WasmerAttr",""]],"struct":[["ExportExpr",""],["ExportOptions",""],["WasmerAttrInner",""]]});

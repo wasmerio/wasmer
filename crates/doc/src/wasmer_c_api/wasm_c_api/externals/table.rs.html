@@ -60,24 +60,25 @@
 <span id="58">58</span>
 <span id="59">59</span>
 <span id="60">60</span>
+<span id="61">61</span>
+<span id="62">62</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">super</span>::<span class="kw">super</span>::store::wasm_store_t</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::<span class="kw">super</span>::types</span>::{<span class="ident">wasm_ref_t</span>, <span class="ident">wasm_table_size_t</span>, <span class="ident">wasm_tabletype_t</span>};
-<span class="kw">use</span> <span class="ident"><span class="kw">super</span>::CApiExternTag</span>;
-<span class="kw">use</span> <span class="ident">wasmer_api::Table</span>;
+<span class="kw">use</span> <span class="ident"><span class="kw">super</span>::wasm_extern_t</span>;
+<span class="kw">use</span> <span class="ident">wasmer_api::Extern</span>;
 
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">non_camel_case_types</span>)]</span>
 <span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">wasm_table_t</span> {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">tag</span>: <span class="ident">CApiExternTag</span>,
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">inner</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">Table</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">extern_</span>: <span class="ident">wasm_extern_t</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">wasm_table_t</span> {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">table</span>: <span class="ident">Table</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> {
-            <span class="ident">tag</span>: <span class="ident">CApiExternTag::Table</span>,
-            <span class="ident">inner</span>: <span class="ident">Box::new</span>(<span class="ident">table</span>),
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">try_from</span>(<span class="ident">e</span>: <span class="kw-2">&amp;</span><span class="ident">wasm_extern_t</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">wasm_table_t</span><span class="op">&gt;</span> {
+        <span class="kw">match</span> <span class="kw-2">&amp;</span><span class="ident">e</span>.<span class="ident">inner</span> {
+            <span class="ident">Extern::Table</span>(<span class="kw">_</span>) =&gt; <span class="prelude-val">Some</span>(<span class="kw">unsafe</span> { <span class="kw-2">&amp;</span><span class="kw-2">*</span>(<span class="ident">e</span> <span class="kw">as</span> <span class="kw-2">*const</span> <span class="kw">_</span> <span class="kw">as</span> <span class="kw-2">*const</span> <span class="kw">_</span>) }),
+            <span class="kw">_</span> =&gt; <span class="prelude-val">None</span>,
         }
     }
 }
@@ -97,17 +98,20 @@
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
 <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_table_copy</span>(<span class="ident">table</span>: <span class="kw-2">&amp;</span><span class="ident">wasm_table_t</span>) -&gt; <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasm_table_t</span><span class="op">&gt;</span> {
     <span class="comment">// do shallow copy</span>
-    <span class="ident">Box::new</span>(<span class="ident">wasm_table_t::new</span>((<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">table</span>.<span class="ident">inner</span>).<span class="ident">clone</span>()))
-}
-
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_table_same</span>(<span class="ident">table1</span>: <span class="kw-2">&amp;</span><span class="ident">wasm_table_t</span>, <span class="ident">table2</span>: <span class="kw-2">&amp;</span><span class="ident">wasm_table_t</span>) -&gt; <span class="ident">bool</span> {
-    <span class="ident">table1</span>.<span class="ident">inner</span>.<span class="ident">same</span>(<span class="kw-2">&amp;</span><span class="ident">table2</span>.<span class="ident">inner</span>)
+    <span class="ident">Box::new</span>(<span class="ident">table</span>.<span class="ident">clone</span>())
 }
 
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
 <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_table_size</span>(<span class="ident">table</span>: <span class="kw-2">&amp;</span><span class="ident">wasm_table_t</span>) -&gt; <span class="ident">usize</span> {
-    <span class="ident">table</span>.<span class="ident">inner</span>.<span class="ident">size</span>() <span class="kw">as</span> <span class="kw">_</span>
+    <span class="ident">table</span>.<span class="ident">extern_</span>.<span class="ident">table</span>().<span class="ident">size</span>(<span class="kw-2">&amp;</span><span class="ident">table</span>.<span class="ident">extern_</span>.<span class="ident">store</span>.<span class="ident">store</span>()) <span class="kw">as</span> <span class="kw">_</span>
+}
+
+<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
+<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_table_same</span>(
+    <span class="ident">wasm_table1</span>: <span class="kw-2">&amp;</span><span class="ident">wasm_table_t</span>,
+    <span class="ident">wasm_table2</span>: <span class="kw-2">&amp;</span><span class="ident">wasm_table_t</span>,
+) -&gt; <span class="ident">bool</span> {
+    <span class="ident">wasm_table1</span>.<span class="ident">extern_</span>.<span class="ident">table</span>() <span class="op">==</span> <span class="ident">wasm_table2</span>.<span class="ident">extern_</span>.<span class="ident">table</span>()
 }
 
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>

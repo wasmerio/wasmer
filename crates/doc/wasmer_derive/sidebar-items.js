@@ -1,1 +1,1 @@
-initSidebarItems({"derive":[["ValueType",""],["WasmerEnv",""]],"mod":[["env",""],["value_type",""]]});
+initSidebarItems({"derive":[["ValueType",""]],"mod":[["value_type",""]]});

@@ -73,16 +73,24 @@
 <span id="71">71</span>
 <span id="72">72</span>
 <span id="73">73</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">super</span>::env::get_emscripten_data</span>;
+<span id="74">74</span>
+<span id="75">75</span>
+<span id="76">76</span>
+<span id="77">77</span>
+<span id="78">78</span>
+<span id="79">79</span>
+<span id="80">80</span>
+</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">super</span>::env::get_emscripten_funcs</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::process::abort_with_message</span>;
 <span class="kw">use</span> <span class="ident">libc::c_int</span>;
 <span class="comment">// use std::cell::UnsafeCell;</span>
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::EmEnv</span>;
 <span class="kw">use</span> <span class="ident">std::error::Error</span>;
 <span class="kw">use</span> <span class="ident">std::fmt</span>;
+<span class="kw">use</span> <span class="ident">wasmer::FunctionEnvMut</span>;
 
 <span class="doccomment">/// setjmp</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">__setjmp</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_env_addr</span>: <span class="ident">u32</span>) -&gt; <span class="ident">c_int</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">__setjmp</span>(<span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">_env_addr</span>: <span class="ident">u32</span>) -&gt; <span class="ident">c_int</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::__setjmp (setjmp)&quot;</span>);
     <span class="ident">abort_with_message</span>(<span class="ident">ctx</span>, <span class="string">&quot;missing function: _setjmp&quot;</span>);
     <span class="macro">unreachable!</span>()
@@ -93,7 +101,7 @@
     <span class="comment">//     let jump_index = emscripten_memory_pointer!(ctx.memory(0), env_addr) as *mut i8;</span>
     <span class="comment">//     // We create the jump buffer outside of the wasm memory</span>
     <span class="comment">//     let jump_buf: UnsafeCell&lt;[u32; 27]&gt; = UnsafeCell::new([0; 27]);</span>
-    <span class="comment">//     let jumps = &amp;mut get_emscripten_data(ctx).jumps;</span>
+    <span class="comment">//     let jumps = &amp;mut get_emscripten_data(&amp;ctx).jumps;</span>
     <span class="comment">//     let result = setjmp(jump_buf.get() as _);</span>
     <span class="comment">//     // We set the jump index to be the last 3value of jumps</span>
     <span class="comment">//     *jump_index = jumps.len() as _;</span>
@@ -105,13 +113,13 @@
 
 <span class="doccomment">/// longjmp</span>
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unreachable_code</span>)]</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">__longjmp</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_env_addr</span>: <span class="ident">u32</span>, <span class="ident">_val</span>: <span class="ident">c_int</span>) {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">__longjmp</span>(<span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">_env_addr</span>: <span class="ident">u32</span>, <span class="ident">_val</span>: <span class="ident">c_int</span>) {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::__longjmp (longmp)&quot;</span>);
     <span class="ident">abort_with_message</span>(<span class="ident">ctx</span>, <span class="string">&quot;missing function: _longjmp&quot;</span>);
     <span class="comment">// unsafe {</span>
     <span class="comment">//     // We retrieve the jump index from the env address</span>
     <span class="comment">//     let jump_index = emscripten_memory_pointer!(ctx.memory(0), env_addr) as *mut i8;</span>
-    <span class="comment">//     let jumps = &amp;mut get_emscripten_data(ctx).jumps;</span>
+    <span class="comment">//     let jumps = &amp;mut get_emscripten_data(&amp;ctx).jumps;</span>
     <span class="comment">//     // We get the real jump buffer from the jumps vector, using the retrieved index</span>
     <span class="comment">//     let jump_buf = &amp;jumps[*jump_index as usize];</span>
     <span class="comment">//     longjmp(jump_buf.get() as _, val)</span>
@@ -132,12 +140,18 @@
 <span class="doccomment">/// _longjmp</span>
 <span class="comment">// This function differs from the js implementation, it should return Result&lt;(), &amp;&#39;static str&gt;</span>
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unreachable_code</span>)]</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_longjmp</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">env_addr</span>: <span class="ident">i32</span>, <span class="ident">val</span>: <span class="ident">c_int</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">LongJumpRet</span><span class="op">&gt;</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_longjmp</span>(
+    <span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>,
+    <span class="ident">env_addr</span>: <span class="ident">i32</span>,
+    <span class="ident">val</span>: <span class="ident">c_int</span>,
+) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">LongJumpRet</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">val</span> <span class="op">==</span> <span class="number">0</span> { <span class="number">1</span> } <span class="kw">else</span> { <span class="ident">val</span> };
-    <span class="ident">get_emscripten_data</span>(<span class="ident">ctx</span>)
+    <span class="kw">let</span> <span class="ident">threw</span> <span class="op">=</span> <span class="ident">get_emscripten_funcs</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>)
         .<span class="ident">set_threw_ref</span>()
         .<span class="ident">expect</span>(<span class="string">&quot;set_threw is None&quot;</span>)
-        .<span class="ident">call</span>(<span class="ident">env_addr</span>, <span class="ident">val</span>)
+        .<span class="ident">clone</span>();
+    <span class="ident">threw</span>
+        .<span class="ident">call</span>(<span class="kw-2">&amp;mut</span> <span class="ident">ctx</span>, <span class="ident">env_addr</span>, <span class="ident">val</span>)
         .<span class="ident">expect</span>(<span class="string">&quot;set_threw failed to call&quot;</span>);
     <span class="prelude-val">Err</span>(<span class="ident">LongJumpRet</span>)
 }

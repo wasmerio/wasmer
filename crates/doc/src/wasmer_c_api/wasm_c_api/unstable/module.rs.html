@@ -152,17 +152,12 @@
 <span id="150">150</span>
 <span id="151">151</span>
 <span id="152">152</span>
-<span id="153">153</span>
-<span id="154">154</span>
-<span id="155">155</span>
-<span id="156">156</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Unstable non-standard Wasmer-specific extensions to the Wasm C API.</span>
 
 <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::<span class="kw">super</span>::module::wasm_module_t</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::<span class="kw">super</span>::types::wasm_name_t</span>;
 <span class="kw">use</span> <span class="ident">std::ptr</span>;
 <span class="kw">use</span> <span class="ident">std::str</span>;
-<span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
 
 <span class="doccomment">/// Unstable non-standard Wasmer-specific API to get the module&#39;s</span>
 <span class="doccomment">/// name, otherwise `out-&gt;size` is set to `0` and `out-&gt;data` to</span>
@@ -307,10 +302,7 @@
         <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="kw">return</span> <span class="bool-val">false</span>, <span class="comment">// not ideal!</span>
     };
 
-    <span class="kw">match</span> <span class="ident">Arc::get_mut</span>(<span class="kw-2">&amp;mut</span> <span class="ident">module</span>.<span class="ident">inner</span>) {
-        <span class="prelude-val">Some</span>(<span class="ident">module</span>) =&gt; <span class="ident">module</span>.<span class="ident">set_name</span>(<span class="ident">name</span>),
-        <span class="prelude-val">None</span> =&gt; <span class="bool-val">false</span>,
-    }
+    <span class="ident">module</span>.<span class="ident">inner</span>.<span class="ident">set_name</span>(<span class="ident">name</span>)
 }
 </code></pre></div>
 </section><section id="search" class="content hidden"></section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer_c_api" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.59.0 (9d1b2106e 2022-02-23)" ></div>

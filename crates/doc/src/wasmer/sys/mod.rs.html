@@ -114,76 +114,54 @@
 <span id="112">112</span>
 <span id="113">113</span>
 <span id="114">114</span>
-<span id="115">115</span>
-<span id="116">116</span>
-<span id="117">117</span>
-<span id="118">118</span>
-<span id="119">119</span>
-<span id="120">120</span>
-<span id="121">121</span>
-<span id="122">122</span>
-<span id="123">123</span>
-<span id="124">124</span>
-<span id="125">125</span>
-</pre><pre class="rust"><code><span class="kw">mod</span> <span class="ident">env</span>;
-<span class="kw">mod</span> <span class="ident">exports</span>;
+</pre><pre class="rust"><code><span class="kw">mod</span> <span class="ident">exports</span>;
+<span class="kw">mod</span> <span class="ident">extern_ref</span>;
 <span class="kw">mod</span> <span class="ident">externals</span>;
+<span class="kw">mod</span> <span class="ident">function_env</span>;
 <span class="kw">mod</span> <span class="ident">imports</span>;
 <span class="kw">mod</span> <span class="ident">instance</span>;
 <span class="kw">mod</span> <span class="ident">mem_access</span>;
 <span class="kw">mod</span> <span class="ident">module</span>;
 <span class="kw">mod</span> <span class="ident">native</span>;
+<span class="kw">mod</span> <span class="ident">native_type</span>;
 <span class="kw">mod</span> <span class="ident">ptr</span>;
 <span class="kw">mod</span> <span class="ident">store</span>;
 <span class="kw">mod</span> <span class="ident">tunables</span>;
-<span class="kw">mod</span> <span class="ident">types</span>;
+<span class="kw">mod</span> <span class="ident">value</span>;
 
-<span class="doccomment">/// Implement [`WasmerEnv`] for your type with `#[derive(WasmerEnv)]`.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// See the [`WasmerEnv`] trait for more information.</span>
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_derive::WasmerEnv</span>;
-
-<span class="attribute">#[<span class="ident">doc</span>(<span class="ident">hidden</span>)]</span>
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">internals</span> {
-    <span class="doccomment">//! We use the internals module for exporting types that are only</span>
-    <span class="doccomment">//! intended to use in internal crates such as the compatibility crate</span>
-    <span class="doccomment">//! `wasmer-vm`. Please don&#39;t use any of this types directly, as</span>
-    <span class="doccomment">//! they might change frequently or be removed in the future.</span>
-
-    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::externals</span>::{<span class="ident">WithEnv</span>, <span class="ident">WithoutEnv</span>};
-}
-
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::env</span>::{<span class="ident">HostEnvInitError</span>, <span class="ident">LazyInit</span>, <span class="ident">WasmerEnv</span>};
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::exports</span>::{<span class="ident">ExportError</span>, <span class="ident">Exportable</span>, <span class="ident">Exports</span>, <span class="ident">ExportsIterator</span>};
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::extern_ref::ExternRef</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::externals</span>::{
     <span class="ident">Extern</span>, <span class="ident">FromToNativeWasmType</span>, <span class="ident">Function</span>, <span class="ident">Global</span>, <span class="ident">HostFunction</span>, <span class="ident">Memory</span>, <span class="ident">Table</span>, <span class="ident">WasmTypeList</span>,
 };
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::function_env</span>::{<span class="ident">FunctionEnv</span>, <span class="ident">FunctionEnvMut</span>};
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::imports::Imports</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::instance</span>::{<span class="ident">Instance</span>, <span class="ident">InstantiationError</span>};
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::mem_access</span>::{<span class="ident">MemoryAccessError</span>, <span class="ident">WasmRef</span>, <span class="ident">WasmSlice</span>, <span class="ident">WasmSliceIter</span>};
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::module::Module</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::native::TypedFunction</span>;
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::native_type::NativeWasmTypeInto</span>;
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::store</span>::{<span class="ident">AsStoreMut</span>, <span class="ident">AsStoreRef</span>, <span class="ident">StoreMut</span>, <span class="ident">StoreRef</span>};
 
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::ptr</span>::{<span class="ident">Memory32</span>, <span class="ident">Memory64</span>, <span class="ident">MemorySize</span>, <span class="ident">WasmPtr</span>, <span class="ident">WasmPtr64</span>};
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::store</span>::{<span class="ident">Store</span>, <span class="ident">StoreObject</span>};
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::store::Store</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::tunables::BaseTunables</span>;
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::types</span>::{
-    <span class="ident">ExportType</span>, <span class="ident">ExternType</span>, <span class="ident">FunctionType</span>, <span class="ident">GlobalType</span>, <span class="ident">ImportType</span>, <span class="ident">MemoryType</span>, <span class="ident">Mutability</span>,
-    <span class="ident">TableType</span>, <span class="ident">Val</span>, <span class="ident">ValType</span>,
-};
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::types</span>::{<span class="ident">Val</span> <span class="kw">as</span> <span class="ident">Value</span>, <span class="ident">ValType</span> <span class="kw">as</span> <span class="ident">Type</span>};
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::value::Value</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">target_lexicon</span>::{<span class="ident">Architecture</span>, <span class="ident">CallingConvention</span>, <span class="ident">OperatingSystem</span>, <span class="ident">Triple</span>, <span class="ident">HOST</span>};
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{
     <span class="ident">wasmparser</span>, <span class="ident">CompilerConfig</span>, <span class="ident">FunctionMiddleware</span>, <span class="ident">MiddlewareReaderState</span>, <span class="ident">ModuleMiddleware</span>,
 };
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{
-    <span class="ident">CpuFeature</span>, <span class="ident">Engine</span>, <span class="ident">Export</span>, <span class="ident">Features</span>, <span class="ident">FrameInfo</span>, <span class="ident">LinkError</span>, <span class="ident">RuntimeError</span>, <span class="ident">Target</span>, <span class="ident">Tunables</span>,
+    <span class="ident">CpuFeature</span>, <span class="ident">Engine</span>, <span class="ident">Features</span>, <span class="ident">FrameInfo</span>, <span class="ident">LinkError</span>, <span class="ident">RuntimeError</span>, <span class="ident">Target</span>, <span class="ident">Tunables</span>,
 };
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_derive::ValueType</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_types::is_wasm</span>;
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;experimental-reference-types-extern-ref&quot;</span>)]</span>
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_types::ExternRef</span>;
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_types</span>::{
+    <span class="ident">ExportType</span>, <span class="ident">ExternType</span>, <span class="ident">FunctionType</span>, <span class="ident">GlobalType</span>, <span class="ident">ImportType</span>, <span class="ident">MemoryType</span>, <span class="ident">Mutability</span>,
+    <span class="ident">TableType</span>, <span class="ident">Type</span>,
+};
+
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_types</span>::{
     <span class="ident">Bytes</span>, <span class="ident">CompileError</span>, <span class="ident">DeserializeError</span>, <span class="ident">ExportIndex</span>, <span class="ident">GlobalInit</span>, <span class="ident">LocalFunctionIndex</span>,
     <span class="ident">MiddlewareError</span>, <span class="ident">Pages</span>, <span class="ident">ParseCpuFeatureError</span>, <span class="ident">SerializeError</span>, <span class="ident">ValueType</span>, <span class="ident">WasmError</span>, <span class="ident">WasmResult</span>,
@@ -196,7 +174,7 @@
     <span class="doccomment">//! The `vm` module re-exports wasmer-vm types.</span>
 
     <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_vm</span>::{
-        <span class="ident">Memory</span>, <span class="ident">MemoryError</span>, <span class="ident">MemoryStyle</span>, <span class="ident">Table</span>, <span class="ident">TableStyle</span>, <span class="ident">VMExtern</span>, <span class="ident">VMMemoryDefinition</span>,
+        <span class="ident">MemoryError</span>, <span class="ident">MemoryStyle</span>, <span class="ident">TableStyle</span>, <span class="ident">VMExtern</span>, <span class="ident">VMMemory</span>, <span class="ident">VMMemoryDefinition</span>, <span class="ident">VMTable</span>,
         <span class="ident">VMTableDefinition</span>,
     };
 }
@@ -220,7 +198,7 @@ If you wish to use more than one compiler, you can simply create the own store. 
 use wasmer::{Store, Universal, Singlepass};
 
 let engine = Universal::new(Singlepass::default()).engine();
-let store = Store::new_with_engine(&amp;engine);
+let mut store = Store::new_with_engine(&amp;engine);
 ```&quot;#</span>
 );
 

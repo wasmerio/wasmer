@@ -494,28 +494,11 @@
 <span id="492">492</span>
 <span id="493">493</span>
 <span id="494">494</span>
-<span id="495">495</span>
-<span id="496">496</span>
-<span id="497">497</span>
-<span id="498">498</span>
-<span id="499">499</span>
-<span id="500">500</span>
-<span id="501">501</span>
-<span id="502">502</span>
-<span id="503">503</span>
-<span id="504">504</span>
-<span id="505">505</span>
-<span id="506">506</span>
-<span id="507">507</span>
-<span id="508">508</span>
-<span id="509">509</span>
-<span id="510">510</span>
-<span id="511">511</span>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
 
 <span class="doccomment">//! All the runtime support necessary for the wasm to cranelift translation is formalized by the</span>
-<span class="doccomment">//! traits `FunctionEnvironment`.</span>
+<span class="doccomment">//! traits `FunctionEnvMutironment`.</span>
 
 <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::func_state::FuncTranslationState</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::translation_utils::reference_type</span>;
@@ -849,20 +832,6 @@
         <span class="ident">len</span>: <span class="ident">ir::Value</span>,
     ) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span>;
 
-    <span class="doccomment">/// Translates an externref ref count increment.</span>
-    <span class="kw">fn</span> <span class="ident">translate_externref_inc</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">pos</span>: <span class="ident">cranelift_codegen::cursor::FuncCursor</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>,
-        <span class="ident">externref</span>: <span class="ident">ir::Value</span>,
-    ) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span>;
-
-    <span class="doccomment">/// Translates an externref ref count decrement.</span>
-    <span class="kw">fn</span> <span class="ident">translate_externref_dec</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">pos</span>: <span class="ident">cranelift_codegen::cursor::FuncCursor</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>,
-        <span class="ident">externref</span>: <span class="ident">ir::Value</span>,
-    ) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span>;
-
     <span class="doccomment">/// Translate a `table.init` WebAssembly instruction.</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">translate_table_init</span>(
@@ -976,7 +945,7 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="doccomment">/// Optional callback for the `FunctionEnvironment` performing this translation to maintain</span>
+    <span class="doccomment">/// Optional callback for the `FunctionEnvMutironment` performing this translation to maintain</span>
     <span class="doccomment">/// internal state or prepare custom state for the operator to translate</span>
     <span class="kw">fn</span> <span class="ident">before_translate_operator</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
@@ -987,7 +956,7 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="doccomment">/// Optional callback for the `FunctionEnvironment` performing this translation to maintain</span>
+    <span class="doccomment">/// Optional callback for the `FunctionEnvMutironment` performing this translation to maintain</span>
     <span class="doccomment">/// internal state or finalize custom state for the operator that was translated</span>
     <span class="kw">fn</span> <span class="ident">after_translate_operator</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
@@ -1018,9 +987,6 @@
 
     <span class="doccomment">/// Get the type of a function with the given signature index.</span>
     <span class="kw">fn</span> <span class="ident">get_function_sig</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">sig_index</span>: <span class="ident">SignatureIndex</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">FunctionType</span><span class="op">&gt;</span>;
-
-    <span class="doccomment">/// Drops all locals that need to be dropped. Useful for returning from functions.</span>
-    <span class="kw">fn</span> <span class="ident">translate_drop_locals</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">builder</span>: <span class="kw-2">&amp;mut</span> <span class="ident">FunctionBuilder</span>) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span>;
 }
 </code></pre></div>
 </section><section id="search" class="content hidden"></section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_compiler_cranelift" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.59.0 (9d1b2106e 2022-02-23)" ></div>

@@ -453,10 +453,23 @@
 <span id="451">451</span>
 <span id="452">452</span>
 <span id="453">453</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::exports::Exportable</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::store::Store</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::types</span>::{<span class="ident">ExportType</span>, <span class="ident">ImportType</span>};
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::InstantiationError</span>;
+<span id="454">454</span>
+<span id="455">455</span>
+<span id="456">456</span>
+<span id="457">457</span>
+<span id="458">458</span>
+<span id="459">459</span>
+<span id="460">460</span>
+<span id="461">461</span>
+<span id="462">462</span>
+<span id="463">463</span>
+<span id="464">464</span>
+<span id="465">465</span>
+<span id="466">466</span>
+<span id="467">467</span>
+</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::InstantiationError</span>;
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::AsStoreMut</span>;
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::AsStoreRef</span>;
 <span class="kw">use</span> <span class="ident">std::fmt</span>;
 <span class="kw">use</span> <span class="ident">std::io</span>;
 <span class="kw">use</span> <span class="ident">std::path::Path</span>;
@@ -468,6 +481,7 @@
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{
     <span class="ident">CompileError</span>, <span class="ident">DeserializeError</span>, <span class="ident">ExportsIterator</span>, <span class="ident">ImportsIterator</span>, <span class="ident">ModuleInfo</span>, <span class="ident">SerializeError</span>,
 };
+<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">ExportType</span>, <span class="ident">ImportType</span>};
 <span class="kw">use</span> <span class="ident">wasmer_vm::InstanceHandle</span>;
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Error</span>, <span class="ident">Debug</span>)]</span>
@@ -505,7 +519,6 @@
     <span class="comment">// In the future, this code should be refactored to properly describe the</span>
     <span class="comment">// ownership of the code and its metadata.</span>
     <span class="ident">artifact</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Artifact</span><span class="op">&gt;</span>,
-    <span class="ident">store</span>: <span class="ident">Store</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">Module</span> {
@@ -535,7 +548,7 @@
     <span class="doccomment">/// ```</span>
     <span class="doccomment">/// use wasmer::*;</span>
     <span class="doccomment">/// # fn main() -&gt; anyhow::Result&lt;()&gt; {</span>
-    <span class="doccomment">/// # let store = Store::default();</span>
+    <span class="doccomment">/// # let mut store = Store::default();</span>
     <span class="doccomment">/// let wat = &quot;(module)&quot;;</span>
     <span class="doccomment">/// let module = Module::new(&amp;store, wat)?;</span>
     <span class="doccomment">/// # Ok(())</span>
@@ -547,7 +560,7 @@
     <span class="doccomment">/// ```</span>
     <span class="doccomment">/// use wasmer::*;</span>
     <span class="doccomment">/// # fn main() -&gt; anyhow::Result&lt;()&gt; {</span>
-    <span class="doccomment">/// # let store = Store::default();</span>
+    <span class="doccomment">/// # let mut store = Store::default();</span>
     <span class="doccomment">/// // The following is the same as:</span>
     <span class="doccomment">/// // (module</span>
     <span class="doccomment">/// //   (type $t0 (func (param i32) (result i32)))</span>
@@ -569,7 +582,7 @@
     <span class="doccomment">/// # }</span>
     <span class="doccomment">/// ```</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unreachable_code</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="ident">Store</span>, <span class="ident">bytes</span>: <span class="kw">impl</span> <span class="ident">AsRef</span><span class="op">&lt;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">CompileError</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsStoreRef</span>, <span class="ident">bytes</span>: <span class="kw">impl</span> <span class="ident">AsRef</span><span class="op">&lt;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wat&quot;</span>)]</span>
         <span class="kw">let</span> <span class="ident">bytes</span> <span class="op">=</span> <span class="ident">wat::parse_bytes</span>(<span class="ident">bytes</span>.<span class="ident">as_ref</span>()).<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> {
             <span class="ident">CompileError::Wasm</span>(<span class="ident">WasmError::Generic</span>(<span class="macro">format!</span>(
@@ -582,7 +595,10 @@
     }
 
     <span class="doccomment">/// Creates a new WebAssembly module from a file path.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_file</span>(<span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="ident">Store</span>, <span class="ident">file</span>: <span class="kw">impl</span> <span class="ident">AsRef</span><span class="op">&lt;</span><span class="ident">Path</span><span class="op">&gt;</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">IoCompileError</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_file</span>(
+        <span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsStoreRef</span>,
+        <span class="ident">file</span>: <span class="kw">impl</span> <span class="ident">AsRef</span><span class="op">&lt;</span><span class="ident">Path</span><span class="op">&gt;</span>,
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">IoCompileError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">file_ref</span> <span class="op">=</span> <span class="ident">file</span>.<span class="ident">as_ref</span>();
         <span class="kw">let</span> <span class="ident">canonical</span> <span class="op">=</span> <span class="ident">file_ref</span>.<span class="ident">canonicalize</span>()<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="ident">wasm_bytes</span> <span class="op">=</span> <span class="ident">std::fs::read</span>(<span class="ident">file_ref</span>)<span class="question-mark">?</span>;
@@ -599,7 +615,7 @@
     <span class="doccomment">/// Opposed to [`Module::new`], this function is not compatible with</span>
     <span class="doccomment">/// the WebAssembly text format (if the &quot;wat&quot; feature is enabled for</span>
     <span class="doccomment">/// this crate).</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_binary</span>(<span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="ident">Store</span>, <span class="ident">binary</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">CompileError</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_binary</span>(<span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsStoreRef</span>, <span class="ident">binary</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="ident"><span class="self">Self</span>::validate</span>(<span class="ident">store</span>, <span class="ident">binary</span>)<span class="question-mark">?</span>;
         <span class="kw">unsafe</span> { <span class="ident"><span class="self">Self</span>::from_binary_unchecked</span>(<span class="ident">store</span>, <span class="ident">binary</span>) }
     }
@@ -612,7 +628,7 @@
     <span class="doccomment">/// in environments where the WebAssembly modules are trusted and validated</span>
     <span class="doccomment">/// beforehand.</span>
     <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_binary_unchecked</span>(
-        <span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="ident">Store</span>,
+        <span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsStoreRef</span>,
         <span class="ident">binary</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>],
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident"><span class="self">Self</span>::compile</span>(<span class="ident">store</span>, <span class="ident">binary</span>)<span class="question-mark">?</span>;
@@ -625,13 +641,16 @@
     <span class="doccomment">/// This validation is normally pretty fast and checks the enabled</span>
     <span class="doccomment">/// WebAssembly features in the Store Engine to assure deterministic</span>
     <span class="doccomment">/// validation of the Module.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">validate</span>(<span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="ident">Store</span>, <span class="ident">binary</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
-        <span class="ident">store</span>.<span class="ident">engine</span>().<span class="ident">validate</span>(<span class="ident">binary</span>)
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">validate</span>(<span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsStoreRef</span>, <span class="ident">binary</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
+        <span class="ident">store</span>.<span class="ident">as_store_ref</span>().<span class="ident">engine</span>().<span class="ident">validate</span>(<span class="ident">binary</span>)
     }
 
-    <span class="kw">fn</span> <span class="ident">compile</span>(<span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="ident">Store</span>, <span class="ident">binary</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">CompileError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">artifact</span> <span class="op">=</span> <span class="ident">store</span>.<span class="ident">engine</span>().<span class="ident">compile</span>(<span class="ident">binary</span>, <span class="ident">store</span>.<span class="ident">tunables</span>())<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(<span class="ident"><span class="self">Self</span>::from_artifact</span>(<span class="ident">store</span>, <span class="ident">artifact</span>))
+    <span class="kw">fn</span> <span class="ident">compile</span>(<span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsStoreRef</span>, <span class="ident">binary</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">CompileError</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">artifact</span> <span class="op">=</span> <span class="ident">store</span>
+            .<span class="ident">as_store_ref</span>()
+            .<span class="ident">engine</span>()
+            .<span class="ident">compile</span>(<span class="ident">binary</span>, <span class="ident">store</span>.<span class="ident">as_store_ref</span>().<span class="ident">tunables</span>())<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(<span class="ident"><span class="self">Self</span>::from_artifact</span>(<span class="ident">artifact</span>))
     }
 
     <span class="doccomment">/// Serializes a module into a binary representation that the `Engine`</span>
@@ -642,7 +661,7 @@
     <span class="doccomment">/// ```ignore</span>
     <span class="doccomment">/// # use wasmer::*;</span>
     <span class="doccomment">/// # fn main() -&gt; anyhow::Result&lt;()&gt; {</span>
-    <span class="doccomment">/// # let store = Store::default();</span>
+    <span class="doccomment">/// # let mut store = Store::default();</span>
     <span class="doccomment">/// # let module = Module::from_file(&amp;store, &quot;path/to/foo.wasm&quot;)?;</span>
     <span class="doccomment">/// let serialized = module.serialize()?;</span>
     <span class="doccomment">/// # Ok(())</span>
@@ -660,7 +679,7 @@
     <span class="doccomment">/// ```ignore</span>
     <span class="doccomment">/// # use wasmer::*;</span>
     <span class="doccomment">/// # fn main() -&gt; anyhow::Result&lt;()&gt; {</span>
-    <span class="doccomment">/// # let store = Store::default();</span>
+    <span class="doccomment">/// # let mut store = Store::default();</span>
     <span class="doccomment">/// # let module = Module::from_file(&amp;store, &quot;path/to/foo.wasm&quot;)?;</span>
     <span class="doccomment">/// module.serialize_to_file(&quot;path/to/foo.so&quot;)?;</span>
     <span class="doccomment">/// # Ok(())</span>
@@ -688,14 +707,17 @@
     <span class="doccomment">/// ```ignore</span>
     <span class="doccomment">/// # use wasmer::*;</span>
     <span class="doccomment">/// # fn main() -&gt; anyhow::Result&lt;()&gt; {</span>
-    <span class="doccomment">/// # let store = Store::default();</span>
+    <span class="doccomment">/// # let mut store = Store::default();</span>
     <span class="doccomment">/// let module = Module::deserialize(&amp;store, serialized_data)?;</span>
     <span class="doccomment">/// # Ok(())</span>
     <span class="doccomment">/// # }</span>
     <span class="doccomment">/// ```</span>
-    <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">deserialize</span>(<span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="ident">Store</span>, <span class="ident">bytes</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">DeserializeError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">artifact</span> <span class="op">=</span> <span class="ident">store</span>.<span class="ident">engine</span>().<span class="ident">deserialize</span>(<span class="ident">bytes</span>)<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(<span class="ident"><span class="self">Self</span>::from_artifact</span>(<span class="ident">store</span>, <span class="ident">artifact</span>))
+    <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">deserialize</span>(
+        <span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsStoreRef</span>,
+        <span class="ident">bytes</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>],
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">DeserializeError</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">artifact</span> <span class="op">=</span> <span class="ident">store</span>.<span class="ident">as_store_ref</span>().<span class="ident">engine</span>().<span class="ident">deserialize</span>(<span class="ident">bytes</span>)<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(<span class="ident"><span class="self">Self</span>::from_artifact</span>(<span class="ident">artifact</span>))
     }
 
     <span class="doccomment">/// Deserializes a a serialized Module located in a `Path` into a `Module`.</span>
@@ -709,39 +731,48 @@
     <span class="doccomment">///</span>
     <span class="doccomment">/// ```ignore</span>
     <span class="doccomment">/// # use wasmer::*;</span>
-    <span class="doccomment">/// # let store = Store::default();</span>
+    <span class="doccomment">/// # let mut store = Store::default();</span>
     <span class="doccomment">/// # fn main() -&gt; anyhow::Result&lt;()&gt; {</span>
     <span class="doccomment">/// let module = Module::deserialize_from_file(&amp;store, path)?;</span>
     <span class="doccomment">/// # Ok(())</span>
     <span class="doccomment">/// # }</span>
     <span class="doccomment">/// ```</span>
     <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">deserialize_from_file</span>(
-        <span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="ident">Store</span>,
+        <span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsStoreRef</span>,
         <span class="ident">path</span>: <span class="kw">impl</span> <span class="ident">AsRef</span><span class="op">&lt;</span><span class="ident">Path</span><span class="op">&gt;</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">DeserializeError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">artifact</span> <span class="op">=</span> <span class="ident">store</span>.<span class="ident">engine</span>().<span class="ident">deserialize_from_file</span>(<span class="ident">path</span>.<span class="ident">as_ref</span>())<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(<span class="ident"><span class="self">Self</span>::from_artifact</span>(<span class="ident">store</span>, <span class="ident">artifact</span>))
+        <span class="kw">let</span> <span class="ident">artifact</span> <span class="op">=</span> <span class="ident">store</span>
+            .<span class="ident">as_store_ref</span>()
+            .<span class="ident">engine</span>()
+            .<span class="ident">deserialize_from_file</span>(<span class="ident">path</span>.<span class="ident">as_ref</span>())<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(<span class="ident"><span class="self">Self</span>::from_artifact</span>(<span class="ident">artifact</span>))
     }
 
-    <span class="kw">fn</span> <span class="ident">from_artifact</span>(<span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="ident">Store</span>, <span class="ident">artifact</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Artifact</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> {
-            <span class="ident">store</span>: <span class="ident">store</span>.<span class="ident">clone</span>(),
-            <span class="ident">artifact</span>,
-        }
+    <span class="kw">fn</span> <span class="ident">from_artifact</span>(<span class="ident">artifact</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Artifact</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
+        <span class="self">Self</span> { <span class="ident">artifact</span> }
     }
 
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">instantiate</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
+        <span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>,
         <span class="ident">imports</span>: <span class="kw-2">&amp;</span>[<span class="ident"><span class="kw">crate</span>::Extern</span>],
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">InstanceHandle</span>, <span class="ident">InstantiationError</span><span class="op">&gt;</span> {
+        <span class="comment">// Ensure all imports come from the same context.</span>
+        <span class="kw">for</span> <span class="ident">import</span> <span class="kw">in</span> <span class="ident">imports</span> {
+            <span class="kw">if</span> <span class="op">!</span><span class="ident">import</span>.<span class="ident">is_from_store</span>(<span class="ident">store</span>) {
+                <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">InstantiationError::DifferentStores</span>);
+            }
+        }
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">store_mut</span> <span class="op">=</span> <span class="ident">store</span>.<span class="ident">as_store_mut</span>();
+        <span class="kw">let</span> (<span class="ident">tunables</span>, <span class="ident">objects</span>) <span class="op">=</span> <span class="ident">store_mut</span>.<span class="ident">tunables_and_objects_mut</span>();
         <span class="kw">unsafe</span> {
-            <span class="kw">let</span> <span class="ident">instance_handle</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">artifact</span>.<span class="ident">instantiate</span>(
-                <span class="self">self</span>.<span class="ident">store</span>.<span class="ident">tunables</span>(),
+            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">instance_handle</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">artifact</span>.<span class="ident">instantiate</span>(
+                <span class="ident">tunables</span>,
                 <span class="kw-2">&amp;</span><span class="ident">imports</span>
                     .<span class="ident">iter</span>()
-                    .<span class="ident">map</span>(<span class="ident"><span class="kw">crate</span>::Extern::to_export</span>)
+                    .<span class="ident">map</span>(<span class="ident"><span class="kw">crate</span>::Extern::to_vm_extern</span>)
                     .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>(),
-                <span class="ident">Box::new</span>(<span class="self">self</span>.<span class="ident">clone</span>()),
+                <span class="ident">objects</span>,
             )<span class="question-mark">?</span>;
 
             <span class="comment">// After the instance handle is created, we need to initialize</span>
@@ -749,8 +780,10 @@
             <span class="comment">// of this steps traps, we still need to keep the instance alive</span>
             <span class="comment">// as some of the Instance elements may have placed in other</span>
             <span class="comment">// instance tables.</span>
-            <span class="self">self</span>.<span class="ident">artifact</span>
-                .<span class="ident">finish_instantiation</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">store</span>, <span class="kw-2">&amp;</span><span class="ident">instance_handle</span>)<span class="question-mark">?</span>;
+            <span class="self">self</span>.<span class="ident">artifact</span>.<span class="ident">finish_instantiation</span>(
+                <span class="ident">store</span>.<span class="ident">as_store_ref</span>().<span class="ident">signal_handler</span>(),
+                <span class="kw-2">&amp;mut</span> <span class="ident">instance_handle</span>,
+            )<span class="question-mark">?</span>;
 
             <span class="prelude-val">Ok</span>(<span class="ident">instance_handle</span>)
         }
@@ -766,7 +799,7 @@
     <span class="doccomment">/// ```</span>
     <span class="doccomment">/// # use wasmer::*;</span>
     <span class="doccomment">/// # fn main() -&gt; anyhow::Result&lt;()&gt; {</span>
-    <span class="doccomment">/// # let store = Store::default();</span>
+    <span class="doccomment">/// # let mut store = Store::default();</span>
     <span class="doccomment">/// let wat = &quot;(module $moduleName)&quot;;</span>
     <span class="doccomment">/// let module = Module::new(&amp;store, wat)?;</span>
     <span class="doccomment">/// assert_eq!(module.name(), Some(&quot;moduleName&quot;));</span>
@@ -789,7 +822,7 @@
     <span class="doccomment">/// ```</span>
     <span class="doccomment">/// # use wasmer::*;</span>
     <span class="doccomment">/// # fn main() -&gt; anyhow::Result&lt;()&gt; {</span>
-    <span class="doccomment">/// # let store = Store::default();</span>
+    <span class="doccomment">/// # let mut store = Store::default();</span>
     <span class="doccomment">/// let wat = &quot;(module)&quot;;</span>
     <span class="doccomment">/// let mut module = Module::new(&amp;store, wat)?;</span>
     <span class="doccomment">/// assert_eq!(module.name(), None);</span>
@@ -817,7 +850,7 @@
     <span class="doccomment">/// ```</span>
     <span class="doccomment">/// # use wasmer::*;</span>
     <span class="doccomment">/// # fn main() -&gt; anyhow::Result&lt;()&gt; {</span>
-    <span class="doccomment">/// # let store = Store::default();</span>
+    <span class="doccomment">/// # let mut store = Store::default();</span>
     <span class="doccomment">/// let wat = r#&quot;(module</span>
     <span class="doccomment">///     (import &quot;host&quot; &quot;func1&quot; (func))</span>
     <span class="doccomment">///     (import &quot;host&quot; &quot;func2&quot; (func))</span>
@@ -845,7 +878,7 @@
     <span class="doccomment">/// ```</span>
     <span class="doccomment">/// # use wasmer::*;</span>
     <span class="doccomment">/// # fn main() -&gt; anyhow::Result&lt;()&gt; {</span>
-    <span class="doccomment">/// # let store = Store::default();</span>
+    <span class="doccomment">/// # let mut store = Store::default();</span>
     <span class="doccomment">/// let wat = r#&quot;(module</span>
     <span class="doccomment">///     (func (export &quot;namedfunc&quot;))</span>
     <span class="doccomment">///     (memory (export &quot;namedmemory&quot;) 1)</span>
@@ -871,11 +904,6 @@
     <span class="doccomment">/// is returned.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">custom_sections</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="self">self</span>, <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">str</span>) -&gt; <span class="kw">impl</span> <span class="ident">Iterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="ident">Arc</span><span class="op">&lt;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;a</span> {
         <span class="self">self</span>.<span class="ident">artifact</span>.<span class="ident">module_ref</span>().<span class="ident">custom_sections</span>(<span class="ident">name</span>)
-    }
-
-    <span class="doccomment">/// Returns the [`Store`] where the `Instance` belongs.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">store</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">Store</span> {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">store</span>
     }
 
     <span class="doccomment">/// The ABI of the ModuleInfo is very unstable, we refactor it very often.</span>

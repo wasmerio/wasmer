@@ -854,32 +854,16 @@
 <span id="852">852</span>
 <span id="853">853</span>
 <span id="854">854</span>
-<span id="855">855</span>
-<span id="856">856</span>
-<span id="857">857</span>
-<span id="858">858</span>
-<span id="859">859</span>
-<span id="860">860</span>
-<span id="861">861</span>
-<span id="862">862</span>
-<span id="863">863</span>
-<span id="864">864</span>
-<span id="865">865</span>
-<span id="866">866</span>
-<span id="867">867</span>
-<span id="868">868</span>
-<span id="869">869</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">super</span>::store::wasm_store_t</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::types</span>::{<span class="ident">wasm_byte_vec_t</span>, <span class="ident">wasm_exporttype_vec_t</span>, <span class="ident">wasm_importtype_vec_t</span>};
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::error::update_last_error</span>;
 <span class="kw">use</span> <span class="ident">std::ptr::NonNull</span>;
-<span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
 <span class="kw">use</span> <span class="ident">wasmer_api::Module</span>;
 
 <span class="doccomment">/// Opaque type representing a WebAssembly module.</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>)]</span>
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">non_camel_case_types</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">wasm_module_t</span> {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">inner</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">Module</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">inner</span>: <span class="ident">Module</span>,
 }
 
 <span class="doccomment">/// A WebAssembly module contains stateless WebAssembly code that has</span>
@@ -898,17 +882,15 @@
 <span class="doccomment">/// See the module&#39;s documentation.</span>
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
 <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_module_new</span>(
-    <span class="ident">store</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">wasm_store_t</span><span class="op">&gt;</span>,
+    <span class="ident">store</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="ident">wasm_store_t</span><span class="op">&gt;</span>,
     <span class="ident">bytes</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">wasm_byte_vec_t</span><span class="op">&gt;</span>,
 ) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasm_module_t</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">store</span> <span class="op">=</span> <span class="ident">store</span><span class="question-mark">?</span>;
+    <span class="kw">let</span> <span class="ident">store</span> <span class="op">=</span> <span class="ident">store</span><span class="question-mark">?</span>.<span class="ident">inner</span>.<span class="ident">store_mut</span>();
     <span class="kw">let</span> <span class="ident">bytes</span> <span class="op">=</span> <span class="ident">bytes</span><span class="question-mark">?</span>;
 
-    <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="macro">c_try!</span>(<span class="ident">Module::from_binary</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>.<span class="ident">inner</span>, <span class="ident">bytes</span>.<span class="ident">as_slice</span>()));
+    <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="macro">c_try!</span>(<span class="ident">Module::from_binary</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>, <span class="ident">bytes</span>.<span class="ident">as_slice</span>()));
 
-    <span class="prelude-val">Some</span>(<span class="ident">Box::new</span>(<span class="ident">wasm_module_t</span> {
-        <span class="ident">inner</span>: <span class="ident">Arc::new</span>(<span class="ident">module</span>),
-    }))
+    <span class="prelude-val">Some</span>(<span class="ident">Box::new</span>(<span class="ident">wasm_module_t</span> { <span class="ident">inner</span>: <span class="ident">module</span> }))
 }
 
 <span class="doccomment">/// Deletes a WebAssembly module.</span>
@@ -962,11 +944,11 @@
 <span class="doccomment">/// ```</span>
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
 <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_module_validate</span>(
-    <span class="ident">store</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">wasm_store_t</span><span class="op">&gt;</span>,
+    <span class="ident">store</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="ident">wasm_store_t</span><span class="op">&gt;</span>,
     <span class="ident">bytes</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">wasm_byte_vec_t</span><span class="op">&gt;</span>,
 ) -&gt; <span class="ident">bool</span> {
     <span class="kw">let</span> <span class="ident">store</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">store</span> {
-        <span class="prelude-val">Some</span>(<span class="ident">store</span>) =&gt; <span class="ident">store</span>,
+        <span class="prelude-val">Some</span>(<span class="ident">store</span>) =&gt; <span class="ident">store</span>.<span class="ident">inner</span>.<span class="ident">store_mut</span>(),
         <span class="prelude-val">None</span> =&gt; <span class="kw">return</span> <span class="bool-val">false</span>,
     };
     <span class="kw">let</span> <span class="ident">bytes</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">bytes</span> {
@@ -974,13 +956,9 @@
         <span class="prelude-val">None</span> =&gt; <span class="kw">return</span> <span class="bool-val">false</span>,
     };
 
-    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">error</span>) <span class="op">=</span> <span class="ident">Module::validate</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>.<span class="ident">inner</span>, <span class="ident">bytes</span>.<span class="ident">as_slice</span>()) {
-        <span class="ident">update_last_error</span>(<span class="ident">error</span>);
-
-        <span class="bool-val">false</span>
-    } <span class="kw">else</span> {
-        <span class="bool-val">true</span>
-    }
+    <span class="ident">Module::validate</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>, <span class="ident">bytes</span>.<span class="ident">as_slice</span>())
+        .<span class="ident">map</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="bool-val">true</span>)
+        .<span class="ident">unwrap_or</span>(<span class="bool-val">false</span>)
 }
 
 <span class="doccomment">/// Returns an array of the exported types in the module.</span>
@@ -1336,12 +1314,10 @@
 ) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">wasm_module_t</span><span class="op">&gt;</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="ident">bytes</span> <span class="op">=</span> <span class="ident">bytes</span><span class="question-mark">?</span>;
 
-    <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="macro">c_try!</span>(<span class="ident">Module::deserialize</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>.<span class="ident">inner</span>, <span class="ident">bytes</span>.<span class="ident">as_slice</span>()));
+    <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="macro">c_try!</span>(<span class="ident">Module::deserialize</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>.<span class="ident">inner</span>.<span class="ident">store</span>(), <span class="ident">bytes</span>.<span class="ident">as_slice</span>()));
 
     <span class="prelude-val">Some</span>(<span class="ident">NonNull::new_unchecked</span>(<span class="ident">Box::into_raw</span>(<span class="ident">Box::new</span>(
-        <span class="ident">wasm_module_t</span> {
-            <span class="ident">inner</span>: <span class="ident">Arc::new</span>(<span class="ident">module</span>),
-        },
+        <span class="ident">wasm_module_t</span> { <span class="ident">inner</span>: <span class="ident">module</span> },
     ))))
 }
 
@@ -1354,13 +1330,7 @@
 <span class="doccomment">/// See [`wasm_module_deserialize`].</span>
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
 <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_module_serialize</span>(<span class="ident">module</span>: <span class="kw-2">&amp;</span><span class="ident">wasm_module_t</span>, <span class="ident">out</span>: <span class="kw-2">&amp;mut</span> <span class="ident">wasm_byte_vec_t</span>) {
-    <span class="kw">let</span> <span class="ident">byte_vec</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">module</span>.<span class="ident">inner</span>.<span class="ident">serialize</span>() {
-        <span class="prelude-val">Ok</span>(<span class="ident">byte_vec</span>) =&gt; <span class="ident">byte_vec</span>,
-        <span class="prelude-val">Err</span>(<span class="ident">err</span>) =&gt; {
-            <span class="ident"><span class="kw">crate</span>::error::update_last_error</span>(<span class="ident">err</span>);
-            <span class="kw">return</span>;
-        }
-    };
+    <span class="kw">let</span> <span class="ident">byte_vec</span> <span class="op">=</span> <span class="macro">c_try!</span>(<span class="ident">module</span>.<span class="ident">inner</span>.<span class="ident">serialize</span>(); <span class="ident">otherwise</span> ());
     <span class="ident">out</span>.<span class="ident">set_buffer</span>(<span class="ident">byte_vec</span>);
 }
 

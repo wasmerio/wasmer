@@ -1,1 +1,0 @@
-initSidebarItems({"enum":[["Export","The value of an export passed from one instance to another."]],"struct":[["ExportFunction","A function export value with an extra function pointer to initialize host environments."],["ExportFunctionMetadata","Extra metadata about `ExportFunction`s."]]});

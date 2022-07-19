@@ -3438,7 +3438,7 @@
 
     <span class="kw">let</span> <span class="ident">context</span> <span class="op">=</span> <span class="ident">module</span>.<span class="ident">get_context</span>();
 
-    <span class="comment">// TODO: ContextRef can&#39;t return us the lifetime from module through Deref.</span>
+    <span class="comment">// TODO: StoreRef can&#39;t return us the lifetime from module through Deref.</span>
     <span class="comment">// This could be fixed once generic_associated_types is stable.</span>
     <span class="kw">let</span> <span class="ident">context</span> <span class="op">=</span> {
         <span class="kw">let</span> <span class="ident">context2</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">context</span>;

@@ -622,32 +622,6 @@
 <span id="620">620</span>
 <span id="621">621</span>
 <span id="622">622</span>
-<span id="623">623</span>
-<span id="624">624</span>
-<span id="625">625</span>
-<span id="626">626</span>
-<span id="627">627</span>
-<span id="628">628</span>
-<span id="629">629</span>
-<span id="630">630</span>
-<span id="631">631</span>
-<span id="632">632</span>
-<span id="633">633</span>
-<span id="634">634</span>
-<span id="635">635</span>
-<span id="636">636</span>
-<span id="637">637</span>
-<span id="638">638</span>
-<span id="639">639</span>
-<span id="640">640</span>
-<span id="641">641</span>
-<span id="642">642</span>
-<span id="643">643</span>
-<span id="644">644</span>
-<span id="645">645</span>
-<span id="646">646</span>
-<span id="647">647</span>
-<span id="648">648</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::indexes</span>::{<span class="ident">FunctionIndex</span>, <span class="ident">GlobalIndex</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::lib::std::borrow::ToOwned</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::lib::std::fmt</span>;
@@ -655,7 +629,6 @@
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::lib::std::string</span>::{<span class="ident">String</span>, <span class="ident">ToString</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::lib::std::vec::Vec</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::units::Pages</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::values</span>::{<span class="ident">Value</span>, <span class="ident">WasmValueType</span>};
 
 <span class="kw">use</span> <span class="ident">rkyv</span>::{<span class="ident">Archive</span>, <span class="ident">Deserialize</span> <span class="kw">as</span> <span class="ident">RkyvDeserialize</span>, <span class="ident">Serialize</span> <span class="kw">as</span> <span class="ident">RkyvSerialize</span>};
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>)]</span>
@@ -1022,7 +995,7 @@
     <span class="doccomment">/// Create a new Global variable</span>
     <span class="doccomment">/// # Usage:</span>
     <span class="doccomment">/// ```</span>
-    <span class="doccomment">/// use wasmer_types::{GlobalType, Type, Mutability, Value};</span>
+    <span class="doccomment">/// use wasmer_types::{GlobalType, Type, Mutability};</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// // An I32 constant global</span>
     <span class="doccomment">/// let global = GlobalType::new(Type::I32, Mutability::Const);</span>
@@ -1068,31 +1041,6 @@
     <span class="ident">RefNullConst</span>,
     <span class="doccomment">/// A `ref.func &lt;index&gt;`.</span>
     <span class="ident">RefFunc</span>(<span class="ident">FunctionIndex</span>),
-}
-
-<span class="kw">impl</span> <span class="ident">Eq</span> <span class="kw">for</span> <span class="ident">GlobalInit</span> {}
-
-<span class="kw">impl</span> <span class="ident">GlobalInit</span> {
-    <span class="doccomment">/// Get the `GlobalInit` from a given `Value`</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_value</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">WasmValueType</span><span class="op">&gt;</span>(<span class="ident">value</span>: <span class="ident">Value</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
-        <span class="kw">match</span> <span class="ident">value</span> {
-            <span class="ident">Value::I32</span>(<span class="ident">i</span>) =&gt; <span class="ident"><span class="self">Self</span>::I32Const</span>(<span class="ident">i</span>),
-            <span class="ident">Value::I64</span>(<span class="ident">i</span>) =&gt; <span class="ident"><span class="self">Self</span>::I64Const</span>(<span class="ident">i</span>),
-            <span class="ident">Value::F32</span>(<span class="ident">f</span>) =&gt; <span class="ident"><span class="self">Self</span>::F32Const</span>(<span class="ident">f</span>),
-            <span class="ident">Value::F64</span>(<span class="ident">f</span>) =&gt; <span class="ident"><span class="self">Self</span>::F64Const</span>(<span class="ident">f</span>),
-            <span class="kw">_</span> =&gt; <span class="macro">unimplemented!</span>(<span class="string">&quot;GlobalInit from_value for {:?}&quot;</span>, <span class="ident">value</span>),
-        }
-    }
-    <span class="doccomment">/// Get the `Value` from the Global init value</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">to_value</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">WasmValueType</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Value</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident"><span class="self">Self</span>::I32Const</span>(<span class="ident">i</span>) =&gt; <span class="ident">Value::I32</span>(<span class="kw-2">*</span><span class="ident">i</span>),
-            <span class="ident"><span class="self">Self</span>::I64Const</span>(<span class="ident">i</span>) =&gt; <span class="ident">Value::I64</span>(<span class="kw-2">*</span><span class="ident">i</span>),
-            <span class="ident"><span class="self">Self</span>::F32Const</span>(<span class="ident">f</span>) =&gt; <span class="ident">Value::F32</span>(<span class="kw-2">*</span><span class="ident">f</span>),
-            <span class="ident"><span class="self">Self</span>::F64Const</span>(<span class="ident">f</span>) =&gt; <span class="ident">Value::F64</span>(<span class="kw-2">*</span><span class="ident">f</span>),
-            <span class="kw">_</span> =&gt; <span class="macro">unimplemented!</span>(<span class="string">&quot;GlobalInit to_value for {:?}&quot;</span>, <span class="self">self</span>),
-        }
-    }
 }
 
 <span class="comment">// Table Types</span>

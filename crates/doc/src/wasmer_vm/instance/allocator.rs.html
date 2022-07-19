@@ -214,14 +214,17 @@
 <span id="212">212</span>
 <span id="213">213</span>
 <span id="214">214</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">Instance</span>, <span class="ident">InstanceRef</span>};
+<span id="215">215</span>
+<span id="216">216</span>
+<span id="217">217</span>
+</pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">Instance</span>, <span class="ident">InstanceHandle</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::vmcontext</span>::{<span class="ident">VMMemoryDefinition</span>, <span class="ident">VMTableDefinition</span>};
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::VMOffsets</span>;
 <span class="kw">use</span> <span class="ident">std::alloc</span>::{<span class="self">self</span>, <span class="ident">Layout</span>};
 <span class="kw">use</span> <span class="ident">std::convert::TryFrom</span>;
 <span class="kw">use</span> <span class="ident">std::mem</span>;
 <span class="kw">use</span> <span class="ident">std::ptr</span>::{<span class="self">self</span>, <span class="ident">NonNull</span>};
 <span class="kw">use</span> <span class="ident">wasmer_types::entity::EntityRef</span>;
+<span class="kw">use</span> <span class="ident">wasmer_types::VMOffsets</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">LocalMemoryIndex</span>, <span class="ident">LocalTableIndex</span>, <span class="ident">ModuleInfo</span>};
 
 <span class="doccomment">/// This is an intermediate type that manages the raw allocation and</span>
@@ -403,7 +406,7 @@
 
     <span class="doccomment">/// Finish preparing by writing the [`Instance`] into memory, and</span>
     <span class="doccomment">/// consume this `InstanceAllocator`.</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">write_instance</span>(<span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">instance</span>: <span class="ident">Instance</span>) -&gt; <span class="ident">InstanceRef</span> {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">write_instance</span>(<span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">instance</span>: <span class="ident">Instance</span>) -&gt; <span class="ident">InstanceHandle</span> {
         <span class="comment">// Prevent the old state&#39;s drop logic from being called as we</span>
         <span class="comment">// transition into the new state.</span>
         <span class="self">self</span>.<span class="ident">consumed</span> <span class="op">=</span> <span class="bool-val">true</span>;
@@ -411,7 +414,7 @@
         <span class="kw">unsafe</span> {
             <span class="comment">// `instance` is moved at `Self.instance_ptr`. This</span>
             <span class="comment">// pointer has been allocated by `Self::allocate_instance`</span>
-            <span class="comment">// (so by `InstanceRef::allocate_instance`).</span>
+            <span class="comment">// (so by `InstanceHandle::allocate_instance`).</span>
             <span class="ident">ptr::write</span>(<span class="self">self</span>.<span class="ident">instance_ptr</span>.<span class="ident">as_ptr</span>(), <span class="ident">instance</span>);
             <span class="comment">// Now `instance_ptr` is correctly initialized!</span>
         }
@@ -420,7 +423,10 @@
 
         <span class="comment">// This is correct because of the invariants of `Self` and</span>
         <span class="comment">// because we write `Instance` to the pointer in this function.</span>
-        <span class="kw">unsafe</span> { <span class="ident">InstanceRef::new</span>(<span class="ident">instance</span>, <span class="ident">instance_layout</span>) }
+        <span class="ident">InstanceHandle</span> {
+            <span class="ident">instance</span>,
+            <span class="ident">instance_layout</span>,
+        }
     }
 
     <span class="doccomment">/// Get the [`VMOffsets`] for the allocated buffer.</span>

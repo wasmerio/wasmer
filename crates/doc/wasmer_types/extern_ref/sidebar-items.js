@@ -1,1 +1,0 @@
-initSidebarItems({"struct":[["ExternRef","An opaque reference to some data. This reference can be passed through Wasm."],["VMExternRef","This type does not do reference counting automatically, reference counting can be done with [`Self::ref_clone`] and [`Self::ref_drop`]."],["VMExternRefInner",""]]});

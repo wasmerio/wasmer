@@ -1,1 +1,0 @@
-initSidebarItems({"struct":[["FuncDataRegistry","The registry that holds the values that `VMFuncRef`s point to."],["Inner",""],["VMFuncRef","A function reference. A single word that points to metadata about a function."]]});

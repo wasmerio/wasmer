@@ -177,29 +177,13 @@
 <span id="175">175</span>
 <span id="176">176</span>
 <span id="177">177</span>
-<span id="178">178</span>
-<span id="179">179</span>
-<span id="180">180</span>
-<span id="181">181</span>
-<span id="182">182</span>
-<span id="183">183</span>
-<span id="184">184</span>
-<span id="185">185</span>
-<span id="186">186</span>
-<span id="187">187</span>
-<span id="188">188</span>
-<span id="189">189</span>
-<span id="190">190</span>
-<span id="191">191</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys</span>::{<span class="ident">MemoryType</span>, <span class="ident">Pages</span>, <span class="ident">TableType</span>};
 <span class="kw">use</span> <span class="ident">std::ptr::NonNull</span>;
-<span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
 <span class="kw">use</span> <span class="ident">target_lexicon::PointerWidth</span>;
 <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">Target</span>, <span class="ident">Tunables</span>};
 <span class="kw">use</span> <span class="ident">wasmer_vm::MemoryError</span>;
 <span class="kw">use</span> <span class="ident">wasmer_vm</span>::{
-    <span class="ident">LinearMemory</span>, <span class="ident">LinearTable</span>, <span class="ident">Memory</span>, <span class="ident">MemoryStyle</span>, <span class="ident">Table</span>, <span class="ident">TableStyle</span>, <span class="ident">VMMemoryDefinition</span>,
-    <span class="ident">VMTableDefinition</span>,
+    <span class="ident">MemoryStyle</span>, <span class="ident">TableStyle</span>, <span class="ident">VMMemory</span>, <span class="ident">VMMemoryDefinition</span>, <span class="ident">VMTable</span>, <span class="ident">VMTableDefinition</span>,
 };
 
 <span class="doccomment">/// Tunable parameters for WebAssembly compilation.</span>
@@ -289,8 +273,8 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">ty</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryType</span>,
         <span class="ident">style</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryStyle</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Memory</span><span class="op">&gt;</span>, <span class="ident">MemoryError</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Ok</span>(<span class="ident">Arc::new</span>(<span class="ident">LinearMemory::new</span>(<span class="ident">ty</span>, <span class="ident">style</span>)<span class="question-mark">?</span>))
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">VMMemory</span>, <span class="ident">MemoryError</span><span class="op">&gt;</span> {
+        <span class="ident">VMMemory::new</span>(<span class="ident">ty</span>, <span class="ident">style</span>)
     }
 
     <span class="doccomment">/// Create a memory owned by the VM given a [`MemoryType`] and a [`MemoryStyle`].</span>
@@ -303,21 +287,13 @@
         <span class="ident">ty</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryType</span>,
         <span class="ident">style</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryStyle</span>,
         <span class="ident">vm_definition_location</span>: <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">VMMemoryDefinition</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Memory</span><span class="op">&gt;</span>, <span class="ident">MemoryError</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Ok</span>(<span class="ident">Arc::new</span>(<span class="ident">LinearMemory::from_definition</span>(
-            <span class="ident">ty</span>,
-            <span class="ident">style</span>,
-            <span class="ident">vm_definition_location</span>,
-        )<span class="question-mark">?</span>))
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">VMMemory</span>, <span class="ident">MemoryError</span><span class="op">&gt;</span> {
+        <span class="ident">VMMemory::from_definition</span>(<span class="ident">ty</span>, <span class="ident">style</span>, <span class="ident">vm_definition_location</span>)
     }
 
     <span class="doccomment">/// Create a table owned by the host given a [`TableType`] and a [`TableStyle`].</span>
-    <span class="kw">fn</span> <span class="ident">create_host_table</span>(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">ty</span>: <span class="kw-2">&amp;</span><span class="ident">TableType</span>,
-        <span class="ident">style</span>: <span class="kw-2">&amp;</span><span class="ident">TableStyle</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Table</span><span class="op">&gt;</span>, <span class="ident">String</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Ok</span>(<span class="ident">Arc::new</span>(<span class="ident">LinearTable::new</span>(<span class="ident">ty</span>, <span class="ident">style</span>)<span class="question-mark">?</span>))
+    <span class="kw">fn</span> <span class="ident">create_host_table</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">ty</span>: <span class="kw-2">&amp;</span><span class="ident">TableType</span>, <span class="ident">style</span>: <span class="kw-2">&amp;</span><span class="ident">TableStyle</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">VMTable</span>, <span class="ident">String</span><span class="op">&gt;</span> {
+        <span class="ident">VMTable::new</span>(<span class="ident">ty</span>, <span class="ident">style</span>)
     }
 
     <span class="doccomment">/// Create a table owned by the VM given a [`TableType`] and a [`TableStyle`].</span>
@@ -330,12 +306,8 @@
         <span class="ident">ty</span>: <span class="kw-2">&amp;</span><span class="ident">TableType</span>,
         <span class="ident">style</span>: <span class="kw-2">&amp;</span><span class="ident">TableStyle</span>,
         <span class="ident">vm_definition_location</span>: <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">VMTableDefinition</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Table</span><span class="op">&gt;</span>, <span class="ident">String</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Ok</span>(<span class="ident">Arc::new</span>(<span class="ident">LinearTable::from_definition</span>(
-            <span class="ident">ty</span>,
-            <span class="ident">style</span>,
-            <span class="ident">vm_definition_location</span>,
-        )<span class="question-mark">?</span>))
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">VMTable</span>, <span class="ident">String</span><span class="op">&gt;</span> {
+        <span class="ident">VMTable::from_definition</span>(<span class="ident">ty</span>, <span class="ident">style</span>, <span class="ident">vm_definition_location</span>)
     }
 }
 

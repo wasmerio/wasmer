@@ -192,14 +192,26 @@
 <span id="190">190</span>
 <span id="191">191</span>
 <span id="192">192</span>
+<span id="193">193</span>
+<span id="194">194</span>
+<span id="195">195</span>
+<span id="196">196</span>
+<span id="197">197</span>
+<span id="198">198</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::EmEnv</span>;
+<span class="kw">use</span> <span class="ident">wasmer::FunctionEnvMut</span>;
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_attr_destroy</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_a</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_attr_destroy</span>(<span class="kw-2">mut</span> <span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">_a</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">trace!</span>(<span class="string">&quot;emscripten::_pthread_attr_destroy&quot;</span>);
     <span class="number">0</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_attr_getstack</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_stackaddr</span>: <span class="ident">i32</span>, <span class="ident">_stacksize</span>: <span class="ident">i32</span>, <span class="ident">_other</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_attr_getstack</span>(
+    <span class="kw-2">mut</span> <span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>,
+    <span class="ident">_stackaddr</span>: <span class="ident">i32</span>,
+    <span class="ident">_stacksize</span>: <span class="ident">i32</span>,
+    <span class="ident">_other</span>: <span class="ident">i32</span>,
+) -&gt; <span class="ident">i32</span> {
     <span class="macro">trace!</span>(
         <span class="string">&quot;emscripten::_pthread_attr_getstack({}, {}, {})&quot;</span>,
         <span class="ident">_stackaddr</span>,
@@ -212,175 +224,175 @@
     <span class="number">0</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_attr_init</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_a</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_attr_init</span>(<span class="kw-2">mut</span> <span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">_a</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">trace!</span>(<span class="string">&quot;emscripten::_pthread_attr_init({})&quot;</span>, <span class="ident">_a</span>);
     <span class="number">0</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_attr_setstacksize</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_a</span>: <span class="ident">i32</span>, <span class="ident">_b</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_attr_setstacksize</span>(<span class="kw-2">mut</span> <span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">_a</span>: <span class="ident">i32</span>, <span class="ident">_b</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">trace!</span>(<span class="string">&quot;emscripten::_pthread_attr_setstacksize&quot;</span>);
     <span class="number">0</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_cleanup_pop</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_a</span>: <span class="ident">i32</span>) {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_cleanup_pop</span>(<span class="kw-2">mut</span> <span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">_a</span>: <span class="ident">i32</span>) {
     <span class="macro">trace!</span>(<span class="string">&quot;emscripten::_pthread_cleanup_pop&quot;</span>);
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_cleanup_push</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_a</span>: <span class="ident">i32</span>, <span class="ident">_b</span>: <span class="ident">i32</span>) {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_cleanup_push</span>(<span class="kw-2">mut</span> <span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">_a</span>: <span class="ident">i32</span>, <span class="ident">_b</span>: <span class="ident">i32</span>) {
     <span class="macro">trace!</span>(<span class="string">&quot;emscripten::_pthread_cleanup_push&quot;</span>);
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_cond_destroy</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_a</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_cond_destroy</span>(<span class="kw-2">mut</span> <span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">_a</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">trace!</span>(<span class="string">&quot;emscripten::_pthread_cond_destroy&quot;</span>);
     <span class="number">0</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_cond_init</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_a</span>: <span class="ident">i32</span>, <span class="ident">_b</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_cond_init</span>(<span class="kw-2">mut</span> <span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">_a</span>: <span class="ident">i32</span>, <span class="ident">_b</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">trace!</span>(<span class="string">&quot;emscripten::_pthread_cond_init&quot;</span>);
     <span class="number">0</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_cond_signal</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_a</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_cond_signal</span>(<span class="kw-2">mut</span> <span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">_a</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">trace!</span>(<span class="string">&quot;emscripten::_pthread_cond_signal&quot;</span>);
     <span class="number">0</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_cond_timedwait</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_a</span>: <span class="ident">i32</span>, <span class="ident">_b</span>: <span class="ident">i32</span>, <span class="ident">_c</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_cond_timedwait</span>(<span class="kw-2">mut</span> <span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">_a</span>: <span class="ident">i32</span>, <span class="ident">_b</span>: <span class="ident">i32</span>, <span class="ident">_c</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">trace!</span>(<span class="string">&quot;emscripten::_pthread_cond_timedwait&quot;</span>);
     <span class="number">0</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_cond_wait</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_a</span>: <span class="ident">i32</span>, <span class="ident">_b</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_cond_wait</span>(<span class="kw-2">mut</span> <span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">_a</span>: <span class="ident">i32</span>, <span class="ident">_b</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">trace!</span>(<span class="string">&quot;emscripten::_pthread_cond_wait&quot;</span>);
     <span class="number">0</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_condattr_destroy</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_a</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_condattr_destroy</span>(<span class="kw-2">mut</span> <span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">_a</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">trace!</span>(<span class="string">&quot;emscripten::_pthread_condattr_destroy&quot;</span>);
     <span class="number">0</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_condattr_init</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_a</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_condattr_init</span>(<span class="kw-2">mut</span> <span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">_a</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">trace!</span>(<span class="string">&quot;emscripten::_pthread_condattr_init&quot;</span>);
     <span class="number">0</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_condattr_setclock</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_a</span>: <span class="ident">i32</span>, <span class="ident">_b</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_condattr_setclock</span>(<span class="kw-2">mut</span> <span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">_a</span>: <span class="ident">i32</span>, <span class="ident">_b</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">trace!</span>(<span class="string">&quot;emscripten::_pthread_condattr_setclock&quot;</span>);
     <span class="number">0</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_create</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_a</span>: <span class="ident">i32</span>, <span class="ident">_b</span>: <span class="ident">i32</span>, <span class="ident">_c</span>: <span class="ident">i32</span>, <span class="ident">_d</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_create</span>(<span class="kw-2">mut</span> <span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">_a</span>: <span class="ident">i32</span>, <span class="ident">_b</span>: <span class="ident">i32</span>, <span class="ident">_c</span>: <span class="ident">i32</span>, <span class="ident">_d</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">trace!</span>(<span class="string">&quot;emscripten::_pthread_create&quot;</span>);
     <span class="comment">// 11 seems to mean &quot;no&quot;</span>
     <span class="number">11</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_detach</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_a</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_detach</span>(<span class="kw-2">mut</span> <span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">_a</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">trace!</span>(<span class="string">&quot;emscripten::_pthread_detach&quot;</span>);
     <span class="number">0</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_equal</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_a</span>: <span class="ident">i32</span>, <span class="ident">_b</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_equal</span>(<span class="kw-2">mut</span> <span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">_a</span>: <span class="ident">i32</span>, <span class="ident">_b</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">trace!</span>(<span class="string">&quot;emscripten::_pthread_equal&quot;</span>);
     <span class="number">0</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_exit</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_a</span>: <span class="ident">i32</span>) {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_exit</span>(<span class="kw-2">mut</span> <span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">_a</span>: <span class="ident">i32</span>) {
     <span class="macro">trace!</span>(<span class="string">&quot;emscripten::_pthread_exit&quot;</span>);
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_getattr_np</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_thread</span>: <span class="ident">i32</span>, <span class="ident">_attr</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_getattr_np</span>(<span class="kw-2">mut</span> <span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">_thread</span>: <span class="ident">i32</span>, <span class="ident">_attr</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">trace!</span>(<span class="string">&quot;emscripten::_pthread_getattr_np({}, {})&quot;</span>, <span class="ident">_thread</span>, <span class="ident">_attr</span>);
     <span class="number">0</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_getspecific</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_a</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_getspecific</span>(<span class="kw-2">mut</span> <span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">_a</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">trace!</span>(<span class="string">&quot;emscripten::_pthread_getspecific&quot;</span>);
     <span class="number">0</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_join</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_a</span>: <span class="ident">i32</span>, <span class="ident">_b</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_join</span>(<span class="kw-2">mut</span> <span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">_a</span>: <span class="ident">i32</span>, <span class="ident">_b</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">trace!</span>(<span class="string">&quot;emscripten::_pthread_join&quot;</span>);
     <span class="number">0</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_self</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>) -&gt; <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_self</span>(<span class="kw-2">mut</span> <span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">trace!</span>(<span class="string">&quot;emscripten::_pthread_self&quot;</span>);
     <span class="number">0</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_key_create</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_a</span>: <span class="ident">i32</span>, <span class="ident">_b</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_key_create</span>(<span class="kw-2">mut</span> <span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">_a</span>: <span class="ident">i32</span>, <span class="ident">_b</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">trace!</span>(<span class="string">&quot;emscripten::_pthread_key_create&quot;</span>);
     <span class="number">0</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_mutex_destroy</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_a</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_mutex_destroy</span>(<span class="kw-2">mut</span> <span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">_a</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">trace!</span>(<span class="string">&quot;emscripten::_pthread_mutex_destroy&quot;</span>);
     <span class="number">0</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_mutex_init</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_a</span>: <span class="ident">i32</span>, <span class="ident">_b</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_mutex_init</span>(<span class="kw-2">mut</span> <span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">_a</span>: <span class="ident">i32</span>, <span class="ident">_b</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">trace!</span>(<span class="string">&quot;emscripten::_pthread_mutex_init&quot;</span>);
     <span class="number">0</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_mutexattr_destroy</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_a</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_mutexattr_destroy</span>(<span class="kw-2">mut</span> <span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">_a</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">trace!</span>(<span class="string">&quot;emscripten::_pthread_mutexattr_destroy&quot;</span>);
     <span class="number">0</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_mutexattr_init</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_a</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_mutexattr_init</span>(<span class="kw-2">mut</span> <span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">_a</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">trace!</span>(<span class="string">&quot;emscripten::_pthread_mutexattr_init&quot;</span>);
     <span class="number">0</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_mutexattr_settype</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_a</span>: <span class="ident">i32</span>, <span class="ident">_b</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_mutexattr_settype</span>(<span class="kw-2">mut</span> <span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">_a</span>: <span class="ident">i32</span>, <span class="ident">_b</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">trace!</span>(<span class="string">&quot;emscripten::_pthread_mutexattr_settype&quot;</span>);
     <span class="number">0</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_once</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_a</span>: <span class="ident">i32</span>, <span class="ident">_b</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_once</span>(<span class="kw-2">mut</span> <span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">_a</span>: <span class="ident">i32</span>, <span class="ident">_b</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">trace!</span>(<span class="string">&quot;emscripten::_pthread_once&quot;</span>);
     <span class="number">0</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_rwlock_destroy</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_rwlock</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_rwlock_destroy</span>(<span class="kw-2">mut</span> <span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">_rwlock</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">trace!</span>(<span class="string">&quot;emscripten::_pthread_rwlock_destroy({})&quot;</span>, <span class="ident">_rwlock</span>);
     <span class="number">0</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_rwlock_init</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_rwlock</span>: <span class="ident">i32</span>, <span class="ident">_attr</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_rwlock_init</span>(<span class="kw-2">mut</span> <span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">_rwlock</span>: <span class="ident">i32</span>, <span class="ident">_attr</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">trace!</span>(<span class="string">&quot;emscripten::_pthread_rwlock_init({}, {})&quot;</span>, <span class="ident">_rwlock</span>, <span class="ident">_attr</span>);
     <span class="number">0</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_rwlock_rdlock</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_a</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_rwlock_rdlock</span>(<span class="kw-2">mut</span> <span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">_a</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">trace!</span>(<span class="string">&quot;emscripten::_pthread_rwlock_rdlock&quot;</span>);
     <span class="number">0</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_rwlock_unlock</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_a</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_rwlock_unlock</span>(<span class="kw-2">mut</span> <span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">_a</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">trace!</span>(<span class="string">&quot;emscripten::_pthread_rwlock_unlock&quot;</span>);
     <span class="number">0</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_rwlock_wrlock</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_rwlock</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_rwlock_wrlock</span>(<span class="kw-2">mut</span> <span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">_rwlock</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">trace!</span>(<span class="string">&quot;emscripten::_pthread_rwlock_wrlock({})&quot;</span>, <span class="ident">_rwlock</span>);
     <span class="number">0</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_setcancelstate</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_a</span>: <span class="ident">i32</span>, <span class="ident">_b</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_setcancelstate</span>(<span class="kw-2">mut</span> <span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">_a</span>: <span class="ident">i32</span>, <span class="ident">_b</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">trace!</span>(<span class="string">&quot;emscripten::_pthread_setcancelstate&quot;</span>);
     <span class="number">0</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_setspecific</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_a</span>: <span class="ident">i32</span>, <span class="ident">_b</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_setspecific</span>(<span class="kw-2">mut</span> <span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">_a</span>: <span class="ident">i32</span>, <span class="ident">_b</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">trace!</span>(<span class="string">&quot;emscripten::_pthread_setspecific&quot;</span>);
     <span class="number">0</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_sigmask</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_a</span>: <span class="ident">i32</span>, <span class="ident">_b</span>: <span class="ident">i32</span>, <span class="ident">_c</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pthread_sigmask</span>(<span class="kw-2">mut</span> <span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">_a</span>: <span class="ident">i32</span>, <span class="ident">_b</span>: <span class="ident">i32</span>, <span class="ident">_c</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">trace!</span>(<span class="string">&quot;emscripten::_pthread_sigmask&quot;</span>);
     <span class="number">0</span>
 }

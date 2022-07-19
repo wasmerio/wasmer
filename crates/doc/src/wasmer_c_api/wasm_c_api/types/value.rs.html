@@ -99,7 +99,7 @@
 <span id="97">97</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">super</span>::<span class="kw">super</span>::value::wasm_valkind_t</span>;
 <span class="kw">use</span> <span class="ident">std::convert::TryInto</span>;
-<span class="kw">use</span> <span class="ident">wasmer_api::ValType</span>;
+<span class="kw">use</span> <span class="ident">wasmer_api::Type</span>;
 
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">non_camel_case_types</span>)]</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
@@ -113,30 +113,30 @@
     <span class="ident">WASM_FUNCREF</span> <span class="op">=</span> <span class="number">129</span>,
 }
 
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">ValType</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">wasm_valkind_enum</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">other</span>: <span class="ident">ValType</span>) -&gt; <span class="self">Self</span> {
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Type</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">wasm_valkind_enum</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">other</span>: <span class="ident">Type</span>) -&gt; <span class="self">Self</span> {
         <span class="kw">match</span> <span class="ident">other</span> {
-            <span class="ident">ValType::I32</span> =&gt; <span class="ident"><span class="self">Self</span>::WASM_I32</span>,
-            <span class="ident">ValType::I64</span> =&gt; <span class="ident"><span class="self">Self</span>::WASM_I64</span>,
-            <span class="ident">ValType::F32</span> =&gt; <span class="ident"><span class="self">Self</span>::WASM_F32</span>,
-            <span class="ident">ValType::F64</span> =&gt; <span class="ident"><span class="self">Self</span>::WASM_F64</span>,
-            <span class="ident">ValType::V128</span> =&gt; <span class="macro">todo!</span>(<span class="string">&quot;no v128 type in Wasm C API yet!&quot;</span>),
-            <span class="ident">ValType::ExternRef</span> =&gt; <span class="ident"><span class="self">Self</span>::WASM_ANYREF</span>,
-            <span class="ident">ValType::FuncRef</span> =&gt; <span class="ident"><span class="self">Self</span>::WASM_FUNCREF</span>,
+            <span class="ident">Type::I32</span> =&gt; <span class="ident"><span class="self">Self</span>::WASM_I32</span>,
+            <span class="ident">Type::I64</span> =&gt; <span class="ident"><span class="self">Self</span>::WASM_I64</span>,
+            <span class="ident">Type::F32</span> =&gt; <span class="ident"><span class="self">Self</span>::WASM_F32</span>,
+            <span class="ident">Type::F64</span> =&gt; <span class="ident"><span class="self">Self</span>::WASM_F64</span>,
+            <span class="ident">Type::V128</span> =&gt; <span class="macro">todo!</span>(<span class="string">&quot;no v128 type in Wasm C API yet!&quot;</span>),
+            <span class="ident">Type::ExternRef</span> =&gt; <span class="ident"><span class="self">Self</span>::WASM_ANYREF</span>,
+            <span class="ident">Type::FuncRef</span> =&gt; <span class="ident"><span class="self">Self</span>::WASM_FUNCREF</span>,
         }
     }
 }
 
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">wasm_valkind_enum</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">ValType</span> {
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">wasm_valkind_enum</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Type</span> {
     <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">other</span>: <span class="ident">wasm_valkind_enum</span>) -&gt; <span class="self">Self</span> {
         <span class="kw">use</span> <span class="ident">wasm_valkind_enum</span>::<span class="kw-2">*</span>;
         <span class="kw">match</span> <span class="ident">other</span> {
-            <span class="ident">WASM_I32</span> =&gt; <span class="ident">ValType::I32</span>,
-            <span class="ident">WASM_I64</span> =&gt; <span class="ident">ValType::I64</span>,
-            <span class="ident">WASM_F32</span> =&gt; <span class="ident">ValType::F32</span>,
-            <span class="ident">WASM_F64</span> =&gt; <span class="ident">ValType::F64</span>,
-            <span class="ident">WASM_ANYREF</span> =&gt; <span class="ident">ValType::ExternRef</span>,
-            <span class="ident">WASM_FUNCREF</span> =&gt; <span class="ident">ValType::FuncRef</span>,
+            <span class="ident">WASM_I32</span> =&gt; <span class="ident">Type::I32</span>,
+            <span class="ident">WASM_I64</span> =&gt; <span class="ident">Type::I64</span>,
+            <span class="ident">WASM_F32</span> =&gt; <span class="ident">Type::F32</span>,
+            <span class="ident">WASM_F64</span> =&gt; <span class="ident">Type::F64</span>,
+            <span class="ident">WASM_ANYREF</span> =&gt; <span class="ident">Type::ExternRef</span>,
+            <span class="ident">WASM_FUNCREF</span> =&gt; <span class="ident">Type::FuncRef</span>,
         }
     }
 }
@@ -157,20 +157,20 @@
 
 <span class="macro">wasm_declare_boxed_vec!</span>(<span class="ident">valtype</span>);
 
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">wasm_valtype_t</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">ValType</span> {
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">wasm_valtype_t</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Type</span> {
     <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">other</span>: <span class="ident">wasm_valtype_t</span>) -&gt; <span class="self">Self</span> {
         (<span class="kw-2">&amp;</span><span class="ident">other</span>).<span class="ident">into</span>()
     }
 }
 
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">wasm_valtype_t</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">ValType</span> {
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">wasm_valtype_t</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Type</span> {
     <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">other</span>: <span class="kw-2">&amp;</span><span class="ident">wasm_valtype_t</span>) -&gt; <span class="self">Self</span> {
         <span class="ident">other</span>.<span class="ident">valkind</span>.<span class="ident">into</span>()
     }
 }
 
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">ValType</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">wasm_valtype_t</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">other</span>: <span class="ident">ValType</span>) -&gt; <span class="self">Self</span> {
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Type</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">wasm_valtype_t</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">other</span>: <span class="ident">Type</span>) -&gt; <span class="self">Self</span> {
         <span class="self">Self</span> {
             <span class="ident">valkind</span>: <span class="ident">other</span>.<span class="ident">into</span>(),
         }

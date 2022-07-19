@@ -671,11 +671,15 @@
 <span id="669">669</span>
 <span id="670">670</span>
 <span id="671">671</span>
+<span id="672">672</span>
+<span id="673">673</span>
+<span id="674">674</span>
+<span id="675">675</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Builder system for configuring a [`WasiState`] and creating it.</span>
 
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::state</span>::{<span class="ident">default_fs_backing</span>, <span class="ident">WasiFs</span>, <span class="ident">WasiState</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::syscalls::types</span>::{<span class="ident">__WASI_STDERR_FILENO</span>, <span class="ident">__WASI_STDIN_FILENO</span>, <span class="ident">__WASI_STDOUT_FILENO</span>};
-<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">WasiEnv</span>, <span class="ident">WasiInodes</span>};
+<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">WasiEnv</span>, <span class="ident">WasiFunctionEnv</span>, <span class="ident">WasiInodes</span>};
 <span class="kw">use</span> <span class="ident">generational_arena::Arena</span>;
 <span class="kw">use</span> <span class="ident">std::collections::HashMap</span>;
 <span class="kw">use</span> <span class="ident">std::ops</span>::{<span class="ident">Deref</span>, <span class="ident">DerefMut</span>};
@@ -683,6 +687,7 @@
 <span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
 <span class="kw">use</span> <span class="ident">std::sync::RwLock</span>;
 <span class="kw">use</span> <span class="ident">thiserror::Error</span>;
+<span class="kw">use</span> <span class="ident">wasmer::AsStoreMut</span>;
 <span class="kw">use</span> <span class="ident">wasmer_vfs</span>::{<span class="ident">FsError</span>, <span class="ident">VirtualFile</span>};
 
 <span class="doccomment">/// Creates an empty [`WasiStateBuilder`].</span>
@@ -1166,14 +1171,17 @@
     <span class="doccomment">/// determinisic result. This method is calling [Self::build],</span>
     <span class="doccomment">/// which is changing the builder&#39;s internal state. See</span>
     <span class="doccomment">/// [Self::build]&#39;s documentation to learn more.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">finalize</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">WasiEnv</span>, <span class="ident">WasiStateCreationError</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">finalize</span>(
+        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
+        <span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>,
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">WasiFunctionEnv</span>, <span class="ident">WasiStateCreationError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">build</span>()<span class="question-mark">?</span>;
 
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">env</span> <span class="op">=</span> <span class="ident">WasiEnv::new</span>(<span class="ident">state</span>);
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">runtime</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">runtime_override</span>.<span class="ident">as_ref</span>() {
             <span class="ident">env</span>.<span class="ident">runtime</span> <span class="op">=</span> <span class="ident">runtime</span>.<span class="ident">clone</span>();
         }
-        <span class="prelude-val">Ok</span>(<span class="ident">env</span>)
+        <span class="prelude-val">Ok</span>(<span class="ident">WasiFunctionEnv::new</span>(<span class="ident">store</span>, <span class="ident">env</span>))
     }
 }
 

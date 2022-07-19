@@ -123,6 +123,33 @@
 <span id="121">121</span>
 <span id="122">122</span>
 <span id="123">123</span>
+<span id="124">124</span>
+<span id="125">125</span>
+<span id="126">126</span>
+<span id="127">127</span>
+<span id="128">128</span>
+<span id="129">129</span>
+<span id="130">130</span>
+<span id="131">131</span>
+<span id="132">132</span>
+<span id="133">133</span>
+<span id="134">134</span>
+<span id="135">135</span>
+<span id="136">136</span>
+<span id="137">137</span>
+<span id="138">138</span>
+<span id="139">139</span>
+<span id="140">140</span>
+<span id="141">141</span>
+<span id="142">142</span>
+<span id="143">143</span>
+<span id="144">144</span>
+<span id="145">145</span>
+<span id="146">146</span>
+<span id="147">147</span>
+<span id="148">148</span>
+<span id="149">149</span>
+<span id="150">150</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Runtime library support for Wasmer.</span>
 
 <span class="attribute">#![<span class="ident">deny</span>(<span class="ident">missing_docs</span>, <span class="ident">trivial_numeric_casts</span>, <span class="ident">unused_extern_crates</span>)]</span>
@@ -146,7 +173,8 @@
 )]</span>
 
 <span class="kw">mod</span> <span class="ident">export</span>;
-<span class="kw">mod</span> <span class="ident">func_data_registry</span>;
+<span class="kw">mod</span> <span class="ident">extern_ref</span>;
+<span class="kw">mod</span> <span class="ident">function_env</span>;
 <span class="kw">mod</span> <span class="ident">global</span>;
 <span class="kw">mod</span> <span class="ident">imports</span>;
 <span class="kw">mod</span> <span class="ident">instance</span>;
@@ -154,35 +182,39 @@
 <span class="kw">mod</span> <span class="ident">mmap</span>;
 <span class="kw">mod</span> <span class="ident">probestack</span>;
 <span class="kw">mod</span> <span class="ident">sig_registry</span>;
+<span class="kw">mod</span> <span class="ident">store</span>;
 <span class="kw">mod</span> <span class="ident">table</span>;
 <span class="kw">mod</span> <span class="ident">trap</span>;
 <span class="kw">mod</span> <span class="ident">vmcontext</span>;
 
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">libcalls</span>;
 
+<span class="kw">use</span> <span class="ident">std::ptr::NonNull</span>;
+
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::export</span>::<span class="kw-2">*</span>;
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::func_data_registry</span>::{<span class="ident">FuncDataRegistry</span>, <span class="ident">VMFuncRef</span>};
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::extern_ref</span>::{<span class="ident">VMExternObj</span>, <span class="ident">VMExternRef</span>};
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::function_env::VMFunctionEnvironment</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::global</span>::<span class="kw-2">*</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::imports::Imports</span>;
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::instance</span>::{
-    <span class="ident">ImportFunctionEnv</span>, <span class="ident">ImportInitializerFuncPtr</span>, <span class="ident">InstanceAllocator</span>, <span class="ident">InstanceHandle</span>,
-    <span class="ident">WeakOrStrongInstanceRef</span>,
-};
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::memory</span>::{<span class="ident">LinearMemory</span>, <span class="ident">Memory</span>, <span class="ident">MemoryError</span>};
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::instance</span>::{<span class="ident">InstanceAllocator</span>, <span class="ident">InstanceHandle</span>};
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::memory</span>::{<span class="ident">MemoryError</span>, <span class="ident">VMMemory</span>};
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::mmap::Mmap</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::probestack::PROBESTACK</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sig_registry::SignatureRegistry</span>;
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::table</span>::{<span class="ident">LinearTable</span>, <span class="ident">Table</span>, <span class="ident">TableElement</span>};
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::store</span>::{
+    <span class="ident">InternalStoreHandle</span>, <span class="ident">MaybeInstanceOwned</span>, <span class="ident">StoreHandle</span>, <span class="ident">StoreId</span>, <span class="ident">StoreObjects</span>,
+};
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::table</span>::{<span class="ident">TableElement</span>, <span class="ident">VMTable</span>};
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::trap</span>::<span class="kw-2">*</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::vmcontext</span>::{
-    <span class="ident">VMCallerCheckedAnyfunc</span>, <span class="ident">VMContext</span>, <span class="ident">VMDynamicFunctionContext</span>, <span class="ident">VMFunctionEnvironment</span>,
+    <span class="ident">VMCallerCheckedAnyfunc</span>, <span class="ident">VMContext</span>, <span class="ident">VMDynamicFunctionContext</span>, <span class="ident">VMFunctionContext</span>,
     <span class="ident">VMFunctionImport</span>, <span class="ident">VMFunctionKind</span>, <span class="ident">VMGlobalDefinition</span>, <span class="ident">VMGlobalImport</span>, <span class="ident">VMMemoryDefinition</span>,
     <span class="ident">VMMemoryImport</span>, <span class="ident">VMSharedSignatureIndex</span>, <span class="ident">VMTableDefinition</span>, <span class="ident">VMTableImport</span>, <span class="ident">VMTrampoline</span>,
 };
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_types::LibCall</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_types::MemoryStyle</span>;
+<span class="kw">use</span> <span class="ident">wasmer_types::RawValue</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_types::TableStyle</span>;
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_types::VMExternRef</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">TargetSharedSignatureIndex</span>, <span class="ident">VMBuiltinFunctionIndex</span>, <span class="ident">VMOffsets</span>};
 
 <span class="attribute">#[<span class="ident">deprecated</span>(
@@ -246,6 +278,28 @@
 <span class="doccomment">/// The VMFunctionBody that this points to is opaque, so there&#39;s no data to</span>
 <span class="doccomment">/// read or write through this pointer. This is essentially a usize.</span>
 <span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">Sync</span> <span class="kw">for</span> <span class="ident">FunctionBodyPtr</span> {}
+
+<span class="doccomment">/// A function reference. A single word that points to metadata about a function.</span>
+<span class="attribute">#[<span class="ident">repr</span>(<span class="ident">transparent</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>)]</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">VMFuncRef</span>(<span class="kw">pub</span> <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">VMCallerCheckedAnyfunc</span><span class="op">&gt;</span>);
+
+<span class="kw">impl</span> <span class="ident">VMFuncRef</span> {
+    <span class="doccomment">/// Converts the `VMFuncRef` into a `RawValue`.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">into_raw</span>(<span class="self">self</span>) -&gt; <span class="ident">RawValue</span> {
+        <span class="ident">RawValue</span> {
+            <span class="ident">funcref</span>: <span class="self">self</span>.<span class="number">0</span>.<span class="ident">as_ptr</span>() <span class="kw">as</span> <span class="ident">usize</span>,
+        }
+    }
+
+    <span class="doccomment">/// Extracts a `VMFuncRef` from a `RawValue`.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// # Safety</span>
+    <span class="doccomment">/// `raw.funcref` must be a valid pointer.</span>
+    <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_raw</span>(<span class="ident">raw</span>: <span class="ident">RawValue</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
+        <span class="ident">NonNull::new</span>(<span class="ident">raw</span>.<span class="ident">funcref</span> <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">VMCallerCheckedAnyfunc</span>).<span class="ident">map</span>(<span class="self">Self</span>)
+    }
+}
 </code></pre></div>
 </section><section id="search" class="content hidden"></section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_vm" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.59.0 (9d1b2106e 2022-02-23)" ></div>
 </body></html>

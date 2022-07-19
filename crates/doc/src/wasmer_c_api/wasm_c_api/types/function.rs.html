@@ -112,9 +112,11 @@
 <span id="110">110</span>
 <span id="111">111</span>
 <span id="112">112</span>
+<span id="113">113</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">wasm_externtype_t</span>, <span class="ident">wasm_valtype_vec_t</span>, <span class="ident">WasmExternType</span>};
 <span class="kw">use</span> <span class="ident">std::fmt</span>;
-<span class="kw">use</span> <span class="ident">wasmer_api</span>::{<span class="ident">ExternType</span>, <span class="ident">FunctionType</span>, <span class="ident">ValType</span>};
+<span class="kw">use</span> <span class="ident">wasmer_api</span>::{<span class="ident">ExternType</span>, <span class="ident">FunctionType</span>};
+<span class="kw">use</span> <span class="ident">wasmer_types::Type</span>;
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct</span> <span class="ident">WasmFunctionType</span> {
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">function_type</span>: <span class="ident">FunctionType</span>,
@@ -190,12 +192,12 @@
     <span class="kw">let</span> <span class="ident">params</span> <span class="op">=</span> <span class="ident">params</span><span class="question-mark">?</span>;
     <span class="kw">let</span> <span class="ident">results</span> <span class="op">=</span> <span class="ident">results</span><span class="question-mark">?</span>;
 
-    <span class="kw">let</span> <span class="ident">params_as_valtype</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">ValType</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">params</span>
+    <span class="kw">let</span> <span class="ident">params_as_valtype</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Type</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">params</span>
         .<span class="ident">take</span>()
         .<span class="ident">into_iter</span>()
         .<span class="ident">map</span>(<span class="op">|</span><span class="ident">val</span><span class="op">|</span> <span class="ident">val</span>.<span class="ident">as_ref</span>().<span class="ident">unwrap</span>().<span class="ident">as_ref</span>().<span class="ident">into</span>())
         .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
-    <span class="kw">let</span> <span class="ident">results_as_valtype</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">ValType</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">results</span>
+    <span class="kw">let</span> <span class="ident">results_as_valtype</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Type</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">results</span>
         .<span class="ident">take</span>()
         .<span class="ident">into_iter</span>()
         .<span class="ident">map</span>(<span class="op">|</span><span class="ident">val</span><span class="op">|</span> <span class="ident">val</span>.<span class="ident">as_ref</span>().<span class="ident">unwrap</span>().<span class="ident">as_ref</span>().<span class="ident">into</span>())

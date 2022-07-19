@@ -340,119 +340,262 @@
 <span id="338">338</span>
 <span id="339">339</span>
 <span id="340">340</span>
-<span id="341">341</span>
-<span id="342">342</span>
-<span id="343">343</span>
-<span id="344">344</span>
-<span id="345">345</span>
-<span id="346">346</span>
-<span id="347">347</span>
-<span id="348">348</span>
-<span id="349">349</span>
-<span id="350">350</span>
-<span id="351">351</span>
-<span id="352">352</span>
-<span id="353">353</span>
-<span id="354">354</span>
-<span id="355">355</span>
-<span id="356">356</span>
-<span id="357">357</span>
-<span id="358">358</span>
-<span id="359">359</span>
-<span id="360">360</span>
-<span id="361">361</span>
-<span id="362">362</span>
-<span id="363">363</span>
-<span id="364">364</span>
-<span id="365">365</span>
-<span id="366">366</span>
-<span id="367">367</span>
-<span id="368">368</span>
-<span id="369">369</span>
-<span id="370">370</span>
-<span id="371">371</span>
-<span id="372">372</span>
-<span id="373">373</span>
-<span id="374">374</span>
-<span id="375">375</span>
-<span id="376">376</span>
-<span id="377">377</span>
-<span id="378">378</span>
-<span id="379">379</span>
-<span id="380">380</span>
-<span id="381">381</span>
-<span id="382">382</span>
-<span id="383">383</span>
-<span id="384">384</span>
-<span id="385">385</span>
-<span id="386">386</span>
-<span id="387">387</span>
-<span id="388">388</span>
-<span id="389">389</span>
-<span id="390">390</span>
-<span id="391">391</span>
-<span id="392">392</span>
-<span id="393">393</span>
-<span id="394">394</span>
-<span id="395">395</span>
-<span id="396">396</span>
-<span id="397">397</span>
-<span id="398">398</span>
-<span id="399">399</span>
-<span id="400">400</span>
-<span id="401">401</span>
-<span id="402">402</span>
-<span id="403">403</span>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
 
 <span class="doccomment">//! Memory management for tables.</span>
 <span class="doccomment">//!</span>
-<span class="doccomment">//! `Table` is to WebAssembly tables what `LinearMemory` is to WebAssembly linear memories.</span>
+<span class="doccomment">//! `Table` is to WebAssembly tables what `Memory` is to WebAssembly linear memories.</span>
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::func_data_registry::VMFuncRef</span>;
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::store::MaybeInstanceOwned</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::vmcontext::VMTableDefinition</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::Trap</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::VMExternRef</span>;
-<span class="kw">use</span> <span class="ident">std::borrow</span>::{<span class="ident">Borrow</span>, <span class="ident">BorrowMut</span>};
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::VMFuncRef</span>;
 <span class="kw">use</span> <span class="ident">std::cell::UnsafeCell</span>;
 <span class="kw">use</span> <span class="ident">std::convert::TryFrom</span>;
 <span class="kw">use</span> <span class="ident">std::fmt</span>;
 <span class="kw">use</span> <span class="ident">std::ptr::NonNull</span>;
-<span class="kw">use</span> <span class="ident">std::sync::Mutex</span>;
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">ExternRef</span>, <span class="ident">TableStyle</span>, <span class="ident">TableType</span>, <span class="ident">TrapCode</span>, <span class="ident">Type</span> <span class="kw">as</span> <span class="ident">ValType</span>};
+<span class="kw">use</span> <span class="ident">wasmer_types::TableStyle</span>;
+<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">TableType</span>, <span class="ident">TrapCode</span>, <span class="ident">Type</span> <span class="kw">as</span> <span class="ident">ValType</span>};
 
-<span class="doccomment">/// Trait for implementing the interface of a Wasm table.</span>
-<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">Table</span>: <span class="ident">fmt::Debug</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> {
-    <span class="doccomment">/// Returns the style for this Table.</span>
-    <span class="kw">fn</span> <span class="ident">style</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">TableStyle</span>;
+<span class="doccomment">/// A reference stored in a table. Can be either an externref or a funcref.</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
+<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">TableElement</span> {
+    <span class="doccomment">/// Opaque pointer to arbitrary host data.</span>
+    <span class="ident">ExternRef</span>(<span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">VMExternRef</span><span class="op">&gt;</span>),
+    <span class="doccomment">/// Pointer to function: contains enough information to call it.</span>
+    <span class="ident">FuncRef</span>(<span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">VMFuncRef</span><span class="op">&gt;</span>),
+}
+
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">TableElement</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">RawTableElement</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">other</span>: <span class="ident">TableElement</span>) -&gt; <span class="self">Self</span> {
+        <span class="kw">match</span> <span class="ident">other</span> {
+            <span class="ident">TableElement::ExternRef</span>(<span class="ident">extern_ref</span>) =&gt; <span class="self">Self</span> { <span class="ident">extern_ref</span> },
+            <span class="ident">TableElement::FuncRef</span>(<span class="ident">func_ref</span>) =&gt; <span class="self">Self</span> { <span class="ident">func_ref</span> },
+        }
+    }
+}
+
+<span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Copy</span>)]</span>
+<span class="kw">pub</span> <span class="kw">union</span> <span class="ident">RawTableElement</span> {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">extern_ref</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">VMExternRef</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">func_ref</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">VMFuncRef</span><span class="op">&gt;</span>,
+}
+
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
+<span class="attribute">#[<span class="ident">test</span>]</span>
+<span class="kw">fn</span> <span class="ident">table_element_size_test</span>() {
+    <span class="kw">use</span> <span class="ident">std::mem::size_of</span>;
+    <span class="macro">assert_eq!</span>(<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">RawTableElement</span><span class="op">&gt;</span>(), <span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">VMExternRef</span><span class="op">&gt;</span>());
+    <span class="macro">assert_eq!</span>(<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">RawTableElement</span><span class="op">&gt;</span>(), <span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">VMFuncRef</span><span class="op">&gt;</span>());
+}
+
+<span class="kw">impl</span> <span class="ident">fmt::Debug</span> <span class="kw">for</span> <span class="ident">RawTableElement</span> {
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">fmt::Formatter</span>) -&gt; <span class="ident">fmt::Result</span> {
+        <span class="ident">f</span>.<span class="ident">debug_struct</span>(<span class="string">&quot;RawTableElement&quot;</span>).<span class="ident">finish</span>()
+    }
+}
+
+<span class="kw">impl</span> <span class="ident">Default</span> <span class="kw">for</span> <span class="ident">RawTableElement</span> {
+    <span class="kw">fn</span> <span class="ident">default</span>() -&gt; <span class="self">Self</span> {
+        <span class="self">Self</span> { <span class="ident">func_ref</span>: <span class="prelude-val">None</span> }
+    }
+}
+
+<span class="kw">impl</span> <span class="ident">Default</span> <span class="kw">for</span> <span class="ident">TableElement</span> {
+    <span class="kw">fn</span> <span class="ident">default</span>() -&gt; <span class="self">Self</span> {
+        <span class="ident"><span class="self">Self</span>::FuncRef</span>(<span class="prelude-val">None</span>)
+    }
+}
+
+<span class="doccomment">/// A table instance.</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">VMTable</span> {
+    <span class="ident">vec</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">RawTableElement</span><span class="op">&gt;</span>,
+    <span class="ident">maximum</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">u32</span><span class="op">&gt;</span>,
+    <span class="doccomment">/// The WebAssembly table description.</span>
+    <span class="ident">table</span>: <span class="ident">TableType</span>,
+    <span class="doccomment">/// Our chosen implementation style.</span>
+    <span class="ident">style</span>: <span class="ident">TableStyle</span>,
+    <span class="ident">vm_table_definition</span>: <span class="ident">MaybeInstanceOwned</span><span class="op">&lt;</span><span class="ident">VMTableDefinition</span><span class="op">&gt;</span>,
+}
+
+<span class="kw">impl</span> <span class="ident">VMTable</span> {
+    <span class="doccomment">/// Create a new linear table instance with specified minimum and maximum number of elements.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// This creates a `Table` with metadata owned by a VM, pointed to by</span>
+    <span class="doccomment">/// `vm_table_location`: this can be used to create a local table.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">table</span>: <span class="kw-2">&amp;</span><span class="ident">TableType</span>, <span class="ident">style</span>: <span class="kw-2">&amp;</span><span class="ident">TableStyle</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">String</span><span class="op">&gt;</span> {
+        <span class="kw">unsafe</span> { <span class="ident"><span class="self">Self</span>::new_inner</span>(<span class="ident">table</span>, <span class="ident">style</span>, <span class="prelude-val">None</span>) }
+    }
+
+    <span class="doccomment">/// Create a new linear table instance with specified minimum and maximum number of elements.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// This creates a `Table` with metadata owned by a VM, pointed to by</span>
+    <span class="doccomment">/// `vm_table_location`: this can be used to create a local table.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// # Safety</span>
+    <span class="doccomment">/// - `vm_table_location` must point to a valid location in VM memory.</span>
+    <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_definition</span>(
+        <span class="ident">table</span>: <span class="kw-2">&amp;</span><span class="ident">TableType</span>,
+        <span class="ident">style</span>: <span class="kw-2">&amp;</span><span class="ident">TableStyle</span>,
+        <span class="ident">vm_table_location</span>: <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">VMTableDefinition</span><span class="op">&gt;</span>,
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">String</span><span class="op">&gt;</span> {
+        <span class="ident"><span class="self">Self</span>::new_inner</span>(<span class="ident">table</span>, <span class="ident">style</span>, <span class="prelude-val">Some</span>(<span class="ident">vm_table_location</span>))
+    }
+
+    <span class="doccomment">/// Create a new `Table` with either self-owned or VM owned metadata.</span>
+    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">new_inner</span>(
+        <span class="ident">table</span>: <span class="kw-2">&amp;</span><span class="ident">TableType</span>,
+        <span class="ident">style</span>: <span class="kw-2">&amp;</span><span class="ident">TableStyle</span>,
+        <span class="ident">vm_table_location</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">VMTableDefinition</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">String</span><span class="op">&gt;</span> {
+        <span class="kw">match</span> <span class="ident">table</span>.<span class="ident">ty</span> {
+            <span class="ident">ValType::FuncRef</span> <span class="op">|</span> <span class="ident">ValType::ExternRef</span> =&gt; (),
+            <span class="ident">ty</span> =&gt; {
+                <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="macro">format!</span>(
+                    <span class="string">&quot;tables of types other than funcref or externref ({})&quot;</span>,
+                    <span class="ident">ty</span>
+                ))
+            }
+        };
+        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">max</span>) <span class="op">=</span> <span class="ident">table</span>.<span class="ident">maximum</span> {
+            <span class="kw">if</span> <span class="ident">max</span> <span class="op">&lt;</span> <span class="ident">table</span>.<span class="ident">minimum</span> {
+                <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="macro">format!</span>(
+                    <span class="string">&quot;Table minimum ({}) is larger than maximum ({})!&quot;</span>,
+                    <span class="ident">table</span>.<span class="ident">minimum</span>, <span class="ident">max</span>
+                ));
+            }
+        }
+        <span class="kw">let</span> <span class="ident">table_minimum</span> <span class="op">=</span> <span class="ident">usize::try_from</span>(<span class="ident">table</span>.<span class="ident">minimum</span>)
+            .<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="string">&quot;Table minimum is bigger than usize&quot;</span>.<span class="ident">to_string</span>())<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">vec</span> <span class="op">=</span> <span class="macro">vec!</span>[<span class="ident">RawTableElement::default</span>(); <span class="ident">table_minimum</span>];
+        <span class="kw">let</span> <span class="ident">base</span> <span class="op">=</span> <span class="ident">vec</span>.<span class="ident">as_mut_ptr</span>();
+        <span class="kw">match</span> <span class="ident">style</span> {
+            <span class="ident">TableStyle::CallerChecksSignature</span> =&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span> {
+                <span class="ident">vec</span>,
+                <span class="ident">maximum</span>: <span class="ident">table</span>.<span class="ident">maximum</span>,
+                <span class="ident">table</span>: <span class="kw-2">*</span><span class="ident">table</span>,
+                <span class="ident">style</span>: <span class="ident">style</span>.<span class="ident">clone</span>(),
+                <span class="ident">vm_table_definition</span>: <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">table_loc</span>) <span class="op">=</span> <span class="ident">vm_table_location</span> {
+                    {
+                        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">ptr</span> <span class="op">=</span> <span class="ident">table_loc</span>;
+                        <span class="kw">let</span> <span class="ident">td</span> <span class="op">=</span> <span class="ident">ptr</span>.<span class="ident">as_mut</span>();
+                        <span class="ident">td</span>.<span class="ident">base</span> <span class="op">=</span> <span class="ident">base</span> <span class="kw">as</span> <span class="kw">_</span>;
+                        <span class="ident">td</span>.<span class="ident">current_elements</span> <span class="op">=</span> <span class="ident">table_minimum</span> <span class="kw">as</span> <span class="kw">_</span>;
+                    }
+                    <span class="ident">MaybeInstanceOwned::Instance</span>(<span class="ident">table_loc</span>)
+                } <span class="kw">else</span> {
+                    <span class="ident">MaybeInstanceOwned::Host</span>(<span class="ident">Box::new</span>(<span class="ident">UnsafeCell::new</span>(<span class="ident">VMTableDefinition</span> {
+                        <span class="ident">base</span>: <span class="ident">base</span> <span class="kw">as</span> <span class="kw">_</span>,
+                        <span class="ident">current_elements</span>: <span class="ident">table_minimum</span> <span class="kw">as</span> <span class="kw">_</span>,
+                    })))
+                },
+            }),
+        }
+    }
+
+    <span class="doccomment">/// Get the `VMTableDefinition`.</span>
+    <span class="kw">fn</span> <span class="ident">get_vm_table_definition</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">VMTableDefinition</span><span class="op">&gt;</span> {
+        <span class="self">self</span>.<span class="ident">vm_table_definition</span>.<span class="ident">as_ptr</span>()
+    }
 
     <span class="doccomment">/// Returns the type for this Table.</span>
-    <span class="kw">fn</span> <span class="ident">ty</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">TableType</span>;
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">ty</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">TableType</span> {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">table</span>
+    }
+
+    <span class="doccomment">/// Returns the style for this Table.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">style</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">TableStyle</span> {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">style</span>
+    }
 
     <span class="doccomment">/// Returns the number of allocated elements.</span>
-    <span class="kw">fn</span> <span class="ident">size</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u32</span>;
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">size</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u32</span> {
+        <span class="comment">// TODO: investigate this function for race conditions</span>
+        <span class="kw">unsafe</span> {
+            <span class="kw">let</span> <span class="ident">td_ptr</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_vm_table_definition</span>();
+            <span class="kw">let</span> <span class="ident">td</span> <span class="op">=</span> <span class="ident">td_ptr</span>.<span class="ident">as_ref</span>();
+            <span class="ident">td</span>.<span class="ident">current_elements</span>
+        }
+    }
 
     <span class="doccomment">/// Grow table by the specified amount of elements.</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// Returns `None` if table can&#39;t be grown by the specified amount</span>
     <span class="doccomment">/// of elements, otherwise returns the previous size of the table.</span>
-    <span class="kw">fn</span> <span class="ident">grow</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">delta</span>: <span class="ident">u32</span>, <span class="ident">init_value</span>: <span class="ident">TableElement</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">u32</span><span class="op">&gt;</span>;
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">grow</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">delta</span>: <span class="ident">u32</span>, <span class="ident">init_value</span>: <span class="ident">TableElement</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">u32</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">size</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">size</span>();
+        <span class="kw">let</span> <span class="ident">new_len</span> <span class="op">=</span> <span class="ident">size</span>.<span class="ident">checked_add</span>(<span class="ident">delta</span>)<span class="question-mark">?</span>;
+        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">maximum</span>.<span class="ident">map_or</span>(<span class="bool-val">false</span>, <span class="op">|</span><span class="ident">max</span><span class="op">|</span> <span class="ident">new_len</span> <span class="op">&gt;</span> <span class="ident">max</span>) {
+            <span class="kw">return</span> <span class="prelude-val">None</span>;
+        }
+        <span class="kw">if</span> <span class="ident">new_len</span> <span class="op">==</span> <span class="ident">size</span> {
+            <span class="macro">debug_assert_eq!</span>(<span class="ident">delta</span>, <span class="number">0</span>);
+            <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">size</span>);
+        }
+
+        <span class="self">self</span>.<span class="ident">vec</span>
+            .<span class="ident">resize</span>(<span class="ident">usize::try_from</span>(<span class="ident">new_len</span>).<span class="ident">unwrap</span>(), <span class="ident">init_value</span>.<span class="ident">into</span>());
+
+        <span class="comment">// update table definition</span>
+        <span class="kw">unsafe</span> {
+            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">td_ptr</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_vm_table_definition</span>();
+            <span class="kw">let</span> <span class="ident">td</span> <span class="op">=</span> <span class="ident">td_ptr</span>.<span class="ident">as_mut</span>();
+            <span class="ident">td</span>.<span class="ident">current_elements</span> <span class="op">=</span> <span class="ident">new_len</span>;
+            <span class="ident">td</span>.<span class="ident">base</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">vec</span>.<span class="ident">as_mut_ptr</span>() <span class="kw">as</span> <span class="kw">_</span>;
+        }
+        <span class="prelude-val">Some</span>(<span class="ident">size</span>)
+    }
 
     <span class="doccomment">/// Get reference to the specified element.</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// Returns `None` if the index is out of bounds.</span>
-    <span class="kw">fn</span> <span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">index</span>: <span class="ident">u32</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">TableElement</span><span class="op">&gt;</span>;
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">index</span>: <span class="ident">u32</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">TableElement</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">raw_data</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">vec</span>.<span class="ident">get</span>(<span class="ident">index</span> <span class="kw">as</span> <span class="ident">usize</span>).<span class="ident">cloned</span>()<span class="question-mark">?</span>;
+        <span class="prelude-val">Some</span>(<span class="kw">match</span> <span class="self">self</span>.<span class="ident">table</span>.<span class="ident">ty</span> {
+            <span class="ident">ValType::ExternRef</span> =&gt; <span class="ident">TableElement::ExternRef</span>(<span class="kw">unsafe</span> { <span class="ident">raw_data</span>.<span class="ident">extern_ref</span> }),
+            <span class="ident">ValType::FuncRef</span> =&gt; <span class="ident">TableElement::FuncRef</span>(<span class="kw">unsafe</span> { <span class="ident">raw_data</span>.<span class="ident">func_ref</span> }),
+            <span class="kw">_</span> =&gt; <span class="macro">todo!</span>(<span class="string">&quot;getting invalid type from table, handle this error&quot;</span>),
+        })
+    }
 
     <span class="doccomment">/// Set reference to the specified element.</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// # Errors</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// Returns an error if the index is out of bounds.</span>
-    <span class="kw">fn</span> <span class="ident">set</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">index</span>: <span class="ident">u32</span>, <span class="ident">reference</span>: <span class="ident">TableElement</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Trap</span><span class="op">&gt;</span>;
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">index</span>: <span class="ident">u32</span>, <span class="ident">reference</span>: <span class="ident">TableElement</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Trap</span><span class="op">&gt;</span> {
+        <span class="kw">match</span> <span class="self">self</span>.<span class="ident">vec</span>.<span class="ident">get_mut</span>(<span class="ident">index</span> <span class="kw">as</span> <span class="ident">usize</span>) {
+            <span class="prelude-val">Some</span>(<span class="ident">slot</span>) =&gt; {
+                <span class="kw">match</span> (<span class="self">self</span>.<span class="ident">table</span>.<span class="ident">ty</span>, <span class="ident">reference</span>) {
+                    (<span class="ident">ValType::ExternRef</span>, <span class="ident">r</span> @ <span class="ident">TableElement::ExternRef</span>(<span class="kw">_</span>)) =&gt; {
+                        <span class="kw-2">*</span><span class="ident">slot</span> <span class="op">=</span> <span class="ident">r</span>.<span class="ident">into</span>();
+                    }
+                    (<span class="ident">ValType::FuncRef</span>, <span class="ident">r</span> @ <span class="ident">TableElement::FuncRef</span>(<span class="kw">_</span>)) =&gt; {
+                        <span class="kw-2">*</span><span class="ident">slot</span> <span class="op">=</span> <span class="ident">r</span>.<span class="ident">into</span>();
+                    }
+                    <span class="comment">// This path should never be hit by the generated code due to Wasm</span>
+                    <span class="comment">// validation.</span>
+                    (<span class="ident">ty</span>, <span class="ident">v</span>) =&gt; {
+                        <span class="macro">panic!</span>(
+                            <span class="string">&quot;Attempted to set a table of type {} with the value {:?}&quot;</span>,
+                            <span class="ident">ty</span>, <span class="ident">v</span>
+                        )
+                    }
+                };
+
+                <span class="prelude-val">Ok</span>(())
+            }
+            <span class="prelude-val">None</span> =&gt; <span class="prelude-val">Err</span>(<span class="ident">Trap::lib</span>(<span class="ident">TrapCode::TableAccessOutOfBounds</span>)),
+        }
+    }
 
     <span class="doccomment">/// Return a `VMTableDefinition` for exposing the table to compiled wasm code.</span>
-    <span class="kw">fn</span> <span class="ident">vmtable</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">VMTableDefinition</span><span class="op">&gt;</span>;
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">vmtable</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">VMTableDefinition</span><span class="op">&gt;</span> {
+        <span class="self">self</span>.<span class="ident">get_vm_table_definition</span>()
+    }
 
     <span class="doccomment">/// Copy `len` elements from `src_table[src_index..]` into `dst_table[dst_index..]`.</span>
     <span class="doccomment">///</span>
@@ -460,9 +603,9 @@
     <span class="doccomment">///</span>
     <span class="doccomment">/// Returns an error if the range is out of bounds of either the source or</span>
     <span class="doccomment">/// destination tables.</span>
-    <span class="kw">fn</span> <span class="ident">copy</span>(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">src_table</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">Table</span>,
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">copy</span>(
+        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
+        <span class="ident">src_table</span>: <span class="kw-2">&amp;</span><span class="self">Self</span>,
         <span class="ident">dst_index</span>: <span class="ident">u32</span>,
         <span class="ident">src_index</span>: <span class="ident">u32</span>,
         <span class="ident">len</span>: <span class="ident">u32</span>,
@@ -499,311 +642,42 @@
 
         <span class="prelude-val">Ok</span>(())
     }
-}
 
-<span class="doccomment">/// A reference stored in a table. Can be either an externref or a funcref.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">TableElement</span> {
-    <span class="doccomment">/// Opaque pointer to arbitrary host data.</span>
-    <span class="comment">// Note: we use `ExternRef` instead of `VMExternRef` here to ensure that we don&#39;t</span>
-    <span class="comment">// leak by not dec-refing on failure types.</span>
-    <span class="ident">ExternRef</span>(<span class="ident">ExternRef</span>),
-    <span class="doccomment">/// Pointer to function: contains enough information to call it.</span>
-    <span class="ident">FuncRef</span>(<span class="ident">VMFuncRef</span>),
-}
-
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">TableElement</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">RawTableElement</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">other</span>: <span class="ident">TableElement</span>) -&gt; <span class="self">Self</span> {
-        <span class="kw">match</span> <span class="ident">other</span> {
-            <span class="ident">TableElement::ExternRef</span>(<span class="ident">extern_ref</span>) =&gt; <span class="self">Self</span> {
-                <span class="ident">extern_ref</span>: <span class="ident">extern_ref</span>.<span class="ident">into</span>(),
-            },
-            <span class="ident">TableElement::FuncRef</span>(<span class="ident">func_ref</span>) =&gt; <span class="self">Self</span> { <span class="ident">func_ref</span> },
-        }
-    }
-}
-
-<span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Copy</span>)]</span>
-<span class="kw">pub</span> <span class="kw">union</span> <span class="ident">RawTableElement</span> {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">extern_ref</span>: <span class="ident">VMExternRef</span>,
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">func_ref</span>: <span class="ident">VMFuncRef</span>,
-}
-
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-<span class="attribute">#[<span class="ident">test</span>]</span>
-<span class="kw">fn</span> <span class="ident">table_element_size_test</span>() {
-    <span class="kw">use</span> <span class="ident">std::mem::size_of</span>;
-    <span class="macro">assert_eq!</span>(<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">RawTableElement</span><span class="op">&gt;</span>(), <span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">VMExternRef</span><span class="op">&gt;</span>());
-    <span class="macro">assert_eq!</span>(<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">RawTableElement</span><span class="op">&gt;</span>(), <span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">VMFuncRef</span><span class="op">&gt;</span>());
-}
-
-<span class="kw">impl</span> <span class="ident">fmt::Debug</span> <span class="kw">for</span> <span class="ident">RawTableElement</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">fmt::Formatter</span>) -&gt; <span class="ident">fmt::Result</span> {
-        <span class="ident">f</span>.<span class="ident">debug_struct</span>(<span class="string">&quot;RawTableElement&quot;</span>).<span class="ident">finish</span>()
-    }
-}
-
-<span class="kw">impl</span> <span class="ident">Default</span> <span class="kw">for</span> <span class="ident">RawTableElement</span> {
-    <span class="kw">fn</span> <span class="ident">default</span>() -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> {
-            <span class="ident">func_ref</span>: <span class="ident">VMFuncRef::null</span>(),
-        }
-    }
-}
-
-<span class="kw">impl</span> <span class="ident">Default</span> <span class="kw">for</span> <span class="ident">TableElement</span> {
-    <span class="kw">fn</span> <span class="ident">default</span>() -&gt; <span class="self">Self</span> {
-        <span class="ident"><span class="self">Self</span>::FuncRef</span>(<span class="ident">VMFuncRef::null</span>())
-    }
-}
-
-<span class="doccomment">/// A table instance.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">LinearTable</span> {
-    <span class="comment">// TODO: we can remove the mutex by using atomic swaps and preallocating the max table size</span>
-    <span class="ident">vec</span>: <span class="ident">Mutex</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">RawTableElement</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    <span class="ident">maximum</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">u32</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// The WebAssembly table description.</span>
-    <span class="ident">table</span>: <span class="ident">TableType</span>,
-    <span class="doccomment">/// Our chosen implementation style.</span>
-    <span class="ident">style</span>: <span class="ident">TableStyle</span>,
-    <span class="ident">vm_table_definition</span>: <span class="ident">VMTableDefinitionOwnership</span>,
-}
-
-<span class="doccomment">/// A type to help manage who is responsible for the backing table of the</span>
-<span class="doccomment">/// `VMTableDefinition`.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="kw">enum</span> <span class="ident">VMTableDefinitionOwnership</span> {
-    <span class="doccomment">/// The `VMTableDefinition` is owned by the `Instance` and we should use</span>
-    <span class="doccomment">/// its table. This is how a local table that&#39;s exported should be stored.</span>
-    <span class="ident">VMOwned</span>(<span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">VMTableDefinition</span><span class="op">&gt;</span>),
-    <span class="doccomment">/// The `VMTableDefinition` is owned by the host and we should manage its</span>
-    <span class="doccomment">/// table. This is how an imported table that doesn&#39;t come from another</span>
-    <span class="doccomment">/// Wasm module should be stored.</span>
-    <span class="ident">HostOwned</span>(<span class="ident">Box</span><span class="op">&lt;</span><span class="ident">UnsafeCell</span><span class="op">&lt;</span><span class="ident">VMTableDefinition</span><span class="op">&gt;</span><span class="op">&gt;</span>),
-}
-
-<span class="doccomment">/// This is correct because there is no thread-specific data tied to this type.</span>
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">Send</span> <span class="kw">for</span> <span class="ident">LinearTable</span> {}
-<span class="doccomment">/// This is correct because all internal mutability is protected by a mutex.</span>
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">Sync</span> <span class="kw">for</span> <span class="ident">LinearTable</span> {}
-
-<span class="kw">impl</span> <span class="ident">LinearTable</span> {
-    <span class="doccomment">/// Create a new linear table instance with specified minimum and maximum number of elements.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This creates a `LinearTable` with metadata owned by a VM, pointed to by</span>
-    <span class="doccomment">/// `vm_table_location`: this can be used to create a local table.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">table</span>: <span class="kw-2">&amp;</span><span class="ident">TableType</span>, <span class="ident">style</span>: <span class="kw-2">&amp;</span><span class="ident">TableStyle</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">String</span><span class="op">&gt;</span> {
-        <span class="kw">unsafe</span> { <span class="ident"><span class="self">Self</span>::new_inner</span>(<span class="ident">table</span>, <span class="ident">style</span>, <span class="prelude-val">None</span>) }
-    }
-
-    <span class="doccomment">/// Create a new linear table instance with specified minimum and maximum number of elements.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This creates a `LinearTable` with metadata owned by a VM, pointed to by</span>
-    <span class="doccomment">/// `vm_table_location`: this can be used to create a local table.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Safety</span>
-    <span class="doccomment">/// - `vm_table_location` must point to a valid location in VM memory.</span>
-    <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_definition</span>(
-        <span class="ident">table</span>: <span class="kw-2">&amp;</span><span class="ident">TableType</span>,
-        <span class="ident">style</span>: <span class="kw-2">&amp;</span><span class="ident">TableStyle</span>,
-        <span class="ident">vm_table_location</span>: <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">VMTableDefinition</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">String</span><span class="op">&gt;</span> {
-        <span class="ident"><span class="self">Self</span>::new_inner</span>(<span class="ident">table</span>, <span class="ident">style</span>, <span class="prelude-val">Some</span>(<span class="ident">vm_table_location</span>))
-    }
-
-    <span class="doccomment">/// Create a new `LinearTable` with either self-owned or VM owned metadata.</span>
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">new_inner</span>(
-        <span class="ident">table</span>: <span class="kw-2">&amp;</span><span class="ident">TableType</span>,
-        <span class="ident">style</span>: <span class="kw-2">&amp;</span><span class="ident">TableStyle</span>,
-        <span class="ident">vm_table_location</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">VMTableDefinition</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">String</span><span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="ident">table</span>.<span class="ident">ty</span> {
-            <span class="ident">ValType::FuncRef</span> <span class="op">|</span> <span class="ident">ValType::ExternRef</span> =&gt; (),
-            <span class="ident">ty</span> =&gt; {
-                <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="macro">format!</span>(
-                    <span class="string">&quot;tables of types other than funcref or externref ({})&quot;</span>,
-                    <span class="ident">ty</span>
-                ))
-            }
-        };
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">max</span>) <span class="op">=</span> <span class="ident">table</span>.<span class="ident">maximum</span> {
-            <span class="kw">if</span> <span class="ident">max</span> <span class="op">&lt;</span> <span class="ident">table</span>.<span class="ident">minimum</span> {
-                <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="macro">format!</span>(
-                    <span class="string">&quot;Table minimum ({}) is larger than maximum ({})!&quot;</span>,
-                    <span class="ident">table</span>.<span class="ident">minimum</span>, <span class="ident">max</span>
-                ));
-            }
-        }
-        <span class="kw">let</span> <span class="ident">table_minimum</span> <span class="op">=</span> <span class="ident">usize::try_from</span>(<span class="ident">table</span>.<span class="ident">minimum</span>)
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="string">&quot;Table minimum is bigger than usize&quot;</span>.<span class="ident">to_string</span>())<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">vec</span> <span class="op">=</span> <span class="macro">vec!</span>[<span class="ident">RawTableElement::default</span>(); <span class="ident">table_minimum</span>];
-        <span class="kw">let</span> <span class="ident">base</span> <span class="op">=</span> <span class="ident">vec</span>.<span class="ident">as_mut_ptr</span>();
-        <span class="kw">match</span> <span class="ident">style</span> {
-            <span class="ident">TableStyle::CallerChecksSignature</span> =&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span> {
-                <span class="ident">vec</span>: <span class="ident">Mutex::new</span>(<span class="ident">vec</span>),
-                <span class="ident">maximum</span>: <span class="ident">table</span>.<span class="ident">maximum</span>,
-                <span class="ident">table</span>: <span class="kw-2">*</span><span class="ident">table</span>,
-                <span class="ident">style</span>: <span class="ident">style</span>.<span class="ident">clone</span>(),
-                <span class="ident">vm_table_definition</span>: <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">table_loc</span>) <span class="op">=</span> <span class="ident">vm_table_location</span> {
-                    {
-                        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">ptr</span> <span class="op">=</span> <span class="ident">table_loc</span>;
-                        <span class="kw">let</span> <span class="ident">td</span> <span class="op">=</span> <span class="ident">ptr</span>.<span class="ident">as_mut</span>();
-                        <span class="ident">td</span>.<span class="ident">base</span> <span class="op">=</span> <span class="ident">base</span> <span class="kw">as</span> <span class="kw">_</span>;
-                        <span class="ident">td</span>.<span class="ident">current_elements</span> <span class="op">=</span> <span class="ident">table_minimum</span> <span class="kw">as</span> <span class="kw">_</span>;
-                    }
-                    <span class="ident">VMTableDefinitionOwnership::VMOwned</span>(<span class="ident">table_loc</span>)
-                } <span class="kw">else</span> {
-                    <span class="ident">VMTableDefinitionOwnership::HostOwned</span>(<span class="ident">Box::new</span>(<span class="ident">UnsafeCell::new</span>(
-                        <span class="ident">VMTableDefinition</span> {
-                            <span class="ident">base</span>: <span class="ident">base</span> <span class="kw">as</span> <span class="kw">_</span>,
-                            <span class="ident">current_elements</span>: <span class="ident">table_minimum</span> <span class="kw">as</span> <span class="kw">_</span>,
-                        },
-                    )))
-                },
-            }),
-        }
-    }
-
-    <span class="doccomment">/// Get the `VMTableDefinition`.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Safety</span>
-    <span class="doccomment">/// - You must ensure that you have mutually exclusive access before calling</span>
-    <span class="doccomment">///   this function. You can get this by locking the `vec` mutex.</span>
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">get_vm_table_definition</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">VMTableDefinition</span><span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">vm_table_definition</span> {
-            <span class="ident">VMTableDefinitionOwnership::VMOwned</span>(<span class="ident">ptr</span>) =&gt; <span class="kw-2">*</span><span class="ident">ptr</span>,
-            <span class="ident">VMTableDefinitionOwnership::HostOwned</span>(<span class="ident">boxed_ptr</span>) =&gt; {
-                <span class="ident">NonNull::new_unchecked</span>(<span class="ident">boxed_ptr</span>.<span class="ident">get</span>())
-            }
-        }
-    }
-}
-
-<span class="kw">impl</span> <span class="ident">Table</span> <span class="kw">for</span> <span class="ident">LinearTable</span> {
-    <span class="doccomment">/// Returns the type for this Table.</span>
-    <span class="kw">fn</span> <span class="ident">ty</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">TableType</span> {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">table</span>
-    }
-
-    <span class="doccomment">/// Returns the style for this Table.</span>
-    <span class="kw">fn</span> <span class="ident">style</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">TableStyle</span> {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">style</span>
-    }
-
-    <span class="doccomment">/// Returns the number of allocated elements.</span>
-    <span class="kw">fn</span> <span class="ident">size</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u32</span> {
-        <span class="comment">// TODO: investigate this function for race conditions</span>
-        <span class="kw">unsafe</span> {
-            <span class="kw">let</span> <span class="ident">td_ptr</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_vm_table_definition</span>();
-            <span class="kw">let</span> <span class="ident">td</span> <span class="op">=</span> <span class="ident">td_ptr</span>.<span class="ident">as_ref</span>();
-            <span class="ident">td</span>.<span class="ident">current_elements</span>
-        }
-    }
-
-    <span class="doccomment">/// Grow table by the specified amount of elements.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Returns `None` if table can&#39;t be grown by the specified amount</span>
-    <span class="doccomment">/// of elements, otherwise returns the previous size of the table.</span>
-    <span class="kw">fn</span> <span class="ident">grow</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">delta</span>: <span class="ident">u32</span>, <span class="ident">init_value</span>: <span class="ident">TableElement</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">u32</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">vec_guard</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">vec</span>.<span class="ident">lock</span>().<span class="ident">unwrap</span>();
-        <span class="kw">let</span> <span class="ident">vec</span> <span class="op">=</span> <span class="ident">vec_guard</span>.<span class="ident">borrow_mut</span>();
-        <span class="kw">let</span> <span class="ident">size</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">size</span>();
-        <span class="kw">let</span> <span class="ident">new_len</span> <span class="op">=</span> <span class="ident">size</span>.<span class="ident">checked_add</span>(<span class="ident">delta</span>)<span class="question-mark">?</span>;
-        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">maximum</span>.<span class="ident">map_or</span>(<span class="bool-val">false</span>, <span class="op">|</span><span class="ident">max</span><span class="op">|</span> <span class="ident">new_len</span> <span class="op">&gt;</span> <span class="ident">max</span>) {
-            <span class="kw">return</span> <span class="prelude-val">None</span>;
-        }
-        <span class="kw">if</span> <span class="ident">new_len</span> <span class="op">==</span> <span class="ident">size</span> {
-            <span class="macro">debug_assert_eq!</span>(<span class="ident">delta</span>, <span class="number">0</span>);
-            <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">size</span>);
-        }
-
-        <span class="comment">// Update the ref count</span>
-        <span class="kw">let</span> <span class="ident">element</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">init_value</span> {
-            <span class="ident">TableElement::ExternRef</span>(<span class="ident">extern_ref</span>) =&gt; {
-                <span class="kw">let</span> <span class="ident">extern_ref</span>: <span class="ident">VMExternRef</span> <span class="op">=</span> <span class="ident">extern_ref</span>.<span class="ident">into</span>();
-
-                <span class="comment">// We reduce the amount we increment by because `into` prevents</span>
-                <span class="comment">// dropping `init_value` (which is a caller-inc&#39;d ref).</span>
-                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">val</span>) <span class="op">=</span> (<span class="ident">new_len</span> <span class="kw">as</span> <span class="ident">usize</span>).<span class="ident">checked_sub</span>(<span class="ident">size</span> <span class="kw">as</span> <span class="ident">usize</span> <span class="op">+</span> <span class="number">1</span>) {
-                    <span class="ident">extern_ref</span>.<span class="ident">ref_inc_by</span>(<span class="ident">val</span>)
-                }
-                <span class="ident">RawTableElement</span> { <span class="ident">extern_ref</span> }
-            }
-            <span class="ident">TableElement::FuncRef</span>(<span class="ident">func_ref</span>) =&gt; <span class="ident">RawTableElement</span> { <span class="ident">func_ref</span> },
-        };
-
-        <span class="ident">vec</span>.<span class="ident">resize</span>(<span class="ident">usize::try_from</span>(<span class="ident">new_len</span>).<span class="ident">unwrap</span>(), <span class="ident">element</span>);
-
-        <span class="comment">// update table definition</span>
-        <span class="kw">unsafe</span> {
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">td_ptr</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_vm_table_definition</span>();
-            <span class="kw">let</span> <span class="ident">td</span> <span class="op">=</span> <span class="ident">td_ptr</span>.<span class="ident">as_mut</span>();
-            <span class="ident">td</span>.<span class="ident">current_elements</span> <span class="op">=</span> <span class="ident">new_len</span>;
-            <span class="ident">td</span>.<span class="ident">base</span> <span class="op">=</span> <span class="ident">vec</span>.<span class="ident">as_mut_ptr</span>() <span class="kw">as</span> <span class="kw">_</span>;
-        }
-        <span class="prelude-val">Some</span>(<span class="ident">size</span>)
-    }
-
-    <span class="doccomment">/// Get reference to the specified element.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Returns `None` if the index is out of bounds.</span>
-    <span class="kw">fn</span> <span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">index</span>: <span class="ident">u32</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">TableElement</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">vec_guard</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">vec</span>.<span class="ident">lock</span>().<span class="ident">unwrap</span>();
-        <span class="kw">let</span> <span class="ident">raw_data</span> <span class="op">=</span> <span class="ident">vec_guard</span>.<span class="ident">borrow</span>().<span class="ident">get</span>(<span class="ident">index</span> <span class="kw">as</span> <span class="ident">usize</span>).<span class="ident">cloned</span>()<span class="question-mark">?</span>;
-        <span class="prelude-val">Some</span>(<span class="kw">match</span> <span class="self">self</span>.<span class="ident">table</span>.<span class="ident">ty</span> {
-            <span class="ident">ValType::ExternRef</span> =&gt; {
-                <span class="ident">TableElement::ExternRef</span>(<span class="kw">unsafe</span> { <span class="ident">raw_data</span>.<span class="ident">extern_ref</span>.<span class="ident">ref_clone</span>() }.<span class="ident">into</span>())
-            }
-            <span class="ident">ValType::FuncRef</span> =&gt; <span class="ident">TableElement::FuncRef</span>(<span class="kw">unsafe</span> { <span class="ident">raw_data</span>.<span class="ident">func_ref</span> }),
-            <span class="kw">_</span> =&gt; <span class="macro">todo!</span>(<span class="string">&quot;getting invalid type from table, handle this error&quot;</span>),
-        })
-    }
-
-    <span class="doccomment">/// Set reference to the specified element.</span>
+    <span class="doccomment">/// Copy `len` elements from `table[src_index..]` to `table[dst_index..]`.</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// # Errors</span>
     <span class="doccomment">///</span>
-    <span class="doccomment">/// Returns an error if the index is out of bounds.</span>
-    <span class="kw">fn</span> <span class="ident">set</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">index</span>: <span class="ident">u32</span>, <span class="ident">reference</span>: <span class="ident">TableElement</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Trap</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">vec_guard</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">vec</span>.<span class="ident">lock</span>().<span class="ident">unwrap</span>();
-        <span class="kw">let</span> <span class="ident">vec</span> <span class="op">=</span> <span class="ident">vec_guard</span>.<span class="ident">borrow_mut</span>();
-        <span class="kw">match</span> <span class="ident">vec</span>.<span class="ident">get_mut</span>(<span class="ident">index</span> <span class="kw">as</span> <span class="ident">usize</span>) {
-            <span class="prelude-val">Some</span>(<span class="ident">slot</span>) =&gt; {
-                <span class="kw">match</span> (<span class="self">self</span>.<span class="ident">table</span>.<span class="ident">ty</span>, <span class="ident">reference</span>) {
-                    (<span class="ident">ValType::ExternRef</span>, <span class="ident">TableElement::ExternRef</span>(<span class="ident">extern_ref</span>)) =&gt; {
-                        <span class="kw">let</span> <span class="ident">extern_ref</span> <span class="op">=</span> <span class="ident">extern_ref</span>.<span class="ident">into</span>();
-                        <span class="kw">unsafe</span> {
-                            <span class="kw">let</span> <span class="ident">elem</span> <span class="op">=</span> <span class="kw-2">&amp;mut</span> <span class="kw-2">*</span><span class="ident">slot</span>;
-                            <span class="ident">elem</span>.<span class="ident">extern_ref</span>.<span class="ident">ref_drop</span>();
-                            <span class="ident">elem</span>.<span class="ident">extern_ref</span> <span class="op">=</span> <span class="ident">extern_ref</span>
-                        }
-                    }
-                    (<span class="ident">ValType::FuncRef</span>, <span class="ident">r</span> @ <span class="ident">TableElement::FuncRef</span>(<span class="kw">_</span>)) =&gt; {
-                        <span class="kw">let</span> <span class="ident">element_data</span> <span class="op">=</span> <span class="ident">r</span>.<span class="ident">into</span>();
-                        <span class="kw-2">*</span><span class="ident">slot</span> <span class="op">=</span> <span class="ident">element_data</span>;
-                    }
-                    <span class="comment">// This path should never be hit by the generated code due to Wasm</span>
-                    <span class="comment">// validation.</span>
-                    (<span class="ident">ty</span>, <span class="ident">v</span>) =&gt; {
-                        <span class="macro">panic!</span>(
-                            <span class="string">&quot;Attempted to set a table of type {} with the value {:?}&quot;</span>,
-                            <span class="ident">ty</span>, <span class="ident">v</span>
-                        )
-                    }
-                };
+    <span class="doccomment">/// Returns an error if the range is out of bounds of either the source or</span>
+    <span class="doccomment">/// destination tables.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">copy_within</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">dst_index</span>: <span class="ident">u32</span>, <span class="ident">src_index</span>: <span class="ident">u32</span>, <span class="ident">len</span>: <span class="ident">u32</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Trap</span><span class="op">&gt;</span> {
+        <span class="comment">// https://webassembly.github.io/bulk-memory-operations/core/exec/instructions.html#exec-table-copy</span>
 
-                <span class="prelude-val">Ok</span>(())
-            }
-            <span class="prelude-val">None</span> =&gt; <span class="prelude-val">Err</span>(<span class="ident">Trap::lib</span>(<span class="ident">TrapCode::TableAccessOutOfBounds</span>)),
+        <span class="kw">if</span> <span class="ident">src_index</span>.<span class="ident">checked_add</span>(<span class="ident">len</span>).<span class="ident">map_or</span>(<span class="bool-val">true</span>, <span class="op">|</span><span class="ident">n</span><span class="op">|</span> <span class="ident">n</span> <span class="op">&gt;</span> <span class="self">self</span>.<span class="ident">size</span>()) {
+            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Trap::lib</span>(<span class="ident">TrapCode::TableAccessOutOfBounds</span>));
         }
-    }
 
-    <span class="doccomment">/// Return a `VMTableDefinition` for exposing the table to compiled wasm code.</span>
-    <span class="kw">fn</span> <span class="ident">vmtable</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">VMTableDefinition</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">_vec_guard</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">vec</span>.<span class="ident">lock</span>().<span class="ident">unwrap</span>();
-        <span class="kw">unsafe</span> { <span class="self">self</span>.<span class="ident">get_vm_table_definition</span>() }
+        <span class="kw">if</span> <span class="ident">dst_index</span>.<span class="ident">checked_add</span>(<span class="ident">len</span>).<span class="ident">map_or</span>(<span class="bool-val">true</span>, <span class="op">|</span><span class="ident">m</span><span class="op">|</span> <span class="ident">m</span> <span class="op">&gt;</span> <span class="self">self</span>.<span class="ident">size</span>()) {
+            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Trap::lib</span>(<span class="ident">TrapCode::TableAccessOutOfBounds</span>));
+        }
+
+        <span class="kw">let</span> <span class="ident">srcs</span> <span class="op">=</span> <span class="ident">src_index</span>..<span class="ident">src_index</span> <span class="op">+</span> <span class="ident">len</span>;
+        <span class="kw">let</span> <span class="ident">dsts</span> <span class="op">=</span> <span class="ident">dst_index</span>..<span class="ident">dst_index</span> <span class="op">+</span> <span class="ident">len</span>;
+
+        <span class="comment">// Note on the unwraps: the bounds check above means that these will</span>
+        <span class="comment">// never panic.</span>
+        <span class="comment">//</span>
+        <span class="comment">// TODO: investigate replacing this get/set loop with a `memcpy`.</span>
+        <span class="kw">if</span> <span class="ident">dst_index</span> <span class="op">&lt;</span><span class="op">=</span> <span class="ident">src_index</span> {
+            <span class="kw">for</span> (<span class="ident">s</span>, <span class="ident">d</span>) <span class="kw">in</span> (<span class="ident">srcs</span>).<span class="ident">zip</span>(<span class="ident">dsts</span>) {
+                <span class="self">self</span>.<span class="ident">set</span>(<span class="ident">d</span>, <span class="self">self</span>.<span class="ident">get</span>(<span class="ident">s</span>).<span class="ident">unwrap</span>())<span class="question-mark">?</span>;
+            }
+        } <span class="kw">else</span> {
+            <span class="kw">for</span> (<span class="ident">s</span>, <span class="ident">d</span>) <span class="kw">in</span> <span class="ident">srcs</span>.<span class="ident">rev</span>().<span class="ident">zip</span>(<span class="ident">dsts</span>.<span class="ident">rev</span>()) {
+                <span class="self">self</span>.<span class="ident">set</span>(<span class="ident">d</span>, <span class="self">self</span>.<span class="ident">get</span>(<span class="ident">s</span>).<span class="ident">unwrap</span>())<span class="question-mark">?</span>;
+            }
+        }
+
+        <span class="prelude-val">Ok</span>(())
     }
 }
 </code></pre></div>

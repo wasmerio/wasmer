@@ -182,45 +182,9 @@
 <span id="180">180</span>
 <span id="181">181</span>
 <span id="182">182</span>
-<span id="183">183</span>
-<span id="184">184</span>
-<span id="185">185</span>
-<span id="186">186</span>
-<span id="187">187</span>
-<span id="188">188</span>
-<span id="189">189</span>
-<span id="190">190</span>
-<span id="191">191</span>
-<span id="192">192</span>
-<span id="193">193</span>
-<span id="194">194</span>
-<span id="195">195</span>
-<span id="196">196</span>
-<span id="197">197</span>
-<span id="198">198</span>
-<span id="199">199</span>
-<span id="200">200</span>
-<span id="201">201</span>
-<span id="202">202</span>
-<span id="203">203</span>
-<span id="204">204</span>
-<span id="205">205</span>
-<span id="206">206</span>
-<span id="207">207</span>
-<span id="208">208</span>
-<span id="209">209</span>
-<span id="210">210</span>
-<span id="211">211</span>
-<span id="212">212</span>
-<span id="213">213</span>
-<span id="214">214</span>
-<span id="215">215</span>
-<span id="216">216</span>
-<span id="217">217</span>
-<span id="218">218</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Custom resolution for external references.</span>
 
-<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">Export</span>, <span class="ident">ExportFunctionMetadata</span>, <span class="ident">LinkError</span>};
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::LinkError</span>;
 <span class="kw">use</span> <span class="ident">more_asserts::assert_ge</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types::entity</span>::{<span class="ident">BoxedSlice</span>, <span class="ident">EntityRef</span>, <span class="ident">PrimaryMap</span>};
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{
@@ -228,9 +192,8 @@
 };
 
 <span class="kw">use</span> <span class="ident">wasmer_vm</span>::{
-    <span class="ident">FunctionBodyPtr</span>, <span class="ident">ImportFunctionEnv</span>, <span class="ident">Imports</span>, <span class="ident">MemoryStyle</span>, <span class="ident">TableStyle</span>, <span class="ident">VMFunctionBody</span>,
-    <span class="ident">VMFunctionEnvironment</span>, <span class="ident">VMFunctionImport</span>, <span class="ident">VMFunctionKind</span>, <span class="ident">VMGlobalImport</span>, <span class="ident">VMMemoryImport</span>,
-    <span class="ident">VMTableImport</span>,
+    <span class="ident">FunctionBodyPtr</span>, <span class="ident">Imports</span>, <span class="ident">MemoryStyle</span>, <span class="ident">StoreObjects</span>, <span class="ident">TableStyle</span>, <span class="ident">VMExtern</span>, <span class="ident">VMFunctionBody</span>,
+    <span class="ident">VMFunctionImport</span>, <span class="ident">VMFunctionKind</span>, <span class="ident">VMGlobalImport</span>, <span class="ident">VMMemoryImport</span>, <span class="ident">VMTableImport</span>,
 };
 
 <span class="doccomment">/// Get an `ExternType` given a import index.</span>
@@ -256,13 +219,13 @@
 }
 
 <span class="doccomment">/// Get an `ExternType` given an export (and Engine signatures in case is a function).</span>
-<span class="kw">fn</span> <span class="ident">get_extern_from_export</span>(<span class="ident">_module</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span>, <span class="ident">export</span>: <span class="kw-2">&amp;</span><span class="ident">Export</span>) -&gt; <span class="ident">ExternType</span> {
-    <span class="kw">match</span> <span class="ident">export</span> {
-        <span class="ident">Export::Function</span>(<span class="kw-2">ref</span> <span class="ident">f</span>) =&gt; <span class="ident">ExternType::Function</span>(<span class="ident">f</span>.<span class="ident">vm_function</span>.<span class="ident">signature</span>.<span class="ident">clone</span>()),
-        <span class="ident">Export::Table</span>(<span class="kw-2">ref</span> <span class="ident">t</span>) =&gt; <span class="ident">ExternType::Table</span>(<span class="kw-2">*</span><span class="ident">t</span>.<span class="ident">ty</span>()),
-        <span class="ident">Export::Memory</span>(<span class="kw-2">ref</span> <span class="ident">m</span>) =&gt; <span class="ident">ExternType::Memory</span>(<span class="ident">m</span>.<span class="ident">ty</span>()),
-        <span class="ident">Export::Global</span>(<span class="kw-2">ref</span> <span class="ident">g</span>) =&gt; {
-            <span class="kw">let</span> <span class="ident">global</span> <span class="op">=</span> <span class="ident">g</span>.<span class="ident">from</span>.<span class="ident">ty</span>();
+<span class="kw">fn</span> <span class="ident">get_extern_type</span>(<span class="ident">context</span>: <span class="kw-2">&amp;</span><span class="ident">StoreObjects</span>, <span class="ident">extern_</span>: <span class="kw-2">&amp;</span><span class="ident">VMExtern</span>) -&gt; <span class="ident">ExternType</span> {
+    <span class="kw">match</span> <span class="ident">extern_</span> {
+        <span class="ident">VMExtern::Function</span>(<span class="ident">f</span>) =&gt; <span class="ident">ExternType::Function</span>(<span class="ident">f</span>.<span class="ident">get</span>(<span class="ident">context</span>).<span class="ident">signature</span>.<span class="ident">clone</span>()),
+        <span class="ident">VMExtern::Table</span>(<span class="ident">t</span>) =&gt; <span class="ident">ExternType::Table</span>(<span class="kw-2">*</span><span class="ident">t</span>.<span class="ident">get</span>(<span class="ident">context</span>).<span class="ident">ty</span>()),
+        <span class="ident">VMExtern::Memory</span>(<span class="ident">m</span>) =&gt; <span class="ident">ExternType::Memory</span>(<span class="ident">m</span>.<span class="ident">get</span>(<span class="ident">context</span>).<span class="ident">ty</span>()),
+        <span class="ident">VMExtern::Global</span>(<span class="ident">g</span>) =&gt; {
+            <span class="kw">let</span> <span class="ident">global</span> <span class="op">=</span> <span class="ident">g</span>.<span class="ident">get</span>(<span class="ident">context</span>).<span class="ident">ty</span>();
             <span class="ident">ExternType::Global</span>(<span class="kw-2">*</span><span class="ident">global</span>)
         }
     }
@@ -274,14 +237,13 @@
 <span class="doccomment">/// If all imports are satisfied returns an `Imports` instance required for a module instantiation.</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">resolve_imports</span>(
     <span class="ident">module</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span>,
-    <span class="ident">imports</span>: <span class="kw-2">&amp;</span>[<span class="ident">Export</span>],
+    <span class="ident">imports</span>: <span class="kw-2">&amp;</span>[<span class="ident">VMExtern</span>],
+    <span class="ident">context</span>: <span class="kw-2">&amp;</span><span class="ident">StoreObjects</span>,
     <span class="ident">finished_dynamic_function_trampolines</span>: <span class="kw-2">&amp;</span><span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">FunctionIndex</span>, <span class="ident">FunctionBodyPtr</span><span class="op">&gt;</span>,
     <span class="ident">memory_styles</span>: <span class="kw-2">&amp;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">MemoryIndex</span>, <span class="ident">MemoryStyle</span><span class="op">&gt;</span>,
     <span class="ident">_table_styles</span>: <span class="kw-2">&amp;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">TableIndex</span>, <span class="ident">TableStyle</span><span class="op">&gt;</span>,
 ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Imports</span>, <span class="ident">LinkError</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">function_imports</span> <span class="op">=</span> <span class="ident">PrimaryMap::with_capacity</span>(<span class="ident">module</span>.<span class="ident">num_imported_functions</span>);
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">host_function_env_initializers</span> <span class="op">=</span>
-        <span class="ident">PrimaryMap::with_capacity</span>(<span class="ident">module</span>.<span class="ident">num_imported_functions</span>);
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">table_imports</span> <span class="op">=</span> <span class="ident">PrimaryMap::with_capacity</span>(<span class="ident">module</span>.<span class="ident">num_imported_tables</span>);
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">memory_imports</span> <span class="op">=</span> <span class="ident">PrimaryMap::with_capacity</span>(<span class="ident">module</span>.<span class="ident">num_imported_memories</span>);
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">global_imports</span> <span class="op">=</span> <span class="ident">PrimaryMap::with_capacity</span>(<span class="ident">module</span>.<span class="ident">num_imported_globals</span>);
@@ -297,94 +259,60 @@
                 <span class="ident">ImportError::UnknownImport</span>(<span class="ident">import_extern</span>),
             ));
         };
-        <span class="kw">let</span> <span class="ident">export_extern</span> <span class="op">=</span> <span class="ident">get_extern_from_export</span>(<span class="ident">module</span>, <span class="ident">resolved</span>);
-        <span class="kw">if</span> <span class="op">!</span><span class="ident">export_extern</span>.<span class="ident">is_compatible_with</span>(<span class="kw-2">&amp;</span><span class="ident">import_extern</span>) {
+        <span class="kw">let</span> <span class="ident">extern_type</span> <span class="op">=</span> <span class="ident">get_extern_type</span>(<span class="ident">context</span>, <span class="ident">resolved</span>);
+        <span class="kw">if</span> <span class="op">!</span><span class="ident">extern_type</span>.<span class="ident">is_compatible_with</span>(<span class="kw-2">&amp;</span><span class="ident">import_extern</span>) {
             <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">LinkError::Import</span>(
                 <span class="ident">module_name</span>.<span class="ident">to_string</span>(),
                 <span class="ident">field</span>.<span class="ident">to_string</span>(),
-                <span class="ident">ImportError::IncompatibleType</span>(<span class="ident">import_extern</span>, <span class="ident">export_extern</span>),
+                <span class="ident">ImportError::IncompatibleType</span>(<span class="ident">import_extern</span>, <span class="ident">extern_type</span>),
             ));
         }
-        <span class="kw">match</span> <span class="ident">resolved</span> {
-            <span class="ident">Export::Function</span>(<span class="kw-2">ref</span> <span class="ident">f</span>) =&gt; {
-                <span class="kw">let</span> <span class="ident">address</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">f</span>.<span class="ident">vm_function</span>.<span class="ident">kind</span> {
+        <span class="kw">match</span> <span class="kw-2">*</span><span class="ident">resolved</span> {
+            <span class="ident">VMExtern::Function</span>(<span class="ident">handle</span>) =&gt; {
+                <span class="kw">let</span> <span class="ident">f</span> <span class="op">=</span> <span class="ident">handle</span>.<span class="ident">get</span>(<span class="ident">context</span>);
+                <span class="kw">let</span> <span class="ident">address</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">f</span>.<span class="ident">kind</span> {
                     <span class="ident">VMFunctionKind::Dynamic</span> =&gt; {
                         <span class="comment">// If this is a dynamic imported function,</span>
                         <span class="comment">// the address of the function is the address of the</span>
                         <span class="comment">// reverse trampoline.</span>
                         <span class="kw">let</span> <span class="ident">index</span> <span class="op">=</span> <span class="ident">FunctionIndex::new</span>(<span class="ident">function_imports</span>.<span class="ident">len</span>());
                         <span class="ident">finished_dynamic_function_trampolines</span>[<span class="ident">index</span>].<span class="number">0</span> <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">VMFunctionBody</span> <span class="kw">as</span> <span class="kw">_</span>
-
-                        <span class="comment">// TODO: We should check that the f.vmctx actually matches</span>
-                        <span class="comment">// the shape of `VMDynamicFunctionImportContext`</span>
                     }
-                    <span class="ident">VMFunctionKind::Static</span> =&gt; <span class="ident">f</span>.<span class="ident">vm_function</span>.<span class="ident">address</span>,
-                };
-
-                <span class="comment">// Clone the host env for this `Instance`.</span>
-                <span class="kw">let</span> <span class="ident">env</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">ExportFunctionMetadata</span> {
-                    <span class="ident">host_env_clone_fn</span>: <span class="ident">clone</span>,
-                    ..
-                }) <span class="op">=</span> <span class="ident">f</span>.<span class="ident">metadata</span>.<span class="ident">as_deref</span>()
-                {
-                    <span class="comment">// TODO: maybe start adding asserts in all these</span>
-                    <span class="comment">// unsafe blocks to prevent future changes from</span>
-                    <span class="comment">// horribly breaking things.</span>
-                    <span class="kw">unsafe</span> {
-                        <span class="macro">assert!</span>(<span class="op">!</span><span class="ident">f</span>.<span class="ident">vm_function</span>.<span class="ident">vmctx</span>.<span class="ident">host_env</span>.<span class="ident">is_null</span>());
-                        (<span class="ident">clone</span>)(<span class="ident">f</span>.<span class="ident">vm_function</span>.<span class="ident">vmctx</span>.<span class="ident">host_env</span>)
-                    }
-                } <span class="kw">else</span> {
-                    <span class="comment">// No `clone` function means we&#39;re dealing with some</span>
-                    <span class="comment">// other kind of `vmctx`, not a host env of any</span>
-                    <span class="comment">// kind.</span>
-                    <span class="kw">unsafe</span> { <span class="ident">f</span>.<span class="ident">vm_function</span>.<span class="ident">vmctx</span>.<span class="ident">host_env</span> }
+                    <span class="ident">VMFunctionKind::Static</span> =&gt; <span class="kw">unsafe</span> { <span class="ident">f</span>.<span class="ident">anyfunc</span>.<span class="ident">as_ptr</span>().<span class="ident">as_ref</span>().<span class="ident">func_ptr</span> },
                 };
 
                 <span class="ident">function_imports</span>.<span class="ident">push</span>(<span class="ident">VMFunctionImport</span> {
                     <span class="ident">body</span>: <span class="ident">address</span>,
-                    <span class="ident">environment</span>: <span class="ident">VMFunctionEnvironment</span> { <span class="ident">host_env</span>: <span class="ident">env</span> },
+                    <span class="ident">environment</span>: <span class="kw">unsafe</span> { <span class="ident">f</span>.<span class="ident">anyfunc</span>.<span class="ident">as_ptr</span>().<span class="ident">as_ref</span>().<span class="ident">vmctx</span> },
+                    <span class="ident">handle</span>,
                 });
-
-                <span class="kw">let</span> <span class="ident">initializer</span> <span class="op">=</span> <span class="ident">f</span>.<span class="ident">metadata</span>.<span class="ident">as_ref</span>().<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">m</span><span class="op">|</span> <span class="ident">m</span>.<span class="ident">import_init_function_ptr</span>);
-                <span class="kw">let</span> <span class="ident">clone</span> <span class="op">=</span> <span class="ident">f</span>.<span class="ident">metadata</span>.<span class="ident">as_ref</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">m</span><span class="op">|</span> <span class="ident">m</span>.<span class="ident">host_env_clone_fn</span>);
-                <span class="kw">let</span> <span class="ident">destructor</span> <span class="op">=</span> <span class="ident">f</span>.<span class="ident">metadata</span>.<span class="ident">as_ref</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">m</span><span class="op">|</span> <span class="ident">m</span>.<span class="ident">host_env_drop_fn</span>);
-                <span class="kw">let</span> <span class="ident">import_function_env</span> <span class="op">=</span>
-                    <span class="kw">if</span> <span class="kw">let</span> (<span class="prelude-val">Some</span>(<span class="ident">clone</span>), <span class="prelude-val">Some</span>(<span class="ident">destructor</span>)) <span class="op">=</span> (<span class="ident">clone</span>, <span class="ident">destructor</span>) {
-                        <span class="ident">ImportFunctionEnv::Env</span> {
-                            <span class="ident">env</span>,
-                            <span class="ident">clone</span>,
-                            <span class="ident">initializer</span>,
-                            <span class="ident">destructor</span>,
-                        }
-                    } <span class="kw">else</span> {
-                        <span class="ident">ImportFunctionEnv::NoEnv</span>
-                    };
-
-                <span class="ident">host_function_env_initializers</span>.<span class="ident">push</span>(<span class="ident">import_function_env</span>);
             }
-            <span class="ident">Export::Table</span>(<span class="kw-2">ref</span> <span class="ident">t</span>) =&gt; <span class="kw">match</span> <span class="ident">import_index</span> {
-                <span class="ident">ImportIndex::Table</span>(<span class="ident">index</span>) =&gt; {
-                    <span class="kw">let</span> <span class="ident">import_table_ty</span> <span class="op">=</span> <span class="ident">t</span>.<span class="ident">from</span>.<span class="ident">ty</span>();
-                    <span class="kw">let</span> <span class="ident">expected_table_ty</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">module</span>.<span class="ident">tables</span>[<span class="kw-2">*</span><span class="ident">index</span>];
-                    <span class="kw">if</span> <span class="ident">import_table_ty</span>.<span class="ident">ty</span> <span class="op">!</span><span class="op">=</span> <span class="ident">expected_table_ty</span>.<span class="ident">ty</span> {
-                        <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">LinkError::Import</span>(
-                            <span class="ident">module_name</span>.<span class="ident">to_string</span>(),
-                            <span class="ident">field</span>.<span class="ident">to_string</span>(),
-                            <span class="ident">ImportError::IncompatibleType</span>(<span class="ident">import_extern</span>, <span class="ident">export_extern</span>),
-                        ));
-                    }
+            <span class="ident">VMExtern::Table</span>(<span class="ident">handle</span>) =&gt; {
+                <span class="kw">let</span> <span class="ident">t</span> <span class="op">=</span> <span class="ident">handle</span>.<span class="ident">get</span>(<span class="ident">context</span>);
+                <span class="kw">match</span> <span class="ident">import_index</span> {
+                    <span class="ident">ImportIndex::Table</span>(<span class="ident">index</span>) =&gt; {
+                        <span class="kw">let</span> <span class="ident">import_table_ty</span> <span class="op">=</span> <span class="ident">t</span>.<span class="ident">ty</span>();
+                        <span class="kw">let</span> <span class="ident">expected_table_ty</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">module</span>.<span class="ident">tables</span>[<span class="kw-2">*</span><span class="ident">index</span>];
+                        <span class="kw">if</span> <span class="ident">import_table_ty</span>.<span class="ident">ty</span> <span class="op">!</span><span class="op">=</span> <span class="ident">expected_table_ty</span>.<span class="ident">ty</span> {
+                            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">LinkError::Import</span>(
+                                <span class="ident">module_name</span>.<span class="ident">to_string</span>(),
+                                <span class="ident">field</span>.<span class="ident">to_string</span>(),
+                                <span class="ident">ImportError::IncompatibleType</span>(<span class="ident">import_extern</span>, <span class="ident">extern_type</span>),
+                            ));
+                        }
 
-                    <span class="ident">table_imports</span>.<span class="ident">push</span>(<span class="ident">VMTableImport</span> {
-                        <span class="ident">definition</span>: <span class="ident">t</span>.<span class="ident">from</span>.<span class="ident">vmtable</span>(),
-                        <span class="ident">from</span>: <span class="ident">t</span>.<span class="ident">from</span>.<span class="ident">clone</span>(),
-                    });
+                        <span class="ident">table_imports</span>.<span class="ident">push</span>(<span class="ident">VMTableImport</span> {
+                            <span class="ident">definition</span>: <span class="ident">t</span>.<span class="ident">vmtable</span>(),
+                            <span class="ident">handle</span>,
+                        });
+                    }
+                    <span class="kw">_</span> =&gt; {
+                        <span class="macro">unreachable!</span>(<span class="string">&quot;Table resolution did not match&quot;</span>);
+                    }
                 }
-                <span class="kw">_</span> =&gt; {
-                    <span class="macro">unreachable!</span>(<span class="string">&quot;Table resolution did not match&quot;</span>);
-                }
-            },
-            <span class="ident">Export::Memory</span>(<span class="kw-2">ref</span> <span class="ident">m</span>) =&gt; {
+            }
+            <span class="ident">VMExtern::Memory</span>(<span class="ident">handle</span>) =&gt; {
+                <span class="kw">let</span> <span class="ident">m</span> <span class="op">=</span> <span class="ident">handle</span>.<span class="ident">get</span>(<span class="ident">context</span>);
                 <span class="kw">match</span> <span class="ident">import_index</span> {
                     <span class="ident">ImportIndex::Memory</span>(<span class="ident">index</span>) =&gt; {
                         <span class="comment">// Sanity-check: Ensure that the imported memory has at least</span>
@@ -414,15 +342,16 @@
                 }
 
                 <span class="ident">memory_imports</span>.<span class="ident">push</span>(<span class="ident">VMMemoryImport</span> {
-                    <span class="ident">definition</span>: <span class="ident">m</span>.<span class="ident">from</span>.<span class="ident">vmmemory</span>(),
-                    <span class="ident">from</span>: <span class="ident">m</span>.<span class="ident">from</span>.<span class="ident">clone</span>(),
+                    <span class="ident">definition</span>: <span class="ident">m</span>.<span class="ident">vmmemory</span>(),
+                    <span class="ident">handle</span>,
                 });
             }
 
-            <span class="ident">Export::Global</span>(<span class="kw-2">ref</span> <span class="ident">g</span>) =&gt; {
+            <span class="ident">VMExtern::Global</span>(<span class="ident">handle</span>) =&gt; {
+                <span class="kw">let</span> <span class="ident">g</span> <span class="op">=</span> <span class="ident">handle</span>.<span class="ident">get</span>(<span class="ident">context</span>);
                 <span class="ident">global_imports</span>.<span class="ident">push</span>(<span class="ident">VMGlobalImport</span> {
-                    <span class="ident">definition</span>: <span class="ident">g</span>.<span class="ident">from</span>.<span class="ident">vmglobal</span>(),
-                    <span class="ident">from</span>: <span class="ident">g</span>.<span class="ident">from</span>.<span class="ident">clone</span>(),
+                    <span class="ident">definition</span>: <span class="ident">g</span>.<span class="ident">vmglobal</span>(),
+                    <span class="ident">handle</span>,
                 });
             }
         }
@@ -430,7 +359,6 @@
 
     <span class="prelude-val">Ok</span>(<span class="ident">Imports::new</span>(
         <span class="ident">function_imports</span>,
-        <span class="ident">host_function_env_initializers</span>,
         <span class="ident">table_imports</span>,
         <span class="ident">memory_imports</span>,
         <span class="ident">global_imports</span>,

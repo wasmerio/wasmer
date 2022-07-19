@@ -21,13 +21,10 @@
 <span id="19">19</span>
 <span id="20">20</span>
 <span id="21">21</span>
-<span id="22">22</span>
-<span id="23">23</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Generic Engine abstraction for Wasmer Engines.</span>
 
 <span class="kw">mod</span> <span class="ident">artifact</span>;
 <span class="kw">mod</span> <span class="ident">error</span>;
-<span class="kw">mod</span> <span class="ident">export</span>;
 <span class="kw">mod</span> <span class="ident">inner</span>;
 <span class="kw">mod</span> <span class="ident">resolver</span>;
 <span class="kw">mod</span> <span class="ident">trap</span>;
@@ -38,7 +35,6 @@
 
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="self">self</span>::artifact::Artifact</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="self">self</span>::error</span>::{<span class="ident">InstantiationError</span>, <span class="ident">LinkError</span>};
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="self">self</span>::export</span>::{<span class="ident">Export</span>, <span class="ident">ExportFunction</span>, <span class="ident">ExportFunctionMetadata</span>};
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="self">self</span>::inner</span>::{<span class="ident">Engine</span>, <span class="ident">EngineId</span>};
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="self">self</span>::resolver::resolve_imports</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="self">self</span>::trap</span>::<span class="kw-2">*</span>;

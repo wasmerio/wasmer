@@ -183,25 +183,12 @@
 <span id="181">181</span>
 <span id="182">182</span>
 <span id="183">183</span>
-<span id="184">184</span>
-<span id="185">185</span>
-<span id="186">186</span>
-<span id="187">187</span>
-<span id="188">188</span>
-<span id="189">189</span>
-<span id="190">190</span>
-<span id="191">191</span>
-<span id="192">192</span>
-<span id="193">193</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Unstable non-standard Wasmer-specific API that contains more WASI</span>
 <span class="doccomment">//! API.</span>
 
 <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::<span class="kw">super</span></span>::{
-    <span class="ident">externals::wasm_extern_t</span>, <span class="ident">module::wasm_module_t</span>, <span class="ident">store::wasm_store_t</span>, <span class="ident">types::wasm_name_t</span>,
-    <span class="ident">wasi::wasi_env_t</span>,
+    <span class="ident">externals::wasm_extern_t</span>, <span class="ident">module::wasm_module_t</span>, <span class="ident">types::wasm_name_t</span>, <span class="ident">wasi::wasi_env_t</span>,
 };
-<span class="kw">use</span> <span class="ident">wasmer_api</span>::{<span class="ident">Exportable</span>, <span class="ident">Extern</span>};
-<span class="kw">use</span> <span class="ident">wasmer_wasi</span>::{<span class="ident">generate_import_object_from_env</span>, <span class="ident">get_wasi_version</span>};
 
 <span class="doccomment">/// Unstable non-standard type wrapping `wasm_extern_t` with the</span>
 <span class="doccomment">/// addition of two `wasm_name_t` respectively for the module name and</span>
@@ -342,43 +329,36 @@
 <span class="doccomment">/// based on the `wasm_module_t` requirements.</span>
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
 <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasi_get_unordered_imports</span>(
-    <span class="ident">store</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">wasm_store_t</span><span class="op">&gt;</span>,
+    <span class="ident">wasi_env</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="ident">wasi_env_t</span><span class="op">&gt;</span>,
     <span class="ident">module</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">wasm_module_t</span><span class="op">&gt;</span>,
-    <span class="ident">wasi_env</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">wasi_env_t</span><span class="op">&gt;</span>,
     <span class="ident">imports</span>: <span class="kw-2">&amp;mut</span> <span class="ident">wasmer_named_extern_vec_t</span>,
 ) -&gt; <span class="ident">bool</span> {
-    <span class="ident">wasi_get_unordered_imports_inner</span>(<span class="ident">store</span>, <span class="ident">module</span>, <span class="ident">wasi_env</span>, <span class="ident">imports</span>).<span class="ident">is_some</span>()
+    <span class="ident">wasi_get_unordered_imports_inner</span>(<span class="ident">wasi_env</span>, <span class="ident">module</span>, <span class="ident">imports</span>).<span class="ident">is_some</span>()
 }
 
-<span class="kw">fn</span> <span class="ident">wasi_get_unordered_imports_inner</span>(
-    <span class="ident">store</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">wasm_store_t</span><span class="op">&gt;</span>,
+<span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">wasi_get_unordered_imports_inner</span>(
+    <span class="ident">wasi_env</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="ident">wasi_env_t</span><span class="op">&gt;</span>,
     <span class="ident">module</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">wasm_module_t</span><span class="op">&gt;</span>,
-    <span class="ident">wasi_env</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">wasi_env_t</span><span class="op">&gt;</span>,
     <span class="ident">imports</span>: <span class="kw-2">&amp;mut</span> <span class="ident">wasmer_named_extern_vec_t</span>,
 ) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">store</span> <span class="op">=</span> <span class="ident">store</span><span class="question-mark">?</span>;
-    <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">module</span><span class="question-mark">?</span>;
     <span class="kw">let</span> <span class="ident">wasi_env</span> <span class="op">=</span> <span class="ident">wasi_env</span><span class="question-mark">?</span>;
+    <span class="kw">let</span> <span class="ident">store</span> <span class="op">=</span> <span class="kw-2">&amp;mut</span> <span class="ident">wasi_env</span>.<span class="ident">store</span>;
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">store_mut</span> <span class="op">=</span> <span class="ident">store</span>.<span class="ident">store_mut</span>();
+    <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">module</span><span class="question-mark">?</span>;
 
-    <span class="kw">let</span> <span class="ident">store</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">store</span>.<span class="ident">inner</span>;
-
-    <span class="kw">let</span> <span class="ident">version</span> <span class="op">=</span> <span class="macro">c_try!</span>(<span class="ident">get_wasi_version</span>(<span class="kw-2">&amp;</span><span class="ident">module</span>.<span class="ident">inner</span>, <span class="bool-val">false</span>)
-        .<span class="ident">ok_or</span>(<span class="string">&quot;could not detect a WASI version on the given module&quot;</span>));
-
-    <span class="kw">let</span> <span class="ident">import_object</span> <span class="op">=</span> <span class="ident">generate_import_object_from_env</span>(<span class="ident">store</span>, <span class="ident">wasi_env</span>.<span class="ident">inner</span>.<span class="ident">clone</span>(), <span class="ident">version</span>);
+    <span class="kw">let</span> <span class="ident">import_object</span> <span class="op">=</span> <span class="macro">c_try!</span>(<span class="ident">wasi_env</span>.<span class="ident">inner</span>.<span class="ident">import_object</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store_mut</span>, <span class="kw-2">&amp;</span><span class="ident">module</span>.<span class="ident">inner</span>));
 
     <span class="ident">imports</span>.<span class="ident">set_buffer</span>(
         <span class="ident">import_object</span>
             .<span class="ident">into_iter</span>()
-            .<span class="ident">map</span>(<span class="op">|</span>((<span class="ident">module</span>, <span class="ident">name</span>), <span class="ident">extern_</span>)<span class="op">|</span> {
+            .<span class="ident">map</span>(<span class="kw">move</span> <span class="op">|</span>((<span class="ident">module</span>, <span class="ident">name</span>), <span class="ident">extern_</span>)<span class="op">|</span> {
                 <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">module</span>.<span class="ident">into</span>();
                 <span class="kw">let</span> <span class="ident">name</span> <span class="op">=</span> <span class="ident">name</span>.<span class="ident">into</span>();
-                <span class="kw">let</span> <span class="ident">extern_inner</span> <span class="op">=</span> <span class="ident">Extern::from_vm_export</span>(<span class="ident">store</span>, <span class="ident">extern_</span>.<span class="ident">to_export</span>());
 
                 <span class="prelude-val">Some</span>(<span class="ident">Box::new</span>(<span class="ident">wasmer_named_extern_t</span> {
                     <span class="ident">module</span>,
                     <span class="ident">name</span>,
-                    <span class="ident">r#extern</span>: <span class="ident">Box::new</span>(<span class="ident">extern_inner</span>.<span class="ident">into</span>()),
+                    <span class="ident">r#extern</span>: <span class="ident">Box::new</span>(<span class="ident">wasm_extern_t::new</span>(<span class="ident">store</span>.<span class="ident">clone</span>(), <span class="ident">extern_</span>)),
                 }))
             })
             .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>(),

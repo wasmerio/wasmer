@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["VMFunctionEnvironment","Underlying FunctionEnvironment used by a `VMFunction`."]]});

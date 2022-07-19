@@ -21,9 +21,6 @@ on the arguments to this macro.</p>
 </div></div></div><h2 id="structs" class="small-section-header"><a href="#structs">Structs</a></h2>
 <div class="item-table"><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.CodeMemory.html" title="wasmer_compiler::CodeMemory struct">CodeMemory</a></div><div class="item-right docblock-short"><p>Memory manager for executable code.</p>
 </div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.EngineId.html" title="wasmer_compiler::EngineId struct">EngineId</a></div><div class="item-right docblock-short"><p>A unique identifier for an Engine.</p>
-</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.ExportFunction.html" title="wasmer_compiler::ExportFunction struct">ExportFunction</a></div><div class="item-right docblock-short"><p>A function export value with an extra function pointer to initialize
-host environments.</p>
-</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.ExportFunctionMetadata.html" title="wasmer_compiler::ExportFunctionMetadata struct">ExportFunctionMetadata</a></div><div class="item-right docblock-short"><p>Extra metadata about <code>ExportFunction</code>s.</p>
 </div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.FRAME_INFO.html" title="wasmer_compiler::FRAME_INFO struct">FRAME_INFO</a></div><div class="item-right docblock-short"><p>This is a global cache of backtrace frame information for all active</p>
 </div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.Features.html" title="wasmer_compiler::Features struct">Features</a></div><div class="item-right docblock-short"><p>Controls which experimental features will be enabled.
 Features usually have a corresponding <a href="https://github.com/WebAssembly/proposals">WebAssembly proposal</a>.</p>
@@ -67,7 +64,6 @@ used for passing arguments, which registers are callee-saved, and so on.</p>
 The list of supported features was initially retrieved from
 <a href="https://github.com/bytecodealliance/cranelift/blob/6988545fd20249b084c53f4761b8c861266f5d31/cranelift-native/src/lib.rs#L51-L92"><code>cranelift-native</code></a>.</p>
 </div></div><div class="item-row"><div class="item-left module-item"><a class="enum" href="enum.Endianness.html" title="wasmer_compiler::Endianness enum">Endianness</a></div><div class="item-right docblock-short"><p>The target memory endianness.</p>
-</div></div><div class="item-row"><div class="item-left module-item"><a class="enum" href="enum.Export.html" title="wasmer_compiler::Export enum">Export</a></div><div class="item-right docblock-short"><p>The value of an export passed from one instance to another.</p>
 </div></div><div class="item-row"><div class="item-left module-item"><a class="enum" href="enum.InstantiationError.html" title="wasmer_compiler::InstantiationError enum">InstantiationError</a></div><div class="item-right docblock-short"><p>An error while instantiating a module.</p>
 </div></div><div class="item-row"><div class="item-left module-item"><a class="enum" href="enum.LinkError.html" title="wasmer_compiler::LinkError enum">LinkError</a></div><div class="item-right docblock-short"><p>The WebAssembly.LinkError object indicates an error during
 module instantiation (besides traps from the start function).</p>

@@ -143,17 +143,17 @@
 <span id="141">141</span>
 <span id="142">142</span>
 <span id="143">143</span>
+<span id="144">144</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::engine::error::LinkError</span>;
 <span class="kw">use</span> <span class="ident">std::ptr::NonNull</span>;
-<span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types::entity</span>::{<span class="ident">EntityRef</span>, <span class="ident">PrimaryMap</span>};
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{
     <span class="ident">GlobalType</span>, <span class="ident">LocalGlobalIndex</span>, <span class="ident">LocalMemoryIndex</span>, <span class="ident">LocalTableIndex</span>, <span class="ident">MemoryIndex</span>, <span class="ident">MemoryType</span>,
     <span class="ident">ModuleInfo</span>, <span class="ident">TableIndex</span>, <span class="ident">TableType</span>,
 };
-<span class="kw">use</span> <span class="ident">wasmer_vm::MemoryError</span>;
-<span class="kw">use</span> <span class="ident">wasmer_vm</span>::{<span class="ident">Global</span>, <span class="ident">Memory</span>, <span class="ident">Table</span>};
+<span class="kw">use</span> <span class="ident">wasmer_vm</span>::{<span class="ident">InternalStoreHandle</span>, <span class="ident">MemoryError</span>, <span class="ident">StoreObjects</span>};
 <span class="kw">use</span> <span class="ident">wasmer_vm</span>::{<span class="ident">MemoryStyle</span>, <span class="ident">TableStyle</span>};
+<span class="kw">use</span> <span class="ident">wasmer_vm</span>::{<span class="ident">VMGlobal</span>, <span class="ident">VMMemory</span>, <span class="ident">VMTable</span>};
 <span class="kw">use</span> <span class="ident">wasmer_vm</span>::{<span class="ident">VMMemoryDefinition</span>, <span class="ident">VMTableDefinition</span>};
 
 <span class="doccomment">/// An engine delegates the creation of memories, tables, and globals</span>
@@ -170,7 +170,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">ty</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryType</span>,
         <span class="ident">style</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryStyle</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Memory</span><span class="op">&gt;</span>, <span class="ident">MemoryError</span><span class="op">&gt;</span>;
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">VMMemory</span>, <span class="ident">MemoryError</span><span class="op">&gt;</span>;
 
     <span class="doccomment">/// Create a memory owned by the VM given a [`MemoryType`] and a [`MemoryStyle`].</span>
     <span class="doccomment">///</span>
@@ -181,14 +181,10 @@
         <span class="ident">ty</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryType</span>,
         <span class="ident">style</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryStyle</span>,
         <span class="ident">vm_definition_location</span>: <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">VMMemoryDefinition</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Memory</span><span class="op">&gt;</span>, <span class="ident">MemoryError</span><span class="op">&gt;</span>;
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">VMMemory</span>, <span class="ident">MemoryError</span><span class="op">&gt;</span>;
 
     <span class="doccomment">/// Create a table owned by the host given a [`TableType`] and a [`TableStyle`].</span>
-    <span class="kw">fn</span> <span class="ident">create_host_table</span>(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">ty</span>: <span class="kw-2">&amp;</span><span class="ident">TableType</span>,
-        <span class="ident">style</span>: <span class="kw-2">&amp;</span><span class="ident">TableStyle</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Table</span><span class="op">&gt;</span>, <span class="ident">String</span><span class="op">&gt;</span>;
+    <span class="kw">fn</span> <span class="ident">create_host_table</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">ty</span>: <span class="kw-2">&amp;</span><span class="ident">TableType</span>, <span class="ident">style</span>: <span class="kw-2">&amp;</span><span class="ident">TableStyle</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">VMTable</span>, <span class="ident">String</span><span class="op">&gt;</span>;
 
     <span class="doccomment">/// Create a table owned by the VM given a [`TableType`] and a [`TableStyle`].</span>
     <span class="doccomment">///</span>
@@ -199,11 +195,11 @@
         <span class="ident">ty</span>: <span class="kw-2">&amp;</span><span class="ident">TableType</span>,
         <span class="ident">style</span>: <span class="kw-2">&amp;</span><span class="ident">TableStyle</span>,
         <span class="ident">vm_definition_location</span>: <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">VMTableDefinition</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Table</span><span class="op">&gt;</span>, <span class="ident">String</span><span class="op">&gt;</span>;
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">VMTable</span>, <span class="ident">String</span><span class="op">&gt;</span>;
 
     <span class="doccomment">/// Create a global with an unset value.</span>
-    <span class="kw">fn</span> <span class="ident">create_global</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">ty</span>: <span class="ident">GlobalType</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">Global</span><span class="op">&gt;</span>, <span class="ident">String</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Ok</span>(<span class="ident">Arc::new</span>(<span class="ident">Global::new</span>(<span class="ident">ty</span>)))
+    <span class="kw">fn</span> <span class="ident">create_global</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">ty</span>: <span class="ident">GlobalType</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">VMGlobal</span>, <span class="ident">String</span><span class="op">&gt;</span> {
+        <span class="prelude-val">Ok</span>(<span class="ident">VMGlobal::new</span>(<span class="ident">ty</span>))
     }
 
     <span class="doccomment">/// Allocate memory for just the memories of the current module.</span>
@@ -212,10 +208,11 @@
     <span class="doccomment">/// - `memory_definition_locations` must point to a valid locations in VM memory.</span>
     <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">create_memories</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
+        <span class="ident">context</span>: <span class="kw-2">&amp;mut</span> <span class="ident">StoreObjects</span>,
         <span class="ident">module</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span>,
         <span class="ident">memory_styles</span>: <span class="kw-2">&amp;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">MemoryIndex</span>, <span class="ident">MemoryStyle</span><span class="op">&gt;</span>,
         <span class="ident">memory_definition_locations</span>: <span class="kw-2">&amp;</span>[<span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">VMMemoryDefinition</span><span class="op">&gt;</span>],
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalMemoryIndex</span>, <span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Memory</span><span class="op">&gt;</span><span class="op">&gt;</span>, <span class="ident">LinkError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalMemoryIndex</span>, <span class="ident">InternalStoreHandle</span><span class="op">&lt;</span><span class="ident">VMMemory</span><span class="op">&gt;</span><span class="op">&gt;</span>, <span class="ident">LinkError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">num_imports</span> <span class="op">=</span> <span class="ident">module</span>.<span class="ident">num_imported_memories</span>;
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">memories</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalMemoryIndex</span>, <span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span>
             <span class="ident">PrimaryMap::with_capacity</span>(<span class="ident">module</span>.<span class="ident">memories</span>.<span class="ident">len</span>() <span class="op">-</span> <span class="ident">num_imports</span>);
@@ -228,10 +225,11 @@
             <span class="kw">let</span> <span class="ident">mi</span> <span class="op">=</span> <span class="ident">MemoryIndex::new</span>(<span class="ident">index</span>);
             <span class="kw">let</span> <span class="ident">ty</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">module</span>.<span class="ident">memories</span>[<span class="ident">mi</span>];
             <span class="kw">let</span> <span class="ident">style</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">memory_styles</span>[<span class="ident">mi</span>];
-            <span class="ident">memories</span>.<span class="ident">push</span>(
+            <span class="ident">memories</span>.<span class="ident">push</span>(<span class="ident">InternalStoreHandle::new</span>(
+                <span class="ident">context</span>,
                 <span class="self">self</span>.<span class="ident">create_vm_memory</span>(<span class="ident">ty</span>, <span class="ident">style</span>, <span class="kw-2">*</span><span class="ident">mdl</span>)
                     .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">LinkError::Resource</span>(<span class="macro">format!</span>(<span class="string">&quot;Failed to create memory: {}&quot;</span>, <span class="ident">e</span>)))<span class="question-mark">?</span>,
-            );
+            ));
         }
         <span class="prelude-val">Ok</span>(<span class="ident">memories</span>)
     }
@@ -243,10 +241,11 @@
     <span class="doccomment">/// To be done</span>
     <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">create_tables</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
+        <span class="ident">context</span>: <span class="kw-2">&amp;mut</span> <span class="ident">StoreObjects</span>,
         <span class="ident">module</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span>,
         <span class="ident">table_styles</span>: <span class="kw-2">&amp;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">TableIndex</span>, <span class="ident">TableStyle</span><span class="op">&gt;</span>,
         <span class="ident">table_definition_locations</span>: <span class="kw-2">&amp;</span>[<span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">VMTableDefinition</span><span class="op">&gt;</span>],
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalTableIndex</span>, <span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Table</span><span class="op">&gt;</span><span class="op">&gt;</span>, <span class="ident">LinkError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalTableIndex</span>, <span class="ident">InternalStoreHandle</span><span class="op">&lt;</span><span class="ident">VMTable</span><span class="op">&gt;</span><span class="op">&gt;</span>, <span class="ident">LinkError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">num_imports</span> <span class="op">=</span> <span class="ident">module</span>.<span class="ident">num_imported_tables</span>;
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">tables</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalTableIndex</span>, <span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span>
             <span class="ident">PrimaryMap::with_capacity</span>(<span class="ident">module</span>.<span class="ident">tables</span>.<span class="ident">len</span>() <span class="op">-</span> <span class="ident">num_imports</span>);
@@ -259,10 +258,11 @@
             <span class="kw">let</span> <span class="ident">ti</span> <span class="op">=</span> <span class="ident">TableIndex::new</span>(<span class="ident">index</span>);
             <span class="kw">let</span> <span class="ident">ty</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">module</span>.<span class="ident">tables</span>[<span class="ident">ti</span>];
             <span class="kw">let</span> <span class="ident">style</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">table_styles</span>[<span class="ident">ti</span>];
-            <span class="ident">tables</span>.<span class="ident">push</span>(
+            <span class="ident">tables</span>.<span class="ident">push</span>(<span class="ident">InternalStoreHandle::new</span>(
+                <span class="ident">context</span>,
                 <span class="self">self</span>.<span class="ident">create_vm_table</span>(<span class="ident">ty</span>, <span class="ident">style</span>, <span class="kw-2">*</span><span class="ident">tdl</span>)
                     .<span class="ident">map_err</span>(<span class="ident">LinkError::Resource</span>)<span class="question-mark">?</span>,
-            );
+            ));
         }
         <span class="prelude-val">Ok</span>(<span class="ident">tables</span>)
     }
@@ -271,16 +271,18 @@
     <span class="doccomment">/// with initializers applied.</span>
     <span class="kw">fn</span> <span class="ident">create_globals</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
+        <span class="ident">context</span>: <span class="kw-2">&amp;mut</span> <span class="ident">StoreObjects</span>,
         <span class="ident">module</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalGlobalIndex</span>, <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">Global</span><span class="op">&gt;</span><span class="op">&gt;</span>, <span class="ident">LinkError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalGlobalIndex</span>, <span class="ident">InternalStoreHandle</span><span class="op">&lt;</span><span class="ident">VMGlobal</span><span class="op">&gt;</span><span class="op">&gt;</span>, <span class="ident">LinkError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">num_imports</span> <span class="op">=</span> <span class="ident">module</span>.<span class="ident">num_imported_globals</span>;
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">vmctx_globals</span> <span class="op">=</span> <span class="ident">PrimaryMap::with_capacity</span>(<span class="ident">module</span>.<span class="ident">globals</span>.<span class="ident">len</span>() <span class="op">-</span> <span class="ident">num_imports</span>);
 
         <span class="kw">for</span> <span class="kw-2">&amp;</span><span class="ident">global_type</span> <span class="kw">in</span> <span class="ident">module</span>.<span class="ident">globals</span>.<span class="ident">values</span>().<span class="ident">skip</span>(<span class="ident">num_imports</span>) {
-            <span class="ident">vmctx_globals</span>.<span class="ident">push</span>(
+            <span class="ident">vmctx_globals</span>.<span class="ident">push</span>(<span class="ident">InternalStoreHandle::new</span>(
+                <span class="ident">context</span>,
                 <span class="self">self</span>.<span class="ident">create_global</span>(<span class="ident">global_type</span>)
                     .<span class="ident">map_err</span>(<span class="ident">LinkError::Resource</span>)<span class="question-mark">?</span>,
-            );
+            ));
         }
 
         <span class="prelude-val">Ok</span>(<span class="ident">vmctx_globals</span>)
