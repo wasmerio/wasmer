@@ -81,7 +81,7 @@ jobs:
       SCCACHE_AZURE_CONNECTION_STRING: ${{ secrets.SCCACHE_AZURE_CONNECTION_STRING }}
       TARGET: ${{ matrix.target }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Set up libstdc++ on Linux
         if: matrix.build == 'linux-x64'
         run: |
@@ -93,10 +93,10 @@ jobs:
         run: |
             apk add build-base bash musl-dev curl make libtool libffi-dev gcc automake autoconf git openssl-dev g++
       - name: Install Rust
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@stable
         with:
+          toolchain: 1.59
           target: ${{ matrix.target }}
-          override: true
       - uses: Swatinem/rust-cache@v1
         if: matrix.use_sccache != true
       - name: Install LLVM (macOS Apple Silicon)
@@ -195,11 +195,9 @@ jobs:
         run: |
           make build-wapm
       - name: Install Nightly Rust for Headless
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@nightly
         with:
-          toolchain: 'nightly-2022-02-08'
           target: ${{ matrix.target }}
-          override: true
           components: "rust-src"
       - name: Build Minimal Wasmer Headless
         if: matrix.build != 'linux-musl-x64'
@@ -216,7 +214,9 @@ jobs:
           echo "incremental = false" >> Cargo.toml
           echo "codegen-units = 1" >> Cargo.toml
           echo "rpath = false" >> Cargo.toml
+          rustup override set nightly
           make build-wasmer-headless-minimal
+          rustup override set stable
       - name: Dist
         if: matrix.build != 'macos-arm64'
         run: |
@@ -241,11 +241,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
+          toolchain: 1.59
           target: aarch64-unknown-linux-gnu
-          override: true
       - name: Build cross image
         run: |
           docker build -t wasmer/aarch64 /home/runner/work/wasmer/wasmer/.github/cross-linux-aarch64/
