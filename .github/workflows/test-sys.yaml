@@ -64,14 +64,14 @@ jobs:
             use_sccache: true
             run_integration_tests: true
             run_ios_tests: true
-            run_build_docs: true
+            run_build_docs: false
           - build: macos-arm64
             os: macos-11.0
             target: aarch64-apple-darwin
             use_sccache: true
             run_test: false
             run_test_capi: false
-            run_build_docs: true
+            run_build_docs: false
           - build: windows-x64
             os: windows-2019
             #target: x86_64-pc-windows-msvc commented because of bug in rust setup action
