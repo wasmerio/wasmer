@@ -53,6 +53,7 @@ jobs:
             run_test: true
             run_test_capi: true
             run_integration_tests: true
+            run_build_docs: true
             use_sccache: true
           - build: macos-x64
             os: macos-11
@@ -63,12 +64,14 @@ jobs:
             use_sccache: true
             run_integration_tests: true
             run_ios_tests: true
+            run_build_docs: true
           - build: macos-arm64
             os: macos-11.0
             target: aarch64-apple-darwin
             use_sccache: true
             run_test: false
             run_test_capi: false
+            run_build_docs: true
           - build: windows-x64
             os: windows-2019
             #target: x86_64-pc-windows-msvc commented because of bug in rust setup action
@@ -78,6 +81,7 @@ jobs:
             use_sccache: true
             run_test: true
             run_test_capi: false # We can't run yet the capi tests on Windows
+            run_build_docs: true
           - build: linux-musl-x64
             target: x86_64-unknown-linux-musl
             os: ubuntu-latest
@@ -85,6 +89,7 @@ jobs:
             run_test: true
             run_test_capi: false # It can't run the capi tests because of a cc linker issue (`wasm_engine_new` is redefined)
             run_integration_tests: false
+            run_build_docs: false
             use_sccache: false
     container: ${{ matrix.container }}
     env:
@@ -218,6 +223,10 @@ jobs:
         if: matrix.run_test_capi && matrix.os == 'windows-2019'
         run: |
           make test-capi
+      - name: Build Doc
+        if: matrix.run_build_docs
+        run: |
+          make package-docs
 
   audit:
     name: Audit
