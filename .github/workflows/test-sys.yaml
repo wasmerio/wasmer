@@ -81,7 +81,7 @@ jobs:
             use_sccache: true
             run_test: true
             run_test_capi: false # We can't run yet the capi tests on Windows
-            run_build_docs: true
+            run_build_docs: false
           - build: linux-musl-x64
             target: x86_64-unknown-linux-musl
             os: ubuntu-latest
