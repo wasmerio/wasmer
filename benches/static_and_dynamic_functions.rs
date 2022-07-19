@@ -149,14 +149,14 @@ pub fn run_basic_dynamic_function(store: &Store, compiler_name: &str, c: &mut Cr
 fn run_static_benchmarks(_c: &mut Criterion) {
     #[cfg(feature = "llvm")]
     {
-        let store =
+        let mut store =
             Store::new_with_engine(&Universal::new(wasmer_compiler_llvm::LLVM::new()).engine());
         run_basic_static_function(&store, "llvm", c);
     }
 
     #[cfg(feature = "cranelift")]
     {
-        let store = Store::new_with_engine(
+        let mut store = Store::new_with_engine(
             &Universal::new(wasmer_compiler_cranelift::Cranelift::new()).engine(),
         );
         run_basic_static_function(&store, "cranelift", c);
@@ -164,7 +164,7 @@ fn run_static_benchmarks(_c: &mut Criterion) {
 
     #[cfg(feature = "singlepass")]
     {
-        let store = Store::new_with_engine(
+        let mut store = Store::new_with_engine(
             &Universal::new(wasmer_compiler_singlepass::Singlepass::new()).engine(),
         );
         run_basic_static_function(&store, "singlepass", c);
@@ -174,14 +174,14 @@ fn run_static_benchmarks(_c: &mut Criterion) {
 fn run_dynamic_benchmarks(_c: &mut Criterion) {
     #[cfg(feature = "llvm")]
     {
-        let store =
+        let mut store =
             Store::new_with_engine(&Universal::new(wasmer_compiler_llvm::LLVM::new()).engine());
         run_basic_dynamic_function(&store, "llvm", c);
     }
 
     #[cfg(feature = "cranelift")]
     {
-        let store = Store::new_with_engine(
+        let mut store = Store::new_with_engine(
             &Universal::new(wasmer_compiler_cranelift::Cranelift::new()).engine(),
         );
         run_basic_dynamic_function(&store, "cranelift", c);
@@ -189,7 +189,7 @@ fn run_dynamic_benchmarks(_c: &mut Criterion) {
 
     #[cfg(feature = "singlepass")]
     {
-        let store = Store::new_with_engine(
+        let mut store = Store::new_with_engine(
             &Universal::new(wasmer_compiler_singlepass::Singlepass::new()).engine(),
         );
         run_basic_dynamic_function(&store, "singlepass", c);

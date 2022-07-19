@@ -1,256 +1,260 @@
 #![deny(dead_code)]
 use crate::{WasiEnv, WasiError, WasiState, WasiThread};
-use wasmer::{Memory, Memory64, MemorySize, WasmPtr, WasmSlice};
+use wasmer::{FunctionEnvMut, Memory, Memory64, MemorySize, StoreMut, WasmPtr, WasmSlice};
 use wasmer_wasi_types::*;
 
 type MemoryType = Memory64;
 type MemoryOffset = u64;
 
 pub(crate) fn args_get(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     argv: WasmPtr<WasmPtr<u8, MemoryType>, MemoryType>,
     argv_buf: WasmPtr<u8, MemoryType>,
 ) -> __wasi_errno_t {
-    super::args_get::<MemoryType>(env, argv, argv_buf)
+    super::args_get::<MemoryType>(ctx, argv, argv_buf)
 }
 
 pub(crate) fn args_sizes_get(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     argc: WasmPtr<MemoryOffset, MemoryType>,
     argv_buf_size: WasmPtr<MemoryOffset, MemoryType>,
 ) -> __wasi_errno_t {
-    super::args_sizes_get::<MemoryType>(env, argc, argv_buf_size)
+    super::args_sizes_get::<MemoryType>(ctx, argc, argv_buf_size)
 }
 
 pub(crate) fn clock_res_get(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     clock_id: __wasi_clockid_t,
     resolution: WasmPtr<__wasi_timestamp_t, MemoryType>,
 ) -> __wasi_errno_t {
-    super::clock_res_get::<MemoryType>(env, clock_id, resolution)
+    super::clock_res_get::<MemoryType>(ctx, clock_id, resolution)
 }
 
 pub(crate) fn clock_time_get(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     clock_id: __wasi_clockid_t,
     precision: __wasi_timestamp_t,
     time: WasmPtr<__wasi_timestamp_t, MemoryType>,
 ) -> __wasi_errno_t {
-    super::clock_time_get::<MemoryType>(env, clock_id, precision, time)
+    super::clock_time_get::<MemoryType>(ctx, clock_id, precision, time)
 }
 
 pub(crate) fn environ_get(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     environ: WasmPtr<WasmPtr<u8, MemoryType>, MemoryType>,
     environ_buf: WasmPtr<u8, MemoryType>,
 ) -> __wasi_errno_t {
-    super::environ_get::<MemoryType>(env, environ, environ_buf)
+    super::environ_get::<MemoryType>(ctx, environ, environ_buf)
 }
 
 pub(crate) fn environ_sizes_get(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     environ_count: WasmPtr<MemoryOffset, MemoryType>,
     environ_buf_size: WasmPtr<MemoryOffset, MemoryType>,
 ) -> __wasi_errno_t {
-    super::environ_sizes_get::<MemoryType>(env, environ_count, environ_buf_size)
+    super::environ_sizes_get::<MemoryType>(ctx, environ_count, environ_buf_size)
 }
 
 pub(crate) fn fd_advise(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     fd: __wasi_fd_t,
     offset: __wasi_filesize_t,
     len: __wasi_filesize_t,
     advice: __wasi_advice_t,
 ) -> __wasi_errno_t {
-    super::fd_advise(env, fd, offset, len, advice)
+    super::fd_advise(ctx, fd, offset, len, advice)
 }
 
 pub(crate) fn fd_allocate(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     fd: __wasi_fd_t,
     offset: __wasi_filesize_t,
     len: __wasi_filesize_t,
 ) -> __wasi_errno_t {
-    super::fd_allocate(env, fd, offset, len)
+    super::fd_allocate(ctx, fd, offset, len)
 }
 
-pub(crate) fn fd_close(env: &WasiEnv, fd: __wasi_fd_t) -> __wasi_errno_t {
-    super::fd_close(env, fd)
+pub(crate) fn fd_close(ctx: FunctionEnvMut<WasiEnv>, fd: __wasi_fd_t) -> __wasi_errno_t {
+    super::fd_close(ctx, fd)
 }
 
-pub(crate) fn fd_datasync(env: &WasiEnv, fd: __wasi_fd_t) -> __wasi_errno_t {
-    super::fd_datasync(env, fd)
+pub(crate) fn fd_datasync(ctx: FunctionEnvMut<WasiEnv>, fd: __wasi_fd_t) -> __wasi_errno_t {
+    super::fd_datasync(ctx, fd)
 }
 
 pub(crate) fn fd_fdstat_get(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     fd: __wasi_fd_t,
     buf_ptr: WasmPtr<__wasi_fdstat_t, MemoryType>,
 ) -> __wasi_errno_t {
-    super::fd_fdstat_get::<MemoryType>(env, fd, buf_ptr)
+    super::fd_fdstat_get::<MemoryType>(ctx, fd, buf_ptr)
 }
 
 pub(crate) fn fd_fdstat_set_flags(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     fd: __wasi_fd_t,
     flags: __wasi_fdflags_t,
 ) -> __wasi_errno_t {
-    super::fd_fdstat_set_flags(env, fd, flags)
+    super::fd_fdstat_set_flags(ctx, fd, flags)
 }
 
 pub(crate) fn fd_fdstat_set_rights(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     fd: __wasi_fd_t,
     fs_rights_base: __wasi_rights_t,
     fs_rights_inheriting: __wasi_rights_t,
 ) -> __wasi_errno_t {
-    super::fd_fdstat_set_rights(env, fd, fs_rights_base, fs_rights_inheriting)
+    super::fd_fdstat_set_rights(ctx, fd, fs_rights_base, fs_rights_inheriting)
 }
 
 pub(crate) fn fd_filestat_get(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     fd: __wasi_fd_t,
     buf: WasmPtr<__wasi_filestat_t, MemoryType>,
 ) -> __wasi_errno_t {
-    super::fd_filestat_get::<MemoryType>(env, fd, buf)
+    super::fd_filestat_get::<MemoryType>(ctx, fd, buf)
 }
 
 pub(crate) fn fd_filestat_set_size(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     fd: __wasi_fd_t,
     st_size: __wasi_filesize_t,
 ) -> __wasi_errno_t {
-    super::fd_filestat_set_size(env, fd, st_size)
+    super::fd_filestat_set_size(ctx, fd, st_size)
 }
 
 pub(crate) fn fd_filestat_set_times(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     fd: __wasi_fd_t,
     st_atim: __wasi_timestamp_t,
     st_mtim: __wasi_timestamp_t,
     fst_flags: __wasi_fstflags_t,
 ) -> __wasi_errno_t {
-    super::fd_filestat_set_times(env, fd, st_atim, st_mtim, fst_flags)
+    super::fd_filestat_set_times(ctx, fd, st_atim, st_mtim, fst_flags)
 }
 
 pub(crate) fn fd_pread(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     fd: __wasi_fd_t,
     iovs: WasmPtr<__wasi_iovec_t<MemoryType>, MemoryType>,
     iovs_len: MemoryOffset,
     offset: __wasi_filesize_t,
     nread: WasmPtr<MemoryOffset, MemoryType>,
 ) -> Result<__wasi_errno_t, WasiError> {
-    super::fd_pread::<MemoryType>(env, fd, iovs, iovs_len, offset, nread)
+    super::fd_pread::<MemoryType>(ctx, fd, iovs, iovs_len, offset, nread)
 }
 
 pub(crate) fn fd_prestat_get(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     fd: __wasi_fd_t,
     buf: WasmPtr<__wasi_prestat_t, MemoryType>,
 ) -> __wasi_errno_t {
-    super::fd_prestat_get::<MemoryType>(env, fd, buf)
+    super::fd_prestat_get::<MemoryType>(ctx, fd, buf)
 }
 
 pub(crate) fn fd_prestat_dir_name(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     fd: __wasi_fd_t,
     path: WasmPtr<u8, MemoryType>,
     path_len: MemoryOffset,
 ) -> __wasi_errno_t {
-    super::fd_prestat_dir_name::<MemoryType>(env, fd, path, path_len)
+    super::fd_prestat_dir_name::<MemoryType>(ctx, fd, path, path_len)
 }
 
 pub(crate) fn fd_pwrite(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     fd: __wasi_fd_t,
     iovs: WasmPtr<__wasi_ciovec_t<MemoryType>, MemoryType>,
     iovs_len: MemoryOffset,
     offset: __wasi_filesize_t,
     nwritten: WasmPtr<MemoryOffset, MemoryType>,
 ) -> Result<__wasi_errno_t, WasiError> {
-    super::fd_pwrite::<MemoryType>(env, fd, iovs, iovs_len, offset, nwritten)
+    super::fd_pwrite::<MemoryType>(ctx, fd, iovs, iovs_len, offset, nwritten)
 }
 
 pub(crate) fn fd_read(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     fd: __wasi_fd_t,
     iovs: WasmPtr<__wasi_iovec_t<MemoryType>, MemoryType>,
     iovs_len: MemoryOffset,
     nread: WasmPtr<MemoryOffset, MemoryType>,
 ) -> Result<__wasi_errno_t, WasiError> {
-    super::fd_read::<MemoryType>(env, fd, iovs, iovs_len, nread)
+    super::fd_read::<MemoryType>(ctx, fd, iovs, iovs_len, nread)
 }
 
 pub(crate) fn fd_readdir(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     fd: __wasi_fd_t,
     buf: WasmPtr<u8, MemoryType>,
     buf_len: MemoryOffset,
     cookie: __wasi_dircookie_t,
     bufused: WasmPtr<MemoryOffset, MemoryType>,
 ) -> __wasi_errno_t {
-    super::fd_readdir::<MemoryType>(env, fd, buf, buf_len, cookie, bufused)
+    super::fd_readdir::<MemoryType>(ctx, fd, buf, buf_len, cookie, bufused)
 }
 
-pub(crate) fn fd_renumber(env: &WasiEnv, from: __wasi_fd_t, to: __wasi_fd_t) -> __wasi_errno_t {
-    super::fd_renumber(env, from, to)
+pub(crate) fn fd_renumber(
+    ctx: FunctionEnvMut<WasiEnv>,
+    from: __wasi_fd_t,
+    to: __wasi_fd_t,
+) -> __wasi_errno_t {
+    super::fd_renumber(ctx, from, to)
 }
 
 pub(crate) fn fd_seek(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     fd: __wasi_fd_t,
     offset: __wasi_filedelta_t,
     whence: __wasi_whence_t,
     newoffset: WasmPtr<__wasi_filesize_t, MemoryType>,
 ) -> Result<__wasi_errno_t, WasiError> {
-    super::fd_seek::<MemoryType>(env, fd, offset, whence, newoffset)
+    super::fd_seek::<MemoryType>(ctx, fd, offset, whence, newoffset)
 }
 
-pub(crate) fn fd_sync(env: &WasiEnv, fd: __wasi_fd_t) -> __wasi_errno_t {
-    super::fd_sync(env, fd)
+pub(crate) fn fd_sync(ctx: FunctionEnvMut<WasiEnv>, fd: __wasi_fd_t) -> __wasi_errno_t {
+    super::fd_sync(ctx, fd)
 }
 
 pub(crate) fn fd_tell(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     fd: __wasi_fd_t,
     offset: WasmPtr<__wasi_filesize_t, MemoryType>,
 ) -> __wasi_errno_t {
-    super::fd_tell::<MemoryType>(env, fd, offset)
+    super::fd_tell::<MemoryType>(ctx, fd, offset)
 }
 
 pub(crate) fn fd_write(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     fd: __wasi_fd_t,
     iovs: WasmPtr<__wasi_ciovec_t<MemoryType>, MemoryType>,
     iovs_len: MemoryOffset,
     nwritten: WasmPtr<MemoryOffset, MemoryType>,
 ) -> Result<__wasi_errno_t, WasiError> {
-    super::fd_write::<MemoryType>(env, fd, iovs, iovs_len, nwritten)
+    super::fd_write::<MemoryType>(ctx, fd, iovs, iovs_len, nwritten)
 }
 
 pub(crate) fn path_create_directory(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     fd: __wasi_fd_t,
     path: WasmPtr<u8, MemoryType>,
     path_len: MemoryOffset,
 ) -> __wasi_errno_t {
-    super::path_create_directory::<MemoryType>(env, fd, path, path_len)
+    super::path_create_directory::<MemoryType>(ctx, fd, path, path_len)
 }
 
 pub(crate) fn path_filestat_get(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     fd: __wasi_fd_t,
     flags: __wasi_lookupflags_t,
     path: WasmPtr<u8, MemoryType>,
     path_len: MemoryOffset,
     buf: WasmPtr<__wasi_filestat_t, MemoryType>,
 ) -> __wasi_errno_t {
-    super::path_filestat_get::<MemoryType>(env, fd, flags, path, path_len, buf)
+    super::path_filestat_get::<MemoryType>(ctx, fd, flags, path, path_len, buf)
 }
 
 pub(crate) fn path_filestat_set_times(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     fd: __wasi_fd_t,
     flags: __wasi_lookupflags_t,
     path: WasmPtr<u8, MemoryType>,
@@ -260,12 +264,12 @@ pub(crate) fn path_filestat_set_times(
     fst_flags: __wasi_fstflags_t,
 ) -> __wasi_errno_t {
     super::path_filestat_set_times::<MemoryType>(
-        env, fd, flags, path, path_len, st_atim, st_mtim, fst_flags,
+        ctx, fd, flags, path, path_len, st_atim, st_mtim, fst_flags,
     )
 }
 
 pub(crate) fn path_link(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     old_fd: __wasi_fd_t,
     old_flags: __wasi_lookupflags_t,
     old_path: WasmPtr<u8, MemoryType>,
@@ -275,7 +279,7 @@ pub(crate) fn path_link(
     new_path_len: MemoryOffset,
 ) -> __wasi_errno_t {
     super::path_link::<MemoryType>(
-        env,
+        ctx,
         old_fd,
         old_flags,
         old_path,
@@ -287,7 +291,7 @@ pub(crate) fn path_link(
 }
 
 pub(crate) fn path_open(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     dirfd: __wasi_fd_t,
     dirflags: __wasi_lookupflags_t,
     path: WasmPtr<u8, MemoryType>,
@@ -299,7 +303,7 @@ pub(crate) fn path_open(
     fd: WasmPtr<__wasi_fd_t, MemoryType>,
 ) -> __wasi_errno_t {
     super::path_open::<MemoryType>(
-        env,
+        ctx,
         dirfd,
         dirflags,
         path,
@@ -313,7 +317,7 @@ pub(crate) fn path_open(
 }
 
 pub(crate) fn path_readlink(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     dir_fd: __wasi_fd_t,
     path: WasmPtr<u8, MemoryType>,
     path_len: MemoryOffset,
@@ -321,20 +325,20 @@ pub(crate) fn path_readlink(
     buf_len: MemoryOffset,
     buf_used: WasmPtr<MemoryOffset, MemoryType>,
 ) -> __wasi_errno_t {
-    super::path_readlink::<MemoryType>(env, dir_fd, path, path_len, buf, buf_len, buf_used)
+    super::path_readlink::<MemoryType>(ctx, dir_fd, path, path_len, buf, buf_len, buf_used)
 }
 
 pub(crate) fn path_remove_directory(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     fd: __wasi_fd_t,
     path: WasmPtr<u8, MemoryType>,
     path_len: MemoryOffset,
 ) -> __wasi_errno_t {
-    super::path_remove_directory::<MemoryType>(env, fd, path, path_len)
+    super::path_remove_directory::<MemoryType>(ctx, fd, path, path_len)
 }
 
 pub(crate) fn path_rename(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     old_fd: __wasi_fd_t,
     old_path: WasmPtr<u8, MemoryType>,
     old_path_len: MemoryOffset,
@@ -343,7 +347,7 @@ pub(crate) fn path_rename(
     new_path_len: MemoryOffset,
 ) -> __wasi_errno_t {
     super::path_rename::<MemoryType>(
-        env,
+        ctx,
         old_fd,
         old_path,
         old_path_len,
@@ -354,159 +358,168 @@ pub(crate) fn path_rename(
 }
 
 pub(crate) fn path_symlink(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     old_path: WasmPtr<u8, MemoryType>,
     old_path_len: MemoryOffset,
     fd: __wasi_fd_t,
     new_path: WasmPtr<u8, MemoryType>,
     new_path_len: MemoryOffset,
 ) -> __wasi_errno_t {
-    super::path_symlink::<MemoryType>(env, old_path, old_path_len, fd, new_path, new_path_len)
+    super::path_symlink::<MemoryType>(ctx, old_path, old_path_len, fd, new_path, new_path_len)
 }
 
 pub(crate) fn path_unlink_file(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     fd: __wasi_fd_t,
     path: WasmPtr<u8, MemoryType>,
     path_len: MemoryOffset,
 ) -> __wasi_errno_t {
-    super::path_unlink_file::<MemoryType>(env, fd, path, path_len)
+    super::path_unlink_file::<MemoryType>(ctx, fd, path, path_len)
 }
 
 pub(crate) fn poll_oneoff(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     in_: WasmPtr<__wasi_subscription_t, MemoryType>,
     out_: WasmPtr<__wasi_event_t, MemoryType>,
     nsubscriptions: MemoryOffset,
     nevents: WasmPtr<MemoryOffset, MemoryType>,
 ) -> Result<__wasi_errno_t, WasiError> {
-    super::poll_oneoff::<MemoryType>(env, in_, out_, nsubscriptions, nevents)
+    super::poll_oneoff::<MemoryType>(ctx, in_, out_, nsubscriptions, nevents)
 }
 
-pub(crate) fn proc_exit(env: &WasiEnv, code: __wasi_exitcode_t) -> Result<(), WasiError> {
-    super::proc_exit(env, code)
+pub(crate) fn proc_exit(
+    ctx: FunctionEnvMut<WasiEnv>,
+    code: __wasi_exitcode_t,
+) -> Result<(), WasiError> {
+    super::proc_exit(ctx, code)
 }
 
-pub(crate) fn proc_raise(env: &WasiEnv, sig: __wasi_signal_t) -> __wasi_errno_t {
-    super::proc_raise(env, sig)
+pub(crate) fn proc_raise(ctx: FunctionEnvMut<WasiEnv>, sig: __wasi_signal_t) -> __wasi_errno_t {
+    super::proc_raise(ctx, sig)
 }
 
 pub(crate) fn random_get(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     buf: WasmPtr<u8, MemoryType>,
     buf_len: MemoryOffset,
 ) -> __wasi_errno_t {
-    super::random_get::<MemoryType>(env, buf, buf_len)
+    super::random_get::<MemoryType>(ctx, buf, buf_len)
 }
 
 pub(crate) fn fd_dup(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     fd: __wasi_fd_t,
     ret_fd: WasmPtr<__wasi_fd_t, MemoryType>,
 ) -> __wasi_errno_t {
-    super::fd_dup::<MemoryType>(env, fd, ret_fd)
+    super::fd_dup::<MemoryType>(ctx, fd, ret_fd)
 }
 
 pub(crate) fn fd_event(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     initial_val: u64,
     flags: __wasi_eventfdflags,
     ret_fd: WasmPtr<__wasi_fd_t, MemoryType>,
 ) -> __wasi_errno_t {
-    super::fd_event(env, initial_val, flags, ret_fd)
+    super::fd_event(ctx, initial_val, flags, ret_fd)
 }
 
 pub(crate) fn fd_pipe(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     ro_fd1: WasmPtr<__wasi_fd_t, MemoryType>,
     ro_fd2: WasmPtr<__wasi_fd_t, MemoryType>,
 ) -> __wasi_errno_t {
-    super::fd_pipe::<MemoryType>(env, ro_fd1, ro_fd2)
+    super::fd_pipe::<MemoryType>(ctx, ro_fd1, ro_fd2)
 }
 
 pub(crate) fn tty_get(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     tty_state: WasmPtr<__wasi_tty_t, MemoryType>,
 ) -> __wasi_errno_t {
-    super::tty_get::<MemoryType>(env, tty_state)
+    super::tty_get::<MemoryType>(ctx, tty_state)
 }
 
 pub(crate) fn tty_set(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     tty_state: WasmPtr<__wasi_tty_t, MemoryType>,
 ) -> __wasi_errno_t {
-    super::tty_set::<MemoryType>(env, tty_state)
+    super::tty_set::<MemoryType>(ctx, tty_state)
 }
 
 pub(crate) fn getcwd(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     path: WasmPtr<u8, MemoryType>,
     path_len: WasmPtr<MemoryOffset, MemoryType>,
 ) -> __wasi_errno_t {
-    super::getcwd::<MemoryType>(env, path, path_len)
+    super::getcwd::<MemoryType>(ctx, path, path_len)
 }
 
 pub(crate) fn chdir(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     path: WasmPtr<u8, MemoryType>,
     path_len: MemoryOffset,
 ) -> __wasi_errno_t {
-    super::chdir::<MemoryType>(env, path, path_len)
+    super::chdir::<MemoryType>(ctx, path, path_len)
 }
 
 pub(crate) fn thread_spawn(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     method: WasmPtr<u8, MemoryType>,
     method_len: MemoryOffset,
     user_data: u64,
     reactor: __wasi_bool_t,
     ret_tid: WasmPtr<__wasi_tid_t, MemoryType>,
 ) -> __wasi_errno_t {
-    super::thread_spawn::<MemoryType>(env, method, method_len, user_data, reactor, ret_tid)
+    super::thread_spawn::<MemoryType>(ctx, method, method_len, user_data, reactor, ret_tid)
 }
 
 pub(crate) fn thread_sleep(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     duration: __wasi_timestamp_t,
 ) -> Result<__wasi_errno_t, WasiError> {
-    super::thread_sleep(env, duration)
+    super::thread_sleep(ctx, duration)
 }
 
 pub(crate) fn thread_id(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     ret_tid: WasmPtr<__wasi_tid_t, MemoryType>,
 ) -> __wasi_errno_t {
-    super::thread_id::<MemoryType>(env, ret_tid)
+    super::thread_id::<MemoryType>(ctx, ret_tid)
 }
 
-pub(crate) fn thread_join(env: &WasiEnv, tid: __wasi_tid_t) -> Result<__wasi_errno_t, WasiError> {
-    super::thread_join(env, tid)
+pub(crate) fn thread_join(
+    ctx: FunctionEnvMut<WasiEnv>,
+    tid: __wasi_tid_t,
+) -> Result<__wasi_errno_t, WasiError> {
+    super::thread_join(ctx, tid)
 }
 
 pub(crate) fn thread_parallelism(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     ret_parallelism: WasmPtr<MemoryOffset, MemoryType>,
 ) -> __wasi_errno_t {
-    super::thread_parallelism::<MemoryType>(env, ret_parallelism)
+    super::thread_parallelism::<MemoryType>(ctx, ret_parallelism)
 }
 
 pub(crate) fn thread_exit(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     exitcode: __wasi_exitcode_t,
 ) -> Result<__wasi_errno_t, WasiError> {
-    super::thread_exit(env, exitcode)
+    super::thread_exit(ctx, exitcode)
 }
 
-pub(crate) fn sched_yield(env: &WasiEnv) -> Result<__wasi_errno_t, WasiError> {
-    super::sched_yield(env)
+pub(crate) fn sched_yield(ctx: FunctionEnvMut<WasiEnv>) -> Result<__wasi_errno_t, WasiError> {
+    super::sched_yield(ctx)
 }
 
-pub(crate) fn getpid(env: &WasiEnv, ret_pid: WasmPtr<__wasi_pid_t, MemoryType>) -> __wasi_errno_t {
-    super::getpid::<MemoryType>(env, ret_pid)
+pub(crate) fn getpid(
+    ctx: FunctionEnvMut<WasiEnv>,
+    ret_pid: WasmPtr<__wasi_pid_t, MemoryType>,
+) -> __wasi_errno_t {
+    super::getpid::<MemoryType>(ctx, ret_pid)
 }
 
 pub(crate) fn process_spawn(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     name: WasmPtr<u8, MemoryType>,
     name_len: MemoryOffset,
     chroot: __wasi_bool_t,
@@ -522,7 +535,7 @@ pub(crate) fn process_spawn(
     ret_handles: WasmPtr<__wasi_bus_handles_t, MemoryType>,
 ) -> __bus_errno_t {
     super::process_spawn::<MemoryType>(
-        env,
+        ctx,
         name,
         name_len,
         chroot,
@@ -540,17 +553,17 @@ pub(crate) fn process_spawn(
 }
 
 pub(crate) fn bus_open_local(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     name: WasmPtr<u8, MemoryType>,
     name_len: MemoryOffset,
     reuse: __wasi_bool_t,
     ret_bid: WasmPtr<__wasi_bid_t, MemoryType>,
 ) -> __bus_errno_t {
-    super::bus_open_local::<MemoryType>(env, name, name_len, reuse, ret_bid)
+    super::bus_open_local::<MemoryType>(ctx, name, name_len, reuse, ret_bid)
 }
 
 pub(crate) fn bus_open_remote(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     name: WasmPtr<u8, MemoryType>,
     name_len: MemoryOffset,
     reuse: __wasi_bool_t,
@@ -561,7 +574,7 @@ pub(crate) fn bus_open_remote(
     ret_bid: WasmPtr<__wasi_bid_t, MemoryType>,
 ) -> __bus_errno_t {
     super::bus_open_remote::<MemoryType>(
-        env,
+        ctx,
         name,
         name_len,
         reuse,
@@ -573,12 +586,12 @@ pub(crate) fn bus_open_remote(
     )
 }
 
-pub(crate) fn bus_close(env: &WasiEnv, bid: __wasi_bid_t) -> __bus_errno_t {
-    super::bus_close(env, bid)
+pub(crate) fn bus_close(ctx: FunctionEnvMut<WasiEnv>, bid: __wasi_bid_t) -> __bus_errno_t {
+    super::bus_close(ctx, bid)
 }
 
 pub(crate) fn bus_call(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     bid: __wasi_bid_t,
     keep_alive: __wasi_bool_t,
     topic: WasmPtr<u8, MemoryType>,
@@ -589,12 +602,12 @@ pub(crate) fn bus_call(
     ret_cid: WasmPtr<__wasi_cid_t, MemoryType>,
 ) -> __bus_errno_t {
     super::bus_call::<MemoryType>(
-        env, bid, keep_alive, topic, topic_len, format, buf, buf_len, ret_cid,
+        ctx, bid, keep_alive, topic, topic_len, format, buf, buf_len, ret_cid,
     )
 }
 
 pub(crate) fn bus_subcall(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     parent: __wasi_cid_t,
     keep_alive: __wasi_bool_t,
     topic: WasmPtr<u8, MemoryType>,
@@ -605,12 +618,12 @@ pub(crate) fn bus_subcall(
     ret_cid: WasmPtr<__wasi_cid_t, MemoryType>,
 ) -> __bus_errno_t {
     super::bus_subcall::<MemoryType>(
-        env, parent, keep_alive, topic, topic_len, format, buf, buf_len, ret_cid,
+        ctx, parent, keep_alive, topic, topic_len, format, buf, buf_len, ret_cid,
     )
 }
 
 pub(crate) fn bus_poll(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     timeout: __wasi_timestamp_t,
     events: WasmPtr<u8, MemoryType>,
     nevents: MemoryOffset,
@@ -619,7 +632,7 @@ pub(crate) fn bus_poll(
     ret_nevents: WasmPtr<MemoryOffset, MemoryType>,
 ) -> __bus_errno_t {
     super::bus_poll::<MemoryType>(
-        env,
+        ctx,
         timeout,
         events,
         nevents,
@@ -630,122 +643,126 @@ pub(crate) fn bus_poll(
 }
 
 pub(crate) fn call_reply(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     cid: __wasi_cid_t,
     format: __wasi_busdataformat_t,
     buf: WasmPtr<u8, MemoryType>,
     buf_len: MemoryOffset,
 ) -> __bus_errno_t {
-    super::call_reply::<MemoryType>(env, cid, format, buf, buf_len)
+    super::call_reply::<MemoryType>(ctx, cid, format, buf, buf_len)
 }
 
-pub(crate) fn call_fault(env: &WasiEnv, cid: __wasi_cid_t, fault: __bus_errno_t) -> __bus_errno_t {
-    super::call_fault(env, cid, fault)
+pub(crate) fn call_fault(
+    ctx: FunctionEnvMut<WasiEnv>,
+    cid: __wasi_cid_t,
+    fault: __bus_errno_t,
+) -> __bus_errno_t {
+    super::call_fault(ctx, cid, fault)
 }
 
-pub(crate) fn call_close(env: &WasiEnv, cid: __wasi_cid_t) -> __bus_errno_t {
-    super::call_close(env, cid)
+pub(crate) fn call_close(ctx: FunctionEnvMut<WasiEnv>, cid: __wasi_cid_t) -> __bus_errno_t {
+    super::call_close(ctx, cid)
 }
 
 pub(crate) fn port_bridge(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     network: WasmPtr<u8, MemoryType>,
     network_len: MemoryOffset,
     token: WasmPtr<u8, MemoryType>,
     token_len: MemoryOffset,
     security: __wasi_streamsecurity_t,
 ) -> __wasi_errno_t {
-    super::port_bridge::<MemoryType>(env, network, network_len, token, token_len, security)
+    super::port_bridge::<MemoryType>(ctx, network, network_len, token, token_len, security)
 }
 
-pub(crate) fn port_unbridge(env: &WasiEnv) -> __wasi_errno_t {
-    super::port_unbridge(env)
+pub(crate) fn port_unbridge(ctx: FunctionEnvMut<WasiEnv>) -> __wasi_errno_t {
+    super::port_unbridge(ctx)
 }
 
-pub(crate) fn port_dhcp_acquire(env: &WasiEnv) -> __wasi_errno_t {
-    super::port_dhcp_acquire(env)
+pub(crate) fn port_dhcp_acquire(ctx: FunctionEnvMut<WasiEnv>) -> __wasi_errno_t {
+    super::port_dhcp_acquire(ctx)
 }
 
 pub(crate) fn port_addr_add(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     addr: WasmPtr<__wasi_cidr_t, MemoryType>,
 ) -> __wasi_errno_t {
-    super::port_addr_add::<MemoryType>(env, addr)
+    super::port_addr_add::<MemoryType>(ctx, addr)
 }
 
 pub(crate) fn port_addr_remove(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     addr: WasmPtr<__wasi_addr_t, MemoryType>,
 ) -> __wasi_errno_t {
-    super::port_addr_remove::<MemoryType>(env, addr)
+    super::port_addr_remove::<MemoryType>(ctx, addr)
 }
 
-pub(crate) fn port_addr_clear(env: &WasiEnv) -> __wasi_errno_t {
-    super::port_addr_clear(env)
+pub(crate) fn port_addr_clear(ctx: FunctionEnvMut<WasiEnv>) -> __wasi_errno_t {
+    super::port_addr_clear(ctx)
 }
 
 pub(crate) fn port_addr_list(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     addrs: WasmPtr<__wasi_cidr_t, MemoryType>,
     naddrs: WasmPtr<MemoryOffset, MemoryType>,
 ) -> __wasi_errno_t {
-    super::port_addr_list::<MemoryType>(env, addrs, naddrs)
+    super::port_addr_list::<MemoryType>(ctx, addrs, naddrs)
 }
 
 pub(crate) fn port_mac(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     ret_mac: WasmPtr<__wasi_hardwareaddress_t, MemoryType>,
 ) -> __wasi_errno_t {
-    super::port_mac::<MemoryType>(env, ret_mac)
+    super::port_mac::<MemoryType>(ctx, ret_mac)
 }
 
 pub(crate) fn port_gateway_set(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     ip: WasmPtr<__wasi_addr_t, MemoryType>,
 ) -> __wasi_errno_t {
-    super::port_gateway_set::<MemoryType>(env, ip)
+    super::port_gateway_set::<MemoryType>(ctx, ip)
 }
 
 pub(crate) fn port_route_add(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     cidr: WasmPtr<__wasi_cidr_t, MemoryType>,
     via_router: WasmPtr<__wasi_addr_t, MemoryType>,
     preferred_until: WasmPtr<__wasi_option_timestamp_t, MemoryType>,
     expires_at: WasmPtr<__wasi_option_timestamp_t, MemoryType>,
 ) -> __wasi_errno_t {
-    super::port_route_add::<MemoryType>(env, cidr, via_router, preferred_until, expires_at)
+    super::port_route_add::<MemoryType>(ctx, cidr, via_router, preferred_until, expires_at)
 }
 
 pub(crate) fn port_route_remove(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     ip: WasmPtr<__wasi_addr_t, MemoryType>,
 ) -> __wasi_errno_t {
-    super::port_route_remove::<MemoryType>(env, ip)
+    super::port_route_remove::<MemoryType>(ctx, ip)
 }
 
-pub(crate) fn port_route_clear(env: &WasiEnv) -> __wasi_errno_t {
-    super::port_route_clear(env)
+pub(crate) fn port_route_clear(ctx: FunctionEnvMut<WasiEnv>) -> __wasi_errno_t {
+    super::port_route_clear(ctx)
 }
 
 pub(crate) fn port_route_list(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     routes: WasmPtr<__wasi_route_t, MemoryType>,
     nroutes: WasmPtr<MemoryOffset, MemoryType>,
 ) -> __wasi_errno_t {
-    super::port_route_list::<MemoryType>(env, routes, nroutes)
+    super::port_route_list::<MemoryType>(ctx, routes, nroutes)
 }
 
 pub(crate) fn ws_connect(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     url: WasmPtr<u8, MemoryType>,
     url_len: MemoryOffset,
     ret_sock: WasmPtr<__wasi_fd_t, MemoryType>,
 ) -> __wasi_errno_t {
-    super::ws_connect::<MemoryType>(env, url, url_len, ret_sock)
+    super::ws_connect::<MemoryType>(ctx, url, url_len, ret_sock)
 }
 
 pub(crate) fn http_request(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     url: WasmPtr<u8, MemoryType>,
     url_len: MemoryOffset,
     method: WasmPtr<u8, MemoryType>,
@@ -756,7 +773,7 @@ pub(crate) fn http_request(
     ret_handles: WasmPtr<__wasi_http_handles_t, MemoryType>,
 ) -> __wasi_errno_t {
     super::http_request::<MemoryType>(
-        env,
+        ctx,
         url,
         url_len,
         method,
@@ -769,7 +786,7 @@ pub(crate) fn http_request(
 }
 
 pub(crate) fn http_status(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     sock: __wasi_fd_t,
     status: WasmPtr<__wasi_http_status_t, MemoryType>,
     status_text: WasmPtr<u8, MemoryType>,
@@ -777,169 +794,169 @@ pub(crate) fn http_status(
     headers: WasmPtr<u8, MemoryType>,
     headers_len: WasmPtr<MemoryOffset, MemoryType>,
 ) -> __wasi_errno_t {
-    super::http_status::<MemoryType>(env, sock, status)
+    super::http_status::<MemoryType>(ctx, sock, status)
 }
 
 pub(crate) fn sock_status(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     sock: __wasi_fd_t,
     ret_status: WasmPtr<__wasi_sockstatus_t, MemoryType>,
 ) -> __wasi_errno_t {
-    super::sock_status::<MemoryType>(env, sock, ret_status)
+    super::sock_status::<MemoryType>(ctx, sock, ret_status)
 }
 
 pub(crate) fn sock_addr_local(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     sock: __wasi_fd_t,
     ret_addr: WasmPtr<__wasi_addr_port_t, MemoryType>,
 ) -> __wasi_errno_t {
-    super::sock_addr_local::<MemoryType>(env, sock, ret_addr)
+    super::sock_addr_local::<MemoryType>(ctx, sock, ret_addr)
 }
 
 pub(crate) fn sock_addr_peer(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     sock: __wasi_fd_t,
     ro_addr: WasmPtr<__wasi_addr_port_t, MemoryType>,
 ) -> __wasi_errno_t {
-    super::sock_addr_peer::<MemoryType>(env, sock, ro_addr)
+    super::sock_addr_peer::<MemoryType>(ctx, sock, ro_addr)
 }
 
 pub(crate) fn sock_open(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     af: __wasi_addressfamily_t,
     ty: __wasi_socktype_t,
     pt: __wasi_sockproto_t,
     ro_sock: WasmPtr<__wasi_fd_t, MemoryType>,
 ) -> __wasi_errno_t {
-    super::sock_open::<MemoryType>(env, af, ty, pt, ro_sock)
+    super::sock_open::<MemoryType>(ctx, af, ty, pt, ro_sock)
 }
 
 pub(crate) fn sock_set_opt_flag(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     sock: __wasi_fd_t,
     opt: __wasi_sockoption_t,
     flag: __wasi_bool_t,
 ) -> __wasi_errno_t {
-    super::sock_set_opt_flag(env, sock, opt, flag)
+    super::sock_set_opt_flag(ctx, sock, opt, flag)
 }
 
 pub(crate) fn sock_get_opt_flag(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     sock: __wasi_fd_t,
     opt: __wasi_sockoption_t,
     ret_flag: WasmPtr<__wasi_bool_t, MemoryType>,
 ) -> __wasi_errno_t {
-    super::sock_get_opt_flag::<MemoryType>(env, sock, opt, ret_flag)
+    super::sock_get_opt_flag::<MemoryType>(ctx, sock, opt, ret_flag)
 }
 
 pub fn sock_set_opt_time(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     sock: __wasi_fd_t,
     opt: __wasi_sockoption_t,
     time: WasmPtr<__wasi_option_timestamp_t, MemoryType>,
 ) -> __wasi_errno_t {
-    super::sock_set_opt_time(env, sock, opt, time)
+    super::sock_set_opt_time(ctx, sock, opt, time)
 }
 
 pub fn sock_get_opt_time(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     sock: __wasi_fd_t,
     opt: __wasi_sockoption_t,
     ret_time: WasmPtr<__wasi_option_timestamp_t, MemoryType>,
 ) -> __wasi_errno_t {
-    super::sock_get_opt_time(env, sock, opt, ret_time)
+    super::sock_get_opt_time(ctx, sock, opt, ret_time)
 }
 
 pub fn sock_set_opt_size(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     sock: __wasi_fd_t,
     opt: __wasi_sockoption_t,
     size: __wasi_filesize_t,
 ) -> __wasi_errno_t {
-    super::sock_set_opt_size(env, sock, opt, size)
+    super::sock_set_opt_size(ctx, sock, opt, size)
 }
 
 pub fn sock_get_opt_size(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     sock: __wasi_fd_t,
     opt: __wasi_sockoption_t,
     ret_size: WasmPtr<__wasi_filesize_t, MemoryType>,
 ) -> __wasi_errno_t {
-    super::sock_get_opt_size(env, sock, opt, ret_size)
+    super::sock_get_opt_size(ctx, sock, opt, ret_size)
 }
 
 pub(crate) fn sock_join_multicast_v4(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     sock: __wasi_fd_t,
     multiaddr: WasmPtr<__wasi_addr_ip4_t, MemoryType>,
     iface: WasmPtr<__wasi_addr_ip4_t, MemoryType>,
 ) -> __wasi_errno_t {
-    super::sock_join_multicast_v4::<MemoryType>(env, sock, multiaddr, iface)
+    super::sock_join_multicast_v4::<MemoryType>(ctx, sock, multiaddr, iface)
 }
 
 pub(crate) fn sock_leave_multicast_v4(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     sock: __wasi_fd_t,
     multiaddr: WasmPtr<__wasi_addr_ip4_t, MemoryType>,
     iface: WasmPtr<__wasi_addr_ip4_t, MemoryType>,
 ) -> __wasi_errno_t {
-    super::sock_leave_multicast_v4::<MemoryType>(env, sock, multiaddr, iface)
+    super::sock_leave_multicast_v4::<MemoryType>(ctx, sock, multiaddr, iface)
 }
 
 pub(crate) fn sock_join_multicast_v6(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     sock: __wasi_fd_t,
     multiaddr: WasmPtr<__wasi_addr_ip6_t, MemoryType>,
     iface: u32,
 ) -> __wasi_errno_t {
-    super::sock_join_multicast_v6::<MemoryType>(env, sock, multiaddr, iface)
+    super::sock_join_multicast_v6::<MemoryType>(ctx, sock, multiaddr, iface)
 }
 
 pub(crate) fn sock_leave_multicast_v6(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     sock: __wasi_fd_t,
     multiaddr: WasmPtr<__wasi_addr_ip6_t, MemoryType>,
     iface: u32,
 ) -> __wasi_errno_t {
-    super::sock_leave_multicast_v6::<MemoryType>(env, sock, multiaddr, iface)
+    super::sock_leave_multicast_v6::<MemoryType>(ctx, sock, multiaddr, iface)
 }
 
 pub(crate) fn sock_bind(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     sock: __wasi_fd_t,
     addr: WasmPtr<__wasi_addr_port_t, MemoryType>,
 ) -> __wasi_errno_t {
-    super::sock_bind::<MemoryType>(env, sock, addr)
+    super::sock_bind::<MemoryType>(ctx, sock, addr)
 }
 
 pub(crate) fn sock_listen(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     sock: __wasi_fd_t,
     backlog: MemoryOffset,
 ) -> __wasi_errno_t {
-    super::sock_listen::<MemoryType>(env, sock, backlog)
+    super::sock_listen::<MemoryType>(ctx, sock, backlog)
 }
 
 pub(crate) fn sock_accept(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     sock: __wasi_fd_t,
     fd_flags: __wasi_fdflags_t,
     ro_fd: WasmPtr<__wasi_fd_t, MemoryType>,
     ro_addr: WasmPtr<__wasi_addr_port_t, MemoryType>,
 ) -> Result<__wasi_errno_t, WasiError> {
-    super::sock_accept::<MemoryType>(env, sock, fd_flags, ro_fd, ro_addr)
+    super::sock_accept::<MemoryType>(ctx, sock, fd_flags, ro_fd, ro_addr)
 }
 
 pub(crate) fn sock_connect(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     sock: __wasi_fd_t,
     addr: WasmPtr<__wasi_addr_port_t, MemoryType>,
 ) -> __wasi_errno_t {
-    super::sock_connect::<MemoryType>(env, sock, addr)
+    super::sock_connect::<MemoryType>(ctx, sock, addr)
 }
 
 pub(crate) fn sock_recv(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     sock: __wasi_fd_t,
     ri_data: WasmPtr<__wasi_iovec_t<MemoryType>, MemoryType>,
     ri_data_len: MemoryOffset,
@@ -948,7 +965,7 @@ pub(crate) fn sock_recv(
     ro_flags: WasmPtr<__wasi_roflags_t, MemoryType>,
 ) -> Result<__wasi_errno_t, WasiError> {
     super::sock_recv::<MemoryType>(
-        env,
+        ctx,
         sock,
         ri_data,
         ri_data_len,
@@ -959,7 +976,7 @@ pub(crate) fn sock_recv(
 }
 
 pub(crate) fn sock_recv_from(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     sock: __wasi_fd_t,
     ri_data: WasmPtr<__wasi_iovec_t<MemoryType>, MemoryType>,
     ri_data_len: MemoryOffset,
@@ -969,7 +986,7 @@ pub(crate) fn sock_recv_from(
     ro_addr: WasmPtr<__wasi_addr_port_t, MemoryType>,
 ) -> Result<__wasi_errno_t, WasiError> {
     super::sock_recv_from::<MemoryType>(
-        env,
+        ctx,
         sock,
         ri_data,
         ri_data_len,
@@ -981,18 +998,18 @@ pub(crate) fn sock_recv_from(
 }
 
 pub(crate) fn sock_send(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     sock: __wasi_fd_t,
     si_data: WasmPtr<__wasi_ciovec_t<MemoryType>, MemoryType>,
     si_data_len: MemoryOffset,
     si_flags: __wasi_siflags_t,
     ret_data_len: WasmPtr<MemoryOffset, MemoryType>,
 ) -> Result<__wasi_errno_t, WasiError> {
-    super::sock_send::<MemoryType>(env, sock, si_data, si_data_len, si_flags, ret_data_len)
+    super::sock_send::<MemoryType>(ctx, sock, si_data, si_data_len, si_flags, ret_data_len)
 }
 
 pub(crate) fn sock_send_to(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     sock: __wasi_fd_t,
     si_data: WasmPtr<__wasi_ciovec_t<MemoryType>, MemoryType>,
     si_data_len: MemoryOffset,
@@ -1001,7 +1018,7 @@ pub(crate) fn sock_send_to(
     ret_data_len: WasmPtr<MemoryOffset, MemoryType>,
 ) -> Result<__wasi_errno_t, WasiError> {
     super::sock_send_to::<MemoryType>(
-        env,
+        ctx,
         sock,
         si_data,
         si_data_len,
@@ -1012,26 +1029,26 @@ pub(crate) fn sock_send_to(
 }
 
 pub(crate) fn sock_send_file(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     out_fd: __wasi_fd_t,
     in_fd: __wasi_fd_t,
     offset: __wasi_filesize_t,
     count: __wasi_filesize_t,
     ret_sent: WasmPtr<__wasi_filesize_t, MemoryType>,
 ) -> Result<__wasi_errno_t, WasiError> {
-    unsafe { super::sock_send_file::<MemoryType>(env, out_fd, in_fd, offset, count, ret_sent) }
+    unsafe { super::sock_send_file::<MemoryType>(ctx, out_fd, in_fd, offset, count, ret_sent) }
 }
 
 pub(crate) fn sock_shutdown(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     sock: __wasi_fd_t,
     how: __wasi_sdflags_t,
 ) -> __wasi_errno_t {
-    super::sock_shutdown(env, sock, how)
+    super::sock_shutdown(ctx, sock, how)
 }
 
 pub(crate) fn resolve(
-    env: &WasiEnv,
+    ctx: FunctionEnvMut<WasiEnv>,
     host: WasmPtr<u8, MemoryType>,
     host_len: MemoryOffset,
     port: u16,
@@ -1039,5 +1056,5 @@ pub(crate) fn resolve(
     nips: MemoryOffset,
     ret_nips: WasmPtr<MemoryOffset, MemoryType>,
 ) -> __wasi_errno_t {
-    super::resolve::<MemoryType>(env, host, host_len, port, ips, nips, ret_nips)
+    super::resolve::<MemoryType>(ctx, host, host_len, port, ips, nips, ret_nips)
 }

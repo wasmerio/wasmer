@@ -55,20 +55,18 @@ pub mod lib {
 
 pub mod compilation;
 pub mod error;
-mod extern_ref;
 mod features;
 mod indexes;
 mod initializers;
 mod libcalls;
 mod memory;
 mod module;
-mod native;
 mod table;
 mod trapcode;
 mod types;
 mod units;
 mod utils;
-mod values;
+mod value;
 mod vmoffsets;
 
 pub use error::{
@@ -78,7 +76,6 @@ pub use error::{
 
 /// The entity module, with common helpers for Rust structures
 pub mod entity;
-pub use crate::extern_ref::{ExternRef, VMExternRef};
 pub use crate::features::Features;
 pub use crate::indexes::{
     CustomSectionIndex, DataIndex, ElemIndex, ExportIndex, FunctionIndex, GlobalIndex, ImportIndex,
@@ -90,15 +87,14 @@ pub use crate::initializers::{
 };
 pub use crate::memory::{Memory32, Memory64, MemorySize};
 pub use crate::module::{ExportsIterator, ImportsIterator, ModuleInfo};
-pub use crate::native::{NativeWasmType, ValueType};
 pub use crate::units::{
     Bytes, PageCountOutOfRange, Pages, WASM_MAX_PAGES, WASM_MIN_PAGES, WASM_PAGE_SIZE,
 };
-pub use crate::values::{Value, WasmValueType};
 pub use types::{
     ExportType, ExternType, FunctionType, GlobalInit, GlobalType, ImportType, MemoryType,
     Mutability, TableType, Type, V128,
 };
+pub use value::{RawValue, ValueType};
 
 pub use crate::libcalls::LibCall;
 pub use crate::memory::MemoryStyle;
@@ -133,3 +129,74 @@ pub type Addend = i64;
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+
+mod native {
+    use super::Type;
+    use crate::memory::{Memory32, Memory64, MemorySize};
+    use std::fmt;
+
+    /// `NativeWasmType` represents a Wasm type that has a direct
+    /// representation on the host (hence the “native” term).
+    ///
+    /// It uses the Rust Type system to automatically detect the
+    /// Wasm type associated with a native Rust type.
+    ///
+    /// ```
+    /// use wasmer_types::{NativeWasmType, Type};
+    ///
+    /// let wasm_type = i32::WASM_TYPE;
+    /// assert_eq!(wasm_type, Type::I32);
+    /// ```
+    ///
+    /// > Note: This strategy will be needed later to
+    /// > automatically detect the signature of a Rust function.
+    pub trait NativeWasmType: Sized {
+        /// The ABI for this type (i32, i64, f32, f64)
+        type Abi: Copy + fmt::Debug;
+
+        /// Type for this `NativeWasmType`.
+        const WASM_TYPE: Type;
+    }
+
+    impl NativeWasmType for i32 {
+        const WASM_TYPE: Type = Type::I32;
+        type Abi = Self;
+    }
+
+    impl NativeWasmType for i64 {
+        const WASM_TYPE: Type = Type::I64;
+        type Abi = Self;
+    }
+
+    impl NativeWasmType for f32 {
+        const WASM_TYPE: Type = Type::F32;
+        type Abi = Self;
+    }
+
+    impl NativeWasmType for f64 {
+        const WASM_TYPE: Type = Type::F64;
+        type Abi = Self;
+    }
+
+    impl NativeWasmType for u128 {
+        const WASM_TYPE: Type = Type::V128;
+        type Abi = Self;
+    }
+
+    impl NativeWasmType for Memory32 {
+        const WASM_TYPE: Type = <<Self as MemorySize>::Native as NativeWasmType>::WASM_TYPE;
+        type Abi = <<Self as MemorySize>::Native as NativeWasmType>::Abi;
+    }
+
+    impl NativeWasmType for Memory64 {
+        const WASM_TYPE: Type = <<Self as MemorySize>::Native as NativeWasmType>::WASM_TYPE;
+        type Abi = <<Self as MemorySize>::Native as NativeWasmType>::Abi;
+    }
+
+    impl<T: NativeWasmType> NativeWasmType for Option<T> {
+        const WASM_TYPE: Type = T::WASM_TYPE;
+        type Abi = T::Abi;
+    }
+}
+
+pub use crate::native::*;

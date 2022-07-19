@@ -1,6 +1,7 @@
 use super::types::net_error_into_wasi_err;
 use crate::syscalls::types::*;
 use crate::syscalls::{read_bytes, write_bytes};
+use crate::WasiEnv;
 use bytes::{Buf, Bytes};
 use std::convert::TryInto;
 use std::io::{self, Read};
@@ -10,7 +11,7 @@ use std::sync::Mutex;
 use std::time::Duration;
 #[allow(unused_imports)]
 use tracing::{debug, error, info, warn};
-use wasmer::{Memory, MemorySize, WasmPtr, WasmSlice};
+use wasmer::{FunctionEnvMut, Memory, MemorySize, WasmPtr, WasmSlice};
 use wasmer_vnet::{net_error_into_io_err, TimeType};
 use wasmer_vnet::{
     IpCidr, IpRoute, SocketHttpRequest, VirtualIcmpSocket, VirtualNetworking, VirtualRawSocket,
@@ -768,6 +769,7 @@ impl InodeSocket {
 
     pub fn send<M: MemorySize>(
         &mut self,
+        ctx: &FunctionEnvMut<WasiEnv>,
         memory: &Memory,
         iov: WasmSlice<__wasi_ciovec_t<M>>,
     ) -> Result<usize, __wasi_errno_t> {
@@ -778,7 +780,7 @@ impl InodeSocket {
             .sum();
         let buf_len: usize = buf_len.try_into().map_err(|_| __WASI_EINVAL)?;
         let mut buf = Vec::with_capacity(buf_len);
-        write_bytes(&mut buf, memory, iov)?;
+        write_bytes(ctx, &mut buf, memory, iov)?;
         match &mut self.kind {
             InodeSocketKind::HttpRequest(sock, ty) => {
                 let sock = sock.get_mut().unwrap();
@@ -852,11 +854,12 @@ impl InodeSocket {
 
     pub fn send_to<M: MemorySize>(
         &mut self,
+        ctx: &FunctionEnvMut<WasiEnv>,
         memory: &Memory,
         iov: WasmSlice<__wasi_ciovec_t<M>>,
         addr: WasmPtr<__wasi_addr_port_t, M>,
     ) -> Result<usize, __wasi_errno_t> {
-        let (addr_ip, addr_port) = read_ip_port(memory, addr)?;
+        let (addr_ip, addr_port) = read_ip_port(ctx, memory, addr)?;
         let addr = SocketAddr::new(addr_ip, addr_port);
         let buf_len: M::Offset = iov
             .iter()
@@ -865,7 +868,7 @@ impl InodeSocket {
             .sum();
         let buf_len: usize = buf_len.try_into().map_err(|_| __WASI_EINVAL)?;
         let mut buf = Vec::with_capacity(buf_len);
-        write_bytes(&mut buf, memory, iov)?;
+        write_bytes(ctx, &mut buf, memory, iov)?;
         match &mut self.kind {
             InodeSocketKind::Icmp(sock) => sock
                 .send_to(Bytes::from(buf), addr)
@@ -882,6 +885,7 @@ impl InodeSocket {
 
     pub fn recv<M: MemorySize>(
         &mut self,
+        ctx: &FunctionEnvMut<WasiEnv>,
         memory: &Memory,
         iov: WasmSlice<__wasi_iovec_t<M>>,
     ) -> Result<usize, __wasi_errno_t> {
@@ -890,7 +894,7 @@ impl InodeSocket {
                 let buf_len = buf.len();
                 if buf_len > 0 {
                     let reader = buf.as_ref();
-                    let read = read_bytes(reader, memory, iov).map(|_| buf_len)?;
+                    let read = read_bytes(ctx, reader, memory, iov).map(|_| buf_len)?;
                     if let InodeSocketKind::TcpStream(..) = &self.kind {
                         buf.advance(read);
                     } else {
@@ -951,6 +955,7 @@ impl InodeSocket {
 
     pub fn recv_from<M: MemorySize>(
         &mut self,
+        ctx: &FunctionEnvMut<WasiEnv>,
         memory: &Memory,
         iov: WasmSlice<__wasi_iovec_t<M>>,
         addr: WasmPtr<__wasi_addr_port_t, M>,
@@ -959,11 +964,11 @@ impl InodeSocket {
             if let Some(buf) = self.read_buffer.as_mut() {
                 if !buf.is_empty() {
                     let reader = buf.as_ref();
-                    let ret = read_bytes(reader, memory, iov)?;
+                    let ret = read_bytes(ctx, reader, memory, iov)?;
                     let peer = self
                         .read_addr
                         .unwrap_or_else(|| SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0));
-                    write_ip_port(memory, addr, peer.ip(), peer.port())?;
+                    write_ip_port(ctx, memory, addr, peer.ip(), peer.port())?;
                     return Ok(ret);
                 }
             }
@@ -1130,10 +1135,11 @@ impl Drop for InodeSocket {
 
 #[allow(dead_code)]
 pub(crate) fn read_ip<M: MemorySize>(
+    ctx: &FunctionEnvMut<WasiEnv>,
     memory: &Memory,
     ptr: WasmPtr<__wasi_addr_t, M>,
 ) -> Result<IpAddr, __wasi_errno_t> {
-    let addr_ptr = ptr.deref(memory);
+    let addr_ptr = ptr.deref(ctx, memory);
     let addr = addr_ptr.read().map_err(crate::mem_error_to_wasi)?;
 
     let o = addr.u.octs;
@@ -1148,10 +1154,11 @@ pub(crate) fn read_ip<M: MemorySize>(
 }
 
 pub(crate) fn read_ip_v4<M: MemorySize>(
+    ctx: &FunctionEnvMut<WasiEnv>,
     memory: &Memory,
     ptr: WasmPtr<__wasi_addr_ip4_t, M>,
 ) -> Result<Ipv4Addr, __wasi_errno_t> {
-    let addr_ptr = ptr.deref(memory);
+    let addr_ptr = ptr.deref(ctx, memory);
     let addr = addr_ptr.read().map_err(crate::mem_error_to_wasi)?;
 
     let o = addr.octs;
@@ -1159,10 +1166,11 @@ pub(crate) fn read_ip_v4<M: MemorySize>(
 }
 
 pub(crate) fn read_ip_v6<M: MemorySize>(
+    ctx: &FunctionEnvMut<WasiEnv>,
     memory: &Memory,
     ptr: WasmPtr<__wasi_addr_ip6_t, M>,
 ) -> Result<Ipv6Addr, __wasi_errno_t> {
-    let addr_ptr = ptr.deref(memory);
+    let addr_ptr = ptr.deref(ctx, memory);
     let addr = addr_ptr.read().map_err(crate::mem_error_to_wasi)?;
 
     let [a, b, c, d, e, f, g, h] = unsafe { transmute::<_, [u16; 8]>(addr.segs) };
@@ -1170,6 +1178,7 @@ pub(crate) fn read_ip_v6<M: MemorySize>(
 }
 
 pub(crate) fn write_ip<M: MemorySize>(
+    ctx: &FunctionEnvMut<WasiEnv>,
     memory: &Memory,
     ptr: WasmPtr<__wasi_addr_t, M>,
     ip: IpAddr,
@@ -1193,17 +1202,18 @@ pub(crate) fn write_ip<M: MemorySize>(
         }
     };
 
-    let addr_ptr = ptr.deref(memory);
+    let addr_ptr = ptr.deref(ctx, memory);
     addr_ptr.write(ip).map_err(crate::mem_error_to_wasi)?;
     Ok(())
 }
 
 #[allow(dead_code)]
 pub(crate) fn read_cidr<M: MemorySize>(
+    ctx: &FunctionEnvMut<WasiEnv>,
     memory: &Memory,
     ptr: WasmPtr<__wasi_cidr_t, M>,
 ) -> Result<IpCidr, __wasi_errno_t> {
-    let addr_ptr = ptr.deref(memory);
+    let addr_ptr = ptr.deref(ctx, memory);
     let addr = addr_ptr.read().map_err(crate::mem_error_to_wasi)?;
 
     let o = addr.u.octs;
@@ -1231,6 +1241,7 @@ pub(crate) fn read_cidr<M: MemorySize>(
 
 #[allow(dead_code)]
 pub(crate) fn write_cidr<M: MemorySize>(
+    ctx: &FunctionEnvMut<WasiEnv>,
     memory: &Memory,
     ptr: WasmPtr<__wasi_cidr_t, M>,
     cidr: IpCidr,
@@ -1262,16 +1273,17 @@ pub(crate) fn write_cidr<M: MemorySize>(
         }
     };
 
-    let addr_ptr = ptr.deref(memory);
+    let addr_ptr = ptr.deref(ctx, memory);
     addr_ptr.write(cidr).map_err(crate::mem_error_to_wasi)?;
     Ok(())
 }
 
 pub(crate) fn read_ip_port<M: MemorySize>(
+    ctx: &FunctionEnvMut<WasiEnv>,
     memory: &Memory,
     ptr: WasmPtr<__wasi_addr_port_t, M>,
 ) -> Result<(IpAddr, u16), __wasi_errno_t> {
-    let addr_ptr = ptr.deref(memory);
+    let addr_ptr = ptr.deref(ctx, memory);
     let addr = addr_ptr.read().map_err(crate::mem_error_to_wasi)?;
 
     let o = addr.u.octs;
@@ -1299,6 +1311,7 @@ pub(crate) fn read_ip_port<M: MemorySize>(
 
 #[allow(dead_code)]
 pub(crate) fn write_ip_port<M: MemorySize>(
+    ctx: &FunctionEnvMut<WasiEnv>,
     memory: &Memory,
     ptr: WasmPtr<__wasi_addr_port_t, M>,
     ip: IpAddr,
@@ -1331,17 +1344,18 @@ pub(crate) fn write_ip_port<M: MemorySize>(
         }
     };
 
-    let addr_ptr = ptr.deref(memory);
+    let addr_ptr = ptr.deref(ctx, memory);
     addr_ptr.write(ipport).map_err(crate::mem_error_to_wasi)?;
     Ok(())
 }
 
 #[allow(dead_code)]
 pub(crate) fn read_route<M: MemorySize>(
+    ctx: &FunctionEnvMut<WasiEnv>,
     memory: &Memory,
     ptr: WasmPtr<__wasi_route_t, M>,
 ) -> Result<IpRoute, __wasi_errno_t> {
-    let route_ptr = ptr.deref(memory);
+    let route_ptr = ptr.deref(ctx, memory);
     let route = route_ptr.read().map_err(crate::mem_error_to_wasi)?;
 
     Ok(IpRoute {
@@ -1393,6 +1407,7 @@ pub(crate) fn read_route<M: MemorySize>(
 }
 
 pub(crate) fn write_route<M: MemorySize>(
+    ctx: &FunctionEnvMut<WasiEnv>,
     memory: &Memory,
     ptr: WasmPtr<__wasi_route_t, M>,
     route: IpRoute,
@@ -1471,7 +1486,7 @@ pub(crate) fn write_route<M: MemorySize>(
         expires_at,
     };
 
-    let route_ptr = ptr.deref(memory);
+    let route_ptr = ptr.deref(ctx, memory);
     route_ptr.write(route).map_err(crate::mem_error_to_wasi)?;
     Ok(())
 }

@@ -18,10 +18,7 @@ use wasmer_types::{
     CompileError, DeserializeError, FunctionIndex, LocalFunctionIndex, MemoryIndex, ModuleInfo,
     OwnedDataInitializer, SerializeError, SignatureIndex, TableIndex,
 };
-use wasmer_vm::{
-    FuncDataRegistry, FunctionBodyPtr, MemoryStyle, TableStyle, VMSharedSignatureIndex,
-    VMTrampoline,
-};
+use wasmer_vm::{FunctionBodyPtr, MemoryStyle, TableStyle, VMSharedSignatureIndex, VMTrampoline};
 
 /// A compiled wasm module, ready to be instantiated.
 pub struct UniversalArtifact {
@@ -30,7 +27,6 @@ pub struct UniversalArtifact {
     finished_function_call_trampolines: BoxedSlice<SignatureIndex, VMTrampoline>,
     finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, FunctionBodyPtr>,
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
-    func_data_registry: Arc<FuncDataRegistry>,
     frame_info_registration: Mutex<Option<GlobalFrameInfoRegistration>>,
     finished_function_lengths: BoxedSlice<LocalFunctionIndex, usize>,
 }
@@ -172,7 +168,6 @@ impl UniversalArtifact {
         let finished_dynamic_function_trampolines =
             finished_dynamic_function_trampolines.into_boxed_slice();
         let signatures = signatures.into_boxed_slice();
-        let func_data_registry = engine_inner.func_data().clone();
 
         Ok(Self {
             artifact,
@@ -182,7 +177,6 @@ impl UniversalArtifact {
             signatures,
             frame_info_registration: Mutex::new(None),
             finished_function_lengths,
-            func_data_registry,
         })
     }
     /// Get the default extension when serializing this artifact
@@ -272,9 +266,5 @@ impl Artifact for UniversalArtifact {
 
     fn signatures(&self) -> &BoxedSlice<SignatureIndex, VMSharedSignatureIndex> {
         &self.signatures
-    }
-
-    fn func_data_registry(&self) -> &FuncDataRegistry {
-        &self.func_data_registry
     }
 }

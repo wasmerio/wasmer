@@ -6,7 +6,7 @@ mod js {
 
     #[wasm_bindgen_test]
     fn module_get_name() {
-        let store = Store::default();
+        let mut store = Store::default();
         let wat = r#"(module)"#;
         let module = Module::new(&store, wat).unwrap();
         assert_eq!(module.name(), None);
@@ -14,7 +14,7 @@ mod js {
 
     #[wasm_bindgen_test]
     fn module_set_name() {
-        let store = Store::default();
+        let mut store = Store::default();
         let wat = r#"(module $name)"#;
         let mut module = Module::new(&store, wat).unwrap();
 
@@ -32,12 +32,11 @@ mod js {
         let js_bytes = unsafe { Uint8Array::view(&binary) };
         let js_module = WebAssembly::Module::new(&js_bytes.into()).unwrap();
         let module: Module = js_module.into();
-        assert_eq!(module.store(), &Store::default());
     }
 
     #[wasm_bindgen_test]
     fn imports() {
-        let store = Store::default();
+        let mut store = Store::default();
         let wat = r#"(module
     (import "host" "func" (func))
     (import "host" "memory" (memory 1))
@@ -108,7 +107,7 @@ mod js {
 
     #[wasm_bindgen_test]
     fn exports() {
-        let store = Store::default();
+        let mut store = Store::default();
         let wat = r#"(module
     (func (export "func") nop)
     (memory (export "memory") 2)
@@ -182,7 +181,7 @@ mod js {
 
     // #[wasm_bindgen_test]
     // fn calling_host_functions_with_negative_values_works() {
-    //     let store = Store::default();
+    //     let mut store = Store::default();
     //     let wat = r#"(module
     //     (import "host" "host_func1" (func (param i64)))
     //     (import "host" "host_func2" (func (param i32)))
@@ -251,35 +250,35 @@ mod js {
 
     //     let f1: TypedFunction<(), ()> = instance
     //         .exports
-    //         .get_native_function("call_host_func1")
+    //         .get_typed_function("call_host_func1")
     //         .unwrap();
     //     let f2: TypedFunction<(), ()> = instance
     //         .exports
-    //         .get_native_function("call_host_func2")
+    //         .get_typed_function("call_host_func2")
     //         .unwrap();
     //     let f3: TypedFunction<(), ()> = instance
     //         .exports
-    //         .get_native_function("call_host_func3")
+    //         .get_typed_function("call_host_func3")
     //         .unwrap();
     //     let f4: TypedFunction<(), ()> = instance
     //         .exports
-    //         .get_native_function("call_host_func4")
+    //         .get_typed_function("call_host_func4")
     //         .unwrap();
     //     let f5: TypedFunction<(), ()> = instance
     //         .exports
-    //         .get_native_function("call_host_func5")
+    //         .get_typed_function("call_host_func5")
     //         .unwrap();
     //     let f6: TypedFunction<(), ()> = instance
     //         .exports
-    //         .get_native_function("call_host_func6")
+    //         .get_typed_function("call_host_func6")
     //         .unwrap();
     //     let f7: TypedFunction<(), ()> = instance
     //         .exports
-    //         .get_native_function("call_host_func7")
+    //         .get_typed_function("call_host_func7")
     //         .unwrap();
     //     let f8: TypedFunction<(), ()> = instance
     //         .exports
-    //         .get_native_function("call_host_func8")
+    //         .get_typed_function("call_host_func8")
     //         .unwrap();
 
     //     f1.call().unwrap();

@@ -7,9 +7,11 @@ use crate::warning;
 use anyhow::{anyhow, Context, Result};
 use std::path::PathBuf;
 use std::str::FromStr;
+use wasmer::FunctionEnv;
 use wasmer::*;
 #[cfg(feature = "cache")]
 use wasmer_cache::{Cache, FileSystemCache, Hash};
+use wasmer_types::Type as ValueType;
 
 use structopt::StructOpt;
 
@@ -95,8 +97,39 @@ impl Run {
         })
     }
 
+    fn inner_module_run(&self, mut store: Store, instance: Instance) -> Result<()> {
+        // If this module exports an _initialize function, run that first.
+        if let Ok(initialize) = instance.exports.get_function("_initialize") {
+            initialize
+                .call(&mut store, &[])
+                .with_context(|| "failed to run _initialize function")?;
+        }
+
+        // Do we want to invoke a function?
+        if let Some(ref invoke) = self.invoke {
+            let result = self.invoke_function(&mut store, &instance, invoke, &self.args)?;
+            println!(
+                "{}",
+                result
+                    .iter()
+                    .map(|val| val.to_string())
+                    .collect::<Vec<String>>()
+                    .join(" ")
+            );
+        } else {
+            let start: Function = self.try_find_function(&instance, "_start", &[])?;
+            let result = start.call(&mut store, &[]);
+            #[cfg(feature = "wasi")]
+            self.wasi.handle_result(result)?;
+            #[cfg(not(feature = "wasi"))]
+            result?;
+        }
+
+        Ok(())
+    }
+
     fn inner_execute(&self) -> Result<()> {
-        let module = self.get_module()?;
+        let (mut store, module) = self.get_store_module()?;
         #[cfg(feature = "emscripten")]
         {
             use wasmer_emscripten::{
@@ -105,12 +138,15 @@ impl Run {
             };
             // TODO: refactor this
             if is_emscripten_module(&module) {
-                let mut emscripten_globals = EmscriptenGlobals::new(module.store(), &module)
+                // create an EmEnv with default global
+                let env = FunctionEnv::new(&mut store, EmEnv::new());
+                let mut emscripten_globals = EmscriptenGlobals::new(&mut store, &env, &module)
                     .map_err(|e| anyhow!("{}", e))?;
-                let mut em_env = EmEnv::new(&emscripten_globals.data, Default::default());
+                env.as_mut(&mut store)
+                    .set_data(&emscripten_globals.data, Default::default());
                 let import_object =
-                    generate_emscripten_env(module.store(), &mut emscripten_globals, &em_env);
-                let mut instance = match Instance::new(&module, &import_object) {
+                    generate_emscripten_env(&mut store, &env, &mut emscripten_globals);
+                let mut instance = match Instance::new(&mut store, &module, &import_object) {
                     Ok(instance) => instance,
                     Err(e) => {
                         let err: Result<(), _> = Err(e);
@@ -126,7 +162,7 @@ impl Run {
 
                 run_emscripten_instance(
                     &mut instance,
-                    &mut em_env,
+                    env.into_mut(&mut store),
                     &mut emscripten_globals,
                     if let Some(cn) = &self.command_name {
                         cn
@@ -142,7 +178,7 @@ impl Run {
 
         // If WASI is enabled, try to execute it with it
         #[cfg(feature = "wasi")]
-        let instance = {
+        let ret = {
             use std::collections::BTreeSet;
             use wasmer_wasi::WasiVersion;
 
@@ -175,56 +211,35 @@ impl Run {
                                 .map(|f| f.to_string_lossy().to_string())
                         })
                         .unwrap_or_default();
-                    self.wasi
-                        .instantiate(&module, program_name, self.args.clone())
-                        .with_context(|| "failed to instantiate WASI module")?
+                    let (_ctx, instance) = self
+                        .wasi
+                        .instantiate(&mut store, &module, program_name, self.args.clone())
+                        .with_context(|| "failed to instantiate WASI module")?;
+                    self.inner_module_run(store, instance)
                 }
                 // not WASI
-                _ => Instance::new(&module, &imports! {})?,
+                _ => {
+                    let instance = Instance::new(&mut store, &module, &imports! {})?;
+                    self.inner_module_run(store, instance)
+                }
             }
         };
         #[cfg(not(feature = "wasi"))]
-        let instance = Instance::new(&module, &imports! {})?;
+        let ret = {
+            let instance = Instance::new(&mut store, &module, &imports! {})?;
+            self.inner_run(ctx, instance)
+        };
 
-        // If this module exports an _initialize function, run that first.
-        if let Ok(initialize) = instance.exports.get_function("_initialize") {
-            initialize
-                .call(&[])
-                .with_context(|| "failed to run _initialize function")?;
-        }
-
-        // Do we want to invoke a function?
-        if let Some(ref invoke) = self.invoke {
-            let imports = imports! {};
-            let instance = Instance::new(&module, &imports)?;
-            let result = self.invoke_function(&instance, invoke, &self.args)?;
-            println!(
-                "{}",
-                result
-                    .iter()
-                    .map(|val| val.to_string())
-                    .collect::<Vec<String>>()
-                    .join(" ")
-            );
-        } else {
-            let start: Function = self.try_find_function(&instance, "_start", &[])?;
-            let result = start.call(&[]);
-            #[cfg(feature = "wasi")]
-            self.wasi.handle_result(result)?;
-            #[cfg(not(feature = "wasi"))]
-            result?;
-        }
-
-        Ok(())
+        ret
     }
 
-    fn get_module(&self) -> Result<Module> {
+    fn get_store_module(&self) -> Result<(Store, Module)> {
         let contents = std::fs::read(self.path.clone())?;
         if wasmer_compiler::UniversalArtifact::is_deserializable(&contents) {
             let engine = wasmer_compiler::Universal::headless().engine();
             let store = Store::new_with_engine(&engine);
             let module = unsafe { Module::deserialize_from_file(&store, &self.path)? };
-            return Ok(module);
+            return Ok((store, module));
         }
         let (store, compiler_type) = self.store.get_store()?;
         #[cfg(feature = "cache")]
@@ -245,7 +260,7 @@ impl Run {
         // We set the name outside the cache, to make sure we dont cache the name
         module.set_name(&self.path.file_name().unwrap_or_default().to_string_lossy());
 
-        Ok(module)
+        Ok((store, module))
     }
 
     #[cfg(feature = "cache")]
@@ -350,12 +365,13 @@ impl Run {
 
     fn invoke_function(
         &self,
+        ctx: &mut impl AsStoreMut,
         instance: &Instance,
         invoke: &str,
         args: &[String],
-    ) -> Result<Box<[Val]>> {
+    ) -> Result<Box<[Value]>> {
         let func: Function = self.try_find_function(instance, invoke, args)?;
-        let func_ty = func.ty();
+        let func_ty = func.ty(ctx);
         let required_arguments = func_ty.params().len();
         let provided_arguments = args.len();
         if required_arguments != provided_arguments {
@@ -370,23 +386,23 @@ impl Run {
             .iter()
             .zip(func_ty.params().iter())
             .map(|(arg, param_type)| match param_type {
-                ValType::I32 => {
-                    Ok(Val::I32(arg.parse().map_err(|_| {
+                ValueType::I32 => {
+                    Ok(Value::I32(arg.parse().map_err(|_| {
                         anyhow!("Can't convert `{}` into a i32", arg)
                     })?))
                 }
-                ValType::I64 => {
-                    Ok(Val::I64(arg.parse().map_err(|_| {
+                ValueType::I64 => {
+                    Ok(Value::I64(arg.parse().map_err(|_| {
                         anyhow!("Can't convert `{}` into a i64", arg)
                     })?))
                 }
-                ValType::F32 => {
-                    Ok(Val::F32(arg.parse().map_err(|_| {
+                ValueType::F32 => {
+                    Ok(Value::F32(arg.parse().map_err(|_| {
                         anyhow!("Can't convert `{}` into a f32", arg)
                     })?))
                 }
-                ValType::F64 => {
-                    Ok(Val::F64(arg.parse().map_err(|_| {
+                ValueType::F64 => {
+                    Ok(Value::F64(arg.parse().map_err(|_| {
                         anyhow!("Can't convert `{}` into a f64", arg)
                     })?))
                 }
@@ -397,7 +413,7 @@ impl Run {
                 )),
             })
             .collect::<Result<Vec<_>>>()?;
-        Ok(func.call(&invoke_args)?)
+        Ok(func.call(ctx, &invoke_args)?)
     }
 
     /// Create Run instance for arguments/env,

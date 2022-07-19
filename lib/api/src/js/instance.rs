@@ -1,15 +1,12 @@
-use crate::js::env::HostEnvInitError;
+use crate::js::error::InstantiationError;
 use crate::js::export::Export;
-use crate::js::exports::{Exportable, Exports};
+use crate::js::exports::Exports;
 use crate::js::externals::Extern;
 use crate::js::imports::Imports;
 use crate::js::module::Module;
-use crate::js::store::Store;
-use crate::js::trap::RuntimeError;
+use crate::js::store::{AsStoreMut, AsStoreRef, StoreHandle};
 use js_sys::WebAssembly;
 use std::fmt;
-#[cfg(feature = "std")]
-use thiserror::Error;
 
 /// A WebAssembly Instance is a stateful, executable
 /// instance of a WebAssembly [`Module`].
@@ -21,43 +18,12 @@ use thiserror::Error;
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#module-instances>
 #[derive(Clone)]
 pub struct Instance {
-    instance: WebAssembly::Instance,
+    _handle: StoreHandle<WebAssembly::Instance>,
     module: Module,
     #[allow(dead_code)]
     imports: Imports,
     /// The exports for an instance.
     pub exports: Exports,
-}
-
-/// An error while instantiating a module.
-///
-/// This is not a common WebAssembly error, however
-/// we need to differentiate from a `LinkError` (an error
-/// that happens while linking, on instantiation), a
-/// Trap that occurs when calling the WebAssembly module
-/// start function, and an error when initializing the user's
-/// host environments.
-#[derive(Debug)]
-#[cfg_attr(feature = "std", derive(Error))]
-pub enum InstantiationError {
-    /// A linking ocurred during instantiation.
-    #[cfg_attr(feature = "std", error("Link error: {0}"))]
-    Link(String),
-
-    /// A runtime error occured while invoking the start function
-    #[cfg_attr(feature = "std", error(transparent))]
-    Start(RuntimeError),
-
-    /// Error occurred when initializing the host environment.
-    #[cfg_attr(feature = "std", error(transparent))]
-    HostEnvInitialization(HostEnvInitError),
-}
-
-#[cfg(feature = "core")]
-impl std::fmt::Display for InstantiationError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "InstantiationError")
-    }
 }
 
 impl Instance {
@@ -75,7 +41,7 @@ impl Instance {
     /// ```
     /// # use wasmer::{imports, Store, Module, Global, Value, Instance};
     /// # fn main() -> anyhow::Result<()> {
-    /// let store = Store::default();
+    /// let mut store = Store::default();
     /// let module = Module::new(&store, "(module)")?;
     /// let imports = imports!{
     ///   "host" => {
@@ -94,14 +60,18 @@ impl Instance {
     /// Those are, as defined by the spec:
     ///  * Link errors that happen when plugging the imports into the instance
     ///  * Runtime errors that happen when running the module `start` function.
-    pub fn new(module: &Module, imports: &Imports) -> Result<Self, InstantiationError> {
+    pub fn new(
+        mut ctx: &mut impl AsStoreMut,
+        module: &Module,
+        imports: &Imports,
+    ) -> Result<Self, InstantiationError> {
         let import_copy = imports.clone();
-        let (instance, imports): (WebAssembly::Instance, Vec<Extern>) = module
-            .instantiate(imports)
+        let (instance, _imports): (StoreHandle<WebAssembly::Instance>, Vec<Extern>) = module
+            .instantiate(&mut ctx, imports)
             .map_err(|e| InstantiationError::Start(e))?;
 
-        let self_instance = Self::from_module_and_instance(module, instance, import_copy)?;
-        self_instance.init_envs(&imports.iter().map(Extern::to_export).collect::<Vec<_>>())?;
+        let self_instance = Self::from_module_and_instance(ctx, module, instance, import_copy)?;
+        //self_instance.init_envs(&imports.iter().map(Extern::to_export).collect::<Vec<_>>())?;
         Ok(self_instance)
     }
 
@@ -115,12 +85,12 @@ impl Instance {
     ///
     /// *This method is only available when targeting JS environments*
     pub fn from_module_and_instance(
+        mut ctx: &mut impl AsStoreMut,
         module: &Module,
-        instance: WebAssembly::Instance,
+        instance: StoreHandle<WebAssembly::Instance>,
         imports: Imports,
     ) -> Result<Self, InstantiationError> {
-        let store = module.store();
-        let instance_exports = instance.exports();
+        let instance_exports = instance.get(ctx.as_store_ref().objects()).exports();
         let exports = module
             .exports()
             .map(|export_type| {
@@ -133,37 +103,19 @@ impl Instance {
                             &name
                         ))
                     })?;
-                let export: Export = (js_export, extern_type).into();
-                let extern_ = Extern::from_vm_export(store, export);
+                let export: Export =
+                    Export::from_js_value(js_export, &mut ctx, extern_type)?.into();
+                let extern_ = Extern::from_vm_export(&mut ctx, export);
                 Ok((name.to_string(), extern_))
             })
             .collect::<Result<Exports, InstantiationError>>()?;
 
         Ok(Self {
-            instance,
+            _handle: instance,
             module: module.clone(),
             imports,
             exports,
         })
-    }
-
-    /// Initialize the given extern imports with the `Instance`.
-    ///
-    /// # Important
-    ///
-    /// This method should be called if the Wasmer `Instance` is initialized
-    /// from Javascript with an already existing `WebAssembly.Instance` but with
-    /// a imports from the Rust side.
-    ///
-    /// *This method is only available when targeting JS environments*
-    pub fn init_envs(&self, imports: &[Export]) -> Result<(), InstantiationError> {
-        for import in imports {
-            if let Export::Function(func) = import {
-                func.init_envs(&self)
-                    .map_err(|e| InstantiationError::HostEnvInitialization(e))?;
-            }
-        }
-        Ok(())
     }
 
     /// Gets the [`Module`] associated with this instance.
@@ -171,15 +123,10 @@ impl Instance {
         &self.module
     }
 
-    /// Returns the [`Store`] where the `Instance` belongs.
-    pub fn store(&self) -> &Store {
-        self.module.store()
-    }
-
     /// Returns the inner WebAssembly Instance
     #[doc(hidden)]
-    pub fn raw(&self) -> &WebAssembly::Instance {
-        &self.instance
+    pub fn raw<'context>(&self, ctx: &'context impl AsStoreRef) -> &'context WebAssembly::Instance {
+        &self._handle.get(ctx.as_store_ref().objects())
     }
 }
 

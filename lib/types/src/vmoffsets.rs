@@ -115,17 +115,9 @@ impl VMBuiltinFunctionIndex {
     pub const fn get_table_fill_index() -> Self {
         Self(23)
     }
-    /// Returns an index for a function to increment the externref count.
-    pub const fn get_externref_inc_index() -> Self {
-        Self(24)
-    }
-    /// Returns an index for a function to decrement the externref count.
-    pub const fn get_externref_dec_index() -> Self {
-        Self(25)
-    }
     /// Returns the total number of builtin functions.
     pub const fn builtin_functions_total_number() -> u32 {
-        26
+        24
     }
 
     /// Return the index as an u32 number.
@@ -221,9 +213,14 @@ impl VMOffsets {
         1 * self.pointer_size
     }
 
+    /// The offset of the `handle` field.
+    pub const fn vmfunction_import_handle(&self) -> u8 {
+        2 * self.pointer_size
+    }
+
     /// Return the size of `VMFunctionImport`.
     pub const fn size_of_vmfunction_import(&self) -> u8 {
-        2 * self.pointer_size
+        3 * self.pointer_size
     }
 }
 
@@ -264,15 +261,15 @@ impl VMOffsets {
         0 * self.pointer_size
     }
 
-    /// The offset of the `from` field.
+    /// The offset of the `handle` field.
     #[allow(clippy::identity_op)]
-    pub const fn vmtable_import_from(&self) -> u8 {
+    pub const fn vmtable_import_handle(&self) -> u8 {
         1 * self.pointer_size
     }
 
     /// Return the size of `VMTableImport`.
     pub const fn size_of_vmtable_import(&self) -> u8 {
-        3 * self.pointer_size
+        2 * self.pointer_size
     }
 }
 
@@ -309,15 +306,15 @@ impl VMOffsets {
         0 * self.pointer_size
     }
 
-    /// The offset of the `from` field.
+    /// The offset of the `handle` field.
     #[allow(clippy::identity_op)]
-    pub const fn vmmemory_import_from(&self) -> u8 {
+    pub const fn vmmemory_import_handle(&self) -> u8 {
         1 * self.pointer_size
     }
 
     /// Return the size of `VMMemoryImport`.
     pub const fn size_of_vmmemory_import(&self) -> u8 {
-        3 * self.pointer_size
+        2 * self.pointer_size
     }
 }
 
@@ -354,9 +351,9 @@ impl VMOffsets {
         0 * self.pointer_size
     }
 
-    /// The offset of the `from` field.
+    /// The offset of the `handle` field.
     #[allow(clippy::identity_op)]
-    pub const fn vmglobal_import_from(&self) -> u8 {
+    pub const fn vmglobal_import_handle(&self) -> u8 {
         1 * self.pointer_size
     }
 
@@ -405,9 +402,14 @@ impl VMOffsets {
         2 * self.pointer_size
     }
 
+    /// The offset of the `call_trampoline` field.
+    pub const fn vmcaller_checked_anyfunc_call_trampoline(&self) -> u8 {
+        3 * self.pointer_size
+    }
+
     /// Return the size of `VMCallerCheckedAnyfunc`.
     pub const fn size_of_vmcaller_checked_anyfunc(&self) -> u8 {
-        3 * self.pointer_size
+        4 * self.pointer_size
     }
 }
 
@@ -683,9 +685,9 @@ impl VMOffsets {
     }
 
     /// Return the offset to the `vmctx` field in `VMMemoryImport` index `index`.
-    pub fn vmctx_vmmemory_import_from(&self, index: MemoryIndex) -> u32 {
+    pub fn vmctx_vmmemory_import_handle(&self, index: MemoryIndex) -> u32 {
         self.vmctx_vmmemory_import(index)
-            .checked_add(u32::from(self.vmmemory_import_from()))
+            .checked_add(u32::from(self.vmmemory_import_handle()))
             .unwrap()
     }
 

@@ -85,4 +85,4 @@ jit = ["universal"]
 #emscripten = ["wasmer-emscripten"]
 
 [build-dependencies]
-cbindgen = "0.19"
+cbindgen = "0.24"

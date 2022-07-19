@@ -21,6 +21,9 @@
 //! Every module comes with examples and entry points to guide the
 //! discovery of this API.
 
+/// `Context`.
+mod function_env;
+
 /// Private Rust macros.
 #[macro_use]
 mod macros;

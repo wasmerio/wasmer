@@ -18,7 +18,7 @@ use anyhow::bail;
 use std::sync::Arc;
 use wasmer::wasmparser::Operator;
 use wasmer::CompilerConfig;
-use wasmer::{imports, wat2wasm, Instance, Module, Store};
+use wasmer::{imports, wat2wasm, FunctionEnv, Instance, Module, Store, TypedFunction};
 use wasmer_compiler::Universal;
 use wasmer_compiler_cranelift::Cranelift;
 use wasmer_middlewares::{
@@ -70,7 +70,8 @@ fn main() -> anyhow::Result<()> {
     //
     // We use our previously create compiler configuration
     // with the Universal engine.
-    let store = Store::new_with_engine(&Universal::new(compiler_config).engine());
+    let mut store = Store::new_with_engine(&Universal::new(compiler_config).engine());
+    let mut env = FunctionEnv::new(&mut store, ());
 
     println!("Compiling module...");
     // Let's compile the Wasm module.
@@ -81,19 +82,19 @@ fn main() -> anyhow::Result<()> {
 
     println!("Instantiating module...");
     // Let's instantiate the Wasm module.
-    let instance = Instance::new(&module, &import_object)?;
+    let instance = Instance::new(&mut store, &module, &import_object)?;
 
     // We now have an instance ready to be used.
     //
     // Our module exports a single `add_one`  function. We want to
     // measure the cost of executing this function.
-    let add_one = instance
+    let add_one: TypedFunction<i32, i32> = instance
         .exports
         .get_function("add_one")?
-        .native::<i32, i32>()?;
+        .native(&mut store)?;
 
     println!("Calling `add_one` function once...");
-    add_one.call(1)?;
+    add_one.call(&mut store, 1)?;
 
     // As you can see here, after the first call we have 6 remaining points.
     //
@@ -101,7 +102,7 @@ fn main() -> anyhow::Result<()> {
     // * `local.get $value` is a `Operator::LocalGet` which costs 1 point;
     // * `i32.const` is a `Operator::I32Const` which costs 1 point;
     // * `i32.add` is a `Operator::I32Add` which costs 2 points.
-    let remaining_points_after_first_call = get_remaining_points(&instance);
+    let remaining_points_after_first_call = get_remaining_points(&mut store, &instance);
     assert_eq!(
         remaining_points_after_first_call,
         MeteringPoints::Remaining(6)
@@ -113,11 +114,11 @@ fn main() -> anyhow::Result<()> {
     );
 
     println!("Calling `add_one` function twice...");
-    add_one.call(1)?;
+    add_one.call(&mut store, 1)?;
 
     // We spent 4 more points with the second call.
     // We have 2 remaining points.
-    let remaining_points_after_second_call = get_remaining_points(&instance);
+    let remaining_points_after_second_call = get_remaining_points(&mut store, &instance);
     assert_eq!(
         remaining_points_after_second_call,
         MeteringPoints::Remaining(2)
@@ -132,7 +133,7 @@ fn main() -> anyhow::Result<()> {
     // calling it a third time will fail: we already consume 8
     // points, there are only two remaining.
     println!("Calling `add_one` function a third time...");
-    match add_one.call(1) {
+    match add_one.call(&mut store, 1) {
         Ok(result) => {
             bail!(
                 "Expected failure while calling `add_one`, found: {}",
@@ -143,7 +144,7 @@ fn main() -> anyhow::Result<()> {
             println!("Calling `add_one` failed.");
 
             // Because the last needed more than the remaining points, we should have an error.
-            let remaining_points = get_remaining_points(&instance);
+            let remaining_points = get_remaining_points(&mut store, &instance);
 
             match remaining_points {
                 MeteringPoints::Remaining(..) => {
@@ -157,9 +158,9 @@ fn main() -> anyhow::Result<()> {
     // Now let's see how we can set a new limit...
     println!("Set new remaining points to 10");
     let new_limit = 10;
-    set_remaining_points(&instance, new_limit);
+    set_remaining_points(&mut store, &instance, new_limit);
 
-    let remaining_points = get_remaining_points(&instance);
+    let remaining_points = get_remaining_points(&mut store, &instance);
     assert_eq!(remaining_points, MeteringPoints::Remaining(new_limit));
 
     println!("Remaining points: {:?}", remaining_points);

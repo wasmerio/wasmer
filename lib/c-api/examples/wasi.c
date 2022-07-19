@@ -28,6 +28,14 @@ int main(int argc, const char* argv[]) {
   wasm_engine_t* engine = wasm_engine_new();
   wasm_store_t* store = wasm_store_new(engine);
 
+  printf("Setting up WASI...\n");
+  wasi_config_t* config = wasi_config_new("example_program");
+  // TODO: error checking
+  const char* js_string = "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));";
+  wasi_config_arg(config, "--eval");
+  wasi_config_arg(config, js_string);
+  wasi_config_capture_stdout(config);
+
   // Load binary.
   printf("Loading binary...\n");
   FILE* file = fopen("assets/qjs.wasm", "r");
@@ -57,14 +65,15 @@ int main(int argc, const char* argv[]) {
   wasm_byte_vec_delete(&binary);
 
   printf("Setting up WASI...\n");
-  wasi_config_t* config = wasi_config_new("example_program");
+  config = wasi_config_new("example_program");
   // TODO: error checking
-  const char* js_string = "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));";
+  js_string = "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));";
   wasi_config_arg(config, "--eval");
   wasi_config_arg(config, js_string);
   wasi_config_capture_stdout(config);
 
-  wasi_env_t* wasi_env = wasi_env_new(config);
+  wasi_env_t* wasi_env = wasi_env_new(store, config);
+
   if (!wasi_env) {
     printf("> Error building WASI env!\n");
     print_wasmer_error();
@@ -74,7 +83,7 @@ int main(int argc, const char* argv[]) {
   // Instantiate.
   printf("Instantiating module...\n");
   wasm_extern_vec_t imports;
-  bool get_imports_result = wasi_get_imports(store, module, wasi_env, &imports);
+  bool get_imports_result = wasi_get_imports(store, wasi_env,module,&imports);
 
   if (!get_imports_result) {
     printf("> Error getting WASI imports!\n");
@@ -87,6 +96,12 @@ int main(int argc, const char* argv[]) {
 
   if (!instance) {
     printf("> Error instantiating module!\n");
+    print_wasmer_error();
+    return 1;
+  }
+
+  if (!wasi_env_initialize_instance(wasi_env, store, instance)) {
+    printf("> Error initializing wasi env memory!\n");
     print_wasmer_error();
     return 1;
   }
@@ -108,9 +123,6 @@ int main(int argc, const char* argv[]) {
     print_wasmer_error();
     return 1;
   }
-
-  wasm_module_delete(module);
-  wasm_instance_delete(instance);
 
   // Call.
   printf("Calling export...\n");
@@ -168,6 +180,8 @@ int main(int argc, const char* argv[]) {
   printf("Shutting down...\n");
   wasm_func_delete(run_func);
   wasi_env_delete(wasi_env);
+  wasm_module_delete(module);
+  wasm_instance_delete(instance);
   wasm_store_delete(store);
   wasm_engine_delete(engine);
 

@@ -1,14 +1,13 @@
+use crate::js::store::AsStoreRef;
+use crate::js::NativeWasmTypeInto;
 use crate::js::{externals::Memory, FromToNativeWasmType};
-use crate::{MemoryAccessError, WasmRef, WasmSlice};
+use crate::js::{MemoryAccessError, WasmRef, WasmSlice};
 use std::convert::TryFrom;
 use std::{fmt, marker::PhantomData, mem};
-use wasmer_types::{NativeWasmType, ValueType};
-
-pub use wasmer_types::MemorySize;
-
 pub use wasmer_types::Memory32;
-
 pub use wasmer_types::Memory64;
+pub use wasmer_types::MemorySize;
+use wasmer_types::ValueType;
 
 /// Alias for `WasmPtr<T, Memory64>.
 pub type WasmPtr64<T> = WasmPtr<T, Memory64>;
@@ -139,20 +138,25 @@ impl<T: ValueType, M: MemorySize> WasmPtr<T, M> {
     /// Creates a `WasmRef` from this `WasmPtr` which allows reading and
     /// mutating of the value being pointed to.
     #[inline]
-    pub fn deref<'a>(self, memory: &'a Memory) -> WasmRef<'a, T> {
-        WasmRef::new(memory, self.offset.into())
+    pub fn deref<'a>(self, ctx: &'a impl AsStoreRef, memory: &'a Memory) -> WasmRef<'a, T> {
+        WasmRef::new(ctx, memory, self.offset.into())
     }
 
     /// Reads the address pointed to by this `WasmPtr` in a memory.
     #[inline]
-    pub fn read(self, memory: &Memory) -> Result<T, MemoryAccessError> {
-        self.deref(memory).read()
+    pub fn read(self, ctx: &impl AsStoreRef, memory: &Memory) -> Result<T, MemoryAccessError> {
+        self.deref(ctx, memory).read()
     }
 
     /// Writes to the address pointed to by this `WasmPtr` in a memory.
     #[inline]
-    pub fn write(self, memory: &Memory, val: T) -> Result<(), MemoryAccessError> {
-        self.deref(memory).write(val)
+    pub fn write(
+        self,
+        ctx: &impl AsStoreRef,
+        memory: &Memory,
+        val: T,
+    ) -> Result<(), MemoryAccessError> {
+        self.deref(ctx, memory).write(val)
     }
 
     /// Creates a `WasmSlice` starting at this `WasmPtr` which allows reading
@@ -163,10 +167,11 @@ impl<T: ValueType, M: MemorySize> WasmPtr<T, M> {
     #[inline]
     pub fn slice<'a>(
         self,
+        ctx: &'a impl AsStoreRef,
         memory: &'a Memory,
         len: M::Offset,
     ) -> Result<WasmSlice<'a, T>, MemoryAccessError> {
-        WasmSlice::new(memory, self.offset.into(), len.into())
+        WasmSlice::new(ctx, memory, self.offset.into(), len.into())
     }
 
     /// Reads a sequence of values from this `WasmPtr` until a value that
@@ -176,13 +181,14 @@ impl<T: ValueType, M: MemorySize> WasmPtr<T, M> {
     #[inline]
     pub fn read_until<'a>(
         self,
+        ctx: &'a impl AsStoreRef,
         memory: &'a Memory,
         mut end: impl FnMut(&T) -> bool,
     ) -> Result<Vec<T>, MemoryAccessError> {
         let mut vec = Vec::new();
         for i in 0u64.. {
             let i = M::Offset::try_from(i).map_err(|_| MemoryAccessError::Overflow)?;
-            let val = self.add_offset(i)?.deref(memory).read()?;
+            let val = self.add_offset(i)?.deref(ctx, memory).read()?;
             if end(&val) {
                 break;
             }
@@ -200,10 +206,11 @@ impl<M: MemorySize> WasmPtr<u8, M> {
     #[inline]
     pub fn read_utf8_string<'a>(
         self,
+        ctx: &'a impl AsStoreRef,
         memory: &'a Memory,
         len: M::Offset,
     ) -> Result<String, MemoryAccessError> {
-        let vec = self.slice(memory, len)?.read_to_vec()?;
+        let vec = self.slice(ctx, memory, len)?.read_to_vec()?;
         Ok(String::from_utf8(vec)?)
     }
 
@@ -214,14 +221,18 @@ impl<M: MemorySize> WasmPtr<u8, M> {
     #[inline]
     pub fn read_utf8_string_with_nul<'a>(
         self,
+        ctx: &'a impl AsStoreRef,
         memory: &'a Memory,
     ) -> Result<String, MemoryAccessError> {
-        let vec = self.read_until(memory, |&byte| byte == 0)?;
+        let vec = self.read_until(ctx, memory, |&byte| byte == 0)?;
         Ok(String::from_utf8(vec)?)
     }
 }
 
-unsafe impl<T: ValueType, M: MemorySize> FromToNativeWasmType for WasmPtr<T, M> {
+unsafe impl<T: ValueType, M: MemorySize> FromToNativeWasmType for WasmPtr<T, M>
+where
+    <M as wasmer_types::MemorySize>::Native: NativeWasmTypeInto,
+{
     type Native = M::Native;
 
     fn to_native(self) -> Self::Native {

@@ -12,8 +12,8 @@ const int iterations = 100000;
 int live_count = 0;
 
 void finalize(void* data) {
-  int i = (int)data;
-  if (i % (iterations / 10) == 0) printf("Finalizing #%d...\n", i);
+  intptr_t i = (intptr_t)data;
+  if (i % (iterations / 10) == 0) printf("Finalizing #%" PRIdPTR "...\n", i);
   --live_count;
 }
 

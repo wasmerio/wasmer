@@ -1,11 +1,11 @@
-use super::{Instance, InstanceRef};
+use super::{Instance, InstanceHandle};
 use crate::vmcontext::{VMMemoryDefinition, VMTableDefinition};
-use crate::VMOffsets;
 use std::alloc::{self, Layout};
 use std::convert::TryFrom;
 use std::mem;
 use std::ptr::{self, NonNull};
 use wasmer_types::entity::EntityRef;
+use wasmer_types::VMOffsets;
 use wasmer_types::{LocalMemoryIndex, LocalTableIndex, ModuleInfo};
 
 /// This is an intermediate type that manages the raw allocation and
@@ -187,7 +187,7 @@ impl InstanceAllocator {
 
     /// Finish preparing by writing the [`Instance`] into memory, and
     /// consume this `InstanceAllocator`.
-    pub(crate) fn write_instance(mut self, instance: Instance) -> InstanceRef {
+    pub(crate) fn write_instance(mut self, instance: Instance) -> InstanceHandle {
         // Prevent the old state's drop logic from being called as we
         // transition into the new state.
         self.consumed = true;
@@ -195,7 +195,7 @@ impl InstanceAllocator {
         unsafe {
             // `instance` is moved at `Self.instance_ptr`. This
             // pointer has been allocated by `Self::allocate_instance`
-            // (so by `InstanceRef::allocate_instance`).
+            // (so by `InstanceHandle::allocate_instance`).
             ptr::write(self.instance_ptr.as_ptr(), instance);
             // Now `instance_ptr` is correctly initialized!
         }
@@ -204,7 +204,10 @@ impl InstanceAllocator {
 
         // This is correct because of the invariants of `Self` and
         // because we write `Instance` to the pointer in this function.
-        unsafe { InstanceRef::new(instance, instance_layout) }
+        InstanceHandle {
+            instance,
+            instance_layout,
+        }
     }
 
     /// Get the [`VMOffsets`] for the allocated buffer.

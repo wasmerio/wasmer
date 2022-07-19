@@ -1,14 +1,14 @@
-use super::externals::wasm_extern_vec_t;
+use super::externals::{wasm_extern_t, wasm_extern_vec_t};
 use super::module::wasm_module_t;
-use super::store::wasm_store_t;
+use super::store::{wasm_store_t, StoreRef};
 use super::trap::wasm_trap_t;
-use std::sync::Arc;
 use wasmer_api::{Extern, Instance, InstantiationError};
 
 /// Opaque type representing a WebAssembly instance.
 #[allow(non_camel_case_types)]
 pub struct wasm_instance_t {
-    pub(crate) inner: Arc<Instance>,
+    pub(crate) store: StoreRef,
+    pub(crate) inner: Instance,
 }
 
 /// Creates a new instance from a WebAssembly module and a
@@ -36,11 +36,13 @@ pub struct wasm_instance_t {
 /// See the module's documentation.
 #[no_mangle]
 pub unsafe extern "C" fn wasm_instance_new(
-    _store: Option<&wasm_store_t>,
+    store: Option<&mut wasm_store_t>,
     module: Option<&wasm_module_t>,
     imports: Option<&wasm_extern_vec_t>,
     trap: Option<&mut *mut wasm_trap_t>,
 ) -> Option<Box<wasm_instance_t>> {
+    let store = store?;
+    let mut store_mut = store.inner.store_mut();
     let module = module?;
     let imports = imports?;
 
@@ -54,8 +56,8 @@ pub unsafe extern "C" fn wasm_instance_new(
         .take(module_import_count)
         .collect::<Vec<Extern>>();
 
-    let instance = match Instance::new_by_index(wasm_module, &externs) {
-        Ok(instance) => Arc::new(instance),
+    let instance = match Instance::new_by_index(&mut store_mut, wasm_module, &externs) {
+        Ok(instance) => instance,
 
         Err(InstantiationError::Link(link_error)) => {
             crate::error::update_last_error(link_error);
@@ -78,14 +80,17 @@ pub unsafe extern "C" fn wasm_instance_new(
             return None;
         }
 
-        Err(InstantiationError::HostEnvInitialization(error)) => {
-            crate::error::update_last_error(error);
+        Err(e @ InstantiationError::DifferentStores) => {
+            crate::error::update_last_error(e);
 
             return None;
         }
     };
 
-    Some(Box::new(wasm_instance_t { inner: instance }))
+    Some(Box::new(wasm_instance_t {
+        store: store.inner.clone(),
+        inner: instance,
+    }))
 }
 
 /// Deletes an instance.
@@ -185,13 +190,18 @@ pub unsafe extern "C" fn wasm_instance_exports(
     // own
     out: &mut wasm_extern_vec_t,
 ) {
+    let original_instance = instance;
     let instance = &instance.inner;
-    let extern_vec = instance
+    let extern_vec: Vec<Option<Box<wasm_extern_t>>> = instance
         .exports
         .iter()
-        .map(|(_name, r#extern)| Some(Box::new(r#extern.clone().into())))
+        .map(|(_name, r#extern)| {
+            Some(Box::new(wasm_extern_t::new(
+                original_instance.store.clone(),
+                r#extern.clone(),
+            )))
+        })
         .collect();
-
     out.set_buffer(extern_vec);
 }
 

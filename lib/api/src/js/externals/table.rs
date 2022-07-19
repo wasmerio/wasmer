@@ -1,13 +1,11 @@
-use crate::js::export::VMFunction;
-use crate::js::export::{Export, VMTable};
+use crate::js::export::{VMFunction, VMTable};
 use crate::js::exports::{ExportError, Exportable};
-use crate::js::externals::{Extern, Function as WasmerFunction};
-use crate::js::store::Store;
-use crate::js::types::Val;
+use crate::js::externals::Extern;
+use crate::js::store::{AsStoreMut, AsStoreRef, InternalStoreHandle, StoreHandle};
+use crate::js::value::Value;
 use crate::js::RuntimeError;
-use crate::js::TableType;
+use crate::js::{FunctionType, TableType};
 use js_sys::Function;
-use wasmer_types::FunctionType;
 
 /// A WebAssembly `table` instance.
 ///
@@ -20,17 +18,24 @@ use wasmer_types::FunctionType;
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#table-instances>
 #[derive(Debug, Clone, PartialEq)]
 pub struct Table {
-    store: Store,
-    vm_table: VMTable,
+    pub(crate) handle: StoreHandle<VMTable>,
 }
 
 fn set_table_item(table: &VMTable, item_index: u32, item: &Function) -> Result<(), RuntimeError> {
     table.table.set(item_index, item).map_err(|e| e.into())
 }
 
-fn get_function(val: Val) -> Result<Function, RuntimeError> {
+fn get_function(ctx: &mut impl AsStoreMut, val: Value) -> Result<Function, RuntimeError> {
+    if !val.is_from_store(ctx) {
+        return Err(RuntimeError::new("cannot pass Value across contexts"));
+    }
     match val {
-        Val::FuncRef(func) => Ok(func.as_ref().unwrap().exported.function.clone().into()),
+        Value::FuncRef(Some(ref func)) => Ok(func
+            .handle
+            .get(&ctx.as_store_ref().objects())
+            .function
+            .clone()
+            .into()),
         // Only funcrefs is supported by the spec atm
         _ => unimplemented!(),
     }
@@ -43,7 +48,12 @@ impl Table {
     ///
     /// This function will construct the `Table` using the store
     /// [`BaseTunables`][crate::js::tunables::BaseTunables].
-    pub fn new(store: &Store, ty: TableType, init: Val) -> Result<Self, RuntimeError> {
+    pub fn new(
+        ctx: &mut impl AsStoreMut,
+        ty: TableType,
+        init: Value,
+    ) -> Result<Self, RuntimeError> {
+        let mut ctx = ctx;
         let descriptor = js_sys::Object::new();
         js_sys::Reflect::set(&descriptor, &"initial".into(), &ty.minimum.into())?;
         if let Some(max) = ty.maximum {
@@ -55,47 +65,53 @@ impl Table {
         let table = VMTable::new(js_table, ty);
 
         let num_elements = table.table.length();
-        let func = get_function(init)?;
+        let func = get_function(&mut ctx, init)?;
         for i in 0..num_elements {
             set_table_item(&table, i, &func)?;
         }
 
         Ok(Self {
-            store: store.clone(),
-            vm_table: table,
+            handle: StoreHandle::new(ctx.objects_mut(), table),
         })
     }
 
     /// Returns the [`TableType`] of the `Table`.
-    pub fn ty(&self) -> &TableType {
-        &self.vm_table.ty
-    }
-
-    /// Returns the [`Store`] where the `Table` belongs.
-    pub fn store(&self) -> &Store {
-        &self.store
+    pub fn ty(&self, ctx: &impl AsStoreRef) -> TableType {
+        self.handle.get(ctx.as_store_ref().objects()).ty
     }
 
     /// Retrieves an element of the table at the provided `index`.
-    pub fn get(&self, index: u32) -> Option<Val> {
-        let func = self.vm_table.table.get(index).ok()?;
-        let ty = FunctionType::new(vec![], vec![]);
-        Some(Val::FuncRef(Some(WasmerFunction::from_vm_export(
-            &self.store,
-            VMFunction::new(func, ty, None),
-        ))))
+    pub fn get(&self, ctx: &mut impl AsStoreMut, index: u32) -> Option<Value> {
+        if let Some(func) = self
+            .handle
+            .get(ctx.as_store_ref().objects())
+            .table
+            .get(index)
+            .ok()
+        {
+            let ty = FunctionType::new(vec![], vec![]);
+            let vm_function = VMFunction::new(func, ty);
+            let function = crate::js::externals::Function::from_vm_export(ctx, vm_function);
+            Some(Value::FuncRef(Some(function)))
+        } else {
+            None
+        }
     }
 
     /// Sets an element `val` in the Table at the provided `index`.
-    pub fn set(&self, index: u32, val: Val) -> Result<(), RuntimeError> {
-        let func = get_function(val)?;
-        set_table_item(&self.vm_table, index, &func)?;
-        Ok(())
+    pub fn set(
+        &self,
+        ctx: &mut impl AsStoreMut,
+        index: u32,
+        val: Value,
+    ) -> Result<(), RuntimeError> {
+        let item = get_function(ctx, val)?;
+        set_table_item(self.handle.get_mut(ctx.objects_mut()), index, &item)
     }
 
     /// Retrieves the size of the `Table` (in elements)
-    pub fn size(&self) -> u32 {
-        self.vm_table.table.length()
+    pub fn size(&self, ctx: &impl AsStoreRef) -> u32 {
+        self.handle.get(ctx.as_store_ref().objects()).table.length()
     }
 
     /// Grows the size of the `Table` by `delta`, initializating
@@ -107,7 +123,12 @@ impl Table {
     /// # Errors
     ///
     /// Returns an error if the `delta` is out of bounds for the table.
-    pub fn grow(&self, _delta: u32, _init: Val) -> Result<u32, RuntimeError> {
+    pub fn grow(
+        &self,
+        store: &mut AsStoreMut,
+        _delta: u32,
+        _init: Value,
+    ) -> Result<u32, RuntimeError> {
         unimplemented!();
     }
 
@@ -128,16 +149,20 @@ impl Table {
         unimplemented!("Table.copy is not natively supported in Javascript");
     }
 
-    pub(crate) fn from_vm_export(store: &Store, vm_table: VMTable) -> Self {
+    pub(crate) fn from_vm_extern(
+        ctx: &mut impl AsStoreMut,
+        internal: InternalStoreHandle<VMTable>,
+    ) -> Self {
         Self {
-            store: store.clone(),
-            vm_table,
+            handle: unsafe {
+                StoreHandle::from_internal(ctx.as_store_ref().objects().id(), internal)
+            },
         }
     }
 
-    /// Returns whether or not these two tables refer to the same data.
-    pub fn same(&self, other: &Self) -> bool {
-        self.vm_table == other.vm_table
+    /// Checks whether this `Table` can be used with the given context.
+    pub fn is_from_store(&self, ctx: &impl AsStoreRef) -> bool {
+        self.handle.store_id() == ctx.as_store_ref().objects().id()
     }
 
     /// Get access to the backing VM value for this extern. This function is for
@@ -148,16 +173,15 @@ impl Table {
     /// because there is no stability guarantee for the returned type and we may
     /// make breaking changes to it at any time or remove this method.
     #[doc(hidden)]
-    pub unsafe fn get_vm_table(&self) -> &VMTable {
-        &self.vm_table
+    pub unsafe fn get_vm_table<'context>(
+        &self,
+        ctx: &'context impl AsStoreRef,
+    ) -> &'context VMTable {
+        self.handle.get(ctx.as_store_ref().objects())
     }
 }
 
 impl<'a> Exportable<'a> for Table {
-    fn to_export(&self) -> Export {
-        Export::Table(self.vm_table.clone())
-    }
-
     fn get_self_from_extern(_extern: &'a Extern) -> Result<&'a Self, ExportError> {
         match _extern {
             Extern::Table(table) => Ok(table),

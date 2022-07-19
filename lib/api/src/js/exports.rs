@@ -1,6 +1,6 @@
-use crate::js::export::Export;
 use crate::js::externals::{Extern, Function, Global, Memory, Table};
 use crate::js::native::TypedFunction;
+use crate::js::store::AsStoreRef;
 use crate::js::WasmTypeList;
 use indexmap::IndexMap;
 use std::fmt;
@@ -18,7 +18,7 @@ use thiserror::Error;
 ///
 /// ```should_panic
 /// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, Value, ExportError};
-/// # let store = Store::default();
+/// # let mut store = Store::default();
 /// # let wasm_bytes = wat2wasm(r#"
 /// # (module
 /// #   (global $one (export "glob") f32 (f32.const 1)))
@@ -35,7 +35,7 @@ use thiserror::Error;
 ///
 /// ```should_panic
 /// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, Value, ExportError};
-/// # let store = Store::default();
+/// # let mut store = Store::default();
 /// # let wasm_bytes = wat2wasm("(module)".as_bytes()).unwrap();
 /// # let module = Module::new(&store, wasm_bytes).unwrap();
 /// # let import_object = imports! {};
@@ -134,9 +134,27 @@ impl Exports {
         self.get(name)
     }
 
+    #[deprecated(
+        since = "3.0.0",
+        note = "get_native_function() has been renamed to get_typed_function(), just like NativeFunc has been renamed to TypedFunction."
+    )]
     /// Get an export as a `TypedFunction`.
     pub fn get_native_function<Args, Rets>(
         &self,
+        ctx: &impl AsStoreRef,
+        name: &str,
+    ) -> Result<TypedFunction<Args, Rets>, ExportError>
+    where
+        Args: WasmTypeList,
+        Rets: WasmTypeList,
+    {
+        self.get_typed_function(ctx, name)
+    }
+
+    /// Get an export as a `TypedFunction`.
+    pub fn get_typed_function<Args, Rets>(
+        &self,
+        store: &impl AsStoreRef,
         name: &str,
     ) -> Result<TypedFunction<Args, Rets>, ExportError>
     where
@@ -144,12 +162,16 @@ impl Exports {
         Rets: WasmTypeList,
     {
         self.get_function(name)?
-            .native()
+            .native(store)
             .map_err(|_| ExportError::IncompatibleType)
     }
 
     /// Hack to get this working with nativefunc too
-    pub fn get_with_generics<'a, T, Args, Rets>(&'a self, name: &str) -> Result<T, ExportError>
+    pub fn get_with_generics<'a, T, Args, Rets>(
+        &'a self,
+        ctx: &impl AsStoreRef,
+        name: &str,
+    ) -> Result<T, ExportError>
     where
         Args: WasmTypeList,
         Rets: WasmTypeList,
@@ -157,19 +179,23 @@ impl Exports {
     {
         match self.map.get(name) {
             None => Err(ExportError::Missing(name.to_string())),
-            Some(extern_) => T::get_self_from_extern_with_generics(extern_),
+            Some(extern_) => T::get_self_from_extern_with_generics(ctx, extern_),
         }
     }
 
     /// Like `get_with_generics` but with a WeakReference to the `InstanceRef` internally.
-    /// This is useful for passing data into `WasmerEnv`, for example.
-    pub fn get_with_generics_weak<'a, T, Args, Rets>(&'a self, name: &str) -> Result<T, ExportError>
+    /// This is useful for passing data into Context data, for example.
+    pub fn get_with_generics_weak<'a, T, Args, Rets>(
+        &'a self,
+        ctx: &impl AsStoreRef,
+        name: &str,
+    ) -> Result<T, ExportError>
     where
         Args: WasmTypeList,
         Rets: WasmTypeList,
         T: ExportableWithGenerics<'a, Args, Rets>,
     {
-        let out: T = self.get_with_generics(name)?;
+        let out: T = self.get_with_generics(ctx, name)?;
         Ok(out)
     }
 
@@ -295,12 +321,6 @@ impl<'a> IntoIterator for &'a Exports {
 ///
 /// [`Instance`]: crate::js::Instance
 pub trait Exportable<'a>: Sized {
-    /// This function is used when providedd the [`Extern`] as exportable, so it
-    /// can be used while instantiating the [`Module`].
-    ///
-    /// [`Module`]: crate::js::Module
-    fn to_export(&self) -> Export;
-
     /// Implementation of how to get the export corresponding to the implementing type
     /// from an [`Instance`] by name.
     ///
@@ -313,13 +333,19 @@ pub trait Exportable<'a>: Sized {
 /// as well.
 pub trait ExportableWithGenerics<'a, Args: WasmTypeList, Rets: WasmTypeList>: Sized {
     /// Get an export with the given generics.
-    fn get_self_from_extern_with_generics(_extern: &'a Extern) -> Result<Self, ExportError>;
+    fn get_self_from_extern_with_generics(
+        ctx: &impl AsStoreRef,
+        _extern: &'a Extern,
+    ) -> Result<Self, ExportError>;
 }
 
 /// We implement it for all concrete [`Exportable`] types (that are `Clone`)
 /// with empty `Args` and `Rets`.
 impl<'a, T: Exportable<'a> + Clone + 'static> ExportableWithGenerics<'a, (), ()> for T {
-    fn get_self_from_extern_with_generics(_extern: &'a Extern) -> Result<Self, ExportError> {
+    fn get_self_from_extern_with_generics(
+        _ctx: &impl AsStoreRef,
+        _extern: &'a Extern,
+    ) -> Result<Self, ExportError> {
         T::get_self_from_extern(_extern).map(|i| i.clone())
     }
 }

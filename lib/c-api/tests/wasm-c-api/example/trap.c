@@ -71,6 +71,11 @@ int main(int argc, const char* argv[]) {
   own wasm_func_t* fail_func =
     wasm_func_new_with_env(store, fail_type, fail_callback, store, NULL);
 
+  if (!fail_func) {
+    printf("> Error compiling fail_func!\n");
+    return 1;
+  }
+
   wasm_functype_delete(fail_type);
 
   // Instantiate.

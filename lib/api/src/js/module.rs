@@ -1,13 +1,15 @@
-use crate::js::exports::Exportable;
+#[cfg(feature = "wat")]
+use crate::js::error::WasmError;
+use crate::js::error::{CompileError, InstantiationError};
+#[cfg(feature = "js-serializable-module")]
+use crate::js::error::{DeserializeError, SerializeError};
 use crate::js::externals::Extern;
 use crate::js::imports::Imports;
 use crate::js::store::Store;
-use crate::js::types::{ExportType, ImportType};
-// use crate::js::InstantiationError;
-#[cfg(feature = "wat")]
-use crate::js::error::WasmError;
-use crate::js::error::{CompileError, DeserializeError, SerializeError};
+use crate::js::store::{AsStoreMut, StoreHandle};
+use crate::js::types::{AsJs, ExportType, ImportType};
 use crate::js::RuntimeError;
+use crate::AsStoreRef;
 use js_sys::{Reflect, Uint8Array, WebAssembly};
 use std::fmt;
 use std::io;
@@ -58,7 +60,6 @@ pub struct ModuleTypeHints {
 /// contents rather than a deep copy.
 #[derive(Clone)]
 pub struct Module {
-    store: Store,
     module: WebAssembly::Module,
     name: Option<String>,
     // WebAssembly type hints
@@ -94,7 +95,7 @@ impl Module {
     /// ```
     /// use wasmer::*;
     /// # fn main() -> anyhow::Result<()> {
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// let wat = "(module)";
     /// let module = Module::new(&store, wat)?;
     /// # Ok(())
@@ -106,7 +107,7 @@ impl Module {
     /// ```
     /// use wasmer::*;
     /// # fn main() -> anyhow::Result<()> {
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// // The following is the same as:
     /// // (module
     /// //   (type $t0 (func (param i32) (result i32)))
@@ -128,7 +129,7 @@ impl Module {
     /// # }
     /// ```
     #[allow(unreachable_code)]
-    pub fn new(store: &Store, bytes: impl AsRef<[u8]>) -> Result<Self, CompileError> {
+    pub fn new(_store: &impl AsStoreRef, bytes: impl AsRef<[u8]>) -> Result<Self, CompileError> {
         #[cfg(feature = "wat")]
         let bytes = wat::parse_bytes(bytes.as_ref()).map_err(|e| {
             CompileError::Wasm(WasmError::Generic(format!(
@@ -136,11 +137,14 @@ impl Module {
                 e
             )))
         })?;
-        Self::from_binary(store, bytes.as_ref())
+        Self::from_binary(_store, bytes.as_ref())
     }
 
     /// Creates a new WebAssembly module from a file path.
-    pub fn from_file(_store: &Store, _file: impl AsRef<Path>) -> Result<Self, IoCompileError> {
+    pub fn from_file(
+        _store: &impl AsStoreRef,
+        _file: impl AsRef<Path>,
+    ) -> Result<Self, IoCompileError> {
         unimplemented!();
     }
 
@@ -149,10 +153,10 @@ impl Module {
     /// Opposed to [`Module::new`], this function is not compatible with
     /// the WebAssembly text format (if the "wat" feature is enabled for
     /// this crate).
-    pub fn from_binary(store: &Store, binary: &[u8]) -> Result<Self, CompileError> {
+    pub fn from_binary(_store: &impl AsStoreRef, binary: &[u8]) -> Result<Self, CompileError> {
         //
         // Self::validate(store, binary)?;
-        unsafe { Self::from_binary_unchecked(store, binary) }
+        unsafe { Self::from_binary_unchecked(_store, binary) }
     }
 
     /// Creates a new WebAssembly module skipping any kind of validation.
@@ -162,7 +166,7 @@ impl Module {
     /// This is safe since the JS vm should be safe already.
     /// We maintain the `unsafe` to preserve the same API as Wasmer
     pub unsafe fn from_binary_unchecked(
-        store: &Store,
+        _store: &impl AsStoreRef,
         binary: &[u8],
     ) -> Result<Self, CompileError> {
         let js_bytes = Uint8Array::view(binary);
@@ -193,7 +197,6 @@ impl Module {
         let (type_hints, name) = (None, None);
 
         Ok(Self {
-            store: store.clone(),
             module,
             type_hints,
             name,
@@ -208,7 +211,7 @@ impl Module {
     /// This validation is normally pretty fast and checks the enabled
     /// WebAssembly features in the Store Engine to assure deterministic
     /// validation of the Module.
-    pub fn validate(_store: &Store, binary: &[u8]) -> Result<(), CompileError> {
+    pub fn validate(_store: &impl AsStoreRef, binary: &[u8]) -> Result<(), CompileError> {
         let js_bytes = unsafe { Uint8Array::view(binary) };
         match WebAssembly::validate(&js_bytes.into()) {
             Ok(true) => Ok(()),
@@ -218,8 +221,18 @@ impl Module {
 
     pub(crate) fn instantiate(
         &self,
+        store: &mut impl AsStoreMut,
         imports: &Imports,
-    ) -> Result<(WebAssembly::Instance, Vec<Extern>), RuntimeError> {
+    ) -> Result<(StoreHandle<WebAssembly::Instance>, Vec<Extern>), RuntimeError> {
+        // Ensure all imports come from the same store.
+        if imports
+            .into_iter()
+            .any(|(_, import)| !import.is_from_store(store))
+        {
+            return Err(RuntimeError::user(Box::new(
+                InstantiationError::DifferentStores,
+            )));
+        }
         let imports_object = js_sys::Object::new();
         let mut import_externs: Vec<Extern> = vec![];
         for import_type in self.imports() {
@@ -231,7 +244,7 @@ impl Module {
                     js_sys::Reflect::set(
                         &val,
                         &import_type.name().into(),
-                        import.to_export().as_jsvalue(),
+                        &import.as_jsvalue(&store.as_store_ref()),
                     )?;
                 } else {
                     // If the namespace doesn't exist
@@ -239,7 +252,7 @@ impl Module {
                     js_sys::Reflect::set(
                         &import_namespace,
                         &import_type.name().into(),
-                        import.to_export().as_jsvalue(),
+                        &import.as_jsvalue(&store.as_store_ref()),
                     )?;
                     js_sys::Reflect::set(
                         &imports_object,
@@ -253,8 +266,11 @@ impl Module {
             // the error for us, so we don't need to handle it
         }
         Ok((
-            WebAssembly::Instance::new(&self.module, &imports_object)
-                .map_err(|e: JsValue| -> RuntimeError { e.into() })?,
+            StoreHandle::new(
+                store.as_store_mut().objects_mut(),
+                WebAssembly::Instance::new(&self.module, &imports_object)
+                    .map_err(|e: JsValue| -> RuntimeError { e.into() })?,
+            ),
             import_externs,
         ))
     }
@@ -269,7 +285,7 @@ impl Module {
     /// ```
     /// # use wasmer::*;
     /// # fn main() -> anyhow::Result<()> {
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// let wat = "(module $moduleName)";
     /// let module = Module::new(&store, wat)?;
     /// assert_eq!(module.name(), Some("moduleName"));
@@ -296,8 +312,11 @@ impl Module {
     /// This is safe since deserialization under `js` is essentially same as reconstructing `Module`.
     /// We maintain the `unsafe` to preserve the same API as Wasmer
     #[cfg(feature = "js-serializable-module")]
-    pub unsafe fn deserialize(store: &Store, bytes: &[u8]) -> Result<Self, DeserializeError> {
-        Self::new(store, bytes).map_err(|e| DeserializeError::Compiler(e))
+    pub unsafe fn deserialize(
+        _store: &impl AsStoreRef,
+        bytes: &[u8],
+    ) -> Result<Self, DeserializeError> {
+        Self::new(_store, bytes).map_err(|e| DeserializeError::Compiler(e))
     }
 
     /// Sets the name of the current module.
@@ -312,7 +331,7 @@ impl Module {
     /// ```
     /// # use wasmer::*;
     /// # fn main() -> anyhow::Result<()> {
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// let wat = "(module)";
     /// let mut module = Module::new(&store, wat)?;
     /// assert_eq!(module.name(), None);
@@ -347,7 +366,7 @@ impl Module {
     /// ```
     /// # use wasmer::*;
     /// # fn main() -> anyhow::Result<()> {
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// let wat = r#"(module
     ///     (import "host" "func1" (func))
     ///     (import "host" "func2" (func))
@@ -445,7 +464,7 @@ impl Module {
     /// ```
     /// # use wasmer::*;
     /// # fn main() -> anyhow::Result<()> {
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// let wat = r#"(module
     ///     (func (export "namedfunc"))
     ///     (memory (export "namedmemory") 1)
@@ -517,11 +536,6 @@ impl Module {
     // pub fn custom_sections<'a>(&'a self, name: &'a str) -> impl Iterator<Item = Arc<[u8]>> + 'a {
     //     unimplemented!();
     // }
-
-    /// Returns the [`Store`] where the `Instance` belongs.
-    pub fn store(&self) -> &Store {
-        &self.store
-    }
 }
 
 impl fmt::Debug for Module {
@@ -535,7 +549,6 @@ impl fmt::Debug for Module {
 impl From<WebAssembly::Module> for Module {
     fn from(module: WebAssembly::Module) -> Module {
         Module {
-            store: Store::default(),
             module,
             name: None,
             type_hints: None,

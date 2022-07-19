@@ -8,6 +8,8 @@ use std::sync::{
     atomic::{AtomicUsize, Ordering::SeqCst},
     Arc,
 };
+use wasmer::FunctionEnv;
+use wasmer::Type as ValueType;
 use wasmer::*;
 
 fn get_module(store: &Store) -> Result<Module> {
@@ -45,29 +47,28 @@ fn get_module(store: &Store) -> Result<Module> {
 #[compiler_test(imports)]
 #[serial_test::serial(dynamic_function)]
 fn dynamic_function(config: crate::Config) -> Result<()> {
-    let store = config.store();
+    let mut store = config.store();
     let module = get_module(&store)?;
+    let mut env = FunctionEnv::new(&mut store, ());
     static HITS: AtomicUsize = AtomicUsize::new(0);
-    Instance::new(
-        &module,
-        &imports! {
-            "host" => {
-                "0" => Function::new(&store, FunctionType::new(vec![], vec![]), |_values| {
+    let imports = imports! {
+        "host" => {
+            "0" => Function::new(&mut store, &env, FunctionType::new(vec![], vec![]), |_ctx, _values| {
                     assert_eq!(HITS.fetch_add(1, SeqCst), 0);
                     Ok(vec![])
                 }),
-                "1" => Function::new(&store, FunctionType::new(vec![ValType::I32], vec![ValType::I32]), |values| {
+            "1" => Function::new(&mut store, &env, FunctionType::new(vec![ValueType::I32], vec![ValueType::I32]), |_ctx, values| {
                     assert_eq!(values[0], Value::I32(0));
                     assert_eq!(HITS.fetch_add(1, SeqCst), 1);
                     Ok(vec![Value::I32(1)])
                 }),
-                "2" => Function::new(&store, FunctionType::new(vec![ValType::I32, ValType::I64], vec![]), |values| {
+            "2" => Function::new(&mut store, &env, FunctionType::new(vec![ValueType::I32, ValueType::I64], vec![]), |_ctx, values| {
                     assert_eq!(values[0], Value::I32(2));
                     assert_eq!(values[1], Value::I64(3));
                     assert_eq!(HITS.fetch_add(1, SeqCst), 2);
                     Ok(vec![])
                 }),
-                "3" => Function::new(&store, FunctionType::new(vec![ValType::I32, ValType::I64, ValType::I32, ValType::F32, ValType::F64], vec![]), |values| {
+            "3" => Function::new(&mut store, &env, FunctionType::new(vec![ValueType::I32, ValueType::I64, ValueType::I32, ValueType::F32, ValueType::F64], vec![]), |_ctx, values| {
                     assert_eq!(values[0], Value::I32(100));
                     assert_eq!(values[1], Value::I64(200));
                     assert_eq!(values[2], Value::I32(300));
@@ -76,19 +77,19 @@ fn dynamic_function(config: crate::Config) -> Result<()> {
                     assert_eq!(HITS.fetch_add(1, SeqCst), 3);
                     Ok(vec![])
                 }),
-            },
-        },
-    )?;
+        }
+    };
+    Instance::new(&mut store, &module, &imports)?;
     assert_eq!(HITS.swap(0, SeqCst), 4);
     Ok(())
 }
 
 #[compiler_test(imports)]
 fn dynamic_function_with_env(config: crate::Config) -> Result<()> {
-    let store = config.store();
+    let mut store = config.store();
     let module = get_module(&store)?;
 
-    #[derive(WasmerEnv, Clone)]
+    #[derive(Clone)]
     struct Env {
         counter: Arc<AtomicUsize>,
     }
@@ -103,73 +104,122 @@ fn dynamic_function_with_env(config: crate::Config) -> Result<()> {
     let env: Env = Env {
         counter: Arc::new(AtomicUsize::new(0)),
     };
+    let mut env = FunctionEnv::new(&mut store, env);
+    let f0 = Function::new(
+        &mut store,
+        &env,
+        FunctionType::new(vec![], vec![]),
+        |ctx, _values| {
+            assert_eq!(ctx.data().fetch_add(1, SeqCst), 0);
+            Ok(vec![])
+        },
+    );
+    let f1 = Function::new(
+        &mut store,
+        &env,
+        FunctionType::new(vec![ValueType::I32], vec![ValueType::I32]),
+        |ctx, values| {
+            assert_eq!(values[0], Value::I32(0));
+            assert_eq!(ctx.data().fetch_add(1, SeqCst), 1);
+            Ok(vec![Value::I32(1)])
+        },
+    );
+    let f2 = Function::new(
+        &mut store,
+        &env,
+        FunctionType::new(vec![ValueType::I32, ValueType::I64], vec![]),
+        |ctx, values| {
+            assert_eq!(values[0], Value::I32(2));
+            assert_eq!(values[1], Value::I64(3));
+            assert_eq!(ctx.data().fetch_add(1, SeqCst), 2);
+            Ok(vec![])
+        },
+    );
+    let f3 = Function::new(
+        &mut store,
+        &env,
+        FunctionType::new(
+            vec![
+                ValueType::I32,
+                ValueType::I64,
+                ValueType::I32,
+                ValueType::F32,
+                ValueType::F64,
+            ],
+            vec![],
+        ),
+        |ctx, values| {
+            assert_eq!(values[0], Value::I32(100));
+            assert_eq!(values[1], Value::I64(200));
+            assert_eq!(values[2], Value::I32(300));
+            assert_eq!(values[3], Value::F32(400.0));
+            assert_eq!(values[4], Value::F64(500.0));
+            assert_eq!(ctx.data().fetch_add(1, SeqCst), 3);
+            Ok(vec![])
+        },
+    );
     Instance::new(
+        &mut store,
         &module,
         &imports! {
             "host" => {
-                "0" => Function::new_with_env(&store, FunctionType::new(vec![], vec![]), env.clone(), |env, _values| {
-                    assert_eq!(env.fetch_add(1, SeqCst), 0);
-                    Ok(vec![])
-                }),
-                "1" => Function::new_with_env(&store, FunctionType::new(vec![ValType::I32], vec![ValType::I32]), env.clone(), |env, values| {
-                    assert_eq!(values[0], Value::I32(0));
-                    assert_eq!(env.fetch_add(1, SeqCst), 1);
-                    Ok(vec![Value::I32(1)])
-                }),
-                "2" => Function::new_with_env(&store, FunctionType::new(vec![ValType::I32, ValType::I64], vec![]), env.clone(), |env, values| {
-                    assert_eq!(values[0], Value::I32(2));
-                    assert_eq!(values[1], Value::I64(3));
-                    assert_eq!(env.fetch_add(1, SeqCst), 2);
-                    Ok(vec![])
-                }),
-                "3" => Function::new_with_env(&store, FunctionType::new(vec![ValType::I32, ValType::I64, ValType::I32, ValType::F32, ValType::F64], vec![]), env.clone(), |env, values| {
-                    assert_eq!(values[0], Value::I32(100));
-                    assert_eq!(values[1], Value::I64(200));
-                    assert_eq!(values[2], Value::I32(300));
-                    assert_eq!(values[3], Value::F32(400.0));
-                    assert_eq!(values[4], Value::F64(500.0));
-                    assert_eq!(env.fetch_add(1, SeqCst), 3);
-                    Ok(vec![])
-                }),
+                "0" => f0,
+                "1" => f1,
+                "2" => f2,
+                "3" => f3,
             },
         },
     )?;
-    assert_eq!(env.load(SeqCst), 4);
+    assert_eq!(env.as_mut(&mut store).load(SeqCst), 4);
     Ok(())
 }
 
 #[compiler_test(imports)]
 #[serial_test::serial(static_function)]
 fn static_function(config: crate::Config) -> Result<()> {
-    let store = config.store();
+    let mut store = config.store();
     let module = get_module(&store)?;
 
     static HITS: AtomicUsize = AtomicUsize::new(0);
+    let mut env = FunctionEnv::new(&mut store, ());
+    let f0 = Function::new_native(&mut store, &env, |_ctx: FunctionEnvMut<_>| {
+        assert_eq!(HITS.fetch_add(1, SeqCst), 0);
+    });
+    let f1 = Function::new_native(&mut store, &env, |_ctx: FunctionEnvMut<_>, x: i32| -> i32 {
+        assert_eq!(x, 0);
+        assert_eq!(HITS.fetch_add(1, SeqCst), 1);
+        1
+    });
+    let f2 = Function::new_native(
+        &mut store,
+        &env,
+        |_ctx: FunctionEnvMut<_>, x: i32, y: i64| {
+            assert_eq!(x, 2);
+            assert_eq!(y, 3);
+            assert_eq!(HITS.fetch_add(1, SeqCst), 2);
+        },
+    );
+    let f3 = Function::new_native(
+        &mut store,
+        &env,
+        |_ctx: FunctionEnvMut<_>, a: i32, b: i64, c: i32, d: f32, e: f64| {
+            assert_eq!(a, 100);
+            assert_eq!(b, 200);
+            assert_eq!(c, 300);
+            assert_eq!(d, 400.0);
+            assert_eq!(e, 500.0);
+            assert_eq!(HITS.fetch_add(1, SeqCst), 3);
+        },
+    );
     Instance::new(
+        &mut store,
         &module,
         &imports! {
             "host" => {
-                "0" => Function::new_native(&store, || {
-                    assert_eq!(HITS.fetch_add(1, SeqCst), 0);
-                }),
-                "1" => Function::new_native(&store, |x: i32| -> i32 {
-                    assert_eq!(x, 0);
-                    assert_eq!(HITS.fetch_add(1, SeqCst), 1);
-                    1
-                }),
-                "2" => Function::new_native(&store, |x: i32, y: i64| {
-                    assert_eq!(x, 2);
-                    assert_eq!(y, 3);
-                    assert_eq!(HITS.fetch_add(1, SeqCst), 2);
-                }),
-                "3" => Function::new_native(&store, |a: i32, b: i64, c: i32, d: f32, e: f64| {
-                    assert_eq!(a, 100);
-                    assert_eq!(b, 200);
-                    assert_eq!(c, 300);
-                    assert_eq!(d, 400.0);
-                    assert_eq!(e, 500.0);
-                    assert_eq!(HITS.fetch_add(1, SeqCst), 3);
-                }),
+                "0" => f0,
+                "1" => f1,
+                "2" => f2,
+                "3" => f3,
             },
         },
     )?;
@@ -180,35 +230,53 @@ fn static_function(config: crate::Config) -> Result<()> {
 #[compiler_test(imports)]
 #[serial_test::serial(static_function_with_results)]
 fn static_function_with_results(config: crate::Config) -> Result<()> {
-    let store = config.store();
+    let mut store = config.store();
     let module = get_module(&store)?;
 
     static HITS: AtomicUsize = AtomicUsize::new(0);
+    let mut env = FunctionEnv::new(&mut store, ());
+    let f0 = Function::new_native(&mut store, &env, |_ctx: FunctionEnvMut<_>| {
+        assert_eq!(HITS.fetch_add(1, SeqCst), 0);
+    });
+    let f1 = Function::new_native(
+        &mut store,
+        &env,
+        |_ctx: FunctionEnvMut<_>, x: i32| -> Result<i32, Infallible> {
+            assert_eq!(x, 0);
+            assert_eq!(HITS.fetch_add(1, SeqCst), 1);
+            Ok(1)
+        },
+    );
+    let f2 = Function::new_native(
+        &mut store,
+        &env,
+        |_ctx: FunctionEnvMut<_>, x: i32, y: i64| {
+            assert_eq!(x, 2);
+            assert_eq!(y, 3);
+            assert_eq!(HITS.fetch_add(1, SeqCst), 2);
+        },
+    );
+    let f3 = Function::new_native(
+        &mut store,
+        &env,
+        |_ctx: FunctionEnvMut<_>, a: i32, b: i64, c: i32, d: f32, e: f64| {
+            assert_eq!(a, 100);
+            assert_eq!(b, 200);
+            assert_eq!(c, 300);
+            assert_eq!(d, 400.0);
+            assert_eq!(e, 500.0);
+            assert_eq!(HITS.fetch_add(1, SeqCst), 3);
+        },
+    );
     Instance::new(
+        &mut store,
         &module,
         &imports! {
             "host" => {
-                "0" => Function::new_native(&store, || {
-                    assert_eq!(HITS.fetch_add(1, SeqCst), 0);
-                }),
-                "1" => Function::new_native(&store, |x: i32| -> Result<i32, Infallible> {
-                    assert_eq!(x, 0);
-                    assert_eq!(HITS.fetch_add(1, SeqCst), 1);
-                    Ok(1)
-                }),
-                "2" => Function::new_native(&store, |x: i32, y: i64| {
-                    assert_eq!(x, 2);
-                    assert_eq!(y, 3);
-                    assert_eq!(HITS.fetch_add(1, SeqCst), 2);
-                }),
-                "3" => Function::new_native(&store, |a: i32, b: i64, c: i32, d: f32, e: f64| {
-                    assert_eq!(a, 100);
-                    assert_eq!(b, 200);
-                    assert_eq!(c, 300);
-                    assert_eq!(d, 400.0);
-                    assert_eq!(e, 500.0);
-                    assert_eq!(HITS.fetch_add(1, SeqCst), 3);
-                }),
+                "0" => f0,
+                "1" => f1,
+                "2" => f2,
+                "3" => f3,
             },
         },
     )?;
@@ -218,10 +286,10 @@ fn static_function_with_results(config: crate::Config) -> Result<()> {
 
 #[compiler_test(imports)]
 fn static_function_with_env(config: crate::Config) -> Result<()> {
-    let store = config.store();
+    let mut store = config.store();
     let module = get_module(&store)?;
 
-    #[derive(WasmerEnv, Clone)]
+    #[derive(Clone)]
     struct Env(Arc<AtomicUsize>);
 
     impl std::ops::Deref for Env {
@@ -232,41 +300,59 @@ fn static_function_with_env(config: crate::Config) -> Result<()> {
     }
 
     let env: Env = Env(Arc::new(AtomicUsize::new(0)));
+    let mut env = FunctionEnv::new(&mut store, env);
+    let f0 = Function::new_native(&mut store, &env, |ctx: FunctionEnvMut<Env>| {
+        assert_eq!(ctx.data().fetch_add(1, SeqCst), 0);
+    });
+    let f1 = Function::new_native(
+        &mut store,
+        &env,
+        |ctx: FunctionEnvMut<Env>, x: i32| -> i32 {
+            assert_eq!(x, 0);
+            assert_eq!(ctx.data().fetch_add(1, SeqCst), 1);
+            1
+        },
+    );
+    let f2 = Function::new_native(
+        &mut store,
+        &env,
+        |ctx: FunctionEnvMut<Env>, x: i32, y: i64| {
+            assert_eq!(x, 2);
+            assert_eq!(y, 3);
+            assert_eq!(ctx.data().fetch_add(1, SeqCst), 2);
+        },
+    );
+    let f3 = Function::new_native(
+        &mut store,
+        &env,
+        |ctx: FunctionEnvMut<Env>, a: i32, b: i64, c: i32, d: f32, e: f64| {
+            assert_eq!(a, 100);
+            assert_eq!(b, 200);
+            assert_eq!(c, 300);
+            assert_eq!(d, 400.0);
+            assert_eq!(e, 500.0);
+            assert_eq!(ctx.data().fetch_add(1, SeqCst), 3);
+        },
+    );
     Instance::new(
+        &mut store,
         &module,
         &imports! {
             "host" => {
-                "0" => Function::new_native_with_env(&store, env.clone(), |env: &Env| {
-                    assert_eq!(env.fetch_add(1, SeqCst), 0);
-                }),
-                "1" => Function::new_native_with_env(&store, env.clone(), |env: &Env, x: i32| -> i32 {
-                    assert_eq!(x, 0);
-                    assert_eq!(env.fetch_add(1, SeqCst), 1);
-                    1
-                }),
-                "2" => Function::new_native_with_env(&store, env.clone(), |env: &Env, x: i32, y: i64| {
-                    assert_eq!(x, 2);
-                    assert_eq!(y, 3);
-                    assert_eq!(env.fetch_add(1, SeqCst), 2);
-                }),
-                "3" => Function::new_native_with_env(&store, env.clone(), |env: &Env, a: i32, b: i64, c: i32, d: f32, e: f64| {
-                    assert_eq!(a, 100);
-                    assert_eq!(b, 200);
-                    assert_eq!(c, 300);
-                    assert_eq!(d, 400.0);
-                    assert_eq!(e, 500.0);
-                    assert_eq!(env.fetch_add(1, SeqCst), 3);
-                }),
+                "0" => f0,
+                "1" => f1,
+                "2" => f2,
+                "3" => f3,
             },
         },
     )?;
-    assert_eq!(env.load(SeqCst), 4);
+    assert_eq!(env.as_mut(&mut store).load(SeqCst), 4);
     Ok(())
 }
 
 #[compiler_test(imports)]
 fn static_function_that_fails(config: crate::Config) -> Result<()> {
-    let store = config.store();
+    let mut store = config.store();
     let wat = r#"
         (import "host" "0" (func))
 
@@ -277,14 +363,20 @@ fn static_function_that_fails(config: crate::Config) -> Result<()> {
     "#;
 
     let module = Module::new(&store, &wat)?;
-
+    let mut env = FunctionEnv::new(&mut store, ());
+    let f0 = Function::new_native(
+        &mut store,
+        &env,
+        |_ctx: FunctionEnvMut<_>| -> Result<Infallible, RuntimeError> {
+            Err(RuntimeError::new("oops"))
+        },
+    );
     let result = Instance::new(
+        &mut store,
         &module,
         &imports! {
             "host" => {
-                "0" => Function::new_native(&store, || -> Result<Infallible, RuntimeError> {
-                    Err(RuntimeError::new("oops"))
-                }),
+                "0" => f0,
             },
         },
     );
@@ -317,77 +409,86 @@ fn get_module2(store: &Store) -> Result<Module> {
 
 #[compiler_test(imports)]
 fn dynamic_function_with_env_wasmer_env_init_works(config: crate::Config) -> Result<()> {
-    let store = config.store();
-    let module = get_module2(&store)?;
-
-    #[allow(dead_code)]
-    #[derive(WasmerEnv, Clone)]
-    struct Env {
-        #[wasmer(export)]
-        memory: LazyInit<Memory>,
-    }
-
-    let env: Env = Env {
-        memory: LazyInit::default(),
-    };
-    let instance = Instance::new(
-        &module,
-        &imports! {
-            "host" => {
-                "fn" => Function::new_with_env(&store, FunctionType::new(vec![], vec![]), env, |env, _values| {
-                    assert!(env.memory_ref().is_some());
-                    Ok(vec![])
-                }),
-            },
-        },
-    )?;
-    let f: TypedFunction<(), ()> = instance.exports.get_native_function("main")?;
-    f.call()?;
-    Ok(())
-}
-
-#[compiler_test(imports)]
-fn multi_use_host_fn_manages_memory_correctly(config: crate::Config) -> Result<()> {
-    let store = config.store();
+    let mut store = config.store();
     let module = get_module2(&store)?;
 
     #[allow(dead_code)]
     #[derive(Clone)]
     struct Env {
-        memory: LazyInit<Memory>,
+        memory: Option<Memory>,
     }
 
-    impl WasmerEnv for Env {
+    let env: Env = Env { memory: None };
+    let mut env = FunctionEnv::new(&mut store, env);
+    let f0 = Function::new(
+        &mut store,
+        &env,
+        FunctionType::new(vec![], vec![]),
+        |ctx, _values| {
+            assert!(ctx.data().memory.as_ref().is_some());
+            Ok(vec![])
+        },
+    );
+    let instance = Instance::new(
+        &mut store,
+        &module,
+        &imports! {
+            "host" => {
+                "fn" => f0,
+            },
+        },
+    )?;
+    let memory = instance.exports.get_memory("memory")?;
+    env.as_mut(&mut store).memory = Some(memory.clone());
+    let f: TypedFunction<(), ()> = instance.exports.get_typed_function(&mut store, "main")?;
+    f.call(&mut store)?;
+    Ok(())
+}
+
+#[compiler_test(imports)]
+fn multi_use_host_fn_manages_memory_correctly(config: crate::Config) -> Result<()> {
+    let mut store = config.store();
+    let module = get_module2(&store)?;
+
+    #[allow(dead_code)]
+    #[derive(Clone)]
+    struct Env {
+        memory: Option<Memory>,
+    }
+
+    /*    impl WasmerEnv for Env {
         fn init_with_instance(&mut self, instance: &Instance) -> Result<(), HostEnvInitError> {
             let memory = instance.exports.get_memory("memory")?.clone();
             self.memory.initialize(memory);
             Ok(())
         }
-    }
+    }*/
 
-    let env: Env = Env {
-        memory: LazyInit::default(),
-    };
-    fn host_fn(env: &Env) {
-        assert!(env.memory.get_ref().is_some());
+    let env: Env = Env { memory: None };
+    let mut env = FunctionEnv::new(&mut store, env);
+    fn host_fn(ctx: FunctionEnvMut<Env>) {
+        assert!(ctx.data().memory.is_some());
         println!("Hello, world!");
     }
-
     let imports = imports! {
         "host" => {
-            "fn" => Function::new_native_with_env(&store, env, host_fn),
+            "fn" => Function::new_native(&mut store, &env, host_fn),
         },
     };
-    let instance1 = Instance::new(&module, &imports)?;
-    let instance2 = Instance::new(&module, &imports)?;
+    let instance1 = Instance::new(&mut store, &module, &imports)?;
+    let instance2 = Instance::new(&mut store, &module, &imports)?;
     {
-        let f1: TypedFunction<(), ()> = instance1.exports.get_native_function("main")?;
-        f1.call()?;
+        let f1: TypedFunction<(), ()> = instance1.exports.get_typed_function(&mut store, "main")?;
+        let memory = instance1.exports.get_memory("memory")?;
+        env.as_mut(&mut store).memory = Some(memory.clone());
+        f1.call(&mut store)?;
     }
     drop(instance1);
     {
-        let f2: TypedFunction<(), ()> = instance2.exports.get_native_function("main")?;
-        f2.call()?;
+        let f2: TypedFunction<(), ()> = instance2.exports.get_typed_function(&mut store, "main")?;
+        let memory = instance2.exports.get_memory("memory")?;
+        env.as_mut(&mut store).memory = Some(memory.clone());
+        f2.call(&mut store)?;
     }
     drop(instance2);
     Ok(())
@@ -395,15 +496,15 @@ fn multi_use_host_fn_manages_memory_correctly(config: crate::Config) -> Result<(
 
 #[compiler_test(imports)]
 fn instance_local_memory_lifetime(config: crate::Config) -> Result<()> {
-    let store = config.store();
-
+    let mut store = config.store();
+    let mut env = FunctionEnv::new(&mut store, ());
     let memory: Memory = {
         let wat = r#"(module
     (memory $mem 1)
     (export "memory" (memory $mem))
 )"#;
         let module = Module::new(&store, wat)?;
-        let instance = Instance::new(&module, &imports! {})?;
+        let instance = Instance::new(&mut store, &module, &imports! {})?;
         instance.exports.get_memory("memory")?.clone()
     };
 
@@ -424,11 +525,13 @@ fn instance_local_memory_lifetime(config: crate::Config) -> Result<()> {
             "memory" => memory,
         },
     };
-    let instance = Instance::new(&module, &imports)?;
-    let set_at: TypedFunction<(i32, i32), ()> = instance.exports.get_native_function("set_at")?;
-    let get_at: TypedFunction<i32, i32> = instance.exports.get_native_function("get_at")?;
-    set_at.call(200, 123)?;
-    assert_eq!(get_at.call(200)?, 123);
+    let instance = Instance::new(&mut store, &module, &imports)?;
+    let set_at: TypedFunction<(i32, i32), ()> =
+        instance.exports.get_typed_function(&mut store, "set_at")?;
+    let get_at: TypedFunction<i32, i32> =
+        instance.exports.get_typed_function(&mut store, "get_at")?;
+    set_at.call(&mut store, 200, 123)?;
+    assert_eq!(get_at.call(&mut store, 200)?, 123);
 
     Ok(())
 }

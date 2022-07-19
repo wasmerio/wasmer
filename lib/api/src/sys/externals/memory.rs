@@ -1,16 +1,15 @@
 use crate::sys::exports::{ExportError, Exportable};
 use crate::sys::externals::Extern;
-use crate::sys::store::Store;
+use crate::sys::store::{AsStoreMut, AsStoreRef};
 use crate::sys::MemoryType;
 use crate::MemoryAccessError;
 use std::convert::TryInto;
+use std::marker::PhantomData;
 use std::mem;
 use std::mem::MaybeUninit;
 use std::slice;
-use std::sync::Arc;
-use wasmer_compiler::Export;
 use wasmer_types::Pages;
-use wasmer_vm::{MemoryError, VMMemory};
+use wasmer_vm::{InternalStoreHandle, MemoryError, StoreHandle, StoreObjects, VMExtern, VMMemory};
 
 /// A WebAssembly `memory` instance.
 ///
@@ -26,10 +25,9 @@ use wasmer_vm::{MemoryError, VMMemory};
 /// mutable from both host and WebAssembly.
 ///
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#memory-instances>
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Memory {
-    store: Store,
-    vm_memory: VMMemory,
+    handle: StoreHandle<VMMemory>,
 }
 
 impl Memory {
@@ -42,23 +40,18 @@ impl Memory {
     ///
     /// ```
     /// # use wasmer::{Memory, MemoryType, Pages, Store, Type, Value};
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// #
-    /// let m = Memory::new(&store, MemoryType::new(1, None, false)).unwrap();
+    /// let m = Memory::new(&mut store, MemoryType::new(1, None, false)).unwrap();
     /// ```
-    pub fn new(store: &Store, ty: MemoryType) -> Result<Self, MemoryError> {
-        let tunables = store.tunables();
+    pub fn new(ctx: &mut impl AsStoreMut, ty: MemoryType) -> Result<Self, MemoryError> {
+        let mut ctx = ctx.as_store_mut();
+        let tunables = ctx.tunables();
         let style = tunables.memory_style(&ty);
         let memory = tunables.create_host_memory(&ty, &style)?;
 
         Ok(Self {
-            store: store.clone(),
-            vm_memory: VMMemory {
-                from: memory,
-                // We are creating it from the host, and therefore there is no
-                // associated instance with this memory
-                instance_ref: None,
-            },
+            handle: StoreHandle::new(ctx.objects_mut(), memory),
         })
     }
 
@@ -68,31 +61,15 @@ impl Memory {
     ///
     /// ```
     /// # use wasmer::{Memory, MemoryType, Pages, Store, Type, Value};
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// #
     /// let mt = MemoryType::new(1, None, false);
-    /// let m = Memory::new(&store, mt).unwrap();
+    /// let m = Memory::new(&mut store, mt).unwrap();
     ///
-    /// assert_eq!(m.ty(), mt);
+    /// assert_eq!(m.ty(&mut store), mt);
     /// ```
-    pub fn ty(&self) -> MemoryType {
-        self.vm_memory.from.ty()
-    }
-
-    /// Returns the [`Store`] where the `Memory` belongs.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use wasmer::{Memory, MemoryType, Pages, Store, Type, Value};
-    /// # let store = Store::default();
-    /// #
-    /// let m = Memory::new(&store, MemoryType::new(1, None, false)).unwrap();
-    ///
-    /// assert_eq!(m.store(), &store);
-    /// ```
-    pub fn store(&self) -> &Store {
-        &self.store
+    pub fn ty(&self, ctx: &impl AsStoreRef) -> MemoryType {
+        self.handle.get(ctx.as_store_ref().objects()).ty()
     }
 
     /// Returns the pointer to the raw bytes of the `Memory`.
@@ -100,17 +77,40 @@ impl Memory {
     // This used by wasmer-emscripten and wasmer-c-api, but should be treated
     // as deprecated and not used in future code.
     #[doc(hidden)]
-    pub fn data_ptr(&self) -> *mut u8 {
-        let definition = self.vm_memory.from.vmmemory();
-        let def = unsafe { definition.as_ref() };
-        def.base
+    pub fn data_ptr(&self, ctx: &impl AsStoreRef) -> *mut u8 {
+        self.buffer(ctx).base
     }
 
     /// Returns the size (in bytes) of the `Memory`.
-    pub fn data_size(&self) -> u64 {
-        let definition = self.vm_memory.from.vmmemory();
-        let def = unsafe { definition.as_ref() };
-        def.current_length.try_into().unwrap()
+    pub fn data_size(&self, ctx: &impl AsStoreRef) -> u64 {
+        self.buffer(ctx).len.try_into().unwrap()
+    }
+
+    /// Retrieve a slice of the memory contents.
+    ///
+    /// # Safety
+    ///
+    /// Until the returned slice is dropped, it is undefined behaviour to
+    /// modify the memory contents in any way including by calling a wasm
+    /// function that writes to the memory or by resizing the memory.
+    #[doc(hidden)]
+    pub unsafe fn data_unchecked(&self, ctx: &impl AsStoreRef) -> &[u8] {
+        self.data_unchecked_mut(ctx)
+    }
+
+    /// Retrieve a mutable slice of the memory contents.
+    ///
+    /// # Safety
+    ///
+    /// This method provides interior mutability without an UnsafeCell. Until
+    /// the returned value is dropped, it is undefined behaviour to read or
+    /// write to the pointed-to memory in any way except through this slice,
+    /// including by calling a wasm function that reads the memory contents or
+    /// by resizing this Memory.
+    #[allow(clippy::mut_from_ref)]
+    #[doc(hidden)]
+    pub unsafe fn data_unchecked_mut(&self, ctx: &impl AsStoreRef) -> &mut [u8] {
+        slice::from_raw_parts_mut(self.buffer(ctx).base, self.buffer(ctx).len)
     }
 
     /// Returns the size (in [`Pages`]) of the `Memory`.
@@ -119,14 +119,14 @@ impl Memory {
     ///
     /// ```
     /// # use wasmer::{Memory, MemoryType, Pages, Store, Type, Value};
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// #
-    /// let m = Memory::new(&store, MemoryType::new(1, None, false)).unwrap();
+    /// let m = Memory::new(&mut store, MemoryType::new(1, None, false)).unwrap();
     ///
-    /// assert_eq!(m.size(), Pages(1));
+    /// assert_eq!(m.size(&mut store), Pages(1));
     /// ```
-    pub fn size(&self) -> Pages {
-        self.vm_memory.from.size()
+    pub fn size(&self, ctx: &impl AsStoreRef) -> Pages {
+        self.handle.get(ctx.as_store_ref().objects()).size()
     }
 
     /// Grow memory by the specified amount of WebAssembly [`Pages`] and return
@@ -136,13 +136,13 @@ impl Memory {
     ///
     /// ```
     /// # use wasmer::{Memory, MemoryType, Pages, Store, Type, Value, WASM_MAX_PAGES};
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// #
-    /// let m = Memory::new(&store, MemoryType::new(1, Some(3), false)).unwrap();
-    /// let p = m.grow(2).unwrap();
+    /// let m = Memory::new(&mut store, MemoryType::new(1, Some(3), false)).unwrap();
+    /// let p = m.grow(&mut store, 2).unwrap();
     ///
     /// assert_eq!(p, Pages(1));
-    /// assert_eq!(m.size(), Pages(3));
+    /// assert_eq!(m.size(&mut store), Pages(3));
     /// ```
     ///
     /// # Errors
@@ -152,53 +152,24 @@ impl Memory {
     ///
     /// ```should_panic
     /// # use wasmer::{Memory, MemoryType, Pages, Store, Type, Value, WASM_MAX_PAGES};
-    /// # let store = Store::default();
+    /// # use wasmer::FunctionEnv;
+    /// # let mut store = Store::default();
+    /// # let env = FunctionEnv::new(&mut store, ());
     /// #
-    /// let m = Memory::new(&store, MemoryType::new(1, Some(1), false)).unwrap();
+    /// let m = Memory::new(&mut store, MemoryType::new(1, Some(1), false)).unwrap();
     ///
     /// // This results in an error: `MemoryError::CouldNotGrow`.
-    /// let s = m.grow(1).unwrap();
+    /// let s = m.grow(&mut store, 1).unwrap();
     /// ```
-    pub fn grow<IntoPages>(&self, delta: IntoPages) -> Result<Pages, MemoryError>
+    pub fn grow<IntoPages>(
+        &self,
+        ctx: &mut impl AsStoreMut,
+        delta: IntoPages,
+    ) -> Result<Pages, MemoryError>
     where
         IntoPages: Into<Pages>,
     {
-        self.vm_memory.from.grow(delta.into())
-    }
-
-    pub(crate) fn from_vm_export(store: &Store, vm_memory: VMMemory) -> Self {
-        Self {
-            store: store.clone(),
-            vm_memory,
-        }
-    }
-
-    /// Returns whether or not these two memories refer to the same data.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use wasmer::{Memory, MemoryType, Store, Value};
-    /// # let store = Store::default();
-    /// #
-    /// let m = Memory::new(&store, MemoryType::new(1, None, false)).unwrap();
-    ///
-    /// assert!(m.same(&m));
-    /// ```
-    pub fn same(&self, other: &Self) -> bool {
-        Arc::ptr_eq(&self.vm_memory.from, &other.vm_memory.from)
-    }
-
-    /// Get access to the backing VM value for this extern. This function is for
-    /// tests it should not be called by users of the Wasmer API.
-    ///
-    /// # Safety
-    /// This function is unsafe to call outside of tests for the wasmer crate
-    /// because there is no stability guarantee for the returned type and we may
-    /// make breaking changes to it at any time or remove this method.
-    #[doc(hidden)]
-    pub unsafe fn get_vm_memory(&self) -> &VMMemory {
-        &self.vm_memory
+        self.handle.get_mut(ctx.objects_mut()).grow(delta.into())
     }
 
     /// Safely reads bytes from the memory at the given offset.
@@ -208,20 +179,13 @@ impl Memory {
     ///
     /// This method is guaranteed to be safe (from the host side) in the face of
     /// concurrent writes.
-    pub fn read(&self, offset: u64, buf: &mut [u8]) -> Result<(), MemoryAccessError> {
-        let definition = self.vm_memory.from.vmmemory();
-        let def = unsafe { definition.as_ref() };
-        let end = offset
-            .checked_add(buf.len() as u64)
-            .ok_or(MemoryAccessError::Overflow)?;
-        if end > def.current_length.try_into().unwrap() {
-            return Err(MemoryAccessError::HeapOutOfBounds);
-        }
-        unsafe {
-            volatile_memcpy_read(def.base.add(offset as usize), buf.as_mut_ptr(), buf.len());
-        }
-
-        Ok(())
+    pub fn read(
+        &self,
+        ctx: &impl AsStoreRef,
+        offset: u64,
+        buf: &mut [u8],
+    ) -> Result<(), MemoryAccessError> {
+        self.buffer(ctx).read(offset, buf)
     }
 
     /// Safely reads bytes from the memory at the given offset.
@@ -236,23 +200,11 @@ impl Memory {
     /// concurrent writes.
     pub fn read_uninit<'a>(
         &self,
+        ctx: &impl AsStoreRef,
         offset: u64,
         buf: &'a mut [MaybeUninit<u8>],
     ) -> Result<&'a mut [u8], MemoryAccessError> {
-        let definition = self.vm_memory.from.vmmemory();
-        let def = unsafe { definition.as_ref() };
-        let end = offset
-            .checked_add(buf.len() as u64)
-            .ok_or(MemoryAccessError::Overflow)?;
-        if end > def.current_length.try_into().unwrap() {
-            return Err(MemoryAccessError::HeapOutOfBounds);
-        }
-        let buf_ptr = buf.as_mut_ptr() as *mut u8;
-        unsafe {
-            volatile_memcpy_read(def.base.add(offset as usize), buf_ptr, buf.len());
-        }
-
-        Ok(unsafe { slice::from_raw_parts_mut(buf_ptr, buf.len()) })
+        self.buffer(ctx).read_uninit(offset, buf)
     }
 
     /// Safely writes bytes to the memory at the given offset.
@@ -262,50 +214,115 @@ impl Memory {
     ///
     /// This method is guaranteed to be safe (from the host side) in the face of
     /// concurrent reads/writes.
-    pub fn write(&self, offset: u64, data: &[u8]) -> Result<(), MemoryAccessError> {
-        let definition = self.vm_memory.from.vmmemory();
+    pub fn write(
+        &self,
+        ctx: &impl AsStoreRef,
+        offset: u64,
+        data: &[u8],
+    ) -> Result<(), MemoryAccessError> {
+        self.buffer(ctx).write(offset, data)
+    }
+
+    pub(crate) fn buffer<'a>(&'a self, ctx: &'a impl AsStoreRef) -> MemoryBuffer<'a> {
+        let definition = self.handle.get(ctx.as_store_ref().objects()).vmmemory();
         let def = unsafe { definition.as_ref() };
-        let end = offset
-            .checked_add(data.len() as u64)
-            .ok_or(MemoryAccessError::Overflow)?;
-        if end > def.current_length.try_into().unwrap() {
-            return Err(MemoryAccessError::HeapOutOfBounds);
+        MemoryBuffer {
+            base: def.base,
+            len: def.current_length,
+            marker: PhantomData,
         }
-        unsafe {
-            volatile_memcpy_write(data.as_ptr(), def.base.add(offset as usize), data.len());
-        }
-        Ok(())
     }
-}
 
-impl Clone for Memory {
-    fn clone(&self) -> Self {
-        let mut vm_memory = self.vm_memory.clone();
-        vm_memory.upgrade_instance_ref().unwrap();
-
+    pub(crate) fn from_vm_extern(
+        ctx: &impl AsStoreRef,
+        internal: InternalStoreHandle<VMMemory>,
+    ) -> Self {
         Self {
-            store: self.store.clone(),
-            vm_memory,
+            handle: unsafe {
+                StoreHandle::from_internal(ctx.as_store_ref().objects().id(), internal)
+            },
         }
     }
+
+    /// Checks whether this `Memory` can be used with the given context.
+    pub fn is_from_store(&self, ctx: &impl AsStoreRef) -> bool {
+        self.handle.store_id() == ctx.as_store_ref().objects().id()
+    }
+
+    pub(crate) fn to_vm_extern(&self) -> VMExtern {
+        VMExtern::Memory(self.handle.internal_handle())
+    }
 }
+
+impl std::cmp::PartialEq for Memory {
+    fn eq(&self, other: &Self) -> bool {
+        self.handle == other.handle
+    }
+}
+
+impl std::cmp::Eq for Memory {}
 
 impl<'a> Exportable<'a> for Memory {
-    fn to_export(&self) -> Export {
-        self.vm_memory.clone().into()
-    }
-
     fn get_self_from_extern(_extern: &'a Extern) -> Result<&'a Self, ExportError> {
         match _extern {
             Extern::Memory(memory) => Ok(memory),
             _ => Err(ExportError::IncompatibleType),
         }
     }
+}
 
-    fn convert_to_weak_instance_ref(&mut self) {
-        if let Some(v) = self.vm_memory.instance_ref.as_mut() {
-            *v = v.downgrade();
+/// Underlying buffer for a memory.
+#[derive(Copy, Clone)]
+pub(crate) struct MemoryBuffer<'a> {
+    base: *mut u8,
+    len: usize,
+    marker: PhantomData<(&'a Memory, &'a StoreObjects)>,
+}
+
+impl<'a> MemoryBuffer<'a> {
+    pub(crate) fn read(&self, offset: u64, buf: &mut [u8]) -> Result<(), MemoryAccessError> {
+        let end = offset
+            .checked_add(buf.len() as u64)
+            .ok_or(MemoryAccessError::Overflow)?;
+        if end > self.len.try_into().unwrap() {
+            return Err(MemoryAccessError::HeapOutOfBounds);
         }
+        unsafe {
+            volatile_memcpy_read(self.base.add(offset as usize), buf.as_mut_ptr(), buf.len());
+        }
+        Ok(())
+    }
+
+    pub(crate) fn read_uninit<'b>(
+        &self,
+        offset: u64,
+        buf: &'b mut [MaybeUninit<u8>],
+    ) -> Result<&'b mut [u8], MemoryAccessError> {
+        let end = offset
+            .checked_add(buf.len() as u64)
+            .ok_or(MemoryAccessError::Overflow)?;
+        if end > self.len.try_into().unwrap() {
+            return Err(MemoryAccessError::HeapOutOfBounds);
+        }
+        let buf_ptr = buf.as_mut_ptr() as *mut u8;
+        unsafe {
+            volatile_memcpy_read(self.base.add(offset as usize), buf_ptr, buf.len());
+        }
+
+        Ok(unsafe { slice::from_raw_parts_mut(buf_ptr, buf.len()) })
+    }
+
+    pub(crate) fn write(&self, offset: u64, data: &[u8]) -> Result<(), MemoryAccessError> {
+        let end = offset
+            .checked_add(data.len() as u64)
+            .ok_or(MemoryAccessError::Overflow)?;
+        if end > self.len.try_into().unwrap() {
+            return Err(MemoryAccessError::HeapOutOfBounds);
+        }
+        unsafe {
+            volatile_memcpy_write(data.as_ptr(), self.base.add(offset as usize), data.len());
+        }
+        Ok(())
     }
 }
 

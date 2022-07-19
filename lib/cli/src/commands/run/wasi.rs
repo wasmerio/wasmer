@@ -2,8 +2,11 @@ use crate::utils::{parse_envvar, parse_mapdir};
 use anyhow::Result;
 use std::collections::BTreeSet;
 use std::path::PathBuf;
-use wasmer::{Instance, Module, RuntimeError, Val};
-use wasmer_wasi::{get_wasi_versions, is_wasix_module, WasiError, WasiState, WasiVersion};
+use wasmer::{AsStoreMut, FunctionEnv, Instance, Module, RuntimeError, Value};
+use wasmer_wasi::{
+    get_wasi_versions, import_object_for_all_wasi_versions, is_wasix_module, WasiEnv, WasiError,
+    WasiState, WasiVersion,
+};
 
 use structopt::StructOpt;
 
@@ -75,10 +78,11 @@ impl Wasi {
     /// Helper function for instantiating a module with Wasi imports for the `Run` command.
     pub fn instantiate(
         &self,
+        store: &mut impl AsStoreMut,
         module: &Module,
         program_name: String,
         args: Vec<String>,
-    ) -> Result<Instance> {
+    ) -> Result<(FunctionEnv<WasiEnv>, Instance)> {
         let args = args.iter().cloned().map(|arg| arg.into_bytes());
 
         let mut wasi_state_builder = WasiState::new(program_name);
@@ -96,19 +100,20 @@ impl Wasi {
             }
         }
 
-        let mut wasi_env = wasi_state_builder.finalize()?;
-        wasi_env.state.fs.is_wasix.store(
+        let wasi_env = wasi_state_builder.finalize(store)?;
+        wasi_env.env.as_mut(store).state.fs.is_wasix.store(
             is_wasix_module(module),
             std::sync::atomic::Ordering::Release,
         );
-
-        let import_object = wasi_env.import_object_for_all_wasi_versions(module)?;
-        let instance = Instance::new(module, &import_object)?;
-        Ok(instance)
+        let import_object = import_object_for_all_wasi_versions(store, &wasi_env.env);
+        let instance = Instance::new(store, module, &import_object)?;
+        let memory = instance.exports.get_memory("memory")?;
+        wasi_env.data_mut(store).set_memory(memory.clone());
+        Ok((wasi_env.env, instance))
     }
 
     /// Helper function for handling the result of a Wasi _start function.
-    pub fn handle_result(&self, result: Result<Box<[Val]>, RuntimeError>) -> Result<()> {
+    pub fn handle_result(&self, result: Result<Box<[Value]>, RuntimeError>) -> Result<()> {
         match result {
             Ok(_) => Ok(()),
             Err(err) => {

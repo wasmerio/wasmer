@@ -10,7 +10,7 @@
 //!
 //! Ready?
 
-use wasmer::{imports, wat2wasm, Features, Instance, Module, Store, Value};
+use wasmer::{imports, wat2wasm, Features, FunctionEnv, Instance, Module, Store, Value};
 use wasmer_compiler::Universal;
 use wasmer_compiler_cranelift::Cranelift;
 
@@ -39,16 +39,17 @@ fn main() -> anyhow::Result<()> {
     let engine = Universal::new(compiler).features(features);
 
     // Now, let's define the store, and compile the module.
-    let store = Store::new_with_engine(&engine.engine());
+    let mut store = Store::new_with_engine(&engine.engine());
+    let mut env = FunctionEnv::new(&mut store, ());
     let module = Module::new(&store, wasm_bytes)?;
 
     // Finally, let's instantiate the module, and execute something
     // :-).
     let import_object = imports! {};
-    let instance = Instance::new(&module, &import_object)?;
+    let instance = Instance::new(&mut store, &module, &import_object)?;
     let swap = instance.exports.get_function("swap")?;
 
-    let results = swap.call(&[Value::I32(1), Value::I64(2)])?;
+    let results = swap.call(&mut store, &[Value::I32(1), Value::I64(2)])?;
 
     assert_eq!(results.to_vec(), vec![Value::I64(2), Value::I32(1)]);
 

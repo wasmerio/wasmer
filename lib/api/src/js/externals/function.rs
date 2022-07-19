@@ -1,30 +1,31 @@
+pub use self::inner::{FromToNativeWasmType, HostFunction, WasmTypeList};
 use crate::js::exports::{ExportError, Exportable};
 use crate::js::externals::Extern;
-use crate::js::store::Store;
-use crate::js::types::{param_from_js, AsJs /* ValFuncRef */, Val};
-use crate::js::FunctionType;
+use crate::js::function_env::FunctionEnvMut;
+use crate::js::store::{AsStoreMut, AsStoreRef, InternalStoreHandle, StoreHandle, StoreMut};
+use crate::js::types::{param_from_js, AsJs}; /* ValFuncRef */
 use crate::js::RuntimeError;
 use crate::js::TypedFunction;
-use crate::js::WasmerEnv;
-pub use inner::{FromToNativeWasmType, HostFunction, WasmTypeList, WithEnv, WithoutEnv};
+use crate::js::Value;
+use crate::js::{FunctionEnv, FunctionType};
 use js_sys::{Array, Function as JSFunction};
 use std::iter::FromIterator;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 
-use crate::js::export::{Export, VMFunction};
+use crate::js::export::VMFunction;
 use std::fmt;
 
 #[repr(C)]
 pub struct VMFunctionBody(u8);
 
 #[inline]
-fn result_to_js(val: &Val) -> JsValue {
+fn result_to_js(val: &Value) -> JsValue {
     match val {
-        Val::I32(i) => JsValue::from_f64(*i as _),
-        Val::I64(i) => JsValue::from_f64(*i as _),
-        Val::F32(f) => JsValue::from_f64(*f as _),
-        Val::F64(f) => JsValue::from_f64(*f),
+        Value::I32(i) => JsValue::from_f64(*i as _),
+        Value::I64(i) => JsValue::from_f64(*i as _),
+        Value::F32(f) => JsValue::from_f64(*f as _),
+        Value::F64(f) => JsValue::from_f64(*f),
         val => unimplemented!(
             "The value `{:?}` is not yet supported in the JS Function API",
             val
@@ -33,7 +34,7 @@ fn result_to_js(val: &Val) -> JsValue {
 }
 
 #[inline]
-fn results_to_js_array(values: &[Val]) -> Array {
+fn results_to_js_array(values: &[Value]) -> Array {
     Array::from_iter(values.iter().map(result_to_js))
 }
 
@@ -56,11 +57,8 @@ fn results_to_js_array(values: &[Val]) -> Array {
 ///   [Closures as host functions tracking issue](https://github.com/wasmerio/wasmer/issues/1840)
 #[derive(Clone, PartialEq)]
 pub struct Function {
-    pub(crate) store: Store,
-    pub(crate) exported: VMFunction,
+    pub(crate) handle: StoreHandle<VMFunction>,
 }
-
-impl WasmerEnv for WithoutEnv {}
 
 impl Function {
     /// Creates a new host `Function` (dynamic) with the provided signature.
@@ -72,7 +70,7 @@ impl Function {
     ///
     /// ```
     /// # use wasmer::{Function, FunctionType, Type, Store, Value};
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// #
     /// let signature = FunctionType::new(vec![Type::I32, Type::I32], vec![Type::I32]);
     ///
@@ -86,7 +84,7 @@ impl Function {
     ///
     /// ```
     /// # use wasmer::{Function, FunctionType, Type, Store, Value};
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// #
     /// const I32_I32_TO_I32: ([Type; 2], [Type; 1]) = ([Type::I32, Type::I32], [Type::I32]);
     ///
@@ -96,47 +94,63 @@ impl Function {
     /// });
     /// ```
     #[allow(clippy::cast_ptr_alignment)]
-    pub fn new<FT, F>(store: &Store, ty: FT, func: F) -> Self
+    pub fn new<FT, F, T: Send + 'static>(
+        store: &mut impl AsStoreMut,
+        ctx: &FunctionEnv<T>,
+        ty: FT,
+        func: F,
+    ) -> Self
     where
         FT: Into<FunctionType>,
-        F: Fn(&[Val]) -> Result<Vec<Val>, RuntimeError> + 'static + Send + Sync,
+        F: Fn(FunctionEnvMut<'_, T>, &[Value]) -> Result<Vec<Value>, RuntimeError>
+            + 'static
+            + Send
+            + Sync,
     {
-        let ty = ty.into();
-        let new_ty = ty.clone();
-
-        let wrapped_func: JsValue = match ty.results().len() {
+        let mut store = store.as_store_mut();
+        let function_type = ty.into();
+        let func_ty = function_type.clone();
+        let raw_store = store.as_raw() as *mut u8;
+        let raw_ctx = ctx.clone();
+        let wrapped_func: JsValue = match function_type.results().len() {
             0 => Closure::wrap(Box::new(move |args: &Array| {
-                let wasm_arguments = new_ty
+                let mut store: StoreMut = unsafe { StoreMut::from_raw(raw_store as _) };
+                let mut ctx: FunctionEnvMut<T> = raw_ctx.clone().into_mut(&mut store);
+                let wasm_arguments = function_type
                     .params()
                     .iter()
                     .enumerate()
                     .map(|(i, param)| param_from_js(param, &args.get(i as u32)))
                     .collect::<Vec<_>>();
-                let _results = func(&wasm_arguments)?;
+                let _results = func(ctx, &wasm_arguments)?;
                 Ok(())
             })
                 as Box<dyn FnMut(&Array) -> Result<(), JsValue>>)
             .into_js_value(),
             1 => Closure::wrap(Box::new(move |args: &Array| {
-                let wasm_arguments = new_ty
+                let mut store: StoreMut = unsafe { StoreMut::from_raw(raw_store as _) };
+                let mut ctx: FunctionEnvMut<T> = raw_ctx.clone().into_mut(&mut store);
+                let wasm_arguments = function_type
                     .params()
                     .iter()
                     .enumerate()
                     .map(|(i, param)| param_from_js(param, &args.get(i as u32)))
                     .collect::<Vec<_>>();
-                let results = func(&wasm_arguments)?;
+                let results = func(ctx, &wasm_arguments)?;
                 return Ok(result_to_js(&results[0]));
             })
                 as Box<dyn FnMut(&Array) -> Result<JsValue, JsValue>>)
             .into_js_value(),
             _n => Closure::wrap(Box::new(move |args: &Array| {
-                let wasm_arguments = new_ty
+                let mut store: StoreMut = unsafe { StoreMut::from_raw(raw_store as _) };
+                let mut ctx: FunctionEnvMut<T> = raw_ctx.clone().into_mut(&mut store);
+                let wasm_arguments = function_type
                     .params()
                     .iter()
                     .enumerate()
                     .map(|(i, param)| param_from_js(param, &args.get(i as u32)))
                     .collect::<Vec<_>>();
-                let results = func(&wasm_arguments)?;
+                let results = func(ctx, &wasm_arguments)?;
                 return Ok(results_to_js_array(&results));
             })
                 as Box<dyn FnMut(&Array) -> Result<Array, JsValue>>)
@@ -146,124 +160,8 @@ impl Function {
         let dyn_func =
             JSFunction::new_with_args("f", "return f(Array.prototype.slice.call(arguments, 1))");
         let binded_func = dyn_func.bind1(&JsValue::UNDEFINED, &wrapped_func);
-        Self {
-            store: store.clone(),
-            exported: VMFunction::new(binded_func, ty, None),
-        }
-    }
-
-    /// Creates a new host `Function` (dynamic) with the provided signature and environment.
-    ///
-    /// If you know the signature of the host function at compile time,
-    /// consider using [`Function::new_native_with_env`] for less runtime
-    /// overhead.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use wasmer::{Function, FunctionType, Type, Store, Value, WasmerEnv};
-    /// # let store = Store::default();
-    /// #
-    /// #[derive(WasmerEnv, Clone)]
-    /// struct Env {
-    ///   multiplier: i32,
-    /// };
-    /// let env = Env { multiplier: 2 };
-    ///
-    /// let signature = FunctionType::new(vec![Type::I32, Type::I32], vec![Type::I32]);
-    ///
-    /// let f = Function::new_with_env(&store, &signature, env, |env, args| {
-    ///     let result = env.multiplier * (args[0].unwrap_i32() + args[1].unwrap_i32());
-    ///     Ok(vec![Value::I32(result)])
-    /// });
-    /// ```
-    ///
-    /// With constant signature:
-    ///
-    /// ```
-    /// # use wasmer::{Function, FunctionType, Type, Store, Value, WasmerEnv};
-    /// # let store = Store::default();
-    /// const I32_I32_TO_I32: ([Type; 2], [Type; 1]) = ([Type::I32, Type::I32], [Type::I32]);
-    ///
-    /// #[derive(WasmerEnv, Clone)]
-    /// struct Env {
-    ///   multiplier: i32,
-    /// };
-    /// let env = Env { multiplier: 2 };
-    ///
-    /// let f = Function::new_with_env(&store, I32_I32_TO_I32, env, |env, args| {
-    ///     let result = env.multiplier * (args[0].unwrap_i32() + args[1].unwrap_i32());
-    ///     Ok(vec![Value::I32(result)])
-    /// });
-    /// ```
-    #[allow(clippy::cast_ptr_alignment)]
-    pub fn new_with_env<FT, F, Env>(store: &Store, ty: FT, env: Env, func: F) -> Self
-    where
-        FT: Into<FunctionType>,
-        F: Fn(&Env, &[Val]) -> Result<Vec<Val>, RuntimeError> + 'static + Send + Sync,
-        Env: Sized + WasmerEnv + 'static,
-    {
-        let ty = ty.into();
-        let new_ty = ty.clone();
-
-        let wrapped_func: JsValue = match ty.results().len() {
-            0 => Closure::wrap(Box::new(move |args: &Array| {
-                let wasm_arguments = new_ty
-                    .params()
-                    .iter()
-                    .enumerate()
-                    .map(|(i, param)| param_from_js(param, &args.get(i as u32 + 1)))
-                    .collect::<Vec<_>>();
-                let env_ptr = args.get(0).as_f64().unwrap() as usize;
-                let env: &Env = unsafe { &*(env_ptr as *const u8 as *const Env) };
-                let _results = func(env, &wasm_arguments)?;
-                Ok(())
-            })
-                as Box<dyn FnMut(&Array) -> Result<(), JsValue>>)
-            .into_js_value(),
-            1 => Closure::wrap(Box::new(move |args: &Array| {
-                let wasm_arguments = new_ty
-                    .params()
-                    .iter()
-                    .enumerate()
-                    .map(|(i, param)| param_from_js(param, &args.get(i as u32 + 1)))
-                    .collect::<Vec<_>>();
-                let env_ptr = args.get(0).as_f64().unwrap() as usize;
-                let env: &Env = unsafe { &*(env_ptr as *const u8 as *const Env) };
-                let results = func(env, &wasm_arguments)?;
-                return Ok(result_to_js(&results[0]));
-            })
-                as Box<dyn FnMut(&Array) -> Result<JsValue, JsValue>>)
-            .into_js_value(),
-            _n => Closure::wrap(Box::new(move |args: &Array| {
-                let wasm_arguments = new_ty
-                    .params()
-                    .iter()
-                    .enumerate()
-                    .map(|(i, param)| param_from_js(param, &args.get(i as u32 + 1)))
-                    .collect::<Vec<_>>();
-                let env_ptr = args.get(0).as_f64().unwrap() as usize;
-                let env: &Env = unsafe { &*(env_ptr as *const u8 as *const Env) };
-                let results = func(env, &wasm_arguments)?;
-                return Ok(results_to_js_array(&results));
-            })
-                as Box<dyn FnMut(&Array) -> Result<Array, JsValue>>)
-            .into_js_value(),
-        };
-
-        let dyn_func =
-            JSFunction::new_with_args("f", "return f(Array.prototype.slice.call(arguments, 1))");
-
-        let environment = Box::new(env);
-        let binded_func = dyn_func.bind2(
-            &JsValue::UNDEFINED,
-            &wrapped_func,
-            &JsValue::from_f64(&*environment as *const Env as *const u8 as usize as f64),
-        );
-        Self {
-            store: store.clone(),
-            exported: VMFunction::new(binded_func, ty, Some(environment)),
-        }
+        let vm_function = VMFunction::new(binded_func, func_ty);
+        Self::from_vm_export(&mut store, vm_function)
     }
 
     /// Creates a new host `Function` from a native function.
@@ -275,7 +173,7 @@ impl Function {
     ///
     /// ```
     /// # use wasmer::{Store, Function};
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// #
     /// fn sum(a: i32, b: i32) -> i32 {
     ///     a + b
@@ -283,13 +181,17 @@ impl Function {
     ///
     /// let f = Function::new_native(&store, sum);
     /// ```
-    pub fn new_native<F, Args, Rets, Env>(store: &Store, func: F) -> Self
+    pub fn new_native<T, F, Args, Rets>(
+        store: &mut impl AsStoreMut,
+        env: &FunctionEnv<T>,
+        func: F,
+    ) -> Self
     where
-        F: HostFunction<Args, Rets, WithoutEnv, Env>,
+        F: HostFunction<T, Args, Rets>,
         Args: WasmTypeList,
         Rets: WasmTypeList,
-        Env: Sized + 'static,
     {
+        let mut store = store.as_store_mut();
         if std::mem::size_of::<F>() != 0 {
             Self::closures_unsupported_panic();
         }
@@ -299,63 +201,16 @@ impl Function {
         let ft = wasm_bindgen::function_table();
         let as_table = ft.unchecked_ref::<js_sys::WebAssembly::Table>();
         let func = as_table.get(address).unwrap();
-        let binded_func = func.bind1(&JsValue::UNDEFINED, &JsValue::UNDEFINED);
-        let ty = function.ty();
-        Self {
-            store: store.clone(),
-            exported: VMFunction::new(binded_func, ty, None),
-        }
-    }
 
-    /// Creates a new host `Function` from a native function and a provided environment.
-    ///
-    /// The function signature is automatically retrieved using the
-    /// Rust typing system.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use wasmer::{Store, Function, WasmerEnv};
-    /// # let store = Store::default();
-    /// #
-    /// #[derive(WasmerEnv, Clone)]
-    /// struct Env {
-    ///     multiplier: i32,
-    /// };
-    /// let env = Env { multiplier: 2 };
-    ///
-    /// fn sum_and_multiply(env: &Env, a: i32, b: i32) -> i32 {
-    ///     (a + b) * env.multiplier
-    /// }
-    ///
-    /// let f = Function::new_native_with_env(&store, env, sum_and_multiply);
-    /// ```
-    pub fn new_native_with_env<F, Args, Rets, Env>(store: &Store, env: Env, func: F) -> Self
-    where
-        F: HostFunction<Args, Rets, WithEnv, Env>,
-        Args: WasmTypeList,
-        Rets: WasmTypeList,
-        Env: Sized + WasmerEnv + 'static,
-    {
-        if std::mem::size_of::<F>() != 0 {
-            Self::closures_unsupported_panic();
-        }
-        let function = inner::Function::<Args, Rets>::new(func);
-        let address = function.address() as usize as u32;
-
-        let ft = wasm_bindgen::function_table();
-        let as_table = ft.unchecked_ref::<js_sys::WebAssembly::Table>();
-        let func = as_table.get(address).unwrap();
-        let ty = function.ty();
-        let environment = Box::new(env);
-        let binded_func = func.bind1(
+        let binded_func = func.bind2(
             &JsValue::UNDEFINED,
-            &JsValue::from_f64(&*environment as *const Env as *const u8 as usize as f64),
+            &JsValue::from_f64(store.as_raw() as *mut u8 as usize as f64),
+            &JsValue::from_f64(env.handle.internal_handle().index() as f64),
         );
-        // panic!("Function env {:?}", environment.type_id());
+        let ty = function.ty();
+        let vm_function = VMFunction::new(binded_func, ty);
         Self {
-            store: store.clone(),
-            exported: VMFunction::new(binded_func, ty, Some(environment)),
+            handle: StoreHandle::new(store.objects_mut(), vm_function),
         }
     }
 
@@ -365,7 +220,7 @@ impl Function {
     ///
     /// ```
     /// # use wasmer::{Function, Store, Type};
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// #
     /// fn sum(a: i32, b: i32) -> i32 {
     ///     a + b
@@ -376,13 +231,8 @@ impl Function {
     /// assert_eq!(f.ty().params(), vec![Type::I32, Type::I32]);
     /// assert_eq!(f.ty().results(), vec![Type::I32]);
     /// ```
-    pub fn ty(&self) -> &FunctionType {
-        &self.exported.ty
-    }
-
-    /// Returns the [`Store`] where the `Function` belongs.
-    pub fn store(&self) -> &Store {
-        &self.store
+    pub fn ty<'context>(&self, ctx: &'context impl AsStoreRef) -> &'context FunctionType {
+        &self.handle.get(ctx.as_store_ref().objects()).ty
     }
 
     /// Returns the number of parameters that this function takes.
@@ -390,19 +240,20 @@ impl Function {
     /// # Example
     ///
     /// ```
-    /// # use wasmer::{Function, Store, Type};
-    /// # let store = Store::default();
+    /// # use wasmer::{Function, FunctionEnv, FunctionEnvMut, Store, Type};
+    /// # let mut store = Store::default();
+    /// # let env = FunctionEnv::new(&mut store, ());
     /// #
-    /// fn sum(a: i32, b: i32) -> i32 {
+    /// fn sum(_ctx: FunctionEnvMut<()>, a: i32, b: i32) -> i32 {
     ///     a + b
     /// }
     ///
-    /// let f = Function::new_native(&store, sum);
+    /// let f = Function::new_native(&store, &env, sum);
     ///
-    /// assert_eq!(f.param_arity(), 2);
+    /// assert_eq!(f.param_arity(&store), 2);
     /// ```
-    pub fn param_arity(&self) -> usize {
-        self.ty().params().len()
+    pub fn param_arity(&self, ctx: &impl AsStoreRef) -> usize {
+        self.ty(ctx).params().len()
     }
 
     /// Returns the number of results this function produces.
@@ -410,19 +261,20 @@ impl Function {
     /// # Example
     ///
     /// ```
-    /// # use wasmer::{Function, Store, Type};
-    /// # let store = Store::default();
+    /// # use wasmer::{Function, FunctionEnv, FunctionEnvMut, Store, Type};
+    /// # let mut store = Store::default();
+    /// # let env = FunctionEnv::new(&mut store, ());
     /// #
-    /// fn sum(a: i32, b: i32) -> i32 {
+    /// fn sum(_ctx: FunctionEnvMut<()>, a: i32, b: i32) -> i32 {
     ///     a + b
     /// }
     ///
-    /// let f = Function::new_native(&store, sum);
+    /// let f = Function::new_native(&store, &env, sum);
     ///
-    /// assert_eq!(f.result_arity(), 1);
+    /// assert_eq!(f.result_arity(&store), 1);
     /// ```
-    pub fn result_arity(&self) -> usize {
-        self.ty().results().len()
+    pub fn result_arity(&self, ctx: &impl AsStoreRef) -> usize {
+        self.ty(ctx).results().len()
     }
 
     /// Call the `Function` function.
@@ -437,7 +289,7 @@ impl Function {
     ///
     /// ```
     /// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, Value};
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// # let wasm_bytes = wat2wasm(r#"
     /// # (module
     /// #   (func (export "sum") (param $x i32) (param $y i32) (result i32)
@@ -454,16 +306,27 @@ impl Function {
     ///
     /// assert_eq!(sum.call(&[Value::I32(1), Value::I32(2)]).unwrap().to_vec(), vec![Value::I32(3)]);
     /// ```
-    pub fn call(&self, params: &[Val]) -> Result<Box<[Val]>, RuntimeError> {
+    pub fn call(
+        &self,
+        store: &mut impl AsStoreMut,
+        params: &[Value],
+    ) -> Result<Box<[Value]>, RuntimeError> {
         let arr = js_sys::Array::new_with_length(params.len() as u32);
+
+        // let raw_ctx = ctx.as_raw() as *mut u8;
+        // let mut env = unsafe { FunctionEnvMut::from_raw(raw_ctx as *mut StoreInner<()>) };
+
         for (i, param) in params.iter().enumerate() {
-            let js_value = param.as_jsvalue();
+            let js_value = param.as_jsvalue(&store.as_store_ref());
             arr.set(i as u32, js_value);
         }
-        let result =
-            js_sys::Reflect::apply(&self.exported.function, &wasm_bindgen::JsValue::NULL, &arr)?;
+        let result = js_sys::Reflect::apply(
+            &self.handle.get(store.as_store_ref().objects()).function,
+            &wasm_bindgen::JsValue::NULL,
+            &arr,
+        )?;
 
-        let result_types = self.exported.ty.results();
+        let result_types = self.handle.get(store.as_store_ref().objects()).ty.results();
         match result_types.len() {
             0 => Ok(Box::new([])),
             1 => {
@@ -482,10 +345,20 @@ impl Function {
         }
     }
 
-    pub(crate) fn from_vm_export(store: &Store, wasmer_export: VMFunction) -> Self {
+    pub(crate) fn from_vm_export(ctx: &mut impl AsStoreMut, vm_function: VMFunction) -> Self {
         Self {
-            store: store.clone(),
-            exported: wasmer_export,
+            handle: StoreHandle::new(ctx.objects_mut(), vm_function),
+        }
+    }
+
+    pub(crate) fn from_vm_extern(
+        ctx: &mut impl AsStoreMut,
+        internal: InternalStoreHandle<VMFunction>,
+    ) -> Self {
+        Self {
+            handle: unsafe {
+                StoreHandle::from_internal(ctx.as_store_ref().objects().id(), internal)
+            },
         }
     }
 
@@ -496,7 +369,7 @@ impl Function {
     ///
     /// ```
     /// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, Value};
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// # let wasm_bytes = wat2wasm(r#"
     /// # (module
     /// #   (func (export "sum") (param $x i32) (param $y i32) (result i32)
@@ -512,7 +385,7 @@ impl Function {
     /// let sum = instance.exports.get_function("sum").unwrap();
     /// let sum_native = sum.native::<(i32, i32), i32>().unwrap();
     ///
-    /// assert_eq!(sum_native.call(1, 2).unwrap(), 3);
+    /// assert_eq!(sum_native.call(&mut store, 1, 2).unwrap(), 3);
     /// ```
     ///
     /// # Errors
@@ -522,7 +395,7 @@ impl Function {
     ///
     /// ```should_panic
     /// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, Value};
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// # let wasm_bytes = wat2wasm(r#"
     /// # (module
     /// #   (func (export "sum") (param $x i32) (param $y i32) (result i32)
@@ -538,7 +411,7 @@ impl Function {
     /// let sum = instance.exports.get_function("sum").unwrap();
     ///
     /// // This results in an error: `RuntimeError`
-    /// let sum_native = sum.native::<(i64, i64), i32>().unwrap();
+    /// let sum_native = sum.native::<(i64, i64), i32>(&mut store).unwrap();
     /// ```
     ///
     /// If the `Rets` generic parameter does not match the exported function
@@ -546,7 +419,7 @@ impl Function {
     ///
     /// ```should_panic
     /// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, Value};
-    /// # let store = Store::default();
+    /// # let mut store = Store::default();
     /// # let wasm_bytes = wat2wasm(r#"
     /// # (module
     /// #   (func (export "sum") (param $x i32) (param $y i32) (result i32)
@@ -562,16 +435,21 @@ impl Function {
     /// let sum = instance.exports.get_function("sum").unwrap();
     ///
     /// // This results in an error: `RuntimeError`
-    /// let sum_native = sum.native::<(i32, i32), i64>().unwrap();
+    /// let sum_native = sum.native::<(i32, i32), i64>(&mut store).unwrap();
     /// ```
-    pub fn native<Args, Rets>(&self) -> Result<TypedFunction<Args, Rets>, RuntimeError>
+    pub fn native<Args, Rets>(
+        &self,
+        ctx: &impl AsStoreRef,
+    ) -> Result<TypedFunction<Args, Rets>, RuntimeError>
     where
         Args: WasmTypeList,
         Rets: WasmTypeList,
     {
+        let vm_function = self.handle.get(ctx.as_store_ref().objects());
+
         // type check
         {
-            let expected = self.exported.ty.params();
+            let expected = vm_function.ty.params();
             let given = Args::wasm_types();
 
             if expected != given {
@@ -584,7 +462,7 @@ impl Function {
         }
 
         {
-            let expected = self.exported.ty.results();
+            let expected = vm_function.ty.results();
             let given = Rets::wasm_types();
 
             if expected != given {
@@ -597,23 +475,21 @@ impl Function {
             }
         }
 
-        Ok(TypedFunction::new(
-            self.store.clone(),
-            self.exported.clone(),
-        ))
+        Ok(TypedFunction::from_handle(self.clone()))
     }
 
     #[track_caller]
     fn closures_unsupported_panic() -> ! {
         unimplemented!("Closures (functions with captured environments) are currently unsupported with native functions. See: https://github.com/wasmerio/wasmer/issues/1840")
     }
+
+    /// Checks whether this `Function` can be used with the given context.
+    pub fn is_from_store(&self, ctx: &impl AsStoreRef) -> bool {
+        self.handle.store_id() == ctx.as_store_ref().objects().id()
+    }
 }
 
 impl<'a> Exportable<'a> for Function {
-    fn to_export(&self) -> Export {
-        Export::Function(self.exported.clone())
-    }
-
     fn get_self_from_extern(_extern: &'a Extern) -> Result<&'a Self, ExportError> {
         match _extern {
             Extern::Function(func) => Ok(func),
@@ -624,23 +500,7 @@ impl<'a> Exportable<'a> for Function {
 
 impl fmt::Debug for Function {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        formatter
-            .debug_struct("Function")
-            .field("ty", &self.ty())
-            .finish()
-    }
-}
-
-// This is needed for reference types
-impl wasmer_types::WasmValueType for Function {
-    /// Write the value.
-    unsafe fn write_value_to(&self, _p: *mut i128) {
-        unimplemented!();
-    }
-
-    /// Read the value.
-    unsafe fn read_value_from(_store: &dyn std::any::Any, _p: *const i128) -> Self {
-        unimplemented!();
+        formatter.debug_struct("Function").finish()
     }
 }
 
@@ -649,14 +509,16 @@ impl wasmer_types::WasmValueType for Function {
 mod inner {
     use super::RuntimeError;
     use super::VMFunctionBody;
+    use crate::js::function_env::{FunctionEnvMut, VMFunctionEnvironment};
+    use crate::js::store::{AsStoreMut, InternalStoreHandle, StoreHandle, StoreInner, StoreMut};
+    use crate::js::FunctionEnv;
+    use crate::js::NativeWasmTypeInto;
     use std::array::TryFromSliceError;
     use std::convert::{Infallible, TryInto};
     use std::error::Error;
     use std::marker::PhantomData;
     use std::panic::{self, AssertUnwindSafe};
 
-    #[cfg(feature = "experimental-reference-types-extern-ref")]
-    pub use wasmer_types::{ExternRef, VMExternRef};
     use wasmer_types::{FunctionType, NativeWasmType, Type};
     // use wasmer::{raise_user_trap, resume_panic};
 
@@ -672,7 +534,7 @@ mod inner {
         Self: Sized,
     {
         /// Native Wasm type.
-        type Native: NativeWasmType;
+        type Native: NativeWasmTypeInto;
 
         /// Convert a value of kind `Self::Native` to `Self`.
         ///
@@ -749,21 +611,9 @@ mod inner {
         f64 => f64
     );
 
-    #[cfg(feature = "experimental-reference-types-extern-ref")]
-    unsafe impl FromToNativeWasmType for ExternRef {
-        type Native = VMExternRef;
-
-        fn to_native(self) -> Self::Native {
-            self.into()
-        }
-        fn from_native(n: Self::Native) -> Self {
-            n.into()
-        }
-    }
-
     #[cfg(test)]
     mod test_from_to_native_wasm_type {
-        use super::*;
+        use super::FromToNativeWasmType;
 
         #[test]
         fn test_to_native() {
@@ -799,13 +649,15 @@ mod inner {
         /// The array type that can hold all the represented values.
         ///
         /// Note that all values are stored in their binary form.
-        type Array: AsMut<[i128]>;
+        type Array: AsMut<[f64]>;
 
         /// The size of the array
         fn size() -> u32;
 
         /// Constructs `Self` based on an array of values.
-        fn from_array(array: Self::Array) -> Self;
+        ///
+        /// # Safety
+        unsafe fn from_array(ctx: &mut impl AsStoreMut, array: Self::Array) -> Self;
 
         /// Constructs `Self` based on a slice of values.
         ///
@@ -813,11 +665,18 @@ mod inner {
         /// that the slice doesn't have the same size than
         /// `Self::Array`, in which circumstance an error of kind
         /// `TryFromSliceError` will be returned.
-        fn from_slice(slice: &[i128]) -> Result<Self, TryFromSliceError>;
+        ///
+        /// # Safety
+        unsafe fn from_slice(
+            ctx: &mut impl AsStoreMut,
+            slice: &[f64],
+        ) -> Result<Self, TryFromSliceError>;
 
         /// Builds and returns an array of type `Array` from a tuple
         /// (list) of values.
-        fn into_array(self) -> Self::Array;
+        ///
+        /// # Safety
+        unsafe fn into_array(self, ctx: &mut impl AsStoreMut) -> Self::Array;
 
         /// Allocates and return an empty array of type `Array` that
         /// will hold a tuple (list) of values, usually to hold the
@@ -826,11 +685,20 @@ mod inner {
 
         /// Builds a tuple (list) of values from a C struct of type
         /// `CStruct`.
-        fn from_c_struct(c_struct: Self::CStruct) -> Self;
+        ///
+        /// # Safety
+        unsafe fn from_c_struct(ctx: &mut impl AsStoreMut, c_struct: Self::CStruct) -> Self;
 
         /// Builds and returns a C struct of type `CStruct` from a
         /// tuple (list) of values.
-        fn into_c_struct(self) -> Self::CStruct;
+        ///
+        /// # Safety
+        unsafe fn into_c_struct(self, ctx: &mut impl AsStoreMut) -> Self::CStruct;
+
+        /// Writes the contents of a C struct to an array of `f64`.
+        ///
+        /// # Safety
+        unsafe fn write_c_struct_to_ptr(c_struct: Self::CStruct, ptr: *mut f64);
 
         /// Get the Wasm types for the tuple (list) of currently
         /// represented values.
@@ -926,39 +794,16 @@ mod inner {
     /// can be used as host function. To uphold this statement, it is
     /// necessary for a function to be transformed into a pointer to
     /// `VMFunctionBody`.
-    pub trait HostFunction<Args, Rets, Kind, T>
+    pub trait HostFunction<T, Args, Rets>
     where
         Args: WasmTypeList,
         Rets: WasmTypeList,
-        Kind: HostFunctionKind,
         T: Sized,
         Self: Sized,
     {
         /// Get the pointer to the function body.
         fn function_body_ptr(self) -> *const VMFunctionBody;
     }
-
-    /// Empty trait to specify the kind of `HostFunction`: With or
-    /// without an environment.
-    ///
-    /// This trait is never aimed to be used by a user. It is used by
-    /// the trait system to automatically generate the appropriate
-    /// host functions.
-    #[doc(hidden)]
-    pub trait HostFunctionKind {}
-
-    /// An empty struct to help Rust typing to determine
-    /// when a `HostFunction` does have an environment.
-    pub struct WithEnv;
-
-    impl HostFunctionKind for WithEnv {}
-
-    /// An empty struct to help Rust typing to determine
-    /// when a `HostFunction` does not have an environment.
-    #[derive(Clone)]
-    pub struct WithoutEnv;
-
-    impl HostFunctionKind for WithoutEnv {}
 
     /// Represents a low-level Wasm static host function. See
     /// `super::Function::new` and `super::Function::new_env` to learn
@@ -977,11 +822,11 @@ mod inner {
         Rets: WasmTypeList,
     {
         /// Creates a new `Function`.
-        pub fn new<F, T, E>(function: F) -> Self
+        #[allow(dead_code)]
+        pub fn new<F, T>(function: F) -> Self
         where
-            F: HostFunction<Args, Rets, T, E>,
-            T: HostFunctionKind,
-            E: Sized,
+            F: HostFunction<T, Args, Rets>,
+            T: Sized,
         {
             Self {
                 address: function.function_body_ptr(),
@@ -990,11 +835,13 @@ mod inner {
         }
 
         /// Get the function type of this `Function`.
+        #[allow(dead_code)]
         pub fn ty(&self) -> FunctionType {
             FunctionType::new(Args::wasm_types(), Rets::wasm_types())
         }
 
         /// Get the address of this `Function`.
+        #[allow(dead_code)]
         pub fn address(&self) -> *const VMFunctionBody {
             self.address
         }
@@ -1008,7 +855,7 @@ mod inner {
             /// A structure with a C-compatible representation that can hold a set of Wasm values.
             /// This type is used by `WasmTypeList::CStruct`.
             #[repr($c_struct_representation)]
-            pub struct $c_struct_name< $( $x ),* > ( $( <$x as FromToNativeWasmType>::Native ),* )
+            pub struct $c_struct_name< $( $x ),* > ( $( <<$x as FromToNativeWasmType>::Native as NativeWasmType>::Abi ),* )
             where
                 $( $x: FromToNativeWasmType ),*;
 
@@ -1023,13 +870,16 @@ mod inner {
             {
                 type CStruct = $c_struct_name< $( $x ),* >;
 
-                type Array = [i128; count_idents!( $( $x ),* )];
+                type Array = [f64; count_idents!( $( $x ),* )];
 
                 fn size() -> u32 {
                     count_idents!( $( $x ),* ) as _
                 }
 
-                fn from_array(array: Self::Array) -> Self {
+                #[allow(unused_mut)]
+                #[allow(clippy::unused_unit)]
+                #[allow(clippy::missing_safety_doc)]
+                unsafe fn from_array(mut _ctx: &mut impl AsStoreMut, array: Self::Array) -> Self {
                     // Unpack items of the array.
                     #[allow(non_snake_case)]
                     let [ $( $x ),* ] = array;
@@ -1037,16 +887,19 @@ mod inner {
                     // Build the tuple.
                     (
                         $(
-                            FromToNativeWasmType::from_native(NativeWasmType::from_binary($x))
+                            FromToNativeWasmType::from_native(NativeWasmTypeInto::from_raw(_ctx, $x))
                         ),*
                     )
                 }
 
-                fn from_slice(slice: &[i128]) -> Result<Self, TryFromSliceError> {
-                    Ok(Self::from_array(slice.try_into()?))
+                #[allow(clippy::missing_safety_doc)]
+                unsafe fn from_slice(ctx: &mut impl AsStoreMut, slice: &[f64]) -> Result<Self, TryFromSliceError> {
+                    Ok(Self::from_array(ctx, slice.try_into()?))
                 }
 
-                fn into_array(self) -> Self::Array {
+                #[allow(unused_mut)]
+                #[allow(clippy::missing_safety_doc)]
+                unsafe fn into_array(self, mut _ctx: &mut impl AsStoreMut) -> Self::Array {
                     // Unpack items of the tuple.
                     #[allow(non_snake_case)]
                     let ( $( $x ),* ) = self;
@@ -1054,39 +907,55 @@ mod inner {
                     // Build the array.
                     [
                         $(
-                            FromToNativeWasmType::to_native($x).to_binary()
+                            FromToNativeWasmType::to_native($x).into_raw(_ctx)
                         ),*
                     ]
                 }
 
                 fn empty_array() -> Self::Array {
                     // Build an array initialized with `0`.
-                    [0; count_idents!( $( $x ),* )]
+                    [0_f64; count_idents!( $( $x ),* )]
                 }
 
-                fn from_c_struct(c_struct: Self::CStruct) -> Self {
+                #[allow(unused_mut)]
+                #[allow(clippy::unused_unit)]
+                #[allow(clippy::missing_safety_doc)]
+                unsafe fn from_c_struct(mut _ctx: &mut impl AsStoreMut, c_struct: Self::CStruct) -> Self {
                     // Unpack items of the C structure.
                     #[allow(non_snake_case)]
                     let $c_struct_name( $( $x ),* ) = c_struct;
 
                     (
                         $(
-                            FromToNativeWasmType::from_native($x)
+                            FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(_ctx, $x))
                         ),*
                     )
                 }
 
-                #[allow(unused_parens, non_snake_case)]
-                fn into_c_struct(self) -> Self::CStruct {
+                #[allow(unused_parens, non_snake_case, unused_mut)]
+                #[allow(clippy::missing_safety_doc)]
+                unsafe fn into_c_struct(self, mut _ctx: &mut impl AsStoreMut) -> Self::CStruct {
                     // Unpack items of the tuple.
                     let ( $( $x ),* ) = self;
 
                     // Build the C structure.
                     $c_struct_name(
                         $(
-                            FromToNativeWasmType::to_native($x)
+                            FromToNativeWasmType::to_native($x).into_abi(_ctx)
                         ),*
                     )
+                }
+
+                #[allow(non_snake_case)]
+                unsafe fn write_c_struct_to_ptr(c_struct: Self::CStruct, _ptr: *mut f64) {
+                    // Unpack items of the tuple.
+                    let $c_struct_name( $( $x ),* ) = c_struct;
+
+                    let mut _n = 0;
+                    $(
+                        *_ptr.add(_n).cast() = $x;
+                        _n += 1;
+                    )*
                 }
 
                 fn wasm_types() -> &'static [Type] {
@@ -1099,90 +968,51 @@ mod inner {
             }
 
             // Implement `HostFunction` for a function that has the same arity than the tuple.
-            // This specific function has no environment.
             #[allow(unused_parens)]
-            impl< $( $x, )* Rets, RetsAsResult, Func >
-                HostFunction<( $( $x ),* ), Rets, WithoutEnv, ()>
+            impl< $( $x, )* Rets, RetsAsResult, T, Func >
+                HostFunction<T, ( $( $x ),* ), Rets>
             for
                 Func
             where
                 $( $x: FromToNativeWasmType, )*
                 Rets: WasmTypeList,
                 RetsAsResult: IntoResult<Rets>,
-                Func: Fn($( $x , )*) -> RetsAsResult + 'static + Send,
+                T: Send + 'static,
+                Func: Fn(FunctionEnvMut<'_, T>, $( $x , )*) -> RetsAsResult + 'static,
             {
                 #[allow(non_snake_case)]
                 fn function_body_ptr(self) -> *const VMFunctionBody {
                     /// This is a function that wraps the real host
                     /// function. Its address will be used inside the
                     /// runtime.
-                    extern fn func_wrapper<$( $x, )* Rets, RetsAsResult, Func>( _: usize, $( $x: $x::Native, )* ) -> Rets::CStruct
+                    unsafe extern "C" fn func_wrapper<T, $( $x, )* Rets, RetsAsResult, Func>( store_ptr: usize, handle_index: usize, $( $x: <$x::Native as NativeWasmType>::Abi, )* ) -> Rets::CStruct
                     where
                         $( $x: FromToNativeWasmType, )*
                         Rets: WasmTypeList,
                         RetsAsResult: IntoResult<Rets>,
-                        Func: Fn( $( $x ),* ) -> RetsAsResult + 'static
+                        T: Send + 'static,
+                        Func: Fn(FunctionEnvMut<'_, T>, $( $x , )*) -> RetsAsResult + 'static,
                     {
-                        let func: &Func = unsafe { &*(&() as *const () as *const Func) };
+                        // let env: &Env = unsafe { &*(ptr as *const u8 as *const Env) };
+                        let func: &Func = &*(&() as *const () as *const Func);
+                        let mut store = StoreMut::from_raw(store_ptr as *mut _);
+                        let mut store2 = StoreMut::from_raw(store_ptr as *mut _);
+
                         let result = panic::catch_unwind(AssertUnwindSafe(|| {
-                            func( $( FromToNativeWasmType::from_native($x) ),* ).into_result()
+                            let handle: StoreHandle<VMFunctionEnvironment> = StoreHandle::from_internal(store2.objects_mut().id(), InternalStoreHandle::from_index(handle_index).unwrap());
+                            let ctx: FunctionEnvMut<T> = FunctionEnv::from_handle(handle).into_mut(&mut store2);
+                            func(ctx, $( FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(&mut store, $x)) ),* ).into_result()
                         }));
+
                         match result {
-                            Ok(Ok(result)) => return result.into_c_struct(),
+                            Ok(Ok(result)) => return result.into_c_struct(&mut store),
+                            #[allow(deprecated)]
                             Ok(Err(trap)) => RuntimeError::raise(Box::new(trap)),
-                            _ => unimplemented!(),
-                            // Ok(Err(trap)) => unsafe { raise_user_trap(Box::new(trap)) },
-                            // Err(panic) => unsafe { resume_panic(panic) },
+                            Err(_panic) => unimplemented!(),
                         }
                     }
 
-                    func_wrapper::< $( $x, )* Rets, RetsAsResult, Self > as *const VMFunctionBody
-                }
-            }
-
-            // Implement `HostFunction` for a function that has the same arity than the tuple.
-            // This specific function has an environment.
-            #[allow(unused_parens)]
-            impl< $( $x, )* Rets, RetsAsResult, Env, Func >
-                HostFunction<( $( $x ),* ), Rets, WithEnv, Env>
-            for
-                Func
-            where
-                $( $x: FromToNativeWasmType, )*
-                Rets: WasmTypeList,
-                RetsAsResult: IntoResult<Rets>,
-                Env: Sized,
-                Func: Fn(&Env, $( $x , )*) -> RetsAsResult + Send + 'static,
-            {
-                #[allow(non_snake_case)]
-                fn function_body_ptr(self) -> *const VMFunctionBody {
-                    /// This is a function that wraps the real host
-                    /// function. Its address will be used inside the
-                    /// runtime.
-                    extern fn func_wrapper<$( $x, )* Rets, RetsAsResult, Env, Func>( ptr: usize, $( $x: $x::Native, )* ) -> Rets::CStruct
-                    where
-                        $( $x: FromToNativeWasmType, )*
-                        Rets: WasmTypeList,
-                        RetsAsResult: IntoResult<Rets>,
-                        Env: Sized,
-                        Func: Fn(&Env, $( $x ),* ) -> RetsAsResult + 'static
-                    {
-                        let env: &Env = unsafe { &*(ptr as *const u8 as *const Env) };
-                        let func: &Func = unsafe { &*(&() as *const () as *const Func) };
-
-                        let result = panic::catch_unwind(AssertUnwindSafe(|| {
-                            func(env, $( FromToNativeWasmType::from_native($x) ),* ).into_result()
-                        }));
-                        match result {
-                            Ok(Ok(result)) => return result.into_c_struct(),
-                            Ok(Err(trap)) => RuntimeError::raise(Box::new(trap)),
-                            _ => unimplemented!(),
-                            // Ok(Err(trap)) => unsafe { raise_user_trap(Box::new(trap)) },
-                            // Err(panic) => unsafe { resume_panic(panic) },
-                        }
-                    }
-
-                    func_wrapper::< $( $x, )* Rets, RetsAsResult, Env, Self > as *const VMFunctionBody
+                    func_wrapper::< T, $( $x, )* Rets, RetsAsResult, Self > as *const VMFunctionBody
                 }
             }
         };
@@ -1236,171 +1066,170 @@ mod inner {
     // fail (with `Result<_, Infallible>`).
     impl WasmTypeList for Infallible {
         type CStruct = Self;
-        type Array = [i128; 0];
+        type Array = [f64; 0];
 
         fn size() -> u32 {
             0
         }
 
-        fn from_array(_: Self::Array) -> Self {
+        unsafe fn from_array(_: &mut impl AsStoreMut, _: Self::Array) -> Self {
             unreachable!()
         }
 
-        fn from_slice(_: &[i128]) -> Result<Self, TryFromSliceError> {
+        unsafe fn from_slice(
+            _: &mut impl AsStoreMut,
+            _: &[f64],
+        ) -> Result<Self, TryFromSliceError> {
             unreachable!()
         }
 
-        fn into_array(self) -> Self::Array {
+        unsafe fn into_array(self, _: &mut impl AsStoreMut) -> Self::Array {
             []
         }
 
         fn empty_array() -> Self::Array {
-            unreachable!()
+            []
         }
 
-        fn from_c_struct(_: Self::CStruct) -> Self {
-            unreachable!()
+        unsafe fn from_c_struct(_: &mut impl AsStoreMut, self_: Self::CStruct) -> Self {
+            self_
         }
 
-        fn into_c_struct(self) -> Self::CStruct {
-            unreachable!()
+        unsafe fn into_c_struct(self, _: &mut impl AsStoreMut) -> Self::CStruct {
+            self
         }
+
+        unsafe fn write_c_struct_to_ptr(_: Self::CStruct, _: *mut f64) {}
 
         fn wasm_types() -> &'static [Type] {
             &[]
         }
     }
 
-    #[cfg(test)]
-    mod test_wasm_type_list {
-        use super::*;
-        use wasmer_types::Type;
+    /*
+        #[cfg(test)]
+        mod test_wasm_type_list {
+            use super::*;
+            use wasmer_types::Type;
 
-        #[test]
-        fn test_from_array() {
-            assert_eq!(<()>::from_array([]), ());
-            assert_eq!(<i32>::from_array([1]), (1i32));
-            assert_eq!(<(i32, i64)>::from_array([1, 2]), (1i32, 2i64));
-            assert_eq!(
-                <(i32, i64, f32, f64)>::from_array([
-                    1,
-                    2,
-                    (3.1f32).to_bits().into(),
-                    (4.2f64).to_bits().into()
-                ]),
-                (1, 2, 3.1f32, 4.2f64)
-            );
-        }
+            fn test_from_array() {
+                assert_eq!(<()>::from_array([]), ());
+                assert_eq!(<i32>::from_array([1]), (1i32));
+                assert_eq!(<(i32, i64)>::from_array([1, 2]), (1i32, 2i64));
+                assert_eq!(
+                    <(i32, i64, f32, f64)>::from_array([
+                        1,
+                        2,
+                        (3.1f32).to_bits().into(),
+                        (4.2f64).to_bits().into()
+                    ]),
+                    (1, 2, 3.1f32, 4.2f64)
+                );
+            }
 
-        #[test]
-        fn test_into_array() {
-            assert_eq!(().into_array(), [0i128; 0]);
-            assert_eq!((1).into_array(), [1]);
-            assert_eq!((1i32, 2i64).into_array(), [1, 2]);
-            assert_eq!(
-                (1i32, 2i32, 3.1f32, 4.2f64).into_array(),
-                [1, 2, (3.1f32).to_bits().into(), (4.2f64).to_bits().into()]
-            );
-        }
+            fn test_into_array() {
+                assert_eq!(().into_array(), [0; 0]);
+                assert_eq!((1).into_array(), [1]);
+                assert_eq!((1i32, 2i64).into_array(), [1, 2]);
+                assert_eq!(
+                    (1i32, 2i32, 3.1f32, 4.2f64).into_array(),
+                    [1, 2, (3.1f32).to_bits().into(), (4.2f64).to_bits().into()]
+                );
+            }
 
-        #[test]
-        fn test_empty_array() {
-            assert_eq!(<()>::empty_array().len(), 0);
-            assert_eq!(<i32>::empty_array().len(), 1);
-            assert_eq!(<(i32, i64)>::empty_array().len(), 2);
-        }
+            fn test_empty_array() {
+                assert_eq!(<()>::empty_array().len(), 0);
+                assert_eq!(<i32>::empty_array().len(), 1);
+                assert_eq!(<(i32, i64)>::empty_array().len(), 2);
+            }
 
-        #[test]
-        fn test_from_c_struct() {
-            assert_eq!(<()>::from_c_struct(S0()), ());
-            assert_eq!(<i32>::from_c_struct(S1(1)), (1i32));
-            assert_eq!(<(i32, i64)>::from_c_struct(S2(1, 2)), (1i32, 2i64));
-            assert_eq!(
-                <(i32, i64, f32, f64)>::from_c_struct(S4(1, 2, 3.1, 4.2)),
-                (1i32, 2i64, 3.1f32, 4.2f64)
-            );
-        }
+            fn test_from_c_struct() {
+                assert_eq!(<()>::from_c_struct(S0()), ());
+                assert_eq!(<i32>::from_c_struct(S1(1)), (1i32));
+                assert_eq!(<(i32, i64)>::from_c_struct(S2(1, 2)), (1i32, 2i64));
+                assert_eq!(
+                    <(i32, i64, f32, f64)>::from_c_struct(S4(1, 2, 3.1, 4.2)),
+                    (1i32, 2i64, 3.1f32, 4.2f64)
+                );
+            }
 
-        #[test]
-        fn test_wasm_types_for_uni_values() {
-            assert_eq!(<i32>::wasm_types(), [Type::I32]);
-            assert_eq!(<i64>::wasm_types(), [Type::I64]);
-            assert_eq!(<f32>::wasm_types(), [Type::F32]);
-            assert_eq!(<f64>::wasm_types(), [Type::F64]);
-        }
+            fn test_wasm_types_for_uni_values() {
+                assert_eq!(<i32>::wasm_types(), [Type::I32]);
+                assert_eq!(<i64>::wasm_types(), [Type::I64]);
+                assert_eq!(<f32>::wasm_types(), [Type::F32]);
+                assert_eq!(<f64>::wasm_types(), [Type::F64]);
+            }
 
-        #[test]
-        fn test_wasm_types_for_multi_values() {
-            assert_eq!(<(i32, i32)>::wasm_types(), [Type::I32, Type::I32]);
-            assert_eq!(<(i64, i64)>::wasm_types(), [Type::I64, Type::I64]);
-            assert_eq!(<(f32, f32)>::wasm_types(), [Type::F32, Type::F32]);
-            assert_eq!(<(f64, f64)>::wasm_types(), [Type::F64, Type::F64]);
+            fn test_wasm_types_for_multi_values() {
+                assert_eq!(<(i32, i32)>::wasm_types(), [Type::I32, Type::I32]);
+                assert_eq!(<(i64, i64)>::wasm_types(), [Type::I64, Type::I64]);
+                assert_eq!(<(f32, f32)>::wasm_types(), [Type::F32, Type::F32]);
+                assert_eq!(<(f64, f64)>::wasm_types(), [Type::F64, Type::F64]);
 
-            assert_eq!(
-                <(i32, i64, f32, f64)>::wasm_types(),
-                [Type::I32, Type::I64, Type::F32, Type::F64]
-            );
-        }
-    }
-
-    #[allow(non_snake_case)]
-    #[cfg(test)]
-    mod test_function {
-        use super::*;
-        use wasmer_types::Type;
-
-        fn func() {}
-        fn func__i32() -> i32 {
-            0
-        }
-        fn func_i32(_a: i32) {}
-        fn func_i32__i32(a: i32) -> i32 {
-            a * 2
-        }
-        fn func_i32_i32__i32(a: i32, b: i32) -> i32 {
-            a + b
-        }
-        fn func_i32_i32__i32_i32(a: i32, b: i32) -> (i32, i32) {
-            (a, b)
-        }
-        fn func_f32_i32__i32_f32(a: f32, b: i32) -> (i32, f32) {
-            (b, a)
+                assert_eq!(
+                    <(i32, i64, f32, f64)>::wasm_types(),
+                    [Type::I32, Type::I64, Type::F32, Type::F64]
+                );
+            }
         }
 
-        #[test]
-        fn test_function_types() {
-            assert_eq!(Function::new(func).ty(), FunctionType::new(vec![], vec![]));
-            assert_eq!(
-                Function::new(func__i32).ty(),
-                FunctionType::new(vec![], vec![Type::I32])
-            );
-            assert_eq!(
-                Function::new(func_i32).ty(),
-                FunctionType::new(vec![Type::I32], vec![])
-            );
-            assert_eq!(
-                Function::new(func_i32__i32).ty(),
-                FunctionType::new(vec![Type::I32], vec![Type::I32])
-            );
-            assert_eq!(
-                Function::new(func_i32_i32__i32).ty(),
-                FunctionType::new(vec![Type::I32, Type::I32], vec![Type::I32])
-            );
-            assert_eq!(
-                Function::new(func_i32_i32__i32_i32).ty(),
-                FunctionType::new(vec![Type::I32, Type::I32], vec![Type::I32, Type::I32])
-            );
-            assert_eq!(
-                Function::new(func_f32_i32__i32_f32).ty(),
-                FunctionType::new(vec![Type::F32, Type::I32], vec![Type::I32, Type::F32])
-            );
-        }
+        #[allow(non_snake_case)]
+        #[cfg(test)]
+        mod test_function {
+            use super::*;
+            use wasmer_types::Type;
 
-        #[test]
-        fn test_function_pointer() {
-            let f = Function::new(func_i32__i32);
-            let function = unsafe { std::mem::transmute::<_, fn(usize, i32) -> i32>(f.address) };
-            assert_eq!(function(0, 3), 6);
+            fn func() {}
+            fn func__i32() -> i32 {
+                0
+            }
+            fn func_i32(_a: i32) {}
+            fn func_i32__i32(a: i32) -> i32 {
+                a * 2
+            }
+            fn func_i32_i32__i32(a: i32, b: i32) -> i32 {
+                a + b
+            }
+            fn func_i32_i32__i32_i32(a: i32, b: i32) -> (i32, i32) {
+                (a, b)
+            }
+            fn func_f32_i32__i32_f32(a: f32, b: i32) -> (i32, f32) {
+                (b, a)
+            }
+
+            fn test_function_types() {
+                assert_eq!(Function::new(func).ty(), FunctionType::new(vec![], vec![]));
+                assert_eq!(
+                    Function::new(func__i32).ty(),
+                    FunctionType::new(vec![], vec![Type::I32])
+                );
+                assert_eq!(
+                    Function::new(func_i32).ty(),
+                    FunctionType::new(vec![Type::I32], vec![])
+                );
+                assert_eq!(
+                    Function::new(func_i32__i32).ty(),
+                    FunctionType::new(vec![Type::I32], vec![Type::I32])
+                );
+                assert_eq!(
+                    Function::new(func_i32_i32__i32).ty(),
+                    FunctionType::new(vec![Type::I32, Type::I32], vec![Type::I32])
+                );
+                assert_eq!(
+                    Function::new(func_i32_i32__i32_i32).ty(),
+                    FunctionType::new(vec![Type::I32, Type::I32], vec![Type::I32, Type::I32])
+                );
+                assert_eq!(
+                    Function::new(func_f32_i32__i32_f32).ty(),
+                    FunctionType::new(vec![Type::F32, Type::I32], vec![Type::I32, Type::F32])
+                );
+            }
+
+            fn test_function_pointer() {
+                let f = Function::new(func_i32__i32);
+                let function = unsafe { std::mem::transmute::<_, fn(usize, i32) -> i32>(f.address) };
+                assert_eq!(function(0, 3), 6);
+            }
         }
-    }
+    */
 }

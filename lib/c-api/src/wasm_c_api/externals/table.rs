@@ -1,21 +1,20 @@
 use super::super::store::wasm_store_t;
 use super::super::types::{wasm_ref_t, wasm_table_size_t, wasm_tabletype_t};
-use super::CApiExternTag;
-use wasmer_api::Table;
+use super::wasm_extern_t;
+use wasmer_api::Extern;
 
 #[allow(non_camel_case_types)]
 #[repr(C)]
 #[derive(Clone)]
 pub struct wasm_table_t {
-    pub(crate) tag: CApiExternTag,
-    pub(crate) inner: Box<Table>,
+    pub(crate) extern_: wasm_extern_t,
 }
 
 impl wasm_table_t {
-    pub(crate) fn new(table: Table) -> Self {
-        Self {
-            tag: CApiExternTag::Table,
-            inner: Box::new(table),
+    pub(crate) fn try_from(e: &wasm_extern_t) -> Option<&wasm_table_t> {
+        match &e.inner {
+            Extern::Table(_) => Some(unsafe { &*(e as *const _ as *const _) }),
+            _ => None,
         }
     }
 }
@@ -35,17 +34,20 @@ pub unsafe extern "C" fn wasm_table_delete(_table: Option<Box<wasm_table_t>>) {}
 #[no_mangle]
 pub unsafe extern "C" fn wasm_table_copy(table: &wasm_table_t) -> Box<wasm_table_t> {
     // do shallow copy
-    Box::new(wasm_table_t::new((&*table.inner).clone()))
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn wasm_table_same(table1: &wasm_table_t, table2: &wasm_table_t) -> bool {
-    table1.inner.same(&table2.inner)
+    Box::new(table.clone())
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_table_size(table: &wasm_table_t) -> usize {
-    table.inner.size() as _
+    table.extern_.table().size(&table.extern_.store.store()) as _
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasm_table_same(
+    wasm_table1: &wasm_table_t,
+    wasm_table2: &wasm_table_t,
+) -> bool {
+    wasm_table1.extern_.table() == wasm_table2.extern_.table()
 }
 
 #[no_mangle]

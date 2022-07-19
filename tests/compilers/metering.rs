@@ -3,6 +3,7 @@ use wasmer_middlewares::Metering;
 
 use std::sync::Arc;
 use wasmer::wasmparser::Operator;
+use wasmer::FunctionEnv;
 use wasmer::*;
 
 fn cost_always_one(_: &Operator) -> u64 {
@@ -13,20 +14,22 @@ fn run_add_with_limit(mut config: crate::Config, limit: u64) -> Result<()> {
     config
         .middlewares
         .push(Arc::new(Metering::new(limit, cost_always_one)));
-    let store = config.store();
+    let mut store = config.store();
     let wat = r#"(module
         (func (export "add") (param i32 i32) (result i32)
            (i32.add (local.get 0)
                     (local.get 1)))
 )"#;
-    let module = Module::new(&store, wat).unwrap();
+    let mut env = FunctionEnv::new(&mut store, ());
 
     let import_object = imports! {};
 
-    let instance = Instance::new(&module, &import_object)?;
+    let module = Module::new(&store, wat).unwrap();
+    let instance = Instance::new(&mut store, &module, &import_object)?;
 
-    let f: TypedFunction<(i32, i32), i32> = instance.exports.get_native_function("add")?;
-    f.call(4, 6)?;
+    let f: TypedFunction<(i32, i32), i32> =
+        instance.exports.get_typed_function(&mut store, "add")?;
+    f.call(&mut store, 4, 6)?;
     Ok(())
 }
 
@@ -34,7 +37,7 @@ fn run_loop(mut config: crate::Config, limit: u64, iter_count: i32) -> Result<()
     config
         .middlewares
         .push(Arc::new(Metering::new(limit, cost_always_one)));
-    let store = config.store();
+    let mut store = config.store();
     let wat = r#"(module
         (func (export "test") (param i32)
            (local i32)
@@ -51,13 +54,14 @@ fn run_loop(mut config: crate::Config, limit: u64, iter_count: i32) -> Result<()
         )
 )"#;
     let module = Module::new(&store, wat).unwrap();
+    let mut env = FunctionEnv::new(&mut store, ());
 
     let import_object = imports! {};
 
-    let instance = Instance::new(&module, &import_object)?;
+    let instance = Instance::new(&mut store, &module, &import_object)?;
 
-    let f: TypedFunction<i32, ()> = instance.exports.get_native_function("test")?;
-    f.call(iter_count)?;
+    let f: TypedFunction<i32, ()> = instance.exports.get_typed_function(&mut store, "test")?;
+    f.call(&mut store, iter_count)?;
     Ok(())
 }
 
@@ -151,18 +155,20 @@ fn complex_loop(mut config: crate::Config) -> Result<()> {
     config
         .middlewares
         .push(Arc::new(Metering::new(100, cost_always_one)));
-    let store = config.store();
+    let mut store = config.store();
+    let mut env = FunctionEnv::new(&mut store, ());
 
     let module = Module::new(&store, WAT).unwrap();
 
     let import_object = imports! {};
 
-    let instance = Instance::new(&module, &import_object)?;
+    let instance = Instance::new(&mut store, &module, &import_object)?;
 
-    let f: TypedFunction<(i32, i32), i32> = instance.exports.get_native_function("add_to")?;
+    let f: TypedFunction<(i32, i32), i32> =
+        instance.exports.get_typed_function(&mut store, "add_to")?;
 
     // FIXME: Since now a metering error is signaled with an `unreachable`, it is impossible to verify
     // the error type. Fix this later.
-    f.call(10_000_000, 4).unwrap_err();
+    f.call(&mut store, 10_000_000, 4).unwrap_err();
     Ok(())
 }

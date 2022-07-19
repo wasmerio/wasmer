@@ -1,10 +1,27 @@
 use super::engine::wasm_engine_t;
-use wasmer_api::Store;
+use std::cell::UnsafeCell;
+use std::sync::Arc;
+use wasmer_api::{AsStoreMut, AsStoreRef, Store, StoreMut, StoreRef as BaseStoreRef};
+
+#[derive(Clone)]
+pub struct StoreRef {
+    inner: Arc<UnsafeCell<Store>>,
+}
+
+impl StoreRef {
+    pub unsafe fn store(&self) -> BaseStoreRef<'_> {
+        (*self.inner.get()).as_store_ref()
+    }
+
+    pub unsafe fn store_mut(&mut self) -> StoreMut<'_> {
+        (*self.inner.get()).as_store_mut()
+    }
+}
 
 /// Opaque type representing a WebAssembly store.
 #[allow(non_camel_case_types)]
 pub struct wasm_store_t {
-    pub(crate) inner: Store,
+    pub(crate) inner: StoreRef,
 }
 
 /// Creates a new WebAssembly store given a specific [engine][super::engine].
@@ -19,7 +36,11 @@ pub unsafe extern "C" fn wasm_store_new(
     let engine = engine?;
     let store = Store::new_with_engine(&*engine.inner);
 
-    Some(Box::new(wasm_store_t { inner: store }))
+    Some(Box::new(wasm_store_t {
+        inner: StoreRef {
+            inner: Arc::new(UnsafeCell::new(store)),
+        },
+    }))
 }
 
 /// Deletes a WebAssembly store.

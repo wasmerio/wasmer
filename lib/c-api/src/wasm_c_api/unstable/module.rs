@@ -4,7 +4,6 @@ use super::super::module::wasm_module_t;
 use super::super::types::wasm_name_t;
 use std::ptr;
 use std::str;
-use std::sync::Arc;
 
 /// Unstable non-standard Wasmer-specific API to get the module's
 /// name, otherwise `out->size` is set to `0` and `out->data` to
@@ -149,8 +148,5 @@ pub unsafe extern "C" fn wasmer_module_set_name(
         Err(_) => return false, // not ideal!
     };
 
-    match Arc::get_mut(&mut module.inner) {
-        Some(module) => module.set_name(name),
-        None => false,
-    }
+    module.inner.set_name(name)
 }

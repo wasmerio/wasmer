@@ -1,3 +1,5 @@
+use crate::js::error::WasmError;
+use crate::js::store::AsStoreMut;
 use crate::js::{Export, ExternType, Module};
 use std::collections::HashMap;
 
@@ -49,15 +51,23 @@ impl JsImportObject {
     /// let import_object = JsImportObject::new(&module, js_object);
     /// import_object.get_export("module", "name");
     /// ```
-    pub fn get_export(&self, module: &str, name: &str) -> Option<Export> {
-        let namespace = js_sys::Reflect::get(&self.object, &module.into()).ok()?;
-        let js_export = js_sys::Reflect::get(&namespace, &name.into()).ok()?;
+    pub fn get_export(
+        &self,
+        ctx: &mut impl AsStoreMut,
+        module: &str,
+        name: &str,
+    ) -> Result<Export, WasmError> {
+        let namespace = js_sys::Reflect::get(&self.object, &module.into())?;
+        let js_export = js_sys::Reflect::get(&namespace, &name.into())?;
         match self
             .module_imports
             .get(&(module.to_string(), name.to_string()))
         {
-            Some(extern_type) => Some((js_export, extern_type.clone()).into()),
-            None => None,
+            Some(extern_type) => Ok(Export::from_js_value(js_export, ctx, extern_type.clone())?),
+            None => Err(WasmError::Generic(format!(
+                "Name {} not found in module {}",
+                name, module
+            ))),
         }
     }
 }

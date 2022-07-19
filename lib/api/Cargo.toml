@@ -41,6 +41,10 @@ target-lexicon = { version = "0.12.2", default-features = false }
 wasmer-compiler-singlepass = { path = "../compiler-singlepass", version = "=2.3.0", optional = true }
 wasmer-compiler-cranelift = { path = "../compiler-cranelift", version = "=2.3.0", optional = true }
 wasmer-compiler-llvm = { path = "../compiler-llvm", version = "=2.3.0", optional = true }
+
+wasm-bindgen = { version = "0.2.74", optional = true }
+js-sys = { version = "0.3.51", optional = true }
+
 # - Mandatory dependencies for `sys` on Windows.
 [target.'cfg(all(not(target_arch = "wasm32"), target_os = "windows"))'.dependencies]
 winapi = "0.3"
@@ -56,6 +60,7 @@ anyhow = "1.0"
 wasmer-types = { path = "../types", version = "=2.3.0", default-features = false, features = ["std"] }
 wasm-bindgen = "0.2.74"
 js-sys = "0.3.51"
+#web-sys = { version = "0.3.51", features = [ "console" ] }
 wasmer-derive = { path = "../derive", version = "=2.3.0" }
 # - Optional dependencies for `js`.
 wasmparser = { version = "0.83", default-features = false, optional = true }
@@ -78,6 +83,7 @@ maintenance = { status = "actively-developed" }
 
 [features]
 default = ["sys-default"]
+# default = ["js-default"]
 std = []
 core = ["hashbrown"]
 
@@ -89,51 +95,28 @@ compiler = [
     "sys",
     "wasmer-compiler/translator",
 ]
-    singlepass = [
-        "compiler",
-        "wasmer-compiler-singlepass",
-    ]
-    cranelift = [
-        "compiler",
-        "wasmer-compiler-cranelift",
-    ]
-    llvm = [
-        "compiler",
-        "wasmer-compiler-llvm",
-    ]
+singlepass = ["compiler", "wasmer-compiler-singlepass"]
+cranelift = ["compiler", "wasmer-compiler-cranelift"]
+llvm = ["compiler", "wasmer-compiler-llvm"]
 default-compiler = []
-    default-singlepass = [
-        "default-compiler",
-        "singlepass",
-    ]
-    default-cranelift = [
-        "default-compiler",
-        "cranelift",
-    ]
-    default-llvm = [
-        "default-compiler",
-        "llvm",
-    ]
+default-singlepass = ["default-compiler", "singlepass"]
+default-cranelift = ["default-compiler", "cranelift"]
+default-llvm = ["default-compiler", "llvm"]
 # - Engines.
 engine = ["sys"]
 universal = [
-    "engine",
+    "engine", "wasmer-compiler/universal_engine"
 ]
 default-engine = []
 default-universal = [
     "default-engine",
     "universal",
 ]
-# - Experimental / in-development features
-experimental-reference-types-extern-ref = [
-    "sys",
-    "wasmer-types/experimental-reference-types-extern-ref",
-]
 # - Deprecated features.
 jit = ["universal"]
 
 # Features for `js`.
-js = []
+js = ["wasm-bindgen", "js-sys"]
 js-default = ["js", "std", "wasm-types-polyfill"]
 
 wasm-types-polyfill = ["js", "wasmparser"]

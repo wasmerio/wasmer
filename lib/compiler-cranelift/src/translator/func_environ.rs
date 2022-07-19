@@ -2,7 +2,7 @@
 // Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
 //! All the runtime support necessary for the wasm to cranelift translation is formalized by the
-//! traits `FunctionEnvironment`.
+//! traits `FunctionEnvMutironment`.
 
 use super::func_state::FuncTranslationState;
 use super::translation_utils::reference_type;
@@ -336,20 +336,6 @@ pub trait FuncEnvironment: TargetEnvironment {
         len: ir::Value,
     ) -> WasmResult<()>;
 
-    /// Translates an externref ref count increment.
-    fn translate_externref_inc(
-        &mut self,
-        pos: cranelift_codegen::cursor::FuncCursor<'_>,
-        externref: ir::Value,
-    ) -> WasmResult<()>;
-
-    /// Translates an externref ref count decrement.
-    fn translate_externref_dec(
-        &mut self,
-        pos: cranelift_codegen::cursor::FuncCursor<'_>,
-        externref: ir::Value,
-    ) -> WasmResult<()>;
-
     /// Translate a `table.init` WebAssembly instruction.
     #[allow(clippy::too_many_arguments)]
     fn translate_table_init(
@@ -463,7 +449,7 @@ pub trait FuncEnvironment: TargetEnvironment {
         Ok(())
     }
 
-    /// Optional callback for the `FunctionEnvironment` performing this translation to maintain
+    /// Optional callback for the `FunctionEnvMutironment` performing this translation to maintain
     /// internal state or prepare custom state for the operator to translate
     fn before_translate_operator(
         &mut self,
@@ -474,7 +460,7 @@ pub trait FuncEnvironment: TargetEnvironment {
         Ok(())
     }
 
-    /// Optional callback for the `FunctionEnvironment` performing this translation to maintain
+    /// Optional callback for the `FunctionEnvMutironment` performing this translation to maintain
     /// internal state or finalize custom state for the operator that was translated
     fn after_translate_operator(
         &mut self,
@@ -505,7 +491,4 @@ pub trait FuncEnvironment: TargetEnvironment {
 
     /// Get the type of a function with the given signature index.
     fn get_function_sig(&self, sig_index: SignatureIndex) -> Option<&FunctionType>;
-
-    /// Drops all locals that need to be dropped. Useful for returning from functions.
-    fn translate_drop_locals(&mut self, builder: &mut FunctionBuilder) -> WasmResult<()>;
 }

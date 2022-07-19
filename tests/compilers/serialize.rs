@@ -1,9 +1,10 @@
 use anyhow::Result;
+use wasmer::FunctionEnv;
 use wasmer::*;
 
 #[compiler_test(serialize)]
 fn test_serialize(config: crate::Config) -> Result<()> {
-    let store = config.store();
+    let mut store = config.store();
     let wat = r#"
         (module
         (func $hello (import "" "hello"))
@@ -19,7 +20,7 @@ fn test_serialize(config: crate::Config) -> Result<()> {
 
 #[compiler_test(serialize)]
 fn test_deserialize(config: crate::Config) -> Result<()> {
-    let store = config.store();
+    let mut store = config.store();
     let wat = r#"
         (module $name
             (import "host" "sum_part" (func (param i32 i64 i32 f32 f64) (result i64)))
@@ -53,24 +54,29 @@ fn test_deserialize(config: crate::Config) -> Result<()> {
         vec![Type::I32, Type::I64, Type::I32, Type::F32, Type::F64],
         vec![Type::I64],
     );
+    let mut env = FunctionEnv::new(&mut store, ());
+    let f0 = Function::new(&mut store, &env, &func_type, |_ctx, params| {
+        let param_0: i64 = params[0].unwrap_i32() as i64;
+        let param_1: i64 = params[1].unwrap_i64() as i64;
+        let param_2: i64 = params[2].unwrap_i32() as i64;
+        let param_3: i64 = params[3].unwrap_f32() as i64;
+        let param_4: i64 = params[4].unwrap_f64() as i64;
+        Ok(vec![Value::I64(
+            param_0 + param_1 + param_2 + param_3 + param_4,
+        )])
+    });
     let instance = Instance::new(
+        &mut store,
         &module,
         &imports! {
             "host" => {
-                "sum_part" => Function::new(&store, &func_type, |params| {
-                    let param_0: i64 = params[0].unwrap_i32() as i64;
-                    let param_1: i64 = params[1].unwrap_i64() as i64;
-                    let param_2: i64 = params[2].unwrap_i32() as i64;
-                    let param_3: i64 = params[3].unwrap_f32() as i64;
-                    let param_4: i64 = params[4].unwrap_f64() as i64;
-                    Ok(vec![Value::I64(param_0 + param_1 + param_2 + param_3 + param_4)])
-                })
+                "sum_part" => f0
             }
         },
     )?;
 
     let test_call = instance.exports.get_function("test_call")?;
-    let result = test_call.call(&[])?;
+    let result = test_call.call(&mut store, &[])?;
     assert_eq!(result.to_vec(), vec![Value::I64(1500)]);
     Ok(())
 }

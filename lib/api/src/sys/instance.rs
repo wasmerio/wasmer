@@ -2,12 +2,12 @@ use crate::sys::exports::Exports;
 use crate::sys::externals::Extern;
 use crate::sys::imports::Imports;
 use crate::sys::module::Module;
-use crate::sys::store::Store;
-use crate::sys::{HostEnvInitError, LinkError, RuntimeError};
+use crate::sys::{LinkError, RuntimeError};
 use std::fmt;
-use std::sync::{Arc, Mutex};
 use thiserror::Error;
-use wasmer_vm::{InstanceHandle, VMContext};
+use wasmer_vm::{InstanceHandle, StoreHandle};
+
+use super::store::AsStoreMut;
 
 /// A WebAssembly Instance is a stateful, executable
 /// instance of a WebAssembly [`Module`].
@@ -19,10 +19,8 @@ use wasmer_vm::{InstanceHandle, VMContext};
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#module-instances>
 #[derive(Clone)]
 pub struct Instance {
-    handle: Arc<Mutex<InstanceHandle>>,
+    _handle: StoreHandle<InstanceHandle>,
     module: Module,
-    #[allow(dead_code)]
-    imports: Vec<Extern>,
     /// The exports for an instance.
     pub exports: Exports,
 }
@@ -61,12 +59,13 @@ pub enum InstantiationError {
 
     /// The module was compiled with a CPU feature that is not available on
     /// the current host.
-    #[error("missing requires CPU features: {0:?}")]
+    #[error("missing required CPU features: {0:?}")]
     CpuFeature(String),
 
-    /// Error occurred when initializing the host environment.
-    #[error(transparent)]
-    HostEnvInitialization(HostEnvInitError),
+    /// Import from a different [`Store`].
+    /// This error occurs when an import from a different store is used.
+    #[error("cannot mix imports from different stores")]
+    DifferentStores,
 }
 
 impl From<wasmer_compiler::InstantiationError> for InstantiationError {
@@ -79,12 +78,6 @@ impl From<wasmer_compiler::InstantiationError> for InstantiationError {
     }
 }
 
-impl From<HostEnvInitError> for InstantiationError {
-    fn from(other: HostEnvInitError) -> Self {
-        Self::HostEnvInitialization(other)
-    }
-}
-
 impl Instance {
     /// Creates a new `Instance` from a WebAssembly [`Module`] and a
     /// set of imports using [`Imports`] or the [`imports`] macro helper.
@@ -94,15 +87,17 @@ impl Instance {
     ///
     /// ```
     /// # use wasmer::{imports, Store, Module, Global, Value, Instance};
+    /// # use wasmer::FunctionEnv;
     /// # fn main() -> anyhow::Result<()> {
-    /// let store = Store::default();
+    /// let mut store = Store::default();
+    /// let env = FunctionEnv::new(&mut store, ());
     /// let module = Module::new(&store, "(module)")?;
     /// let imports = imports!{
     ///   "host" => {
-    ///     "var" => Global::new(&store, Value::I32(2))
+    ///     "var" => Global::new(&mut store, Value::I32(2))
     ///   }
     /// };
-    /// let instance = Instance::new(&module, &imports)?;
+    /// let instance = Instance::new(&mut store, &module, &imports)?;
     /// # Ok(())
     /// # }
     /// ```
@@ -114,44 +109,30 @@ impl Instance {
     /// Those are, as defined by the spec:
     ///  * Link errors that happen when plugging the imports into the instance
     ///  * Runtime errors that happen when running the module `start` function.
-    pub fn new(module: &Module, imports: &Imports) -> Result<Self, InstantiationError> {
-        let store = module.store();
+    pub fn new(
+        ctx: &mut impl AsStoreMut,
+        module: &Module,
+        imports: &Imports,
+    ) -> Result<Self, InstantiationError> {
         let imports = imports
             .imports_for_module(module)
             .map_err(InstantiationError::Link)?;
-        let handle = module.instantiate(&imports)?;
+        let mut handle = module.instantiate(ctx, &imports)?;
         let exports = module
             .exports()
             .map(|export| {
                 let name = export.name().to_string();
                 let export = handle.lookup(&name).expect("export");
-                let extern_ = Extern::from_vm_export(store, export.into());
+                let extern_ = Extern::from_vm_extern(ctx, export);
                 (name, extern_)
             })
             .collect::<Exports>();
 
         let instance = Self {
-            handle: Arc::new(Mutex::new(handle)),
+            _handle: StoreHandle::new(ctx.objects_mut(), handle),
             module: module.clone(),
-            imports,
             exports,
         };
-
-        // # Safety
-        // `initialize_host_envs` should be called after instantiation but before
-        // returning an `Instance` to the user. We set up the host environments
-        // via `WasmerEnv::init_with_instance`.
-        //
-        // This usage is correct because we pass a valid pointer to `instance` and the
-        // correct error type returned by `WasmerEnv::init_with_instance` as a generic
-        // parameter.
-        unsafe {
-            instance
-                .handle
-                .lock()
-                .unwrap()
-                .initialize_host_envs::<HostEnvInitError>(&instance as *const _ as *const _)?;
-        }
 
         Ok(instance)
     }
@@ -166,42 +147,28 @@ impl Instance {
     /// Those are, as defined by the spec:
     ///  * Link errors that happen when plugging the imports into the instance
     ///  * Runtime errors that happen when running the module `start` function.
-    pub fn new_by_index(module: &Module, externs: &[Extern]) -> Result<Self, InstantiationError> {
-        let store = module.store();
+    pub fn new_by_index(
+        ctx: &mut impl AsStoreMut,
+        module: &Module,
+        externs: &[Extern],
+    ) -> Result<Self, InstantiationError> {
         let imports = externs.to_vec();
-        let handle = module.instantiate(&imports)?;
+        let mut handle = module.instantiate(ctx, &imports)?;
         let exports = module
             .exports()
             .map(|export| {
                 let name = export.name().to_string();
                 let export = handle.lookup(&name).expect("export");
-                let extern_ = Extern::from_vm_export(store, export.into());
+                let extern_ = Extern::from_vm_extern(ctx, export);
                 (name, extern_)
             })
             .collect::<Exports>();
 
         let instance = Self {
-            handle: Arc::new(Mutex::new(handle)),
+            _handle: StoreHandle::new(ctx.objects_mut(), handle),
             module: module.clone(),
-            imports,
             exports,
         };
-
-        // # Safety
-        // `initialize_host_envs` should be called after instantiation but before
-        // returning an `Instance` to the user. We set up the host environments
-        // via `WasmerEnv::init_with_instance`.
-        //
-        // This usage is correct because we pass a valid pointer to `instance` and the
-        // correct error type returned by `WasmerEnv::init_with_instance` as a generic
-        // parameter.
-        unsafe {
-            instance
-                .handle
-                .lock()
-                .unwrap()
-                .initialize_host_envs::<HostEnvInitError>(&instance as *const _ as *const _)?;
-        }
 
         Ok(instance)
     }
@@ -209,16 +176,6 @@ impl Instance {
     /// Gets the [`Module`] associated with this instance.
     pub fn module(&self) -> &Module {
         &self.module
-    }
-
-    /// Returns the [`Store`] where the `Instance` belongs.
-    pub fn store(&self) -> &Store {
-        self.module.store()
-    }
-
-    #[doc(hidden)]
-    pub fn vmctx_ptr(&self) -> *mut VMContext {
-        self.handle.lock().unwrap().vmctx_ptr()
     }
 }
 

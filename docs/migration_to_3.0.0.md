@@ -19,7 +19,9 @@ and provide examples to make migrating to the new API as simple as possible.
 This version introduces the following changes to make the Wasmer API more ergonomic and safe:
 
 1. `ImportsObject` and the traits `Resolver`, `NamedResolver`, etc have been removed and replaced with a single simple type `Imports`. This reduces the complexity of setting up an `Instance`. The helper macro `imports!` can still be used.
-2. The `Engine`s API has been simplified, Instead of the `wasmer` user choosing and setting up an engine explicitly, everything now uses the universal engine. All functionalites of the `staticlib`,`dylib` Engines should be available unless explicitly stated as unsupported.
+2. There is a new `Context` that goes along the `Store`. The `Context` will keep track of all memory and functions used, removing old tracking and Weak/Strong pointer difference. Every function and memory that is retreive is linked to a specific `Context`, and cannot be mixed with another `Context`
+3. `WasmerEnv` and associated traits and macro have been removed. To use Environenment, a simple structure now need to be attached to the `Context`, and can be retreive from current `Context`. All functions now takes a mendatory first argument that is of type `ContextMut<_>`, with `_` being either nothing `()` or the Environement type needed. the function creation `XXX_with_env(...)` don't exist anymore, simply use `Function::new(...)` or `Function::native_new(...)` with the correct `ContextMut<_>` type. Because the `WasmerEnv` and all helpers don't exists anymore, you have to import memory yourself, there isn't any per instance initialisation automatically done anymore. It's especialy important for WasiEnv context. `Env` can be accessed from a `Context` using `Context::data()` or `Context::data_mut()`.
+4. The `Engine`s API has been simplified, Instead of the `wasmer` user choosing and setting up an engine explicitly, everything now uses the universal engine. All functionalites of the `staticlib`,`dylib` Engines should be available unless explicitly stated as unsupported.
 
 ## How to use Wasmer 3.0.0
 
@@ -42,9 +44,27 @@ TODO
 
 ## Differences
 
+### Creating a Context
+
+You need a Store to create a context. Simple context is created using:
+
+```rust
+let ctx = FunctionEnv::new(&mut store, ());
+```
+
+For a Context with a custom Env, it will be similar:
+
+```rust
+#[derive(Clone)]
+struct Env {
+    counter: i32,
+}
+let ctx = FunctionEnv::new(&mut store, Env{counter: 0});
+```
+
 ### Managing imports
 
-Instantiating a Wasm module is similar to 2.x.x.:
+Instantiating a Wasm module is similar to 2.x with just the need of a context as difference:
 
 ```rust
 let import_object: Imports = imports! {
@@ -52,7 +72,7 @@ let import_object: Imports = imports! {
         "host_function" => host_function,
     },
 };
-let instance = Instance::new(&module, &import_object).expect("Could not instantiate module.");
+let instance = Instance::new(&mut store, &module, &import_object).expect("Could not instantiate module.");
 ```
 
 You can also build the `Imports` object manually:
@@ -60,7 +80,17 @@ You can also build the `Imports` object manually:
 ```rust
 let mut import_object: Imports = Imports::new();
 import_object.define("env", "host_function", host_function);
-let instance = Instance::new(&module, &import_object).expect("Could not instantiate module.");
+let instance = Instance::new(&mut store, &module, &import_object).expect("Could not instantiate module.");
+```
+
+For WASI, don't forget to import memory to `WasiEnv`
+
+```rust
+let mut wasi_env = WasiState::new("hello").finalize()?;
+let import_object = wasi_env.import_object(&mut store, &module)?;
+let instance = Instance::new(&mut store, &module, &import_object).expect("Could not instantiate module.");
+let memory = instance.exports.get_memory("memory")?;
+wasi_env.data_mut(&mut store).set_memory(memory.clone());
 ```
 
 #### `ChainableNamedResolver` is removed
@@ -91,7 +121,7 @@ let wasm_bytes = wat2wasm(
 
 let compiler_config = Cranelift::default();
 let engine = Universal::new(compiler_config).engine();
-let store = Store::new(&engine);
+let mut store = Store::new(&engine);
 let module = Module::new(&store, wasm_bytes)?;
 let instance = Instance::new(&module, &imports! {})?;
 ```
@@ -100,14 +130,13 @@ let instance = Instance::new(&module, &imports! {})?;
 
 In Wasmer 3.0, there's only the universal engine. The user can ignore the engine details when using the API:
 
-
 ```rust
 let wasm_bytes = wat2wasm(
     "..".as_bytes(),
 )?;
 
 let compiler_config = Cranelift::default();
-let store = Store::new(&compiler_config);
+let mut store = Store::new(&compiler_config);
 let module = Module::new(&store, wasm_bytes)?;
 let instance = Instance::new(&module, &imports! {})?;
 ```

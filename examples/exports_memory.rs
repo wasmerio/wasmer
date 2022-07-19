@@ -11,7 +11,7 @@
 //!
 //! Ready?
 
-use wasmer::{imports, wat2wasm, Instance, Module, Store, WasmPtr};
+use wasmer::{imports, wat2wasm, FunctionEnv, Instance, Module, Store, TypedFunction, WasmPtr};
 use wasmer_compiler::Universal;
 use wasmer_compiler_cranelift::Cranelift;
 
@@ -37,7 +37,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Note that we don't need to specify the engine/compiler if we want to use
     // the default provided by Wasmer.
     // You can use `Store::default()` for that.
-    let store = Store::new_with_engine(&Universal::new(Cranelift::default()).engine());
+    let mut store = Store::new_with_engine(&Universal::new(Cranelift::default()).engine());
+    let mut env = FunctionEnv::new(&mut store, ());
 
     println!("Compiling module...");
     // Let's compile the Wasm module.
@@ -48,11 +49,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Instantiating module...");
     // Let's instantiate the Wasm module.
-    let instance = Instance::new(&module, &import_object)?;
+    let instance = Instance::new(&mut store, &module, &import_object)?;
 
-    let load = instance
-        .exports
-        .get_native_function::<(), (WasmPtr<u8>, i32)>("load")?;
+    let load: TypedFunction<(), (WasmPtr<u8>, i32)> =
+        instance.exports.get_typed_function(&mut store, "load")?;
 
     // Here we go.
     //
@@ -64,15 +64,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     //
     // The first thing we might be intersted in is the size of the memory.
     // Let's get it!
-    println!("Memory size (pages) {:?}", memory.size());
-    println!("Memory size (bytes) {:?}", memory.data_size());
+    println!("Memory size (pages) {:?}", memory.size(&mut store));
+    println!("Memory size (bytes) {:?}", memory.data_size(&mut store));
 
     // Oh! Wait, before reading the contents, we need to know
     // where to find what we are looking for.
     //
     // Fortunately, the Wasm module exports a `load` function
     // which will tell us the offset and length of the string.
-    let (ptr, length) = load.call()?;
+    let (ptr, length) = load.call(&mut store)?;
     println!("String offset: {:?}", ptr.offset());
     println!("String length: {:?}", length);
 
@@ -80,7 +80,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     //
     // We will get bytes out of the memory so we need to
     // decode them into a string.
-    let str = ptr.read_utf8_string(memory, length as u32).unwrap();
+    let str = ptr
+        .read_utf8_string(&mut store, memory, length as u32)
+        .unwrap();
     println!("Memory contents: {:?}", str);
 
     // What about changing the contents of the memory with a more
@@ -89,7 +91,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // To do that, we'll make a slice from our pointer and change the content
     // of each element.
     let new_str = b"Hello, Wasmer!";
-    let values = ptr.slice(memory, new_str.len() as u32).unwrap();
+    let values = ptr.slice(&mut store, memory, new_str.len() as u32).unwrap();
     for i in 0..new_str.len() {
         values.index(i as u64).write(new_str[i]).unwrap();
     }
@@ -101,7 +103,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // before.
     println!("New string length: {:?}", new_str.len());
 
-    let str = ptr.read_utf8_string(memory, new_str.len() as u32).unwrap();
+    let str = ptr
+        .read_utf8_string(&mut store, memory, new_str.len() as u32)
+        .unwrap();
     println!("New memory contents: {:?}", str);
 
     // Much better, don't you think?
