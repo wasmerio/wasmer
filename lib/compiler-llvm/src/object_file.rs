@@ -172,6 +172,26 @@ where
                 (object::Architecture::Aarch64, object::RelocationKind::PltRelative, 26) => {
                     RelocationKind::Arm64Call
                 }
+                (
+                    object::Architecture::Aarch64,
+                    object::RelocationKind::Elf(object::elf::R_AARCH64_MOVW_UABS_G0_NC),
+                    0,
+                ) => RelocationKind::Arm64Movw0,
+                (
+                    object::Architecture::Aarch64,
+                    object::RelocationKind::Elf(object::elf::R_AARCH64_MOVW_UABS_G1_NC),
+                    0,
+                ) => RelocationKind::Arm64Movw1,
+                (
+                    object::Architecture::Aarch64,
+                    object::RelocationKind::Elf(object::elf::R_AARCH64_MOVW_UABS_G2_NC),
+                    0,
+                ) => RelocationKind::Arm64Movw2,
+                (
+                    object::Architecture::Aarch64,
+                    object::RelocationKind::Elf(object::elf::R_AARCH64_MOVW_UABS_G3),
+                    0,
+                ) => RelocationKind::Arm64Movw3,
                 _ => {
                     return Err(CompileError::Codegen(format!(
                         "unknown relocation {:?}",
