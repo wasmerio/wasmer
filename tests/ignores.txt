@@ -7,6 +7,7 @@ singlepass spec::simd # Singlepass doesn't support yet SIMD (no one asked for th
 # Needs investigation
 singlepass+aarch64+macos traps::test_trap_trace
 cranelift+aarch64    traps::test_trap_trace
+llvm+aarch64    traps::test_trap_trace
 singlepass+aarch64+macos traps::test_trap_stack_overflow # Need to investigate
 cranelift+aarch64    traps::test_trap_stack_overflow # Need to investigate
 singlepass+aarch64+macos traps::trap_display_pretty
