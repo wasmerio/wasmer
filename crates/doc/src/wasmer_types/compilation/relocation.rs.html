@@ -152,6 +152,22 @@
 <span id="150">150</span>
 <span id="151">151</span>
 <span id="152">152</span>
+<span id="153">153</span>
+<span id="154">154</span>
+<span id="155">155</span>
+<span id="156">156</span>
+<span id="157">157</span>
+<span id="158">158</span>
+<span id="159">159</span>
+<span id="160">160</span>
+<span id="161">161</span>
+<span id="162">162</span>
+<span id="163">163</span>
+<span id="164">164</span>
+<span id="165">165</span>
+<span id="166">166</span>
+<span id="167">167</span>
+<span id="168">168</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Relocation is the process of assigning load addresses for position-dependent</span>
 <span class="doccomment">//! code and data of a program and adjusting the code and data to reflect the</span>
 <span class="doccomment">//! assigned addresses.</span>
@@ -195,6 +211,14 @@
     <span class="ident">Arm32Call</span>,
     <span class="doccomment">/// Arm64 call target</span>
     <span class="ident">Arm64Call</span>,
+    <span class="doccomment">/// Arm64 movk/z part 0</span>
+    <span class="ident">Arm64Movw0</span>,
+    <span class="doccomment">/// Arm64 movk/z part 1</span>
+    <span class="ident">Arm64Movw1</span>,
+    <span class="doccomment">/// Arm64 movk/z part 2</span>
+    <span class="ident">Arm64Movw2</span>,
+    <span class="doccomment">/// Arm64 movk/z part 3</span>
+    <span class="ident">Arm64Movw3</span>,
     <span class="comment">// /// RISC-V call target</span>
     <span class="comment">// RiscvCall,</span>
     <span class="doccomment">/// Elf x86_64 32 bit signed PC relative offset to two GOT entries for GD symbol.</span>
@@ -216,6 +240,10 @@
             <span class="ident"><span class="self">Self</span>::X86CallPLTRel4</span> =&gt; <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;CallPLTRel4&quot;</span>),
             <span class="ident"><span class="self">Self</span>::X86GOTPCRel4</span> =&gt; <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;GOTPCRel4&quot;</span>),
             <span class="ident"><span class="self">Self</span>::Arm32Call</span> <span class="op">|</span> <span class="ident"><span class="self">Self</span>::Arm64Call</span> =&gt; <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;Call&quot;</span>),
+            <span class="ident"><span class="self">Self</span>::Arm64Movw0</span> =&gt; <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;Arm64MovwG0&quot;</span>),
+            <span class="ident"><span class="self">Self</span>::Arm64Movw1</span> =&gt; <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;Arm64MovwG1&quot;</span>),
+            <span class="ident"><span class="self">Self</span>::Arm64Movw2</span> =&gt; <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;Arm64MovwG2&quot;</span>),
+            <span class="ident"><span class="self">Self</span>::Arm64Movw3</span> =&gt; <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;Arm64MovwG3&quot;</span>),
             <span class="ident"><span class="self">Self</span>::ElfX86_64TlsGd</span> =&gt; <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;ElfX86_64TlsGd&quot;</span>),
             <span class="comment">// Self::MachOX86_64Tlv =&gt; write!(f, &quot;MachOX86_64Tlv&quot;),</span>
         }
@@ -255,7 +283,11 @@
     <span class="doccomment">/// The function returns the relocation address and the delta.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">for_address</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">start</span>: <span class="ident">usize</span>, <span class="ident">target_func_address</span>: <span class="ident">u64</span>) -&gt; (<span class="ident">usize</span>, <span class="ident">u64</span>) {
         <span class="kw">match</span> <span class="self">self</span>.<span class="ident">kind</span> {
-            <span class="ident">RelocationKind::Abs8</span> =&gt; {
+            <span class="ident">RelocationKind::Abs8</span>
+            <span class="op">|</span> <span class="ident">RelocationKind::Arm64Movw0</span>
+            <span class="op">|</span> <span class="ident">RelocationKind::Arm64Movw1</span>
+            <span class="op">|</span> <span class="ident">RelocationKind::Arm64Movw2</span>
+            <span class="op">|</span> <span class="ident">RelocationKind::Arm64Movw3</span> =&gt; {
                 <span class="kw">let</span> <span class="ident">reloc_address</span> <span class="op">=</span> <span class="ident">start</span> <span class="op">+</span> <span class="self">self</span>.<span class="ident">offset</span> <span class="kw">as</span> <span class="ident">usize</span>;
                 <span class="kw">let</span> <span class="ident">reloc_addend</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">addend</span> <span class="kw">as</span> <span class="ident">isize</span>;
                 <span class="kw">let</span> <span class="ident">reloc_abs</span> <span class="op">=</span> <span class="ident">target_func_address</span>
