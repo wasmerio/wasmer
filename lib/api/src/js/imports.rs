@@ -151,7 +151,7 @@ impl Imports {
     }
 
     /// Returns the `Imports` as a Javascript `Object`
-    pub fn as_jsobject(&self, ctx: &impl AsStoreRef) -> js_sys::Object {
+    pub fn as_jsobject(&self, store: &impl AsStoreRef) -> js_sys::Object {
         let imports = js_sys::Object::new();
         let namespaces: HashMap<&str, Vec<(&str, &Extern)>> =
             self.map
@@ -166,7 +166,7 @@ impl Imports {
         for (ns, exports) in namespaces.into_iter() {
             let import_namespace = js_sys::Object::new();
             for (name, ext) in exports {
-                js_sys::Reflect::set(&import_namespace, &name.into(), &ext.as_jsvalue(ctx))
+                js_sys::Reflect::set(&import_namespace, &name.into(), &ext.as_jsvalue(store))
                     .expect("Error while setting into the js namespace object");
             }
             js_sys::Reflect::set(&imports, &ns.into(), &import_namespace.into())

@@ -66,11 +66,11 @@ macro_rules! impl_native_traits {
         {
             /// Call the typed func and return results.
             #[allow(clippy::too_many_arguments)]
-            pub fn call(&self, mut ctx: &mut impl AsStoreMut, $( $x: $x, )* ) -> Result<Rets, RuntimeError> where
+            pub fn call(&self, mut store: &mut impl AsStoreMut, $( $x: $x, )* ) -> Result<Rets, RuntimeError> where
             $( $x: FromToNativeWasmType + crate::js::NativeWasmTypeInto, )*
             {
-                let params_list: Vec<JsValue> = vec![ $( JsValue::from_f64($x.into_raw(&mut ctx))),* ];
-                let results = self.handle.get(ctx.as_store_ref().objects()).function.apply(
+                let params_list: Vec<JsValue> = vec![ $( JsValue::from_f64($x.into_raw(&mut store))),* ];
+                let results = self.handle.get(store.as_store_ref().objects()).function.apply(
                     &JsValue::UNDEFINED,
                     &Array::from_iter(params_list.iter())
                 )?;
@@ -81,7 +81,7 @@ macro_rules! impl_native_traits {
                     1 => unsafe {
                         let ty = Rets::wasm_types()[0];
                         let val = param_from_js(&ty, &results);
-                        *mut_rets = val.as_raw(&mut ctx);
+                        *mut_rets = val.as_raw(&mut store);
                     }
                     _n => {
                         let results: Array = results.into();
@@ -90,12 +90,12 @@ macro_rules! impl_native_traits {
                             unsafe {
                                 let val = param_from_js(&ret_type, &ret);
                                 let slot = mut_rets.add(i);
-                                *slot = val.as_raw(&mut ctx);
+                                *slot = val.as_raw(&mut store);
                             }
                         }
                     }
                 }
-                Ok(unsafe { Rets::from_array(ctx, rets_list_array) })
+                Ok(unsafe { Rets::from_array(store, rets_list_array) })
             }
 
         }
@@ -106,9 +106,9 @@ macro_rules! impl_native_traits {
             $( $x: FromToNativeWasmType, )*
             Rets: WasmTypeList,
         {
-            fn get_self_from_extern_with_generics(ctx: &impl AsStoreRef, _extern: &crate::js::externals::Extern) -> Result<Self, crate::js::exports::ExportError> {
+            fn get_self_from_extern_with_generics(store: &impl AsStoreRef, _extern: &crate::js::externals::Extern) -> Result<Self, crate::js::exports::ExportError> {
                 use crate::js::exports::Exportable;
-                crate::js::Function::get_self_from_extern(_extern)?.native(ctx).map_err(|_| crate::js::exports::ExportError::IncompatibleType)
+                crate::js::Function::get_self_from_extern(_extern)?.native(store).map_err(|_| crate::js::exports::ExportError::IncompatibleType)
             }
         }
     };

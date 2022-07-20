@@ -34,8 +34,8 @@ impl Global {
     /// assert_eq!(g.get(), Value::I32(1));
     /// assert_eq!(g.ty().mutability, Mutability::Const);
     /// ```
-    pub fn new(ctx: &mut impl AsStoreMut, val: Value) -> Self {
-        Self::from_value(ctx, val, Mutability::Const).unwrap()
+    pub fn new(store: &mut impl AsStoreMut, val: Value) -> Self {
+        Self::from_value(store, val, Mutability::Const).unwrap()
     }
 
     /// Create a mutable `Global` with the initial value [`Value`].
@@ -51,17 +51,17 @@ impl Global {
     /// assert_eq!(g.get(), Value::I32(1));
     /// assert_eq!(g.ty().mutability, Mutability::Var);
     /// ```
-    pub fn new_mut(ctx: &mut impl AsStoreMut, val: Value) -> Self {
-        Self::from_value(ctx, val, Mutability::Var).unwrap()
+    pub fn new_mut(store: &mut impl AsStoreMut, val: Value) -> Self {
+        Self::from_value(store, val, Mutability::Var).unwrap()
     }
 
     /// Create a `Global` with the initial value [`Value`] and the provided [`Mutability`].
     fn from_value(
-        ctx: &mut impl AsStoreMut,
+        store: &mut impl AsStoreMut,
         val: Value,
         mutability: Mutability,
     ) -> Result<Self, RuntimeError> {
-        if !val.is_from_store(ctx) {
+        if !val.is_from_store(store) {
             return Err(RuntimeError::new(
                 "cross-`WasmerEnv` values are not supported",
             ));
@@ -90,7 +90,7 @@ impl Global {
         let js_global = JSGlobal::new(&descriptor, &value).unwrap();
         let vm_global = VMGlobal::new(js_global, global_ty);
 
-        Ok(Self::from_vm_export(ctx, vm_global))
+        Ok(Self::from_vm_export(store, vm_global))
     }
 
     /// Returns the [`GlobalType`] of the `Global`.

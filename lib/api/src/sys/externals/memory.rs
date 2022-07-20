@@ -44,14 +44,14 @@ impl Memory {
     /// #
     /// let m = Memory::new(&mut store, MemoryType::new(1, None, false)).unwrap();
     /// ```
-    pub fn new(ctx: &mut impl AsStoreMut, ty: MemoryType) -> Result<Self, MemoryError> {
-        let mut ctx = ctx.as_store_mut();
-        let tunables = ctx.tunables();
+    pub fn new(store: &mut impl AsStoreMut, ty: MemoryType) -> Result<Self, MemoryError> {
+        let mut store = store.as_store_mut();
+        let tunables = store.tunables();
         let style = tunables.memory_style(&ty);
         let memory = tunables.create_host_memory(&ty, &style)?;
 
         Ok(Self {
-            handle: StoreHandle::new(ctx.objects_mut(), memory),
+            handle: StoreHandle::new(store.objects_mut(), memory),
         })
     }
 
@@ -68,8 +68,8 @@ impl Memory {
     ///
     /// assert_eq!(m.ty(&mut store), mt);
     /// ```
-    pub fn ty(&self, ctx: &impl AsStoreRef) -> MemoryType {
-        self.handle.get(ctx.as_store_ref().objects()).ty()
+    pub fn ty(&self, store: &impl AsStoreRef) -> MemoryType {
+        self.handle.get(store.as_store_ref().objects()).ty()
     }
 
     /// Returns the pointer to the raw bytes of the `Memory`.
@@ -77,13 +77,13 @@ impl Memory {
     // This used by wasmer-emscripten and wasmer-c-api, but should be treated
     // as deprecated and not used in future code.
     #[doc(hidden)]
-    pub fn data_ptr(&self, ctx: &impl AsStoreRef) -> *mut u8 {
-        self.buffer(ctx).base
+    pub fn data_ptr(&self, store: &impl AsStoreRef) -> *mut u8 {
+        self.buffer(store).base
     }
 
     /// Returns the size (in bytes) of the `Memory`.
-    pub fn data_size(&self, ctx: &impl AsStoreRef) -> u64 {
-        self.buffer(ctx).len.try_into().unwrap()
+    pub fn data_size(&self, store: &impl AsStoreRef) -> u64 {
+        self.buffer(store).len.try_into().unwrap()
     }
 
     /// Retrieve a slice of the memory contents.
@@ -94,8 +94,8 @@ impl Memory {
     /// modify the memory contents in any way including by calling a wasm
     /// function that writes to the memory or by resizing the memory.
     #[doc(hidden)]
-    pub unsafe fn data_unchecked(&self, ctx: &impl AsStoreRef) -> &[u8] {
-        self.data_unchecked_mut(ctx)
+    pub unsafe fn data_unchecked(&self, store: &impl AsStoreRef) -> &[u8] {
+        self.data_unchecked_mut(store)
     }
 
     /// Retrieve a mutable slice of the memory contents.
@@ -109,8 +109,8 @@ impl Memory {
     /// by resizing this Memory.
     #[allow(clippy::mut_from_ref)]
     #[doc(hidden)]
-    pub unsafe fn data_unchecked_mut(&self, ctx: &impl AsStoreRef) -> &mut [u8] {
-        slice::from_raw_parts_mut(self.buffer(ctx).base, self.buffer(ctx).len)
+    pub unsafe fn data_unchecked_mut(&self, store: &impl AsStoreRef) -> &mut [u8] {
+        slice::from_raw_parts_mut(self.buffer(store).base, self.buffer(store).len)
     }
 
     /// Returns the size (in [`Pages`]) of the `Memory`.
@@ -125,8 +125,8 @@ impl Memory {
     ///
     /// assert_eq!(m.size(&mut store), Pages(1));
     /// ```
-    pub fn size(&self, ctx: &impl AsStoreRef) -> Pages {
-        self.handle.get(ctx.as_store_ref().objects()).size()
+    pub fn size(&self, store: &impl AsStoreRef) -> Pages {
+        self.handle.get(store.as_store_ref().objects()).size()
     }
 
     /// Grow memory by the specified amount of WebAssembly [`Pages`] and return
@@ -163,13 +163,13 @@ impl Memory {
     /// ```
     pub fn grow<IntoPages>(
         &self,
-        ctx: &mut impl AsStoreMut,
+        store: &mut impl AsStoreMut,
         delta: IntoPages,
     ) -> Result<Pages, MemoryError>
     where
         IntoPages: Into<Pages>,
     {
-        self.handle.get_mut(ctx.objects_mut()).grow(delta.into())
+        self.handle.get_mut(store.objects_mut()).grow(delta.into())
     }
 
     /// Safely reads bytes from the memory at the given offset.
@@ -181,11 +181,11 @@ impl Memory {
     /// concurrent writes.
     pub fn read(
         &self,
-        ctx: &impl AsStoreRef,
+        store: &impl AsStoreRef,
         offset: u64,
         buf: &mut [u8],
     ) -> Result<(), MemoryAccessError> {
-        self.buffer(ctx).read(offset, buf)
+        self.buffer(store).read(offset, buf)
     }
 
     /// Safely reads bytes from the memory at the given offset.
@@ -200,11 +200,11 @@ impl Memory {
     /// concurrent writes.
     pub fn read_uninit<'a>(
         &self,
-        ctx: &impl AsStoreRef,
+        store: &impl AsStoreRef,
         offset: u64,
         buf: &'a mut [MaybeUninit<u8>],
     ) -> Result<&'a mut [u8], MemoryAccessError> {
-        self.buffer(ctx).read_uninit(offset, buf)
+        self.buffer(store).read_uninit(offset, buf)
     }
 
     /// Safely writes bytes to the memory at the given offset.
@@ -216,15 +216,15 @@ impl Memory {
     /// concurrent reads/writes.
     pub fn write(
         &self,
-        ctx: &impl AsStoreRef,
+        store: &impl AsStoreRef,
         offset: u64,
         data: &[u8],
     ) -> Result<(), MemoryAccessError> {
-        self.buffer(ctx).write(offset, data)
+        self.buffer(store).write(offset, data)
     }
 
-    pub(crate) fn buffer<'a>(&'a self, ctx: &'a impl AsStoreRef) -> MemoryBuffer<'a> {
-        let definition = self.handle.get(ctx.as_store_ref().objects()).vmmemory();
+    pub(crate) fn buffer<'a>(&'a self, store: &'a impl AsStoreRef) -> MemoryBuffer<'a> {
+        let definition = self.handle.get(store.as_store_ref().objects()).vmmemory();
         let def = unsafe { definition.as_ref() };
         MemoryBuffer {
             base: def.base,
@@ -234,19 +234,19 @@ impl Memory {
     }
 
     pub(crate) fn from_vm_extern(
-        ctx: &impl AsStoreRef,
+        store: &impl AsStoreRef,
         internal: InternalStoreHandle<VMMemory>,
     ) -> Self {
         Self {
             handle: unsafe {
-                StoreHandle::from_internal(ctx.as_store_ref().objects().id(), internal)
+                StoreHandle::from_internal(store.as_store_ref().objects().id(), internal)
             },
         }
     }
 
     /// Checks whether this `Memory` can be used with the given context.
-    pub fn is_from_store(&self, ctx: &impl AsStoreRef) -> bool {
-        self.handle.store_id() == ctx.as_store_ref().objects().id()
+    pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
+        self.handle.store_id() == store.as_store_ref().objects().id()
     }
 
     pub(crate) fn to_vm_extern(&self) -> VMExtern {

@@ -100,7 +100,7 @@ impl Memory {
     /// #
     /// let m = Memory::new(&store, MemoryType::new(1, None, false)).unwrap();
     /// ```
-    pub fn new(ctx: &mut impl AsStoreMut, ty: MemoryType) -> Result<Self, MemoryError> {
+    pub fn new(store: &mut impl AsStoreMut, ty: MemoryType) -> Result<Self, MemoryError> {
         let descriptor = js_sys::Object::new();
         js_sys::Reflect::set(&descriptor, &"initial".into(), &ty.minimum.0.into()).unwrap();
         if let Some(max) = ty.maximum {
@@ -112,7 +112,7 @@ impl Memory {
             .map_err(|_e| MemoryError::Generic("Error while creating the memory".to_owned()))?;
 
         let vm_memory = VMMemory::new(js_memory, ty);
-        Ok(Self::from_vm_export(ctx, vm_memory))
+        Ok(Self::from_vm_export(store, vm_memory))
     }
 
     /// Returns the [`MemoryType`] of the `Memory`.
@@ -128,8 +128,8 @@ impl Memory {
     ///
     /// assert_eq!(m.ty(), mt);
     /// ```
-    pub fn ty(&self, ctx: &impl AsStoreRef) -> MemoryType {
-        self.handle.get(ctx.as_store_ref().objects()).ty
+    pub fn ty(&self, store: &impl AsStoreRef) -> MemoryType {
+        self.handle.get(store.as_store_ref().objects()).ty
     }
 
     /// Returns the pointer to the raw bytes of the `Memory`.
@@ -139,11 +139,11 @@ impl Memory {
     }
 
     /// Returns the size (in bytes) of the `Memory`.
-    pub fn data_size(&self, ctx: &impl AsStoreRef) -> u64 {
+    pub fn data_size(&self, store: &impl AsStoreRef) -> u64 {
         js_sys::Reflect::get(
             &self
                 .handle
-                .get(ctx.as_store_ref().objects())
+                .get(store.as_store_ref().objects())
                 .memory
                 .buffer(),
             &"byteLength".into(),
@@ -165,11 +165,11 @@ impl Memory {
     ///
     /// assert_eq!(m.size(), Pages(1));
     /// ```
-    pub fn size(&self, ctx: &impl AsStoreRef) -> Pages {
+    pub fn size(&self, store: &impl AsStoreRef) -> Pages {
         let bytes = js_sys::Reflect::get(
             &self
                 .handle
-                .get(ctx.as_store_ref().objects())
+                .get(store.as_store_ref().objects())
                 .memory
                 .buffer(),
             &"byteLength".into(),
@@ -236,40 +236,40 @@ impl Memory {
 
     /// Used by tests
     #[doc(hidden)]
-    pub fn uint8view(&self, ctx: &impl AsStoreRef) -> js_sys::Uint8Array {
+    pub fn uint8view(&self, store: &impl AsStoreRef) -> js_sys::Uint8Array {
         js_sys::Uint8Array::new(
             &self
                 .handle
-                .get(ctx.as_store_ref().objects())
+                .get(store.as_store_ref().objects())
                 .memory
                 .buffer(),
         )
     }
 
-    pub(crate) fn buffer<'a>(&'a self, _ctx: &'a impl AsStoreRef) -> MemoryBuffer<'a> {
+    pub(crate) fn buffer<'a>(&'a self, _store: &'a impl AsStoreRef) -> MemoryBuffer<'a> {
         MemoryBuffer {
             base: &self.view as *const _ as *mut _,
             marker: PhantomData,
         }
     }
 
-    pub(crate) fn from_vm_export(ctx: &mut impl AsStoreMut, vm_memory: VMMemory) -> Self {
+    pub(crate) fn from_vm_export(store: &mut impl AsStoreMut, vm_memory: VMMemory) -> Self {
         let view = js_sys::Uint8Array::new(&vm_memory.memory.buffer());
         Self {
-            handle: StoreHandle::new(ctx.objects_mut(), vm_memory),
+            handle: StoreHandle::new(store.objects_mut(), vm_memory),
             view,
         }
     }
 
     pub(crate) fn from_vm_extern(
-        ctx: &mut impl AsStoreMut,
+        store: &mut impl AsStoreMut,
         internal: InternalStoreHandle<VMMemory>,
     ) -> Self {
         let view =
-            js_sys::Uint8Array::new(&internal.get(ctx.as_store_ref().objects()).memory.buffer());
+            js_sys::Uint8Array::new(&internal.get(store.as_store_ref().objects()).memory.buffer());
         Self {
             handle: unsafe {
-                StoreHandle::from_internal(ctx.as_store_ref().objects().id(), internal)
+                StoreHandle::from_internal(store.as_store_ref().objects().id(), internal)
             },
             view,
         }
@@ -284,7 +284,7 @@ impl Memory {
     /// concurrent writes.
     pub fn read(
         &self,
-        _ctx: &impl AsStoreRef,
+        _store: &impl AsStoreRef,
         offset: u64,
         data: &mut [u8],
     ) -> Result<(), MemoryAccessError> {
@@ -314,7 +314,7 @@ impl Memory {
     /// concurrent writes.
     pub fn read_uninit<'a>(
         &self,
-        _ctx: &impl AsStoreRef,
+        _store: &impl AsStoreRef,
         offset: u64,
         buf: &'a mut [MaybeUninit<u8>],
     ) -> Result<&'a mut [u8], MemoryAccessError> {
@@ -349,7 +349,7 @@ impl Memory {
     /// concurrent reads/writes.
     pub fn write(
         &self,
-        _ctx: &mut impl AsStoreMut,
+        _store: &mut impl AsStoreMut,
         offset: u64,
         data: &[u8],
     ) -> Result<(), MemoryAccessError> {
@@ -368,8 +368,8 @@ impl Memory {
     }
 
     /// Checks whether this `Global` can be used with the given context.
-    pub fn is_from_store(&self, ctx: &impl AsStoreRef) -> bool {
-        self.handle.store_id() == ctx.as_store_ref().objects().id()
+    pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
+        self.handle.store_id() == store.as_store_ref().objects().id()
     }
 }
 

@@ -141,14 +141,14 @@ impl Exports {
     /// Get an export as a `TypedFunction`.
     pub fn get_native_function<Args, Rets>(
         &self,
-        ctx: &impl AsStoreRef,
+        store: &impl AsStoreRef,
         name: &str,
     ) -> Result<TypedFunction<Args, Rets>, ExportError>
     where
         Args: WasmTypeList,
         Rets: WasmTypeList,
     {
-        self.get_typed_function(ctx, name)
+        self.get_typed_function(store, name)
     }
 
     /// Get an export as a `TypedFunction`.
@@ -169,7 +169,7 @@ impl Exports {
     /// Hack to get this working with nativefunc too
     pub fn get_with_generics<'a, T, Args, Rets>(
         &'a self,
-        ctx: &impl AsStoreRef,
+        store: &impl AsStoreRef,
         name: &str,
     ) -> Result<T, ExportError>
     where
@@ -179,7 +179,7 @@ impl Exports {
     {
         match self.map.get(name) {
             None => Err(ExportError::Missing(name.to_string())),
-            Some(extern_) => T::get_self_from_extern_with_generics(ctx, extern_),
+            Some(extern_) => T::get_self_from_extern_with_generics(store, extern_),
         }
     }
 
@@ -187,7 +187,7 @@ impl Exports {
     /// This is useful for passing data into Context data, for example.
     pub fn get_with_generics_weak<'a, T, Args, Rets>(
         &'a self,
-        ctx: &impl AsStoreRef,
+        store: &impl AsStoreRef,
         name: &str,
     ) -> Result<T, ExportError>
     where
@@ -195,7 +195,7 @@ impl Exports {
         Rets: WasmTypeList,
         T: ExportableWithGenerics<'a, Args, Rets>,
     {
-        let out: T = self.get_with_generics(ctx, name)?;
+        let out: T = self.get_with_generics(store, name)?;
         Ok(out)
     }
 
@@ -334,7 +334,7 @@ pub trait Exportable<'a>: Sized {
 pub trait ExportableWithGenerics<'a, Args: WasmTypeList, Rets: WasmTypeList>: Sized {
     /// Get an export with the given generics.
     fn get_self_from_extern_with_generics(
-        ctx: &impl AsStoreRef,
+        store: &impl AsStoreRef,
         _extern: &'a Extern,
     ) -> Result<Self, ExportError>;
 }
@@ -343,7 +343,7 @@ pub trait ExportableWithGenerics<'a, Args: WasmTypeList, Rets: WasmTypeList>: Si
 /// with empty `Args` and `Rets`.
 impl<'a, T: Exportable<'a> + Clone + 'static> ExportableWithGenerics<'a, (), ()> for T {
     fn get_self_from_extern_with_generics(
-        _ctx: &impl AsStoreRef,
+        _store: &impl AsStoreRef,
         _extern: &'a Extern,
     ) -> Result<Self, ExportError> {
         T::get_self_from_extern(_extern).map(|i| i.clone())

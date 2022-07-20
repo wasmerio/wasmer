@@ -28,7 +28,7 @@ use wasmer_types::ImportError;
 ///
 /// let instance = Instance::new(&mut store, &module, &import_object).expect("Could not instantiate module.");
 ///
-/// fn foo(_ctx: FunctionEnvMut<()>, n: i32) -> i32 {
+/// fn foo(_env: FunctionEnvMut<()>, n: i32) -> i32 {
 ///     n
 /// }
 ///
@@ -101,7 +101,7 @@ impl Imports {
     /// # let mut store: Store = Default::default();
     /// # let env = FunctionEnv::new(&mut store, ());
     /// use wasmer::{StoreMut, Imports, Function, FunctionEnvMut};
-    /// fn foo(_ctx: FunctionEnvMut<()>, n: i32) -> i32 {
+    /// fn foo(_env: FunctionEnvMut<()>, n: i32) -> i32 {
     ///     n
     /// }
     /// let mut import_object = Imports::new();
@@ -305,7 +305,7 @@ mod test {
         let mut store: Store = Default::default();
         let env = FunctionEnv::new(&mut store, ());
 
-        fn func(_ctx: FunctionEnvMut<()>, arg: i32) -> i32 {
+        fn func(_env: FunctionEnvMut<()>, arg: i32) -> i32 {
             arg + 1
         }
 

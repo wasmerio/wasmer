@@ -78,11 +78,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // Create the functions
-    fn get_counter(ctx: FunctionEnvMut<Env>) -> i32 {
-        *ctx.data().counter.lock().unwrap()
+    fn get_counter(env: FunctionEnvMut<Env>) -> i32 {
+        *env.data().counter.lock().unwrap()
     }
-    fn add_to_counter(mut ctx: FunctionEnvMut<Env>, add: i32) -> i32 {
-        let mut counter_ref = ctx.data_mut().counter.lock().unwrap();
+    fn add_to_counter(mut env: FunctionEnvMut<Env>, add: i32) -> i32 {
+        let mut counter_ref = env.data_mut().counter.lock().unwrap();
 
         *counter_ref += add;
         *counter_ref

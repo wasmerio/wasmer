@@ -13,22 +13,22 @@ pub struct ExternRef {
 
 impl ExternRef {
     /// Make a new extern reference
-    pub fn new<T>(ctx: &mut impl AsStoreMut, value: T) -> Self
+    pub fn new<T>(store: &mut impl AsStoreMut, value: T) -> Self
     where
         T: Any + Send + Sync + 'static + Sized,
     {
         Self {
-            handle: StoreHandle::new(ctx.objects_mut(), VMExternObj::new(value)),
+            handle: StoreHandle::new(store.objects_mut(), VMExternObj::new(value)),
         }
     }
 
     /// Try to downcast to the given value.
-    pub fn downcast<'a, T>(&self, ctx: &'a impl AsStoreRef) -> Option<&'a T>
+    pub fn downcast<'a, T>(&self, store: &'a impl AsStoreRef) -> Option<&'a T>
     where
         T: Any + Send + Sync + 'static + Sized,
     {
         self.handle
-            .get(ctx.as_store_ref().objects())
+            .get(store.as_store_ref().objects())
             .as_ref()
             .downcast_ref::<T>()
     }
@@ -38,11 +38,11 @@ impl ExternRef {
     }
 
     pub(crate) unsafe fn from_vm_externref(
-        ctx: &mut impl AsStoreMut,
+        store: &mut impl AsStoreMut,
         vm_externref: VMExternRef,
     ) -> Self {
         Self {
-            handle: StoreHandle::from_internal(ctx.objects_mut().id(), vm_externref.0),
+            handle: StoreHandle::from_internal(store.objects_mut().id(), vm_externref.0),
         }
     }
 
@@ -53,7 +53,7 @@ impl ExternRef {
     ///
     /// Externref and funcref values are tied to a context and can only be used
     /// with that context.
-    pub fn is_from_store(&self, ctx: &impl AsStoreRef) -> bool {
-        self.handle.store_id() == ctx.as_store_ref().objects().id()
+    pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
+        self.handle.store_id() == store.as_store_ref().objects().id()
     }
 }

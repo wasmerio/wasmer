@@ -218,19 +218,19 @@ mod objects {
     /// Trait to represent an object managed by a context. This is implemented on
     /// the VM types managed by the context.
     pub trait StoreObject: Sized {
-        fn list(ctx: &StoreObjects) -> &Vec<Self>;
-        fn list_mut(ctx: &mut StoreObjects) -> &mut Vec<Self>;
+        fn list(store: &StoreObjects) -> &Vec<Self>;
+        fn list_mut(store: &mut StoreObjects) -> &mut Vec<Self>;
     }
 
     macro_rules! impl_store_object {
     ($($field:ident => $ty:ty,)*) => {
         $(
             impl StoreObject for $ty {
-                fn list(ctx: &StoreObjects) -> &Vec<Self> {
-                    &ctx.$field
+                fn list(store: &StoreObjects) -> &Vec<Self> {
+                    &store.$field
                 }
-                fn list_mut(ctx: &mut StoreObjects) -> &mut Vec<Self> {
-                    &mut ctx.$field
+                fn list_mut(store: &mut StoreObjects) -> &mut Vec<Self> {
+                    &mut store.$field
                 }
             }
         )*
@@ -318,23 +318,23 @@ mod objects {
 
     impl<T: StoreObject> StoreHandle<T> {
         /// Moves the given object into a context and returns a handle to it.
-        pub fn new(ctx: &mut StoreObjects, val: T) -> Self {
+        pub fn new(store: &mut StoreObjects, val: T) -> Self {
             Self {
-                id: ctx.id,
-                internal: InternalStoreHandle::new(ctx, val),
+                id: store.id,
+                internal: InternalStoreHandle::new(store, val),
             }
         }
 
         /// Returns a reference to the object that this handle points to.
-        pub fn get<'a>(&self, ctx: &'a StoreObjects) -> &'a T {
-            assert_eq!(self.id, ctx.id, "object used with the wrong context");
-            self.internal.get(ctx)
+        pub fn get<'a>(&self, store: &'a StoreObjects) -> &'a T {
+            assert_eq!(self.id, store.id, "object used with the wrong context");
+            self.internal.get(store)
         }
 
         /// Returns a mutable reference to the object that this handle points to.
-        pub fn get_mut<'a>(&self, ctx: &'a mut StoreObjects) -> &'a mut T {
-            assert_eq!(self.id, ctx.id, "object used with the wrong context");
-            self.internal.get_mut(ctx)
+        pub fn get_mut<'a>(&self, store: &'a mut StoreObjects) -> &'a mut T {
+            assert_eq!(self.id, store.id, "object used with the wrong context");
+            self.internal.get_mut(store)
         }
 
         /// Returns the internal handle contains within this handle.
@@ -390,8 +390,8 @@ mod objects {
 
     impl<T: StoreObject> InternalStoreHandle<T> {
         /// Moves the given object into a context and returns a handle to it.
-        pub fn new(ctx: &mut StoreObjects, val: T) -> Self {
-            let list = T::list_mut(ctx);
+        pub fn new(store: &mut StoreObjects, val: T) -> Self {
+            let list = T::list_mut(store);
             let idx = NonZeroUsize::new(list.len() + 1).unwrap();
             list.push(val);
             Self {
@@ -401,13 +401,13 @@ mod objects {
         }
 
         /// Returns a reference to the object that this handle points to.
-        pub fn get<'a>(&self, ctx: &'a StoreObjects) -> &'a T {
-            &T::list(ctx)[self.idx.get() - 1]
+        pub fn get<'a>(&self, store: &'a StoreObjects) -> &'a T {
+            &T::list(store)[self.idx.get() - 1]
         }
 
         /// Returns a mutable reference to the object that this handle points to.
-        pub fn get_mut<'a>(&self, ctx: &'a mut StoreObjects) -> &'a mut T {
-            &mut T::list_mut(ctx)[self.idx.get() - 1]
+        pub fn get_mut<'a>(&self, store: &'a mut StoreObjects) -> &'a mut T {
+            &mut T::list_mut(store)[self.idx.get() - 1]
         }
 
         pub(crate) fn index(&self) -> usize {

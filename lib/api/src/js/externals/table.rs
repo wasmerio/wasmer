@@ -25,14 +25,14 @@ fn set_table_item(table: &VMTable, item_index: u32, item: &Function) -> Result<(
     table.table.set(item_index, item).map_err(|e| e.into())
 }
 
-fn get_function(ctx: &mut impl AsStoreMut, val: Value) -> Result<Function, RuntimeError> {
-    if !val.is_from_store(ctx) {
+fn get_function(store: &mut impl AsStoreMut, val: Value) -> Result<Function, RuntimeError> {
+    if !val.is_from_store(store) {
         return Err(RuntimeError::new("cannot pass Value across contexts"));
     }
     match val {
         Value::FuncRef(Some(ref func)) => Ok(func
             .handle
-            .get(&ctx.as_store_ref().objects())
+            .get(&store.as_store_ref().objects())
             .function
             .clone()
             .into()),
@@ -49,11 +49,11 @@ impl Table {
     /// This function will construct the `Table` using the store
     /// [`BaseTunables`][crate::js::tunables::BaseTunables].
     pub fn new(
-        ctx: &mut impl AsStoreMut,
+        store: &mut impl AsStoreMut,
         ty: TableType,
         init: Value,
     ) -> Result<Self, RuntimeError> {
-        let mut ctx = ctx;
+        let mut store = store;
         let descriptor = js_sys::Object::new();
         js_sys::Reflect::set(&descriptor, &"initial".into(), &ty.minimum.into())?;
         if let Some(max) = ty.maximum {
@@ -65,33 +65,33 @@ impl Table {
         let table = VMTable::new(js_table, ty);
 
         let num_elements = table.table.length();
-        let func = get_function(&mut ctx, init)?;
+        let func = get_function(&mut store, init)?;
         for i in 0..num_elements {
             set_table_item(&table, i, &func)?;
         }
 
         Ok(Self {
-            handle: StoreHandle::new(ctx.objects_mut(), table),
+            handle: StoreHandle::new(store.objects_mut(), table),
         })
     }
 
     /// Returns the [`TableType`] of the `Table`.
-    pub fn ty(&self, ctx: &impl AsStoreRef) -> TableType {
-        self.handle.get(ctx.as_store_ref().objects()).ty
+    pub fn ty(&self, store: &impl AsStoreRef) -> TableType {
+        self.handle.get(store.as_store_ref().objects()).ty
     }
 
     /// Retrieves an element of the table at the provided `index`.
-    pub fn get(&self, ctx: &mut impl AsStoreMut, index: u32) -> Option<Value> {
+    pub fn get(&self, store: &mut impl AsStoreMut, index: u32) -> Option<Value> {
         if let Some(func) = self
             .handle
-            .get(ctx.as_store_ref().objects())
+            .get(store.as_store_ref().objects())
             .table
             .get(index)
             .ok()
         {
             let ty = FunctionType::new(vec![], vec![]);
             let vm_function = VMFunction::new(func, ty);
-            let function = crate::js::externals::Function::from_vm_export(ctx, vm_function);
+            let function = crate::js::externals::Function::from_vm_export(store, vm_function);
             Some(Value::FuncRef(Some(function)))
         } else {
             None
@@ -101,17 +101,20 @@ impl Table {
     /// Sets an element `val` in the Table at the provided `index`.
     pub fn set(
         &self,
-        ctx: &mut impl AsStoreMut,
+        store: &mut impl AsStoreMut,
         index: u32,
         val: Value,
     ) -> Result<(), RuntimeError> {
-        let item = get_function(ctx, val)?;
-        set_table_item(self.handle.get_mut(ctx.objects_mut()), index, &item)
+        let item = get_function(store, val)?;
+        set_table_item(self.handle.get_mut(store.objects_mut()), index, &item)
     }
 
     /// Retrieves the size of the `Table` (in elements)
-    pub fn size(&self, ctx: &impl AsStoreRef) -> u32 {
-        self.handle.get(ctx.as_store_ref().objects()).table.length()
+    pub fn size(&self, store: &impl AsStoreRef) -> u32 {
+        self.handle
+            .get(store.as_store_ref().objects())
+            .table
+            .length()
     }
 
     /// Grows the size of the `Table` by `delta`, initializating
@@ -150,19 +153,19 @@ impl Table {
     }
 
     pub(crate) fn from_vm_extern(
-        ctx: &mut impl AsStoreMut,
+        store: &mut impl AsStoreMut,
         internal: InternalStoreHandle<VMTable>,
     ) -> Self {
         Self {
             handle: unsafe {
-                StoreHandle::from_internal(ctx.as_store_ref().objects().id(), internal)
+                StoreHandle::from_internal(store.as_store_ref().objects().id(), internal)
             },
         }
     }
 
     /// Checks whether this `Table` can be used with the given context.
-    pub fn is_from_store(&self, ctx: &impl AsStoreRef) -> bool {
-        self.handle.store_id() == ctx.as_store_ref().objects().id()
+    pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
+        self.handle.store_id() == store.as_store_ref().objects().id()
     }
 
     /// Get access to the backing VM value for this extern. This function is for
@@ -175,9 +178,9 @@ impl Table {
     #[doc(hidden)]
     pub unsafe fn get_vm_table<'context>(
         &self,
-        ctx: &'context impl AsStoreRef,
+        store: &'context impl AsStoreRef,
     ) -> &'context VMTable {
-        self.handle.get(ctx.as_store_ref().objects())
+        self.handle.get(store.as_store_ref().objects())
     }
 }
 

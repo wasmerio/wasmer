@@ -27,7 +27,7 @@ mod sys {
         let env = FunctionEnv::new(&mut store, env);
         let imports = imports! {
             "env" => {
-                "func_ref_identity" => Function::new(&mut store, &env, FunctionType::new([Type::FuncRef], [Type::FuncRef]), |_ctx: FunctionEnvMut<Env>, values: &[Value]| -> Result<Vec<_>, _> {
+                "func_ref_identity" => Function::new(&mut store, &env, FunctionType::new([Type::FuncRef], [Type::FuncRef]), |_env: FunctionEnvMut<Env>, values: &[Value]| -> Result<Vec<_>, _> {
                     Ok(vec![values[0].clone()])
                 })
             },
@@ -44,8 +44,8 @@ mod sys {
         }
 
         let func_to_call =
-            Function::new_native(&mut store, &env, |mut ctx: FunctionEnvMut<Env>| -> i32 {
-                ctx.data_mut().0.store(true, Ordering::SeqCst);
+            Function::new_native(&mut store, &env, |mut env: FunctionEnvMut<Env>| -> i32 {
+                env.data_mut().0.store(true, Ordering::SeqCst);
                 343
             });
         let call_set_value: &Function = instance.exports.get_function("call_set_value")?;
@@ -83,13 +83,13 @@ mod sys {
         let module = Module::new(&store, wat)?;
         let env = FunctionEnv::new(&mut store, ());
         fn func_ref_call(
-            mut ctx: FunctionEnvMut<()>,
+            mut env: FunctionEnvMut<()>,
             values: &[Value],
         ) -> Result<Vec<Value>, RuntimeError> {
             // TODO: look into `Box<[Value]>` being returned breakage
             let f = values[0].unwrap_funcref().as_ref().unwrap();
-            let f: TypedFunction<(i32, i32), i32> = f.native(&mut ctx)?;
-            Ok(vec![Value::I32(f.call(&mut ctx, 7, 9)?)])
+            let f: TypedFunction<(i32, i32), i32> = f.native(&mut env)?;
+            Ok(vec![Value::I32(f.call(&mut env, 7, 9)?)])
         }
 
         let imports = imports! {
@@ -100,7 +100,7 @@ mod sys {
                     FunctionType::new([Type::FuncRef], [Type::I32]),
                     func_ref_call
                 ),
-                // "func_ref_call_native" => Function::new_native(&mut store, &env, |_ctx: FunctionEnvMut<()>, f: Function| -> Result<i32, RuntimeError> {
+                // "func_ref_call_native" => Function::new_native(&mut store, &env, |_env: FunctionEnvMut<()>, f: Function| -> Result<i32, RuntimeError> {
                 //     let f: TypedFunction::<(i32, i32), i32> = f.native(&mut store)?;
                 //     f.call(&mut store, 7, 9)
                 // })
@@ -109,7 +109,7 @@ mod sys {
 
         let instance = Instance::new(&mut store, &module, &imports)?;
         {
-            fn sum(_ctx: FunctionEnvMut<()>, a: i32, b: i32) -> i32 {
+            fn sum(_env: FunctionEnvMut<()>, a: i32, b: i32) -> i32 {
                 a + b
             }
             let sum_func = Function::new_native(&mut store, &env, sum);
@@ -154,23 +154,23 @@ mod sys {
             let env = FunctionEnv::new(&mut store, ());
             let imports = imports! {
                 "env" => {
-                    "extern_ref_identity" => Function::new(&mut store, &env, FunctionType::new([Type::ExternRef], [Type::ExternRef]), |_ctx, values| -> Result<Vec<_>, _> {
+                    "extern_ref_identity" => Function::new(&mut store, &env, FunctionType::new([Type::ExternRef], [Type::ExternRef]), |_env, values| -> Result<Vec<_>, _> {
                         Ok(vec![values[0].clone()])
                     }),
-                    "extern_ref_identity_native" => Function::new_native(&mut store, &env, |_ctx: FunctionEnvMut<()>, er: ExternRef| -> ExternRef {
+                    "extern_ref_identity_native" => Function::new_native(&mut store, &env, |_env: FunctionEnvMut<()>, er: ExternRef| -> ExternRef {
                         er
                     }),
-                    "get_new_extern_ref" => Function::new(&mut store, &env, FunctionType::new([], [Type::ExternRef]), |_ctx, _| -> Result<Vec<_>, _> {
+                    "get_new_extern_ref" => Function::new(&mut store, &env, FunctionType::new([], [Type::ExternRef]), |_env, _| -> Result<Vec<_>, _> {
                         let inner =
                             [("hello".to_string(), "world".to_string()),
                              ("color".to_string(), "orange".to_string())]
                             .iter()
                             .cloned()
                             .collect::<HashMap<String, String>>();
-                        let new_extern_ref = ExternRef::new(&mut ctx, inner);
+                        let new_extern_ref = ExternRef::new(&mut env, inner);
                         Ok(vec![Value::ExternRef(new_extern_ref)])
                     }),
-                    "get_new_extern_ref_native" => Function::new_native(&mut store, &env,|_ctx| -> ExternRef {
+                    "get_new_extern_ref_native" => Function::new_native(&mut store, &env,|_env| -> ExternRef {
                         let inner =
                             [("hello".to_string(), "world".to_string()),
                              ("color".to_string(), "orange".to_string())]

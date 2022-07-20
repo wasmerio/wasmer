@@ -56,7 +56,7 @@ impl Function {
     /// #
     /// let signature = FunctionType::new(vec![Type::I32, Type::I32], vec![Type::I32]);
     ///
-    /// let f = Function::new(&mut store, &env, &signature, |_ctx, args| {
+    /// let f = Function::new(&mut store, &env, &signature, |_env, args| {
     ///     let sum = args[0].unwrap_i32() + args[1].unwrap_i32();
     ///     Ok(vec![Value::I32(sum)])
     /// });
@@ -71,7 +71,7 @@ impl Function {
     /// #
     /// const I32_I32_TO_I32: ([Type; 2], [Type; 1]) = ([Type::I32, Type::I32], [Type::I32]);
     ///
-    /// let f = Function::new(&mut store, &env, I32_I32_TO_I32, |_ctx, args| {
+    /// let f = Function::new(&mut store, &env, I32_I32_TO_I32, |_env, args| {
     ///     let sum = args[0].unwrap_i32() + args[1].unwrap_i32();
     ///     Ok(vec![Value::I32(sum)])
     /// });
@@ -171,7 +171,7 @@ impl Function {
     /// # let mut store = Store::default();
     /// # let env = FunctionEnv::new(&mut store, ());
     /// #
-    /// fn sum(_ctx: FunctionEnvMut<()>, a: i32, b: i32) -> i32 {
+    /// fn sum(_env: FunctionEnvMut<()>, a: i32, b: i32) -> i32 {
     ///     a + b
     /// }
     ///
@@ -187,7 +187,7 @@ impl Function {
         Args: WasmTypeList,
         Rets: WasmTypeList,
     {
-        // println!("new native {:p}", &new_ctx);
+        // println!("new native {:p}", &new_env);
 
         let host_data = Box::new(StaticFunction {
             raw_store: store.as_store_mut().as_raw() as *mut u8,
@@ -232,7 +232,7 @@ impl Function {
     /// # let mut store = Store::default();
     /// # let env = FunctionEnv::new(&mut store, ());
     /// #
-    /// fn sum(_ctx: FunctionEnvMut<()>, a: i32, b: i32) -> i32 {
+    /// fn sum(_env: FunctionEnvMut<()>, a: i32, b: i32) -> i32 {
     ///     a + b
     /// }
     ///
@@ -332,7 +332,7 @@ impl Function {
     /// # let mut store = Store::default();
     /// # let env = FunctionEnv::new(&mut store, ());
     /// #
-    /// fn sum(_ctx: FunctionEnvMut<()>, a: i32, b: i32) -> i32 {
+    /// fn sum(_env: FunctionEnvMut<()>, a: i32, b: i32) -> i32 {
     ///     a + b
     /// }
     ///
@@ -353,7 +353,7 @@ impl Function {
     /// # let mut store = Store::default();
     /// # let env = FunctionEnv::new(&mut store, ());
     /// #
-    /// fn sum(_ctx: FunctionEnvMut<()>, a: i32, b: i32) -> i32 {
+    /// fn sum(_env: FunctionEnvMut<()>, a: i32, b: i32) -> i32 {
     ///     a + b
     /// }
     ///
@@ -530,11 +530,11 @@ impl Function {
         Args: WasmTypeList,
         Rets: WasmTypeList,
     {
-        let vm_function = self.handle.get(store.as_store_ref().objects());
+        let ty = self.ty(store);
 
         // type check
         {
-            let expected = vm_function.signature.params();
+            let expected = ty.params();
             let given = Args::wasm_types();
 
             if expected != given {
@@ -547,7 +547,7 @@ impl Function {
         }
 
         {
-            let expected = vm_function.signature.results();
+            let expected = ty.results();
             let given = Rets::wasm_types();
 
             if expected != given {
@@ -694,7 +694,7 @@ mod inner {
         ///
         /// This always returns true for primitive types that can be used with
         /// any context.
-        fn is_from_store(&self, _ctx: &impl AsStoreRef) -> bool {
+        fn is_from_store(&self, _store: &impl AsStoreRef) -> bool {
             true
         }
     }
@@ -828,7 +828,7 @@ mod inner {
         /// Constructs `Self` based on an array of values.
         ///
         /// # Safety
-        unsafe fn from_array(ctx: &mut impl AsStoreMut, array: Self::Array) -> Self;
+        unsafe fn from_array(store: &mut impl AsStoreMut, array: Self::Array) -> Self;
 
         /// Constructs `Self` based on a slice of values.
         ///
@@ -839,7 +839,7 @@ mod inner {
         ///
         /// # Safety
         unsafe fn from_slice(
-            ctx: &mut impl AsStoreMut,
+            store: &mut impl AsStoreMut,
             slice: &[RawValue],
         ) -> Result<Self, TryFromSliceError>;
 
@@ -1133,7 +1133,7 @@ mod inner {
                                 $(
                                     let $x = FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(&mut store, $x));
                                 )*
-                                // println!("func wrapper2 {:p}", *env.raw_ctx);
+                                // println!("func wrapper2 {:p}", *env.raw_env);
                                 let store_mut = StoreMut::from_raw(env.raw_store as *mut _);
                                 let f_env = FunctionEnvMut {
                                     store_mut,
@@ -1280,11 +1280,11 @@ mod inner {
         fn test_from_array() {
             let mut store = Store::default();
             let env = FunctionEnv::new(&mut store, ());
-            assert_eq!(<()>::from_array(&mut ctx, []), ());
-            assert_eq!(<i32>::from_array(&mut ctx, [RawValue{i32: 1}]), (1i32));
-            assert_eq!(<(i32, i64)>::from_array(&mut ctx, [RawValue{i32:1}, RawValue{i64:2}]), (1i32, 2i64));
+            assert_eq!(<()>::from_array(&mut env, []), ());
+            assert_eq!(<i32>::from_array(&mut env, [RawValue{i32: 1}]), (1i32));
+            assert_eq!(<(i32, i64)>::from_array(&mut env, [RawValue{i32:1}, RawValue{i64:2}]), (1i32, 2i64));
             assert_eq!(
-                <(i32, i64, f32, f64)>::from_array(&mut ctx, [
+                <(i32, i64, f32, f64)>::from_array(&mut env, [
                     RawValue{i32:1},
                     RawValue{i64:2},
                     RawValue{f32: 3.1f32},
@@ -1298,11 +1298,11 @@ mod inner {
         fn test_into_array() {
             let mut store = Store::default();
             let env = FunctionEnv::new(&mut store, ());
-            assert_eq!(().into_array(&mut ctx), [0i128; 0]);
-            assert_eq!((1i32).into_array(&mut ctx), [1i32]);
-            assert_eq!((1i32, 2i64).into_array(&mut ctx), [RawValue{i32: 1}, RawValue{i64: 2}]);
+            assert_eq!(().into_array(&mut store), [0i128; 0]);
+            assert_eq!((1i32).into_array(&mut store), [1i32]);
+            assert_eq!((1i32, 2i64).into_array(&mut store), [RawValue{i32: 1}, RawValue{i64: 2}]);
             assert_eq!(
-                (1i32, 2i32, 3.1f32, 4.2f64).into_array(&mut ctx),
+                (1i32, 2i32, 3.1f32, 4.2f64).into_array(&mut store),
                 [RawValue{i32: 1}, RawValue{i32: 2}, RawValue{ f32: 3.1f32}, RawValue{f64: 4.2f64}]
             );
         }
@@ -1318,11 +1318,11 @@ mod inner {
         fn test_from_c_struct() {
             let mut store = Store::default();
             let env = FunctionEnv::new(&mut store, ());
-            assert_eq!(<()>::from_c_struct(&mut ctx, S0()), ());
-            assert_eq!(<i32>::from_c_struct(&mut ctx, S1(1)), (1i32));
-            assert_eq!(<(i32, i64)>::from_c_struct(&mut ctx, S2(1, 2)), (1i32, 2i64));
+            assert_eq!(<()>::from_c_struct(&mut store, S0()), ());
+            assert_eq!(<i32>::from_c_struct(&mut store, S1(1)), (1i32));
+            assert_eq!(<(i32, i64)>::from_c_struct(&mut store, S2(1, 2)), (1i32, 2i64));
             assert_eq!(
-                <(i32, i64, f32, f64)>::from_c_struct(&mut ctx, S4(1, 2, 3.1, 4.2)),
+                <(i32, i64, f32, f64)>::from_c_struct(&mut store, S4(1, 2, 3.1, 4.2)),
                 (1i32, 2i64, 3.1f32, 4.2f64)
             );
         }

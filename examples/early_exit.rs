@@ -66,7 +66,7 @@ fn main() -> anyhow::Result<()> {
     let module = Module::new(&store, wasm_bytes)?;
 
     // We declare the host function that we'll use to terminate execution.
-    fn early_exit(_ctx: FunctionEnvMut<()>) -> Result<(), ExitCode> {
+    fn early_exit(_env: FunctionEnvMut<()>) -> Result<(), ExitCode> {
         // This is where it happens.
         Err(ExitCode(1))
     }

@@ -52,10 +52,10 @@ mod sys {
         }
 
         fn imported_fn(
-            ctx: FunctionEnvMut<Env>,
+            env: FunctionEnvMut<Env>,
             args: &[Value],
         ) -> Result<Vec<Value>, RuntimeError> {
-            let value = ctx.data().multiplier * args[0].unwrap_i32() as u32;
+            let value = env.data().multiplier * args[0].unwrap_i32() as u32;
             Ok(vec![Value::I32(value as _)])
         }
 
