@@ -157,32 +157,32 @@
 
 <span class="kw">impl</span> <span class="ident">Extern</span> {
     <span class="doccomment">/// Return the underlying type of the inner `Extern`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">ty</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsStoreRef</span>) -&gt; <span class="ident">ExternType</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">ty</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsStoreRef</span>) -&gt; <span class="ident">ExternType</span> {
         <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident"><span class="self">Self</span>::Function</span>(<span class="ident">ft</span>) =&gt; <span class="ident">ExternType::Function</span>(<span class="ident">ft</span>.<span class="ident">ty</span>(<span class="ident">ctx</span>)),
-            <span class="ident"><span class="self">Self</span>::Memory</span>(<span class="ident">ft</span>) =&gt; <span class="ident">ExternType::Memory</span>(<span class="ident">ft</span>.<span class="ident">ty</span>(<span class="ident">ctx</span>)),
-            <span class="ident"><span class="self">Self</span>::Table</span>(<span class="ident">tt</span>) =&gt; <span class="ident">ExternType::Table</span>(<span class="ident">tt</span>.<span class="ident">ty</span>(<span class="ident">ctx</span>)),
-            <span class="ident"><span class="self">Self</span>::Global</span>(<span class="ident">gt</span>) =&gt; <span class="ident">ExternType::Global</span>(<span class="ident">gt</span>.<span class="ident">ty</span>(<span class="ident">ctx</span>)),
+            <span class="ident"><span class="self">Self</span>::Function</span>(<span class="ident">ft</span>) =&gt; <span class="ident">ExternType::Function</span>(<span class="ident">ft</span>.<span class="ident">ty</span>(<span class="ident">store</span>)),
+            <span class="ident"><span class="self">Self</span>::Memory</span>(<span class="ident">ft</span>) =&gt; <span class="ident">ExternType::Memory</span>(<span class="ident">ft</span>.<span class="ident">ty</span>(<span class="ident">store</span>)),
+            <span class="ident"><span class="self">Self</span>::Table</span>(<span class="ident">tt</span>) =&gt; <span class="ident">ExternType::Table</span>(<span class="ident">tt</span>.<span class="ident">ty</span>(<span class="ident">store</span>)),
+            <span class="ident"><span class="self">Self</span>::Global</span>(<span class="ident">gt</span>) =&gt; <span class="ident">ExternType::Global</span>(<span class="ident">gt</span>.<span class="ident">ty</span>(<span class="ident">store</span>)),
         }
     }
 
     <span class="doccomment">/// Create an `Extern` from an `wasmer_engine::Export`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_vm_extern</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">vm_extern</span>: <span class="ident">VMExtern</span>) -&gt; <span class="self">Self</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_vm_extern</span>(<span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">vm_extern</span>: <span class="ident">VMExtern</span>) -&gt; <span class="self">Self</span> {
         <span class="kw">match</span> <span class="ident">vm_extern</span> {
-            <span class="ident">VMExtern::Function</span>(<span class="ident">f</span>) =&gt; <span class="ident"><span class="self">Self</span>::Function</span>(<span class="ident">Function::from_vm_extern</span>(<span class="ident">ctx</span>, <span class="ident">f</span>)),
-            <span class="ident">VMExtern::Memory</span>(<span class="ident">m</span>) =&gt; <span class="ident"><span class="self">Self</span>::Memory</span>(<span class="ident">Memory::from_vm_extern</span>(<span class="ident">ctx</span>, <span class="ident">m</span>)),
-            <span class="ident">VMExtern::Global</span>(<span class="ident">g</span>) =&gt; <span class="ident"><span class="self">Self</span>::Global</span>(<span class="ident">Global::from_vm_extern</span>(<span class="ident">ctx</span>, <span class="ident">g</span>)),
-            <span class="ident">VMExtern::Table</span>(<span class="ident">t</span>) =&gt; <span class="ident"><span class="self">Self</span>::Table</span>(<span class="ident">Table::from_vm_extern</span>(<span class="ident">ctx</span>, <span class="ident">t</span>)),
+            <span class="ident">VMExtern::Function</span>(<span class="ident">f</span>) =&gt; <span class="ident"><span class="self">Self</span>::Function</span>(<span class="ident">Function::from_vm_extern</span>(<span class="ident">store</span>, <span class="ident">f</span>)),
+            <span class="ident">VMExtern::Memory</span>(<span class="ident">m</span>) =&gt; <span class="ident"><span class="self">Self</span>::Memory</span>(<span class="ident">Memory::from_vm_extern</span>(<span class="ident">store</span>, <span class="ident">m</span>)),
+            <span class="ident">VMExtern::Global</span>(<span class="ident">g</span>) =&gt; <span class="ident"><span class="self">Self</span>::Global</span>(<span class="ident">Global::from_vm_extern</span>(<span class="ident">store</span>, <span class="ident">g</span>)),
+            <span class="ident">VMExtern::Table</span>(<span class="ident">t</span>) =&gt; <span class="ident"><span class="self">Self</span>::Table</span>(<span class="ident">Table::from_vm_extern</span>(<span class="ident">store</span>, <span class="ident">t</span>)),
         }
     }
 
     <span class="doccomment">/// Checks whether this `Extern` can be used with the given context.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_from_store</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsStoreRef</span>) -&gt; <span class="ident">bool</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_from_store</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsStoreRef</span>) -&gt; <span class="ident">bool</span> {
         <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident"><span class="self">Self</span>::Function</span>(<span class="ident">f</span>) =&gt; <span class="ident">f</span>.<span class="ident">is_from_store</span>(<span class="ident">ctx</span>),
-            <span class="ident"><span class="self">Self</span>::Global</span>(<span class="ident">g</span>) =&gt; <span class="ident">g</span>.<span class="ident">is_from_store</span>(<span class="ident">ctx</span>),
-            <span class="ident"><span class="self">Self</span>::Memory</span>(<span class="ident">m</span>) =&gt; <span class="ident">m</span>.<span class="ident">is_from_store</span>(<span class="ident">ctx</span>),
-            <span class="ident"><span class="self">Self</span>::Table</span>(<span class="ident">t</span>) =&gt; <span class="ident">t</span>.<span class="ident">is_from_store</span>(<span class="ident">ctx</span>),
+            <span class="ident"><span class="self">Self</span>::Function</span>(<span class="ident">f</span>) =&gt; <span class="ident">f</span>.<span class="ident">is_from_store</span>(<span class="ident">store</span>),
+            <span class="ident"><span class="self">Self</span>::Global</span>(<span class="ident">g</span>) =&gt; <span class="ident">g</span>.<span class="ident">is_from_store</span>(<span class="ident">store</span>),
+            <span class="ident"><span class="self">Self</span>::Memory</span>(<span class="ident">m</span>) =&gt; <span class="ident">m</span>.<span class="ident">is_from_store</span>(<span class="ident">store</span>),
+            <span class="ident"><span class="self">Self</span>::Table</span>(<span class="ident">t</span>) =&gt; <span class="ident">t</span>.<span class="ident">is_from_store</span>(<span class="ident">store</span>),
         }
     }
 

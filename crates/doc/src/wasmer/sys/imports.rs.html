@@ -474,7 +474,7 @@
 <span class="doccomment">///</span>
 <span class="doccomment">/// let instance = Instance::new(&amp;mut store, &amp;module, &amp;import_object).expect(&quot;Could not instantiate module.&quot;);</span>
 <span class="doccomment">///</span>
-<span class="doccomment">/// fn foo(_ctx: FunctionEnvMut&lt;()&gt;, n: i32) -&gt; i32 {</span>
+<span class="doccomment">/// fn foo(_env: FunctionEnvMut&lt;()&gt;, n: i32) -&gt; i32 {</span>
 <span class="doccomment">///     n</span>
 <span class="doccomment">/// }</span>
 <span class="doccomment">///</span>
@@ -547,7 +547,7 @@
     <span class="doccomment">/// # let mut store: Store = Default::default();</span>
     <span class="doccomment">/// # let env = FunctionEnv::new(&amp;mut store, ());</span>
     <span class="doccomment">/// use wasmer::{StoreMut, Imports, Function, FunctionEnvMut};</span>
-    <span class="doccomment">/// fn foo(_ctx: FunctionEnvMut&lt;()&gt;, n: i32) -&gt; i32 {</span>
+    <span class="doccomment">/// fn foo(_env: FunctionEnvMut&lt;()&gt;, n: i32) -&gt; i32 {</span>
     <span class="doccomment">///     n</span>
     <span class="doccomment">/// }</span>
     <span class="doccomment">/// let mut import_object = Imports::new();</span>
@@ -751,7 +751,7 @@
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">store</span>: <span class="ident">Store</span> <span class="op">=</span> <span class="ident">Default::default</span>();
         <span class="kw">let</span> <span class="ident">env</span> <span class="op">=</span> <span class="ident">FunctionEnv::new</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>, ());
 
-        <span class="kw">fn</span> <span class="ident">func</span>(<span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span>()<span class="op">&gt;</span>, <span class="ident">arg</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
+        <span class="kw">fn</span> <span class="ident">func</span>(<span class="ident">_env</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span>()<span class="op">&gt;</span>, <span class="ident">arg</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
             <span class="ident">arg</span> <span class="op">+</span> <span class="number">1</span>
         }
 

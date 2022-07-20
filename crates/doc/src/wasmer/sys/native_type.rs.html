@@ -237,6 +237,8 @@
 <span id="235">235</span>
 <span id="236">236</span>
 <span id="237">237</span>
+<span id="238">238</span>
+<span id="239">239</span>
 </pre><pre class="rust"><code><span class="doccomment">//! This module permits to create native functions</span>
 <span class="doccomment">//! easily in Rust, thanks to its advanced typing system.</span>
 
@@ -251,127 +253,127 @@
 <span class="doccomment">/// types with a context.</span>
 <span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">NativeWasmTypeInto</span>: <span class="ident">NativeWasmType</span> <span class="op">+</span> <span class="ident">Sized</span> {
     <span class="attribute">#[<span class="ident">doc</span>(<span class="ident">hidden</span>)]</span>
-    <span class="kw">fn</span> <span class="ident">into_abi</span>(<span class="self">self</span>, <span class="ident">ctx</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>) -&gt; <span class="ident"><span class="self">Self</span>::Abi</span>;
+    <span class="kw">fn</span> <span class="ident">into_abi</span>(<span class="self">self</span>, <span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>) -&gt; <span class="ident"><span class="self">Self</span>::Abi</span>;
 
     <span class="attribute">#[<span class="ident">doc</span>(<span class="ident">hidden</span>)]</span>
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_abi</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">abi</span>: <span class="ident"><span class="self">Self</span>::Abi</span>) -&gt; <span class="self">Self</span>;
+    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_abi</span>(<span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">abi</span>: <span class="ident"><span class="self">Self</span>::Abi</span>) -&gt; <span class="self">Self</span>;
 
     <span class="doccomment">/// Convert self to raw value representation.</span>
-    <span class="kw">fn</span> <span class="ident">into_raw</span>(<span class="self">self</span>, <span class="ident">ctx</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>) -&gt; <span class="ident">RawValue</span>;
+    <span class="kw">fn</span> <span class="ident">into_raw</span>(<span class="self">self</span>, <span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>) -&gt; <span class="ident">RawValue</span>;
 
     <span class="doccomment">/// Convert to self from raw value representation.</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// # Safety</span>
     <span class="doccomment">///</span>
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_raw</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">raw</span>: <span class="ident">RawValue</span>) -&gt; <span class="self">Self</span>;
+    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_raw</span>(<span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">raw</span>: <span class="ident">RawValue</span>) -&gt; <span class="self">Self</span>;
 }
 
 <span class="kw">impl</span> <span class="ident">NativeWasmTypeInto</span> <span class="kw">for</span> <span class="ident">i32</span> {
     <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_abi</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">abi</span>: <span class="ident"><span class="self">Self</span>::Abi</span>) -&gt; <span class="self">Self</span> {
+    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_abi</span>(<span class="ident">_store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">abi</span>: <span class="ident"><span class="self">Self</span>::Abi</span>) -&gt; <span class="self">Self</span> {
         <span class="ident">abi</span>
     }
 
     <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">fn</span> <span class="ident">into_abi</span>(<span class="self">self</span>, <span class="ident">_ctx</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>) -&gt; <span class="ident"><span class="self">Self</span>::Abi</span> {
+    <span class="kw">fn</span> <span class="ident">into_abi</span>(<span class="self">self</span>, <span class="ident">_store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>) -&gt; <span class="ident"><span class="self">Self</span>::Abi</span> {
         <span class="self">self</span>
     }
 
     <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">fn</span> <span class="ident">into_raw</span>(<span class="self">self</span>, <span class="ident">_ctx</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>) -&gt; <span class="ident">RawValue</span> {
+    <span class="kw">fn</span> <span class="ident">into_raw</span>(<span class="self">self</span>, <span class="ident">_store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>) -&gt; <span class="ident">RawValue</span> {
         <span class="ident">RawValue</span> { <span class="ident">i32</span>: <span class="self">self</span> }
     }
 
     <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_raw</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">raw</span>: <span class="ident">RawValue</span>) -&gt; <span class="self">Self</span> {
+    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_raw</span>(<span class="ident">_store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">raw</span>: <span class="ident">RawValue</span>) -&gt; <span class="self">Self</span> {
         <span class="ident">raw</span>.<span class="ident">i32</span>
     }
 }
 
 <span class="kw">impl</span> <span class="ident">NativeWasmTypeInto</span> <span class="kw">for</span> <span class="ident">i64</span> {
     <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_abi</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">abi</span>: <span class="ident"><span class="self">Self</span>::Abi</span>) -&gt; <span class="self">Self</span> {
+    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_abi</span>(<span class="ident">_store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">abi</span>: <span class="ident"><span class="self">Self</span>::Abi</span>) -&gt; <span class="self">Self</span> {
         <span class="ident">abi</span>
     }
 
     <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">fn</span> <span class="ident">into_abi</span>(<span class="self">self</span>, <span class="ident">_ctx</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>) -&gt; <span class="ident"><span class="self">Self</span>::Abi</span> {
+    <span class="kw">fn</span> <span class="ident">into_abi</span>(<span class="self">self</span>, <span class="ident">_store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>) -&gt; <span class="ident"><span class="self">Self</span>::Abi</span> {
         <span class="self">self</span>
     }
 
     <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">fn</span> <span class="ident">into_raw</span>(<span class="self">self</span>, <span class="ident">_ctx</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>) -&gt; <span class="ident">RawValue</span> {
+    <span class="kw">fn</span> <span class="ident">into_raw</span>(<span class="self">self</span>, <span class="ident">_store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>) -&gt; <span class="ident">RawValue</span> {
         <span class="ident">RawValue</span> { <span class="ident">i64</span>: <span class="self">self</span> }
     }
 
     <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_raw</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">raw</span>: <span class="ident">RawValue</span>) -&gt; <span class="self">Self</span> {
+    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_raw</span>(<span class="ident">_store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">raw</span>: <span class="ident">RawValue</span>) -&gt; <span class="self">Self</span> {
         <span class="ident">raw</span>.<span class="ident">i64</span>
     }
 }
 
 <span class="kw">impl</span> <span class="ident">NativeWasmTypeInto</span> <span class="kw">for</span> <span class="ident">f32</span> {
     <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_abi</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">abi</span>: <span class="ident"><span class="self">Self</span>::Abi</span>) -&gt; <span class="self">Self</span> {
+    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_abi</span>(<span class="ident">_store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">abi</span>: <span class="ident"><span class="self">Self</span>::Abi</span>) -&gt; <span class="self">Self</span> {
         <span class="ident">abi</span>
     }
 
     <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">fn</span> <span class="ident">into_abi</span>(<span class="self">self</span>, <span class="ident">_ctx</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>) -&gt; <span class="ident"><span class="self">Self</span>::Abi</span> {
+    <span class="kw">fn</span> <span class="ident">into_abi</span>(<span class="self">self</span>, <span class="ident">_store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>) -&gt; <span class="ident"><span class="self">Self</span>::Abi</span> {
         <span class="self">self</span>
     }
 
     <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">fn</span> <span class="ident">into_raw</span>(<span class="self">self</span>, <span class="ident">_ctx</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>) -&gt; <span class="ident">RawValue</span> {
+    <span class="kw">fn</span> <span class="ident">into_raw</span>(<span class="self">self</span>, <span class="ident">_store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>) -&gt; <span class="ident">RawValue</span> {
         <span class="ident">RawValue</span> { <span class="ident">f32</span>: <span class="self">self</span> }
     }
 
     <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_raw</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">raw</span>: <span class="ident">RawValue</span>) -&gt; <span class="self">Self</span> {
+    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_raw</span>(<span class="ident">_store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">raw</span>: <span class="ident">RawValue</span>) -&gt; <span class="self">Self</span> {
         <span class="ident">raw</span>.<span class="ident">f32</span>
     }
 }
 
 <span class="kw">impl</span> <span class="ident">NativeWasmTypeInto</span> <span class="kw">for</span> <span class="ident">f64</span> {
     <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_abi</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">abi</span>: <span class="ident"><span class="self">Self</span>::Abi</span>) -&gt; <span class="self">Self</span> {
+    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_abi</span>(<span class="ident">_store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">abi</span>: <span class="ident"><span class="self">Self</span>::Abi</span>) -&gt; <span class="self">Self</span> {
         <span class="ident">abi</span>
     }
 
     <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">fn</span> <span class="ident">into_abi</span>(<span class="self">self</span>, <span class="ident">_ctx</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>) -&gt; <span class="ident"><span class="self">Self</span>::Abi</span> {
+    <span class="kw">fn</span> <span class="ident">into_abi</span>(<span class="self">self</span>, <span class="ident">_store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>) -&gt; <span class="ident"><span class="self">Self</span>::Abi</span> {
         <span class="self">self</span>
     }
 
     <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">fn</span> <span class="ident">into_raw</span>(<span class="self">self</span>, <span class="ident">_ctx</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>) -&gt; <span class="ident">RawValue</span> {
+    <span class="kw">fn</span> <span class="ident">into_raw</span>(<span class="self">self</span>, <span class="ident">_store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>) -&gt; <span class="ident">RawValue</span> {
         <span class="ident">RawValue</span> { <span class="ident">f64</span>: <span class="self">self</span> }
     }
 
     <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_raw</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">raw</span>: <span class="ident">RawValue</span>) -&gt; <span class="self">Self</span> {
+    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_raw</span>(<span class="ident">_store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">raw</span>: <span class="ident">RawValue</span>) -&gt; <span class="self">Self</span> {
         <span class="ident">raw</span>.<span class="ident">f64</span>
     }
 }
 
 <span class="kw">impl</span> <span class="ident">NativeWasmTypeInto</span> <span class="kw">for</span> <span class="ident">u128</span> {
     <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_abi</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">abi</span>: <span class="ident"><span class="self">Self</span>::Abi</span>) -&gt; <span class="self">Self</span> {
+    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_abi</span>(<span class="ident">_store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">abi</span>: <span class="ident"><span class="self">Self</span>::Abi</span>) -&gt; <span class="self">Self</span> {
         <span class="ident">abi</span>
     }
 
     <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">fn</span> <span class="ident">into_abi</span>(<span class="self">self</span>, <span class="ident">_ctx</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>) -&gt; <span class="ident"><span class="self">Self</span>::Abi</span> {
+    <span class="kw">fn</span> <span class="ident">into_abi</span>(<span class="self">self</span>, <span class="ident">_store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>) -&gt; <span class="ident"><span class="self">Self</span>::Abi</span> {
         <span class="self">self</span>
     }
 
     <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">fn</span> <span class="ident">into_raw</span>(<span class="self">self</span>, <span class="ident">_ctx</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>) -&gt; <span class="ident">RawValue</span> {
+    <span class="kw">fn</span> <span class="ident">into_raw</span>(<span class="self">self</span>, <span class="ident">_store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>) -&gt; <span class="ident">RawValue</span> {
         <span class="ident">RawValue</span> { <span class="ident">u128</span>: <span class="self">self</span> }
     }
 
     <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_raw</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">raw</span>: <span class="ident">RawValue</span>) -&gt; <span class="self">Self</span> {
+    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_raw</span>(<span class="ident">_store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">raw</span>: <span class="ident">RawValue</span>) -&gt; <span class="self">Self</span> {
         <span class="ident">raw</span>.<span class="ident">u128</span>
     }
 }
@@ -383,24 +385,24 @@
 
 <span class="kw">impl</span> <span class="ident">NativeWasmTypeInto</span> <span class="kw">for</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">ExternRef</span><span class="op">&gt;</span> {
     <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_abi</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">abi</span>: <span class="ident"><span class="self">Self</span>::Abi</span>) -&gt; <span class="self">Self</span> {
+    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_abi</span>(<span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">abi</span>: <span class="ident"><span class="self">Self</span>::Abi</span>) -&gt; <span class="self">Self</span> {
         <span class="ident">VMExternRef::from_raw</span>(<span class="ident">RawValue</span> { <span class="ident">externref</span>: <span class="ident">abi</span> })
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">ExternRef::from_vm_externref</span>(<span class="ident">ctx</span>, <span class="ident">e</span>))
+            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">ExternRef::from_vm_externref</span>(<span class="ident">store</span>, <span class="ident">e</span>))
     }
 
     <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">fn</span> <span class="ident">into_abi</span>(<span class="self">self</span>, <span class="ident">_ctx</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>) -&gt; <span class="ident"><span class="self">Self</span>::Abi</span> {
+    <span class="kw">fn</span> <span class="ident">into_abi</span>(<span class="self">self</span>, <span class="ident">_store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>) -&gt; <span class="ident"><span class="self">Self</span>::Abi</span> {
         <span class="self">self</span>.<span class="ident">map_or</span>(<span class="number">0</span>, <span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="kw">unsafe</span> { <span class="ident">e</span>.<span class="ident">vm_externref</span>().<span class="ident">into_raw</span>().<span class="ident">externref</span> })
     }
 
     <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">fn</span> <span class="ident">into_raw</span>(<span class="self">self</span>, <span class="ident">_ctx</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>) -&gt; <span class="ident">RawValue</span> {
+    <span class="kw">fn</span> <span class="ident">into_raw</span>(<span class="self">self</span>, <span class="ident">_store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>) -&gt; <span class="ident">RawValue</span> {
         <span class="self">self</span>.<span class="ident">map_or</span>(<span class="ident">RawValue</span> { <span class="ident">externref</span>: <span class="number">0</span> }, <span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">e</span>.<span class="ident">vm_externref</span>().<span class="ident">into_raw</span>())
     }
 
     <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_raw</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">raw</span>: <span class="ident">RawValue</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident">VMExternRef::from_raw</span>(<span class="ident">raw</span>).<span class="ident">map</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">ExternRef::from_vm_externref</span>(<span class="ident">ctx</span>, <span class="ident">e</span>))
+    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_raw</span>(<span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">raw</span>: <span class="ident">RawValue</span>) -&gt; <span class="self">Self</span> {
+        <span class="ident">VMExternRef::from_raw</span>(<span class="ident">raw</span>).<span class="ident">map</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">ExternRef::from_vm_externref</span>(<span class="ident">store</span>, <span class="ident">e</span>))
     }
 }
 
@@ -411,23 +413,25 @@
 
 <span class="kw">impl</span> <span class="ident">NativeWasmTypeInto</span> <span class="kw">for</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Function</span><span class="op">&gt;</span> {
     <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_abi</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">abi</span>: <span class="ident"><span class="self">Self</span>::Abi</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident">VMFuncRef::from_raw</span>(<span class="ident">RawValue</span> { <span class="ident">funcref</span>: <span class="ident">abi</span> }).<span class="ident">map</span>(<span class="op">|</span><span class="ident">f</span><span class="op">|</span> <span class="ident">Function::from_vm_funcref</span>(<span class="ident">ctx</span>, <span class="ident">f</span>))
+    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_abi</span>(<span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">abi</span>: <span class="ident"><span class="self">Self</span>::Abi</span>) -&gt; <span class="self">Self</span> {
+        <span class="ident">VMFuncRef::from_raw</span>(<span class="ident">RawValue</span> { <span class="ident">funcref</span>: <span class="ident">abi</span> }).<span class="ident">map</span>(<span class="op">|</span><span class="ident">f</span><span class="op">|</span> <span class="ident">Function::from_vm_funcref</span>(<span class="ident">store</span>, <span class="ident">f</span>))
     }
 
     <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">fn</span> <span class="ident">into_abi</span>(<span class="self">self</span>, <span class="ident">ctx</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>) -&gt; <span class="ident"><span class="self">Self</span>::Abi</span> {
-        <span class="self">self</span>.<span class="ident">map_or</span>(<span class="number">0</span>, <span class="op">|</span><span class="ident">f</span><span class="op">|</span> <span class="kw">unsafe</span> { <span class="ident">f</span>.<span class="ident">vm_funcref</span>(<span class="ident">ctx</span>).<span class="ident">into_raw</span>().<span class="ident">externref</span> })
+    <span class="kw">fn</span> <span class="ident">into_abi</span>(<span class="self">self</span>, <span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>) -&gt; <span class="ident"><span class="self">Self</span>::Abi</span> {
+        <span class="self">self</span>.<span class="ident">map_or</span>(<span class="number">0</span>, <span class="op">|</span><span class="ident">f</span><span class="op">|</span> <span class="kw">unsafe</span> { <span class="ident">f</span>.<span class="ident">vm_funcref</span>(<span class="ident">store</span>).<span class="ident">into_raw</span>().<span class="ident">externref</span> })
     }
 
     <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">fn</span> <span class="ident">into_raw</span>(<span class="self">self</span>, <span class="ident">ctx</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>) -&gt; <span class="ident">RawValue</span> {
-        <span class="self">self</span>.<span class="ident">map_or</span>(<span class="ident">RawValue</span> { <span class="ident">externref</span>: <span class="number">0</span> }, <span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">e</span>.<span class="ident">vm_funcref</span>(<span class="ident">ctx</span>).<span class="ident">into_raw</span>())
+    <span class="kw">fn</span> <span class="ident">into_raw</span>(<span class="self">self</span>, <span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>) -&gt; <span class="ident">RawValue</span> {
+        <span class="self">self</span>.<span class="ident">map_or</span>(<span class="ident">RawValue</span> { <span class="ident">externref</span>: <span class="number">0</span> }, <span class="op">|</span><span class="ident">e</span><span class="op">|</span> {
+            <span class="ident">e</span>.<span class="ident">vm_funcref</span>(<span class="ident">store</span>).<span class="ident">into_raw</span>()
+        })
     }
 
     <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_raw</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">raw</span>: <span class="ident">RawValue</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident">VMFuncRef::from_raw</span>(<span class="ident">raw</span>).<span class="ident">map</span>(<span class="op">|</span><span class="ident">f</span><span class="op">|</span> <span class="ident">Function::from_vm_funcref</span>(<span class="ident">ctx</span>, <span class="ident">f</span>))
+    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_raw</span>(<span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">raw</span>: <span class="ident">RawValue</span>) -&gt; <span class="self">Self</span> {
+        <span class="ident">VMFuncRef::from_raw</span>(<span class="ident">raw</span>).<span class="ident">map</span>(<span class="op">|</span><span class="ident">f</span><span class="op">|</span> <span class="ident">Function::from_vm_funcref</span>(<span class="ident">store</span>, <span class="ident">f</span>))
     }
 }
 

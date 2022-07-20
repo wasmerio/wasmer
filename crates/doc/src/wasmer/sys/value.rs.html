@@ -568,14 +568,14 @@
     }
 
     <span class="doccomment">/// Converts the `Value` into a `RawValue`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">as_raw</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsStoreRef</span>) -&gt; <span class="ident">RawValue</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">as_raw</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsStoreRef</span>) -&gt; <span class="ident">RawValue</span> {
         <span class="kw">match</span> <span class="kw-2">*</span><span class="self">self</span> {
             <span class="ident"><span class="self">Self</span>::I32</span>(<span class="ident">i32</span>) =&gt; <span class="ident">RawValue</span> { <span class="ident">i32</span> },
             <span class="ident"><span class="self">Self</span>::I64</span>(<span class="ident">i64</span>) =&gt; <span class="ident">RawValue</span> { <span class="ident">i64</span> },
             <span class="ident"><span class="self">Self</span>::F32</span>(<span class="ident">f32</span>) =&gt; <span class="ident">RawValue</span> { <span class="ident">f32</span> },
             <span class="ident"><span class="self">Self</span>::F64</span>(<span class="ident">f64</span>) =&gt; <span class="ident">RawValue</span> { <span class="ident">f64</span> },
             <span class="ident"><span class="self">Self</span>::V128</span>(<span class="ident">u128</span>) =&gt; <span class="ident">RawValue</span> { <span class="ident">u128</span> },
-            <span class="ident"><span class="self">Self</span>::FuncRef</span>(<span class="prelude-val">Some</span>(<span class="kw-2">ref</span> <span class="ident">f</span>)) =&gt; <span class="ident">f</span>.<span class="ident">vm_funcref</span>(<span class="ident">ctx</span>).<span class="ident">into_raw</span>(),
+            <span class="ident"><span class="self">Self</span>::FuncRef</span>(<span class="prelude-val">Some</span>(<span class="kw-2">ref</span> <span class="ident">f</span>)) =&gt; <span class="ident">f</span>.<span class="ident">vm_funcref</span>(<span class="ident">store</span>).<span class="ident">into_raw</span>(),
 
             <span class="ident"><span class="self">Self</span>::FuncRef</span>(<span class="prelude-val">None</span>) =&gt; <span class="ident">RawValue</span> { <span class="ident">funcref</span>: <span class="number">0</span> },
             <span class="ident"><span class="self">Self</span>::ExternRef</span>(<span class="prelude-val">Some</span>(<span class="kw-2">ref</span> <span class="ident">e</span>)) =&gt; <span class="ident">e</span>.<span class="ident">vm_externref</span>().<span class="ident">into_raw</span>(),
@@ -587,7 +587,7 @@
     <span class="doccomment">///</span>
     <span class="doccomment">/// # Safety</span>
     <span class="doccomment">///</span>
-    <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_raw</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">ty</span>: <span class="ident">Type</span>, <span class="ident">raw</span>: <span class="ident">RawValue</span>) -&gt; <span class="self">Self</span> {
+    <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_raw</span>(<span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">ty</span>: <span class="ident">Type</span>, <span class="ident">raw</span>: <span class="ident">RawValue</span>) -&gt; <span class="self">Self</span> {
         <span class="kw">match</span> <span class="ident">ty</span> {
             <span class="ident">Type::I32</span> =&gt; <span class="ident"><span class="self">Self</span>::I32</span>(<span class="ident">raw</span>.<span class="ident">i32</span>),
             <span class="ident">Type::I64</span> =&gt; <span class="ident"><span class="self">Self</span>::I64</span>(<span class="ident">raw</span>.<span class="ident">i64</span>),
@@ -595,10 +595,10 @@
             <span class="ident">Type::F64</span> =&gt; <span class="ident"><span class="self">Self</span>::F64</span>(<span class="ident">raw</span>.<span class="ident">f64</span>),
             <span class="ident">Type::V128</span> =&gt; <span class="ident"><span class="self">Self</span>::V128</span>(<span class="ident">raw</span>.<span class="ident">u128</span>),
             <span class="ident">Type::FuncRef</span> =&gt; {
-                <span class="ident"><span class="self">Self</span>::FuncRef</span>(<span class="ident">VMFuncRef::from_raw</span>(<span class="ident">raw</span>).<span class="ident">map</span>(<span class="op">|</span><span class="ident">f</span><span class="op">|</span> <span class="ident">Function::from_vm_funcref</span>(<span class="ident">ctx</span>, <span class="ident">f</span>)))
+                <span class="ident"><span class="self">Self</span>::FuncRef</span>(<span class="ident">VMFuncRef::from_raw</span>(<span class="ident">raw</span>).<span class="ident">map</span>(<span class="op">|</span><span class="ident">f</span><span class="op">|</span> <span class="ident">Function::from_vm_funcref</span>(<span class="ident">store</span>, <span class="ident">f</span>)))
             }
             <span class="ident">Type::ExternRef</span> =&gt; <span class="ident"><span class="self">Self</span>::ExternRef</span>(
-                <span class="ident">VMExternRef::from_raw</span>(<span class="ident">raw</span>).<span class="ident">map</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">ExternRef::from_vm_externref</span>(<span class="ident">ctx</span>, <span class="ident">e</span>)),
+                <span class="ident">VMExternRef::from_raw</span>(<span class="ident">raw</span>).<span class="ident">map</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">ExternRef::from_vm_externref</span>(<span class="ident">store</span>, <span class="ident">e</span>)),
             ),
         }
     }
@@ -610,7 +610,7 @@
     <span class="doccomment">///</span>
     <span class="doccomment">/// Externref and funcref values are tied to a context and can only be used</span>
     <span class="doccomment">/// with that context.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_from_store</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsStoreRef</span>) -&gt; <span class="ident">bool</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_from_store</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsStoreRef</span>) -&gt; <span class="ident">bool</span> {
         <span class="kw">match</span> <span class="self">self</span> {
             <span class="ident"><span class="self">Self</span>::I32</span>(<span class="kw">_</span>)
             <span class="op">|</span> <span class="ident"><span class="self">Self</span>::I64</span>(<span class="kw">_</span>)
@@ -619,8 +619,8 @@
             <span class="op">|</span> <span class="ident"><span class="self">Self</span>::V128</span>(<span class="kw">_</span>)
             <span class="op">|</span> <span class="ident"><span class="self">Self</span>::ExternRef</span>(<span class="prelude-val">None</span>)
             <span class="op">|</span> <span class="ident"><span class="self">Self</span>::FuncRef</span>(<span class="prelude-val">None</span>) =&gt; <span class="bool-val">true</span>,
-            <span class="ident"><span class="self">Self</span>::ExternRef</span>(<span class="prelude-val">Some</span>(<span class="ident">e</span>)) =&gt; <span class="ident">e</span>.<span class="ident">is_from_store</span>(<span class="ident">ctx</span>),
-            <span class="ident"><span class="self">Self</span>::FuncRef</span>(<span class="prelude-val">Some</span>(<span class="ident">f</span>)) =&gt; <span class="ident">f</span>.<span class="ident">is_from_store</span>(<span class="ident">ctx</span>),
+            <span class="ident"><span class="self">Self</span>::ExternRef</span>(<span class="prelude-val">Some</span>(<span class="ident">e</span>)) =&gt; <span class="ident">e</span>.<span class="ident">is_from_store</span>(<span class="ident">store</span>),
+            <span class="ident"><span class="self">Self</span>::FuncRef</span>(<span class="prelude-val">Some</span>(<span class="ident">f</span>)) =&gt; <span class="ident">f</span>.<span class="ident">is_from_store</span>(<span class="ident">store</span>),
         }
     }
 

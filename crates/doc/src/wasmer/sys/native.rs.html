@@ -232,24 +232,24 @@
             <span class="doccomment">/// Call the typed func and return results.</span>
             <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unused_mut</span>)]</span>
             <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
-            <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">call</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">ctx</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>: <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>, )<span class="op">*</span> ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Rets</span>, <span class="ident">RuntimeError</span><span class="op">&gt;</span> {
+            <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">call</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>: <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>, )<span class="op">*</span> ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Rets</span>, <span class="ident">RuntimeError</span><span class="op">&gt;</span> {
                 <span class="kw">let</span> <span class="ident">anyfunc</span> <span class="op">=</span> <span class="kw">unsafe</span> {
                     <span class="kw-2">*</span><span class="self">self</span>.<span class="ident">func</span>
                         .<span class="ident">handle</span>
-                        .<span class="ident">get</span>(<span class="ident">ctx</span>.<span class="ident">as_store_ref</span>().<span class="ident">objects</span>())
+                        .<span class="ident">get</span>(<span class="ident">store</span>.<span class="ident">as_store_ref</span>().<span class="ident">objects</span>())
                         .<span class="ident">anyfunc</span>
                         .<span class="ident">as_ptr</span>()
                         .<span class="ident">as_ref</span>()
                 };
                 <span class="comment">// Ensure all parameters come from the same context.</span>
-                <span class="kw">if</span> $(<span class="op">!</span><span class="ident">FromToNativeWasmType::is_from_store</span>(<span class="kw-2">&amp;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>, <span class="ident">ctx</span>) <span class="op">|</span><span class="op">|</span>)<span class="op">*</span> <span class="bool-val">false</span> {
+                <span class="kw">if</span> $(<span class="op">!</span><span class="ident">FromToNativeWasmType::is_from_store</span>(<span class="kw-2">&amp;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>, <span class="ident">store</span>) <span class="op">|</span><span class="op">|</span>)<span class="op">*</span> <span class="bool-val">false</span> {
                     <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">RuntimeError::new</span>(
                         <span class="string">&quot;cross-`Context` values are not supported&quot;</span>,
                     ));
                 }
                 <span class="comment">// TODO: when `const fn` related features mature more, we can declare a single array</span>
                 <span class="comment">// of the correct size here.</span>
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">params_list</span> <span class="op">=</span> [ $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>.<span class="ident">to_native</span>().<span class="ident">into_raw</span>(<span class="ident">ctx</span>) ),<span class="op">*</span> ];
+                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">params_list</span> <span class="op">=</span> [ $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>.<span class="ident">to_native</span>().<span class="ident">into_raw</span>(<span class="ident">store</span>) ),<span class="op">*</span> ];
                 <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">rets_list_array</span> <span class="op">=</span> <span class="ident">Rets::empty_array</span>();
                 <span class="kw">let</span> <span class="ident">rets_list</span>: <span class="kw-2">&amp;mut</span> [<span class="ident">RawValue</span>] <span class="op">=</span> <span class="ident">rets_list_array</span>.<span class="ident">as_mut</span>();
                 <span class="kw">let</span> <span class="ident">using_rets_array</span>;
@@ -265,7 +265,7 @@
                 };
                 <span class="kw">unsafe</span> {
                     <span class="ident">wasmer_vm::wasmer_call_trampoline</span>(
-                        <span class="ident">ctx</span>.<span class="ident">as_store_ref</span>().<span class="ident">signal_handler</span>(),
+                        <span class="ident">store</span>.<span class="ident">as_store_ref</span>().<span class="ident">signal_handler</span>(),
                         <span class="ident">anyfunc</span>.<span class="ident">vmctx</span>,
                         <span class="ident">anyfunc</span>.<span class="ident">call_trampoline</span>,
                         <span class="ident">anyfunc</span>.<span class="ident">func_ptr</span>,
@@ -284,7 +284,7 @@
                                                         <span class="ident">num_rets</span>);
                     }
                 }
-                <span class="prelude-val">Ok</span>(<span class="kw">unsafe</span> { <span class="ident">Rets::from_array</span>(<span class="ident">ctx</span>, <span class="ident">rets_list_array</span>) })
+                <span class="prelude-val">Ok</span>(<span class="kw">unsafe</span> { <span class="ident">Rets::from_array</span>(<span class="ident">store</span>, <span class="ident">rets_list_array</span>) })
                 <span class="comment">// TODO: When the Host ABI and Wasm ABI are the same, we could do this instead:</span>
                 <span class="comment">// but we can&#39;t currently detect whether that&#39;s safe.</span>
                 <span class="comment">//</span>

@@ -488,20 +488,20 @@
     <span class="doccomment">/// Get an export as a `TypedFunction`.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_native_function</span><span class="op">&lt;</span><span class="ident">Args</span>, <span class="ident">Rets</span><span class="op">&gt;</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsStoreRef</span>,
+        <span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsStoreRef</span>,
         <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">TypedFunction</span><span class="op">&lt;</span><span class="ident">Args</span>, <span class="ident">Rets</span><span class="op">&gt;</span>, <span class="ident">ExportError</span><span class="op">&gt;</span>
     <span class="kw">where</span>
         <span class="ident">Args</span>: <span class="ident">WasmTypeList</span>,
         <span class="ident">Rets</span>: <span class="ident">WasmTypeList</span>,
     {
-        <span class="self">self</span>.<span class="ident">get_typed_function</span>(<span class="ident">ctx</span>, <span class="ident">name</span>)
+        <span class="self">self</span>.<span class="ident">get_typed_function</span>(<span class="ident">store</span>, <span class="ident">name</span>)
     }
 
     <span class="doccomment">/// Get an export as a `TypedFunction`.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_typed_function</span><span class="op">&lt;</span><span class="ident">Args</span>, <span class="ident">Rets</span><span class="op">&gt;</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsStoreRef</span>,
+        <span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsStoreRef</span>,
         <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">TypedFunction</span><span class="op">&lt;</span><span class="ident">Args</span>, <span class="ident">Rets</span><span class="op">&gt;</span>, <span class="ident">ExportError</span><span class="op">&gt;</span>
     <span class="kw">where</span>
@@ -509,7 +509,7 @@
         <span class="ident">Rets</span>: <span class="ident">WasmTypeList</span>,
     {
         <span class="self">self</span>.<span class="ident">get_function</span>(<span class="ident">name</span>)<span class="question-mark">?</span>
-            .<span class="ident">native</span>(<span class="ident">ctx</span>)
+            .<span class="ident">native</span>(<span class="ident">store</span>)
             .<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">ExportError::IncompatibleType</span>)
     }
 

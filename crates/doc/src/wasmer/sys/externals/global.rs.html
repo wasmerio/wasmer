@@ -260,8 +260,8 @@
     <span class="doccomment">/// assert_eq!(g.get(&amp;mut store), Value::I32(1));</span>
     <span class="doccomment">/// assert_eq!(g.ty(&amp;mut store).mutability, Mutability::Const);</span>
     <span class="doccomment">/// ```</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">val</span>: <span class="ident">Value</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident"><span class="self">Self</span>::from_value</span>(<span class="ident">ctx</span>, <span class="ident">val</span>, <span class="ident">Mutability::Const</span>).<span class="ident">unwrap</span>()
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">val</span>: <span class="ident">Value</span>) -&gt; <span class="self">Self</span> {
+        <span class="ident"><span class="self">Self</span>::from_value</span>(<span class="ident">store</span>, <span class="ident">val</span>, <span class="ident">Mutability::Const</span>).<span class="ident">unwrap</span>()
     }
 
     <span class="doccomment">/// Create a mutable `Global` with the initial value [`Value`].</span>
@@ -277,17 +277,17 @@
     <span class="doccomment">/// assert_eq!(g.get(&amp;mut store), Value::I32(1));</span>
     <span class="doccomment">/// assert_eq!(g.ty(&amp;mut store).mutability, Mutability::Var);</span>
     <span class="doccomment">/// ```</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_mut</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">val</span>: <span class="ident">Value</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident"><span class="self">Self</span>::from_value</span>(<span class="ident">ctx</span>, <span class="ident">val</span>, <span class="ident">Mutability::Var</span>).<span class="ident">unwrap</span>()
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_mut</span>(<span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">val</span>: <span class="ident">Value</span>) -&gt; <span class="self">Self</span> {
+        <span class="ident"><span class="self">Self</span>::from_value</span>(<span class="ident">store</span>, <span class="ident">val</span>, <span class="ident">Mutability::Var</span>).<span class="ident">unwrap</span>()
     }
 
     <span class="doccomment">/// Create a `Global` with the initial value [`Value`] and the provided [`Mutability`].</span>
     <span class="kw">fn</span> <span class="ident">from_value</span>(
-        <span class="ident">ctx</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>,
+        <span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>,
         <span class="ident">val</span>: <span class="ident">Value</span>,
         <span class="ident">mutability</span>: <span class="ident">Mutability</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">RuntimeError</span><span class="op">&gt;</span> {
-        <span class="kw">if</span> <span class="op">!</span><span class="ident">val</span>.<span class="ident">is_from_store</span>(<span class="ident">ctx</span>) {
+        <span class="kw">if</span> <span class="op">!</span><span class="ident">val</span>.<span class="ident">is_from_store</span>(<span class="ident">store</span>) {
             <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">RuntimeError::new</span>(
                 <span class="string">&quot;cross-`Context` values are not supported&quot;</span>,
             ));
@@ -297,11 +297,11 @@
             <span class="ident">ty</span>: <span class="ident">val</span>.<span class="ident">ty</span>(),
         });
         <span class="kw">unsafe</span> {
-            <span class="ident">global</span>.<span class="ident">vmglobal</span>().<span class="ident">as_mut</span>().<span class="ident">val</span> <span class="op">=</span> <span class="ident">val</span>.<span class="ident">as_raw</span>(<span class="ident">ctx</span>);
+            <span class="ident">global</span>.<span class="ident">vmglobal</span>().<span class="ident">as_mut</span>().<span class="ident">val</span> <span class="op">=</span> <span class="ident">val</span>.<span class="ident">as_raw</span>(<span class="ident">store</span>);
         }
 
         <span class="prelude-val">Ok</span>(<span class="self">Self</span> {
-            <span class="ident">handle</span>: <span class="ident">StoreHandle::new</span>(<span class="ident">ctx</span>.<span class="ident">objects_mut</span>(), <span class="ident">global</span>),
+            <span class="ident">handle</span>: <span class="ident">StoreHandle::new</span>(<span class="ident">store</span>.<span class="ident">objects_mut</span>(), <span class="ident">global</span>),
         })
     }
 
@@ -319,8 +319,8 @@
     <span class="doccomment">/// assert_eq!(c.ty(&amp;mut store), GlobalType::new(Type::I32, Mutability::Const));</span>
     <span class="doccomment">/// assert_eq!(v.ty(&amp;mut store), GlobalType::new(Type::I64, Mutability::Var));</span>
     <span class="doccomment">/// ```</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">ty</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsStoreRef</span>) -&gt; <span class="ident">GlobalType</span> {
-        <span class="kw-2">*</span><span class="self">self</span>.<span class="ident">handle</span>.<span class="ident">get</span>(<span class="ident">ctx</span>.<span class="ident">as_store_ref</span>().<span class="ident">objects</span>()).<span class="ident">ty</span>()
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">ty</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsStoreRef</span>) -&gt; <span class="ident">GlobalType</span> {
+        <span class="kw-2">*</span><span class="self">self</span>.<span class="ident">handle</span>.<span class="ident">get</span>(<span class="ident">store</span>.<span class="ident">as_store_ref</span>().<span class="ident">objects</span>()).<span class="ident">ty</span>()
     }
 
     <span class="doccomment">/// Retrieves the current value [`Value`] that the Global has.</span>
@@ -335,16 +335,16 @@
     <span class="doccomment">///</span>
     <span class="doccomment">/// assert_eq!(g.get(&amp;mut store), Value::I32(1));</span>
     <span class="doccomment">/// ```</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">ctx</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>) -&gt; <span class="ident">Value</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>) -&gt; <span class="ident">Value</span> {
         <span class="kw">unsafe</span> {
             <span class="kw">let</span> <span class="ident">raw</span> <span class="op">=</span> <span class="self">self</span>
                 .<span class="ident">handle</span>
-                .<span class="ident">get</span>(<span class="ident">ctx</span>.<span class="ident">as_store_ref</span>().<span class="ident">objects</span>())
+                .<span class="ident">get</span>(<span class="ident">store</span>.<span class="ident">as_store_ref</span>().<span class="ident">objects</span>())
                 .<span class="ident">vmglobal</span>()
                 .<span class="ident">as_ref</span>()
                 .<span class="ident">val</span>;
-            <span class="kw">let</span> <span class="ident">ty</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">handle</span>.<span class="ident">get</span>(<span class="ident">ctx</span>.<span class="ident">as_store_ref</span>().<span class="ident">objects</span>()).<span class="ident">ty</span>().<span class="ident">ty</span>;
-            <span class="ident">Value::from_raw</span>(<span class="ident">ctx</span>, <span class="ident">ty</span>, <span class="ident">raw</span>)
+            <span class="kw">let</span> <span class="ident">ty</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">handle</span>.<span class="ident">get</span>(<span class="ident">store</span>.<span class="ident">as_store_ref</span>().<span class="ident">objects</span>()).<span class="ident">ty</span>().<span class="ident">ty</span>;
+            <span class="ident">Value::from_raw</span>(<span class="ident">store</span>, <span class="ident">ty</span>, <span class="ident">raw</span>)
         }
     }
 
@@ -389,46 +389,46 @@
     <span class="doccomment">/// // This results in an error: `RuntimeError`.</span>
     <span class="doccomment">/// g.set(&amp;mut store, Value::I64(2)).unwrap();</span>
     <span class="doccomment">/// ```</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">ctx</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">val</span>: <span class="ident">Value</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">RuntimeError</span><span class="op">&gt;</span> {
-        <span class="kw">if</span> <span class="op">!</span><span class="ident">val</span>.<span class="ident">is_from_store</span>(<span class="ident">ctx</span>) {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">val</span>: <span class="ident">Value</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">RuntimeError</span><span class="op">&gt;</span> {
+        <span class="kw">if</span> <span class="op">!</span><span class="ident">val</span>.<span class="ident">is_from_store</span>(<span class="ident">store</span>) {
             <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">RuntimeError::new</span>(
                 <span class="string">&quot;cross-`Context` values are not supported&quot;</span>,
             ));
         }
-        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">ty</span>(<span class="ident">ctx</span>).<span class="ident">mutability</span> <span class="op">!</span><span class="op">=</span> <span class="ident">Mutability::Var</span> {
+        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">ty</span>(<span class="ident">store</span>).<span class="ident">mutability</span> <span class="op">!</span><span class="op">=</span> <span class="ident">Mutability::Var</span> {
             <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">RuntimeError::new</span>(<span class="string">&quot;Attempted to set an immutable global&quot;</span>));
         }
-        <span class="kw">if</span> <span class="ident">val</span>.<span class="ident">ty</span>() <span class="op">!</span><span class="op">=</span> <span class="self">self</span>.<span class="ident">ty</span>(<span class="ident">ctx</span>).<span class="ident">ty</span> {
+        <span class="kw">if</span> <span class="ident">val</span>.<span class="ident">ty</span>() <span class="op">!</span><span class="op">=</span> <span class="self">self</span>.<span class="ident">ty</span>(<span class="ident">store</span>).<span class="ident">ty</span> {
             <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">RuntimeError::new</span>(<span class="macro">format!</span>(
                 <span class="string">&quot;Attempted to operate on a global of type {expected} as a global of type {found}&quot;</span>,
-                <span class="ident">expected</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">ty</span>(<span class="ident">ctx</span>).<span class="ident">ty</span>,
+                <span class="ident">expected</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">ty</span>(<span class="ident">store</span>).<span class="ident">ty</span>,
                 <span class="ident">found</span> <span class="op">=</span> <span class="ident">val</span>.<span class="ident">ty</span>(),
             )));
         }
         <span class="kw">unsafe</span> {
             <span class="self">self</span>.<span class="ident">handle</span>
-                .<span class="ident">get_mut</span>(<span class="ident">ctx</span>.<span class="ident">objects_mut</span>())
+                .<span class="ident">get_mut</span>(<span class="ident">store</span>.<span class="ident">objects_mut</span>())
                 .<span class="ident">vmglobal</span>()
                 .<span class="ident">as_mut</span>()
-                .<span class="ident">val</span> <span class="op">=</span> <span class="ident">val</span>.<span class="ident">as_raw</span>(<span class="ident">ctx</span>);
+                .<span class="ident">val</span> <span class="op">=</span> <span class="ident">val</span>.<span class="ident">as_raw</span>(<span class="ident">store</span>);
         }
         <span class="prelude-val">Ok</span>(())
     }
 
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">from_vm_extern</span>(
-        <span class="ident">ctx</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>,
+        <span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>,
         <span class="ident">internal</span>: <span class="ident">InternalStoreHandle</span><span class="op">&lt;</span><span class="ident">VMGlobal</span><span class="op">&gt;</span>,
     ) -&gt; <span class="self">Self</span> {
         <span class="self">Self</span> {
             <span class="ident">handle</span>: <span class="kw">unsafe</span> {
-                <span class="ident">StoreHandle::from_internal</span>(<span class="ident">ctx</span>.<span class="ident">as_store_ref</span>().<span class="ident">objects</span>().<span class="ident">id</span>(), <span class="ident">internal</span>)
+                <span class="ident">StoreHandle::from_internal</span>(<span class="ident">store</span>.<span class="ident">as_store_ref</span>().<span class="ident">objects</span>().<span class="ident">id</span>(), <span class="ident">internal</span>)
             },
         }
     }
 
     <span class="doccomment">/// Checks whether this `Global` can be used with the given context.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_from_store</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsStoreRef</span>) -&gt; <span class="ident">bool</span> {
-        <span class="self">self</span>.<span class="ident">handle</span>.<span class="ident">store_id</span>() <span class="op">==</span> <span class="ident">ctx</span>.<span class="ident">as_store_ref</span>().<span class="ident">objects</span>().<span class="ident">id</span>()
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_from_store</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsStoreRef</span>) -&gt; <span class="ident">bool</span> {
+        <span class="self">self</span>.<span class="ident">handle</span>.<span class="ident">store_id</span>() <span class="op">==</span> <span class="ident">store</span>.<span class="ident">as_store_ref</span>().<span class="ident">objects</span>().<span class="ident">id</span>()
     }
 
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">to_vm_extern</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">VMExtern</span> {

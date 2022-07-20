@@ -241,10 +241,10 @@
 }
 
 <span class="kw">fn</span> <span class="ident">value_to_table_element</span>(
-    <span class="ident">ctx</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>,
+    <span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>,
     <span class="ident">val</span>: <span class="ident">Value</span>,
 ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">wasmer_vm::TableElement</span>, <span class="ident">RuntimeError</span><span class="op">&gt;</span> {
-    <span class="kw">if</span> <span class="op">!</span><span class="ident">val</span>.<span class="ident">is_from_store</span>(<span class="ident">ctx</span>) {
+    <span class="kw">if</span> <span class="op">!</span><span class="ident">val</span>.<span class="ident">is_from_store</span>(<span class="ident">store</span>) {
         <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">RuntimeError::new</span>(<span class="string">&quot;cannot pass Value across contexts&quot;</span>));
     }
     <span class="prelude-val">Ok</span>(<span class="kw">match</span> <span class="ident">val</span> {
@@ -252,19 +252,19 @@
             <span class="ident">wasmer_vm::TableElement::ExternRef</span>(<span class="ident">extern_ref</span>.<span class="ident">map</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">e</span>.<span class="ident">vm_externref</span>()))
         }
         <span class="ident">Value::FuncRef</span>(<span class="ident">func_ref</span>) =&gt; {
-            <span class="ident">wasmer_vm::TableElement::FuncRef</span>(<span class="ident">func_ref</span>.<span class="ident">map</span>(<span class="op">|</span><span class="ident">f</span><span class="op">|</span> <span class="ident">f</span>.<span class="ident">vm_funcref</span>(<span class="ident">ctx</span>)))
+            <span class="ident">wasmer_vm::TableElement::FuncRef</span>(<span class="ident">func_ref</span>.<span class="ident">map</span>(<span class="op">|</span><span class="ident">f</span><span class="op">|</span> <span class="ident">f</span>.<span class="ident">vm_funcref</span>(<span class="ident">store</span>)))
         }
         <span class="kw">_</span> =&gt; <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">RuntimeError::new</span>(<span class="string">&quot;val is not reference&quot;</span>)),
     })
 }
 
-<span class="kw">fn</span> <span class="ident">value_from_table_element</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">item</span>: <span class="ident">wasmer_vm::TableElement</span>) -&gt; <span class="ident">Value</span> {
+<span class="kw">fn</span> <span class="ident">value_from_table_element</span>(<span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">item</span>: <span class="ident">wasmer_vm::TableElement</span>) -&gt; <span class="ident">Value</span> {
     <span class="kw">match</span> <span class="ident">item</span> {
         <span class="ident">wasmer_vm::TableElement::FuncRef</span>(<span class="ident">funcref</span>) =&gt; {
-            <span class="ident">Value::FuncRef</span>(<span class="ident">funcref</span>.<span class="ident">map</span>(<span class="op">|</span><span class="ident">f</span><span class="op">|</span> <span class="kw">unsafe</span> { <span class="ident">Function::from_vm_funcref</span>(<span class="ident">ctx</span>, <span class="ident">f</span>) }))
+            <span class="ident">Value::FuncRef</span>(<span class="ident">funcref</span>.<span class="ident">map</span>(<span class="op">|</span><span class="ident">f</span><span class="op">|</span> <span class="kw">unsafe</span> { <span class="ident">Function::from_vm_funcref</span>(<span class="ident">store</span>, <span class="ident">f</span>) }))
         }
         <span class="ident">wasmer_vm::TableElement::ExternRef</span>(<span class="ident">extern_ref</span>) =&gt; {
-            <span class="ident">Value::ExternRef</span>(<span class="ident">extern_ref</span>.<span class="ident">map</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="kw">unsafe</span> { <span class="ident">ExternRef::from_vm_externref</span>(<span class="ident">ctx</span>, <span class="ident">e</span>) }))
+            <span class="ident">Value::ExternRef</span>(<span class="ident">extern_ref</span>.<span class="ident">map</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="kw">unsafe</span> { <span class="ident">ExternRef::from_vm_externref</span>(<span class="ident">store</span>, <span class="ident">e</span>) }))
         }
     }
 }
@@ -277,13 +277,13 @@
     <span class="doccomment">/// This function will construct the `Table` using the store</span>
     <span class="doccomment">/// [`BaseTunables`][crate::sys::BaseTunables].</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(
-        <span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>,
+        <span class="kw-2">mut</span> <span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>,
         <span class="ident">ty</span>: <span class="ident">TableType</span>,
         <span class="ident">init</span>: <span class="ident">Value</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">RuntimeError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">item</span> <span class="op">=</span> <span class="ident">value_to_table_element</span>(<span class="kw-2">&amp;mut</span> <span class="ident">ctx</span>, <span class="ident">init</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">ctx</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">as_store_mut</span>();
-        <span class="kw">let</span> <span class="ident">tunables</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">tunables</span>();
+        <span class="kw">let</span> <span class="ident">item</span> <span class="op">=</span> <span class="ident">value_to_table_element</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>, <span class="ident">init</span>)<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">store</span> <span class="op">=</span> <span class="ident">store</span>.<span class="ident">as_store_mut</span>();
+        <span class="kw">let</span> <span class="ident">tunables</span> <span class="op">=</span> <span class="ident">store</span>.<span class="ident">tunables</span>();
         <span class="kw">let</span> <span class="ident">style</span> <span class="op">=</span> <span class="ident">tunables</span>.<span class="ident">table_style</span>(<span class="kw-2">&amp;</span><span class="ident">ty</span>);
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">table</span> <span class="op">=</span> <span class="ident">tunables</span>
             .<span class="ident">create_host_table</span>(<span class="kw-2">&amp;</span><span class="ident">ty</span>, <span class="kw-2">&amp;</span><span class="ident">style</span>)
@@ -295,35 +295,35 @@
         }
 
         <span class="prelude-val">Ok</span>(<span class="self">Self</span> {
-            <span class="ident">handle</span>: <span class="ident">StoreHandle::new</span>(<span class="ident">ctx</span>.<span class="ident">objects_mut</span>(), <span class="ident">table</span>),
+            <span class="ident">handle</span>: <span class="ident">StoreHandle::new</span>(<span class="ident">store</span>.<span class="ident">objects_mut</span>(), <span class="ident">table</span>),
         })
     }
 
     <span class="doccomment">/// Returns the [`TableType`] of the `Table`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">ty</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsStoreRef</span>) -&gt; <span class="ident">TableType</span> {
-        <span class="kw-2">*</span><span class="self">self</span>.<span class="ident">handle</span>.<span class="ident">get</span>(<span class="ident">ctx</span>.<span class="ident">as_store_ref</span>().<span class="ident">objects</span>()).<span class="ident">ty</span>()
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">ty</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsStoreRef</span>) -&gt; <span class="ident">TableType</span> {
+        <span class="kw-2">*</span><span class="self">self</span>.<span class="ident">handle</span>.<span class="ident">get</span>(<span class="ident">store</span>.<span class="ident">as_store_ref</span>().<span class="ident">objects</span>()).<span class="ident">ty</span>()
     }
 
     <span class="doccomment">/// Retrieves an element of the table at the provided `index`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">ctx</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">index</span>: <span class="ident">u32</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Value</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">item</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">handle</span>.<span class="ident">get</span>(<span class="ident">ctx</span>.<span class="ident">as_store_ref</span>().<span class="ident">objects</span>()).<span class="ident">get</span>(<span class="ident">index</span>)<span class="question-mark">?</span>;
-        <span class="prelude-val">Some</span>(<span class="ident">value_from_table_element</span>(<span class="ident">ctx</span>, <span class="ident">item</span>))
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">index</span>: <span class="ident">u32</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Value</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">item</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">handle</span>.<span class="ident">get</span>(<span class="ident">store</span>.<span class="ident">as_store_ref</span>().<span class="ident">objects</span>()).<span class="ident">get</span>(<span class="ident">index</span>)<span class="question-mark">?</span>;
+        <span class="prelude-val">Some</span>(<span class="ident">value_from_table_element</span>(<span class="ident">store</span>, <span class="ident">item</span>))
     }
 
     <span class="doccomment">/// Sets an element `val` in the Table at the provided `index`.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">ctx</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>,
+        <span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>,
         <span class="ident">index</span>: <span class="ident">u32</span>,
         <span class="ident">val</span>: <span class="ident">Value</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">RuntimeError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">item</span> <span class="op">=</span> <span class="ident">value_to_table_element</span>(<span class="ident">ctx</span>, <span class="ident">val</span>)<span class="question-mark">?</span>;
-        <span class="ident">set_table_item</span>(<span class="self">self</span>.<span class="ident">handle</span>.<span class="ident">get_mut</span>(<span class="ident">ctx</span>.<span class="ident">objects_mut</span>()), <span class="ident">index</span>, <span class="ident">item</span>)
+        <span class="kw">let</span> <span class="ident">item</span> <span class="op">=</span> <span class="ident">value_to_table_element</span>(<span class="ident">store</span>, <span class="ident">val</span>)<span class="question-mark">?</span>;
+        <span class="ident">set_table_item</span>(<span class="self">self</span>.<span class="ident">handle</span>.<span class="ident">get_mut</span>(<span class="ident">store</span>.<span class="ident">objects_mut</span>()), <span class="ident">index</span>, <span class="ident">item</span>)
     }
 
     <span class="doccomment">/// Retrieves the size of the `Table` (in elements)</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">size</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsStoreRef</span>) -&gt; <span class="ident">u32</span> {
-        <span class="self">self</span>.<span class="ident">handle</span>.<span class="ident">get</span>(<span class="ident">ctx</span>.<span class="ident">as_store_ref</span>().<span class="ident">objects</span>()).<span class="ident">size</span>()
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">size</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsStoreRef</span>) -&gt; <span class="ident">u32</span> {
+        <span class="self">self</span>.<span class="ident">handle</span>.<span class="ident">get</span>(<span class="ident">store</span>.<span class="ident">as_store_ref</span>().<span class="ident">objects</span>()).<span class="ident">size</span>()
     }
 
     <span class="doccomment">/// Grows the size of the `Table` by `delta`, initializating</span>
@@ -337,13 +337,13 @@
     <span class="doccomment">/// Returns an error if the `delta` is out of bounds for the table.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">grow</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">ctx</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>,
+        <span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>,
         <span class="ident">delta</span>: <span class="ident">u32</span>,
         <span class="ident">init</span>: <span class="ident">Value</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">u32</span>, <span class="ident">RuntimeError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">item</span> <span class="op">=</span> <span class="ident">value_to_table_element</span>(<span class="ident">ctx</span>, <span class="ident">init</span>)<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">item</span> <span class="op">=</span> <span class="ident">value_to_table_element</span>(<span class="ident">store</span>, <span class="ident">init</span>)<span class="question-mark">?</span>;
         <span class="self">self</span>.<span class="ident">handle</span>
-            .<span class="ident">get_mut</span>(<span class="ident">ctx</span>.<span class="ident">objects_mut</span>())
+            .<span class="ident">get_mut</span>(<span class="ident">store</span>.<span class="ident">objects_mut</span>())
             .<span class="ident">grow</span>(<span class="ident">delta</span>, <span class="ident">item</span>)
             .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">RuntimeError::new</span>(<span class="macro">format!</span>(<span class="string">&quot;failed to grow table by `{}`&quot;</span>, <span class="ident">delta</span>)))
     }
@@ -356,7 +356,7 @@
     <span class="doccomment">/// Returns an error if the range is out of bounds of either the source or</span>
     <span class="doccomment">/// destination tables.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">copy</span>(
-        <span class="ident">ctx</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>,
+        <span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>,
         <span class="ident">dst_table</span>: <span class="kw-2">&amp;</span><span class="self">Self</span>,
         <span class="ident">dst_index</span>: <span class="ident">u32</span>,
         <span class="ident">src_table</span>: <span class="kw-2">&amp;</span><span class="self">Self</span>,
@@ -368,12 +368,12 @@
                 <span class="string">&quot;cross-`Context` table copies are not supported&quot;</span>,
             ));
         }
-        <span class="kw">let</span> <span class="ident">ctx</span> <span class="op">=</span> <span class="ident">ctx</span>;
+        <span class="kw">let</span> <span class="ident">store</span> <span class="op">=</span> <span class="ident">store</span>;
         <span class="kw">if</span> <span class="ident">dst_table</span>.<span class="ident">handle</span>.<span class="ident">internal_handle</span>() <span class="op">==</span> <span class="ident">src_table</span>.<span class="ident">handle</span>.<span class="ident">internal_handle</span>() {
-            <span class="kw">let</span> <span class="ident">table</span> <span class="op">=</span> <span class="ident">dst_table</span>.<span class="ident">handle</span>.<span class="ident">get_mut</span>(<span class="ident">ctx</span>.<span class="ident">objects_mut</span>());
+            <span class="kw">let</span> <span class="ident">table</span> <span class="op">=</span> <span class="ident">dst_table</span>.<span class="ident">handle</span>.<span class="ident">get_mut</span>(<span class="ident">store</span>.<span class="ident">objects_mut</span>());
             <span class="ident">table</span>.<span class="ident">copy_within</span>(<span class="ident">dst_index</span>, <span class="ident">src_index</span>, <span class="ident">len</span>)
         } <span class="kw">else</span> {
-            <span class="kw">let</span> (<span class="ident">src_table</span>, <span class="ident">dst_table</span>) <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">objects_mut</span>().<span class="ident">get_2_mut</span>(
+            <span class="kw">let</span> (<span class="ident">src_table</span>, <span class="ident">dst_table</span>) <span class="op">=</span> <span class="ident">store</span>.<span class="ident">objects_mut</span>().<span class="ident">get_2_mut</span>(
                 <span class="ident">src_table</span>.<span class="ident">handle</span>.<span class="ident">internal_handle</span>(),
                 <span class="ident">dst_table</span>.<span class="ident">handle</span>.<span class="ident">internal_handle</span>(),
             );
@@ -384,19 +384,19 @@
     }
 
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">from_vm_extern</span>(
-        <span class="ident">ctx</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>,
+        <span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>,
         <span class="ident">internal</span>: <span class="ident">InternalStoreHandle</span><span class="op">&lt;</span><span class="ident">VMTable</span><span class="op">&gt;</span>,
     ) -&gt; <span class="self">Self</span> {
         <span class="self">Self</span> {
             <span class="ident">handle</span>: <span class="kw">unsafe</span> {
-                <span class="ident">StoreHandle::from_internal</span>(<span class="ident">ctx</span>.<span class="ident">as_store_ref</span>().<span class="ident">objects</span>().<span class="ident">id</span>(), <span class="ident">internal</span>)
+                <span class="ident">StoreHandle::from_internal</span>(<span class="ident">store</span>.<span class="ident">as_store_ref</span>().<span class="ident">objects</span>().<span class="ident">id</span>(), <span class="ident">internal</span>)
             },
         }
     }
 
     <span class="doccomment">/// Checks whether this `Table` can be used with the given context.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_from_store</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsStoreRef</span>) -&gt; <span class="ident">bool</span> {
-        <span class="self">self</span>.<span class="ident">handle</span>.<span class="ident">store_id</span>() <span class="op">==</span> <span class="ident">ctx</span>.<span class="ident">as_store_ref</span>().<span class="ident">objects</span>().<span class="ident">id</span>()
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_from_store</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsStoreRef</span>) -&gt; <span class="ident">bool</span> {
+        <span class="self">self</span>.<span class="ident">handle</span>.<span class="ident">store_id</span>() <span class="op">==</span> <span class="ident">store</span>.<span class="ident">as_store_ref</span>().<span class="ident">objects</span>().<span class="ident">id</span>()
     }
 
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">to_vm_extern</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">VMExtern</span> {
