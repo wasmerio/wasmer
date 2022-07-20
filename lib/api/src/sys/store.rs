@@ -1,8 +1,11 @@
 use crate::sys::tunables::BaseTunables;
 use std::fmt;
 use std::sync::Arc;
+#[cfg(feature = "compiler")]
 use wasmer_compiler::CompilerConfig;
-use wasmer_compiler::{Engine, Tunables, Universal};
+#[cfg(feature = "compiler")]
+use wasmer_compiler::Universal;
+use wasmer_compiler::{Engine, Tunables};
 use wasmer_vm::{init_traps, TrapHandlerFn};
 
 use wasmer_vm::StoreObjects;
@@ -32,6 +35,7 @@ pub struct Store {
 }
 
 impl Store {
+    #[cfg(feature = "compiler")]
     /// Creates a new `Store` with a specific [`CompilerConfig`].
     pub fn new(compiler_config: Box<dyn CompilerConfig>) -> Self {
         let engine = Universal::new(compiler_config).engine();
