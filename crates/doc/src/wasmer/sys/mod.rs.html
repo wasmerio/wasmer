@@ -211,7 +211,7 @@ let mut store = Store::new_with_engine(&amp;engine);
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;llvm&quot;</span>)]</span>
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_compiler_llvm</span>::{<span class="ident">LLVMOptLevel</span>, <span class="ident">LLVM</span>};
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;universal&quot;</span>)]</span>
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;universal&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>))]</span>
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">Universal</span>, <span class="ident">UniversalArtifact</span>, <span class="ident">UniversalEngine</span>};
 
 <span class="doccomment">/// Version number of this crate.</span>

@@ -273,11 +273,18 @@
 <span id="271">271</span>
 <span id="272">272</span>
 <span id="273">273</span>
+<span id="274">274</span>
+<span id="275">275</span>
+<span id="276">276</span>
+<span id="277">277</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::tunables::BaseTunables</span>;
 <span class="kw">use</span> <span class="ident">std::fmt</span>;
 <span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">wasmer_compiler::CompilerConfig</span>;
-<span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">Engine</span>, <span class="ident">Tunables</span>, <span class="ident">Universal</span>};
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
+<span class="kw">use</span> <span class="ident">wasmer_compiler::Universal</span>;
+<span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">Engine</span>, <span class="ident">Tunables</span>};
 <span class="kw">use</span> <span class="ident">wasmer_vm</span>::{<span class="ident">init_traps</span>, <span class="ident">TrapHandlerFn</span>};
 
 <span class="kw">use</span> <span class="ident">wasmer_vm::StoreObjects</span>;
@@ -307,6 +314,7 @@
 }
 
 <span class="kw">impl</span> <span class="ident">Store</span> {
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
     <span class="doccomment">/// Creates a new `Store` with a specific [`CompilerConfig`].</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">compiler_config</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">CompilerConfig</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
         <span class="kw">let</span> <span class="ident">engine</span> <span class="op">=</span> <span class="ident">Universal::new</span>(<span class="ident">compiler_config</span>).<span class="ident">engine</span>();
