@@ -66,7 +66,6 @@ let env = FunctionEnv::new(&mut store, my_counter);
 Any type can be passed as the environment: (*Nota bene* the passed type `T` must implement the `Any` trait, that is, any type which contains a non-`'static` reference.)
 
 ```rust
-#[derive(Clone)]
 struct Env {
     counter: i32,
 }
