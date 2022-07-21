@@ -64,6 +64,7 @@ glob = "0.3"
 rustc_version = "0.4"
 
 [dev-dependencies]
+wasmer = { version = "=2.3.0", path = "lib/api", default-features = false, features = ["default-cranelift"] }
 anyhow = "1.0"
 criterion = "0.3"
 lazy_static = "1.4"
