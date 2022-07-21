@@ -158,6 +158,12 @@ pub extern "C" fn wasi_config_inherit_stdin(config: &mut wasi_config_t) {
     config.inherit_stdin = true;
 }
 
+#[no_mangle]
+pub extern "C" fn wasi_config_overwrite_stdin(config: &mut wasi_config_t) {
+    let piped_stdin = Box::new(Pipe::new());
+    config.state_builder.stdin(piped_stdin);
+}
+
 #[allow(non_camel_case_types)]
 pub struct wasi_env_t {
     /// cbindgen:ignore
@@ -240,6 +246,23 @@ pub unsafe extern "C" fn wasi_env_read_stderr(
         update_last_error("could not find a file handle for `stderr`");
         -1
     }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasi_env_write_stdin(
+    env: &mut wasi_env_t,
+    buffer: *const u8,
+    buffer_len: usize,
+) -> bool {
+    let mut store_mut = env.store.store_mut();
+    let state = env.inner.data_mut(&mut store_mut).state();
+    let mut stdin =
+        c_try!(state.stdin(); otherwise false).ok_or("Could not access WASI's state stdin");
+    let wasi_stdin = c_try!(stdin.as_mut(); otherwise false);
+    let buffer = slice::from_raw_parts(buffer, buffer_len);
+    let msg = c_try!(std::str::from_utf8(buffer); otherwise false);
+    c_try!(write!(wasi_stdin, "{}", msg); otherwise false);
+    true
 }
 
 fn read_inner(
@@ -487,6 +510,42 @@ mod tests {
                 wasm_byte_vec_delete(&wasm);
                 wasm_byte_vec_delete(&wat);
                 wasmer_funcenv_delete(env);
+                wasm_store_delete(store);
+                wasm_engine_delete(engine);
+
+                return 0;
+            }
+        })
+        .success();
+    }
+
+    #[test]
+    fn test_wasi_stdin_set() {
+        (assert_c! {
+            #include "tests/wasmer.h"
+
+            int main() {
+                wasm_engine_t* engine = wasm_engine_new();
+                wasm_store_t* store = wasm_store_new(engine);
+                wasi_config_t* config = wasi_config_new("example_program");
+                wasi_config_capture_stdout(config);
+                wasi_config_overwrite_stdin(config);
+
+                wasm_byte_vec_t wat;
+                wasmer_byte_vec_new_from_string(&wat, "(module (import \"wasi_unstable\" \"args_get\" (func (param i32 i32) (result i32))))");
+                wasm_byte_vec_t wasm;
+                wat2wasm(&wat, &wasm);
+
+                wasm_module_t* module = wasm_module_new(store, &wasm);
+                assert(module);
+
+                // TODO FIXME
+                //
+                // Test captured stdin
+
+                wasm_module_delete(module);
+                wasm_byte_vec_delete(&wasm);
+                wasm_byte_vec_delete(&wat);
                 wasm_store_delete(store);
                 wasm_engine_delete(engine);
 
