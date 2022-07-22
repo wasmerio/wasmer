@@ -43,7 +43,6 @@ fn run_wasi_works() -> anyhow::Result<()> {
 }
 
 #[test]
-
 fn run_no_imports_wasm_works() -> anyhow::Result<()> {
     let output = Command::new(WASMER_PATH)
         .arg("run")
@@ -60,6 +59,56 @@ fn run_no_imports_wasm_works() -> anyhow::Result<()> {
         );
     }
 
+    Ok(())
+}
+
+// This test verifies that "wasmer run --invoke _start module.wat"
+// works the same as "wasmer run module.wat" (without --invoke).
+#[test]
+fn run_invoke_works_with_nomain_wasi() -> anyhow::Result<()> {
+    // In this example the function "wasi_unstable.arg_sizes_get"
+    // is a function that is imported from the WASI env.
+    let wasi_wat = "
+    (module
+        (import \"wasi_unstable\" \"args_sizes_get\"
+          (func $__wasi_args_sizes_get (param i32 i32) (result i32)))
+        (func $_start)
+        (memory 1)
+        (export \"memory\" (memory 0))
+        (export \"_start\" (func $_start))
+      )
+    ";
+
+    let random = rand::random::<u64>();
+    let module_file = std::env::temp_dir().join(&format!("{random}.wat"));
+    std::fs::write(&module_file, wasi_wat.as_bytes()).unwrap();
+    let output = Command::new(WASMER_PATH)
+        .arg("run")
+        .arg(&module_file)
+        .output()?;
+
+    let stderr = std::str::from_utf8(&output.stderr).unwrap().to_string();
+    let success = output.status.success();
+    if !success {
+        println!("ERROR in 'wasmer run [module.wat]':\r\n{stderr}");
+        panic!();
+    }
+
+    let output = Command::new(WASMER_PATH)
+        .arg("run")
+        .arg("--invoke")
+        .arg("_start")
+        .arg(&module_file)
+        .output()?;
+
+    let stderr = std::str::from_utf8(&output.stderr).unwrap().to_string();
+    let success = output.status.success();
+    if !success {
+        println!("ERROR in 'wasmer run --invoke _start [module.wat]':\r\n{stderr}");
+        panic!();
+    }
+
+    std::fs::remove_file(&module_file).unwrap();
     Ok(())
 }
 

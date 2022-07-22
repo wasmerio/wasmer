@@ -226,8 +226,34 @@ impl Run {
         };
         #[cfg(not(feature = "wasi"))]
         let ret = {
-            let instance = Instance::new(&mut store, &module, &imports! {})?;
-            self.inner_run(ctx, instance)
+            let instance = Instance::new(&module, &imports! {})?;
+
+            // If this module exports an _initialize function, run that first.
+            if let Ok(initialize) = instance.exports.get_function("_initialize") {
+                initialize
+                    .call(&[])
+                    .with_context(|| "failed to run _initialize function")?;
+            }
+
+            // Do we want to invoke a function?
+            if let Some(ref invoke) = self.invoke {
+                let result = self.invoke_function(&instance, invoke, &self.args)?;
+                println!(
+                    "{}",
+                    result
+                        .iter()
+                        .map(|val| val.to_string())
+                        .collect::<Vec<String>>()
+                        .join(" ")
+                );
+            } else {
+                let start: Function = self.try_find_function(&instance, "_start", &[])?;
+                let result = start.call(&[]);
+                #[cfg(feature = "wasi")]
+                self.wasi.handle_result(result)?;
+                #[cfg(not(feature = "wasi"))]
+                result?;
+            }
         };
 
         ret
