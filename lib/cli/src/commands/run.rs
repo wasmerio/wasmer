@@ -234,7 +234,7 @@ impl Run {
                     .call(&[])
                     .with_context(|| "failed to run _initialize function")?;
             }
-    
+
             // Do we want to invoke a function?
             if let Some(ref invoke) = self.invoke {
                 let result = self.invoke_function(&instance, invoke, &self.args)?;
