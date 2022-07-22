@@ -7,7 +7,7 @@ by the standard WebAssembly spectests.
 ## NaN canonicalization: `nan-canonicalization.wast`
 
 This is an extra set of tests that assure that operations with NaNs
-are deterministic regarless of the environment/chipset where it executes in.
+are deterministic regardless of the environment/chipset where it executes in.
 
 ## Call Indirect Spilled Stack: `call-indirect-spilledd-stack.wast`
 
@@ -28,3 +28,7 @@ This is a simple factorial program.
 
 Stack space for a structure returning function call should be allocated once up
 front, not once in each call.
+
+## Divide by Zero: `divide.wast`
+
+This is a simple test to check that a divide by zero is correctly trapped
