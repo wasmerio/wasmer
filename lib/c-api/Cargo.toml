@@ -59,7 +59,7 @@ middlewares = [
     "wasmer-middlewares",
 ]
 universal = [
-    "wasmer-compiler/universal_engine",
+    "wasmer-compiler/engine_compilation",
     "compiler",
 ]
 compiler = [

@@ -1,17 +1,17 @@
 //! Define `ArtifactBuild` to allow compiling and instantiating to be
 //! done as separate steps.
 
-#[cfg(feature = "universal_engine")]
+#[cfg(feature = "engine_compilation")]
 use super::trampoline::{libcall_trampoline_len, make_libcall_trampolines};
 use crate::Features;
 use crate::MetadataHeader;
 use crate::{ArtifactCreate, EngineBuilder};
-#[cfg(feature = "universal_engine")]
+#[cfg(feature = "engine_compilation")]
 use crate::{ModuleEnvironment, ModuleMiddlewareChain};
 use enumset::EnumSet;
 use std::mem;
 use wasmer_types::entity::PrimaryMap;
-#[cfg(feature = "universal_engine")]
+#[cfg(feature = "engine_compilation")]
 use wasmer_types::CompileModuleInfo;
 use wasmer_types::SerializeError;
 use wasmer_types::{
@@ -38,7 +38,7 @@ impl ArtifactBuild {
     }
 
     /// Compile a data buffer into a `ArtifactBuild`, which may then be instantiated.
-    #[cfg(feature = "universal_engine")]
+    #[cfg(feature = "engine_compilation")]
     pub fn new(
         inner_engine: &mut EngineBuilder,
         data: &[u8],
@@ -117,7 +117,7 @@ impl ArtifactBuild {
     }
 
     /// Compile a data buffer into a `ArtifactBuild`, which may then be instantiated.
-    #[cfg(not(feature = "universal_engine"))]
+    #[cfg(not(feature = "engine_compilation"))]
     pub fn new(_engine: &EngineBuilder, _data: &[u8]) -> Result<Self, CompileError> {
         Err(CompileError::Codegen(
             "Compilation is not enabled in the engine".to_string(),

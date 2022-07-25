@@ -45,7 +45,7 @@ impl Backend {
     }
 
     /// Build the `Engine` for this configuration
-    #[cfg(feature = "universal_engine")]
+    #[cfg(feature = "engine_compilation")]
     pub fn engine(self) -> Engine {
         let target = self.target.unwrap_or_default();
         if let Some(compiler_config) = self.compiler_config {
@@ -60,7 +60,7 @@ impl Backend {
     }
 
     /// Build the `Engine` for this configuration
-    #[cfg(not(feature = "universal_engine"))]
+    #[cfg(not(feature = "engine_compilation"))]
     pub fn engine(self) -> Engine {
         Engine::headless()
     }

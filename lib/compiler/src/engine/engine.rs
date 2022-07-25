@@ -1,6 +1,6 @@
 //! Universal compilation.
 
-#[cfg(feature = "universal_engine")]
+#[cfg(feature = "engine_compilation")]
 use crate::Compiler;
 use crate::EngineBuilder;
 use crate::{Artifact, CodeMemory};
@@ -32,7 +32,7 @@ pub struct Engine {
 
 impl Engine {
     /// Create a new `Engine` with the given config
-    #[cfg(feature = "universal_engine")]
+    #[cfg(feature = "engine_compilation")]
     pub fn new(compiler: Box<dyn Compiler>, target: Target, features: Features) -> Self {
         Self {
             inner: Arc::new(Mutex::new(EngineInner {
@@ -101,7 +101,7 @@ impl Engine {
     }
 
     /// Compile a WebAssembly binary
-    #[cfg(feature = "universal_engine")]
+    #[cfg(feature = "engine_compilation")]
     pub fn compile(
         &self,
         binary: &[u8],
@@ -111,7 +111,7 @@ impl Engine {
     }
 
     /// Compile a WebAssembly binary
-    #[cfg(not(feature = "universal_engine"))]
+    #[cfg(not(feature = "engine_compilation"))]
     pub fn compile(
         &self,
         _binary: &[u8],
@@ -174,7 +174,7 @@ pub struct EngineInner {
 
 impl EngineInner {
     /// Gets the compiler associated to this engine.
-    #[cfg(feature = "universal_engine")]
+    #[cfg(feature = "engine_compilation")]
     pub fn compiler(&self) -> Result<&dyn Compiler, CompileError> {
         self.builder.compiler()
     }

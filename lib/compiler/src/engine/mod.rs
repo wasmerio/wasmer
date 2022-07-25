@@ -6,7 +6,17 @@ mod trap;
 mod tunables;
 
 #[cfg(feature = "translator")]
-mod universal;
+mod artifact;
+#[cfg(feature = "translator")]
+mod backend;
+#[cfg(feature = "translator")]
+mod code_memory;
+#[cfg(feature = "translator")]
+mod engine;
+#[cfg(feature = "translator")]
+mod link;
+#[cfg(feature = "translator")]
+mod unwind;
 
 pub use self::error::{InstantiationError, LinkError};
 pub use self::resolver::resolve_imports;
@@ -14,4 +24,12 @@ pub use self::trap::*;
 pub use self::tunables::Tunables;
 
 #[cfg(feature = "translator")]
-pub use self::universal::*;
+pub use self::artifact::Artifact;
+#[cfg(feature = "translator")]
+pub use self::backend::Backend;
+#[cfg(feature = "translator")]
+pub use self::code_memory::CodeMemory;
+#[cfg(feature = "translator")]
+pub use self::engine::Engine;
+#[cfg(feature = "translator")]
+pub use self::link::link_module;

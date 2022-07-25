@@ -1,12 +1,12 @@
 //! Define `Artifact`, based on `ArtifactBuild`
 //! to allow compiling and instantiating to be done as separate steps.
 
-use super::engine::{Engine, EngineInner};
-use crate::engine::universal::link::link_module;
+use crate::engine::engine::{Engine, EngineInner};
+use crate::engine::link::link_module;
 use crate::ArtifactBuild;
 use crate::ArtifactCreate;
 use crate::Features;
-#[cfg(feature = "universal_engine")]
+#[cfg(feature = "engine_compilation")]
 use crate::ModuleEnvironment;
 use crate::{
     register_frame_info, resolve_imports, FunctionExtent, GlobalFrameInfoRegistration,
@@ -37,7 +37,7 @@ pub struct Artifact {
 
 impl Artifact {
     /// Compile a data buffer into a `ArtifactBuild`, which may then be instantiated.
-    #[cfg(feature = "universal_engine")]
+    #[cfg(feature = "engine_compilation")]
     pub fn new(
         engine: &Engine,
         data: &[u8],
@@ -70,7 +70,7 @@ impl Artifact {
     }
 
     /// Compile a data buffer into a `ArtifactBuild`, which may then be instantiated.
-    #[cfg(not(feature = "universal_engine"))]
+    #[cfg(not(feature = "engine_compilation"))]
     pub fn new(_engine: &Engine, _data: &[u8]) -> Result<Self, CompileError> {
         Err(CompileError::Codegen(
             "Compilation is not enabled in the engine".to_string(),
