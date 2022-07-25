@@ -10,20 +10,218 @@ use super::{
     store::{wasm_store_t, StoreRef},
 };
 use crate::error::update_last_error;
-use std::convert::TryFrom;
+use std::{io::{self, SeekFrom}, fmt, convert::TryFrom, sync::{atomic::{AtomicBool, Ordering}, MutexGuard}};
 use std::ffi::CStr;
+use std::convert::TryInto;
+use std::sync::{Mutex, Arc};
 use std::os::raw::c_char;
 use std::slice;
 use wasmer_wasi::{
-    get_wasi_version, Pipe, WasiFile, WasiFunctionEnv, WasiState, WasiStateBuilder, WasiVersion,
+    get_wasi_version, VirtualFile, FsError,
+     WasiFile, WasiFunctionEnv, WasiState, 
+     WasiStateBuilder, WasiVersion,
 };
+
+/// Function callback that takes:
+/// 
+/// - a *mut to the environment data (passed in on creation), 
+/// - the length of the environment data
+/// - a *const to the bytes to write
+/// - the length of the bytes to write 
+pub type WasiConsoleIoReadCallback = unsafe extern "C" fn(*mut c_char, usize, *mut c_char, usize) -> i64;
+pub type WasiConsoleIoWriteCallback = unsafe extern "C" fn(*mut c_char, usize, *const c_char, usize, bool) -> i64;
+pub type WasiConsoleIoSeekCallback = unsafe extern "C" fn(*mut c_char, usize, c_char, i64) -> i64;
+pub type WasiConsoleIoEnvDestructor = unsafe extern "C" fn (*mut c_char, usize) -> i64;
+
+/// The console override is a custom context consisting of callback pointers 
+/// (which are activated whenever some console I/O occurs) and a "context", which
+/// can be owned or referenced from C. This struct can be used in `wasi_config_overwrite_stdin`, 
+/// `wasi_config_overwrite_stdout` or `wasi_config_overwrite_stderr` to redirect the output or
+/// insert input into the console I/O log.
+/// 
+/// Internally the stdout / stdin is synchronized, so the console is usable across threads 
+/// (only one thread can read / write / seek from the console I/O)
+#[allow(non_camel_case_types)]
+#[repr(C)]
+pub struct wasi_console_io_override_t {
+    read: WasiConsoleIoReadCallback,
+    write: WasiConsoleIoWriteCallback,
+    seek: WasiConsoleIoSeekCallback,
+    destructor: WasiConsoleIoEnvDestructor,
+    data: Option<Arc<Mutex<Vec<c_char>>>>,
+    dropped: AtomicBool,
+}
+
+impl wasi_console_io_override_t {
+    fn get_data_mut(&mut self, op_id: &'static str) -> io::Result<MutexGuard<Vec<c_char>>> {
+        self.data
+        .as_mut()
+        .ok_or({
+            io::Error::new(io::ErrorKind::Other, format!("could not lock mutex ({op_id}) on wasi_console_io_override_t: no mutex"))
+        })?
+        .lock()
+        .map_err(|e| {
+            io::Error::new(io::ErrorKind::Other, format!("could not lock mutex ({op_id}) on wasi_console_io_override_t: {e}"))
+        })
+    }
+}
+
+impl Drop for wasi_console_io_override_t {
+    fn drop(&mut self) {
+
+        let data = match self.data.take() {
+            Some(s) => s,
+            None => { return; },
+        };
+
+        let value = match Arc::try_unwrap(data) {
+            Ok(o) => o,
+            Err(_) => { return; },
+        };
+
+        let mut inner_value = match value.into_inner() {
+            Ok(o) => o,
+            Err(_) => { return; },
+        };
+
+        if self.dropped.load(Ordering::SeqCst) {
+            return;
+        }
+
+        let error = unsafe { (self.destructor)(inner_value.as_mut_ptr(), inner_value.len()) };
+        if error <= 0 {
+            println!("error dropping wasi_console_io_override_t: {error}");
+        }
+
+        self.dropped.store(true, Ordering::SeqCst);
+    }
+}
+
+impl fmt::Debug for wasi_console_io_override_t {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "wasi_console_io_override_t")
+    }
+}
+
+impl io::Read for wasi_console_io_override_t {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        let self_read = self.read.clone();
+        let mut data = self.get_data_mut("read")?;
+        let result = unsafe { (self_read)(data.as_mut_ptr(), data.len(), buf.as_mut_ptr() as *mut c_char, buf.len()) };
+        if result >= 0 {
+            Ok(result as usize)
+        } else {
+            Err(io::Error::new(io::ErrorKind::Other, format!("could not read from wasi_console_io_override_t: {result}")))
+        }
+    }
+}
+
+impl io::Write for wasi_console_io_override_t {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        let self_write = self.write.clone();
+        let mut data = self.get_data_mut("write")?;
+        let result = unsafe { (self_write)(data.as_mut_ptr(), data.len(), buf.as_ptr() as *const c_char, buf.len(), false) };
+        if result >= 0 {
+            Ok(result.try_into().unwrap_or(0))
+        } else {
+            Err(std::io::Error::new(std::io::ErrorKind::Other, format!("could not write {} bytes to wasi_console_io_override_t: {result}", buf.len())))
+        }
+    }
+    fn flush(&mut self) -> io::Result<()> {
+        let self_write = self.write.clone();
+        let mut data = self.get_data_mut("flush")?;
+        let bytes_to_write = &[];
+        let result: i64 = unsafe { (self_write)(data.as_mut_ptr(), data.len(), bytes_to_write.as_ptr(), 0, true) };
+        if result >= 0 {
+            Ok(())
+        } else {
+            Err(std::io::Error::new(std::io::ErrorKind::Other, format!("could not flush wasi_console_io_override_t: {result}")))
+        }
+    }
+}
+
+impl io::Seek for wasi_console_io_override_t {
+    fn seek(&mut self, pos: SeekFrom) -> io::Result<u64> {
+        let self_seek = self.seek.clone();
+        let mut data = self.get_data_mut("seek")?;
+        let (id, pos) = match pos {
+            SeekFrom::Start(s) => (0, s as i64),
+            SeekFrom::End(s) => (1, s),
+            SeekFrom::Current(s) => (2, s),
+        };
+        let result = unsafe { (self_seek)(data.as_mut_ptr(), data.len(), id, pos) };
+        if result >= 0 {
+            Ok(result.try_into().unwrap_or(0))
+        } else {
+            Err(std::io::Error::new(std::io::ErrorKind::Other, format!("could not seek to {pos:?} wasi_console_io_override_t: {result}")))
+        }
+    }
+}
+
+impl VirtualFile for wasi_console_io_override_t {
+    fn last_accessed(&self) -> u64 { 0 }
+    fn last_modified(&self) -> u64 { 0 }
+    fn created_time(&self) -> u64 { 0 }
+    fn size(&self) -> u64 { 0 }
+    fn set_len(&mut self, _: u64) -> Result<(), FsError> { Ok(()) }
+    fn unlink(&mut self) -> Result<(), FsError> { Ok(()) }
+}
+
+/// Creates a new callback object that is being
+#[no_mangle]
+pub unsafe extern "C" fn wasi_console_io_override_new(
+    read: WasiConsoleIoReadCallback,
+    write: WasiConsoleIoWriteCallback,
+    seek: WasiConsoleIoSeekCallback,
+    destructor: WasiConsoleIoEnvDestructor,
+    env_data: *mut c_char,
+    env_data_len: usize,
+    transfer_ownership: bool,
+) -> *mut wasi_console_io_override_t {
+
+    let data_vec = if transfer_ownership {
+        std::slice::from_raw_parts(env_data, env_data_len).to_vec()
+    } else {
+        Vec::from_raw_parts(env_data, env_data_len, env_data_len)
+    };
+
+    Box::leak(Box::new(wasi_console_io_override_t {
+        read,
+        write,
+        seek,
+        destructor,
+        data: Some(Arc::new(Mutex::new(data_vec))),
+        dropped: AtomicBool::new(false),
+    }))
+}
+
+/// Creates a `wasi_console_io_override_t` callback object that does nothing
+/// and redirects stdout / stderr to /dev/null
+#[no_mangle]
+pub unsafe extern "C" fn wasi_console_override_new_null() -> *mut wasi_console_io_override_t {
+    let mut data = Vec::new();
+    wasi_console_io_override_new(
+        wasi_console_io_override_read, 
+        wasi_console_io_override_write, 
+        wasi_console_io_override_seek, 
+        wasi_console_io_override_delete, 
+        data.as_mut_ptr(), 
+        data.len(), 
+        true
+    )
+}
+
+extern "C" fn wasi_console_io_override_read(_: *mut c_char, _:usize, _:*mut c_char, _: usize) -> i64 { 0 }
+extern "C" fn wasi_console_io_override_write(_: *mut c_char, _: usize, _: *const c_char, _: usize, _: bool) -> i64 { 0 }
+extern "C" fn wasi_console_io_override_seek(_: *mut c_char, _: usize, _: c_char, _: i64) -> i64 { 0 }
+extern "C" fn wasi_console_io_override_delete(_: *mut c_char, _: usize) -> i64 { 0 }
 
 #[derive(Debug)]
 #[allow(non_camel_case_types)]
 pub struct wasi_config_t {
-    inherit_stdout: bool,
-    inherit_stderr: bool,
-    inherit_stdin: bool,
+    inherit_stdout: Option<Box<wasi_console_io_override_t>>,
+    inherit_stderr: Option<Box<wasi_console_io_override_t>>,
+    inherit_stdin: Option<Box<wasi_console_io_override_t>>,
     state_builder: WasiStateBuilder,
 }
 
@@ -37,9 +235,9 @@ pub unsafe extern "C" fn wasi_config_new(
     let prog_name = c_try!(name_c_str.to_str());
 
     Some(Box::new(wasi_config_t {
-        inherit_stdout: true,
-        inherit_stderr: true,
-        inherit_stdin: true,
+        inherit_stdout: None,
+        inherit_stderr: None,
+        inherit_stdin: None,
         state_builder: WasiState::new(prog_name),
     }))
 }
@@ -130,38 +328,56 @@ pub unsafe extern "C" fn wasi_config_mapdir(
 
 #[no_mangle]
 pub extern "C" fn wasi_config_capture_stdout(config: &mut wasi_config_t) {
-    config.inherit_stdout = false;
+    config.inherit_stdout = Some(unsafe { Box::from_raw(wasi_console_override_new_null()) });
 }
 
 #[no_mangle]
 pub extern "C" fn wasi_config_inherit_stdout(config: &mut wasi_config_t) {
-    config.inherit_stdout = true;
+    config.inherit_stdout = None;
 }
 
 #[no_mangle]
 pub extern "C" fn wasi_config_capture_stderr(config: &mut wasi_config_t) {
-    config.inherit_stderr = false;
+    config.inherit_stderr = Some(unsafe { Box::from_raw(wasi_console_override_new_null()) });
 }
 
 #[no_mangle]
 pub extern "C" fn wasi_config_inherit_stderr(config: &mut wasi_config_t) {
-    config.inherit_stderr = true;
+    config.inherit_stderr = None;
 }
 
-//#[no_mangle]
-//pub extern "C" fn wasi_config_capture_stdin(config: &mut wasi_config_t) {
-//    config.inherit_stdin = false;
-//}
+#[no_mangle]
+pub extern "C" fn wasi_config_capture_stdin(config: &mut wasi_config_t) {
+    config.inherit_stdin = Some(unsafe { Box::from_raw(wasi_console_override_new_null()) });
+}
 
 #[no_mangle]
 pub extern "C" fn wasi_config_inherit_stdin(config: &mut wasi_config_t) {
-    config.inherit_stdin = true;
+    config.inherit_stdin = None;
 }
 
 #[no_mangle]
-pub extern "C" fn wasi_config_overwrite_stdin(config: &mut wasi_config_t) {
-    let piped_stdin = Box::new(Pipe::new());
-    config.state_builder.stdin(piped_stdin);
+pub unsafe extern "C" fn wasi_config_overwrite_stdin(
+    config: &mut wasi_config_t, 
+    stdin: *mut wasi_console_io_override_t
+) {
+    config.state_builder.stdin(Box::from_raw(stdin));
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasi_config_overwrite_stdout(
+    config: &mut wasi_config_t, 
+    stdout: *mut wasi_console_io_override_t
+) {
+    config.state_builder.stdout(Box::from_raw(stdout));
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasi_config_overwrite_stderr(
+    config: &mut wasi_config_t, 
+    stderr: *mut wasi_console_io_override_t
+) {
+    config.state_builder.stderr(Box::from_raw(stderr));
 }
 
 #[allow(non_camel_case_types)]
@@ -181,15 +397,18 @@ pub unsafe extern "C" fn wasi_env_new(
 ) -> Option<Box<wasi_env_t>> {
     let store = &mut store?.inner;
     let mut store_mut = store.store_mut();
-    if !config.inherit_stdout {
-        config.state_builder.stdout(Box::new(Pipe::new()));
+
+    if let Some(stdout) = config.inherit_stdout {
+        config.state_builder.stdout(stdout);
     }
 
-    if !config.inherit_stderr {
-        config.state_builder.stderr(Box::new(Pipe::new()));
+    if let Some(stderr) = config.inherit_stderr {
+        config.state_builder.stderr(stderr);
     }
 
-    // TODO: impl capturer for stdin
+    if let Some(stdin) = config.inherit_stdin {
+        config.state_builder.stdin(stdin);
+    }
 
     let wasi_state = c_try!(config.state_builder.finalize(&mut store_mut));
 
