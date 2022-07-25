@@ -19,7 +19,7 @@
 //! Ready?
 
 use wasmer::{imports, wat2wasm, Instance, Module, Store, Value};
-use wasmer_compiler::Universal;
+use wasmer_compiler::Backend;
 use wasmer_compiler_cranelift::Cranelift;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -49,7 +49,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     //
     // In this case, the engine is `wasmer_compiler` which roughly
     // means that the executable code will live in memory.
-    let engine = Universal::new(compiler_config).engine();
+    let engine = Backend::new(compiler_config).engine();
 
     // Create a store, that holds the engine.
     let mut store = Store::new_with_engine(&engine);

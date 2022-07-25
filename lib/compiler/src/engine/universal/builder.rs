@@ -2,16 +2,16 @@ use super::Engine;
 use crate::{CompilerConfig, Features};
 use wasmer_types::Target;
 
-/// The Universal builder
-pub struct Universal {
+/// The Backend builder
+pub struct Backend {
     #[allow(dead_code)]
     compiler_config: Option<Box<dyn CompilerConfig>>,
     target: Option<Target>,
     features: Option<Features>,
 }
 
-impl Universal {
-    /// Create a new Universal
+impl Backend {
+    /// Create a new Backend
     pub fn new<T>(compiler_config: T) -> Self
     where
         T: Into<Box<dyn CompilerConfig>>,
@@ -23,7 +23,7 @@ impl Universal {
         }
     }
 
-    /// Create a new headless Universal
+    /// Create a new headless Backend
     pub fn headless() -> Self {
         Self {
             compiler_config: None,

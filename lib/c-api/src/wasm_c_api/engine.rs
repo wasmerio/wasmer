@@ -13,7 +13,7 @@ use crate::error::update_last_error;
 use cfg_if::cfg_if;
 use std::sync::Arc;
 #[cfg(feature = "universal")]
-use wasmer_compiler::{Engine, Universal};
+use wasmer_compiler::{Backend, Engine};
 
 /// Kind of compilers that can be used by the engines.
 ///
@@ -295,7 +295,7 @@ cfg_if! {
         #[no_mangle]
         pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
             let compiler_config: Box<dyn CompilerConfig> = get_default_compiler_config();
-            let engine: Arc<Engine> = Arc::new(Universal::new(compiler_config).engine());
+            let engine: Arc<Engine> = Arc::new(Backend::new(compiler_config).engine());
             Box::new(wasm_engine_t { inner: engine })
         }
     } else if #[cfg(feature = "universal")] {
@@ -308,7 +308,7 @@ cfg_if! {
         /// cbindgen:ignore
         #[no_mangle]
         pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
-            let engine: Arc<Engine> = Arc::new(Universal::headless().engine());
+            let engine: Arc<Engine> = Arc::new(Backend::headless().engine());
             Box::new(wasm_engine_t { inner: engine })
         }
     } else {
@@ -423,7 +423,7 @@ pub extern "C" fn wasm_engine_new_with_config(
             #[cfg(feature = "universal")]
             let inner: Arc<Engine> =
                          {
-                            let mut builder = Universal::new(compiler_config);
+                            let mut builder = Backend::new(compiler_config);
 
                             if let Some(target) = config.target {
                                 builder = builder.target(target.inner);
@@ -440,7 +440,7 @@ pub extern "C" fn wasm_engine_new_with_config(
             let inner: Arc<Engine> =
                     cfg_if! {
                         if #[cfg(feature = "universal")] {
-                            let mut builder = Universal::headless();
+                            let mut builder = Backend::headless();
 
                             if let Some(target) = config.target {
                                 builder = builder.target(target.inner);

@@ -4,7 +4,7 @@ use std::sync::{Arc, RwLock};
 #[cfg(feature = "compiler")]
 use wasmer_compiler::CompilerConfig;
 #[cfg(feature = "compiler")]
-use wasmer_compiler::{Engine, Tunables, Universal};
+use wasmer_compiler::{Backend, Engine, Tunables};
 use wasmer_vm::{init_traps, TrapHandler, TrapHandlerFn};
 
 use wasmer_vm::StoreObjects;
@@ -39,7 +39,7 @@ impl Store {
     #[cfg(feature = "compiler")]
     /// Creates a new `Store` with a specific [`CompilerConfig`].
     pub fn new(compiler_config: Box<dyn CompilerConfig>) -> Self {
-        let engine = Universal::new(compiler_config).engine();
+        let engine = Backend::new(compiler_config).engine();
         Self::new_with_tunables(&engine, BaseTunables::for_target(engine.target()))
     }
 
@@ -145,7 +145,7 @@ impl Default for Store {
         fn get_engine(mut config: impl CompilerConfig + 'static) -> Engine {
             cfg_if::cfg_if! {
                 if #[cfg(feature = "default-universal")] {
-                    wasmer_compiler::Universal::new(config)
+                    wasmer_compiler::Backend::new(config)
                         .engine()
                 } else {
                     compile_error!("No default engine chosen")

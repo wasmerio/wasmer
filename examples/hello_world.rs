@@ -10,7 +10,7 @@ use wasmer::{
     imports, wat2wasm, Function, FunctionEnv, FunctionEnvMut, Instance, Module, Store,
     TypedFunction,
 };
-use wasmer_compiler::Universal;
+use wasmer_compiler::Backend;
 use wasmer_compiler_cranelift::Cranelift;
 
 fn main() -> anyhow::Result<()> {
@@ -47,7 +47,7 @@ fn main() -> anyhow::Result<()> {
     // However for the purposes of showing what's happening, we create a compiler
     // (`Cranelift`) and pass it to an engine (`Universal`). We then pass the engine to
     // the store and are now ready to compile and run WebAssembly!
-    let mut store = Store::new_with_engine(&Universal::new(Cranelift::default()).engine());
+    let mut store = Store::new_with_engine(&Backend::new(Cranelift::default()).engine());
 
     // We then use our store and Wasm bytes to compile a `Module`.
     // A `Module` is a compiled WebAssembly module that isn't ready to execute yet.

@@ -5,12 +5,12 @@ This crate contains a compiler implementation based on the Singlepass linear com
 ## Usage
 
 ```rust
-use wasmer::{Store, Universal};
+use wasmer::{Store, Backend};
 use wasmer_compiler_singlepass::Singlepass;
 
 let compiler = Singlepass::new();
 // Put it into an engine and add it to the store
-let mut store = Store::new_with_engine(&Universal::new(compiler).engine());
+let mut store = Store::new_with_engine(&Backend::new(compiler).engine());
 ```
 
 *Note: you can find a [full working example using Singlepass compiler

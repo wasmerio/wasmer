@@ -115,7 +115,7 @@ impl CompilerOptions {
     ) -> Result<Box<Engine>> {
         let features = self.get_features(compiler_config.default_features_for_target(&target))?;
         let engine: Box<Engine> = Box::new(
-            wasmer_compiler::Universal::new(compiler_config)
+            wasmer_compiler::Backend::new(compiler_config)
                 .features(features)
                 .target(target)
                 .engine(),
@@ -332,7 +332,7 @@ impl StoreOptions {
 #[cfg(not(feature = "compiler"))]
 impl StoreOptions {
     fn get_engine_headless(&self) -> Result<Arc<Engine>> {
-        let engine: Arc<Engine> = Arc::new(wasmer_compiler::Universal::headless().engine());
+        let engine: Arc<Engine> = Arc::new(wasmer_compiler::Backend::headless().engine());
         Ok(engine)
     }
 

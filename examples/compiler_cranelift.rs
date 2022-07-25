@@ -11,7 +11,7 @@
 //! Ready?
 
 use wasmer::{imports, wat2wasm, Instance, Module, Store, Value};
-use wasmer_compiler::Universal;
+use wasmer_compiler::Backend;
 use wasmer_compiler_cranelift::Cranelift;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -33,7 +33,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let compiler = Cranelift::default();
 
     // Create the store
-    let mut store = Store::new_with_engine(&Universal::new(compiler).engine());
+    let mut store = Store::new_with_engine(&Backend::new(compiler).engine());
 
     println!("Compiling module...");
     // Let's compile the Wasm module.
