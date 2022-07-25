@@ -1,16 +1,17 @@
-use super::UniversalEngine;
-use crate::{CompilerConfig, Features, Target};
+use super::Engine;
+use crate::{CompilerConfig, Features};
+use wasmer_types::Target;
 
-/// The Universal builder
-pub struct Universal {
+/// The Backend builder
+pub struct Backend {
     #[allow(dead_code)]
     compiler_config: Option<Box<dyn CompilerConfig>>,
     target: Option<Target>,
     features: Option<Features>,
 }
 
-impl Universal {
-    /// Create a new Universal
+impl Backend {
+    /// Create a new Backend
     pub fn new<T>(compiler_config: T) -> Self
     where
         T: Into<Box<dyn CompilerConfig>>,
@@ -22,7 +23,7 @@ impl Universal {
         }
     }
 
-    /// Create a new headless Universal
+    /// Create a new headless Backend
     pub fn headless() -> Self {
         Self {
             compiler_config: None,
@@ -43,24 +44,24 @@ impl Universal {
         self
     }
 
-    /// Build the `UniversalEngine` for this configuration
-    #[cfg(feature = "universal_engine")]
-    pub fn engine(self) -> UniversalEngine {
+    /// Build the `Engine` for this configuration
+    #[cfg(feature = "engine_compilation")]
+    pub fn engine(self) -> Engine {
         let target = self.target.unwrap_or_default();
         if let Some(compiler_config) = self.compiler_config {
             let features = self
                 .features
                 .unwrap_or_else(|| compiler_config.default_features_for_target(&target));
             let compiler = compiler_config.compiler();
-            UniversalEngine::new(compiler, target, features)
+            Engine::new(compiler, target, features)
         } else {
-            UniversalEngine::headless()
+            Engine::headless()
         }
     }
 
-    /// Build the `UniversalEngine` for this configuration
-    #[cfg(not(feature = "universal_engine"))]
-    pub fn engine(self) -> UniversalEngine {
-        UniversalEngine::headless()
+    /// Build the `Engine` for this configuration
+    #[cfg(not(feature = "engine_compilation"))]
+    pub fn engine(self) -> Engine {
+        Engine::headless()
     }
 }

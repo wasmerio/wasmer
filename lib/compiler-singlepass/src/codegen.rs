@@ -12,14 +12,15 @@ use smallvec::{smallvec, SmallVec};
 use std::cmp;
 use std::iter;
 use wasmer_compiler::wasmparser::{Operator, Type as WpType, TypeOrFuncType as WpTypeOrFuncType};
-use wasmer_compiler::{CallingConvention, FunctionBodyData};
+use wasmer_compiler::FunctionBodyData;
 #[cfg(feature = "unwind")]
 use wasmer_types::CompiledFunctionUnwindInfo;
 use wasmer_types::{
     entity::{EntityRef, PrimaryMap},
-    FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, LocalMemoryIndex, MemoryIndex,
-    MemoryStyle, ModuleInfo, Relocation, RelocationTarget, SectionIndex, SignatureIndex,
-    TableIndex, TableStyle, TrapCode, Type, VMBuiltinFunctionIndex, VMOffsets,
+    CallingConvention, FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex,
+    LocalMemoryIndex, MemoryIndex, MemoryStyle, ModuleInfo, Relocation, RelocationTarget,
+    SectionIndex, SignatureIndex, TableIndex, TableStyle, TrapCode, Type, VMBuiltinFunctionIndex,
+    VMOffsets,
 };
 use wasmer_types::{CompiledFunction, CompiledFunctionFrameInfo, FunctionBody};
 

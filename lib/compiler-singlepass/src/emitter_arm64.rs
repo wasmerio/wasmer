@@ -11,9 +11,10 @@ use dynasmrt::{
     aarch64::Aarch64Relocation, AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi,
     VecAssembler,
 };
-use wasmer_compiler::CallingConvention;
-use wasmer_types::{CustomSection, CustomSectionProtection, SectionBody};
-use wasmer_types::{FunctionBody, FunctionIndex, FunctionType, Type, VMOffsets};
+use wasmer_types::{
+    CallingConvention, CustomSection, CustomSectionProtection, FunctionBody, FunctionIndex,
+    FunctionType, SectionBody, Type, VMOffsets,
+};
 
 type Assembler = VecAssembler<Aarch64Relocation>;
 

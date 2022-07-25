@@ -56,8 +56,8 @@ impl Compile {
             .file_stem()
             .map(|osstr| osstr.to_string_lossy().to_string())
             .unwrap_or_default();
-        let recommended_extension =
-            wasmer_compiler::UniversalArtifact::get_default_extension(target.triple());
+        // wasmu stands for "WASM Universal"
+        let recommended_extension = "wasmu";
         match self.output.extension() {
             Some(ext) => {
                 if ext != recommended_extension {

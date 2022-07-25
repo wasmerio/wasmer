@@ -51,33 +51,28 @@ mod lib {
     }
 }
 
-mod artifact;
 #[cfg(not(target_arch = "wasm32"))]
 mod engine;
+mod traits;
 
-pub use crate::artifact::*;
 #[cfg(not(target_arch = "wasm32"))]
 pub use crate::engine::*;
+pub use crate::traits::*;
 
 #[cfg(feature = "translator")]
-mod universal_artifact;
+mod artifact_builders;
 
 #[cfg(feature = "translator")]
-pub use self::universal_artifact::*;
+pub use self::artifact_builders::*;
 
 #[cfg(feature = "translator")]
 mod compiler;
-mod target;
 
 #[cfg(feature = "translator")]
 #[macro_use]
 mod translator;
 #[cfg(feature = "translator")]
 pub use crate::compiler::{Compiler, CompilerConfig, Symbol, SymbolRegistry};
-pub use crate::target::{
-    Architecture, BinaryFormat, CallingConvention, CpuFeature, Endianness, OperatingSystem,
-    PointerWidth, Target, Triple,
-};
 #[cfg(feature = "translator")]
 pub use crate::translator::{
     from_binaryreadererror_wasmerror, translate_module, wptype_to_type, FunctionBinaryReader,

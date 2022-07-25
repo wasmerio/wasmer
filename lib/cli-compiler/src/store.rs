@@ -7,9 +7,9 @@ use std::string::ToString;
 #[allow(unused_imports)]
 use std::sync::Arc;
 use structopt::StructOpt;
-use wasmer_compiler::UniversalEngineBuilder;
-use wasmer_compiler::{CompilerConfig, Features, PointerWidth, Target};
-use wasmer_types::{MemoryStyle, MemoryType, Pages, TableStyle, TableType};
+use wasmer_compiler::EngineBuilder;
+use wasmer_compiler::{CompilerConfig, Features};
+use wasmer_types::{MemoryStyle, MemoryType, Pages, PointerWidth, TableStyle, TableType, Target};
 
 /// Minimul Subset of Tunable parameters for WebAssembly compilation.
 #[derive(Clone)]
@@ -172,14 +172,9 @@ impl CompilerOptions {
         &self,
         target: Target,
         compiler_config: Box<dyn CompilerConfig>,
-        engine_type: EngineType,
-    ) -> Result<UniversalEngineBuilder> {
+    ) -> Result<EngineBuilder> {
         let features = self.get_features(compiler_config.default_features_for_target(&target))?;
-        let engine: UniversalEngineBuilder = match engine_type {
-            EngineType::Universal => {
-                UniversalEngineBuilder::new(Some(compiler_config.compiler()), features)
-            }
-        };
+        let engine: EngineBuilder = EngineBuilder::new(Some(compiler_config.compiler()), features);
 
         Ok(engine)
     }
@@ -361,48 +356,20 @@ impl ToString for CompilerType {
     }
 }
 
-/// The engine used for the store
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum EngineType {
-    /// Universal Engine
-    Universal,
-}
-
-impl ToString for EngineType {
-    fn to_string(&self) -> String {
-        match self {
-            Self::Universal => "universal".to_string(),
-        }
-    }
-}
-
 impl StoreOptions {
-    /// Get a UniversalEngineBulder for the Target
-    pub fn get_engine_for_target(
-        &self,
-        target: Target,
-    ) -> Result<(UniversalEngineBuilder, EngineType, CompilerType)> {
+    /// Get a EngineBulder for the Target
+    pub fn get_engine_for_target(&self, target: Target) -> Result<(EngineBuilder, CompilerType)> {
         let (compiler_config, compiler_type) = self.compiler.get_compiler_config()?;
-        let (engine, engine_type) = self.get_engine_with_compiler(target, compiler_config)?;
-        Ok((engine, engine_type, compiler_type))
-    }
-
-    /// Get default EngineType
-    pub fn get_engine(&self) -> Result<EngineType> {
-        Ok(EngineType::Universal)
+        let engine = self.get_engine_with_compiler(target, compiler_config)?;
+        Ok((engine, compiler_type))
     }
 
     fn get_engine_with_compiler(
         &self,
         target: Target,
         compiler_config: Box<dyn CompilerConfig>,
-    ) -> Result<(UniversalEngineBuilder, EngineType)> {
-        let engine_type = self.get_engine()?;
-        let engine = self
-            .compiler
-            .get_engine_by_type(target, compiler_config, engine_type)?;
-
-        Ok((engine, engine_type))
+    ) -> Result<EngineBuilder> {
+        self.compiler.get_engine_by_type(target, compiler_config)
     }
 
     /// Get (Subset)Tunables for the Target

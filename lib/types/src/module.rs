@@ -24,7 +24,6 @@ use std::collections::HashMap;
 use std::fmt;
 use std::iter::ExactSizeIterator;
 use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
-use std::sync::Arc;
 
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
 pub struct ModuleId {
@@ -83,7 +82,7 @@ pub struct ModuleInfo {
     pub passive_elements: HashMap<ElemIndex, Box<[FunctionIndex]>>,
 
     /// WebAssembly passive data segments.
-    pub passive_data: HashMap<DataIndex, Arc<[u8]>>,
+    pub passive_data: HashMap<DataIndex, Box<[u8]>>,
 
     /// WebAssembly global initializers.
     pub global_initializers: PrimaryMap<LocalGlobalIndex, GlobalInit>,
@@ -110,7 +109,7 @@ pub struct ModuleInfo {
     pub custom_sections: IndexMap<String, CustomSectionIndex>,
 
     /// The data for each CustomSection in the module.
-    pub custom_sections_data: PrimaryMap<CustomSectionIndex, Arc<[u8]>>,
+    pub custom_sections_data: PrimaryMap<CustomSectionIndex, Box<[u8]>>,
 
     /// Number of imported functions in the module.
     pub num_imported_functions: usize,
@@ -134,7 +133,7 @@ pub struct ArchivableModuleInfo {
     start_function: Option<FunctionIndex>,
     table_initializers: Vec<TableInitializer>,
     passive_elements: BTreeMap<ElemIndex, Box<[FunctionIndex]>>,
-    passive_data: BTreeMap<DataIndex, Arc<[u8]>>,
+    passive_data: BTreeMap<DataIndex, Box<[u8]>>,
     global_initializers: PrimaryMap<LocalGlobalIndex, GlobalInit>,
     function_names: BTreeMap<FunctionIndex, String>,
     signatures: PrimaryMap<SignatureIndex, FunctionType>,
@@ -143,7 +142,7 @@ pub struct ArchivableModuleInfo {
     memories: PrimaryMap<MemoryIndex, MemoryType>,
     globals: PrimaryMap<GlobalIndex, GlobalType>,
     custom_sections: IndexMap<String, CustomSectionIndex>,
-    custom_sections_data: PrimaryMap<CustomSectionIndex, Arc<[u8]>>,
+    custom_sections_data: PrimaryMap<CustomSectionIndex, Box<[u8]>>,
     num_imported_functions: usize,
     num_imported_tables: usize,
     num_imported_memories: usize,
@@ -350,7 +349,7 @@ impl ModuleInfo {
     }
 
     /// Get the custom sections of the module given a `name`.
-    pub fn custom_sections<'a>(&'a self, name: &'a str) -> impl Iterator<Item = Arc<[u8]>> + 'a {
+    pub fn custom_sections<'a>(&'a self, name: &'a str) -> impl Iterator<Item = Box<[u8]>> + 'a {
         self.custom_sections
             .iter()
             .filter_map(move |(section_name, section_index)| {

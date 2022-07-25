@@ -140,7 +140,7 @@ fn build_wasm_c_api_headers(crate_dir: &str, out_dir: &str) {
         pre_header = PRE_HEADER
     );
 
-    map_feature_as_c_define!("universal", UNIVERSAL_FEATURE_AS_C_DEFINE, pre_header);
+    map_feature_as_c_define!("compilation", UNIVERSAL_FEATURE_AS_C_DEFINE, pre_header);
     map_feature_as_c_define!("compiler", COMPILER_FEATURE_AS_C_DEFINE, pre_header);
     map_feature_as_c_define!("wasi", WASI_FEATURE_AS_C_DEFINE, pre_header);
     map_feature_as_c_define!("middlewares", MIDDLEWARES_FEATURE_AS_C_DEFINE, pre_header);

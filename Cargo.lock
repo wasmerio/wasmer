@@ -2950,12 +2950,10 @@ dependencies = [
  "memmap2",
  "more-asserts",
  "region",
- "rkyv",
  "rustc-demangle",
  "serde",
  "serde_bytes",
  "smallvec",
- "target-lexicon 0.12.4",
  "thiserror",
  "wasmer-types",
  "wasmer-vm",
@@ -3106,11 +3104,13 @@ name = "wasmer-types"
 version = "2.3.0"
 dependencies = [
  "enum-iterator",
+ "enumset",
  "indexmap",
  "more-asserts",
  "rkyv",
  "serde",
  "serde_bytes",
+ "target-lexicon 0.12.4",
  "thiserror",
 ]
 
@@ -3155,7 +3155,6 @@ dependencies = [
  "memoffset",
  "more-asserts",
  "region",
- "rkyv",
  "scopeguard",
  "serde",
  "thiserror",

@@ -1,12 +1,14 @@
-use crate::store::{EngineType, StoreOptions};
+use crate::store::StoreOptions;
 use crate::warning;
 use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
 use structopt::StructOpt;
-use wasmer_compiler::{ArtifactCreate, UniversalArtifactBuild};
-use wasmer_compiler::{CpuFeature, ModuleEnvironment, Target, Triple};
+use wasmer_compiler::ModuleEnvironment;
+use wasmer_compiler::{ArtifactBuild, ArtifactCreate};
 use wasmer_types::entity::PrimaryMap;
-use wasmer_types::{CompileError, MemoryIndex, MemoryStyle, TableIndex, TableStyle};
+use wasmer_types::{
+    CompileError, CpuFeature, MemoryIndex, MemoryStyle, TableIndex, TableStyle, Target, Triple,
+};
 
 #[derive(Debug, StructOpt)]
 /// The options for the `wasmer compile` subcommand
@@ -37,17 +39,6 @@ impl Compile {
             .context(format!("failed to compile `{}`", self.path.display()))
     }
 
-    pub(crate) fn get_recommend_extension(
-        engine_type: &EngineType,
-        target_triple: &Triple,
-    ) -> Result<&'static str> {
-        Ok(match engine_type {
-            EngineType::Universal => {
-                wasmer_compiler::UniversalArtifactBuild::get_default_extension(target_triple)
-            }
-        })
-    }
-
     fn inner_execute(&self) -> Result<()> {
         let target = self
             .target_triple
@@ -64,14 +55,15 @@ impl Compile {
                 Target::new(target_triple.clone(), features)
             })
             .unwrap_or_default();
-        let (mut engine, engine_type, compiler_type) =
-            self.store.get_engine_for_target(target.clone())?;
+        let (mut engine, compiler_type) = self.store.get_engine_for_target(target.clone())?;
         let output_filename = self
             .output
             .file_stem()
             .map(|osstr| osstr.to_string_lossy().to_string())
             .unwrap_or_default();
-        let recommended_extension = Self::get_recommend_extension(&engine_type, target.triple())?;
+        // `.wasmu` is the default extension for all the triples. It
+        // stands for “Wasm Universal”.
+        let recommended_extension = "wasmu";
         match self.output.extension() {
             Some(ext) => {
                 if ext != recommended_extension {
@@ -84,7 +76,6 @@ impl Compile {
         }
         let tunables = self.store.get_tunables_for_target(&target)?;
 
-        println!("Engine: {}", engine_type.to_string());
         println!("Compiler: {}", compiler_type.to_string());
         println!("Target: {}", target.triple());
 
@@ -104,7 +95,7 @@ impl Compile {
             .values()
             .map(|table_type| tunables.table_style(table_type))
             .collect();
-        let artifact = UniversalArtifactBuild::new(
+        let artifact = ArtifactBuild::new(
             &mut engine,
             &wasm_bytes,
             &target,

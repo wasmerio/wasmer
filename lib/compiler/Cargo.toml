@@ -13,14 +13,12 @@ edition = "2018"
 [dependencies]
 wasmer-types = { path = "../types", version = "=2.3.0", default-features = false }
 wasmparser = { version = "0.83", optional = true, default-features = false }
-target-lexicon = { version = "0.12.2", default-features = false }
 enumset = "1.0.2"
 hashbrown = { version = "0.11", optional = true }
 serde = { version = "1.0", features = ["derive"], optional = true }
 thiserror = "1.0"
 serde_bytes = { version = "0.11", optional = true }
 smallvec = "1.6"
-rkyv = { version = "0.7.38", features = ["indexmap"] }
 
 backtrace = "0.3"
 rustc-demangle = "0.1"
@@ -45,7 +43,7 @@ default = ["std", "enable-serde" ]
 # `CompilerConfig`, as well as the included wasmparser.
 # Disable this feature if you just want a headless engine.
 translator = ["wasmparser"]
-universal_engine = []
+engine_compilation = []
 std = ["wasmer-types/std"]
 core = ["hashbrown", "wasmer-types/core"]
 enable-serde = ["serde", "serde_bytes", "wasmer-types/enable-serde"]

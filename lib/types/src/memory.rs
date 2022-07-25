@@ -9,6 +9,7 @@ use std::ops::{Add, AddAssign};
 /// Implementation styles for WebAssembly linear memory.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, RkyvSerialize, RkyvDeserialize, Archive)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[archive(as = "Self")]
 pub enum MemoryStyle {
     /// The actual memory can be resized and moved.
     Dynamic {

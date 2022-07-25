@@ -52,7 +52,7 @@ use wasmer::Instance;
 use wasmer::Module;
 use wasmer::Store;
 use wasmer::Value;
-use wasmer_compiler::Universal;
+use wasmer_compiler::Backend;
 use wasmer_compiler_cranelift::Cranelift;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -82,7 +82,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         println!("Creating univesral engine...");
         // Define the engine that will drive everything.
-        let engine = Universal::new(compiler_config).engine();
+        let engine = Backend::new(compiler_config).engine();
 
         // Create a store, that holds the engine.
         let mut store = Store::new_with_engine(&engine);
@@ -105,7 +105,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     {
         println!("Creating headless Universal engine...");
         // We create a headless Universal engine.
-        let engine = Universal::headless().engine();
+        let engine = Backend::headless().engine();
         let mut store = Store::new_with_engine(&engine);
         let mut env = FunctionEnv::new(&mut store, ());
 

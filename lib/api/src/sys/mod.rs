@@ -36,14 +36,12 @@ pub use target_lexicon::{Architecture, CallingConvention, OperatingSystem, Tripl
 pub use wasmer_compiler::{
     wasmparser, CompilerConfig, FunctionMiddleware, MiddlewareReaderState, ModuleMiddleware,
 };
-pub use wasmer_compiler::{
-    CpuFeature, Engine, Features, FrameInfo, LinkError, RuntimeError, Target, Tunables,
-};
+pub use wasmer_compiler::{Features, FrameInfo, LinkError, RuntimeError, Tunables};
 pub use wasmer_derive::ValueType;
 pub use wasmer_types::is_wasm;
 pub use wasmer_types::{
-    ExportType, ExternType, FunctionType, GlobalType, ImportType, MemoryType, Mutability,
-    TableType, Type,
+    CpuFeature, ExportType, ExternType, FunctionType, GlobalType, ImportType, MemoryType,
+    Mutability, TableType, Target, Type,
 };
 
 pub use wasmer_types::{
@@ -79,9 +77,9 @@ compile_error!(
 If you wish to use more than one compiler, you can simply create the own store. Eg.:
 
 ```
-use wasmer::{Store, Universal, Singlepass};
+use wasmer::{Store, Backend, Singlepass};
 
-let engine = Universal::new(Singlepass::default()).engine();
+let engine = Backend::new(Singlepass::default()).engine();
 let mut store = Store::new_with_engine(&engine);
 ```"#
 );
@@ -95,8 +93,8 @@ pub use wasmer_compiler_cranelift::{Cranelift, CraneliftOptLevel};
 #[cfg(feature = "llvm")]
 pub use wasmer_compiler_llvm::{LLVMOptLevel, LLVM};
 
-#[cfg(all(feature = "universal", feature = "compiler"))]
-pub use wasmer_compiler::{Universal, UniversalArtifact, UniversalEngine};
+#[cfg(feature = "engine_compilation")]
+pub use wasmer_compiler::{Artifact, Backend, Engine};
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -104,7 +102,7 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 /// The Deprecated JIT Engine (please use `Universal` instead)
 #[cfg(feature = "jit")]
 #[deprecated(since = "2.0.0", note = "Please use the `universal` feature instead")]
-pub type JIT = Universal;
+pub type JIT = Backend;
 
 /// This type is deprecated, it has been replaced by TypedFunction.
 #[deprecated(
