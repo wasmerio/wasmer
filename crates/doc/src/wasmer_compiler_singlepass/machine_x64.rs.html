@@ -8091,7 +8091,6 @@
 <span id="8089">8089</span>
 <span id="8090">8090</span>
 <span id="8091">8091</span>
-<span id="8092">8092</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::codegen_error</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::common_decl</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::emitter_x64</span>::<span class="kw-2">*</span>;
@@ -8108,10 +8107,9 @@
 <span class="kw">use</span> <span class="ident">gimli</span>::{<span class="ident">write::CallFrameInstruction</span>, <span class="ident">X86_64</span>};
 <span class="kw">use</span> <span class="ident">std::ops</span>::{<span class="ident">Deref</span>, <span class="ident">DerefMut</span>};
 <span class="kw">use</span> <span class="ident">wasmer_compiler::wasmparser::Type</span> <span class="kw">as</span> <span class="ident">WpType</span>;
-<span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">CallingConvention</span>, <span class="ident">CpuFeature</span>};
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{
-    <span class="ident">CustomSection</span>, <span class="ident">CustomSectionProtection</span>, <span class="ident">Relocation</span>, <span class="ident">RelocationKind</span>, <span class="ident">RelocationTarget</span>,
-    <span class="ident">SectionBody</span>,
+    <span class="ident">CallingConvention</span>, <span class="ident">CpuFeature</span>, <span class="ident">CustomSection</span>, <span class="ident">CustomSectionProtection</span>, <span class="ident">Relocation</span>,
+    <span class="ident">RelocationKind</span>, <span class="ident">RelocationTarget</span>, <span class="ident">SectionBody</span>,
 };
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">FunctionBody</span>, <span class="ident">InstructionAddressMap</span>, <span class="ident">SourceLoc</span>, <span class="ident">TrapInformation</span>};
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">FunctionIndex</span>, <span class="ident">FunctionType</span>, <span class="ident">TrapCode</span>, <span class="ident">Type</span>, <span class="ident">VMOffsets</span>};

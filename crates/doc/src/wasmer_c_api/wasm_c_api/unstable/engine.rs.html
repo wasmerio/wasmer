@@ -421,7 +421,7 @@
 <span class="doccomment">/// compiled library.</span>
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
 <span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_is_engine_available</span>(<span class="ident">engine</span>: <span class="ident">wasmer_engine_t</span>) -&gt; <span class="ident">bool</span> {
-    <span class="macro">matches!</span>(<span class="ident">engine</span>, <span class="ident">wasmer_engine_t::UNIVERSAL</span> <span class="kw">if</span> <span class="macro">cfg!</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;universal&quot;</span>))
+    <span class="macro">matches!</span>(<span class="ident">engine</span>, <span class="ident">wasmer_engine_t::UNIVERSAL</span> <span class="kw">if</span> <span class="macro">cfg!</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compilation&quot;</span>))
 }
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
@@ -494,7 +494,7 @@
     <span class="kw">fn</span> <span class="ident">test_wasmer_is_engine_available</span>() {
         <span class="ident">set_var</span>(
             <span class="string">&quot;UNIVERSAL&quot;</span>,
-            <span class="kw">if</span> <span class="macro">cfg!</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;universal&quot;</span>) {
+            <span class="kw">if</span> <span class="macro">cfg!</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compilation&quot;</span>) {
                 <span class="string">&quot;1&quot;</span>
             } <span class="kw">else</span> {
                 <span class="string">&quot;0&quot;</span>

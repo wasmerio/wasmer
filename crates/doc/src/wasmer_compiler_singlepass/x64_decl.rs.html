@@ -342,7 +342,6 @@
 <span id="340">340</span>
 <span id="341">341</span>
 <span id="342">342</span>
-<span id="343">343</span>
 </pre><pre class="rust"><code><span class="doccomment">//! X64 structures.</span>
 
 <span class="attribute">#![<span class="ident">allow</span>(<span class="ident">clippy::upper_case_acronyms</span>)]</span>
@@ -351,8 +350,7 @@
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::location::Reg</span> <span class="kw">as</span> <span class="ident">AbstractReg</span>;
 <span class="kw">use</span> <span class="ident">std::collections::BTreeMap</span>;
 <span class="kw">use</span> <span class="ident">std::slice::Iter</span>;
-<span class="kw">use</span> <span class="ident">wasmer_compiler::CallingConvention</span>;
-<span class="kw">use</span> <span class="ident">wasmer_types::Type</span>;
+<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">CallingConvention</span>, <span class="ident">Type</span>};
 
 <span class="doccomment">/// General-purpose registers.</span>
 <span class="attribute">#[<span class="ident">repr</span>(<span class="ident">u8</span>)]</span>

@@ -460,13 +460,6 @@
 <span id="458">458</span>
 <span id="459">459</span>
 <span id="460">460</span>
-<span id="461">461</span>
-<span id="462">462</span>
-<span id="463">463</span>
-<span id="464">464</span>
-<span id="465">465</span>
-<span id="466">466</span>
-<span id="467">467</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::InstantiationError</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::AsStoreMut</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::AsStoreRef</span>;
@@ -476,6 +469,7 @@
 <span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
 <span class="kw">use</span> <span class="ident">thiserror::Error</span>;
 <span class="kw">use</span> <span class="ident">wasmer_compiler::Artifact</span>;
+<span class="kw">use</span> <span class="ident">wasmer_compiler::ArtifactCreate</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wat&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">wasmer_types::WasmError</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{
@@ -518,7 +512,8 @@
     <span class="comment">//</span>
     <span class="comment">// In the future, this code should be refactored to properly describe the</span>
     <span class="comment">// ownership of the code and its metadata.</span>
-    <span class="ident">artifact</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Artifact</span><span class="op">&gt;</span>,
+    <span class="ident">artifact</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">Artifact</span><span class="op">&gt;</span>,
+    <span class="ident">module_info</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">ModuleInfo</span><span class="op">&gt;</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">Module</span> {
@@ -748,8 +743,11 @@
         <span class="prelude-val">Ok</span>(<span class="ident"><span class="self">Self</span>::from_artifact</span>(<span class="ident">artifact</span>))
     }
 
-    <span class="kw">fn</span> <span class="ident">from_artifact</span>(<span class="ident">artifact</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Artifact</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> { <span class="ident">artifact</span> }
+    <span class="kw">fn</span> <span class="ident">from_artifact</span>(<span class="ident">artifact</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">Artifact</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
+        <span class="self">Self</span> {
+            <span class="ident">module_info</span>: <span class="ident">Arc::new</span>(<span class="ident">artifact</span>.<span class="ident">create_module_info</span>()),
+            <span class="ident">artifact</span>,
+        }
     }
 
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">instantiate</span>(
@@ -807,7 +805,7 @@
     <span class="doccomment">/// # }</span>
     <span class="doccomment">/// ```</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">name</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">artifact</span>.<span class="ident">module_ref</span>().<span class="ident">name</span>.<span class="ident">as_deref</span>()
+        <span class="self">self</span>.<span class="ident">module_info</span>.<span class="ident">name</span>.<span class="ident">as_deref</span>()
     }
 
     <span class="doccomment">/// Sets the name of the current module.</span>
@@ -832,12 +830,10 @@
     <span class="doccomment">/// # }</span>
     <span class="doccomment">/// ```</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set_name</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="ident">bool</span> {
-        <span class="ident">Arc::get_mut</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>.<span class="ident">artifact</span>)
-            .<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">artifact</span><span class="op">|</span> <span class="ident">artifact</span>.<span class="ident">module_mut</span>())
-            .<span class="ident">map_or</span>(<span class="bool-val">false</span>, <span class="op">|</span><span class="kw-2">mut</span> <span class="ident">module_info</span><span class="op">|</span> {
-                <span class="ident">module_info</span>.<span class="ident">name</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">name</span>.<span class="ident">to_string</span>());
-                <span class="bool-val">true</span>
-            })
+        <span class="ident">Arc::get_mut</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>.<span class="ident">module_info</span>).<span class="ident">map_or</span>(<span class="bool-val">false</span>, <span class="op">|</span><span class="kw-2">mut</span> <span class="ident">module_info</span><span class="op">|</span> {
+            <span class="ident">module_info</span>.<span class="ident">name</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">name</span>.<span class="ident">to_string</span>());
+            <span class="bool-val">true</span>
+        })
     }
 
     <span class="doccomment">/// Returns an iterator over the imported types in the Module.</span>
@@ -865,7 +861,7 @@
     <span class="doccomment">/// # }</span>
     <span class="doccomment">/// ```</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">imports</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">ImportsIterator</span><span class="op">&lt;</span><span class="kw">impl</span> <span class="ident">Iterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="ident">ImportType</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;_</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">artifact</span>.<span class="ident">module_ref</span>().<span class="ident">imports</span>()
+        <span class="self">self</span>.<span class="ident">module_info</span>.<span class="ident">imports</span>()
     }
 
     <span class="doccomment">/// Returns an iterator over the exported types in the Module.</span>
@@ -892,7 +888,7 @@
     <span class="doccomment">/// # }</span>
     <span class="doccomment">/// ```</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">exports</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">ExportsIterator</span><span class="op">&lt;</span><span class="kw">impl</span> <span class="ident">Iterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="ident">ExportType</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;_</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">artifact</span>.<span class="ident">module_ref</span>().<span class="ident">exports</span>()
+        <span class="self">self</span>.<span class="ident">module_info</span>.<span class="ident">exports</span>()
     }
 
     <span class="doccomment">/// Get the custom sections of the module given a `name`.</span>
@@ -902,8 +898,8 @@
     <span class="doccomment">/// Following the WebAssembly spec, one name can have multiple</span>
     <span class="doccomment">/// custom sections. That&#39;s why an iterator (rather than one element)</span>
     <span class="doccomment">/// is returned.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">custom_sections</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="self">self</span>, <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">str</span>) -&gt; <span class="kw">impl</span> <span class="ident">Iterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="ident">Arc</span><span class="op">&lt;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;a</span> {
-        <span class="self">self</span>.<span class="ident">artifact</span>.<span class="ident">module_ref</span>().<span class="ident">custom_sections</span>(<span class="ident">name</span>)
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">custom_sections</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="self">self</span>, <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">str</span>) -&gt; <span class="kw">impl</span> <span class="ident">Iterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="ident">Box</span><span class="op">&lt;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;a</span> {
+        <span class="self">self</span>.<span class="ident">module_info</span>.<span class="ident">custom_sections</span>(<span class="ident">name</span>)
     }
 
     <span class="doccomment">/// The ABI of the ModuleInfo is very unstable, we refactor it very often.</span>
@@ -913,17 +909,7 @@
     <span class="doccomment">/// However, the usage is highly discouraged.</span>
     <span class="attribute">#[<span class="ident">doc</span>(<span class="ident">hidden</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">info</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span> {
-        <span class="self">self</span>.<span class="ident">artifact</span>.<span class="ident">module_ref</span>()
-    }
-
-    <span class="doccomment">/// Gets the [`Artifact`] used internally by the Module.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This API is hidden because it&#39;s not necessarily stable;</span>
-    <span class="doccomment">/// this functionality is required for some core functionality though, like</span>
-    <span class="doccomment">/// the object file engine.</span>
-    <span class="attribute">#[<span class="ident">doc</span>(<span class="ident">hidden</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">artifact</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Artifact</span><span class="op">&gt;</span> {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">artifact</span>
+        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">module_info</span>
     }
 }
 

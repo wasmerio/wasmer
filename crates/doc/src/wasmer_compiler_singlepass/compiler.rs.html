@@ -360,8 +360,6 @@
 <span id="358">358</span>
 <span id="359">359</span>
 <span id="360">360</span>
-<span id="361">361</span>
-<span id="362">362</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Support for compiling with Singlepass.</span>
 <span class="comment">// Allow unused imports while developing.</span>
 <span class="attribute">#![<span class="ident">allow</span>(<span class="ident">unused_imports</span>, <span class="ident">dead_code</span>)]</span>
@@ -384,17 +382,15 @@
 <span class="kw">use</span> <span class="ident">rayon::prelude</span>::{<span class="ident">IntoParallelIterator</span>, <span class="ident">ParallelIterator</span>};
 <span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
 <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{
-    <span class="ident">Architecture</span>, <span class="ident">CallingConvention</span>, <span class="ident">Compiler</span>, <span class="ident">CompilerConfig</span>, <span class="ident">CpuFeature</span>, <span class="ident">FunctionBinaryReader</span>,
-    <span class="ident">FunctionBodyData</span>, <span class="ident">MiddlewareBinaryReader</span>, <span class="ident">ModuleMiddleware</span>, <span class="ident">ModuleMiddlewareChain</span>,
-    <span class="ident">ModuleTranslationState</span>, <span class="ident">OperatingSystem</span>, <span class="ident">Target</span>,
+    <span class="ident">Compiler</span>, <span class="ident">CompilerConfig</span>, <span class="ident">FunctionBinaryReader</span>, <span class="ident">FunctionBodyData</span>, <span class="ident">MiddlewareBinaryReader</span>,
+    <span class="ident">ModuleMiddleware</span>, <span class="ident">ModuleMiddlewareChain</span>, <span class="ident">ModuleTranslationState</span>,
 };
 <span class="kw">use</span> <span class="ident">wasmer_types::entity</span>::{<span class="ident">EntityRef</span>, <span class="ident">PrimaryMap</span>};
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{
-    <span class="ident">Compilation</span>, <span class="ident">CompileModuleInfo</span>, <span class="ident">CompiledFunction</span>, <span class="ident">Dwarf</span>, <span class="ident">FunctionBody</span>, <span class="ident">TrapInformation</span>,
-};
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::{
-    <span class="ident">CompileError</span>, <span class="ident">FunctionIndex</span>, <span class="ident">FunctionType</span>, <span class="ident">LocalFunctionIndex</span>, <span class="ident">MemoryIndex</span>, <span class="ident">ModuleInfo</span>,
-    <span class="ident">SectionIndex</span>, <span class="ident">TableIndex</span>, <span class="ident">TrapCode</span>, <span class="ident">VMOffsets</span>,
+    <span class="ident">Architecture</span>, <span class="ident">CallingConvention</span>, <span class="ident">Compilation</span>, <span class="ident">CompileError</span>, <span class="ident">CompileModuleInfo</span>,
+    <span class="ident">CompiledFunction</span>, <span class="ident">CpuFeature</span>, <span class="ident">Dwarf</span>, <span class="ident">FunctionBody</span>, <span class="ident">FunctionIndex</span>, <span class="ident">FunctionType</span>,
+    <span class="ident">LocalFunctionIndex</span>, <span class="ident">MemoryIndex</span>, <span class="ident">ModuleInfo</span>, <span class="ident">OperatingSystem</span>, <span class="ident">SectionIndex</span>, <span class="ident">TableIndex</span>, <span class="ident">Target</span>,
+    <span class="ident">TrapCode</span>, <span class="ident">TrapInformation</span>, <span class="ident">VMOffsets</span>,
 };
 
 <span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">CodegenError</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">CompileError</span> {
@@ -682,8 +678,8 @@
     <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
     <span class="kw">use</span> <span class="ident">std::str::FromStr</span>;
     <span class="kw">use</span> <span class="ident">target_lexicon::triple</span>;
-    <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">CpuFeature</span>, <span class="ident">Features</span>, <span class="ident">Triple</span>};
-    <span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">MemoryStyle</span>, <span class="ident">TableStyle</span>};
+    <span class="kw">use</span> <span class="ident">wasmer_compiler::Features</span>;
+    <span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">CpuFeature</span>, <span class="ident">MemoryStyle</span>, <span class="ident">TableStyle</span>, <span class="ident">Triple</span>};
 
     <span class="kw">fn</span> <span class="ident">dummy_compilation_ingredients</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>() -&gt; (
         <span class="ident">CompileModuleInfo</span>,
@@ -692,7 +688,7 @@
     ) {
         <span class="kw">let</span> <span class="ident">compile_info</span> <span class="op">=</span> <span class="ident">CompileModuleInfo</span> {
             <span class="ident">features</span>: <span class="ident">Features::new</span>(),
-            <span class="ident">module</span>: <span class="ident">Arc::new</span>(<span class="ident">ModuleInfo::new</span>()),
+            <span class="ident">module</span>: <span class="ident">ModuleInfo::new</span>(),
             <span class="ident">memory_styles</span>: <span class="ident">PrimaryMap</span>::<span class="op">&lt;</span><span class="ident">MemoryIndex</span>, <span class="ident">MemoryStyle</span><span class="op">&gt;</span><span class="ident">::new</span>(),
             <span class="ident">table_styles</span>: <span class="ident">PrimaryMap</span>::<span class="op">&lt;</span><span class="ident">TableIndex</span>, <span class="ident">TableStyle</span><span class="op">&gt;</span><span class="ident">::new</span>(),
         };

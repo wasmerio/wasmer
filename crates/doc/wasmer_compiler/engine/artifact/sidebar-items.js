@@ -1,1 +1,1 @@
-initSidebarItems({"trait":[["Artifact","An `Artifact` is the product that the `Engine` implementation produce and use."]]});
+initSidebarItems({"struct":[["Artifact","A compiled wasm module, ready to be instantiated."]]});

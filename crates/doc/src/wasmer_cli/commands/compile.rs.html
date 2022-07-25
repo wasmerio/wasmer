@@ -141,8 +141,8 @@
             .<span class="ident">file_stem</span>()
             .<span class="ident">map</span>(<span class="op">|</span><span class="ident">osstr</span><span class="op">|</span> <span class="ident">osstr</span>.<span class="ident">to_string_lossy</span>().<span class="ident">to_string</span>())
             .<span class="ident">unwrap_or_default</span>();
-        <span class="kw">let</span> <span class="ident">recommended_extension</span> <span class="op">=</span>
-            <span class="ident">wasmer_compiler::UniversalArtifact::get_default_extension</span>(<span class="ident">target</span>.<span class="ident">triple</span>());
+        <span class="comment">// wasmu stands for &quot;WASM Universal&quot;</span>
+        <span class="kw">let</span> <span class="ident">recommended_extension</span> <span class="op">=</span> <span class="string">&quot;wasmu&quot;</span>;
         <span class="kw">match</span> <span class="self">self</span>.<span class="ident">output</span>.<span class="ident">extension</span>() {
             <span class="prelude-val">Some</span>(<span class="ident">ext</span>) =&gt; {
                 <span class="kw">if</span> <span class="ident">ext</span> <span class="op">!</span><span class="op">=</span> <span class="ident">recommended_extension</span> {

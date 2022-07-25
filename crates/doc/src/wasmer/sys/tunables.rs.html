@@ -179,8 +179,8 @@
 <span id="177">177</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys</span>::{<span class="ident">MemoryType</span>, <span class="ident">Pages</span>, <span class="ident">TableType</span>};
 <span class="kw">use</span> <span class="ident">std::ptr::NonNull</span>;
-<span class="kw">use</span> <span class="ident">target_lexicon::PointerWidth</span>;
-<span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">Target</span>, <span class="ident">Tunables</span>};
+<span class="kw">use</span> <span class="ident">wasmer_compiler::Tunables</span>;
+<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">PointerWidth</span>, <span class="ident">Target</span>};
 <span class="kw">use</span> <span class="ident">wasmer_vm::MemoryError</span>;
 <span class="kw">use</span> <span class="ident">wasmer_vm</span>::{
     <span class="ident">MemoryStyle</span>, <span class="ident">TableStyle</span>, <span class="ident">VMMemory</span>, <span class="ident">VMMemoryDefinition</span>, <span class="ident">VMTable</span>, <span class="ident">VMTableDefinition</span>,

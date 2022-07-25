@@ -101,7 +101,6 @@
 <span id="99"> 99</span>
 <span id="100">100</span>
 <span id="101">101</span>
-<span id="102">102</span>
 </pre><pre class="rust"><code><span class="doccomment">//! This module define the required structures to emit custom</span>
 <span class="doccomment">//! Sections in a `Compilation`.</span>
 <span class="doccomment">//!</span>
@@ -131,18 +130,17 @@
     <span class="ident">Debug</span>,
 )]</span>
 <span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>))]</span>
-<span class="attribute">#[<span class="ident">archive_attr</span>(<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>, <span class="ident">PartialOrd</span>, <span class="ident">Ord</span>, <span class="ident">Debug</span>))]</span>
+<span class="attribute">#[<span class="ident">archive</span>(<span class="kw">as</span> <span class="op">=</span> <span class="string">&quot;Self&quot;</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">SectionIndex</span>(<span class="ident">u32</span>);
 
 <span class="macro">entity_impl!</span>(<span class="ident">SectionIndex</span>);
-
-<span class="macro">entity_impl!</span>(<span class="ident">ArchivedSectionIndex</span>);
 
 <span class="doccomment">/// Custom section Protection.</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// Determines how a custom section may be used.</span>
 <span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>))]</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">RkyvSerialize</span>, <span class="ident">RkyvDeserialize</span>, <span class="ident">Archive</span>, <span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
+<span class="attribute">#[<span class="ident">archive</span>(<span class="kw">as</span> <span class="op">=</span> <span class="string">&quot;Self&quot;</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">CustomSectionProtection</span> {
     <span class="doccomment">/// A custom section with read permission.</span>
     <span class="ident">Read</span>,

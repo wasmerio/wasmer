@@ -1,1 +1,0 @@
-initSidebarItems({"struct":[["UniversalArtifactBuild","A compiled wasm module, ready to be instantiated."]]});

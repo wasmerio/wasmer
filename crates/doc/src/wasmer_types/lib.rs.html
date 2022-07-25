@@ -202,6 +202,12 @@
 <span id="200">200</span>
 <span id="201">201</span>
 <span id="202">202</span>
+<span id="203">203</span>
+<span id="204">204</span>
+<span id="205">205</span>
+<span id="206">206</span>
+<span id="207">207</span>
+<span id="208">208</span>
 </pre><pre class="rust"><code><span class="doccomment">//! This are the common types and utility tools for using WebAssembly</span>
 <span class="doccomment">//! in a Rust environment.</span>
 <span class="doccomment">//!</span>
@@ -265,6 +271,7 @@
 <span class="kw">mod</span> <span class="ident">libcalls</span>;
 <span class="kw">mod</span> <span class="ident">memory</span>;
 <span class="kw">mod</span> <span class="ident">module</span>;
+<span class="kw">mod</span> <span class="ident">serialize</span>;
 <span class="kw">mod</span> <span class="ident">table</span>;
 <span class="kw">mod</span> <span class="ident">trapcode</span>;
 <span class="kw">mod</span> <span class="ident">types</span>;
@@ -273,6 +280,11 @@
 <span class="kw">mod</span> <span class="ident">value</span>;
 <span class="kw">mod</span> <span class="ident">vmoffsets</span>;
 
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::compilation::target</span>::{
+    <span class="ident">Architecture</span>, <span class="ident">BinaryFormat</span>, <span class="ident">CallingConvention</span>, <span class="ident">CpuFeature</span>, <span class="ident">Endianness</span>, <span class="ident">OperatingSystem</span>,
+    <span class="ident">PointerWidth</span>, <span class="ident">Target</span>, <span class="ident">Triple</span>,
+};
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::serialize</span>::{<span class="ident">MetadataHeader</span>, <span class="ident">SerializableCompilation</span>, <span class="ident">SerializableModule</span>};
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">error</span>::{
     <span class="ident">CompileError</span>, <span class="ident">DeserializeError</span>, <span class="ident">ImportError</span>, <span class="ident">MiddlewareError</span>, <span class="ident">ParseCpuFeatureError</span>,
     <span class="ident">PreInstantiationError</span>, <span class="ident">SerializeError</span>, <span class="ident">WasmError</span>, <span class="ident">WasmResult</span>,

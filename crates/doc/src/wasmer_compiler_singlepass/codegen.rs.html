@@ -6030,6 +6030,7 @@
 <span id="6028">6028</span>
 <span id="6029">6029</span>
 <span id="6030">6030</span>
+<span id="6031">6031</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::address_map::get_function_address_map</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::codegen_error</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unwind&quot;</span>)]</span>
@@ -6044,14 +6045,15 @@
 <span class="kw">use</span> <span class="ident">std::cmp</span>;
 <span class="kw">use</span> <span class="ident">std::iter</span>;
 <span class="kw">use</span> <span class="ident">wasmer_compiler::wasmparser</span>::{<span class="ident">Operator</span>, <span class="ident">Type</span> <span class="kw">as</span> <span class="ident">WpType</span>, <span class="ident">TypeOrFuncType</span> <span class="kw">as</span> <span class="ident">WpTypeOrFuncType</span>};
-<span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">CallingConvention</span>, <span class="ident">FunctionBodyData</span>};
+<span class="kw">use</span> <span class="ident">wasmer_compiler::FunctionBodyData</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unwind&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">wasmer_types::CompiledFunctionUnwindInfo</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{
     <span class="ident">entity</span>::{<span class="ident">EntityRef</span>, <span class="ident">PrimaryMap</span>},
-    <span class="ident">FunctionIndex</span>, <span class="ident">FunctionType</span>, <span class="ident">GlobalIndex</span>, <span class="ident">LocalFunctionIndex</span>, <span class="ident">LocalMemoryIndex</span>, <span class="ident">MemoryIndex</span>,
-    <span class="ident">MemoryStyle</span>, <span class="ident">ModuleInfo</span>, <span class="ident">Relocation</span>, <span class="ident">RelocationTarget</span>, <span class="ident">SectionIndex</span>, <span class="ident">SignatureIndex</span>,
-    <span class="ident">TableIndex</span>, <span class="ident">TableStyle</span>, <span class="ident">TrapCode</span>, <span class="ident">Type</span>, <span class="ident">VMBuiltinFunctionIndex</span>, <span class="ident">VMOffsets</span>,
+    <span class="ident">CallingConvention</span>, <span class="ident">FunctionIndex</span>, <span class="ident">FunctionType</span>, <span class="ident">GlobalIndex</span>, <span class="ident">LocalFunctionIndex</span>,
+    <span class="ident">LocalMemoryIndex</span>, <span class="ident">MemoryIndex</span>, <span class="ident">MemoryStyle</span>, <span class="ident">ModuleInfo</span>, <span class="ident">Relocation</span>, <span class="ident">RelocationTarget</span>,
+    <span class="ident">SectionIndex</span>, <span class="ident">SignatureIndex</span>, <span class="ident">TableIndex</span>, <span class="ident">TableStyle</span>, <span class="ident">TrapCode</span>, <span class="ident">Type</span>, <span class="ident">VMBuiltinFunctionIndex</span>,
+    <span class="ident">VMOffsets</span>,
 };
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">CompiledFunction</span>, <span class="ident">CompiledFunctionFrameInfo</span>, <span class="ident">FunctionBody</span>};
 

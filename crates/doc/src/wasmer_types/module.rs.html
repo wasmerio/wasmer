@@ -584,7 +584,6 @@
 <span id="582">582</span>
 <span id="583">583</span>
 <span id="584">584</span>
-<span id="585">585</span>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
 
@@ -611,7 +610,6 @@
 <span class="kw">use</span> <span class="ident">std::fmt</span>;
 <span class="kw">use</span> <span class="ident">std::iter::ExactSizeIterator</span>;
 <span class="kw">use</span> <span class="ident">std::sync::atomic</span>::{<span class="ident">AtomicUsize</span>, <span class="ident">Ordering::SeqCst</span>};
-<span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">RkyvSerialize</span>, <span class="ident">RkyvDeserialize</span>, <span class="ident">Archive</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ModuleId</span> {
@@ -670,7 +668,7 @@
     <span class="kw">pub</span> <span class="ident">passive_elements</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">ElemIndex</span>, <span class="ident">Box</span><span class="op">&lt;</span>[<span class="ident">FunctionIndex</span>]<span class="op">&gt;</span><span class="op">&gt;</span>,
 
     <span class="doccomment">/// WebAssembly passive data segments.</span>
-    <span class="kw">pub</span> <span class="ident">passive_data</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">DataIndex</span>, <span class="ident">Arc</span><span class="op">&lt;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span> <span class="ident">passive_data</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">DataIndex</span>, <span class="ident">Box</span><span class="op">&lt;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span><span class="op">&gt;</span>,
 
     <span class="doccomment">/// WebAssembly global initializers.</span>
     <span class="kw">pub</span> <span class="ident">global_initializers</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalGlobalIndex</span>, <span class="ident">GlobalInit</span><span class="op">&gt;</span>,
@@ -697,7 +695,7 @@
     <span class="kw">pub</span> <span class="ident">custom_sections</span>: <span class="ident">IndexMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">CustomSectionIndex</span><span class="op">&gt;</span>,
 
     <span class="doccomment">/// The data for each CustomSection in the module.</span>
-    <span class="kw">pub</span> <span class="ident">custom_sections_data</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">CustomSectionIndex</span>, <span class="ident">Arc</span><span class="op">&lt;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span> <span class="ident">custom_sections_data</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">CustomSectionIndex</span>, <span class="ident">Box</span><span class="op">&lt;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span><span class="op">&gt;</span>,
 
     <span class="doccomment">/// Number of imported functions in the module.</span>
     <span class="kw">pub</span> <span class="ident">num_imported_functions</span>: <span class="ident">usize</span>,
@@ -721,7 +719,7 @@
     <span class="ident">start_function</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">FunctionIndex</span><span class="op">&gt;</span>,
     <span class="ident">table_initializers</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">TableInitializer</span><span class="op">&gt;</span>,
     <span class="ident">passive_elements</span>: <span class="ident">BTreeMap</span><span class="op">&lt;</span><span class="ident">ElemIndex</span>, <span class="ident">Box</span><span class="op">&lt;</span>[<span class="ident">FunctionIndex</span>]<span class="op">&gt;</span><span class="op">&gt;</span>,
-    <span class="ident">passive_data</span>: <span class="ident">BTreeMap</span><span class="op">&lt;</span><span class="ident">DataIndex</span>, <span class="ident">Arc</span><span class="op">&lt;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="ident">passive_data</span>: <span class="ident">BTreeMap</span><span class="op">&lt;</span><span class="ident">DataIndex</span>, <span class="ident">Box</span><span class="op">&lt;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span><span class="op">&gt;</span>,
     <span class="ident">global_initializers</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalGlobalIndex</span>, <span class="ident">GlobalInit</span><span class="op">&gt;</span>,
     <span class="ident">function_names</span>: <span class="ident">BTreeMap</span><span class="op">&lt;</span><span class="ident">FunctionIndex</span>, <span class="ident">String</span><span class="op">&gt;</span>,
     <span class="ident">signatures</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">SignatureIndex</span>, <span class="ident">FunctionType</span><span class="op">&gt;</span>,
@@ -730,7 +728,7 @@
     <span class="ident">memories</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">MemoryIndex</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">globals</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">GlobalIndex</span>, <span class="ident">GlobalType</span><span class="op">&gt;</span>,
     <span class="ident">custom_sections</span>: <span class="ident">IndexMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">CustomSectionIndex</span><span class="op">&gt;</span>,
-    <span class="ident">custom_sections_data</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">CustomSectionIndex</span>, <span class="ident">Arc</span><span class="op">&lt;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="ident">custom_sections_data</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">CustomSectionIndex</span>, <span class="ident">Box</span><span class="op">&lt;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span><span class="op">&gt;</span>,
     <span class="ident">num_imported_functions</span>: <span class="ident">usize</span>,
     <span class="ident">num_imported_tables</span>: <span class="ident">usize</span>,
     <span class="ident">num_imported_memories</span>: <span class="ident">usize</span>,
@@ -937,7 +935,7 @@
     }
 
     <span class="doccomment">/// Get the custom sections of the module given a `name`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">custom_sections</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="self">self</span>, <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">str</span>) -&gt; <span class="kw">impl</span> <span class="ident">Iterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="ident">Arc</span><span class="op">&lt;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;a</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">custom_sections</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="self">self</span>, <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">str</span>) -&gt; <span class="kw">impl</span> <span class="ident">Iterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="ident">Box</span><span class="op">&lt;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;a</span> {
         <span class="self">self</span>.<span class="ident">custom_sections</span>
             .<span class="ident">iter</span>()
             .<span class="ident">filter_map</span>(<span class="kw">move</span> <span class="op">|</span>(<span class="ident">section_name</span>, <span class="ident">section_index</span>)<span class="op">|</span> {

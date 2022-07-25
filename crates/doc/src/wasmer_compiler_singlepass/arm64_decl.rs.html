@@ -315,7 +315,6 @@
 <span id="313">313</span>
 <span id="314">314</span>
 <span id="315">315</span>
-<span id="316">316</span>
 </pre><pre class="rust"><code><span class="doccomment">//! ARM64 structures.</span>
 
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::common_decl</span>::{<span class="ident">MachineState</span>, <span class="ident">MachineValue</span>, <span class="ident">RegisterIndex</span>};
@@ -323,8 +322,7 @@
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::location::Reg</span> <span class="kw">as</span> <span class="ident">AbstractReg</span>;
 <span class="kw">use</span> <span class="ident">std::collections::BTreeMap</span>;
 <span class="kw">use</span> <span class="ident">std::slice::Iter</span>;
-<span class="kw">use</span> <span class="ident">wasmer_compiler::CallingConvention</span>;
-<span class="kw">use</span> <span class="ident">wasmer_types::Type</span>;
+<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">CallingConvention</span>, <span class="ident">Type</span>};
 
 <span class="doccomment">/// General-purpose registers.</span>
 <span class="attribute">#[<span class="ident">repr</span>(<span class="ident">u8</span>)]</span>

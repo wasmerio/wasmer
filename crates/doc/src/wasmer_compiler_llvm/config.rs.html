@@ -239,8 +239,8 @@
 <span class="kw">use</span> <span class="ident">std::fmt::Debug</span>;
 <span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
 <span class="kw">use</span> <span class="ident">target_lexicon::Architecture</span>;
-<span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">Compiler</span>, <span class="ident">CompilerConfig</span>, <span class="ident">ModuleMiddleware</span>, <span class="ident">Target</span>, <span class="ident">Triple</span>};
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">FunctionType</span>, <span class="ident">LocalFunctionIndex</span>};
+<span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">Compiler</span>, <span class="ident">CompilerConfig</span>, <span class="ident">ModuleMiddleware</span>};
+<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">FunctionType</span>, <span class="ident">LocalFunctionIndex</span>, <span class="ident">Target</span>, <span class="ident">Triple</span>};
 
 <span class="doccomment">/// The InkWell ModuleInfo type</span>
 <span class="kw">pub</span> <span class="kw">type</span> <span class="ident">InkwellModule</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">inkwell::module::Module</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>;
@@ -331,7 +331,7 @@
         <span class="comment">// Hack: we&#39;re using is_pic to determine whether this is a native</span>
         <span class="comment">// build or not.</span>
         <span class="kw">let</span> <span class="ident">operating_system</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">target</span>.<span class="ident">triple</span>().<span class="ident">operating_system</span>
-            <span class="op">==</span> <span class="ident">wasmer_compiler::OperatingSystem::Darwin</span>
+            <span class="op">==</span> <span class="ident">wasmer_types::OperatingSystem::Darwin</span>
             <span class="op">&amp;&amp;</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">is_pic</span>
         {
             <span class="comment">// LLVM detects static relocation + darwin + 64-bit and</span>
@@ -343,7 +343,7 @@
             <span class="comment">//  but not in the case of Aarch64, there the ABI is slightly different</span>
             <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::match_single_binding</span>)]</span>
             <span class="kw">match</span> <span class="ident">target</span>.<span class="ident">triple</span>().<span class="ident">architecture</span> {
-                <span class="kw">_</span> =&gt; <span class="ident">wasmer_compiler::OperatingSystem::Linux</span>,
+                <span class="kw">_</span> =&gt; <span class="ident">wasmer_types::OperatingSystem::Linux</span>,
             }
         } <span class="kw">else</span> {
             <span class="ident">target</span>.<span class="ident">triple</span>().<span class="ident">operating_system</span>

@@ -2367,7 +2367,7 @@
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::x64_decl</span>::{<span class="ident">GPR</span>, <span class="ident">XMM</span>};
 <span class="kw">use</span> <span class="ident">dynasm::dynasm</span>;
 <span class="kw">use</span> <span class="ident">dynasmrt</span>::{<span class="ident">AssemblyOffset</span>, <span class="ident">DynamicLabel</span>, <span class="ident">DynasmApi</span>, <span class="ident">DynasmLabelApi</span>};
-<span class="kw">use</span> <span class="ident">wasmer_compiler::CpuFeature</span>;
+<span class="kw">use</span> <span class="ident">wasmer_types::CpuFeature</span>;
 
 <span class="doccomment">/// Force `dynasm!` to use the correct arch (x64) when cross-compiling.</span>
 <span class="doccomment">/// `dynasm!` proc-macro tries to auto-detect it by default by looking at the</span>

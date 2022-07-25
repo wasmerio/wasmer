@@ -622,6 +622,11 @@
 <span id="620">620</span>
 <span id="621">621</span>
 <span id="622">622</span>
+<span id="623">623</span>
+<span id="624">624</span>
+<span id="625">625</span>
+<span id="626">626</span>
+<span id="627">627</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::indexes</span>::{<span class="ident">FunctionIndex</span>, <span class="ident">GlobalIndex</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::lib::std::borrow::ToOwned</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::lib::std::fmt</span>;
@@ -642,6 +647,7 @@
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Eq</span>, <span class="ident">PartialEq</span>, <span class="ident">Hash</span>)]</span>
 <span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>))]</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">RkyvSerialize</span>, <span class="ident">RkyvDeserialize</span>, <span class="ident">Archive</span>)]</span>
+<span class="attribute">#[<span class="ident">archive</span>(<span class="kw">as</span> <span class="op">=</span> <span class="string">&quot;Self&quot;</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">Type</span> {
     <span class="doccomment">/// Signed 32 bit integer.</span>
     <span class="ident">I32</span>,
@@ -685,6 +691,7 @@
 <span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>))]</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">RkyvSerialize</span>, <span class="ident">RkyvDeserialize</span>, <span class="ident">Archive</span>)]</span>
 <span class="doccomment">/// The WebAssembly V128 type</span>
+<span class="attribute">#[<span class="ident">archive</span>(<span class="kw">as</span> <span class="op">=</span> <span class="string">&quot;Self&quot;</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">V128</span>(<span class="kw">pub</span>(<span class="kw">crate</span>) [<span class="ident">u8</span>; <span class="number">16</span>]);
 
 <span class="kw">impl</span> <span class="ident">V128</span> {
@@ -940,6 +947,7 @@
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>)]</span>
 <span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>))]</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">RkyvSerialize</span>, <span class="ident">RkyvDeserialize</span>, <span class="ident">Archive</span>)]</span>
+<span class="attribute">#[<span class="ident">archive</span>(<span class="kw">as</span> <span class="op">=</span> <span class="string">&quot;Self&quot;</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">Mutability</span> {
     <span class="doccomment">/// The global is constant and its value does not change</span>
     <span class="ident">Const</span>,
@@ -977,6 +985,7 @@
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>)]</span>
 <span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>))]</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">RkyvSerialize</span>, <span class="ident">RkyvDeserialize</span>, <span class="ident">Archive</span>)]</span>
+<span class="attribute">#[<span class="ident">archive</span>(<span class="kw">as</span> <span class="op">=</span> <span class="string">&quot;Self&quot;</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">GlobalType</span> {
     <span class="doccomment">/// The type of the value stored in the global.</span>
     <span class="kw">pub</span> <span class="ident">ty</span>: <span class="ident">Type</span>,
@@ -1021,6 +1030,7 @@
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">PartialEq</span>)]</span>
 <span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>))]</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">RkyvSerialize</span>, <span class="ident">RkyvDeserialize</span>, <span class="ident">Archive</span>)]</span>
+<span class="attribute">#[<span class="ident">archive</span>(<span class="kw">as</span> <span class="op">=</span> <span class="string">&quot;Self&quot;</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">GlobalInit</span> {
     <span class="doccomment">/// An `i32.const`.</span>
     <span class="ident">I32Const</span>(<span class="ident">i32</span>),

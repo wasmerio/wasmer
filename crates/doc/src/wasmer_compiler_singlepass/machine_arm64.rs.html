@@ -5929,6 +5929,7 @@
 <span id="5927">5927</span>
 <span id="5928">5928</span>
 <span id="5929">5929</span>
+<span id="5930">5930</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::arm64_decl::new_machine_state</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::arm64_decl</span>::{<span class="ident">GPR</span>, <span class="ident">NEON</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::codegen_error</span>;
@@ -5942,10 +5943,11 @@
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unwind&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">gimli</span>::{<span class="ident">write::CallFrameInstruction</span>, <span class="ident">AArch64</span>};
 <span class="kw">use</span> <span class="ident">wasmer_compiler::wasmparser::Type</span> <span class="kw">as</span> <span class="ident">WpType</span>;
-<span class="kw">use</span> <span class="ident">wasmer_compiler::CallingConvention</span>;
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">CustomSection</span>, <span class="ident">Relocation</span>, <span class="ident">RelocationKind</span>, <span class="ident">RelocationTarget</span>};
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">FunctionBody</span>, <span class="ident">InstructionAddressMap</span>, <span class="ident">SourceLoc</span>, <span class="ident">TrapInformation</span>};
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">FunctionIndex</span>, <span class="ident">FunctionType</span>, <span class="ident">TrapCode</span>, <span class="ident">VMOffsets</span>};
+<span class="kw">use</span> <span class="ident">wasmer_types</span>::{
+    <span class="ident">CallingConvention</span>, <span class="ident">CustomSection</span>, <span class="ident">FunctionBody</span>, <span class="ident">FunctionIndex</span>, <span class="ident">FunctionType</span>,
+    <span class="ident">InstructionAddressMap</span>, <span class="ident">Relocation</span>, <span class="ident">RelocationKind</span>, <span class="ident">RelocationTarget</span>, <span class="ident">SourceLoc</span>, <span class="ident">TrapCode</span>,
+    <span class="ident">TrapInformation</span>, <span class="ident">VMOffsets</span>,
+};
 
 <span class="kw">type</span> <span class="ident">Assembler</span> <span class="op">=</span> <span class="ident">VecAssembler</span><span class="op">&lt;</span><span class="ident">Aarch64Relocation</span><span class="op">&gt;</span>;
 <span class="kw">type</span> <span class="ident">Location</span> <span class="op">=</span> <span class="ident">AbstractLocation</span><span class="op">&lt;</span><span class="ident">GPR</span>, <span class="ident">NEON</span><span class="op">&gt;</span>;

@@ -87,7 +87,7 @@
 <span class="kw">use</span> <span class="ident">gimli</span>::{<span class="ident">AArch64</span>, <span class="ident">Encoding</span>, <span class="ident">Format</span>, <span class="ident">X86_64</span>};
 <span class="kw">use</span> <span class="ident">std::fmt::Debug</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unwind&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident">wasmer_compiler::Architecture</span>;
+<span class="kw">use</span> <span class="ident">wasmer_types::Architecture</span>;
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Debug</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">UnwindOps</span> {

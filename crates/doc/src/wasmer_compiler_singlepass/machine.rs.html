@@ -2444,6 +2444,7 @@
 <span id="2442">2442</span>
 <span id="2443">2443</span>
 <span id="2444">2444</span>
+<span id="2445">2445</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::common_decl</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::location</span>::{<span class="ident">Location</span>, <span class="ident">Reg</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::machine_arm64::MachineARM64</span>;
@@ -2454,10 +2455,11 @@
 <span class="kw">use</span> <span class="ident">std::fmt::Debug</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_compiler::wasmparser::MemoryImmediate</span>;
 <span class="kw">use</span> <span class="ident">wasmer_compiler::wasmparser::Type</span> <span class="kw">as</span> <span class="ident">WpType</span>;
-<span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">Architecture</span>, <span class="ident">CallingConvention</span>, <span class="ident">CpuFeature</span>, <span class="ident">Target</span>};
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">CustomSection</span>, <span class="ident">Relocation</span>, <span class="ident">RelocationTarget</span>};
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">FunctionBody</span>, <span class="ident">InstructionAddressMap</span>, <span class="ident">TrapInformation</span>};
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">FunctionIndex</span>, <span class="ident">FunctionType</span>, <span class="ident">TrapCode</span>, <span class="ident">VMOffsets</span>};
+<span class="kw">use</span> <span class="ident">wasmer_types</span>::{
+    <span class="ident">Architecture</span>, <span class="ident">CallingConvention</span>, <span class="ident">CpuFeature</span>, <span class="ident">CustomSection</span>, <span class="ident">FunctionBody</span>, <span class="ident">FunctionIndex</span>,
+    <span class="ident">FunctionType</span>, <span class="ident">InstructionAddressMap</span>, <span class="ident">Relocation</span>, <span class="ident">RelocationTarget</span>, <span class="ident">Target</span>, <span class="ident">TrapCode</span>,
+    <span class="ident">TrapInformation</span>, <span class="ident">VMOffsets</span>,
+};
 
 <span class="kw">pub</span> <span class="kw">type</span> <span class="ident">Label</span> <span class="op">=</span> <span class="ident">DynamicLabel</span>;
 <span class="kw">pub</span> <span class="kw">type</span> <span class="ident">Offset</span> <span class="op">=</span> <span class="ident">AssemblyOffset</span>;

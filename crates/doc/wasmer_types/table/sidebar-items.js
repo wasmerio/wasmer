@@ -1,1 +1,1 @@
-initSidebarItems({"enum":[["ArchivedTableStyle","An archived [`TableStyle`]"],["TableStyle","Implementation styles for WebAssembly tables."],["TableStyleResolver","The resolver for an archived [`TableStyle`]"]]});
+initSidebarItems({"enum":[["TableStyle","Implementation styles for WebAssembly tables."],["TableStyleResolver","The resolver for an archived [`TableStyle`]"]]});

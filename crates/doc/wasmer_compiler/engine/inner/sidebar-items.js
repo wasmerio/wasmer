@@ -1,1 +1,1 @@
-initSidebarItems({"struct":[["EngineId","A unique identifier for an Engine."]],"trait":[["Engine","A unimplemented Wasmer `Engine`."]]});
+initSidebarItems({"struct":[["Engine","A WebAssembly `Universal` Engine."],["EngineId","A unique identifier for an Engine."],["EngineInner","The inner contents of `Engine`"]]});

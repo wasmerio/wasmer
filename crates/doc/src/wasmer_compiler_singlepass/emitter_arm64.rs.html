@@ -3541,6 +3541,7 @@
 <span id="3539">3539</span>
 <span id="3540">3540</span>
 <span id="3541">3541</span>
+<span id="3542">3542</span>
 </pre><pre class="rust"><code><span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::arm64_decl</span>::{<span class="ident">ARM64Register</span>, <span class="ident">ArgumentRegisterAllocator</span>, <span class="ident">GPR</span>, <span class="ident">NEON</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::codegen_error</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::common_decl::Size</span>;
@@ -3554,9 +3555,10 @@
     <span class="ident">aarch64::Aarch64Relocation</span>, <span class="ident">AssemblyOffset</span>, <span class="ident">DynamicLabel</span>, <span class="ident">DynasmApi</span>, <span class="ident">DynasmLabelApi</span>,
     <span class="ident">VecAssembler</span>,
 };
-<span class="kw">use</span> <span class="ident">wasmer_compiler::CallingConvention</span>;
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">CustomSection</span>, <span class="ident">CustomSectionProtection</span>, <span class="ident">SectionBody</span>};
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">FunctionBody</span>, <span class="ident">FunctionIndex</span>, <span class="ident">FunctionType</span>, <span class="ident">Type</span>, <span class="ident">VMOffsets</span>};
+<span class="kw">use</span> <span class="ident">wasmer_types</span>::{
+    <span class="ident">CallingConvention</span>, <span class="ident">CustomSection</span>, <span class="ident">CustomSectionProtection</span>, <span class="ident">FunctionBody</span>, <span class="ident">FunctionIndex</span>,
+    <span class="ident">FunctionType</span>, <span class="ident">SectionBody</span>, <span class="ident">Type</span>, <span class="ident">VMOffsets</span>,
+};
 
 <span class="kw">type</span> <span class="ident">Assembler</span> <span class="op">=</span> <span class="ident">VecAssembler</span><span class="op">&lt;</span><span class="ident">Aarch64Relocation</span><span class="op">&gt;</span>;
 

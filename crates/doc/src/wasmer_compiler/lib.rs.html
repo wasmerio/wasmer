@@ -90,11 +90,6 @@
 <span id="88">88</span>
 <span id="89">89</span>
 <span id="90">90</span>
-<span id="91">91</span>
-<span id="92">92</span>
-<span id="93">93</span>
-<span id="94">94</span>
-<span id="95">95</span>
 </pre><pre class="rust"><code><span class="doccomment">//! The `wasmer-compiler` crate provides the necessary abstractions</span>
 <span class="doccomment">//! to create a compiler.</span>
 <span class="doccomment">//!</span>
@@ -148,33 +143,28 @@
     }
 }
 
-<span class="kw">mod</span> <span class="ident">artifact</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;wasm32&quot;</span>))]</span>
 <span class="kw">mod</span> <span class="ident">engine</span>;
+<span class="kw">mod</span> <span class="ident">traits</span>;
 
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::artifact</span>::<span class="kw-2">*</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;wasm32&quot;</span>))]</span>
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::engine</span>::<span class="kw-2">*</span>;
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::traits</span>::<span class="kw-2">*</span>;
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;translator&quot;</span>)]</span>
-<span class="kw">mod</span> <span class="ident">universal_artifact</span>;
+<span class="kw">mod</span> <span class="ident">artifact_builders</span>;
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;translator&quot;</span>)]</span>
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="self">self</span>::universal_artifact</span>::<span class="kw-2">*</span>;
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="self">self</span>::artifact_builders</span>::<span class="kw-2">*</span>;
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;translator&quot;</span>)]</span>
 <span class="kw">mod</span> <span class="ident">compiler</span>;
-<span class="kw">mod</span> <span class="ident">target</span>;
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;translator&quot;</span>)]</span>
 <span class="attribute">#[<span class="ident">macro_use</span>]</span>
 <span class="kw">mod</span> <span class="ident">translator</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;translator&quot;</span>)]</span>
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::compiler</span>::{<span class="ident">Compiler</span>, <span class="ident">CompilerConfig</span>, <span class="ident">Symbol</span>, <span class="ident">SymbolRegistry</span>};
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::target</span>::{
-    <span class="ident">Architecture</span>, <span class="ident">BinaryFormat</span>, <span class="ident">CallingConvention</span>, <span class="ident">CpuFeature</span>, <span class="ident">Endianness</span>, <span class="ident">OperatingSystem</span>,
-    <span class="ident">PointerWidth</span>, <span class="ident">Target</span>, <span class="ident">Triple</span>,
-};
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;translator&quot;</span>)]</span>
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::translator</span>::{
     <span class="ident">from_binaryreadererror_wasmerror</span>, <span class="ident">translate_module</span>, <span class="ident">wptype_to_type</span>, <span class="ident">FunctionBinaryReader</span>,
