@@ -64,6 +64,7 @@ default = [
     "cache",
     "wasi",
     "emscripten",
+    "compilation",
 ]
 cache = ["wasmer-cache"]
 cache-blake3-pure = ["wasmer-cache/blake3-pure"]
@@ -73,6 +74,9 @@ emscripten = ["wasmer-emscripten"]
 wat = ["wasmer/wat"]
 compiler = [
     "wasmer-compiler/translator",
+]
+compilation = [
+    "wasmer-compiler/engine_compilation",
 ]
 experimental-io-devices = [
     "wasmer-wasi-experimental-io-devices",

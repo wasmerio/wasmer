@@ -73,12 +73,7 @@
 //!
 //! Wasmer is not only fast, but also designed to be *highly customizable*:
 //!
-//! * **Pluggable engines** — An engine is responsible to drive the
-//!   compilation process and to store the generated executable code
-//!   somewhere, either:
-//!   * in-memory (with [`wasmer-engine-universal`]),
-//!
-//! * **Pluggable compilers** — A compiler is used by an engine to
+//! * **Pluggable compilers** — A compiler is used by the engine to
 //!   transform WebAssembly into executable code:
 //!   * [`wasmer-compiler-singlepass`] provides a fast compilation-time
 //!     but an unoptimized runtime speed,
@@ -243,15 +238,15 @@
 //! - [`wasmer-wasi`] for running Wasm modules compiled to the WASI ABI.
 //!
 //! The Wasmer project has two major abstractions:
-//! 1. [Engines][wasmer-engine],
+//! 1. [Engine][wasmer-compiler],
 //! 2. [Compilers][wasmer-compiler].
 //!
 //! These two abstractions have multiple options that can be enabled
 //! with features.
 //!
-//! ## Engines
+//! ## Engine
 //!
-//! An engine is a system that uses a compiler to make a WebAssembly
+//! The engine is a system that uses a compiler to make a WebAssembly
 //! module executable.
 //!
 //! ## Compilers
@@ -311,10 +306,10 @@
 #![cfg_attr(feature = "wat", doc = "(enabled),")]
 #![cfg_attr(not(feature = "wat"), doc = "(disabled),")]
 //!   enables `wasmer` to parse the WebAssembly text format,
-//! - `universal`
-#![cfg_attr(feature = "universal", doc = "(enabled),")]
-#![cfg_attr(not(feature = "universal"), doc = "(disabled),")]
-//!   enables [the Universal engine][`wasmer-engine-universal`].
+//! - `compilation`
+#![cfg_attr(feature = "compilation", doc = "(enabled),")]
+#![cfg_attr(not(feature = "compilation"), doc = "(disabled),")]
+//!   enables compilation with the wasmer engine.
 //!
 //! The features that set defaults come in sets that are mutually exclusive.
 //!
@@ -331,13 +326,6 @@
 #![cfg_attr(feature = "default-singlepass", doc = "(enabled),")]
 #![cfg_attr(not(feature = "default-singlepass"), doc = "(disabled),")]
 //!   set Wasmer's Singlepass compiler as the default.
-//!
-//! The next set is the default engine set:
-//! - `default-universal`
-#![cfg_attr(feature = "default-universal", doc = "(enabled),")]
-#![cfg_attr(not(feature = "default-universal"), doc = "(disabled),")]
-//!   set the Universal engine as the default.
-//!
 #![cfg_attr(
     feature = "js",
     doc = "## Features for the `js` feature group (enabled)"
@@ -414,8 +402,6 @@
 //! [`wasmer-cache`]: https://docs.rs/wasmer-cache/
 //! [wasmer-compiler]: https://docs.rs/wasmer-compiler/
 //! [`wasmer-emscripten`]: https://docs.rs/wasmer-emscripten/
-//! [wasmer-engine]: https://docs.rs/wasmer-engine/
-//! [`wasmer-engine-universal`]: https://docs.rs/wasmer-engine-universal/
 //! [`wasmer-compiler-singlepass`]: https://docs.rs/wasmer-compiler-singlepass/
 //! [`wasmer-compiler-llvm`]: https://docs.rs/wasmer-compiler-llvm/
 //! [`wasmer-compiler-cranelift`]: https://docs.rs/wasmer-compiler-cranelift/

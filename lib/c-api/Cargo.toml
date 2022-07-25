@@ -48,7 +48,7 @@ inline-c = "0.1.5"
 default = [
     "wat",
     "cranelift",
-    "universal",
+    "compilation",
     "wasi",
     "middlewares",
 ]
@@ -58,7 +58,7 @@ middlewares = [
     "compiler",
     "wasmer-middlewares",
 ]
-universal = [
+compilation = [
     "wasmer-compiler/engine_compilation",
     "compiler",
 ]
@@ -79,7 +79,7 @@ llvm = [
 ]
 
 # Deprecated features.
-jit = ["universal"]
+jit = ["compilation"]
 
 # TODO: Port this feature.
 #emscripten = ["wasmer-emscripten"]

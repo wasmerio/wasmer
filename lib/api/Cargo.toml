@@ -89,7 +89,7 @@ core = ["hashbrown"]
 
 # Features for `sys`.
 sys = []
-sys-default = ["sys", "wat", "default-universal"]
+sys-default = ["sys", "wat", "default-cranelift", "default-engine_compilation"]
 # - Compilers.
 compiler = [
     "sys",
@@ -104,16 +104,16 @@ default-cranelift = ["default-compiler", "cranelift"]
 default-llvm = ["default-compiler", "llvm"]
 # - Engines.
 engine = ["sys"]
-universal = [
+engine_compilation = [
     "engine", "wasmer-compiler/engine_compilation"
 ]
 default-engine = []
-default-universal = [
+default-engine_compilation = [
     "default-engine",
-    "universal",
+    "engine_compilation",
 ]
 # - Deprecated features.
-jit = ["universal"]
+jit = ["engine_compilation"]
 
 # Features for `js`.
 js = ["wasm-bindgen", "js-sys"]
@@ -124,4 +124,4 @@ wasm-types-polyfill = ["js", "wasmparser"]
 js-serializable-module = []
 
 [package.metadata.docs.rs]
-features = ["compiler", "core", "cranelift", "default-compiler", "default-engine", "engine", "jit", "native", "singlepass", "sys", "sys-default", "universal"]
+features = ["compiler", "core", "cranelift", "default-compiler", "default-engine", "engine", "jit", "native", "singlepass", "sys", "sys-default", "engine_compilation"]

@@ -155,8 +155,8 @@ impl Engine {
     }
 
     /// Clone the engine
-    pub fn cloned(&self) -> Arc<Self> {
-        Arc::new(self.clone())
+    pub fn cloned(&self) -> Self {
+        self.clone()
     }
 }
 

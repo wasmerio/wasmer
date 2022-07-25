@@ -14,7 +14,7 @@ use wasmer_vm::StoreObjects;
 /// wrap the actual context in a box.
 pub(crate) struct StoreInner {
     pub(crate) objects: StoreObjects,
-    pub(crate) engine: Arc<Engine>,
+    pub(crate) engine: Engine,
     pub(crate) tunables: Box<dyn Tunables + Send + Sync>,
     pub(crate) trap_handler: Option<Box<TrapHandlerFn<'static>>>,
 }
@@ -31,7 +31,7 @@ pub(crate) struct StoreInner {
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#store>
 pub struct Store {
     pub(crate) inner: Box<StoreInner>,
-    engine: Arc<Engine>,
+    engine: Engine,
     trap_handler: Arc<RwLock<Option<Box<TrapHandlerFn<'static>>>>>,
 }
 
@@ -80,7 +80,7 @@ impl Store {
     }
 
     /// Returns the [`Engine`].
-    pub fn engine(&self) -> &Arc<Engine> {
+    pub fn engine(&self) -> &Engine {
         &self.engine
     }
 
@@ -144,7 +144,7 @@ impl Default for Store {
         #[allow(unreachable_code, unused_mut)]
         fn get_engine(mut config: impl CompilerConfig + 'static) -> Engine {
             cfg_if::cfg_if! {
-                if #[cfg(feature = "default-universal")] {
+                if #[cfg(feature = "engine_compilation")] {
                     wasmer_compiler::Backend::new(config)
                         .engine()
                 } else {
@@ -198,7 +198,7 @@ impl<'a> StoreRef<'a> {
     }
 
     /// Returns the [`Engine`].
-    pub fn engine(&self) -> &Arc<Engine> {
+    pub fn engine(&self) -> &Engine {
         &self.inner.engine
     }
 
@@ -231,7 +231,7 @@ impl<'a> StoreMut<'a> {
     }
 
     /// Returns the [`Engine`].
-    pub fn engine(&self) -> &Arc<Engine> {
+    pub fn engine(&self) -> &Engine {
         &self.inner.engine
     }
 

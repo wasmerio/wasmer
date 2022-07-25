@@ -14,6 +14,8 @@ use structopt::StructOpt;
 use wasmer::*;
 #[cfg(feature = "compiler")]
 use wasmer_compiler::CompilerConfig;
+#[cfg(feature = "compilation")]
+use wasmer_compiler::Engine;
 
 #[derive(Debug, Clone, StructOpt, Default)]
 /// The compiler options
@@ -104,10 +106,11 @@ impl CompilerOptions {
     pub fn get_store_for_target(&self, target: Target) -> Result<(Store, CompilerType)> {
         let (compiler_config, compiler_type) = self.get_compiler_config()?;
         let engine = self.get_engine(target, compiler_config)?;
-        let store = Store::new_with_engine(&*engine);
+        let store = Store::new_with_engine(&engine);
         Ok((store, compiler_type))
     }
 
+    #[cfg(feature = "compilation")]
     fn get_engine(
         &self,
         target: Target,
@@ -313,10 +316,11 @@ impl StoreOptions {
     pub fn get_store_for_target(&self, target: Target) -> Result<(Store, CompilerType)> {
         let (compiler_config, compiler_type) = self.compiler.get_compiler_config()?;
         let engine = self.get_engine_with_compiler(target, compiler_config)?;
-        let store = Store::new_with_engine(&*engine);
+        let store = Store::new_with_engine(&engine);
         Ok((store, compiler_type))
     }
 
+    #[cfg(feature = "compilation")]
     fn get_engine_with_compiler(
         &self,
         target: Target,
@@ -331,15 +335,16 @@ impl StoreOptions {
 // If we don't have a compiler, but we have an engine
 #[cfg(not(feature = "compiler"))]
 impl StoreOptions {
-    fn get_engine_headless(&self) -> Result<Arc<Engine>> {
-        let engine: Arc<Engine> = Arc::new(wasmer_compiler::Backend::headless().engine());
+    #[cfg(feature = "compilation")]
+    fn get_engine_headless(&self) -> Result<Engine> {
+        let engine: Engine = wasmer_compiler::Backend::headless().engine();
         Ok(engine)
     }
 
     /// Get the store (headless engine)
     pub fn get_store(&self) -> Result<(Store, CompilerType)> {
         let engine = self.get_engine_headless()?;
-        let store = Store::new_with_engine(&*engine);
+        let store = Store::new_with_engine(&engine);
         Ok((store, CompilerType::Headless))
     }
 }

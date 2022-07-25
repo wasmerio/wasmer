@@ -45,12 +45,7 @@ fn main() -> anyhow::Result<()> {
 
 Wasmer is not only fast, but also designed to be *highly customizable*:
 
-* **Pluggable engines** — An engine is responsible to drive the
-  compilation process and to store the generated executable code
-  somewhere, either:
-  * in-memory (with [`wasmer-engine-universal`]),
-
-* **Pluggable compilers** — A compiler is used by an engine to
+* **Pluggable compilers** — A compiler is used by the engine to
   transform WebAssembly into executable code:
   * [`wasmer-compiler-singlepass`] provides a fast compilation-time
     but an unoptimized runtime speed,
@@ -94,7 +89,6 @@ more](https://wasmerio.github.io/wasmer/crates/doc/wasmer/).
 
 Made with ❤️ by the Wasmer team, for the community
 
-[`wasmer-engine-universal`]: https://github.com/wasmerio/wasmer/tree/master/lib/engine-universal
 [`wasmer-compiler-singlepass`]: https://github.com/wasmerio/wasmer/tree/master/lib/compiler-singlepass
 [`wasmer-compiler-cranelift`]: https://github.com/wasmerio/wasmer/tree/master/lib/compiler-cranelift
 [`wasmer-compiler-llvm`]: https://github.com/wasmerio/wasmer/tree/master/lib/compiler-llvm

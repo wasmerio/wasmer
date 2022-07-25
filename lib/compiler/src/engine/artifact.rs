@@ -1,7 +1,7 @@
 //! Define `Artifact`, based on `ArtifactBuild`
 //! to allow compiling and instantiating to be done as separate steps.
 
-use crate::engine::engine::{Engine, EngineInner};
+use crate::engine::inner::{Engine, EngineInner};
 use crate::engine::link::link_module;
 use crate::ArtifactBuild;
 use crate::ArtifactCreate;

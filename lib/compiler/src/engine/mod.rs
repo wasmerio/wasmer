@@ -12,7 +12,7 @@ mod backend;
 #[cfg(feature = "translator")]
 mod code_memory;
 #[cfg(feature = "translator")]
-mod engine;
+mod inner;
 #[cfg(feature = "translator")]
 mod link;
 #[cfg(feature = "translator")]
@@ -30,6 +30,6 @@ pub use self::backend::Backend;
 #[cfg(feature = "translator")]
 pub use self::code_memory::CodeMemory;
 #[cfg(feature = "translator")]
-pub use self::engine::Engine;
+pub use self::inner::Engine;
 #[cfg(feature = "translator")]
 pub use self::link::link_module;
