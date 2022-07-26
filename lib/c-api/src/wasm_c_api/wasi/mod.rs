@@ -548,23 +548,6 @@ pub unsafe extern "C" fn wasi_env_read_stderr(
     }
 }
 
-#[no_mangle]
-pub unsafe extern "C" fn wasi_env_write_stdin(
-    env: &mut wasi_env_t,
-    buffer: *const u8,
-    buffer_len: usize,
-) -> bool {
-    let mut store_mut = env.store.store_mut();
-    let state = env.inner.data_mut(&mut store_mut).state();
-    let mut stdin =
-        c_try!(state.stdin(); otherwise false).ok_or("Could not access WASI's state stdin");
-    let wasi_stdin = c_try!(stdin.as_mut(); otherwise false);
-    let buffer = slice::from_raw_parts(buffer, buffer_len);
-    let msg = c_try!(std::str::from_utf8(buffer); otherwise false);
-    c_try!(write!(wasi_stdin, "{}", msg); otherwise false);
-    true
-}
-
 fn read_inner(
     wasi_file: &mut Box<dyn WasiFile + Send + Sync + 'static>,
     inner_buffer: &mut [u8],
