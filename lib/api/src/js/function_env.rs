@@ -10,7 +10,7 @@ use crate::js::{AsStoreMut, AsStoreRef, StoreMut, StoreRef};
 /// The function environment data is owned by the `Store`.
 pub struct FunctionEnv<T> {
     pub(crate) handle: StoreHandle<VMFunctionEnvironment>,
-    _phantom: PhantomData<T>,
+    marker: PhantomData<T>,
 }
 
 impl<T> FunctionEnv<T> {
@@ -24,14 +24,14 @@ impl<T> FunctionEnv<T> {
                 store.as_store_mut().objects_mut(),
                 VMFunctionEnvironment::new(value),
             ),
-            _phantom: PhantomData,
+            marker: PhantomData,
         }
     }
 
     pub(crate) fn from_handle(handle: StoreHandle<VMFunctionEnvironment>) -> Self {
         Self {
             handle,
-            _phantom: PhantomData,
+            marker: PhantomData,
         }
     }
 
@@ -71,11 +71,26 @@ impl<T> FunctionEnv<T> {
     }
 }
 
+impl<T> PartialEq for FunctionEnv<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.handle == other.handle
+    }
+}
+
+impl<T> Eq for FunctionEnv<T> {}
+
+impl<T> std::hash::Hash for FunctionEnv<T> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.handle.hash(state);
+        self.marker.hash(state);
+    }
+}
+
 impl<T> Clone for FunctionEnv<T> {
     fn clone(&self) -> Self {
         Self {
             handle: self.handle.clone(),
-            _phantom: self._phantom,
+            marker: self.marker,
         }
     }
 }
