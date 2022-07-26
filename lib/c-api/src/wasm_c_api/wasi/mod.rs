@@ -43,6 +43,7 @@ pub type WasiConsoleIoEnvDestructor = unsafe extern "C" fn (*mut c_char, usize) 
 /// (only one thread can read / write / seek from the console I/O)
 #[allow(non_camel_case_types)]
 #[repr(C)]
+#[derive(Clone)]
 pub struct wasi_console_io_override_t {
     read: WasiConsoleIoReadCallback,
     write: WasiConsoleIoWriteCallback,
@@ -193,6 +194,78 @@ pub unsafe extern "C" fn wasi_console_io_override_new(
         data: Some(Arc::new(Mutex::new(data_vec))),
         dropped: AtomicBool::new(false),
     }))
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasi_console_io_override_delete(
+    ptr: *mut wasi_console_io_override_t
+) {
+    Box::from_raw(ptr)
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasi_console_io_override_write_bytes(
+    ptr: *mut wasi_console_io_override_t,
+    buf: *const c_char,
+    len: usize,
+) -> i32 {
+
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasi_console_io_override_read_bytes(
+    ptr: *mut wasi_console_io_override_t,
+    buf: *mut c_char,
+    len: usize,
+) -> i32 {
+
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasi_console_io_override_write_str(
+    ptr: *mut wasi_console_io_override_t,
+    buf: *const c_char,
+) -> i32 {
+
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasi_console_io_override_read_str(
+    ptr: *mut wasi_console_io_override_t,
+    buf: *mut c_char,
+) -> i32 {
+
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasi_console_io_override_seek(
+    ptr: *mut wasi_console_io_override_t,
+    // 0 = from start
+    // 1 = from end
+    // 2 = from current position
+    seek_dir: c_char,
+    seek: i64,
+) -> i64 {
+
+    let seek_pos = match seek_dir {
+        0 => SeekFrom::Start(seek as usize),
+        1 => SeekFrom::End(seek),
+        2 => SeekFrom::Current(seek),
+    };
+
+    let ptr = unsafe { &mut *ptr };
+    
+    ptr
+    .seek(seek_pos)
+    .map(|p| p.try_into().ok())
+    .unwrap_or(-1)
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasi_console_io_override_clone(
+    ptr: *const wasi_console_io_override_t
+) -> *mut wasi_console_io_override_t {
+    unsafe { &*ptr }.clone()
 }
 
 /// Creates a `wasi_console_io_override_t` callback object that does nothing
@@ -654,10 +727,40 @@ mod tests {
                 wasm_byte_vec_t wasm;
                 wat2wasm(&wat, &wasm);
 
+                wasi_console_io_override_t* override_stdin = wasi_console_io_override_new(
+
+                );
+                wasi_console_io_override_t* override_stdout = wasi_console_io_override_new(
+
+                );
+                wasi_console_io_override_t* override_stdin = wasi_console_io_override_new(
+
+                );
+
+                // Cloning the `wasi_console_io_override_t` does not deep-clone the 
+                // internal stream, since that is locked behind an Arc<Mutex<T>>.
+                wasi_console_io_override_t* stdin_sender = wasi_console_io_override_clone(&override_stdin);
+                wasi_console_io_override_t* stdout_receiver = wasi_console_io_override_clone(&override_stdout);
+                wasi_console_io_override_t* stderr_receiver = wasi_console_io_override_clone(&override_stderr);
+
                 wasm_module_t* module = wasm_module_new(store, &wasm);
                 assert(module);
 
                 assert(wasi_get_wasi_version(module) == SNAPSHOT0);
+                
+                // The program should wait for a stdin, then print "stdout: $1" to stdout 
+                // and "stderr: $1" to stderr and exit.
+                wasi_console_io_override_write_str(stdin_sender, "hello\0");
+                
+                assert(wasi_console_io_override_read_str(stdout_receiver), "stdout: hello\0");
+                assert(wasi_console_io_override_read_str(stdout_receiver), "\0");
+
+                assert(wasi_console_io_override_read_str(stderr_receiver), "stderr: hello\0");
+                assert(wasi_console_io_override_read_str(stderr_receiver), "\0");
+
+                wasi_console_io_override_delete(stdin_sender);
+                wasi_console_io_override_delete(stdout_receiver);
+                wasi_console_io_override_delete(stderr_receiver);
 
                 wasm_module_delete(module);
                 wasm_byte_vec_delete(&wasm);
@@ -742,6 +845,8 @@ mod tests {
     fn test_wasi_stdin_set() {
         (assert_c! {
             #include "tests/wasmer.h"
+
+            struct MyCustomStdin { }
 
             int main() {
                 wasm_engine_t* engine = wasm_engine_new();
