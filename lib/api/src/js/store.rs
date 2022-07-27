@@ -202,7 +202,7 @@ mod objects {
     /// Every handle to an object managed by a context also contains the ID of the
     /// context. This is used to check that a handle is always used with the
     /// correct context.
-    #[derive(Debug, Copy, Clone, Eq, PartialEq)]
+    #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
     pub struct StoreId(NonZeroU64);
 
     impl Default for StoreId {
@@ -298,6 +298,14 @@ mod objects {
             self.id == other.id
         }
     }
+
+    impl<T> std::hash::Hash for StoreHandle<T> {
+        fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+            self.id.hash(state);
+            self.internal.idx.hash(state);
+        }
+    }
+
     impl<T> Clone for StoreHandle<T> {
         fn clone(&self) -> Self {
             Self {
