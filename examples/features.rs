@@ -11,7 +11,7 @@
 //! Ready?
 
 use wasmer::{imports, wat2wasm, Features, FunctionEnv, Instance, Module, Store, Value};
-use wasmer_compiler::Backend;
+use wasmer_compiler::EngineBuilder;
 use wasmer_compiler_cranelift::Cranelift;
 
 fn main() -> anyhow::Result<()> {
@@ -36,7 +36,7 @@ fn main() -> anyhow::Result<()> {
     features.multi_value(true);
 
     // Set up the engine. That's where we define the features!
-    let engine = Backend::new(compiler).features(features);
+    let engine = EngineBuilder::new(compiler, None, Some(features));
 
     // Now, let's define the store, and compile the module.
     let mut store = Store::new_with_engine(&engine.engine());

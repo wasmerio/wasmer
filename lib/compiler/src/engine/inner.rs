@@ -1,21 +1,28 @@
 //! Universal compilation.
 
-#[cfg(feature = "engine_compilation")]
-use crate::Compiler;
-use crate::EngineBuilder;
-use crate::{Artifact, CodeMemory};
+#[cfg(not(target_arch = "wasm32"))]
+use crate::Artifact;
+#[cfg(not(target_arch = "wasm32"))]
+use crate::CodeMemory;
+#[cfg(feature = "compiler")]
+use crate::{Compiler, CompilerConfig};
+#[cfg(not(target_arch = "wasm32"))]
 use crate::{FunctionExtent, Tunables};
+#[cfg(not(target_arch = "wasm32"))]
 use memmap2::Mmap;
+#[cfg(not(target_arch = "wasm32"))]
 use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 use std::sync::{Arc, Mutex};
-use wasmer_types::entity::PrimaryMap;
-use wasmer_types::FunctionBody;
+#[cfg(not(target_arch = "wasm32"))]
 use wasmer_types::{
-    CompileError, DeserializeError, Features, FunctionIndex, FunctionType, LocalFunctionIndex,
-    ModuleInfo, SignatureIndex, Target,
+    entity::PrimaryMap, DeserializeError, FunctionBody, FunctionIndex, FunctionType,
+    LocalFunctionIndex, ModuleInfo, SignatureIndex,
 };
+use wasmer_types::{CompileError, Features, Target};
+#[cfg(not(target_arch = "wasm32"))]
 use wasmer_types::{CustomSection, CustomSectionProtection, SectionIndex};
+#[cfg(not(target_arch = "wasm32"))]
 use wasmer_vm::{
     FunctionBodyPtr, SectionBodyPtr, SignatureRegistry, VMFunctionBody, VMSharedSignatureIndex,
     VMTrampoline,
@@ -32,12 +39,19 @@ pub struct Engine {
 
 impl Engine {
     /// Create a new `Engine` with the given config
-    #[cfg(feature = "engine_compilation")]
-    pub fn new(compiler: Box<dyn Compiler>, target: Target, features: Features) -> Self {
+    #[cfg(feature = "compiler")]
+    pub fn new(
+        compiler_config: Box<dyn CompilerConfig>,
+        target: Target,
+        features: Features,
+    ) -> Self {
         Self {
             inner: Arc::new(Mutex::new(EngineInner {
-                builder: EngineBuilder::new(Some(compiler), features),
+                compiler: Some(compiler_config.compiler()),
+                features,
+                #[cfg(not(target_arch = "wasm32"))]
                 code_memory: vec![],
+                #[cfg(not(target_arch = "wasm32"))]
                 signatures: SignatureRegistry::new(),
             })),
             target: Arc::new(target),
@@ -61,8 +75,11 @@ impl Engine {
     pub fn headless() -> Self {
         Self {
             inner: Arc::new(Mutex::new(EngineInner {
-                builder: EngineBuilder::new(None, Features::default()),
+                compiler: None,
+                features: Features::default(),
+                #[cfg(not(target_arch = "wasm32"))]
                 code_memory: vec![],
+                #[cfg(not(target_arch = "wasm32"))]
                 signatures: SignatureRegistry::new(),
             })),
             target: Arc::new(Target::default()),
@@ -70,11 +87,13 @@ impl Engine {
         }
     }
 
-    pub(crate) fn inner(&self) -> std::sync::MutexGuard<'_, EngineInner> {
+    /// Get reference to `EngineInner`.
+    pub fn inner(&self) -> std::sync::MutexGuard<'_, EngineInner> {
         self.inner.lock().unwrap()
     }
 
-    pub(crate) fn inner_mut(&self) -> std::sync::MutexGuard<'_, EngineInner> {
+    /// Get mutable reference to `EngineInner`.
+    pub fn inner_mut(&self) -> std::sync::MutexGuard<'_, EngineInner> {
         self.inner.lock().unwrap()
     }
 
@@ -84,12 +103,14 @@ impl Engine {
     }
 
     /// Register a signature
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn register_signature(&self, func_type: &FunctionType) -> VMSharedSignatureIndex {
         let compiler = self.inner();
         compiler.signatures().register(func_type)
     }
 
     /// Lookup a signature
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn lookup_signature(&self, sig: VMSharedSignatureIndex) -> Option<FunctionType> {
         let compiler = self.inner();
         compiler.signatures().lookup(sig)
@@ -101,7 +122,8 @@ impl Engine {
     }
 
     /// Compile a WebAssembly binary
-    #[cfg(feature = "engine_compilation")]
+    #[cfg(feature = "compiler")]
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn compile(
         &self,
         binary: &[u8],
@@ -111,7 +133,8 @@ impl Engine {
     }
 
     /// Compile a WebAssembly binary
-    #[cfg(not(feature = "engine_compilation"))]
+    #[cfg(not(feature = "compiler"))]
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn compile(
         &self,
         _binary: &[u8],
@@ -122,6 +145,7 @@ impl Engine {
         ))
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     /// Deserializes a WebAssembly module
     ///
     /// # Safety
@@ -131,6 +155,7 @@ impl Engine {
         Ok(Arc::new(Artifact::deserialize(self, bytes)?))
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     /// Deserializes a WebAssembly module from a path
     ///
     /// # Safety
@@ -162,38 +187,47 @@ impl Engine {
 
 /// The inner contents of `Engine`
 pub struct EngineInner {
-    /// The builder (include compiler and cpu features)
-    builder: EngineBuilder,
+    #[cfg(feature = "compiler")]
+    /// The compiler and cpu features
+    compiler: Option<Box<dyn Compiler>>,
+    #[cfg(feature = "compiler")]
+    /// The compiler and cpu features
+    features: Features,
     /// The code memory is responsible of publishing the compiled
     /// functions to memory.
+    #[cfg(not(target_arch = "wasm32"))]
     code_memory: Vec<CodeMemory>,
     /// The signature registry is used mainly to operate with trampolines
     /// performantly.
+    #[cfg(not(target_arch = "wasm32"))]
     signatures: SignatureRegistry,
 }
 
 impl EngineInner {
     /// Gets the compiler associated to this engine.
-    #[cfg(feature = "engine_compilation")]
+    #[cfg(feature = "compiler")]
     pub fn compiler(&self) -> Result<&dyn Compiler, CompileError> {
-        self.builder.compiler()
+        match self.compiler.as_ref() {
+            None => Err(CompileError::Codegen(
+                "The Engine is not compiled in.".to_string(),
+            )),
+            Some(compiler) => Ok(&**compiler),
+        }
     }
 
     /// Validate the module
     pub fn validate(&self, data: &[u8]) -> Result<(), CompileError> {
-        self.builder.validate(data)
+        let compiler = self.compiler()?;
+        compiler.validate_module(&self.features, data)
     }
 
     /// The Wasm features
     pub fn features(&self) -> &Features {
-        self.builder.features()
-    }
-
-    pub fn builder_mut(&mut self) -> &mut EngineBuilder {
-        &mut self.builder
+        &self.features
     }
 
     /// Allocate compiled functions into memory
+    #[cfg(not(target_arch = "wasm32"))]
     #[allow(clippy::type_complexity)]
     pub(crate) fn allocate(
         &mut self,
@@ -286,11 +320,13 @@ impl EngineInner {
         ))
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     /// Make memory containing compiled code executable.
     pub(crate) fn publish_compiled_code(&mut self) {
         self.code_memory.last_mut().unwrap().publish();
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     /// Register DWARF-type exception handling information associated with the code.
     pub(crate) fn publish_eh_frame(&mut self, eh_frame: Option<&[u8]>) -> Result<(), CompileError> {
         self.code_memory
@@ -305,6 +341,7 @@ impl EngineInner {
     }
 
     /// Shared signature registry.
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn signatures(&self) -> &SignatureRegistry {
         &self.signatures
     }

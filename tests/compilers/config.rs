@@ -51,15 +51,15 @@ impl Config {
     }
 
     pub fn engine(&self, compiler_config: Box<dyn CompilerConfig>) -> Box<Engine> {
-        let mut engine = wasmer_compiler::Backend::new(compiler_config);
+        let mut engine = wasmer_compiler::EngineBuilder::new(compiler_config, None, None);
         if let Some(ref features) = self.features {
-            engine = engine.features(features.clone())
+            engine.set_features(Some(features.clone()));
         }
         Box::new(engine.engine())
     }
 
     pub fn engine_headless(&self) -> Box<Engine> {
-        Box::new(wasmer_compiler::Backend::headless().engine())
+        Box::new(wasmer_compiler::EngineBuilder::headless().engine())
     }
 
     pub fn compiler_config(

@@ -51,11 +51,9 @@ mod lib {
     }
 }
 
-#[cfg(not(target_arch = "wasm32"))]
 mod engine;
 mod traits;
 
-#[cfg(not(target_arch = "wasm32"))]
 pub use crate::engine::*;
 pub use crate::traits::*;
 

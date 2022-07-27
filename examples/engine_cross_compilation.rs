@@ -20,7 +20,7 @@
 
 use std::str::FromStr;
 use wasmer::{wat2wasm, Module, RuntimeError, Store};
-use wasmer_compiler::Backend;
+use wasmer_compiler::EngineBuilder;
 use wasmer_compiler_cranelift::Cranelift;
 use wasmer_types::{CpuFeature, Target, Triple};
 
@@ -70,13 +70,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // That's where we specify the target for the compiler.
     //
     // Use the Universal engine.
-    let engine = Backend::new(compiler_config)
-        // Here we go.
-        // Pass the target to the engine! The engine will share
-        // this information with the compiler.
-        .target(target)
-        // Get the engine.
-        .engine();
+    let mut engine = EngineBuilder::new(compiler_config, Some(target), None).engine();
 
     // Create a store, that holds the engine.
     let mut store = Store::new_with_engine(&engine);

@@ -354,7 +354,7 @@ mod tests {
 
     use std::sync::Arc;
     use wasmer::{
-        imports, wat2wasm, Backend, CompilerConfig, Cranelift, Module, Store, TypedFunction,
+        imports, wat2wasm, CompilerConfig, Cranelift, EngineBuilder, Module, Store, TypedFunction,
     };
 
     fn cost_function(operator: &Operator) -> u64 {
@@ -386,7 +386,8 @@ mod tests {
         let metering = Arc::new(Metering::new(10, cost_function));
         let mut compiler_config = Cranelift::default();
         compiler_config.push_middleware(metering);
-        let mut store = Store::new_with_engine(&Backend::new(compiler_config).engine());
+        let mut store =
+            Store::new_with_engine(&EngineBuilder::new(compiler_config, None, None).engine());
         let module = Module::new(&store, bytecode()).unwrap();
 
         // Instantiate
@@ -434,7 +435,8 @@ mod tests {
         let metering = Arc::new(Metering::new(10, cost_function));
         let mut compiler_config = Cranelift::default();
         compiler_config.push_middleware(metering);
-        let mut store = Store::new_with_engine(&Backend::new(compiler_config).engine());
+        let mut store =
+            Store::new_with_engine(&EngineBuilder::new(compiler_config, None, None).engine());
         let module = Module::new(&store, bytecode()).unwrap();
 
         // Instantiate

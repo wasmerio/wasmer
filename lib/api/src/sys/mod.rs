@@ -64,26 +64,6 @@ pub mod vm {
 #[cfg(feature = "wat")]
 pub use wat::parse_bytes as wat2wasm;
 
-// The compilers are mutually exclusive
-#[cfg(any(
-    all(
-        feature = "default-llvm",
-        any(feature = "default-cranelift", feature = "default-singlepass")
-    ),
-    all(feature = "default-cranelift", feature = "default-singlepass")
-))]
-compile_error!(
-    r#"The `default-singlepass`, `default-cranelift` and `default-llvm` features are mutually exclusive.
-If you wish to use more than one compiler, you can simply create the own store. Eg.:
-
-```
-use wasmer::{Store, Backend, Singlepass};
-
-let engine = Backend::new(Singlepass::default()).engine();
-let mut store = Store::new_with_engine(&engine);
-```"#
-);
-
 #[cfg(feature = "singlepass")]
 pub use wasmer_compiler_singlepass::Singlepass;
 
@@ -93,16 +73,12 @@ pub use wasmer_compiler_cranelift::{Cranelift, CraneliftOptLevel};
 #[cfg(feature = "llvm")]
 pub use wasmer_compiler_llvm::{LLVMOptLevel, LLVM};
 
-#[cfg(feature = "engine_compilation")]
-pub use wasmer_compiler::{Artifact, Backend, Engine};
+pub use wasmer_compiler::Engine;
+#[cfg(feature = "compiler")]
+pub use wasmer_compiler::{Artifact, EngineBuilder};
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
-
-/// The Deprecated JIT Engine (please use `Universal` instead)
-#[cfg(feature = "jit")]
-#[deprecated(since = "2.0.0", note = "Please use the `universal` feature instead")]
-pub type JIT = Backend;
 
 /// This type is deprecated, it has been replaced by TypedFunction.
 #[deprecated(

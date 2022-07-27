@@ -5,12 +5,12 @@ This crate contains a compiler implementation based on [the LLVM Compiler Infras
 ## Usage
 
 ```rust
-use wasmer::{Store, Backend};
+use wasmer::{Store, EngineBuilder};
 use wasmer_compiler_llvm::LLVM;
 
 let compiler = LLVM::new();
 // Put it into an engine and add it to the store
-let mut store = Store::new_with_engine(&Backend::new(compiler).engine());
+let mut store = Store::new_with_engine(&EngineBuilder::new(Some(Box::new(compiler)), None, None).engine());
 ```
 
 *Note: you can find a [full working example using LLVM compiler here][example].*

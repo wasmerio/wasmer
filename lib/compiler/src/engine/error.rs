@@ -1,4 +1,5 @@
 //! The WebAssembly possible errors
+#[cfg(not(target_arch = "wasm32"))]
 use crate::engine::trap::RuntimeError;
 use thiserror::Error;
 pub use wasmer_types::{DeserializeError, ImportError, SerializeError};
@@ -16,6 +17,7 @@ pub enum LinkError {
     #[error("Error while importing {0:?}.{1:?}: {2}")]
     Import(String, String, ImportError),
 
+    #[cfg(not(target_arch = "wasm32"))]
     /// A trap ocurred during linking.
     #[error("RuntimeError occurred during linking: {0}")]
     Trap(#[source] RuntimeError),
@@ -44,6 +46,7 @@ pub enum InstantiationError {
     CpuFeature(String),
 
     /// A runtime error occured while invoking the start function
+    #[cfg(not(target_arch = "wasm32"))]
     #[error(transparent)]
     Start(RuntimeError),
 }

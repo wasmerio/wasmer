@@ -149,15 +149,21 @@ pub fn run_basic_dynamic_function(store: &Store, compiler_name: &str, c: &mut Cr
 fn run_static_benchmarks(_c: &mut Criterion) {
     #[cfg(feature = "llvm")]
     {
-        let mut store =
-            Store::new_with_engine(&Backend::new(wasmer_compiler_llvm::LLVM::new()).engine());
+        let mut store = Store::new_with_engine(
+            &EngineBuilder::new(Some(wasmer_compiler_llvm::LLVM::new()), None, None).engine(),
+        );
         run_basic_static_function(&store, "llvm", c);
     }
 
     #[cfg(feature = "cranelift")]
     {
         let mut store = Store::new_with_engine(
-            &Backend::new(wasmer_compiler_cranelift::Cranelift::new()).engine(),
+            &EngineBuilder::new(
+                Some(wasmer_compiler_cranelift::Cranelift::new()),
+                None,
+                None,
+            )
+            .engine(),
         );
         run_basic_static_function(&store, "cranelift", c);
     }
@@ -165,7 +171,12 @@ fn run_static_benchmarks(_c: &mut Criterion) {
     #[cfg(feature = "singlepass")]
     {
         let mut store = Store::new_with_engine(
-            &Backend::new(wasmer_compiler_singlepass::Singlepass::new()).engine(),
+            &EngineBuilder::new(
+                Some(wasmer_compiler_singlepass::Singlepass::new()),
+                None,
+                None,
+            )
+            .engine(),
         );
         run_basic_static_function(&store, "singlepass", c);
     }
@@ -174,15 +185,21 @@ fn run_static_benchmarks(_c: &mut Criterion) {
 fn run_dynamic_benchmarks(_c: &mut Criterion) {
     #[cfg(feature = "llvm")]
     {
-        let mut store =
-            Store::new_with_engine(&Backend::new(wasmer_compiler_llvm::LLVM::new()).engine());
+        let mut store = Store::new_with_engine(
+            &EngineBuilder::new(Some(wasmer_compiler_llvm::LLVM::new()), None, None).engine(),
+        );
         run_basic_dynamic_function(&store, "llvm", c);
     }
 
     #[cfg(feature = "cranelift")]
     {
         let mut store = Store::new_with_engine(
-            &Backend::new(wasmer_compiler_cranelift::Cranelift::new()).engine(),
+            &EngineBuilder::new(
+                Some(wasmer_compiler_cranelift::Cranelift::new()),
+                None,
+                None,
+            )
+            .engine(),
         );
         run_basic_dynamic_function(&store, "cranelift", c);
     }
@@ -190,7 +207,12 @@ fn run_dynamic_benchmarks(_c: &mut Criterion) {
     #[cfg(feature = "singlepass")]
     {
         let mut store = Store::new_with_engine(
-            &Backend::new(wasmer_compiler_singlepass::Singlepass::new()).engine(),
+            &EngineBuilder::new(
+                Some(wasmer_compiler_singlepass::Singlepass::new()),
+                None,
+                None,
+            )
+            .engine(),
         );
         run_basic_dynamic_function(&store, "singlepass", c);
     }

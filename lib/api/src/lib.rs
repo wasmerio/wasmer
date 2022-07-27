@@ -307,8 +307,8 @@
 #![cfg_attr(not(feature = "wat"), doc = "(disabled),")]
 //!   enables `wasmer` to parse the WebAssembly text format,
 //! - `compilation`
-#![cfg_attr(feature = "compilation", doc = "(enabled),")]
-#![cfg_attr(not(feature = "compilation"), doc = "(disabled),")]
+#![cfg_attr(feature = "compiler", doc = "(enabled),")]
+#![cfg_attr(not(feature = "compiler"), doc = "(disabled),")]
 //!   enables compilation with the wasmer engine.
 //!
 //! The features that set defaults come in sets that are mutually exclusive.

@@ -11,7 +11,7 @@ autoexamples = false
 
 [dependencies]
 wasmer = { version = "=2.3.0", path = "lib/api", default-features = false }
-wasmer-compiler = { version = "=2.3.0", path = "lib/compiler", features = ["engine_compilation"] }
+wasmer-compiler = { version = "=2.3.0", path = "lib/compiler", features = ["compiler"] }
 wasmer-compiler-cranelift = { version = "=2.3.0", path = "lib/compiler-cranelift", optional = true }
 wasmer-compiler-singlepass = { version = "=2.3.0", path = "lib/compiler-singlepass", optional = true }
 wasmer-compiler-llvm = { version = "=2.3.0", path = "lib/compiler-llvm", optional = true }
@@ -64,7 +64,7 @@ glob = "0.3"
 rustc_version = "0.4"
 
 [dev-dependencies]
-wasmer = { version = "=2.3.0", path = "lib/api", default-features = false, features = ["default-cranelift"] }
+wasmer = { version = "=2.3.0", path = "lib/api", default-features = false, features = ["cranelift"] }
 anyhow = "1.0"
 criterion = "0.3"
 lazy_static = "1.4"

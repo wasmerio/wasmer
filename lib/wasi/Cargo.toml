@@ -49,7 +49,7 @@ tracing-wasm = "0.2"
 default = ["sys-default"]
 
 sys = ["wasmer/sys"]
-sys-default = ["wasmer/wat", "wasmer/default-engine_compilation", "sys", "logging", "host-fs", "sys-poll", "host-vnet" ]
+sys-default = ["wasmer/wat", "wasmer/compiler", "sys", "logging", "host-fs", "sys-poll", "host-vnet" ]
 sys-poll = []
 
 js = ["wasmer/js", "mem-fs", "wasmer-vfs/no-time", "getrandom/js", "chrono"]

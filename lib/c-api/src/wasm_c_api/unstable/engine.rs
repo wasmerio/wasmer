@@ -161,7 +161,7 @@ pub extern "C" fn wasmer_is_headless() -> bool {
 /// compiled library.
 #[no_mangle]
 pub extern "C" fn wasmer_is_engine_available(engine: wasmer_engine_t) -> bool {
-    matches!(engine, wasmer_engine_t::UNIVERSAL if cfg!(feature = "compilation"))
+    matches!(engine, wasmer_engine_t::UNIVERSAL if cfg!(feature = "compiler"))
 }
 
 #[cfg(test)]
@@ -234,11 +234,7 @@ mod tests {
     fn test_wasmer_is_engine_available() {
         set_var(
             "UNIVERSAL",
-            if cfg!(feature = "compilation") {
-                "1"
-            } else {
-                "0"
-            },
+            if cfg!(feature = "compiler") { "1" } else { "0" },
         );
 
         (assert_c! {

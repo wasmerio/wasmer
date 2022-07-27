@@ -14,7 +14,6 @@ use structopt::StructOpt;
 use wasmer::*;
 #[cfg(feature = "compiler")]
 use wasmer_compiler::CompilerConfig;
-#[cfg(feature = "compilation")]
 use wasmer_compiler::Engine;
 
 #[derive(Debug, Clone, StructOpt, Default)]
@@ -110,7 +109,7 @@ impl CompilerOptions {
         Ok((store, compiler_type))
     }
 
-    #[cfg(feature = "compilation")]
+    #[cfg(feature = "compiler")]
     fn get_engine(
         &self,
         target: Target,
@@ -118,9 +117,7 @@ impl CompilerOptions {
     ) -> Result<Box<Engine>> {
         let features = self.get_features(compiler_config.default_features_for_target(&target))?;
         let engine: Box<Engine> = Box::new(
-            wasmer_compiler::Backend::new(compiler_config)
-                .features(features)
-                .target(target)
+            wasmer_compiler::EngineBuilder::new(compiler_config, Some(target), Some(features))
                 .engine(),
         );
 
@@ -320,7 +317,7 @@ impl StoreOptions {
         Ok((store, compiler_type))
     }
 
-    #[cfg(feature = "compilation")]
+    #[cfg(feature = "compiler")]
     fn get_engine_with_compiler(
         &self,
         target: Target,
@@ -335,9 +332,8 @@ impl StoreOptions {
 // If we don't have a compiler, but we have an engine
 #[cfg(not(feature = "compiler"))]
 impl StoreOptions {
-    #[cfg(feature = "compilation")]
     fn get_engine_headless(&self) -> Result<Engine> {
-        let engine: Engine = wasmer_compiler::Backend::headless().engine();
+        let engine: Engine = wasmer_compiler::EngineBuilder::headless().engine();
         Ok(engine)
     }
 

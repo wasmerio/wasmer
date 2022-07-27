@@ -4,7 +4,7 @@ use std::sync::{Arc, RwLock};
 #[cfg(feature = "compiler")]
 use wasmer_compiler::CompilerConfig;
 #[cfg(feature = "compiler")]
-use wasmer_compiler::{Backend, Engine, Tunables};
+use wasmer_compiler::{Engine, EngineBuilder, Tunables};
 use wasmer_vm::{init_traps, TrapHandler, TrapHandlerFn};
 
 use wasmer_vm::StoreObjects;
@@ -39,7 +39,7 @@ impl Store {
     #[cfg(feature = "compiler")]
     /// Creates a new `Store` with a specific [`CompilerConfig`].
     pub fn new(compiler_config: Box<dyn CompilerConfig>) -> Self {
-        let engine = Backend::new(compiler_config).engine();
+        let engine = EngineBuilder::new(compiler_config, None, None).engine();
         Self::new_with_tunables(&engine, BaseTunables::for_target(engine.target()))
     }
 
@@ -120,20 +120,21 @@ unsafe impl Send for Store {}
 unsafe impl Sync for Store {}
 
 // We only implement default if we have assigned a default compiler and engine
-#[cfg(all(feature = "default-compiler", feature = "default-engine"))]
+#[cfg(feature = "compiler")]
 impl Default for Store {
     fn default() -> Self {
         // We store them on a function that returns to make
         // sure this function doesn't emit a compile error even if
         // more than one compiler is enabled.
         #[allow(unreachable_code)]
+        #[cfg(any(feature = "cranelift", feature = "llvm", feature = "singlepass"))]
         fn get_config() -> impl CompilerConfig + 'static {
             cfg_if::cfg_if! {
-                if #[cfg(feature = "default-cranelift")] {
+                if #[cfg(feature = "cranelift")] {
                     wasmer_compiler_cranelift::Cranelift::default()
-                } else if #[cfg(feature = "default-llvm")] {
+                } else if #[cfg(feature = "llvm")] {
                     wasmer_compiler_llvm::LLVM::default()
-                } else if #[cfg(feature = "default-singlepass")] {
+                } else if #[cfg(feature = "singlepass")] {
                     wasmer_compiler_singlepass::Singlepass::default()
                 } else {
                     compile_error!("No default compiler chosen")
@@ -142,19 +143,28 @@ impl Default for Store {
         }
 
         #[allow(unreachable_code, unused_mut)]
-        fn get_engine(mut config: impl CompilerConfig + 'static) -> Engine {
+        fn get_engine() -> Engine {
             cfg_if::cfg_if! {
-                if #[cfg(feature = "engine_compilation")] {
-                    wasmer_compiler::Backend::new(config)
+                if #[cfg(feature = "compiler")] {
+
+            cfg_if::cfg_if! {
+                    if #[cfg(any(feature = "cranelift", feature = "llvm", feature = "singlepass"))]
+                    {
+                    let config = get_config();
+                    wasmer_compiler::EngineBuilder::new(Box::new(config) as Box<dyn CompilerConfig>, None, None)
                         .engine()
+                    } else {
+                    wasmer_compiler::EngineBuilder::headless()
+                        .engine()
+                    }
+            }
                 } else {
                     compile_error!("No default engine chosen")
                 }
             }
         }
 
-        let config = get_config();
-        let engine = get_engine(config);
+        let engine = get_engine();
         let tunables = BaseTunables::for_target(engine.target());
         Self::new_with_tunables(&engine, tunables)
     }

@@ -18,7 +18,7 @@ path = "src/bin/wasmer_compiler.rs"
 doc = false
 
 [dependencies]
-wasmer-compiler = { version = "=2.3.0", path = "../compiler", features = ["engine_compilation"] }
+wasmer-compiler = { version = "=2.3.0", path = "../compiler", features = ["compiler"] }
 wasmer-types = { version = "=2.3.0", path = "../types" }
 atty = "0.2"
 colored = "2.0"
@@ -52,6 +52,7 @@ default = []
 engine = []
 compiler = [
     "wasmer-compiler/translator",
+    "wasmer-compiler/compiler",
 ]
 singlepass = [
     "wasmer-compiler-singlepass",

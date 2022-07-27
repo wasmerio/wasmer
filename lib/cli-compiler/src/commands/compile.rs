@@ -55,7 +55,8 @@ impl Compile {
                 Target::new(target_triple.clone(), features)
             })
             .unwrap_or_default();
-        let (mut engine, compiler_type) = self.store.get_engine_for_target(target.clone())?;
+        let (engine_builder, compiler_type) = self.store.get_engine_for_target(target.clone())?;
+        let engine = engine_builder.engine();
         let output_filename = self
             .output
             .file_stem()
@@ -96,7 +97,7 @@ impl Compile {
             .map(|table_type| tunables.table_style(table_type))
             .collect();
         let artifact = ArtifactBuild::new(
-            &mut engine,
+            &mut engine.inner_mut(),
             &wasm_bytes,
             &target,
             memory_styles,
