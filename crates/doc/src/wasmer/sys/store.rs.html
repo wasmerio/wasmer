@@ -310,13 +310,23 @@
 <span id="308">308</span>
 <span id="309">309</span>
 <span id="310">310</span>
+<span id="311">311</span>
+<span id="312">312</span>
+<span id="313">313</span>
+<span id="314">314</span>
+<span id="315">315</span>
+<span id="316">316</span>
+<span id="317">317</span>
+<span id="318">318</span>
+<span id="319">319</span>
+<span id="320">320</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::tunables::BaseTunables</span>;
 <span class="kw">use</span> <span class="ident">std::fmt</span>;
 <span class="kw">use</span> <span class="ident">std::sync</span>::{<span class="ident">Arc</span>, <span class="ident">RwLock</span>};
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">wasmer_compiler::CompilerConfig</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">Backend</span>, <span class="ident">Engine</span>, <span class="ident">Tunables</span>};
+<span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">Engine</span>, <span class="ident">EngineBuilder</span>, <span class="ident">Tunables</span>};
 <span class="kw">use</span> <span class="ident">wasmer_vm</span>::{<span class="ident">init_traps</span>, <span class="ident">TrapHandler</span>, <span class="ident">TrapHandlerFn</span>};
 
 <span class="kw">use</span> <span class="ident">wasmer_vm::StoreObjects</span>;
@@ -351,7 +361,7 @@
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
     <span class="doccomment">/// Creates a new `Store` with a specific [`CompilerConfig`].</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">compiler_config</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">CompilerConfig</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
-        <span class="kw">let</span> <span class="ident">engine</span> <span class="op">=</span> <span class="ident">Backend::new</span>(<span class="ident">compiler_config</span>).<span class="ident">engine</span>();
+        <span class="kw">let</span> <span class="ident">engine</span> <span class="op">=</span> <span class="ident">EngineBuilder::new</span>(<span class="ident">compiler_config</span>, <span class="prelude-val">None</span>, <span class="prelude-val">None</span>).<span class="ident">engine</span>();
         <span class="ident"><span class="self">Self</span>::new_with_tunables</span>(<span class="kw-2">&amp;</span><span class="ident">engine</span>, <span class="ident">BaseTunables::for_target</span>(<span class="ident">engine</span>.<span class="ident">target</span>()))
     }
 
@@ -432,20 +442,21 @@
 <span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">Sync</span> <span class="kw">for</span> <span class="ident">Store</span> {}
 
 <span class="comment">// We only implement default if we have assigned a default compiler and engine</span>
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;default-compiler&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;default-engine&quot;</span>))]</span>
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
 <span class="kw">impl</span> <span class="ident">Default</span> <span class="kw">for</span> <span class="ident">Store</span> {
     <span class="kw">fn</span> <span class="ident">default</span>() -&gt; <span class="self">Self</span> {
         <span class="comment">// We store them on a function that returns to make</span>
         <span class="comment">// sure this function doesn&#39;t emit a compile error even if</span>
         <span class="comment">// more than one compiler is enabled.</span>
         <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unreachable_code</span>)]</span>
+        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;cranelift&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;llvm&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;singlepass&quot;</span>))]</span>
         <span class="kw">fn</span> <span class="ident">get_config</span>() -&gt; <span class="kw">impl</span> <span class="ident">CompilerConfig</span> <span class="op">+</span> <span class="lifetime">&#39;static</span> {
             <span class="macro">cfg_if::cfg_if!</span> {
-                <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;default-cranelift&quot;</span>)]</span> {
+                <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;cranelift&quot;</span>)]</span> {
                     <span class="ident">wasmer_compiler_cranelift::Cranelift::default</span>()
-                } <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;default-llvm&quot;</span>)]</span> {
+                } <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;llvm&quot;</span>)]</span> {
                     <span class="ident">wasmer_compiler_llvm::LLVM::default</span>()
-                } <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;default-singlepass&quot;</span>)]</span> {
+                } <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;singlepass&quot;</span>)]</span> {
                     <span class="ident">wasmer_compiler_singlepass::Singlepass::default</span>()
                 } <span class="kw">else</span> {
                     <span class="macro">compile_error!</span>(<span class="string">&quot;No default compiler chosen&quot;</span>)
@@ -454,19 +465,28 @@
         }
 
         <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unreachable_code</span>, <span class="ident">unused_mut</span>)]</span>
-        <span class="kw">fn</span> <span class="ident">get_engine</span>(<span class="kw-2">mut</span> <span class="ident">config</span>: <span class="kw">impl</span> <span class="ident">CompilerConfig</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>) -&gt; <span class="ident">Engine</span> {
+        <span class="kw">fn</span> <span class="ident">get_engine</span>() -&gt; <span class="ident">Engine</span> {
             <span class="macro">cfg_if::cfg_if!</span> {
-                <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;engine_compilation&quot;</span>)]</span> {
-                    <span class="ident">wasmer_compiler::Backend::new</span>(<span class="ident">config</span>)
+                <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span> {
+
+            <span class="macro">cfg_if::cfg_if!</span> {
+                    <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;cranelift&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;llvm&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;singlepass&quot;</span>))]</span>
+                    {
+                    <span class="kw">let</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">get_config</span>();
+                    <span class="ident">wasmer_compiler::EngineBuilder::new</span>(<span class="ident">Box::new</span>(<span class="ident">config</span>) <span class="kw">as</span> <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">CompilerConfig</span><span class="op">&gt;</span>, <span class="prelude-val">None</span>, <span class="prelude-val">None</span>)
                         .<span class="ident">engine</span>()
+                    } <span class="kw">else</span> {
+                    <span class="ident">wasmer_compiler::EngineBuilder::headless</span>()
+                        .<span class="ident">engine</span>()
+                    }
+            }
                 } <span class="kw">else</span> {
                     <span class="macro">compile_error!</span>(<span class="string">&quot;No default engine chosen&quot;</span>)
                 }
             }
         }
 
-        <span class="kw">let</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">get_config</span>();
-        <span class="kw">let</span> <span class="ident">engine</span> <span class="op">=</span> <span class="ident">get_engine</span>(<span class="ident">config</span>);
+        <span class="kw">let</span> <span class="ident">engine</span> <span class="op">=</span> <span class="ident">get_engine</span>();
         <span class="kw">let</span> <span class="ident">tunables</span> <span class="op">=</span> <span class="ident">BaseTunables::for_target</span>(<span class="ident">engine</span>.<span class="ident">target</span>());
         <span class="ident"><span class="self">Self</span>::new_with_tunables</span>(<span class="kw-2">&amp;</span><span class="ident">engine</span>, <span class="ident">tunables</span>)
     }

@@ -461,32 +461,9 @@
 <span id="459">459</span>
 <span id="460">460</span>
 <span id="461">461</span>
-<span id="462">462</span>
-<span id="463">463</span>
-<span id="464">464</span>
-<span id="465">465</span>
-<span id="466">466</span>
-<span id="467">467</span>
-<span id="468">468</span>
-<span id="469">469</span>
-<span id="470">470</span>
-<span id="471">471</span>
-<span id="472">472</span>
-<span id="473">473</span>
-<span id="474">474</span>
-<span id="475">475</span>
-<span id="476">476</span>
-<span id="477">477</span>
-<span id="478">478</span>
-<span id="479">479</span>
-<span id="480">480</span>
-<span id="481">481</span>
-<span id="482">482</span>
 </pre><pre class="rust"><code><span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::unstable::engine::wasmer_is_compiler_available</span>;
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::unstable::engine</span>::{
-    <span class="ident">wasm_config_set_features</span>, <span class="ident">wasm_config_set_target</span>, <span class="ident">wasmer_is_engine_available</span>,
-};
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::unstable::engine</span>::{<span class="ident">wasm_config_set_features</span>, <span class="ident">wasm_config_set_target</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::unstable::features::wasmer_features_t</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;middlewares&quot;</span>)]</span>
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::unstable::middlewares::wasm_config_push_middleware</span>;
@@ -495,8 +472,7 @@
 <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::unstable::target_lexicon::wasmer_target_t</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::error::update_last_error</span>;
 <span class="kw">use</span> <span class="ident">cfg_if::cfg_if</span>;
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compilation&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">Backend</span>, <span class="ident">Engine</span>};
+<span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">Engine</span>, <span class="ident">EngineBuilder</span>};
 
 <span class="doccomment">/// Kind of compilers that can be used by the engines.</span>
 <span class="doccomment">///</span>
@@ -551,13 +527,7 @@
 
 <span class="kw">impl</span> <span class="ident">Default</span> <span class="kw">for</span> <span class="ident">wasmer_engine_t</span> {
     <span class="kw">fn</span> <span class="ident">default</span>() -&gt; <span class="self">Self</span> {
-        <span class="macro">cfg_if!</span> {
-            <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compilation&quot;</span>)]</span> {
-                <span class="ident"><span class="self">Self</span>::UNIVERSAL</span>
-            } <span class="kw">else</span> {
-                <span class="macro">compile_error!</span>(<span class="string">&quot;Please enable one of the engines&quot;</span>)
-            }
-        }
+        <span class="ident"><span class="self">Self</span>::UNIVERSAL</span>
     }
 }
 
@@ -713,12 +683,6 @@
 <span class="doccomment">///     // Create the configuration.</span>
 <span class="doccomment">///     wasm_config_t* config = wasm_config_new();</span>
 <span class="doccomment">///</span>
-<span class="doccomment">///     // Use the Universal engine, if available.</span>
-<span class="doccomment">///     if (wasmer_is_engine_available(UNIVERSAL)) {</span>
-<span class="doccomment">///         wasm_config_set_engine(config, UNIVERSAL);</span>
-<span class="doccomment">///     }</span>
-<span class="doccomment">///     // OK, let&#39;s do not specify any particular engine.</span>
-<span class="doccomment">///</span>
 <span class="doccomment">///     // Create the engine.</span>
 <span class="doccomment">///     wasm_engine_t* engine = wasm_engine_new_with_config(config);</span>
 <span class="doccomment">///</span>
@@ -751,7 +715,7 @@
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">wasmer_api::CompilerConfig</span>;
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>, <span class="ident">any</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compilation&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;dylib&quot;</span>)))]</span>
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>, <span class="ident">any</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;dylib&quot;</span>)))]</span>
 <span class="kw">fn</span> <span class="ident">get_default_compiler_config</span>() -&gt; <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">CompilerConfig</span><span class="op">&gt;</span> {
     <span class="macro">cfg_if!</span> {
         <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;cranelift&quot;</span>)]</span> {
@@ -767,7 +731,7 @@
 }
 
 <span class="macro">cfg_if!</span> {
-    <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compilation&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>))]</span> {
+    <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span> {
         <span class="doccomment">/// Creates a new Universal engine with the default compiler.</span>
         <span class="doccomment">///</span>
         <span class="doccomment">/// # Example</span>
@@ -778,10 +742,10 @@
         <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
         <span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_engine_new</span>() -&gt; <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasm_engine_t</span><span class="op">&gt;</span> {
             <span class="kw">let</span> <span class="ident">compiler_config</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">CompilerConfig</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">get_default_compiler_config</span>();
-            <span class="kw">let</span> <span class="ident">engine</span>: <span class="ident">Engine</span> <span class="op">=</span> <span class="ident">Backend::new</span>(<span class="ident">compiler_config</span>).<span class="ident">engine</span>();
+            <span class="kw">let</span> <span class="ident">engine</span>: <span class="ident">Engine</span> <span class="op">=</span> <span class="ident">EngineBuilder::new</span>(<span class="ident">compiler_config</span>, <span class="prelude-val">None</span>, <span class="prelude-val">None</span>).<span class="ident">engine</span>();
             <span class="ident">Box::new</span>(<span class="ident">wasm_engine_t</span> { <span class="ident">inner</span>: <span class="ident">engine</span> })
         }
-    } <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compilation&quot;</span>)]</span> {
+    } <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler-headless&quot;</span>)]</span> {
         <span class="doccomment">/// Creates a new headless Universal engine.</span>
         <span class="doccomment">///</span>
         <span class="doccomment">/// # Example</span>
@@ -791,7 +755,7 @@
         <span class="doccomment">/// cbindgen:ignore</span>
         <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
         <span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_engine_new</span>() -&gt; <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasm_engine_t</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> <span class="ident">engine</span>: <span class="ident">Engine</span> <span class="op">=</span> <span class="ident">Backend::headless</span>().<span class="ident">engine</span>();
+            <span class="kw">let</span> <span class="ident">engine</span>: <span class="ident">Engine</span> <span class="op">=</span> <span class="ident">EngineBuilder::headless</span>().<span class="ident">engine</span>();
             <span class="ident">Box::new</span>(<span class="ident">wasm_engine_t</span> { <span class="ident">inner</span>: <span class="ident">engine</span> })
         }
     } <span class="kw">else</span> {
@@ -804,7 +768,7 @@
         <span class="doccomment">/// cbindgen:ignore</span>
         <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
         <span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_engine_new</span>() -&gt; <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasm_engine_t</span><span class="op">&gt;</span> {
-            <span class="macro">unimplemented!</span>(<span class="string">&quot;No engine attached; You might want to recompile `wasmer_c_api` with for example `--feature compilation`&quot;</span>);
+            <span class="macro">unimplemented!</span>(<span class="string">&quot;No engine attached; You might want to recompile `wasmer_c_api` with for example `--feature compiler`&quot;</span>);
         }
     }
 }
@@ -858,7 +822,8 @@
     }
 
     <span class="kw">let</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">config</span><span class="question-mark">?</span>;
-
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">any</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler-headless&quot;</span>)))]</span>
+    <span class="kw">return</span> <span class="ident">return_with_error</span>(<span class="string">&quot;Wasmer has not been compiled with the `compiler` feature.&quot;</span>);
     <span class="macro">cfg_if!</span> {
         <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span> {
             <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unused_mut</span>)]</span>
@@ -901,19 +866,16 @@
                 <span class="ident">compiler_config</span>.<span class="ident">canonicalize_nans</span>(<span class="bool-val">true</span>);
             }
 
-            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compilation&quot;</span>))]</span>
-            <span class="kw">return</span> <span class="ident">return_with_error</span>(<span class="string">&quot;Wasmer has not been compiled with the `compilation` feature.&quot;</span>);
-            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compilation&quot;</span>)]</span>
             <span class="kw">let</span> <span class="ident">inner</span>: <span class="ident">Engine</span> <span class="op">=</span>
                          {
-                            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">builder</span> <span class="op">=</span> <span class="ident">Backend::new</span>(<span class="ident">compiler_config</span>);
+                            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">builder</span> <span class="op">=</span> <span class="ident">EngineBuilder::new</span>(<span class="ident">compiler_config</span>, <span class="prelude-val">None</span>, <span class="prelude-val">None</span>);
 
                             <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">target</span>) <span class="op">=</span> <span class="ident">config</span>.<span class="ident">target</span> {
-                                <span class="ident">builder</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">target</span>(<span class="ident">target</span>.<span class="ident">inner</span>);
+                                <span class="ident">builder</span>.<span class="ident">set_target</span>(<span class="prelude-val">Some</span>(<span class="ident">target</span>.<span class="ident">inner</span>));
                             }
 
                             <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">features</span>) <span class="op">=</span> <span class="ident">config</span>.<span class="ident">features</span> {
-                                <span class="ident">builder</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">features</span>(<span class="ident">features</span>.<span class="ident">inner</span>);
+                                <span class="ident">builder</span>.<span class="ident">set_features</span>(<span class="prelude-val">Some</span>(<span class="ident">features</span>.<span class="ident">inner</span>));
                             }
 
                             <span class="ident">builder</span>.<span class="ident">engine</span>()
@@ -921,22 +883,18 @@
             <span class="prelude-val">Some</span>(<span class="ident">Box::new</span>(<span class="ident">wasm_engine_t</span> { <span class="ident">inner</span> }))
         } <span class="kw">else</span> {
             <span class="kw">let</span> <span class="ident">inner</span>: <span class="ident">Engine</span> <span class="op">=</span>
-                    <span class="macro">cfg_if!</span> {
-                        <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compilation&quot;</span>)]</span> {
-                            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">builder</span> <span class="op">=</span> <span class="ident">Backend::headless</span>();
+                     {
+                            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">builder</span> <span class="op">=</span> <span class="ident">EngineBuilder::headless</span>();
 
                             <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">target</span>) <span class="op">=</span> <span class="ident">config</span>.<span class="ident">target</span> {
-                                <span class="ident">builder</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">target</span>(<span class="ident">target</span>.<span class="ident">inner</span>);
+                                <span class="ident">builder</span>.<span class="ident">set_target</span>(<span class="prelude-val">Some</span>(<span class="ident">target</span>.<span class="ident">inner</span>));
                             }
 
                             <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">features</span>) <span class="op">=</span> <span class="ident">config</span>.<span class="ident">features</span> {
-                                <span class="ident">builder</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">features</span>(<span class="ident">features</span>.<span class="ident">inner</span>);
+                                 <span class="ident">builder</span>.<span class="ident">set_features</span>(<span class="prelude-val">Some</span>(<span class="ident">features</span>.<span class="ident">inner</span>));
                             }
 
                             <span class="ident">builder</span>.<span class="ident">engine</span>()
-                        } <span class="kw">else</span> {
-                            <span class="kw">return</span> <span class="ident">return_with_error</span>(<span class="string">&quot;Wasmer has not been compiled with the `compilation` feature.&quot;</span>);
-                        }
                     };
             <span class="prelude-val">Some</span>(<span class="ident">Box::new</span>(<span class="ident">wasm_engine_t</span> { <span class="ident">inner</span> }))
         }

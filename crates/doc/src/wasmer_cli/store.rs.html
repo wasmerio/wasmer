@@ -346,10 +346,6 @@
 <span id="344">344</span>
 <span id="345">345</span>
 <span id="346">346</span>
-<span id="347">347</span>
-<span id="348">348</span>
-<span id="349">349</span>
-<span id="350">350</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Common module with common used structures across different</span>
 <span class="doccomment">//! commands.</span>
 
@@ -366,7 +362,6 @@
 <span class="kw">use</span> <span class="ident">wasmer</span>::<span class="kw-2">*</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">wasmer_compiler::CompilerConfig</span>;
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compilation&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">wasmer_compiler::Engine</span>;
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">StructOpt</span>, <span class="ident">Default</span>)]</span>
@@ -462,7 +457,7 @@
         <span class="prelude-val">Ok</span>((<span class="ident">store</span>, <span class="ident">compiler_type</span>))
     }
 
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compilation&quot;</span>)]</span>
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
     <span class="kw">fn</span> <span class="ident">get_engine</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">target</span>: <span class="ident">Target</span>,
@@ -470,9 +465,7 @@
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="ident">Engine</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">features</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_features</span>(<span class="ident">compiler_config</span>.<span class="ident">default_features_for_target</span>(<span class="kw-2">&amp;</span><span class="ident">target</span>))<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="ident">engine</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">Engine</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Box::new</span>(
-            <span class="ident">wasmer_compiler::Backend::new</span>(<span class="ident">compiler_config</span>)
-                .<span class="ident">features</span>(<span class="ident">features</span>)
-                .<span class="ident">target</span>(<span class="ident">target</span>)
+            <span class="ident">wasmer_compiler::EngineBuilder::new</span>(<span class="ident">compiler_config</span>, <span class="prelude-val">Some</span>(<span class="ident">target</span>), <span class="prelude-val">Some</span>(<span class="ident">features</span>))
                 .<span class="ident">engine</span>(),
         );
 
@@ -672,7 +665,7 @@
         <span class="prelude-val">Ok</span>((<span class="ident">store</span>, <span class="ident">compiler_type</span>))
     }
 
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compilation&quot;</span>)]</span>
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
     <span class="kw">fn</span> <span class="ident">get_engine_with_compiler</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">target</span>: <span class="ident">Target</span>,
@@ -687,9 +680,8 @@
 <span class="comment">// If we don&#39;t have a compiler, but we have an engine</span>
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>))]</span>
 <span class="kw">impl</span> <span class="ident">StoreOptions</span> {
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compilation&quot;</span>)]</span>
     <span class="kw">fn</span> <span class="ident">get_engine_headless</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Engine</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">engine</span>: <span class="ident">Engine</span> <span class="op">=</span> <span class="ident">wasmer_compiler::Backend::headless</span>().<span class="ident">engine</span>();
+        <span class="kw">let</span> <span class="ident">engine</span>: <span class="ident">Engine</span> <span class="op">=</span> <span class="ident">wasmer_compiler::EngineBuilder::headless</span>().<span class="ident">engine</span>();
         <span class="prelude-val">Ok</span>(<span class="ident">engine</span>)
     }
 

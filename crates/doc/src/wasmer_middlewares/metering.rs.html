@@ -488,6 +488,8 @@
 <span id="486">486</span>
 <span id="487">487</span>
 <span id="488">488</span>
+<span id="489">489</span>
+<span id="490">490</span>
 </pre><pre class="rust"><code><span class="doccomment">//! `metering` is a middleware for tracking how many operators are</span>
 <span class="doccomment">//! executed in total and putting a limit on the total number of</span>
 <span class="doccomment">//! operators executed. The WebAssemblt instance execution is stopped</span>
@@ -844,7 +846,7 @@
 
     <span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
     <span class="kw">use</span> <span class="ident">wasmer</span>::{
-        <span class="ident">imports</span>, <span class="ident">wat2wasm</span>, <span class="ident">Backend</span>, <span class="ident">CompilerConfig</span>, <span class="ident">Cranelift</span>, <span class="ident">Module</span>, <span class="ident">Store</span>, <span class="ident">TypedFunction</span>,
+        <span class="ident">imports</span>, <span class="ident">wat2wasm</span>, <span class="ident">CompilerConfig</span>, <span class="ident">Cranelift</span>, <span class="ident">EngineBuilder</span>, <span class="ident">Module</span>, <span class="ident">Store</span>, <span class="ident">TypedFunction</span>,
     };
 
     <span class="kw">fn</span> <span class="ident">cost_function</span>(<span class="ident">operator</span>: <span class="kw-2">&amp;</span><span class="ident">Operator</span>) -&gt; <span class="ident">u64</span> {
@@ -876,7 +878,8 @@
         <span class="kw">let</span> <span class="ident">metering</span> <span class="op">=</span> <span class="ident">Arc::new</span>(<span class="ident">Metering::new</span>(<span class="number">10</span>, <span class="ident">cost_function</span>));
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">compiler_config</span> <span class="op">=</span> <span class="ident">Cranelift::default</span>();
         <span class="ident">compiler_config</span>.<span class="ident">push_middleware</span>(<span class="ident">metering</span>);
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">store</span> <span class="op">=</span> <span class="ident">Store::new_with_engine</span>(<span class="kw-2">&amp;</span><span class="ident">Backend::new</span>(<span class="ident">compiler_config</span>).<span class="ident">engine</span>());
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">store</span> <span class="op">=</span>
+            <span class="ident">Store::new_with_engine</span>(<span class="kw-2">&amp;</span><span class="ident">EngineBuilder::new</span>(<span class="ident">compiler_config</span>, <span class="prelude-val">None</span>, <span class="prelude-val">None</span>).<span class="ident">engine</span>());
         <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">Module::new</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>, <span class="ident">bytecode</span>()).<span class="ident">unwrap</span>();
 
         <span class="comment">// Instantiate</span>
@@ -924,7 +927,8 @@
         <span class="kw">let</span> <span class="ident">metering</span> <span class="op">=</span> <span class="ident">Arc::new</span>(<span class="ident">Metering::new</span>(<span class="number">10</span>, <span class="ident">cost_function</span>));
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">compiler_config</span> <span class="op">=</span> <span class="ident">Cranelift::default</span>();
         <span class="ident">compiler_config</span>.<span class="ident">push_middleware</span>(<span class="ident">metering</span>);
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">store</span> <span class="op">=</span> <span class="ident">Store::new_with_engine</span>(<span class="kw-2">&amp;</span><span class="ident">Backend::new</span>(<span class="ident">compiler_config</span>).<span class="ident">engine</span>());
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">store</span> <span class="op">=</span>
+            <span class="ident">Store::new_with_engine</span>(<span class="kw-2">&amp;</span><span class="ident">EngineBuilder::new</span>(<span class="ident">compiler_config</span>, <span class="prelude-val">None</span>, <span class="prelude-val">None</span>).<span class="ident">engine</span>());
         <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">Module::new</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>, <span class="ident">bytecode</span>()).<span class="ident">unwrap</span>();
 
         <span class="comment">// Instantiate</span>

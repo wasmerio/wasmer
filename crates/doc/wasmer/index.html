@@ -227,14 +227,14 @@ enables Wasmer’s [Singlepass compiler][wasmer-compiler-singlepass],</li>
 (enabled),
 enables <code>wasmer</code> to parse the WebAssembly text format,</li>
 <li><code>compilation</code>
-(disabled),
+(enabled),
 enables compilation with the wasmer engine.</li>
 </ul>
 <p>The features that set defaults come in sets that are mutually exclusive.</p>
 <p>The first set is the default compiler set:</p>
 <ul>
 <li><code>default-cranelift</code>
-(enabled),
+(disabled),
 set Wasmer’s Cranelift compiler as the default,</li>
 <li><code>default-llvm</code>
 (disabled),
@@ -303,7 +303,6 @@ or <code>js-default</code> Cargo features.</p>
 <div class="item-table"><div class="item-row"><div class="item-left module-item"><a class="macro" href="macro.imports.html" title="wasmer::imports macro">imports</a></div><div class="item-right docblock-short"><p>Generate an <a href="struct.Imports.html"><code>Imports</code></a> easily with the <code>imports!</code> macro.</p>
 </div></div></div><h2 id="structs" class="small-section-header"><a href="#structs">Structs</a></h2>
 <div class="item-table"><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.Artifact.html" title="wasmer::Artifact struct">Artifact</a></div><div class="item-right docblock-short"><p>A compiled wasm module, ready to be instantiated.</p>
-</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.Backend.html" title="wasmer::Backend struct">Backend</a></div><div class="item-right docblock-short"><p>The Backend builder</p>
 </div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.BaseTunables.html" title="wasmer::BaseTunables struct">BaseTunables</a></div><div class="item-right docblock-short"><p>Tunable parameters for WebAssembly compilation.
 This is the reference implementation of the <code>Tunables</code> trait,
 used by default.</p>
@@ -311,6 +310,7 @@ used by default.</p>
 </div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.Cranelift.html" title="wasmer::Cranelift struct">Cranelift</a></div><div class="item-right docblock-short"><p>Global configuration options used to create an
 <code>wasmer_engine::Engine</code> and customize its behavior.</p>
 </div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.Engine.html" title="wasmer::Engine struct">Engine</a></div><div class="item-right docblock-short"><p>A WebAssembly <code>Universal</code> Engine.</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.EngineBuilder.html" title="wasmer::EngineBuilder struct">EngineBuilder</a></div><div class="item-right docblock-short"><p>The Builder contents of <code>Engine</code></p>
 </div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.ExportType.html" title="wasmer::ExportType struct">ExportType</a></div><div class="item-right docblock-short"><p>A descriptor for an exported WebAssembly value.</p>
 </div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.Exports.html" title="wasmer::Exports struct">Exports</a></div><div class="item-right docblock-short"><p>Exports is a special kind of map that allows easily unwrapping
 the types of instances.</p>
