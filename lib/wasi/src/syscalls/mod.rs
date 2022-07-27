@@ -1118,7 +1118,7 @@ pub fn fd_read<M: MemorySize>(
     trace!("wasi::fd_read: fd={}", fd);
     let env = ctx.data();
     let (memory, mut state, inodes) = env.get_memory_and_wasi_state_and_inodes(0);
-//let iovs_len = if iovs_len > M::Offset::from(1u32) { M::Offset::from(1u32) } else { iovs_len };
+    //let iovs_len = if iovs_len > M::Offset::from(1u32) { M::Offset::from(1u32) } else { iovs_len };
     let iovs_arr = wasi_try_mem_ok!(iovs.slice(&ctx, memory, iovs_len));
     let nread_ref = nread.deref(&ctx, memory);
 
