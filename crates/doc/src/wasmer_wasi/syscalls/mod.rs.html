@@ -5573,6 +5573,10 @@
 <span id="5571">5571</span>
 <span id="5572">5572</span>
 <span id="5573">5573</span>
+<span id="5574">5574</span>
+<span id="5575">5575</span>
+<span id="5576">5576</span>
+<span id="5577">5577</span>
 </pre><pre class="rust"><code><span class="attribute">#![<span class="ident">allow</span>(<span class="ident">unused</span>, <span class="ident">clippy::too_many_arguments</span>, <span class="ident">clippy::cognitive_complexity</span>)]</span>
 
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">types</span> {
@@ -5699,13 +5703,18 @@
     <span class="kw">for</span> <span class="ident">iov</span> <span class="kw">in</span> <span class="ident">iovs_arr</span>.<span class="ident">iter</span>() {
         <span class="kw">let</span> <span class="ident">iov_inner</span> <span class="op">=</span> <span class="ident">iov</span>.<span class="ident">read</span>().<span class="ident">map_err</span>(<span class="ident">mem_error_to_wasi</span>)<span class="question-mark">?</span>;
         <span class="ident">raw_bytes</span>.<span class="ident">clear</span>();
-        <span class="ident">raw_bytes</span>.<span class="ident">resize</span>(<span class="ident">from_offset</span>::<span class="op">&lt;</span><span class="ident">M</span><span class="op">&gt;</span>(<span class="ident">iov_inner</span>.<span class="ident">buf_len</span>)<span class="question-mark">?</span>, <span class="number">0</span>);
-        <span class="ident">bytes_read</span> <span class="op">+</span><span class="op">=</span> <span class="ident">reader</span>.<span class="ident">read</span>(<span class="kw-2">&amp;mut</span> <span class="ident">raw_bytes</span>).<span class="ident">map_err</span>(<span class="ident">map_io_err</span>)<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">to_read</span> <span class="op">=</span> <span class="ident">from_offset</span>::<span class="op">&lt;</span><span class="ident">M</span><span class="op">&gt;</span>(<span class="ident">iov_inner</span>.<span class="ident">buf_len</span>)<span class="question-mark">?</span>;
+        <span class="ident">raw_bytes</span>.<span class="ident">resize</span>(<span class="ident">to_read</span>, <span class="number">0</span>);
+        <span class="kw">let</span> <span class="ident">has_read</span> <span class="op">=</span> <span class="ident">reader</span>.<span class="ident">read</span>(<span class="kw-2">&amp;mut</span> <span class="ident">raw_bytes</span>).<span class="ident">map_err</span>(<span class="ident">map_io_err</span>)<span class="question-mark">?</span>;
 
         <span class="kw">let</span> <span class="ident">buf</span> <span class="op">=</span> <span class="ident">WasmPtr</span>::<span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">M</span><span class="op">&gt;</span><span class="ident">::new</span>(<span class="ident">iov_inner</span>.<span class="ident">buf</span>)
             .<span class="ident">slice</span>(<span class="ident">ctx</span>, <span class="ident">memory</span>, <span class="ident">iov_inner</span>.<span class="ident">buf_len</span>)
             .<span class="ident">map_err</span>(<span class="ident">mem_error_to_wasi</span>)<span class="question-mark">?</span>;
         <span class="ident">buf</span>.<span class="ident">write_slice</span>(<span class="kw-2">&amp;</span><span class="ident">raw_bytes</span>).<span class="ident">map_err</span>(<span class="ident">mem_error_to_wasi</span>)<span class="question-mark">?</span>;
+        <span class="ident">bytes_read</span> <span class="op">+</span><span class="op">=</span> <span class="ident">has_read</span>;
+        <span class="kw">if</span> <span class="ident">has_read</span> <span class="op">!</span><span class="op">=</span> <span class="ident">to_read</span> {
+            <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">bytes_read</span>);
+        }
     }
     <span class="prelude-val">Ok</span>(<span class="ident">bytes_read</span>)
 }
@@ -6688,7 +6697,7 @@
     <span class="macro">trace!</span>(<span class="string">&quot;wasi::fd_read: fd={}&quot;</span>, <span class="ident">fd</span>);
     <span class="kw">let</span> <span class="ident">env</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>();
     <span class="kw">let</span> (<span class="ident">memory</span>, <span class="kw-2">mut</span> <span class="ident">state</span>, <span class="ident">inodes</span>) <span class="op">=</span> <span class="ident">env</span>.<span class="ident">get_memory_and_wasi_state_and_inodes</span>(<span class="number">0</span>);
-
+    <span class="comment">//let iovs_len = if iovs_len &gt; M::Offset::from(1u32) { M::Offset::from(1u32) } else { iovs_len };</span>
     <span class="kw">let</span> <span class="ident">iovs_arr</span> <span class="op">=</span> <span class="macro">wasi_try_mem_ok!</span>(<span class="ident">iovs</span>.<span class="ident">slice</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>, <span class="ident">memory</span>, <span class="ident">iovs_len</span>));
     <span class="kw">let</span> <span class="ident">nread_ref</span> <span class="op">=</span> <span class="ident">nread</span>.<span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>, <span class="ident">memory</span>);
 
@@ -6815,7 +6824,6 @@
             <span class="ident">bytes_read</span>
         }
     };
-
     <span class="kw">let</span> <span class="ident">bytes_read</span>: <span class="ident">M::Offset</span> <span class="op">=</span> <span class="macro">wasi_try_ok!</span>(<span class="ident">bytes_read</span>.<span class="ident">try_into</span>().<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">__WASI_EOVERFLOW</span>));
     <span class="macro">wasi_try_mem_ok!</span>(<span class="ident">nread_ref</span>.<span class="ident">write</span>(<span class="ident">bytes_read</span>));
 
