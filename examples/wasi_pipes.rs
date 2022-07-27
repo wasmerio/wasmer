@@ -13,7 +13,7 @@
 
 use std::io::{Read, Write};
 use wasmer::{FunctionEnv, Instance, Module, Store};
-use wasmer_compiler::Backend;
+use wasmer_compiler::EngineBuilder;
 use wasmer_compiler_cranelift::Cranelift;
 use wasmer_wasi::{Pipe, WasiState};
 
@@ -29,7 +29,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Note that we don't need to specify the engine/compiler if we want to use
     // the default provided by Wasmer.
     // You can use `Store::default()` for that.
-    let mut store = Store::new_with_engine(&Backend::new(Cranelift::default()).engine());
+    let mut store =
+        Store::new_with_engine(&EngineBuilder::new(Cranelift::default(), None, None).engine());
 
     println!("Compiling module...");
     // Let's compile the Wasm module.

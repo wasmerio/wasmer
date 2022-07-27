@@ -1,17 +1,19 @@
 //! Define `ArtifactBuild` to allow compiling and instantiating to be
 //! done as separate steps.
 
-#[cfg(feature = "engine_compilation")]
+#[cfg(feature = "compiler")]
 use super::trampoline::{libcall_trampoline_len, make_libcall_trampolines};
+use crate::ArtifactCreate;
+#[cfg(feature = "compiler")]
+use crate::EngineInner;
 use crate::Features;
 use crate::MetadataHeader;
-use crate::{ArtifactCreate, EngineBuilder};
-#[cfg(feature = "engine_compilation")]
+#[cfg(feature = "compiler")]
 use crate::{ModuleEnvironment, ModuleMiddlewareChain};
 use enumset::EnumSet;
 use std::mem;
 use wasmer_types::entity::PrimaryMap;
-#[cfg(feature = "engine_compilation")]
+#[cfg(feature = "compiler")]
 use wasmer_types::CompileModuleInfo;
 use wasmer_types::SerializeError;
 use wasmer_types::{
@@ -38,16 +40,16 @@ impl ArtifactBuild {
     }
 
     /// Compile a data buffer into a `ArtifactBuild`, which may then be instantiated.
-    #[cfg(feature = "engine_compilation")]
+    #[cfg(feature = "compiler")]
     pub fn new(
-        inner_engine: &mut EngineBuilder,
+        inner_engine: &mut EngineInner,
         data: &[u8],
         target: &Target,
         memory_styles: PrimaryMap<MemoryIndex, MemoryStyle>,
         table_styles: PrimaryMap<TableIndex, TableStyle>,
     ) -> Result<Self, CompileError> {
         let environ = ModuleEnvironment::new();
-        let features = inner_engine.features();
+        let features = inner_engine.features().clone();
 
         let translation = environ.translate(data).map_err(CompileError::Wasm)?;
 
@@ -60,7 +62,7 @@ impl ArtifactBuild {
 
         let compile_info = CompileModuleInfo {
             module,
-            features: features.clone(),
+            features,
             memory_styles,
             table_styles,
         };
@@ -117,8 +119,15 @@ impl ArtifactBuild {
     }
 
     /// Compile a data buffer into a `ArtifactBuild`, which may then be instantiated.
-    #[cfg(not(feature = "engine_compilation"))]
-    pub fn new(_engine: &EngineBuilder, _data: &[u8]) -> Result<Self, CompileError> {
+    #[cfg(not(feature = "compiler"))]
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn new(
+        _inner_engine: &mut EngineInner,
+        _data: &[u8],
+        _target: &Target,
+        _memory_styles: PrimaryMap<MemoryIndex, MemoryStyle>,
+        _table_styles: PrimaryMap<TableIndex, TableStyle>,
+    ) -> Result<Self, CompileError> {
         Err(CompileError::Codegen(
             "Compilation is not enabled in the engine".to_string(),
         ))

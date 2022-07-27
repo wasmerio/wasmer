@@ -130,7 +130,7 @@ let wasm_bytes = wat2wasm(
 )?;
 
 let compiler_config = Cranelift::default();
-let engine = Backend::new(compiler_config).engine();
+let engine = Universal::new(compiler_config).engine();
 let mut store = Store::new(&engine);
 let module = Module::new(&store, wasm_bytes)?;
 let instance = Instance::new(&module, &imports! {})?;

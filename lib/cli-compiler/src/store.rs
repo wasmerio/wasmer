@@ -174,7 +174,8 @@ impl CompilerOptions {
         compiler_config: Box<dyn CompilerConfig>,
     ) -> Result<EngineBuilder> {
         let features = self.get_features(compiler_config.default_features_for_target(&target))?;
-        let engine: EngineBuilder = EngineBuilder::new(Some(compiler_config.compiler()), features);
+        let engine: EngineBuilder =
+            EngineBuilder::new(compiler_config, Some(target), Some(features));
 
         Ok(engine)
     }

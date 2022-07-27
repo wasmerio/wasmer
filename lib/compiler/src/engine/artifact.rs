@@ -1,17 +1,17 @@
 //! Define `Artifact`, based on `ArtifactBuild`
 //! to allow compiling and instantiating to be done as separate steps.
 
-use crate::engine::inner::{Engine, EngineInner};
 use crate::engine::link::link_module;
 use crate::ArtifactBuild;
 use crate::ArtifactCreate;
 use crate::Features;
-#[cfg(feature = "engine_compilation")]
+#[cfg(feature = "compiler")]
 use crate::ModuleEnvironment;
 use crate::{
     register_frame_info, resolve_imports, FunctionExtent, GlobalFrameInfoRegistration,
     InstantiationError, MetadataHeader, RuntimeError, Tunables,
 };
+use crate::{Engine, EngineInner};
 use enumset::EnumSet;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -37,7 +37,7 @@ pub struct Artifact {
 
 impl Artifact {
     /// Compile a data buffer into a `ArtifactBuild`, which may then be instantiated.
-    #[cfg(feature = "engine_compilation")]
+    #[cfg(feature = "compiler")]
     pub fn new(
         engine: &Engine,
         data: &[u8],
@@ -59,7 +59,7 @@ impl Artifact {
             .collect();
 
         let artifact = ArtifactBuild::new(
-            inner_engine.builder_mut(),
+            &mut inner_engine,
             data,
             engine.target(),
             memory_styles,
@@ -70,7 +70,7 @@ impl Artifact {
     }
 
     /// Compile a data buffer into a `ArtifactBuild`, which may then be instantiated.
-    #[cfg(not(feature = "engine_compilation"))]
+    #[cfg(not(feature = "compiler"))]
     pub fn new(_engine: &Engine, _data: &[u8]) -> Result<Self, CompileError> {
         Err(CompileError::Codegen(
             "Compilation is not enabled in the engine".to_string(),

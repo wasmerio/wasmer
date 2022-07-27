@@ -3,7 +3,7 @@
 use libfuzzer_sys::{arbitrary, arbitrary::Arbitrary, fuzz_target};
 use wasm_smith::{Config, ConfiguredModule};
 use wasmer::{CompilerConfig, Engine, Module, Store};
-use wasmer_compiler::Backend;
+use wasmer_compiler::EngineBuilder;
 use wasmer_compiler_cranelift::Cranelift;
 use wasmer_compiler_llvm::LLVM;
 use wasmer_compiler_singlepass::Singlepass;
@@ -47,7 +47,7 @@ fuzz_target!(|module: ConfiguredModule<NoImportsConfig>| {
     compiler.enable_verifier();
     compile_and_compare(
         "universal-cranelift",
-        Backend::new(compiler.clone()).engine(),
+        EngineBuilder::new(compiler.clone(), None, None).engine(),
         &wasm_bytes,
     );
 
@@ -56,14 +56,14 @@ fuzz_target!(|module: ConfiguredModule<NoImportsConfig>| {
     compiler.enable_verifier();
     compile_and_compare(
         "universal-llvm",
-        Backend::new(compiler.clone()).engine(),
+        EngineBuilder::new(compiler.clone(), None, None).engine(),
         &wasm_bytes,
     );
 
     let compiler = Singlepass::default();
     compile_and_compare(
         "universal-singlepass",
-        Backend::new(compiler.clone()).engine(),
+        EngineBuilder::new(compiler.clone(), None, None).engine(),
         &wasm_bytes,
     );
 });

@@ -27,7 +27,8 @@ impl Validate {
             Triple::from_str("x86_64-linux-gnu").unwrap(),
             CpuFeature::SSE2 | CpuFeature::AVX,
         );
-        let (engine, _compiler_type) = self.store.get_engine_for_target(target)?;
+        let (engine_builder, _compiler_type) = self.store.get_engine_for_target(target)?;
+        let engine = engine_builder.engine();
         let module_contents = std::fs::read(&self.path)?;
         if !is_wasm(&module_contents) {
             bail!("`wasmer validate` only validates WebAssembly files");

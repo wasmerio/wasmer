@@ -5,7 +5,7 @@ use anyhow::Result;
 use libfuzzer_sys::{arbitrary, arbitrary::Arbitrary, fuzz_target};
 use wasm_smith::{Config, ConfiguredModule};
 use wasmer::{imports, CompilerConfig, Instance, Module, Store, Val};
-use wasmer_compiler::Backend;
+use wasmer_compiler::EngineBuilder;
 #[cfg(feature = "cranelift")]
 use wasmer_compiler_cranelift::Cranelift;
 #[cfg(feature = "llvm")]
@@ -48,7 +48,7 @@ impl std::fmt::Debug for WasmSmithModule {
 #[cfg(feature = "singlepass")]
 fn maybe_instantiate_singlepass(wasm_bytes: &[u8]) -> Result<Option<Instance>> {
     let compiler = Singlepass::default();
-    let mut store = Store::new_with_engine(&Backend::new(compiler).engine());
+    let mut store = Store::new_with_engine(&EngineBuilder::new(compiler, None, None).engine());
     let module = Module::new(&store, &wasm_bytes);
     let module = match module {
         Ok(m) => m,
@@ -69,7 +69,7 @@ fn maybe_instantiate_cranelift(wasm_bytes: &[u8]) -> Result<Option<Instance>> {
     let mut compiler = Cranelift::default();
     compiler.canonicalize_nans(true);
     compiler.enable_verifier();
-    let mut store = Store::new_with_engine(&Backend::new(compiler).engine());
+    let mut store = Store::new_with_engine(&EngineBuilder::new(compiler, None, None).engine());
     let module = Module::new(&store, &wasm_bytes)?;
     let instance = Instance::new(&module, &imports! {})?;
     Ok(Some(instance))
@@ -80,7 +80,7 @@ fn maybe_instantiate_llvm(wasm_bytes: &[u8]) -> Result<Option<Instance>> {
     let mut compiler = LLVM::default();
     compiler.canonicalize_nans(true);
     compiler.enable_verifier();
-    let mut store = Store::new_with_engine(&Backend::new(compiler).engine());
+    let mut store = Store::new_with_engine(&EngineBuilder::new(compiler, None, None).engine());
     let module = Module::new(&store, &wasm_bytes)?;
     let instance = Instance::new(&module, &imports! {})?;
     Ok(Some(instance))
