@@ -120,6 +120,7 @@ impl Engine {
     }
 
     /// Validates a WebAssembly module
+    #[cfg(feature = "compiler")]
     pub fn validate(&self, binary: &[u8]) -> Result<(), CompileError> {
         self.inner().validate(binary)
     }
