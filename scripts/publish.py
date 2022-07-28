@@ -28,49 +28,29 @@ target_version = "3.0.0-alpha"
 dep_graph = {
     "wasmer-types": set([]),
     "wasmer-derive": set([]),
-    "wasmer-vm": set(["wasmer-types", "wasmer-artifact"]),
+    "wasmer-vm": set(["wasmer-types"]),
     "wasmer-compiler": set(["wasmer-types"]),
     "wasmer-compiler-cli": set(
         [
-            "wasmer-engine-universal-artifact",
             "wasmer-compiler",
             "wasmer-types",
             "wasmer-compiler-singlepass",
             "wasmer-compiler-cranelift",
         ]
     ),
-    "wasmer-engine-universal-artifact": set(
-        ["wasmer-artifact", "wasmer-types", "wasmer-compiler"]
-    ),
-    "wasmer-artifact": set(["wasmer-types", "wasmer-compiler"]),
     "wasmer-object": set(["wasmer-types", "wasmer-compiler"]),
-    "wasmer-engine": set(
-        ["wasmer-types", "wasmer-compiler", "wasmer-artifact", "wasmer-vm"]
-    ),
     "wasmer-compiler-singlepass": set(["wasmer-types", "wasmer-compiler"]),
     "wasmer-compiler-cranelift": set(["wasmer-types", "wasmer-compiler"]),
     "wasmer-compiler-llvm": set(["wasmer-compiler", "wasmer-vm", "wasmer-types"]),
-    "wasmer-engine-universal": set(
-        [
-            "wasmer-engine-universal-artifact",
-            "wasmer-types",
-            "wasmer-compiler",
-            "wasmer-vm",
-            "wasmer-engine",
-        ]
-    ),
     "wasmer": set(
         [
-            "wasmer-artifact",
             "wasmer-vm",
             "wasmer-compiler",
             "wasmer-derive",
-            "wasmer-engine",
             "wasmer-types",
             "wasmer-compiler-singlepass",
             "wasmer-compiler-cranelift",
             "wasmer-compiler-llvm",
-            "wasmer-engine-universal",
         ]
     ),
     "wasmer-vfs": set([]),
@@ -87,8 +67,6 @@ dep_graph = {
             "wasmer-compiler-singlepass",
             "wasmer-compiler-llvm",
             "wasmer-emscripten",
-            "wasmer-engine",
-            "wasmer-engine-universal",
             "wasmer-middlewares",
             "wasmer-wasi",
             "wasmer-types",
@@ -104,8 +82,6 @@ dep_graph = {
             "wasmer-compiler-singlepass",
             "wasmer-compiler-llvm",
             "wasmer-emscripten",
-            "wasmer-engine",
-            "wasmer-engine-universal",
             "wasmer-vm",
             "wasmer-wasi",
             "wasmer-wasi-experimental-io-devices",
@@ -120,20 +96,15 @@ dep_graph = {
 # where each crate is located in the `lib` directory
 # TODO: this could also be generated from the toml files
 location = {
-    "wasmer-artifact": "artifact",
-    "wasmer-engine-universal-artifact": "universal-artifact",
     "wasmer-compiler-cli": "cli-compiler",
     "wasmer-types": "types",
     "wasmer-derive": "derive",
     "wasmer-vm": "vm",
     "wasmer-compiler": "compiler",
     "wasmer-object": "object",
-    "wasmer-engine": "engine",
     "wasmer-compiler-singlepass": "compiler-singlepass",
     "wasmer-compiler-cranelift": "compiler-cranelift",
     "wasmer-compiler-llvm": "compiler-llvm",
-    "wasmer-engine": "engine",
-    "wasmer-engine-universal": "engine-universal",
     "wasmer-cache": "cache",
     "wasmer": "api",
     "wasmer-wasi": "wasi",
