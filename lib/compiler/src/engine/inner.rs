@@ -348,6 +348,7 @@ impl EngineInner {
     }
 }
 
+#[cfg(feature = "compiler")]
 impl From<Box<dyn CompilerConfig>> for Engine {
     fn from(config: Box<dyn CompilerConfig>) -> Self {
         EngineBuilder::new(config).engine()

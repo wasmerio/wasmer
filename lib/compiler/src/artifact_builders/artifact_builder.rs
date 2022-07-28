@@ -4,7 +4,6 @@
 #[cfg(feature = "compiler")]
 use super::trampoline::{libcall_trampoline_len, make_libcall_trampolines};
 use crate::ArtifactCreate;
-#[cfg(feature = "compiler")]
 use crate::EngineInner;
 use crate::Features;
 use crate::{ModuleEnvironment, ModuleMiddlewareChain};
