@@ -4,8 +4,8 @@
 : "${FD:=fd}"
 
 # A script to update the version of all the crates at the same time
-PREVIOUS_VERSION='2.3.0'
-NEXT_VERSION='3.0.0-alpha'
+PREVIOUS_VERSION='3.0.0-alpha'
+NEXT_VERSION='3.0.0-alpha.1'
 
 # quick hack
 ${FD} Cargo.toml --exec sed -i '{}' -e "s/version = \"$PREVIOUS_VERSION\"/version = \"$NEXT_VERSION\"/"
