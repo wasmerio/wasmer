@@ -1,5 +1,6 @@
 //! Universal compilation.
 
+use crate::engine::builder::EngineBuilder;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::Artifact;
 #[cfg(not(target_arch = "wasm32"))]
@@ -344,6 +345,24 @@ impl EngineInner {
     #[cfg(not(target_arch = "wasm32"))]
     pub fn signatures(&self) -> &SignatureRegistry {
         &self.signatures
+    }
+}
+
+impl From<Box<dyn CompilerConfig>> for Engine {
+    fn from(config: Box<dyn CompilerConfig>) -> Self {
+        EngineBuilder::new(config).engine()
+    }
+}
+
+impl From<EngineBuilder> for Engine {
+    fn from(engine_builder: EngineBuilder) -> Self {
+        engine_builder.engine()
+    }
+}
+
+impl From<&Self> for Engine {
+    fn from(engine_ref: &Self) -> Self {
+        engine_ref.cloned()
     }
 }
 

@@ -3,7 +3,7 @@ use cranelift_codegen::isa::{lookup, TargetIsa};
 use cranelift_codegen::settings::{self, Configurable};
 use cranelift_codegen::CodegenResult;
 use std::sync::Arc;
-use wasmer_compiler::{Compiler, CompilerConfig, ModuleMiddleware};
+use wasmer_compiler::{Compiler, CompilerConfig, Engine, EngineBuilder, ModuleMiddleware};
 use wasmer_types::{Architecture, CpuFeature, Target};
 
 // Runtime Environment
@@ -212,5 +212,11 @@ impl CompilerConfig for Cranelift {
 impl Default for Cranelift {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl From<Cranelift> for Engine {
+    fn from(config: Cranelift) -> Self {
+        EngineBuilder::new(config).engine()
     }
 }

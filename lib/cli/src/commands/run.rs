@@ -262,8 +262,8 @@ impl Run {
     fn get_store_module(&self) -> Result<(Store, Module)> {
         let contents = std::fs::read(self.path.clone())?;
         if wasmer_compiler::Artifact::is_deserializable(&contents) {
-            let engine = wasmer_compiler::EngineBuilder::headless().engine();
-            let store = Store::new_with_engine(&engine);
+            let engine = wasmer_compiler::EngineBuilder::headless();
+            let store = Store::new(engine);
             let module = unsafe { Module::deserialize_from_file(&store, &self.path)? };
             return Ok((store, module));
         }

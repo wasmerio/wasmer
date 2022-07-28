@@ -20,7 +20,6 @@ fn run_add_with_limit(mut config: crate::Config, limit: u64) -> Result<()> {
            (i32.add (local.get 0)
                     (local.get 1)))
 )"#;
-    let mut env = FunctionEnv::new(&mut store, ());
 
     let import_object = imports! {};
 
@@ -54,7 +53,6 @@ fn run_loop(mut config: crate::Config, limit: u64, iter_count: i32) -> Result<()
         )
 )"#;
     let module = Module::new(&store, wat).unwrap();
-    let mut env = FunctionEnv::new(&mut store, ());
 
     let import_object = imports! {};
 

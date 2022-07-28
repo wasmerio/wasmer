@@ -50,10 +50,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("Chosen target: {:?}", target);
 
         println!("Creating Dylib engine...");
-        let engine = Dylib::new(compiler_config).target(target).engine();
+        let engine = Dylib::new(compiler_config).target(target);
 
         // Create a store, that holds the engine.
-        let mut store = Store::new_with_engine(&engine);
+        let mut store = Store::new(engine);
 
         println!("Compiling module...");
         // Let's compile the Wasm module.

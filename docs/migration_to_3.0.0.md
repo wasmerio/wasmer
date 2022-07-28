@@ -145,10 +145,25 @@ let wasm_bytes = wat2wasm(
     "..".as_bytes(),
 )?;
 
-let compiler_config = Cranelift::default();
-let mut store = Store::new(&compiler_config);
+let compiler = Cranelift::default();
+let mut store = Store::new(compiler);
 let module = Module::new(&store, wasm_bytes)?;
 let instance = Instance::new(&mut store, &module, &imports! {})?;
+```
+
+#### Advanced configuration
+
+The previous ability to define target and features remains in a new `EngineBuilder` interface:
+
+```rust
+let compiler = Cranelift::default();
+
+let mut features = Features::new();
+// Enable the multi-value feature.
+features.multi_value(true);
+
+let engine = EngineBuilder::new(compiler).set_features(Some(features));
+let store = Store::new(engine);
 ```
 
 [examples]: https://docs.wasmer.io/integrations/examples

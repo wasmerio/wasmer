@@ -18,8 +18,7 @@
 //!
 //! Ready?
 
-use wasmer::{imports, wat2wasm, Instance, Module, Store, Value};
-use wasmer_compiler::EngineBuilder;
+use wasmer::{imports, wat2wasm, EngineBuilder, Instance, Module, Store, Value};
 use wasmer_compiler_cranelift::Cranelift;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -49,10 +48,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     //
     // In this case, the engine is `wasmer_compiler` which roughly
     // means that the executable code will live in memory.
-    let engine = EngineBuilder::new(compiler_config, None, None).engine();
+    let engine = EngineBuilder::new(compiler_config);
 
     // Create a store, that holds the engine.
-    let mut store = Store::new_with_engine(&engine);
+    let mut store = Store::new(engine);
 
     println!("Compiling module...");
     // Here we go.

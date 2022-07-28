@@ -105,7 +105,7 @@ impl CompilerOptions {
     pub fn get_store_for_target(&self, target: Target) -> Result<(Store, CompilerType)> {
         let (compiler_config, compiler_type) = self.get_compiler_config()?;
         let engine = self.get_engine(target, compiler_config)?;
-        let store = Store::new_with_engine(&engine);
+        let store = Store::new(engine);
         Ok((store, compiler_type))
     }
 
@@ -114,12 +114,12 @@ impl CompilerOptions {
         &self,
         target: Target,
         compiler_config: Box<dyn CompilerConfig>,
-    ) -> Result<Box<Engine>> {
+    ) -> Result<Engine> {
         let features = self.get_features(compiler_config.default_features_for_target(&target))?;
-        let engine: Box<Engine> = Box::new(
-            wasmer_compiler::EngineBuilder::new(compiler_config, Some(target), Some(features))
-                .engine(),
-        );
+        let engine: Engine = wasmer_compiler::EngineBuilder::new(compiler_config)
+            .set_features(Some(features))
+            .set_target(Some(target))
+            .engine();
 
         Ok(engine)
     }
@@ -313,7 +313,7 @@ impl StoreOptions {
     pub fn get_store_for_target(&self, target: Target) -> Result<(Store, CompilerType)> {
         let (compiler_config, compiler_type) = self.compiler.get_compiler_config()?;
         let engine = self.get_engine_with_compiler(target, compiler_config)?;
-        let store = Store::new_with_engine(&engine);
+        let store = Store::new(engine);
         Ok((store, compiler_type))
     }
 
@@ -322,9 +322,8 @@ impl StoreOptions {
         &self,
         target: Target,
         compiler_config: Box<dyn CompilerConfig>,
-    ) -> Result<Box<Engine>> {
+    ) -> Result<Engine> {
         let engine = self.compiler.get_engine(target, compiler_config)?;
-
         Ok(engine)
     }
 }
@@ -340,7 +339,7 @@ impl StoreOptions {
     /// Get the store (headless engine)
     pub fn get_store(&self) -> Result<(Store, CompilerType)> {
         let engine = self.get_engine_headless()?;
-        let store = Store::new_with_engine(&engine);
+        let store = Store::new(engine);
         Ok((store, CompilerType::Headless))
     }
 }

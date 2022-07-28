@@ -8,7 +8,7 @@ use itertools::Itertools;
 use std::fmt::Debug;
 use std::sync::Arc;
 use target_lexicon::Architecture;
-use wasmer_compiler::{Compiler, CompilerConfig, ModuleMiddleware};
+use wasmer_compiler::{Compiler, CompilerConfig, Engine, EngineBuilder, ModuleMiddleware};
 use wasmer_types::{FunctionType, LocalFunctionIndex, Target, Triple};
 
 /// The InkWell ModuleInfo type
@@ -225,5 +225,11 @@ impl CompilerConfig for LLVM {
 impl Default for LLVM {
     fn default() -> LLVM {
         Self::new()
+    }
+}
+
+impl From<LLVM> for Engine {
+    fn from(config: LLVM) -> Self {
+        EngineBuilder::new(config).engine()
     }
 }

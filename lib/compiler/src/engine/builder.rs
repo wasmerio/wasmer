@@ -14,14 +14,14 @@ pub struct EngineBuilder {
 
 impl EngineBuilder {
     /// Create a new builder with pre-made components
-    pub fn new<T>(compiler_config: T, target: Option<Target>, features: Option<Features>) -> Self
+    pub fn new<T>(compiler_config: T) -> Self
     where
         T: Into<Box<dyn CompilerConfig>>,
     {
         Self {
             compiler_config: Some(compiler_config.into()),
-            target,
-            features,
+            target: None,
+            features: None,
         }
     }
 
@@ -35,13 +35,13 @@ impl EngineBuilder {
     }
 
     /// Set the target
-    pub fn set_target(&mut self, target: Option<Target>) -> &mut Self {
+    pub fn set_target(mut self, target: Option<Target>) -> Self {
         self.target = target;
         self
     }
 
     /// Set the features
-    pub fn set_features(&mut self, features: Option<Features>) -> &mut Self {
+    pub fn set_features(mut self, features: Option<Features>) -> Self {
         self.features = features;
         self
     }
@@ -69,5 +69,10 @@ impl EngineBuilder {
     /// The Wasm features
     pub fn features(&self) -> Option<&Features> {
         self.features.as_ref()
+    }
+
+    /// The target
+    pub fn target(&self) -> Option<&Target> {
+        self.target.as_ref()
     }
 }
