@@ -742,7 +742,7 @@
         <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
         <span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_engine_new</span>() -&gt; <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasm_engine_t</span><span class="op">&gt;</span> {
             <span class="kw">let</span> <span class="ident">compiler_config</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">CompilerConfig</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">get_default_compiler_config</span>();
-            <span class="kw">let</span> <span class="ident">engine</span>: <span class="ident">Engine</span> <span class="op">=</span> <span class="ident">EngineBuilder::new</span>(<span class="ident">compiler_config</span>, <span class="prelude-val">None</span>, <span class="prelude-val">None</span>).<span class="ident">engine</span>();
+            <span class="kw">let</span> <span class="ident">engine</span>: <span class="ident">Engine</span> <span class="op">=</span> <span class="ident">EngineBuilder::new</span>(<span class="ident">compiler_config</span>).<span class="ident">engine</span>();
             <span class="ident">Box::new</span>(<span class="ident">wasm_engine_t</span> { <span class="ident">inner</span>: <span class="ident">engine</span> })
         }
     } <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler-headless&quot;</span>)]</span> {
@@ -868,14 +868,14 @@
 
             <span class="kw">let</span> <span class="ident">inner</span>: <span class="ident">Engine</span> <span class="op">=</span>
                          {
-                            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">builder</span> <span class="op">=</span> <span class="ident">EngineBuilder::new</span>(<span class="ident">compiler_config</span>, <span class="prelude-val">None</span>, <span class="prelude-val">None</span>);
+                            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">builder</span> <span class="op">=</span> <span class="ident">EngineBuilder::new</span>(<span class="ident">compiler_config</span>);
 
                             <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">target</span>) <span class="op">=</span> <span class="ident">config</span>.<span class="ident">target</span> {
-                                <span class="ident">builder</span>.<span class="ident">set_target</span>(<span class="prelude-val">Some</span>(<span class="ident">target</span>.<span class="ident">inner</span>));
+                                <span class="ident">builder</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">set_target</span>(<span class="prelude-val">Some</span>(<span class="ident">target</span>.<span class="ident">inner</span>));
                             }
 
                             <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">features</span>) <span class="op">=</span> <span class="ident">config</span>.<span class="ident">features</span> {
-                                <span class="ident">builder</span>.<span class="ident">set_features</span>(<span class="prelude-val">Some</span>(<span class="ident">features</span>.<span class="ident">inner</span>));
+                                <span class="ident">builder</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">set_features</span>(<span class="prelude-val">Some</span>(<span class="ident">features</span>.<span class="ident">inner</span>));
                             }
 
                             <span class="ident">builder</span>.<span class="ident">engine</span>()
@@ -887,11 +887,11 @@
                             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">builder</span> <span class="op">=</span> <span class="ident">EngineBuilder::headless</span>();
 
                             <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">target</span>) <span class="op">=</span> <span class="ident">config</span>.<span class="ident">target</span> {
-                                <span class="ident">builder</span>.<span class="ident">set_target</span>(<span class="prelude-val">Some</span>(<span class="ident">target</span>.<span class="ident">inner</span>));
+                                <span class="ident">builder</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">set_target</span>(<span class="prelude-val">Some</span>(<span class="ident">target</span>.<span class="ident">inner</span>));
                             }
 
                             <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">features</span>) <span class="op">=</span> <span class="ident">config</span>.<span class="ident">features</span> {
-                                 <span class="ident">builder</span>.<span class="ident">set_features</span>(<span class="prelude-val">Some</span>(<span class="ident">features</span>.<span class="ident">inner</span>));
+                                <span class="ident">builder</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">set_features</span>(<span class="prelude-val">Some</span>(<span class="ident">features</span>.<span class="ident">inner</span>));
                             }
 
                             <span class="ident">builder</span>.<span class="ident">engine</span>()

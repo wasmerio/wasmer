@@ -320,11 +320,14 @@
 <span id="318">318</span>
 <span id="319">319</span>
 <span id="320">320</span>
+<span id="321">321</span>
+<span id="322">322</span>
+<span id="323">323</span>
+<span id="324">324</span>
+<span id="325">325</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::tunables::BaseTunables</span>;
 <span class="kw">use</span> <span class="ident">std::fmt</span>;
 <span class="kw">use</span> <span class="ident">std::sync</span>::{<span class="ident">Arc</span>, <span class="ident">RwLock</span>};
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident">wasmer_compiler::CompilerConfig</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">Engine</span>, <span class="ident">EngineBuilder</span>, <span class="ident">Tunables</span>};
 <span class="kw">use</span> <span class="ident">wasmer_vm</span>::{<span class="ident">init_traps</span>, <span class="ident">TrapHandler</span>, <span class="ident">TrapHandlerFn</span>};
@@ -359,15 +362,20 @@
 
 <span class="kw">impl</span> <span class="ident">Store</span> {
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
-    <span class="doccomment">/// Creates a new `Store` with a specific [`CompilerConfig`].</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">compiler_config</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">CompilerConfig</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
-        <span class="kw">let</span> <span class="ident">engine</span> <span class="op">=</span> <span class="ident">EngineBuilder::new</span>(<span class="ident">compiler_config</span>, <span class="prelude-val">None</span>, <span class="prelude-val">None</span>).<span class="ident">engine</span>();
-        <span class="ident"><span class="self">Self</span>::new_with_tunables</span>(<span class="kw-2">&amp;</span><span class="ident">engine</span>, <span class="ident">BaseTunables::for_target</span>(<span class="ident">engine</span>.<span class="ident">target</span>()))
+    <span class="doccomment">/// Creates a new `Store` with a specific [`Engine`].</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">engine</span>: <span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Engine</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
+        <span class="kw">let</span> <span class="ident">engine</span> <span class="op">=</span> <span class="ident">engine</span>.<span class="ident">into</span>();
+        <span class="kw">let</span> <span class="ident">target</span> <span class="op">=</span> <span class="ident">engine</span>.<span class="ident">target</span>().<span class="ident">clone</span>();
+        <span class="ident"><span class="self">Self</span>::new_with_tunables</span>(<span class="ident">engine</span>, <span class="ident">BaseTunables::for_target</span>(<span class="kw-2">&amp;</span><span class="ident">target</span>))
     }
 
+    <span class="attribute">#[<span class="ident">deprecated</span>(
+        <span class="ident">since</span> <span class="op">=</span> <span class="string">&quot;3.0.0&quot;</span>,
+        <span class="ident">note</span> <span class="op">=</span> <span class="string">&quot;Store::new_with_engine has been deprecated in favor of Store::new&quot;</span>
+    )]</span>
     <span class="doccomment">/// Creates a new `Store` with a specific [`Engine`].</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_with_engine</span>(<span class="ident">engine</span>: <span class="kw-2">&amp;</span><span class="ident">Engine</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident"><span class="self">Self</span>::new_with_tunables</span>(<span class="ident">engine</span>, <span class="ident">BaseTunables::for_target</span>(<span class="ident">engine</span>.<span class="ident">target</span>()))
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_with_engine</span>(<span class="ident">engine</span>: <span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Engine</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
+        <span class="ident"><span class="self">Self</span>::new</span>(<span class="ident">engine</span>)
     }
 
     <span class="doccomment">/// Set the trap handler in this store.</span>
@@ -377,9 +385,11 @@
 
     <span class="doccomment">/// Creates a new `Store` with a specific [`Engine`] and [`Tunables`].</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_with_tunables</span>(
-        <span class="ident">engine</span>: <span class="kw-2">&amp;</span><span class="ident">Engine</span>,
+        <span class="ident">engine</span>: <span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Engine</span><span class="op">&gt;</span>,
         <span class="ident">tunables</span>: <span class="kw">impl</span> <span class="ident">Tunables</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
     ) -&gt; <span class="self">Self</span> {
+        <span class="kw">let</span> <span class="ident">engine</span> <span class="op">=</span> <span class="ident">engine</span>.<span class="ident">into</span>();
+
         <span class="comment">// Make sure the signal handlers are installed.</span>
         <span class="comment">// This is required for handling traps.</span>
         <span class="ident">init_traps</span>();
@@ -450,7 +460,7 @@
         <span class="comment">// more than one compiler is enabled.</span>
         <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unreachable_code</span>)]</span>
         <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;cranelift&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;llvm&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;singlepass&quot;</span>))]</span>
-        <span class="kw">fn</span> <span class="ident">get_config</span>() -&gt; <span class="kw">impl</span> <span class="ident">CompilerConfig</span> <span class="op">+</span> <span class="lifetime">&#39;static</span> {
+        <span class="kw">fn</span> <span class="ident">get_config</span>() -&gt; <span class="kw">impl</span> <span class="ident">wasmer_compiler::CompilerConfig</span> <span class="op">+</span> <span class="lifetime">&#39;static</span> {
             <span class="macro">cfg_if::cfg_if!</span> {
                 <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;cranelift&quot;</span>)]</span> {
                     <span class="ident">wasmer_compiler_cranelift::Cranelift::default</span>()
@@ -473,10 +483,10 @@
                     <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;cranelift&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;llvm&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;singlepass&quot;</span>))]</span>
                     {
                     <span class="kw">let</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">get_config</span>();
-                    <span class="ident">wasmer_compiler::EngineBuilder::new</span>(<span class="ident">Box::new</span>(<span class="ident">config</span>) <span class="kw">as</span> <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">CompilerConfig</span><span class="op">&gt;</span>, <span class="prelude-val">None</span>, <span class="prelude-val">None</span>)
+                    <span class="ident">EngineBuilder::new</span>(<span class="ident">Box::new</span>(<span class="ident">config</span>) <span class="kw">as</span> <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">wasmer_compiler::CompilerConfig</span><span class="op">&gt;</span>)
                         .<span class="ident">engine</span>()
                     } <span class="kw">else</span> {
-                    <span class="ident">wasmer_compiler::EngineBuilder::headless</span>()
+                    <span class="ident">EngineBuilder::headless</span>()
                         .<span class="ident">engine</span>()
                     }
             }

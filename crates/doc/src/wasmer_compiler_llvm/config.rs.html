@@ -229,6 +229,12 @@
 <span id="227">227</span>
 <span id="228">228</span>
 <span id="229">229</span>
+<span id="230">230</span>
+<span id="231">231</span>
+<span id="232">232</span>
+<span id="233">233</span>
+<span id="234">234</span>
+<span id="235">235</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::compiler::LLVMCompiler</span>;
 <span class="kw">use</span> <span class="ident">inkwell::targets</span>::{
     <span class="ident">CodeModel</span>, <span class="ident">InitializationConfig</span>, <span class="ident">RelocMode</span>, <span class="ident">Target</span> <span class="kw">as</span> <span class="ident">InkwellTarget</span>, <span class="ident">TargetMachine</span>,
@@ -239,7 +245,7 @@
 <span class="kw">use</span> <span class="ident">std::fmt::Debug</span>;
 <span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
 <span class="kw">use</span> <span class="ident">target_lexicon::Architecture</span>;
-<span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">Compiler</span>, <span class="ident">CompilerConfig</span>, <span class="ident">ModuleMiddleware</span>};
+<span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">Compiler</span>, <span class="ident">CompilerConfig</span>, <span class="ident">Engine</span>, <span class="ident">EngineBuilder</span>, <span class="ident">ModuleMiddleware</span>};
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">FunctionType</span>, <span class="ident">LocalFunctionIndex</span>, <span class="ident">Target</span>, <span class="ident">Triple</span>};
 
 <span class="doccomment">/// The InkWell ModuleInfo type</span>
@@ -456,6 +462,12 @@
 <span class="kw">impl</span> <span class="ident">Default</span> <span class="kw">for</span> <span class="ident">LLVM</span> {
     <span class="kw">fn</span> <span class="ident">default</span>() -&gt; <span class="ident">LLVM</span> {
         <span class="ident"><span class="self">Self</span>::new</span>()
+    }
+}
+
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">LLVM</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Engine</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">config</span>: <span class="ident">LLVM</span>) -&gt; <span class="self">Self</span> {
+        <span class="ident">EngineBuilder::new</span>(<span class="ident">config</span>).<span class="ident">engine</span>()
     }
 }
 </code></pre></div>

@@ -345,7 +345,6 @@
 <span id="343">343</span>
 <span id="344">344</span>
 <span id="345">345</span>
-<span id="346">346</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Common module with common used structures across different</span>
 <span class="doccomment">//! commands.</span>
 
@@ -453,7 +452,7 @@
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_store_for_target</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">target</span>: <span class="ident">Target</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">Store</span>, <span class="ident">CompilerType</span>)<span class="op">&gt;</span> {
         <span class="kw">let</span> (<span class="ident">compiler_config</span>, <span class="ident">compiler_type</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_compiler_config</span>()<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="ident">engine</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_engine</span>(<span class="ident">target</span>, <span class="ident">compiler_config</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">store</span> <span class="op">=</span> <span class="ident">Store::new_with_engine</span>(<span class="kw-2">&amp;</span><span class="ident">engine</span>);
+        <span class="kw">let</span> <span class="ident">store</span> <span class="op">=</span> <span class="ident">Store::new</span>(<span class="ident">engine</span>);
         <span class="prelude-val">Ok</span>((<span class="ident">store</span>, <span class="ident">compiler_type</span>))
     }
 
@@ -462,12 +461,12 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">target</span>: <span class="ident">Target</span>,
         <span class="ident">compiler_config</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">CompilerConfig</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="ident">Engine</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Engine</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">features</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_features</span>(<span class="ident">compiler_config</span>.<span class="ident">default_features_for_target</span>(<span class="kw-2">&amp;</span><span class="ident">target</span>))<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">engine</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">Engine</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Box::new</span>(
-            <span class="ident">wasmer_compiler::EngineBuilder::new</span>(<span class="ident">compiler_config</span>, <span class="prelude-val">Some</span>(<span class="ident">target</span>), <span class="prelude-val">Some</span>(<span class="ident">features</span>))
-                .<span class="ident">engine</span>(),
-        );
+        <span class="kw">let</span> <span class="ident">engine</span>: <span class="ident">Engine</span> <span class="op">=</span> <span class="ident">wasmer_compiler::EngineBuilder::new</span>(<span class="ident">compiler_config</span>)
+            .<span class="ident">set_features</span>(<span class="prelude-val">Some</span>(<span class="ident">features</span>))
+            .<span class="ident">set_target</span>(<span class="prelude-val">Some</span>(<span class="ident">target</span>))
+            .<span class="ident">engine</span>();
 
         <span class="prelude-val">Ok</span>(<span class="ident">engine</span>)
     }
@@ -661,7 +660,7 @@
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_store_for_target</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">target</span>: <span class="ident">Target</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">Store</span>, <span class="ident">CompilerType</span>)<span class="op">&gt;</span> {
         <span class="kw">let</span> (<span class="ident">compiler_config</span>, <span class="ident">compiler_type</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">compiler</span>.<span class="ident">get_compiler_config</span>()<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="ident">engine</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_engine_with_compiler</span>(<span class="ident">target</span>, <span class="ident">compiler_config</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">store</span> <span class="op">=</span> <span class="ident">Store::new_with_engine</span>(<span class="kw-2">&amp;</span><span class="ident">engine</span>);
+        <span class="kw">let</span> <span class="ident">store</span> <span class="op">=</span> <span class="ident">Store::new</span>(<span class="ident">engine</span>);
         <span class="prelude-val">Ok</span>((<span class="ident">store</span>, <span class="ident">compiler_type</span>))
     }
 
@@ -670,9 +669,8 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">target</span>: <span class="ident">Target</span>,
         <span class="ident">compiler_config</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">CompilerConfig</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="ident">Engine</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Engine</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">engine</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">compiler</span>.<span class="ident">get_engine</span>(<span class="ident">target</span>, <span class="ident">compiler_config</span>)<span class="question-mark">?</span>;
-
         <span class="prelude-val">Ok</span>(<span class="ident">engine</span>)
     }
 }
@@ -688,7 +686,7 @@
     <span class="doccomment">/// Get the store (headless engine)</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_store</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">Store</span>, <span class="ident">CompilerType</span>)<span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">engine</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_engine_headless</span>()<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">store</span> <span class="op">=</span> <span class="ident">Store::new_with_engine</span>(<span class="kw-2">&amp;</span><span class="ident">engine</span>);
+        <span class="kw">let</span> <span class="ident">store</span> <span class="op">=</span> <span class="ident">Store::new</span>(<span class="ident">engine</span>);
         <span class="prelude-val">Ok</span>((<span class="ident">store</span>, <span class="ident">CompilerType::Headless</span>))
     }
 }

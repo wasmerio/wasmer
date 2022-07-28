@@ -381,6 +381,7 @@
 <span id="379">379</span>
 <span id="380">380</span>
 <span id="381">381</span>
+<span id="382">382</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Common module with common used structures across different</span>
 <span class="doccomment">//! commands.</span>
 
@@ -557,8 +558,9 @@
         <span class="ident">compiler_config</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">CompilerConfig</span><span class="op">&gt;</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">EngineBuilder</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">features</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_features</span>(<span class="ident">compiler_config</span>.<span class="ident">default_features_for_target</span>(<span class="kw-2">&amp;</span><span class="ident">target</span>))<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">engine</span>: <span class="ident">EngineBuilder</span> <span class="op">=</span>
-            <span class="ident">EngineBuilder::new</span>(<span class="ident">compiler_config</span>, <span class="prelude-val">Some</span>(<span class="ident">target</span>), <span class="prelude-val">Some</span>(<span class="ident">features</span>));
+        <span class="kw">let</span> <span class="ident">engine</span>: <span class="ident">EngineBuilder</span> <span class="op">=</span> <span class="ident">EngineBuilder::new</span>(<span class="ident">compiler_config</span>)
+            .<span class="ident">set_target</span>(<span class="prelude-val">Some</span>(<span class="ident">target</span>))
+            .<span class="ident">set_features</span>(<span class="prelude-val">Some</span>(<span class="ident">features</span>));
 
         <span class="prelude-val">Ok</span>(<span class="ident">engine</span>)
     }
