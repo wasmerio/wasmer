@@ -279,7 +279,7 @@ cfg_if! {
         #[no_mangle]
         pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
             let compiler_config: Box<dyn CompilerConfig> = get_default_compiler_config();
-            let engine: Engine = EngineBuilder::new(compiler_config, None, None).engine();
+            let engine: Engine = EngineBuilder::new(compiler_config).engine();
             Box::new(wasm_engine_t { inner: engine })
         }
     } else if #[cfg(feature = "compiler-headless")] {
@@ -405,14 +405,14 @@ pub extern "C" fn wasm_engine_new_with_config(
 
             let inner: Engine =
                          {
-                            let mut builder = EngineBuilder::new(compiler_config, None, None);
+                            let mut builder = EngineBuilder::new(compiler_config);
 
                             if let Some(target) = config.target {
-                                builder.set_target(Some(target.inner));
+                                builder = builder.set_target(Some(target.inner));
                             }
 
                             if let Some(features) = config.features {
-                                builder.set_features(Some(features.inner));
+                                builder = builder.set_features(Some(features.inner));
                             }
 
                             builder.engine()
@@ -424,11 +424,11 @@ pub extern "C" fn wasm_engine_new_with_config(
                             let mut builder = EngineBuilder::headless();
 
                             if let Some(target) = config.target {
-                                builder.set_target(Some(target.inner));
+                                builder = builder.set_target(Some(target.inner));
                             }
 
                             if let Some(features) = config.features {
-                                 builder.set_features(Some(features.inner));
+                                builder = builder.set_features(Some(features.inner));
                             }
 
                             builder.engine()

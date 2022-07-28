@@ -2,8 +2,6 @@ use crate::sys::tunables::BaseTunables;
 use std::fmt;
 use std::sync::{Arc, RwLock};
 #[cfg(feature = "compiler")]
-use wasmer_compiler::CompilerConfig;
-#[cfg(feature = "compiler")]
 use wasmer_compiler::{Engine, EngineBuilder, Tunables};
 use wasmer_vm::{init_traps, TrapHandler, TrapHandlerFn};
 
@@ -37,15 +35,20 @@ pub struct Store {
 
 impl Store {
     #[cfg(feature = "compiler")]
-    /// Creates a new `Store` with a specific [`CompilerConfig`].
-    pub fn new(compiler_config: Box<dyn CompilerConfig>) -> Self {
-        let engine = EngineBuilder::new(compiler_config, None, None).engine();
-        Self::new_with_tunables(&engine, BaseTunables::for_target(engine.target()))
+    /// Creates a new `Store` with a specific [`Engine`].
+    pub fn new(engine: impl Into<Engine>) -> Self {
+        let engine = engine.into();
+        let target = engine.target().clone();
+        Self::new_with_tunables(engine, BaseTunables::for_target(&target))
     }
 
+    #[deprecated(
+        since = "3.0.0",
+        note = "Store::new_with_engine has been deprecated in favor of Store::new"
+    )]
     /// Creates a new `Store` with a specific [`Engine`].
-    pub fn new_with_engine(engine: &Engine) -> Self {
-        Self::new_with_tunables(engine, BaseTunables::for_target(engine.target()))
+    pub fn new_with_engine(engine: impl Into<Engine>) -> Self {
+        Self::new(engine)
     }
 
     /// Set the trap handler in this store.
@@ -55,9 +58,11 @@ impl Store {
 
     /// Creates a new `Store` with a specific [`Engine`] and [`Tunables`].
     pub fn new_with_tunables(
-        engine: &Engine,
+        engine: impl Into<Engine>,
         tunables: impl Tunables + Send + Sync + 'static,
     ) -> Self {
+        let engine = engine.into();
+
         // Make sure the signal handlers are installed.
         // This is required for handling traps.
         init_traps();
@@ -128,7 +133,7 @@ impl Default for Store {
         // more than one compiler is enabled.
         #[allow(unreachable_code)]
         #[cfg(any(feature = "cranelift", feature = "llvm", feature = "singlepass"))]
-        fn get_config() -> impl CompilerConfig + 'static {
+        fn get_config() -> impl wasmer_compiler::CompilerConfig + 'static {
             cfg_if::cfg_if! {
                 if #[cfg(feature = "cranelift")] {
                     wasmer_compiler_cranelift::Cranelift::default()
@@ -151,10 +156,10 @@ impl Default for Store {
                     if #[cfg(any(feature = "cranelift", feature = "llvm", feature = "singlepass"))]
                     {
                     let config = get_config();
-                    wasmer_compiler::EngineBuilder::new(Box::new(config) as Box<dyn CompilerConfig>, None, None)
+                    EngineBuilder::new(Box::new(config) as Box<dyn wasmer_compiler::CompilerConfig>)
                         .engine()
                     } else {
-                    wasmer_compiler::EngineBuilder::headless()
+                    EngineBuilder::headless()
                         .engine()
                     }
             }

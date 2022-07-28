@@ -9,6 +9,7 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 ## **Unreleased**
 
 ### Changed
+- [#3047](https://github.com/wasmerio/wasmer/pull/3047) `Store::new` now takes an `impl Into<Engine>`.
 - [#3017](https://github.com/wasmerio/wasmer/pull/3017) Fix typo in README.md
 - [#3008](https://github.com/wasmerio/wasmer/pull/3008) Add a new CI check that uses cargo public-api to track changes in the API between master and the last deployed version on crates.io
 - [#3003](https://github.com/wasmerio/wasmer/pull/3003) Remove RuntimeError::raise from public API

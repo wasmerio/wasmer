@@ -45,14 +45,7 @@
 //! Ready?
 
 use tempfile::NamedTempFile;
-use wasmer::imports;
-use wasmer::wat2wasm;
-use wasmer::FunctionEnv;
-use wasmer::Instance;
-use wasmer::Module;
-use wasmer::Store;
-use wasmer::Value;
-use wasmer_compiler::EngineBuilder;
+use wasmer::{imports, wat2wasm, EngineBuilder, FunctionEnv, Instance, Module, Store, Value};
 use wasmer_compiler_cranelift::Cranelift;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -78,14 +71,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // In this situation, the compiler is
         // `wasmer_compiler_cranelift`. The compiler is responsible to
         // compile the Wasm module into executable code.
-        let compiler_config = Cranelift::default();
-
-        println!("Creating univesral engine...");
-        // Define the engine that will drive everything.
-        let engine = EngineBuilder::new(compiler_config, None, None).engine();
+        let compiler = Cranelift::default();
 
         // Create a store, that holds the engine.
-        let mut store = Store::new_with_engine(&engine);
+        let mut store = Store::new(compiler);
 
         println!("Compiling module...");
         // Let's compile the Wasm module.
@@ -105,8 +94,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     {
         println!("Creating headless Universal engine...");
         // We create a headless Universal engine.
-        let engine = EngineBuilder::headless().engine();
-        let mut store = Store::new_with_engine(&engine);
+        let engine = EngineBuilder::headless();
+        let mut store = Store::new(engine);
         let mut env = FunctionEnv::new(&mut store, ());
 
         println!("Deserializing module...");

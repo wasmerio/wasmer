@@ -18,8 +18,9 @@ use anyhow::bail;
 use std::sync::Arc;
 use wasmer::wasmparser::Operator;
 use wasmer::CompilerConfig;
-use wasmer::{imports, wat2wasm, FunctionEnv, Instance, Module, Store, TypedFunction};
-use wasmer_compiler::EngineBuilder;
+use wasmer::{
+    imports, wat2wasm, EngineBuilder, FunctionEnv, Instance, Module, Store, TypedFunction,
+};
 use wasmer_compiler_cranelift::Cranelift;
 use wasmer_middlewares::{
     metering::{get_remaining_points, set_remaining_points, MeteringPoints},
@@ -70,8 +71,7 @@ fn main() -> anyhow::Result<()> {
     //
     // We use our previously create compiler configuration
     // with the Universal engine.
-    let mut store =
-        Store::new_with_engine(&EngineBuilder::new(compiler_config, None, None).engine());
+    let mut store = Store::new(EngineBuilder::new(compiler_config));
     let mut env = FunctionEnv::new(&mut store, ());
 
     println!("Compiling module...");

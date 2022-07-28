@@ -2902,7 +2902,6 @@ dependencies = [
  "tempfile",
  "thiserror",
  "wasmer",
- "wasmer-compiler",
  "wasmer-compiler-singlepass",
 ]
 

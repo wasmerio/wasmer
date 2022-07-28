@@ -6,7 +6,6 @@ use wasmer::{
     wat2wasm, BaseTunables, FunctionEnv, Instance, Memory, MemoryType, Module, Pages, Store,
     TableType, Target, Tunables,
 };
-use wasmer_compiler::EngineBuilder;
 use wasmer_compiler_cranelift::Cranelift;
 
 /// A custom tunables that allows you to set a memory limit.
@@ -135,17 +134,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let wasm_bytes = wat2wasm(wat)?;
 
-    // Any compiler and any engine do the job here
+    // Any compiler do the job here
     let compiler = Cranelift::default();
-    let engine = EngineBuilder::new(compiler, None, None).engine();
 
     // Here is where the fun begins
-
     let base = BaseTunables::for_target(&Target::default());
     let tunables = LimitingTunables::new(base, Pages(24));
 
     // Create a store, that holds the engine and our custom tunables
-    let mut store = Store::new_with_tunables(&engine, tunables);
+    let mut store = Store::new_with_tunables(compiler, tunables);
     let mut env = FunctionEnv::new(&mut store, ());
 
     println!("Compiling module...");
