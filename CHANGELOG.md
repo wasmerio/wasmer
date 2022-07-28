@@ -6,7 +6,7 @@
 
 Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/CHANGELOG.md).
 
-## 3.0.0-alpha.1 2022/07/28
+## 3.0.0-alpha.2 2022/07/28
 
 ### Added
 - [#3035](https://github.com/wasmerio/wasmer/pull/3035) Added a simple "divide by zero" wast test, for #1899, as the trap information are correctly tracked on singlepass now
