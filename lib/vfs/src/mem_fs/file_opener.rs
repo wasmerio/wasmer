@@ -61,7 +61,7 @@ impl crate::FileOpener for FileOpener {
 
             // Find the inode of the file if it exists.
             let maybe_inode_of_file = fs
-                .from_parent_get_position_and_inode_of_file(inode_of_parent, &name_of_file)?
+                .as_parent_get_position_and_inode_of_file(inode_of_parent, &name_of_file)?
                 .map(|(_nth, inode)| inode);
 
             (inode_of_parent, maybe_inode_of_file, name_of_file)
@@ -81,7 +81,8 @@ impl crate::FileOpener for FileOpener {
                     .try_write()
                     .map_err(|_| FsError::Lock)?;
 
-                match fs.storage.get_mut(inode_of_file) {
+                let inode = fs.storage.get_mut(inode_of_file);
+                match inode {
                     Some(Node::File { metadata, file, .. }) => {
                         // Update the accessed time.
                         metadata.accessed = time();

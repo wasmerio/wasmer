@@ -28,7 +28,8 @@ impl crate::FileSystem for FileSystem {
         let (path, inode_of_directory) = fs.canonicalize(path)?;
 
         // Check it's a directory and fetch the immediate children as `DirEntry`.
-        let children = match fs.storage.get(inode_of_directory) {
+        let inode = fs.storage.get(inode_of_directory);
+        let children = match inode {
             Some(Node::Directory { children, .. }) => children
                 .iter()
                 .filter_map(|inode| fs.storage.get(*inode))
@@ -133,12 +134,11 @@ impl crate::FileSystem for FileSystem {
 
             // Get the child index to remove in the parent node, in
             // addition to the inode of the directory to remove.
-            let (position, inode_of_directory) = fs
-                .from_parent_get_position_and_inode_of_directory(
-                    inode_of_parent,
-                    &name_of_directory,
-                    DirectoryMustBeEmpty::Yes,
-                )?;
+            let (position, inode_of_directory) = fs.as_parent_get_position_and_inode_of_directory(
+                inode_of_parent,
+                &name_of_directory,
+                DirectoryMustBeEmpty::Yes,
+            )?;
 
             (inode_of_parent, position, inode_of_directory)
         };
@@ -183,7 +183,7 @@ impl crate::FileSystem for FileSystem {
             // Get the child indexes to update in the parent nodes, in
             // addition to the inode of the directory to update.
             let (position_of_from, inode) = fs
-                .from_parent_get_position_and_inode(inode_of_from_parent, &name_of_from)?
+                .as_parent_get_position_and_inode(inode_of_from_parent, &name_of_from)?
                 .ok_or(FsError::NotAFile)?;
 
             (
@@ -211,7 +211,8 @@ impl crate::FileSystem for FileSystem {
             }
             // Otherwise, we need to at least update the modified time of the parent.
             else {
-                match fs.storage.get_mut(inode_of_from_parent) {
+                let inode = fs.storage.get_mut(inode_of_from_parent);
+                match inode {
                     Some(Node::Directory {
                         metadata: Metadata { modified, .. },
                         ..
@@ -258,7 +259,7 @@ impl crate::FileSystem for FileSystem {
 
             // Find the inode of the file if it exists, along with its position.
             let maybe_position_and_inode_of_file =
-                fs.from_parent_get_position_and_inode_of_file(inode_of_parent, &name_of_file)?;
+                fs.as_parent_get_position_and_inode_of_file(inode_of_parent, &name_of_file)?;
 
             match maybe_position_and_inode_of_file {
                 Some((position, inode_of_file)) => (inode_of_parent, position, inode_of_file),
@@ -318,13 +319,7 @@ impl FileSystemInner {
                 Node::Directory { children, .. } => children
                     .iter()
                     .filter_map(|inode| self.storage.get(*inode))
-                    .find_map(|node| {
-                        if node.name() == component.as_os_str() {
-                            Some(node)
-                        } else {
-                            None
-                        }
-                    })
+                    .find(|node| node.name() == component.as_os_str())
                     .ok_or(FsError::NotAFile)?,
                 _ => return Err(FsError::BaseNotDirectory),
             };
@@ -347,7 +342,7 @@ impl FileSystemInner {
 
     /// From the inode of a parent node (so, a directory), returns the
     /// child index of `name_of_directory` along with its inode.
-    pub(super) fn from_parent_get_position_and_inode_of_directory(
+    pub(super) fn as_parent_get_position_and_inode_of_directory(
         &self,
         inode_of_parent: Inode,
         name_of_directory: &OsString,
@@ -382,7 +377,7 @@ impl FileSystemInner {
 
     /// From the inode of a parent node (so, a directory), returns the
     /// child index of `name_of_file` along with its inode.
-    pub(super) fn from_parent_get_position_and_inode_of_file(
+    pub(super) fn as_parent_get_position_and_inode_of_file(
         &self,
         inode_of_parent: Inode,
         name_of_file: &OsString,
@@ -409,7 +404,7 @@ impl FileSystemInner {
     /// From the inode of a parent node (so, a directory), returns the
     /// child index of `name_of` along with its inode, whatever the
     /// type of inode is (directory or file).
-    fn from_parent_get_position_and_inode(
+    fn as_parent_get_position_and_inode(
         &self,
         inode_of_parent: Inode,
         name_of: &OsString,

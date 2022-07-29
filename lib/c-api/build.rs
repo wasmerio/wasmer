@@ -56,14 +56,14 @@ macro_rules! map_feature_as_c_define {
     ($feature:expr, $c_define:ident, $accumulator:ident) => {
         #[cfg(feature = $feature)]
         {
-            $accumulator.push_str(&format!(
+            let _  = write!($accumulator
                 r#"
 // The `{feature}` feature has been enabled for this build.
 #define {define}
 "#,
                 feature = $feature,
                 define = $c_define,
-            ));
+            );
         }
     };
 }
@@ -184,7 +184,9 @@ fn build_wasm_c_api_headers(crate_dir: &str, out_dir: &str) {
 }
 
 fn add_wasmer_version(pre_header: &mut String) {
-    pre_header.push_str(&format!(
+    use std::fmt::Write;
+    let _ = write!(
+        pre_header,
         r#"
 // This file corresponds to the following Wasmer version.
 #define WASMER_VERSION "{full}"
@@ -198,7 +200,7 @@ fn add_wasmer_version(pre_header: &mut String) {
         minor = env!("CARGO_PKG_VERSION_MINOR"),
         patch = env!("CARGO_PKG_VERSION_PATCH"),
         pre = env!("CARGO_PKG_VERSION_PRE"),
-    ));
+    );
 }
 
 /// Create a fresh new `Builder`, already pre-configured.
