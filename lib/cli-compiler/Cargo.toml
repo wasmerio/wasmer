@@ -18,7 +18,7 @@ path = "src/bin/wasmer_compiler.rs"
 doc = false
 
 [dependencies]
-wasmer-compiler = { version = "=2.3.0", path = "../compiler", features = ["universal_engine"] }
+wasmer-compiler = { version = "=2.3.0", path = "../compiler", features = ["compiler"] }
 wasmer-types = { version = "=2.3.0", path = "../types" }
 atty = "0.2"
 colored = "2.0"
@@ -48,13 +48,11 @@ unix_mode = "0.1.3"
 [features]
 # Don't add the compiler features in default, please add them on the Makefile
 # since we might want to autoconfigure them depending on the availability on the host.
-default = [
-    "universal",
-]
+default = []
 engine = []
-universal = []
 compiler = [
     "wasmer-compiler/translator",
+    "wasmer-compiler/compiler",
 ]
 singlepass = [
     "wasmer-compiler-singlepass",
@@ -66,4 +64,4 @@ cranelift = [
 ]
 debug = ["fern", "log"]
 disable-all-logging = []
-jit = ["universal"]
+jit = []

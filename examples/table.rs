@@ -2,7 +2,6 @@ use wasmer::{
     imports, wat2wasm, Function, FunctionEnv, FunctionEnvMut, Instance, Module, Store, TableType,
     Type, TypedFunction, Value,
 };
-use wasmer_compiler::Universal;
 use wasmer_compiler_cranelift::Cranelift;
 
 /// A function we'll call through a table.
@@ -52,7 +51,7 @@ fn main() -> anyhow::Result<()> {
     )?;
 
     // We set up our store with an engine and a compiler.
-    let mut store = Store::new_with_engine(&Universal::new(Cranelift::default()).engine());
+    let mut store = Store::new(Cranelift::default());
     let mut env = FunctionEnv::new(&mut store, ());
     // Then compile our Wasm.
     let module = Module::new(&store, wasm_bytes)?;

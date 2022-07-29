@@ -19,7 +19,7 @@ mod reactors;
 pub use crate::sys::exports::{ExportError, Exportable, Exports, ExportsIterator};
 pub use crate::sys::extern_ref::ExternRef;
 pub use crate::sys::externals::{
-    Extern, FromToNativeWasmType, Function, Global, HostFunction, Memory, Table, WasmTypeList,
+    Extern, FromToNativeWasmType, Function, Global, HostFunction, Memory, MemoryView, Table, WasmTypeList,
 };
 pub use crate::sys::function_env::{FunctionEnv, FunctionEnvMut};
 pub use crate::sys::imports::Imports;
@@ -41,14 +41,12 @@ pub use target_lexicon::{Architecture, CallingConvention, OperatingSystem, Tripl
 pub use wasmer_compiler::{
     wasmparser, CompilerConfig, FunctionMiddleware, MiddlewareReaderState, ModuleMiddleware,
 };
-pub use wasmer_compiler::{
-    CpuFeature, Engine, Features, FrameInfo, LinkError, RuntimeError, Target, Tunables,
-};
+pub use wasmer_compiler::{Features, FrameInfo, LinkError, RuntimeError, Tunables};
 pub use wasmer_derive::ValueType;
 pub use wasmer_types::is_wasm;
 pub use wasmer_types::{
-    ExportType, ExternType, FunctionType, GlobalType, ImportType, MemoryType, Mutability,
-    TableType, Type,
+    CpuFeature, ExportType, ExternType, FunctionType, GlobalType, ImportType, MemoryType,
+    Mutability, TableType, Target, Type,
 };
 
 pub use wasmer_types::{
@@ -71,26 +69,6 @@ pub mod vm {
 #[cfg(feature = "wat")]
 pub use wat::parse_bytes as wat2wasm;
 
-// The compilers are mutually exclusive
-#[cfg(any(
-    all(
-        feature = "default-llvm",
-        any(feature = "default-cranelift", feature = "default-singlepass")
-    ),
-    all(feature = "default-cranelift", feature = "default-singlepass")
-))]
-compile_error!(
-    r#"The `default-singlepass`, `default-cranelift` and `default-llvm` features are mutually exclusive.
-If you wish to use more than one compiler, you can simply create the own store. Eg.:
-
-```
-use wasmer::{Store, Universal, Singlepass};
-
-let engine = Universal::new(Singlepass::default()).engine();
-let mut store = Store::new_with_engine(&engine);
-```"#
-);
-
 #[cfg(feature = "singlepass")]
 pub use wasmer_compiler_singlepass::Singlepass;
 
@@ -100,16 +78,12 @@ pub use wasmer_compiler_cranelift::{Cranelift, CraneliftOptLevel};
 #[cfg(feature = "llvm")]
 pub use wasmer_compiler_llvm::{LLVMOptLevel, LLVM};
 
-#[cfg(feature = "universal")]
-pub use wasmer_compiler::{Universal, UniversalArtifact, UniversalEngine};
+pub use wasmer_compiler::Engine;
+#[cfg(feature = "compiler")]
+pub use wasmer_compiler::{Artifact, EngineBuilder};
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
-
-/// The Deprecated JIT Engine (please use `Universal` instead)
-#[cfg(feature = "jit")]
-#[deprecated(since = "2.0.0", note = "Please use the `universal` feature instead")]
-pub type JIT = Universal;
 
 /// This type is deprecated, it has been replaced by TypedFunction.
 #[deprecated(

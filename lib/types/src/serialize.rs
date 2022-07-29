@@ -1,16 +1,23 @@
+use crate::entity::PrimaryMap;
+use crate::{
+    compilation::target::CpuFeature, CompileModuleInfo, CompiledFunctionFrameInfo, CustomSection,
+    DeserializeError, Dwarf, Features, FunctionBody, FunctionIndex, LocalFunctionIndex,
+    MemoryIndex, MemoryStyle, ModuleInfo, OwnedDataInitializer, Relocation, SectionIndex,
+    SerializeError, SignatureIndex, TableIndex, TableStyle,
+};
+use enumset::EnumSet;
 use rkyv::{
     archived_value, de::deserializers::SharedDeserializeMap, ser::serializers::AllocSerializer,
     ser::Serializer as RkyvSerializer, Archive, Deserialize as RkyvDeserialize,
     Serialize as RkyvSerialize,
 };
-use wasmer_types::entity::PrimaryMap;
-use wasmer_types::{CompileModuleInfo, CompiledFunctionFrameInfo, Dwarf, FunctionBody};
-use wasmer_types::{CustomSection, Relocation, SectionIndex};
-use wasmer_types::{DeserializeError, SerializeError};
-use wasmer_types::{FunctionIndex, LocalFunctionIndex, OwnedDataInitializer, SignatureIndex};
+use std::convert::TryInto;
+use std::path::Path;
+use std::{fs, mem};
 
 /// The compilation related data for a serialized modules
 #[derive(Archive, RkyvDeserialize, RkyvSerialize)]
+#[allow(missing_docs)]
 pub struct SerializableCompilation {
     pub function_bodies: PrimaryMap<LocalFunctionIndex, FunctionBody>,
     pub function_relocations: PrimaryMap<LocalFunctionIndex, Vec<Relocation>>,
@@ -27,9 +34,9 @@ pub struct SerializableCompilation {
     pub libcall_trampoline_len: u32,
 }
 
-/// Serializable struct that is able to serialize from and to
-/// a `UniversalArtifactInfo`.
+/// Serializable struct that is able to serialize from and to a `ArtifactInfo`.
 #[derive(Archive, RkyvDeserialize, RkyvSerialize)]
+#[allow(missing_docs)]
 pub struct SerializableModule {
     /// The main serializable compilation object
     pub compilation: SerializableCompilation,
@@ -103,5 +110,110 @@ impl SerializableModule {
         let mut deserializer = SharedDeserializeMap::new();
         RkyvDeserialize::deserialize(archived, &mut deserializer)
             .map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))
+    }
+
+    /// Create a `ModuleInfo` for instantiation
+    pub fn create_module_info(&self) -> ModuleInfo {
+        self.compile_info.module.clone()
+    }
+
+    /// Returns the features for this Artifact
+    pub fn features(&self) -> &Features {
+        &self.compile_info.features
+    }
+
+    /// Returns the CPU features for this Artifact
+    pub fn cpu_features(&self) -> EnumSet<CpuFeature> {
+        EnumSet::from_u64(self.cpu_features)
+    }
+
+    /// Returns data initializers to pass to `InstanceHandle::initialize`
+    pub fn data_initializers(&self) -> &[OwnedDataInitializer] {
+        &*self.data_initializers
+    }
+
+    /// Returns the memory styles associated with this `Artifact`.
+    pub fn memory_styles(&self) -> &PrimaryMap<MemoryIndex, MemoryStyle> {
+        &self.compile_info.memory_styles
+    }
+
+    /// Returns the table plans associated with this `Artifact`.
+    pub fn table_styles(&self) -> &PrimaryMap<TableIndex, TableStyle> {
+        &self.compile_info.table_styles
+    }
+
+    /// Serializes an artifact into a file path
+    pub fn serialize_to_file(&self, path: &Path) -> Result<(), SerializeError> {
+        let serialized = self.serialize()?;
+        fs::write(&path, serialized)?;
+        Ok(())
+    }
+}
+
+/// Metadata header which holds an ABI version and the length of the remaining
+/// metadata.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct MetadataHeader {
+    magic: [u8; 8],
+    version: u32,
+    len: u32,
+}
+
+impl MetadataHeader {
+    /// Current ABI version. Increment this any time breaking changes are made
+    /// to the format of the serialized data.
+    const CURRENT_VERSION: u32 = 1;
+
+    /// Magic number to identify wasmer metadata.
+    const MAGIC: [u8; 8] = *b"WASMER\0\0";
+
+    /// Length of the metadata header.
+    pub const LEN: usize = 16;
+
+    /// Alignment of the metadata.
+    pub const ALIGN: usize = 16;
+
+    /// Creates a new header for metadata of the given length.
+    pub fn new(len: usize) -> Self {
+        Self {
+            magic: Self::MAGIC,
+            version: Self::CURRENT_VERSION,
+            len: len.try_into().expect("metadata exceeds maximum length"),
+        }
+    }
+
+    /// Convert the header into its bytes representation.
+    pub fn into_bytes(self) -> [u8; 16] {
+        unsafe { mem::transmute(self) }
+    }
+
+    /// Parses the header and returns the length of the metadata following it.
+    pub fn parse(bytes: &[u8]) -> Result<usize, DeserializeError> {
+        if bytes.as_ptr() as usize % 16 != 0 {
+            return Err(DeserializeError::CorruptedBinary(
+                "misaligned metadata".to_string(),
+            ));
+        }
+        let bytes: [u8; 16] = bytes
+            .get(..16)
+            .ok_or_else(|| {
+                DeserializeError::CorruptedBinary("invalid metadata header".to_string())
+            })?
+            .try_into()
+            .unwrap();
+        let header: Self = unsafe { mem::transmute(bytes) };
+        if header.magic != Self::MAGIC {
+            return Err(DeserializeError::Incompatible(
+                "The provided bytes were not serialized by Wasmer".to_string(),
+            ));
+        }
+        if header.version != Self::CURRENT_VERSION {
+            return Err(DeserializeError::Incompatible(
+                "The provided bytes were serialized by an incompatible version of Wasmer"
+                    .to_string(),
+            ));
+        }
+        Ok(header.len as usize)
     }
 }

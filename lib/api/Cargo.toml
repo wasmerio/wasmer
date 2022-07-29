@@ -90,32 +90,22 @@ std = []
 core = ["hashbrown"]
 
 # Features for `sys`.
-sys = []
-sys-default = ["sys", "wat", "default-cranelift", "default-universal"]
+sys = [
+  "wasmer-compiler/translator",
+  "wasmer-compiler/compiler",
+]
+sys-default = ["sys", "wat", "cranelift"]
 # - Compilers.
 compiler = [
     "sys",
-    "wasmer-compiler/translator",
 ]
 singlepass = ["compiler", "wasmer-compiler-singlepass"]
 cranelift = ["compiler", "wasmer-compiler-cranelift"]
 llvm = ["compiler", "wasmer-compiler-llvm"]
-default-compiler = []
-default-singlepass = ["default-compiler", "singlepass"]
-default-cranelift = ["default-compiler", "cranelift"]
-default-llvm = ["default-compiler", "llvm"]
 # - Engines.
 engine = ["sys"]
-universal = [
-    "engine", "wasmer-compiler/universal_engine"
-]
-default-engine = []
-default-universal = [
-    "default-engine",
-    "universal",
-]
 # - Deprecated features.
-jit = ["universal"]
+jit = ["engine"]
 
 # Features for `js`.
 js = ["wasm-bindgen", "js-sys"]
@@ -126,4 +116,4 @@ wasm-types-polyfill = ["js", "wasmparser"]
 js-serializable-module = []
 
 [package.metadata.docs.rs]
-features = ["compiler", "core", "cranelift", "default-compiler", "default-engine", "engine", "jit", "native", "singlepass", "sys", "sys-default", "universal"]
+features = ["compiler", "core", "cranelift", "engine", "jit", "native", "singlepass", "sys", "sys-default" ]

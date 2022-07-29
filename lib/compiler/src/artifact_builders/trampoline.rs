@@ -3,11 +3,10 @@
 //! This is needed because the target of libcall relocations are not reachable
 //! through normal branch instructions.
 
-use crate::{Architecture, Target};
 use enum_iterator::IntoEnumIterator;
 use wasmer_types::{
-    CustomSection, CustomSectionProtection, LibCall, Relocation, RelocationKind, RelocationTarget,
-    SectionBody,
+    Architecture, CustomSection, CustomSectionProtection, LibCall, Relocation, RelocationKind,
+    RelocationTarget, SectionBody, Target,
 };
 
 // SystemV says that both x16 and x17 are available as intra-procedural scratch

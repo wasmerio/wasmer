@@ -48,7 +48,7 @@ inline-c = "0.1.5"
 default = [
     "wat",
     "cranelift",
-    "universal",
+    "compiler",
     "wasi",
     "middlewares",
 ]
@@ -58,12 +58,15 @@ middlewares = [
     "compiler",
     "wasmer-middlewares",
 ]
-universal = [
-    "wasmer-compiler/universal_engine",
-    "compiler",
-]
 compiler = [
     "wasmer-api/compiler",
+    "wasmer-compiler/translator",
+    "wasmer-compiler/compiler",
+]
+compiler-headless = [
+    "wasmer-api/compiler",
+    "wasmer-compiler/translator",
+    "wasmer-compiler/compiler",
 ]
 singlepass = [
     "wasmer-compiler-singlepass",
@@ -79,7 +82,7 @@ llvm = [
 ]
 
 # Deprecated features.
-jit = ["universal"]
+jit = ["compiler"]
 
 # TODO: Port this feature.
 #emscripten = ["wasmer-emscripten"]

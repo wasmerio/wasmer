@@ -14,6 +14,7 @@ use structopt::StructOpt;
 use wasmer::*;
 #[cfg(feature = "compiler")]
 use wasmer_compiler::CompilerConfig;
+use wasmer_compiler::Engine;
 
 #[derive(Debug, Clone, StructOpt, Default)]
 /// The compiler options
@@ -104,22 +105,21 @@ impl CompilerOptions {
     pub fn get_store_for_target(&self, target: Target) -> Result<(Store, CompilerType)> {
         let (compiler_config, compiler_type) = self.get_compiler_config()?;
         let engine = self.get_engine(target, compiler_config)?;
-        let store = Store::new_with_engine(&*engine);
+        let store = Store::new(engine);
         Ok((store, compiler_type))
     }
 
+    #[cfg(feature = "compiler")]
     fn get_engine(
         &self,
         target: Target,
         compiler_config: Box<dyn CompilerConfig>,
-    ) -> Result<Box<dyn Engine + Send + Sync>> {
+    ) -> Result<Engine> {
         let features = self.get_features(compiler_config.default_features_for_target(&target))?;
-        let engine: Box<dyn Engine + Send + Sync> = Box::new(
-            wasmer_compiler::Universal::new(compiler_config)
-                .features(features)
-                .target(target)
-                .engine(),
-        );
+        let engine: Engine = wasmer_compiler::EngineBuilder::new(compiler_config)
+            .set_features(Some(features))
+            .set_target(Some(target))
+            .engine();
 
         Ok(engine)
     }
@@ -313,17 +313,17 @@ impl StoreOptions {
     pub fn get_store_for_target(&self, target: Target) -> Result<(Store, CompilerType)> {
         let (compiler_config, compiler_type) = self.compiler.get_compiler_config()?;
         let engine = self.get_engine_with_compiler(target, compiler_config)?;
-        let store = Store::new_with_engine(&*engine);
+        let store = Store::new(engine);
         Ok((store, compiler_type))
     }
 
+    #[cfg(feature = "compiler")]
     fn get_engine_with_compiler(
         &self,
         target: Target,
         compiler_config: Box<dyn CompilerConfig>,
-    ) -> Result<Box<dyn Engine + Send + Sync>> {
+    ) -> Result<Engine> {
         let engine = self.compiler.get_engine(target, compiler_config)?;
-
         Ok(engine)
     }
 }
@@ -331,16 +331,15 @@ impl StoreOptions {
 // If we don't have a compiler, but we have an engine
 #[cfg(not(feature = "compiler"))]
 impl StoreOptions {
-    fn get_engine_headless(&self) -> Result<Arc<dyn Engine + Send + Sync>> {
-        let engine: Arc<dyn Engine + Send + Sync> =
-            Arc::new(wasmer_compiler::Universal::headless().engine());
+    fn get_engine_headless(&self) -> Result<Engine> {
+        let engine: Engine = wasmer_compiler::EngineBuilder::headless().engine();
         Ok(engine)
     }
 
     /// Get the store (headless engine)
     pub fn get_store(&self) -> Result<(Store, CompilerType)> {
         let engine = self.get_engine_headless()?;
-        let store = Store::new_with_engine(&*engine);
+        let store = Store::new(engine);
         Ok((store, CompilerType::Headless))
     }
 }

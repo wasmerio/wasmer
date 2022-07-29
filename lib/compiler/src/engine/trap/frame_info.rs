@@ -13,7 +13,7 @@
 //! ```
 use std::cmp;
 use std::collections::BTreeMap;
-use std::sync::{Arc, RwLock};
+use std::sync::RwLock;
 use wasmer_types::entity::{BoxedSlice, EntityRef, PrimaryMap};
 use wasmer_types::{CompiledFunctionFrameInfo, SourceLoc, TrapInformation};
 use wasmer_types::{LocalFunctionIndex, ModuleInfo};
@@ -54,7 +54,7 @@ pub struct GlobalFrameInfoRegistration {
 struct ModuleInfoFrameInfo {
     start: usize,
     functions: BTreeMap<usize, FunctionInfo>,
-    module: Arc<ModuleInfo>,
+    module: ModuleInfo,
     frame_infos: PrimaryMap<LocalFunctionIndex, CompiledFunctionFrameInfo>,
 }
 
@@ -187,7 +187,7 @@ pub struct FunctionExtent {
 /// then `None` will be returned. Otherwise the returned object, when
 /// dropped, will be used to unregister all name information from this map.
 pub fn register(
-    module: Arc<ModuleInfo>,
+    module: ModuleInfo,
     finished_functions: &BoxedSlice<LocalFunctionIndex, FunctionExtent>,
     frame_infos: PrimaryMap<LocalFunctionIndex, CompiledFunctionFrameInfo>,
 ) -> Option<GlobalFrameInfoRegistration> {

@@ -3,8 +3,8 @@
 
 use crate::compiler::SinglepassCompiler;
 use std::sync::Arc;
-use wasmer_compiler::{Compiler, CompilerConfig, CpuFeature, ModuleMiddleware, Target};
-use wasmer_types::Features;
+use wasmer_compiler::{Compiler, CompilerConfig, Engine, EngineBuilder, ModuleMiddleware};
+use wasmer_types::{CpuFeature, Features, Target};
 
 #[derive(Debug, Clone)]
 pub struct Singlepass {
@@ -60,5 +60,11 @@ impl CompilerConfig for Singlepass {
 impl Default for Singlepass {
     fn default() -> Singlepass {
         Self::new()
+    }
+}
+
+impl From<Singlepass> for Engine {
+    fn from(config: Singlepass) -> Self {
+        EngineBuilder::new(config).engine()
     }
 }

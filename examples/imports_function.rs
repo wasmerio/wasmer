@@ -21,7 +21,6 @@ use wasmer::{
     imports, wat2wasm, Function, FunctionEnv, FunctionEnvMut, FunctionType, Instance, Module,
     Store, Type, TypedFunction, Value,
 };
-use wasmer_compiler::Universal;
 use wasmer_compiler_cranelift::Cranelift;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -45,7 +44,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Note that we don't need to specify the engine/compiler if we want to use
     // the default provided by Wasmer.
     // You can use `Store::default()` for that.
-    let mut store = Store::new_with_engine(&Universal::new(Cranelift::default()).engine());
+    let mut store = Store::new(Cranelift::default());
     let mut env1 = FunctionEnv::new(&mut store, ());
     struct MyEnv;
     let mut env2 = FunctionEnv::new(&mut store, MyEnv {});

@@ -6,13 +6,11 @@ This crate is the Wasmer Compiler only CLI.
 ## Features
 
 The Compiler only Wasmer supports the following features:
-* `universal` (default): support for the [Universal engine].
 * `wasi` (default): support for [WASI].
 * `experimental-io-devices`: support for experimental IO devices in WASI.
 * `emscripten` (default): support for [Emscripten].
 * `singlepass`: support for the [Singlepass compiler].
 
-[Universal engine]: https://github.com/wasmerio/wasmer/tree/master/lib/engine-universal/
 [WASI]: https://github.com/wasmerio/wasmer/tree/master/lib/wasi/
 [Emscripten]: https://github.com/wasmerio/wasmer/tree/master/lib/emscripten/
 [Singlepass compiler]: https://github.com/wasmerio/wasmer/tree/master/lib/compiler-singlepass/
@@ -30,5 +28,5 @@ wasmer-compiler -V
 Compile a WebAssembly file:
 
 ```bash
-wasmer-compiler compile myfile.wasm -o myfile.wasmu --singlepass --universal
+wasmer-compiler compile myfile.wasm -o myfile.wasmu --singlepass
 ```

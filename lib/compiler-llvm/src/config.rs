@@ -8,8 +8,8 @@ use itertools::Itertools;
 use std::fmt::Debug;
 use std::sync::Arc;
 use target_lexicon::Architecture;
-use wasmer_compiler::{Compiler, CompilerConfig, ModuleMiddleware, Target, Triple};
-use wasmer_types::{FunctionType, LocalFunctionIndex};
+use wasmer_compiler::{Compiler, CompilerConfig, Engine, EngineBuilder, ModuleMiddleware};
+use wasmer_types::{FunctionType, LocalFunctionIndex, Target, Triple};
 
 /// The InkWell ModuleInfo type
 pub type InkwellModule<'ctx> = inkwell::module::Module<'ctx>;
@@ -100,7 +100,7 @@ impl LLVM {
         // Hack: we're using is_pic to determine whether this is a native
         // build or not.
         let operating_system = if target.triple().operating_system
-            == wasmer_compiler::OperatingSystem::Darwin
+            == wasmer_types::OperatingSystem::Darwin
             && !self.is_pic
         {
             // LLVM detects static relocation + darwin + 64-bit and
@@ -112,7 +112,7 @@ impl LLVM {
             //  but not in the case of Aarch64, there the ABI is slightly different
             #[allow(clippy::match_single_binding)]
             match target.triple().architecture {
-                _ => wasmer_compiler::OperatingSystem::Linux,
+                _ => wasmer_types::OperatingSystem::Linux,
             }
         } else {
             target.triple().operating_system
@@ -225,5 +225,11 @@ impl CompilerConfig for LLVM {
 impl Default for LLVM {
     fn default() -> LLVM {
         Self::new()
+    }
+}
+
+impl From<LLVM> for Engine {
+    fn from(config: LLVM) -> Self {
+        EngineBuilder::new(config).engine()
     }
 }

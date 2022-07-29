@@ -25,7 +25,7 @@ use std::sync::{Arc, Mutex, RwLock};
 use wasmer::{
     imports, namespace, AsStoreMut, ExportError, Exports, Function, FunctionEnv, FunctionEnvMut,
     FunctionType, Global, Imports, Instance, Memory, MemoryType, Module, Pages, RuntimeError,
-    Table, TableType, TypedFunction, Value, WasmPtr, AsStoreRef,
+    Table, TableType, TypedFunction, Value, WasmPtr, AsStoreRef, MemoryView,
 };
 use wasmer_types::Type as ValType;
 
@@ -106,6 +106,11 @@ impl EmEnv {
     /// Get a reference to the memory
     pub fn memory(&self, _mem_idx: u32) -> Memory {
         (&*self.memory.read().unwrap()).as_ref().cloned().unwrap()
+    }
+
+    /// Get a reference to the memory view
+    pub fn memory_view<'a>(&self, mem_idx: u32, store: &'a impl AsStoreRef) -> MemoryView<'a> {
+        self.memory(mem_idx).view(store)
     }
 
     pub fn set_functions(&self, funcs: EmscriptenFunctions) {
@@ -871,10 +876,11 @@ pub fn emscripten_set_up_memory(
     globals: &EmscriptenGlobalsData,
 ) -> Result<(), String> {
     ctx.as_ref(store).set_memory(memory.clone());
-    let dynamictop_ptr = WasmPtr::<i32>::new(globals.dynamictop_ptr).deref(store, memory);
+    let memory = memory.view(store);
+    let dynamictop_ptr = WasmPtr::<i32>::new(globals.dynamictop_ptr).deref(&memory);
     let dynamic_base = globals.dynamic_base;
 
-    if dynamictop_ptr.offset() >= memory.data_size(store) {
+    if dynamictop_ptr.offset() >= memory.data_size() {
         return Err("dynamictop_ptr beyond memory len".to_string());
     }
     dynamictop_ptr.write(dynamic_base as i32).unwrap();

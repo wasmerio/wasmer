@@ -20,6 +20,7 @@ use std::fmt;
     Archive,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[archive(as = "Self")]
 pub enum LibCall {
     /// ceil.f32
     CeilF32,

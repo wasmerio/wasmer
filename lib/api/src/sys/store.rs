@@ -2,9 +2,9 @@ use crate::sys::tunables::BaseTunables;
 use std::fmt;
 use std::ops::Deref;
 use std::sync::Arc;
-use wasmer_compiler::CompilerConfig;
-use wasmer_compiler::{Engine, Tunables, Universal};
-use wasmer_vm::{init_traps, TrapHandlerFn};
+#[cfg(feature = "compiler")]
+use wasmer_compiler::{Engine, EngineBuilder, Tunables};
+use wasmer_vm::{init_traps, TrapHandler, TrapHandlerFn};
 
 use wasmer_vm::StoreObjects;
 
@@ -13,7 +13,7 @@ use wasmer_vm::StoreObjects;
 /// wrap the actual context in a box.
 pub(crate) struct StoreInner {
     pub(crate) objects: StoreObjects,
-    pub(crate) engine: Arc<dyn Engine + Send + Sync>,
+    pub(crate) engine: Engine,
     pub(crate) tunables: Arc<dyn Tunables + Send + Sync>,
     pub(crate) trap_handler: Option<Arc<TrapHandlerFn<'static>>>,
 }
@@ -30,34 +30,41 @@ pub(crate) struct StoreInner {
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#store>
 pub struct Store {
     pub(crate) inner: Box<StoreInner>,
+    engine: Engine,
+    trap_handler: Option<Arc<TrapHandlerFn<'static>>>,
 }
 
 impl Store {
-    /// Creates a new `Store` with a specific [`CompilerConfig`].
-    pub fn new(compiler_config: Box<dyn CompilerConfig>) -> Self {
-        let engine = Universal::new(compiler_config).engine();
-        Self::new_with_tunables(&engine, BaseTunables::for_target(engine.target()))
+    #[cfg(feature = "compiler")]
+    /// Creates a new `Store` with a specific [`Engine`].
+    pub fn new(engine: impl Into<Engine>) -> Self {
+        let engine = engine.into();
+        let target = engine.target().clone();
+        Self::new_with_tunables(engine, BaseTunables::for_target(&target))
     }
 
+    #[deprecated(
+        since = "3.0.0",
+        note = "Store::new_with_engine has been deprecated in favor of Store::new"
+    )]
     /// Creates a new `Store` with a specific [`Engine`].
-    pub fn new_with_engine<E>(engine: &E) -> Self
-    where
-        E: Engine + ?Sized,
-    {
-        let ret = Self::new_with_tunables(engine, BaseTunables::for_target(engine.target()));
-        ret
+    pub fn new_with_engine(engine: impl Into<Engine>) -> Self {
+        Self::new(engine)
     }
 
     /// Set the trap handler in this store.
     pub fn set_trap_handler(&mut self, handler: Option<Arc<TrapHandlerFn<'static>>>) {
-        self.inner.trap_handler = handler;
+        self.inner.trap_handler = handler.clone();
+        self.trap_handler = handler;
     }
 
     /// Creates a new `Store` with a specific [`Engine`] and [`Tunables`].
-    pub fn new_with_tunables<E>(engine: &E, tunables: impl Tunables + Send + Sync + 'static) -> Self
-    where
-        E: Engine + ?Sized,
-    {
+    pub fn new_with_tunables(
+        engine: impl Into<Engine>,
+        tunables: impl Tunables + Send + Sync + 'static,
+    ) -> Self {
+        let engine = engine.into();
+
         // Make sure the signal handlers are installed.
         // This is required for handling traps.
         init_traps();
@@ -69,9 +76,48 @@ impl Store {
                 tunables: Arc::new(tunables),
                 trap_handler: None,
             }),
+            engine: engine.cloned(),
+            trap_handler: None,
         }
     }
 
+    /// Returns the [`Tunables`].
+    pub fn tunables(&self) -> &dyn Tunables {
+        self.inner.tunables.as_ref()
+    }
+
+    /// Returns the [`Engine`].
+    pub fn engine(&self) -> &Engine {
+        &self.engine
+    }
+
+    /// Checks whether two stores are identical. A store is considered
+    /// equal to another store if both have the same engine. The
+    /// tunables are excluded from the logic.
+    pub fn same(a: &Self, b: &Self) -> bool {
+        a.engine.id() == b.engine.id()
+    }
+}
+
+impl PartialEq for Store {
+    fn eq(&self, other: &Self) -> bool {
+        Self::same(self, other)
+    }
+}
+
+unsafe impl TrapHandler for Store {
+    fn custom_trap_handler(&self, call: &dyn Fn(&TrapHandlerFn) -> bool) -> bool {
+        if let Some(handler) = self.trap_handler.as_ref() {
+            let handler = handler.deref();
+            call(handler)
+        } else {
+            false
+        }
+    }
+}
+
+impl Store
+{
     /// Packages an empty copy of store so that it can be passed to other threads
     pub fn package(&self) -> PackagedStore
     {
@@ -86,7 +132,7 @@ impl StoreInner
     {
         PackagedStore
         {
-            engine: self.engine.clone(),
+            engine: self.engine.cloned(),
             tunables: self.tunables.clone(),
             trap_handler: self.trap_handler.clone()
         }
@@ -96,7 +142,7 @@ impl StoreInner
 /// Represents a packaged store that can be passed around and then created locally
 pub struct PackagedStore
 {
-    engine: Arc<dyn Engine + Send + Sync>,
+    engine: Engine,
     tunables: Arc<dyn Tunables + Send + Sync>,
     trap_handler: Option<Arc<TrapHandlerFn<'static>>>,
 }
@@ -107,11 +153,13 @@ impl PackagedStore
     pub fn unpack(self) -> Store
     {
         Store {
+            engine: self.engine.cloned(),
+            trap_handler: self.trap_handler.clone(),
             inner: Box::new(StoreInner {
                 objects: StoreObjects::default(),
-                engine: self.engine,
                 tunables: self.tunables,
-                trap_handler: self.trap_handler
+                engine: self.engine,
+                trap_handler: self.trap_handler.clone(),
             })
         }
     }
@@ -129,20 +177,21 @@ unsafe impl Send for Store {}
 unsafe impl Sync for Store {}
 
 // We only implement default if we have assigned a default compiler and engine
-#[cfg(all(feature = "default-compiler", feature = "default-engine"))]
+#[cfg(feature = "compiler")]
 impl Default for Store {
     fn default() -> Self {
         // We store them on a function that returns to make
         // sure this function doesn't emit a compile error even if
         // more than one compiler is enabled.
         #[allow(unreachable_code)]
-        fn get_config() -> impl CompilerConfig + 'static {
+        #[cfg(any(feature = "cranelift", feature = "llvm", feature = "singlepass"))]
+        fn get_config() -> impl wasmer_compiler::CompilerConfig + 'static {
             cfg_if::cfg_if! {
-                if #[cfg(feature = "default-cranelift")] {
+                if #[cfg(feature = "cranelift")] {
                     wasmer_compiler_cranelift::Cranelift::default()
-                } else if #[cfg(feature = "default-llvm")] {
+                } else if #[cfg(feature = "llvm")] {
                     wasmer_compiler_llvm::LLVM::default()
-                } else if #[cfg(feature = "default-singlepass")] {
+                } else if #[cfg(feature = "singlepass")] {
                     wasmer_compiler_singlepass::Singlepass::default()
                 } else {
                     compile_error!("No default compiler chosen")
@@ -151,19 +200,28 @@ impl Default for Store {
         }
 
         #[allow(unreachable_code, unused_mut)]
-        fn get_engine(mut config: impl CompilerConfig + 'static) -> impl Engine + Send + Sync {
+        fn get_engine() -> Engine {
             cfg_if::cfg_if! {
-                if #[cfg(feature = "default-universal")] {
-                    wasmer_compiler::Universal::new(config)
+                if #[cfg(feature = "compiler")] {
+
+            cfg_if::cfg_if! {
+                    if #[cfg(any(feature = "cranelift", feature = "llvm", feature = "singlepass"))]
+                    {
+                    let config = get_config();
+                    EngineBuilder::new(Box::new(config) as Box<dyn wasmer_compiler::CompilerConfig>)
                         .engine()
+                    } else {
+                    EngineBuilder::headless()
+                        .engine()
+                    }
+            }
                 } else {
                     compile_error!("No default engine chosen")
                 }
             }
         }
 
-        let config = get_config();
-        let engine = get_engine(config);
+        let engine = get_engine();
         let tunables = BaseTunables::for_target(engine.target());
         Self::new_with_tunables(&engine, tunables)
     }
@@ -207,7 +265,7 @@ impl<'a> StoreRef<'a> {
     }
 
     /// Returns the [`Engine`].
-    pub fn engine(&self) -> &Arc<dyn Engine + Send + Sync> {
+    pub fn engine(&self) -> &Engine {
         &self.inner.engine
     }
 
@@ -240,7 +298,7 @@ impl<'a> StoreMut<'a> {
     }
 
     /// Returns the [`Engine`].
-    pub fn engine(&self) -> &Arc<dyn Engine + Send + Sync> {
+    pub fn engine(&self) -> &Engine {
         &self.inner.engine
     }
 

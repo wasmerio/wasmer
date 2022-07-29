@@ -102,7 +102,7 @@ fn call_with_static_data_pointers(mut config: crate::Config) -> Result<()> {
         println!("{:?}", (a, b, c, d, e, f, g, h));
         let mut buf = vec![0; d as usize];
         let memory = ctx.data().memory.as_ref().unwrap().clone();
-        memory.lock(&ctx).read(e, &mut buf).unwrap();
+        memory.view(&ctx).read(e, &mut buf).unwrap();
         let input_string = std::str::from_utf8(&buf).unwrap();
         assert_eq!(input_string, "bananapeach");
         0

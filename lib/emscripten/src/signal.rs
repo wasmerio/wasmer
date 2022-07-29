@@ -5,7 +5,7 @@ use wasmer::FunctionEnvMut;
 #[allow(clippy::cast_ptr_alignment)]
 pub fn _sigemptyset(ctx: FunctionEnvMut<EmEnv>, set: u32) -> i32 {
     debug!("emscripten::_sigemptyset");
-    let set_addr = emscripten_memory_pointer!(ctx, ctx.data().memory(0), set) as *mut u32;
+    let set_addr = emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), set) as *mut u32;
     unsafe {
         *set_addr = 0;
     }
@@ -25,7 +25,7 @@ pub fn _siginterrupt(_ctx: FunctionEnvMut<EmEnv>, _a: u32, _b: u32) -> i32 {
 #[allow(clippy::cast_ptr_alignment)]
 pub fn _sigaddset(ctx: FunctionEnvMut<EmEnv>, set: u32, signum: u32) -> i32 {
     debug!("emscripten::_sigaddset {}, {}", set, signum);
-    let set_addr = emscripten_memory_pointer!(ctx, ctx.data().memory(0), set) as *mut u32;
+    let set_addr = emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), set) as *mut u32;
     unsafe {
         *set_addr |= 1 << (signum - 1);
     }

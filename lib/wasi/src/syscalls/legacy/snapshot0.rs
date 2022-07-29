@@ -15,7 +15,7 @@ pub fn fd_filestat_get(
     buf: WasmPtr<snapshot0::__wasi_filestat_t, Memory32>,
 ) -> types::__wasi_errno_t {
     let env = ctx.data();
-    let memory = env.memory();
+    let memory = env.memory_view(&ctx);
 
     // transmute the WasmPtr<T1> into a WasmPtr<T2> where T2 > T1, this will read extra memory.
     // The edge case of this cenv.mausing an OOB is not handled, if the new field is OOB, then the entire
@@ -23,7 +23,7 @@ pub fn fd_filestat_get(
     let new_buf: WasmPtr<types::__wasi_filestat_t, Memory32> = buf.cast();
 
     // Copy the data including the extra data
-    let new_filestat_setup: types::__wasi_filestat_t = wasi_try_mem!(new_buf.read(&ctx, memory));
+    let new_filestat_setup: types::__wasi_filestat_t = wasi_try_mem!(new_buf.read(&memory));
 
     // Set up complete, make the call with the pointer that will write to the
     // struct and some unrelated memory after the struct.
@@ -31,10 +31,10 @@ pub fn fd_filestat_get(
 
     // reborrow memory
     let env = ctx.data();
-    let memory = env.memory();
+    let memory = env.memory_view(&ctx);
 
     // get the values written to memory
-    let new_filestat = wasi_try_mem!(new_buf.deref(&ctx, memory).read());
+    let new_filestat = wasi_try_mem!(new_buf.deref(&memory).read());
     // translate the new struct into the old struct in host memory
     let old_stat = snapshot0::__wasi_filestat_t {
         st_dev: new_filestat.st_dev,
@@ -49,11 +49,11 @@ pub fn fd_filestat_get(
 
     // write back the original values at the pointer's memory locations
     // (including the memory unrelated to the pointer)
-    wasi_try_mem!(new_buf.deref(&ctx, memory).write(new_filestat_setup));
+    wasi_try_mem!(new_buf.deref(&memory).write(new_filestat_setup));
 
     // Now that this memory is back as it was, write the translated filestat
     // into memory leaving it as it should be
-    wasi_try_mem!(buf.deref(&ctx, memory).write(old_stat));
+    wasi_try_mem!(buf.deref(&memory).write(old_stat));
 
     result
 }
@@ -70,18 +70,18 @@ pub fn path_filestat_get(
 ) -> types::__wasi_errno_t {
     // see `fd_filestat_get` in this file for an explanation of this strange behavior
     let env = ctx.data();
-    let memory = env.memory();
+    let memory = env.memory_view(&ctx);
 
     let new_buf: WasmPtr<types::__wasi_filestat_t, Memory32> = buf.cast();
-    let new_filestat_setup: types::__wasi_filestat_t = wasi_try_mem!(new_buf.read(&ctx, memory));
+    let new_filestat_setup: types::__wasi_filestat_t = wasi_try_mem!(new_buf.read(&memory));
 
     let result =
         syscalls::path_filestat_get::<Memory32>(ctx.as_mut(), fd, flags, path, path_len, new_buf);
 
     // need to re-borrow
     let env = ctx.data();
-    let memory = env.memory();
-    let new_filestat = wasi_try_mem!(new_buf.deref(&ctx, memory).read());
+    let memory = env.memory_view(&ctx);
+    let new_filestat = wasi_try_mem!(new_buf.deref(&memory).read());
     let old_stat = snapshot0::__wasi_filestat_t {
         st_dev: new_filestat.st_dev,
         st_ino: new_filestat.st_ino,
@@ -93,8 +93,8 @@ pub fn path_filestat_get(
         st_ctim: new_filestat.st_ctim,
     };
 
-    wasi_try_mem!(new_buf.deref(&ctx, memory).write(new_filestat_setup));
-    wasi_try_mem!(buf.deref(&ctx, memory).write(old_stat));
+    wasi_try_mem!(new_buf.deref(&memory).write(new_filestat_setup));
+    wasi_try_mem!(buf.deref(&memory).write(old_stat));
 
     result
 }
@@ -134,15 +134,15 @@ pub fn poll_oneoff(
     let in_new_type_ptr = {
         // we start by adjusting `in_` into a format that the new code can understand
         let env = ctx.data();
-        let memory = env.memory();
-        let in_origs = wasi_try_mem_ok!(in_.slice(&ctx, memory, nsubscriptions_offset));
+        let memory = env.memory_view(&ctx);
+        let in_origs = wasi_try_mem_ok!(in_.slice(&memory, nsubscriptions_offset));
         let in_origs = wasi_try_mem_ok!(in_origs.read_to_vec());
 
         // get a pointer to the smaller new type
         let in_new_type_ptr: WasmPtr<types::__wasi_subscription_t, Memory32> = in_.cast();
 
         for (in_sub_new, orig) in
-            wasi_try_mem_ok!(in_new_type_ptr.slice(&ctx, memory, nsubscriptions_offset))
+            wasi_try_mem_ok!(in_new_type_ptr.slice(&memory, nsubscriptions_offset))
                 .iter()
                 .zip(in_origs.iter())
         {
@@ -179,11 +179,11 @@ pub fn poll_oneoff(
 
     // replace the old values of in, in case the calling code reuses the memory
     let env = ctx.data();
-    let memory = env.memory();
-    let in_origs = wasi_try_mem_ok!(in_.slice(&ctx, memory, nsubscriptions_offset));
+    let memory = env.memory_view(&ctx);
+    let in_origs = wasi_try_mem_ok!(in_.slice(&memory, nsubscriptions_offset));
     let in_origs = wasi_try_mem_ok!(in_origs.read_to_vec());
 
-    for (in_sub, orig) in wasi_try_mem_ok!(in_.slice(&ctx, memory, nsubscriptions_offset))
+    for (in_sub, orig) in wasi_try_mem_ok!(in_.slice(&memory, nsubscriptions_offset))
         .iter()
         .zip(in_origs.into_iter())
     {

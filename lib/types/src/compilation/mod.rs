@@ -6,5 +6,6 @@ pub mod module;
 pub mod relocation;
 pub mod section;
 pub mod sourceloc;
+pub mod target;
 pub mod trap;
 pub mod unwind;

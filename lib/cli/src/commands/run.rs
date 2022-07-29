@@ -226,8 +226,34 @@ impl Run {
         };
         #[cfg(not(feature = "wasi"))]
         let ret = {
-            let instance = Instance::new(&mut store, &module, &imports! {})?;
-            self.inner_run(ctx, instance)
+            let instance = Instance::new(&module, &imports! {})?;
+
+            // If this module exports an _initialize function, run that first.
+            if let Ok(initialize) = instance.exports.get_function("_initialize") {
+                initialize
+                    .call(&[])
+                    .with_context(|| "failed to run _initialize function")?;
+            }
+
+            // Do we want to invoke a function?
+            if let Some(ref invoke) = self.invoke {
+                let result = self.invoke_function(&instance, invoke, &self.args)?;
+                println!(
+                    "{}",
+                    result
+                        .iter()
+                        .map(|val| val.to_string())
+                        .collect::<Vec<String>>()
+                        .join(" ")
+                );
+            } else {
+                let start: Function = self.try_find_function(&instance, "_start", &[])?;
+                let result = start.call(&[]);
+                #[cfg(feature = "wasi")]
+                self.wasi.handle_result(result)?;
+                #[cfg(not(feature = "wasi"))]
+                result?;
+            }
         };
 
         ret
@@ -235,9 +261,9 @@ impl Run {
 
     fn get_store_module(&self) -> Result<(Store, Module)> {
         let contents = std::fs::read(self.path.clone())?;
-        if wasmer_compiler::UniversalArtifact::is_deserializable(&contents) {
-            let engine = wasmer_compiler::Universal::headless().engine();
-            let store = Store::new_with_engine(&engine);
+        if wasmer_compiler::Artifact::is_deserializable(&contents) {
+            let engine = wasmer_compiler::EngineBuilder::headless();
+            let store = Store::new(engine);
             let module = unsafe { Module::deserialize_from_file(&store, &self.path)? };
             return Ok((store, module));
         }
@@ -309,8 +335,7 @@ impl Run {
         cache_dir_root.push(compiler_type.to_string());
         let mut cache = FileSystemCache::new(cache_dir_root)?;
 
-        let extension =
-            wasmer_compiler::UniversalArtifact::get_default_extension(&Triple::host()).to_string();
+        let extension = "wasmu";
         cache.set_cache_extension(Some(extension));
         Ok(cache)
     }

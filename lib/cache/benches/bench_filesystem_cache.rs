@@ -6,7 +6,6 @@ use tempfile::TempDir;
 use wasmer::{Module, Store};
 use wasmer_cache::Cache;
 use wasmer_cache::{FileSystemCache, Hash};
-use wasmer_compiler::Universal;
 use wasmer_compiler_singlepass::Singlepass;
 
 fn random_key() -> Hash {
@@ -17,7 +16,7 @@ pub fn store_cache_universal(c: &mut Criterion) {
     let tmp_dir = TempDir::new().unwrap();
     let mut fs_cache = FileSystemCache::new(tmp_dir.path()).unwrap();
     let compiler = Singlepass::default();
-    let store = Store::new_with_engine(&Universal::new(compiler).engine());
+    let store = Store::new(compiler);
     let module = Module::new(
         &store,
         std::fs::read("../../lib/c-api/examples/assets/qjs.wasm").unwrap(),
@@ -36,7 +35,7 @@ pub fn load_cache_universal(c: &mut Criterion) {
     let tmp_dir = TempDir::new().unwrap();
     let mut fs_cache = FileSystemCache::new(tmp_dir.path()).unwrap();
     let compiler = Singlepass::default();
-    let store = Store::new_with_engine(&Universal::new(compiler).engine());
+    let store = Store::new(compiler);
     let module = Module::new(
         &store,
         std::fs::read("../../lib/c-api/examples/assets/qjs.wasm").unwrap(),
@@ -54,7 +53,7 @@ pub fn store_cache_native(c: &mut Criterion) {
     let tmp_dir = TempDir::new().unwrap();
     let mut fs_cache = FileSystemCache::new(tmp_dir.path()).unwrap();
     let compiler = Singlepass::default();
-    let store = Store::new_with_engine(&Universal::new(compiler).engine());
+    let store = Store::new(compiler);
     let module = Module::new(
         &store,
         std::fs::read("../../lib/c-api/examples/assets/qjs.wasm").unwrap(),
@@ -73,7 +72,7 @@ pub fn load_cache_native(c: &mut Criterion) {
     let tmp_dir = TempDir::new().unwrap();
     let mut fs_cache = FileSystemCache::new(tmp_dir.path()).unwrap();
     let compiler = Singlepass::default();
-    let store = Store::new_with_engine(&Universal::new(compiler).engine());
+    let store = Store::new(compiler);
     let module = Module::new(
         &store,
         std::fs::read("../../lib/c-api/examples/assets/qjs.wasm").unwrap(),

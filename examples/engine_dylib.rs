@@ -52,10 +52,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         //
         // In this case, the engine is `wasmer_engine_dylib` which means
         // that a shared object is going to be generated.
-        let engine = Dylib::new(compiler_config).engine();
+        let engine = Dylib::new(compiler_config);
 
         // Create a store, that holds the engine.
-        let mut store = Store::new_with_engine(&engine);
+        let mut store = Store::new(engine);
 
         println!("Compiling module...");
         // Here we go.

@@ -1,0 +1,47 @@
+name: Check public API
+
+env:
+  RUST_BACKTRACE: 1
+on:
+  workflow_dispatch:
+    inputs:
+      compareMasterWithVersion:
+        required: false
+        description: 'Version to compare with (i.e. "1.0.2")'
+jobs:
+  setup:
+    name: Set up
+    runs-on: ubuntu-latest
+    outputs:
+      VERSION: ${{ steps.setup.outputs.VERSION }}
+      SHOULD_CHECK_API: ${{ steps.setup.outputs.SHOULD_CHECK_API }}
+    steps:
+      
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Install latest nightly
+        uses: actions-rs/toolchain@v1
+        with:
+            toolchain: nightly
+            profile: minimal
+            override: true
+
+      - name: Generate API change report
+        shell: bash
+        run: |
+          cargo install cargo-public-api
+          CARGO_LATEST_VERSION = git tag --list | tail -n 1
+          LATEST_VERSION=${INPUT_COMPAREMASTERWITHVERSION:=$CARGO_LATEST_VERSION}
+          cargo public-api --manifest-path=lib/api/Cargo.toml --diff-git-checkouts $LATEST_VERSION master > diff.txt
+      
+      - name: Archive change report
+        uses: actions/upload-artifact@v3
+        with:
+          name: api-diff-report
+          path: |
+            diff.txt
+
+

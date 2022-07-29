@@ -19,9 +19,9 @@ and provide examples to make migrating to the new API as simple as possible.
 This version introduces the following changes to make the Wasmer API more ergonomic and safe:
 
 1. `ImportsObject` and the traits `Resolver`, `NamedResolver`, etc have been removed and replaced with a single simple type `Imports`. This reduces the complexity of setting up an `Instance`. The helper macro `imports!` can still be used.
-2. There is a new `Context` that goes along the `Store`. The `Context` will keep track of all memory and functions used, removing old tracking and Weak/Strong pointer difference. Every function and memory that is retreive is linked to a specific `Context`, and cannot be mixed with another `Context`
-3. `WasmerEnv` and associated traits and macro have been removed. To use Environenment, a simple structure now need to be attached to the `Context`, and can be retreive from current `Context`. All functions now takes a mendatory first argument that is of type `ContextMut<_>`, with `_` being either nothing `()` or the Environement type needed. the function creation `XXX_with_env(...)` don't exist anymore, simply use `Function::new(...)` or `Function::native_new(...)` with the correct `ContextMut<_>` type. Because the `WasmerEnv` and all helpers don't exists anymore, you have to import memory yourself, there isn't any per instance initialisation automatically done anymore. It's especialy important for WasiEnv context. `Env` can be accessed from a `Context` using `Context::data()` or `Context::data_mut()`.
-4. The `Engine`s API has been simplified, Instead of the `wasmer` user choosing and setting up an engine explicitly, everything now uses the universal engine. All functionalites of the `staticlib`,`dylib` Engines should be available unless explicitly stated as unsupported.
+2. The `Store` will keep track of all memory and functions used, removing old tracking and Weak/Strong pointer usage. Every function and memory that can be defined is associated to a specific `Store`, and cannot be mixed with another `Store`
+3. `WasmerEnv` and associated traits and macro have been removed. To use a function environment, you will need to create a `FunctionEnv` object and  pass it along when you construct the function. The environment can be retrieved from the first argument of the function. All functions now takes a mandatory first argument that is of type `FunctionEnvMut<'_, _>`, with `_` being either nothing `()` or the defined environment type. The function creation `XXX_with_env(...)` don't exist anymore, simply use `Function::new(...)` or `Function::native_new(...)` with the correct `FunctionEnv<_>` type. Because the `WasmerEnv` and all helpers don't exists anymore, you have to import memory yourself, there isn't any per instance initialisation automatically done anymore. It's especially important in wasi use with `WasiEnv`. `Env` can be accessed from a `FunctionEnvMut<'_, WasiEnv>` using `FunctionEnvMut::data()` or `FunctionEnvMut::data_mut()`.
+4. The `Engine`s API has been simplified, Instead of the user choosing and setting up an engine explicitly, everything now uses a single engine. All functionalities of the `universal`, `staticlib` and `dylib` engines should be available in this new engine unless explicitly stated as unsupported.
 
 ## How to use Wasmer 3.0.0
 
@@ -36,35 +36,45 @@ steps described in the documentation: [Getting Started][getting-started].
 
 ### Using Wasmer 3.0.0
 
+One of the main changes in 3.0.0 is that `Store` now owns all WebAssembly objects; thus exports like a `Memory` are merely handles to the actual memory object inside the store. To read/write any such value you will always need a `Store` reference.
+
+If you define your own function, when the function is called it will hence need a reference to the store in order to access WebAssembly objects. This is achieved by the `StoreRef<'_>` and `StoreMut<'_>` types, which borrow from the store and provide access to its data. Furthermore, to prevent borrowing issues you can create new `StoreRef` and `StoreMut`s whenever you need to pass one at another function. This is done with the `AsStoreRef`, `AsStoreMut` traits.
+
 See the [examples] to find out how to do specific things in Wasmer 3.0.0.
 
 ## Project Structure
 
-TODO
+A lot of types were moved to `wasmer-types` crate. There are no `engine` crates anymore; all the logic is included in `wasmer-compiler`.
 
 ## Differences
 
-### Creating a Context
+### Creating a function environment (function state)
 
-You need a Store to create a context. Simple context is created using:
+You need a `Store` to create an environment. It is created like this:
 
 ```rust
-let ctx = FunctionEnv::new(&mut store, ());
+let env = FunctionEnv::new(&mut store, ()); // Empty environment.
 ```
 
-For a Context with a custom Env, it will be similar:
+, or
 
 ```rust
-#[derive(Clone)]
+let my_counter = 0_i32;
+let env = FunctionEnv::new(&mut store, my_counter);
+```
+
+Any type can be passed as the environment: (*Nota bene* the passed type `T` must implement the `Any` trait, that is, any type which contains a non-`'static` reference.)
+
+```rust
 struct Env {
     counter: i32,
 }
-let ctx = FunctionEnv::new(&mut store, Env{counter: 0});
+let env = FunctionEnv::new(&mut store, Env {counter: 0});
 ```
 
 ### Managing imports
 
-Instantiating a Wasm module is similar to 2.x with just the need of a context as difference:
+Instantiating a Wasm module is similar to 2.x;
 
 ```rust
 let import_object: Imports = imports! {
@@ -127,17 +137,32 @@ let instance = Instance::new(&module, &imports! {})?;
 
 #### After
 
-In Wasmer 3.0, there's only the universal engine. The user can ignore the engine details when using the API:
+In Wasmer 3.0, there's only one engine. The user can ignore the engine details when using the API:
 
 ```rust
 let wasm_bytes = wat2wasm(
     "..".as_bytes(),
 )?;
 
-let compiler_config = Cranelift::default();
-let mut store = Store::new(&compiler_config);
+let compiler = Cranelift::default();
+let mut store = Store::new(compiler);
 let module = Module::new(&store, wasm_bytes)?;
-let instance = Instance::new(&module, &imports! {})?;
+let instance = Instance::new(&mut store, &module, &imports! {})?;
+```
+
+#### Advanced configuration
+
+The previous ability to define target and features remains in a new `EngineBuilder` interface:
+
+```rust
+let compiler = Cranelift::default();
+
+let mut features = Features::new();
+// Enable the multi-value feature.
+features.multi_value(true);
+
+let engine = EngineBuilder::new(compiler).set_features(Some(features));
+let store = Store::new(engine);
 ```
 
 [examples]: https://docs.wasmer.io/integrations/examples

@@ -149,24 +149,19 @@ pub fn run_basic_dynamic_function(store: &Store, compiler_name: &str, c: &mut Cr
 fn run_static_benchmarks(_c: &mut Criterion) {
     #[cfg(feature = "llvm")]
     {
-        let mut store =
-            Store::new_with_engine(&Universal::new(wasmer_compiler_llvm::LLVM::new()).engine());
+        let mut store = Store::new(wasmer_compiler_llvm::LLVM::new());
         run_basic_static_function(&store, "llvm", c);
     }
 
     #[cfg(feature = "cranelift")]
     {
-        let mut store = Store::new_with_engine(
-            &Universal::new(wasmer_compiler_cranelift::Cranelift::new()).engine(),
-        );
+        let mut store = Store::new(wasmer_compiler_cranelift::Cranelift::new());
         run_basic_static_function(&store, "cranelift", c);
     }
 
     #[cfg(feature = "singlepass")]
     {
-        let mut store = Store::new_with_engine(
-            &Universal::new(wasmer_compiler_singlepass::Singlepass::new()).engine(),
-        );
+        let mut store = Store::new(wasmer_compiler_singlepass::Singlepass::new());
         run_basic_static_function(&store, "singlepass", c);
     }
 }
@@ -174,24 +169,19 @@ fn run_static_benchmarks(_c: &mut Criterion) {
 fn run_dynamic_benchmarks(_c: &mut Criterion) {
     #[cfg(feature = "llvm")]
     {
-        let mut store =
-            Store::new_with_engine(&Universal::new(wasmer_compiler_llvm::LLVM::new()).engine());
+        let mut store = Store::new(wasmer_compiler_llvm::LLVM::new());
         run_basic_dynamic_function(&store, "llvm", c);
     }
 
     #[cfg(feature = "cranelift")]
     {
-        let mut store = Store::new_with_engine(
-            &Universal::new(wasmer_compiler_cranelift::Cranelift::new()).engine(),
-        );
+        let mut store = Store::new(wasmer_compiler_cranelift::Cranelift::new());
         run_basic_dynamic_function(&store, "cranelift", c);
     }
 
     #[cfg(feature = "singlepass")]
     {
-        let mut store = Store::new_with_engine(
-            &Universal::new(wasmer_compiler_singlepass::Singlepass::new()).engine(),
-        );
+        let mut store = Store::new(wasmer_compiler_singlepass::Singlepass::new());
         run_basic_dynamic_function(&store, "singlepass", c);
     }
 }

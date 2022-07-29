@@ -1,6 +1,5 @@
-use crate::js::store::AsStoreRef;
 use crate::js::NativeWasmTypeInto;
-use crate::js::{externals::Memory, FromToNativeWasmType};
+use crate::js::{externals::MemoryView, FromToNativeWasmType};
 use crate::js::{MemoryAccessError, WasmRef, WasmSlice};
 use std::convert::TryFrom;
 use std::{fmt, marker::PhantomData, mem};
@@ -138,25 +137,24 @@ impl<T: ValueType, M: MemorySize> WasmPtr<T, M> {
     /// Creates a `WasmRef` from this `WasmPtr` which allows reading and
     /// mutating of the value being pointed to.
     #[inline]
-    pub fn deref<'a>(self, store: &'a impl AsStoreRef, memory: &'a Memory) -> WasmRef<'a, T> {
-        WasmRef::new(store, memory, self.offset.into())
+    pub fn deref<'a>(self, view: &'a MemoryView) -> WasmRef<'a, T> {
+        WasmRef::new(view, self.offset.into())
     }
 
     /// Reads the address pointed to by this `WasmPtr` in a memory.
     #[inline]
-    pub fn read(self, store: &impl AsStoreRef, memory: &Memory) -> Result<T, MemoryAccessError> {
-        self.deref(store, memory).read()
+    pub fn read(self, view: &MemoryView) -> Result<T, MemoryAccessError> {
+        self.deref(view).read()
     }
 
     /// Writes to the address pointed to by this `WasmPtr` in a memory.
     #[inline]
     pub fn write(
         self,
-        store: &impl AsStoreRef,
-        memory: &Memory,
+        view: &MemoryView,
         val: T,
     ) -> Result<(), MemoryAccessError> {
-        self.deref(store, memory).write(val)
+        self.deref(view).write(val)
     }
 
     /// Creates a `WasmSlice` starting at this `WasmPtr` which allows reading
@@ -167,11 +165,10 @@ impl<T: ValueType, M: MemorySize> WasmPtr<T, M> {
     #[inline]
     pub fn slice<'a>(
         self,
-        store: &'a impl AsStoreRef,
-        memory: &'a Memory,
+        view: &'a MemoryView,
         len: M::Offset,
     ) -> Result<WasmSlice<'a, T>, MemoryAccessError> {
-        WasmSlice::new(store, memory, self.offset.into(), len.into())
+        WasmSlice::new(view, self.offset.into(), len.into())
     }
 
     /// Reads a sequence of values from this `WasmPtr` until a value that
@@ -181,14 +178,13 @@ impl<T: ValueType, M: MemorySize> WasmPtr<T, M> {
     #[inline]
     pub fn read_until<'a>(
         self,
-        store: &'a impl AsStoreRef,
-        memory: &'a Memory,
+        view: &'a MemoryView,
         mut end: impl FnMut(&T) -> bool,
     ) -> Result<Vec<T>, MemoryAccessError> {
         let mut vec = Vec::new();
         for i in 0u64.. {
             let i = M::Offset::try_from(i).map_err(|_| MemoryAccessError::Overflow)?;
-            let val = self.add_offset(i)?.deref(store, memory).read()?;
+            let val = self.add_offset(i)?.deref(view).read()?;
             if end(&val) {
                 break;
             }
@@ -206,11 +202,10 @@ impl<M: MemorySize> WasmPtr<u8, M> {
     #[inline]
     pub fn read_utf8_string<'a>(
         self,
-        store: &'a impl AsStoreRef,
-        memory: &'a Memory,
+        view: &'a MemoryView,
         len: M::Offset,
     ) -> Result<String, MemoryAccessError> {
-        let vec = self.slice(store, memory, len)?.read_to_vec()?;
+        let vec = self.slice(view, len)?.read_to_vec()?;
         Ok(String::from_utf8(vec)?)
     }
 
@@ -221,10 +216,9 @@ impl<M: MemorySize> WasmPtr<u8, M> {
     #[inline]
     pub fn read_utf8_string_with_nul<'a>(
         self,
-        store: &'a impl AsStoreRef,
-        memory: &'a Memory,
+        view: &'a MemoryView,
     ) -> Result<String, MemoryAccessError> {
-        let vec = self.read_until(store, memory, |&byte| byte == 0)?;
+        let vec = self.read_until(view, |&byte| byte == 0)?;
         Ok(String::from_utf8(vec)?)
     }
 }

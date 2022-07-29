@@ -2,8 +2,7 @@
 
 use libfuzzer_sys::{arbitrary, arbitrary::Arbitrary, fuzz_target};
 use wasm_smith::{Config, ConfiguredModule};
-use wasmer::{CompilerConfig, Engine, Module, Store};
-use wasmer_compiler::Universal;
+use wasmer::{CompilerConfig, Engine, EngineBuilder, Module, Store};
 use wasmer_compiler_cranelift::Cranelift;
 use wasmer_compiler_llvm::LLVM;
 use wasmer_compiler_singlepass::Singlepass;
@@ -23,8 +22,8 @@ impl Config for NoImportsConfig {
     }
 }
 
-fn compile_and_compare(name: &str, engine: impl Engine, wasm: &[u8]) {
-    let mut store = Store::new_with_engine(&engine);
+fn compile_and_compare(name: &str, engine: Engine, wasm: &[u8]) {
+    let store = Store::new(engine);
 
     // compile for first time
     let module = Module::new(&store, wasm).unwrap();
@@ -47,7 +46,7 @@ fuzz_target!(|module: ConfiguredModule<NoImportsConfig>| {
     compiler.enable_verifier();
     compile_and_compare(
         "universal-cranelift",
-        Universal::new(compiler.clone()).engine(),
+        EngineBuilder::new(compiler.clone()),
         &wasm_bytes,
     );
 
@@ -56,14 +55,14 @@ fuzz_target!(|module: ConfiguredModule<NoImportsConfig>| {
     compiler.enable_verifier();
     compile_and_compare(
         "universal-llvm",
-        Universal::new(compiler.clone()).engine(),
+        EngineBuilder::new(compiler.clone()),
         &wasm_bytes,
     );
 
     let compiler = Singlepass::default();
     compile_and_compare(
         "universal-singlepass",
-        Universal::new(compiler.clone()).engine(),
+        EngineBuilder::new(compiler.clone()),
         &wasm_bytes,
     );
 });

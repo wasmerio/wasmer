@@ -61,6 +61,7 @@ mod initializers;
 mod libcalls;
 mod memory;
 mod module;
+mod serialize;
 mod table;
 mod trapcode;
 mod types;
@@ -69,6 +70,11 @@ mod utils;
 mod value;
 mod vmoffsets;
 
+pub use crate::compilation::target::{
+    Architecture, BinaryFormat, CallingConvention, CpuFeature, Endianness, OperatingSystem,
+    PointerWidth, Target, Triple,
+};
+pub use crate::serialize::{MetadataHeader, SerializableCompilation, SerializableModule};
 pub use error::{
     CompileError, DeserializeError, ImportError, MiddlewareError, ParseCpuFeatureError,
     PreInstantiationError, SerializeError, WasmError, WasmResult,

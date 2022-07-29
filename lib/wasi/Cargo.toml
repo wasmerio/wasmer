@@ -31,7 +31,6 @@ bincode = { version = "1.3", optional = true }
 chrono = { version = "^0.4", default-features = false, features = [ "wasmbind", "std", "clock" ], optional = true }
 derivative = { version = "^2" }
 bytes = "1"
-thread-id = { version = "4", optional = true }
 sha2 = { version = "0.10" }
 
 [target.'cfg(unix)'.dependencies]
@@ -50,8 +49,8 @@ tracing-wasm = "0.2"
 [features]
 default = ["sys-default"]
 
-sys = ["wasmer/sys", "thread-id"]
-sys-default = ["wasmer/sys-default", "sys", "logging", "host-fs", "sys-poll", "sys-thread", "host-vnet", "host-threads" ]
+sys = ["wasmer/sys"]
+sys-default = ["wasmer/wat", "wasmer/compiler", "sys", "sys-thread", "logging", "host-fs", "sys-poll", "host-vnet", "host-threads" ]
 sys-poll = []
 sys-thread = []
 

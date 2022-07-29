@@ -15,6 +15,7 @@ cranelift+aarch64    traps::trap_display_pretty
 singlepass+aarch64+macos traps::trap_display_multi_module
 llvm       traps::trap_display_multi_module
 cranelift+aarch64    traps::trap_display_multi_module
+windows+singlepass   traps::trap_display_multi_module
 singlepass traps::call_signature_mismatch   # Need to investigate, get foo (a[0]:0x33) instead of 0x30 for inderect call
 llvm       traps::call_signature_mismatch
 macos+aarch64    traps::call_signature_mismatch

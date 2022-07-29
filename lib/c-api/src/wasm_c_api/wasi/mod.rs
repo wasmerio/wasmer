@@ -374,11 +374,10 @@ pub unsafe extern "C" fn wasi_env_initialize_instance(
     store: &mut wasm_store_t,
     instance: &mut wasm_instance_t,
 ) -> bool {
-    let mem = c_try!(instance.inner.exports.get_memory("memory"); otherwise false);
     wasi_env
         .inner
-        .data_mut(&mut store.inner.store_mut())
-        .set_memory(mem.clone());
+        .initialize(&mut store.inner.store_mut(), &instance.inner)
+        .unwrap();
     true
 }
 

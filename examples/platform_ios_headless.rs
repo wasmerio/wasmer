@@ -15,8 +15,8 @@
 use std::path::Path;
 use std::str::FromStr;
 use wasmer::{wat2wasm, Module, RuntimeError, Store};
-use wasmer_compiler::{CpuFeature, Target, Triple};
 use wasmer_compiler_cranelift::Cranelift;
+use wasmer_types::{CpuFeature, Target, Triple};
 /*
 use wasmer_engine_dylib::Dylib;
 */
@@ -50,10 +50,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("Chosen target: {:?}", target);
 
         println!("Creating Dylib engine...");
-        let engine = Dylib::new(compiler_config).target(target).engine();
+        let engine = Dylib::new(compiler_config).target(target);
 
         // Create a store, that holds the engine.
-        let mut store = Store::new_with_engine(&engine);
+        let mut store = Store::new(engine);
 
         println!("Compiling module...");
         // Let's compile the Wasm module.

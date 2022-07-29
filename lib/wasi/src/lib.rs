@@ -64,7 +64,7 @@ use std::ops::Deref;
 use thiserror::Error;
 use wasmer::{
     imports, namespace, AsStoreMut, Exports, Function, FunctionEnv, Imports, Memory, Memory32,
-    MemoryAccessError, MemorySize, Module, TypedFunction, Reactors, Memory64, AsStoreRef, Instance, ExportError
+    MemoryAccessError, MemorySize, Module, TypedFunction, Reactors, Memory64, AsStoreRef, Instance, ExportError, MemoryView
 };
 
 pub use runtime::{
@@ -264,6 +264,12 @@ impl WasiEnv {
     pub fn memory(&self) -> &Memory {
         &self.inner().memory
     }
+    
+    /// Providers safe access to the memory
+    /// (it must be initialized before it can be used)
+    pub fn memory_view<'a>(&'a self, store: &'a impl AsStoreRef) -> MemoryView<'a> {
+        self.inner().memory.view(store)
+    }
 
     /// Copy the lazy reference so that when it's initialized during the
     /// export phase, all the other references get a copy of it
@@ -276,27 +282,29 @@ impl WasiEnv {
         &self.state
     }
     
-    pub(crate) fn get_memory_and_wasi_state(&self, _mem_index: u32) -> (&Memory, &WasiState) {
-        let memory = self.memory();
+    pub(crate) fn get_memory_and_wasi_state<'a>(&'a self, store: &'a impl AsStoreRef, _mem_index: u32) -> (MemoryView<'a>, &WasiState) {
+        let memory = self.memory_view(store);
         let state = self.state.deref();
         (memory, state)
     }
 
-    pub(crate) fn get_memory_and_wasi_state_and_inodes(
-        &self,
+    pub(crate) fn get_memory_and_wasi_state_and_inodes<'a>(
+        &'a self,
+        store: &'a impl AsStoreRef,
         _mem_index: u32,
-    ) -> (&Memory, &WasiState, RwLockReadGuard<WasiInodes>) {
-        let memory = self.memory();
+    ) -> (MemoryView<'a>, &WasiState, RwLockReadGuard<WasiInodes>) {
+        let memory = self.memory_view(store);
         let state = self.state.deref();
         let inodes = state.inodes.read().unwrap();
         (memory, state, inodes)
     }
 
-    pub(crate) fn get_memory_and_wasi_state_and_inodes_mut(
-        &self,
+    pub(crate) fn get_memory_and_wasi_state_and_inodes_mut<'a>(
+        &'a self,
+        store: &'a impl AsStoreRef,
         _mem_index: u32,
-    ) -> (&Memory, &WasiState, RwLockWriteGuard<WasiInodes>) {
-        let memory = self.memory();
+    ) -> (MemoryView<'a>, &WasiState, RwLockWriteGuard<WasiInodes>) {
+        let memory = self.memory_view(store);
         let state = self.state.deref();
         let inodes = state.inodes.write().unwrap();
         (memory, state, inodes)

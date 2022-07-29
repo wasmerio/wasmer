@@ -2,8 +2,7 @@
 
 use libfuzzer_sys::{arbitrary, arbitrary::Arbitrary, fuzz_target};
 use wasm_smith::{Config, ConfiguredModule};
-use wasmer::{imports, Instance, Module, Store};
-use wasmer_compiler::Universal;
+use wasmer::{imports, EngineBuilder, Instance, Module, Store};
 use wasmer_compiler_singlepass::Singlepass;
 
 #[derive(Arbitrary, Debug, Default, Copy, Clone)]
@@ -40,7 +39,7 @@ fuzz_target!(|module: WasmSmithModule| {
     }
 
     let compiler = Singlepass::default();
-    let mut store = Store::new_with_engine(&Universal::new(compiler).engine());
+    let mut store = Store::new(compiler);
     let module = Module::new(&store, &wasm_bytes);
     let module = match module {
         Ok(m) => m,

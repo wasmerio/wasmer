@@ -12,11 +12,11 @@ use super::store::PackagedStore;
 /// The function environment data is owned by the `Store`.
 pub struct FunctionEnv<T> {
     pub(crate) handle: StoreHandle<VMFunctionEnvironment>,
-    _phantom: PhantomData<T>,
+    marker: PhantomData<T>,
 }
 
 impl<T> FunctionEnv<T> {
-    /// Make a new extern reference
+    /// Make a new FunctionEnv
     pub fn new(store: &mut impl AsStoreMut, value: T) -> Self
     where
         T: Any + Send + 'static + Sized,
@@ -26,7 +26,7 @@ impl<T> FunctionEnv<T> {
                 store.as_store_mut().objects_mut(),
                 VMFunctionEnvironment::new(value),
             ),
-            _phantom: PhantomData,
+            marker: PhantomData,
         }
     }
 
@@ -68,11 +68,26 @@ impl<T> FunctionEnv<T> {
     }
 }
 
+impl<T> PartialEq for FunctionEnv<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.handle == other.handle
+    }
+}
+
+impl<T> Eq for FunctionEnv<T> {}
+
+impl<T> std::hash::Hash for FunctionEnv<T> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.handle.hash(state);
+        self.marker.hash(state);
+    }
+}
+
 impl<T> Clone for FunctionEnv<T> {
     fn clone(&self) -> Self {
         Self {
             handle: self.handle.clone(),
-            _phantom: self._phantom,
+            marker: self.marker,
         }
     }
 }

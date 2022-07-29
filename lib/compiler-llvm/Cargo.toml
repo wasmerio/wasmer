@@ -13,7 +13,7 @@ edition = "2018"
 
 [dependencies]
 wasmer-compiler = { path = "../compiler", version = "=2.3.0", features = [
-    "translator",
+    "translator", "compiler"
 ] }
 wasmer-vm = { path = "../vm", version = "=2.3.0" }
 wasmer-types = { path = "../types", version = "=2.3.0" }
