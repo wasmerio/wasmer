@@ -95,6 +95,7 @@ impl Global {
         *self.handle.get(store.as_store_ref().objects()).ty()
     }
 
+    #[cfg(feature = "compiler")]
     /// Retrieves the current value [`Value`] that the Global has.
     ///
     /// # Example
