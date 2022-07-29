@@ -59,7 +59,7 @@ jobs:
           echo $(git tag | tail -n1) > ./version.txt
           v=$(git describe --tags --abbrev=0) && \
           echo "version = ${v}" &&
-          sed -i "s/version = \".*\"/${v}/g" target/wasm32-wasi/release/cloudcompiler/wapm.toml \
+          sed -i "s/version = \".*\"/version = \"${v}\"/g" target/wasm32-wasi/release/cloudcompiler/wapm.toml \
       - name: Build cloudcompiler.wasm
         shell: bash
         run: |
