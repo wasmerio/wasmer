@@ -20,6 +20,9 @@
 <span id="18">18</span>
 <span id="19">19</span>
 <span id="20">20</span>
+<span id="21">21</span>
+<span id="22">22</span>
+<span id="23">23</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">object::write::Error</span> <span class="kw">as</span> <span class="ident">ObjectWriteError</span>;
 <span class="kw">use</span> <span class="ident">thiserror::Error</span>;
 
@@ -39,6 +42,9 @@
     <span class="doccomment">/// The object was provided a not-supported architecture</span>
     <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;Error when writing the object: {0}&quot;</span>)]</span>
     <span class="ident">Write</span>(<span class="attribute">#[<span class="ident">from</span>]</span> <span class="ident">ObjectWriteError</span>),
+    <span class="doccomment">/// The module provided could not be serialized into bytes</span>
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;Error when serializing the given module: {0}&quot;</span>)]</span>
+    <span class="ident">Serialize</span>(<span class="attribute">#[<span class="ident">from</span>]</span> <span class="ident">wasmer_types::SerializeError</span>),
 }
 </code></pre></div>
 </section><section id="search" class="content hidden"></section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_object" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.59.0 (9d1b2106e 2022-02-23)" ></div>

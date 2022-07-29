@@ -380,6 +380,7 @@
 <span id="378">378</span>
 <span id="379">379</span>
 <span id="380">380</span>
+<span id="381">381</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Define `Artifact`, based on `ArtifactBuild`</span>
 <span class="doccomment">//! to allow compiling and instantiating to be done as separate steps.</span>
 
@@ -391,13 +392,14 @@
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::ModuleEnvironment</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">register_frame_info</span>, <span class="ident">resolve_imports</span>, <span class="ident">FunctionExtent</span>, <span class="ident">GlobalFrameInfoRegistration</span>,
-    <span class="ident">InstantiationError</span>, <span class="ident">MetadataHeader</span>, <span class="ident">RuntimeError</span>, <span class="ident">Tunables</span>,
+    <span class="ident">InstantiationError</span>, <span class="ident">RuntimeError</span>, <span class="ident">Tunables</span>,
 };
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">Engine</span>, <span class="ident">EngineInner</span>};
 <span class="kw">use</span> <span class="ident">enumset::EnumSet</span>;
 <span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
 <span class="kw">use</span> <span class="ident">std::sync::Mutex</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types::entity</span>::{<span class="ident">BoxedSlice</span>, <span class="ident">PrimaryMap</span>};
+<span class="kw">use</span> <span class="ident">wasmer_types::MetadataHeader</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{
     <span class="ident">CompileError</span>, <span class="ident">CpuFeature</span>, <span class="ident">DataInitializer</span>, <span class="ident">DeserializeError</span>, <span class="ident">FunctionIndex</span>, <span class="ident">LocalFunctionIndex</span>,
     <span class="ident">MemoryIndex</span>, <span class="ident">ModuleInfo</span>, <span class="ident">OwnedDataInitializer</span>, <span class="ident">SerializableModule</span>, <span class="ident">SerializeError</span>,

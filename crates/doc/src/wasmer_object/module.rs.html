@@ -386,6 +386,74 @@
 <span id="384">384</span>
 <span id="385">385</span>
 <span id="386">386</span>
+<span id="387">387</span>
+<span id="388">388</span>
+<span id="389">389</span>
+<span id="390">390</span>
+<span id="391">391</span>
+<span id="392">392</span>
+<span id="393">393</span>
+<span id="394">394</span>
+<span id="395">395</span>
+<span id="396">396</span>
+<span id="397">397</span>
+<span id="398">398</span>
+<span id="399">399</span>
+<span id="400">400</span>
+<span id="401">401</span>
+<span id="402">402</span>
+<span id="403">403</span>
+<span id="404">404</span>
+<span id="405">405</span>
+<span id="406">406</span>
+<span id="407">407</span>
+<span id="408">408</span>
+<span id="409">409</span>
+<span id="410">410</span>
+<span id="411">411</span>
+<span id="412">412</span>
+<span id="413">413</span>
+<span id="414">414</span>
+<span id="415">415</span>
+<span id="416">416</span>
+<span id="417">417</span>
+<span id="418">418</span>
+<span id="419">419</span>
+<span id="420">420</span>
+<span id="421">421</span>
+<span id="422">422</span>
+<span id="423">423</span>
+<span id="424">424</span>
+<span id="425">425</span>
+<span id="426">426</span>
+<span id="427">427</span>
+<span id="428">428</span>
+<span id="429">429</span>
+<span id="430">430</span>
+<span id="431">431</span>
+<span id="432">432</span>
+<span id="433">433</span>
+<span id="434">434</span>
+<span id="435">435</span>
+<span id="436">436</span>
+<span id="437">437</span>
+<span id="438">438</span>
+<span id="439">439</span>
+<span id="440">440</span>
+<span id="441">441</span>
+<span id="442">442</span>
+<span id="443">443</span>
+<span id="444">444</span>
+<span id="445">445</span>
+<span id="446">446</span>
+<span id="447">447</span>
+<span id="448">448</span>
+<span id="449">449</span>
+<span id="450">450</span>
+<span id="451">451</span>
+<span id="452">452</span>
+<span id="453">453</span>
+<span id="454">454</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::error::ObjectError</span>;
 <span class="kw">use</span> <span class="ident">object::write</span>::{
     <span class="ident">Object</span>, <span class="ident">Relocation</span>, <span class="ident">StandardSection</span>, <span class="ident">StandardSegment</span>, <span class="ident">Symbol</span> <span class="kw">as</span> <span class="ident">ObjSymbol</span>, <span class="ident">SymbolSection</span>,
@@ -769,6 +837,74 @@
             };
         }
     }
+
+    <span class="prelude-val">Ok</span>(())
+}
+
+<span class="doccomment">/// Emit the compilation result into an existing object.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// # Usage</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// ```rust</span>
+<span class="doccomment">/// # use wasmer_compiler::SymbolRegistry;</span>
+<span class="doccomment">/// # use wasmer_types::{Compilation, Triple};</span>
+<span class="doccomment">/// # use wasmer_object::ObjectError;</span>
+<span class="doccomment">/// use wasmer_object::{get_object_for_target, emit_compilation};</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// # fn emit_compilation_into_object(</span>
+<span class="doccomment">/// #     triple: &amp;Triple,</span>
+<span class="doccomment">/// #     compilation: Compilation,</span>
+<span class="doccomment">/// #     symbol_registry: impl SymbolRegistry,</span>
+<span class="doccomment">/// # ) -&gt; Result&lt;(), ObjectError&gt; {</span>
+<span class="doccomment">/// let mut object = get_object_for_target(&amp;triple)?;</span>
+<span class="doccomment">/// emit_compilation(&amp;mut object, compilation, &amp;symbol_registry, &amp;triple)?;</span>
+<span class="doccomment">/// # Ok(())</span>
+<span class="doccomment">/// # }</span>
+<span class="doccomment">/// ```</span>
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">emit_serialized</span>(
+    <span class="ident">obj</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Object</span>,
+    <span class="ident">sercomp</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>],
+    <span class="ident">triple</span>: <span class="kw-2">&amp;</span><span class="ident">Triple</span>,
+) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">ObjectError</span><span class="op">&gt;</span> {
+    <span class="ident">obj</span>.<span class="ident">set_mangling</span>(<span class="ident">object::write::Mangling::None</span>);
+    <span class="comment">//let module_name = module.compile_info.module.name.clone();</span>
+    <span class="kw">let</span> <span class="ident">len_name</span> <span class="op">=</span> <span class="string">&quot;WASMER_MODULE_LENGTH&quot;</span>;
+    <span class="kw">let</span> <span class="ident">data_name</span> <span class="op">=</span> <span class="string">&quot;WASMER_MODULE_DATA&quot;</span>;
+    <span class="comment">//let metadata_name = &quot;WASMER_MODULE_METADATA&quot;;</span>
+
+    <span class="kw">let</span> <span class="ident">align</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">triple</span>.<span class="ident">architecture</span> {
+        <span class="ident">Architecture::X86_64</span> =&gt; <span class="number">1</span>,
+        <span class="comment">// In Arm64 is recommended a 4-byte alignment</span>
+        <span class="ident">Architecture::Aarch64</span>(<span class="kw">_</span>) =&gt; <span class="number">4</span>,
+        <span class="kw">_</span> =&gt; <span class="number">1</span>,
+    };
+
+    <span class="kw">let</span> <span class="ident">len</span> <span class="op">=</span> <span class="ident">sercomp</span>.<span class="ident">len</span>();
+    <span class="kw">let</span> <span class="ident">section_id</span> <span class="op">=</span> <span class="ident">obj</span>.<span class="ident">section_id</span>(<span class="ident">StandardSection::Data</span>);
+    <span class="kw">let</span> <span class="ident">symbol_id</span> <span class="op">=</span> <span class="ident">obj</span>.<span class="ident">add_symbol</span>(<span class="ident">ObjSymbol</span> {
+        <span class="ident">name</span>: <span class="ident">len_name</span>.<span class="ident">as_bytes</span>().<span class="ident">to_vec</span>(),
+        <span class="ident">value</span>: <span class="number">0</span>,
+        <span class="ident">size</span>: <span class="ident">len</span>.<span class="ident">to_le_bytes</span>().<span class="ident">len</span>() <span class="kw">as</span> <span class="kw">_</span>,
+        <span class="ident">kind</span>: <span class="ident">SymbolKind::Data</span>,
+        <span class="ident">scope</span>: <span class="ident">SymbolScope::Dynamic</span>,
+        <span class="ident">weak</span>: <span class="bool-val">false</span>,
+        <span class="ident">section</span>: <span class="ident">SymbolSection::Section</span>(<span class="ident">section_id</span>),
+        <span class="ident">flags</span>: <span class="ident">SymbolFlags::None</span>,
+    });
+    <span class="ident">obj</span>.<span class="ident">add_symbol_data</span>(<span class="ident">symbol_id</span>, <span class="ident">section_id</span>, <span class="kw-2">&amp;</span><span class="ident">len</span>.<span class="ident">to_le_bytes</span>(), <span class="ident">align</span>);
+
+    <span class="kw">let</span> <span class="ident">section_id</span> <span class="op">=</span> <span class="ident">obj</span>.<span class="ident">section_id</span>(<span class="ident">StandardSection::Data</span>);
+    <span class="kw">let</span> <span class="ident">symbol_id</span> <span class="op">=</span> <span class="ident">obj</span>.<span class="ident">add_symbol</span>(<span class="ident">ObjSymbol</span> {
+        <span class="ident">name</span>: <span class="ident">data_name</span>.<span class="ident">as_bytes</span>().<span class="ident">to_vec</span>(),
+        <span class="ident">value</span>: <span class="number">0</span>,
+        <span class="ident">size</span>: <span class="ident">sercomp</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="kw">_</span>,
+        <span class="ident">kind</span>: <span class="ident">SymbolKind::Data</span>,
+        <span class="ident">scope</span>: <span class="ident">SymbolScope::Dynamic</span>,
+        <span class="ident">weak</span>: <span class="bool-val">false</span>,
+        <span class="ident">section</span>: <span class="ident">SymbolSection::Section</span>(<span class="ident">section_id</span>),
+        <span class="ident">flags</span>: <span class="ident">SymbolFlags::None</span>,
+    });
+    <span class="ident">obj</span>.<span class="ident">add_symbol_data</span>(<span class="ident">symbol_id</span>, <span class="ident">section_id</span>, <span class="ident">sercomp</span>, <span class="ident">align</span>);
 
     <span class="prelude-val">Ok</span>(())
 }

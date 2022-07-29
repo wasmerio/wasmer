@@ -456,6 +456,7 @@
 <span id="454">454</span>
 <span id="455">455</span>
 <span id="456">456</span>
+<span id="457">457</span>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
 <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::state::ModuleTranslationState</span>;
@@ -566,7 +567,8 @@
                 <span class="ident">String::from</span>(<span class="ident">module</span>),
                 <span class="ident">String::from</span>(<span class="ident">field</span>),
                 <span class="self">self</span>.<span class="ident">module</span>.<span class="ident">imports</span>.<span class="ident">len</span>().<span class="ident">try_into</span>().<span class="ident">unwrap</span>(),
-            ),
+            )
+                .<span class="ident">into</span>(),
             <span class="ident">import</span>,
         );
         <span class="prelude-val">Ok</span>(())

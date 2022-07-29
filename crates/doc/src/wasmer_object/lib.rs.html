@@ -26,6 +26,7 @@
 <span id="24">24</span>
 <span id="25">25</span>
 <span id="26">26</span>
+<span id="27">27</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Object creator for Wasm Compilations.</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! Given a compilation result (this is, the result when calling `Compiler::compile_module`)</span>
@@ -51,7 +52,8 @@
 <span class="kw">mod</span> <span class="ident">module</span>;
 
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::error::ObjectError</span>;
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::module</span>::{<span class="ident">emit_compilation</span>, <span class="ident">emit_data</span>, <span class="ident">get_object_for_target</span>};
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::module</span>::{<span class="ident">emit_compilation</span>, <span class="ident">emit_data</span>, <span class="ident">emit_serialized</span>, <span class="ident">get_object_for_target</span>};
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">object</span>::{<span class="self">self</span>, <span class="ident">Object</span>};
 </code></pre></div>
 </section><section id="search" class="content hidden"></section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_object" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.59.0 (9d1b2106e 2022-02-23)" ></div>
 </body></html>

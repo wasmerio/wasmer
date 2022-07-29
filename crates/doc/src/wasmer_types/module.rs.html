@@ -584,6 +584,28 @@
 <span id="582">582</span>
 <span id="583">583</span>
 <span id="584">584</span>
+<span id="585">585</span>
+<span id="586">586</span>
+<span id="587">587</span>
+<span id="588">588</span>
+<span id="589">589</span>
+<span id="590">590</span>
+<span id="591">591</span>
+<span id="592">592</span>
+<span id="593">593</span>
+<span id="594">594</span>
+<span id="595">595</span>
+<span id="596">596</span>
+<span id="597">597</span>
+<span id="598">598</span>
+<span id="599">599</span>
+<span id="600">600</span>
+<span id="601">601</span>
+<span id="602">602</span>
+<span id="603">603</span>
+<span id="604">604</span>
+<span id="605">605</span>
+<span id="606">606</span>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
 
@@ -631,6 +653,28 @@
     }
 }
 
+<span class="doccomment">/// Hash key of an import</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Hash</span>, <span class="ident">Eq</span>, <span class="ident">PartialEq</span>, <span class="ident">Clone</span>, <span class="ident">Default</span>, <span class="ident">RkyvSerialize</span>, <span class="ident">RkyvDeserialize</span>, <span class="ident">Archive</span>)]</span>
+<span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>))]</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ImportKey</span> {
+    <span class="doccomment">/// Module name</span>
+    <span class="kw">pub</span> <span class="ident">module</span>: <span class="ident">String</span>,
+    <span class="doccomment">/// Field name</span>
+    <span class="kw">pub</span> <span class="ident">field</span>: <span class="ident">String</span>,
+    <span class="doccomment">/// Import index</span>
+    <span class="kw">pub</span> <span class="ident">import_idx</span>: <span class="ident">u32</span>,
+}
+
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span>(<span class="ident">String</span>, <span class="ident">String</span>, <span class="ident">u32</span>)<span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">ImportKey</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>((<span class="ident">module</span>, <span class="ident">field</span>, <span class="ident">import_idx</span>): (<span class="ident">String</span>, <span class="ident">String</span>, <span class="ident">u32</span>)) -&gt; <span class="self">Self</span> {
+        <span class="self">Self</span> {
+            <span class="ident">module</span>,
+            <span class="ident">field</span>,
+            <span class="ident">import_idx</span>,
+        }
+    }
+}
+
 <span class="doccomment">/// A translated WebAssembly module, excluding the function bodies and</span>
 <span class="doccomment">/// memory initializers.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Default</span>)]</span>
@@ -653,7 +697,7 @@
     <span class="doccomment">/// Keeping the `index_of_the_import` is important, as there can be</span>
     <span class="doccomment">/// two same references to the same import, and we don&#39;t want to confuse</span>
     <span class="doccomment">/// them.</span>
-    <span class="kw">pub</span> <span class="ident">imports</span>: <span class="ident">IndexMap</span><span class="op">&lt;</span>(<span class="ident">String</span>, <span class="ident">String</span>, <span class="ident">u32</span>), <span class="ident">ImportIndex</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span> <span class="ident">imports</span>: <span class="ident">IndexMap</span><span class="op">&lt;</span><span class="ident">ImportKey</span>, <span class="ident">ImportIndex</span><span class="op">&gt;</span>,
 
     <span class="doccomment">/// Exported entities.</span>
     <span class="kw">pub</span> <span class="ident">exports</span>: <span class="ident">IndexMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">ExportIndex</span><span class="op">&gt;</span>,
@@ -714,7 +758,7 @@
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">RkyvSerialize</span>, <span class="ident">RkyvDeserialize</span>, <span class="ident">Archive</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ArchivableModuleInfo</span> {
     <span class="ident">name</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
-    <span class="ident">imports</span>: <span class="ident">IndexMap</span><span class="op">&lt;</span>(<span class="ident">String</span>, <span class="ident">String</span>, <span class="ident">u32</span>), <span class="ident">ImportIndex</span><span class="op">&gt;</span>,
+    <span class="ident">imports</span>: <span class="ident">IndexMap</span><span class="op">&lt;</span><span class="ident">ImportKey</span>, <span class="ident">ImportIndex</span><span class="op">&gt;</span>,
     <span class="ident">exports</span>: <span class="ident">IndexMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">ExportIndex</span><span class="op">&gt;</span>,
     <span class="ident">start_function</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">FunctionIndex</span><span class="op">&gt;</span>,
     <span class="ident">table_initializers</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">TableInitializer</span><span class="op">&gt;</span>,
@@ -906,31 +950,31 @@
 
     <span class="doccomment">/// Get the import types of the module</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">imports</span>(<span class="kw-2">&amp;</span><span class="lifetime">&#39;_</span> <span class="self">self</span>) -&gt; <span class="ident">ImportsIterator</span><span class="op">&lt;</span><span class="kw">impl</span> <span class="ident">Iterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="ident">ImportType</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;_</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">iter</span> <span class="op">=</span> <span class="self">self</span>
-            .<span class="ident">imports</span>
-            .<span class="ident">iter</span>()
-            .<span class="ident">map</span>(<span class="kw">move</span> <span class="op">|</span>((<span class="ident">module</span>, <span class="ident">field</span>, <span class="kw">_</span>), <span class="ident">import_index</span>)<span class="op">|</span> {
-                <span class="kw">let</span> <span class="ident">extern_type</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">import_index</span> {
-                    <span class="ident">ImportIndex::Function</span>(<span class="ident">i</span>) =&gt; {
-                        <span class="kw">let</span> <span class="ident">signature</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">functions</span>.<span class="ident">get</span>(<span class="kw-2">*</span><span class="ident">i</span>).<span class="ident">unwrap</span>();
-                        <span class="kw">let</span> <span class="ident">func_type</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">signatures</span>.<span class="ident">get</span>(<span class="kw-2">*</span><span class="ident">signature</span>).<span class="ident">unwrap</span>();
-                        <span class="ident">ExternType::Function</span>(<span class="ident">func_type</span>.<span class="ident">clone</span>())
-                    }
-                    <span class="ident">ImportIndex::Table</span>(<span class="ident">i</span>) =&gt; {
-                        <span class="kw">let</span> <span class="ident">table_type</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">tables</span>.<span class="ident">get</span>(<span class="kw-2">*</span><span class="ident">i</span>).<span class="ident">unwrap</span>();
-                        <span class="ident">ExternType::Table</span>(<span class="kw-2">*</span><span class="ident">table_type</span>)
-                    }
-                    <span class="ident">ImportIndex::Memory</span>(<span class="ident">i</span>) =&gt; {
-                        <span class="kw">let</span> <span class="ident">memory_type</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">memories</span>.<span class="ident">get</span>(<span class="kw-2">*</span><span class="ident">i</span>).<span class="ident">unwrap</span>();
-                        <span class="ident">ExternType::Memory</span>(<span class="kw-2">*</span><span class="ident">memory_type</span>)
-                    }
-                    <span class="ident">ImportIndex::Global</span>(<span class="ident">i</span>) =&gt; {
-                        <span class="kw">let</span> <span class="ident">global_type</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">globals</span>.<span class="ident">get</span>(<span class="kw-2">*</span><span class="ident">i</span>).<span class="ident">unwrap</span>();
-                        <span class="ident">ExternType::Global</span>(<span class="kw-2">*</span><span class="ident">global_type</span>)
-                    }
-                };
-                <span class="ident">ImportType::new</span>(<span class="ident">module</span>, <span class="ident">field</span>, <span class="ident">extern_type</span>)
-            });
+        <span class="kw">let</span> <span class="ident">iter</span> <span class="op">=</span>
+            <span class="self">self</span>.<span class="ident">imports</span>
+                .<span class="ident">iter</span>()
+                .<span class="ident">map</span>(<span class="kw">move</span> <span class="op">|</span>(<span class="ident">ImportKey</span> { <span class="ident">module</span>, <span class="ident">field</span>, .. }, <span class="ident">import_index</span>)<span class="op">|</span> {
+                    <span class="kw">let</span> <span class="ident">extern_type</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">import_index</span> {
+                        <span class="ident">ImportIndex::Function</span>(<span class="ident">i</span>) =&gt; {
+                            <span class="kw">let</span> <span class="ident">signature</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">functions</span>.<span class="ident">get</span>(<span class="kw-2">*</span><span class="ident">i</span>).<span class="ident">unwrap</span>();
+                            <span class="kw">let</span> <span class="ident">func_type</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">signatures</span>.<span class="ident">get</span>(<span class="kw-2">*</span><span class="ident">signature</span>).<span class="ident">unwrap</span>();
+                            <span class="ident">ExternType::Function</span>(<span class="ident">func_type</span>.<span class="ident">clone</span>())
+                        }
+                        <span class="ident">ImportIndex::Table</span>(<span class="ident">i</span>) =&gt; {
+                            <span class="kw">let</span> <span class="ident">table_type</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">tables</span>.<span class="ident">get</span>(<span class="kw-2">*</span><span class="ident">i</span>).<span class="ident">unwrap</span>();
+                            <span class="ident">ExternType::Table</span>(<span class="kw-2">*</span><span class="ident">table_type</span>)
+                        }
+                        <span class="ident">ImportIndex::Memory</span>(<span class="ident">i</span>) =&gt; {
+                            <span class="kw">let</span> <span class="ident">memory_type</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">memories</span>.<span class="ident">get</span>(<span class="kw-2">*</span><span class="ident">i</span>).<span class="ident">unwrap</span>();
+                            <span class="ident">ExternType::Memory</span>(<span class="kw-2">*</span><span class="ident">memory_type</span>)
+                        }
+                        <span class="ident">ImportIndex::Global</span>(<span class="ident">i</span>) =&gt; {
+                            <span class="kw">let</span> <span class="ident">global_type</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">globals</span>.<span class="ident">get</span>(<span class="kw-2">*</span><span class="ident">i</span>).<span class="ident">unwrap</span>();
+                            <span class="ident">ExternType::Global</span>(<span class="kw-2">*</span><span class="ident">global_type</span>)
+                        }
+                    };
+                    <span class="ident">ImportType::new</span>(<span class="ident">module</span>, <span class="ident">field</span>, <span class="ident">extern_type</span>)
+                });
         <span class="ident">ImportsIterator::new</span>(<span class="ident">iter</span>, <span class="self">self</span>.<span class="ident">imports</span>.<span class="ident">len</span>())
     }
 
