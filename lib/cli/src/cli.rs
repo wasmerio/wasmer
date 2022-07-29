@@ -4,6 +4,8 @@
 use crate::commands::Binfmt;
 #[cfg(feature = "compiler")]
 use crate::commands::Compile;
+#[cfg(feature = "compiler")]
+use crate::commands::CreateExe;
 #[cfg(feature = "wast")]
 use crate::commands::Wast;
 use crate::commands::{Cache, Config, Inspect, Run, SelfUpdate, Validate};
@@ -44,6 +46,11 @@ enum WasmerCLIOptions {
     #[structopt(name = "compile")]
     Compile(Compile),
 
+    /// Compile a WebAssembly binary into a native executable
+    #[cfg(feature = "compiler")]
+    #[structopt(name = "create-exe")]
+    CreateExe(CreateExe),
+
     /// Get various configuration information needed
     /// to compile programs which use Wasmer
     #[structopt(name = "config")]
@@ -77,6 +84,8 @@ impl WasmerCLIOptions {
             Self::Validate(validate) => validate.execute(),
             #[cfg(feature = "compiler")]
             Self::Compile(compile) => compile.execute(),
+            #[cfg(feature = "compiler")]
+            Self::CreateExe(create_exe) => create_exe.execute(),
             Self::Config(config) => config.execute(),
             Self::Inspect(inspect) => inspect.execute(),
             #[cfg(feature = "wast")]

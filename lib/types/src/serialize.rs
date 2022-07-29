@@ -34,6 +34,21 @@ pub struct SerializableCompilation {
     pub libcall_trampoline_len: u32,
 }
 
+impl SerializableCompilation {
+    /// Serialize a Compilation into bytes
+    /// The bytes will have the following format:
+    /// RKYV serialization (any length) + POS (8 bytes)
+    pub fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
+        let mut serializer = AllocSerializer::<4096>::default();
+        let pos = serializer
+            .serialize_value(self)
+            .map_err(to_serialize_error)? as u64;
+        let mut serialized_data = serializer.into_serializer().into_inner();
+        serialized_data.extend_from_slice(&pos.to_le_bytes());
+        Ok(serialized_data.to_vec())
+    }
+}
+
 /// Serializable struct that is able to serialize from and to a `ArtifactInfo`.
 #[derive(Archive, RkyvDeserialize, RkyvSerialize)]
 #[allow(missing_docs)]

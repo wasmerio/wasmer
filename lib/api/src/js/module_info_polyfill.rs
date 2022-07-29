@@ -40,11 +40,11 @@ impl ModuleInfoPolyfill {
         field: &str,
     ) -> WasmResult<()> {
         self.info.imports.insert(
-            (
-                String::from(module),
-                String::from(field),
-                self.info.imports.len() as u32,
-            ),
+            wasmer_types::ImportKey {
+                module: String::from(module),
+                field: String::from(field),
+                import_idx: self.info.imports.len() as u32,
+            },
             import,
         );
         Ok(())
