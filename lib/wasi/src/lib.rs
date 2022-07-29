@@ -64,7 +64,7 @@ use std::ops::Deref;
 use thiserror::Error;
 use wasmer::{
     imports, namespace, AsStoreMut, Exports, Function, FunctionEnv, Imports, Memory, Memory32,
-    MemoryAccessError, MemorySize, Module, TypedFunction,
+    MemoryAccessError, MemorySize, Module, TypedFunction, MemoryView, AsStoreRef
 };
 
 pub use runtime::{
@@ -330,11 +330,6 @@ impl WasiEnv {
     pub fn bus(&self) -> &(dyn VirtualBus) {
         self.runtime.bus()
     }
-    pub(crate) fn get_memory_and_wasi_state(&self, _mem_index: u32) -> (&Memory, &WasiState) {
-        let memory = self.memory();
-        let state = self.state.deref();
-        (memory, state)
-    }
 
     /// Set the memory of the WasiEnv (can only be done once)
     pub fn set_memory(&mut self, memory: Memory) {
@@ -342,6 +337,12 @@ impl WasiEnv {
             panic!("Memory of a WasiEnv can only be set once!");
         }
         self.memory = Some(memory);
+    }
+    
+    /// Providers safe access to the memory
+    /// (it must be initialized before it can be used)
+    pub fn memory_view<'a>(&'a self, store: &'a impl AsStoreRef) -> MemoryView<'a> {
+        self.memory().view(store)
     }
 
     /// Get memory, that needs to have been set fist
@@ -353,22 +354,30 @@ impl WasiEnv {
     pub fn state(&self) -> &WasiState {
         &self.state
     }
+    
+    pub(crate) fn get_memory_and_wasi_state<'a>(&'a self, store: &'a impl AsStoreRef, _mem_index: u32) -> (MemoryView<'a>, &WasiState) {
+        let memory = self.memory_view(store);
+        let state = self.state.deref();
+        (memory, state)
+    }
 
-    pub fn get_memory_and_wasi_state_and_inodes(
-        &self,
+    pub(crate) fn get_memory_and_wasi_state_and_inodes<'a>(
+        &'a self,
+        store: &'a impl AsStoreRef,
         _mem_index: u32,
-    ) -> (&Memory, &WasiState, RwLockReadGuard<WasiInodes>) {
-        let memory = self.memory();
+    ) -> (MemoryView<'a>, &WasiState, RwLockReadGuard<WasiInodes>) {
+        let memory = self.memory_view(store);
         let state = self.state.deref();
         let inodes = state.inodes.read().unwrap();
         (memory, state, inodes)
     }
 
-    pub(crate) fn get_memory_and_wasi_state_and_inodes_mut(
-        &self,
+    pub(crate) fn get_memory_and_wasi_state_and_inodes_mut<'a>(
+        &'a self,
+        store: &'a impl AsStoreRef,
         _mem_index: u32,
-    ) -> (&Memory, &WasiState, RwLockWriteGuard<WasiInodes>) {
-        let memory = self.memory();
+    ) -> (MemoryView<'a>, &WasiState, RwLockWriteGuard<WasiInodes>) {
+        let memory = self.memory_view(store);
         let state = self.state.deref();
         let inodes = state.inodes.write().unwrap();
         (memory, state, inodes)

@@ -2843,6 +2843,7 @@ dependencies = [
  "target-lexicon 0.12.4",
  "tempfile",
  "thiserror",
+ "tracing",
  "wasm-bindgen",
  "wasm-bindgen-test",
  "wasmer-compiler",

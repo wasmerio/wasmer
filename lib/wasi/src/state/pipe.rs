@@ -1,14 +1,13 @@
 use crate::syscalls::types::*;
 use crate::syscalls::{read_bytes, write_bytes};
-use crate::WasiEnv;
 use bytes::{Buf, Bytes};
 use std::convert::TryInto;
 use std::io::{self, Read};
 use std::ops::DerefMut;
 use std::sync::mpsc;
 use std::sync::Mutex;
-use wasmer::MemorySize;
-use wasmer::{FunctionEnvMut, Memory, WasmSlice};
+use wasmer::{MemorySize, MemoryView};
+use wasmer::WasmSlice;
 
 #[derive(Debug)]
 pub struct WasiPipe {
@@ -42,8 +41,7 @@ impl WasiPipe {
 
     pub fn recv<M: MemorySize>(
         &mut self,
-        ctx: &FunctionEnvMut<'_, WasiEnv>,
-        memory: &Memory,
+        memory: &MemoryView,
         iov: WasmSlice<__wasi_iovec_t<M>>,
     ) -> Result<usize, __wasi_errno_t> {
         loop {
@@ -51,7 +49,7 @@ impl WasiPipe {
                 let buf_len = buf.len();
                 if buf_len > 0 {
                     let reader = buf.as_ref();
-                    let read = read_bytes(ctx, reader, memory, iov).map(|_| buf_len as usize)?;
+                    let read = read_bytes(reader, memory, iov).map(|_| buf_len as usize)?;
                     buf.advance(read);
                     return Ok(read);
                 }
@@ -64,8 +62,7 @@ impl WasiPipe {
 
     pub fn send<M: MemorySize>(
         &mut self,
-        ctx: &FunctionEnvMut<'_, WasiEnv>,
-        memory: &Memory,
+        memory: &MemoryView,
         iov: WasmSlice<__wasi_ciovec_t<M>>,
     ) -> Result<usize, __wasi_errno_t> {
         let buf_len: M::Offset = iov
@@ -75,7 +72,7 @@ impl WasiPipe {
             .sum();
         let buf_len: usize = buf_len.try_into().map_err(|_| __WASI_EINVAL)?;
         let mut buf = Vec::with_capacity(buf_len);
-        write_bytes(ctx, &mut buf, memory, iov)?;
+        write_bytes(&mut buf, memory, iov)?;
         let tx = self.tx.lock().unwrap();
         tx.send(buf).map_err(|_| __WASI_EIO)?;
         Ok(buf_len)

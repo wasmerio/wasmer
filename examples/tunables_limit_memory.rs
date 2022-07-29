@@ -143,7 +143,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Create a store, that holds the engine and our custom tunables
     let mut store = Store::new_with_tunables(compiler, tunables);
-    let mut env = FunctionEnv::new(&mut store, ());
+    let _env = FunctionEnv::new(&mut store, ());
 
     println!("Compiling module...");
     let module = Module::new(&store, wasm_bytes)?;

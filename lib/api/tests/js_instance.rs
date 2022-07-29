@@ -41,19 +41,19 @@ mod js {
             .unwrap();
 
         let import_object = imports! {};
-        let mut env = FunctionEnv::new(&mut store, ());
+        let _env = FunctionEnv::new(&mut store, ());
         let instance = Instance::new(&mut store, &module, &import_object).unwrap();
 
         let memory = instance.exports.get_memory("mem").unwrap();
         assert!(memory.is_from_store(&store));
         assert_eq!(memory.ty(&store), MemoryType::new(Pages(1), None, false));
-        assert_eq!(memory.size(&store), Pages(1));
-        assert_eq!(memory.data_size(&store), 65536);
+        assert_eq!(memory.view(&store).size(), Pages(1));
+        assert_eq!(memory.view(&store).data_size(), 65536);
 
         memory.grow(&mut store, Pages(1)).unwrap();
         assert_eq!(memory.ty(&store), MemoryType::new(Pages(1), None, false));
-        assert_eq!(memory.size(&store), Pages(2));
-        assert_eq!(memory.data_size(&store), 65536 * 2);
+        assert_eq!(memory.view(&store).size(), Pages(2));
+        assert_eq!(memory.view(&store).data_size(), 65536 * 2);
     }
 
     #[wasm_bindgen_test]
@@ -81,7 +81,7 @@ mod js {
             .unwrap();
 
         let import_object = imports! {};
-        let mut env = FunctionEnv::new(&mut store, ());
+        let _env = FunctionEnv::new(&mut store, ());
         let instance = Instance::new(&mut store, &module, &import_object).unwrap();
 
         let get_magic = instance.exports.get_function("get_magic").unwrap();
@@ -121,7 +121,7 @@ mod js {
                 ))],
             })
             .unwrap();
-        let mut env = FunctionEnv::new(&mut store, ());
+        let env = FunctionEnv::new(&mut store, ());
 
         let imported_signature = FunctionType::new(vec![Type::I32], vec![Type::I32]);
 
@@ -238,7 +238,7 @@ mod js {
             multiplier: i32,
         }
 
-        let mut env = FunctionEnv::new(&mut store, Env { multiplier: 3 });
+        let env = FunctionEnv::new(&mut store, Env { multiplier: 3 });
 
         let imported_signature = FunctionType::new(vec![Type::I32], vec![Type::I32]);
         let imported = Function::new(&mut store, &env, &imported_signature, |env, args| {
@@ -293,7 +293,7 @@ mod js {
             return arg + 1;
         }
 
-        let mut env = FunctionEnv::new(&mut store, ());
+        let env = FunctionEnv::new(&mut store, ());
         let imported = Function::new_native(&mut store, &env, imported_fn);
 
         let import_object = imports! {
@@ -348,7 +348,7 @@ mod js {
             return env.data().multiplier * arg;
         }
 
-        let mut env = FunctionEnv::new(&mut store, Env { multiplier: 3 });
+        let env = FunctionEnv::new(&mut store, Env { multiplier: 3 });
 
         let imported = Function::new_native(&mut store, &env, imported_fn);
 
@@ -403,11 +403,11 @@ mod js {
 
         fn imported_fn(env: FunctionEnvMut<'_, Env>, arg: u32) -> u32 {
             let memory: &Memory = env.data().memory.as_ref().unwrap();
-            let memory_val = memory.uint8view(&env).get_index(0);
+            let memory_val = memory.view(&env).uint8view().get_index(0);
             return (memory_val as u32) * env.data().multiplier * arg;
         }
 
-        let mut env = FunctionEnv::new(
+        let env = FunctionEnv::new(
             &mut store,
             Env {
                 multiplier: 3,
@@ -424,12 +424,12 @@ mod js {
         let instance = Instance::new(&mut store, &module, &import_object).unwrap();
 
         let memory = instance.exports.get_memory("memory").unwrap();
-        assert_eq!(memory.data_size(&store), 65536);
-        let memory_val = memory.uint8view(&store).get_index(0);
+        assert_eq!(memory.view(&store).data_size(), 65536);
+        let memory_val = memory.view(&store).uint8view()    .get_index(0);
         assert_eq!(memory_val, 0);
 
-        memory.uint8view(&store).set_index(0, 2);
-        let memory_val = memory.uint8view(&store).get_index(0);
+        memory.view(&store).uint8view().set_index(0, 2);
+        let memory_val = memory.view(&store).uint8view().get_index(0);
         assert_eq!(memory_val, 2);
 
         env.as_mut(&mut store).memory = Some(memory.clone());
@@ -441,7 +441,7 @@ mod js {
         assert_eq!(exported.call(&mut store, &[Val::I32(4)]), Ok(expected));
 
         // It works if we update the memory
-        memory.uint8view(&store).set_index(0, 3);
+        memory.view(&store).uint8view().set_index(0, 3);
         let expected = vec![Val::I32(36)].into_boxed_slice();
         assert_eq!(exported.call(&mut store, &[Val::I32(4)]), Ok(expected));
     }
@@ -454,7 +454,7 @@ mod js {
             multiplier: u32,
         }
 
-        let mut env = FunctionEnv::new(&mut store, Env { multiplier: 3 });
+        let env = FunctionEnv::new(&mut store, Env { multiplier: 3 });
 
         fn imported_fn(
             env: FunctionEnvMut<'_, Env>,
@@ -511,12 +511,12 @@ mod js {
             args: &[Val],
         ) -> Result<Vec<Val>, RuntimeError> {
             let memory: &Memory = env.data().memory.as_ref().unwrap();
-            let memory_val = memory.uint8view(&env).get_index(0);
+            let memory_val = memory.view(&env).uint8view().get_index(0);
             let value = (memory_val as u32) * env.data().multiplier * args[0].unwrap_i32() as u32;
             return Ok(vec![Val::I32(value as _)]);
         }
 
-        let mut env = FunctionEnv::new(
+        let env = FunctionEnv::new(
             &mut store,
             Env {
                 multiplier: 3,
@@ -535,12 +535,12 @@ mod js {
         let instance = Instance::new(&mut store, &module, &import_object).unwrap();
 
         let memory = instance.exports.get_memory("memory").unwrap();
-        assert_eq!(memory.data_size(&store), 65536);
-        let memory_val = memory.uint8view(&store).get_index(0);
+        assert_eq!(memory.view(&store).data_size(), 65536);
+        let memory_val = memory.view(&store).uint8view().get_index(0);
         assert_eq!(memory_val, 0);
 
-        memory.uint8view(&store).set_index(0, 2);
-        let memory_val = memory.uint8view(&store).get_index(0);
+        memory.view(&store).uint8view().set_index(0, 2);
+        let memory_val = memory.view(&store).uint8view().get_index(0);
         assert_eq!(memory_val, 2);
 
         env.as_mut(&mut store).memory = Some(memory.clone());
@@ -552,7 +552,7 @@ mod js {
         assert_eq!(exported.call(&mut store, &[Val::I32(4)]), Ok(expected));
 
         // It works if we update the memory
-        memory.uint8view(&store).set_index(0, 3);
+        memory.view(&store).uint8view().set_index(0, 3);
         let expected = vec![Val::I32(36)].into_boxed_slice();
         assert_eq!(exported.call(&mut store, &[Val::I32(4)]), Ok(expected));
     }
@@ -585,7 +585,7 @@ mod js {
                 ],
             })
             .unwrap();
-        let mut env = FunctionEnv::new(&mut store, ());
+        let _env = FunctionEnv::new(&mut store, ());
         let global = Global::new_mut(&mut store, Value::I32(0));
         let import_object = imports! {
             "" => {
@@ -633,7 +633,7 @@ mod js {
             a + b
         }
 
-        let mut env = FunctionEnv::new(&mut store, ());
+        let env = FunctionEnv::new(&mut store, ());
 
         let import_object = imports! {
             "env" => {
@@ -673,7 +673,7 @@ mod js {
         fn early_exit(_: FunctionEnvMut<'_, ()>) {
             panic!("Do panic")
         }
-        let mut env = FunctionEnv::new(&mut store, ());
+        let env = FunctionEnv::new(&mut store, ());
 
         let import_object = imports! {
             "env" => {
@@ -721,7 +721,7 @@ mod js {
         )
         .unwrap();
 
-        let mut env = FunctionEnv::new(&mut store, ());
+        let env = FunctionEnv::new(&mut store, ());
 
         use std::fmt;
 
@@ -802,7 +802,7 @@ mod js {
         .unwrap();
 
         let import_object = imports! {};
-        let mut env = FunctionEnv::new(&mut store, ());
+        let _env = FunctionEnv::new(&mut store, ());
         let result = Instance::new(&mut store, &module, &import_object);
         let err = result.unwrap_err();
         assert!(format!("{:?}", err).contains("zero"))

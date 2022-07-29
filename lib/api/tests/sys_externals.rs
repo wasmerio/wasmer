@@ -153,7 +153,7 @@ mod sys {
             maximum: Some(Pages(10)),
         };
         let memory = Memory::new(&mut store, memory_type)?;
-        assert_eq!(memory.size(&mut store), Pages(0));
+        assert_eq!(memory.view(&mut store).size(), Pages(0));
         assert_eq!(memory.ty(&mut store), memory_type);
         Ok(())
     }
@@ -163,11 +163,11 @@ mod sys {
         let mut store = Store::default();
         let desc = MemoryType::new(Pages(10), Some(Pages(16)), false);
         let memory = Memory::new(&mut store, desc)?;
-        assert_eq!(memory.size(&mut store), Pages(10));
+        assert_eq!(memory.view(&mut store).size(), Pages(10));
 
         let result = memory.grow(&mut store, Pages(2)).unwrap();
         assert_eq!(result, Pages(10));
-        assert_eq!(memory.size(&mut store), Pages(12));
+        assert_eq!(memory.view(&mut store).size(), Pages(12));
 
         let result = memory.grow(&mut store, Pages(10));
         assert_eq!(

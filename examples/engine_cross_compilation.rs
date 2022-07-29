@@ -69,10 +69,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // That's where we specify the target for the compiler.
     //
     // Use the Universal engine.
-    let mut engine = EngineBuilder::new(compiler_config).set_target(Some(target));
+    let engine = EngineBuilder::new(compiler_config).set_target(Some(target));
 
     // Create a store, that holds the engine.
-    let mut store = Store::new(engine);
+    let store = Store::new(engine);
 
     println!("Compiling module...");
     // Let's compile the Wasm module.
