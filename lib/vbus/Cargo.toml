@@ -16,4 +16,6 @@ slab = { version = "0.4", optional = true }
 wasmer-vfs = { path = "../vfs", version = "=3.0.0-alpha.4", default-features = false }
 
 [features]
-default = []
+default = ["mem_fs"]
+mem_fs = ["wasmer-vfs/mem-fs"]
+host_fs = ["wasmer-vfs/host-fs"]

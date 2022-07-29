@@ -54,8 +54,9 @@ dep_graph = {
         ]
     ),
     "wasmer-vfs": set([]),
+    "wasmer-vbus": set([]),
     "wasmer-cache": set(["wasmer"]),
-    "wasmer-wasi": set(["wasmer", "wasmer-wasi-types", "wasmer-vfs"]),
+    "wasmer-wasi": set(["wasmer", "wasmer-wasi-types", "wasmer-vfs", "wasmer-vbus"]),
     "wasmer-wasi-types": set(["wasmer-types"]),
     "wasmer-wasi-experimental-io-devices": set(["wasmer-wasi"]),
     "wasmer-emscripten": set(["wasmer"]),
@@ -114,6 +115,7 @@ location = {
     "wasmer-c-api": "c-api",
     "wasmer-middlewares": "middlewares",
     "wasmer-vfs": "vfs",
+    "wasmer-vbus": "vbus",
     "wasmer-cli": "cli",
     "wasmer-wast": "../tests/lib/wast",
 }
