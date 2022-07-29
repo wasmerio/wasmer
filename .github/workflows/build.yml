@@ -220,7 +220,8 @@ jobs:
       - name: Build Wasmer with minimal "sys" features
         run: |
           cargo build --no-default-features --features="sys" --manifest-path=lib/api/Cargo.toml &&
-          cargo build --manifest-path=lib/cache/Cargo.toml
+          cargo build --manifest-path=lib/cache/Cargo.toml &&
+          cargo build --manifest-path=lib/vbus/Cargo.toml
       - name: Dist
         if: matrix.build != 'macos-arm64'
         run: |
