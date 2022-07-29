@@ -9,13 +9,14 @@ use crate::Features;
 use crate::ModuleEnvironment;
 use crate::{
     register_frame_info, resolve_imports, FunctionExtent, GlobalFrameInfoRegistration,
-    InstantiationError, MetadataHeader, RuntimeError, Tunables,
+    InstantiationError, RuntimeError, Tunables,
 };
 use crate::{Engine, EngineInner};
 use enumset::EnumSet;
 use std::sync::Arc;
 use std::sync::Mutex;
 use wasmer_types::entity::{BoxedSlice, PrimaryMap};
+use wasmer_types::MetadataHeader;
 use wasmer_types::{
     CompileError, CpuFeature, DataInitializer, DeserializeError, FunctionIndex, LocalFunctionIndex,
     MemoryIndex, ModuleInfo, OwnedDataInitializer, SerializableModule, SerializeError,

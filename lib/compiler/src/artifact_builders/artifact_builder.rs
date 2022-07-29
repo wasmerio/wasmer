@@ -7,14 +7,13 @@ use crate::ArtifactCreate;
 #[cfg(feature = "compiler")]
 use crate::EngineInner;
 use crate::Features;
-use crate::MetadataHeader;
-#[cfg(feature = "compiler")]
 use crate::{ModuleEnvironment, ModuleMiddlewareChain};
 use enumset::EnumSet;
 use std::mem;
 use wasmer_types::entity::PrimaryMap;
 #[cfg(feature = "compiler")]
 use wasmer_types::CompileModuleInfo;
+use wasmer_types::MetadataHeader;
 use wasmer_types::SerializeError;
 use wasmer_types::{
     CompileError, CpuFeature, CustomSection, Dwarf, FunctionIndex, LocalFunctionIndex, MemoryIndex,

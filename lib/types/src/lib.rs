@@ -92,7 +92,7 @@ pub use crate::initializers::{
     DataInitializer, DataInitializerLocation, OwnedDataInitializer, TableInitializer,
 };
 pub use crate::memory::{Memory32, Memory64, MemorySize};
-pub use crate::module::{ExportsIterator, ImportsIterator, ModuleInfo};
+pub use crate::module::{ExportsIterator, ImportKey, ImportsIterator, ModuleInfo};
 pub use crate::units::{
     Bytes, PageCountOutOfRange, Pages, WASM_MAX_PAGES, WASM_MIN_PAGES, WASM_PAGE_SIZE,
 };

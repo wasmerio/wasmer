@@ -4,7 +4,7 @@
 
 pub use super::unstable::wasi::wasi_get_unordered_imports;
 use super::{
-    externals::{wasm_extern_t, wasm_extern_vec_t, wasm_func_t},
+    externals::{wasm_extern_t, wasm_extern_vec_t, wasm_func_t, wasm_memory_t},
     instance::wasm_instance_t,
     module::wasm_module_t,
     store::{wasm_store_t, StoreRef},
@@ -196,6 +196,14 @@ pub unsafe extern "C" fn wasi_env_new(
 /// Delete a [`wasi_env_t`].
 #[no_mangle]
 pub extern "C" fn wasi_env_delete(_state: Option<Box<wasi_env_t>>) {}
+
+/// Set the memory on a [`wasi_env_t`].
+#[no_mangle]
+pub unsafe extern "C" fn wasi_env_set_memory(env: &mut wasi_env_t, memory: &wasm_memory_t) {
+    let mut store_mut = env.store.store_mut();
+    let wasi_env = env.inner.data_mut(&mut store_mut);
+    wasi_env.set_memory(memory.extern_.memory());
+}
 
 #[no_mangle]
 pub unsafe extern "C" fn wasi_env_read_stdout(

@@ -64,7 +64,15 @@ pub fn resolve_imports(
     let mut memory_imports = PrimaryMap::with_capacity(module.num_imported_memories);
     let mut global_imports = PrimaryMap::with_capacity(module.num_imported_globals);
 
-    for ((module_name, field, import_idx), import_index) in module.imports.iter() {
+    for (
+        wasmer_types::ImportKey {
+            module: module_name,
+            field,
+            import_idx,
+        },
+        import_index,
+    ) in module.imports.iter()
+    {
         let import_extern = get_extern_from_import(module, import_index);
         let resolved = if let Some(r) = imports.get(*import_idx as usize) {
             r
