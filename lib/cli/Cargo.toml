@@ -37,6 +37,7 @@ wasmer-wasi-experimental-io-devices = { version = "=3.0.0-alpha.4", path = "../w
 wasmer-wast = { version = "=3.0.0-alpha.4", path = "../../tests/lib/wast", optional = true }
 wasmer-cache = { version = "=3.0.0-alpha.4", path = "../cache", optional = true }
 wasmer-types = { version = "=3.0.0-alpha.4", path = "../types" }
+wasmer-object = { version = "=3.0.0-alpha.4", path = "../object" }
 wasmer-vfs  = { version = "=3.0.0-alpha.4", path = "../vfs", default-features = false, features = ["host-fs"] }
 atty = "0.2"
 colored = "2.0"

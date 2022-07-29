@@ -2935,6 +2935,7 @@ dependencies = [
  "wasmer-compiler-llvm",
  "wasmer-compiler-singlepass",
  "wasmer-emscripten",
+ "wasmer-object",
  "wasmer-types",
  "wasmer-vfs",
  "wasmer-vm",
