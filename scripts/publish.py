@@ -30,6 +30,8 @@ dep_graph = {
     "wasmer-derive": set([]),
     "wasmer-vm": set(["wasmer-types"]),
     "wasmer-compiler": set(["wasmer-types"]),
+    "wasmer-compiler-singlepass": set(["wasmer-types", "wasmer-compiler"]),
+    "wasmer-compiler-cranelift": set(["wasmer-types", "wasmer-compiler"]),
     "wasmer-compiler-cli": set(
         [
             "wasmer-compiler",
@@ -39,8 +41,6 @@ dep_graph = {
         ]
     ),
     "wasmer-object": set(["wasmer-types", "wasmer-compiler"]),
-    "wasmer-compiler-singlepass": set(["wasmer-types", "wasmer-compiler"]),
-    "wasmer-compiler-cranelift": set(["wasmer-types", "wasmer-compiler"]),
     "wasmer-compiler-llvm": set(["wasmer-compiler", "wasmer-vm", "wasmer-types"]),
     "wasmer": set(
         [

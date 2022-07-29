@@ -23,6 +23,6 @@ rand = "0.8.3"
 wasmer-compiler-singlepass = { path = "../compiler-singlepass", version = "=3.0.0-alpha.4" }
 
 [features]
-default = ["wasmer/js-serializable-module", "filesystem"]
+default = ["wasmer/js-serializable-module", "wasmer/compiler", "filesystem"]
 filesystem = []
 blake3-pure = ["blake3/pure"]
