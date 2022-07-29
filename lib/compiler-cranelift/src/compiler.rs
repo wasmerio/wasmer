@@ -393,7 +393,6 @@ impl Compiler for CraneliftCompiler {
 fn mach_reloc_to_reloc(module: &ModuleInfo, reloc: &MachReloc) -> Relocation {
     let &MachReloc {
         offset,
-        srcloc: _,
         kind,
         ref name,
         addend,
@@ -421,9 +420,9 @@ fn mach_reloc_to_reloc(module: &ModuleInfo, reloc: &MachReloc) -> Relocation {
 fn mach_trap_to_trap(trap: &MachTrap) -> TrapInformation {
     let &MachTrap {
         offset,
-        srcloc: _,
         code,
     } = trap;
+eprintln!("mach_trap_to_trap({:?}) offset={:?}, code={:?}", trap, offset, code);
     TrapInformation {
         code_offset: offset,
         trap_code: translate_ir_trapcode(code),
