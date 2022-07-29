@@ -15,10 +15,12 @@ maintenance = { status = "experimental" }
 
 [dependencies]
 wasmer-vnet = { version = "=3.0.0-alpha.4", path = "../vnet", default-features = false }
-wasmer-vfs = { path = "../vfs", version = "=3.0.0-alpha.4", default-features = false, features = [ "host-fs" ] }
+wasmer-vfs = { path = "../vfs", version = "=3.0.0-alpha.4", default-features = false }
 tracing = "0.1"
 bytes = "1.1"
 
 [features]
-default = [ ]
+default = ["host_fs"]
 wasix = [ ]
+host_fs = ["wasmer-vnet/host_fs", "wasmer-vfs/host-fs"]
+mem_fs = ["wasmer-vnet/mem_fs", "wasmer-vfs/mem-fs"]
