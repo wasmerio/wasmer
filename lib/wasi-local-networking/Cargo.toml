@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-wasi-local-networking"
-version = "3.0.0-alpha.3"
+version = "3.0.0-alpha.4"
 description = "An WASIX extension for local networking"
 categories = ["wasm"]
 keywords = ["wasm", "webassembly", "types"]
@@ -14,8 +14,8 @@ edition = "2018"
 maintenance = { status = "experimental" }
 
 [dependencies]
-wasmer-vnet = { version = "=3.0.0-alpha.3", path = "../vnet", default-features = false }
-wasmer-vfs = { path = "../vfs", version = "=3.0.0-alpha.3", default-features = false, features = [ "host-fs" ] }
+wasmer-vnet = { version = "=3.0.0-alpha.4", path = "../vnet", default-features = false }
+wasmer-vfs = { path = "../vfs", version = "=3.0.0-alpha.4", default-features = false, features = [ "host-fs" ] }
 tracing = "0.1"
 bytes = "1.1"
 

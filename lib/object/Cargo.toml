@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-object"
-version = "3.0.0-alpha.3"
+version = "3.0.0-alpha.4"
 description = "Wasmer Native Object generator"
 categories = ["wasm"]
 keywords = ["wasm", "webassembly"]
@@ -11,8 +11,8 @@ readme = "README.md"
 edition = "2018"
 
 [dependencies]
-wasmer-types = { path = "../types", version = "=3.0.0-alpha.3" }
-wasmer-compiler = { path = "../compiler", version = "=3.0.0-alpha.3", default-features = false, features = [
+wasmer-types = { path = "../types", version = "=3.0.0-alpha.4" }
+wasmer-compiler = { path = "../compiler", version = "=3.0.0-alpha.4", default-features = false, features = [
     "std",
     "translator",
 ] }
