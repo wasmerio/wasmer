@@ -57,7 +57,8 @@ macro_rules! map_feature_as_c_define {
         #[cfg(feature = $feature)]
         {
             use std::fmt::Write;
-            let _  = write!($accumulator,
+            let _ = write!(
+                $accumulator,
                 r#"
 // The `{feature}` feature has been enabled for this build.
 #define {define}
