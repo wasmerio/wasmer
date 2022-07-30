@@ -1375,11 +1375,6 @@
 <span id="1373">1373</span>
 <span id="1374">1374</span>
 <span id="1375">1375</span>
-<span id="1376">1376</span>
-<span id="1377">1377</span>
-<span id="1378">1378</span>
-<span id="1379">1379</span>
-<span id="1380">1380</span>
 </pre><pre class="rust"><code><span class="doccomment">//! This module contains the [`FileSystem`] type itself.</span>
 
 <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
@@ -1410,7 +1405,8 @@
         <span class="kw">let</span> (<span class="ident">path</span>, <span class="ident">inode_of_directory</span>) <span class="op">=</span> <span class="ident">fs</span>.<span class="ident">canonicalize</span>(<span class="ident">path</span>)<span class="question-mark">?</span>;
 
         <span class="comment">// Check it&#39;s a directory and fetch the immediate children as `DirEntry`.</span>
-        <span class="kw">let</span> <span class="ident">children</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">fs</span>.<span class="ident">storage</span>.<span class="ident">get</span>(<span class="ident">inode_of_directory</span>) {
+        <span class="kw">let</span> <span class="ident">inode</span> <span class="op">=</span> <span class="ident">fs</span>.<span class="ident">storage</span>.<span class="ident">get</span>(<span class="ident">inode_of_directory</span>);
+        <span class="kw">let</span> <span class="ident">children</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">inode</span> {
             <span class="prelude-val">Some</span>(<span class="ident">Node::Directory</span> { <span class="ident">children</span>, .. }) =&gt; <span class="ident">children</span>
                 .<span class="ident">iter</span>()
                 .<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">inode</span><span class="op">|</span> <span class="ident">fs</span>.<span class="ident">storage</span>.<span class="ident">get</span>(<span class="kw-2">*</span><span class="ident">inode</span>))
@@ -1515,12 +1511,11 @@
 
             <span class="comment">// Get the child index to remove in the parent node, in</span>
             <span class="comment">// addition to the inode of the directory to remove.</span>
-            <span class="kw">let</span> (<span class="ident">position</span>, <span class="ident">inode_of_directory</span>) <span class="op">=</span> <span class="ident">fs</span>
-                .<span class="ident">from_parent_get_position_and_inode_of_directory</span>(
-                    <span class="ident">inode_of_parent</span>,
-                    <span class="kw-2">&amp;</span><span class="ident">name_of_directory</span>,
-                    <span class="ident">DirectoryMustBeEmpty::Yes</span>,
-                )<span class="question-mark">?</span>;
+            <span class="kw">let</span> (<span class="ident">position</span>, <span class="ident">inode_of_directory</span>) <span class="op">=</span> <span class="ident">fs</span>.<span class="ident">as_parent_get_position_and_inode_of_directory</span>(
+                <span class="ident">inode_of_parent</span>,
+                <span class="kw-2">&amp;</span><span class="ident">name_of_directory</span>,
+                <span class="ident">DirectoryMustBeEmpty::Yes</span>,
+            )<span class="question-mark">?</span>;
 
             (<span class="ident">inode_of_parent</span>, <span class="ident">position</span>, <span class="ident">inode_of_directory</span>)
         };
@@ -1565,7 +1560,7 @@
             <span class="comment">// Get the child indexes to update in the parent nodes, in</span>
             <span class="comment">// addition to the inode of the directory to update.</span>
             <span class="kw">let</span> (<span class="ident">position_of_from</span>, <span class="ident">inode</span>) <span class="op">=</span> <span class="ident">fs</span>
-                .<span class="ident">from_parent_get_position_and_inode</span>(<span class="ident">inode_of_from_parent</span>, <span class="kw-2">&amp;</span><span class="ident">name_of_from</span>)<span class="question-mark">?</span>
+                .<span class="ident">as_parent_get_position_and_inode</span>(<span class="ident">inode_of_from_parent</span>, <span class="kw-2">&amp;</span><span class="ident">name_of_from</span>)<span class="question-mark">?</span>
                 .<span class="ident">ok_or</span>(<span class="ident">FsError::NotAFile</span>)<span class="question-mark">?</span>;
 
             (
@@ -1593,7 +1588,8 @@
             }
             <span class="comment">// Otherwise, we need to at least update the modified time of the parent.</span>
             <span class="kw">else</span> {
-                <span class="kw">match</span> <span class="ident">fs</span>.<span class="ident">storage</span>.<span class="ident">get_mut</span>(<span class="ident">inode_of_from_parent</span>) {
+                <span class="kw">let</span> <span class="ident">inode</span> <span class="op">=</span> <span class="ident">fs</span>.<span class="ident">storage</span>.<span class="ident">get_mut</span>(<span class="ident">inode_of_from_parent</span>);
+                <span class="kw">match</span> <span class="ident">inode</span> {
                     <span class="prelude-val">Some</span>(<span class="ident">Node::Directory</span> {
                         <span class="ident">metadata</span>: <span class="ident">Metadata</span> { <span class="ident">modified</span>, .. },
                         ..
@@ -1640,7 +1636,7 @@
 
             <span class="comment">// Find the inode of the file if it exists, along with its position.</span>
             <span class="kw">let</span> <span class="ident">maybe_position_and_inode_of_file</span> <span class="op">=</span>
-                <span class="ident">fs</span>.<span class="ident">from_parent_get_position_and_inode_of_file</span>(<span class="ident">inode_of_parent</span>, <span class="kw-2">&amp;</span><span class="ident">name_of_file</span>)<span class="question-mark">?</span>;
+                <span class="ident">fs</span>.<span class="ident">as_parent_get_position_and_inode_of_file</span>(<span class="ident">inode_of_parent</span>, <span class="kw-2">&amp;</span><span class="ident">name_of_file</span>)<span class="question-mark">?</span>;
 
             <span class="kw">match</span> <span class="ident">maybe_position_and_inode_of_file</span> {
                 <span class="prelude-val">Some</span>((<span class="ident">position</span>, <span class="ident">inode_of_file</span>)) =&gt; (<span class="ident">inode_of_parent</span>, <span class="ident">position</span>, <span class="ident">inode_of_file</span>),
@@ -1700,13 +1696,7 @@
                 <span class="ident">Node::Directory</span> { <span class="ident">children</span>, .. } =&gt; <span class="ident">children</span>
                     .<span class="ident">iter</span>()
                     .<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">inode</span><span class="op">|</span> <span class="self">self</span>.<span class="ident">storage</span>.<span class="ident">get</span>(<span class="kw-2">*</span><span class="ident">inode</span>))
-                    .<span class="ident">find_map</span>(<span class="op">|</span><span class="ident">node</span><span class="op">|</span> {
-                        <span class="kw">if</span> <span class="ident">node</span>.<span class="ident">name</span>() <span class="op">==</span> <span class="ident">component</span>.<span class="ident">as_os_str</span>() {
-                            <span class="prelude-val">Some</span>(<span class="ident">node</span>)
-                        } <span class="kw">else</span> {
-                            <span class="prelude-val">None</span>
-                        }
-                    })
+                    .<span class="ident">find</span>(<span class="op">|</span><span class="ident">node</span><span class="op">|</span> <span class="ident">node</span>.<span class="ident">name</span>() <span class="op">==</span> <span class="ident">component</span>.<span class="ident">as_os_str</span>())
                     .<span class="ident">ok_or</span>(<span class="ident">FsError::NotAFile</span>)<span class="question-mark">?</span>,
                 <span class="kw">_</span> =&gt; <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">FsError::BaseNotDirectory</span>),
             };
@@ -1729,7 +1719,7 @@
 
     <span class="doccomment">/// From the inode of a parent node (so, a directory), returns the</span>
     <span class="doccomment">/// child index of `name_of_directory` along with its inode.</span>
-    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn</span> <span class="ident">from_parent_get_position_and_inode_of_directory</span>(
+    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn</span> <span class="ident">as_parent_get_position_and_inode_of_directory</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">inode_of_parent</span>: <span class="ident">Inode</span>,
         <span class="ident">name_of_directory</span>: <span class="kw-2">&amp;</span><span class="ident">OsString</span>,
@@ -1764,7 +1754,7 @@
 
     <span class="doccomment">/// From the inode of a parent node (so, a directory), returns the</span>
     <span class="doccomment">/// child index of `name_of_file` along with its inode.</span>
-    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn</span> <span class="ident">from_parent_get_position_and_inode_of_file</span>(
+    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn</span> <span class="ident">as_parent_get_position_and_inode_of_file</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">inode_of_parent</span>: <span class="ident">Inode</span>,
         <span class="ident">name_of_file</span>: <span class="kw-2">&amp;</span><span class="ident">OsString</span>,
@@ -1791,7 +1781,7 @@
     <span class="doccomment">/// From the inode of a parent node (so, a directory), returns the</span>
     <span class="doccomment">/// child index of `name_of` along with its inode, whatever the</span>
     <span class="doccomment">/// type of inode is (directory or file).</span>
-    <span class="kw">fn</span> <span class="ident">from_parent_get_position_and_inode</span>(
+    <span class="kw">fn</span> <span class="ident">as_parent_get_position_and_inode</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">inode_of_parent</span>: <span class="ident">Inode</span>,
         <span class="ident">name_of</span>: <span class="kw-2">&amp;</span><span class="ident">OsString</span>,

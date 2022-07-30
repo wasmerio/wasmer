@@ -475,6 +475,7 @@
 <span id="473">473</span>
 <span id="474">474</span>
 <span id="475">475</span>
+<span id="476">476</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std::convert::TryFrom</span>;
 <span class="kw">use</span> <span class="ident">std::fmt</span>;
 <span class="kw">use</span> <span class="ident">std::string</span>::{<span class="ident">String</span>, <span class="ident">ToString</span>};
@@ -583,6 +584,7 @@
         }
     }
 
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
     <span class="doccomment">/// Converts a `RawValue` to a `Value`.</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// # Safety</span>

@@ -300,7 +300,7 @@
 }
 
 <span class="doccomment">/// The only error that can happen when converting `Bytes` to `Pages`</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">PartialEq</span>, <span class="ident">Error</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Error</span>)]</span>
 <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;Number of pages exceeds uint32 range&quot;</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">PageCountOutOfRange</span>;
 

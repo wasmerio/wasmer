@@ -210,6 +210,9 @@
 <span id="208">208</span>
 <span id="209">209</span>
 <span id="210">210</span>
+<span id="211">211</span>
+<span id="212">212</span>
+<span id="213">213</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::exports</span>::{<span class="ident">ExportError</span>, <span class="ident">Exportable</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::externals::Extern</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::store</span>::{<span class="ident">AsStoreMut</span>, <span class="ident">AsStoreRef</span>};
@@ -258,6 +261,7 @@
     })
 }
 
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
 <span class="kw">fn</span> <span class="ident">value_from_table_element</span>(<span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">item</span>: <span class="ident">wasmer_vm::TableElement</span>) -&gt; <span class="ident">Value</span> {
     <span class="kw">match</span> <span class="ident">item</span> {
         <span class="ident">wasmer_vm::TableElement::FuncRef</span>(<span class="ident">funcref</span>) =&gt; {
@@ -270,6 +274,7 @@
 }
 
 <span class="kw">impl</span> <span class="ident">Table</span> {
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
     <span class="doccomment">/// Creates a new `Table` with the provided [`TableType`] definition.</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// All the elements in the table will be set to the `init` value.</span>
@@ -304,6 +309,7 @@
         <span class="kw-2">*</span><span class="self">self</span>.<span class="ident">handle</span>.<span class="ident">get</span>(<span class="ident">store</span>.<span class="ident">as_store_ref</span>().<span class="ident">objects</span>()).<span class="ident">ty</span>()
     }
 
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
     <span class="doccomment">/// Retrieves an element of the table at the provided `index`.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">index</span>: <span class="ident">u32</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Value</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">item</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">handle</span>.<span class="ident">get</span>(<span class="ident">store</span>.<span class="ident">as_store_ref</span>().<span class="ident">objects</span>()).<span class="ident">get</span>(<span class="ident">index</span>)<span class="question-mark">?</span>;

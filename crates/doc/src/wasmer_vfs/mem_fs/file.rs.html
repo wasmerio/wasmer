@@ -1002,6 +1002,13 @@
 <span id="1000">1000</span>
 <span id="1001">1001</span>
 <span id="1002">1002</span>
+<span id="1003">1003</span>
+<span id="1004">1004</span>
+<span id="1005">1005</span>
+<span id="1006">1006</span>
+<span id="1007">1007</span>
+<span id="1008">1008</span>
+<span id="1009">1009</span>
 </pre><pre class="rust"><code><span class="doccomment">//! This module contains the `FileHandle` and `File`</span>
 <span class="doccomment">//! implementations. They aren&#39;t exposed to the public API. Only</span>
 <span class="doccomment">//! `FileHandle` can be used through the `VirtualFile` trait object.</span>
@@ -1055,12 +1062,11 @@
             <span class="kw">_</span> =&gt; <span class="kw">return</span> <span class="number">0</span>,
         };
 
-        <span class="kw">let</span> <span class="ident">node</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">fs</span>.<span class="ident">storage</span>.<span class="ident">get</span>(<span class="self">self</span>.<span class="ident">inode</span>) {
-            <span class="prelude-val">Some</span>(<span class="ident">node</span>) =&gt; <span class="ident">node</span>,
-            <span class="kw">_</span> =&gt; <span class="kw">return</span> <span class="number">0</span>,
-        };
-
-        <span class="ident">node</span>.<span class="ident">metadata</span>().<span class="ident">accessed</span>
+        <span class="kw">let</span> <span class="ident">inode</span> <span class="op">=</span> <span class="ident">fs</span>.<span class="ident">storage</span>.<span class="ident">get</span>(<span class="self">self</span>.<span class="ident">inode</span>);
+        <span class="kw">match</span> <span class="ident">inode</span> {
+            <span class="prelude-val">Some</span>(<span class="ident">node</span>) =&gt; <span class="ident">node</span>.<span class="ident">metadata</span>().<span class="ident">accessed</span>,
+            <span class="kw">_</span> =&gt; <span class="number">0</span>,
+        }
     }
 
     <span class="kw">fn</span> <span class="ident">last_modified</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u64</span> {
@@ -1069,12 +1075,11 @@
             <span class="kw">_</span> =&gt; <span class="kw">return</span> <span class="number">0</span>,
         };
 
-        <span class="kw">let</span> <span class="ident">node</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">fs</span>.<span class="ident">storage</span>.<span class="ident">get</span>(<span class="self">self</span>.<span class="ident">inode</span>) {
-            <span class="prelude-val">Some</span>(<span class="ident">node</span>) =&gt; <span class="ident">node</span>,
-            <span class="kw">_</span> =&gt; <span class="kw">return</span> <span class="number">0</span>,
-        };
-
-        <span class="ident">node</span>.<span class="ident">metadata</span>().<span class="ident">modified</span>
+        <span class="kw">let</span> <span class="ident">inode</span> <span class="op">=</span> <span class="ident">fs</span>.<span class="ident">storage</span>.<span class="ident">get</span>(<span class="self">self</span>.<span class="ident">inode</span>);
+        <span class="kw">match</span> <span class="ident">inode</span> {
+            <span class="prelude-val">Some</span>(<span class="ident">node</span>) =&gt; <span class="ident">node</span>.<span class="ident">metadata</span>().<span class="ident">modified</span>,
+            <span class="kw">_</span> =&gt; <span class="number">0</span>,
+        }
     }
 
     <span class="kw">fn</span> <span class="ident">created_time</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u64</span> {
@@ -1083,7 +1088,8 @@
             <span class="kw">_</span> =&gt; <span class="kw">return</span> <span class="number">0</span>,
         };
 
-        <span class="kw">let</span> <span class="ident">node</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">fs</span>.<span class="ident">storage</span>.<span class="ident">get</span>(<span class="self">self</span>.<span class="ident">inode</span>) {
+        <span class="kw">let</span> <span class="ident">inode</span> <span class="op">=</span> <span class="ident">fs</span>.<span class="ident">storage</span>.<span class="ident">get</span>(<span class="self">self</span>.<span class="ident">inode</span>);
+        <span class="kw">let</span> <span class="ident">node</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">inode</span> {
             <span class="prelude-val">Some</span>(<span class="ident">node</span>) =&gt; <span class="ident">node</span>,
             <span class="kw">_</span> =&gt; <span class="kw">return</span> <span class="number">0</span>,
         };
@@ -1097,7 +1103,8 @@
             <span class="kw">_</span> =&gt; <span class="kw">return</span> <span class="number">0</span>,
         };
 
-        <span class="kw">match</span> <span class="ident">fs</span>.<span class="ident">storage</span>.<span class="ident">get</span>(<span class="self">self</span>.<span class="ident">inode</span>) {
+        <span class="kw">let</span> <span class="ident">inode</span> <span class="op">=</span> <span class="ident">fs</span>.<span class="ident">storage</span>.<span class="ident">get</span>(<span class="self">self</span>.<span class="ident">inode</span>);
+        <span class="kw">match</span> <span class="ident">inode</span> {
             <span class="prelude-val">Some</span>(<span class="ident">Node::File</span> { <span class="ident">file</span>, .. }) =&gt; <span class="ident">file</span>.<span class="ident">len</span>().<span class="ident">try_into</span>().<span class="ident">unwrap_or</span>(<span class="number">0</span>),
             <span class="kw">_</span> =&gt; <span class="number">0</span>,
         }
@@ -1110,7 +1117,8 @@
             .<span class="ident">try_write</span>()
             .<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">FsError::Lock</span>)<span class="question-mark">?</span>;
 
-        <span class="kw">match</span> <span class="ident">fs</span>.<span class="ident">storage</span>.<span class="ident">get_mut</span>(<span class="self">self</span>.<span class="ident">inode</span>) {
+        <span class="kw">let</span> <span class="ident">inode</span> <span class="op">=</span> <span class="ident">fs</span>.<span class="ident">storage</span>.<span class="ident">get_mut</span>(<span class="self">self</span>.<span class="ident">inode</span>);
+        <span class="kw">match</span> <span class="ident">inode</span> {
             <span class="prelude-val">Some</span>(<span class="ident">Node::File</span> { <span class="ident">file</span>, <span class="ident">metadata</span>, .. }) =&gt; {
                 <span class="ident">file</span>.<span class="ident">buffer</span>
                     .<span class="ident">resize</span>(<span class="ident">new_size</span>.<span class="ident">try_into</span>().<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">FsError::UnknownError</span>)<span class="question-mark">?</span>, <span class="number">0</span>);
@@ -1182,7 +1190,8 @@
             .<span class="ident">try_read</span>()
             .<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">FsError::Lock</span>)<span class="question-mark">?</span>;
 
-        <span class="kw">match</span> <span class="ident">fs</span>.<span class="ident">storage</span>.<span class="ident">get</span>(<span class="self">self</span>.<span class="ident">inode</span>) {
+        <span class="kw">let</span> <span class="ident">inode</span> <span class="op">=</span> <span class="ident">fs</span>.<span class="ident">storage</span>.<span class="ident">get</span>(<span class="self">self</span>.<span class="ident">inode</span>);
+        <span class="kw">match</span> <span class="ident">inode</span> {
             <span class="prelude-val">Some</span>(<span class="ident">Node::File</span> { <span class="ident">file</span>, .. }) =&gt; <span class="prelude-val">Ok</span>(<span class="ident">file</span>.<span class="ident">buffer</span>.<span class="ident">len</span>() <span class="op">-</span> <span class="ident">file</span>.<span class="ident">cursor</span>),
             <span class="kw">_</span> =&gt; <span class="prelude-val">Err</span>(<span class="ident">FsError::NotAFile</span>),
         }
@@ -1420,7 +1429,8 @@
                 <span class="ident">io::Error::new</span>(<span class="ident">io::ErrorKind::Other</span>, <span class="string">&quot;failed to acquire a write lock&quot;</span>)
             })<span class="question-mark">?</span>;
 
-        <span class="kw">let</span> <span class="ident">file</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">fs</span>.<span class="ident">storage</span>.<span class="ident">get_mut</span>(<span class="self">self</span>.<span class="ident">inode</span>) {
+        <span class="kw">let</span> <span class="ident">inode</span> <span class="op">=</span> <span class="ident">fs</span>.<span class="ident">storage</span>.<span class="ident">get_mut</span>(<span class="self">self</span>.<span class="ident">inode</span>);
+        <span class="kw">let</span> <span class="ident">file</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">inode</span> {
             <span class="prelude-val">Some</span>(<span class="ident">Node::File</span> { <span class="ident">file</span>, .. }) =&gt; <span class="ident">file</span>,
             <span class="kw">_</span> =&gt; {
                 <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">io::Error::new</span>(
@@ -1449,7 +1459,8 @@
                 <span class="ident">io::Error::new</span>(<span class="ident">io::ErrorKind::Other</span>, <span class="string">&quot;failed to acquire a write lock&quot;</span>)
             })<span class="question-mark">?</span>;
 
-        <span class="kw">let</span> <span class="ident">file</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">fs</span>.<span class="ident">storage</span>.<span class="ident">get_mut</span>(<span class="self">self</span>.<span class="ident">inode</span>) {
+        <span class="kw">let</span> <span class="ident">inode</span> <span class="op">=</span> <span class="ident">fs</span>.<span class="ident">storage</span>.<span class="ident">get_mut</span>(<span class="self">self</span>.<span class="ident">inode</span>);
+        <span class="kw">let</span> <span class="ident">file</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">inode</span> {
             <span class="prelude-val">Some</span>(<span class="ident">Node::File</span> { <span class="ident">file</span>, .. }) =&gt; <span class="ident">file</span>,
             <span class="kw">_</span> =&gt; {
                 <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">io::Error::new</span>(
@@ -1497,7 +1508,8 @@
                 <span class="ident">io::Error::new</span>(<span class="ident">io::ErrorKind::Other</span>, <span class="string">&quot;failed to acquire a write lock&quot;</span>)
             })<span class="question-mark">?</span>;
 
-        <span class="kw">let</span> <span class="ident">file</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">fs</span>.<span class="ident">storage</span>.<span class="ident">get_mut</span>(<span class="self">self</span>.<span class="ident">inode</span>) {
+        <span class="kw">let</span> <span class="ident">inode</span> <span class="op">=</span> <span class="ident">fs</span>.<span class="ident">storage</span>.<span class="ident">get_mut</span>(<span class="self">self</span>.<span class="ident">inode</span>);
+        <span class="kw">let</span> <span class="ident">file</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">inode</span> {
             <span class="prelude-val">Some</span>(<span class="ident">Node::File</span> { <span class="ident">file</span>, .. }) =&gt; <span class="ident">file</span>,
             <span class="kw">_</span> =&gt; {
                 <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">io::Error::new</span>(
@@ -1536,7 +1548,8 @@
                 <span class="ident">io::Error::new</span>(<span class="ident">io::ErrorKind::Other</span>, <span class="string">&quot;failed to acquire a write lock&quot;</span>)
             })<span class="question-mark">?</span>;
 
-        <span class="kw">let</span> <span class="ident">file</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">fs</span>.<span class="ident">storage</span>.<span class="ident">get_mut</span>(<span class="self">self</span>.<span class="ident">inode</span>) {
+        <span class="kw">let</span> <span class="ident">inode</span> <span class="op">=</span> <span class="ident">fs</span>.<span class="ident">storage</span>.<span class="ident">get_mut</span>(<span class="self">self</span>.<span class="ident">inode</span>);
+        <span class="kw">let</span> <span class="ident">file</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">inode</span> {
             <span class="prelude-val">Some</span>(<span class="ident">Node::File</span> { <span class="ident">file</span>, .. }) =&gt; <span class="ident">file</span>,
             <span class="kw">_</span> =&gt; {
                 <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">io::Error::new</span>(
@@ -1567,7 +1580,8 @@
                 <span class="ident">io::Error::new</span>(<span class="ident">io::ErrorKind::Other</span>, <span class="string">&quot;failed to acquire a write lock&quot;</span>)
             })<span class="question-mark">?</span>;
 
-        <span class="kw">let</span> (<span class="ident">file</span>, <span class="ident">metadata</span>) <span class="op">=</span> <span class="kw">match</span> <span class="ident">fs</span>.<span class="ident">storage</span>.<span class="ident">get_mut</span>(<span class="self">self</span>.<span class="ident">inode</span>) {
+        <span class="kw">let</span> <span class="ident">inode</span> <span class="op">=</span> <span class="ident">fs</span>.<span class="ident">storage</span>.<span class="ident">get_mut</span>(<span class="self">self</span>.<span class="ident">inode</span>);
+        <span class="kw">let</span> (<span class="ident">file</span>, <span class="ident">metadata</span>) <span class="op">=</span> <span class="kw">match</span> <span class="ident">inode</span> {
             <span class="prelude-val">Some</span>(<span class="ident">Node::File</span> { <span class="ident">file</span>, <span class="ident">metadata</span>, .. }) =&gt; (<span class="ident">file</span>, <span class="ident">metadata</span>),
             <span class="kw">_</span> =&gt; {
                 <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">io::Error::new</span>(

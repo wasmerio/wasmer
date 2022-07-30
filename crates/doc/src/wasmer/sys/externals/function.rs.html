@@ -1421,6 +1421,12 @@
 <span id="1419">1419</span>
 <span id="1420">1420</span>
 <span id="1421">1421</span>
+<span id="1422">1422</span>
+<span id="1423">1423</span>
+<span id="1424">1424</span>
+<span id="1425">1425</span>
+<span id="1426">1426</span>
+<span id="1427">1427</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::exports</span>::{<span class="ident">ExportError</span>, <span class="ident">Exportable</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::externals::Extern</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::store</span>::{<span class="ident">AsStoreMut</span>, <span class="ident">AsStoreRef</span>, <span class="ident">StoreInner</span>, <span class="ident">StoreMut</span>};
@@ -1465,6 +1471,7 @@
 }
 
 <span class="kw">impl</span> <span class="ident">Function</span> {
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
     <span class="doccomment">/// Creates a new host `Function` (dynamic) with the provided signature.</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// If you know the signature of the host function at compile time,</span>
@@ -1582,6 +1589,7 @@
         }
     }
 
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
     <span class="doccomment">/// Creates a new host `Function` from a native function.</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// The function signature is automatically retrieved using the</span>
@@ -1671,6 +1679,7 @@
             .<span class="ident">clone</span>()
     }
 
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
     <span class="kw">fn</span> <span class="ident">call_wasm</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>,
@@ -1788,6 +1797,7 @@
         <span class="self">self</span>.<span class="ident">ty</span>(<span class="ident">store</span>).<span class="ident">results</span>().<span class="ident">len</span>()
     }
 
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
     <span class="doccomment">/// Call the `Function` function.</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// Depending on where the Function is defined, it will call it.</span>
@@ -1845,6 +1855,7 @@
         <span class="ident">VMFuncRef</span>(<span class="ident">vm_function</span>.<span class="ident">anyfunc</span>.<span class="ident">as_ptr</span>())
     }
 
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_vm_funcref</span>(<span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">funcref</span>: <span class="ident">VMFuncRef</span>) -&gt; <span class="self">Self</span> {
         <span class="kw">let</span> <span class="ident">signature</span> <span class="op">=</span> <span class="ident">store</span>
             .<span class="ident">as_store_ref</span>()
@@ -2194,6 +2205,7 @@
         }
     }
 
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
     <span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">FromToNativeWasmType</span> <span class="kw">for</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Function</span><span class="op">&gt;</span> {
         <span class="kw">type</span> <span class="ident">Native</span> <span class="op">=</span> <span class="self">Self</span>;
 

@@ -188,6 +188,8 @@
 <span id="186">186</span>
 <span id="187">187</span>
 <span id="188">188</span>
+<span id="189">189</span>
+<span id="190">190</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::exports::Exports</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::externals::Extern</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::imports::Imports</span>;
@@ -269,6 +271,7 @@
 }
 
 <span class="kw">impl</span> <span class="ident">Instance</span> {
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
     <span class="doccomment">/// Creates a new `Instance` from a WebAssembly [`Module`] and a</span>
     <span class="doccomment">/// set of imports using [`Imports`] or the [`imports`] macro helper.</span>
     <span class="doccomment">///</span>
@@ -327,6 +330,7 @@
         <span class="prelude-val">Ok</span>(<span class="ident">instance</span>)
     }
 
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
     <span class="doccomment">/// Creates a new `Instance` from a WebAssembly [`Module`] and a</span>
     <span class="doccomment">/// vector of imports.</span>
     <span class="doccomment">///</span>
