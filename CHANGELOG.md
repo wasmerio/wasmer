@@ -8,24 +8,67 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **Unreleased**
 
+### Added
+
 ### Changed
-- [#3047](https://github.com/wasmerio/wasmer/pull/3047) `Store::new` now takes an `impl Into<Engine>`.
-- [#3017](https://github.com/wasmerio/wasmer/pull/3017) Fix typo in README.md
-- [#3008](https://github.com/wasmerio/wasmer/pull/3008) Add a new CI check that uses cargo public-api to track changes in the API between master and the last deployed version on crates.io
-- [#3003](https://github.com/wasmerio/wasmer/pull/3003) Remove RuntimeError::raise from public API
-- [#2999](https://github.com/wasmerio/wasmer/pull/2999) Allow `--invoke` CLI option for Emscripten files without a `main` function
-- [#2997](https://github.com/wasmerio/wasmer/pull/2997) Fix "run --invoke [function]" to behave the same as "run"
-- [#2946](https://github.com/wasmerio/wasmer/pull/2946) Remove dylib,staticlib engines in favor of a single Universal engine
-- [#2949](https://github.com/wasmerio/wasmer/pull/2949) Switch back to using custom LLVM builds on CI
-- #2892 Renamed `get_native_function` to `get_typed_function`, marked former as deprecated.
-- [#3029](https://github.com/wasmerio/wasmer/pull/3029) Removed Artifact, Engine traits. Renamed UniversalArtifact to Artifact, and UniversalEngine to Engine.
 
 ### Fixed
+
+## 3.0.0-alpha.4 - 2022/07/28
+
+### Added
+- [#3035](https://github.com/wasmerio/wasmer/pull/3035) Added a simple "divide by zero" wast test, for #1899, as the trap information are correctly tracked on singlepass now
+- [#3021](https://github.com/wasmerio/wasmer/pull/3021) Add back missing Aarch64 relocations (needed for llvm compiler)
+- [#3008](https://github.com/wasmerio/wasmer/pull/3008) Add a new cargo public-api CI check
+- [#2941](https://github.com/wasmerio/wasmer/pull/2941) Implementation of WASIX and a fully networking for Web Assembly 
+- [#2952](https://github.com/wasmerio/wasmer/pull/2952) CI: add make build-wasmer-wasm test 
+- [#2982](https://github.com/wasmerio/wasmer/pull/2982) Add a rustfmt.toml file to the repository
+
+### Changed
+- [#3047](https://github.com/wasmerio/wasmer/pull/3047) `Store::new` now takes an `impl Into<Engine>`.
+- [#3046](https://github.com/wasmerio/wasmer/pull/3046) Merge Backend into EngineBuilder and refactor feature flags
+- [#3039](https://github.com/wasmerio/wasmer/pull/3039) Improved hashing/ids of function envs
+- [#3031](https://github.com/wasmerio/wasmer/pull/3031) Update docs/migration_to_3.0.0.md
+- [#3030](https://github.com/wasmerio/wasmer/pull/3030) Remove cranelift dependency from wasmer-wasi
+- [#3029](https://github.com/wasmerio/wasmer/pull/3029) Removed Artifact, Engine traits. Renamed UniversalArtifact to Artifact, and UniversalEngine to Engine.
+- [#3028](https://github.com/wasmerio/wasmer/pull/3028) Rename old variable names from ctx to env (in case of FunctionEnv usage) and from ctx to store in case of store usage
+- [#3023](https://github.com/wasmerio/wasmer/pull/3023) Changed CI "rust install" action to dtolnay one
+- [#3013](https://github.com/wasmerio/wasmer/pull/3013) Refactor Context API
+- [#3003](https://github.com/wasmerio/wasmer/pull/3003) Remove RuntimeError::raise from public API
+- [#3000](https://github.com/wasmerio/wasmer/pull/3001) Allow debugging of EXC_BAD_INSTRUCTION on macOS
+- [#2999](https://github.com/wasmerio/wasmer/pull/2999) Allow `--invoke` CLI option for Emscripten files without a `main` function
+- [#2996](https://github.com/wasmerio/wasmer/pull/2996) Migrated all examples to new Context API
+- [#2946](https://github.com/wasmerio/wasmer/pull/2946) Remove dylib,staticlib engines in favor of a single Universal engine
+- [#2949](https://github.com/wasmerio/wasmer/pull/2949) Switch back to using custom LLVM builds on CI
+- [#2892](https://github.com/wasmerio/wasmer/pull/2892) Renamed `get_native_function` to `get_typed_function`, marked former as deprecated.
+- [#2976](https://github.com/wasmerio/wasmer/pull/2976) Upgrade enumset minimum version to one that compiles 
+- [#2974](https://github.com/wasmerio/wasmer/pull/2974) Context api tests 
+- [#2973](https://github.com/wasmerio/wasmer/pull/2973) Port C API to new Context API  
+- [#2969](https://github.com/wasmerio/wasmer/pull/2969) Port JS API to new Context API 
+- [#2966](https://github.com/wasmerio/wasmer/pull/2966) Singlepass nopanic #2966 
+- [#2957](https://github.com/wasmerio/wasmer/pull/2957) Enable multi-value handling in Singlepass compiler 
+- [#2954](https://github.com/wasmerio/wasmer/pull/2954) Some fixes to x86_64 Singlepass compiler, when using atomics 
+- [#2953](https://github.com/wasmerio/wasmer/pull/2953) Makefile: add check target
+- [#2950](https://github.com/wasmerio/wasmer/pull/2950) compiler-cranelift: Fix typo in enum variant
+- [#2947](https://github.com/wasmerio/wasmer/pull/2947) Converted the WASI js test into a generic stdio test that works for both sys and js versions of wasmer
+- [#2940](https://github.com/wasmerio/wasmer/pull/2940) Merge wasmer3 back to master branch
+- [#2939](https://github.com/wasmerio/wasmer/pull/2939) Rename NativeFunc to TypedFunction
+
+### Fixed
+- [#3045](https://github.com/wasmerio/wasmer/pull/3045) Fixed WASI fd_read syscall when reading multiple iovs and read is partial (for #2904)
+- [#3027](https://github.com/wasmerio/wasmer/pull/3027) Fixed some residual doc issues that prevented make package-docs to build
+- [#3026](https://github.com/wasmerio/wasmer/pull/3026) test-js.yaml: fix typo
+- [#3017](https://github.com/wasmerio/wasmer/pull/3017) Fix typo in README.md
+- [#3001](https://github.com/wasmerio/wasmer/pull/3001) Fix context capi ci errors
+- [#2997](https://github.com/wasmerio/wasmer/pull/2997) Fix "run --invoke [function]" to behave the same as "run"
 - [#2963](https://github.com/wasmerio/wasmer/pull/2963) Remove accidental dependency on libwayland and libxcb in ClI
 - [#2942](https://github.com/wasmerio/wasmer/pull/2942) Fix clippy lints.
 - [#2943](https://github.com/wasmerio/wasmer/pull/2943) Fix build error on some archs by using c_char instead of i8
 - [2976](https://github.com/wasmerio/wasmer/pull/2976) Upgrade minimum enumset to one that compiles
 - [2988](https://github.com/wasmerio/wasmer/pull/2988) Have make targets install-capi-lib,install-pkgconfig work without building the wasmer binary
+- [#2967](https://github.com/wasmerio/wasmer/pull/2967) Fix singlepass on arm64 that was trying to emit a sub opcode with a constant as destination (for #2959) 
+- [#2948](https://github.com/wasmerio/wasmer/pull/2948) Fix regression on gen_import_call_trampoline_arm64()
+- [#2944](https://github.com/wasmerio/wasmer/pull/2944) Fix duplicate entries in the CHANGELOG 
 
 ## 2.3.0 - 2022/06/06
 

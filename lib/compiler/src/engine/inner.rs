@@ -76,7 +76,9 @@ impl Engine {
     pub fn headless() -> Self {
         Self {
             inner: Arc::new(Mutex::new(EngineInner {
+                #[cfg(feature = "compiler")]
                 compiler: None,
+                #[cfg(feature = "compiler")]
                 features: Features::default(),
                 #[cfg(not(target_arch = "wasm32"))]
                 code_memory: vec![],
@@ -118,6 +120,7 @@ impl Engine {
     }
 
     /// Validates a WebAssembly module
+    #[cfg(feature = "compiler")]
     pub fn validate(&self, binary: &[u8]) -> Result<(), CompileError> {
         self.inner().validate(binary)
     }
@@ -217,12 +220,14 @@ impl EngineInner {
     }
 
     /// Validate the module
+    #[cfg(feature = "compiler")]
     pub fn validate(&self, data: &[u8]) -> Result<(), CompileError> {
         let compiler = self.compiler()?;
         compiler.validate_module(&self.features, data)
     }
 
     /// The Wasm features
+    #[cfg(feature = "compiler")]
     pub fn features(&self) -> &Features {
         &self.features
     }
@@ -348,6 +353,7 @@ impl EngineInner {
     }
 }
 
+#[cfg(feature = "compiler")]
 impl From<Box<dyn CompilerConfig>> for Engine {
     fn from(config: Box<dyn CompilerConfig>) -> Self {
         EngineBuilder::new(config).engine()

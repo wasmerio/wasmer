@@ -51,12 +51,11 @@ impl VirtualFile for FileHandle {
             _ => return 0,
         };
 
-        let node = match fs.storage.get(self.inode) {
-            Some(node) => node,
-            _ => return 0,
-        };
-
-        node.metadata().accessed
+        let inode = fs.storage.get(self.inode);
+        match inode {
+            Some(node) => node.metadata().accessed,
+            _ => 0,
+        }
     }
 
     fn last_modified(&self) -> u64 {
@@ -65,12 +64,11 @@ impl VirtualFile for FileHandle {
             _ => return 0,
         };
 
-        let node = match fs.storage.get(self.inode) {
-            Some(node) => node,
-            _ => return 0,
-        };
-
-        node.metadata().modified
+        let inode = fs.storage.get(self.inode);
+        match inode {
+            Some(node) => node.metadata().modified,
+            _ => 0,
+        }
     }
 
     fn created_time(&self) -> u64 {
@@ -79,7 +77,8 @@ impl VirtualFile for FileHandle {
             _ => return 0,
         };
 
-        let node = match fs.storage.get(self.inode) {
+        let inode = fs.storage.get(self.inode);
+        let node = match inode {
             Some(node) => node,
             _ => return 0,
         };
@@ -93,7 +92,8 @@ impl VirtualFile for FileHandle {
             _ => return 0,
         };
 
-        match fs.storage.get(self.inode) {
+        let inode = fs.storage.get(self.inode);
+        match inode {
             Some(Node::File { file, .. }) => file.len().try_into().unwrap_or(0),
             _ => 0,
         }
@@ -106,7 +106,8 @@ impl VirtualFile for FileHandle {
             .try_write()
             .map_err(|_| FsError::Lock)?;
 
-        match fs.storage.get_mut(self.inode) {
+        let inode = fs.storage.get_mut(self.inode);
+        match inode {
             Some(Node::File { file, metadata, .. }) => {
                 file.buffer
                     .resize(new_size.try_into().map_err(|_| FsError::UnknownError)?, 0);
@@ -178,7 +179,8 @@ impl VirtualFile for FileHandle {
             .try_read()
             .map_err(|_| FsError::Lock)?;
 
-        match fs.storage.get(self.inode) {
+        let inode = fs.storage.get(self.inode);
+        match inode {
             Some(Node::File { file, .. }) => Ok(file.buffer.len() - file.cursor),
             _ => Err(FsError::NotAFile),
         }
@@ -416,7 +418,8 @@ impl Read for FileHandle {
                 io::Error::new(io::ErrorKind::Other, "failed to acquire a write lock")
             })?;
 
-        let file = match fs.storage.get_mut(self.inode) {
+        let inode = fs.storage.get_mut(self.inode);
+        let file = match inode {
             Some(Node::File { file, .. }) => file,
             _ => {
                 return Err(io::Error::new(
@@ -445,7 +448,8 @@ impl Read for FileHandle {
                 io::Error::new(io::ErrorKind::Other, "failed to acquire a write lock")
             })?;
 
-        let file = match fs.storage.get_mut(self.inode) {
+        let inode = fs.storage.get_mut(self.inode);
+        let file = match inode {
             Some(Node::File { file, .. }) => file,
             _ => {
                 return Err(io::Error::new(
@@ -493,7 +497,8 @@ impl Read for FileHandle {
                 io::Error::new(io::ErrorKind::Other, "failed to acquire a write lock")
             })?;
 
-        let file = match fs.storage.get_mut(self.inode) {
+        let inode = fs.storage.get_mut(self.inode);
+        let file = match inode {
             Some(Node::File { file, .. }) => file,
             _ => {
                 return Err(io::Error::new(
@@ -532,7 +537,8 @@ impl Seek for FileHandle {
                 io::Error::new(io::ErrorKind::Other, "failed to acquire a write lock")
             })?;
 
-        let file = match fs.storage.get_mut(self.inode) {
+        let inode = fs.storage.get_mut(self.inode);
+        let file = match inode {
             Some(Node::File { file, .. }) => file,
             _ => {
                 return Err(io::Error::new(
@@ -563,7 +569,8 @@ impl Write for FileHandle {
                 io::Error::new(io::ErrorKind::Other, "failed to acquire a write lock")
             })?;
 
-        let (file, metadata) = match fs.storage.get_mut(self.inode) {
+        let inode = fs.storage.get_mut(self.inode);
+        let (file, metadata) = match inode {
             Some(Node::File { file, metadata, .. }) => (file, metadata),
             _ => {
                 return Err(io::Error::new(

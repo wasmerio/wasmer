@@ -170,6 +170,7 @@ impl NativeWasmType for Function {
     type Abi = usize;
 }
 
+#[cfg(feature = "compiler")]
 impl NativeWasmTypeInto for Option<Function> {
     #[inline]
     unsafe fn from_abi(store: &mut impl AsStoreMut, abi: Self::Abi) -> Self {

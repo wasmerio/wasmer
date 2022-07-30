@@ -42,6 +42,7 @@ pub struct Function {
 }
 
 impl Function {
+    #[cfg(feature = "compiler")]
     /// Creates a new host `Function` (dynamic) with the provided signature.
     ///
     /// If you know the signature of the host function at compile time,
@@ -159,6 +160,7 @@ impl Function {
         }
     }
 
+    #[cfg(feature = "compiler")]
     /// Creates a new host `Function` from a native function.
     ///
     /// The function signature is automatically retrieved using the
@@ -248,6 +250,7 @@ impl Function {
             .clone()
     }
 
+    #[cfg(feature = "compiler")]
     fn call_wasm(
         &self,
         store: &mut impl AsStoreMut,
@@ -365,6 +368,7 @@ impl Function {
         self.ty(store).results().len()
     }
 
+    #[cfg(feature = "compiler")]
     /// Call the `Function` function.
     ///
     /// Depending on where the Function is defined, it will call it.
@@ -422,6 +426,7 @@ impl Function {
         VMFuncRef(vm_function.anyfunc.as_ptr())
     }
 
+    #[cfg(feature = "compiler")]
     pub(crate) unsafe fn from_vm_funcref(store: &mut impl AsStoreMut, funcref: VMFuncRef) -> Self {
         let signature = store
             .as_store_ref()
@@ -771,6 +776,7 @@ mod inner {
         }
     }
 
+    #[cfg(feature = "compiler")]
     unsafe impl FromToNativeWasmType for Option<Function> {
         type Native = Self;
 

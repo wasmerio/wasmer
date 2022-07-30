@@ -22,60 +22,43 @@ except ImportError:
 
 
 # TODO: find this automatically
-target_version = "2.3.0"
+target_version = "3.0.0-alpha.4"
 
 # TODO: generate this by parsing toml files
 dep_graph = {
     "wasmer-types": set([]),
     "wasmer-derive": set([]),
-    "wasmer-vm": set(["wasmer-types", "wasmer-artifact"]),
+    "wasmer-vm": set(["wasmer-types"]),
     "wasmer-compiler": set(["wasmer-types"]),
+    "wasmer-compiler-singlepass": set(["wasmer-types", "wasmer-compiler"]),
+    "wasmer-compiler-cranelift": set(["wasmer-types", "wasmer-compiler"]),
     "wasmer-compiler-cli": set(
         [
-            "wasmer-engine-universal-artifact",
             "wasmer-compiler",
             "wasmer-types",
             "wasmer-compiler-singlepass",
             "wasmer-compiler-cranelift",
         ]
     ),
-    "wasmer-engine-universal-artifact": set(
-        ["wasmer-artifact", "wasmer-types", "wasmer-compiler"]
-    ),
-    "wasmer-artifact": set(["wasmer-types", "wasmer-compiler"]),
     "wasmer-object": set(["wasmer-types", "wasmer-compiler"]),
-    "wasmer-engine": set(
-        ["wasmer-types", "wasmer-compiler", "wasmer-artifact", "wasmer-vm"]
-    ),
-    "wasmer-compiler-singlepass": set(["wasmer-types", "wasmer-compiler"]),
-    "wasmer-compiler-cranelift": set(["wasmer-types", "wasmer-compiler"]),
     "wasmer-compiler-llvm": set(["wasmer-compiler", "wasmer-vm", "wasmer-types"]),
-    "wasmer-engine-universal": set(
-        [
-            "wasmer-engine-universal-artifact",
-            "wasmer-types",
-            "wasmer-compiler",
-            "wasmer-vm",
-            "wasmer-engine",
-        ]
-    ),
     "wasmer": set(
         [
-            "wasmer-artifact",
             "wasmer-vm",
             "wasmer-compiler",
             "wasmer-derive",
-            "wasmer-engine",
             "wasmer-types",
             "wasmer-compiler-singlepass",
             "wasmer-compiler-cranelift",
             "wasmer-compiler-llvm",
-            "wasmer-engine-universal",
         ]
     ),
     "wasmer-vfs": set([]),
+    "wasmer-vbus": set([]),
+    "wasmer-vnet": set([]),
+    "wasmer-wasi-local-networking": set([]),
     "wasmer-cache": set(["wasmer"]),
-    "wasmer-wasi": set(["wasmer", "wasmer-wasi-types", "wasmer-vfs"]),
+    "wasmer-wasi": set(["wasmer", "wasmer-wasi-types", "wasmer-vfs", "wasmer-vbus", "wasmer-vnet"]),
     "wasmer-wasi-types": set(["wasmer-types"]),
     "wasmer-wasi-experimental-io-devices": set(["wasmer-wasi"]),
     "wasmer-emscripten": set(["wasmer"]),
@@ -87,8 +70,6 @@ dep_graph = {
             "wasmer-compiler-singlepass",
             "wasmer-compiler-llvm",
             "wasmer-emscripten",
-            "wasmer-engine",
-            "wasmer-engine-universal",
             "wasmer-middlewares",
             "wasmer-wasi",
             "wasmer-types",
@@ -104,8 +85,6 @@ dep_graph = {
             "wasmer-compiler-singlepass",
             "wasmer-compiler-llvm",
             "wasmer-emscripten",
-            "wasmer-engine",
-            "wasmer-engine-universal",
             "wasmer-vm",
             "wasmer-wasi",
             "wasmer-wasi-experimental-io-devices",
@@ -120,20 +99,15 @@ dep_graph = {
 # where each crate is located in the `lib` directory
 # TODO: this could also be generated from the toml files
 location = {
-    "wasmer-artifact": "artifact",
-    "wasmer-engine-universal-artifact": "universal-artifact",
     "wasmer-compiler-cli": "cli-compiler",
     "wasmer-types": "types",
     "wasmer-derive": "derive",
     "wasmer-vm": "vm",
     "wasmer-compiler": "compiler",
     "wasmer-object": "object",
-    "wasmer-engine": "engine",
     "wasmer-compiler-singlepass": "compiler-singlepass",
     "wasmer-compiler-cranelift": "compiler-cranelift",
     "wasmer-compiler-llvm": "compiler-llvm",
-    "wasmer-engine": "engine",
-    "wasmer-engine-universal": "engine-universal",
     "wasmer-cache": "cache",
     "wasmer": "api",
     "wasmer-wasi": "wasi",
@@ -143,7 +117,10 @@ location = {
     "wasmer-c-api": "c-api",
     "wasmer-middlewares": "middlewares",
     "wasmer-vfs": "vfs",
+    "wasmer-vbus": "vbus",
+    "wasmer-vnet": "vnet",
     "wasmer-cli": "cli",
+    "wasmer-wasi-local-networking": "wasi-local-networking",
     "wasmer-wast": "../tests/lib/wast",
 }
 

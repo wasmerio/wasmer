@@ -12,7 +12,9 @@ use wasmer_vm::StoreObjects;
 /// wrap the actual context in a box.
 pub(crate) struct StoreInner {
     pub(crate) objects: StoreObjects,
+    #[cfg(feature = "compiler")]
     pub(crate) engine: Engine,
+    #[cfg(feature = "compiler")]
     pub(crate) tunables: Box<dyn Tunables + Send + Sync>,
     pub(crate) trap_handler: Option<Box<TrapHandlerFn<'static>>>,
 }
@@ -29,6 +31,7 @@ pub(crate) struct StoreInner {
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#store>
 pub struct Store {
     pub(crate) inner: Box<StoreInner>,
+    #[cfg(feature = "compiler")]
     engine: Engine,
     trap_handler: Arc<RwLock<Option<Box<TrapHandlerFn<'static>>>>>,
 }
@@ -42,6 +45,7 @@ impl Store {
         Self::new_with_tunables(engine, BaseTunables::for_target(&target))
     }
 
+    #[cfg(feature = "compiler")]
     #[deprecated(
         since = "3.0.0",
         note = "Store::new_with_engine has been deprecated in favor of Store::new"
@@ -56,6 +60,7 @@ impl Store {
         self.inner.trap_handler = handler;
     }
 
+    #[cfg(feature = "compiler")]
     /// Creates a new `Store` with a specific [`Engine`] and [`Tunables`].
     pub fn new_with_tunables(
         engine: impl Into<Engine>,
@@ -79,16 +84,19 @@ impl Store {
         }
     }
 
+    #[cfg(feature = "compiler")]
     /// Returns the [`Tunables`].
     pub fn tunables(&self) -> &dyn Tunables {
         self.inner.tunables.as_ref()
     }
 
+    #[cfg(feature = "compiler")]
     /// Returns the [`Engine`].
     pub fn engine(&self) -> &Engine {
         &self.engine
     }
 
+    #[cfg(feature = "compiler")]
     /// Checks whether two stores are identical. A store is considered
     /// equal to another store if both have the same engine. The
     /// tunables are excluded from the logic.
@@ -97,6 +105,7 @@ impl Store {
     }
 }
 
+#[cfg(feature = "compiler")]
 impl PartialEq for Store {
     fn eq(&self, other: &Self) -> bool {
         Self::same(self, other)
@@ -207,16 +216,19 @@ impl<'a> StoreRef<'a> {
         &self.inner.objects
     }
 
+    #[cfg(feature = "compiler")]
     /// Returns the [`Tunables`].
     pub fn tunables(&self) -> &dyn Tunables {
         self.inner.tunables.as_ref()
     }
 
+    #[cfg(feature = "compiler")]
     /// Returns the [`Engine`].
     pub fn engine(&self) -> &Engine {
         &self.inner.engine
     }
 
+    #[cfg(feature = "compiler")]
     /// Checks whether two stores are identical. A store is considered
     /// equal to another store if both have the same engine. The
     /// tunables are excluded from the logic.
@@ -241,15 +253,18 @@ pub struct StoreMut<'a> {
 
 impl<'a> StoreMut<'a> {
     /// Returns the [`Tunables`].
+    #[cfg(feature = "compiler")]
     pub fn tunables(&self) -> &dyn Tunables {
         self.inner.tunables.as_ref()
     }
 
     /// Returns the [`Engine`].
+    #[cfg(feature = "compiler")]
     pub fn engine(&self) -> &Engine {
         &self.inner.engine
     }
 
+    #[cfg(feature = "compiler")]
     /// Checks whether two stores are identical. A store is considered
     /// equal to another store if both have the same engine. The
     /// tunables are excluded from the logic.
@@ -257,6 +272,7 @@ impl<'a> StoreMut<'a> {
         a.inner.engine.id() == b.inner.engine.id()
     }
 
+    #[cfg(feature = "compiler")]
     pub(crate) fn tunables_and_objects_mut(&mut self) -> (&dyn Tunables, &mut StoreObjects) {
         (self.inner.tunables.as_ref(), &mut self.inner.objects)
     }

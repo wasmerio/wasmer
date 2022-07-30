@@ -79,6 +79,7 @@ impl From<wasmer_compiler::InstantiationError> for InstantiationError {
 }
 
 impl Instance {
+    #[cfg(feature = "compiler")]
     /// Creates a new `Instance` from a WebAssembly [`Module`] and a
     /// set of imports using [`Imports`] or the [`imports`] macro helper.
     ///
@@ -137,6 +138,7 @@ impl Instance {
         Ok(instance)
     }
 
+    #[cfg(feature = "compiler")]
     /// Creates a new `Instance` from a WebAssembly [`Module`] and a
     /// vector of imports.
     ///
