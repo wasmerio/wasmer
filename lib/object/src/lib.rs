@@ -24,4 +24,4 @@ mod module;
 
 pub use crate::error::ObjectError;
 pub use crate::module::{emit_compilation, emit_data, emit_serialized, get_object_for_target};
-pub use object::{self, Object};
+pub use object::{self, write::Object};

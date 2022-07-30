@@ -6,7 +6,15 @@
 
 Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/CHANGELOG.md).
 
-## 3.0.0-alpha.4 2022/07/28
+## **Unreleased**
+
+### Added
+
+### Changed
+
+### Fixed
+
+## 3.0.0-alpha.4 - 2022/07/28
 
 ### Added
 - [#3035](https://github.com/wasmerio/wasmer/pull/3035) Added a simple "divide by zero" wast test, for #1899, as the trap information are correctly tracked on singlepass now
@@ -17,7 +25,6 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 - [#2982](https://github.com/wasmerio/wasmer/pull/2982) Add a rustfmt.toml file to the repository
 
 ### Changed
-- [#3049](https://github.com/wasmerio/wasmer/pull/3049) `Store::new` now takes an `impl Into<Engine>`.
 - [#3047](https://github.com/wasmerio/wasmer/pull/3047) `Store::new` now takes an `impl Into<Engine>`.
 - [#3046](https://github.com/wasmerio/wasmer/pull/3046) Merge Backend into EngineBuilder and refactor feature flags
 - [#3039](https://github.com/wasmerio/wasmer/pull/3039) Improved hashing/ids of function envs
