@@ -135,7 +135,7 @@ impl StoreInner
     {
         PackagedStore
         {
-            engine: self.engine.clone(),
+            engine: self.engine.cloned(),
             tunables: self.tunables.clone(),
             trap_handler: self.trap_handler.clone()
         }
@@ -156,7 +156,7 @@ impl PackagedStore
     pub fn unpack(self) -> Store
     {
         Store {
-            engine: self.engine.clone(),
+            engine: self.engine.cloned(),
             inner: Box::new(StoreInner {
                 objects: StoreObjects::default(),
                 engine: self.engine,

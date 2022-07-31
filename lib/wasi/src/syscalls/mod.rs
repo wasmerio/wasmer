@@ -4242,7 +4242,7 @@ fn bus_open_internal<M: MemorySize>(
         let guard = env.state.threading.read().unwrap();
         if let Some(bid) = guard.process_reuse.get(&name) {
             if guard.processes.contains_key(bid) {
-                wasi_try_mem_bus_ok!(ret_bid.write(&memory, (*bid).into()));
+                wasi_try_mem_bus_ok!(ret_bid.write(&memory, bid.clone().into()));
                 return Ok(__BUS_ESUCCESS);
             }
         }
