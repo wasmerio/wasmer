@@ -48,7 +48,6 @@ pub use crate::syscalls::types;
 pub use crate::utils::{
     get_wasi_version, get_wasi_versions, is_wasi_module, is_wasix_module, WasiVersion,
 };
-use bytes::Bytes;
 use derivative::Derivative;
 pub use wasmer_vbus::{UnsupportedVirtualBus, VirtualBus};
 #[deprecated(since = "2.1.0", note = "Please use `wasmer_vfs::FsError`")]
@@ -132,8 +131,6 @@ pub struct WasiEnvInner
     memory: Memory,
     /// Represents the reactors used to sleep and wake
     reactors: Reactors,
-    /// Compiled bytes for the module so it can be recreated
-    module_bytes: Bytes,
     /// Represents the callback for spawning a thread (name = "_start_thread")
     thread_spawn: Option<TypedFunction<i64, ()>>,
     /// Represents the callback for spawning a reactor (name = "_react")
@@ -149,7 +146,8 @@ pub struct WasiEnvInner
 /// The environment provided to the WASI imports.
 #[derive(Derivative, Clone)]
 #[derivative(Debug)]
-pub struct WasiEnv {
+pub struct WasiEnv
+where Self: Send {
     /// ID of this thread (zero is the main thread)
     id: WasiThreadId,
     /// Shared state of the WASI system. Manages all the data that the
@@ -356,7 +354,7 @@ impl WasiFunctionEnv {
         let memory = instance.exports.get_memory("memory")?.clone();
         let new_inner = WasiEnvInner {
             reactors: Default::default(),
-            module_bytes: Bytes::from(instance.module().serialize().unwrap()),
+            module: instance.module().clone(),
             memory,
             thread_spawn: instance.exports.get_typed_function(store, "_start_thread").ok(),
             react: instance.exports.get_typed_function(store, "_react").ok(),

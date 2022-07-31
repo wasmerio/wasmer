@@ -1,9 +1,8 @@
 use crate::utils::{parse_envvar, parse_mapdir};
 use anyhow::Result;
-use wasmer_vm::VMMemory;
 use std::collections::BTreeSet;
 use std::path::PathBuf;
-use wasmer::{AsStoreMut, FunctionEnv, Instance, Module, RuntimeError, Value, Memory};
+use wasmer::{AsStoreMut, FunctionEnv, Instance, Module, RuntimeError, Value};
 use wasmer_wasi::{
     get_wasi_versions, import_object_for_all_wasi_versions, WasiEnv, WasiError,
     WasiState, WasiVersion,
@@ -101,26 +100,10 @@ impl Wasi {
             }
         }
 
-        // Determine if shared memory needs to be created and imported
-        let shared_memory = module
-            .imports()
-            .memories()
-            .next()
-            .map(|a| *a.ty())
-            .map(|ty| {
-                let style = store
-                    .as_store_ref()
-                    .tunables()
-                    .memory_style(&ty);
-                VMMemory::new(&ty, &style)
-                    .unwrap()
-            });
-
         let mut wasi_env = wasi_state_builder.finalize(store)?;
         let mut import_object = import_object_for_all_wasi_versions(store, &wasi_env.env);
-        if let Some(memory) = shared_memory {
-            import_object.define("env", "memory", Memory::new_from_existing(&mut store, memory));
-        }
+        import_object.import_shared_memory(module, &mut store);
+
         let instance = Instance::new(store, module, &import_object)?;
         wasi_env.initialize(&mut store, &instance)?;
         Ok((wasi_env.env, instance))

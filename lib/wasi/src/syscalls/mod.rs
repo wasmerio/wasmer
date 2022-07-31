@@ -3522,11 +3522,7 @@ pub fn thread_spawn<M: MemorySize>(
 
         // Create the module again using the bytes in a new store (which we will pass to the worker)
         let store = ctx.package_store().unpack();
-        let module_bytes = ctx.data().inner().module_bytes.clone();
-        let module = unsafe {
-            Module::deserialize(&store, &module_bytes[..]).unwrap()
-        };
-
+        
         // Create the worker thread
         let child = sub_handle.id();
         let worker = {
@@ -3565,7 +3561,7 @@ pub fn thread_spawn<M: MemorySize>(
                     ctx.data_mut(&mut store).inner = Some(
                         WasiEnvInner {
                             reactors,
-                            module_bytes,
+                            module: module.clone(),
                             memory,
                             thread_spawn: instance.exports.get_typed_function(&store, "_start_thread").ok(),
                             react: instance.exports.get_typed_function(&store, "_react").ok(),
@@ -3628,7 +3624,7 @@ pub fn thread_spawn<M: MemorySize>(
                     worker(store, module, memory);
                 }),
                 store,
-                module,
+                ctx.data().inner().module.clone(),
                 child_memory
             ).map_err(|err| {
                 let err: __wasi_errno_t = err.into();
@@ -3857,6 +3853,7 @@ pub fn futex_wait<M: MemorySize>(
 
     let pointer: u64 = wasi_try_ok!(futex.offset().try_into().map_err(|_| __WASI_EOVERFLOW));
 
+    // Register the waiting futex
     let futex = {
         use std::collections::hash_map::Entry;
         let mut guard = state.futexs.lock().unwrap();
@@ -3875,23 +3872,34 @@ pub fn futex_wait<M: MemorySize>(
         }
     };
 
+    // Loop until we either hit a yield error or the futex is woken
+    let mut yielded = Ok(());
     loop {
         let futex_lock = futex.inner.0.lock().unwrap();
         let result = futex.inner.1.wait_timeout(futex_lock, Duration::from_millis(50)).unwrap();
         if result.1.timed_out() {
-            env.yield_now()?;
+            yielded = env.yield_now();
+            if yielded.is_err() {
+                break;
+            }
         } else {
             break;
         }
     }
 
-    let mut guard = state.futexs.lock().unwrap();
-    if guard.get(&pointer)
-        .map(|futex| futex.refcnt.fetch_sub(1, Ordering::AcqRel) == 1)
-        .unwrap_or(false)
+    // Drop the reference count to the futex (and remove it if the refcnt hits zero)
     {
-        guard.remove(&pointer);
+        let mut guard = state.futexs.lock().unwrap();
+        if guard.get(&pointer)
+            .map(|futex| futex.refcnt.fetch_sub(1, Ordering::AcqRel) == 1)
+            .unwrap_or(false)
+        {
+            guard.remove(&pointer);
+        }
     }
+
+    // We may have a yield error (such as a terminate)
+    yielded?;
 
     Ok(__WASI_ESUCCESS)
 }
@@ -3920,6 +3928,8 @@ pub fn futex_wake<M: MemorySize>(
     if let Some(futex) = guard.get(&pointer) {
         futex.inner.1.notify_one();
         woken = true;
+    } else {
+        trace!("wasi::futex_wake - nothing waiting!");
     }
 
     let woken = match woken {
@@ -3950,7 +3960,7 @@ pub fn futex_wake_all<M: MemorySize>(
     let mut woken = false;
 
     let mut guard = state.futexs.lock().unwrap();
-    if let Some(futex) = guard.get(&pointer) {
+    if let Some(futex) = guard.remove(&pointer) {
         futex.inner.1.notify_all();
         woken = true;
     }

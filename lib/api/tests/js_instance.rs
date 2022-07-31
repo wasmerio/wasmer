@@ -362,7 +362,7 @@ mod js {
         let exported = instance.exports.get_function("exported").unwrap();
 
         let expected = vec![Val::I32(12)].into_boxed_slice();
-        env.as_mut(&mut store).multiplier = 3;
+        env.data_mut(&mut store).multiplier = 3;
         assert_eq!(exported.call(&mut store, &[Val::I32(4)]), Ok(expected));
     }
 

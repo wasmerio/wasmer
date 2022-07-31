@@ -35,7 +35,7 @@ pub enum IoCompileError {
 /// Cloning a module is cheap: it does a shallow copy of the compiled
 /// contents rather than a deep copy.
 #[derive(Clone)]
-pub struct Module {
+pub struct  Module {
     // The field ordering here is actually significant because of the drop
     // order: we want to drop the artifact before dropping the engine.
     //

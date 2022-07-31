@@ -143,6 +143,7 @@ impl StoreInner
 }
 
 /// Represents a packaged store that can be passed around and then created locally
+#[derive(Clone)]
 pub struct PackagedStore
 {
     engine: Engine,
