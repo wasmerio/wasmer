@@ -1,6 +1,6 @@
 [package]
 name = "wasmer"
-version = "2.3.0"
+version = "3.0.0-alpha.4"
 description = "High-performance WebAssembly runtime"
 categories = ["wasm"]
 keywords = ["wasm", "webassembly", "runtime", "vm"]
@@ -33,15 +33,15 @@ wat = { version = "1.0", optional = true }
 # Dependencies and Development Dependencies for `sys`.
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # - Mandatory dependencies for `sys`.
-wasmer-vm = { path = "../vm", version = "=2.3.0" }
-wasmer-compiler = { path = "../compiler", version = "=2.3.0" }
-wasmer-derive = { path = "../derive", version = "=2.3.0" }
-wasmer-types = { path = "../types", version = "=2.3.0" }
+wasmer-vm = { path = "../vm", version = "=3.0.0-alpha.4" }
+wasmer-compiler = { path = "../compiler", version = "=3.0.0-alpha.4" }
+wasmer-derive = { path = "../derive", version = "=3.0.0-alpha.4" }
+wasmer-types = { path = "../types", version = "=3.0.0-alpha.4" }
 target-lexicon = { version = "0.12.2", default-features = false }
 # - Optional dependencies for `sys`.
-wasmer-compiler-singlepass = { path = "../compiler-singlepass", version = "=2.3.0", optional = true }
-wasmer-compiler-cranelift = { path = "../compiler-cranelift", version = "=2.3.0", optional = true }
-wasmer-compiler-llvm = { path = "../compiler-llvm", version = "=2.3.0", optional = true }
+wasmer-compiler-singlepass = { path = "../compiler-singlepass", version = "=3.0.0-alpha.4", optional = true }
+wasmer-compiler-cranelift = { path = "../compiler-cranelift", version = "=3.0.0-alpha.4", optional = true }
+wasmer-compiler-llvm = { path = "../compiler-llvm", version = "=3.0.0-alpha.4", optional = true }
 
 wasm-bindgen = { version = "0.2.74", optional = true }
 js-sys = { version = "0.3.51", optional = true }
@@ -58,11 +58,11 @@ anyhow = "1.0"
 # Dependencies and Develoment Dependencies for `js`.
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 # - Mandatory dependencies for `js`.
-wasmer-types = { path = "../types", version = "=2.3.0", default-features = false, features = ["std"] }
+wasmer-types = { path = "../types", version = "=3.0.0-alpha.4", default-features = false, features = ["std"] }
 wasm-bindgen = "0.2.74"
 js-sys = "0.3.51"
 #web-sys = { version = "0.3.51", features = [ "console" ] }
-wasmer-derive = { path = "../derive", version = "=2.3.0" }
+wasmer-derive = { path = "../derive", version = "=3.0.0-alpha.4" }
 # - Optional dependencies for `js`.
 wasmparser = { version = "0.83", default-features = false, optional = true }
 hashbrown = { version = "0.11", optional = true }

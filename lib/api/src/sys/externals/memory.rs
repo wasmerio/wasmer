@@ -34,6 +34,7 @@ pub struct Memory {
 }
 
 impl Memory {
+    #[cfg(feature = "compiler")]
     /// Creates a new host `Memory` from the provided [`MemoryType`].
     ///
     /// This function will construct the `Memory` using the store

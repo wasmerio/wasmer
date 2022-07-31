@@ -55,6 +55,7 @@ pub struct Module {
 }
 
 impl Module {
+    #[cfg(feature = "compiler")]
     /// Creates a new WebAssembly Module given the configuration
     /// in the store.
     ///
@@ -127,6 +128,7 @@ impl Module {
         Self::from_binary(store, bytes.as_ref())
     }
 
+    #[cfg(feature = "compiler")]
     /// Creates a new WebAssembly module from a file path.
     pub fn from_file(
         store: &impl AsStoreRef,
@@ -143,6 +145,7 @@ impl Module {
         Ok(module)
     }
 
+    #[cfg(feature = "compiler")]
     /// Creates a new WebAssembly module from a binary.
     ///
     /// Opposed to [`Module::new`], this function is not compatible with
@@ -153,6 +156,7 @@ impl Module {
         unsafe { Self::from_binary_unchecked(store, binary) }
     }
 
+    #[cfg(feature = "compiler")]
     /// Creates a new WebAssembly module skipping any kind of validation.
     ///
     /// # Safety
@@ -168,6 +172,7 @@ impl Module {
         Ok(module)
     }
 
+    #[cfg(feature = "compiler")]
     /// Validates a new WebAssembly Module given the configuration
     /// in the Store.
     ///
@@ -178,6 +183,7 @@ impl Module {
         store.as_store_ref().engine().validate(binary)
     }
 
+    #[cfg(feature = "compiler")]
     fn compile(store: &impl AsStoreRef, binary: &[u8]) -> Result<Self, CompileError> {
         let artifact = store
             .as_store_ref()
@@ -222,6 +228,7 @@ impl Module {
         self.artifact.serialize_to_file(path.as_ref())
     }
 
+    #[cfg(feature = "compiler")]
     /// Deserializes a serialized Module binary into a `Module`.
     /// > Note: the module has to be serialized before with the `serialize` method.
     ///
@@ -253,6 +260,7 @@ impl Module {
         Ok(Self::from_artifact(artifact))
     }
 
+    #[cfg(feature = "compiler")]
     /// Deserializes a a serialized Module located in a `Path` into a `Module`.
     /// > Note: the module has to be serialized before with the `serialize` method.
     ///
@@ -288,6 +296,7 @@ impl Module {
         }
     }
 
+    #[cfg(feature = "compiler")]
     pub(crate) fn instantiate(
         &self,
         store: &mut impl AsStoreMut,

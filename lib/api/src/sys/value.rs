@@ -106,6 +106,7 @@ impl Value {
         }
     }
 
+    #[cfg(feature = "compiler")]
     /// Converts a `RawValue` to a `Value`.
     ///
     /// # Safety

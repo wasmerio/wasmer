@@ -115,7 +115,7 @@ where
 }
 
 /// The only error that can happen when converting `Bytes` to `Pages`
-#[derive(Debug, Clone, Copy, PartialEq, Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
 #[error("Number of pages exceeds uint32 range")]
 pub struct PageCountOutOfRange;
 
