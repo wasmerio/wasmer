@@ -1230,167 +1230,25 @@ mod tests {
     fn test_wasi_get_wasi_version_snapshot0() {
         (assert_c! {
             #include "tests/wasmer.h"
-            #include "string.h"
-            #include "stdio.h"
-            #include "stdalign.h"
-
-            typedef struct {
-                int u;
-            } CustomWasiStdin;
-
-            long CustomWasiStdin_destructor(
-                const void* env,
-                __u_long sz,
-                __u_long ao
-            ) {
-                (void)env;
-                (void)sz;
-                (void)ao;
-                return 0;
-            }
-
-            long CustomWasiStdin_onStdIn(
-                const void* env,
-                __u_long sz,
-                __u_long ao,
-                __u_long maxwrite,
-                wasi_console_stdin_response_t* in
-            ) {
-                (void)env;
-                (void)sz;
-                (void)ao;
-                (void)maxwrite;
-
-                wasi_console_stdin_response_write_str(in, "hello");
-                return 5;
-            }
 
             int main() {
-
                 wasm_engine_t* engine = wasm_engine_new();
                 wasm_store_t* store = wasm_store_new(engine);
-                wasi_config_t* config = wasi_config_new("example_program");
+                wasmer_funcenv_t* env = wasmer_funcenv_new(store, 0);
 
-                wasi_console_out_t* override_stdout = wasi_console_out_new_memory();
-                wasi_console_out_t* override_stderr = wasi_console_out_new_memory();
-                CustomWasiStdin stdin = { .u = 0 };
-                wasi_console_stdin_t* override_stdin = wasi_console_stdin_new(
-                    CustomWasiStdin_onStdIn,
-                    CustomWasiStdin_destructor,
-                    &stdin,
-                    sizeof(stdin),
-                    alignof(stdin)
-                );
+                wasm_byte_vec_t wat;
+                wasmer_byte_vec_new_from_string(&wat, "(module (import \"wasi_unstable\" \"args_get\" (func (param i32 i32) (result i32))))");
+                wasm_byte_vec_t wasm;
+                wat2wasm(&wat, &wasm);
 
-                // Cloning the `wasi_console_out_t` does not deep-clone the
-                // internal stream, since that is locked behind an Arc<Mutex<T>>.
-                wasi_console_out_t* stdout_receiver = wasi_console_out_clone(override_stdout);
-                wasi_console_out_t* stderr_receiver = wasi_console_out_clone(override_stderr);
+                wasm_module_t* module = wasm_module_new(store, &wasm);
+                assert(module);
 
-                // The override_stdin ownership is moved to the config
-                wasi_config_overwrite_stdin(config, override_stdin);
-                wasi_config_overwrite_stdout(config, override_stdout);
-                wasi_config_overwrite_stderr(config, override_stderr);
+                assert(wasi_get_wasi_version(module) == SNAPSHOT0);
 
-                // The env now has ownership of the config (using the custom stdout / stdin channels)
-                wasmer_funcenv_t* env = wasmer_funcenv_new(store, config);
-
-                // Load binary.
-                printf("Loading binary...\n");
-                FILE* file = fopen("tests/wasm-c-api/example/stdio.wasm", "rb");
-                if (!file) {
-                    printf("> Error loading module!\n");
-                    return 1;
-                }
-
-                fseek(file, 0L, SEEK_END);
-                size_t file_size = ftell(file);
-                fseek(file, 0L, SEEK_SET);
-
-                wasm_byte_vec_t binary;
-                wasm_byte_vec_new_uninitialized(&binary, file_size);
-
-                if (fread(binary.data, file_size, 1, file) != 1) {
-                    printf("> Error loading module!\n");
-                    return 1;
-                }
-
-                fclose(file);
-
-                printf("Compiling module...\n");
-                wasm_module_t* module = wasm_module_new(store, &binary);
-                if (!module) {
-                    printf("> Error compiling module!\n");
-                    return 1;
-                }
-                wasm_byte_vec_delete(&binary);
-
-                // The program should wait for a stdin, then print "stdout: $1" to stdout
-                // and "stderr: $1" to stderr and exit.
-
-                // Instantiate the moduke
-                wasm_extern_vec_t imports = WASM_EMPTY_VEC;
-                wasm_trap_t* trap = NULL;
-                wasm_instance_t* instance =
-                    wasm_instance_new(store, module, &imports, &trap);
-                if (instance || !trap) {
-                    printf("> Error instantiating module, expected trap!\n");
-                    return 1;
-                }
                 wasm_module_delete(module);
-
-                /*
-                if (!wasi_funcenv_initialize_instance(env, store, instance)) {
-                    printf("> Error initializing wasi env memory!\n");
-                    return 1;
-                }
-                */
-
-                // Get the _start function
-                wasm_func_t* run_func = wasi_get_start_function(instance);
-                if (run_func == NULL) {
-                    printf("> Error accessing export!\n");
-                    return 1;
-                }
-
-                printf("got _start\n");
-
-                // Run the _start function
-                // Running the program should trigger the stdin to write "hello" to the stdin
-                wasm_val_vec_t args = WASM_EMPTY_VEC;
-                wasm_val_vec_t res = WASM_EMPTY_VEC;
-                if (wasm_func_call(run_func, &args, &res)) {
-                    printf("> Error calling function!\n");
-                    return 1;
-                }
-
-                // Verify that the stdout / stderr worked as expected
-                char* out;
-                wasi_console_out_read_str(stdout_receiver, &out);
-                printf("stdout 1: \"%s\"\n", out);
-                assert(strcmp(out, "stdout: hello") == 0);
-                wasi_console_out_delete_str(out);
-
-                wasi_console_out_read_str(stdout_receiver, &out);
-                printf("stdout 2: \"%s\"\n", out);
-                assert(strcmp(out, ""));
-                wasi_console_out_delete_str(out);
-
-                wasi_console_out_read_str(stderr_receiver, &out);
-                printf("stdout 3: \"%s\"\n", out);
-                assert(strcmp(out, "stderr: hello"));
-                wasi_console_out_delete_str(out);
-
-                wasi_console_out_read_str(stderr_receiver, &out);
-                printf("stdout 4: \"%s\"\n", out);
-                assert(strcmp(out, ""));
-                wasi_console_out_delete_str(out);
-
-                wasi_console_out_delete(stdout_receiver);
-                wasi_console_out_delete(stderr_receiver);
-
-                wasm_func_delete(run_func);
-                wasm_module_delete(module);
+                wasm_byte_vec_delete(&wasm);
+                wasm_byte_vec_delete(&wat);
                 wasmer_funcenv_delete(env);
                 wasm_store_delete(store);
                 wasm_engine_delete(engine);
@@ -1458,6 +1316,197 @@ mod tests {
                 wasm_byte_vec_delete(&wasm);
                 wasm_byte_vec_delete(&wat);
                 wasmer_funcenv_delete(env);
+                wasm_store_delete(store);
+                wasm_engine_delete(engine);
+
+                return 0;
+            }
+        })
+        .success();
+    }
+
+    #[test]
+    fn test_wasi_stdin_set() {
+        (assert_c! {
+            #include "../../lib/c-api/wasmer.h"
+            #include "string.h"
+            #include "stdio.h"
+
+            typedef struct {
+                int u;
+            } CustomWasiStdin;
+
+            long CustomWasiStdin_destructor(
+                const void* env,
+                __u_long sz,
+                __u_long ao
+            ) {
+                (void)env;
+                (void)sz;
+                (void)ao;
+                return 0;
+            }
+
+            long CustomWasiStdin_onStdIn(
+                const void* env,
+                __u_long sz,
+                __u_long ao,
+                __u_long maxwrite,
+                wasi_console_stdin_response_t* in
+            ) {
+                (void)env;
+                (void)sz;
+                (void)ao;
+                (void)maxwrite;
+
+                wasi_console_stdin_response_write_str(in, "hello");
+                return 5;
+            }
+
+            int main() {
+
+                wasm_engine_t* engine = wasm_engine_new();
+                if (!engine) {
+                    printf("> Error loading engine!\n");
+                    return 1;
+                }
+                wasm_store_t* store = wasm_store_new(engine);
+                if (!store) {
+                    printf("> Error loading store!\n");
+                    return 1;
+                }
+                wasi_config_t* config = wasi_config_new("example_program");
+                if (!config) {
+                    printf("> Error loading config!\n");
+                    return 1;
+                }
+                wasi_console_out_t* override_stdout = wasi_console_out_new_memory();
+                if (!override_stdout) {
+                    printf("> Error loading override_stdout!\n");
+                    return 1;
+                }
+                wasi_console_out_t* override_stderr = wasi_console_out_new_memory();
+                if (!override_stderr) {
+                    printf("> Error loading override_stderr!\n");
+                    return 1;
+                }
+                CustomWasiStdin stdin = { .u = 0 };
+                wasi_console_stdin_t* override_stdin = wasi_console_stdin_new(
+                    CustomWasiStdin_onStdIn,
+                    CustomWasiStdin_destructor,
+                    &stdin,
+                    sizeof(stdin),
+                    8 // alignof(stdin)
+                );
+
+                // Cloning the `wasi_console_out_t` does not deep-clone the
+                // internal stream, since that is locked behind an Arc<Mutex<T>>.
+                wasi_console_out_t* stdout_receiver = wasi_console_out_clone(override_stdout);
+                wasi_console_out_t* stderr_receiver = wasi_console_out_clone(override_stderr);
+
+                // The override_stdin ownership is moved to the config
+                wasi_config_overwrite_stdin(config, override_stdin);
+                wasi_config_overwrite_stdout(config, override_stdout);
+                wasi_config_overwrite_stderr(config, override_stderr);
+
+                // The env now has ownership of the config (using the custom stdout / stdin channels)
+                wasi_env_t* env = wasi_env_new(store, config);
+                if (!env) {
+                    printf("> Error loading env!\n");
+                    return 1;
+                }
+
+                // Load binary.
+                printf("Loading binary...\n");
+                FILE* file = fopen("tests/wasm-c-api/example/stdio.wasm", "rb");
+                if (!file) {
+                    printf("> Error loading module!\n");
+                    return 1;
+                }
+
+                fseek(file, 0L, SEEK_END);
+                size_t file_size = ftell(file);
+                fseek(file, 0L, SEEK_SET);
+
+                wasm_byte_vec_t binary;
+                wasm_byte_vec_new_uninitialized(&binary, file_size);
+
+                if (fread(binary.data, file_size, 1, file) != 1) {
+                    printf("> Error loading module!\n");
+                    return 1;
+                }
+
+                fclose(file);
+
+                printf("Compiling module...\n");
+                wasm_module_t* module = wasm_module_new(store, &binary);
+                if (!module) {
+                    printf("> Error compiling module!\n");
+                    return 1;
+                }
+
+                // The program should wait for a stdin, then print "stdout: $1" to stdout
+                // and "stderr: $1" to stderr and exit.
+
+                // Instantiate the moduke
+                wasm_extern_vec_t imports = WASM_EMPTY_VEC;
+                wasm_trap_t* trap = NULL;
+                wasm_instance_t* instance = wasm_instance_new(store, module, &imports,&trap);
+                if (!instance) {
+                    printf("> Error instantiating module!\n");
+                    return 1;
+                }
+
+                if (!wasi_env_initialize_instance(env, store, instance)) {
+                    printf("> Error initializing wasi env memory!\n");
+                    return 1;
+                }
+
+                // Get the _start function
+                wasm_func_t* run_func = wasi_get_start_function(instance);
+                if (run_func == NULL) {
+                    printf("> Error accessing export!\n");
+                    return 1;
+                }
+
+                // Run the _start function
+                // Running the program should trigger the stdin to write "hello" to the stdin
+                wasm_val_vec_t args = WASM_EMPTY_VEC;
+                wasm_val_vec_t res = WASM_EMPTY_VEC;
+                if (wasm_func_call(run_func, &args, &res)) {
+                    printf("> Error calling function!\n");
+                    return 1;
+                }
+
+                // Verify that the stdout / stderr worked as expected
+                char* out;
+                wasi_console_out_read_str(stdout_receiver, &out);
+                printf("stdout 1: \"%s\"\n", out);
+                assert(strcmp(out, "stdout: hello") == 0);
+                wasi_console_out_delete_str(out);
+
+                wasi_console_out_read_str(stdout_receiver, &out);
+                printf("stdout 2: \"%s\"\n", out);
+                assert(strcmp(out, ""));
+                wasi_console_out_delete_str(out);
+
+                wasi_console_out_read_str(stderr_receiver, &out);
+                printf("stdout 3: \"%s\"\n", out);
+                assert(strcmp(out, "stderr: hello"));
+                wasi_console_out_delete_str(out);
+
+                wasi_console_out_read_str(stderr_receiver, &out);
+                printf("stdout 4: \"%s\"\n", out);
+                assert(strcmp(out, ""));
+                wasi_console_out_delete_str(out);
+
+                wasi_console_out_delete(stdout_receiver);
+                wasi_console_out_delete(stderr_receiver);
+
+                wasm_byte_vec_delete(&binary);
+                wasm_module_delete(module);
+                wasm_func_delete(run_func);
+                wasi_env_delete(env);
                 wasm_store_delete(store);
                 wasm_engine_delete(engine);
 
