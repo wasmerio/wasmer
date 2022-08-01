@@ -39,23 +39,27 @@ pub type WasiConsoleIoWriteCallback =
     unsafe extern "C" fn(*const c_void, usize, usize, *const c_char, usize, bool) -> i64;
 pub type WasiConsoleIoSeekCallback =
     unsafe extern "C" fn(*const c_void, usize, usize, c_char, i64) -> i64;
-pub type WasiConsoleIoEnvDestructor = 
-    unsafe extern "C" fn(*const c_void, usize, usize) -> i64;
+pub type WasiConsoleIoEnvDestructor = unsafe extern "C" fn(*const c_void, usize, usize) -> i64;
 /// Callback that is activated whenever the program wants to read from stdin
-/// 
+///
 /// Parameters:
 ///     - `void*`: to user-defined data
 ///     - `usize`: sizeof(user-defined data)
 ///     - `usize`: alignof(user-defined data)
 ///     - `usize`: maximum bytes that can be written to stdin
 ///     - `*mut wasi_console_stdin_response_t`: handle to the stdin response, used to write data to stdin
-/// 
-/// The function returning is the same as the program receiving an "enter" 
+///
+/// The function returning is the same as the program receiving an "enter"
 /// key event from the console I/O. With the custom environment pointer (the first argument)
 /// you can clone references to the stdout channel and - for example - inspect the stdout
 /// channel to answer depending on runtime-dependent stdout data.
-pub type WasiConsoleIoOnStdinCallback = 
-    unsafe extern "C" fn(*const c_void, usize, usize, usize, *mut wasi_console_stdin_response_t) -> i64;
+pub type WasiConsoleIoOnStdinCallback = unsafe extern "C" fn(
+    *const c_void,
+    usize,
+    usize,
+    usize,
+    *mut wasi_console_stdin_response_t,
+) -> i64;
 
 /// The console override is a custom context consisting of callback pointers
 /// (which are activated whenever some console I/O occurs) and a "context", which
@@ -84,9 +88,7 @@ impl wasi_console_out_t {
             .ok_or({
                 io::Error::new(
                     io::ErrorKind::Other,
-                    format!(
-                        "could not lock mutex ({op_id}) on wasi_console_out_t: no mutex"
-                    ),
+                    format!("could not lock mutex ({op_id}) on wasi_console_out_t: no mutex"),
                 )
             })?
             .lock()
@@ -490,9 +492,7 @@ pub unsafe extern "C" fn wasi_console_out_new_memory() -> *mut wasi_console_out_
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn wasi_console_out_delete(
-    ptr: *mut wasi_console_out_t,
-) -> bool {
+pub unsafe extern "C" fn wasi_console_out_delete(ptr: *mut wasi_console_out_t) -> bool {
     let _ = Box::from_raw(ptr);
     true
 }
@@ -528,9 +528,7 @@ pub unsafe extern "C" fn wasi_console_out_write_str(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn wasi_console_out_flush(
-    ptr: *mut wasi_console_out_t,
-) -> i64 {
+pub unsafe extern "C" fn wasi_console_out_flush(ptr: *mut wasi_console_out_t) -> i64 {
     use std::io::Write;
     let ptr = &mut *ptr;
     match ptr.flush() {
@@ -788,17 +786,12 @@ pub struct wasi_console_stdin_t {
 
 impl wasi_console_stdin_t {
     fn get_data_mut(&mut self, op_id: &'static str) -> io::Result<&mut Vec<c_char>> {
-        self.data
-            .as_mut()
-            .map(|s| &mut (**s))
-            .ok_or({
-                io::Error::new(
-                    io::ErrorKind::Other,
-                    format!(
-                        "could not get env data ({op_id}) on wasi_console_stdin_t"
-                    ),
-                )
-            })
+        self.data.as_mut().map(|s| &mut (**s)).ok_or({
+            io::Error::new(
+                io::ErrorKind::Other,
+                format!("could not get env data ({op_id}) on wasi_console_stdin_t"),
+            )
+        })
     }
 }
 
@@ -830,11 +823,7 @@ impl Drop for wasi_console_stdin_t {
         };
 
         let error = unsafe {
-            (self.destructor)(
-                (*data).as_mut_ptr() as *const c_void,
-                (*data).len(),
-                align,
-            )
+            (self.destructor)((*data).as_mut_ptr() as *const c_void, (*data).len(), align)
         };
 
         if error < 0 {
@@ -844,9 +833,7 @@ impl Drop for wasi_console_stdin_t {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn wasi_console_stdin_delete(
-    ptr: *mut wasi_console_stdin_t,
-) -> bool {
+pub unsafe extern "C" fn wasi_console_stdin_delete(ptr: *mut wasi_console_stdin_t) -> bool {
     let _ = Box::from_raw(ptr);
     true
 }
@@ -867,7 +854,9 @@ pub unsafe extern "C" fn wasi_console_stdin_response_write_bytes(
     let slice = std::slice::from_raw_parts(bytes, len);
     let bytes_to_extend = response_t.response_data.len() as i64 - slice.len() as i64;
     if bytes_to_extend > 0 {
-        response_t.response_data.append(&mut vec![0; bytes_to_extend as usize]);
+        response_t
+            .response_data
+            .append(&mut vec![0; bytes_to_extend as usize]);
     }
     for (source, target) in slice.iter().zip(response_t.response_data.iter_mut()) {
         *target = *source;
@@ -882,7 +871,11 @@ pub unsafe extern "C" fn wasi_console_stdin_response_write_str(
 ) -> i64 {
     let c_str = CStr::from_ptr(str);
     let bytes = c_str.to_bytes();
-    wasi_console_stdin_response_write_bytes(response_t, bytes.as_ptr() as *const c_char, bytes.len())
+    wasi_console_stdin_response_write_bytes(
+        response_t,
+        bytes.as_ptr() as *const c_char,
+        bytes.len(),
+    )
 }
 
 impl fmt::Debug for wasi_console_stdin_t {
@@ -1239,19 +1232,58 @@ mod tests {
             #include "tests/wasmer.h"
             #include "string.h"
             #include "stdio.h"
+            #include "stdalign.h"
+
+            typedef struct {
+                int u;
+            } CustomWasiStdin;
+
+            long CustomWasiStdin_destructor(
+                const void* env,
+                __u_long sz,
+                __u_long ao
+            ) {
+                (void)env;
+                (void)sz;
+                (void)ao;
+                return 0;
+            }
+
+            long CustomWasiStdin_onStdIn(
+                const void* env,
+                __u_long sz,
+                __u_long ao,
+                __u_long maxwrite,
+                wasi_console_stdin_response_t* in
+            ) {
+                (void)env;
+                (void)sz;
+                (void)ao;
+                (void)maxwrite;
+
+                wasi_console_stdin_response_write_str(in, "hello");
+                return 5;
+            }
 
             int main() {
+
                 wasm_engine_t* engine = wasm_engine_new();
                 wasm_store_t* store = wasm_store_new(engine);
                 wasi_config_t* config = wasi_config_new("example_program");
 
-                wasi_console_out_t* override_stdin = wasi_console_out_new_memory();
                 wasi_console_out_t* override_stdout = wasi_console_out_new_memory();
                 wasi_console_out_t* override_stderr = wasi_console_out_new_memory();
+                CustomWasiStdin stdin = { .u = 0 };
+                wasi_console_stdin_t* override_stdin = wasi_console_stdin_new(
+                    CustomWasiStdin_onStdIn,
+                    CustomWasiStdin_destructor,
+                    &stdin,
+                    sizeof(stdin),
+                    alignof(stdin)
+                );
 
-                // Cloning the `wasi_console_out_t` does not deep-clone the 
+                // Cloning the `wasi_console_out_t` does not deep-clone the
                 // internal stream, since that is locked behind an Arc<Mutex<T>>.
-                wasi_console_out_t* stdin_sender = wasi_console_out_clone(override_stdin);
                 wasi_console_out_t* stdout_receiver = wasi_console_out_clone(override_stdout);
                 wasi_console_out_t* stderr_receiver = wasi_console_out_clone(override_stderr);
 
@@ -1263,39 +1295,77 @@ mod tests {
                 // The env now has ownership of the config (using the custom stdout / stdin channels)
                 wasmer_funcenv_t* env = wasmer_funcenv_new(store, config);
 
-                FILE *fileptr;
-                char *buffer;
-                long filelen;
-
-                fileptr = fopen("tests/wasm-c-api/example/stdio.wasm", "rb");
-                if (!fileptr) {
-                    assert(false); // file not found
+                // Load binary.
+                printf("Loading binary...\n");
+                FILE* file = fopen("tests/wasm-c-api/example/stdio.wasm", "rb");
+                if (!file) {
+                    printf("> Error loading module!\n");
+                    return 1;
                 }
-                fseek(fileptr, 0, SEEK_END);
-                filelen = ftell(fileptr);
-                rewind(fileptr);
 
-                buffer = (char *)malloc(filelen * sizeof(char));
-                if (!fread(buffer, filelen, 1, fileptr)) {
-                    assert(false);
+                fseek(file, 0L, SEEK_END);
+                size_t file_size = ftell(file);
+                fseek(file, 0L, SEEK_SET);
+
+                wasm_byte_vec_t binary;
+                wasm_byte_vec_new_uninitialized(&binary, file_size);
+
+                if (fread(binary.data, file_size, 1, file) != 1) {
+                    printf("> Error loading module!\n");
+                    return 1;
                 }
-                fclose(fileptr);
 
-                // convert to wasm_byte_vec_t 
-                wasm_byte_vec_t* wasm = 0;
-                wasm_byte_vec_new(wasm, filelen, buffer);
+                fclose(file);
 
-                wasm_module_t* module = wasm_module_new(store, wasm);
-                assert(module);
+                printf("Compiling module...\n");
+                wasm_module_t* module = wasm_module_new(store, &binary);
+                if (!module) {
+                    printf("> Error compiling module!\n");
+                    return 1;
+                }
+                wasm_byte_vec_delete(&binary);
 
-                assert(wasi_get_wasi_version(module) == SNAPSHOT0);
-
-                // The program should wait for a stdin, then print "stdout: $1" to stdout 
+                // The program should wait for a stdin, then print "stdout: $1" to stdout
                 // and "stderr: $1" to stderr and exit.
-                wasi_console_out_write_str(stdin_sender, "hello");
 
+                // Instantiate the moduke
+                wasm_extern_vec_t imports = WASM_EMPTY_VEC;
+                wasm_trap_t* trap = NULL;
+                wasm_instance_t* instance =
+                    wasm_instance_new(store, module, &imports, &trap);
+                if (instance || !trap) {
+                    printf("> Error instantiating module, expected trap!\n");
+                    return 1;
+                }
+                wasm_module_delete(module);
+
+                /*
+                if (!wasi_funcenv_initialize_instance(env, store, instance)) {
+                    printf("> Error initializing wasi env memory!\n");
+                    return 1;
+                }
+                */
+
+                // Get the _start function
+                wasm_func_t* run_func = wasi_get_start_function(instance);
+                if (run_func == NULL) {
+                    printf("> Error accessing export!\n");
+                    return 1;
+                }
+
+                printf("got _start\n");
+
+                // Run the _start function
+                // Running the program should trigger the stdin to write "hello" to the stdin
+                wasm_val_vec_t args = WASM_EMPTY_VEC;
+                wasm_val_vec_t res = WASM_EMPTY_VEC;
+                if (wasm_func_call(run_func, &args, &res)) {
+                    printf("> Error calling function!\n");
+                    return 1;
+                }
+
+                // Verify that the stdout / stderr worked as expected
                 char* out;
-
                 wasi_console_out_read_str(stdout_receiver, &out);
                 printf("stdout 1: \"%s\"\n", out);
                 assert(strcmp(out, "stdout: hello") == 0);
@@ -1316,13 +1386,11 @@ mod tests {
                 assert(strcmp(out, ""));
                 wasi_console_out_delete_str(out);
 
-                wasi_console_out_delete(stdin_sender);
                 wasi_console_out_delete(stdout_receiver);
                 wasi_console_out_delete(stderr_receiver);
 
-                free(buffer);
+                wasm_func_delete(run_func);
                 wasm_module_delete(module);
-                wasm_byte_vec_delete(wasm);
                 wasmer_funcenv_delete(env);
                 wasm_store_delete(store);
                 wasm_engine_delete(engine);
