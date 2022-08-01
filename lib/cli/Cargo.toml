@@ -56,6 +56,14 @@ tempfile = "3"
 [target.'cfg(target_os = "linux")'.dependencies]
 unix_mode = "0.1.3"
 
+[dependencies.pirita]
+path = "../../../pirita/crates/pirita"
+# git = "git://git@github.com/wasmerio/pirita"
+# rev = "430bc3dc481dfea235c64d5a7d0c46fb75acbbf6"
+default-features = false
+features = ["mmap"]
+optional = true
+
 [features]
 # Don't add the compiler features in default, please add them on the Makefile
 # since we might want to autoconfigure them depending on the availability on the host.
@@ -131,3 +139,4 @@ enable-serde = [
   "wasmer-types/enable-serde",
   "wasmer-wasi/enable-serde",
 ]
+pirita_file = ["pirita"]

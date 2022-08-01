@@ -362,10 +362,10 @@ check-capi: capi-setup
 		--no-default-features --features wat,compiler,wasi,middlewares $(capi_compiler_features)
 
 build-wasmer:
-	$(CARGO_BINARY) build $(CARGO_TARGET) --release --manifest-path lib/cli/Cargo.toml $(compiler_features) --bin wasmer
+	$(CARGO_BINARY) build $(CARGO_TARGET) --release --manifest-path lib/cli/Cargo.toml $(compiler_features) --features="pirita_file" --bin wasmer
 
 build-wasmer-debug:
-	$(CARGO_BINARY) build $(CARGO_TARGET) --manifest-path lib/cli/Cargo.toml $(compiler_features) --features "debug"  --bin wasmer
+	$(CARGO_BINARY) build $(CARGO_TARGET) --manifest-path lib/cli/Cargo.toml $(compiler_features) --features "pirita_file,debug"  --bin wasmer
 
 bench:
 	$(CARGO_BINARY) bench $(CARGO_TARGET) $(compiler_features)
