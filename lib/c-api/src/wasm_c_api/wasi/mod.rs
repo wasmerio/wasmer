@@ -39,7 +39,23 @@ pub type WasiConsoleIoWriteCallback =
     unsafe extern "C" fn(*const c_void, usize, usize, *const c_char, usize, bool) -> i64;
 pub type WasiConsoleIoSeekCallback =
     unsafe extern "C" fn(*const c_void, usize, usize, c_char, i64) -> i64;
-pub type WasiConsoleIoEnvDestructor = unsafe extern "C" fn(*const c_void, usize, usize) -> i64;
+pub type WasiConsoleIoEnvDestructor = 
+    unsafe extern "C" fn(*const c_void, usize, usize) -> i64;
+/// Callback that is activated whenever the program wants to read from stdin
+/// 
+/// Parameters:
+///     - `void*`: to user-defined data
+///     - `usize`: sizeof(user-defined data)
+///     - `usize`: alignof(user-defined data)
+///     - `usize`: maximum bytes that can be written to stdin
+///     - `*mut wasi_console_stdin_response_t`: handle to the stdin response, used to write data to stdin
+/// 
+/// The function returning is the same as the program receiving an "enter" 
+/// key event from the console I/O. With the custom environment pointer (the first argument)
+/// you can clone references to the stdout channel and - for example - inspect the stdout
+/// channel to answer depending on runtime-dependent stdout data.
+pub type WasiConsoleIoOnStdinCallback = 
+    unsafe extern "C" fn(*const c_void, usize, usize, usize, *mut wasi_console_stdin_response_t) -> i64;
 
 /// The console override is a custom context consisting of callback pointers
 /// (which are activated whenever some console I/O occurs) and a "context", which
@@ -59,7 +75,6 @@ pub struct wasi_console_out_t {
     destructor: WasiConsoleIoEnvDestructor,
     data: Option<Box<Arc<Mutex<Vec<c_char>>>>>,
     align: usize,
-    dropped: bool,
 }
 
 impl wasi_console_out_t {
@@ -108,10 +123,6 @@ impl Drop for wasi_console_out_t {
             }
         };
 
-        if self.dropped {
-            return;
-        }
-
         let error = unsafe {
             (self.destructor)(
                 inner_value.as_mut_ptr() as *const c_void,
@@ -122,8 +133,6 @@ impl Drop for wasi_console_out_t {
         if error < 0 {
             println!("error dropping wasi_console_out_t: {error}");
         }
-
-        self.dropped = true;
     }
 }
 
@@ -252,7 +261,7 @@ impl VirtualFile for wasi_console_out_t {
         0
     }
     fn size(&self) -> u64 {
-        0
+        u64::MAX
     }
     fn set_len(&mut self, _: u64) -> Result<(), FsError> {
         Ok(())
@@ -282,7 +291,6 @@ pub unsafe extern "C" fn wasi_console_out_new(
         destructor,
         data: Some(Box::new(Arc::new(Mutex::new(data_vec)))),
         align: env_data_align,
-        dropped: false,
     }))
 }
 
@@ -770,10 +778,191 @@ pub extern "C" fn wasi_config_inherit_stdin(config: &mut wasi_config_t) {
     config.inherit_stdin = None;
 }
 
+#[repr(C)]
+pub struct wasi_console_stdin_t {
+    on_stdin: WasiConsoleIoOnStdinCallback,
+    destructor: WasiConsoleIoEnvDestructor,
+    data: Option<Box<Vec<c_char>>>,
+    align: usize,
+}
+
+impl wasi_console_stdin_t {
+    fn get_data_mut(&mut self, op_id: &'static str) -> io::Result<&mut Vec<c_char>> {
+        self.data
+            .as_mut()
+            .map(|s| &mut (**s))
+            .ok_or({
+                io::Error::new(
+                    io::ErrorKind::Other,
+                    format!(
+                        "could not get env data ({op_id}) on wasi_console_stdin_t"
+                    ),
+                )
+            })
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasi_console_stdin_new(
+    on_stdin: WasiConsoleIoOnStdinCallback,
+    destructor: WasiConsoleIoEnvDestructor,
+    ptr: *const c_void,
+    len: usize,
+    align: usize,
+) -> *mut wasi_console_stdin_t {
+    let data = std::slice::from_raw_parts(ptr as *const c_char, len);
+    Box::leak(Box::new(wasi_console_stdin_t {
+        on_stdin,
+        destructor,
+        data: Some(Box::new(data.to_vec())),
+        align,
+    }))
+}
+
+impl Drop for wasi_console_stdin_t {
+    fn drop(&mut self) {
+        let align = self.align;
+        let mut data = match self.data.take() {
+            Some(s) => s,
+            None => {
+                return;
+            }
+        };
+
+        let error = unsafe {
+            (self.destructor)(
+                (*data).as_mut_ptr() as *const c_void,
+                (*data).len(),
+                align,
+            )
+        };
+
+        if error < 0 {
+            println!("error dropping wasi_console_stdin_t: {error}");
+        }
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasi_console_stdin_delete(
+    ptr: *mut wasi_console_stdin_t,
+) -> bool {
+    let _ = Box::from_raw(ptr);
+    true
+}
+
+#[derive(Clone)]
+#[repr(C)]
+pub struct wasi_console_stdin_response_t {
+    // data that is written to the response
+    response_data: Box<Vec<c_char>>,
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasi_console_stdin_response_write_bytes(
+    response_t: &mut wasi_console_stdin_response_t,
+    bytes: *const c_char,
+    len: usize,
+) -> i64 {
+    let slice = std::slice::from_raw_parts(bytes, len);
+    let bytes_to_extend = response_t.response_data.len() as i64 - slice.len() as i64;
+    if bytes_to_extend > 0 {
+        response_t.response_data.append(&mut vec![0; bytes_to_extend as usize]);
+    }
+    for (source, target) in slice.iter().zip(response_t.response_data.iter_mut()) {
+        *target = *source;
+    }
+    slice.len() as i64
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasi_console_stdin_response_write_str(
+    response_t: &mut wasi_console_stdin_response_t,
+    str: *const c_char,
+) -> i64 {
+    let c_str = CStr::from_ptr(str);
+    let bytes = c_str.to_bytes();
+    wasi_console_stdin_response_write_bytes(response_t, bytes.as_ptr() as *const c_char, bytes.len())
+}
+
+impl fmt::Debug for wasi_console_stdin_t {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "wasi_console_stdin_t")
+    }
+}
+
+impl io::Read for wasi_console_stdin_t {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        let mut target = wasi_console_stdin_response_t {
+            response_data: Box::new(Vec::new()),
+        };
+        let self_align = self.align;
+        let self_on_stdin = self.on_stdin;
+        let data = self.get_data_mut("read")?;
+        let result = unsafe {
+            (self_on_stdin)(
+                data.as_ptr() as *const c_void,
+                data.len(),
+                self_align,
+                buf.len(),
+                &mut target,
+            )
+        };
+
+        if result >= 0 {
+            for (source, target) in target.response_data.iter().zip(buf.iter_mut()) {
+                *target = *source as u8;
+            }
+            Ok(result as usize)
+        } else {
+            Err(io::Error::new(
+                io::ErrorKind::Other,
+                format!("could not read from wasi_console_out_t: {result}"),
+            ))
+        }
+    }
+}
+
+impl io::Write for wasi_console_stdin_t {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        Ok(buf.len())
+    }
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+
+impl io::Seek for wasi_console_stdin_t {
+    fn seek(&mut self, _: SeekFrom) -> io::Result<u64> {
+        Ok(0)
+    }
+}
+
+impl VirtualFile for wasi_console_stdin_t {
+    fn last_accessed(&self) -> u64 {
+        0
+    }
+    fn last_modified(&self) -> u64 {
+        0
+    }
+    fn created_time(&self) -> u64 {
+        0
+    }
+    fn size(&self) -> u64 {
+        u64::MAX
+    }
+    fn set_len(&mut self, _: u64) -> Result<(), FsError> {
+        Ok(())
+    }
+    fn unlink(&mut self) -> Result<(), FsError> {
+        Ok(())
+    }
+}
+
 #[no_mangle]
 pub unsafe extern "C" fn wasi_config_overwrite_stdin(
     config: &mut wasi_config_t,
-    stdin: *mut wasi_console_out_t,
+    stdin: *mut wasi_console_stdin_t,
 ) {
     config.state_builder.stdin(Box::from_raw(stdin));
 }
