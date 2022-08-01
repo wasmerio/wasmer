@@ -57,9 +57,8 @@ tempfile = "3"
 unix_mode = "0.1.3"
 
 [dependencies.pirita]
-path = "../../../pirita/crates/pirita"
-# git = "git://git@github.com/wasmerio/pirita"
-# rev = "430bc3dc481dfea235c64d5a7d0c46fb75acbbf6"
+git = "https://github.com/wasmerio/pirita"
+rev = "207a23c9286baff14eded38951884f4aedf62b8c"
 default-features = false
 features = ["mmap"]
 optional = true
