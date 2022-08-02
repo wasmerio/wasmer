@@ -98,6 +98,15 @@ impl Run {
     }
 
     fn inner_module_run(&self, mut store: Store, instance: Instance) -> Result<()> {
+        
+        #[cfg(feature = "pirita_file")] 
+        {
+            if let Some(pf) = pirita::PiritaContainer::load_mmap(self.path.clone()) {
+                return pf.run(&self.command_name.clone().unwrap_or_default())
+                .ok_or(anyhow!("Could not run PiritaFile (error in execution)"));
+            }
+        }
+
         // If this module exports an _initialize function, run that first.
         if let Ok(initialize) = instance.exports.get_function("_initialize") {
             initialize

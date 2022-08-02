@@ -87,6 +87,16 @@ jobs:
       TARGET: ${{ matrix.target }}
     steps:
       - uses: actions/checkout@v3
+      - name: Set up GitHub secrets
+        run: |
+          echo https://wasmer:${{ secrets.GH_PAT }}@github.com > creds.txt
+          git config --global credential.helper "store --file creds.txt"
+      - name: Configure git credentials on Windows
+        if: matrix.os == 'windows-latest'
+        shell: bash
+        run: |
+          test="git = \"https:\/\/wasmer:${{ secrets.GH_PAT }}@github.com\/wasmerio\/pirita.git\""
+          sed  -i "s/git = \"https:\/\/github.com\/wasmerio\/pirita.git\"/$test/g" lib/cli/Cargo.toml
       - name: Set up libstdc++ on Linux
         if: matrix.build == 'linux-x64'
         run: |
