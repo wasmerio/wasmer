@@ -1322,8 +1322,8 @@ mod tests {
 
             long CustomWasiStdin_destructor(
                 const void* env,
-                __u_long sz,
-                __u_long ao
+                size_t sz,
+                size_t ao
             ) {
                 (void)env;
                 (void)sz;
@@ -1333,9 +1333,9 @@ mod tests {
 
             long CustomWasiStdin_onStdIn(
                 const void* env,
-                __u_long sz,
-                __u_long ao,
-                __u_long maxwrite,
+                size_t sz,
+                size_t ao,
+                size_t maxwrite,
                 wasi_console_stdin_response_t* in
             ) {
                 CustomWasiStdin* ptr = (CustomWasiStdin*)env;
