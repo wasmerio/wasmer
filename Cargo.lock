@@ -2887,7 +2887,6 @@ dependencies = [
  "lazy_static",
  "libc",
  "paste",
- "serde",
  "thiserror",
  "typetag",
  "wasmer",
@@ -3129,7 +3128,6 @@ name = "wasmer-vbus"
 version = "3.0.0-alpha.4"
 dependencies = [
  "libc",
- "serde",
  "slab",
  "thiserror",
  "tracing",
@@ -3178,7 +3176,6 @@ version = "3.0.0-alpha.4"
 dependencies = [
  "bytes",
  "libc",
- "serde",
  "slab",
  "thiserror",
  "tracing",

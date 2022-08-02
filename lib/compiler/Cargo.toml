@@ -38,12 +38,16 @@ region = { version = "3.0" }
 winapi = { version = "0.3", features = ["winnt", "impl-default"] }
 
 [features]
-default = ["std", "enable-serde" ]
+default = ["std" ]
 # This feature is for compiler implementors, it enables using `Compiler` and
 # `CompilerConfig`, as well as the included wasmparser.
 # Disable this feature if you just want a headless engine.
 translator = ["wasmparser"]
 compiler = ["translator"]
+wasmer-artifact-load = []
+wasmer-artifact-create = []
+static-artifact-load = []
+static-artifact-create = []
 std = ["wasmer-types/std"]
 core = ["hashbrown", "wasmer-types/core"]
 enable-serde = ["serde", "serde_bytes", "wasmer-types/enable-serde"]

@@ -8,8 +8,8 @@ use thiserror::Error;
 #[cfg(all(not(feature = "host-fs"), not(feature = "mem-fs")))]
 compile_error!("At least the `host-fs` or the `mem-fs` feature must be enabled. Please, pick one.");
 
-#[cfg(all(feature = "mem-fs", feature = "enable-serde"))]
-compile_error!("`mem-fs` does not support `enable-serde` for the moment.");
+//#[cfg(all(feature = "mem-fs", feature = "enable-serde"))]
+//compile_warn!("`mem-fs` does not support `enable-serde` for the moment.");
 
 #[cfg(feature = "host-fs")]
 pub mod host_fs;
@@ -171,7 +171,7 @@ impl OpenOptions {
 }
 
 /// This trait relies on your file closing when it goes out of scope via `Drop`
-#[cfg_attr(feature = "enable-serde", typetag::serde)]
+//#[cfg_attr(feature = "enable-serde", typetag::serde)]
 pub trait VirtualFile: fmt::Debug + Write + Read + Seek + Upcastable {
     /// the last time the file was accessed in nanoseconds as a UNIX timestamp
     fn last_accessed(&self) -> u64;

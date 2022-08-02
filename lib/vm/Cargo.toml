@@ -14,12 +14,12 @@ edition = "2018"
 wasmer-types = { path = "../types", version = "=3.0.0-alpha.4" }
 libc = { version = "^0.2", default-features = false }
 memoffset = "0.6"
-indexmap = { version = "1.6", features = ["serde-1"] }
+indexmap = { version = "1.6" }
 thiserror = "1.0"
 more-asserts = "0.2"
 cfg-if = "1.0"
 backtrace = "0.3"
-serde = { version = "1.0", features = ["derive", "rc"] }
+serde = { version = "1.0", features = ["derive", "rc"], optional = true }
 enum-iterator = "0.7.0"
 scopeguard = "1.1.0"
 lazy_static = "1.4.0"
@@ -40,3 +40,4 @@ maintenance = { status = "actively-developed" }
 
 [features]
 default = []
+enable-serde = ["serde", "indexmap/serde-1", "wasmer-types/enable-serde" ]

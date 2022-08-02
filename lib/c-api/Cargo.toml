@@ -35,7 +35,6 @@ enumset = "1.0.2"
 cfg-if = "1.0"
 lazy_static = "1.4"
 libc = { version = "^0.2", default-features = false }
-serde = { version = "1", optional = true, features = ["derive"] }
 thiserror = "1"
 typetag = { version = "0.1", optional = true }
 paste = "1.0"
