@@ -509,8 +509,6 @@ mod inner {
     use super::RuntimeError;
     use super::VMFunctionBody;
     use crate::js::function_env::{FunctionEnvMut, VMFunctionEnvironment};
-    #[allow(unused_imports)]
-    use crate::js::store::{AsStoreMut, InternalStoreHandle, StoreHandle, StoreInner, StoreMut};
     use crate::js::FunctionEnv;
     use crate::js::NativeWasmTypeInto;
     use std::array::TryFromSliceError;
@@ -518,6 +516,12 @@ mod inner {
     use std::error::Error;
     use std::marker::PhantomData;
     use std::panic::{self, AssertUnwindSafe};
+    use crate::{
+        AsStoreMut,
+        StoreMut,
+        StoreHandle,
+        js::store::InternalStoreHandle
+    };
 
     use wasmer_types::{FunctionType, NativeWasmType, Type};
     // use wasmer::{raise_user_trap, resume_panic};

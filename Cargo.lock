@@ -455,6 +455,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "245097e9a4535ee1e3e3931fcfcd55a796a44c643e8596ff6566d68f09b87bbc"
 
 [[package]]
+name = "cooked-waker"
+version = "5.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "147be55d677052dabc6b22252d5dd0fd4c29c8c27aa4f2fbef0f94aa003b406f"
+
+[[package]]
 name = "corosensei"
 version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2931,7 +2937,6 @@ dependencies = [
  "tempfile",
  "thiserror",
  "tracing",
- "waker-fn",
  "wasm-bindgen",
  "wasm-bindgen-test",
  "wasmer-compiler",
@@ -3203,6 +3208,7 @@ dependencies = [
  "enum-iterator",
  "enumset",
  "indexmap",
+ "memoffset",
  "more-asserts",
  "rkyv",
  "serde",
@@ -3282,9 +3288,11 @@ dependencies = [
  "bytes",
  "cfg-if 1.0.0",
  "chrono",
+ "cooked-waker",
  "derivative",
  "generational-arena",
  "getrandom",
+ "lazy_static",
  "libc",
  "serde",
  "sha2",
@@ -3293,6 +3301,7 @@ dependencies = [
  "tracing-subscriber 0.2.25",
  "tracing-wasm",
  "typetag",
+ "waker-fn",
  "wasm-bindgen",
  "wasm-bindgen-test",
  "wasmer",

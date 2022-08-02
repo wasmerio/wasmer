@@ -604,7 +604,7 @@ pub fn run_emscripten_instance(
     args: Vec<&str>,
     entrypoint: Option<String>,
 ) -> Result<(), RuntimeError> {
-    let env = ctx.data_mut().unwrap();
+    let env = ctx.data_mut();
     env.set_memory(globals.memory.clone());
     // get emscripten export
     let mut emfuncs = EmscriptenFunctions::new();

@@ -3,12 +3,12 @@ use std::ptr::NonNull;
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{
     GlobalType, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, MemoryType,
-    ModuleInfo, TableIndex, TableType,
+    ModuleInfo, TableIndex, TableType, MemoryError, LinearMemoryDefinition,
 };
-use wasmer_vm::{InternalStoreHandle, MemoryError, StoreObjects};
+use wasmer_vm::{InternalStoreHandle, StoreObjects, VMMemory};
 use wasmer_vm::{MemoryStyle, TableStyle};
-use wasmer_vm::{VMGlobal, VMMemory, VMTable};
-use wasmer_vm::{VMMemoryDefinition, VMTableDefinition};
+use wasmer_vm::{VMGlobal, VMTable};
+use wasmer_vm::VMTableDefinition;
 
 /// An engine delegates the creation of memories, tables, and globals
 /// to a foreign implementor of this trait.
@@ -34,7 +34,7 @@ pub trait Tunables {
         &self,
         ty: &MemoryType,
         style: &MemoryStyle,
-        vm_definition_location: NonNull<VMMemoryDefinition>,
+        vm_definition_location: NonNull<LinearMemoryDefinition>,
     ) -> Result<VMMemory, MemoryError>;
 
     /// Create a table owned by the host given a [`TableType`] and a [`TableStyle`].
@@ -65,7 +65,7 @@ pub trait Tunables {
         context: &mut StoreObjects,
         module: &ModuleInfo,
         memory_styles: &PrimaryMap<MemoryIndex, MemoryStyle>,
-        memory_definition_locations: &[NonNull<VMMemoryDefinition>],
+        memory_definition_locations: &[NonNull<LinearMemoryDefinition>],
     ) -> Result<PrimaryMap<LocalMemoryIndex, InternalStoreHandle<VMMemory>>, LinkError> {
         let num_imports = module.num_imported_memories;
         let mut memories: PrimaryMap<LocalMemoryIndex, _> =

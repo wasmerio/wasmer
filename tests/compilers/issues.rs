@@ -194,7 +194,7 @@ fn call_with_static_data_pointers(mut config: crate::Config) -> Result<()> {
         MemoryType::new(Pages(1024), Some(Pages(2048)), false),
     )
     .unwrap();
-    env.as_mut(&mut store).unwrap().memory = Some(memory.clone());
+    env.as_mut(&mut store).memory = Some(memory.clone());
     let mut exports = Exports::new();
     exports.insert("memory", memory);
     exports.insert("banana", Function::new_native(&mut store, &env, banana));

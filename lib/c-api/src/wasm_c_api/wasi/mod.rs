@@ -197,14 +197,6 @@ pub unsafe extern "C" fn wasi_env_new(
 #[no_mangle]
 pub extern "C" fn wasi_env_delete(_state: Option<Box<wasi_env_t>>) {}
 
-/// Set the memory on a [`wasi_env_t`].
-#[no_mangle]
-pub unsafe extern "C" fn wasi_env_set_memory(env: &mut wasi_env_t, memory: &wasm_memory_t) {
-    let mut store_mut = env.store.store_mut();
-    let wasi_env = env.inner.data_mut(&mut store_mut);
-    wasi_env.set_memory(memory.extern_.memory());
-}
-
 #[no_mangle]
 pub unsafe extern "C" fn wasi_env_read_stdout(
     env: &mut wasi_env_t,

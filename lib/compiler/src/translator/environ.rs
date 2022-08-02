@@ -253,15 +253,6 @@ impl<'data> ModuleEnvironment<'data> {
     }
 
     pub(crate) fn declare_memory(&mut self, memory: MemoryType) -> WasmResult<()> {
-        /*
-         * Shared memories are now supported by WASIX but they are not imported (still exported)
-
-        if memory.shared {
-            return Err(wasmer_types::WasmError::Unsupported(
-                "shared memories are not supported yet".to_owned(),
-            ));
-        }
-        */
         self.module.memories.push(memory);
         Ok(())
     }

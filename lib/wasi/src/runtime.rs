@@ -2,10 +2,11 @@ use std::fmt;
 use std::ops::Deref;
 use std::sync::atomic::{AtomicU32, Ordering};
 use thiserror::Error;
-use wasmer::{Module, Store};
-use wasmer::vm::VMMemory;
 use wasmer_vbus::{UnsupportedVirtualBus, VirtualBus};
 use wasmer_vnet::VirtualNetworking;
+use wasmer::VMMemory;
+
+use crate::WasiCallingId;
 
 use super::types::*;
 use super::WasiError;
@@ -50,7 +51,9 @@ pub struct WasiTtyState {
 
 /// Represents an implementation of the WASI runtime - by default everything is
 /// unimplemented.
-pub trait WasiRuntimeImplementation: fmt::Debug + Sync {
+pub trait WasiRuntimeImplementation
+where Self: fmt::Debug + Sync,
+{
     /// For WASI runtimes that support it they can implement a message BUS implementation
     /// which allows runtimes to pass serialized messages between each other similar to
     /// RPC's. BUS implementation can be implemented that communicate across runtimes
@@ -85,11 +88,10 @@ pub trait WasiRuntimeImplementation: fmt::Debug + Sync {
     /// Spawns a new thread by invoking the
     fn thread_spawn(
         &self,
-        _callback: Box<dyn FnOnce(Store, Module, VMMemory) + Send + 'static>,
-        _store: Store,
-        _module: Module,
+        _callback: Box<dyn FnOnce(VMMemory) + Send + 'static>,
         _existing_memory: VMMemory,
-    ) -> Result<(), WasiThreadError> {
+    ) -> Result<(), WasiThreadError>
+    {
         Err(WasiThreadError::Unsupported)
     }
 
@@ -101,7 +103,7 @@ pub trait WasiRuntimeImplementation: fmt::Debug + Sync {
     /// Invokes whenever a WASM thread goes idle. In some runtimes (like singlethreaded
     /// execution environments) they will need to do asynchronous work whenever the main
     /// thread goes idle and this is the place to hook for that.
-    fn yield_now(&self, _id: WasiThreadId) -> Result<(), WasiError> {
+    fn yield_now(&self, _id: WasiCallingId) -> Result<(), WasiError> {
         std::thread::yield_now();
         Ok(())
     }
@@ -113,13 +115,15 @@ pub trait WasiRuntimeImplementation: fmt::Debug + Sync {
 }
 
 #[derive(Debug)]
-pub struct PluggableRuntimeImplementation {
+pub struct PluggableRuntimeImplementation
+{
     pub bus: Box<dyn VirtualBus + Sync>,
     pub networking: Box<dyn VirtualNetworking + Sync>,
     pub thread_id_seed: AtomicU32,
 }
 
-impl PluggableRuntimeImplementation {
+impl PluggableRuntimeImplementation
+{
     pub fn set_bus_implementation<I>(&mut self, bus: I)
     where
         I: VirtualBus + Sync,
@@ -136,7 +140,8 @@ impl PluggableRuntimeImplementation {
 }
 
 impl Default
-for PluggableRuntimeImplementation {
+for PluggableRuntimeImplementation
+{
     fn default() -> Self {
         Self {
             #[cfg(not(feature = "host-vnet"))]
@@ -150,7 +155,8 @@ for PluggableRuntimeImplementation {
 }
 
 impl WasiRuntimeImplementation
-for PluggableRuntimeImplementation {
+for PluggableRuntimeImplementation
+{
     fn bus<'a>(&'a self) -> &'a (dyn VirtualBus) {
         self.bus.deref()
     }
@@ -166,13 +172,12 @@ for PluggableRuntimeImplementation {
     #[cfg(feature = "sys-thread")]
     fn thread_spawn(
         &self,
-        callback: Box<dyn FnOnce(Store, Module, VMMemory) + Send + 'static>,
-        store: Store,
-        module: Module,
+        callback: Box<dyn FnOnce(VMMemory) + Send + 'static>,
         existing_memory: VMMemory,
-    ) -> Result<(), WasiThreadError> {
+    ) -> Result<(), WasiThreadError>
+    {
         std::thread::spawn(move || {
-            callback(store, module, existing_memory)
+            callback(existing_memory)
         });
         Ok(())
     }

@@ -48,7 +48,10 @@ pub use crate::syscalls::types;
 pub use crate::utils::{
     get_wasi_version, get_wasi_versions, is_wasi_module, is_wasix_module, WasiVersion,
 };
+#[cfg(feature = "js")]
+use bytes::Bytes;
 use derivative::Derivative;
+use tracing::trace;
 pub use wasmer_vbus::{UnsupportedVirtualBus, VirtualBus};
 #[deprecated(since = "2.1.0", note = "Please use `wasmer_vfs::FsError`")]
 pub use wasmer_vfs::FsError as WasiFsError;
@@ -60,10 +63,11 @@ use wasmer_wasi_types::__WASI_CLOCK_MONOTONIC;
 
 use std::cell::RefCell;
 use std::ops::Deref;
+use std::sync::atomic::{AtomicU32, Ordering};
 use thiserror::Error;
 use wasmer::{
     imports, namespace, AsStoreMut, Exports, Function, FunctionEnv, Imports, Memory, Memory32,
-    MemoryAccessError, MemorySize, Module, TypedFunction, Reactors, Memory64, MemoryView, AsStoreRef, Instance, ExportError
+    MemoryAccessError, MemorySize, Module, TypedFunction, Memory64, MemoryView, AsStoreRef, Instance, ExportError
 };
 
 pub use runtime::{
@@ -108,6 +112,32 @@ impl From<WasiThreadId> for u32 {
     }
 }
 
+/// Represents the ID of a WASI calling thread
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct WasiCallingId(u32);
+
+impl WasiCallingId {
+    pub fn raw(&self) -> u32 {
+        self.0
+    }
+
+    pub fn inc(&mut self) -> WasiCallingId {
+        self.0 += 1;
+        self.clone()
+    }
+}
+
+impl From<u32> for WasiCallingId {
+    fn from(id: u32) -> Self {
+        Self(id)
+    }
+}
+impl From<WasiCallingId> for u32 {
+    fn from(t: WasiCallingId) -> u32 {
+        t.0 as u32
+    }
+}
+
 /// Represents the ID of a sub-process
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct WasiBusProcessId(u32);
@@ -123,14 +153,18 @@ impl Into<u32> for WasiBusProcessId {
     }
 }
 
-/// The protected environment attributes that are set after the WasiEnv is initialized
 #[derive(Clone)]
 pub struct WasiEnvInner
 {
     /// Represents a reference to the memory
     memory: Memory,
-    /// Represents the reactors used to sleep and wake
-    reactors: Reactors,
+    /// Represents the module that is being used (this is NOT send/sync)
+    /// however the code itself makes sure that it is used in a safe way
+    #[cfg(feature = "sys")]
+    module: Module,
+    /// Represents the module as a clonable byte array
+    #[cfg(feature = "js")]
+    module_bytes: Bytes,
     /// Represents the callback for spawning a thread (name = "_start_thread")
     thread_spawn: Option<TypedFunction<i64, ()>>,
     /// Represents the callback for spawning a reactor (name = "_react")
@@ -143,11 +177,18 @@ pub struct WasiEnvInner
     _free: Option<TypedFunction<(i64, i64), ()>>,
 }
 
+/// The code itself makes safe use of the struct so multiple threads don't access
+/// it (without this the JS code prevents the reference to the module from being stored
+/// which is needed for the multithreading mode)
+unsafe impl Send for WasiEnvInner { }
+unsafe impl Sync for WasiEnvInner { }
+
 /// The environment provided to the WASI imports.
 #[derive(Derivative, Clone)]
 #[derivative(Debug)]
 pub struct WasiEnv
-where Self: Send {
+where
+{
     /// ID of this thread (zero is the main thread)
     id: WasiThreadId,
     /// Shared state of the WASI system. Manages all the data that the
@@ -161,7 +202,21 @@ where Self: Send {
 }
 
 // Represents the current thread ID for the executing method
-thread_local!(pub(crate) static THREAD_ID: RefCell<u32> = RefCell::new(0));
+thread_local!(static CALLER_ID: RefCell<u32> = RefCell::new(0));
+lazy_static::lazy_static! {
+    static ref CALLER_ID_SEED: Arc<AtomicU32> = Arc::new(AtomicU32::new(1));
+}
+
+/// Returns the current thread ID
+pub fn current_caller_id() -> WasiCallingId {
+    CALLER_ID.with(|f| {
+        let mut caller_id = f.borrow_mut();
+        if *caller_id == 0 {
+            *caller_id = CALLER_ID_SEED.fetch_add(1, Ordering::AcqRel);
+        }
+        *caller_id
+    }).into()
+}
 
 impl WasiEnv {
     pub fn new(state: WasiState) -> Self {
@@ -185,19 +240,11 @@ impl WasiEnv {
     }
 
     /// Overrides the runtime implementation for this environment
-    pub fn set_runtime<R>(&mut self, runtime: R)
+    pub fn set_runtime<R>(&mut self, runtime: R) 
     where
         R: WasiRuntimeImplementation + Send + Sync + 'static,
     {
         self.runtime = Arc::new(runtime);
-    }
-
-    /// Returns the current thread ID
-    pub fn current_thread_id(&self) -> WasiThreadId {
-        THREAD_ID.with(|f| {
-            let thread_id = f.borrow();
-            *thread_id
-        }).into()
     }
 
     /// Returns the number of active threads
@@ -208,7 +255,7 @@ impl WasiEnv {
 
     // Yields execution
     pub fn yield_now(&self) -> Result<(), WasiError> {
-        self.runtime.yield_now(self.current_thread_id())?;
+        self.runtime.yield_now(current_caller_id())?;
         Ok(())
     }
 
@@ -340,26 +387,39 @@ impl WasiFunctionEnv {
     }
 
     /// Gets a mutable- reference to the host state in this context.
-    /// (this will only return a mutable reference as long as the environment
-    ///  has not been cloned - environments are cloned during multithreading)
     pub fn data_mut<'a>(&'a mut self, store: &'a mut impl AsStoreMut) -> &'a mut WasiEnv {
         self.env
             .as_mut(store)
-            .expect("The WasiEnv can not be mutated after its been cloned")
     }
 
     /// Initializes the WasiEnv using the instance exports
     /// (this must be executed before attempting to use it)
-    pub fn initialize(&mut self, store: &mut impl AsStoreMut, instance: &Instance) -> Result<(), ExportError> {
+    /// (as the stores can not by themselves be passed between threads we can store the module
+    ///  in a thread-local variables and use it later - for multithreading)
+    pub fn initialize(&mut self, store: &mut impl AsStoreMut, instance: &Instance) -> Result<(), ExportError>
+    {
+        // List all the exports and imports
+        for ns in instance.module().exports() {
+            //trace!("module::export - {} ({:?})", ns.name(), ns.ty());
+            trace!("module::export - {}", ns.name());
+        }
+        for ns in instance.module().imports() {
+            trace!("module::import - {}::{}", ns.module(), ns.name());
+        }
+
+        // First we get the malloc function which if it exists will be used to
+        // create the pthread_self structure
         let memory = instance.exports.get_memory("memory")?.clone();
         let new_inner = WasiEnvInner {
-            reactors: Default::default(),
-            module: instance.module().clone(),
             memory,
+            #[cfg(feature = "sys")]
+            module: instance.module().clone(),
+            #[cfg(feature = "js")]
+            module_bytes: Bytes::from(instance.module().serialize().map_err(|err| ExportError::SerializationFailed(err.to_string()))?),
             thread_spawn: instance.exports.get_typed_function(store, "_start_thread").ok(),
             react: instance.exports.get_typed_function(store, "_react").ok(),
             thread_local_destroy: instance.exports.get_typed_function(store, "_thread_local_destroy").ok(),
-            _malloc: instance.exports.get_typed_function(store, "_malloc").ok(),
+            _malloc: instance.exports.get_typed_function(&store, "_malloc").ok(),
             _free: instance.exports.get_typed_function(store, "_free").ok()
         };
 

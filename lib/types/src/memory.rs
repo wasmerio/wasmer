@@ -6,8 +6,11 @@ use std::convert::{TryFrom, TryInto};
 use std::iter::Sum;
 use std::ops::{Add, AddAssign};
 
+use super::MemoryType;
+use super::MemoryError;
+
 /// Implementation styles for WebAssembly linear memory.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, RkyvSerialize, RkyvDeserialize, Archive)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, RkyvSerialize, RkyvDeserialize, Archive)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[archive(as = "Self")]
 pub enum MemoryStyle {
@@ -123,5 +126,73 @@ unsafe impl MemorySize for Memory64 {
     }
     fn native_to_offset(native: Self::Native) -> Self::Offset {
         native as Self::Offset
+    }
+}
+
+/// Represents memory that is used by the WebAsssembly module
+pub trait LinearMemory
+where Self: std::fmt::Debug
+{
+    /// Returns the type for this memory.
+    fn ty(&self) -> MemoryType;
+
+    /// Returns the size of hte memory in pages
+    fn size(&self) -> Pages;
+
+    /// Grow memory by the specified amount of wasm pages.
+    ///
+    /// Returns `None` if memory can't be grown by the specified amount
+    /// of wasm pages.
+    fn grow(&mut self, delta: Pages) -> Result<Pages, MemoryError>;
+}
+
+/// The fields compiled code needs to access to utilize a WebAssembly linear
+/// memory defined within the instance, namely the start address and the
+/// size in bytes.
+#[derive(Debug, Copy, Clone)]
+#[repr(C)]
+pub struct LinearMemoryDefinition {
+    /// The start address which is always valid, even if the memory grows.
+    pub base: *mut u8,
+
+    /// The current logical size of this linear memory in bytes.
+    pub current_length: usize,
+}
+
+/// # Safety
+/// This data is safe to share between threads because it's plain data that
+/// is the user's responsibility to synchronize.
+unsafe impl Send for LinearMemoryDefinition {}
+/// # Safety
+/// This data is safe to share between threads because it's plain data that
+/// is the user's responsibility to synchronize. And it's `Copy` so there's
+/// really no difference between passing it by reference or by value as far as
+/// correctness in a multi-threaded context is concerned.
+unsafe impl Sync for LinearMemoryDefinition {}
+
+#[cfg(test)]
+mod test_memory_definition {
+    use super::LinearMemoryDefinition;
+    use crate::VMOffsets;
+    use memoffset::offset_of;
+    use std::mem::size_of;
+    use crate::ModuleInfo;
+
+    #[test]
+    fn check_vmmemory_definition_offsets() {
+        let module = ModuleInfo::new();
+        let offsets = VMOffsets::new(size_of::<*mut u8>() as u8, &module);
+        assert_eq!(
+            size_of::<LinearMemoryDefinition>(),
+            usize::from(offsets.size_of_vmmemory_definition())
+        );
+        assert_eq!(
+            offset_of!(LinearMemoryDefinition, base),
+            usize::from(offsets.vmmemory_definition_base())
+        );
+        assert_eq!(
+            offset_of!(LinearMemoryDefinition, current_length),
+            usize::from(offsets.vmmemory_definition_current_length())
+        );
     }
 }

@@ -37,41 +37,6 @@ impl Store {
     pub fn same(_a: &Self, _b: &Self) -> bool {
         true
     }
-    
-    /// Packages an empty copy of store so that it can be passed to other threads
-    pub fn package(&self) -> PackagedStore
-    {
-        self.inner.package()
-    }
-}
-
-impl StoreInner
-{
-    /// Packages an empty copy of store so that it can be passed to other threads
-    pub fn package(&self) -> PackagedStore
-    {
-        PackagedStore
-        {
-        }
-    }
-}
-
-/// Represents a packaged store that can be passed around and then created locally
-pub struct PackagedStore
-{
-}
-
-impl PackagedStore
-{
-    /// Creates a store in from an earlier packaged store
-    pub fn unpack(self) -> Store
-    {
-        Store {
-            inner: Box::new(StoreInner {
-                objects: StoreObjects::default(),
-            })
-        }
-    }
 }
 
 impl PartialEq for Store {
@@ -158,11 +123,6 @@ impl<'a> StoreMut<'a> {
 
     pub(crate) unsafe fn from_raw(raw: *mut StoreInner) -> Self {
         Self { inner: &mut *raw }
-    }
-    
-    /// Packages the store so that it can be passed to another thread and unpackaged
-    pub fn package(&self) -> PackagedStore {
-        self.inner.package()
     }
 }
 
@@ -301,6 +261,11 @@ mod objects {
         /// Returns the ID of this context.
         pub fn id(&self) -> StoreId {
             self.id
+        }
+
+        /// Sets the ID of this store
+        pub fn set_id(&mut self, id: StoreId) {
+            self.id = id;
         }
 
         /// Returns a pair of mutable references from two handles.

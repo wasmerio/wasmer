@@ -4,7 +4,7 @@ use std::convert::TryInto;
 use std::marker::PhantomData;
 use std::mem::MaybeUninit;
 use std::slice;
-use wasmer_types::Pages;
+use wasmer_types::{Pages, LinearMemory};
 
 use super::Memory;
 use super::memory::MemoryBuffer;
@@ -26,7 +26,7 @@ impl<'a> MemoryView<'a>
     pub(crate) fn new(memory: &Memory, store: &'a impl AsStoreRef) -> Self {
         let size = memory.handle.get(store.as_store_ref().objects()).size();
 
-        let definition = memory.handle.get(store.as_store_ref().objects()).vmmemory();
+        let definition = memory.handle.get(store.as_store_ref().objects()).as_ptr();
         let def = unsafe { definition.as_ref() };
         
         Self {

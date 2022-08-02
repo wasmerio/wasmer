@@ -4,8 +4,6 @@ use wasmer_vm::{StoreHandle, StoreObjects, VMFunctionEnvironment};
 
 use crate::{AsStoreMut, AsStoreRef, StoreMut, StoreRef};
 
-use super::store::PackagedStore;
-
 #[derive(Debug)]
 #[repr(transparent)]
 /// An opaque reference to a function environment.
@@ -42,18 +40,16 @@ impl<T> FunctionEnv<T> {
             .unwrap()
     }
 
-    /// Get the data as mutable reference
-    /// (this will only return a mutable reference as long as the environment
-    ///  has not been cloned - environments are cloned during multithreading)
-    pub fn as_mut<'a>(&mut self, store: &'a mut impl AsStoreMut) -> Option<&'a mut T>
+    /// Get the data as mutable
+    pub fn as_mut<'a>(&self, store: &'a mut impl AsStoreMut) -> &'a mut T
     where
         T: Any + Send + 'static + Sized,
     {
         self.handle
             .get_mut(store.objects_mut())
             .as_mut()
-            .map(|a| a.downcast_mut::<T>())
-            .flatten()
+            .downcast_mut::<T>()
+            .unwrap()
     }
 
     /// Convert it into a `FunctionEnvMut`
@@ -104,11 +100,14 @@ impl<T: Send + 'static> FunctionEnvMut<'_, T> {
         self.func_env.as_ref(&self.store_mut)
     }
 
-    /// Returns a mutable- reference to the host state in this context.
-    /// (this will only return a mutable reference as long as the environment
-    ///  has not been cloned - environments are cloned during multithreading)
-    pub fn data_mut<'a>(&'a mut self) -> Option<&'a mut T> {
+    /// Returns a mutable- reference to the host state in this function environement.
+    pub fn data_mut(&mut self) -> &mut T {
         self.func_env.as_mut(&mut self.store_mut)
+    }
+
+    /// Borrows a new immmutable reference
+    pub fn as_ref(&self) -> FunctionEnv<T> {
+        self.func_env.clone()
     }
 
     /// Borrows a new mutable reference
@@ -117,11 +116,6 @@ impl<T: Send + 'static> FunctionEnvMut<'_, T> {
             store_mut: self.store_mut.as_store_mut(),
             func_env: self.func_env.clone(),
         }
-    }
-
-    /// Packages up an empty store that can be passed to another thread
-    pub fn package_store(&self) -> PackagedStore {
-        self.store_mut.package()
     }
 }
 

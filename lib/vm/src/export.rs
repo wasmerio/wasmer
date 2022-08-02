@@ -1,15 +1,12 @@
 // This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
-use std::any::Any;
-use std::sync::Arc;
-
 use crate::global::VMGlobal;
-use crate::memory::VMMemory;
 use crate::store::InternalStoreHandle;
 use crate::table::VMTable;
 use crate::vmcontext::VMFunctionKind;
-use crate::{MaybeInstanceOwned, VMCallerCheckedAnyfunc};
+use crate::{MaybeInstanceOwned, VMCallerCheckedAnyfunc, VMMemory};
+use std::any::Any;
 use wasmer_types::FunctionType;
 
 /// The value of an export passed from one instance to another.
@@ -28,11 +25,10 @@ pub enum VMExtern {
 }
 
 /// A function export value.
-#[derive(Clone)]
 pub struct VMFunction {
     /// Pointer to the `VMCallerCheckedAnyfunc` which contains data needed to
     /// call the function and check its signature.
-    pub anyfunc: Arc<MaybeInstanceOwned<VMCallerCheckedAnyfunc>>,
+    pub anyfunc: MaybeInstanceOwned<VMCallerCheckedAnyfunc>,
 
     /// The function type, used for compatibility checking.
     pub signature: FunctionType,
@@ -42,5 +38,5 @@ pub struct VMFunction {
     pub kind: VMFunctionKind,
 
     /// Associated data owned by a host function.
-    pub host_data: Arc<dyn Any>,
+    pub host_data: Box<dyn Any>,
 }

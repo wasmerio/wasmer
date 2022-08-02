@@ -9,9 +9,9 @@
 //! ```
 use std::marker::PhantomData;
 
-use crate::sys::{
+use crate::{sys::{
     AsStoreMut, FromToNativeWasmType, Function, NativeWasmTypeInto, RuntimeError, WasmTypeList,
-};
+}, AsStoreRef};
 use wasmer_types::RawValue;
 
 /// A WebAssembly function that can be called natively

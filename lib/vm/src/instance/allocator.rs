@@ -1,11 +1,11 @@
 use super::{Instance, InstanceHandle};
-use crate::vmcontext::{VMMemoryDefinition, VMTableDefinition};
+use crate::vmcontext::VMTableDefinition;
 use std::alloc::{self, Layout};
 use std::convert::TryFrom;
 use std::mem;
 use std::ptr::{self, NonNull};
 use wasmer_types::entity::EntityRef;
-use wasmer_types::VMOffsets;
+use wasmer_types::{VMOffsets, LinearMemoryDefinition};
 use wasmer_types::{LocalMemoryIndex, LocalTableIndex, ModuleInfo};
 
 /// This is an intermediate type that manages the raw allocation and
@@ -71,7 +71,7 @@ impl InstanceAllocator {
         module: &ModuleInfo,
     ) -> (
         Self,
-        Vec<NonNull<VMMemoryDefinition>>,
+        Vec<NonNull<LinearMemoryDefinition>>,
         Vec<NonNull<VMTableDefinition>>,
     ) {
         let offsets = VMOffsets::new(mem::size_of::<usize>() as u8, module);
@@ -129,7 +129,7 @@ impl InstanceAllocator {
     ///   the offsets in `Self.offsets` point to valid locations in
     ///   memory, i.e. `Self.instance_ptr` must have been allocated by
     ///   `Self::new`.
-    unsafe fn memory_definition_locations(&self) -> Vec<NonNull<VMMemoryDefinition>> {
+    unsafe fn memory_definition_locations(&self) -> Vec<NonNull<LinearMemoryDefinition>> {
         let num_memories = self.offsets.num_local_memories;
         let num_memories = usize::try_from(num_memories).unwrap();
         let mut out = Vec::with_capacity(num_memories);

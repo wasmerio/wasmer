@@ -14,7 +14,6 @@ use std::cell::UnsafeCell;
 use std::convert::TryFrom;
 use std::fmt;
 use std::ptr::NonNull;
-use std::sync::Arc;
 use wasmer_types::TableStyle;
 use wasmer_types::{TableType, TrapCode, Type as ValType};
 
@@ -70,7 +69,7 @@ impl Default for TableElement {
 }
 
 /// Protected area of the VMTable
-pub struct VMTableProtected
+pub struct VMTable
 {
     vec: Vec<RawTableElement>,
     maximum: Option<u32>,
@@ -79,31 +78,6 @@ pub struct VMTableProtected
     /// Our chosen implementation style.
     style: TableStyle,
     vm_table_definition: MaybeInstanceOwned<VMTableDefinition>,
-}
-
-impl VMTableProtected
-{
-    /// Get the `VMTableDefinition`.
-    fn get_vm_table_definition(&self) -> NonNull<VMTableDefinition> {
-        self.vm_table_definition.as_ptr()
-    }
-
-    /// Returns the number of allocated elements.
-    pub fn size(&self) -> u32 {
-        unsafe {
-            let td_ptr = self.get_vm_table_definition();
-            let td = td_ptr.as_ref();
-            td.current_elements
-        }
-    }
-}
-
-/// A table instance.
-#[derive(Clone)]
-pub struct VMTable
-{
-    /// Protected area of the VM table
-    protected: Arc<VMTableProtected>,
 }
 
 impl VMTable {
@@ -157,8 +131,8 @@ impl VMTable {
             .map_err(|_| "Table minimum is bigger than usize".to_string())?;
         let mut vec = vec![RawTableElement::default(); table_minimum];
         let base = vec.as_mut_ptr();
-        let protected = match style {
-            TableStyle::CallerChecksSignature => VMTableProtected {
+        match style {
+            TableStyle::CallerChecksSignature => Ok(Self {
                 vec,
                 maximum: table.maximum,
                 table: *table,
@@ -177,66 +151,33 @@ impl VMTable {
                         current_elements: table_minimum as _,
                     })))
                 },
-            },
-        };
-
-        Ok(VMTable {
-            protected: Arc::new(protected)
-        })
-    }
-
-    /// Accesses this table
-    pub fn protected(&self) -> &VMTableProtected {
-        self.protected.as_ref()
-    }
-
-    /// Access this table for mutability, if its been cloned then
-    /// we make a copy of the table first
-    pub fn try_protected_mut(&mut self) -> Option<&mut VMTableProtected>
-    {
-        Arc::get_mut(&mut self.protected)
-    }
-
-    /// Access this table for mutability, if its been cloned then
-    /// we make a copy of the table first
-    pub fn mutate<T>(&mut self, work: impl FnOnce(&mut VMTableProtected) -> T) -> T
-    {
-        loop {
-            if let Some(a) = self.try_protected_mut() {
-                return work(a);
-            }
-
-            let mut vec = self.protected.vec.clone();
-            let base = vec.as_mut_ptr();
-            let protected = Arc::new(VMTableProtected {
-                vec,
-                maximum: self.protected.maximum.clone(),
-                table: self.protected.table.clone(),
-                style: self.protected.style.clone(),
-                vm_table_definition: MaybeInstanceOwned::Host(Box::new(UnsafeCell::new(VMTableDefinition {
-                    base: base as _,
-                    current_elements: unsafe {
-                        self.protected.get_vm_table_definition().as_ref().current_elements
-                    },
-                })))
-            });
-            drop(std::mem::replace(&mut self.protected, protected));
+            }),
         }
+    }
+
+    /// Get the `VMTableDefinition`.
+    fn get_vm_table_definition(&self) -> NonNull<VMTableDefinition> {
+        self.vm_table_definition.as_ptr()
     }
 
     /// Returns the type for this Table.
     pub fn ty(&self) -> &TableType {
-        &self.protected().table
+        &self.table
     }
 
     /// Returns the style for this Table.
     pub fn style(&self) -> &TableStyle {
-        &self.protected().style
+        &self.style
     }
 
     /// Returns the number of allocated elements.
     pub fn size(&self) -> u32 {
-        self.protected().size()
+        // TODO: investigate this function for race conditions
+        unsafe {
+            let td_ptr = self.get_vm_table_definition();
+            let td = td_ptr.as_ref();
+            td.current_elements
+        }
     }
 
     /// Grow table by the specified amount of elements.
@@ -244,38 +185,35 @@ impl VMTable {
     /// Returns `None` if table can't be grown by the specified amount
     /// of elements, otherwise returns the previous size of the table.
     pub fn grow(&mut self, delta: u32, init_value: TableElement) -> Option<u32> {
-        self.mutate(|lock| {
-            let size = lock.size();
-            let new_len = size.checked_add(delta)?;
-            if lock.maximum.map_or(false, |max| new_len > max) {
-                return None;
-            }
-            if new_len == size {
-                debug_assert_eq!(delta, 0);
-                return Some(size);
-            }
+        let size = self.size();
+        let new_len = size.checked_add(delta)?;
+        if self.maximum.map_or(false, |max| new_len > max) {
+            return None;
+        }
+        if new_len == size {
+            debug_assert_eq!(delta, 0);
+            return Some(size);
+        }
 
-            lock.vec
-                .resize(usize::try_from(new_len).unwrap(), init_value.into());
+        self.vec
+            .resize(usize::try_from(new_len).unwrap(), init_value.into());
 
-            // update table definition
-            unsafe {
-                let mut td_ptr = lock.get_vm_table_definition();
-                let td = td_ptr.as_mut();
-                td.current_elements = new_len;
-                td.base = lock.vec.as_mut_ptr() as _;
-            }
-            Some(size)
-        })
+        // update table definition
+        unsafe {
+            let mut td_ptr = self.get_vm_table_definition();
+            let td = td_ptr.as_mut();
+            td.current_elements = new_len;
+            td.base = self.vec.as_mut_ptr() as _;
+        }
+        Some(size)
     }
 
     /// Get reference to the specified element.
     ///
     /// Returns `None` if the index is out of bounds.
     pub fn get(&self, index: u32) -> Option<TableElement> {
-        let lock = self.protected();
-        let raw_data = lock.vec.get(index as usize).cloned()?;
-        Some(match lock.table.ty {
+        let raw_data = self.vec.get(index as usize).cloned()?;
+        Some(match self.table.ty {
             ValType::ExternRef => TableElement::ExternRef(unsafe { raw_data.extern_ref }),
             ValType::FuncRef => TableElement::FuncRef(unsafe { raw_data.func_ref }),
             _ => todo!("getting invalid type from table, handle this error"),
@@ -288,36 +226,34 @@ impl VMTable {
     ///
     /// Returns an error if the index is out of bounds.
     pub fn set(&mut self, index: u32, reference: TableElement) -> Result<(), Trap> {
-        self.mutate(|lock| {
-            match lock.vec.get_mut(index as usize) {
-                Some(slot) => {
-                    match (lock.table.ty, reference) {
-                        (ValType::ExternRef, r @ TableElement::ExternRef(_)) => {
-                            *slot = r.into();
-                        }
-                        (ValType::FuncRef, r @ TableElement::FuncRef(_)) => {
-                            *slot = r.into();
-                        }
-                        // This path should never be hit by the generated code due to Wasm
-                        // validation.
-                        (ty, v) => {
-                            panic!(
-                                "Attempted to set a table of type {} with the value {:?}",
-                                ty, v
-                            )
-                        }
-                    };
-    
-                    Ok(())
-                }
-                None => Err(Trap::lib(TrapCode::TableAccessOutOfBounds)),
+        match self.vec.get_mut(index as usize) {
+            Some(slot) => {
+                match (self.table.ty, reference) {
+                    (ValType::ExternRef, r @ TableElement::ExternRef(_)) => {
+                        *slot = r.into();
+                    }
+                    (ValType::FuncRef, r @ TableElement::FuncRef(_)) => {
+                        *slot = r.into();
+                    }
+                    // This path should never be hit by the generated code due to Wasm
+                    // validation.
+                    (ty, v) => {
+                        panic!(
+                            "Attempted to set a table of type {} with the value {:?}",
+                            ty, v
+                        )
+                    }
+                };
+
+                Ok(())
             }
-        })
+            None => Err(Trap::lib(TrapCode::TableAccessOutOfBounds)),
+        }
     }
 
     /// Return a `VMTableDefinition` for exposing the table to compiled wasm code.
     pub fn vmtable(&self) -> NonNull<VMTableDefinition> {
-        self.protected().get_vm_table_definition()
+        self.get_vm_table_definition()
     }
 
     /// Copy `len` elements from `src_table[src_index..]` into `dst_table[dst_index..]`.

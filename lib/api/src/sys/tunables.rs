@@ -1,10 +1,10 @@
 use crate::sys::{MemoryType, Pages, TableType};
 use std::ptr::NonNull;
 use wasmer_compiler::Tunables;
-use wasmer_types::{PointerWidth, Target};
-use wasmer_vm::MemoryError;
+use wasmer_types::{PointerWidth, Target, MemoryError, LinearMemoryDefinition};
+use wasmer_vm::{create_memory_from_definition, VMMemory};
 use wasmer_vm::{
-    MemoryStyle, TableStyle, VMMemory, VMMemoryDefinition, VMTable, VMTableDefinition,
+    MemoryStyle, TableStyle, VMTable, VMTableDefinition,
 };
 
 /// Tunable parameters for WebAssembly compilation.
@@ -95,7 +95,7 @@ impl Tunables for BaseTunables {
         ty: &MemoryType,
         style: &MemoryStyle,
     ) -> Result<VMMemory, MemoryError> {
-        VMMemory::new(ty, style)
+        wasmer_vm::create_memory(ty, style)
     }
 
     /// Create a memory owned by the VM given a [`MemoryType`] and a [`MemoryStyle`].
@@ -107,9 +107,9 @@ impl Tunables for BaseTunables {
         &self,
         ty: &MemoryType,
         style: &MemoryStyle,
-        vm_definition_location: NonNull<VMMemoryDefinition>,
+        vm_definition_location: NonNull<LinearMemoryDefinition>,
     ) -> Result<VMMemory, MemoryError> {
-        VMMemory::from_definition(ty, style, vm_definition_location)
+        create_memory_from_definition(ty, style, vm_definition_location)
     }
 
     /// Create a table owned by the host given a [`TableType`] and a [`TableStyle`].

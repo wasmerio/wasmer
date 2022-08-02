@@ -12,9 +12,6 @@ mod ptr;
 mod store;
 mod tunables;
 mod value;
-mod thread;
-#[path = "../common/reactors.rs"]
-mod reactors;
 
 pub use crate::sys::exports::{ExportError, Exportable, Exports, ExportsIterator};
 pub use crate::sys::extern_ref::ExternRef;
@@ -29,8 +26,6 @@ pub use crate::sys::module::Module;
 pub use crate::sys::native::TypedFunction;
 pub use crate::sys::native_type::NativeWasmTypeInto;
 pub use crate::sys::store::{AsStoreMut, AsStoreRef, StoreMut, StoreRef};
-pub use crate::sys::thread::ThreadControl;
-pub use crate::sys::reactors::Reactors;
 
 pub use crate::sys::ptr::{Memory32, Memory64, MemorySize, WasmPtr, WasmPtr64};
 pub use crate::sys::store::Store;
@@ -45,8 +40,8 @@ pub use wasmer_compiler::{Features, FrameInfo, LinkError, RuntimeError, Tunables
 pub use wasmer_derive::ValueType;
 pub use wasmer_types::is_wasm;
 pub use wasmer_types::{
-    CpuFeature, ExportType, ExternType, FunctionType, GlobalType, ImportType, MemoryType,
-    Mutability, TableType, Target, Type,
+    CpuFeature, ExportType, ExternType, FunctionType, GlobalType, ImportType, MemoryType, MemoryStyle,
+    Mutability, TableType, Target, Type, LinearMemory, LinearMemoryDefinition, MemoryError
 };
 
 pub use wasmer_types::{
@@ -56,15 +51,16 @@ pub use wasmer_types::{
 };
 
 // TODO: should those be moved into wasmer::vm as well?
-pub use wasmer_vm::{raise_user_trap, MemoryError};
+pub use wasmer_vm::raise_user_trap;
 pub mod vm {
     //! The `vm` module re-exports wasmer-vm types.
 
     pub use wasmer_vm::{
-        MemoryError, MemoryStyle, TableStyle, VMExtern, VMMemory, VMMemoryDefinition, VMTable,
+        MemoryStyle, TableStyle, VMExtern, VMOwnedMemory, VMSharedMemory, VMTable,
         VMTableDefinition,
     };
 }
+pub use wasmer_vm::VMMemory;
 
 #[cfg(feature = "wat")]
 pub use wat::parse_bytes as wat2wasm;

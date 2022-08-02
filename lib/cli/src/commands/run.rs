@@ -139,10 +139,10 @@ impl Run {
             // TODO: refactor this
             if is_emscripten_module(&module) {
                 // create an EmEnv with default global
-                let mut env = FunctionEnv::new(&mut store, EmEnv::new());
+                let env = FunctionEnv::new(&mut store, EmEnv::new());
                 let mut emscripten_globals = EmscriptenGlobals::new(&mut store, &env, &module)
                     .map_err(|e| anyhow!("{}", e))?;
-                env.as_mut(&mut store).unwrap()
+                env.as_mut(&mut store)
                     .set_data(&emscripten_globals.data, Default::default());
                 let import_object =
                     generate_emscripten_env(&mut store, &env, &mut emscripten_globals);
@@ -383,6 +383,9 @@ impl Run {
                             name,
                             suggestion
                         ),
+                        ExportError::SerializationFailed(err) => {
+                            anyhow!("Failed to serialize the module - {}", err)
+                        }
                     }
                 }
             })?

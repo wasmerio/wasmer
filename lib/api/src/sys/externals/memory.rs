@@ -10,8 +10,8 @@ use std::mem::MaybeUninit;
 use std::slice;
 #[cfg(feature = "tracing")]
 use tracing::warn;
-use wasmer_types::Pages;
-use wasmer_vm::{InternalStoreHandle, MemoryError, StoreHandle, StoreObjects, VMExtern, VMMemory};
+use wasmer_types::{self, Pages, MemoryError, LinearMemory};
+use wasmer_vm::{InternalStoreHandle, StoreHandle, StoreObjects, VMExtern, VMMemory};
 
 use super::MemoryView;
 
@@ -149,10 +149,10 @@ impl Memory {
         self.handle.store_id() == store.as_store_ref().objects().id()
     }
 
-    /// Convert this external to a cloned copy of the memory
-    pub fn to_vm_memory(&self, store: &impl AsStoreRef) -> VMMemory {
+    /// Attempts to clone this memory (if its clonable)
+    pub fn try_clone(&self, store: &impl AsStoreRef) -> Option<VMMemory> {
         let mem = self.handle.get(store.as_store_ref().objects());
-        mem.clone()
+        mem.try_clone()
     }
 
     pub(crate) fn to_vm_extern(&self) -> VMExtern {

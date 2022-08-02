@@ -4,19 +4,75 @@ use crate::js::wasm_bindgen_polyfill::Global;
 use js_sys::Function;
 use js_sys::WebAssembly::{Memory, Table};
 use std::fmt;
+use std::convert::TryInto;
 use wasm_bindgen::{JsCast, JsValue};
 use wasmer_types::{ExternType, FunctionType, GlobalType, MemoryType, TableType};
+use wasmer_types::{LinearMemory, MemoryError, Pages, Bytes};
 
-/// Reference to the memory of the web assembly instance hosted within the javascript runtime
+use super::externals::memory::JSMemory;
+
+/// Represents a piece of memory stored in the javascript runtime
 #[derive(Clone, Debug, PartialEq)]
 pub struct VMMemory {
     pub(crate) memory: Memory,
     pub(crate) ty: MemoryType,
 }
+   
+unsafe impl Send for VMMemory { }
+unsafe impl Sync for VMMemory { }
 
-/// This is most definately not safe to pass between threads!
-//unsafe impl Send for VMMemory {}
-//unsafe impl Sync for VMMemory {}
+impl LinearMemory
+for VMMemory
+{
+    /// Returns the type of memory held here
+    fn ty(&self) -> MemoryType {
+        self.ty.clone()
+    }
+
+    /// Returns the size of hte memory in pages
+    fn size(&self) -> Pages {
+        let buffer = self.memory.buffer();
+        let size = js_sys::Reflect::get(
+                &buffer,
+                &"byteLength".into(),
+            )
+            .unwrap()
+            .as_f64()
+            .unwrap() as u64;
+        let size: Pages = Bytes(size as usize).try_into().unwrap();
+        size
+    }
+
+    /// Grow memory by the specified amount of wasm pages.
+    ///
+    /// Returns `None` if memory can't be grown by the specified amount
+    /// of wasm pages.
+    fn grow(&mut self, pages: Pages) -> Result<Pages, MemoryError> {
+        let buffer = self.memory.buffer();
+        let size = js_sys::Reflect::get(
+                &buffer,
+                &"byteLength".into(),
+            )
+            .unwrap()
+            .as_f64()
+            .unwrap() as u64;
+        let size: Pages = Bytes(size as usize).try_into().unwrap();
+
+        let js_memory = &self.memory;
+        let our_js_memory: &JSMemory = JsCast::unchecked_from_js_ref(js_memory);
+        let new_pages = our_js_memory.grow(pages.0).map_err(|err| {
+            if err.is_instance_of::<js_sys::RangeError>() {
+                MemoryError::CouldNotGrow {
+                    current: size,
+                    attempted_delta: pages,
+                }
+            } else {
+                MemoryError::Generic(err.as_string().unwrap())
+            }
+        })?;
+        Ok(Pages(new_pages))
+    }
+}
 
 impl VMMemory {
     /// Creates the linear memory object from an existing javascript runtime and its memory type
@@ -24,14 +80,14 @@ impl VMMemory {
         Self { memory, ty }
     }
 
-    /// Returns the type of memory held here
-    pub fn ty(&self) -> MemoryType {
-        self.ty.clone()
-    }
-
     /// Returns the memory as a JsValue so that it can be passed to other threads
     pub fn as_memory(&self) -> Memory {
         self.memory.clone()
+    }
+
+    /// Attempts to clone this memory (if its clonable)
+    pub fn try_clone(&self) -> Option<VMMemory> {
+        Some(self.clone())
     }
 }
 

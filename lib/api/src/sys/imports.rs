@@ -6,8 +6,9 @@ use std::collections::HashMap;
 use std::fmt;
 use wasmer_compiler::LinkError;
 use wasmer_types::ImportError;
+#[cfg(feature = "tracing")]
 use tracing::trace;
-use wasmer_vm::VMMemory;
+use wasmer_vm::{VMSharedMemory, VMMemory};
 
 /// All of the import data used when instantiating.
 ///
@@ -116,7 +117,7 @@ impl Imports {
 
     /// Imports (any) shared memory into the imports.
     /// (if the module does not import memory then this function is ignored)
-    pub fn import_shared_memory(&mut self, module: &Module, store: &mut impl AsStoreMut) -> Option<VMMemory> {
+    pub fn import_shared_memory(&mut self, module: &Module, store: &mut impl AsStoreMut) -> Option<VMSharedMemory> {
         // Determine if shared memory needs to be created and imported
         let shared_memory = module
             .imports()
@@ -128,12 +129,12 @@ impl Imports {
                     .as_store_ref()
                     .tunables()
                     .memory_style(&ty);
-                VMMemory::new(&ty, &style)
+                VMSharedMemory::new(&ty, &style)
                     .unwrap()
             });
 
         if let Some(memory) = shared_memory {
-            self.define("env", "memory", Memory::new_from_existing(store, memory.clone()));
+            self.define("env", "memory", Memory::new_from_existing(store, VMMemory::Shared(memory.clone())));
             Some(memory)
         } else {
             None
@@ -172,6 +173,7 @@ impl Imports {
             {
                 ret.push(imp.clone());
             } else {
+                #[cfg(feature = "tracing")]
                 for (k1, k2) in self.map.keys() {
                     trace!("import extern ({}, {})", k1, k2);
                 }

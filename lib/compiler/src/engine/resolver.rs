@@ -4,7 +4,7 @@ use crate::LinkError;
 use more_asserts::assert_ge;
 use wasmer_types::entity::{BoxedSlice, EntityRef, PrimaryMap};
 use wasmer_types::{
-    ExternType, FunctionIndex, ImportError, ImportIndex, MemoryIndex, ModuleInfo, TableIndex,
+    ExternType, FunctionIndex, ImportError, ImportIndex, MemoryIndex, ModuleInfo, TableIndex, LinearMemory,
 };
 
 use wasmer_vm::{
@@ -166,7 +166,7 @@ pub fn resolve_imports(
                 }
 
                 memory_imports.push(VMMemoryImport {
-                    definition: m.vmmemory(),
+                    definition: m.as_ptr(),
                     handle,
                 });
             }

@@ -7,9 +7,7 @@ use std::{
     sync::atomic::{AtomicU64, Ordering},
 };
 
-use crate::VMExternObj;
-
-use crate::{InstanceHandle, VMFunction, VMFunctionEnvironment, VMGlobal, VMMemory, VMTable};
+use crate::{InstanceHandle, VMFunction, VMFunctionEnvironment, VMMemory, VMExternObj, VMGlobal, VMTable};
 
 /// Unique ID to identify a context.
 ///
@@ -76,6 +74,11 @@ impl StoreObjects {
     /// Returns the ID of this context.
     pub fn id(&self) -> StoreId {
         self.id
+    }
+    
+    /// Sets the ID of this store
+    pub fn set_id(&mut self, id: StoreId) {
+        self.id = id;
     }
 
     /// Returns a pair of mutable references from two handles.

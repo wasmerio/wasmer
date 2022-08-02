@@ -551,6 +551,16 @@ impl Module {
         ExportsIterator::new(iter, exports.length() as usize)
     }
 
+    /// Returns true if the module is still ok - this will be
+    /// false if the module was passed between threads in a
+    /// way that it became undefined (JS does not share objects
+    /// between threads except via a post_message())
+    pub fn is_ok(&self) -> bool {
+        let val = JsValue::from(&self.module);
+        !val.is_undefined() &&
+        !val.is_null()
+    }
+
     // /// Get the custom sections of the module given a `name`.
     // ///
     // /// # Important

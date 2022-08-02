@@ -20,6 +20,8 @@ mod guard;
 mod pipe;
 mod socket;
 mod types;
+mod thread;
+mod parking;
 
 pub use self::builder::*;
 pub use self::guard::*;
@@ -27,24 +29,35 @@ pub use self::pipe::*;
 pub use self::socket::*;
 pub use self::types::*;
 pub use self::guard::*;
+pub use self::thread::*;
+pub use self::parking::*;
+use crate::WasiCallingId;
+use crate::WasiFunctionEnv;
 use crate::WasiThreadId;
 use crate::syscalls::types::*;
 use crate::utils::map_io_err;
 use crate::WasiBusProcessId;
+use cooked_waker::ViaRawPointer;
+use cooked_waker::Wake;
+use cooked_waker::WakeRef;
 use derivative::Derivative;
 use generational_arena::Arena;
 pub use generational_arena::Index as Inode;
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
-use wasmer::ThreadControl;
+use wasmer::Store;
 use wasmer_vbus::VirtualBusCalled;
 use wasmer_vbus::VirtualBusInvocation;
 use std::borrow::Cow;
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::sync::Condvar;
+use std::sync::MutexGuard;
 use std::sync::mpsc;
 use std::sync::Arc;
+use std::task::Waker;
+use std::time::Duration;
 use std::{
     borrow::Borrow,
     io::Write,
@@ -1799,6 +1812,17 @@ impl WasiState {
     }
 }
 
+pub(crate) struct WasiThreadContext {
+    pub ctx: WasiFunctionEnv,
+    pub store: RefCell<Store>,
+}
+
+/// The code itself makes safe use of the struct so multiple threads don't access
+/// it (without this the JS code prevents the reference to the module from being stored
+/// which is needed for the multithreading mode)
+unsafe impl Send for WasiThreadContext { }
+unsafe impl Sync for WasiThreadContext { }
+
 /// Structures used for the threading and sub-processes
 ///
 /// These internal implementation details are hidden away from the
@@ -1808,17 +1832,17 @@ impl WasiState {
 #[derivative(Debug)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub(crate) struct WasiStateThreading {
-    threads: Arc<RwLock<HashMap<WasiThreadId, ThreadControl>>>,
-    thread_seed: WasiThreadId,
+    threads: Arc<RwLock<HashMap<WasiThreadId, WasiThread>>>,
     thread_count: Arc<AtomicU32>,
     pub processes: HashMap<WasiBusProcessId, Box<BusSpawnedProcess>>,
     pub process_reuse: HashMap<Cow<'static, str>, WasiBusProcessId>,
     pub process_seed: u32,
+    pub thread_seed: WasiThreadId,
     pub thread_local: HashMap<(WasiThreadId, u32), u64>,
     pub thread_local_user_data: HashMap<u32, u64>,
     pub thread_local_seed: u32,
     #[derivative(Debug = "ignore")]
-    pub chained_worker: Option<Box<dyn FnOnce() -> u32 + Send + Sync>>,
+    pub thread_ctx: HashMap<WasiCallingId, Arc<WasiThreadContext>>,
 }
 
 impl WasiStateThreading
@@ -1826,7 +1850,7 @@ impl WasiStateThreading
     /// Creates a a thread and returns it
     pub fn new_thread(&mut self) -> WasiThreadHandle {
         let id = self.thread_seed.inc();
-        let ctrl = ThreadControl::new(id.raw());
+        let ctrl = WasiThread::default();
         {
             let mut guard = self.threads.write().unwrap();
             guard.insert(id, ctrl);
@@ -1840,7 +1864,7 @@ impl WasiStateThreading
         }
     }
 
-    pub fn get(&self, tid: &WasiThreadId) -> Option<ThreadControl> {
+    pub fn get(&self, tid: &WasiThreadId) -> Option<WasiThread> {
         let guard = self.threads.read().unwrap();
         guard.get(tid).map(|a| a.clone())
     }
@@ -1850,11 +1874,11 @@ impl WasiStateThreading
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct WasiThreadHandle {
     id: WasiThreadId,
-    threads: Arc<RwLock<HashMap<WasiThreadId, ThreadControl>>>,
-    thread_count: Arc<AtomicU32>,
+    threads: Arc<RwLock<HashMap<WasiThreadId, WasiThread>>>,
+    pub(crate) thread_count: Arc<AtomicU32>,
 }
 
 impl WasiThreadHandle {
@@ -1870,7 +1894,7 @@ for WasiThreadHandle {
             let mut guard = self.threads.write().unwrap();
             guard.remove(&self.id)
         } {
-            ctrl.mark_exited();
+            ctrl.mark_finished();
         }
         self.thread_count.fetch_sub(1, Ordering::AcqRel);
     }
@@ -1891,26 +1915,48 @@ pub struct WasiBusCall
     pub invocation: Box<dyn VirtualBusInvocation + Sync>,
 }
 
-/// Structure that holds the state of BUS calls to this process and from
-/// this process. BUS calls are the equivalent of RPC's with support
-/// for all the major serializers
-#[derive(Debug)]
-pub struct WasiBusState
+/// Protected area of the BUS state
+#[derive(Debug, Default)]
+pub struct WasiBusProtectedState
 {
     pub call_seed: u64,
     pub called: HashMap<u64, Box<dyn VirtualBusCalled + Sync + Unpin>>, 
     pub calls: HashMap<u64, WasiBusCall>,
 }
 
-impl Default
-for WasiBusState
+/// Structure that holds the state of BUS calls to this process and from
+/// this process. BUS calls are the equivalent of RPC's with support
+/// for all the major serializers
+#[derive(Debug, Default)]
+pub struct WasiBusState
 {
-    fn default() -> Self {
-        Self {
-            call_seed: 0,
-            called: Default::default(),
-            calls: Default::default(),
-        }
+    protected: Mutex<WasiBusProtectedState>,
+    poll_waker: WasiParkingLot,
+}
+
+impl WasiBusState
+{
+    /// Gets a reference to the waker that can be used for
+    /// asynchronous calls
+    pub fn get_poll_waker(&self) -> Waker {
+        self.poll_waker.get_waker()
+    }
+
+    /// Wakes one of the reactors thats currently waiting
+    pub fn poll_wake(&self) {
+        self.poll_waker.wake()
+    }
+
+    /// Will wait until either the reactor is triggered
+    /// or the timeout occurs
+    pub fn poll_wait(&self, timeout: Duration) -> bool {
+        self.poll_waker.wait(timeout)
+    }
+
+    /// Locks the protected area of the BUS and returns a guard that
+    /// can be used to access it
+    pub fn protected<'a>(&'a self) -> MutexGuard<'a, WasiBusProtectedState> {
+        self.protected.lock().unwrap()
     }
 }
 
@@ -1949,7 +1995,7 @@ pub struct WasiState {
     pub inodes: Arc<RwLock<WasiInodes>>,
     pub(crate) threading: RwLock<WasiStateThreading>,
     pub(crate) futexs: Mutex<HashMap<u64, WasiFutex>>,
-    pub(crate) bus: Mutex<WasiBusState>,
+    pub(crate) bus: WasiBusState,
     pub args: Vec<Vec<u8>>,
     pub envs: Vec<Vec<u8>>,
 }
@@ -2032,12 +2078,6 @@ impl WasiState {
             });
         Ok(ret)
     }
-
-    /// Grabs the next chained work (if there is one)
-    pub fn next_chained_worker(&self) -> Option<Box<dyn FnOnce() -> u32 + Send + Sync>> {
-        let mut guard = self.threading.write().unwrap();
-        guard.chained_worker.take()
-    }
 }
 
 pub fn virtual_file_type_to_wasi_file_type(file_type: wasmer_vfs::FileType) -> __wasi_filetype_t {
@@ -2050,5 +2090,29 @@ pub fn virtual_file_type_to_wasi_file_type(file_type: wasmer_vfs::FileType) -> _
         __WASI_FILETYPE_SYMBOLIC_LINK
     } else {
         __WASI_FILETYPE_UNKNOWN
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct WasiDummyWaker;
+
+impl WakeRef for WasiDummyWaker {
+    fn wake_by_ref(&self) {
+    }
+}
+
+impl Wake for WasiDummyWaker {
+    fn wake(self) {
+    }
+}
+
+unsafe impl ViaRawPointer for WasiDummyWaker {
+    type Target = ();
+    fn into_raw(self) -> *mut () {
+        std::mem::forget(self);
+        std::ptr::null_mut()
+    }
+    unsafe fn from_raw(_ptr: *mut ()) -> Self {
+        WasiDummyWaker
     }
 }

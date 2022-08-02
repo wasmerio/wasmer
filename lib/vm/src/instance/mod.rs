@@ -10,17 +10,17 @@ mod allocator;
 
 use crate::export::VMExtern;
 use crate::imports::Imports;
-use crate::memory::MemoryError;
+use crate::memory::ops::{memory_copy, memory_fill};
 use crate::store::{InternalStoreHandle, StoreObjects};
 use crate::table::TableElement;
 use crate::trap::{catch_traps, Trap, TrapCode};
 use crate::vmcontext::{
     VMBuiltinFunctionsArray, VMCallerCheckedAnyfunc, VMContext, VMFunctionContext,
-    VMFunctionImport, VMFunctionKind, VMGlobalDefinition, VMGlobalImport, VMMemoryDefinition,
+    VMFunctionImport, VMFunctionKind, VMGlobalDefinition, VMGlobalImport,
     VMMemoryImport, VMSharedSignatureIndex, VMTableDefinition, VMTableImport, VMTrampoline,
 };
-use crate::{FunctionBodyPtr, MaybeInstanceOwned, TrapHandlerFn, VMFunctionBody};
-use crate::{VMFuncRef, VMFunction, VMGlobal, VMMemory, VMTable};
+use crate::{FunctionBodyPtr, MaybeInstanceOwned, TrapHandlerFn, VMFunctionBody, VMMemory};
+use crate::{VMFuncRef, VMFunction, VMGlobal, VMTable};
 pub use allocator::InstanceAllocator;
 use memoffset::offset_of;
 use more_asserts::assert_lt;
@@ -32,12 +32,12 @@ use std::fmt;
 use std::mem;
 use std::ptr::{self, NonNull};
 use std::slice;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 use wasmer_types::entity::{packed_option::ReservedValue, BoxedSlice, EntityRef, PrimaryMap};
 use wasmer_types::{
     DataIndex, DataInitializer, ElemIndex, ExportIndex, FunctionIndex, GlobalIndex, GlobalInit,
     LocalFunctionIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex,
-    ModuleInfo, Pages, SignatureIndex, TableIndex, TableInitializer, VMOffsets,
+    ModuleInfo, Pages, SignatureIndex, TableIndex, TableInitializer, VMOffsets, LinearMemory, LinearMemoryDefinition, MemoryError,
 };
 
 /// A WebAssembly instance.
@@ -207,7 +207,7 @@ impl Instance {
     }
 
     /// Get a locally defined or imported memory.
-    fn get_memory(&self, index: MemoryIndex) -> VMMemoryDefinition {
+    fn get_memory(&self, index: MemoryIndex) -> LinearMemoryDefinition {
         if let Some(local_index) = self.module.local_memory_index(index) {
             self.memory(local_index)
         } else {
@@ -217,26 +217,26 @@ impl Instance {
     }
 
     /// Return the indexed `VMMemoryDefinition`.
-    fn memory(&self, index: LocalMemoryIndex) -> VMMemoryDefinition {
+    fn memory(&self, index: LocalMemoryIndex) -> LinearMemoryDefinition {
         unsafe { *self.memory_ptr(index).as_ref() }
     }
 
     #[allow(dead_code)]
     /// Set the indexed memory to `VMMemoryDefinition`.
-    fn set_memory(&self, index: LocalMemoryIndex, mem: &VMMemoryDefinition) {
+    fn set_memory(&self, index: LocalMemoryIndex, mem: &LinearMemoryDefinition) {
         unsafe {
             *self.memory_ptr(index).as_ptr() = *mem;
         }
     }
 
     /// Return the indexed `VMMemoryDefinition`.
-    fn memory_ptr(&self, index: LocalMemoryIndex) -> NonNull<VMMemoryDefinition> {
+    fn memory_ptr(&self, index: LocalMemoryIndex) -> NonNull<LinearMemoryDefinition> {
         let index = usize::try_from(index.as_u32()).unwrap();
         NonNull::new(unsafe { self.memories_ptr().add(index) }).unwrap()
     }
 
     /// Return a pointer to the `VMMemoryDefinition`s.
-    fn memories_ptr(&self) -> *mut VMMemoryDefinition {
+    fn memories_ptr(&self) -> *mut LinearMemoryDefinition {
         unsafe { self.vmctx_plus_offset(self.offsets.vmctx_memories_begin()) }
     }
 
@@ -340,12 +340,12 @@ impl Instance {
     }
 
     /// Return the memory index for the given `VMMemoryDefinition`.
-    pub(crate) fn memory_index(&self, memory: &VMMemoryDefinition) -> LocalMemoryIndex {
-        let begin: *const VMMemoryDefinition = self.memories_ptr() as *const _;
-        let end: *const VMMemoryDefinition = memory;
+    pub(crate) fn memory_index(&self, memory: &LinearMemoryDefinition) -> LocalMemoryIndex {
+        let begin: *const LinearMemoryDefinition = self.memories_ptr() as *const _;
+        let end: *const LinearMemoryDefinition = memory;
         // TODO: Use `offset_from` once it stablizes.
         let index = LocalMemoryIndex::new(
-            (end as usize - begin as usize) / mem::size_of::<VMMemoryDefinition>(),
+            (end as usize - begin as usize) / mem::size_of::<LinearMemoryDefinition>(),
         );
         assert_lt!(index.index(), self.memories.len());
         index
@@ -632,7 +632,7 @@ impl Instance {
 
         let memory = self.memory(memory_index);
         // The following memory copy is not synchronized and is not atomic:
-        unsafe { memory.memory_copy(dst, src, len) }
+        unsafe { memory_copy(&memory, dst, src, len) }
     }
 
     /// Perform a `memory.copy` on an imported memory.
@@ -646,7 +646,7 @@ impl Instance {
         let import = self.imported_memory(memory_index);
         let memory = unsafe { import.definition.as_ref() };
         // The following memory copy is not synchronized and is not atomic:
-        unsafe { memory.memory_copy(dst, src, len) }
+        unsafe { memory_copy(&memory, dst, src, len) }
     }
 
     /// Perform the `memory.fill` operation on a locally defined memory.
@@ -663,7 +663,7 @@ impl Instance {
     ) -> Result<(), Trap> {
         let memory = self.memory(memory_index);
         // The following memory fill is not synchronized and is not atomic:
-        unsafe { memory.memory_fill(dst, val, len) }
+        unsafe { memory_fill(&memory, dst, val, len) }
     }
 
     /// Perform the `memory.fill` operation on an imported memory.
@@ -681,7 +681,7 @@ impl Instance {
         let import = self.imported_memory(memory_index);
         let memory = unsafe { import.definition.as_ref() };
         // The following memory fill is not synchronized and is not atomic:
-        unsafe { memory.memory_fill(dst, val, len) }
+        unsafe { memory_fill(&memory, dst, val, len) }
     }
 
     /// Performs the `memory.init` operation.
@@ -1006,16 +1006,16 @@ impl InstanceHandle {
                     // exported.
                     let signature = instance.module.signatures[*sig_index].clone();
                     let vm_function = VMFunction {
-                        anyfunc: Arc::new(MaybeInstanceOwned::Instance(NonNull::from(
+                        anyfunc: MaybeInstanceOwned::Instance(NonNull::from(
                             &instance.funcrefs[def_index],
-                        ))),
+                        )),
                         signature,
                         // Any function received is already static at this point as:
                         // 1. All locally defined functions in the Wasm have a static signature.
                         // 2. All the imported functions are already static (because
                         //    they point to the trampolines rather than the dynamic addresses).
                         kind: VMFunctionKind::Static,
-                        host_data: Arc::new(RwLock::new(Box::new(()))),
+                        host_data: Box::new(()),
                     };
                     InternalStoreHandle::new(self.instance_mut().context_mut(), vm_function)
                 } else {
@@ -1065,7 +1065,7 @@ impl InstanceHandle {
     }
 
     /// Return the memory index for the given `VMMemoryDefinition` in this instance.
-    pub fn memory_index(&self, memory: &VMMemoryDefinition) -> LocalMemoryIndex {
+    pub fn memory_index(&self, memory: &LinearMemoryDefinition) -> LocalMemoryIndex {
         self.instance().memory_index(memory)
     }
 

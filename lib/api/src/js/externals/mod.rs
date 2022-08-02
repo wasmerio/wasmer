@@ -6,7 +6,7 @@ mod table;
 
 pub use self::function::{FromToNativeWasmType, Function, HostFunction, WasmTypeList};
 pub use self::global::Global;
-pub use self::memory::{Memory, MemoryError};
+pub use self::memory::Memory;
 pub use self::memory_view::MemoryView;
 pub use self::table::Table;
 

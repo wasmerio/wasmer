@@ -35,7 +35,7 @@ pub enum IoCompileError {
 /// Cloning a module is cheap: it does a shallow copy of the compiled
 /// contents rather than a deep copy.
 #[derive(Clone)]
-pub struct  Module {
+pub struct Module {
     // The field ordering here is actually significant because of the drop
     // order: we want to drop the artifact before dropping the engine.
     //
@@ -436,6 +436,15 @@ impl Module {
     /// ```
     pub fn exports(&self) -> ExportsIterator<impl Iterator<Item = ExportType> + '_> {
         self.module_info.exports()
+    }
+
+    /// Returns true if the module is still ok - this will be
+    /// false if the module was passed between threads in a
+    /// way that it became undefined (JS does not share objects
+    /// between threads except via a post_message())
+    pub fn is_ok(&self) -> bool {
+        // As RUST is a type safe language modules in SYS are always ok
+        true
     }
 
     /// Get the custom sections of the module given a `name`.

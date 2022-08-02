@@ -165,7 +165,11 @@ int main(int argc, char *argv[]) {
     print_wasmer_error();
     return -1;
   }
-  wasi_env_set_memory(wasi_env, mem);
+  if (!wasi_env_initialize_instance(wasi_env, store, instance)) {
+    fprintf(stderr, "Failed to initialize env\n");
+    print_wasmer_error();
+    return -1;
+  }
 
   own wasm_func_t *start_function = wasi_get_start_function(instance);
   if (!start_function) {

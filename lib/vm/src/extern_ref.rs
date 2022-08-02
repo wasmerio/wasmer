@@ -1,20 +1,19 @@
-use std::{any::Any, sync::Arc};
+use std::any::Any;
 
 use wasmer_types::RawValue;
 
 use crate::store::InternalStoreHandle;
 
 /// Underlying object referenced by a `VMExternRef`.
-#[derive(Clone)]
 pub struct VMExternObj {
-    contents: Arc<dyn Any + Send + Sync + 'static>,
+    contents: Box<dyn Any + Send + Sync + 'static>,
 }
 
 impl VMExternObj {
     /// Wraps the given value to expose it to Wasm code as an externref.
     pub fn new(val: impl Any + Send + Sync + 'static) -> Self {
         Self {
-            contents: Arc::new(val),
+            contents: Box::new(val),
         }
     }
 

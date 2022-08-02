@@ -170,7 +170,7 @@ fn dynamic_function_with_env(config: crate::Config) -> Result<()> {
             },
         },
     )?;
-    assert_eq!(env.as_mut(&mut store).unwrap().load(SeqCst), 4);
+    assert_eq!(env.as_mut(&mut store).load(SeqCst), 4);
     Ok(())
 }
 
@@ -346,7 +346,7 @@ fn static_function_with_env(config: crate::Config) -> Result<()> {
             },
         },
     )?;
-    assert_eq!(env.as_mut(&mut store).unwrap().load(SeqCst), 4);
+    assert_eq!(env.as_mut(&mut store).load(SeqCst), 4);
     Ok(())
 }
 
@@ -439,7 +439,7 @@ fn dynamic_function_with_env_wasmer_env_init_works(config: crate::Config) -> Res
         },
     )?;
     let memory = instance.exports.get_memory("memory")?;
-    env.as_mut(&mut store).unwrap().memory = Some(memory.clone());
+    env.as_mut(&mut store).memory = Some(memory.clone());
     let f: TypedFunction<(), ()> = instance.exports.get_typed_function(&mut store, "main")?;
     f.call(&mut store)?;
     Ok(())
@@ -480,14 +480,14 @@ fn multi_use_host_fn_manages_memory_correctly(config: crate::Config) -> Result<(
     {
         let f1: TypedFunction<(), ()> = instance1.exports.get_typed_function(&mut store, "main")?;
         let memory = instance1.exports.get_memory("memory")?;
-        env.as_mut(&mut store).unwrap().memory = Some(memory.clone());
+        env.as_mut(&mut store).memory = Some(memory.clone());
         f1.call(&mut store)?;
     }
     drop(instance1);
     {
         let f2: TypedFunction<(), ()> = instance2.exports.get_typed_function(&mut store, "main")?;
         let memory = instance2.exports.get_memory("memory")?;
-        env.as_mut(&mut store).unwrap().memory = Some(memory.clone());
+        env.as_mut(&mut store).memory = Some(memory.clone());
         f2.call(&mut store)?;
     }
     drop(instance2);
