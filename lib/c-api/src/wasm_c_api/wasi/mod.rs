@@ -1409,13 +1409,6 @@ mod tests {
                 wasi_config_overwrite_stdout(config, override_stdout);
                 wasi_config_overwrite_stderr(config, override_stderr);
 
-                // The env now has ownership of the config (using the custom stdout / stdin channels)
-                wasi_env_t* env = wasi_env_new(store, config);
-                if (!env) {
-                    printf("> Error loading env!\n");
-                    return 1;
-                }
-
                 // Load binary.
                 printf("Loading binary...\n");
                 FILE* file = fopen("tests/wasm-c-api/example/stdio.wasm", "rb");
@@ -1445,22 +1438,53 @@ mod tests {
                     return 1;
                 }
 
+                // The env now has ownership of the config (using the custom stdout / stdin channels)              
+                wasi_env_t *wasi_env = wasi_env_new(store, config);
+                if (!wasi_env) {
+                    printf("> Error building WASI env!\n");
+                    return 1;
+                }
+
+                wasm_importtype_vec_t import_types;
+                wasm_module_imports(module, &import_types);
+
+                wasm_extern_vec_t imports;
+                wasm_extern_vec_new_uninitialized(&imports, import_types.size);
+                wasm_importtype_vec_delete(&import_types);
+
+                bool get_imports_result = wasi_get_imports(store, wasi_env, module, &imports);
+
+                if (!get_imports_result) {
+                  printf("Error getting WASI imports!\n");              
+                  return 1;
+                }
+
                 // The program should wait for a stdin, then print "stdout: $1" to stdout
                 // and "stderr: $1" to stderr and exit.
 
-                // Instantiate the moduke
-                wasm_extern_vec_t imports = WASM_EMPTY_VEC;
-                wasm_trap_t* trap = NULL;
-                wasm_instance_t* instance = wasm_instance_new(store, module, &imports,&trap);
+                // Instantiate the module
+                wasm_instance_t *instance = wasm_instance_new(store, module, &imports, NULL);
                 if (!instance) {
                     printf("> Error instantiating module!\n");
-                    return 1;
+                    return -1;
                 }
 
-                if (!wasi_env_initialize_instance(env, store, instance)) {
-                    printf("> Error initializing wasi env memory!\n");
-                    return 1;
+                // Read the exports.
+                wasm_extern_vec_t exports;
+                wasm_instance_exports(instance, &exports);
+                wasm_memory_t* mem = NULL;
+                for (size_t i = 0; i < exports.size; i++) {
+                    mem = wasm_extern_as_memory(exports.data[i]);
+                    if (mem) {
+                        break;
+                    }
                 }
+
+                if (!mem) {
+                    printf("Failed to create instance: Could not find memory in exports\n");
+                    return -1;
+                }
+                wasi_env_set_memory(wasi_env, mem);
 
                 // Get the _start function
                 wasm_func_t* run_func = wasi_get_start_function(instance);
@@ -1506,7 +1530,7 @@ mod tests {
                 wasm_byte_vec_delete(&binary);
                 wasm_module_delete(module);
                 wasm_func_delete(run_func);
-                wasi_env_delete(env);
+                wasi_env_delete(wasi_env);
                 wasm_store_delete(store);
                 wasm_engine_delete(engine);
 
