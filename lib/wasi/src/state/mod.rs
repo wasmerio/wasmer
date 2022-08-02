@@ -1376,7 +1376,7 @@ impl WasiFs {
             pr_type: __WASI_PREOPENTYPE_DIR,
             u: PrestatEnum::Dir {
                 // REVIEW:
-                pr_name_len: inode_val.name.len() as u32 + 1,
+                pr_name_len: inode_val.name.len() as u32, // no need for +1, because there is no 0 end-of-string marker
             }
             .untagged(),
         }

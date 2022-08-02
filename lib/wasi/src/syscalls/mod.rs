@@ -959,13 +959,11 @@ pub fn fd_prestat_dir_name<M: MemorySize>(
     let guard = inode_val.read();
     match guard.deref() {
         Kind::Dir { .. } | Kind::Root { .. } => {
-            // TODO: verify this: null termination, etc
             let path_len: u64 = path_len.into();
-            if (inode_val.name.len() as u64) < path_len {
+            if (inode_val.name.len() as u64) <= path_len {
                 wasi_try_mem!(path_chars
                     .subslice(0..inode_val.name.len() as u64)
                     .write_slice(inode_val.name.as_bytes()));
-                wasi_try_mem!(path_chars.index(inode_val.name.len() as u64).write(0));
 
                 trace!("=> result: \"{}\"", inode_val.name);
 
