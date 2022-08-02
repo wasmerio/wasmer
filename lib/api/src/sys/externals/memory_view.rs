@@ -115,6 +115,19 @@ impl<'a> MemoryView<'a>
         self.buffer.read(offset, buf)
     }
 
+    /// Safely reads a single byte from memory at the given offset
+    ///
+    /// This method is guaranteed to be safe (from the host side) in the face of
+    /// concurrent writes.
+    pub fn read_u8(
+        &self,
+        offset: u64
+    ) -> Result<u8, MemoryAccessError> {
+        let mut buf = [0u8; 1];
+        self.read(offset, &mut buf)?;
+        Ok(buf[0])
+    }
+
     /// Safely reads bytes from the memory at the given offset.
     ///
     /// This method is similar to `read` but allows reading into an
@@ -146,5 +159,19 @@ impl<'a> MemoryView<'a>
         data: &[u8],
     ) -> Result<(), MemoryAccessError> {
         self.buffer.write(offset, data)
+    }
+
+    /// Safely reads a single byte from memory at the given offset
+    ///
+    /// This method is guaranteed to be safe (from the host side) in the face of
+    /// concurrent writes.
+    pub fn write_u8(
+        &self,
+        offset: u64,
+        val: u8
+    ) -> Result<(), MemoryAccessError> {
+        let buf = [ val ];
+        self.write(offset, &buf)?;
+        Ok(())
     }
 }

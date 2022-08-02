@@ -4,6 +4,7 @@ use std::convert::TryInto;
 use std::marker::PhantomData;
 use std::mem::MaybeUninit;
 use std::slice;
+#[cfg(feature = "tracing")]
 use tracing::warn;
 
 use wasmer_types::{Bytes, Pages};
@@ -79,12 +80,6 @@ impl<'a> MemoryView<'a>
         Bytes(self.size as usize).try_into().unwrap()
     }
 
-    /// Used by tests
-    #[doc(hidden)]
-    pub fn uint8view(&self) -> js_sys::Uint8Array {
-        self.view.clone()
-    }
-
     pub(crate) fn buffer(&self) -> MemoryBuffer<'a> {
         MemoryBuffer {
             base: &self.view as *const _ as *mut _,
@@ -112,11 +107,30 @@ impl<'a> MemoryView<'a>
             .map_err(|_| MemoryAccessError::Overflow)?;
         let end = offset.checked_add(len).ok_or(MemoryAccessError::Overflow)?;
         if end > view.length() {
+            #[cfg(feature = "tracing")]
             warn!("attempted to read ({} bytes) beyond the bounds of the memory view ({} > {})", len, end, view.length());
             Err(MemoryAccessError::HeapOutOfBounds)?;
         }
         view.subarray(offset, end).copy_to(data);
         Ok(())
+    }
+
+    /// Safely reads a single byte from memory at the given offset
+    ///
+    /// This method is guaranteed to be safe (from the host side) in the face of
+    /// concurrent writes.
+    pub fn read_u8(
+        &self,
+        offset: u64
+    ) -> Result<u8, MemoryAccessError> {
+        let view = &self.view;
+        let offset: u32 = offset.try_into().map_err(|_| MemoryAccessError::Overflow)?;
+        if offset >= view.length() {
+            #[cfg(feature = "tracing")]
+            warn!("attempted to read beyond the bounds of the memory view ({} >= {})", offset, view.length());
+            Err(MemoryAccessError::HeapOutOfBounds)?;
+        }
+        Ok(view.get_index(offset))
     }
 
     /// Safely reads bytes from the memory at the given offset.
@@ -142,6 +156,7 @@ impl<'a> MemoryView<'a>
             .map_err(|_| MemoryAccessError::Overflow)?;
         let end = offset.checked_add(len).ok_or(MemoryAccessError::Overflow)?;
         if end > view.length() {
+            #[cfg(feature = "tracing")]
             warn!("attempted to read ({} bytes) beyond the bounds of the memory view ({} > {})", len, end, view.length());
             Err(MemoryAccessError::HeapOutOfBounds)?;
         }
@@ -177,10 +192,31 @@ impl<'a> MemoryView<'a>
         let view = &self.view;
         let end = offset.checked_add(len).ok_or(MemoryAccessError::Overflow)?;
         if end > view.length() {
+            #[cfg(feature = "tracing")]
             warn!("attempted to write ({} bytes) beyond the bounds of the memory view ({} > {})", len, end, view.length());
             Err(MemoryAccessError::HeapOutOfBounds)?;
         }
         view.subarray(offset, end).copy_from(data);
+        Ok(())
+    }
+
+    /// Safely reads a single byte from memory at the given offset
+    ///
+    /// This method is guaranteed to be safe (from the host side) in the face of
+    /// concurrent writes.
+    pub fn write_u8(
+        &self,
+        offset: u64,
+        val: u8
+    ) -> Result<(), MemoryAccessError> {
+        let view = &self.view;
+        let offset: u32 = offset.try_into().map_err(|_| MemoryAccessError::Overflow)?;
+        if offset >= view.length() {
+            #[cfg(feature = "tracing")]
+            warn!("attempted to write beyond the bounds of the memory view ({} >= {})", offset, view.length());
+            Err(MemoryAccessError::HeapOutOfBounds)?;
+        }
+        view.set_index(offset, val);
         Ok(())
     }
 }
