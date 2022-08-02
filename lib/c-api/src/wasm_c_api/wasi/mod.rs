@@ -82,10 +82,10 @@ pub struct wasi_console_out_t {
 }
 
 impl wasi_console_out_t {
-    fn get_data_mut(&mut self, op_id: &'static str) -> io::Result<MutexGuard<Vec<c_char>>> {
+    fn get_data_mut(&self, op_id: &'static str) -> io::Result<MutexGuard<Vec<c_char>>> {
         self.data
-            .as_mut()
-            .ok_or({
+            .as_ref()
+            .ok_or_else(|| {
                 io::Error::new(
                     io::ErrorKind::Other,
                     format!("could not lock mutex ({op_id}) on wasi_console_out_t: no mutex"),
@@ -263,7 +263,7 @@ impl VirtualFile for wasi_console_out_t {
         0
     }
     fn size(&self) -> u64 {
-        u64::MAX
+        self.get_data_mut("size").map(|s| s.len() as u64).unwrap_or(0)
     }
     fn set_len(&mut self, _: u64) -> Result<(), FsError> {
         Ok(())
@@ -398,18 +398,8 @@ unsafe extern "C" fn wasi_console_out_write_memory(
     let ptr = &mut *ptr;
     let byte_ptr = byte_ptr as *const u8;
     let read_slice = std::slice::from_raw_parts(byte_ptr, byte_len);
-    let bytes_to_extend = ptr.cursor + read_slice.len();
-    if bytes_to_extend > ptr.backed.len() {
-        ptr.backed
-            .append(&mut vec![0; bytes_to_extend - ptr.backed.len()]);
-    }
-    let write_slice = &mut ptr.backed[ptr.cursor..(ptr.cursor + read_slice.len())];
-    assert_eq!(write_slice.len(), read_slice.len());
-    let written = read_slice.len();
-    for (source, target) in read_slice.iter().zip(write_slice.iter_mut()) {
-        *target = *source;
-    }
-    written as i64
+    ptr.backed.extend_from_slice(read_slice);
+    read_slice.len() as i64
 }
 
 unsafe extern "C" fn wasi_console_out_seek_memory(
@@ -506,7 +496,8 @@ pub unsafe extern "C" fn wasi_console_out_write_bytes(
     use std::io::Write;
     let buf = buf as *const u8;
     let ptr = &mut *ptr;
-    match ptr.write(std::slice::from_raw_parts(buf, len)) {
+    let read_slice = std::slice::from_raw_parts(buf, len);
+    match ptr.write(read_slice) {
         Ok(o) => o as i64,
         Err(_) => -1,
     }
@@ -590,7 +581,7 @@ pub unsafe extern "C" fn wasi_console_out_read_str(
 
     target.push(0);
     let len = target.len();
-    let c_string = match CString::from_vec_with_nul(target) {
+    let c_string = match CString::from_vec_with_nul(target.clone()) {
         Ok(o) => o,
         Err(_) => {
             return -1;
@@ -852,15 +843,7 @@ pub unsafe extern "C" fn wasi_console_stdin_response_write_bytes(
     len: usize,
 ) -> i64 {
     let slice = std::slice::from_raw_parts(bytes, len);
-    let bytes_to_extend = response_t.response_data.len() as i64 - slice.len() as i64;
-    if bytes_to_extend > 0 {
-        response_t
-            .response_data
-            .append(&mut vec![0; bytes_to_extend as usize]);
-    }
-    for (source, target) in slice.iter().zip(response_t.response_data.iter_mut()) {
-        *target = *source;
-    }
+    response_t.response_data.extend_from_slice(slice);
     slice.len() as i64
 }
 
@@ -901,7 +884,6 @@ impl io::Read for wasi_console_stdin_t {
                 &mut target,
             )
         };
-
         if result >= 0 {
             for (source, target) in target.response_data.iter().zip(buf.iter_mut()) {
                 *target = *source as u8;
@@ -942,7 +924,7 @@ impl VirtualFile for wasi_console_stdin_t {
         0
     }
     fn size(&self) -> u64 {
-        u64::MAX
+        0
     }
     fn set_len(&mut self, _: u64) -> Result<(), FsError> {
         Ok(())
@@ -1328,14 +1310,14 @@ mod tests {
     #[test]
     fn test_wasi_stdin_set() {
         (assert_c! {
-            #include "../../lib/c-api/wasmer.h"
+            #include "tests/wasmer.h"
             #include "string.h"
             #include "stdio.h"
-
+            
             typedef struct {
-                int u;
+                int invocation;
             } CustomWasiStdin;
-
+            
             long CustomWasiStdin_destructor(
                 const void* env,
                 __u_long sz,
@@ -1346,7 +1328,7 @@ mod tests {
                 (void)ao;
                 return 0;
             }
-
+            
             long CustomWasiStdin_onStdIn(
                 const void* env,
                 __u_long sz,
@@ -1354,43 +1336,28 @@ mod tests {
                 __u_long maxwrite,
                 wasi_console_stdin_response_t* in
             ) {
-                (void)env;
+                CustomWasiStdin* ptr = (CustomWasiStdin*)env;
                 (void)sz;
                 (void)ao;
                 (void)maxwrite;
-
-                wasi_console_stdin_response_write_str(in, "hello");
-                return 5;
+                if (ptr->invocation == 0) {
+                    wasi_console_stdin_response_write_str(in, "hello");
+                    ptr->invocation += 1;
+                    return 5; // sizeof("hello")
+                } else {
+                    return 0;
+                }
             }
-
+            
             int main() {
-
+            
                 wasm_engine_t* engine = wasm_engine_new();
-                if (!engine) {
-                    printf("> Error loading engine!\n");
-                    return 1;
-                }
                 wasm_store_t* store = wasm_store_new(engine);
-                if (!store) {
-                    printf("> Error loading store!\n");
-                    return 1;
-                }
                 wasi_config_t* config = wasi_config_new("example_program");
-                if (!config) {
-                    printf("> Error loading config!\n");
-                    return 1;
-                }
                 wasi_console_out_t* override_stdout = wasi_console_out_new_memory();
-                if (!override_stdout) {
-                    printf("> Error loading override_stdout!\n");
-                    return 1;
-                }
                 wasi_console_out_t* override_stderr = wasi_console_out_new_memory();
-                if (!override_stderr) {
-                    printf("> Error loading override_stderr!\n");
-                    return 1;
-                }
-                CustomWasiStdin stdin = { .u = 0 };
+
+                CustomWasiStdin stdin = { .invocation = 0 };
                 wasi_console_stdin_t* override_stdin = wasi_console_stdin_new(
                     CustomWasiStdin_onStdIn,
                     CustomWasiStdin_destructor,
@@ -1398,77 +1365,75 @@ mod tests {
                     sizeof(stdin),
                     8 // alignof(stdin)
                 );
-
+            
                 // Cloning the `wasi_console_out_t` does not deep-clone the
                 // internal stream, since that is locked behind an Arc<Mutex<T>>.
                 wasi_console_out_t* stdout_receiver = wasi_console_out_clone(override_stdout);
                 wasi_console_out_t* stderr_receiver = wasi_console_out_clone(override_stderr);
-
+            
                 // The override_stdin ownership is moved to the config
                 wasi_config_overwrite_stdin(config, override_stdin);
                 wasi_config_overwrite_stdout(config, override_stdout);
                 wasi_config_overwrite_stderr(config, override_stderr);
-
+            
                 // Load binary.
-                printf("Loading binary...\n");
                 FILE* file = fopen("tests/wasm-c-api/example/stdio.wasm", "rb");
                 if (!file) {
                     printf("> Error loading module!\n");
                     return 1;
                 }
-
+            
                 fseek(file, 0L, SEEK_END);
                 size_t file_size = ftell(file);
                 fseek(file, 0L, SEEK_SET);
-
+            
                 wasm_byte_vec_t binary;
                 wasm_byte_vec_new_uninitialized(&binary, file_size);
-
+            
                 if (fread(binary.data, file_size, 1, file) != 1) {
                     printf("> Error loading module!\n");
                     return 1;
                 }
-
+            
                 fclose(file);
-
-                printf("Compiling module...\n");
+            
                 wasm_module_t* module = wasm_module_new(store, &binary);
                 if (!module) {
                     printf("> Error compiling module!\n");
                     return 1;
                 }
-
+            
                 // The env now has ownership of the config (using the custom stdout / stdin channels)              
                 wasi_env_t *wasi_env = wasi_env_new(store, config);
                 if (!wasi_env) {
                     printf("> Error building WASI env!\n");
                     return 1;
                 }
-
+            
                 wasm_importtype_vec_t import_types;
                 wasm_module_imports(module, &import_types);
-
+            
                 wasm_extern_vec_t imports;
                 wasm_extern_vec_new_uninitialized(&imports, import_types.size);
                 wasm_importtype_vec_delete(&import_types);
-
+            
                 bool get_imports_result = wasi_get_imports(store, wasi_env, module, &imports);
-
+            
                 if (!get_imports_result) {
-                  printf("Error getting WASI imports!\n");              
-                  return 1;
+                    printf("Error getting WASI imports!\n");              
+                    return 1;
                 }
-
+            
                 // The program should wait for a stdin, then print "stdout: $1" to stdout
                 // and "stderr: $1" to stderr and exit.
-
+            
                 // Instantiate the module
                 wasm_instance_t *instance = wasm_instance_new(store, module, &imports, NULL);
                 if (!instance) {
                     printf("> Error instantiating module!\n");
                     return -1;
                 }
-
+            
                 // Read the exports.
                 wasm_extern_vec_t exports;
                 wasm_instance_exports(instance, &exports);
@@ -1479,20 +1444,20 @@ mod tests {
                         break;
                     }
                 }
-
+            
                 if (!mem) {
                     printf("Failed to create instance: Could not find memory in exports\n");
                     return -1;
                 }
                 wasi_env_set_memory(wasi_env, mem);
-
+            
                 // Get the _start function
                 wasm_func_t* run_func = wasi_get_start_function(instance);
                 if (run_func == NULL) {
                     printf("> Error accessing export!\n");
                     return 1;
                 }
-
+            
                 // Run the _start function
                 // Running the program should trigger the stdin to write "hello" to the stdin
                 wasm_val_vec_t args = WASM_EMPTY_VEC;
@@ -1501,39 +1466,38 @@ mod tests {
                     printf("> Error calling function!\n");
                     return 1;
                 }
-
+            
                 // Verify that the stdout / stderr worked as expected
                 char* out;
                 wasi_console_out_read_str(stdout_receiver, &out);
-                printf("stdout 1: \"%s\"\n", out);
                 assert(strcmp(out, "stdout: hello") == 0);
                 wasi_console_out_delete_str(out);
-
-                wasi_console_out_read_str(stdout_receiver, &out);
-                printf("stdout 2: \"%s\"\n", out);
-                assert(strcmp(out, ""));
-                wasi_console_out_delete_str(out);
-
-                wasi_console_out_read_str(stderr_receiver, &out);
-                printf("stdout 3: \"%s\"\n", out);
-                assert(strcmp(out, "stderr: hello"));
-                wasi_console_out_delete_str(out);
-
-                wasi_console_out_read_str(stderr_receiver, &out);
-                printf("stdout 4: \"%s\"\n", out);
-                assert(strcmp(out, ""));
-                wasi_console_out_delete_str(out);
-
+            
+                char* out2;
+                wasi_console_out_read_str(stdout_receiver, &out2);
+                assert(strcmp(out2, "") == 0);
+                wasi_console_out_delete_str(out2);
+                
+                char* out3;
+                wasi_console_out_read_str(stderr_receiver, &out3);
+                assert(strcmp(out3, "stderr: hello") == 0);
+                wasi_console_out_delete_str(out3);
+            
+                char* out4;
+                wasi_console_out_read_str(stderr_receiver, &out4);
+                assert(strcmp(out4, "") == 0);
+                wasi_console_out_delete_str(out4);
+            
                 wasi_console_out_delete(stdout_receiver);
                 wasi_console_out_delete(stderr_receiver);
-
+            
                 wasm_byte_vec_delete(&binary);
                 wasm_module_delete(module);
                 wasm_func_delete(run_func);
                 wasi_env_delete(wasi_env);
                 wasm_store_delete(store);
                 wasm_engine_delete(engine);
-
+            
                 return 0;
             }
         })
