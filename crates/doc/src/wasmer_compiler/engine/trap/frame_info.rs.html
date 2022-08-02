@@ -318,6 +318,7 @@
 <span id="316">316</span>
 <span id="317">317</span>
 <span id="318">318</span>
+<span id="319">319</span>
 </pre><pre class="rust"><code><span class="doccomment">//! This module is used for having backtraces in the Wasm runtime.</span>
 <span class="doccomment">//! Once the Compiler has compiled the ModuleInfo, and we have a set of</span>
 <span class="doccomment">//! compiled functions (addresses and function index) and a module,</span>
@@ -523,7 +524,8 @@
     ) <span class="kw">in</span> <span class="ident">finished_functions</span>.<span class="ident">iter</span>()
     {
         <span class="kw">let</span> <span class="ident">start</span> <span class="op">=</span> <span class="kw-2">*</span><span class="kw-2">*</span><span class="ident">start</span> <span class="kw">as</span> <span class="ident">usize</span>;
-        <span class="kw">let</span> <span class="ident">end</span> <span class="op">=</span> <span class="ident">start</span> <span class="op">+</span> <span class="ident">len</span>;
+        <span class="comment">// end is &quot;last byte&quot; of the function code</span>
+        <span class="kw">let</span> <span class="ident">end</span> <span class="op">=</span> <span class="ident">start</span> <span class="op">+</span> <span class="ident">len</span> <span class="op">-</span> <span class="number">1</span>;
         <span class="ident">min</span> <span class="op">=</span> <span class="ident">cmp::min</span>(<span class="ident">min</span>, <span class="ident">start</span>);
         <span class="ident">max</span> <span class="op">=</span> <span class="ident">cmp::max</span>(<span class="ident">max</span>, <span class="ident">end</span>);
         <span class="kw">let</span> <span class="ident">func</span> <span class="op">=</span> <span class="ident">FunctionInfo</span> {
