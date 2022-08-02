@@ -203,7 +203,8 @@ pub fn register(
     ) in finished_functions.iter()
     {
         let start = **start as usize;
-        let end = start + len;
+        // end is "last byte" of the function code
+        let end = start + len - 1;
         min = cmp::min(min, start);
         max = cmp::max(max, end);
         let func = FunctionInfo {
