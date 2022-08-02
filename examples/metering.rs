@@ -72,7 +72,6 @@ fn main() -> anyhow::Result<()> {
     // We use our previously create compiler configuration
     // with the Universal engine.
     let mut store = Store::new(EngineBuilder::new(compiler_config));
-    let _env = FunctionEnv::new(&mut store, ());
 
     println!("Compiling module...");
     // Let's compile the Wasm module.

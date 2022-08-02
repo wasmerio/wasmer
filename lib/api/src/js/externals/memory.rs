@@ -7,6 +7,7 @@ use std::marker::PhantomData;
 use std::mem::MaybeUninit;
 use std::slice;
 use thiserror::Error;
+#[cfg(feature = "tracing")]
 use tracing::warn;
 
 use wasm_bindgen::prelude::*;
@@ -177,7 +178,6 @@ impl Memory {
         IntoPages: Into<Pages>,
     {
         let pages = delta.into();
-        warn!("memory grow {}", pages.0);
         let js_memory = &self.handle.get_mut(store.objects_mut()).memory;
         let our_js_memory: &JSMemory = JsCast::unchecked_from_js_ref(js_memory);
         let new_pages = our_js_memory.grow(pages.0).map_err(|err| {
@@ -239,6 +239,7 @@ impl<'a> MemoryBuffer<'a> {
             .ok_or(MemoryAccessError::Overflow)?;
         let view = unsafe { &*(self.base) };
         if end > view.length().into() {
+            #[cfg(feature = "tracing")]
             warn!("attempted to read ({} bytes) beyond the bounds of the memory view ({} > {})", buf.len(), end, view.length());
             return Err(MemoryAccessError::HeapOutOfBounds);
         }
@@ -257,6 +258,7 @@ impl<'a> MemoryBuffer<'a> {
             .ok_or(MemoryAccessError::Overflow)?;
         let view = unsafe { &*(self.base) };
         if end > view.length().into() {
+            #[cfg(feature = "tracing")]
             warn!("attempted to read ({} bytes) beyond the bounds of the memory view ({} > {})", buf.len(), end, view.length());
             return Err(MemoryAccessError::HeapOutOfBounds);
         }
@@ -273,6 +275,7 @@ impl<'a> MemoryBuffer<'a> {
             .ok_or(MemoryAccessError::Overflow)?;
         let view = unsafe { &mut *(self.base) };
         if end > view.length().into() {
+            #[cfg(feature = "tracing")]
             warn!("attempted to write ({} bytes) beyond the bounds of the memory view ({} > {})", data.len(), end, view.length());
             return Err(MemoryAccessError::HeapOutOfBounds);
         }
