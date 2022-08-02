@@ -130,7 +130,7 @@ impl<'a> MemoryView<'a>
             warn!("attempted to read beyond the bounds of the memory view ({} >= {})", offset, view.length());
             Err(MemoryAccessError::HeapOutOfBounds)?;
         }
-        Ok(view.get_offset(offset))
+        Ok(view.get_index(offset))
     }
 
     /// Safely reads bytes from the memory at the given offset.
@@ -216,7 +216,7 @@ impl<'a> MemoryView<'a>
             warn!("attempted to write beyond the bounds of the memory view ({} >= {})", offset, view.length());
             Err(MemoryAccessError::HeapOutOfBounds)?;
         }
-        view.set_offset(offset, val);
+        view.set_index(offset, val);
         Ok(())
     }
 }
