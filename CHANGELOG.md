@@ -9,6 +9,7 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 ## **Unreleased**
 
 ### Added
+- [#3032](https://github.com/wasmerio/wasmer/pull/3032) Added C API for overwriting stdin / stdout I/O
 
 ### Changed
 - [#3075](https://github.com/wasmerio/wasmer/pull/3075) Remove __wbindgen_thread_id
