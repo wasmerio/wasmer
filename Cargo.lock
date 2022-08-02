@@ -2964,6 +2964,7 @@ dependencies = [
  "serde_bytes",
  "smallvec",
  "thiserror",
+ "wasmer-object",
  "wasmer-types",
  "wasmer-vm",
  "wasmparser 0.83.0",
@@ -3104,7 +3105,6 @@ version = "3.0.0-alpha.4"
 dependencies = [
  "object 0.28.4",
  "thiserror",
- "wasmer-compiler",
  "wasmer-types",
 ]
 

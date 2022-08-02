@@ -5,7 +5,7 @@ mod cache;
 #[cfg(feature = "compiler")]
 mod compile;
 mod config;
-#[cfg(feature = "compiler")]
+#[cfg(any(feature = "static-artifact-create", feature = "wasmer-artifact-create"))]
 mod create_exe;
 mod inspect;
 mod run;
@@ -18,7 +18,7 @@ mod wast;
 pub use binfmt::*;
 #[cfg(feature = "compiler")]
 pub use compile::*;
-#[cfg(feature = "compiler")]
+#[cfg(any(feature = "static-artifact-create", feature = "wasmer-artifact-create"))]
 pub use create_exe::*;
 #[cfg(feature = "wast")]
 pub use wast::*;

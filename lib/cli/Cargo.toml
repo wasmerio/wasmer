@@ -37,7 +37,7 @@ wasmer-wasi-experimental-io-devices = { version = "=3.0.0-alpha.4", path = "../w
 wasmer-wast = { version = "=3.0.0-alpha.4", path = "../../tests/lib/wast", optional = true }
 wasmer-cache = { version = "=3.0.0-alpha.4", path = "../cache", optional = true }
 wasmer-types = { version = "=3.0.0-alpha.4", path = "../types" }
-wasmer-object = { version = "=3.0.0-alpha.4", path = "../object" }
+wasmer-object = { version = "=3.0.0-alpha.4", path = "../object", optional = true }
 wasmer-vfs  = { version = "=3.0.0-alpha.4", path = "../vfs", default-features = false, features = ["host-fs"] }
 atty = "0.2"
 colored = "2.0"
@@ -66,6 +66,7 @@ default = [
     "wasi",
     "emscripten",
     "compiler",
+    "wasmer-artifact-create",
 ]
 cache = ["wasmer-cache"]
 cache-blake3-pure = ["wasmer-cache/blake3-pure"]
@@ -77,6 +78,9 @@ compiler = [
     "wasmer-compiler/translator",
     "wasmer-compiler/compiler",
 ]
+wasmer-artifact-create = ["compiler", "wasmer-compiler/wasmer-artifact-create", "wasmer-object"]
+static-artifact-create = ["compiler", "wasmer-compiler/static-artifact-create", "wasmer-object"]
+
 experimental-io-devices = [
     "wasmer-wasi-experimental-io-devices",
     "wasi"
