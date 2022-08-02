@@ -423,12 +423,12 @@ mod js {
 
         let memory = instance.exports.get_memory("memory").unwrap();
         assert_eq!(memory.view(&store).data_size(), 65536);
-        let memory_val = memory.view(&store).read_u8(0);
-        assert_eq!(memory_val, Ok(0));
+        let memory_val = memory.view(&store).read_u8(0).unwrap();
+        assert_eq!(memory_val, 0);
 
         memory.view(&store).write_u8(0, 2).unwrap();
-        let memory_val = memory.view(&store).read_u8(0);
-        assert_eq!(memory_val, Ok(2));
+        let memory_val = memory.view(&store).read_u8(0).unwrap();
+        assert_eq!(memory_val, 2);
 
         env.as_mut(&mut store).memory = Some(memory.clone());
 
@@ -534,12 +534,12 @@ mod js {
 
         let memory = instance.exports.get_memory("memory").unwrap();
         assert_eq!(memory.view(&store).data_size(), 65536);
-        let memory_val = memory.view(&store).read_u8(0);
-        assert_eq!(memory_val, Ok(0));
+        let memory_val = memory.view(&store).read_u8(0).unwrap();
+        assert_eq!(memory_val, 0);
 
         memory.view(&store).write_u8(0, 2).unwrap();
-        let memory_val = memory.view(&store).read_u8(0);
-        assert_eq!(memory_val, Ok(2));
+        let memory_val = memory.view(&store).read_u8(0).unwrap();
+        assert_eq!(memory_val, 2);
 
         env.as_mut(&mut store).memory = Some(memory.clone());
 
