@@ -4955,6 +4955,7 @@ dependencies = [
  "url",
  "wapm-toml",
  "wasmer",
+ "wasmer-compiler",
  "wasmer-emscripten",
  "wasmer-vfs",
  "wasmer-wasi",
