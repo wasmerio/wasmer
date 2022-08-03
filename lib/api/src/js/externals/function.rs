@@ -64,7 +64,24 @@ impl Function {
     /// Creates a new host `Function` (dynamic) with the provided signature.
     ///
     /// If you know the signature of the host function at compile time,
-    /// consider using [`Function::new_native`] for less runtime overhead.
+    /// consider using [`Function::new_typed`] for less runtime overhead.
+    pub fn new<FT, F>(store: &mut impl AsStoreMut, ty: FT, func: F) -> Self
+    where
+        FT: Into<FunctionType>,
+        F: Fn(&[Value]) -> Result<Vec<Value>, RuntimeError> + 'static + Send + Sync,
+    {
+        let env = FunctionEnv::new(&mut store.as_store_mut(), ());
+        let wrapped_func = move |_env: FunctionEnvMut<()>,
+                                 args: &[Value]|
+              -> Result<Vec<Value>, RuntimeError> { func(args) };
+        Self::new_with_env(store, &env, ty, wrapped_func)
+    }
+
+    /// Creates a new host `Function` (dynamic) with the provided signature.
+    ///
+    /// If you know the signature of the host function at compile time,
+    /// consider using [`Function::new_typed`] or [`Function::new_typed_with_env`]
+    /// for less runtime overhead.
     ///
     /// # Examples
     ///
@@ -74,7 +91,7 @@ impl Function {
     /// #
     /// let signature = FunctionType::new(vec![Type::I32, Type::I32], vec![Type::I32]);
     ///
-    /// let f = Function::new(&store, &signature, |args| {
+    /// let f = Function::new_with_env(&store, &signature, |args| {
     ///     let sum = args[0].unwrap_i32() + args[1].unwrap_i32();
     ///     Ok(vec![Value::I32(sum)])
     /// });
@@ -88,13 +105,13 @@ impl Function {
     /// #
     /// const I32_I32_TO_I32: ([Type; 2], [Type; 1]) = ([Type::I32, Type::I32], [Type::I32]);
     ///
-    /// let f = Function::new(&store, I32_I32_TO_I32, |args| {
+    /// let f = Function::new_with_env(&store, I32_I32_TO_I32, |args| {
     ///     let sum = args[0].unwrap_i32() + args[1].unwrap_i32();
     ///     Ok(vec![Value::I32(sum)])
     /// });
     /// ```
     #[allow(clippy::cast_ptr_alignment)]
-    pub fn new<FT, F, T: Send + 'static>(
+    pub fn new_with_env<FT, F, T: Send + 'static>(
         store: &mut impl AsStoreMut,
         env: &FunctionEnv<T>,
         ty: FT,
@@ -164,7 +181,25 @@ impl Function {
         Self::from_vm_export(&mut store, vm_function)
     }
 
-    /// Creates a new host `Function` from a native function.
+    #[deprecated(
+        since = "3.0.0",
+        note = "new_native_with_env() has been renamed to new_typed_with_env()."
+    )]
+    /// Creates a new host `Function` with an environment from a typed function.
+    pub fn new_native_with_env<T, F, Args, Rets>(
+        store: &mut impl AsStoreMut,
+        env: &FunctionEnv<T>,
+        func: F,
+    ) -> Self
+    where
+        F: HostFunction<T, Args, Rets>,
+        Args: WasmTypeList,
+        Rets: WasmTypeList,
+    {
+        Self::new_typed_with_env(store, env, func)
+    }
+
+    /// Creates a new host `Function` from a typed function.
     ///
     /// The function signature is automatically retrieved using the
     /// Rust typing system.
@@ -179,9 +214,9 @@ impl Function {
     ///     a + b
     /// }
     ///
-    /// let f = Function::new_native(&store, sum);
+    /// let f = Function::new_typed_with_env(&store, sum);
     /// ```
-    pub fn new_native<T, F, Args, Rets>(
+    pub fn new_typed_with_env<T, F, Args, Rets>(
         store: &mut impl AsStoreMut,
         env: &FunctionEnv<T>,
         func: F,
@@ -226,7 +261,7 @@ impl Function {
     ///     a + b
     /// }
     ///
-    /// let f = Function::new_native(&store, sum);
+    /// let f = Function::new_typed(&store, sum);
     ///
     /// assert_eq!(f.ty().params(), vec![Type::I32, Type::I32]);
     /// assert_eq!(f.ty().results(), vec![Type::I32]);
@@ -242,13 +277,12 @@ impl Function {
     /// ```
     /// # use wasmer::{Function, FunctionEnv, FunctionEnvMut, Store, Type};
     /// # let mut store = Store::default();
-    /// # let env = FunctionEnv::new(&mut store, ());
     /// #
-    /// fn sum(_env: FunctionEnvMut<()>, a: i32, b: i32) -> i32 {
+    /// fn sum(a: i32, b: i32) -> i32 {
     ///     a + b
     /// }
     ///
-    /// let f = Function::new_native(&store, &env, sum);
+    /// let f = Function::new_typed(&store, sum);
     ///
     /// assert_eq!(f.param_arity(&store), 2);
     /// ```
@@ -263,13 +297,12 @@ impl Function {
     /// ```
     /// # use wasmer::{Function, FunctionEnv, FunctionEnvMut, Store, Type};
     /// # let mut store = Store::default();
-    /// # let env = FunctionEnv::new(&mut store, ());
     /// #
-    /// fn sum(_env: FunctionEnvMut<()>, a: i32, b: i32) -> i32 {
+    /// fn sum(a: i32, b: i32) -> i32 {
     ///     a + b
     /// }
     ///
-    /// let f = Function::new_native(&store, &env, sum);
+    /// let f = Function::new_typed(&store, sum);
     ///
     /// assert_eq!(f.result_arity(&store), 1);
     /// ```
@@ -362,8 +395,20 @@ impl Function {
         }
     }
 
-    /// Transform this WebAssembly function into a function with the
-    /// native ABI. See [`TypedFunction`] to learn more.
+    #[deprecated(since = "3.0.0", note = "native() has been renamed to typed().")]
+    pub fn native<Args, Rets>(
+        &self,
+        store: &impl AsStoreRef,
+    ) -> Result<TypedFunction<Args, Rets>, RuntimeError>
+    where
+        Args: WasmTypeList,
+        Rets: WasmTypeList,
+    {
+        self.typed(store)
+    }
+
+    /// Transform this WebAssembly function into a typed function.
+    /// See [`TypedFunction`] to learn more.
     ///
     /// # Examples
     ///
@@ -383,9 +428,9 @@ impl Function {
     /// # let instance = Instance::new(&module, &import_object).unwrap();
     /// #
     /// let sum = instance.exports.get_function("sum").unwrap();
-    /// let sum_native = sum.native::<(i32, i32), i32>().unwrap();
+    /// let sum_typed = sum.typed::<(i32, i32), i32>().unwrap();
     ///
-    /// assert_eq!(sum_native.call(&mut store, 1, 2).unwrap(), 3);
+    /// assert_eq!(sum_typed.call(&mut store, 1, 2).unwrap(), 3);
     /// ```
     ///
     /// # Errors
@@ -411,7 +456,7 @@ impl Function {
     /// let sum = instance.exports.get_function("sum").unwrap();
     ///
     /// // This results in an error: `RuntimeError`
-    /// let sum_native = sum.native::<(i64, i64), i32>(&mut store).unwrap();
+    /// let sum_typed = sum.typed::<(i64, i64), i32>(&mut store).unwrap();
     /// ```
     ///
     /// If the `Rets` generic parameter does not match the exported function
@@ -435,9 +480,9 @@ impl Function {
     /// let sum = instance.exports.get_function("sum").unwrap();
     ///
     /// // This results in an error: `RuntimeError`
-    /// let sum_native = sum.native::<(i32, i32), i64>(&mut store).unwrap();
+    /// let sum_typed = sum.typed::<(i32, i32), i64>(&mut store).unwrap();
     /// ```
-    pub fn native<Args, Rets>(
+    pub fn typed<Args, Rets>(
         &self,
         store: &impl AsStoreRef,
     ) -> Result<TypedFunction<Args, Rets>, RuntimeError>

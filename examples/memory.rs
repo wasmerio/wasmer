@@ -15,9 +15,7 @@
 //! Ready?
 
 use std::mem;
-use wasmer::{
-    imports, wat2wasm, Bytes, FunctionEnv, Instance, Module, Pages, Store, TypedFunction,
-};
+use wasmer::{imports, wat2wasm, Bytes, Instance, Module, Pages, Store, TypedFunction};
 use wasmer_compiler_cranelift::Cranelift;
 
 // this example is a work in progress:

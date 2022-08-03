@@ -1,5 +1,4 @@
 use anyhow::Result;
-use wasmer::FunctionEnv;
 use wasmer::*;
 
 #[compiler_test(serialize)]
@@ -54,8 +53,7 @@ fn test_deserialize(config: crate::Config) -> Result<()> {
         vec![Type::I32, Type::I64, Type::I32, Type::F32, Type::F64],
         vec![Type::I64],
     );
-    let mut env = FunctionEnv::new(&mut store, ());
-    let f0 = Function::new(&mut store, &env, &func_type, |_ctx, params| {
+    let f0 = Function::new(&mut store, &func_type, |_ctx, params| {
         let param_0: i64 = params[0].unwrap_i32() as i64;
         let param_1: i64 = params[1].unwrap_i64() as i64;
         let param_2: i64 = params[2].unwrap_i32() as i64;

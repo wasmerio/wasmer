@@ -11,7 +11,7 @@
 //!
 //! Ready?
 
-use wasmer::{imports, wat2wasm, FunctionEnv, Instance, Module, Store, TypedFunction, WasmPtr};
+use wasmer::{imports, wat2wasm, Instance, Module, Store, TypedFunction, WasmPtr};
 use wasmer_compiler_cranelift::Cranelift;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

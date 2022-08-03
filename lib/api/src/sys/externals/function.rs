@@ -42,11 +42,31 @@ pub struct Function {
 }
 
 impl Function {
+    /// Creates a new host `Function` (dynamic) with the provided signature.
+    ///
+    /// If you know the signature of the host function at compile time,
+    /// consider using [`Function::new_typed`] for less runtime overhead.
+    #[cfg(feature = "compiler")]
+    pub fn new<FT, F>(store: &mut impl AsStoreMut, ty: FT, func: F) -> Self
+    where
+        FT: Into<FunctionType>,
+        F: Fn(FunctionEnvMut<()>, &[Value]) -> Result<Vec<Value>, RuntimeError>
+            + 'static
+            + Send
+            + Sync,
+    {
+        let env = FunctionEnv::new(&mut store.as_store_mut(), ());
+        Self::new_with_env(store, &env, ty, func)
+    }
+
     #[cfg(feature = "compiler")]
     /// Creates a new host `Function` (dynamic) with the provided signature.
     ///
     /// If you know the signature of the host function at compile time,
-    /// consider using [`Function::new_native`] for less runtime overhead.
+    /// consider using [`Function::new_typed_with_env`] for less runtime overhead.
+    ///
+    /// Takes a [`FunctionEnv`] that is passed into func. If that is not required,
+    /// [`Function::new`] might be an option as well.
     ///
     /// # Examples
     ///
@@ -57,7 +77,7 @@ impl Function {
     /// #
     /// let signature = FunctionType::new(vec![Type::I32, Type::I32], vec![Type::I32]);
     ///
-    /// let f = Function::new(&mut store, &env, &signature, |_env, args| {
+    /// let f = Function::new_with_env(&mut store, &env, &signature, |_env, args| {
     ///     let sum = args[0].unwrap_i32() + args[1].unwrap_i32();
     ///     Ok(vec![Value::I32(sum)])
     /// });
@@ -72,12 +92,12 @@ impl Function {
     /// #
     /// const I32_I32_TO_I32: ([Type; 2], [Type; 1]) = ([Type::I32, Type::I32], [Type::I32]);
     ///
-    /// let f = Function::new(&mut store, &env, I32_I32_TO_I32, |_env, args| {
+    /// let f = Function::new_with_env(&mut store, &env, I32_I32_TO_I32, |_env, args| {
     ///     let sum = args[0].unwrap_i32() + args[1].unwrap_i32();
     ///     Ok(vec![Value::I32(sum)])
     /// });
     /// ```
-    pub fn new<FT, F, T: Send + 'static>(
+    pub fn new_with_env<FT, F, T: Send + 'static>(
         store: &mut impl AsStoreMut,
         env: &FunctionEnv<T>,
         ty: FT,
@@ -161,7 +181,53 @@ impl Function {
     }
 
     #[cfg(feature = "compiler")]
+    #[deprecated(
+        since = "3.0.0",
+        note = "new_native() has been renamed to new_typed()."
+    )]
     /// Creates a new host `Function` from a native function.
+    pub fn new_native<F, Args, Rets>(store: &mut impl AsStoreMut, func: F) -> Self
+    where
+        F: HostFunction<(), Args, Rets> + 'static + Send + Sync,
+        Args: WasmTypeList,
+        Rets: WasmTypeList,
+    {
+        Self::new_typed(store, func)
+    }
+
+    #[cfg(feature = "compiler")]
+    /// Creates a new host `Function` from a native function.
+    pub fn new_typed<F, Args, Rets>(store: &mut impl AsStoreMut, func: F) -> Self
+    where
+        F: HostFunction<(), Args, Rets> + 'static + Send + Sync,
+        Args: WasmTypeList,
+        Rets: WasmTypeList,
+    {
+        let env = FunctionEnv::new(store, ());
+        Self::new_typed_with_env(store, &env, func)
+    }
+
+    #[cfg(feature = "compiler")]
+    #[deprecated(
+        since = "3.0.0",
+        note = "new_native_with_env() has been renamed to new_typed_with_env()."
+    )]
+    /// Creates a new host `Function` with an environment from a native function.
+    pub fn new_native_with_env<T: Send + 'static, F, Args, Rets>(
+        store: &mut impl AsStoreMut,
+        env: &FunctionEnv<T>,
+        func: F,
+    ) -> Self
+    where
+        F: HostFunction<T, Args, Rets> + 'static + Send + Sync,
+        Args: WasmTypeList,
+        Rets: WasmTypeList,
+    {
+        Self::new_typed_with_env(store, env, func)
+    }
+
+    #[cfg(feature = "compiler")]
+    /// Creates a new host `Function` with an environment from a typed function.
     ///
     /// The function signature is automatically retrieved using the
     /// Rust typing system.
@@ -177,9 +243,9 @@ impl Function {
     ///     a + b
     /// }
     ///
-    /// let f = Function::new_native(&mut store, &env, sum);
+    /// let f = Function::new_typed_with_env(&mut store, &env, sum);
     /// ```
-    pub fn new_native<T: Send + 'static, F, Args, Rets>(
+    pub fn new_typed_with_env<T: Send + 'static, F, Args, Rets>(
         store: &mut impl AsStoreMut,
         env: &FunctionEnv<T>,
         func: F,
@@ -238,7 +304,7 @@ impl Function {
     ///     a + b
     /// }
     ///
-    /// let f = Function::new_native(&mut store, &env, sum);
+    /// let f = Function::new_typed_with_env(&mut store, &env, sum);
     ///
     /// assert_eq!(f.ty(&mut store).params(), vec![Type::I32, Type::I32]);
     /// assert_eq!(f.ty(&mut store).results(), vec![Type::I32]);
@@ -339,7 +405,7 @@ impl Function {
     ///     a + b
     /// }
     ///
-    /// let f = Function::new_native(&mut store, &env, sum);
+    /// let f = Function::new_typed_with_env(&mut store, &env, sum);
     ///
     /// assert_eq!(f.param_arity(&mut store), 2);
     /// ```
@@ -360,7 +426,7 @@ impl Function {
     ///     a + b
     /// }
     ///
-    /// let f = Function::new_native(&mut store, &env, sum);
+    /// let f = Function::new_typed_with_env(&mut store, &env, sum);
     ///
     /// assert_eq!(f.result_arity(&mut store), 1);
     /// ```
@@ -446,8 +512,23 @@ impl Function {
         }
     }
 
-    /// Transform this WebAssembly function into a function with the
-    /// native ABI. See [`TypedFunction`] to learn more.
+    /// Transform this WebAssembly function into a native function.
+    /// See [`TypedFunction`] to learn more.
+    #[cfg(feature = "compiler")]
+    #[deprecated(since = "3.0.0", note = "native() has been renamed to typed().")]
+    pub fn native<Args, Rets>(
+        &self,
+        store: &impl AsStoreRef,
+    ) -> Result<TypedFunction<Args, Rets>, RuntimeError>
+    where
+        Args: WasmTypeList,
+        Rets: WasmTypeList,
+    {
+        self.typed(store)
+    }
+
+    /// Transform this WebAssembly function into a typed function.
+    /// See [`TypedFunction`] to learn more.
     ///
     /// # Examples
     ///
@@ -469,9 +550,9 @@ impl Function {
     /// # let instance = Instance::new(&mut store, &module, &import_object).unwrap();
     /// #
     /// let sum = instance.exports.get_function("sum").unwrap();
-    /// let sum_native: TypedFunction<(i32, i32), i32> = sum.native(&mut store).unwrap();
+    /// let sum_typed: TypedFunction<(i32, i32), i32> = sum.typed(&mut store).unwrap();
     ///
-    /// assert_eq!(sum_native.call(&mut store, 1, 2).unwrap(), 3);
+    /// assert_eq!(sum_typed.call(&mut store, 1, 2).unwrap(), 3);
     /// ```
     ///
     /// # Errors
@@ -499,7 +580,7 @@ impl Function {
     /// let sum = instance.exports.get_function("sum").unwrap();
     ///
     /// // This results in an error: `RuntimeError`
-    /// let sum_native : TypedFunction<(i64, i64), i32> = sum.native(&mut store).unwrap();
+    /// let sum_typed : TypedFunction<(i64, i64), i32> = sum.typed(&mut store).unwrap();
     /// ```
     ///
     /// If the `Rets` generic parameter does not match the exported function
@@ -525,9 +606,9 @@ impl Function {
     /// let sum = instance.exports.get_function("sum").unwrap();
     ///
     /// // This results in an error: `RuntimeError`
-    /// let sum_native: TypedFunction<(i32, i32), i64> = sum.native(&mut store).unwrap();
+    /// let sum_typed: TypedFunction<(i32, i32), i64> = sum.typed(&mut store).unwrap();
     /// ```
-    pub fn native<Args, Rets>(
+    pub fn typed<Args, Rets>(
         &self,
         store: &impl AsStoreRef,
     ) -> Result<TypedFunction<Args, Rets>, RuntimeError>
@@ -984,7 +1065,8 @@ mod inner {
     }
 
     /// Represents a low-level Wasm static host function. See
-    /// `super::Function::new_native` to learn more.
+    /// [`super::Function::new_typed`] and
+    /// [`super::Function::new_typed_with_env`] to learn more.
     pub(crate) struct StaticFunction<F, T> {
         pub(crate) raw_store: *mut u8,
         pub(crate) env: FunctionEnv<T>,

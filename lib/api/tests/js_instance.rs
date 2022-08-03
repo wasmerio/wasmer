@@ -291,8 +291,7 @@ mod js {
             return arg + 1;
         }
 
-        let env = FunctionEnv::new(&mut store, ());
-        let imported = Function::new_native(&mut store, &env, imported_fn);
+        let imported = Function::new_typed(&mut store, imported_fn);
 
         let import_object = imports! {
             "env" => {
@@ -348,7 +347,7 @@ mod js {
 
         let env = FunctionEnv::new(&mut store, Env { multiplier: 3 });
 
-        let imported = Function::new_native(&mut store, &env, imported_fn);
+        let imported = Function::new_typed_with_env(&mut store, &env, imported_fn);
 
         let import_object = imports! {
             "env" => {
@@ -412,7 +411,7 @@ mod js {
                 memory: None,
             },
         );
-        let imported = Function::new_native(&mut store, &env, imported_fn);
+        let imported = Function::new_typed_with_env(&mut store, &env, imported_fn);
 
         let import_object = imports! {
             "env" => {
@@ -630,11 +629,9 @@ mod js {
             a + b
         }
 
-        let env = FunctionEnv::new(&mut store, ());
-
         let import_object = imports! {
             "env" => {
-                "sum" => Function::new_native(&mut store, &env, sum),
+                "sum" => Function::new_typed(&mut store, sum),
             }
         };
 
@@ -670,11 +667,10 @@ mod js {
         fn early_exit(_: FunctionEnvMut<'_, ()>) {
             panic!("Do panic")
         }
-        let env = FunctionEnv::new(&mut store, ());
 
         let import_object = imports! {
             "env" => {
-                "early_exit" => Function::new_native(&mut store, &env, early_exit),
+                "early_exit" => Function::new_typed(&mut store, early_exit),
             }
         };
         let instance = Instance::new(&mut store, &module, &import_object).unwrap();
@@ -718,8 +714,6 @@ mod js {
         )
         .unwrap();
 
-        let env = FunctionEnv::new(&mut store, ());
-
         use std::fmt;
 
         #[derive(Debug, Clone, Copy)]
@@ -739,7 +733,7 @@ mod js {
 
         let import_object = imports! {
             "env" => {
-                "early_exit" => Function::new_native(&mut store, &env, early_exit),
+                "early_exit" => Function::new_typed(&mut store, early_exit),
             }
         };
 

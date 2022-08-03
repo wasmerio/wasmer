@@ -16,10 +16,7 @@
 
 use anyhow::bail;
 use std::fmt;
-use wasmer::{
-    imports, wat2wasm, Function, FunctionEnv, FunctionEnvMut, Instance, Module, Store,
-    TypedFunction,
-};
+use wasmer::{imports, wat2wasm, Function, FunctionEnvMut, Instance, Module, Store, TypedFunction};
 use wasmer_compiler_cranelift::Cranelift;
 
 // First we need to create an error type that we'll use to signal the end of execution.
@@ -58,7 +55,6 @@ fn main() -> anyhow::Result<()> {
     // the default provided by Wasmer.
     // You can use `Store::default()` for that.
     let mut store = Store::new(Cranelift::default());
-    let env = FunctionEnv::new(&mut store, ());
 
     println!("Compiling module...");
     // Let's compile the Wasm module.
@@ -73,7 +69,7 @@ fn main() -> anyhow::Result<()> {
     // Create an import object.
     let import_object = imports! {
         "env" => {
-            "early_exit" => Function::new_native(&mut store, &env, early_exit),
+            "early_exit" => Function::new_typed(&mut store, early_exit),
         }
     };
 
