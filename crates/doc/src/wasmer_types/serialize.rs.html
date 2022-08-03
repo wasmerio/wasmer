@@ -441,7 +441,7 @@
 
     <span class="doccomment">/// Parses the header and returns the length of the metadata following it.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">parse</span>(<span class="ident">bytes</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span>, <span class="ident">DeserializeError</span><span class="op">&gt;</span> {
-        <span class="kw">if</span> <span class="ident">bytes</span>.<span class="ident">as_ptr</span>() <span class="kw">as</span> <span class="ident">usize</span> <span class="op">%</span> <span class="number">16</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
+        <span class="kw">if</span> <span class="ident">bytes</span>.<span class="ident">as_ptr</span>() <span class="kw">as</span> <span class="ident">usize</span> <span class="op">%</span> <span class="number">8</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
             <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">DeserializeError::CorruptedBinary</span>(
                 <span class="string">&quot;misaligned metadata&quot;</span>.<span class="ident">to_string</span>(),
             ));

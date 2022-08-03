@@ -145,6 +145,39 @@
 <span id="143">143</span>
 <span id="144">144</span>
 <span id="145">145</span>
+<span id="146">146</span>
+<span id="147">147</span>
+<span id="148">148</span>
+<span id="149">149</span>
+<span id="150">150</span>
+<span id="151">151</span>
+<span id="152">152</span>
+<span id="153">153</span>
+<span id="154">154</span>
+<span id="155">155</span>
+<span id="156">156</span>
+<span id="157">157</span>
+<span id="158">158</span>
+<span id="159">159</span>
+<span id="160">160</span>
+<span id="161">161</span>
+<span id="162">162</span>
+<span id="163">163</span>
+<span id="164">164</span>
+<span id="165">165</span>
+<span id="166">166</span>
+<span id="167">167</span>
+<span id="168">168</span>
+<span id="169">169</span>
+<span id="170">170</span>
+<span id="171">171</span>
+<span id="172">172</span>
+<span id="173">173</span>
+<span id="174">174</span>
+<span id="175">175</span>
+<span id="176">176</span>
+<span id="177">177</span>
+<span id="178">178</span>
 </pre><pre class="rust"><code><span class="doccomment">//! The logic for the Wasmer CLI tool.</span>
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>)]</span>
@@ -196,13 +229,46 @@
     <span class="ident">Compile</span>(<span class="ident">Compile</span>),
 
     <span class="doccomment">/// Compile a WebAssembly binary into a native executable</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// To use, you need to set the `WASMER_DIR` environment variable</span>
+    <span class="doccomment">/// to the location of your Wasmer installation. This will probably be `~/.wasmer`. It</span>
+    <span class="doccomment">/// should include a `lib`, `include` and `bin` subdirectories. To create an executable</span>
+    <span class="doccomment">/// you will need `libwasmer`, so by setting `WASMER_DIR` the CLI knows where to look for</span>
+    <span class="doccomment">/// header files and libraries.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// Example usage:</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// ```text</span>
+    <span class="doccomment">/// $ # in two lines:</span>
+    <span class="doccomment">/// $ export WASMER_DIR=/home/user/.wasmer/</span>
+    <span class="doccomment">/// $ wasmer create-exe qjs.wasm -o qjs.exe # or in one line:</span>
+    <span class="doccomment">/// $ WASMER_DIR=/home/user/.wasmer/ wasmer create-exe qjs.wasm -o qjs.exe</span>
+    <span class="doccomment">/// $ file qjs.exe</span>
+    <span class="doccomment">/// qjs.exe: ELF 64-bit LSB pie executable, x86-64 ...</span>
+    <span class="doccomment">/// ```</span>
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-create&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wasmer-artifact-create&quot;</span>))]</span>
-    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;create-exe&quot;</span>)]</span>
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;create-exe&quot;</span>, <span class="ident">verbatim_doc_comment</span>)]</span>
     <span class="ident">CreateExe</span>(<span class="ident">CreateExe</span>),
 
     <span class="doccomment">/// Compile a WebAssembly binary into an object file</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// To use, you need to set the `WASMER_DIR` environment variable to the location of your</span>
+    <span class="doccomment">/// Wasmer installation. This will probably be `~/.wasmer`. It should include a `lib`,</span>
+    <span class="doccomment">/// `include` and `bin` subdirectories. To create an object you will need `libwasmer`, so by</span>
+    <span class="doccomment">/// setting `WASMER_DIR` the CLI knows where to look for header files and libraries.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// Example usage:</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// ```text</span>
+    <span class="doccomment">/// $ # in two lines:</span>
+    <span class="doccomment">/// $ export WASMER_DIR=/home/user/.wasmer/</span>
+    <span class="doccomment">/// $ wasmer create-obj qjs.wasm --object-format symbols -o qjs.obj # or in one line:</span>
+    <span class="doccomment">/// $ WASMER_DIR=/home/user/.wasmer/ wasmer create-exe qjs.wasm --object-format symbols -o qjs.obj</span>
+    <span class="doccomment">/// $ file qjs.obj</span>
+    <span class="doccomment">/// qjs.obj: ELF 64-bit LSB relocatable, x86-64 ...</span>
+    <span class="doccomment">/// ```</span>
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-create&quot;</span>)]</span>
-    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;create-obj&quot;</span>)]</span>
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;create-obj&quot;</span>, <span class="ident">verbatim_doc_comment</span>)]</span>
     <span class="ident">CreateObj</span>(<span class="ident">CreateObj</span>),
 
     <span class="doccomment">/// Get various configuration information needed</span>
