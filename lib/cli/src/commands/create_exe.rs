@@ -186,14 +186,19 @@ impl CreateExe {
 fn link(
     output_path: PathBuf,
     object_path: PathBuf,
-    header_code_path: PathBuf,
+    mut header_code_path: PathBuf,
 ) -> anyhow::Result<()> {
+    let linkcode = LinkCode {
+        object_paths: vec![object_path, "main_obj.obj".into()],
+        output_path,
+        ..Default::default()
+    };
     let c_src_path = Path::new("wasmer_main.c");
     let mut libwasmer_path = get_libwasmer_path()?
         .canonicalize()
         .context("Failed to find libwasmer")?;
     println!("Using libwasmer: {}", libwasmer_path.display());
-    let lib_filename = libwasmer_path
+    let _lib_filename = libwasmer_path
         .file_name()
         .unwrap()
         .to_str()
@@ -209,32 +214,47 @@ fn link(
         c_src_file.write_all(WASMER_STATIC_MAIN_C_SOURCE)?;
     }
 
-    println!(
-        "link output {:?}",
-        Command::new("cc")
-            .arg(&object_path)
-            .arg(&header_code_path)
-            .arg(&c_src_path)
-            .arg(&format!("-L{}", libwasmer_path.display()))
-            .arg(&format!("-I{}", get_wasmer_include_directory()?.display()))
-            .arg(&format!("-l:{}", lib_filename))
-            // Add libraries required per platform.
-            // We need userenv, sockets (Ws2_32), advapi32 for some system calls and bcrypt for random numbers.
-            //#[cfg(windows)]
-            //    .arg("-luserenv")
-            //    .arg("-lWs2_32")
-            //    .arg("-ladvapi32")
-            //    .arg("-lbcrypt")
-            // On unix we need dlopen-related symbols, libmath for a few things, and pthreads.
-            //#[cfg(not(windows))]
-            .arg("-ldl")
-            .arg("-lm")
-            .arg("-pthread")
-            //.arg(&format!("-I{}", header_code_path.display()))
-            .arg("-o")
-            .arg(&output_path)
-            .output()?
-    );
+    if !header_code_path.is_dir() {
+        header_code_path.pop();
+    }
+
+    /* Compile main function */
+    let compilation = Command::new("cc")
+        .arg("-c")
+        .arg(&c_src_path)
+        .arg(if linkcode.optimization_flag.is_empty() {
+            "-O2"
+        } else {
+            linkcode.optimization_flag.as_str()
+        })
+        .arg(&format!("-L{}", libwasmer_path.display()))
+        .arg(&format!("-I{}", get_wasmer_include_directory()?.display()))
+        //.arg(&format!("-l:{}", lib_filename))
+        .arg("-lwasmer")
+        // Add libraries required per platform.
+        // We need userenv, sockets (Ws2_32), advapi32 for some system calls and bcrypt for random numbers.
+        //#[cfg(windows)]
+        //    .arg("-luserenv")
+        //    .arg("-lWs2_32")
+        //    .arg("-ladvapi32")
+        //    .arg("-lbcrypt")
+        // On unix we need dlopen-related symbols, libmath for a few things, and pthreads.
+        //#[cfg(not(windows))]
+        .arg("-ldl")
+        .arg("-lm")
+        .arg("-pthread")
+        .arg(&format!("-I{}", header_code_path.display()))
+        .arg("-v")
+        .arg("-o")
+        .arg("main_obj.obj")
+        .output()?;
+    if !compilation.status.success() {
+        return Err(anyhow::anyhow!(String::from_utf8_lossy(
+            &compilation.stderr
+        )
+        .to_string()));
+    }
+    linkcode.run().context("Failed to link objects together")?;
     Ok(())
 }
 
