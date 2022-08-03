@@ -11,8 +11,7 @@
 // TODO: make this define templated so that the Rust code can toggle it on/off
 #define WASI
 
-extern size_t WASMER_MODULE_LENGTH asm("WASMER_MODULE_LENGTH");
-extern char WASMER_MODULE_DATA asm("WASMER_MODULE_DATA");
+// DECLARE_MODULE
 
 static void print_wasmer_error() {
   int error_len = wasmer_last_error_length();
@@ -95,17 +94,7 @@ int main(int argc, char *argv[]) {
   wasm_engine_t *engine = wasm_engine_new_with_config(config);
   wasm_store_t *store = wasm_store_new(engine);
 
-  wasm_byte_vec_t module_byte_vec = {
-    .size = WASMER_MODULE_LENGTH,
-    .data = (const char*)&WASMER_MODULE_DATA,
-  };
-  wasm_module_t *module = wasm_module_deserialize(store, &module_byte_vec);
-
-  if (!module) {
-    fprintf(stderr, "Failed to create module\n");
-    print_wasmer_error();
-    return -1;
-  }
+  // INSTANTIATE_MODULE
 
   // We have now finished the memory buffer book keeping and we have a valid
   // Module.
@@ -122,31 +111,7 @@ int main(int argc, char *argv[]) {
   }
 #endif
 
-  wasm_importtype_vec_t import_types;
-  wasm_module_imports(module, &import_types);
-
-  wasm_extern_vec_t imports;
-  wasm_extern_vec_new_uninitialized(&imports, import_types.size);
-  wasm_importtype_vec_delete(&import_types);
-
-#ifdef WASI
-  bool get_imports_result = wasi_get_imports(store, module, wasi_env, &imports);
-
-  if (!get_imports_result) {
-    fprintf(stderr, "Error getting WASI imports!\n");
-    print_wasmer_error();
-
-    return 1;
-  }
-#endif
-
-  wasm_instance_t *instance = wasm_instance_new(store, module, &imports, NULL);
-
-  if (!instance) {
-    fprintf(stderr, "Failed to create instance\n");
-    print_wasmer_error();
-    return -1;
-  }
+// wasmer_create_exe_create_instance.c
 
 #ifdef WASI
   // Read the exports.
@@ -190,7 +155,7 @@ int main(int argc, char *argv[]) {
   wasm_extern_vec_delete(&exports);
 #endif
   wasm_instance_delete(instance);
-  wasm_module_delete(module);
+  // DEALLOCATE_MODULE
   wasm_store_delete(store);
   wasm_engine_delete(engine);
   return 0;
