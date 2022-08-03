@@ -31,7 +31,11 @@ pub struct CreateObj {
     target_triple: Option<Triple>,
 
     /// Object format options
-    #[structopt(name = "OBJECT_FORMAT", long = "object-format")]
+    ///
+    /// This flag accepts two options: `symbols` or `serialized`.
+    /// - (default) `symbols` creates an object where all functions and metadata of the module are regular object symbols
+    /// - `serialized` creates an object where the module is zero-copy serialized as raw data
+    #[structopt(name = "OBJECT_FORMAT", long = "object-format", verbatim_doc_comment)]
     object_format: Option<ObjectFormat>,
 
     #[structopt(short = "m", multiple = true, number_of_values = 1)]
@@ -92,35 +96,15 @@ impl CreateObj {
                 let tunables = store.tunables();
                 let data: Vec<u8> = fs::read(wasm_module_path)?;
                 let prefixer: Option<Box<dyn Fn(&[u8]) -> String + Send>> = None;
-                let (module_info, obj, metadata_length, symbol_registry) =
+                let (_module_info, obj, _metadata_length, _symbol_registry) =
                     Artifact::generate_object(
                         compiler, &data, prefixer, &target, tunables, features,
                     )?;
 
-                let header_file_src = crate::c_gen::staticlib_header::generate_header_file(
-                    &module_info,
-                    &*symbol_registry,
-                    metadata_length,
-                );
                 let mut writer = BufWriter::new(File::create(&output_path)?);
                 obj.write_stream(&mut writer)
                     .map_err(|err| anyhow::anyhow!(err.to_string()))?;
                 writer.flush()?;
-                {
-                    let mut writer = BufWriter::new(File::create("/tmp/main_obj.o")?);
-                    obj.write_stream(&mut writer)
-                        .map_err(|err| anyhow::anyhow!(err.to_string()))?;
-                    writer.flush()?;
-                }
-                let mut writer = BufWriter::new(File::create("func.c")?);
-                writer.write_all(header_file_src.as_bytes())?;
-                writer.flush()?;
-                {
-                    let mut writer = BufWriter::new(File::create("/tmp/func.c")?);
-                    writer.write_all(header_file_src.as_bytes())?;
-                    writer.flush()?;
-                }
-                //link(output_path.clone(), std::path::Path::new("func.c").into())?;
             }
         }
 
