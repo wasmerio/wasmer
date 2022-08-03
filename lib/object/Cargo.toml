@@ -12,9 +12,5 @@ edition = "2018"
 
 [dependencies]
 wasmer-types = { path = "../types", version = "=3.0.0-alpha.4" }
-wasmer-compiler = { path = "../compiler", version = "=3.0.0-alpha.4", default-features = false, features = [
-    "std",
-    "translator",
-] }
 object = { version = "0.28.3", default-features = false, features = ["write"] }
 thiserror = "1.0"

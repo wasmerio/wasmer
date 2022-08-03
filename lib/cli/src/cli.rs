@@ -4,8 +4,10 @@
 use crate::commands::Binfmt;
 #[cfg(feature = "compiler")]
 use crate::commands::Compile;
-#[cfg(feature = "compiler")]
+#[cfg(any(feature = "static-artifact-create", feature = "wasmer-artifact-create"))]
 use crate::commands::CreateExe;
+#[cfg(feature = "static-artifact-create")]
+use crate::commands::CreateObj;
 #[cfg(feature = "wast")]
 use crate::commands::Wast;
 use crate::commands::{Cache, Config, Inspect, Run, SelfUpdate, Validate};
@@ -47,9 +49,47 @@ enum WasmerCLIOptions {
     Compile(Compile),
 
     /// Compile a WebAssembly binary into a native executable
-    #[cfg(feature = "compiler")]
-    #[structopt(name = "create-exe")]
+    ///
+    /// To use, you need to set the `WASMER_DIR` environment variable
+    /// to the location of your Wasmer installation. This will probably be `~/.wasmer`. It
+    /// should include a `lib`, `include` and `bin` subdirectories. To create an executable
+    /// you will need `libwasmer`, so by setting `WASMER_DIR` the CLI knows where to look for
+    /// header files and libraries.
+    ///
+    /// Example usage:
+    ///
+    /// ```text
+    /// $ # in two lines:
+    /// $ export WASMER_DIR=/home/user/.wasmer/
+    /// $ wasmer create-exe qjs.wasm -o qjs.exe # or in one line:
+    /// $ WASMER_DIR=/home/user/.wasmer/ wasmer create-exe qjs.wasm -o qjs.exe
+    /// $ file qjs.exe
+    /// qjs.exe: ELF 64-bit LSB pie executable, x86-64 ...
+    /// ```
+    #[cfg(any(feature = "static-artifact-create", feature = "wasmer-artifact-create"))]
+    #[structopt(name = "create-exe", verbatim_doc_comment)]
     CreateExe(CreateExe),
+
+    /// Compile a WebAssembly binary into an object file
+    ///
+    /// To use, you need to set the `WASMER_DIR` environment variable to the location of your
+    /// Wasmer installation. This will probably be `~/.wasmer`. It should include a `lib`,
+    /// `include` and `bin` subdirectories. To create an object you will need `libwasmer`, so by
+    /// setting `WASMER_DIR` the CLI knows where to look for header files and libraries.
+    ///
+    /// Example usage:
+    ///
+    /// ```text
+    /// $ # in two lines:
+    /// $ export WASMER_DIR=/home/user/.wasmer/
+    /// $ wasmer create-obj qjs.wasm --object-format symbols -o qjs.obj # or in one line:
+    /// $ WASMER_DIR=/home/user/.wasmer/ wasmer create-exe qjs.wasm --object-format symbols -o qjs.obj
+    /// $ file qjs.obj
+    /// qjs.obj: ELF 64-bit LSB relocatable, x86-64 ...
+    /// ```
+    #[cfg(feature = "static-artifact-create")]
+    #[structopt(name = "create-obj", verbatim_doc_comment)]
+    CreateObj(CreateObj),
 
     /// Get various configuration information needed
     /// to compile programs which use Wasmer
@@ -84,8 +124,10 @@ impl WasmerCLIOptions {
             Self::Validate(validate) => validate.execute(),
             #[cfg(feature = "compiler")]
             Self::Compile(compile) => compile.execute(),
-            #[cfg(feature = "compiler")]
+            #[cfg(any(feature = "static-artifact-create", feature = "wasmer-artifact-create"))]
             Self::CreateExe(create_exe) => create_exe.execute(),
+            #[cfg(feature = "static-artifact-create")]
+            Self::CreateObj(create_obj) => create_obj.execute(),
             Self::Config(config) => config.execute(),
             Self::Inspect(inspect) => inspect.execute(),
             #[cfg(feature = "wast")]

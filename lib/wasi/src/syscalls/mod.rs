@@ -1319,6 +1319,10 @@ pub fn fd_readdir<M: MemorySize>(
                             (entry.name.to_string(), stat.st_filetype, stat.st_ino)
                         }),
                 );
+                // adding . and .. special folders
+                // TODO: inode
+                entry_vec.push((".".to_string(), __WASI_FILETYPE_DIRECTORY, 0));
+                entry_vec.push(("..".to_string(), __WASI_FILETYPE_DIRECTORY, 0));
                 entry_vec.sort_by(|a, b| a.0.cmp(&b.0));
                 entry_vec
             }

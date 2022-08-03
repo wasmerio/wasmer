@@ -1,5 +1,6 @@
 //! Create a standalone native executable for a given Wasm file.
 
+use super::ObjectFormat;
 use crate::store::CompilerOptions;
 use anyhow::{Context, Result};
 use std::env;
@@ -14,6 +15,8 @@ use wasmer::*;
 use wasmer_object::{emit_serialized, get_object_for_target};
 
 const WASMER_MAIN_C_SOURCE: &[u8] = include_bytes!("wasmer_create_exe_main.c");
+#[cfg(feature = "static-artifact-create")]
+const WASMER_STATIC_MAIN_C_SOURCE: &[u8] = include_bytes!("wasmer_static_create_exe_main.c");
 
 #[derive(Debug, StructOpt)]
 /// The options for the `wasmer create-exe` subcommand
@@ -30,9 +33,14 @@ pub struct CreateExe {
     #[structopt(long = "target")]
     target_triple: Option<Triple>,
 
-    #[structopt(flatten)]
-    compiler: CompilerOptions,
-
+    /// Object format options
+    ///
+    /// This flag accepts two options: `symbols` or `serialized`.
+    /// - (default) `symbols` creates an
+    /// executable where all functions and metadata of the module are regular object symbols
+    /// - `serialized` creates an executable where the module is zero-copy serialized as raw data
+    #[structopt(name = "OBJECT_FORMAT", long = "object-format", verbatim_doc_comment)]
+    object_format: Option<ObjectFormat>,
     #[structopt(short = "m", multiple = true, number_of_values = 1)]
     cpu_features: Vec<CpuFeature>,
 
@@ -40,6 +48,9 @@ pub struct CreateExe {
     /// This is useful for fixing linker errors that may occur on some systems.
     #[structopt(short = "l", multiple = true, number_of_values = 1)]
     libraries: Vec<String>,
+
+    #[structopt(flatten)]
+    compiler: CompilerOptions,
 }
 
 impl CreateExe {
@@ -61,9 +72,11 @@ impl CreateExe {
             })
             .unwrap_or_default();
         let (store, compiler_type) = self.compiler.get_store_for_target(target.clone())?;
+        let object_format = self.object_format.unwrap_or(ObjectFormat::Symbols);
 
         println!("Compiler: {}", compiler_type.to_string());
         println!("Target: {}", target.triple());
+        println!("Format: {:?}", object_format);
 
         let working_dir = tempfile::tempdir()?;
         let starting_cd = env::current_dir()?;
@@ -77,19 +90,63 @@ impl CreateExe {
 
         let wasm_module_path = starting_cd.join(&self.path);
 
-        let module =
-            Module::from_file(&store, &wasm_module_path).context("failed to compile Wasm")?;
-        let bytes = module.serialize()?;
-        let mut obj = get_object_for_target(target.triple())?;
-        emit_serialized(&mut obj, &bytes, target.triple())?;
-        let mut writer = BufWriter::new(File::create(&wasm_object_path)?);
-        obj.write_stream(&mut writer)
-            .map_err(|err| anyhow::anyhow!(err.to_string()))?;
-        writer.flush()?;
-        drop(writer);
+        match object_format {
+            ObjectFormat::Serialized => {
+                let module = Module::from_file(&store, &wasm_module_path)
+                    .context("failed to compile Wasm")?;
+                let bytes = module.serialize()?;
+                let mut obj = get_object_for_target(target.triple())?;
+                emit_serialized(&mut obj, &bytes, target.triple())?;
+                let mut writer = BufWriter::new(File::create(&wasm_object_path)?);
+                obj.write_stream(&mut writer)
+                    .map_err(|err| anyhow::anyhow!(err.to_string()))?;
+                writer.flush()?;
+                drop(writer);
 
-        self.compile_c(wasm_object_path, output_path)?;
+                self.compile_c(wasm_object_path, output_path)?;
+            }
+            #[cfg(not(feature = "static-artifact-create"))]
+            ObjectFormat::Symbols => {
+                return Err(anyhow!("This version of wasmer-cli hasn't been compiled with static artifact support. You need to enable the `static-artifact-create` feature during compilation."));
+            }
+            #[cfg(feature = "static-artifact-create")]
+            ObjectFormat::Symbols => {
+                let engine = store.engine();
+                let engine_inner = engine.inner();
+                let compiler = engine_inner.compiler()?;
+                let features = engine_inner.features();
+                let tunables = store.tunables();
+                let data: Vec<u8> = fs::read(wasm_module_path)?;
+                let prefixer: Option<Box<dyn Fn(&[u8]) -> String + Send>> = None;
+                let (module_info, obj, metadata_length, symbol_registry) =
+                    Artifact::generate_object(
+                        compiler, &data, prefixer, &target, tunables, features,
+                    )?;
 
+                let header_file_src = crate::c_gen::staticlib_header::generate_header_file(
+                    &module_info,
+                    &*symbol_registry,
+                    metadata_length,
+                );
+                /* Write object file with functions */
+                let object_file_path: std::path::PathBuf =
+                    std::path::Path::new("functions.o").into();
+                let mut writer = BufWriter::new(File::create(&object_file_path)?);
+                obj.write_stream(&mut writer)
+                    .map_err(|err| anyhow::anyhow!(err.to_string()))?;
+                writer.flush()?;
+                /* Write down header file that includes pointer arrays and the deserialize function
+                 * */
+                let mut writer = BufWriter::new(File::create("static_defs.h")?);
+                writer.write_all(header_file_src.as_bytes())?;
+                writer.flush()?;
+                link(
+                    output_path,
+                    object_file_path,
+                    std::path::Path::new("static_defs.h").into(),
+                )?;
+            }
+        }
         eprintln!(
             "✔ Native executable compiled successfully to `{}`.",
             self.output.display(),
@@ -128,6 +185,82 @@ impl CreateExe {
 
         Ok(())
     }
+}
+
+#[cfg(feature = "static-artifact-create")]
+fn link(
+    output_path: PathBuf,
+    object_path: PathBuf,
+    mut header_code_path: PathBuf,
+) -> anyhow::Result<()> {
+    let linkcode = LinkCode {
+        object_paths: vec![object_path, "main_obj.obj".into()],
+        output_path,
+        ..Default::default()
+    };
+    let c_src_path = Path::new("wasmer_main.c");
+    let mut libwasmer_path = get_libwasmer_path()?
+        .canonicalize()
+        .context("Failed to find libwasmer")?;
+    println!("Using libwasmer: {}", libwasmer_path.display());
+    let _lib_filename = libwasmer_path
+        .file_name()
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .to_string();
+    libwasmer_path.pop();
+    {
+        let mut c_src_file = fs::OpenOptions::new()
+            .create_new(true)
+            .write(true)
+            .open(&c_src_path)
+            .context("Failed to open C source code file")?;
+        c_src_file.write_all(WASMER_STATIC_MAIN_C_SOURCE)?;
+    }
+
+    if !header_code_path.is_dir() {
+        header_code_path.pop();
+    }
+
+    /* Compile main function */
+    let compilation = Command::new("cc")
+        .arg("-c")
+        .arg(&c_src_path)
+        .arg(if linkcode.optimization_flag.is_empty() {
+            "-O2"
+        } else {
+            linkcode.optimization_flag.as_str()
+        })
+        .arg(&format!("-L{}", libwasmer_path.display()))
+        .arg(&format!("-I{}", get_wasmer_include_directory()?.display()))
+        //.arg(&format!("-l:{}", lib_filename))
+        .arg("-lwasmer")
+        // Add libraries required per platform.
+        // We need userenv, sockets (Ws2_32), advapi32 for some system calls and bcrypt for random numbers.
+        //#[cfg(windows)]
+        //    .arg("-luserenv")
+        //    .arg("-lWs2_32")
+        //    .arg("-ladvapi32")
+        //    .arg("-lbcrypt")
+        // On unix we need dlopen-related symbols, libmath for a few things, and pthreads.
+        //#[cfg(not(windows))]
+        .arg("-ldl")
+        .arg("-lm")
+        .arg("-pthread")
+        .arg(&format!("-I{}", header_code_path.display()))
+        .arg("-v")
+        .arg("-o")
+        .arg("main_obj.obj")
+        .output()?;
+    if !compilation.status.success() {
+        return Err(anyhow::anyhow!(String::from_utf8_lossy(
+            &compilation.stderr
+        )
+        .to_string()));
+    }
+    linkcode.run().context("Failed to link objects together")?;
+    Ok(())
 }
 
 fn get_wasmer_dir() -> anyhow::Result<PathBuf> {

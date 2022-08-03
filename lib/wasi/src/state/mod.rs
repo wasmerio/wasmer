@@ -104,6 +104,7 @@ impl InodeVal {
 pub enum Kind {
     File {
         /// The open file, if it's open
+        #[cfg_attr(feature = "enable-serde", serde(skip))]
         handle: Option<Box<dyn VirtualFile + Send + Sync + 'static>>,
         /// The path on the host system where the file is located
         /// This is deprecated and will be removed soon
@@ -114,10 +115,12 @@ pub enum Kind {
         /// TOOD: clarify here?
         fd: Option<u32>,
     },
+    #[cfg_attr(feature = "enable-serde", serde(skip))]
     Socket {
         /// Represents a networking socket
         socket: InodeSocket,
     },
+    #[cfg_attr(feature = "enable-serde", serde(skip))]
     Pipe {
         /// Reference to the pipe
         pipe: WasiPipe,
@@ -161,6 +164,7 @@ pub enum Kind {
         /// Flag that indicates if this is operating
         is_semaphore: bool,
         /// Receiver that wakes sleeping threads
+        #[cfg_attr(feature = "enable-serde", serde(skip))]
         wakers: Arc<Mutex<VecDeque<mpsc::Sender<()>>>>,
     },
 }
@@ -1801,9 +1805,12 @@ impl WasiState {
 #[derive(Debug, Default)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub(crate) struct WasiStateThreading {
+    #[cfg_attr(feature = "enable-serde", serde(skip))]
     pub threads: HashMap<WasiThreadId, WasiThread>,
     pub thread_seed: u32,
+    #[cfg_attr(feature = "enable-serde", serde(skip))]
     pub processes: HashMap<WasiBusProcessId, BusSpawnedProcess>,
+    #[cfg_attr(feature = "enable-serde", serde(skip))]
     pub process_reuse: HashMap<Cow<'static, str>, WasiBusProcessId>,
     pub process_seed: u32,
 }

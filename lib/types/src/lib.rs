@@ -124,6 +124,7 @@ pub use crate::compilation::function::{
 };
 pub use crate::compilation::module::CompileModuleInfo;
 pub use crate::compilation::sourceloc::SourceLoc;
+pub use crate::compilation::symbols::{Symbol, SymbolRegistry};
 pub use crate::compilation::trap::TrapInformation;
 pub use crate::compilation::unwind::CompiledFunctionUnwindInfo;
 

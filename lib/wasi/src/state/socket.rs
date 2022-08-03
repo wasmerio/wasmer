@@ -33,7 +33,7 @@ pub enum InodeHttpSocketType {
 }
 
 #[derive(Debug)]
-#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+//#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub enum InodeSocketKind {
     PreSocket {
         family: __wasi_addressfamily_t,
@@ -143,7 +143,7 @@ pub struct WasiHttpStatus {
 }
 
 #[derive(Debug)]
-#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+//#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct InodeSocket {
     kind: InodeSocketKind,
     read_buffer: Option<Bytes>,

@@ -28,12 +28,12 @@ use std::convert::TryFrom;
 use wasmer_compiler::wasmparser::{MemoryImmediate, Operator};
 use wasmer_compiler::{
     from_binaryreadererror_wasmerror, wptype_to_type, FunctionBinaryReader, FunctionBodyData,
-    MiddlewareBinaryReader, ModuleMiddlewareChain, ModuleTranslationState, Symbol, SymbolRegistry,
+    MiddlewareBinaryReader, ModuleMiddlewareChain, ModuleTranslationState,
 };
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::{
     CompileError, FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex,
-    ModuleInfo, RelocationTarget, SignatureIndex, TableIndex, Type,
+    ModuleInfo, RelocationTarget, SignatureIndex, Symbol, SymbolRegistry, TableIndex, Type,
 };
 use wasmer_vm::{MemoryStyle, TableStyle, VMOffsets};
 

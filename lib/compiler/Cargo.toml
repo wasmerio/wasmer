@@ -12,6 +12,7 @@ edition = "2018"
 
 [dependencies]
 wasmer-types = { path = "../types", version = "=3.0.0-alpha.4", default-features = false }
+wasmer-object = { path = "../object", version = "=3.0.0-alpha.4", optional = true }
 wasmparser = { version = "0.83", optional = true, default-features = false }
 enumset = "1.0.2"
 hashbrown = { version = "0.11", optional = true }
@@ -38,12 +39,16 @@ region = { version = "3.0" }
 winapi = { version = "0.3", features = ["winnt", "impl-default"] }
 
 [features]
-default = ["std", "enable-serde" ]
+default = ["std" ]
 # This feature is for compiler implementors, it enables using `Compiler` and
 # `CompilerConfig`, as well as the included wasmparser.
 # Disable this feature if you just want a headless engine.
 translator = ["wasmparser"]
 compiler = ["translator"]
+wasmer-artifact-load = []
+wasmer-artifact-create = []
+static-artifact-load = []
+static-artifact-create = ["wasmer-object"]
 std = ["wasmer-types/std"]
 core = ["hashbrown", "wasmer-types/core"]
 enable-serde = ["serde", "serde_bytes", "wasmer-types/enable-serde"]
