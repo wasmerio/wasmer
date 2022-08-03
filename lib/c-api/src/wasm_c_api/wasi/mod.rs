@@ -15,7 +15,7 @@ use std::ffi::CStr;
 use std::os::raw::c_char;
 use std::slice;
 use wasmer_wasi::{
-    get_wasi_version, Pipe, WasiFile, WasiFunctionEnv, WasiState, WasiStateBuilder, WasiVersion,
+    get_wasi_version, Pipe, WasiFile, WasiFunctionEnv, WasiState, WasiStateBuilder, WasiVersion, WasiEnv,
 };
 
 #[derive(Debug)]
@@ -163,6 +163,84 @@ pub struct wasi_env_t {
     /// cbindgen:ignore
     pub(super) inner: WasiFunctionEnv,
     pub(super) store: StoreRef,
+}
+
+#[repr(C)]
+struct wasi_filesystem_t {
+    ptr: *const c_char,
+    size: usize,
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasi_filesystem_init_static_memory(
+    volume_bytes: Option<&wasi_byte_vec_t>,
+) -> Option<Box<wasi_filesystem_t>> {
+    Some(Box::new(wasi_filesystem_t { 
+        ptr: volume_bytes?.ptr as *const char, 
+        size: volume_bytes?.size 
+    }))
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasi_env_set_filesystem(
+    store: Option<&mut wasm_store_t>,
+    env: Option<&mut wasi_env_t>, 
+    fs: Option<&wasi_filesystem_t>,
+    package: *const c_char,
+) -> Option<Box<wasi_function_env_t>> {
+    
+    let store = &mut store?.inner;
+    let mut store_mut = store.store_mut();
+    let env = env.as_mut()?;
+    let fs = fs.as_ref()?;
+    let package_str = CStr::from_ptr(package);
+    let package = package_str.to_str().unwrap_or("");
+    
+    let function_env = prepare_webc_env(
+        &mut *store_mut,
+        fs.bytes.ptr,
+        fs.bytes.size,
+        env,
+        package,
+    )?;
+
+    Some(Box::new(function_env))
+}
+
+fn prepare_webc_env(
+    store: &mut Store, 
+    bytes: &'static u8,
+    len: usize,
+    wasi_env: &mut wasi_env_t, 
+    package_name: &str
+) -> Option<Box<WasiFunctionEnv>> {
+
+    use webc::FsEntryType;
+    use webc_runner::StaticFileSystem;
+
+    let slice = std::slice::from_raw(bytes, len);
+    let volumes = webc::WebC::parse_volumes(slice);
+    let top_level_dirs = volumes
+    .into_iter()
+    .flat_map(|v| {
+        volume
+        .header
+        .top_level
+        .iter()
+        .filter(|e| e.fs_type == FsEntryType::Dir)
+        .map(|e| e.text.to_string())
+    })
+    .collect::<Vec<_>>();
+
+    let filesystem = Box::new(StaticFileSystem::init(slice, &package_name));
+    let mut wasi_env = wasi_env.data_mut(&mut store_mut);
+    wasi_env.set_fs(filesystem);
+
+    for f_name in top_level_dirs.iter() {
+        wasi_env.preopen(|p| p.directory(f_name).read(true).write(true).create(true)).ok()?;
+    }
+
+    Some(Box::new(wasi_env.finalize(store)?))
 }
 
 /// Create a new WASI environment.
