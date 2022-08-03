@@ -94,7 +94,11 @@ int main(int argc, char *argv[]) {
   wasm_engine_t *engine = wasm_engine_new_with_config(config);
   wasm_store_t *store = wasm_store_new(engine);
 
+  printf("instantiating modules...\n");
+
   // INSTANTIATE_MODULE
+
+  printf("instantiating modules ok!\n");
 
   // We have now finished the memory buffer book keeping and we have a valid
   // Module.
@@ -109,6 +113,9 @@ int main(int argc, char *argv[]) {
     print_wasmer_error();
     return 1;
   }
+  
+  printf("created wasi config ok!\n");
+
 #endif
 
 // wasmer_create_exe_create_instance.c
@@ -132,12 +139,16 @@ int main(int argc, char *argv[]) {
   }
   wasi_env_set_memory(wasi_env, mem);
 
+  printf("set memory ok!\n");
+
   own wasm_func_t *start_function = wasi_get_start_function(instance);
   if (!start_function) {
     fprintf(stderr, "`_start` function not found\n");
     print_wasmer_error();
     return -1;
   }
+
+  printf("calling...\n");
 
   wasm_val_vec_t args = WASM_EMPTY_VEC;
   wasm_val_vec_t results = WASM_EMPTY_VEC;

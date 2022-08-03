@@ -225,14 +225,14 @@ impl CreateExe {
                 emit_serialized(&mut obj, &bytes, target.triple(), &atom_name_uppercase)?;
                 
                 c_code_to_add.push_str(&format!("
-                extern size_t ATOM_{atom_name_uppercase}_LENGTH asm(\"ATOM_{atom_name_uppercase}_LENGTH\");
-                extern char ATOM_{atom_name_uppercase}_DATA asm(\"ATOM_{atom_name_uppercase}_DATA\");
+                extern size_t {atom_name_uppercase}_LENGTH asm(\"{atom_name_uppercase}_LENGTH\");
+                extern char {atom_name_uppercase}_DATA asm(\"{atom_name_uppercase}_DATA\");
                 "));
 
                 c_code_to_instantiate.push_str(&format!("
                 wasm_byte_vec_t atom_{atom_name}_byte_vec = {{
-                    .size = ATOM_{atom_name_uppercase}_LENGTH,
-                    .data = (const char*)&ATOM_{atom_name_uppercase}_DATA,
+                    .size = {atom_name_uppercase}_LENGTH,
+                    .data = (const char*)&{atom_name_uppercase}_DATA,
                 }};
                 wasm_module_t *atom_{atom_name} = wasm_module_deserialize(store, &atom_{atom_name}_byte_vec);
     
@@ -259,9 +259,9 @@ impl CreateExe {
 
         for (name, obj) in compiled_modules {
             #[cfg(not(windows))]
-            let object_path = working_dir.clone().join(&format!("atom_{name}.o"));
+            let object_path = working_dir.clone().join(&format!("{name}.o"));
             #[cfg(windows)]
-            let object_path = working_dir.clone().join(&format!("atom_{name}.obj"));
+            let object_path = working_dir.clone().join(&format!("{name}.obj"));
 
             let mut writer = BufWriter::new(File::create(&object_path)?);
             obj.write_stream(&mut writer)
