@@ -70,7 +70,7 @@ mod compiler;
 #[macro_use]
 mod translator;
 #[cfg(feature = "translator")]
-pub use crate::compiler::{Compiler, CompilerConfig, Symbol, SymbolRegistry};
+pub use crate::compiler::{Compiler, CompilerConfig};
 #[cfg(feature = "translator")]
 pub use crate::translator::{
     from_binaryreadererror_wasmerror, translate_module, wptype_to_type, FunctionBinaryReader,

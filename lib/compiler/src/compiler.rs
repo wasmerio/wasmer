@@ -8,11 +8,11 @@ use crate::FunctionBodyData;
 use crate::ModuleTranslationState;
 use wasmer_types::compilation::function::Compilation;
 use wasmer_types::compilation::module::CompileModuleInfo;
+use wasmer_types::compilation::symbols::SymbolRegistry;
 use wasmer_types::compilation::target::Target;
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::error::CompileError;
-use wasmer_types::SectionIndex;
-use wasmer_types::{Features, FunctionIndex, LocalFunctionIndex, SignatureIndex};
+use wasmer_types::{Features, LocalFunctionIndex};
 use wasmparser::{Validator, WasmFeatures};
 
 /// The compiler configuration options.
@@ -143,31 +143,4 @@ pub trait Compiler: Send {
 
     /// Get the middlewares for this compiler
     fn get_middlewares(&self) -> &[Arc<dyn ModuleMiddleware>];
-}
-
-/// The kinds of wasmer_types objects that might be found in a native object file.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum Symbol {
-    /// A function defined in the wasm.
-    LocalFunction(LocalFunctionIndex),
-
-    /// A wasm section.
-    Section(SectionIndex),
-
-    /// The function call trampoline for a given signature.
-    FunctionCallTrampoline(SignatureIndex),
-
-    /// The dynamic function trampoline for a given function.
-    DynamicFunctionTrampoline(FunctionIndex),
-}
-
-/// This trait facilitates symbol name lookups in a native object file.
-pub trait SymbolRegistry: Send + Sync {
-    /// Given a `Symbol` it returns the name for that symbol in the object file
-    fn symbol_to_name(&self, symbol: Symbol) -> String;
-
-    /// Given a name it returns the `Symbol` for that name in the object file
-    ///
-    /// This function is the inverse of [`SymbolRegistry::symbol_to_name`]
-    fn name_to_symbol(&self, name: &str) -> Option<Symbol>;
 }

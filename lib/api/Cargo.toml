@@ -22,7 +22,7 @@ edition = "2018"
 # Shared dependencies.
 [dependencies]
 # - Mandatory shared dependencies.
-indexmap = { version = "1.6", features = ["serde-1"] }
+indexmap = { version = "1.6" }
 cfg-if = "1.0"
 thiserror = "1.0"
 more-asserts = "0.2"
@@ -112,6 +112,18 @@ js-default = ["js", "std", "wasm-types-polyfill"]
 wasm-types-polyfill = ["js", "wasmparser"]
 
 js-serializable-module = []
+
+# Optional
+enable-serde = [
+  "wasmer-vm/enable-serde",
+  "wasmer-compiler/enable-serde",
+  "wasmer-types/enable-serde",
+]
+
+wasmer-artifact-load = ["wasmer-compiler/wasmer-artifact-load"]
+wasmer-artifact-create = ["wasmer-compiler/wasmer-artifact-create"]
+static-artifact-load = ["wasmer-compiler/static-artifact-load"]
+static-artifact-create = ["wasmer-compiler/static-artifact-create"]
 
 [package.metadata.docs.rs]
 features = ["compiler", "core", "cranelift", "engine", "jit", "native", "singlepass", "sys", "sys-default" ]

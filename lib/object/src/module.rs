@@ -6,13 +6,13 @@ use object::{
     elf, macho, RelocationEncoding, RelocationKind, SectionKind, SymbolFlags, SymbolKind,
     SymbolScope,
 };
-use wasmer_compiler::{Symbol, SymbolRegistry};
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::LocalFunctionIndex;
 use wasmer_types::{
     Architecture, BinaryFormat, Compilation, CustomSectionProtection, Endianness,
     RelocationKind as Reloc, RelocationTarget, SectionIndex, Triple,
 };
+use wasmer_types::{Symbol, SymbolRegistry};
 
 const DWARF_SECTION_NAME: &[u8] = b".eh_frame";
 
@@ -111,7 +111,7 @@ pub fn emit_data(
 /// # Usage
 ///
 /// ```rust
-/// # use wasmer_compiler::SymbolRegistry;
+/// # use wasmer_types::SymbolRegistry;
 /// # use wasmer_types::{Compilation, Triple};
 /// # use wasmer_object::ObjectError;
 /// use wasmer_object::{get_object_for_target, emit_compilation};
@@ -390,7 +390,7 @@ pub fn emit_compilation(
 /// # Usage
 ///
 /// ```rust
-/// # use wasmer_compiler::SymbolRegistry;
+/// # use wasmer_types::SymbolRegistry;
 /// # use wasmer_types::{Compilation, Triple};
 /// # use wasmer_object::ObjectError;
 /// use wasmer_object::{get_object_for_target, emit_compilation};

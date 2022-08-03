@@ -34,7 +34,7 @@ pub enum DeserializeError {
     /// The binary was valid, but we got an error when
     /// trying to allocate the required resources.
     #[error(transparent)]
-    Compiler(CompileError),
+    Compiler(#[from] CompileError),
 }
 
 /// An ImportError.

@@ -326,7 +326,7 @@ impl File {
             inner: file,
             host_path,
             #[cfg(feature = "enable-serde")]
-            _flags,
+            flags: _flags,
         }
     }
 
@@ -377,7 +377,7 @@ impl Write for File {
     }
 }
 
-#[cfg_attr(feature = "enable-serde", typetag::serde)]
+//#[cfg_attr(feature = "enable-serde", typetag::serde)]
 impl VirtualFile for File {
     fn last_accessed(&self) -> u64 {
         self.metadata()
@@ -506,7 +506,7 @@ impl Write for Stdout {
     }
 }
 
-#[cfg_attr(feature = "enable-serde", typetag::serde)]
+//#[cfg_attr(feature = "enable-serde", typetag::serde)]
 impl VirtualFile for Stdout {
     fn last_accessed(&self) -> u64 {
         0
@@ -602,7 +602,7 @@ impl Write for Stderr {
     }
 }
 
-#[cfg_attr(feature = "enable-serde", typetag::serde)]
+//#[cfg_attr(feature = "enable-serde", typetag::serde)]
 impl VirtualFile for Stderr {
     fn last_accessed(&self) -> u64 {
         0
@@ -697,7 +697,7 @@ impl Write for Stdin {
     }
 }
 
-#[cfg_attr(feature = "enable-serde", typetag::serde)]
+//#[cfg_attr(feature = "enable-serde", typetag::serde)]
 impl VirtualFile for Stdin {
     fn last_accessed(&self) -> u64 {
         0

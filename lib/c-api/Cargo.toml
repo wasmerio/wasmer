@@ -35,7 +35,6 @@ enumset = "1.0.2"
 cfg-if = "1.0"
 lazy_static = "1.4"
 libc = { version = "^0.2", default-features = false }
-serde = { version = "1", optional = true, features = ["derive"] }
 thiserror = "1"
 typetag = { version = "0.1", optional = true }
 paste = "1.0"
@@ -80,6 +79,10 @@ llvm = [
     "wasmer-compiler-llvm",
     "compiler",
 ]
+wasmer-artifact-load = ["wasmer-compiler/wasmer-artifact-load"]
+wasmer-artifact-create = ["wasmer-compiler/wasmer-artifact-create"]
+static-artifact-load = ["wasmer-compiler/static-artifact-load"]
+static-artifact-create = ["wasmer-compiler/static-artifact-create"]
 
 # Deprecated features.
 jit = ["compiler"]

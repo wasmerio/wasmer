@@ -419,7 +419,7 @@ impl Seek for Pipe {
     }
 }
 
-#[cfg_attr(feature = "enable-serde", typetag::serde)]
+//#[cfg_attr(feature = "enable-serde", typetag::serde)]
 impl VirtualFile for Pipe {
     fn last_accessed(&self) -> u64 {
         0
