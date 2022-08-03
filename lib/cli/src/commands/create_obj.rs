@@ -15,6 +15,8 @@ use structopt::StructOpt;
 use wasmer::*;
 use wasmer_object::{emit_serialized, get_object_for_target};
 
+const WASMER_SERIALIZED_HEADER: &[u8] = include_bytes!("wasmer_create_exe.h");
+
 #[derive(Debug, StructOpt)]
 /// The options for the `wasmer create-exe` subcommand
 pub struct CreateObj {
@@ -23,8 +25,16 @@ pub struct CreateObj {
     path: PathBuf,
 
     /// Output file
-    #[structopt(name = "OUTPUT PATH", short = "o", parse(from_os_str))]
+    #[structopt(name = "OUTPUT_PATH", short = "o", parse(from_os_str))]
     output: PathBuf,
+
+    /// Header output file
+    #[structopt(
+        name = "OUTPUT_HEADER_PATH",
+        long = "output-header-path",
+        parse(from_os_str)
+    )]
+    header_output: Option<PathBuf>,
 
     /// Compilation Target triple
     #[structopt(long = "target")]
@@ -48,7 +58,6 @@ pub struct CreateObj {
 impl CreateObj {
     /// Runs logic for the `create-obj` subcommand
     pub fn execute(&self) -> Result<()> {
-        println!("objectformat: {:?}", &self.object_format);
         let target = self
             .target_triple
             .as_ref()
@@ -72,8 +81,15 @@ impl CreateObj {
         println!("Format: {:?}", object_format);
 
         let starting_cd = env::current_dir()?;
-        let output_path = starting_cd.join(&self.output);
 
+        let output_path = starting_cd.join(&self.output);
+        let header_output = self.header_output.clone().unwrap_or_else(|| {
+            let mut retval = self.output.clone();
+            retval.set_extension("h");
+            retval
+        });
+
+        let header_output_path = starting_cd.join(&header_output);
         let wasm_module_path = starting_cd.join(&self.path);
 
         match object_format {
@@ -87,6 +103,9 @@ impl CreateObj {
                 obj.write_stream(&mut writer)
                     .map_err(|err| anyhow::anyhow!(err.to_string()))?;
                 writer.flush()?;
+                let mut writer = BufWriter::new(File::create(&header_output_path)?);
+                writer.write_all(WASMER_SERIALIZED_HEADER)?;
+                writer.flush()?;
             }
             ObjectFormat::Symbols => {
                 let engine = store.engine();
@@ -96,21 +115,30 @@ impl CreateObj {
                 let tunables = store.tunables();
                 let data: Vec<u8> = fs::read(wasm_module_path)?;
                 let prefixer: Option<Box<dyn Fn(&[u8]) -> String + Send>> = None;
-                let (_module_info, obj, _metadata_length, _symbol_registry) =
+                let (module_info, obj, metadata_length, symbol_registry) =
                     Artifact::generate_object(
                         compiler, &data, prefixer, &target, tunables, features,
                     )?;
 
+                let header_file_src = crate::c_gen::staticlib_header::generate_header_file(
+                    &module_info,
+                    &*symbol_registry,
+                    metadata_length,
+                );
                 let mut writer = BufWriter::new(File::create(&output_path)?);
                 obj.write_stream(&mut writer)
                     .map_err(|err| anyhow::anyhow!(err.to_string()))?;
+                writer.flush()?;
+                let mut writer = BufWriter::new(File::create(&header_output_path)?);
+                writer.write_all(header_file_src.as_bytes())?;
                 writer.flush()?;
             }
         }
 
         eprintln!(
-            "✔ Object compiled successfully to `{}`.",
+            "✔ Object compiled successfully to `{}` and the header file was generated at `{}`.",
             self.output.display(),
+            header_output.display(),
         );
 
         Ok(())
