@@ -107,7 +107,7 @@ int main(int argc, char *argv[]) {
   wasi_config_t *wasi_config = wasi_config_new(argv[0]);
   handle_arguments(wasi_config, argc, argv);
 
-  wasi_env_t *wasi_env = wasi_env_new(wasi_config);
+  wasi_env_t *wasi_env = wasi_env_new(store, wasi_config);
   if (!wasi_env) {
     fprintf(stderr, "Error building WASI env!\n");
     print_wasmer_error();

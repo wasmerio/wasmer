@@ -7,7 +7,7 @@
   wasm_importtype_vec_delete(&import_types);
 
 #ifdef WASI
-  bool get_imports_result = wasi_get_imports(store, module, wasi_env, &imports);
+  bool get_imports_result = wasi_get_imports(store, wasi_env, module, &imports);
 
   if (!get_imports_result) {
     fprintf(stderr, "Error getting WASI imports!\n");

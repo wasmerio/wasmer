@@ -106,13 +106,13 @@ impl CreateExe {
         println!("Format: {:?}", object_format);
 
         let working_dir = tempfile::tempdir()?;
+        let working_dir = working_dir.path().to_path_buf();
         let output_path = starting_cd.join(&self.output);
-        env::set_current_dir(&working_dir)?;
 
         #[cfg(not(windows))]
-        let wasm_object_path = PathBuf::from("wasm.o");
+        let wasm_object_path = working_dir.clone().join("wasm.o");
         #[cfg(windows)]
-        let wasm_object_path = PathBuf::from("wasm.obj");
+        let wasm_object_path = working_dir.clone().join("wasm.obj");
 
         let module = Module::from_file(&store, &wasm_module_path);
         let module = module.context("failed to compile Wasm")?;
@@ -350,14 +350,6 @@ impl CreateExe {
             .replace("// wasmer_create_exe_create_instance.c", &Self::generate_run_code("module"))
         )?;
 
-        {
-            let mut c_src_file = fs::OpenOptions::new()
-                .create_new(true)
-                .write(true)
-                .open(&c_src_path)
-                .context("Failed to open C source code file")?;
-            c_src_file.write_all(WASMER_MAIN_C_SOURCE.as_bytes())?;
-        }
         run_c_compile(c_src_path, &c_src_obj, self.target_triple.clone())
             .context("Failed to compile C source code")?;
         
@@ -468,7 +460,14 @@ fn get_wasmer_dir() -> anyhow::Result<PathBuf> {
 
 fn get_wasmer_include_directory() -> anyhow::Result<PathBuf> {
     let mut path = get_wasmer_dir()?;
+    if path.clone().join("wasmer.h").exists() {
+        return Ok(path);
+    }
     path.push("include");
+    if !path.clone().join("wasmer.h").exists() {
+        println!("wasmer.h does not exist in {}, will probably default to the system path", path.canonicalize().unwrap().display());
+    }
+
     Ok(path)
 }
 
