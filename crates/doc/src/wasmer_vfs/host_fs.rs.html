@@ -1062,7 +1062,7 @@
             <span class="ident">inner</span>: <span class="ident">file</span>,
             <span class="ident">host_path</span>,
             <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>)]</span>
-            <span class="ident">_flags</span>,
+            <span class="ident">flags</span>: <span class="ident">_flags</span>,
         }
     }
 
@@ -1113,7 +1113,7 @@
     }
 }
 
-<span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">typetag::serde</span>)]</span>
+<span class="comment">//#[cfg_attr(feature = &quot;enable-serde&quot;, typetag::serde)]</span>
 <span class="kw">impl</span> <span class="ident">VirtualFile</span> <span class="kw">for</span> <span class="ident">File</span> {
     <span class="kw">fn</span> <span class="ident">last_accessed</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u64</span> {
         <span class="self">self</span>.<span class="ident">metadata</span>()
@@ -1242,7 +1242,7 @@
     }
 }
 
-<span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">typetag::serde</span>)]</span>
+<span class="comment">//#[cfg_attr(feature = &quot;enable-serde&quot;, typetag::serde)]</span>
 <span class="kw">impl</span> <span class="ident">VirtualFile</span> <span class="kw">for</span> <span class="ident">Stdout</span> {
     <span class="kw">fn</span> <span class="ident">last_accessed</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u64</span> {
         <span class="number">0</span>
@@ -1338,7 +1338,7 @@
     }
 }
 
-<span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">typetag::serde</span>)]</span>
+<span class="comment">//#[cfg_attr(feature = &quot;enable-serde&quot;, typetag::serde)]</span>
 <span class="kw">impl</span> <span class="ident">VirtualFile</span> <span class="kw">for</span> <span class="ident">Stderr</span> {
     <span class="kw">fn</span> <span class="ident">last_accessed</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u64</span> {
         <span class="number">0</span>
@@ -1433,7 +1433,7 @@
     }
 }
 
-<span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">typetag::serde</span>)]</span>
+<span class="comment">//#[cfg_attr(feature = &quot;enable-serde&quot;, typetag::serde)]</span>
 <span class="kw">impl</span> <span class="ident">VirtualFile</span> <span class="kw">for</span> <span class="ident">Stdin</span> {
     <span class="kw">fn</span> <span class="ident">last_accessed</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u64</span> {
         <span class="number">0</span>

@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["get_libwasmer_path","path to the static libwasmer"],["get_wasmer_dir",""],["link",""]],"struct":[["CreateObj","The options for the `wasmer create-exe` subcommand"]]});

@@ -208,6 +208,7 @@
 <span id="206">206</span>
 <span id="207">207</span>
 <span id="208">208</span>
+<span id="209">209</span>
 </pre><pre class="rust"><code><span class="doccomment">//! This are the common types and utility tools for using WebAssembly</span>
 <span class="doccomment">//! in a Rust environment.</span>
 <span class="doccomment">//!</span>
@@ -334,6 +335,7 @@
 };
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::compilation::module::CompileModuleInfo</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::compilation::sourceloc::SourceLoc</span>;
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::compilation::symbols</span>::{<span class="ident">Symbol</span>, <span class="ident">SymbolRegistry</span>};
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::compilation::trap::TrapInformation</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::compilation::unwind::CompiledFunctionUnwindInfo</span>;
 

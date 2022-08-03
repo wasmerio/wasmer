@@ -1546,7 +1546,7 @@
 }
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>))]</span>
+<span class="comment">//#[cfg_attr(feature = &quot;enable-serde&quot;, derive(Serialize, Deserialize))]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">InodeSocketKind</span> {
     <span class="ident">PreSocket</span> {
         <span class="ident">family</span>: <span class="ident">__wasi_addressfamily_t</span>,
@@ -1656,7 +1656,7 @@
 }
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>))]</span>
+<span class="comment">//#[cfg_attr(feature = &quot;enable-serde&quot;, derive(Serialize, Deserialize))]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">InodeSocket</span> {
     <span class="ident">kind</span>: <span class="ident">InodeSocketKind</span>,
     <span class="ident">read_buffer</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Bytes</span><span class="op">&gt;</span>,

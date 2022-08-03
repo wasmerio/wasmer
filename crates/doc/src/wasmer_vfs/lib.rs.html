@@ -518,8 +518,8 @@
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;host-fs&quot;</span>), <span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;mem-fs&quot;</span>)))]</span>
 <span class="macro">compile_error!</span>(<span class="string">&quot;At least the `host-fs` or the `mem-fs` feature must be enabled. Please, pick one.&quot;</span>);
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;mem-fs&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>))]</span>
-<span class="macro">compile_error!</span>(<span class="string">&quot;`mem-fs` does not support `enable-serde` for the moment.&quot;</span>);
+<span class="comment">//#[cfg(all(feature = &quot;mem-fs&quot;, feature = &quot;enable-serde&quot;))]</span>
+<span class="comment">//compile_warn!(&quot;`mem-fs` does not support `enable-serde` for the moment.&quot;);</span>
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;host-fs&quot;</span>)]</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">host_fs</span>;
@@ -681,7 +681,7 @@
 }
 
 <span class="doccomment">/// This trait relies on your file closing when it goes out of scope via `Drop`</span>
-<span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">typetag::serde</span>)]</span>
+<span class="comment">//#[cfg_attr(feature = &quot;enable-serde&quot;, typetag::serde)]</span>
 <span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">VirtualFile</span>: <span class="ident">fmt::Debug</span> <span class="op">+</span> <span class="ident">Write</span> <span class="op">+</span> <span class="ident">Read</span> <span class="op">+</span> <span class="ident">Seek</span> <span class="op">+</span> <span class="ident">Upcastable</span> {
     <span class="doccomment">/// the last time the file was accessed in nanoseconds as a UNIX timestamp</span>
     <span class="kw">fn</span> <span class="ident">last_accessed</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u64</span>;

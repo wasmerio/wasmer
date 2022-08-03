@@ -1,0 +1,1 @@
+initSidebarItems({"constant":[["HELPER_FUNCTIONS","Helper functions to simplify the usage of the static artifact."]],"fn":[["generate_header_file","Generate the header file that goes with the generated object file."]]});

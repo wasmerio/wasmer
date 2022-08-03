@@ -1940,6 +1940,13 @@
 <span id="1938">1938</span>
 <span id="1939">1939</span>
 <span id="1940">1940</span>
+<span id="1941">1941</span>
+<span id="1942">1942</span>
+<span id="1943">1943</span>
+<span id="1944">1944</span>
+<span id="1945">1945</span>
+<span id="1946">1946</span>
+<span id="1947">1947</span>
 </pre><pre class="rust"><code><span class="doccomment">//! WARNING: the API exposed here is unstable and very experimental.  Certain things are not ready</span>
 <span class="doccomment">//! yet and may be broken in patch releases.  If you&#39;re using this and have any specific needs,</span>
 <span class="doccomment">//! please [let us know here](https://github.com/wasmerio/wasmer/issues/583) or by filing an issue.</span>
@@ -2046,6 +2053,7 @@
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">Kind</span> {
     <span class="ident">File</span> {
         <span class="doccomment">/// The open file, if it&#39;s open</span>
+        <span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">serde</span>(<span class="ident">skip</span>))]</span>
         <span class="ident">handle</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">VirtualFile</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span><span class="op">&gt;</span>,
         <span class="doccomment">/// The path on the host system where the file is located</span>
         <span class="doccomment">/// This is deprecated and will be removed soon</span>
@@ -2056,10 +2064,12 @@
         <span class="doccomment">/// TOOD: clarify here?</span>
         <span class="ident">fd</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">u32</span><span class="op">&gt;</span>,
     },
+    <span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">serde</span>(<span class="ident">skip</span>))]</span>
     <span class="ident">Socket</span> {
         <span class="doccomment">/// Represents a networking socket</span>
         <span class="ident">socket</span>: <span class="ident">InodeSocket</span>,
     },
+    <span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">serde</span>(<span class="ident">skip</span>))]</span>
     <span class="ident">Pipe</span> {
         <span class="doccomment">/// Reference to the pipe</span>
         <span class="ident">pipe</span>: <span class="ident">WasiPipe</span>,
@@ -2103,6 +2113,7 @@
         <span class="doccomment">/// Flag that indicates if this is operating</span>
         <span class="ident">is_semaphore</span>: <span class="ident">bool</span>,
         <span class="doccomment">/// Receiver that wakes sleeping threads</span>
+        <span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">serde</span>(<span class="ident">skip</span>))]</span>
         <span class="ident">wakers</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">Mutex</span><span class="op">&lt;</span><span class="ident">VecDeque</span><span class="op">&lt;</span><span class="ident">mpsc::Sender</span><span class="op">&lt;</span>()<span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
     },
 }
@@ -3743,9 +3754,12 @@
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Default</span>)]</span>
 <span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>))]</span>
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct</span> <span class="ident">WasiStateThreading</span> {
+    <span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">serde</span>(<span class="ident">skip</span>))]</span>
     <span class="kw">pub</span> <span class="ident">threads</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">WasiThreadId</span>, <span class="ident">WasiThread</span><span class="op">&gt;</span>,
     <span class="kw">pub</span> <span class="ident">thread_seed</span>: <span class="ident">u32</span>,
+    <span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">serde</span>(<span class="ident">skip</span>))]</span>
     <span class="kw">pub</span> <span class="ident">processes</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">WasiBusProcessId</span>, <span class="ident">BusSpawnedProcess</span><span class="op">&gt;</span>,
+    <span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">serde</span>(<span class="ident">skip</span>))]</span>
     <span class="kw">pub</span> <span class="ident">process_reuse</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">Cow</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, <span class="ident">str</span><span class="op">&gt;</span>, <span class="ident">WasiBusProcessId</span><span class="op">&gt;</span>,
     <span class="kw">pub</span> <span class="ident">process_seed</span>: <span class="ident">u32</span>,
 }

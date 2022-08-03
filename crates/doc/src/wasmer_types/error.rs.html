@@ -255,7 +255,7 @@
     <span class="doccomment">/// The binary was valid, but we got an error when</span>
     <span class="doccomment">/// trying to allocate the required resources.</span>
     <span class="attribute">#[<span class="ident">error</span>(<span class="ident">transparent</span>)]</span>
-    <span class="ident">Compiler</span>(<span class="ident">CompileError</span>),
+    <span class="ident">Compiler</span>(<span class="attribute">#[<span class="ident">from</span>]</span> <span class="ident">CompileError</span>),
 }
 
 <span class="doccomment">/// An ImportError.</span>

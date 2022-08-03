@@ -462,13 +462,13 @@
     <span class="ident">elf</span>, <span class="ident">macho</span>, <span class="ident">RelocationEncoding</span>, <span class="ident">RelocationKind</span>, <span class="ident">SectionKind</span>, <span class="ident">SymbolFlags</span>, <span class="ident">SymbolKind</span>,
     <span class="ident">SymbolScope</span>,
 };
-<span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">Symbol</span>, <span class="ident">SymbolRegistry</span>};
 <span class="kw">use</span> <span class="ident">wasmer_types::entity::PrimaryMap</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types::LocalFunctionIndex</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{
     <span class="ident">Architecture</span>, <span class="ident">BinaryFormat</span>, <span class="ident">Compilation</span>, <span class="ident">CustomSectionProtection</span>, <span class="ident">Endianness</span>,
     <span class="ident">RelocationKind</span> <span class="kw">as</span> <span class="ident">Reloc</span>, <span class="ident">RelocationTarget</span>, <span class="ident">SectionIndex</span>, <span class="ident">Triple</span>,
 };
+<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">Symbol</span>, <span class="ident">SymbolRegistry</span>};
 
 <span class="kw">const</span> <span class="ident">DWARF_SECTION_NAME</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>] <span class="op">=</span> <span class="string">b&quot;.eh_frame&quot;</span>;
 
@@ -567,7 +567,7 @@
 <span class="doccomment">/// # Usage</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// ```rust</span>
-<span class="doccomment">/// # use wasmer_compiler::SymbolRegistry;</span>
+<span class="doccomment">/// # use wasmer_types::SymbolRegistry;</span>
 <span class="doccomment">/// # use wasmer_types::{Compilation, Triple};</span>
 <span class="doccomment">/// # use wasmer_object::ObjectError;</span>
 <span class="doccomment">/// use wasmer_object::{get_object_for_target, emit_compilation};</span>
@@ -846,7 +846,7 @@
 <span class="doccomment">/// # Usage</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// ```rust</span>
-<span class="doccomment">/// # use wasmer_compiler::SymbolRegistry;</span>
+<span class="doccomment">/// # use wasmer_types::SymbolRegistry;</span>
 <span class="doccomment">/// # use wasmer_types::{Compilation, Triple};</span>
 <span class="doccomment">/// # use wasmer_object::ObjectError;</span>
 <span class="doccomment">/// use wasmer_object::{get_object_for_target, emit_compilation};</span>
