@@ -49,13 +49,46 @@ enum WasmerCLIOptions {
     Compile(Compile),
 
     /// Compile a WebAssembly binary into a native executable
+    ///
+    /// To use, you need to set the `WASMER_DIR` environment variable
+    /// to the location of your Wasmer installation. This will probably be `~/.wasmer`. It
+    /// should include a `lib`, `include` and `bin` subdirectories. To create an executable
+    /// you will need `libwasmer`, so by setting `WASMER_DIR` the CLI knows where to look for
+    /// header files and libraries.
+    ///
+    /// Example usage:
+    ///
+    /// ```text
+    /// $ # in two lines:
+    /// $ export WASMER_DIR=/home/user/.wasmer/
+    /// $ wasmer create-exe qjs.wasm -o qjs.exe # or in one line:
+    /// $ WASMER_DIR=/home/user/.wasmer/ wasmer create-exe qjs.wasm -o qjs.exe
+    /// $ file qjs.exe
+    /// qjs.exe: ELF 64-bit LSB pie executable, x86-64 ...
+    /// ```
     #[cfg(any(feature = "static-artifact-create", feature = "wasmer-artifact-create"))]
-    #[structopt(name = "create-exe")]
+    #[structopt(name = "create-exe", verbatim_doc_comment)]
     CreateExe(CreateExe),
 
     /// Compile a WebAssembly binary into an object file
+    ///
+    /// To use, you need to set the `WASMER_DIR` environment variable to the location of your
+    /// Wasmer installation. This will probably be `~/.wasmer`. It should include a `lib`,
+    /// `include` and `bin` subdirectories. To create an object you will need `libwasmer`, so by
+    /// setting `WASMER_DIR` the CLI knows where to look for header files and libraries.
+    ///
+    /// Example usage:
+    ///
+    /// ```text
+    /// $ # in two lines:
+    /// $ export WASMER_DIR=/home/user/.wasmer/
+    /// $ wasmer create-obj qjs.wasm --object-format symbols -o qjs.obj # or in one line:
+    /// $ WASMER_DIR=/home/user/.wasmer/ wasmer create-exe qjs.wasm --object-format symbols -o qjs.obj
+    /// $ file qjs.obj
+    /// qjs.obj: ELF 64-bit LSB relocatable, x86-64 ...
+    /// ```
     #[cfg(feature = "static-artifact-create")]
-    #[structopt(name = "create-obj")]
+    #[structopt(name = "create-obj", verbatim_doc_comment)]
     CreateObj(CreateObj),
 
     /// Get various configuration information needed

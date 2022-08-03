@@ -15,6 +15,8 @@ use structopt::StructOpt;
 use wasmer::*;
 use wasmer_object::{emit_serialized, get_object_for_target};
 
+const WASMER_SERIALIZED_HEADER: &[u8] = include_bytes!("wasmer_create_exe.h");
+
 #[derive(Debug, StructOpt)]
 /// The options for the `wasmer create-exe` subcommand
 pub struct CreateObj {
@@ -23,15 +25,27 @@ pub struct CreateObj {
     path: PathBuf,
 
     /// Output file
-    #[structopt(name = "OUTPUT PATH", short = "o", parse(from_os_str))]
+    #[structopt(name = "OUTPUT_PATH", short = "o", parse(from_os_str))]
     output: PathBuf,
+
+    /// Header output file
+    #[structopt(
+        name = "OUTPUT_HEADER_PATH",
+        long = "output-header-path",
+        parse(from_os_str)
+    )]
+    header_output: Option<PathBuf>,
 
     /// Compilation Target triple
     #[structopt(long = "target")]
     target_triple: Option<Triple>,
 
     /// Object format options
-    #[structopt(name = "OBJECT_FORMAT", long = "object-format")]
+    ///
+    /// This flag accepts two options: `symbols` or `serialized`.
+    /// - (default) `symbols` creates an object where all functions and metadata of the module are regular object symbols
+    /// - `serialized` creates an object where the module is zero-copy serialized as raw data
+    #[structopt(name = "OBJECT_FORMAT", long = "object-format", verbatim_doc_comment)]
     object_format: Option<ObjectFormat>,
 
     #[structopt(short = "m", multiple = true, number_of_values = 1)]
@@ -44,7 +58,6 @@ pub struct CreateObj {
 impl CreateObj {
     /// Runs logic for the `create-obj` subcommand
     pub fn execute(&self) -> Result<()> {
-        println!("objectformat: {:?}", &self.object_format);
         let target = self
             .target_triple
             .as_ref()
@@ -68,8 +81,15 @@ impl CreateObj {
         println!("Format: {:?}", object_format);
 
         let starting_cd = env::current_dir()?;
-        let output_path = starting_cd.join(&self.output);
 
+        let output_path = starting_cd.join(&self.output);
+        let header_output = self.header_output.clone().unwrap_or_else(|| {
+            let mut retval = self.output.clone();
+            retval.set_extension("h");
+            retval
+        });
+
+        let header_output_path = starting_cd.join(&header_output);
         let wasm_module_path = starting_cd.join(&self.path);
 
         match object_format {
@@ -82,6 +102,9 @@ impl CreateObj {
                 let mut writer = BufWriter::new(File::create(&output_path)?);
                 obj.write_stream(&mut writer)
                     .map_err(|err| anyhow::anyhow!(err.to_string()))?;
+                writer.flush()?;
+                let mut writer = BufWriter::new(File::create(&header_output_path)?);
+                writer.write_all(WASMER_SERIALIZED_HEADER)?;
                 writer.flush()?;
             }
             ObjectFormat::Symbols => {
@@ -106,27 +129,16 @@ impl CreateObj {
                 obj.write_stream(&mut writer)
                     .map_err(|err| anyhow::anyhow!(err.to_string()))?;
                 writer.flush()?;
-                {
-                    let mut writer = BufWriter::new(File::create("/tmp/main_obj.o")?);
-                    obj.write_stream(&mut writer)
-                        .map_err(|err| anyhow::anyhow!(err.to_string()))?;
-                    writer.flush()?;
-                }
-                let mut writer = BufWriter::new(File::create("func.c")?);
+                let mut writer = BufWriter::new(File::create(&header_output_path)?);
                 writer.write_all(header_file_src.as_bytes())?;
                 writer.flush()?;
-                {
-                    let mut writer = BufWriter::new(File::create("/tmp/func.c")?);
-                    writer.write_all(header_file_src.as_bytes())?;
-                    writer.flush()?;
-                }
-                //link(output_path.clone(), std::path::Path::new("func.c").into())?;
             }
         }
 
         eprintln!(
-            "✔ Object compiled successfully to `{}`.",
+            "✔ Object compiled successfully to `{}` and the header file was generated at `{}`.",
             self.output.display(),
+            header_output.display(),
         );
 
         Ok(())
