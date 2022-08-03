@@ -98,7 +98,7 @@ impl CreateObj {
                     .context("failed to compile Wasm")?;
                 let bytes = module.serialize()?;
                 let mut obj = get_object_for_target(target.triple())?;
-                emit_serialized(&mut obj, &bytes, target.triple())?;
+                emit_serialized(&mut obj, &bytes, target.triple(), "WASMER_MODULE")?;
                 let mut writer = BufWriter::new(File::create(&output_path)?);
                 obj.write_stream(&mut writer)
                     .map_err(|err| anyhow::anyhow!(err.to_string()))?;

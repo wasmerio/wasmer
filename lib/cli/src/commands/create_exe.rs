@@ -16,14 +16,9 @@ use structopt::StructOpt;
 use wasmer::*;
 use wasmer_object::{emit_serialized, get_object_for_target};
 
-<<<<<<< HEAD
-const WASMER_MAIN_C_SOURCE: &[u8] = include_bytes!("wasmer_create_exe_main.c");
+const WASMER_MAIN_C_SOURCE: &str = include_str!("./wasmer_create_exe_main.c");
 #[cfg(feature = "static-artifact-create")]
-const WASMER_STATIC_MAIN_C_SOURCE: &[u8] = include_bytes!("wasmer_static_create_exe_main.c");
-const PIRITA_EXT_C_SOURCE: &str = include_str!("wasmer_create_exe_pirita.c");
-=======
-const WASMER_MAIN_C_SOURCE: &str = include_str!("wasmer_create_exe_main.c");
->>>>>>> Fix create-exe by specifying entrypoint
+const WASMER_STATIC_MAIN_C_SOURCE: &[u8] = include_bytes!("./wasmer_static_create_exe_main.c");
 
 #[derive(Debug, StructOpt)]
 /// The options for the `wasmer create-exe` subcommand
@@ -114,24 +109,13 @@ impl CreateExe {
         #[cfg(windows)]
         let wasm_object_path = working_dir.clone().join("wasm.obj");
 
-        let module = Module::from_file(&store, &wasm_module_path);
-        let module = module.context("failed to compile Wasm")?;
-        let bytes = module.serialize()?;
-        let mut obj = get_object_for_target(target.triple())?;
-        emit_serialized(&mut obj, &bytes, target.triple(), "WASMER_MODULE")?;
-        let mut writer = BufWriter::new(File::create(&wasm_object_path)?);
-        obj.write_stream(&mut writer)
-            .map_err(|err| anyhow::anyhow!(err.to_string()))?;
-        writer.flush()?;
-        drop(writer);
-
         match object_format {
             ObjectFormat::Serialized => {
                 let module = Module::from_file(&store, &wasm_module_path);
                 let module = module.context("failed to compile Wasm")?;
                 let bytes = module.serialize()?;
                 let mut obj = get_object_for_target(target.triple())?;
-                emit_serialized(&mut obj, &bytes, target.triple())?;
+                emit_serialized(&mut obj, &bytes, target.triple(), "WASMER_MODULE")?;
                 let mut writer = BufWriter::new(File::create(&wasm_object_path)?);
                 obj.write_stream(&mut writer)
                     .map_err(|err| anyhow::anyhow!(err.to_string()))?;
@@ -157,7 +141,30 @@ impl CreateExe {
                     Artifact::generate_object(
                         compiler, &data, prefixer, &target, tunables, features,
                     )?;
-                }
+
+                let header_file_src = crate::c_gen::staticlib_header::generate_header_file(
+                    &module_info,
+                    &*symbol_registry,
+                    metadata_length,
+                );
+                /* Write object file with functions */
+                let object_file_path: std::path::PathBuf =
+                    std::path::Path::new("functions.o").into();
+                let mut writer = BufWriter::new(File::create(&object_file_path)?);
+                obj.write_stream(&mut writer)
+                    .map_err(|err| anyhow::anyhow!(err.to_string()))?;
+                writer.flush()?;
+                /* Write down header file that includes pointer arrays and the deserialize function
+                 * */
+                 println!("header_file_src:\r\n{header_file_src}");
+                let mut writer = BufWriter::new(File::create("static_defs.h")?);
+                writer.write_all(header_file_src.as_bytes())?;
+                writer.flush()?;
+                link(
+                    output_path,
+                    object_file_path,
+                    std::path::Path::new("static_defs.h").into(),
+                )?;
             }
         }
 
@@ -201,6 +208,9 @@ impl CreateExe {
         extern size_t VOLUMES_LENGTH asm(\"VOLUMES_LENGTH\");
         extern char VOLUMES_DATA asm(\"VOLUMES_DATA\");
 
+        int init_filesystem_from_binary(wasm_vec_t* filesystem) {
+            return 0;
+        }
         ");
         let mut c_code_to_instantiate = String::new();
         let mut deallocate_module = String::new();
@@ -285,15 +295,13 @@ impl CreateExe {
             .replace("// INSTANTIATE_MODULE", &c_code_to_instantiate)
             .replace("// DEALLOCATE_MODULE", &deallocate_module)
             .replace("// wasmer_create_exe_create_instance.c", &run_code);
+        
+        println!("before write pirita");
 
         std::fs::write(&c_src_path, c_code.as_bytes())
             .context("Failed to open C source code file")?;
-
-        let s = std::process::Command::new("bat")
-        .arg(&format!("{}", c_src_path.display()))
-        .output();
-
-        println!("{}", String::from_utf8_lossy(&s.ok().map(|s| s.stdout.clone()).unwrap_or_default()));
+        
+        println!("after write pirita");
 
         run_c_compile(c_src_path.as_path(), &c_src_obj, self.target_triple.clone())
             .context("Failed to compile C source code")?;
@@ -323,6 +331,7 @@ impl CreateExe {
         #[cfg(windows)]
         let c_src_obj = PathBuf::from("wasmer_main.obj");
 
+        println!("before write");
         std::fs::write(
             &c_src_path, 
             WASMER_MAIN_C_SOURCE
@@ -349,6 +358,7 @@ impl CreateExe {
             .replace("// DEALLOCATE_MODULE", "wasm_module_delete(module);")
             .replace("// wasmer_create_exe_create_instance.c", &Self::generate_run_code("module"))
         )?;
+        println!("after write");
 
         run_c_compile(c_src_path, &c_src_obj, self.target_triple.clone())
             .context("Failed to compile C source code")?;
@@ -390,14 +400,10 @@ fn link(
         .unwrap()
         .to_string();
     libwasmer_path.pop();
-    {
-        let mut c_src_file = fs::OpenOptions::new()
-            .create_new(true)
-            .write(true)
-            .open(&c_src_path)
-            .context("Failed to open C source code file")?;
-        c_src_file.write_all(WASMER_STATIC_MAIN_C_SOURCE)?;
-    }
+    println!("static artifact write");
+    std::fs::write(&c_src_path, WASMER_STATIC_MAIN_C_SOURCE)
+    .context("Failed to open C source code file")?;
+    println!("static artifact after write, header_code_path = {:?}", header_code_path.canonicalize().unwrap().display());
 
     if !header_code_path.is_dir() {
         header_code_path.pop();
