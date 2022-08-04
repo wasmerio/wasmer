@@ -426,7 +426,7 @@ build-docs-capi: capi-setup
 
 build-capi: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features wat,compiler,wasi,middlewares $(capi_compiler_features)
+		--no-default-features --features wat,compiler,wasi,middlewares,pirita_file $(capi_compiler_features)
 
 build-capi-singlepass: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET) --manifest-path lib/c-api/Cargo.toml --release \

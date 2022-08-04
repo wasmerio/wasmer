@@ -208,9 +208,9 @@ impl CreateExe {
         extern size_t VOLUMES_LENGTH asm(\"VOLUMES_LENGTH\");
         extern char VOLUMES_DATA asm(\"VOLUMES_DATA\");
 
-        int init_filesystem_from_binary(wasm_vec_t* filesystem) {
+        int init_filesystem_from_binary(wasm_vec_t* filesystem) {{
             return 0;
-        }
+        }}
         ");
         let mut c_code_to_instantiate = String::new();
         let mut deallocate_module = String::new();

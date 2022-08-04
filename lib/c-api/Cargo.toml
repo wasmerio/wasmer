@@ -50,6 +50,7 @@ default = [
     "compiler",
     "wasi",
     "middlewares",
+    "pirita_file",
 ]
 wat = ["wasmer-api/wat"]
 wasi = ["wasmer-wasi"]
@@ -83,6 +84,7 @@ wasmer-artifact-load = ["wasmer-compiler/wasmer-artifact-load"]
 wasmer-artifact-create = ["wasmer-compiler/wasmer-artifact-create"]
 static-artifact-load = ["wasmer-compiler/static-artifact-load"]
 static-artifact-create = ["wasmer-compiler/static-artifact-create"]
+pirita_file = ["pirita"]
 
 # Deprecated features.
 jit = ["compiler"]
@@ -92,3 +94,9 @@ jit = ["compiler"]
 
 [build-dependencies]
 cbindgen = "0.24"
+
+[dependencies.pirita]
+version = "0.1.0"
+path = "../../../pirita/crates/pirita"
+features = ["webc_runner"]
+optional = true
