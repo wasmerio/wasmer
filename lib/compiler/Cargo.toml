@@ -55,3 +55,11 @@ enable-serde = ["serde", "serde_bytes", "wasmer-types/enable-serde"]
 
 [badges]
 maintenance = { status = "experimental" }
+
+[package.metadata.docs.rs]
+features = [
+    "static-artifact-create",
+    "static-artifact-load",
+    "wasmer-artifact-create",
+    "wasmer-artifact-load",
+]
