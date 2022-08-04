@@ -196,6 +196,8 @@ pub unsafe extern "C" fn wasi_filesystem_delete(
     let _ = Box::from_raw(ptr);
 }
 
+/// Initializes the `imports` with an import object that links to 
+/// the custom file system
 #[cfg(feature = "pirita_file")]
 #[no_mangle]
 pub unsafe extern "C" fn wasi_env_set_filesystem(

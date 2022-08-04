@@ -176,11 +176,6 @@ impl CreateExe {
         Ok(())
     }
 
-    fn generate_run_code(module_name: &str) -> String {
-        static CREATE_INSTANCE_CODE: &str = include_str!("./wasmer_create_exe_create_instance.c");
-        CREATE_INSTANCE_CODE.replace("module,", &format!("{module_name},"))
-    }
-
     #[cfg(feature = "pirita_file")]
     fn create_exe_pirita(&self, file: &PiritaFileMmap, target: Target) -> anyhow::Result<()> {
         use wasmer_object::emit_data;
@@ -203,15 +198,7 @@ impl CreateExe {
 
         let (store, _) = self.compiler.get_store_for_target(target.clone())?;
 
-        let mut c_code_to_add = format!("
-    
-        extern size_t VOLUMES_LENGTH asm(\"VOLUMES_LENGTH\");
-        extern char VOLUMES_DATA asm(\"VOLUMES_DATA\");
-
-        int init_filesystem_from_binary(wasm_vec_t* filesystem) {{
-            return 0;
-        }}
-        ");
+        let mut c_code_to_add = String::new();
         let mut c_code_to_instantiate = String::new();
         let mut deallocate_module = String::new();
 
@@ -258,6 +245,8 @@ impl CreateExe {
             })
             .collect::<Result<Vec<_>, anyhow::Error>>()?;
 
+        c_code_to_instantiate.push_str(&format!("wasm_module_t *module = atom_{atom_to_run};"));
+
         let mut writer = BufWriter::new(File::create(&volume_object_path)?);
         volumes_object
             .write_stream(&mut writer)
@@ -289,20 +278,17 @@ impl CreateExe {
         #[cfg(windows)]
         let c_src_obj = working_dir.clone().join("wasmer_main.obj");
 
-        let run_code = Self::generate_run_code(&format!("atom_{atom_to_run}"));
         let c_code = WASMER_MAIN_C_SOURCE
-            .replace("// DECLARE_MODULE", &c_code_to_add)
-            .replace("// INSTANTIATE_MODULE", &c_code_to_instantiate)
-            .replace("// DEALLOCATE_MODULE", &deallocate_module)
-            .replace("// wasmer_create_exe_create_instance.c", &run_code);
+            .replace("#define WASI", "#define WASI\r\n#define WASI_PIRITA")
+            .replace("// DECLARE_MODULES", &c_code_to_add)
+            .replace("// INSTANTIATE_MODULES", &c_code_to_instantiate)
+            .replace("wasm_module_delete(module);", &deallocate_module);
         
-        println!("before write pirita");
+        println!("pirita source code:\r\n{c_code}");
 
         std::fs::write(&c_src_path, c_code.as_bytes())
             .context("Failed to open C source code file")?;
         
-        println!("after write pirita");
-
         run_c_compile(c_src_path.as_path(), &c_src_obj, self.target_triple.clone())
             .context("Failed to compile C source code")?;
 
@@ -331,34 +317,11 @@ impl CreateExe {
         #[cfg(windows)]
         let c_src_obj = PathBuf::from("wasmer_main.obj");
 
-        println!("before write");
         std::fs::write(
             &c_src_path, 
             WASMER_MAIN_C_SOURCE
-            .replace("// DECLARE_MODULE", r#"
-                extern size_t WASMER_MODULE_LENGTH asm("WASMER_MODULE_LENGTH");
-                extern char WASMER_MODULE_DATA asm("WASMER_MODULE_DATA");
-            "#)
-            .replace(
-                "// INSTANTIATE_MODULE",
-                r#"
-                wasm_byte_vec_t module_byte_vec = {
-                    .size = WASMER_MODULE_LENGTH,
-                    .data = (const char*)&WASMER_MODULE_DATA,
-                  };
-                  wasm_module_t *module = wasm_module_deserialize(store, &module_byte_vec);
-                
-                  if (!module) {
-                    fprintf(stderr, "Failed to create module\n");
-                    print_wasmer_error();
-                    return -1;
-                  }
-                "#
-            )
-            .replace("// DEALLOCATE_MODULE", "wasm_module_delete(module);")
-            .replace("// wasmer_create_exe_create_instance.c", &Self::generate_run_code("module"))
+            .replace("// WASI_DEFINES", "#define WASI")
         )?;
-        println!("after write");
 
         run_c_compile(c_src_path, &c_src_obj, self.target_triple.clone())
             .context("Failed to compile C source code")?;

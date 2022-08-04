@@ -7,11 +7,16 @@
 #include <string.h>
 
 #define own
-
-// TODO: make this define templated so that the Rust code can toggle it on/off
 #define WASI
 
-// DECLARE_MODULE
+#ifdef WASI_PIRITA
+extern size_t VOLUMES_LENGTH asm("VOLUMES_LENGTH");
+extern char VOLUMES_DATA asm("VOLUMES_DATA");
+// DECLARE_MODULES
+#else
+extern size_t WASMER_MODULE_LENGTH asm("WASMER_MODULE_LENGTH");
+extern char WASMER_MODULE_DATA asm("WASMER_MODULE_DATA");
+#endif
 
 static void print_wasmer_error() {
   int error_len = wasmer_last_error_length();
@@ -90,29 +95,89 @@ static void handle_arguments(wasi_config_t *wasi_config, int argc,
 #endif
 
 int main(int argc, char *argv[]) {
+
   wasm_config_t *config = wasm_config_new();
   wasm_engine_t *engine = wasm_engine_new_with_config(config);
   wasm_store_t *store = wasm_store_new(engine);
 
-  // INSTANTIATE_MODULE
-
+  #ifdef WASI_PIRITA
+    // INSTANTIATE_MODULES
+  #else
+    wasm_byte_vec_t module_byte_vec = {
+      .size = WASMER_MODULE_LENGTH,
+      .data = (const char*)&WASMER_MODULE_DATA,
+    };
+    wasm_module_t *module = wasm_module_deserialize(store, &module_byte_vec);
+  
+    if (!module) {
+      fprintf(stderr, "Failed to create module\n");
+      print_wasmer_error();
+      return -1;
+    }
+  #endif
+  
   // We have now finished the memory buffer book keeping and we have a valid
   // Module.
 
-#ifdef WASI
-  wasi_config_t *wasi_config = wasi_config_new(argv[0]);
-  handle_arguments(wasi_config, argc, argv);
+  #ifdef WASI
+    wasi_config_t *wasi_config = wasi_config_new(argv[0]);
+    handle_arguments(wasi_config, argc, argv);
 
-  wasi_env_t *wasi_env = wasi_env_new(store, wasi_config);
-  if (!wasi_env) {
-    fprintf(stderr, "Error building WASI env!\n");
+    wasi_env_t *wasi_env = wasi_env_new(store, wasi_config);
+    if (!wasi_env) {
+      fprintf(stderr, "Error building WASI env!\n");
+      print_wasmer_error();
+      return 1;
+    }
+    
+  #endif
+
+  #ifdef WASI_PIRITA
+    wasm_byte_vec_t volume_bytes = {
+      .size = VOLUMES_LENGTH,
+      .data = (const char*)&VOLUMES_DATA,
+    };
+
+    wasi_filesystem_t* filesystem = wasi_filesystem_init_static_memory(&volume_bytes);
+    if (!filesystem) {
+        printf("Error parsing filesystem from bytes\n");
+        return 1;
+    }
+
+    wasm_extern_vec_t imports;
+
+    bool filesystem_init = wasi_env_set_filesystem(store, module, filesystem, &imports, "##atom-name##");
+    if (!filesystem_init) {
+        printf("Error setting filesystem\n");
+        return 1;
+    }
+  #else
+    wasm_importtype_vec_t import_types;
+    wasm_module_imports(module, &import_types);
+
+    wasm_extern_vec_t imports;
+    wasm_extern_vec_new_uninitialized(&imports, import_types.size);
+    wasm_importtype_vec_delete(&import_types);
+    
+    #ifdef WASI
+      bool get_imports_result = wasi_get_imports(store, wasi_env, module, &imports);
+
+      if (!get_imports_result) {
+        fprintf(stderr, "Error getting WASI imports!\n");
+        print_wasmer_error();
+
+        return 1;
+      }
+    #endif
+  #endif
+
+  wasm_instance_t *instance = wasm_instance_new(store, module, &imports, NULL);
+
+  if (!instance) {
+    fprintf(stderr, "Failed to create instance\n");
     print_wasmer_error();
-    return 1;
+    return -1;
   }
-  
-#endif
-
-// wasmer_create_exe_create_instance.c
 
 #ifdef WASI
   // Read the exports.
@@ -151,12 +216,16 @@ int main(int argc, char *argv[]) {
 
   // TODO: handle non-WASI start (maybe with invoke?)
 
+#ifdef WASI_PIRITA
+  wasi_filesystem_delete(filesystem);
+#endif
+
 #ifdef WASI
   wasi_env_delete(wasi_env);
   wasm_extern_vec_delete(&exports);
 #endif
   wasm_instance_delete(instance);
-  // DEALLOCATE_MODULE
+  wasm_module_delete(module);
   wasm_store_delete(store);
   wasm_engine_delete(engine);
   return 0;
