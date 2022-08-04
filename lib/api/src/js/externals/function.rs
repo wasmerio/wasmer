@@ -65,6 +65,7 @@ impl Function {
     ///
     /// If you know the signature of the host function at compile time,
     /// consider using [`Function::new_typed`] for less runtime overhead.
+    #[cfg(feature = "compiler")]
     pub fn new<FT, F>(store: &mut impl AsStoreMut, ty: FT, func: F) -> Self
     where
         FT: Into<FunctionType>,

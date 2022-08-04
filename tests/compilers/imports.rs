@@ -52,22 +52,22 @@ fn dynamic_function(config: crate::Config) -> Result<()> {
     static HITS: AtomicUsize = AtomicUsize::new(0);
     let imports = imports! {
         "host" => {
-            "0" => Function::new(&mut store, FunctionType::new(vec![], vec![]), |_env, _values| {
+            "0" => Function::new(&mut store, FunctionType::new(vec![], vec![]), |_values| {
                     assert_eq!(HITS.fetch_add(1, SeqCst), 0);
                     Ok(vec![])
                 }),
-            "1" => Function::new(&mut store, FunctionType::new(vec![ValueType::I32], vec![ValueType::I32]), |_env, values| {
+            "1" => Function::new(&mut store, FunctionType::new(vec![ValueType::I32], vec![ValueType::I32]), |values| {
                     assert_eq!(values[0], Value::I32(0));
                     assert_eq!(HITS.fetch_add(1, SeqCst), 1);
                     Ok(vec![Value::I32(1)])
                 }),
-            "2" => Function::new(&mut store, FunctionType::new(vec![ValueType::I32, ValueType::I64], vec![]), |_env, values| {
+            "2" => Function::new(&mut store, FunctionType::new(vec![ValueType::I32, ValueType::I64], vec![]), |values| {
                     assert_eq!(values[0], Value::I32(2));
                     assert_eq!(values[1], Value::I64(3));
                     assert_eq!(HITS.fetch_add(1, SeqCst), 2);
                     Ok(vec![])
                 }),
-            "3" => Function::new(&mut store, FunctionType::new(vec![ValueType::I32, ValueType::I64, ValueType::I32, ValueType::F32, ValueType::F64], vec![]), |_env, values| {
+            "3" => Function::new(&mut store, FunctionType::new(vec![ValueType::I32, ValueType::I64, ValueType::I32, ValueType::F32, ValueType::F64], vec![]), |values| {
                     assert_eq!(values[0], Value::I32(100));
                     assert_eq!(values[1], Value::I64(200));
                     assert_eq!(values[2], Value::I32(300));

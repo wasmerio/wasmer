@@ -93,7 +93,7 @@ mod js {
     //         minimum: 0,
     //         maximum: Some(1),
     //     };
-    //     let f = Function::new(&mut store, &env, |num: i32| num + 1);
+    //     let f = Function::new(&mut store, |num: i32| num + 1);
     //     let table = Table::new(&store, table_type, Value::FuncRef(Some(f.clone())))?;
     //     assert_eq!(*table.ty(&store), table_type);
     //     let _elem = table.get(0).unwrap();

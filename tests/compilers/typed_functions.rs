@@ -31,7 +31,7 @@ fn long_f(
         + a as u64 * 1000000000
 }
 
-fn long_f_dynamic(_env: FunctionEnvMut<()>, values: &[Value]) -> Result<Vec<Value>, RuntimeError> {
+fn long_f_dynamic(values: &[Value]) -> Result<Vec<Value>, RuntimeError> {
     Ok(vec![Value::I64(
         values[9].unwrap_i32() as i64
             + values[8].unwrap_i32() as i64 * 10
@@ -413,7 +413,7 @@ fn dynamic_host_function_without_env(config: crate::Config) -> anyhow::Result<()
                 ValueType::I32,
             ],
         ),
-        |_env: FunctionEnvMut<_>, values| {
+        |values| {
             Ok(vec![
                 Value::F64(values[3].unwrap_f64() * 4.0),
                 Value::F32(values[2].unwrap_f32() * 3.0),

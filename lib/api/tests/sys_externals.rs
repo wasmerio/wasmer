@@ -277,14 +277,14 @@ mod sys {
         let function = Function::new(
             &mut store,
             &function_type,
-            |_env: FunctionEnvMut<()>, _values: &[Value]| unimplemented!(),
+            |_values: &[Value]| unimplemented!(),
         );
         assert_eq!(function.ty(&mut store).clone(), function_type);
         let function_type = FunctionType::new(vec![Type::I32], vec![]);
         let function = Function::new(
             &mut store,
             &function_type,
-            |_env: FunctionEnvMut<()>, _values: &[Value]| unimplemented!(),
+            |_values: &[Value]| unimplemented!(),
         );
         assert_eq!(function.ty(&mut store).clone(), function_type);
         let function_type =
@@ -292,14 +292,14 @@ mod sys {
         let function = Function::new(
             &mut store,
             &function_type,
-            |_env: FunctionEnvMut<()>, _values: &[Value]| unimplemented!(),
+            |_values: &[Value]| unimplemented!(),
         );
         assert_eq!(function.ty(&mut store).clone(), function_type);
         let function_type = FunctionType::new(vec![], vec![Type::I32]);
         let function = Function::new(
             &mut store,
             &function_type,
-            |_env: FunctionEnvMut<()>, _values: &[Value]| unimplemented!(),
+            |_values: &[Value]| unimplemented!(),
         );
         assert_eq!(function.ty(&mut store).clone(), function_type);
         let function_type =
@@ -307,7 +307,7 @@ mod sys {
         let function = Function::new(
             &mut store,
             &function_type,
-            |_env: FunctionEnvMut<()>, _values: &[Value]| unimplemented!(),
+            |_values: &[Value]| unimplemented!(),
         );
         assert_eq!(function.ty(&mut store).clone(), function_type);
 
@@ -316,7 +316,7 @@ mod sys {
         let function = Function::new(
             &mut store,
             function_type,
-            |_env: FunctionEnvMut<()>, _values: &[Value]| unimplemented!(),
+            |_values: &[Value]| unimplemented!(),
         );
         assert_eq!(function.ty(&mut store).params(), [Type::V128]);
         assert_eq!(

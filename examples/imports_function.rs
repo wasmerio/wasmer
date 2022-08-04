@@ -54,7 +54,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Create the functions
     let multiply_dynamic_signature = FunctionType::new(vec![Type::I32], vec![Type::I32]);
-    let multiply_dynamic = Function::new(&mut store, &multiply_dynamic_signature, |_env, args| {
+    let multiply_dynamic = Function::new(&mut store, &multiply_dynamic_signature, |args| {
         println!("Calling `multiply_dynamic`...");
 
         let result = args[0].unwrap_i32() * 2;

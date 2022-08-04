@@ -58,7 +58,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // covered in more detail in other examples.
     println!("Creating the imported function...");
     let host_function_signature = FunctionType::new(vec![], vec![Type::I32]);
-    let host_function = Function::new(&mut store, &host_function_signature, |_env, _args| {
+    let host_function = Function::new(&mut store, &host_function_signature, |_args| {
         Ok(vec![Value::I32(42)])
     });
 

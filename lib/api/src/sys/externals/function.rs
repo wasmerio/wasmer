@@ -50,13 +50,13 @@ impl Function {
     pub fn new<FT, F>(store: &mut impl AsStoreMut, ty: FT, func: F) -> Self
     where
         FT: Into<FunctionType>,
-        F: Fn(FunctionEnvMut<()>, &[Value]) -> Result<Vec<Value>, RuntimeError>
-            + 'static
-            + Send
-            + Sync,
+        F: Fn(&[Value]) -> Result<Vec<Value>, RuntimeError> + 'static + Send + Sync,
     {
         let env = FunctionEnv::new(&mut store.as_store_mut(), ());
-        Self::new_with_env(store, &env, ty, func)
+        let wrapped_func = move |_env: FunctionEnvMut<()>,
+                                 args: &[Value]|
+              -> Result<Vec<Value>, RuntimeError> { func(args) };
+        Self::new_with_env(store, &env, ty, wrapped_func)
     }
 
     #[cfg(feature = "compiler")]

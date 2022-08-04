@@ -14,7 +14,7 @@ fn test_trap_return(config: crate::Config) -> Result<()> {
 
     let module = Module::new(&store, wat)?;
     let hello_type = FunctionType::new(vec![], vec![]);
-    let hello_func = Function::new(&mut store, &hello_type, |_ctx, _| {
+    let hello_func = Function::new(&mut store, &hello_type, |_| {
         Err(RuntimeError::new("test 123"))
     });
 
@@ -94,9 +94,7 @@ fn test_trap_trace_cb(config: crate::Config) -> Result<()> {
     "#;
 
     let fn_type = FunctionType::new(vec![], vec![]);
-    let fn_func = Function::new(&mut store, &fn_type, |_ctx, _| {
-        Err(RuntimeError::new("cb throw"))
-    });
+    let fn_func = Function::new(&mut store, &fn_type, |_| Err(RuntimeError::new("cb throw")));
 
     let module = Module::new(&store, wat)?;
     let instance = Instance::new(
@@ -266,9 +264,7 @@ fn trap_start_function_import(config: crate::Config) -> Result<()> {
 
     let module = Module::new(&store, &binary)?;
     let sig = FunctionType::new(vec![], vec![]);
-    let func = Function::new(&mut store, &sig, |_env, _| {
-        Err(RuntimeError::new("user trap"))
-    });
+    let func = Function::new(&mut store, &sig, |_| Err(RuntimeError::new("user trap")));
     let err = Instance::new(
         &mut store,
         &module,
@@ -308,7 +304,7 @@ fn rust_panic_import(config: crate::Config) -> Result<()> {
 
     let module = Module::new(&store, &binary)?;
     let sig = FunctionType::new(vec![], vec![]);
-    let func = Function::new(&mut store, &sig, |_env, _| panic!("this is a panic"));
+    let func = Function::new(&mut store, &sig, |_| panic!("this is a panic"));
     let f0 = Function::new_typed(&mut store, |_env: FunctionEnvMut<_>| {
         panic!("this is another panic")
     });
@@ -355,7 +351,7 @@ fn rust_panic_start_function(config: crate::Config) -> Result<()> {
 
     let module = Module::new(&store, &binary)?;
     let sig = FunctionType::new(vec![], vec![]);
-    let func = Function::new(&mut store, &sig, |_env, _| panic!("this is a panic"));
+    let func = Function::new(&mut store, &sig, |_| panic!("this is a panic"));
     let err = panic::catch_unwind(AssertUnwindSafe(|| {
         drop(Instance::new(
             &mut store,
