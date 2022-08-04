@@ -126,4 +126,17 @@ static-artifact-load = ["wasmer-compiler/static-artifact-load"]
 static-artifact-create = ["wasmer-compiler/static-artifact-create"]
 
 [package.metadata.docs.rs]
-features = ["compiler", "core", "cranelift", "engine", "jit", "native", "singlepass", "sys", "sys-default" ]
+features = [
+    "compiler",
+    "core",
+    "cranelift",
+    "engine",
+    "jit",
+    "singlepass",
+    "static-artifact-create",
+    "static-artifact-load",
+    "sys",
+    "sys-default",
+    "wasmer-artifact-create",
+    "wasmer-artifact-load",
+]
