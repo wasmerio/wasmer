@@ -47,8 +47,8 @@ use std::sync::{mpsc, Arc};
 use std::time::Duration;
 use tracing::{debug, error, trace, warn};
 use wasmer::{
-    AsStoreMut, FunctionEnvMut, Memory, Memory32, Memory64, MemorySize, RuntimeError, Value,
-    WasmPtr, WasmSlice, FunctionEnv, Instance, Module, Extern, MemoryView,
+    AsStoreMut, Extern, FunctionEnv, FunctionEnvMut, Instance, Memory, Memory32, Memory64,
+    MemorySize, MemoryView, Module, RuntimeError, Value, WasmPtr, WasmSlice,
 };
 use wasmer_vbus::{FileDescriptor, StdioMode};
 use wasmer_vfs::{FsError, VirtualFile};
@@ -891,10 +891,7 @@ pub fn fd_pread<M: MemorySize>(
                 Kind::Dir { .. } | Kind::Root { .. } => return Ok(__WASI_EISDIR),
                 Kind::Symlink { .. } => unimplemented!("Symlinks in wasi::fd_pread"),
                 Kind::Buffer { buffer } => {
-                    wasi_try_ok!(
-                        read_bytes(&buffer[(offset as usize)..], &memory, iovs),
-                        env
-                    )
+                    wasi_try_ok!(read_bytes(&buffer[(offset as usize)..], &memory, iovs), env)
                 }
             }
         }
@@ -924,13 +921,14 @@ pub fn fd_prestat_get<M: MemorySize>(
     let (memory, mut state, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
 
     let prestat_ptr = buf.deref(&memory);
-    wasi_try_mem!(prestat_ptr.write(wasi_try!(
-        state.fs.prestat_fd(inodes.deref(), fd)
-            .map_err(|code| {
+    wasi_try_mem!(
+        prestat_ptr.write(wasi_try!(state.fs.prestat_fd(inodes.deref(), fd).map_err(
+            |code| {
                 debug!("fd_prestat_get failed (fd={}) - errno={}", fd, code);
                 code
-            })
-    )));
+            }
+        )))
+    );
 
     __WASI_ESUCCESS
 }
@@ -1733,8 +1731,7 @@ pub fn fd_write<M: MemorySize>(
                         counter, wakers, ..
                     } => {
                         let mut val = 0u64.to_ne_bytes();
-                        let written =
-                            wasi_try_ok!(write_bytes(&mut val[..], &memory, iovs_arr));
+                        let written = wasi_try_ok!(write_bytes(&mut val[..], &memory, iovs_arr));
                         if written != val.len() {
                             return Ok(__WASI_EINVAL);
                         }
@@ -1754,10 +1751,7 @@ pub fn fd_write<M: MemorySize>(
                     }
                     Kind::Symlink { .. } => unimplemented!("Symlinks in wasi::fd_write"),
                     Kind::Buffer { buffer } => {
-                        wasi_try_ok!(
-                            write_bytes(&mut buffer[offset..], &memory, iovs_arr),
-                            env
-                        )
+                        wasi_try_ok!(write_bytes(&mut buffer[offset..], &memory, iovs_arr), env)
                     }
                 }
             };
@@ -2503,8 +2497,7 @@ pub fn path_readlink<M: MemorySize>(
             }
             let bytes: Vec<_> = bytes.collect();
 
-            let out =
-                wasi_try_mem!(buf.slice(&memory, wasi_try!(to_offset::<M>(bytes.len()))));
+            let out = wasi_try_mem!(buf.slice(&memory, wasi_try!(to_offset::<M>(bytes.len()))));
             wasi_try_mem!(out.write_slice(&bytes));
             // should we null terminate this?
 
@@ -4533,8 +4526,7 @@ pub fn port_route_list<M: MemorySize>(
     let max_routes: usize = wasi_try!(wasi_try_mem!(nroutes.read())
         .try_into()
         .map_err(|_| __WASI_EINVAL));
-    let ref_routes =
-        wasi_try_mem!(routes.slice(&memory, wasi_try!(to_offset::<M>(max_routes))));
+    let ref_routes = wasi_try_mem!(routes.slice(&memory, wasi_try!(to_offset::<M>(max_routes))));
 
     let routes = wasi_try!(env.net().route_list().map_err(net_error_into_wasi_err));
 
@@ -5265,7 +5257,7 @@ pub fn sock_recv<M: MemorySize>(
         &ctx,
         sock,
         __WASI_RIGHT_SOCK_RECV,
-        |socket| { socket.recv(& memory, iovs_arr) }
+        |socket| { socket.recv(&memory, iovs_arr) }
     ));
     let bytes_read: M::Offset = wasi_try_ok!(bytes_read.try_into().map_err(|_| __WASI_EOVERFLOW));
 

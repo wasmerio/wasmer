@@ -63,8 +63,8 @@ use derivative::*;
 use std::ops::Deref;
 use thiserror::Error;
 use wasmer::{
-    imports, namespace, AsStoreMut, Exports, Function, FunctionEnv, Imports, Memory, Memory32,
-    MemoryAccessError, MemorySize, Module, TypedFunction, MemoryView, AsStoreRef
+    imports, namespace, AsStoreMut, AsStoreRef, Exports, Function, FunctionEnv, Imports, Memory,
+    Memory32, MemoryAccessError, MemorySize, MemoryView, Module, TypedFunction,
 };
 
 pub use runtime::{
@@ -332,7 +332,7 @@ impl WasiEnv {
         }
         self.memory = Some(memory);
     }
-    
+
     /// Providers safe access to the memory
     /// (it must be initialized before it can be used)
     pub fn memory_view<'a>(&'a self, store: &'a impl AsStoreRef) -> MemoryView<'a> {
@@ -348,8 +348,12 @@ impl WasiEnv {
     pub fn state(&self) -> &WasiState {
         &self.state
     }
-    
-    pub(crate) fn get_memory_and_wasi_state<'a>(&'a self, store: &'a impl AsStoreRef, _mem_index: u32) -> (MemoryView<'a>, &WasiState) {
+
+    pub(crate) fn get_memory_and_wasi_state<'a>(
+        &'a self,
+        store: &'a impl AsStoreRef,
+        _mem_index: u32,
+    ) -> (MemoryView<'a>, &WasiState) {
         let memory = self.memory_view(store);
         let state = self.state.deref();
         (memory, state)

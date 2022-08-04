@@ -203,7 +203,8 @@ pub fn ___syscall77(ctx: FunctionEnvMut<EmEnv>, _which: c_int, mut varargs: VarA
     let resource: c_int = varargs.get(&ctx);
     let rusage_ptr: c_int = varargs.get(&ctx);
     #[allow(clippy::cast_ptr_alignment)]
-    let rusage = emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), rusage_ptr) as *mut rusage;
+    let rusage =
+        emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), rusage_ptr) as *mut rusage;
     assert_eq!(8, mem::align_of_val(&rusage));
     unsafe { getrusage(resource, rusage) }
 }
@@ -779,8 +780,7 @@ pub fn ___syscall102(ctx: FunctionEnvMut<EmEnv>, _which: c_int, mut varargs: Var
             let value: u32 = socket_varargs.get(&ctx);
             let option_len: u32 = socket_varargs.get(&ctx);
             let value_addr = emscripten_memory_pointer!(memory, value) as _;
-            let option_len_addr =
-                emscripten_memory_pointer!(memory, option_len) as *mut socklen_t;
+            let option_len_addr = emscripten_memory_pointer!(memory, option_len) as *mut socklen_t;
             unsafe { getsockopt(socket, level, name, value_addr, option_len_addr) }
         }
         16 => {
@@ -927,9 +927,11 @@ pub fn ___syscall114(ctx: FunctionEnvMut<EmEnv>, _which: c_int, mut varargs: Var
     let status: u32 = varargs.get(&ctx);
     let options: c_int = varargs.get(&ctx);
     let rusage: u32 = varargs.get(&ctx);
-    let status_addr = emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), status) as *mut c_int;
+    let status_addr =
+        emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), status) as *mut c_int;
 
-    let rusage_addr = emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), rusage) as *mut rusage;
+    let rusage_addr =
+        emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), rusage) as *mut rusage;
     let res = unsafe { wait4(pid, status_addr, options, rusage_addr) };
     debug!(
         "=> pid: {}, status: {:?}, options: {}, rusage: {:?} = pid: {}",

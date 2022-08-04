@@ -78,7 +78,7 @@ impl Memory {
     }
 
     /// Creates a view into the memory that then allows for
-    /// read and write 
+    /// read and write
     pub fn view<'a>(&self, store: &'a impl AsStoreRef) -> MemoryView<'a> {
         MemoryView::new(self, store)
     }
@@ -179,7 +179,12 @@ impl<'a> MemoryBuffer<'a> {
             .ok_or(MemoryAccessError::Overflow)?;
         if end > self.len.try_into().unwrap() {
             #[cfg(feature = "tracing")]
-            warn!("attempted to read ({} bytes) beyond the bounds of the memory view ({} > {})", buf.len(), end, self.len);
+            warn!(
+                "attempted to read ({} bytes) beyond the bounds of the memory view ({} > {})",
+                buf.len(),
+                end,
+                self.len
+            );
             return Err(MemoryAccessError::HeapOutOfBounds);
         }
         unsafe {
@@ -198,7 +203,12 @@ impl<'a> MemoryBuffer<'a> {
             .ok_or(MemoryAccessError::Overflow)?;
         if end > self.len.try_into().unwrap() {
             #[cfg(feature = "tracing")]
-            warn!("attempted to read ({} bytes) beyond the bounds of the memory view ({} > {})", buf.len(), end, self.len);
+            warn!(
+                "attempted to read ({} bytes) beyond the bounds of the memory view ({} > {})",
+                buf.len(),
+                end,
+                self.len
+            );
             return Err(MemoryAccessError::HeapOutOfBounds);
         }
         let buf_ptr = buf.as_mut_ptr() as *mut u8;
@@ -215,7 +225,12 @@ impl<'a> MemoryBuffer<'a> {
             .ok_or(MemoryAccessError::Overflow)?;
         if end > self.len.try_into().unwrap() {
             #[cfg(feature = "tracing")]
-            warn!("attempted to write ({} bytes) beyond the bounds of the memory view ({} > {})", data.len(), end, self.len);
+            warn!(
+                "attempted to write ({} bytes) beyond the bounds of the memory view ({} > {})",
+                data.len(),
+                end,
+                self.len
+            );
             return Err(MemoryAccessError::HeapOutOfBounds);
         }
         unsafe {
