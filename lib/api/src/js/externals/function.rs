@@ -397,6 +397,7 @@ impl Function {
     }
 
     #[deprecated(since = "3.0.0", note = "native() has been renamed to typed().")]
+    /// Transform this WebAssembly function into a typed function.
     pub fn native<Args, Rets>(
         &self,
         store: &impl AsStoreRef,
