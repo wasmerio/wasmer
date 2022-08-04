@@ -178,7 +178,6 @@ impl CreateExe {
 
     #[cfg(feature = "pirita_file")]
     fn create_exe_pirita(&self, file: &PiritaFileMmap, target: Target) -> anyhow::Result<()> {
-        use wasmer_object::emit_data;
 
         let starting_cd = env::current_dir()?;
         let working_dir = tempfile::tempdir()?;
@@ -187,7 +186,7 @@ impl CreateExe {
 
         let volume_bytes = file.get_volumes_as_fileblock();
         let mut volumes_object = get_object_for_target(&target.triple())?;
-        emit_data(&mut volumes_object, b"VOLUMES", volume_bytes.as_slice(), 1)?;
+        emit_serialized(&mut volumes_object, volume_bytes.as_slice(), target.triple(), "VOLUMES")?;
 
         let mut link_objects = Vec::new();
 
@@ -282,6 +281,7 @@ impl CreateExe {
             .replace("#define WASI", "#define WASI\r\n#define WASI_PIRITA")
             .replace("// DECLARE_MODULES", &c_code_to_add)
             .replace("// INSTANTIATE_MODULES", &c_code_to_instantiate)
+            .replace("##atom-name##", &atom_to_run)
             .replace("wasm_module_delete(module);", &deallocate_module);
         
         println!("pirita source code:\r\n{c_code}");
@@ -537,7 +537,6 @@ impl Default for LinkCode {
 
 impl LinkCode {
     fn run(&self) -> anyhow::Result<()> {
-        println!("LinkCode = {:?}", self.libwasmer_path);
         let libwasmer_path = self
             .libwasmer_path
             .clone()
@@ -577,6 +576,7 @@ impl LinkCode {
             .iter()
             .map(|lib| format!("-l{}", lib));
         let command = command.args(link_against_extra_libs);
+        println!("{command:?}");
         let output = command.arg("-o").arg(&self.output_path).output()?;
 
         if !output.status.success() {
