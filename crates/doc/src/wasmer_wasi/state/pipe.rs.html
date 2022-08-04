@@ -118,20 +118,16 @@
 <span id="116">116</span>
 <span id="117">117</span>
 <span id="118">118</span>
-<span id="119">119</span>
-<span id="120">120</span>
-<span id="121">121</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::syscalls::types</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::syscalls</span>::{<span class="ident">read_bytes</span>, <span class="ident">write_bytes</span>};
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::WasiEnv</span>;
 <span class="kw">use</span> <span class="ident">bytes</span>::{<span class="ident">Buf</span>, <span class="ident">Bytes</span>};
 <span class="kw">use</span> <span class="ident">std::convert::TryInto</span>;
 <span class="kw">use</span> <span class="ident">std::io</span>::{<span class="self">self</span>, <span class="ident">Read</span>};
 <span class="kw">use</span> <span class="ident">std::ops::DerefMut</span>;
 <span class="kw">use</span> <span class="ident">std::sync::mpsc</span>;
 <span class="kw">use</span> <span class="ident">std::sync::Mutex</span>;
-<span class="kw">use</span> <span class="ident">wasmer::MemorySize</span>;
-<span class="kw">use</span> <span class="ident">wasmer</span>::{<span class="ident">FunctionEnvMut</span>, <span class="ident">Memory</span>, <span class="ident">WasmSlice</span>};
+<span class="kw">use</span> <span class="ident">wasmer</span>::{<span class="ident">MemorySize</span>, <span class="ident">MemoryView</span>};
+<span class="kw">use</span> <span class="ident">wasmer::WasmSlice</span>;
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">WasiPipe</span> {
@@ -165,8 +161,7 @@
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">recv</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MemorySize</span><span class="op">&gt;</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-        <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">Memory</span>,
+        <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryView</span>,
         <span class="ident">iov</span>: <span class="ident">WasmSlice</span><span class="op">&lt;</span><span class="ident">__wasi_iovec_t</span><span class="op">&lt;</span><span class="ident">M</span><span class="op">&gt;</span><span class="op">&gt;</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span>, <span class="ident">__wasi_errno_t</span><span class="op">&gt;</span> {
         <span class="kw">loop</span> {
@@ -174,7 +169,7 @@
                 <span class="kw">let</span> <span class="ident">buf_len</span> <span class="op">=</span> <span class="ident">buf</span>.<span class="ident">len</span>();
                 <span class="kw">if</span> <span class="ident">buf_len</span> <span class="op">&gt;</span> <span class="number">0</span> {
                     <span class="kw">let</span> <span class="ident">reader</span> <span class="op">=</span> <span class="ident">buf</span>.<span class="ident">as_ref</span>();
-                    <span class="kw">let</span> <span class="ident">read</span> <span class="op">=</span> <span class="ident">read_bytes</span>(<span class="ident">ctx</span>, <span class="ident">reader</span>, <span class="ident">memory</span>, <span class="ident">iov</span>).<span class="ident">map</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">buf_len</span> <span class="kw">as</span> <span class="ident">usize</span>)<span class="question-mark">?</span>;
+                    <span class="kw">let</span> <span class="ident">read</span> <span class="op">=</span> <span class="ident">read_bytes</span>(<span class="ident">reader</span>, <span class="ident">memory</span>, <span class="ident">iov</span>).<span class="ident">map</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">buf_len</span> <span class="kw">as</span> <span class="ident">usize</span>)<span class="question-mark">?</span>;
                     <span class="ident">buf</span>.<span class="ident">advance</span>(<span class="ident">read</span>);
                     <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">read</span>);
                 }
@@ -187,8 +182,7 @@
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">send</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MemorySize</span><span class="op">&gt;</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-        <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">Memory</span>,
+        <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryView</span>,
         <span class="ident">iov</span>: <span class="ident">WasmSlice</span><span class="op">&lt;</span><span class="ident">__wasi_ciovec_t</span><span class="op">&lt;</span><span class="ident">M</span><span class="op">&gt;</span><span class="op">&gt;</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span>, <span class="ident">__wasi_errno_t</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">buf_len</span>: <span class="ident">M::Offset</span> <span class="op">=</span> <span class="ident">iov</span>
@@ -198,7 +192,7 @@
             .<span class="ident">sum</span>();
         <span class="kw">let</span> <span class="ident">buf_len</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="ident">buf_len</span>.<span class="ident">try_into</span>().<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">__WASI_EINVAL</span>)<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">buf</span> <span class="op">=</span> <span class="ident">Vec::with_capacity</span>(<span class="ident">buf_len</span>);
-        <span class="ident">write_bytes</span>(<span class="ident">ctx</span>, <span class="kw-2">&amp;mut</span> <span class="ident">buf</span>, <span class="ident">memory</span>, <span class="ident">iov</span>)<span class="question-mark">?</span>;
+        <span class="ident">write_bytes</span>(<span class="kw-2">&amp;mut</span> <span class="ident">buf</span>, <span class="ident">memory</span>, <span class="ident">iov</span>)<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="ident">tx</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">tx</span>.<span class="ident">lock</span>().<span class="ident">unwrap</span>();
         <span class="ident">tx</span>.<span class="ident">send</span>(<span class="ident">buf</span>).<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">__WASI_EIO</span>)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(<span class="ident">buf_len</span>)

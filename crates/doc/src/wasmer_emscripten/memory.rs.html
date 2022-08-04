@@ -178,6 +178,10 @@
 <span id="176">176</span>
 <span id="177">177</span>
 <span id="178">178</span>
+<span id="179">179</span>
+<span id="180">180</span>
+<span id="181">181</span>
+<span id="182">182</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">super</span>::env::get_emscripten_data</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::process::abort_with_message</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::EmEnv</span>;
@@ -191,8 +195,8 @@
         <span class="string">&quot;emscripten::_emscripten_memcpy_big {}, {}, {}&quot;</span>,
         <span class="ident">dest</span>, <span class="ident">src</span>, <span class="ident">len</span>
     );
-    <span class="kw">let</span> <span class="ident">dest_addr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>, <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory</span>(<span class="number">0</span>), <span class="ident">dest</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">c_void</span>;
-    <span class="kw">let</span> <span class="ident">src_addr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>, <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory</span>(<span class="number">0</span>), <span class="ident">src</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">c_void</span>;
+    <span class="kw">let</span> <span class="ident">dest_addr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory_view</span>(<span class="number">0</span>, <span class="kw-2">&amp;</span><span class="ident">ctx</span>), <span class="ident">dest</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">c_void</span>;
+    <span class="kw">let</span> <span class="ident">src_addr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory_view</span>(<span class="number">0</span>, <span class="kw-2">&amp;</span><span class="ident">ctx</span>), <span class="ident">src</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">c_void</span>;
     <span class="kw">unsafe</span> {
         <span class="ident">memcpy</span>(<span class="ident">dest_addr</span>, <span class="ident">src_addr</span>, <span class="ident">len</span> <span class="kw">as</span> <span class="ident">size_t</span>);
     }
@@ -200,7 +204,7 @@
 }
 
 <span class="kw">fn</span> <span class="ident">get_heap_size</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>) -&gt; <span class="ident">u32</span> {
-    <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory</span>(<span class="number">0</span>).<span class="ident">size</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>).<span class="ident">bytes</span>().<span class="number">0</span> <span class="kw">as</span> <span class="ident">u32</span>
+    <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory_view</span>(<span class="number">0</span>, <span class="kw-2">&amp;</span><span class="ident">ctx</span>).<span class="ident">size</span>().<span class="ident">bytes</span>().<span class="number">0</span> <span class="kw">as</span> <span class="ident">u32</span>
 }
 
 <span class="doccomment">/// emscripten: _emscripten_get_heap_size</span>
@@ -222,7 +226,7 @@
 
 <span class="kw">fn</span> <span class="ident">resize_heap</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">requested_size</span>: <span class="ident">u32</span>) -&gt; <span class="ident">u32</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_emscripten_resize_heap {}&quot;</span>, <span class="ident">requested_size</span>);
-    <span class="kw">let</span> <span class="ident">current_memory_pages</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory</span>(<span class="number">0</span>).<span class="ident">size</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>);
+    <span class="kw">let</span> <span class="ident">current_memory_pages</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory_view</span>(<span class="number">0</span>, <span class="kw-2">&amp;</span><span class="ident">ctx</span>).<span class="ident">size</span>();
     <span class="kw">let</span> <span class="ident">current_memory</span> <span class="op">=</span> <span class="ident">current_memory_pages</span>.<span class="ident">bytes</span>().<span class="number">0</span> <span class="kw">as</span> <span class="ident">u32</span>;
 
     <span class="comment">// implementation from emscripten</span>
@@ -265,14 +269,17 @@
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::sbrk&quot;</span>);
     <span class="comment">// let old_dynamic_top = 0;</span>
     <span class="comment">// let new_dynamic_top = 0;</span>
-    <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory</span>(<span class="number">0</span>);
     <span class="kw">let</span> <span class="ident">top_ptr</span> <span class="op">=</span> <span class="ident">get_emscripten_data</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>)
         .<span class="ident">as_ref</span>()
         .<span class="ident">unwrap</span>()
         .<span class="ident">globals</span>
         .<span class="ident">dynamictop_ptr</span>;
-    <span class="kw">let</span> <span class="ident">dynamictop_ptr</span> <span class="op">=</span> <span class="ident">WasmPtr</span>::<span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span><span class="ident">::new</span>(<span class="ident">top_ptr</span>).<span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>, <span class="kw-2">&amp;</span><span class="ident">memory</span>);
-    <span class="kw">let</span> <span class="ident">old_dynamic_top</span> <span class="op">=</span> <span class="ident">dynamictop_ptr</span>.<span class="ident">read</span>().<span class="ident">unwrap</span>();
+    
+    <span class="kw">let</span> <span class="ident">dynamictop_ptr</span> <span class="op">=</span> <span class="ident">WasmPtr</span>::<span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span><span class="ident">::new</span>(<span class="ident">top_ptr</span>);
+    <span class="kw">let</span> <span class="ident">old_dynamic_top</span> <span class="op">=</span> {
+        <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory_view</span>(<span class="number">0</span>, <span class="kw-2">&amp;</span><span class="ident">ctx</span>);
+        <span class="ident">dynamictop_ptr</span>.<span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>).<span class="ident">read</span>().<span class="ident">unwrap</span>()
+    };
     <span class="kw">let</span> <span class="ident">new_dynamic_top</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="ident">old_dynamic_top</span> <span class="op">+</span> <span class="ident">increment</span>;
     <span class="kw">let</span> <span class="ident">total_memory</span> <span class="op">=</span> <span class="ident">get_heap_size</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>) <span class="kw">as</span> <span class="ident">i32</span>;
     <span class="macro">debug!</span>(
@@ -294,7 +301,8 @@
         }
     }
     <span class="comment">// re-borrow the top ptr</span>
-    <span class="kw">let</span> <span class="ident">dynamictop_ptr</span> <span class="op">=</span> <span class="ident">WasmPtr</span>::<span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span><span class="ident">::new</span>(<span class="ident">top_ptr</span>).<span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>, <span class="kw-2">&amp;</span><span class="ident">memory</span>);
+    <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory_view</span>(<span class="number">0</span>, <span class="kw-2">&amp;</span><span class="ident">ctx</span>);
+    <span class="kw">let</span> <span class="ident">dynamictop_ptr</span> <span class="op">=</span> <span class="ident">WasmPtr</span>::<span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span><span class="ident">::new</span>(<span class="ident">top_ptr</span>).<span class="ident">deref</span>( <span class="kw-2">&amp;</span><span class="ident">memory</span>);
     <span class="ident">dynamictop_ptr</span>.<span class="ident">write</span>(<span class="ident">new_dynamic_top</span>).<span class="ident">unwrap</span>();
     <span class="ident">old_dynamic_top</span> <span class="kw">as</span> <span class="kw">_</span>
 }
@@ -304,7 +312,7 @@
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::get_total_memory&quot;</span>);
     <span class="comment">// instance.memories[0].current_pages()</span>
     <span class="comment">// TODO: Fix implementation</span>
-    <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory</span>(<span class="number">0</span>).<span class="ident">size</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>).<span class="ident">bytes</span>().<span class="number">0</span> <span class="kw">as</span> <span class="ident">u32</span>
+    <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory_view</span>(<span class="number">0</span>, <span class="kw-2">&amp;</span><span class="ident">ctx</span>).<span class="ident">size</span>().<span class="ident">bytes</span>().<span class="number">0</span> <span class="kw">as</span> <span class="ident">u32</span>
 }
 
 <span class="doccomment">/// emscripten: enlargeMemory</span>

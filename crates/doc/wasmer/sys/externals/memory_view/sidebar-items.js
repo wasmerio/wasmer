@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["MemoryView","A WebAssembly `memory` view."]]});

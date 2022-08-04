@@ -280,19 +280,12 @@
 <span id="278">278</span>
 <span id="279">279</span>
 <span id="280">280</span>
-<span id="281">281</span>
-<span id="282">282</span>
-<span id="283">283</span>
-<span id="284">284</span>
-<span id="285">285</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys</span>::{<span class="ident">externals::Memory</span>, <span class="ident">FromToNativeWasmType</span>};
+</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys</span>::{<span class="ident">externals::MemoryView</span>, <span class="ident">FromToNativeWasmType</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::NativeWasmTypeInto</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">MemoryAccessError</span>, <span class="ident">WasmRef</span>, <span class="ident">WasmSlice</span>};
 <span class="kw">use</span> <span class="ident">std::convert::TryFrom</span>;
 <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">fmt</span>, <span class="ident">marker::PhantomData</span>, <span class="ident">mem</span>};
 <span class="kw">use</span> <span class="ident">wasmer_types::ValueType</span>;
-
-<span class="kw">use</span> <span class="ident"><span class="kw">super</span>::store::AsStoreRef</span>;
 
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_types::Memory32</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_types::Memory64</span>;
@@ -310,7 +303,8 @@
 <span class="doccomment">/// # use wasmer::WasmPtr;</span>
 <span class="doccomment">/// # use wasmer::FunctionEnvMut;</span>
 <span class="doccomment">/// pub fn host_import(mut env: FunctionEnvMut&lt;()&gt;, memory: Memory, ptr: WasmPtr&lt;u32&gt;) {</span>
-<span class="doccomment">///     let derefed_ptr = ptr.deref(&amp;mut env, &amp;memory);</span>
+<span class="doccomment">///     let memory = memory.view(&amp;env);</span>
+<span class="doccomment">///     let derefed_ptr = ptr.deref(&amp;memory);</span>
 <span class="doccomment">///     let inner_val: u32 = derefed_ptr.read().expect(&quot;pointer in bounds&quot;);</span>
 <span class="doccomment">///     println!(&quot;Got {} from Wasm memory address 0x{:X}&quot;, inner_val, ptr.offset());</span>
 <span class="doccomment">///     // update the value being pointed to</span>
@@ -337,7 +331,8 @@
 <span class="doccomment">/// }</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// fn update_vector_3(mut env: FunctionEnvMut&lt;()&gt;, memory: Memory, ptr: WasmPtr&lt;V3&gt;) {</span>
-<span class="doccomment">///     let derefed_ptr = ptr.deref(&amp;mut env, &amp;memory);</span>
+<span class="doccomment">///     let memory = memory.view(&amp;env);</span>
+<span class="doccomment">///     let derefed_ptr = ptr.deref(&amp;memory);</span>
 <span class="doccomment">///     let mut inner_val: V3 = derefed_ptr.read().expect(&quot;pointer in bounds&quot;);</span>
 <span class="doccomment">///     println!(&quot;Got {:?} from Wasm memory address 0x{:X}&quot;, inner_val, ptr.offset());</span>
 <span class="doccomment">///     // update the value being pointed to</span>
@@ -429,25 +424,24 @@
     <span class="doccomment">/// Creates a `WasmRef` from this `WasmPtr` which allows reading and</span>
     <span class="doccomment">/// mutating of the value being pointed to.</span>
     <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">deref</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>(<span class="self">self</span>, <span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="kw">impl</span> <span class="ident">AsStoreRef</span>, <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">Memory</span>) -&gt; <span class="ident">WasmRef</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">T</span><span class="op">&gt;</span> {
-        <span class="ident">WasmRef::new</span>(<span class="ident">store</span>, <span class="ident">memory</span>, <span class="self">self</span>.<span class="ident">offset</span>.<span class="ident">into</span>())
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">deref</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>(<span class="self">self</span>, <span class="ident">view</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">MemoryView</span>) -&gt; <span class="ident">WasmRef</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">T</span><span class="op">&gt;</span> {
+        <span class="ident">WasmRef::new</span>(<span class="ident">view</span>, <span class="self">self</span>.<span class="ident">offset</span>.<span class="ident">into</span>())
     }
 
     <span class="doccomment">/// Reads the address pointed to by this `WasmPtr` in a memory.</span>
     <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">read</span>(<span class="self">self</span>, <span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsStoreRef</span>, <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">Memory</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">MemoryAccessError</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>, <span class="ident">memory</span>).<span class="ident">read</span>()
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">read</span>(<span class="self">self</span>, <span class="ident">view</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryView</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">MemoryAccessError</span><span class="op">&gt;</span> {
+        <span class="self">self</span>.<span class="ident">deref</span>(<span class="ident">view</span>).<span class="ident">read</span>()
     }
 
     <span class="doccomment">/// Writes to the address pointed to by this `WasmPtr` in a memory.</span>
     <span class="attribute">#[<span class="ident">inline</span>]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">write</span>(
         <span class="self">self</span>,
-        <span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsStoreRef</span>,
-        <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">Memory</span>,
+        <span class="ident">view</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryView</span>,
         <span class="ident">val</span>: <span class="ident">T</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">MemoryAccessError</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>, <span class="ident">memory</span>).<span class="ident">write</span>(<span class="ident">val</span>)
+        <span class="self">self</span>.<span class="ident">deref</span>(<span class="ident">view</span>).<span class="ident">write</span>(<span class="ident">val</span>)
     }
 
     <span class="doccomment">/// Creates a `WasmSlice` starting at this `WasmPtr` which allows reading</span>
@@ -458,11 +452,10 @@
     <span class="attribute">#[<span class="ident">inline</span>]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">slice</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>(
         <span class="self">self</span>,
-        <span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="kw">impl</span> <span class="ident">AsStoreRef</span>,
-        <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">Memory</span>,
+        <span class="ident">view</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">MemoryView</span>,
         <span class="ident">len</span>: <span class="ident">M::Offset</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">WasmSlice</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">T</span><span class="op">&gt;</span>, <span class="ident">MemoryAccessError</span><span class="op">&gt;</span> {
-        <span class="ident">WasmSlice::new</span>(<span class="ident">store</span>, <span class="ident">memory</span>, <span class="self">self</span>.<span class="ident">offset</span>.<span class="ident">into</span>(), <span class="ident">len</span>.<span class="ident">into</span>())
+        <span class="ident">WasmSlice::new</span>(<span class="ident">view</span>, <span class="self">self</span>.<span class="ident">offset</span>.<span class="ident">into</span>(), <span class="ident">len</span>.<span class="ident">into</span>())
     }
 
     <span class="doccomment">/// Reads a sequence of values from this `WasmPtr` until a value that</span>
@@ -472,14 +465,13 @@
     <span class="attribute">#[<span class="ident">inline</span>]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">read_until</span>(
         <span class="self">self</span>,
-        <span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsStoreRef</span>,
-        <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">Memory</span>,
+        <span class="ident">view</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryView</span>,
         <span class="kw-2">mut</span> <span class="ident">end</span>: <span class="kw">impl</span> <span class="ident">FnMut</span>(<span class="kw-2">&amp;</span><span class="ident">T</span>) -&gt; <span class="ident">bool</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>, <span class="ident">MemoryAccessError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">vec</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
         <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="number">0u64</span>.. {
             <span class="kw">let</span> <span class="ident">i</span> <span class="op">=</span> <span class="ident">M::Offset::try_from</span>(<span class="ident">i</span>).<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">MemoryAccessError::Overflow</span>)<span class="question-mark">?</span>;
-            <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">add_offset</span>(<span class="ident">i</span>)<span class="question-mark">?</span>.<span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>, <span class="ident">memory</span>).<span class="ident">read</span>()<span class="question-mark">?</span>;
+            <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">add_offset</span>(<span class="ident">i</span>)<span class="question-mark">?</span>.<span class="ident">deref</span>(<span class="ident">view</span>).<span class="ident">read</span>()<span class="question-mark">?</span>;
             <span class="kw">if</span> <span class="ident">end</span>(<span class="kw-2">&amp;</span><span class="ident">val</span>) {
                 <span class="kw">break</span>;
             }
@@ -497,11 +489,10 @@
     <span class="attribute">#[<span class="ident">inline</span>]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">read_utf8_string</span>(
         <span class="self">self</span>,
-        <span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsStoreRef</span>,
-        <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">Memory</span>,
+        <span class="ident">view</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryView</span>,
         <span class="ident">len</span>: <span class="ident">M::Offset</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">MemoryAccessError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">vec</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">slice</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>, <span class="ident">memory</span>, <span class="ident">len</span>)<span class="question-mark">?</span>.<span class="ident">read_to_vec</span>()<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">vec</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">slice</span>(<span class="ident">view</span>, <span class="ident">len</span>)<span class="question-mark">?</span>.<span class="ident">read_to_vec</span>()<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(<span class="ident">String::from_utf8</span>(<span class="ident">vec</span>)<span class="question-mark">?</span>)
     }
 
@@ -512,10 +503,9 @@
     <span class="attribute">#[<span class="ident">inline</span>]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">read_utf8_string_with_nul</span>(
         <span class="self">self</span>,
-        <span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsStoreRef</span>,
-        <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">Memory</span>,
+        <span class="ident">view</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryView</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">MemoryAccessError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">vec</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">read_until</span>(<span class="ident">store</span>, <span class="ident">memory</span>, <span class="op">|</span><span class="kw-2">&amp;</span><span class="ident">byte</span><span class="op">|</span> <span class="ident">byte</span> <span class="op">==</span> <span class="number">0</span>)<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">vec</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">read_until</span>(<span class="ident">view</span>, <span class="op">|</span><span class="kw-2">&amp;</span><span class="ident">byte</span><span class="op">|</span> <span class="ident">byte</span> <span class="op">==</span> <span class="number">0</span>)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(<span class="ident">String::from_utf8</span>(<span class="ident">vec</span>)<span class="question-mark">?</span>)
     }
 }

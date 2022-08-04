@@ -807,7 +807,7 @@
     <span class="kw">let</span> <span class="ident">buf</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>);
     <span class="kw">let</span> <span class="ident">count</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>);
     <span class="macro">debug!</span>(<span class="string">&quot;=&gt; fd: {}, buf_offset: {}, count: {}&quot;</span>, <span class="ident">fd</span>, <span class="ident">buf</span>, <span class="ident">count</span>);
-    <span class="kw">let</span> <span class="ident">buf_addr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>, <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory</span>(<span class="number">0</span>), <span class="ident">buf</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">c_void</span>;
+    <span class="kw">let</span> <span class="ident">buf_addr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory_view</span>(<span class="number">0</span>, <span class="kw-2">&amp;</span><span class="ident">ctx</span>), <span class="ident">buf</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">c_void</span>;
     <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">read</span>(<span class="ident">fd</span>, <span class="ident">buf_addr</span>, <span class="ident">count</span> <span class="kw">as</span> <span class="kw">_</span>) };
     <span class="macro">debug!</span>(<span class="string">&quot;=&gt; ret: {}&quot;</span>, <span class="ident">ret</span>);
     <span class="ident">ret</span> <span class="kw">as</span> <span class="kw">_</span>
@@ -820,7 +820,7 @@
     <span class="kw">let</span> <span class="ident">buf</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>);
     <span class="kw">let</span> <span class="ident">count</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>);
     <span class="macro">debug!</span>(<span class="string">&quot;=&gt; fd: {}, buf: {}, count: {}&quot;</span>, <span class="ident">fd</span>, <span class="ident">buf</span>, <span class="ident">count</span>);
-    <span class="kw">let</span> <span class="ident">buf_addr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>, <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory</span>(<span class="number">0</span>), <span class="ident">buf</span>) <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">c_void</span>;
+    <span class="kw">let</span> <span class="ident">buf_addr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory_view</span>(<span class="number">0</span>, <span class="kw-2">&amp;</span><span class="ident">ctx</span>), <span class="ident">buf</span>) <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">c_void</span>;
     <span class="kw">unsafe</span> { <span class="ident">write</span>(<span class="ident">fd</span>, <span class="ident">buf_addr</span>, <span class="ident">count</span> <span class="kw">as</span> <span class="kw">_</span>) <span class="kw">as</span> <span class="ident">i32</span> }
 }
 
@@ -948,11 +948,11 @@
     <span class="comment">// offset to a file descriptor, which contains a read end and write end, 2 integers</span>
     <span class="kw">let</span> <span class="ident">fd_offset</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>);
 
-    <span class="kw">let</span> <span class="ident">emscripten_memory</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory</span>(<span class="number">0</span>);
+    <span class="kw">let</span> <span class="ident">emscripten_memory</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory_view</span>(<span class="number">0</span>, <span class="kw-2">&amp;</span><span class="ident">ctx</span>);
 
     <span class="comment">// convert the file descriptor into a vec with two slots</span>
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">fd_vec</span>: [<span class="ident">c_int</span>; <span class="number">2</span>] <span class="op">=</span> <span class="ident">WasmPtr</span>::<span class="op">&lt;</span>[<span class="ident">c_int</span>; <span class="number">2</span>]<span class="op">&gt;</span><span class="ident">::new</span>(<span class="ident">fd_offset</span>)
-        .<span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>, <span class="kw-2">&amp;</span><span class="ident">emscripten_memory</span>)
+        .<span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="ident">emscripten_memory</span>)
         .<span class="ident">read</span>()
         .<span class="ident">unwrap</span>();
 
@@ -1094,9 +1094,9 @@
     <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident">get_current_directory</span>(<span class="ident">ctx</span>.<span class="ident">as_mut</span>());
     <span class="kw">let</span> <span class="ident">path_string</span> <span class="op">=</span> <span class="ident">path</span>.<span class="ident">unwrap</span>().<span class="ident">display</span>().<span class="ident">to_string</span>();
     <span class="kw">let</span> <span class="ident">len</span> <span class="op">=</span> <span class="ident">path_string</span>.<span class="ident">len</span>();
-    <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory</span>(<span class="number">0</span>);
+    <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory_view</span>(<span class="number">0</span>, <span class="kw-2">&amp;</span><span class="ident">ctx</span>);
 
-    <span class="kw">let</span> <span class="ident">buf_writer</span> <span class="op">=</span> <span class="ident">buf_offset</span>.<span class="ident">slice</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>, <span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="ident">len</span> <span class="kw">as</span> <span class="ident">u32</span> <span class="op">+</span> <span class="number">1</span>).<span class="ident">unwrap</span>();
+    <span class="kw">let</span> <span class="ident">buf_writer</span> <span class="op">=</span> <span class="ident">buf_offset</span>.<span class="ident">slice</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="ident">len</span> <span class="kw">as</span> <span class="ident">u32</span> <span class="op">+</span> <span class="number">1</span>).<span class="ident">unwrap</span>();
     <span class="kw">for</span> (<span class="ident">i</span>, <span class="ident">byte</span>) <span class="kw">in</span> <span class="ident">path_string</span>.<span class="ident">bytes</span>().<span class="ident">enumerate</span>() {
         <span class="ident">buf_writer</span>.<span class="ident">index</span>(<span class="ident">i</span> <span class="kw">as</span> <span class="ident">u64</span>).<span class="ident">write</span>(<span class="ident">byte</span> <span class="kw">as</span> <span class="kw">_</span>).<span class="ident">unwrap</span>();
     }
@@ -1124,7 +1124,7 @@
             <span class="comment">// ENOMEM</span>
             <span class="kw">return</span> <span class="op">-</span><span class="number">12</span>;
         }
-        <span class="kw">let</span> <span class="ident">real_ptr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>, <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory</span>(<span class="number">0</span>), <span class="ident">ptr</span>) <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">u8</span>;
+        <span class="kw">let</span> <span class="ident">real_ptr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory_view</span>(<span class="number">0</span>, <span class="kw-2">&amp;</span><span class="ident">ctx</span>), <span class="ident">ptr</span>) <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">u8</span>;
         <span class="ident">env::call_memset</span>(<span class="kw-2">&amp;mut</span> <span class="ident">ctx</span>, <span class="ident">ptr</span>, <span class="number">0</span>, <span class="ident">len</span>);
         <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="number">0</span>..(<span class="ident">len</span> <span class="kw">as</span> <span class="ident">usize</span>) {
             <span class="kw">unsafe</span> {
@@ -1150,9 +1150,9 @@
     <span class="kw">let</span> <span class="ident">whence</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>);
     <span class="kw">let</span> <span class="ident">offset</span> <span class="op">=</span> <span class="ident">offset_low</span>;
     <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">lseek</span>(<span class="ident">fd</span>, <span class="ident">offset</span> <span class="kw">as</span> <span class="kw">_</span>, <span class="ident">whence</span>) <span class="kw">as</span> <span class="ident">i64</span> };
-    <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory</span>(<span class="number">0</span>);
+    <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory_view</span>(<span class="number">0</span>, <span class="kw-2">&amp;</span><span class="ident">ctx</span>);
 
-    <span class="kw">let</span> <span class="ident">result_ptr</span> <span class="op">=</span> <span class="ident">result_ptr_value</span>.<span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>, <span class="kw-2">&amp;</span><span class="ident">memory</span>);
+    <span class="kw">let</span> <span class="ident">result_ptr</span> <span class="op">=</span> <span class="ident">result_ptr_value</span>.<span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>);
     <span class="ident">result_ptr</span>.<span class="ident">write</span>(<span class="ident">ret</span>).<span class="ident">unwrap</span>();
 
     <span class="macro">debug!</span>(
@@ -1188,10 +1188,10 @@
     <span class="kw">unsafe</span> {
         <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">iovcnt</span> {
             <span class="kw">let</span> <span class="ident">guest_iov_addr</span> <span class="op">=</span>
-                <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>, <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory</span>(<span class="number">0</span>), (<span class="ident">iov</span> <span class="op">+</span> <span class="ident">i</span> <span class="op">*</span> <span class="number">8</span>))
+                <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory_view</span>(<span class="number">0</span>, <span class="kw-2">&amp;</span><span class="ident">ctx</span>), (<span class="ident">iov</span> <span class="op">+</span> <span class="ident">i</span> <span class="op">*</span> <span class="number">8</span>))
                     <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">GuestIovec</span>;
             <span class="kw">let</span> <span class="ident">iov_base</span> <span class="op">=</span>
-                <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>, <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory</span>(<span class="number">0</span>), (<span class="kw-2">*</span><span class="ident">guest_iov_addr</span>).<span class="ident">iov_base</span>)
+                <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory_view</span>(<span class="number">0</span>, <span class="kw-2">&amp;</span><span class="ident">ctx</span>), (<span class="kw-2">*</span><span class="ident">guest_iov_addr</span>).<span class="ident">iov_base</span>)
                     <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">c_void</span>;
             <span class="kw">let</span> <span class="ident">iov_len</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">guest_iov_addr</span>).<span class="ident">iov_len</span> <span class="kw">as</span> <span class="kw">_</span>;
             <span class="comment">// debug!(&quot;=&gt; iov_addr: {:?}, {:?}&quot;, iov_base, iov_len);</span>
@@ -1226,10 +1226,10 @@
     <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">iovcnt</span> {
         <span class="kw">unsafe</span> {
             <span class="kw">let</span> <span class="ident">guest_iov_addr</span> <span class="op">=</span>
-                <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>, <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory</span>(<span class="number">0</span>), (<span class="ident">iov</span> <span class="op">+</span> <span class="ident">i</span> <span class="op">*</span> <span class="number">8</span>))
+                <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory_view</span>(<span class="number">0</span>, <span class="kw-2">&amp;</span><span class="ident">ctx</span>), (<span class="ident">iov</span> <span class="op">+</span> <span class="ident">i</span> <span class="op">*</span> <span class="number">8</span>))
                     <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">GuestIovec</span>;
             <span class="kw">let</span> <span class="ident">iov_base</span> <span class="op">=</span>
-                <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>, <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory</span>(<span class="number">0</span>), (<span class="kw-2">*</span><span class="ident">guest_iov_addr</span>).<span class="ident">iov_base</span>)
+                <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory_view</span>(<span class="number">0</span>, <span class="kw-2">&amp;</span><span class="ident">ctx</span>), (<span class="kw-2">*</span><span class="ident">guest_iov_addr</span>).<span class="ident">iov_base</span>)
                     <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">c_void</span>;
             <span class="kw">let</span> <span class="ident">iov_len</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">guest_iov_addr</span>).<span class="ident">iov_len</span> <span class="kw">as</span> <span class="kw">_</span>;
             <span class="comment">// debug!(&quot;=&gt; iov_addr: {:?}, {:?}&quot;, iov_base, iov_len);</span>
@@ -1258,7 +1258,7 @@
         <span class="ident">_resource</span>
     );
     <span class="kw">let</span> <span class="ident">rlim_emptr</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>);
-    <span class="kw">let</span> <span class="ident">rlim_ptr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>, <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory</span>(<span class="number">0</span>), <span class="ident">rlim_emptr</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">u8</span>;
+    <span class="kw">let</span> <span class="ident">rlim_ptr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory_view</span>(<span class="number">0</span>, <span class="kw-2">&amp;</span><span class="ident">ctx</span>), <span class="ident">rlim_emptr</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">u8</span>;
     <span class="kw">let</span> <span class="ident">rlim</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">slice::from_raw_parts_mut</span>(<span class="ident">rlim_ptr</span>, <span class="number">16</span>) };
 
     <span class="comment">// set all to RLIM_INIFINTY</span>
@@ -1462,7 +1462,7 @@
 
     <span class="kw">if</span> <span class="ident">old_limit</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
         <span class="comment">// just report no limits</span>
-        <span class="kw">let</span> <span class="ident">buf_ptr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>, <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory</span>(<span class="number">0</span>), <span class="ident">old_limit</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">u8</span>;
+        <span class="kw">let</span> <span class="ident">buf_ptr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory_view</span>(<span class="number">0</span>, <span class="kw-2">&amp;</span><span class="ident">ctx</span>), <span class="ident">old_limit</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">u8</span>;
         <span class="kw">let</span> <span class="ident">buf</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">slice::from_raw_parts_mut</span>(<span class="ident">buf_ptr</span>, <span class="number">16</span>) };
 
         <span class="ident">LittleEndian::write_i64</span>(<span class="kw-2">&amp;mut</span> <span class="kw-2">*</span><span class="ident">buf</span>, <span class="ident">val</span>);

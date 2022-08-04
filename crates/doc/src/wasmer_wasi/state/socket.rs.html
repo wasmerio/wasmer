@@ -1496,25 +1496,9 @@
 <span id="1494">1494</span>
 <span id="1495">1495</span>
 <span id="1496">1496</span>
-<span id="1497">1497</span>
-<span id="1498">1498</span>
-<span id="1499">1499</span>
-<span id="1500">1500</span>
-<span id="1501">1501</span>
-<span id="1502">1502</span>
-<span id="1503">1503</span>
-<span id="1504">1504</span>
-<span id="1505">1505</span>
-<span id="1506">1506</span>
-<span id="1507">1507</span>
-<span id="1508">1508</span>
-<span id="1509">1509</span>
-<span id="1510">1510</span>
-<span id="1511">1511</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">super</span>::types::net_error_into_wasi_err</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::syscalls::types</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::syscalls</span>::{<span class="ident">read_bytes</span>, <span class="ident">write_bytes</span>};
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::WasiEnv</span>;
 <span class="kw">use</span> <span class="ident">bytes</span>::{<span class="ident">Buf</span>, <span class="ident">Bytes</span>};
 <span class="kw">use</span> <span class="ident">std::convert::TryInto</span>;
 <span class="kw">use</span> <span class="ident">std::io</span>::{<span class="self">self</span>, <span class="ident">Read</span>};
@@ -1524,7 +1508,7 @@
 <span class="kw">use</span> <span class="ident">std::time::Duration</span>;
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unused_imports</span>)]</span>
 <span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">debug</span>, <span class="ident">error</span>, <span class="ident">info</span>, <span class="ident">warn</span>};
-<span class="kw">use</span> <span class="ident">wasmer</span>::{<span class="ident">FunctionEnvMut</span>, <span class="ident">Memory</span>, <span class="ident">MemorySize</span>, <span class="ident">WasmPtr</span>, <span class="ident">WasmSlice</span>};
+<span class="kw">use</span> <span class="ident">wasmer</span>::{<span class="ident">MemorySize</span>, <span class="ident">WasmPtr</span>, <span class="ident">WasmSlice</span>, <span class="ident">MemoryView</span>};
 <span class="kw">use</span> <span class="ident">wasmer_vnet</span>::{<span class="ident">net_error_into_io_err</span>, <span class="ident">TimeType</span>};
 <span class="kw">use</span> <span class="ident">wasmer_vnet</span>::{
     <span class="ident">IpCidr</span>, <span class="ident">IpRoute</span>, <span class="ident">SocketHttpRequest</span>, <span class="ident">VirtualIcmpSocket</span>, <span class="ident">VirtualNetworking</span>, <span class="ident">VirtualRawSocket</span>,
@@ -2282,8 +2266,7 @@
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">send</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MemorySize</span><span class="op">&gt;</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-        <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">Memory</span>,
+        <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryView</span>,
         <span class="ident">iov</span>: <span class="ident">WasmSlice</span><span class="op">&lt;</span><span class="ident">__wasi_ciovec_t</span><span class="op">&lt;</span><span class="ident">M</span><span class="op">&gt;</span><span class="op">&gt;</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span>, <span class="ident">__wasi_errno_t</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">buf_len</span>: <span class="ident">M::Offset</span> <span class="op">=</span> <span class="ident">iov</span>
@@ -2293,7 +2276,7 @@
             .<span class="ident">sum</span>();
         <span class="kw">let</span> <span class="ident">buf_len</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="ident">buf_len</span>.<span class="ident">try_into</span>().<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">__WASI_EINVAL</span>)<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">buf</span> <span class="op">=</span> <span class="ident">Vec::with_capacity</span>(<span class="ident">buf_len</span>);
-        <span class="ident">write_bytes</span>(<span class="ident">ctx</span>, <span class="kw-2">&amp;mut</span> <span class="ident">buf</span>, <span class="ident">memory</span>, <span class="ident">iov</span>)<span class="question-mark">?</span>;
+        <span class="ident">write_bytes</span>(<span class="kw-2">&amp;mut</span> <span class="ident">buf</span>, <span class="ident">memory</span>, <span class="ident">iov</span>)<span class="question-mark">?</span>;
         <span class="kw">match</span> <span class="kw-2">&amp;mut</span> <span class="self">self</span>.<span class="ident">kind</span> {
             <span class="ident">InodeSocketKind::HttpRequest</span>(<span class="ident">sock</span>, <span class="ident">ty</span>) =&gt; {
                 <span class="kw">let</span> <span class="ident">sock</span> <span class="op">=</span> <span class="ident">sock</span>.<span class="ident">get_mut</span>().<span class="ident">unwrap</span>();
@@ -2367,12 +2350,11 @@
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">send_to</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MemorySize</span><span class="op">&gt;</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-        <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">Memory</span>,
+        <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryView</span>,
         <span class="ident">iov</span>: <span class="ident">WasmSlice</span><span class="op">&lt;</span><span class="ident">__wasi_ciovec_t</span><span class="op">&lt;</span><span class="ident">M</span><span class="op">&gt;</span><span class="op">&gt;</span>,
         <span class="ident">addr</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_addr_port_t</span>, <span class="ident">M</span><span class="op">&gt;</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span>, <span class="ident">__wasi_errno_t</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> (<span class="ident">addr_ip</span>, <span class="ident">addr_port</span>) <span class="op">=</span> <span class="ident">read_ip_port</span>(<span class="ident">ctx</span>, <span class="ident">memory</span>, <span class="ident">addr</span>)<span class="question-mark">?</span>;
+        <span class="kw">let</span> (<span class="ident">addr_ip</span>, <span class="ident">addr_port</span>) <span class="op">=</span> <span class="ident">read_ip_port</span>(<span class="ident">memory</span>, <span class="ident">addr</span>)<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="ident">addr</span> <span class="op">=</span> <span class="ident">SocketAddr::new</span>(<span class="ident">addr_ip</span>, <span class="ident">addr_port</span>);
         <span class="kw">let</span> <span class="ident">buf_len</span>: <span class="ident">M::Offset</span> <span class="op">=</span> <span class="ident">iov</span>
             .<span class="ident">iter</span>()
@@ -2381,7 +2363,7 @@
             .<span class="ident">sum</span>();
         <span class="kw">let</span> <span class="ident">buf_len</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="ident">buf_len</span>.<span class="ident">try_into</span>().<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">__WASI_EINVAL</span>)<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">buf</span> <span class="op">=</span> <span class="ident">Vec::with_capacity</span>(<span class="ident">buf_len</span>);
-        <span class="ident">write_bytes</span>(<span class="ident">ctx</span>, <span class="kw-2">&amp;mut</span> <span class="ident">buf</span>, <span class="ident">memory</span>, <span class="ident">iov</span>)<span class="question-mark">?</span>;
+        <span class="ident">write_bytes</span>(<span class="kw-2">&amp;mut</span> <span class="ident">buf</span>, <span class="ident">memory</span>, <span class="ident">iov</span>)<span class="question-mark">?</span>;
         <span class="kw">match</span> <span class="kw-2">&amp;mut</span> <span class="self">self</span>.<span class="ident">kind</span> {
             <span class="ident">InodeSocketKind::Icmp</span>(<span class="ident">sock</span>) =&gt; <span class="ident">sock</span>
                 .<span class="ident">send_to</span>(<span class="ident">Bytes::from</span>(<span class="ident">buf</span>), <span class="ident">addr</span>)
@@ -2398,8 +2380,7 @@
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">recv</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MemorySize</span><span class="op">&gt;</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-        <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">Memory</span>,
+        <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryView</span>,
         <span class="ident">iov</span>: <span class="ident">WasmSlice</span><span class="op">&lt;</span><span class="ident">__wasi_iovec_t</span><span class="op">&lt;</span><span class="ident">M</span><span class="op">&gt;</span><span class="op">&gt;</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span>, <span class="ident">__wasi_errno_t</span><span class="op">&gt;</span> {
         <span class="kw">loop</span> {
@@ -2407,7 +2388,7 @@
                 <span class="kw">let</span> <span class="ident">buf_len</span> <span class="op">=</span> <span class="ident">buf</span>.<span class="ident">len</span>();
                 <span class="kw">if</span> <span class="ident">buf_len</span> <span class="op">&gt;</span> <span class="number">0</span> {
                     <span class="kw">let</span> <span class="ident">reader</span> <span class="op">=</span> <span class="ident">buf</span>.<span class="ident">as_ref</span>();
-                    <span class="kw">let</span> <span class="ident">read</span> <span class="op">=</span> <span class="ident">read_bytes</span>(<span class="ident">ctx</span>, <span class="ident">reader</span>, <span class="ident">memory</span>, <span class="ident">iov</span>).<span class="ident">map</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">buf_len</span>)<span class="question-mark">?</span>;
+                    <span class="kw">let</span> <span class="ident">read</span> <span class="op">=</span> <span class="ident">read_bytes</span>(<span class="ident">reader</span>, <span class="ident">memory</span>, <span class="ident">iov</span>).<span class="ident">map</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">buf_len</span>)<span class="question-mark">?</span>;
                     <span class="kw">if</span> <span class="kw">let</span> <span class="ident">InodeSocketKind::TcpStream</span>(..) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">kind</span> {
                         <span class="ident">buf</span>.<span class="ident">advance</span>(<span class="ident">read</span>);
                     } <span class="kw">else</span> {
@@ -2468,8 +2449,7 @@
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">recv_from</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MemorySize</span><span class="op">&gt;</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-        <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">Memory</span>,
+        <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryView</span>,
         <span class="ident">iov</span>: <span class="ident">WasmSlice</span><span class="op">&lt;</span><span class="ident">__wasi_iovec_t</span><span class="op">&lt;</span><span class="ident">M</span><span class="op">&gt;</span><span class="op">&gt;</span>,
         <span class="ident">addr</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_addr_port_t</span>, <span class="ident">M</span><span class="op">&gt;</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span>, <span class="ident">__wasi_errno_t</span><span class="op">&gt;</span> {
@@ -2477,11 +2457,11 @@
             <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">buf</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">read_buffer</span>.<span class="ident">as_mut</span>() {
                 <span class="kw">if</span> <span class="op">!</span><span class="ident">buf</span>.<span class="ident">is_empty</span>() {
                     <span class="kw">let</span> <span class="ident">reader</span> <span class="op">=</span> <span class="ident">buf</span>.<span class="ident">as_ref</span>();
-                    <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">read_bytes</span>(<span class="ident">ctx</span>, <span class="ident">reader</span>, <span class="ident">memory</span>, <span class="ident">iov</span>)<span class="question-mark">?</span>;
+                    <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">read_bytes</span>(<span class="ident">reader</span>, <span class="ident">memory</span>, <span class="ident">iov</span>)<span class="question-mark">?</span>;
                     <span class="kw">let</span> <span class="ident">peer</span> <span class="op">=</span> <span class="self">self</span>
                         .<span class="ident">read_addr</span>
                         .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">SocketAddr::new</span>(<span class="ident">IpAddr::V4</span>(<span class="ident">Ipv4Addr::UNSPECIFIED</span>), <span class="number">0</span>));
-                    <span class="ident">write_ip_port</span>(<span class="ident">ctx</span>, <span class="ident">memory</span>, <span class="ident">addr</span>, <span class="ident">peer</span>.<span class="ident">ip</span>(), <span class="ident">peer</span>.<span class="ident">port</span>())<span class="question-mark">?</span>;
+                    <span class="ident">write_ip_port</span>(<span class="ident">memory</span>, <span class="ident">addr</span>, <span class="ident">peer</span>.<span class="ident">ip</span>(), <span class="ident">peer</span>.<span class="ident">port</span>())<span class="question-mark">?</span>;
                     <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">ret</span>);
                 }
             }
@@ -2648,11 +2628,10 @@
 
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">read_ip</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MemorySize</span><span class="op">&gt;</span>(
-    <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">Memory</span>,
+    <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryView</span>,
     <span class="ident">ptr</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_addr_t</span>, <span class="ident">M</span><span class="op">&gt;</span>,
 ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">IpAddr</span>, <span class="ident">__wasi_errno_t</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">addr_ptr</span> <span class="op">=</span> <span class="ident">ptr</span>.<span class="ident">deref</span>(<span class="ident">ctx</span>, <span class="ident">memory</span>);
+    <span class="kw">let</span> <span class="ident">addr_ptr</span> <span class="op">=</span> <span class="ident">ptr</span>.<span class="ident">deref</span>(<span class="ident">memory</span>);
     <span class="kw">let</span> <span class="ident">addr</span> <span class="op">=</span> <span class="ident">addr_ptr</span>.<span class="ident">read</span>().<span class="ident">map_err</span>(<span class="ident"><span class="kw">crate</span>::mem_error_to_wasi</span>)<span class="question-mark">?</span>;
 
     <span class="kw">let</span> <span class="ident">o</span> <span class="op">=</span> <span class="ident">addr</span>.<span class="ident">u</span>.<span class="ident">octs</span>;
@@ -2667,11 +2646,10 @@
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">read_ip_v4</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MemorySize</span><span class="op">&gt;</span>(
-    <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">Memory</span>,
+    <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryView</span>,
     <span class="ident">ptr</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_addr_ip4_t</span>, <span class="ident">M</span><span class="op">&gt;</span>,
 ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Ipv4Addr</span>, <span class="ident">__wasi_errno_t</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">addr_ptr</span> <span class="op">=</span> <span class="ident">ptr</span>.<span class="ident">deref</span>(<span class="ident">ctx</span>, <span class="ident">memory</span>);
+    <span class="kw">let</span> <span class="ident">addr_ptr</span> <span class="op">=</span> <span class="ident">ptr</span>.<span class="ident">deref</span>(<span class="ident">memory</span>);
     <span class="kw">let</span> <span class="ident">addr</span> <span class="op">=</span> <span class="ident">addr_ptr</span>.<span class="ident">read</span>().<span class="ident">map_err</span>(<span class="ident"><span class="kw">crate</span>::mem_error_to_wasi</span>)<span class="question-mark">?</span>;
 
     <span class="kw">let</span> <span class="ident">o</span> <span class="op">=</span> <span class="ident">addr</span>.<span class="ident">octs</span>;
@@ -2679,11 +2657,10 @@
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">read_ip_v6</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MemorySize</span><span class="op">&gt;</span>(
-    <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">Memory</span>,
+    <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryView</span>,
     <span class="ident">ptr</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_addr_ip6_t</span>, <span class="ident">M</span><span class="op">&gt;</span>,
 ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Ipv6Addr</span>, <span class="ident">__wasi_errno_t</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">addr_ptr</span> <span class="op">=</span> <span class="ident">ptr</span>.<span class="ident">deref</span>(<span class="ident">ctx</span>, <span class="ident">memory</span>);
+    <span class="kw">let</span> <span class="ident">addr_ptr</span> <span class="op">=</span> <span class="ident">ptr</span>.<span class="ident">deref</span>(<span class="ident">memory</span>);
     <span class="kw">let</span> <span class="ident">addr</span> <span class="op">=</span> <span class="ident">addr_ptr</span>.<span class="ident">read</span>().<span class="ident">map_err</span>(<span class="ident"><span class="kw">crate</span>::mem_error_to_wasi</span>)<span class="question-mark">?</span>;
 
     <span class="kw">let</span> [<span class="ident">a</span>, <span class="ident">b</span>, <span class="ident">c</span>, <span class="ident">d</span>, <span class="ident">e</span>, <span class="ident">f</span>, <span class="ident">g</span>, <span class="ident">h</span>] <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">transmute</span>::<span class="op">&lt;</span><span class="kw">_</span>, [<span class="ident">u16</span>; <span class="number">8</span>]<span class="op">&gt;</span>(<span class="ident">addr</span>.<span class="ident">segs</span>) };
@@ -2691,8 +2668,7 @@
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">write_ip</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MemorySize</span><span class="op">&gt;</span>(
-    <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">Memory</span>,
+    <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryView</span>,
     <span class="ident">ptr</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_addr_t</span>, <span class="ident">M</span><span class="op">&gt;</span>,
     <span class="ident">ip</span>: <span class="ident">IpAddr</span>,
 ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">__wasi_errno_t</span><span class="op">&gt;</span> {
@@ -2715,18 +2691,17 @@
         }
     };
 
-    <span class="kw">let</span> <span class="ident">addr_ptr</span> <span class="op">=</span> <span class="ident">ptr</span>.<span class="ident">deref</span>(<span class="ident">ctx</span>, <span class="ident">memory</span>);
+    <span class="kw">let</span> <span class="ident">addr_ptr</span> <span class="op">=</span> <span class="ident">ptr</span>.<span class="ident">deref</span>(<span class="ident">memory</span>);
     <span class="ident">addr_ptr</span>.<span class="ident">write</span>(<span class="ident">ip</span>).<span class="ident">map_err</span>(<span class="ident"><span class="kw">crate</span>::mem_error_to_wasi</span>)<span class="question-mark">?</span>;
     <span class="prelude-val">Ok</span>(())
 }
 
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">read_cidr</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MemorySize</span><span class="op">&gt;</span>(
-    <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">Memory</span>,
+    <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryView</span>,
     <span class="ident">ptr</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_cidr_t</span>, <span class="ident">M</span><span class="op">&gt;</span>,
 ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">IpCidr</span>, <span class="ident">__wasi_errno_t</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">addr_ptr</span> <span class="op">=</span> <span class="ident">ptr</span>.<span class="ident">deref</span>(<span class="ident">ctx</span>, <span class="ident">memory</span>);
+    <span class="kw">let</span> <span class="ident">addr_ptr</span> <span class="op">=</span> <span class="ident">ptr</span>.<span class="ident">deref</span>(<span class="ident">memory</span>);
     <span class="kw">let</span> <span class="ident">addr</span> <span class="op">=</span> <span class="ident">addr_ptr</span>.<span class="ident">read</span>().<span class="ident">map_err</span>(<span class="ident"><span class="kw">crate</span>::mem_error_to_wasi</span>)<span class="question-mark">?</span>;
 
     <span class="kw">let</span> <span class="ident">o</span> <span class="op">=</span> <span class="ident">addr</span>.<span class="ident">u</span>.<span class="ident">octs</span>;
@@ -2754,8 +2729,7 @@
 
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">write_cidr</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MemorySize</span><span class="op">&gt;</span>(
-    <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">Memory</span>,
+    <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryView</span>,
     <span class="ident">ptr</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_cidr_t</span>, <span class="ident">M</span><span class="op">&gt;</span>,
     <span class="ident">cidr</span>: <span class="ident">IpCidr</span>,
 ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">__wasi_errno_t</span><span class="op">&gt;</span> {
@@ -2786,17 +2760,16 @@
         }
     };
 
-    <span class="kw">let</span> <span class="ident">addr_ptr</span> <span class="op">=</span> <span class="ident">ptr</span>.<span class="ident">deref</span>(<span class="ident">ctx</span>, <span class="ident">memory</span>);
+    <span class="kw">let</span> <span class="ident">addr_ptr</span> <span class="op">=</span> <span class="ident">ptr</span>.<span class="ident">deref</span>(<span class="ident">memory</span>);
     <span class="ident">addr_ptr</span>.<span class="ident">write</span>(<span class="ident">cidr</span>).<span class="ident">map_err</span>(<span class="ident"><span class="kw">crate</span>::mem_error_to_wasi</span>)<span class="question-mark">?</span>;
     <span class="prelude-val">Ok</span>(())
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">read_ip_port</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MemorySize</span><span class="op">&gt;</span>(
-    <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">Memory</span>,
+    <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryView</span>,
     <span class="ident">ptr</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_addr_port_t</span>, <span class="ident">M</span><span class="op">&gt;</span>,
 ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">IpAddr</span>, <span class="ident">u16</span>), <span class="ident">__wasi_errno_t</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">addr_ptr</span> <span class="op">=</span> <span class="ident">ptr</span>.<span class="ident">deref</span>(<span class="ident">ctx</span>, <span class="ident">memory</span>);
+    <span class="kw">let</span> <span class="ident">addr_ptr</span> <span class="op">=</span> <span class="ident">ptr</span>.<span class="ident">deref</span>(<span class="ident">memory</span>);
     <span class="kw">let</span> <span class="ident">addr</span> <span class="op">=</span> <span class="ident">addr_ptr</span>.<span class="ident">read</span>().<span class="ident">map_err</span>(<span class="ident"><span class="kw">crate</span>::mem_error_to_wasi</span>)<span class="question-mark">?</span>;
 
     <span class="kw">let</span> <span class="ident">o</span> <span class="op">=</span> <span class="ident">addr</span>.<span class="ident">u</span>.<span class="ident">octs</span>;
@@ -2824,8 +2797,7 @@
 
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">write_ip_port</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MemorySize</span><span class="op">&gt;</span>(
-    <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">Memory</span>,
+    <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryView</span>,
     <span class="ident">ptr</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_addr_port_t</span>, <span class="ident">M</span><span class="op">&gt;</span>,
     <span class="ident">ip</span>: <span class="ident">IpAddr</span>,
     <span class="ident">port</span>: <span class="ident">u16</span>,
@@ -2857,18 +2829,17 @@
         }
     };
 
-    <span class="kw">let</span> <span class="ident">addr_ptr</span> <span class="op">=</span> <span class="ident">ptr</span>.<span class="ident">deref</span>(<span class="ident">ctx</span>, <span class="ident">memory</span>);
+    <span class="kw">let</span> <span class="ident">addr_ptr</span> <span class="op">=</span> <span class="ident">ptr</span>.<span class="ident">deref</span>(<span class="ident">memory</span>);
     <span class="ident">addr_ptr</span>.<span class="ident">write</span>(<span class="ident">ipport</span>).<span class="ident">map_err</span>(<span class="ident"><span class="kw">crate</span>::mem_error_to_wasi</span>)<span class="question-mark">?</span>;
     <span class="prelude-val">Ok</span>(())
 }
 
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">read_route</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MemorySize</span><span class="op">&gt;</span>(
-    <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">Memory</span>,
+    <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryView</span>,
     <span class="ident">ptr</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_route_t</span>, <span class="ident">M</span><span class="op">&gt;</span>,
 ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">IpRoute</span>, <span class="ident">__wasi_errno_t</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">route_ptr</span> <span class="op">=</span> <span class="ident">ptr</span>.<span class="ident">deref</span>(<span class="ident">ctx</span>, <span class="ident">memory</span>);
+    <span class="kw">let</span> <span class="ident">route_ptr</span> <span class="op">=</span> <span class="ident">ptr</span>.<span class="ident">deref</span>(<span class="ident">memory</span>);
     <span class="kw">let</span> <span class="ident">route</span> <span class="op">=</span> <span class="ident">route_ptr</span>.<span class="ident">read</span>().<span class="ident">map_err</span>(<span class="ident"><span class="kw">crate</span>::mem_error_to_wasi</span>)<span class="question-mark">?</span>;
 
     <span class="prelude-val">Ok</span>(<span class="ident">IpRoute</span> {
@@ -2920,8 +2891,7 @@
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">write_route</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MemorySize</span><span class="op">&gt;</span>(
-    <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">Memory</span>,
+    <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryView</span>,
     <span class="ident">ptr</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_route_t</span>, <span class="ident">M</span><span class="op">&gt;</span>,
     <span class="ident">route</span>: <span class="ident">IpRoute</span>,
 ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">__wasi_errno_t</span><span class="op">&gt;</span> {
@@ -2999,7 +2969,7 @@
         <span class="ident">expires_at</span>,
     };
 
-    <span class="kw">let</span> <span class="ident">route_ptr</span> <span class="op">=</span> <span class="ident">ptr</span>.<span class="ident">deref</span>(<span class="ident">ctx</span>, <span class="ident">memory</span>);
+    <span class="kw">let</span> <span class="ident">route_ptr</span> <span class="op">=</span> <span class="ident">ptr</span>.<span class="ident">deref</span>(<span class="ident">memory</span>);
     <span class="ident">route_ptr</span>.<span class="ident">write</span>(<span class="ident">route</span>).<span class="ident">map_err</span>(<span class="ident"><span class="kw">crate</span>::mem_error_to_wasi</span>)<span class="question-mark">?</span>;
     <span class="prelude-val">Ok</span>(())
 }

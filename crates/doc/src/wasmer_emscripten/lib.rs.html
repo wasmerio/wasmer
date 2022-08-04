@@ -1507,6 +1507,12 @@
 <span id="1505">1505</span>
 <span id="1506">1506</span>
 <span id="1507">1507</span>
+<span id="1508">1508</span>
+<span id="1509">1509</span>
+<span id="1510">1510</span>
+<span id="1511">1511</span>
+<span id="1512">1512</span>
+<span id="1513">1513</span>
 </pre><pre class="rust"><code><span class="attribute">#![<span class="ident">deny</span>(
     <span class="ident">dead_code</span>,
     <span class="ident">nonstandard_style</span>,
@@ -1534,7 +1540,7 @@
 <span class="kw">use</span> <span class="ident">wasmer</span>::{
     <span class="ident">imports</span>, <span class="ident">namespace</span>, <span class="ident">AsStoreMut</span>, <span class="ident">ExportError</span>, <span class="ident">Exports</span>, <span class="ident">Function</span>, <span class="ident">FunctionEnv</span>, <span class="ident">FunctionEnvMut</span>,
     <span class="ident">FunctionType</span>, <span class="ident">Global</span>, <span class="ident">Imports</span>, <span class="ident">Instance</span>, <span class="ident">Memory</span>, <span class="ident">MemoryType</span>, <span class="ident">Module</span>, <span class="ident">Pages</span>, <span class="ident">RuntimeError</span>,
-    <span class="ident">Table</span>, <span class="ident">TableType</span>, <span class="ident">TypedFunction</span>, <span class="ident">Value</span>, <span class="ident">WasmPtr</span>,
+    <span class="ident">Table</span>, <span class="ident">TableType</span>, <span class="ident">TypedFunction</span>, <span class="ident">Value</span>, <span class="ident">WasmPtr</span>, <span class="ident">AsStoreRef</span>, <span class="ident">MemoryView</span>,
 };
 <span class="kw">use</span> <span class="ident">wasmer_types::Type</span> <span class="kw">as</span> <span class="ident">ValType</span>;
 
@@ -1615,6 +1621,11 @@
     <span class="doccomment">/// Get a reference to the memory</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">memory</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">_mem_idx</span>: <span class="ident">u32</span>) -&gt; <span class="ident">Memory</span> {
         (<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="self">self</span>.<span class="ident">memory</span>.<span class="ident">read</span>().<span class="ident">unwrap</span>()).<span class="ident">as_ref</span>().<span class="ident">cloned</span>().<span class="ident">unwrap</span>()
+    }
+
+    <span class="doccomment">/// Get a reference to the memory view</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">memory_view</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">mem_idx</span>: <span class="ident">u32</span>, <span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="kw">impl</span> <span class="ident">AsStoreRef</span>) -&gt; <span class="ident">MemoryView</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
+        <span class="self">self</span>.<span class="ident">memory</span>(<span class="ident">mem_idx</span>).<span class="ident">view</span>(<span class="ident">store</span>)
     }
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set_functions</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">funcs</span>: <span class="ident">EmscriptenFunctions</span>) {
@@ -2379,10 +2390,11 @@
     <span class="ident">globals</span>: <span class="kw-2">&amp;</span><span class="ident">EmscriptenGlobalsData</span>,
 ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">String</span><span class="op">&gt;</span> {
     <span class="ident">ctx</span>.<span class="ident">as_mut</span>(<span class="ident">store</span>).<span class="ident">set_memory</span>(<span class="ident">memory</span>.<span class="ident">clone</span>());
-    <span class="kw">let</span> <span class="ident">dynamictop_ptr</span> <span class="op">=</span> <span class="ident">WasmPtr</span>::<span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span><span class="ident">::new</span>(<span class="ident">globals</span>.<span class="ident">dynamictop_ptr</span>).<span class="ident">deref</span>(<span class="ident">store</span>, <span class="ident">memory</span>);
+    <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">memory</span>.<span class="ident">view</span>(<span class="ident">store</span>);
+    <span class="kw">let</span> <span class="ident">dynamictop_ptr</span> <span class="op">=</span> <span class="ident">WasmPtr</span>::<span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span><span class="ident">::new</span>(<span class="ident">globals</span>.<span class="ident">dynamictop_ptr</span>).<span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>);
     <span class="kw">let</span> <span class="ident">dynamic_base</span> <span class="op">=</span> <span class="ident">globals</span>.<span class="ident">dynamic_base</span>;
 
-    <span class="kw">if</span> <span class="ident">dynamictop_ptr</span>.<span class="ident">offset</span>() <span class="op">&gt;</span><span class="op">=</span> <span class="ident">memory</span>.<span class="ident">data_size</span>(<span class="ident">store</span>) {
+    <span class="kw">if</span> <span class="ident">dynamictop_ptr</span>.<span class="ident">offset</span>() <span class="op">&gt;</span><span class="op">=</span> <span class="ident">memory</span>.<span class="ident">data_size</span>() {
         <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="string">&quot;dynamictop_ptr beyond memory len&quot;</span>.<span class="ident">to_string</span>());
     }
     <span class="ident">dynamictop_ptr</span>.<span class="ident">write</span>(<span class="ident">dynamic_base</span> <span class="kw">as</span> <span class="ident">i32</span>).<span class="ident">unwrap</span>();

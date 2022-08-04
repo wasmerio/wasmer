@@ -121,15 +121,19 @@
 <span id="119">119</span>
 <span id="120">120</span>
 <span id="121">121</span>
+<span id="122">122</span>
+<span id="123">123</span>
 </pre><pre class="rust"><code><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod</span> <span class="ident">function</span>;
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod</span> <span class="ident">global</span>;
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod</span> <span class="ident">memory</span>;
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod</span> <span class="ident">memory_view</span>;
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod</span> <span class="ident">table</span>;
 
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="self">self</span>::function</span>::{<span class="ident">FromToNativeWasmType</span>, <span class="ident">Function</span>, <span class="ident">HostFunction</span>, <span class="ident">WasmTypeList</span>};
 
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="self">self</span>::global::Global</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="self">self</span>::memory::Memory</span>;
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="self">self</span>::memory_view::MemoryView</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="self">self</span>::table::Table</span>;
 
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::exports</span>::{<span class="ident">ExportError</span>, <span class="ident">Exportable</span>};
