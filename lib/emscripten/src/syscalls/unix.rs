@@ -203,7 +203,7 @@ pub fn ___syscall77(ctx: FunctionEnvMut<EmEnv>, _which: c_int, mut varargs: VarA
     let resource: c_int = varargs.get(&ctx);
     let rusage_ptr: c_int = varargs.get(&ctx);
     #[allow(clippy::cast_ptr_alignment)]
-    let rusage = emscripten_memory_pointer!(ctx, ctx.data().memory(0), rusage_ptr) as *mut rusage;
+    let rusage = emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), rusage_ptr) as *mut rusage;
     assert_eq!(8, mem::align_of_val(&rusage));
     unsafe { getrusage(resource, rusage) }
 }
@@ -312,7 +312,7 @@ pub fn ___syscall205(ctx: FunctionEnvMut<EmEnv>, _which: c_int, mut varargs: Var
     let groups: c_int = varargs.get(&ctx);
 
     #[allow(clippy::cast_ptr_alignment)]
-    let gid_ptr = emscripten_memory_pointer!(ctx, ctx.data().memory(0), groups) as *mut gid_t;
+    let gid_ptr = emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), groups) as *mut gid_t;
     assert_eq!(4, mem::align_of_val(&gid_ptr));
     let result = unsafe { getgroups(ngroups_max, gid_ptr) };
     debug!(
@@ -347,7 +347,7 @@ pub fn ___syscall219(ctx: FunctionEnvMut<EmEnv>, _which: c_int, mut varargs: Var
     let len: usize = varargs.get(&ctx);
     let advice: c_int = varargs.get(&ctx);
 
-    let addr = emscripten_memory_pointer!(ctx, ctx.data().memory(0), addr_ptr) as *mut c_void;
+    let addr = emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), addr_ptr) as *mut c_void;
 
     unsafe { madvise(addr, len, advice) }
 }
@@ -487,7 +487,7 @@ pub fn ___syscall54(ctx: FunctionEnvMut<EmEnv>, _which: c_int, mut varargs: VarA
         | WASM_TCSETSW => {
             let argp: u32 = varargs.get(&ctx);
             let argp_ptr =
-                emscripten_memory_pointer!(ctx, ctx.data().memory(0), argp) as *mut c_void;
+                emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), argp) as *mut c_void;
             let translated_request = translate_ioctl(request);
             let ret = unsafe { ioctl(fd, translated_request as _, argp_ptr) };
             debug!(
@@ -521,7 +521,7 @@ pub fn ___syscall102(ctx: FunctionEnvMut<EmEnv>, _which: c_int, mut varargs: Var
     debug!("emscripten::___syscall102 (socketcall) {}", _which);
     let call: u32 = varargs.get(&ctx);
     let mut socket_varargs: VarArgs = varargs.get(&ctx);
-    let memory = ctx.data().memory(0);
+    let memory = ctx.data().memory_view(0, &ctx);
 
     // migrating to EmSockAddr, port being separate here is nice, should update that too
     #[repr(C)]
@@ -586,7 +586,7 @@ pub fn ___syscall102(ctx: FunctionEnvMut<EmEnv>, _which: c_int, mut varargs: Var
             let socket = socket_varargs.get(&ctx);
             let address: u32 = socket_varargs.get(&ctx);
             let address_len = socket_varargs.get(&ctx);
-            let address = emscripten_memory_pointer!(ctx, &memory, address) as *mut sockaddr;
+            let address = emscripten_memory_pointer!(&memory, address) as *mut sockaddr;
 
             // Debug received address
             let _proper_address = address as *const GuestSockaddrIn;
@@ -611,7 +611,7 @@ pub fn ___syscall102(ctx: FunctionEnvMut<EmEnv>, _which: c_int, mut varargs: Var
             let socket = socket_varargs.get(&ctx);
             let address: u32 = socket_varargs.get(&ctx);
             let address_len = socket_varargs.get(&ctx);
-            let address = emscripten_memory_pointer!(ctx, &memory, address) as *mut sockaddr;
+            let address = emscripten_memory_pointer!(&memory, address) as *mut sockaddr;
             unsafe { connect(socket, address, address_len) }
         }
         4 => {
@@ -636,10 +636,10 @@ pub fn ___syscall102(ctx: FunctionEnvMut<EmEnv>, _which: c_int, mut varargs: Var
             debug!(
                 "=> socket: {}, address: {:?}, address_len: {}",
                 socket,
-                address.deref(&ctx, &memory).read().unwrap(),
-                address_len.deref(&ctx, &memory).read().unwrap()
+                address.deref(&memory).read().unwrap(),
+                address_len.deref(&memory).read().unwrap()
             );
-            let mut address_len_addr = address_len.deref(&ctx, &memory).read().unwrap();
+            let mut address_len_addr = address_len.deref(&memory).read().unwrap();
             // let mut address_len_addr: socklen_t = 0;
 
             let mut host_address: sockaddr = sockaddr {
@@ -649,7 +649,7 @@ pub fn ___syscall102(ctx: FunctionEnvMut<EmEnv>, _which: c_int, mut varargs: Var
                 sa_len: Default::default(),
             };
             let fd = unsafe { accept(socket, &mut host_address, &mut address_len_addr) };
-            let mut address_addr = address.deref(&ctx, &memory).read().unwrap();
+            let mut address_addr = address.deref(&memory).read().unwrap();
 
             address_addr.sa_family = host_address.sa_family as _;
             address_addr.sa_data = host_address.sa_data;
@@ -673,7 +673,7 @@ pub fn ___syscall102(ctx: FunctionEnvMut<EmEnv>, _which: c_int, mut varargs: Var
             let socket: i32 = socket_varargs.get(&ctx);
             let address: WasmPtr<EmSockAddr> = socket_varargs.get(&ctx);
             let address_len: WasmPtr<u32> = socket_varargs.get(&ctx);
-            let address_len_addr = address_len.deref(&ctx, &memory).read().unwrap();
+            let address_len_addr = address_len.deref(&memory).read().unwrap();
 
             let mut sock_addr_host: sockaddr = sockaddr {
                 sa_family: Default::default(),
@@ -689,7 +689,7 @@ pub fn ___syscall102(ctx: FunctionEnvMut<EmEnv>, _which: c_int, mut varargs: Var
                 )
             };
             // translate from host data into emscripten data
-            let mut address_mut = address.deref(&ctx, &memory).read().unwrap();
+            let mut address_mut = address.deref(&memory).read().unwrap();
             address_mut.sa_family = sock_addr_host.sa_family as _;
             address_mut.sa_data = sock_addr_host.sa_data;
 
@@ -706,9 +706,9 @@ pub fn ___syscall102(ctx: FunctionEnvMut<EmEnv>, _which: c_int, mut varargs: Var
             let socket = socket_varargs.get(&ctx);
             let address: u32 = socket_varargs.get(&ctx);
             let address_len: u32 = socket_varargs.get(&ctx);
-            let address = emscripten_memory_pointer!(ctx, memory, address) as *mut sockaddr;
+            let address = emscripten_memory_pointer!(memory, address) as *mut sockaddr;
             let address_len_addr =
-                emscripten_memory_pointer!(ctx, memory, address_len) as *mut socklen_t;
+                emscripten_memory_pointer!(memory, address_len) as *mut socklen_t;
             unsafe { getpeername(socket, address, address_len_addr) }
         }
         11 => {
@@ -720,8 +720,8 @@ pub fn ___syscall102(ctx: FunctionEnvMut<EmEnv>, _which: c_int, mut varargs: Var
             let len: i32 = socket_varargs.get(&ctx);
             let address: u32 = socket_varargs.get(&ctx);
             let address_len = socket_varargs.get(&ctx);
-            let buf_addr = emscripten_memory_pointer!(ctx, memory, buf) as _;
-            let address = emscripten_memory_pointer!(ctx, memory, address) as *mut sockaddr;
+            let buf_addr = emscripten_memory_pointer!(memory, buf) as _;
+            let address = emscripten_memory_pointer!(memory, address) as *mut sockaddr;
             unsafe { sendto(socket, buf_addr, flags, len, address, address_len) as i32 }
         }
         12 => {
@@ -733,10 +733,10 @@ pub fn ___syscall102(ctx: FunctionEnvMut<EmEnv>, _which: c_int, mut varargs: Var
             let flags: i32 = socket_varargs.get(&ctx);
             let address: u32 = socket_varargs.get(&ctx);
             let address_len: u32 = socket_varargs.get(&ctx);
-            let buf_addr = emscripten_memory_pointer!(ctx, memory, buf) as _;
-            let address = emscripten_memory_pointer!(ctx, memory, address) as *mut sockaddr;
+            let buf_addr = emscripten_memory_pointer!(memory, buf) as _;
+            let address = emscripten_memory_pointer!(memory, address) as *mut sockaddr;
             let address_len_addr =
-                emscripten_memory_pointer!(ctx, memory, address_len) as *mut socklen_t;
+                emscripten_memory_pointer!(memory, address_len) as *mut socklen_t;
             unsafe {
                 recvfrom(
                     socket,
@@ -760,7 +760,7 @@ pub fn ___syscall102(ctx: FunctionEnvMut<EmEnv>, _which: c_int, mut varargs: Var
             let untranslated_name: i32 = socket_varargs.get(&ctx);
             let value: u32 = socket_varargs.get(&ctx);
             let option_len: u32 = socket_varargs.get(&ctx);
-            let value_addr = emscripten_memory_pointer!(ctx, memory, value) as *const libc::c_void;
+            let value_addr = emscripten_memory_pointer!(memory, value) as *const libc::c_void;
             let name: i32 = translate_socket_name_flag(untranslated_name);
 
             let ret = unsafe { setsockopt(socket, level, name, value_addr, option_len) };
@@ -778,9 +778,9 @@ pub fn ___syscall102(ctx: FunctionEnvMut<EmEnv>, _which: c_int, mut varargs: Var
             let name: i32 = translate_socket_name_flag(untranslated_name);
             let value: u32 = socket_varargs.get(&ctx);
             let option_len: u32 = socket_varargs.get(&ctx);
-            let value_addr = emscripten_memory_pointer!(ctx, memory, value) as _;
+            let value_addr = emscripten_memory_pointer!(memory, value) as _;
             let option_len_addr =
-                emscripten_memory_pointer!(ctx, memory, option_len) as *mut socklen_t;
+                emscripten_memory_pointer!(memory, option_len) as *mut socklen_t;
             unsafe { getsockopt(socket, level, name, value_addr, option_len_addr) }
         }
         16 => {
@@ -789,7 +789,7 @@ pub fn ___syscall102(ctx: FunctionEnvMut<EmEnv>, _which: c_int, mut varargs: Var
             let socket: i32 = socket_varargs.get(&ctx);
             let msg: u32 = socket_varargs.get(&ctx);
             let flags: i32 = socket_varargs.get(&ctx);
-            let msg_addr = emscripten_memory_pointer!(ctx, memory, msg) as *const msghdr;
+            let msg_addr = emscripten_memory_pointer!(memory, msg) as *const msghdr;
             unsafe { sendmsg(socket, msg_addr, flags) as i32 }
         }
         17 => {
@@ -798,7 +798,7 @@ pub fn ___syscall102(ctx: FunctionEnvMut<EmEnv>, _which: c_int, mut varargs: Var
             let socket: i32 = socket_varargs.get(&ctx);
             let msg: u32 = socket_varargs.get(&ctx);
             let flags: i32 = socket_varargs.get(&ctx);
-            let msg_addr = emscripten_memory_pointer!(ctx, memory, msg) as *mut msghdr;
+            let msg_addr = emscripten_memory_pointer!(memory, msg) as *mut msghdr;
             unsafe { recvmsg(socket, msg_addr, flags) as i32 }
         }
         _ => {
@@ -860,9 +860,9 @@ pub fn ___syscall168(ctx: FunctionEnvMut<EmEnv>, _which: i32, mut varargs: VarAr
     let fds: WasmPtr<EmPollFd> = varargs.get(&ctx);
     let nfds: u32 = varargs.get(&ctx);
     let timeout: i32 = varargs.get(&ctx);
-    let memory = ctx.data().memory(0);
+    let memory = ctx.data().memory_view(0, &ctx);
 
-    let mut fds_mut = fds.deref(&ctx, &memory).read().unwrap();
+    let mut fds_mut = fds.deref(&memory).read().unwrap();
 
     unsafe {
         libc::poll(
@@ -885,7 +885,7 @@ pub fn ___syscall180(ctx: FunctionEnvMut<EmEnv>, _which: c_int, mut varargs: Var
     }
     let offset: i64 = varargs.get(&ctx);
 
-    let buf_ptr = emscripten_memory_pointer!(ctx, ctx.data().memory(0), buf) as _;
+    let buf_ptr = emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), buf) as _;
 
     unsafe { pread(fd, buf_ptr, count as _, offset) as _ }
 }
@@ -902,7 +902,7 @@ pub fn ___syscall181(ctx: FunctionEnvMut<EmEnv>, _which: c_int, mut varargs: Var
     }
     let offset: i64 = varargs.get(&ctx);
 
-    let buf_ptr = emscripten_memory_pointer!(ctx, ctx.data().memory(0), buf) as _;
+    let buf_ptr = emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), buf) as _;
     let status = unsafe { pwrite(fd, buf_ptr, count as _, offset) as _ };
     debug!(
         "=> fd: {}, buf: {}, count: {}, offset: {} = status:{}",
@@ -927,9 +927,9 @@ pub fn ___syscall114(ctx: FunctionEnvMut<EmEnv>, _which: c_int, mut varargs: Var
     let status: u32 = varargs.get(&ctx);
     let options: c_int = varargs.get(&ctx);
     let rusage: u32 = varargs.get(&ctx);
-    let status_addr = emscripten_memory_pointer!(ctx, ctx.data().memory(0), status) as *mut c_int;
+    let status_addr = emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), status) as *mut c_int;
 
-    let rusage_addr = emscripten_memory_pointer!(ctx, ctx.data().memory(0), rusage) as *mut rusage;
+    let rusage_addr = emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), rusage) as *mut rusage;
     let res = unsafe { wait4(pid, status_addr, options, rusage_addr) };
     debug!(
         "=> pid: {}, status: {:?}, options: {}, rusage: {:?} = pid: {}",
@@ -962,8 +962,8 @@ pub fn ___syscall142(ctx: FunctionEnvMut<EmEnv>, _which: c_int, mut varargs: Var
     }
     assert!(exceptfds == 0, "`exceptfds` is not supporrted");
 
-    let readfds_ptr = emscripten_memory_pointer!(ctx, ctx.data().memory(0), readfds) as _;
-    let writefds_ptr = emscripten_memory_pointer!(ctx, ctx.data().memory(0), writefds) as _;
+    let readfds_ptr = emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), readfds) as _;
+    let writefds_ptr = emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), writefds) as _;
 
     unsafe { select(nfds, readfds_ptr, writefds_ptr, 0 as _, 0 as _) }
 }
@@ -998,7 +998,7 @@ pub fn ___syscall122(ctx: FunctionEnvMut<EmEnv>, _which: c_int, mut varargs: Var
     debug!("emscripten::___syscall122 (uname) {}", _which);
     let buf: u32 = varargs.get(&ctx);
     debug!("=> buf: {}", buf);
-    let buf_addr = emscripten_memory_pointer!(ctx, ctx.data().memory(0), buf) as *mut utsname;
+    let buf_addr = emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), buf) as *mut utsname;
     unsafe { uname(buf_addr) }
 }
 
@@ -1057,7 +1057,7 @@ pub fn ___syscall220(ctx: FunctionEnvMut<EmEnv>, _which: i32, mut varargs: VarAr
         fd, dirp_addr, count
     );
 
-    let dirp = emscripten_memory_pointer!(ctx, ctx.data().memory(0), dirp_addr) as *mut u8;
+    let dirp = emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), dirp_addr) as *mut u8;
 
     let data = &mut get_emscripten_data(&ctx);
     let opened_dirs = &mut data.as_mut().unwrap().opened_dirs;

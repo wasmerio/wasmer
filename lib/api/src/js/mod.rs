@@ -48,7 +48,7 @@ pub use crate::js::error::{DeserializeError, InstantiationError, SerializeError}
 pub use crate::js::export::Export;
 pub use crate::js::exports::{ExportError, Exportable, Exports, ExportsIterator};
 pub use crate::js::externals::{
-    Extern, FromToNativeWasmType, Function, Global, HostFunction, Memory, MemoryError, Table,
+    Extern, FromToNativeWasmType, Function, Global, HostFunction, Memory, MemoryView, MemoryError, Table,
     WasmTypeList,
 };
 pub use crate::js::function_env::{FunctionEnv, FunctionEnvMut};

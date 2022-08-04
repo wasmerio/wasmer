@@ -8,8 +8,12 @@ use std::marker::PhantomData;
 use std::mem;
 use std::mem::MaybeUninit;
 use std::slice;
+#[cfg(feature = "tracing")]
+use tracing::warn;
 use wasmer_types::Pages;
 use wasmer_vm::{InternalStoreHandle, MemoryError, StoreHandle, StoreObjects, VMExtern, VMMemory};
+
+use super::MemoryView;
 
 /// A WebAssembly `memory` instance.
 ///
@@ -27,7 +31,7 @@ use wasmer_vm::{InternalStoreHandle, MemoryError, StoreHandle, StoreObjects, VME
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#memory-instances>
 #[derive(Debug, Clone)]
 pub struct Memory {
-    handle: StoreHandle<VMMemory>,
+    pub(crate) handle: StoreHandle<VMMemory>,
 }
 
 impl Memory {
@@ -73,61 +77,10 @@ impl Memory {
         self.handle.get(store.as_store_ref().objects()).ty()
     }
 
-    /// Returns the pointer to the raw bytes of the `Memory`.
-    //
-    // This used by wasmer-emscripten and wasmer-c-api, but should be treated
-    // as deprecated and not used in future code.
-    #[doc(hidden)]
-    pub fn data_ptr(&self, store: &impl AsStoreRef) -> *mut u8 {
-        self.buffer(store).base
-    }
-
-    /// Returns the size (in bytes) of the `Memory`.
-    pub fn data_size(&self, store: &impl AsStoreRef) -> u64 {
-        self.buffer(store).len.try_into().unwrap()
-    }
-
-    /// Retrieve a slice of the memory contents.
-    ///
-    /// # Safety
-    ///
-    /// Until the returned slice is dropped, it is undefined behaviour to
-    /// modify the memory contents in any way including by calling a wasm
-    /// function that writes to the memory or by resizing the memory.
-    #[doc(hidden)]
-    pub unsafe fn data_unchecked(&self, store: &impl AsStoreRef) -> &[u8] {
-        self.data_unchecked_mut(store)
-    }
-
-    /// Retrieve a mutable slice of the memory contents.
-    ///
-    /// # Safety
-    ///
-    /// This method provides interior mutability without an UnsafeCell. Until
-    /// the returned value is dropped, it is undefined behaviour to read or
-    /// write to the pointed-to memory in any way except through this slice,
-    /// including by calling a wasm function that reads the memory contents or
-    /// by resizing this Memory.
-    #[allow(clippy::mut_from_ref)]
-    #[doc(hidden)]
-    pub unsafe fn data_unchecked_mut(&self, store: &impl AsStoreRef) -> &mut [u8] {
-        slice::from_raw_parts_mut(self.buffer(store).base, self.buffer(store).len)
-    }
-
-    /// Returns the size (in [`Pages`]) of the `Memory`.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use wasmer::{Memory, MemoryType, Pages, Store, Type, Value};
-    /// # let mut store = Store::default();
-    /// #
-    /// let m = Memory::new(&mut store, MemoryType::new(1, None, false)).unwrap();
-    ///
-    /// assert_eq!(m.size(&mut store), Pages(1));
-    /// ```
-    pub fn size(&self, store: &impl AsStoreRef) -> Pages {
-        self.handle.get(store.as_store_ref().objects()).size()
+    /// Creates a view into the memory that then allows for
+    /// read and write 
+    pub fn view<'a>(&self, store: &'a impl AsStoreRef) -> MemoryView<'a> {
+        MemoryView::new(self, store)
     }
 
     /// Grow memory by the specified amount of WebAssembly [`Pages`] and return
@@ -143,7 +96,7 @@ impl Memory {
     /// let p = m.grow(&mut store, 2).unwrap();
     ///
     /// assert_eq!(p, Pages(1));
-    /// assert_eq!(m.size(&mut store), Pages(3));
+    /// assert_eq!(m.view(&mut store).size(), Pages(3));
     /// ```
     ///
     /// # Errors
@@ -171,67 +124,6 @@ impl Memory {
         IntoPages: Into<Pages>,
     {
         self.handle.get_mut(store.objects_mut()).grow(delta.into())
-    }
-
-    /// Safely reads bytes from the memory at the given offset.
-    ///
-    /// The full buffer will be filled, otherwise a `MemoryAccessError` is returned
-    /// to indicate an out-of-bounds access.
-    ///
-    /// This method is guaranteed to be safe (from the host side) in the face of
-    /// concurrent writes.
-    pub fn read(
-        &self,
-        store: &impl AsStoreRef,
-        offset: u64,
-        buf: &mut [u8],
-    ) -> Result<(), MemoryAccessError> {
-        self.buffer(store).read(offset, buf)
-    }
-
-    /// Safely reads bytes from the memory at the given offset.
-    ///
-    /// This method is similar to `read` but allows reading into an
-    /// uninitialized buffer. An initialized view of the buffer is returned.
-    ///
-    /// The full buffer will be filled, otherwise a `MemoryAccessError` is returned
-    /// to indicate an out-of-bounds access.
-    ///
-    /// This method is guaranteed to be safe (from the host side) in the face of
-    /// concurrent writes.
-    pub fn read_uninit<'a>(
-        &self,
-        store: &impl AsStoreRef,
-        offset: u64,
-        buf: &'a mut [MaybeUninit<u8>],
-    ) -> Result<&'a mut [u8], MemoryAccessError> {
-        self.buffer(store).read_uninit(offset, buf)
-    }
-
-    /// Safely writes bytes to the memory at the given offset.
-    ///
-    /// If the write exceeds the bounds of the memory then a `MemoryAccessError` is
-    /// returned.
-    ///
-    /// This method is guaranteed to be safe (from the host side) in the face of
-    /// concurrent reads/writes.
-    pub fn write(
-        &self,
-        store: &impl AsStoreRef,
-        offset: u64,
-        data: &[u8],
-    ) -> Result<(), MemoryAccessError> {
-        self.buffer(store).write(offset, data)
-    }
-
-    pub(crate) fn buffer<'a>(&'a self, store: &'a impl AsStoreRef) -> MemoryBuffer<'a> {
-        let definition = self.handle.get(store.as_store_ref().objects()).vmmemory();
-        let def = unsafe { definition.as_ref() };
-        MemoryBuffer {
-            base: def.base,
-            len: def.current_length,
-            marker: PhantomData,
-        }
     }
 
     pub(crate) fn from_vm_extern(
@@ -273,11 +165,11 @@ impl<'a> Exportable<'a> for Memory {
 }
 
 /// Underlying buffer for a memory.
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub(crate) struct MemoryBuffer<'a> {
-    base: *mut u8,
-    len: usize,
-    marker: PhantomData<(&'a Memory, &'a StoreObjects)>,
+    pub(crate) base: *mut u8,
+    pub(crate) len: usize,
+    pub(crate) marker: PhantomData<(&'a MemoryView<'a>, &'a StoreObjects)>,
 }
 
 impl<'a> MemoryBuffer<'a> {
@@ -286,6 +178,8 @@ impl<'a> MemoryBuffer<'a> {
             .checked_add(buf.len() as u64)
             .ok_or(MemoryAccessError::Overflow)?;
         if end > self.len.try_into().unwrap() {
+            #[cfg(feature = "tracing")]
+            warn!("attempted to read ({} bytes) beyond the bounds of the memory view ({} > {})", buf.len(), end, self.len);
             return Err(MemoryAccessError::HeapOutOfBounds);
         }
         unsafe {
@@ -303,6 +197,8 @@ impl<'a> MemoryBuffer<'a> {
             .checked_add(buf.len() as u64)
             .ok_or(MemoryAccessError::Overflow)?;
         if end > self.len.try_into().unwrap() {
+            #[cfg(feature = "tracing")]
+            warn!("attempted to read ({} bytes) beyond the bounds of the memory view ({} > {})", buf.len(), end, self.len);
             return Err(MemoryAccessError::HeapOutOfBounds);
         }
         let buf_ptr = buf.as_mut_ptr() as *mut u8;
@@ -318,6 +214,8 @@ impl<'a> MemoryBuffer<'a> {
             .checked_add(data.len() as u64)
             .ok_or(MemoryAccessError::Overflow)?;
         if end > self.len.try_into().unwrap() {
+            #[cfg(feature = "tracing")]
+            warn!("attempted to write ({} bytes) beyond the bounds of the memory view ({} > {})", data.len(), end, self.len);
             return Err(MemoryAccessError::HeapOutOfBounds);
         }
         unsafe {

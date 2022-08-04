@@ -11,7 +11,7 @@
 //! ```
 //!
 //! Ready?
-
+#![allow(unused)]
 use std::path::Path;
 use std::str::FromStr;
 use wasmer::{wat2wasm, Module, RuntimeError, Store};

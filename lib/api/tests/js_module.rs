@@ -6,7 +6,7 @@ mod js {
 
     #[wasm_bindgen_test]
     fn module_get_name() {
-        let mut store = Store::default();
+        let store = Store::default();
         let wat = r#"(module)"#;
         let module = Module::new(&store, wat).unwrap();
         assert_eq!(module.name(), None);
@@ -14,7 +14,7 @@ mod js {
 
     #[wasm_bindgen_test]
     fn module_set_name() {
-        let mut store = Store::default();
+        let store = Store::default();
         let wat = r#"(module $name)"#;
         let mut module = Module::new(&store, wat).unwrap();
 
@@ -31,12 +31,12 @@ mod js {
         let binary = wat2wasm(wat).unwrap();
         let js_bytes = unsafe { Uint8Array::view(&binary) };
         let js_module = WebAssembly::Module::new(&js_bytes.into()).unwrap();
-        let module: Module = js_module.into();
+        let _module: Module = js_module.into();
     }
 
     #[wasm_bindgen_test]
     fn imports() {
-        let mut store = Store::default();
+        let store = Store::default();
         let wat = r#"(module
     (import "host" "func" (func))
     (import "host" "memory" (memory 1))
@@ -107,7 +107,7 @@ mod js {
 
     #[wasm_bindgen_test]
     fn exports() {
-        let mut store = Store::default();
+        let store = Store::default();
         let wat = r#"(module
     (func (export "func") nop)
     (memory (export "memory") 2)

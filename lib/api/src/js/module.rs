@@ -5,7 +5,6 @@ use crate::js::error::{CompileError, InstantiationError};
 use crate::js::error::{DeserializeError, SerializeError};
 use crate::js::externals::Extern;
 use crate::js::imports::Imports;
-use crate::js::store::Store;
 use crate::js::store::{AsStoreMut, StoreHandle};
 use crate::js::types::{AsJs, ExportType, ImportType};
 use crate::js::RuntimeError;

@@ -37,7 +37,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // the default provided by Wasmer.
     // You can use `Store::default()` for that.
     let mut store = Store::new(Cranelift::default());
-    let mut env = FunctionEnv::new(&mut store, ());
 
     println!("Compiling module...");
     // Let's compile the Wasm module.
@@ -57,14 +56,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     //
     // The Wasm module exports a memory under "mem". Let's get it.
     let memory = instance.exports.get_memory("mem")?;
-
+    
     // Now that we have the exported memory, let's get some
     // information about it.
     //
     // The first thing we might be intersted in is the size of the memory.
     // Let's get it!
-    println!("Memory size (pages) {:?}", memory.size(&mut store));
-    println!("Memory size (bytes) {:?}", memory.data_size(&mut store));
+    let memory_view = memory.view(&store);
+    println!("Memory size (pages) {:?}", memory_view.size());
+    println!("Memory size (bytes) {:?}", memory_view.data_size());
 
     // Oh! Wait, before reading the contents, we need to know
     // where to find what we are looking for.
@@ -79,8 +79,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     //
     // We will get bytes out of the memory so we need to
     // decode them into a string.
+    let memory_view = memory.view(&store);
     let str = ptr
-        .read_utf8_string(&mut store, memory, length as u32)
+        .read_utf8_string(&memory_view, length as u32)
         .unwrap();
     println!("Memory contents: {:?}", str);
 
@@ -90,7 +91,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // To do that, we'll make a slice from our pointer and change the content
     // of each element.
     let new_str = b"Hello, Wasmer!";
-    let values = ptr.slice(&mut store, memory, new_str.len() as u32).unwrap();
+    let values = ptr.slice(&memory_view, new_str.len() as u32).unwrap();
     for i in 0..new_str.len() {
         values.index(i as u64).write(new_str[i]).unwrap();
     }
@@ -103,7 +104,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("New string length: {:?}", new_str.len());
 
     let str = ptr
-        .read_utf8_string(&mut store, memory, new_str.len() as u32)
+        .read_utf8_string(&memory_view, new_str.len() as u32)
         .unwrap();
     println!("New memory contents: {:?}", str);
 

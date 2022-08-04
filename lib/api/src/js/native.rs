@@ -39,7 +39,7 @@ where
     #[allow(dead_code)]
     pub(crate) fn new<T>(
         store: &mut impl AsStoreMut,
-        env: &FunctionEnv<T>,
+        _env: &FunctionEnv<T>,
         vm_function: VMFunction,
     ) -> Self {
         Self {

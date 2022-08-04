@@ -52,7 +52,7 @@ fn main() -> anyhow::Result<()> {
 
     // We set up our store with an engine and a compiler.
     let mut store = Store::new(Cranelift::default());
-    let mut env = FunctionEnv::new(&mut store, ());
+    let env = FunctionEnv::new(&mut store, ());
     // Then compile our Wasm.
     let module = Module::new(&store, wasm_bytes)?;
     let import_object = imports! {};

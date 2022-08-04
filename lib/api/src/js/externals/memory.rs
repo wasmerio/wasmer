@@ -3,15 +3,18 @@ use crate::js::exports::{ExportError, Exportable};
 use crate::js::externals::Extern;
 use crate::js::store::{AsStoreMut, AsStoreRef, InternalStoreHandle, StoreHandle, StoreObjects};
 use crate::js::{MemoryAccessError, MemoryType};
-use std::convert::TryInto;
 use std::marker::PhantomData;
 use std::mem::MaybeUninit;
 use std::slice;
 use thiserror::Error;
+#[cfg(feature = "tracing")]
+use tracing::warn;
 
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
-use wasmer_types::{Bytes, Pages};
+use wasmer_types::Pages;
+
+use super::MemoryView;
 
 /// Error type describing things that can go wrong when operating on Wasm Memories.
 #[derive(Error, Debug, Clone, PartialEq, Hash)]
@@ -79,8 +82,6 @@ extern "C" {
 #[derive(Debug, Clone)]
 pub struct Memory {
     pub(crate) handle: StoreHandle<VMMemory>,
-    #[allow(dead_code)]
-    view: js_sys::Uint8Array,
 }
 
 unsafe impl Send for Memory {}
@@ -132,52 +133,10 @@ impl Memory {
         self.handle.get(store.as_store_ref().objects()).ty
     }
 
-    /// Returns the pointer to the raw bytes of the `Memory`.
-    #[doc(hidden)]
-    pub fn data_ptr(&self) -> *mut u8 {
-        unimplemented!("direct data pointer access is not possible in JavaScript");
-    }
-
-    /// Returns the size (in bytes) of the `Memory`.
-    pub fn data_size(&self, store: &impl AsStoreRef) -> u64 {
-        js_sys::Reflect::get(
-            &self
-                .handle
-                .get(store.as_store_ref().objects())
-                .memory
-                .buffer(),
-            &"byteLength".into(),
-        )
-        .unwrap()
-        .as_f64()
-        .unwrap() as _
-    }
-
-    /// Returns the size (in [`Pages`]) of the `Memory`.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use wasmer::{Memory, MemoryType, Pages, Store, Type, Value};
-    /// # let mut store = Store::default();
-    /// #
-    /// let m = Memory::new(&store, MemoryType::new(1, None, false)).unwrap();
-    ///
-    /// assert_eq!(m.size(), Pages(1));
-    /// ```
-    pub fn size(&self, store: &impl AsStoreRef) -> Pages {
-        let bytes = js_sys::Reflect::get(
-            &self
-                .handle
-                .get(store.as_store_ref().objects())
-                .memory
-                .buffer(),
-            &"byteLength".into(),
-        )
-        .unwrap()
-        .as_f64()
-        .unwrap() as u64;
-        Bytes(bytes as usize).try_into().unwrap()
+    /// Creates a view into the memory that then allows for
+    /// read and write 
+    pub fn view(&self, store: &impl AsStoreRef) -> MemoryView {
+        MemoryView::new(self, store)
     }
 
     /// Grow memory by the specified amount of WebAssembly [`Pages`] and return
@@ -224,7 +183,7 @@ impl Memory {
         let new_pages = our_js_memory.grow(pages.0).map_err(|err| {
             if err.is_instance_of::<js_sys::RangeError>() {
                 MemoryError::CouldNotGrow {
-                    current: self.size(&store.as_store_ref()),
+                    current: self.view(&store.as_store_ref()).size(),
                     attempted_delta: pages,
                 }
             } else {
@@ -234,30 +193,9 @@ impl Memory {
         Ok(Pages(new_pages))
     }
 
-    /// Used by tests
-    #[doc(hidden)]
-    pub fn uint8view(&self, store: &impl AsStoreRef) -> js_sys::Uint8Array {
-        js_sys::Uint8Array::new(
-            &self
-                .handle
-                .get(store.as_store_ref().objects())
-                .memory
-                .buffer(),
-        )
-    }
-
-    pub(crate) fn buffer<'a>(&'a self, _store: &'a impl AsStoreRef) -> MemoryBuffer<'a> {
-        MemoryBuffer {
-            base: &self.view as *const _ as *mut _,
-            marker: PhantomData,
-        }
-    }
-
     pub(crate) fn from_vm_export(store: &mut impl AsStoreMut, vm_memory: VMMemory) -> Self {
-        let view = js_sys::Uint8Array::new(&vm_memory.memory.buffer());
         Self {
             handle: StoreHandle::new(store.objects_mut(), vm_memory),
-            view,
         }
     }
 
@@ -265,106 +203,11 @@ impl Memory {
         store: &mut impl AsStoreMut,
         internal: InternalStoreHandle<VMMemory>,
     ) -> Self {
-        let view =
-            js_sys::Uint8Array::new(&internal.get(store.as_store_ref().objects()).memory.buffer());
         Self {
             handle: unsafe {
                 StoreHandle::from_internal(store.as_store_ref().objects().id(), internal)
             },
-            view,
         }
-    }
-
-    /// Safely reads bytes from the memory at the given offset.
-    ///
-    /// The full buffer will be filled, otherwise a `MemoryAccessError` is returned
-    /// to indicate an out-of-bounds access.
-    ///
-    /// This method is guaranteed to be safe (from the host side) in the face of
-    /// concurrent writes.
-    pub fn read(
-        &self,
-        _store: &impl AsStoreRef,
-        offset: u64,
-        data: &mut [u8],
-    ) -> Result<(), MemoryAccessError> {
-        let view = &self.view;
-        let offset: u32 = offset.try_into().map_err(|_| MemoryAccessError::Overflow)?;
-        let len: u32 = data
-            .len()
-            .try_into()
-            .map_err(|_| MemoryAccessError::Overflow)?;
-        let end = offset.checked_add(len).ok_or(MemoryAccessError::Overflow)?;
-        if end > view.length() {
-            Err(MemoryAccessError::HeapOutOfBounds)?;
-        }
-        view.subarray(offset, end).copy_to(data);
-        Ok(())
-    }
-
-    /// Safely reads bytes from the memory at the given offset.
-    ///
-    /// This method is similar to `read` but allows reading into an
-    /// uninitialized buffer. An initialized view of the buffer is returned.
-    ///
-    /// The full buffer will be filled, otherwise a `MemoryAccessError` is returned
-    /// to indicate an out-of-bounds access.
-    ///
-    /// This method is guaranteed to be safe (from the host side) in the face of
-    /// concurrent writes.
-    pub fn read_uninit<'a>(
-        &self,
-        _store: &impl AsStoreRef,
-        offset: u64,
-        buf: &'a mut [MaybeUninit<u8>],
-    ) -> Result<&'a mut [u8], MemoryAccessError> {
-        let view = &self.view;
-        let offset: u32 = offset.try_into().map_err(|_| MemoryAccessError::Overflow)?;
-        let len: u32 = buf
-            .len()
-            .try_into()
-            .map_err(|_| MemoryAccessError::Overflow)?;
-        let end = offset.checked_add(len).ok_or(MemoryAccessError::Overflow)?;
-        if end > view.length() {
-            Err(MemoryAccessError::HeapOutOfBounds)?;
-        }
-
-        // Zero-initialize the buffer to avoid undefined behavior with
-        // uninitialized data.
-        for elem in buf.iter_mut() {
-            *elem = MaybeUninit::new(0);
-        }
-        let buf = unsafe { slice::from_raw_parts_mut(buf.as_mut_ptr() as *mut u8, buf.len()) };
-
-        view.subarray(offset, end).copy_to(buf);
-        Ok(buf)
-    }
-
-    /// Safely writes bytes to the memory at the given offset.
-    ///
-    /// If the write exceeds the bounds of the memory then a `MemoryAccessError` is
-    /// returned.
-    ///
-    /// This method is guaranteed to be safe (from the host side) in the face of
-    /// concurrent reads/writes.
-    pub fn write(
-        &self,
-        _store: &mut impl AsStoreMut,
-        offset: u64,
-        data: &[u8],
-    ) -> Result<(), MemoryAccessError> {
-        let offset: u32 = offset.try_into().map_err(|_| MemoryAccessError::Overflow)?;
-        let len: u32 = data
-            .len()
-            .try_into()
-            .map_err(|_| MemoryAccessError::Overflow)?;
-        let view = &self.view;
-        let end = offset.checked_add(len).ok_or(MemoryAccessError::Overflow)?;
-        if end > view.length() {
-            Err(MemoryAccessError::HeapOutOfBounds)?;
-        }
-        view.subarray(offset, end).copy_from(data);
-        Ok(())
     }
 
     /// Checks whether this `Global` can be used with the given context.
@@ -385,8 +228,8 @@ impl<'a> Exportable<'a> for Memory {
 /// Underlying buffer for a memory.
 #[derive(Copy, Clone)]
 pub(crate) struct MemoryBuffer<'a> {
-    base: *mut js_sys::Uint8Array,
-    marker: PhantomData<(&'a Memory, &'a StoreObjects)>,
+    pub(crate) base: *mut js_sys::Uint8Array,
+    pub(crate) marker: PhantomData<(&'a Memory, &'a StoreObjects)>,
 }
 
 impl<'a> MemoryBuffer<'a> {
@@ -396,6 +239,8 @@ impl<'a> MemoryBuffer<'a> {
             .ok_or(MemoryAccessError::Overflow)?;
         let view = unsafe { &*(self.base) };
         if end > view.length().into() {
+            #[cfg(feature = "tracing")]
+            warn!("attempted to read ({} bytes) beyond the bounds of the memory view ({} > {})", buf.len(), end, view.length());
             return Err(MemoryAccessError::HeapOutOfBounds);
         }
         view.subarray(offset as _, end as _)
@@ -413,6 +258,8 @@ impl<'a> MemoryBuffer<'a> {
             .ok_or(MemoryAccessError::Overflow)?;
         let view = unsafe { &*(self.base) };
         if end > view.length().into() {
+            #[cfg(feature = "tracing")]
+            warn!("attempted to read ({} bytes) beyond the bounds of the memory view ({} > {})", buf.len(), end, view.length());
             return Err(MemoryAccessError::HeapOutOfBounds);
         }
         let buf_ptr = buf.as_mut_ptr() as *mut u8;
@@ -428,6 +275,8 @@ impl<'a> MemoryBuffer<'a> {
             .ok_or(MemoryAccessError::Overflow)?;
         let view = unsafe { &mut *(self.base) };
         if end > view.length().into() {
+            #[cfg(feature = "tracing")]
+            warn!("attempted to write ({} bytes) beyond the bounds of the memory view ({} > {})", data.len(), end, view.length());
             return Err(MemoryAccessError::HeapOutOfBounds);
         }
         view.subarray(offset as _, end as _).copy_from(data);

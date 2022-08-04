@@ -54,7 +54,7 @@ fn main() -> anyhow::Result<()> {
 
     // Next we'll set up our `Module` so that we can execute it. First, create
     // a `FunctionEnv` in which to instantiate our `Module`.
-    let mut context = FunctionEnv::new(&mut store, ());
+    let context = FunctionEnv::new(&mut store, ());
 
     // We define a function to act as our "env" "say_hello" function imported in the
     // Wasm program above.

@@ -8,7 +8,7 @@ use std::mem::size_of;
 use std::os::raw::c_char;
 use std::path::PathBuf;
 use std::slice;
-use wasmer::{FunctionEnvMut, GlobalInit, Memory, Module, Pages, WasmPtr};
+use wasmer::{FunctionEnvMut, GlobalInit, Module, Pages, WasmPtr, MemoryView};
 
 /// We check if a provided module is an Emscripten generated one
 pub fn is_emscripten_module(module: &Module) -> bool {
@@ -99,7 +99,7 @@ pub unsafe fn write_to_buf(
     buf: u32,
     max: u32,
 ) -> u32 {
-    let buf_addr = emscripten_memory_pointer!(ctx, ctx.data().memory(0), buf) as *mut c_char;
+    let buf_addr = emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), buf) as *mut c_char;
 
     for i in 0..max {
         *buf_addr.add(i as _) = *string.add(i as _);
@@ -114,7 +114,7 @@ pub unsafe fn copy_cstr_into_wasm(ctx: &mut FunctionEnvMut<EmEnv>, cstr: *const 
     let cstr_len = s.len();
     let space_offset = env::call_malloc(ctx, (cstr_len as u32) + 1);
     let raw_memory =
-        emscripten_memory_pointer!(ctx, ctx.data().memory(0), space_offset) as *mut c_char;
+        emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), space_offset) as *mut c_char;
     let slice = slice::from_raw_parts_mut(raw_memory, cstr_len);
 
     for (byte, loc) in s.bytes().zip(slice.iter_mut()) {
@@ -139,7 +139,7 @@ pub unsafe fn allocate_on_stack<'a, T: Copy>(
         .call(&mut ctx, count * (size_of::<T>() as u32))
         .unwrap();
 
-    let addr = emscripten_memory_pointer!(ctx, ctx.data().memory(0), offset) as *mut T;
+    let addr = emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), offset) as *mut T;
     let slice = slice::from_raw_parts_mut(addr, count as usize);
 
     (offset, slice)
@@ -204,7 +204,7 @@ pub struct GuestStat {
 
 #[allow(clippy::cast_ptr_alignment)]
 pub unsafe fn copy_stat_into_wasm(ctx: FunctionEnvMut<EmEnv>, buf: u32, stat: &stat) {
-    let stat_ptr = emscripten_memory_pointer!(ctx, ctx.data().memory(0), buf) as *mut GuestStat;
+    let stat_ptr = emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), buf) as *mut GuestStat;
     (*stat_ptr).st_dev = stat.st_dev as _;
     (*stat_ptr).__st_dev_padding = 0;
     (*stat_ptr).__st_ino_truncated = stat.st_ino as _;
@@ -231,9 +231,9 @@ pub unsafe fn copy_stat_into_wasm(ctx: FunctionEnvMut<EmEnv>, buf: u32, stat: &s
 }
 
 #[allow(dead_code)] // it's used in `env/windows/mod.rs`.
-pub fn read_string_from_wasm(ctx: FunctionEnvMut<EmEnv>, memory: &Memory, offset: u32) -> String {
+pub fn read_string_from_wasm(memory: &MemoryView, offset: u32) -> String {
     WasmPtr::<u8>::new(offset)
-        .read_utf8_string_with_nul(&ctx, memory)
+        .read_utf8_string_with_nul(&memory)
         .unwrap()
 }
 

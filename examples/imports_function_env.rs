@@ -87,7 +87,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         *counter_ref
     }
 
-    let mut env = FunctionEnv::new(
+    let env = FunctionEnv::new(
         &mut store,
         Env {
             counter: shared_counter.clone(),

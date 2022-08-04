@@ -17,7 +17,7 @@ use wasmer::{FunctionEnvMut, WasmPtr};
 pub fn _getenv(mut ctx: FunctionEnvMut<EmEnv>, name: i32) -> u32 {
     debug!("emscripten::_getenv");
 
-    let name_addr = emscripten_memory_pointer!(ctx, ctx.data().memory(0), name) as *const c_char;
+    let name_addr = emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), name) as *const c_char;
 
     debug!("=> name({:?})", unsafe { CStr::from_ptr(name_addr) });
 
@@ -33,8 +33,8 @@ pub fn _getenv(mut ctx: FunctionEnvMut<EmEnv>, name: i32) -> u32 {
 pub fn _setenv(ctx: FunctionEnvMut<EmEnv>, name: c_int, value: c_int, overwrite: c_int) -> c_int {
     debug!("emscripten::_setenv");
 
-    let name_addr = emscripten_memory_pointer!(ctx, ctx.data().memory(0), name) as *const c_char;
-    let value_addr = emscripten_memory_pointer!(ctx, ctx.data().memory(0), value) as *const c_char;
+    let name_addr = emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), name) as *const c_char;
+    let value_addr = emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), value) as *const c_char;
 
     debug!("=> name({:?})", unsafe { CStr::from_ptr(name_addr) });
     debug!("=> value({:?})", unsafe { CStr::from_ptr(value_addr) });
@@ -46,7 +46,7 @@ pub fn _setenv(ctx: FunctionEnvMut<EmEnv>, name: c_int, value: c_int, overwrite:
 pub fn _putenv(ctx: FunctionEnvMut<EmEnv>, name: c_int) -> c_int {
     debug!("emscripten::_putenv");
 
-    let name_addr = emscripten_memory_pointer!(ctx, ctx.data().memory(0), name) as *const c_char;
+    let name_addr = emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), name) as *const c_char;
 
     debug!("=> name({:?})", unsafe { CStr::from_ptr(name_addr) });
 
@@ -57,7 +57,7 @@ pub fn _putenv(ctx: FunctionEnvMut<EmEnv>, name: c_int) -> c_int {
 pub fn _unsetenv(ctx: FunctionEnvMut<EmEnv>, name: c_int) -> c_int {
     debug!("emscripten::_unsetenv");
 
-    let name_addr = emscripten_memory_pointer!(ctx, ctx.data().memory(0), name) as *const c_char;
+    let name_addr = emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), name) as *const c_char;
 
     debug!("=> name({:?})", unsafe { CStr::from_ptr(name_addr) });
 
@@ -82,8 +82,8 @@ pub fn _getpwnam(mut ctx: FunctionEnvMut<EmEnv>, name_ptr: c_int) -> c_int {
     }
 
     let name = unsafe {
-        let memory = ctx.data().memory(0);
-        let memory_name_ptr = emscripten_memory_pointer!(ctx, memory, name_ptr) as *const c_char;
+        let memory = ctx.data().memory_view(0, &ctx);
+        let memory_name_ptr = emscripten_memory_pointer!(&memory, name_ptr) as *const c_char;
         CStr::from_ptr(memory_name_ptr)
     };
 
@@ -91,9 +91,9 @@ pub fn _getpwnam(mut ctx: FunctionEnvMut<EmEnv>, name_ptr: c_int) -> c_int {
         let passwd = &*libc_getpwnam(name.as_ptr());
         let passwd_struct_offset = call_malloc(&mut ctx, mem::size_of::<GuestPasswd>() as _);
 
-        let memory = ctx.data().memory(0);
+        let memory = ctx.data().memory_view(0, &ctx);
         let passwd_struct_ptr =
-            emscripten_memory_pointer!(ctx, memory, passwd_struct_offset) as *mut GuestPasswd;
+            emscripten_memory_pointer!(&memory, passwd_struct_offset) as *mut GuestPasswd;
         (*passwd_struct_ptr).pw_name = copy_cstr_into_wasm(&mut ctx, passwd.pw_name);
         (*passwd_struct_ptr).pw_passwd = copy_cstr_into_wasm(&mut ctx, passwd.pw_passwd);
         (*passwd_struct_ptr).pw_gecos = copy_cstr_into_wasm(&mut ctx, passwd.pw_gecos);
@@ -120,7 +120,7 @@ pub fn _getgrnam(mut ctx: FunctionEnvMut<EmEnv>, name_ptr: c_int) -> c_int {
 
     let name = unsafe {
         let memory_name_ptr =
-            emscripten_memory_pointer!(ctx, ctx.data().memory(0), name_ptr) as *const c_char;
+            emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), name_ptr) as *const c_char;
         CStr::from_ptr(memory_name_ptr)
     };
 
@@ -129,7 +129,7 @@ pub fn _getgrnam(mut ctx: FunctionEnvMut<EmEnv>, name_ptr: c_int) -> c_int {
         let group_struct_offset = call_malloc(&mut ctx, mem::size_of::<GuestGroup>() as _);
 
         let group_struct_ptr =
-            emscripten_memory_pointer!(ctx, ctx.data().memory(0), group_struct_offset)
+            emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), group_struct_offset)
                 as *mut GuestGroup;
         (*group_struct_ptr).gr_name = copy_cstr_into_wasm(&mut ctx, group.gr_name);
         (*group_struct_ptr).gr_passwd = copy_cstr_into_wasm(&mut ctx, group.gr_passwd);
@@ -153,10 +153,10 @@ pub fn _gai_strerror(mut ctx: FunctionEnvMut<EmEnv>, ecode: i32) -> i32 {
     let cstr = unsafe { std::ffi::CStr::from_ptr(libc::gai_strerror(ecode)) };
     let bytes = cstr.to_bytes_with_nul();
     let string_on_guest: WasmPtr<c_char> = call_malloc_with_cast(&mut ctx, bytes.len() as _);
-    let memory = ctx.data().memory(0);
+    let memory = ctx.data().memory_view(0, &ctx);
 
     let writer = string_on_guest
-        .slice(&ctx, &memory, bytes.len() as _)
+        .slice(&memory, bytes.len() as _)
         .unwrap();
     for (i, byte) in bytes.iter().enumerate() {
         writer.index(i as u64).write(*byte as _).unwrap();
@@ -174,7 +174,6 @@ pub fn _getaddrinfo(
 ) -> i32 {
     use libc::{addrinfo, freeaddrinfo};
     debug!("emscripten::_getaddrinfo");
-    let memory = ctx.data().memory(0);
     debug!(" => node = {}", {
         if node_ptr.is_null() {
             std::borrow::Cow::Borrowed("null")
@@ -193,7 +192,7 @@ pub fn _getaddrinfo(
     let hints = if hints_ptr.is_null() {
         None
     } else {
-        let hints_guest = hints_ptr.deref(&ctx, &memory).read().unwrap();
+        let hints_guest = hints_ptr.deref(&ctx.data().memory_view(0, &ctx)).read().unwrap();
         Some(addrinfo {
             ai_flags: hints_guest.ai_flags,
             ai_family: hints_guest.ai_family,
@@ -247,7 +246,8 @@ pub fn _getaddrinfo(
 
             // connect list
             if let Some(prev_guest) = previous_guest_node {
-                let derefed_prev_guest = prev_guest.deref(&ctx, &memory);
+                let memory = ctx.data().memory_view(0, &ctx);
+                let derefed_prev_guest = prev_guest.deref(&memory);
                 let mut pg = derefed_prev_guest.read().unwrap();
                 pg.ai_next = current_guest_node_ptr;
                 derefed_prev_guest.write(pg).unwrap();
@@ -262,7 +262,8 @@ pub fn _getaddrinfo(
                 let guest_sockaddr_ptr: WasmPtr<EmSockAddr> =
                     call_malloc_with_cast(&mut ctx, host_addrlen as _);
 
-                let derefed_guest_sockaddr = guest_sockaddr_ptr.deref(&ctx, &memory);
+                let memory = ctx.data().memory_view(0, &ctx);
+                let derefed_guest_sockaddr = guest_sockaddr_ptr.deref(&memory);
                 let mut gs = derefed_guest_sockaddr.read().unwrap();
                 gs.sa_family = (*host_sockaddr_ptr).sa_family as i16;
                 gs.sa_data = (*host_sockaddr_ptr).sa_data;
@@ -281,8 +282,9 @@ pub fn _getaddrinfo(
                     let guest_canonname: WasmPtr<c_char> =
                         call_malloc_with_cast(&mut ctx, str_size as _);
 
+                    let memory = ctx.data().memory_view(0, &ctx);
                     let guest_canonname_writer =
-                        guest_canonname.slice(&ctx, &memory, str_size as _).unwrap();
+                        guest_canonname.slice(&memory, str_size as _).unwrap();
                     for (i, b) in canonname_bytes.iter().enumerate() {
                         guest_canonname_writer
                             .index(i as u64)
@@ -296,7 +298,8 @@ pub fn _getaddrinfo(
                 }
             };
 
-            let derefed_current_guest_node = current_guest_node_ptr.deref(&ctx, &memory);
+            let memory = ctx.data().memory_view(0, &ctx);
+            let derefed_current_guest_node = current_guest_node_ptr.deref(&memory);
             let mut cgn = derefed_current_guest_node.read().unwrap();
             cgn.ai_flags = (*current_host_node).ai_flags;
             cgn.ai_family = (*current_host_node).ai_family;
@@ -317,7 +320,7 @@ pub fn _getaddrinfo(
     };
 
     res_val_ptr
-        .deref(&ctx, &memory)
+        .deref(&ctx.data().memory_view(0, &ctx))
         .write(head_of_list)
         .unwrap();
 
