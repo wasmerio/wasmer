@@ -41,6 +41,14 @@ pub struct CreateExe {
     /// - `serialized` creates an executable where the module is zero-copy serialized as raw data
     #[structopt(name = "OBJECT_FORMAT", long = "object-format", verbatim_doc_comment)]
     object_format: Option<ObjectFormat>,
+
+    /// Header file for object input
+    ///
+    /// If given, the input `PATH` is assumed to be an object created with `wasmer create-obj` and
+    /// this is its accompanying header file.
+    #[structopt(name = "HEADER", long = "header", verbatim_doc_comment)]
+    header: Option<PathBuf>,
+
     #[structopt(short = "m", multiple = true, number_of_values = 1)]
     cpu_features: Vec<CpuFeature>,
 
@@ -90,61 +98,72 @@ impl CreateExe {
 
         let wasm_module_path = starting_cd.join(&self.path);
 
-        match object_format {
-            ObjectFormat::Serialized => {
-                let module = Module::from_file(&store, &wasm_module_path)
-                    .context("failed to compile Wasm")?;
-                let bytes = module.serialize()?;
-                let mut obj = get_object_for_target(target.triple())?;
-                emit_serialized(&mut obj, &bytes, target.triple())?;
-                let mut writer = BufWriter::new(File::create(&wasm_object_path)?);
-                obj.write_stream(&mut writer)
-                    .map_err(|err| anyhow::anyhow!(err.to_string()))?;
-                writer.flush()?;
-                drop(writer);
+        if let Some(header_path) = self.header.as_ref() {
+            let header_path = starting_cd.join(&header_path);
+            std::fs::copy(&header_path, Path::new("static_defs.h"))
+                .context("Could not access given header file")?;
+            link(
+                output_path,
+                wasm_module_path,
+                std::path::Path::new("static_defs.h").into(),
+            )?;
+        } else {
+            match object_format {
+                ObjectFormat::Serialized => {
+                    let module = Module::from_file(&store, &wasm_module_path)
+                        .context("failed to compile Wasm")?;
+                    let bytes = module.serialize()?;
+                    let mut obj = get_object_for_target(target.triple())?;
+                    emit_serialized(&mut obj, &bytes, target.triple())?;
+                    let mut writer = BufWriter::new(File::create(&wasm_object_path)?);
+                    obj.write_stream(&mut writer)
+                        .map_err(|err| anyhow::anyhow!(err.to_string()))?;
+                    writer.flush()?;
+                    drop(writer);
 
-                self.compile_c(wasm_object_path, output_path)?;
-            }
-            #[cfg(not(feature = "static-artifact-create"))]
-            ObjectFormat::Symbols => {
-                return Err(anyhow!("This version of wasmer-cli hasn't been compiled with static artifact support. You need to enable the `static-artifact-create` feature during compilation."));
-            }
-            #[cfg(feature = "static-artifact-create")]
-            ObjectFormat::Symbols => {
-                let engine = store.engine();
-                let engine_inner = engine.inner();
-                let compiler = engine_inner.compiler()?;
-                let features = engine_inner.features();
-                let tunables = store.tunables();
-                let data: Vec<u8> = fs::read(wasm_module_path)?;
-                let prefixer: Option<Box<dyn Fn(&[u8]) -> String + Send>> = None;
-                let (module_info, obj, metadata_length, symbol_registry) =
-                    Artifact::generate_object(
-                        compiler, &data, prefixer, &target, tunables, features,
+                    self.compile_c(wasm_object_path, output_path)?;
+                }
+                #[cfg(not(feature = "static-artifact-create"))]
+                ObjectFormat::Symbols => {
+                    return Err(anyhow!("This version of wasmer-cli hasn't been compiled with static artifact support. You need to enable the `static-artifact-create` feature during compilation."));
+                }
+                #[cfg(feature = "static-artifact-create")]
+                ObjectFormat::Symbols => {
+                    let engine = store.engine();
+                    let engine_inner = engine.inner();
+                    let compiler = engine_inner.compiler()?;
+                    let features = engine_inner.features();
+                    let tunables = store.tunables();
+                    let data: Vec<u8> = fs::read(wasm_module_path)?;
+                    let prefixer: Option<Box<dyn Fn(&[u8]) -> String + Send>> = None;
+                    let (module_info, obj, metadata_length, symbol_registry) =
+                        Artifact::generate_object(
+                            compiler, &data, prefixer, &target, tunables, features,
+                        )?;
+
+                    let header_file_src = crate::c_gen::staticlib_header::generate_header_file(
+                        &module_info,
+                        &*symbol_registry,
+                        metadata_length,
+                    );
+                    /* Write object file with functions */
+                    let object_file_path: std::path::PathBuf =
+                        std::path::Path::new("functions.o").into();
+                    let mut writer = BufWriter::new(File::create(&object_file_path)?);
+                    obj.write_stream(&mut writer)
+                        .map_err(|err| anyhow::anyhow!(err.to_string()))?;
+                    writer.flush()?;
+                    /* Write down header file that includes pointer arrays and the deserialize function
+                     * */
+                    let mut writer = BufWriter::new(File::create("static_defs.h")?);
+                    writer.write_all(header_file_src.as_bytes())?;
+                    writer.flush()?;
+                    link(
+                        output_path,
+                        object_file_path,
+                        std::path::Path::new("static_defs.h").into(),
                     )?;
-
-                let header_file_src = crate::c_gen::staticlib_header::generate_header_file(
-                    &module_info,
-                    &*symbol_registry,
-                    metadata_length,
-                );
-                /* Write object file with functions */
-                let object_file_path: std::path::PathBuf =
-                    std::path::Path::new("functions.o").into();
-                let mut writer = BufWriter::new(File::create(&object_file_path)?);
-                obj.write_stream(&mut writer)
-                    .map_err(|err| anyhow::anyhow!(err.to_string()))?;
-                writer.flush()?;
-                /* Write down header file that includes pointer arrays and the deserialize function
-                 * */
-                let mut writer = BufWriter::new(File::create("static_defs.h")?);
-                writer.write_all(header_file_src.as_bytes())?;
-                writer.flush()?;
-                link(
-                    output_path,
-                    object_file_path,
-                    std::path::Path::new("static_defs.h").into(),
-                )?;
+                }
             }
         }
         eprintln!(
