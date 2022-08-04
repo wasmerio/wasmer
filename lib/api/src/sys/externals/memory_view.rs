@@ -96,7 +96,7 @@ impl<'a> MemoryView<'a> {
     }
 
     pub(crate) fn buffer(&'a self) -> MemoryBuffer<'a> {
-        self.buffer.clone()
+        self.buffer
     }
 
     /// Safely reads bytes from the memory at the given offset.

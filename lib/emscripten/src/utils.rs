@@ -234,7 +234,7 @@ pub unsafe fn copy_stat_into_wasm(ctx: FunctionEnvMut<EmEnv>, buf: u32, stat: &s
 #[allow(dead_code)] // it's used in `env/windows/mod.rs`.
 pub fn read_string_from_wasm(memory: &MemoryView, offset: u32) -> String {
     WasmPtr::<u8>::new(offset)
-        .read_utf8_string_with_nul(&memory)
+        .read_utf8_string_with_nul(memory)
         .unwrap()
 }
 
