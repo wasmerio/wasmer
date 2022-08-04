@@ -109,7 +109,7 @@ mod sys {
 
         let instance = Instance::new(&mut store, &module, &imports)?;
         {
-            fn sum(_env: FunctionEnvMut<()>, a: i32, b: i32) -> i32 {
+            fn sum(a: i32, b: i32) -> i32 {
                 a + b
             }
             let sum_func = Function::new_typed(&mut store, sum);

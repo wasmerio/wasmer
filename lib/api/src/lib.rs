@@ -151,7 +151,7 @@
 //! let memory = Memory::new(&mut store, MemoryType::new(1, None, false)).unwrap();
 //! imports! {
 //!     "env" => {
-//!          "my_function" => Function::new_typed(&mut store, |_env: FunctionEnvMut<()>| println!("Hello")),
+//!          "my_function" => Function::new_typed(&mut store, || println!("Hello")),
 //!          "memory" => memory,
 //!     }
 //! }

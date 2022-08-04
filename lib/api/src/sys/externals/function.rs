@@ -7,7 +7,7 @@ use crate::sys::TypedFunction;
 
 use crate::{FunctionEnv, FunctionEnvMut, Value};
 use inner::StaticFunction;
-pub use inner::{FromToNativeWasmType, HostFunction, WasmTypeList};
+pub use inner::{FromToNativeWasmType, HostFunction, WasmTypeList, WithEnv, WithoutEnv};
 use std::cell::UnsafeCell;
 use std::cmp::max;
 use std::ffi::c_void;
@@ -188,7 +188,7 @@ impl Function {
     /// Creates a new host `Function` from a native function.
     pub fn new_native<F, Args, Rets>(store: &mut impl AsStoreMut, func: F) -> Self
     where
-        F: HostFunction<(), Args, Rets> + 'static + Send + Sync,
+        F: HostFunction<(), Args, Rets, WithoutEnv> + 'static + Send + Sync,
         Args: WasmTypeList,
         Rets: WasmTypeList,
     {
@@ -199,12 +199,44 @@ impl Function {
     /// Creates a new host `Function` from a native function.
     pub fn new_typed<F, Args, Rets>(store: &mut impl AsStoreMut, func: F) -> Self
     where
-        F: HostFunction<(), Args, Rets> + 'static + Send + Sync,
+        F: HostFunction<(), Args, Rets, WithoutEnv> + 'static + Send + Sync,
         Args: WasmTypeList,
         Rets: WasmTypeList,
     {
         let env = FunctionEnv::new(store, ());
-        Self::new_typed_with_env(store, &env, func)
+        let host_data = Box::new(StaticFunction {
+            raw_store: store.as_store_mut().as_raw() as *mut u8,
+            env,
+            func,
+        });
+        let function_type = FunctionType::new(Args::wasm_types(), Rets::wasm_types());
+
+        let func_ptr = <F as HostFunction<(), Args, Rets, WithoutEnv>>::function_body_ptr();
+        let type_index = store
+            .as_store_mut()
+            .engine()
+            .register_signature(&function_type);
+        let vmctx = VMFunctionContext {
+            host_env: host_data.as_ref() as *const _ as *mut c_void,
+        };
+        let call_trampoline =
+            <F as HostFunction<(), Args, Rets, WithoutEnv>>::call_trampoline_address();
+        let anyfunc = VMCallerCheckedAnyfunc {
+            func_ptr,
+            type_index,
+            vmctx,
+            call_trampoline,
+        };
+
+        let vm_function = VMFunction {
+            anyfunc: MaybeInstanceOwned::Host(Box::new(UnsafeCell::new(anyfunc))),
+            kind: VMFunctionKind::Static,
+            signature: function_type,
+            host_data,
+        };
+        Self {
+            handle: StoreHandle::new(store.as_store_mut().objects_mut(), vm_function),
+        }
     }
 
     #[cfg(feature = "compiler")]
@@ -219,7 +251,7 @@ impl Function {
         func: F,
     ) -> Self
     where
-        F: HostFunction<T, Args, Rets> + 'static + Send + Sync,
+        F: HostFunction<T, Args, Rets, WithEnv> + 'static + Send + Sync,
         Args: WasmTypeList,
         Rets: WasmTypeList,
     {
@@ -251,7 +283,7 @@ impl Function {
         func: F,
     ) -> Self
     where
-        F: HostFunction<T, Args, Rets> + 'static + Send + Sync,
+        F: HostFunction<T, Args, Rets, WithEnv> + 'static + Send + Sync,
         Args: WasmTypeList,
         Rets: WasmTypeList,
     {
@@ -264,7 +296,7 @@ impl Function {
         });
         let function_type = FunctionType::new(Args::wasm_types(), Rets::wasm_types());
 
-        let func_ptr = <F as HostFunction<T, Args, Rets>>::function_body_ptr();
+        let func_ptr = <F as HostFunction<T, Args, Rets, WithEnv>>::function_body_ptr();
         let type_index = store
             .as_store_mut()
             .engine()
@@ -272,7 +304,8 @@ impl Function {
         let vmctx = VMFunctionContext {
             host_env: host_data.as_ref() as *const _ as *mut c_void,
         };
-        let call_trampoline = <F as HostFunction<T, Args, Rets>>::call_trampoline_address();
+        let call_trampoline =
+            <F as HostFunction<T, Args, Rets, WithEnv>>::call_trampoline_address();
         let anyfunc = VMCallerCheckedAnyfunc {
             func_ptr,
             type_index,
@@ -1052,10 +1085,11 @@ mod inner {
     /// can be used as host function. To uphold this statement, it is
     /// necessary for a function to be transformed into a pointer to
     /// `VMFunctionBody`.
-    pub trait HostFunction<T, Args, Rets>
+    pub trait HostFunction<T, Args, Rets, Kind>
     where
         Args: WasmTypeList,
         Rets: WasmTypeList,
+        Kind: HostFunctionKind,
     {
         /// Get the pointer to the function body.
         fn function_body_ptr() -> *const VMFunctionBody;
@@ -1063,6 +1097,27 @@ mod inner {
         /// Get the pointer to the function call trampoline.
         fn call_trampoline_address() -> VMTrampoline;
     }
+
+    /// Empty trait to specify the kind of `HostFunction`: With or
+    /// without an environment.
+    ///
+    /// This trait is never aimed to be used by a user. It is used by
+    /// the trait system to automatically generate the appropriate
+    /// host functions.
+    #[doc(hidden)]
+    pub trait HostFunctionKind {}
+
+    /// An empty struct to help Rust typing to determine
+    /// when a `HostFunction` does have an environment.
+    pub struct WithEnv;
+
+    impl HostFunctionKind for WithEnv {}
+
+    /// An empty struct to help Rust typing to determine
+    /// when a `HostFunction` does not have an environment.
+    pub struct WithoutEnv;
+
+    impl HostFunctionKind for WithoutEnv {}
 
     /// Represents a low-level Wasm static host function. See
     /// [`super::Function::new_typed`] and
@@ -1189,10 +1244,11 @@ mod inner {
                 }
             }
 
-            // Implement `HostFunction` for a function that has the same arity than the tuple.
+            // Implement `HostFunction` for a function with a [`FunctionEnvMut`] that has the same
+            // arity than the tuple.
             #[allow(unused_parens)]
             impl< $( $x, )* Rets, RetsAsResult, T: Send + 'static, Func >
-                HostFunction<T, ( $( $x ),* ), Rets>
+                HostFunction<T, ( $( $x ),* ), Rets, WithEnv>
             for
                 Func
             where
@@ -1240,6 +1296,83 @@ mod inner {
                     }
 
                     func_wrapper::< T, $( $x, )* Rets, RetsAsResult, Self > as *const VMFunctionBody
+                }
+
+                #[allow(non_snake_case)]
+                fn call_trampoline_address() -> VMTrampoline {
+                    unsafe extern "C" fn call_trampoline<
+                        $( $x: FromToNativeWasmType, )*
+                        Rets: WasmTypeList,
+                    >(
+                        vmctx: *mut VMContext,
+                        body: *const VMFunctionBody,
+                        args: *mut RawValue,
+                    ) {
+                            let body: unsafe extern "C" fn(
+                                vmctx: *mut VMContext,
+                                $( $x: <$x::Native as NativeWasmType>::Abi, )*
+                            ) -> Rets::CStruct
+                                = std::mem::transmute(body);
+
+                            let mut _n = 0;
+                            $(
+                                let $x = *args.add(_n).cast();
+                                _n += 1;
+                            )*
+
+                            let results = body(vmctx, $( $x ),*);
+                            Rets::write_c_struct_to_ptr(results, args);
+                    }
+
+                    call_trampoline::<$( $x, )* Rets>
+                }
+
+            }
+
+            // Implement `HostFunction` for a function that has the same arity than the tuple.
+            #[allow(unused_parens)]
+            impl< $( $x, )* Rets, RetsAsResult, Func >
+                HostFunction<(), ( $( $x ),* ), Rets, WithoutEnv>
+            for
+                Func
+            where
+                $( $x: FromToNativeWasmType, )*
+                Rets: WasmTypeList,
+                RetsAsResult: IntoResult<Rets>,
+                Func: Fn($( $x , )*) -> RetsAsResult + 'static,
+            {
+                #[allow(non_snake_case)]
+                fn function_body_ptr() -> *const VMFunctionBody {
+                    /// This is a function that wraps the real host
+                    /// function. Its address will be used inside the
+                    /// runtime.
+                    unsafe extern "C" fn func_wrapper<$( $x, )* Rets, RetsAsResult, Func>( env: &StaticFunction<Func, ()>, $( $x: <$x::Native as NativeWasmType>::Abi, )* ) -> Rets::CStruct
+                    where
+                        $( $x: FromToNativeWasmType, )*
+                        Rets: WasmTypeList,
+                        RetsAsResult: IntoResult<Rets>,
+                        Func: Fn($( $x , )*) -> RetsAsResult + 'static,
+                    {
+                        // println!("func wrapper");
+                        let mut store = StoreMut::from_raw(env.raw_store as *mut _);
+                        let result = on_host_stack(|| {
+                            // println!("func wrapper1");
+                            panic::catch_unwind(AssertUnwindSafe(|| {
+                                $(
+                                    let $x = FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(&mut store, $x));
+                                )*
+                                (env.func)($($x),* ).into_result()
+                            }))
+                        });
+
+                        match result {
+                            Ok(Ok(result)) => return result.into_c_struct(&mut store),
+                            Ok(Err(trap)) => raise_user_trap(Box::new(trap)),
+                            Err(panic) => resume_panic(panic) ,
+                        }
+                    }
+
+                    func_wrapper::< $( $x, )* Rets, RetsAsResult, Self > as *const VMFunctionBody
                 }
 
                 #[allow(non_snake_case)]

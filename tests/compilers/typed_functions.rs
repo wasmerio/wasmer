@@ -6,19 +6,7 @@ use wasmer::FunctionEnv;
 use wasmer::Type as ValueType;
 use wasmer::*;
 
-fn long_f(
-    _env: FunctionEnvMut<()>,
-    a: u32,
-    b: u32,
-    c: u32,
-    d: u32,
-    e: u32,
-    f: u16,
-    g: u64,
-    h: u64,
-    i: u16,
-    j: u32,
-) -> u64 {
+fn long_f(a: u32, b: u32, c: u32, d: u32, e: u32, f: u16, g: u64, h: u64, i: u16, j: u32) -> u64 {
     j as u64
         + i as u64 * 10
         + h * 100
@@ -95,7 +83,7 @@ fn typed_function_works_for_wasm(config: crate::Config) -> anyhow::Result<()> {
 fn typed_host_function_closure_panics(config: crate::Config) {
     let mut store = config.store();
     let state = 3;
-    Function::new_typed(&mut store, move |_env: FunctionEnvMut<_>, _: i32| {
+    Function::new_typed(&mut store, move |_: i32| {
         println!("{}", state);
     });
 }
@@ -255,22 +243,15 @@ fn typed_function_works_for_wasm_function_manyparams_dynamic(
 fn static_host_function_without_env(config: crate::Config) -> anyhow::Result<()> {
     let mut store = config.store();
 
-    fn f(_env: FunctionEnvMut<()>, a: i32, b: i64, c: f32, d: f64) -> (f64, f32, i64, i32) {
+    fn f(a: i32, b: i64, c: f32, d: f64) -> (f64, f32, i64, i32) {
         (d * 4.0, c * 3.0, b * 2, a * 1)
     }
 
-    fn f_ok(
-        _env: FunctionEnvMut<()>,
-        a: i32,
-        b: i64,
-        c: f32,
-        d: f64,
-    ) -> Result<(f64, f32, i64, i32), Infallible> {
+    fn f_ok(a: i32, b: i64, c: f32, d: f64) -> Result<(f64, f32, i64, i32), Infallible> {
         Ok((d * 4.0, c * 3.0, b * 2, a * 1))
     }
 
     fn long_f(
-        _env: FunctionEnvMut<()>,
         a: u32,
         b: u32,
         c: u32,

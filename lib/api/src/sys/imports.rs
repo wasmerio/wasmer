@@ -28,7 +28,7 @@ use wasmer_types::ImportError;
 ///
 /// let instance = Instance::new(&mut store, &module, &import_object).expect("Could not instantiate module.");
 ///
-/// fn foo(_env: FunctionEnvMut<()>, n: i32) -> i32 {
+/// fn foo(n: i32) -> i32 {
 ///     n
 /// }
 ///
@@ -100,7 +100,7 @@ impl Imports {
     /// # use wasmer::{FunctionEnv, Store};
     /// # let mut store: Store = Default::default();
     /// use wasmer::{StoreMut, Imports, Function, FunctionEnvMut};
-    /// fn foo(_env: FunctionEnvMut<()>, n: i32) -> i32 {
+    /// fn foo(n: i32) -> i32 {
     ///     n
     /// }
     /// let mut import_object = Imports::new();
@@ -219,7 +219,7 @@ impl fmt::Debug for Imports {
 ///     },
 /// };
 ///
-/// fn foo(_env: FunctionEnvMut<()>, n: i32) -> i32 {
+/// fn foo(n: i32) -> i32 {
 ///     n
 /// }
 /// ```
@@ -297,11 +297,10 @@ mod test {
     #[test]
     fn imports_macro_allows_trailing_comma_and_none() {
         use crate::sys::Function;
-        use crate::sys::FunctionEnvMut;
 
         let mut store: Store = Default::default();
 
-        fn func(_env: FunctionEnvMut<()>, arg: i32) -> i32 {
+        fn func(arg: i32) -> i32 {
             arg + 1
         }
 

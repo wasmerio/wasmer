@@ -180,30 +180,27 @@ fn static_function(config: crate::Config) -> Result<()> {
     let module = get_module(&store)?;
 
     static HITS: AtomicUsize = AtomicUsize::new(0);
-    let f0 = Function::new_typed(&mut store, |_env: FunctionEnvMut<_>| {
+    let f0 = Function::new_typed(&mut store, || {
         assert_eq!(HITS.fetch_add(1, SeqCst), 0);
     });
-    let f1 = Function::new_typed(&mut store, |_env: FunctionEnvMut<_>, x: i32| -> i32 {
+    let f1 = Function::new_typed(&mut store, |x: i32| -> i32 {
         assert_eq!(x, 0);
         assert_eq!(HITS.fetch_add(1, SeqCst), 1);
         1
     });
-    let f2 = Function::new_typed(&mut store, |_env: FunctionEnvMut<_>, x: i32, y: i64| {
+    let f2 = Function::new_typed(&mut store, |x: i32, y: i64| {
         assert_eq!(x, 2);
         assert_eq!(y, 3);
         assert_eq!(HITS.fetch_add(1, SeqCst), 2);
     });
-    let f3 = Function::new_typed(
-        &mut store,
-        |_env: FunctionEnvMut<_>, a: i32, b: i64, c: i32, d: f32, e: f64| {
-            assert_eq!(a, 100);
-            assert_eq!(b, 200);
-            assert_eq!(c, 300);
-            assert_eq!(d, 400.0);
-            assert_eq!(e, 500.0);
-            assert_eq!(HITS.fetch_add(1, SeqCst), 3);
-        },
-    );
+    let f3 = Function::new_typed(&mut store, |a: i32, b: i64, c: i32, d: f32, e: f64| {
+        assert_eq!(a, 100);
+        assert_eq!(b, 200);
+        assert_eq!(c, 300);
+        assert_eq!(d, 400.0);
+        assert_eq!(e, 500.0);
+        assert_eq!(HITS.fetch_add(1, SeqCst), 3);
+    });
     Instance::new(
         &mut store,
         &module,
@@ -227,33 +224,27 @@ fn static_function_with_results(config: crate::Config) -> Result<()> {
     let module = get_module(&store)?;
 
     static HITS: AtomicUsize = AtomicUsize::new(0);
-    let f0 = Function::new_typed(&mut store, |_env: FunctionEnvMut<_>| {
+    let f0 = Function::new_typed(&mut store, || {
         assert_eq!(HITS.fetch_add(1, SeqCst), 0);
     });
-    let f1 = Function::new_typed(
-        &mut store,
-        |_env: FunctionEnvMut<_>, x: i32| -> Result<i32, Infallible> {
-            assert_eq!(x, 0);
-            assert_eq!(HITS.fetch_add(1, SeqCst), 1);
-            Ok(1)
-        },
-    );
-    let f2 = Function::new_typed(&mut store, |_env: FunctionEnvMut<_>, x: i32, y: i64| {
+    let f1 = Function::new_typed(&mut store, |x: i32| -> Result<i32, Infallible> {
+        assert_eq!(x, 0);
+        assert_eq!(HITS.fetch_add(1, SeqCst), 1);
+        Ok(1)
+    });
+    let f2 = Function::new_typed(&mut store, |x: i32, y: i64| {
         assert_eq!(x, 2);
         assert_eq!(y, 3);
         assert_eq!(HITS.fetch_add(1, SeqCst), 2);
     });
-    let f3 = Function::new_typed(
-        &mut store,
-        |_env: FunctionEnvMut<_>, a: i32, b: i64, c: i32, d: f32, e: f64| {
-            assert_eq!(a, 100);
-            assert_eq!(b, 200);
-            assert_eq!(c, 300);
-            assert_eq!(d, 400.0);
-            assert_eq!(e, 500.0);
-            assert_eq!(HITS.fetch_add(1, SeqCst), 3);
-        },
-    );
+    let f3 = Function::new_typed(&mut store, |a: i32, b: i64, c: i32, d: f32, e: f64| {
+        assert_eq!(a, 100);
+        assert_eq!(b, 200);
+        assert_eq!(c, 300);
+        assert_eq!(d, 400.0);
+        assert_eq!(e, 500.0);
+        assert_eq!(HITS.fetch_add(1, SeqCst), 3);
+    });
     Instance::new(
         &mut store,
         &module,
@@ -349,14 +340,9 @@ fn static_function_that_fails(config: crate::Config) -> Result<()> {
     "#;
 
     let module = Module::new(&store, &wat)?;
-    let mut env = FunctionEnv::new(&mut store, ());
-    let f0 = Function::new_typed_with_env(
-        &mut store,
-        &env,
-        |_env: FunctionEnvMut<_>| -> Result<Infallible, RuntimeError> {
-            Err(RuntimeError::new("oops"))
-        },
-    );
+    let f0 = Function::new_typed(&mut store, || -> Result<Infallible, RuntimeError> {
+        Err(RuntimeError::new("oops"))
+    });
     let result = Instance::new(
         &mut store,
         &module,

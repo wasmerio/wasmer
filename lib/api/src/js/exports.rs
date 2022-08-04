@@ -162,7 +162,7 @@ impl Exports {
         Rets: WasmTypeList,
     {
         self.get_function(name)?
-            .native(store)
+            .typed(store)
             .map_err(|_| ExportError::IncompatibleType)
     }
 

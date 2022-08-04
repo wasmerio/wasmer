@@ -1,4 +1,4 @@
-pub use self::inner::{FromToNativeWasmType, HostFunction, WasmTypeList};
+pub use self::inner::{FromToNativeWasmType, HostFunction, WasmTypeList, WithEnv, WithoutEnv};
 use crate::js::exports::{ExportError, Exportable};
 use crate::js::externals::Extern;
 use crate::js::function_env::FunctionEnvMut;
@@ -65,7 +65,6 @@ impl Function {
     ///
     /// If you know the signature of the host function at compile time,
     /// consider using [`Function::new_typed`] for less runtime overhead.
-    #[cfg(feature = "compiler")]
     pub fn new<FT, F>(store: &mut impl AsStoreMut, ty: FT, func: F) -> Self
     where
         FT: Into<FunctionType>,
@@ -184,6 +183,49 @@ impl Function {
 
     #[deprecated(
         since = "3.0.0",
+        note = "new_native() has been renamed to new_typed()."
+    )]
+    /// Creates a new host `Function` from a native function.
+    pub fn new_native<F, Args, Rets>(store: &mut impl AsStoreMut, func: F) -> Self
+    where
+        F: HostFunction<(), Args, Rets, WithoutEnv> + 'static + Send + Sync,
+        Args: WasmTypeList,
+        Rets: WasmTypeList,
+    {
+        Self::new_typed(store, func)
+    }
+
+    /// Creates a new host `Function` from a native function.
+    pub fn new_typed<F, Args, Rets>(store: &mut impl AsStoreMut, func: F) -> Self
+    where
+        F: HostFunction<(), Args, Rets, WithoutEnv> + 'static + Send + Sync,
+        Args: WasmTypeList,
+        Rets: WasmTypeList,
+    {
+        let mut store = store.as_store_mut();
+        if std::mem::size_of::<F>() != 0 {
+            Self::closures_unsupported_panic();
+        }
+        let function = inner::Function::<Args, Rets>::new(func);
+        let address = function.address() as usize as u32;
+
+        let ft = wasm_bindgen::function_table();
+        let as_table = ft.unchecked_ref::<js_sys::WebAssembly::Table>();
+        let func = as_table.get(address).unwrap();
+
+        let binded_func = func.bind1(
+            &JsValue::UNDEFINED,
+            &JsValue::from_f64(store.as_raw() as *mut u8 as usize as f64),
+        );
+        let ty = function.ty();
+        let vm_function = VMFunction::new(binded_func, ty);
+        Self {
+            handle: StoreHandle::new(store.objects_mut(), vm_function),
+        }
+    }
+
+    #[deprecated(
+        since = "3.0.0",
         note = "new_native_with_env() has been renamed to new_typed_with_env()."
     )]
     /// Creates a new host `Function` with an environment from a typed function.
@@ -193,7 +235,7 @@ impl Function {
         func: F,
     ) -> Self
     where
-        F: HostFunction<T, Args, Rets>,
+        F: HostFunction<T, Args, Rets, WithEnv>,
         Args: WasmTypeList,
         Rets: WasmTypeList,
     {
@@ -223,7 +265,7 @@ impl Function {
         func: F,
     ) -> Self
     where
-        F: HostFunction<T, Args, Rets>,
+        F: HostFunction<T, Args, Rets, WithEnv>,
         Args: WasmTypeList,
         Rets: WasmTypeList,
     {
@@ -840,16 +882,38 @@ mod inner {
     /// can be used as host function. To uphold this statement, it is
     /// necessary for a function to be transformed into a pointer to
     /// `VMFunctionBody`.
-    pub trait HostFunction<T, Args, Rets>
+    pub trait HostFunction<T, Args, Rets, Kind>
     where
         Args: WasmTypeList,
         Rets: WasmTypeList,
+        Kind: HostFunctionKind,
         T: Sized,
         Self: Sized,
     {
         /// Get the pointer to the function body.
         fn function_body_ptr(self) -> *const VMFunctionBody;
     }
+
+    /// Empty trait to specify the kind of `HostFunction`: With or
+    /// without an environment.
+    ///
+    /// This trait is never aimed to be used by a user. It is used by
+    /// the trait system to automatically generate the appropriate
+    /// host functions.
+    #[doc(hidden)]
+    pub trait HostFunctionKind {}
+
+    /// An empty struct to help Rust typing to determine
+    /// when a `HostFunction` does have an environment.
+    pub struct WithEnv;
+
+    impl HostFunctionKind for WithEnv {}
+
+    /// An empty struct to help Rust typing to determine
+    /// when a `HostFunction` does not have an environment.
+    pub struct WithoutEnv;
+
+    impl HostFunctionKind for WithoutEnv {}
 
     /// Represents a low-level Wasm static host function. See
     /// `super::Function::new` and `super::Function::new_env` to learn
@@ -869,9 +933,9 @@ mod inner {
     {
         /// Creates a new `Function`.
         #[allow(dead_code)]
-        pub fn new<F, T>(function: F) -> Self
+        pub fn new<F, T, Kind: HostFunctionKind>(function: F) -> Self
         where
-            F: HostFunction<T, Args, Rets>,
+            F: HostFunction<T, Args, Rets, Kind>,
             T: Sized,
         {
             Self {
@@ -1013,10 +1077,11 @@ mod inner {
                 }
             }
 
-            // Implement `HostFunction` for a function that has the same arity than the tuple.
+            // Implement `HostFunction` for a function with a [`FunctionEnvMut`] that has the same
+            // arity than the tuple.
             #[allow(unused_parens)]
             impl< $( $x, )* Rets, RetsAsResult, T, Func >
-                HostFunction<T, ( $( $x ),* ), Rets>
+                HostFunction<T, ( $( $x ),* ), Rets, WithEnv>
             for
                 Func
             where
@@ -1059,6 +1124,50 @@ mod inner {
                     }
 
                     func_wrapper::< T, $( $x, )* Rets, RetsAsResult, Self > as *const VMFunctionBody
+                }
+            }
+
+            // Implement `HostFunction` for a function that has the same arity than the tuple.
+            #[allow(unused_parens)]
+            impl< $( $x, )* Rets, RetsAsResult, Func >
+                HostFunction<(), ( $( $x ),* ), Rets, WithoutEnv>
+            for
+                Func
+            where
+                $( $x: FromToNativeWasmType, )*
+                Rets: WasmTypeList,
+                RetsAsResult: IntoResult<Rets>,
+                Func: Fn($( $x , )*) -> RetsAsResult + 'static,
+            {
+                #[allow(non_snake_case)]
+                fn function_body_ptr(self) -> *const VMFunctionBody {
+                    /// This is a function that wraps the real host
+                    /// function. Its address will be used inside the
+                    /// runtime.
+                    unsafe extern "C" fn func_wrapper<$( $x, )* Rets, RetsAsResult, Func>( store_ptr: usize, $( $x: <$x::Native as NativeWasmType>::Abi, )* ) -> Rets::CStruct
+                    where
+                        $( $x: FromToNativeWasmType, )*
+                        Rets: WasmTypeList,
+                        RetsAsResult: IntoResult<Rets>,
+                        Func: Fn($( $x , )*) -> RetsAsResult + 'static,
+                    {
+                        // let env: &Env = unsafe { &*(ptr as *const u8 as *const Env) };
+                        let func: &Func = &*(&() as *const () as *const Func);
+                        let mut store = StoreMut::from_raw(store_ptr as *mut _);
+
+                        let result = panic::catch_unwind(AssertUnwindSafe(|| {
+                            func($( FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(&mut store, $x)) ),* ).into_result()
+                        }));
+
+                        match result {
+                            Ok(Ok(result)) => return result.into_c_struct(&mut store),
+                            #[allow(deprecated)]
+                            Ok(Err(trap)) => RuntimeError::raise(Box::new(trap)),
+                            Err(_panic) => unimplemented!(),
+                        }
+                    }
+
+                    func_wrapper::< $( $x, )* Rets, RetsAsResult, Self > as *const VMFunctionBody
                 }
             }
         };

@@ -69,7 +69,7 @@ mod sys {
             minimum: 0,
             maximum: None,
         };
-        let f = Function::new_typed(&mut store, |_env: FunctionEnvMut<()>| {});
+        let f = Function::new_typed(&mut store, || {});
         let table = Table::new(&mut store, table_type, Value::FuncRef(Some(f)))?;
         assert_eq!(table.ty(&mut store), table_type);
 
@@ -94,7 +94,7 @@ mod sys {
             minimum: 0,
             maximum: Some(1),
         };
-        let f = Function::new_typed(&mut store, |_env: FunctionEnvMut<()>, num: i32| num + 1);
+        let f = Function::new_typed(&mut store, |num: i32| num + 1);
         let table = Table::new(&mut store, table_type, Value::FuncRef(Some(f)))?;
         assert_eq!(table.ty(&mut store), table_type);
         let _elem = table.get(&mut store, 0).unwrap();
@@ -117,7 +117,7 @@ mod sys {
             minimum: 0,
             maximum: Some(10),
         };
-        let f = Function::new_typed(&mut store, |_env: FunctionEnvMut<()>, num: i32| num + 1);
+        let f = Function::new_typed(&mut store, |num: i32| num + 1);
         let table = Table::new(&mut store, table_type, Value::FuncRef(Some(f.clone())))?;
         // Growing to a bigger maximum should return None
         let old_len = table.grow(&mut store, 12, Value::FuncRef(Some(f.clone())));
@@ -182,33 +182,28 @@ mod sys {
     #[test]
     fn function_new() -> Result<()> {
         let mut store = Store::default();
-        let function = Function::new_typed(&mut store, |_env: FunctionEnvMut<()>| {});
+        let function = Function::new_typed(&mut store, || {});
         assert_eq!(
             function.ty(&mut store).clone(),
             FunctionType::new(vec![], vec![])
         );
-        let function = Function::new_typed(&mut store, |_env: FunctionEnvMut<()>, _a: i32| {});
+        let function = Function::new_typed(&mut store, |_a: i32| {});
         assert_eq!(
             function.ty(&mut store).clone(),
             FunctionType::new(vec![Type::I32], vec![])
         );
-        let function = Function::new_typed(
-            &mut store,
-            |_env: FunctionEnvMut<()>, _a: i32, _b: i64, _c: f32, _d: f64| {},
-        );
+        let function = Function::new_typed(&mut store, |_a: i32, _b: i64, _c: f32, _d: f64| {});
         assert_eq!(
             function.ty(&mut store).clone(),
             FunctionType::new(vec![Type::I32, Type::I64, Type::F32, Type::F64], vec![])
         );
-        let function = Function::new_typed(&mut store, |_env: FunctionEnvMut<()>| -> i32 { 1 });
+        let function = Function::new_typed(&mut store, || -> i32 { 1 });
         assert_eq!(
             function.ty(&mut store).clone(),
             FunctionType::new(vec![], vec![Type::I32])
         );
-        let function = Function::new_typed(
-            &mut store,
-            |_env: FunctionEnvMut<()>| -> (i32, i64, f32, f64) { (1, 2, 3.0, 4.0) },
-        );
+        let function =
+            Function::new_typed(&mut store, || -> (i32, i64, f32, f64) { (1, 2, 3.0, 4.0) });
         assert_eq!(
             function.ty(&mut store).clone(),
             FunctionType::new(vec![], vec![Type::I32, Type::I64, Type::F32, Type::F64])
