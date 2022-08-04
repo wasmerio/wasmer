@@ -156,7 +156,6 @@ impl CreateExe {
                 writer.flush()?;
                 /* Write down header file that includes pointer arrays and the deserialize function
                  * */
-                 println!("header_file_src:\r\n{header_file_src}");
                 let mut writer = BufWriter::new(File::create("static_defs.h")?);
                 writer.write_all(header_file_src.as_bytes())?;
                 writer.flush()?;
@@ -284,8 +283,6 @@ impl CreateExe {
             .replace("##atom-name##", &atom_to_run)
             .replace("wasm_module_delete(module);", &deallocate_module);
         
-        println!("pirita source code:\r\n{c_code}");
-
         std::fs::write(&c_src_path, c_code.as_bytes())
             .context("Failed to open C source code file")?;
         
@@ -293,8 +290,6 @@ impl CreateExe {
             .context("Failed to compile C source code")?;
 
         link_objects.push(c_src_obj.clone());
-
-        println!("linking objects: {link_objects:#?}");
 
         LinkCode {
             object_paths: link_objects,
@@ -363,10 +358,9 @@ fn link(
         .unwrap()
         .to_string();
     libwasmer_path.pop();
-    println!("static artifact write");
+
     std::fs::write(&c_src_path, WASMER_STATIC_MAIN_C_SOURCE)
     .context("Failed to open C source code file")?;
-    println!("static artifact after write, header_code_path = {:?}", header_code_path.canonicalize().unwrap().display());
 
     if !header_code_path.is_dir() {
         header_code_path.pop();
@@ -423,7 +417,6 @@ fn get_wasmer_dir() -> anyhow::Result<PathBuf> {
             .context("Trying to read env var `WASMER_DIR`")?,
     );
     let wasmer_dir = wasmer_dir.clone().canonicalize().unwrap_or(wasmer_dir);
-    println!("wasmer dir = {:?}", wasmer_dir);
     Ok(wasmer_dir)
 }
 
@@ -576,7 +569,6 @@ impl LinkCode {
             .iter()
             .map(|lib| format!("-l{}", lib));
         let command = command.args(link_against_extra_libs);
-        println!("{command:?}");
         let output = command.arg("-o").arg(&self.output_path).output()?;
 
         if !output.status.success() {

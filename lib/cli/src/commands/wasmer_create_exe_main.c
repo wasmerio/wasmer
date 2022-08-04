@@ -119,20 +119,10 @@ int main(int argc, char *argv[]) {
   // We have now finished the memory buffer book keeping and we have a valid
   // Module.
 
-  #ifdef WASI
+  #ifdef WASI_PIRITA
     wasi_config_t *wasi_config = wasi_config_new(argv[0]);
     handle_arguments(wasi_config, argc, argv);
 
-    wasi_env_t *wasi_env = wasi_env_new(store, wasi_config);
-    if (!wasi_env) {
-      fprintf(stderr, "Error building WASI env!\n");
-      print_wasmer_error();
-      return 1;
-    }
-    
-  #endif
-
-  #ifdef WASI_PIRITA
     wasm_byte_vec_t volume_bytes = {
       .size = VOLUMES_LENGTH,
       .data = (const char*)&VOLUMES_DATA,
@@ -145,13 +135,29 @@ int main(int argc, char *argv[]) {
     }
 
     wasm_extern_vec_t imports;
-
-    bool filesystem_init = wasi_env_set_filesystem(store, module, filesystem, &imports, "##atom-name##");
-    if (!filesystem_init) {
+    wasi_env_t* wasi_env = wasi_env_with_filesystem(
+      wasi_config,
+      store, 
+      module, 
+      filesystem, 
+      &imports,
+      "##atom-name##"
+    );
+    if (!wasi_env) {
         printf("Error setting filesystem\n");
         return 1;
     }
   #else
+    wasi_config_t *wasi_config = wasi_config_new(argv[0]);
+    handle_arguments(wasi_config, argc, argv);
+
+    wasi_env_t *wasi_env = wasi_env_new(store, wasi_config);
+    if (!wasi_env) {
+      fprintf(stderr, "Error building WASI env!\n");
+      print_wasmer_error();
+      return 1;
+    }
+    
     wasm_importtype_vec_t import_types;
     wasm_module_imports(module, &import_types);
 

@@ -200,26 +200,28 @@ pub unsafe extern "C" fn wasi_filesystem_delete(
 /// the custom file system
 #[cfg(feature = "pirita_file")]
 #[no_mangle]
-pub unsafe extern "C" fn wasi_env_set_filesystem(
+pub unsafe extern "C" fn wasi_env_with_filesystem(
+    config: Box<wasi_config_t>,
     store: Option<&mut wasm_store_t>,
     module: Option<&wasm_module_t>,
     fs: Option<&wasi_filesystem_t>,
     imports: Option<&mut wasm_extern_vec_t>,
     package: *const c_char,
-) -> bool {
-    wasi_env_set_filesystem_inner(
-        store, module, fs, imports, package,
-    ).is_some()
+  ) -> Option<Box<wasi_env_t>> {
+    wasi_env_with_filesystem_inner(
+        config, store, module, fs, imports, package,
+    )
 }
 
 #[cfg(feature = "pirita_file")]
-unsafe fn wasi_env_set_filesystem_inner(
+unsafe fn wasi_env_with_filesystem_inner(
+    config: Box<wasi_config_t>,
     store: Option<&mut wasm_store_t>,
     module: Option<&wasm_module_t>,
     fs: Option<&wasi_filesystem_t>,
     imports: Option<&mut wasm_extern_vec_t>,
     package: *const c_char,
-) -> Option<()> {
+) -> Option<Box<wasi_env_t>> {
     
     let store = &mut store?.inner;
     let fs = fs.as_ref()?;
@@ -228,7 +230,8 @@ unsafe fn wasi_env_set_filesystem_inner(
     let module = &module.as_ref()?.inner;
     let imports = imports?;
 
-    let import_object: Imports = prepare_webc_env(
+    let (wasi_env, import_object) = prepare_webc_env(
+        config,
         &mut store.store_mut(),
         module,
         std::mem::transmute(fs.ptr), // cast wasi_filesystem_t.ptr as &'static [u8]
@@ -238,23 +241,27 @@ unsafe fn wasi_env_set_filesystem_inner(
 
     imports_set_buffer(&store, module, import_object, imports)?;
 
-    Some(())
+    Some(Box::new(wasi_env_t {
+        inner: wasi_env,
+        store: store.clone(),
+    }))
 }
 
 #[cfg(feature = "pirita_file")]
 fn prepare_webc_env(
+    config: Box<wasi_config_t>,
     store: &mut impl AsStoreMut, 
     module: &Module,
     bytes: &'static u8,
     len: usize,
     package_name: &str
-) -> Option<Imports> {
+) -> Option<(WasiFunctionEnv, Imports)> {
 
     use pirita::FsEntryType;
     use pirita::StaticFileSystem;
 
     let slice = unsafe { std::slice::from_raw_parts(bytes, len) };
-    let volumes = pirita::PiritaFile::parse_volumes(slice).ok()?;
+    let volumes = pirita::PiritaFile::parse_volumes_from_fileblock(slice).ok()?;
     let top_level_dirs = volumes
     .into_iter()
     .flat_map(|(_, volume)| {
@@ -271,7 +278,16 @@ fn prepare_webc_env(
     .collect::<Vec<_>>();
 
     let filesystem = Box::new(StaticFileSystem::init(slice, &package_name)?);
-    let mut wasi_env = WasiState::new(package_name);
+    let mut wasi_env = config.state_builder;
+
+    if !config.inherit_stdout {
+        wasi_env.stdout(Box::new(Pipe::new()));
+    }
+
+    if !config.inherit_stderr {
+        wasi_env.stderr(Box::new(Pipe::new()));
+    }
+    
     wasi_env.set_fs(filesystem);
 
     for f_name in top_level_dirs.iter() {
@@ -279,7 +295,7 @@ fn prepare_webc_env(
     }
     let env = wasi_env.finalize(store).ok()?;
     let import_object = env.import_object(store, &module).ok()?;
-    Some(import_object)
+    Some((env, import_object))
 }
 
 /// Create a new WASI environment.
