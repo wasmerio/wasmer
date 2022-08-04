@@ -98,7 +98,6 @@ impl Run {
     }
 
     fn inner_module_run(&self, mut store: Store, instance: Instance) -> Result<()> {
-        
         // If this module exports an _initialize function, run that first.
         if let Ok(initialize) = instance.exports.get_function("_initialize") {
             initialize
@@ -130,12 +129,12 @@ impl Run {
     }
 
     fn inner_execute(&self) -> Result<()> {
-        
-        #[cfg(feature = "pirita_file")] 
+        #[cfg(feature = "pirita_file")]
         {
             if let Some(pf) = pirita::PiritaContainer::load_mmap(self.path.clone()) {
-                return pf.run(&self.command_name.clone().unwrap_or_default())
-                .map_err(|e| anyhow!("Could not run PiritaFile: {e}"));
+                return pf
+                    .run(&self.command_name.clone().unwrap_or_default())
+                    .map_err(|e| anyhow!("Could not run PiritaFile: {e}"));
             }
         }
 

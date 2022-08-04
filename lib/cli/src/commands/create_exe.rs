@@ -121,7 +121,7 @@ impl CreateExe {
                     .map_err(|err| anyhow::anyhow!(err.to_string()))?;
                 writer.flush()?;
                 drop(writer);
-        
+
                 self.compile_c(wasm_object_path, output_path)?;
             }
             #[cfg(not(feature = "static-artifact-create"))]
@@ -177,7 +177,6 @@ impl CreateExe {
 
     #[cfg(feature = "pirita_file")]
     fn create_exe_pirita(&self, file: &PiritaFileMmap, target: Target) -> anyhow::Result<()> {
-
         let starting_cd = env::current_dir()?;
         let working_dir = tempfile::tempdir()?;
         let working_dir = working_dir.path().to_path_buf();
@@ -185,7 +184,12 @@ impl CreateExe {
 
         let volume_bytes = file.get_volumes_as_fileblock();
         let mut volumes_object = get_object_for_target(&target.triple())?;
-        emit_serialized(&mut volumes_object, volume_bytes.as_slice(), target.triple(), "VOLUMES")?;
+        emit_serialized(
+            &mut volumes_object,
+            volume_bytes.as_slice(),
+            target.triple(),
+            "VOLUMES",
+        )?;
 
         let mut link_objects = Vec::new();
 
@@ -201,11 +205,14 @@ impl CreateExe {
         let mut deallocate_module = String::new();
 
         let atom_to_run = match file.manifest.entrypoint.as_ref() {
-            Some(s) => { 
-                file.get_atom_name_for_command("wasi", s)
-                .map_err(|e| anyhow!("Could not get atom for entrypoint: {e}"))? 
-            },
-            None => { return Err(anyhow!("Cannot compile to exe: no entrypoint to run package with")); },
+            Some(s) => file
+                .get_atom_name_for_command("wasi", s)
+                .map_err(|e| anyhow!("Could not get atom for entrypoint: {e}"))?,
+            None => {
+                return Err(anyhow!(
+                    "Cannot compile to exe: no entrypoint to run package with"
+                ));
+            }
         };
 
         let compiled_modules = file
@@ -218,7 +225,7 @@ impl CreateExe {
                 let mut obj = get_object_for_target(target.triple())?;
                 let atom_name_uppercase = atom_name.to_uppercase();
                 emit_serialized(&mut obj, &bytes, target.triple(), &atom_name_uppercase)?;
-                
+
                 c_code_to_add.push_str(&format!("
                 extern size_t {atom_name_uppercase}_LENGTH asm(\"{atom_name_uppercase}_LENGTH\");
                 extern char {atom_name_uppercase}_DATA asm(\"{atom_name_uppercase}_DATA\");
@@ -282,10 +289,10 @@ impl CreateExe {
             .replace("// INSTANTIATE_MODULES", &c_code_to_instantiate)
             .replace("##atom-name##", &atom_to_run)
             .replace("wasm_module_delete(module);", &deallocate_module);
-        
+
         std::fs::write(&c_src_path, c_code.as_bytes())
             .context("Failed to open C source code file")?;
-        
+
         run_c_compile(c_src_path.as_path(), &c_src_obj, self.target_triple.clone())
             .context("Failed to compile C source code")?;
 
@@ -313,14 +320,13 @@ impl CreateExe {
         let c_src_obj = PathBuf::from("wasmer_main.obj");
 
         std::fs::write(
-            &c_src_path, 
-            WASMER_MAIN_C_SOURCE
-            .replace("// WASI_DEFINES", "#define WASI")
+            &c_src_path,
+            WASMER_MAIN_C_SOURCE.replace("// WASI_DEFINES", "#define WASI"),
         )?;
 
         run_c_compile(c_src_path, &c_src_obj, self.target_triple.clone())
             .context("Failed to compile C source code")?;
-        
+
         LinkCode {
             object_paths: vec![c_src_obj, wasm_object_path],
             output_path,
@@ -360,7 +366,7 @@ fn link(
     libwasmer_path.pop();
 
     std::fs::write(&c_src_path, WASMER_STATIC_MAIN_C_SOURCE)
-    .context("Failed to open C source code file")?;
+        .context("Failed to open C source code file")?;
 
     if !header_code_path.is_dir() {
         header_code_path.pop();
@@ -427,7 +433,10 @@ fn get_wasmer_include_directory() -> anyhow::Result<PathBuf> {
     }
     path.push("include");
     if !path.clone().join("wasmer.h").exists() {
-        println!("wasmer.h does not exist in {}, will probably default to the system path", path.canonicalize().unwrap().display());
+        println!(
+            "wasmer.h does not exist in {}, will probably default to the system path",
+            path.canonicalize().unwrap().display()
+        );
     }
 
     Ok(path)
@@ -442,7 +451,7 @@ fn get_libwasmer_path() -> anyhow::Result<PathBuf> {
     let libwasmer_static_name = "libwasmer.a";
     #[cfg(windows)]
     let libwasmer_static_name = "libwasmer.lib";
-    
+
     if path.exists() && path.join(libwasmer_static_name).exists() {
         Ok(path.join(libwasmer_static_name))
     } else {

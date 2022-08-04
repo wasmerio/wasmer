@@ -15,11 +15,11 @@ use std::ffi::CStr;
 use std::os::raw::c_char;
 use std::slice;
 use wasmer_api::AsStoreMut;
+#[cfg(feature = "pirita_file")]
+use wasmer_api::{Imports, Module};
 use wasmer_wasi::{
     get_wasi_version, Pipe, WasiFile, WasiFunctionEnv, WasiState, WasiStateBuilder, WasiVersion,
 };
-#[cfg(feature = "pirita_file")]
-use wasmer_api::{Imports, Module};
 
 #[derive(Debug)]
 #[allow(non_camel_case_types)]
@@ -178,25 +178,25 @@ pub struct wasi_filesystem_t {
 pub unsafe extern "C" fn wasi_filesystem_init_static_memory(
     volume_bytes: Option<&wasm_extern_vec_t>,
 ) -> Option<Box<wasi_filesystem_t>> {
-    let volume_bytes= volume_bytes.as_ref()?;
-    Some(Box::new(wasi_filesystem_t { 
+    let volume_bytes = volume_bytes.as_ref()?;
+    Some(Box::new(wasi_filesystem_t {
         ptr: {
             let ptr = (volume_bytes.data.as_ref()?) as *const _ as *const c_char;
-            if ptr.is_null() { return None; }
+            if ptr.is_null() {
+                return None;
+            }
             ptr
-        }, 
-        size: volume_bytes.size 
+        },
+        size: volume_bytes.size,
     }))
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn wasi_filesystem_delete(
-    ptr: *mut wasi_filesystem_t
-) {
+pub unsafe extern "C" fn wasi_filesystem_delete(ptr: *mut wasi_filesystem_t) {
     let _ = Box::from_raw(ptr);
 }
 
-/// Initializes the `imports` with an import object that links to 
+/// Initializes the `imports` with an import object that links to
 /// the custom file system
 #[cfg(feature = "pirita_file")]
 #[no_mangle]
@@ -207,10 +207,8 @@ pub unsafe extern "C" fn wasi_env_with_filesystem(
     fs: Option<&wasi_filesystem_t>,
     imports: Option<&mut wasm_extern_vec_t>,
     package: *const c_char,
-  ) -> Option<Box<wasi_env_t>> {
-    wasi_env_with_filesystem_inner(
-        config, store, module, fs, imports, package,
-    )
+) -> Option<Box<wasi_env_t>> {
+    wasi_env_with_filesystem_inner(config, store, module, fs, imports, package)
 }
 
 #[cfg(feature = "pirita_file")]
@@ -222,7 +220,6 @@ unsafe fn wasi_env_with_filesystem_inner(
     imports: Option<&mut wasm_extern_vec_t>,
     package: *const c_char,
 ) -> Option<Box<wasi_env_t>> {
-    
     let store = &mut store?.inner;
     let fs = fs.as_ref()?;
     let package_str = CStr::from_ptr(package);
@@ -250,32 +247,31 @@ unsafe fn wasi_env_with_filesystem_inner(
 #[cfg(feature = "pirita_file")]
 fn prepare_webc_env(
     config: Box<wasi_config_t>,
-    store: &mut impl AsStoreMut, 
+    store: &mut impl AsStoreMut,
     module: &Module,
     bytes: &'static u8,
     len: usize,
-    package_name: &str
+    package_name: &str,
 ) -> Option<(WasiFunctionEnv, Imports)> {
-
     use pirita::FsEntryType;
     use pirita::StaticFileSystem;
 
     let slice = unsafe { std::slice::from_raw_parts(bytes, len) };
     let volumes = pirita::PiritaFile::parse_volumes_from_fileblock(slice).ok()?;
     let top_level_dirs = volumes
-    .into_iter()
-    .flat_map(|(_, volume)| {
-        volume
-        .header
-        .top_level
-        .iter()
-        .cloned()
-        .filter(|e| e.fs_type == FsEntryType::Dir)
-        .map(|e| e.text.to_string())
-        .collect::<Vec<_>>()
         .into_iter()
-    })
-    .collect::<Vec<_>>();
+        .flat_map(|(_, volume)| {
+            volume
+                .header
+                .top_level
+                .iter()
+                .cloned()
+                .filter(|e| e.fs_type == FsEntryType::Dir)
+                .map(|e| e.text.to_string())
+                .collect::<Vec<_>>()
+                .into_iter()
+        })
+        .collect::<Vec<_>>();
 
     let filesystem = Box::new(StaticFileSystem::init(slice, &package_name)?);
     let mut wasi_env = config.state_builder;
@@ -287,11 +283,13 @@ fn prepare_webc_env(
     if !config.inherit_stderr {
         wasi_env.stderr(Box::new(Pipe::new()));
     }
-    
+
     wasi_env.set_fs(filesystem);
 
     for f_name in top_level_dirs.iter() {
-        wasi_env.preopen(|p| p.directory(f_name).read(true).write(true).create(true)).ok()?;
+        wasi_env
+            .preopen(|p| p.directory(f_name).read(true).write(true).create(true))
+            .ok()?;
     }
     let env = wasi_env.finalize(store).ok()?;
     let import_object = env.import_object(store, &module).ok()?;
@@ -485,7 +483,9 @@ unsafe fn wasi_get_imports_inner(
     let store = &mut wasi_env.store;
     let module = module?;
 
-    let import_object = c_try!(wasi_env.inner.import_object(&mut store.store_mut(), &module.inner));
+    let import_object = c_try!(wasi_env
+        .inner
+        .import_object(&mut store.store_mut(), &module.inner));
 
     imports_set_buffer(&store, &module.inner, import_object, imports)?;
 
@@ -498,7 +498,6 @@ pub(crate) fn imports_set_buffer(
     import_object: Imports,
     imports: &mut wasm_extern_vec_t,
 ) -> Option<()> {
-
     imports.set_buffer(c_try!(module
         .imports()
         .map(|import_type| {
@@ -515,7 +514,7 @@ pub(crate) fn imports_set_buffer(
             Ok(Some(Box::new(wasm_extern_t::new(store.clone(), ext))))
         })
         .collect::<Result<Vec<_>, String>>()));
-    
+
     Some(())
 }
 
