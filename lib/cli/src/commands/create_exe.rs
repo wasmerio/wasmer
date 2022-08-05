@@ -33,6 +33,10 @@ pub struct CreateExe {
     #[structopt(long = "target")]
     target_triple: Option<Triple>,
 
+    /// Cross-compilation library path.
+    #[structopt(long = "cross-compilation-library-path", requires = "target_triple")]
+    library_path: Option<PathBuf>,
+
     /// Object format options
     ///
     /// This flag accepts two options: `symbols` or `serialized`.
@@ -79,17 +83,43 @@ impl CreateExe {
                 Target::new(target_triple.clone(), features)
             })
             .unwrap_or_default();
-        let (store, compiler_type) = self.compiler.get_store_for_target(target.clone())?;
-        let object_format = self.object_format.unwrap_or(ObjectFormat::Symbols);
-
-        println!("Compiler: {}", compiler_type.to_string());
-        println!("Target: {}", target.triple());
-        println!("Format: {:?}", object_format);
 
         let working_dir = tempfile::tempdir()?;
         let starting_cd = env::current_dir()?;
         let output_path = starting_cd.join(&self.output);
         env::set_current_dir(&working_dir)?;
+        let mut library_path: Option<PathBuf> = None;
+
+        let is_cross_compilation: bool = *target.triple() != Triple::host();
+        if is_cross_compilation {
+            library_path = if let v @ Some(_) = self.library_path.clone() {
+                v
+            } else {
+                #[cfg(feature = "http")]
+                {
+                    let release = http_fetch::get_latest_release()?;
+                    let tarball =
+                        http_fetch::download_release(release, Some(target.triple().clone()))?;
+                    let files = http_fetch::untar(tarball)?;
+                    let filename = files.into_iter().find(|f| f.contains("lib/libwasmer.a")).ok_or_else(|| {
+                    anyhow!("Could not find libwasmer for {} target in the fetched release from Github: you can download it manually and specify its path with the --cross-compilation-library-path LIBRARY_PATH flag.", target.triple())})?;
+                    Some(filename.into())
+                }
+                #[cfg(not(feature = "http"))]
+                return Err(anyhow!("This wasmer binary isn't compiled with an HTTP request library (feature flag `http`). To cross-compile, specify the path of the non-native libwasmer with the --cross-compilation-library-path LIBRARY_PATH flag."));
+            };
+        }
+
+        let (store, compiler_type) = self.compiler.get_store_for_target(target.clone())?;
+        let object_format = self.object_format.unwrap_or(ObjectFormat::Symbols);
+        let library_path = library_path.map(|v| working_dir.path().join(&v));
+
+        println!("Compiler: {}", compiler_type.to_string());
+        println!("Target: {}", target.triple());
+        if let Some(p) = library_path.as_ref() {
+            println!("Library Path: {}", p.display());
+        }
+        println!("Format: {:?}", object_format);
 
         #[cfg(not(windows))]
         let wasm_object_path = PathBuf::from("wasm.o");
@@ -99,14 +129,27 @@ impl CreateExe {
         let wasm_module_path = starting_cd.join(&self.path);
 
         if let Some(header_path) = self.header.as_ref() {
+            /* In this case, since a header file is given, the input file is expected to be an
+             * object created with `create-obj` subcommand */
             let header_path = starting_cd.join(&header_path);
             std::fs::copy(&header_path, Path::new("static_defs.h"))
                 .context("Could not access given header file")?;
-            link(
-                output_path,
-                wasm_module_path,
-                std::path::Path::new("static_defs.h").into(),
-            )?;
+            if is_cross_compilation {
+                self.compile_zig(
+                    output_path,
+                    wasm_module_path,
+                    std::path::Path::new("static_defs.h").into(),
+                    library_path,
+                    target.triple().clone(),
+                )?;
+            } else {
+                self.link(
+                    output_path,
+                    wasm_module_path,
+                    std::path::Path::new("static_defs.h").into(),
+                    library_path,
+                )?;
+            }
         } else {
             match object_format {
                 ObjectFormat::Serialized => {
@@ -158,18 +201,38 @@ impl CreateExe {
                     let mut writer = BufWriter::new(File::create("static_defs.h")?);
                     writer.write_all(header_file_src.as_bytes())?;
                     writer.flush()?;
-                    link(
-                        output_path,
-                        object_file_path,
-                        std::path::Path::new("static_defs.h").into(),
-                    )?;
+                    if is_cross_compilation {
+                        self.compile_zig(
+                            output_path,
+                            object_file_path,
+                            std::path::Path::new("static_defs.h").into(),
+                            library_path,
+                            target.triple().clone(),
+                        )?;
+                    } else {
+                        self.link(
+                            output_path,
+                            object_file_path,
+                            std::path::Path::new("static_defs.h").into(),
+                            library_path,
+                        )?;
+                    }
                 }
             }
         }
-        eprintln!(
-            "✔ Native executable compiled successfully to `{}`.",
-            self.output.display(),
-        );
+
+        if is_cross_compilation {
+            eprintln!(
+                "✔ Cross-compiled executable for `{}` target compiled successfully to `{}`.",
+                target.triple(),
+                self.output.display(),
+            );
+        } else {
+            eprintln!(
+                "✔ Native executable compiled successfully to `{}`.",
+                self.output.display(),
+            );
+        }
 
         Ok(())
     }
@@ -204,82 +267,193 @@ impl CreateExe {
 
         Ok(())
     }
-}
 
-#[cfg(feature = "static-artifact-create")]
-fn link(
-    output_path: PathBuf,
-    object_path: PathBuf,
-    mut header_code_path: PathBuf,
-) -> anyhow::Result<()> {
-    let linkcode = LinkCode {
-        object_paths: vec![object_path, "main_obj.obj".into()],
-        output_path,
-        ..Default::default()
-    };
-    let c_src_path = Path::new("wasmer_main.c");
-    let mut libwasmer_path = get_libwasmer_path()?
+    fn compile_zig(
+        &self,
+        output_path: PathBuf,
+        object_path: PathBuf,
+        mut header_code_path: PathBuf,
+        library_path: Option<PathBuf>,
+        target_triple: wasmer::Triple,
+    ) -> anyhow::Result<()> {
+        let c_src_path = Path::new("wasmer_main.c");
+        let mut libwasmer_path = if let Some(p) = library_path {
+            p
+        } else {
+            get_libwasmer_path()?
+        }
         .canonicalize()
         .context("Failed to find libwasmer")?;
-    println!("Using libwasmer: {}", libwasmer_path.display());
-    let _lib_filename = libwasmer_path
-        .file_name()
-        .unwrap()
-        .to_str()
-        .unwrap()
-        .to_string();
-    libwasmer_path.pop();
-    {
-        let mut c_src_file = fs::OpenOptions::new()
-            .create_new(true)
-            .write(true)
-            .open(&c_src_path)
-            .context("Failed to open C source code file")?;
-        c_src_file.write_all(WASMER_STATIC_MAIN_C_SOURCE)?;
+
+        println!("Using libwasmer file: {}", libwasmer_path.display());
+
+        let lib_filename = libwasmer_path
+            .file_name()
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .to_string();
+        libwasmer_path.pop();
+        {
+            let mut c_src_file = fs::OpenOptions::new()
+                .create_new(true)
+                .write(true)
+                .open(&c_src_path)
+                .context("Failed to open C source code file")?;
+            c_src_file.write_all(WASMER_STATIC_MAIN_C_SOURCE)?;
+        }
+
+        if !header_code_path.is_dir() {
+            header_code_path.pop();
+        }
+
+        if header_code_path.display().to_string().is_empty() {
+            header_code_path = std::env::current_dir()?;
+        }
+
+        /* Compile main function */
+        let compilation = {
+            /* Cross compilation is only possible with zig */
+            let mut include_dir = libwasmer_path.clone();
+            include_dir.pop();
+            include_dir.push("include");
+            let zig_triple = triple_to_zig_triple(target_triple);
+            eprintln!("Using zig target triple: {}", &zig_triple);
+
+            Command::new("zig")
+                .arg("cc")
+                .arg("-target")
+                .arg(&zig_triple)
+                .arg(&format!("-L{}", libwasmer_path.display()))
+                .arg(&format!("-l:{}", lib_filename))
+                .arg(&format!("-I{}", include_dir.display()))
+                .arg(&format!("-I{}", header_code_path.display()))
+                .arg(&object_path)
+                .arg(&c_src_path)
+                .arg("-o")
+                .arg(&output_path)
+                .output()?
+        };
+        if !compilation.status.success() {
+            return Err(anyhow::anyhow!(String::from_utf8_lossy(
+                &compilation.stderr
+            )
+            .to_string()));
+        }
+        Ok(())
     }
 
-    if !header_code_path.is_dir() {
-        header_code_path.pop();
-    }
-
-    /* Compile main function */
-    let compilation = Command::new("cc")
-        .arg("-c")
-        .arg(&c_src_path)
-        .arg(if linkcode.optimization_flag.is_empty() {
-            "-O2"
+    #[cfg(feature = "static-artifact-create")]
+    fn link(
+        &self,
+        output_path: PathBuf,
+        object_path: PathBuf,
+        mut header_code_path: PathBuf,
+        library_path: Option<PathBuf>,
+    ) -> anyhow::Result<()> {
+        let linkcode = LinkCode {
+            object_paths: vec![object_path, "main_obj.obj".into()],
+            output_path,
+            ..Default::default()
+        };
+        let c_src_path = Path::new("wasmer_main.c");
+        let mut libwasmer_path = if let Some(p) = library_path {
+            p
         } else {
-            linkcode.optimization_flag.as_str()
-        })
-        .arg(&format!("-L{}", libwasmer_path.display()))
-        .arg(&format!("-I{}", get_wasmer_include_directory()?.display()))
-        //.arg(&format!("-l:{}", lib_filename))
-        .arg("-lwasmer")
-        // Add libraries required per platform.
-        // We need userenv, sockets (Ws2_32), advapi32 for some system calls and bcrypt for random numbers.
-        //#[cfg(windows)]
-        //    .arg("-luserenv")
-        //    .arg("-lWs2_32")
-        //    .arg("-ladvapi32")
-        //    .arg("-lbcrypt")
-        // On unix we need dlopen-related symbols, libmath for a few things, and pthreads.
-        //#[cfg(not(windows))]
-        .arg("-ldl")
-        .arg("-lm")
-        .arg("-pthread")
-        .arg(&format!("-I{}", header_code_path.display()))
-        .arg("-v")
-        .arg("-o")
-        .arg("main_obj.obj")
-        .output()?;
-    if !compilation.status.success() {
-        return Err(anyhow::anyhow!(String::from_utf8_lossy(
-            &compilation.stderr
-        )
-        .to_string()));
+            get_libwasmer_path()?
+        }
+        .canonicalize()
+        .context("Failed to find libwasmer")?;
+
+        println!("Using libwasmer file: {}", libwasmer_path.display());
+
+        let lib_filename = libwasmer_path
+            .file_name()
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .to_string();
+        libwasmer_path.pop();
+        {
+            let mut c_src_file = fs::OpenOptions::new()
+                .create_new(true)
+                .write(true)
+                .open(&c_src_path)
+                .context("Failed to open C source code file")?;
+            c_src_file.write_all(WASMER_STATIC_MAIN_C_SOURCE)?;
+        }
+
+        if !header_code_path.is_dir() {
+            header_code_path.pop();
+        }
+
+        if header_code_path.display().to_string().is_empty() {
+            header_code_path = std::env::current_dir()?;
+        }
+
+        /* Compile main function */
+        let compilation = {
+            Command::new("cc")
+                .arg("-c")
+                .arg(&c_src_path)
+                .arg(if linkcode.optimization_flag.is_empty() {
+                    "-O2"
+                } else {
+                    linkcode.optimization_flag.as_str()
+                })
+                .arg(&format!("-L{}", libwasmer_path.display()))
+                .arg(&format!("-I{}", get_wasmer_include_directory()?.display()))
+                .arg(&format!("-l:{}", lib_filename))
+                //.arg("-lwasmer")
+                // Add libraries required per platform.
+                // We need userenv, sockets (Ws2_32), advapi32 for some system calls and bcrypt for random numbers.
+                //#[cfg(windows)]
+                //    .arg("-luserenv")
+                //    .arg("-lWs2_32")
+                //    .arg("-ladvapi32")
+                //    .arg("-lbcrypt")
+                // On unix we need dlopen-related symbols, libmath for a few things, and pthreads.
+                //#[cfg(not(windows))]
+                .arg("-ldl")
+                .arg("-lm")
+                .arg("-pthread")
+                .arg(&format!("-I{}", header_code_path.display()))
+                .arg("-v")
+                .arg("-o")
+                .arg("main_obj.obj")
+                .output()?
+        };
+        if !compilation.status.success() {
+            return Err(anyhow::anyhow!(String::from_utf8_lossy(
+                &compilation.stderr
+            )
+            .to_string()));
+        }
+        linkcode.run().context("Failed to link objects together")?;
+        Ok(())
     }
-    linkcode.run().context("Failed to link objects together")?;
-    Ok(())
+}
+
+fn triple_to_zig_triple(target_triple: Triple) -> String {
+    let arch = match target_triple.architecture {
+        wasmer_types::Architecture::X86_64 => "x86_64".into(),
+        wasmer_types::Architecture::Aarch64(wasmer_types::Aarch64Architecture::Aarch64) => {
+            "aarch64".into()
+        }
+        v => v.to_string(),
+    };
+    let os = match target_triple.operating_system {
+        wasmer_types::OperatingSystem::Linux => "linux".into(),
+        wasmer_types::OperatingSystem::Darwin => "macos".into(),
+        wasmer_types::OperatingSystem::Windows => "windows".into(),
+        v => v.to_string(),
+    };
+    let env = match target_triple.environment {
+        wasmer_types::Environment::Musl => "musl",
+        wasmer_types::Environment::Gnu => "gnu",
+        _ => "none",
+    };
+    format!("{}-{}-{}", arch, os, env)
 }
 
 fn get_wasmer_dir() -> anyhow::Result<PathBuf> {
@@ -444,5 +618,179 @@ impl LinkCode {
             );
         }
         Ok(())
+    }
+}
+
+#[cfg(feature = "http")]
+mod http_fetch {
+    use anyhow::{anyhow, Context, Result};
+    use http_req::{
+        request::Request,
+        response::{Response, StatusCode},
+        uri::Uri,
+    };
+    use std::convert::TryFrom;
+
+    pub fn get_latest_release() -> Result<serde_json::Value> {
+        let mut writer = Vec::new();
+        let uri = Uri::try_from("https://api.github.com/repos/wasmerio/wasmer/releases").unwrap();
+
+        let response = Request::new(&uri)
+            .header("User-Agent", "wasmer")
+            .header("Accept", "application/vnd.github.v3+json")
+            .timeout(Some(std::time::Duration::new(30, 0)))
+            .send(&mut writer)
+            .map_err(anyhow::Error::new)
+            .context("Could not lookup wasmer repository on Github.")?;
+
+        if response.status_code() != StatusCode::new(200) {
+            return Err(anyhow!(
+                "Github API replied with non-200 status code: {}",
+                response.status_code()
+            ));
+        }
+
+        let v: std::result::Result<serde_json::Value, _> = serde_json::from_reader(&*writer);
+        let mut response = v.map_err(anyhow::Error::new)?;
+
+        if let Some(releases) = response.as_array_mut() {
+            releases.retain(|r| {
+                r["tag_name"].is_string() && !r["tag_name"].as_str().unwrap().is_empty()
+            });
+            releases.sort_by_cached_key(|r| r["tag_name"].as_str().unwrap_or_default().to_string());
+            if let Some(latest) = releases.pop() {
+                return Ok(latest);
+            }
+        }
+
+        Err(anyhow!(
+            "Could not get expected Github API response.\n\nReason: response format is not recognized:\n{:#?}", ""
+        ))
+    }
+
+    pub fn download_release(
+        mut release: serde_json::Value,
+        target_triple: Option<wasmer::Triple>,
+    ) -> Result<String> {
+        let target_triple = target_triple.unwrap_or(wasmer::Triple::host());
+        if let Some(assets) = release["assets"].as_array_mut() {
+            assets.retain(|a| {
+                if let Some(name) = a["name"].as_str() {
+                    match target_triple.architecture {
+                        wasmer_types::Architecture::X86_64 => {
+                            name.contains("x86_64") || name.contains("amd64")
+                        }
+                        wasmer_types::Architecture::Aarch64(
+                            wasmer_types::Aarch64Architecture::Aarch64,
+                        ) => name.contains("arm64") || name.contains("aarch64"),
+                        _ => false,
+                    }
+                } else {
+                    false
+                }
+            });
+            assets.retain(|a| {
+                if let Some(name) = a["name"].as_str() {
+                    match target_triple.vendor {
+                        wasmer_types::Vendor::Apple => !name.contains("windows"),
+                        wasmer_types::Vendor::Pc => !name.contains("apple"),
+                        _ => true,
+                    }
+                } else {
+                    false
+                }
+            });
+            assets.retain(|a| {
+                if let Some(name) = a["name"].as_str() {
+                    match target_triple.operating_system {
+                        wasmer_types::OperatingSystem::Darwin => {
+                            name.contains("darwin") || name.contains("macos")
+                        }
+                        wasmer_types::OperatingSystem::Windows => name.contains("windows"),
+                        wasmer_types::OperatingSystem::Linux => name.contains("linux"),
+                        _ => false,
+                    }
+                } else {
+                    false
+                }
+            });
+            assets.retain(|a| {
+                if let Some(name) = a["name"].as_str() {
+                    match target_triple.environment {
+                        wasmer_types::Environment::Musl => name.contains("musl"),
+                        _ => !name.contains("musl"),
+                    }
+                } else {
+                    false
+                }
+            });
+
+            if assets.len() == 1 {
+                let browser_download_url =
+                    if let Some(url) = assets[0]["browser_download_url"].as_str() {
+                        url.to_string()
+                    } else {
+                        return Err(anyhow!(
+                            "Could not get download url from Github API response."
+                        ));
+                    };
+                let filename = browser_download_url
+                    .split("/")
+                    .last()
+                    .unwrap_or("output")
+                    .to_string();
+                let mut file = std::fs::File::create(&filename)?;
+                println!("Downloading {} to {}", browser_download_url, &filename);
+                let download_thread: std::thread::JoinHandle<Result<Response, anyhow::Error>> =
+                    std::thread::spawn(move || {
+                        let uri = Uri::try_from(browser_download_url.as_str())?;
+                        let mut response = Request::new(&uri)
+                            .header("User-Agent", "wasmer")
+                            .send(&mut file)
+                            .map_err(anyhow::Error::new)
+                            .context("Could not lookup wasmer artifact on Github.")?;
+                        if response.status_code() == StatusCode::new(302) {
+                            let redirect_uri =
+                                Uri::try_from(response.headers().get("Location").unwrap().as_str())
+                                    .unwrap();
+                            response = Request::new(&redirect_uri)
+                                .header("User-Agent", "wasmer")
+                                .send(&mut file)
+                                .map_err(anyhow::Error::new)
+                                .context("Could not lookup wasmer artifact on Github.")?;
+                        }
+                        Ok(response)
+                    });
+                let _response = download_thread
+                    .join()
+                    .expect("Could not join downloading thread");
+                return Ok(filename);
+            }
+        }
+        Err(anyhow!("Could not get release artifact."))
+    }
+
+    pub fn untar(tarball: String) -> Result<Vec<String>> {
+        let files = std::process::Command::new("tar")
+            .arg("-tf")
+            .arg(&tarball)
+            .output()
+            .expect("failed to execute process")
+            .stdout;
+
+        let files_s = String::from_utf8(files)?;
+
+        let files = files_s
+            .lines()
+            .filter(|p| !p.ends_with('/'))
+            .map(|s| s.to_string())
+            .collect::<Vec<String>>();
+
+        let _output = std::process::Command::new("tar")
+            .arg("-xf")
+            .arg(&tarball)
+            .output()
+            .expect("failed to execute process");
+        Ok(files)
     }
 }
