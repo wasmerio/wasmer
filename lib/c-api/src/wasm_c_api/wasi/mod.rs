@@ -146,7 +146,7 @@ impl fmt::Debug for wasi_console_out_t {
 
 impl io::Read for wasi_console_out_t {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        let self_read = self.read.clone();
+        let self_read = self.read;
         let self_align = self.align;
         let mut data = self.get_data_mut("read")?;
         let result = unsafe {
@@ -171,7 +171,7 @@ impl io::Read for wasi_console_out_t {
 
 impl io::Write for wasi_console_out_t {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        let self_write = self.write.clone();
+        let self_write = self.write;
         let self_align = self.align;
         let mut data = self.get_data_mut("write")?;
         let result = unsafe {
@@ -197,7 +197,7 @@ impl io::Write for wasi_console_out_t {
         }
     }
     fn flush(&mut self) -> io::Result<()> {
-        let self_write = self.write.clone();
+        let self_write = self.write;
         let self_align = self.align;
         let mut data = self.get_data_mut("flush")?;
         let bytes_to_write = &[];
@@ -224,7 +224,7 @@ impl io::Write for wasi_console_out_t {
 
 impl io::Seek for wasi_console_out_t {
     fn seek(&mut self, pos: SeekFrom) -> io::Result<u64> {
-        let self_seek = self.seek.clone();
+        let self_seek = self.seek;
         let self_align = self.align;
         let mut data = self.get_data_mut("seek")?;
         let (id, pos) = match pos {
@@ -769,6 +769,7 @@ pub extern "C" fn wasi_config_inherit_stdin(config: &mut wasi_config_t) {
     config.inherit_stdin = None;
 }
 
+#[allow(clippy::box_collection, clippy::redundant_allocation)]
 #[repr(C)]
 pub struct wasi_console_stdin_t {
     on_stdin: WasiConsoleIoOnStdinCallback,
@@ -779,7 +780,7 @@ pub struct wasi_console_stdin_t {
 
 impl wasi_console_stdin_t {
     fn get_data_mut(&mut self, op_id: &'static str) -> io::Result<&mut Vec<c_char>> {
-        self.data.as_mut().map(|s| &mut (**s)).ok_or({
+        self.data.as_deref_mut().ok_or_else(|| {
             io::Error::new(
                 io::ErrorKind::Other,
                 format!("could not get env data ({op_id}) on wasi_console_stdin_t"),
@@ -831,6 +832,7 @@ pub unsafe extern "C" fn wasi_console_stdin_delete(ptr: *mut wasi_console_stdin_
     true
 }
 
+#[allow(clippy::box_collection, clippy::redundant_allocation)]
 #[derive(Clone)]
 #[repr(C)]
 pub struct wasi_console_stdin_response_t {
