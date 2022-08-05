@@ -53,7 +53,7 @@ impl ModuleTranslationState {
             wasmparser::TypeOrFuncType::FuncType(ty_index) => {
                 let sig_idx = SignatureIndex::from_u32(ty_index);
                 let (ref params, ref results) = self.wasm_types[sig_idx];
-                (&*params, &*results)
+                (params, results)
             }
         })
     }
