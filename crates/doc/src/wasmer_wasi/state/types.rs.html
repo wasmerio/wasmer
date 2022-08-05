@@ -459,6 +459,7 @@
 <span id="457">457</span>
 <span id="458">458</span>
 <span id="459">459</span>
+<span id="460">460</span>
 </pre><pre class="rust"><code><span class="doccomment">/// types for use in the WASI filesystem</span>
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::syscalls::types</span>::<span class="kw-2">*</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>)]</span>
@@ -853,7 +854,8 @@
     <span class="kw">fn</span> <span class="ident">read</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;mut</span> [<span class="ident">u8</span>]) -&gt; <span class="ident">io::Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">buffer</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">buffer</span>.<span class="ident">lock</span>().<span class="ident">unwrap</span>();
         <span class="kw">let</span> <span class="ident">amt</span> <span class="op">=</span> <span class="ident">std::cmp::min</span>(<span class="ident">buf</span>.<span class="ident">len</span>(), <span class="ident">buffer</span>.<span class="ident">len</span>());
-        <span class="kw">for</span> (<span class="ident">i</span>, <span class="ident">byte</span>) <span class="kw">in</span> <span class="ident">buffer</span>.<span class="ident">drain</span>(..<span class="ident">amt</span>).<span class="ident">enumerate</span>() {
+        <span class="kw">let</span> <span class="ident">buf_iter</span> <span class="op">=</span> <span class="ident">buffer</span>.<span class="ident">drain</span>(..<span class="ident">amt</span>).<span class="ident">enumerate</span>();
+        <span class="kw">for</span> (<span class="ident">i</span>, <span class="ident">byte</span>) <span class="kw">in</span> <span class="ident">buf_iter</span> {
             <span class="ident">buf</span>[<span class="ident">i</span>] <span class="op">=</span> <span class="ident">byte</span>;
         }
         <span class="prelude-val">Ok</span>(<span class="ident">amt</span>)

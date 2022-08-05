@@ -1947,6 +1947,22 @@
 <span id="1945">1945</span>
 <span id="1946">1946</span>
 <span id="1947">1947</span>
+<span id="1948">1948</span>
+<span id="1949">1949</span>
+<span id="1950">1950</span>
+<span id="1951">1951</span>
+<span id="1952">1952</span>
+<span id="1953">1953</span>
+<span id="1954">1954</span>
+<span id="1955">1955</span>
+<span id="1956">1956</span>
+<span id="1957">1957</span>
+<span id="1958">1958</span>
+<span id="1959">1959</span>
+<span id="1960">1960</span>
+<span id="1961">1961</span>
+<span id="1962">1962</span>
+<span id="1963">1963</span>
 </pre><pre class="rust"><code><span class="doccomment">//! WARNING: the API exposed here is unstable and very experimental.  Certain things are not ready</span>
 <span class="doccomment">//! yet and may be broken in patch releases.  If you&#39;re using this and have any specific needs,</span>
 <span class="doccomment">//! please [let us know here](https://github.com/wasmerio/wasmer/issues/583) or by filing an issue.</span>
@@ -2603,7 +2619,8 @@
         <span class="kw">for</span> <span class="ident">c</span> <span class="kw">in</span> <span class="ident">path</span>.<span class="ident">components</span>() {
             <span class="kw">let</span> <span class="ident">segment_name</span> <span class="op">=</span> <span class="ident">c</span>.<span class="ident">as_os_str</span>().<span class="ident">to_string_lossy</span>().<span class="ident">to_string</span>();
             <span class="kw">let</span> <span class="ident">guard</span> <span class="op">=</span> <span class="ident">inodes</span>.<span class="ident">arena</span>[<span class="ident">cur_inode</span>].<span class="ident">read</span>();
-            <span class="kw">match</span> <span class="ident">guard</span>.<span class="ident">deref</span>() {
+            <span class="kw">let</span> <span class="ident">deref</span> <span class="op">=</span> <span class="ident">guard</span>.<span class="ident">deref</span>();
+            <span class="kw">match</span> <span class="ident">deref</span> {
                 <span class="ident">Kind::Dir</span> { <span class="kw-2">ref</span> <span class="ident">entries</span>, .. } <span class="op">|</span> <span class="ident">Kind::Root</span> { <span class="kw-2">ref</span> <span class="ident">entries</span> } =&gt; {
                     <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">_entry</span>) <span class="op">=</span> <span class="ident">entries</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">segment_name</span>) {
                         <span class="comment">// TODO: this should be fixed</span>
@@ -2627,7 +2644,8 @@
                     <span class="comment">// reborrow to insert</span>
                     {
                         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">guard</span> <span class="op">=</span> <span class="ident">inodes</span>.<span class="ident">arena</span>[<span class="ident">cur_inode</span>].<span class="ident">write</span>();
-                        <span class="kw">match</span> <span class="ident">guard</span>.<span class="ident">deref_mut</span>() {
+                        <span class="kw">let</span> <span class="ident">deref_mut</span> <span class="op">=</span> <span class="ident">guard</span>.<span class="ident">deref_mut</span>();
+                        <span class="kw">match</span> <span class="ident">deref_mut</span> {
                             <span class="ident">Kind::Dir</span> {
                                 <span class="kw-2">ref</span> <span class="kw-2">mut</span> <span class="ident">entries</span>, ..
                             }
@@ -2674,7 +2692,8 @@
         <span class="kw">let</span> <span class="ident">base_inode</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_fd_inode</span>(<span class="ident">base</span>).<span class="ident">map_err</span>(<span class="ident">fs_error_from_wasi_err</span>)<span class="question-mark">?</span>;
 
         <span class="kw">let</span> <span class="ident">guard</span> <span class="op">=</span> <span class="ident">inodes</span>.<span class="ident">arena</span>[<span class="ident">base_inode</span>].<span class="ident">read</span>();
-        <span class="kw">match</span> <span class="ident">guard</span>.<span class="ident">deref</span>() {
+        <span class="kw">let</span> <span class="ident">deref</span> <span class="op">=</span> <span class="ident">guard</span>.<span class="ident">deref</span>();
+        <span class="kw">match</span> <span class="ident">deref</span> {
             <span class="ident">Kind::Dir</span> { <span class="kw-2">ref</span> <span class="ident">entries</span>, .. } <span class="op">|</span> <span class="ident">Kind::Root</span> { <span class="kw-2">ref</span> <span class="ident">entries</span> } =&gt; {
                 <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">_entry</span>) <span class="op">=</span> <span class="ident">entries</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">name</span>) {
                     <span class="comment">// TODO: eventually change the logic here to allow overwrites</span>
@@ -2694,7 +2713,8 @@
 
                 {
                     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">guard</span> <span class="op">=</span> <span class="ident">inodes</span>.<span class="ident">arena</span>[<span class="ident">base_inode</span>].<span class="ident">write</span>();
-                    <span class="kw">match</span> <span class="ident">guard</span>.<span class="ident">deref_mut</span>() {
+                    <span class="kw">let</span> <span class="ident">deref_mut</span> <span class="op">=</span> <span class="ident">guard</span>.<span class="ident">deref_mut</span>();
+                    <span class="kw">match</span> <span class="ident">deref_mut</span> {
                         <span class="ident">Kind::Dir</span> {
                             <span class="kw-2">ref</span> <span class="kw-2">mut</span> <span class="ident">entries</span>, ..
                         }
@@ -2739,7 +2759,8 @@
             <span class="kw">_</span> =&gt; {
                 <span class="kw">let</span> <span class="ident">base_inode</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_fd_inode</span>(<span class="ident">fd</span>).<span class="ident">map_err</span>(<span class="ident">fs_error_from_wasi_err</span>)<span class="question-mark">?</span>;
                 <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">guard</span> <span class="op">=</span> <span class="ident">inodes</span>.<span class="ident">arena</span>[<span class="ident">base_inode</span>].<span class="ident">write</span>();
-                <span class="kw">match</span> <span class="ident">guard</span>.<span class="ident">deref_mut</span>() {
+                <span class="kw">let</span> <span class="ident">deref_mut</span> <span class="op">=</span> <span class="ident">guard</span>.<span class="ident">deref_mut</span>();
+                <span class="kw">match</span> <span class="ident">deref_mut</span> {
                     <span class="ident">Kind::File</span> { <span class="kw-2">ref</span> <span class="kw-2">mut</span> <span class="ident">handle</span>, .. } =&gt; {
                         <span class="ident">std::mem::swap</span>(<span class="ident">handle</span>, <span class="kw-2">&amp;mut</span> <span class="ident">ret</span>);
                     }
@@ -2759,7 +2780,8 @@
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">__wasi_filesize_t</span>, <span class="ident">__wasi_errno_t</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">inode</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_fd_inode</span>(<span class="ident">fd</span>)<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">guard</span> <span class="op">=</span> <span class="ident">inodes</span>.<span class="ident">arena</span>[<span class="ident">inode</span>].<span class="ident">write</span>();
-        <span class="kw">match</span> <span class="ident">guard</span>.<span class="ident">deref_mut</span>() {
+        <span class="kw">let</span> <span class="ident">deref_mut</span> <span class="op">=</span> <span class="ident">guard</span>.<span class="ident">deref_mut</span>();
+        <span class="kw">match</span> <span class="ident">deref_mut</span> {
             <span class="ident">Kind::File</span> { <span class="ident">handle</span>, .. } =&gt; {
                 <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">h</span>) <span class="op">=</span> <span class="ident">handle</span> {
                     <span class="kw">let</span> <span class="ident">new_size</span> <span class="op">=</span> <span class="ident">h</span>.<span class="ident">size</span>();
@@ -2848,7 +2870,8 @@
             <span class="comment">// loading inodes as necessary</span>
             <span class="lifetime">&#39;symlink_resolution</span>: <span class="kw">while</span> <span class="ident">symlink_count</span> <span class="op">&lt;</span> <span class="ident">MAX_SYMLINKS</span> {
                 <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">guard</span> <span class="op">=</span> <span class="ident">inodes</span>.<span class="ident">arena</span>[<span class="ident">cur_inode</span>].<span class="ident">write</span>();
-                <span class="kw">match</span> <span class="ident">guard</span>.<span class="ident">deref_mut</span>() {
+                <span class="kw">let</span> <span class="ident">deref_mut</span> <span class="op">=</span> <span class="ident">guard</span>.<span class="ident">deref_mut</span>();
+                <span class="kw">match</span> <span class="ident">deref_mut</span> {
                     <span class="ident">Kind::Buffer</span> { .. } =&gt; <span class="macro">unimplemented!</span>(<span class="string">&quot;state::get_inode_at_path for buffers&quot;</span>),
                     <span class="ident">Kind::Dir</span> {
                         <span class="kw-2">ref</span> <span class="kw-2">mut</span> <span class="ident">entries</span>,
@@ -3114,10 +3137,12 @@
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">BaseFdAndRelPath::None</span>;
         <span class="comment">// for each preopened directory</span>
         <span class="kw">let</span> <span class="ident">preopen_fds</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">preopen_fds</span>.<span class="ident">read</span>().<span class="ident">unwrap</span>();
-        <span class="kw">for</span> <span class="ident">po_fd</span> <span class="kw">in</span> <span class="ident">preopen_fds</span>.<span class="ident">deref</span>() {
+        <span class="kw">let</span> <span class="ident">deref</span> <span class="op">=</span> <span class="ident">preopen_fds</span>.<span class="ident">deref</span>();
+        <span class="kw">for</span> <span class="ident">po_fd</span> <span class="kw">in</span> <span class="ident">deref</span> {
             <span class="kw">let</span> <span class="ident">po_inode</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">fd_map</span>.<span class="ident">read</span>().<span class="ident">unwrap</span>()[<span class="ident">po_fd</span>].<span class="ident">inode</span>;
             <span class="kw">let</span> <span class="ident">guard</span> <span class="op">=</span> <span class="ident">inodes</span>.<span class="ident">arena</span>[<span class="ident">po_inode</span>].<span class="ident">read</span>();
-            <span class="kw">let</span> <span class="ident">po_path</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">guard</span>.<span class="ident">deref</span>() {
+            <span class="kw">let</span> <span class="ident">deref</span> <span class="op">=</span> <span class="ident">guard</span>.<span class="ident">deref</span>();
+            <span class="kw">let</span> <span class="ident">po_path</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">deref</span> {
                 <span class="ident">Kind::Dir</span> { <span class="ident">path</span>, .. } =&gt; <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="kw-2">*</span><span class="ident">path</span>,
                 <span class="ident">Kind::Root</span> { .. } =&gt; <span class="ident">Path::new</span>(<span class="string">&quot;/&quot;</span>),
                 <span class="kw">_</span> =&gt; <span class="macro">unreachable!</span>(<span class="string">&quot;Preopened FD that&#39;s not a directory or the root&quot;</span>),
@@ -3159,7 +3184,8 @@
         <span class="kw">while</span> <span class="ident">cur_inode</span> <span class="op">!</span><span class="op">=</span> <span class="ident">base_inode</span> {
             <span class="ident">counter</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
             <span class="kw">let</span> <span class="ident">guard</span> <span class="op">=</span> <span class="ident">inodes</span>.<span class="ident">arena</span>[<span class="ident">cur_inode</span>].<span class="ident">read</span>();
-            <span class="kw">match</span> <span class="ident">guard</span>.<span class="ident">deref</span>() {
+            <span class="kw">let</span> <span class="ident">deref</span> <span class="op">=</span> <span class="ident">guard</span>.<span class="ident">deref</span>();
+            <span class="kw">match</span> <span class="ident">deref</span> {
                 <span class="ident">Kind::Dir</span> { <span class="ident">parent</span>, .. } =&gt; {
                     <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">p</span>) <span class="op">=</span> <span class="ident">parent</span> {
                         <span class="ident">cur_inode</span> <span class="op">=</span> <span class="kw-2">*</span><span class="ident">p</span>;
@@ -3294,8 +3320,9 @@
         <span class="macro">debug!</span>(<span class="string">&quot;fdstat: {:?}&quot;</span>, <span class="ident">fd</span>);
 
         <span class="kw">let</span> <span class="ident">guard</span> <span class="op">=</span> <span class="ident">inodes</span>.<span class="ident">arena</span>[<span class="ident">fd</span>.<span class="ident">inode</span>].<span class="ident">read</span>();
+        <span class="kw">let</span> <span class="ident">deref</span> <span class="op">=</span> <span class="ident">guard</span>.<span class="ident">deref</span>();
         <span class="prelude-val">Ok</span>(<span class="ident">__wasi_fdstat_t</span> {
-            <span class="ident">fs_filetype</span>: <span class="kw">match</span> <span class="ident">guard</span>.<span class="ident">deref</span>() {
+            <span class="ident">fs_filetype</span>: <span class="kw">match</span> <span class="ident">deref</span> {
                 <span class="ident">Kind::File</span> { .. } =&gt; <span class="ident">__WASI_FILETYPE_REGULAR_FILE</span>,
                 <span class="ident">Kind::Dir</span> { .. } =&gt; <span class="ident">__WASI_FILETYPE_DIRECTORY</span>,
                 <span class="ident">Kind::Symlink</span> { .. } =&gt; <span class="ident">__WASI_FILETYPE_SYMBOLIC_LINK</span>,
@@ -3357,7 +3384,8 @@
                 }
 
                 <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">guard</span> <span class="op">=</span> <span class="ident">inodes</span>.<span class="ident">arena</span>[<span class="ident">fd</span>.<span class="ident">inode</span>].<span class="ident">write</span>();
-                <span class="kw">match</span> <span class="ident">guard</span>.<span class="ident">deref_mut</span>() {
+                <span class="kw">let</span> <span class="ident">deref_mut</span> <span class="op">=</span> <span class="ident">guard</span>.<span class="ident">deref_mut</span>();
+                <span class="kw">match</span> <span class="ident">deref_mut</span> {
                     <span class="ident">Kind::File</span> {
                         <span class="ident">handle</span>: <span class="prelude-val">Some</span>(<span class="ident">file</span>), ..
                     } =&gt; <span class="ident">file</span>.<span class="ident">flush</span>().<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">__WASI_EIO</span>)<span class="question-mark">?</span>,
@@ -3592,7 +3620,8 @@
                 <span class="kw">let</span> <span class="ident">base_po_inode</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">fd_map</span>.<span class="ident">read</span>().<span class="ident">unwrap</span>()[<span class="ident">base_po_dir</span>].<span class="ident">inode</span>;
                 <span class="kw">let</span> <span class="ident">base_po_inode_v</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">inodes</span>.<span class="ident">arena</span>[<span class="kw-2">*</span><span class="ident">base_po_inode</span>];
                 <span class="kw">let</span> <span class="ident">guard</span> <span class="op">=</span> <span class="ident">base_po_inode_v</span>.<span class="ident">read</span>();
-                <span class="kw">match</span> <span class="ident">guard</span>.<span class="ident">deref</span>() {
+                <span class="kw">let</span> <span class="ident">deref</span> <span class="op">=</span> <span class="ident">guard</span>.<span class="ident">deref</span>();
+                <span class="kw">match</span> <span class="ident">deref</span> {
                     <span class="ident">Kind::Root</span> { .. } =&gt; {
                         <span class="self">self</span>.<span class="ident">fs_backing</span>.<span class="ident">symlink_metadata</span>(<span class="ident">path_to_symlink</span>).<span class="ident">map_err</span>(<span class="ident">fs_error_into_wasi_err</span>)<span class="question-mark">?</span>
                     }
@@ -3634,7 +3663,8 @@
         <span class="kw">let</span> <span class="ident">is_preopened</span> <span class="op">=</span> <span class="ident">inodeval</span>.<span class="ident">is_preopened</span>;
 
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">guard</span> <span class="op">=</span> <span class="ident">inodeval</span>.<span class="ident">write</span>();
-        <span class="kw">match</span> <span class="ident">guard</span>.<span class="ident">deref_mut</span>() {
+        <span class="kw">let</span> <span class="ident">deref_mut</span> <span class="op">=</span> <span class="ident">guard</span>.<span class="ident">deref_mut</span>();
+        <span class="kw">match</span> <span class="ident">deref_mut</span> {
             <span class="ident">Kind::File</span> { <span class="kw-2">ref</span> <span class="kw-2">mut</span> <span class="ident">handle</span>, .. } =&gt; {
                 <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">empty_handle</span> <span class="op">=</span> <span class="prelude-val">None</span>;
                 <span class="ident">std::mem::swap</span>(<span class="ident">handle</span>, <span class="kw-2">&amp;mut</span> <span class="ident">empty_handle</span>);
@@ -3656,14 +3686,16 @@
                 <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">p</span>) <span class="op">=</span> <span class="kw-2">*</span><span class="ident">parent</span> {
                     <span class="ident">drop</span>(<span class="ident">guard</span>);
                     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">guard</span> <span class="op">=</span> <span class="ident">inodes</span>.<span class="ident">arena</span>[<span class="ident">p</span>].<span class="ident">write</span>();
-                    <span class="kw">match</span> <span class="ident">guard</span>.<span class="ident">deref_mut</span>() {
+                    <span class="kw">let</span> <span class="ident">deref_mut</span> <span class="op">=</span> <span class="ident">guard</span>.<span class="ident">deref_mut</span>();
+                    <span class="kw">match</span> <span class="ident">deref_mut</span> {
                         <span class="ident">Kind::Dir</span> { <span class="ident">entries</span>, .. } <span class="op">|</span> <span class="ident">Kind::Root</span> { <span class="ident">entries</span> } =&gt; {
                             <span class="self">self</span>.<span class="ident">fd_map</span>.<span class="ident">write</span>().<span class="ident">unwrap</span>().<span class="ident">remove</span>(<span class="kw-2">&amp;</span><span class="ident">fd</span>).<span class="ident">unwrap</span>();
                             <span class="kw">if</span> <span class="ident">is_preopened</span> {
                                 <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">idx</span> <span class="op">=</span> <span class="prelude-val">None</span>;
                                 {
                                     <span class="kw">let</span> <span class="ident">preopen_fds</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">preopen_fds</span>.<span class="ident">read</span>().<span class="ident">unwrap</span>();
-                                    <span class="kw">for</span> (<span class="ident">i</span>, <span class="ident">po_fd</span>) <span class="kw">in</span> <span class="ident">preopen_fds</span>.<span class="ident">iter</span>().<span class="ident">enumerate</span>() {
+                                    <span class="kw">let</span> <span class="ident">preopen_fds_iter</span> <span class="op">=</span> <span class="ident">preopen_fds</span>.<span class="ident">iter</span>().<span class="ident">enumerate</span>();
+                                    <span class="kw">for</span> (<span class="ident">i</span>, <span class="ident">po_fd</span>) <span class="kw">in</span> <span class="ident">preopen_fds_iter</span> {
                                         <span class="kw">if</span> <span class="kw-2">*</span><span class="ident">po_fd</span> <span class="op">==</span> <span class="ident">fd</span> {
                                             <span class="ident">idx</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">i</span>);
                                             <span class="kw">break</span>;

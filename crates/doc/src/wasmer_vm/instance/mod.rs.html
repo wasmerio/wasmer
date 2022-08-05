@@ -2112,7 +2112,7 @@
 <span class="doccomment">///</span>
 <span class="doccomment">/// This is more or less a public facade of the private `Instance`,</span>
 <span class="doccomment">/// providing useful higher-level API.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Eq</span>, <span class="ident">PartialEq</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">InstanceHandle</span> {
     <span class="doccomment">/// The layout of `Instance` (which can vary).</span>
     <span class="ident">instance_layout</span>: <span class="ident">Layout</span>,

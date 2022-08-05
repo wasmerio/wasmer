@@ -115,7 +115,7 @@
             <span class="ident">wasmparser::TypeOrFuncType::FuncType</span>(<span class="ident">ty_index</span>) =&gt; {
                 <span class="kw">let</span> <span class="ident">sig_idx</span> <span class="op">=</span> <span class="ident">SignatureIndex::from_u32</span>(<span class="ident">ty_index</span>);
                 <span class="kw">let</span> (<span class="kw-2">ref</span> <span class="ident">params</span>, <span class="kw-2">ref</span> <span class="ident">results</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">wasm_types</span>[<span class="ident">sig_idx</span>];
-                (<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">params</span>, <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">results</span>)
+                (<span class="ident">params</span>, <span class="ident">results</span>)
             }
         })
     }

@@ -2077,7 +2077,7 @@
         .<span class="ident">get</span>::<span class="op">&lt;</span><span class="ident">Function</span><span class="op">&gt;</span>(<span class="ident">function_name</span>)
         .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">RuntimeError::new</span>(<span class="ident">e</span>.<span class="ident">to_string</span>()))<span class="question-mark">?</span>;
     <span class="kw">let</span> <span class="ident">num_params</span> <span class="op">=</span> <span class="ident">main_func</span>.<span class="ident">ty</span>(<span class="kw-2">&amp;</span><span class="ident">env</span>).<span class="ident">params</span>().<span class="ident">len</span>();
-    <span class="kw">let</span> <span class="ident">_result</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">num_params</span> {
+    <span class="kw">match</span> <span class="ident">num_params</span> {
         <span class="number">2</span> =&gt; {
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">new_args</span> <span class="op">=</span> <span class="macro">vec!</span>[<span class="ident">path</span>];
             <span class="ident">new_args</span>.<span class="ident">extend</span>(<span class="ident">args</span>);
