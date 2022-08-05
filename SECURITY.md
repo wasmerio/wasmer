@@ -7,7 +7,9 @@ The table below summarizes which versions are still supported, and which aren't.
 | Version | Supported |
 |-|-|
 | 0.x | ❌ |
-| 1.x | ✅ |
+| 1.x | ❌ |
+| 2.x | ✅ |
+| 3.x | ✅ |
 
 ## Reporting a Vulnerability
 
