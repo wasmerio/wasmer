@@ -1,0 +1,77 @@
+name: Release cloudcompiler.wasm
+
+env:
+  RUST_BACKTRACE: 1
+
+on: 
+  push:
+    tags:
+      # trigger action on release branch
+      - '[0-9]+.[0-9]+.[0-9]+*'
+  workflow_dispatch:
+
+jobs:
+  setup:
+    name: Set up
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.59
+          target: ${{ matrix.target }}
+      - name: Install wasm32-wasi target
+        shell: bash
+        run: |
+          rustup target add wasm32-wasi
+      - name: Setup Wasmer
+        uses: wasmerio/setup-wasmer@v1
+      - name: Build cloudcompiler.wasm
+        shell: bash
+        run: |
+          make build-wasmer-wasm &&
+          mkdir target/wasm32-wasi/release/cloudcompiler
+          cp target/wasm32-wasi/release/wasmer-compiler.wasm target/wasm32-wasi/release/cloudcompiler/cloudcompiler.wasm &&
+          cat << EOF > target/wasm32-wasi/release/cloudcompiler/wapm.toml
+          [package]
+          name = "${{ secrets.WAPM_DEV_USERNAME }}/cloudcompiler"
+          version = "0.1.0"
+          description = "cloudcompiler.wasm"
+          license = "MIT"
+          repository = "https://github.com/wasmerio/wasmer"
+
+          [[module]]
+          name = "cloudcompiler"
+          source = "cloudcompiler.wasm"
+          abi = "wasi"
+
+          [module.interfaces]
+          wasi = "0.1.0-unstable"
+
+          [[command]]
+          name = "cloudcompiler"
+          module = "cloudcompiler"
+          EOF
+      - name: Fix wapm.toml version
+        run: |
+          echo $(git tag | tail -n1) > ./version.txt
+          v=$(git describe --tags --abbrev=0) && \
+          echo "version = ${v}" &&
+          sed -i "s/version = \".*\"/version = \"${v}\"/g" target/wasm32-wasi/release/cloudcompiler/wapm.toml \
+      - name: Build cloudcompiler.wasm
+        shell: bash
+        run: |
+          git tag &&
+          cat target/wasm32-wasi/release/cloudcompiler/wapm.toml &&
+          echo "ls" && 
+          ls target/wasm32-wasi/release/cloudcompiler
+      - name: Publish to WAPM
+        uses: wasmerio/wapm-publish@v1
+        with:
+          registry: https://registry.wapm.dev
+          directory: target/wasm32-wasi/release/cloudcompiler
+          username: ${{ secrets.WAPM_DEV_USERNAME }}
+          password: ${{ secrets.WAPM_DEV_PASSWORD }}

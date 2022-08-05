@@ -11,6 +11,7 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 ### Added
 
 ### Changed
+- [#3048](https://github.com/wasmerio/wasmer/pull/3048) Automatically publish wasmer as "cloudcompiler" package to wapm.dev on every release
 - [#3075](https://github.com/wasmerio/wasmer/pull/3075) Remove __wbindgen_thread_id
 
 ### Fixed
