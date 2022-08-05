@@ -128,7 +128,8 @@ impl WasiThread {
     /// Waits for the thread to exit (false = timeout)
     pub fn join(&self, timeout: Duration) -> bool {
         let guard = self.join.lock().unwrap();
-        match guard.recv_timeout(timeout) {
+        let timeout = guard.recv_timeout(timeout);
+        match timeout {
             Ok(_) => true,
             Err(mpsc::RecvTimeoutError::Disconnected) => true,
             Err(mpsc::RecvTimeoutError::Timeout) => false,

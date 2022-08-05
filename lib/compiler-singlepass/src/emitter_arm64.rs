@@ -663,7 +663,7 @@ impl EmitterARM64 for Assembler {
         addr: GPR,
         offset: i32,
     ) -> Result<(), CodegenError> {
-        assert!((offset >= -255) && (offset <= 255));
+        assert!((-255..=255).contains(&offset));
         match (sz, reg) {
             (Size::S64, Location::GPR(reg)) => {
                 let reg = reg.into_index() as u32;
@@ -702,7 +702,7 @@ impl EmitterARM64 for Assembler {
         addr: GPR,
         offset: i32,
     ) -> Result<(), CodegenError> {
-        assert!((offset >= -255) && (offset <= 255));
+        assert!((-255..=255).contains(&offset));
         match (sz, reg) {
             (Size::S64, Location::GPR(reg)) => {
                 let reg = reg.into_index() as u32;

@@ -101,6 +101,8 @@ fn validate_mapped_dir_alias(alias: &str) -> Result<(), WasiStateCreationError> 
     Ok(())
 }
 
+pub type SetupFsFn = Box<dyn Fn(&mut WasiInodes, &mut WasiFs) -> Result<(), String> + Send>;
+
 // TODO add other WasiFS APIs here like swapping out stdout, for example (though we need to
 // return stdout somehow, it's unclear what that API should look like)
 impl WasiStateBuilder {
@@ -318,10 +320,7 @@ impl WasiStateBuilder {
 
     /// Configure the WASI filesystem before running.
     // TODO: improve ergonomics on this function
-    pub fn setup_fs(
-        &mut self,
-        setup_fs_fn: Box<dyn Fn(&mut WasiInodes, &mut WasiFs) -> Result<(), String> + Send>,
-    ) -> &mut Self {
+    pub fn setup_fs(&mut self, setup_fs_fn: SetupFsFn) -> &mut Self {
         self.setup_fs_fn = Some(setup_fs_fn);
 
         self

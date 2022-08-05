@@ -773,7 +773,7 @@ impl Instance {
 ///
 /// This is more or less a public facade of the private `Instance`,
 /// providing useful higher-level API.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct InstanceHandle {
     /// The layout of `Instance` (which can vary).
     instance_layout: Layout,

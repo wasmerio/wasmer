@@ -562,7 +562,7 @@ pub fn emscripten_call_main(
         .get::<Function>(function_name)
         .map_err(|e| RuntimeError::new(e.to_string()))?;
     let num_params = main_func.ty(&env).params().len();
-    let _result = match num_params {
+    match num_params {
         2 => {
             let mut new_args = vec![path];
             new_args.extend(args);
