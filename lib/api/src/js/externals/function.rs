@@ -901,7 +901,7 @@ mod inner {
     /// the trait system to automatically generate the appropriate
     /// host functions.
     #[doc(hidden)]
-    pub trait HostFunctionKind {}
+    pub trait HostFunctionKind: private::HostFunctionKindSealed {}
 
     /// An empty struct to help Rust typing to determine
     /// when a `HostFunction` does have an environment.
@@ -914,6 +914,16 @@ mod inner {
     pub struct WithoutEnv;
 
     impl HostFunctionKind for WithoutEnv {}
+
+    mod private {
+        //! Sealing the HostFunctionKind because it shouldn't be implemented
+        //! by any type outside.
+        //! See:
+        //! https://rust-lang.github.io/api-guidelines/future-proofing.html#c-sealed
+        pub trait HostFunctionKindSealed {}
+        impl HostFunctionKindSealed for super::WithEnv {}
+        impl HostFunctionKindSealed for super::WithoutEnv {}
+    }
 
     /// Represents a low-level Wasm static host function. See
     /// `super::Function::new` and `super::Function::new_env` to learn
