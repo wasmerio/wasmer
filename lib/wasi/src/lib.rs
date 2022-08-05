@@ -113,12 +113,6 @@ impl From<WasiBusProcessId> for u32 {
     }
 }
 
-#[cfg(target_family = "wasm")]
-#[link(wasm_import_module = "__wbindgen_thread_xform__")]
-extern "C" {
-    fn __wbindgen_thread_id() -> u32;
-}
-
 #[derive(Debug, Clone)]
 pub struct WasiThread {
     /// ID of this thread
