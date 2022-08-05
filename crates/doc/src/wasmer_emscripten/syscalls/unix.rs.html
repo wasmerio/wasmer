@@ -1146,6 +1146,8 @@
 <span id="1144">1144</span>
 <span id="1145">1145</span>
 <span id="1146">1146</span>
+<span id="1147">1147</span>
+<span id="1148">1148</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">varargs::VarArgs</span>, <span class="ident">LibcDirWrapper</span>};
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_vendor</span> <span class="op">=</span> <span class="string">&quot;apple&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">libc::size_t</span>;
@@ -1351,7 +1353,8 @@
     <span class="kw">let</span> <span class="ident">resource</span>: <span class="ident">c_int</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>);
     <span class="kw">let</span> <span class="ident">rusage_ptr</span>: <span class="ident">c_int</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>);
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::cast_ptr_alignment</span>)]</span>
-    <span class="kw">let</span> <span class="ident">rusage</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory_view</span>(<span class="number">0</span>, <span class="kw-2">&amp;</span><span class="ident">ctx</span>), <span class="ident">rusage_ptr</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">rusage</span>;
+    <span class="kw">let</span> <span class="ident">rusage</span> <span class="op">=</span>
+        <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory_view</span>(<span class="number">0</span>, <span class="kw-2">&amp;</span><span class="ident">ctx</span>), <span class="ident">rusage_ptr</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">rusage</span>;
     <span class="macro">assert_eq!</span>(<span class="number">8</span>, <span class="ident">mem::align_of_val</span>(<span class="kw-2">&amp;</span><span class="ident">rusage</span>));
     <span class="kw">unsafe</span> { <span class="ident">getrusage</span>(<span class="ident">resource</span>, <span class="ident">rusage</span>) }
 }
@@ -1927,8 +1930,7 @@
             <span class="kw">let</span> <span class="ident">value</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="ident">socket_varargs</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>);
             <span class="kw">let</span> <span class="ident">option_len</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="ident">socket_varargs</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>);
             <span class="kw">let</span> <span class="ident">value_addr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">memory</span>, <span class="ident">value</span>) <span class="kw">as</span> <span class="kw">_</span>;
-            <span class="kw">let</span> <span class="ident">option_len_addr</span> <span class="op">=</span>
-                <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">memory</span>, <span class="ident">option_len</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">socklen_t</span>;
+            <span class="kw">let</span> <span class="ident">option_len_addr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">memory</span>, <span class="ident">option_len</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">socklen_t</span>;
             <span class="kw">unsafe</span> { <span class="ident">getsockopt</span>(<span class="ident">socket</span>, <span class="ident">level</span>, <span class="ident">name</span>, <span class="ident">value_addr</span>, <span class="ident">option_len_addr</span>) }
         }
         <span class="number">16</span> =&gt; {
@@ -2075,9 +2077,11 @@
     <span class="kw">let</span> <span class="ident">status</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>);
     <span class="kw">let</span> <span class="ident">options</span>: <span class="ident">c_int</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>);
     <span class="kw">let</span> <span class="ident">rusage</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>);
-    <span class="kw">let</span> <span class="ident">status_addr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory_view</span>(<span class="number">0</span>, <span class="kw-2">&amp;</span><span class="ident">ctx</span>), <span class="ident">status</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">c_int</span>;
+    <span class="kw">let</span> <span class="ident">status_addr</span> <span class="op">=</span>
+        <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory_view</span>(<span class="number">0</span>, <span class="kw-2">&amp;</span><span class="ident">ctx</span>), <span class="ident">status</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">c_int</span>;
 
-    <span class="kw">let</span> <span class="ident">rusage_addr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory_view</span>(<span class="number">0</span>, <span class="kw-2">&amp;</span><span class="ident">ctx</span>), <span class="ident">rusage</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">rusage</span>;
+    <span class="kw">let</span> <span class="ident">rusage_addr</span> <span class="op">=</span>
+        <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory_view</span>(<span class="number">0</span>, <span class="kw-2">&amp;</span><span class="ident">ctx</span>), <span class="ident">rusage</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">rusage</span>;
     <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">wait4</span>(<span class="ident">pid</span>, <span class="ident">status_addr</span>, <span class="ident">options</span>, <span class="ident">rusage_addr</span>) };
     <span class="macro">debug!</span>(
         <span class="string">&quot;=&gt; pid: {}, status: {:?}, options: {}, rusage: {:?} = pid: {}&quot;</span>,

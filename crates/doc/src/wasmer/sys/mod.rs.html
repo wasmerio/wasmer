@@ -88,6 +88,7 @@
 <span id="86">86</span>
 <span id="87">87</span>
 <span id="88">88</span>
+<span id="89">89</span>
 </pre><pre class="rust"><code><span class="kw">mod</span> <span class="ident">exports</span>;
 <span class="kw">mod</span> <span class="ident">extern_ref</span>;
 <span class="kw">mod</span> <span class="ident">externals</span>;
@@ -106,7 +107,8 @@
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::exports</span>::{<span class="ident">ExportError</span>, <span class="ident">Exportable</span>, <span class="ident">Exports</span>, <span class="ident">ExportsIterator</span>};
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::extern_ref::ExternRef</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::externals</span>::{
-    <span class="ident">Extern</span>, <span class="ident">FromToNativeWasmType</span>, <span class="ident">Function</span>, <span class="ident">Global</span>, <span class="ident">HostFunction</span>, <span class="ident">Memory</span>, <span class="ident">MemoryView</span>, <span class="ident">Table</span>, <span class="ident">WasmTypeList</span>,
+    <span class="ident">Extern</span>, <span class="ident">FromToNativeWasmType</span>, <span class="ident">Function</span>, <span class="ident">Global</span>, <span class="ident">HostFunction</span>, <span class="ident">Memory</span>, <span class="ident">MemoryView</span>, <span class="ident">Table</span>,
+    <span class="ident">WasmTypeList</span>,
 };
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::function_env</span>::{<span class="ident">FunctionEnv</span>, <span class="ident">FunctionEnvMut</span>};
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::imports::Imports</span>;

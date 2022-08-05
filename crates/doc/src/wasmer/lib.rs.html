@@ -588,11 +588,11 @@
 <span class="doccomment">//!</span>
 <span class="doccomment">//! ```</span>
 <span class="doccomment">//! # use wasmer::{imports, Function, FunctionEnv, FunctionEnvMut, Memory, MemoryType, Store, Imports};</span>
-<span class="doccomment">//! # fn imports_example(mut env: FunctionEnv&lt;()&gt;, mut store: &amp;mut Store) -&gt; Imports {</span>
+<span class="doccomment">//! # fn imports_example(mut store: &amp;mut Store) -&gt; Imports {</span>
 <span class="doccomment">//! let memory = Memory::new(&amp;mut store, MemoryType::new(1, None, false)).unwrap();</span>
 <span class="doccomment">//! imports! {</span>
 <span class="doccomment">//!     &quot;env&quot; =&gt; {</span>
-<span class="doccomment">//!          &quot;my_function&quot; =&gt; Function::new_native(&amp;mut store, &amp;env, |_env: FunctionEnvMut&lt;()&gt;| println!(&quot;Hello&quot;)),</span>
+<span class="doccomment">//!          &quot;my_function&quot; =&gt; Function::new_typed(&amp;mut store, || println!(&quot;Hello&quot;)),</span>
 <span class="doccomment">//!          &quot;memory&quot; =&gt; memory,</span>
 <span class="doccomment">//!     }</span>
 <span class="doccomment">//! }</span>

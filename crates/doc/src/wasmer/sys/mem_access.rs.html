@@ -380,13 +380,9 @@
 <span id="378">378</span>
 <span id="379">379</span>
 <span id="380">380</span>
-<span id="381">381</span>
-<span id="382">382</span>
-<span id="383">383</span>
-<span id="384">384</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::RuntimeError</span>;
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unused_imports</span>)]</span>
-<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">Memory</span>, <span class="ident">MemoryView</span>, <span class="ident">Memory32</span>, <span class="ident">Memory64</span>, <span class="ident">MemorySize</span>, <span class="ident">WasmPtr</span>};
+<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">Memory</span>, <span class="ident">Memory32</span>, <span class="ident">Memory64</span>, <span class="ident">MemorySize</span>, <span class="ident">MemoryView</span>, <span class="ident">WasmPtr</span>};
 <span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">convert::TryInto</span>,
     <span class="ident">fmt</span>,
@@ -450,7 +446,7 @@
     <span class="attribute">#[<span class="ident">inline</span>]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">view</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">MemoryView</span>, <span class="ident">offset</span>: <span class="ident">u64</span>) -&gt; <span class="self">Self</span> {
         <span class="self">Self</span> {
-            <span class="ident">buffer</span>: <span class="ident">view</span>.<span class="ident">buffer</span>.<span class="ident">clone</span>(),
+            <span class="ident">buffer</span>: <span class="ident">view</span>.<span class="ident">buffer</span>,
             <span class="ident">offset</span>,
             <span class="ident">marker</span>: <span class="ident">PhantomData</span>,
         }
@@ -546,11 +542,7 @@
     <span class="doccomment">///</span>
     <span class="doccomment">/// Returns a `MemoryAccessError` if the slice length overflows.</span>
     <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(
-        <span class="ident">view</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">MemoryView</span>,
-        <span class="ident">offset</span>: <span class="ident">u64</span>,
-        <span class="ident">len</span>: <span class="ident">u64</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">MemoryAccessError</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">view</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">MemoryView</span>, <span class="ident">offset</span>: <span class="ident">u64</span>, <span class="ident">len</span>: <span class="ident">u64</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">MemoryAccessError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">total_len</span> <span class="op">=</span> <span class="ident">len</span>
             .<span class="ident">checked_mul</span>(<span class="ident">mem::size_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>() <span class="kw">as</span> <span class="ident">u64</span>)
             .<span class="ident">ok_or</span>(<span class="ident">MemoryAccessError::Overflow</span>)<span class="question-mark">?</span>;

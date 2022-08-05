@@ -896,7 +896,7 @@
             .<span class="ident">exports</span>
             .<span class="ident">get_function</span>(<span class="string">&quot;add_one&quot;</span>)
             .<span class="ident">unwrap</span>()
-            .<span class="ident">native</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>)
+            .<span class="ident">typed</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>)
             .<span class="ident">unwrap</span>();
         <span class="ident">add_one</span>.<span class="ident">call</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>, <span class="number">1</span>).<span class="ident">unwrap</span>();
         <span class="macro">assert_eq!</span>(
@@ -937,7 +937,7 @@
             .<span class="ident">exports</span>
             .<span class="ident">get_function</span>(<span class="string">&quot;add_one&quot;</span>)
             .<span class="ident">unwrap</span>()
-            .<span class="ident">native</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>)
+            .<span class="ident">typed</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>)
             .<span class="ident">unwrap</span>();
 
         <span class="comment">// Increase a bit to have enough for 3 calls</span>

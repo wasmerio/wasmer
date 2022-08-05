@@ -119,7 +119,7 @@ module.</p>
 <div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">Memory::new</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>, <span class="ident">MemoryType::new</span>(<span class="number">1</span>, <span class="prelude-val">None</span>, <span class="bool-val">false</span>)).<span class="ident">unwrap</span>();
 <span class="macro">imports!</span> {
     <span class="string">&quot;env&quot;</span> =&gt; {
-         <span class="string">&quot;my_function&quot;</span> =&gt; <span class="ident">Function::new_native</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>, <span class="kw-2">&amp;</span><span class="ident">env</span>, <span class="op">|</span><span class="ident">_env</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span>()<span class="op">&gt;</span><span class="op">|</span> <span class="macro">println!</span>(<span class="string">&quot;Hello&quot;</span>)),
+         <span class="string">&quot;my_function&quot;</span> =&gt; <span class="ident">Function::new_typed</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>, <span class="op">|</span><span class="op">|</span> <span class="macro">println!</span>(<span class="string">&quot;Hello&quot;</span>)),
          <span class="string">&quot;memory&quot;</span> =&gt; <span class="ident">memory</span>,
     }
 }</code></pre></div>

@@ -439,11 +439,6 @@
 <span id="437">437</span>
 <span id="438">438</span>
 <span id="439">439</span>
-<span id="440">440</span>
-<span id="441">441</span>
-<span id="442">442</span>
-<span id="443">443</span>
-<span id="444">444</span>
 </pre><pre class="rust"><code><span class="doccomment">//! The import module contains the implementation data structures and helper functions used to</span>
 <span class="doccomment">//! manipulate and access a wasm module&#39;s imports including memories, tables, globals, and</span>
 <span class="doccomment">//! functions.</span>
@@ -462,10 +457,10 @@
 <span class="doccomment">///</span>
 <span class="doccomment">/// # Usage:</span>
 <span class="doccomment">/// ```no_run</span>
-<span class="doccomment">/// use wasmer::{Store, Exports, Module, Instance, imports, Imports, Function, FunctionEnv, FunctionEnvMut};</span>
-<span class="doccomment">/// # fn foo_test(mut env: FunctionEnv&lt;()&gt;, mut store: &amp;mut Store, module: Module) {</span>
+<span class="doccomment">/// use wasmer::{Store, Exports, Module, Instance, imports, Imports, Function, FunctionEnvMut};</span>
+<span class="doccomment">/// # fn foo_test(mut store: &amp;mut Store, module: Module) {</span>
 <span class="doccomment">///</span>
-<span class="doccomment">/// let host_fn = Function::new_native(&amp;mut store, &amp;env, foo);</span>
+<span class="doccomment">/// let host_fn = Function::new_typed(&amp;mut store, foo);</span>
 <span class="doccomment">/// let import_object: Imports = imports! {</span>
 <span class="doccomment">///     &quot;env&quot; =&gt; {</span>
 <span class="doccomment">///         &quot;foo&quot; =&gt; host_fn,</span>
@@ -474,7 +469,7 @@
 <span class="doccomment">///</span>
 <span class="doccomment">/// let instance = Instance::new(&amp;mut store, &amp;module, &amp;import_object).expect(&quot;Could not instantiate module.&quot;);</span>
 <span class="doccomment">///</span>
-<span class="doccomment">/// fn foo(_env: FunctionEnvMut&lt;()&gt;, n: i32) -&gt; i32 {</span>
+<span class="doccomment">/// fn foo(n: i32) -&gt; i32 {</span>
 <span class="doccomment">///     n</span>
 <span class="doccomment">/// }</span>
 <span class="doccomment">///</span>
@@ -545,13 +540,12 @@
     <span class="doccomment">/// ```no_run</span>
     <span class="doccomment">/// # use wasmer::{FunctionEnv, Store};</span>
     <span class="doccomment">/// # let mut store: Store = Default::default();</span>
-    <span class="doccomment">/// # let env = FunctionEnv::new(&amp;mut store, ());</span>
     <span class="doccomment">/// use wasmer::{StoreMut, Imports, Function, FunctionEnvMut};</span>
-    <span class="doccomment">/// fn foo(_env: FunctionEnvMut&lt;()&gt;, n: i32) -&gt; i32 {</span>
+    <span class="doccomment">/// fn foo(n: i32) -&gt; i32 {</span>
     <span class="doccomment">///     n</span>
     <span class="doccomment">/// }</span>
     <span class="doccomment">/// let mut import_object = Imports::new();</span>
-    <span class="doccomment">/// import_object.define(&quot;env&quot;, &quot;foo&quot;, Function::new_native(&amp;mut store, &amp;env, foo));</span>
+    <span class="doccomment">/// import_object.define(&quot;env&quot;, &quot;foo&quot;, Function::new_typed(&amp;mut store, foo));</span>
     <span class="doccomment">/// ```</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">define</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">ns</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">val</span>: <span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Extern</span><span class="op">&gt;</span>) {
         <span class="self">self</span>.<span class="ident">map</span>
@@ -656,18 +650,17 @@
 <span class="doccomment">/// # Usage</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// ```</span>
-<span class="doccomment">/// # use wasmer::{StoreMut, Function, Store, FunctionEnv, FunctionEnvMut};</span>
+<span class="doccomment">/// # use wasmer::{StoreMut, Function, FunctionEnvMut, Store};</span>
 <span class="doccomment">/// # let mut store = Store::default();</span>
-<span class="doccomment">/// # let env = FunctionEnv::new(&amp;mut store, ());</span>
 <span class="doccomment">/// use wasmer::imports;</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// let import_object = imports! {</span>
 <span class="doccomment">///     &quot;env&quot; =&gt; {</span>
-<span class="doccomment">///         &quot;foo&quot; =&gt; Function::new_native(&amp;mut store, &amp;env, foo)</span>
+<span class="doccomment">///         &quot;foo&quot; =&gt; Function::new_typed(&amp;mut store, foo)</span>
 <span class="doccomment">///     },</span>
 <span class="doccomment">/// };</span>
 <span class="doccomment">///</span>
-<span class="doccomment">/// fn foo(_env: FunctionEnvMut&lt;()&gt;, n: i32) -&gt; i32 {</span>
+<span class="doccomment">/// fn foo(n: i32) -&gt; i32 {</span>
 <span class="doccomment">///     n</span>
 <span class="doccomment">/// }</span>
 <span class="doccomment">/// ```</span>
@@ -716,7 +709,6 @@
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
 <span class="kw">mod</span> <span class="ident">test</span> {
-    <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::FunctionEnv</span>;
     <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys</span>::{<span class="ident">AsStoreMut</span>, <span class="ident">Global</span>, <span class="ident">Store</span>, <span class="ident">Value</span>};
     <span class="kw">use</span> <span class="ident">wasmer_types::Type</span>;
     <span class="kw">use</span> <span class="ident">wasmer_vm::VMExtern</span>;
@@ -746,53 +738,51 @@
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">imports_macro_allows_trailing_comma_and_none</span>() {
         <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::Function</span>;
-        <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::FunctionEnvMut</span>;
 
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">store</span>: <span class="ident">Store</span> <span class="op">=</span> <span class="ident">Default::default</span>();
-        <span class="kw">let</span> <span class="ident">env</span> <span class="op">=</span> <span class="ident">FunctionEnv::new</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>, ());
 
-        <span class="kw">fn</span> <span class="ident">func</span>(<span class="ident">_env</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span>()<span class="op">&gt;</span>, <span class="ident">arg</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
+        <span class="kw">fn</span> <span class="ident">func</span>(<span class="ident">arg</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
             <span class="ident">arg</span> <span class="op">+</span> <span class="number">1</span>
         }
 
         <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="macro">imports!</span> {
             <span class="string">&quot;env&quot;</span> =&gt; {
-                <span class="string">&quot;func&quot;</span> =&gt; <span class="ident">Function::new_native</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>, <span class="kw-2">&amp;</span><span class="ident">env</span>, <span class="ident">func</span>),
+                <span class="string">&quot;func&quot;</span> =&gt; <span class="ident">Function::new_typed</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>, <span class="ident">func</span>),
             },
         };
         <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="macro">imports!</span> {
             <span class="string">&quot;env&quot;</span> =&gt; {
-                <span class="string">&quot;func&quot;</span> =&gt; <span class="ident">Function::new_native</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>, <span class="kw-2">&amp;</span><span class="ident">env</span>, <span class="ident">func</span>),
+                <span class="string">&quot;func&quot;</span> =&gt; <span class="ident">Function::new_typed</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>, <span class="ident">func</span>),
             }
         };
         <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="macro">imports!</span> {
             <span class="string">&quot;env&quot;</span> =&gt; {
-                <span class="string">&quot;func&quot;</span> =&gt; <span class="ident">Function::new_native</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>, <span class="kw-2">&amp;</span><span class="ident">env</span>, <span class="ident">func</span>),
+                <span class="string">&quot;func&quot;</span> =&gt; <span class="ident">Function::new_typed</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>, <span class="ident">func</span>),
             },
             <span class="string">&quot;abc&quot;</span> =&gt; {
-                <span class="string">&quot;def&quot;</span> =&gt; <span class="ident">Function::new_native</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>, <span class="kw-2">&amp;</span><span class="ident">env</span>, <span class="ident">func</span>),
+                <span class="string">&quot;def&quot;</span> =&gt; <span class="ident">Function::new_typed</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>, <span class="ident">func</span>),
             }
         };
         <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="macro">imports!</span> {
             <span class="string">&quot;env&quot;</span> =&gt; {
-                <span class="string">&quot;func&quot;</span> =&gt; <span class="ident">Function::new_native</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>, <span class="kw-2">&amp;</span><span class="ident">env</span>, <span class="ident">func</span>)
+                <span class="string">&quot;func&quot;</span> =&gt; <span class="ident">Function::new_typed</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>, <span class="ident">func</span>)
             },
         };
         <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="macro">imports!</span> {
             <span class="string">&quot;env&quot;</span> =&gt; {
-                <span class="string">&quot;func&quot;</span> =&gt; <span class="ident">Function::new_native</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>, <span class="kw-2">&amp;</span><span class="ident">env</span>, <span class="ident">func</span>)
+                <span class="string">&quot;func&quot;</span> =&gt; <span class="ident">Function::new_typed</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>, <span class="ident">func</span>)
             }
         };
         <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="macro">imports!</span> {
             <span class="string">&quot;env&quot;</span> =&gt; {
-                <span class="string">&quot;func1&quot;</span> =&gt; <span class="ident">Function::new_native</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>, <span class="kw-2">&amp;</span><span class="ident">env</span>, <span class="ident">func</span>),
-                <span class="string">&quot;func2&quot;</span> =&gt; <span class="ident">Function::new_native</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>, <span class="kw-2">&amp;</span><span class="ident">env</span>, <span class="ident">func</span>)
+                <span class="string">&quot;func1&quot;</span> =&gt; <span class="ident">Function::new_typed</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>, <span class="ident">func</span>),
+                <span class="string">&quot;func2&quot;</span> =&gt; <span class="ident">Function::new_typed</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>, <span class="ident">func</span>)
             }
         };
         <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="macro">imports!</span> {
             <span class="string">&quot;env&quot;</span> =&gt; {
-                <span class="string">&quot;func1&quot;</span> =&gt; <span class="ident">Function::new_native</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>, <span class="kw-2">&amp;</span><span class="ident">env</span>, <span class="ident">func</span>),
-                <span class="string">&quot;func2&quot;</span> =&gt; <span class="ident">Function::new_native</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>, <span class="kw-2">&amp;</span><span class="ident">env</span>, <span class="ident">func</span>),
+                <span class="string">&quot;func1&quot;</span> =&gt; <span class="ident">Function::new_typed</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>, <span class="ident">func</span>),
+                <span class="string">&quot;func2&quot;</span> =&gt; <span class="ident">Function::new_typed</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>, <span class="ident">func</span>),
             }
         };
     }

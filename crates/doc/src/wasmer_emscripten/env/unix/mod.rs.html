@@ -328,6 +328,12 @@
 <span id="326">326</span>
 <span id="327">327</span>
 <span id="328">328</span>
+<span id="329">329</span>
+<span id="330">330</span>
+<span id="331">331</span>
+<span id="332">332</span>
+<span id="333">333</span>
+<span id="334">334</span>
 </pre><pre class="rust"><code><span class="doccomment">/// NOTE: These syscalls only support wasm_32 for now because they take u32 offset</span>
 <span class="kw">use</span> <span class="ident">libc</span>::{
     <span class="ident">c_int</span>, <span class="ident">getenv</span>, <span class="ident">getgrnam</span> <span class="kw">as</span> <span class="ident">libc_getgrnam</span>, <span class="ident">getpwnam</span> <span class="kw">as</span> <span class="ident">libc_getpwnam</span>, <span class="ident">putenv</span>, <span class="ident">setenv</span>, <span class="ident">sysconf</span>,
@@ -347,7 +353,8 @@
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_getenv</span>(<span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">name</span>: <span class="ident">i32</span>) -&gt; <span class="ident">u32</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_getenv&quot;</span>);
 
-    <span class="kw">let</span> <span class="ident">name_addr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory_view</span>(<span class="number">0</span>, <span class="kw-2">&amp;</span><span class="ident">ctx</span>), <span class="ident">name</span>) <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">c_char</span>;
+    <span class="kw">let</span> <span class="ident">name_addr</span> <span class="op">=</span>
+        <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory_view</span>(<span class="number">0</span>, <span class="kw-2">&amp;</span><span class="ident">ctx</span>), <span class="ident">name</span>) <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">c_char</span>;
 
     <span class="macro">debug!</span>(<span class="string">&quot;=&gt; name({:?})&quot;</span>, <span class="kw">unsafe</span> { <span class="ident">CStr::from_ptr</span>(<span class="ident">name_addr</span>) });
 
@@ -363,8 +370,10 @@
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_setenv</span>(<span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">name</span>: <span class="ident">c_int</span>, <span class="ident">value</span>: <span class="ident">c_int</span>, <span class="ident">overwrite</span>: <span class="ident">c_int</span>) -&gt; <span class="ident">c_int</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_setenv&quot;</span>);
 
-    <span class="kw">let</span> <span class="ident">name_addr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory_view</span>(<span class="number">0</span>, <span class="kw-2">&amp;</span><span class="ident">ctx</span>), <span class="ident">name</span>) <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">c_char</span>;
-    <span class="kw">let</span> <span class="ident">value_addr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory_view</span>(<span class="number">0</span>, <span class="kw-2">&amp;</span><span class="ident">ctx</span>), <span class="ident">value</span>) <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">c_char</span>;
+    <span class="kw">let</span> <span class="ident">name_addr</span> <span class="op">=</span>
+        <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory_view</span>(<span class="number">0</span>, <span class="kw-2">&amp;</span><span class="ident">ctx</span>), <span class="ident">name</span>) <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">c_char</span>;
+    <span class="kw">let</span> <span class="ident">value_addr</span> <span class="op">=</span>
+        <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory_view</span>(<span class="number">0</span>, <span class="kw-2">&amp;</span><span class="ident">ctx</span>), <span class="ident">value</span>) <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">c_char</span>;
 
     <span class="macro">debug!</span>(<span class="string">&quot;=&gt; name({:?})&quot;</span>, <span class="kw">unsafe</span> { <span class="ident">CStr::from_ptr</span>(<span class="ident">name_addr</span>) });
     <span class="macro">debug!</span>(<span class="string">&quot;=&gt; value({:?})&quot;</span>, <span class="kw">unsafe</span> { <span class="ident">CStr::from_ptr</span>(<span class="ident">value_addr</span>) });
@@ -376,7 +385,8 @@
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_putenv</span>(<span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">name</span>: <span class="ident">c_int</span>) -&gt; <span class="ident">c_int</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_putenv&quot;</span>);
 
-    <span class="kw">let</span> <span class="ident">name_addr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory_view</span>(<span class="number">0</span>, <span class="kw-2">&amp;</span><span class="ident">ctx</span>), <span class="ident">name</span>) <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">c_char</span>;
+    <span class="kw">let</span> <span class="ident">name_addr</span> <span class="op">=</span>
+        <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory_view</span>(<span class="number">0</span>, <span class="kw-2">&amp;</span><span class="ident">ctx</span>), <span class="ident">name</span>) <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">c_char</span>;
 
     <span class="macro">debug!</span>(<span class="string">&quot;=&gt; name({:?})&quot;</span>, <span class="kw">unsafe</span> { <span class="ident">CStr::from_ptr</span>(<span class="ident">name_addr</span>) });
 
@@ -387,7 +397,8 @@
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_unsetenv</span>(<span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">name</span>: <span class="ident">c_int</span>) -&gt; <span class="ident">c_int</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_unsetenv&quot;</span>);
 
-    <span class="kw">let</span> <span class="ident">name_addr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory_view</span>(<span class="number">0</span>, <span class="kw-2">&amp;</span><span class="ident">ctx</span>), <span class="ident">name</span>) <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">c_char</span>;
+    <span class="kw">let</span> <span class="ident">name_addr</span> <span class="op">=</span>
+        <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory_view</span>(<span class="number">0</span>, <span class="kw-2">&amp;</span><span class="ident">ctx</span>), <span class="ident">name</span>) <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">c_char</span>;
 
     <span class="macro">debug!</span>(<span class="string">&quot;=&gt; name({:?})&quot;</span>, <span class="kw">unsafe</span> { <span class="ident">CStr::from_ptr</span>(<span class="ident">name_addr</span>) });
 
@@ -485,9 +496,7 @@
     <span class="kw">let</span> <span class="ident">string_on_guest</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">c_char</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">call_malloc_with_cast</span>(<span class="kw-2">&amp;mut</span> <span class="ident">ctx</span>, <span class="ident">bytes</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="kw">_</span>);
     <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory_view</span>(<span class="number">0</span>, <span class="kw-2">&amp;</span><span class="ident">ctx</span>);
 
-    <span class="kw">let</span> <span class="ident">writer</span> <span class="op">=</span> <span class="ident">string_on_guest</span>
-        .<span class="ident">slice</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="ident">bytes</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="kw">_</span>)
-        .<span class="ident">unwrap</span>();
+    <span class="kw">let</span> <span class="ident">writer</span> <span class="op">=</span> <span class="ident">string_on_guest</span>.<span class="ident">slice</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="ident">bytes</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="kw">_</span>).<span class="ident">unwrap</span>();
     <span class="kw">for</span> (<span class="ident">i</span>, <span class="ident">byte</span>) <span class="kw">in</span> <span class="ident">bytes</span>.<span class="ident">iter</span>().<span class="ident">enumerate</span>() {
         <span class="ident">writer</span>.<span class="ident">index</span>(<span class="ident">i</span> <span class="kw">as</span> <span class="ident">u64</span>).<span class="ident">write</span>(<span class="kw-2">*</span><span class="ident">byte</span> <span class="kw">as</span> <span class="kw">_</span>).<span class="ident">unwrap</span>();
     }
@@ -522,7 +531,10 @@
     <span class="kw">let</span> <span class="ident">hints</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">hints_ptr</span>.<span class="ident">is_null</span>() {
         <span class="prelude-val">None</span>
     } <span class="kw">else</span> {
-        <span class="kw">let</span> <span class="ident">hints_guest</span> <span class="op">=</span> <span class="ident">hints_ptr</span>.<span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory_view</span>(<span class="number">0</span>, <span class="kw-2">&amp;</span><span class="ident">ctx</span>)).<span class="ident">read</span>().<span class="ident">unwrap</span>();
+        <span class="kw">let</span> <span class="ident">hints_guest</span> <span class="op">=</span> <span class="ident">hints_ptr</span>
+            .<span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory_view</span>(<span class="number">0</span>, <span class="kw-2">&amp;</span><span class="ident">ctx</span>))
+            .<span class="ident">read</span>()
+            .<span class="ident">unwrap</span>();
         <span class="prelude-val">Some</span>(<span class="ident">addrinfo</span> {
             <span class="ident">ai_flags</span>: <span class="ident">hints_guest</span>.<span class="ident">ai_flags</span>,
             <span class="ident">ai_family</span>: <span class="ident">hints_guest</span>.<span class="ident">ai_family</span>,

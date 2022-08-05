@@ -509,7 +509,7 @@
         <span class="ident">Rets</span>: <span class="ident">WasmTypeList</span>,
     {
         <span class="self">self</span>.<span class="ident">get_function</span>(<span class="ident">name</span>)<span class="question-mark">?</span>
-            .<span class="ident">native</span>(<span class="ident">store</span>)
+            .<span class="ident">typed</span>(<span class="ident">store</span>)
             .<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">ExportError::IncompatibleType</span>)
     }
 
