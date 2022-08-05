@@ -22,7 +22,7 @@ use std::fmt;
 /// use wasmer::{Exports, Module, Store, Instance, imports, Imports, Function};
 /// # fn foo_test(module: Module, store: Store) {
 ///
-/// let host_fn = Function::new_native(foo);
+/// let host_fn = Function::new_typed(foo);
 /// let import_object: Imports = imports! {
 ///     "env" => {
 ///         "foo" => host_fn,
@@ -103,7 +103,7 @@ impl Imports {
     ///     n
     /// }
     /// let mut import_object = Imports::new();
-    /// import_object.define("env", "foo", Function::new_native(foo));
+    /// import_object.define("env", "foo", Function::new_typed(&store, foo));
     /// ```
     pub fn define(&mut self, ns: &str, name: &str, val: impl Into<Extern>) {
         self.map
@@ -240,7 +240,7 @@ impl fmt::Debug for Imports {
 ///
 /// let import_object = imports! {
 ///     "env" => {
-///         "foo" => Function::new_native(&store, foo)
+///         "foo" => Function::new_typed(&store, foo)
 ///     },
 /// };
 ///
@@ -331,42 +331,42 @@ mod test {
 
         let _ = imports! {
             "env" => {
-                "func" => Function::new_native(&store, func),
+                "func" => Function::new_typed(&store, func),
             },
         };
         let _ = imports! {
             "env" => {
-                "func" => Function::new_native(&store, func),
+                "func" => Function::new_typed(&store, func),
             }
         };
         let _ = imports! {
             "env" => {
-                "func" => Function::new_native(&store, func),
+                "func" => Function::new_typed(&store, func),
             },
             "abc" => {
-                "def" => Function::new_native(&store, func),
+                "def" => Function::new_typed(&store, func),
             }
         };
         let _ = imports! {
             "env" => {
-                "func" => Function::new_native(&store, func)
+                "func" => Function::new_typed(&store, func)
             },
         };
         let _ = imports! {
             "env" => {
-                "func" => Function::new_native(&store, func)
+                "func" => Function::new_typed(&store, func)
             }
         };
         let _ = imports! {
             "env" => {
-                "func1" => Function::new_native(&store, func),
-                "func2" => Function::new_native(&store, func)
+                "func1" => Function::new_typed(&store, func),
+                "func2" => Function::new_typed(&store, func)
             }
         };
         let _ = imports! {
             "env" => {
-                "func1" => Function::new_native(&store, func),
-                "func2" => Function::new_native(&store, func),
+                "func1" => Function::new_typed(&store, func),
+                "func2" => Function::new_typed(&store, func),
             }
         };
     }

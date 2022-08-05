@@ -21,7 +21,8 @@ impl VarArgs {
     // pub fn getStr<'a>(&mut self, ctx: &mut Ctx) -> &'a CStr {
     pub fn get_str(&mut self, ctx: &FunctionEnvMut<EmEnv>) -> *const c_char {
         let ptr_addr: u32 = self.get(ctx);
-        let ptr = emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), ptr_addr) as *const c_char;
+        let ptr =
+            emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), ptr_addr) as *const c_char;
         ptr
         // unsafe { CStr::from_ptr(ptr) }
     }

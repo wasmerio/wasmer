@@ -55,7 +55,7 @@ pub unsafe extern "C" fn wasm_func_new(
 
     let func_sig = &function_type.inner().function_type;
     let num_rets = func_sig.results().len();
-    let inner_callback = move |mut _ctx: FunctionEnvMut<'_, FunctionCEnv>,
+    let inner_callback = move |mut _env: FunctionEnvMut<'_, FunctionCEnv>,
                                args: &[Value]|
           -> Result<Vec<Value>, RuntimeError> {
         let processed_args: wasm_val_vec_t = args
@@ -90,7 +90,7 @@ pub unsafe extern "C" fn wasm_func_new(
         Ok(processed_results)
     };
     let env = FunctionEnv::new(&mut store_mut, FunctionCEnv::default());
-    let function = Function::new(&mut store_mut, &env, func_sig, inner_callback);
+    let function = Function::new_with_env(&mut store_mut, &env, func_sig, inner_callback);
     Some(Box::new(wasm_func_t {
         extern_: wasm_extern_t::new(store.inner.clone(), function.into()),
     }))
@@ -179,7 +179,7 @@ pub unsafe extern "C" fn wasm_func_new_with_env(
             env_finalizer: Arc::new(Mutex::new(env_finalizer)),
         },
     );
-    let function = Function::new(&mut store_mut, &env, func_sig, inner_callback);
+    let function = Function::new_with_env(&mut store_mut, &env, func_sig, inner_callback);
     Some(Box::new(wasm_func_t {
         extern_: wasm_extern_t::new(store.inner.clone(), function.into()),
     }))

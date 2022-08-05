@@ -119,11 +119,10 @@ mod js {
                 ))],
             })
             .unwrap();
-        let env = FunctionEnv::new(&mut store, ());
 
         let imported_signature = FunctionType::new(vec![Type::I32], vec![Type::I32]);
 
-        let imported = Function::new(&mut store, &env, imported_signature, |_env, args| {
+        let imported = Function::new(&mut store, imported_signature, |args| {
             log!("Calling `imported`...");
             let result = args[0].unwrap_i32() * 2;
             log!("Result of `imported`: {:?}", result);
@@ -239,12 +238,13 @@ mod js {
         let env = FunctionEnv::new(&mut store, Env { multiplier: 3 });
 
         let imported_signature = FunctionType::new(vec![Type::I32], vec![Type::I32]);
-        let imported = Function::new(&mut store, &env, &imported_signature, |env, args| {
-            log!("Calling `imported`...");
-            let result = args[0].unwrap_i32() * env.data().multiplier;
-            log!("Result of `imported`: {:?}", result);
-            Ok(vec![Value::I32(result)])
-        });
+        let imported =
+            Function::new_with_env(&mut store, &env, &imported_signature, |env, args| {
+                log!("Calling `imported`...");
+                let result = args[0].unwrap_i32() * env.data().multiplier;
+                log!("Result of `imported`: {:?}", result);
+                Ok(vec![Value::I32(result)])
+            });
 
         let import_object = imports! {
             "env" => {
@@ -287,12 +287,11 @@ mod js {
             })
             .unwrap();
 
-        fn imported_fn(_: FunctionEnvMut<'_, ()>, arg: u32) -> u32 {
+        fn imported_fn(arg: u32) -> u32 {
             return arg + 1;
         }
 
-        let env = FunctionEnv::new(&mut store, ());
-        let imported = Function::new_native(&mut store, &env, imported_fn);
+        let imported = Function::new_typed(&mut store, imported_fn);
 
         let import_object = imports! {
             "env" => {
@@ -348,7 +347,7 @@ mod js {
 
         let env = FunctionEnv::new(&mut store, Env { multiplier: 3 });
 
-        let imported = Function::new_native(&mut store, &env, imported_fn);
+        let imported = Function::new_typed_with_env(&mut store, &env, imported_fn);
 
         let import_object = imports! {
             "env" => {
@@ -412,7 +411,7 @@ mod js {
                 memory: None,
             },
         );
-        let imported = Function::new_native(&mut store, &env, imported_fn);
+        let imported = Function::new_typed_with_env(&mut store, &env, imported_fn);
 
         let import_object = imports! {
             "env" => {
@@ -454,16 +453,13 @@ mod js {
 
         let env = FunctionEnv::new(&mut store, Env { multiplier: 3 });
 
-        fn imported_fn(
-            env: FunctionEnvMut<'_, Env>,
-            args: &[Val],
-        ) -> Result<Vec<Val>, RuntimeError> {
+        fn imported_fn(env: FunctionEnvMut<Env>, args: &[Val]) -> Result<Vec<Val>, RuntimeError> {
             let value = env.data().multiplier * args[0].unwrap_i32() as u32;
             return Ok(vec![Val::I32(value as _)]);
         }
 
         let imported_signature = FunctionType::new(vec![Type::I32], vec![Type::I32]);
-        let imported = Function::new(&mut store, &env, imported_signature, imported_fn);
+        let imported = Function::new_with_env(&mut store, &env, imported_signature, imported_fn);
 
         let expected = vec![Val::I32(12)].into_boxed_slice();
         assert_eq!(imported.call(&mut store, &[Val::I32(4)]), Ok(expected));
@@ -523,7 +519,7 @@ mod js {
         );
 
         let imported_signature = FunctionType::new(vec![Type::I32], vec![Type::I32]);
-        let imported = Function::new(&mut store, &env, imported_signature, imported_fn);
+        let imported = Function::new_with_env(&mut store, &env, imported_signature, imported_fn);
 
         let import_object = imports! {
             "env" => {
@@ -626,15 +622,13 @@ mod js {
         )
         .unwrap();
 
-        fn sum(_: FunctionEnvMut<'_, ()>, a: i32, b: i32) -> i32 {
+        fn sum(a: i32, b: i32) -> i32 {
             a + b
         }
 
-        let env = FunctionEnv::new(&mut store, ());
-
         let import_object = imports! {
             "env" => {
-                "sum" => Function::new_native(&mut store, &env, sum),
+                "sum" => Function::new_typed(&mut store, sum),
             }
         };
 
@@ -667,14 +661,13 @@ mod js {
         )
         .unwrap();
 
-        fn early_exit(_: FunctionEnvMut<'_, ()>) {
+        fn early_exit() {
             panic!("Do panic")
         }
-        let env = FunctionEnv::new(&mut store, ());
 
         let import_object = imports! {
             "env" => {
-                "early_exit" => Function::new_native(&mut store, &env, early_exit),
+                "early_exit" => Function::new_typed(&mut store, early_exit),
             }
         };
         let instance = Instance::new(&mut store, &module, &import_object).unwrap();
@@ -718,8 +711,6 @@ mod js {
         )
         .unwrap();
 
-        let env = FunctionEnv::new(&mut store, ());
-
         use std::fmt;
 
         #[derive(Debug, Clone, Copy)]
@@ -733,13 +724,13 @@ mod js {
 
         impl std::error::Error for ExitCode {}
 
-        fn early_exit(_: FunctionEnvMut<'_, ()>) -> Result<(), ExitCode> {
+        fn early_exit() -> Result<(), ExitCode> {
             Err(ExitCode(1))
         }
 
         let import_object = imports! {
             "env" => {
-                "early_exit" => Function::new_native(&mut store, &env, early_exit),
+                "early_exit" => Function::new_typed(&mut store, early_exit),
             }
         };
 

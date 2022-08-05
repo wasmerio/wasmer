@@ -17,7 +17,8 @@ use wasmer::{FunctionEnvMut, WasmPtr};
 pub fn _getenv(mut ctx: FunctionEnvMut<EmEnv>, name: i32) -> u32 {
     debug!("emscripten::_getenv");
 
-    let name_addr = emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), name) as *const c_char;
+    let name_addr =
+        emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), name) as *const c_char;
 
     debug!("=> name({:?})", unsafe { CStr::from_ptr(name_addr) });
 
@@ -33,8 +34,10 @@ pub fn _getenv(mut ctx: FunctionEnvMut<EmEnv>, name: i32) -> u32 {
 pub fn _setenv(ctx: FunctionEnvMut<EmEnv>, name: c_int, value: c_int, overwrite: c_int) -> c_int {
     debug!("emscripten::_setenv");
 
-    let name_addr = emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), name) as *const c_char;
-    let value_addr = emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), value) as *const c_char;
+    let name_addr =
+        emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), name) as *const c_char;
+    let value_addr =
+        emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), value) as *const c_char;
 
     debug!("=> name({:?})", unsafe { CStr::from_ptr(name_addr) });
     debug!("=> value({:?})", unsafe { CStr::from_ptr(value_addr) });
@@ -46,7 +49,8 @@ pub fn _setenv(ctx: FunctionEnvMut<EmEnv>, name: c_int, value: c_int, overwrite:
 pub fn _putenv(ctx: FunctionEnvMut<EmEnv>, name: c_int) -> c_int {
     debug!("emscripten::_putenv");
 
-    let name_addr = emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), name) as *const c_char;
+    let name_addr =
+        emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), name) as *const c_char;
 
     debug!("=> name({:?})", unsafe { CStr::from_ptr(name_addr) });
 
@@ -57,7 +61,8 @@ pub fn _putenv(ctx: FunctionEnvMut<EmEnv>, name: c_int) -> c_int {
 pub fn _unsetenv(ctx: FunctionEnvMut<EmEnv>, name: c_int) -> c_int {
     debug!("emscripten::_unsetenv");
 
-    let name_addr = emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), name) as *const c_char;
+    let name_addr =
+        emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), name) as *const c_char;
 
     debug!("=> name({:?})", unsafe { CStr::from_ptr(name_addr) });
 
@@ -155,9 +160,7 @@ pub fn _gai_strerror(mut ctx: FunctionEnvMut<EmEnv>, ecode: i32) -> i32 {
     let string_on_guest: WasmPtr<c_char> = call_malloc_with_cast(&mut ctx, bytes.len() as _);
     let memory = ctx.data().memory_view(0, &ctx);
 
-    let writer = string_on_guest
-        .slice(&memory, bytes.len() as _)
-        .unwrap();
+    let writer = string_on_guest.slice(&memory, bytes.len() as _).unwrap();
     for (i, byte) in bytes.iter().enumerate() {
         writer.index(i as u64).write(*byte as _).unwrap();
     }
@@ -192,7 +195,10 @@ pub fn _getaddrinfo(
     let hints = if hints_ptr.is_null() {
         None
     } else {
-        let hints_guest = hints_ptr.deref(&ctx.data().memory_view(0, &ctx)).read().unwrap();
+        let hints_guest = hints_ptr
+            .deref(&ctx.data().memory_view(0, &ctx))
+            .read()
+            .unwrap();
         Some(addrinfo {
             ai_flags: hints_guest.ai_flags,
             ai_family: hints_guest.ai_family,

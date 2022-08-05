@@ -406,7 +406,7 @@ mod tests {
             .exports
             .get_function("add_one")
             .unwrap()
-            .native(&store)
+            .typed(&store)
             .unwrap();
         add_one.call(&mut store, 1).unwrap();
         assert_eq!(
@@ -447,7 +447,7 @@ mod tests {
             .exports
             .get_function("add_one")
             .unwrap()
-            .native(&store)
+            .typed(&store)
             .unwrap();
 
         // Increase a bit to have enough for 3 calls

@@ -1,11 +1,10 @@
 use wasmer::{
-    imports, wat2wasm, Function, FunctionEnv, FunctionEnvMut, Instance, Module, Store, TableType,
-    Type, TypedFunction, Value,
+    imports, wat2wasm, Function, Instance, Module, Store, TableType, Type, TypedFunction, Value,
 };
 use wasmer_compiler_cranelift::Cranelift;
 
 /// A function we'll call through a table.
-fn host_callback(_env: FunctionEnvMut<()>, arg1: i32, arg2: i32) -> i32 {
+fn host_callback(arg1: i32, arg2: i32) -> i32 {
     arg1 + arg2
 }
 
@@ -52,7 +51,6 @@ fn main() -> anyhow::Result<()> {
 
     // We set up our store with an engine and a compiler.
     let mut store = Store::new(Cranelift::default());
-    let env = FunctionEnv::new(&mut store, ());
     // Then compile our Wasm.
     let module = Module::new(&store, wasm_bytes)?;
     let import_object = imports! {};
@@ -88,7 +86,7 @@ fn main() -> anyhow::Result<()> {
     // == Setting elements in a table ==
 
     // We first construct a `Function` over our host_callback.
-    let func = Function::new_native(&mut store, &env, host_callback);
+    let func = Function::new_typed(&mut store, host_callback);
 
     // And set table index 1 of that table to the host_callback `Function`.
     guest_table.set(&mut store, 1, func.into())?;
@@ -102,7 +100,7 @@ fn main() -> anyhow::Result<()> {
     // == Growing a table ==
 
     // We again construct a `Function` over our host_callback.
-    let func = Function::new_native(&mut store, &env, host_callback);
+    let func = Function::new_typed(&mut store, host_callback);
 
     // And grow the table by 3 elements, filling in our host_callback in all the
     // new elements of the table.
@@ -133,7 +131,7 @@ fn main() -> anyhow::Result<()> {
     assert_eq!(result, 18);
 
     // Now overwrite index 0 with our host_callback.
-    let func = Function::new_native(&mut store, &env, host_callback);
+    let func = Function::new_typed(&mut store, host_callback);
     guest_table.set(&mut store, 0, func.into())?;
     // And verify that it does what we expect.
     let result = call_via_table.call(&mut store, 0, 2, 7)?;

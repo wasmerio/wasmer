@@ -80,7 +80,8 @@ pub fn ___syscall4(ctx: FunctionEnvMut<EmEnv>, _which: c_int, mut varargs: VarAr
     let buf: i32 = varargs.get(&ctx);
     let count: i32 = varargs.get(&ctx);
     debug!("=> fd: {}, buf: {}, count: {}", fd, buf, count);
-    let buf_addr = emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), buf) as *const c_void;
+    let buf_addr =
+        emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), buf) as *const c_void;
     unsafe { write(fd, buf_addr, count as _) as i32 }
 }
 
@@ -384,7 +385,8 @@ pub fn ___syscall192(mut ctx: FunctionEnvMut<EmEnv>, _which: c_int, mut varargs:
             // ENOMEM
             return -12;
         }
-        let real_ptr = emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), ptr) as *const u8;
+        let real_ptr =
+            emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), ptr) as *const u8;
         env::call_memset(&mut ctx, ptr, 0, len);
         for i in 0..(len as usize) {
             unsafe {
@@ -450,9 +452,10 @@ pub fn ___syscall145(ctx: FunctionEnvMut<EmEnv>, _which: c_int, mut varargs: Var
             let guest_iov_addr =
                 emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), (iov + i * 8))
                     as *mut GuestIovec;
-            let iov_base =
-                emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), (*guest_iov_addr).iov_base)
-                    as *mut c_void;
+            let iov_base = emscripten_memory_pointer!(
+                ctx.data().memory_view(0, &ctx),
+                (*guest_iov_addr).iov_base
+            ) as *mut c_void;
             let iov_len = (*guest_iov_addr).iov_len as _;
             // debug!("=> iov_addr: {:?}, {:?}", iov_base, iov_len);
             let curr = read(fd, iov_base, iov_len);
@@ -488,9 +491,10 @@ pub fn ___syscall146(ctx: FunctionEnvMut<EmEnv>, _which: i32, mut varargs: VarAr
             let guest_iov_addr =
                 emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), (iov + i * 8))
                     as *mut GuestIovec;
-            let iov_base =
-                emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), (*guest_iov_addr).iov_base)
-                    as *const c_void;
+            let iov_base = emscripten_memory_pointer!(
+                ctx.data().memory_view(0, &ctx),
+                (*guest_iov_addr).iov_base
+            ) as *const c_void;
             let iov_len = (*guest_iov_addr).iov_len as _;
             // debug!("=> iov_addr: {:?}, {:?}", iov_base, iov_len);
             let curr = write(fd, iov_base, iov_len);
@@ -518,7 +522,8 @@ pub fn ___syscall191(ctx: FunctionEnvMut<EmEnv>, _which: i32, mut varargs: VarAr
         _resource
     );
     let rlim_emptr: i32 = varargs.get(&ctx);
-    let rlim_ptr = emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), rlim_emptr) as *mut u8;
+    let rlim_ptr =
+        emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), rlim_emptr) as *mut u8;
     let rlim = unsafe { slice::from_raw_parts_mut(rlim_ptr, 16) };
 
     // set all to RLIM_INIFINTY
@@ -722,7 +727,8 @@ pub fn ___syscall340(ctx: FunctionEnvMut<EmEnv>, _which: c_int, mut varargs: Var
 
     if old_limit != 0 {
         // just report no limits
-        let buf_ptr = emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), old_limit) as *mut u8;
+        let buf_ptr =
+            emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), old_limit) as *mut u8;
         let buf = unsafe { slice::from_raw_parts_mut(buf_ptr, 16) };
 
         LittleEndian::write_i64(&mut *buf, val);

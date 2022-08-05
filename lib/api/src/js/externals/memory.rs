@@ -134,7 +134,7 @@ impl Memory {
     }
 
     /// Creates a view into the memory that then allows for
-    /// read and write 
+    /// read and write
     pub fn view(&self, store: &impl AsStoreRef) -> MemoryView {
         MemoryView::new(self, store)
     }
@@ -240,7 +240,12 @@ impl<'a> MemoryBuffer<'a> {
         let view = unsafe { &*(self.base) };
         if end > view.length().into() {
             #[cfg(feature = "tracing")]
-            warn!("attempted to read ({} bytes) beyond the bounds of the memory view ({} > {})", buf.len(), end, view.length());
+            warn!(
+                "attempted to read ({} bytes) beyond the bounds of the memory view ({} > {})",
+                buf.len(),
+                end,
+                view.length()
+            );
             return Err(MemoryAccessError::HeapOutOfBounds);
         }
         view.subarray(offset as _, end as _)
@@ -259,7 +264,12 @@ impl<'a> MemoryBuffer<'a> {
         let view = unsafe { &*(self.base) };
         if end > view.length().into() {
             #[cfg(feature = "tracing")]
-            warn!("attempted to read ({} bytes) beyond the bounds of the memory view ({} > {})", buf.len(), end, view.length());
+            warn!(
+                "attempted to read ({} bytes) beyond the bounds of the memory view ({} > {})",
+                buf.len(),
+                end,
+                view.length()
+            );
             return Err(MemoryAccessError::HeapOutOfBounds);
         }
         let buf_ptr = buf.as_mut_ptr() as *mut u8;
@@ -276,7 +286,12 @@ impl<'a> MemoryBuffer<'a> {
         let view = unsafe { &mut *(self.base) };
         if end > view.length().into() {
             #[cfg(feature = "tracing")]
-            warn!("attempted to write ({} bytes) beyond the bounds of the memory view ({} > {})", data.len(), end, view.length());
+            warn!(
+                "attempted to write ({} bytes) beyond the bounds of the memory view ({} > {})",
+                data.len(),
+                end,
+                view.length()
+            );
             return Err(MemoryAccessError::HeapOutOfBounds);
         }
         view.subarray(offset as _, end as _).copy_from(data);

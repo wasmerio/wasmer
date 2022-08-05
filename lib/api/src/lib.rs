@@ -147,11 +147,11 @@
 //!
 //! ```
 //! # use wasmer::{imports, Function, FunctionEnv, FunctionEnvMut, Memory, MemoryType, Store, Imports};
-//! # fn imports_example(mut env: FunctionEnv<()>, mut store: &mut Store) -> Imports {
+//! # fn imports_example(mut store: &mut Store) -> Imports {
 //! let memory = Memory::new(&mut store, MemoryType::new(1, None, false)).unwrap();
 //! imports! {
 //!     "env" => {
-//!          "my_function" => Function::new_native(&mut store, &env, |_env: FunctionEnvMut<()>| println!("Hello")),
+//!          "my_function" => Function::new_typed(&mut store, || println!("Hello")),
 //!          "memory" => memory,
 //!     }
 //! }

@@ -14,6 +14,8 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 - [#3048](https://github.com/wasmerio/wasmer/pull/3048) Automatically publish wasmer as "cloudcompiler" package to wapm.dev on every release
 - [#3075](https://github.com/wasmerio/wasmer/pull/3075) Remove __wbindgen_thread_id
 
+- [#3072](https://github.com/wasmerio/wasmer/pull/3072) Add back `Function::*_with_env(…)` functions
+
 ### Fixed
 
 ## 3.0.0-alpha.4 - 2022/07/28

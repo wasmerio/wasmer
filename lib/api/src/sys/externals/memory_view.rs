@@ -6,8 +6,8 @@ use std::mem::MaybeUninit;
 use std::slice;
 use wasmer_types::Pages;
 
-use super::Memory;
 use super::memory::MemoryBuffer;
+use super::Memory;
 
 /// A WebAssembly `memory` view.
 ///
@@ -21,14 +21,13 @@ pub struct MemoryView<'a> {
     pub(crate) size: Pages,
 }
 
-impl<'a> MemoryView<'a>
-{
+impl<'a> MemoryView<'a> {
     pub(crate) fn new(memory: &Memory, store: &'a impl AsStoreRef) -> Self {
         let size = memory.handle.get(store.as_store_ref().objects()).size();
 
         let definition = memory.handle.get(store.as_store_ref().objects()).vmmemory();
         let def = unsafe { definition.as_ref() };
-        
+
         Self {
             buffer: MemoryBuffer {
                 base: def.base,
@@ -97,7 +96,7 @@ impl<'a> MemoryView<'a>
     }
 
     pub(crate) fn buffer(&'a self) -> MemoryBuffer<'a> {
-        self.buffer.clone()
+        self.buffer
     }
 
     /// Safely reads bytes from the memory at the given offset.
@@ -107,11 +106,7 @@ impl<'a> MemoryView<'a>
     ///
     /// This method is guaranteed to be safe (from the host side) in the face of
     /// concurrent writes.
-    pub fn read(
-        &self,
-        offset: u64,
-        buf: &mut [u8],
-    ) -> Result<(), MemoryAccessError> {
+    pub fn read(&self, offset: u64, buf: &mut [u8]) -> Result<(), MemoryAccessError> {
         self.buffer.read(offset, buf)
     }
 
@@ -119,10 +114,7 @@ impl<'a> MemoryView<'a>
     ///
     /// This method is guaranteed to be safe (from the host side) in the face of
     /// concurrent writes.
-    pub fn read_u8(
-        &self,
-        offset: u64
-    ) -> Result<u8, MemoryAccessError> {
+    pub fn read_u8(&self, offset: u64) -> Result<u8, MemoryAccessError> {
         let mut buf = [0u8; 1];
         self.read(offset, &mut buf)?;
         Ok(buf[0])
@@ -153,11 +145,7 @@ impl<'a> MemoryView<'a>
     ///
     /// This method is guaranteed to be safe (from the host side) in the face of
     /// concurrent reads/writes.
-    pub fn write(
-        &self,
-        offset: u64,
-        data: &[u8],
-    ) -> Result<(), MemoryAccessError> {
+    pub fn write(&self, offset: u64, data: &[u8]) -> Result<(), MemoryAccessError> {
         self.buffer.write(offset, data)
     }
 
@@ -165,12 +153,8 @@ impl<'a> MemoryView<'a>
     ///
     /// This method is guaranteed to be safe (from the host side) in the face of
     /// concurrent writes.
-    pub fn write_u8(
-        &self,
-        offset: u64,
-        val: u8
-    ) -> Result<(), MemoryAccessError> {
-        let buf = [ val ];
+    pub fn write_u8(&self, offset: u64, val: u8) -> Result<(), MemoryAccessError> {
+        let buf = [val];
         self.write(offset, &buf)?;
         Ok(())
     }

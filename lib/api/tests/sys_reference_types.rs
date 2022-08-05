@@ -27,7 +27,7 @@ mod sys {
         let env = FunctionEnv::new(&mut store, env);
         let imports = imports! {
             "env" => {
-                "func_ref_identity" => Function::new(&mut store, &env, FunctionType::new([Type::FuncRef], [Type::FuncRef]), |_env: FunctionEnvMut<Env>, values: &[Value]| -> Result<Vec<_>, _> {
+                "func_ref_identity" => Function::new_with_env(&mut store, &env, FunctionType::new([Type::FuncRef], [Type::FuncRef]), |_env: FunctionEnvMut<Env>, values: &[Value]| -> Result<Vec<_>, _> {
                     Ok(vec![values[0].clone()])
                 })
             },
@@ -44,7 +44,7 @@ mod sys {
         }
 
         let func_to_call =
-            Function::new_native(&mut store, &env, |mut env: FunctionEnvMut<Env>| -> i32 {
+            Function::new_typed_with_env(&mut store, &env, |mut env: FunctionEnvMut<Env>| -> i32 {
                 env.data_mut().0.store(true, Ordering::SeqCst);
                 343
             });
@@ -88,20 +88,20 @@ mod sys {
         ) -> Result<Vec<Value>, RuntimeError> {
             // TODO: look into `Box<[Value]>` being returned breakage
             let f = values[0].unwrap_funcref().as_ref().unwrap();
-            let f: TypedFunction<(i32, i32), i32> = f.native(&mut env)?;
+            let f: TypedFunction<(i32, i32), i32> = f.typed(&mut env)?;
             Ok(vec![Value::I32(f.call(&mut env, 7, 9)?)])
         }
 
         let imports = imports! {
             "env" => {
-                "func_ref_call" => Function::new(
+                "func_ref_call" => Function::new_with_env(
                     &mut store,
                     &env,
                     FunctionType::new([Type::FuncRef], [Type::I32]),
                     func_ref_call
                 ),
-                // "func_ref_call_native" => Function::new_native(&mut store, &env, |_env: FunctionEnvMut<()>, f: Function| -> Result<i32, RuntimeError> {
-                //     let f: TypedFunction::<(i32, i32), i32> = f.native(&mut store)?;
+                // "func_ref_call_native" => Function::new_native(&mut store, |f: Function| -> Result<i32, RuntimeError> {
+                //     let f: TypedFunction::<(i32, i32), i32> = f.typed(&mut store)?;
                 //     f.call(&mut store, 7, 9)
                 // })
             },
@@ -109,10 +109,10 @@ mod sys {
 
         let instance = Instance::new(&mut store, &module, &imports)?;
         {
-            fn sum(_env: FunctionEnvMut<()>, a: i32, b: i32) -> i32 {
+            fn sum(a: i32, b: i32) -> i32 {
                 a + b
             }
-            let sum_func = Function::new_native(&mut store, &env, sum);
+            let sum_func = Function::new_typed(&mut store, sum);
 
             let call_func: &Function = instance.exports.get_function("call_func")?;
             let result = call_func.call(&mut store, &[Value::FuncRef(Some(sum_func))])?;
@@ -157,7 +157,7 @@ mod sys {
                     "extern_ref_identity" => Function::new(&mut store, &env, FunctionType::new([Type::ExternRef], [Type::ExternRef]), |_env, values| -> Result<Vec<_>, _> {
                         Ok(vec![values[0].clone()])
                     }),
-                    "extern_ref_identity_native" => Function::new_native(&mut store, &env, |_env: FunctionEnvMut<()>, er: ExternRef| -> ExternRef {
+                    "extern_ref_identity_native" => Function::new_typed(&mut store, |er: ExternRef| -> ExternRef {
                         er
                     }),
                     "get_new_extern_ref" => Function::new(&mut store, &env, FunctionType::new([], [Type::ExternRef]), |_env, _| -> Result<Vec<_>, _> {
@@ -170,7 +170,7 @@ mod sys {
                         let new_extern_ref = ExternRef::new(&mut env, inner);
                         Ok(vec![Value::ExternRef(new_extern_ref)])
                     }),
-                    "get_new_extern_ref_native" => Function::new_native(&mut store, &env,|_env| -> ExternRef {
+                    "get_new_extern_ref_native" => Function::new_native(&mut store, || -> ExternRef {
                         let inner =
                             [("hello".to_string(), "world".to_string()),
                              ("color".to_string(), "orange".to_string())]
@@ -292,7 +292,7 @@ mod sys {
                     panic!("Did not find a null func ref in the global");
                 }
 
-                let f = Function::new_native(&store, |arg1: i32, arg2: i32| -> i32 { arg1 + arg2 });
+                let f = Function::new_typed(&store, |arg1: i32, arg2: i32| -> i32 { arg1 + arg2 });
 
                 fr_global.set(Value::FuncRef(Some(f)))?;
 

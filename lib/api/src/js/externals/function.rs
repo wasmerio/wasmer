@@ -1,4 +1,4 @@
-pub use self::inner::{FromToNativeWasmType, HostFunction, WasmTypeList};
+pub use self::inner::{FromToNativeWasmType, HostFunction, WasmTypeList, WithEnv, WithoutEnv};
 use crate::js::exports::{ExportError, Exportable};
 use crate::js::externals::Extern;
 use crate::js::function_env::FunctionEnvMut;
@@ -64,7 +64,24 @@ impl Function {
     /// Creates a new host `Function` (dynamic) with the provided signature.
     ///
     /// If you know the signature of the host function at compile time,
-    /// consider using [`Function::new_native`] for less runtime overhead.
+    /// consider using [`Function::new_typed`] for less runtime overhead.
+    pub fn new<FT, F>(store: &mut impl AsStoreMut, ty: FT, func: F) -> Self
+    where
+        FT: Into<FunctionType>,
+        F: Fn(&[Value]) -> Result<Vec<Value>, RuntimeError> + 'static + Send + Sync,
+    {
+        let env = FunctionEnv::new(&mut store.as_store_mut(), ());
+        let wrapped_func = move |_env: FunctionEnvMut<()>,
+                                 args: &[Value]|
+              -> Result<Vec<Value>, RuntimeError> { func(args) };
+        Self::new_with_env(store, &env, ty, wrapped_func)
+    }
+
+    /// Creates a new host `Function` (dynamic) with the provided signature.
+    ///
+    /// If you know the signature of the host function at compile time,
+    /// consider using [`Function::new_typed`] or [`Function::new_typed_with_env`]
+    /// for less runtime overhead.
     ///
     /// # Examples
     ///
@@ -74,7 +91,7 @@ impl Function {
     /// #
     /// let signature = FunctionType::new(vec![Type::I32, Type::I32], vec![Type::I32]);
     ///
-    /// let f = Function::new(&store, &signature, |args| {
+    /// let f = Function::new_with_env(&store, &signature, |args| {
     ///     let sum = args[0].unwrap_i32() + args[1].unwrap_i32();
     ///     Ok(vec![Value::I32(sum)])
     /// });
@@ -88,13 +105,13 @@ impl Function {
     /// #
     /// const I32_I32_TO_I32: ([Type; 2], [Type; 1]) = ([Type::I32, Type::I32], [Type::I32]);
     ///
-    /// let f = Function::new(&store, I32_I32_TO_I32, |args| {
+    /// let f = Function::new_with_env(&store, I32_I32_TO_I32, |args| {
     ///     let sum = args[0].unwrap_i32() + args[1].unwrap_i32();
     ///     Ok(vec![Value::I32(sum)])
     /// });
     /// ```
     #[allow(clippy::cast_ptr_alignment)]
-    pub fn new<FT, F, T: Send + 'static>(
+    pub fn new_with_env<FT, F, T: Send + 'static>(
         store: &mut impl AsStoreMut,
         env: &FunctionEnv<T>,
         ty: FT,
@@ -164,7 +181,68 @@ impl Function {
         Self::from_vm_export(&mut store, vm_function)
     }
 
+    #[deprecated(
+        since = "3.0.0",
+        note = "new_native() has been renamed to new_typed()."
+    )]
     /// Creates a new host `Function` from a native function.
+    pub fn new_native<F, Args, Rets>(store: &mut impl AsStoreMut, func: F) -> Self
+    where
+        F: HostFunction<(), Args, Rets, WithoutEnv> + 'static + Send + Sync,
+        Args: WasmTypeList,
+        Rets: WasmTypeList,
+    {
+        Self::new_typed(store, func)
+    }
+
+    /// Creates a new host `Function` from a native function.
+    pub fn new_typed<F, Args, Rets>(store: &mut impl AsStoreMut, func: F) -> Self
+    where
+        F: HostFunction<(), Args, Rets, WithoutEnv> + 'static + Send + Sync,
+        Args: WasmTypeList,
+        Rets: WasmTypeList,
+    {
+        let mut store = store.as_store_mut();
+        if std::mem::size_of::<F>() != 0 {
+            Self::closures_unsupported_panic();
+        }
+        let function = inner::Function::<Args, Rets>::new(func);
+        let address = function.address() as usize as u32;
+
+        let ft = wasm_bindgen::function_table();
+        let as_table = ft.unchecked_ref::<js_sys::WebAssembly::Table>();
+        let func = as_table.get(address).unwrap();
+
+        let binded_func = func.bind1(
+            &JsValue::UNDEFINED,
+            &JsValue::from_f64(store.as_raw() as *mut u8 as usize as f64),
+        );
+        let ty = function.ty();
+        let vm_function = VMFunction::new(binded_func, ty);
+        Self {
+            handle: StoreHandle::new(store.objects_mut(), vm_function),
+        }
+    }
+
+    #[deprecated(
+        since = "3.0.0",
+        note = "new_native_with_env() has been renamed to new_typed_with_env()."
+    )]
+    /// Creates a new host `Function` with an environment from a typed function.
+    pub fn new_native_with_env<T, F, Args, Rets>(
+        store: &mut impl AsStoreMut,
+        env: &FunctionEnv<T>,
+        func: F,
+    ) -> Self
+    where
+        F: HostFunction<T, Args, Rets, WithEnv>,
+        Args: WasmTypeList,
+        Rets: WasmTypeList,
+    {
+        Self::new_typed_with_env(store, env, func)
+    }
+
+    /// Creates a new host `Function` from a typed function.
     ///
     /// The function signature is automatically retrieved using the
     /// Rust typing system.
@@ -179,15 +257,15 @@ impl Function {
     ///     a + b
     /// }
     ///
-    /// let f = Function::new_native(&store, sum);
+    /// let f = Function::new_typed_with_env(&store, sum);
     /// ```
-    pub fn new_native<T, F, Args, Rets>(
+    pub fn new_typed_with_env<T, F, Args, Rets>(
         store: &mut impl AsStoreMut,
         env: &FunctionEnv<T>,
         func: F,
     ) -> Self
     where
-        F: HostFunction<T, Args, Rets>,
+        F: HostFunction<T, Args, Rets, WithEnv>,
         Args: WasmTypeList,
         Rets: WasmTypeList,
     {
@@ -226,7 +304,7 @@ impl Function {
     ///     a + b
     /// }
     ///
-    /// let f = Function::new_native(&store, sum);
+    /// let f = Function::new_typed(&store, sum);
     ///
     /// assert_eq!(f.ty().params(), vec![Type::I32, Type::I32]);
     /// assert_eq!(f.ty().results(), vec![Type::I32]);
@@ -242,13 +320,12 @@ impl Function {
     /// ```
     /// # use wasmer::{Function, FunctionEnv, FunctionEnvMut, Store, Type};
     /// # let mut store = Store::default();
-    /// # let env = FunctionEnv::new(&mut store, ());
     /// #
-    /// fn sum(_env: FunctionEnvMut<()>, a: i32, b: i32) -> i32 {
+    /// fn sum(a: i32, b: i32) -> i32 {
     ///     a + b
     /// }
     ///
-    /// let f = Function::new_native(&store, &env, sum);
+    /// let f = Function::new_typed(&store, sum);
     ///
     /// assert_eq!(f.param_arity(&store), 2);
     /// ```
@@ -263,13 +340,12 @@ impl Function {
     /// ```
     /// # use wasmer::{Function, FunctionEnv, FunctionEnvMut, Store, Type};
     /// # let mut store = Store::default();
-    /// # let env = FunctionEnv::new(&mut store, ());
     /// #
-    /// fn sum(_env: FunctionEnvMut<()>, a: i32, b: i32) -> i32 {
+    /// fn sum(a: i32, b: i32) -> i32 {
     ///     a + b
     /// }
     ///
-    /// let f = Function::new_native(&store, &env, sum);
+    /// let f = Function::new_typed(&store, sum);
     ///
     /// assert_eq!(f.result_arity(&store), 1);
     /// ```
@@ -362,8 +438,21 @@ impl Function {
         }
     }
 
-    /// Transform this WebAssembly function into a function with the
-    /// native ABI. See [`TypedFunction`] to learn more.
+    #[deprecated(since = "3.0.0", note = "native() has been renamed to typed().")]
+    /// Transform this WebAssembly function into a typed function.
+    pub fn native<Args, Rets>(
+        &self,
+        store: &impl AsStoreRef,
+    ) -> Result<TypedFunction<Args, Rets>, RuntimeError>
+    where
+        Args: WasmTypeList,
+        Rets: WasmTypeList,
+    {
+        self.typed(store)
+    }
+
+    /// Transform this WebAssembly function into a typed function.
+    /// See [`TypedFunction`] to learn more.
     ///
     /// # Examples
     ///
@@ -383,9 +472,9 @@ impl Function {
     /// # let instance = Instance::new(&module, &import_object).unwrap();
     /// #
     /// let sum = instance.exports.get_function("sum").unwrap();
-    /// let sum_native = sum.native::<(i32, i32), i32>().unwrap();
+    /// let sum_typed = sum.typed::<(i32, i32), i32>().unwrap();
     ///
-    /// assert_eq!(sum_native.call(&mut store, 1, 2).unwrap(), 3);
+    /// assert_eq!(sum_typed.call(&mut store, 1, 2).unwrap(), 3);
     /// ```
     ///
     /// # Errors
@@ -411,7 +500,7 @@ impl Function {
     /// let sum = instance.exports.get_function("sum").unwrap();
     ///
     /// // This results in an error: `RuntimeError`
-    /// let sum_native = sum.native::<(i64, i64), i32>(&mut store).unwrap();
+    /// let sum_typed = sum.typed::<(i64, i64), i32>(&mut store).unwrap();
     /// ```
     ///
     /// If the `Rets` generic parameter does not match the exported function
@@ -435,9 +524,9 @@ impl Function {
     /// let sum = instance.exports.get_function("sum").unwrap();
     ///
     /// // This results in an error: `RuntimeError`
-    /// let sum_native = sum.native::<(i32, i32), i64>(&mut store).unwrap();
+    /// let sum_typed = sum.typed::<(i32, i32), i64>(&mut store).unwrap();
     /// ```
-    pub fn native<Args, Rets>(
+    pub fn typed<Args, Rets>(
         &self,
         store: &impl AsStoreRef,
     ) -> Result<TypedFunction<Args, Rets>, RuntimeError>
@@ -793,15 +882,47 @@ mod inner {
     /// can be used as host function. To uphold this statement, it is
     /// necessary for a function to be transformed into a pointer to
     /// `VMFunctionBody`.
-    pub trait HostFunction<T, Args, Rets>
+    pub trait HostFunction<T, Args, Rets, Kind>
     where
         Args: WasmTypeList,
         Rets: WasmTypeList,
+        Kind: HostFunctionKind,
         T: Sized,
         Self: Sized,
     {
         /// Get the pointer to the function body.
         fn function_body_ptr(self) -> *const VMFunctionBody;
+    }
+
+    /// Empty trait to specify the kind of `HostFunction`: With or
+    /// without an environment.
+    ///
+    /// This trait is never aimed to be used by a user. It is used by
+    /// the trait system to automatically generate the appropriate
+    /// host functions.
+    #[doc(hidden)]
+    pub trait HostFunctionKind: private::HostFunctionKindSealed {}
+
+    /// An empty struct to help Rust typing to determine
+    /// when a `HostFunction` does have an environment.
+    pub struct WithEnv;
+
+    impl HostFunctionKind for WithEnv {}
+
+    /// An empty struct to help Rust typing to determine
+    /// when a `HostFunction` does not have an environment.
+    pub struct WithoutEnv;
+
+    impl HostFunctionKind for WithoutEnv {}
+
+    mod private {
+        //! Sealing the HostFunctionKind because it shouldn't be implemented
+        //! by any type outside.
+        //! See:
+        //! https://rust-lang.github.io/api-guidelines/future-proofing.html#c-sealed
+        pub trait HostFunctionKindSealed {}
+        impl HostFunctionKindSealed for super::WithEnv {}
+        impl HostFunctionKindSealed for super::WithoutEnv {}
     }
 
     /// Represents a low-level Wasm static host function. See
@@ -822,9 +943,9 @@ mod inner {
     {
         /// Creates a new `Function`.
         #[allow(dead_code)]
-        pub fn new<F, T>(function: F) -> Self
+        pub fn new<F, T, Kind: HostFunctionKind>(function: F) -> Self
         where
-            F: HostFunction<T, Args, Rets>,
+            F: HostFunction<T, Args, Rets, Kind>,
             T: Sized,
         {
             Self {
@@ -966,10 +1087,11 @@ mod inner {
                 }
             }
 
-            // Implement `HostFunction` for a function that has the same arity than the tuple.
+            // Implement `HostFunction` for a function with a [`FunctionEnvMut`] that has the same
+            // arity than the tuple.
             #[allow(unused_parens)]
             impl< $( $x, )* Rets, RetsAsResult, T, Func >
-                HostFunction<T, ( $( $x ),* ), Rets>
+                HostFunction<T, ( $( $x ),* ), Rets, WithEnv>
             for
                 Func
             where
@@ -1012,6 +1134,50 @@ mod inner {
                     }
 
                     func_wrapper::< T, $( $x, )* Rets, RetsAsResult, Self > as *const VMFunctionBody
+                }
+            }
+
+            // Implement `HostFunction` for a function that has the same arity than the tuple.
+            #[allow(unused_parens)]
+            impl< $( $x, )* Rets, RetsAsResult, Func >
+                HostFunction<(), ( $( $x ),* ), Rets, WithoutEnv>
+            for
+                Func
+            where
+                $( $x: FromToNativeWasmType, )*
+                Rets: WasmTypeList,
+                RetsAsResult: IntoResult<Rets>,
+                Func: Fn($( $x , )*) -> RetsAsResult + 'static,
+            {
+                #[allow(non_snake_case)]
+                fn function_body_ptr(self) -> *const VMFunctionBody {
+                    /// This is a function that wraps the real host
+                    /// function. Its address will be used inside the
+                    /// runtime.
+                    unsafe extern "C" fn func_wrapper<$( $x, )* Rets, RetsAsResult, Func>( store_ptr: usize, $( $x: <$x::Native as NativeWasmType>::Abi, )* ) -> Rets::CStruct
+                    where
+                        $( $x: FromToNativeWasmType, )*
+                        Rets: WasmTypeList,
+                        RetsAsResult: IntoResult<Rets>,
+                        Func: Fn($( $x , )*) -> RetsAsResult + 'static,
+                    {
+                        // let env: &Env = unsafe { &*(ptr as *const u8 as *const Env) };
+                        let func: &Func = &*(&() as *const () as *const Func);
+                        let mut store = StoreMut::from_raw(store_ptr as *mut _);
+
+                        let result = panic::catch_unwind(AssertUnwindSafe(|| {
+                            func($( FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(&mut store, $x)) ),* ).into_result()
+                        }));
+
+                        match result {
+                            Ok(Ok(result)) => return result.into_c_struct(&mut store),
+                            #[allow(deprecated)]
+                            Ok(Err(trap)) => RuntimeError::raise(Box::new(trap)),
+                            Err(_panic) => unimplemented!(),
+                        }
+                    }
+
+                    func_wrapper::< $( $x, )* Rets, RetsAsResult, Self > as *const VMFunctionBody
                 }
             }
         };

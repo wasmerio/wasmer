@@ -8,7 +8,7 @@ use std::mem::size_of;
 use std::os::raw::c_char;
 use std::path::PathBuf;
 use std::slice;
-use wasmer::{FunctionEnvMut, GlobalInit, Module, Pages, WasmPtr, MemoryView};
+use wasmer::{FunctionEnvMut, GlobalInit, MemoryView, Module, Pages, WasmPtr};
 
 /// We check if a provided module is an Emscripten generated one
 pub fn is_emscripten_module(module: &Module) -> bool {
@@ -204,7 +204,8 @@ pub struct GuestStat {
 
 #[allow(clippy::cast_ptr_alignment)]
 pub unsafe fn copy_stat_into_wasm(ctx: FunctionEnvMut<EmEnv>, buf: u32, stat: &stat) {
-    let stat_ptr = emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), buf) as *mut GuestStat;
+    let stat_ptr =
+        emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), buf) as *mut GuestStat;
     (*stat_ptr).st_dev = stat.st_dev as _;
     (*stat_ptr).__st_dev_padding = 0;
     (*stat_ptr).__st_ino_truncated = stat.st_ino as _;
@@ -233,7 +234,7 @@ pub unsafe fn copy_stat_into_wasm(ctx: FunctionEnvMut<EmEnv>, buf: u32, stat: &s
 #[allow(dead_code)] // it's used in `env/windows/mod.rs`.
 pub fn read_string_from_wasm(memory: &MemoryView, offset: u32) -> String {
     WasmPtr::<u8>::new(offset)
-        .read_utf8_string_with_nul(&memory)
+        .read_utf8_string_with_nul(memory)
         .unwrap()
 }
 
