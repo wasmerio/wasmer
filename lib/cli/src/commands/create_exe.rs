@@ -278,6 +278,7 @@ impl CreateExe {
         library_path: Option<PathBuf>,
         target_triple: wasmer::Triple,
     ) -> anyhow::Result<()> {
+        let zig_binary_path = find_zig_binary()?;
         let c_src_path = Path::new("wasmer_main.c");
         let mut libwasmer_path = if let Some(p) = library_path {
             p
@@ -316,13 +317,14 @@ impl CreateExe {
         /* Compile main function */
         let compilation = {
             /* Cross compilation is only possible with zig */
+            println!("Using zig binary: {}", zig_binary_path.display());
             let mut include_dir = libwasmer_path.clone();
             include_dir.pop();
             include_dir.push("include");
             let zig_triple = triple_to_zig_triple(target_triple);
             eprintln!("Using zig target triple: {}", &zig_triple);
 
-            Command::new("zig")
+            Command::new(&zig_binary_path)
                 .arg("cc")
                 .arg("-target")
                 .arg(&zig_triple)
@@ -334,7 +336,8 @@ impl CreateExe {
                 .arg(&c_src_path)
                 .arg("-o")
                 .arg(&output_path)
-                .output()?
+                .output()
+                .context("Could not execute `zig`")?
         };
         if !compilation.status.success() {
             return Err(anyhow::anyhow!(String::from_utf8_lossy(
@@ -737,7 +740,7 @@ mod http_fetch {
                         ));
                     };
                 let filename = browser_download_url
-                    .split("/")
+                    .split('/')
                     .last()
                     .unwrap_or("output")
                     .to_string();
@@ -794,5 +797,62 @@ mod http_fetch {
             .output()
             .expect("failed to execute process");
         Ok(files)
+    }
+}
+
+fn find_zig_binary() -> Result<PathBuf> {
+    use std::env::split_paths;
+    use std::ffi::OsStr;
+    #[cfg(unix)]
+    use std::os::unix::ffi::OsStrExt;
+    let path_var = std::env::var("PATH").unwrap_or_default();
+    #[cfg(unix)]
+    let system_path_var = std::process::Command::new("getconf")
+        .args(&["PATH"])
+        .output()
+        .map(|output| output.stdout)
+        .unwrap_or_default();
+    let mut retval = None;
+    for mut p in split_paths(&path_var).chain(split_paths(
+        #[cfg(unix)]
+        {
+            &OsStr::from_bytes(&system_path_var[..])
+        },
+        #[cfg(not(unix))]
+        {
+            OsStr::new("")
+        },
+    )) {
+        p.push("zig");
+        if p.exists() {
+            retval = Some(p);
+            break;
+        }
+    }
+    let retval = retval.ok_or_else(|| anyhow!("Could not find `zig` binary in PATH."))?;
+
+    let version = std::process::Command::new(&retval)
+        .arg("version")
+        .output()
+        .with_context(|| {
+            format!(
+                "Could not execute `zig` binary at path `{}`",
+                retval.display()
+            )
+        })?
+        .stdout;
+    let version_slice = if let Some(pos) = version
+        .iter()
+        .position(|c| !(c.is_ascii_digit() || (*c == b'.')))
+    {
+        &version[..pos]
+    } else {
+        &version[..]
+    };
+
+    if version_slice < b"0.10.0".as_ref() {
+        Err(anyhow!("`zig` binary in PATH (`{}`) is not a new enough version (`{}`): please use version `0.10.0` or newer.", retval.display(), String::from_utf8_lossy(version_slice)))
+    } else {
+        Ok(retval)
     }
 }
