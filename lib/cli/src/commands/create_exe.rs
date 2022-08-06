@@ -418,6 +418,7 @@ impl CreateExe {
                 .arg(&format!("-l:{}", lib_filename))
                 .arg(&format!("-I{}", include_dir.display()))
                 .arg(&format!("-I{}", header_code_path.display()))
+                .arg("-lunwind")
                 .arg(&object_path)
                 .arg(&c_src_path)
                 .arg("-o")
