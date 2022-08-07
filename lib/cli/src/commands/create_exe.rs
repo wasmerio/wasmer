@@ -183,9 +183,20 @@ impl CreateExe {
                 v
             } else {
                 {
+                    let libwasmer_path = if self
+                        .target_triple
+                        .clone()
+                        .unwrap_or(Triple::host())
+                        .operating_system
+                        == wasmer_types::OperatingSystem::Windows
+                    {
+                        "lib/wasmer.lib"
+                    } else {
+                        "lib/libwasmer.a"
+                    };
                     let filename = if let Some(local_tarball) = cross_subc.tarball {
                         let files = untar(local_tarball)?;
-                        files.into_iter().find(|f| f.contains("lib/libwasmer.a")).ok_or_else(|| {
+                        files.into_iter().find(|f| f.contains(libwasmer_path)).ok_or_else(|| {
                             anyhow!("Could not find libwasmer for {} target in the provided tarball path.", target)})?
                     } else {
                         #[cfg(feature = "http")]
@@ -193,7 +204,7 @@ impl CreateExe {
                             let release = http_fetch::get_latest_release()?;
                             let tarball = http_fetch::download_release(release, target.clone())?;
                             let files = untar(tarball)?;
-                            files.into_iter().find(|f| f.contains("lib/libwasmer.a")).ok_or_else(|| {
+                            files.into_iter().find(|f| f.contains(libwasmer_path)).ok_or_else(|| {
                                 anyhow!("Could not find libwasmer for {} target in the fetched release from Github: you can download it manually and specify its path with the --cross-compilation-library-path LIBRARY_PATH flag.", target)})?
                         }
                         #[cfg(not(feature = "http"))]
