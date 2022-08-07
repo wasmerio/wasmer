@@ -47,8 +47,8 @@ use std::sync::{mpsc, Arc};
 use std::time::Duration;
 use tracing::{debug, error, trace, warn};
 use wasmer::{
-    AsStoreMut, FunctionEnvMut, Memory, Memory32, Memory64, MemorySize, RuntimeError, Value,
-    WasmPtr, WasmSlice, FunctionEnv, Instance, Module, Extern, MemoryView,
+    AsStoreMut, Extern, FunctionEnv, FunctionEnvMut, Instance, Memory, Memory32, Memory64,
+    MemorySize, MemoryView, Module, RuntimeError, Value, WasmPtr, WasmSlice,
 };
 use wasmer_vbus::{FileDescriptor, StdioMode};
 use wasmer_vfs::{FsError, VirtualFile};
@@ -164,7 +164,8 @@ where
         let inode = &inodes.arena[inode_idx];
 
         let mut guard = inode.read();
-        match guard.deref() {
+        let deref = guard.deref();
+        match deref {
             Kind::Socket { socket } => actor(socket)?,
             _ => {
                 return Err(__WASI_ENOTSOCK);
@@ -197,7 +198,8 @@ where
         let inode = &inodes.arena[inode_idx];
 
         let mut guard = inode.write();
-        match guard.deref_mut() {
+        let deref_mut = guard.deref_mut();
+        match deref_mut {
             Kind::Socket { socket } => actor(socket)?,
             _ => {
                 return Err(__WASI_ENOTSOCK);
@@ -231,7 +233,8 @@ where
     let inode = &inodes.arena[inode_idx];
 
     let mut guard = inode.write();
-    match guard.deref_mut() {
+    let deref_mut = guard.deref_mut();
+    match deref_mut {
         Kind::Socket { socket } => {
             let new_socket = actor(socket)?;
 
@@ -520,7 +523,8 @@ pub fn fd_allocate(
     let new_size = wasi_try!(offset.checked_add(len).ok_or(__WASI_EINVAL));
     {
         let mut guard = inodes.arena[inode].write();
-        match guard.deref_mut() {
+        let deref_mut = guard.deref_mut();
+        match deref_mut {
             Kind::File { handle, .. } => {
                 if let Some(handle) = handle {
                     wasi_try!(handle.set_len(new_size).map_err(fs_error_into_wasi_err));
@@ -729,7 +733,8 @@ pub fn fd_filestat_set_size(
 
     {
         let mut guard = inodes.arena[inode].write();
-        match guard.deref_mut() {
+        let deref_mut = guard.deref_mut();
+        match deref_mut {
             Kind::File { handle, .. } => {
                 if let Some(handle) = handle {
                     wasi_try!(handle.set_len(st_size).map_err(fs_error_into_wasi_err));
@@ -868,7 +873,8 @@ pub fn fd_pread<M: MemorySize>(
                 return Ok(__WASI_EACCES);
             }
             let mut guard = inodes.arena[inode].write();
-            match guard.deref_mut() {
+            let deref_mut = guard.deref_mut();
+            match deref_mut {
                 Kind::File { handle, .. } => {
                     if let Some(h) = handle {
                         wasi_try_ok!(
@@ -891,10 +897,7 @@ pub fn fd_pread<M: MemorySize>(
                 Kind::Dir { .. } | Kind::Root { .. } => return Ok(__WASI_EISDIR),
                 Kind::Symlink { .. } => unimplemented!("Symlinks in wasi::fd_pread"),
                 Kind::Buffer { buffer } => {
-                    wasi_try_ok!(
-                        read_bytes(&buffer[(offset as usize)..], &memory, iovs),
-                        env
-                    )
+                    wasi_try_ok!(read_bytes(&buffer[(offset as usize)..], &memory, iovs), env)
                 }
             }
         }
@@ -924,13 +927,14 @@ pub fn fd_prestat_get<M: MemorySize>(
     let (memory, mut state, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
 
     let prestat_ptr = buf.deref(&memory);
-    wasi_try_mem!(prestat_ptr.write(wasi_try!(
-        state.fs.prestat_fd(inodes.deref(), fd)
-            .map_err(|code| {
+    wasi_try_mem!(
+        prestat_ptr.write(wasi_try!(state.fs.prestat_fd(inodes.deref(), fd).map_err(
+            |code| {
                 debug!("fd_prestat_get failed (fd={}) - errno={}", fd, code);
                 code
-            })
-    )));
+            }
+        )))
+    );
 
     __WASI_ESUCCESS
 }
@@ -957,7 +961,8 @@ pub fn fd_prestat_dir_name<M: MemorySize>(
 
     trace!("=> inode: {:?}", inode_val);
     let guard = inode_val.read();
-    match guard.deref() {
+    let deref = guard.deref();
+    match deref {
         Kind::Dir { .. } | Kind::Root { .. } => {
             // TODO: verify this: null termination, etc
             let path_len: u64 = path_len.into();
@@ -1052,7 +1057,8 @@ pub fn fd_pwrite<M: MemorySize>(
             let inode = &inodes.arena[inode_idx];
 
             let mut guard = inode.write();
-            match guard.deref_mut() {
+            let deref_mut = guard.deref_mut();
+            match deref_mut {
                 Kind::File { handle, .. } => {
                     if let Some(handle) = handle {
                         wasi_try_ok!(
@@ -1151,7 +1157,8 @@ pub fn fd_read<M: MemorySize>(
 
             let bytes_read = {
                 let mut guard = inode.write();
-                match guard.deref_mut() {
+                let deref_mut = guard.deref_mut();
+                match deref_mut {
                     Kind::File { handle, .. } => {
                         if let Some(handle) = handle {
                             wasi_try_ok!(
@@ -1288,7 +1295,8 @@ pub fn fd_readdir<M: MemorySize>(
 
     let entries: Vec<(String, u8, u64)> = {
         let guard = inodes.arena[working_dir.inode].read();
-        match guard.deref() {
+        let deref = guard.deref();
+        match deref {
             Kind::Dir { path, entries, .. } => {
                 debug!("Reading dir {:?}", path);
                 // TODO: refactor this code
@@ -1519,7 +1527,8 @@ pub fn fd_seek<M: MemorySize>(
             use std::io::SeekFrom;
             let inode_idx = fd_entry.inode;
             let mut guard = inodes.arena[inode_idx].write();
-            match guard.deref_mut() {
+            let deref_mut = guard.deref_mut();
+            match deref_mut {
                 Kind::File { ref mut handle, .. } => {
                     if let Some(handle) = handle {
                         let end =
@@ -1589,7 +1598,8 @@ pub fn fd_sync(ctx: FunctionEnvMut<'_, WasiEnv>, fd: __wasi_fd_t) -> __wasi_errn
     // TODO: implement this for more than files
     {
         let mut guard = inodes.arena[inode].write();
-        match guard.deref_mut() {
+        let deref_mut = guard.deref_mut();
+        match deref_mut {
             Kind::File { handle, .. } => {
                 if let Some(h) = handle {
                     wasi_try!(h.sync_to_disk().map_err(fs_error_into_wasi_err));
@@ -1705,7 +1715,8 @@ pub fn fd_write<M: MemorySize>(
 
             let bytes_written = {
                 let mut guard = inode.write();
-                match guard.deref_mut() {
+                let deref_mut = guard.deref_mut();
+                match deref_mut {
                     Kind::File { handle, .. } => {
                         if let Some(handle) = handle {
                             wasi_try_ok!(
@@ -1733,8 +1744,7 @@ pub fn fd_write<M: MemorySize>(
                         counter, wakers, ..
                     } => {
                         let mut val = 0u64.to_ne_bytes();
-                        let written =
-                            wasi_try_ok!(write_bytes(&mut val[..], &memory, iovs_arr));
+                        let written = wasi_try_ok!(write_bytes(&mut val[..], &memory, iovs_arr));
                         if written != val.len() {
                             return Ok(__WASI_EINVAL);
                         }
@@ -1754,10 +1764,7 @@ pub fn fd_write<M: MemorySize>(
                     }
                     Kind::Symlink { .. } => unimplemented!("Symlinks in wasi::fd_write"),
                     Kind::Buffer { buffer } => {
-                        wasi_try_ok!(
-                            write_bytes(&mut buffer[offset..], &memory, iovs_arr),
-                            env
-                        )
+                        wasi_try_ok!(write_bytes(&mut buffer[offset..], &memory, iovs_arr), env)
                     }
                 }
             };
@@ -1879,7 +1886,8 @@ pub fn path_create_directory<M: MemorySize>(
     for comp in &path_vec {
         debug!("Creating dir {}", comp);
         let mut guard = inodes.arena[cur_dir_inode].write();
-        match guard.deref_mut() {
+        let deref_mut = guard.deref_mut();
+        match deref_mut {
             Kind::Dir {
                 ref mut entries,
                 path,
@@ -2181,7 +2189,8 @@ pub fn path_link<M: MemorySize>(
     }
     {
         let mut guard = inodes.arena[target_parent_inode].write();
-        match guard.deref_mut() {
+        let deref_mut = guard.deref_mut();
+        match deref_mut {
             Kind::Dir { entries, .. } => {
                 if entries.contains_key(&new_entry_name) {
                     return __WASI_EEXIST;
@@ -2286,7 +2295,8 @@ pub fn path_open<M: MemorySize>(
     let inode = if let Ok(inode) = maybe_inode {
         // Happy path, we found the file we're trying to open
         let mut guard = inodes.arena[inode].write();
-        match guard.deref_mut() {
+        let deref_mut = guard.deref_mut();
+        match deref_mut {
             Kind::File {
                 ref mut handle,
                 path,
@@ -2373,7 +2383,8 @@ pub fn path_open<M: MemorySize>(
             ));
             let new_file_host_path = {
                 let guard = inodes.arena[parent_inode].read();
-                match guard.deref() {
+                let deref = guard.deref();
+                match deref {
                     Kind::Dir { path, .. } => {
                         let mut new_path = path.clone();
                         new_path.push(&new_entity_name);
@@ -2503,8 +2514,7 @@ pub fn path_readlink<M: MemorySize>(
             }
             let bytes: Vec<_> = bytes.collect();
 
-            let out =
-                wasi_try_mem!(buf.slice(&memory, wasi_try!(to_offset::<M>(bytes.len()))));
+            let out = wasi_try_mem!(buf.slice(&memory, wasi_try!(to_offset::<M>(bytes.len()))));
             wasi_try_mem!(out.write_slice(&bytes));
             // should we null terminate this?
 
@@ -2546,7 +2556,8 @@ pub fn path_remove_directory<M: MemorySize>(
 
     let host_path_to_remove = {
         let guard = inodes.arena[inode].read();
-        match guard.deref() {
+        let deref = guard.deref();
+        match deref {
             Kind::Dir { entries, path, .. } => {
                 if !entries.is_empty() || wasi_try!(state.fs_read_dir(path)).count() != 0 {
                     return __WASI_ENOTEMPTY;
@@ -2560,7 +2571,8 @@ pub fn path_remove_directory<M: MemorySize>(
 
     {
         let mut guard = inodes.arena[parent_inode].write();
-        match guard.deref_mut() {
+        let deref_mut = guard.deref_mut();
+        match deref_mut {
             Kind::Dir {
                 ref mut entries, ..
             } => {
@@ -2648,7 +2660,8 @@ pub fn path_rename<M: MemorySize>(
 
     let host_adjusted_target_path = {
         let guard = inodes.arena[target_parent_inode].read();
-        match guard.deref() {
+        let deref = guard.deref();
+        match deref {
             Kind::Dir { entries, path, .. } => {
                 if entries.contains_key(&target_entry_name) {
                     return __WASI_EEXIST;
@@ -2669,7 +2682,8 @@ pub fn path_rename<M: MemorySize>(
 
     let source_entry = {
         let mut guard = inodes.arena[source_parent_inode].write();
-        match guard.deref_mut() {
+        let deref_mut = guard.deref_mut();
+        match deref_mut {
             Kind::Dir { entries, .. } => {
                 wasi_try!(entries.remove(&source_entry_name).ok_or(__WASI_ENOENT))
             }
@@ -2685,7 +2699,8 @@ pub fn path_rename<M: MemorySize>(
 
     {
         let mut guard = inodes.arena[source_entry].write();
-        match guard.deref_mut() {
+        let deref_mut = guard.deref_mut();
+        match deref_mut {
             Kind::File {
                 handle, ref path, ..
             } => {
@@ -2807,7 +2822,8 @@ pub fn path_symlink<M: MemorySize>(
     // short circuit if anything is wrong, before we create an inode
     {
         let guard = inodes.arena[target_parent_inode].read();
-        match guard.deref() {
+        let deref = guard.deref();
+        match deref {
             Kind::Dir { entries, .. } => {
                 if entries.contains_key(&entry_name) {
                     return __WASI_EEXIST;
@@ -2898,7 +2914,8 @@ pub fn path_unlink_file<M: MemorySize>(
 
     let removed_inode = {
         let mut guard = inodes.arena[parent_inode].write();
-        match guard.deref_mut() {
+        let deref_mut = guard.deref_mut();
+        match deref_mut {
             Kind::Dir {
                 ref mut entries, ..
             } => {
@@ -2923,7 +2940,8 @@ pub fn path_unlink_file<M: MemorySize>(
     if st_nlink == 0 {
         {
             let mut guard = inodes.arena[removed_inode].write();
-            match guard.deref_mut() {
+            let deref_mut = guard.deref_mut();
+            match deref_mut {
                 Kind::File { handle, path, .. } => {
                     if let Some(h) = handle {
                         wasi_try!(h.unlink().map_err(fs_error_into_wasi_err));
@@ -3083,7 +3101,8 @@ pub fn poll_oneoff<M: MemorySize>(
 
                     {
                         let guard = inodes.arena[inode].read();
-                        match guard.deref() {
+                        let deref = guard.deref();
+                        match deref {
                             Kind::File { handle, .. } => {
                                 if let Some(h) = handle {
                                     crate::state::InodeValFileReadGuard { guard }
@@ -3110,6 +3129,7 @@ pub fn poll_oneoff<M: MemorySize>(
         }
     }
 
+    #[allow(clippy::significant_drop_in_scrutinee)]
     let fds = {
         let mut f = vec![];
         for fd in fd_guards.iter() {
@@ -4533,8 +4553,7 @@ pub fn port_route_list<M: MemorySize>(
     let max_routes: usize = wasi_try!(wasi_try_mem!(nroutes.read())
         .try_into()
         .map_err(|_| __WASI_EINVAL));
-    let ref_routes =
-        wasi_try_mem!(routes.slice(&memory, wasi_try!(to_offset::<M>(max_routes))));
+    let ref_routes = wasi_try_mem!(routes.slice(&memory, wasi_try!(to_offset::<M>(max_routes))));
 
     let routes = wasi_try!(env.net().route_list().map_err(net_error_into_wasi_err));
 
@@ -5265,7 +5284,7 @@ pub fn sock_recv<M: MemorySize>(
         &ctx,
         sock,
         __WASI_RIGHT_SOCK_RECV,
-        |socket| { socket.recv(& memory, iovs_arr) }
+        |socket| { socket.recv(&memory, iovs_arr) }
     ));
     let bytes_read: M::Offset = wasi_try_ok!(bytes_read.try_into().map_err(|_| __WASI_EOVERFLOW));
 
@@ -5468,7 +5487,8 @@ pub unsafe fn sock_send_file<M: MemorySize>(
 
                 let bytes_read = {
                     let mut guard = inode.write();
-                    match guard.deref_mut() {
+                    let deref_mut = guard.deref_mut();
+                    match deref_mut {
                         Kind::File { handle, .. } => {
                             if let Some(handle) = handle {
                                 wasi_try_ok!(

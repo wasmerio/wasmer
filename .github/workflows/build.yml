@@ -48,6 +48,7 @@ jobs:
             cross_compilation_artifact_name: 'cross_compiled_from_linux'
             use_sccache: true
             use_llvm: true
+            build_wasm: true
           - build: macos-x64
             os: macos-11
             llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/13.x/llvm-darwin-amd64.tar.xz'
@@ -55,12 +56,14 @@ jobs:
             cross_compilation_artifact_name: 'cross_compiled_from_mac'
             use_sccache: true
             use_llvm: true
+            build_wasm: false
           - build: macos-arm64
             os: macos-11.0
             target: aarch64-apple-darwin
             artifact_name: 'wasmer-darwin-arm64'
             use_sccache: true
             use_llvm: false
+            build_wasm: false
           - build: windows-x64
             os: windows-2019
             artifact_name: 'wasmer-windows-amd64'
@@ -68,6 +71,7 @@ jobs:
             cross_compilation_artifact_name: 'cross_compiled_from_win'
             use_sccache: true
             use_llvm: true
+            build_wasm: false
           - build: linux-musl-x64
             os: ubuntu-latest
             artifact_name: 'wasmer-linux-musl-amd64'
@@ -75,6 +79,7 @@ jobs:
             container: alpine:latest
             use_sccache: false
             use_llvm: false
+            build_wasm: true
     container: ${{ matrix.container }}
     env:
       SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
@@ -191,6 +196,11 @@ jobs:
         shell: bash
         run: |
           make build-wasmer
+      - name: Build Wasmer binary on Wasm32-WASI without LLVM
+        if: matrix.build_wasm
+        shell: bash
+        run: |
+          make build-wasmer-wasm
       - name: Build Wapm binary
         run: |
           make build-wapm

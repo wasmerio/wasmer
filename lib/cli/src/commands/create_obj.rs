@@ -2,7 +2,7 @@
 //! Create a standalone native executable for a given Wasm file.
 
 use super::ObjectFormat;
-use crate::store::CompilerOptions;
+use crate::{commands::PrefixerFn, store::CompilerOptions};
 use anyhow::{Context, Result};
 use std::env;
 use std::fs;
@@ -116,7 +116,7 @@ impl CreateObj {
                 let features = engine_inner.features();
                 let tunables = store.tunables();
                 let data: Vec<u8> = fs::read(wasm_module_path)?;
-                let prefixer: Option<Box<dyn Fn(&[u8]) -> String + Send>> = None;
+                let prefixer: Option<PrefixerFn> = None;
                 let (module_info, obj, metadata_length, symbol_registry) =
                     Artifact::generate_object(
                         compiler, &data, prefixer, &target, tunables, features,

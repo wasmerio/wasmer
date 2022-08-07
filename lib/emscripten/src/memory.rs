@@ -11,7 +11,8 @@ pub fn _emscripten_memcpy_big(ctx: FunctionEnvMut<EmEnv>, dest: u32, src: u32, l
         "emscripten::_emscripten_memcpy_big {}, {}, {}",
         dest, src, len
     );
-    let dest_addr = emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), dest) as *mut c_void;
+    let dest_addr =
+        emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), dest) as *mut c_void;
     let src_addr = emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), src) as *mut c_void;
     unsafe {
         memcpy(dest_addr, src_addr, len as size_t);
@@ -90,7 +91,7 @@ pub fn sbrk(mut ctx: FunctionEnvMut<EmEnv>, increment: i32) -> i32 {
         .unwrap()
         .globals
         .dynamictop_ptr;
-    
+
     let dynamictop_ptr = WasmPtr::<i32>::new(top_ptr);
     let old_dynamic_top = {
         let memory = ctx.data().memory_view(0, &ctx);
@@ -118,7 +119,7 @@ pub fn sbrk(mut ctx: FunctionEnvMut<EmEnv>, increment: i32) -> i32 {
     }
     // re-borrow the top ptr
     let memory = ctx.data().memory_view(0, &ctx);
-    let dynamictop_ptr = WasmPtr::<i32>::new(top_ptr).deref( &memory);
+    let dynamictop_ptr = WasmPtr::<i32>::new(top_ptr).deref(&memory);
     dynamictop_ptr.write(new_dynamic_top).unwrap();
     old_dynamic_top as _
 }

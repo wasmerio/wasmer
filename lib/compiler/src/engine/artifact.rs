@@ -59,6 +59,9 @@ pub struct UniversalArtifact {
     finished_function_lengths: BoxedSlice<LocalFunctionIndex, usize>,
 }
 
+#[cfg(feature = "static-artifact-create")]
+pub type PrefixerFn = Box<dyn Fn(&[u8]) -> String + Send>;
+
 /// Stores functions etc as symbols and data meant to be stored in object files and
 /// executables.
 #[cfg(feature = "static-artifact-create")]
@@ -541,7 +544,7 @@ impl Artifact {
     pub fn generate_object<'data>(
         compiler: &dyn Compiler,
         data: &[u8],
-        prefixer: Option<Box<dyn Fn(&[u8]) -> String + Send>>,
+        prefixer: Option<PrefixerFn>,
         target: &'data Target,
         tunables: &dyn Tunables,
         features: &Features,

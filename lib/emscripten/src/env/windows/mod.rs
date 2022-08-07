@@ -73,7 +73,7 @@ pub fn _getpwnam(mut ctx: FunctionEnvMut<EmEnv>, name_ptr: c_int) -> c_int {
     debug!("emscripten::_getpwnam {}", name_ptr);
     #[cfg(not(feature = "debug"))]
     let _ = name_ptr;
-    
+
     #[repr(C)]
     struct GuestPasswd {
         pw_name: u32,
@@ -108,7 +108,7 @@ pub fn _getgrnam(mut ctx: FunctionEnvMut<EmEnv>, name_ptr: c_int) -> c_int {
     debug!("emscripten::_getgrnam {}", name_ptr);
     #[cfg(not(feature = "debug"))]
     let _ = name_ptr;
-    
+
     #[repr(C)]
     struct GuestGroup {
         gr_name: u32,

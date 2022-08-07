@@ -26,8 +26,6 @@ pub struct Wast {
     current_is_allowed_failure: bool,
     /// The store in which the tests are executing.
     store: Store,
-    /// The context in which the tests are executing.
-    context: FunctionEnv<()>,
     /// A flag indicating if Wast tests should stop as soon as one test fails.
     pub fail_fast: bool,
     /// A flag indicating that assert_trap and assert_exhaustion should be skipped.
@@ -37,11 +35,10 @@ pub struct Wast {
 
 impl Wast {
     /// Construct a new instance of `Wast` with a given imports.
-    pub fn new(store: Store, context: FunctionEnv<()>, import_object: Imports) -> Self {
+    pub fn new(store: Store, import_object: Imports) -> Self {
         Self {
             current: None,
             store,
-            context,
             import_object,
             allowed_instantiation_failures: HashSet::new(),
             match_trap_messages: HashMap::new(),
@@ -73,9 +70,8 @@ impl Wast {
 
     /// Construct a new instance of `Wast` with the spectests imports.
     pub fn new_with_spectest(mut store: Store) -> Self {
-        let context = FunctionEnv::new(&mut store, ());
-        let import_object = spectest_importobject(&mut store, &context);
-        Self::new(store, context, import_object)
+        let import_object = spectest_importobject(&mut store);
+        Self::new(store, import_object)
     }
 
     fn get_instance(&self, instance_name: Option<&str>) -> Result<Instance> {

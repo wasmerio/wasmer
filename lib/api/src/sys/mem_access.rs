@@ -1,6 +1,6 @@
 use crate::RuntimeError;
 #[allow(unused_imports)]
-use crate::{Memory, MemoryView, Memory32, Memory64, MemorySize, WasmPtr};
+use crate::{Memory, Memory32, Memory64, MemorySize, MemoryView, WasmPtr};
 use std::{
     convert::TryInto,
     fmt,
@@ -64,7 +64,7 @@ impl<'a, T: ValueType> WasmRef<'a, T> {
     #[inline]
     pub fn new(view: &'a MemoryView, offset: u64) -> Self {
         Self {
-            buffer: view.buffer.clone(),
+            buffer: view.buffer,
             offset,
             marker: PhantomData,
         }
@@ -160,11 +160,7 @@ impl<'a, T: ValueType> WasmSlice<'a, T> {
     ///
     /// Returns a `MemoryAccessError` if the slice length overflows.
     #[inline]
-    pub fn new(
-        view: &'a MemoryView,
-        offset: u64,
-        len: u64,
-    ) -> Result<Self, MemoryAccessError> {
+    pub fn new(view: &'a MemoryView, offset: u64, len: u64) -> Result<Self, MemoryAccessError> {
         let total_len = len
             .checked_mul(mem::size_of::<T>() as u64)
             .ok_or(MemoryAccessError::Overflow)?;

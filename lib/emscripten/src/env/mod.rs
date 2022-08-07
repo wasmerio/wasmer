@@ -75,7 +75,8 @@ pub fn ___build_environment(mut ctx: FunctionEnvMut<EmEnv>, environ: c_int) {
     debug!("emscripten::___build_environment {}", environ);
     const MAX_ENV_VALUES: u32 = 64;
     const TOTAL_ENV_SIZE: u32 = 1024;
-    let environment = emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), environ) as *mut c_int;
+    let environment =
+        emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), environ) as *mut c_int;
     let (mut pool_offset, env_ptr, mut pool_ptr) = unsafe {
         let (pool_offset, _pool_slice): (u32, &mut [u8]) =
             allocate_on_stack(&mut ctx, TOTAL_ENV_SIZE as u32);
@@ -136,7 +137,8 @@ pub fn _pathconf(ctx: FunctionEnvMut<EmEnv>, path_addr: c_int, name: c_int) -> c
         "emscripten::_pathconf {} {} - UNIMPLEMENTED",
         path_addr, name
     );
-    let _path = emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), path_addr) as *const c_char;
+    let _path =
+        emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), path_addr) as *const c_char;
     match name {
         0 => 32000,
         1 | 2 | 3 => 255,

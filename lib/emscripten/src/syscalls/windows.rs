@@ -28,7 +28,7 @@ pub fn ___syscall5(mut ctx: FunctionEnvMut<EmEnv>, which: c_int, mut varargs: Va
     let flags: i32 = varargs.get(&ctx);
     let mode: u32 = varargs.get(&ctx);
     let path_str = unsafe { std::ffi::CStr::from_ptr(real_path).to_str().unwrap() };
-    
+
     match path_str {
         "/dev/urandom" => {
             // create a fake urandom file for windows, super hacky

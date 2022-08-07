@@ -178,7 +178,8 @@ pub fn _tvset(mut _ctx: FunctionEnvMut<EmEnv>) {
 /// formats time as a C string
 #[allow(clippy::cast_ptr_alignment)]
 unsafe fn fmt_time(ctx: FunctionEnvMut<EmEnv>, time: u32) -> *const c_char {
-    let date = &*(emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), time) as *mut guest_tm);
+    let date =
+        &*(emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), time) as *mut guest_tm);
 
     let days = vec!["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
     let months = vec![
@@ -241,15 +242,17 @@ pub fn _localtime(mut ctx: FunctionEnvMut<EmEnv>, time_p: u32) -> c_int {
     //      https://stackoverflow.com/questions/19170721/real-time-awareness-of-timezone-change-in-localtime-vs-localtime-r
 
     let timespec = unsafe {
-        let time_p_addr = emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), time_p) as *mut i64;
+        let time_p_addr =
+            emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), time_p) as *mut i64;
         let seconds = *time_p_addr;
         time::OffsetDateTime::from_unix_timestamp(seconds)
     };
 
     unsafe {
         let tm_struct_offset = env::call_malloc(&mut ctx, mem::size_of::<guest_tm>() as _);
-        let tm_struct_ptr = emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), tm_struct_offset)
-            as *mut guest_tm;
+        let tm_struct_ptr =
+            emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), tm_struct_offset)
+                as *mut guest_tm;
         // debug!(
         //     ">>>>>>> time = {}, {}, {}, {}, {}, {}, {}, {}",
         //     result_tm.tm_sec, result_tm.tm_min, result_tm.tm_hour, result_tm.tm_mday,
@@ -279,7 +282,8 @@ pub fn _localtime_r(ctx: FunctionEnvMut<EmEnv>, time_p: u32, result: u32) -> c_i
     //      https://stackoverflow.com/questions/19170721/real-time-awareness-of-timezone-change-in-localtime-vs-localtime-r
 
     unsafe {
-        let seconds = emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), time_p) as *const i32;
+        let seconds =
+            emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), time_p) as *const i32;
         let timespec = time::OffsetDateTime::from_unix_timestamp_nanos(*seconds as _);
 
         // debug!(
@@ -313,7 +317,8 @@ pub fn _time(ctx: FunctionEnvMut<EmEnv>, time_p: u32) -> i32 {
     debug!("emscripten::_time {}", time_p);
 
     unsafe {
-        let time_p_addr = emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), time_p) as *mut i64;
+        let time_p_addr =
+            emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), time_p) as *mut i64;
         libc_time(time_p_addr) as i32 // TODO review i64
     }
 }
@@ -403,7 +408,8 @@ pub fn _strftime(
     #[allow(clippy::cast_ptr_alignment)]
     let s = emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), s_ptr) as *mut c_char;
     #[allow(clippy::cast_ptr_alignment)]
-    let format = emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), format_ptr) as *const c_char;
+    let format =
+        emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), format_ptr) as *const c_char;
     #[allow(clippy::cast_ptr_alignment)]
     let tm = emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), tm_ptr) as *const guest_tm;
 

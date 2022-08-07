@@ -1,6 +1,6 @@
 use crate::js::externals::memory::MemoryBuffer;
 use crate::js::RuntimeError;
-use crate::js::{MemoryView, Memory32, Memory64, WasmPtr};
+use crate::js::{Memory32, Memory64, MemoryView, WasmPtr};
 use std::{
     convert::TryInto,
     fmt,
@@ -158,11 +158,7 @@ impl<'a, T: ValueType> WasmSlice<'a, T> {
     ///
     /// Returns a `MemoryAccessError` if the slice length overflows.
     #[inline]
-    pub fn new(
-        memory: &'a MemoryView,
-        offset: u64,
-        len: u64,
-    ) -> Result<Self, MemoryAccessError> {
+    pub fn new(memory: &'a MemoryView, offset: u64, len: u64) -> Result<Self, MemoryAccessError> {
         let total_len = len
             .checked_mul(mem::size_of::<T>() as u64)
             .ok_or(MemoryAccessError::Overflow)?;

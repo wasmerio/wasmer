@@ -392,7 +392,8 @@ impl Read for Pipe {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         let mut buffer = self.buffer.lock().unwrap();
         let amt = std::cmp::min(buf.len(), buffer.len());
-        for (i, byte) in buffer.drain(..amt).enumerate() {
+        let buf_iter = buffer.drain(..amt).enumerate();
+        for (i, byte) in buf_iter {
             buf[i] = byte;
         }
         Ok(amt)

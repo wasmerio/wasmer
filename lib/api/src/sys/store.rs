@@ -242,7 +242,7 @@ impl<'a> StoreRef<'a> {
         self.inner
             .trap_handler
             .as_ref()
-            .map(|handler| &*handler as *const _)
+            .map(|handler| handler as *const _)
     }
 }
 
