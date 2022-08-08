@@ -205,6 +205,8 @@
 <span id="203">203</span>
 <span id="204">204</span>
 <span id="205">205</span>
+<span id="206">206</span>
+<span id="207">207</span>
 </pre><pre class="rust"><code><span class="attribute">#![<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
 <span class="doccomment">//! Create a standalone native executable for a given Wasm file.</span>
 
@@ -276,7 +278,9 @@
                     .<span class="ident">fold</span>(<span class="ident">CpuFeature::set</span>(), <span class="op">|</span><span class="ident">a</span>, <span class="ident">b</span><span class="op">|</span> <span class="ident">a</span> <span class="op">|</span> <span class="ident">b</span>);
                 <span class="comment">// Cranelift requires SSE2, so we have this &quot;hack&quot; for now to facilitate</span>
                 <span class="comment">// usage</span>
-                <span class="ident">features</span> <span class="op">|</span><span class="op">=</span> <span class="ident">CpuFeature::SSE2</span>;
+                <span class="kw">if</span> <span class="ident">target_triple</span>.<span class="ident">architecture</span> <span class="op">==</span> <span class="ident">Architecture::X86_64</span> {
+                    <span class="ident">features</span> <span class="op">|</span><span class="op">=</span> <span class="ident">CpuFeature::SSE2</span>;
+                }
                 <span class="ident">Target::new</span>(<span class="ident">target_triple</span>.<span class="ident">clone</span>(), <span class="ident">features</span>)
             })
             .<span class="ident">unwrap_or_default</span>();

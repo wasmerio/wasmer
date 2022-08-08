@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["download_release",""],["get_latest_release",""]]});
