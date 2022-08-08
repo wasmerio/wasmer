@@ -86,18 +86,12 @@ pub struct CreateExe {
     #[clap(name = "HEADER", long = "header", verbatim_doc_comment)]
     header: Option<PathBuf>,
 
-    // TODO: multiple_values or multiple_occurrences, or both?
-    // TODO: number_of_values = 1 required? need to read some more documentation
-    // before I can be sure
-    #[clap(short = 'm', multiple_occurrences = true, number_of_values = 1)]
+    #[clap(short = 'm')]
     cpu_features: Vec<CpuFeature>,
 
-    // TODO: multiple_values or multiple_occurrences, or both?
-    // TODO: number_of_values = 1 required? need to read some more documentation
-    // before I can be sure
     /// Additional libraries to link against.
     /// This is useful for fixing linker errors that may occur on some systems.
-    #[clap(short = 'l', multiple_occurrences = true, number_of_values = 1)]
+    #[clap(short = 'l')]
     libraries: Vec<String>,
 
     #[clap(flatten)]

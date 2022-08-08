@@ -13,40 +13,22 @@ use clap::Parser;
 #[derive(Debug, Parser, Clone, Default)]
 /// WASI Options
 pub struct Wasi {
-    // TODO: multiple_values or multiple_occurrences, or both?
-    // TODO: number_of_values = 1 required? need to read some more documentation
-    // before I can be sure
     /// WASI pre-opened directory
-    #[clap(
-        long = "dir",
-        name = "DIR",
-        multiple_occurrences = true,
-        group = "wasi",
-        number_of_values = 1
-    )]
+    #[clap(long = "dir", name = "DIR", group = "wasi")]
     pre_opened_directories: Vec<PathBuf>,
 
-    // TODO: multiple_values or multiple_occurrences, or both?
-    // TODO: number_of_values = 1 required? need to read some more documentation
-    // before I can be sure
     /// Map a host directory to a different location for the Wasm module
     #[clap(
         long = "mapdir",
         name = "GUEST_DIR:HOST_DIR",
-        multiple_occurrences = true,
         parse(try_from_str = parse_mapdir),
-        number_of_values = 1,
     )]
     mapped_dirs: Vec<(String, PathBuf)>,
 
-    // TODO: multiple_values or multiple_occurrences, or both?
-    // TODO: number_of_values = 1 required? need to read some more documentation
-    // before I can be sure
     /// Pass custom environment variables
     #[clap(
         long = "env",
         name = "KEY=VALUE",
-        multiple_occurrences = true,
         parse(try_from_str = parse_envvar),
     )]
     env_vars: Vec<(String, String)>,

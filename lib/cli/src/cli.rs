@@ -35,7 +35,6 @@ enum WasmerCLIOptions {
     #[clap(name = "run")]
     Run(Run),
 
-    // TODO: check whether this should really be a subcommand.
     /// Wasmer cache
     #[clap(subcommand, name = "cache")]
     Cache(Cache),

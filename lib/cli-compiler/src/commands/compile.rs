@@ -27,10 +27,7 @@ pub struct Compile {
     #[clap(flatten)]
     store: StoreOptions,
 
-    // TODO: multiple_values or multiple_occurrences, or both?
-    // TODO: number_of_values = 1 required? need to read some more documentation
-    // before I can be sure
-    #[clap(short = 'm', multiple_occurrences = true, number_of_values = 1)]
+    #[clap(short = 'm')]
     cpu_features: Vec<CpuFeature>,
 }
 
