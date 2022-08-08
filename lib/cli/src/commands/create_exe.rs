@@ -443,15 +443,19 @@ impl CreateExe {
             include_dir.pop();
             include_dir.push("include");
 
-            Command::new(zig_binary_path)
+            let mut cmd = Command::new(zig_binary_path);
+            let mut cmd_mut: &mut Command = cmd
                 .arg("cc")
                 .arg("-target")
                 .arg(&zig_triple)
                 .arg(&format!("-L{}", libwasmer_path.display()))
                 .arg(&format!("-l:{}", lib_filename))
                 .arg(&format!("-I{}", include_dir.display()))
-                .arg(&format!("-I{}", header_code_path.display()))
-                .arg("-lunwind")
+                .arg(&format!("-I{}", header_code_path.display()));
+            if !zig_triple.contains("windows") {
+                cmd_mut = cmd_mut.arg("-lunwind");
+            }
+            cmd_mut
                 .arg(&object_path)
                 .arg(&c_src_path)
                 .arg("-o")
@@ -571,6 +575,7 @@ fn triple_to_zig_triple(target_triple: &Triple) -> String {
     let env = match target_triple.environment {
         wasmer_types::Environment::Musl => "musl",
         wasmer_types::Environment::Gnu => "gnu",
+        wasmer_types::Environment::Msvc => "msvc",
         _ => "none",
     };
     format!("{}-{}-{}", arch, os, env)
