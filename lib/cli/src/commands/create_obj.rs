@@ -4,6 +4,7 @@
 use super::ObjectFormat;
 use crate::{commands::PrefixerFn, store::CompilerOptions};
 use anyhow::{Context, Result};
+use clap::Parser;
 use std::env;
 use std::fs;
 use std::fs::File;
@@ -11,25 +12,24 @@ use std::io::prelude::*;
 use std::io::BufWriter;
 use std::path::PathBuf;
 use std::process::Command;
-use structopt::StructOpt;
 use wasmer::*;
 use wasmer_object::{emit_serialized, get_object_for_target};
 
 const WASMER_SERIALIZED_HEADER: &[u8] = include_bytes!("wasmer_create_exe.h");
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Parser)]
 /// The options for the `wasmer create-exe` subcommand
 pub struct CreateObj {
     /// Input file
-    #[structopt(name = "FILE", parse(from_os_str))]
+    #[clap(name = "FILE", parse(from_os_str))]
     path: PathBuf,
 
     /// Output file
-    #[structopt(name = "OUTPUT_PATH", short = "o", parse(from_os_str))]
+    #[clap(name = "OUTPUT_PATH", short = 'o', parse(from_os_str))]
     output: PathBuf,
 
     /// Header output file
-    #[structopt(
+    #[clap(
         name = "OUTPUT_HEADER_PATH",
         long = "output-header-path",
         parse(from_os_str)
@@ -37,7 +37,7 @@ pub struct CreateObj {
     header_output: Option<PathBuf>,
 
     /// Compilation Target triple
-    #[structopt(long = "target")]
+    #[clap(long = "target")]
     target_triple: Option<Triple>,
 
     /// Object format options
@@ -45,13 +45,13 @@ pub struct CreateObj {
     /// This flag accepts two options: `symbols` or `serialized`.
     /// - (default) `symbols` creates an object where all functions and metadata of the module are regular object symbols
     /// - `serialized` creates an object where the module is zero-copy serialized as raw data
-    #[structopt(name = "OBJECT_FORMAT", long = "object-format", verbatim_doc_comment)]
+    #[clap(name = "OBJECT_FORMAT", long = "object-format", verbatim_doc_comment)]
     object_format: Option<ObjectFormat>,
 
-    #[structopt(short = "m", multiple = true, number_of_values = 1)]
+    #[clap(short = 'm', multiple = true, number_of_values = 1)]
     cpu_features: Vec<CpuFeature>,
 
-    #[structopt(flatten)]
+    #[clap(flatten)]
     compiler: CompilerOptions,
 }
 
@@ -69,7 +69,9 @@ impl CreateObj {
                     .fold(CpuFeature::set(), |a, b| a | b);
                 // Cranelift requires SSE2, so we have this "hack" for now to facilitate
                 // usage
-                features |= CpuFeature::SSE2;
+                if target_triple.architecture == Architecture::X86_64 {
+                    features |= CpuFeature::SSE2;
+                }
                 Target::new(target_triple.clone(), features)
             })
             .unwrap_or_default();
