@@ -1,16 +1,16 @@
-#[derive(Debug, StructOpt, Clone)]
+#[derive(Debug, Parser, Clone)]
 /// LLVM backend flags.
 pub struct LLVMCLIOptions {
     /// Emit LLVM IR before optimization pipeline.
-    #[structopt(long = "llvm-pre-opt-ir", parse(from_os_str))]
+    #[clap(long = "llvm-pre-opt-ir", parse(from_os_str))]
     pre_opt_ir: Option<PathBuf>,
 
     /// Emit LLVM IR after optimization pipeline.
-    #[structopt(long = "llvm-post-opt-ir", parse(from_os_str))]
+    #[clap(long = "llvm-post-opt-ir", parse(from_os_str))]
     post_opt_ir: Option<PathBuf>,
 
     /// Emit LLVM generated native code object file.
-    #[structopt(long = "llvm-object-file", parse(from_os_str))]
+    #[clap(long = "llvm-object-file", parse(from_os_str))]
     obj_file: Option<PathBuf>,
 }
 

@@ -11,9 +11,9 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 ### Added
 
 ### Changed
+- #[3079](https://github.com/wasmerio/wasmer/pull/3079) Migrate CLI tools to `clap` from `structopt`
 - [#3048](https://github.com/wasmerio/wasmer/pull/3048) Automatically publish wasmer as "cloudcompiler" package to wapm.dev on every release
 - [#3075](https://github.com/wasmerio/wasmer/pull/3075) Remove __wbindgen_thread_id
-
 - [#3072](https://github.com/wasmerio/wasmer/pull/3072) Add back `Function::*_with_env(…)` functions
 
 ### Fixed
