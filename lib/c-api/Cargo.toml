@@ -97,6 +97,7 @@ cbindgen = "0.24"
 
 [dependencies.pirita]
 version = "0.1.0"
-path = "../../../pirita/crates/pirita"
+git = "https://github.com/wasmerio/pirita.git"
+rev = "bff7d5fa06a8d1add5f8050981e59e13e6a3bed4"
 features = ["webc_runner"]
 optional = true

@@ -97,6 +97,7 @@ jobs:
         run: |
           test="git = \"https:\/\/wasmer:${{ secrets.GH_PAT }}@github.com\/wasmerio\/pirita.git\""
           sed  -i "s/git = \"https:\/\/github.com\/wasmerio\/pirita.git\"/$test/g" lib/cli/Cargo.toml
+          sed  -i "s/git = \"https:\/\/github.com\/wasmerio\/pirita.git\"/$test/g" lib/c-api/Cargo.toml
       - name: Set up libstdc++ on Linux
         if: matrix.build == 'linux-x64'
         run: |
