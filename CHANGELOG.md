@@ -11,6 +11,15 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 ### Added
 
 ### Changed
+
+### Fixed
+
+## 3.0.0-beta - 2022/08/08
+
+### Added
+- #[3076](https://github.com/wasmerio/wasmer/pull/3076) Add support for cross-compiling in create-exe with zig cc
+
+### Changed
 - #[3079](https://github.com/wasmerio/wasmer/pull/3079) Migrate CLI tools to `clap` from `structopt`
 - [#3048](https://github.com/wasmerio/wasmer/pull/3048) Automatically publish wasmer as "cloudcompiler" package to wapm.dev on every release
 - [#3075](https://github.com/wasmerio/wasmer/pull/3075) Remove __wbindgen_thread_id
