@@ -146,8 +146,8 @@ impl CreateExe {
         let output_path = starting_cd.join(&self.output);
         env::set_current_dir(&working_dir)?;
 
-        let cross_compilation: Option<CrossCompileSetup> = if let Some(cross_subc) = cross_compile
-            .or_else(|| {
+        let cross_compilation: Option<CrossCompileSetup> = if let Some(mut cross_subc) =
+            cross_compile.or_else(|| {
                 if self.target_triple.is_some() {
                     Some(CrossCompile {
                         library_path: None,
@@ -171,6 +171,22 @@ impl CreateExe {
                         "To cross-compile an executable, you must specify a target triple with --target"
                 ));
             };
+            if let Some(tarball_path) = cross_subc.tarball.as_mut() {
+                if tarball_path.is_relative() {
+                    *tarball_path = starting_cd.join(&tarball_path);
+                    if !tarball_path.exists() {
+                        return Err(anyhow!(
+                            "Tarball path `{}` does not exist.",
+                            tarball_path.display()
+                        ));
+                    } else if tarball_path.is_dir() {
+                        return Err(anyhow!(
+                            "Tarball path `{}` is a directory.",
+                            tarball_path.display()
+                        ));
+                    }
+                }
+            }
             let zig_binary_path =
                 find_zig_binary(cross_subc.zig_binary_path.as_ref().and_then(|p| {
                     if p.is_absolute() {
