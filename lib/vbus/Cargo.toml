@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-vbus"
-version = "3.0.0-alpha.4"
+version = "3.0.0-beta"
 description = "Wasmer Virtual Bus"
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 license = "MIT"
@@ -12,7 +12,7 @@ thiserror = "1"
 tracing = { version = "0.1" }
 typetag = { version = "0.1", optional = true }
 slab = { version = "0.4", optional = true }
-wasmer-vfs = { path = "../vfs", version = "=3.0.0-alpha.4", default-features = false }
+wasmer-vfs = { path = "../vfs", version = "=3.0.0-beta", default-features = false }
 
 [features]
 default = ["mem_fs"]
