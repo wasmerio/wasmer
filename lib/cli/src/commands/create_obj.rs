@@ -2,7 +2,7 @@
 //! Create a standalone native executable for a given Wasm file.
 
 use super::ObjectFormat;
-use crate::{commands::PrefixerFn, store::CompilerOptions};
+use crate::store::CompilerOptions;
 use anyhow::{Context, Result};
 use clap::Parser;
 use std::env;
@@ -16,6 +16,9 @@ use wasmer::*;
 use wasmer_object::{emit_serialized, get_object_for_target};
 
 const WASMER_SERIALIZED_HEADER: &[u8] = include_bytes!("wasmer_create_exe.h");
+
+#[cfg(feature = "static-artifact-create")]
+pub type PrefixerFn = Box<dyn Fn(&[u8]) -> String + Send>;
 
 #[derive(Debug, Parser)]
 /// The options for the `wasmer create-exe` subcommand

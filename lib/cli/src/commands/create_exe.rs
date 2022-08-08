@@ -20,6 +20,9 @@ const WASMER_MAIN_C_SOURCE: &str = include_str!("./wasmer_create_exe_main.c");
 #[cfg(feature = "static-artifact-create")]
 const WASMER_STATIC_MAIN_C_SOURCE: &[u8] = include_bytes!("./wasmer_static_create_exe_main.c");
 
+#[cfg(feature = "static-artifact-create")]
+pub type PrefixerFn = Box<dyn Fn(&[u8]) -> String + Send>;
+
 #[derive(Debug, Clone)]
 struct CrossCompile {
     /// Cross-compilation library path.
@@ -147,7 +150,7 @@ impl CreateExe {
             }
         }
 
-        let (store, compiler_type) = self.compiler.get_store_for_target(target.clone())?;
+        let (_store, compiler_type) = self.compiler.get_store_for_target(target.clone())?;
         let object_format = self.object_format.unwrap_or(ObjectFormat::Symbols);
 
         println!("Compiler: {}", compiler_type.to_string());
@@ -291,7 +294,7 @@ impl CreateExe {
                         .context("failed to compile Wasm")?;
                     let bytes = module.serialize()?;
                     let mut obj = get_object_for_target(target.triple())?;
-                    emit_serialized(&mut obj, &bytes, target.triple())?;
+                    emit_serialized(&mut obj, &bytes, target.triple(), "WASMER_MODULE")?;
                     let mut writer = BufWriter::new(File::create(&wasm_object_path)?);
                     obj.write_stream(&mut writer)
                         .map_err(|err| anyhow::anyhow!(err.to_string()))?;
