@@ -152,16 +152,16 @@
 <span id="150">150</span>
 <span id="151">151</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">anyhow</span>::{<span class="ident">Context</span>, <span class="prelude-ty">Result</span>};
+<span class="kw">use</span> <span class="ident">clap::Parser</span>;
 <span class="kw">use</span> <span class="ident">std::env</span>;
 <span class="kw">use</span> <span class="ident">std::fs</span>;
 <span class="kw">use</span> <span class="ident">std::io::Write</span>;
 <span class="kw">use</span> <span class="ident">std::os::unix::ffi::OsStrExt</span>;
 <span class="kw">use</span> <span class="ident">std::os::unix::fs::MetadataExt</span>;
 <span class="kw">use</span> <span class="ident">std::path</span>::{<span class="ident">Path</span>, <span class="ident">PathBuf</span>};
-<span class="kw">use</span> <span class="ident">structopt::StructOpt</span>;
 <span class="kw">use</span> <span class="ident">Action</span>::<span class="kw-2">*</span>;
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">StructOpt</span>, <span class="ident">Clone</span>, <span class="ident">Copy</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Parser</span>, <span class="ident">Clone</span>, <span class="ident">Copy</span>)]</span>
 <span class="kw">enum</span> <span class="ident">Action</span> {
     <span class="doccomment">/// Register wasmer as binfmt interpreter</span>
     <span class="ident">Register</span>,
@@ -175,14 +175,14 @@
 <span class="doccomment">///</span>
 <span class="doccomment">/// Check the wasmer repository for a systemd service definition example</span>
 <span class="doccomment">/// to automate the process at start-up.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">StructOpt</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Parser</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Binfmt</span> {
     <span class="comment">// Might be better to traverse the mount list</span>
     <span class="doccomment">/// Mount point of binfmt_misc fs</span>
-    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span>, <span class="ident">default_value</span> <span class="op">=</span> <span class="string">&quot;/proc/sys/fs/binfmt_misc/&quot;</span>)]</span>
+    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>, <span class="ident">default_value</span> <span class="op">=</span> <span class="string">&quot;/proc/sys/fs/binfmt_misc/&quot;</span>)]</span>
     <span class="ident">binfmt_misc</span>: <span class="ident">PathBuf</span>,
 
-    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">subcommand</span>)]</span>
+    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">subcommand</span>)]</span>
     <span class="ident">action</span>: <span class="ident">Action</span>,
 }
 

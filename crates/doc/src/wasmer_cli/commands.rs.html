@@ -83,7 +83,7 @@
 <span class="kw">pub</span> <span class="kw">use</span> {<span class="ident">cache</span>::<span class="kw-2">*</span>, <span class="ident">config</span>::<span class="kw-2">*</span>, <span class="ident">inspect</span>::<span class="kw-2">*</span>, <span class="ident">run</span>::<span class="kw-2">*</span>, <span class="ident">self_update</span>::<span class="kw-2">*</span>, <span class="ident">validate</span>::<span class="kw-2">*</span>};
 
 <span class="doccomment">/// The kind of object format to emit.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">structopt::StructOpt</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">clap::Parser</span>)]</span>
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-create&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wasmer-artifact-create&quot;</span>))]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">ObjectFormat</span> {
     <span class="doccomment">/// Serialize the entire module into an object file.</span>

@@ -113,38 +113,36 @@
 <span id="111">111</span>
 <span id="112">112</span>
 <span id="113">113</span>
-<span id="114">114</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::store::StoreOptions</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::warning</span>;
 <span class="kw">use</span> <span class="ident">anyhow</span>::{<span class="ident">Context</span>, <span class="prelude-ty">Result</span>};
+<span class="kw">use</span> <span class="ident">clap::Parser</span>;
 <span class="kw">use</span> <span class="ident">std::path</span>::{<span class="ident">Path</span>, <span class="ident">PathBuf</span>};
-<span class="kw">use</span> <span class="ident">structopt::StructOpt</span>;
-<span class="kw">use</span> <span class="ident">wasmer_compiler::ModuleEnvironment</span>;
-<span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">ArtifactBuild</span>, <span class="ident">ArtifactCreate</span>};
+<span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">ArtifactBuild</span>, <span class="ident">ArtifactCreate</span>, <span class="ident">ModuleEnvironment</span>};
 <span class="kw">use</span> <span class="ident">wasmer_types::entity::PrimaryMap</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{
     <span class="ident">CompileError</span>, <span class="ident">CpuFeature</span>, <span class="ident">MemoryIndex</span>, <span class="ident">MemoryStyle</span>, <span class="ident">TableIndex</span>, <span class="ident">TableStyle</span>, <span class="ident">Target</span>, <span class="ident">Triple</span>,
 };
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">StructOpt</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Parser</span>)]</span>
 <span class="doccomment">/// The options for the `wasmer compile` subcommand</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Compile</span> {
     <span class="doccomment">/// Input file</span>
-    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;FILE&quot;</span>, <span class="ident">parse</span>(<span class="ident">from_os_str</span>))]</span>
+    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;FILE&quot;</span>, <span class="ident">parse</span>(<span class="ident">from_os_str</span>))]</span>
     <span class="ident">path</span>: <span class="ident">PathBuf</span>,
 
     <span class="doccomment">/// Output file</span>
-    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;OUTPUT PATH&quot;</span>, <span class="ident">short</span> <span class="op">=</span> <span class="string">&quot;o&quot;</span>, <span class="ident">parse</span>(<span class="ident">from_os_str</span>))]</span>
+    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;OUTPUT PATH&quot;</span>, <span class="ident">short</span> <span class="op">=</span> <span class="string">&#39;o&#39;</span>, <span class="ident">parse</span>(<span class="ident">from_os_str</span>))]</span>
     <span class="ident">output</span>: <span class="ident">PathBuf</span>,
 
     <span class="doccomment">/// Compilation Target triple</span>
-    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;target&quot;</span>)]</span>
+    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;target&quot;</span>)]</span>
     <span class="ident">target_triple</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Triple</span><span class="op">&gt;</span>,
 
-    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">flatten</span>)]</span>
+    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">flatten</span>)]</span>
     <span class="ident">store</span>: <span class="ident">StoreOptions</span>,
 
-    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">short</span> <span class="op">=</span> <span class="string">&quot;m&quot;</span>, <span class="ident">multiple</span> <span class="op">=</span> <span class="bool-val">true</span>, <span class="ident">number_of_values</span> <span class="op">=</span> <span class="number">1</span>)]</span>
+    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">short</span> <span class="op">=</span> <span class="string">&#39;m&#39;</span>)]</span>
     <span class="ident">cpu_features</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">CpuFeature</span><span class="op">&gt;</span>,
 }
 

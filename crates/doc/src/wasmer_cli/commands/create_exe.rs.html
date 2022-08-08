@@ -996,6 +996,7 @@
 <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::ObjectFormat</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::store::CompilerOptions</span>;
 <span class="kw">use</span> <span class="ident">anyhow</span>::{<span class="ident">Context</span>, <span class="prelude-ty">Result</span>};
+<span class="kw">use</span> <span class="ident">clap::Parser</span>;
 <span class="kw">use</span> <span class="ident">std::env</span>;
 <span class="kw">use</span> <span class="ident">std::fs</span>;
 <span class="kw">use</span> <span class="ident">std::fs::File</span>;
@@ -1003,7 +1004,6 @@
 <span class="kw">use</span> <span class="ident">std::io::BufWriter</span>;
 <span class="kw">use</span> <span class="ident">std::path</span>::{<span class="ident">Path</span>, <span class="ident">PathBuf</span>};
 <span class="kw">use</span> <span class="ident">std::process::Command</span>;
-<span class="kw">use</span> <span class="ident">structopt::StructOpt</span>;
 <span class="kw">use</span> <span class="ident">wasmer</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident">wasmer_object</span>::{<span class="ident">emit_serialized</span>, <span class="ident">get_object_for_target</span>};
 
@@ -1035,32 +1035,32 @@
     <span class="ident">library</span>: <span class="ident">PathBuf</span>,
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">StructOpt</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Parser</span>)]</span>
 <span class="doccomment">/// The options for the `wasmer create-exe` subcommand</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">CreateExe</span> {
     <span class="doccomment">/// Input file</span>
-    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;FILE&quot;</span>, <span class="ident">parse</span>(<span class="ident">from_os_str</span>))]</span>
+    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;FILE&quot;</span>, <span class="ident">parse</span>(<span class="ident">from_os_str</span>))]</span>
     <span class="ident">path</span>: <span class="ident">PathBuf</span>,
 
     <span class="doccomment">/// Output file</span>
-    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;OUTPUT PATH&quot;</span>, <span class="ident">short</span> <span class="op">=</span> <span class="string">&quot;o&quot;</span>, <span class="ident">parse</span>(<span class="ident">from_os_str</span>))]</span>
+    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;OUTPUT PATH&quot;</span>, <span class="ident">short</span> <span class="op">=</span> <span class="string">&#39;o&#39;</span>, <span class="ident">parse</span>(<span class="ident">from_os_str</span>))]</span>
     <span class="ident">output</span>: <span class="ident">PathBuf</span>,
 
     <span class="doccomment">/// Compilation Target triple</span>
-    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;target&quot;</span>)]</span>
+    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;target&quot;</span>)]</span>
     <span class="ident">target_triple</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Triple</span><span class="op">&gt;</span>,
 
     <span class="comment">// Cross-compile with `zig`</span>
     <span class="doccomment">/// Cross-compilation library path.</span>
-    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;library-path&quot;</span>)]</span>
+    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;library-path&quot;</span>)]</span>
     <span class="ident">library_path</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span>,
 
     <span class="doccomment">/// Cross-compilation tarball library path.</span>
-    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;tarball&quot;</span>)]</span>
+    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;tarball&quot;</span>)]</span>
     <span class="ident">tarball</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span>,
 
     <span class="doccomment">/// Specify `zig` binary path</span>
-    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;zig-binary-path&quot;</span>)]</span>
+    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;zig-binary-path&quot;</span>)]</span>
     <span class="ident">zig_binary_path</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span>,
 
     <span class="doccomment">/// Object format options</span>
@@ -1069,25 +1069,25 @@
     <span class="doccomment">/// - (default) `symbols` creates an</span>
     <span class="doccomment">/// executable where all functions and metadata of the module are regular object symbols</span>
     <span class="doccomment">/// - `serialized` creates an executable where the module is zero-copy serialized as raw data</span>
-    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;OBJECT_FORMAT&quot;</span>, <span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;object-format&quot;</span>, <span class="ident">verbatim_doc_comment</span>)]</span>
+    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;OBJECT_FORMAT&quot;</span>, <span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;object-format&quot;</span>, <span class="ident">verbatim_doc_comment</span>)]</span>
     <span class="ident">object_format</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">ObjectFormat</span><span class="op">&gt;</span>,
 
     <span class="doccomment">/// Header file for object input</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// If given, the input `PATH` is assumed to be an object created with `wasmer create-obj` and</span>
     <span class="doccomment">/// this is its accompanying header file.</span>
-    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;HEADER&quot;</span>, <span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;header&quot;</span>, <span class="ident">verbatim_doc_comment</span>)]</span>
+    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;HEADER&quot;</span>, <span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;header&quot;</span>, <span class="ident">verbatim_doc_comment</span>)]</span>
     <span class="ident">header</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span>,
 
-    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">short</span> <span class="op">=</span> <span class="string">&quot;m&quot;</span>, <span class="ident">multiple</span> <span class="op">=</span> <span class="bool-val">true</span>, <span class="ident">number_of_values</span> <span class="op">=</span> <span class="number">1</span>)]</span>
+    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">short</span> <span class="op">=</span> <span class="string">&#39;m&#39;</span>)]</span>
     <span class="ident">cpu_features</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">CpuFeature</span><span class="op">&gt;</span>,
 
     <span class="doccomment">/// Additional libraries to link against.</span>
     <span class="doccomment">/// This is useful for fixing linker errors that may occur on some systems.</span>
-    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">short</span> <span class="op">=</span> <span class="string">&quot;l&quot;</span>, <span class="ident">multiple</span> <span class="op">=</span> <span class="bool-val">true</span>, <span class="ident">number_of_values</span> <span class="op">=</span> <span class="number">1</span>)]</span>
+    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">short</span> <span class="op">=</span> <span class="string">&#39;l&#39;</span>)]</span>
     <span class="ident">libraries</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
 
-    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">flatten</span>)]</span>
+    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">flatten</span>)]</span>
     <span class="ident">compiler</span>: <span class="ident">CompilerOptions</span>,
 }
 
