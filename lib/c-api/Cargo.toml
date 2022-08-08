@@ -97,7 +97,7 @@ cbindgen = "0.24"
 
 [dependencies.pirita]
 version = "0.1.0"
-git = "https://github.com/wasmerio/pirita.git"
-rev = "bff7d5fa06a8d1add5f8050981e59e13e6a3bed4"
+git = "ssh://git@github.com/wasmerio/pirita.git"
+rev = "ec389467011ec04451144a8e79cea0f8815a844f"
 features = ["webc_runner"]
 optional = true

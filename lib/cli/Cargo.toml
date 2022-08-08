@@ -57,8 +57,8 @@ tempfile = "3"
 unix_mode = "0.1.3"
 
 [dependencies.pirita]
-git = "https://github.com/wasmerio/pirita.git"
-rev = "bff7d5fa06a8d1add5f8050981e59e13e6a3bed4"
+git = "ssh://git@github.com/wasmerio/pirita.git"
+rev = "ec389467011ec04451144a8e79cea0f8815a844f"
 default-features = false
 features = ["mmap", "webc_runner", "wasi", "emscripten"]
 optional = true
