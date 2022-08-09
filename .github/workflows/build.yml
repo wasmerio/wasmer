@@ -196,11 +196,11 @@ jobs:
         shell: bash
         run: |
           make build-wasmer
-      - name: Build Wasmer binary on Wasm32-WASI without LLVM
-        if: matrix.build_wasm
-        shell: bash
-        run: |
-          make build-wasmer-wasm
+     #- name: Build Wasmer binary on Wasm32-WASI without LLVM
+     #  if: matrix.build_wasm
+     #  shell: bash
+     #  run: |
+     #    make build-wasmer-wasm
       - name: Build Wapm binary
         run: |
           make build-wapm
