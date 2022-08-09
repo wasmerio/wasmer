@@ -54,7 +54,7 @@ dep_graph = {
         ]
     ),
     "wasmer-vfs": set([]),
-    "wasmer-vbus": set([]),
+    "wasmer-vbus": set(["wasmer-vfs"]),
     "wasmer-vnet": set([]),
     "wasmer-wasi-local-networking": set([]),
     "wasmer-cache": set(["wasmer"]),
