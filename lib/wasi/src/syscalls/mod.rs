@@ -2649,6 +2649,13 @@ pub fn path_rename<M: MemorySize>(
         }
     }
 
+    // this is to be sure the source file is fetch from filesystem if needed
+    wasi_try!(state.fs.get_inode_at_path(
+        inodes.deref_mut(),
+        old_fd,
+        source_path.to_str().as_ref().unwrap(),
+        true
+    ));
     let (source_parent_inode, source_entry_name) =
         wasi_try!(state
             .fs
@@ -2657,7 +2664,6 @@ pub fn path_rename<M: MemorySize>(
         wasi_try!(state
             .fs
             .get_parent_inode_at_path(inodes.deref_mut(), new_fd, target_path, true));
-
     let host_adjusted_target_path = {
         let guard = inodes.arena[target_parent_inode].read();
         let deref = guard.deref();
