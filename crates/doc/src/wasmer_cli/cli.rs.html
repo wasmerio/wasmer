@@ -178,6 +178,12 @@
 <span id="176">176</span>
 <span id="177">177</span>
 <span id="178">178</span>
+<span id="179">179</span>
+<span id="180">180</span>
+<span id="181">181</span>
+<span id="182">182</span>
+<span id="183">183</span>
+<span id="184">184</span>
 </pre><pre class="rust"><code><span class="doccomment">//! The logic for the Wasmer CLI tool.</span>
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>)]</span>
@@ -199,13 +205,19 @@
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Parser</span>)]</span>
 <span class="attribute">#[<span class="ident">cfg_attr</span>(
     <span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;headless&quot;</span>),
-    <span class="ident">clap</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;wasmer&quot;</span>, <span class="ident">about</span> <span class="op">=</span> <span class="string">&quot;WebAssembly standalone runtime.&quot;</span>, <span class="ident">author</span>)
+    <span class="ident">clap</span>(
+        <span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;wasmer&quot;</span>,
+        <span class="ident">about</span> <span class="op">=</span> <span class="string">&quot;WebAssembly standalone runtime.&quot;</span>,
+        <span class="ident">version</span>,
+        <span class="ident">author</span>
+    )
 )]</span>
 <span class="attribute">#[<span class="ident">cfg_attr</span>(
     <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;headless&quot;</span>,
     <span class="ident">clap</span>(
         <span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;wasmer-headless&quot;</span>,
-        <span class="ident">about</span> <span class="op">=</span> <span class="string">&quot;Headless WebAssembly standalone runtime.&quot;</span>,
+        <span class="ident">about</span> <span class="op">=</span> <span class="string">&quot;WebAssembly standalone runtime (headless).&quot;</span>,
+        <span class="ident">version</span>,
         <span class="ident">author</span>
     )
 )]</span>
