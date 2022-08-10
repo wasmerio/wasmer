@@ -5604,6 +5604,12 @@
 <span id="5602">5602</span>
 <span id="5603">5603</span>
 <span id="5604">5604</span>
+<span id="5605">5605</span>
+<span id="5606">5606</span>
+<span id="5607">5607</span>
+<span id="5608">5608</span>
+<span id="5609">5609</span>
+<span id="5610">5610</span>
 </pre><pre class="rust"><code><span class="attribute">#![<span class="ident">allow</span>(<span class="ident">unused</span>, <span class="ident">clippy::too_many_arguments</span>, <span class="ident">clippy::cognitive_complexity</span>)]</span>
 
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">types</span> {
@@ -8255,6 +8261,13 @@
         }
     }
 
+    <span class="comment">// this is to be sure the source file is fetch from filesystem if needed</span>
+    <span class="macro">wasi_try!</span>(<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">get_inode_at_path</span>(
+        <span class="ident">inodes</span>.<span class="ident">deref_mut</span>(),
+        <span class="ident">old_fd</span>,
+        <span class="ident">source_path</span>.<span class="ident">to_str</span>().<span class="ident">as_ref</span>().<span class="ident">unwrap</span>(),
+        <span class="bool-val">true</span>
+    ));
     <span class="kw">let</span> (<span class="ident">source_parent_inode</span>, <span class="ident">source_entry_name</span>) <span class="op">=</span>
         <span class="macro">wasi_try!</span>(<span class="ident">state</span>
             .<span class="ident">fs</span>
@@ -8263,7 +8276,6 @@
         <span class="macro">wasi_try!</span>(<span class="ident">state</span>
             .<span class="ident">fs</span>
             .<span class="ident">get_parent_inode_at_path</span>(<span class="ident">inodes</span>.<span class="ident">deref_mut</span>(), <span class="ident">new_fd</span>, <span class="ident">target_path</span>, <span class="bool-val">true</span>));
-
     <span class="kw">let</span> <span class="ident">host_adjusted_target_path</span> <span class="op">=</span> {
         <span class="kw">let</span> <span class="ident">guard</span> <span class="op">=</span> <span class="ident">inodes</span>.<span class="ident">arena</span>[<span class="ident">target_parent_inode</span>].<span class="ident">read</span>();
         <span class="kw">let</span> <span class="ident">deref</span> <span class="op">=</span> <span class="ident">guard</span>.<span class="ident">deref</span>();
