@@ -19,13 +19,19 @@ use clap::{ErrorKind, Parser};
 #[derive(Parser)]
 #[cfg_attr(
     not(feature = "headless"),
-    clap(name = "wasmer", about = "WebAssembly standalone runtime.", author)
+    clap(
+        name = "wasmer",
+        about = "WebAssembly standalone runtime.",
+        version,
+        author
+    )
 )]
 #[cfg_attr(
     feature = "headless",
     clap(
         name = "wasmer-headless",
-        about = "Headless WebAssembly standalone runtime.",
+        about = "WebAssembly standalone runtime (headless).",
+        version,
         author
     )
 )]
