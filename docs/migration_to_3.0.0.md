@@ -13,6 +13,7 @@ and provide examples to make migrating to the new API as simple as possible.
 - [Differences](#differences)
   - [Managing imports](#managing-imports)
   - [Engines](#engines)
+  - [C-API changes](#c-api)
 
 ## Rationale for changes in 3.0.0
 
@@ -170,6 +171,31 @@ features.multi_value(true);
 let engine = EngineBuilder::new(compiler).set_features(Some(features));
 let store = Store::new(engine);
 ```
+
+### C-API
+
+The WASM C-API hasn't changed. Some wasmer-specific functions have changed, that relate to setting up WASI environments.
+
+- `wasi_env_new` function changed input parameters to accommodate the new Store API, it now is:
+  ```C
+  struct wasi_env_t *wasi_env_new(wasm_store_t *store, struct wasi_config_t *config);
+  ```
+- `wasi_get_imports` function changed input parameters to accommodate the new Store API, it now is:
+  ```c
+  bool wasi_get_imports(const wasm_store_t *_store,
+                        struct wasi_env_t *wasi_env,
+                        const wasm_module_t *module,
+                        wasm_extern_vec_t *imports);
+  ```
+- `wasi_env_set_memory` was added. It's necessary to set the `WasiEnv` memory by getting it from `Instance`s memory exports after its initialization. This must be performed in a specific order:
+  1. Create WasiEnv
+  2. Create Instance
+  3. Get Instance Exports
+  4. Find Memory from Instance Exports and store it to WasiEnv
+  The function's signature is:
+  ```c
+  void wasi_env_set_memory(struct wasi_env_t *env, const wasm_memory_t *memory);
+  ```
 
 [examples]: https://docs.wasmer.io/integrations/examples
 [wasmer]: https://crates.io/crates/wasmer
