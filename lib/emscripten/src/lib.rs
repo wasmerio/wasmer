@@ -23,9 +23,9 @@ use std::f64;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, RwLock};
 use wasmer::{
-    imports, namespace, AsStoreMut, AsStoreRef, ExportError, Exports, Function, FunctionEnv,
-    FunctionEnvMut, FunctionType, Global, Imports, Instance, Memory, MemoryType, MemoryView,
-    Module, Pages, RuntimeError, Table, TableType, TypedFunction, Value, WasmPtr,
+    imports, namespace, AsStoreMut, ExportError, Exports, Function, FunctionEnv, FunctionEnvMut,
+    FunctionType, Global, Imports, Instance, Memory, MemoryType, Module, Pages, RuntimeError,
+    Table, TableType, TypedFunction, Value, WasmPtr,
 };
 use wasmer_types::Type as ValType;
 
@@ -106,11 +106,6 @@ impl EmEnv {
     /// Get a reference to the memory
     pub fn memory(&self, _mem_idx: u32) -> Memory {
         (&*self.memory.read().unwrap()).as_ref().cloned().unwrap()
-    }
-
-    /// Get a reference to the memory view
-    pub fn memory_view<'a>(&self, mem_idx: u32, store: &'a impl AsStoreRef) -> MemoryView<'a> {
-        self.memory(mem_idx).view(store)
     }
 
     pub fn set_functions(&mut self, funcs: EmscriptenFunctions) {
