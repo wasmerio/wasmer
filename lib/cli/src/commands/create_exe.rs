@@ -613,6 +613,14 @@ fn get_libwasmer_path() -> anyhow::Result<PathBuf> {
     Ok(path)
 }
 
+/// path to library tarball cache dir
+fn get_libwasmer_cache_path() -> anyhow::Result<PathBuf> {
+    let mut path = get_wasmer_dir()?;
+    path.push("cache");
+    let _ = std::fs::create_dir(&path);
+    Ok(path)
+}
+
 /// Compile the C code.
 fn run_c_compile(
     path_to_c_src: &Path,
@@ -797,59 +805,93 @@ mod http_fetch {
         mut release: serde_json::Value,
         target_triple: wasmer::Triple,
     ) -> Result<std::path::PathBuf> {
+        let check_arch = |name: &str| -> bool {
+            match target_triple.architecture {
+                wasmer_types::Architecture::X86_64 => {
+                    name.contains("x86_64") || name.contains("amd64")
+                }
+                wasmer_types::Architecture::Aarch64(wasmer_types::Aarch64Architecture::Aarch64) => {
+                    name.contains("arm64") || name.contains("aarch64")
+                }
+                _ => false,
+            }
+        };
+
+        let check_vendor = |name: &str| -> bool {
+            match target_triple.vendor {
+                wasmer_types::Vendor::Apple => {
+                    name.contains("apple") || name.contains("macos") || name.contains("darwin")
+                }
+                wasmer_types::Vendor::Pc => name.contains("windows"),
+                _ => true,
+            }
+        };
+        let check_os = |name: &str| -> bool {
+            match target_triple.operating_system {
+                wasmer_types::OperatingSystem::Darwin => {
+                    name.contains("apple") || name.contains("darwin") || name.contains("macos")
+                }
+                wasmer_types::OperatingSystem::Windows => name.contains("windows"),
+                wasmer_types::OperatingSystem::Linux => name.contains("linux"),
+                _ => false,
+            }
+        };
+        let check_env = |name: &str| -> bool {
+            match target_triple.environment {
+                wasmer_types::Environment::Musl => name.contains("musl"),
+                _ => !name.contains("musl"),
+            }
+        };
+
+        if let Ok(mut cache_path) = super::get_libwasmer_cache_path() {
+            match std::fs::read_dir(&cache_path).and_then(|r| {
+                r.map(|res| res.map(|e| e.path()))
+                    .collect::<Result<Vec<_>, std::io::Error>>()
+            }) {
+                Ok(mut entries) => {
+                    entries.retain(|p| p.to_str().map(|p| check_arch(p)).unwrap_or(true));
+                    entries.retain(|p| p.to_str().map(|p| check_vendor(p)).unwrap_or(true));
+                    entries.retain(|p| p.to_str().map(|p| check_os(p)).unwrap_or(true));
+                    entries.retain(|p| p.to_str().map(|p| check_env(p)).unwrap_or(true));
+                    if entries.len() == 1 {
+                        cache_path.push(&entries[0]);
+                        if cache_path.exists() {
+                            eprintln!(
+                                "Using cached tarball to cache path `{}`.",
+                                cache_path.display()
+                            );
+                            return Ok(cache_path);
+                        }
+                    }
+                }
+                Err(_ioerr) => {}
+            }
+        }
         if let Some(assets) = release["assets"].as_array_mut() {
             assets.retain(|a| {
                 if let Some(name) = a["name"].as_str() {
-                    match target_triple.architecture {
-                        wasmer_types::Architecture::X86_64 => {
-                            name.contains("x86_64") || name.contains("amd64")
-                        }
-                        wasmer_types::Architecture::Aarch64(
-                            wasmer_types::Aarch64Architecture::Aarch64,
-                        ) => name.contains("arm64") || name.contains("aarch64"),
-                        _ => false,
-                    }
+                    check_arch(name)
                 } else {
                     false
                 }
             });
             assets.retain(|a| {
                 if let Some(name) = a["name"].as_str() {
-                    match target_triple.vendor {
-                        wasmer_types::Vendor::Apple => {
-                            name.contains("apple")
-                                || name.contains("macos")
-                                || name.contains("darwin")
-                        }
-                        wasmer_types::Vendor::Pc => name.contains("windows"),
-                        _ => true,
-                    }
+                    check_vendor(name)
                 } else {
                     false
                 }
             });
             assets.retain(|a| {
                 if let Some(name) = a["name"].as_str() {
-                    match target_triple.operating_system {
-                        wasmer_types::OperatingSystem::Darwin => {
-                            name.contains("apple")
-                                || name.contains("darwin")
-                                || name.contains("macos")
-                        }
-                        wasmer_types::OperatingSystem::Windows => name.contains("windows"),
-                        wasmer_types::OperatingSystem::Linux => name.contains("linux"),
-                        _ => false,
-                    }
+                    check_os(name)
                 } else {
                     false
                 }
             });
             assets.retain(|a| {
                 if let Some(name) = a["name"].as_str() {
-                    match target_triple.environment {
-                        wasmer_types::Environment::Musl => name.contains("musl"),
-                        _ => !name.contains("musl"),
-                    }
+                    check_env(name)
                 } else {
                     false
                 }
@@ -894,6 +936,31 @@ mod http_fetch {
                 let _response = download_thread
                     .join()
                     .expect("Could not join downloading thread");
+                match super::get_libwasmer_cache_path() {
+                    Ok(mut cache_path) => {
+                        cache_path.push(&filename);
+                        if !cache_path.exists() {
+                            if let Err(err) = std::fs::copy(&filename, &cache_path) {
+                                eprintln!(
+                                    "Could not store tarball to cache path `{}`: {}",
+                                    cache_path.display(),
+                                    err
+                                );
+                            } else {
+                                eprintln!(
+                                    "Cached tarball to cache path `{}`.",
+                                    cache_path.display()
+                                );
+                            }
+                        }
+                    }
+                    Err(err) => {
+                        eprintln!(
+                            "Could not determine cache path for downloaded binaries.: {}",
+                            err
+                        );
+                    }
+                }
                 return Ok(filename.into());
             }
         }
