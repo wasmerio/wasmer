@@ -184,6 +184,30 @@
 <span id="182">182</span>
 <span id="183">183</span>
 <span id="184">184</span>
+<span id="185">185</span>
+<span id="186">186</span>
+<span id="187">187</span>
+<span id="188">188</span>
+<span id="189">189</span>
+<span id="190">190</span>
+<span id="191">191</span>
+<span id="192">192</span>
+<span id="193">193</span>
+<span id="194">194</span>
+<span id="195">195</span>
+<span id="196">196</span>
+<span id="197">197</span>
+<span id="198">198</span>
+<span id="199">199</span>
+<span id="200">200</span>
+<span id="201">201</span>
+<span id="202">202</span>
+<span id="203">203</span>
+<span id="204">204</span>
+<span id="205">205</span>
+<span id="206">206</span>
+<span id="207">207</span>
+<span id="208">208</span>
 </pre><pre class="rust"><code><span class="doccomment">//! The logic for the Wasmer CLI tool.</span>
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>)]</span>
@@ -258,6 +282,18 @@
     <span class="doccomment">/// $ file qjs.exe</span>
     <span class="doccomment">/// qjs.exe: ELF 64-bit LSB pie executable, x86-64 ...</span>
     <span class="doccomment">/// ```</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// ## Cross-compilation</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// Accepted target triple values must follow the</span>
+    <span class="doccomment">/// [&#39;target_lexicon&#39;](https://crates.io/crates/target-lexicon) crate format.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// The recommended targets we try to support are:</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// - &quot;x86_64-linux-gnu&quot;</span>
+    <span class="doccomment">/// - &quot;aarch64-linux-gnu&quot;</span>
+    <span class="doccomment">/// - &quot;x86_64-apple-darwin&quot;</span>
+    <span class="doccomment">/// - &quot;arm64-apple-darwin&quot;</span>
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-create&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wasmer-artifact-create&quot;</span>))]</span>
     <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;create-exe&quot;</span>, <span class="ident">verbatim_doc_comment</span>)]</span>
     <span class="ident">CreateExe</span>(<span class="ident">CreateExe</span>),
@@ -279,6 +315,18 @@
     <span class="doccomment">/// $ file qjs.obj</span>
     <span class="doccomment">/// qjs.obj: ELF 64-bit LSB relocatable, x86-64 ...</span>
     <span class="doccomment">/// ```</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// ## Cross-compilation</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// Accepted target triple values must follow the</span>
+    <span class="doccomment">/// [&#39;target_lexicon&#39;](https://crates.io/crates/target-lexicon) crate format.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// The recommended targets we try to support are:</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// - &quot;x86_64-linux-gnu&quot;</span>
+    <span class="doccomment">/// - &quot;aarch64-linux-gnu&quot;</span>
+    <span class="doccomment">/// - &quot;x86_64-apple-darwin&quot;</span>
+    <span class="doccomment">/// - &quot;arm64-apple-darwin&quot;</span>
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-create&quot;</span>)]</span>
     <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;create-obj&quot;</span>, <span class="ident">verbatim_doc_comment</span>)]</span>
     <span class="ident">CreateObj</span>(<span class="ident">CreateObj</span>),

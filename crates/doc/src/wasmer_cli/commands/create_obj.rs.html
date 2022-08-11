@@ -207,6 +207,16 @@
 <span id="205">205</span>
 <span id="206">206</span>
 <span id="207">207</span>
+<span id="208">208</span>
+<span id="209">209</span>
+<span id="210">210</span>
+<span id="211">211</span>
+<span id="212">212</span>
+<span id="213">213</span>
+<span id="214">214</span>
+<span id="215">215</span>
+<span id="216">216</span>
+<span id="217">217</span>
 </pre><pre class="rust"><code><span class="attribute">#![<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
 <span class="doccomment">//! Create a standalone native executable for a given Wasm file.</span>
 
@@ -246,6 +256,16 @@
     <span class="ident">header_output</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span>,
 
     <span class="doccomment">/// Compilation Target triple</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// Accepted target triple values must follow the</span>
+    <span class="doccomment">/// [&#39;target_lexicon&#39;](https://crates.io/crates/target-lexicon) crate format.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// The recommended targets we try to support are:</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// - &quot;x86_64-linux-gnu&quot;</span>
+    <span class="doccomment">/// - &quot;aarch64-linux-gnu&quot;</span>
+    <span class="doccomment">/// - &quot;x86_64-apple-darwin&quot;</span>
+    <span class="doccomment">/// - &quot;arm64-apple-darwin&quot;</span>
     <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;target&quot;</span>)]</span>
     <span class="ident">target_triple</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Triple</span><span class="op">&gt;</span>,
 
