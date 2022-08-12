@@ -99,7 +99,8 @@ pub unsafe fn write_to_buf(
     buf: u32,
     max: u32,
 ) -> u32 {
-    let buf_addr = emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), buf) as *mut c_char;
+    let memory = ctx.data().memory(0);
+    let buf_addr = emscripten_memory_pointer!(memory.view(&ctx), buf) as *mut c_char;
 
     for i in 0..max {
         *buf_addr.add(i as _) = *string.add(i as _);
@@ -113,8 +114,8 @@ pub unsafe fn copy_cstr_into_wasm(ctx: &mut FunctionEnvMut<EmEnv>, cstr: *const 
     let s = CStr::from_ptr(cstr).to_str().unwrap();
     let cstr_len = s.len();
     let space_offset = env::call_malloc(ctx, (cstr_len as u32) + 1);
-    let raw_memory =
-        emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), space_offset) as *mut c_char;
+    let memory = ctx.data().memory(0);
+    let raw_memory = emscripten_memory_pointer!(memory.view(&ctx), space_offset) as *mut c_char;
     let slice = slice::from_raw_parts_mut(raw_memory, cstr_len);
 
     for (byte, loc) in s.bytes().zip(slice.iter_mut()) {
@@ -139,7 +140,8 @@ pub unsafe fn allocate_on_stack<'a, T: Copy>(
         .call(&mut ctx, count * (size_of::<T>() as u32))
         .unwrap();
 
-    let addr = emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), offset) as *mut T;
+    let memory = ctx.data().memory(0);
+    let addr = emscripten_memory_pointer!(memory.view(&ctx), offset) as *mut T;
     let slice = slice::from_raw_parts_mut(addr, count as usize);
 
     (offset, slice)
@@ -204,8 +206,8 @@ pub struct GuestStat {
 
 #[allow(clippy::cast_ptr_alignment)]
 pub unsafe fn copy_stat_into_wasm(ctx: FunctionEnvMut<EmEnv>, buf: u32, stat: &stat) {
-    let stat_ptr =
-        emscripten_memory_pointer!(ctx.data().memory_view(0, &ctx), buf) as *mut GuestStat;
+    let memory = ctx.data().memory(0);
+    let stat_ptr = emscripten_memory_pointer!(memory.view(&ctx), buf) as *mut GuestStat;
     (*stat_ptr).st_dev = stat.st_dev as _;
     (*stat_ptr).__st_dev_padding = 0;
     (*stat_ptr).__st_ino_truncated = stat.st_ino as _;

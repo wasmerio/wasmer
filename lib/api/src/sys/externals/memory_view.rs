@@ -22,7 +22,7 @@ pub struct MemoryView<'a> {
 }
 
 impl<'a> MemoryView<'a> {
-    pub(crate) fn new(memory: &Memory, store: &'a impl AsStoreRef) -> Self {
+    pub(crate) fn new(memory: &'a Memory, store: &impl AsStoreRef) -> Self {
         let size = memory.handle.get(store.as_store_ref().objects()).size();
 
         let definition = memory.handle.get(store.as_store_ref().objects()).vmmemory();

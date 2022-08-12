@@ -11,7 +11,7 @@ use std::slice;
 #[cfg(feature = "tracing")]
 use tracing::warn;
 use wasmer_types::Pages;
-use wasmer_vm::{InternalStoreHandle, MemoryError, StoreHandle, StoreObjects, VMExtern, VMMemory};
+use wasmer_vm::{InternalStoreHandle, MemoryError, StoreHandle, VMExtern, VMMemory};
 
 use super::MemoryView;
 
@@ -79,7 +79,7 @@ impl Memory {
 
     /// Creates a view into the memory that then allows for
     /// read and write
-    pub fn view<'a>(&self, store: &'a impl AsStoreRef) -> MemoryView<'a> {
+    pub fn view<'a>(&'a self, store: &impl AsStoreRef) -> MemoryView<'a> {
         MemoryView::new(self, store)
     }
 
@@ -169,7 +169,7 @@ impl<'a> Exportable<'a> for Memory {
 pub(crate) struct MemoryBuffer<'a> {
     pub(crate) base: *mut u8,
     pub(crate) len: usize,
-    pub(crate) marker: PhantomData<(&'a MemoryView<'a>, &'a StoreObjects)>,
+    pub(crate) marker: PhantomData<&'a MemoryView<'a>>,
 }
 
 impl<'a> MemoryBuffer<'a> {
