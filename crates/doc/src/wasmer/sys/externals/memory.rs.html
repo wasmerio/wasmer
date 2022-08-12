@@ -314,7 +314,7 @@
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;tracing&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">tracing::warn</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types::Pages</span>;
-<span class="kw">use</span> <span class="ident">wasmer_vm</span>::{<span class="ident">InternalStoreHandle</span>, <span class="ident">MemoryError</span>, <span class="ident">StoreHandle</span>, <span class="ident">StoreObjects</span>, <span class="ident">VMExtern</span>, <span class="ident">VMMemory</span>};
+<span class="kw">use</span> <span class="ident">wasmer_vm</span>::{<span class="ident">InternalStoreHandle</span>, <span class="ident">MemoryError</span>, <span class="ident">StoreHandle</span>, <span class="ident">VMExtern</span>, <span class="ident">VMMemory</span>};
 
 <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::MemoryView</span>;
 
@@ -382,7 +382,7 @@
 
     <span class="doccomment">/// Creates a view into the memory that then allows for</span>
     <span class="doccomment">/// read and write</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">view</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="kw">impl</span> <span class="ident">AsStoreRef</span>) -&gt; <span class="ident">MemoryView</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">view</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="self">self</span>, <span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsStoreRef</span>) -&gt; <span class="ident">MemoryView</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
         <span class="ident">MemoryView::new</span>(<span class="self">self</span>, <span class="ident">store</span>)
     }
 
@@ -472,7 +472,7 @@
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct</span> <span class="ident">MemoryBuffer</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">base</span>: <span class="kw-2">*mut</span> <span class="ident">u8</span>,
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">len</span>: <span class="ident">usize</span>,
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">marker</span>: <span class="ident">PhantomData</span><span class="op">&lt;</span>(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">MemoryView</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>, <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">StoreObjects</span>)<span class="op">&gt;</span>,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">marker</span>: <span class="ident">PhantomData</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">MemoryView</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span><span class="op">&gt;</span>,
 }
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">MemoryBuffer</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
