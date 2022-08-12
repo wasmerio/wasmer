@@ -37,6 +37,16 @@ pub struct CreateObj {
     header_output: Option<PathBuf>,
 
     /// Compilation Target triple
+    ///
+    /// Accepted target triple values must follow the
+    /// ['target_lexicon'](https://crates.io/crates/target-lexicon) crate format.
+    ///
+    /// The recommended targets we try to support are:
+    ///
+    /// - "x86_64-linux-gnu"
+    /// - "aarch64-linux-gnu"
+    /// - "x86_64-apple-darwin"
+    /// - "arm64-apple-darwin"
     #[clap(long = "target")]
     target_triple: Option<Triple>,
 
