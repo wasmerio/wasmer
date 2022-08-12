@@ -1068,6 +1068,23 @@
 <span id="1066">1066</span>
 <span id="1067">1067</span>
 <span id="1068">1068</span>
+<span id="1069">1069</span>
+<span id="1070">1070</span>
+<span id="1071">1071</span>
+<span id="1072">1072</span>
+<span id="1073">1073</span>
+<span id="1074">1074</span>
+<span id="1075">1075</span>
+<span id="1076">1076</span>
+<span id="1077">1077</span>
+<span id="1078">1078</span>
+<span id="1079">1079</span>
+<span id="1080">1080</span>
+<span id="1081">1081</span>
+<span id="1082">1082</span>
+<span id="1083">1083</span>
+<span id="1084">1084</span>
+<span id="1085">1085</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Create a standalone native executable for a given Wasm file.</span>
 
 <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::ObjectFormat</span>;
@@ -1290,9 +1307,21 @@
                     } <span class="kw">else</span> {
                         <span class="string">&quot;lib/libwasmer.a&quot;</span>
                     };
+                    <span class="kw">let</span> <span class="ident">libwasmer_headless_path</span> <span class="op">=</span> <span class="kw">if</span> <span class="self">self</span>
+                        .<span class="ident">target_triple</span>
+                        .<span class="ident">clone</span>()
+                        .<span class="ident">unwrap_or</span>(<span class="ident">Triple::host</span>())
+                        .<span class="ident">operating_system</span>
+                        <span class="op">==</span> <span class="ident">wasmer_types::OperatingSystem::Windows</span>
+                    {
+                        <span class="string">&quot;lib/wasmer.lib&quot;</span>
+                    } <span class="kw">else</span> {
+                        <span class="string">&quot;lib/libwasmer-headless.a&quot;</span>
+                    };
                     <span class="kw">let</span> <span class="ident">filename</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">local_tarball</span>) <span class="op">=</span> <span class="ident">cross_subc</span>.<span class="ident">tarball</span> {
                         <span class="kw">let</span> <span class="ident">files</span> <span class="op">=</span> <span class="ident">untar</span>(<span class="ident">local_tarball</span>)<span class="question-mark">?</span>;
-                        <span class="ident">files</span>.<span class="ident">into_iter</span>().<span class="ident">find</span>(<span class="op">|</span><span class="ident">f</span><span class="op">|</span> <span class="ident">f</span>.<span class="ident">contains</span>(<span class="ident">libwasmer_path</span>)).<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> {
+                        <span class="ident">files</span>.<span class="ident">clone</span>().<span class="ident">into_iter</span>().<span class="ident">find</span>(<span class="op">|</span><span class="ident">f</span><span class="op">|</span> <span class="ident">f</span>.<span class="ident">contains</span>(<span class="ident">libwasmer_headless_path</span>)).<span class="ident">or_else</span>(<span class="op">|</span><span class="op">|</span>
+                        <span class="ident">files</span>.<span class="ident">into_iter</span>().<span class="ident">find</span>(<span class="op">|</span><span class="ident">f</span><span class="op">|</span> <span class="ident">f</span>.<span class="ident">contains</span>(<span class="ident">libwasmer_path</span>))).<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> {
                             <span class="macro">anyhow!</span>(<span class="string">&quot;Could not find libwasmer for {} target in the provided tarball path.&quot;</span>, <span class="ident">target</span>)})<span class="question-mark">?</span>
                     } <span class="kw">else</span> {
                         <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;http&quot;</span>)]</span>
@@ -1300,7 +1329,8 @@
                             <span class="kw">let</span> <span class="ident">release</span> <span class="op">=</span> <span class="ident">http_fetch::get_latest_release</span>()<span class="question-mark">?</span>;
                             <span class="kw">let</span> <span class="ident">tarball</span> <span class="op">=</span> <span class="ident">http_fetch::download_release</span>(<span class="ident">release</span>, <span class="ident">target</span>.<span class="ident">clone</span>())<span class="question-mark">?</span>;
                             <span class="kw">let</span> <span class="ident">files</span> <span class="op">=</span> <span class="ident">untar</span>(<span class="ident">tarball</span>)<span class="question-mark">?</span>;
-                            <span class="ident">files</span>.<span class="ident">into_iter</span>().<span class="ident">find</span>(<span class="op">|</span><span class="ident">f</span><span class="op">|</span> <span class="ident">f</span>.<span class="ident">contains</span>(<span class="ident">libwasmer_path</span>)).<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> {
+                            <span class="ident">files</span>.<span class="ident">clone</span>().<span class="ident">into_iter</span>().<span class="ident">find</span>(<span class="op">|</span><span class="ident">f</span><span class="op">|</span> <span class="ident">f</span>.<span class="ident">contains</span>(<span class="ident">libwasmer_headless_path</span>)).<span class="ident">or_else</span>(<span class="op">|</span><span class="op">|</span>
+                            <span class="ident">files</span>.<span class="ident">into_iter</span>().<span class="ident">find</span>(<span class="op">|</span><span class="ident">f</span><span class="op">|</span> <span class="ident">f</span>.<span class="ident">contains</span>(<span class="ident">libwasmer_path</span>))).<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> {
                                 <span class="macro">anyhow!</span>(<span class="string">&quot;Could not find libwasmer for {} target in the fetched release from Github: you can download it manually and specify its path with the --cross-compilation-library-path LIBRARY_PATH flag.&quot;</span>, <span class="ident">target</span>)})<span class="question-mark">?</span>
                         }
                         <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;http&quot;</span>))]</span>
@@ -1526,6 +1556,10 @@
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">cmd</span> <span class="op">=</span> <span class="ident">Command::new</span>(<span class="ident">zig_binary_path</span>);
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">cmd_mut</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Command</span> <span class="op">=</span> <span class="ident">cmd</span>
                 .<span class="ident">arg</span>(<span class="string">&quot;cc&quot;</span>)
+                .<span class="ident">arg</span>(<span class="string">&quot;-w&quot;</span>)
+                .<span class="ident">arg</span>(<span class="string">&quot;-fgnu-inline-asm&quot;</span>)
+                .<span class="ident">arg</span>(<span class="string">&quot;-fsanitize=undefined&quot;</span>)
+                .<span class="ident">arg</span>(<span class="string">&quot;-fsanitize-trap=undefined&quot;</span>)
                 .<span class="ident">arg</span>(<span class="string">&quot;-target&quot;</span>)
                 .<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="ident">zig_triple</span>)
                 .<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;-L{}&quot;</span>, <span class="ident">libwasmer_path</span>.<span class="ident">display</span>()))
