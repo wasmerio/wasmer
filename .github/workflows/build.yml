@@ -180,6 +180,18 @@ jobs:
           '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' -s
           echo 'RUSTC_WRAPPER=${{ runner.tool_cache }}/cargo-sccache/bin/sccache' >> $GITHUB_ENV
         shell: bash
+      - name: Build C API headless
+        if: matrix.build != 'macos-arm64'
+        shell: bash
+        run: |
+          make package-capi-headless
+      - name: Build C API headless
+        if: matrix.build == 'macos-arm64'
+        run: |
+          make package-capi-headless
+        env:
+          TARGET: aarch64-apple-darwin
+          TARGET_DIR: target/aarch64-apple-darwin/release
       - name: Build C API
         shell: bash
         run: |
@@ -275,6 +287,19 @@ jobs:
           PKG_CONFIG_PATH: /usr/lib/aarch64-linux-gnu/pkgconfig
           PKG_CONFIG_ALLOW_CROSS: true
           ENABLE_LLVM: 0
+      - name: Build C API headless
+        shell: bash
+        run: |
+          make package-capi-headless
+        env:
+          CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v /home/runner/work/wasmer/wasmer:/project -w /project wasmer/aarch64 cross
+          CROSS_DOCKER_IN_DOCKER: true
+          CARGO_TARGET: --target aarch64-unknown-linux-gnu
+          PKG_CONFIG_PATH: /usr/lib/aarch64-linux-gnu/pkgconfig
+          PKG_CONFIG_ALLOW_CROSS: true
+          ENABLE_LLVM: 0
+          TARGET: aarch64-unknown-linux-gnu
+          TARGET_DIR: target/aarch64-unknown-linux-gnu/release
       - name: Build C API
         run: |
           make build-capi

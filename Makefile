@@ -454,16 +454,12 @@ build-capi-llvm-universal: capi-setup
 
 # Headless (we include the minimal to be able to run)
 
-build-capi-headless-universal: capi-setup
-	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features compiler-headless,wasi
-
-build-capi-headless-all: capi-setup
-	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
+build-capi-headless: capi-setup
+	RUSTFLAGS="${RUSTFLAGS} -C panic=abort" $(CARGO_BINARY) build $(CARGO_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features compiler-headless,wasi
 
 build-capi-headless-ios: capi-setup
-	RUSTFLAGS="${RUSTFLAGS}" cargo lipo --manifest-path lib/c-api/Cargo.toml --release \
+	RUSTFLAGS="${RUSTFLAGS} -C panic=abort" cargo lipo --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features compiler-headless,wasi
 
 #####
@@ -617,6 +613,33 @@ package-capi:
 	fi
 	if [ -f $(TARGET_DIR)/libwasmer.a ]; then \
 		cp $(TARGET_DIR)/libwasmer.a package/lib/libwasmer.a ;\
+	fi
+
+package-capi-headless: build-capi-headless
+	mkdir -p "package/include"
+	mkdir -p "package/lib"
+	cp lib/c-api/wasmer.h* package/include
+	cp lib/c-api/wasmer_wasm.h* package/include
+	cp lib/c-api/wasm.h* package/include
+	cp lib/c-api/README.md package/include/README.md
+
+	if [ -f $(TARGET_DIR)/wasmer.dll ]; then \
+		cp $(TARGET_DIR)/wasmer.dll package/lib/wasmer-headless.dll ;\
+	fi
+	if [ -f $(TARGET_DIR)/wasmer.lib ]; then \
+		cp $(TARGET_DIR)/wasmer.lib package/lib/wasmer-headless.lib ;\
+	fi
+
+	if [ -f $(TARGET_DIR)/libwasmer.dylib ]; then \
+		cp $(TARGET_DIR)/libwasmer.dylib package/lib/libwasmer-headless.dylib ;\
+	fi
+
+	if [ -f $(TARGET_DIR)/libwasmer.so ]; then \
+		cp $(TARGET_DIR)/libwasmer.so package/lib/libwasmer-headless.so ;\
+	fi
+	if [ -f $(TARGET_DIR)/libwasmer.a ]; then \
+		cp $(TARGET_DIR)/libwasmer.a package/lib/libwasmer-headless.a ;\
+		strip package/lib/libwasmer-headless.a ;\
 	fi
 
 package-docs: build-docs build-docs-capi
