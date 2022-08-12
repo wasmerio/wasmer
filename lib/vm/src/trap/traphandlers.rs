@@ -973,6 +973,11 @@ pub fn lazy_per_thread_init() -> Result<(), Trap> {
             mmap_ptr: *mut libc::c_void,
             mmap_size: usize,
         },
+        Grown {
+            mmap_ptr: *mut libc::c_void,
+            mmap_size: usize,
+            old: libc::stack_t,
+        },
         BigEnough,
     }
 
@@ -981,6 +986,7 @@ pub fn lazy_per_thread_init() -> Result<(), Trap> {
         // enough. If so we don't need to allocate our own.
         let mut old_stack = mem::zeroed();
         let r = libc::sigaltstack(ptr::null(), &mut old_stack);
+        let save_old = old_stack.ss_flags & libc::SS_DISABLE == 0;
         assert_eq!(r, 0, "learning about sigaltstack failed");
         if old_stack.ss_flags & libc::SS_DISABLE == 0 && old_stack.ss_size >= MIN_STACK_SIZE {
             return Tls::BigEnough;
@@ -1021,9 +1027,17 @@ pub fn lazy_per_thread_init() -> Result<(), Trap> {
         let r = libc::sigaltstack(&new_stack, ptr::null_mut());
         assert_eq!(r, 0, "registering new sigaltstack failed");
 
-        Tls::Allocated {
-            mmap_ptr: ptr,
-            mmap_size: alloc_size,
+        if save_old {
+            Tls::Grown {
+                mmap_ptr: ptr,
+                mmap_size: alloc_size,
+                old: old_stack,
+            }
+        } else {
+            Tls::Allocated {
+                mmap_ptr: ptr,
+                mmap_size: alloc_size,
+            }
         }
     }
 
@@ -1044,6 +1058,15 @@ pub fn lazy_per_thread_init() -> Result<(), Trap> {
                     mmap_ptr,
                     mmap_size,
                 } => (*mmap_ptr, *mmap_size),
+                Self::Grown {
+                    mmap_ptr,
+                    mmap_size,
+                    old,
+                } => {
+                    let r = unsafe { libc::sigaltstack(&*old, ptr::null_mut()) };
+                    assert_eq!(r, 0, "registering new sigaltstack failed");
+                    (*mmap_ptr, *mmap_size)
+                }
                 _ => return,
             };
             unsafe {
