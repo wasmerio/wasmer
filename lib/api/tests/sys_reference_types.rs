@@ -222,8 +222,6 @@ mod sys {
     }
 
     #[test]
-    // TODO(reftypes): reenable this test
-    #[ignore]
     fn extern_ref_ref_counting_basic() -> Result<()> {
         let mut store = Store::default();
         let wat = r#"(module
@@ -352,8 +350,6 @@ mod sys {
     }
 
     #[test]
-    // TODO(reftypes): reenable this test
-    #[ignore]
     fn extern_ref_ref_counting_global_basic() -> Result<()> {
         let mut store = Store::default();
         let wat = r#"(module
@@ -383,8 +379,6 @@ mod sys {
     }
 
     #[test]
-    // TODO(reftypes): reenable this test
-    #[ignore]
     fn extern_ref_ref_counting_traps() -> Result<()> {
         let mut store = Store::default();
         let wat = r#"(module
