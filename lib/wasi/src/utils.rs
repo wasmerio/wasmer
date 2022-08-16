@@ -21,29 +21,29 @@ pub fn is_wasix_module(module: &Module) -> bool {
     }
 }
 
-pub fn map_io_err(err: std::io::Error) -> __wasi_errno_t {
+pub fn map_io_err(err: std::io::Error) -> wasi_snapshot0::Errno {
     use std::io::ErrorKind;
     match err.kind() {
-        ErrorKind::NotFound => __WASI_ENOENT,
-        ErrorKind::PermissionDenied => __WASI_EPERM,
-        ErrorKind::ConnectionRefused => __WASI_ECONNREFUSED,
-        ErrorKind::ConnectionReset => __WASI_ECONNRESET,
-        ErrorKind::ConnectionAborted => __WASI_ECONNABORTED,
-        ErrorKind::NotConnected => __WASI_ENOTCONN,
-        ErrorKind::AddrInUse => __WASI_EADDRINUSE,
-        ErrorKind::AddrNotAvailable => __WASI_EADDRNOTAVAIL,
-        ErrorKind::BrokenPipe => __WASI_EPIPE,
-        ErrorKind::AlreadyExists => __WASI_EEXIST,
-        ErrorKind::WouldBlock => __WASI_EAGAIN,
-        ErrorKind::InvalidInput => __WASI_EIO,
-        ErrorKind::InvalidData => __WASI_EIO,
-        ErrorKind::TimedOut => __WASI_ETIMEDOUT,
-        ErrorKind::WriteZero => __WASI_EIO,
-        ErrorKind::Interrupted => __WASI_EINTR,
-        ErrorKind::Other => __WASI_EIO,
-        ErrorKind::UnexpectedEof => __WASI_EIO,
-        ErrorKind::Unsupported => __WASI_ENOTSUP,
-        _ => __WASI_EIO,
+        ErrorKind::NotFound => wasi_snapshot0::Errno::Noent,
+        ErrorKind::PermissionDenied => wasi_snapshot0::Errno::Perm,
+        ErrorKind::ConnectionRefused => wasi_snapshot0::Errno::Connrefused,
+        ErrorKind::ConnectionReset => wasi_snapshot0::Errno::Connreset,
+        ErrorKind::ConnectionAborted => wasi_snapshot0::Errno::Connaborted,
+        ErrorKind::NotConnected => wasi_snapshot0::Errno::Notconn,
+        ErrorKind::AddrInUse => wasi_snapshot0::Errno::Addrinuse,
+        ErrorKind::AddrNotAvailable => wasi_snapshot0::Errno::Addrnotavail,
+        ErrorKind::BrokenPipe => wasi_snapshot0::Errno::Pipe,
+        ErrorKind::AlreadyExists => wasi_snapshot0::Errno::Exist,
+        ErrorKind::WouldBlock => wasi_snapshot0::Errno::Again,
+        ErrorKind::InvalidInput => wasi_snapshot0::Errno::Io,
+        ErrorKind::InvalidData => wasi_snapshot0::Errno::Io,
+        ErrorKind::TimedOut => wasi_snapshot0::Errno::Timedout,
+        ErrorKind::WriteZero => wasi_snapshot0::Errno::Io,
+        ErrorKind::Interrupted => wasi_snapshot0::Errno::Intr,
+        ErrorKind::Other => wasi_snapshot0::Errno::Io,
+        ErrorKind::UnexpectedEof => wasi_snapshot0::Errno::Io,
+        ErrorKind::Unsupported => wasi_snapshot0::Errno::Notsup,
+        _ => wasi_snapshot0::Errno::Io,
     }
 }
 

@@ -7,6 +7,7 @@ edition = "2018"
 
 [dependencies]
 wasmer-derive = { path = "../derive", version = "=3.0.0-beta" }
+wasmer-types = { path = "../types", version = "=3.0.0-beta" }
 
 [dependencies.wit-bindgen-wasmer]
 path = "/home/silwol/Projects/wasmerio/wit-bindgen/crates/wasmer"

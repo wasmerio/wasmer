@@ -52,6 +52,7 @@ use std::{
 };
 use tracing::{debug, trace};
 use wasmer_vbus::BusSpawnedProcess;
+use wasmer_wasi_types_generated::wasi_snapshot0;
 
 use wasmer_vfs::{FileSystem, FsError, OpenOptions, VirtualFile};
 
@@ -215,11 +216,13 @@ impl WasiInodes {
     pub fn get_inodeval(
         &self,
         inode: generational_arena::Index,
-    ) -> Result<&InodeVal, __wasi_errno_t> {
+    ) -> Result<&InodeVal, wasi_snapshot0::Errno> {
         if let Some(iv) = self.arena.get(inode) {
             Ok(iv)
         } else {
-            self.orphan_fds.get(&inode).ok_or(__WASI_EBADF)
+            self.orphan_fds
+                .get(&inode)
+                .ok_or(wasi_snapshot0::Errno::Badf)
         }
     }
 
@@ -227,11 +230,13 @@ impl WasiInodes {
     pub fn get_inodeval_mut(
         &mut self,
         inode: generational_arena::Index,
-    ) -> Result<&mut InodeVal, __wasi_errno_t> {
+    ) -> Result<&mut InodeVal, wasi_snapshot0::Errno> {
         if let Some(iv) = self.arena.get_mut(inode) {
             Ok(iv)
         } else {
-            self.orphan_fds.get_mut(&inode).ok_or(__WASI_EBADF)
+            self.orphan_fds
+                .get_mut(&inode)
+                .ok_or(wasi_snapshot0::Errno::Badf)
         }
     }
 
@@ -812,7 +817,7 @@ impl WasiFs {
         &self,
         inodes: &WasiInodes,
         fd: __wasi_fd_t,
-    ) -> Result<__wasi_filesize_t, __wasi_errno_t> {
+    ) -> Result<__wasi_filesize_t, wasi_snapshot0::Errno> {
         let inode = self.get_fd_inode(fd)?;
         let mut guard = inodes.arena[inode].write();
         let deref_mut = guard.deref_mut();
@@ -825,11 +830,11 @@ impl WasiFs {
                     inodes.arena[inode].stat.write().unwrap().st_size = new_size;
                     Ok(new_size as __wasi_filesize_t)
                 } else {
-                    Err(__WASI_EBADF)
+                    Err(wasi_snapshot0::Errno::Badf)
                 }
             }
-            Kind::Dir { .. } | Kind::Root { .. } => Err(__WASI_EISDIR),
-            _ => Err(__WASI_EINVAL),
+            Kind::Dir { .. } | Kind::Root { .. } => Err(wasi_snapshot0::Errno::Isdir),
+            _ => Err(wasi_snapshot0::Errno::Inval),
         }
     }
 
@@ -844,7 +849,7 @@ impl WasiFs {
         &self,
         inodes: &mut WasiInodes,
         base: __wasi_fd_t,
-    ) -> Result<(Inode, String), __wasi_errno_t> {
+    ) -> Result<(Inode, String), wasi_snapshot0::Errno> {
         self.get_current_dir_inner(inodes, base, 0)
     }
 
@@ -853,7 +858,7 @@ impl WasiFs {
         inodes: &mut WasiInodes,
         base: __wasi_fd_t,
         symlink_count: u32,
-    ) -> Result<(Inode, String), __wasi_errno_t> {
+    ) -> Result<(Inode, String), wasi_snapshot0::Errno> {
         let current_dir = {
             let guard = self.current_dir.lock().unwrap();
             guard.clone()
@@ -889,9 +894,9 @@ impl WasiFs {
         path: &str,
         mut symlink_count: u32,
         follow_symlinks: bool,
-    ) -> Result<Inode, __wasi_errno_t> {
+    ) -> Result<Inode, wasi_snapshot0::Errno> {
         if symlink_count > MAX_SYMLINKS {
-            return Err(__WASI_EMLINK);
+            return Err(wasi_snapshot0::Errno::Mlink);
         }
 
         let path: &Path = Path::new(path);
@@ -920,7 +925,7 @@ impl WasiFs {
                                     cur_inode = *p;
                                     continue 'path_iter;
                                 } else {
-                                    return Err(__WASI_EACCES);
+                                    return Err(wasi_snapshot0::Errno::Acces);
                                 }
                             }
                             "." => continue 'path_iter,
@@ -942,7 +947,7 @@ impl WasiFs {
                                 .fs_backing
                                 .symlink_metadata(&file)
                                 .ok()
-                                .ok_or(__WASI_ENOENT)?;
+                                .ok_or(wasi_snapshot0::Errno::Noent)?;
                             let file_type = metadata.file_type();
                             // we want to insert newly opened dirs and files, but not transient symlinks
                             // TODO: explain why (think about this deeply when well rested)
@@ -1080,14 +1085,14 @@ impl WasiFs {
                         {
                             cur_inode = *entry;
                         } else {
-                            return Err(__WASI_ENOENT);
+                            return Err(wasi_snapshot0::Errno::Noent);
                         }
                     }
                     Kind::File { .. }
                     | Kind::Socket { .. }
                     | Kind::Pipe { .. }
                     | Kind::EventNotifications { .. } => {
-                        return Err(__WASI_ENOTDIR);
+                        return Err(wasi_snapshot0::Errno::Notdir);
                     }
                     Kind::Symlink {
                         base_po_dir,
@@ -1151,7 +1156,7 @@ impl WasiFs {
         &self,
         inodes: &WasiInodes,
         path: &'path Path,
-    ) -> Result<(__wasi_fd_t, &'path Path), __wasi_errno_t> {
+    ) -> Result<(__wasi_fd_t, &'path Path), wasi_snapshot0::Errno> {
         enum BaseFdAndRelPath<'a> {
             None,
             BestMatch {
@@ -1199,7 +1204,7 @@ impl WasiFs {
         }
         match res {
             // this error may not make sense depending on where it's called
-            BaseFdAndRelPath::None => Err(__WASI_EINVAL),
+            BaseFdAndRelPath::None => Err(wasi_snapshot0::Errno::Inval),
             BaseFdAndRelPath::BestMatch { fd, rel_path, .. } => Ok((fd, rel_path)),
         }
     }
@@ -1211,7 +1216,7 @@ impl WasiFs {
         inodes: &WasiInodes,
         fd: __wasi_fd_t,
         inode: Inode,
-    ) -> Result<usize, __wasi_errno_t> {
+    ) -> Result<usize, wasi_snapshot0::Errno> {
         let mut counter = 0;
         let base_inode = self.get_fd_inode(fd)?;
         let mut cur_inode = inode;
@@ -1226,7 +1231,7 @@ impl WasiFs {
                         cur_inode = *p;
                     }
                 }
-                _ => return Err(__WASI_EINVAL),
+                _ => return Err(wasi_snapshot0::Errno::Inval),
             }
         }
 
@@ -1245,7 +1250,7 @@ impl WasiFs {
         base: __wasi_fd_t,
         path: &str,
         follow_symlinks: bool,
-    ) -> Result<Inode, __wasi_errno_t> {
+    ) -> Result<Inode, wasi_snapshot0::Errno> {
         let start_inode = if !path.starts_with('/') && self.is_wasix.load(Ordering::Acquire) {
             let (cur_inode, _) = self.get_current_dir(inodes, base)?;
             cur_inode
@@ -1264,12 +1269,12 @@ impl WasiFs {
         base: __wasi_fd_t,
         path: &Path,
         follow_symlinks: bool,
-    ) -> Result<(Inode, String), __wasi_errno_t> {
+    ) -> Result<(Inode, String), wasi_snapshot0::Errno> {
         let mut parent_dir = std::path::PathBuf::new();
         let mut components = path.components().rev();
         let new_entity_name = components
             .next()
-            .ok_or(__WASI_EINVAL)?
+            .ok_or(wasi_snapshot0::Errno::Inval)?
             .as_os_str()
             .to_string_lossy()
             .to_string();
@@ -1280,24 +1285,24 @@ impl WasiFs {
             .map(|v| (v, new_entity_name))
     }
 
-    pub fn get_fd(&self, fd: __wasi_fd_t) -> Result<Fd, __wasi_errno_t> {
+    pub fn get_fd(&self, fd: __wasi_fd_t) -> Result<Fd, wasi_snapshot0::Errno> {
         self.fd_map
             .read()
             .unwrap()
             .get(&fd)
-            .ok_or(__WASI_EBADF)
+            .ok_or(wasi_snapshot0::Errno::Badf)
             .map(|a| a.clone())
     }
 
     pub fn get_fd_inode(
         &self,
         fd: __wasi_fd_t,
-    ) -> Result<generational_arena::Index, __wasi_errno_t> {
+    ) -> Result<generational_arena::Index, wasi_snapshot0::Errno> {
         self.fd_map
             .read()
             .unwrap()
             .get(&fd)
-            .ok_or(__WASI_EBADF)
+            .ok_or(wasi_snapshot0::Errno::Badf)
             .map(|a| a.inode)
     }
 
@@ -1305,7 +1310,7 @@ impl WasiFs {
         &self,
         inodes: &WasiInodes,
         fd: __wasi_fd_t,
-    ) -> Result<__wasi_filestat_t, __wasi_errno_t> {
+    ) -> Result<__wasi_filestat_t, wasi_snapshot0::Errno> {
         let inode = self.get_fd_inode(fd)?;
         Ok(*inodes.arena[inode].stat.read().unwrap().deref())
     }
@@ -1314,7 +1319,7 @@ impl WasiFs {
         &self,
         inodes: &WasiInodes,
         fd: __wasi_fd_t,
-    ) -> Result<__wasi_fdstat_t, __wasi_errno_t> {
+    ) -> Result<__wasi_fdstat_t, wasi_snapshot0::Errno> {
         match fd {
             __WASI_STDIN_FILENO => {
                 return Ok(__wasi_fdstat_t {
@@ -1373,7 +1378,7 @@ impl WasiFs {
         &self,
         inodes: &WasiInodes,
         fd: __wasi_fd_t,
-    ) -> Result<__wasi_prestat_t, __wasi_errno_t> {
+    ) -> Result<__wasi_prestat_t, wasi_snapshot0::Errno> {
         let inode = self.get_fd_inode(fd)?;
         trace!("in prestat_fd {:?}", self.get_fd(fd)?);
 
@@ -1382,7 +1387,7 @@ impl WasiFs {
         if inode_val.is_preopened {
             Ok(self.prestat_fd_inner(inode_val))
         } else {
-            Err(__WASI_EBADF)
+            Err(wasi_snapshot0::Errno::Badf)
         }
     }
 
@@ -1397,7 +1402,7 @@ impl WasiFs {
         }
     }
 
-    pub fn flush(&self, inodes: &WasiInodes, fd: __wasi_fd_t) -> Result<(), __wasi_errno_t> {
+    pub fn flush(&self, inodes: &WasiInodes, fd: __wasi_fd_t) -> Result<(), wasi_snapshot0::Errno> {
         match fd {
             __WASI_STDIN_FILENO => (),
             __WASI_STDOUT_FILENO => inodes
@@ -1405,17 +1410,17 @@ impl WasiFs {
                 .map_err(fs_error_into_wasi_err)?
                 .as_mut()
                 .map(|f| f.flush().map_err(map_io_err))
-                .unwrap_or_else(|| Err(__WASI_EIO))?,
+                .unwrap_or_else(|| Err(wasi_snapshot0::Errno::Io))?,
             __WASI_STDERR_FILENO => inodes
                 .stderr_mut(&self.fd_map)
                 .map_err(fs_error_into_wasi_err)?
                 .as_mut()
                 .and_then(|f| f.flush().ok())
-                .ok_or(__WASI_EIO)?,
+                .ok_or(wasi_snapshot0::Errno::Io)?,
             _ => {
                 let fd = self.get_fd(fd)?;
                 if fd.rights & __WASI_RIGHT_FD_DATASYNC == 0 {
-                    return Err(__WASI_EACCES);
+                    return Err(wasi_snapshot0::Errno::Acces);
                 }
 
                 let mut guard = inodes.arena[fd.inode].write();
@@ -1423,12 +1428,12 @@ impl WasiFs {
                 match deref_mut {
                     Kind::File {
                         handle: Some(file), ..
-                    } => file.flush().map_err(|_| __WASI_EIO)?,
+                    } => file.flush().map_err(|_| wasi_snapshot0::Errno::Io)?,
                     // TODO: verify this behavior
-                    Kind::Dir { .. } => return Err(__WASI_EISDIR),
+                    Kind::Dir { .. } => return Err(wasi_snapshot0::Errno::Isdir),
                     Kind::Symlink { .. } => unimplemented!("WasiFs::flush Kind::Symlink"),
                     Kind::Buffer { .. } => (),
-                    _ => return Err(__WASI_EIO),
+                    _ => return Err(wasi_snapshot0::Errno::Io),
                 }
             }
         }
@@ -1442,7 +1447,7 @@ impl WasiFs {
         kind: Kind,
         is_preopened: bool,
         name: String,
-    ) -> Result<Inode, __wasi_errno_t> {
+    ) -> Result<Inode, wasi_snapshot0::Errno> {
         let stat = self.get_stat_for_kind(inodes, &kind)?;
         Ok(self.create_inode_with_stat(inodes, kind, is_preopened, name, stat))
     }
@@ -1485,7 +1490,7 @@ impl WasiFs {
         flags: __wasi_fdflags_t,
         open_flags: u16,
         inode: Inode,
-    ) -> Result<__wasi_fd_t, __wasi_errno_t> {
+    ) -> Result<__wasi_fd_t, wasi_snapshot0::Errno> {
         let idx = self.next_fd.fetch_add(1, Ordering::AcqRel);
         self.fd_map.write().unwrap().insert(
             idx,
@@ -1501,7 +1506,7 @@ impl WasiFs {
         Ok(idx)
     }
 
-    pub fn clone_fd(&self, fd: __wasi_fd_t) -> Result<__wasi_fd_t, __wasi_errno_t> {
+    pub fn clone_fd(&self, fd: __wasi_fd_t) -> Result<__wasi_fd_t, wasi_snapshot0::Errno> {
         let fd = self.get_fd(fd)?;
         let idx = self.next_fd.fetch_add(1, Ordering::AcqRel);
         self.fd_map.write().unwrap().insert(
@@ -1624,7 +1629,7 @@ impl WasiFs {
         &self,
         inodes: &WasiInodes,
         kind: &Kind,
-    ) -> Result<__wasi_filestat_t, __wasi_errno_t> {
+    ) -> Result<__wasi_filestat_t, wasi_snapshot0::Errno> {
         let md = match kind {
             Kind::File { handle, path, .. } => match handle {
                 Some(wf) => {
@@ -1675,7 +1680,7 @@ impl WasiFs {
                     _ => unreachable!("Symlink pointing to something that's not a directory as its base preopened directory"),
                 }
             }
-            _ => return Err(__WASI_EIO),
+            _ => return Err(wasi_snapshot0::Errno::Io),
         };
         Ok(__wasi_filestat_t {
             st_filetype: virtual_file_type_to_wasi_file_type(md.file_type()),
@@ -1692,7 +1697,7 @@ impl WasiFs {
         &self,
         inodes: &WasiInodes,
         fd: __wasi_fd_t,
-    ) -> Result<(), __wasi_errno_t> {
+    ) -> Result<(), wasi_snapshot0::Errno> {
         let inode = self.get_fd_inode(fd)?;
         let inodeval = inodes.get_inodeval(inode)?;
         let is_preopened = inodeval.is_preopened;
@@ -1715,7 +1720,7 @@ impl WasiFs {
                 debug!("Closing dir {:?}", &path);
                 let key = path
                     .file_name()
-                    .ok_or(__WASI_EINVAL)?
+                    .ok_or(wasi_snapshot0::Errno::Inval)?
                     .to_string_lossy()
                     .to_string();
                 if let Some(p) = *parent {
@@ -1753,12 +1758,12 @@ impl WasiFs {
                 } else {
                     // this shouldn't be possible anymore due to Root
                     debug!("HIT UNREACHABLE CODE! Non-root directory does not have a parent");
-                    return Err(__WASI_EINVAL);
+                    return Err(wasi_snapshot0::Errno::Inval);
                 }
             }
             Kind::EventNotifications { .. } => {}
-            Kind::Root { .. } => return Err(__WASI_EACCES),
-            Kind::Symlink { .. } | Kind::Buffer { .. } => return Err(__WASI_EINVAL),
+            Kind::Root { .. } => return Err(wasi_snapshot0::Errno::Acces),
+            Kind::Symlink { .. } | Kind::Buffer { .. } => return Err(wasi_snapshot0::Errno::Inval),
         }
 
         Ok(())
@@ -1770,21 +1775,27 @@ impl WasiState {
     pub(crate) fn fs_read_dir<P: AsRef<Path>>(
         &self,
         path: P,
-    ) -> Result<wasmer_vfs::ReadDir, __wasi_errno_t> {
+    ) -> Result<wasmer_vfs::ReadDir, wasi_snapshot0::Errno> {
         self.fs
             .fs_backing
             .read_dir(path.as_ref())
             .map_err(fs_error_into_wasi_err)
     }
 
-    pub(crate) fn fs_create_dir<P: AsRef<Path>>(&self, path: P) -> Result<(), __wasi_errno_t> {
+    pub(crate) fn fs_create_dir<P: AsRef<Path>>(
+        &self,
+        path: P,
+    ) -> Result<(), wasi_snapshot0::Errno> {
         self.fs
             .fs_backing
             .create_dir(path.as_ref())
             .map_err(fs_error_into_wasi_err)
     }
 
-    pub(crate) fn fs_remove_dir<P: AsRef<Path>>(&self, path: P) -> Result<(), __wasi_errno_t> {
+    pub(crate) fn fs_remove_dir<P: AsRef<Path>>(
+        &self,
+        path: P,
+    ) -> Result<(), wasi_snapshot0::Errno> {
         self.fs
             .fs_backing
             .remove_dir(path.as_ref())
@@ -1795,14 +1806,17 @@ impl WasiState {
         &self,
         from: P,
         to: Q,
-    ) -> Result<(), __wasi_errno_t> {
+    ) -> Result<(), wasi_snapshot0::Errno> {
         self.fs
             .fs_backing
             .rename(from.as_ref(), to.as_ref())
             .map_err(fs_error_into_wasi_err)
     }
 
-    pub(crate) fn fs_remove_file<P: AsRef<Path>>(&self, path: P) -> Result<(), __wasi_errno_t> {
+    pub(crate) fn fs_remove_file<P: AsRef<Path>>(
+        &self,
+        path: P,
+    ) -> Result<(), wasi_snapshot0::Errno> {
         self.fs
             .fs_backing
             .remove_file(path.as_ref())

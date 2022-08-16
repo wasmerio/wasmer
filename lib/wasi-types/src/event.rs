@@ -5,6 +5,7 @@ use std::{
 };
 use wasmer_derive::ValueType;
 use wasmer_types::ValueType;
+use wasmer_wasi_types_generated::wasi_snapshot0;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, ValueType)]
 #[repr(C)]
@@ -50,7 +51,7 @@ impl EventEnum {
 #[repr(C)]
 pub struct __wasi_event_t {
     pub userdata: __wasi_userdata_t,
-    pub error: __wasi_errno_t,
+    pub error: wasi_snapshot0::Errno,
     pub type_: __wasi_eventtype_t,
     pub u: __wasi_event_u,
 }

@@ -43,7 +43,7 @@ impl WasiPipe {
         &mut self,
         memory: &MemoryView,
         iov: WasmSlice<__wasi_iovec_t<M>>,
-    ) -> Result<usize, __wasi_errno_t> {
+    ) -> Result<usize, wasi_snapshot0::Errno> {
         loop {
             if let Some(buf) = self.read_buffer.as_mut() {
                 let buf_len = buf.len();
@@ -55,7 +55,7 @@ impl WasiPipe {
                 }
             }
             let rx = self.rx.lock().unwrap();
-            let data = rx.recv().map_err(|_| __WASI_EIO)?;
+            let data = rx.recv().map_err(|_| wasi_snapshot0::Errno::Io)?;
             self.read_buffer.replace(Bytes::from(data));
         }
     }
@@ -64,17 +64,19 @@ impl WasiPipe {
         &mut self,
         memory: &MemoryView,
         iov: WasmSlice<__wasi_ciovec_t<M>>,
-    ) -> Result<usize, __wasi_errno_t> {
+    ) -> Result<usize, wasi_snapshot0::Errno> {
         let buf_len: M::Offset = iov
             .iter()
             .filter_map(|a| a.read().ok())
             .map(|a| a.buf_len)
             .sum();
-        let buf_len: usize = buf_len.try_into().map_err(|_| __WASI_EINVAL)?;
+        let buf_len: usize = buf_len
+            .try_into()
+            .map_err(|_| wasi_snapshot0::Errno::Inval)?;
         let mut buf = Vec::with_capacity(buf_len);
         write_bytes(&mut buf, memory, iov)?;
         let tx = self.tx.lock().unwrap();
-        tx.send(buf).map_err(|_| __WASI_EIO)?;
+        tx.send(buf).map_err(|_| wasi_snapshot0::Errno::Io)?;
         Ok(buf_len)
     }
 

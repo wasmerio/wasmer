@@ -773,12 +773,12 @@ fn generate_import_object_wasix64_v1(
     }
 }
 
-fn mem_error_to_wasi(err: MemoryAccessError) -> types::__wasi_errno_t {
+fn mem_error_to_wasi(err: MemoryAccessError) -> types::wasi_snapshot0::Errno {
     match err {
-        MemoryAccessError::HeapOutOfBounds => types::__WASI_EFAULT,
-        MemoryAccessError::Overflow => types::__WASI_EOVERFLOW,
-        MemoryAccessError::NonUtf8String => types::__WASI_EINVAL,
-        _ => types::__WASI_EINVAL,
+        MemoryAccessError::HeapOutOfBounds => types::wasi_snapshot0::Errno::Fault,
+        MemoryAccessError::Overflow => types::wasi_snapshot0::Errno::Overflow,
+        MemoryAccessError::NonUtf8String => types::wasi_snapshot0::Errno::Inval,
+        _ => types::wasi_snapshot0::Errno::Inval,
     }
 }
 

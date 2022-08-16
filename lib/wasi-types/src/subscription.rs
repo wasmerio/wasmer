@@ -4,6 +4,7 @@ use std::fmt;
 use std::mem::{self, MaybeUninit};
 use wasmer_derive::ValueType;
 use wasmer_types::ValueType;
+use wasmer_wasi_types_generated::wasi_snapshot0;
 
 pub type __wasi_subclockflags_t = u16;
 pub const __WASI_SUBSCRIPTION_CLOCK_ABSTIME: u16 = 1 << 0;
@@ -64,7 +65,7 @@ pub struct WasiSubscription {
 }
 
 impl TryFrom<__wasi_subscription_t> for WasiSubscription {
-    type Error = __wasi_errno_t;
+    type Error = wasi_snapshot0::Errno;
 
     fn try_from(ws: __wasi_subscription_t) -> Result<Self, Self::Error> {
         Ok(Self {
@@ -73,14 +74,14 @@ impl TryFrom<__wasi_subscription_t> for WasiSubscription {
                 __WASI_EVENTTYPE_CLOCK => EventType::Clock(unsafe { ws.u.clock }),
                 __WASI_EVENTTYPE_FD_READ => EventType::Read(unsafe { ws.u.fd_readwrite }),
                 __WASI_EVENTTYPE_FD_WRITE => EventType::Write(unsafe { ws.u.fd_readwrite }),
-                _ => return Err(__WASI_EINVAL),
+                _ => return Err(wasi_snapshot0::Errno::Inval),
             },
         })
     }
 }
 
 impl TryFrom<WasiSubscription> for __wasi_subscription_t {
-    type Error = __wasi_errno_t;
+    type Error = wasi_snapshot0::Errno;
 
     fn try_from(ws: WasiSubscription) -> Result<Self, Self::Error> {
         #[allow(unreachable_patterns)]
@@ -94,7 +95,7 @@ impl TryFrom<WasiSubscription> for __wasi_subscription_t {
                 __WASI_EVENTTYPE_FD_WRITE,
                 __wasi_subscription_u { fd_readwrite: rw },
             ),
-            _ => return Err(__WASI_EINVAL),
+            _ => return Err(wasi_snapshot0::Errno::Inval),
         };
 
         Ok(Self {

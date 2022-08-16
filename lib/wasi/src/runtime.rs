@@ -4,6 +4,7 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use thiserror::Error;
 use wasmer_vbus::{UnsupportedVirtualBus, VirtualBus};
 use wasmer_vnet::VirtualNetworking;
+use wasmer_wasi_types_generated::wasi_snapshot0;
 
 use super::types::*;
 use super::WasiError;
@@ -17,11 +18,11 @@ pub enum WasiThreadError {
     MethodNotFound,
 }
 
-impl From<WasiThreadError> for __wasi_errno_t {
-    fn from(a: WasiThreadError) -> __wasi_errno_t {
+impl From<WasiThreadError> for wasi_snapshot0::Errno {
+    fn from(a: WasiThreadError) -> wasi_snapshot0::Errno {
         match a {
-            WasiThreadError::Unsupported => __WASI_ENOTSUP,
-            WasiThreadError::MethodNotFound => __WASI_EINVAL,
+            WasiThreadError::Unsupported => wasi_snapshot0::Errno::Notsup,
+            WasiThreadError::MethodNotFound => wasi_snapshot0::Errno::Inval,
         }
     }
 }

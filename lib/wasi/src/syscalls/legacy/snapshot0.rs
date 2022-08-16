@@ -1,5 +1,5 @@
 use crate::syscalls;
-use crate::syscalls::types::{self, snapshot0};
+use crate::syscalls::types::{self, snapshot0, wasi_snapshot0};
 use crate::{mem_error_to_wasi, Memory32, MemorySize, WasiEnv, WasiError, WasiThread};
 use wasmer::{AsStoreMut, FunctionEnvMut, WasmPtr};
 
@@ -13,7 +13,7 @@ pub fn fd_filestat_get(
     mut ctx: FunctionEnvMut<WasiEnv>,
     fd: types::__wasi_fd_t,
     buf: WasmPtr<snapshot0::__wasi_filestat_t, Memory32>,
-) -> types::__wasi_errno_t {
+) -> wasi_snapshot0::Errno {
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
 
@@ -67,7 +67,7 @@ pub fn path_filestat_get(
     path: WasmPtr<u8, Memory32>,
     path_len: u32,
     buf: WasmPtr<snapshot0::__wasi_filestat_t, Memory32>,
-) -> types::__wasi_errno_t {
+) -> wasi_snapshot0::Errno {
     // see `fd_filestat_get` in this file for an explanation of this strange behavior
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
@@ -107,7 +107,7 @@ pub fn fd_seek(
     offset: types::__wasi_filedelta_t,
     whence: snapshot0::__wasi_whence_t,
     newoffset: WasmPtr<types::__wasi_filesize_t, Memory32>,
-) -> Result<types::__wasi_errno_t, WasiError> {
+) -> Result<wasi_snapshot0::Errno, WasiError> {
     let new_whence = match whence {
         snapshot0::__WASI_WHENCE_CUR => types::__WASI_WHENCE_CUR,
         snapshot0::__WASI_WHENCE_END => types::__WASI_WHENCE_END,
@@ -126,7 +126,7 @@ pub fn poll_oneoff(
     out_: WasmPtr<types::__wasi_event_t, Memory32>,
     nsubscriptions: u32,
     nevents: WasmPtr<u32, Memory32>,
-) -> Result<types::__wasi_errno_t, WasiError> {
+) -> Result<wasi_snapshot0::Errno, WasiError> {
     // in this case the new type is smaller than the old type, so it all fits into memory,
     // we just need to readjust and copy it
 

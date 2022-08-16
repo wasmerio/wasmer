@@ -1,3 +1,4 @@
+use crate::syscalls::types::wasi_snapshot0;
 use crate::syscalls::types::*;
 use libc::{
     clock_getres, clock_gettime, timespec, CLOCK_MONOTONIC, CLOCK_PROCESS_CPUTIME_ID,
@@ -9,13 +10,13 @@ use wasmer::WasmRef;
 pub fn platform_clock_res_get(
     clock_id: __wasi_clockid_t,
     resolution: WasmRef<__wasi_timestamp_t>,
-) -> Result<i64, __wasi_errno_t> {
+) -> Result<i64, wasi_snapshot0::Errno> {
     let unix_clock_id = match clock_id {
         __WASI_CLOCK_MONOTONIC => CLOCK_MONOTONIC,
         __WASI_CLOCK_PROCESS_CPUTIME_ID => CLOCK_PROCESS_CPUTIME_ID,
         __WASI_CLOCK_REALTIME => CLOCK_REALTIME,
         __WASI_CLOCK_THREAD_CPUTIME_ID => CLOCK_THREAD_CPUTIME_ID,
-        _ => return Err(__WASI_EINVAL),
+        _ => return Err(wasi_snapshot0::Errno::Inval),
     };
 
     let (output, timespec_out) = unsafe {
@@ -33,13 +34,13 @@ pub fn platform_clock_res_get(
 pub fn platform_clock_time_get(
     clock_id: __wasi_clockid_t,
     precision: __wasi_timestamp_t,
-) -> Result<i64, __wasi_errno_t> {
+) -> Result<i64, wasi_snapshot0::Errno> {
     let unix_clock_id = match clock_id {
         __WASI_CLOCK_MONOTONIC => CLOCK_MONOTONIC,
         __WASI_CLOCK_PROCESS_CPUTIME_ID => CLOCK_PROCESS_CPUTIME_ID,
         __WASI_CLOCK_REALTIME => CLOCK_REALTIME,
         __WASI_CLOCK_THREAD_CPUTIME_ID => CLOCK_THREAD_CPUTIME_ID,
-        _ => return Err(__WASI_EINVAL),
+        _ => return Err(wasi_snapshot0::Errno::Inval),
     };
 
     let (output, timespec_out) = unsafe {
