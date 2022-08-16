@@ -639,7 +639,6 @@ package-capi-headless: build-capi-headless
 	fi
 	if [ -f $(TARGET_DIR)/libwasmer.a ]; then \
 		cp $(TARGET_DIR)/libwasmer.a package/lib/libwasmer-headless.a ;\
-		strip package/lib/libwasmer-headless.a ;\
 	fi
 
 package-docs: build-docs build-docs-capi
