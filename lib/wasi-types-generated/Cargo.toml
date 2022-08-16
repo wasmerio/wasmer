@@ -1,12 +1,12 @@
 [package]
-name = "wasi-types-generated"
-version = "0.1.0"
+name = "wasmer-wasi-types-generated"
+version = "3.0.0-beta"
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-#[dependencies]
-#wasmer = { version = "3.0.0-beta", path = "../api" }
+[dependencies]
+wasmer-derive = { path = "../derive", version = "=3.0.0-beta" }
 
 [dependencies.wit-bindgen-wasmer]
 path = "/home/silwol/Projects/wasmerio/wit-bindgen/crates/wasmer"
