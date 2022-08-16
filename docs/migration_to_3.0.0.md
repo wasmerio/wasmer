@@ -113,8 +113,8 @@ let env = FunctionEnv::new(&mut store, MyEnv {
 
 let instance = Instance::new(&module, &imports);
 let mut env_mut = env.as_mut(&mut store);
-env_mut.memory = instance.exports.get_memory("memory");
-env_mut.alloc_guest_memory = instance.exports.get_typed_function("__alloc");
+env_mut.memory = Some(instance.exports.get_memory("memory"));
+env_mut.alloc_guest_memory = Some(instance.exports.get_typed_function("__alloc"));
 ```
 
 
