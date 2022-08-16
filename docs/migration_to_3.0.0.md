@@ -54,22 +54,16 @@ A lot of types were moved to `wasmer-types` crate. There are no `engine` crates 
 
 ## Differences
 
-### Creating a function environment (function state)
+### `WasmerEnv` is removed in favor of `FunctionEnv`
 
-You need a `Store` to create an environment. It is created like this:
-
-```rust
-let env = FunctionEnv::new(&mut store, ()); // Empty environment.
-```
-
-, or
+`WasmerEnv` has been removed in Wasmer 3.0 in favor of `FunctionEnv`, which is now shareable automatically between functions without requiring the environment to be clonable.
 
 ```rust
 let my_counter = 0_i32;
 let env = FunctionEnv::new(&mut store, my_counter);
 ```
 
-Any type can be passed as the environment: (*Nota bene* the passed type `T` must implement the `Any` trait, that is, any type which contains a non-`'static` reference.)
+Note: Any type can be passed as the environment: (*Nota bene* the passed type `T` must implement the `Any` trait, that is, any type which contains a non-`'static` reference.)
 
 ```rust
 struct Env {
@@ -77,6 +71,52 @@ struct Env {
 }
 let env = FunctionEnv::new(&mut store, Env {counter: 0});
 ```
+
+Here's how the code depending on `WasmerEnv` should evolve:
+
+#### Before
+
+```rust
+#[derive(wasmer::WasmerEnv, Clone)]
+pub struct MyEnv {
+    #[wasmer(export)]
+    pub memory: wasmer::LazyInit<Memory>,
+    #[wasmer(export(name = "__alloc"))]
+    pub alloc_guest_memory: LazyInit<NativeFunc<u32, i32>>,
+    
+    pub multiply_by: u32,
+}
+
+let my_env = MyEnv {
+  memory: Default::default(),
+  alloc_guest_memory: Default::default(),
+  multiply_by: 10,
+};
+
+let instance = Instance::new(&module, &imports);
+```
+
+#### After
+
+```rust
+pub struct MyEnv {
+    pub memory: Option<Memory>,
+    pub alloc_guest_memory: Option<TypedFunction<i32, i32>>,
+    pub multiply_by: u32,
+}
+
+let env = FunctionEnv::new(&mut store, MyEnv {
+  memory: None,
+  alloc_guest_memory: None,
+  multiply_by: 10,
+});
+
+let instance = Instance::new(&module, &imports);
+let mut env_mut = env.as_mut(&mut store);
+env_mut.memory = instance.exports.get_memory("memory");
+env_mut.alloc_guest_memory = instance.exports.get_typed_function("__alloc");
+```
+
 
 ### Managing imports
 
