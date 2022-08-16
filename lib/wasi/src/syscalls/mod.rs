@@ -3231,7 +3231,7 @@ pub fn poll_oneoff<M: MemorySize>(
         for event in event_iter {
             match event {
                 PollEvent::PollError => error = wasi_snapshot0::Errno::Io,
-                PollEvent::PollHangUp => flags = wasi_snapshot0::Errno::VentFdReadwriteHangup,
+                PollEvent::PollHangUp => flags = __WASI_EVENT_FD_READWRITE_HANGUP,
                 PollEvent::PollInvalid => error = wasi_snapshot0::Errno::Inval,
                 PollEvent::PollIn => {
                     bytes_available = wasi_try_ok!(

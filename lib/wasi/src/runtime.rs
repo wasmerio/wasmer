@@ -6,7 +6,6 @@ use wasmer_vbus::{UnsupportedVirtualBus, VirtualBus};
 use wasmer_vnet::VirtualNetworking;
 use wasmer_wasi_types_generated::wasi_snapshot0;
 
-use super::types::*;
 use super::WasiError;
 use super::WasiThreadId;
 

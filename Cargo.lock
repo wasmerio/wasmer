@@ -2983,35 +2983,14 @@ dependencies = [
  "tracing",
  "wasm-bindgen",
  "wasm-bindgen-test",
- "wasmer-compiler 3.0.0-beta",
- "wasmer-compiler-cranelift 3.0.0-beta",
+ "wasmer-compiler",
+ "wasmer-compiler-cranelift",
  "wasmer-compiler-llvm",
  "wasmer-compiler-singlepass",
- "wasmer-derive 3.0.0-beta",
- "wasmer-types 3.0.0-beta",
- "wasmer-vm 3.0.0-beta",
+ "wasmer-derive",
+ "wasmer-types",
+ "wasmer-vm",
  "wasmparser 0.83.0",
- "wat",
- "winapi",
-]
-
-[[package]]
-name = "wasmer"
-version = "3.0.0-beta"
-source = "git+https://github.com/wasmerio/wasmer.git?branch=master#a6ddf4e23ddbba827673e4068e8ae1b2fed4609e"
-dependencies = [
- "cfg-if 1.0.0",
- "indexmap",
- "js-sys",
- "more-asserts",
- "target-lexicon 0.12.4",
- "thiserror",
- "wasm-bindgen",
- "wasmer-compiler 3.0.0-beta (git+https://github.com/wasmerio/wasmer.git?branch=master)",
- "wasmer-compiler-cranelift 3.0.0-beta (git+https://github.com/wasmerio/wasmer.git?branch=master)",
- "wasmer-derive 3.0.0-beta (git+https://github.com/wasmerio/wasmer.git?branch=master)",
- "wasmer-types 3.0.0-beta (git+https://github.com/wasmerio/wasmer.git?branch=master)",
- "wasmer-vm 3.0.0-beta (git+https://github.com/wasmerio/wasmer.git?branch=master)",
  "wat",
  "winapi",
 ]
@@ -3023,9 +3002,9 @@ dependencies = [
  "anyhow",
  "libfuzzer-sys",
  "wasm-smith",
- "wasmer 3.0.0-beta",
- "wasmer-compiler 3.0.0-beta",
- "wasmer-compiler-cranelift 3.0.0-beta",
+ "wasmer",
+ "wasmer-compiler",
+ "wasmer-compiler-cranelift",
  "wasmer-compiler-llvm",
  "wasmer-compiler-singlepass",
  "wasmer-middlewares",
@@ -3046,14 +3025,14 @@ dependencies = [
  "paste",
  "thiserror",
  "typetag",
- "wasmer 3.0.0-beta",
- "wasmer-compiler 3.0.0-beta",
- "wasmer-compiler-cranelift 3.0.0-beta",
+ "wasmer",
+ "wasmer-compiler",
+ "wasmer-compiler-cranelift",
  "wasmer-compiler-llvm",
  "wasmer-compiler-singlepass",
  "wasmer-emscripten",
  "wasmer-middlewares",
- "wasmer-types 3.0.0-beta",
+ "wasmer-types",
  "wasmer-wasi",
 ]
 
@@ -3067,7 +3046,7 @@ dependencies = [
  "rand",
  "tempfile",
  "thiserror",
- "wasmer 3.0.0-beta",
+ "wasmer",
  "wasmer-compiler-singlepass",
 ]
 
@@ -3090,17 +3069,17 @@ dependencies = [
  "target-lexicon 0.12.4",
  "tempfile",
  "unix_mode",
- "wasmer 3.0.0-beta",
+ "wasmer",
  "wasmer-cache",
- "wasmer-compiler 3.0.0-beta",
- "wasmer-compiler-cranelift 3.0.0-beta",
+ "wasmer-compiler",
+ "wasmer-compiler-cranelift",
  "wasmer-compiler-llvm",
  "wasmer-compiler-singlepass",
  "wasmer-emscripten",
  "wasmer-object",
- "wasmer-types 3.0.0-beta",
+ "wasmer-types",
  "wasmer-vfs",
- "wasmer-vm 3.0.0-beta",
+ "wasmer-vm",
  "wasmer-wasi",
  "wasmer-wasi-experimental-io-devices",
  "wasmer-wast",
@@ -3126,31 +3105,8 @@ dependencies = [
  "smallvec",
  "thiserror",
  "wasmer-object",
- "wasmer-types 3.0.0-beta",
- "wasmer-vm 3.0.0-beta",
- "wasmparser 0.83.0",
- "winapi",
-]
-
-[[package]]
-name = "wasmer-compiler"
-version = "3.0.0-beta"
-source = "git+https://github.com/wasmerio/wasmer.git?branch=master#a6ddf4e23ddbba827673e4068e8ae1b2fed4609e"
-dependencies = [
- "backtrace",
- "cfg-if 1.0.0",
- "enum-iterator",
- "enumset",
- "lazy_static",
- "leb128",
- "memmap2",
- "more-asserts",
- "region",
- "rustc-demangle",
- "smallvec",
- "thiserror",
- "wasmer-types 3.0.0-beta (git+https://github.com/wasmerio/wasmer.git?branch=master)",
- "wasmer-vm 3.0.0-beta (git+https://github.com/wasmerio/wasmer.git?branch=master)",
+ "wasmer-types",
+ "wasmer-vm",
  "wasmparser 0.83.0",
  "winapi",
 ]
@@ -3171,10 +3127,10 @@ dependencies = [
  "target-lexicon 0.12.4",
  "tempfile",
  "unix_mode",
- "wasmer-compiler 3.0.0-beta",
- "wasmer-compiler-cranelift 3.0.0-beta",
+ "wasmer-compiler",
+ "wasmer-compiler-cranelift",
  "wasmer-compiler-singlepass",
- "wasmer-types 3.0.0-beta",
+ "wasmer-types",
 ]
 
 [[package]]
@@ -3192,26 +3148,8 @@ dependencies = [
  "smallvec",
  "target-lexicon 0.12.4",
  "tracing",
- "wasmer-compiler 3.0.0-beta",
- "wasmer-types 3.0.0-beta",
-]
-
-[[package]]
-name = "wasmer-compiler-cranelift"
-version = "3.0.0-beta"
-source = "git+https://github.com/wasmerio/wasmer.git?branch=master#a6ddf4e23ddbba827673e4068e8ae1b2fed4609e"
-dependencies = [
- "cranelift-codegen",
- "cranelift-entity",
- "cranelift-frontend",
- "gimli",
- "more-asserts",
- "rayon",
- "smallvec",
- "target-lexicon 0.12.4",
- "tracing",
- "wasmer-compiler 3.0.0-beta (git+https://github.com/wasmerio/wasmer.git?branch=master)",
- "wasmer-types 3.0.0-beta (git+https://github.com/wasmerio/wasmer.git?branch=master)",
+ "wasmer-compiler",
+ "wasmer-types",
 ]
 
 [[package]]
@@ -3231,9 +3169,9 @@ dependencies = [
  "semver 1.0.13",
  "smallvec",
  "target-lexicon 0.12.4",
- "wasmer-compiler 3.0.0-beta",
- "wasmer-types 3.0.0-beta",
- "wasmer-vm 3.0.0-beta",
+ "wasmer-compiler",
+ "wasmer-types",
+ "wasmer-vm",
 ]
 
 [[package]]
@@ -3250,8 +3188,8 @@ dependencies = [
  "rayon",
  "smallvec",
  "target-lexicon 0.12.4",
- "wasmer-compiler 3.0.0-beta",
- "wasmer-types 3.0.0-beta",
+ "wasmer-compiler",
+ "wasmer-types",
 ]
 
 [[package]]
@@ -3263,18 +3201,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
- "wasmer 3.0.0-beta",
-]
-
-[[package]]
-name = "wasmer-derive"
-version = "3.0.0-beta"
-source = "git+https://github.com/wasmerio/wasmer.git?branch=master#a6ddf4e23ddbba827673e4068e8ae1b2fed4609e"
-dependencies = [
- "proc-macro-error",
- "proc-macro2",
- "quote",
- "syn",
+ "wasmer",
 ]
 
 [[package]]
@@ -3287,8 +3214,8 @@ dependencies = [
  "libc",
  "log",
  "time",
- "wasmer 3.0.0-beta",
- "wasmer-types 3.0.0-beta",
+ "wasmer",
+ "wasmer-types",
 ]
 
 [[package]]
@@ -3308,9 +3235,9 @@ version = "3.0.0-beta"
 name = "wasmer-middlewares"
 version = "3.0.0-beta"
 dependencies = [
- "wasmer 3.0.0-beta",
- "wasmer-types 3.0.0-beta",
- "wasmer-vm 3.0.0-beta",
+ "wasmer",
+ "wasmer-types",
+ "wasmer-vm",
 ]
 
 [[package]]
@@ -3319,7 +3246,7 @@ version = "3.0.0-beta"
 dependencies = [
  "object 0.28.4",
  "thiserror",
- "wasmer-types 3.0.0-beta",
+ "wasmer-types",
 ]
 
 [[package]]
@@ -3333,20 +3260,6 @@ dependencies = [
  "rkyv",
  "serde",
  "serde_bytes",
- "target-lexicon 0.12.4",
- "thiserror",
-]
-
-[[package]]
-name = "wasmer-types"
-version = "3.0.0-beta"
-source = "git+https://github.com/wasmerio/wasmer.git?branch=master#a6ddf4e23ddbba827673e4068e8ae1b2fed4609e"
-dependencies = [
- "enum-iterator",
- "enumset",
- "indexmap",
- "more-asserts",
- "rkyv",
  "target-lexicon 0.12.4",
  "thiserror",
 ]
@@ -3394,30 +3307,7 @@ dependencies = [
  "scopeguard",
  "serde",
  "thiserror",
- "wasmer-types 3.0.0-beta",
- "winapi",
-]
-
-[[package]]
-name = "wasmer-vm"
-version = "3.0.0-beta"
-source = "git+https://github.com/wasmerio/wasmer.git?branch=master#a6ddf4e23ddbba827673e4068e8ae1b2fed4609e"
-dependencies = [
- "backtrace",
- "cc",
- "cfg-if 1.0.0",
- "corosensei",
- "enum-iterator",
- "indexmap",
- "lazy_static",
- "libc",
- "mach",
- "memoffset",
- "more-asserts",
- "region",
- "scopeguard",
- "thiserror",
- "wasmer-types 3.0.0-beta (git+https://github.com/wasmerio/wasmer.git?branch=master)",
+ "wasmer-types",
  "winapi",
 ]
 
@@ -3453,7 +3343,7 @@ dependencies = [
  "typetag",
  "wasm-bindgen",
  "wasm-bindgen-test",
- "wasmer 3.0.0-beta",
+ "wasmer",
  "wasmer-vbus",
  "wasmer-vfs",
  "wasmer-vnet",
@@ -3493,8 +3383,8 @@ dependencies = [
  "byteorder",
  "serde",
  "time",
- "wasmer-derive 3.0.0-beta",
- "wasmer-types 3.0.0-beta",
+ "wasmer-derive",
+ "wasmer-types",
  "wasmer-wasi-types-generated",
 ]
 
@@ -3502,8 +3392,8 @@ dependencies = [
 name = "wasmer-wasi-types-generated"
 version = "3.0.0-beta"
 dependencies = [
- "wasmer-derive 3.0.0-beta",
- "wasmer-types 3.0.0-beta",
+ "wasmer-derive",
+ "wasmer-types",
  "wit-bindgen-wasmer",
 ]
 
@@ -3515,7 +3405,7 @@ dependencies = [
  "serde",
  "tempfile",
  "thiserror",
- "wasmer 3.0.0-beta",
+ "wasmer",
  "wasmer-vfs",
  "wasmer-wasi",
  "wast 38.0.1",
@@ -3540,15 +3430,15 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "wasi-test-generator",
- "wasmer 3.0.0-beta",
+ "wasmer",
  "wasmer-cache",
- "wasmer-compiler 3.0.0-beta",
- "wasmer-compiler-cranelift 3.0.0-beta",
+ "wasmer-compiler",
+ "wasmer-compiler-cranelift",
  "wasmer-compiler-llvm",
  "wasmer-compiler-singlepass",
  "wasmer-emscripten",
  "wasmer-middlewares",
- "wasmer-types 3.0.0-beta",
+ "wasmer-types",
  "wasmer-wasi",
  "wasmer-wast",
 ]
@@ -3875,7 +3765,7 @@ dependencies = [
  "bitflags",
  "once_cell",
  "thiserror",
- "wasmer 3.0.0-beta (git+https://github.com/wasmerio/wasmer.git?branch=master)",
+ "wasmer",
  "wit-bindgen-wasmer-impl",
 ]
 

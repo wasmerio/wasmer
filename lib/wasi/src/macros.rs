@@ -57,7 +57,7 @@ macro_rules! wasi_try_ok {
 /// succeeded or returns the error value.
 macro_rules! wasi_try_bus {
     ($expr:expr) => {{
-        let res: Result<_, crate::syscalls::types::wasi_snapshot0::Errno> = $expr;
+        let res: Result<_, __bus_errno_t> = $expr;
         match res {
             Ok(val) => {
                 tracing::trace!("wasi::wasi_try_bus::val: {:?}", val);
@@ -71,7 +71,7 @@ macro_rules! wasi_try_bus {
     }};
 }
 
-/// Like `wasi_try` but converts a `MemoryAccessError` to a __wasi_errno_t`.
+/// Like `wasi_try` but converts a `MemoryAccessError` to a wasi_snapshot0::Errno`.
 macro_rules! wasi_try_mem {
     ($expr:expr) => {{
         wasi_try!($expr.map_err($crate::mem_error_to_wasi))
