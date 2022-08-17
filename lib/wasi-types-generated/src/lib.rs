@@ -108,6 +108,7 @@ unsafe impl wit_bindgen_wasmer::wasmer::FromToNativeWasmType for wasi_snapshot0:
         }
     }
 
+    #[cfg(feature = "sys")]
     fn is_from_store(&self, _store: &impl wit_bindgen_wasmer::wasmer::AsStoreRef) -> bool {
         // TODO: find correct implementation
         false

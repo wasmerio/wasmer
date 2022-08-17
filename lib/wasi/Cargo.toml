@@ -25,7 +25,7 @@ wasmer-vfs = { path = "../vfs", version = "=3.0.0-beta", default-features = fals
 wasmer-vbus = { path = "../vbus", version = "=3.0.0-beta", default-features = false }
 wasmer-vnet = { path = "../vnet", version = "=3.0.0-beta", default-features = false }
 wasmer-wasi-local-networking = { path = "../wasi-local-networking", version = "=3.0.0-beta", default-features = false, optional = true }
-wasmer-wasi-types-generated = { path = "../wasi-types-generated", version = "=3.0.0-beta" }
+wasmer-wasi-types-generated = { path = "../wasi-types-generated", version = "=3.0.0-beta", default-features = false }
 typetag = { version = "0.1", optional = true }
 serde = { version = "1.0", default-features = false, features = ["derive"], optional = true }
 bincode = { version = "1.3", optional = true }
@@ -49,11 +49,11 @@ tracing-wasm = "0.2"
 [features]
 default = ["sys-default"]
 
-sys = ["wasmer/sys"]
+sys = ["wasmer/sys", "wasmer-wasi-types-generated/sys"]
 sys-default = ["wasmer/wat", "wasmer/compiler", "sys", "logging", "host-fs", "sys-poll", "host-vnet" ]
 sys-poll = []
 
-js = ["wasmer/js", "mem-fs", "wasmer-vfs/no-time", "getrandom/js", "chrono"]
+js = ["wasmer/js", "mem-fs", "wasmer-vfs/no-time", "getrandom/js", "chrono", "wasmer-wasi-types-generated/js"]
 js-default = ["js", "wasmer/js-default"]
 test-js = ["js", "wasmer/js-default", "wasmer/wat"]
 

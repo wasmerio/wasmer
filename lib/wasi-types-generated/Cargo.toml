@@ -11,5 +11,10 @@ wasmer-types = { path = "../types", version = "=3.0.0-beta" }
 
 [dependencies.wit-bindgen-wasmer]
 path = "/home/silwol/Projects/wasmerio/wit-bindgen/crates/wasmer"
+default-features = false
 #git = "https://github.com/wasmerio/wit-bindgen.git"
 #branch = "wasmer"
+
+[features]
+js = ["wit-bindgen-wasmer/js"]
+sys = ["wit-bindgen-wasmer/sys"]
