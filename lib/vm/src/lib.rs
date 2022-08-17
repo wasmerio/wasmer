@@ -45,7 +45,7 @@ pub use crate::function_env::VMFunctionEnvironment;
 pub use crate::global::*;
 pub use crate::imports::Imports;
 pub use crate::instance::{InstanceAllocator, InstanceHandle};
-pub use crate::memory::{LinearMemory, VMMemory};
+pub use crate::memory::{LinearMemory, VMMemory, VMOwnedMemory, VMSharedMemory};
 pub use crate::mmap::Mmap;
 pub use crate::probestack::PROBESTACK;
 pub use crate::sig_registry::SignatureRegistry;

@@ -96,7 +96,8 @@ impl Wasi {
             is_wasix_module(module),
             std::sync::atomic::Ordering::Release,
         );
-        let import_object = import_object_for_all_wasi_versions(store, &wasi_env.env);
+        let mut import_object = import_object_for_all_wasi_versions(store, &wasi_env.env);
+        import_object.import_shared_memory(module, store);
         let instance = Instance::new(store, module, &import_object)?;
         let memory = instance.exports.get_memory("memory")?;
         wasi_env.data_mut(store).set_memory(memory.clone());

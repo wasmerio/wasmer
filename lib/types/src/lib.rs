@@ -103,7 +103,9 @@ pub use types::{
 pub use value::{RawValue, ValueType};
 
 pub use crate::libcalls::LibCall;
-pub use crate::memory::MemoryStyle;
+pub use crate::memory::{
+    MemoryStyle, LinearMemory, VMMemoryDefinition
+};
 pub use crate::table::TableStyle;
 pub use crate::trapcode::TrapCode;
 pub use crate::vmoffsets::{TargetSharedSignatureIndex, VMBuiltinFunctionIndex, VMOffsets};

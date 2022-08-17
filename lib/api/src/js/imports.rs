@@ -182,10 +182,11 @@ impl Imports {
 }
 
 pub struct ImportsIterator<'a> {
-    iter: std::collections::hash_map::Iter<'a, (String, String), Extern>,
+    iter: std::collections::hash_map::Iter<'a, (String, String), Extern>
 }
 
-impl<'a> ImportsIterator<'a> {
+impl<'a> ImportsIterator<'a>
+{
     fn new(imports: &'a Imports) -> Self {
         let iter = imports.map.iter();
         Self { iter }
