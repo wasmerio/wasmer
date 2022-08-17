@@ -1,12 +1,11 @@
 use crate::*;
-#[cfg(feature = "enable-serde")]
-use serde::{Deserialize, Serialize};
 use std::{
     fmt,
     mem::{self, MaybeUninit},
 };
 use wasmer_derive::ValueType;
 use wasmer_types::ValueType;
+use wasmer_wasi_types_generated::wasi_snapshot0;
 
 pub type __wasi_device_t = u64;
 
@@ -121,7 +120,7 @@ unsafe impl ValueType for __wasi_prestat_t {
 #[derive(Debug, Copy, Clone, PartialEq, Eq, ValueType)]
 #[repr(C)]
 pub struct __wasi_fdstat_t {
-    pub fs_filetype: __wasi_filetype_t,
+    pub fs_filetype: wasi_snapshot0::Filetype,
     pub fs_flags: __wasi_fdflags_t,
     pub fs_rights_base: __wasi_rights_t,
     pub fs_rights_inheriting: __wasi_rights_t,
@@ -132,12 +131,11 @@ pub type __wasi_filedelta_t = i64;
 pub type __wasi_filesize_t = u64;
 
 #[derive(Copy, Clone, PartialEq, Eq, ValueType)]
-#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[repr(C)]
 pub struct __wasi_filestat_t {
     pub st_dev: __wasi_device_t,
     pub st_ino: __wasi_inode_t,
-    pub st_filetype: __wasi_filetype_t,
+    pub st_filetype: wasi_snapshot0::Filetype,
     pub st_nlink: __wasi_linkcount_t,
     pub st_size: __wasi_filesize_t,
     pub st_atim: __wasi_timestamp_t,
@@ -150,7 +148,7 @@ impl Default for __wasi_filestat_t {
         __wasi_filestat_t {
             st_dev: Default::default(),
             st_ino: Default::default(),
-            st_filetype: __WASI_FILETYPE_UNKNOWN,
+            st_filetype: wasi_snapshot0::Filetype::Unknown,
             st_nlink: 1,
             st_size: Default::default(),
             st_atim: Default::default(),
@@ -174,7 +172,7 @@ impl fmt::Debug for __wasi_filestat_t {
                 &format!(
                     "{} ({})",
                     wasi_filetype_to_name(self.st_filetype),
-                    self.st_filetype,
+                    self.st_filetype as u8,
                 ),
             )
             .field("st_nlink", &self.st_nlink)
@@ -195,31 +193,18 @@ impl fmt::Debug for __wasi_filestat_t {
     }
 }
 
-pub fn wasi_filetype_to_name(ft: __wasi_filetype_t) -> &'static str {
+pub fn wasi_filetype_to_name(ft: wasi_snapshot0::Filetype) -> &'static str {
     match ft {
-        __WASI_FILETYPE_UNKNOWN => "Unknown",
-        __WASI_FILETYPE_BLOCK_DEVICE => "Block device",
-        __WASI_FILETYPE_CHARACTER_DEVICE => "Character device",
-        __WASI_FILETYPE_DIRECTORY => "Directory",
-        __WASI_FILETYPE_REGULAR_FILE => "Regular file",
-        __WASI_FILETYPE_SOCKET_DGRAM => "Socket dgram",
-        __WASI_FILETYPE_SOCKET_STREAM => "Socket stream",
-        __WASI_FILETYPE_SYMBOLIC_LINK => "Symbolic link",
-        _ => "Invalid",
+        wasi_snapshot0::Filetype::Unknown => "Unknown",
+        wasi_snapshot0::Filetype::BlockDevice => "Block device",
+        wasi_snapshot0::Filetype::CharacterDevice => "Character device",
+        wasi_snapshot0::Filetype::Directory => "Directory",
+        wasi_snapshot0::Filetype::RegularFile => "Regular file",
+        wasi_snapshot0::Filetype::SocketDgram => "Socket dgram",
+        wasi_snapshot0::Filetype::SocketStream => "Socket stream",
+        wasi_snapshot0::Filetype::SymbolicLink => "Symbolic link",
     }
 }
-
-pub type __wasi_filetype_t = u8;
-pub const __WASI_FILETYPE_UNKNOWN: __wasi_filetype_t = 0;
-pub const __WASI_FILETYPE_BLOCK_DEVICE: __wasi_filetype_t = 1;
-pub const __WASI_FILETYPE_CHARACTER_DEVICE: __wasi_filetype_t = 2;
-pub const __WASI_FILETYPE_DIRECTORY: __wasi_filetype_t = 3;
-pub const __WASI_FILETYPE_REGULAR_FILE: __wasi_filetype_t = 4;
-pub const __WASI_FILETYPE_SOCKET_DGRAM: __wasi_filetype_t = 5;
-pub const __WASI_FILETYPE_SOCKET_STREAM: __wasi_filetype_t = 6;
-pub const __WASI_FILETYPE_SYMBOLIC_LINK: __wasi_filetype_t = 7;
-pub const __WASI_FILETYPE_SOCKET_RAW: __wasi_filetype_t = 8;
-pub const __WASI_FILETYPE_SOCKET_SEQPACKET: __wasi_filetype_t = 9;
 
 pub type __wasi_fstflags_t = u16;
 pub const __WASI_FILESTAT_SET_ATIM: __wasi_fstflags_t = 1 << 0;

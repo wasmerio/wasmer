@@ -73,4 +73,5 @@ enable-serde = [
     "wasmer-vfs/enable-serde",
     "generational-arena/serde",
     "wasmer-wasi-types/enable-serde",
+    "wasmer-wasi-types-generated/enable-serde",
 ]

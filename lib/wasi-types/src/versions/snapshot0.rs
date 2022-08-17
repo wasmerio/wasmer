@@ -1,10 +1,9 @@
 use crate::*;
-#[cfg(feature = "enable-serde")]
-use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::mem::{self, MaybeUninit};
 use wasmer_derive::ValueType;
 use wasmer_types::ValueType;
+use wasmer_wasi_types_generated::wasi_snapshot0;
 
 pub type __wasi_linkcount_t = u32;
 
@@ -83,12 +82,11 @@ pub const __WASI_WHENCE_END: u8 = 1;
 pub const __WASI_WHENCE_SET: u8 = 2;
 
 #[derive(Copy, Clone, PartialEq, Eq, ValueType)]
-#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[repr(C)]
 pub struct __wasi_filestat_t {
     pub st_dev: __wasi_device_t,
     pub st_ino: __wasi_inode_t,
-    pub st_filetype: __wasi_filetype_t,
+    pub st_filetype: wasi_snapshot0::Filetype,
     pub st_nlink: __wasi_linkcount_t,
     pub st_size: __wasi_filesize_t,
     pub st_atim: __wasi_timestamp_t,
@@ -110,7 +108,7 @@ impl fmt::Debug for __wasi_filestat_t {
                 &format!(
                     "{} ({})",
                     wasi_filetype_to_name(self.st_filetype),
-                    self.st_filetype,
+                    self.st_filetype as u8,
                 ),
             )
             .field("st_nlink", &self.st_nlink)

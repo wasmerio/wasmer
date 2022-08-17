@@ -1314,7 +1314,7 @@ pub fn fd_readdir<M: MemorySize>(
     let mut cur_cookie = cookie;
     let mut buf_idx = 0usize;
 
-    let entries: Vec<(String, u8, u64)> = {
+    let entries: Vec<(String, wasi_snapshot0::Filetype, u64)> = {
         let guard = inodes.arena[working_dir.inode].read();
         let deref = guard.deref();
         match deref {
@@ -1339,7 +1339,7 @@ pub fn fd_readdir<M: MemorySize>(
                             filename, filetype, 0, // TODO: inode
                         ))
                     })
-                    .collect::<Result<Vec<(String, u8, u64)>, _>>());
+                    .collect::<Result<Vec<(String, wasi_snapshot0::Filetype, u64)>, _>>());
                 entry_vec.extend(
                     entries
                         .iter()
@@ -1352,8 +1352,8 @@ pub fn fd_readdir<M: MemorySize>(
                 );
                 // adding . and .. special folders
                 // TODO: inode
-                entry_vec.push((".".to_string(), __WASI_FILETYPE_DIRECTORY, 0));
-                entry_vec.push(("..".to_string(), __WASI_FILETYPE_DIRECTORY, 0));
+                entry_vec.push((".".to_string(), wasi_snapshot0::Filetype::Directory, 0));
+                entry_vec.push(("..".to_string(), wasi_snapshot0::Filetype::Directory, 0));
                 entry_vec.sort_by(|a, b| a.0.cmp(&b.0));
                 entry_vec
             }
@@ -1944,7 +1944,7 @@ pub fn path_create_directory<M: MemorySize>(
                         0,
                         &adjusted_path.to_string_lossy(),
                     ) {
-                        if adjusted_path_stat.st_filetype != __WASI_FILETYPE_DIRECTORY {
+                        if adjusted_path_stat.st_filetype != wasi_snapshot0::Filetype::Directory {
                             return wasi_snapshot0::Errno::Notdir;
                         }
                     } else {

@@ -12,6 +12,12 @@ unsafe impl ValueType for wasi_snapshot0::Errno {
 }
 
 // TODO: if necessary, must be implemented in wit-bindgen
+unsafe impl ValueType for wasi_snapshot0::Filetype {
+    #[inline]
+    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
+}
+
+// TODO: if necessary, must be implemented in wit-bindgen
 unsafe impl wit_bindgen_wasmer::wasmer::FromToNativeWasmType for wasi_snapshot0::Errno {
     type Native = i32;
 

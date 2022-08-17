@@ -19,4 +19,8 @@ byteorder = "1.3"
 time = "0.2"
 
 [features]
-enable-serde = ["serde", "wasmer-types/serde"]
+enable-serde = [
+    "serde",
+    "wasmer-types/serde",
+    "wasmer-wasi-types-generated/enable-serde",
+]

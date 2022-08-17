@@ -990,18 +990,19 @@ impl WasiFs {
                                 #[cfg(unix)]
                                 {
                                     //use std::os::unix::fs::FileTypeExt;
-                                    let file_type: __wasi_filetype_t = if file_type.is_char_device()
+                                    let file_type: wasi_snapshot0::Filetype = if file_type
+                                        .is_char_device()
                                     {
-                                        __WASI_FILETYPE_CHARACTER_DEVICE
+                                        wasi_snapshot0::Filetype::CharacterDevice
                                     } else if file_type.is_block_device() {
-                                        __WASI_FILETYPE_BLOCK_DEVICE
+                                        wasi_snapshot0::Filetype::BlockDevice
                                     } else if file_type.is_fifo() {
                                         // FIFO doesn't seem to fit any other type, so unknown
-                                        __WASI_FILETYPE_UNKNOWN
+                                        wasi_snapshot0::Filetype::Unknown
                                     } else if file_type.is_socket() {
-                                        // TODO: how do we know if it's a `__WASI_FILETYPE_SOCKET_STREAM` or
-                                        // a `__WASI_FILETYPE_SOCKET_DGRAM`?
-                                        __WASI_FILETYPE_SOCKET_STREAM
+                                        // TODO: how do we know if it's a `SocketStream` or
+                                        // a `SocketDgram`?
+                                        wasi_snapshot0::Filetype::SocketStream
                                     } else {
                                         unimplemented!("state::get_inode_at_path unknown file type: not file, directory, symlink, char device, block device, fifo, or socket");
                                     };
@@ -1323,7 +1324,7 @@ impl WasiFs {
         match fd {
             __WASI_STDIN_FILENO => {
                 return Ok(__wasi_fdstat_t {
-                    fs_filetype: __WASI_FILETYPE_CHARACTER_DEVICE,
+                    fs_filetype: wasi_snapshot0::Filetype::CharacterDevice,
                     fs_flags: 0,
                     fs_rights_base: STDIN_DEFAULT_RIGHTS,
                     fs_rights_inheriting: 0,
@@ -1331,7 +1332,7 @@ impl WasiFs {
             }
             __WASI_STDOUT_FILENO => {
                 return Ok(__wasi_fdstat_t {
-                    fs_filetype: __WASI_FILETYPE_CHARACTER_DEVICE,
+                    fs_filetype: wasi_snapshot0::Filetype::CharacterDevice,
                     fs_flags: __WASI_FDFLAG_APPEND,
                     fs_rights_base: STDOUT_DEFAULT_RIGHTS,
                     fs_rights_inheriting: 0,
@@ -1339,7 +1340,7 @@ impl WasiFs {
             }
             __WASI_STDERR_FILENO => {
                 return Ok(__wasi_fdstat_t {
-                    fs_filetype: __WASI_FILETYPE_CHARACTER_DEVICE,
+                    fs_filetype: wasi_snapshot0::Filetype::CharacterDevice,
                     fs_flags: __WASI_FDFLAG_APPEND,
                     fs_rights_base: STDERR_DEFAULT_RIGHTS,
                     fs_rights_inheriting: 0,
@@ -1347,7 +1348,7 @@ impl WasiFs {
             }
             VIRTUAL_ROOT_FD => {
                 return Ok(__wasi_fdstat_t {
-                    fs_filetype: __WASI_FILETYPE_DIRECTORY,
+                    fs_filetype: wasi_snapshot0::Filetype::Directory,
                     fs_flags: 0,
                     // TODO: fix this
                     fs_rights_base: ALL_RIGHTS,
@@ -1363,10 +1364,10 @@ impl WasiFs {
         let deref = guard.deref();
         Ok(__wasi_fdstat_t {
             fs_filetype: match deref {
-                Kind::File { .. } => __WASI_FILETYPE_REGULAR_FILE,
-                Kind::Dir { .. } => __WASI_FILETYPE_DIRECTORY,
-                Kind::Symlink { .. } => __WASI_FILETYPE_SYMBOLIC_LINK,
-                _ => __WASI_FILETYPE_UNKNOWN,
+                Kind::File { .. } => wasi_snapshot0::Filetype::RegularFile,
+                Kind::Dir { .. } => wasi_snapshot0::Filetype::Directory,
+                Kind::Symlink { .. } => wasi_snapshot0::Filetype::SymbolicLink,
+                _ => wasi_snapshot0::Filetype::Unknown,
             },
             fs_flags: fd.flags,
             fs_rights_base: fd.rights,
@@ -1537,7 +1538,7 @@ impl WasiFs {
 
     fn create_virtual_root(&self, inodes: &mut WasiInodes) -> Inode {
         let stat = __wasi_filestat_t {
-            st_filetype: __WASI_FILETYPE_DIRECTORY,
+            st_filetype: wasi_snapshot0::Filetype::Directory,
             st_ino: self.get_next_inode_index(),
             ..__wasi_filestat_t::default()
         };
@@ -1594,7 +1595,7 @@ impl WasiFs {
         fd_flags: __wasi_fdflags_t,
     ) {
         let stat = __wasi_filestat_t {
-            st_filetype: __WASI_FILETYPE_CHARACTER_DEVICE,
+            st_filetype: wasi_snapshot0::Filetype::CharacterDevice,
             st_ino: self.get_next_inode_index(),
             ..__wasi_filestat_t::default()
         };
@@ -1634,7 +1635,7 @@ impl WasiFs {
             Kind::File { handle, path, .. } => match handle {
                 Some(wf) => {
                     return Ok(__wasi_filestat_t {
-                        st_filetype: __WASI_FILETYPE_REGULAR_FILE,
+                        st_filetype: wasi_snapshot0::Filetype::RegularFile,
                         st_size: wf.size(),
                         st_atim: wf.last_accessed(),
                         st_mtim: wf.last_modified(),
@@ -1963,15 +1964,17 @@ impl WasiState {
     }
 }
 
-pub fn virtual_file_type_to_wasi_file_type(file_type: wasmer_vfs::FileType) -> __wasi_filetype_t {
+pub fn virtual_file_type_to_wasi_file_type(
+    file_type: wasmer_vfs::FileType,
+) -> wasi_snapshot0::Filetype {
     // TODO: handle other file types
     if file_type.is_dir() {
-        __WASI_FILETYPE_DIRECTORY
+        wasi_snapshot0::Filetype::Directory
     } else if file_type.is_file() {
-        __WASI_FILETYPE_REGULAR_FILE
+        wasi_snapshot0::Filetype::RegularFile
     } else if file_type.is_symlink() {
-        __WASI_FILETYPE_SYMBOLIC_LINK
+        wasi_snapshot0::Filetype::SymbolicLink
     } else {
-        __WASI_FILETYPE_UNKNOWN
+        wasi_snapshot0::Filetype::Unknown
     }
 }
