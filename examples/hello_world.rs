@@ -6,10 +6,7 @@
 //! cargo run --example hello-world --release --features "cranelift"
 //! ```
 
-use wasmer::{
-    imports, wat2wasm, Function, FunctionEnv, FunctionEnvMut, Instance, Module, Store,
-    TypedFunction,
-};
+use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, TypedFunction};
 use wasmer_compiler_cranelift::Cranelift;
 
 fn main() -> anyhow::Result<()> {
@@ -52,13 +49,9 @@ fn main() -> anyhow::Result<()> {
     // A `Module` is a compiled WebAssembly module that isn't ready to execute yet.
     let module = Module::new(&store, wasm_bytes)?;
 
-    // Next we'll set up our `Module` so that we can execute it. First, create
-    // a `FunctionEnv` in which to instantiate our `Module`.
-    let context = FunctionEnv::new(&mut store, ());
-
     // We define a function to act as our "env" "say_hello" function imported in the
     // Wasm program above.
-    fn say_hello_world(_env: FunctionEnvMut<'_, ()>) {
+    fn say_hello_world() {
         println!("Hello, world!")
     }
 
@@ -67,7 +60,7 @@ fn main() -> anyhow::Result<()> {
         // We use the default namespace "env".
         "env" => {
             // And call our function "say_hello".
-            "say_hello" => Function::new_native(&mut store, &context, say_hello_world),
+            "say_hello" => Function::new_typed(&mut store, say_hello_world),
         }
     };
 

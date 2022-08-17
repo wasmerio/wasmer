@@ -2,30 +2,20 @@ use wasmer::*;
 
 /// Return an instance implementing the "spectest" interface used in the
 /// spec testsuite.
-pub fn spectest_importobject(store: &mut Store, context: &FunctionEnv<()>) -> Imports {
-    let print = Function::new_native(store, context, |_: FunctionEnvMut<()>| {});
-    let print_i32 = Function::new_native(store, context, |_: FunctionEnvMut<()>, val: i32| {
-        println!("{}: i32", val)
+pub fn spectest_importobject(store: &mut Store) -> Imports {
+    let print = Function::new_typed(store, || {});
+    let print_i32 = Function::new_typed(store, |val: i32| println!("{}: i32", val));
+    let print_i64 = Function::new_typed(store, |val: i64| println!("{}: i64", val));
+    let print_f32 = Function::new_typed(store, |val: f32| println!("{}: f32", val));
+    let print_f64 = Function::new_typed(store, |val: f64| println!("{}: f64", val));
+    let print_i32_f32 = Function::new_typed(store, |i: i32, f: f32| {
+        println!("{}: i32", i);
+        println!("{}: f32", f);
     });
-    let print_i64 = Function::new_native(store, context, |_: FunctionEnvMut<()>, val: i64| {
-        println!("{}: i64", val)
+    let print_f64_f64 = Function::new_typed(store, |f1: f64, f2: f64| {
+        println!("{}: f64", f1);
+        println!("{}: f64", f2);
     });
-    let print_f32 = Function::new_native(store, context, |_: FunctionEnvMut<()>, val: f32| {
-        println!("{}: f32", val)
-    });
-    let print_f64 = Function::new_native(store, context, |_: FunctionEnvMut<()>, val: f64| {
-        println!("{}: f64", val)
-    });
-    let print_i32_f32 =
-        Function::new_native(store, context, |_: FunctionEnvMut<()>, i: i32, f: f32| {
-            println!("{}: i32", i);
-            println!("{}: f32", f);
-        });
-    let print_f64_f64 =
-        Function::new_native(store, context, |_: FunctionEnvMut<()>, f1: f64, f2: f64| {
-            println!("{}: f64", f1);
-            println!("{}: f64", f2);
-        });
 
     let global_i32 = Global::new(store, Value::I32(666));
     let global_i64 = Global::new(store, Value::I64(666));

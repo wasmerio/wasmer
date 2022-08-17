@@ -14,9 +14,9 @@ use crate::{
 use crate::{Compiler, FunctionBodyData, ModuleTranslationState};
 use crate::{Engine, EngineInner};
 use enumset::EnumSet;
-#[cfg(feature = "static-artifact-create")]
+#[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
 use std::collections::BTreeMap;
-#[cfg(feature = "static-artifact-create")]
+#[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
 use std::mem;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -24,17 +24,18 @@ use std::sync::Mutex;
 use wasmer_object::{emit_compilation, emit_data, get_object_for_target, Object};
 use wasmer_types::entity::{BoxedSlice, PrimaryMap};
 use wasmer_types::MetadataHeader;
-#[cfg(feature = "static-artifact-create")]
+#[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
 use wasmer_types::{
     compilation::symbols::{ModuleMetadata, ModuleMetadataSymbolRegistry},
     entity::EntityRef,
-    CompileModuleInfo, Target,
 };
 use wasmer_types::{
     CompileError, CpuFeature, DataInitializer, DeserializeError, FunctionIndex, LocalFunctionIndex,
     MemoryIndex, ModuleInfo, OwnedDataInitializer, SerializableModule, SerializeError,
     SignatureIndex, TableIndex,
 };
+#[cfg(feature = "static-artifact-create")]
+use wasmer_types::{CompileModuleInfo, Target};
 use wasmer_vm::{FunctionBodyPtr, MemoryStyle, TableStyle, VMSharedSignatureIndex, VMTrampoline};
 use wasmer_vm::{InstanceAllocator, InstanceHandle, StoreObjects, TrapHandlerFn, VMExtern};
 
@@ -44,7 +45,7 @@ pub enum Artifact {
     Universal(UniversalArtifact),
     /// Stores functions etc as symbols and data meant to be stored in object files and
     /// executables.
-    #[cfg(feature = "static-artifact-create")]
+    #[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
     Static(StaticArtifact),
 }
 
@@ -59,9 +60,12 @@ pub struct UniversalArtifact {
     finished_function_lengths: BoxedSlice<LocalFunctionIndex, usize>,
 }
 
+#[cfg(feature = "static-artifact-create")]
+pub type PrefixerFn = Box<dyn Fn(&[u8]) -> String + Send>;
+
 /// Stores functions etc as symbols and data meant to be stored in object files and
 /// executables.
-#[cfg(feature = "static-artifact-create")]
+#[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
 pub struct StaticArtifact {
     metadata: ModuleMetadata,
     _module_bytes: Vec<u8>,
@@ -242,7 +246,7 @@ impl ArtifactCreate for Artifact {
     fn create_module_info(&self) -> ModuleInfo {
         match self {
             Self::Universal(UniversalArtifact { artifact, .. }) => artifact.create_module_info(),
-            #[cfg(feature = "static-artifact-create")]
+            #[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
             Self::Static(StaticArtifact { metadata, .. }) => metadata.compile_info.module.clone(),
         }
     }
@@ -250,7 +254,7 @@ impl ArtifactCreate for Artifact {
     fn features(&self) -> &Features {
         match self {
             Self::Universal(UniversalArtifact { artifact, .. }) => artifact.features(),
-            #[cfg(feature = "static-artifact-create")]
+            #[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
             Self::Static(StaticArtifact { metadata, .. }) => &metadata.compile_info.features,
         }
     }
@@ -258,7 +262,7 @@ impl ArtifactCreate for Artifact {
     fn cpu_features(&self) -> EnumSet<CpuFeature> {
         match self {
             Self::Universal(_self) => _self.artifact.cpu_features(),
-            #[cfg(feature = "static-artifact-create")]
+            #[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
             Self::Static(_self) => EnumSet::from_u64(_self.metadata.cpu_features),
         }
     }
@@ -266,7 +270,7 @@ impl ArtifactCreate for Artifact {
     fn data_initializers(&self) -> &[OwnedDataInitializer] {
         match self {
             Self::Universal(_self) => _self.artifact.data_initializers(),
-            #[cfg(feature = "static-artifact-create")]
+            #[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
             Self::Static(_self) => &_self.metadata.data_initializers,
         }
     }
@@ -274,7 +278,7 @@ impl ArtifactCreate for Artifact {
     fn memory_styles(&self) -> &PrimaryMap<MemoryIndex, MemoryStyle> {
         match self {
             Self::Universal(_self) => _self.artifact.memory_styles(),
-            #[cfg(feature = "static-artifact-create")]
+            #[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
             Self::Static(_self) => &_self.metadata.compile_info.memory_styles,
         }
     }
@@ -282,7 +286,7 @@ impl ArtifactCreate for Artifact {
     fn table_styles(&self) -> &PrimaryMap<TableIndex, TableStyle> {
         match self {
             Self::Universal(UniversalArtifact { artifact, .. }) => artifact.table_styles(),
-            #[cfg(feature = "static-artifact-create")]
+            #[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
             Self::Static(StaticArtifact { metadata, .. }) => &metadata.compile_info.table_styles,
         }
     }
@@ -290,7 +294,7 @@ impl ArtifactCreate for Artifact {
     fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
         match self {
             Self::Universal(UniversalArtifact { artifact, .. }) => artifact.serialize(),
-            #[cfg(feature = "static-artifact-create")]
+            #[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
             Self::Static(StaticArtifact { .. }) => todo!(),
         }
     }
@@ -325,7 +329,7 @@ impl Artifact {
                     frame_infos.clone(),
                 );
             }
-            #[cfg(feature = "static-artifact-create")]
+            #[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
             Self::Static(_self) => {
                 // Do nothing for static artifact
             }
@@ -337,7 +341,7 @@ impl Artifact {
     pub fn finished_functions(&self) -> &BoxedSlice<LocalFunctionIndex, FunctionBodyPtr> {
         match self {
             Self::Universal(_self) => &_self.finished_functions,
-            #[cfg(feature = "static-artifact-create")]
+            #[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
             Self::Static(_self) => &_self.finished_functions,
         }
     }
@@ -347,7 +351,7 @@ impl Artifact {
     pub fn finished_function_call_trampolines(&self) -> &BoxedSlice<SignatureIndex, VMTrampoline> {
         match self {
             Self::Universal(_self) => &_self.finished_function_call_trampolines,
-            #[cfg(feature = "static-artifact-create")]
+            #[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
             Self::Static(_self) => &_self.finished_function_call_trampolines,
         }
     }
@@ -359,7 +363,7 @@ impl Artifact {
     ) -> &BoxedSlice<FunctionIndex, FunctionBodyPtr> {
         match self {
             Self::Universal(_self) => &_self.finished_dynamic_function_trampolines,
-            #[cfg(feature = "static-artifact-create")]
+            #[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
             Self::Static(_self) => &_self.finished_dynamic_function_trampolines,
         }
     }
@@ -368,7 +372,7 @@ impl Artifact {
     pub fn signatures(&self) -> &BoxedSlice<SignatureIndex, VMSharedSignatureIndex> {
         match self {
             Self::Universal(_self) => &_self.signatures,
-            #[cfg(feature = "static-artifact-create")]
+            #[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
             Self::Static(_self) => &_self.signatures,
         }
     }
@@ -541,7 +545,7 @@ impl Artifact {
     pub fn generate_object<'data>(
         compiler: &dyn Compiler,
         data: &[u8],
-        prefixer: Option<Box<dyn Fn(&[u8]) -> String + Send>>,
+        prefixer: Option<PrefixerFn>,
         target: &'data Target,
         tunables: &dyn Tunables,
         features: &Features,

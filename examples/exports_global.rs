@@ -15,9 +15,7 @@
 //!
 //! Ready?
 
-use wasmer::{
-    imports, wat2wasm, FunctionEnv, Instance, Module, Mutability, Store, Type, TypedFunction, Value,
-};
+use wasmer::{imports, wat2wasm, Instance, Module, Mutability, Store, Type, TypedFunction, Value};
 use wasmer_compiler_cranelift::Cranelift;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -92,7 +90,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let get_one: TypedFunction<(), f32> = instance
         .exports
         .get_function("get_one")?
-        .native(&mut store)?;
+        .typed(&mut store)?;
 
     let one_value = get_one.call(&mut store)?;
     let some_value = some.get(&mut store);
@@ -124,7 +122,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let set_some: TypedFunction<f32, ()> = instance
         .exports
         .get_function("set_some")?
-        .native(&mut store)?;
+        .typed(&mut store)?;
     set_some.call(&mut store, 21.0)?;
     let some_result = some.get(&mut store);
     println!("`some` value after `set_some`: {:?}", some_result);

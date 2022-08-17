@@ -28,7 +28,7 @@ pub fn ___syscall5(mut ctx: FunctionEnvMut<EmEnv>, which: c_int, mut varargs: Va
     let flags: i32 = varargs.get(&ctx);
     let mode: u32 = varargs.get(&ctx);
     let path_str = unsafe { std::ffi::CStr::from_ptr(real_path).to_str().unwrap() };
-    
+
     match path_str {
         "/dev/urandom" => {
             // create a fake urandom file for windows, super hacky
@@ -45,7 +45,8 @@ pub fn ___syscall5(mut ctx: FunctionEnvMut<EmEnv>, which: c_int, mut varargs: Va
             let _ = urandom_file.write_all(&random_bytes).unwrap();
             // put the file path string into wasm memory
             let urandom_file_offset = unsafe { copy_cstr_into_wasm(&mut ctx, ptr) };
-            let memory = ctx.data().memory_view(0, &ctx);
+            let mem = ctx.data().memory(0);
+            let memory = mem.view(&ctx);
             let raw_pointer_to_urandom_file =
                 emscripten_memory_pointer!(&memory, urandom_file_offset) as *const i8;
             let fd = unsafe { open(raw_pointer_to_urandom_file, flags, mode) };

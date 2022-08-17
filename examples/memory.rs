@@ -15,9 +15,7 @@
 //! Ready?
 
 use std::mem;
-use wasmer::{
-    imports, wat2wasm, Bytes, FunctionEnv, Instance, Module, Pages, Store, TypedFunction,
-};
+use wasmer::{imports, wat2wasm, Bytes, Instance, Module, Pages, Store, TypedFunction};
 use wasmer_compiler_cranelift::Cranelift;
 
 // this example is a work in progress:
@@ -82,7 +80,7 @@ fn main() -> anyhow::Result<()> {
     let set_at: TypedFunction<(i32, i32), ()> =
         instance.exports.get_typed_function(&mut store, "set_at")?;
     let memory = instance.exports.get_memory("memory")?;
-    
+
     // We now have an instance ready to be used.
     //
     // We will start by querying the most intersting information
@@ -98,7 +96,7 @@ fn main() -> anyhow::Result<()> {
     assert_eq!(memory_view.size(), Pages::from(1));
     assert_eq!(memory_view.size().bytes(), Bytes::from(65536 as usize));
     assert_eq!(memory_view.data_size(), 65536);
-    
+
     // Sometimes, the guest module may also export a function to let you
     // query the memory. Here we have a `mem_size` function, let's try it:
     let result = mem_size.call(&mut store)?;
@@ -113,14 +111,14 @@ fn main() -> anyhow::Result<()> {
     // A memory can be grown to allow storing more things into it. Let's
     // see how we can do that:
     println!("Growing memory...");
-    
+
     // Here we are requesting two more pages for our memory.
     memory.grow(&mut store, 2)?;
-    
+
     let memory_view = memory.view(&store);
     assert_eq!(memory_view.size(), Pages::from(3));
     assert_eq!(memory_view.data_size(), 65536 * 3);
-    
+
     // Now that we know how to query and adjust the size of the memory,
     // let's see how wa can write to it or read from it.
     //

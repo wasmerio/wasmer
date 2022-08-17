@@ -11,7 +11,7 @@
 //!
 //! Ready?
 
-use wasmer::{imports, wat2wasm, FunctionEnv, Instance, Module, Store, TypedFunction, WasmPtr};
+use wasmer::{imports, wat2wasm, Instance, Module, Store, TypedFunction, WasmPtr};
 use wasmer_compiler_cranelift::Cranelift;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -56,7 +56,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     //
     // The Wasm module exports a memory under "mem". Let's get it.
     let memory = instance.exports.get_memory("mem")?;
-    
+
     // Now that we have the exported memory, let's get some
     // information about it.
     //
@@ -80,9 +80,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // We will get bytes out of the memory so we need to
     // decode them into a string.
     let memory_view = memory.view(&store);
-    let str = ptr
-        .read_utf8_string(&memory_view, length as u32)
-        .unwrap();
+    let str = ptr.read_utf8_string(&memory_view, length as u32).unwrap();
     println!("Memory contents: {:?}", str);
 
     // What about changing the contents of the memory with a more

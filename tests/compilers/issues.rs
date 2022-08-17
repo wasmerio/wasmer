@@ -64,7 +64,7 @@ fn issue_2329(mut config: crate::Config) -> Result<()> {
     let mut env = FunctionEnv::new(&mut store, env);
     let imports: Imports = imports! {
         "env" => {
-            "__read_memory" => Function::new_native(
+            "__read_memory" => Function::new_typed_with_env(
                 &mut store,
                 &env,
                 read_memory
@@ -197,14 +197,23 @@ fn call_with_static_data_pointers(mut config: crate::Config) -> Result<()> {
     env.as_mut(&mut store).memory = Some(memory.clone());
     let mut exports = Exports::new();
     exports.insert("memory", memory);
-    exports.insert("banana", Function::new_native(&mut store, &env, banana));
-    exports.insert("peach", Function::new_native(&mut store, &env, peach));
+    exports.insert(
+        "banana",
+        Function::new_typed_with_env(&mut store, &env, banana),
+    );
+    exports.insert(
+        "peach",
+        Function::new_typed_with_env(&mut store, &env, peach),
+    );
     exports.insert(
         "chaenomeles",
-        Function::new_native(&mut store, &env, chaenomeles),
+        Function::new_typed_with_env(&mut store, &env, chaenomeles),
     );
-    exports.insert("mango", Function::new_native(&mut store, &env, mango));
-    exports.insert("gas", Function::new_native(&mut store, &env, gas));
+    exports.insert(
+        "mango",
+        Function::new_typed_with_env(&mut store, &env, mango),
+    );
+    exports.insert("gas", Function::new_typed_with_env(&mut store, &env, gas));
     let mut imports = Imports::new();
     imports.register_namespace("env", exports);
     let instance = Instance::new(&mut store, &module, &imports)?;

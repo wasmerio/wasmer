@@ -11,7 +11,7 @@ use std::slice;
 #[cfg(feature = "tracing")]
 use tracing::warn;
 use wasmer_types::Pages;
-use wasmer_vm::{InternalStoreHandle, MemoryError, StoreHandle, StoreObjects, VMExtern, VMMemory};
+use wasmer_vm::{InternalStoreHandle, MemoryError, StoreHandle, VMExtern, VMMemory};
 
 use super::MemoryView;
 
@@ -78,8 +78,8 @@ impl Memory {
     }
 
     /// Creates a view into the memory that then allows for
-    /// read and write 
-    pub fn view<'a>(&self, store: &'a impl AsStoreRef) -> MemoryView<'a> {
+    /// read and write
+    pub fn view<'a>(&'a self, store: &impl AsStoreRef) -> MemoryView<'a> {
         MemoryView::new(self, store)
     }
 
@@ -169,7 +169,7 @@ impl<'a> Exportable<'a> for Memory {
 pub(crate) struct MemoryBuffer<'a> {
     pub(crate) base: *mut u8,
     pub(crate) len: usize,
-    pub(crate) marker: PhantomData<(&'a MemoryView<'a>, &'a StoreObjects)>,
+    pub(crate) marker: PhantomData<&'a MemoryView<'a>>,
 }
 
 impl<'a> MemoryBuffer<'a> {
@@ -179,7 +179,12 @@ impl<'a> MemoryBuffer<'a> {
             .ok_or(MemoryAccessError::Overflow)?;
         if end > self.len.try_into().unwrap() {
             #[cfg(feature = "tracing")]
-            warn!("attempted to read ({} bytes) beyond the bounds of the memory view ({} > {})", buf.len(), end, self.len);
+            warn!(
+                "attempted to read ({} bytes) beyond the bounds of the memory view ({} > {})",
+                buf.len(),
+                end,
+                self.len
+            );
             return Err(MemoryAccessError::HeapOutOfBounds);
         }
         unsafe {
@@ -198,7 +203,12 @@ impl<'a> MemoryBuffer<'a> {
             .ok_or(MemoryAccessError::Overflow)?;
         if end > self.len.try_into().unwrap() {
             #[cfg(feature = "tracing")]
-            warn!("attempted to read ({} bytes) beyond the bounds of the memory view ({} > {})", buf.len(), end, self.len);
+            warn!(
+                "attempted to read ({} bytes) beyond the bounds of the memory view ({} > {})",
+                buf.len(),
+                end,
+                self.len
+            );
             return Err(MemoryAccessError::HeapOutOfBounds);
         }
         let buf_ptr = buf.as_mut_ptr() as *mut u8;
@@ -215,7 +225,12 @@ impl<'a> MemoryBuffer<'a> {
             .ok_or(MemoryAccessError::Overflow)?;
         if end > self.len.try_into().unwrap() {
             #[cfg(feature = "tracing")]
-            warn!("attempted to write ({} bytes) beyond the bounds of the memory view ({} > {})", data.len(), end, self.len);
+            warn!(
+                "attempted to write ({} bytes) beyond the bounds of the memory view ({} > {})",
+                data.len(),
+                end,
+                self.len
+            );
             return Err(MemoryAccessError::HeapOutOfBounds);
         }
         unsafe {

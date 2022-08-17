@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-compiler-cli"
-version = "3.0.0-alpha.4"
+version = "3.0.0-beta"
 description = "Wasmer Compiler CLI"
 categories = ["wasm", "command-line-interface"]
 keywords = ["wasm", "webassembly", "cli"]
@@ -18,12 +18,12 @@ path = "src/bin/wasmer_compiler.rs"
 doc = false
 
 [dependencies]
-wasmer-compiler = { version = "=3.0.0-alpha.4", path = "../compiler", features = ["compiler"] }
-wasmer-types = { version = "=3.0.0-alpha.4", path = "../types" }
+wasmer-compiler = { version = "=3.0.0-beta", path = "../compiler", features = ["compiler"] }
+wasmer-types = { version = "=3.0.0-beta", path = "../types" }
 atty = "0.2"
 colored = "2.0"
 anyhow = "1.0"
-structopt = { version = "0.3", features = ["suggestions"] }
+clap = { version = "3.1", features = ["derive"] }
 # For the function names autosuggestion
 distance = "0.4"
 # For the inspect subcommand
@@ -32,15 +32,16 @@ cfg-if = "1.0"
 # For debug feature
 fern = { version = "0.6", features = ["colored"], optional = true }
 log = { version = "0.4", optional = true }
+target-lexicon = { version = "0.12", features = ["std"] }
 tempfile = "3"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-wasmer-compiler-singlepass = { version = "=3.0.0-alpha.4", path = "../compiler-singlepass", optional = true }
-wasmer-compiler-cranelift = { version = "=3.0.0-alpha.4", path = "../compiler-cranelift", optional = true }
+wasmer-compiler-singlepass = { version = "=3.0.0-beta", path = "../compiler-singlepass", optional = true }
+wasmer-compiler-cranelift = { version = "=3.0.0-beta", path = "../compiler-cranelift", optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-wasmer-compiler-singlepass = { version = "=3.0.0-alpha.4", path = "../compiler-singlepass", optional = true, default-features = false, features = ["wasm"] }
-wasmer-compiler-cranelift = { version = "=3.0.0-alpha.4", path = "../compiler-cranelift", optional = true, default-features = false, features = ["wasm"] }
+wasmer-compiler-singlepass = { version = "=3.0.0-beta", path = "../compiler-singlepass", optional = true, default-features = false, features = ["wasm"] }
+wasmer-compiler-cranelift = { version = "=3.0.0-beta", path = "../compiler-cranelift", optional = true, default-features = false, features = ["wasm"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 unix_mode = "0.1.3"

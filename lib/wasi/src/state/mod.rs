@@ -654,7 +654,8 @@ impl WasiFs {
         for c in path.components() {
             let segment_name = c.as_os_str().to_string_lossy().to_string();
             let guard = inodes.arena[cur_inode].read();
-            match guard.deref() {
+            let deref = guard.deref();
+            match deref {
                 Kind::Dir { ref entries, .. } | Kind::Root { ref entries } => {
                     if let Some(_entry) = entries.get(&segment_name) {
                         // TODO: this should be fixed
@@ -678,7 +679,8 @@ impl WasiFs {
                     // reborrow to insert
                     {
                         let mut guard = inodes.arena[cur_inode].write();
-                        match guard.deref_mut() {
+                        let deref_mut = guard.deref_mut();
+                        match deref_mut {
                             Kind::Dir {
                                 ref mut entries, ..
                             }
@@ -725,7 +727,8 @@ impl WasiFs {
         let base_inode = self.get_fd_inode(base).map_err(fs_error_from_wasi_err)?;
 
         let guard = inodes.arena[base_inode].read();
-        match guard.deref() {
+        let deref = guard.deref();
+        match deref {
             Kind::Dir { ref entries, .. } | Kind::Root { ref entries } => {
                 if let Some(_entry) = entries.get(&name) {
                     // TODO: eventually change the logic here to allow overwrites
@@ -745,7 +748,8 @@ impl WasiFs {
 
                 {
                     let mut guard = inodes.arena[base_inode].write();
-                    match guard.deref_mut() {
+                    let deref_mut = guard.deref_mut();
+                    match deref_mut {
                         Kind::Dir {
                             ref mut entries, ..
                         }
@@ -790,7 +794,8 @@ impl WasiFs {
             _ => {
                 let base_inode = self.get_fd_inode(fd).map_err(fs_error_from_wasi_err)?;
                 let mut guard = inodes.arena[base_inode].write();
-                match guard.deref_mut() {
+                let deref_mut = guard.deref_mut();
+                match deref_mut {
                     Kind::File { ref mut handle, .. } => {
                         std::mem::swap(handle, &mut ret);
                     }
@@ -810,7 +815,8 @@ impl WasiFs {
     ) -> Result<__wasi_filesize_t, __wasi_errno_t> {
         let inode = self.get_fd_inode(fd)?;
         let mut guard = inodes.arena[inode].write();
-        match guard.deref_mut() {
+        let deref_mut = guard.deref_mut();
+        match deref_mut {
             Kind::File { handle, .. } => {
                 if let Some(h) = handle {
                     let new_size = h.size();
@@ -899,7 +905,8 @@ impl WasiFs {
             // loading inodes as necessary
             'symlink_resolution: while symlink_count < MAX_SYMLINKS {
                 let mut guard = inodes.arena[cur_inode].write();
-                match guard.deref_mut() {
+                let deref_mut = guard.deref_mut();
+                match deref_mut {
                     Kind::Buffer { .. } => unimplemented!("state::get_inode_at_path for buffers"),
                     Kind::Dir {
                         ref mut entries,
@@ -1165,10 +1172,12 @@ impl WasiFs {
         let mut res = BaseFdAndRelPath::None;
         // for each preopened directory
         let preopen_fds = self.preopen_fds.read().unwrap();
-        for po_fd in preopen_fds.deref() {
+        let deref = preopen_fds.deref();
+        for po_fd in deref {
             let po_inode = self.fd_map.read().unwrap()[po_fd].inode;
             let guard = inodes.arena[po_inode].read();
-            let po_path = match guard.deref() {
+            let deref = guard.deref();
+            let po_path = match deref {
                 Kind::Dir { path, .. } => &**path,
                 Kind::Root { .. } => Path::new("/"),
                 _ => unreachable!("Preopened FD that's not a directory or the root"),
@@ -1210,7 +1219,8 @@ impl WasiFs {
         while cur_inode != base_inode {
             counter += 1;
             let guard = inodes.arena[cur_inode].read();
-            match guard.deref() {
+            let deref = guard.deref();
+            match deref {
                 Kind::Dir { parent, .. } => {
                     if let Some(p) = parent {
                         cur_inode = *p;
@@ -1345,8 +1355,9 @@ impl WasiFs {
         debug!("fdstat: {:?}", fd);
 
         let guard = inodes.arena[fd.inode].read();
+        let deref = guard.deref();
         Ok(__wasi_fdstat_t {
-            fs_filetype: match guard.deref() {
+            fs_filetype: match deref {
                 Kind::File { .. } => __WASI_FILETYPE_REGULAR_FILE,
                 Kind::Dir { .. } => __WASI_FILETYPE_DIRECTORY,
                 Kind::Symlink { .. } => __WASI_FILETYPE_SYMBOLIC_LINK,
@@ -1408,7 +1419,8 @@ impl WasiFs {
                 }
 
                 let mut guard = inodes.arena[fd.inode].write();
-                match guard.deref_mut() {
+                let deref_mut = guard.deref_mut();
+                match deref_mut {
                     Kind::File {
                         handle: Some(file), ..
                     } => file.flush().map_err(|_| __WASI_EIO)?,
@@ -1643,7 +1655,8 @@ impl WasiFs {
                 let base_po_inode = &self.fd_map.read().unwrap()[base_po_dir].inode;
                 let base_po_inode_v = &inodes.arena[*base_po_inode];
                 let guard = base_po_inode_v.read();
-                match guard.deref() {
+                let deref = guard.deref();
+                match deref {
                     Kind::Root { .. } => {
                         self.fs_backing.symlink_metadata(path_to_symlink).map_err(fs_error_into_wasi_err)?
                     }
@@ -1685,7 +1698,8 @@ impl WasiFs {
         let is_preopened = inodeval.is_preopened;
 
         let mut guard = inodeval.write();
-        match guard.deref_mut() {
+        let deref_mut = guard.deref_mut();
+        match deref_mut {
             Kind::File { ref mut handle, .. } => {
                 let mut empty_handle = None;
                 std::mem::swap(handle, &mut empty_handle);
@@ -1707,14 +1721,16 @@ impl WasiFs {
                 if let Some(p) = *parent {
                     drop(guard);
                     let mut guard = inodes.arena[p].write();
-                    match guard.deref_mut() {
+                    let deref_mut = guard.deref_mut();
+                    match deref_mut {
                         Kind::Dir { entries, .. } | Kind::Root { entries } => {
                             self.fd_map.write().unwrap().remove(&fd).unwrap();
                             if is_preopened {
                                 let mut idx = None;
                                 {
                                     let preopen_fds = self.preopen_fds.read().unwrap();
-                                    for (i, po_fd) in preopen_fds.iter().enumerate() {
+                                    let preopen_fds_iter = preopen_fds.iter().enumerate();
+                                    for (i, po_fd) in preopen_fds_iter {
                                         if *po_fd == fd {
                                             idx = Some(i);
                                             break;

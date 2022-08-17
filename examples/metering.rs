@@ -18,9 +18,7 @@ use anyhow::bail;
 use std::sync::Arc;
 use wasmer::wasmparser::Operator;
 use wasmer::CompilerConfig;
-use wasmer::{
-    imports, wat2wasm, EngineBuilder, FunctionEnv, Instance, Module, Store, TypedFunction,
-};
+use wasmer::{imports, wat2wasm, EngineBuilder, Instance, Module, Store, TypedFunction};
 use wasmer_compiler_cranelift::Cranelift;
 use wasmer_middlewares::{
     metering::{get_remaining_points, set_remaining_points, MeteringPoints},
@@ -91,7 +89,7 @@ fn main() -> anyhow::Result<()> {
     let add_one: TypedFunction<i32, i32> = instance
         .exports
         .get_function("add_one")?
-        .native(&mut store)?;
+        .typed(&mut store)?;
 
     println!("Calling `add_one` function once...");
     add_one.call(&mut store, 1)?;

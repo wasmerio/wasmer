@@ -149,11 +149,7 @@ impl<T: ValueType, M: MemorySize> WasmPtr<T, M> {
 
     /// Writes to the address pointed to by this `WasmPtr` in a memory.
     #[inline]
-    pub fn write(
-        self,
-        view: &MemoryView,
-        val: T,
-    ) -> Result<(), MemoryAccessError> {
+    pub fn write(self, view: &MemoryView, val: T) -> Result<(), MemoryAccessError> {
         self.deref(view).write(val)
     }
 

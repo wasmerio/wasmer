@@ -71,8 +71,8 @@ mod value;
 mod vmoffsets;
 
 pub use crate::compilation::target::{
-    Architecture, BinaryFormat, CallingConvention, CpuFeature, Endianness, OperatingSystem,
-    PointerWidth, Target, Triple,
+    Aarch64Architecture, Architecture, BinaryFormat, CallingConvention, CpuFeature, Endianness,
+    Environment, OperatingSystem, PointerWidth, Target, Triple, Vendor,
 };
 pub use crate::serialize::{MetadataHeader, SerializableCompilation, SerializableModule};
 pub use error::{

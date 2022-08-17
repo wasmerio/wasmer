@@ -5,10 +5,10 @@ use crate::commands::{Config, Validate};
 use crate::error::PrettyError;
 use anyhow::Result;
 
-use structopt::{clap::ErrorKind, StructOpt};
+use clap::{ErrorKind, Parser};
 
-#[derive(StructOpt)]
-#[structopt(
+#[derive(Parser)]
+#[clap(
     name = "wasmer-compiler",
     about = "WebAssembly standalone Compiler.",
     author
@@ -16,16 +16,16 @@ use structopt::{clap::ErrorKind, StructOpt};
 /// The options for the wasmer Command Line Interface
 enum WasmerCLIOptions {
     /// Validate a WebAssembly binary
-    #[structopt(name = "validate")]
+    #[clap(name = "validate")]
     Validate(Validate),
 
     /// Compile a WebAssembly binary
-    #[structopt(name = "compile")]
+    #[clap(name = "compile")]
     Compile(Compile),
 
     /// Get various configuration information needed
     /// to compile programs which use Wasmer
-    #[structopt(name = "config")]
+    #[clap(name = "config")]
     Config(Config),
 }
 
@@ -56,15 +56,15 @@ pub fn wasmer_main() {
     let command = args.get(1);
     let options = {
         match command.unwrap_or(&"".to_string()).as_ref() {
-            "compile" | "config" | "help" | "inspect" | "validate" => WasmerCLIOptions::from_args(),
+            "compile" | "config" | "help" | "inspect" | "validate" => WasmerCLIOptions::parse(),
             _ => {
-                WasmerCLIOptions::from_iter_safe(args.iter()).unwrap_or_else(|e| {
-                    match e.kind {
+                WasmerCLIOptions::try_parse_from(args.iter()).unwrap_or_else(|e| {
+                    match e.kind() {
                         // This fixes a issue that:
                         // 1. Shows the version twice when doing `wasmer -V`
                         // 2. Shows the run help (instead of normal help) when doing `wasmer --help`
-                        ErrorKind::VersionDisplayed | ErrorKind::HelpDisplayed => e.exit(),
-                        _ => WasmerCLIOptions::Compile(Compile::from_args()),
+                        ErrorKind::DisplayVersion | ErrorKind::DisplayHelp => e.exit(),
+                        _ => WasmerCLIOptions::Compile(Compile::parse()),
                     }
                 })
             }

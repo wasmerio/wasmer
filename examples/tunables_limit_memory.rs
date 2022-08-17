@@ -3,8 +3,8 @@ use std::ptr::NonNull;
 use wasmer::{
     imports,
     vm::{self, MemoryError, MemoryStyle, TableStyle, VMMemoryDefinition, VMTableDefinition},
-    wat2wasm, BaseTunables, FunctionEnv, Instance, Memory, MemoryType, Module, Pages, Store,
-    TableType, Target, Tunables,
+    wat2wasm, BaseTunables, Instance, Memory, MemoryType, Module, Pages, Store, TableType, Target,
+    Tunables,
 };
 use wasmer_compiler_cranelift::Cranelift;
 

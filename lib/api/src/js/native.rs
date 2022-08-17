@@ -5,7 +5,7 @@
 //!
 //! ```ignore
 //! let add_one = instance.exports.get_function("function_name")?;
-//! let add_one_native: TypedFunction<i32, i32> = add_one.native().unwrap();
+//! let add_one_native: TypedFunction<i32, i32> = add_one.typed().unwrap();
 //! ```
 use std::marker::PhantomData;
 
@@ -37,11 +37,7 @@ where
     Rets: WasmTypeList,
 {
     #[allow(dead_code)]
-    pub(crate) fn new<T>(
-        store: &mut impl AsStoreMut,
-        _env: &FunctionEnv<T>,
-        vm_function: VMFunction,
-    ) -> Self {
+    pub(crate) fn new<T>(store: &mut impl AsStoreMut, vm_function: VMFunction) -> Self {
         Self {
             handle: StoreHandle::new(store.as_store_mut().objects_mut(), vm_function),
             _phantom: PhantomData,
@@ -108,7 +104,7 @@ macro_rules! impl_native_traits {
         {
             fn get_self_from_extern_with_generics(store: &impl AsStoreRef, _extern: &crate::js::externals::Extern) -> Result<Self, crate::js::exports::ExportError> {
                 use crate::js::exports::Exportable;
-                crate::js::Function::get_self_from_extern(_extern)?.native(store).map_err(|_| crate::js::exports::ExportError::IncompatibleType)
+                crate::js::Function::get_self_from_extern(_extern)?.typed(store).map_err(|_| crate::js::exports::ExportError::IncompatibleType)
             }
         }
     };

@@ -6,8 +6,8 @@ use std::io::{self, Read};
 use std::ops::DerefMut;
 use std::sync::mpsc;
 use std::sync::Mutex;
-use wasmer::{MemorySize, MemoryView};
 use wasmer::WasmSlice;
+use wasmer::{MemorySize, MemoryView};
 
 #[derive(Debug)]
 pub struct WasiPipe {

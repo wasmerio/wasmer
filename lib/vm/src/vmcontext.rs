@@ -163,7 +163,7 @@ mod test_vmdynamicfunction_import_context {
 }
 
 /// A function kind is a calling convention into and out of wasm code.
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 #[repr(C)]
 pub enum VMFunctionKind {
     /// A static function has the native signature:

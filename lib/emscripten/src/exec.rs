@@ -7,7 +7,8 @@ use wasmer::{FunctionEnvMut, WasmPtr};
 
 pub fn execvp(ctx: FunctionEnvMut<EmEnv>, command_name_offset: u32, argv_offset: u32) -> i32 {
     // a single reference to re-use
-    let emscripten_memory = ctx.data().memory_view(0, &ctx);
+    let memory = ctx.data().memory(0);
+    let emscripten_memory = memory.view(&ctx);
 
     // read command name as string
     let command_name_string_vec = WasmPtr::<u8>::new(command_name_offset)

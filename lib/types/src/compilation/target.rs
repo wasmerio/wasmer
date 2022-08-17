@@ -12,8 +12,8 @@ use enumset::{EnumSet, EnumSetType};
 use std::str::FromStr;
 use std::string::{String, ToString};
 pub use target_lexicon::{
-    Architecture, BinaryFormat, CallingConvention, Endianness, OperatingSystem, PointerWidth,
-    Triple,
+    Aarch64Architecture, Architecture, BinaryFormat, CallingConvention, Endianness, Environment,
+    OperatingSystem, PointerWidth, Triple, Vendor,
 };
 
 /// The nomenclature is inspired by the [`cpuid` crate].
