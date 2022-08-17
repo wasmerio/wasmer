@@ -273,6 +273,27 @@ flags rights {
     poll-fd-readwrite,
     /// The right to invoke `sock_shutdown`.
     sock-shutdown,
+
+    /// TODO: Found in wasmer-wasi-types, but not in wasi-snapshot0
+    sock-accept,
+    /// TODO: Found in wasmer-wasi-types, but not in wasi-snapshot0
+    sock-connect,
+    /// TODO: Found in wasmer-wasi-types, but not in wasi-snapshot0
+    sock-listen,
+    /// TODO: Found in wasmer-wasi-types, but not in wasi-snapshot0
+    sock-bind,
+    /// TODO: Found in wasmer-wasi-types, but not in wasi-snapshot0
+    sock-recv,
+    /// TODO: Found in wasmer-wasi-types, but not in wasi-snapshot0
+    sock-send,
+    /// TODO: Found in wasmer-wasi-types, but not in wasi-snapshot0
+    sock-addr-local,
+    /// TODO: Found in wasmer-wasi-types, but not in wasi-snapshot0
+    sock-addr-remote,
+    /// TODO: Found in wasmer-wasi-types, but not in wasi-snapshot0
+    sock-recv-from,
+    /// TODO: Found in wasmer-wasi-types, but not in wasi-snapshot0
+    sock-send-to,
 }
 
 //   ;;; A file descriptor handle.

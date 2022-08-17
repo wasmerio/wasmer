@@ -102,8 +102,8 @@ pub(crate) fn fd_fdstat_set_flags(
 pub(crate) fn fd_fdstat_set_rights(
     ctx: FunctionEnvMut<WasiEnv>,
     fd: __wasi_fd_t,
-    fs_rights_base: __wasi_rights_t,
-    fs_rights_inheriting: __wasi_rights_t,
+    fs_rights_base: wasi_snapshot0::Rights,
+    fs_rights_inheriting: wasi_snapshot0::Rights,
 ) -> wasi_snapshot0::Errno {
     super::fd_fdstat_set_rights(ctx, fd, fs_rights_base, fs_rights_inheriting)
 }
@@ -298,8 +298,8 @@ pub(crate) fn path_open(
     path: WasmPtr<u8, MemoryType>,
     path_len: MemoryOffset,
     o_flags: __wasi_oflags_t,
-    fs_rights_base: __wasi_rights_t,
-    fs_rights_inheriting: __wasi_rights_t,
+    fs_rights_base: wasi_snapshot0::Rights,
+    fs_rights_inheriting: wasi_snapshot0::Rights,
     fs_flags: __wasi_fdflags_t,
     fd: WasmPtr<__wasi_fd_t, MemoryType>,
 ) -> wasi_snapshot0::Errno {

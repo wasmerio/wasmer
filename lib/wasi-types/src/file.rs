@@ -5,7 +5,7 @@ use std::{
 };
 use wasmer_derive::ValueType;
 use wasmer_types::ValueType;
-use wasmer_wasi_types_generated::wasi_snapshot0;
+use wasmer_wasi_types_generated::{wasi_filesystem, wasi_snapshot0};
 
 pub type __wasi_device_t = u64;
 
@@ -122,8 +122,8 @@ unsafe impl ValueType for __wasi_prestat_t {
 pub struct __wasi_fdstat_t {
     pub fs_filetype: wasi_snapshot0::Filetype,
     pub fs_flags: __wasi_fdflags_t,
-    pub fs_rights_base: __wasi_rights_t,
-    pub fs_rights_inheriting: __wasi_rights_t,
+    pub fs_rights_base: wasi_snapshot0::Rights,
+    pub fs_rights_inheriting: wasi_snapshot0::Rights,
 }
 
 pub type __wasi_filedelta_t = i64;
@@ -225,55 +225,14 @@ pub const __WASI_O_DIRECTORY: __wasi_oflags_t = 1 << 1;
 pub const __WASI_O_EXCL: __wasi_oflags_t = 1 << 2;
 pub const __WASI_O_TRUNC: __wasi_oflags_t = 1 << 3;
 
-pub type __wasi_rights_t = u64;
-pub const __WASI_RIGHT_FD_DATASYNC: __wasi_rights_t = 1 << 0;
-pub const __WASI_RIGHT_FD_READ: __wasi_rights_t = 1 << 1;
-pub const __WASI_RIGHT_FD_SEEK: __wasi_rights_t = 1 << 2;
-pub const __WASI_RIGHT_FD_FDSTAT_SET_FLAGS: __wasi_rights_t = 1 << 3;
-pub const __WASI_RIGHT_FD_SYNC: __wasi_rights_t = 1 << 4;
-pub const __WASI_RIGHT_FD_TELL: __wasi_rights_t = 1 << 5;
-pub const __WASI_RIGHT_FD_WRITE: __wasi_rights_t = 1 << 6;
-pub const __WASI_RIGHT_FD_ADVISE: __wasi_rights_t = 1 << 7;
-pub const __WASI_RIGHT_FD_ALLOCATE: __wasi_rights_t = 1 << 8;
-pub const __WASI_RIGHT_PATH_CREATE_DIRECTORY: __wasi_rights_t = 1 << 9;
-pub const __WASI_RIGHT_PATH_CREATE_FILE: __wasi_rights_t = 1 << 10;
-pub const __WASI_RIGHT_PATH_LINK_SOURCE: __wasi_rights_t = 1 << 11;
-pub const __WASI_RIGHT_PATH_LINK_TARGET: __wasi_rights_t = 1 << 12;
-pub const __WASI_RIGHT_PATH_OPEN: __wasi_rights_t = 1 << 13;
-pub const __WASI_RIGHT_FD_READDIR: __wasi_rights_t = 1 << 14;
-pub const __WASI_RIGHT_PATH_READLINK: __wasi_rights_t = 1 << 15;
-pub const __WASI_RIGHT_PATH_RENAME_SOURCE: __wasi_rights_t = 1 << 16;
-pub const __WASI_RIGHT_PATH_RENAME_TARGET: __wasi_rights_t = 1 << 17;
-pub const __WASI_RIGHT_PATH_FILESTAT_GET: __wasi_rights_t = 1 << 18;
-pub const __WASI_RIGHT_PATH_FILESTAT_SET_SIZE: __wasi_rights_t = 1 << 19;
-pub const __WASI_RIGHT_PATH_FILESTAT_SET_TIMES: __wasi_rights_t = 1 << 20;
-pub const __WASI_RIGHT_FD_FILESTAT_GET: __wasi_rights_t = 1 << 21;
-pub const __WASI_RIGHT_FD_FILESTAT_SET_SIZE: __wasi_rights_t = 1 << 22;
-pub const __WASI_RIGHT_FD_FILESTAT_SET_TIMES: __wasi_rights_t = 1 << 23;
-pub const __WASI_RIGHT_PATH_SYMLINK: __wasi_rights_t = 1 << 24;
-pub const __WASI_RIGHT_PATH_REMOVE_DIRECTORY: __wasi_rights_t = 1 << 25;
-pub const __WASI_RIGHT_PATH_UNLINK_FILE: __wasi_rights_t = 1 << 26;
-pub const __WASI_RIGHT_POLL_FD_READWRITE: __wasi_rights_t = 1 << 27;
-pub const __WASI_RIGHT_SOCK_SHUTDOWN: __wasi_rights_t = 1 << 28;
-pub const __WASI_RIGHT_SOCK_ACCEPT: __wasi_rights_t = 1 << 29;
-pub const __WASI_RIGHT_SOCK_CONNECT: __wasi_rights_t = 1 << 30;
-pub const __WASI_RIGHT_SOCK_LISTEN: __wasi_rights_t = 1 << 31;
-pub const __WASI_RIGHT_SOCK_BIND: __wasi_rights_t = 1 << 32;
-pub const __WASI_RIGHT_SOCK_RECV: __wasi_rights_t = 1 << 33;
-pub const __WASI_RIGHT_SOCK_SEND: __wasi_rights_t = 1 << 34;
-pub const __WASI_RIGHT_SOCK_ADDR_LOCAL: __wasi_rights_t = 1 << 35;
-pub const __WASI_RIGHT_SOCK_ADDR_REMOTE: __wasi_rights_t = 1 << 36;
-pub const __WASI_RIGHT_SOCK_RECV_FROM: __wasi_rights_t = 1 << 37;
-pub const __WASI_RIGHT_SOCK_SEND_TO: __wasi_rights_t = 1 << 38;
-
 /// function for debugging rights issues
 #[allow(dead_code)]
-pub fn print_right_set(rights: __wasi_rights_t) {
+pub fn print_right_set(rights: wasi_snapshot0::Rights) {
     // BTreeSet for consistent order
     let mut right_set = std::collections::BTreeSet::new();
     for i in 0..28 {
-        let cur_right = rights & (1 << i);
-        if cur_right != 0 {
+        let cur_right = rights & wasi_snapshot0::Rights::from_bits(1 << i).unwrap();
+        if !cur_right.is_empty() {
             right_set.insert(right_to_string(cur_right).unwrap_or("INVALID RIGHT"));
         }
     }
@@ -281,37 +240,37 @@ pub fn print_right_set(rights: __wasi_rights_t) {
 }
 
 /// expects a single right, returns None if out of bounds or > 1 bit set
-pub fn right_to_string(right: __wasi_rights_t) -> Option<&'static str> {
+pub fn right_to_string(right: wasi_snapshot0::Rights) -> Option<&'static str> {
     Some(match right {
-        __WASI_RIGHT_FD_DATASYNC => "__WASI_RIGHT_FD_DATASYNC",
-        __WASI_RIGHT_FD_READ => "__WASI_RIGHT_FD_READ",
-        __WASI_RIGHT_FD_SEEK => "__WASI_RIGHT_FD_SEEK",
-        __WASI_RIGHT_FD_FDSTAT_SET_FLAGS => "__WASI_RIGHT_FD_FDSTAT_SET_FLAGS",
-        __WASI_RIGHT_FD_SYNC => "__WASI_RIGHT_FD_SYNC",
-        __WASI_RIGHT_FD_TELL => "__WASI_RIGHT_FD_TELL",
-        __WASI_RIGHT_FD_WRITE => "__WASI_RIGHT_FD_WRITE",
-        __WASI_RIGHT_FD_ADVISE => "__WASI_RIGHT_FD_ADVISE",
-        __WASI_RIGHT_FD_ALLOCATE => "__WASI_RIGHT_FD_ALLOCATE",
-        __WASI_RIGHT_PATH_CREATE_DIRECTORY => "__WASI_RIGHT_PATH_CREATE_DIRECTORY",
-        __WASI_RIGHT_PATH_CREATE_FILE => "__WASI_RIGHT_PATH_CREATE_FILE",
-        __WASI_RIGHT_PATH_LINK_SOURCE => "__WASI_RIGHT_PATH_LINK_SOURCE",
-        __WASI_RIGHT_PATH_LINK_TARGET => "__WASI_RIGHT_PATH_LINK_TARGET",
-        __WASI_RIGHT_PATH_OPEN => "__WASI_RIGHT_PATH_OPEN",
-        __WASI_RIGHT_FD_READDIR => "__WASI_RIGHT_FD_READDIR",
-        __WASI_RIGHT_PATH_READLINK => "__WASI_RIGHT_PATH_READLINK",
-        __WASI_RIGHT_PATH_RENAME_SOURCE => "__WASI_RIGHT_PATH_RENAME_SOURCE",
-        __WASI_RIGHT_PATH_RENAME_TARGET => "__WASI_RIGHT_PATH_RENAME_TARGET",
-        __WASI_RIGHT_PATH_FILESTAT_GET => "__WASI_RIGHT_PATH_FILESTAT_GET",
-        __WASI_RIGHT_PATH_FILESTAT_SET_SIZE => "__WASI_RIGHT_PATH_FILESTAT_SET_SIZE",
-        __WASI_RIGHT_PATH_FILESTAT_SET_TIMES => "__WASI_RIGHT_PATH_FILESTAT_SET_TIMES",
-        __WASI_RIGHT_FD_FILESTAT_GET => "__WASI_RIGHT_FD_FILESTAT_GET",
-        __WASI_RIGHT_FD_FILESTAT_SET_SIZE => "__WASI_RIGHT_FD_FILESTAT_SET_SIZE",
-        __WASI_RIGHT_FD_FILESTAT_SET_TIMES => "__WASI_RIGHT_FD_FILESTAT_SET_TIMES",
-        __WASI_RIGHT_PATH_SYMLINK => "__WASI_RIGHT_PATH_SYMLINK",
-        __WASI_RIGHT_PATH_UNLINK_FILE => "__WASI_RIGHT_PATH_UNLINK_FILE",
-        __WASI_RIGHT_PATH_REMOVE_DIRECTORY => "__WASI_RIGHT_PATH_REMOVE_DIRECTORY",
-        __WASI_RIGHT_POLL_FD_READWRITE => "__WASI_RIGHT_POLL_FD_READWRITE",
-        __WASI_RIGHT_SOCK_SHUTDOWN => "__WASI_RIGHT_SOCK_SHUTDOWN",
+        wasi_snapshot0::Rights::FD_DATASYNC => "Rights::_FD_DATASYNC",
+        wasi_snapshot0::Rights::FD_READ => "Rights::FD_READ",
+        wasi_snapshot0::Rights::FD_SEEK => "Rights::FD_SEEK",
+        wasi_snapshot0::Rights::FD_FDSTAT_SET_FLAGS => "Rights::FD_FDSTAT_SET_FLAGS",
+        wasi_snapshot0::Rights::FD_SYNC => "Rights::FD_SYNC",
+        wasi_snapshot0::Rights::FD_TELL => "Rights::FD_TELL",
+        wasi_snapshot0::Rights::FD_WRITE => "Rights::FD_WRITE",
+        wasi_snapshot0::Rights::FD_ADVISE => "Rights::FD_ADVISE",
+        wasi_snapshot0::Rights::FD_ALLOCATE => "Rights::FD_ALLOCATE",
+        wasi_snapshot0::Rights::PATH_CREATE_DIRECTORY => "Rights::PATH_CREATE_DIRECTORY",
+        wasi_snapshot0::Rights::PATH_CREATE_FILE => "Rights::PATH_CREATE_FILE",
+        wasi_snapshot0::Rights::PATH_LINK_SOURCE => "Rights::PATH_LINK_SOURCE",
+        wasi_snapshot0::Rights::PATH_LINK_TARGET => "Rights::PATH_LINK_TARGET",
+        wasi_snapshot0::Rights::PATH_OPEN => "Rights::PATH_OPEN",
+        wasi_snapshot0::Rights::FD_READDIR => "Rights::FD_READDIR",
+        wasi_snapshot0::Rights::PATH_READLINK => "Rights::PATH_READLINK",
+        wasi_snapshot0::Rights::PATH_RENAME_SOURCE => "Rights::PATH_RENAME_SOURCE",
+        wasi_snapshot0::Rights::PATH_RENAME_TARGET => "Rights::PATH_RENAME_TARGET",
+        wasi_snapshot0::Rights::PATH_FILESTAT_GET => "Rights::PATH_FILESTAT_GET",
+        wasi_snapshot0::Rights::PATH_FILESTAT_SET_SIZE => "Rights::PATH_FILESTAT_SET_SIZE",
+        wasi_snapshot0::Rights::PATH_FILESTAT_SET_TIMES => "Rights::PATH_FILESTAT_SET_TIMES",
+        wasi_snapshot0::Rights::FD_FILESTAT_GET => "Rights::FD_FILESTAT_GET",
+        wasi_snapshot0::Rights::FD_FILESTAT_SET_SIZE => "Rights::FD_FILESTAT_SET_SIZE",
+        wasi_snapshot0::Rights::FD_FILESTAT_SET_TIMES => "Rights::FD_FILESTAT_SET_TIMES",
+        wasi_snapshot0::Rights::PATH_SYMLINK => "Rights::PATH_SYMLINK",
+        wasi_snapshot0::Rights::PATH_UNLINK_FILE => "Rights::PATH_UNLINK_FILE",
+        wasi_snapshot0::Rights::PATH_REMOVE_DIRECTORY => "Rights::PATH_REMOVE_DIRECTORY",
+        wasi_snapshot0::Rights::POLL_FD_READWRITE => "Rights::POLL_FD_READWRITE",
+        wasi_snapshot0::Rights::SOCK_SHUTDOWN => "Rights::SOCK_SHUTDOWN",
         _ => return None,
     })
 }

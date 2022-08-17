@@ -345,7 +345,7 @@ pub mod wasi_snapshot0 {
   impl std::error::Error for Errno{}
   wit_bindgen_wasmer::bitflags::bitflags! {
     /// File descriptor rights, determining which actions may be performed.
-    pub struct Rights: u32 {/// The right to invoke `fd_datasync`.
+    pub struct Rights: u64 {/// The right to invoke `fd_datasync`.
       /// 
       /// If `rights::path_open` is set, includes the right to invoke
       /// `path_open` with `fdflags::dsync`.
@@ -418,6 +418,26 @@ pub mod wasi_snapshot0 {
       const POLL_FD_READWRITE = 1 << 27;
       /// The right to invoke `sock_shutdown`.
       const SOCK_SHUTDOWN = 1 << 28;
+      /// TODO: Found in wasmer-wasi-types, but not in wasi-snapshot0
+      const SOCK_ACCEPT = 1 << 29;
+      /// TODO: Found in wasmer-wasi-types, but not in wasi-snapshot0
+      const SOCK_CONNECT = 1 << 30;
+      /// TODO: Found in wasmer-wasi-types, but not in wasi-snapshot0
+      const SOCK_LISTEN = 1 << 31;
+      /// TODO: Found in wasmer-wasi-types, but not in wasi-snapshot0
+      const SOCK_BIND = 1 << 32;
+      /// TODO: Found in wasmer-wasi-types, but not in wasi-snapshot0
+      const SOCK_RECV = 1 << 33;
+      /// TODO: Found in wasmer-wasi-types, but not in wasi-snapshot0
+      const SOCK_SEND = 1 << 34;
+      /// TODO: Found in wasmer-wasi-types, but not in wasi-snapshot0
+      const SOCK_ADDR_LOCAL = 1 << 35;
+      /// TODO: Found in wasmer-wasi-types, but not in wasi-snapshot0
+      const SOCK_ADDR_REMOTE = 1 << 36;
+      /// TODO: Found in wasmer-wasi-types, but not in wasi-snapshot0
+      const SOCK_RECV_FROM = 1 << 37;
+      /// TODO: Found in wasmer-wasi-types, but not in wasi-snapshot0
+      const SOCK_SEND_TO = 1 << 38;
     }
   }
   

@@ -24,6 +24,12 @@ unsafe impl ValueType for wasi_snapshot0::Eventtype {
 }
 
 // TODO: if necessary, must be implemented in wit-bindgen
+unsafe impl ValueType for wasi_snapshot0::Rights {
+    #[inline]
+    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
+}
+
+// TODO: if necessary, must be implemented in wit-bindgen
 unsafe impl wit_bindgen_wasmer::wasmer::FromToNativeWasmType for wasi_snapshot0::Errno {
     type Native = i32;
 
@@ -139,6 +145,24 @@ unsafe impl wit_bindgen_wasmer::wasmer::FromToNativeWasmType for wasi_snapshot0:
             // TODO: What should we map invalid native values to?
             _ => todo!("Need to decide what to do here…"),
         }
+    }
+
+    #[cfg(feature = "sys")]
+    fn is_from_store(&self, _store: &impl wit_bindgen_wasmer::wasmer::AsStoreRef) -> bool {
+        // TODO: find correct implementation
+        false
+    }
+}
+
+// TODO: if necessary, must be implemented in wit-bindgen
+unsafe impl wit_bindgen_wasmer::wasmer::FromToNativeWasmType for wasi_snapshot0::Rights {
+    type Native = i64;
+
+    fn to_native(self) -> Self::Native {
+        self.bits() as i64
+    }
+    fn from_native(n: Self::Native) -> Self {
+        Self::from_bits_truncate(n as u64)
     }
 
     #[cfg(feature = "sys")]

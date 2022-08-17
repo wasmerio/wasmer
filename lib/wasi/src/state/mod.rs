@@ -59,20 +59,33 @@ use wasmer_vfs::{FileSystem, FsError, OpenOptions, VirtualFile};
 /// the fd value of the virtual root
 pub const VIRTUAL_ROOT_FD: __wasi_fd_t = 3;
 /// all the rights enabled
-pub const ALL_RIGHTS: __wasi_rights_t = 0x1FFF_FFFF;
-const STDIN_DEFAULT_RIGHTS: __wasi_rights_t = __WASI_RIGHT_FD_DATASYNC
-    | __WASI_RIGHT_FD_READ
-    | __WASI_RIGHT_FD_SYNC
-    | __WASI_RIGHT_FD_ADVISE
-    | __WASI_RIGHT_FD_FILESTAT_GET
-    | __WASI_RIGHT_POLL_FD_READWRITE;
-const STDOUT_DEFAULT_RIGHTS: __wasi_rights_t = __WASI_RIGHT_FD_DATASYNC
-    | __WASI_RIGHT_FD_WRITE
-    | __WASI_RIGHT_FD_SYNC
-    | __WASI_RIGHT_FD_ADVISE
-    | __WASI_RIGHT_FD_FILESTAT_GET
-    | __WASI_RIGHT_POLL_FD_READWRITE;
-const STDERR_DEFAULT_RIGHTS: __wasi_rights_t = STDOUT_DEFAULT_RIGHTS;
+pub const ALL_RIGHTS: wasi_snapshot0::Rights = wasi_snapshot0::Rights::all();
+const STDIN_DEFAULT_RIGHTS: wasi_snapshot0::Rights = {
+    // This might seem a bit overenineered, but it's the only way I
+    // discovered for getting the values in a const environment
+    wasi_snapshot0::Rights::from_bits_truncate(
+        wasi_snapshot0::Rights::FD_DATASYNC.bits()
+            | wasi_snapshot0::Rights::FD_READ.bits()
+            | wasi_snapshot0::Rights::FD_SYNC.bits()
+            | wasi_snapshot0::Rights::FD_ADVISE.bits()
+            | wasi_snapshot0::Rights::FD_FILESTAT_GET.bits()
+            | wasi_snapshot0::Rights::POLL_FD_READWRITE.bits(),
+    )
+};
+const STDOUT_DEFAULT_RIGHTS: wasi_snapshot0::Rights = {
+    // Not sure it is possible to use the bitflags consts directly in a
+    // const environment, found no way to do so, therefore the flags are
+    // duplicated below.
+    wasi_snapshot0::Rights::from_bits_truncate(
+        wasi_snapshot0::Rights::FD_DATASYNC.bits()
+            | wasi_snapshot0::Rights::FD_SYNC.bits()
+            | wasi_snapshot0::Rights::FD_WRITE.bits()
+            | wasi_snapshot0::Rights::FD_ADVISE.bits()
+            | wasi_snapshot0::Rights::FD_FILESTAT_GET.bits()
+            | wasi_snapshot0::Rights::POLL_FD_READWRITE.bits(),
+    )
+};
+const STDERR_DEFAULT_RIGHTS: wasi_snapshot0::Rights = STDOUT_DEFAULT_RIGHTS;
 
 /// A completely aribtrary "big enough" number used as the upper limit for
 /// the number of symlinks that can be traversed when resolving a path
@@ -173,8 +186,8 @@ pub enum Kind {
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct Fd {
-    pub rights: __wasi_rights_t,
-    pub rights_inheriting: __wasi_rights_t,
+    pub rights: wasi_snapshot0::Rights,
+    pub rights_inheriting: wasi_snapshot0::Rights,
     pub flags: __wasi_fdflags_t,
     pub offset: u64,
     /// Flags that determine how the [`Fd`] can be used.
@@ -409,19 +422,19 @@ impl WasiFs {
                 path: PathBuf::from(preopen_name),
                 entries: Default::default(),
             };
-            let rights = __WASI_RIGHT_FD_ADVISE
-                | __WASI_RIGHT_FD_TELL
-                | __WASI_RIGHT_FD_SEEK
-                | __WASI_RIGHT_FD_READ
-                | __WASI_RIGHT_PATH_OPEN
-                | __WASI_RIGHT_FD_READDIR
-                | __WASI_RIGHT_PATH_READLINK
-                | __WASI_RIGHT_PATH_FILESTAT_GET
-                | __WASI_RIGHT_FD_FILESTAT_GET
-                | __WASI_RIGHT_PATH_LINK_SOURCE
-                | __WASI_RIGHT_PATH_RENAME_SOURCE
-                | __WASI_RIGHT_POLL_FD_READWRITE
-                | __WASI_RIGHT_SOCK_SHUTDOWN;
+            let rights = wasi_snapshot0::Rights::FD_ADVISE
+                | wasi_snapshot0::Rights::FD_TELL
+                | wasi_snapshot0::Rights::FD_SEEK
+                | wasi_snapshot0::Rights::FD_READ
+                | wasi_snapshot0::Rights::PATH_OPEN
+                | wasi_snapshot0::Rights::FD_READDIR
+                | wasi_snapshot0::Rights::PATH_READLINK
+                | wasi_snapshot0::Rights::PATH_FILESTAT_GET
+                | wasi_snapshot0::Rights::FD_FILESTAT_GET
+                | wasi_snapshot0::Rights::PATH_LINK_SOURCE
+                | wasi_snapshot0::Rights::PATH_RENAME_SOURCE
+                | wasi_snapshot0::Rights::POLL_FD_READWRITE
+                | wasi_snapshot0::Rights::SOCK_SHUTDOWN;
             let inode = wasi_fs
                 .create_inode(inodes, kind, true, preopen_name.clone())
                 .map_err(|e| {
@@ -483,44 +496,45 @@ impl WasiFs {
 
             let rights = {
                 // TODO: review tell' and fd_readwrite
-                let mut rights =
-                    __WASI_RIGHT_FD_ADVISE | __WASI_RIGHT_FD_TELL | __WASI_RIGHT_FD_SEEK;
+                let mut rights = wasi_snapshot0::Rights::FD_ADVISE
+                    | wasi_snapshot0::Rights::FD_TELL
+                    | wasi_snapshot0::Rights::FD_SEEK;
                 if *read {
-                    rights |= __WASI_RIGHT_FD_READ
-                        | __WASI_RIGHT_PATH_OPEN
-                        | __WASI_RIGHT_FD_READDIR
-                        | __WASI_RIGHT_PATH_READLINK
-                        | __WASI_RIGHT_PATH_FILESTAT_GET
-                        | __WASI_RIGHT_FD_FILESTAT_GET
-                        | __WASI_RIGHT_PATH_LINK_SOURCE
-                        | __WASI_RIGHT_PATH_RENAME_SOURCE
-                        | __WASI_RIGHT_POLL_FD_READWRITE
-                        | __WASI_RIGHT_SOCK_SHUTDOWN;
+                    rights |= wasi_snapshot0::Rights::FD_READ
+                        | wasi_snapshot0::Rights::PATH_OPEN
+                        | wasi_snapshot0::Rights::FD_READDIR
+                        | wasi_snapshot0::Rights::PATH_READLINK
+                        | wasi_snapshot0::Rights::PATH_FILESTAT_GET
+                        | wasi_snapshot0::Rights::FD_FILESTAT_GET
+                        | wasi_snapshot0::Rights::PATH_LINK_SOURCE
+                        | wasi_snapshot0::Rights::PATH_RENAME_SOURCE
+                        | wasi_snapshot0::Rights::POLL_FD_READWRITE
+                        | wasi_snapshot0::Rights::SOCK_SHUTDOWN;
                 }
                 if *write {
-                    rights |= __WASI_RIGHT_FD_DATASYNC
-                        | __WASI_RIGHT_FD_FDSTAT_SET_FLAGS
-                        | __WASI_RIGHT_FD_WRITE
-                        | __WASI_RIGHT_FD_SYNC
-                        | __WASI_RIGHT_FD_ALLOCATE
-                        | __WASI_RIGHT_PATH_OPEN
-                        | __WASI_RIGHT_PATH_RENAME_TARGET
-                        | __WASI_RIGHT_PATH_FILESTAT_SET_SIZE
-                        | __WASI_RIGHT_PATH_FILESTAT_SET_TIMES
-                        | __WASI_RIGHT_FD_FILESTAT_SET_SIZE
-                        | __WASI_RIGHT_FD_FILESTAT_SET_TIMES
-                        | __WASI_RIGHT_PATH_REMOVE_DIRECTORY
-                        | __WASI_RIGHT_PATH_UNLINK_FILE
-                        | __WASI_RIGHT_POLL_FD_READWRITE
-                        | __WASI_RIGHT_SOCK_SHUTDOWN;
+                    rights |= wasi_snapshot0::Rights::FD_DATASYNC
+                        | wasi_snapshot0::Rights::FD_FDSTAT_SET_FLAGS
+                        | wasi_snapshot0::Rights::FD_WRITE
+                        | wasi_snapshot0::Rights::FD_SYNC
+                        | wasi_snapshot0::Rights::FD_ALLOCATE
+                        | wasi_snapshot0::Rights::PATH_OPEN
+                        | wasi_snapshot0::Rights::PATH_RENAME_TARGET
+                        | wasi_snapshot0::Rights::PATH_FILESTAT_SET_SIZE
+                        | wasi_snapshot0::Rights::PATH_FILESTAT_SET_TIMES
+                        | wasi_snapshot0::Rights::FD_FILESTAT_SET_SIZE
+                        | wasi_snapshot0::Rights::FD_FILESTAT_SET_TIMES
+                        | wasi_snapshot0::Rights::PATH_REMOVE_DIRECTORY
+                        | wasi_snapshot0::Rights::PATH_UNLINK_FILE
+                        | wasi_snapshot0::Rights::POLL_FD_READWRITE
+                        | wasi_snapshot0::Rights::SOCK_SHUTDOWN;
                 }
                 if *create {
-                    rights |= __WASI_RIGHT_PATH_CREATE_DIRECTORY
-                        | __WASI_RIGHT_PATH_CREATE_FILE
-                        | __WASI_RIGHT_PATH_LINK_TARGET
-                        | __WASI_RIGHT_PATH_OPEN
-                        | __WASI_RIGHT_PATH_RENAME_TARGET
-                        | __WASI_RIGHT_PATH_SYMLINK;
+                    rights |= wasi_snapshot0::Rights::PATH_CREATE_DIRECTORY
+                        | wasi_snapshot0::Rights::PATH_CREATE_FILE
+                        | wasi_snapshot0::Rights::PATH_LINK_TARGET
+                        | wasi_snapshot0::Rights::PATH_OPEN
+                        | wasi_snapshot0::Rights::PATH_RENAME_TARGET
+                        | wasi_snapshot0::Rights::PATH_SYMLINK;
                 }
 
                 rights
@@ -601,20 +615,22 @@ impl WasiFs {
             // TODO: make this a list of positive rigths instead of negative ones
             // root gets all right for now
             let root_rights = all_rights
-                /*& (!__WASI_RIGHT_FD_WRITE)
-                & (!__WASI_RIGHT_FD_ALLOCATE)
-                & (!__WASI_RIGHT_PATH_CREATE_DIRECTORY)
-                & (!__WASI_RIGHT_PATH_CREATE_FILE)
-                & (!__WASI_RIGHT_PATH_LINK_SOURCE)
-                & (!__WASI_RIGHT_PATH_RENAME_SOURCE)
-                & (!__WASI_RIGHT_PATH_RENAME_TARGET)
-                & (!__WASI_RIGHT_PATH_FILESTAT_SET_SIZE)
-                & (!__WASI_RIGHT_PATH_FILESTAT_SET_TIMES)
-                & (!__WASI_RIGHT_FD_FILESTAT_SET_SIZE)
-                & (!__WASI_RIGHT_FD_FILESTAT_SET_TIMES)
-                & (!__WASI_RIGHT_PATH_SYMLINK)
-                & (!__WASI_RIGHT_PATH_UNLINK_FILE)
-                & (!__WASI_RIGHT_PATH_REMOVE_DIRECTORY)*/;
+                /*
+                & (!wasi_snapshot0::Rights::FD_WRITE)
+                & (!wasi_snapshot0::Rights::FD_ALLOCATE)
+                & (!wasi_snapshot0::Rights::PATH_CREATE_DIRECTORY)
+                & (!wasi_snapshot0::Rights::PATH_CREATE_FILE)
+                & (!wasi_snapshot0::Rights::PATH_LINK_SOURCE)
+                & (!wasi_snapshot0::Rights::PATH_RENAME_SOURCE)
+                & (!wasi_snapshot0::Rights::PATH_RENAME_TARGET)
+                & (!wasi_snapshot0::Rights::PATH_FILESTAT_SET_SIZE)
+                & (!wasi_snapshot0::Rights::PATH_FILESTAT_SET_TIMES)
+                & (!wasi_snapshot0::Rights::FD_FILESTAT_SET_SIZE)
+                & (!wasi_snapshot0::Rights::FD_FILESTAT_SET_TIMES)
+                & (!wasi_snapshot0::Rights::PATH_SYMLINK)
+                & (!wasi_snapshot0::Rights::PATH_UNLINK_FILE)
+                & (!wasi_snapshot0::Rights::PATH_REMOVE_DIRECTORY)
+                */;
             let inode = wasi_fs.create_virtual_root(inodes);
             let fd = wasi_fs
                 .create_fd(root_rights, root_rights, 0, Fd::READ, inode)
@@ -646,8 +662,8 @@ impl WasiFs {
         inodes: &mut WasiInodes,
         base: __wasi_fd_t,
         name: String,
-        rights: __wasi_rights_t,
-        rights_inheriting: __wasi_rights_t,
+        rights: wasi_snapshot0::Rights,
+        rights_inheriting: wasi_snapshot0::Rights,
         flags: __wasi_fdflags_t,
     ) -> Result<__wasi_fd_t, FsError> {
         // TODO: check permissions here? probably not, but this should be
@@ -723,8 +739,8 @@ impl WasiFs {
         file: Box<dyn VirtualFile + Send + Sync + 'static>,
         open_flags: u16,
         name: String,
-        rights: __wasi_rights_t,
-        rights_inheriting: __wasi_rights_t,
+        rights: wasi_snapshot0::Rights,
+        rights_inheriting: wasi_snapshot0::Rights,
         flags: __wasi_fdflags_t,
     ) -> Result<__wasi_fd_t, FsError> {
         // TODO: check permissions here? probably not, but this should be
@@ -1327,7 +1343,7 @@ impl WasiFs {
                     fs_filetype: wasi_snapshot0::Filetype::CharacterDevice,
                     fs_flags: 0,
                     fs_rights_base: STDIN_DEFAULT_RIGHTS,
-                    fs_rights_inheriting: 0,
+                    fs_rights_inheriting: wasi_snapshot0::Rights::empty(),
                 })
             }
             __WASI_STDOUT_FILENO => {
@@ -1335,7 +1351,7 @@ impl WasiFs {
                     fs_filetype: wasi_snapshot0::Filetype::CharacterDevice,
                     fs_flags: __WASI_FDFLAG_APPEND,
                     fs_rights_base: STDOUT_DEFAULT_RIGHTS,
-                    fs_rights_inheriting: 0,
+                    fs_rights_inheriting: wasi_snapshot0::Rights::empty(),
                 })
             }
             __WASI_STDERR_FILENO => {
@@ -1343,7 +1359,7 @@ impl WasiFs {
                     fs_filetype: wasi_snapshot0::Filetype::CharacterDevice,
                     fs_flags: __WASI_FDFLAG_APPEND,
                     fs_rights_base: STDERR_DEFAULT_RIGHTS,
-                    fs_rights_inheriting: 0,
+                    fs_rights_inheriting: wasi_snapshot0::Rights::empty(),
                 })
             }
             VIRTUAL_ROOT_FD => {
@@ -1420,7 +1436,7 @@ impl WasiFs {
                 .ok_or(wasi_snapshot0::Errno::Io)?,
             _ => {
                 let fd = self.get_fd(fd)?;
-                if fd.rights & __WASI_RIGHT_FD_DATASYNC == 0 {
+                if !fd.rights.contains(wasi_snapshot0::Rights::FD_DATASYNC) {
                     return Err(wasi_snapshot0::Errno::Acces);
                 }
 
@@ -1486,8 +1502,8 @@ impl WasiFs {
 
     pub fn create_fd(
         &self,
-        rights: __wasi_rights_t,
-        rights_inheriting: __wasi_rights_t,
+        rights: wasi_snapshot0::Rights,
+        rights_inheriting: wasi_snapshot0::Rights,
         flags: __wasi_fdflags_t,
         open_flags: u16,
         inode: Inode,
@@ -1591,7 +1607,7 @@ impl WasiFs {
         handle: Box<dyn VirtualFile + Send + Sync + 'static>,
         name: &'static str,
         raw_fd: __wasi_fd_t,
-        rights: __wasi_rights_t,
+        rights: wasi_snapshot0::Rights,
         fd_flags: __wasi_fdflags_t,
     ) {
         let stat = __wasi_filestat_t {
@@ -1616,7 +1632,7 @@ impl WasiFs {
             raw_fd,
             Fd {
                 rights,
-                rights_inheriting: 0,
+                rights_inheriting: wasi_snapshot0::Rights::empty(),
                 flags: fd_flags,
                 // since we're not calling open on this, we don't need open flags
                 open_flags: 0,

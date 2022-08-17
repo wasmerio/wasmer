@@ -1489,21 +1489,25 @@ pub(crate) fn write_route<M: MemorySize>(
     Ok(())
 }
 
-pub(crate) fn all_socket_rights() -> __wasi_rights_t {
-    __WASI_RIGHT_FD_FDSTAT_SET_FLAGS
-        | __WASI_RIGHT_FD_FILESTAT_GET
-        | __WASI_RIGHT_FD_READ
-        | __WASI_RIGHT_FD_WRITE
-        | __WASI_RIGHT_POLL_FD_READWRITE
-        | __WASI_RIGHT_SOCK_SHUTDOWN
-        | __WASI_RIGHT_SOCK_CONNECT
-        | __WASI_RIGHT_SOCK_LISTEN
-        | __WASI_RIGHT_SOCK_BIND
-        | __WASI_RIGHT_SOCK_ACCEPT
-        | __WASI_RIGHT_SOCK_RECV
-        | __WASI_RIGHT_SOCK_SEND
-        | __WASI_RIGHT_SOCK_ADDR_LOCAL
-        | __WASI_RIGHT_SOCK_ADDR_REMOTE
-        | __WASI_RIGHT_SOCK_RECV_FROM
-        | __WASI_RIGHT_SOCK_SEND_TO
+pub(crate) const fn all_socket_rights() -> wasi_snapshot0::Rights {
+    // This might seem a bit overenineered, but it's the only way I
+    // discovered for getting the values in a const environment
+    wasi_snapshot0::Rights::from_bits_truncate(
+        wasi_snapshot0::Rights::FD_FDSTAT_SET_FLAGS.bits()
+            | wasi_snapshot0::Rights::FD_FILESTAT_GET.bits()
+            | wasi_snapshot0::Rights::FD_READ.bits()
+            | wasi_snapshot0::Rights::FD_WRITE.bits()
+            | wasi_snapshot0::Rights::POLL_FD_READWRITE.bits()
+            | wasi_snapshot0::Rights::SOCK_SHUTDOWN.bits()
+            | wasi_snapshot0::Rights::SOCK_CONNECT.bits()
+            | wasi_snapshot0::Rights::SOCK_LISTEN.bits()
+            | wasi_snapshot0::Rights::SOCK_BIND.bits()
+            | wasi_snapshot0::Rights::SOCK_ACCEPT.bits()
+            | wasi_snapshot0::Rights::SOCK_RECV.bits()
+            | wasi_snapshot0::Rights::SOCK_SEND.bits()
+            | wasi_snapshot0::Rights::SOCK_ADDR_LOCAL.bits()
+            | wasi_snapshot0::Rights::SOCK_ADDR_REMOTE.bits()
+            | wasi_snapshot0::Rights::SOCK_RECV_FROM.bits()
+            | wasi_snapshot0::Rights::SOCK_SEND_TO.bits(),
+    )
 }
