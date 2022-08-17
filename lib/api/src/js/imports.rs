@@ -181,101 +181,30 @@ impl Imports {
     pub fn iter<'a>(&'a self) -> ImportsIterator<'a> {
         ImportsIterator::new(self)
     }
-
-    /// Create a new `Imports` from a JS Object, it receives a reference to a `Module` to
-    /// map and assign the types of each import and the JS Object
-    /// that contains the values of imports.
-    ///
-    /// # Usage
-    /// ```ignore
-    /// let import_object = Imports::new_from_js_object(&mut store, &module, js_object);
-    /// ```
-    pub fn new_from_js_object(
-        store: &mut impl AsStoreMut,
-        module: &Module,
-        object: js_sys::Object,
-    ) -> Result<Self, WasmError> {
-        use crate::js::externals::VMExtern;
-        let module_imports: HashMap<(String, String), ExternType> = module
-            .imports()
-            .map(|import| {
-                (
-                    (import.module().to_string(), import.name().to_string()),
-                    import.ty().clone(),
-                )
-            })
-            .collect::<HashMap<(String, String), ExternType>>();
-
-        let mut map: HashMap<(String, String), Extern> = HashMap::new();
-
-        for module_entry in js_sys::Object::entries(&object).iter() {
-            let module_entry: js_sys::Array = module_entry.into();
-            let module_name = module_entry.get(0).as_string().unwrap().to_string();
-            let module_import_object: js_sys::Object = module_entry.get(1).into();
-            for import_entry in js_sys::Object::entries(&module_import_object).iter() {
-                let import_entry: js_sys::Array = import_entry.into();
-                let import_name = import_entry.get(0).as_string().unwrap().to_string();
-                let import_js: wasm_bindgen::JsValue = import_entry.get(1);
-                let key = (module_name.clone(), import_name);
-                let extern_type = module_imports.get(&key).unwrap();
-                let export = VMExtern::from_js_value(import_js, store, extern_type.clone())?;
-                let extern_ = Extern::from_vm_extern(store, export);
-                map.insert(key, extern_);
-            }
-        }
-
-        Ok(Self { map })
-    }
-}
-
-impl AsJs for Imports {
-    fn as_jsvalue(&self, store: &impl AsStoreRef) -> wasm_bindgen::JsValue {
-        let imports_object = js_sys::Object::new();
-        for (namespace, name, extern_) in self.iter() {
-            let val = js_sys::Reflect::get(&imports_object, &namespace.into()).unwrap();
-            if !val.is_undefined() {
-                // If the namespace is already set
-                js_sys::Reflect::set(
-                    &val,
-                    &name.into(),
-                    &extern_.as_jsvalue(&store.as_store_ref()),
-                )
-                .unwrap();
-            } else {
-                // If the namespace doesn't exist
-                let import_namespace = js_sys::Object::new();
-                js_sys::Reflect::set(
-                    &import_namespace,
-                    &name.into(),
-                    &extern_.as_jsvalue(&store.as_store_ref()),
-                )
-                .unwrap();
-                js_sys::Reflect::set(&imports_object, &namespace.into(), &import_namespace.into())
-                    .unwrap();
-            }
-        }
-        imports_object.into()
-    }
 }
 
 pub struct ImportsIterator<'a> {
-    iter: std::collections::hash_map::Iter<'a, (String, String), Extern>,
+    iter: std::collections::hash_map::Iter<'a, (String, String), Extern>
 }
 
-impl<'a> ImportsIterator<'a> {
+impl<'a> ImportsIterator<'a>
+{
     fn new(imports: &'a Imports) -> Self {
         let iter = imports.map.iter();
         Self { iter }
     }
 }
 
-impl<'a> Iterator for ImportsIterator<'a> {
+impl<'a> Iterator
+for ImportsIterator<'a> {
     type Item = (&'a str, &'a str, &'a Extern);
 
     fn next(&mut self) -> Option<Self::Item> {
         self.iter
             .next()
-            .map(|(k, v)| (k.0.as_str(), k.1.as_str(), v))
+            .map(|(k, v)| {
+                (k.0.as_str(), k.1.as_str(), v)
+            })
     }
 }
 
