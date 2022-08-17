@@ -2256,17 +2256,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "serde_repr"
-version = "0.1.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1fe39d9fbb0ebf5eb2c7cb7e2a47e4f462fad1379f1166b8ae49ad9eae89a7ca"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
 name = "serial_test"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3403,8 +3392,6 @@ dependencies = [
 name = "wasmer-wasi-types-generated"
 version = "3.0.0-beta"
 dependencies = [
- "serde",
- "serde_repr",
  "wasmer-derive",
  "wasmer-types",
  "wit-bindgen-wasmer",
