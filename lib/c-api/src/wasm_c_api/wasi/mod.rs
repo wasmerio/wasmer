@@ -347,26 +347,21 @@ extern "C" fn wasi_console_out_delete_null(_: *const c_void, _: usize, _: usize)
     0
 }
 
-#[derive(Default)]
-struct WasiConsoleMemoryOverride {
-    backed: Vec<u8>,
-    cursor: usize,
-}
-
 unsafe extern "C" fn wasi_console_out_read_memory(
-    ptr: *const c_void,    /* = *WasiConsoleMemoryOverride */
-    sizeof: usize,         /* = sizeof(WasiConsoleMemoryOverride) */
-    alignof: usize,        /* = alignof(WasiConsoleMemoryOverride) */
+    ptr: *const c_void,    /* = *Pipe */
+    sizeof: usize,         /* = sizeof(Pipe) */
+    alignof: usize,        /* = alignof(Pipe) */
     byte_ptr: *mut c_char, /* &[u8] bytes to read */
     max_bytes: usize,      /* max bytes to read */
 ) -> i64 {
-    if sizeof != std::mem::size_of::<WasiConsoleMemoryOverride>()
-        || alignof != std::mem::align_of::<WasiConsoleMemoryOverride>()
+    if sizeof != std::mem::size_of::<Pipe>()
+        || alignof != std::mem::align_of::<Pipe>()
     {
         return -1;
     }
-    let ptr = ptr as *mut WasiConsoleMemoryOverride;
+    let ptr = ptr as *mut Pipe;
     let ptr = &mut *ptr;
+    /* 
     let read_slice = &ptr.backed[ptr.cursor..];
     let byte_ptr = byte_ptr as *mut u8;
     let write_slice = std::slice::from_raw_parts_mut(byte_ptr, max_bytes);
@@ -376,88 +371,95 @@ unsafe extern "C" fn wasi_console_out_read_memory(
     }
     ptr.cursor += read;
     read as i64
+    */
 }
 
 unsafe extern "C" fn wasi_console_out_write_memory(
-    ptr: *const c_void, /* = *WasiConsoleMemoryOverride */
-    sizeof: usize,      /* = sizeof(WasiConsoleMemoryOverride) */
-    alignof: usize,     /* = alignof(WasiConsoleMemoryOverride) */
+    ptr: *const c_void, /* = *Pipe */
+    sizeof: usize,      /* = sizeof(Pipe) */
+    alignof: usize,     /* = alignof(Pipe) */
     byte_ptr: *const c_char,
     byte_len: usize,
     flush: bool,
 ) -> i64 {
-    if sizeof != std::mem::size_of::<WasiConsoleMemoryOverride>()
-        || alignof != std::mem::align_of::<WasiConsoleMemoryOverride>()
+    if sizeof != std::mem::size_of::<Pipe>()
+        || alignof != std::mem::align_of::<Pipe>()
     {
         return -1;
     }
 
+    let ptr = ptr as *mut Pipe;
+    let ptr = &mut *ptr;
+
+    /* 
     if flush {
         return 0;
     }
 
-    let ptr = ptr as *mut WasiConsoleMemoryOverride;
-    let ptr = &mut *ptr;
     let byte_ptr = byte_ptr as *const u8;
     let read_slice = std::slice::from_raw_parts(byte_ptr, byte_len);
     ptr.backed.extend_from_slice(read_slice);
     read_slice.len() as i64
+    */
 }
 
 unsafe extern "C" fn wasi_console_out_seek_memory(
-    ptr: *const c_void, /* = *WasiConsoleMemoryOverride */
-    sizeof: usize,      /* = sizeof(WasiConsoleMemoryOverride) */
-    alignof: usize,     /* = alignof(WasiConsoleMemoryOverride) */
+    ptr: *const c_void, /* = *Pipe */
+    sizeof: usize,      /* = sizeof(Pipe) */
+    alignof: usize,     /* = alignof(Pipe) */
     direction: c_char,
     seek_to: i64,
 ) -> i64 {
-    if sizeof != std::mem::size_of::<WasiConsoleMemoryOverride>()
-        || alignof != std::mem::align_of::<WasiConsoleMemoryOverride>()
+    if sizeof != std::mem::size_of::<Pipe>()
+        || alignof != std::mem::align_of::<Pipe>()
     {
         return -1;
     }
-    let ptr = ptr as *mut WasiConsoleMemoryOverride;
+    let ptr = ptr as *mut Pipe;
     let ptr = &mut *ptr;
 
     if direction == 0 {
+        /* 
         // seek from start
         let seek_to = (seek_to.max(0_i64) as usize).min(ptr.backed.len());
         let diff = ptr.cursor as i64 - seek_to as i64;
         ptr.cursor = seek_to;
-        diff
+        diff*/
     } else if direction == 1 {
+        /* 
         // seek from end
         let seek_to = ptr.backed.len() as i64 + seek_to;
         let seek_to = (seek_to.max(0_i64) as usize).min(ptr.backed.len());
         let diff = ptr.cursor as i64 - seek_to as i64;
         ptr.cursor = seek_to;
-        diff
+        diff*/
     } else if direction == 2 {
         // seek from cursor
+        /* 
         let seek_to = ptr.cursor as i64 + seek_to;
         let seek_to = (seek_to.max(0_i64) as usize).min(ptr.backed.len());
         let diff = ptr.cursor as i64 - seek_to as i64;
         ptr.cursor = seek_to;
         diff
+        */
     } else {
         -1
     }
 }
 
 unsafe extern "C" fn wasi_console_out_delete_memory(
-    ptr: *const c_void, /* = *WasiConsoleMemoryOverride */
-    sizeof: usize,      /* = sizeof(WasiConsoleMemoryOverride) */
-    alignof: usize,     /* = alignof(WasiConsoleMemoryOverride) */
+    ptr: *const c_void, /* = *Pipe */
+    sizeof: usize,      /* = sizeof(Pipe) */
+    alignof: usize,     /* = alignof(Pipe) */
 ) -> i64 {
-    if sizeof != std::mem::size_of::<WasiConsoleMemoryOverride>()
-        || alignof != std::mem::align_of::<WasiConsoleMemoryOverride>()
+    if sizeof != std::mem::size_of::<Pipe>()
+        || alignof != std::mem::align_of::<Pipe>()
     {
         return -1;
     }
-    let ptr = ptr as *mut WasiConsoleMemoryOverride;
+    let ptr = ptr as *mut Pipe;
     let ptr = &mut *ptr;
-    ptr.backed = Vec::new();
-    ptr.cursor = 0;
+    let _ = Box::from_raw(ptr); // TODO: correct?
     // dropped here, destructors run here
     0
 }
@@ -468,9 +470,9 @@ unsafe extern "C" fn wasi_console_out_delete_memory(
 pub unsafe extern "C" fn wasi_console_out_new_memory() -> *mut wasi_console_out_t {
     use std::mem::ManuallyDrop;
 
-    let data = WasiConsoleMemoryOverride::default();
+    let data = Pipe::new();
     let mut data = ManuallyDrop::new(data);
-    let ptr: &mut WasiConsoleMemoryOverride = &mut data;
+    let ptr: &mut Pipe = &mut data;
 
     wasi_console_out_new(
         wasi_console_out_read_memory,
@@ -478,8 +480,8 @@ pub unsafe extern "C" fn wasi_console_out_new_memory() -> *mut wasi_console_out_
         wasi_console_out_seek_memory,
         wasi_console_out_delete_memory,
         ptr as *mut _ as *mut i8,
-        std::mem::size_of::<WasiConsoleMemoryOverride>(),
-        std::mem::align_of::<WasiConsoleMemoryOverride>(),
+        std::mem::size_of::<Pipe>(),
+        std::mem::align_of::<Pipe>(),
     )
 }
 
