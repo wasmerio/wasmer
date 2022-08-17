@@ -15,20 +15,15 @@ use crate::{Compiler, FunctionBodyData, ModuleTranslationState};
 use crate::{Engine, EngineInner};
 use enumset::EnumSet;
 #[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
-use std::collections::BTreeMap;
-#[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
 use std::mem;
 use std::sync::Arc;
 use std::sync::Mutex;
 #[cfg(feature = "static-artifact-create")]
 use wasmer_object::{emit_compilation, emit_data, get_object_for_target, Object};
+#[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
+use wasmer_types::compilation::symbols::{ModuleMetadata, ModuleMetadataSymbolRegistry};
 use wasmer_types::entity::{BoxedSlice, PrimaryMap};
 use wasmer_types::MetadataHeader;
-#[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
-use wasmer_types::{
-    compilation::symbols::{ModuleMetadata, ModuleMetadataSymbolRegistry},
-    entity::EntityRef,
-};
 use wasmer_types::{
     CompileError, CpuFeature, DataInitializer, DeserializeError, FunctionIndex, LocalFunctionIndex,
     MemoryIndex, ModuleInfo, OwnedDataInitializer, SerializableModule, SerializeError,
@@ -677,10 +672,9 @@ impl Artifact {
 
         let engine_inner = engine.inner();
         let signature_registry = engine_inner.signatures();
-        let mut sig_map: BTreeMap<SignatureIndex, VMSharedSignatureIndex> = BTreeMap::new();
 
         // read finished functions in order now...
-        for i in 0..num_finished_functions {
+        for _i in 0..num_finished_functions {
             byte_buffer[0..WORD_SIZE]
                 .clone_from_slice(&bytes[cur_offset..(cur_offset + WORD_SIZE)]);
             let fp = FunctionBodyPtr(usize::from_ne_bytes(byte_buffer) as _);
