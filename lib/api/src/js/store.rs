@@ -263,6 +263,11 @@ mod objects {
             self.id
         }
 
+        /// Sets the ID of this store
+        pub fn set_id(&mut self, id: StoreId) {
+            self.id = id;
+        }
+
         /// Returns a pair of mutable references from two handles.
         ///
         /// Panics if both handles point to the same object.

@@ -15,7 +15,7 @@ use crate::{VMBuiltinFunctionIndex, VMFunction};
 use std::convert::TryFrom;
 use std::ptr::{self, NonNull};
 use std::u32;
-use wasmer_types::RawValue;
+use wasmer_types::{RawValue, VMMemoryDefinition};
 
 /// Union representing the first parameter passed when calling a function.
 ///
@@ -303,120 +303,67 @@ mod test_vmglobal_import {
     }
 }
 
-/// The fields compiled code needs to access to utilize a WebAssembly linear
-/// memory defined within the instance, namely the start address and the
-/// size in bytes.
-#[derive(Debug, Copy, Clone)]
-#[repr(C)]
-pub struct VMMemoryDefinition {
-    /// The start address which is always valid, even if the memory grows.
-    pub base: *mut u8,
+/// Do an unsynchronized, non-atomic `memory.copy` for the memory.
+///
+/// # Errors
+///
+/// Returns a `Trap` error when the source or destination ranges are out of
+/// bounds.
+///
+/// # Safety
+/// The memory is not copied atomically and is not synchronized: it's the
+/// caller's responsibility to synchronize.
+pub(crate) unsafe fn memory_copy(mem: &VMMemoryDefinition, dst: u32, src: u32, len: u32) -> Result<(), Trap> {
+    // https://webassembly.github.io/reference-types/core/exec/instructions.html#exec-memory-copy
+    if src
+        .checked_add(len)
+        .map_or(true, |n| usize::try_from(n).unwrap() > mem.current_length)
+        || dst
+            .checked_add(len)
+            .map_or(true, |m| usize::try_from(m).unwrap() > mem.current_length)
+    {
+        return Err(Trap::lib(TrapCode::HeapAccessOutOfBounds));
+    }
 
-    /// The current logical size of this linear memory in bytes.
-    pub current_length: usize,
+    let dst = usize::try_from(dst).unwrap();
+    let src = usize::try_from(src).unwrap();
+
+    // Bounds and casts are checked above, by this point we know that
+    // everything is safe.
+    let dst = mem.base.add(dst);
+    let src = mem.base.add(src);
+    ptr::copy(src, dst, len as usize);
+
+    Ok(())
 }
 
+/// Perform the `memory.fill` operation for the memory in an unsynchronized,
+/// non-atomic way.
+///
+/// # Errors
+///
+/// Returns a `Trap` error if the memory range is out of bounds.
+///
 /// # Safety
-/// This data is safe to share between threads because it's plain data that
-/// is the user's responsibility to synchronize.
-unsafe impl Send for VMMemoryDefinition {}
-/// # Safety
-/// This data is safe to share between threads because it's plain data that
-/// is the user's responsibility to synchronize. And it's `Copy` so there's
-/// really no difference between passing it by reference or by value as far as
-/// correctness in a multi-threaded context is concerned.
-unsafe impl Sync for VMMemoryDefinition {}
-
-impl VMMemoryDefinition {
-    /// Do an unsynchronized, non-atomic `memory.copy` for the memory.
-    ///
-    /// # Errors
-    ///
-    /// Returns a `Trap` error when the source or destination ranges are out of
-    /// bounds.
-    ///
-    /// # Safety
-    /// The memory is not copied atomically and is not synchronized: it's the
-    /// caller's responsibility to synchronize.
-    pub(crate) unsafe fn memory_copy(&self, dst: u32, src: u32, len: u32) -> Result<(), Trap> {
-        // https://webassembly.github.io/reference-types/core/exec/instructions.html#exec-memory-copy
-        if src
-            .checked_add(len)
-            .map_or(true, |n| usize::try_from(n).unwrap() > self.current_length)
-            || dst
-                .checked_add(len)
-                .map_or(true, |m| usize::try_from(m).unwrap() > self.current_length)
-        {
-            return Err(Trap::lib(TrapCode::HeapAccessOutOfBounds));
-        }
-
-        let dst = usize::try_from(dst).unwrap();
-        let src = usize::try_from(src).unwrap();
-
-        // Bounds and casts are checked above, by this point we know that
-        // everything is safe.
-        let dst = self.base.add(dst);
-        let src = self.base.add(src);
-        ptr::copy(src, dst, len as usize);
-
-        Ok(())
+/// The memory is not filled atomically and is not synchronized: it's the
+/// caller's responsibility to synchronize.
+pub(crate) unsafe fn memory_fill(mem: &VMMemoryDefinition, dst: u32, val: u32, len: u32) -> Result<(), Trap> {
+    if dst
+        .checked_add(len)
+        .map_or(true, |m| usize::try_from(m).unwrap() > mem.current_length)
+    {
+        return Err(Trap::lib(TrapCode::HeapAccessOutOfBounds));
     }
 
-    /// Perform the `memory.fill` operation for the memory in an unsynchronized,
-    /// non-atomic way.
-    ///
-    /// # Errors
-    ///
-    /// Returns a `Trap` error if the memory range is out of bounds.
-    ///
-    /// # Safety
-    /// The memory is not filled atomically and is not synchronized: it's the
-    /// caller's responsibility to synchronize.
-    pub(crate) unsafe fn memory_fill(&self, dst: u32, val: u32, len: u32) -> Result<(), Trap> {
-        if dst
-            .checked_add(len)
-            .map_or(true, |m| usize::try_from(m).unwrap() > self.current_length)
-        {
-            return Err(Trap::lib(TrapCode::HeapAccessOutOfBounds));
-        }
+    let dst = isize::try_from(dst).unwrap();
+    let val = val as u8;
 
-        let dst = isize::try_from(dst).unwrap();
-        let val = val as u8;
+    // Bounds and casts are checked above, by this point we know that
+    // everything is safe.
+    let dst = mem.base.offset(dst);
+    ptr::write_bytes(dst, val, len as usize);
 
-        // Bounds and casts are checked above, by this point we know that
-        // everything is safe.
-        let dst = self.base.offset(dst);
-        ptr::write_bytes(dst, val, len as usize);
-
-        Ok(())
-    }
-}
-
-#[cfg(test)]
-mod test_vmmemory_definition {
-    use super::VMMemoryDefinition;
-    use crate::VMOffsets;
-    use memoffset::offset_of;
-    use std::mem::size_of;
-    use wasmer_types::ModuleInfo;
-
-    #[test]
-    fn check_vmmemory_definition_offsets() {
-        let module = ModuleInfo::new();
-        let offsets = VMOffsets::new(size_of::<*mut u8>() as u8, &module);
-        assert_eq!(
-            size_of::<VMMemoryDefinition>(),
-            usize::from(offsets.size_of_vmmemory_definition())
-        );
-        assert_eq!(
-            offset_of!(VMMemoryDefinition, base),
-            usize::from(offsets.vmmemory_definition_base())
-        );
-        assert_eq!(
-            offset_of!(VMMemoryDefinition, current_length),
-            usize::from(offsets.vmmemory_definition_current_length())
-        );
-    }
+    Ok(())
 }
 
 /// The fields compiled code needs to access to utilize a WebAssembly table

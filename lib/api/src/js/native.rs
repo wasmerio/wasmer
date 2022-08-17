@@ -11,7 +11,6 @@ use std::marker::PhantomData;
 
 use crate::js::externals::Function;
 use crate::js::store::{AsStoreMut, AsStoreRef, StoreHandle};
-use crate::js::FunctionEnv;
 use crate::js::{FromToNativeWasmType, RuntimeError, WasmTypeList};
 // use std::panic::{catch_unwind, AssertUnwindSafe};
 use crate::js::export::VMFunction;

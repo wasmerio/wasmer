@@ -77,7 +77,7 @@ pub use crate::compilation::target::{
 pub use crate::serialize::{MetadataHeader, SerializableCompilation, SerializableModule};
 pub use error::{
     CompileError, DeserializeError, ImportError, MiddlewareError, ParseCpuFeatureError,
-    PreInstantiationError, SerializeError, WasmError, WasmResult,
+    PreInstantiationError, SerializeError, WasmError, WasmResult, MemoryError,
 };
 
 /// The entity module, with common helpers for Rust structures
@@ -103,7 +103,9 @@ pub use types::{
 pub use value::{RawValue, ValueType};
 
 pub use crate::libcalls::LibCall;
-pub use crate::memory::MemoryStyle;
+pub use crate::memory::{
+    MemoryStyle, LinearMemory, VMMemoryDefinition
+};
 pub use crate::table::TableStyle;
 pub use crate::trapcode::TrapCode;
 pub use crate::vmoffsets::{TargetSharedSignatureIndex, VMBuiltinFunctionIndex, VMOffsets};

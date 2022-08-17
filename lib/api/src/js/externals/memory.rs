@@ -6,7 +6,6 @@ use crate::js::{MemoryAccessError, MemoryType};
 use std::marker::PhantomData;
 use std::mem::MaybeUninit;
 use std::slice;
-use thiserror::Error;
 #[cfg(feature = "tracing")]
 use tracing::warn;
 
@@ -16,22 +15,7 @@ use wasmer_types::Pages;
 
 use super::MemoryView;
 
-/// Error type describing things that can go wrong when operating on Wasm Memories.
-#[derive(Error, Debug, Clone, PartialEq, Hash)]
-pub enum MemoryError {
-    /// The operation would cause the size of the memory to exceed the maximum or would cause
-    /// an overflow leading to unindexable memory.
-    #[error("The memory could not grow: current size {} pages, requested increase: {} pages", current.0, attempted_delta.0)]
-    CouldNotGrow {
-        /// The current size in pages.
-        current: Pages,
-        /// The attempted amount to grow by in pages.
-        attempted_delta: Pages,
-    },
-    /// A user defined error value, used for error cases not listed above.
-    #[error("A user-defined error occurred: {0}")]
-    Generic(String),
-}
+pub use wasmer_types::MemoryError;
 
 #[wasm_bindgen]
 extern "C" {
@@ -114,6 +98,17 @@ impl Memory {
 
         let vm_memory = VMMemory::new(js_memory, ty);
         Ok(Self::from_vm_export(store, vm_memory))
+    }
+
+    /// Creates a new host `Memory` from provided JavaScript memory.
+    pub fn new_raw(store: &mut impl AsStoreMut, js_memory: js_sys::WebAssembly::Memory, ty: MemoryType) -> Result<Self, MemoryError> {
+        let vm_memory = VMMemory::new(js_memory, ty);
+        Ok(Self::from_vm_export(store, vm_memory))
+    }
+
+    /// Create a memory object from an existing memory and attaches it to the store
+    pub fn new_from_existing(new_store: &mut impl AsStoreMut, memory: VMMemory) -> Self {
+        Self::from_vm_export(new_store, memory)
     }
 
     /// Returns the [`MemoryType`] of the `Memory`.
@@ -208,6 +203,12 @@ impl Memory {
                 StoreHandle::from_internal(store.as_store_ref().objects().id(), internal)
             },
         }
+    }
+
+    /// Attempts to clone this memory (if its clonable)
+    pub fn try_clone(&self, store: &impl AsStoreRef) -> Option<VMMemory> {
+        let mem = self.handle.get(store.as_store_ref().objects());
+        mem.try_clone()
     }
 
     /// Checks whether this `Global` can be used with the given context.

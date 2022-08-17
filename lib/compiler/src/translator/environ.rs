@@ -1,8 +1,8 @@
 // This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 use super::state::ModuleTranslationState;
-use crate::lib::std::borrow::ToOwned;
 use crate::lib::std::string::ToString;
+use crate::lib::std::borrow::ToOwned;
 use crate::lib::std::{boxed::Box, string::String, vec::Vec};
 use crate::translate_module;
 use crate::wasmparser::{Operator, Range, Type};

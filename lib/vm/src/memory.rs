@@ -5,88 +5,160 @@
 //!
 //! `Memory` is to WebAssembly linear memories what `Table` is to WebAssembly tables.
 
-use crate::vmcontext::VMMemoryDefinition;
 use crate::{mmap::Mmap, store::MaybeInstanceOwned};
 use more_asserts::assert_ge;
 use std::cell::UnsafeCell;
 use std::convert::TryInto;
 use std::ptr::NonNull;
-use thiserror::Error;
-use wasmer_types::{Bytes, MemoryStyle, MemoryType, Pages};
+use wasmer_types::{Bytes, MemoryStyle, MemoryType, Pages, MemoryError, LinearMemory, VMMemoryDefinition};
 
-/// Error type describing things that can go wrong when operating on Wasm Memories.
-#[derive(Error, Debug, Clone, Eq, PartialEq, Hash)]
-pub enum MemoryError {
-    /// Low level error with mmap.
-    #[error("Error when allocating memory: {0}")]
-    Region(String),
-    /// The operation would cause the size of the memory to exceed the maximum or would cause
-    /// an overflow leading to unindexable memory.
-    #[error("The memory could not grow: current size {} pages, requested increase: {} pages", current.0, attempted_delta.0)]
-    CouldNotGrow {
-        /// The current size in pages.
-        current: Pages,
-        /// The attempted amount to grow by in pages.
-        attempted_delta: Pages,
-    },
-    /// The operation would cause the size of the memory size exceed the maximum.
-    #[error("The memory is invalid because {}", reason)]
-    InvalidMemory {
-        /// The reason why the provided memory is invalid.
-        reason: String,
-    },
-    /// Caller asked for more minimum memory than we can give them.
-    #[error("The minimum requested ({} pages) memory is greater than the maximum allowed memory ({} pages)", min_requested.0, max_allowed.0)]
-    MinimumMemoryTooLarge {
-        /// The number of pages requested as the minimum amount of memory.
-        min_requested: Pages,
-        /// The maximum amount of memory we can allocate.
-        max_allowed: Pages,
-    },
-    /// Caller asked for a maximum memory greater than we can give them.
-    #[error("The maximum requested memory ({} pages) is greater than the maximum allowed memory ({} pages)", max_requested.0, max_allowed.0)]
-    MaximumMemoryTooLarge {
-        /// The number of pages requested as the maximum amount of memory.
-        max_requested: Pages,
-        /// The number of pages requested as the maximum amount of memory.
-        max_allowed: Pages,
-    },
-    /// A user defined error value, used for error cases not listed above.
-    #[error("A user-defined error occurred: {0}")]
-    Generic(String),
-}
-
-/// A linear memory instance.
-pub struct VMMemory {
-    // The underlying allocation.
-    mmap: WasmMmap,
-
-    // The optional maximum size in wasm pages of this linear memory.
-    maximum: Option<Pages>,
-
-    /// The WebAssembly linear memory description.
-    memory: MemoryType,
-
-    /// Our chosen implementation style.
-    style: MemoryStyle,
-
-    // Size in bytes of extra guard pages after the end to optimize loads and stores with
-    // constant offsets.
-    offset_guard_size: usize,
-
-    /// The owned memory definition used by the generated code
-    vm_memory_definition: MaybeInstanceOwned<VMMemoryDefinition>,
-}
-
+// The memory mapped area
 #[derive(Debug)]
 struct WasmMmap {
     // Our OS allocation of mmap'd memory.
     alloc: Mmap,
     // The current logical size in wasm pages of this linear memory.
     size: Pages,
+    /// The owned memory definition used by the generated code
+    vm_memory_definition: MaybeInstanceOwned<VMMemoryDefinition>,
 }
 
-impl VMMemory {
+impl WasmMmap
+{
+    fn get_vm_memory_definition(&self) -> NonNull<VMMemoryDefinition> {
+        self.vm_memory_definition.as_ptr()
+    }
+
+    fn size(&self) -> Pages {
+        unsafe {
+            let md_ptr = self.get_vm_memory_definition();
+            let md = md_ptr.as_ref();
+            Bytes::from(md.current_length).try_into().unwrap()
+        }
+    }
+
+    fn grow(&mut self, delta: Pages, conf: VMMemoryConfig) -> Result<Pages, MemoryError> {
+        // Optimization of memory.grow 0 calls.
+        if delta.0 == 0 {
+            return Ok(self.size);
+        }
+
+        let new_pages = self
+            .size
+            .checked_add(delta)
+            .ok_or(MemoryError::CouldNotGrow {
+                current: self.size,
+                attempted_delta: delta,
+            })?;
+        let prev_pages = self.size;
+
+        if let Some(maximum) = conf.maximum {
+            if new_pages > maximum {
+                return Err(MemoryError::CouldNotGrow {
+                    current: self.size,
+                    attempted_delta: delta,
+                });
+            }
+        }
+
+        // Wasm linear memories are never allowed to grow beyond what is
+        // indexable. If the memory has no maximum, enforce the greatest
+        // limit here.
+        if new_pages >= Pages::max_value() {
+            // Linear memory size would exceed the index range.
+            return Err(MemoryError::CouldNotGrow {
+                current: self.size,
+                attempted_delta: delta,
+            });
+        }
+
+        let delta_bytes = delta.bytes().0;
+        let prev_bytes = prev_pages.bytes().0;
+        let new_bytes = new_pages.bytes().0;
+
+        if new_bytes > self.alloc.len() - conf.offset_guard_size {
+            // If the new size is within the declared maximum, but needs more memory than we
+            // have on hand, it's a dynamic heap and it can move.
+            let guard_bytes = conf.offset_guard_size;
+            let request_bytes =
+                new_bytes
+                    .checked_add(guard_bytes)
+                    .ok_or_else(|| MemoryError::CouldNotGrow {
+                        current: new_pages,
+                        attempted_delta: Bytes(guard_bytes).try_into().unwrap(),
+                    })?;
+
+            let mut new_mmap =
+                Mmap::accessible_reserved(new_bytes, request_bytes).map_err(MemoryError::Region)?;
+
+            let copy_len = self.alloc.len() - conf.offset_guard_size;
+            new_mmap.as_mut_slice()[..copy_len]
+                .copy_from_slice(&self.alloc.as_slice()[..copy_len]);
+
+            self.alloc = new_mmap;
+        } else if delta_bytes > 0 {
+            // Make the newly allocated pages accessible.
+            self
+                .alloc
+                .make_accessible(prev_bytes, delta_bytes)
+                .map_err(MemoryError::Region)?;
+        }
+
+        self.size = new_pages;
+
+        // update memory definition
+        unsafe {
+            let mut md_ptr = self.vm_memory_definition.as_ptr();
+            let md = md_ptr.as_mut();
+            md.current_length = new_pages.bytes().0;
+            md.base = self.alloc.as_mut_ptr() as _;
+        }
+
+        Ok(prev_pages)
+    }
+}
+
+/// A linear memory instance.
+#[derive(Debug, Clone)]
+struct VMMemoryConfig {
+    // The optional maximum size in wasm pages of this linear memory.
+    maximum: Option<Pages>,
+    /// The WebAssembly linear memory description.
+    memory: MemoryType,
+    /// Our chosen implementation style.
+    style: MemoryStyle,
+    // Size in bytes of extra guard pages after the end to optimize loads and stores with
+    // constant offsets.
+    offset_guard_size: usize,
+}
+
+impl VMMemoryConfig
+{
+    fn ty(&self, minimum: Pages) -> MemoryType {
+        let mut out = self.memory;
+        out.minimum = minimum;
+
+        out
+    }
+
+    fn style(&self) -> MemoryStyle {
+        self.style
+    }
+}
+
+/// A linear memory instance.
+#[derive(Debug)]
+pub struct VMOwnedMemory {
+    // The underlying allocation.
+    mmap: WasmMmap,
+    // Configuration of this memory
+    config: VMMemoryConfig,
+}
+
+unsafe impl Send for VMOwnedMemory { }
+unsafe impl Sync for VMOwnedMemory { }
+
+impl VMOwnedMemory {
     /// Create a new linear memory instance with specified minimum and maximum number of wasm pages.
     ///
     /// This creates a `Memory` with owned metadata: this can be used to create a memory
@@ -154,18 +226,11 @@ impl VMMemory {
         let mapped_pages = memory.minimum;
         let mapped_bytes = mapped_pages.bytes();
 
-        let mut mmap = WasmMmap {
-            alloc: Mmap::accessible_reserved(mapped_bytes.0, request_bytes)
-                .map_err(MemoryError::Region)?,
-            size: memory.minimum,
-        };
-
-        let base_ptr = mmap.alloc.as_mut_ptr();
+        let mut alloc = Mmap::accessible_reserved(mapped_bytes.0, request_bytes)
+            .map_err(MemoryError::Region)?;
+        let base_ptr = alloc.as_mut_ptr();
         let mem_length = memory.minimum.bytes().0;
-        Ok(Self {
-            mmap,
-            maximum: memory.maximum,
-            offset_guard_size: offset_guard_bytes,
+        let mmap = WasmMmap {
             vm_memory_definition: if let Some(mem_loc) = vm_memory_location {
                 {
                     let mut ptr = mem_loc;
@@ -180,127 +245,155 @@ impl VMMemory {
                     current_length: mem_length,
                 })))
             },
-            memory: *memory,
-            style: style.clone(),
+            alloc,
+            size: memory.minimum,
+        };
+        
+        Ok(Self {
+            mmap: mmap,
+            config: VMMemoryConfig {
+                maximum: memory.maximum,
+                offset_guard_size: offset_guard_bytes,
+                memory: *memory,
+                style: style.clone(),
+            }
         })
     }
+}
 
-    /// Get the `VMMemoryDefinition`.
-    fn get_vm_memory_definition(&self) -> NonNull<VMMemoryDefinition> {
-        self.vm_memory_definition.as_ptr()
+impl LinearMemory
+for VMOwnedMemory
+{
+    /// Returns the type for this memory.
+    fn ty(&self) -> MemoryType {
+        let minimum = self.mmap.size();
+        self.config.ty(minimum)
     }
 
-    /// Returns the type for this memory.
-    pub fn ty(&self) -> MemoryType {
-        let minimum = self.size();
-        let mut out = self.memory;
-        out.minimum = minimum;
-
-        out
+    /// Returns the size of hte memory in pages
+    fn size(&self) -> Pages {
+        self.mmap.size()
     }
 
     /// Returns the memory style for this memory.
-    pub fn style(&self) -> &MemoryStyle {
-        &self.style
-    }
-
-    /// Returns the number of allocated wasm pages.
-    pub fn size(&self) -> Pages {
-        // TODO: investigate this function for race conditions
-        unsafe {
-            let md_ptr = self.get_vm_memory_definition();
-            let md = md_ptr.as_ref();
-            Bytes::from(md.current_length).try_into().unwrap()
-        }
+    fn style(&self) -> MemoryStyle {
+        self.config.style()
     }
 
     /// Grow memory by the specified amount of wasm pages.
     ///
     /// Returns `None` if memory can't be grown by the specified amount
     /// of wasm pages.
-    pub fn grow(&mut self, delta: Pages) -> Result<Pages, MemoryError> {
-        // Optimization of memory.grow 0 calls.
-        if delta.0 == 0 {
-            return Ok(self.mmap.size);
-        }
-
-        let new_pages = self
-            .mmap
-            .size
-            .checked_add(delta)
-            .ok_or(MemoryError::CouldNotGrow {
-                current: self.mmap.size,
-                attempted_delta: delta,
-            })?;
-        let prev_pages = self.mmap.size;
-
-        if let Some(maximum) = self.maximum {
-            if new_pages > maximum {
-                return Err(MemoryError::CouldNotGrow {
-                    current: self.mmap.size,
-                    attempted_delta: delta,
-                });
-            }
-        }
-
-        // Wasm linear memories are never allowed to grow beyond what is
-        // indexable. If the memory has no maximum, enforce the greatest
-        // limit here.
-        if new_pages >= Pages::max_value() {
-            // Linear memory size would exceed the index range.
-            return Err(MemoryError::CouldNotGrow {
-                current: self.mmap.size,
-                attempted_delta: delta,
-            });
-        }
-
-        let delta_bytes = delta.bytes().0;
-        let prev_bytes = prev_pages.bytes().0;
-        let new_bytes = new_pages.bytes().0;
-
-        if new_bytes > self.mmap.alloc.len() - self.offset_guard_size {
-            // If the new size is within the declared maximum, but needs more memory than we
-            // have on hand, it's a dynamic heap and it can move.
-            let guard_bytes = self.offset_guard_size;
-            let request_bytes =
-                new_bytes
-                    .checked_add(guard_bytes)
-                    .ok_or_else(|| MemoryError::CouldNotGrow {
-                        current: new_pages,
-                        attempted_delta: Bytes(guard_bytes).try_into().unwrap(),
-                    })?;
-
-            let mut new_mmap =
-                Mmap::accessible_reserved(new_bytes, request_bytes).map_err(MemoryError::Region)?;
-
-            let copy_len = self.mmap.alloc.len() - self.offset_guard_size;
-            new_mmap.as_mut_slice()[..copy_len]
-                .copy_from_slice(&self.mmap.alloc.as_slice()[..copy_len]);
-
-            self.mmap.alloc = new_mmap;
-        } else if delta_bytes > 0 {
-            // Make the newly allocated pages accessible.
-            self.mmap
-                .alloc
-                .make_accessible(prev_bytes, delta_bytes)
-                .map_err(MemoryError::Region)?;
-        }
-
-        self.mmap.size = new_pages;
-
-        // update memory definition
-        unsafe {
-            let mut md_ptr = self.get_vm_memory_definition();
-            let md = md_ptr.as_mut();
-            md.current_length = new_pages.bytes().0;
-            md.base = self.mmap.alloc.as_mut_ptr() as _;
-        }
-
-        Ok(prev_pages)
+    fn grow(&mut self, delta: Pages) -> Result<Pages, MemoryError> {
+        self.mmap.grow(delta, self.config.clone())
     }
 
     /// Return a `VMMemoryDefinition` for exposing the memory to compiled wasm code.
-    pub fn vmmemory(&self) -> NonNull<VMMemoryDefinition> {
-        self.get_vm_memory_definition()
+    fn vmmemory(&self) -> NonNull<VMMemoryDefinition> {
+        self.mmap.vm_memory_definition.as_ptr()
+    }
+
+    /// Owned memory can not be cloned (this will always return None)
+    fn try_clone(&self) -> Option<Box<dyn LinearMemory + 'static>> {
+        None
+    }
+}
+
+impl Into<VMMemory>
+for VMOwnedMemory
+{
+    fn into(self) -> VMMemory {
+        VMMemory(Box::new(self))
+    }
+}
+
+/// Represents linear memory that can be either owned or shared
+#[derive(Debug)]
+pub struct VMMemory(Box<dyn LinearMemory + 'static>);
+
+impl Into<VMMemory>
+for Box<dyn LinearMemory + 'static>
+{
+    fn into(self) -> VMMemory {
+        VMMemory(self)
+    }
+}
+
+impl LinearMemory
+for VMMemory
+{
+    /// Returns the type for this memory.
+    fn ty(&self) -> MemoryType {
+        self.0.ty()
+    }
+
+    /// Returns the size of hte memory in pages
+    fn size(&self) -> Pages {
+        self.0.size()
+    }
+
+    /// Grow memory by the specified amount of wasm pages.
+    ///
+    /// Returns `None` if memory can't be grown by the specified amount
+    /// of wasm pages.
+    fn grow(&mut self, delta: Pages) -> Result<Pages, MemoryError> {
+        self.0.grow(delta)
+    }
+
+    /// Returns the memory style for this memory.
+    fn style(&self) -> MemoryStyle {
+        self.0.style()
+    }
+
+    /// Return a `VMMemoryDefinition` for exposing the memory to compiled wasm code.
+    fn vmmemory(&self) -> NonNull<VMMemoryDefinition> {
+        self.0.vmmemory()
+    }
+
+    /// Attempts to clone this memory (if its clonable)
+    fn try_clone(&self) -> Option<Box<dyn LinearMemory + 'static>> {
+        self.0.try_clone()
+    }
+}
+
+impl VMMemory
+{
+    /// Creates a new linear memory instance of the correct type with specified
+    /// minimum and maximum number of wasm pages.
+    ///
+    /// This creates a `Memory` with owned metadata: this can be used to create a memory
+    /// that will be imported into Wasm modules.
+    pub fn new(memory: &MemoryType, style: &MemoryStyle) -> Result<VMMemory, MemoryError> {
+        Ok(
+            Self(Box::new(VMOwnedMemory::new(memory, style)?))
+        )
+    }
+
+    /// Create a new linear memory instance with specified minimum and maximum number of wasm pages.
+    ///
+    /// This creates a `Memory` with metadata owned by a VM, pointed to by
+    /// `vm_memory_location`: this can be used to create a local memory.
+    ///
+    /// # Safety
+    /// - `vm_memory_location` must point to a valid location in VM memory.
+    pub unsafe fn from_definition(
+        memory: &MemoryType,
+        style: &MemoryStyle,
+        vm_memory_location: NonNull<VMMemoryDefinition>,
+    ) -> Result<VMMemory, MemoryError> {
+        Ok(
+            Self(Box::new(VMOwnedMemory::from_definition(memory, style, vm_memory_location)?))
+        )
+    }
+
+    /// Creates VMMemory from a custom implementation - the following into implementations
+    /// are natively supported
+    /// - VMOwnedMemory -> VMMemory
+    /// - VMSharedMemory -> VMMemory
+    /// - Box<dyn LinearMemory + 'static> -> VMMemory
+    pub fn from_custom<IntoVMMemory>(memory: IntoVMMemory) -> VMMemory
+    where IntoVMMemory: Into<VMMemory>
+    {
+        memory.into()
     }
 }

@@ -58,7 +58,7 @@ pub mod vm {
 
     pub use wasmer_vm::{
         MemoryError, MemoryStyle, TableStyle, VMExtern, VMMemory, VMMemoryDefinition, VMTable,
-        VMTableDefinition,
+        VMTableDefinition, 
     };
 }
 
