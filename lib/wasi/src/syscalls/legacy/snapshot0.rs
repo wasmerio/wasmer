@@ -148,7 +148,7 @@ pub fn poll_oneoff(
         wasi_try_mem_ok!(in_sub_new.write(types::__wasi_subscription_t {
             userdata: orig.userdata,
             type_: orig.type_,
-            u: if orig.type_ == types::__WASI_EVENTTYPE_CLOCK {
+            u: if orig.type_ == wasi_snapshot0::Eventtype::Clock {
                 types::__wasi_subscription_u {
                     clock: types::__wasi_subscription_clock_t {
                         clock_id: unsafe { orig.u.clock.clock_id },

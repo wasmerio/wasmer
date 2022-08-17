@@ -509,6 +509,35 @@ pub mod wasi_snapshot0 {
       Ok(())}
   }
   
+  /// Type of a subscription to an event or its occurrence.
+  #[repr(u8)]
+  #[derive(Clone, Copy, PartialEq, Eq)]
+  pub enum Eventtype {
+    /// The time value of clock `subscription-clock::id` has
+    /// reached timestamp `subscription-clock::timeout`.
+    Clock,
+    /// File descriptor `subscription-fd-readwrite::file-descriptor` has data
+    /// available for reading. This event always triggers for regular files.
+    FdRead,
+    /// File descriptor `subscription-fd-readwrite::file-descriptor` has capacity
+    /// available for writing. This event always triggers for regular files.
+    FdWrite,
+  }
+  impl core::fmt::Debug for Eventtype {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+      match self {
+        Eventtype::Clock => {
+          f.debug_tuple("Eventtype::Clock").finish()
+        }
+        Eventtype::FdRead => {
+          f.debug_tuple("Eventtype::FdRead").finish()
+        }
+        Eventtype::FdWrite => {
+          f.debug_tuple("Eventtype::FdWrite").finish()
+        }
+      }
+    }
+  }
   #[allow(unused_imports)]
   use wasmer::AsStoreMut as _;
   #[allow(unused_imports)]

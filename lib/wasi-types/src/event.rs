@@ -52,17 +52,19 @@ impl EventEnum {
 pub struct __wasi_event_t {
     pub userdata: __wasi_userdata_t,
     pub error: wasi_snapshot0::Errno,
-    pub type_: __wasi_eventtype_t,
+    pub type_: wasi_snapshot0::Eventtype,
     pub u: __wasi_event_u,
 }
 
 impl __wasi_event_t {
     pub fn tagged(&self) -> Option<EventEnum> {
         match self.type_ {
-            __WASI_EVENTTYPE_FD_READ | __WASI_EVENTTYPE_FD_WRITE => Some(EventEnum::FdReadWrite {
-                nbytes: unsafe { self.u.fd_readwrite.nbytes },
-                flags: unsafe { self.u.fd_readwrite.flags },
-            }),
+            wasi_snapshot0::Eventtype::FdRead | wasi_snapshot0::Eventtype::FdWrite => {
+                Some(EventEnum::FdReadWrite {
+                    nbytes: unsafe { self.u.fd_readwrite.nbytes },
+                    flags: unsafe { self.u.fd_readwrite.flags },
+                })
+            }
             _ => None,
         }
     }
@@ -97,7 +99,7 @@ unsafe impl ValueType for __wasi_event_t {
             .zero_padding_bytes(&mut bytes[field!(type_)..field_end!(type_)]);
         zero!(field_end!(type_), field!(u));
         match self.type_ {
-            __WASI_EVENTTYPE_FD_READ | __WASI_EVENTTYPE_FD_WRITE => unsafe {
+            wasi_snapshot0::Eventtype::FdRead | wasi_snapshot0::Eventtype::FdWrite => unsafe {
                 self.u.fd_readwrite.zero_padding_bytes(
                     &mut bytes[field!(u.fd_readwrite)..field_end!(u.fd_readwrite)],
                 );
@@ -112,16 +114,10 @@ unsafe impl ValueType for __wasi_event_t {
 pub type __wasi_eventrwflags_t = u16;
 pub const __WASI_EVENT_FD_READWRITE_HANGUP: u16 = 1 << 0;
 
-pub type __wasi_eventtype_t = u8;
-pub const __WASI_EVENTTYPE_CLOCK: u8 = 0;
-pub const __WASI_EVENTTYPE_FD_READ: u8 = 1;
-pub const __WASI_EVENTTYPE_FD_WRITE: u8 = 2;
-
-pub fn eventtype_to_str(event_type: __wasi_eventtype_t) -> &'static str {
+pub fn eventtype_to_str(event_type: wasi_snapshot0::Eventtype) -> &'static str {
     match event_type {
-        __WASI_EVENTTYPE_CLOCK => "__WASI_EVENTTYPE_CLOCK",
-        __WASI_EVENTTYPE_FD_READ => "__WASI_EVENTTYPE_FD_READ",
-        __WASI_EVENTTYPE_FD_WRITE => "__WASI_EVENTTYPE_FD_WRITE",
-        _ => "INVALID EVENTTYPE",
+        wasi_snapshot0::Eventtype::Clock => "Wasi::Eventtype::Clock",
+        wasi_snapshot0::Eventtype::FdRead => "Wasi::Eventtype::FdRead",
+        wasi_snapshot0::Eventtype::FdWrite => "Wasi::Eventtype::FdWrite",
     }
 }

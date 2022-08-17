@@ -28,7 +28,7 @@ pub union __wasi_subscription_u {
 #[repr(C)]
 pub struct __wasi_subscription_t {
     pub userdata: __wasi_userdata_t,
-    pub type_: __wasi_eventtype_t,
+    pub type_: wasi_snapshot0::Eventtype,
     pub u: __wasi_subscription_u,
 }
 
@@ -58,19 +58,18 @@ unsafe impl ValueType for __wasi_subscription_t {
             .zero_padding_bytes(&mut bytes[field!(type_)..field_end!(type_)]);
         zero!(field_end!(type_), field!(u));
         match self.type_ {
-            __WASI_EVENTTYPE_FD_READ | __WASI_EVENTTYPE_FD_WRITE => unsafe {
+            wasi_snapshot0::Eventtype::FdRead | wasi_snapshot0::Eventtype::FdWrite => unsafe {
                 self.u.fd_readwrite.zero_padding_bytes(
                     &mut bytes[field!(u.fd_readwrite)..field_end!(u.fd_readwrite)],
                 );
                 zero!(field_end!(u.fd_readwrite), field_end!(u));
             },
-            __WASI_EVENTTYPE_CLOCK => unsafe {
+            wasi_snapshot0::Eventtype::Clock => unsafe {
                 self.u
                     .clock
                     .zero_padding_bytes(&mut bytes[field!(u.clock)..field_end!(u.clock)]);
                 zero!(field_end!(u.clock), field_end!(u));
             },
-            _ => zero!(field!(u), field_end!(u)),
         }
         zero!(field_end!(u), mem::size_of_val(self));
     }
@@ -137,11 +136,10 @@ impl fmt::Debug for __wasi_subscription_t {
             .field(
                 "u",
                 match self.type_ {
-                    __WASI_EVENTTYPE_CLOCK => unsafe { &self.u.clock },
-                    __WASI_EVENTTYPE_FD_READ | __WASI_EVENTTYPE_FD_WRITE => unsafe {
+                    wasi_snapshot0::Eventtype::Clock => unsafe { &self.u.clock },
+                    wasi_snapshot0::Eventtype::FdRead | wasi_snapshot0::Eventtype::FdWrite => unsafe {
                         &self.u.fd_readwrite
                     },
-                    _ => &"INVALID EVENTTYPE",
                 },
             )
             .finish()

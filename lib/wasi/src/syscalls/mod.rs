@@ -3276,7 +3276,7 @@ pub fn poll_oneoff<M: MemorySize>(
             let event = __wasi_event_t {
                 userdata,
                 error: wasi_snapshot0::Errno::Success,
-                type_: __WASI_EVENTTYPE_CLOCK,
+                type_: wasi_snapshot0::Eventtype::Clock,
                 u: unsafe {
                     __wasi_event_u {
                         fd_readwrite: __wasi_event_fd_readwrite_t {

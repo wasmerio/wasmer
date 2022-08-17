@@ -481,21 +481,23 @@ record fdstat {
 //   ;;; User-provided value that may be attached to objects that is retained when
 //   ;;; extracted from the implementation.
 //   (typename $userdata u64)
-//   
-//   ;;; Type of a subscription to an event or its occurrence.
-//   (typename $eventtype
-//     (enum (@witx tag u8)
-//       ;;; The time value of clock `subscription_clock::id` has
-//       ;;; reached timestamp `subscription_clock::timeout`.
-//       $clock
-//       ;;; File descriptor `subscription_fd_readwrite::file_descriptor` has data
-//       ;;; available for reading. This event always triggers for regular files.
-//       $fd_read
-//       ;;; File descriptor `subscription_fd_readwrite::file_descriptor` has capacity
-//       ;;; available for writing. This event always triggers for regular files.
-//       $fd_write
-//     )
-//   )
+
+/// Type of a subscription to an event or its occurrence.
+enum eventtype {
+    // TODO: wit appears to not have support for enum type size
+    //enum (@witx tag u8)
+
+    /// The time value of clock `subscription-clock::id` has
+    /// reached timestamp `subscription-clock::timeout`.
+    clock,
+    /// File descriptor `subscription-fd-readwrite::file-descriptor` has data
+    /// available for reading. This event always triggers for regular files.
+    fd-read,
+    /// File descriptor `subscription-fd-readwrite::file-descriptor` has capacity
+    /// available for writing. This event always triggers for regular files.
+    fd-write,
+}
+
 //   
 //   ;;; The state of the file descriptor subscribed to with
 //   ;;; `eventtype::fd_read` or `eventtype::fd_write`.
