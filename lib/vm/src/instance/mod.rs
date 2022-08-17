@@ -16,10 +16,11 @@ use crate::trap::{catch_traps, Trap, TrapCode};
 use crate::vmcontext::{
     memory_copy, memory_fill, VMBuiltinFunctionsArray, VMCallerCheckedAnyfunc, VMContext,
     VMFunctionContext, VMFunctionImport, VMFunctionKind, VMGlobalDefinition, VMGlobalImport,
-    VMMemoryImport, VMSharedSignatureIndex, VMTableDefinition, VMTableImport, VMTrampoline,
+    VMMemoryDefinition, VMMemoryImport, VMSharedSignatureIndex, VMTableDefinition, VMTableImport,
+    VMTrampoline,
 };
+use crate::LinearMemory;
 use crate::{FunctionBodyPtr, MaybeInstanceOwned, TrapHandlerFn, VMFunctionBody};
-use crate::{LinearMemory, VMMemoryDefinition};
 use crate::{VMFuncRef, VMFunction, VMGlobal, VMMemory, VMTable};
 pub use allocator::InstanceAllocator;
 use memoffset::offset_of;
