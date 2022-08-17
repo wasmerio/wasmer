@@ -14,9 +14,9 @@ use crate::store::{InternalStoreHandle, StoreObjects};
 use crate::table::TableElement;
 use crate::trap::{catch_traps, Trap, TrapCode};
 use crate::vmcontext::{
-    memory_copy, memory_fill, VMBuiltinFunctionsArray, VMCallerCheckedAnyfunc, VMContext,
-    VMFunctionContext, VMFunctionImport, VMFunctionKind, VMGlobalDefinition, VMGlobalImport,
-    VMMemoryImport, VMSharedSignatureIndex, VMTableDefinition, VMTableImport, VMTrampoline,
+    VMBuiltinFunctionsArray, VMCallerCheckedAnyfunc, VMContext, VMFunctionContext,
+    VMFunctionImport, VMFunctionKind, VMGlobalDefinition, VMGlobalImport,
+    VMMemoryImport, VMSharedSignatureIndex, VMTableDefinition, VMTableImport, VMTrampoline, memory_copy, memory_fill,
 };
 use crate::{FunctionBodyPtr, MaybeInstanceOwned, TrapHandlerFn, VMFunctionBody};
 use crate::{LinearMemory, VMMemoryDefinition};
@@ -36,8 +36,9 @@ use std::sync::Arc;
 use wasmer_types::entity::{packed_option::ReservedValue, BoxedSlice, EntityRef, PrimaryMap};
 use wasmer_types::{
     DataIndex, DataInitializer, ElemIndex, ExportIndex, FunctionIndex, GlobalIndex, GlobalInit,
-    LocalFunctionIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryError,
-    MemoryIndex, ModuleInfo, Pages, SignatureIndex, TableIndex, TableInitializer, VMOffsets,
+    LocalFunctionIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex,
+    ModuleInfo, Pages, SignatureIndex, TableIndex, TableInitializer, VMOffsets, LinearMemory,
+    MemoryError, VMMemoryDefinition
 };
 
 /// A WebAssembly instance.
