@@ -24,7 +24,7 @@ use std::{
 };
 use wasmer_wasi::{
     get_wasi_version, FsError, VirtualFile, WasiFile, WasiFunctionEnv, WasiState, WasiStateBuilder,
-    WasiVersion,
+    WasiVersion, Pipe,
 };
 
 /// Function callback that takes:
