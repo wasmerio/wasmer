@@ -482,6 +482,47 @@ pub mod wasi_snapshot0 {
       }
     }
   }
+  /// File or memory access pattern advisory information.
+  #[repr(u8)]
+  #[derive(Clone, Copy, PartialEq, Eq)]
+  pub enum Advice {
+    /// The application has no advice to give on its behavior with respect to the specified data.
+    Normal,
+    /// The application expects to access the specified data sequentially from lower offsets to higher offsets.
+    Sequential,
+    /// The application expects to access the specified data in a random order.
+    Random,
+    /// The application expects to access the specified data in the near future.
+    Willneed,
+    /// The application expects that it will not access the specified data in the near future.
+    Dontneed,
+    /// The application expects to access the specified data once and then not reuse it thereafter.
+    Noreuse,
+  }
+  impl core::fmt::Debug for Advice {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+      match self {
+        Advice::Normal => {
+          f.debug_tuple("Advice::Normal").finish()
+        }
+        Advice::Sequential => {
+          f.debug_tuple("Advice::Sequential").finish()
+        }
+        Advice::Random => {
+          f.debug_tuple("Advice::Random").finish()
+        }
+        Advice::Willneed => {
+          f.debug_tuple("Advice::Willneed").finish()
+        }
+        Advice::Dontneed => {
+          f.debug_tuple("Advice::Dontneed").finish()
+        }
+        Advice::Noreuse => {
+          f.debug_tuple("Advice::Noreuse").finish()
+        }
+      }
+    }
+  }
   wit_bindgen_wasmer::bitflags::bitflags! {
     /// File descriptor flags.
     pub struct Fdflags: u8 {/// Append mode: Data written to the file is always appended to the file's end.

@@ -11,7 +11,6 @@
 // Needed for #[derive(ValueType)]
 extern crate wasmer_types as wasmer;
 
-mod advice;
 mod bus;
 mod directory;
 mod error;
@@ -25,7 +24,6 @@ mod time;
 mod versions;
 
 pub use crate::time::*;
-pub use advice::*;
 pub use bus::*;
 pub use directory::*;
 pub use error::*;

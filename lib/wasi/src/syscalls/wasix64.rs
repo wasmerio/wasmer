@@ -61,7 +61,7 @@ pub(crate) fn fd_advise(
     fd: __wasi_fd_t,
     offset: __wasi_filesize_t,
     len: __wasi_filesize_t,
-    advice: __wasi_advice_t,
+    advice: wasi_snapshot0::Advice,
 ) -> wasi_snapshot0::Errno {
     super::fd_advise(ctx, fd, offset, len, advice)
 }

@@ -360,24 +360,25 @@ enum filetype {
 //       (field $d_type $filetype)
 //     )
 //   )
-//   
-//   ;;; File or memory access pattern advisory information.
-//   (typename $advice
-//     (enum (@witx tag u8)
-//       ;;; The application has no advice to give on its behavior with respect to the specified data.
-//       $normal
-//       ;;; The application expects to access the specified data sequentially from lower offsets to higher offsets.
-//       $sequential
-//       ;;; The application expects to access the specified data in a random order.
-//       $random
-//       ;;; The application expects to access the specified data in the near future.
-//       $willneed
-//       ;;; The application expects that it will not access the specified data in the near future.
-//       $dontneed
-//       ;;; The application expects to access the specified data once and then not reuse it thereafter.
-//       $noreuse
-//     )
-//   )
+
+/// File or memory access pattern advisory information.
+enum advice {
+    // TODO: wit appears to not have support for enum type size
+    //enum (@witx tag u8)
+
+    /// The application has no advice to give on its behavior with respect to the specified data.
+    normal,
+    /// The application expects to access the specified data sequentially from lower offsets to higher offsets.
+    sequential,
+    /// The application expects to access the specified data in a random order.
+    random,
+    /// The application expects to access the specified data in the near future.
+    willneed,
+    /// The application expects that it will not access the specified data in the near future.
+    dontneed,
+    /// The application expects to access the specified data once and then not reuse it thereafter.
+    noreuse,
+}
 
 /// File descriptor flags.
 flags fdflags {

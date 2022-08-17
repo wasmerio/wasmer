@@ -120,3 +120,30 @@ unsafe impl wit_bindgen_wasmer::wasmer::FromToNativeWasmType for wasi_snapshot0:
         false
     }
 }
+
+// TODO: if necessary, must be implemented in wit-bindgen
+unsafe impl wit_bindgen_wasmer::wasmer::FromToNativeWasmType for wasi_snapshot0::Advice {
+    type Native = i32;
+
+    fn to_native(self) -> Self::Native {
+        self as i32
+    }
+    fn from_native(n: Self::Native) -> Self {
+        match n {
+            0 => Self::Normal,
+            1 => Self::Sequential,
+            2 => Self::Random,
+            3 => Self::Willneed,
+            4 => Self::Dontneed,
+            5 => Self::Noreuse,
+            // TODO: What should we map invalid native values to?
+            _ => todo!("Need to decide what to do here…"),
+        }
+    }
+
+    #[cfg(feature = "sys")]
+    fn is_from_store(&self, _store: &impl wit_bindgen_wasmer::wasmer::AsStoreRef) -> bool {
+        // TODO: find correct implementation
+        false
+    }
+}
