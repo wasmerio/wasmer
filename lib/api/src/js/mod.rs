@@ -73,6 +73,12 @@ pub use crate::js::types::{
 pub use crate::js::value::Value;
 pub use crate::js::value::Value as Val;
 
+pub mod vm {
+    //! The `vm` module re-exports wasmer-vm types.
+    
+    pub use crate::js::export::VMMemory;
+}
+
 pub use wasmer_types::is_wasm;
 pub use wasmer_types::{
     Bytes, ExportIndex, GlobalInit, LocalFunctionIndex, Pages, ValueType, WASM_MAX_PAGES,

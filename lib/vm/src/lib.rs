@@ -45,7 +45,8 @@ pub use crate::function_env::VMFunctionEnvironment;
 pub use crate::global::*;
 pub use crate::imports::Imports;
 pub use crate::instance::{InstanceAllocator, InstanceHandle};
-pub use crate::memory::{MemoryError, VMMemory};
+pub use crate::memory::{VMMemory, VMOwnedMemory, VMSharedMemory};
+pub use wasmer_types::MemoryError;
 pub use crate::mmap::Mmap;
 pub use crate::probestack::PROBESTACK;
 pub use crate::sig_registry::SignatureRegistry;
@@ -56,11 +57,11 @@ pub use crate::table::{TableElement, VMTable};
 pub use crate::trap::*;
 pub use crate::vmcontext::{
     VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionContext, VMFunctionContext,
-    VMFunctionImport, VMFunctionKind, VMGlobalDefinition, VMGlobalImport, VMMemoryDefinition,
+    VMFunctionImport, VMFunctionKind, VMGlobalDefinition, VMGlobalImport,
     VMMemoryImport, VMSharedSignatureIndex, VMTableDefinition, VMTableImport, VMTrampoline,
 };
 pub use wasmer_types::LibCall;
-pub use wasmer_types::MemoryStyle;
+pub use wasmer_types::{MemoryStyle, VMMemoryDefinition};
 use wasmer_types::RawValue;
 pub use wasmer_types::TableStyle;
 pub use wasmer_types::{TargetSharedSignatureIndex, VMBuiltinFunctionIndex, VMOffsets};

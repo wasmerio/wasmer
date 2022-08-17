@@ -4,7 +4,7 @@ use std::convert::TryInto;
 use std::marker::PhantomData;
 use std::mem::MaybeUninit;
 use std::slice;
-use wasmer_types::Pages;
+use wasmer_types::{Pages, LinearMemory};
 
 use super::memory::MemoryBuffer;
 use super::Memory;
