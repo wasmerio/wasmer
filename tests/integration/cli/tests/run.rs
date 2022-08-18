@@ -2,7 +2,7 @@
 
 use anyhow::bail;
 use std::process::Command;
-use wasmer_integration_tests_cli::{ASSET_PATH, C_ASSET_PATH, WASMER_PATH};
+use wasmer_integration_tests_cli::{get_wasmer_path, ASSET_PATH, C_ASSET_PATH};
 
 fn wasi_test_wasm_path() -> String {
     format!("{}/{}", C_ASSET_PATH, "qjs.wasm")
@@ -18,7 +18,7 @@ fn test_no_start_wat_path() -> String {
 
 #[test]
 fn run_wasi_works() -> anyhow::Result<()> {
-    let output = Command::new(WASMER_PATH)
+    let output = Command::new(get_wasmer_path())
         .arg("run")
         .arg(wasi_test_wasm_path())
         .arg("--")
@@ -44,7 +44,7 @@ fn run_wasi_works() -> anyhow::Result<()> {
 
 #[test]
 fn run_no_imports_wasm_works() -> anyhow::Result<()> {
-    let output = Command::new(WASMER_PATH)
+    let output = Command::new(get_wasmer_path())
         .arg("run")
         .arg(test_no_imports_wat_path())
         .output()?;
@@ -82,7 +82,7 @@ fn run_invoke_works_with_nomain_wasi() -> anyhow::Result<()> {
     let random = rand::random::<u64>();
     let module_file = std::env::temp_dir().join(&format!("{random}.wat"));
     std::fs::write(&module_file, wasi_wat.as_bytes()).unwrap();
-    let output = Command::new(WASMER_PATH)
+    let output = Command::new(get_wasmer_path())
         .arg("run")
         .arg(&module_file)
         .output()?;
@@ -94,7 +94,7 @@ fn run_invoke_works_with_nomain_wasi() -> anyhow::Result<()> {
         panic!();
     }
 
-    let output = Command::new(WASMER_PATH)
+    let output = Command::new(get_wasmer_path())
         .arg("run")
         .arg("--invoke")
         .arg("_start")
@@ -114,7 +114,7 @@ fn run_invoke_works_with_nomain_wasi() -> anyhow::Result<()> {
 
 #[test]
 fn run_no_start_wasm_report_error() -> anyhow::Result<()> {
-    let output = Command::new(WASMER_PATH)
+    let output = Command::new(get_wasmer_path())
         .arg("run")
         .arg(test_no_start_wat_path())
         .output()?;
