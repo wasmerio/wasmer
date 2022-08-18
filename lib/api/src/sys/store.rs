@@ -1,6 +1,5 @@
 use crate::sys::tunables::BaseTunables;
 use std::fmt;
-use std::sync::{Arc, RwLock};
 #[cfg(feature = "compiler")]
 use wasmer_compiler::{Engine, EngineBuilder, Tunables};
 use wasmer_vm::{init_traps, TrapHandler, TrapHandlerFn};
@@ -33,7 +32,6 @@ pub struct Store {
     pub(crate) inner: Box<StoreInner>,
     #[cfg(feature = "compiler")]
     engine: Engine,
-    trap_handler: Arc<RwLock<Option<Box<TrapHandlerFn<'static>>>>>,
 }
 
 impl Store {
@@ -80,7 +78,6 @@ impl Store {
                 trap_handler: None,
             }),
             engine: engine.cloned(),
-            trap_handler: Arc::new(RwLock::new(None)),
         }
     }
 
@@ -114,8 +111,8 @@ impl PartialEq for Store {
 
 unsafe impl TrapHandler for Store {
     fn custom_trap_handler(&self, call: &dyn Fn(&TrapHandlerFn) -> bool) -> bool {
-        if let Some(handler) = self.trap_handler.read().unwrap().as_ref() {
-            call(handler)
+        if let Some(handler) = self.inner.trap_handler.as_ref() {
+            call(handler.as_ref())
         } else {
             false
         }
@@ -242,7 +239,7 @@ impl<'a> StoreRef<'a> {
         self.inner
             .trap_handler
             .as_ref()
-            .map(|handler| handler as *const _)
+            .map(|handler| handler.as_ref() as *const _)
     }
 }
 

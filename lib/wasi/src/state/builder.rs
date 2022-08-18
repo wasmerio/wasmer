@@ -468,6 +468,8 @@ impl WasiStateBuilder {
             inodes: Arc::new(inodes),
             args: self.args.clone(),
             threading: Default::default(),
+            futexs: Default::default(),
+            bus: Default::default(),
             envs: self
                 .envs
                 .iter()

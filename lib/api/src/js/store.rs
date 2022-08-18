@@ -446,6 +446,7 @@ mod objects {
         Instance(NonNull<T>),
     }
 
+    #[allow(dead_code)]
     impl<T> MaybeInstanceOwned<T> {
         /// Returns underlying pointer to the VM data.
         #[allow(dead_code)]
