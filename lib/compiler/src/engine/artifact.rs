@@ -15,20 +15,15 @@ use crate::{Compiler, FunctionBodyData, ModuleTranslationState};
 use crate::{Engine, EngineInner};
 use enumset::EnumSet;
 #[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
-use std::collections::BTreeMap;
-#[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
 use std::mem;
 use std::sync::Arc;
 use std::sync::Mutex;
 #[cfg(feature = "static-artifact-create")]
 use wasmer_object::{emit_compilation, emit_data, get_object_for_target, Object};
+#[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
+use wasmer_types::compilation::symbols::{ModuleMetadata, ModuleMetadataSymbolRegistry};
 use wasmer_types::entity::{BoxedSlice, PrimaryMap};
 use wasmer_types::MetadataHeader;
-#[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
-use wasmer_types::{
-    compilation::symbols::{ModuleMetadata, ModuleMetadataSymbolRegistry},
-    entity::EntityRef,
-};
 use wasmer_types::{
     CompileError, CpuFeature, DataInitializer, DeserializeError, FunctionIndex, LocalFunctionIndex,
     MemoryIndex, ModuleInfo, OwnedDataInitializer, SerializableModule, SerializeError,
@@ -677,43 +672,28 @@ impl Artifact {
 
         let engine_inner = engine.inner();
         let signature_registry = engine_inner.signatures();
-        let mut sig_map: BTreeMap<SignatureIndex, VMSharedSignatureIndex> = BTreeMap::new();
 
-        let num_imported_functions = metadata.compile_info.module.num_imported_functions;
-        // set up the imported functions first...
-        for i in 0..num_imported_functions {
-            let sig_idx = metadata.compile_info.module.functions[FunctionIndex::new(i)];
-            let func_type = &metadata.compile_info.module.signatures[sig_idx];
-            let vm_shared_idx = signature_registry.register(func_type);
-            sig_map.insert(sig_idx, vm_shared_idx);
-        }
         // read finished functions in order now...
-        for i in 0..num_finished_functions {
-            let local_func_idx = LocalFunctionIndex::new(i);
-            let func_idx = metadata.compile_info.module.func_index(local_func_idx);
-            let sig_idx = metadata.compile_info.module.functions[func_idx];
-            let func_type = &metadata.compile_info.module.signatures[sig_idx];
-            let vm_shared_idx = signature_registry.register(func_type);
-            sig_map.insert(sig_idx, vm_shared_idx);
-
+        for _i in 0..num_finished_functions {
             byte_buffer[0..WORD_SIZE]
                 .clone_from_slice(&bytes[cur_offset..(cur_offset + WORD_SIZE)]);
             let fp = FunctionBodyPtr(usize::from_ne_bytes(byte_buffer) as _);
             cur_offset += WORD_SIZE;
 
             // TODO: we can read back the length here if we serialize it. This will improve debug output.
-
             finished_functions.push(fp);
         }
 
-        let mut signatures: PrimaryMap<_, VMSharedSignatureIndex> = PrimaryMap::new();
-        for i in 0..(sig_map.len()) {
-            if let Some(shared_idx) = sig_map.get(&SignatureIndex::new(i)) {
-                signatures.push(*shared_idx);
-            } else {
-                panic!("Invalid data, missing sig idx; TODO: handle this error");
-            }
-        }
+        // We register all the signatures
+        let signatures = {
+            metadata
+                .compile_info
+                .module
+                .signatures
+                .values()
+                .map(|sig| signature_registry.register(sig))
+                .collect::<PrimaryMap<_, _>>()
+        };
 
         // read trampolines in order
         let mut finished_function_call_trampolines = PrimaryMap::new();

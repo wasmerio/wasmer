@@ -475,7 +475,7 @@ mod sys {
     //                 let module = Module::new(&store, wat)?;
     //                 let instance = Instance::new(&mut store, &module, &imports! {})?;
     //                 let f: TypedFunction<(i32, i32), i32> =
-    //                     instance.exports.get_with_generics_weak("sum")?;
+    //                     instance.exports.get("sum")?;
 
     //                 assert_eq!(f.call(&mut store, 4, 5)?, 9);
     //                 f
