@@ -386,10 +386,8 @@ unsafe extern "C" fn wasi_console_out_seek_memory(
 unsafe extern "C" fn wasi_console_out_delete_memory(
     ptr: *const c_void, /* = *Pipe */
 ) -> i64 {
-    let ptr = ptr as *mut Pipe;
-    let ptr = &mut *ptr;
-    let _ = Box::from_raw(ptr); // TODO: correct?
-    // dropped here, destructors run here
+    let ptr = ptr as *const Pipe;
+    let _: Pipe = std::mem::transmute_copy(&*ptr); // dropped here, destructors run here
     0
 }
 
@@ -397,9 +395,12 @@ unsafe extern "C" fn wasi_console_out_delete_memory(
 /// for backing stdin / stdout / stderr
 #[no_mangle]
 pub unsafe extern "C" fn wasi_console_out_new_memory() -> *mut wasi_console_out_t {
+    
+    use std::mem::ManuallyDrop;
 
-    let data = Box::new(Pipe::new());
-    let ptr = Box::leak(data);
+    let data = Pipe::new();
+    let mut data = ManuallyDrop::new(data);
+    let ptr: &mut Pipe = &mut data;
 
     wasi_console_out_new(
         wasi_console_out_read_memory,
@@ -1244,26 +1245,18 @@ mod tests {
             } CustomWasiStdin;
 
             int64_t CustomWasiStdin_destructor(
-                const void* env,
-                uintptr_t sz,
-                uintptr_t ao
+                const void* env
             ) {
                 (void)env;
-                (void)sz;
-                (void)ao;
                 return 0;
             }
 
             int64_t CustomWasiStdin_onStdIn(
                 const void* env,
-                uintptr_t sz,
-                uintptr_t ao,
                 uintptr_t maxwrite,
                 wasi_console_stdin_response_t* in
             ) {
                 CustomWasiStdin* ptr = (CustomWasiStdin*)env;
-                (void)sz;
-                (void)ao;
                 (void)maxwrite;
                 if (ptr->invocation == 0) {
                     wasi_console_stdin_response_write_str(in, "hello");
@@ -1287,8 +1280,7 @@ mod tests {
                     CustomWasiStdin_onStdIn,
                     CustomWasiStdin_destructor,
                     &stdin,
-                    sizeof(stdin),
-                    8 // alignof(stdin)
+                    sizeof(stdin)
                 );
 
                 // Cloning the `wasi_console_out_t` does not deep-clone the
