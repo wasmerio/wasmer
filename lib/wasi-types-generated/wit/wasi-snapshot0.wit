@@ -749,15 +749,15 @@ flags subclockflags {
 //       $wr
 //     )
 //   )
-//   
-//   ;;; Identifiers for preopened capabilities.
-//   (typename $preopentype
-//     (enum (@witx tag u8)
-//       ;;; A pre-opened directory.
-//       $dir
-//     )
-//   )
-//   
+
+/// Identifiers for preopened capabilities.
+enum preopentype {
+    // TODO: wit appears to not have support for enum type size
+    // enum (@witx tag u8)
+    /// A pre-opened directory.
+    dir,
+}
+
 //   ;;; The contents of a $prestat when type is `preopentype::dir`.
 //   (typename $prestat_dir
 //     (record

@@ -697,6 +697,22 @@ pub mod wasi_snapshot0 {
       Ok(())}
   }
   
+  /// Identifiers for preopened capabilities.
+  #[repr(u8)]
+  #[derive(Clone, Copy, PartialEq, Eq)]
+  pub enum Preopentype {
+    /// A pre-opened directory.
+    Dir,
+  }
+  impl core::fmt::Debug for Preopentype {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+      match self {
+        Preopentype::Dir => {
+          f.debug_tuple("Preopentype::Dir").finish()
+        }
+      }
+    }
+  }
   
   /// Auxiliary data associated with the wasm exports.
   #[derive(Default)]

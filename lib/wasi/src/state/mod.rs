@@ -1427,7 +1427,7 @@ impl WasiFs {
 
     pub(crate) fn prestat_fd_inner(&self, inode_val: &InodeVal) -> __wasi_prestat_t {
         __wasi_prestat_t {
-            pr_type: __WASI_PREOPENTYPE_DIR,
+            pr_type: wasi_snapshot0::Preopentype::Dir,
             u: PrestatEnum::Dir {
                 // REVIEW:
                 pr_name_len: inode_val.name.len() as u32 + 1,

@@ -20,9 +20,6 @@ pub type __wasi_tid_t = u32;
 pub type __wasi_eventfdflags = u16;
 pub const __WASI_EVENTFDFLAGS_SEMAPHORE: __wasi_eventfdflags = 1 << 0;
 
-pub type __wasi_preopentype_t = u8;
-pub const __WASI_PREOPENTYPE_DIR: __wasi_preopentype_t = 0;
-
 #[derive(Debug, Copy, Clone, PartialEq, Eq, ValueType)]
 #[repr(C)]
 pub struct __wasi_prestat_u_dir_t {
@@ -44,7 +41,7 @@ impl fmt::Debug for __wasi_prestat_u {
 #[derive(Debug, Copy, Clone)]
 #[repr(C)]
 pub struct __wasi_prestat_t {
-    pub pr_type: __wasi_preopentype_t,
+    pub pr_type: wasi_snapshot0::Preopentype,
     pub u: __wasi_prestat_u,
 }
 
@@ -67,10 +64,9 @@ impl __wasi_prestat_t {
     #[allow(clippy::trivially_copy_pass_by_ref)]
     pub fn tagged(&self) -> Option<PrestatEnum> {
         match self.pr_type {
-            __WASI_PREOPENTYPE_DIR => Some(PrestatEnum::Dir {
+            wasi_snapshot0::Preopentype::Dir => Some(PrestatEnum::Dir {
                 pr_name_len: unsafe { self.u.dir.pr_name_len },
             }),
-            _ => None,
         }
     }
 }
@@ -98,13 +94,12 @@ unsafe impl ValueType for __wasi_prestat_t {
             .zero_padding_bytes(&mut bytes[field!(pr_type)..field_end!(pr_type)]);
         zero!(field_end!(pr_type), field!(u));
         match self.pr_type {
-            __WASI_PREOPENTYPE_DIR => unsafe {
+            wasi_snapshot0::Preopentype::Dir => unsafe {
                 self.u
                     .dir
                     .zero_padding_bytes(&mut bytes[field!(u.dir)..field_end!(u.dir)]);
                 zero!(field_end!(u.dir), field_end!(u));
             },
-            _ => zero!(field!(u), field_end!(u)),
         }
         zero!(field_end!(u), mem::size_of_val(self));
     }
