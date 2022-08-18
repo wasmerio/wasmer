@@ -614,12 +614,12 @@ pub fn fd_datasync(ctx: FunctionEnvMut<'_, WasiEnv>, fd: __wasi_fd_t) -> wasi_sn
 /// - `__wasi_fd_t fd`
 ///     The file descriptor whose metadata will be accessed
 /// Output:
-/// - `__wasi_fdstat_t *buf`
+/// - `wasi_snapshot0::Fdstat *buf`
 ///     The location where the metadata will be written
 pub fn fd_fdstat_get<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: __wasi_fd_t,
-    buf_ptr: WasmPtr<__wasi_fdstat_t, M>,
+    buf_ptr: WasmPtr<wasi_snapshot0::Fdstat, M>,
 ) -> wasi_snapshot0::Errno {
     debug!(
         "wasi::fd_fdstat_get: fd={}, buf_ptr={}",

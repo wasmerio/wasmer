@@ -628,6 +628,24 @@ pub mod wasi_snapshot0 {
       Ok(())}
   }
   
+  /// File descriptor attributes.
+  #[repr(C)]
+  #[derive(Copy, Clone)]
+  pub struct Fdstat {
+    /// File type.
+    pub fs_filetype: Filetype,
+    /// File descriptor flags.
+    pub fs_flags: Fdflags,
+    /// Rights that apply to this file descriptor.
+    pub fs_rights_base: Rights,
+    /// Maximum set of rights that may be installed on new file descriptors that
+    /// are created through this file descriptor, e.g., through `path_open`.
+    pub fs_rights_inheriting: Rights,
+  }
+  impl core::fmt::Debug for Fdstat {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+      f.debug_struct("Fdstat").field("fs-filetype", &self.fs_filetype).field("fs-flags", &self.fs_flags).field("fs-rights-base", &self.fs_rights_base).field("fs-rights-inheriting", &self.fs_rights_inheriting).finish()}
+  }
   /// Type of a subscription to an event or its occurrence.
   #[repr(u8)]
   #[derive(Clone, Copy, PartialEq, Eq)]
@@ -723,6 +741,7 @@ pub mod wasi_snapshot0 {
     #[allow(dead_code)]
     env: wasmer::FunctionEnv<WasiSnapshot0Data>,
     func_dirent_dummy_func: wasmer::TypedFunction<(i64,i64,i32,i32,), ()>,
+    func_fdstat_dummy_func: wasmer::TypedFunction<(i32,i32,i32,i32,i32,i32,), ()>,
   }
   impl WasiSnapshot0 {
     #[allow(unused_variables)]
@@ -775,8 +794,10 @@ pub mod wasi_snapshot0 {
     env: wasmer::FunctionEnv<WasiSnapshot0Data>,
     ) -> Result<Self, wasmer::ExportError> {
       let func_dirent_dummy_func= _instance.exports.get_typed_function(&store, "dirent-dummy-func")?;
+      let func_fdstat_dummy_func= _instance.exports.get_typed_function(&store, "fdstat-dummy-func")?;
       Ok(WasiSnapshot0{
         func_dirent_dummy_func,
+        func_fdstat_dummy_func,
         env,
       })
     }
@@ -784,6 +805,15 @@ pub mod wasi_snapshot0 {
     pub fn dirent_dummy_func(&self, store: &mut wasmer::Store,d: Dirent,)-> Result<(), wasmer::RuntimeError> {
       let Dirent{ d_next:d_next0, d_ino:d_ino0, d_namlen:d_namlen0, d_type:d_type0, } = d;
       self.func_dirent_dummy_func.call(store, wit_bindgen_wasmer::rt::as_i64(d_next0), wit_bindgen_wasmer::rt::as_i64(d_ino0), wit_bindgen_wasmer::rt::as_i32(d_namlen0), d_type0 as i32, )?;
+      Ok(())
+    }
+    /// Dummy function to expose fdstat into generated code
+    pub fn fdstat_dummy_func(&self, store: &mut wasmer::Store,d: Fdstat,)-> Result<(), wasmer::RuntimeError> {
+      let Fdstat{ fs_filetype:fs_filetype0, fs_flags:fs_flags0, fs_rights_base:fs_rights_base0, fs_rights_inheriting:fs_rights_inheriting0, } = d;
+      let flags1 = fs_flags0;
+      let flags2 = fs_rights_base0;
+      let flags3 = fs_rights_inheriting0;
+      self.func_fdstat_dummy_func.call(store, fs_filetype0 as i32, (flags1.bits >> 0) as i32, (flags2.bits >> 0) as i32, (flags2.bits >> 32) as i32, (flags3.bits >> 0) as i32, (flags3.bits >> 32) as i32, )?;
       Ok(())
     }
   }

@@ -105,15 +105,6 @@ unsafe impl ValueType for __wasi_prestat_t {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, ValueType)]
-#[repr(C)]
-pub struct __wasi_fdstat_t {
-    pub fs_filetype: wasi_snapshot0::Filetype,
-    pub fs_flags: wasi_snapshot0::Fdflags,
-    pub fs_rights_base: wasi_snapshot0::Rights,
-    pub fs_rights_inheriting: wasi_snapshot0::Rights,
-}
-
 pub type __wasi_filedelta_t = i64;
 
 pub type __wasi_filesize_t = u64;

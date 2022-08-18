@@ -434,6 +434,8 @@ record fdstat {
     /// are created through this file descriptor, e.g., through `path_open`.
     fs-rights-inheriting: rights,
 }
+/// Dummy function to expose fdstat into generated code
+fdstat-dummy-func: func(d: fdstat)
 
 //   ;;; Identifier for a device containing a file system. Can be used in combination
 //   ;;; with `inode` to uniquely identify a file or directory in the filesystem.

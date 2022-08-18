@@ -60,6 +60,44 @@ unsafe impl ValueType for wasi_snapshot0::Preopentype {
 }
 
 // TODO: if necessary, must be implemented in wit-bindgen
+unsafe impl ValueType for wasi_snapshot0::Fdstat {
+    fn zero_padding_bytes(&self, bytes: &mut [MaybeUninit<u8>]) {
+        macro_rules! field {
+            ($($f:tt)*) => {
+                &self.$($f)* as *const _ as usize - self as *const _ as usize
+            };
+        }
+        macro_rules! field_end {
+            ($($f:tt)*) => {
+                field!($($f)*) + std::mem::size_of_val(&self.$($f)*)
+            };
+        }
+        macro_rules! zero {
+            ($start:expr, $end:expr) => {
+                for i in $start..$end {
+                    bytes[i] = MaybeUninit::new(0);
+                }
+            };
+        }
+
+        self.fs_filetype
+            .zero_padding_bytes(&mut bytes[field!(fs_filetype)..field_end!(fs_filetype)]);
+        zero!(field_end!(fs_filetype), field!(fs_flags));
+
+        self.fs_flags
+            .zero_padding_bytes(&mut bytes[field!(fs_flags)..field_end!(fs_flags)]);
+        zero!(field_end!(fs_flags), field!(fs_rights_base));
+
+        self.fs_rights_base
+            .zero_padding_bytes(&mut bytes[field!(fs_rights_base)..field_end!(fs_rights_base)]);
+        zero!(
+            field_end!(fs_rights_inheriting),
+            std::mem::size_of_val(self)
+        );
+    }
+}
+
+// TODO: if necessary, must be implemented in wit-bindgen
 unsafe impl wit_bindgen_wasmer::wasmer::FromToNativeWasmType for wasi_snapshot0::Errno {
     type Native = i32;
 

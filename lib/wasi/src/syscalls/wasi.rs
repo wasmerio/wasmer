@@ -85,7 +85,7 @@ pub(crate) fn fd_datasync(ctx: FunctionEnvMut<WasiEnv>, fd: __wasi_fd_t) -> wasi
 pub(crate) fn fd_fdstat_get(
     ctx: FunctionEnvMut<WasiEnv>,
     fd: __wasi_fd_t,
-    buf_ptr: WasmPtr<__wasi_fdstat_t, MemoryType>,
+    buf_ptr: WasmPtr<wasi_snapshot0::Fdstat, MemoryType>,
 ) -> wasi_snapshot0::Errno {
     super::fd_fdstat_get::<MemoryType>(ctx, fd, buf_ptr)
 }

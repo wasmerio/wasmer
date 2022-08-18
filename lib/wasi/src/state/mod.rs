@@ -1353,10 +1353,10 @@ impl WasiFs {
         &self,
         inodes: &WasiInodes,
         fd: __wasi_fd_t,
-    ) -> Result<__wasi_fdstat_t, wasi_snapshot0::Errno> {
+    ) -> Result<wasi_snapshot0::Fdstat, wasi_snapshot0::Errno> {
         match fd {
             __WASI_STDIN_FILENO => {
-                return Ok(__wasi_fdstat_t {
+                return Ok(wasi_snapshot0::Fdstat {
                     fs_filetype: wasi_snapshot0::Filetype::CharacterDevice,
                     fs_flags: wasi_snapshot0::Fdflags::empty(),
                     fs_rights_base: STDIN_DEFAULT_RIGHTS,
@@ -1364,7 +1364,7 @@ impl WasiFs {
                 })
             }
             __WASI_STDOUT_FILENO => {
-                return Ok(__wasi_fdstat_t {
+                return Ok(wasi_snapshot0::Fdstat {
                     fs_filetype: wasi_snapshot0::Filetype::CharacterDevice,
                     fs_flags: wasi_snapshot0::Fdflags::APPEND,
                     fs_rights_base: STDOUT_DEFAULT_RIGHTS,
@@ -1372,7 +1372,7 @@ impl WasiFs {
                 })
             }
             __WASI_STDERR_FILENO => {
-                return Ok(__wasi_fdstat_t {
+                return Ok(wasi_snapshot0::Fdstat {
                     fs_filetype: wasi_snapshot0::Filetype::CharacterDevice,
                     fs_flags: wasi_snapshot0::Fdflags::APPEND,
                     fs_rights_base: STDERR_DEFAULT_RIGHTS,
@@ -1380,7 +1380,7 @@ impl WasiFs {
                 })
             }
             VIRTUAL_ROOT_FD => {
-                return Ok(__wasi_fdstat_t {
+                return Ok(wasi_snapshot0::Fdstat {
                     fs_filetype: wasi_snapshot0::Filetype::Directory,
                     fs_flags: wasi_snapshot0::Fdflags::empty(),
                     // TODO: fix this
@@ -1395,7 +1395,7 @@ impl WasiFs {
 
         let guard = inodes.arena[fd.inode].read();
         let deref = guard.deref();
-        Ok(__wasi_fdstat_t {
+        Ok(wasi_snapshot0::Fdstat {
             fs_filetype: match deref {
                 Kind::File { .. } => wasi_snapshot0::Filetype::RegularFile,
                 Kind::Dir { .. } => wasi_snapshot0::Filetype::Directory,
