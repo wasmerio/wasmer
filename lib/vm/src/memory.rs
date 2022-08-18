@@ -248,12 +248,12 @@ impl VMOwnedMemory {
         };
 
         Ok(Self {
-            mmap: mmap,
+            mmap,
             config: VMMemoryConfig {
                 maximum: memory.maximum,
                 offset_guard_size: offset_guard_bytes,
                 memory: *memory,
-                style: style.clone(),
+                style: *style,
             },
         })
     }
@@ -295,9 +295,9 @@ impl LinearMemory for VMOwnedMemory {
     }
 }
 
-impl Into<VMMemory> for VMOwnedMemory {
-    fn into(self) -> VMMemory {
-        VMMemory(Box::new(self))
+impl From<VMOwnedMemory> for VMMemory {
+    fn from(mem: VMOwnedMemory) -> Self {
+        Self(Box::new(mem))
     }
 }
 
@@ -305,9 +305,9 @@ impl Into<VMMemory> for VMOwnedMemory {
 #[derive(Debug)]
 pub struct VMMemory(Box<dyn LinearMemory + 'static>);
 
-impl Into<VMMemory> for Box<dyn LinearMemory + 'static> {
-    fn into(self) -> VMMemory {
-        VMMemory(self)
+impl From<Box<dyn LinearMemory + 'static>> for VMMemory {
+    fn from(mem: Box<dyn LinearMemory + 'static>) -> Self {
+        Self(mem)
     }
 }
 

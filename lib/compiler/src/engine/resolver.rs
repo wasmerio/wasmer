@@ -150,7 +150,7 @@ pub fn resolve_imports(
                                 bound: import_bound,
                                 ..
                             },
-                        ) = (export_memory_style.clone(), &import_memory_style)
+                        ) = (export_memory_style, &import_memory_style)
                         {
                             assert_ge!(bound, *import_bound);
                         }
