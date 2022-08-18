@@ -617,6 +617,28 @@ pub mod wasi_snapshot0 {
       Ok(())}
   }
   
+  wit_bindgen_wasmer::bitflags::bitflags! {
+    /// Flags determining how to interpret the timestamp provided in
+    /// `subscription-clock::timeout`.
+    pub struct Subclockflags: u8 {/// If set, treat the timestamp provided in
+      /// `subscription-clock::timeout` as an absolute timestamp of clock
+      /// `subscription-clock::id`. If clear, treat the timestamp
+      /// provided in `subscription-clock::timeout` relative to the
+      /// current time value of clock `subscription-clock::id`.
+      const SUBSCRIPTION_CLOCK_ABSTIME = 1 << 0;
+    }
+  }
+  
+  impl core::fmt::Display for Subclockflags{
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+      f.write_str("Subclockflags(")?;
+      core::fmt::Debug::fmt(self, f)?;
+      f.write_str(" (0x")?;
+      core::fmt::LowerHex::fmt(&self.bits, f)?;
+      f.write_str("))")?;
+      Ok(())}
+  }
+  
   #[allow(unused_imports)]
   use wasmer::AsStoreMut as _;
   #[allow(unused_imports)]

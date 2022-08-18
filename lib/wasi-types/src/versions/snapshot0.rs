@@ -14,7 +14,7 @@ pub struct __wasi_subscription_clock_t {
     pub clock_id: __wasi_clockid_t,
     pub timeout: __wasi_timestamp_t,
     pub precision: __wasi_timestamp_t,
-    pub flags: __wasi_subclockflags_t,
+    pub flags: wasi_snapshot0::Subclockflags,
 }
 
 #[derive(Copy, Clone)]

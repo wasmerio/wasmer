@@ -6,16 +6,13 @@ use wasmer_derive::ValueType;
 use wasmer_types::ValueType;
 use wasmer_wasi_types_generated::wasi_snapshot0;
 
-pub type __wasi_subclockflags_t = u16;
-pub const __WASI_SUBSCRIPTION_CLOCK_ABSTIME: u16 = 1 << 0;
-
 #[derive(Debug, Copy, Clone, PartialEq, Eq, ValueType)]
 #[repr(C)]
 pub struct __wasi_subscription_clock_t {
     pub clock_id: __wasi_clockid_t,
     pub timeout: __wasi_timestamp_t,
     pub precision: __wasi_timestamp_t,
-    pub flags: __wasi_subclockflags_t,
+    pub flags: wasi_snapshot0::Subclockflags,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, ValueType)]

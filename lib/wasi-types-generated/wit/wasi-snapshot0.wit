@@ -556,20 +556,20 @@ flags eventrwflags {
 //       (field $fd_readwrite $event_fd_readwrite)
 //     )
 //   )
-//   
-//   ;;; Flags determining how to interpret the timestamp provided in
-//   ;;; `subscription_clock::timeout`.
-//   (typename $subclockflags
-//     (flags (@witx repr u16)
-//       ;;; If set, treat the timestamp provided in
-//       ;;; `subscription_clock::timeout` as an absolute timestamp of clock
-//       ;;; `subscription_clock::id`. If clear, treat the timestamp
-//       ;;; provided in `subscription_clock::timeout` relative to the
-//       ;;; current time value of clock `subscription_clock::id`.
-//       $subscription_clock_abstime
-//     )
-//   )
-//   
+
+/// Flags determining how to interpret the timestamp provided in
+/// `subscription-clock::timeout`.
+flags subclockflags {
+    // TODO: wit appears to not have support for flags type size
+    //@witx repr u16)
+    /// If set, treat the timestamp provided in
+    /// `subscription-clock::timeout` as an absolute timestamp of clock
+    /// `subscription-clock::id`. If clear, treat the timestamp
+    /// provided in `subscription-clock::timeout` relative to the
+    /// current time value of clock `subscription-clock::id`.
+    subscription-clock-abstime,
+}
+
 //   ;;; The contents of a `subscription` when type is `eventtype::clock`.
 //   (typename $subscription_clock
 //     (record
