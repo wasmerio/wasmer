@@ -23,8 +23,8 @@ use std::{
     sync::MutexGuard,
 };
 use wasmer_wasi::{
-    get_wasi_version, FsError, VirtualFile, WasiFile, WasiFunctionEnv, WasiState, WasiStateBuilder,
-    WasiVersion, Pipe,
+    get_wasi_version, FsError, Pipe, VirtualFile, WasiFile, WasiFunctionEnv, WasiState,
+    WasiStateBuilder, WasiVersion,
 };
 
 /// Function callback that takes:
@@ -33,12 +33,10 @@ use wasmer_wasi::{
 /// - the length of the environment data
 /// - a *const to the bytes to write
 /// - the length of the bytes to write
-pub type WasiConsoleIoReadCallback =
-    unsafe extern "C" fn(*const c_void, *mut c_char, usize) -> i64;
+pub type WasiConsoleIoReadCallback = unsafe extern "C" fn(*const c_void, *mut c_char, usize) -> i64;
 pub type WasiConsoleIoWriteCallback =
     unsafe extern "C" fn(*const c_void, *const c_char, usize, bool) -> i64;
-pub type WasiConsoleIoSeekCallback =
-    unsafe extern "C" fn(*const c_void, c_char, i64) -> i64;
+pub type WasiConsoleIoSeekCallback = unsafe extern "C" fn(*const c_void, c_char, i64) -> i64;
 pub type WasiConsoleIoEnvDestructor = unsafe extern "C" fn(*const c_void) -> i64;
 /// Callback that is activated whenever the program wants to read from stdin
 ///
@@ -53,11 +51,8 @@ pub type WasiConsoleIoEnvDestructor = unsafe extern "C" fn(*const c_void) -> i64
 /// key event from the console I/O. With the custom environment pointer (the first argument)
 /// you can clone references to the stdout channel and - for example - inspect the stdout
 /// channel to answer depending on runtime-dependent stdout data.
-pub type WasiConsoleIoOnStdinCallback = unsafe extern "C" fn(
-    *const c_void,
-    usize,
-    *mut wasi_console_stdin_response_t,
-) -> i64;
+pub type WasiConsoleIoOnStdinCallback =
+    unsafe extern "C" fn(*const c_void, usize, *mut wasi_console_stdin_response_t) -> i64;
 
 /// The console override is a custom context consisting of callback pointers
 /// (which are activated whenever some console I/O occurs) and a "context", which
@@ -68,6 +63,7 @@ pub type WasiConsoleIoOnStdinCallback = unsafe extern "C" fn(
 /// Internally the stdout / stdin is synchronized, so the console is usable across threads
 /// (only one thread can read / write / seek from the console I/O)
 #[allow(non_camel_case_types)]
+#[allow(clippy::box_collection, clippy::redundant_allocation)]
 #[repr(C)]
 #[derive(Clone)]
 pub struct wasi_console_out_t {
@@ -121,11 +117,7 @@ impl Drop for wasi_console_out_t {
             }
         };
 
-        let error = unsafe {
-            (self.destructor)(
-                inner_value.as_mut_ptr() as *const c_void
-            )
-        };
+        let error = unsafe { (self.destructor)(inner_value.as_mut_ptr() as *const c_void) };
         if error < 0 {
             println!("error dropping wasi_console_out_t: {error}");
         }
@@ -216,13 +208,7 @@ impl io::Seek for wasi_console_out_t {
             SeekFrom::End(s) => (1, s),
             SeekFrom::Current(s) => (2, s),
         };
-        let result = unsafe {
-            (self_seek)(
-                data.as_mut_ptr() as *const c_void,
-                id,
-                pos,
-            )
-        };
+        let result = unsafe { (self_seek)(data.as_mut_ptr() as *const c_void, id, pos) };
         if result >= 0 {
             Ok(result.try_into().unwrap_or(0))
         } else {
@@ -267,7 +253,8 @@ pub unsafe extern "C" fn wasi_console_out_new(
     env_data: *const c_void,
     env_data_len: usize,
 ) -> *mut wasi_console_out_t {
-    let data_vec: Vec<c_char> = std::slice::from_raw_parts(env_data as *const c_char, env_data_len).to_vec();
+    let data_vec: Vec<c_char> =
+        std::slice::from_raw_parts(env_data as *const c_char, env_data_len).to_vec();
 
     Box::leak(Box::new(wasi_console_out_t {
         read,
@@ -293,11 +280,7 @@ pub unsafe extern "C" fn wasi_console_out_new_null() -> *mut wasi_console_out_t 
     )
 }
 
-extern "C" fn wasi_console_out_read_null(
-    _: *const c_void,
-    _: *mut c_char,
-    _: usize,
-) -> i64 {
+extern "C" fn wasi_console_out_read_null(_: *const c_void, _: *mut c_char, _: usize) -> i64 {
     0
 }
 extern "C" fn wasi_console_out_write_null(
@@ -308,11 +291,7 @@ extern "C" fn wasi_console_out_write_null(
 ) -> i64 {
     0
 }
-extern "C" fn wasi_console_out_seek_null(
-    _: *const c_void,
-    _: c_char,
-    _: i64,
-) -> i64 {
+extern "C" fn wasi_console_out_seek_null(_: *const c_void, _: c_char, _: i64) -> i64 {
     0
 }
 
@@ -342,7 +321,7 @@ unsafe extern "C" fn wasi_console_out_write_memory(
     flush: bool,
 ) -> i64 {
     use std::io::Write;
-    
+
     let ptr = ptr as *mut Pipe;
     let ptr = &mut *ptr;
 
@@ -374,7 +353,9 @@ unsafe extern "C" fn wasi_console_out_seek_memory(
         0 => std::io::SeekFrom::Start(seek_to.max(0) as u64),
         1 => std::io::SeekFrom::End(seek_to),
         2 => std::io::SeekFrom::Current(seek_to),
-        _ => { return -1; },
+        _ => {
+            return -1;
+        }
     };
 
     match ptr.seek(seek_from) {
@@ -383,9 +364,7 @@ unsafe extern "C" fn wasi_console_out_seek_memory(
     }
 }
 
-unsafe extern "C" fn wasi_console_out_delete_memory(
-    ptr: *const c_void, /* = *Pipe */
-) -> i64 {
+unsafe extern "C" fn wasi_console_out_delete_memory(ptr: *const c_void /* = *Pipe */) -> i64 {
     let ptr = ptr as *const Pipe;
     let _: Pipe = std::mem::transmute_copy(&*ptr); // dropped here, destructors run here
     0
@@ -395,7 +374,6 @@ unsafe extern "C" fn wasi_console_out_delete_memory(
 /// for backing stdin / stdout / stderr
 #[no_mangle]
 pub unsafe extern "C" fn wasi_console_out_new_memory() -> *mut wasi_console_out_t {
-    
     use std::mem::ManuallyDrop;
 
     let data = Pipe::new();
@@ -741,9 +719,7 @@ impl Drop for wasi_console_stdin_t {
             }
         };
 
-        let error = unsafe {
-            (self.destructor)((*data).as_mut_ptr() as *const c_void)
-        };
+        let error = unsafe { (self.destructor)((*data).as_mut_ptr() as *const c_void) };
 
         if error < 0 {
             println!("error dropping wasi_console_stdin_t: {error}");
@@ -803,13 +779,8 @@ impl io::Read for wasi_console_stdin_t {
         };
         let self_on_stdin = self.on_stdin;
         let data = self.get_data_mut("read")?;
-        let result = unsafe {
-            (self_on_stdin)(
-                data.as_ptr() as *const c_void,
-                buf.len(),
-                &mut target,
-            )
-        };
+        let result =
+            unsafe { (self_on_stdin)(data.as_ptr() as *const c_void, buf.len(), &mut target) };
         if result >= 0 {
             for (source, target) in target.response_data.iter().zip(buf.iter_mut()) {
                 *target = *source as u8;
