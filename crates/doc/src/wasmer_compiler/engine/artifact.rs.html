@@ -682,67 +682,6 @@
 <span id="680">680</span>
 <span id="681">681</span>
 <span id="682">682</span>
-<span id="683">683</span>
-<span id="684">684</span>
-<span id="685">685</span>
-<span id="686">686</span>
-<span id="687">687</span>
-<span id="688">688</span>
-<span id="689">689</span>
-<span id="690">690</span>
-<span id="691">691</span>
-<span id="692">692</span>
-<span id="693">693</span>
-<span id="694">694</span>
-<span id="695">695</span>
-<span id="696">696</span>
-<span id="697">697</span>
-<span id="698">698</span>
-<span id="699">699</span>
-<span id="700">700</span>
-<span id="701">701</span>
-<span id="702">702</span>
-<span id="703">703</span>
-<span id="704">704</span>
-<span id="705">705</span>
-<span id="706">706</span>
-<span id="707">707</span>
-<span id="708">708</span>
-<span id="709">709</span>
-<span id="710">710</span>
-<span id="711">711</span>
-<span id="712">712</span>
-<span id="713">713</span>
-<span id="714">714</span>
-<span id="715">715</span>
-<span id="716">716</span>
-<span id="717">717</span>
-<span id="718">718</span>
-<span id="719">719</span>
-<span id="720">720</span>
-<span id="721">721</span>
-<span id="722">722</span>
-<span id="723">723</span>
-<span id="724">724</span>
-<span id="725">725</span>
-<span id="726">726</span>
-<span id="727">727</span>
-<span id="728">728</span>
-<span id="729">729</span>
-<span id="730">730</span>
-<span id="731">731</span>
-<span id="732">732</span>
-<span id="733">733</span>
-<span id="734">734</span>
-<span id="735">735</span>
-<span id="736">736</span>
-<span id="737">737</span>
-<span id="738">738</span>
-<span id="739">739</span>
-<span id="740">740</span>
-<span id="741">741</span>
-<span id="742">742</span>
-<span id="743">743</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Define `Artifact`, based on `ArtifactBuild`</span>
 <span class="doccomment">//! to allow compiling and instantiating to be done as separate steps.</span>
 
@@ -766,9 +705,11 @@
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-create&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">wasmer_object</span>::{<span class="ident">emit_compilation</span>, <span class="ident">emit_data</span>, <span class="ident">get_object_for_target</span>, <span class="ident">Object</span>};
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-create&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-load&quot;</span>))]</span>
-<span class="kw">use</span> <span class="ident">wasmer_types::compilation::symbols</span>::{<span class="ident">ModuleMetadata</span>, <span class="ident">ModuleMetadataSymbolRegistry</span>};
+<span class="kw">use</span> <span class="ident">wasmer_types::compilation::symbols::ModuleMetadata</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types::entity</span>::{<span class="ident">BoxedSlice</span>, <span class="ident">PrimaryMap</span>};
 <span class="kw">use</span> <span class="ident">wasmer_types::MetadataHeader</span>;
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-load&quot;</span>)]</span>
+<span class="kw">use</span> <span class="ident">wasmer_types::SerializableCompilation</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{
     <span class="ident">CompileError</span>, <span class="ident">CpuFeature</span>, <span class="ident">DataInitializer</span>, <span class="ident">DeserializeError</span>, <span class="ident">FunctionIndex</span>, <span class="ident">LocalFunctionIndex</span>,
     <span class="ident">MemoryIndex</span>, <span class="ident">ModuleInfo</span>, <span class="ident">OwnedDataInitializer</span>, <span class="ident">SerializableModule</span>, <span class="ident">SerializeError</span>,
@@ -780,43 +721,19 @@
 <span class="kw">use</span> <span class="ident">wasmer_vm</span>::{<span class="ident">InstanceAllocator</span>, <span class="ident">InstanceHandle</span>, <span class="ident">StoreObjects</span>, <span class="ident">TrapHandlerFn</span>, <span class="ident">VMExtern</span>};
 
 <span class="doccomment">/// A compiled wasm module, ready to be instantiated.</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">Artifact</span> {
-    <span class="doccomment">/// The default artifact format.</span>
-    <span class="ident">Universal</span>(<span class="ident">UniversalArtifact</span>),
-    <span class="doccomment">/// Stores functions etc as symbols and data meant to be stored in object files and</span>
-    <span class="doccomment">/// executables.</span>
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-create&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-load&quot;</span>))]</span>
-    <span class="ident">Static</span>(<span class="ident">StaticArtifact</span>),
-}
-
-<span class="doccomment">/// The default artifact format.</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">UniversalArtifact</span> {
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Artifact</span> {
     <span class="ident">artifact</span>: <span class="ident">ArtifactBuild</span>,
     <span class="ident">finished_functions</span>: <span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">FunctionBodyPtr</span><span class="op">&gt;</span>,
     <span class="ident">finished_function_call_trampolines</span>: <span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">SignatureIndex</span>, <span class="ident">VMTrampoline</span><span class="op">&gt;</span>,
     <span class="ident">finished_dynamic_function_trampolines</span>: <span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">FunctionIndex</span>, <span class="ident">FunctionBodyPtr</span><span class="op">&gt;</span>,
     <span class="ident">signatures</span>: <span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">SignatureIndex</span>, <span class="ident">VMSharedSignatureIndex</span><span class="op">&gt;</span>,
-    <span class="ident">frame_info_registration</span>: <span class="ident">Mutex</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">GlobalFrameInfoRegistration</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="doccomment">/// Some(_) only if this is not a deserialized static artifact</span>
+    <span class="ident">frame_info_registration</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Mutex</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">GlobalFrameInfoRegistration</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
     <span class="ident">finished_function_lengths</span>: <span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">usize</span><span class="op">&gt;</span>,
 }
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-create&quot;</span>)]</span>
 <span class="kw">pub</span> <span class="kw">type</span> <span class="ident">PrefixerFn</span> <span class="op">=</span> <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Fn</span>(<span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="ident">String</span> <span class="op">+</span> <span class="ident">Send</span><span class="op">&gt;</span>;
-
-<span class="doccomment">/// Stores functions etc as symbols and data meant to be stored in object files and</span>
-<span class="doccomment">/// executables.</span>
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-create&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-load&quot;</span>))]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">StaticArtifact</span> {
-    <span class="ident">metadata</span>: <span class="ident">ModuleMetadata</span>,
-    <span class="ident">_module_bytes</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,
-    <span class="ident">finished_functions</span>: <span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">FunctionBodyPtr</span><span class="op">&gt;</span>,
-    <span class="ident">finished_function_call_trampolines</span>: <span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">SignatureIndex</span>, <span class="ident">VMTrampoline</span><span class="op">&gt;</span>,
-    <span class="ident">finished_dynamic_function_trampolines</span>: <span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">FunctionIndex</span>, <span class="ident">FunctionBodyPtr</span><span class="op">&gt;</span>,
-    <span class="ident">signatures</span>: <span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">SignatureIndex</span>, <span class="ident">VMSharedSignatureIndex</span><span class="op">&gt;</span>,
-    <span class="comment">// Length of the serialized metadata</span>
-    <span class="ident">_metadata_length</span>: <span class="ident">usize</span>,
-    <span class="ident">_symbol_registry</span>: <span class="ident">ModuleMetadataSymbolRegistry</span>,
-}
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-create&quot;</span>)]</span>
 <span class="kw">const</span> <span class="ident">WASMER_METADATA_SYMBOL</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>] <span class="op">=</span> <span class="string">b&quot;WASMER_METADATA&quot;</span>;
@@ -965,15 +882,15 @@
             <span class="ident">finished_dynamic_function_trampolines</span>.<span class="ident">into_boxed_slice</span>();
         <span class="kw">let</span> <span class="ident">signatures</span> <span class="op">=</span> <span class="ident">signatures</span>.<span class="ident">into_boxed_slice</span>();
 
-        <span class="prelude-val">Ok</span>(<span class="ident"><span class="self">Self</span>::Universal</span>(<span class="ident">UniversalArtifact</span> {
+        <span class="prelude-val">Ok</span>(<span class="self">Self</span> {
             <span class="ident">artifact</span>,
             <span class="ident">finished_functions</span>,
             <span class="ident">finished_function_call_trampolines</span>,
             <span class="ident">finished_dynamic_function_trampolines</span>,
             <span class="ident">signatures</span>,
-            <span class="ident">frame_info_registration</span>: <span class="ident">Mutex::new</span>(<span class="prelude-val">None</span>),
+            <span class="ident">frame_info_registration</span>: <span class="prelude-val">Some</span>(<span class="ident">Mutex::new</span>(<span class="prelude-val">None</span>)),
             <span class="ident">finished_function_lengths</span>,
-        }))
+        })
     }
 
     <span class="doccomment">/// Check if the provided bytes look like a serialized `ArtifactBuild`.</span>
@@ -984,59 +901,31 @@
 
 <span class="kw">impl</span> <span class="ident">ArtifactCreate</span> <span class="kw">for</span> <span class="ident">Artifact</span> {
     <span class="kw">fn</span> <span class="ident">create_module_info</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">ModuleInfo</span> {
-        <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident"><span class="self">Self</span>::Universal</span>(<span class="ident">UniversalArtifact</span> { <span class="ident">artifact</span>, .. }) =&gt; <span class="ident">artifact</span>.<span class="ident">create_module_info</span>(),
-            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-create&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-load&quot;</span>))]</span>
-            <span class="ident"><span class="self">Self</span>::Static</span>(<span class="ident">StaticArtifact</span> { <span class="ident">metadata</span>, .. }) =&gt; <span class="ident">metadata</span>.<span class="ident">compile_info</span>.<span class="ident">module</span>.<span class="ident">clone</span>(),
-        }
+        <span class="self">self</span>.<span class="ident">artifact</span>.<span class="ident">create_module_info</span>()
     }
 
     <span class="kw">fn</span> <span class="ident">features</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">Features</span> {
-        <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident"><span class="self">Self</span>::Universal</span>(<span class="ident">UniversalArtifact</span> { <span class="ident">artifact</span>, .. }) =&gt; <span class="ident">artifact</span>.<span class="ident">features</span>(),
-            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-create&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-load&quot;</span>))]</span>
-            <span class="ident"><span class="self">Self</span>::Static</span>(<span class="ident">StaticArtifact</span> { <span class="ident">metadata</span>, .. }) =&gt; <span class="kw-2">&amp;</span><span class="ident">metadata</span>.<span class="ident">compile_info</span>.<span class="ident">features</span>,
-        }
+        <span class="self">self</span>.<span class="ident">artifact</span>.<span class="ident">features</span>()
     }
 
     <span class="kw">fn</span> <span class="ident">cpu_features</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">EnumSet</span><span class="op">&lt;</span><span class="ident">CpuFeature</span><span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident"><span class="self">Self</span>::Universal</span>(<span class="ident">_self</span>) =&gt; <span class="ident">_self</span>.<span class="ident">artifact</span>.<span class="ident">cpu_features</span>(),
-            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-create&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-load&quot;</span>))]</span>
-            <span class="ident"><span class="self">Self</span>::Static</span>(<span class="ident">_self</span>) =&gt; <span class="ident">EnumSet::from_u64</span>(<span class="ident">_self</span>.<span class="ident">metadata</span>.<span class="ident">cpu_features</span>),
-        }
+        <span class="self">self</span>.<span class="ident">artifact</span>.<span class="ident">cpu_features</span>()
     }
 
     <span class="kw">fn</span> <span class="ident">data_initializers</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[<span class="ident">OwnedDataInitializer</span>] {
-        <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident"><span class="self">Self</span>::Universal</span>(<span class="ident">_self</span>) =&gt; <span class="ident">_self</span>.<span class="ident">artifact</span>.<span class="ident">data_initializers</span>(),
-            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-create&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-load&quot;</span>))]</span>
-            <span class="ident"><span class="self">Self</span>::Static</span>(<span class="ident">_self</span>) =&gt; <span class="kw-2">&amp;</span><span class="ident">_self</span>.<span class="ident">metadata</span>.<span class="ident">data_initializers</span>,
-        }
+        <span class="self">self</span>.<span class="ident">artifact</span>.<span class="ident">data_initializers</span>()
     }
 
     <span class="kw">fn</span> <span class="ident">memory_styles</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">MemoryIndex</span>, <span class="ident">MemoryStyle</span><span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident"><span class="self">Self</span>::Universal</span>(<span class="ident">_self</span>) =&gt; <span class="ident">_self</span>.<span class="ident">artifact</span>.<span class="ident">memory_styles</span>(),
-            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-create&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-load&quot;</span>))]</span>
-            <span class="ident"><span class="self">Self</span>::Static</span>(<span class="ident">_self</span>) =&gt; <span class="kw-2">&amp;</span><span class="ident">_self</span>.<span class="ident">metadata</span>.<span class="ident">compile_info</span>.<span class="ident">memory_styles</span>,
-        }
+        <span class="self">self</span>.<span class="ident">artifact</span>.<span class="ident">memory_styles</span>()
     }
 
     <span class="kw">fn</span> <span class="ident">table_styles</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">TableIndex</span>, <span class="ident">TableStyle</span><span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident"><span class="self">Self</span>::Universal</span>(<span class="ident">UniversalArtifact</span> { <span class="ident">artifact</span>, .. }) =&gt; <span class="ident">artifact</span>.<span class="ident">table_styles</span>(),
-            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-create&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-load&quot;</span>))]</span>
-            <span class="ident"><span class="self">Self</span>::Static</span>(<span class="ident">StaticArtifact</span> { <span class="ident">metadata</span>, .. }) =&gt; <span class="kw-2">&amp;</span><span class="ident">metadata</span>.<span class="ident">compile_info</span>.<span class="ident">table_styles</span>,
-        }
+        <span class="self">self</span>.<span class="ident">artifact</span>.<span class="ident">table_styles</span>()
     }
 
     <span class="kw">fn</span> <span class="ident">serialize</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">SerializeError</span><span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident"><span class="self">Self</span>::Universal</span>(<span class="ident">UniversalArtifact</span> { <span class="ident">artifact</span>, .. }) =&gt; <span class="ident">artifact</span>.<span class="ident">serialize</span>(),
-            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-create&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-load&quot;</span>))]</span>
-            <span class="ident"><span class="self">Self</span>::Static</span>(<span class="ident">StaticArtifact</span> { .. }) =&gt; <span class="macro">todo!</span>(),
-        }
+        <span class="self">self</span>.<span class="ident">artifact</span>.<span class="ident">serialize</span>()
     }
 }
 
@@ -1045,55 +934,41 @@
     <span class="doccomment">///</span>
     <span class="doccomment">/// This is required to ensure that any traps can be properly symbolicated.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">register_frame_info</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-        <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident"><span class="self">Self</span>::Universal</span>(<span class="ident">_self</span>) =&gt; {
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">info</span> <span class="op">=</span> <span class="ident">_self</span>.<span class="ident">frame_info_registration</span>.<span class="ident">lock</span>().<span class="ident">unwrap</span>();
+        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">frame_info_registration</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">frame_info_registration</span>.<span class="ident">as_ref</span>() {
+            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">info</span> <span class="op">=</span> <span class="ident">frame_info_registration</span>.<span class="ident">lock</span>().<span class="ident">unwrap</span>();
 
-                <span class="kw">if</span> <span class="ident">info</span>.<span class="ident">is_some</span>() {
-                    <span class="kw">return</span>;
-                }
-
-                <span class="kw">let</span> <span class="ident">finished_function_extents</span> <span class="op">=</span> <span class="ident">_self</span>
-                    .<span class="ident">finished_functions</span>
-                    .<span class="ident">values</span>()
-                    .<span class="ident">copied</span>()
-                    .<span class="ident">zip</span>(<span class="ident">_self</span>.<span class="ident">finished_function_lengths</span>.<span class="ident">values</span>().<span class="ident">copied</span>())
-                    .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">ptr</span>, <span class="ident">length</span>)<span class="op">|</span> <span class="ident">FunctionExtent</span> { <span class="ident">ptr</span>, <span class="ident">length</span> })
-                    .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>()
-                    .<span class="ident">into_boxed_slice</span>();
-
-                <span class="kw">let</span> <span class="ident">frame_infos</span> <span class="op">=</span> <span class="ident">_self</span>.<span class="ident">artifact</span>.<span class="ident">get_frame_info_ref</span>();
-                <span class="kw-2">*</span><span class="ident">info</span> <span class="op">=</span> <span class="ident">register_frame_info</span>(
-                    <span class="ident">_self</span>.<span class="ident">artifact</span>.<span class="ident">create_module_info</span>(),
-                    <span class="kw-2">&amp;</span><span class="ident">finished_function_extents</span>,
-                    <span class="ident">frame_infos</span>.<span class="ident">clone</span>(),
-                );
+            <span class="kw">if</span> <span class="ident">info</span>.<span class="ident">is_some</span>() {
+                <span class="kw">return</span>;
             }
-            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-create&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-load&quot;</span>))]</span>
-            <span class="ident"><span class="self">Self</span>::Static</span>(<span class="ident">_self</span>) =&gt; {
-                <span class="comment">// Do nothing for static artifact</span>
-            }
+
+            <span class="kw">let</span> <span class="ident">finished_function_extents</span> <span class="op">=</span> <span class="self">self</span>
+                .<span class="ident">finished_functions</span>
+                .<span class="ident">values</span>()
+                .<span class="ident">copied</span>()
+                .<span class="ident">zip</span>(<span class="self">self</span>.<span class="ident">finished_function_lengths</span>.<span class="ident">values</span>().<span class="ident">copied</span>())
+                .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">ptr</span>, <span class="ident">length</span>)<span class="op">|</span> <span class="ident">FunctionExtent</span> { <span class="ident">ptr</span>, <span class="ident">length</span> })
+                .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>()
+                .<span class="ident">into_boxed_slice</span>();
+
+            <span class="kw">let</span> <span class="ident">frame_infos</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">artifact</span>.<span class="ident">get_frame_info_ref</span>();
+            <span class="kw-2">*</span><span class="ident">info</span> <span class="op">=</span> <span class="ident">register_frame_info</span>(
+                <span class="self">self</span>.<span class="ident">artifact</span>.<span class="ident">create_module_info</span>(),
+                <span class="kw-2">&amp;</span><span class="ident">finished_function_extents</span>,
+                <span class="ident">frame_infos</span>.<span class="ident">clone</span>(),
+            );
         }
     }
 
     <span class="doccomment">/// Returns the functions allocated in memory or this `Artifact`</span>
     <span class="doccomment">/// ready to be run.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">finished_functions</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">FunctionBodyPtr</span><span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident"><span class="self">Self</span>::Universal</span>(<span class="ident">_self</span>) =&gt; <span class="kw-2">&amp;</span><span class="ident">_self</span>.<span class="ident">finished_functions</span>,
-            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-create&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-load&quot;</span>))]</span>
-            <span class="ident"><span class="self">Self</span>::Static</span>(<span class="ident">_self</span>) =&gt; <span class="kw-2">&amp;</span><span class="ident">_self</span>.<span class="ident">finished_functions</span>,
-        }
+        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">finished_functions</span>
     }
 
     <span class="doccomment">/// Returns the function call trampolines allocated in memory of this</span>
     <span class="doccomment">/// `Artifact`, ready to be run.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">finished_function_call_trampolines</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">SignatureIndex</span>, <span class="ident">VMTrampoline</span><span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident"><span class="self">Self</span>::Universal</span>(<span class="ident">_self</span>) =&gt; <span class="kw-2">&amp;</span><span class="ident">_self</span>.<span class="ident">finished_function_call_trampolines</span>,
-            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-create&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-load&quot;</span>))]</span>
-            <span class="ident"><span class="self">Self</span>::Static</span>(<span class="ident">_self</span>) =&gt; <span class="kw-2">&amp;</span><span class="ident">_self</span>.<span class="ident">finished_function_call_trampolines</span>,
-        }
+        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">finished_function_call_trampolines</span>
     }
 
     <span class="doccomment">/// Returns the dynamic function trampolines allocated in memory</span>
@@ -1101,20 +976,12 @@
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">finished_dynamic_function_trampolines</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
     ) -&gt; <span class="kw-2">&amp;</span><span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">FunctionIndex</span>, <span class="ident">FunctionBodyPtr</span><span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident"><span class="self">Self</span>::Universal</span>(<span class="ident">_self</span>) =&gt; <span class="kw-2">&amp;</span><span class="ident">_self</span>.<span class="ident">finished_dynamic_function_trampolines</span>,
-            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-create&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-load&quot;</span>))]</span>
-            <span class="ident"><span class="self">Self</span>::Static</span>(<span class="ident">_self</span>) =&gt; <span class="kw-2">&amp;</span><span class="ident">_self</span>.<span class="ident">finished_dynamic_function_trampolines</span>,
-        }
+        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">finished_dynamic_function_trampolines</span>
     }
 
     <span class="doccomment">/// Returns the associated VM signatures for this `Artifact`.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">signatures</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">SignatureIndex</span>, <span class="ident">VMSharedSignatureIndex</span><span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident"><span class="self">Self</span>::Universal</span>(<span class="ident">_self</span>) =&gt; <span class="kw-2">&amp;</span><span class="ident">_self</span>.<span class="ident">signatures</span>,
-            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-create&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-load&quot;</span>))]</span>
-            <span class="ident"><span class="self">Self</span>::Static</span>(<span class="ident">_self</span>) =&gt; <span class="kw-2">&amp;</span><span class="ident">_self</span>.<span class="ident">signatures</span>,
-        }
+        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">signatures</span>
     }
 
     <span class="doccomment">/// Do preinstantiation logic that is executed before instantiating</span>
@@ -1402,7 +1269,7 @@
         <span class="kw">let</span> <span class="ident">metadata_len</span> <span class="op">=</span> <span class="ident">MetadataHeader::parse</span>(<span class="ident">bytes</span>)<span class="question-mark">?</span>;
 
         <span class="kw">let</span> <span class="ident">metadata_slice</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">bytes</span>[<span class="ident">MetadataHeader::LEN</span>..][..<span class="ident">metadata_len</span>];
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">metadata</span>: <span class="ident">ModuleMetadata</span> <span class="op">=</span> <span class="ident">ModuleMetadata::deserialize</span>(<span class="ident">metadata_slice</span>)<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">metadata</span>: <span class="ident">ModuleMetadata</span> <span class="op">=</span> <span class="ident">ModuleMetadata::deserialize</span>(<span class="ident">metadata_slice</span>)<span class="question-mark">?</span>;
 
         <span class="kw">const</span> <span class="ident">WORD_SIZE</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="ident">mem::size_of</span>::<span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>();
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">byte_buffer</span> <span class="op">=</span> [<span class="number">0u8</span>; <span class="ident">WORD_SIZE</span>];
@@ -1471,19 +1338,30 @@
             <span class="ident">finished_dynamic_function_trampolines</span>.<span class="ident">push</span>(<span class="ident">fp</span>);
         }
 
-        <span class="kw">let</span> (<span class="ident">_compile_info</span>, <span class="ident">_symbol_registry</span>) <span class="op">=</span> <span class="ident">metadata</span>.<span class="ident">split</span>();
-        <span class="prelude-val">Ok</span>(<span class="ident"><span class="self">Self</span>::Static</span>(<span class="ident">StaticArtifact</span> {
-            <span class="ident">metadata</span>,
-            <span class="ident">_module_bytes</span>: <span class="ident">bytes</span>.<span class="ident">to_vec</span>(),
+        <span class="kw">let</span> <span class="ident">artifact</span> <span class="op">=</span> <span class="ident">ArtifactBuild::from_serializable</span>(<span class="ident">SerializableModule</span> {
+            <span class="ident">compilation</span>: <span class="ident">SerializableCompilation::default</span>(),
+            <span class="ident">compile_info</span>: <span class="ident">metadata</span>.<span class="ident">compile_info</span>,
+            <span class="ident">data_initializers</span>: <span class="ident">metadata</span>.<span class="ident">data_initializers</span>,
+            <span class="ident">cpu_features</span>: <span class="ident">metadata</span>.<span class="ident">cpu_features</span>,
+        });
+
+        <span class="kw">let</span> <span class="ident">finished_function_lengths</span> <span class="op">=</span> <span class="ident">finished_functions</span>
+            .<span class="ident">values</span>()
+            .<span class="ident">map</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="number">0</span>)
+            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">usize</span><span class="op">&gt;</span><span class="op">&gt;</span>()
+            .<span class="ident">into_boxed_slice</span>();
+
+        <span class="prelude-val">Ok</span>(<span class="self">Self</span> {
+            <span class="ident">artifact</span>,
             <span class="ident">finished_functions</span>: <span class="ident">finished_functions</span>.<span class="ident">into_boxed_slice</span>(),
             <span class="ident">finished_function_call_trampolines</span>: <span class="ident">finished_function_call_trampolines</span>
                 .<span class="ident">into_boxed_slice</span>(),
             <span class="ident">finished_dynamic_function_trampolines</span>: <span class="ident">finished_dynamic_function_trampolines</span>
                 .<span class="ident">into_boxed_slice</span>(),
             <span class="ident">signatures</span>: <span class="ident">signatures</span>.<span class="ident">into_boxed_slice</span>(),
-            <span class="ident">_metadata_length</span>: <span class="ident">metadata_len</span>,
-            <span class="ident">_symbol_registry</span>,
-        }))
+            <span class="ident">finished_function_lengths</span>,
+            <span class="ident">frame_info_registration</span>: <span class="prelude-val">None</span>,
+        })
     }
 }
 </code></pre></div>

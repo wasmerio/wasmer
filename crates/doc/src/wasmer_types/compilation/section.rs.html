@@ -101,6 +101,7 @@
 <span id="99"> 99</span>
 <span id="100">100</span>
 <span id="101">101</span>
+<span id="102">102</span>
 </pre><pre class="rust"><code><span class="doccomment">//! This module define the required structures to emit custom</span>
 <span class="doccomment">//! Sections in a `Compilation`.</span>
 <span class="doccomment">//!</span>
@@ -128,6 +129,7 @@
     <span class="ident">PartialOrd</span>,
     <span class="ident">Ord</span>,
     <span class="ident">Debug</span>,
+    <span class="ident">Default</span>,
 )]</span>
 <span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>))]</span>
 <span class="attribute">#[<span class="ident">archive</span>(<span class="kw">as</span> <span class="op">=</span> <span class="string">&quot;Self&quot;</span>)]</span>

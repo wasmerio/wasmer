@@ -252,7 +252,7 @@
 <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">fs</span>, <span class="ident">mem</span>};
 
 <span class="doccomment">/// The compilation related data for a serialized modules</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Archive</span>, <span class="ident">RkyvDeserialize</span>, <span class="ident">RkyvSerialize</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Archive</span>, <span class="ident">Default</span>, <span class="ident">RkyvDeserialize</span>, <span class="ident">RkyvSerialize</span>)]</span>
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">missing_docs</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">SerializableCompilation</span> {
     <span class="kw">pub</span> <span class="ident">function_bodies</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">FunctionBody</span><span class="op">&gt;</span>,
