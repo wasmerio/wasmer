@@ -520,16 +520,17 @@ enum eventtype {
     fd-write,
 }
 
-//   
-//   ;;; The state of the file descriptor subscribed to with
-//   ;;; `eventtype::fd_read` or `eventtype::fd_write`.
-//   (typename $eventrwflags
-//     (flags (@witx repr u16)
-//       ;;; The peer of this socket has closed or disconnected.
-//       $fd_readwrite_hangup
-//     )
-//   )
-//   
+
+/// The state of the file descriptor subscribed to with
+/// `eventtype::fd_read` or `eventtype::fd_write`.
+flags eventrwflags {
+    // TODO: wit appears to not have support for flags type size
+    //@witx repr u16)
+
+    /// The peer of this socket has closed or disconnected.
+    fd-readwrite-hangup,
+}
+
 //   ;;; The contents of an `event` for the `eventtype::fd_read` and
 //   ;;; `eventtype::fd_write` variants
 //   (typename $event_fd_readwrite

@@ -599,6 +599,24 @@ pub mod wasi_snapshot0 {
       }
     }
   }
+  wit_bindgen_wasmer::bitflags::bitflags! {
+    /// The state of the file descriptor subscribed to with
+    /// `eventtype::fd_read` or `eventtype::fd_write`.
+    pub struct Eventrwflags: u8 {/// The peer of this socket has closed or disconnected.
+      const FD_READWRITE_HANGUP = 1 << 0;
+    }
+  }
+  
+  impl core::fmt::Display for Eventrwflags{
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+      f.write_str("Eventrwflags(")?;
+      core::fmt::Debug::fmt(self, f)?;
+      f.write_str(" (0x")?;
+      core::fmt::LowerHex::fmt(&self.bits, f)?;
+      f.write_str("))")?;
+      Ok(())}
+  }
+  
   #[allow(unused_imports)]
   use wasmer::AsStoreMut as _;
   #[allow(unused_imports)]

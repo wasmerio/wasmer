@@ -5,13 +5,13 @@ use std::{
 };
 use wasmer_derive::ValueType;
 use wasmer_types::ValueType;
-use wasmer_wasi_types_generated::wasi_snapshot0;
+use wasmer_wasi_types_generated::{wasi_filesystem, wasi_snapshot0};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, ValueType)]
 #[repr(C)]
 pub struct __wasi_event_fd_readwrite_t {
     pub nbytes: __wasi_filesize_t,
-    pub flags: __wasi_eventrwflags_t,
+    pub flags: wasi_snapshot0::Eventrwflags,
 }
 
 #[derive(Copy, Clone)]
@@ -33,7 +33,7 @@ impl fmt::Debug for __wasi_event_u {
 pub enum EventEnum {
     FdReadWrite {
         nbytes: __wasi_filesize_t,
-        flags: __wasi_eventrwflags_t,
+        flags: wasi_snapshot0::Eventrwflags,
     },
 }
 
@@ -110,9 +110,6 @@ unsafe impl ValueType for __wasi_event_t {
         zero!(field_end!(u), mem::size_of_val(self));
     }
 }
-
-pub type __wasi_eventrwflags_t = u16;
-pub const __WASI_EVENT_FD_READWRITE_HANGUP: u16 = 1 << 0;
 
 pub fn eventtype_to_str(event_type: wasi_snapshot0::Eventtype) -> &'static str {
     match event_type {

@@ -3275,14 +3275,14 @@ pub fn poll_oneoff<M: MemorySize>(
     }
 
     for (i, seen_event) in seen_events.into_iter().enumerate() {
-        let mut flags = 0;
+        let mut flags = wasi_snapshot0::Eventrwflags::empty();
         let mut error = wasi_snapshot0::Errno::Again;
         let mut bytes_available = 0;
         let event_iter = iterate_poll_events(seen_event);
         for event in event_iter {
             match event {
                 PollEvent::PollError => error = wasi_snapshot0::Errno::Io,
-                PollEvent::PollHangUp => flags = __WASI_EVENT_FD_READWRITE_HANGUP,
+                PollEvent::PollHangUp => flags = wasi_snapshot0::Eventrwflags::FD_READWRITE_HANGUP,
                 PollEvent::PollInvalid => error = wasi_snapshot0::Errno::Inval,
                 PollEvent::PollIn => {
                     bytes_available = wasi_try_ok!(
@@ -3332,7 +3332,7 @@ pub fn poll_oneoff<M: MemorySize>(
                     __wasi_event_u {
                         fd_readwrite: __wasi_event_fd_readwrite_t {
                             nbytes: 0,
-                            flags: 0,
+                            flags: wasi_snapshot0::Eventrwflags::empty(),
                         },
                     }
                 },
