@@ -363,14 +363,14 @@ pub fn args_sizes_get<M: MemorySize>(
 /// ### `clock_res_get()`
 /// Get the resolution of the specified clock
 /// Input:
-/// - `__wasi_clockid_t clock_id`
+/// - `wasi_snapshot0::Clockid clock_id`
 ///     The ID of the clock to get the resolution of
 /// Output:
 /// - `__wasi_timestamp_t *resolution`
 ///     The resolution of the clock in nanoseconds
 pub fn clock_res_get<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
-    clock_id: __wasi_clockid_t,
+    clock_id: wasi_snapshot0::Clockid,
     resolution: WasmPtr<__wasi_timestamp_t, M>,
 ) -> wasi_snapshot0::Errno {
     trace!("wasi::clock_res_get");
@@ -386,7 +386,7 @@ pub fn clock_res_get<M: MemorySize>(
 /// ### `clock_time_get()`
 /// Get the time of the specified clock
 /// Inputs:
-/// - `__wasi_clockid_t clock_id`
+/// - `wasi_snapshot0::Clockid clock_id`
 ///     The ID of the clock to query
 /// - `__wasi_timestamp_t precision`
 ///     The maximum amount of error the reading may have
@@ -395,13 +395,13 @@ pub fn clock_res_get<M: MemorySize>(
 ///     The value of the clock in nanoseconds
 pub fn clock_time_get<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    clock_id: __wasi_clockid_t,
+    clock_id: wasi_snapshot0::Clockid,
     precision: __wasi_timestamp_t,
     time: WasmPtr<__wasi_timestamp_t, M>,
 ) -> wasi_snapshot0::Errno {
     debug!(
         "wasi::clock_time_get clock_id: {}, precision: {}",
-        clock_id, precision
+        clock_id as u8, precision
     );
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
@@ -3151,9 +3151,10 @@ pub fn poll_oneoff<M: MemorySize>(
                 Some(fd)
             }
             EventType::Clock(clock_info) => {
-                if clock_info.clock_id == __WASI_CLOCK_REALTIME
-                    || clock_info.clock_id == __WASI_CLOCK_MONOTONIC
-                {
+                if matches!(
+                    clock_info.clock_id,
+                    wasi_snapshot0::Clockid::Realtime | wasi_snapshot0::Clockid::Monotonic
+                ) {
                     // this is a hack
                     // TODO: do this properly
                     time_to_sleep = Duration::from_nanos(clock_info.timeout);
@@ -3242,10 +3243,12 @@ pub fn poll_oneoff<M: MemorySize>(
 
     let mut seen_events = vec![Default::default(); in_events.len()];
 
-    let start = platform_clock_time_get(__WASI_CLOCK_MONOTONIC, 1_000_000).unwrap() as u128;
+    let start =
+        platform_clock_time_get(wasi_snapshot0::Clockid::Monotonic, 1_000_000).unwrap() as u128;
     let mut triggered = 0;
     while triggered == 0 {
-        let now = platform_clock_time_get(__WASI_CLOCK_MONOTONIC, 1_000_000).unwrap() as u128;
+        let now =
+            platform_clock_time_get(wasi_snapshot0::Clockid::Monotonic, 1_000_000).unwrap() as u128;
         let delta = match now.checked_sub(start) {
             Some(a) => Duration::from_nanos(a as u64),
             None => Duration::ZERO,

@@ -25,7 +25,7 @@ pub(crate) fn args_sizes_get(
 
 pub(crate) fn clock_res_get(
     ctx: FunctionEnvMut<WasiEnv>,
-    clock_id: __wasi_clockid_t,
+    clock_id: wasi_snapshot0::Clockid,
     resolution: WasmPtr<__wasi_timestamp_t, MemoryType>,
 ) -> wasi_snapshot0::Errno {
     super::clock_res_get::<MemoryType>(ctx, clock_id, resolution)
@@ -33,7 +33,7 @@ pub(crate) fn clock_res_get(
 
 pub(crate) fn clock_time_get(
     ctx: FunctionEnvMut<WasiEnv>,
-    clock_id: __wasi_clockid_t,
+    clock_id: wasi_snapshot0::Clockid,
     precision: __wasi_timestamp_t,
     time: WasmPtr<__wasi_timestamp_t, MemoryType>,
 ) -> wasi_snapshot0::Errno {

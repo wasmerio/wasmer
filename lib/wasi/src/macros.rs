@@ -85,7 +85,7 @@ macro_rules! wasi_try_mem_bus {
     }};
 }
 
-/// Like `wasi_try` but converts a `MemoryAccessError` to a __wasi_errno_t`.
+/// Like `wasi_try` but converts a `MemoryAccessError` to a wasi_snapshot0::Errno`.
 macro_rules! wasi_try_mem_ok {
     ($expr:expr) => {{
         wasi_try_ok!($expr.map_err($crate::mem_error_to_wasi))

@@ -57,7 +57,6 @@ pub use wasmer_vfs::FsError as WasiFsError;
 pub use wasmer_vfs::VirtualFile as WasiFile;
 pub use wasmer_vfs::{FsError, VirtualFile};
 pub use wasmer_vnet::{UnsupportedVirtualNetworking, VirtualNetworking};
-use wasmer_wasi_types::__WASI_CLOCK_MONOTONIC;
 
 use derivative::*;
 use std::ops::Deref;
@@ -66,6 +65,7 @@ use wasmer::{
     imports, namespace, AsStoreMut, AsStoreRef, Exports, Function, FunctionEnv, Imports, Memory,
     Memory32, MemoryAccessError, MemorySize, MemoryView, Module, TypedFunction,
 };
+use wasmer_wasi_types_generated::wasi_snapshot0;
 
 pub use runtime::{
     PluggableRuntimeImplementation, WasiRuntimeImplementation, WasiThreadError, WasiTtyState,
@@ -291,10 +291,12 @@ impl WasiEnv {
     // Sleeps for a period of time
     pub fn sleep(&self, duration: Duration) -> Result<(), WasiError> {
         let duration = duration.as_nanos();
-        let start = platform_clock_time_get(__WASI_CLOCK_MONOTONIC, 1_000_000).unwrap() as u128;
+        let start =
+            platform_clock_time_get(wasi_snapshot0::Clockid::Monotonic, 1_000_000).unwrap() as u128;
         self.yield_now()?;
         loop {
-            let now = platform_clock_time_get(__WASI_CLOCK_MONOTONIC, 1_000_000).unwrap() as u128;
+            let now = platform_clock_time_get(wasi_snapshot0::Clockid::Monotonic, 1_000_000)
+                .unwrap() as u128;
             let delta = match now.checked_sub(start) {
                 Some(a) => a,
                 None => {

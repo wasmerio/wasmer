@@ -8,25 +8,24 @@ type filesize = u64
 /// Timestamp in nanoseconds.
 type timestamp = u64
 
+/// Identifiers for clocks.
+enum clockid {
+    // TODO: wit appears to not have support for enum type size
+    //(@witx tag u32)
 
-
-//  ;;; Identifiers for clocks.
-//  (typename $clockid
-//    (enum (@witx tag u32)
-//      ;;; The clock measuring real time. Time value zero corresponds with
-//      ;;; 1970-01-01T00:00:00Z.
-//      $realtime
-//      ;;; The store-wide monotonic clock, which is defined as a clock measuring
-//      ;;; real time, whose value cannot be adjusted and which cannot have negative
-//      ;;; clock jumps. The epoch of this clock is undefined. The absolute time
-//      ;;; value of this clock therefore has no meaning.
-//      $monotonic
-//      ;;; The CPU-time clock associated with the current process.
-//      $process_cputime_id
-//      ;;; The CPU-time clock associated with the current thread.
-//      $thread_cputime_id
-//    )
-//  )
+    /// The clock measuring real time. Time value zero corresponds with
+    /// 1970-01-01T00:00:00Z.
+    realtime,
+    /// The store-wide monotonic clock, which is defined as a clock measuring
+    /// real time, whose value cannot be adjusted and which cannot have negative
+    /// clock jumps. The epoch of this clock is undefined. The absolute time
+    /// value of this clock therefore has no meaning.
+    monotonic,
+    /// The CPU-time clock associated with the current process.
+    process-cputime-id,
+    /// The CPU-time clock associated with the current thread.
+    thread-cputime-id,
+}
 
 
 

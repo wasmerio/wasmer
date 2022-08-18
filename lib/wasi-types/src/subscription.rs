@@ -9,7 +9,7 @@ use wasmer_wasi_types_generated::wasi_snapshot0;
 #[derive(Debug, Copy, Clone, PartialEq, Eq, ValueType)]
 #[repr(C)]
 pub struct __wasi_subscription_clock_t {
-    pub clock_id: __wasi_clockid_t,
+    pub clock_id: wasi_snapshot0::Clockid,
     pub timeout: __wasi_timestamp_t,
     pub precision: __wasi_timestamp_t,
     pub flags: wasi_snapshot0::Subclockflags,

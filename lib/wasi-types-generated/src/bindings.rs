@@ -2,6 +2,41 @@
 pub mod wasi_snapshot0 {
   #[allow(unused_imports)]
   use wit_bindgen_wasmer::{anyhow, wasmer};
+  /// Identifiers for clocks.
+  #[repr(u8)]
+  #[derive(Clone, Copy, PartialEq, Eq)]
+  pub enum Clockid {
+    /// The clock measuring real time. Time value zero corresponds with
+    /// 1970-01-01T00:00:00Z.
+    Realtime,
+    /// The store-wide monotonic clock, which is defined as a clock measuring
+    /// real time, whose value cannot be adjusted and which cannot have negative
+    /// clock jumps. The epoch of this clock is undefined. The absolute time
+    /// value of this clock therefore has no meaning.
+    Monotonic,
+    /// The CPU-time clock associated with the current process.
+    ProcessCputimeId,
+    /// The CPU-time clock associated with the current thread.
+    ThreadCputimeId,
+  }
+  impl core::fmt::Debug for Clockid {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+      match self {
+        Clockid::Realtime => {
+          f.debug_tuple("Clockid::Realtime").finish()
+        }
+        Clockid::Monotonic => {
+          f.debug_tuple("Clockid::Monotonic").finish()
+        }
+        Clockid::ProcessCputimeId => {
+          f.debug_tuple("Clockid::ProcessCputimeId").finish()
+        }
+        Clockid::ThreadCputimeId => {
+          f.debug_tuple("Clockid::ThreadCputimeId").finish()
+        }
+      }
+    }
+  }
   /// Error codes returned by functions.
   /// Not all of these error codes are returned by the functions provided by this
   /// API; some are used in higher-level library layers, and others are provided
