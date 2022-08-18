@@ -15,7 +15,7 @@ use std::process::Command;
 use wasmer::*;
 use wasmer_object::{emit_serialized, get_object_for_target};
 
-const WASMER_SERIALIZED_HEADER: &[u8] = include_bytes!("wasmer_create_exe.h");
+const WASMER_SERIALIZED_HEADER: &[u8] = include_bytes!("wasmer_deserialize_module.h");
 
 #[derive(Debug, Parser)]
 /// The options for the `wasmer create-exe` subcommand
@@ -150,6 +150,16 @@ impl CreateObj {
         eprintln!(
             "✔ Object compiled successfully to `{}` and the header file was generated at `{}`.",
             self.output.display(),
+            header_output.display(),
+        );
+        eprintln!("\n---\n");
+        eprintln!(
+            r#"To use, link the object file to your executable and call the `wasmer_object_module_new` function defined in the header file. For example, in the C language:
+
+	#include "{}"
+	
+	wasm_module_t *module = wasmer_object_module_new(store, "my_module_name");
+            "#,
             header_output.display(),
         );
 

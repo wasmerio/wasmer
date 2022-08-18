@@ -21,8 +21,7 @@ use wasmer_object::{emit_serialized, get_object_for_target};
 pub type PrefixerFn = Box<dyn Fn(&[u8]) -> String + Send>;
 
 const WASMER_MAIN_C_SOURCE: &[u8] = include_bytes!("wasmer_create_exe_main.c");
-#[cfg(feature = "static-artifact-create")]
-const WASMER_STATIC_MAIN_C_SOURCE: &[u8] = include_bytes!("wasmer_static_create_exe_main.c");
+const WASMER_DESERIALIZE_HEADER: &str = include_str!("wasmer_deserialize_module.h");
 
 #[derive(Debug, Clone)]
 struct CrossCompile {
@@ -307,9 +306,39 @@ impl CreateExe {
                         .map_err(|err| anyhow::anyhow!(err.to_string()))?;
                     writer.flush()?;
                     drop(writer);
+                    // Write down header file that includes deserialize function
+                    {
+                        let mut writer = BufWriter::new(File::create("static_defs.h")?);
+                        writer.write_all(WASMER_DESERIALIZE_HEADER.as_bytes())?;
+                        writer.flush()?;
+                    }
 
-                    let cli_given_triple = self.target_triple.clone();
-                    self.compile_c(wasm_object_path, cli_given_triple, output_path)?;
+                    // write C src to disk
+                    let c_src_path = Path::new("wasmer_main.c");
+                    #[cfg(not(windows))]
+                    let c_src_obj = PathBuf::from("wasmer_main.o");
+                    #[cfg(windows)]
+                    let c_src_obj = PathBuf::from("wasmer_main.obj");
+
+                    {
+                        let mut c_src_file = fs::OpenOptions::new()
+                            .create_new(true)
+                            .write(true)
+                            .open(&c_src_path)
+                            .context("Failed to open C source code file")?;
+                        c_src_file.write_all(WASMER_MAIN_C_SOURCE)?;
+                    }
+                    run_c_compile(c_src_path, &c_src_obj, self.target_triple.clone())
+                        .context("Failed to compile C source code")?;
+                    LinkCode {
+                        object_paths: vec![c_src_obj, wasm_object_path],
+                        output_path,
+                        additional_libraries: self.libraries.clone(),
+                        target: self.target_triple.clone(),
+                        ..Default::default()
+                    }
+                    .run()
+                    .context("Failed to link objects together")?;
                 }
                 #[cfg(not(feature = "static-artifact-create"))]
                 ObjectFormat::Symbols => {
@@ -379,42 +408,6 @@ impl CreateExe {
         Ok(())
     }
 
-    fn compile_c(
-        &self,
-        wasm_object_path: PathBuf,
-        target_triple: Option<wasmer::Triple>,
-        output_path: PathBuf,
-    ) -> anyhow::Result<()> {
-        // write C src to disk
-        let c_src_path = Path::new("wasmer_main.c");
-        #[cfg(not(windows))]
-        let c_src_obj = PathBuf::from("wasmer_main.o");
-        #[cfg(windows)]
-        let c_src_obj = PathBuf::from("wasmer_main.obj");
-
-        {
-            let mut c_src_file = fs::OpenOptions::new()
-                .create_new(true)
-                .write(true)
-                .open(&c_src_path)
-                .context("Failed to open C source code file")?;
-            c_src_file.write_all(WASMER_MAIN_C_SOURCE)?;
-        }
-        run_c_compile(c_src_path, &c_src_obj, target_triple.clone())
-            .context("Failed to compile C source code")?;
-        LinkCode {
-            object_paths: vec![c_src_obj, wasm_object_path],
-            output_path,
-            additional_libraries: self.libraries.clone(),
-            target: target_triple,
-            ..Default::default()
-        }
-        .run()
-        .context("Failed to link objects together")?;
-
-        Ok(())
-    }
-
     fn compile_zig(
         &self,
         output_path: PathBuf,
@@ -449,7 +442,7 @@ impl CreateExe {
                 .write(true)
                 .open(&c_src_path)
                 .context("Failed to open C source code file")?;
-            c_src_file.write_all(WASMER_STATIC_MAIN_C_SOURCE)?;
+            c_src_file.write_all(WASMER_MAIN_C_SOURCE)?;
         }
 
         if !header_code_path.is_dir() {
@@ -531,7 +524,7 @@ impl CreateExe {
                 .write(true)
                 .open(&c_src_path)
                 .context("Failed to open C source code file")?;
-            c_src_file.write_all(WASMER_STATIC_MAIN_C_SOURCE)?;
+            c_src_file.write_all(WASMER_MAIN_C_SOURCE)?;
         }
 
         if !header_code_path.is_dir() {
@@ -666,6 +659,7 @@ fn run_c_compile(
         .arg("-O2")
         .arg("-c")
         .arg(path_to_c_src)
+        .arg("-I.")
         .arg("-I")
         .arg(get_wasmer_include_directory()?);
 
