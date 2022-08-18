@@ -34,12 +34,12 @@ use wasmer_wasi::{
 /// - a *const to the bytes to write
 /// - the length of the bytes to write
 pub type WasiConsoleIoReadCallback =
-    unsafe extern "C" fn(*const c_void, usize, usize, *mut c_char, usize) -> i64;
+    unsafe extern "C" fn(*const c_void, *mut c_char, usize) -> i64;
 pub type WasiConsoleIoWriteCallback =
-    unsafe extern "C" fn(*const c_void, usize, usize, *const c_char, usize, bool) -> i64;
+    unsafe extern "C" fn(*const c_void, *const c_char, usize, bool) -> i64;
 pub type WasiConsoleIoSeekCallback =
-    unsafe extern "C" fn(*const c_void, usize, usize, c_char, i64) -> i64;
-pub type WasiConsoleIoEnvDestructor = unsafe extern "C" fn(*const c_void, usize, usize) -> i64;
+    unsafe extern "C" fn(*const c_void, c_char, i64) -> i64;
+pub type WasiConsoleIoEnvDestructor = unsafe extern "C" fn(*const c_void) -> i64;
 /// Callback that is activated whenever the program wants to read from stdin
 ///
 /// Parameters:
@@ -55,8 +55,6 @@ pub type WasiConsoleIoEnvDestructor = unsafe extern "C" fn(*const c_void, usize,
 /// channel to answer depending on runtime-dependent stdout data.
 pub type WasiConsoleIoOnStdinCallback = unsafe extern "C" fn(
     *const c_void,
-    usize,
-    usize,
     usize,
     *mut wasi_console_stdin_response_t,
 ) -> i64;
@@ -78,7 +76,6 @@ pub struct wasi_console_out_t {
     seek: WasiConsoleIoSeekCallback,
     destructor: WasiConsoleIoEnvDestructor,
     data: Option<Box<Arc<Mutex<Vec<c_char>>>>>,
-    align: usize,
 }
 
 impl wasi_console_out_t {
@@ -103,7 +100,6 @@ impl wasi_console_out_t {
 
 impl Drop for wasi_console_out_t {
     fn drop(&mut self) {
-        let align = self.align;
         let data = match self.data.take() {
             Some(s) => s,
             None => {
@@ -127,9 +123,7 @@ impl Drop for wasi_console_out_t {
 
         let error = unsafe {
             (self.destructor)(
-                inner_value.as_mut_ptr() as *const c_void,
-                inner_value.len(),
-                align,
+                inner_value.as_mut_ptr() as *const c_void
             )
         };
         if error < 0 {
@@ -147,13 +141,10 @@ impl fmt::Debug for wasi_console_out_t {
 impl io::Read for wasi_console_out_t {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         let self_read = self.read;
-        let self_align = self.align;
         let mut data = self.get_data_mut("read")?;
         let result = unsafe {
             (self_read)(
                 data.as_mut_ptr() as *const c_void,
-                data.len(),
-                self_align,
                 buf.as_mut_ptr() as *mut c_char,
                 buf.len(),
             )
@@ -172,13 +163,10 @@ impl io::Read for wasi_console_out_t {
 impl io::Write for wasi_console_out_t {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         let self_write = self.write;
-        let self_align = self.align;
         let mut data = self.get_data_mut("write")?;
         let result = unsafe {
             (self_write)(
                 data.as_mut_ptr() as *const c_void,
-                data.len(),
-                self_align,
                 buf.as_ptr() as *const c_char,
                 buf.len(),
                 false,
@@ -198,14 +186,11 @@ impl io::Write for wasi_console_out_t {
     }
     fn flush(&mut self) -> io::Result<()> {
         let self_write = self.write;
-        let self_align = self.align;
         let mut data = self.get_data_mut("flush")?;
         let bytes_to_write = &[];
         let result: i64 = unsafe {
             (self_write)(
                 data.as_mut_ptr() as *const c_void,
-                data.len(),
-                self_align,
                 bytes_to_write.as_ptr(),
                 0,
                 true,
@@ -225,7 +210,6 @@ impl io::Write for wasi_console_out_t {
 impl io::Seek for wasi_console_out_t {
     fn seek(&mut self, pos: SeekFrom) -> io::Result<u64> {
         let self_seek = self.seek;
-        let self_align = self.align;
         let mut data = self.get_data_mut("seek")?;
         let (id, pos) = match pos {
             SeekFrom::Start(s) => (0, s as i64),
@@ -235,8 +219,6 @@ impl io::Seek for wasi_console_out_t {
         let result = unsafe {
             (self_seek)(
                 data.as_mut_ptr() as *const c_void,
-                data.len(),
-                self_align,
                 id,
                 pos,
             )
@@ -282,11 +264,10 @@ pub unsafe extern "C" fn wasi_console_out_new(
     write: WasiConsoleIoWriteCallback,
     seek: WasiConsoleIoSeekCallback,
     destructor: WasiConsoleIoEnvDestructor,
-    env_data: *const c_char,
+    env_data: *const c_void,
     env_data_len: usize,
-    env_data_align: usize,
 ) -> *mut wasi_console_out_t {
-    let data_vec: Vec<c_char> = std::slice::from_raw_parts(env_data, env_data_len).to_vec();
+    let data_vec: Vec<c_char> = std::slice::from_raw_parts(env_data as *const c_char, env_data_len).to_vec();
 
     Box::leak(Box::new(wasi_console_out_t {
         read,
@@ -294,7 +275,6 @@ pub unsafe extern "C" fn wasi_console_out_new(
         seek,
         destructor,
         data: Some(Box::new(Arc::new(Mutex::new(data_vec)))),
-        align: env_data_align,
     }))
 }
 
@@ -310,14 +290,11 @@ pub unsafe extern "C" fn wasi_console_out_new_null() -> *mut wasi_console_out_t 
         wasi_console_out_delete_null,
         data.as_mut_ptr(),
         data.len(),
-        std::mem::align_of_val(&data),
     )
 }
 
 extern "C" fn wasi_console_out_read_null(
     _: *const c_void,
-    _: usize,
-    _: usize,
     _: *mut c_char,
     _: usize,
 ) -> i64 {
@@ -325,8 +302,6 @@ extern "C" fn wasi_console_out_read_null(
 }
 extern "C" fn wasi_console_out_write_null(
     _: *const c_void,
-    _: usize,
-    _: usize,
     _: *const c_char,
     _: usize,
     _: bool,
@@ -335,31 +310,22 @@ extern "C" fn wasi_console_out_write_null(
 }
 extern "C" fn wasi_console_out_seek_null(
     _: *const c_void,
-    _: usize,
-    _: usize,
     _: c_char,
     _: i64,
 ) -> i64 {
     0
 }
 
-extern "C" fn wasi_console_out_delete_null(_: *const c_void, _: usize, _: usize) -> i64 {
+extern "C" fn wasi_console_out_delete_null(_: *const c_void) -> i64 {
     0
 }
 
 unsafe extern "C" fn wasi_console_out_read_memory(
     ptr: *const c_void,    /* = *Pipe */
-    sizeof: usize,         /* = sizeof(Pipe) */
-    alignof: usize,        /* = alignof(Pipe) */
     byte_ptr: *mut c_char, /* &[u8] bytes to read */
     max_bytes: usize,      /* max bytes to read */
 ) -> i64 {
     use std::io::Read;
-    if sizeof != std::mem::size_of::<Pipe>()
-        || alignof != std::mem::align_of::<Pipe>()
-    {
-        return -1;
-    }
     let ptr = ptr as *mut Pipe;
     let ptr = &mut *ptr;
     let slice = std::slice::from_raw_parts_mut(byte_ptr as *mut u8, max_bytes);
@@ -371,18 +337,11 @@ unsafe extern "C" fn wasi_console_out_read_memory(
 
 unsafe extern "C" fn wasi_console_out_write_memory(
     ptr: *const c_void, /* = *Pipe */
-    sizeof: usize,      /* = sizeof(Pipe) */
-    alignof: usize,     /* = alignof(Pipe) */
     byte_ptr: *const c_char,
     byte_len: usize,
     flush: bool,
 ) -> i64 {
     use std::io::Write;
-    if sizeof != std::mem::size_of::<Pipe>()
-        || alignof != std::mem::align_of::<Pipe>()
-    {
-        return -1;
-    }
     
     let ptr = ptr as *mut Pipe;
     let ptr = &mut *ptr;
@@ -403,17 +362,10 @@ unsafe extern "C" fn wasi_console_out_write_memory(
 
 unsafe extern "C" fn wasi_console_out_seek_memory(
     ptr: *const c_void, /* = *Pipe */
-    sizeof: usize,      /* = sizeof(Pipe) */
-    alignof: usize,     /* = alignof(Pipe) */
     direction: c_char,
     seek_to: i64,
 ) -> i64 {
     use std::io::Seek;
-    if sizeof != std::mem::size_of::<Pipe>()
-        || alignof != std::mem::align_of::<Pipe>()
-    {
-        return -1;
-    }
 
     let ptr = ptr as *mut Pipe;
     let ptr = &mut *ptr;
@@ -433,14 +385,7 @@ unsafe extern "C" fn wasi_console_out_seek_memory(
 
 unsafe extern "C" fn wasi_console_out_delete_memory(
     ptr: *const c_void, /* = *Pipe */
-    sizeof: usize,      /* = sizeof(Pipe) */
-    alignof: usize,     /* = alignof(Pipe) */
 ) -> i64 {
-    if sizeof != std::mem::size_of::<Pipe>()
-        || alignof != std::mem::align_of::<Pipe>()
-    {
-        return -1;
-    }
     let ptr = ptr as *mut Pipe;
     let ptr = &mut *ptr;
     let _ = Box::from_raw(ptr); // TODO: correct?
@@ -452,20 +397,17 @@ unsafe extern "C" fn wasi_console_out_delete_memory(
 /// for backing stdin / stdout / stderr
 #[no_mangle]
 pub unsafe extern "C" fn wasi_console_out_new_memory() -> *mut wasi_console_out_t {
-    use std::mem::ManuallyDrop;
 
-    let data = Pipe::new();
-    let mut data = ManuallyDrop::new(data);
-    let ptr: &mut Pipe = &mut data;
+    let data = Box::new(Pipe::new());
+    let ptr = Box::leak(data);
 
     wasi_console_out_new(
         wasi_console_out_read_memory,
         wasi_console_out_write_memory,
         wasi_console_out_seek_memory,
         wasi_console_out_delete_memory,
-        ptr as *mut _ as *mut i8,
+        ptr as *mut _ as *mut c_void,
         std::mem::size_of::<Pipe>(),
-        std::mem::align_of::<Pipe>(),
     )
 }
 
@@ -761,7 +703,6 @@ pub struct wasi_console_stdin_t {
     on_stdin: WasiConsoleIoOnStdinCallback,
     destructor: WasiConsoleIoEnvDestructor,
     data: Option<Box<Vec<c_char>>>,
-    align: usize,
 }
 
 impl wasi_console_stdin_t {
@@ -781,20 +722,17 @@ pub unsafe extern "C" fn wasi_console_stdin_new(
     destructor: WasiConsoleIoEnvDestructor,
     ptr: *const c_void,
     len: usize,
-    align: usize,
 ) -> *mut wasi_console_stdin_t {
     let data = std::slice::from_raw_parts(ptr as *const c_char, len);
     Box::leak(Box::new(wasi_console_stdin_t {
         on_stdin,
         destructor,
         data: Some(Box::new(data.to_vec())),
-        align,
     }))
 }
 
 impl Drop for wasi_console_stdin_t {
     fn drop(&mut self) {
-        let align = self.align;
         let mut data = match self.data.take() {
             Some(s) => s,
             None => {
@@ -803,7 +741,7 @@ impl Drop for wasi_console_stdin_t {
         };
 
         let error = unsafe {
-            (self.destructor)((*data).as_mut_ptr() as *const c_void, (*data).len(), align)
+            (self.destructor)((*data).as_mut_ptr() as *const c_void)
         };
 
         if error < 0 {
@@ -862,14 +800,11 @@ impl io::Read for wasi_console_stdin_t {
         let mut target = wasi_console_stdin_response_t {
             response_data: Box::new(Vec::new()),
         };
-        let self_align = self.align;
         let self_on_stdin = self.on_stdin;
         let data = self.get_data_mut("read")?;
         let result = unsafe {
             (self_on_stdin)(
                 data.as_ptr() as *const c_void,
-                data.len(),
-                self_align,
                 buf.len(),
                 &mut target,
             )
