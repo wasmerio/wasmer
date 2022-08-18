@@ -17,7 +17,7 @@ use wasmer_types::SerializeError;
 use wasmer_types::{
     CompileError, CpuFeature, CustomSection, Dwarf, FunctionIndex, LocalFunctionIndex, MemoryIndex,
     MemoryStyle, ModuleInfo, OwnedDataInitializer, Relocation, SectionIndex, SignatureIndex,
-    TableIndex, TableStyle, Target,
+    TableIndex, TableStyle, Target, Pages,
 };
 use wasmer_types::{
     CompiledFunctionFrameInfo, FunctionBody, SerializableCompilation, SerializableModule,
@@ -45,6 +45,7 @@ impl ArtifactBuild {
         target: &Target,
         memory_styles: PrimaryMap<MemoryIndex, MemoryStyle>,
         table_styles: PrimaryMap<TableIndex, TableStyle>,
+        module_start: Option<Pages>,
     ) -> Result<Self, CompileError> {
         let environ = ModuleEnvironment::new();
         let features = inner_engine.features().clone();
@@ -111,6 +112,7 @@ impl ArtifactBuild {
             compilation: serializable_compilation,
             compile_info,
             data_initializers,
+            module_start,
             cpu_features: target.cpu_features().as_u64(),
         };
         Ok(Self { serializable })
@@ -134,6 +136,11 @@ impl ArtifactBuild {
     /// Create a new ArtifactBuild from a SerializableModule
     pub fn from_serializable(serializable: SerializableModule) -> Self {
         Self { serializable }
+    }
+
+    /// Returns the memory start address for this compiled module
+    pub fn get_memory_start(&self) -> Option<Pages> {
+        self.serializable.module_start.clone()
     }
 
     /// Get Functions Bodies ref

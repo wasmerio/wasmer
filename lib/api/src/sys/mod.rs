@@ -42,7 +42,7 @@ pub use wasmer_derive::ValueType;
 pub use wasmer_types::is_wasm;
 pub use wasmer_types::{
     CpuFeature, ExportType, ExternType, FunctionType, GlobalType, ImportType, MemoryType,
-    Mutability, TableType, Target, Type,
+    Mutability, TableType, Target, Type, OnCalledAction, StoreSnapshot
 };
 
 pub use wasmer_types::{

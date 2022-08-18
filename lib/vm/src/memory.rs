@@ -11,7 +11,18 @@ use std::cell::UnsafeCell;
 use std::convert::TryInto;
 use std::ptr::NonNull;
 use std::sync::{RwLock, Arc};
-use wasmer_types::{Bytes, MemoryStyle, MemoryType, Pages, MemoryError, LinearMemory, VMMemoryDefinition};
+use wasmer_types::{Bytes, MemoryStyle, MemoryType, Pages, MemoryError, LinearMemory, VMMemoryDefinition, MemoryRole};
+
+// Represents a region of memory that plays a particular role
+#[derive(Debug, Clone)]
+pub struct VMMemoryRegion {
+    // Start of the memory region
+    start: u64,
+    // End of the memory region
+    end: u64,
+    // Role that the memory region plays
+    role: MemoryRole,
+}
 
 // The memory mapped area
 #[derive(Debug)]
@@ -20,7 +31,9 @@ struct WasmMmap {
     alloc: Mmap,
     // The current logical size in wasm pages of this linear memory.
     size: Pages,
-    /// The owned memory definition used by the generated code
+    // List of the regions that have been marked
+    regions: Vec<VMMemoryRegion>,
+    // The owned memory definition used by the generated code
     vm_memory_definition: MaybeInstanceOwned<VMMemoryDefinition>,
 }
 
@@ -117,6 +130,49 @@ impl WasmMmap
 
         Ok(prev_pages)
     }
+
+    /// Marks a region of the memory for a particular role
+    pub fn mark_region(&mut self, start: u64, end: u64, role: MemoryRole)
+    {
+        self.regions.push(VMMemoryRegion {
+            start,
+            end,
+            role
+        });
+    }
+
+    /// Returns the role of a part of the memory
+    pub fn region(&self, pointer: u64) -> MemoryRole
+    {
+        for region in self.regions.iter() {
+            if pointer >= region.start && pointer < region.end {
+                return region.role;
+            }
+        }
+        MemoryRole::default()
+    }
+
+    /// Copies the memory
+    /// (in this case it performs a copy-on-write to save memory)
+    pub fn fork(&mut self) -> Result<WasmMmap, MemoryError>
+    {
+        let mem_length = self.size.bytes().0;
+        let mut alloc = self.alloc
+            .fork(Some(mem_length))
+            .map_err(|err| MemoryError::Generic(err))?;
+        let base_ptr = alloc.as_mut_ptr();
+        Ok(
+            Self {
+                vm_memory_definition: MaybeInstanceOwned::Host(Box::new(UnsafeCell::new(VMMemoryDefinition {
+                    base: base_ptr,
+                    current_length: mem_length,
+                }))),
+                alloc,
+                size: self.size,
+                regions: self.regions.clone(),
+            }
+        )
+    }
 }
 
 /// A linear memory instance.
@@ -162,9 +218,9 @@ unsafe impl Sync for VMOwnedMemory { }
 /// A shared linear memory instance.
 #[derive(Debug, Clone)]
 pub struct VMSharedMemory {
-    // The underlying allocation.
+    /// The underlying allocation.
     mmap: Arc<RwLock<WasmMmap>>,
-    // Configuration of this memory
+    /// Configuration of this memory
     config: VMMemoryConfig,
 }
 
@@ -232,7 +288,7 @@ impl VMOwnedMemory {
             MemoryStyle::Static { bound, .. } => {
                 assert_ge!(*bound, memory.minimum);
                 *bound
-            }
+            },
         };
         let minimum_bytes = minimum_pages.bytes().0;
         let request_bytes = minimum_bytes.checked_add(offset_guard_bytes).unwrap();
@@ -258,6 +314,7 @@ impl VMOwnedMemory {
                     current_length: mem_length,
                 })))
             },
+            regions: Default::default(),
             alloc,
             size: memory.minimum,
         };
@@ -321,6 +378,28 @@ for VMOwnedMemory
     /// Owned memory can not be cloned (this will always return None)
     fn try_clone(&self) -> Option<Box<dyn LinearMemory + 'static>> {
         None
+    }
+
+    /// Copies this memory to a new memory
+    fn fork(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
+        Ok(
+            Box::new(
+                Self {
+                    mmap: self.mmap.fork()?,
+                    config: self.config.clone(),
+                }
+            )
+        )
+    }
+
+    /// Marks a region of the memory for a particular role
+    fn mark_region(&mut self, start: u64, end: u64, role: MemoryRole) {
+        self.mmap.mark_region(start, end, role);
+    }
+
+    /// Returns the role of a part of the memory
+    fn region(&self, pointer: u64) -> MemoryRole {
+        self.mmap.region(pointer)
     }
 }
 
@@ -404,6 +483,33 @@ for VMSharedMemory
     fn try_clone(&self) -> Option<Box<dyn LinearMemory + 'static>> {
         Some(Box::new(self.clone()))
     }
+
+    /// Copies this memory to a new memory
+    fn fork(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
+        let mut guard = self.mmap.write().unwrap();
+        Ok(
+            Box::new(
+                Self {
+                    mmap: Arc::new(RwLock::new(
+                        guard.fork()?
+                    )),
+                    config: self.config.clone(),
+                }
+            )
+        )
+    }
+
+    /// Marks a region of the memory for a particular role
+    fn mark_region(&mut self, start: u64, end: u64, role: MemoryRole) {
+        let mut guard = self.mmap.write().unwrap();
+        guard.mark_region(start, end, role)
+    }
+
+    /// Returns the role of a part of the memory
+    fn region(&self, pointer: u64) -> MemoryRole {
+        let guard = self.mmap.read().unwrap();
+        guard.region(pointer)
+    }
 }
 
 impl Into<VMMemory>
@@ -416,7 +522,7 @@ for VMSharedMemory
 
 /// Represents linear memory that can be either owned or shared
 #[derive(Debug)]
-pub struct VMMemory(Box<dyn LinearMemory + 'static>);
+pub struct VMMemory(pub Box<dyn LinearMemory + 'static>);
 
 impl Into<VMMemory>
 for Box<dyn LinearMemory + 'static>
@@ -460,6 +566,21 @@ for VMMemory
     /// Attempts to clone this memory (if its clonable)
     fn try_clone(&self) -> Option<Box<dyn LinearMemory + 'static>> {
         self.0.try_clone()
+    }
+
+    /// Copies this memory to a new memory
+    fn fork(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
+        self.0.fork()
+    }
+
+    /// Marks a region of the memory for a particular role
+    fn mark_region(&mut self, start: u64, end: u64, role: MemoryRole) {
+        self.0.mark_region(start, end, role)
+    }
+
+    /// Returns the role of a part of the memory
+    fn region(&self, pointer: u64) -> MemoryRole {
+        self.0.region(pointer)
     }
 }
 

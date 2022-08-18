@@ -80,7 +80,7 @@ pub mod vm {
 pub use wasmer_types::is_wasm;
 pub use wasmer_types::{
     Bytes, ExportIndex, GlobalInit, LocalFunctionIndex, Pages, ValueType, WASM_MAX_PAGES,
-    WASM_MIN_PAGES, WASM_PAGE_SIZE,
+    WASM_MIN_PAGES, WASM_PAGE_SIZE, OnCalledAction, StoreSnapshot
 };
 
 #[cfg(feature = "wat")]

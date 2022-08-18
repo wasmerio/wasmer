@@ -63,6 +63,8 @@ pub unsafe trait MemorySize: Copy {
         + PartialOrd<Self::Offset>
         + Clone
         + Copy
+        + Sync
+        + Send
         + ValueType
         + Into<u64>
         + From<u32>
@@ -80,7 +82,8 @@ pub unsafe trait MemorySize: Copy {
         + TryFrom<usize>
         + Add<Self::Offset>
         + Sum<Self::Offset>
-        + AddAssign<Self::Offset>;
+        + AddAssign<Self::Offset>
+        + 'static;
 
     /// Type used to pass this value as an argument or return value for a Wasm function.
     type Native: super::NativeWasmType;
@@ -130,6 +133,27 @@ unsafe impl MemorySize for Memory64 {
     }
 }
 
+/// Represents different roles that a particular region of memory plays
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum MemoryRole
+{
+    /// The region is used for storing data (default)
+    Data,
+    /// The region is used as a stack
+    Stack,
+    /// The region is used to guard against memory access violations
+    Guard,
+    /// The region resides on another remote location (holds the reference number for that location)
+    Remote(u64),
+}
+
+impl Default
+for MemoryRole {
+    fn default() -> Self {
+        MemoryRole::Data
+    }
+}
+
 /// Represents memory that is used by the WebAsssembly module
 pub trait LinearMemory
 where Self: std::fmt::Debug + Send
@@ -154,6 +178,15 @@ where Self: std::fmt::Debug + Send
 
     /// Attempts to clone this memory (if its clonable)
     fn try_clone(&self) -> Option<Box<dyn LinearMemory + 'static>>;
+
+    /// Copies this memory to a new memory
+    fn fork(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError>;
+
+    /// Marks a region of the memory for a particular role
+    fn mark_region(&mut self, start: u64, end: u64, role: MemoryRole);
+
+    /// Returns the role of a part of the memory
+    fn region(&self, pointer: u64) -> MemoryRole;
 }
 
 /// The fields compiled code needs to access to utilize a WebAssembly linear

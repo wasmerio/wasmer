@@ -3,6 +3,8 @@ use std::ffi::OsString;
 use std::fmt;
 use std::io::{self, Read, Seek, Write};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
+use std::task::Waker;
 use thiserror::Error;
 
 #[cfg(all(not(feature = "host-fs"), not(feature = "mem-fs")))]
@@ -22,7 +24,7 @@ pub mod webc_fs;
 
 pub type Result<T> = std::result::Result<T, FsError>;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 #[repr(transparent)]
 pub struct FileDescriptor(usize);
 
@@ -197,7 +199,9 @@ impl OpenOptions {
 
 /// This trait relies on your file closing when it goes out of scope via `Drop`
 //#[cfg_attr(feature = "enable-serde", typetag::serde)]
-pub trait VirtualFile: fmt::Debug + Write + Read + Seek + Upcastable {
+#[async_trait::async_trait]
+pub trait VirtualFile: fmt::Debug + Write + Read + Seek + Upcastable
+{
     /// the last time the file was accessed in nanoseconds as a UNIX timestamp
     fn last_accessed(&self) -> u64;
 
@@ -242,10 +246,65 @@ pub trait VirtualFile: fmt::Debug + Write + Read + Seek + Upcastable {
         Ok(None)
     }
 
+    /// Polls for when read data is available again
+    /// Defaults to `None` which means no asynchronous IO support - caller
+    /// must poll `bytes_available_read` instead
+    fn poll_read_ready(&self, cx: &mut std::task::Context<'_>, register_root_waker: &Arc<dyn Fn(Waker) + Send + Sync + 'static>) -> std::task::Poll<Result<usize>> {
+        use std::ops::Deref;
+        match self.bytes_available_read() {
+            Ok(Some(0)) => {
+                let waker = cx.waker().clone();
+                register_root_waker.deref()(waker);
+                std::task::Poll::Pending
+            },
+            Ok(Some(a)) => std::task::Poll::Ready(Ok(a)),
+            Ok(None) => std::task::Poll::Ready(Err(FsError::WouldBlock)),
+            Err(err) => std::task::Poll::Ready(Err(err)),
+        }
+    }
+
+    /// Polls for when the file can be written to again
+    /// Defaults to `None` which means no asynchronous IO support - caller
+    /// must poll `bytes_available_write` instead
+    fn poll_write_ready(&self, cx: &mut std::task::Context<'_>, register_root_waker: &Arc<dyn Fn(Waker) + Send + Sync + 'static>) -> std::task::Poll<Result<usize>> {
+        use std::ops::Deref;
+        match self.bytes_available_write() {
+            Ok(Some(0)) => {
+                let waker = cx.waker().clone();
+                register_root_waker.deref()(waker);
+                std::task::Poll::Pending
+            },
+            Ok(Some(a)) => std::task::Poll::Ready(Ok(a)),
+            Ok(None) => std::task::Poll::Ready(Err(FsError::WouldBlock)),
+            Err(err) => std::task::Poll::Ready(Err(err)),
+        }
+    }
+
+    /// Polls for when the file can be written to again
+    /// Defaults to `None` which means no asynchronous IO support - caller
+    /// must poll `bytes_available_write` instead
+    fn poll_close_ready(&self, cx: &mut std::task::Context<'_>, register_root_waker: &Arc<dyn Fn(Waker) + Send + Sync + 'static>) -> std::task::Poll<()> {
+        use std::ops::Deref;
+        match self.is_open() {
+            true => {
+                let waker = cx.waker().clone();
+                register_root_waker.deref()(waker);
+                std::task::Poll::Pending
+            },
+            false => std::task::Poll::Ready(())
+        }
+    }
+
     /// Indicates if the file is opened or closed. This function must not block
     /// Defaults to a status of being constantly open
     fn is_open(&self) -> bool {
         true
+    }
+
+    /// Returns a special file descriptor when opening this file rather than
+    /// generating a new one
+    fn get_special_fd(&self) -> Option<u32> {
+        None
     }
 
     /// Used for polling.  Default returns `None` because this method cannot be implemented for most types
@@ -261,6 +320,9 @@ pub trait Upcastable {
     fn upcast_any_ref(&'_ self) -> &'_ dyn Any;
     fn upcast_any_mut(&'_ mut self) -> &'_ mut dyn Any;
     fn upcast_any_box(self: Box<Self>) -> Box<dyn Any>;
+}
+
+pub trait ClonableVirtualFile: VirtualFile + Clone {
 }
 
 impl<T: Any + fmt::Debug + 'static> Upcastable for T {
@@ -344,8 +406,8 @@ pub enum FsError {
     #[error("connection is not open")]
     NotConnected,
     /// The requested file or directory could not be found
-    #[error("entity not found")]
-    EntityNotFound,
+    #[error("entry not found")]
+    EntryNotFound,
     /// The requested device couldn't be accessed
     #[error("can't access device")]
     NoDevice,
@@ -386,7 +448,7 @@ impl From<io::Error> for FsError {
             io::ErrorKind::InvalidData => FsError::InvalidData,
             io::ErrorKind::InvalidInput => FsError::InvalidInput,
             io::ErrorKind::NotConnected => FsError::NotConnected,
-            io::ErrorKind::NotFound => FsError::EntityNotFound,
+            io::ErrorKind::NotFound => FsError::EntryNotFound,
             io::ErrorKind::PermissionDenied => FsError::PermissionDenied,
             io::ErrorKind::TimedOut => FsError::TimedOut,
             io::ErrorKind::UnexpectedEof => FsError::UnexpectedEof,
@@ -396,6 +458,39 @@ impl From<io::Error> for FsError {
             // if the following triggers, a new error type was added to this non-exhaustive enum
             _ => FsError::UnknownError,
         }
+    }
+}
+
+impl Into<io::Error> for FsError {
+    fn into(self) -> io::Error {
+        let kind = match self {
+            FsError::AddressInUse => io::ErrorKind::AddrInUse,
+            FsError::AddressNotAvailable => io::ErrorKind::AddrNotAvailable,
+            FsError::AlreadyExists => io::ErrorKind::AlreadyExists,
+            FsError::BrokenPipe => io::ErrorKind::BrokenPipe,
+            FsError::ConnectionAborted => io::ErrorKind::ConnectionAborted,
+            FsError::ConnectionRefused => io::ErrorKind::ConnectionRefused,
+            FsError::ConnectionReset => io::ErrorKind::ConnectionReset,
+            FsError::Interrupted => io::ErrorKind::Interrupted,
+            FsError::InvalidData => io::ErrorKind::InvalidData,
+            FsError::InvalidInput => io::ErrorKind::InvalidInput,
+            FsError::NotConnected => io::ErrorKind::NotConnected,
+            FsError::EntryNotFound => io::ErrorKind::NotFound,
+            FsError::PermissionDenied => io::ErrorKind::PermissionDenied,
+            FsError::TimedOut => io::ErrorKind::TimedOut,
+            FsError::UnexpectedEof => io::ErrorKind::UnexpectedEof,
+            FsError::WouldBlock => io::ErrorKind::WouldBlock,
+            FsError::WriteZero => io::ErrorKind::WriteZero,
+            FsError::IOError => io::ErrorKind::Other,
+            FsError::BaseNotDirectory => io::ErrorKind::Other,
+            FsError::NotAFile => io::ErrorKind::Other,
+            FsError::InvalidFd => io::ErrorKind::Other,
+            FsError::Lock => io::ErrorKind::Other,
+            FsError::NoDevice => io::ErrorKind::Other,
+            FsError::DirectoryNotEmpty => io::ErrorKind::Other,
+            FsError::UnknownError => io::ErrorKind::Other,
+        };
+        kind.into()
     }
 }
 
