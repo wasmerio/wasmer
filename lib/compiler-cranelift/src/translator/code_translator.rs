@@ -1071,7 +1071,8 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
                 expected,
                 timeout,
             )?;
-            state.push1(res);        }
+            state.push1(res);
+        }
         Operator::MemoryAtomicNotify { memarg } => {
             let heap_index = MemoryIndex::from_u32(memarg.memory);
             let heap = state.get_heap(builder.func, memarg.memory, environ)?;
@@ -1079,8 +1080,8 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             let addr = state.pop1(); // 32 (fixed)
             let addr = fold_atomic_mem_addr(addr, memarg, I32, builder);
             let res =
-                 environ.translate_atomic_notify(builder.cursor(), heap_index, heap, addr, count)?;
-             state.push1(res);
+                environ.translate_atomic_notify(builder.cursor(), heap_index, heap, addr, count)?;
+            state.push1(res);
         }
         Operator::I32AtomicLoad { memarg } => {
             translate_atomic_load(I32, I32, memarg, builder, state, environ)?

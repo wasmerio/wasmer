@@ -267,9 +267,9 @@ impl<T> MaybeInstanceOwned<T> {
     }
 }
 
-impl<T> std::fmt::Debug
-for MaybeInstanceOwned<T>
-where T: std::fmt::Debug
+impl<T> std::fmt::Debug for MaybeInstanceOwned<T>
+where
+    T: std::fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -277,7 +277,7 @@ where T: std::fmt::Debug
                 write!(f, "host(")?;
                 p.as_ref().fmt(f)?;
                 write!(f, ")")
-            },
+            }
             MaybeInstanceOwned::Instance(p) => {
                 write!(f, "instance(")?;
                 unsafe { p.as_ref().fmt(f)? };

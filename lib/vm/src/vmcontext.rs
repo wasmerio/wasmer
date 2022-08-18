@@ -313,7 +313,12 @@ mod test_vmglobal_import {
 /// # Safety
 /// The memory is not copied atomically and is not synchronized: it's the
 /// caller's responsibility to synchronize.
-pub(crate) unsafe fn memory_copy(mem: &VMMemoryDefinition, dst: u32, src: u32, len: u32) -> Result<(), Trap> {
+pub(crate) unsafe fn memory_copy(
+    mem: &VMMemoryDefinition,
+    dst: u32,
+    src: u32,
+    len: u32,
+) -> Result<(), Trap> {
     // https://webassembly.github.io/reference-types/core/exec/instructions.html#exec-memory-copy
     if src
         .checked_add(len)
@@ -347,7 +352,12 @@ pub(crate) unsafe fn memory_copy(mem: &VMMemoryDefinition, dst: u32, src: u32, l
 /// # Safety
 /// The memory is not filled atomically and is not synchronized: it's the
 /// caller's responsibility to synchronize.
-pub(crate) unsafe fn memory_fill(mem: &VMMemoryDefinition, dst: u32, val: u32, len: u32) -> Result<(), Trap> {
+pub(crate) unsafe fn memory_fill(
+    mem: &VMMemoryDefinition,
+    dst: u32,
+    val: u32,
+    len: u32,
+) -> Result<(), Trap> {
     if dst
         .checked_add(len)
         .map_or(true, |m| usize::try_from(m).unwrap() > mem.current_length)

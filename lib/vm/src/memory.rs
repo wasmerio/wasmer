@@ -10,7 +10,9 @@ use more_asserts::assert_ge;
 use std::cell::UnsafeCell;
 use std::convert::TryInto;
 use std::ptr::NonNull;
-use wasmer_types::{Bytes, MemoryStyle, MemoryType, Pages, MemoryError, LinearMemory, VMMemoryDefinition};
+use wasmer_types::{
+    Bytes, LinearMemory, MemoryError, MemoryStyle, MemoryType, Pages, VMMemoryDefinition,
+};
 
 // The memory mapped area
 #[derive(Debug)]
@@ -23,8 +25,7 @@ struct WasmMmap {
     vm_memory_definition: MaybeInstanceOwned<VMMemoryDefinition>,
 }
 
-impl WasmMmap
-{
+impl WasmMmap {
     fn get_vm_memory_definition(&self) -> NonNull<VMMemoryDefinition> {
         self.vm_memory_definition.as_ptr()
     }
@@ -92,14 +93,12 @@ impl WasmMmap
                 Mmap::accessible_reserved(new_bytes, request_bytes).map_err(MemoryError::Region)?;
 
             let copy_len = self.alloc.len() - conf.offset_guard_size;
-            new_mmap.as_mut_slice()[..copy_len]
-                .copy_from_slice(&self.alloc.as_slice()[..copy_len]);
+            new_mmap.as_mut_slice()[..copy_len].copy_from_slice(&self.alloc.as_slice()[..copy_len]);
 
             self.alloc = new_mmap;
         } else if delta_bytes > 0 {
             // Make the newly allocated pages accessible.
-            self
-                .alloc
+            self.alloc
                 .make_accessible(prev_bytes, delta_bytes)
                 .map_err(MemoryError::Region)?;
         }
@@ -132,8 +131,7 @@ struct VMMemoryConfig {
     offset_guard_size: usize,
 }
 
-impl VMMemoryConfig
-{
+impl VMMemoryConfig {
     fn ty(&self, minimum: Pages) -> MemoryType {
         let mut out = self.memory;
         out.minimum = minimum;
@@ -155,8 +153,8 @@ pub struct VMOwnedMemory {
     config: VMMemoryConfig,
 }
 
-unsafe impl Send for VMOwnedMemory { }
-unsafe impl Sync for VMOwnedMemory { }
+unsafe impl Send for VMOwnedMemory {}
+unsafe impl Sync for VMOwnedMemory {}
 
 impl VMOwnedMemory {
     /// Create a new linear memory instance with specified minimum and maximum number of wasm pages.
@@ -248,7 +246,7 @@ impl VMOwnedMemory {
             alloc,
             size: memory.minimum,
         };
-        
+
         Ok(Self {
             mmap: mmap,
             config: VMMemoryConfig {
@@ -256,14 +254,12 @@ impl VMOwnedMemory {
                 offset_guard_size: offset_guard_bytes,
                 memory: *memory,
                 style: style.clone(),
-            }
+            },
         })
     }
 }
 
-impl LinearMemory
-for VMOwnedMemory
-{
+impl LinearMemory for VMOwnedMemory {
     /// Returns the type for this memory.
     fn ty(&self) -> MemoryType {
         let minimum = self.mmap.size();
@@ -299,9 +295,7 @@ for VMOwnedMemory
     }
 }
 
-impl Into<VMMemory>
-for VMOwnedMemory
-{
+impl Into<VMMemory> for VMOwnedMemory {
     fn into(self) -> VMMemory {
         VMMemory(Box::new(self))
     }
@@ -311,17 +305,13 @@ for VMOwnedMemory
 #[derive(Debug)]
 pub struct VMMemory(Box<dyn LinearMemory + 'static>);
 
-impl Into<VMMemory>
-for Box<dyn LinearMemory + 'static>
-{
+impl Into<VMMemory> for Box<dyn LinearMemory + 'static> {
     fn into(self) -> VMMemory {
         VMMemory(self)
     }
 }
 
-impl LinearMemory
-for VMMemory
-{
+impl LinearMemory for VMMemory {
     /// Returns the type for this memory.
     fn ty(&self) -> MemoryType {
         self.0.ty()
@@ -356,17 +346,14 @@ for VMMemory
     }
 }
 
-impl VMMemory
-{
+impl VMMemory {
     /// Creates a new linear memory instance of the correct type with specified
     /// minimum and maximum number of wasm pages.
     ///
     /// This creates a `Memory` with owned metadata: this can be used to create a memory
     /// that will be imported into Wasm modules.
     pub fn new(memory: &MemoryType, style: &MemoryStyle) -> Result<VMMemory, MemoryError> {
-        Ok(
-            Self(Box::new(VMOwnedMemory::new(memory, style)?))
-        )
+        Ok(Self(Box::new(VMOwnedMemory::new(memory, style)?)))
     }
 
     /// Create a new linear memory instance with specified minimum and maximum number of wasm pages.
@@ -381,9 +368,11 @@ impl VMMemory
         style: &MemoryStyle,
         vm_memory_location: NonNull<VMMemoryDefinition>,
     ) -> Result<VMMemory, MemoryError> {
-        Ok(
-            Self(Box::new(VMOwnedMemory::from_definition(memory, style, vm_memory_location)?))
-        )
+        Ok(Self(Box::new(VMOwnedMemory::from_definition(
+            memory,
+            style,
+            vm_memory_location,
+        )?)))
     }
 
     /// Creates VMMemory from a custom implementation - the following into implementations
@@ -392,7 +381,8 @@ impl VMMemory
     /// - VMSharedMemory -> VMMemory
     /// - Box<dyn LinearMemory + 'static> -> VMMemory
     pub fn from_custom<IntoVMMemory>(memory: IntoVMMemory) -> VMMemory
-    where IntoVMMemory: Into<VMMemory>
+    where
+        IntoVMMemory: Into<VMMemory>,
     {
         memory.into()
     }

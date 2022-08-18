@@ -75,7 +75,7 @@ pub use crate::js::value::Value as Val;
 
 pub mod vm {
     //! The `vm` module re-exports wasmer-vm types.
-    
+
     pub use crate::js::export::VMMemory;
 }
 
