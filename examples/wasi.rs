@@ -39,7 +39,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Creating `WasiEnv`...");
     // First, we create the `WasiEnv`
-    let wasi_env = WasiState::new("hello")
+    let mut wasi_env = WasiState::new("hello")
         // .args(&["world"])
         // .env("KEY", "Value")
         .finalize(&mut store)?;
@@ -50,10 +50,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let import_object = wasi_env.import_object(&mut store, &module)?;
     let instance = Instance::new(&mut store, &module, &import_object)?;
 
-    println!("Attach WASI memory...");
-    // Attach the memory export
-    let memory = instance.exports.get_memory("memory")?;
-    wasi_env.data_mut(&mut store).set_memory(memory.clone());
+    println!("Initializing WASI environment...");
+    // Initialize the WASI environment (which will attach memory)
+    wasi_env.initialize(&mut store, &instance).unwrap();
 
     println!("Call WASI `_start` function...");
     // And we just call the `_start` function!

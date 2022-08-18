@@ -1,22 +1,43 @@
 use crate::sys::tunables::BaseTunables;
 use std::fmt;
-use std::sync::{Arc, RwLock};
 #[cfg(feature = "compiler")]
 use wasmer_compiler::{Engine, EngineBuilder, Tunables};
-use wasmer_vm::{init_traps, TrapHandler, TrapHandlerFn};
+use wasmer_types::{OnCalledAction, StoreSnapshot};
+use wasmer_vm::{init_traps, TrapHandler, TrapHandlerFn, StoreId};
+use derivative::Derivative;
 
 use wasmer_vm::StoreObjects;
 
 /// We require the context to have a fixed memory address for its lifetime since
 /// various bits of the VM have raw pointers that point back to it. Hence we
 /// wrap the actual context in a box.
+#[derive(Derivative)]
+#[derivative(Debug)]
 pub(crate) struct StoreInner {
     pub(crate) objects: StoreObjects,
+    #[derivative(Debug = "ignore")]
     #[cfg(feature = "compiler")]
     pub(crate) engine: Engine,
+    #[derivative(Debug = "ignore")]
     #[cfg(feature = "compiler")]
     pub(crate) tunables: Box<dyn Tunables + Send + Sync>,
+    #[derivative(Debug = "ignore")]
     pub(crate) trap_handler: Option<Box<TrapHandlerFn<'static>>>,
+    #[derivative(Debug = "ignore")]
+    pub(crate) on_called: Option<Box<dyn FnOnce(StoreMut<'_>) -> Result<OnCalledAction, Box<dyn std::error::Error + Send + Sync>>>>,
+}
+
+impl StoreInner
+{
+    // Serializes the mutable things into a snapshot
+    pub fn save_snapshot(&self) -> StoreSnapshot {
+        self.objects.save_snapshot()
+    }
+
+    // Serializes the mutable things into a snapshot
+    pub fn restore_snapshot(&mut self, snapshot: &StoreSnapshot) {
+        self.objects.restore_snapshot(snapshot);
+    }
 }
 
 /// The store represents all global state that can be manipulated by
@@ -35,7 +56,6 @@ pub struct Store {
     pub(crate) inner: Box<StoreInner>,
     #[cfg(feature = "compiler")]
     engine: Engine,
-    trap_handler: Arc<RwLock<Option<Box<TrapHandlerFn<'static>>>>>,
 }
 
 impl Store {
@@ -80,9 +100,9 @@ impl Store {
                 engine: engine.cloned(),
                 tunables: Box::new(tunables),
                 trap_handler: None,
+                on_called: None,
             }),
             engine: engine.cloned(),
-            trap_handler: Arc::new(RwLock::new(None)),
         }
     }
 
@@ -105,6 +125,11 @@ impl Store {
     pub fn same(a: &Self, b: &Self) -> bool {
         a.engine.id() == b.engine.id()
     }
+
+    /// Returns the ID of this store
+    pub fn id(&self) -> StoreId {
+        self.inner.objects.id()
+    }
 }
 
 #[cfg(feature = "compiler")]
@@ -116,8 +141,8 @@ impl PartialEq for Store {
 
 unsafe impl TrapHandler for Store {
     fn custom_trap_handler(&self, call: &dyn Fn(&TrapHandlerFn) -> bool) -> bool {
-        if let Some(handler) = self.trap_handler.read().unwrap().as_ref() {
-            call(handler)
+        if let Some(handler) = self.inner.trap_handler.as_ref() {
+            call(handler.as_ref())
         } else {
             false
         }
@@ -238,13 +263,18 @@ impl<'a> StoreRef<'a> {
         a.inner.engine.id() == b.inner.engine.id()
     }
 
+    /// Serializes the mutable things into a snapshot
+    pub fn save_snapshot(&self) -> StoreSnapshot {
+        self.inner.save_snapshot()
+    }
+
     /// The signal handler
     #[inline]
     pub fn signal_handler(&self) -> Option<*const TrapHandlerFn<'static>> {
         self.inner
             .trap_handler
             .as_ref()
-            .map(|handler| handler as *const _)
+            .map(|handler| handler.as_ref() as *const _)
     }
 }
 
@@ -274,6 +304,16 @@ impl<'a> StoreMut<'a> {
         a.inner.engine.id() == b.inner.engine.id()
     }
 
+    /// Serializes the mutable things into a snapshot
+    pub fn save_snapshot(&self) -> StoreSnapshot {
+        self.inner.save_snapshot()
+    }
+
+    /// Restores a snapshot back into the store
+    pub fn restore_snapshot(&mut self, snapshot: &StoreSnapshot) {
+        self.inner.restore_snapshot(snapshot);
+    }
+
     #[cfg(feature = "compiler")]
     pub(crate) fn tunables_and_objects_mut(&mut self) -> (&dyn Tunables, &mut StoreObjects) {
         (self.inner.tunables.as_ref(), &mut self.inner.objects)
@@ -284,7 +324,19 @@ impl<'a> StoreMut<'a> {
     }
 
     pub(crate) unsafe fn from_raw(raw: *mut StoreInner) -> Self {
-        Self { inner: &mut *raw }
+        Self {
+            inner: &mut *raw,
+        }
+    }
+
+    /// Sets the unwind callback which will be invoked when the call finishes
+    pub fn on_called<F>(
+        &mut self,
+        callback: F,
+    )
+    where F: FnOnce(StoreMut<'_>) -> Result<OnCalledAction, Box<dyn std::error::Error + Send + Sync>> + Send + Sync + 'static,
+    {
+        self.inner.on_called.replace(Box::new(callback));
     }
 }
 
@@ -316,7 +368,9 @@ impl AsStoreRef for StoreMut<'_> {
 }
 impl AsStoreMut for StoreMut<'_> {
     fn as_store_mut(&mut self) -> StoreMut<'_> {
-        StoreMut { inner: self.inner }
+        StoreMut {
+            inner: self.inner,
+        }
     }
     fn objects_mut(&mut self) -> &mut StoreObjects {
         &mut self.inner.objects

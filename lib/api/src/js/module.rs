@@ -14,6 +14,7 @@ use std::borrow::Cow;
 use std::fmt;
 use std::io;
 use std::path::Path;
+use bytes::Bytes;
 #[cfg(feature = "std")]
 use thiserror::Error;
 use wasm_bindgen::JsValue;
@@ -21,6 +22,8 @@ use wasmer_types::{
     ExportsIterator, ExternType, FunctionType, GlobalType, ImportsIterator, MemoryType, Mutability,
     Pages, TableType, Type,
 };
+#[cfg(feature = "tracing")]
+use tracing::{debug, warn};
 
 #[derive(Debug)]
 #[cfg_attr(feature = "std", derive(Error))]
@@ -108,6 +111,32 @@ pub struct Module {
     raw_bytes: Option<Bytes>,
 }
 
+pub trait IntoBytes
+{
+    fn into_bytes(self) -> Bytes;
+}
+
+impl IntoBytes
+for Bytes {
+    fn into_bytes(self) -> Bytes {
+        self
+    }
+}
+
+impl IntoBytes
+for Vec<u8> {
+    fn into_bytes(self) -> Bytes {
+        Bytes::from(self)
+    }
+}
+
+impl IntoBytes
+for &[u8] {
+    fn into_bytes(self) -> Bytes {
+        Bytes::from(self.to_vec())
+    }
+}
+
 impl Module {
     /// Creates a new WebAssembly Module given the configuration
     /// in the store.
@@ -169,15 +198,20 @@ impl Module {
     /// # }
     /// ```
     #[allow(unreachable_code)]
-    pub fn new(_store: &impl AsStoreRef, bytes: impl AsRef<[u8]>) -> Result<Self, CompileError> {
+    pub fn new(_store: &impl AsStoreRef, bytes: impl IntoBytes) -> Result<Self, CompileError> {
+        #[allow(unused_mut)]
+        let mut bytes = bytes.into_bytes();
         #[cfg(feature = "wat")]
-        let bytes = wat::parse_bytes(bytes.as_ref()).map_err(|e| {
-            CompileError::Wasm(WasmError::Generic(format!(
-                "Error when converting wat: {}",
-                e
-            )))
-        })?;
-        Self::from_binary(_store, bytes.as_ref())
+        if bytes.starts_with(b"\0asm") == false {
+            let parsed_bytes = wat::parse_bytes(bytes.as_ref()).map_err(|e| {
+                CompileError::Wasm(WasmError::Generic(format!(
+                    "Error when converting wat: {}",
+                    e
+                )))
+            })?;
+            bytes = Bytes::from(parsed_bytes.to_vec());
+        }
+        Self::from_binary(_store, bytes)
     }
 
     /// Creates a new WebAssembly module from a file path.
@@ -193,7 +227,8 @@ impl Module {
     /// Opposed to [`Module::new`], this function is not compatible with
     /// the WebAssembly text format (if the "wat" feature is enabled for
     /// this crate).
-    pub fn from_binary(_store: &impl AsStoreRef, binary: &[u8]) -> Result<Self, CompileError> {
+    pub fn from_binary(_store: &impl AsStoreRef, binary: impl IntoBytes) -> Result<Self, CompileError> {
+        let binary = binary.into_bytes();
         //
         // Self::validate(store, binary)?;
         unsafe { Self::from_binary_unchecked(_store, binary) }
@@ -206,16 +241,28 @@ impl Module {
     /// This is safe since the JS vm should be safe already.
     /// We maintain the `unsafe` to preserve the same API as Wasmer
     pub unsafe fn from_binary_unchecked(
-        _store: &impl AsStoreRef,
-        binary: &[u8],
+        store: &impl AsStoreRef,
+        binary: impl IntoBytes,
     ) -> Result<Self, CompileError> {
-        let js_bytes = Uint8Array::view(binary);
+        let binary = binary.into_bytes();
+        let js_bytes = Uint8Array::view(&binary[..]);
         let module = WebAssembly::Module::new(&js_bytes.into()).unwrap();
 
+        Self::from_js_module(store, module, Bytes::from(binary))
+    }
+
+    /// Creates a new WebAssembly module skipping any kind of validation from a javascript module
+    ///
+    pub unsafe fn from_js_module(
+        _store: &impl AsStoreRef,
+        module: WebAssembly::Module,
+        binary: impl IntoBytes,
+    ) -> Result<Self, CompileError> {
+        let binary = binary.into_bytes();
         // The module is now validated, so we can safely parse it's types
         #[cfg(feature = "wasm-types-polyfill")]
         let (type_hints, name) = {
-            let info = crate::js::module_info_polyfill::translate_module(binary).unwrap();
+            let info = crate::js::module_info_polyfill::translate_module(&binary[..]).unwrap();
 
             (
                 Some(ModuleTypeHints {
@@ -241,7 +288,7 @@ impl Module {
             type_hints,
             name,
             #[cfg(feature = "js-serializable-module")]
-            raw_bytes: Some(binary.into_bytes()),
+            raw_bytes: Some(binary),
         })
     }
 
@@ -251,8 +298,9 @@ impl Module {
     /// This validation is normally pretty fast and checks the enabled
     /// WebAssembly features in the Store Engine to assure deterministic
     /// validation of the Module.
-    pub fn validate(_store: &impl AsStoreRef, binary: &[u8]) -> Result<(), CompileError> {
-        let js_bytes = unsafe { Uint8Array::view(binary) };
+    pub fn validate(_store: &impl AsStoreRef, binary: impl IntoBytes) -> Result<(), CompileError> {
+        let binary = binary.into_bytes();
+        let js_bytes = unsafe { Uint8Array::view(&binary[..]) };
         match WebAssembly::validate(&js_bytes.into()) {
             Ok(true) => Ok(()),
             _ => Err(CompileError::Validate("Invalid Wasm file".to_owned())),
@@ -273,10 +321,64 @@ impl Module {
                 InstantiationError::DifferentStores,
             )));
         }
-
-        let imports_js_obj = imports.as_jsvalue(store).into();
-        Ok(WebAssembly::Instance::new(&self.module, &imports_js_obj)
-            .map_err(|e: JsValue| -> RuntimeError { e.into() })?)
+        let imports_object = js_sys::Object::new();
+        let mut import_externs: Vec<Extern> = vec![];
+        for import_type in self.imports() {
+            let resolved_import = imports.get_export(import_type.module(), import_type.name());
+            #[allow(unused_variables)]
+            if let wasmer_types::ExternType::Memory(mem_ty) = import_type.ty() {
+                if resolved_import.is_some() {
+                    #[cfg(feature = "tracing")]
+                    debug!("imported shared memory {:?}", &mem_ty);
+                } else {
+                    #[cfg(feature = "tracing")]
+                    warn!(
+                        "Error while importing {0:?}.{1:?}: memory. Expected {2:?}",
+                        import_type.module(),
+                        import_type.name(),
+                        import_type.ty(),
+                    );
+                }
+            }
+            if let Some(import) = resolved_import {
+                let val = js_sys::Reflect::get(&imports_object, &import_type.module().into())?;
+                if !val.is_undefined() {
+                    // If the namespace is already set
+                    js_sys::Reflect::set(
+                        &val,
+                        &import_type.name().into(),
+                        &import.as_jsvalue(&store.as_store_ref()),
+                    )?;
+                } else {
+                    // If the namespace doesn't exist
+                    let import_namespace = js_sys::Object::new();
+                    js_sys::Reflect::set(
+                        &import_namespace,
+                        &import_type.name().into(),
+                        &import.as_jsvalue(&store.as_store_ref()),
+                    )?;
+                    js_sys::Reflect::set(
+                        &imports_object,
+                        &import_type.module().into(),
+                        &import_namespace.into(),
+                    )?;
+                }
+                import_externs.push(import);
+            } else {
+                #[cfg(feature = "tracing")]
+                warn!("import not found {}:{}", import_type.module(), import_type.name());
+            }
+            // in case the import is not found, the JS Wasm VM will handle
+            // the error for us, so we don't need to handle it
+        }
+        Ok((
+            StoreHandle::new(
+                store.as_store_mut().objects_mut(),
+                WebAssembly::Instance::new(&self.module, &imports_object)
+                    .map_err(|e: JsValue| -> RuntimeError { e.into() })?,
+            ),
+            import_externs,
+        ))
     }
 
     /// Returns the name of the current module.
@@ -415,7 +517,8 @@ impl Module {
         let imports = WebAssembly::Module::imports(&self.module);
         let iter = imports
             .iter()
-            .map(move |val| {
+            .enumerate()
+            .map(move |(i, val)| {
                 let module = Reflect::get(val.as_ref(), &"module".into())
                     .unwrap()
                     .as_string()
@@ -428,24 +531,34 @@ impl Module {
                     .unwrap()
                     .as_string()
                     .unwrap();
-                let extern_type = match kind.as_str() {
-                    "function" => {
-                        let func_type = FunctionType::new(vec![], vec![]);
-                        ExternType::Function(func_type)
+                let type_hint = self
+                    .type_hints
+                    .as_ref()
+                    .map(|hints| hints.imports.get(i).unwrap().clone());
+                let extern_type = if let Some(hint) = type_hint {
+                    hint
+                } else {
+                    match kind.as_str() {
+                        "function" => {
+                            let func_type = FunctionType::new(vec![], vec![]);
+                            ExternType::Function(func_type)
+                        }
+                        "global" => {
+                            let global_type = GlobalType::new(Type::I32, Mutability::Const);
+                            ExternType::Global(global_type)
+                        }
+                        "memory" => {
+                            // The javascript API does not yet expose these properties so without
+                            // the type_hints we don't know what memory to import.
+                            let memory_type = MemoryType::new(Pages(1), None, false);
+                            ExternType::Memory(memory_type)
+                        }
+                        "table" => {
+                            let table_type = TableType::new(Type::FuncRef, 1, None);
+                            ExternType::Table(table_type)
+                        }
+                        _ => unimplemented!(),
                     }
-                    "global" => {
-                        let global_type = GlobalType::new(Type::I32, Mutability::Const);
-                        ExternType::Global(global_type)
-                    }
-                    "memory" => {
-                        let memory_type = MemoryType::new(Pages(1), None, false);
-                        ExternType::Memory(memory_type)
-                    }
-                    "table" => {
-                        let table_type = TableType::new(Type::FuncRef, 1, None);
-                        ExternType::Table(table_type)
-                    }
-                    _ => unimplemented!(),
                 };
                 ImportType::new(&module, &field, extern_type)
             })
@@ -557,26 +670,26 @@ impl Module {
         ExportsIterator::new(iter, exports.length() as usize)
     }
 
-    /// Get the custom sections of the module given a `name`.
-    ///
-    /// # Important
-    ///
-    /// Following the WebAssembly spec, one name can have multiple
-    /// custom sections. That's why an iterator (rather than one element)
-    /// is returned.
-    pub fn custom_sections<'a>(&'a self, name: &'a str) -> impl Iterator<Item = Box<[u8]>> + 'a {
-        // TODO: implement on JavaScript
-        DefaultCustomSectionsIterator {}
+    /// Returns true if the module is still ok - this will be
+    /// false if the module was passed between threads in a
+    /// way that it became undefined (JS does not share objects
+    /// between threads except via a post_message())
+    pub fn is_ok(&self) -> bool {
+        let val = JsValue::from(&self.module);
+        !val.is_undefined() &&
+        !val.is_null()
     }
-}
 
-pub struct DefaultCustomSectionsIterator {}
-
-impl Iterator for DefaultCustomSectionsIterator {
-    type Item = Box<[u8]>;
-    fn next(&mut self) -> Option<Self::Item> {
-        None
-    }
+    // /// Get the custom sections of the module given a `name`.
+    // ///
+    // /// # Important
+    // ///
+    // /// Following the WebAssembly spec, one name can have multiple
+    // /// custom sections. That's why an iterator (rather than one element)
+    // /// is returned.
+    // pub fn custom_sections<'a>(&'a self, name: &'a str) -> impl Iterator<Item = Arc<[u8]>> + 'a {
+    //     unimplemented!();
+    // }
 }
 
 impl fmt::Debug for Module {

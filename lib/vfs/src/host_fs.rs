@@ -421,11 +421,22 @@ impl VirtualFile for File {
         self.inner.sync_all().map_err(Into::into)
     }
 
-    fn bytes_available(&self) -> Result<usize> {
+    #[cfg(feature = "sys")]
+    fn bytes_available(&self) -> Result<usize> {        
         host_file_bytes_available(self.inner.try_into_filedescriptor()?)
+    }
+
+    #[cfg(not(feature = "sys"))]
+    fn bytes_available(&self) -> Result<usize> {
+        Err(FsError::InvalidFd)
+    }
+
+    fn get_special_fd(&self) -> Option<u32> {
+        None
     }
 }
 
+#[allow(dead_code)]
 #[cfg(unix)]
 fn host_file_bytes_available(host_fd: FileDescriptor) -> Result<usize> {
     let mut bytes_found: libc::c_int = 0;
@@ -441,6 +452,7 @@ fn host_file_bytes_available(host_fd: FileDescriptor) -> Result<usize> {
     }
 }
 
+#[allow(dead_code)]
 #[cfg(not(unix))]
 fn host_file_bytes_available(_host_fd: FileDescriptor) -> Result<usize> {
     unimplemented!("host_file_bytes_available not yet implemented for non-Unix-like targets.  This probably means the program tried to use wasi::poll_oneoff")
@@ -533,12 +545,28 @@ impl VirtualFile for Stdout {
         Ok(())
     }
 
+    #[cfg(feature = "sys")]
     fn bytes_available(&self) -> Result<usize> {
         host_file_bytes_available(io::stdout().try_into_filedescriptor()?)
     }
 
+    #[cfg(feature = "sys")]
     fn get_fd(&self) -> Option<FileDescriptor> {
         io::stdout().try_into_filedescriptor().ok()
+    }
+
+    #[cfg(feature = "js")]
+    fn bytes_available(&self) -> Result<usize> {
+        Err(FsError::InvalidFd);
+    }
+
+    #[cfg(feature = "js")]
+    fn get_fd(&self) -> Option<FileDescriptor> {
+        None
+    }
+
+    fn get_special_fd(&self) -> Option<u32> {
+        Some(1)
     }
 }
 
@@ -629,12 +657,28 @@ impl VirtualFile for Stderr {
         Ok(())
     }
 
+    #[cfg(feature = "sys")]
     fn bytes_available(&self) -> Result<usize> {
         host_file_bytes_available(io::stderr().try_into_filedescriptor()?)
     }
 
+    #[cfg(feature = "sys")]
     fn get_fd(&self) -> Option<FileDescriptor> {
         io::stderr().try_into_filedescriptor().ok()
+    }
+
+    #[cfg(feature = "js")]
+    fn bytes_available(&self) -> Result<usize> {
+        Err(FsError::InvalidFd);
+    }
+
+    #[cfg(feature = "js")]
+    fn get_fd(&self) -> Option<FileDescriptor> {
+        None
+    }
+
+    fn get_special_fd(&self) -> Option<u32> {
+        Some(2)
     }
 }
 
@@ -724,11 +768,27 @@ impl VirtualFile for Stdin {
         Ok(())
     }
 
+    #[cfg(feature = "sys")]
     fn bytes_available(&self) -> Result<usize> {
         host_file_bytes_available(io::stdin().try_into_filedescriptor()?)
     }
 
+    #[cfg(feature = "sys")]
     fn get_fd(&self) -> Option<FileDescriptor> {
         io::stdin().try_into_filedescriptor().ok()
+    }
+
+    #[cfg(feature = "js")]
+    fn bytes_available(&self) -> Result<usize> {
+        Err(FsError::InvalidFd);
+    }
+
+    #[cfg(feature = "js")]
+    fn get_fd(&self) -> Option<FileDescriptor> {
+        None
+    }
+
+    fn get_special_fd(&self) -> Option<u32> {
+        Some(0)
     }
 }

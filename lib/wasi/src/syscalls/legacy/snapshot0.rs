@@ -1,6 +1,6 @@
 use crate::syscalls;
-use crate::syscalls::types;
-use crate::{mem_error_to_wasi, Memory32, MemorySize, WasiEnv, WasiError, WasiThread};
+use crate::syscalls::types::{self, snapshot0};
+use crate::{mem_error_to_wasi, Memory32, MemorySize, WasiEnv, WasiError};
 use wasmer::{AsStoreMut, FunctionEnvMut, WasmPtr};
 use wasmer_wasi_types::wasi::{
     Errno, Event, Fd, Filesize, Filestat, Filetype, Snapshot0Filestat, Snapshot0Subscription,
@@ -32,7 +32,7 @@ pub fn fd_filestat_get(
 
     // Set up complete, make the call with the pointer that will write to the
     // struct and some unrelated memory after the struct.
-    let result = syscalls::fd_filestat_get::<Memory32>(ctx.as_mut(), fd, new_buf);
+    let result = syscalls::fd_filestat_get_internal::<Memory32>(&mut ctx, fd, new_buf);
 
     // reborrow memory
     let env = ctx.data();
@@ -136,23 +136,43 @@ pub fn poll_oneoff(
     // in this case the new type is smaller than the old type, so it all fits into memory,
     // we just need to readjust and copy it
 
-    // we start by adjusting `in_` into a format that the new code can understand
-    let env = ctx.data();
-    let memory = env.memory_view(&ctx);
     let nsubscriptions_offset: u32 = nsubscriptions;
-    let in_origs = wasi_try_mem_ok!(in_.slice(&memory, nsubscriptions_offset));
-    let in_origs = wasi_try_mem_ok!(in_origs.read_to_vec());
+    let in_new_type_ptr = {
+        // we start by adjusting `in_` into a format that the new code can understand
+        let env = ctx.data();
+        let memory = env.memory_view(&ctx);
+        let in_origs = wasi_try_mem_ok!(in_.slice(&memory, nsubscriptions_offset));
+        let in_origs = wasi_try_mem_ok!(in_origs.read_to_vec());
 
-    // get a pointer to the smaller new type
-    let in_new_type_ptr: WasmPtr<Subscription, Memory32> = in_.cast();
+        // get a pointer to the smaller new type
+        let in_new_type_ptr: WasmPtr<types::__wasi_subscription_t, Memory32> = in_.cast();
 
-    for (in_sub_new, orig) in
-        wasi_try_mem_ok!(in_new_type_ptr.slice(&memory, nsubscriptions_offset))
-            .iter()
-            .zip(in_origs.iter())
-    {
-        wasi_try_mem_ok!(in_sub_new.write(Subscription::from(*orig)));
-    }
+        for (in_sub_new, orig) in
+            wasi_try_mem_ok!(in_new_type_ptr.slice(&memory, nsubscriptions_offset))
+                .iter()
+                .zip(in_origs.iter())
+        {
+            wasi_try_mem_ok!(in_sub_new.write(types::__wasi_subscription_t {
+                userdata: orig.userdata,
+                type_: orig.type_,
+                u: if orig.type_ == types::__WASI_EVENTTYPE_CLOCK {
+                    types::__wasi_subscription_u {
+                        clock: types::__wasi_subscription_clock_t {
+                            clock_id: unsafe { orig.u.clock.clock_id },
+                            timeout: unsafe { orig.u.clock.timeout },
+                            precision: unsafe { orig.u.clock.precision },
+                            flags: unsafe { orig.u.clock.flags },
+                        },
+                    }
+                } else {
+                    types::__wasi_subscription_u {
+                        fd_readwrite: unsafe { orig.u.fd_readwrite },
+                    }
+                },
+            }));
+        }
+        in_new_type_ptr
+    };
 
     // make the call
     let result = syscalls::poll_oneoff::<Memory32>(
@@ -161,11 +181,13 @@ pub fn poll_oneoff(
         out_,
         nsubscriptions,
         nevents,
-    );
+    )?;
 
     // replace the old values of in, in case the calling code reuses the memory
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
+    let in_origs = wasi_try_mem_ok!(in_.slice(&memory, nsubscriptions_offset));
+    let in_origs = wasi_try_mem_ok!(in_origs.read_to_vec());
 
     for (in_sub, orig) in wasi_try_mem_ok!(in_.slice(&memory, nsubscriptions_offset))
         .iter()
@@ -174,5 +196,5 @@ pub fn poll_oneoff(
         wasi_try_mem_ok!(in_sub.write(orig));
     }
 
-    result
+    Ok(result)
 }

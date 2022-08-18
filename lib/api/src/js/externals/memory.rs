@@ -11,7 +11,7 @@ use tracing::warn;
 
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
-use wasmer_types::Pages;
+use wasmer_types::{Pages, WASM_PAGE_SIZE};
 
 use super::MemoryView;
 
@@ -86,6 +86,11 @@ impl Memory {
     /// let m = Memory::new(&store, MemoryType::new(1, None, false)).unwrap();
     /// ```
     pub fn new(store: &mut impl AsStoreMut, ty: MemoryType) -> Result<Self, MemoryError> {
+        let vm_memory = VMMemory::new(Self::new_internal(ty.clone())?, ty);
+        Ok(Self::from_vm_export(store, vm_memory))
+    }
+
+    pub(crate) fn new_internal(ty: MemoryType) -> Result<js_sys::WebAssembly::Memory, MemoryError> {
         let descriptor = js_sys::Object::new();
         js_sys::Reflect::set(&descriptor, &"initial".into(), &ty.minimum.0.into()).unwrap();
         if let Some(max) = ty.maximum {
@@ -96,31 +101,9 @@ impl Memory {
         let js_memory = js_sys::WebAssembly::Memory::new(&descriptor)
             .map_err(|_e| MemoryError::Generic("Error while creating the memory".to_owned()))?;
 
-        let vm_memory = VMMemory::new(js_memory, ty);
-        let handle = StoreHandle::new(store.objects_mut(), vm_memory);
-        Ok(Self::from_vm_extern(store, handle.internal_handle()))
-    }
-
-    /// Creates a new host `Memory` from provided JavaScript memory.
-    pub fn new_raw(
-        store: &mut impl AsStoreMut,
-        js_memory: js_sys::WebAssembly::Memory,
-        ty: MemoryType,
-    ) -> Result<Self, MemoryError> {
-        let vm_memory = VMMemory::new(js_memory, ty);
-        let handle = StoreHandle::new(store.objects_mut(), vm_memory);
-        Ok(Self::from_vm_extern(store, handle.internal_handle()))
-    }
-
-    /// Create a memory object from an existing memory and attaches it to the store
-    pub fn new_from_existing(new_store: &mut impl AsStoreMut, memory: VMMemory) -> Self {
-        let handle = StoreHandle::new(new_store.objects_mut(), memory);
-        Self::from_vm_extern(new_store, handle.internal_handle())
-    }
-
-    /// To `VMExtern`.
-    pub(crate) fn to_vm_extern(&self) -> VMExtern {
-        VMExtern::Memory(self.handle.internal_handle())
+        Ok(
+            js_memory
+        )
     }
 
     /// Creates a new host `Memory` from provided JavaScript memory.
@@ -211,6 +194,44 @@ impl Memory {
         Ok(Pages(new_pages))
     }
 
+    /// Copies the memory to a new store and returns a memory reference to it
+    pub fn copy_to_store(
+        &self,
+        store: &impl AsStoreRef,
+        new_store: &mut impl AsStoreMut,
+    ) -> Result<Self, MemoryError>
+    {
+        // Create the new memory using the parameters of the existing memory
+        let view = self.view(store);
+        let ty = self.ty(store);
+        let amount = view.data_size() as usize;
+
+        let new_memory = Self::new(new_store, ty)?;
+        let mut new_view = new_memory.view(&new_store);
+        let new_view_size = new_view.data_size() as usize;
+        if amount > new_view_size {
+            let delta = amount - new_view_size;
+            let pages = ((delta - 1) / WASM_PAGE_SIZE) + 1;
+            new_memory.grow(new_store, Pages(pages as u32))?;
+            new_view = new_memory.view(&new_store);
+        }
+
+        // Copy the bytes
+        view.copy_to_memory(amount as u64, &new_view)
+            .map_err(|err| {
+                MemoryError::Generic(err.to_string())
+            })?;
+
+        // Return the new memory
+        Ok(new_memory)
+    }
+
+    pub(crate) fn from_vm_export(store: &mut impl AsStoreMut, vm_memory: VMMemory) -> Self {
+        Self {
+            handle: StoreHandle::new(store.objects_mut(), vm_memory),
+        }
+    }
+
     pub(crate) fn from_vm_extern(
         store: &mut impl AsStoreMut,
         internal: InternalStoreHandle<VMMemory>,
@@ -226,6 +247,12 @@ impl Memory {
     pub fn try_clone(&self, store: &impl AsStoreRef) -> Option<VMMemory> {
         let mem = self.handle.get(store.as_store_ref().objects());
         mem.try_clone()
+    }
+
+    /// Copies this memory to a new memory
+    pub fn fork(&mut self, store: &impl AsStoreRef) -> Result<VMMemory, MemoryError> {
+        let mem = self.handle.get(store.as_store_ref().objects());
+        mem.fork()
     }
 
     /// Checks whether this `Global` can be used with the given context.

@@ -9,6 +9,8 @@ use more_asserts::assert_lt;
 use std::io;
 use std::ptr;
 use std::slice;
+#[cfg(feature="tracing")]
+use tracing::trace;
 
 /// Round `size` up to the nearest multiple of `page_size`.
 fn round_up_to_page_size(size: usize, page_size: usize) -> usize {
@@ -25,6 +27,39 @@ pub struct Mmap {
     // the coordination all happens at the OS layer.
     ptr: usize,
     len: usize,
+    // Backing file that will be closed when the memory mapping goes out of scope
+    fd: FdGuard,
+}
+
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct FdGuard(pub i32);
+
+impl Default
+for FdGuard
+{
+    fn default() -> Self {
+        Self(-1)
+    }
+}
+
+impl Clone
+for FdGuard
+{
+    fn clone(&self) -> Self {
+        unsafe {
+            FdGuard(libc::dup(self.0))
+        }
+    }
+}
+
+impl Drop
+for FdGuard {
+    fn drop(&mut self) {
+        if self.0 >= 0 {
+            unsafe { libc::close(self.0); }
+            self.0 = -1;
+        }
+    }
 }
 
 impl Mmap {
@@ -37,6 +72,7 @@ impl Mmap {
         Self {
             ptr: empty.as_ptr() as usize,
             len: 0,
+            fd: FdGuard(-1),
         }
     }
 
@@ -55,6 +91,7 @@ impl Mmap {
         accessible_size: usize,
         mapping_size: usize,
     ) -> Result<Self, String> {
+        
         let page_size = region::page::size();
         assert_le!(accessible_size, mapping_size);
         assert_eq!(mapping_size & (page_size - 1), 0);
@@ -66,6 +103,29 @@ impl Mmap {
             return Ok(Self::new());
         }
 
+        // Open a temporary file (which is used for swapping)
+        let fd = unsafe {
+            let file = if mapping_size > (u32::MAX as usize) {
+                libc::tmpfile64()
+            } else {
+                libc::tmpfile()
+            };
+            if file == ptr::null_mut() {
+                return Err(format!("failed to create temporary file - {}", io::Error::last_os_error()));
+            }
+            FdGuard(libc::fileno(file))
+        };
+
+        // First we initialize it with zeros
+        if mapping_size > (u32::MAX as usize) {
+            unsafe { libc::ftruncate64(fd.0, mapping_size as i64); }
+        } else {
+            unsafe { libc::ftruncate(fd.0, mapping_size as i64); }
+        }
+
+        // Compute the flags
+        let flags = libc::MAP_FILE | libc::MAP_SHARED;
+
         Ok(if accessible_size == mapping_size {
             // Allocate a single read-write region at once.
             let ptr = unsafe {
@@ -73,8 +133,8 @@ impl Mmap {
                     ptr::null_mut(),
                     mapping_size,
                     libc::PROT_READ | libc::PROT_WRITE,
-                    libc::MAP_PRIVATE | libc::MAP_ANON,
-                    -1,
+                    flags,
+                    fd.0,
                     0,
                 )
             };
@@ -85,6 +145,7 @@ impl Mmap {
             Self {
                 ptr: ptr as usize,
                 len: mapping_size,
+                fd,
             }
         } else {
             // Reserve the mapping size.
@@ -93,8 +154,8 @@ impl Mmap {
                     ptr::null_mut(),
                     mapping_size,
                     libc::PROT_NONE,
-                    libc::MAP_PRIVATE | libc::MAP_ANON,
-                    -1,
+                    flags,
+                    fd.0,
                     0,
                 )
             };
@@ -105,6 +166,7 @@ impl Mmap {
             let mut result = Self {
                 ptr: ptr as usize,
                 len: mapping_size,
+                fd,
             };
 
             if accessible_size != 0 {
@@ -255,6 +317,114 @@ impl Mmap {
     /// Return whether any memory has been allocated.
     pub fn is_empty(&self) -> bool {
         self.len() == 0
+    }
+
+    /// Copies the memory to a new swap file (using copy-on-write if available)
+    #[cfg(not(target_os = "windows"))]
+    pub fn fork(&mut self, hint_used: Option<usize>) -> Result<Self, String>
+    {
+        // Empty memory is an edge case
+        if self.len == 0 {
+            return Ok(Self::new());
+        }
+
+        // First we sync all the data to the backing file
+        unsafe { libc::fdatasync(self.fd.0); }
+
+        // Open a new temporary file (which is used for swapping for the forked memory)
+        let fd = unsafe {
+            let file = if self.len > (u32::MAX as usize) {
+                libc::tmpfile64()
+            } else {
+                libc::tmpfile()
+            };
+            if file == ptr::null_mut() {
+                return Err(format!("failed to create temporary file - {}", io::Error::last_os_error()));
+            }
+            FdGuard(libc::fileno(file))
+        };
+
+        // Attempt to do a shallow copy (needs a backing file system that supports it)
+        unsafe {
+            if libc::ioctl(fd.0, 0x94, 9, self.fd.0) != 0 // FICLONE
+            {
+                #[cfg(feature="tracing")]
+                trace!("memory copy started");
+
+                // Determine host much to copy
+                let len = match hint_used {
+                    Some(a) => a,
+                    None => self.len
+                };
+
+                // The shallow copy failed so we have to do it the hard way
+                let mut off_in: libc::off64_t = 0;
+                let mut off_out: libc::off64_t = 0;
+                let ret = libc::copy_file_range(self.fd.0, &mut off_in, fd.0, &mut off_out, len, 0);
+                if ret < 0 {
+                    return Err(format!("failed to copy temporary file data - {}", io::Error::last_os_error()));
+                }
+
+                #[cfg(feature="tracing")]
+                trace!("memory copy finished (size={})", len);
+            }
+        }
+
+        // Compute the flags
+        let flags = libc::MAP_FILE | libc::MAP_SHARED;
+
+        // Allocate a single read-write region at once.
+        let ptr = unsafe {
+            libc::mmap(
+                ptr::null_mut(),
+                self.len,
+                libc::PROT_READ | libc::PROT_WRITE,
+                flags,
+                fd.0,
+                0,
+            )
+        };
+        if ptr as isize == -1_isize {
+            return Err(io::Error::last_os_error().to_string());
+        }
+
+        Ok(
+            Self {
+                ptr: ptr as usize,
+                len: self.len,
+                fd,
+            }
+        )
+    }
+
+    /// Copies the memory to a new swap file (using copy-on-write if available)
+    #[cfg(target_os = "windows")]
+    pub fn fork(&mut self, hint_used: Option<usize>) -> Result<Self, String>
+    {
+        // Create a new memory which we will copy to
+        let new_mmap = Self::with_at_least(self.len)?;
+
+        #[cfg(feature="tracing")]
+        trace!("memory copy started");
+
+        // Determine host much to copy
+        let len = match hint_used {
+            Some(a) => a,
+            None => self.len
+        };
+
+        // Copy the data to the new memory
+        let dst = new_mmap.ptr as *mut u8;
+        let src = self.ptr as *const u8;
+        unsafe {
+            std::ptr::copy_nonoverlapping(src, dst, len);
+        }
+
+        #[cfg(feature="tracing")]
+        trace!("memory copy finished (size={})", len);
+        Ok(
+            new_mmap
+        )
     }
 }
 

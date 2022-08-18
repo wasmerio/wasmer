@@ -49,10 +49,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let import_object = wasi_env.import_object(&mut store, &module)?;
     let instance = Instance::new(&mut store, &module, &import_object)?;
 
-    println!("Attach WASI memory...");
-    // Attach the memory export
-    let memory = instance.exports.get_memory("memory")?;
-    wasi_env.data_mut(&mut store).set_memory(memory.clone());
+    println!("Initializing WASI environment...");
+    // Initialize the WASI environment (which will attach memory)
+    wasi_env.initialize(&mut store, &instance).unwrap();
 
     let msg = "racecar go zoom";
     println!("Writing \"{}\" to the WASI stdin...", msg);
