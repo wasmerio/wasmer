@@ -5,7 +5,7 @@ use std::{
 };
 use wasmer_derive::ValueType;
 use wasmer_types::ValueType;
-use wasmer_wasi_types_generated::{wasi_filesystem, wasi_snapshot0};
+use wasmer_wasi_types_generated::wasi_snapshot0;
 
 pub type __wasi_device_t = u64;
 

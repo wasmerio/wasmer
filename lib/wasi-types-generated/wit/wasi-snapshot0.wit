@@ -335,15 +335,15 @@ flags rights {
 //       $set
 //     )
 //   )
-//   
-//   ;;; A reference to the offset of a directory entry.
-//   (typename $dircookie u64)
-//   
-//   ;;; The type for the `dirent::d_namlen` field of `dirent` struct.
-//   (typename $dirnamlen u32)
-//   
-//   ;;; File serial number that is unique within its file system.
-//   (typename $inode u64)
+
+/// A reference to the offset of a directory entry.
+type dircookie = u64
+
+/// The type for the `dirent::d-namlen` field of `dirent` struct.
+type dirnamlen = u32
+
+/// File serial number that is unique within its file system.
+type inode = u64
 
 /// The type of a file descriptor or file.
 enum filetype {
@@ -367,19 +367,19 @@ enum filetype {
     symbolic-link,
 }
 
-//   ;;; A directory entry.
-//   (typename $dirent
-//     (record
-//       ;;; The offset of the next directory entry stored in this directory.
-//       (field $d_next $dircookie)
-//       ;;; The serial number of the file referred to by this directory entry.
-//       (field $d_ino $inode)
-//       ;;; The length of the name of the directory entry.
-//       (field $d_namlen $dirnamlen)
-//       ;;; The type of the file referred to by this directory entry.
-//       (field $d_type $filetype)
-//     )
-//   )
+/// A directory entry.
+record dirent {
+    /// The offset of the next directory entry stored in this directory.
+    d-next: dircookie,
+    /// The serial number of the file referred to by this directory entry.
+    d-ino: inode,
+    /// The length of the name of the directory entry.
+    d-namlen: dirnamlen,
+    /// The type of the file referred to by this directory entry.
+    d-type: filetype,
+}
+/// Dummy function to expose dirent into generated code
+dirent-dummy-func: func(d: dirent)
 
 /// File or memory access pattern advisory information.
 enum advice {

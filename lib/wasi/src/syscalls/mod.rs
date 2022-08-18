@@ -1303,7 +1303,7 @@ pub fn fd_read<M: MemorySize>(
 ///     Buffer where directory entries are stored
 /// - `u32 buf_len`
 ///     Length of data in `buf`
-/// - `__wasi_dircookie_t cookie`
+/// - `wasi_snapshot0::Dircookie cookie`
 ///     Where the directory reading should start from
 /// Output:
 /// - `u32 *bufused`
@@ -1314,7 +1314,7 @@ pub fn fd_readdir<M: MemorySize>(
     fd: __wasi_fd_t,
     buf: WasmPtr<u8, M>,
     buf_len: M::Offset,
-    cookie: __wasi_dircookie_t,
+    cookie: wasi_snapshot0::Dircookie,
     bufused: WasmPtr<M::Offset, M>,
 ) -> wasi_snapshot0::Errno {
     trace!("wasi::fd_readdir");
@@ -1402,7 +1402,7 @@ pub fn fd_readdir<M: MemorySize>(
         cur_cookie += 1;
         let namlen = entry_path_str.len();
         debug!("Returning dirent for {}", entry_path_str);
-        let dirent = __wasi_dirent_t {
+        let dirent = wasi_snapshot0::Dirent {
             d_next: cur_cookie,
             d_ino: *ino,
             d_namlen: namlen as u32,
@@ -1412,13 +1412,13 @@ pub fn fd_readdir<M: MemorySize>(
         let buf_len: u64 = buf_len.into();
         let upper_limit = std::cmp::min(
             (buf_len - buf_idx as u64) as usize,
-            std::mem::size_of::<__wasi_dirent_t>(),
+            std::mem::size_of::<wasi_snapshot0::Dirent>(),
         );
         for (i, b) in dirent_bytes.iter().enumerate().take(upper_limit) {
             wasi_try_mem!(buf_arr.index((i + buf_idx) as u64).write(*b));
         }
         buf_idx += upper_limit;
-        if upper_limit != std::mem::size_of::<__wasi_dirent_t>() {
+        if upper_limit != std::mem::size_of::<wasi_snapshot0::Dirent>() {
             break;
         }
         let upper_limit = std::cmp::min((buf_len - buf_idx as u64) as usize, namlen);

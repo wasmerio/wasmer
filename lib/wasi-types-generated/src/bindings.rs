@@ -486,6 +486,12 @@ pub mod wasi_snapshot0 {
       Ok(())}
   }
   
+  /// A reference to the offset of a directory entry.
+  pub type Dircookie = u64;
+  /// The type for the `dirent::d-namlen` field of `dirent` struct.
+  pub type Dirnamlen = u32;
+  /// File serial number that is unique within its file system.
+  pub type Inode = u64;
   /// The type of a file descriptor or file.
   #[repr(u8)]
   #[derive(Clone, Copy, PartialEq, Eq)]
@@ -536,6 +542,23 @@ pub mod wasi_snapshot0 {
         }
       }
     }
+  }
+  /// A directory entry.
+  #[repr(C)]
+  #[derive(Copy, Clone)]
+  pub struct Dirent {
+    /// The offset of the next directory entry stored in this directory.
+    pub d_next: Dircookie,
+    /// The serial number of the file referred to by this directory entry.
+    pub d_ino: Inode,
+    /// The length of the name of the directory entry.
+    pub d_namlen: Dirnamlen,
+    /// The type of the file referred to by this directory entry.
+    pub d_type: Filetype,
+  }
+  impl core::fmt::Debug for Dirent {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+      f.debug_struct("Dirent").field("d-next", &self.d_next).field("d-ino", &self.d_ino).field("d-namlen", &self.d_namlen).field("d-type", &self.d_type).finish()}
   }
   /// File or memory access pattern advisory information.
   #[repr(u8)]
@@ -674,6 +697,80 @@ pub mod wasi_snapshot0 {
       Ok(())}
   }
   
+  
+  /// Auxiliary data associated with the wasm exports.
+  #[derive(Default)]
+  pub struct WasiSnapshot0Data {
+  }
+  
+  pub struct WasiSnapshot0 {
+    #[allow(dead_code)]
+    env: wasmer::FunctionEnv<WasiSnapshot0Data>,
+    func_dirent_dummy_func: wasmer::TypedFunction<(i64,i64,i32,i32,), ()>,
+  }
+  impl WasiSnapshot0 {
+    #[allow(unused_variables)]
+    
+    /// Adds any intrinsics, if necessary for this exported wasm
+    /// functionality to the `ImportObject` provided.
+    ///
+    /// This function returns the `WasiSnapshot0Data` which needs to be
+    /// passed through to `WasiSnapshot0::new`.
+    fn add_to_imports(
+    mut store: impl wasmer::AsStoreMut,
+    imports: &mut wasmer::Imports,
+    ) -> wasmer::FunctionEnv<WasiSnapshot0Data> {
+      let env = wasmer::FunctionEnv::new(&mut store, WasiSnapshot0Data::default());
+      env
+    }
+    
+    /// Instantiates the provided `module` using the specified
+    /// parameters, wrapping up the result in a structure that
+    /// translates between wasm and the host.
+    ///
+    /// The `imports` provided will have intrinsics added to it
+    /// automatically, so it's not necessary to call
+    /// `add_to_imports` beforehand. This function will
+    /// instantiate the `module` otherwise using `imports`, and
+    /// both an instance of this structure and the underlying
+    /// `wasmer::Instance` will be returned.
+    pub fn instantiate(
+    mut store: impl wasmer::AsStoreMut,
+    module: &wasmer::Module,
+    imports: &mut wasmer::Imports,
+    ) -> anyhow::Result<(Self, wasmer::Instance)> {
+      let env = Self::add_to_imports(&mut store, imports);
+      let instance = wasmer::Instance::new(
+      &mut store, module, &*imports)?;
+      
+      Ok((Self::new(store, &instance, env)?, instance))
+    }
+    
+    /// Low-level creation wrapper for wrapping up the exports
+    /// of the `instance` provided in this structure of wasm
+    /// exports.
+    ///
+    /// This function will extract exports from the `instance`
+    /// and wrap them all up in the returned structure which can
+    /// be used to interact with the wasm module.
+    pub fn new(
+    store: impl wasmer::AsStoreMut,
+    _instance: &wasmer::Instance,
+    env: wasmer::FunctionEnv<WasiSnapshot0Data>,
+    ) -> Result<Self, wasmer::ExportError> {
+      let func_dirent_dummy_func= _instance.exports.get_typed_function(&store, "dirent-dummy-func")?;
+      Ok(WasiSnapshot0{
+        func_dirent_dummy_func,
+        env,
+      })
+    }
+    /// Dummy function to expose dirent into generated code
+    pub fn dirent_dummy_func(&self, store: &mut wasmer::Store,d: Dirent,)-> Result<(), wasmer::RuntimeError> {
+      let Dirent{ d_next:d_next0, d_ino:d_ino0, d_namlen:d_namlen0, d_type:d_type0, } = d;
+      self.func_dirent_dummy_func.call(store, wit_bindgen_wasmer::rt::as_i64(d_next0), wit_bindgen_wasmer::rt::as_i64(d_ino0), wit_bindgen_wasmer::rt::as_i32(d_namlen0), d_type0 as i32, )?;
+      Ok(())
+    }
+  }
   #[allow(unused_imports)]
   use wasmer::AsStoreMut as _;
   #[allow(unused_imports)]

@@ -188,7 +188,7 @@ pub(crate) fn fd_readdir(
     fd: __wasi_fd_t,
     buf: WasmPtr<u8, MemoryType>,
     buf_len: MemoryOffset,
-    cookie: __wasi_dircookie_t,
+    cookie: wasi_snapshot0::Dircookie,
     bufused: WasmPtr<MemoryOffset, MemoryType>,
 ) -> wasi_snapshot0::Errno {
     super::fd_readdir::<MemoryType>(ctx, fd, buf, buf_len, cookie, bufused)

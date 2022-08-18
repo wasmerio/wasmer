@@ -5,7 +5,7 @@ use std::{
 };
 use wasmer_derive::ValueType;
 use wasmer_types::ValueType;
-use wasmer_wasi_types_generated::{wasi_filesystem, wasi_snapshot0};
+use wasmer_wasi_types_generated::wasi_snapshot0;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, ValueType)]
 #[repr(C)]
