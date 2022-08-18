@@ -17,13 +17,6 @@ pub const __WASI_STDERR_FILENO: __wasi_fd_t = 2;
 pub type __wasi_pid_t = u32;
 pub type __wasi_tid_t = u32;
 
-pub type __wasi_fdflags_t = u16;
-pub const __WASI_FDFLAG_APPEND: __wasi_fdflags_t = 1 << 0;
-pub const __WASI_FDFLAG_DSYNC: __wasi_fdflags_t = 1 << 1;
-pub const __WASI_FDFLAG_NONBLOCK: __wasi_fdflags_t = 1 << 2;
-pub const __WASI_FDFLAG_RSYNC: __wasi_fdflags_t = 1 << 3;
-pub const __WASI_FDFLAG_SYNC: __wasi_fdflags_t = 1 << 4;
-
 pub type __wasi_eventfdflags = u16;
 pub const __WASI_EVENTFDFLAGS_SEMAPHORE: __wasi_eventfdflags = 1 << 0;
 
@@ -121,7 +114,7 @@ unsafe impl ValueType for __wasi_prestat_t {
 #[repr(C)]
 pub struct __wasi_fdstat_t {
     pub fs_filetype: wasi_snapshot0::Filetype,
-    pub fs_flags: __wasi_fdflags_t,
+    pub fs_flags: wasi_snapshot0::Fdflags,
     pub fs_rights_base: wasi_snapshot0::Rights,
     pub fs_rights_inheriting: wasi_snapshot0::Rights,
 }

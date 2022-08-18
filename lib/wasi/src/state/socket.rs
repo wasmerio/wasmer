@@ -249,7 +249,7 @@ impl InodeSocket {
 
     pub fn accept(
         &self,
-        _fd_flags: __wasi_fdflags_t,
+        _fd_flags: wasi_snapshot0::Fdflags,
     ) -> Result<(Box<dyn VirtualTcpSocket + Sync>, SocketAddr), wasi_snapshot0::Errno> {
         let (sock, addr) = match &self.kind {
             InodeSocketKind::TcpListener(sock) => sock.accept().map_err(net_error_into_wasi_err),
@@ -262,7 +262,7 @@ impl InodeSocket {
 
     pub fn accept_timeout(
         &self,
-        _fd_flags: __wasi_fdflags_t,
+        _fd_flags: wasi_snapshot0::Fdflags,
         timeout: Duration,
     ) -> Result<(Box<dyn VirtualTcpSocket + Sync>, SocketAddr), wasi_snapshot0::Errno> {
         let (sock, addr) = match &self.kind {

@@ -402,8 +402,9 @@ enum advice {
 
 /// File descriptor flags.
 flags fdflags {
-  // TODO: wit appears to not have support for flag type size
-  //flags (@witx repr u16)
+    // TODO: wit appears to not have support for flag type size
+    //flags (@witx repr u16)
+
     /// Append mode: Data written to the file is always appended to the file's end.
     append,
     /// Write according to synchronized I/O data integrity completion. Only the data stored in the file is synchronized.

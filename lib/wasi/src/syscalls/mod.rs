@@ -642,12 +642,12 @@ pub fn fd_fdstat_get<M: MemorySize>(
 /// Inputs:
 /// - `__wasi_fd_t fd`
 ///     The file descriptor to apply the new flags to
-/// - `__wasi_fdflags_t flags`
+/// - `wasi_snapshot0::Fdflags flags`
 ///     The flags to apply to `fd`
 pub fn fd_fdstat_set_flags(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: __wasi_fd_t,
-    flags: __wasi_fdflags_t,
+    flags: wasi_snapshot0::Fdflags,
 ) -> wasi_snapshot0::Errno {
     debug!("wasi::fd_fdstat_set_flags");
     let env = ctx.data();
@@ -1184,7 +1184,7 @@ pub fn fd_read<M: MemorySize>(
                 return Ok(wasi_snapshot0::Errno::Acces);
             }
 
-            let is_non_blocking = fd_entry.flags & __WASI_FDFLAG_NONBLOCK != 0;
+            let is_non_blocking = fd_entry.flags.contains(wasi_snapshot0::Fdflags::NONBLOCK);
             let offset = fd_entry.offset as usize;
             let inode_idx = fd_entry.inode;
             let inode = &inodes.arena[inode_idx];
@@ -1520,7 +1520,10 @@ pub fn fd_event<M: MemorySize>(
     let rights = wasi_snapshot0::Rights::FD_READ
         | wasi_snapshot0::Rights::FD_WRITE
         | wasi_snapshot0::Rights::POLL_FD_READWRITE;
-    let fd = wasi_try!(state.fs.create_fd(rights, rights, 0, 0, inode));
+    let fd =
+        wasi_try!(state
+            .fs
+            .create_fd(rights, rights, wasi_snapshot0::Fdflags::empty(), 0, inode));
 
     wasi_try_mem!(ret_fd.write(&memory, fd));
 
@@ -1863,8 +1866,14 @@ pub fn fd_pipe<M: MemorySize>(
     );
 
     let rights = super::state::all_socket_rights();
-    let fd1 = wasi_try!(state.fs.create_fd(rights, rights, 0, 0, inode1));
-    let fd2 = wasi_try!(state.fs.create_fd(rights, rights, 0, 0, inode2));
+    let fd1 =
+        wasi_try!(state
+            .fs
+            .create_fd(rights, rights, wasi_snapshot0::Fdflags::empty(), 0, inode1));
+    let fd2 =
+        wasi_try!(state
+            .fs
+            .create_fd(rights, rights, wasi_snapshot0::Fdflags::empty(), 0, inode2));
 
     wasi_try_mem!(ro_fd1.write(&memory, fd1));
     wasi_try_mem!(ro_fd2.write(&memory, fd2));
@@ -2283,7 +2292,7 @@ pub fn path_link<M: MemorySize>(
 ///     The rights of the created file descriptor
 /// - `wasi_snapshot0::Rights fs_rightsinheriting`
 ///     The rights of file descriptors derived from the created file descriptor
-/// - `__wasi_fdflags_t fs_flags`
+/// - `wasi_snapshot0::Fdflags fs_flags`
 ///     The flags of the file descriptor
 /// Output:
 /// - `__wasi_fd_t* fd`
@@ -2299,7 +2308,7 @@ pub fn path_open<M: MemorySize>(
     o_flags: __wasi_oflags_t,
     fs_rights_base: wasi_snapshot0::Rights,
     fs_rights_inheriting: wasi_snapshot0::Rights,
-    fs_flags: __wasi_fdflags_t,
+    fs_flags: wasi_snapshot0::Fdflags,
     fd: WasmPtr<__wasi_fd_t, M>,
 ) -> wasi_snapshot0::Errno {
     debug!("wasi::path_open");
@@ -2378,7 +2387,7 @@ pub fn path_open<M: MemorySize>(
                 let (append_permission, truncate_permission, create_permission) =
                     if write_permission {
                         (
-                            fs_flags & __WASI_FDFLAG_APPEND != 0,
+                            fs_flags.contains(wasi_snapshot0::Fdflags::APPEND),
                             o_flags & __WASI_O_TRUNC != 0,
                             o_flags & __WASI_O_CREAT != 0,
                         )
@@ -2457,7 +2466,7 @@ pub fn path_open<M: MemorySize>(
             let handle = {
                 let open_options = open_options
                     .read(true)
-                    .append(fs_flags & __WASI_FDFLAG_APPEND != 0)
+                    .append(fs_flags.contains(wasi_snapshot0::Fdflags::APPEND))
                     // TODO: ensure these rights are actually valid given parent, etc.
                     // write access is required for creating a file
                     .write(true)
@@ -4245,7 +4254,10 @@ pub fn ws_connect<M: MemorySize>(
         "socket".to_string(),
     );
     let rights = super::state::all_socket_rights();
-    let fd = wasi_try!(state.fs.create_fd(rights, rights, 0, 0, inode));
+    let fd =
+        wasi_try!(state
+            .fs
+            .create_fd(rights, rights, wasi_snapshot0::Fdflags::empty(), 0, inode));
 
     wasi_try_mem!(ret_sock.write(&memory, fd));
 
@@ -4357,9 +4369,27 @@ pub fn http_request<M: MemorySize>(
     let rights = super::state::all_socket_rights();
 
     let handles = __wasi_http_handles_t {
-        req: wasi_try!(state.fs.create_fd(rights, rights, 0, 0, inode_req)),
-        res: wasi_try!(state.fs.create_fd(rights, rights, 0, 0, inode_res)),
-        hdr: wasi_try!(state.fs.create_fd(rights, rights, 0, 0, inode_hdr)),
+        req: wasi_try!(state.fs.create_fd(
+            rights,
+            rights,
+            wasi_snapshot0::Fdflags::empty(),
+            0,
+            inode_req
+        )),
+        res: wasi_try!(state.fs.create_fd(
+            rights,
+            rights,
+            wasi_snapshot0::Fdflags::empty(),
+            0,
+            inode_res
+        )),
+        hdr: wasi_try!(state.fs.create_fd(
+            rights,
+            rights,
+            wasi_snapshot0::Fdflags::empty(),
+            0,
+            inode_hdr
+        )),
     };
 
     wasi_try_mem!(ret_handles.write(&memory, handles));
@@ -4886,7 +4916,10 @@ pub fn sock_open<M: MemorySize>(
         "socket".to_string(),
     );
     let rights = super::state::all_socket_rights();
-    let fd = wasi_try!(state.fs.create_fd(rights, rights, 0, 0, inode));
+    let fd =
+        wasi_try!(state
+            .fs
+            .create_fd(rights, rights, wasi_snapshot0::Fdflags::empty(), 0, inode));
 
     wasi_try_mem!(ro_sock.write(&memory, fd));
 
@@ -5327,7 +5360,7 @@ pub fn sock_listen<M: MemorySize>(
 pub fn sock_accept<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: __wasi_fd_t,
-    fd_flags: __wasi_fdflags_t,
+    fd_flags: wasi_snapshot0::Fdflags,
     ro_fd: WasmPtr<__wasi_fd_t, M>,
     ro_addr: WasmPtr<__wasi_addr_port_t, M>,
 ) -> Result<wasi_snapshot0::Errno, WasiError> {
@@ -5375,7 +5408,13 @@ pub fn sock_accept<M: MemorySize>(
     );
 
     let rights = super::state::all_socket_rights();
-    let fd = wasi_try_ok!(state.fs.create_fd(rights, rights, 0, 0, inode));
+    let fd = wasi_try_ok!(state.fs.create_fd(
+        rights,
+        rights,
+        wasi_snapshot0::Fdflags::empty(),
+        0,
+        inode
+    ));
 
     wasi_try_mem_ok!(ro_fd.write(&memory, fd));
     wasi_try_ok!(super::state::write_ip_port(

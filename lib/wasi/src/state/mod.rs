@@ -73,9 +73,8 @@ const STDIN_DEFAULT_RIGHTS: wasi_snapshot0::Rights = {
     )
 };
 const STDOUT_DEFAULT_RIGHTS: wasi_snapshot0::Rights = {
-    // Not sure it is possible to use the bitflags consts directly in a
-    // const environment, found no way to do so, therefore the flags are
-    // duplicated below.
+    // This might seem a bit overenineered, but it's the only way I
+    // discovered for getting the values in a const environment
     wasi_snapshot0::Rights::from_bits_truncate(
         wasi_snapshot0::Rights::FD_DATASYNC.bits()
             | wasi_snapshot0::Rights::FD_SYNC.bits()
@@ -188,7 +187,7 @@ pub enum Kind {
 pub struct Fd {
     pub rights: wasi_snapshot0::Rights,
     pub rights_inheriting: wasi_snapshot0::Rights,
-    pub flags: __wasi_fdflags_t,
+    pub flags: wasi_snapshot0::Fdflags,
     pub offset: u64,
     /// Flags that determine how the [`Fd`] can be used.
     ///
@@ -445,7 +444,13 @@ impl WasiFs {
                 })?;
             let fd_flags = Fd::READ;
             let fd = wasi_fs
-                .create_fd(rights, rights, 0, fd_flags, inode)
+                .create_fd(
+                    rights,
+                    rights,
+                    wasi_snapshot0::Fdflags::empty(),
+                    fd_flags,
+                    inode,
+                )
                 .map_err(|e| format!("Could not open fd for file {:?}: {}", preopen_name, e))?;
             {
                 let mut guard = inodes.arena[root_inode].write();
@@ -565,7 +570,13 @@ impl WasiFs {
                 fd_flags
             };
             let fd = wasi_fs
-                .create_fd(rights, rights, 0, fd_flags, inode)
+                .create_fd(
+                    rights,
+                    rights,
+                    wasi_snapshot0::Fdflags::empty(),
+                    fd_flags,
+                    inode,
+                )
                 .map_err(|e| format!("Could not open fd for file {:?}: {}", path, e))?;
             {
                 let mut guard = inodes.arena[root_inode].write();
@@ -633,7 +644,13 @@ impl WasiFs {
                 */;
             let inode = wasi_fs.create_virtual_root(inodes);
             let fd = wasi_fs
-                .create_fd(root_rights, root_rights, 0, Fd::READ, inode)
+                .create_fd(
+                    root_rights,
+                    root_rights,
+                    wasi_snapshot0::Fdflags::empty(),
+                    Fd::READ,
+                    inode,
+                )
                 .map_err(|e| format!("Could not create root fd: {}", e))?;
             wasi_fs.preopen_fds.write().unwrap().push(fd);
             inode
@@ -664,7 +681,7 @@ impl WasiFs {
         name: String,
         rights: wasi_snapshot0::Rights,
         rights_inheriting: wasi_snapshot0::Rights,
-        flags: __wasi_fdflags_t,
+        flags: wasi_snapshot0::Fdflags,
     ) -> Result<__wasi_fd_t, FsError> {
         // TODO: check permissions here? probably not, but this should be
         // an explicit choice, so justify it in a comment when we remove this one
@@ -741,7 +758,7 @@ impl WasiFs {
         name: String,
         rights: wasi_snapshot0::Rights,
         rights_inheriting: wasi_snapshot0::Rights,
-        flags: __wasi_fdflags_t,
+        flags: wasi_snapshot0::Fdflags,
     ) -> Result<__wasi_fd_t, FsError> {
         // TODO: check permissions here? probably not, but this should be
         // an explicit choice, so justify it in a comment when we remove this one
@@ -1341,7 +1358,7 @@ impl WasiFs {
             __WASI_STDIN_FILENO => {
                 return Ok(__wasi_fdstat_t {
                     fs_filetype: wasi_snapshot0::Filetype::CharacterDevice,
-                    fs_flags: 0,
+                    fs_flags: wasi_snapshot0::Fdflags::empty(),
                     fs_rights_base: STDIN_DEFAULT_RIGHTS,
                     fs_rights_inheriting: wasi_snapshot0::Rights::empty(),
                 })
@@ -1349,7 +1366,7 @@ impl WasiFs {
             __WASI_STDOUT_FILENO => {
                 return Ok(__wasi_fdstat_t {
                     fs_filetype: wasi_snapshot0::Filetype::CharacterDevice,
-                    fs_flags: __WASI_FDFLAG_APPEND,
+                    fs_flags: wasi_snapshot0::Fdflags::APPEND,
                     fs_rights_base: STDOUT_DEFAULT_RIGHTS,
                     fs_rights_inheriting: wasi_snapshot0::Rights::empty(),
                 })
@@ -1357,7 +1374,7 @@ impl WasiFs {
             __WASI_STDERR_FILENO => {
                 return Ok(__wasi_fdstat_t {
                     fs_filetype: wasi_snapshot0::Filetype::CharacterDevice,
-                    fs_flags: __WASI_FDFLAG_APPEND,
+                    fs_flags: wasi_snapshot0::Fdflags::APPEND,
                     fs_rights_base: STDERR_DEFAULT_RIGHTS,
                     fs_rights_inheriting: wasi_snapshot0::Rights::empty(),
                 })
@@ -1365,7 +1382,7 @@ impl WasiFs {
             VIRTUAL_ROOT_FD => {
                 return Ok(__wasi_fdstat_t {
                     fs_filetype: wasi_snapshot0::Filetype::Directory,
-                    fs_flags: 0,
+                    fs_flags: wasi_snapshot0::Fdflags::empty(),
                     // TODO: fix this
                     fs_rights_base: ALL_RIGHTS,
                     fs_rights_inheriting: ALL_RIGHTS,
@@ -1504,7 +1521,7 @@ impl WasiFs {
         &self,
         rights: wasi_snapshot0::Rights,
         rights_inheriting: wasi_snapshot0::Rights,
-        flags: __wasi_fdflags_t,
+        flags: wasi_snapshot0::Fdflags,
         open_flags: u16,
         inode: Inode,
     ) -> Result<__wasi_fd_t, wasi_snapshot0::Errno> {
@@ -1577,7 +1594,7 @@ impl WasiFs {
             "stdout",
             __WASI_STDOUT_FILENO,
             STDOUT_DEFAULT_RIGHTS,
-            __WASI_FDFLAG_APPEND,
+            wasi_snapshot0::Fdflags::APPEND,
         );
     }
     fn create_stdin(&self, inodes: &mut WasiInodes) {
@@ -1587,7 +1604,7 @@ impl WasiFs {
             "stdin",
             __WASI_STDIN_FILENO,
             STDIN_DEFAULT_RIGHTS,
-            0,
+            wasi_snapshot0::Fdflags::empty(),
         );
     }
     fn create_stderr(&self, inodes: &mut WasiInodes) {
@@ -1597,7 +1614,7 @@ impl WasiFs {
             "stderr",
             __WASI_STDERR_FILENO,
             STDERR_DEFAULT_RIGHTS,
-            __WASI_FDFLAG_APPEND,
+            wasi_snapshot0::Fdflags::APPEND,
         );
     }
 
@@ -1608,7 +1625,7 @@ impl WasiFs {
         name: &'static str,
         raw_fd: __wasi_fd_t,
         rights: wasi_snapshot0::Rights,
-        fd_flags: __wasi_fdflags_t,
+        fd_flags: wasi_snapshot0::Fdflags,
     ) {
         let stat = __wasi_filestat_t {
             st_filetype: wasi_snapshot0::Filetype::CharacterDevice,

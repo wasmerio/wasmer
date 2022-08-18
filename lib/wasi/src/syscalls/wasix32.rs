@@ -94,7 +94,7 @@ pub(crate) fn fd_fdstat_get(
 pub(crate) fn fd_fdstat_set_flags(
     ctx: FunctionEnvMut<WasiEnv>,
     fd: __wasi_fd_t,
-    flags: __wasi_fdflags_t,
+    flags: wasi_snapshot0::Fdflags,
 ) -> wasi_snapshot0::Errno {
     super::fd_fdstat_set_flags(ctx, fd, flags)
 }
@@ -300,7 +300,7 @@ pub(crate) fn path_open(
     o_flags: __wasi_oflags_t,
     fs_rights_base: wasi_snapshot0::Rights,
     fs_rights_inheriting: wasi_snapshot0::Rights,
-    fs_flags: __wasi_fdflags_t,
+    fs_flags: wasi_snapshot0::Fdflags,
     fd: WasmPtr<__wasi_fd_t, MemoryType>,
 ) -> wasi_snapshot0::Errno {
     super::path_open::<MemoryType>(
@@ -946,7 +946,7 @@ pub(crate) fn sock_listen(
 pub(crate) fn sock_accept(
     ctx: FunctionEnvMut<WasiEnv>,
     sock: __wasi_fd_t,
-    fd_flags: __wasi_fdflags_t,
+    fd_flags: wasi_snapshot0::Fdflags,
     ro_fd: WasmPtr<__wasi_fd_t, MemoryType>,
     ro_addr: WasmPtr<__wasi_addr_port_t, MemoryType>,
 ) -> Result<wasi_snapshot0::Errno, WasiError> {
