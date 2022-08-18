@@ -1,16 +1,17 @@
 use anyhow::bail;
 use std::process::Command;
-use wasmer_integration_tests_cli::WASMER_PATH;
+use wasmer_integration_tests_cli::get_wasmer_path;
 
 const WASMER_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[test]
 fn version_string_is_correct() -> anyhow::Result<()> {
     let expected_version_output = format!("wasmer {}\n", WASMER_VERSION);
+    let wasmer_path = get_wasmer_path();
 
     let outputs = [
-        Command::new(WASMER_PATH).arg("--version").output()?,
-        Command::new(WASMER_PATH).arg("-V").output()?,
+        Command::new(&wasmer_path).arg("--version").output()?,
+        Command::new(&wasmer_path).arg("-V").output()?,
     ];
 
     for output in &outputs {
@@ -34,10 +35,11 @@ fn version_string_is_correct() -> anyhow::Result<()> {
 #[test]
 fn help_text_contains_version() -> anyhow::Result<()> {
     let expected_version_output = format!("wasmer {}", WASMER_VERSION);
+    let wasmer_path = get_wasmer_path();
 
     let outputs = [
-        Command::new(WASMER_PATH).arg("--help").output()?,
-        Command::new(WASMER_PATH).arg("-h").output()?,
+        Command::new(&wasmer_path).arg("--help").output()?,
+        Command::new(&wasmer_path).arg("-h").output()?,
     ];
 
     for output in &outputs {
