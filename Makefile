@@ -534,7 +534,7 @@ test-examples:
 	$(CARGO_BINARY) test $(CARGO_TARGET) $(compiler_features) --features wasi --examples
 	$(CARGO_BINARY) test $(CARGO_TARGET) --release $(compiler_features) --features wasi --examples
 
-test-integration:
+test-integration-cli:
 	$(CARGO_BINARY) test $(CARGO_TARGET) --no-fail-fast -p wasmer-integration-tests-cli -- --nocapture
 
 test-integration-ios:
