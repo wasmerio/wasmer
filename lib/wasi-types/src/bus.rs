@@ -1,6 +1,7 @@
 use super::*;
 use wasmer_derive::ValueType;
 use wasmer_types::MemorySize;
+use wasmer_wasi_types_generated::wasi_snapshot0;
 
 pub type __wasi_busdataformat_t = u8;
 pub const __WASI_BUS_DATA_FORMAT_RAW: __wasi_busdataformat_t = 0;
@@ -34,7 +35,7 @@ pub type __wasi_cid_t = u8;
 #[repr(C)]
 pub struct __wasi_option_fd_t {
     pub tag: __wasi_option_t,
-    pub fd: __wasi_fd_t,
+    pub fd: wasi_snapshot0::Fd,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, ValueType)]

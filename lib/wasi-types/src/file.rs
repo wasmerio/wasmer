@@ -9,10 +9,9 @@ use wasmer_wasi_types_generated::wasi_snapshot0;
 
 pub type __wasi_device_t = u64;
 
-pub type __wasi_fd_t = u32;
-pub const __WASI_STDIN_FILENO: __wasi_fd_t = 0;
-pub const __WASI_STDOUT_FILENO: __wasi_fd_t = 1;
-pub const __WASI_STDERR_FILENO: __wasi_fd_t = 2;
+pub const __WASI_STDIN_FILENO: wasi_snapshot0::Fd = 0;
+pub const __WASI_STDOUT_FILENO: wasi_snapshot0::Fd = 1;
+pub const __WASI_STDERR_FILENO: wasi_snapshot0::Fd = 2;
 
 pub type __wasi_pid_t = u32;
 pub type __wasi_tid_t = u32;

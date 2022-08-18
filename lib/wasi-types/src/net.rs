@@ -1,5 +1,6 @@
 use super::*;
 use wasmer_derive::ValueType;
+use wasmer_wasi_types_generated::wasi_snapshot0;
 
 use crate::__wasi_option_timestamp_t;
 
@@ -459,9 +460,9 @@ pub struct __wasi_route_t {
 #[derive(Debug, Copy, Clone, PartialEq, Eq, ValueType)]
 #[repr(C)]
 pub struct __wasi_http_handles_t {
-    pub req: __wasi_fd_t,
-    pub res: __wasi_fd_t,
-    pub hdr: __wasi_fd_t,
+    pub req: wasi_snapshot0::Fd,
+    pub res: wasi_snapshot0::Fd,
+    pub hdr: wasi_snapshot0::Fd,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, ValueType)]

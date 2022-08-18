@@ -18,7 +18,7 @@ pub struct __wasi_subscription_clock_t {
 #[derive(Debug, Copy, Clone, PartialEq, Eq, ValueType)]
 #[repr(C)]
 pub struct __wasi_subscription_fs_readwrite_t {
-    pub fd: __wasi_fd_t,
+    pub fd: wasi_snapshot0::Fd,
 }
 
 #[derive(Copy, Clone)]

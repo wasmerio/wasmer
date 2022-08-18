@@ -11,7 +11,7 @@ use wasmer::{AsStoreMut, FunctionEnvMut, WasmPtr};
 /// that syscall, then it may break.
 pub fn fd_filestat_get(
     mut ctx: FunctionEnvMut<WasiEnv>,
-    fd: types::__wasi_fd_t,
+    fd: wasi_snapshot0::Fd,
     buf: WasmPtr<snapshot0::__wasi_filestat_t, Memory32>,
 ) -> wasi_snapshot0::Errno {
     let env = ctx.data();
@@ -62,7 +62,7 @@ pub fn fd_filestat_get(
 /// difference of `wasi_filestat_t`
 pub fn path_filestat_get(
     mut ctx: FunctionEnvMut<WasiEnv>,
-    fd: types::__wasi_fd_t,
+    fd: wasi_snapshot0::Fd,
     flags: types::__wasi_lookupflags_t,
     path: WasmPtr<u8, Memory32>,
     path_len: u32,
@@ -103,7 +103,7 @@ pub fn path_filestat_get(
 /// of `__wasi_whence_t`
 pub fn fd_seek(
     ctx: FunctionEnvMut<WasiEnv>,
-    fd: types::__wasi_fd_t,
+    fd: wasi_snapshot0::Fd,
     offset: types::__wasi_filedelta_t,
     whence: snapshot0::__wasi_whence_t,
     newoffset: WasmPtr<types::__wasi_filesize_t, Memory32>,

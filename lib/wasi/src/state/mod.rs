@@ -57,7 +57,7 @@ use wasmer_wasi_types_generated::wasi_snapshot0;
 use wasmer_vfs::{FileSystem, FsError, OpenOptions, VirtualFile};
 
 /// the fd value of the virtual root
-pub const VIRTUAL_ROOT_FD: __wasi_fd_t = 3;
+pub const VIRTUAL_ROOT_FD: wasi_snapshot0::Fd = 3;
 /// all the rights enabled
 pub const ALL_RIGHTS: wasi_snapshot0::Rights = wasi_snapshot0::Rights::all();
 const STDIN_DEFAULT_RIGHTS: wasi_snapshot0::Rights = {
@@ -162,7 +162,7 @@ pub enum Kind {
     /// - There is always a closer pre-opened dir to the symlink file (by definition of the root being a collection of preopened dirs)
     Symlink {
         /// The preopened dir that this symlink file is relative to (via `path_to_symlink`)
-        base_po_dir: __wasi_fd_t,
+        base_po_dir: wasi_snapshot0::Fd,
         /// The path to the symlink from the `base_po_dir`
         path_to_symlink: PathBuf,
         /// the value of the symlink as a relative path
@@ -302,7 +302,7 @@ impl WasiInodes {
     fn std_dev_get<'a>(
         &'a self,
         fd_map: &RwLock<HashMap<u32, Fd>>,
-        fd: __wasi_fd_t,
+        fd: wasi_snapshot0::Fd,
     ) -> Result<InodeValFileReadGuard<'a>, FsError> {
         if let Some(fd) = fd_map.read().unwrap().get(&fd) {
             let guard = self.arena[fd.inode].read();
@@ -322,7 +322,7 @@ impl WasiInodes {
     fn std_dev_get_mut<'a>(
         &'a self,
         fd_map: &RwLock<HashMap<u32, Fd>>,
-        fd: __wasi_fd_t,
+        fd: wasi_snapshot0::Fd,
     ) -> Result<InodeValFileWriteGuard<'a>, FsError> {
         if let Some(fd) = fd_map.read().unwrap().get(&fd) {
             let guard = self.arena[fd.inode].write();
@@ -677,12 +677,12 @@ impl WasiFs {
     pub unsafe fn open_dir_all(
         &mut self,
         inodes: &mut WasiInodes,
-        base: __wasi_fd_t,
+        base: wasi_snapshot0::Fd,
         name: String,
         rights: wasi_snapshot0::Rights,
         rights_inheriting: wasi_snapshot0::Rights,
         flags: wasi_snapshot0::Fdflags,
-    ) -> Result<__wasi_fd_t, FsError> {
+    ) -> Result<wasi_snapshot0::Fd, FsError> {
         // TODO: check permissions here? probably not, but this should be
         // an explicit choice, so justify it in a comment when we remove this one
         let mut cur_inode = self.get_fd_inode(base).map_err(fs_error_from_wasi_err)?;
@@ -752,14 +752,14 @@ impl WasiFs {
     pub fn open_file_at(
         &mut self,
         inodes: &mut WasiInodes,
-        base: __wasi_fd_t,
+        base: wasi_snapshot0::Fd,
         file: Box<dyn VirtualFile + Send + Sync + 'static>,
         open_flags: u16,
         name: String,
         rights: wasi_snapshot0::Rights,
         rights_inheriting: wasi_snapshot0::Rights,
         flags: wasi_snapshot0::Fdflags,
-    ) -> Result<__wasi_fd_t, FsError> {
+    ) -> Result<wasi_snapshot0::Fd, FsError> {
         // TODO: check permissions here? probably not, but this should be
         // an explicit choice, so justify it in a comment when we remove this one
         let base_inode = self.get_fd_inode(base).map_err(fs_error_from_wasi_err)?;
@@ -812,7 +812,7 @@ impl WasiFs {
     pub fn swap_file(
         &self,
         inodes: &WasiInodes,
-        fd: __wasi_fd_t,
+        fd: wasi_snapshot0::Fd,
         file: Box<dyn VirtualFile + Send + Sync + 'static>,
     ) -> Result<Option<Box<dyn VirtualFile + Send + Sync + 'static>>, FsError> {
         let mut ret = Some(file);
@@ -849,7 +849,7 @@ impl WasiFs {
     pub(crate) fn filestat_resync_size(
         &self,
         inodes: &WasiInodes,
-        fd: __wasi_fd_t,
+        fd: wasi_snapshot0::Fd,
     ) -> Result<__wasi_filesize_t, wasi_snapshot0::Errno> {
         let inode = self.get_fd_inode(fd)?;
         let mut guard = inodes.arena[inode].write();
@@ -881,7 +881,7 @@ impl WasiFs {
     pub fn get_current_dir(
         &self,
         inodes: &mut WasiInodes,
-        base: __wasi_fd_t,
+        base: wasi_snapshot0::Fd,
     ) -> Result<(Inode, String), wasi_snapshot0::Errno> {
         self.get_current_dir_inner(inodes, base, 0)
     }
@@ -889,7 +889,7 @@ impl WasiFs {
     pub(crate) fn get_current_dir_inner(
         &self,
         inodes: &mut WasiInodes,
-        base: __wasi_fd_t,
+        base: wasi_snapshot0::Fd,
         symlink_count: u32,
     ) -> Result<(Inode, String), wasi_snapshot0::Errno> {
         let current_dir = {
@@ -1190,11 +1190,11 @@ impl WasiFs {
         &self,
         inodes: &WasiInodes,
         path: &'path Path,
-    ) -> Result<(__wasi_fd_t, &'path Path), wasi_snapshot0::Errno> {
+    ) -> Result<(wasi_snapshot0::Fd, &'path Path), wasi_snapshot0::Errno> {
         enum BaseFdAndRelPath<'a> {
             None,
             BestMatch {
-                fd: __wasi_fd_t,
+                fd: wasi_snapshot0::Fd,
                 rel_path: &'a Path,
                 max_seen: usize,
             },
@@ -1248,7 +1248,7 @@ impl WasiFs {
     pub(crate) fn path_depth_from_fd(
         &self,
         inodes: &WasiInodes,
-        fd: __wasi_fd_t,
+        fd: wasi_snapshot0::Fd,
         inode: Inode,
     ) -> Result<usize, wasi_snapshot0::Errno> {
         let mut counter = 0;
@@ -1281,7 +1281,7 @@ impl WasiFs {
     pub(crate) fn get_inode_at_path(
         &self,
         inodes: &mut WasiInodes,
-        base: __wasi_fd_t,
+        base: wasi_snapshot0::Fd,
         path: &str,
         follow_symlinks: bool,
     ) -> Result<Inode, wasi_snapshot0::Errno> {
@@ -1300,7 +1300,7 @@ impl WasiFs {
     pub(crate) fn get_parent_inode_at_path(
         &self,
         inodes: &mut WasiInodes,
-        base: __wasi_fd_t,
+        base: wasi_snapshot0::Fd,
         path: &Path,
         follow_symlinks: bool,
     ) -> Result<(Inode, String), wasi_snapshot0::Errno> {
@@ -1319,7 +1319,7 @@ impl WasiFs {
             .map(|v| (v, new_entity_name))
     }
 
-    pub fn get_fd(&self, fd: __wasi_fd_t) -> Result<Fd, wasi_snapshot0::Errno> {
+    pub fn get_fd(&self, fd: wasi_snapshot0::Fd) -> Result<Fd, wasi_snapshot0::Errno> {
         self.fd_map
             .read()
             .unwrap()
@@ -1330,7 +1330,7 @@ impl WasiFs {
 
     pub fn get_fd_inode(
         &self,
-        fd: __wasi_fd_t,
+        fd: wasi_snapshot0::Fd,
     ) -> Result<generational_arena::Index, wasi_snapshot0::Errno> {
         self.fd_map
             .read()
@@ -1343,7 +1343,7 @@ impl WasiFs {
     pub fn filestat_fd(
         &self,
         inodes: &WasiInodes,
-        fd: __wasi_fd_t,
+        fd: wasi_snapshot0::Fd,
     ) -> Result<__wasi_filestat_t, wasi_snapshot0::Errno> {
         let inode = self.get_fd_inode(fd)?;
         Ok(*inodes.arena[inode].stat.read().unwrap().deref())
@@ -1352,7 +1352,7 @@ impl WasiFs {
     pub fn fdstat(
         &self,
         inodes: &WasiInodes,
-        fd: __wasi_fd_t,
+        fd: wasi_snapshot0::Fd,
     ) -> Result<wasi_snapshot0::Fdstat, wasi_snapshot0::Errno> {
         match fd {
             __WASI_STDIN_FILENO => {
@@ -1411,7 +1411,7 @@ impl WasiFs {
     pub fn prestat_fd(
         &self,
         inodes: &WasiInodes,
-        fd: __wasi_fd_t,
+        fd: wasi_snapshot0::Fd,
     ) -> Result<__wasi_prestat_t, wasi_snapshot0::Errno> {
         let inode = self.get_fd_inode(fd)?;
         trace!("in prestat_fd {:?}", self.get_fd(fd)?);
@@ -1436,7 +1436,11 @@ impl WasiFs {
         }
     }
 
-    pub fn flush(&self, inodes: &WasiInodes, fd: __wasi_fd_t) -> Result<(), wasi_snapshot0::Errno> {
+    pub fn flush(
+        &self,
+        inodes: &WasiInodes,
+        fd: wasi_snapshot0::Fd,
+    ) -> Result<(), wasi_snapshot0::Errno> {
         match fd {
             __WASI_STDIN_FILENO => (),
             __WASI_STDOUT_FILENO => inodes
@@ -1524,7 +1528,7 @@ impl WasiFs {
         flags: wasi_snapshot0::Fdflags,
         open_flags: u16,
         inode: Inode,
-    ) -> Result<__wasi_fd_t, wasi_snapshot0::Errno> {
+    ) -> Result<wasi_snapshot0::Fd, wasi_snapshot0::Errno> {
         let idx = self.next_fd.fetch_add(1, Ordering::AcqRel);
         self.fd_map.write().unwrap().insert(
             idx,
@@ -1540,7 +1544,10 @@ impl WasiFs {
         Ok(idx)
     }
 
-    pub fn clone_fd(&self, fd: __wasi_fd_t) -> Result<__wasi_fd_t, wasi_snapshot0::Errno> {
+    pub fn clone_fd(
+        &self,
+        fd: wasi_snapshot0::Fd,
+    ) -> Result<wasi_snapshot0::Fd, wasi_snapshot0::Errno> {
         let fd = self.get_fd(fd)?;
         let idx = self.next_fd.fetch_add(1, Ordering::AcqRel);
         self.fd_map.write().unwrap().insert(
@@ -1623,7 +1630,7 @@ impl WasiFs {
         inodes: &mut WasiInodes,
         handle: Box<dyn VirtualFile + Send + Sync + 'static>,
         name: &'static str,
-        raw_fd: __wasi_fd_t,
+        raw_fd: wasi_snapshot0::Fd,
         rights: wasi_snapshot0::Rights,
         fd_flags: wasi_snapshot0::Fdflags,
     ) {
@@ -1730,7 +1737,7 @@ impl WasiFs {
     pub(crate) fn close_fd(
         &self,
         inodes: &WasiInodes,
-        fd: __wasi_fd_t,
+        fd: wasi_snapshot0::Fd,
     ) -> Result<(), wasi_snapshot0::Errno> {
         let inode = self.get_fd_inode(fd)?;
         let inodeval = inodes.get_inodeval(inode)?;
@@ -1986,7 +1993,7 @@ impl WasiState {
     /// Expects one of `__WASI_STDIN_FILENO`, `__WASI_STDOUT_FILENO`, `__WASI_STDERR_FILENO`.
     fn std_dev_get(
         &self,
-        fd: __wasi_fd_t,
+        fd: wasi_snapshot0::Fd,
     ) -> Result<Option<Box<dyn VirtualFile + Send + Sync + 'static>>, FsError> {
         let ret = WasiStateFileGuard::new(self, fd)?.map(|a| {
             let ret = Box::new(a);

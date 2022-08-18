@@ -295,9 +295,11 @@ flags rights {
     sock-send-to,
 }
 
-//   ;;; A file descriptor handle.
-//   (typename $fd (handle))
-//   
+/// A file descriptor handle.
+type fd = u32
+/// Dummy function to expose fd into generated code
+fd-dummy-func: func(d: fd)
+
 //   ;;; A region of memory for scatter/gather reads.
 //   (typename $iovec
 //     (record

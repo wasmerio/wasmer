@@ -486,6 +486,8 @@ pub mod wasi_snapshot0 {
       Ok(())}
   }
   
+  /// A file descriptor handle.
+  pub type Fd = u32;
   /// A reference to the offset of a directory entry.
   pub type Dircookie = u64;
   /// The type for the `dirent::d-namlen` field of `dirent` struct.
@@ -741,6 +743,7 @@ pub mod wasi_snapshot0 {
     #[allow(dead_code)]
     env: wasmer::FunctionEnv<WasiSnapshot0Data>,
     func_dirent_dummy_func: wasmer::TypedFunction<(i64,i64,i32,i32,), ()>,
+    func_fd_dummy_func: wasmer::TypedFunction<i32, ()>,
     func_fdstat_dummy_func: wasmer::TypedFunction<(i32,i32,i32,i32,i32,i32,), ()>,
   }
   impl WasiSnapshot0 {
@@ -794,12 +797,19 @@ pub mod wasi_snapshot0 {
     env: wasmer::FunctionEnv<WasiSnapshot0Data>,
     ) -> Result<Self, wasmer::ExportError> {
       let func_dirent_dummy_func= _instance.exports.get_typed_function(&store, "dirent-dummy-func")?;
+      let func_fd_dummy_func= _instance.exports.get_typed_function(&store, "fd-dummy-func")?;
       let func_fdstat_dummy_func= _instance.exports.get_typed_function(&store, "fdstat-dummy-func")?;
       Ok(WasiSnapshot0{
         func_dirent_dummy_func,
+        func_fd_dummy_func,
         func_fdstat_dummy_func,
         env,
       })
+    }
+    /// Dummy function to expose fd into generated code
+    pub fn fd_dummy_func(&self, store: &mut wasmer::Store,d: Fd,)-> Result<(), wasmer::RuntimeError> {
+      self.func_fd_dummy_func.call(store, wit_bindgen_wasmer::rt::as_i32(d), )?;
+      Ok(())
     }
     /// Dummy function to expose dirent into generated code
     pub fn dirent_dummy_func(&self, store: &mut wasmer::Store,d: Dirent,)-> Result<(), wasmer::RuntimeError> {

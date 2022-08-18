@@ -57,7 +57,7 @@ pub(crate) fn environ_sizes_get(
 
 pub(crate) fn fd_advise(
     ctx: FunctionEnvMut<WasiEnv>,
-    fd: __wasi_fd_t,
+    fd: wasi_snapshot0::Fd,
     offset: __wasi_filesize_t,
     len: __wasi_filesize_t,
     advice: __wasi_advice_t,
@@ -67,24 +67,30 @@ pub(crate) fn fd_advise(
 
 pub(crate) fn fd_allocate(
     ctx: FunctionEnvMut<WasiEnv>,
-    fd: __wasi_fd_t,
+    fd: wasi_snapshot0::Fd,
     offset: __wasi_filesize_t,
     len: __wasi_filesize_t,
 ) -> wasi_snapshot0::Errno {
     super::fd_allocate(ctx, fd, offset, len)
 }
 
-pub(crate) fn fd_close(ctx: FunctionEnvMut<WasiEnv>, fd: __wasi_fd_t) -> wasi_snapshot0::Errno {
+pub(crate) fn fd_close(
+    ctx: FunctionEnvMut<WasiEnv>,
+    fd: wasi_snapshot0::Fd,
+) -> wasi_snapshot0::Errno {
     super::fd_close(ctx, fd)
 }
 
-pub(crate) fn fd_datasync(ctx: FunctionEnvMut<WasiEnv>, fd: __wasi_fd_t) -> wasi_snapshot0::Errno {
+pub(crate) fn fd_datasync(
+    ctx: FunctionEnvMut<WasiEnv>,
+    fd: wasi_snapshot0::Fd,
+) -> wasi_snapshot0::Errno {
     super::fd_datasync(ctx, fd)
 }
 
 pub(crate) fn fd_fdstat_get(
     ctx: FunctionEnvMut<WasiEnv>,
-    fd: __wasi_fd_t,
+    fd: wasi_snapshot0::Fd,
     buf_ptr: WasmPtr<wasi_snapshot0::Fdstat, MemoryType>,
 ) -> wasi_snapshot0::Errno {
     super::fd_fdstat_get::<MemoryType>(ctx, fd, buf_ptr)
@@ -92,7 +98,7 @@ pub(crate) fn fd_fdstat_get(
 
 pub(crate) fn fd_fdstat_set_flags(
     ctx: FunctionEnvMut<WasiEnv>,
-    fd: __wasi_fd_t,
+    fd: wasi_snapshot0::Fd,
     flags: wasi_snapshot0::Fdflags,
 ) -> wasi_snapshot0::Errno {
     super::fd_fdstat_set_flags(ctx, fd, flags)
@@ -100,7 +106,7 @@ pub(crate) fn fd_fdstat_set_flags(
 
 pub(crate) fn fd_fdstat_set_rights(
     ctx: FunctionEnvMut<WasiEnv>,
-    fd: __wasi_fd_t,
+    fd: wasi_snapshot0::Fd,
     fs_rights_base: __wasi_rights_t,
     fs_rights_inheriting: __wasi_rights_t,
 ) -> wasi_snapshot0::Errno {
@@ -109,7 +115,7 @@ pub(crate) fn fd_fdstat_set_rights(
 
 pub(crate) fn fd_filestat_get(
     ctx: FunctionEnvMut<WasiEnv>,
-    fd: __wasi_fd_t,
+    fd: wasi_snapshot0::Fd,
     buf: WasmPtr<__wasi_filestat_t, MemoryType>,
 ) -> wasi_snapshot0::Errno {
     super::fd_filestat_get::<MemoryType>(ctx, fd, buf)
@@ -117,7 +123,7 @@ pub(crate) fn fd_filestat_get(
 
 pub(crate) fn fd_filestat_set_size(
     ctx: FunctionEnvMut<WasiEnv>,
-    fd: __wasi_fd_t,
+    fd: wasi_snapshot0::Fd,
     st_size: __wasi_filesize_t,
 ) -> wasi_snapshot0::Errno {
     super::fd_filestat_set_size(ctx, fd, st_size)
@@ -125,7 +131,7 @@ pub(crate) fn fd_filestat_set_size(
 
 pub(crate) fn fd_filestat_set_times(
     ctx: FunctionEnvMut<WasiEnv>,
-    fd: __wasi_fd_t,
+    fd: wasi_snapshot0::Fd,
     st_atim: __wasi_timestamp_t,
     st_mtim: __wasi_timestamp_t,
     fst_flags: __wasi_fstflags_t,
@@ -135,7 +141,7 @@ pub(crate) fn fd_filestat_set_times(
 
 pub(crate) fn fd_pread(
     ctx: FunctionEnvMut<WasiEnv>,
-    fd: __wasi_fd_t,
+    fd: wasi_snapshot0::Fd,
     iovs: WasmPtr<__wasi_iovec_t<MemoryType>, MemoryType>,
     iovs_len: MemoryOffset,
     offset: __wasi_filesize_t,
@@ -146,7 +152,7 @@ pub(crate) fn fd_pread(
 
 pub(crate) fn fd_prestat_get(
     ctx: FunctionEnvMut<WasiEnv>,
-    fd: __wasi_fd_t,
+    fd: wasi_snapshot0::Fd,
     buf: WasmPtr<__wasi_prestat_t, MemoryType>,
 ) -> wasi_snapshot0::Errno {
     super::fd_prestat_get::<MemoryType>(ctx, fd, buf)
@@ -154,7 +160,7 @@ pub(crate) fn fd_prestat_get(
 
 pub(crate) fn fd_prestat_dir_name(
     ctx: FunctionEnvMut<WasiEnv>,
-    fd: __wasi_fd_t,
+    fd: wasi_snapshot0::Fd,
     path: WasmPtr<u8, MemoryType>,
     path_len: MemoryOffset,
 ) -> wasi_snapshot0::Errno {
@@ -163,7 +169,7 @@ pub(crate) fn fd_prestat_dir_name(
 
 pub(crate) fn fd_pwrite(
     ctx: FunctionEnvMut<WasiEnv>,
-    fd: __wasi_fd_t,
+    fd: wasi_snapshot0::Fd,
     iovs: WasmPtr<__wasi_ciovec_t<MemoryType>, MemoryType>,
     iovs_len: MemoryOffset,
     offset: __wasi_filesize_t,
@@ -174,7 +180,7 @@ pub(crate) fn fd_pwrite(
 
 pub(crate) fn fd_read(
     ctx: FunctionEnvMut<WasiEnv>,
-    fd: __wasi_fd_t,
+    fd: wasi_snapshot0::Fd,
     iovs: WasmPtr<__wasi_iovec_t<MemoryType>, MemoryType>,
     iovs_len: MemoryOffset,
     nread: WasmPtr<MemoryOffset, MemoryType>,
@@ -184,7 +190,7 @@ pub(crate) fn fd_read(
 
 pub(crate) fn fd_readdir(
     ctx: FunctionEnvMut<WasiEnv>,
-    fd: __wasi_fd_t,
+    fd: wasi_snapshot0::Fd,
     buf: WasmPtr<u8, MemoryType>,
     buf_len: MemoryOffset,
     cookie: __wasi_dircookie_t,
@@ -195,15 +201,15 @@ pub(crate) fn fd_readdir(
 
 pub(crate) fn fd_renumber(
     ctx: FunctionEnvMut<WasiEnv>,
-    from: __wasi_fd_t,
-    to: __wasi_fd_t,
+    from: wasi_snapshot0::Fd,
+    to: wasi_snapshot0::Fd,
 ) -> wasi_snapshot0::Errno {
     super::fd_renumber(ctx, from, to)
 }
 
 pub(crate) fn fd_seek(
     ctx: FunctionEnvMut<WasiEnv>,
-    fd: __wasi_fd_t,
+    fd: wasi_snapshot0::Fd,
     offset: __wasi_filedelta_t,
     whence: __wasi_whence_t,
     newoffset: WasmPtr<__wasi_filesize_t, MemoryType>,
@@ -211,13 +217,16 @@ pub(crate) fn fd_seek(
     super::fd_seek::<MemoryType>(ctx, fd, offset, whence, newoffset)
 }
 
-pub(crate) fn fd_sync(ctx: FunctionEnvMut<WasiEnv>, fd: __wasi_fd_t) -> wasi_snapshot0::Errno {
+pub(crate) fn fd_sync(
+    ctx: FunctionEnvMut<WasiEnv>,
+    fd: wasi_snapshot0::Fd,
+) -> wasi_snapshot0::Errno {
     super::fd_sync(ctx, fd)
 }
 
 pub(crate) fn fd_tell(
     ctx: FunctionEnvMut<WasiEnv>,
-    fd: __wasi_fd_t,
+    fd: wasi_snapshot0::Fd,
     offset: WasmPtr<__wasi_filesize_t, MemoryType>,
 ) -> wasi_snapshot0::Errno {
     super::fd_tell::<MemoryType>(ctx, fd, offset)
@@ -225,7 +234,7 @@ pub(crate) fn fd_tell(
 
 pub(crate) fn fd_write(
     ctx: FunctionEnvMut<WasiEnv>,
-    fd: __wasi_fd_t,
+    fd: wasi_snapshot0::Fd,
     iovs: WasmPtr<__wasi_ciovec_t<MemoryType>, MemoryType>,
     iovs_len: MemoryOffset,
     nwritten: WasmPtr<MemoryOffset, MemoryType>,
@@ -235,7 +244,7 @@ pub(crate) fn fd_write(
 
 pub(crate) fn path_create_directory(
     ctx: FunctionEnvMut<WasiEnv>,
-    fd: __wasi_fd_t,
+    fd: wasi_snapshot0::Fd,
     path: WasmPtr<u8, MemoryType>,
     path_len: MemoryOffset,
 ) -> wasi_snapshot0::Errno {
@@ -244,7 +253,7 @@ pub(crate) fn path_create_directory(
 
 pub(crate) fn path_filestat_get(
     ctx: FunctionEnvMut<WasiEnv>,
-    fd: __wasi_fd_t,
+    fd: wasi_snapshot0::Fd,
     flags: __wasi_lookupflags_t,
     path: WasmPtr<u8, MemoryType>,
     path_len: MemoryOffset,
@@ -255,7 +264,7 @@ pub(crate) fn path_filestat_get(
 
 pub(crate) fn path_filestat_set_times(
     ctx: FunctionEnvMut<WasiEnv>,
-    fd: __wasi_fd_t,
+    fd: wasi_snapshot0::Fd,
     flags: __wasi_lookupflags_t,
     path: WasmPtr<u8, MemoryType>,
     path_len: MemoryOffset,
@@ -270,11 +279,11 @@ pub(crate) fn path_filestat_set_times(
 
 pub(crate) fn path_link(
     ctx: FunctionEnvMut<WasiEnv>,
-    old_fd: __wasi_fd_t,
+    old_fd: wasi_snapshot0::Fd,
     old_flags: __wasi_lookupflags_t,
     old_path: WasmPtr<u8, MemoryType>,
     old_path_len: MemoryOffset,
-    new_fd: __wasi_fd_t,
+    new_fd: wasi_snapshot0::Fd,
     new_path: WasmPtr<u8, MemoryType>,
     new_path_len: MemoryOffset,
 ) -> wasi_snapshot0::Errno {
@@ -292,7 +301,7 @@ pub(crate) fn path_link(
 
 pub(crate) fn path_open(
     ctx: FunctionEnvMut<WasiEnv>,
-    dirfd: __wasi_fd_t,
+    dirfd: wasi_snapshot0::Fd,
     dirflags: __wasi_lookupflags_t,
     path: WasmPtr<u8, MemoryType>,
     path_len: MemoryOffset,
@@ -300,7 +309,7 @@ pub(crate) fn path_open(
     fs_rights_base: __wasi_rights_t,
     fs_rights_inheriting: __wasi_rights_t,
     fs_flags: wasi_snapshot0::Fdflags,
-    fd: WasmPtr<__wasi_fd_t, MemoryType>,
+    fd: WasmPtr<wasi_snapshot0::Fd, MemoryType>,
 ) -> wasi_snapshot0::Errno {
     super::path_open::<MemoryType>(
         ctx,
@@ -318,7 +327,7 @@ pub(crate) fn path_open(
 
 pub(crate) fn path_readlink(
     ctx: FunctionEnvMut<WasiEnv>,
-    dir_fd: __wasi_fd_t,
+    dir_fd: wasi_snapshot0::Fd,
     path: WasmPtr<u8, MemoryType>,
     path_len: MemoryOffset,
     buf: WasmPtr<u8, MemoryType>,
@@ -330,7 +339,7 @@ pub(crate) fn path_readlink(
 
 pub(crate) fn path_remove_directory(
     ctx: FunctionEnvMut<WasiEnv>,
-    fd: __wasi_fd_t,
+    fd: wasi_snapshot0::Fd,
     path: WasmPtr<u8, MemoryType>,
     path_len: MemoryOffset,
 ) -> wasi_snapshot0::Errno {
@@ -339,10 +348,10 @@ pub(crate) fn path_remove_directory(
 
 pub(crate) fn path_rename(
     ctx: FunctionEnvMut<WasiEnv>,
-    old_fd: __wasi_fd_t,
+    old_fd: wasi_snapshot0::Fd,
     old_path: WasmPtr<u8, MemoryType>,
     old_path_len: MemoryOffset,
-    new_fd: __wasi_fd_t,
+    new_fd: wasi_snapshot0::Fd,
     new_path: WasmPtr<u8, MemoryType>,
     new_path_len: MemoryOffset,
 ) -> wasi_snapshot0::Errno {
@@ -361,7 +370,7 @@ pub(crate) fn path_symlink(
     ctx: FunctionEnvMut<WasiEnv>,
     old_path: WasmPtr<u8, MemoryType>,
     old_path_len: MemoryOffset,
-    fd: __wasi_fd_t,
+    fd: wasi_snapshot0::Fd,
     new_path: WasmPtr<u8, MemoryType>,
     new_path_len: MemoryOffset,
 ) -> wasi_snapshot0::Errno {
@@ -370,7 +379,7 @@ pub(crate) fn path_symlink(
 
 pub(crate) fn path_unlink_file(
     ctx: FunctionEnvMut<WasiEnv>,
-    fd: __wasi_fd_t,
+    fd: wasi_snapshot0::Fd,
     path: WasmPtr<u8, MemoryType>,
     path_len: MemoryOffset,
 ) -> wasi_snapshot0::Errno {
@@ -417,7 +426,7 @@ pub(crate) fn sched_yield(
 
 pub(crate) fn sock_recv(
     ctx: FunctionEnvMut<WasiEnv>,
-    sock: __wasi_fd_t,
+    sock: wasi_snapshot0::Fd,
     ri_data: WasmPtr<__wasi_iovec_t<MemoryType>, MemoryType>,
     ri_data_len: MemoryOffset,
     ri_flags: __wasi_riflags_t,
@@ -437,7 +446,7 @@ pub(crate) fn sock_recv(
 
 pub(crate) fn sock_send(
     ctx: FunctionEnvMut<WasiEnv>,
-    sock: __wasi_fd_t,
+    sock: wasi_snapshot0::Fd,
     si_data: WasmPtr<__wasi_ciovec_t<MemoryType>, MemoryType>,
     si_data_len: MemoryOffset,
     si_flags: __wasi_siflags_t,
@@ -448,7 +457,7 @@ pub(crate) fn sock_send(
 
 pub(crate) fn sock_shutdown(
     ctx: FunctionEnvMut<WasiEnv>,
-    sock: __wasi_fd_t,
+    sock: wasi_snapshot0::Fd,
     how: __wasi_sdflags_t,
 ) -> wasi_snapshot0::Errno {
     super::sock_shutdown(ctx, sock, how)
