@@ -329,3 +329,81 @@ fn create_obj_serialized() -> anyhow::Result<()> {
         "serialized",
     )
 }
+
+fn create_exe_with_object_input(args: Vec<&'static str>) -> anyhow::Result<()> {
+    let temp_dir = tempfile::tempdir()?;
+    let operating_dir: PathBuf = temp_dir.path().to_owned();
+
+    let wasm_path = operating_dir.join(create_exe_test_wasm_path());
+
+    #[cfg(not(windows))]
+    let object_path = operating_dir.join("wasm.o");
+    #[cfg(windows)]
+    let object_path = operating_dir.join("wasm.obj");
+
+    WasmerCreateObj {
+        current_dir: operating_dir.clone(),
+        wasm_path,
+        output_object_path: object_path.clone(),
+        compiler: Compiler::Cranelift,
+        extra_cli_flags: args,
+        ..Default::default()
+    }
+    .run()
+    .context("Failed to create-obj wasm with Wasmer")?;
+
+    assert!(
+        object_path.exists(),
+        "create-obj successfully completed but object output file `{}` missing",
+        object_path.display()
+    );
+    let mut object_header_path = object_path.clone();
+    object_header_path.set_extension("h");
+    assert!(
+        object_header_path.exists(),
+        "create-obj successfully completed but object output header file `{}` missing",
+        object_header_path.display()
+    );
+
+    #[cfg(not(windows))]
+    let executable_path = operating_dir.join("wasm.out");
+    #[cfg(windows)]
+    let executable_path = operating_dir.join("wasm.exe");
+
+    WasmerCreateExe {
+        current_dir: operating_dir.clone(),
+        wasm_path: object_path,
+        native_executable_path: executable_path.clone(),
+        compiler: Compiler::Cranelift,
+        extra_cli_flags: vec!["--header", "wasm.h"],
+        ..Default::default()
+    }
+    .run()
+    .context("Failed to create-exe wasm with Wasmer")?;
+
+    let result = run_code(
+        &operating_dir,
+        &executable_path,
+        &["--eval".to_string(), "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));".to_string()],
+    )
+    .context("Failed to run generated executable")?;
+    let result_lines = result.lines().collect::<Vec<&str>>();
+    assert_eq!(result_lines, vec!["\"Hello, World\""],);
+
+    Ok(())
+}
+
+#[test]
+fn create_exe_with_object_input_default() -> anyhow::Result<()> {
+    create_exe_with_object_input(vec![])
+}
+
+#[test]
+fn create_exe_with_object_input_symbols() -> anyhow::Result<()> {
+    create_exe_with_object_input(vec!["--object-format", "symbols"])
+}
+
+#[test]
+fn create_exe_with_object_input_serialized() -> anyhow::Result<()> {
+    create_exe_with_object_input(vec!["--object-format", "serialized"])
+}
