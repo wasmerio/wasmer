@@ -354,6 +354,7 @@ unsafe extern "C" fn wasi_console_out_read_memory(
     byte_ptr: *mut c_char, /* &[u8] bytes to read */
     max_bytes: usize,      /* max bytes to read */
 ) -> i64 {
+    use std::io::Read;
     if sizeof != std::mem::size_of::<Pipe>()
         || alignof != std::mem::align_of::<Pipe>()
     {
@@ -361,17 +362,11 @@ unsafe extern "C" fn wasi_console_out_read_memory(
     }
     let ptr = ptr as *mut Pipe;
     let ptr = &mut *ptr;
-    /* 
-    let read_slice = &ptr.backed[ptr.cursor..];
-    let byte_ptr = byte_ptr as *mut u8;
-    let write_slice = std::slice::from_raw_parts_mut(byte_ptr, max_bytes);
-    let read = read_slice.len().min(write_slice.len());
-    for (source, target) in read_slice.iter().zip(write_slice.iter_mut()) {
-        *target = *source;
+    let slice = std::slice::from_raw_parts_mut(byte_ptr as *mut u8, max_bytes);
+    match ptr.read(slice) {
+        Ok(o) => o as i64,
+        Err(_) => -1,
     }
-    ptr.cursor += read;
-    read as i64
-    */
 }
 
 unsafe extern "C" fn wasi_console_out_write_memory(
@@ -382,25 +377,28 @@ unsafe extern "C" fn wasi_console_out_write_memory(
     byte_len: usize,
     flush: bool,
 ) -> i64 {
+    use std::io::Write;
     if sizeof != std::mem::size_of::<Pipe>()
         || alignof != std::mem::align_of::<Pipe>()
     {
         return -1;
     }
-
+    
     let ptr = ptr as *mut Pipe;
     let ptr = &mut *ptr;
 
-    /* 
     if flush {
-        return 0;
+        match ptr.flush() {
+            Ok(()) => 0,
+            Err(_) => -1,
+        }
+    } else {
+        let slice = std::slice::from_raw_parts(byte_ptr as *const u8, byte_len);
+        match ptr.write(slice) {
+            Ok(o) => o as i64,
+            Err(_) => -1,
+        }
     }
-
-    let byte_ptr = byte_ptr as *const u8;
-    let read_slice = std::slice::from_raw_parts(byte_ptr, byte_len);
-    ptr.backed.extend_from_slice(read_slice);
-    read_slice.len() as i64
-    */
 }
 
 unsafe extern "C" fn wasi_console_out_seek_memory(
@@ -410,40 +408,26 @@ unsafe extern "C" fn wasi_console_out_seek_memory(
     direction: c_char,
     seek_to: i64,
 ) -> i64 {
+    use std::io::Seek;
     if sizeof != std::mem::size_of::<Pipe>()
         || alignof != std::mem::align_of::<Pipe>()
     {
         return -1;
     }
+
     let ptr = ptr as *mut Pipe;
     let ptr = &mut *ptr;
 
-    if direction == 0 {
-        /* 
-        // seek from start
-        let seek_to = (seek_to.max(0_i64) as usize).min(ptr.backed.len());
-        let diff = ptr.cursor as i64 - seek_to as i64;
-        ptr.cursor = seek_to;
-        diff*/
-    } else if direction == 1 {
-        /* 
-        // seek from end
-        let seek_to = ptr.backed.len() as i64 + seek_to;
-        let seek_to = (seek_to.max(0_i64) as usize).min(ptr.backed.len());
-        let diff = ptr.cursor as i64 - seek_to as i64;
-        ptr.cursor = seek_to;
-        diff*/
-    } else if direction == 2 {
-        // seek from cursor
-        /* 
-        let seek_to = ptr.cursor as i64 + seek_to;
-        let seek_to = (seek_to.max(0_i64) as usize).min(ptr.backed.len());
-        let diff = ptr.cursor as i64 - seek_to as i64;
-        ptr.cursor = seek_to;
-        diff
-        */
-    } else {
-        -1
+    let seek_from = match direction {
+        0 => std::io::SeekFrom::Start(seek_to.max(0) as u64),
+        1 => std::io::SeekFrom::End(seek_to),
+        2 => std::io::SeekFrom::Current(seek_to),
+        _ => { return -1; },
+    };
+
+    match ptr.seek(seek_from) {
+        Ok(o) => o as i64,
+        Err(_) => -1,
     }
 }
 
