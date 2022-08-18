@@ -3,7 +3,7 @@ use std::cell::UnsafeCell;
 use std::sync::Arc;
 use wasmer_api::{AsStoreMut, AsStoreRef, Store, StoreMut, StoreRef as BaseStoreRef};
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct StoreRef {
     inner: Arc<UnsafeCell<Store>>,
 }

@@ -1,4 +1,5 @@
-use super::types::{wasm_ref_t, wasm_valkind_enum};
+use super::externals::wasm_ref_t;
+use super::types::wasm_valkind_enum;
 use std::convert::{TryFrom, TryInto};
 use wasmer_api::Value;
 

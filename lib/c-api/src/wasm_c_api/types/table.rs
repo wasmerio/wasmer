@@ -10,7 +10,7 @@ const LIMITS_MAX_SENTINEL: u32 = u32::max_value();
 
 #[derive(Debug, Clone)]
 pub(crate) struct WasmTableType {
-    pub(crate) _table_type: TableType,
+    pub(crate) table_type: TableType,
     limits: wasm_limits_t,
     content: wasm_valtype_t,
 }
@@ -24,7 +24,7 @@ impl WasmTableType {
         let content = table_type.ty.into();
 
         Self {
-            _table_type: table_type,
+            table_type,
             limits,
             content,
         }

@@ -6,6 +6,7 @@ use super::wasm_extern_t;
 use crate::wasm_c_api::function_env::FunctionCEnv;
 use libc::c_void;
 use std::convert::TryInto;
+use std::fmt;
 use std::mem::MaybeUninit;
 use std::sync::{Arc, Mutex};
 use wasmer_api::{Extern, Function, FunctionEnv, FunctionEnvMut, RuntimeError, Value};
@@ -23,6 +24,12 @@ impl wasm_func_t {
             Extern::Function(_) => Some(unsafe { &*(e as *const _ as *const _) }),
             _ => None,
         }
+    }
+}
+
+impl fmt::Debug for wasm_func_t {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "wasm_func_t({:?}", self.extern_)
     }
 }
 

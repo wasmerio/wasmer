@@ -3,6 +3,7 @@ mod global;
 mod memory;
 mod table;
 
+use std::fmt;
 use super::store::StoreRef;
 // use super::types::{wasm_externkind_enum, wasm_externkind_t};
 pub use function::*;
@@ -73,6 +74,14 @@ impl From<wasm_extern_t> for Extern {
         other.inner
     }
 }
+
+impl fmt::Debug for wasm_extern_t {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "wasm_extern_t(Store:{:?}, Inner:{:?}", self.store, self.inner)
+    }
+}
+
+
 
 wasm_declare_boxed_vec!(extern);
 

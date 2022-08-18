@@ -77,6 +77,11 @@ impl Value {
         Self::ExternRef(None)
     }
 
+    /// Returns a null `funcref` value.
+    pub fn null_func() -> Self {
+        Self::FuncRef(None)
+    }
+
     /// Returns the corresponding [`Type`] for this `Value`.
     pub fn ty(&self) -> Type {
         match self {

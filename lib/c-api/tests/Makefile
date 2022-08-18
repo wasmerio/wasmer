@@ -19,13 +19,14 @@ $(info * LDFLAGS: $(LDFLAGS))
 $(info * LDLIBS: $(LDLIBS))
 
 CAPI_BASE_TESTS = \
+	wasm-c-api/example/table \
 	wasm-c-api/example/callback	wasm-c-api/example/global	wasm-c-api/example/hello \
 	wasm-c-api/example/memory	wasm-c-api/example/reflect	wasm-c-api/example/serialize \
-	wasm-c-api/example/start	wasm-c-api/example/trap		wasm-c-api/example/multi
+	wasm-c-api/example/start	wasm-c-api/example/trap		wasm-c-api/example/multi \
 
 CAPI_BASE_TESTS_NOT_WORKING = \
-	wasm-c-api/example/finalize	wasm-c-api/example/hostref	wasm-c-api/example/threads \
-	wasm-c-api/example/table
+	wasm-c-api/example/finalize	wasm-c-api/example/hostref	wasm-c-api/example/threads
+	
 
 ALL = $(CAPI_BASE_TESTS)
 

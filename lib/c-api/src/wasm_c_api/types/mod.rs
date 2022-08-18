@@ -34,9 +34,5 @@ impl From<String> for wasm_name_t {
     }
 }
 
-// opaque type over `ExternRef`?
-#[allow(non_camel_case_types)]
-pub struct wasm_ref_t;
-
 #[allow(non_camel_case_types)]
 pub type wasm_message_t = wasm_byte_vec_t;
