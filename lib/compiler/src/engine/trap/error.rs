@@ -38,7 +38,7 @@ struct RuntimeErrorInner {
     /// The reconstructed Wasm trace (from the native trace and the `GlobalFrameInfo`).
     wasm_trace: Vec<FrameInfo>,
     /// The native backtrace
-    native_trace: Backtrace,
+    native_trace: Option<Backtrace>,
 }
 
 fn _assert_trap_is_sync_and_send(t: &Trap) -> (&dyn Sync, &dyn Send) {
@@ -162,7 +162,7 @@ impl RuntimeError {
             inner: Arc::new(RuntimeErrorInner {
                 source,
                 wasm_trace,
-                native_trace,
+                native_trace: Some(native_trace),
             }),
         }
     }

@@ -12,6 +12,7 @@ thiserror = "1"
 tracing = { version = "0.1" }
 typetag = { version = "0.1", optional = true }
 slab = { version = "0.4", optional = true }
+wasmer = { path = "../api", version = "=3.0.0-beta", default-features = false }
 wasmer-vfs = { path = "../vfs", version = "=3.0.0-beta", default-features = false }
 
 [features]

@@ -20,8 +20,6 @@ use std::fmt;
 pub struct Instance {
     _handle: StoreHandle<WebAssembly::Instance>,
     module: Module,
-    #[allow(dead_code)]
-    imports: Imports,
     /// The exports for an instance.
     pub exports: Exports,
 }
@@ -65,12 +63,11 @@ impl Instance {
         module: &Module,
         imports: &Imports,
     ) -> Result<Self, InstantiationError> {
-        let import_copy = imports.clone();
-        let (instance, _imports): (StoreHandle<WebAssembly::Instance>, Vec<Extern>) = module
+        let (instance, externs): (StoreHandle<WebAssembly::Instance>, Vec<Extern>) = module
             .instantiate(&mut store, imports)
             .map_err(|e| InstantiationError::Start(e))?;
 
-        let self_instance = Self::from_module_and_instance(store, module, instance, import_copy)?;
+        let self_instance = Self::from_module_and_instance(store, module, externs, instance)?;
         //self_instance.init_envs(&imports.iter().map(Extern::to_export).collect::<Vec<_>>())?;
         Ok(self_instance)
     }
@@ -87,11 +84,11 @@ impl Instance {
     pub fn from_module_and_instance(
         mut store: &mut impl AsStoreMut,
         module: &Module,
+        externs: Vec<Extern>,
         instance: StoreHandle<WebAssembly::Instance>,
-        imports: Imports,
     ) -> Result<Self, InstantiationError> {
         let instance_exports = instance.get(store.as_store_ref().objects()).exports();
-        let exports = module
+        let mut exports = module
             .exports()
             .map(|export_type| {
                 let name = export_type.name();
@@ -110,10 +107,17 @@ impl Instance {
             })
             .collect::<Result<Exports, InstantiationError>>()?;
 
+        // If the memory is imported then also export it for backwards compatibility reasons
+        // (many will assume the memory is always exported) - later we can remove this
+        if exports.get_memory("memory").is_err() {
+            if let Some(memory) = externs.iter().filter(|a| a.ty(store).memory().is_some()).next() {
+                exports.insert("memory", memory.clone());
+            }
+        }
+
         Ok(Self {
             _handle: instance,
             module: module.clone(),
-            imports,
             exports,
         })
     }

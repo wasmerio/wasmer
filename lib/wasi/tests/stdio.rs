@@ -23,7 +23,6 @@ mod sys {
 #[cfg(feature = "js")]
 mod js {
     use wasm_bindgen_test::*;
-
     #[wasm_bindgen_test]
     fn test_stdout() {
         super::test_stdout()
@@ -74,7 +73,7 @@ fn test_stdout() {
 
     // Create the `WasiEnv`.
     let mut stdout = Pipe::default();
-    let wasi_env = WasiState::new("command-name")
+    let mut wasi_env = WasiState::new("command-name")
         .args(&["Gordon"])
         .stdout(Box::new(stdout.clone()))
         .finalize(&mut store)
@@ -85,8 +84,7 @@ fn test_stdout() {
 
     // Let's instantiate the module with the imports.
     let instance = Instance::new(&mut store, &module, &import_object).unwrap();
-    let memory = instance.exports.get_memory("memory").unwrap();
-    wasi_env.data_mut(&mut store).set_memory(memory.clone());
+    wasi_env.initialize(&mut store, &instance).unwrap();
 
     // Let's call the `_start` function, which is our `main` function in Rust.
     let start = instance.exports.get_function("_start").unwrap();
@@ -118,7 +116,7 @@ fn test_env() {
         .env("TEST", "VALUE")
         .env("TEST2", "VALUE2");
     // panic!("envs: {:?}", wasi_state_builder.envs);
-    let wasi_env = wasi_state_builder
+    let mut wasi_env = wasi_state_builder
         .stdout(Box::new(stdout.clone()))
         .finalize(&mut store)
         .unwrap();
@@ -128,8 +126,7 @@ fn test_env() {
 
     // Let's instantiate the module with the imports.
     let instance = Instance::new(&mut store, &module, &import_object).unwrap();
-    let memory = instance.exports.get_memory("memory").unwrap();
-    wasi_env.data_mut(&mut store).set_memory(memory.clone());
+    wasi_env.initialize(&mut store, &instance).unwrap();
 
     // Let's call the `_start` function, which is our `main` function in Rust.
     let start = instance.exports.get_function("_start").unwrap();
@@ -147,7 +144,7 @@ fn test_stdin() {
 
     // Create the `WasiEnv`.
     let mut stdin = Pipe::new();
-    let wasi_env = WasiState::new("command-name")
+    let mut wasi_env = WasiState::new("command-name")
         .stdin(Box::new(stdin.clone()))
         .finalize(&mut store)
         .unwrap();
@@ -161,8 +158,7 @@ fn test_stdin() {
 
     // Let's instantiate the module with the imports.
     let instance = Instance::new(&mut store, &module, &import_object).unwrap();
-    let memory = instance.exports.get_memory("memory").unwrap();
-    wasi_env.data_mut(&mut store).set_memory(memory.clone());
+    wasi_env.initialize(&mut store, &instance).unwrap();
 
     // Let's call the `_start` function, which is our `main` function in Rust.
     let start = instance.exports.get_function("_start").unwrap();

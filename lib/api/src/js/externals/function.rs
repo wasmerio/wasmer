@@ -60,6 +60,16 @@ pub struct Function {
     pub(crate) handle: StoreHandle<VMFunction>,
 }
 
+impl Into<Function>
+for StoreHandle<VMFunction>
+{
+    fn into(self) -> Function {
+        Function {
+            handle: self
+        }
+    }
+}
+
 impl Function {
     /// Creates a new host `Function` (dynamic) with the provided signature.
     ///
@@ -387,6 +397,10 @@ impl Function {
         store: &mut impl AsStoreMut,
         params: &[Value],
     ) -> Result<Box<[Value]>, RuntimeError> {
+        #[allow(unused_unsafe)]
+        let params: Vec<_> = unsafe {
+            params.iter().map(|a| a.as_raw_value(&store.as_store_ref())).collect()
+        };
         let arr = js_sys::Array::new_with_length(params.len() as u32);
 
         // let raw_env = env.as_raw() as *mut u8;
@@ -396,11 +410,28 @@ impl Function {
             let js_value = param.as_jsvalue(&store.as_store_ref());
             arr.set(i as u32, js_value);
         }
-        let result = js_sys::Reflect::apply(
-            &self.handle.get(store.as_store_ref().objects()).function,
-            &wasm_bindgen::JsValue::NULL,
-            &arr,
-        )?;
+
+        let result = {
+            let mut r;
+            loop {
+                r = js_sys::Reflect::apply(
+                    &self.handle.get(store.as_store_ref().objects()).function,
+                    &wasm_bindgen::JsValue::NULL,
+                    &arr,
+                );
+                let store_mut = store.as_store_mut();
+                if let Some(callback) = store_mut.inner.on_called.take() {
+                    match callback(store_mut) {
+                        Ok(wasmer_types::OnCalledAction::InvokeAgain) => { continue; }
+                        Ok(wasmer_types::OnCalledAction::Finish) => { break; }
+                        Ok(wasmer_types::OnCalledAction::Trap(trap)) => { return Err(RuntimeError::user(trap)) },
+                        Err(trap) => { return Err(RuntimeError::user(trap)) },
+                    }
+                }
+                break;
+            }
+            r?
+        };
 
         let result_types = self.handle.get(store.as_store_ref().objects()).ty.results();
         match result_types.len() {
@@ -1114,16 +1145,18 @@ mod inner {
                         T: Send + 'static,
                         Func: Fn(FunctionEnvMut<'_, T>, $( $x , )*) -> RetsAsResult + 'static,
                     {
-                        // let env: &Env = unsafe { &*(ptr as *const u8 as *const Env) };
-                        let func: &Func = &*(&() as *const () as *const Func);
                         let mut store = StoreMut::from_raw(store_ptr as *mut _);
                         let mut store2 = StoreMut::from_raw(store_ptr as *mut _);
 
-                        let result = panic::catch_unwind(AssertUnwindSafe(|| {
-                            let handle: StoreHandle<VMFunctionEnvironment> = StoreHandle::from_internal(store2.objects_mut().id(), InternalStoreHandle::from_index(handle_index).unwrap());
-                            let env: FunctionEnvMut<T> = FunctionEnv::from_handle(handle).into_mut(&mut store2);
-                            func(env, $( FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(&mut store, $x)) ),* ).into_result()
-                        }));
+                        let result = {
+                            // let env: &Env = unsafe { &*(ptr as *const u8 as *const Env) };
+                            let func: &Func = &*(&() as *const () as *const Func);
+                            panic::catch_unwind(AssertUnwindSafe(|| {
+                                let handle: StoreHandle<VMFunctionEnvironment> = StoreHandle::from_internal(store2.objects_mut().id(), InternalStoreHandle::from_index(handle_index).unwrap());
+                                let env: FunctionEnvMut<T> = FunctionEnv::from_handle(handle).into_mut(&mut store2);
+                                func(env, $( FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(&mut store, $x)) ),* ).into_result()
+                            }))
+                        };
 
                         match result {
                             Ok(Ok(result)) => return result.into_c_struct(&mut store),

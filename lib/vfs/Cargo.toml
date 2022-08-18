@@ -13,6 +13,8 @@ tracing = { version = "0.1" }
 typetag = { version = "0.1", optional = true }
 serde = { version = "1.0", default-features = false, features = ["derive"], optional = true }
 slab = { version = "0.4", optional = true }
+async-trait = { version = "^0.1" }
+lazy_static = "1.4"
 
 [features]
 default = ["host-fs", "mem-fs"]

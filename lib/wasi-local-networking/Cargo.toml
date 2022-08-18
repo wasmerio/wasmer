@@ -18,6 +18,8 @@ wasmer-vnet = { version = "=3.0.0-beta", path = "../vnet", default-features = fa
 wasmer-vfs = { path = "../vfs", version = "=3.0.0-beta", default-features = false }
 tracing = "0.1"
 bytes = "1.1"
+tokio = { version = "1", features = [ "sync", "macros", "io-util", "signal" ], default_features = false }
+async-trait = { version = "^0.1" }
 
 [features]
 default = ["host_fs"]

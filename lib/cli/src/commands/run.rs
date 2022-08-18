@@ -319,7 +319,7 @@ impl Run {
                         warning!("cached module is corrupted: {}", err);
                     }
                 }
-                let module = Module::new(store, &contents)?;
+                let module = Module::new(store, contents)?;
                 // Store the compiled Module in cache
                 cache.store(hash, &module)?;
                 Ok(module)
@@ -382,6 +382,9 @@ impl Run {
                             name,
                             suggestion
                         ),
+                        ExportError::SerializationFailed(err) => {
+                            anyhow!("Failed to serialize the module - {}", err)
+                        }
                     }
                 }
             })?

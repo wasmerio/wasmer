@@ -1,7 +1,11 @@
 use std::any::Any;
+use derivative::Derivative;
 
 /// Underlying FunctionEnvironment used by a `VMFunction`.
+#[derive(Derivative)]
+#[derivative(Debug)]
 pub struct VMFunctionEnvironment {
+    #[derivative(Debug = "ignore")]
     contents: Box<dyn Any + Send + 'static>,
 }
 

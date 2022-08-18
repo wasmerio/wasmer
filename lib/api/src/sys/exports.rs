@@ -57,6 +57,9 @@ pub enum ExportError {
     /// This error arises when an export is missing
     #[error("Missing export {0}")]
     Missing(String),
+    /// This error arises when an export is missing
+    #[error("Serialization failed {0}")]
+    SerializationFailed(String),
 }
 
 /// Exports is a special kind of map that allows easily unwrapping
@@ -181,18 +184,6 @@ impl Exports {
             None => Err(ExportError::Missing(name.to_string())),
             Some(extern_) => T::get_self_from_extern_with_generics(extern_),
         }
-    }
-
-    /// Like `get_with_generics` but with a WeakReference to the `InstanceRef` internally.
-    /// This is useful for passing data into Context data, for example.
-    pub fn get_with_generics_weak<'a, T, Args, Rets>(&'a self, name: &str) -> Result<T, ExportError>
-    where
-        Args: WasmTypeList,
-        Rets: WasmTypeList,
-        T: ExportableWithGenerics<'a, Args, Rets>,
-    {
-        let out: T = self.get_with_generics(name)?;
-        Ok(out)
     }
 
     /// Get an export as an `Extern`.

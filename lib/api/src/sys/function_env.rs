@@ -29,7 +29,7 @@ impl<T> FunctionEnv<T> {
     }
 
     /// Get the data as reference
-    pub fn as_ref<'a>(&self, store: &'a impl AsStoreMut) -> &'a T
+    pub fn as_ref<'a>(&self, store: &'a impl AsStoreRef) -> &'a T
     where
         T: Any + Send + 'static + Sized,
     {
@@ -103,6 +103,11 @@ impl<T: Send + 'static> FunctionEnvMut<'_, T> {
     /// Returns a mutable- reference to the host state in this function environement.
     pub fn data_mut(&mut self) -> &mut T {
         self.func_env.as_mut(&mut self.store_mut)
+    }
+
+    /// Borrows a new immmutable reference
+    pub fn as_ref(&self) -> FunctionEnv<T> {
+        self.func_env.clone()
     }
 
     /// Borrows a new mutable reference

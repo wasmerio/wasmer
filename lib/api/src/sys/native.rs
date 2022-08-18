@@ -8,11 +8,15 @@
 //! let add_one_native: TypedFunction<i32, i32> = add_one.native().unwrap();
 //! ```
 use std::marker::PhantomData;
+use std::cell::Cell;
 
+use crate::StoreMut;
 use crate::sys::{
     AsStoreMut, FromToNativeWasmType, Function, NativeWasmTypeInto, RuntimeError, WasmTypeList,
 };
-use wasmer_types::RawValue;
+use wasmer_types::{
+    RawValue, OnCalledAction
+};
 
 /// A WebAssembly function that can be called natively
 /// (using the Native ABI).
@@ -55,6 +59,10 @@ where
     }
 }
 
+thread_local! {
+    static ON_CALLED: Cell<Option<Box<dyn FnOnce(StoreMut<'_>) -> Result<OnCalledAction, Box<dyn std::error::Error + Send + Sync>>>>> = Cell::new(None);
+}
+
 macro_rules! impl_native_traits {
     (  $( $x:ident ),* ) => {
         #[allow(unused_parens, non_snake_case)]
@@ -67,6 +75,22 @@ macro_rules! impl_native_traits {
             #[allow(unused_mut)]
             #[allow(clippy::too_many_arguments)]
             pub fn call(&self, store: &mut impl AsStoreMut, $( $x: $x, )* ) -> Result<Rets, RuntimeError> {
+                // Ensure all parameters come from the same context.
+                if $(!FromToNativeWasmType::is_from_store(&$x, store) ||)* false {
+                    return Err(RuntimeError::new(
+                        "cross-`Context` values are not supported",
+                    ));
+                }
+
+                let params_list = vec![ $( $x.to_native().into_raw(store) ),* ];
+                self.call_raw(store, params_list)
+            }
+
+            #[doc(hidden)]
+            #[allow(missing_docs)]
+            #[allow(unused_mut)]
+            #[allow(clippy::too_many_arguments)]
+            pub fn call_raw(&self, store: &mut impl AsStoreMut, mut params_list: Vec<RawValue> ) -> Result<Rets, RuntimeError> {
                 let anyfunc = unsafe {
                     *self.func
                         .handle
@@ -75,15 +99,8 @@ macro_rules! impl_native_traits {
                         .as_ptr()
                         .as_ref()
                 };
-                // Ensure all parameters come from the same context.
-                if $(!FromToNativeWasmType::is_from_store(&$x, store) ||)* false {
-                    return Err(RuntimeError::new(
-                        "cross-`Context` values are not supported",
-                    ));
-                }
                 // TODO: when `const fn` related features mature more, we can declare a single array
                 // of the correct size here.
-                let mut params_list = [ $( $x.to_native().into_raw(store) ),* ];
                 let mut rets_list_array = Rets::empty_array();
                 let rets_list: &mut [RawValue] = rets_list_array.as_mut();
                 let using_rets_array;
@@ -97,15 +114,31 @@ macro_rules! impl_native_traits {
                     }
                     rets_list.as_mut()
                 };
-                unsafe {
-                    wasmer_vm::wasmer_call_trampoline(
-                        store.as_store_ref().signal_handler(),
-                        anyfunc.vmctx,
-                        anyfunc.call_trampoline,
-                        anyfunc.func_ptr,
-                        args_rets.as_mut_ptr() as *mut u8,
-                    )
-                }?;
+
+                let mut r;
+                loop {
+                    r = unsafe {
+                        wasmer_vm::wasmer_call_trampoline(
+                            store.as_store_ref().signal_handler(),
+                            anyfunc.vmctx,
+                            anyfunc.call_trampoline,
+                            anyfunc.func_ptr,
+                            args_rets.as_mut_ptr() as *mut u8,
+                        )
+                    };
+                    let store_mut = store.as_store_mut();
+                    if let Some(callback) = store_mut.inner.on_called.take() {
+                        match callback(store_mut) {
+                            Ok(wasmer_types::OnCalledAction::InvokeAgain) => { continue; }
+                            Ok(wasmer_types::OnCalledAction::Finish) => { break; }
+                            Ok(wasmer_types::OnCalledAction::Trap(trap)) => { return Err(RuntimeError::user(trap)) },
+                            Err(trap) => { return Err(RuntimeError::user(trap)) },
+                        }
+                    }
+                    break;
+                }
+                r?;
+
                 let num_rets = rets_list.len();
                 if !using_rets_array && num_rets > 0 {
                     let src_pointer = params_list.as_ptr();

@@ -3,7 +3,7 @@ use std::ptr::NonNull;
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{
     GlobalType, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, MemoryType,
-    ModuleInfo, TableIndex, TableType,
+    ModuleInfo, TableIndex, TableType, Pages,
 };
 use wasmer_vm::{InternalStoreHandle, MemoryError, StoreObjects};
 use wasmer_vm::{MemoryStyle, TableStyle};
@@ -13,6 +13,11 @@ use wasmer_vm::{VMMemoryDefinition, VMTableDefinition};
 /// An engine delegates the creation of memories, tables, and globals
 /// to a foreign implementor of this trait.
 pub trait Tunables {
+    /// Fixed virtual memory address for the compiled module
+    fn module_start(&self) -> Option<Pages> {
+        None
+    }
+
     /// Construct a `MemoryStyle` for the provided `MemoryType`
     fn memory_style(&self, memory: &MemoryType) -> MemoryStyle;
 

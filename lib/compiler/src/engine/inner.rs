@@ -36,6 +36,7 @@ pub struct Engine {
     /// The target for the compiler
     target: Arc<Target>,
     engine_id: EngineId,
+    name: String,
 }
 
 impl Engine {
@@ -46,9 +47,11 @@ impl Engine {
         target: Target,
         features: Features,
     ) -> Self {
+        let compiler = compiler_config.compiler();
+        let name = format!("engine-{}", compiler.name());
         Self {
             inner: Arc::new(Mutex::new(EngineInner {
-                compiler: Some(compiler_config.compiler()),
+                compiler: Some(compiler),
                 features,
                 #[cfg(not(target_arch = "wasm32"))]
                 code_memory: vec![],
@@ -57,7 +60,13 @@ impl Engine {
             })),
             target: Arc::new(target),
             engine_id: EngineId::default(),
+            name,
         }
+    }
+
+    /// Returns the name of this engine
+    pub fn name(&self) -> &str {
+        self.name.as_str()
     }
 
     /// Create a headless `Engine`
@@ -87,6 +96,7 @@ impl Engine {
             })),
             target: Arc::new(Target::default()),
             engine_id: EngineId::default(),
+            name: format!("engine-headless"),
         }
     }
 
@@ -165,6 +175,7 @@ impl Engine {
     /// # Safety
     ///
     /// The file's content must represent a serialized WebAssembly module.
+    #[allow(dead_code, unused)]
     pub unsafe fn deserialize_from_file(
         &self,
         file_ref: &Path,

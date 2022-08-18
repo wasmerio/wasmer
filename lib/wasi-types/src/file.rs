@@ -18,6 +18,9 @@ pub const __WASI_STDERR_FILENO: __wasi_fd_t = 2;
 pub type __wasi_pid_t = u32;
 pub type __wasi_tid_t = u32;
 
+pub type __wasi_tl_key_t = u32;
+pub type __wasi_tl_val_t = u64;
+
 pub type __wasi_fdflags_t = u16;
 pub const __WASI_FDFLAG_APPEND: __wasi_fdflags_t = 1 << 0;
 pub const __WASI_FDFLAG_DSYNC: __wasi_fdflags_t = 1 << 1;

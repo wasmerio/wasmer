@@ -69,6 +69,7 @@ mod units;
 mod utils;
 mod value;
 mod vmoffsets;
+mod store;
 
 pub use crate::compilation::target::{
     Aarch64Architecture, Architecture, BinaryFormat, CallingConvention, CpuFeature, Endianness,
@@ -104,10 +105,10 @@ pub use value::{RawValue, ValueType};
 
 pub use crate::libcalls::LibCall;
 pub use crate::memory::{
-    MemoryStyle, LinearMemory, VMMemoryDefinition
+    MemoryStyle, MemoryRole, LinearMemory, VMMemoryDefinition,
 };
 pub use crate::table::TableStyle;
-pub use crate::trapcode::TrapCode;
+pub use crate::trapcode::{TrapCode, OnCalledAction};
 pub use crate::vmoffsets::{TargetSharedSignatureIndex, VMBuiltinFunctionIndex, VMOffsets};
 
 pub use crate::utils::is_wasm;
@@ -129,6 +130,8 @@ pub use crate::compilation::sourceloc::SourceLoc;
 pub use crate::compilation::symbols::{Symbol, SymbolRegistry};
 pub use crate::compilation::trap::TrapInformation;
 pub use crate::compilation::unwind::CompiledFunctionUnwindInfo;
+
+pub use crate::store::StoreSnapshot;
 
 /// Offset in bytes from the beginning of the function.
 pub type CodeOffset = u32;

@@ -41,6 +41,16 @@ pub struct Function {
     pub(crate) handle: StoreHandle<VMFunction>,
 }
 
+impl Into<Function>
+for StoreHandle<VMFunction>
+{
+    fn into(self) -> Function {
+        Function {
+            handle: self
+        }
+    }
+}
+
 impl Function {
     /// Creates a new host `Function` (dynamic) with the provided signature.
     ///
@@ -401,24 +411,59 @@ impl Function {
             *slot = arg.as_raw(store);
         }
 
+        // Invoke the call
+        self.call_wasm_raw(store, trampoline, values_vec, results)?;
+        Ok(())
+    }
+
+    #[cfg(feature = "compiler")]
+    fn call_wasm_raw(
+        &self,
+        store: &mut impl AsStoreMut,
+        trampoline: VMTrampoline,
+        mut params: Vec<RawValue>,
+        results: &mut [Value],
+    ) -> Result<(), RuntimeError> {
+        
         // Call the trampoline.
-        let vm_function = self.handle.get(store.as_store_ref().objects());
-        if let Err(error) = unsafe {
-            wasmer_call_trampoline(
-                store.as_store_ref().signal_handler(),
-                vm_function.anyfunc.as_ptr().as_ref().vmctx,
-                trampoline,
-                vm_function.anyfunc.as_ptr().as_ref().func_ptr,
-                values_vec.as_mut_ptr() as *mut u8,
-            )
-        } {
+        let result = {
+            let mut r;
+            loop {
+                let vm_function = self.handle.get(store.as_store_ref().objects());
+                r = unsafe {
+                    wasmer_call_trampoline(
+                        store.as_store_ref().signal_handler(),
+                        vm_function.anyfunc.as_ptr().as_ref().vmctx,
+                        trampoline,
+                        vm_function.anyfunc.as_ptr().as_ref().func_ptr,
+                        params.as_mut_ptr() as *mut u8,
+                    )
+                };
+                let store_mut = store.as_store_mut();
+                if let Some(callback) = store_mut.inner.on_called.take() {
+                    match callback(store_mut) {
+                        Ok(wasmer_types::OnCalledAction::InvokeAgain) => { continue; }
+                        Ok(wasmer_types::OnCalledAction::Finish) => { break; }
+                        Ok(wasmer_types::OnCalledAction::Trap(trap)) => { return Err(RuntimeError::user(trap)) },
+                        Err(trap) => {
+                            return Err(RuntimeError::user(trap))
+                        },
+                    }
+                }
+                break;
+            }
+            r
+        };
+        if let Err(error) = result
+        {
             return Err(RuntimeError::from_trap(error));
         }
 
         // Load the return values out of `values_vec`.
+        let signature = self.ty(store);
         for (index, &value_type) in signature.results().iter().enumerate() {
             unsafe {
-                results[index] = Value::from_raw(store, value_type, values_vec[index]);
+                results[index] = Value::from_raw(store, value_type, params[index]);
             }
         }
 
@@ -514,6 +559,27 @@ impl Function {
         };
         let mut results = vec![Value::null(); self.result_arity(store)];
         self.call_wasm(store, trampoline, params, &mut results)?;
+        Ok(results.into_boxed_slice())
+    }
+
+    #[doc(hidden)]
+    #[allow(missing_docs)]
+    #[cfg(feature = "compiler")]
+    pub fn call_raw(
+        &self,
+        store: &mut impl AsStoreMut,
+        params: Vec<RawValue>,
+    ) -> Result<Box<[Value]>, RuntimeError> {
+        let trampoline = unsafe {
+            self.handle
+                .get(store.as_store_ref().objects())
+                .anyfunc
+                .as_ptr()
+                .as_ref()
+                .call_trampoline
+        };
+        let mut results = vec![Value::null(); self.result_arity(store)];
+        self.call_wasm_raw(store, trampoline, params, &mut results)?;
         Ok(results.into_boxed_slice())
     }
 
@@ -1283,7 +1349,7 @@ mod inner {
                         let mut store = StoreMut::from_raw(env.raw_store as *mut _);
                         let result = on_host_stack(|| {
                             // println!("func wrapper1");
-                            panic::catch_unwind(AssertUnwindSafe(|| {
+                            panic::catch_unwind(AssertUnwindSafe(|| {                                
                                 $(
                                     let $x = FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(&mut store, $x));
                                 )*

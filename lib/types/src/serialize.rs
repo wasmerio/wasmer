@@ -1,3 +1,4 @@
+use crate::Pages;
 use crate::entity::PrimaryMap;
 use crate::{
     compilation::target::CpuFeature, CompileModuleInfo, CompiledFunctionFrameInfo, CustomSection,
@@ -61,6 +62,8 @@ pub struct SerializableModule {
     pub data_initializers: Box<[OwnedDataInitializer]>,
     /// CPU Feature flags for this compilation
     pub cpu_features: u64,
+    /// The start memory address of this serializable module
+    pub module_start: Option<Pages>,
 }
 
 fn to_serialize_error(err: impl std::error::Error) -> SerializeError {

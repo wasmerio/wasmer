@@ -1,11 +1,16 @@
 use crate::utils::{parse_envvar, parse_mapdir};
 use anyhow::Result;
-use std::collections::BTreeSet;
+use wasmer_vfs::FileSystem;
+use wasmer_wasi::fs::{PassthruFileSystem, RootFileSystemBuilder, TtyFile, SpecialFile};
+use wasmer_wasi::types::__WASI_STDIN_FILENO;
+use std::collections::HashMap;
+use std::sync::Arc;
+use std::{collections::BTreeSet, path::Path};
 use std::path::PathBuf;
 use wasmer::{AsStoreMut, FunctionEnv, Instance, Module, RuntimeError, Value};
 use wasmer_wasi::{
-    get_wasi_versions, import_object_for_all_wasi_versions, is_wasix_module, WasiEnv, WasiError,
-    WasiState, WasiVersion,
+    get_wasi_versions, import_object_for_all_wasi_versions, WasiEnv, WasiError,
+    WasiState, WasiVersion, is_wasix_module, default_fs_backing, PluggableRuntimeImplementation,
 };
 
 use clap::Parser;
@@ -32,6 +37,14 @@ pub struct Wasi {
         parse(try_from_str = parse_envvar),
     )]
     env_vars: Vec<(String, String)>,
+
+    /// List of other containers this module depends on
+    #[clap(long = "use", name = "USE")]
+    uses: Vec<String>,
+
+    /// List of injected atoms
+    #[clap(long = "map-command", name = "MAPCMD")]
+    map_commands: Vec<String>,
 
     /// Enable experimental IO devices
     #[cfg(feature = "experimental-io-devices")]
@@ -69,19 +82,59 @@ impl Wasi {
     /// Helper function for instantiating a module with Wasi imports for the `Run` command.
     pub fn instantiate(
         &self,
-        store: &mut impl AsStoreMut,
+        mut store: &mut impl AsStoreMut,
         module: &Module,
         program_name: String,
         args: Vec<String>,
     ) -> Result<(FunctionEnv<WasiEnv>, Instance)> {
         let args = args.iter().cloned().map(|arg| arg.into_bytes());
 
+        let map_commands = self.map_commands
+            .iter()
+            .map(|map| map.split_once("=").unwrap())
+            .map(|(a, b)| (a.to_string(), b.to_string()))
+            .collect::<HashMap<_, _>>();
+
+        let runtime = Arc::new(PluggableRuntimeImplementation::default());
+
         let mut wasi_state_builder = WasiState::new(program_name);
         wasi_state_builder
             .args(args)
             .envs(self.env_vars.clone())
-            .preopen_dirs(self.pre_opened_directories.clone())?
-            .map_dirs(self.mapped_dirs.clone())?;
+            .uses(self.uses.clone())
+            .runtime(&runtime)
+            .map_commands(map_commands.clone());
+
+        if is_wasix_module(module)
+        {
+            // If we preopen anything from the host then shallow copy it over
+            let root_fs = RootFileSystemBuilder::new()
+                .with_tty(Box::new(TtyFile::new(runtime.clone(), Box::new(SpecialFile::new(__WASI_STDIN_FILENO)))))
+                .build();
+            if self.mapped_dirs.len() > 0 {
+                let fs_backing: Arc<dyn FileSystem + Send + Sync> =
+                    Arc::new(PassthruFileSystem::new(default_fs_backing()));
+                for (src, dst) in self.mapped_dirs.clone() {
+                    let src = match src.starts_with("/") {
+                        true => src,
+                        false => format!("/{}", src)
+                    };
+                    root_fs.mount(PathBuf::from(src), &fs_backing, dst)?;
+                }
+            }
+
+            // Open the root of the new filesystem
+            wasi_state_builder
+                .set_sandbox_fs(root_fs)
+                .preopen_dir(Path::new("/"))
+                .unwrap()
+                .map_dir(".", "/")?;
+        } else {
+            wasi_state_builder
+                .set_fs(default_fs_backing())
+                .preopen_dirs(self.pre_opened_directories.clone())?
+                .map_dirs(self.mapped_dirs.clone())?;
+        }
 
         #[cfg(feature = "experimental-io-devices")]
         {
@@ -91,16 +144,12 @@ impl Wasi {
             }
         }
 
-        let wasi_env = wasi_state_builder.finalize(store)?;
-        wasi_env.env.as_mut(store).state.fs.is_wasix.store(
-            is_wasix_module(module),
-            std::sync::atomic::Ordering::Release,
-        );
+        let mut wasi_env = wasi_state_builder.finalize(store)?;
         let mut import_object = import_object_for_all_wasi_versions(store, &wasi_env.env);
-        import_object.import_shared_memory(module, store);
+        import_object.import_shared_memory(module, &mut store);
+        
         let instance = Instance::new(store, module, &import_object)?;
-        let memory = instance.exports.get_memory("memory")?;
-        wasi_env.data_mut(store).set_memory(memory.clone());
+        wasi_env.initialize(&mut store, &instance)?;
         Ok((wasi_env.env, instance))
     }
 

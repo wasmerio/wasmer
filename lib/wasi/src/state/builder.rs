@@ -1,9 +1,13 @@
 //! Builder system for configuring a [`WasiState`] and creating it.
 
-use crate::state::{default_fs_backing, WasiFs, WasiState};
+#[cfg(feature = "os")]
+use crate::bin_factory::CachedCompiledModules;
+use crate::fs::{ArcFile, TmpFileSystem};
+use crate::state::{WasiFs, WasiState, WasiFsRoot};
 use crate::syscalls::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO};
-use crate::{WasiEnv, WasiFunctionEnv, WasiInodes};
+use crate::{WasiEnv, WasiFunctionEnv, WasiInodes, WasiControlPlane, PluggableRuntimeImplementation};
 use generational_arena::Arena;
+use rand::Rng;
 use std::collections::HashMap;
 use std::ops::{Deref, DerefMut};
 use std::path::{Path, PathBuf};
@@ -18,7 +22,7 @@ use wasmer_vfs::{FsError, VirtualFile};
 /// Internal method only, users should call [`WasiState::new`].
 pub(crate) fn create_wasi_state(program_name: &str) -> WasiStateBuilder {
     WasiStateBuilder {
-        args: vec![program_name.bytes().collect()],
+        args: vec![program_name.to_string()],
         ..WasiStateBuilder::default()
     }
 }
@@ -41,16 +45,21 @@ pub(crate) fn create_wasi_state(program_name: &str) -> WasiStateBuilder {
 /// ```
 #[derive(Default)]
 pub struct WasiStateBuilder {
-    args: Vec<Vec<u8>>,
-    envs: Vec<(Vec<u8>, Vec<u8>)>,
+    args: Vec<String>,
+    envs: Vec<(String, Vec<u8>)>,
     preopens: Vec<PreopenedDir>,
+    uses: Vec<String>,
+    #[cfg(feature = "sys")]
+    map_commands: HashMap<String, PathBuf>,
     vfs_preopens: Vec<String>,
+    #[cfg(feature = "os")]
+    compiled_modules: Arc<CachedCompiledModules>,
     #[allow(clippy::type_complexity)]
     setup_fs_fn: Option<Box<dyn Fn(&mut WasiInodes, &mut WasiFs) -> Result<(), String> + Send>>,
     stdout_override: Option<Box<dyn VirtualFile + Send + Sync + 'static>>,
     stderr_override: Option<Box<dyn VirtualFile + Send + Sync + 'static>>,
     stdin_override: Option<Box<dyn VirtualFile + Send + Sync + 'static>>,
-    fs_override: Option<Box<dyn wasmer_vfs::FileSystem>>,
+    fs_override: Option<WasiFsRoot>,
     runtime_override: Option<Arc<dyn crate::WasiRuntimeImplementation + Send + Sync + 'static>>,
 }
 
@@ -61,6 +70,7 @@ impl std::fmt::Debug for WasiStateBuilder {
             .field("args", &self.args)
             .field("envs", &self.envs)
             .field("preopens", &self.preopens)
+            .field("uses", &self.uses)
             .field("setup_fs_fn exists", &self.setup_fs_fn.is_some())
             .field("stdout_override exists", &self.stdout_override.is_some())
             .field("stderr_override exists", &self.stderr_override.is_some())
@@ -89,6 +99,8 @@ pub enum WasiStateCreationError {
     WasiFsSetupError(String),
     #[error(transparent)]
     FileSystemError(FsError),
+    #[error("wasi inherit error: `{0}`")]
+    WasiInheritError(String),
 }
 
 fn validate_mapped_dir_alias(alias: &str) -> Result<(), WasiStateCreationError> {
@@ -117,7 +129,7 @@ impl WasiStateBuilder {
         Value: AsRef<[u8]>,
     {
         self.envs
-            .push((key.as_ref().to_vec(), value.as_ref().to_vec()));
+            .push((String::from_utf8_lossy(key.as_ref()).to_string(), value.as_ref().to_vec()));
 
         self
     }
@@ -129,7 +141,7 @@ impl WasiStateBuilder {
     where
         Arg: AsRef<[u8]>,
     {
-        self.args.push(arg.as_ref().to_vec());
+        self.args.push(String::from_utf8_lossy(arg.as_ref()).to_string());
 
         self
     }
@@ -149,6 +161,53 @@ impl WasiStateBuilder {
             self.env(key, value);
         });
 
+        self
+    }
+
+    /// Adds a container this module inherits from
+    pub fn use_webc<Name>(&mut self, webc: Name) -> &mut Self
+    where
+        Name: AsRef<str>,
+    {
+        self.uses.push(webc.as_ref().to_string());
+        self
+    }
+
+    /// Adds a list of other containers this module inherits from
+    pub fn uses<I>(&mut self, uses: I) -> &mut Self
+    where
+        I: IntoIterator<Item = String>,
+    {
+        uses.into_iter().for_each(|inherit| {
+            self.uses.push(inherit);
+        });
+        self
+    }
+
+    /// Map an atom to a local binary
+    #[cfg(feature = "sys")]
+    pub fn map_command<Name, Target>(&mut self, name: Name, target: Target) -> &mut Self
+    where
+        Name: AsRef<str>,
+        Target: AsRef<str>,
+    {
+        let path_buf = PathBuf::from(target.as_ref().to_string());
+        self.map_commands.insert(name.as_ref().to_string(), path_buf);
+        self
+    }
+
+    /// Maps a series of atoms to the local binaries
+    #[cfg(feature = "sys")]
+    pub fn map_commands<I, Name, Target>(&mut self, map_commands: I) -> &mut Self
+    where
+        I: IntoIterator<Item = (Name, Target)>,
+        Name: AsRef<str>,
+        Target: AsRef<str>,
+    {
+        map_commands.into_iter().for_each(|(name, target)| {
+            let path_buf = PathBuf::from(target.as_ref().to_string());
+            self.map_commands.insert(name.as_ref().to_string(), path_buf);
+        });
         self
     }
 
@@ -312,9 +371,16 @@ impl WasiStateBuilder {
     /// Sets the FileSystem to be used with this WASI instance.
     ///
     /// This is usually used in case a custom `wasmer_vfs::FileSystem` is needed.
-    pub fn set_fs(&mut self, fs: Box<dyn wasmer_vfs::FileSystem>) -> &mut Self {
-        self.fs_override = Some(fs);
+    pub fn set_fs(&mut self, fs: Box<dyn wasmer_vfs::FileSystem + Send + Sync>) -> &mut Self {
+        self.fs_override = Some(WasiFsRoot::Backing(Arc::new(fs)));
+        self
+    }
 
+    /// Sets a new sandbox FileSystem to be used with this WASI instance.
+    ///
+    /// This is usually used in case a custom `wasmer_vfs::FileSystem` is needed.
+    pub fn set_sandbox_fs(&mut self, fs: TmpFileSystem) -> &mut Self {
+        self.fs_override = Some(WasiFsRoot::Sandbox(Arc::new(fs)));
         self
     }
 
@@ -328,11 +394,20 @@ impl WasiStateBuilder {
 
     /// Sets the WASI runtime implementation and overrides the default
     /// implementation
-    pub fn runtime<R>(&mut self, runtime: R) -> &mut Self
+    pub fn runtime<R>(&mut self, runtime: &Arc<R>) -> &mut Self
     where
         R: crate::WasiRuntimeImplementation + Send + Sync + 'static,
     {
-        self.runtime_override = Some(Arc::new(runtime));
+        self.runtime_override = Some(runtime.clone());
+        self
+    }
+
+    /// Sets the compiled modules to use with this builder (sharing the
+    /// cached modules is better for performance and memory consumption)
+    #[cfg(feature = "os")]
+    pub fn compiled_modules(&mut self, compiled_modules: &Arc<CachedCompiledModules>) -> &mut Self {
+        let mut compiled_modules = compiled_modules.clone();
+        std::mem::swap(&mut self.compiled_modules, &mut compiled_modules);
         self
     }
 
@@ -356,17 +431,11 @@ impl WasiStateBuilder {
     /// to `mut self` for every _builder method_, but it will break
     /// existing code. It will be addressed in a next major release.
     pub fn build(&mut self) -> Result<WasiState, WasiStateCreationError> {
-        for (i, arg) in self.args.iter().enumerate() {
-            for b in arg.iter() {
+        for arg in self.args.iter() {
+            for b in arg.as_bytes().iter() {
                 if *b == 0 {
                     return Err(WasiStateCreationError::ArgumentContainsNulByte(
-                        std::str::from_utf8(arg)
-                            .unwrap_or(if i == 0 {
-                                "Inner error: program name is invalid utf8!"
-                            } else {
-                                "Inner error: arg is invalid utf8!"
-                            })
-                            .to_string(),
+                        arg.clone(),
                     ));
                 }
             }
@@ -378,7 +447,7 @@ impl WasiStateBuilder {
         }
 
         for (env_key, env_value) in self.envs.iter() {
-            match env_key.iter().find_map(|&ch| {
+            match env_key.as_bytes().iter().find_map(|&ch| {
                 if ch == 0 {
                     Some(InvalidCharacter::Nul)
                 } else if ch == b'=' {
@@ -391,7 +460,7 @@ impl WasiStateBuilder {
                     return Err(WasiStateCreationError::EnvironmentVariableFormatError(
                         format!(
                             "found nul byte in env var key \"{}\" (key=value)",
-                            String::from_utf8_lossy(env_key)
+                            env_key
                         ),
                     ))
                 }
@@ -400,7 +469,7 @@ impl WasiStateBuilder {
                     return Err(WasiStateCreationError::EnvironmentVariableFormatError(
                         format!(
                             "found equal sign in env var key \"{}\" (key=value)",
-                            String::from_utf8_lossy(env_key)
+                            env_key
                         ),
                     ))
                 }
@@ -412,14 +481,31 @@ impl WasiStateBuilder {
                 return Err(WasiStateCreationError::EnvironmentVariableFormatError(
                     format!(
                         "found nul byte in env var value \"{}\" (key=value)",
-                        String::from_utf8_lossy(env_value)
+                        String::from_utf8_lossy(env_value),
                     ),
                 ));
             }
         }
 
-        let fs_backing = self.fs_override.take().unwrap_or_else(default_fs_backing);
+        // Get a reference to the runtime        
+        let runtime = self.runtime_override.clone().unwrap_or_else( || {
+            Arc::new(PluggableRuntimeImplementation::default())
+        });
 
+        // Determine the STDIN
+        let stdin: Box<ArcFile> = self.stdin_override
+            .take()
+            .map(|a| Box::new(ArcFile::new(a)))
+            .unwrap_or_else(|| {
+                Box::new(ArcFile::new(Box::new(super::Stdin::default())))
+            });
+
+        // If we are running WASIX then we start a full sandbox FS
+        // otherwise we drop through to a default file system
+        let fs_backing = self.fs_override
+            .take()
+            .unwrap_or_else(|| WasiFsRoot::Sandbox(Arc::new(TmpFileSystem::new())));
+        
         // self.preopens are checked in [`PreopenDirBuilder::build`]
         let inodes = RwLock::new(crate::state::WasiInodes {
             arena: Arena::new(),
@@ -433,16 +519,14 @@ impl WasiStateBuilder {
                 inodes.deref_mut(),
                 &self.preopens,
                 &self.vfs_preopens,
-                fs_backing,
+                fs_backing
             )
             .map_err(WasiStateCreationError::WasiFsCreationError)?;
-
+            
             // set up the file system, overriding base files and calling the setup function
-            if let Some(stdin_override) = self.stdin_override.take() {
-                wasi_fs
-                    .swap_file(inodes.deref(), __WASI_STDIN_FILENO, stdin_override)
-                    .map_err(WasiStateCreationError::FileSystemError)?;
-            }
+            wasi_fs
+                .swap_file(inodes.deref(), __WASI_STDIN_FILENO, stdin)
+                .map_err(WasiStateCreationError::FileSystemError)?;
 
             if let Some(stdout_override) = self.stdout_override.take() {
                 wasi_fs
@@ -462,18 +546,25 @@ impl WasiStateBuilder {
             }
             wasi_fs
         };
+        let inodes = Arc::new(inodes);
 
         Ok(WasiState {
             fs: wasi_fs,
-            inodes: Arc::new(inodes),
+            secret: rand::thread_rng().gen::<[u8; 32]>(),
+            inodes,
             args: self.args.clone(),
+            preopen: self.vfs_preopens.clone(),
             threading: Default::default(),
+            futexs: Default::default(),
+            clock_offset: Default::default(),
+            bus: Default::default(),
+            runtime,
             envs: self
                 .envs
                 .iter()
                 .map(|(key, value)| {
                     let mut env = Vec::with_capacity(key.len() + value.len() + 1);
-                    env.extend_from_slice(key);
+                    env.extend_from_slice(key.as_bytes());
                     env.push(b'=');
                     env.extend_from_slice(value);
 
@@ -497,12 +588,47 @@ impl WasiStateBuilder {
         &mut self,
         store: &mut impl AsStoreMut,
     ) -> Result<WasiFunctionEnv, WasiStateCreationError> {
-        let state = self.build()?;
+        let control_plane = WasiControlPlane::default();
+        self.finalize_with(store, &control_plane)
+    }
 
-        let mut env = WasiEnv::new(state);
-        if let Some(runtime) = self.runtime_override.as_ref() {
-            env.runtime = runtime.clone();
-        }
+    /// Consumes the [`WasiStateBuilder`] and produces a [`WasiEnv`]
+    /// with a particular control plane
+    ///
+    /// Returns the error from `WasiFs::new` if there's an error.
+    ///
+    /// # Calling `finalize` multiple times
+    ///
+    /// Calling this method multiple times might not produce a
+    /// determinisic result. This method is calling [Self::build],
+    /// which is changing the builder's internal state. See
+    /// [Self::build]'s documentation to learn more.
+    pub fn finalize_with(
+        &mut self,
+        store: &mut impl AsStoreMut,
+        control_plane: &WasiControlPlane,
+    ) -> Result<WasiFunctionEnv, WasiStateCreationError> {
+        let state = Arc::new(self.build()?);
+        let runtime = state.runtime.clone();
+
+        let process = control_plane.new_process();
+        let thread = process.new_thread();
+
+        let env = WasiEnv::new_ext(
+            state,
+            #[cfg(feature = "os")]
+            self.compiled_modules.clone(),
+            process,
+            thread,
+            runtime
+        );
+
+        #[cfg(feature = "os")]
+        env.uses(self.uses.clone())?;
+        #[cfg(feature = "os")]
+        #[cfg(feature = "sys")]
+        env.map_commands(self.map_commands.clone())?;
+
         Ok(WasiFunctionEnv::new(store, env))
     }
 }
@@ -518,7 +644,7 @@ pub struct PreopenDirBuilder {
 }
 
 /// The built version of `PreopenDirBuilder`
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, Default)]
 pub(crate) struct PreopenedDir {
     pub(crate) path: PathBuf,
     pub(crate) alias: Option<String>,

@@ -2,7 +2,7 @@
 use crate::syscalls::types::*;
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
-#[cfg(all(unix, feature = "sys-poll"))]
+#[cfg(all(unix, feature = "sys-poll", not(feature="os")))]
 use std::convert::TryInto;
 use std::{
     collections::VecDeque,
@@ -10,12 +10,18 @@ use std::{
     sync::{Arc, Mutex},
     time::Duration,
 };
-use wasmer_vbus::BusError;
+use wasmer_vbus::VirtualBusError;
 
 #[cfg(feature = "host-fs")]
 pub use wasmer_vfs::host_fs::{Stderr, Stdin, Stdout};
-#[cfg(feature = "mem-fs")]
+#[cfg(all(feature = "mem-fs", not(feature = "host-fs")))]
 pub use wasmer_vfs::mem_fs::{Stderr, Stdin, Stdout};
+#[cfg(all(not(feature = "mem-fs"), not(feature = "host-fs")))]
+pub use crate::{
+    fs::NullFile as Stderr,
+    fs::NullFile as Stdin,
+    fs::NullFile as Stdout,
+};
 
 use wasmer_vfs::{FsError, VirtualFile};
 use wasmer_vnet::NetworkError;
@@ -35,7 +41,7 @@ pub fn fs_error_from_wasi_err(err: __wasi_errno_t) -> FsError {
         __WASI_EINVAL => FsError::InvalidInput,
         __WASI_ENOTCONN => FsError::NotConnected,
         __WASI_ENODEV => FsError::NoDevice,
-        __WASI_ENOENT => FsError::EntityNotFound,
+        __WASI_ENOENT => FsError::EntryNotFound,
         __WASI_EPERM => FsError::PermissionDenied,
         __WASI_ETIMEDOUT => FsError::TimedOut,
         __WASI_EPROTO => FsError::UnexpectedEof,
@@ -64,7 +70,7 @@ pub fn fs_error_into_wasi_err(fs_error: FsError) -> __wasi_errno_t {
         FsError::NoDevice => __WASI_ENODEV,
         FsError::NotAFile => __WASI_EINVAL,
         FsError::NotConnected => __WASI_ENOTCONN,
-        FsError::EntityNotFound => __WASI_ENOENT,
+        FsError::EntryNotFound => __WASI_ENOENT,
         FsError::PermissionDenied => __WASI_EPERM,
         FsError::TimedOut => __WASI_ETIMEDOUT,
         FsError::UnexpectedEof => __WASI_EPROTO,
@@ -102,11 +108,12 @@ pub fn net_error_into_wasi_err(net_error: NetworkError) -> __wasi_errno_t {
     }
 }
 
-pub fn bus_error_into_wasi_err(bus_error: BusError) -> __bus_errno_t {
-    use BusError::*;
+pub fn bus_error_into_wasi_err(bus_error: VirtualBusError) -> __bus_errno_t {
+    use VirtualBusError::*;
     match bus_error {
         Serialization => __BUS_ESER,
         Deserialization => __BUS_EDES,
+        NotFound => __BUS_EWAPM,
         InvalidWapm => __BUS_EWAPM,
         FetchFailed => __BUS_EFETCH,
         CompileError => __BUS_ECOMPILE,
@@ -127,8 +134,8 @@ pub fn bus_error_into_wasi_err(bus_error: BusError) -> __bus_errno_t {
     }
 }
 
-pub fn wasi_error_into_bus_err(bus_error: __bus_errno_t) -> BusError {
-    use BusError::*;
+pub fn wasi_error_into_bus_err(bus_error: __bus_errno_t) -> VirtualBusError {
+    use VirtualBusError::*;
     match bus_error {
         __BUS_ESER => Serialization,
         __BUS_EDES => Deserialization,
@@ -148,8 +155,24 @@ pub fn wasi_error_into_bus_err(bus_error: __bus_errno_t) -> BusError {
         __BUS_EINVOKE => InvokeFailed,
         __BUS_ECONSUMED => AlreadyConsumed,
         __BUS_EMEMVIOLATION => MemoryAccessViolation,
-        /*__BUS_EUNKNOWN |*/ _ => UnknownError,
+        __BUS_EUNKNOWN | _ => UnknownError,
     }
+}
+
+#[allow(dead_code)]
+pub(crate) fn bus_read_rights() -> __wasi_rights_t {
+    __WASI_RIGHT_FD_FDSTAT_SET_FLAGS
+        | __WASI_RIGHT_FD_FILESTAT_GET
+        | __WASI_RIGHT_FD_READ
+        | __WASI_RIGHT_POLL_FD_READWRITE
+}
+
+#[allow(dead_code)]
+pub(crate) fn bus_write_rights() -> __wasi_rights_t {
+    __WASI_RIGHT_FD_FDSTAT_SET_FLAGS
+        | __WASI_RIGHT_FD_FILESTAT_GET
+        | __WASI_RIGHT_FD_WRITE
+        | __WASI_RIGHT_POLL_FD_READWRITE
 }
 
 #[derive(Debug, Clone)]
@@ -218,7 +241,7 @@ pub fn iterate_poll_events(pes: PollEventSet) -> PollEventIter {
     PollEventIter { pes, i: 0 }
 }
 
-#[cfg(all(unix, feature = "sys-poll"))]
+#[cfg(all(unix, feature = "sys-poll", not(feature="os")))]
 fn poll_event_set_to_platform_poll_events(mut pes: PollEventSet) -> i16 {
     let mut out = 0;
     for i in 0..16 {
@@ -235,7 +258,7 @@ fn poll_event_set_to_platform_poll_events(mut pes: PollEventSet) -> i16 {
     out
 }
 
-#[cfg(all(unix, feature = "sys-poll"))]
+#[cfg(all(unix, feature = "sys-poll", not(feature="os")))]
 fn platform_poll_events_to_pollevent_set(mut num: i16) -> PollEventSet {
     let mut peb = PollEventBuilder::new();
     for i in 0..16 {
@@ -268,7 +291,7 @@ impl PollEventBuilder {
     }
 }
 
-#[cfg(all(unix, feature = "sys-poll"))]
+#[cfg(all(unix, feature = "sys-poll", not(feature="os")))]
 pub(crate) fn poll(
     selfs: &[&(dyn VirtualFile + Send + Sync + 'static)],
     events: &[PollEventSet],
@@ -308,55 +331,73 @@ pub(crate) fn poll(
     Ok(result.try_into().unwrap())
 }
 
-#[cfg(any(not(unix), not(feature = "sys-poll")))]
+#[cfg(any(not(unix), not(feature = "sys-poll"), feature="os"))]
 pub(crate) fn poll(
-    files: &[&(dyn VirtualFile + Send + Sync + 'static)],
+    files: &[super::InodeValFilePollGuard],
     events: &[PollEventSet],
     seen_events: &mut [PollEventSet],
     timeout: Duration,
 ) -> Result<u32, FsError> {
+
     if !(files.len() == events.len() && events.len() == seen_events.len()) {
         tracing::debug!("the slice length of 'files', 'events' and 'seen_events' must be the same (files={}, events={}, seen_events={})", files.len(), events.len(), seen_events.len());
         return Err(FsError::InvalidInput);
     }
 
     let mut ret = 0;
-    for n in 0..files.len() {
+    for (n, file) in files.iter().enumerate() {
         let mut builder = PollEventBuilder::new();
 
-        let file = files[n];
-        let can_read = file.bytes_available_read()?.map(|_| true).unwrap_or(false);
-        let can_write = file
-            .bytes_available_write()?
-            .map(|s| s > 0)
-            .unwrap_or(false);
-        let is_closed = file.is_open() == false;
+        let mut can_read = None;
+        let mut can_write = None;
+        let mut is_closed = None;
 
+        /*
         tracing::debug!(
             "poll_evt can_read={} can_write={} is_closed={}",
             can_read,
             can_write,
             is_closed
         );
+        */
 
         for event in iterate_poll_events(events[n]) {
             match event {
-                PollEvent::PollIn if can_read => {
-                    builder = builder.add(PollEvent::PollIn);
+                PollEvent::PollIn => {
+                    if can_read.is_none() {
+                        can_read = Some(
+                            file.bytes_available_read()?
+                                .map(|s| s > 0)
+                                .unwrap_or(false));
+                    }
+                    if can_read.unwrap_or_default() {
+                        tracing::debug!("poll_evt can_read=true file={:?}", file);
+                        builder = builder.add(PollEvent::PollIn);
+                    }
                 }
-                PollEvent::PollOut if can_write => {
-                    builder = builder.add(PollEvent::PollOut);
+                PollEvent::PollOut => {
+                    if can_write.is_none() {
+                        can_write = Some(file
+                            .bytes_available_write()?
+                            .map(|s| s > 0)
+                            .unwrap_or(false));
+                    }
+                    if can_write.unwrap_or_default() {
+                        tracing::debug!("poll_evt can_write=true file={:?}", file);
+                        builder = builder.add(PollEvent::PollOut);
+                    }
                 }
-                PollEvent::PollHangUp if is_closed => {
-                    builder = builder.add(PollEvent::PollHangUp);
+                PollEvent::PollHangUp |
+                PollEvent::PollInvalid |
+                PollEvent::PollError => {
+                    if is_closed.is_none() {
+                        is_closed = Some(file.is_open() == false);
+                    }
+                    if is_closed.unwrap_or_default() {
+                        tracing::debug!("poll_evt is_closed=true file={:?}", file);
+                        builder = builder.add(event);
+                    }
                 }
-                PollEvent::PollInvalid if is_closed => {
-                    builder = builder.add(PollEvent::PollInvalid);
-                }
-                PollEvent::PollError if is_closed => {
-                    builder = builder.add(PollEvent::PollError);
-                }
-                _ => {}
             }
         }
         let revents = builder.build();
