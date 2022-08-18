@@ -25,6 +25,7 @@ use serde::{Deserialize, Serialize};
     PartialOrd,
     Ord,
     Debug,
+    Default,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[archive(as = "Self")]

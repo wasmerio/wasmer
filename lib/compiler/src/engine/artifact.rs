@@ -21,9 +21,11 @@ use std::sync::Mutex;
 #[cfg(feature = "static-artifact-create")]
 use wasmer_object::{emit_compilation, emit_data, get_object_for_target, Object};
 #[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
-use wasmer_types::compilation::symbols::{ModuleMetadata, ModuleMetadataSymbolRegistry};
+use wasmer_types::compilation::symbols::ModuleMetadata;
 use wasmer_types::entity::{BoxedSlice, PrimaryMap};
 use wasmer_types::MetadataHeader;
+#[cfg(feature = "static-artifact-load")]
+use wasmer_types::SerializableCompilation;
 use wasmer_types::{
     CompileError, CpuFeature, DataInitializer, DeserializeError, FunctionIndex, LocalFunctionIndex,
     MemoryIndex, ModuleInfo, OwnedDataInitializer, SerializableModule, SerializeError,
@@ -35,43 +37,19 @@ use wasmer_vm::{FunctionBodyPtr, MemoryStyle, TableStyle, VMSharedSignatureIndex
 use wasmer_vm::{InstanceAllocator, InstanceHandle, StoreObjects, TrapHandlerFn, VMExtern};
 
 /// A compiled wasm module, ready to be instantiated.
-pub enum Artifact {
-    /// The default artifact format.
-    Universal(UniversalArtifact),
-    /// Stores functions etc as symbols and data meant to be stored in object files and
-    /// executables.
-    #[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
-    Static(StaticArtifact),
-}
-
-/// The default artifact format.
-pub struct UniversalArtifact {
+pub struct Artifact {
     artifact: ArtifactBuild,
     finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
     finished_function_call_trampolines: BoxedSlice<SignatureIndex, VMTrampoline>,
     finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, FunctionBodyPtr>,
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
-    frame_info_registration: Mutex<Option<GlobalFrameInfoRegistration>>,
+    /// Some(_) only if this is not a deserialized static artifact
+    frame_info_registration: Option<Mutex<Option<GlobalFrameInfoRegistration>>>,
     finished_function_lengths: BoxedSlice<LocalFunctionIndex, usize>,
 }
 
 #[cfg(feature = "static-artifact-create")]
 pub type PrefixerFn = Box<dyn Fn(&[u8]) -> String + Send>;
-
-/// Stores functions etc as symbols and data meant to be stored in object files and
-/// executables.
-#[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
-pub struct StaticArtifact {
-    metadata: ModuleMetadata,
-    _module_bytes: Vec<u8>,
-    finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
-    finished_function_call_trampolines: BoxedSlice<SignatureIndex, VMTrampoline>,
-    finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, FunctionBodyPtr>,
-    signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
-    // Length of the serialized metadata
-    _metadata_length: usize,
-    _symbol_registry: ModuleMetadataSymbolRegistry,
-}
 
 #[cfg(feature = "static-artifact-create")]
 const WASMER_METADATA_SYMBOL: &[u8] = b"WASMER_METADATA";
@@ -220,15 +198,15 @@ impl Artifact {
             finished_dynamic_function_trampolines.into_boxed_slice();
         let signatures = signatures.into_boxed_slice();
 
-        Ok(Self::Universal(UniversalArtifact {
+        Ok(Self {
             artifact,
             finished_functions,
             finished_function_call_trampolines,
             finished_dynamic_function_trampolines,
             signatures,
-            frame_info_registration: Mutex::new(None),
+            frame_info_registration: Some(Mutex::new(None)),
             finished_function_lengths,
-        }))
+        })
     }
 
     /// Check if the provided bytes look like a serialized `ArtifactBuild`.
@@ -239,59 +217,31 @@ impl Artifact {
 
 impl ArtifactCreate for Artifact {
     fn create_module_info(&self) -> ModuleInfo {
-        match self {
-            Self::Universal(UniversalArtifact { artifact, .. }) => artifact.create_module_info(),
-            #[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
-            Self::Static(StaticArtifact { metadata, .. }) => metadata.compile_info.module.clone(),
-        }
+        self.artifact.create_module_info()
     }
 
     fn features(&self) -> &Features {
-        match self {
-            Self::Universal(UniversalArtifact { artifact, .. }) => artifact.features(),
-            #[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
-            Self::Static(StaticArtifact { metadata, .. }) => &metadata.compile_info.features,
-        }
+        self.artifact.features()
     }
 
     fn cpu_features(&self) -> EnumSet<CpuFeature> {
-        match self {
-            Self::Universal(_self) => _self.artifact.cpu_features(),
-            #[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
-            Self::Static(_self) => EnumSet::from_u64(_self.metadata.cpu_features),
-        }
+        self.artifact.cpu_features()
     }
 
     fn data_initializers(&self) -> &[OwnedDataInitializer] {
-        match self {
-            Self::Universal(_self) => _self.artifact.data_initializers(),
-            #[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
-            Self::Static(_self) => &_self.metadata.data_initializers,
-        }
+        self.artifact.data_initializers()
     }
 
     fn memory_styles(&self) -> &PrimaryMap<MemoryIndex, MemoryStyle> {
-        match self {
-            Self::Universal(_self) => _self.artifact.memory_styles(),
-            #[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
-            Self::Static(_self) => &_self.metadata.compile_info.memory_styles,
-        }
+        self.artifact.memory_styles()
     }
 
     fn table_styles(&self) -> &PrimaryMap<TableIndex, TableStyle> {
-        match self {
-            Self::Universal(UniversalArtifact { artifact, .. }) => artifact.table_styles(),
-            #[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
-            Self::Static(StaticArtifact { metadata, .. }) => &metadata.compile_info.table_styles,
-        }
+        self.artifact.table_styles()
     }
 
     fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
-        match self {
-            Self::Universal(UniversalArtifact { artifact, .. }) => artifact.serialize(),
-            #[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
-            Self::Static(StaticArtifact { .. }) => todo!(),
-        }
+        self.artifact.serialize()
     }
 }
 
@@ -300,55 +250,41 @@ impl Artifact {
     ///
     /// This is required to ensure that any traps can be properly symbolicated.
     pub fn register_frame_info(&self) {
-        match self {
-            Self::Universal(_self) => {
-                let mut info = _self.frame_info_registration.lock().unwrap();
+        if let Some(frame_info_registration) = self.frame_info_registration.as_ref() {
+            let mut info = frame_info_registration.lock().unwrap();
 
-                if info.is_some() {
-                    return;
-                }
-
-                let finished_function_extents = _self
-                    .finished_functions
-                    .values()
-                    .copied()
-                    .zip(_self.finished_function_lengths.values().copied())
-                    .map(|(ptr, length)| FunctionExtent { ptr, length })
-                    .collect::<PrimaryMap<LocalFunctionIndex, _>>()
-                    .into_boxed_slice();
-
-                let frame_infos = _self.artifact.get_frame_info_ref();
-                *info = register_frame_info(
-                    _self.artifact.create_module_info(),
-                    &finished_function_extents,
-                    frame_infos.clone(),
-                );
+            if info.is_some() {
+                return;
             }
-            #[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
-            Self::Static(_self) => {
-                // Do nothing for static artifact
-            }
+
+            let finished_function_extents = self
+                .finished_functions
+                .values()
+                .copied()
+                .zip(self.finished_function_lengths.values().copied())
+                .map(|(ptr, length)| FunctionExtent { ptr, length })
+                .collect::<PrimaryMap<LocalFunctionIndex, _>>()
+                .into_boxed_slice();
+
+            let frame_infos = self.artifact.get_frame_info_ref();
+            *info = register_frame_info(
+                self.artifact.create_module_info(),
+                &finished_function_extents,
+                frame_infos.clone(),
+            );
         }
     }
 
     /// Returns the functions allocated in memory or this `Artifact`
     /// ready to be run.
     pub fn finished_functions(&self) -> &BoxedSlice<LocalFunctionIndex, FunctionBodyPtr> {
-        match self {
-            Self::Universal(_self) => &_self.finished_functions,
-            #[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
-            Self::Static(_self) => &_self.finished_functions,
-        }
+        &self.finished_functions
     }
 
     /// Returns the function call trampolines allocated in memory of this
     /// `Artifact`, ready to be run.
     pub fn finished_function_call_trampolines(&self) -> &BoxedSlice<SignatureIndex, VMTrampoline> {
-        match self {
-            Self::Universal(_self) => &_self.finished_function_call_trampolines,
-            #[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
-            Self::Static(_self) => &_self.finished_function_call_trampolines,
-        }
+        &self.finished_function_call_trampolines
     }
 
     /// Returns the dynamic function trampolines allocated in memory
@@ -356,20 +292,12 @@ impl Artifact {
     pub fn finished_dynamic_function_trampolines(
         &self,
     ) -> &BoxedSlice<FunctionIndex, FunctionBodyPtr> {
-        match self {
-            Self::Universal(_self) => &_self.finished_dynamic_function_trampolines,
-            #[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
-            Self::Static(_self) => &_self.finished_dynamic_function_trampolines,
-        }
+        &self.finished_dynamic_function_trampolines
     }
 
     /// Returns the associated VM signatures for this `Artifact`.
     pub fn signatures(&self) -> &BoxedSlice<SignatureIndex, VMSharedSignatureIndex> {
-        match self {
-            Self::Universal(_self) => &_self.signatures,
-            #[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
-            Self::Static(_self) => &_self.signatures,
-        }
+        &self.signatures
     }
 
     /// Do preinstantiation logic that is executed before instantiating
@@ -657,7 +585,7 @@ impl Artifact {
         let metadata_len = MetadataHeader::parse(bytes)?;
 
         let metadata_slice = &bytes[MetadataHeader::LEN..][..metadata_len];
-        let mut metadata: ModuleMetadata = ModuleMetadata::deserialize(metadata_slice)?;
+        let metadata: ModuleMetadata = ModuleMetadata::deserialize(metadata_slice)?;
 
         const WORD_SIZE: usize = mem::size_of::<usize>();
         let mut byte_buffer = [0u8; WORD_SIZE];
@@ -726,18 +654,29 @@ impl Artifact {
             finished_dynamic_function_trampolines.push(fp);
         }
 
-        let (_compile_info, _symbol_registry) = metadata.split();
-        Ok(Self::Static(StaticArtifact {
-            metadata,
-            _module_bytes: bytes.to_vec(),
+        let artifact = ArtifactBuild::from_serializable(SerializableModule {
+            compilation: SerializableCompilation::default(),
+            compile_info: metadata.compile_info,
+            data_initializers: metadata.data_initializers,
+            cpu_features: metadata.cpu_features,
+        });
+
+        let finished_function_lengths = finished_functions
+            .values()
+            .map(|_| 0)
+            .collect::<PrimaryMap<LocalFunctionIndex, usize>>()
+            .into_boxed_slice();
+
+        Ok(Self {
+            artifact,
             finished_functions: finished_functions.into_boxed_slice(),
             finished_function_call_trampolines: finished_function_call_trampolines
                 .into_boxed_slice(),
             finished_dynamic_function_trampolines: finished_dynamic_function_trampolines
                 .into_boxed_slice(),
             signatures: signatures.into_boxed_slice(),
-            _metadata_length: metadata_len,
-            _symbol_registry,
-        }))
+            finished_function_lengths,
+            frame_info_registration: None,
+        })
     }
 }
