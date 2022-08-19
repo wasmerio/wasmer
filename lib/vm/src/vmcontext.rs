@@ -6,7 +6,7 @@
 
 use crate::global::VMGlobal;
 use crate::instance::Instance;
-use crate::memory::VMMemory;
+use crate::memory::{VMMemory, VMMemoryDefinition};
 use crate::store::InternalStoreHandle;
 use crate::trap::{Trap, TrapCode};
 use crate::VMFunctionBody;
@@ -15,7 +15,7 @@ use crate::{VMBuiltinFunctionIndex, VMFunction};
 use std::convert::TryFrom;
 use std::ptr::{self, NonNull};
 use std::u32;
-use wasmer_types::{RawValue, VMMemoryDefinition};
+use wasmer_types::RawValue;
 
 /// Union representing the first parameter passed when calling a function.
 ///

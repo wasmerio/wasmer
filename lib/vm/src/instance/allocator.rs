@@ -1,12 +1,13 @@
 use super::{Instance, InstanceHandle};
+use crate::memory::VMMemoryDefinition;
 use crate::vmcontext::VMTableDefinition;
 use std::alloc::{self, Layout};
 use std::convert::TryFrom;
 use std::mem;
 use std::ptr::{self, NonNull};
 use wasmer_types::entity::EntityRef;
+use wasmer_types::VMOffsets;
 use wasmer_types::{LocalMemoryIndex, LocalTableIndex, ModuleInfo};
-use wasmer_types::{VMMemoryDefinition, VMOffsets};
 
 /// This is an intermediate type that manages the raw allocation and
 /// metadata when creating an [`Instance`].

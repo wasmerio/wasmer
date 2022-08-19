@@ -10,8 +10,8 @@ use std::mem::MaybeUninit;
 use std::slice;
 #[cfg(feature = "tracing")]
 use tracing::warn;
-use wasmer_types::{LinearMemory, Pages};
-use wasmer_vm::{InternalStoreHandle, MemoryError, StoreHandle, VMExtern, VMMemory};
+use wasmer_types::Pages;
+use wasmer_vm::{InternalStoreHandle, LinearMemory, MemoryError, StoreHandle, VMExtern, VMMemory};
 
 use super::MemoryView;
 
