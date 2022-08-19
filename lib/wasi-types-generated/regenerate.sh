@@ -8,6 +8,11 @@ rm -f \
 
 wit-bindgen wasmer \
     --import \
+    "$BASEDIR"/wit/wasi.wit \
+    --out-dir "$BASEDIR"/src/wasi
+
+wit-bindgen wasmer \
+    --import \
     "$BASEDIR"/wit/wasi-filesystem.wit \
     --out-dir "$BASEDIR"/src/wasi_filesystem
 
