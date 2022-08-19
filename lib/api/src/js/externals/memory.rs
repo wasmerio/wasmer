@@ -97,7 +97,8 @@ impl Memory {
             .map_err(|_e| MemoryError::Generic("Error while creating the memory".to_owned()))?;
 
         let vm_memory = VMMemory::new(js_memory, ty);
-        Ok(Self::from_vm_export(store, vm_memory))
+        let handle = StoreHandle::new(store.objects_mut(), vm_memory);
+        Ok(Self::from_vm_extern(store, handle.internal_handle()))
     }
 
     /// Creates a new host `Memory` from provided JavaScript memory.
@@ -107,12 +108,14 @@ impl Memory {
         ty: MemoryType,
     ) -> Result<Self, MemoryError> {
         let vm_memory = VMMemory::new(js_memory, ty);
-        Ok(Self::from_vm_export(store, vm_memory))
+        let handle = StoreHandle::new(store.objects_mut(), vm_memory);
+        Ok(Self::from_vm_extern(store, handle.internal_handle()))
     }
 
     /// Create a memory object from an existing memory and attaches it to the store
     pub fn new_from_existing(new_store: &mut impl AsStoreMut, memory: VMMemory) -> Self {
-        Self::from_vm_export(new_store, memory)
+        let handle = StoreHandle::new(new_store.objects_mut(), memory);
+        Self::from_vm_extern(new_store, handle.internal_handle())
     }
 
     /// Returns the [`MemoryType`] of the `Memory`.
@@ -190,12 +193,6 @@ impl Memory {
             }
         })?;
         Ok(Pages(new_pages))
-    }
-
-    pub(crate) fn from_vm_export(store: &mut impl AsStoreMut, vm_memory: VMMemory) -> Self {
-        Self {
-            handle: StoreHandle::new(store.objects_mut(), vm_memory),
-        }
     }
 
     pub(crate) fn from_vm_extern(

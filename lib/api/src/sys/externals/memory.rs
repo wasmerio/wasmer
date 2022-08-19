@@ -62,9 +62,8 @@ impl Memory {
 
     /// Create a memory object from an existing memory and attaches it to the store
     pub fn new_from_existing(new_store: &mut impl AsStoreMut, memory: VMMemory) -> Self {
-        Self {
-            handle: StoreHandle::new(new_store.objects_mut(), memory),
-        }
+        let handle = StoreHandle::new(new_store.objects_mut(), memory);
+        Self::from_vm_extern(new_store, handle.internal_handle())
     }
 
     /// Returns the [`MemoryType`] of the `Memory`.
