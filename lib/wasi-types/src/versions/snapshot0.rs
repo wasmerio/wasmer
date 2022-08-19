@@ -7,20 +7,10 @@ use wasmer_wasi_types_generated::wasi_snapshot0;
 
 pub type __wasi_linkcount_t = u32;
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, ValueType)]
-#[repr(C)]
-pub struct __wasi_subscription_clock_t {
-    pub userdata: __wasi_userdata_t,
-    pub clock_id: wasi_snapshot0::Clockid,
-    pub timeout: __wasi_timestamp_t,
-    pub precision: __wasi_timestamp_t,
-    pub flags: wasi_snapshot0::Subclockflags,
-}
-
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub union __wasi_subscription_u {
-    pub clock: __wasi_subscription_clock_t,
+    pub clock: wasi_snapshot0::SubscriptionClock,
     pub fd_readwrite: __wasi_subscription_fs_readwrite_t,
 }
 
@@ -132,7 +122,7 @@ impl fmt::Debug for __wasi_subscription_t {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("__wasi_subscription_t")
             .field("userdata", &self.userdata)
-            .field("type", &eventtype_to_str(self.type_))
+            .field("type", &self.type_.to_str())
             .field(
                 "u",
                 match self.type_ {

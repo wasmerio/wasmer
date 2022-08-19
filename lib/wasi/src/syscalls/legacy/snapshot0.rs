@@ -1,5 +1,8 @@
 use crate::syscalls;
-use crate::syscalls::types::{self, snapshot0, wasi_snapshot0};
+use crate::syscalls::types::{
+    self, snapshot0,
+    wasi_snapshot0::{self, Errno, Fd},
+};
 use crate::{mem_error_to_wasi, Memory32, MemorySize, WasiEnv, WasiError, WasiThread};
 use wasmer::{AsStoreMut, FunctionEnvMut, WasmPtr};
 
@@ -11,9 +14,9 @@ use wasmer::{AsStoreMut, FunctionEnvMut, WasmPtr};
 /// that syscall, then it may break.
 pub fn fd_filestat_get(
     mut ctx: FunctionEnvMut<WasiEnv>,
-    fd: wasi_snapshot0::Fd,
+    fd: Fd,
     buf: WasmPtr<snapshot0::__wasi_filestat_t, Memory32>,
-) -> wasi_snapshot0::Errno {
+) -> Errno {
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
 
@@ -55,19 +58,19 @@ pub fn fd_filestat_get(
     // into memory leaving it as it should be
     wasi_try_mem!(buf.deref(&memory).write(old_stat));
 
-    result
+    Errno::from(result)
 }
 
 /// Wrapper around `syscalls::path_filestat_get` with extra logic to handle the size
 /// difference of `wasi_filestat_t`
 pub fn path_filestat_get(
     mut ctx: FunctionEnvMut<WasiEnv>,
-    fd: wasi_snapshot0::Fd,
+    fd: Fd,
     flags: types::__wasi_lookupflags_t,
     path: WasmPtr<u8, Memory32>,
     path_len: u32,
     buf: WasmPtr<snapshot0::__wasi_filestat_t, Memory32>,
-) -> wasi_snapshot0::Errno {
+) -> Errno {
     // see `fd_filestat_get` in this file for an explanation of this strange behavior
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
@@ -103,11 +106,11 @@ pub fn path_filestat_get(
 /// of `__wasi_whence_t`
 pub fn fd_seek(
     ctx: FunctionEnvMut<WasiEnv>,
-    fd: wasi_snapshot0::Fd,
+    fd: Fd,
     offset: types::__wasi_filedelta_t,
     whence: snapshot0::__wasi_whence_t,
     newoffset: WasmPtr<types::__wasi_filesize_t, Memory32>,
-) -> Result<wasi_snapshot0::Errno, WasiError> {
+) -> Result<Errno, WasiError> {
     let new_whence = match whence {
         snapshot0::__WASI_WHENCE_CUR => types::__WASI_WHENCE_CUR,
         snapshot0::__WASI_WHENCE_END => types::__WASI_WHENCE_END,
@@ -126,7 +129,7 @@ pub fn poll_oneoff(
     out_: WasmPtr<types::__wasi_event_t, Memory32>,
     nsubscriptions: u32,
     nevents: WasmPtr<u32, Memory32>,
-) -> Result<wasi_snapshot0::Errno, WasiError> {
+) -> Result<Errno, WasiError> {
     // in this case the new type is smaller than the old type, so it all fits into memory,
     // we just need to readjust and copy it
 
@@ -145,24 +148,7 @@ pub fn poll_oneoff(
             .iter()
             .zip(in_origs.iter())
     {
-        wasi_try_mem_ok!(in_sub_new.write(types::__wasi_subscription_t {
-            userdata: orig.userdata,
-            type_: orig.type_,
-            u: if orig.type_ == wasi_snapshot0::Eventtype::Clock {
-                types::__wasi_subscription_u {
-                    clock: types::__wasi_subscription_clock_t {
-                        clock_id: unsafe { orig.u.clock.clock_id },
-                        timeout: unsafe { orig.u.clock.timeout },
-                        precision: unsafe { orig.u.clock.precision },
-                        flags: unsafe { orig.u.clock.flags },
-                    },
-                }
-            } else {
-                types::__wasi_subscription_u {
-                    fd_readwrite: unsafe { orig.u.fd_readwrite },
-                }
-            },
-        }));
+        wasi_try_mem_ok!(in_sub_new.write(types::__wasi_subscription_t::from(*orig)));
     }
 
     // make the call

@@ -1,12 +1,9 @@
 // Extracted from https://github.com/WebAssembly/WASI/blob/main/phases/old/snapshot_0/witx/typenames.witx
 
-type size = u32
+use { eventtype, size, timestamp } from wasi-io-typenames
 
 /// Non-negative file size or length of a region within a file.
 type filesize = u64
-
-/// Timestamp in nanoseconds.
-type timestamp = u64
 
 /// Identifiers for clocks.
 enum clockid {
@@ -297,8 +294,6 @@ flags rights {
 
 /// A file descriptor handle.
 type fd = u32
-/// Dummy function to expose fd into generated code
-fd-dummy-func: func(d: fd)
 
 //   ;;; A region of memory for scatter/gather reads.
 //   (typename $iovec
@@ -380,8 +375,6 @@ record dirent {
     /// The type of the file referred to by this directory entry.
     d-type: filetype,
 }
-/// Dummy function to expose dirent into generated code
-dirent-dummy-func: func(d: dirent)
 
 /// File or memory access pattern advisory information.
 enum advice {
@@ -436,8 +429,6 @@ record fdstat {
     /// are created through this file descriptor, e.g., through `path_open`.
     fs-rights-inheriting: rights,
 }
-/// Dummy function to expose fdstat into generated code
-fdstat-dummy-func: func(d: fdstat)
 
 //   ;;; Identifier for a device containing a file system. Can be used in combination
 //   ;;; with `inode` to uniquely identify a file or directory in the filesystem.
@@ -503,26 +494,10 @@ fdstat-dummy-func: func(d: fdstat)
 //       (field $ctim $timestamp)
 //     )
 //   )
-//   
-//   ;;; User-provided value that may be attached to objects that is retained when
-//   ;;; extracted from the implementation.
-//   (typename $userdata u64)
 
-/// Type of a subscription to an event or its occurrence.
-enum eventtype {
-    // TODO: wit appears to not have support for enum type size
-    //enum (@witx tag u8)
-
-    /// The time value of clock `subscription-clock::id` has
-    /// reached timestamp `subscription-clock::timeout`.
-    clock,
-    /// File descriptor `subscription-fd-readwrite::file-descriptor` has data
-    /// available for reading. This event always triggers for regular files.
-    fd-read,
-    /// File descriptor `subscription-fd-readwrite::file-descriptor` has capacity
-    /// available for writing. This event always triggers for regular files.
-    fd-write,
-}
+/// User-provided value that may be attached to objects that is retained when
+/// extracted from the implementation.
+type userdata = u64
 
 
 /// The state of the file descriptor subscribed to with
@@ -574,23 +549,21 @@ flags subclockflags {
     subscription-clock-abstime,
 }
 
-//   ;;; The contents of a `subscription` when type is `eventtype::clock`.
-//   (typename $subscription_clock
-//     (record
-//       ;;; The user-defined unique identifier of the clock.
-//       (field $identifier $userdata)
-//       ;;; The clock against which to compare the timestamp.
-//       (field $id $clockid)
-//       ;;; The absolute or relative timestamp.
-//       (field $timeout $timestamp)
-//       ;;; The amount of time that the implementation may wait additionally
-//       ;;; to coalesce with other events.
-//       (field $precision $timestamp)
-//       ;;; Flags specifying whether the timeout is absolute or relative
-//       (field $flags $subclockflags)
-//     )
-//   )
-//   
+/// The contents of a `subscription` when type is `eventtype::clock`.
+record subscription-clock {
+    /// The user-defined unique identifier of the clock.
+    identifier: userdata,
+    /// The clock against which to compare the timestamp.
+    id: clockid,
+    /// The absolute or relative timestamp.
+    timeout: timestamp,
+    /// The amount of time that the implementation may wait additionally
+    /// to coalesce with other events.
+    precision: timestamp,
+    /// Flags specifying whether the timeout is absolute or relative
+    %flags: subclockflags
+}
+
 //   ;;; The contents of a `subscription` when the variant is
 //   ;;; `eventtype::fd_read` or `eventtype::fd_write`.
 //   (typename $subscription_fd_readwrite
@@ -776,3 +749,12 @@ enum preopentype {
 //       $prestat_dir
 //     )
 //   )
+
+/// Dummy function to expose type into generated code
+fd-dummy-func: func(dummy: fd)
+/// Dummy function to expose type into generated code
+dirent-dummy-func: func(dummy: dirent)
+/// Dummy function to expose type into generated code
+fdstat-dummy-func: func(dummy: fdstat)
+/// Dummy function to expose type into generated code
+subscription-clock-dummy-func: func(dummy: subscription-clock)

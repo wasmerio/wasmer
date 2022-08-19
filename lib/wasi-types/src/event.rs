@@ -110,11 +110,3 @@ unsafe impl ValueType for __wasi_event_t {
         zero!(field_end!(u), mem::size_of_val(self));
     }
 }
-
-pub fn eventtype_to_str(event_type: wasi_snapshot0::Eventtype) -> &'static str {
-    match event_type {
-        wasi_snapshot0::Eventtype::Clock => "Wasi::Eventtype::Clock",
-        wasi_snapshot0::Eventtype::FdRead => "Wasi::Eventtype::FdRead",
-        wasi_snapshot0::Eventtype::FdWrite => "Wasi::Eventtype::FdWrite",
-    }
-}
