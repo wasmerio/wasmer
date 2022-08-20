@@ -1,5 +1,4 @@
-#![allow(dead_code)]
-//! Create a standalone native executable for a given Wasm file.
+//! Create a compiled standalone object file for a given Wasm file.
 
 use super::ObjectFormat;
 use crate::{commands::PrefixerFn, store::CompilerOptions};
@@ -11,7 +10,6 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::io::BufWriter;
 use std::path::PathBuf;
-use std::process::Command;
 use wasmer::*;
 use wasmer_object::{emit_serialized, get_object_for_target};
 
@@ -165,63 +163,4 @@ impl CreateObj {
 
         Ok(())
     }
-}
-fn link(
-    output_path: PathBuf,
-    object_path: PathBuf,
-    header_code_path: PathBuf,
-) -> anyhow::Result<()> {
-    let libwasmer_path = get_libwasmer_path()?
-        .canonicalize()
-        .context("Failed to find libwasmer")?;
-    println!(
-        "link output {:?}",
-        Command::new("cc")
-            .arg(&header_code_path)
-            .arg(&format!("-L{}", libwasmer_path.display()))
-            //.arg(&format!("-I{}", header_code_path.display()))
-            .arg("-pie")
-            .arg("-o")
-            .arg("header_obj.o")
-            .output()?
-    );
-    //ld -relocatable a.o b.o -o c.o
-
-    println!(
-        "link output {:?}",
-        Command::new("ld")
-            .arg("-relocatable")
-            .arg(&object_path)
-            .arg("header_obj.o")
-            .arg("-o")
-            .arg(&output_path)
-            .output()?
-    );
-
-    Ok(())
-}
-
-/// path to the static libwasmer
-fn get_libwasmer_path() -> anyhow::Result<PathBuf> {
-    let mut path = get_wasmer_dir()?;
-    path.push("lib");
-
-    // TODO: prefer headless Wasmer if/when it's a separate library.
-    #[cfg(not(windows))]
-    path.push("libwasmer.a");
-    #[cfg(windows)]
-    path.push("wasmer.lib");
-
-    Ok(path)
-}
-fn get_wasmer_dir() -> anyhow::Result<PathBuf> {
-    Ok(PathBuf::from(
-        env::var("WASMER_DIR")
-            .or_else(|e| {
-                option_env!("WASMER_INSTALL_PREFIX")
-                    .map(str::to_string)
-                    .ok_or(e)
-            })
-            .context("Trying to read env var `WASMER_DIR`")?,
-    ))
 }
