@@ -18,7 +18,8 @@ unsafe impl Send for VMMemory {}
 unsafe impl Sync for VMMemory {}
 
 impl VMMemory {
-    pub(crate) fn new(memory: Memory, ty: MemoryType) -> Self {
+    /// Creates a new memory directly from a WebAssembly javascript object
+    pub fn new(memory: Memory, ty: MemoryType) -> Self {
         Self { memory, ty }
     }
 

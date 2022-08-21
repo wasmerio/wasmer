@@ -163,15 +163,16 @@ pub struct WasiEnvInner
     /// however the code itself makes sure that it is used in a safe way
     module: Module,
     /// Represents the callback for spawning a thread (name = "_start_thread")
-    thread_spawn: Option<TypedFunction<i64, ()>>,
+    /// (due to limitations with i64 in browsers the parameters are broken into i32 pairs)
+    /// [this takes a user_data field]
+    thread_spawn: Option<TypedFunction<(i32, i32), ()>>,
     /// Represents the callback for spawning a reactor (name = "_react")
-    react: Option<TypedFunction<i64, ()>>,
+    /// (due to limitations with i64 in browsers the parameters are broken into i32 pairs)
+    /// [this takes a user_data field]
+    react: Option<TypedFunction<(i32, i32), ()>>,
     /// Represents the callback for destroying a local thread variable (name = "_thread_local_destroy")
-    thread_local_destroy: Option<TypedFunction<(i64, i64), ()>>,
-    /// Represents the callback for allocating memory (name = "_malloc")
-    _malloc: Option<TypedFunction<i64, i64>>,
-    /// Represents the callback for deallocating memory (name = "_free")
-    _free: Option<TypedFunction<(i64, i64), ()>>,
+    /// [this takes a pointer to the destructor and the data to be destroyed]
+    thread_local_destroy: Option<TypedFunction<(i32, i32, i32, i32), ()>>,
 }
 
 /// The code itself makes safe use of the struct so multiple threads don't access
@@ -413,8 +414,6 @@ impl WasiFunctionEnv {
             thread_spawn: instance.exports.get_typed_function(store, "_start_thread").ok(),
             react: instance.exports.get_typed_function(store, "_react").ok(),
             thread_local_destroy: instance.exports.get_typed_function(store, "_thread_local_destroy").ok(),
-            _malloc: instance.exports.get_typed_function(&store, "_malloc").ok(),
-            _free: instance.exports.get_typed_function(store, "_free").ok()
         };
 
         let env = self.data_mut(store);

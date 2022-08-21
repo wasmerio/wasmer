@@ -13,6 +13,8 @@ use js_sys::{Reflect, Uint8Array, WebAssembly};
 use std::fmt;
 use std::io;
 use std::path::Path;
+#[cfg(feature = "js-serializable-module")]
+use bytes::Bytes;
 #[cfg(feature = "std")]
 use thiserror::Error;
 use wasm_bindgen::JsValue;
@@ -66,7 +68,33 @@ pub struct Module {
     // WebAssembly type hints
     type_hints: Option<ModuleTypeHints>,
     #[cfg(feature = "js-serializable-module")]
-    raw_bytes: Option<Vec<u8>>,
+    raw_bytes: Option<Bytes>,
+}
+
+pub trait IntoBytes
+{
+    fn into_bytes(self) -> Bytes;
+}
+
+impl IntoBytes
+for Bytes {
+    fn into_bytes(self) -> Bytes {
+        self
+    }
+}
+
+impl IntoBytes
+for Vec<u8> {
+    fn into_bytes(self) -> Bytes {
+        Bytes::from(self)
+    }
+}
+
+impl IntoBytes
+for &[u8] {
+    fn into_bytes(self) -> Bytes {
+        Bytes::from(self.to_vec())
+    }
 }
 
 impl Module {
@@ -130,15 +158,19 @@ impl Module {
     /// # }
     /// ```
     #[allow(unreachable_code)]
-    pub fn new(_store: &impl AsStoreRef, bytes: impl AsRef<[u8]>) -> Result<Self, CompileError> {
+    pub fn new(_store: &impl AsStoreRef, bytes: impl IntoBytes) -> Result<Self, CompileError> {
+        let mut bytes = bytes.into_bytes();
         #[cfg(feature = "wat")]
-        let bytes = wat::parse_bytes(bytes.as_ref()).map_err(|e| {
-            CompileError::Wasm(WasmError::Generic(format!(
-                "Error when converting wat: {}",
-                e
-            )))
-        })?;
-        Self::from_binary(_store, bytes.as_ref())
+        if bytes.starts_with(b"\0asm") == false {
+            let parsed_bytes = wat::parse_bytes(bytes.as_ref()).map_err(|e| {
+                CompileError::Wasm(WasmError::Generic(format!(
+                    "Error when converting wat: {}",
+                    e
+                )))
+            })?;
+            bytes = Bytes::from(parsed_bytes.to_vec());
+        }
+        Self::from_binary(_store, bytes)
     }
 
     /// Creates a new WebAssembly module from a file path.
@@ -154,7 +186,8 @@ impl Module {
     /// Opposed to [`Module::new`], this function is not compatible with
     /// the WebAssembly text format (if the "wat" feature is enabled for
     /// this crate).
-    pub fn from_binary(_store: &impl AsStoreRef, binary: &[u8]) -> Result<Self, CompileError> {
+    pub fn from_binary(_store: &impl AsStoreRef, binary: impl IntoBytes) -> Result<Self, CompileError> {
+        let binary = binary.into_bytes();
         //
         // Self::validate(store, binary)?;
         unsafe { Self::from_binary_unchecked(_store, binary) }
@@ -167,16 +200,28 @@ impl Module {
     /// This is safe since the JS vm should be safe already.
     /// We maintain the `unsafe` to preserve the same API as Wasmer
     pub unsafe fn from_binary_unchecked(
-        _store: &impl AsStoreRef,
-        binary: &[u8],
+        store: &impl AsStoreRef,
+        binary: impl IntoBytes,
     ) -> Result<Self, CompileError> {
-        let js_bytes = Uint8Array::view(binary);
+        let binary = binary.into_bytes();
+        let js_bytes = Uint8Array::view(&binary[..]);
         let module = WebAssembly::Module::new(&js_bytes.into()).unwrap();
 
+        Self::from_js_module(store, module, Bytes::from(binary))
+    }
+
+    /// Creates a new WebAssembly module skipping any kind of validation from a javascript module
+    ///
+    pub unsafe fn from_js_module(
+        _store: &impl AsStoreRef,
+        module: WebAssembly::Module,
+        binary: impl IntoBytes,
+    ) -> Result<Self, CompileError> {
+        let binary = binary.into_bytes();
         // The module is now validated, so we can safely parse it's types
         #[cfg(feature = "wasm-types-polyfill")]
         let (type_hints, name) = {
-            let info = crate::js::module_info_polyfill::translate_module(binary).unwrap();
+            let info = crate::js::module_info_polyfill::translate_module(&binary[..]).unwrap();
 
             (
                 Some(ModuleTypeHints {
@@ -202,7 +247,7 @@ impl Module {
             type_hints,
             name,
             #[cfg(feature = "js-serializable-module")]
-            raw_bytes: Some(binary.to_vec()),
+            raw_bytes: Some(binary),
         })
     }
 
@@ -212,8 +257,9 @@ impl Module {
     /// This validation is normally pretty fast and checks the enabled
     /// WebAssembly features in the Store Engine to assure deterministic
     /// validation of the Module.
-    pub fn validate(_store: &impl AsStoreRef, binary: &[u8]) -> Result<(), CompileError> {
-        let js_bytes = unsafe { Uint8Array::view(binary) };
+    pub fn validate(_store: &impl AsStoreRef, binary: impl IntoBytes) -> Result<(), CompileError> {
+        let binary = binary.into_bytes();
+        let js_bytes = unsafe { Uint8Array::view(&binary[..]) };
         match WebAssembly::validate(&js_bytes.into()) {
             Ok(true) => Ok(()),
             _ => Err(CompileError::Validate("Invalid Wasm file".to_owned())),
@@ -320,7 +366,7 @@ impl Module {
     /// can later process via [`Module::deserialize`].
     ///
     #[cfg(feature = "js-serializable-module")]
-    pub fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
+    pub fn serialize(&self) -> Result<Bytes, SerializeError> {
         self.raw_bytes.clone().ok_or(SerializeError::Generic(
             "Not able to serialize module".to_string(),
         ))
@@ -333,8 +379,9 @@ impl Module {
     #[cfg(feature = "js-serializable-module")]
     pub unsafe fn deserialize(
         _store: &impl AsStoreRef,
-        bytes: &[u8],
+        bytes: impl IntoBytes,
     ) -> Result<Self, DeserializeError> {
+        let bytes = bytes.into_bytes();
         Self::new(_store, bytes).map_err(|e| DeserializeError::Compiler(e))
     }
 
