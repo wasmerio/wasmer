@@ -1,199 +1,326 @@
 #! /usr/bin/env python3
 
-# This is a script for publishing the wasmer crates to crates.io.
-# It should be run in the root of wasmer like `python3 scripts/publish.py --no-dry-run`.
-# By default the script executes a test run and does not publish the crates to crates.io.
-
-# install dependencies:
-# pip3 install toposort
+"""This is a script for publishing the wasmer crates to crates.io.
+It should be run in the root of wasmer like `python3 scripts/publish.py --help`."""
 
 import argparse
+import itertools
 import os
 import re
 import subprocess
 import time
-
-from typing import Optional
+import sys
+import typing
+from pprint import pprint
 
 try:
-    from toposort import toposort_flatten
+    # try import tomllib from standard Python library: New in version 3.11.
+    import tomllib
+except ModuleNotFoundError:
+    try:
+        # if tomllib is missing, this is an older python3 version. Try
+        # importing the equivalent third-party library tomli:
+        import tomli as tomllib
+    except ModuleNotFoundError:
+        print("Please install tomli, `pip3 install tomli`")
+        sys.exit(1)
+
+try:
+    from graphlib import TopologicalSorter
 except ImportError:
-    print("Please install toposort, `pip3 install toposort`")
+    print("Incompatible python3 version: lacks graphlib standard library module.")
+    sys.exit(1)
 
-
-# TODO: find this automatically
-target_version = "3.0.0-beta"
-
-# TODO: generate this by parsing toml files
-dep_graph = {
-    "wasmer-types": set([]),
-    "wasmer-derive": set([]),
-    "wasmer-vm": set(["wasmer-types"]),
-    "wasmer-compiler": set(["wasmer-types"]),
-    "wasmer-compiler-singlepass": set(["wasmer-types", "wasmer-compiler"]),
-    "wasmer-compiler-cranelift": set(["wasmer-types", "wasmer-compiler"]),
-    "wasmer-compiler-cli": set(
-        [
-            "wasmer-compiler",
-            "wasmer-types",
-            "wasmer-compiler-singlepass",
-            "wasmer-compiler-cranelift",
-        ]
-    ),
-    "wasmer-object": set(["wasmer-types", "wasmer-compiler"]),
-    "wasmer-compiler-llvm": set(["wasmer-compiler", "wasmer-vm", "wasmer-types"]),
-    "wasmer": set(
-        [
-            "wasmer-vm",
-            "wasmer-compiler",
-            "wasmer-derive",
-            "wasmer-types",
-            "wasmer-compiler-singlepass",
-            "wasmer-compiler-cranelift",
-            "wasmer-compiler-llvm",
-        ]
-    ),
-    "wasmer-vfs": set([]),
-    "wasmer-vbus": set([]),
-    "wasmer-vnet": set([]),
-    "wasmer-wasi-local-networking": set([]),
-    "wasmer-cache": set(["wasmer"]),
-    "wasmer-wasi": set(["wasmer", "wasmer-wasi-types", "wasmer-vfs", "wasmer-vbus", "wasmer-vnet"]),
-    "wasmer-wasi-types": set(["wasmer-types"]),
-    "wasmer-wasi-experimental-io-devices": set(["wasmer-wasi"]),
-    "wasmer-emscripten": set(["wasmer"]),
-    "wasmer-c-api": set(
-        [
-            "wasmer",
-            "wasmer-compiler",
-            "wasmer-compiler-cranelift",
-            "wasmer-compiler-singlepass",
-            "wasmer-compiler-llvm",
-            "wasmer-emscripten",
-            "wasmer-middlewares",
-            "wasmer-wasi",
-            "wasmer-types",
-        ]
-    ),
-    "wasmer-middlewares": set(["wasmer", "wasmer-types", "wasmer-vm"]),
-    "wasmer-wast": set(["wasmer", "wasmer-wasi", "wasmer-vfs"]),
-    "wasmer-cli": set(
-        [
-            "wasmer",
-            "wasmer-compiler",
-            "wasmer-compiler-cranelift",
-            "wasmer-compiler-singlepass",
-            "wasmer-compiler-llvm",
-            "wasmer-emscripten",
-            "wasmer-vm",
-            "wasmer-wasi",
-            "wasmer-wasi-experimental-io-devices",
-            "wasmer-wast",
-            "wasmer-cache",
-            "wasmer-types",
-            "wasmer-vfs",
-        ]
-    ),
+SETTINGS = {
+    # extra features to put when publishing, for example wasmer-cli needs a
+    # compiler by default otherwise it won't work standalone
+    "publish_features": {
+        "wasmer-cli": "default,cranelift",
+    },
+    # workspace members we want to publish but whose path doesn't start by
+    # "./lib/"
+    "non-lib-workspace-members": set(["tests/lib/wast"]),
 }
 
-# where each crate is located in the `lib` directory
-# TODO: this could also be generated from the toml files
-location = {
-    "wasmer-compiler-cli": "cli-compiler",
-    "wasmer-types": "types",
-    "wasmer-derive": "derive",
-    "wasmer-vm": "vm",
-    "wasmer-compiler": "compiler",
-    "wasmer-object": "object",
-    "wasmer-compiler-singlepass": "compiler-singlepass",
-    "wasmer-compiler-cranelift": "compiler-cranelift",
-    "wasmer-compiler-llvm": "compiler-llvm",
-    "wasmer-cache": "cache",
-    "wasmer": "api",
-    "wasmer-wasi": "wasi",
-    "wasmer-wasi-types": "wasi-types",
-    "wasmer-emscripten": "emscripten",
-    "wasmer-wasi-experimental-io-devices": "wasi-experimental-io-devices",
-    "wasmer-c-api": "c-api",
-    "wasmer-middlewares": "middlewares",
-    "wasmer-vfs": "vfs",
-    "wasmer-vbus": "vbus",
-    "wasmer-vnet": "vnet",
-    "wasmer-cli": "cli",
-    "wasmer-wasi-local-networking": "wasi-local-networking",
-    "wasmer-wast": "../tests/lib/wast",
-}
 
-no_dry_run = False
-
-
-def get_latest_version_for_crate(crate_name: str) -> Optional[str]:
-    output = subprocess.run(["cargo", "search", crate_name], capture_output=True)
-    rexp_src = '^{} = "([^"]+)"'.format(crate_name)
+def get_latest_version_for_crate(crate_name: str) -> typing.Optional[str]:
+    """Fetches the latest version of a given crate name in local cargo registry."""
+    output = subprocess.run(
+        ["cargo", "search", crate_name], capture_output=True, check=True
+    )
+    rexp_src = f'^{crate_name} = "([^"]+)"'
     prog = re.compile(rexp_src)
     haystack = output.stdout.decode("utf-8")
     for line in haystack.splitlines():
         result = prog.match(line)
         if result:
             return result.group(1)
+    return None
 
 
-def is_crate_already_published(crate_name: str) -> bool:
-    found_string = get_latest_version_for_crate(crate_name)
-    if found_string is None:
-        return False
+class Crate:
+    """Represents a workspace crate that is to be published to crates.io."""
 
-    return target_version == found_string
+    def __init__(
+        self,
+        dependencies: typing.List[str],
+        cargo_manifest: dict,
+        cargo_file_path="Cargo.toml",
+    ):
+        self.name = cargo_manifest["package"]["name"]
+        self.dependencies = dependencies
+        self.cargo_manifest = cargo_manifest
+        if not os.path.isabs(cargo_file_path):
+            cargo_file_path = os.path.join(os.getcwd(), cargo_file_path)
+        self.cargo_file_path = cargo_file_path
+
+    def __str__(self):
+        return f"{self.name}: {self.dependencies} {self.cargo_file_path} {self.path()}"
+
+    def path(self) -> str:
+        """Return the absolute filesystem path containing this crate."""
+        return os.path.dirname(self.cargo_file_path)
 
 
-def publish_crate(crate: str):
-    starting_dir = os.getcwd()
-    os.chdir("lib/{}".format(location[crate]))
+class Publisher:
+    """A class responsible for figuring out dependencies,
+    creating a topological sorting in order to publish them
+    to crates.io in a valid order."""
 
-    global no_dry_run
-    if no_dry_run:
-        output = subprocess.run(["cargo", "publish"])
-    else:
-        print("In dry-run: not publishing crate `{}`".format(crate))
-        output = subprocess.run(["cargo", "publish", "--dry-run"])
+    def __init__(self, version=None, dry_run=True, verbose=True):
+        self.dry_run = dry_run
+        self.verbose = verbose
 
-    os.chdir(starting_dir)
+        # open workspace Cargo.toml
+        with open("Cargo.toml", "rb") as file:
+            data = tomllib.load(file)
+
+        if version is None:
+            version = data["package"]["version"]
+        self.version = version
+
+        if self.verbose and not self.dry_run:
+            print(f"Publishing version {self.version}")
+        elif self.verbose and self.dry_run:
+            print(f"Publishing version {self.version} dry run!")
+
+        # define helper function
+        check_local_dep_fn = lambda t: isinstance(t[1], dict) and "path" in t[1]
+        members = set(
+            map(
+                lambda p: p + "/Cargo.toml",
+                filter(
+                    lambda path: (
+                        path.startswith("lib/") and os.path.exists(path + "/Cargo.toml")
+                    )
+                    or path in SETTINGS["non-lib-workspace-members"],
+                    itertools.chain(
+                        data["workspace"]["members"],
+                        map(
+                            lambda p: p[1]["path"],
+                            filter(check_local_dep_fn, data["dependencies"].items()),
+                        ),
+                    ),
+                ),
+            )
+        )
+        crates = []
+        for member in members:
+            with open(member, "rb") as file:
+                member_data = tomllib.load(file)
+
+            def return_dependencies(toml) -> typing.List[str]:
+                acc = set()
+                stack = [toml]
+                while len(stack) > 0:
+                    toml = stack.pop()
+                    if "dependencies" in toml:
+                        acc.update(
+                            list(
+                                map(
+                                    lambda dep: dep[1]["package"]
+                                    if "package" in dep[1]
+                                    else dep[0],
+                                    filter(
+                                        check_local_dep_fn, toml["dependencies"].items()
+                                    ),
+                                )
+                            )
+                        )
+                    if "target" in toml:
+                        stack.append(toml["target"])
+                    for key, value in toml.items():
+                        if key.startswith("cfg"):
+                            stack.append(value)
+                return list(acc)
+
+            dependencies = return_dependencies(member_data)
+            crates.append(Crate(dependencies, member_data, cargo_file_path=member))
+
+        self.crates = crates
+        self.crate_index: typing.Dict[str, Crate] = {c.name: c for c in crates}
+
+        self.create_publish_order()
+
+        self.starting_dir = os.getcwd()
+
+    def create_publish_order(self):
+        """Creates a valid publish order by topologically
+        sorting crates using the dependency graph."""
+        topological_sorter = TopologicalSorter()
+
+        for crate in self.crates:
+            topological_sorter.add(crate.name, *crate.dependencies)
+
+        self.publish_order: typing.List[str] = [*topological_sorter.static_order()]
+
+    def is_crate_already_published(self, crate_name: str) -> bool:
+        """Checks if a given crate name is already published
+        with the version string we intend to publish with."""
+        found_string: str = get_latest_version_for_crate(crate_name)
+        if found_string is None:
+            return False
+
+        return self.version == found_string
+
+    def publish_crate(self, crate_name: str):
+        # pylint: disable=broad-except
+        """Publish a given crate by name."""
+        status = None
+        try:
+            crate = self.crate_index[crate_name]
+            os.chdir(crate.cargo_file_path)
+            if self.dry_run:
+                print(f"In dry-run: not publishing crate `{crate_name}`")
+                output = subprocess.run(["cargo", "publish", "--dry-run"], check=True)
+                if self.verbose:
+                    print(output)
+            else:
+                output = subprocess.run(["cargo", "publish"], check=True)
+                if self.verbose:
+                    print(output)
+            if self.verbose:
+                print("Success.")
+        except Exception as exc:
+            if self.verbose:
+                print(f"Failed to publish {crate_name}.")
+            print(exc)
+            status = exc
+        finally:
+            os.chdir(self.starting_dir)
+        return status
+
+    def publish(self):
+        # pylint: disable=too-many-branches
+        """Publish all packages in workspace."""
+        if self.verbose and self.dry_run:
+            print("(Dry run, not actually publishing anything)")
+        if self.verbose:
+            print("Publishing order:")
+            pprint(self.publish_order)
+        status = {}
+        failures = 0
+
+        for crate_name in self.publish_order:
+            print(f"Publishing `{crate_name}`...")
+            if not self.is_crate_already_published(crate_name):
+                status[crate_name] = self.publish_crate(crate_name)
+                if status[crate_name]:
+                    failures = +1
+            else:
+                print(f"`{crate_name}` was already published!")
+                continue
+
+            # sleep for 16 seconds between crates to ensure the crates.io
+            # index has time to update
+            if not self.dry_run:
+                print(
+                    "Sleeping for 16 seconds to allow the `crates.io` index to update..."
+                )
+                time.sleep(16)
+            else:
+                print("In dry-run: not sleeping for crates.io to update.")
+        if failures > 0 and self.verbose:
+            print(f"encountered {failures} failures.")
+            for key, value in status.items():
+                if value is None:
+                    result = "ok"
+                else:
+                    result = str(value)
+                print(f"{key}\t{result}")
+        if self.verbose:
+            print(f"Published {len(status) - failures} crates.")
+        return failures
 
 
 def main():
+    """Main executable function."""
     os.environ["WASMER_PUBLISH_SCRIPT_IS_RUNNING"] = "1"
     parser = argparse.ArgumentParser(
         description="Publish the Wasmer crates to crates.io"
     )
-    parser.add_argument(
-        "--no-dry-run",
+    subparsers = parser.add_subparsers(dest="subcommand")
+    health_cmd = subparsers.add_parser(
+        "health-check",
+        help="""Check the dependency graph is a tree, meaning a non-cyclic
+        planar graph. Combine with verbosity to print a topological sorting
+        of the graph.""",
+    )
+    health_cmd.add_argument(
+        "-v",
+        "--verbose",
         default=False,
         action="store_true",
-        help="Run the script without actually publishing anything to crates.io",
+        help="Be verbose.",
     )
-    args = vars(parser.parse_args())
+    health_cmd.add_argument(
+        "--print-dependencies",
+        default=False,
+        action="store_true",
+        help="For each crate, print its dependencies.",
+    )
+    publish_cmd = subparsers.add_parser(
+        "publish", help="Publish Wasmer crates to crates.io."
+    )
+    publish_cmd.add_argument(
+        "--version",
+        default=None,
+        type=str,
+        help="""Define the semver target triple (Default is automatically
+        read from workspace Cargo.toml.""",
+    )
+    publish_cmd.add_argument(
+        "--dry-run",
+        default=False,
+        action="store_true",
+        help="""Run the script without actually publishing anything to
+        crates.io""",
+    )
+    publish_cmd.add_argument(
+        "-v",
+        "--verbose",
+        default=False,
+        action="store_true",
+        help="Be verbose.",
+    )
 
-    global no_dry_run
-    no_dry_run = args["no_dry_run"]
+    args = parser.parse_args()
+    if args.subcommand == "health-check":
+        verbose = args.verbose
+        publisher = Publisher(verbose=verbose)
+        if verbose:
+            print(f"Version is {publisher.version}")
+            pprint(publisher.publish_order)
+        if args.print_dependencies:
+            for crate in publisher.crates:
+                print(f"{crate.name}: {crate.dependencies}")
+        return 0
 
-    # get the order to publish the crates in
-    order = list(toposort_flatten(dep_graph, sort=True))
-
-    for crate in order:
-        print("Publishing `{}`...".format(crate))
-        if not is_crate_already_published(crate):
-            publish_crate(crate)
-        else:
-            print("`{}` was already published!".format(crate))
-            continue
-        # sleep for 16 seconds between crates to ensure the crates.io index has time to update
-        # this can be optimized with knowledge of our dep graph via toposort; we can even publish
-        # crates in parallel; however this is out of scope for the first version of this script
-        if no_dry_run:
-            print("Sleeping for 16 seconds to allow the `crates.io` index to update...")
-            time.sleep(16)
-        else:
-            print("In dry-run: not sleeping for crates.io to update.")
+    if args.subcommand == "publish":
+        verbose = args.verbose
+        publisher = Publisher(dry_run=args.dry_run, verbose=verbose)
+        return publisher.publish()
+    return 0
 
 
 if __name__ == "__main__":
