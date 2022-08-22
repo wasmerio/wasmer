@@ -77,6 +77,7 @@ impl Table {
 
     /// Returns the [`TableType`] of the `Table`.
     pub fn ty(&self, store: &impl AsStoreRef) -> TableType {
+        // pub fn wasmer::sys::Table::ty(&self, store: &impl AsStoreRef) -> TableType
         self.handle.get(store.as_store_ref().objects()).ty
     }
 

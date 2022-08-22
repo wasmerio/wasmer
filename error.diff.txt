@@ -15,3 +15,45 @@ pub fn wasmer::sys::BaseTunables::table_style(&self, _table: &TableType) -> Tabl
 pub fn wasmer::sys::Exports::get_typed_function<Args, Rets>(&self, store: &impl AsStoreRef, name: &str) -> Result<TypedFunction<Args, Rets>, ExportError> where Args: WasmTypeList, Rets: WasmTypeList
 pub fn wasmer::sys::Exports::get_with_generics<'a, T, Args, Rets>(&'a self, name: &str) -> Result<T, ExportError> where Args: WasmTypeList, Rets: WasmTypeList, T: ExportableWithGenerics<'a, Args, Rets>
 pub fn wasmer::sys::Extern::from_vm_extern(store: &mut impl AsStoreMut, vm_extern: VMExtern) -> Self
+pub fn wasmer::sys::Extern::to_vm_extern(&self) -> VMExtern
+pub fn wasmer::sys::ExternRef::clone(&self) -> ExternRef
+pub fn wasmer::sys::ExternRef::downcast<'a, T>(&self, store: &'a impl AsStoreRef) -> Option<&'a T> where T: Any + Send + Sync + 'static + Sized
+pub fn wasmer::sys::ExternRef::fmt(&self, f: &mut $crate::fmt::Formatter<'_>) -> $crate::fmt::Result
+pub fn wasmer::sys::ExternRef::is_from_store(&self, store: &impl AsStoreRef) -> bool
+pub fn wasmer::sys::ExternRef::new<T>(store: &mut impl AsStoreMut, value: T) -> Self where T: Any + Send + Sync + 'static + Sized
+pub fn wasmer::sys::FromToNativeWasmType::is_from_store(&self, _store: &impl AsStoreRef) -> bool
+pub fn wasmer::sys::Function::from(other: TypedFunction<Args, Rets>) -> Self
+pub fn wasmer::sys::Function::new<FT, F>(store: &mut impl AsStoreMut, ty: FT, func: F) -> Self where FT: Into<FunctionType>, F: Fn(&[Value]) -> Result<Vec<Value>, RuntimeError> + 'static + Send + Sync
+pub fn wasmer::sys::Function::new_native_with_env<T: Send + 'static, F, Args, Rets>(store: &mut impl AsStoreMut, env: &FunctionEnv<T>, func: F) -> Self where F: HostFunction<T, Args, Rets, WithEnv> + 'static + Send + Sync, Args: WasmTypeList, Rets: WasmTypeList
+pub fn wasmer::sys::Function::new_typed_with_env<T: Send + 'static, F, Args, Rets>(store: &mut impl AsStoreMut, env: &FunctionEnv<T>, func: F) -> Self where F: HostFunction<T, Args, Rets, WithEnv> + 'static + Send + Sync, Args: WasmTypeList, Rets: WasmTypeList
+pub fn wasmer::sys::Function::ty(&self, store: &impl AsStoreRef) -> FunctionType
+pub fn wasmer::sys::HostFunction::call_trampoline_address() -> VMTrampoline
+pub fn wasmer::sys::HostFunction::function_body_ptr() -> *const VMFunctionBody
+pub fn wasmer::sys::Imports::imports_for_module(&self, module: &Module) -> Result<Vec<Extern>, LinkError>
+pub fn wasmer::sys::Instance::new_by_index(store: &mut impl AsStoreMut, module: &Module, externs: &[Extern]) -> Result<Self, InstantiationError>
+pub fn wasmer::sys::InstantiationError::source(&self) -> std::option::Option<&(dyn std::error::Error + 'static)>
+pub fn wasmer::sys::Memory::eq(&self, other: &Self) -> bool
+pub fn wasmer::sys::Module::custom_sections<'a>(&'a self, name: &'a str) -> impl Iterator<Item = Box<[u8]>> + 'a
+pub fn wasmer::sys::Module::from_file(store: &impl AsStoreRef, file: impl AsRef<Path>) -> Result<Self, IoCompileError>
+pub fn wasmer::sys::Module::serialize_to_file(&self, path: impl AsRef<Path>) -> Result<(), SerializeError>
+pub fn wasmer::sys::NativeWasmTypeInto::into_raw(self, store: &mut impl AsStoreMut) -> RawValue
+pub fn wasmer::sys::Store::custom_trap_handler(&self, call: &dyn Fn(&TrapHandlerFn<'_>) -> bool) -> bool
+pub fn wasmer::sys::Store::engine(&self) -> &Engine
+pub fn wasmer::sys::Store::new(engine: impl Into<Engine>) -> Self
+pub fn wasmer::sys::Store::new_with_engine(engine: impl Into<Engine>) -> Self
+pub fn wasmer::sys::Store::new_with_tunables(engine: impl Into<Engine>, tunables: impl Tunables + Send + Sync + 'static) -> Self
+pub fn wasmer::sys::Store::set_trap_handler(&mut self, handler: Option<Box<TrapHandlerFn<'static>>>)
+pub fn wasmer::sys::Store::tunables(&self) -> &dyn Tunables
+pub fn wasmer::sys::StoreMut::engine(&self) -> &Engine
+pub fn wasmer::sys::StoreMut::tunables(&self) -> &dyn Tunables
+pub fn wasmer::sys::StoreRef::engine(&self) -> &Engine
+pub fn wasmer::sys::StoreRef::signal_handler(&self) -> Option<*const TrapHandlerFn<'static>>
+pub fn wasmer::sys::StoreRef::tunables(&self) -> &dyn Tunables
+pub fn wasmer::sys::Table::copy(store: &mut impl AsStoreMut, dst_table: &Self, dst_index: u32, src_table: &Self, src_index: u32, len: u32) -> Result<(), RuntimeError>
+pub fn wasmer::sys::Value::as_raw(&self, store: &impl AsStoreRef) -> RawValue
+pub fn wasmer::sys::Value::externref(&self) -> Option<&Option<ExternRef>>
+pub fn wasmer::sys::Value::from(val: ExternRef) -> Self
+pub fn wasmer::sys::Value::from(val: Option<ExternRef>) -> Self
+pub fn wasmer::sys::Value::unwrap_externref(&self) -> &Option<ExternRef>
+pub fn wasmer::sys::Value::unwrap_v128(&self) -> u128
+pub fn wasmer::sys::Value::v128(&self) -> Option<u128>

@@ -153,7 +153,6 @@ impl Module {
     /// the WebAssembly text format (if the "wat" feature is enabled for
     /// this crate).
     pub fn from_binary(_store: &impl AsStoreRef, binary: &[u8]) -> Result<Self, CompileError> {
-        //
         // Self::validate(store, binary)?;
         unsafe { Self::from_binary_unchecked(_store, binary) }
     }
