@@ -63,6 +63,7 @@ unsafe impl Sync for VMFunction {}
 
 impl VMFunction {
     pub(crate) fn new(function: Function, ty: FunctionType) -> Self {
+        println!("VmFunction::new (function = {function:#?}, ty = {ty:#?})");
         Self { function, ty }
     }
 }

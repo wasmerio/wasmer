@@ -400,6 +400,7 @@ impl Artifact {
 
         self.preinstantiate()?;
 
+        println!("instantiate artifact (before resolve_imports): {:#?}", self.create_module_info());
         let module = Arc::new(self.create_module_info());
         let imports = resolve_imports(
             &module,

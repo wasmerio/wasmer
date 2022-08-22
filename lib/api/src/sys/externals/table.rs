@@ -37,9 +37,11 @@ fn value_to_table_element(
     }
     Ok(match val {
         Value::ExternRef(extern_ref) => {
+            println!("value_to_table_element: in externref branch: {extern_ref:?}");
             wasmer_vm::TableElement::ExternRef(extern_ref.map(|e| e.vm_externref()))
         }
         Value::FuncRef(func_ref) => {
+            println!("value_to_table_element: in funcref branch: {func_ref:?}");
             wasmer_vm::TableElement::FuncRef(func_ref.map(|f| f.vm_funcref(store)))
         }
         _ => return Err(RuntimeError::new("val is not reference")),

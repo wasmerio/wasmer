@@ -66,10 +66,22 @@ pub struct StoreObjects {
     memories: Vec<VMMemory>,
     tables: Vec<VMTable>,
     globals: Vec<VMGlobal>,
-    functions: Vec<VMFunction>,
+    /// test
+    pub functions: Vec<VMFunction>,
     instances: Vec<InstanceHandle>,
     extern_objs: Vec<VMExternObj>,
     function_environments: Vec<VMFunctionEnvironment>,
+}
+
+impl fmt::Debug for StoreObjects {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "StoreObjects {{")?;
+        self.id.fmt(f)?;
+        self.functions.fmt(f)?;
+        self.instances.fmt(f)?;
+        write!(f, "}}")?;
+        Ok(())
+    }
 }
 
 impl StoreObjects {
@@ -249,6 +261,7 @@ impl<T: StoreObject> InternalStoreHandle<T> {
 /// Data used by the generated code is generally located inline within the
 /// `VMContext` for items defined in an instance. Host-defined objects are
 /// allocated separately and owned directly by the context.
+#[derive(Debug)]
 pub enum MaybeInstanceOwned<T> {
     /// The data is owned here.
     Host(Box<UnsafeCell<T>>),

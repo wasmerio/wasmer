@@ -60,8 +60,13 @@ pub unsafe extern "C" fn wasm_func_new(
     let store = store?;
     let mut store_mut = store.inner.store_mut();
 
+    println!("wasm_func_new: function_type = {function_type:#?}");
+    println!("wasm_func_new: callback = 0x{:0x}", callback as usize);
+
     let func_sig = &function_type.inner().function_type;
     let num_rets = func_sig.results().len();
+    println!("func_sig: {func_sig:#?}");
+
     let inner_callback = move |mut _env: FunctionEnvMut<'_, FunctionCEnv>,
                                args: &[Value]|
           -> Result<Vec<Value>, RuntimeError> {
@@ -72,6 +77,8 @@ pub unsafe extern "C" fn wasm_func_new(
             .expect("Argument conversion failed")
             .into();
 
+        println!("processed_args: {processed_args:#?}");
+
         let mut results: wasm_val_vec_t = vec![
             wasm_val_t {
                 kind: wasm_valkind_enum::WASM_I64 as _,
@@ -80,6 +87,8 @@ pub unsafe extern "C" fn wasm_func_new(
             num_rets
         ]
         .into();
+
+        println!("results: {results:#?}");
 
         let trap = callback(&processed_args, &mut results);
 
@@ -94,10 +103,13 @@ pub unsafe extern "C" fn wasm_func_new(
             .collect::<Result<Vec<Value>, _>>()
             .expect("Result conversion failed");
 
+        println!("processed_results: {processed_results:#?}");
+        
         Ok(processed_results)
     };
     let env = FunctionEnv::new(&mut store_mut, FunctionCEnv::default());
     let function = Function::new_with_env(&mut store_mut, &env, func_sig, inner_callback);
+    println!("Function with env: {function:#?}");
     Some(Box::new(wasm_func_t {
         extern_: wasm_extern_t::new(store.inner.clone(), function.into()),
     }))

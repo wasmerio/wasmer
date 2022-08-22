@@ -144,6 +144,9 @@ pub unsafe extern "C" fn wasm_table_set(
     delta: wasm_table_size_t,
     init: Option<&wasm_ref_t>,
 ) -> bool {
+    println!("table: {:#?}", table);
+    println!("delta: {:#?}", delta);
+    println!("init: {:#?}", init);
     let val =             if init.is_some() {
         init.unwrap().inner.clone()
     } else {

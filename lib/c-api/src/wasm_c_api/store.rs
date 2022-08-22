@@ -20,6 +20,7 @@ impl StoreRef {
 
 /// Opaque type representing a WebAssembly store.
 #[allow(non_camel_case_types)]
+#[derive(Debug)]
 pub struct wasm_store_t {
     pub(crate) inner: StoreRef,
 }

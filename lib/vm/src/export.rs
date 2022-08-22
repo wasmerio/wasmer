@@ -11,6 +11,7 @@ use std::any::Any;
 use wasmer_types::FunctionType;
 
 /// The value of an export passed from one instance to another.
+#[derive(Debug)]
 pub enum VMExtern {
     /// A function export value.
     Function(InternalStoreHandle<VMFunction>),
@@ -26,6 +27,7 @@ pub enum VMExtern {
 }
 
 /// A function export value.
+#[derive(Debug)]
 pub struct VMFunction {
     /// Pointer to the `VMCallerCheckedAnyfunc` which contains data needed to
     /// call the function and check its signature.

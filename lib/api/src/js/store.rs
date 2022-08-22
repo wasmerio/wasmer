@@ -252,7 +252,7 @@ mod objects {
         memories: Vec<VMMemory>,
         tables: Vec<VMTable>,
         globals: Vec<VMGlobal>,
-        functions: Vec<VMFunction>,
+        pub(crate) functions: Vec<VMFunction>,
         instances: Vec<js_sys::WebAssembly::Instance>,
         function_environments: Vec<VMFunctionEnvironment>,
     }

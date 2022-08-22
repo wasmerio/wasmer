@@ -132,7 +132,9 @@ int main(int argc, const char* argv[]) {
   // Create external function.
   printf("Creating callback...\n");
   own wasm_functype_t* neg_type = wasm_functype_new_1_1(wasm_valtype_new_i32(), wasm_valtype_new_i32());
+  printf("callback wasm_functype_new_1_1 created...\n");
   own wasm_func_t* h = wasm_func_new(store, neg_type, neg_callback);
+  printf("Callback created!\n");
 
   wasm_functype_delete(neg_type);
 
@@ -164,22 +166,50 @@ int main(int argc, const char* argv[]) {
   // Grow table.
   printf("Growing table...\n");
   check(wasm_table_grow(table, 3, NULL));
+  printf("    1\n");
   check(wasm_table_size(table) == 5);
+    printf("    2\n");
   check(wasm_table_set(table, 2, wasm_func_as_ref(f)));
+    printf("    3\n");
+
   check(wasm_table_set(table, 3, wasm_func_as_ref(h)));
+    printf("    4\n");
+
   check(! wasm_table_set(table, 5, NULL));
+    printf("    5\n");
+
   check_table(table, 2, true);
+    printf("    6\n");
+
   check_table(table, 3, true);
+    printf("    7\n");
+
   check_table(table, 4, false);
+    printf("    8\n");
+
   check_call(call_indirect, 5, 2, 5);
+    printf("    9\n");
+
   check_call(call_indirect, 6, 3, -6);
+    printf("    10\n");
+
   check_trap(call_indirect, 0, 4);
+    printf("    11\n");
+
   check_trap(call_indirect, 0, 5);
+    printf("    12\n");
 
   check(wasm_table_grow(table, 2, wasm_func_as_ref(f)));
+      printf("    13\n");
+
   check(wasm_table_size(table) == 7);
+      printf("    14\n");
+
   check_table(table, 5, true);
+      printf("    15\n");
+
   check_table(table, 6, true);
+    printf("    16\n");
 
   check(! wasm_table_grow(table, 5, NULL));
   check(wasm_table_grow(table, 3, NULL));

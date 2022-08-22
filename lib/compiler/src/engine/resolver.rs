@@ -59,10 +59,17 @@ pub fn resolve_imports(
     memory_styles: &PrimaryMap<MemoryIndex, MemoryStyle>,
     _table_styles: &PrimaryMap<TableIndex, TableStyle>,
 ) -> Result<Imports, LinkError> {
+
+    println!("resolve imports");
+
     let mut function_imports = PrimaryMap::with_capacity(module.num_imported_functions);
     let mut table_imports = PrimaryMap::with_capacity(module.num_imported_tables);
     let mut memory_imports = PrimaryMap::with_capacity(module.num_imported_memories);
     let mut global_imports = PrimaryMap::with_capacity(module.num_imported_globals);
+
+    println!("module.imports: {:#?}", module.imports);
+    println!("finished_dynamic_function_trampolines: {:#?}", finished_dynamic_function_trampolines);
+    println!("function_imports: {:#?}", function_imports);
 
     for (
         wasmer_types::ImportKey {
@@ -74,6 +81,7 @@ pub fn resolve_imports(
     ) in module.imports.iter()
     {
         let import_extern = get_extern_from_import(module, import_index);
+        println!("import extern {:#?}", *import_idx as usize);
         let resolved = if let Some(r) = imports.get(*import_idx as usize) {
             r
         } else {
@@ -91,16 +99,21 @@ pub fn resolve_imports(
                 ImportError::IncompatibleType(import_extern, extern_type),
             ));
         }
+        println!("{:#?}", *resolved);
         match *resolved {
             VMExtern::Function(handle) => {
+                println!("VMExtern::Function {:?}", handle);
                 let f = handle.get(context);
                 let address = match f.kind {
                     VMFunctionKind::Dynamic => {
+                        println!("linking vm function body");
                         // If this is a dynamic imported function,
                         // the address of the function is the address of the
                         // reverse trampoline.
                         let index = FunctionIndex::new(function_imports.len());
-                        finished_dynamic_function_trampolines[index].0 as *mut VMFunctionBody as _
+                        let r = finished_dynamic_function_trampolines[index].0 as *mut VMFunctionBody;
+                        println!("linking vm function body {index:?}: {:#?}", unsafe { &mut *r });
+                        r as _
                     }
                     VMFunctionKind::Static => unsafe { f.anyfunc.as_ptr().as_ref().func_ptr },
                 };
@@ -112,6 +125,7 @@ pub fn resolve_imports(
                 });
             }
             VMExtern::Table(handle) => {
+                println!("VMExtern::Table {:?}", handle);
                 let t = handle.get(context);
                 match import_index {
                     ImportIndex::Table(index) => {
@@ -136,6 +150,7 @@ pub fn resolve_imports(
                 }
             }
             VMExtern::Memory(handle) => {
+                println!("VMExtern::Memory {:?}", handle);
                 let m = handle.get(context);
                 match import_index {
                     ImportIndex::Memory(index) => {
@@ -172,6 +187,7 @@ pub fn resolve_imports(
             }
 
             VMExtern::Global(handle) => {
+                println!("VMExtern::Global {:?}", handle);
                 let g = handle.get(context);
                 global_imports.push(VMGlobalImport {
                     definition: g.vmglobal(),

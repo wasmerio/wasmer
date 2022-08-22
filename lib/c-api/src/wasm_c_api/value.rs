@@ -112,6 +112,13 @@ impl std::fmt::Debug for wasm_val_t {
 
 wasm_declare_vec!(val);
 
+use std::fmt;
+impl fmt::Debug for wasm_val_vec_t {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.as_slice().fmt(f)        
+    }
+}
+
 impl Clone for wasm_val_t {
     fn clone(&self) -> Self {
         wasm_val_t {

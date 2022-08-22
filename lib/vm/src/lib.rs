@@ -92,6 +92,7 @@ impl std::ops::Deref for SectionBodyPtr {
 /// deliberately not Copy, as we shouldn't be carelessly copying function body bytes
 /// around.
 #[repr(C)]
+#[derive(Debug)]
 pub struct VMFunctionBody(u8);
 
 #[cfg(test)]

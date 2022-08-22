@@ -1,0 +1,861 @@
+-----------
+[1m[32mINFORMATION(B[m
+-----------
+
+Host Target: `[1m[32mx86_64-unknown-linux-gnu(B[m`.
+Enabled Compilers: [1m[32mcranelift(B[m, [1m[32mllvm(B[m, [1m[32msinglepass(B[m.
+Testing the following compilers & engines:
+  * API: [1m[32mcranelift-universal llvm-universal singlepass-universal(B[m,
+  * C-API: [1m[32mcranelift-universal(B[m.
+Cargo features:
+  * Compilers: `[1m[32m--features cranelift,llvm,singlepass,wasmer-artifact-create,static-artifact-create,wasmer-artifact-load,static-artifact-load(B[m`.
+Rust version: [1m[32mrustc 1.65.0-nightly (0b79f758c 2022-08-18)(B[m.
+NodeJS version: [1m[32mv18.6.0(B[m.
+LLVM version: [1m[32m12.0.0(B[m.
+
+
+--------------
+[1m[32mRULE EXECUTION(B[m
+--------------
+
+
+RUSTFLAGS="" cargo build  --manifest-path lib/c-api/Cargo.toml --release \
+	--no-default-features --features wat,compiler,wasi,middlewares --features cranelift,singlepass,wasmer-artifact-create,static-artifact-create,wasmer-artifact-load,static-artifact-load
+mkdir -p "package/include"
+mkdir -p "package/lib"
+cp lib/c-api/wasmer.h* package/include
+cp lib/c-api/wasmer_wasm.h* package/include
+cp lib/c-api/wasm.h* package/include
+cp lib/c-api/README.md package/include/README.md
+if [ -f target/release/wasmer.dll ]; then \
+	cp target/release/wasmer.dll package/lib/wasmer.dll ;\
+fi
+if [ -f target/release/wasmer.lib ]; then \
+	cp target/release/wasmer.lib package/lib/wasmer.lib ;\
+fi
+if [ -f target/release/libwasmer.dylib ]; then \
+	cp target/release/libwasmer.dylib package/lib/libwasmer.dylib ;\
+fi
+if [ -f target/release/libwasmer.so ]; then \
+	cp target/release/libwasmer.so package/lib/libwasmer.so ;\
+fi
+if [ -f target/release/libwasmer.a ]; then \
+	cp target/release/libwasmer.a package/lib/libwasmer.a ;\
+fi
+WASMER_CAPI_CONFIG=cranelift-universal cargo test  --manifest-path lib/c-api/Cargo.toml --release \
+	--no-default-features --features wat,compiler,wasi,middlewares --features cranelift,singlepass,wasmer-artifact-create,static-artifact-create,wasmer-artifact-load,static-artifact-load -- --nocapture
+
+running 21 tests
+test wasm_c_api::externals::global::tests::test_set_host_global_immutable ... ok
+test wasm_c_api::trap::tests::test_trap_message_not_null_terminated ... ok
+test wasm_c_api::unstable::engine::tests::test_wasmer_is_engine_available ... ok
+test wasm_c_api::module::tests::test_module_validate ... ok
+test wasm_c_api::engine::tests::test_engine_new ... ok
+test wasm_c_api::trap::tests::test_trap_message_null_terminated ... ok
+test wasm_c_api::externals::global::tests::test_set_guest_global_immutable ... ok
+test wasm_c_api::unstable::engine::tests::test_wasmer_is_headless ... ok
+test wasm_c_api::unstable::engine::tests::test_wasmer_is_compiler_available ... ok
+test wasm_c_api::externals::tests::test_extern_copy ... ok
+test wasm_c_api::module::tests::test_module_new ... ok
+test wasm_c_api::module::tests::test_module_serialize ... ok
+test wasm_c_api::module::tests::test_module_exports ... ok
+test wasm_c_api::module::tests::test_module_imports ... ok
+test wasm_c_api::instance::tests::test_instance_new ... ok
+test wasm_c_api::module::tests::test_module_serialize_and_deserialize ... ok
+test wasm_c_api::wat::tests::test_wat2wasm_failed ... ok
+test wasm_c_api::wat::tests::test_wat2wasm ... ok
+test wasm_c_api::wasi::tests::test_wasi_get_wasi_version_invalid ... ok
+test wasm_c_api::wasi::tests::test_wasi_get_wasi_version_snapshot0 ... ok
+test wasm_c_api::wasi::tests::test_wasi_get_wasi_version_snapshot1 ... ok
+
+test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.34s
+
+
+running 71 tests
+test src/error.rs - error::update_last_error (line 64) - compile ... ok
+test src/wasm_c_api/engine.rs - wasm_c_api::engine::wasm_config_new (line 91) ... ok
+test src/wasm_c_api/externals/mod.rs - wasm_c_api::externals::wasm_extern_vec_new_empty (line 90) ... ok
+test src/wasm_c_api/mod.rs - wasm_c_api::engine (line 41) ... ok
+test src/wasm_c_api/externals/mod.rs - wasm_c_api::externals::wasm_extern_vec_new_uninitialized (line 90) ... ok
+test src/wasm_c_api/mod.rs - wasm_c_api::store (line 201) ... ok
+test src/wasm_c_api/engine.rs - wasm_c_api::engine::wasm_config_set_engine (line 213) ... ok
+test src/wasm_c_api/mod.rs - wasm_c_api::instance (line 86) ... ok
+test src/error.rs - error (line 12) ... ok
+test src/wasm_c_api/instance.rs - wasm_c_api::instance::wasm_instance_exports (line 108) ... ok
+test src/wasm_c_api/mod.rs - wasm_c_api::trap (line 236) ... ok
+test src/wasm_c_api/engine.rs - wasm_c_api::engine::wasm_config_set_compiler (line 159) ... ok
+test src/wasm_c_api/engine.rs - wasm_c_api::engine::wasm_engine_delete (line 317) ... ok
+test src/wasm_c_api/mod.rs - wasm_c_api::module (line 144) ... ok
+test src/wasm_c_api/externals/mod.rs - wasm_c_api::externals::wasm_extern_vec_t (line 92) ... ok
+test src/wasm_c_api/engine.rs - wasm_c_api::engine::wasm_config_delete (line 130) ... ok
+test src/wasm_c_api/mod.rs - wasm_c_api::version (line 308) ... ok
+test src/wasm_c_api/module.rs - wasm_c_api::module::wasm_module_deserialize (line 389) ... ok
+test src/wasm_c_api/types/export.rs - wasm_c_api::types::export::wasm_exporttype_vec_new_empty (line 15) ... ok
+test src/wasm_c_api/types/frame.rs - wasm_c_api::types::frame::wasm_frame_vec_new_empty (line 54) ... ok
+test src/wasm_c_api/mod.rs - wasm_c_api::wat (line 340) ... ok
+test src/wasm_c_api/types/export.rs - wasm_c_api::types::export::wasm_exporttype_vec_new_uninitialized (line 15) ... ok
+test src/wasm_c_api/module.rs - wasm_c_api::module::wasm_module_exports (line 115) ... ok
+test src/wasm_c_api/trap.rs - wasm_c_api::trap::wasm_trap_message (line 72) ... ok
+test src/wasm_c_api/module.rs - wasm_c_api::module::wasm_module_validate (line 57) ... ok
+test src/wasm_c_api/module.rs - wasm_c_api::module::wasm_module_imports (line 238) ... ok
+test src/wasm_c_api/types/frame.rs - wasm_c_api::types::frame::wasm_frame_vec_new_uninitialized (line 54) ... ok
+test src/wasm_c_api/types/export.rs - wasm_c_api::types::export::wasm_exporttype_vec_t (line 17) ... ok
+test src/wasm_c_api/types/function.rs - wasm_c_api::types::function::wasm_functype_vec_new_empty (line 73) ... ok
+test src/wasm_c_api/types/function.rs - wasm_c_api::types::function::wasm_functype_vec_new_uninitialized (line 73) ... ok
+test src/wasm_c_api/types/function.rs - wasm_c_api::types::function::wasm_functype_vec_t (line 75) ... ok
+test src/wasm_c_api/types/frame.rs - wasm_c_api::types::frame::wasm_frame_vec_t (line 56) ... ok
+test src/wasm_c_api/types/global.rs - wasm_c_api::types::global::wasm_globaltype_vec_new_empty (line 53) ... ok
+test src/wasm_c_api/types/global.rs - wasm_c_api::types::global::wasm_globaltype_vec_t (line 55) ... ok
+test src/wasm_c_api/types/import.rs - wasm_c_api::types::import::wasm_importtype_vec_new_uninitialized (line 17) ... ok
+test src/wasm_c_api/types/global.rs - wasm_c_api::types::global::wasm_globaltype_vec_new_uninitialized (line 53) ... ok
+test src/wasm_c_api/types/import.rs - wasm_c_api::types::import::wasm_importtype_vec_t (line 19) ... ok
+test src/wasm_c_api/types/import.rs - wasm_c_api::types::import::wasm_importtype_vec_new_empty (line 17) ... ok
+test src/wasm_c_api/types/memory.rs - wasm_c_api::types::memory::wasm_memorytype_vec_new_empty (line 55) ... ok
+test src/wasm_c_api/types/mod.rs - wasm_c_api::types::wasm_byte_vec_t (line 32) ... ok
+test src/wasm_c_api/types/memory.rs - wasm_c_api::types::memory::wasm_memorytype_vec_t (line 57) ... ok
+test src/wasm_c_api/types/mod.rs - wasm_c_api::types::wasm_byte_vec_new_empty (line 30) ... ok
+test src/wasm_c_api/types/memory.rs - wasm_c_api::types::memory::wasm_memorytype_vec_new_uninitialized (line 55) ... ok
+test src/wasm_c_api/types/mod.rs - wasm_c_api::types::wasm_byte_vec_new_uninitialized (line 30) ... ok
+test src/wasm_c_api/types/table.rs - wasm_c_api::types::table::wasm_tabletype_vec_t (line 62) ... ok
+test src/wasm_c_api/types/table.rs - wasm_c_api::types::table::wasm_tabletype_vec_new_empty (line 60) ... ok
+test src/wasm_c_api/types/table.rs - wasm_c_api::types::table::wasm_tabletype_vec_new_uninitialized (line 60) ... ok
+test src/wasm_c_api/types/value.rs - wasm_c_api::types::value::wasm_valtype_vec_new_empty (line 63) ... ok
+test src/wasm_c_api/types/value.rs - wasm_c_api::types::value::wasm_valtype_vec_new_uninitialized (line 63) ... ok
+test src/wasm_c_api/unstable/engine.rs - wasm_c_api::unstable::engine::wasm_config_set_features (line 60) ... ok
+test src/wasm_c_api/unstable/features.rs - wasm_c_api::unstable::features (line 7) ... ok
+test src/wasm_c_api/unstable/middlewares/metering.rs - wasm_c_api::unstable::middlewares::metering::wasmer_metering_set_remaining_points (line 236) ... ok
+test src/wasm_c_api/unstable/engine.rs - wasm_c_api::unstable::engine::wasm_config_canonicalize_nans (line 107) ... ok
+test src/wasm_c_api/unstable/middlewares/metering.rs - wasm_c_api::unstable::middlewares::metering (line 10) ... ok
+test src/wasm_c_api/unstable/module.rs - wasm_c_api::unstable::module::wasmer_module_name (line 14) ... ok
+test src/wasm_c_api/unstable/engine.rs - wasm_c_api::unstable::engine::wasm_config_set_target (line 16) ... ok
+test src/wasm_c_api/types/value.rs - wasm_c_api::types::value::wasm_valtype_vec_t (line 65) ... ok
+test src/wasm_c_api/unstable/target_lexicon.rs - wasm_c_api::unstable::target_lexicon (line 8) ... ok
+test src/wasm_c_api/unstable/target_lexicon.rs - wasm_c_api::unstable::target_lexicon::wasmer_cpu_features_t (line 227) ... ok
+test src/wasm_c_api/unstable/module.rs - wasm_c_api::unstable::module::wasmer_module_set_name (line 81) ... ok
+test src/wasm_c_api/unstable/target_lexicon.rs - wasm_c_api::unstable::target_lexicon::wasmer_triple_t (line 110) ... ok
+test src/wasm_c_api/unstable/wasi.rs - wasm_c_api::unstable::wasi::wasmer_named_extern_vec_new_empty (line 27) ... ok
+test src/wasm_c_api/unstable/target_lexicon.rs - wasm_c_api::unstable::target_lexicon::wasmer_triple_new_from_host (line 163) ... ok
+test src/wasm_c_api/unstable/wasi.rs - wasm_c_api::unstable::wasi::wasmer_named_extern_vec_new_uninitialized (line 27) ... ok
+test src/wasm_c_api/unstable/wasi.rs - wasm_c_api::unstable::wasi::wasmer_named_extern_vec_t (line 29) ... ok
+test src/wasm_c_api/value.rs - wasm_c_api::value::wasm_val_vec_new_uninitialized (line 117) ... ok
+test src/wasm_c_api/value.rs - wasm_c_api::value::wasm_val_t (line 45) ... ok
+test src/wasm_c_api/value.rs - wasm_c_api::value::wasm_val_vec_new_empty (line 117) ... ok
+test src/wasm_c_api/value.rs - wasm_c_api::value::wasm_val_vec_t (line 119) ... ok
+test src/wasm_c_api/version.rs - wasm_c_api::version::wasmer_version_major (line 42) ... ok
+test src/wasm_c_api/version.rs - wasm_c_api::version::wasmer_version_pre (line 100) ... ok
+
+test result: ok. 71 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 21.34s
+
+# Test the Wasmer C API tests for C
+cd lib/c-api/tests; WASMER_CAPI_CONFIG=cranelift-universal WASMER_DIR=`pwd`/../../../package make test
+make[1]: Verzeichnis „/home/fs/Development/wasmer/lib/c-api/tests“ wird betreten
+Using provided WASMER_DIR=/home/fs/Development/wasmer/package
+* CFLAGS: -g -I/home/fs/Development/wasmer/lib/c-api/tests/ -I/home/fs/Development/wasmer/package/include
+* LDFLAGS: -Wl,-rpath,/home/fs/Development/wasmer/package/lib
+* LDLIBS: -L/home/fs/Development/wasmer/package/lib -lwasmer
+Running "wasm-c-api/example/table" example
+instantiate artifact (before resolve_imports): ModuleInfo {
+    id: ModuleId {
+        id: 1,
+    },
+    name: None,
+    imports: {},
+    exports: {
+        "table": Table(
+            TableIndex(
+                0,
+            ),
+        ),
+        "call_indirect": Function(
+            FunctionIndex(
+                0,
+            ),
+        ),
+        "f": Function(
+            FunctionIndex(
+                1,
+            ),
+        ),
+        "g": Function(
+            FunctionIndex(
+                2,
+            ),
+        ),
+    },
+    start_function: None,
+    table_initializers: [
+        TableInitializer {
+            table_index: TableIndex(
+                0,
+            ),
+            base: None,
+            offset: 1,
+            elements: [
+                FunctionIndex(
+                    1,
+                ),
+            ],
+        },
+    ],
+    passive_elements: {},
+    passive_data: {},
+    global_initializers: PrimaryMap {
+        elems: [],
+        unused: PhantomData,
+    },
+    function_names: {},
+    signatures: PrimaryMap {
+        elems: [
+            FunctionType {
+                params: [
+                    I32,
+                    I32,
+                ],
+                results: [
+                    I32,
+                ],
+            },
+            FunctionType {
+                params: [
+                    I32,
+                ],
+                results: [
+                    I32,
+                ],
+            },
+        ],
+        unused: PhantomData,
+    },
+    functions: PrimaryMap {
+        elems: [
+            SignatureIndex(
+                0,
+            ),
+            SignatureIndex(
+                1,
+            ),
+            SignatureIndex(
+                1,
+            ),
+        ],
+        unused: PhantomData,
+    },
+    tables: PrimaryMap {
+        elems: [
+            TableType {
+                ty: FuncRef,
+                minimum: 2,
+                maximum: Some(
+                    10,
+                ),
+            },
+        ],
+        unused: PhantomData,
+    },
+    memories: PrimaryMap {
+        elems: [],
+        unused: PhantomData,
+    },
+    globals: PrimaryMap {
+        elems: [],
+        unused: PhantomData,
+    },
+    custom_sections: {},
+    custom_sections_data: PrimaryMap {
+        elems: [],
+        unused: PhantomData,
+    },
+    num_imported_functions: 0,
+    num_imported_tables: 0,
+    num_imported_memories: 0,
+    num_imported_globals: 0,
+}
+resolve imports
+module.imports: {}
+finished_dynamic_function_trampolines: BoxedSlice {
+    elems: [],
+    unused: PhantomData,
+}
+function_imports: PrimaryMap {
+    elems: [],
+    unused: PhantomData,
+}
+wasm_functype_new (result): Some(
+    wasm_functype_t {
+        extern_type: wasm_externtype_t {
+            inner: Function(
+                FunctionType {
+                    params: [
+                        I32,
+                    ],
+                    results: [
+                        I32,
+                    ],
+                },
+            ),
+        },
+    },
+)
+wasm_func_new: function_type = wasm_functype_t {
+    extern_type: wasm_externtype_t {
+        inner: Function(
+            FunctionType {
+                params: [
+                    I32,
+                ],
+                results: [
+                    I32,
+                ],
+            },
+        ),
+    },
+}
+wasm_func_new: callback = 0x56123d197a9a
+func_sig: FunctionType {
+    params: [
+        I32,
+    ],
+    results: [
+        I32,
+    ],
+}
+Function::new_with_env - host data (raw signature): 0x00007f2c2dc71a50
+Function::new_with_env - signature registered: VMSharedSignatureIndex(
+    1,
+)
+Function::new_with_env - call_trampoline address: 0x00007f2c2dc71b80
+Function::new_with_env - anyfunc: VMCallerCheckedAnyfunc {
+    func_ptr: 0x0000000000000000,
+    type_index: VMSharedSignatureIndex(
+        1,
+    ),
+    vmctx: VMFunctionContext {
+        vmctx_or_hostenv: 0x000056123efc3690,
+    },
+    call_trampoline: 0x00007f2c2dc71b80,
+}
+Function::new_with_env - vm_function: VMFunction {
+    anyfunc: Host(
+        UnsafeCell { .. },
+    ),
+    signature: FunctionType {
+        params: [
+            I32,
+        ],
+        results: [
+            I32,
+        ],
+    },
+    kind: Dynamic,
+    host_data: Any { .. },
+}
+store handle: Function {
+    handle: StoreHandle {
+        id: StoreId(
+            1,
+        ),
+        internal: 4,
+    },
+}
+Function with env: Function {
+    handle: StoreHandle {
+        id: StoreId(
+            1,
+        ),
+        internal: 4,
+    },
+}
+table: wasm_table_t(wasm_extern_t(Store:StoreRef { inner: UnsafeCell { .. } }, Inner:Table(...)
+delta: 0
+init: Some(
+    wasm_ref_t(FuncRef(Function { handle: StoreHandle { id: StoreId(1), internal: 3 } }),
+)
+value_to_table_element: in funcref branch: Some(Function { handle: StoreHandle { id: StoreId(1), internal: 3 } })
+store objects: StoreObjects {StoreId(
+    1,
+)[
+    VMFunction {
+        anyfunc: Instance(
+            0x000056123efc8990,
+        ),
+        signature: FunctionType {
+            params: [
+                I32,
+                I32,
+            ],
+            results: [
+                I32,
+            ],
+        },
+        kind: Static,
+        host_data: Any { .. },
+    },
+    VMFunction {
+        anyfunc: Instance(
+            0x000056123efc89b0,
+        ),
+        signature: FunctionType {
+            params: [
+                I32,
+            ],
+            results: [
+                I32,
+            ],
+        },
+        kind: Static,
+        host_data: Any { .. },
+    },
+    VMFunction {
+        anyfunc: Instance(
+            0x000056123efc89d0,
+        ),
+        signature: FunctionType {
+            params: [
+                I32,
+            ],
+            results: [
+                I32,
+            ],
+        },
+        kind: Static,
+        host_data: Any { .. },
+    },
+    VMFunction {
+        anyfunc: Host(
+            UnsafeCell { .. },
+        ),
+        signature: FunctionType {
+            params: [
+                I32,
+            ],
+            results: [
+                I32,
+            ],
+        },
+        kind: Dynamic,
+        host_data: Any { .. },
+    },
+    VMFunction {
+        anyfunc: Instance(
+            0x000056123efc89b0,
+        ),
+        signature: FunctionType {
+            params: [
+                I32,
+            ],
+            results: [
+                I32,
+            ],
+        },
+        kind: Static,
+        host_data: Any { .. },
+    },
+][
+    InstanceHandle {
+        instance_layout: Layout {
+            size: 512,
+            align: 16 (1 << 4),
+        },
+        instance: 0x000056123efc20c0,
+    },
+]}
+anyfunc (3) - host: VMCallerCheckedAnyfunc {
+    func_ptr: 0x0000000000000000,
+    type_index: VMSharedSignatureIndex(
+        1,
+    ),
+    vmctx: VMFunctionContext {
+        vmctx_or_hostenv: 0x000056123efc3690,
+    },
+    call_trampoline: 0x00007f2c2dc71b80,
+}
+vm_funcref: vm func ref ptr: 0x56123efc89d0
+return vm anyfunc: Instance(
+    0x000056123efc89d0,
+)
+table: wasm_table_t(wasm_extern_t(Store:StoreRef { inner: UnsafeCell { .. } }, Inner:Table(...)
+delta: 1
+init: None
+value_to_table_element: in funcref branch: None
+table: wasm_table_t(wasm_extern_t(Store:StoreRef { inner: UnsafeCell { .. } }, Inner:Table(...)
+delta: 2
+init: Some(
+    wasm_ref_t(FuncRef(Function { handle: StoreHandle { id: StoreId(1), internal: 2 } }),
+)
+value_to_table_element: in funcref branch: Some(Function { handle: StoreHandle { id: StoreId(1), internal: 2 } })
+store objects: StoreObjects {StoreId(
+    1,
+)[
+    VMFunction {
+        anyfunc: Instance(
+            0x000056123efc8990,
+        ),
+        signature: FunctionType {
+            params: [
+                I32,
+                I32,
+            ],
+            results: [
+                I32,
+            ],
+        },
+        kind: Static,
+        host_data: Any { .. },
+    },
+    VMFunction {
+        anyfunc: Instance(
+            0x000056123efc89b0,
+        ),
+        signature: FunctionType {
+            params: [
+                I32,
+            ],
+            results: [
+                I32,
+            ],
+        },
+        kind: Static,
+        host_data: Any { .. },
+    },
+    VMFunction {
+        anyfunc: Instance(
+            0x000056123efc89d0,
+        ),
+        signature: FunctionType {
+            params: [
+                I32,
+            ],
+            results: [
+                I32,
+            ],
+        },
+        kind: Static,
+        host_data: Any { .. },
+    },
+    VMFunction {
+        anyfunc: Host(
+            UnsafeCell { .. },
+        ),
+        signature: FunctionType {
+            params: [
+                I32,
+            ],
+            results: [
+                I32,
+            ],
+        },
+        kind: Dynamic,
+        host_data: Any { .. },
+    },
+    VMFunction {
+        anyfunc: Instance(
+            0x000056123efc89b0,
+        ),
+        signature: FunctionType {
+            params: [
+                I32,
+            ],
+            results: [
+                I32,
+            ],
+        },
+        kind: Static,
+        host_data: Any { .. },
+    },
+][
+    InstanceHandle {
+        instance_layout: Layout {
+            size: 512,
+            align: 16 (1 << 4),
+        },
+        instance: 0x000056123efc20c0,
+    },
+]}
+anyfunc (3) - host: VMCallerCheckedAnyfunc {
+    func_ptr: 0x0000000000000000,
+    type_index: VMSharedSignatureIndex(
+        1,
+    ),
+    vmctx: VMFunctionContext {
+        vmctx_or_hostenv: 0x000056123efc3690,
+    },
+    call_trampoline: 0x00007f2c2dc71b80,
+}
+vm_funcref: vm func ref ptr: 0x56123efc89b0
+return vm anyfunc: Instance(
+    0x000056123efc89b0,
+)
+value_to_table_element: in funcref branch: None
+table: wasm_table_t(wasm_extern_t(Store:StoreRef { inner: UnsafeCell { .. } }, Inner:Table(...)
+delta: 2
+init: Some(
+    wasm_ref_t(FuncRef(Function { handle: StoreHandle { id: StoreId(1), internal: 2 } }),
+)
+value_to_table_element: in funcref branch: Some(Function { handle: StoreHandle { id: StoreId(1), internal: 2 } })
+store objects: StoreObjects {StoreId(
+    1,
+)[
+    VMFunction {
+        anyfunc: Instance(
+            0x000056123efc8990,
+        ),
+        signature: FunctionType {
+            params: [
+                I32,
+                I32,
+            ],
+            results: [
+                I32,
+            ],
+        },
+        kind: Static,
+        host_data: Any { .. },
+    },
+    VMFunction {
+        anyfunc: Instance(
+            0x000056123efc89b0,
+        ),
+        signature: FunctionType {
+            params: [
+                I32,
+            ],
+            results: [
+                I32,
+            ],
+        },
+        kind: Static,
+        host_data: Any { .. },
+    },
+    VMFunction {
+        anyfunc: Instance(
+            0x000056123efc89d0,
+        ),
+        signature: FunctionType {
+            params: [
+                I32,
+            ],
+            results: [
+                I32,
+            ],
+        },
+        kind: Static,
+        host_data: Any { .. },
+    },
+    VMFunction {
+        anyfunc: Host(
+            UnsafeCell { .. },
+        ),
+        signature: FunctionType {
+            params: [
+                I32,
+            ],
+            results: [
+                I32,
+            ],
+        },
+        kind: Dynamic,
+        host_data: Any { .. },
+    },
+    VMFunction {
+        anyfunc: Instance(
+            0x000056123efc89b0,
+        ),
+        signature: FunctionType {
+            params: [
+                I32,
+            ],
+            results: [
+                I32,
+            ],
+        },
+        kind: Static,
+        host_data: Any { .. },
+    },
+    VMFunction {
+        anyfunc: Instance(
+            0x000056123efc89d0,
+        ),
+        signature: FunctionType {
+            params: [
+                I32,
+            ],
+            results: [
+                I32,
+            ],
+        },
+        kind: Static,
+        host_data: Any { .. },
+    },
+][
+    InstanceHandle {
+        instance_layout: Layout {
+            size: 512,
+            align: 16 (1 << 4),
+        },
+        instance: 0x000056123efc20c0,
+    },
+]}
+anyfunc (3) - host: VMCallerCheckedAnyfunc {
+    func_ptr: 0x0000000000000000,
+    type_index: VMSharedSignatureIndex(
+        1,
+    ),
+    vmctx: VMFunctionContext {
+        vmctx_or_hostenv: 0x000056123efc3690,
+    },
+    call_trampoline: 0x00007f2c2dc71b80,
+}
+vm_funcref: vm func ref ptr: 0x56123efc89b0
+return vm anyfunc: Instance(
+    0x000056123efc89b0,
+)
+table: wasm_table_t(wasm_extern_t(Store:StoreRef { inner: UnsafeCell { .. } }, Inner:Table(...)
+delta: 3
+init: Some(
+    wasm_ref_t(FuncRef(Function { handle: StoreHandle { id: StoreId(1), internal: 4 } }),
+)
+value_to_table_element: in funcref branch: Some(Function { handle: StoreHandle { id: StoreId(1), internal: 4 } })
+store objects: StoreObjects {StoreId(
+    1,
+)[
+    VMFunction {
+        anyfunc: Instance(
+            0x000056123efc8990,
+        ),
+        signature: FunctionType {
+            params: [
+                I32,
+                I32,
+            ],
+            results: [
+                I32,
+            ],
+        },
+        kind: Static,
+        host_data: Any { .. },
+    },
+    VMFunction {
+        anyfunc: Instance(
+            0x000056123efc89b0,
+        ),
+        signature: FunctionType {
+            params: [
+                I32,
+            ],
+            results: [
+                I32,
+            ],
+        },
+        kind: Static,
+        host_data: Any { .. },
+    },
+    VMFunction {
+        anyfunc: Instance(
+            0x000056123efc89d0,
+        ),
+        signature: FunctionType {
+            params: [
+                I32,
+            ],
+            results: [
+                I32,
+            ],
+        },
+        kind: Static,
+        host_data: Any { .. },
+    },
+    VMFunction {
+        anyfunc: Host(
+            UnsafeCell { .. },
+        ),
+        signature: FunctionType {
+            params: [
+                I32,
+            ],
+            results: [
+                I32,
+            ],
+        },
+        kind: Dynamic,
+        host_data: Any { .. },
+    },
+    VMFunction {
+        anyfunc: Instance(
+            0x000056123efc89b0,
+        ),
+        signature: FunctionType {
+            params: [
+                I32,
+            ],
+            results: [
+                I32,
+            ],
+        },
+        kind: Static,
+        host_data: Any { .. },
+    },
+    VMFunction {
+        anyfunc: Instance(
+            0x000056123efc89d0,
+        ),
+        signature: FunctionType {
+            params: [
+                I32,
+            ],
+            results: [
+                I32,
+            ],
+        },
+        kind: Static,
+        host_data: Any { .. },
+    },
+][
+    InstanceHandle {
+        instance_layout: Layout {
+            size: 512,
+            align: 16 (1 << 4),
+        },
+        instance: 0x000056123efc20c0,
+    },
+]}
+anyfunc (3) - host: VMCallerCheckedAnyfunc {
+    func_ptr: 0x0000000000000000,
+    type_index: VMSharedSignatureIndex(
+        1,
+    ),
+    vmctx: VMFunctionContext {
+        vmctx_or_hostenv: 0x000056123efc3690,
+    },
+    call_trampoline: 0x00007f2c2dc71b80,
+}
+vm_funcref: vm func ref ptr: 0x56123efd1310
+return vm anyfunc: Host(
+    UnsafeCell { .. },
+)
+table: wasm_table_t(wasm_extern_t(Store:StoreRef { inner: UnsafeCell { .. } }, Inner:Table(...)
+delta: 5
+init: None
+value_to_table_element: in funcref branch: None
+Initializing...
+Using compiler: cranelift, engine: universal
+Loading binary...
+Compiling module...
+Instantiating module...
+Extracting exports...
+Creating callback...
+callback wasm_functype_new_1_1 created...
+Callback created!
+Checking table...
+Mutating table...
+Growing table...
+    1
+    2
+    3
+    4
+    5
+    6
+    7
+    8
+    9
+> Error on result
+make[1]: Verzeichnis „/home/fs/Development/wasmer/lib/c-api/tests“ wird verlassen

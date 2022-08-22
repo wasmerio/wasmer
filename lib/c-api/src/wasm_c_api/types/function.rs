@@ -88,10 +88,14 @@ pub unsafe extern "C" fn wasm_functype_new(
         .map(|val| val.as_ref().unwrap().as_ref().into())
         .collect::<Vec<_>>();
 
-    Some(Box::new(wasm_functype_t::new(FunctionType::new(
+    let result = Some(Box::new(wasm_functype_t::new(FunctionType::new(
         params_as_valtype,
         results_as_valtype,
-    ))))
+    ))));
+
+    println!("wasm_functype_new (result): {result:#?}");
+
+    result
 }
 
 #[no_mangle]

@@ -150,6 +150,7 @@ impl Function {
         });
         host_data.address = host_data.ctx.func_body_ptr();
 
+        println!("Function::new_with_env - host data (raw signature): {:#?}", host_data.address);
         // We don't yet have the address with the Wasm ABI signature.
         // The engine linker will replace the address with one pointing to a
         // generated dynamic trampoline.
@@ -158,10 +159,12 @@ impl Function {
             .as_store_mut()
             .engine()
             .register_signature(&function_type);
+        println!("Function::new_with_env - signature registered: {type_index:#?}");
         let vmctx = VMFunctionContext {
             host_env: host_data.as_ref() as *const _ as *mut c_void,
         };
         let call_trampoline = host_data.ctx.call_trampoline_address();
+        println!("Function::new_with_env - call_trampoline address: {call_trampoline:#?}");
         let anyfunc = VMCallerCheckedAnyfunc {
             func_ptr,
             type_index,
@@ -169,15 +172,30 @@ impl Function {
             call_trampoline,
         };
 
+        println!("Function::new_with_env - anyfunc: {anyfunc:#?}");
         let vm_function = VMFunction {
             anyfunc: MaybeInstanceOwned::Host(Box::new(UnsafeCell::new(anyfunc))),
             kind: VMFunctionKind::Dynamic,
             signature: function_type,
             host_data,
         };
-        Self {
+
+        /*
+            VMFunction {
+                anyfunc: MaybeInstanceOwned::Host(Box::new(UnsafeCell::new(anyfunc))),
+                kind: VMFunctionKind::Dynamic,
+                signature: function_type,
+                host_data,
+            }
+        */
+
+        println!("Function::new_with_env - vm_function: {:#?}", vm_function);
+        let h = Self {
             handle: StoreHandle::new(store.as_store_mut().objects_mut(), vm_function),
-        }
+        };
+        println!("store handle: {h:#?}");
+
+        h
     }
 
     #[cfg(feature = "compiler")]
@@ -518,10 +536,20 @@ impl Function {
     }
 
     pub(crate) fn vm_funcref(&self, store: &impl AsStoreRef) -> VMFuncRef {
+        println!("store objects: {:#?}", store.as_store_ref().objects());
         let vm_function = self.handle.get(store.as_store_ref().objects());
-        if vm_function.kind == VMFunctionKind::Dynamic {
-            panic!("dynamic functions cannot be used in tables or as funcrefs");
+        if let Some(three) = store.as_store_ref().objects().functions.get(3) {
+            match &three.anyfunc {
+                MaybeInstanceOwned::Host(h) => { 
+                    println!("anyfunc (3) - host: {:#?}", unsafe { &*(*h).get() });
+                },
+                MaybeInstanceOwned::Instance(i) => {
+                    println!("anyfunc (3) - instance: {:#?}", unsafe { &*i.as_ptr() });
+                }
+            }
         }
+        println!("vm_funcref: vm func ref ptr: 0x{:0x}", vm_function.anyfunc.as_ptr().as_ptr() as usize);
+        println!("return vm anyfunc: {:#?}", vm_function.anyfunc);
         VMFuncRef(vm_function.anyfunc.as_ptr())
     }
 
@@ -713,6 +741,7 @@ impl<'a> Exportable<'a> for Function {
 }
 
 /// Host state for a dynamic function.
+#[derive(Debug)]
 pub(crate) struct DynamicFunction<F> {
     func: F,
 }
