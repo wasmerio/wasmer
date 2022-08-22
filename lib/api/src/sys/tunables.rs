@@ -134,8 +134,6 @@ impl Tunables for BaseTunables {
 
 #[cfg(test)]
 mod tests {
-    use crate::sys::tunables;
-
     use super::*;
 
     #[test]
@@ -301,8 +299,6 @@ mod tests {
         );
         let mut vmmemory = vmmemory.unwrap();
         assert!(vmmemory.grow(Pages::from(2u32)).is_err());
-        assert_eq!(vmmemory.size(), Pages::from(1u32));
-        //unsafe { tunables.create_vm_memory(&memory.ty(), &memory.style(), memory.vmmemory()) };
         assert_eq!(vmmemory.size(), Pages::from(1u32));
         assert_eq!(
             vmmemory.grow(Pages::from(0u32)).err().unwrap(),
