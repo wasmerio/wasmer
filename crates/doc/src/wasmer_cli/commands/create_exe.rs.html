@@ -1085,6 +1085,25 @@
 <span id="1083">1083</span>
 <span id="1084">1084</span>
 <span id="1085">1085</span>
+<span id="1086">1086</span>
+<span id="1087">1087</span>
+<span id="1088">1088</span>
+<span id="1089">1089</span>
+<span id="1090">1090</span>
+<span id="1091">1091</span>
+<span id="1092">1092</span>
+<span id="1093">1093</span>
+<span id="1094">1094</span>
+<span id="1095">1095</span>
+<span id="1096">1096</span>
+<span id="1097">1097</span>
+<span id="1098">1098</span>
+<span id="1099">1099</span>
+<span id="1100">1100</span>
+<span id="1101">1101</span>
+<span id="1102">1102</span>
+<span id="1103">1103</span>
+<span id="1104">1104</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Create a standalone native executable for a given Wasm file.</span>
 
 <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::ObjectFormat</span>;
@@ -1108,8 +1127,7 @@
 <span class="kw">pub</span> <span class="kw">type</span> <span class="ident">PrefixerFn</span> <span class="op">=</span> <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Fn</span>(<span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="ident">String</span> <span class="op">+</span> <span class="ident">Send</span><span class="op">&gt;</span>;
 
 <span class="kw">const</span> <span class="ident">WASMER_MAIN_C_SOURCE</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>] <span class="op">=</span> <span class="macro">include_bytes!</span>(<span class="string">&quot;wasmer_create_exe_main.c&quot;</span>);
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-create&quot;</span>)]</span>
-<span class="kw">const</span> <span class="ident">WASMER_STATIC_MAIN_C_SOURCE</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>] <span class="op">=</span> <span class="macro">include_bytes!</span>(<span class="string">&quot;wasmer_static_create_exe_main.c&quot;</span>);
+<span class="kw">const</span> <span class="ident">WASMER_DESERIALIZE_HEADER</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="macro">include_str!</span>(<span class="string">&quot;wasmer_deserialize_module.h&quot;</span>);
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
 <span class="kw">struct</span> <span class="ident">CrossCompile</span> {
@@ -1127,6 +1145,7 @@
     <span class="ident">target</span>: <span class="ident">Triple</span>,
     <span class="ident">zig_binary_path</span>: <span class="ident">PathBuf</span>,
     <span class="ident">library</span>: <span class="ident">PathBuf</span>,
+    <span class="ident">working_dir</span>: <span class="ident">PathBuf</span>,
 }
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Parser</span>)]</span>
@@ -1198,6 +1217,11 @@
 <span class="kw">impl</span> <span class="ident">CreateExe</span> {
     <span class="doccomment">/// Runs logic for the `compile` subcommand</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">execute</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">object_format</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">object_format</span>.<span class="ident">unwrap_or</span>(<span class="ident">ObjectFormat::Symbols</span>);
+        <span class="kw">let</span> <span class="ident">working_dir</span> <span class="op">=</span> <span class="ident">tempfile::tempdir</span>()<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">starting_cd</span> <span class="op">=</span> <span class="ident">env::current_dir</span>()<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">output_path</span> <span class="op">=</span> <span class="ident">starting_cd</span>.<span class="ident">join</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">output</span>);
+
         <span class="comment">/* Making library_path, tarball zig_binary_path flags require that target_triple flag
          * is set cannot be encoded with structopt, so we have to perform cli flag validation
          * manually here */</span>
@@ -1237,10 +1261,6 @@
             })
             .<span class="ident">unwrap_or_default</span>();
 
-        <span class="kw">let</span> <span class="ident">object_format</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">object_format</span>.<span class="ident">unwrap_or</span>(<span class="ident">ObjectFormat::Symbols</span>);
-        <span class="kw">let</span> <span class="ident">working_dir</span> <span class="op">=</span> <span class="ident">tempfile::tempdir</span>()<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">starting_cd</span> <span class="op">=</span> <span class="ident">env::current_dir</span>()<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">output_path</span> <span class="op">=</span> <span class="ident">starting_cd</span>.<span class="ident">join</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">output</span>);
         <span class="ident">env::set_current_dir</span>(<span class="kw-2">&amp;</span><span class="ident">working_dir</span>)<span class="question-mark">?</span>;
 
         <span class="kw">let</span> <span class="ident">cross_compilation</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">CrossCompileSetup</span><span class="op">&gt;</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="kw-2">mut</span> <span class="ident">cross_subc</span>) <span class="op">=</span>
@@ -1343,6 +1363,7 @@
                 <span class="ident">target</span>,
                 <span class="ident">zig_binary_path</span>,
                 <span class="ident">library</span>,
+                <span class="ident">working_dir</span>: <span class="ident">working_dir</span>.<span class="ident">path</span>().<span class="ident">to_path_buf</span>(),
             })
         } <span class="kw">else</span> {
             <span class="prelude-val">None</span>
@@ -1355,30 +1376,37 @@
         <span class="macro">println!</span>(<span class="string">&quot;Format: {:?}&quot;</span>, <span class="ident">object_format</span>);
 
         <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">windows</span>))]</span>
-        <span class="kw">let</span> <span class="ident">wasm_object_path</span> <span class="op">=</span> <span class="ident">PathBuf::from</span>(<span class="string">&quot;wasm.o&quot;</span>);
+        <span class="kw">let</span> <span class="ident">wasm_object_path</span> <span class="op">=</span> <span class="ident">working_dir</span>.<span class="ident">path</span>().<span class="ident">join</span>(<span class="string">&quot;wasm.o&quot;</span>);
         <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">windows</span>)]</span>
-        <span class="kw">let</span> <span class="ident">wasm_object_path</span> <span class="op">=</span> <span class="ident">PathBuf::from</span>(<span class="string">&quot;wasm.obj&quot;</span>);
+        <span class="kw">let</span> <span class="ident">wasm_object_path</span> <span class="op">=</span> <span class="ident">working_dir</span>.<span class="ident">path</span>().<span class="ident">join</span>(<span class="string">&quot;wasm.obj&quot;</span>);
 
         <span class="kw">let</span> <span class="ident">wasm_module_path</span> <span class="op">=</span> <span class="ident">starting_cd</span>.<span class="ident">join</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">path</span>);
+
+        <span class="kw">let</span> <span class="ident">static_defs_header_path</span>: <span class="ident">PathBuf</span> <span class="op">=</span> <span class="ident">working_dir</span>.<span class="ident">path</span>().<span class="ident">join</span>(<span class="string">&quot;static_defs.h&quot;</span>);
 
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">header_path</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">header</span>.<span class="ident">as_ref</span>() {
             <span class="comment">/* In this case, since a header file is given, the input file is expected to be an
              * object created with `create-obj` subcommand */</span>
             <span class="kw">let</span> <span class="ident">header_path</span> <span class="op">=</span> <span class="ident">starting_cd</span>.<span class="ident">join</span>(<span class="kw-2">&amp;</span><span class="ident">header_path</span>);
-            <span class="ident">std::fs::copy</span>(<span class="kw-2">&amp;</span><span class="ident">header_path</span>, <span class="ident">Path::new</span>(<span class="string">&quot;static_defs.h&quot;</span>))
+            <span class="ident">std::fs::copy</span>(<span class="kw-2">&amp;</span><span class="ident">header_path</span>, <span class="kw-2">&amp;</span><span class="ident">static_defs_header_path</span>)
                 .<span class="ident">context</span>(<span class="string">&quot;Could not access given header file&quot;</span>)<span class="question-mark">?</span>;
+            <span class="kw">let</span> <span class="ident">object_file_path</span> <span class="op">=</span> <span class="ident">wasm_module_path</span>;
             <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">setup</span>) <span class="op">=</span> <span class="ident">cross_compilation</span>.<span class="ident">as_ref</span>() {
                 <span class="self">self</span>.<span class="ident">compile_zig</span>(
                     <span class="ident">output_path</span>,
-                    <span class="ident">wasm_module_path</span>,
-                    <span class="ident">std::path::Path::new</span>(<span class="string">&quot;static_defs.h&quot;</span>).<span class="ident">into</span>(),
+                    <span class="ident">object_file_path</span>,
+                    <span class="ident">static_defs_header_path</span>,
                     <span class="ident">setup</span>,
                 )<span class="question-mark">?</span>;
             } <span class="kw">else</span> {
                 <span class="self">self</span>.<span class="ident">link</span>(
-                    <span class="ident">output_path</span>,
-                    <span class="ident">wasm_module_path</span>,
-                    <span class="ident">std::path::Path::new</span>(<span class="string">&quot;static_defs.h&quot;</span>).<span class="ident">into</span>(),
+                    <span class="ident">static_defs_header_path</span>,
+                    <span class="ident">LinkCode</span> {
+                        <span class="ident">object_paths</span>: <span class="macro">vec!</span>[<span class="ident">object_file_path</span>, <span class="string">&quot;main_obj.obj&quot;</span>.<span class="ident">into</span>()],
+                        <span class="ident">output_path</span>,
+                        <span class="ident">working_dir</span>: <span class="ident">working_dir</span>.<span class="ident">path</span>().<span class="ident">to_path_buf</span>(),
+                        ..<span class="ident">Default::default</span>()
+                    },
                 )<span class="question-mark">?</span>;
             }
         } <span class="kw">else</span> {
@@ -1394,9 +1422,44 @@
                         .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">err</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="ident">err</span>.<span class="ident">to_string</span>()))<span class="question-mark">?</span>;
                     <span class="ident">writer</span>.<span class="ident">flush</span>()<span class="question-mark">?</span>;
                     <span class="ident">drop</span>(<span class="ident">writer</span>);
+                    <span class="comment">// Write down header file that includes deserialize function</span>
+                    {
+                        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">writer</span> <span class="op">=</span> <span class="ident">BufWriter::new</span>(<span class="ident">File::create</span>(<span class="kw-2">&amp;</span><span class="ident">static_defs_header_path</span>)<span class="question-mark">?</span>);
+                        <span class="ident">writer</span>.<span class="ident">write_all</span>(<span class="ident">WASMER_DESERIALIZE_HEADER</span>.<span class="ident">as_bytes</span>())<span class="question-mark">?</span>;
+                        <span class="ident">writer</span>.<span class="ident">flush</span>()<span class="question-mark">?</span>;
+                    }
 
-                    <span class="kw">let</span> <span class="ident">cli_given_triple</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">target_triple</span>.<span class="ident">clone</span>();
-                    <span class="self">self</span>.<span class="ident">compile_c</span>(<span class="ident">wasm_object_path</span>, <span class="ident">cli_given_triple</span>, <span class="ident">output_path</span>)<span class="question-mark">?</span>;
+                    <span class="comment">// write C src to disk</span>
+                    <span class="kw">let</span> <span class="ident">c_src_path</span>: <span class="ident">PathBuf</span> <span class="op">=</span> <span class="ident">working_dir</span>.<span class="ident">path</span>().<span class="ident">join</span>(<span class="string">&quot;wasmer_main.c&quot;</span>);
+                    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">windows</span>))]</span>
+                    <span class="kw">let</span> <span class="ident">c_src_obj</span>: <span class="ident">PathBuf</span> <span class="op">=</span> <span class="ident">working_dir</span>.<span class="ident">path</span>().<span class="ident">join</span>(<span class="string">&quot;wasmer_main.o&quot;</span>);
+                    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">windows</span>)]</span>
+                    <span class="kw">let</span> <span class="ident">c_src_obj</span>: <span class="ident">PathBuf</span> <span class="op">=</span> <span class="ident">working_dir</span>.<span class="ident">path</span>().<span class="ident">join</span>(<span class="string">&quot;wasmer_main.obj&quot;</span>);
+
+                    {
+                        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">c_src_file</span> <span class="op">=</span> <span class="ident">fs::OpenOptions::new</span>()
+                            .<span class="ident">create_new</span>(<span class="bool-val">true</span>)
+                            .<span class="ident">write</span>(<span class="bool-val">true</span>)
+                            .<span class="ident">open</span>(<span class="kw-2">&amp;</span><span class="ident">c_src_path</span>)
+                            .<span class="ident">context</span>(<span class="string">&quot;Failed to open C source code file&quot;</span>)<span class="question-mark">?</span>;
+                        <span class="ident">c_src_file</span>.<span class="ident">write_all</span>(<span class="ident">WASMER_MAIN_C_SOURCE</span>)<span class="question-mark">?</span>;
+                    }
+                    <span class="ident">run_c_compile</span>(
+                        <span class="kw-2">&amp;</span><span class="ident">c_src_path</span>,
+                        <span class="kw-2">&amp;</span><span class="ident">c_src_obj</span>,
+                        <span class="ident">static_defs_header_path</span>,
+                        <span class="self">self</span>.<span class="ident">target_triple</span>.<span class="ident">clone</span>(),
+                    )
+                    .<span class="ident">context</span>(<span class="string">&quot;Failed to compile C source code&quot;</span>)<span class="question-mark">?</span>;
+                    <span class="ident">LinkCode</span> {
+                        <span class="ident">object_paths</span>: <span class="macro">vec!</span>[<span class="ident">c_src_obj</span>, <span class="ident">wasm_object_path</span>],
+                        <span class="ident">output_path</span>,
+                        <span class="ident">additional_libraries</span>: <span class="self">self</span>.<span class="ident">libraries</span>.<span class="ident">clone</span>(),
+                        <span class="ident">target</span>: <span class="self">self</span>.<span class="ident">target_triple</span>.<span class="ident">clone</span>(),
+                        ..<span class="ident">Default::default</span>()
+                    }
+                    .<span class="ident">run</span>()
+                    .<span class="ident">context</span>(<span class="string">&quot;Failed to link objects together&quot;</span>)<span class="question-mark">?</span>;
                 }
                 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-create&quot;</span>))]</span>
                 <span class="ident">ObjectFormat::Symbols</span> =&gt; {
@@ -1423,27 +1486,31 @@
                     );
                     <span class="comment">// Write object file with functions</span>
                     <span class="kw">let</span> <span class="ident">object_file_path</span>: <span class="ident">std::path::PathBuf</span> <span class="op">=</span>
-                        <span class="ident">std::path::Path::new</span>(<span class="string">&quot;functions.o&quot;</span>).<span class="ident">into</span>();
+                        <span class="ident">working_dir</span>.<span class="ident">path</span>().<span class="ident">join</span>(<span class="string">&quot;functions.o&quot;</span>);
                     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">writer</span> <span class="op">=</span> <span class="ident">BufWriter::new</span>(<span class="ident">File::create</span>(<span class="kw-2">&amp;</span><span class="ident">object_file_path</span>)<span class="question-mark">?</span>);
                     <span class="ident">obj</span>.<span class="ident">write_stream</span>(<span class="kw-2">&amp;mut</span> <span class="ident">writer</span>)
                         .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">err</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="ident">err</span>.<span class="ident">to_string</span>()))<span class="question-mark">?</span>;
                     <span class="ident">writer</span>.<span class="ident">flush</span>()<span class="question-mark">?</span>;
                     <span class="comment">// Write down header file that includes pointer arrays and the deserialize function</span>
-                    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">writer</span> <span class="op">=</span> <span class="ident">BufWriter::new</span>(<span class="ident">File::create</span>(<span class="string">&quot;static_defs.h&quot;</span>)<span class="question-mark">?</span>);
+                    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">writer</span> <span class="op">=</span> <span class="ident">BufWriter::new</span>(<span class="ident">File::create</span>(<span class="kw-2">&amp;</span><span class="ident">static_defs_header_path</span>)<span class="question-mark">?</span>);
                     <span class="ident">writer</span>.<span class="ident">write_all</span>(<span class="ident">header_file_src</span>.<span class="ident">as_bytes</span>())<span class="question-mark">?</span>;
                     <span class="ident">writer</span>.<span class="ident">flush</span>()<span class="question-mark">?</span>;
                     <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">setup</span>) <span class="op">=</span> <span class="ident">cross_compilation</span>.<span class="ident">as_ref</span>() {
                         <span class="self">self</span>.<span class="ident">compile_zig</span>(
                             <span class="ident">output_path</span>,
                             <span class="ident">object_file_path</span>,
-                            <span class="ident">std::path::Path::new</span>(<span class="string">&quot;static_defs.h&quot;</span>).<span class="ident">into</span>(),
+                            <span class="ident">static_defs_header_path</span>,
                             <span class="ident">setup</span>,
                         )<span class="question-mark">?</span>;
                     } <span class="kw">else</span> {
                         <span class="self">self</span>.<span class="ident">link</span>(
-                            <span class="ident">output_path</span>,
-                            <span class="ident">object_file_path</span>,
-                            <span class="ident">std::path::Path::new</span>(<span class="string">&quot;static_defs.h&quot;</span>).<span class="ident">into</span>(),
+                            <span class="ident">static_defs_header_path</span>,
+                            <span class="ident">LinkCode</span> {
+                                <span class="ident">object_paths</span>: <span class="macro">vec!</span>[<span class="ident">object_file_path</span>, <span class="string">&quot;main_obj.obj&quot;</span>.<span class="ident">into</span>()],
+                                <span class="ident">output_path</span>,
+                                <span class="ident">working_dir</span>: <span class="ident">working_dir</span>.<span class="ident">path</span>().<span class="ident">to_path_buf</span>(),
+                                ..<span class="ident">Default::default</span>()
+                            },
                         )<span class="question-mark">?</span>;
                     }
                 }
@@ -1466,55 +1533,25 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">fn</span> <span class="ident">compile_c</span>(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">wasm_object_path</span>: <span class="ident">PathBuf</span>,
-        <span class="ident">target_triple</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">wasmer::Triple</span><span class="op">&gt;</span>,
-        <span class="ident">output_path</span>: <span class="ident">PathBuf</span>,
-    ) -&gt; <span class="ident">anyhow::Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="comment">// write C src to disk</span>
-        <span class="kw">let</span> <span class="ident">c_src_path</span> <span class="op">=</span> <span class="ident">Path::new</span>(<span class="string">&quot;wasmer_main.c&quot;</span>);
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">windows</span>))]</span>
-        <span class="kw">let</span> <span class="ident">c_src_obj</span> <span class="op">=</span> <span class="ident">PathBuf::from</span>(<span class="string">&quot;wasmer_main.o&quot;</span>);
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">windows</span>)]</span>
-        <span class="kw">let</span> <span class="ident">c_src_obj</span> <span class="op">=</span> <span class="ident">PathBuf::from</span>(<span class="string">&quot;wasmer_main.obj&quot;</span>);
-
-        {
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">c_src_file</span> <span class="op">=</span> <span class="ident">fs::OpenOptions::new</span>()
-                .<span class="ident">create_new</span>(<span class="bool-val">true</span>)
-                .<span class="ident">write</span>(<span class="bool-val">true</span>)
-                .<span class="ident">open</span>(<span class="kw-2">&amp;</span><span class="ident">c_src_path</span>)
-                .<span class="ident">context</span>(<span class="string">&quot;Failed to open C source code file&quot;</span>)<span class="question-mark">?</span>;
-            <span class="ident">c_src_file</span>.<span class="ident">write_all</span>(<span class="ident">WASMER_MAIN_C_SOURCE</span>)<span class="question-mark">?</span>;
-        }
-        <span class="ident">run_c_compile</span>(<span class="ident">c_src_path</span>, <span class="kw-2">&amp;</span><span class="ident">c_src_obj</span>, <span class="ident">target_triple</span>.<span class="ident">clone</span>())
-            .<span class="ident">context</span>(<span class="string">&quot;Failed to compile C source code&quot;</span>)<span class="question-mark">?</span>;
-        <span class="ident">LinkCode</span> {
-            <span class="ident">object_paths</span>: <span class="macro">vec!</span>[<span class="ident">c_src_obj</span>, <span class="ident">wasm_object_path</span>],
-            <span class="ident">output_path</span>,
-            <span class="ident">additional_libraries</span>: <span class="self">self</span>.<span class="ident">libraries</span>.<span class="ident">clone</span>(),
-            <span class="ident">target</span>: <span class="ident">target_triple</span>,
-            ..<span class="ident">Default::default</span>()
-        }
-        .<span class="ident">run</span>()
-        .<span class="ident">context</span>(<span class="string">&quot;Failed to link objects together&quot;</span>)<span class="question-mark">?</span>;
-
-        <span class="prelude-val">Ok</span>(())
-    }
-
     <span class="kw">fn</span> <span class="ident">compile_zig</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">output_path</span>: <span class="ident">PathBuf</span>,
         <span class="ident">object_path</span>: <span class="ident">PathBuf</span>,
-        <span class="kw-2">mut</span> <span class="ident">header_code_path</span>: <span class="ident">PathBuf</span>,
+        <span class="kw-2">mut</span> <span class="ident">header_path</span>: <span class="ident">PathBuf</span>,
         <span class="ident">setup</span>: <span class="kw-2">&amp;</span><span class="ident">CrossCompileSetup</span>,
     ) -&gt; <span class="ident">anyhow::Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">c_src_path</span> <span class="op">=</span> <span class="ident">Path::new</span>(<span class="string">&quot;wasmer_main.c&quot;</span>);
+        <span class="macro">debug_assert!</span>(
+            <span class="ident">header_path</span>.<span class="ident">is_absolute</span>(),
+            <span class="string">&quot;compile_zig() called with relative header file path {}&quot;</span>,
+            <span class="ident">header_path</span>.<span class="ident">display</span>()
+        );
         <span class="kw">let</span> <span class="ident">CrossCompileSetup</span> {
             <span class="kw-2">ref</span> <span class="ident">target</span>,
             <span class="kw-2">ref</span> <span class="ident">zig_binary_path</span>,
             <span class="kw-2">ref</span> <span class="ident">library</span>,
+            <span class="kw-2">ref</span> <span class="ident">working_dir</span>,
         } <span class="op">=</span> <span class="ident">setup</span>;
+        <span class="kw">let</span> <span class="ident">c_src_path</span> <span class="op">=</span> <span class="ident">working_dir</span>.<span class="ident">join</span>(<span class="string">&quot;wasmer_main.c&quot;</span>);
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">libwasmer_path</span> <span class="op">=</span> <span class="ident">library</span>.<span class="ident">to_path_buf</span>();
 
         <span class="macro">println!</span>(<span class="string">&quot;Library Path: {}&quot;</span>, <span class="ident">libwasmer_path</span>.<span class="ident">display</span>());
@@ -1536,15 +1573,11 @@
                 .<span class="ident">write</span>(<span class="bool-val">true</span>)
                 .<span class="ident">open</span>(<span class="kw-2">&amp;</span><span class="ident">c_src_path</span>)
                 .<span class="ident">context</span>(<span class="string">&quot;Failed to open C source code file&quot;</span>)<span class="question-mark">?</span>;
-            <span class="ident">c_src_file</span>.<span class="ident">write_all</span>(<span class="ident">WASMER_STATIC_MAIN_C_SOURCE</span>)<span class="question-mark">?</span>;
+            <span class="ident">c_src_file</span>.<span class="ident">write_all</span>(<span class="ident">WASMER_MAIN_C_SOURCE</span>)<span class="question-mark">?</span>;
         }
 
-        <span class="kw">if</span> <span class="op">!</span><span class="ident">header_code_path</span>.<span class="ident">is_dir</span>() {
-            <span class="ident">header_code_path</span>.<span class="ident">pop</span>();
-        }
-
-        <span class="kw">if</span> <span class="ident">header_code_path</span>.<span class="ident">display</span>().<span class="ident">to_string</span>().<span class="ident">is_empty</span>() {
-            <span class="ident">header_code_path</span> <span class="op">=</span> <span class="ident">std::env::current_dir</span>()<span class="question-mark">?</span>;
+        <span class="kw">if</span> <span class="op">!</span><span class="ident">header_path</span>.<span class="ident">is_dir</span>() {
+            <span class="ident">header_path</span>.<span class="ident">pop</span>();
         }
 
         <span class="comment">/* Compile main function */</span>
@@ -1565,7 +1598,7 @@
                 .<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;-L{}&quot;</span>, <span class="ident">libwasmer_path</span>.<span class="ident">display</span>()))
                 .<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;-l:{}&quot;</span>, <span class="ident">lib_filename</span>))
                 .<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;-I{}&quot;</span>, <span class="ident">include_dir</span>.<span class="ident">display</span>()))
-                .<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;-I{}&quot;</span>, <span class="ident">header_code_path</span>.<span class="ident">display</span>()));
+                .<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;-I{}&quot;</span>, <span class="ident">header_path</span>.<span class="ident">display</span>()));
             <span class="kw">if</span> <span class="op">!</span><span class="ident">zig_triple</span>.<span class="ident">contains</span>(<span class="string">&quot;windows&quot;</span>) {
                 <span class="ident">cmd_mut</span> <span class="op">=</span> <span class="ident">cmd_mut</span>.<span class="ident">arg</span>(<span class="string">&quot;-lunwind&quot;</span>);
             }
@@ -1587,18 +1620,13 @@
     }
 
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-create&quot;</span>)]</span>
-    <span class="kw">fn</span> <span class="ident">link</span>(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">output_path</span>: <span class="ident">PathBuf</span>,
-        <span class="ident">object_path</span>: <span class="ident">PathBuf</span>,
-        <span class="kw-2">mut</span> <span class="ident">header_code_path</span>: <span class="ident">PathBuf</span>,
-    ) -&gt; <span class="ident">anyhow::Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">linkcode</span> <span class="op">=</span> <span class="ident">LinkCode</span> {
-            <span class="ident">object_paths</span>: <span class="macro">vec!</span>[<span class="ident">object_path</span>, <span class="string">&quot;main_obj.obj&quot;</span>.<span class="ident">into</span>()],
-            <span class="ident">output_path</span>,
-            ..<span class="ident">Default::default</span>()
-        };
-        <span class="kw">let</span> <span class="ident">c_src_path</span> <span class="op">=</span> <span class="ident">Path::new</span>(<span class="string">&quot;wasmer_main.c&quot;</span>);
+    <span class="kw">fn</span> <span class="ident">link</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw-2">mut</span> <span class="ident">header_path</span>: <span class="ident">PathBuf</span>, <span class="ident">linkcode</span>: <span class="ident">LinkCode</span>) -&gt; <span class="ident">anyhow::Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
+        <span class="macro">debug_assert!</span>(
+            <span class="ident">header_path</span>.<span class="ident">is_absolute</span>(),
+            <span class="string">&quot;link() called with relative header file path {}&quot;</span>,
+            <span class="ident">header_path</span>.<span class="ident">display</span>()
+        );
+        <span class="kw">let</span> <span class="ident">c_src_path</span>: <span class="ident">PathBuf</span> <span class="op">=</span> <span class="ident">linkcode</span>.<span class="ident">working_dir</span>.<span class="ident">join</span>(<span class="string">&quot;wasmer_main.c&quot;</span>);
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">libwasmer_path</span> <span class="op">=</span> <span class="ident">get_libwasmer_path</span>()<span class="question-mark">?</span>
             .<span class="ident">canonicalize</span>()
             .<span class="ident">context</span>(<span class="string">&quot;Failed to find libwasmer&quot;</span>)<span class="question-mark">?</span>;
@@ -1618,15 +1646,11 @@
                 .<span class="ident">write</span>(<span class="bool-val">true</span>)
                 .<span class="ident">open</span>(<span class="kw-2">&amp;</span><span class="ident">c_src_path</span>)
                 .<span class="ident">context</span>(<span class="string">&quot;Failed to open C source code file&quot;</span>)<span class="question-mark">?</span>;
-            <span class="ident">c_src_file</span>.<span class="ident">write_all</span>(<span class="ident">WASMER_STATIC_MAIN_C_SOURCE</span>)<span class="question-mark">?</span>;
+            <span class="ident">c_src_file</span>.<span class="ident">write_all</span>(<span class="ident">WASMER_MAIN_C_SOURCE</span>)<span class="question-mark">?</span>;
         }
 
-        <span class="kw">if</span> <span class="op">!</span><span class="ident">header_code_path</span>.<span class="ident">is_dir</span>() {
-            <span class="ident">header_code_path</span>.<span class="ident">pop</span>();
-        }
-
-        <span class="kw">if</span> <span class="ident">header_code_path</span>.<span class="ident">display</span>().<span class="ident">to_string</span>().<span class="ident">is_empty</span>() {
-            <span class="ident">header_code_path</span> <span class="op">=</span> <span class="ident">std::env::current_dir</span>()<span class="question-mark">?</span>;
+        <span class="kw">if</span> <span class="op">!</span><span class="ident">header_path</span>.<span class="ident">is_dir</span>() {
+            <span class="ident">header_path</span>.<span class="ident">pop</span>();
         }
 
         <span class="comment">/* Compile main function */</span>
@@ -1655,7 +1679,7 @@
                 .<span class="ident">arg</span>(<span class="string">&quot;-ldl&quot;</span>)
                 .<span class="ident">arg</span>(<span class="string">&quot;-lm&quot;</span>)
                 .<span class="ident">arg</span>(<span class="string">&quot;-pthread&quot;</span>)
-                .<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;-I{}&quot;</span>, <span class="ident">header_code_path</span>.<span class="ident">display</span>()))
+                .<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;-I{}&quot;</span>, <span class="ident">header_path</span>.<span class="ident">display</span>()))
                 .<span class="ident">arg</span>(<span class="string">&quot;-v&quot;</span>)
                 .<span class="ident">arg</span>(<span class="string">&quot;-o&quot;</span>)
                 .<span class="ident">arg</span>(<span class="string">&quot;main_obj.obj&quot;</span>)
@@ -1739,8 +1763,15 @@
 <span class="kw">fn</span> <span class="ident">run_c_compile</span>(
     <span class="ident">path_to_c_src</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>,
     <span class="ident">output_name</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>,
+    <span class="kw-2">mut</span> <span class="ident">header_path</span>: <span class="ident">PathBuf</span>,
     <span class="ident">target</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Triple</span><span class="op">&gt;</span>,
 ) -&gt; <span class="ident">anyhow::Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
+    <span class="macro">debug_assert!</span>(
+        <span class="ident">header_path</span>.<span class="ident">is_absolute</span>(),
+        <span class="string">&quot;run_c_compile() called with relative header file path {}&quot;</span>,
+        <span class="ident">header_path</span>.<span class="ident">display</span>()
+    );
+
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">windows</span>))]</span>
     <span class="kw">let</span> <span class="ident">c_compiler</span> <span class="op">=</span> <span class="string">&quot;cc&quot;</span>;
     <span class="comment">// We must use a C++ compiler on Windows because wasm.h uses `static_assert`</span>
@@ -1748,13 +1779,17 @@
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">windows</span>)]</span>
     <span class="kw">let</span> <span class="ident">c_compiler</span> <span class="op">=</span> <span class="string">&quot;clang++&quot;</span>;
 
+    <span class="kw">if</span> <span class="op">!</span><span class="ident">header_path</span>.<span class="ident">is_dir</span>() {
+        <span class="ident">header_path</span>.<span class="ident">pop</span>();
+    }
+
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">command</span> <span class="op">=</span> <span class="ident">Command::new</span>(<span class="ident">c_compiler</span>);
     <span class="kw">let</span> <span class="ident">command</span> <span class="op">=</span> <span class="ident">command</span>
         .<span class="ident">arg</span>(<span class="string">&quot;-O2&quot;</span>)
         .<span class="ident">arg</span>(<span class="string">&quot;-c&quot;</span>)
         .<span class="ident">arg</span>(<span class="ident">path_to_c_src</span>)
-        .<span class="ident">arg</span>(<span class="string">&quot;-I&quot;</span>)
-        .<span class="ident">arg</span>(<span class="ident">get_wasmer_include_directory</span>()<span class="question-mark">?</span>);
+        .<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;-I{}&quot;</span>, <span class="ident">header_path</span>.<span class="ident">display</span>()))
+        .<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;-I{}&quot;</span>, <span class="ident">get_wasmer_include_directory</span>()<span class="question-mark">?</span>.<span class="ident">display</span>()));
 
     <span class="kw">let</span> <span class="ident">command</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">target</span>) <span class="op">=</span> <span class="ident">target</span> {
         <span class="ident">command</span>.<span class="ident">arg</span>(<span class="string">&quot;-target&quot;</span>).<span class="ident">arg</span>(<span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">target</span>))
@@ -1793,6 +1828,8 @@
     <span class="ident">libwasmer_path</span>: <span class="ident">PathBuf</span>,
     <span class="doccomment">/// The target to link the executable for.</span>
     <span class="ident">target</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Triple</span><span class="op">&gt;</span>,
+    <span class="doccomment">/// Working directory</span>
+    <span class="ident">working_dir</span>: <span class="ident">PathBuf</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">Default</span> <span class="kw">for</span> <span class="ident">LinkCode</span> {
@@ -1809,6 +1846,7 @@
             <span class="ident">output_path</span>: <span class="ident">PathBuf::from</span>(<span class="string">&quot;a.out&quot;</span>),
             <span class="ident">libwasmer_path</span>: <span class="ident">get_libwasmer_path</span>().<span class="ident">unwrap</span>(),
             <span class="ident">target</span>: <span class="prelude-val">None</span>,
+            <span class="ident">working_dir</span>: <span class="ident">env::current_dir</span>().<span class="ident">expect</span>(<span class="string">&quot;could not get current dir from environment&quot;</span>),
         }
     }
 }
