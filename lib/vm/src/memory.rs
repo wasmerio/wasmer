@@ -301,7 +301,7 @@ impl From<VMOwnedMemory> for VMMemory {
 
 /// Represents linear memory that can be either owned or shared
 #[derive(Debug)]
-pub struct VMMemory(Box<dyn LinearMemory + 'static>);
+pub struct VMMemory(pub Box<dyn LinearMemory + 'static>);
 
 impl From<Box<dyn LinearMemory + 'static>> for VMMemory {
     fn from(mem: Box<dyn LinearMemory + 'static>) -> Self {
@@ -460,105 +460,5 @@ mod test_vmmemory_definition {
             offset_of!(VMMemoryDefinition, current_length),
             usize::from(offsets.vmmemory_definition_current_length())
         );
-    }
-}
-
-#[cfg(test)]
-mod test_linearmemory {
-    use super::LinearMemory;
-    use super::VMMemoryDefinition;
-    use crate::store::MaybeInstanceOwned;
-    use crate::VMMemory;
-    use std::cell::UnsafeCell;
-    use std::ptr::read_unaligned;
-    use std::ptr::write_unaligned;
-    use std::ptr::NonNull;
-    use wasmer_types::{MemoryError, MemoryStyle, MemoryType, Pages, WASM_PAGE_SIZE};
-
-    #[derive(Debug)]
-    struct VMTinyMemory {
-        mem: [u8; WASM_PAGE_SIZE],
-    }
-
-    unsafe impl Send for VMTinyMemory {}
-    unsafe impl Sync for VMTinyMemory {}
-
-    impl VMTinyMemory {
-        pub fn new() -> Result<Self, MemoryError> {
-            Ok(VMTinyMemory {
-                mem: [0; WASM_PAGE_SIZE],
-            })
-        }
-    }
-
-    impl LinearMemory for VMTinyMemory {
-        fn ty(&self) -> MemoryType {
-            MemoryType {
-                minimum: Pages::from(1u32),
-                maximum: Some(Pages::from(1u32)),
-                shared: false,
-            }
-        }
-        fn size(&self) -> Pages {
-            Pages::from(1u32)
-        }
-        fn style(&self) -> MemoryStyle {
-            MemoryStyle::Static {
-                bound: Pages::from(1u32),
-                offset_guard_size: 0,
-            }
-        }
-        fn grow(&mut self, delta: Pages) -> Result<Pages, MemoryError> {
-            Err(MemoryError::CouldNotGrow {
-                current: Pages::from(1u32),
-                attempted_delta: delta,
-            })
-        }
-        fn vmmemory(&self) -> NonNull<VMMemoryDefinition> {
-            MaybeInstanceOwned::Host(Box::new(UnsafeCell::new(VMMemoryDefinition {
-                base: self.mem.as_ptr() as _,
-                current_length: WASM_PAGE_SIZE,
-            })))
-            .as_ptr()
-        }
-        fn try_clone(&self) -> Option<Box<dyn LinearMemory + 'static>> {
-            None
-        }
-    }
-
-    impl From<VMTinyMemory> for VMMemory {
-        fn from(mem: VMTinyMemory) -> Self {
-            Self(Box::new(mem))
-        }
-    }
-
-    #[test]
-    fn check_linearmemory() {
-        let mut memory = VMTinyMemory::new().unwrap();
-        assert!(memory.grow(Pages::from(2u32)).is_err());
-        assert_eq!(memory.size(), Pages::from(1u32));
-
-        let vmemdef = memory.vmmemory();
-        let raw_ptr: *mut u8 = unsafe { vmemdef.as_ref().base };
-        unsafe {
-            write_unaligned(raw_ptr, 1);
-            assert_eq!(read_unaligned(raw_ptr), 1);
-            write_unaligned(raw_ptr.add(100), 200);
-            assert_eq!(read_unaligned(raw_ptr.add(100)), 200);
-        }
-        // re-borrow
-        let vmemdef = memory.vmmemory();
-        let raw_ptr: *mut u8 = unsafe { vmemdef.as_ref().base };
-        unsafe {
-            assert_eq!(read_unaligned(raw_ptr), 1);
-        }
-        // borrow as VMMemory
-        let vmmemory: VMMemory = VMMemory::from_custom(memory);
-        assert_eq!(vmmemory.size(), Pages::from(1u32));
-        let raw_ptr = unsafe { vmmemory.vmmemory().as_ref().base };
-        unsafe {
-            assert_eq!(read_unaligned(raw_ptr), 1);
-            assert_eq!(read_unaligned(raw_ptr.add(100)), 200);
-        }
     }
 }
