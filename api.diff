@@ -1,0 +1,918 @@
+Removed:
+-#[non_exhaustive] pub enum wasmer::js::MemoryAccessError
+-#[repr(transparent)] pub struct wasmer::js::FunctionEnv<T>
+-#[repr(transparent)] pub struct wasmer::js::WasmPtr<T, M: MemorySize>
+-pub const wasmer::js::Function::WASM_TYPE: Type
+-pub const wasmer::js::VERSION: &'static str
+-pub enum variant wasmer::js::DeserializeError::Compiler(CompileError)
+-pub enum variant wasmer::js::DeserializeError::CorruptedBinary(String)
+-pub enum variant wasmer::js::DeserializeError::Generic(String)
+-pub enum variant wasmer::js::DeserializeError::Incompatible(String)
+-pub enum variant wasmer::js::DeserializeError::Io(std::io::Error)
+-pub enum variant wasmer::js::Export::Function(InternalStoreHandle<VMFunction>)
+-pub enum variant wasmer::js::Export::Global(InternalStoreHandle<VMGlobal>)
+-pub enum variant wasmer::js::Export::Memory(InternalStoreHandle<VMMemory>)
+-pub enum variant wasmer::js::Export::Table(InternalStoreHandle<VMTable>)
+-pub enum variant wasmer::js::ExportError::IncompatibleType
+-pub enum variant wasmer::js::ExportError::Missing(String)
+-pub enum variant wasmer::js::Extern::Function(Function)
+-pub enum variant wasmer::js::Extern::Global(Global)
+-pub enum variant wasmer::js::Extern::Memory(Memory)
+-pub enum variant wasmer::js::Extern::Table(Table)
+-pub enum variant wasmer::js::InstantiationError::DifferentStores
+-pub enum variant wasmer::js::InstantiationError::Link(String)
+-pub enum variant wasmer::js::InstantiationError::Start(RuntimeError)
+-pub enum variant wasmer::js::InstantiationError::Wasm(WasmError)
+-pub enum variant wasmer::js::MemoryAccessError::HeapOutOfBounds
+-pub enum variant wasmer::js::MemoryAccessError::NonUtf8String
+-pub enum variant wasmer::js::MemoryAccessError::Overflow
+-pub enum variant wasmer::js::MemoryError::CouldNotGrow
+-pub enum variant wasmer::js::MemoryError::Generic(String)
+-pub enum variant wasmer::js::SerializeError::Generic(String)
+-pub enum variant wasmer::js::SerializeError::Io(std::io::Error)
+-pub enum variant wasmer::js::Val::F32(f32)
+-pub enum variant wasmer::js::Val::F64(f64)
+-pub enum variant wasmer::js::Val::FuncRef(Option<Function>)
+-pub enum variant wasmer::js::Val::I32(i32)
+-pub enum variant wasmer::js::Val::I64(i64)
+-pub enum variant wasmer::js::Value::F32(f32)
+-pub enum variant wasmer::js::Value::F64(f64)
+-pub enum variant wasmer::js::Value::FuncRef(Option<Function>)
+-pub enum variant wasmer::js::Value::I32(i32)
+-pub enum variant wasmer::js::Value::I64(i64)
+-pub enum wasmer::js::DeserializeError
+-pub enum wasmer::js::Export
+-pub enum wasmer::js::ExportError
+-pub enum wasmer::js::Extern
+-pub enum wasmer::js::InstantiationError
+-pub enum wasmer::js::MemoryError
+-pub enum wasmer::js::SerializeError
+-pub enum wasmer::js::Val
+-pub enum wasmer::js::Value
+-pub fn wasmer::js::AsStoreMut::as_store_mut(&mut self) -> StoreMut<'_>
+-pub fn wasmer::js::AsStoreMut::objects_mut(&mut self) -> &mut StoreObjects
+-pub fn wasmer::js::AsStoreRef::as_store_ref(&self) -> StoreRef<'_>
+-pub fn wasmer::js::DeserializeError::fmt(&self, __formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result
+-pub fn wasmer::js::DeserializeError::fmt(&self, f: &mut $crate::fmt::Formatter<'_>) -> $crate::fmt::Result
+-pub fn wasmer::js::DeserializeError::from(source: std::io::Error) -> Self
+-pub fn wasmer::js::DeserializeError::source(&self) -> std::option::Option<&(dyn std::error::Error + 'static)>
+-pub fn wasmer::js::Export::as_jsvalue<'context>(&self, store: &'context impl AsStoreRef) -> &'context JsValue
+-pub fn wasmer::js::Export::clone(&self) -> Export
+-pub fn wasmer::js::Export::fmt(&self, f: &mut $crate::fmt::Formatter<'_>) -> $crate::fmt::Result
+-pub fn wasmer::js::Export::from_js_value(val: JsValue, store: &mut impl AsStoreMut, extern_type: ExternType) -> Result<Self, WasmError>
+-pub fn wasmer::js::ExportError::fmt(&self, __formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result
+-pub fn wasmer::js::ExportError::fmt(&self, f: &mut $crate::fmt::Formatter<'_>) -> $crate::fmt::Result
+-pub fn wasmer::js::Exportable::get_self_from_extern(_extern: &'a Extern) -> Result<&'a Self, ExportError>
+-pub fn wasmer::js::Exports::clone(&self) -> Exports
+-pub fn wasmer::js::Exports::contains<S>(&self, name: S) -> bool where S: Into<String>
+-pub fn wasmer::js::Exports::default() -> Exports
+-pub fn wasmer::js::Exports::fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
+-pub fn wasmer::js::Exports::from_iter<I: IntoIterator<Item = (String, Extern)>>(iter: I) -> Self
+-pub fn wasmer::js::Exports::get<'a, T: Exportable<'a>>(&'a self, name: &str) -> Result<&'a T, ExportError>
+-pub fn wasmer::js::Exports::get_extern(&self, name: &str) -> Option<&Extern>
+-pub fn wasmer::js::Exports::get_function(&self, name: &str) -> Result<&Function, ExportError>
+-pub fn wasmer::js::Exports::get_global(&self, name: &str) -> Result<&Global, ExportError>
+-pub fn wasmer::js::Exports::get_memory(&self, name: &str) -> Result<&Memory, ExportError>
+-pub fn wasmer::js::Exports::get_native_function<Args, Rets>(&self, store: &impl AsStoreRef, name: &str) -> Result<TypedFunction<Args, Rets>, ExportError> where Args: WasmTypeList, Rets: WasmTypeList
+-pub fn wasmer::js::Exports::get_table(&self, name: &str) -> Result<&Table, ExportError>
+-pub fn wasmer::js::Exports::get_typed_function<Args, Rets>(&self, store: &impl AsStoreRef, name: &str) -> Result<TypedFunction<Args, Rets>, ExportError> where Args: WasmTypeList, Rets: WasmTypeList
+-pub fn wasmer::js::Exports::get_with_generics<'a, T, Args, Rets>(&'a self, store: &impl AsStoreRef, name: &str) -> Result<T, ExportError> where Args: WasmTypeList, Rets: WasmTypeList, T: ExportableWithGenerics<'a, Args, Rets>
+-pub fn wasmer::js::Exports::get_with_generics_weak<'a, T, Args, Rets>(&'a self, store: &impl AsStoreRef, name: &str) -> Result<T, ExportError> where Args: WasmTypeList, Rets: WasmTypeList, T: ExportableWithGenerics<'a, Args, Rets>
+-pub fn wasmer::js::Exports::insert<S, E>(&mut self, name: S, value: E) where S: Into<String>, E: Into<Extern>
+-pub fn wasmer::js::Exports::into_iter(self) -> <Self as >::IntoIter
+-pub fn wasmer::js::Exports::is_empty(&self) -> bool
+-pub fn wasmer::js::Exports::iter(&self) -> ExportsIterator<'_, impl Iterator<Item = (&String, &Extern)>>
+-pub fn wasmer::js::Exports::len(&self) -> usize
+-pub fn wasmer::js::Exports::new() -> Self
+-pub fn wasmer::js::Exports::with_capacity(n: usize) -> Self
+-pub fn wasmer::js::ExportsIterator::functions(self) -> impl Iterator<Item = (&'a String, &'a Function)> + Sized
+-pub fn wasmer::js::ExportsIterator::globals(self) -> impl Iterator<Item = (&'a String, &'a Global)> + Sized
+-pub fn wasmer::js::ExportsIterator::len(&self) -> usize
+-pub fn wasmer::js::ExportsIterator::memories(self) -> impl Iterator<Item = (&'a String, &'a Memory)> + Sized
+-pub fn wasmer::js::ExportsIterator::next(&mut self) -> Option<<Self as >::Item>
+-pub fn wasmer::js::ExportsIterator::tables(self) -> impl Iterator<Item = (&'a String, &'a Table)> + Sized
+-pub fn wasmer::js::Extern::clone(&self) -> Extern
+-pub fn wasmer::js::Extern::fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
+-pub fn wasmer::js::Extern::from(r: Function) -> Self
+-pub fn wasmer::js::Extern::from(r: Global) -> Self
+-pub fn wasmer::js::Extern::from(r: Memory) -> Self
+-pub fn wasmer::js::Extern::from(r: Table) -> Self
+-pub fn wasmer::js::Extern::from_vm_export(store: &mut impl AsStoreMut, export: Export) -> Self
+-pub fn wasmer::js::Extern::get_self_from_extern(_extern: &'a Self) -> Result<&'a Self, ExportError>
+-pub fn wasmer::js::Extern::is_from_store(&self, store: &impl AsStoreRef) -> bool
+-pub fn wasmer::js::Extern::ty(&self, store: &impl AsStoreRef) -> ExternType
+-pub fn wasmer::js::FromToNativeWasmType::from_native(native: <Self as >::Native) -> Self
+-pub fn wasmer::js::FromToNativeWasmType::to_native(self) -> <Self as >::Native
+-pub fn wasmer::js::Function::call(&self, store: &mut impl AsStoreMut, params: &[Value]) -> Result<Box<[Value]>, RuntimeError>
+-pub fn wasmer::js::Function::clone(&self) -> Function
+-pub fn wasmer::js::Function::eq(&self, other: &Function) -> bool
+-pub fn wasmer::js::Function::fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result
+-pub fn wasmer::js::Function::get_self_from_extern(_extern: &'a Extern) -> Result<&'a Self, ExportError>
+-pub fn wasmer::js::Function::is_from_store(&self, store: &impl AsStoreRef) -> bool
+-pub fn wasmer::js::Function::native<Args, Rets>(&self, store: &impl AsStoreRef) -> Result<TypedFunction<Args, Rets>, RuntimeError> where Args: WasmTypeList, Rets: WasmTypeList
+-pub fn wasmer::js::Function::new<FT, F>(store: &mut impl AsStoreMut, ty: FT, func: F) -> Self where FT: Into<FunctionType>, F: Fn(&[Value]) -> Result<Vec<Value>, RuntimeError> + 'static + Send + Sync
+-pub fn wasmer::js::Function::new_native<F, Args, Rets>(store: &mut impl AsStoreMut, func: F) -> Self where F: HostFunction<(), Args, Rets, WithoutEnv> + 'static + Send + Sync, Args: WasmTypeList, Rets: WasmTypeList
+-pub fn wasmer::js::Function::new_native_with_env<T, F, Args, Rets>(store: &mut impl AsStoreMut, env: &FunctionEnv<T>, func: F) -> Self where F: HostFunction<T, Args, Rets, WithEnv>, Args: WasmTypeList, Rets: WasmTypeList
+-pub fn wasmer::js::Function::new_typed<F, Args, Rets>(store: &mut impl AsStoreMut, func: F) -> Self where F: HostFunction<(), Args, Rets, WithoutEnv> + 'static + Send + Sync, Args: WasmTypeList, Rets: WasmTypeList
+-pub fn wasmer::js::Function::new_typed_with_env<T, F, Args, Rets>(store: &mut impl AsStoreMut, env: &FunctionEnv<T>, func: F) -> Self where F: HostFunction<T, Args, Rets, WithEnv>, Args: WasmTypeList, Rets: WasmTypeList
+-pub fn wasmer::js::Function::new_with_env<FT, F, T: Send + 'static>(store: &mut impl AsStoreMut, env: &FunctionEnv<T>, ty: FT, func: F) -> Self where FT: Into<FunctionType>, F: Fn(FunctionEnvMut<'_, T>, &[Value]) -> Result<Vec<Value>, RuntimeError> + 'static + Send + Sync
+-pub fn wasmer::js::Function::param_arity(&self, store: &impl AsStoreRef) -> usize
+-pub fn wasmer::js::Function::result_arity(&self, store: &impl AsStoreRef) -> usize
+-pub fn wasmer::js::Function::ty<'context>(&self, store: &'context impl AsStoreRef) -> &'context FunctionType
+-pub fn wasmer::js::Function::typed<Args, Rets>(&self, store: &impl AsStoreRef) -> Result<TypedFunction<Args, Rets>, RuntimeError> where Args: WasmTypeList, Rets: WasmTypeList
+-pub fn wasmer::js::FunctionEnv::as_mut<'a>(&self, store: &'a mut impl AsStoreMut) -> &'a mut T where T: Any + Send + 'static + Sized
+-pub fn wasmer::js::FunctionEnv::as_ref<'a>(&self, store: &'a impl AsStoreMut) -> &'a T where T: Any + Send + 'static + Sized
+-pub fn wasmer::js::FunctionEnv::clone(&self) -> Self
+-pub fn wasmer::js::FunctionEnv::eq(&self, other: &Self) -> bool
+-pub fn wasmer::js::FunctionEnv::fmt(&self, f: &mut $crate::fmt::Formatter<'_>) -> $crate::fmt::Result
+-pub fn wasmer::js::FunctionEnv::hash<H: std::hash::Hasher>(&self, state: &mut H)
+-pub fn wasmer::js::FunctionEnv::into_mut(self, store: &mut impl AsStoreMut) -> FunctionEnvMut<'_, T> where T: Any + Send + 'static + Sized
+-pub fn wasmer::js::FunctionEnv::new(store: &mut impl AsStoreMut, value: T) -> Self where T: Any + Send + 'static + Sized
+-pub fn wasmer::js::FunctionEnvMut::as_mut<'a>(&'a mut self) -> FunctionEnvMut<'a, T>
+-pub fn wasmer::js::FunctionEnvMut::as_store_mut(&mut self) -> StoreMut<'_>
+-pub fn wasmer::js::FunctionEnvMut::as_store_ref(&self) -> StoreRef<'_>
+-pub fn wasmer::js::FunctionEnvMut::data(&self) -> &T
+-pub fn wasmer::js::FunctionEnvMut::data_mut<'a>(&'a mut self) -> &'a mut T
+-pub fn wasmer::js::FunctionEnvMut::objects_mut(&mut self) -> &mut StoreObjects
+-pub fn wasmer::js::Global::clone(&self) -> Global
+-pub fn wasmer::js::Global::eq(&self, other: &Global) -> bool
+-pub fn wasmer::js::Global::fmt(&self, f: &mut $crate::fmt::Formatter<'_>) -> $crate::fmt::Result
+-pub fn wasmer::js::Global::get(&self, store: &impl AsStoreRef) -> Value
+-pub fn wasmer::js::Global::get_self_from_extern(_extern: &'a Extern) -> Result<&'a Self, ExportError>
+-pub fn wasmer::js::Global::is_from_store(&self, store: &impl AsStoreRef) -> bool
+-pub fn wasmer::js::Global::new(store: &mut impl AsStoreMut, val: Value) -> Self
+-pub fn wasmer::js::Global::new_mut(store: &mut impl AsStoreMut, val: Value) -> Self
+-pub fn wasmer::js::Global::set(&self, store: &mut impl AsStoreMut, val: Value) -> Result<(), RuntimeError>
+-pub fn wasmer::js::Global::ty(&self, store: &impl AsStoreRef) -> GlobalType
+-pub fn wasmer::js::HostFunction::function_body_ptr(self) -> *const VMFunctionBody
+-pub fn wasmer::js::Imports::as_jsobject(&self, store: &impl AsStoreRef) -> js_sys::Object
+-pub fn wasmer::js::Imports::clone(&self) -> Imports
+-pub fn wasmer::js::Imports::contains_namespace(&self, name: &str) -> bool
+-pub fn wasmer::js::Imports::default() -> Imports
+-pub fn wasmer::js::Imports::define(&mut self, ns: &str, name: &str, val: impl Into<Extern>)
+-pub fn wasmer::js::Imports::extend<T: IntoIterator<Item = ((String, String), Extern)>>(&mut self, iter: T)
+-pub fn wasmer::js::Imports::fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
+-pub fn wasmer::js::Imports::get_export(&self, ns: &str, name: &str) -> Option<Extern>
+-pub fn wasmer::js::Imports::get_namespace_exports(&self, name: &str) -> Option<Exports>
+-pub fn wasmer::js::Imports::imports_for_module(&self, module: &Module) -> Result<Vec<Extern>, InstantiationError>
+-pub fn wasmer::js::Imports::new() -> Self
+-pub fn wasmer::js::Imports::register_namespace(&mut self, ns: &str, contents: impl IntoIterator<Item = (String, Extern)>)
+-pub fn wasmer::js::Instance::clone(&self) -> Instance
+-pub fn wasmer::js::Instance::fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
+-pub fn wasmer::js::Instance::from_module_and_instance(store: &mut impl AsStoreMut, module: &Module, instance: StoreHandle<WebAssembly::Instance>, imports: Imports) -> Result<Self, InstantiationError>
+-pub fn wasmer::js::Instance::module(&self) -> &Module
+-pub fn wasmer::js::Instance::new(store: &mut impl AsStoreMut, module: &Module, imports: &Imports) -> Result<Self, InstantiationError>
+-pub fn wasmer::js::InstantiationError::fmt(&self, __formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result
+-pub fn wasmer::js::InstantiationError::fmt(&self, f: &mut $crate::fmt::Formatter<'_>) -> $crate::fmt::Result
+-pub fn wasmer::js::InstantiationError::from(original: WasmError) -> Self
+-pub fn wasmer::js::InstantiationError::source(&self) -> std::option::Option<&(dyn std::error::Error + 'static)>
+-pub fn wasmer::js::JsImportObject::clone(&self) -> JsImportObject
+-pub fn wasmer::js::JsImportObject::default() -> JsImportObject
+-pub fn wasmer::js::JsImportObject::get_export(&self, store: &mut impl AsStoreMut, module: &str, name: &str) -> Result<Export, WasmError>
+-pub fn wasmer::js::JsImportObject::into(self) -> js_sys::Object
+-pub fn wasmer::js::JsImportObject::new(module: &Module, object: js_sys::Object) -> Self
+-pub fn wasmer::js::Memory::clone(&self) -> Memory
+-pub fn wasmer::js::Memory::fmt(&self, f: &mut $crate::fmt::Formatter<'_>) -> $crate::fmt::Result
+-pub fn wasmer::js::Memory::get_self_from_extern(_extern: &'a Extern) -> Result<&'a Self, ExportError>
+-pub fn wasmer::js::Memory::grow<IntoPages>(&self, store: &mut impl AsStoreMut, delta: IntoPages) -> Result<Pages, MemoryError> where IntoPages: Into<Pages>
+-pub fn wasmer::js::Memory::is_from_store(&self, store: &impl AsStoreRef) -> bool
+-pub fn wasmer::js::Memory::new(store: &mut impl AsStoreMut, ty: MemoryType) -> Result<Self, MemoryError>
+-pub fn wasmer::js::Memory::ty(&self, store: &impl AsStoreRef) -> MemoryType
+-pub fn wasmer::js::Memory::view(&self, store: &impl AsStoreRef) -> MemoryView<'_>
+-pub fn wasmer::js::MemoryAccessError::clone(&self) -> MemoryAccessError
+-pub fn wasmer::js::MemoryAccessError::fmt(&self, __formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result
+-pub fn wasmer::js::MemoryAccessError::fmt(&self, f: &mut $crate::fmt::Formatter<'_>) -> $crate::fmt::Result
+-pub fn wasmer::js::MemoryAccessError::from(_err: FromUtf8Error) -> Self
+-pub fn wasmer::js::MemoryError::clone(&self) -> MemoryError
+-pub fn wasmer::js::MemoryError::eq(&self, other: &MemoryError) -> bool
+-pub fn wasmer::js::MemoryError::fmt(&self, __formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result
+-pub fn wasmer::js::MemoryError::fmt(&self, f: &mut $crate::fmt::Formatter<'_>) -> $crate::fmt::Result
+-pub fn wasmer::js::MemoryError::hash<__H: $crate::hash::Hasher>(&self, state: &mut __H) -> ()
+-pub fn wasmer::js::MemoryView::data_size(&self) -> u64
+-pub fn wasmer::js::MemoryView::fmt(&self, f: &mut $crate::fmt::Formatter<'_>) -> $crate::fmt::Result
+-pub fn wasmer::js::MemoryView::read(&self, offset: u64, data: &mut [u8]) -> Result<(), MemoryAccessError>
+-pub fn wasmer::js::MemoryView::read_u8(&self, offset: u64) -> Result<u8, MemoryAccessError>
+-pub fn wasmer::js::MemoryView::read_uninit(&self, offset: u64, buf: &'a mut [MaybeUninit<u8>]) -> Result<&'a mut [u8], MemoryAccessError>
+-pub fn wasmer::js::MemoryView::size(&self) -> Pages
+-pub fn wasmer::js::MemoryView::write(&self, offset: u64, data: &[u8]) -> Result<(), MemoryAccessError>
+-pub fn wasmer::js::MemoryView::write_u8(&self, offset: u64, val: u8) -> Result<(), MemoryAccessError>
+-pub fn wasmer::js::Module::clone(&self) -> Module
+-pub fn wasmer::js::Module::exports<'a>(&'a self) -> ExportsIterator<impl Iterator<Item = ExportType> + 'a>
+-pub fn wasmer::js::Module::fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
+-pub fn wasmer::js::Module::from(module: WebAssembly::Module) -> Module
+-pub fn wasmer::js::Module::from_binary(_store: &impl AsStoreRef, binary: &[u8]) -> Result<Self, CompileError>
+-pub fn wasmer::js::Module::from_file(_store: &impl AsStoreRef, _file: impl AsRef<Path>) -> Result<Self, IoCompileError>
+-pub fn wasmer::js::Module::imports<'a>(&'a self) -> ImportsIterator<impl Iterator<Item = ImportType> + 'a>
+-pub fn wasmer::js::Module::name(&self) -> Option<&str>
+-pub fn wasmer::js::Module::new(_store: &impl AsStoreRef, bytes: impl AsRef<[u8]>) -> Result<Self, CompileError>
+-pub fn wasmer::js::Module::set_name(&mut self, name: &str) -> bool
+-pub fn wasmer::js::Module::set_type_hints(&mut self, type_hints: ModuleTypeHints) -> Result<(), String>
+-pub fn wasmer::js::Module::validate(_store: &impl AsStoreRef, binary: &[u8]) -> Result<(), CompileError>
+-pub fn wasmer::js::ModuleTypeHints::clone(&self) -> ModuleTypeHints
+-pub fn wasmer::js::NativeWasmTypeInto::into_raw(self, store: &mut impl AsStoreMut) -> f64
+-pub fn wasmer::js::RuntimeError::from(err: MemoryAccessError) -> Self
+-pub fn wasmer::js::SerializeError::fmt(&self, __formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result
+-pub fn wasmer::js::SerializeError::fmt(&self, f: &mut $crate::fmt::Formatter<'_>) -> $crate::fmt::Result
+-pub fn wasmer::js::SerializeError::from(source: std::io::Error) -> Self
+-pub fn wasmer::js::SerializeError::source(&self) -> std::option::Option<&(dyn std::error::Error + 'static)>
+-pub fn wasmer::js::Store::as_store_mut(&mut self) -> StoreMut<'_>
+-pub fn wasmer::js::Store::as_store_ref(&self) -> StoreRef<'_>
+-pub fn wasmer::js::Store::default() -> Self
+-pub fn wasmer::js::Store::eq(&self, other: &Self) -> bool
+-pub fn wasmer::js::Store::fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
+-pub fn wasmer::js::Store::new() -> Self
+-pub fn wasmer::js::Store::objects_mut(&mut self) -> &mut StoreObjects
+-pub fn wasmer::js::Store::same(_a: &Self, _b: &Self) -> bool
+-pub fn wasmer::js::StoreHandle::clone(&self) -> Self
+-pub fn wasmer::js::StoreHandle::eq(&self, other: &Self) -> bool
+-pub fn wasmer::js::StoreHandle::fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
+-pub fn wasmer::js::StoreHandle::get<'a>(&self, store: &'a StoreObjects) -> &'a T
+-pub fn wasmer::js::StoreHandle::get_mut<'a>(&self, store: &'a mut StoreObjects) -> &'a mut T
+-pub fn wasmer::js::StoreHandle::hash<H: std::hash::Hasher>(&self, state: &mut H)
+-pub fn wasmer::js::StoreHandle::internal_handle(&self) -> InternalStoreHandle<T>
+-pub fn wasmer::js::StoreHandle::new(store: &mut StoreObjects, val: T) -> Self
+-pub fn wasmer::js::StoreHandle::store_id(&self) -> StoreId
+-pub fn wasmer::js::StoreMut::as_store_mut(&mut self) -> StoreMut<'_>
+-pub fn wasmer::js::StoreMut::as_store_ref(&self) -> StoreRef<'_>
+-pub fn wasmer::js::StoreMut::objects_mut(&mut self) -> &mut StoreObjects
+-pub fn wasmer::js::StoreMut::same(a: &Self, b: &Self) -> bool
+-pub fn wasmer::js::StoreObject::comes_from_same_store(&self, _store: &Store) -> bool
+-pub fn wasmer::js::StoreObjects::default() -> StoreObjects
+-pub fn wasmer::js::StoreObjects::get_2_mut<T: StoreObject>(&mut self, a: InternalStoreHandle<T>, b: InternalStoreHandle<T>) -> (&mut T, &mut T)
+-pub fn wasmer::js::StoreObjects::id(&self) -> StoreId
+-pub fn wasmer::js::StoreRef::as_store_ref(&self) -> StoreRef<'_>
+-pub fn wasmer::js::StoreRef::same(a: &Self, b: &Self) -> bool
+-pub fn wasmer::js::Table::clone(&self) -> Table
+-pub fn wasmer::js::Table::copy(_dst_table: &Self, _dst_index: u32, _src_table: &Self, _src_index: u32, _len: u32) -> Result<(), RuntimeError>
+-pub fn wasmer::js::Table::eq(&self, other: &Table) -> bool
+-pub fn wasmer::js::Table::fmt(&self, f: &mut $crate::fmt::Formatter<'_>) -> $crate::fmt::Result
+-pub fn wasmer::js::Table::get(&self, store: &mut impl AsStoreMut, index: u32) -> Option<Value>
+-pub fn wasmer::js::Table::get_self_from_extern(_extern: &'a Extern) -> Result<&'a Self, ExportError>
+-pub fn wasmer::js::Table::grow(&self, _store: &mut impl AsStoreMut, _delta: u32, _init: Value) -> Result<u32, RuntimeError>
+-pub fn wasmer::js::Table::is_from_store(&self, store: &impl AsStoreRef) -> bool
+-pub fn wasmer::js::Table::new(store: &mut impl AsStoreMut, ty: TableType, init: Value) -> Result<Self, RuntimeError>
+-pub fn wasmer::js::Table::set(&self, store: &mut impl AsStoreMut, index: u32, val: Value) -> Result<(), RuntimeError>
+-pub fn wasmer::js::Table::size(&self, store: &impl AsStoreRef) -> u32
+-pub fn wasmer::js::Table::ty(&self, store: &impl AsStoreRef) -> TableType
+-pub fn wasmer::js::TypedFunction::call(&self, store: &mut impl AsStoreMut) -> Result<Rets, RuntimeError>
+-pub fn wasmer::js::TypedFunction::call(&self, store: &mut impl AsStoreMut, A1: A1) -> Result<Rets, RuntimeError> where A1: FromToNativeWasmType + crate::js::NativeWasmTypeInto
+-pub fn wasmer::js::TypedFunction::call(&self, store: &mut impl AsStoreMut, A1: A1, A2: A2) -> Result<Rets, RuntimeError> where A1: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A2: FromToNativeWasmType + crate::js::NativeWasmTypeInto
+-pub fn wasmer::js::TypedFunction::call(&self, store: &mut impl AsStoreMut, A1: A1, A2: A2, A3: A3) -> Result<Rets, RuntimeError> where A1: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A2: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A3: FromToNativeWasmType + crate::js::NativeWasmTypeInto
+-pub fn wasmer::js::TypedFunction::call(&self, store: &mut impl AsStoreMut, A1: A1, A2: A2, A3: A3, A4: A4) -> Result<Rets, RuntimeError> where A1: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A2: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A3: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A4: FromToNativeWasmType + crate::js::NativeWasmTypeInto
+-pub fn wasmer::js::TypedFunction::call(&self, store: &mut impl AsStoreMut, A1: A1, A2: A2, A3: A3, A4: A4, A5: A5) -> Result<Rets, RuntimeError> where A1: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A2: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A3: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A4: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A5: FromToNativeWasmType + crate::js::NativeWasmTypeInto
+-pub fn wasmer::js::TypedFunction::call(&self, store: &mut impl AsStoreMut, A1: A1, A2: A2, A3: A3, A4: A4, A5: A5, A6: A6) -> Result<Rets, RuntimeError> where A1: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A2: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A3: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A4: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A5: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A6: FromToNativeWasmType + crate::js::NativeWasmTypeInto
+-pub fn wasmer::js::TypedFunction::call(&self, store: &mut impl AsStoreMut, A1: A1, A2: A2, A3: A3, A4: A4, A5: A5, A6: A6, A7: A7) -> Result<Rets, RuntimeError> where A1: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A2: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A3: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A4: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A5: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A6: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A7: FromToNativeWasmType + crate::js::NativeWasmTypeInto
+-pub fn wasmer::js::TypedFunction::call(&self, store: &mut impl AsStoreMut, A1: A1, A2: A2, A3: A3, A4: A4, A5: A5, A6: A6, A7: A7, A8: A8) -> Result<Rets, RuntimeError> where A1: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A2: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A3: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A4: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A5: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A6: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A7: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A8: FromToNativeWasmType + crate::js::NativeWasmTypeInto
+-pub fn wasmer::js::TypedFunction::call(&self, store: &mut impl AsStoreMut, A1: A1, A2: A2, A3: A3, A4: A4, A5: A5, A6: A6, A7: A7, A8: A8, A9: A9) -> Result<Rets, RuntimeError> where A1: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A2: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A3: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A4: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A5: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A6: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A7: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A8: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A9: FromToNativeWasmType + crate::js::NativeWasmTypeInto
+-pub fn wasmer::js::TypedFunction::call(&self, store: &mut impl AsStoreMut, A1: A1, A2: A2, A3: A3, A4: A4, A5: A5, A6: A6, A7: A7, A8: A8, A9: A9, A10: A10) -> Result<Rets, RuntimeError> where A1: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A2: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A3: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A4: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A5: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A6: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A7: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A8: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A9: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A10: FromToNativeWasmType + crate::js::NativeWasmTypeInto
+-pub fn wasmer::js::TypedFunction::call(&self, store: &mut impl AsStoreMut, A1: A1, A2: A2, A3: A3, A4: A4, A5: A5, A6: A6, A7: A7, A8: A8, A9: A9, A10: A10, A11: A11) -> Result<Rets, RuntimeError> where A1: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A2: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A3: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A4: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A5: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A6: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A7: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A8: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A9: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A10: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A11: FromToNativeWasmType + crate::js::NativeWasmTypeInto
+-pub fn wasmer::js::TypedFunction::call(&self, store: &mut impl AsStoreMut, A1: A1, A2: A2, A3: A3, A4: A4, A5: A5, A6: A6, A7: A7, A8: A8, A9: A9, A10: A10, A11: A11, A12: A12) -> Result<Rets, RuntimeError> where A1: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A2: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A3: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A4: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A5: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A6: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A7: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A8: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A9: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A10: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A11: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A12: FromToNativeWasmType + crate::js::NativeWasmTypeInto
+-pub fn wasmer::js::TypedFunction::call(&self, store: &mut impl AsStoreMut, A1: A1, A2: A2, A3: A3, A4: A4, A5: A5, A6: A6, A7: A7, A8: A8, A9: A9, A10: A10, A11: A11, A12: A12, A13: A13) -> Result<Rets, RuntimeError> where A1: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A2: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A3: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A4: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A5: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A6: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A7: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A8: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A9: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A10: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A11: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A12: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A13: FromToNativeWasmType + crate::js::NativeWasmTypeInto
+-pub fn wasmer::js::TypedFunction::call(&self, store: &mut impl AsStoreMut, A1: A1, A2: A2, A3: A3, A4: A4, A5: A5, A6: A6, A7: A7, A8: A8, A9: A9, A10: A10, A11: A11, A12: A12, A13: A13, A14: A14) -> Result<Rets, RuntimeError> where A1: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A2: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A3: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A4: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A5: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A6: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A7: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A8: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A9: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A10: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A11: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A12: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A13: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A14: FromToNativeWasmType + crate::js::NativeWasmTypeInto
+-pub fn wasmer::js::TypedFunction::call(&self, store: &mut impl AsStoreMut, A1: A1, A2: A2, A3: A3, A4: A4, A5: A5, A6: A6, A7: A7, A8: A8, A9: A9, A10: A10, A11: A11, A12: A12, A13: A13, A14: A14, A15: A15) -> Result<Rets, RuntimeError> where A1: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A2: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A3: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A4: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A5: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A6: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A7: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A8: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A9: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A10: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A11: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A12: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A13: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A14: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A15: FromToNativeWasmType + crate::js::NativeWasmTypeInto
+-pub fn wasmer::js::TypedFunction::call(&self, store: &mut impl AsStoreMut, A1: A1, A2: A2, A3: A3, A4: A4, A5: A5, A6: A6, A7: A7, A8: A8, A9: A9, A10: A10, A11: A11, A12: A12, A13: A13, A14: A14, A15: A15, A16: A16) -> Result<Rets, RuntimeError> where A1: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A2: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A3: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A4: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A5: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A6: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A7: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A8: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A9: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A10: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A11: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A12: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A13: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A14: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A15: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A16: FromToNativeWasmType + crate::js::NativeWasmTypeInto
+-pub fn wasmer::js::TypedFunction::call(&self, store: &mut impl AsStoreMut, A1: A1, A2: A2, A3: A3, A4: A4, A5: A5, A6: A6, A7: A7, A8: A8, A9: A9, A10: A10, A11: A11, A12: A12, A13: A13, A14: A14, A15: A15, A16: A16, A17: A17) -> Result<Rets, RuntimeError> where A1: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A2: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A3: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A4: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A5: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A6: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A7: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A8: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A9: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A10: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A11: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A12: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A13: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A14: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A15: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A16: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A17: FromToNativeWasmType + crate::js::NativeWasmTypeInto
+-pub fn wasmer::js::TypedFunction::call(&self, store: &mut impl AsStoreMut, A1: A1, A2: A2, A3: A3, A4: A4, A5: A5, A6: A6, A7: A7, A8: A8, A9: A9, A10: A10, A11: A11, A12: A12, A13: A13, A14: A14, A15: A15, A16: A16, A17: A17, A18: A18) -> Result<Rets, RuntimeError> where A1: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A2: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A3: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A4: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A5: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A6: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A7: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A8: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A9: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A10: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A11: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A12: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A13: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A14: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A15: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A16: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A17: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A18: FromToNativeWasmType + crate::js::NativeWasmTypeInto
+-pub fn wasmer::js::TypedFunction::call(&self, store: &mut impl AsStoreMut, A1: A1, A2: A2, A3: A3, A4: A4, A5: A5, A6: A6, A7: A7, A8: A8, A9: A9, A10: A10, A11: A11, A12: A12, A13: A13, A14: A14, A15: A15, A16: A16, A17: A17, A18: A18, A19: A19) -> Result<Rets, RuntimeError> where A1: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A2: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A3: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A4: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A5: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A6: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A7: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A8: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A9: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A10: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A11: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A12: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A13: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A14: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A15: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A16: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A17: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A18: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A19: FromToNativeWasmType + crate::js::NativeWasmTypeInto
+-pub fn wasmer::js::TypedFunction::call(&self, store: &mut impl AsStoreMut, A1: A1, A2: A2, A3: A3, A4: A4, A5: A5, A6: A6, A7: A7, A8: A8, A9: A9, A10: A10, A11: A11, A12: A12, A13: A13, A14: A14, A15: A15, A16: A16, A17: A17, A18: A18, A19: A19, A20: A20) -> Result<Rets, RuntimeError> where A1: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A2: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A3: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A4: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A5: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A6: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A7: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A8: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A9: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A10: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A11: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A12: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A13: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A14: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A15: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A16: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A17: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A18: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A19: FromToNativeWasmType + crate::js::NativeWasmTypeInto, A20: FromToNativeWasmType + crate::js::NativeWasmTypeInto
+-pub fn wasmer::js::TypedFunction::clone(&self) -> TypedFunction<Args, Rets>
+-pub fn wasmer::js::Val::as_raw(&self, store: &impl AsStoreRef) -> f64
+-pub fn wasmer::js::Val::clone(&self) -> Value
+-pub fn wasmer::js::Val::eq(&self, other: &Value) -> bool
+-pub fn wasmer::js::Val::f32(&self) -> Option<f32>
+-pub fn wasmer::js::Val::f64(&self) -> Option<f64>
+-pub fn wasmer::js::Val::fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
+-pub fn wasmer::js::Val::from(val: Function) -> Self
+-pub fn wasmer::js::Val::from(val: Option<Function>) -> Self
+-pub fn wasmer::js::Val::from(val: f32) -> Self
+-pub fn wasmer::js::Val::from(val: f64) -> Self
+-pub fn wasmer::js::Val::from(val: i32) -> Self
+-pub fn wasmer::js::Val::from(val: i64) -> Self
+-pub fn wasmer::js::Val::from(val: u32) -> Self
+-pub fn wasmer::js::Val::from(val: u64) -> Self
+-pub fn wasmer::js::Val::funcref(&self) -> Option<&Option<Function>>
+-pub fn wasmer::js::Val::i32(&self) -> Option<i32>
+-pub fn wasmer::js::Val::i64(&self) -> Option<i64>
+-pub fn wasmer::js::Val::is_from_store(&self, store: &impl AsStoreRef) -> bool
+-pub fn wasmer::js::Val::null() -> Self
+-pub fn wasmer::js::Val::to_string(&self) -> String
+-pub fn wasmer::js::Val::ty(&self) -> Type
+-pub fn wasmer::js::Val::unwrap_f32(&self) -> f32
+-pub fn wasmer::js::Val::unwrap_f64(&self) -> f64
+-pub fn wasmer::js::Val::unwrap_funcref(&self) -> &Option<Function>
+-pub fn wasmer::js::Val::unwrap_i32(&self) -> i32
+-pub fn wasmer::js::Val::unwrap_i64(&self) -> i64
+-pub fn wasmer::js::Value::as_raw(&self, store: &impl AsStoreRef) -> f64
+-pub fn wasmer::js::Value::clone(&self) -> Value
+-pub fn wasmer::js::Value::eq(&self, other: &Value) -> bool
+-pub fn wasmer::js::Value::f32(&self) -> Option<f32>
+-pub fn wasmer::js::Value::f64(&self) -> Option<f64>
+-pub fn wasmer::js::Value::fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
+-pub fn wasmer::js::Value::from(val: Function) -> Self
+-pub fn wasmer::js::Value::from(val: Option<Function>) -> Self
+-pub fn wasmer::js::Value::from(val: f32) -> Self
+-pub fn wasmer::js::Value::from(val: f64) -> Self
+-pub fn wasmer::js::Value::from(val: i32) -> Self
+-pub fn wasmer::js::Value::from(val: i64) -> Self
+-pub fn wasmer::js::Value::from(val: u32) -> Self
+-pub fn wasmer::js::Value::from(val: u64) -> Self
+-pub fn wasmer::js::Value::funcref(&self) -> Option<&Option<Function>>
+-pub fn wasmer::js::Value::i32(&self) -> Option<i32>
+-pub fn wasmer::js::Value::i64(&self) -> Option<i64>
+-pub fn wasmer::js::Value::is_from_store(&self, store: &impl AsStoreRef) -> bool
+-pub fn wasmer::js::Value::null() -> Self
+-pub fn wasmer::js::Value::to_string(&self) -> String
+-pub fn wasmer::js::Value::ty(&self) -> Type
+-pub fn wasmer::js::Value::unwrap_f32(&self) -> f32
+-pub fn wasmer::js::Value::unwrap_f64(&self) -> f64
+-pub fn wasmer::js::Value::unwrap_funcref(&self) -> &Option<Function>
+-pub fn wasmer::js::Value::unwrap_i32(&self) -> i32
+-pub fn wasmer::js::Value::unwrap_i64(&self) -> i64
+-pub fn wasmer::js::WasmPtr::add_offset(self, offset: <M as >::Offset) -> Result<Self, MemoryAccessError>
+-pub fn wasmer::js::WasmPtr::cast<U>(self) -> WasmPtr<U, M>
+-pub fn wasmer::js::WasmPtr::clone(&self) -> Self
+-pub fn wasmer::js::WasmPtr::deref<'a>(self, view: &'a MemoryView<'_>) -> WasmRef<'a, T>
+-pub fn wasmer::js::WasmPtr::eq(&self, other: &Self) -> bool
+-pub fn wasmer::js::WasmPtr::fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
+-pub fn wasmer::js::WasmPtr::from_native(n: <Self as >::Native) -> Self
+-pub fn wasmer::js::WasmPtr::is_null(self) -> bool
+-pub fn wasmer::js::WasmPtr::new(offset: <M as >::Offset) -> Self
+-pub fn wasmer::js::WasmPtr::null() -> Self
+-pub fn wasmer::js::WasmPtr::offset(self) -> <M as >::Offset
+-pub fn wasmer::js::WasmPtr::read(self, view: &MemoryView<'_>) -> Result<T, MemoryAccessError>
+-pub fn wasmer::js::WasmPtr::read_until<'a>(self, view: &'a MemoryView<'_>, end: impl FnMut(&T) -> bool) -> Result<Vec<T>, MemoryAccessError>
+-pub fn wasmer::js::WasmPtr::read_utf8_string<'a>(self, view: &'a MemoryView<'_>, len: <M as >::Offset) -> Result<String, MemoryAccessError>
+-pub fn wasmer::js::WasmPtr::read_utf8_string_with_nul<'a>(self, view: &'a MemoryView<'_>) -> Result<String, MemoryAccessError>
+-pub fn wasmer::js::WasmPtr::slice<'a>(self, view: &'a MemoryView<'_>, len: <M as >::Offset) -> Result<WasmSlice<'a, T>, MemoryAccessError>
+-pub fn wasmer::js::WasmPtr::sub_offset(self, offset: <M as >::Offset) -> Result<Self, MemoryAccessError>
+-pub fn wasmer::js::WasmPtr::to_native(self) -> <Self as >::Native
+-pub fn wasmer::js::WasmPtr::write(self, view: &MemoryView<'_>, val: T) -> Result<(), MemoryAccessError>
+-pub fn wasmer::js::WasmPtr::zero_padding_bytes(&self, _bytes: &mut [mem::MaybeUninit<u8>])
+-pub fn wasmer::js::WasmRef::as_ptr32(self) -> WasmPtr<T, Memory32>
+-pub fn wasmer::js::WasmRef::as_ptr64(self) -> WasmPtr<T, Memory64>
+-pub fn wasmer::js::WasmRef::as_ptr<M: MemorySize>(self) -> WasmPtr<T, M>
+-pub fn wasmer::js::WasmRef::clone(&self) -> WasmRef<'a, T>
+-pub fn wasmer::js::WasmRef::fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
+-pub fn wasmer::js::WasmRef::new(view: &'a MemoryView<'_>, offset: u64) -> Self
+-pub fn wasmer::js::WasmRef::offset(self) -> u64
+-pub fn wasmer::js::WasmRef::read(self) -> Result<T, MemoryAccessError>
+-pub fn wasmer::js::WasmRef::write(self, val: T) -> Result<(), MemoryAccessError>
+-pub fn wasmer::js::WasmSlice::as_ptr32(self) -> WasmPtr<T, Memory32>
+-pub fn wasmer::js::WasmSlice::as_ptr64(self) -> WasmPtr<T, Memory64>
+-pub fn wasmer::js::WasmSlice::clone(&self) -> WasmSlice<'a, T>
+-pub fn wasmer::js::WasmSlice::fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
+-pub fn wasmer::js::WasmSlice::index(self, idx: u64) -> WasmRef<'a, T>
+-pub fn wasmer::js::WasmSlice::iter(self) -> WasmSliceIter<'a, T>
+-pub fn wasmer::js::WasmSlice::len(self) -> u64
+-pub fn wasmer::js::WasmSlice::new(memory: &'a MemoryView<'_>, offset: u64, len: u64) -> Result<Self, MemoryAccessError>
+-pub fn wasmer::js::WasmSlice::offset(self) -> u64
+-pub fn wasmer::js::WasmSlice::read(self, idx: u64) -> Result<T, MemoryAccessError>
+-pub fn wasmer::js::WasmSlice::read_slice(self, buf: &mut [T]) -> Result<(), MemoryAccessError>
+-pub fn wasmer::js::WasmSlice::read_slice_uninit(self, buf: &mut [MaybeUninit<T>]) -> Result<&mut [T], MemoryAccessError>
+-pub fn wasmer::js::WasmSlice::read_to_vec(self) -> Result<Vec<T>, MemoryAccessError>
+-pub fn wasmer::js::WasmSlice::subslice(self, range: Range<u64>) -> WasmSlice<'a, T>
+-pub fn wasmer::js::WasmSlice::write(self, idx: u64, val: T) -> Result<(), MemoryAccessError>
+-pub fn wasmer::js::WasmSlice::write_slice(self, data: &[T]) -> Result<(), MemoryAccessError>
+-pub fn wasmer::js::WasmSliceIter::next(&mut self) -> Option<<Self as >::Item>
+-pub fn wasmer::js::WasmSliceIter::next_back(&mut self) -> Option<<Self as >::Item>
+-pub fn wasmer::js::WasmSliceIter::size_hint(&self) -> (usize, Option<usize>)
+-pub fn wasmer::js::WasmTypeList::empty_array() -> <Self as >::Array
+-pub fn wasmer::js::WasmTypeList::size() -> u32
+-pub fn wasmer::js::WasmTypeList::wasm_types() -> &'static [Type]
+-pub mod wasmer::js
+-pub struct field wasmer::js::Instance::exports: Exports
+-pub struct field wasmer::js::MemoryError::CouldNotGrow::attempted_delta: Pages
+-pub struct field wasmer::js::MemoryError::CouldNotGrow::current: Pages
+-pub struct field wasmer::js::ModuleTypeHints::exports: Vec<ExternType>
+-pub struct field wasmer::js::ModuleTypeHints::imports: Vec<ExternType>
+-pub struct wasmer::js::Exports
+-pub struct wasmer::js::ExportsIterator<'a, I> where I: Iterator<Item = (&'a String, &'a Extern)> + Sized
+-pub struct wasmer::js::Function
+-pub struct wasmer::js::FunctionEnvMut<'a, T: 'a>
+-pub struct wasmer::js::Global
+-pub struct wasmer::js::Imports
+-pub struct wasmer::js::Instance
+-pub struct wasmer::js::JsImportObject
+-pub struct wasmer::js::Memory
+-pub struct wasmer::js::MemoryView<'a>
+-pub struct wasmer::js::Module
+-pub struct wasmer::js::ModuleTypeHints
+-pub struct wasmer::js::Store
+-pub struct wasmer::js::StoreHandle<T>
+-pub struct wasmer::js::StoreMut<'a>
+-pub struct wasmer::js::StoreObjects
+-pub struct wasmer::js::StoreRef<'a>
+-pub struct wasmer::js::Table
+-pub struct wasmer::js::TypedFunction<Args, Rets>
+-pub struct wasmer::js::WasmRef<'a, T: ValueType>
+-pub struct wasmer::js::WasmSlice<'a, T: ValueType>
+-pub struct wasmer::js::WasmSliceIter<'a, T: ValueType>
+-pub trait wasmer::js::AsStoreMut
+-pub trait wasmer::js::AsStoreRef
+-pub trait wasmer::js::Exportable<'a>
+-pub trait wasmer::js::HostFunction<T, Args, Rets, Kind> where Args: WasmTypeList, Rets: WasmTypeList, Kind: HostFunctionKind, T: Sized, Self: Sized
+-pub trait wasmer::js::NativeWasmTypeInto
+-pub trait wasmer::js::StoreObject
+-pub trait wasmer::js::WasmTypeList where Self: Sized
+-pub type wasmer::js::Exports::IntoIter = IntoIter<String, Extern>
+-pub type wasmer::js::Exports::Item = (String, Extern)
+-pub type wasmer::js::ExportsIterator::Item = (&'a String, &'a Extern)
+-pub type wasmer::js::FromToNativeWasmType::NativeNativeWasmTypeInto
+-pub type wasmer::js::Function::Abi = f64
+-pub type wasmer::js::NativeFunc<Args, Rets> = TypedFunction<Args, Rets>
+-pub type wasmer::js::RuntimeError = WasmerRuntimeError
+-pub type wasmer::js::WasmPtr64<T> = WasmPtr<T, Memory64>
+-pub type wasmer::js::WasmPtr::Native = <M as MemorySize>::Native
+-pub type wasmer::js::WasmSliceIter::Item = WasmRef<'a, T>
+-pub type wasmer::js::WasmTypeList::ArrayAsMut<[f64]>
+-pub type wasmer::js::WasmTypeList::CStruct
+-pub unsafe fn wasmer::js::Module::from_binary_unchecked(_store: &impl AsStoreRef, binary: &[u8]) -> Result<Self, CompileError>
+-pub unsafe fn wasmer::js::NativeWasmTypeInto::from_raw(store: &mut impl AsStoreMut, raw: f64) -> Self
+-pub unsafe fn wasmer::js::StoreHandle::from_internal(id: StoreId, internal: InternalStoreHandle<T>) -> Self
+-pub unsafe fn wasmer::js::Val::from_raw(_store: &impl AsStoreRef, ty: Type, raw: f64) -> Self
+-pub unsafe fn wasmer::js::Value::from_raw(_store: &impl AsStoreRef, ty: Type, raw: f64) -> Self
+-pub unsafe fn wasmer::js::WasmTypeList::from_array(store: &mut impl AsStoreMut, array: <Self as >::Array) -> Self
+-pub unsafe fn wasmer::js::WasmTypeList::from_c_struct(store: &mut impl AsStoreMut, c_struct: <Self as >::CStruct) -> Self
+-pub unsafe fn wasmer::js::WasmTypeList::from_slice(store: &mut impl AsStoreMut, slice: &[f64]) -> Result<Self, TryFromSliceError>
+-pub unsafe fn wasmer::js::WasmTypeList::into_array(self, store: &mut impl AsStoreMut) -> <Self as >::Array
+-pub unsafe fn wasmer::js::WasmTypeList::into_c_struct(self, store: &mut impl AsStoreMut) -> <Self as >::CStruct
+-pub unsafe fn wasmer::js::WasmTypeList::write_c_struct_to_ptr(c_struct: <Self as >::CStruct, ptr: *mut f64)
+-pub unsafe trait wasmer::js::FromToNativeWasmType where Self: Sized
+-pub unsafe trait wasmer::js::MemorySize
+-pub unsafe trait wasmer::js::ValueType
+-pub use wasmer::js::Bytes
+-pub use wasmer::js::ExportIndex
+-pub use wasmer::js::ExportType
+-pub use wasmer::js::ExternType
+-pub use wasmer::js::FunctionType
+-pub use wasmer::js::GlobalInit
+-pub use wasmer::js::GlobalType
+-pub use wasmer::js::ImportType
+-pub use wasmer::js::LocalFunctionIndex
+-pub use wasmer::js::Memory32
+-pub use wasmer::js::Memory64
+-pub use wasmer::js::MemoryType
+-pub use wasmer::js::Mutability
+-pub use wasmer::js::Pages
+-pub use wasmer::js::TableType
+-pub use wasmer::js::Type
+-pub use wasmer::js::ValType
+-pub use wasmer::js::WASM_MAX_PAGES
+-pub use wasmer::js::WASM_MIN_PAGES
+-pub use wasmer::js::WASM_PAGE_SIZE
+-pub use wasmer::js::is_wasm
+
+Changed:
+(nothing)
+
+Added:
++#[non_exhaustive] pub enum wasmer::sys::MemoryAccessError
++#[repr(transparent)] pub struct wasmer::sys::ExternRef
++#[repr(transparent)] pub struct wasmer::sys::FunctionEnv<T>
++#[repr(transparent)] pub struct wasmer::sys::WasmPtr<T, M: MemorySize>
++pub const wasmer::sys::ExternRef::WASM_TYPE: Type
++pub const wasmer::sys::Function::WASM_TYPE: Type
++pub const wasmer::sys::VERSION: &'static str
++pub enum variant wasmer::sys::ExportError::IncompatibleType
++pub enum variant wasmer::sys::ExportError::Missing(String)
++pub enum variant wasmer::sys::Extern::Function(Function)
++pub enum variant wasmer::sys::Extern::Global(Global)
++pub enum variant wasmer::sys::Extern::Memory(Memory)
++pub enum variant wasmer::sys::Extern::Table(Table)
++pub enum variant wasmer::sys::InstantiationError::CpuFeature(String)
++pub enum variant wasmer::sys::InstantiationError::DifferentStores
++pub enum variant wasmer::sys::InstantiationError::Link(LinkError)
++pub enum variant wasmer::sys::InstantiationError::Start(RuntimeError)
++pub enum variant wasmer::sys::MemoryAccessError::HeapOutOfBounds
++pub enum variant wasmer::sys::MemoryAccessError::NonUtf8String
++pub enum variant wasmer::sys::MemoryAccessError::Overflow
++pub enum variant wasmer::sys::Value::ExternRef(Option<ExternRef>)
++pub enum variant wasmer::sys::Value::F32(f32)
++pub enum variant wasmer::sys::Value::F64(f64)
++pub enum variant wasmer::sys::Value::FuncRef(Option<Function>)
++pub enum variant wasmer::sys::Value::I32(i32)
++pub enum variant wasmer::sys::Value::I64(i64)
++pub enum variant wasmer::sys::Value::V128(u128)
++pub enum wasmer::sys::ExportError
++pub enum wasmer::sys::Extern
++pub enum wasmer::sys::InstantiationError
++pub enum wasmer::sys::Value
++pub fn wasmer::sys::AsStoreMut::as_store_mut(&mut self) -> StoreMut<'_>
++pub fn wasmer::sys::AsStoreMut::objects_mut(&mut self) -> &mut StoreObjects
++pub fn wasmer::sys::AsStoreRef::as_store_ref(&self) -> StoreRef<'_>
++pub fn wasmer::sys::BaseTunables::clone(&self) -> BaseTunables
++pub fn wasmer::sys::BaseTunables::create_host_memory(&self, ty: &MemoryType, style: &MemoryStyle) -> Result<VMMemory, MemoryError>
++pub fn wasmer::sys::BaseTunables::create_host_table(&self, ty: &TableType, style: &TableStyle) -> Result<VMTable, String>
++pub fn wasmer::sys::BaseTunables::for_target(target: &Target) -> Self
++pub fn wasmer::sys::BaseTunables::memory_style(&self, memory: &MemoryType) -> MemoryStyle
++pub fn wasmer::sys::BaseTunables::table_style(&self, _table: &TableType) -> TableStyle
++pub fn wasmer::sys::ExportError::fmt(&self, __formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result
++pub fn wasmer::sys::ExportError::fmt(&self, f: &mut $crate::fmt::Formatter<'_>) -> $crate::fmt::Result
++pub fn wasmer::sys::Exportable::get_self_from_extern(_extern: &'a Extern) -> Result<&'a Self, ExportError>
++pub fn wasmer::sys::Exports::clone(&self) -> Exports
++pub fn wasmer::sys::Exports::contains<S>(&self, name: S) -> bool where S: Into<String>
++pub fn wasmer::sys::Exports::default() -> Exports
++pub fn wasmer::sys::Exports::fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
++pub fn wasmer::sys::Exports::from_iter<I: IntoIterator<Item = (String, Extern)>>(iter: I) -> Self
++pub fn wasmer::sys::Exports::get<'a, T: Exportable<'a>>(&'a self, name: &str) -> Result<&'a T, ExportError>
++pub fn wasmer::sys::Exports::get_extern(&self, name: &str) -> Option<&Extern>
++pub fn wasmer::sys::Exports::get_function(&self, name: &str) -> Result<&Function, ExportError>
++pub fn wasmer::sys::Exports::get_global(&self, name: &str) -> Result<&Global, ExportError>
++pub fn wasmer::sys::Exports::get_memory(&self, name: &str) -> Result<&Memory, ExportError>
++pub fn wasmer::sys::Exports::get_native_function<Args, Rets>(&self, store: &impl AsStoreRef, name: &str) -> Result<TypedFunction<Args, Rets>, ExportError> where Args: WasmTypeList, Rets: WasmTypeList
++pub fn wasmer::sys::Exports::get_table(&self, name: &str) -> Result<&Table, ExportError>
++pub fn wasmer::sys::Exports::get_typed_function<Args, Rets>(&self, store: &impl AsStoreRef, name: &str) -> Result<TypedFunction<Args, Rets>, ExportError> where Args: WasmTypeList, Rets: WasmTypeList
++pub fn wasmer::sys::Exports::get_with_generics<'a, T, Args, Rets>(&'a self, name: &str) -> Result<T, ExportError> where Args: WasmTypeList, Rets: WasmTypeList, T: ExportableWithGenerics<'a, Args, Rets>
++pub fn wasmer::sys::Exports::insert<S, E>(&mut self, name: S, value: E) where S: Into<String>, E: Into<Extern>
++pub fn wasmer::sys::Exports::into_iter(self) -> <Self as >::IntoIter
++pub fn wasmer::sys::Exports::is_empty(&self) -> bool
++pub fn wasmer::sys::Exports::iter(&self) -> ExportsIterator<'_, impl Iterator<Item = (&String, &Extern)>>
++pub fn wasmer::sys::Exports::len(&self) -> usize
++pub fn wasmer::sys::Exports::new() -> Self
++pub fn wasmer::sys::Exports::with_capacity(n: usize) -> Self
++pub fn wasmer::sys::ExportsIterator::functions(self) -> impl Iterator<Item = (&'a String, &'a Function)> + Sized
++pub fn wasmer::sys::ExportsIterator::globals(self) -> impl Iterator<Item = (&'a String, &'a Global)> + Sized
++pub fn wasmer::sys::ExportsIterator::len(&self) -> usize
++pub fn wasmer::sys::ExportsIterator::memories(self) -> impl Iterator<Item = (&'a String, &'a Memory)> + Sized
++pub fn wasmer::sys::ExportsIterator::next(&mut self) -> Option<<Self as >::Item>
++pub fn wasmer::sys::ExportsIterator::tables(self) -> impl Iterator<Item = (&'a String, &'a Table)> + Sized
++pub fn wasmer::sys::Extern::clone(&self) -> Extern
++pub fn wasmer::sys::Extern::fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
++pub fn wasmer::sys::Extern::from(r: Function) -> Self
++pub fn wasmer::sys::Extern::from(r: Global) -> Self
++pub fn wasmer::sys::Extern::from(r: Memory) -> Self
++pub fn wasmer::sys::Extern::from(r: Table) -> Self
++pub fn wasmer::sys::Extern::from_vm_extern(store: &mut impl AsStoreMut, vm_extern: VMExtern) -> Self
++pub fn wasmer::sys::Extern::get_self_from_extern(_extern: &'a Self) -> Result<&'a Self, ExportError>
++pub fn wasmer::sys::Extern::is_from_store(&self, store: &impl AsStoreRef) -> bool
++pub fn wasmer::sys::Extern::to_vm_extern(&self) -> VMExtern
++pub fn wasmer::sys::Extern::ty(&self, store: &impl AsStoreRef) -> ExternType
++pub fn wasmer::sys::ExternRef::clone(&self) -> ExternRef
++pub fn wasmer::sys::ExternRef::downcast<'a, T>(&self, store: &'a impl AsStoreRef) -> Option<&'a T> where T: Any + Send + Sync + 'static + Sized
++pub fn wasmer::sys::ExternRef::fmt(&self, f: &mut $crate::fmt::Formatter<'_>) -> $crate::fmt::Result
++pub fn wasmer::sys::ExternRef::is_from_store(&self, store: &impl AsStoreRef) -> bool
++pub fn wasmer::sys::ExternRef::new<T>(store: &mut impl AsStoreMut, value: T) -> Self where T: Any + Send + Sync + 'static + Sized
++pub fn wasmer::sys::FromToNativeWasmType::from_native(native: <Self as >::Native) -> Self
++pub fn wasmer::sys::FromToNativeWasmType::is_from_store(&self, _store: &impl AsStoreRef) -> bool
++pub fn wasmer::sys::FromToNativeWasmType::to_native(self) -> <Self as >::Native
++pub fn wasmer::sys::Function::call(&self, store: &mut impl AsStoreMut, params: &[Value]) -> Result<Box<[Value]>, RuntimeError>
++pub fn wasmer::sys::Function::clone(&self) -> Function
++pub fn wasmer::sys::Function::fmt(&self, f: &mut $crate::fmt::Formatter<'_>) -> $crate::fmt::Result
++pub fn wasmer::sys::Function::from(other: TypedFunction<Args, Rets>) -> Self
++pub fn wasmer::sys::Function::get_self_from_extern(_extern: &'a Extern) -> Result<&'a Self, ExportError>
++pub fn wasmer::sys::Function::is_from_store(&self, store: &impl AsStoreRef) -> bool
++pub fn wasmer::sys::Function::native<Args, Rets>(&self, store: &impl AsStoreRef) -> Result<TypedFunction<Args, Rets>, RuntimeError> where Args: WasmTypeList, Rets: WasmTypeList
++pub fn wasmer::sys::Function::new<FT, F>(store: &mut impl AsStoreMut, ty: FT, func: F) -> Self where FT: Into<FunctionType>, F: Fn(&[Value]) -> Result<Vec<Value>, RuntimeError> + 'static + Send + Sync
++pub fn wasmer::sys::Function::new_native<F, Args, Rets>(store: &mut impl AsStoreMut, func: F) -> Self where F: HostFunction<(), Args, Rets, WithoutEnv> + 'static + Send + Sync, Args: WasmTypeList, Rets: WasmTypeList
++pub fn wasmer::sys::Function::new_native_with_env<T: Send + 'static, F, Args, Rets>(store: &mut impl AsStoreMut, env: &FunctionEnv<T>, func: F) -> Self where F: HostFunction<T, Args, Rets, WithEnv> + 'static + Send + Sync, Args: WasmTypeList, Rets: WasmTypeList
++pub fn wasmer::sys::Function::new_typed<F, Args, Rets>(store: &mut impl AsStoreMut, func: F) -> Self where F: HostFunction<(), Args, Rets, WithoutEnv> + 'static + Send + Sync, Args: WasmTypeList, Rets: WasmTypeList
++pub fn wasmer::sys::Function::new_typed_with_env<T: Send + 'static, F, Args, Rets>(store: &mut impl AsStoreMut, env: &FunctionEnv<T>, func: F) -> Self where F: HostFunction<T, Args, Rets, WithEnv> + 'static + Send + Sync, Args: WasmTypeList, Rets: WasmTypeList
++pub fn wasmer::sys::Function::new_with_env<FT, F, T: Send + 'static>(store: &mut impl AsStoreMut, env: &FunctionEnv<T>, ty: FT, func: F) -> Self where FT: Into<FunctionType>, F: Fn(FunctionEnvMut<'_, T>, &[Value]) -> Result<Vec<Value>, RuntimeError> + 'static + Send + Sync
++pub fn wasmer::sys::Function::param_arity(&self, store: &impl AsStoreRef) -> usize
++pub fn wasmer::sys::Function::result_arity(&self, store: &impl AsStoreRef) -> usize
++pub fn wasmer::sys::Function::ty(&self, store: &impl AsStoreRef) -> FunctionType
++pub fn wasmer::sys::Function::typed<Args, Rets>(&self, store: &impl AsStoreRef) -> Result<TypedFunction<Args, Rets>, RuntimeError> where Args: WasmTypeList, Rets: WasmTypeList
++pub fn wasmer::sys::FunctionEnv::as_mut<'a>(&self, store: &'a mut impl AsStoreMut) -> &'a mut T where T: Any + Send + 'static + Sized
++pub fn wasmer::sys::FunctionEnv::as_ref<'a>(&self, store: &'a impl AsStoreMut) -> &'a T where T: Any + Send + 'static + Sized
++pub fn wasmer::sys::FunctionEnv::clone(&self) -> Self
++pub fn wasmer::sys::FunctionEnv::eq(&self, other: &Self) -> bool
++pub fn wasmer::sys::FunctionEnv::fmt(&self, f: &mut $crate::fmt::Formatter<'_>) -> $crate::fmt::Result
++pub fn wasmer::sys::FunctionEnv::hash<H: std::hash::Hasher>(&self, state: &mut H)
++pub fn wasmer::sys::FunctionEnv::into_mut(self, store: &mut impl AsStoreMut) -> FunctionEnvMut<'_, T> where T: Any + Send + 'static + Sized
++pub fn wasmer::sys::FunctionEnv::new(store: &mut impl AsStoreMut, value: T) -> Self where T: Any + Send + 'static + Sized
++pub fn wasmer::sys::FunctionEnvMut::as_mut(&mut self) -> FunctionEnvMut<'_, T>
++pub fn wasmer::sys::FunctionEnvMut::as_store_mut(&mut self) -> StoreMut<'_>
++pub fn wasmer::sys::FunctionEnvMut::as_store_ref(&self) -> StoreRef<'_>
++pub fn wasmer::sys::FunctionEnvMut::data(&self) -> &T
++pub fn wasmer::sys::FunctionEnvMut::data_mut(&mut self) -> &mut T
++pub fn wasmer::sys::FunctionEnvMut::objects_mut(&mut self) -> &mut StoreObjects
++pub fn wasmer::sys::Global::clone(&self) -> Global
++pub fn wasmer::sys::Global::eq(&self, other: &Self) -> bool
++pub fn wasmer::sys::Global::fmt(&self, f: &mut $crate::fmt::Formatter<'_>) -> $crate::fmt::Result
++pub fn wasmer::sys::Global::get(&self, store: &mut impl AsStoreMut) -> Value
++pub fn wasmer::sys::Global::get_self_from_extern(_extern: &'a Extern) -> Result<&'a Self, ExportError>
++pub fn wasmer::sys::Global::is_from_store(&self, store: &impl AsStoreRef) -> bool
++pub fn wasmer::sys::Global::new(store: &mut impl AsStoreMut, val: Value) -> Self
++pub fn wasmer::sys::Global::new_mut(store: &mut impl AsStoreMut, val: Value) -> Self
++pub fn wasmer::sys::Global::set(&self, store: &mut impl AsStoreMut, val: Value) -> Result<(), RuntimeError>
++pub fn wasmer::sys::Global::ty(&self, store: &impl AsStoreRef) -> GlobalType
++pub fn wasmer::sys::HostFunction::call_trampoline_address() -> VMTrampoline
++pub fn wasmer::sys::HostFunction::function_body_ptr() -> *const VMFunctionBody
++pub fn wasmer::sys::Imports::clone(&self) -> Imports
++pub fn wasmer::sys::Imports::contains_namespace(&self, name: &str) -> bool
++pub fn wasmer::sys::Imports::default() -> Imports
++pub fn wasmer::sys::Imports::define(&mut self, ns: &str, name: &str, val: impl Into<Extern>)
++pub fn wasmer::sys::Imports::extend<T: IntoIterator<Item = ((String, String), Extern)>>(&mut self, iter: T)
++pub fn wasmer::sys::Imports::fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
++pub fn wasmer::sys::Imports::get_export(&self, module: &str, name: &str) -> Option<Extern>
++pub fn wasmer::sys::Imports::get_namespace_exports(&self, name: &str) -> Option<Exports>
++pub fn wasmer::sys::Imports::imports_for_module(&self, module: &Module) -> Result<Vec<Extern>, LinkError>
++pub fn wasmer::sys::Imports::new() -> Self
++pub fn wasmer::sys::Imports::register_namespace(&mut self, ns: &str, contents: impl IntoIterator<Item = (String, Extern)>)
++pub fn wasmer::sys::Instance::clone(&self) -> Instance
++pub fn wasmer::sys::Instance::fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
++pub fn wasmer::sys::Instance::module(&self) -> &Module
++pub fn wasmer::sys::Instance::new(store: &mut impl AsStoreMut, module: &Module, imports: &Imports) -> Result<Self, InstantiationError>
++pub fn wasmer::sys::Instance::new_by_index(store: &mut impl AsStoreMut, module: &Module, externs: &[Extern]) -> Result<Self, InstantiationError>
++pub fn wasmer::sys::InstantiationError::fmt(&self, __formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result
++pub fn wasmer::sys::InstantiationError::fmt(&self, f: &mut $crate::fmt::Formatter<'_>) -> $crate::fmt::Result
++pub fn wasmer::sys::InstantiationError::from(other: wasmer_compiler::InstantiationError) -> Self
++pub fn wasmer::sys::InstantiationError::source(&self) -> std::option::Option<&(dyn std::error::Error + 'static)>
++pub fn wasmer::sys::Memory::clone(&self) -> Memory
++pub fn wasmer::sys::Memory::eq(&self, other: &Self) -> bool
++pub fn wasmer::sys::Memory::fmt(&self, f: &mut $crate::fmt::Formatter<'_>) -> $crate::fmt::Result
++pub fn wasmer::sys::Memory::get_self_from_extern(_extern: &'a Extern) -> Result<&'a Self, ExportError>
++pub fn wasmer::sys::Memory::grow<IntoPages>(&self, store: &mut impl AsStoreMut, delta: IntoPages) -> Result<Pages, MemoryError> where IntoPages: Into<Pages>
++pub fn wasmer::sys::Memory::is_from_store(&self, store: &impl AsStoreRef) -> bool
++pub fn wasmer::sys::Memory::new(store: &mut impl AsStoreMut, ty: MemoryType) -> Result<Self, MemoryError>
++pub fn wasmer::sys::Memory::ty(&self, store: &impl AsStoreRef) -> MemoryType
++pub fn wasmer::sys::Memory::view<'a>(&'a self, store: &impl AsStoreRef) -> MemoryView<'a>
++pub fn wasmer::sys::MemoryAccessError::clone(&self) -> MemoryAccessError
++pub fn wasmer::sys::MemoryAccessError::fmt(&self, __formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result
++pub fn wasmer::sys::MemoryAccessError::fmt(&self, f: &mut $crate::fmt::Formatter<'_>) -> $crate::fmt::Result
++pub fn wasmer::sys::MemoryAccessError::from(_err: FromUtf8Error) -> Self
++pub fn wasmer::sys::MemoryView::data_size(&self) -> u64
++pub fn wasmer::sys::MemoryView::fmt(&self, f: &mut $crate::fmt::Formatter<'_>) -> $crate::fmt::Result
++pub fn wasmer::sys::MemoryView::read(&self, offset: u64, buf: &mut [u8]) -> Result<(), MemoryAccessError>
++pub fn wasmer::sys::MemoryView::read_u8(&self, offset: u64) -> Result<u8, MemoryAccessError>
++pub fn wasmer::sys::MemoryView::read_uninit<'b>(&self, offset: u64, buf: &'b mut [MaybeUninit<u8>]) -> Result<&'b mut [u8], MemoryAccessError>
++pub fn wasmer::sys::MemoryView::size(&self) -> Pages
++pub fn wasmer::sys::MemoryView::write(&self, offset: u64, data: &[u8]) -> Result<(), MemoryAccessError>
++pub fn wasmer::sys::MemoryView::write_u8(&self, offset: u64, val: u8) -> Result<(), MemoryAccessError>
++pub fn wasmer::sys::Module::clone(&self) -> Module
++pub fn wasmer::sys::Module::custom_sections<'a>(&'a self, name: &'a str) -> impl Iterator<Item = Box<[u8]>> + 'a
++pub fn wasmer::sys::Module::exports(&self) -> ExportsIterator<impl Iterator<Item = ExportType> + '_>
++pub fn wasmer::sys::Module::fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
++pub fn wasmer::sys::Module::from_binary(store: &impl AsStoreRef, binary: &[u8]) -> Result<Self, CompileError>
++pub fn wasmer::sys::Module::from_file(store: &impl AsStoreRef, file: impl AsRef<Path>) -> Result<Self, IoCompileError>
++pub fn wasmer::sys::Module::imports(&self) -> ImportsIterator<impl Iterator<Item = ImportType> + '_>
++pub fn wasmer::sys::Module::name(&self) -> Option<&str>
++pub fn wasmer::sys::Module::new(store: &impl AsStoreRef, bytes: impl AsRef<[u8]>) -> Result<Self, CompileError>
++pub fn wasmer::sys::Module::serialize(&self) -> Result<Vec<u8>, SerializeError>
++pub fn wasmer::sys::Module::serialize_to_file(&self, path: impl AsRef<Path>) -> Result<(), SerializeError>
++pub fn wasmer::sys::Module::set_name(&mut self, name: &str) -> bool
++pub fn wasmer::sys::Module::validate(store: &impl AsStoreRef, binary: &[u8]) -> Result<(), CompileError>
++pub fn wasmer::sys::NativeWasmTypeInto::into_raw(self, store: &mut impl AsStoreMut) -> RawValue
++pub fn wasmer::sys::Store::as_store_mut(&mut self) -> StoreMut<'_>
++pub fn wasmer::sys::Store::as_store_ref(&self) -> StoreRef<'_>
++pub fn wasmer::sys::Store::custom_trap_handler(&self, call: &dyn Fn(&TrapHandlerFn<'_>) -> bool) -> bool
++pub fn wasmer::sys::Store::default() -> Self
++pub fn wasmer::sys::Store::engine(&self) -> &Engine
++pub fn wasmer::sys::Store::eq(&self, other: &Self) -> bool
++pub fn wasmer::sys::Store::fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
++pub fn wasmer::sys::Store::new(engine: impl Into<Engine>) -> Self
++pub fn wasmer::sys::Store::new_with_engine(engine: impl Into<Engine>) -> Self
++pub fn wasmer::sys::Store::new_with_tunables(engine: impl Into<Engine>, tunables: impl Tunables + Send + Sync + 'static) -> Self
++pub fn wasmer::sys::Store::objects_mut(&mut self) -> &mut StoreObjects
++pub fn wasmer::sys::Store::same(a: &Self, b: &Self) -> bool
++pub fn wasmer::sys::Store::set_trap_handler(&mut self, handler: Option<Box<TrapHandlerFn<'static>>>)
++pub fn wasmer::sys::Store::tunables(&self) -> &dyn Tunables
++pub fn wasmer::sys::StoreMut::as_store_mut(&mut self) -> StoreMut<'_>
++pub fn wasmer::sys::StoreMut::as_store_ref(&self) -> StoreRef<'_>
++pub fn wasmer::sys::StoreMut::engine(&self) -> &Engine
++pub fn wasmer::sys::StoreMut::objects_mut(&mut self) -> &mut StoreObjects
++pub fn wasmer::sys::StoreMut::same(a: &Self, b: &Self) -> bool
++pub fn wasmer::sys::StoreMut::tunables(&self) -> &dyn Tunables
++pub fn wasmer::sys::StoreRef::as_store_ref(&self) -> StoreRef<'_>
++pub fn wasmer::sys::StoreRef::engine(&self) -> &Engine
++pub fn wasmer::sys::StoreRef::same(a: &Self, b: &Self) -> bool
++pub fn wasmer::sys::StoreRef::signal_handler(&self) -> Option<*const TrapHandlerFn<'static>>
++pub fn wasmer::sys::StoreRef::tunables(&self) -> &dyn Tunables
++pub fn wasmer::sys::Table::clone(&self) -> Table
++pub fn wasmer::sys::Table::copy(store: &mut impl AsStoreMut, dst_table: &Self, dst_index: u32, src_table: &Self, src_index: u32, len: u32) -> Result<(), RuntimeError>
++pub fn wasmer::sys::Table::eq(&self, other: &Self) -> bool
++pub fn wasmer::sys::Table::fmt(&self, f: &mut $crate::fmt::Formatter<'_>) -> $crate::fmt::Result
++pub fn wasmer::sys::Table::get(&self, store: &mut impl AsStoreMut, index: u32) -> Option<Value>
++pub fn wasmer::sys::Table::get_self_from_extern(_extern: &'a Extern) -> Result<&'a Self, ExportError>
++pub fn wasmer::sys::Table::grow(&self, store: &mut impl AsStoreMut, delta: u32, init: Value) -> Result<u32, RuntimeError>
++pub fn wasmer::sys::Table::is_from_store(&self, store: &impl AsStoreRef) -> bool
++pub fn wasmer::sys::Table::new(store: &mut impl AsStoreMut, ty: TableType, init: Value) -> Result<Self, RuntimeError>
++pub fn wasmer::sys::Table::set(&self, store: &mut impl AsStoreMut, index: u32, val: Value) -> Result<(), RuntimeError>
++pub fn wasmer::sys::Table::size(&self, store: &impl AsStoreRef) -> u32
++pub fn wasmer::sys::Table::ty(&self, store: &impl AsStoreRef) -> TableType
++pub fn wasmer::sys::TypedFunction::call(&self, store: &mut impl AsStoreMut) -> Result<Rets, RuntimeError>
++pub fn wasmer::sys::TypedFunction::call(&self, store: &mut impl AsStoreMut, A1: A1) -> Result<Rets, RuntimeError>
++pub fn wasmer::sys::TypedFunction::call(&self, store: &mut impl AsStoreMut, A1: A1, A2: A2) -> Result<Rets, RuntimeError>
++pub fn wasmer::sys::TypedFunction::call(&self, store: &mut impl AsStoreMut, A1: A1, A2: A2, A3: A3) -> Result<Rets, RuntimeError>
++pub fn wasmer::sys::TypedFunction::call(&self, store: &mut impl AsStoreMut, A1: A1, A2: A2, A3: A3, A4: A4) -> Result<Rets, RuntimeError>
++pub fn wasmer::sys::TypedFunction::call(&self, store: &mut impl AsStoreMut, A1: A1, A2: A2, A3: A3, A4: A4, A5: A5) -> Result<Rets, RuntimeError>
++pub fn wasmer::sys::TypedFunction::call(&self, store: &mut impl AsStoreMut, A1: A1, A2: A2, A3: A3, A4: A4, A5: A5, A6: A6) -> Result<Rets, RuntimeError>
++pub fn wasmer::sys::TypedFunction::call(&self, store: &mut impl AsStoreMut, A1: A1, A2: A2, A3: A3, A4: A4, A5: A5, A6: A6, A7: A7) -> Result<Rets, RuntimeError>
++pub fn wasmer::sys::TypedFunction::call(&self, store: &mut impl AsStoreMut, A1: A1, A2: A2, A3: A3, A4: A4, A5: A5, A6: A6, A7: A7, A8: A8) -> Result<Rets, RuntimeError>
++pub fn wasmer::sys::TypedFunction::call(&self, store: &mut impl AsStoreMut, A1: A1, A2: A2, A3: A3, A4: A4, A5: A5, A6: A6, A7: A7, A8: A8, A9: A9) -> Result<Rets, RuntimeError>
++pub fn wasmer::sys::TypedFunction::call(&self, store: &mut impl AsStoreMut, A1: A1, A2: A2, A3: A3, A4: A4, A5: A5, A6: A6, A7: A7, A8: A8, A9: A9, A10: A10) -> Result<Rets, RuntimeError>
++pub fn wasmer::sys::TypedFunction::call(&self, store: &mut impl AsStoreMut, A1: A1, A2: A2, A3: A3, A4: A4, A5: A5, A6: A6, A7: A7, A8: A8, A9: A9, A10: A10, A11: A11) -> Result<Rets, RuntimeError>
++pub fn wasmer::sys::TypedFunction::call(&self, store: &mut impl AsStoreMut, A1: A1, A2: A2, A3: A3, A4: A4, A5: A5, A6: A6, A7: A7, A8: A8, A9: A9, A10: A10, A11: A11, A12: A12) -> Result<Rets, RuntimeError>
++pub fn wasmer::sys::TypedFunction::call(&self, store: &mut impl AsStoreMut, A1: A1, A2: A2, A3: A3, A4: A4, A5: A5, A6: A6, A7: A7, A8: A8, A9: A9, A10: A10, A11: A11, A12: A12, A13: A13) -> Result<Rets, RuntimeError>
++pub fn wasmer::sys::TypedFunction::call(&self, store: &mut impl AsStoreMut, A1: A1, A2: A2, A3: A3, A4: A4, A5: A5, A6: A6, A7: A7, A8: A8, A9: A9, A10: A10, A11: A11, A12: A12, A13: A13, A14: A14) -> Result<Rets, RuntimeError>
++pub fn wasmer::sys::TypedFunction::call(&self, store: &mut impl AsStoreMut, A1: A1, A2: A2, A3: A3, A4: A4, A5: A5, A6: A6, A7: A7, A8: A8, A9: A9, A10: A10, A11: A11, A12: A12, A13: A13, A14: A14, A15: A15) -> Result<Rets, RuntimeError>
++pub fn wasmer::sys::TypedFunction::call(&self, store: &mut impl AsStoreMut, A1: A1, A2: A2, A3: A3, A4: A4, A5: A5, A6: A6, A7: A7, A8: A8, A9: A9, A10: A10, A11: A11, A12: A12, A13: A13, A14: A14, A15: A15, A16: A16) -> Result<Rets, RuntimeError>
++pub fn wasmer::sys::TypedFunction::call(&self, store: &mut impl AsStoreMut, A1: A1, A2: A2, A3: A3, A4: A4, A5: A5, A6: A6, A7: A7, A8: A8, A9: A9, A10: A10, A11: A11, A12: A12, A13: A13, A14: A14, A15: A15, A16: A16, A17: A17) -> Result<Rets, RuntimeError>
++pub fn wasmer::sys::TypedFunction::call(&self, store: &mut impl AsStoreMut, A1: A1, A2: A2, A3: A3, A4: A4, A5: A5, A6: A6, A7: A7, A8: A8, A9: A9, A10: A10, A11: A11, A12: A12, A13: A13, A14: A14, A15: A15, A16: A16, A17: A17, A18: A18) -> Result<Rets, RuntimeError>
++pub fn wasmer::sys::TypedFunction::call(&self, store: &mut impl AsStoreMut, A1: A1, A2: A2, A3: A3, A4: A4, A5: A5, A6: A6, A7: A7, A8: A8, A9: A9, A10: A10, A11: A11, A12: A12, A13: A13, A14: A14, A15: A15, A16: A16, A17: A17, A18: A18, A19: A19) -> Result<Rets, RuntimeError>
++pub fn wasmer::sys::TypedFunction::call(&self, store: &mut impl AsStoreMut, A1: A1, A2: A2, A3: A3, A4: A4, A5: A5, A6: A6, A7: A7, A8: A8, A9: A9, A10: A10, A11: A11, A12: A12, A13: A13, A14: A14, A15: A15, A16: A16, A17: A17, A18: A18, A19: A19, A20: A20) -> Result<Rets, RuntimeError>
++pub fn wasmer::sys::TypedFunction::clone(&self) -> Self
++pub fn wasmer::sys::Value::as_raw(&self, store: &impl AsStoreRef) -> RawValue
++pub fn wasmer::sys::Value::clone(&self) -> Value
++pub fn wasmer::sys::Value::eq(&self, o: &Self) -> bool
++pub fn wasmer::sys::Value::externref(&self) -> Option<&Option<ExternRef>>
++pub fn wasmer::sys::Value::f32(&self) -> Option<f32>
++pub fn wasmer::sys::Value::f64(&self) -> Option<f64>
++pub fn wasmer::sys::Value::fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
++pub fn wasmer::sys::Value::from(val: ExternRef) -> Self
++pub fn wasmer::sys::Value::from(val: Function) -> Self
++pub fn wasmer::sys::Value::from(val: Option<ExternRef>) -> Self
++pub fn wasmer::sys::Value::from(val: Option<Function>) -> Self
++pub fn wasmer::sys::Value::from(val: f32) -> Self
++pub fn wasmer::sys::Value::from(val: f64) -> Self
++pub fn wasmer::sys::Value::from(val: i32) -> Self
++pub fn wasmer::sys::Value::from(val: i64) -> Self
++pub fn wasmer::sys::Value::from(val: u32) -> Self
++pub fn wasmer::sys::Value::from(val: u64) -> Self
++pub fn wasmer::sys::Value::funcref(&self) -> Option<&Option<Function>>
++pub fn wasmer::sys::Value::i32(&self) -> Option<i32>
++pub fn wasmer::sys::Value::i64(&self) -> Option<i64>
++pub fn wasmer::sys::Value::is_from_store(&self, store: &impl AsStoreRef) -> bool
++pub fn wasmer::sys::Value::null() -> Self
++pub fn wasmer::sys::Value::to_string(&self) -> String
++pub fn wasmer::sys::Value::ty(&self) -> Type
++pub fn wasmer::sys::Value::unwrap_externref(&self) -> &Option<ExternRef>
++pub fn wasmer::sys::Value::unwrap_f32(&self) -> f32
++pub fn wasmer::sys::Value::unwrap_f64(&self) -> f64
++pub fn wasmer::sys::Value::unwrap_funcref(&self) -> &Option<Function>
++pub fn wasmer::sys::Value::unwrap_i32(&self) -> i32
++pub fn wasmer::sys::Value::unwrap_i64(&self) -> i64
++pub fn wasmer::sys::Value::unwrap_v128(&self) -> u128
++pub fn wasmer::sys::Value::v128(&self) -> Option<u128>
++pub fn wasmer::sys::WasmPtr::add_offset(self, offset: <M as >::Offset) -> Result<Self, MemoryAccessError>
++pub fn wasmer::sys::WasmPtr::cast<U>(self) -> WasmPtr<U, M>
++pub fn wasmer::sys::WasmPtr::clone(&self) -> Self
++pub fn wasmer::sys::WasmPtr::deref<'a>(self, view: &'a MemoryView<'_>) -> WasmRef<'a, T>
++pub fn wasmer::sys::WasmPtr::eq(&self, other: &Self) -> bool
++pub fn wasmer::sys::WasmPtr::fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
++pub fn wasmer::sys::WasmPtr::from_native(n: <Self as >::Native) -> Self
++pub fn wasmer::sys::WasmPtr::is_null(self) -> bool
++pub fn wasmer::sys::WasmPtr::new(offset: <M as >::Offset) -> Self
++pub fn wasmer::sys::WasmPtr::null() -> Self
++pub fn wasmer::sys::WasmPtr::offset(self) -> <M as >::Offset
++pub fn wasmer::sys::WasmPtr::read(self, view: &MemoryView<'_>) -> Result<T, MemoryAccessError>
++pub fn wasmer::sys::WasmPtr::read_until(self, view: &MemoryView<'_>, end: impl FnMut(&T) -> bool) -> Result<Vec<T>, MemoryAccessError>
++pub fn wasmer::sys::WasmPtr::read_utf8_string(self, view: &MemoryView<'_>, len: <M as >::Offset) -> Result<String, MemoryAccessError>
++pub fn wasmer::sys::WasmPtr::read_utf8_string_with_nul(self, view: &MemoryView<'_>) -> Result<String, MemoryAccessError>
++pub fn wasmer::sys::WasmPtr::slice<'a>(self, view: &'a MemoryView<'_>, len: <M as >::Offset) -> Result<WasmSlice<'a, T>, MemoryAccessError>
++pub fn wasmer::sys::WasmPtr::sub_offset(self, offset: <M as >::Offset) -> Result<Self, MemoryAccessError>
++pub fn wasmer::sys::WasmPtr::to_native(self) -> <Self as >::Native
++pub fn wasmer::sys::WasmPtr::write(self, view: &MemoryView<'_>, val: T) -> Result<(), MemoryAccessError>
++pub fn wasmer::sys::WasmPtr::zero_padding_bytes(&self, _bytes: &mut [mem::MaybeUninit<u8>])
++pub fn wasmer::sys::WasmRef::as_ptr32(self) -> WasmPtr<T, Memory32>
++pub fn wasmer::sys::WasmRef::as_ptr64(self) -> WasmPtr<T, Memory64>
++pub fn wasmer::sys::WasmRef::as_ptr<M: MemorySize>(self) -> WasmPtr<T, M>
++pub fn wasmer::sys::WasmRef::clone(&self) -> WasmRef<'a, T>
++pub fn wasmer::sys::WasmRef::fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
++pub fn wasmer::sys::WasmRef::new(view: &'a MemoryView<'_>, offset: u64) -> Self
++pub fn wasmer::sys::WasmRef::offset(self) -> u64
++pub fn wasmer::sys::WasmRef::read(self) -> Result<T, MemoryAccessError>
++pub fn wasmer::sys::WasmRef::write(self, val: T) -> Result<(), MemoryAccessError>
++pub fn wasmer::sys::WasmSlice::as_ptr32(self) -> WasmPtr<T, Memory32>
++pub fn wasmer::sys::WasmSlice::as_ptr64(self) -> WasmPtr<T, Memory64>
++pub fn wasmer::sys::WasmSlice::clone(&self) -> WasmSlice<'a, T>
++pub fn wasmer::sys::WasmSlice::fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
++pub fn wasmer::sys::WasmSlice::index(self, idx: u64) -> WasmRef<'a, T>
++pub fn wasmer::sys::WasmSlice::is_empty(self) -> bool
++pub fn wasmer::sys::WasmSlice::iter(self) -> WasmSliceIter<'a, T>
++pub fn wasmer::sys::WasmSlice::len(self) -> u64
++pub fn wasmer::sys::WasmSlice::new(view: &'a MemoryView<'_>, offset: u64, len: u64) -> Result<Self, MemoryAccessError>
++pub fn wasmer::sys::WasmSlice::offset(self) -> u64
++pub fn wasmer::sys::WasmSlice::read(self, idx: u64) -> Result<T, MemoryAccessError>
++pub fn wasmer::sys::WasmSlice::read_slice(self, buf: &mut [T]) -> Result<(), MemoryAccessError>
++pub fn wasmer::sys::WasmSlice::read_slice_uninit(self, buf: &mut [MaybeUninit<T>]) -> Result<&mut [T], MemoryAccessError>
++pub fn wasmer::sys::WasmSlice::read_to_vec(self) -> Result<Vec<T>, MemoryAccessError>
++pub fn wasmer::sys::WasmSlice::subslice(self, range: Range<u64>) -> WasmSlice<'a, T>
++pub fn wasmer::sys::WasmSlice::write(self, idx: u64, val: T) -> Result<(), MemoryAccessError>
++pub fn wasmer::sys::WasmSlice::write_slice(self, data: &[T]) -> Result<(), MemoryAccessError>
++pub fn wasmer::sys::WasmSliceIter::next(&mut self) -> Option<<Self as >::Item>
++pub fn wasmer::sys::WasmSliceIter::next_back(&mut self) -> Option<<Self as >::Item>
++pub fn wasmer::sys::WasmSliceIter::size_hint(&self) -> (usize, Option<usize>)
++pub fn wasmer::sys::WasmTypeList::empty_array() -> <Self as >::Array
++pub fn wasmer::sys::WasmTypeList::wasm_types() -> &'static [Type]
++pub mod wasmer::sys
++pub mod wasmer::sys::vm
++pub struct field wasmer::sys::BaseTunables::dynamic_memory_offset_guard_size: u64
++pub struct field wasmer::sys::BaseTunables::static_memory_bound: Pages
++pub struct field wasmer::sys::BaseTunables::static_memory_offset_guard_size: u64
++pub struct field wasmer::sys::Instance::exports: Exports
++pub struct wasmer::sys::BaseTunables
++pub struct wasmer::sys::Exports
++pub struct wasmer::sys::ExportsIterator<'a, I> where I: Iterator<Item = (&'a String, &'a Extern)> + Sized
++pub struct wasmer::sys::Function
++pub struct wasmer::sys::FunctionEnvMut<'a, T: 'a>
++pub struct wasmer::sys::Global
++pub struct wasmer::sys::Imports
++pub struct wasmer::sys::Instance
++pub struct wasmer::sys::Memory
++pub struct wasmer::sys::MemoryView<'a>
++pub struct wasmer::sys::Module
++pub struct wasmer::sys::Store
++pub struct wasmer::sys::StoreMut<'a>
++pub struct wasmer::sys::StoreRef<'a>
++pub struct wasmer::sys::Table
++pub struct wasmer::sys::TypedFunction<Args, Rets>
++pub struct wasmer::sys::WasmRef<'a, T: ValueType>
++pub struct wasmer::sys::WasmSlice<'a, T: ValueType>
++pub struct wasmer::sys::WasmSliceIter<'a, T: ValueType>
++pub trait wasmer::sys::AsStoreMut
++pub trait wasmer::sys::AsStoreRef
++pub trait wasmer::sys::CompilerConfig
++pub trait wasmer::sys::Exportable<'a>
++pub trait wasmer::sys::FunctionMiddleware
++pub trait wasmer::sys::HostFunction<T, Args, Rets, Kind> where Args: WasmTypeList, Rets: WasmTypeList, Kind: HostFunctionKind
++pub trait wasmer::sys::ModuleMiddleware
++pub trait wasmer::sys::NativeWasmTypeInto
++pub trait wasmer::sys::Tunables
++pub trait wasmer::sys::WasmTypeList where Self: Sized
++pub type wasmer::sys::Exports::IntoIter = IntoIter<String, Extern>
++pub type wasmer::sys::Exports::Item = (String, Extern)
++pub type wasmer::sys::ExportsIterator::Item = (&'a String, &'a Extern)
++pub type wasmer::sys::ExternRef::Abi = usize
++pub type wasmer::sys::FromToNativeWasmType::NativeNativeWasmTypeInto
++pub type wasmer::sys::Function::Abi = usize
++pub type wasmer::sys::NativeFunc<Args, Rets> = TypedFunction<Args, Rets>
++pub type wasmer::sys::WasmPtr64<T> = WasmPtr<T, Memory64>
++pub type wasmer::sys::WasmPtr::Native = <M as MemorySize>::Native
++pub type wasmer::sys::WasmSliceIter::Item = WasmRef<'a, T>
++pub type wasmer::sys::WasmTypeList::ArrayAsMut<[RawValue]>
++pub type wasmer::sys::WasmTypeList::CStruct
++pub unsafe fn wasmer::sys::BaseTunables::create_vm_memory(&self, ty: &MemoryType, style: &MemoryStyle, vm_definition_location: NonNull<VMMemoryDefinition>) -> Result<VMMemory, MemoryError>
++pub unsafe fn wasmer::sys::BaseTunables::create_vm_table(&self, ty: &TableType, style: &TableStyle, vm_definition_location: NonNull<VMTableDefinition>) -> Result<VMTable, String>
++pub unsafe fn wasmer::sys::Module::deserialize(store: &impl AsStoreRef, bytes: &[u8]) -> Result<Self, DeserializeError>
++pub unsafe fn wasmer::sys::Module::deserialize_from_file(store: &impl AsStoreRef, path: impl AsRef<Path>) -> Result<Self, DeserializeError>
++pub unsafe fn wasmer::sys::Module::from_binary_unchecked(store: &impl AsStoreRef, binary: &[u8]) -> Result<Self, CompileError>
++pub unsafe fn wasmer::sys::NativeWasmTypeInto::from_raw(store: &mut impl AsStoreMut, raw: RawValue) -> Self
++pub unsafe fn wasmer::sys::Value::from_raw(store: &mut impl AsStoreMut, ty: Type, raw: RawValue) -> Self
++pub unsafe fn wasmer::sys::WasmTypeList::from_array(store: &mut impl AsStoreMut, array: <Self as >::Array) -> Self
++pub unsafe fn wasmer::sys::WasmTypeList::from_c_struct(store: &mut impl AsStoreMut, c_struct: <Self as >::CStruct) -> Self
++pub unsafe fn wasmer::sys::WasmTypeList::from_slice(store: &mut impl AsStoreMut, slice: &[RawValue]) -> Result<Self, TryFromSliceError>
++pub unsafe fn wasmer::sys::WasmTypeList::into_array(self, store: &mut impl AsStoreMut) -> <Self as >::Array
++pub unsafe fn wasmer::sys::WasmTypeList::into_c_struct(self, store: &mut impl AsStoreMut) -> <Self as >::CStruct
++pub unsafe fn wasmer::sys::WasmTypeList::write_c_struct_to_ptr(c_struct: <Self as >::CStruct, ptr: *mut RawValue)
++pub unsafe trait wasmer::sys::FromToNativeWasmType where Self: Sized
++pub unsafe trait wasmer::sys::MemorySize
++pub unsafe trait wasmer::sys::ValueType
++pub use wasmer::sys::Architecture
++pub use wasmer::sys::Artifact
++pub use wasmer::sys::Bytes
++pub use wasmer::sys::CallingConvention
++pub use wasmer::sys::CompileError
++pub use wasmer::sys::CpuFeature
++pub use wasmer::sys::Cranelift
++pub use wasmer::sys::CraneliftOptLevel
++pub use wasmer::sys::DeserializeError
++pub use wasmer::sys::Engine
++pub use wasmer::sys::EngineBuilder
++pub use wasmer::sys::ExportIndex
++pub use wasmer::sys::ExportType
++pub use wasmer::sys::ExternType
++pub use wasmer::sys::Features
++pub use wasmer::sys::FrameInfo
++pub use wasmer::sys::FunctionType
++pub use wasmer::sys::GlobalInit
++pub use wasmer::sys::GlobalType
++pub use wasmer::sys::HOST
++pub use wasmer::sys::ImportType
++pub use wasmer::sys::LinkError
++pub use wasmer::sys::LocalFunctionIndex
++pub use wasmer::sys::Memory32
++pub use wasmer::sys::Memory64
++pub use wasmer::sys::MemoryError
++pub use wasmer::sys::MemoryType
++pub use wasmer::sys::MiddlewareError
++pub use wasmer::sys::MiddlewareReaderState
++pub use wasmer::sys::Mutability
++pub use wasmer::sys::OperatingSystem
++pub use wasmer::sys::Pages
++pub use wasmer::sys::ParseCpuFeatureError
++pub use wasmer::sys::RuntimeError
++pub use wasmer::sys::SerializeError
++pub use wasmer::sys::TableType
++pub use wasmer::sys::Target
++pub use wasmer::sys::Triple
++pub use wasmer::sys::Type
++pub use wasmer::sys::ValueType
++pub use wasmer::sys::WASM_MAX_PAGES
++pub use wasmer::sys::WASM_MIN_PAGES
++pub use wasmer::sys::WASM_PAGE_SIZE
++pub use wasmer::sys::WasmError
++pub use wasmer::sys::WasmResult
++pub use wasmer::sys::is_wasm
++pub use wasmer::sys::raise_user_trap
++pub use wasmer::sys::vm::MemoryError
++pub use wasmer::sys::vm::MemoryStyle
++pub use wasmer::sys::vm::TableStyle
++pub use wasmer::sys::vm::VMExtern
++pub use wasmer::sys::vm::VMMemory
++pub use wasmer::sys::vm::VMMemoryDefinition
++pub use wasmer::sys::vm::VMTable
++pub use wasmer::sys::vm::VMTableDefinition
++pub use wasmer::sys::wasmparser
++pub use wasmer::sys::wat2wasm
+

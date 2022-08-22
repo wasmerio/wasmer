@@ -1,0 +1,17 @@
++#[repr(transparent)] pub struct wasmer::sys::ExternRef
+pub const wasmer::sys::ExternRef::WASM_TYPE: Type
+pub const wasmer::sys::Function::WASM_TYPE: Type (type Abi => f64 / usize)
+pub enum variant wasmer::sys::InstantiationError::*
+pub enum variant wasmer::sys::Value::ExternRef(Option<ExternRef>)
+pub enum variant wasmer::sys::Value::FuncRef(Option<Function>)
+pub enum variant wasmer::sys::Value::V128(u128)
+pub fn wasmer::sys::BaseTunables (BaseTunables do not exist)
+pub fn wasmer::sys::BaseTunables::clone(&self) -> BaseTunables
+pub fn wasmer::sys::BaseTunables::create_host_memory(&self, ty: &MemoryType, style: &MemoryStyle) -> Result<VMMemory, MemoryError>
+pub fn wasmer::sys::BaseTunables::create_host_table(&self, ty: &TableType, style: &TableStyle) -> Result<VMTable, String>
+pub fn wasmer::sys::BaseTunables::for_target(target: &Target) -> Self
+pub fn wasmer::sys::BaseTunables::memory_style(&self, memory: &MemoryType) -> MemoryStyle
+pub fn wasmer::sys::BaseTunables::table_style(&self, _table: &TableType) -> TableStyle
+pub fn wasmer::sys::Exports::get_typed_function<Args, Rets>(&self, store: &impl AsStoreRef, name: &str) -> Result<TypedFunction<Args, Rets>, ExportError> where Args: WasmTypeList, Rets: WasmTypeList
+pub fn wasmer::sys::Exports::get_with_generics<'a, T, Args, Rets>(&'a self, name: &str) -> Result<T, ExportError> where Args: WasmTypeList, Rets: WasmTypeList, T: ExportableWithGenerics<'a, Args, Rets>
+pub fn wasmer::sys::Extern::from_vm_extern(store: &mut impl AsStoreMut, vm_extern: VMExtern) -> Self
