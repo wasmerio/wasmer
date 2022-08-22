@@ -178,8 +178,6 @@ mod tests {
     }
 
     use std::cell::UnsafeCell;
-    use std::ptr::read_unaligned;
-    use std::ptr::write_unaligned;
     use std::ptr::NonNull;
     use wasmer_types::{MemoryError, MemoryStyle, MemoryType, Pages, WASM_PAGE_SIZE};
     use wasmer_vm::{LinearMemory, MaybeInstanceOwned};
@@ -219,7 +217,7 @@ mod tests {
         }
         fn grow(&mut self, delta: Pages) -> Result<Pages, MemoryError> {
             Err(MemoryError::CouldNotGrow {
-                current: Pages::from(1u32),
+                current: Pages::from(100u32),
                 attempted_delta: delta,
             })
         }
@@ -241,16 +239,77 @@ mod tests {
         }
     }
 
+    struct TinyTunables;
+    impl Tunables for TinyTunables {
+        fn memory_style(&self, _memory: &MemoryType) -> MemoryStyle {
+            MemoryStyle::Static {
+                bound: Pages::from(1u32),
+                offset_guard_size: 0,
+            }
+        }
+
+        /// Construct a `TableStyle` for the provided `TableType`
+        fn table_style(&self, _table: &TableType) -> TableStyle {
+            TableStyle::CallerChecksSignature
+        }
+        fn create_host_memory(
+            &self,
+            _ty: &MemoryType,
+            _style: &MemoryStyle,
+        ) -> Result<VMMemory, MemoryError> {
+            let memory = VMTinyMemory::new().unwrap();
+            Ok(VMMemory::from_custom(memory))
+        }
+        unsafe fn create_vm_memory(
+            &self,
+            _ty: &MemoryType,
+            _style: &MemoryStyle,
+            _vm_definition_location: NonNull<VMMemoryDefinition>,
+        ) -> Result<VMMemory, MemoryError> {
+            let memory = VMTinyMemory::new().unwrap();
+            Ok(VMMemory::from_custom(memory))
+        }
+
+        /// Create a table owned by the host given a [`TableType`] and a [`TableStyle`].
+        fn create_host_table(&self, ty: &TableType, style: &TableStyle) -> Result<VMTable, String> {
+            VMTable::new(ty, style)
+        }
+
+        /// Create a table owned by the VM given a [`TableType`] and a [`TableStyle`].
+        ///
+        /// # Safety
+        /// - `vm_definition_location` must point to a valid location in VM memory.
+        unsafe fn create_vm_table(
+            &self,
+            ty: &TableType,
+            style: &TableStyle,
+            vm_definition_location: NonNull<VMTableDefinition>,
+        ) -> Result<VMTable, String> {
+            VMTable::from_definition(ty, style, vm_definition_location)
+        }
+    }
+
     #[test]
     fn check_linearmemory() {
-        let mut memory = VMTinyMemory::new().unwrap();
-        assert!(memory.grow(Pages::from(2u32)).is_err());
-        assert_eq!(memory.size(), Pages::from(1u32));
-        let target = Target::default();
-        let tunables = BaseTunables::for_target(&target);
-        let vmmemory =
-            unsafe { tunables.create_vm_memory(&memory.ty(), &memory.style(), memory.vmmemory()) };
-        let vmmemory = vmmemory.unwrap();
+        let tunables = TinyTunables {};
+        let vmmemory = tunables.create_host_memory(
+            &MemoryType::new(1u32, Some(100u32), true),
+            &MemoryStyle::Static {
+                bound: Pages::from(1u32),
+                offset_guard_size: 0u64,
+            },
+        );
+        let mut vmmemory = vmmemory.unwrap();
+        assert!(vmmemory.grow(Pages::from(2u32)).is_err());
         assert_eq!(vmmemory.size(), Pages::from(1u32));
+        //unsafe { tunables.create_vm_memory(&memory.ty(), &memory.style(), memory.vmmemory()) };
+        assert_eq!(vmmemory.size(), Pages::from(1u32));
+        assert_eq!(
+            vmmemory.grow(Pages::from(0u32)).err().unwrap(),
+            MemoryError::CouldNotGrow {
+                current: Pages::from(100u32),
+                attempted_delta: Pages::from(0u32)
+            }
+        );
     }
 }
