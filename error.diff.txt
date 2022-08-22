@@ -57,3 +57,4 @@ pub fn wasmer::sys::Value::from(val: Option<ExternRef>) -> Self
 pub fn wasmer::sys::Value::unwrap_externref(&self) -> &Option<ExternRef>
 pub fn wasmer::sys::Value::unwrap_v128(&self) -> u128
 pub fn wasmer::sys::Value::v128(&self) -> Option<u128>
+pub fn wasmer::sys::WasmSlice::is_empty(self) -> bool
