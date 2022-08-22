@@ -373,7 +373,7 @@ unsafe extern "C" fn wasi_console_out_delete_memory(ptr: *const c_void /* = *Pip
 /// Creates a new `wasi_console_out_t` which uses a memory buffer
 /// for backing stdin / stdout / stderr
 #[no_mangle]
-pub unsafe extern "C" fn wasi_console_out_new_memory() -> *mut wasi_console_out_t {
+pub unsafe extern "C" fn wasi_pipe_new() -> *mut wasi_console_out_t {
     use std::mem::ManuallyDrop;
 
     let data = Pipe::new();
@@ -1243,8 +1243,8 @@ mod tests {
                 wasm_engine_t* engine = wasm_engine_new();
                 wasm_store_t* store = wasm_store_new(engine);
                 wasi_config_t* config = wasi_config_new("example_program");
-                wasi_console_out_t* override_stdout = wasi_console_out_new_memory();
-                wasi_console_out_t* override_stderr = wasi_console_out_new_memory();
+                wasi_console_out_t* override_stdout = wasi_pipe_new();
+                wasi_console_out_t* override_stderr = wasi_pipe_new();
 
                 CustomWasiStdin stdin = { .invocation = 0 };
                 wasi_console_stdin_t* override_stdin = wasi_console_stdin_new(
