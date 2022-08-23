@@ -117,7 +117,7 @@ impl Artifact {
             ));
         }
 
-        let bytes = Self::get_byte_slice(bytes, 0, ArtifactBuild::MAGIC_HEADER.len())?;
+        let bytes = Self::get_byte_slice(bytes, ArtifactBuild::MAGIC_HEADER.len(), bytes.len())?;
 
         let metadata_len = MetadataHeader::parse(bytes)?;
         let metadata_slice = Self::get_byte_slice(bytes, MetadataHeader::LEN, bytes.len())?;
