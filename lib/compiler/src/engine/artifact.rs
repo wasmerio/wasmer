@@ -584,7 +584,10 @@ impl Artifact {
         {
             Ok(&input[start..end])
         } else {
-            Err(DeserializeError::InvalidByteLength { expected: end - start, got: input.len() })
+            Err(DeserializeError::InvalidByteLength {
+                expected: end - start,
+                got: input.len(),
+            })
         }
     }
 
@@ -619,7 +622,8 @@ impl Artifact {
 
         // read finished functions in order now...
         for _i in 0..num_finished_functions {
-            let byte_buffer_slice = Self::get_byte_slice(bytes, cur_offset, cur_offset + WORD_SIZE)?;
+            let byte_buffer_slice =
+                Self::get_byte_slice(bytes, cur_offset, cur_offset + WORD_SIZE)?;
             byte_buffer[0..WORD_SIZE].clone_from_slice(byte_buffer_slice);
             let fp = FunctionBodyPtr(usize::from_ne_bytes(byte_buffer) as _);
             cur_offset += WORD_SIZE;
@@ -647,7 +651,8 @@ impl Artifact {
         cur_offset += WORD_SIZE;
         let num_function_trampolines = usize::from_ne_bytes(byte_buffer);
         for _ in 0..num_function_trampolines {
-            let byte_buffer_slice = Self::get_byte_slice(bytes, cur_offset, cur_offset + WORD_SIZE)?;
+            let byte_buffer_slice =
+                Self::get_byte_slice(bytes, cur_offset, cur_offset + WORD_SIZE)?;
             byte_buffer[0..WORD_SIZE].clone_from_slice(byte_buffer_slice);
             cur_offset += WORD_SIZE;
             let trampoline_ptr_bytes = usize::from_ne_bytes(byte_buffer);
@@ -663,7 +668,8 @@ impl Artifact {
         cur_offset += WORD_SIZE;
         let num_dynamic_trampoline_functions = usize::from_ne_bytes(byte_buffer);
         for _i in 0..num_dynamic_trampoline_functions {
-            let byte_buffer_slice = Self::get_byte_slice(bytes, cur_offset, cur_offset + WORD_SIZE)?;
+            let byte_buffer_slice =
+                Self::get_byte_slice(bytes, cur_offset, cur_offset + WORD_SIZE)?;
             byte_buffer[0..WORD_SIZE].clone_from_slice(byte_buffer_slice);
             let fp = FunctionBodyPtr(usize::from_ne_bytes(byte_buffer) as _);
             cur_offset += WORD_SIZE;
