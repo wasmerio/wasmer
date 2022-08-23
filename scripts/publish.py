@@ -1,7 +1,17 @@
 #! /usr/bin/env python3
 
 """This is a script for publishing the wasmer crates to crates.io.
-It should be run in the root of wasmer like `python3 scripts/publish.py --help`."""
+It should be run in the root of wasmer like `python3 scripts/publish.py --help`.
+
+Please lint with pylint and format with black.
+
+$ pylint scripts/publish.py
+
+--------------------------------------------------------------------
+Your code has been rated at 10.00/10 (previous run: 10.00/10, +0.00)
+
+$ black scripts/publish.py
+"""
 
 import argparse
 import itertools
@@ -77,9 +87,15 @@ class Crate:
     def __str__(self):
         return f"{self.name}: {self.dependencies} {self.cargo_file_path} {self.path()}"
 
+    @property
     def path(self) -> str:
         """Return the absolute filesystem path containing this crate."""
         return os.path.dirname(self.cargo_file_path)
+
+    @property
+    def version(self) -> str:
+        """Return the crate's version according to its manifest."""
+        return self.cargo_manifest["package"]["version"]
 
 
 class Publisher:
@@ -88,8 +104,8 @@ class Publisher:
     to crates.io in a valid order."""
 
     def __init__(self, version=None, dry_run=True, verbose=True):
-        self.dry_run = dry_run
-        self.verbose = verbose
+        self.dry_run: bool = dry_run
+        self.verbose: bool = verbose
 
         # open workspace Cargo.toml
         with open("Cargo.toml", "rb") as file:
@@ -97,7 +113,7 @@ class Publisher:
 
         if version is None:
             version = data["package"]["version"]
-        self.version = version
+        self.version: str = version
 
         if self.verbose and not self.dry_run:
             print(f"Publishing version {self.version}")
@@ -157,6 +173,21 @@ class Publisher:
             dependencies = return_dependencies(member_data)
             crates.append(Crate(dependencies, member_data, cargo_file_path=member))
 
+        invalids: typing.List[str] = []
+        for crate in crates:
+            if crate.version != self.version:
+                print(
+                    f"Crate {crate.name} is version {crate.version} but"
+                    f" we're publishing for version {self.version}"
+                )
+                invalids.append(crate.name)
+
+        if len(invalids) > 0:
+            raise Exception(
+                f"Some crates have a different version than the"
+                f" one we're publishing ({self.version}): {invalids}"
+            )
+
         self.crates = crates
         self.crate_index: typing.Dict[str, Crate] = {c.name: c for c in crates}
 
@@ -189,14 +220,23 @@ class Publisher:
         status = None
         try:
             crate = self.crate_index[crate_name]
-            os.chdir(crate.cargo_file_path)
+            os.chdir(crate.path)
+            extra_args = []
+            if crate_name in SETTINGS["publish_features"]:
+                extra_args = ["--features", SETTINGS["publish_features"][crate_name]]
             if self.dry_run:
                 print(f"In dry-run: not publishing crate `{crate_name}`")
-                output = subprocess.run(["cargo", "publish", "--dry-run"], check=True)
+                command = ["cargo", "publish", "--dry-run"] + extra_args
+                if self.verbose:
+                    print(*command)
+                output = subprocess.run(command, check=True)
                 if self.verbose:
                     print(output)
             else:
-                output = subprocess.run(["cargo", "publish"], check=True)
+                command = ["cargo", "publish"] + extra_args
+                if self.verbose:
+                    print(*command)
+                output = subprocess.run(command, check=True)
                 if self.verbose:
                     print(output)
             if self.verbose:
