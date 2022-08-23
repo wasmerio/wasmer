@@ -318,7 +318,6 @@ impl Module {
         Self::new(_store, bytes).map_err(|e| DeserializeError::Compiler(e))
     }
 
-
     #[cfg(feature = "compiler")]
     /// Deserializes a a serialized Module located in a `Path` into a `Module`.
     /// > Note: the module has to be serialized before with the `serialize` method.

@@ -2,12 +2,12 @@ use std::convert::TryFrom;
 use std::fmt;
 use std::string::{String, ToString};
 
-use wasmer_types::{Type, RawValue};
+use wasmer_types::Type;
 
 //use crate::ExternRef;
 use crate::js::externals::function::Function;
 
-use super::store::{AsStoreRef, AsStoreMut};
+use super::store::{AsStoreMut, AsStoreRef};
 
 /// WebAssembly computations manipulate values of basic value types:
 /// * Integers (32 or 64 bit width)
@@ -110,13 +110,13 @@ impl Value {
     ///
     /// # Safety
     ///
-    pub unsafe fn from_raw(store: &mut impl AsStoreMut, ty: Type, raw: RawValue) -> Self {
+    pub unsafe fn from_raw(store: &mut impl AsStoreMut, ty: Type, raw: f64) -> Self {
         match ty {
-            Type::I32 => Self::I32(raw.i32),
-            Type::I64 => Self::I64(raw.i64),
-            Type::F32 => Self::F32(raw.f32),
-            Type::F64 => Self::F64(raw.f64),
-            Type::V128 => Self::V128(raw.u128),
+            Type::I32 => Self::I32(raw as _),
+            Type::I64 => Self::I64(raw as _),
+            Type::F32 => Self::F32(raw as _),
+            Type::F64 => Self::F64(raw),
+            Type::V128 => Self::V128(raw as _),
             Type::FuncRef => todo!(),
             Type::ExternRef => todo!(),
             //Self::ExternRef(

@@ -608,7 +608,7 @@ mod inner {
     use std::marker::PhantomData;
     use std::panic::{self, AssertUnwindSafe};
 
-    use wasmer_types::{FunctionType, RawValue, NativeWasmType, Type};
+    use wasmer_types::{FunctionType, NativeWasmType, Type};
     // use wasmer::{raise_user_trap, resume_panic};
 
     /// A trait to convert a Rust value to a `WasmNativeType` value,
@@ -758,7 +758,7 @@ mod inner {
         /// # Safety
         unsafe fn from_slice(
             store: &mut impl AsStoreMut,
-            slice: &[RawValue],
+            slice: &[f64],
         ) -> Result<Self, TryFromSliceError>;
 
         /// Builds and returns an array of type `Array` from a tuple
@@ -784,10 +784,10 @@ mod inner {
         /// # Safety
         unsafe fn into_c_struct(self, store: &mut impl AsStoreMut) -> Self::CStruct;
 
-        /// Writes the contents of a C struct to an array of `RawValue`.
+        /// Writes the contents of a C struct to an array of `f64`.
         ///
         /// # Safety
-        unsafe fn write_c_struct_to_ptr(c_struct: Self::CStruct, ptr: *mut RawValue);
+        unsafe fn write_c_struct_to_ptr(c_struct: Self::CStruct, ptr: *mut f64);
 
         /// Get the Wasm types for the tuple (list) of currently
         /// represented values.
@@ -839,7 +839,6 @@ mod inner {
     mod test_into_result {
         use super::*;
         use std::convert::Infallible;
-        use wasmer_types::RawValue;
 
         #[test]
         fn test_into_result_over_t() {
@@ -1015,7 +1014,7 @@ mod inner {
                 }
 
                 #[allow(clippy::missing_safety_doc)]
-                unsafe fn from_slice(store: &mut impl AsStoreMut, slice: &[RawValue]) -> Result<Self, TryFromSliceError> {
+                unsafe fn from_slice(store: &mut impl AsStoreMut, slice: &[f64]) -> Result<Self, TryFromSliceError> {
                     Ok(Self::from_array(store, slice.try_into()?))
                 }
 
@@ -1069,7 +1068,7 @@ mod inner {
                 }
 
                 #[allow(non_snake_case)]
-                unsafe fn write_c_struct_to_ptr(c_struct: Self::CStruct, _ptr: *mut RawValue) {
+                unsafe fn write_c_struct_to_ptr(c_struct: Self::CStruct, _ptr: *mut f64) {
                     // Unpack items of the tuple.
                     let $c_struct_name( $( $x ),* ) = c_struct;
 
@@ -1245,7 +1244,7 @@ mod inner {
 
         unsafe fn from_slice(
             _: &mut impl AsStoreMut,
-            _: &[RawValue],
+            _: &[f64],
         ) -> Result<Self, TryFromSliceError> {
             unreachable!()
         }
@@ -1266,7 +1265,7 @@ mod inner {
             self
         }
 
-        unsafe fn write_c_struct_to_ptr(_: Self::CStruct, _: *mut RawValue) {}
+        unsafe fn write_c_struct_to_ptr(_: Self::CStruct, _: *mut f64) {}
 
         fn wasm_types() -> &'static [Type] {
             &[]

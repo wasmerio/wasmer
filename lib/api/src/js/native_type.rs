@@ -1,7 +1,7 @@
 //! This module permits to create native functions
 //! easily in Rust, thanks to its advanced typing system.
 
-use wasmer_types::{NativeWasmType, RawValue, Type};
+use wasmer_types::{NativeWasmType, Type};
 
 use crate::js::Function;
 
@@ -23,7 +23,7 @@ pub trait NativeWasmTypeInto: NativeWasmType + Sized {
     ///
     /// # Safety
     ///
-    unsafe fn from_raw(store: &mut impl AsStoreMut, raw: RawValue) -> Self;
+    unsafe fn from_raw(store: &mut impl AsStoreMut, raw: f64) -> Self;
 }
 
 impl NativeWasmTypeInto for i32 {
@@ -43,8 +43,8 @@ impl NativeWasmTypeInto for i32 {
     }
 
     #[inline]
-    unsafe fn from_raw(_store: &mut impl AsStoreMut, raw: RawValue) -> Self {
-        raw.i32
+    unsafe fn from_raw(_store: &mut impl AsStoreMut, raw: f64) -> Self {
+        raw as _
     }
 }
 
@@ -65,8 +65,8 @@ impl NativeWasmTypeInto for i64 {
     }
 
     #[inline]
-    unsafe fn from_raw(_store: &mut impl AsStoreMut, raw: RawValue) -> Self {
-        raw.i64
+    unsafe fn from_raw(_store: &mut impl AsStoreMut, raw: f64) -> Self {
+        raw as _
     }
 }
 
@@ -87,8 +87,8 @@ impl NativeWasmTypeInto for f32 {
     }
 
     #[inline]
-    unsafe fn from_raw(_store: &mut impl AsStoreMut, raw: RawValue) -> Self {
-        raw.f32
+    unsafe fn from_raw(_store: &mut impl AsStoreMut, raw: f64) -> Self {
+        raw as _
     }
 }
 
@@ -109,8 +109,8 @@ impl NativeWasmTypeInto for f64 {
     }
 
     #[inline]
-    unsafe fn from_raw(_store: &mut impl AsStoreMut, raw: RawValue) -> Self {
-        raw.f64
+    unsafe fn from_raw(_store: &mut impl AsStoreMut, raw: f64) -> Self {
+        raw
     }
 }
 
@@ -131,8 +131,8 @@ impl NativeWasmTypeInto for u128 {
     }
 
     #[inline]
-    unsafe fn from_raw(_store: &mut impl AsStoreMut, raw: RawValue) -> Self {
-        raw.u128
+    unsafe fn from_raw(_store: &mut impl AsStoreMut, raw: f64) -> Self {
+        raw as _
     }
 }
 
