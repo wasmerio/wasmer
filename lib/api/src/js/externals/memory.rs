@@ -119,7 +119,11 @@ impl Memory {
     }
 
     /// Creates a new host `Memory` from provided JavaScript memory.
-    pub fn new_raw(store: &mut impl AsStoreMut, js_memory: js_sys::WebAssembly::Memory, ty: MemoryType) -> Result<Self, MemoryError> {
+    pub fn new_raw(
+        store: &mut impl AsStoreMut,
+        js_memory: js_sys::WebAssembly::Memory,
+        ty: MemoryType,
+    ) -> Result<Self, MemoryError> {
         let vm_memory = VMMemory::new(js_memory, ty);
         Ok(Self::from_vm_export(store, vm_memory))
     }

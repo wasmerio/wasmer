@@ -1073,13 +1073,15 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             ) {
                 Ok(res) => {
                     state.push1(res);
-                },
+                }
                 Err(wasmer_types::WasmError::Unsupported(_err)) => {
                     // If multiple threads hit a mutex then the function will fail
                     builder.ins().trap(ir::TrapCode::UnreachableCodeReached);
                     state.reachable = false;
-                },
-                Err(err) => { return Err(err); }
+                }
+                Err(err) => {
+                    return Err(err);
+                }
             };
         }
         Operator::MemoryAtomicNotify { memarg } => {
@@ -1088,18 +1090,19 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             let count = state.pop1(); // 32 (fixed)
             let addr = state.pop1(); // 32 (fixed)
             let addr = fold_atomic_mem_addr(addr, memarg, I32, builder);
-            match environ.translate_atomic_notify(builder.cursor(), heap_index, heap, addr, count)
-            {
+            match environ.translate_atomic_notify(builder.cursor(), heap_index, heap, addr, count) {
                 Ok(res) => {
                     state.push1(res);
-                },
+                }
                 Err(wasmer_types::WasmError::Unsupported(_err)) => {
                     // Simple return a zero as this function is needed for the __wasi_init_memory function
                     // but the equivalent notify.wait will not be called (as only one thread calls __start)
                     // hence these atomic operations are not needed
                     state.push1(builder.ins().iconst(I32, i64::from(0)));
-                },
-                Err(err) => { return Err(err); }
+                }
+                Err(err) => {
+                    return Err(err);
+                }
             };
         }
         Operator::I32AtomicLoad { memarg } => {

@@ -8,13 +8,13 @@ use crate::wasmparser::{Operator, Range, Type};
 use std::convert::{TryFrom, TryInto};
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::FunctionType;
+use wasmer_types::WasmResult;
 use wasmer_types::{
     CustomSectionIndex, DataIndex, DataInitializer, DataInitializerLocation, ElemIndex,
     ExportIndex, FunctionIndex, GlobalIndex, GlobalInit, GlobalType, ImportIndex,
     LocalFunctionIndex, MemoryIndex, MemoryType, ModuleInfo, SignatureIndex, TableIndex,
     TableInitializer, TableType,
 };
-use wasmer_types::WasmResult;
 
 /// Contains function data: bytecode and its offset in the module.
 #[derive(Hash)]
