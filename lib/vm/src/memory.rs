@@ -389,9 +389,9 @@ impl From<VMOwnedMemory> for VMMemory {
     }
 }
 
-impl Into<VMMemory> for VMSharedMemory {
-    fn into(self) -> VMMemory {
-        VMMemory(Box::new(self))
+impl From<VMSharedMemory> for VMMemory {
+    fn from(mem: VMSharedMemory) -> Self {
+        Self(Box::new(mem))
     }
 }
 
@@ -399,9 +399,9 @@ impl Into<VMMemory> for VMSharedMemory {
 #[derive(Debug)]
 pub struct VMMemory(pub Box<dyn LinearMemory + 'static>);
 
-impl Into<VMMemory> for Box<dyn LinearMemory + 'static> {
-    fn into(self) -> VMMemory {
-        VMMemory(self)
+impl From<Box<dyn LinearMemory + 'static>> for VMMemory {
+    fn from(mem: Box<dyn LinearMemory + 'static>) -> Self {
+        Self(mem)
     }
 }
 
