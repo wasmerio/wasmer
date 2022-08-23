@@ -1,10 +1,3 @@
 UNCHECKED SO FAR:
 
-pub use wasmer::sys::HOST
-pub use wasmer::sys::vm::VMExtern
-pub use wasmer::sys::vm::VMMemory
-pub use wasmer::sys::vm::VMMemoryDefinition
-pub use wasmer::sys::vm::VMTable
-pub use wasmer::sys::vm::VMTableDefinition
-pub use wasmer::sys::wasmparser
-pub use wasmer::sys::wat2wasm
+

@@ -97,3 +97,11 @@ pub use wasmer::sys::Triple
 pub use wasmer::sys::ParseCpuFeatureError
 pub unsafe fn wasmer::sys::NativeWasmTypeInto::from_raw(store: &mut impl AsStoreMut, raw: RawValue) -> Self
 pub type wasmer::sys::Function::Abi = usize
+pub use wasmer::sys::HOST
+pub use wasmer::sys::vm::VMExtern
+pub use wasmer::sys::vm::VMMemory
+pub use wasmer::sys::vm::VMMemoryDefinition
+pub use wasmer::sys::vm::VMTable
+pub use wasmer::sys::vm::VMTableDefinition
+pub use wasmer::sys::wasmparser
+pub use wasmer::sys::wat2wasm
