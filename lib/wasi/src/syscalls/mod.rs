@@ -26,7 +26,7 @@ use self::types::{
     wasi::{
         Advice, Clockid, Dircookie, Dirent, Errno, Event, EventEnum, EventFdReadwrite,
         Eventrwflags, Eventtype, Fd as WasiFd, Fdflags, Fdstat, Filetype, Rights, Snapshot0Clockid,
-        Subscription, SubscriptionEnum, SubscriptionFsReadwrite,
+        Subscription, SubscriptionEnum, SubscriptionFsReadwrite, Timestamp,
     },
     *,
 };
@@ -282,12 +282,12 @@ fn write_buffer_array<M: MemorySize>(
     Errno::Success
 }
 
-fn get_current_time_in_nanos() -> Result<__wasi_timestamp_t, Errno> {
+fn get_current_time_in_nanos() -> Result<Timestamp, Errno> {
     let now = std::time::SystemTime::now();
     let duration = now
         .duration_since(std::time::SystemTime::UNIX_EPOCH)
         .map_err(|_| Errno::Io)?;
-    Ok(duration.as_nanos() as __wasi_timestamp_t)
+    Ok(duration.as_nanos() as Timestamp)
 }
 
 /// ### `args_get()`
@@ -361,12 +361,12 @@ pub fn args_sizes_get<M: MemorySize>(
 /// - `Clockid clock_id`
 ///     The ID of the clock to get the resolution of
 /// Output:
-/// - `__wasi_timestamp_t *resolution`
+/// - `Timestamp *resolution`
 ///     The resolution of the clock in nanoseconds
 pub fn clock_res_get<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     clock_id: Clockid,
-    resolution: WasmPtr<__wasi_timestamp_t, M>,
+    resolution: WasmPtr<Timestamp, M>,
 ) -> Errno {
     trace!("wasi::clock_res_get");
     let env = ctx.data();
@@ -377,7 +377,7 @@ pub fn clock_res_get<M: MemorySize>(
         Snapshot0Clockid::from(clock_id),
         out_addr
     ));
-    wasi_try_mem!(resolution.write(&memory, t_out as __wasi_timestamp_t));
+    wasi_try_mem!(resolution.write(&memory, t_out as Timestamp));
     Errno::Success
 }
 
@@ -386,16 +386,16 @@ pub fn clock_res_get<M: MemorySize>(
 /// Inputs:
 /// - `Clockid clock_id`
 ///     The ID of the clock to query
-/// - `__wasi_timestamp_t precision`
+/// - `Timestamp precision`
 ///     The maximum amount of error the reading may have
 /// Output:
-/// - `__wasi_timestamp_t *time`
+/// - `Timestamp *time`
 ///     The value of the clock in nanoseconds
 pub fn clock_time_get<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     clock_id: Clockid,
-    precision: __wasi_timestamp_t,
-    time: WasmPtr<__wasi_timestamp_t, M>,
+    precision: Timestamp,
+    time: WasmPtr<Timestamp, M>,
 ) -> Errno {
     debug!(
         "wasi::clock_time_get clock_id: {}, precision: {}",
@@ -408,7 +408,7 @@ pub fn clock_time_get<M: MemorySize>(
         Snapshot0Clockid::from(clock_id),
         precision
     ));
-    wasi_try_mem!(time.write(&memory, t_out as __wasi_timestamp_t));
+    wasi_try_mem!(time.write(&memory, t_out as Timestamp));
 
     let result = Errno::Success;
     trace!(
@@ -763,17 +763,17 @@ pub fn fd_filestat_set_size(
 /// ### `fd_filestat_set_times()`
 /// Set timestamp metadata on a file
 /// Inputs:
-/// - `__wasi_timestamp_t st_atim`
+/// - `Timestamp st_atim`
 ///     Last accessed time
-/// - `__wasi_timestamp_t st_mtim`
+/// - `Timestamp st_mtim`
 ///     Last modified time
 /// - `__wasi_fstflags_t fst_flags`
 ///     Bit-vector for controlling which times get set
 pub fn fd_filestat_set_times(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
-    st_atim: __wasi_timestamp_t,
-    st_mtim: __wasi_timestamp_t,
+    st_atim: Timestamp,
+    st_mtim: Timestamp,
     fst_flags: __wasi_fstflags_t,
 ) -> Errno {
     debug!("wasi::fd_filestat_set_times");
@@ -2055,9 +2055,9 @@ pub fn path_filestat_get_internal(
 ///     String containing the file path
 /// - `u32 path_len`
 ///     The length of the `path` string
-/// - `__wasi_timestamp_t st_atim`
+/// - `Timestamp st_atim`
 ///     The timestamp that the last accessed time attribute is set to
-/// -  `__wasi_timestamp_t st_mtim`
+/// -  `Timestamp st_mtim`
 ///     The timestamp that the last modified time attribute is set to
 /// - `__wasi_fstflags_t fst_flags`
 ///     A bitmask controlling which attributes are set
@@ -2067,8 +2067,8 @@ pub fn path_filestat_set_times<M: MemorySize>(
     flags: __wasi_lookupflags_t,
     path: WasmPtr<u8, M>,
     path_len: M::Offset,
-    st_atim: __wasi_timestamp_t,
-    st_mtim: __wasi_timestamp_t,
+    st_atim: Timestamp,
+    st_mtim: Timestamp,
     fst_flags: __wasi_fstflags_t,
 ) -> Errno {
     debug!("wasi::path_filestat_set_times");
@@ -3575,7 +3575,7 @@ pub fn thread_spawn<M: MemorySize>(
 /// * `duration` - Amount of time that the thread should sleep
 pub fn thread_sleep(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    duration: __wasi_timestamp_t,
+    duration: Timestamp,
 ) -> Result<Errno, WasiError> {
     debug!("wasi::thread_sleep");
 
@@ -4030,7 +4030,7 @@ pub fn bus_subcall<M: MemorySize>(
 /// Returns the number of events that have occured
 pub fn bus_poll<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    timeout: __wasi_timestamp_t,
+    timeout: Timestamp,
     events: WasmPtr<u8, M>,
     nevents: M::Offset,
     malloc: WasmPtr<u8, M>,
@@ -4924,7 +4924,7 @@ pub fn sock_get_opt_time<M: MemorySize>(
         },
         Some(timeout) => __wasi_option_timestamp_t {
             tag: __WASI_OPTION_SOME,
-            u: timeout.as_nanos() as __wasi_timestamp_t,
+            u: timeout.as_nanos() as Timestamp,
         },
     };
 

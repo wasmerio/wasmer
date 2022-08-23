@@ -3,7 +3,7 @@ use crate::{WasiEnv, WasiError, WasiState, WasiThread};
 use wasmer::{FunctionEnvMut, Memory, Memory32, MemorySize, StoreMut, WasmPtr, WasmSlice};
 use wasmer_wasi_types::*;
 use wasmer_wasi_types_generated::wasi::{
-    Advice, Clockid, Dircookie, Errno, Event, Fd, Fdflags, Fdstat, Rights, Subscription,
+    Advice, Clockid, Dircookie, Errno, Event, Fd, Fdflags, Fdstat, Rights, Subscription, Timestamp,
 };
 
 type MemoryType = Memory32;
@@ -28,7 +28,7 @@ pub(crate) fn args_sizes_get(
 pub(crate) fn clock_res_get(
     ctx: FunctionEnvMut<WasiEnv>,
     clock_id: Clockid,
-    resolution: WasmPtr<__wasi_timestamp_t, MemoryType>,
+    resolution: WasmPtr<Timestamp, MemoryType>,
 ) -> Errno {
     super::clock_res_get::<MemoryType>(ctx, clock_id, resolution)
 }
@@ -36,8 +36,8 @@ pub(crate) fn clock_res_get(
 pub(crate) fn clock_time_get(
     ctx: FunctionEnvMut<WasiEnv>,
     clock_id: Clockid,
-    precision: __wasi_timestamp_t,
-    time: WasmPtr<__wasi_timestamp_t, MemoryType>,
+    precision: Timestamp,
+    time: WasmPtr<Timestamp, MemoryType>,
 ) -> Errno {
     super::clock_time_get::<MemoryType>(ctx, clock_id, precision, time)
 }
@@ -125,8 +125,8 @@ pub(crate) fn fd_filestat_set_size(
 pub(crate) fn fd_filestat_set_times(
     ctx: FunctionEnvMut<WasiEnv>,
     fd: Fd,
-    st_atim: __wasi_timestamp_t,
-    st_mtim: __wasi_timestamp_t,
+    st_atim: Timestamp,
+    st_mtim: Timestamp,
     fst_flags: __wasi_fstflags_t,
 ) -> Errno {
     super::fd_filestat_set_times(ctx, fd, st_atim, st_mtim, fst_flags)
@@ -254,8 +254,8 @@ pub(crate) fn path_filestat_set_times(
     flags: __wasi_lookupflags_t,
     path: WasmPtr<u8, MemoryType>,
     path_len: MemoryOffset,
-    st_atim: __wasi_timestamp_t,
-    st_mtim: __wasi_timestamp_t,
+    st_atim: Timestamp,
+    st_mtim: Timestamp,
     fst_flags: __wasi_fstflags_t,
 ) -> Errno {
     super::path_filestat_set_times::<MemoryType>(
@@ -469,7 +469,7 @@ pub(crate) fn thread_spawn(
 
 pub(crate) fn thread_sleep(
     ctx: FunctionEnvMut<WasiEnv>,
-    duration: __wasi_timestamp_t,
+    duration: Timestamp,
 ) -> Result<Errno, WasiError> {
     super::thread_sleep(ctx, duration)
 }
@@ -619,7 +619,7 @@ pub(crate) fn bus_subcall(
 
 pub(crate) fn bus_poll(
     ctx: FunctionEnvMut<WasiEnv>,
-    timeout: __wasi_timestamp_t,
+    timeout: Timestamp,
     events: WasmPtr<u8, MemoryType>,
     nevents: MemoryOffset,
     malloc: WasmPtr<u8, MemoryType>,

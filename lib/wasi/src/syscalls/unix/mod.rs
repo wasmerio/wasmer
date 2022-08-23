@@ -5,11 +5,11 @@ use libc::{
 };
 use std::mem;
 use wasmer::WasmRef;
-use wasmer_wasi_types_generated::wasi::{Errno, Snapshot0Clockid};
+use wasmer_wasi_types_generated::wasi::{Errno, Snapshot0Clockid, Timestamp};
 
 pub fn platform_clock_res_get(
     clock_id: Snapshot0Clockid,
-    resolution: WasmRef<__wasi_timestamp_t>,
+    resolution: WasmRef<Timestamp>,
 ) -> Result<i64, Errno> {
     let unix_clock_id = match clock_id {
         Snapshot0Clockid::Monotonic => CLOCK_MONOTONIC,
@@ -33,7 +33,7 @@ pub fn platform_clock_res_get(
 
 pub fn platform_clock_time_get(
     clock_id: Snapshot0Clockid,
-    precision: __wasi_timestamp_t,
+    precision: Timestamp,
 ) -> Result<i64, Errno> {
     let unix_clock_id = match clock_id {
         Snapshot0Clockid::Monotonic => CLOCK_MONOTONIC,

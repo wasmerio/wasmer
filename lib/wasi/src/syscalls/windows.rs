@@ -1,10 +1,10 @@
-use crate::syscalls::types::*;
+use crate::syscalls::types::{wasi::Timestamp, *};
 use tracing::debug;
 use wasmer::WasmRef;
 
 pub fn platform_clock_res_get(
     clock_id: wasi_snapshot0::Clockid,
-    resolution: WasmRef<__wasi_timestamp_t>,
+    resolution: WasmRef<Timestamp>,
 ) -> Result<i64, wasi_snapshot0::Errno> {
     let resolution_val = match clock_id {
         // resolution of monotonic clock at 10ms, from:
@@ -25,7 +25,7 @@ pub fn platform_clock_res_get(
 
 pub fn platform_clock_time_get(
     clock_id: wasi_snapshot0::Clockid,
-    precision: __wasi_timestamp_t,
+    precision: Timestamp,
 ) -> Result<i64, wasi_snapshot0::Errno> {
     let nanos = match clock_id {
         wasi_snapshot0::Clockid::MONOTONIC => {

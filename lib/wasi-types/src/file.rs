@@ -5,7 +5,7 @@ use std::{
 };
 use wasmer_derive::ValueType;
 use wasmer_types::ValueType;
-use wasmer_wasi_types_generated::wasi::{Fd, Filetype, Preopentype, Rights};
+use wasmer_wasi_types_generated::wasi::{Fd, Filetype, Preopentype, Rights, Timestamp};
 
 pub type __wasi_device_t = u64;
 
@@ -116,9 +116,9 @@ pub struct __wasi_filestat_t {
     pub st_filetype: Filetype,
     pub st_nlink: __wasi_linkcount_t,
     pub st_size: __wasi_filesize_t,
-    pub st_atim: __wasi_timestamp_t,
-    pub st_mtim: __wasi_timestamp_t,
-    pub st_ctim: __wasi_timestamp_t,
+    pub st_atim: Timestamp,
+    pub st_mtim: Timestamp,
+    pub st_ctim: Timestamp,
 }
 
 impl Default for __wasi_filestat_t {

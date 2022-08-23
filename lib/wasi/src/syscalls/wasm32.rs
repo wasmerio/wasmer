@@ -1,5 +1,5 @@
 use crate::syscalls::types::{
-    wasi::{Errno, Snapshot0Clockid},
+    wasi::{Errno, Snapshot0Clockid, Timestamp},
     *,
 };
 use chrono::prelude::*;
@@ -8,7 +8,7 @@ use wasmer::WasmRef;
 
 pub fn platform_clock_res_get(
     clock_id: Snapshot0Clockid,
-    resolution: WasmRef<__wasi_timestamp_t>,
+    resolution: WasmRef<Timestamp>,
 ) -> Result<i64, Errno> {
     let t_out = match clock_id {
         Snapshot0Clockid::Monotonic => 10_000_000,
@@ -22,7 +22,7 @@ pub fn platform_clock_res_get(
 
 pub fn platform_clock_time_get(
     clock_id: Snapshot0Clockid,
-    precision: __wasi_timestamp_t,
+    precision: Timestamp,
 ) -> Result<i64, Errno> {
     let new_time: DateTime<Local> = Local::now();
     Ok(new_time.timestamp_nanos() as i64)

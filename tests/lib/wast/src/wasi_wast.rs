@@ -6,7 +6,8 @@ use std::sync::{mpsc, Arc, Mutex};
 use wasmer::FunctionEnv;
 use wasmer::{Imports, Instance, Module, Store};
 use wasmer_vfs::{host_fs, mem_fs, FileSystem};
-use wasmer_wasi::types::{__wasi_filesize_t, __wasi_timestamp_t};
+use wasmer_wasi::types::__wasi_filesize_t;
+use wasmer_wasi::types::wasi::Timestamp;
 use wasmer_wasi::{
     generate_import_object_from_env, get_wasi_version, FsError, Pipe, VirtualFile, WasiEnv,
     WasiFunctionEnv, WasiState, WasiVersion,
@@ -614,13 +615,13 @@ impl Write for OutputCapturerer {
 }
 
 impl VirtualFile for OutputCapturerer {
-    fn last_accessed(&self) -> __wasi_timestamp_t {
+    fn last_accessed(&self) -> Timestamp {
         0
     }
-    fn last_modified(&self) -> __wasi_timestamp_t {
+    fn last_modified(&self) -> Timestamp {
         0
     }
-    fn created_time(&self) -> __wasi_timestamp_t {
+    fn created_time(&self) -> Timestamp {
         0
     }
     fn size(&self) -> u64 {
