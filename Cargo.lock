@@ -3207,6 +3207,7 @@ dependencies = [
  "enum-iterator",
  "enumset",
  "indexmap",
+ "memoffset",
  "more-asserts",
  "rkyv",
  "serde",

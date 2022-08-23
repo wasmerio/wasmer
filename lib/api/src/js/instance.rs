@@ -105,7 +105,7 @@ impl Instance {
                     })?;
                 let export: Export =
                     Export::from_js_value(js_export, &mut store, extern_type)?.into();
-                let extern_ = Extern::from_vm_export(&mut store, export);
+                let extern_ = Extern::from_vm_extern(&mut store, export);
                 Ok((name.to_string(), extern_))
             })
             .collect::<Result<Exports, InstantiationError>>()?;

@@ -7,6 +7,7 @@ use std::fmt;
 use wasm_bindgen::{JsCast, JsValue};
 use wasmer_types::{ExternType, FunctionType, GlobalType, MemoryType, TableType};
 
+/// Represents linear memory that is managed by the javascript runtime
 #[derive(Clone, Debug, PartialEq)]
 pub struct VMMemory {
     pub(crate) memory: Memory,
@@ -19,6 +20,11 @@ unsafe impl Sync for VMMemory {}
 impl VMMemory {
     pub(crate) fn new(memory: Memory, ty: MemoryType) -> Self {
         Self { memory, ty }
+    }
+
+    /// Attempts to clone this memory (if its clonable)
+    pub(crate) fn try_clone(&self) -> Option<VMMemory> {
+        Some(self.clone())
     }
 }
 

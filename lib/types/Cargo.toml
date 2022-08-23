@@ -21,6 +21,9 @@ enum-iterator = "0.7.0"
 target-lexicon = { version = "0.12.2", default-features = false }
 enumset = "1.0"
 
+[dev-dependencies]
+memoffset = "0.6"
+
 [features]
 default = ["std"]
 std = []
