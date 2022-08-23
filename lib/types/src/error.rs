@@ -35,6 +35,14 @@ pub enum DeserializeError {
     /// trying to allocate the required resources.
     #[error(transparent)]
     Compiler(#[from] CompileError),
+    /// Input artifact bytes have an invalid length
+    #[error("invalid input bytes: expected {expected} bytes, got {got}")]
+    InvalidByteLength {
+        /// How many bytes were expected
+        expected: usize,
+        /// How many bytes the artifact contained
+        got: usize,
+    }
 }
 
 /// Error type describing things that can go wrong when operating on Wasm Memories.
