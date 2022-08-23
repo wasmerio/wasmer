@@ -81,3 +81,19 @@ pub use wasmer::sys::CraneliftOptLevel
 pub unsafe fn wasmer::sys::WasmTypeList::from_slice(store: &mut impl AsStoreMut, slice: &[RawValue]) -> Result<Self, TryFromSliceError>
 pub unsafe fn wasmer::sys::WasmTypeList::write_c_struct_to_ptr(c_struct: <Self as >::CStruct, ptr: *mut RawValue)
 pub use wasmer::sys::FrameInfo
+pub use wasmer::sys::LinkError
+pub use wasmer::sys::Engine
+pub use wasmer::sys::EngineBuilder
+pub use wasmer::sys::Features
+pub use wasmer::sys::MiddlewareError
+pub unsafe fn wasmer::sys::Value::from_raw(store: &mut impl AsStoreMut, ty: Type, raw: RawValue) -> Self
+pub use wasmer::sys::raise_user_trap
+pub use wasmer::sys::MiddlewareReaderState
+pub unsafe trait wasmer::sys::ValueTypeq
+pub type wasmer::sys::WasmTypeList::ArrayAsMut<[RawValue]>
+pub use wasmer::sys::OperatingSystem
+pub use wasmer::sys::Target
+pub use wasmer::sys::Triple
+pub use wasmer::sys::ParseCpuFeatureError
+pub unsafe fn wasmer::sys::NativeWasmTypeInto::from_raw(store: &mut impl AsStoreMut, raw: RawValue) -> Self
+pub type wasmer::sys::Function::Abi = usize

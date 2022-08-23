@@ -1,34 +1,6 @@
 UNCHECKED SO FAR:
 
-pub type wasmer::sys::FromToNativeWasmType::NativeNativeWasmTypeInto
-pub type wasmer::sys::Function::Abi = usize
-pub type wasmer::sys::NativeFunc<Args, Rets> = TypedFunction<Args, Rets>
-pub type wasmer::sys::WasmSliceIter::Item = WasmRef<'a, T>
-pub type wasmer::sys::WasmTypeList::ArrayAsMut<[RawValue]>
-pub type wasmer::sys::WasmTypeList::CStruct
-pub unsafe fn wasmer::sys::Module::from_binary_unchecked(store: &impl AsStoreRef, binary: &[u8]) -> Result<Self, CompileError>
-pub unsafe fn wasmer::sys::NativeWasmTypeInto::from_raw(store: &mut impl AsStoreMut, raw: RawValue) -> Self
-pub unsafe fn wasmer::sys::Value::from_raw(store: &mut impl AsStoreMut, ty: Type, raw: RawValue) -> Self
-pub unsafe trait wasmer::sys::FromToNativeWasmType where Self: Sized
-pub unsafe trait wasmer::sys::ValueType
-pub use wasmer::sys::Engine
-pub use wasmer::sys::EngineBuilder
-pub use wasmer::sys::Features
 pub use wasmer::sys::HOST
-pub use wasmer::sys::LinkError
-pub use wasmer::sys::MiddlewareError
-pub use wasmer::sys::MiddlewareReaderState
-pub use wasmer::sys::OperatingSystem
-pub use wasmer::sys::ParseCpuFeatureError
-pub use wasmer::sys::Target
-pub use wasmer::sys::Triple
-pub use wasmer::sys::Type
-pub use wasmer::sys::WasmError
-pub use wasmer::sys::WasmResult
-pub use wasmer::sys::raise_user_trap
-pub use wasmer::sys::vm::MemoryError
-pub use wasmer::sys::vm::MemoryStyle
-pub use wasmer::sys::vm::TableStyle
 pub use wasmer::sys::vm::VMExtern
 pub use wasmer::sys::vm::VMMemory
 pub use wasmer::sys::vm::VMMemoryDefinition
