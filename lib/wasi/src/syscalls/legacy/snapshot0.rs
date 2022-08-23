@@ -1,10 +1,10 @@
 use crate::syscalls;
-use crate::syscalls::types::{
-    self, snapshot0,
-    wasi_snapshot0::{self, Errno, Fd},
-};
+use crate::syscalls::types::{self, snapshot0};
 use crate::{mem_error_to_wasi, Memory32, MemorySize, WasiEnv, WasiError, WasiThread};
 use wasmer::{AsStoreMut, FunctionEnvMut, WasmPtr};
+use wasmer_wasi_types_generated::wasi::{
+    Errno, Event, Fd, Filetype, Snapshot0Subscription, Subscription,
+};
 
 /// Wrapper around `syscalls::fd_filestat_get` with extra logic to handle the size
 /// difference of `wasi_filestat_t`
@@ -19,6 +19,7 @@ pub fn fd_filestat_get(
 ) -> Errno {
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
+    // TODO: understand what's happening inside this function, then do the correct thing
 
     // transmute the WasmPtr<T1> into a WasmPtr<T2> where T2 > T1, this will read extra memory.
     // The edge case of this cenv.mausing an OOB is not handled, if the new field is OOB, then the entire
@@ -71,6 +72,8 @@ pub fn path_filestat_get(
     path_len: u32,
     buf: WasmPtr<snapshot0::__wasi_filestat_t, Memory32>,
 ) -> Errno {
+    // TODO: understand what's happening inside this function, then do the correct thing
+
     // see `fd_filestat_get` in this file for an explanation of this strange behavior
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
@@ -125,11 +128,12 @@ pub fn fd_seek(
 /// userdata field back
 pub fn poll_oneoff(
     mut ctx: FunctionEnvMut<WasiEnv>,
-    in_: WasmPtr<snapshot0::__wasi_subscription_t, Memory32>,
-    out_: WasmPtr<types::__wasi_event_t, Memory32>,
+    in_: WasmPtr<Snapshot0Subscription, Memory32>,
+    out_: WasmPtr<Event, Memory32>,
     nsubscriptions: u32,
     nevents: WasmPtr<u32, Memory32>,
 ) -> Result<Errno, WasiError> {
+    // TODO: verify that the assumptions in the comment here still applyd
     // in this case the new type is smaller than the old type, so it all fits into memory,
     // we just need to readjust and copy it
 
@@ -141,14 +145,14 @@ pub fn poll_oneoff(
     let in_origs = wasi_try_mem_ok!(in_origs.read_to_vec());
 
     // get a pointer to the smaller new type
-    let in_new_type_ptr: WasmPtr<types::__wasi_subscription_t, Memory32> = in_.cast();
+    let in_new_type_ptr: WasmPtr<Subscription, Memory32> = in_.cast();
 
     for (in_sub_new, orig) in
         wasi_try_mem_ok!(in_new_type_ptr.slice(&memory, nsubscriptions_offset))
             .iter()
             .zip(in_origs.iter())
     {
-        wasi_try_mem_ok!(in_sub_new.write(types::__wasi_subscription_t::from(*orig)));
+        wasi_try_mem_ok!(in_sub_new.write(Subscription::from(*orig)));
     }
 
     // make the call

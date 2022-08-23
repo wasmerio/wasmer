@@ -52,8 +52,8 @@ use std::{
 };
 use tracing::{debug, trace};
 use wasmer_vbus::BusSpawnedProcess;
-use wasmer_wasi_types_generated::wasi_io_typenames::{
-    Errno, Fd as WasiFd, Fdflags, Filetype, Preopentype, Rights,
+use wasmer_wasi_types_generated::wasi::{
+    Errno, Fd as WasiFd, Fdflags, Fdstat, Filetype, Preopentype, Rights,
 };
 
 use wasmer_vfs::{FileSystem, FsError, OpenOptions, VirtualFile};
@@ -856,7 +856,7 @@ impl WasiFs {
     pub fn get_current_dir(
         &self,
         inodes: &mut WasiInodes,
-        base: Fd,
+        base: WasiFd,
     ) -> Result<(Inode, String), Errno> {
         self.get_current_dir_inner(inodes, base, 0)
     }
@@ -1163,11 +1163,11 @@ impl WasiFs {
         &self,
         inodes: &WasiInodes,
         path: &'path Path,
-    ) -> Result<(Fd, &'path Path), Errno> {
+    ) -> Result<(WasiFd, &'path Path), Errno> {
         enum BaseFdAndRelPath<'a> {
             None,
             BestMatch {
-                fd: Fd,
+                fd: WasiFd,
                 rel_path: &'a Path,
                 max_seen: usize,
             },
@@ -1221,7 +1221,7 @@ impl WasiFs {
     pub(crate) fn path_depth_from_fd(
         &self,
         inodes: &WasiInodes,
-        fd: Fd,
+        fd: WasiFd,
         inode: Inode,
     ) -> Result<usize, Errno> {
         let mut counter = 0;
@@ -1254,7 +1254,7 @@ impl WasiFs {
     pub(crate) fn get_inode_at_path(
         &self,
         inodes: &mut WasiInodes,
-        base: Fd,
+        base: WasiFd,
         path: &str,
         follow_symlinks: bool,
     ) -> Result<Inode, Errno> {
@@ -1273,7 +1273,7 @@ impl WasiFs {
     pub(crate) fn get_parent_inode_at_path(
         &self,
         inodes: &mut WasiInodes,
-        base: Fd,
+        base: WasiFd,
         path: &Path,
         follow_symlinks: bool,
     ) -> Result<(Inode, String), Errno> {
@@ -1394,7 +1394,7 @@ impl WasiFs {
         }
     }
 
-    pub fn flush(&self, inodes: &WasiInodes, fd: Fd) -> Result<(), Errno> {
+    pub fn flush(&self, inodes: &WasiInodes, fd: WasiFd) -> Result<(), Errno> {
         match fd {
             __WASI_STDIN_FILENO => (),
             __WASI_STDOUT_FILENO => inodes
@@ -1412,7 +1412,7 @@ impl WasiFs {
             _ => {
                 let fd = self.get_fd(fd)?;
                 if !fd.rights.contains(Rights::FD_DATASYNC) {
-                    return Err(Errno::Acces);
+                    return Err(Errno::Access);
                 }
 
                 let mut guard = inodes.arena[fd.inode].write();
@@ -1498,7 +1498,7 @@ impl WasiFs {
         Ok(idx)
     }
 
-    pub fn clone_fd(&self, fd: Fd) -> Result<WasiFd, Errno> {
+    pub fn clone_fd(&self, fd: WasiFd) -> Result<WasiFd, Errno> {
         let fd = self.get_fd(fd)?;
         let idx = self.next_fd.fetch_add(1, Ordering::AcqRel);
         self.fd_map.write().unwrap().insert(
@@ -1581,7 +1581,7 @@ impl WasiFs {
         inodes: &mut WasiInodes,
         handle: Box<dyn VirtualFile + Send + Sync + 'static>,
         name: &'static str,
-        raw_fd: Fd,
+        raw_fd: WasiFd,
         rights: Rights,
         fd_flags: Fdflags,
     ) {
@@ -1685,7 +1685,7 @@ impl WasiFs {
     }
 
     /// Closes an open FD, handling all details such as FD being preopen
-    pub(crate) fn close_fd(&self, inodes: &WasiInodes, fd: Fd) -> Result<(), Errno> {
+    pub(crate) fn close_fd(&self, inodes: &WasiInodes, fd: WasiFd) -> Result<(), Errno> {
         let inode = self.get_fd_inode(fd)?;
         let inodeval = inodes.get_inodeval(inode)?;
         let is_preopened = inodeval.is_preopened;
@@ -1750,7 +1750,7 @@ impl WasiFs {
                 }
             }
             Kind::EventNotifications { .. } => {}
-            Kind::Root { .. } => return Err(Errno::Acces),
+            Kind::Root { .. } => return Err(Errno::Access),
             Kind::Symlink { .. } | Kind::Buffer { .. } => return Err(Errno::Inval),
         }
 
@@ -1931,7 +1931,7 @@ impl WasiState {
     /// Expects one of `__WASI_STDIN_FILENO`, `__WASI_STDOUT_FILENO`, `__WASI_STDERR_FILENO`.
     fn std_dev_get(
         &self,
-        fd: Fd,
+        fd: WasiFd,
     ) -> Result<Option<Box<dyn VirtualFile + Send + Sync + 'static>>, FsError> {
         let ret = WasiStateFileGuard::new(self, fd)?.map(|a| {
             let ret = Box::new(a);

@@ -1,3 +1,4 @@
+/* TODO: if required, move to generated wasi::Event type
 use crate::*;
 use std::{
     fmt,
@@ -5,13 +6,13 @@ use std::{
 };
 use wasmer_derive::ValueType;
 use wasmer_types::ValueType;
-use wasmer_wasi_types_generated::wasi_snapshot0;
+use wasmer_wasi_types_generated::wasi;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, ValueType)]
 #[repr(C)]
 pub struct __wasi_event_fd_readwrite_t {
     pub nbytes: __wasi_filesize_t,
-    pub flags: wasi_snapshot0::Eventrwflags,
+    pub flags: wasi::Eventrwflags,
 }
 
 #[derive(Copy, Clone)]
@@ -33,7 +34,7 @@ impl fmt::Debug for __wasi_event_u {
 pub enum EventEnum {
     FdReadWrite {
         nbytes: __wasi_filesize_t,
-        flags: wasi_snapshot0::Eventrwflags,
+        flags: wasi::Eventrwflags,
     },
 }
 
@@ -47,24 +48,13 @@ impl EventEnum {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
-#[repr(C)]
-pub struct __wasi_event_t {
-    pub userdata: __wasi_userdata_t,
-    pub error: wasi_snapshot0::Errno,
-    pub type_: wasi_snapshot0::Eventtype,
-    pub u: __wasi_event_u,
-}
-
 impl __wasi_event_t {
     pub fn tagged(&self) -> Option<EventEnum> {
         match self.type_ {
-            wasi_snapshot0::Eventtype::FdRead | wasi_snapshot0::Eventtype::FdWrite => {
-                Some(EventEnum::FdReadWrite {
-                    nbytes: unsafe { self.u.fd_readwrite.nbytes },
-                    flags: unsafe { self.u.fd_readwrite.flags },
-                })
-            }
+            wasi::Eventtype::FdRead | wasi::Eventtype::FdWrite => Some(EventEnum::FdReadWrite {
+                nbytes: unsafe { self.u.fd_readwrite.nbytes },
+                flags: unsafe { self.u.fd_readwrite.flags },
+            }),
             _ => None,
         }
     }
@@ -99,7 +89,7 @@ unsafe impl ValueType for __wasi_event_t {
             .zero_padding_bytes(&mut bytes[field!(type_)..field_end!(type_)]);
         zero!(field_end!(type_), field!(u));
         match self.type_ {
-            wasi_snapshot0::Eventtype::FdRead | wasi_snapshot0::Eventtype::FdWrite => unsafe {
+            wasi::Eventtype::FdRead | wasi::Eventtype::FdWrite => unsafe {
                 self.u.fd_readwrite.zero_padding_bytes(
                     &mut bytes[field!(u.fd_readwrite)..field_end!(u.fd_readwrite)],
                 );
@@ -110,3 +100,4 @@ unsafe impl ValueType for __wasi_event_t {
         zero!(field_end!(u), mem::size_of_val(self));
     }
 }
+*/

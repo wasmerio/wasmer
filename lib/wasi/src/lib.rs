@@ -65,7 +65,7 @@ use wasmer::{
     imports, namespace, AsStoreMut, AsStoreRef, Exports, Function, FunctionEnv, Imports, Memory,
     Memory32, MemoryAccessError, MemorySize, MemoryView, Module, TypedFunction,
 };
-use wasmer_wasi_types_generated::wasi_snapshot0;
+use wasmer_wasi_types_generated::wasi::{Errno, Snapshot0Clockid};
 
 pub use runtime::{
     PluggableRuntimeImplementation, WasiRuntimeImplementation, WasiThreadError, WasiTtyState,
@@ -292,11 +292,11 @@ impl WasiEnv {
     pub fn sleep(&self, duration: Duration) -> Result<(), WasiError> {
         let duration = duration.as_nanos();
         let start =
-            platform_clock_time_get(wasi_snapshot0::Clockid::Monotonic, 1_000_000).unwrap() as u128;
+            platform_clock_time_get(Snapshot0Clockid::Monotonic, 1_000_000).unwrap() as u128;
         self.yield_now()?;
         loop {
-            let now = platform_clock_time_get(wasi_snapshot0::Clockid::Monotonic, 1_000_000)
-                .unwrap() as u128;
+            let now =
+                platform_clock_time_get(Snapshot0Clockid::Monotonic, 1_000_000).unwrap() as u128;
             let delta = match now.checked_sub(start) {
                 Some(a) => a,
                 None => {
@@ -775,12 +775,12 @@ fn generate_import_object_wasix64_v1(
     }
 }
 
-fn mem_error_to_wasi(err: MemoryAccessError) -> types::wasi_snapshot0::Errno {
+fn mem_error_to_wasi(err: MemoryAccessError) -> Errno {
     match err {
-        MemoryAccessError::HeapOutOfBounds => types::wasi_snapshot0::Errno::Fault,
-        MemoryAccessError::Overflow => types::wasi_snapshot0::Errno::Overflow,
-        MemoryAccessError::NonUtf8String => types::wasi_snapshot0::Errno::Inval,
-        _ => types::wasi_snapshot0::Errno::Inval,
+        MemoryAccessError::HeapOutOfBounds => Errno::Fault,
+        MemoryAccessError::Overflow => Errno::Overflow,
+        MemoryAccessError::NonUtf8String => Errno::Inval,
+        _ => Errno::Inval,
     }
 }
 

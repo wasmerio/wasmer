@@ -4,14 +4,18 @@
 
 
 
-/// Dummy function to expose type into generated code
-fd-dummy-func: func(dummy: fd)
-/// Dummy function to expose type into generated code
-dirent-dummy-func: func(dummy: dirent)
-/// Dummy function to expose type into generated code
-fdstat-dummy-func: func(dummy: fdstat)
-/// Dummy function to expose type into generated code
-subscription-clock-dummy-func: func(dummy: subscription-clock)
+/// Dummy function to expose types into generated code
+expose-types-dummy-func: func(
+  fd: fd,
+  dirent: dirent,
+  event-enum: event-enum,
+  event: event,
+  fdstat: fdstat,
+  subscription-clock: subscription-clock,
+  snapshot0-subscription-clock: snapshot0-subscription-clock,
+  subscription: subscription,
+  snapshot0-subscription: snapshot0-subscription,
+)
 
 
 
@@ -248,8 +252,8 @@ enum errno {
     notcapable,
 }
 
-/// File descriptor rights, determining which actions may be performed, snapshot0 version.
-flags snapshot0-rights {
+/// File descriptor rights, determining which actions may be performed.
+flags rights {
     // TODO: wit doesnt appear to support repr
     // flags (@witx repr u64)
   
@@ -347,117 +351,6 @@ flags snapshot0-rights {
     sock-recv-from,
     /// TODO: Found in wasmer-wasi-types rust project, but not in wasi-snapshot0
     sock-send-to,
-}
-
-/// File descriptor rights, determining which actions may be performed.
-flags rights {
-    // TODO: wit appears to not have support for flags type size
-    //(@witx repr u64)
-
-    /// The right to invoke `fd_datasync`.
-    ///
-    /// If `path_open` is set, includes the right to invoke
-    /// `path_open` with `fdflags::dsync`.
-    fd-datasync,
-    /// The right to invoke `fd_read` and `sock_recv`.
-    ///
-    /// If `rights::fd_seek` is set, includes the right to invoke `fd_pread`.
-    fd-read,
-    /// The right to invoke `fd_seek`. This flag implies `rights::fd_tell`.
-    fd-seek,
-    /// The right to invoke `fd_fdstat_set_flags`.
-    fd-fdstat-set-flags,
-    /// The right to invoke `fd_sync`.
-    ///
-    /// If `path_open` is set, includes the right to invoke
-    /// `path_open` with `fdflags::rsync` and `fdflags::dsync`.
-    fd-sync,
-    /// The right to invoke `fd_seek` in such a way that the file offset
-    /// remains unaltered (i.e., `whence::cur` with offset zero), or to
-    /// invoke `fd_tell`.
-    fd-tell,
-    /// The right to invoke `fd_write` and `sock_send`.
-    /// If `rights::fd_seek` is set, includes the right to invoke `fd_pwrite`.
-    fd-write,
-    /// The right to invoke `fd_advise`.
-    fd-advise,
-    /// The right to invoke `fd_allocate`.
-    fd-allocate,
-    /// The right to invoke `path_create_directory`.
-    path-create-directory,
-    /// If `path_open` is set, the right to invoke `path_open` with `oflags::create`.
-    path-create-file,
-    /// The right to invoke `path_link` with the file descriptor as the
-    /// source directory.
-    path-link-source,
-    /// The right to invoke `path_link` with the file descriptor as the
-    /// target directory.
-    path-link-target,
-    /// The right to invoke `path_open`.
-    path-open,
-    /// The right to invoke `fd_readdir`.
-    fd-readdir,
-    /// The right to invoke `path_readlink`.
-    path-readlink,
-    /// The right to invoke `path_rename` with the file descriptor as the source directory.
-    path-rename-source,
-    /// The right to invoke `path_rename` with the file descriptor as the target directory.
-    path-rename-target,
-    /// The right to invoke `path_filestat_get`.
-    path-filestat-get,
-    /// The right to change a file's size.
-    /// If `path_open` is set, includes the right to invoke `path_open` with `oflags::trunc`.
-    /// Note: there is no function named `path_filestat_set_size`. This follows POSIX design,
-    /// which only has `ftruncate` and does not provide `ftruncateat`.
-    /// While such function would be desirable from the API design perspective, there are virtually
-    /// no use cases for it since no code written for POSIX systems would use it.
-    /// Moreover, implementing it would require multiple syscalls, leading to inferior performance.
-    path-filestat-set-size,
-    /// The right to invoke `path_filestat_set_times`.
-    path-filestat-set-times,
-    /// The right to invoke `path_permissions_set`.
-    path-permissions-set,
-    /// The right to invoke `fd_filestat_get`.
-    fd-filestat-get,
-    /// The right to invoke `fd_filestat_set_size`.
-    fd-filestat-set-size,
-    /// The right to invoke `fd_filestat_set_times`.
-    fd-filestat-set-times,
-    /// The right to invoke `fd_permissions_set`.
-    fd-permissions-set,
-    /// The right to invoke `path_symlink`.
-    path-symlink,
-    /// The right to invoke `path_remove_directory`.
-    path-remove-directory,
-    /// The right to invoke `path_unlink_file`.
-    path-unlink-file,
-    /// If `rights::fd_read` is set, includes the right to invoke `poll_oneoff` to subscribe to `eventtype::fd_read`.
-    /// If `rights::fd_write` is set, includes the right to invoke `poll_oneoff` to subscribe to `eventtype::fd_write`.
-    poll-fd-readwrite,
-    /// The right to invoke `sock_shutdown`.
-    sock-shutdown,
-}
-
-/// The type of a file descriptor or file.
-enum snapshot0-filetype {
-    // TODO: wit appears to not have support for enum type size
-    //enum (@witx tag u8)
-    /// The type of the file descriptor or file is unknown or is different from any of the other types specified.
-    unknown,
-    /// The file descriptor or file refers to a block device inode.
-    block-device,
-    /// The file descriptor or file refers to a character device inode.
-    character-device,
-    /// The file descriptor or file refers to a directory inode.
-    directory,
-    /// The file descriptor or file refers to a regular file inode.
-    regular-file,
-    /// The file descriptor or file refers to a datagram socket.
-    socket-dgram,
-    /// The file descriptor or file refers to a byte-stream socket.
-    socket-stream,
-    /// The file refers to a symbolic link inode.
-    symbolic-link,
 }
 
 /// The type of a file descriptor or file.
@@ -634,10 +527,10 @@ flags subclockflags {
 
 /// The contents of a `subscription` when type is `eventtype::clock`.
 record snapshot0-subscription-clock {
-/// The user-defined unique identifier of the clock.
+    /// The user-defined unique identifier of the clock.
     identifier: userdata,
     /// The clock against which to compare the timestamp.
-    id: clockid,
+    id: snapshot0-clockid,
     /// The absolute or relative timestamp.
     timeout: timestamp,
     /// The amount of time that the implementation may wait additionally
@@ -650,7 +543,7 @@ record snapshot0-subscription-clock {
 /// The contents of a `subscription` when type is `eventtype::clock`.
 record subscription-clock {
     /// The clock against which to compare the timestamp.
-    id: clockid,
+    clock-id: clockid,
     /// The absolute or relative timestamp.
     timeout: timestamp,
     /// The amount of time that the implementation may wait additionally
@@ -695,10 +588,11 @@ record event {
     /// If non-zero, an error that occurred while processing the subscription request.
     error: errno,
     /// The type of the event that occurred, and the contents of the event
+    data: event-enum
 }
 
 /// The contents of an `event`.
-variant event-u {
+variant event-enum {
     // TODO: wit appears to not have support for tag type
     //(@witx tag $eventtype)
     fd-read(event-fd-readwrite),
@@ -718,4 +612,39 @@ record snapshot0-event {
     /// The contents of the event, if it is an `eventtype::fd_read` or
     /// `eventtype::fd_write`. `eventtype::clock` events ignore this field.
     fd-readwrite: event-fd-readwrite,
+}
+
+/// The contents of a `subscription`, snapshot0 version.
+variant snapshot0-subscription-enum {
+     // TODO: wit appears to have no support for tag types
+     //(@witx tag $eventtype)
+     clock(snapshot0-subscription-clock),
+     read(subscription-fs-readwrite),
+     write(subscription-fs-readwrite),
+}
+
+/// The contents of a `subscription`.
+variant subscription-enum {
+     // TODO: wit appears to have no support for tag types
+     //(@witx tag $eventtype)
+     clock(subscription-clock),
+     read(subscription-fs-readwrite),
+     write(subscription-fs-readwrite),
+}
+
+/// The contents of a `subscription` when the variant is
+/// `eventtype::fd_read` or `eventtype::fd_write`.
+record subscription-fs-readwrite {
+    /// The file descriptor on which to wait for it to become ready for reading or writing.
+    file-descriptor: fd,
+}
+
+record snapshot0-subscription {
+    userdata: userdata,
+    data: snapshot0-subscription-enum,
+}
+
+record subscription {
+    userdata: userdata,
+    data: subscription-enum,
 }

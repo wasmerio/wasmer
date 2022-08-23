@@ -1,6 +1,7 @@
 use super::types::*;
 use std::collections::BTreeSet;
 use wasmer::Module;
+use wasmer_wasi_types_generated::wasi::Errno;
 
 #[allow(dead_code)]
 /// Check if a provided module is compiled for some version of WASI.
@@ -21,29 +22,29 @@ pub fn is_wasix_module(module: &Module) -> bool {
     }
 }
 
-pub fn map_io_err(err: std::io::Error) -> wasi_snapshot0::Errno {
+pub fn map_io_err(err: std::io::Error) -> Errno {
     use std::io::ErrorKind;
     match err.kind() {
-        ErrorKind::NotFound => wasi_snapshot0::Errno::Noent,
-        ErrorKind::PermissionDenied => wasi_snapshot0::Errno::Perm,
-        ErrorKind::ConnectionRefused => wasi_snapshot0::Errno::Connrefused,
-        ErrorKind::ConnectionReset => wasi_snapshot0::Errno::Connreset,
-        ErrorKind::ConnectionAborted => wasi_snapshot0::Errno::Connaborted,
-        ErrorKind::NotConnected => wasi_snapshot0::Errno::Notconn,
-        ErrorKind::AddrInUse => wasi_snapshot0::Errno::Addrinuse,
-        ErrorKind::AddrNotAvailable => wasi_snapshot0::Errno::Addrnotavail,
-        ErrorKind::BrokenPipe => wasi_snapshot0::Errno::Pipe,
-        ErrorKind::AlreadyExists => wasi_snapshot0::Errno::Exist,
-        ErrorKind::WouldBlock => wasi_snapshot0::Errno::Again,
-        ErrorKind::InvalidInput => wasi_snapshot0::Errno::Io,
-        ErrorKind::InvalidData => wasi_snapshot0::Errno::Io,
-        ErrorKind::TimedOut => wasi_snapshot0::Errno::Timedout,
-        ErrorKind::WriteZero => wasi_snapshot0::Errno::Io,
-        ErrorKind::Interrupted => wasi_snapshot0::Errno::Intr,
-        ErrorKind::Other => wasi_snapshot0::Errno::Io,
-        ErrorKind::UnexpectedEof => wasi_snapshot0::Errno::Io,
-        ErrorKind::Unsupported => wasi_snapshot0::Errno::Notsup,
-        _ => wasi_snapshot0::Errno::Io,
+        ErrorKind::NotFound => Errno::Noent,
+        ErrorKind::PermissionDenied => Errno::Perm,
+        ErrorKind::ConnectionRefused => Errno::Connrefused,
+        ErrorKind::ConnectionReset => Errno::Connreset,
+        ErrorKind::ConnectionAborted => Errno::Connaborted,
+        ErrorKind::NotConnected => Errno::Notconn,
+        ErrorKind::AddrInUse => Errno::Addrinuse,
+        ErrorKind::AddrNotAvailable => Errno::Addrnotavail,
+        ErrorKind::BrokenPipe => Errno::Pipe,
+        ErrorKind::AlreadyExists => Errno::Exist,
+        ErrorKind::WouldBlock => Errno::Again,
+        ErrorKind::InvalidInput => Errno::Io,
+        ErrorKind::InvalidData => Errno::Io,
+        ErrorKind::TimedOut => Errno::Timedout,
+        ErrorKind::WriteZero => Errno::Io,
+        ErrorKind::Interrupted => Errno::Intr,
+        ErrorKind::Other => Errno::Io,
+        ErrorKind::UnexpectedEof => Errno::Io,
+        ErrorKind::Unsupported => Errno::Notsup,
+        _ => Errno::Io,
     }
 }
 

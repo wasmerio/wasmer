@@ -1,4 +1,3 @@
-use crate::syscalls::types::wasi_snapshot0;
 use crate::syscalls::types::*;
 use libc::{
     clock_getres, clock_gettime, timespec, CLOCK_MONOTONIC, CLOCK_PROCESS_CPUTIME_ID,
@@ -6,17 +5,18 @@ use libc::{
 };
 use std::mem;
 use wasmer::WasmRef;
+use wasmer_wasi_types_generated::wasi::{Errno, Snapshot0Clockid};
 
 pub fn platform_clock_res_get(
-    clock_id: wasi_snapshot0::Clockid,
+    clock_id: Snapshot0Clockid,
     resolution: WasmRef<__wasi_timestamp_t>,
-) -> Result<i64, wasi_snapshot0::Errno> {
+) -> Result<i64, Errno> {
     let unix_clock_id = match clock_id {
-        wasi_snapshot0::Clockid::Monotonic => CLOCK_MONOTONIC,
-        wasi_snapshot0::Clockid::ProcessCputimeId => CLOCK_PROCESS_CPUTIME_ID,
-        wasi_snapshot0::Clockid::Realtime => CLOCK_REALTIME,
-        wasi_snapshot0::Clockid::ThreadCputimeId => CLOCK_THREAD_CPUTIME_ID,
-        _ => return Err(wasi_snapshot0::Errno::Inval),
+        Snapshot0Clockid::Monotonic => CLOCK_MONOTONIC,
+        Snapshot0Clockid::ProcessCputimeId => CLOCK_PROCESS_CPUTIME_ID,
+        Snapshot0Clockid::Realtime => CLOCK_REALTIME,
+        Snapshot0Clockid::ThreadCputimeId => CLOCK_THREAD_CPUTIME_ID,
+        _ => return Err(Errno::Inval),
     };
 
     let (output, timespec_out) = unsafe {
@@ -32,15 +32,15 @@ pub fn platform_clock_res_get(
 }
 
 pub fn platform_clock_time_get(
-    clock_id: wasi_snapshot0::Clockid,
+    clock_id: Snapshot0Clockid,
     precision: __wasi_timestamp_t,
-) -> Result<i64, wasi_snapshot0::Errno> {
+) -> Result<i64, Errno> {
     let unix_clock_id = match clock_id {
-        wasi_snapshot0::Clockid::Monotonic => CLOCK_MONOTONIC,
-        wasi_snapshot0::Clockid::ProcessCputimeId => CLOCK_PROCESS_CPUTIME_ID,
-        wasi_snapshot0::Clockid::Realtime => CLOCK_REALTIME,
-        wasi_snapshot0::Clockid::ThreadCputimeId => CLOCK_THREAD_CPUTIME_ID,
-        _ => return Err(wasi_snapshot0::Errno::Inval),
+        Snapshot0Clockid::Monotonic => CLOCK_MONOTONIC,
+        Snapshot0Clockid::ProcessCputimeId => CLOCK_PROCESS_CPUTIME_ID,
+        Snapshot0Clockid::Realtime => CLOCK_REALTIME,
+        Snapshot0Clockid::ThreadCputimeId => CLOCK_THREAD_CPUTIME_ID,
+        _ => return Err(Errno::Inval),
     };
 
     let (output, timespec_out) = unsafe {

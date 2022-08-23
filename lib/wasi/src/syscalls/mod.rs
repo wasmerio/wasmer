@@ -2,10 +2,7 @@
 
 pub mod types {
     pub use wasmer_wasi_types::*;
-    pub use wasmer_wasi_types_generated::wasi_io_typenames::{
-        Advice, Clockid, Errno, Fd, Fdflags, Fdstat, Rights,
-    };
-    pub use wasmer_wasi_types_generated::{wasi_filesystem, wasi_io_typenames, wasi_snapshot0};
+    pub use wasmer_wasi_types_generated::wasi;
 }
 
 #[cfg(any(
@@ -25,7 +22,14 @@ pub mod legacy;
 pub mod wasix32;
 pub mod wasix64;
 
-use self::types::*;
+use self::types::{
+    wasi::{
+        Advice, Clockid, Dircookie, Dirent, Errno, Event, EventEnum, EventFdReadwrite,
+        Eventrwflags, Eventtype, Fd as WasiFd, Fdflags, Fdstat, Filetype, Rights, Snapshot0Clockid,
+        Subscription, SubscriptionEnum, SubscriptionFsReadwrite,
+    },
+    *,
+};
 use crate::state::{bus_error_into_wasi_err, wasi_error_into_bus_err, InodeHttpSocketType};
 use crate::utils::map_io_err;
 use crate::WasiBusProcessId;
@@ -36,7 +40,7 @@ use crate::{
         virtual_file_type_to_wasi_file_type, Inode, InodeSocket, InodeSocketKind, InodeVal, Kind,
         PollEvent, PollEventBuilder, WasiPipe, WasiState, MAX_SYMLINKS,
     },
-    WasiEnv, WasiError, WasiThread, WasiThreadId,
+    Fd, WasiEnv, WasiError, WasiThread, WasiThreadId,
 };
 use bytes::Bytes;
 use std::borrow::{Borrow, Cow};
@@ -143,7 +147,7 @@ pub(crate) fn read_bytes<T: Read, M: MemorySize>(
 
 fn __sock_actor<T, F>(
     ctx: &FunctionEnvMut<'_, WasiEnv>,
-    sock: Fd,
+    sock: WasiFd,
     rights: Rights,
     actor: F,
 ) -> Result<T, Errno>
@@ -177,7 +181,7 @@ where
 
 fn __sock_actor_mut<T, F>(
     ctx: &FunctionEnvMut<'_, WasiEnv>,
-    sock: Fd,
+    sock: WasiFd,
     rights: Rights,
     actor: F,
 ) -> Result<T, Errno>
@@ -211,7 +215,7 @@ where
 
 fn __sock_upgrade<F>(
     ctx: &FunctionEnvMut<'_, WasiEnv>,
-    sock: Fd,
+    sock: WasiFd,
     rights: Rights,
     actor: F,
 ) -> Result<(), Errno>
@@ -369,7 +373,10 @@ pub fn clock_res_get<M: MemorySize>(
     let memory = env.memory_view(&ctx);
 
     let out_addr = resolution.deref(&memory);
-    let t_out = wasi_try!(platform_clock_res_get(clock_id, out_addr));
+    let t_out = wasi_try!(platform_clock_res_get(
+        Snapshot0Clockid::from(clock_id),
+        out_addr
+    ));
     wasi_try_mem!(resolution.write(&memory, t_out as __wasi_timestamp_t));
     Errno::Success
 }
@@ -397,7 +404,10 @@ pub fn clock_time_get<M: MemorySize>(
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
 
-    let t_out = wasi_try!(platform_clock_time_get(clock_id, precision));
+    let t_out = wasi_try!(platform_clock_time_get(
+        Snapshot0Clockid::from(clock_id),
+        precision
+    ));
     wasi_try_mem!(time.write(&memory, t_out as __wasi_timestamp_t));
 
     let result = Errno::Success;
@@ -481,7 +491,7 @@ pub fn environ_sizes_get<M: MemorySize>(
 ///     The advice to give
 pub fn fd_advise(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    fd: Fd,
+    fd: WasiFd,
     offset: __wasi_filesize_t,
     len: __wasi_filesize_t,
     advice: Advice,
@@ -504,7 +514,7 @@ pub fn fd_advise(
 ///     The length from the offset marking the end of the allocation
 pub fn fd_allocate(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    fd: Fd,
+    fd: WasiFd,
     offset: __wasi_filesize_t,
     len: __wasi_filesize_t,
 ) -> Errno {
@@ -555,7 +565,7 @@ pub fn fd_allocate(
 ///     If `fd` is a directory
 /// - `Errno::Badf`
 ///     If `fd` is invalid or not open
-pub fn fd_close(ctx: FunctionEnvMut<'_, WasiEnv>, fd: Fd) -> Errno {
+pub fn fd_close(ctx: FunctionEnvMut<'_, WasiEnv>, fd: WasiFd) -> Errno {
     debug!("wasi::fd_close: fd={}", fd);
     let env = ctx.data();
     let (_, mut state, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
@@ -572,7 +582,7 @@ pub fn fd_close(ctx: FunctionEnvMut<'_, WasiEnv>, fd: Fd) -> Errno {
 /// Inputs:
 /// - `Fd fd`
 ///     The file descriptor to sync
-pub fn fd_datasync(ctx: FunctionEnvMut<'_, WasiEnv>, fd: Fd) -> Errno {
+pub fn fd_datasync(ctx: FunctionEnvMut<'_, WasiEnv>, fd: WasiFd) -> Errno {
     debug!("wasi::fd_datasync");
     let env = ctx.data();
     let (_, mut state, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
@@ -598,7 +608,7 @@ pub fn fd_datasync(ctx: FunctionEnvMut<'_, WasiEnv>, fd: Fd) -> Errno {
 ///     The location where the metadata will be written
 pub fn fd_fdstat_get<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    fd: Fd,
+    fd: WasiFd,
     buf_ptr: WasmPtr<Fdstat, M>,
 ) -> Errno {
     debug!(
@@ -624,7 +634,7 @@ pub fn fd_fdstat_get<M: MemorySize>(
 ///     The file descriptor to apply the new flags to
 /// - `Fdflags flags`
 ///     The flags to apply to `fd`
-pub fn fd_fdstat_set_flags(ctx: FunctionEnvMut<'_, WasiEnv>, fd: Fd, flags: Fdflags) -> Errno {
+pub fn fd_fdstat_set_flags(ctx: FunctionEnvMut<'_, WasiEnv>, fd: WasiFd, flags: Fdflags) -> Errno {
     debug!("wasi::fd_fdstat_set_flags");
     let env = ctx.data();
     let (_, mut state) = env.get_memory_and_wasi_state(&ctx, 0);
@@ -650,7 +660,7 @@ pub fn fd_fdstat_set_flags(ctx: FunctionEnvMut<'_, WasiEnv>, fd: Fd, flags: Fdfl
 ///     The inheriting rights to apply to `fd`
 pub fn fd_fdstat_set_rights(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    fd: Fd,
+    fd: WasiFd,
     fs_rights_base: Rights,
     fs_rights_inheriting: Rights,
 ) -> Errno {
@@ -683,7 +693,7 @@ pub fn fd_fdstat_set_rights(
 ///     Where the metadata from `fd` will be written
 pub fn fd_filestat_get<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    fd: Fd,
+    fd: WasiFd,
     buf: WasmPtr<__wasi_filestat_t, M>,
 ) -> Errno {
     debug!("wasi::fd_filestat_get");
@@ -711,7 +721,7 @@ pub fn fd_filestat_get<M: MemorySize>(
 ///     New size that `fd` will be set to
 pub fn fd_filestat_set_size(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    fd: Fd,
+    fd: WasiFd,
     st_size: __wasi_filesize_t,
 ) -> Errno {
     debug!("wasi::fd_filestat_set_size");
@@ -761,7 +771,7 @@ pub fn fd_filestat_set_size(
 ///     Bit-vector for controlling which times get set
 pub fn fd_filestat_set_times(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    fd: Fd,
+    fd: WasiFd,
     st_atim: __wasi_timestamp_t,
     st_mtim: __wasi_timestamp_t,
     fst_flags: __wasi_fstflags_t,
@@ -823,7 +833,7 @@ pub fn fd_filestat_set_times(
 ///     The number of bytes read
 pub fn fd_pread<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    fd: Fd,
+    fd: WasiFd,
     iovs: WasmPtr<__wasi_iovec_t<M>, M>,
     iovs_len: M::Offset,
     offset: __wasi_filesize_t,
@@ -910,7 +920,7 @@ pub fn fd_pread<M: MemorySize>(
 ///     Where the metadata will be written
 pub fn fd_prestat_get<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    fd: Fd,
+    fd: WasiFd,
     buf: WasmPtr<__wasi_prestat_t, M>,
 ) -> Errno {
     trace!("wasi::fd_prestat_get: fd={}", fd);
@@ -932,7 +942,7 @@ pub fn fd_prestat_get<M: MemorySize>(
 
 pub fn fd_prestat_dir_name<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    fd: Fd,
+    fd: WasiFd,
     path: WasmPtr<u8, M>,
     path_len: M::Offset,
 ) -> Errno {
@@ -995,7 +1005,7 @@ pub fn fd_prestat_dir_name<M: MemorySize>(
 ///     Number of bytes written
 pub fn fd_pwrite<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    fd: Fd,
+    fd: WasiFd,
     iovs: WasmPtr<__wasi_ciovec_t<M>, M>,
     iovs_len: M::Offset,
     offset: __wasi_filesize_t,
@@ -1105,7 +1115,7 @@ pub fn fd_pwrite<M: MemorySize>(
 ///
 pub fn fd_read<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    fd: Fd,
+    fd: WasiFd,
     iovs: WasmPtr<__wasi_iovec_t<M>, M>,
     iovs_len: M::Offset,
     nread: WasmPtr<M::Offset, M>,
@@ -1264,7 +1274,7 @@ pub fn fd_read<M: MemorySize>(
 ///     directory has been read
 pub fn fd_readdir<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    fd: Fd,
+    fd: WasiFd,
     buf: WasmPtr<u8, M>,
     buf_len: M::Offset,
     cookie: Dircookie,
@@ -1396,7 +1406,7 @@ pub fn fd_readdir<M: MemorySize>(
 ///     File descriptor to copy
 /// - `Fd to`
 ///     Location to copy file descriptor to
-pub fn fd_renumber(ctx: FunctionEnvMut<'_, WasiEnv>, from: Fd, to: Fd) -> Errno {
+pub fn fd_renumber(ctx: FunctionEnvMut<'_, WasiEnv>, from: WasiFd, to: WasiFd) -> Errno {
     debug!("wasi::fd_renumber: from={}, to={}", from, to);
     let env = ctx.data();
     let (_, mut state) = env.get_memory_and_wasi_state(&ctx, 0);
@@ -1425,8 +1435,8 @@ pub fn fd_renumber(ctx: FunctionEnvMut<'_, WasiEnv>, from: Fd, to: Fd) -> Errno 
 ///   The new file handle that is a duplicate of the original
 pub fn fd_dup<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    fd: Fd,
-    ret_fd: WasmPtr<Fd, M>,
+    fd: WasiFd,
+    ret_fd: WasmPtr<WasiFd, M>,
 ) -> Errno {
     debug!("wasi::fd_dup");
 
@@ -1445,7 +1455,7 @@ pub fn fd_event<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     initial_val: u64,
     flags: __wasi_eventfdflags,
-    ret_fd: WasmPtr<Fd, M>,
+    ret_fd: WasmPtr<WasiFd, M>,
 ) -> Errno {
     debug!("wasi::fd_event");
 
@@ -1488,7 +1498,7 @@ pub fn fd_event<M: MemorySize>(
 ///     The new offset relative to the start of the file
 pub fn fd_seek<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    fd: Fd,
+    fd: WasiFd,
     offset: __wasi_filedelta_t,
     whence: __wasi_whence_t,
     newoffset: WasmPtr<__wasi_filesize_t, M>,
@@ -1571,7 +1581,7 @@ pub fn fd_seek<M: MemorySize>(
 /// TODO: figure out which errors this should return
 /// - `Errno::Perm`
 /// - `Errno::Notcapable`
-pub fn fd_sync(ctx: FunctionEnvMut<'_, WasiEnv>, fd: Fd) -> Errno {
+pub fn fd_sync(ctx: FunctionEnvMut<'_, WasiEnv>, fd: WasiFd) -> Errno {
     debug!("wasi::fd_sync");
     debug!("=> fd={}", fd);
     let env = ctx.data();
@@ -1616,7 +1626,7 @@ pub fn fd_sync(ctx: FunctionEnvMut<'_, WasiEnv>, fd: Fd) -> Errno {
 ///     The offset of `fd` relative to the start of the file
 pub fn fd_tell<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    fd: Fd,
+    fd: WasiFd,
     offset: WasmPtr<__wasi_filesize_t, M>,
 ) -> Errno {
     debug!("wasi::fd_tell");
@@ -1651,7 +1661,7 @@ pub fn fd_tell<M: MemorySize>(
 ///
 pub fn fd_write<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    fd: Fd,
+    fd: WasiFd,
     iovs: WasmPtr<__wasi_ciovec_t<M>, M>,
     iovs_len: M::Offset,
     nwritten: WasmPtr<M::Offset, M>,
@@ -1784,8 +1794,8 @@ pub fn fd_write<M: MemorySize>(
 ///     Second file handle that represents the other end of the pipe
 pub fn fd_pipe<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    ro_fd1: WasmPtr<Fd, M>,
-    ro_fd2: WasmPtr<Fd, M>,
+    ro_fd1: WasmPtr<WasiFd, M>,
+    ro_fd2: WasmPtr<WasiFd, M>,
 ) -> Errno {
     trace!("wasi::fd_pipe");
 
@@ -1807,7 +1817,7 @@ pub fn fd_pipe<M: MemorySize>(
         "pipe".to_string(),
     );
 
-    let rights = super::state::all_socket_rights();
+    let rights = Rights::all_socket();
     let fd1 = wasi_try!(state
         .fs
         .create_fd(rights, rights, Fdflags::empty(), 0, inode1));
@@ -1836,7 +1846,7 @@ pub fn fd_pipe<M: MemorySize>(
 ///     This right must be set on the directory that the file is created in (TODO: verify that this is true)
 pub fn path_create_directory<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    fd: Fd,
+    fd: WasiFd,
     path: WasmPtr<u8, M>,
     path_len: M::Offset,
 ) -> Errno {
@@ -1965,7 +1975,7 @@ pub fn path_create_directory<M: MemorySize>(
 ///     The location where the metadata will be stored
 pub fn path_filestat_get<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    fd: Fd,
+    fd: WasiFd,
     flags: __wasi_lookupflags_t,
     path: WasmPtr<u8, M>,
     path_len: M::Offset,
@@ -2009,7 +2019,7 @@ pub fn path_filestat_get_internal(
     memory: &MemoryView,
     state: &WasiState,
     inodes: &mut crate::WasiInodes,
-    fd: Fd,
+    fd: WasiFd,
     flags: __wasi_lookupflags_t,
     path_string: &str,
 ) -> Result<__wasi_filestat_t, Errno> {
@@ -2053,7 +2063,7 @@ pub fn path_filestat_get_internal(
 ///     A bitmask controlling which attributes are set
 pub fn path_filestat_set_times<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    fd: Fd,
+    fd: WasiFd,
     flags: __wasi_lookupflags_t,
     path: WasmPtr<u8, M>,
     path_len: M::Offset,
@@ -2131,11 +2141,11 @@ pub fn path_filestat_set_times<M: MemorySize>(
 ///     Length of the `new_path` string
 pub fn path_link<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    old_fd: Fd,
+    old_fd: WasiFd,
     old_flags: __wasi_lookupflags_t,
     old_path: WasmPtr<u8, M>,
     old_path_len: M::Offset,
-    new_fd: Fd,
+    new_fd: WasiFd,
     new_path: WasmPtr<u8, M>,
     new_path_len: M::Offset,
 ) -> Errno {
@@ -2228,7 +2238,7 @@ pub fn path_link<M: MemorySize>(
 /// - `Errno::Access`, `Errno::Badf`, `Errno::Fault`, `Errno::Fbig?`, `Errno::Inval`, `Errno::Io`, `Errno::Loop`, `Errno::Mfile`, `Errno::Nametoolong?`, `Errno::Nfile`, `Errno::Noent`, `Errno::Notdir`, `Errno::Rofs`, and `Errno::Notcapable`
 pub fn path_open<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    dirfd: Fd,
+    dirfd: WasiFd,
     dirflags: __wasi_lookupflags_t,
     path: WasmPtr<u8, M>,
     path_len: M::Offset,
@@ -2236,7 +2246,7 @@ pub fn path_open<M: MemorySize>(
     fs_rights_base: Rights,
     fs_rights_inheriting: Rights,
     fs_flags: Fdflags,
-    fd: WasmPtr<Fd, M>,
+    fd: WasmPtr<WasiFd, M>,
 ) -> Errno {
     debug!("wasi::path_open");
     if dirflags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0 {
@@ -2473,7 +2483,7 @@ pub fn path_open<M: MemorySize>(
 ///     The number of bytes written to `buf`
 pub fn path_readlink<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    dir_fd: Fd,
+    dir_fd: WasiFd,
     path: WasmPtr<u8, M>,
     path_len: M::Offset,
     buf: WasmPtr<u8, M>,
@@ -2523,7 +2533,7 @@ pub fn path_readlink<M: MemorySize>(
 /// Returns Errno::Notemtpy if directory is not empty
 pub fn path_remove_directory<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    fd: Fd,
+    fd: WasiFd,
     path: WasmPtr<u8, M>,
     path_len: M::Offset,
 ) -> Errno {
@@ -2610,10 +2620,10 @@ pub fn path_remove_directory<M: MemorySize>(
 ///     The number of bytes to read from `new_path`
 pub fn path_rename<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    old_fd: Fd,
+    old_fd: WasiFd,
     old_path: WasmPtr<u8, M>,
     old_path_len: M::Offset,
-    new_fd: Fd,
+    new_fd: WasiFd,
     new_path: WasmPtr<u8, M>,
     new_path_len: M::Offset,
 ) -> Errno {
@@ -2797,7 +2807,7 @@ pub fn path_symlink<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     old_path: WasmPtr<u8, M>,
     old_path_len: M::Offset,
-    fd: Fd,
+    fd: WasiFd,
     new_path: WasmPtr<u8, M>,
     new_path_len: M::Offset,
 ) -> Errno {
@@ -2896,7 +2906,7 @@ pub fn path_symlink<M: MemorySize>(
 ///     The number of bytes in the `path` array
 pub fn path_unlink_file<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    fd: Fd,
+    fd: WasiFd,
     path: WasmPtr<u8, M>,
     path_len: M::Offset,
 ) -> Errno {
@@ -3000,7 +3010,7 @@ pub fn path_unlink_file<M: MemorySize>(
 /// Inputs:
 /// - `const __wasi_subscription_t *in`
 ///     The events to subscribe to
-/// - `__wasi_event_t *out`
+/// - `Event *out`
 ///     The events that have occured
 /// - `u32 nsubscriptions`
 ///     The number of subscriptions and the number of events
@@ -3009,8 +3019,8 @@ pub fn path_unlink_file<M: MemorySize>(
 ///     The number of events seen
 pub fn poll_oneoff<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    in_: WasmPtr<__wasi_subscription_t, M>,
-    out_: WasmPtr<__wasi_event_t, M>,
+    in_: WasmPtr<Subscription, M>,
+    out_: WasmPtr<Event, M>,
     nsubscriptions: M::Offset,
     nevents: WasmPtr<M::Offset, M>,
 ) -> Result<Errno, WasiError> {
@@ -3030,42 +3040,42 @@ pub fn poll_oneoff<M: MemorySize>(
     let mut time_to_sleep = Duration::from_millis(5);
 
     for sub in subscription_array.iter() {
-        let s: WasiSubscription = wasi_try_ok!(wasi_try_mem_ok!(sub.read()).try_into());
+        let s: Subscription = wasi_try_mem_ok!(sub.read());
         let mut peb = PollEventBuilder::new();
 
-        let fd = match s.event_type {
-            EventType::Read(__wasi_subscription_fs_readwrite_t { fd }) => {
-                match fd {
+        let fd = match s.data {
+            SubscriptionEnum::Read(SubscriptionFsReadwrite { file_descriptor }) => {
+                match file_descriptor {
                     __WASI_STDIN_FILENO | __WASI_STDOUT_FILENO | __WASI_STDERR_FILENO => (),
                     _ => {
-                        let fd_entry = wasi_try_ok!(state.fs.get_fd(fd), env);
+                        let fd_entry = wasi_try_ok!(state.fs.get_fd(file_descriptor), env);
                         if !fd_entry.rights.contains(Rights::FD_READ) {
                             return Ok(Errno::Access);
                         }
                     }
                 }
                 in_events.push(peb.add(PollEvent::PollIn).build());
-                Some(fd)
+                Some(file_descriptor)
             }
-            EventType::Write(__wasi_subscription_fs_readwrite_t { fd }) => {
-                match fd {
+            SubscriptionEnum::Write(SubscriptionFsReadwrite { file_descriptor }) => {
+                match file_descriptor {
                     __WASI_STDIN_FILENO | __WASI_STDOUT_FILENO | __WASI_STDERR_FILENO => (),
                     _ => {
-                        let fd_entry = wasi_try_ok!(state.fs.get_fd(fd), env);
+                        let fd_entry = wasi_try_ok!(state.fs.get_fd(file_descriptor), env);
                         if !fd_entry.rights.contains(Rights::FD_WRITE) {
                             return Ok(Errno::Access);
                         }
                     }
                 }
                 in_events.push(peb.add(PollEvent::PollOut).build());
-                Some(fd)
+                Some(file_descriptor)
             }
-            EventType::Clock(clock_info) => {
+            SubscriptionEnum::Clock(clock_info) => {
                 if matches!(clock_info.clock_id, Clockid::Realtime | Clockid::Monotonic) {
                     // this is a hack
                     // TODO: do this properly
                     time_to_sleep = Duration::from_nanos(clock_info.timeout);
-                    clock_subs.push((clock_info, s.user_data));
+                    clock_subs.push((clock_info, s.userdata));
                     None
                 } else {
                     unimplemented!("Polling not implemented for clocks yet");
@@ -3147,10 +3157,10 @@ pub fn poll_oneoff<M: MemorySize>(
 
     let mut seen_events = vec![Default::default(); in_events.len()];
 
-    let start = platform_clock_time_get(Clockid::Monotonic, 1_000_000).unwrap() as u128;
+    let start = platform_clock_time_get(Snapshot0Clockid::Monotonic, 1_000_000).unwrap() as u128;
     let mut triggered = 0;
     while triggered == 0 {
-        let now = platform_clock_time_get(Clockid::Monotonic, 1_000_000).unwrap() as u128;
+        let now = platform_clock_time_get(Snapshot0Clockid::Monotonic, 1_000_000).unwrap() as u128;
         let delta = match now.checked_sub(start) {
             Some(a) => Duration::from_nanos(a as u64),
             None => Duration::ZERO,
@@ -3211,17 +3221,19 @@ pub fn poll_oneoff<M: MemorySize>(
                 }
             }
         }
-        let event = __wasi_event_t {
+        let event = Event {
             userdata: wasi_try_mem_ok!(subscription_array.index(i as u64).read()).userdata,
             error,
-            type_: wasi_try_mem_ok!(subscription_array.index(i as u64).read()).type_,
-            u: unsafe {
-                __wasi_event_u {
-                    fd_readwrite: __wasi_event_fd_readwrite_t {
-                        nbytes: bytes_available as u64,
-                        flags,
-                    },
-                }
+            data: match wasi_try_mem_ok!(subscription_array.index(i as u64).read()).data {
+                SubscriptionEnum::Read(d) => EventEnum::FdRead(EventFdReadwrite {
+                    nbytes: bytes_available as u64,
+                    flags,
+                }),
+                SubscriptionEnum::Write(d) => EventEnum::FdWrite(EventFdReadwrite {
+                    nbytes: bytes_available as u64,
+                    flags,
+                }),
+                SubscriptionEnum::Clock(_) => EventEnum::Clock,
             },
         };
         wasi_try_mem_ok!(event_array.index(events_seen as u64).write(event));
@@ -3229,18 +3241,10 @@ pub fn poll_oneoff<M: MemorySize>(
     }
     if triggered == 0 {
         for (clock_info, userdata) in clock_subs {
-            let event = __wasi_event_t {
+            let event = Event {
                 userdata,
                 error: Errno::Success,
-                type_: Eventtype::Clock,
-                u: unsafe {
-                    __wasi_event_u {
-                        fd_readwrite: __wasi_event_fd_readwrite_t {
-                            nbytes: 0,
-                            flags: Eventrwflags::empty(),
-                        },
-                    }
-                },
+                data: EventEnum::Clock,
             };
             wasi_try_mem_ok!(event_array.index(events_seen as u64).write(event));
             events_seen += 1;
@@ -4118,7 +4122,7 @@ pub fn ws_connect<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     url: WasmPtr<u8, M>,
     url_len: M::Offset,
-    ret_sock: WasmPtr<Fd, M>,
+    ret_sock: WasmPtr<WasiFd, M>,
 ) -> Errno {
     debug!("wasi::ws_connect");
     let env = ctx.data();
@@ -4142,7 +4146,7 @@ pub fn ws_connect<M: MemorySize>(
         false,
         "socket".to_string(),
     );
-    let rights = super::state::all_socket_rights();
+    let rights = Rights::all_socket();
     let fd = wasi_try!(state
         .fs
         .create_fd(rights, rights, Fdflags::empty(), 0, inode));
@@ -4254,7 +4258,7 @@ pub fn http_request<M: MemorySize>(
         false,
         "http_headers".to_string(),
     );
-    let rights = super::state::all_socket_rights();
+    let rights = Rights::all_socket();
 
     let handles = __wasi_http_handles_t {
         req: wasi_try!(state
@@ -4283,7 +4287,7 @@ pub fn http_request<M: MemorySize>(
 ///   status of this HTTP request
 pub fn http_status<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    sock: Fd,
+    sock: WasiFd,
     status: WasmPtr<__wasi_http_status_t, M>,
 ) -> Errno {
     debug!("wasi::http_status");
@@ -4597,7 +4601,11 @@ pub fn port_route_list<M: MemorySize>(
 /// ## Parameters
 ///
 /// * `how` - Which channels on the socket to shut down.
-pub fn sock_shutdown(ctx: FunctionEnvMut<'_, WasiEnv>, sock: Fd, how: __wasi_sdflags_t) -> Errno {
+pub fn sock_shutdown(
+    ctx: FunctionEnvMut<'_, WasiEnv>,
+    sock: WasiFd,
+    how: __wasi_sdflags_t,
+) -> Errno {
     debug!("wasi::sock_shutdown");
 
     let both = __WASI_SHUT_RD | __WASI_SHUT_WR;
@@ -4622,7 +4630,7 @@ pub fn sock_shutdown(ctx: FunctionEnvMut<'_, WasiEnv>, sock: Fd, how: __wasi_sdf
 /// Returns the current status of a socket
 pub fn sock_status<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    sock: Fd,
+    sock: WasiFd,
     ret_status: WasmPtr<__wasi_sockstatus_t, M>,
 ) -> Errno {
     debug!("wasi::sock_status");
@@ -4659,7 +4667,7 @@ pub fn sock_status<M: MemorySize>(
 /// * `fd` - Socket that the address is bound to
 pub fn sock_addr_local<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    sock: Fd,
+    sock: WasiFd,
     ret_addr: WasmPtr<__wasi_addr_port_t, M>,
 ) -> Errno {
     debug!("wasi::sock_addr_local");
@@ -4690,7 +4698,7 @@ pub fn sock_addr_local<M: MemorySize>(
 /// * `fd` - Socket that the address is bound to
 pub fn sock_addr_peer<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    sock: Fd,
+    sock: WasiFd,
     ro_addr: WasmPtr<__wasi_addr_port_t, M>,
 ) -> Errno {
     debug!("wasi::sock_addr_peer");
@@ -4733,7 +4741,7 @@ pub fn sock_open<M: MemorySize>(
     af: __wasi_addressfamily_t,
     ty: __wasi_socktype_t,
     pt: __wasi_sockproto_t,
-    ro_sock: WasmPtr<Fd, M>,
+    ro_sock: WasmPtr<WasiFd, M>,
 ) -> Errno {
     debug!("wasi::sock_open");
 
@@ -4767,7 +4775,7 @@ pub fn sock_open<M: MemorySize>(
         false,
         "socket".to_string(),
     );
-    let rights = super::state::all_socket_rights();
+    let rights = Rights::all_socket();
     let fd = wasi_try!(state
         .fs
         .create_fd(rights, rights, Fdflags::empty(), 0, inode));
@@ -4788,7 +4796,7 @@ pub fn sock_open<M: MemorySize>(
 /// * `flag` - Value to set the option to
 pub fn sock_set_opt_flag(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    sock: Fd,
+    sock: WasiFd,
     opt: __wasi_sockoption_t,
     flag: __wasi_bool_t,
 ) -> Errno {
@@ -4817,7 +4825,7 @@ pub fn sock_set_opt_flag(
 /// * `sockopt` - Socket option to be retrieved
 pub fn sock_get_opt_flag<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    sock: Fd,
+    sock: WasiFd,
     opt: __wasi_sockoption_t,
     ret_flag: WasmPtr<__wasi_bool_t, M>,
 ) -> Errno {
@@ -4849,7 +4857,7 @@ pub fn sock_get_opt_flag<M: MemorySize>(
 /// * `time` - Value to set the time to
 pub fn sock_set_opt_time<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    sock: Fd,
+    sock: WasiFd,
     opt: __wasi_sockoption_t,
     time: WasmPtr<__wasi_option_timestamp_t, M>,
 ) -> Errno {
@@ -4889,7 +4897,7 @@ pub fn sock_set_opt_time<M: MemorySize>(
 /// * `sockopt` - Socket option to be retrieved
 pub fn sock_get_opt_time<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    sock: Fd,
+    sock: WasiFd,
     opt: __wasi_sockoption_t,
     ret_time: WasmPtr<__wasi_option_timestamp_t, M>,
 ) -> Errno {
@@ -4936,7 +4944,7 @@ pub fn sock_get_opt_time<M: MemorySize>(
 /// * `size` - Buffer size
 pub fn sock_set_opt_size(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    sock: Fd,
+    sock: WasiFd,
     opt: __wasi_sockoption_t,
     size: __wasi_filesize_t,
 ) -> Errno {
@@ -4974,7 +4982,7 @@ pub fn sock_set_opt_size(
 /// * `sockopt` - Socket option to be retrieved
 pub fn sock_get_opt_size<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    sock: Fd,
+    sock: WasiFd,
     opt: __wasi_sockoption_t,
     ret_size: WasmPtr<__wasi_filesize_t, M>,
 ) -> Errno {
@@ -5012,7 +5020,7 @@ pub fn sock_get_opt_size<M: MemorySize>(
 /// * `interface` - Interface that will join
 pub fn sock_join_multicast_v4<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    sock: Fd,
+    sock: WasiFd,
     multiaddr: WasmPtr<__wasi_addr_ip4_t, M>,
     iface: WasmPtr<__wasi_addr_ip4_t, M>,
 ) -> Errno {
@@ -5038,7 +5046,7 @@ pub fn sock_join_multicast_v4<M: MemorySize>(
 /// * `interface` - Interface that will left
 pub fn sock_leave_multicast_v4<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    sock: Fd,
+    sock: WasiFd,
     multiaddr: WasmPtr<__wasi_addr_ip4_t, M>,
     iface: WasmPtr<__wasi_addr_ip4_t, M>,
 ) -> Errno {
@@ -5064,7 +5072,7 @@ pub fn sock_leave_multicast_v4<M: MemorySize>(
 /// * `interface` - Interface that will join
 pub fn sock_join_multicast_v6<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    sock: Fd,
+    sock: WasiFd,
     multiaddr: WasmPtr<__wasi_addr_ip6_t, M>,
     iface: u32,
 ) -> Errno {
@@ -5089,7 +5097,7 @@ pub fn sock_join_multicast_v6<M: MemorySize>(
 /// * `interface` - Interface that will left
 pub fn sock_leave_multicast_v6<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    sock: Fd,
+    sock: WasiFd,
     multiaddr: WasmPtr<__wasi_addr_ip6_t, M>,
     iface: u32,
 ) -> Errno {
@@ -5114,7 +5122,7 @@ pub fn sock_leave_multicast_v6<M: MemorySize>(
 /// * `addr` - Address to bind the socket to
 pub fn sock_bind<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    sock: Fd,
+    sock: WasiFd,
     addr: WasmPtr<__wasi_addr_port_t, M>,
 ) -> Errno {
     debug!("wasi::sock_bind");
@@ -5143,7 +5151,7 @@ pub fn sock_bind<M: MemorySize>(
 /// * `backlog` - Maximum size of the queue for pending connections
 pub fn sock_listen<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    sock: Fd,
+    sock: WasiFd,
     backlog: M::Offset,
 ) -> Errno {
     debug!("wasi::sock_listen");
@@ -5170,9 +5178,9 @@ pub fn sock_listen<M: MemorySize>(
 /// New socket connection
 pub fn sock_accept<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    sock: Fd,
+    sock: WasiFd,
     fd_flags: Fdflags,
-    ro_fd: WasmPtr<Fd, M>,
+    ro_fd: WasmPtr<WasiFd, M>,
     ro_addr: WasmPtr<__wasi_addr_port_t, M>,
 ) -> Result<Errno, WasiError> {
     debug!("wasi::sock_accept");
@@ -5217,7 +5225,7 @@ pub fn sock_accept<M: MemorySize>(
         "socket".to_string(),
     );
 
-    let rights = super::state::all_socket_rights();
+    let rights = Rights::all_socket();
     let fd = wasi_try_ok!(state
         .fs
         .create_fd(rights, rights, Fdflags::empty(), 0, inode));
@@ -5247,7 +5255,7 @@ pub fn sock_accept<M: MemorySize>(
 /// * `addr` - Address of the socket to connect to
 pub fn sock_connect<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    sock: Fd,
+    sock: WasiFd,
     addr: WasmPtr<__wasi_addr_port_t, M>,
 ) -> Errno {
     debug!("wasi::sock_connect");
@@ -5277,7 +5285,7 @@ pub fn sock_connect<M: MemorySize>(
 /// Number of bytes stored in ri_data and message flags.
 pub fn sock_recv<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    sock: Fd,
+    sock: WasiFd,
     ri_data: WasmPtr<__wasi_iovec_t<M>, M>,
     ri_data_len: M::Offset,
     _ri_flags: __wasi_riflags_t,
@@ -5316,7 +5324,7 @@ pub fn sock_recv<M: MemorySize>(
 /// Number of bytes stored in ri_data and message flags.
 pub fn sock_recv_from<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    sock: Fd,
+    sock: WasiFd,
     ri_data: WasmPtr<__wasi_iovec_t<M>, M>,
     ri_data_len: M::Offset,
     _ri_flags: __wasi_riflags_t,
@@ -5359,7 +5367,7 @@ pub fn sock_recv_from<M: MemorySize>(
 /// Number of bytes transmitted.
 pub fn sock_send<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    sock: Fd,
+    sock: WasiFd,
     si_data: WasmPtr<__wasi_ciovec_t<M>, M>,
     si_data_len: M::Offset,
     _si_flags: __wasi_siflags_t,
@@ -5398,7 +5406,7 @@ pub fn sock_send<M: MemorySize>(
 /// Number of bytes transmitted.
 pub fn sock_send_to<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    sock: Fd,
+    sock: WasiFd,
     si_data: WasmPtr<__wasi_ciovec_t<M>, M>,
     si_data_len: M::Offset,
     _si_flags: __wasi_siflags_t,
@@ -5439,8 +5447,8 @@ pub fn sock_send_to<M: MemorySize>(
 /// Number of bytes transmitted.
 pub unsafe fn sock_send_file<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
-    sock: Fd,
-    in_fd: Fd,
+    sock: WasiFd,
+    in_fd: WasiFd,
     offset: __wasi_filesize_t,
     mut count: __wasi_filesize_t,
     ret_sent: WasmPtr<__wasi_filesize_t, M>,

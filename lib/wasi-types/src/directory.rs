@@ -1,9 +1,9 @@
 use std::mem;
-use wasmer_wasi_types_generated::wasi_snapshot0;
+use wasmer_wasi_types_generated::wasi;
 
-pub const __WASI_DIRCOOKIE_START: wasi_snapshot0::Dircookie = 0;
+pub const __WASI_DIRCOOKIE_START: wasi::Dircookie = 0;
 
-pub fn dirent_to_le_bytes(ent: &wasi_snapshot0::Dirent) -> Vec<u8> {
+pub fn dirent_to_le_bytes(ent: &wasi::Dirent) -> Vec<u8> {
     let out: Vec<u8> = std::iter::empty()
         .chain(ent.d_next.to_le_bytes())
         .chain(ent.d_ino.to_le_bytes())
@@ -11,22 +11,22 @@ pub fn dirent_to_le_bytes(ent: &wasi_snapshot0::Dirent) -> Vec<u8> {
         .chain(u32::from(ent.d_type as u8).to_le_bytes())
         .collect();
 
-    assert_eq!(out.len(), mem::size_of::<wasi_snapshot0::Dirent>());
+    assert_eq!(out.len(), mem::size_of::<wasi::Dirent>());
     out
 }
 
 #[cfg(test)]
 mod tests {
     use super::dirent_to_le_bytes;
-    use wasmer_wasi_types_generated::wasi_snapshot0;
+    use wasmer_wasi_types_generated::wasi;
 
     #[test]
     fn test_dirent_to_le_bytes() {
-        let s = wasi_snapshot0::Dirent {
+        let s = wasi::Dirent {
             d_next: 0x0123456789abcdef,
             d_ino: 0xfedcba9876543210,
             d_namlen: 0xaabbccdd,
-            d_type: wasi_snapshot0::Filetype::Directory,
+            d_type: wasi::Filetype::Directory,
         };
 
         assert_eq!(
@@ -59,7 +59,7 @@ mod tests {
                 //
                 // d_type
                 // plus padding
-                wasi_snapshot0::Filetype::Directory as u8,
+                wasi::Filetype::Directory as u8,
                 0x00,
                 0x00,
                 0x00,
