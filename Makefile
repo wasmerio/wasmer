@@ -389,7 +389,7 @@ build-wasmer-headless-minimal: RUSTFLAGS += -C panic=abort
 build-wasmer-headless-minimal:
 	RUSTFLAGS="${RUSTFLAGS}" xargo build --target $(HOST_TARGET) --release --manifest-path=lib/cli/Cargo.toml --no-default-features --features headless-minimal --bin wasmer-headless
 ifeq ($(IS_DARWIN), 1)
-	strip -u target/$(HOST_TARGET)/release/wasmer-headless
+	strip target/$(HOST_TARGET)/release/wasmer-headless
 else ifeq ($(IS_WINDOWS), 1)
 	strip --strip-unneeded target/$(HOST_TARGET)/release/wasmer-headless.exe
 else
@@ -455,7 +455,7 @@ build-capi-llvm-universal: capi-setup
 # Headless (we include the minimal to be able to run)
 
 build-capi-headless: capi-setup
-	RUSTFLAGS="${RUSTFLAGS} -C panic=abort" $(CARGO_BINARY) build $(CARGO_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
+	RUSTFLAGS="${RUSTFLAGS} -C panic=abort -C link-dead-code -C lto -O -C embed-bitcode=yes" $(CARGO_BINARY) build $(CARGO_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features compiler-headless,wasi
 
 build-capi-headless-ios: capi-setup
