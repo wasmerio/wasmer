@@ -1,114 +1,30 @@
 UNCHECKED SO FAR:
 
-pub mod wasmer::sys
-pub mod wasmer::sys::vm
-pub struct field wasmer::sys::BaseTunables::dynamic_memory_offset_guard_size: u64
-pub struct field wasmer::sys::BaseTunables::static_memory_bound: Pages
-pub struct field wasmer::sys::BaseTunables::static_memory_offset_guard_size: u64
-pub struct field wasmer::sys::Instance::exports: Exports
-pub struct wasmer::sys::BaseTunables
-pub struct wasmer::sys::Exports
-pub struct wasmer::sys::ExportsIterator<'a, I> where I: Iterator<Item = (&'a String, &'a Extern)> + Sized
-pub struct wasmer::sys::Function
-pub struct wasmer::sys::FunctionEnvMut<'a, T: 'a>
-pub struct wasmer::sys::Global
-pub struct wasmer::sys::Imports
-pub struct wasmer::sys::Instance
-pub struct wasmer::sys::Memory
-pub struct wasmer::sys::MemoryView<'a>
-pub struct wasmer::sys::Module
-pub struct wasmer::sys::Store
-pub struct wasmer::sys::StoreMut<'a>
-pub struct wasmer::sys::StoreRef<'a>
-pub struct wasmer::sys::Table
-pub struct wasmer::sys::TypedFunction<Args, Rets>
-pub struct wasmer::sys::WasmRef<'a, T: ValueType>
-pub struct wasmer::sys::WasmSlice<'a, T: ValueType>
-pub struct wasmer::sys::WasmSliceIter<'a, T: ValueType>
-pub trait wasmer::sys::AsStoreMut
-pub trait wasmer::sys::AsStoreRef
-pub trait wasmer::sys::CompilerConfig
-pub trait wasmer::sys::Exportable<'a>
-pub trait wasmer::sys::FunctionMiddleware
-pub trait wasmer::sys::HostFunction<T, Args, Rets, Kind> where Args: WasmTypeList, Rets: WasmTypeList, Kind: HostFunctionKind
-pub trait wasmer::sys::ModuleMiddleware
-pub trait wasmer::sys::NativeWasmTypeInto
-pub trait wasmer::sys::Tunables
-pub trait wasmer::sys::WasmTypeList where Self: Sized
-pub type wasmer::sys::Exports::IntoIter = IntoIter<String, Extern>
-pub type wasmer::sys::Exports::Item = (String, Extern)
-pub type wasmer::sys::ExportsIterator::Item = (&'a String, &'a Extern)
-pub type wasmer::sys::ExternRef::Abi = usize
 pub type wasmer::sys::FromToNativeWasmType::NativeNativeWasmTypeInto
 pub type wasmer::sys::Function::Abi = usize
 pub type wasmer::sys::NativeFunc<Args, Rets> = TypedFunction<Args, Rets>
-pub type wasmer::sys::WasmPtr64<T> = WasmPtr<T, Memory64>
-pub type wasmer::sys::WasmPtr::Native = <M as MemorySize>::Native
 pub type wasmer::sys::WasmSliceIter::Item = WasmRef<'a, T>
 pub type wasmer::sys::WasmTypeList::ArrayAsMut<[RawValue]>
 pub type wasmer::sys::WasmTypeList::CStruct
-pub unsafe fn wasmer::sys::BaseTunables::create_vm_memory(&self, ty: &MemoryType, style: &MemoryStyle, vm_definition_location: NonNull<VMMemoryDefinition>) -> Result<VMMemory, MemoryError>
-pub unsafe fn wasmer::sys::BaseTunables::create_vm_table(&self, ty: &TableType, style: &TableStyle, vm_definition_location: NonNull<VMTableDefinition>) -> Result<VMTable, String>
-pub unsafe fn wasmer::sys::Module::deserialize(store: &impl AsStoreRef, bytes: &[u8]) -> Result<Self, DeserializeError>
-pub unsafe fn wasmer::sys::Module::deserialize_from_file(store: &impl AsStoreRef, path: impl AsRef<Path>) -> Result<Self, DeserializeError>
 pub unsafe fn wasmer::sys::Module::from_binary_unchecked(store: &impl AsStoreRef, binary: &[u8]) -> Result<Self, CompileError>
 pub unsafe fn wasmer::sys::NativeWasmTypeInto::from_raw(store: &mut impl AsStoreMut, raw: RawValue) -> Self
 pub unsafe fn wasmer::sys::Value::from_raw(store: &mut impl AsStoreMut, ty: Type, raw: RawValue) -> Self
-pub unsafe fn wasmer::sys::WasmTypeList::from_array(store: &mut impl AsStoreMut, array: <Self as >::Array) -> Self
-pub unsafe fn wasmer::sys::WasmTypeList::from_c_struct(store: &mut impl AsStoreMut, c_struct: <Self as >::CStruct) -> Self
-pub unsafe fn wasmer::sys::WasmTypeList::from_slice(store: &mut impl AsStoreMut, slice: &[RawValue]) -> Result<Self, TryFromSliceError>
-pub unsafe fn wasmer::sys::WasmTypeList::into_array(self, store: &mut impl AsStoreMut) -> <Self as >::Array
-pub unsafe fn wasmer::sys::WasmTypeList::into_c_struct(self, store: &mut impl AsStoreMut) -> <Self as >::CStruct
-pub unsafe fn wasmer::sys::WasmTypeList::write_c_struct_to_ptr(c_struct: <Self as >::CStruct, ptr: *mut RawValue)
 pub unsafe trait wasmer::sys::FromToNativeWasmType where Self: Sized
-pub unsafe trait wasmer::sys::MemorySize
 pub unsafe trait wasmer::sys::ValueType
-pub use wasmer::sys::Architecture
-pub use wasmer::sys::Artifact
-pub use wasmer::sys::Bytes
-pub use wasmer::sys::CallingConvention
-pub use wasmer::sys::CompileError
-pub use wasmer::sys::CpuFeature
-pub use wasmer::sys::Cranelift
-pub use wasmer::sys::CraneliftOptLevel
-pub use wasmer::sys::DeserializeError
 pub use wasmer::sys::Engine
 pub use wasmer::sys::EngineBuilder
-pub use wasmer::sys::ExportIndex
-pub use wasmer::sys::ExportType
-pub use wasmer::sys::ExternType
 pub use wasmer::sys::Features
-pub use wasmer::sys::FrameInfo
-pub use wasmer::sys::FunctionType
-pub use wasmer::sys::GlobalInit
-pub use wasmer::sys::GlobalType
 pub use wasmer::sys::HOST
-pub use wasmer::sys::ImportType
 pub use wasmer::sys::LinkError
-pub use wasmer::sys::LocalFunctionIndex
-pub use wasmer::sys::Memory32
-pub use wasmer::sys::Memory64
-pub use wasmer::sys::MemoryError
-pub use wasmer::sys::MemoryType
 pub use wasmer::sys::MiddlewareError
 pub use wasmer::sys::MiddlewareReaderState
-pub use wasmer::sys::Mutability
 pub use wasmer::sys::OperatingSystem
-pub use wasmer::sys::Pages
 pub use wasmer::sys::ParseCpuFeatureError
-pub use wasmer::sys::RuntimeError
-pub use wasmer::sys::SerializeError
-pub use wasmer::sys::TableType
 pub use wasmer::sys::Target
 pub use wasmer::sys::Triple
 pub use wasmer::sys::Type
-pub use wasmer::sys::ValueType
-pub use wasmer::sys::WASM_MAX_PAGES
-pub use wasmer::sys::WASM_MIN_PAGES
-pub use wasmer::sys::WASM_PAGE_SIZE
 pub use wasmer::sys::WasmError
 pub use wasmer::sys::WasmResult
-pub use wasmer::sys::is_wasm
 pub use wasmer::sys::raise_user_trap
 pub use wasmer::sys::vm::MemoryError
 pub use wasmer::sys::vm::MemoryStyle

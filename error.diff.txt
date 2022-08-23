@@ -1,4 +1,4 @@
-+#[repr(transparent)] pub struct wasmer::sys::ExternRef
+#[repr(transparent)] pub struct wasmer::sys::ExternRef
 pub const wasmer::sys::ExternRef::WASM_TYPE: Type
 pub const wasmer::sys::Function::WASM_TYPE: Type (type Abi => f64 / usize)
 pub enum variant wasmer::sys::InstantiationError::*
@@ -58,3 +58,26 @@ pub fn wasmer::sys::Value::unwrap_externref(&self) -> &Option<ExternRef>
 pub fn wasmer::sys::Value::unwrap_v128(&self) -> u128
 pub fn wasmer::sys::Value::v128(&self) -> Option<u128>
 pub fn wasmer::sys::WasmSlice::is_empty(self) -> bool
+pub struct wasmer::sys::BaseTunables
+pub struct field wasmer::sys::BaseTunables::dynamic_memory_offset_guard_size: u64
+pub struct field wasmer::sys::BaseTunables::static_memory_bound: Pages
+pub struct field wasmer::sys::BaseTunables::static_memory_offset_guard_size: u64
+pub mod wasmer::sys::vm
+pub trait wasmer::sys::CompilerConfig
+pub trait wasmer::sys::FunctionMiddleware
+pub trait wasmer::sys::HostFunction<T, Args, Rets, Kind> where Args: WasmTypeList, Rets: WasmTypeList, Kind: HostFunctionKind
+pub trait wasmer::sys::ModuleMiddleware
+pub trait wasmer::sys::Tunables
+pub type wasmer::sys::ExternRef::Abi = usize
+pub use wasmer::sys::Architecture
+pub use wasmer::sys::Artifact
+pub unsafe fn wasmer::sys::BaseTunables::create_vm_memory(&self, ty: &MemoryType, style: &MemoryStyle, vm_definition_location: NonNull<VMMemoryDefinition>) -> Result<VMMemory, MemoryError>
+pub unsafe fn wasmer::sys::BaseTunables::create_vm_table(&self, ty: &TableType, style: &TableStyle, vm_definition_location: NonNull<VMTableDefinition>) -> Result<VMTable, String>
+pub unsafe fn wasmer::sys::Module::deserialize_from_file(store: &impl AsStoreRef, path: impl AsRef<Path>) -> Result<Self, DeserializeError>
+pub use wasmer::sys::CpuFeature
+pub use wasmer::sys::CallingConvention
+pub use wasmer::sys::Cranelift
+pub use wasmer::sys::CraneliftOptLevel
+pub unsafe fn wasmer::sys::WasmTypeList::from_slice(store: &mut impl AsStoreMut, slice: &[RawValue]) -> Result<Self, TryFromSliceError>
+pub unsafe fn wasmer::sys::WasmTypeList::write_c_struct_to_ptr(c_struct: <Self as >::CStruct, ptr: *mut RawValue)
+pub use wasmer::sys::FrameInfo
