@@ -722,6 +722,14 @@
 <span id="720">720</span>
 <span id="721">721</span>
 <span id="722">722</span>
+<span id="723">723</span>
+<span id="724">724</span>
+<span id="725">725</span>
+<span id="726">726</span>
+<span id="727">727</span>
+<span id="728">728</span>
+<span id="729">729</span>
+<span id="730">730</span>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
 
@@ -1027,120 +1035,77 @@
     }
 }
 
-<span class="doccomment">/// The fields compiled code needs to access to utilize a WebAssembly linear</span>
-<span class="doccomment">/// memory defined within the instance, namely the start address and the</span>
-<span class="doccomment">/// size in bytes.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>)]</span>
-<span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">VMMemoryDefinition</span> {
-    <span class="doccomment">/// The start address which is always valid, even if the memory grows.</span>
-    <span class="kw">pub</span> <span class="ident">base</span>: <span class="kw-2">*mut</span> <span class="ident">u8</span>,
+<span class="doccomment">/// Do an unsynchronized, non-atomic `memory.copy` for the memory.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// # Errors</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// Returns a `Trap` error when the source or destination ranges are out of</span>
+<span class="doccomment">/// bounds.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// # Safety</span>
+<span class="doccomment">/// The memory is not copied atomically and is not synchronized: it&#39;s the</span>
+<span class="doccomment">/// caller&#39;s responsibility to synchronize.</span>
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">memory_copy</span>(
+    <span class="ident">mem</span>: <span class="kw-2">&amp;</span><span class="ident">VMMemoryDefinition</span>,
+    <span class="ident">dst</span>: <span class="ident">u32</span>,
+    <span class="ident">src</span>: <span class="ident">u32</span>,
+    <span class="ident">len</span>: <span class="ident">u32</span>,
+) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Trap</span><span class="op">&gt;</span> {
+    <span class="comment">// https://webassembly.github.io/reference-types/core/exec/instructions.html#exec-memory-copy</span>
+    <span class="kw">if</span> <span class="ident">src</span>
+        .<span class="ident">checked_add</span>(<span class="ident">len</span>)
+        .<span class="ident">map_or</span>(<span class="bool-val">true</span>, <span class="op">|</span><span class="ident">n</span><span class="op">|</span> <span class="ident">usize::try_from</span>(<span class="ident">n</span>).<span class="ident">unwrap</span>() <span class="op">&gt;</span> <span class="ident">mem</span>.<span class="ident">current_length</span>)
+        <span class="op">|</span><span class="op">|</span> <span class="ident">dst</span>
+            .<span class="ident">checked_add</span>(<span class="ident">len</span>)
+            .<span class="ident">map_or</span>(<span class="bool-val">true</span>, <span class="op">|</span><span class="ident">m</span><span class="op">|</span> <span class="ident">usize::try_from</span>(<span class="ident">m</span>).<span class="ident">unwrap</span>() <span class="op">&gt;</span> <span class="ident">mem</span>.<span class="ident">current_length</span>)
+    {
+        <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Trap::lib</span>(<span class="ident">TrapCode::HeapAccessOutOfBounds</span>));
+    }
 
-    <span class="doccomment">/// The current logical size of this linear memory in bytes.</span>
-    <span class="kw">pub</span> <span class="ident">current_length</span>: <span class="ident">usize</span>,
+    <span class="kw">let</span> <span class="ident">dst</span> <span class="op">=</span> <span class="ident">usize::try_from</span>(<span class="ident">dst</span>).<span class="ident">unwrap</span>();
+    <span class="kw">let</span> <span class="ident">src</span> <span class="op">=</span> <span class="ident">usize::try_from</span>(<span class="ident">src</span>).<span class="ident">unwrap</span>();
+
+    <span class="comment">// Bounds and casts are checked above, by this point we know that</span>
+    <span class="comment">// everything is safe.</span>
+    <span class="kw">let</span> <span class="ident">dst</span> <span class="op">=</span> <span class="ident">mem</span>.<span class="ident">base</span>.<span class="ident">add</span>(<span class="ident">dst</span>);
+    <span class="kw">let</span> <span class="ident">src</span> <span class="op">=</span> <span class="ident">mem</span>.<span class="ident">base</span>.<span class="ident">add</span>(<span class="ident">src</span>);
+    <span class="ident">ptr::copy</span>(<span class="ident">src</span>, <span class="ident">dst</span>, <span class="ident">len</span> <span class="kw">as</span> <span class="ident">usize</span>);
+
+    <span class="prelude-val">Ok</span>(())
 }
 
+<span class="doccomment">/// Perform the `memory.fill` operation for the memory in an unsynchronized,</span>
+<span class="doccomment">/// non-atomic way.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// # Errors</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// Returns a `Trap` error if the memory range is out of bounds.</span>
+<span class="doccomment">///</span>
 <span class="doccomment">/// # Safety</span>
-<span class="doccomment">/// This data is safe to share between threads because it&#39;s plain data that</span>
-<span class="doccomment">/// is the user&#39;s responsibility to synchronize.</span>
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">Send</span> <span class="kw">for</span> <span class="ident">VMMemoryDefinition</span> {}
-<span class="doccomment">/// # Safety</span>
-<span class="doccomment">/// This data is safe to share between threads because it&#39;s plain data that</span>
-<span class="doccomment">/// is the user&#39;s responsibility to synchronize. And it&#39;s `Copy` so there&#39;s</span>
-<span class="doccomment">/// really no difference between passing it by reference or by value as far as</span>
-<span class="doccomment">/// correctness in a multi-threaded context is concerned.</span>
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">Sync</span> <span class="kw">for</span> <span class="ident">VMMemoryDefinition</span> {}
-
-<span class="kw">impl</span> <span class="ident">VMMemoryDefinition</span> {
-    <span class="doccomment">/// Do an unsynchronized, non-atomic `memory.copy` for the memory.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Errors</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Returns a `Trap` error when the source or destination ranges are out of</span>
-    <span class="doccomment">/// bounds.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Safety</span>
-    <span class="doccomment">/// The memory is not copied atomically and is not synchronized: it&#39;s the</span>
-    <span class="doccomment">/// caller&#39;s responsibility to synchronize.</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">memory_copy</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">dst</span>: <span class="ident">u32</span>, <span class="ident">src</span>: <span class="ident">u32</span>, <span class="ident">len</span>: <span class="ident">u32</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Trap</span><span class="op">&gt;</span> {
-        <span class="comment">// https://webassembly.github.io/reference-types/core/exec/instructions.html#exec-memory-copy</span>
-        <span class="kw">if</span> <span class="ident">src</span>
-            .<span class="ident">checked_add</span>(<span class="ident">len</span>)
-            .<span class="ident">map_or</span>(<span class="bool-val">true</span>, <span class="op">|</span><span class="ident">n</span><span class="op">|</span> <span class="ident">usize::try_from</span>(<span class="ident">n</span>).<span class="ident">unwrap</span>() <span class="op">&gt;</span> <span class="self">self</span>.<span class="ident">current_length</span>)
-            <span class="op">|</span><span class="op">|</span> <span class="ident">dst</span>
-                .<span class="ident">checked_add</span>(<span class="ident">len</span>)
-                .<span class="ident">map_or</span>(<span class="bool-val">true</span>, <span class="op">|</span><span class="ident">m</span><span class="op">|</span> <span class="ident">usize::try_from</span>(<span class="ident">m</span>).<span class="ident">unwrap</span>() <span class="op">&gt;</span> <span class="self">self</span>.<span class="ident">current_length</span>)
-        {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Trap::lib</span>(<span class="ident">TrapCode::HeapAccessOutOfBounds</span>));
-        }
-
-        <span class="kw">let</span> <span class="ident">dst</span> <span class="op">=</span> <span class="ident">usize::try_from</span>(<span class="ident">dst</span>).<span class="ident">unwrap</span>();
-        <span class="kw">let</span> <span class="ident">src</span> <span class="op">=</span> <span class="ident">usize::try_from</span>(<span class="ident">src</span>).<span class="ident">unwrap</span>();
-
-        <span class="comment">// Bounds and casts are checked above, by this point we know that</span>
-        <span class="comment">// everything is safe.</span>
-        <span class="kw">let</span> <span class="ident">dst</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">base</span>.<span class="ident">add</span>(<span class="ident">dst</span>);
-        <span class="kw">let</span> <span class="ident">src</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">base</span>.<span class="ident">add</span>(<span class="ident">src</span>);
-        <span class="ident">ptr::copy</span>(<span class="ident">src</span>, <span class="ident">dst</span>, <span class="ident">len</span> <span class="kw">as</span> <span class="ident">usize</span>);
-
-        <span class="prelude-val">Ok</span>(())
+<span class="doccomment">/// The memory is not filled atomically and is not synchronized: it&#39;s the</span>
+<span class="doccomment">/// caller&#39;s responsibility to synchronize.</span>
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">memory_fill</span>(
+    <span class="ident">mem</span>: <span class="kw-2">&amp;</span><span class="ident">VMMemoryDefinition</span>,
+    <span class="ident">dst</span>: <span class="ident">u32</span>,
+    <span class="ident">val</span>: <span class="ident">u32</span>,
+    <span class="ident">len</span>: <span class="ident">u32</span>,
+) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Trap</span><span class="op">&gt;</span> {
+    <span class="kw">if</span> <span class="ident">dst</span>
+        .<span class="ident">checked_add</span>(<span class="ident">len</span>)
+        .<span class="ident">map_or</span>(<span class="bool-val">true</span>, <span class="op">|</span><span class="ident">m</span><span class="op">|</span> <span class="ident">usize::try_from</span>(<span class="ident">m</span>).<span class="ident">unwrap</span>() <span class="op">&gt;</span> <span class="ident">mem</span>.<span class="ident">current_length</span>)
+    {
+        <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Trap::lib</span>(<span class="ident">TrapCode::HeapAccessOutOfBounds</span>));
     }
 
-    <span class="doccomment">/// Perform the `memory.fill` operation for the memory in an unsynchronized,</span>
-    <span class="doccomment">/// non-atomic way.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Errors</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Returns a `Trap` error if the memory range is out of bounds.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Safety</span>
-    <span class="doccomment">/// The memory is not filled atomically and is not synchronized: it&#39;s the</span>
-    <span class="doccomment">/// caller&#39;s responsibility to synchronize.</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">memory_fill</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">dst</span>: <span class="ident">u32</span>, <span class="ident">val</span>: <span class="ident">u32</span>, <span class="ident">len</span>: <span class="ident">u32</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Trap</span><span class="op">&gt;</span> {
-        <span class="kw">if</span> <span class="ident">dst</span>
-            .<span class="ident">checked_add</span>(<span class="ident">len</span>)
-            .<span class="ident">map_or</span>(<span class="bool-val">true</span>, <span class="op">|</span><span class="ident">m</span><span class="op">|</span> <span class="ident">usize::try_from</span>(<span class="ident">m</span>).<span class="ident">unwrap</span>() <span class="op">&gt;</span> <span class="self">self</span>.<span class="ident">current_length</span>)
-        {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Trap::lib</span>(<span class="ident">TrapCode::HeapAccessOutOfBounds</span>));
-        }
+    <span class="kw">let</span> <span class="ident">dst</span> <span class="op">=</span> <span class="ident">isize::try_from</span>(<span class="ident">dst</span>).<span class="ident">unwrap</span>();
+    <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="ident">val</span> <span class="kw">as</span> <span class="ident">u8</span>;
 
-        <span class="kw">let</span> <span class="ident">dst</span> <span class="op">=</span> <span class="ident">isize::try_from</span>(<span class="ident">dst</span>).<span class="ident">unwrap</span>();
-        <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="ident">val</span> <span class="kw">as</span> <span class="ident">u8</span>;
+    <span class="comment">// Bounds and casts are checked above, by this point we know that</span>
+    <span class="comment">// everything is safe.</span>
+    <span class="kw">let</span> <span class="ident">dst</span> <span class="op">=</span> <span class="ident">mem</span>.<span class="ident">base</span>.<span class="ident">offset</span>(<span class="ident">dst</span>);
+    <span class="ident">ptr::write_bytes</span>(<span class="ident">dst</span>, <span class="ident">val</span>, <span class="ident">len</span> <span class="kw">as</span> <span class="ident">usize</span>);
 
-        <span class="comment">// Bounds and casts are checked above, by this point we know that</span>
-        <span class="comment">// everything is safe.</span>
-        <span class="kw">let</span> <span class="ident">dst</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">base</span>.<span class="ident">offset</span>(<span class="ident">dst</span>);
-        <span class="ident">ptr::write_bytes</span>(<span class="ident">dst</span>, <span class="ident">val</span>, <span class="ident">len</span> <span class="kw">as</span> <span class="ident">usize</span>);
-
-        <span class="prelude-val">Ok</span>(())
-    }
-}
-
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-<span class="kw">mod</span> <span class="ident">test_vmmemory_definition</span> {
-    <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::VMMemoryDefinition</span>;
-    <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::VMOffsets</span>;
-    <span class="kw">use</span> <span class="ident">memoffset::offset_of</span>;
-    <span class="kw">use</span> <span class="ident">std::mem::size_of</span>;
-    <span class="kw">use</span> <span class="ident">wasmer_types::ModuleInfo</span>;
-
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">check_vmmemory_definition_offsets</span>() {
-        <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">ModuleInfo::new</span>();
-        <span class="kw">let</span> <span class="ident">offsets</span> <span class="op">=</span> <span class="ident">VMOffsets::new</span>(<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="kw-2">*mut</span> <span class="ident">u8</span><span class="op">&gt;</span>() <span class="kw">as</span> <span class="ident">u8</span>, <span class="kw-2">&amp;</span><span class="ident">module</span>);
-        <span class="macro">assert_eq!</span>(
-            <span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">VMMemoryDefinition</span><span class="op">&gt;</span>(),
-            <span class="ident">usize::from</span>(<span class="ident">offsets</span>.<span class="ident">size_of_vmmemory_definition</span>())
-        );
-        <span class="macro">assert_eq!</span>(
-            <span class="macro">offset_of!</span>(<span class="ident">VMMemoryDefinition</span>, <span class="ident">base</span>),
-            <span class="ident">usize::from</span>(<span class="ident">offsets</span>.<span class="ident">vmmemory_definition_base</span>())
-        );
-        <span class="macro">assert_eq!</span>(
-            <span class="macro">offset_of!</span>(<span class="ident">VMMemoryDefinition</span>, <span class="ident">current_length</span>),
-            <span class="ident">usize::from</span>(<span class="ident">offsets</span>.<span class="ident">vmmemory_definition_current_length</span>())
-        );
-    }
+    <span class="prelude-val">Ok</span>(())
 }
 
 <span class="doccomment">/// The fields compiled code needs to access to utilize a WebAssembly table</span>
@@ -1444,6 +1409,57 @@
     <span class="kw-2">*const</span> <span class="ident">VMFunctionBody</span>, <span class="comment">// function we&#39;re actually calling</span>
     <span class="kw-2">*mut</span> <span class="ident">RawValue</span>,         <span class="comment">// space for arguments and return values</span>
 );
+
+<span class="doccomment">/// The fields compiled code needs to access to utilize a WebAssembly linear</span>
+<span class="doccomment">/// memory defined within the instance, namely the start address and the</span>
+<span class="doccomment">/// size in bytes.</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>)]</span>
+<span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">VMMemoryDefinition</span> {
+    <span class="doccomment">/// The start address which is always valid, even if the memory grows.</span>
+    <span class="kw">pub</span> <span class="ident">base</span>: <span class="kw-2">*mut</span> <span class="ident">u8</span>,
+
+    <span class="doccomment">/// The current logical size of this linear memory in bytes.</span>
+    <span class="kw">pub</span> <span class="ident">current_length</span>: <span class="ident">usize</span>,
+}
+
+<span class="doccomment">/// # Safety</span>
+<span class="doccomment">/// This data is safe to share between threads because it&#39;s plain data that</span>
+<span class="doccomment">/// is the user&#39;s responsibility to synchronize.</span>
+<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">Send</span> <span class="kw">for</span> <span class="ident">VMMemoryDefinition</span> {}
+<span class="doccomment">/// # Safety</span>
+<span class="doccomment">/// This data is safe to share between threads because it&#39;s plain data that</span>
+<span class="doccomment">/// is the user&#39;s responsibility to synchronize. And it&#39;s `Copy` so there&#39;s</span>
+<span class="doccomment">/// really no difference between passing it by reference or by value as far as</span>
+<span class="doccomment">/// correctness in a multi-threaded context is concerned.</span>
+<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">Sync</span> <span class="kw">for</span> <span class="ident">VMMemoryDefinition</span> {}
+
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
+<span class="kw">mod</span> <span class="ident">test_vmmemory_definition</span> {
+    <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::VMMemoryDefinition</span>;
+    <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::ModuleInfo</span>;
+    <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::VMOffsets</span>;
+    <span class="kw">use</span> <span class="ident">memoffset::offset_of</span>;
+    <span class="kw">use</span> <span class="ident">std::mem::size_of</span>;
+
+    <span class="attribute">#[<span class="ident">test</span>]</span>
+    <span class="kw">fn</span> <span class="ident">check_vmmemory_definition_offsets</span>() {
+        <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">ModuleInfo::new</span>();
+        <span class="kw">let</span> <span class="ident">offsets</span> <span class="op">=</span> <span class="ident">VMOffsets::new</span>(<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="kw-2">*mut</span> <span class="ident">u8</span><span class="op">&gt;</span>() <span class="kw">as</span> <span class="ident">u8</span>, <span class="kw-2">&amp;</span><span class="ident">module</span>);
+        <span class="macro">assert_eq!</span>(
+            <span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">VMMemoryDefinition</span><span class="op">&gt;</span>(),
+            <span class="ident">usize::from</span>(<span class="ident">offsets</span>.<span class="ident">size_of_vmmemory_definition</span>())
+        );
+        <span class="macro">assert_eq!</span>(
+            <span class="macro">offset_of!</span>(<span class="ident">VMMemoryDefinition</span>, <span class="ident">base</span>),
+            <span class="ident">usize::from</span>(<span class="ident">offsets</span>.<span class="ident">vmmemory_definition_base</span>())
+        );
+        <span class="macro">assert_eq!</span>(
+            <span class="macro">offset_of!</span>(<span class="ident">VMMemoryDefinition</span>, <span class="ident">current_length</span>),
+            <span class="ident">usize::from</span>(<span class="ident">offsets</span>.<span class="ident">vmmemory_definition_current_length</span>())
+        );
+    }
+}
 </code></pre></div>
 </section><section id="search" class="content hidden"></section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_vm" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.59.0 (9d1b2106e 2022-02-23)" ></div>
 </body></html>

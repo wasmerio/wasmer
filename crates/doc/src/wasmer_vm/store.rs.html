@@ -268,6 +268,26 @@
 <span id="266">266</span>
 <span id="267">267</span>
 <span id="268">268</span>
+<span id="269">269</span>
+<span id="270">270</span>
+<span id="271">271</span>
+<span id="272">272</span>
+<span id="273">273</span>
+<span id="274">274</span>
+<span id="275">275</span>
+<span id="276">276</span>
+<span id="277">277</span>
+<span id="278">278</span>
+<span id="279">279</span>
+<span id="280">280</span>
+<span id="281">281</span>
+<span id="282">282</span>
+<span id="283">283</span>
+<span id="284">284</span>
+<span id="285">285</span>
+<span id="286">286</span>
+<span id="287">287</span>
+<span id="288">288</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">cell::UnsafeCell</span>,
     <span class="ident">fmt</span>,
@@ -533,6 +553,26 @@
         <span class="kw">match</span> <span class="self">self</span> {
             <span class="ident">MaybeInstanceOwned::Host</span>(<span class="ident">p</span>) =&gt; <span class="kw">unsafe</span> { <span class="ident">NonNull::new_unchecked</span>(<span class="ident">p</span>.<span class="ident">get</span>()) },
             <span class="ident">MaybeInstanceOwned::Instance</span>(<span class="ident">p</span>) =&gt; <span class="kw-2">*</span><span class="ident">p</span>,
+        }
+    }
+}
+
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="ident">std::fmt::Debug</span> <span class="kw">for</span> <span class="ident">MaybeInstanceOwned</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>
+<span class="kw">where</span>
+    <span class="ident">T</span>: <span class="ident">std::fmt::Debug</span>,
+{
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">fmt::Result</span> {
+        <span class="kw">match</span> <span class="self">self</span> {
+            <span class="ident">MaybeInstanceOwned::Host</span>(<span class="ident">p</span>) =&gt; {
+                <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;host(&quot;</span>)<span class="question-mark">?</span>;
+                <span class="ident">p</span>.<span class="ident">as_ref</span>().<span class="ident">fmt</span>(<span class="ident">f</span>)<span class="question-mark">?</span>;
+                <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;)&quot;</span>)
+            }
+            <span class="ident">MaybeInstanceOwned::Instance</span>(<span class="ident">p</span>) =&gt; {
+                <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;instance(&quot;</span>)<span class="question-mark">?</span>;
+                <span class="kw">unsafe</span> { <span class="ident">p</span>.<span class="ident">as_ref</span>().<span class="ident">fmt</span>(<span class="ident">f</span>)<span class="question-mark">?</span> };
+                <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;)&quot;</span>)
+            }
         }
     }
 }

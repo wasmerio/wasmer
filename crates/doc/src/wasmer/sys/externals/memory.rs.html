@@ -301,6 +301,18 @@
 <span id="299">299</span>
 <span id="300">300</span>
 <span id="301">301</span>
+<span id="302">302</span>
+<span id="303">303</span>
+<span id="304">304</span>
+<span id="305">305</span>
+<span id="306">306</span>
+<span id="307">307</span>
+<span id="308">308</span>
+<span id="309">309</span>
+<span id="310">310</span>
+<span id="311">311</span>
+<span id="312">312</span>
+<span id="313">313</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::exports</span>::{<span class="ident">ExportError</span>, <span class="ident">Exportable</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::externals::Extern</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::store</span>::{<span class="ident">AsStoreMut</span>, <span class="ident">AsStoreRef</span>};
@@ -314,7 +326,7 @@
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;tracing&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">tracing::warn</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types::Pages</span>;
-<span class="kw">use</span> <span class="ident">wasmer_vm</span>::{<span class="ident">InternalStoreHandle</span>, <span class="ident">MemoryError</span>, <span class="ident">StoreHandle</span>, <span class="ident">VMExtern</span>, <span class="ident">VMMemory</span>};
+<span class="kw">use</span> <span class="ident">wasmer_vm</span>::{<span class="ident">InternalStoreHandle</span>, <span class="ident">LinearMemory</span>, <span class="ident">MemoryError</span>, <span class="ident">StoreHandle</span>, <span class="ident">VMExtern</span>, <span class="ident">VMMemory</span>};
 
 <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::MemoryView</span>;
 
@@ -361,6 +373,12 @@
         <span class="prelude-val">Ok</span>(<span class="self">Self</span> {
             <span class="ident">handle</span>: <span class="ident">StoreHandle::new</span>(<span class="ident">store</span>.<span class="ident">objects_mut</span>(), <span class="ident">memory</span>),
         })
+    }
+
+    <span class="doccomment">/// Create a memory object from an existing memory and attaches it to the store</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_from_existing</span>(<span class="ident">new_store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">memory</span>: <span class="ident">VMMemory</span>) -&gt; <span class="self">Self</span> {
+        <span class="kw">let</span> <span class="ident">handle</span> <span class="op">=</span> <span class="ident">StoreHandle::new</span>(<span class="ident">new_store</span>.<span class="ident">objects_mut</span>(), <span class="ident">memory</span>);
+        <span class="ident"><span class="self">Self</span>::from_vm_extern</span>(<span class="ident">new_store</span>, <span class="ident">handle</span>.<span class="ident">internal_handle</span>())
     }
 
     <span class="doccomment">/// Returns the [`MemoryType`] of the `Memory`.</span>
@@ -443,6 +461,12 @@
     <span class="doccomment">/// Checks whether this `Memory` can be used with the given context.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_from_store</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsStoreRef</span>) -&gt; <span class="ident">bool</span> {
         <span class="self">self</span>.<span class="ident">handle</span>.<span class="ident">store_id</span>() <span class="op">==</span> <span class="ident">store</span>.<span class="ident">as_store_ref</span>().<span class="ident">objects</span>().<span class="ident">id</span>()
+    }
+
+    <span class="doccomment">/// Attempts to clone this memory (if its clonable)</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">try_clone</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsStoreRef</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">VMMemory</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">mem</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">handle</span>.<span class="ident">get</span>(<span class="ident">store</span>.<span class="ident">as_store_ref</span>().<span class="ident">objects</span>());
+        <span class="ident">mem</span>.<span class="ident">try_clone</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">mem</span><span class="op">|</span> <span class="ident">mem</span>.<span class="ident">into</span>())
     }
 
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">to_vm_extern</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">VMExtern</span> {

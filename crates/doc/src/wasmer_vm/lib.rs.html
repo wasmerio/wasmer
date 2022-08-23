@@ -150,6 +150,7 @@
 <span id="148">148</span>
 <span id="149">149</span>
 <span id="150">150</span>
+<span id="151">151</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Runtime library support for Wasmer.</span>
 
 <span class="attribute">#![<span class="ident">deny</span>(<span class="ident">missing_docs</span>, <span class="ident">trivial_numeric_casts</span>, <span class="ident">unused_extern_crates</span>)]</span>
@@ -197,7 +198,7 @@
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::global</span>::<span class="kw-2">*</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::imports::Imports</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::instance</span>::{<span class="ident">InstanceAllocator</span>, <span class="ident">InstanceHandle</span>};
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::memory</span>::{<span class="ident">MemoryError</span>, <span class="ident">VMMemory</span>};
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::memory</span>::{<span class="ident">LinearMemory</span>, <span class="ident">VMMemory</span>};
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::mmap::Mmap</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::probestack::PROBESTACK</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sig_registry::SignatureRegistry</span>;
@@ -212,6 +213,7 @@
     <span class="ident">VMMemoryImport</span>, <span class="ident">VMSharedSignatureIndex</span>, <span class="ident">VMTableDefinition</span>, <span class="ident">VMTableImport</span>, <span class="ident">VMTrampoline</span>,
 };
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_types::LibCall</span>;
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_types::MemoryError</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_types::MemoryStyle</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types::RawValue</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_types::TableStyle</span>;

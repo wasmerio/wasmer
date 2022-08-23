@@ -219,8 +219,54 @@
 <span id="217">217</span>
 <span id="218">218</span>
 <span id="219">219</span>
+<span id="220">220</span>
+<span id="221">221</span>
+<span id="222">222</span>
+<span id="223">223</span>
+<span id="224">224</span>
+<span id="225">225</span>
+<span id="226">226</span>
+<span id="227">227</span>
+<span id="228">228</span>
+<span id="229">229</span>
+<span id="230">230</span>
+<span id="231">231</span>
+<span id="232">232</span>
+<span id="233">233</span>
+<span id="234">234</span>
+<span id="235">235</span>
+<span id="236">236</span>
+<span id="237">237</span>
+<span id="238">238</span>
+<span id="239">239</span>
+<span id="240">240</span>
+<span id="241">241</span>
+<span id="242">242</span>
+<span id="243">243</span>
+<span id="244">244</span>
+<span id="245">245</span>
+<span id="246">246</span>
+<span id="247">247</span>
+<span id="248">248</span>
+<span id="249">249</span>
+<span id="250">250</span>
+<span id="251">251</span>
+<span id="252">252</span>
+<span id="253">253</span>
+<span id="254">254</span>
+<span id="255">255</span>
+<span id="256">256</span>
+<span id="257">257</span>
+<span id="258">258</span>
+<span id="259">259</span>
+<span id="260">260</span>
+<span id="261">261</span>
+<span id="262">262</span>
+<span id="263">263</span>
+<span id="264">264</span>
+<span id="265">265</span>
 </pre><pre class="rust"><code><span class="doccomment">//! The WebAssembly possible errors</span>
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::ExternType</span>;
+<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">ExternType</span>, <span class="ident">Pages</span>};
 <span class="kw">use</span> <span class="ident">std::io</span>;
 <span class="kw">use</span> <span class="ident">thiserror::Error</span>;
 
@@ -258,6 +304,48 @@
     <span class="ident">Compiler</span>(<span class="attribute">#[<span class="ident">from</span>]</span> <span class="ident">CompileError</span>),
 }
 
+<span class="doccomment">/// Error type describing things that can go wrong when operating on Wasm Memories.</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Error</span>, <span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Hash</span>)]</span>
+<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">MemoryError</span> {
+    <span class="doccomment">/// Low level error with mmap.</span>
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;Error when allocating memory: {0}&quot;</span>)]</span>
+    <span class="ident">Region</span>(<span class="ident">String</span>),
+    <span class="doccomment">/// The operation would cause the size of the memory to exceed the maximum or would cause</span>
+    <span class="doccomment">/// an overflow leading to unindexable memory.</span>
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;The memory could not grow: current size {} pages, requested increase: {} pages&quot;</span>, <span class="ident">current</span>.<span class="number">0</span>, <span class="ident">attempted_delta</span>.<span class="number">0</span>)]</span>
+    <span class="ident">CouldNotGrow</span> {
+        <span class="doccomment">/// The current size in pages.</span>
+        <span class="ident">current</span>: <span class="ident">Pages</span>,
+        <span class="doccomment">/// The attempted amount to grow by in pages.</span>
+        <span class="ident">attempted_delta</span>: <span class="ident">Pages</span>,
+    },
+    <span class="doccomment">/// The operation would cause the size of the memory size exceed the maximum.</span>
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;The memory is invalid because {}&quot;</span>, <span class="ident">reason</span>)]</span>
+    <span class="ident">InvalidMemory</span> {
+        <span class="doccomment">/// The reason why the provided memory is invalid.</span>
+        <span class="ident">reason</span>: <span class="ident">String</span>,
+    },
+    <span class="doccomment">/// Caller asked for more minimum memory than we can give them.</span>
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;The minimum requested ({} pages) memory is greater than the maximum allowed memory ({} pages)&quot;</span>, <span class="ident">min_requested</span>.<span class="number">0</span>, <span class="ident">max_allowed</span>.<span class="number">0</span>)]</span>
+    <span class="ident">MinimumMemoryTooLarge</span> {
+        <span class="doccomment">/// The number of pages requested as the minimum amount of memory.</span>
+        <span class="ident">min_requested</span>: <span class="ident">Pages</span>,
+        <span class="doccomment">/// The maximum amount of memory we can allocate.</span>
+        <span class="ident">max_allowed</span>: <span class="ident">Pages</span>,
+    },
+    <span class="doccomment">/// Caller asked for a maximum memory greater than we can give them.</span>
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;The maximum requested memory ({} pages) is greater than the maximum allowed memory ({} pages)&quot;</span>, <span class="ident">max_requested</span>.<span class="number">0</span>, <span class="ident">max_allowed</span>.<span class="number">0</span>)]</span>
+    <span class="ident">MaximumMemoryTooLarge</span> {
+        <span class="doccomment">/// The number of pages requested as the maximum amount of memory.</span>
+        <span class="ident">max_requested</span>: <span class="ident">Pages</span>,
+        <span class="doccomment">/// The number of pages requested as the maximum amount of memory.</span>
+        <span class="ident">max_allowed</span>: <span class="ident">Pages</span>,
+    },
+    <span class="doccomment">/// A user defined error value, used for error cases not listed above.</span>
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;A user-defined error occurred: {0}&quot;</span>)]</span>
+    <span class="ident">Generic</span>(<span class="ident">String</span>),
+}
+
 <span class="doccomment">/// An ImportError.</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// Note: this error is not standard to WebAssembly, but it&#39;s</span>
@@ -273,6 +361,10 @@
     <span class="doccomment">/// This error occurs when an import was expected but not provided.</span>
     <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;unknown import. Expected {0:?}&quot;</span>)]</span>
     <span class="ident">UnknownImport</span>(<span class="ident">ExternType</span>),
+
+    <span class="doccomment">/// Memory Error</span>
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;memory error. {0}&quot;</span>)]</span>
+    <span class="ident">MemoryError</span>(<span class="ident">String</span>),
 }
 
 <span class="doccomment">/// An error while preinstantiating a module.</span>

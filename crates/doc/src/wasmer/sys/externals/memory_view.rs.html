@@ -161,6 +161,7 @@
 <span id="159">159</span>
 <span id="160">160</span>
 <span id="161">161</span>
+<span id="162">162</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::store::AsStoreRef</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::MemoryAccessError</span>;
 <span class="kw">use</span> <span class="ident">std::convert::TryInto</span>;
@@ -168,6 +169,7 @@
 <span class="kw">use</span> <span class="ident">std::mem::MaybeUninit</span>;
 <span class="kw">use</span> <span class="ident">std::slice</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types::Pages</span>;
+<span class="kw">use</span> <span class="ident">wasmer_vm::LinearMemory</span>;
 
 <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::memory::MemoryBuffer</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::Memory</span>;

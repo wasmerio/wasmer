@@ -1,1 +1,1 @@
-initSidebarItems({"enum":[["MemoryError","Error type describing things that can go wrong when operating on Wasm Memories."]],"struct":[["VMMemory","A linear memory instance."],["WasmMmap",""]]});
+initSidebarItems({"struct":[["VMMemory","Represents linear memory that can be either owned or shared"],["VMMemoryConfig","A linear memory instance."],["VMOwnedMemory","A linear memory instance."],["WasmMmap",""]],"trait":[["LinearMemory","Represents memory that is used by the WebAsssembly module"]]});
