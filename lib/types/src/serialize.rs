@@ -144,7 +144,7 @@ impl SerializableModule {
 
     /// Returns data initializers to pass to `InstanceHandle::initialize`
     pub fn data_initializers(&self) -> &[OwnedDataInitializer] {
-        &*self.data_initializers
+        &self.data_initializers
     }
 
     /// Returns the memory styles associated with this `Artifact`.

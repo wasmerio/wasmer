@@ -105,7 +105,7 @@ impl EmEnv {
 
     /// Get a reference to the memory
     pub fn memory(&self, _mem_idx: u32) -> Memory {
-        (&*self.memory.read().unwrap()).as_ref().cloned().unwrap()
+        (*self.memory.read().unwrap()).as_ref().cloned().unwrap()
     }
 
     pub fn set_functions(&mut self, funcs: EmscriptenFunctions) {
