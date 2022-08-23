@@ -26,6 +26,7 @@ fn result_to_js(val: &Value) -> JsValue {
         Value::I64(i) => JsValue::from_f64(*i as _),
         Value::F32(f) => JsValue::from_f64(*f as _),
         Value::F64(f) => JsValue::from_f64(*f),
+        Value::V128(f) => JsValue::from_f64(*f as _),
         val => unimplemented!(
             "The value `{:?}` is not yet supported in the JS Function API",
             val
@@ -607,7 +608,7 @@ mod inner {
     use std::marker::PhantomData;
     use std::panic::{self, AssertUnwindSafe};
 
-    use wasmer_types::{FunctionType, NativeWasmType, Type};
+    use wasmer_types::{FunctionType, RawValue, NativeWasmType, Type};
     // use wasmer::{raise_user_trap, resume_panic};
 
     /// A trait to convert a Rust value to a `WasmNativeType` value,
@@ -783,10 +784,10 @@ mod inner {
         /// # Safety
         unsafe fn into_c_struct(self, store: &mut impl AsStoreMut) -> Self::CStruct;
 
-        /// Writes the contents of a C struct to an array of `f64`.
+        /// Writes the contents of a C struct to an array of `RawValue`.
         ///
         /// # Safety
-        unsafe fn write_c_struct_to_ptr(c_struct: Self::CStruct, ptr: *mut f64);
+        unsafe fn write_c_struct_to_ptr(c_struct: Self::CStruct, ptr: *mut RawValue);
 
         /// Get the Wasm types for the tuple (list) of currently
         /// represented values.
@@ -838,6 +839,7 @@ mod inner {
     mod test_into_result {
         use super::*;
         use std::convert::Infallible;
+        use wasmer_types::RawValue;
 
         #[test]
         fn test_into_result_over_t() {
@@ -1067,7 +1069,7 @@ mod inner {
                 }
 
                 #[allow(non_snake_case)]
-                unsafe fn write_c_struct_to_ptr(c_struct: Self::CStruct, _ptr: *mut f64) {
+                unsafe fn write_c_struct_to_ptr(c_struct: Self::CStruct, _ptr: *mut RawValue) {
                     // Unpack items of the tuple.
                     let $c_struct_name( $( $x ),* ) = c_struct;
 
@@ -1264,7 +1266,7 @@ mod inner {
             self
         }
 
-        unsafe fn write_c_struct_to_ptr(_: Self::CStruct, _: *mut f64) {}
+        unsafe fn write_c_struct_to_ptr(_: Self::CStruct, _: *mut RawValue) {}
 
         fn wasm_types() -> &'static [Type] {
             &[]
