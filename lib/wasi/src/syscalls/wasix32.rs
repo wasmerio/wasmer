@@ -3,7 +3,8 @@ use crate::{WasiEnv, WasiError, WasiState, WasiThread};
 use wasmer::{FunctionEnvMut, Memory, Memory32, MemorySize, StoreMut, WasmPtr, WasmSlice};
 use wasmer_wasi_types::*;
 use wasmer_wasi_types_generated::wasi::{
-    Advice, Clockid, Dircookie, Errno, Event, Fd, Fdflags, Fdstat, Rights, Subscription, Timestamp,
+    Advice, BusErrno, Clockid, Dircookie, Errno, Event, Fd, Fdflags, Fdstat, Rights, Subscription,
+    Timestamp,
 };
 
 type MemoryType = Memory32;
@@ -528,7 +529,7 @@ pub(crate) fn process_spawn(
     working_dir: WasmPtr<u8, MemoryType>,
     working_dir_len: MemoryOffset,
     ret_handles: WasmPtr<__wasi_bus_handles_t, MemoryType>,
-) -> __bus_errno_t {
+) -> BusErrno {
     super::process_spawn::<MemoryType>(
         ctx,
         name,
@@ -553,7 +554,7 @@ pub(crate) fn bus_open_local(
     name_len: MemoryOffset,
     reuse: __wasi_bool_t,
     ret_bid: WasmPtr<__wasi_bid_t, MemoryType>,
-) -> __bus_errno_t {
+) -> BusErrno {
     super::bus_open_local::<MemoryType>(ctx, name, name_len, reuse, ret_bid)
 }
 
@@ -567,7 +568,7 @@ pub(crate) fn bus_open_remote(
     token: WasmPtr<u8, MemoryType>,
     token_len: MemoryOffset,
     ret_bid: WasmPtr<__wasi_bid_t, MemoryType>,
-) -> __bus_errno_t {
+) -> BusErrno {
     super::bus_open_remote::<MemoryType>(
         ctx,
         name,
@@ -581,7 +582,7 @@ pub(crate) fn bus_open_remote(
     )
 }
 
-pub(crate) fn bus_close(ctx: FunctionEnvMut<WasiEnv>, bid: __wasi_bid_t) -> __bus_errno_t {
+pub(crate) fn bus_close(ctx: FunctionEnvMut<WasiEnv>, bid: __wasi_bid_t) -> BusErrno {
     super::bus_close(ctx, bid)
 }
 
@@ -595,7 +596,7 @@ pub(crate) fn bus_call(
     buf: WasmPtr<u8, MemoryType>,
     buf_len: MemoryOffset,
     ret_cid: WasmPtr<__wasi_cid_t, MemoryType>,
-) -> __bus_errno_t {
+) -> BusErrno {
     super::bus_call::<MemoryType>(
         ctx, bid, keep_alive, topic, topic_len, format, buf, buf_len, ret_cid,
     )
@@ -611,7 +612,7 @@ pub(crate) fn bus_subcall(
     buf: WasmPtr<u8, MemoryType>,
     buf_len: MemoryOffset,
     ret_cid: WasmPtr<__wasi_cid_t, MemoryType>,
-) -> __bus_errno_t {
+) -> BusErrno {
     super::bus_subcall::<MemoryType>(
         ctx, parent, keep_alive, topic, topic_len, format, buf, buf_len, ret_cid,
     )
@@ -625,7 +626,7 @@ pub(crate) fn bus_poll(
     malloc: WasmPtr<u8, MemoryType>,
     malloc_len: MemoryOffset,
     ret_nevents: WasmPtr<MemoryOffset, MemoryType>,
-) -> __bus_errno_t {
+) -> BusErrno {
     super::bus_poll::<MemoryType>(
         ctx,
         timeout,
@@ -643,19 +644,19 @@ pub(crate) fn call_reply(
     format: __wasi_busdataformat_t,
     buf: WasmPtr<u8, MemoryType>,
     buf_len: MemoryOffset,
-) -> __bus_errno_t {
+) -> BusErrno {
     super::call_reply::<MemoryType>(ctx, cid, format, buf, buf_len)
 }
 
 pub(crate) fn call_fault(
     ctx: FunctionEnvMut<WasiEnv>,
     cid: __wasi_cid_t,
-    fault: __bus_errno_t,
-) -> __bus_errno_t {
+    fault: BusErrno,
+) -> BusErrno {
     super::call_fault(ctx, cid, fault)
 }
 
-pub(crate) fn call_close(ctx: FunctionEnvMut<WasiEnv>, cid: __wasi_cid_t) -> __bus_errno_t {
+pub(crate) fn call_close(ctx: FunctionEnvMut<WasiEnv>, cid: __wasi_cid_t) -> BusErrno {
     super::call_close(ctx, cid)
 }
 

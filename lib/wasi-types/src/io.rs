@@ -1,6 +1,6 @@
 use wasmer_derive::ValueType;
 use wasmer_types::MemorySize;
-use wasmer_wasi_types_generated::wasi_snapshot0;
+use wasmer_wasi_types_generated::wasi::Fd;
 
 pub type __wasi_count_t = u32;
 
@@ -43,8 +43,8 @@ pub struct __wasi_tty_t {
 #[derive(Debug, Copy, Clone, PartialEq, Eq, ValueType)]
 #[repr(C)]
 pub struct __wasi_pipe_handles_t {
-    pub pipe: wasi_snapshot0::Fd,
-    pub other: wasi_snapshot0::Fd,
+    pub pipe: Fd,
+    pub other: Fd,
 }
 
 pub type __wasi_stdiomode_t = u8;

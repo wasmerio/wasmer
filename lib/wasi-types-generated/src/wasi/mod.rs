@@ -11,6 +11,12 @@ unsafe impl ValueType for Errno {
 }
 
 // TODO: if necessary, must be implemented in wit-bindgen
+unsafe impl ValueType for BusErrno {
+    #[inline]
+    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
+}
+
+// TODO: if necessary, must be implemented in wit-bindgen
 unsafe impl ValueType for Filetype {
     #[inline]
     fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
@@ -615,6 +621,47 @@ unsafe impl wit_bindgen_wasmer::wasmer::FromToNativeWasmType for Errno {
             76 => Self::Notcapable,
             // TODO: What should we map invalid native values to?
             _ => Self::Inval,
+        }
+    }
+
+    #[cfg(feature = "sys")]
+    fn is_from_store(&self, _store: &impl wit_bindgen_wasmer::wasmer::AsStoreRef) -> bool {
+        // TODO: find correct implementation
+        false
+    }
+}
+
+// TODO: if necessary, must be implemented in wit-bindgen
+unsafe impl wit_bindgen_wasmer::wasmer::FromToNativeWasmType for BusErrno {
+    type Native = i32;
+
+    fn to_native(self) -> Self::Native {
+        self as i32
+    }
+    fn from_native(n: Self::Native) -> Self {
+        match n {
+            0 => Self::Success,
+            1 => Self::Ser,
+            2 => Self::Des,
+            3 => Self::Wapm,
+            4 => Self::Fetch,
+            5 => Self::Compile,
+            6 => Self::Abi,
+            7 => Self::Aborted,
+            8 => Self::Badhandle,
+            9 => Self::Topic,
+            10 => Self::Badcb,
+            11 => Self::Unsupported,
+            12 => Self::Badrequest,
+            13 => Self::Denied,
+            14 => Self::Internal,
+            15 => Self::Alloc,
+            16 => Self::Invoke,
+            17 => Self::Consumed,
+            18 => Self::Memviolation,
+            19 => Self::Unknown,
+            // TODO: What should we map invalid native values to?
+            _ => Self::Unknown,
         }
     }
 

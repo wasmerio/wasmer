@@ -252,6 +252,52 @@ enum errno {
     notcapable,
 }
 
+enum bus-errno {
+    // TODO: wit appears to not have support for enum type size
+    //(@witx tag u32)
+
+    /// No error occurred. Call completed successfully.
+    success,
+    /// Failed during serialization
+    ser,
+    /// Failed during deserialization
+    des,
+    /// Invalid WAPM process
+    wapm,
+    /// Failed to fetch the WAPM process
+    fetch,
+    /// Failed to compile the WAPM process
+    compile,
+    /// Invalid ABI
+    abi,
+    /// Call was aborted
+    aborted,
+    /// Bad handle
+    badhandle,
+    /// Invalid topic
+    topic,
+    /// Invalid callback
+    badcb,
+    /// Call is unsupported
+    unsupported,
+    /// Bad request
+    badrequest,
+    /// Access denied
+    denied,
+    /// Internal error has occured
+    internal,
+    /// Memory allocation failed
+    alloc,
+    /// Invocation has failed
+    invoke,
+    /// Already consumed
+    consumed,
+    /// Memory access violation
+    memviolation,
+    /// Some other unhandled error. If you see this, it's probably a bug.
+    unknown,
+}
+
 /// File descriptor rights, determining which actions may be performed.
 flags rights {
     // TODO: wit doesnt appear to support repr

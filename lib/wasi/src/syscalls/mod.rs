@@ -24,7 +24,7 @@ pub mod wasix64;
 
 use self::types::{
     wasi::{
-        Advice, Clockid, Dircookie, Dirent, Errno, Event, EventEnum, EventFdReadwrite,
+        Advice, BusErrno, Clockid, Dircookie, Dirent, Errno, Event, EventEnum, EventFdReadwrite,
         Eventrwflags, Eventtype, Fd as WasiFd, Fdflags, Fdstat, Filetype, Rights, Snapshot0Clockid,
         Subscription, SubscriptionEnum, SubscriptionFsReadwrite, Timestamp,
     },
@@ -3723,7 +3723,7 @@ pub fn process_spawn<M: MemorySize>(
     working_dir: WasmPtr<u8, M>,
     working_dir_len: M::Offset,
     ret_handles: WasmPtr<__wasi_bus_handles_t, M>,
-) -> __bus_errno_t {
+) -> BusErrno {
     let env = ctx.data();
     let bus = env.runtime.bus();
     let memory = env.memory_view(&ctx);
@@ -3794,7 +3794,7 @@ pub fn process_spawn<M: MemorySize>(
 
     wasi_try_mem_bus!(ret_handles.write(&memory, handles));
 
-    __BUS_ESUCCESS
+    BusErrno::Success
 }
 
 /// Spawns a new bus process for a particular web WebAssembly
@@ -3815,7 +3815,7 @@ pub fn bus_open_local<M: MemorySize>(
     name_len: M::Offset,
     reuse: __wasi_bool_t,
     ret_bid: WasmPtr<__wasi_bid_t, M>,
-) -> __bus_errno_t {
+) -> BusErrno {
     let env = ctx.data();
     let bus = env.runtime.bus();
     let memory = env.memory_view(&ctx);
@@ -3850,7 +3850,7 @@ pub fn bus_open_remote<M: MemorySize>(
     token: WasmPtr<u8, M>,
     token_len: M::Offset,
     ret_bid: WasmPtr<__wasi_bid_t, M>,
-) -> __bus_errno_t {
+) -> BusErrno {
     let env = ctx.data();
     let bus = env.runtime.bus();
     let memory = env.memory_view(&ctx);
@@ -3873,7 +3873,7 @@ fn bus_open_local_internal<M: MemorySize>(
     instance: Option<String>,
     token: Option<String>,
     ret_bid: WasmPtr<__wasi_bid_t, M>,
-) -> __bus_errno_t {
+) -> BusErrno {
     let env = ctx.data();
     let bus = env.runtime.bus();
     let memory = env.memory_view(&ctx);
@@ -3885,7 +3885,7 @@ fn bus_open_local_internal<M: MemorySize>(
         if let Some(bid) = guard.process_reuse.get(&name) {
             if guard.processes.contains_key(bid) {
                 wasi_try_mem_bus!(ret_bid.write(&memory, (*bid).into()));
-                return __BUS_ESUCCESS;
+                return BusErrno::Success;
             }
         }
     }
@@ -3921,7 +3921,7 @@ fn bus_open_local_internal<M: MemorySize>(
 
     wasi_try_mem_bus!(ret_bid.write(&memory, bid.into()));
 
-    __BUS_ESUCCESS
+    BusErrno::Success
 }
 
 /// Closes a bus process and releases all associated resources
@@ -3929,7 +3929,7 @@ fn bus_open_local_internal<M: MemorySize>(
 /// ## Parameters
 ///
 /// * `bid` - Handle of the bus process handle to be closed
-pub fn bus_close(ctx: FunctionEnvMut<'_, WasiEnv>, bid: __wasi_bid_t) -> __bus_errno_t {
+pub fn bus_close(ctx: FunctionEnvMut<'_, WasiEnv>, bid: __wasi_bid_t) -> BusErrno {
     trace!("wasi::bus_close (bid={})", bid);
     let bid: WasiBusProcessId = bid.into();
 
@@ -3937,7 +3937,7 @@ pub fn bus_close(ctx: FunctionEnvMut<'_, WasiEnv>, bid: __wasi_bid_t) -> __bus_e
     let mut guard = env.state.threading.lock().unwrap();
     guard.processes.remove(&bid);
 
-    __BUS_EUNSUPPORTED
+    BusErrno::Unsupported
 }
 
 /// Invokes a call within a running bus process.
@@ -3961,7 +3961,7 @@ pub fn bus_call<M: MemorySize>(
     buf: WasmPtr<u8, M>,
     buf_len: M::Offset,
     ret_cid: WasmPtr<__wasi_cid_t, M>,
-) -> __bus_errno_t {
+) -> BusErrno {
     let env = ctx.data();
     let bus = env.runtime.bus();
     let memory = env.memory_view(&ctx);
@@ -3974,7 +3974,7 @@ pub fn bus_call<M: MemorySize>(
         buf_len
     );
 
-    __BUS_EUNSUPPORTED
+    BusErrno::Unsupported
 }
 
 /// Invokes a call within the context of another call
@@ -3998,7 +3998,7 @@ pub fn bus_subcall<M: MemorySize>(
     buf: WasmPtr<u8, M>,
     buf_len: M::Offset,
     ret_cid: WasmPtr<__wasi_cid_t, M>,
-) -> __bus_errno_t {
+) -> BusErrno {
     let env = ctx.data();
     let bus = env.runtime.bus();
     let memory = env.memory_view(&ctx);
@@ -4011,7 +4011,7 @@ pub fn bus_subcall<M: MemorySize>(
         buf_len
     );
 
-    __BUS_EUNSUPPORTED
+    BusErrno::Unsupported
 }
 
 /// Polls for any outstanding events from a particular
@@ -4036,14 +4036,14 @@ pub fn bus_poll<M: MemorySize>(
     malloc: WasmPtr<u8, M>,
     malloc_len: M::Offset,
     ret_nevents: WasmPtr<M::Offset, M>,
-) -> __bus_errno_t {
+) -> BusErrno {
     let env = ctx.data();
     let bus = env.runtime.bus();
     let memory = env.memory_view(&ctx);
     let malloc = unsafe { get_input_str_bus!(&memory, malloc, malloc_len) };
     trace!("wasi::bus_poll (timeout={}, malloc={})", timeout, malloc);
 
-    __BUS_EUNSUPPORTED
+    BusErrno::Unsupported
 }
 
 /// Replies to a call that was made to this process
@@ -4062,7 +4062,7 @@ pub fn call_reply<M: MemorySize>(
     format: __wasi_busdataformat_t,
     buf: WasmPtr<u8, M>,
     buf_len: M::Offset,
-) -> __bus_errno_t {
+) -> BusErrno {
     let env = ctx.data();
     let bus = env.runtime.bus();
     trace!(
@@ -4072,7 +4072,7 @@ pub fn call_reply<M: MemorySize>(
         buf_len
     );
 
-    __BUS_EUNSUPPORTED
+    BusErrno::Unsupported
 }
 
 /// Causes a fault on a particular call that was made
@@ -4086,13 +4086,13 @@ pub fn call_reply<M: MemorySize>(
 pub fn call_fault(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     cid: __wasi_cid_t,
-    fault: __bus_errno_t,
-) -> __bus_errno_t {
+    fault: BusErrno,
+) -> BusErrno {
     let env = ctx.data();
     let bus = env.runtime.bus();
     debug!("wasi::call_fault (cid={}, fault={})", cid, fault);
 
-    __BUS_EUNSUPPORTED
+    BusErrno::Unsupported
 }
 
 /// Closes a bus call based on its bus call handle
@@ -4100,12 +4100,12 @@ pub fn call_fault(
 /// ## Parameters
 ///
 /// * `cid` - Handle of the bus call handle to be dropped
-pub fn call_close(ctx: FunctionEnvMut<'_, WasiEnv>, cid: __wasi_cid_t) -> __bus_errno_t {
+pub fn call_close(ctx: FunctionEnvMut<'_, WasiEnv>, cid: __wasi_cid_t) -> BusErrno {
     let env = ctx.data();
     let bus = env.runtime.bus();
     trace!("wasi::call_close (cid={})", cid);
 
-    __BUS_EUNSUPPORTED
+    BusErrno::Unsupported
 }
 
 /// ### `ws_connect()`

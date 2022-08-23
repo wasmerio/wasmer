@@ -65,7 +65,7 @@ use wasmer::{
     imports, namespace, AsStoreMut, AsStoreRef, Exports, Function, FunctionEnv, Imports, Memory,
     Memory32, MemoryAccessError, MemorySize, MemoryView, Module, TypedFunction,
 };
-use wasmer_wasi_types_generated::wasi::{Errno, Snapshot0Clockid};
+use wasmer_wasi_types_generated::wasi::{BusErrno, Errno, Snapshot0Clockid};
 
 pub use runtime::{
     PluggableRuntimeImplementation, WasiRuntimeImplementation, WasiThreadError, WasiTtyState,
@@ -784,11 +784,11 @@ fn mem_error_to_wasi(err: MemoryAccessError) -> Errno {
     }
 }
 
-fn mem_error_to_bus(err: MemoryAccessError) -> types::__bus_errno_t {
+fn mem_error_to_bus(err: MemoryAccessError) -> BusErrno {
     match err {
-        MemoryAccessError::HeapOutOfBounds => types::__BUS_EMEMVIOLATION,
-        MemoryAccessError::Overflow => types::__BUS_EMEMVIOLATION,
-        MemoryAccessError::NonUtf8String => types::__BUS_EBADREQUEST,
-        _ => types::__BUS_EUNKNOWN,
+        MemoryAccessError::HeapOutOfBounds => BusErrno::Memviolation,
+        MemoryAccessError::Overflow => BusErrno::Memviolation,
+        MemoryAccessError::NonUtf8String => BusErrno::Badrequest,
+        _ => BusErrno::Unknown,
     }
 }

@@ -415,6 +415,115 @@ pub mod wasi {
   }
   
   impl std::error::Error for Errno{}
+  #[repr(u8)]
+  #[derive(Clone, Copy, PartialEq, Eq)]
+  pub enum BusErrno {
+    /// No error occurred. Call completed successfully.
+    Success,
+    /// Failed during serialization
+    Ser,
+    /// Failed during deserialization
+    Des,
+    /// Invalid WAPM process
+    Wapm,
+    /// Failed to fetch the WAPM process
+    Fetch,
+    /// Failed to compile the WAPM process
+    Compile,
+    /// Invalid ABI
+    Abi,
+    /// Call was aborted
+    Aborted,
+    /// Bad handle
+    Badhandle,
+    /// Invalid topic
+    Topic,
+    /// Invalid callback
+    Badcb,
+    /// Call is unsupported
+    Unsupported,
+    /// Bad request
+    Badrequest,
+    /// Access denied
+    Denied,
+    /// Internal error has occured
+    Internal,
+    /// Memory allocation failed
+    Alloc,
+    /// Invocation has failed
+    Invoke,
+    /// Already consumed
+    Consumed,
+    /// Memory access violation
+    Memviolation,
+    /// Some other unhandled error. If you see this, it's probably a bug.
+    Unknown,
+  }
+  impl BusErrno{
+    pub fn name(&self) -> &'static str {
+      match self {
+        BusErrno::Success => "success",
+        BusErrno::Ser => "ser",
+        BusErrno::Des => "des",
+        BusErrno::Wapm => "wapm",
+        BusErrno::Fetch => "fetch",
+        BusErrno::Compile => "compile",
+        BusErrno::Abi => "abi",
+        BusErrno::Aborted => "aborted",
+        BusErrno::Badhandle => "badhandle",
+        BusErrno::Topic => "topic",
+        BusErrno::Badcb => "badcb",
+        BusErrno::Unsupported => "unsupported",
+        BusErrno::Badrequest => "badrequest",
+        BusErrno::Denied => "denied",
+        BusErrno::Internal => "internal",
+        BusErrno::Alloc => "alloc",
+        BusErrno::Invoke => "invoke",
+        BusErrno::Consumed => "consumed",
+        BusErrno::Memviolation => "memviolation",
+        BusErrno::Unknown => "unknown",
+      }
+    }
+    pub fn message(&self) -> &'static str {
+      match self {
+        BusErrno::Success => "No error occurred. Call completed successfully.",
+        BusErrno::Ser => "Failed during serialization",
+        BusErrno::Des => "Failed during deserialization",
+        BusErrno::Wapm => "Invalid WAPM process",
+        BusErrno::Fetch => "Failed to fetch the WAPM process",
+        BusErrno::Compile => "Failed to compile the WAPM process",
+        BusErrno::Abi => "Invalid ABI",
+        BusErrno::Aborted => "Call was aborted",
+        BusErrno::Badhandle => "Bad handle",
+        BusErrno::Topic => "Invalid topic",
+        BusErrno::Badcb => "Invalid callback",
+        BusErrno::Unsupported => "Call is unsupported",
+        BusErrno::Badrequest => "Bad request",
+        BusErrno::Denied => "Access denied",
+        BusErrno::Internal => "Internal error has occured",
+        BusErrno::Alloc => "Memory allocation failed",
+        BusErrno::Invoke => "Invocation has failed",
+        BusErrno::Consumed => "Already consumed",
+        BusErrno::Memviolation => "Memory access violation",
+        BusErrno::Unknown => "Some other unhandled error. If you see this, it's probably a bug.",
+      }
+    }
+  }
+  impl core::fmt::Debug for BusErrno{
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+      f.debug_struct("BusErrno")
+      .field("code", &(*self as i32))
+      .field("name", &self.name())
+      .field("message", &self.message())
+      .finish()
+    }
+  }
+  impl core::fmt::Display for BusErrno{
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+      write!(f, "{} (error {})", self.name(), *self as i32)}
+  }
+  
+  impl std::error::Error for BusErrno{}
   wit_bindgen_wasmer::bitflags::bitflags! {
     /// File descriptor rights, determining which actions may be performed.
     pub struct Rights: u64 {/// The right to invoke `fd_datasync`.
