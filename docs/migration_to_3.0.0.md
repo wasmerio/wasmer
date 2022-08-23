@@ -117,6 +117,9 @@ env_mut.memory = Some(instance.exports.get_memory("memory"));
 env_mut.alloc_guest_memory = Some(instance.exports.get_typed_function("__alloc"));
 ```
 
+### New `MemoryView` API
+
+Adding the new memory view API (and show how people can update from previous usage)
 
 ### Managing imports
 
