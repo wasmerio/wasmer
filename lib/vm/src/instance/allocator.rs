@@ -1,6 +1,5 @@
 use super::{Instance, InstanceHandle};
-use crate::memory::VMMemoryDefinition;
-use crate::vmcontext::VMTableDefinition;
+use crate::vmcontext::{VMMemoryDefinition, VMTableDefinition};
 use std::alloc::{self, Layout};
 use std::convert::TryFrom;
 use std::mem;

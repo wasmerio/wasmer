@@ -6,7 +6,7 @@
 
 use crate::global::VMGlobal;
 use crate::instance::Instance;
-use crate::memory::{VMMemory, VMMemoryDefinition};
+use crate::memory::VMMemory;
 use crate::store::InternalStoreHandle;
 use crate::trap::{Trap, TrapCode};
 use crate::VMFunctionBody;
@@ -677,3 +677,54 @@ pub type VMTrampoline = unsafe extern "C" fn(
     *const VMFunctionBody, // function we're actually calling
     *mut RawValue,         // space for arguments and return values
 );
+
+/// The fields compiled code needs to access to utilize a WebAssembly linear
+/// memory defined within the instance, namely the start address and the
+/// size in bytes.
+#[derive(Debug, Copy, Clone)]
+#[repr(C)]
+pub struct VMMemoryDefinition {
+    /// The start address which is always valid, even if the memory grows.
+    pub base: *mut u8,
+
+    /// The current logical size of this linear memory in bytes.
+    pub current_length: usize,
+}
+
+/// # Safety
+/// This data is safe to share between threads because it's plain data that
+/// is the user's responsibility to synchronize.
+unsafe impl Send for VMMemoryDefinition {}
+/// # Safety
+/// This data is safe to share between threads because it's plain data that
+/// is the user's responsibility to synchronize. And it's `Copy` so there's
+/// really no difference between passing it by reference or by value as far as
+/// correctness in a multi-threaded context is concerned.
+unsafe impl Sync for VMMemoryDefinition {}
+
+#[cfg(test)]
+mod test_vmmemory_definition {
+    use super::VMMemoryDefinition;
+    use crate::ModuleInfo;
+    use crate::VMOffsets;
+    use memoffset::offset_of;
+    use std::mem::size_of;
+
+    #[test]
+    fn check_vmmemory_definition_offsets() {
+        let module = ModuleInfo::new();
+        let offsets = VMOffsets::new(size_of::<*mut u8>() as u8, &module);
+        assert_eq!(
+            size_of::<VMMemoryDefinition>(),
+            usize::from(offsets.size_of_vmmemory_definition())
+        );
+        assert_eq!(
+            offset_of!(VMMemoryDefinition, base),
+            usize::from(offsets.vmmemory_definition_base())
+        );
+        assert_eq!(
+            offset_of!(VMMemoryDefinition, current_length),
+            usize::from(offsets.vmmemory_definition_current_length())
+        );
+    }
+}

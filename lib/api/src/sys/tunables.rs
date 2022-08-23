@@ -265,7 +265,7 @@ mod tests {
             _vm_definition_location: NonNull<VMMemoryDefinition>,
         ) -> Result<VMMemory, MemoryError> {
             let memory = VMTinyMemory::new().unwrap();
-            Ok(VMMemory::from_custom(memory))
+            Ok(memory.into())
         }
 
         /// Create a table owned by the host given a [`TableType`] and a [`TableStyle`].
