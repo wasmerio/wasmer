@@ -893,7 +893,7 @@ mod inner {
         Self: Sized,
     {
         /// Get the pointer to the function body.
-        fn function_body_ptr(self) -> *const VMFunctionBody;
+        fn function_body_ptr() -> *const VMFunctionBody;
     }
 
     /// Empty trait to specify the kind of `HostFunction`: With or
@@ -951,7 +951,7 @@ mod inner {
             T: Sized,
         {
             Self {
-                address: function.function_body_ptr(),
+                address: <F as HostFunction<(), Args, Rets, WithoutEnv>>::function_body_ptr(),
                 _phantom: PhantomData,
             }
         }
@@ -1104,7 +1104,7 @@ mod inner {
                 Func: Fn(FunctionEnvMut<'_, T>, $( $x , )*) -> RetsAsResult + 'static,
             {
                 #[allow(non_snake_case)]
-                fn function_body_ptr(self) -> *const VMFunctionBody {
+                fn function_body_ptr() -> *const VMFunctionBody {
                     /// This is a function that wraps the real host
                     /// function. Its address will be used inside the
                     /// runtime.
@@ -1152,7 +1152,7 @@ mod inner {
                 Func: Fn($( $x , )*) -> RetsAsResult + 'static,
             {
                 #[allow(non_snake_case)]
-                fn function_body_ptr(self) -> *const VMFunctionBody {
+                fn function_body_ptr() -> *const VMFunctionBody {
                     /// This is a function that wraps the real host
                     /// function. Its address will be used inside the
                     /// runtime.
