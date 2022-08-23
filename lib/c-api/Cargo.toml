@@ -17,7 +17,7 @@ edition = "2018"
 # a conflict with the existing `wasmer` crate, see below.
 name = "wasmer" # ##lib.name##
                 # ^ DO NOT REMOVE, it's used the `Makefile`, see `build-docs-capi`.
-crate-type = ["staticlib", "cdylib"] #"cdylib", "rlib", "staticlib"]
+crate-type = ["cdylib", "rlib", "staticlib"]
 
 [dependencies]
 # We rename `wasmer` to `wasmer-api` to avoid the conflict with this
