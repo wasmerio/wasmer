@@ -758,7 +758,7 @@ mod inner {
         /// # Safety
         unsafe fn from_slice(
             store: &mut impl AsStoreMut,
-            slice: &[f64],
+            slice: &[RawValue],
         ) -> Result<Self, TryFromSliceError>;
 
         /// Builds and returns an array of type `Array` from a tuple
@@ -1015,7 +1015,7 @@ mod inner {
                 }
 
                 #[allow(clippy::missing_safety_doc)]
-                unsafe fn from_slice(store: &mut impl AsStoreMut, slice: &[f64]) -> Result<Self, TryFromSliceError> {
+                unsafe fn from_slice(store: &mut impl AsStoreMut, slice: &[RawValue]) -> Result<Self, TryFromSliceError> {
                     Ok(Self::from_array(store, slice.try_into()?))
                 }
 
@@ -1245,7 +1245,7 @@ mod inner {
 
         unsafe fn from_slice(
             _: &mut impl AsStoreMut,
-            _: &[f64],
+            _: &[RawValue],
         ) -> Result<Self, TryFromSliceError> {
             unreachable!()
         }
