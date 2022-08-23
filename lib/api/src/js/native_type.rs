@@ -1,7 +1,7 @@
 //! This module permits to create native functions
 //! easily in Rust, thanks to its advanced typing system.
 
-use wasmer_types::{NativeWasmType, Type};
+use wasmer_types::{NativeWasmType, RawValue, Type};
 
 use crate::js::Function;
 
@@ -23,7 +23,7 @@ pub trait NativeWasmTypeInto: NativeWasmType + Sized {
     ///
     /// # Safety
     ///
-    unsafe fn from_raw(store: &mut impl AsStoreMut, raw: f64) -> Self;
+    unsafe fn from_raw(store: &mut impl AsStoreMut, raw: RawValue) -> Self;
 }
 
 impl NativeWasmTypeInto for i32 {
@@ -43,8 +43,8 @@ impl NativeWasmTypeInto for i32 {
     }
 
     #[inline]
-    unsafe fn from_raw(_store: &mut impl AsStoreMut, raw: f64) -> Self {
-        raw as _
+    unsafe fn from_raw(_store: &mut impl AsStoreMut, raw: RawValue) -> Self {
+        raw.i32
     }
 }
 
@@ -65,8 +65,8 @@ impl NativeWasmTypeInto for i64 {
     }
 
     #[inline]
-    unsafe fn from_raw(_store: &mut impl AsStoreMut, raw: f64) -> Self {
-        raw as _
+    unsafe fn from_raw(_store: &mut impl AsStoreMut, raw: RawValue) -> Self {
+        raw.i64
     }
 }
 
@@ -87,8 +87,8 @@ impl NativeWasmTypeInto for f32 {
     }
 
     #[inline]
-    unsafe fn from_raw(_store: &mut impl AsStoreMut, raw: f64) -> Self {
-        raw as _
+    unsafe fn from_raw(_store: &mut impl AsStoreMut, raw: RawValue) -> Self {
+        raw.f32
     }
 }
 
@@ -109,8 +109,30 @@ impl NativeWasmTypeInto for f64 {
     }
 
     #[inline]
-    unsafe fn from_raw(_store: &mut impl AsStoreMut, raw: f64) -> Self {
-        raw
+    unsafe fn from_raw(_store: &mut impl AsStoreMut, raw: RawValue) -> Self {
+        raw.f64
+    }
+}
+
+impl NativeWasmTypeInto for u128 {
+    #[inline]
+    unsafe fn from_abi(_store: &mut impl AsStoreMut, abi: Self::Abi) -> Self {
+        abi
+    }
+
+    #[inline]
+    fn into_abi(self, _store: &mut impl AsStoreMut) -> Self::Abi {
+        self
+    }
+
+    #[inline]
+    fn into_raw(self, _store: &mut impl AsStoreMut) -> f64 {
+        self.into()
+    }
+
+    #[inline]
+    unsafe fn from_raw(_store: &mut impl AsStoreMut, raw: RawValue) -> Self {
+        raw.u128
     }
 }
 
