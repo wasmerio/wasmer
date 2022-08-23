@@ -117,29 +117,26 @@ impl Artifact {
             ));
         }
 
-        if bytes.len() < ArtifactBuild::MAGIC_HEADER.len() {
-            return Err(DeserializeError::InvalidByteLength {
+        let bytes = Self::get_byte_slice(bytes, 0, ArtifactBuild::MAGIC_HEADER.len()).ok_or(
+            DeserializeError::InvalidByteLength {
                 expected: ArtifactBuild::MAGIC_HEADER.len(),
                 got: bytes.len(),
-            });
-        }
+            },
+        )?;
 
-        let bytes = &bytes[ArtifactBuild::MAGIC_HEADER.len()..];
         let metadata_len = MetadataHeader::parse(bytes)?;
-        if bytes.len() < MetadataHeader::LEN {
-            return Err(DeserializeError::InvalidByteLength {
-                expected: MetadataHeader::LEN,
+        let metadata_slice = Self::get_byte_slice(bytes, MetadataHeader::LEN, bytes.len()).ok_or(
+            DeserializeError::InvalidByteLength {
+                expected: ArtifactBuild::MAGIC_HEADER.len(),
                 got: bytes.len(),
-            });
-        }
-
-        let metadata_slice: &[u8] = &bytes[MetadataHeader::LEN..];
-        if metadata_slice.len() < metadata_len {
-            return Err(DeserializeError::InvalidByteLength {
-                expected: metadata_len + MetadataHeader::LEN,
-                got: bytes.len(),
-            });
-        }
+            },
+        )?;
+        let metadata_slice = Self::get_byte_slice(metadata_slice, 0, metadata_len).ok_or(
+            DeserializeError::InvalidByteLength {
+                expected: metadata_len,
+                got: metadata_slice.len(),
+            },
+        )?;
 
         let metadata_slice: &[u8] = &metadata_slice[..metadata_len];
         let serializable = SerializableModule::deserialize(metadata_slice)?;
@@ -596,7 +593,6 @@ impl Artifact {
         ))
     }
 
-    #[cfg(feature = "static-artifact-load")]
     fn get_byte_slice(input: &[u8], start: usize, end: usize) -> Option<&[u8]> {
         if (start == end && input.len() > start)
             || (start < end && input.len() > start && input.len() >= end)
