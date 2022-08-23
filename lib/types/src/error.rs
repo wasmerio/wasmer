@@ -42,7 +42,7 @@ pub enum DeserializeError {
         expected: usize,
         /// How many bytes the artifact contained
         got: usize,
-    }
+    },
 }
 
 /// Error type describing things that can go wrong when operating on Wasm Memories.
