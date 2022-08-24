@@ -34,6 +34,12 @@ unsafe impl ValueType for Sockstatus {
     fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
 }
 
+// TODO: if necessary, must be implemented in wit-bindgen
+unsafe impl ValueType for Sockoption {
+    #[inline]
+    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
+}
+
 impl Filetype {
     pub fn name(self) -> &'static str {
         match self {
@@ -861,6 +867,89 @@ unsafe impl wit_bindgen_wasmer::wasmer::FromToNativeWasmType for Snapshot0Clocki
     fn is_from_store(&self, _store: &impl wit_bindgen_wasmer::wasmer::AsStoreRef) -> bool {
         // TODO: find correct implementation
         false
+    }
+}
+
+// TODO: if necessary, must be implemented in wit-bindgen
+unsafe impl wit_bindgen_wasmer::wasmer::FromToNativeWasmType for Sockoption {
+    type Native = i32;
+
+    fn to_native(self) -> Self::Native {
+        self as i32
+    }
+    fn from_native(n: Self::Native) -> Self {
+        match n {
+            0 => Self::Noop,
+            1 => Self::ReusePort,
+            2 => Self::ReuseAddr,
+            3 => Self::NoDelay,
+            4 => Self::DontRoute,
+            5 => Self::OnlyV6,
+            6 => Self::Broadcast,
+            7 => Self::MulticastLoopV4,
+            8 => Self::MulticastLoopV6,
+            9 => Self::Promiscuous,
+            10 => Self::Listening,
+            11 => Self::LastError,
+            12 => Self::KeepAlive,
+            13 => Self::Linger,
+            14 => Self::OobInline,
+            15 => Self::RecvBufSize,
+            16 => Self::SendBufSize,
+            17 => Self::RecvLowat,
+            18 => Self::SendLowat,
+            19 => Self::RecvTimeout,
+            20 => Self::SendTimeout,
+            21 => Self::ConnectTimeout,
+            22 => Self::AcceptTimeout,
+            23 => Self::Ttl,
+            24 => Self::MulticastTtlV4,
+            25 => Self::Type,
+            26 => Self::Proto,
+            // TODO: What should we map invalid native values to?
+            _ => todo!("Need to decide what to do here…"),
+        }
+    }
+
+    #[cfg(feature = "sys")]
+    fn is_from_store(&self, _store: &impl wit_bindgen_wasmer::wasmer::AsStoreRef) -> bool {
+        // TODO: find correct implementation
+        false
+    }
+}
+
+impl std::fmt::Display for Sockoption {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match *self {
+            Self::Noop => "Sockoption::Noop",
+            Self::ReusePort => "Sockoption::ReusePort",
+            Self::ReuseAddr => "Sockoption::ReuseAddr",
+            Self::NoDelay => "Sockoption::NoDelay",
+            Self::DontRoute => "Sockoption::DontRoute",
+            Self::OnlyV6 => "Sockoption::OnlyV6",
+            Self::Broadcast => "Sockoption::Broadcast",
+            Self::MulticastLoopV4 => "Sockoption::MulticastLoopV4",
+            Self::MulticastLoopV6 => "Sockoption::MulticastLoopV6",
+            Self::Promiscuous => "Sockoption::Promiscuous",
+            Self::Listening => "Sockoption::Listening",
+            Self::LastError => "Sockoption::LastError",
+            Self::KeepAlive => "Sockoption::KeepAlive",
+            Self::Linger => "Sockoption::Linger",
+            Self::OobInline => "Sockoption::OobInline",
+            Self::RecvBufSize => "Sockoption::RecvBufSize",
+            Self::SendBufSize => "Sockoption::SendBufSize",
+            Self::RecvLowat => "Sockoption::RecvLowat",
+            Self::SendLowat => "Sockoption::SendLowat",
+            Self::RecvTimeout => "Sockoption::RecvTimeout",
+            Self::SendTimeout => "Sockoption::SendTimeout",
+            Self::ConnectTimeout => "Sockoption::ConnectTimeout",
+            Self::AcceptTimeout => "Sockoption::AcceptTimeout",
+            Self::Ttl => "Sockoption::Ttl",
+            Self::MulticastTtlV4 => "Sockoption::MulticastTtlV4",
+            Self::Type => "Sockoption::Type",
+            Self::Proto => "Sockoption::Proto",
+        };
+        write!(f, "{}", s)
     }
 }
 

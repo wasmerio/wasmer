@@ -1172,6 +1172,124 @@ pub mod wasi {
       }
     }
   }
+  #[repr(u8)]
+  #[derive(Clone, Copy, PartialEq, Eq)]
+  pub enum Sockoption {
+    Noop,
+    ReusePort,
+    ReuseAddr,
+    NoDelay,
+    DontRoute,
+    OnlyV6,
+    Broadcast,
+    MulticastLoopV4,
+    MulticastLoopV6,
+    Promiscuous,
+    Listening,
+    LastError,
+    KeepAlive,
+    Linger,
+    OobInline,
+    RecvBufSize,
+    SendBufSize,
+    RecvLowat,
+    SendLowat,
+    RecvTimeout,
+    SendTimeout,
+    ConnectTimeout,
+    AcceptTimeout,
+    Ttl,
+    MulticastTtlV4,
+    Type,
+    Proto,
+  }
+  impl core::fmt::Debug for Sockoption {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+      match self {
+        Sockoption::Noop => {
+          f.debug_tuple("Sockoption::Noop").finish()
+        }
+        Sockoption::ReusePort => {
+          f.debug_tuple("Sockoption::ReusePort").finish()
+        }
+        Sockoption::ReuseAddr => {
+          f.debug_tuple("Sockoption::ReuseAddr").finish()
+        }
+        Sockoption::NoDelay => {
+          f.debug_tuple("Sockoption::NoDelay").finish()
+        }
+        Sockoption::DontRoute => {
+          f.debug_tuple("Sockoption::DontRoute").finish()
+        }
+        Sockoption::OnlyV6 => {
+          f.debug_tuple("Sockoption::OnlyV6").finish()
+        }
+        Sockoption::Broadcast => {
+          f.debug_tuple("Sockoption::Broadcast").finish()
+        }
+        Sockoption::MulticastLoopV4 => {
+          f.debug_tuple("Sockoption::MulticastLoopV4").finish()
+        }
+        Sockoption::MulticastLoopV6 => {
+          f.debug_tuple("Sockoption::MulticastLoopV6").finish()
+        }
+        Sockoption::Promiscuous => {
+          f.debug_tuple("Sockoption::Promiscuous").finish()
+        }
+        Sockoption::Listening => {
+          f.debug_tuple("Sockoption::Listening").finish()
+        }
+        Sockoption::LastError => {
+          f.debug_tuple("Sockoption::LastError").finish()
+        }
+        Sockoption::KeepAlive => {
+          f.debug_tuple("Sockoption::KeepAlive").finish()
+        }
+        Sockoption::Linger => {
+          f.debug_tuple("Sockoption::Linger").finish()
+        }
+        Sockoption::OobInline => {
+          f.debug_tuple("Sockoption::OobInline").finish()
+        }
+        Sockoption::RecvBufSize => {
+          f.debug_tuple("Sockoption::RecvBufSize").finish()
+        }
+        Sockoption::SendBufSize => {
+          f.debug_tuple("Sockoption::SendBufSize").finish()
+        }
+        Sockoption::RecvLowat => {
+          f.debug_tuple("Sockoption::RecvLowat").finish()
+        }
+        Sockoption::SendLowat => {
+          f.debug_tuple("Sockoption::SendLowat").finish()
+        }
+        Sockoption::RecvTimeout => {
+          f.debug_tuple("Sockoption::RecvTimeout").finish()
+        }
+        Sockoption::SendTimeout => {
+          f.debug_tuple("Sockoption::SendTimeout").finish()
+        }
+        Sockoption::ConnectTimeout => {
+          f.debug_tuple("Sockoption::ConnectTimeout").finish()
+        }
+        Sockoption::AcceptTimeout => {
+          f.debug_tuple("Sockoption::AcceptTimeout").finish()
+        }
+        Sockoption::Ttl => {
+          f.debug_tuple("Sockoption::Ttl").finish()
+        }
+        Sockoption::MulticastTtlV4 => {
+          f.debug_tuple("Sockoption::MulticastTtlV4").finish()
+        }
+        Sockoption::Type => {
+          f.debug_tuple("Sockoption::Type").finish()
+        }
+        Sockoption::Proto => {
+          f.debug_tuple("Sockoption::Proto").finish()
+        }
+      }
+    }
+  }
   
   /// Auxiliary data associated with the wasm exports.
   #[derive(Default)]

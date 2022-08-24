@@ -16,7 +16,7 @@ use wasmer_vnet::{
     IpCidr, IpRoute, SocketHttpRequest, VirtualIcmpSocket, VirtualNetworking, VirtualRawSocket,
     VirtualTcpListener, VirtualTcpSocket, VirtualUdpSocket, VirtualWebSocket,
 };
-use wasmer_wasi_types_generated::wasi::{Errno, Fdflags, Socktype};
+use wasmer_wasi_types_generated::wasi::{Errno, Fdflags, Sockoption, Socktype};
 
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
@@ -90,38 +90,37 @@ pub enum WasiSocketOption {
     Proto,
 }
 
-impl From<__wasi_sockoption_t> for WasiSocketOption {
-    fn from(opt: __wasi_sockoption_t) -> Self {
+impl From<Sockoption> for WasiSocketOption {
+    fn from(opt: Sockoption) -> Self {
         use WasiSocketOption::*;
         match opt {
-            __WASI_SOCK_OPTION_NOOP => Noop,
-            __WASI_SOCK_OPTION_REUSE_PORT => ReusePort,
-            __WASI_SOCK_OPTION_REUSE_ADDR => ReuseAddr,
-            __WASI_SOCK_OPTION_NO_DELAY => NoDelay,
-            __WASI_SOCK_OPTION_DONT_ROUTE => DontRoute,
-            __WASI_SOCK_OPTION_ONLY_V6 => OnlyV6,
-            __WASI_SOCK_OPTION_BROADCAST => Broadcast,
-            __WASI_SOCK_OPTION_MULTICAST_LOOP_V4 => MulticastLoopV4,
-            __WASI_SOCK_OPTION_MULTICAST_LOOP_V6 => MulticastLoopV6,
-            __WASI_SOCK_OPTION_PROMISCUOUS => Promiscuous,
-            __WASI_SOCK_OPTION_LISTENING => Listening,
-            __WASI_SOCK_OPTION_LAST_ERROR => LastError,
-            __WASI_SOCK_OPTION_KEEP_ALIVE => KeepAlive,
-            __WASI_SOCK_OPTION_LINGER => Linger,
-            __WASI_SOCK_OPTION_OOB_INLINE => OobInline,
-            __WASI_SOCK_OPTION_RECV_BUF_SIZE => RecvBufSize,
-            __WASI_SOCK_OPTION_SEND_BUF_SIZE => SendBufSize,
-            __WASI_SOCK_OPTION_RECV_LOWAT => RecvLowat,
-            __WASI_SOCK_OPTION_SEND_LOWAT => SendLowat,
-            __WASI_SOCK_OPTION_RECV_TIMEOUT => RecvTimeout,
-            __WASI_SOCK_OPTION_SEND_TIMEOUT => SendTimeout,
-            __WASI_SOCK_OPTION_CONNECT_TIMEOUT => ConnectTimeout,
-            __WASI_SOCK_OPTION_ACCEPT_TIMEOUT => AcceptTimeout,
-            __WASI_SOCK_OPTION_TTL => Ttl,
-            __WASI_SOCK_OPTION_MULTICAST_TTL_V4 => MulticastTtlV4,
-            __WASI_SOCK_OPTION_TYPE => Type,
-            __WASI_SOCK_OPTION_PROTO => Proto,
-            _ => Noop,
+            Sockoption::Noop => Noop,
+            Sockoption::ReusePort => ReusePort,
+            Sockoption::ReuseAddr => ReuseAddr,
+            Sockoption::NoDelay => NoDelay,
+            Sockoption::DontRoute => DontRoute,
+            Sockoption::OnlyV6 => OnlyV6,
+            Sockoption::Broadcast => Broadcast,
+            Sockoption::MulticastLoopV4 => MulticastLoopV4,
+            Sockoption::MulticastLoopV6 => MulticastLoopV6,
+            Sockoption::Promiscuous => Promiscuous,
+            Sockoption::Listening => Listening,
+            Sockoption::LastError => LastError,
+            Sockoption::KeepAlive => KeepAlive,
+            Sockoption::Linger => Linger,
+            Sockoption::OobInline => OobInline,
+            Sockoption::RecvBufSize => RecvBufSize,
+            Sockoption::SendBufSize => SendBufSize,
+            Sockoption::RecvLowat => RecvLowat,
+            Sockoption::SendLowat => SendLowat,
+            Sockoption::RecvTimeout => RecvTimeout,
+            Sockoption::SendTimeout => SendTimeout,
+            Sockoption::ConnectTimeout => ConnectTimeout,
+            Sockoption::AcceptTimeout => AcceptTimeout,
+            Sockoption::Ttl => Ttl,
+            Sockoption::MulticastTtlV4 => MulticastTtlV4,
+            Sockoption::Type => Type,
+            Sockoption::Proto => Proto,
         }
     }
 }

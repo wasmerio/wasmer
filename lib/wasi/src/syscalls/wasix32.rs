@@ -3,8 +3,8 @@ use crate::{WasiEnv, WasiError, WasiState, WasiThread};
 use wasmer::{FunctionEnvMut, Memory, Memory32, MemorySize, StoreMut, WasmPtr, WasmSlice};
 use wasmer_wasi_types::*;
 use wasmer_wasi_types_generated::wasi::{
-    Advice, BusErrno, Clockid, Dircookie, Errno, Event, Fd, Fdflags, Fdstat, Rights, Sockstatus,
-    Socktype, Subscription, Timestamp,
+    Advice, BusErrno, Clockid, Dircookie, Errno, Event, Fd, Fdflags, Fdstat, Rights, Sockoption,
+    Sockstatus, Socktype, Subscription, Timestamp,
 };
 
 type MemoryType = Memory32;
@@ -830,7 +830,7 @@ pub(crate) fn sock_open(
 pub(crate) fn sock_set_opt_flag(
     ctx: FunctionEnvMut<WasiEnv>,
     sock: Fd,
-    opt: __wasi_sockoption_t,
+    opt: Sockoption,
     flag: __wasi_bool_t,
 ) -> Errno {
     super::sock_set_opt_flag(ctx, sock, opt, flag)
@@ -839,7 +839,7 @@ pub(crate) fn sock_set_opt_flag(
 pub(crate) fn sock_get_opt_flag(
     ctx: FunctionEnvMut<WasiEnv>,
     sock: Fd,
-    opt: __wasi_sockoption_t,
+    opt: Sockoption,
     ret_flag: WasmPtr<__wasi_bool_t, MemoryType>,
 ) -> Errno {
     super::sock_get_opt_flag::<MemoryType>(ctx, sock, opt, ret_flag)
@@ -848,7 +848,7 @@ pub(crate) fn sock_get_opt_flag(
 pub fn sock_set_opt_time(
     ctx: FunctionEnvMut<WasiEnv>,
     sock: Fd,
-    opt: __wasi_sockoption_t,
+    opt: Sockoption,
     time: WasmPtr<__wasi_option_timestamp_t, MemoryType>,
 ) -> Errno {
     super::sock_set_opt_time(ctx, sock, opt, time)
@@ -857,7 +857,7 @@ pub fn sock_set_opt_time(
 pub fn sock_get_opt_time(
     ctx: FunctionEnvMut<WasiEnv>,
     sock: Fd,
-    opt: __wasi_sockoption_t,
+    opt: Sockoption,
     ret_time: WasmPtr<__wasi_option_timestamp_t, MemoryType>,
 ) -> Errno {
     super::sock_get_opt_time(ctx, sock, opt, ret_time)
@@ -866,7 +866,7 @@ pub fn sock_get_opt_time(
 pub fn sock_set_opt_size(
     ctx: FunctionEnvMut<WasiEnv>,
     sock: Fd,
-    opt: __wasi_sockoption_t,
+    opt: Sockoption,
     size: __wasi_filesize_t,
 ) -> Errno {
     super::sock_set_opt_size(ctx, sock, opt, size)
@@ -875,7 +875,7 @@ pub fn sock_set_opt_size(
 pub fn sock_get_opt_size(
     ctx: FunctionEnvMut<WasiEnv>,
     sock: Fd,
-    opt: __wasi_sockoption_t,
+    opt: Sockoption,
     ret_size: WasmPtr<__wasi_filesize_t, MemoryType>,
 ) -> Errno {
     super::sock_get_opt_size(ctx, sock, opt, ret_size)

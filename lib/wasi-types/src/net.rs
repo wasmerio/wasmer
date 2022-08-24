@@ -4,35 +4,6 @@ use wasmer_wasi_types_generated::wasi::Fd;
 
 use crate::__wasi_option_timestamp_t;
 
-pub type __wasi_sockoption_t = u8;
-pub const __WASI_SOCK_OPTION_NOOP: __wasi_sockoption_t = 0;
-pub const __WASI_SOCK_OPTION_REUSE_PORT: __wasi_sockoption_t = 1;
-pub const __WASI_SOCK_OPTION_REUSE_ADDR: __wasi_sockoption_t = 2;
-pub const __WASI_SOCK_OPTION_NO_DELAY: __wasi_sockoption_t = 3;
-pub const __WASI_SOCK_OPTION_DONT_ROUTE: __wasi_sockoption_t = 4;
-pub const __WASI_SOCK_OPTION_ONLY_V6: __wasi_sockoption_t = 5;
-pub const __WASI_SOCK_OPTION_BROADCAST: __wasi_sockoption_t = 6;
-pub const __WASI_SOCK_OPTION_MULTICAST_LOOP_V4: __wasi_sockoption_t = 7;
-pub const __WASI_SOCK_OPTION_MULTICAST_LOOP_V6: __wasi_sockoption_t = 8;
-pub const __WASI_SOCK_OPTION_PROMISCUOUS: __wasi_sockoption_t = 9;
-pub const __WASI_SOCK_OPTION_LISTENING: __wasi_sockoption_t = 10;
-pub const __WASI_SOCK_OPTION_LAST_ERROR: __wasi_sockoption_t = 11;
-pub const __WASI_SOCK_OPTION_KEEP_ALIVE: __wasi_sockoption_t = 12;
-pub const __WASI_SOCK_OPTION_LINGER: __wasi_sockoption_t = 13;
-pub const __WASI_SOCK_OPTION_OOB_INLINE: __wasi_sockoption_t = 14;
-pub const __WASI_SOCK_OPTION_RECV_BUF_SIZE: __wasi_sockoption_t = 15;
-pub const __WASI_SOCK_OPTION_SEND_BUF_SIZE: __wasi_sockoption_t = 16;
-pub const __WASI_SOCK_OPTION_RECV_LOWAT: __wasi_sockoption_t = 17;
-pub const __WASI_SOCK_OPTION_SEND_LOWAT: __wasi_sockoption_t = 18;
-pub const __WASI_SOCK_OPTION_RECV_TIMEOUT: __wasi_sockoption_t = 19;
-pub const __WASI_SOCK_OPTION_SEND_TIMEOUT: __wasi_sockoption_t = 20;
-pub const __WASI_SOCK_OPTION_CONNECT_TIMEOUT: __wasi_sockoption_t = 21;
-pub const __WASI_SOCK_OPTION_ACCEPT_TIMEOUT: __wasi_sockoption_t = 22;
-pub const __WASI_SOCK_OPTION_TTL: __wasi_sockoption_t = 23;
-pub const __WASI_SOCK_OPTION_MULTICAST_TTL_V4: __wasi_sockoption_t = 24;
-pub const __WASI_SOCK_OPTION_TYPE: __wasi_sockoption_t = 25;
-pub const __WASI_SOCK_OPTION_PROTO: __wasi_sockoption_t = 26;
-
 pub type __wasi_streamsecurity_t = u8;
 pub const __WASI_STREAM_SECURITY_UNENCRYPTED: __wasi_streamsecurity_t = 0;
 pub const __WASI_STREAM_SECURITY_ANY_ENCRYPTION: __wasi_streamsecurity_t = 1;

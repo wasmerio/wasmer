@@ -26,7 +26,8 @@ use self::types::{
     wasi::{
         Advice, BusErrno, Clockid, Dircookie, Dirent, Errno, Event, EventEnum, EventFdReadwrite,
         Eventrwflags, Eventtype, Fd as WasiFd, Fdflags, Fdstat, Filetype, Rights, Snapshot0Clockid,
-        Sockstatus, Socktype, Subscription, SubscriptionEnum, SubscriptionFsReadwrite, Timestamp,
+        Sockoption, Sockstatus, Socktype, Subscription, SubscriptionEnum, SubscriptionFsReadwrite,
+        Timestamp,
     },
     *,
 };
@@ -4797,7 +4798,7 @@ pub fn sock_open<M: MemorySize>(
 pub fn sock_set_opt_flag(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
-    opt: __wasi_sockoption_t,
+    opt: Sockoption,
     flag: __wasi_bool_t,
 ) -> Errno {
     debug!("wasi::sock_set_opt_flag(ty={})", opt);
@@ -4826,7 +4827,7 @@ pub fn sock_set_opt_flag(
 pub fn sock_get_opt_flag<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
-    opt: __wasi_sockoption_t,
+    opt: Sockoption,
     ret_flag: WasmPtr<__wasi_bool_t, M>,
 ) -> Errno {
     debug!("wasi::sock_get_opt_flag(ty={})", opt);
@@ -4858,7 +4859,7 @@ pub fn sock_get_opt_flag<M: MemorySize>(
 pub fn sock_set_opt_time<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
-    opt: __wasi_sockoption_t,
+    opt: Sockoption,
     time: WasmPtr<__wasi_option_timestamp_t, M>,
 ) -> Errno {
     debug!("wasi::sock_set_opt_time(ty={})", opt);
@@ -4873,11 +4874,11 @@ pub fn sock_set_opt_time<M: MemorySize>(
     };
 
     let ty = match opt {
-        __WASI_SOCK_OPTION_RECV_TIMEOUT => wasmer_vnet::TimeType::ReadTimeout,
-        __WASI_SOCK_OPTION_SEND_TIMEOUT => wasmer_vnet::TimeType::WriteTimeout,
-        __WASI_SOCK_OPTION_CONNECT_TIMEOUT => wasmer_vnet::TimeType::ConnectTimeout,
-        __WASI_SOCK_OPTION_ACCEPT_TIMEOUT => wasmer_vnet::TimeType::AcceptTimeout,
-        __WASI_SOCK_OPTION_LINGER => wasmer_vnet::TimeType::Linger,
+        Sockoption::RecvTimeout => wasmer_vnet::TimeType::ReadTimeout,
+        Sockoption::SendTimeout => wasmer_vnet::TimeType::WriteTimeout,
+        Sockoption::ConnectTimeout => wasmer_vnet::TimeType::ConnectTimeout,
+        Sockoption::AcceptTimeout => wasmer_vnet::TimeType::AcceptTimeout,
+        Sockoption::Linger => wasmer_vnet::TimeType::Linger,
         _ => return Errno::Inval,
     };
 
@@ -4898,7 +4899,7 @@ pub fn sock_set_opt_time<M: MemorySize>(
 pub fn sock_get_opt_time<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
-    opt: __wasi_sockoption_t,
+    opt: Sockoption,
     ret_time: WasmPtr<__wasi_option_timestamp_t, M>,
 ) -> Errno {
     debug!("wasi::sock_get_opt_time(ty={})", opt);
@@ -4906,11 +4907,11 @@ pub fn sock_get_opt_time<M: MemorySize>(
     let memory = env.memory_view(&ctx);
 
     let ty = match opt {
-        __WASI_SOCK_OPTION_RECV_TIMEOUT => wasmer_vnet::TimeType::ReadTimeout,
-        __WASI_SOCK_OPTION_SEND_TIMEOUT => wasmer_vnet::TimeType::WriteTimeout,
-        __WASI_SOCK_OPTION_CONNECT_TIMEOUT => wasmer_vnet::TimeType::ConnectTimeout,
-        __WASI_SOCK_OPTION_ACCEPT_TIMEOUT => wasmer_vnet::TimeType::AcceptTimeout,
-        __WASI_SOCK_OPTION_LINGER => wasmer_vnet::TimeType::Linger,
+        Sockoption::RecvTimeout => wasmer_vnet::TimeType::ReadTimeout,
+        Sockoption::SendTimeout => wasmer_vnet::TimeType::WriteTimeout,
+        Sockoption::ConnectTimeout => wasmer_vnet::TimeType::ConnectTimeout,
+        Sockoption::AcceptTimeout => wasmer_vnet::TimeType::AcceptTimeout,
+        Sockoption::Linger => wasmer_vnet::TimeType::Linger,
         _ => return Errno::Inval,
     };
 
@@ -4945,27 +4946,27 @@ pub fn sock_get_opt_time<M: MemorySize>(
 pub fn sock_set_opt_size(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
-    opt: __wasi_sockoption_t,
+    opt: Sockoption,
     size: __wasi_filesize_t,
 ) -> Errno {
     debug!("wasi::sock_set_opt_size(ty={})", opt);
 
     let ty = match opt {
-        __WASI_SOCK_OPTION_RECV_TIMEOUT => wasmer_vnet::TimeType::ReadTimeout,
-        __WASI_SOCK_OPTION_SEND_TIMEOUT => wasmer_vnet::TimeType::WriteTimeout,
-        __WASI_SOCK_OPTION_CONNECT_TIMEOUT => wasmer_vnet::TimeType::ConnectTimeout,
-        __WASI_SOCK_OPTION_ACCEPT_TIMEOUT => wasmer_vnet::TimeType::AcceptTimeout,
-        __WASI_SOCK_OPTION_LINGER => wasmer_vnet::TimeType::Linger,
+        Sockoption::RecvTimeout => wasmer_vnet::TimeType::ReadTimeout,
+        Sockoption::SendTimeout => wasmer_vnet::TimeType::WriteTimeout,
+        Sockoption::ConnectTimeout => wasmer_vnet::TimeType::ConnectTimeout,
+        Sockoption::AcceptTimeout => wasmer_vnet::TimeType::AcceptTimeout,
+        Sockoption::Linger => wasmer_vnet::TimeType::Linger,
         _ => return Errno::Inval,
     };
 
     let option: super::state::WasiSocketOption = opt.into();
     wasi_try!(__sock_actor_mut(&ctx, sock, Rights::empty(), |socket| {
         match opt {
-            __WASI_SOCK_OPTION_RECV_BUF_SIZE => socket.set_recv_buf_size(size as usize),
-            __WASI_SOCK_OPTION_SEND_BUF_SIZE => socket.set_send_buf_size(size as usize),
-            __WASI_SOCK_OPTION_TTL => socket.set_ttl(size as u32),
-            __WASI_SOCK_OPTION_MULTICAST_TTL_V4 => socket.set_multicast_ttl_v4(size as u32),
+            Sockoption::RecvBufSize => socket.set_recv_buf_size(size as usize),
+            Sockoption::SendBufSize => socket.set_send_buf_size(size as usize),
+            Sockoption::Ttl => socket.set_ttl(size as u32),
+            Sockoption::MulticastTtlV4 => socket.set_multicast_ttl_v4(size as u32),
             _ => Err(Errno::Inval),
         }
     }));
@@ -4983,7 +4984,7 @@ pub fn sock_set_opt_size(
 pub fn sock_get_opt_size<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
-    opt: __wasi_sockoption_t,
+    opt: Sockoption,
     ret_size: WasmPtr<__wasi_filesize_t, M>,
 ) -> Errno {
     debug!("wasi::sock_get_opt_size(ty={})", opt);
@@ -4992,16 +4993,10 @@ pub fn sock_get_opt_size<M: MemorySize>(
 
     let size = wasi_try!(__sock_actor(&ctx, sock, Rights::empty(), |socket| {
         match opt {
-            __WASI_SOCK_OPTION_RECV_BUF_SIZE => {
-                socket.recv_buf_size().map(|a| a as __wasi_filesize_t)
-            }
-            __WASI_SOCK_OPTION_SEND_BUF_SIZE => {
-                socket.send_buf_size().map(|a| a as __wasi_filesize_t)
-            }
-            __WASI_SOCK_OPTION_TTL => socket.ttl().map(|a| a as __wasi_filesize_t),
-            __WASI_SOCK_OPTION_MULTICAST_TTL_V4 => {
-                socket.multicast_ttl_v4().map(|a| a as __wasi_filesize_t)
-            }
+            Sockoption::RecvBufSize => socket.recv_buf_size().map(|a| a as __wasi_filesize_t),
+            Sockoption::SendBufSize => socket.send_buf_size().map(|a| a as __wasi_filesize_t),
+            Sockoption::Ttl => socket.ttl().map(|a| a as __wasi_filesize_t),
+            Sockoption::MulticastTtlV4 => socket.multicast_ttl_v4().map(|a| a as __wasi_filesize_t),
             _ => Err(Errno::Inval),
         }
     }));
