@@ -25,9 +25,9 @@ pub mod wasix64;
 use self::types::{
     wasi::{
         Addressfamily, Advice, BusErrno, Clockid, Dircookie, Dirent, Errno, Event, EventEnum,
-        EventFdReadwrite, Eventrwflags, Eventtype, Fd as WasiFd, Fdflags, Fdstat, Filetype, Rights,
-        Snapshot0Clockid, Sockoption, Sockstatus, Socktype, Streamsecurity, Subscription,
-        SubscriptionEnum, SubscriptionFsReadwrite, Timestamp,
+        EventFdReadwrite, Eventrwflags, Eventtype, Fd as WasiFd, Fdflags, Fdstat, Filesize,
+        Filetype, Rights, Snapshot0Clockid, Sockoption, Sockstatus, Socktype, Streamsecurity,
+        Subscription, SubscriptionEnum, SubscriptionFsReadwrite, Timestamp,
     },
     *,
 };
@@ -484,17 +484,17 @@ pub fn environ_sizes_get<M: MemorySize>(
 /// Inputs:
 /// - `Fd fd`
 ///     The file descriptor the advice applies to
-/// - `__wasi_filesize_t offset`
+/// - `Filesize offset`
 ///     The offset from which the advice applies
-/// - `__wasi_filesize_t len`
+/// - `Filesize len`
 ///     The length from the offset to which the advice applies
 /// - `__wasi_advice_t advice`
 ///     The advice to give
 pub fn fd_advise(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
-    offset: __wasi_filesize_t,
-    len: __wasi_filesize_t,
+    offset: Filesize,
+    len: Filesize,
     advice: Advice,
 ) -> Errno {
     debug!("wasi::fd_advise: fd={}", fd);
@@ -509,15 +509,15 @@ pub fn fd_advise(
 /// Inputs:
 /// - `Fd fd`
 ///     The file descriptor to allocate for
-/// - `__wasi_filesize_t offset`
+/// - `Filesize offset`
 ///     The offset from the start marking the beginning of the allocation
-/// - `__wasi_filesize_t len`
+/// - `Filesize len`
 ///     The length from the offset marking the end of the allocation
 pub fn fd_allocate(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
-    offset: __wasi_filesize_t,
-    len: __wasi_filesize_t,
+    offset: Filesize,
+    len: Filesize,
 ) -> Errno {
     debug!("wasi::fd_allocate");
     let env = ctx.data();
@@ -718,12 +718,12 @@ pub fn fd_filestat_get<M: MemorySize>(
 /// Inputs:
 /// - `Fd fd`
 ///     File descriptor to adjust
-/// - `__wasi_filesize_t st_size`
+/// - `Filesize st_size`
 ///     New size that `fd` will be set to
 pub fn fd_filestat_set_size(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
-    st_size: __wasi_filesize_t,
+    st_size: Filesize,
 ) -> Errno {
     debug!("wasi::fd_filestat_set_size");
     let env = ctx.data();
@@ -827,7 +827,7 @@ pub fn fd_filestat_set_times(
 ///     Vectors where the data will be stored
 /// - `size_t iovs_len`
 ///     The number of vectors to store the data into
-/// - `__wasi_filesize_t offset`
+/// - `Filesize offset`
 ///     The file cursor to use: the starting position from which data will be read
 /// Output:
 /// - `size_t nread`
@@ -837,7 +837,7 @@ pub fn fd_pread<M: MemorySize>(
     fd: WasiFd,
     iovs: WasmPtr<__wasi_iovec_t<M>, M>,
     iovs_len: M::Offset,
-    offset: __wasi_filesize_t,
+    offset: Filesize,
     nread: WasmPtr<M::Offset, M>,
 ) -> Result<Errno, WasiError> {
     trace!("wasi::fd_pread: fd={}, offset={}", fd, offset);
@@ -999,7 +999,7 @@ pub fn fd_prestat_dir_name<M: MemorySize>(
 ///     List of vectors to read data from
 /// - `u32 iovs_len`
 ///     Length of data in `iovs`
-/// - `__wasi_filesize_t offset`
+/// - `Filesize offset`
 ///     The offset to write at
 /// Output:
 /// - `u32 *nwritten`
@@ -1009,7 +1009,7 @@ pub fn fd_pwrite<M: MemorySize>(
     fd: WasiFd,
     iovs: WasmPtr<__wasi_ciovec_t<M>, M>,
     iovs_len: M::Offset,
-    offset: __wasi_filesize_t,
+    offset: Filesize,
     nwritten: WasmPtr<M::Offset, M>,
 ) -> Result<Errno, WasiError> {
     trace!("wasi::fd_pwrite");
@@ -1495,14 +1495,14 @@ pub fn fd_event<M: MemorySize>(
 /// - `__wasi_whence_t whence`
 ///     What the offset is relative to
 /// Output:
-/// - `__wasi_filesize_t *fd`
+/// - `Filesize *fd`
 ///     The new offset relative to the start of the file
 pub fn fd_seek<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
     offset: __wasi_filedelta_t,
     whence: __wasi_whence_t,
-    newoffset: WasmPtr<__wasi_filesize_t, M>,
+    newoffset: WasmPtr<Filesize, M>,
 ) -> Result<Errno, WasiError> {
     trace!("wasi::fd_seek: fd={}, offset={}", fd, offset);
     let env = ctx.data();
@@ -1623,12 +1623,12 @@ pub fn fd_sync(ctx: FunctionEnvMut<'_, WasiEnv>, fd: WasiFd) -> Errno {
 /// - `Fd fd`
 ///     The file descriptor to access
 /// Output:
-/// - `__wasi_filesize_t *offset`
+/// - `Filesize *offset`
 ///     The offset of `fd` relative to the start of the file
 pub fn fd_tell<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
-    offset: WasmPtr<__wasi_filesize_t, M>,
+    offset: WasmPtr<Filesize, M>,
 ) -> Errno {
     debug!("wasi::fd_tell");
     let env = ctx.data();
@@ -4947,7 +4947,7 @@ pub fn sock_set_opt_size(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     opt: Sockoption,
-    size: __wasi_filesize_t,
+    size: Filesize,
 ) -> Errno {
     debug!("wasi::sock_set_opt_size(ty={})", opt);
 
@@ -4985,7 +4985,7 @@ pub fn sock_get_opt_size<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     opt: Sockoption,
-    ret_size: WasmPtr<__wasi_filesize_t, M>,
+    ret_size: WasmPtr<Filesize, M>,
 ) -> Errno {
     debug!("wasi::sock_get_opt_size(ty={})", opt);
     let env = ctx.data();
@@ -4993,10 +4993,10 @@ pub fn sock_get_opt_size<M: MemorySize>(
 
     let size = wasi_try!(__sock_actor(&ctx, sock, Rights::empty(), |socket| {
         match opt {
-            Sockoption::RecvBufSize => socket.recv_buf_size().map(|a| a as __wasi_filesize_t),
-            Sockoption::SendBufSize => socket.send_buf_size().map(|a| a as __wasi_filesize_t),
-            Sockoption::Ttl => socket.ttl().map(|a| a as __wasi_filesize_t),
-            Sockoption::MulticastTtlV4 => socket.multicast_ttl_v4().map(|a| a as __wasi_filesize_t),
+            Sockoption::RecvBufSize => socket.recv_buf_size().map(|a| a as Filesize),
+            Sockoption::SendBufSize => socket.send_buf_size().map(|a| a as Filesize),
+            Sockoption::Ttl => socket.ttl().map(|a| a as Filesize),
+            Sockoption::MulticastTtlV4 => socket.multicast_ttl_v4().map(|a| a as Filesize),
             _ => Err(Errno::Inval),
         }
     }));
@@ -5444,9 +5444,9 @@ pub unsafe fn sock_send_file<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     in_fd: WasiFd,
-    offset: __wasi_filesize_t,
-    mut count: __wasi_filesize_t,
-    ret_sent: WasmPtr<__wasi_filesize_t, M>,
+    offset: Filesize,
+    mut count: Filesize,
+    ret_sent: WasmPtr<Filesize, M>,
 ) -> Result<Errno, WasiError> {
     debug!("wasi::send_file");
     let env = ctx.data();
@@ -5460,7 +5460,7 @@ pub unsafe fn sock_send_file<M: MemorySize>(
     }
 
     // Enter a loop that will process all the data
-    let mut total_written: __wasi_filesize_t = 0;
+    let mut total_written: Filesize = 0;
     while (count > 0) {
         let mut buf = [0; 4096];
         let sub_count = count.min(4096);
@@ -5547,7 +5547,7 @@ pub unsafe fn sock_send_file<M: MemorySize>(
         total_written += bytes_written as u64;
     }
 
-    wasi_try_mem_ok!(ret_sent.write(&memory, total_written as __wasi_filesize_t));
+    wasi_try_mem_ok!(ret_sent.write(&memory, total_written as Filesize));
 
     Ok(Errno::Success)
 }

@@ -4,7 +4,7 @@ use std::{
 };
 use wasmer_derive::ValueType;
 use wasmer_types::ValueType;
-use wasmer_wasi_types_generated::wasi::{Fd, Filetype, Preopentype, Rights, Timestamp};
+use wasmer_wasi_types_generated::wasi::{Fd, Filesize, Filetype, Preopentype, Rights, Timestamp};
 
 pub type __wasi_device_t = u64;
 
@@ -105,8 +105,6 @@ unsafe impl ValueType for __wasi_prestat_t {
 
 pub type __wasi_filedelta_t = i64;
 
-pub type __wasi_filesize_t = u64;
-
 #[derive(Copy, Clone, PartialEq, Eq, ValueType)]
 #[repr(C)]
 pub struct __wasi_filestat_t {
@@ -114,7 +112,7 @@ pub struct __wasi_filestat_t {
     pub st_ino: __wasi_inode_t,
     pub st_filetype: Filetype,
     pub st_nlink: __wasi_linkcount_t,
-    pub st_size: __wasi_filesize_t,
+    pub st_size: Filesize,
     pub st_atim: Timestamp,
     pub st_mtim: Timestamp,
     pub st_ctim: Timestamp,

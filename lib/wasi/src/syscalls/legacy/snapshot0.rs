@@ -3,7 +3,7 @@ use crate::syscalls::types::{self, snapshot0};
 use crate::{mem_error_to_wasi, Memory32, MemorySize, WasiEnv, WasiError, WasiThread};
 use wasmer::{AsStoreMut, FunctionEnvMut, WasmPtr};
 use wasmer_wasi_types_generated::wasi::{
-    Errno, Event, Fd, Filetype, Snapshot0Subscription, Subscription,
+    Errno, Event, Fd, Filesize, Filetype, Snapshot0Subscription, Subscription,
 };
 
 /// Wrapper around `syscalls::fd_filestat_get` with extra logic to handle the size
@@ -112,7 +112,7 @@ pub fn fd_seek(
     fd: Fd,
     offset: types::__wasi_filedelta_t,
     whence: snapshot0::__wasi_whence_t,
-    newoffset: WasmPtr<types::__wasi_filesize_t, Memory32>,
+    newoffset: WasmPtr<Filesize, Memory32>,
 ) -> Result<Errno, WasiError> {
     let new_whence = match whence {
         snapshot0::__WASI_WHENCE_CUR => types::__WASI_WHENCE_CUR,

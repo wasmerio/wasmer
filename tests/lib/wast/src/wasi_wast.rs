@@ -3,11 +3,9 @@ use std::fs::{read_dir, File, OpenOptions, ReadDir};
 use std::io::{self, Read, Seek, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{mpsc, Arc, Mutex};
-use wasmer::FunctionEnv;
-use wasmer::{Imports, Instance, Module, Store};
+use wasmer::{FunctionEnv, Imports, Instance, Module, Store};
 use wasmer_vfs::{host_fs, mem_fs, FileSystem};
-use wasmer_wasi::types::__wasi_filesize_t;
-use wasmer_wasi::types::wasi::Timestamp;
+use wasmer_wasi::types::wasi::{Filesize, Timestamp};
 use wasmer_wasi::{
     generate_import_object_from_env, get_wasi_version, FsError, Pipe, VirtualFile, WasiEnv,
     WasiFunctionEnv, WasiState, WasiVersion,
@@ -627,7 +625,7 @@ impl VirtualFile for OutputCapturerer {
     fn size(&self) -> u64 {
         0
     }
-    fn set_len(&mut self, _new_size: __wasi_filesize_t) -> Result<(), FsError> {
+    fn set_len(&mut self, _new_size: Filesize) -> Result<(), FsError> {
         Ok(())
     }
     fn unlink(&mut self) -> Result<(), FsError> {

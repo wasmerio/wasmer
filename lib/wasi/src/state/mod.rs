@@ -53,7 +53,7 @@ use std::{
 use tracing::{debug, trace};
 use wasmer_vbus::BusSpawnedProcess;
 use wasmer_wasi_types_generated::wasi::{
-    Errno, Fd as WasiFd, Fdflags, Fdstat, Filetype, Preopentype, Rights,
+    Errno, Fd as WasiFd, Fdflags, Fdstat, Filesize, Filetype, Preopentype, Rights,
 };
 
 use wasmer_vfs::{FileSystem, FsError, OpenOptions, VirtualFile};
@@ -825,7 +825,7 @@ impl WasiFs {
         &self,
         inodes: &WasiInodes,
         fd: WasiFd,
-    ) -> Result<__wasi_filesize_t, Errno> {
+    ) -> Result<Filesize, Errno> {
         let inode = self.get_fd_inode(fd)?;
         let mut guard = inodes.arena[inode].write();
         let deref_mut = guard.deref_mut();
@@ -836,7 +836,7 @@ impl WasiFs {
                     drop(guard);
 
                     inodes.arena[inode].stat.write().unwrap().st_size = new_size;
-                    Ok(new_size as __wasi_filesize_t)
+                    Ok(new_size as Filesize)
                 } else {
                     Err(Errno::Badf)
                 }

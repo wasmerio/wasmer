@@ -3,8 +3,8 @@ use crate::{WasiEnv, WasiError, WasiState, WasiThread};
 use wasmer::{FunctionEnvMut, Memory, Memory32, MemorySize, StoreMut, WasmPtr, WasmSlice};
 use wasmer_wasi_types::*;
 use wasmer_wasi_types_generated::wasi::{
-    Addressfamily, Advice, BusErrno, Clockid, Dircookie, Errno, Event, Fd, Fdflags, Fdstat, Rights,
-    Sockoption, Sockstatus, Socktype, Streamsecurity, Subscription, Timestamp,
+    Addressfamily, Advice, BusErrno, Clockid, Dircookie, Errno, Event, Fd, Fdflags, Fdstat,
+    Filesize, Rights, Sockoption, Sockstatus, Socktype, Streamsecurity, Subscription, Timestamp,
 };
 
 type MemoryType = Memory32;
@@ -62,8 +62,8 @@ pub(crate) fn environ_sizes_get(
 pub(crate) fn fd_advise(
     ctx: FunctionEnvMut<WasiEnv>,
     fd: Fd,
-    offset: __wasi_filesize_t,
-    len: __wasi_filesize_t,
+    offset: Filesize,
+    len: Filesize,
     advice: Advice,
 ) -> Errno {
     super::fd_advise(ctx, fd, offset, len, advice)
@@ -72,8 +72,8 @@ pub(crate) fn fd_advise(
 pub(crate) fn fd_allocate(
     ctx: FunctionEnvMut<WasiEnv>,
     fd: Fd,
-    offset: __wasi_filesize_t,
-    len: __wasi_filesize_t,
+    offset: Filesize,
+    len: Filesize,
 ) -> Errno {
     super::fd_allocate(ctx, fd, offset, len)
 }
@@ -118,7 +118,7 @@ pub(crate) fn fd_filestat_get(
 pub(crate) fn fd_filestat_set_size(
     ctx: FunctionEnvMut<WasiEnv>,
     fd: Fd,
-    st_size: __wasi_filesize_t,
+    st_size: Filesize,
 ) -> Errno {
     super::fd_filestat_set_size(ctx, fd, st_size)
 }
@@ -138,7 +138,7 @@ pub(crate) fn fd_pread(
     fd: Fd,
     iovs: WasmPtr<__wasi_iovec_t<MemoryType>, MemoryType>,
     iovs_len: MemoryOffset,
-    offset: __wasi_filesize_t,
+    offset: Filesize,
     nread: WasmPtr<MemoryOffset, MemoryType>,
 ) -> Result<Errno, WasiError> {
     super::fd_pread::<MemoryType>(ctx, fd, iovs, iovs_len, offset, nread)
@@ -166,7 +166,7 @@ pub(crate) fn fd_pwrite(
     fd: Fd,
     iovs: WasmPtr<__wasi_ciovec_t<MemoryType>, MemoryType>,
     iovs_len: MemoryOffset,
-    offset: __wasi_filesize_t,
+    offset: Filesize,
     nwritten: WasmPtr<MemoryOffset, MemoryType>,
 ) -> Result<Errno, WasiError> {
     super::fd_pwrite::<MemoryType>(ctx, fd, iovs, iovs_len, offset, nwritten)
@@ -202,7 +202,7 @@ pub(crate) fn fd_seek(
     fd: Fd,
     offset: __wasi_filedelta_t,
     whence: __wasi_whence_t,
-    newoffset: WasmPtr<__wasi_filesize_t, MemoryType>,
+    newoffset: WasmPtr<Filesize, MemoryType>,
 ) -> Result<Errno, WasiError> {
     super::fd_seek::<MemoryType>(ctx, fd, offset, whence, newoffset)
 }
@@ -214,7 +214,7 @@ pub(crate) fn fd_sync(ctx: FunctionEnvMut<WasiEnv>, fd: Fd) -> Errno {
 pub(crate) fn fd_tell(
     ctx: FunctionEnvMut<WasiEnv>,
     fd: Fd,
-    offset: WasmPtr<__wasi_filesize_t, MemoryType>,
+    offset: WasmPtr<Filesize, MemoryType>,
 ) -> Errno {
     super::fd_tell::<MemoryType>(ctx, fd, offset)
 }
@@ -867,7 +867,7 @@ pub fn sock_set_opt_size(
     ctx: FunctionEnvMut<WasiEnv>,
     sock: Fd,
     opt: Sockoption,
-    size: __wasi_filesize_t,
+    size: Filesize,
 ) -> Errno {
     super::sock_set_opt_size(ctx, sock, opt, size)
 }
@@ -876,7 +876,7 @@ pub fn sock_get_opt_size(
     ctx: FunctionEnvMut<WasiEnv>,
     sock: Fd,
     opt: Sockoption,
-    ret_size: WasmPtr<__wasi_filesize_t, MemoryType>,
+    ret_size: WasmPtr<Filesize, MemoryType>,
 ) -> Errno {
     super::sock_get_opt_size(ctx, sock, opt, ret_size)
 }
@@ -1024,9 +1024,9 @@ pub(crate) fn sock_send_file(
     ctx: FunctionEnvMut<WasiEnv>,
     out_fd: Fd,
     in_fd: Fd,
-    offset: __wasi_filesize_t,
-    count: __wasi_filesize_t,
-    ret_sent: WasmPtr<__wasi_filesize_t, MemoryType>,
+    offset: Filesize,
+    count: Filesize,
+    ret_sent: WasmPtr<Filesize, MemoryType>,
 ) -> Result<Errno, WasiError> {
     unsafe { super::sock_send_file::<MemoryType>(ctx, out_fd, in_fd, offset, count, ret_sent) }
 }

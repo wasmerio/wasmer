@@ -1,6 +1,6 @@
 use super::*;
 use wasmer_derive::ValueType;
-use wasmer_wasi_types_generated::wasi::{Addressfamily, Fd};
+use wasmer_wasi_types_generated::wasi::{Addressfamily, Fd, Filesize};
 
 use crate::__wasi_option_timestamp_t;
 
@@ -417,7 +417,7 @@ pub struct __wasi_http_handles_t {
 pub struct __wasi_http_status_t {
     pub ok: __wasi_bool_t,
     pub redirect: __wasi_bool_t,
-    pub size: __wasi_filesize_t,
+    pub size: Filesize,
     pub status: u16,
 }
 
