@@ -745,3 +745,10 @@ enum streamsecurity {
     classic-encryption,
     double-encryption,
 }
+
+enum addressfamily {
+    unspec,
+    inet4,
+    inet6,
+    unix,
+}

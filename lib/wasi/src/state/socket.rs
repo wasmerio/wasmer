@@ -16,7 +16,7 @@ use wasmer_vnet::{
     IpCidr, IpRoute, SocketHttpRequest, VirtualIcmpSocket, VirtualNetworking, VirtualRawSocket,
     VirtualTcpListener, VirtualTcpSocket, VirtualUdpSocket, VirtualWebSocket,
 };
-use wasmer_wasi_types_generated::wasi::{Errno, Fdflags, Sockoption, Socktype};
+use wasmer_wasi_types_generated::wasi::{Addressfamily, Errno, Fdflags, Sockoption, Socktype};
 
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
@@ -36,7 +36,7 @@ pub enum InodeHttpSocketType {
 //#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub enum InodeSocketKind {
     PreSocket {
-        family: __wasi_addressfamily_t,
+        family: Addressfamily,
         ty: Socktype,
         pt: __wasi_sockproto_t,
         addr: Option<SocketAddr>,
@@ -173,12 +173,12 @@ impl InodeSocket {
                 ..
             } => {
                 match *family {
-                    __WASI_ADDRESS_FAMILY_INET4 => {
+                    Addressfamily::Inet4 => {
                         if !set_addr.is_ipv4() {
                             return Err(Errno::Inval);
                         }
                     }
-                    __WASI_ADDRESS_FAMILY_INET6 => {
+                    Addressfamily::Inet6 => {
                         if !set_addr.is_ipv6() {
                             return Err(Errno::Inval);
                         }
@@ -370,8 +370,8 @@ impl InodeSocket {
                 } else {
                     SocketAddr::new(
                         match *family {
-                            __WASI_ADDRESS_FAMILY_INET4 => IpAddr::V4(Ipv4Addr::UNSPECIFIED),
-                            __WASI_ADDRESS_FAMILY_INET6 => IpAddr::V6(Ipv6Addr::UNSPECIFIED),
+                            Addressfamily::Inet4 => IpAddr::V4(Ipv4Addr::UNSPECIFIED),
+                            Addressfamily::Inet6 => IpAddr::V6(Ipv6Addr::UNSPECIFIED),
                             _ => return Err(Errno::Inval),
                         },
                         0,
@@ -397,8 +397,8 @@ impl InodeSocket {
         Ok(match &self.kind {
             InodeSocketKind::PreSocket { family, .. } => SocketAddr::new(
                 match *family {
-                    __WASI_ADDRESS_FAMILY_INET4 => IpAddr::V4(Ipv4Addr::UNSPECIFIED),
-                    __WASI_ADDRESS_FAMILY_INET6 => IpAddr::V6(Ipv6Addr::UNSPECIFIED),
+                    Addressfamily::Inet4 => IpAddr::V4(Ipv4Addr::UNSPECIFIED),
+                    Addressfamily::Inet6 => IpAddr::V6(Ipv6Addr::UNSPECIFIED),
                     _ => return Err(Errno::Inval),
                 },
                 0,
@@ -1119,8 +1119,8 @@ pub(crate) fn read_ip<M: MemorySize>(
 
     let o = addr.u.octs;
     Ok(match addr.tag {
-        __WASI_ADDRESS_FAMILY_INET4 => IpAddr::V4(Ipv4Addr::new(o[0], o[1], o[2], o[3])),
-        __WASI_ADDRESS_FAMILY_INET6 => {
+        Addressfamily::Inet4 => IpAddr::V4(Ipv4Addr::new(o[0], o[1], o[2], o[3])),
+        Addressfamily::Inet6 => {
             let [a, b, c, d, e, f, g, h] = unsafe { transmute::<_, [u16; 8]>(o) };
             IpAddr::V6(Ipv6Addr::new(a, b, c, d, e, f, g, h))
         }
@@ -1159,7 +1159,7 @@ pub(crate) fn write_ip<M: MemorySize>(
         IpAddr::V4(ip) => {
             let o = ip.octets();
             __wasi_addr_t {
-                tag: __WASI_ADDRESS_FAMILY_INET4,
+                tag: Addressfamily::Inet4,
                 u: __wasi_addr_u {
                     octs: [o[0], o[1], o[2], o[3], 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
                 },
@@ -1168,7 +1168,7 @@ pub(crate) fn write_ip<M: MemorySize>(
         IpAddr::V6(ip) => {
             let o = ip.octets();
             __wasi_addr_t {
-                tag: __WASI_ADDRESS_FAMILY_INET6,
+                tag: Addressfamily::Inet6,
                 u: __wasi_addr_u { octs: o },
             }
         }
@@ -1189,11 +1189,11 @@ pub(crate) fn read_cidr<M: MemorySize>(
 
     let o = addr.u.octs;
     Ok(match addr.tag {
-        __WASI_ADDRESS_FAMILY_INET4 => IpCidr {
+        Addressfamily::Inet4 => IpCidr {
             ip: IpAddr::V4(Ipv4Addr::new(o[0], o[1], o[2], o[3])),
             prefix: o[4],
         },
-        __WASI_ADDRESS_FAMILY_INET6 => {
+        Addressfamily::Inet6 => {
             let [a, b, c, d, e, f, g, h] = {
                 let o = [
                     o[0], o[1], o[2], o[3], o[4], o[5], o[6], o[7], o[8], o[9], o[10], o[11],
@@ -1221,7 +1221,7 @@ pub(crate) fn write_cidr<M: MemorySize>(
         IpAddr::V4(ip) => {
             let o = ip.octets();
             __wasi_cidr_t {
-                tag: __WASI_ADDRESS_FAMILY_INET4,
+                tag: Addressfamily::Inet4,
                 u: __wasi_cidr_u {
                     octs: [
                         o[0], o[1], o[2], o[3], p, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -1232,7 +1232,7 @@ pub(crate) fn write_cidr<M: MemorySize>(
         IpAddr::V6(ip) => {
             let o = ip.octets();
             __wasi_cidr_t {
-                tag: __WASI_ADDRESS_FAMILY_INET6,
+                tag: Addressfamily::Inet6,
                 u: __wasi_cidr_u {
                     octs: [
                         o[0], o[1], o[2], o[3], o[4], o[5], o[6], o[7], o[8], o[9], o[10], o[11],
@@ -1257,11 +1257,11 @@ pub(crate) fn read_ip_port<M: MemorySize>(
 
     let o = addr.u.octs;
     Ok(match addr.tag {
-        __WASI_ADDRESS_FAMILY_INET4 => {
+        Addressfamily::Inet4 => {
             let port = u16::from_ne_bytes([o[0], o[1]]);
             (IpAddr::V4(Ipv4Addr::new(o[2], o[3], o[4], o[5])), port)
         }
-        __WASI_ADDRESS_FAMILY_INET6 => {
+        Addressfamily::Inet6 => {
             let [a, b, c, d, e, f, g, h] = {
                 let o = [
                     o[2], o[3], o[4], o[5], o[6], o[7], o[8], o[9], o[10], o[11], o[12], o[13],
@@ -1290,7 +1290,7 @@ pub(crate) fn write_ip_port<M: MemorySize>(
         IpAddr::V4(ip) => {
             let o = ip.octets();
             __wasi_addr_port_t {
-                tag: __WASI_ADDRESS_FAMILY_INET4,
+                tag: Addressfamily::Inet4,
                 u: __wasi_addr_port_u {
                     octs: [
                         p[0], p[1], o[0], o[1], o[2], o[3], 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -1301,7 +1301,7 @@ pub(crate) fn write_ip_port<M: MemorySize>(
         IpAddr::V6(ip) => {
             let o = ip.octets();
             __wasi_addr_port_t {
-                tag: __WASI_ADDRESS_FAMILY_INET6,
+                tag: Addressfamily::Inet6,
                 u: __wasi_addr_port_u {
                     octs: [
                         p[0], p[1], o[0], o[1], o[2], o[3], o[4], o[5], o[6], o[7], o[8], o[9],
@@ -1329,11 +1329,11 @@ pub(crate) fn read_route<M: MemorySize>(
         cidr: {
             let o = route.cidr.u.octs;
             match route.cidr.tag {
-                __WASI_ADDRESS_FAMILY_INET4 => IpCidr {
+                Addressfamily::Inet4 => IpCidr {
                     ip: IpAddr::V4(Ipv4Addr::new(o[0], o[1], o[2], o[3])),
                     prefix: o[4],
                 },
-                __WASI_ADDRESS_FAMILY_INET6 => {
+                Addressfamily::Inet6 => {
                     let [a, b, c, d, e, f, g, h] = {
                         let o = [
                             o[0], o[1], o[2], o[3], o[4], o[5], o[6], o[7], o[8], o[9], o[10],
@@ -1352,8 +1352,8 @@ pub(crate) fn read_route<M: MemorySize>(
         via_router: {
             let o = route.via_router.u.octs;
             match route.via_router.tag {
-                __WASI_ADDRESS_FAMILY_INET4 => IpAddr::V4(Ipv4Addr::new(o[0], o[1], o[2], o[3])),
-                __WASI_ADDRESS_FAMILY_INET6 => {
+                Addressfamily::Inet4 => IpAddr::V4(Ipv4Addr::new(o[0], o[1], o[2], o[3])),
+                Addressfamily::Inet6 => {
                     let [a, b, c, d, e, f, g, h] = unsafe { transmute::<_, [u16; 8]>(o) };
                     IpAddr::V6(Ipv6Addr::new(a, b, c, d, e, f, g, h))
                 }
@@ -1384,7 +1384,7 @@ pub(crate) fn write_route<M: MemorySize>(
             IpAddr::V4(ip) => {
                 let o = ip.octets();
                 __wasi_cidr_t {
-                    tag: __WASI_ADDRESS_FAMILY_INET4,
+                    tag: Addressfamily::Inet4,
                     u: __wasi_cidr_u {
                         octs: [
                             o[0], o[1], o[2], o[3], p, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -1395,7 +1395,7 @@ pub(crate) fn write_route<M: MemorySize>(
             IpAddr::V6(ip) => {
                 let o = ip.octets();
                 __wasi_cidr_t {
-                    tag: __WASI_ADDRESS_FAMILY_INET6,
+                    tag: Addressfamily::Inet6,
                     u: __wasi_cidr_u {
                         octs: [
                             o[0], o[1], o[2], o[3], o[4], o[5], o[6], o[7], o[8], o[9], o[10],
@@ -1410,7 +1410,7 @@ pub(crate) fn write_route<M: MemorySize>(
         IpAddr::V4(ip) => {
             let o = ip.octets();
             __wasi_addr_t {
-                tag: __WASI_ADDRESS_FAMILY_INET4,
+                tag: Addressfamily::Inet4,
                 u: __wasi_addr_u {
                     octs: [o[0], o[1], o[2], o[3], 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
                 },
@@ -1419,7 +1419,7 @@ pub(crate) fn write_route<M: MemorySize>(
         IpAddr::V6(ip) => {
             let o = ip.octets();
             __wasi_addr_t {
-                tag: __WASI_ADDRESS_FAMILY_INET6,
+                tag: Addressfamily::Inet6,
                 u: __wasi_addr_u { octs: o },
             }
         }

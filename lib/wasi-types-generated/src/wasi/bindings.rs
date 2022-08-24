@@ -1316,6 +1316,32 @@ pub mod wasi {
       }
     }
   }
+  #[repr(u8)]
+  #[derive(Clone, Copy, PartialEq, Eq)]
+  pub enum Addressfamily {
+    Unspec,
+    Inet4,
+    Inet6,
+    Unix,
+  }
+  impl core::fmt::Debug for Addressfamily {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+      match self {
+        Addressfamily::Unspec => {
+          f.debug_tuple("Addressfamily::Unspec").finish()
+        }
+        Addressfamily::Inet4 => {
+          f.debug_tuple("Addressfamily::Inet4").finish()
+        }
+        Addressfamily::Inet6 => {
+          f.debug_tuple("Addressfamily::Inet6").finish()
+        }
+        Addressfamily::Unix => {
+          f.debug_tuple("Addressfamily::Unix").finish()
+        }
+      }
+    }
+  }
   
   /// Auxiliary data associated with the wasm exports.
   #[derive(Default)]

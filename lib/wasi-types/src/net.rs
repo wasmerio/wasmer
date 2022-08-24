@@ -1,6 +1,6 @@
 use super::*;
 use wasmer_derive::ValueType;
-use wasmer_wasi_types_generated::wasi::Fd;
+use wasmer_wasi_types_generated::wasi::{Addressfamily, Fd};
 
 use crate::__wasi_option_timestamp_t;
 
@@ -276,12 +276,6 @@ pub struct __wasi_hardwareaddress_t {
     pub octs: [u8; 6],
 }
 
-pub type __wasi_addressfamily_t = u16;
-pub const __WASI_ADDRESS_FAMILY_UNSPEC: __wasi_addressfamily_t = 0;
-pub const __WASI_ADDRESS_FAMILY_INET4: __wasi_addressfamily_t = 1;
-pub const __WASI_ADDRESS_FAMILY_INET6: __wasi_addressfamily_t = 2;
-pub const __WASI_ADDRESS_FAMILY_UNIX: __wasi_addressfamily_t = 3;
-
 #[derive(Debug, Copy, Clone, PartialEq, Eq, ValueType)]
 #[repr(C)]
 pub struct __wasi_addr_unspec_t {
@@ -371,7 +365,7 @@ pub struct __wasi_addr_u {
 #[derive(Debug, Copy, Clone, ValueType)]
 #[repr(C)]
 pub struct __wasi_addr_t {
-    pub tag: __wasi_addressfamily_t,
+    pub tag: Addressfamily,
     pub u: __wasi_addr_u,
 }
 
@@ -384,7 +378,7 @@ pub struct __wasi_addr_port_u {
 #[derive(Debug, Copy, Clone, ValueType)]
 #[repr(C)]
 pub struct __wasi_addr_port_t {
-    pub tag: __wasi_addressfamily_t,
+    pub tag: Addressfamily,
     pub u: __wasi_addr_port_u,
 }
 
@@ -397,7 +391,7 @@ pub struct __wasi_cidr_u {
 #[derive(Debug, Copy, Clone, ValueType)]
 #[repr(C)]
 pub struct __wasi_cidr_t {
-    pub tag: __wasi_addressfamily_t,
+    pub tag: Addressfamily,
     pub u: __wasi_cidr_u,
 }
 

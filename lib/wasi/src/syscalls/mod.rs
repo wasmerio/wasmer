@@ -24,10 +24,10 @@ pub mod wasix64;
 
 use self::types::{
     wasi::{
-        Advice, BusErrno, Clockid, Dircookie, Dirent, Errno, Event, EventEnum, EventFdReadwrite,
-        Eventrwflags, Eventtype, Fd as WasiFd, Fdflags, Fdstat, Filetype, Rights, Snapshot0Clockid,
-        Sockoption, Sockstatus, Socktype, Streamsecurity, Subscription, SubscriptionEnum,
-        SubscriptionFsReadwrite, Timestamp,
+        Addressfamily, Advice, BusErrno, Clockid, Dircookie, Dirent, Errno, Event, EventEnum,
+        EventFdReadwrite, Eventrwflags, Eventtype, Fd as WasiFd, Fdflags, Fdstat, Filetype, Rights,
+        Snapshot0Clockid, Sockoption, Sockstatus, Socktype, Streamsecurity, Subscription,
+        SubscriptionEnum, SubscriptionFsReadwrite, Timestamp,
     },
     *,
 };
@@ -4739,7 +4739,7 @@ pub fn sock_addr_peer<M: MemorySize>(
 /// The file descriptor of the socket that has been opened.
 pub fn sock_open<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    af: __wasi_addressfamily_t,
+    af: Addressfamily,
     ty: Socktype,
     pt: __wasi_sockproto_t,
     ro_sock: WasmPtr<WasiFd, M>,
