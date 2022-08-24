@@ -3,8 +3,8 @@ use crate::{WasiEnv, WasiError, WasiState, WasiThread};
 use wasmer::{FunctionEnvMut, Memory, Memory32, MemorySize, StoreMut, WasmPtr, WasmSlice};
 use wasmer_wasi_types::*;
 use wasmer_wasi_types_generated::wasi::{
-    Advice, BusErrno, Clockid, Dircookie, Errno, Event, Fd, Fdflags, Fdstat, Rights, Subscription,
-    Timestamp,
+    Advice, BusErrno, Clockid, Dircookie, Errno, Event, Fd, Fdflags, Fdstat, Rights, Socktype,
+    Subscription, Timestamp,
 };
 
 type MemoryType = Memory32;
@@ -820,7 +820,7 @@ pub(crate) fn sock_addr_peer(
 pub(crate) fn sock_open(
     ctx: FunctionEnvMut<WasiEnv>,
     af: __wasi_addressfamily_t,
-    ty: __wasi_socktype_t,
+    ty: Socktype,
     pt: __wasi_sockproto_t,
     ro_sock: WasmPtr<Fd, MemoryType>,
 ) -> Errno {

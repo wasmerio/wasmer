@@ -1120,6 +1120,32 @@ pub mod wasi {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
       f.debug_struct("Subscription").field("userdata", &self.userdata).field("data", &self.data).finish()}
   }
+  #[repr(u8)]
+  #[derive(Clone, Copy, PartialEq, Eq)]
+  pub enum Socktype {
+    Dgram,
+    Stream,
+    Raw,
+    Seqpacket,
+  }
+  impl core::fmt::Debug for Socktype {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+      match self {
+        Socktype::Dgram => {
+          f.debug_tuple("Socktype::Dgram").finish()
+        }
+        Socktype::Stream => {
+          f.debug_tuple("Socktype::Stream").finish()
+        }
+        Socktype::Raw => {
+          f.debug_tuple("Socktype::Raw").finish()
+        }
+        Socktype::Seqpacket => {
+          f.debug_tuple("Socktype::Seqpacket").finish()
+        }
+      }
+    }
+  }
   
   /// Auxiliary data associated with the wasm exports.
   #[derive(Default)]

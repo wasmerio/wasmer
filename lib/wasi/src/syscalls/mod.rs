@@ -26,7 +26,7 @@ use self::types::{
     wasi::{
         Advice, BusErrno, Clockid, Dircookie, Dirent, Errno, Event, EventEnum, EventFdReadwrite,
         Eventrwflags, Eventtype, Fd as WasiFd, Fdflags, Fdstat, Filetype, Rights, Snapshot0Clockid,
-        Subscription, SubscriptionEnum, SubscriptionFsReadwrite, Timestamp,
+        Socktype, Subscription, SubscriptionEnum, SubscriptionFsReadwrite, Timestamp,
     },
     *,
 };
@@ -4739,7 +4739,7 @@ pub fn sock_addr_peer<M: MemorySize>(
 pub fn sock_open<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     af: __wasi_addressfamily_t,
-    ty: __wasi_socktype_t,
+    ty: Socktype,
     pt: __wasi_sockproto_t,
     ro_sock: WasmPtr<WasiFd, M>,
 ) -> Errno {
@@ -4749,7 +4749,7 @@ pub fn sock_open<M: MemorySize>(
     let (memory, state, mut inodes) = env.get_memory_and_wasi_state_and_inodes_mut(&ctx, 0);
 
     let kind = match ty {
-        __WASI_SOCK_TYPE_STREAM | __WASI_SOCK_TYPE_DGRAM => Kind::Socket {
+        Socktype::Stream | Socktype::Dgram => Kind::Socket {
             socket: InodeSocket::new(InodeSocketKind::PreSocket {
                 family: af,
                 ty,

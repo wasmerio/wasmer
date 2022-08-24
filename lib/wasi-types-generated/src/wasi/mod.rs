@@ -22,6 +22,12 @@ unsafe impl ValueType for Filetype {
     fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
 }
 
+// TODO: if necessary, must be implemented in wit-bindgen
+unsafe impl ValueType for Socktype {
+    #[inline]
+    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
+}
+
 impl Filetype {
     pub fn name(self) -> &'static str {
         match self {
@@ -687,6 +693,31 @@ unsafe impl wit_bindgen_wasmer::wasmer::FromToNativeWasmType for Advice {
             3 => Self::Willneed,
             4 => Self::Dontneed,
             5 => Self::Noreuse,
+            // TODO: What should we map invalid native values to?
+            _ => todo!("Need to decide what to do here…"),
+        }
+    }
+
+    #[cfg(feature = "sys")]
+    fn is_from_store(&self, _store: &impl wit_bindgen_wasmer::wasmer::AsStoreRef) -> bool {
+        // TODO: find correct implementation
+        false
+    }
+}
+
+// TODO: if necessary, must be implemented in wit-bindgen
+unsafe impl wit_bindgen_wasmer::wasmer::FromToNativeWasmType for Socktype {
+    type Native = i32;
+
+    fn to_native(self) -> Self::Native {
+        self as i32
+    }
+    fn from_native(n: Self::Native) -> Self {
+        match n {
+            0 => Self::Dgram,
+            1 => Self::Stream,
+            2 => Self::Raw,
+            3 => Self::Seqpacket,
             // TODO: What should we map invalid native values to?
             _ => todo!("Need to decide what to do here…"),
         }

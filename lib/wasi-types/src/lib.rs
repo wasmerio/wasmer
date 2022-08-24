@@ -13,7 +13,6 @@ extern crate wasmer_types as wasmer;
 
 mod bus;
 mod directory;
-mod event;
 mod file;
 mod io;
 mod net;
@@ -25,7 +24,6 @@ mod versions;
 pub use crate::time::*;
 pub use bus::*;
 pub use directory::*;
-pub use event::*;
 pub use file::*;
 pub use io::*;
 pub use net::*;

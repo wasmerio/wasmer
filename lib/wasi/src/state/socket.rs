@@ -16,7 +16,7 @@ use wasmer_vnet::{
     IpCidr, IpRoute, SocketHttpRequest, VirtualIcmpSocket, VirtualNetworking, VirtualRawSocket,
     VirtualTcpListener, VirtualTcpSocket, VirtualUdpSocket, VirtualWebSocket,
 };
-use wasmer_wasi_types_generated::wasi::{Errno, Fdflags, Rights};
+use wasmer_wasi_types_generated::wasi::{Errno, Fdflags, Socktype};
 
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
@@ -37,7 +37,7 @@ pub enum InodeHttpSocketType {
 pub enum InodeSocketKind {
     PreSocket {
         family: __wasi_addressfamily_t,
-        ty: __wasi_socktype_t,
+        ty: Socktype,
         pt: __wasi_sockproto_t,
         addr: Option<SocketAddr>,
         only_v6: bool,
@@ -193,12 +193,12 @@ impl InodeSocket {
                 let addr = (*addr).unwrap();
 
                 Ok(match *ty {
-                    __WASI_SOCK_TYPE_STREAM => {
+                    Socktype::Stream => {
                         // we already set the socket address - next we need a bind or connect so nothing
                         // more to do at this time
                         None
                     }
-                    __WASI_SOCK_TYPE_DGRAM => {
+                    Socktype::Dgram => {
                         let socket = net
                             .bind_udp(addr, *reuse_port, *reuse_addr)
                             .map_err(net_error_into_wasi_err)?;
@@ -226,7 +226,7 @@ impl InodeSocket {
                 accept_timeout,
                 ..
             } => Ok(match *ty {
-                __WASI_SOCK_TYPE_STREAM => {
+                Socktype::Stream => {
                     if addr.is_none() {
                         return Err(Errno::Inval);
                     }
@@ -291,7 +291,7 @@ impl InodeSocket {
                 connect_timeout,
                 ..
             } => Ok(match *ty {
-                __WASI_SOCK_TYPE_STREAM => {
+                Socktype::Stream => {
                     let addr = match addr {
                         Some(a) => *a,
                         None => {
@@ -317,7 +317,7 @@ impl InodeSocket {
                     }
                     Some(InodeSocket::new(InodeSocketKind::TcpStream(socket)))
                 }
-                __WASI_SOCK_TYPE_DGRAM => return Err(Errno::Inval),
+                Socktype::Dgram => return Err(Errno::Inval),
                 _ => return Err(Errno::Notsup),
             }),
             InodeSocketKind::UdpSocket(sock) => {

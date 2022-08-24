@@ -694,3 +694,10 @@ record subscription {
     userdata: userdata,
     data: subscription-enum,
 }
+
+enum socktype {
+    dgram,
+    %stream,
+    raw,
+    seqpacket,
+}
