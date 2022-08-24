@@ -4,6 +4,7 @@ use crate::js::trap::RuntimeError;
 use std::borrow::Cow;
 #[cfg(feature = "std")]
 use thiserror::Error;
+use wasmer_types::ImportError;
 
 // Compilation Errors
 //
@@ -142,6 +143,28 @@ pub enum DeserializeError {
     /// trying to allocate the required resources.
     #[cfg_attr(feature = "std", error(transparent))]
     Compiler(CompileError),
+}
+
+/// The WebAssembly.LinkError object indicates an error during
+/// module instantiation (besides traps from the start function).
+///
+/// This is based on the [link error][link-error] API.
+///
+/// [link-error]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/WebAssembly/LinkError
+#[derive(Error, Debug)]
+#[error("Link error: {0}")]
+pub enum LinkError {
+    /// An error occurred when checking the import types.
+    #[error("Error while importing {0:?}.{1:?}: {2}")]
+    Import(String, String, ImportError),
+
+    #[cfg(not(target_arch = "wasm32"))]
+    /// A trap ocurred during linking.
+    #[error("RuntimeError occurred during linking: {0}")]
+    Trap(#[source] RuntimeError),
+    /// Insufficient resources available for linking.
+    #[error("Insufficient resources: {0}")]
+    Resource(String),
 }
 
 /// An error while instantiating a module.

@@ -1,7 +1,7 @@
 //! The import module contains the implementation data structures and helper functions used to
 //! manipulate and access a wasm module's imports including memories, tables, globals, and
 //! functions.
-use crate::js::error::InstantiationError;
+use crate::js::error::{InstantiationError, LinkError};
 use crate::js::exports::Exports;
 use crate::js::module::Module;
 use crate::js::store::AsStoreRef;
@@ -130,7 +130,7 @@ impl Imports {
     /// Resolve and return a vector of imports in the order they are defined in the `module`'s source code.
     ///
     /// This means the returned `Vec<Extern>` might be a subset of the imports contained in `self`.
-    pub fn imports_for_module(&self, module: &Module) -> Result<Vec<Extern>, InstantiationError> {
+    pub fn imports_for_module(&self, module: &Module) -> Result<Vec<Extern>, LinkError> {
         let mut ret = vec![];
         for import in module.imports() {
             if let Some(imp) = self
@@ -139,12 +139,11 @@ impl Imports {
             {
                 ret.push(imp.clone());
             } else {
-                return Err(InstantiationError::Link(format!(
-                    "Error while importing {0:?}.{1:?}: unknown import. Expected {2:?}",
-                    import.module(),
-                    import.name(),
-                    import.ty()
-                )));
+                return Err(LinkError::Import(
+                    import.module().to_string(),
+                    import.name().to_string(),
+                    ImportError::UnknownImport(import.ty().clone()),
+                ));
             }
         }
         Ok(ret)
