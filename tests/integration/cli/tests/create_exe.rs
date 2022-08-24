@@ -341,14 +341,18 @@ fn create_exe_with_object_input(args: Vec<&'static str>) -> anyhow::Result<()> {
     #[cfg(windows)]
     let object_path = operating_dir.join("wasm.obj");
 
-    WasmerCreateObj {
+    let wasmer_config = WasmerCreateObj {
         current_dir: operating_dir.clone(),
         wasm_path,
         output_object_path: object_path.clone(),
         compiler: Compiler::Cranelift,
         extra_cli_flags: args,
         ..Default::default()
-    }
+    };
+
+    println!("{wasmer_config:#?}");
+
+    wasmer_config
     .run()
     .context("Failed to create-obj wasm with Wasmer")?;
 
@@ -370,14 +374,18 @@ fn create_exe_with_object_input(args: Vec<&'static str>) -> anyhow::Result<()> {
     #[cfg(windows)]
     let executable_path = operating_dir.join("wasm.exe");
 
-    WasmerCreateExe {
+    let wasmer_config_exe = WasmerCreateExe {
         current_dir: operating_dir.clone(),
         wasm_path: object_path,
         native_executable_path: executable_path.clone(),
         compiler: Compiler::Cranelift,
         extra_cli_flags: vec!["--header", "wasm.h"],
         ..Default::default()
-    }
+    };
+
+    println!("{wasmer_config_exe:#?}");
+
+    wasmer_config_exe
     .run()
     .context("Failed to create-exe wasm with Wasmer")?;
 

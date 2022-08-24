@@ -1,0 +1,1745 @@
+-----------
+[1m[32mINFORMATION(B[m
+-----------
+
+Host Target: `[1m[32mx86_64-unknown-linux-gnu(B[m`.
+Enabled Compilers: [1m[32mcranelift(B[m, [1m[32mllvm(B[m, [1m[32msinglepass(B[m.
+Testing the following compilers & engines:
+  * API: [1m[32mcranelift-universal llvm-universal singlepass-universal(B[m,
+  * C-API: [1m[32mcranelift-universal(B[m.
+Cargo features:
+  * Compilers: `[1m[32m--features cranelift,llvm,singlepass,wasmer-artifact-create,static-artifact-create,wasmer-artifact-load,static-artifact-load(B[m`.
+Rust version: [1m[32mrustc 1.65.0-nightly (015a824f2 2022-08-22)(B[m.
+NodeJS version: [1m[32mv18.6.0(B[m.
+LLVM version: [1m[32m12.0.0(B[m.
+
+
+--------------
+[1m[32mRULE EXECUTION(B[m
+--------------
+
+
+cargo test  --release --tests --features cranelift,llvm,singlepass,wasmer-artifact-create,static-artifact-create,wasmer-artifact-load,static-artifact-load -- --nocapture
+
+running 960 tests
+test deterministic::deterministic_empty ... ok
+test imports::instance_local_memory_lifetime::singlepass::universal ... ok
+test imports::dynamic_function_with_env_wasmer_env_init_works::singlepass::universal ... ok
+test imports::dynamic_function_with_env::singlepass::universal ... ok
+Hello, world!
+Hello, world!
+test imports::multi_use_host_fn_manages_memory_correctly::cranelift::universal ... ok
+test imports::dynamic_function::cranelift::universal ... ok
+test deterministic::deterministic_table ... ok
+test imports::dynamic_function_with_env_wasmer_env_init_works::cranelift::universal ... ok
+Hello, world!
+Hello, world!
+test imports::instance_local_memory_lifetime::cranelift::universal ... ok
+test imports::multi_use_host_fn_manages_memory_correctly::singlepass::universal ... ok
+test imports::static_function_that_fails::cranelift::universal ... ok
+test imports::static_function_with_env::cranelift::universal ... ok
+test imports::static_function_that_fails::singlepass::universal ... ok
+test imports::dynamic_function_with_env::cranelift::universal ... ok
+test imports::static_function_with_env::singlepass::universal ... ok
+(0, 0, 1048544, 11, 1048576, 0, 0, 1048560)
+test issues::call_with_static_data_pointers::cranelift::universal ... ok
+(0, 0, 1048544, 11, 1048576, 0, 0, 1048560)
+test issues::call_with_static_data_pointers::singlepass::universal ... ok
+test imports::dynamic_function_with_env_wasmer_env_init_works::llvm::universal ... ok
+test issues::issue_2329::cranelift::universal ... ok
+Hello, world!
+Hello, world!
+test imports::multi_use_host_fn_manages_memory_correctly::llvm::universal ... ok
+test issues::issue_2329::singlepass::universal ... ok
+test imports::instance_local_memory_lifetime::llvm::universal ... ok
+test issues::regression_gpr_exhaustion_for_calls::singlepass::universal ... ok
+test imports::static_function_that_fails::llvm::universal ... ok
+test issues::regression_gpr_exhaustion_for_calls::cranelift::universal ... ok
+test metering::complex_loop::cranelift::universal ... ok
+test imports::dynamic_function::llvm::universal ... ok
+(0, 0, 1048544, 11, 1048576, 0, 0, 1048560)
+test issues::call_with_static_data_pointers::llvm::universal ... ok
+test imports::dynamic_function::singlepass::universal ... ok
+test imports::static_function_with_env::llvm::universal ... ok
+test metering::loop_once::cranelift::universal ... ok
+test metering::loop_once::singlepass::universal ... ok
+test imports::dynamic_function_with_env::llvm::universal ... ok
+test issues::regression_gpr_exhaustion_for_calls::llvm::universal ... ok
+test metering::loop_twice::cranelift::universal ... ok
+test issues::issue_2329::llvm::universal ... ok
+test metering::metering_fail::cranelift::universal ... ok
+test imports::static_function_with_results::cranelift::universal ... ok
+test metering::loop_twice::singlepass::universal ... ok
+test imports::static_function::cranelift::universal ... ok
+test metering::metering_ok::cranelift::universal ... ok
+test metering::complex_loop::singlepass::universal ... ok
+test middlewares::middleware_basic::cranelift::universal ... ok
+test imports::static_function::singlepass::universal ... ok
+test imports::static_function_with_results::singlepass::universal ... ok
+test middlewares::middleware_chain_order_2::cranelift::universal ... ok
+test middlewares::middleware_basic::singlepass::universal ... ok
+test metering::metering_ok::singlepass::universal ... ok
+test metering::metering_fail::singlepass::universal ... ok
+test middlewares::middleware_chain_order_2::singlepass::universal ... ok
+test middlewares::middleware_chain_order_1::cranelift::universal ... ok
+test middlewares::middleware_chain_order_1::singlepass::universal ... ok
+test middlewares::middleware_multi_to_one::cranelift::universal ... ok
+test middlewares::middleware_one_to_multi::singlepass::universal ... ok
+test serialize::sanity_test_artifact_deserialize ... ok
+test middlewares::middleware_multi_to_one::singlepass::universal ... ok
+test middlewares::middleware_one_to_multi::cranelift::universal ... ok
+test middlewares::middleware_chain_order_1::llvm::universal ... ok
+test middlewares::middleware_multi_to_one::llvm::universal ... ok
+test metering::complex_loop::llvm::universal ... ok
+test metering::metering_fail::llvm::universal ... ok
+test traps::call_signature_mismatch::llvm::universal ... ignored
+test traps::call_signature_mismatch::singlepass::universal ... ignored
+test traps::mismatched_arguments::cranelift::universal ... ok
+deserialized module: Err(
+    Incompatible(
+        "The provided bytes were not serialized by Wasmer",
+    ),
+)
+deserialized module: Err(
+    Incompatible(
+        "The provided bytes were not serialized by Wasmer",
+    ),
+)
+test serialize::test_serialize::cranelift::universal ... ok
+test middlewares::middleware_one_to_multi::llvm::universal ... ok
+test traps::call_signature_mismatch::cranelift::universal ... ok
+test serialize::test_serialize::llvm::universal ... ok
+asserting before we drop modules
+test traps::mismatched_arguments::singlepass::universal ... ok
+test serialize::test_serialize::singlepass::universal ... ok
+asserting before we drop modules
+RuntimeError: unreachable
+    at <unnamed> (<module>[0]:0x20)
+asserting after drop
+RuntimeError: call stack exhausted
+test traps::present_after_module_drop::cranelift::universal ... ok
+asserting before we drop modules
+RuntimeError: unreachable
+    at <unnamed> (<module>[0]:0xffffffff)
+asserting after drop
+RuntimeError: unreachable
+test traps::present_after_module_drop::llvm::universal ... ok
+RuntimeError: unreachable
+    at <unnamed> (<module>[0]:0x20)
+asserting after drop
+RuntimeError: unreachable
+test middlewares::middleware_chain_order_2::llvm::universal ... ok
+test traps::present_after_module_drop::singlepass::universal ... ok
+test metering::loop_once::llvm::universal ... ok
+test traps::mismatched_arguments::llvm::universal ... ok
+test traps::start_trap_pretty::llvm::universal ... ignored
+test traps::start_trap_pretty::cranelift::universal ... ok
+test metering::loop_twice::llvm::universal ... ok
+test imports::static_function::llvm::universal ... ok
+test traps::test_trap_return::cranelift::universal ... ok
+test traps::test_trap_return::singlepass::universal ... ok
+test imports::static_function_with_results::llvm::universal ... ok
+test traps::start_trap_pretty::singlepass::universal ... ok
+deserialized module: Err(
+    Incompatible(
+        "The provided bytes were not serialized by Wasmer",
+    ),
+)
+test metering::metering_ok::llvm::universal ... ok
+test middlewares::middleware_basic::llvm::universal ... ok
+test traps::test_trap_trace::cranelift::universal ... ok
+test traps::test_trap_trace::singlepass::universal ... ok
+test traps::test_trap_stack_overflow::singlepass::universal ... ok
+Trace []
+test traps::test_trap_stack_overflow::llvm::universal ... ok
+test traps::test_trap_trace_cb::cranelift::universal ... ok
+test traps::trap_display_multi_module::llvm::universal ... ignored
+test traps::test_trap_stack_overflow::cranelift::universal ... ok
+test traps::trap_display_pretty::cranelift::universal ... ok
+test traps::trap_display_pretty::llvm::universal ... ignored
+test traps::test_trap_return::llvm::universal ... ok
+test traps::trap_display_multi_module::cranelift::universal ... ok
+test traps::trap_start_function_import::cranelift::universal ... ok
+test traps::trap_display_multi_module::singlepass::universal ... ok
+Trace []
+test traps::test_trap_trace_cb::singlepass::universal ... ok
+test traps::trap_display_pretty::singlepass::universal ... ok
+test typed_functions::dynamic_host_function_with_env::cranelift::universal ... ok
+test typed_functions::dynamic_host_function_with_env::llvm::universal ... ok
+test typed_functions::dynamic_host_function_without_env::cranelift::universal ... ok
+test typed_functions::dynamic_host_function_with_env::singlepass::universal ... ok
+test typed_functions::dynamic_host_function_without_env::llvm::universal ... ok
+test typed_functions::dynamic_host_function_without_env::singlepass::universal ... ok
+test typed_functions::non_typed_functions_and_closures_with_no_env_work::singlepass::universal ... ok
+test typed_functions::static_host_function_with_env::cranelift::universal ... ok
+test typed_functions::static_host_function_with_env::llvm::universal ... ok
+test typed_functions::static_host_function_with_env::singlepass::universal ... ok
+test typed_functions::static_host_function_without_env::cranelift::universal ... ok
+test typed_functions::static_host_function_without_env::llvm::universal ... ok
+test typed_functions::static_host_function_without_env::singlepass::universal ... ok
+test typed_functions::non_typed_functions_and_closures_with_no_env_work::cranelift::universal ... ok
+test traps::trap_start_function_import::singlepass::universal ... ok
+test typed_functions::typed_function_works_for_wasm::cranelift::universal ... ok
+test typed_functions::typed_function_works_for_wasm::singlepass::universal ... ok
+test traps::test_trap_trace::llvm::universal ... ok
+test traps::trap_start_function_import::llvm::universal ... ok
+Trace []
+test traps::test_trap_trace_cb::llvm::universal ... ok
+test typed_functions::typed_function_works_for_wasm_function_manyparams::singlepass::universal ... ok
+test typed_functions::typed_function_works_for_wasm_function_manyparams_dynamic::cranelift::universal ... ok
+test typed_functions::typed_host_function_closure_panics::cranelift::universal ... ok
+test typed_functions::typed_host_function_closure_panics::llvm::universal ... ok
+test typed_functions::typed_host_function_closure_panics::singlepass::universal ... ok
+test typed_functions::typed_with_env_host_function_closure_panics::cranelift::universal ... ok
+test typed_functions::typed_with_env_host_function_closure_panics::llvm::universal ... ok
+test typed_functions::typed_with_env_host_function_closure_panics::singlepass::universal ... ok
+test wasi::wasitests::snapshot1::host_fs::close_preopen_fd::cranelift::universal ... ignored
+test wasi::wasitests::snapshot1::host_fs::close_preopen_fd::llvm::universal ... ignored
+test wasi::wasitests::snapshot1::host_fs::close_preopen_fd::singlepass::universal ... ignored
+test wasi::wasitests::snapshot1::host_fs::create_dir::cranelift::universal ... ignored
+test wasi::wasitests::snapshot1::host_fs::create_dir::llvm::universal ... ignored
+test wasi::wasitests::snapshot1::host_fs::create_dir::singlepass::universal ... ignored
+test wasi::wasitests::snapshot1::host_fs::envvar::cranelift::universal ... ignored
+test wasi::wasitests::snapshot1::host_fs::envvar::llvm::universal ... ignored
+test wasi::wasitests::snapshot1::host_fs::envvar::singlepass::universal ... ignored
+test wasi::wasitests::snapshot1::host_fs::fd_allocate::cranelift::universal ... ignored
+test wasi::wasitests::snapshot1::host_fs::fd_allocate::llvm::universal ... ignored
+test wasi::wasitests::snapshot1::host_fs::fd_allocate::singlepass::universal ... ignored
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/fd_append.wast`
+test typed_functions::typed_function_works_for_wasm_function_manyparams_dynamic::singlepass::universal ... ok
+test typed_functions::typed_function_works_for_wasm_function_manyparams::cranelift::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/fd_append.wast`
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/fd_append.wast`
+test typed_functions::typed_function_works_for_wasm::llvm::universal ... ok
+test wasi::wasitests::snapshot1::host_fs::fd_close::cranelift::universal ... ignored
+test wasi::wasitests::snapshot1::host_fs::fd_close::llvm::universal ... ignored
+test wasi::wasitests::snapshot1::host_fs::fd_close::singlepass::universal ... ignored
+test wasi::wasitests::snapshot1::host_fs::fd_pread::cranelift::universal ... ignored
+test wasi::wasitests::snapshot1::host_fs::fd_pread::llvm::universal ... ignored
+test wasi::wasitests::snapshot1::host_fs::fd_pread::singlepass::universal ... ignored
+test wasi::wasitests::snapshot1::host_fs::fd_read::cranelift::universal ... ignored
+test wasi::wasitests::snapshot1::host_fs::fd_read::llvm::universal ... ignored
+test wasi::wasitests::snapshot1::host_fs::fd_read::singlepass::universal ... ignored
+test wasi::wasitests::snapshot1::host_fs::fd_rename_path::cranelift::universal ... ignored
+test wasi::wasitests::snapshot1::host_fs::fd_rename_path::llvm::universal ... ignored
+test wasi::wasitests::snapshot1::host_fs::fd_rename_path::singlepass::universal ... ignored
+test typed_functions::non_typed_functions_and_closures_with_no_env_work::llvm::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/fd_sync.wast`
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/fd_sync.wast`
+test serialize::test_deserialize::singlepass::universal ... FAILED
+test serialize::test_deserialize::cranelift::universal ... FAILED
+test traps::rust_panic_import::cranelift::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/fd_sync.wast`
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/file_metadata.wast`
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/file_metadata.wast`
+test typed_functions::typed_function_works_for_wasm_function_manyparams_dynamic::llvm::universal ... ok
+test traps::rust_panic_import::llvm::universal ... ok
+test typed_functions::typed_function_works_for_wasm_function_manyparams::llvm::universal ... ok
+test traps::rust_panic_start_function::singlepass::universal ... ok
+test traps::rust_panic_import::singlepass::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/fs_sandbox_test.wast`
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/file_metadata.wast`
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/fseek.wast`
+test traps::rust_panic_start_function::llvm::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/fs_sandbox_test.wast`
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/fseek.wast`
+test traps::rust_panic_start_function::cranelift::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/fs_sandbox_test.wast`
+test serialize::test_deserialize::llvm::universal ... FAILED
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/fseek.wast`
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/hello.wast`
+test wasi::wasitests::snapshot1::host_fs::fs_sandbox_test::singlepass::universal ... ok
+test wasi::wasitests::snapshot1::host_fs::fseek::singlepass::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/hello.wast`
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/hello.wast`
+test wasi::wasitests::snapshot1::host_fs::file_metadata::singlepass::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/isatty.wast`
+test wasi::wasitests::snapshot1::host_fs::hello::singlepass::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/isatty.wast`
+test wasi::wasitests::snapshot1::host_fs::hello::cranelift::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/isatty.wast`
+test wasi::wasitests::snapshot1::host_fs::isatty::cranelift::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/mapdir.wast`
+test wasi::wasitests::snapshot1::host_fs::isatty::llvm::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/mapdir.wast`
+test wasi::wasitests::snapshot1::host_fs::isatty::singlepass::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/mapdir.wast`
+test wasi::wasitests::snapshot1::host_fs::mapdir::singlepass::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/mapdir_with_leading_slash.wast`
+test wasi::wasitests::snapshot1::host_fs::mapdir_with_leading_slash::cranelift::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/mapdir_with_leading_slash.wast`
+test wasi::wasitests::snapshot1::host_fs::fs_sandbox_test::llvm::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/mapdir_with_leading_slash.wast`
+test wasi::wasitests::snapshot1::host_fs::mapdir_with_leading_slash::singlepass::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/path_link.wast`
+test wasi::wasitests::snapshot1::host_fs::path_link::cranelift::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/path_link.wast`
+test wasi::wasitests::snapshot1::host_fs::hello::llvm::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/path_link.wast`
+test wasi::wasitests::snapshot1::host_fs::mapdir::cranelift::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/path_rename.wast`
+test wasi::wasitests::snapshot1::host_fs::path_link::singlepass::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/path_rename.wast`
+test wasi::wasitests::snapshot1::host_fs::fs_sandbox_test::cranelift::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/path_rename.wast`
+test wasi::wasitests::snapshot1::host_fs::fseek::cranelift::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/path_symlink.wast`
+test wasi::wasitests::snapshot1::host_fs::path_rename::singlepass::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/path_symlink.wast`
+test wasi::wasitests::snapshot1::host_fs::mapdir::llvm::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/path_symlink.wast`
+test wasi::wasitests::snapshot1::host_fs::mapdir_with_leading_slash::llvm::universal ... ok
+test wasi::wasitests::snapshot1::host_fs::fseek::llvm::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/pipe_reverse.wast`
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/pipe_reverse.wast`
+test wasi::wasitests::snapshot1::host_fs::path_symlink::cranelift::universal ... ok
+test wasi::wasitests::snapshot1::host_fs::path_symlink::singlepass::universal ... ok
+test wasi::wasitests::snapshot1::host_fs::poll_oneoff::cranelift::universal ... ignored
+test wasi::wasitests::snapshot1::host_fs::poll_oneoff::llvm::universal ... ignored
+test wasi::wasitests::snapshot1::host_fs::poll_oneoff::singlepass::universal ... ignored
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/pipe_reverse.wast`
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/quine.wast`
+test wasi::wasitests::snapshot1::host_fs::pipe_reverse::singlepass::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/quine.wast`
+test wasi::wasitests::snapshot1::host_fs::quine::cranelift::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/quine.wast`
+test wasi::wasitests::snapshot1::host_fs::quine::singlepass::universal ... ok
+test wasi::wasitests::snapshot1::host_fs::readlink::cranelift::universal ... ignored
+test wasi::wasitests::snapshot1::host_fs::readlink::llvm::universal ... ignored
+test wasi::wasitests::snapshot1::host_fs::readlink::singlepass::universal ... ignored
+test wasi::wasitests::snapshot1::host_fs::unix_open_special_files::cranelift::universal ... ignored
+test wasi::wasitests::snapshot1::host_fs::unix_open_special_files::llvm::universal ... ignored
+test wasi::wasitests::snapshot1::host_fs::unix_open_special_files::singlepass::universal ... ignored
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/wasi_sees_virtual_root.wast`
+test wasi::wasitests::snapshot1::host_fs::wasi_sees_virtual_root::cranelift::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/wasi_sees_virtual_root.wast`
+test wasi::wasitests::snapshot1::host_fs::path_symlink::llvm::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/wasi_sees_virtual_root.wast`
+test wasi::wasitests::snapshot1::host_fs::path_rename::llvm::universal ... ok
+test wasi::wasitests::snapshot1::host_fs::writing::cranelift::universal ... ignored
+test wasi::wasitests::snapshot1::host_fs::writing::llvm::universal ... ignored
+test wasi::wasitests::snapshot1::host_fs::writing::singlepass::universal ... ignored
+test wasi::wasitests::snapshot1::mem_fs::close_preopen_fd::cranelift::universal ... ignored
+test wasi::wasitests::snapshot1::mem_fs::close_preopen_fd::llvm::universal ... ignored
+test wasi::wasitests::snapshot1::mem_fs::close_preopen_fd::singlepass::universal ... ignored
+test wasi::wasitests::snapshot1::mem_fs::create_dir::cranelift::universal ... ignored
+test wasi::wasitests::snapshot1::mem_fs::create_dir::llvm::universal ... ignored
+test wasi::wasitests::snapshot1::mem_fs::create_dir::singlepass::universal ... ignored
+test wasi::wasitests::snapshot1::mem_fs::envvar::cranelift::universal ... ignored
+test wasi::wasitests::snapshot1::mem_fs::envvar::llvm::universal ... ignored
+test wasi::wasitests::snapshot1::mem_fs::envvar::singlepass::universal ... ignored
+test wasi::wasitests::snapshot1::mem_fs::fd_allocate::cranelift::universal ... ignored
+test wasi::wasitests::snapshot1::mem_fs::fd_allocate::llvm::universal ... ignored
+test wasi::wasitests::snapshot1::mem_fs::fd_allocate::singlepass::universal ... ignored
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/fd_append.wast`
+test wasi::wasitests::snapshot1::host_fs::wasi_sees_virtual_root::singlepass::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/fd_append.wast`
+test wasi::wasitests::snapshot1::host_fs::pipe_reverse::cranelift::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/fd_append.wast`
+test wasi::wasitests::snapshot1::host_fs::path_link::llvm::universal ... ok
+test wasi::wasitests::snapshot1::mem_fs::fd_close::cranelift::universal ... ignored
+test wasi::wasitests::snapshot1::mem_fs::fd_close::llvm::universal ... ignored
+test wasi::wasitests::snapshot1::mem_fs::fd_close::singlepass::universal ... ignored
+test wasi::wasitests::snapshot1::mem_fs::fd_pread::cranelift::universal ... ignored
+test wasi::wasitests::snapshot1::mem_fs::fd_pread::llvm::universal ... ignored
+test wasi::wasitests::snapshot1::mem_fs::fd_pread::singlepass::universal ... ignored
+test wasi::wasitests::snapshot1::mem_fs::fd_read::cranelift::universal ... ignored
+test wasi::wasitests::snapshot1::mem_fs::fd_read::llvm::universal ... ignored
+test wasi::wasitests::snapshot1::mem_fs::fd_read::singlepass::universal ... ignored
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/fd_rename_path.wast`
+test wasi::wasitests::snapshot1::host_fs::file_metadata::llvm::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/fd_rename_path.wast`
+test wasi::wasitests::snapshot1::mem_fs::fd_append::singlepass::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/fd_rename_path.wast`
+test wasi::wasitests::snapshot1::mem_fs::fd_rename_path::singlepass::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/fd_sync.wast`
+test wasi::wasitests::snapshot1::mem_fs::fd_sync::cranelift::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/fd_sync.wast`
+test wasi::wasitests::snapshot1::host_fs::wasi_sees_virtual_root::llvm::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/fd_sync.wast`
+test wasi::wasitests::snapshot1::host_fs::quine::llvm::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/file_metadata.wast`
+test wasi::wasitests::snapshot1::mem_fs::fd_rename_path::cranelift::universal ... ok
+test wasi::wasitests::snapshot1::mem_fs::fd_append::cranelift::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/file_metadata.wast`
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/file_metadata.wast`
+test wasi::wasitests::snapshot1::host_fs::path_rename::cranelift::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/fs_sandbox_test.wast`
+test wasi::wasitests::snapshot1::mem_fs::file_metadata::singlepass::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/fs_sandbox_test.wast`
+test wasi::wasitests::snapshot1::mem_fs::fs_sandbox_test::cranelift::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/fs_sandbox_test.wast`
+test wasi::wasitests::snapshot1::mem_fs::fs_sandbox_test::singlepass::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/fseek.wast`
+test wasi::wasitests::snapshot1::mem_fs::fseek::cranelift::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/fseek.wast`
+test wasi::wasitests::snapshot1::mem_fs::fd_sync::llvm::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/fseek.wast`
+test wasi::wasitests::snapshot1::mem_fs::fd_rename_path::llvm::universal ... ok
+test wasi::wasitests::snapshot1::mem_fs::fd_sync::singlepass::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/hello.wast`
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/hello.wast`
+test wasi::wasitests::snapshot1::host_fs::pipe_reverse::llvm::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/hello.wast`
+test wasi::wasitests::snapshot1::host_fs::fd_sync::singlepass::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/isatty.wast`
+test wasi::wasitests::snapshot1::mem_fs::fseek::singlepass::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/isatty.wast`
+test wasi::wasitests::snapshot1::mem_fs::isatty::cranelift::universal ... ok
+test wasi::wasitests::snapshot1::mem_fs::hello::singlepass::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/mapdir.wast`
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/isatty.wast`
+test wasi::wasitests::snapshot1::mem_fs::isatty::singlepass::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/mapdir.wast`
+test wasi::wasitests::snapshot1::mem_fs::mapdir::cranelift::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/mapdir.wast`
+test wasi::wasitests::snapshot1::mem_fs::mapdir::singlepass::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/mapdir_with_leading_slash.wast`
+test wasi::wasitests::snapshot1::mem_fs::mapdir_with_leading_slash::cranelift::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/mapdir_with_leading_slash.wast`
+test wasi::wasitests::snapshot1::mem_fs::fs_sandbox_test::llvm::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/mapdir_with_leading_slash.wast`
+test wasi::wasitests::snapshot1::mem_fs::hello::cranelift::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/path_link.wast`
+test wasi::wasitests::snapshot1::mem_fs::isatty::llvm::universal ... ok
+test wasi::wasitests::snapshot1::host_fs::file_metadata::cranelift::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/path_link.wast`
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/path_link.wast`
+test wasi::wasitests::snapshot1::mem_fs::mapdir_with_leading_slash::llvm::universal ... ok
+test wasi::wasitests::snapshot1::mem_fs::mapdir::llvm::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/path_rename.wast`
+test wasi::wasitests::snapshot1::mem_fs::file_metadata::cranelift::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/path_rename.wast`
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/path_rename.wast`
+test wasi::wasitests::snapshot1::mem_fs::path_link::singlepass::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/path_symlink.wast`
+test wasi::wasitests::snapshot1::mem_fs::path_rename::singlepass::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/path_symlink.wast`
+test wasi::wasitests::snapshot1::mem_fs::fseek::llvm::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/path_symlink.wast`
+test wasi::wasitests::snapshot1::mem_fs::path_rename::cranelift::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/pipe_reverse.wast`
+test wasi::wasitests::snapshot1::mem_fs::path_rename::llvm::universal ... ok
+test wasi::wasitests::snapshot1::mem_fs::path_symlink::cranelift::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/pipe_reverse.wast`
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/pipe_reverse.wast`
+test wasi::wasitests::snapshot1::mem_fs::path_symlink::singlepass::universal ... ok
+test wasi::wasitests::snapshot1::mem_fs::poll_oneoff::cranelift::universal ... ignored
+test wasi::wasitests::snapshot1::mem_fs::poll_oneoff::llvm::universal ... ignored
+test wasi::wasitests::snapshot1::mem_fs::poll_oneoff::singlepass::universal ... ignored
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/quine.wast`
+test wasi::wasitests::snapshot1::mem_fs::pipe_reverse::singlepass::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/quine.wast`
+test wasi::wasitests::snapshot1::mem_fs::quine::cranelift::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/quine.wast`
+test wasi::wasitests::snapshot1::mem_fs::path_symlink::llvm::universal ... ok
+test wasi::wasitests::snapshot1::mem_fs::readlink::cranelift::universal ... ignored
+test wasi::wasitests::snapshot1::mem_fs::readlink::llvm::universal ... ignored
+test wasi::wasitests::snapshot1::mem_fs::readlink::singlepass::universal ... ignored
+test wasi::wasitests::snapshot1::mem_fs::unix_open_special_files::cranelift::universal ... ignored
+test wasi::wasitests::snapshot1::mem_fs::unix_open_special_files::llvm::universal ... ignored
+test wasi::wasitests::snapshot1::mem_fs::unix_open_special_files::singlepass::universal ... ignored
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/wasi_sees_virtual_root.wast`
+test wasi::wasitests::snapshot1::mem_fs::path_link::llvm::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/wasi_sees_virtual_root.wast`
+test wasi::wasitests::snapshot1::mem_fs::mapdir_with_leading_slash::singlepass::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/snapshot1/wasi_sees_virtual_root.wast`
+test wasi::wasitests::snapshot1::mem_fs::pipe_reverse::llvm::universal ... ok
+test wasi::wasitests::snapshot1::mem_fs::quine::llvm::universal ... ok
+test wasi::wasitests::snapshot1::mem_fs::writing::cranelift::universal ... ignored
+test wasi::wasitests::snapshot1::mem_fs::quine::singlepass::universal ... ok
+test wasi::wasitests::snapshot1::mem_fs::file_metadata::llvm::universal ... ok
+test wasi::wasitests::snapshot1::mem_fs::fd_append::llvm::universal ... ok
+test wasi::wasitests::snapshot1::mem_fs::writing::llvm::universal ... ignored
+test wasi::wasitests::snapshot1::mem_fs::writing::singlepass::universal ... ignored
+test wasi::wasitests::snapshot1::mem_fs::pipe_reverse::cranelift::universal ... ok
+test wasi::wasitests::unstable::host_fs::create_dir::cranelift::universal ... ignored
+test wasi::wasitests::unstable::host_fs::create_dir::llvm::universal ... ignored
+test wasi::wasitests::unstable::host_fs::create_dir::singlepass::universal ... ignored
+Running wasi wast `tests/wasi-wast/wasi/unstable/envvar.wast`
+Running wasi wast `tests/wasi-wast/wasi/unstable/envvar.wast`
+Running wasi wast `tests/wasi-wast/wasi/unstable/envvar.wast`
+Running wasi wast `tests/wasi-wast/wasi/unstable/close_preopen_fd.wast`
+Running wasi wast `tests/wasi-wast/wasi/unstable/close_preopen_fd.wast`
+Running wasi wast `tests/wasi-wast/wasi/unstable/close_preopen_fd.wast`
+test wasi::wasitests::snapshot1::host_fs::fd_sync::cranelift::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/fd_allocate.wast`
+test wasi::wasitests::unstable::host_fs::close_preopen_fd::singlepass::universal ... ok
+test wasi::wasitests::unstable::host_fs::envvar::singlepass::universal ... Running wasi wast `tests/wasi-wast/wasi/unstable/fd_allocate.wast`
+ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/fd_allocate.wast`
+test wasi::wasitests::snapshot1::mem_fs::wasi_sees_virtual_root::singlepass::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/fd_append.wast`
+test wasi::wasitests::unstable::host_fs::fd_append::cranelift::universal ... ok
+test wasi::wasitests::unstable::host_fs::fd_allocate::singlepass::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/fd_append.wast`
+Running wasi wast `tests/wasi-wast/wasi/unstable/fd_append.wast`
+test wasi::wasitests::unstable::host_fs::fd_allocate::cranelift::universal ... ok
+test wasi::wasitests::unstable::host_fs::fd_close::cranelift::universal ... ignored
+test wasi::wasitests::unstable::host_fs::fd_close::llvm::universal ... ignored
+test wasi::wasitests::unstable::host_fs::fd_close::singlepass::universal ... ignored
+Running wasi wast `tests/wasi-wast/wasi/unstable/fd_pread.wast`
+test wasi::wasitests::unstable::host_fs::fd_append::singlepass::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/fd_pread.wast`
+test wasi::wasitests::unstable::host_fs::fd_pread::cranelift::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/fd_pread.wast`
+test wasi::wasitests::unstable::host_fs::fd_pread::singlepass::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/fd_read.wast`
+test wasi::wasitests::unstable::host_fs::fd_read::cranelift::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/fd_read.wast`
+test wasi::wasitests::unstable::host_fs::close_preopen_fd::cranelift::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/fd_read.wast`
+test wasi::wasitests::unstable::host_fs::fd_read::singlepass::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/fd_sync.wast`
+test wasi::wasitests::unstable::host_fs::fd_sync::cranelift::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/fd_sync.wast`
+test wasi::wasitests::unstable::host_fs::envvar::cranelift::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/fd_sync.wast`
+test wasi::wasitests::unstable::host_fs::close_preopen_fd::llvm::universal ... ok
+test wasi::wasitests::unstable::host_fs::fd_allocate::llvm::universal ... ok
+test wasi::wasitests::unstable::host_fs::fd_pread::llvm::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/file_metadata.wast`
+Running wasi wast `tests/wasi-wast/wasi/unstable/file_metadata.wast`
+Running wasi wast `tests/wasi-wast/wasi/unstable/file_metadata.wast`
+test wasi::wasitests::unstable::host_fs::fd_sync::llvm::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/fs_sandbox_test.wast`
+test wasi::wasitests::unstable::host_fs::fd_sync::singlepass::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/fs_sandbox_test.wast`
+test wasi::wasitests::unstable::host_fs::file_metadata::singlepass::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/fs_sandbox_test.wast`
+test wasi::wasitests::unstable::host_fs::fd_read::llvm::universal ... ok
+test wasi::wasitests::snapshot1::mem_fs::hello::llvm::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/fseek.wast`
+Running wasi wast `tests/wasi-wast/wasi/unstable/fseek.wast`
+test wasi::wasitests::unstable::host_fs::fseek::cranelift::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/fseek.wast`
+test wasi::wasitests::unstable::host_fs::fseek::singlepass::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/hello.wast`
+test wasi::wasitests::snapshot1::host_fs::fd_sync::llvm::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/hello.wast`
+test wasi::wasitests::unstable::host_fs::fd_append::llvm::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/hello.wast`
+test wasi::wasitests::unstable::host_fs::hello::cranelift::universal ... ok
+test wasi::wasitests::unstable::host_fs::fs_sandbox_test::llvm::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/isatty.wast`
+Running wasi wast `tests/wasi-wast/wasi/unstable/isatty.wast`
+test wasi::wasitests::unstable::host_fs::fs_sandbox_test::singlepass::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/isatty.wast`
+test wasi::wasitests::unstable::host_fs::hello::singlepass::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/mapdir.wast`
+test wasi::wasitests::unstable::host_fs::isatty::singlepass::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/mapdir.wast`
+test wasi::wasitests::unstable::host_fs::envvar::llvm::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/mapdir.wast`
+test wasi::wasitests::snapshot1::mem_fs::wasi_sees_virtual_root::llvm::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/mapdir_with_leading_slash.wast`
+test wasi::wasitests::unstable::host_fs::mapdir::singlepass::universal ... ok
+test wasi::wasitests::unstable::host_fs::isatty::cranelift::universal ... ok
+test wasi::wasitests::unstable::host_fs::mapdir::llvm::universal ... ok
+test wasi::wasitests::unstable::host_fs::file_metadata::cranelift::universal ... Running wasi wast `tests/wasi-wast/wasi/unstable/mapdir_with_leading_slash.wast`
+ok
+test wasi::wasitests::unstable::host_fs::mapdir::cranelift::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/path_link.wast`
+Running wasi wast `tests/wasi-wast/wasi/unstable/path_link.wast`
+Running wasi wast `tests/wasi-wast/wasi/unstable/mapdir_with_leading_slash.wast`
+test wasi::wasitests::unstable::host_fs::fs_sandbox_test::cranelift::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/path_rename.wast`
+Running wasi wast `tests/wasi-wast/wasi/unstable/path_link.wast`
+test wasi::wasitests::unstable::host_fs::path_link::singlepass::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/path_rename.wast`
+test wasi::wasitests::unstable::host_fs::path_rename::cranelift::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/path_rename.wast`
+test wasi::wasitests::unstable::host_fs::path_rename::llvm::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/path_symlink.wast`
+test wasi::wasitests::unstable::host_fs::mapdir_with_leading_slash::singlepass::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/path_symlink.wast`
+test wasi::wasitests::unstable::host_fs::path_rename::singlepass::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/path_symlink.wast`
+test wasi::wasitests::unstable::host_fs::path_symlink::singlepass::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/pipe_reverse.wast`
+test wasi::wasitests::unstable::host_fs::pipe_reverse::cranelift::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/pipe_reverse.wast`
+test wasi::wasitests::unstable::host_fs::fseek::llvm::universal ... ok
+test wasi::wasitests::unstable::host_fs::path_symlink::cranelift::universal ... ok
+test wasi::wasitests::unstable::host_fs::poll_oneoff::cranelift::universal ... ignored
+test wasi::wasitests::unstable::host_fs::poll_oneoff::llvm::universal ... ignored
+test wasi::wasitests::unstable::host_fs::poll_oneoff::singlepass::universal ... ignored
+test wasi::wasitests::unstable::host_fs::isatty::llvm::universal ... ok
+test wasi::wasitests::unstable::host_fs::path_link::cranelift::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/pipe_reverse.wast`
+Running wasi wast `tests/wasi-wast/wasi/unstable/quine.wast`
+Running wasi wast `tests/wasi-wast/wasi/unstable/quine.wast`
+Running wasi wast `tests/wasi-wast/wasi/unstable/quine.wast`
+test wasi::wasitests::unstable::host_fs::path_link::llvm::universal ... ok
+test wasi::wasitests::unstable::host_fs::mapdir_with_leading_slash::llvm::universal ... ok
+test wasi::wasitests::unstable::host_fs::readlink::cranelift::universal ... ignored
+test wasi::wasitests::unstable::host_fs::readlink::llvm::universal ... ignored
+test wasi::wasitests::unstable::host_fs::readlink::singlepass::universal ... ignored
+test wasi::wasitests::unstable::host_fs::unix_open_special_files::cranelift::universal ... ignored
+test wasi::wasitests::unstable::host_fs::unix_open_special_files::llvm::universal ... ignored
+test wasi::wasitests::unstable::host_fs::unix_open_special_files::singlepass::universal ... ignored
+Running wasi wast `tests/wasi-wast/wasi/unstable/wasi_sees_virtual_root.wast`
+Running wasi wast `tests/wasi-wast/wasi/unstable/wasi_sees_virtual_root.wast`
+test wasi::wasitests::unstable::host_fs::quine::singlepass::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/wasi_sees_virtual_root.wast`
+test wasi::wasitests::unstable::host_fs::wasi_sees_virtual_root::singlepass::universal ... ok
+test wasi::wasitests::unstable::host_fs::writing::cranelift::universal ... ignored
+test wasi::wasitests::unstable::host_fs::writing::llvm::universal ... ignored
+test wasi::wasitests::unstable::host_fs::writing::singlepass::universal ... ignored
+Running wasi wast `tests/wasi-wast/wasi/unstable/close_preopen_fd.wast`
+test wasi::wasitests::unstable::mem_fs::close_preopen_fd::cranelift::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/close_preopen_fd.wast`
+test wasi::wasitests::unstable::host_fs::hello::llvm::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/close_preopen_fd.wast`
+test wasi::wasitests::unstable::host_fs::file_metadata::llvm::universal ... ok
+test wasi::wasitests::unstable::mem_fs::create_dir::cranelift::universal ... ignored
+test wasi::wasitests::unstable::mem_fs::create_dir::llvm::universal ... ignored
+test wasi::wasitests::unstable::mem_fs::create_dir::singlepass::universal ... ignored
+Running wasi wast `tests/wasi-wast/wasi/unstable/envvar.wast`
+test wasi::wasitests::unstable::host_fs::wasi_sees_virtual_root::cranelift::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/envvar.wast`
+test wasi::wasitests::snapshot1::mem_fs::path_link::cranelift::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/envvar.wast`
+test wasi::wasitests::unstable::mem_fs::close_preopen_fd::singlepass::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/fd_allocate.wast`
+test wasi::wasitests::unstable::host_fs::pipe_reverse::singlepass::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/fd_allocate.wast`
+test wasi::wasitests::unstable::mem_fs::fd_allocate::cranelift::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/fd_allocate.wast`
+test wasi::wasitests::unstable::mem_fs::envvar::singlepass::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/fd_append.wast`
+test wasi::wasitests::unstable::mem_fs::fd_allocate::singlepass::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/fd_append.wast`
+test wasi::wasitests::unstable::host_fs::path_symlink::llvm::universal ... ok
+test wasi::wasitests::unstable::host_fs::pipe_reverse::llvm::universal ... ok
+test wasi::wasitests::unstable::mem_fs::fd_close::cranelift::universal ... ignored
+test wasi::wasitests::unstable::mem_fs::fd_close::llvm::universal ... ignored
+test wasi::wasitests::unstable::mem_fs::fd_close::singlepass::universal ... ignored
+Running wasi wast `tests/wasi-wast/wasi/unstable/fd_append.wast`
+Running wasi wast `tests/wasi-wast/wasi/unstable/fd_pread.wast`
+test wasi::wasitests::unstable::host_fs::wasi_sees_virtual_root::llvm::universal ... ok
+test wasi::wasitests::unstable::host_fs::quine::cranelift::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/fd_pread.wast`
+Running wasi wast `tests/wasi-wast/wasi/unstable/fd_pread.wast`
+test wasi::wasitests::unstable::mem_fs::fd_append::cranelift::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/fd_read.wast`
+test wasi::wasitests::unstable::mem_fs::fd_pread::singlepass::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/fd_read.wast`
+test wasi::wasitests::unstable::host_fs::quine::llvm::universal ... ok
+test wasi::wasitests::snapshot1::host_fs::fd_append::llvm::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/fd_read.wast`
+Running wasi wast `tests/wasi-wast/wasi/unstable/fd_sync.wast`
+test wasi::wasitests::unstable::mem_fs::fd_read::cranelift::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/fd_sync.wast`
+test wasi::wasitests::unstable::mem_fs::fd_pread::llvm::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/fd_sync.wast`
+test wasi::wasitests::unstable::mem_fs::fd_read::llvm::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/file_metadata.wast`
+test wasi::wasitests::unstable::mem_fs::fd_sync::llvm::universal ... ok
+test wasi::wasitests::unstable::mem_fs::close_preopen_fd::llvm::universal ... ok
+test wasi::wasitests::unstable::mem_fs::fd_sync::cranelift::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/file_metadata.wast`
+Running wasi wast `tests/wasi-wast/wasi/unstable/fs_sandbox_test.wast`
+test wasi::wasitests::unstable::mem_fs::fd_read::singlepass::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/fs_sandbox_test.wast`
+test wasi::wasitests::unstable::mem_fs::fd_append::llvm::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/fs_sandbox_test.wast`
+test wasi::wasitests::unstable::mem_fs::fd_sync::singlepass::universal ... ok
+test wasi::wasitests::unstable::mem_fs::fd_allocate::llvm::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/fseek.wast`
+Running wasi wast `tests/wasi-wast/wasi/unstable/file_metadata.wast`
+Running wasi wast `tests/wasi-wast/wasi/unstable/fseek.wast`
+test wasi::wasitests::unstable::mem_fs::fs_sandbox_test::singlepass::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/fseek.wast`
+test wasi::wasitests::unstable::mem_fs::file_metadata::singlepass::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/hello.wast`
+test wasi::wasitests::unstable::mem_fs::fseek::singlepass::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/hello.wast`
+test wasi::wasitests::unstable::mem_fs::fseek::cranelift::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/hello.wast`
+test wasi::wasitests::unstable::mem_fs::fs_sandbox_test::llvm::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/isatty.wast`
+test wasi::wasitests::unstable::mem_fs::hello::cranelift::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/isatty.wast`
+test wasi::wasitests::unstable::mem_fs::hello::singlepass::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/isatty.wast`
+test wasi::wasitests::unstable::mem_fs::isatty::cranelift::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/mapdir.wast`
+test wasi::wasitests::unstable::mem_fs::mapdir::cranelift::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/mapdir.wast`
+test wasi::wasitests::unstable::mem_fs::isatty::singlepass::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/mapdir.wast`
+test wasi::wasitests::unstable::mem_fs::fd_pread::cranelift::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/mapdir_with_leading_slash.wast`
+test wasi::wasitests::unstable::mem_fs::fs_sandbox_test::cranelift::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/mapdir_with_leading_slash.wast`
+test wasi::wasitests::unstable::mem_fs::hello::llvm::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/mapdir_with_leading_slash.wast`
+test wasi::wasitests::unstable::mem_fs::file_metadata::llvm::universal ... ok
+test wasi::wasitests::unstable::mem_fs::fseek::llvm::universal ... ok
+test wasi::wasitests::unstable::mem_fs::envvar::llvm::universal ... ok
+test wasi::wasitests::unstable::mem_fs::isatty::llvm::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/path_link.wast`
+Running wasi wast `tests/wasi-wast/wasi/unstable/path_rename.wast`
+Running wasi wast `tests/wasi-wast/wasi/unstable/path_link.wast`
+Running wasi wast `tests/wasi-wast/wasi/unstable/path_link.wast`
+test wasi::wasitests::unstable::mem_fs::mapdir::singlepass::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/path_rename.wast`
+test wasi::wasitests::unstable::mem_fs::file_metadata::cranelift::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/path_rename.wast`
+test wasi::wasitests::unstable::mem_fs::mapdir::llvm::universal ... ok
+test wasi::wasitests::snapshot1::mem_fs::wasi_sees_virtual_root::cranelift::universal ... ok
+test wasi::wasitests::unstable::mem_fs::mapdir_with_leading_slash::llvm::universal ... ok
+test wasi::wasitests::unstable::mem_fs::mapdir_with_leading_slash::cranelift::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/path_symlink.wast`
+Running wasi wast `tests/wasi-wast/wasi/unstable/pipe_reverse.wast`
+Running wasi wast `tests/wasi-wast/wasi/unstable/path_symlink.wast`
+test wasi::wasitests::unstable::mem_fs::fd_append::singlepass::universal ... ok
+test wasi::wasitests::snapshot1::host_fs::fd_append::singlepass::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/pipe_reverse.wast`
+test wasi::wasitests::unstable::mem_fs::mapdir_with_leading_slash::singlepass::universal ... ok
+test wasi::wasitests::unstable::mem_fs::poll_oneoff::cranelift::universal ... ignored
+test wasi::wasitests::unstable::mem_fs::poll_oneoff::llvm::universal ... ignored
+test wasi::wasitests::unstable::mem_fs::poll_oneoff::singlepass::universal ... ignored
+Running wasi wast `tests/wasi-wast/wasi/unstable/pipe_reverse.wast`
+Running wasi wast `tests/wasi-wast/wasi/unstable/path_symlink.wast`
+Running wasi wast `tests/wasi-wast/wasi/unstable/quine.wast`
+test wasi::wasitests::unstable::mem_fs::path_symlink::singlepass::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/quine.wast`
+test wasi::wasitests::unstable::mem_fs::path_rename::singlepass::universal ... ok
+Running wasi wast `tests/wasi-wast/wasi/unstable/quine.wast`
+test wasi::wasitests::unstable::mem_fs::quine::cranelift::universal ... ok
+test wasi::wasitests::unstable::mem_fs::quine::singlepass::universal ... ok
+test wasi::wasitests::unstable::mem_fs::readlink::cranelift::universal ... ignored
+test wasi::wasitests::unstable::mem_fs::readlink::llvm::universal ... ignored
+test wasi::wasitests::unstable::mem_fs::readlink::singlepass::universal ... ignored
+test wasi::wasitests::unstable::mem_fs::unix_open_special_files::cranelift::universal ... ignored
+test wasi::wasitests::unstable::mem_fs::unix_open_special_files::llvm::universal ... ignored
+test wasi::wasitests::unstable::mem_fs::unix_open_special_files::singlepass::universal ... ignored
+Running wasi wast `tests/wasi-wast/wasi/unstable/wasi_sees_virtual_root.wast`
+Running wasi wast `tests/wasi-wast/wasi/unstable/wasi_sees_virtual_root.wast`
+test wasi::wasitests::unstable::mem_fs::wasi_sees_virtual_root::llvm::universal ... ok
+test wasi::wasitests::unstable::mem_fs::quine::llvm::universal ... ok
+test wasi::wasitests::unstable::mem_fs::writing::cranelift::universal ... ignored
+test wasi::wasitests::unstable::mem_fs::writing::llvm::universal ... ignored
+test wasi::wasitests::unstable::mem_fs::writing::singlepass::universal ... ignored
+Running wasi wast `tests/wasi-wast/wasi/unstable/wasi_sees_virtual_root.wast`
+Running wast `tests/wast/spec/address.wast`
+test wasi::wasitests::unstable::mem_fs::pipe_reverse::singlepass::universal ... ok
+Running wast `tests/wast/spec/address.wast`
+test wasi::wasitests::unstable::mem_fs::pipe_reverse::cranelift::universal ... ok
+test wasi::wasitests::unstable::mem_fs::pipe_reverse::llvm::universal ... ok
+Running wast `tests/wast/spec/address.wast`
+Running wast `tests/wast/spec/align.wast`
+test wasi::wasitests::unstable::mem_fs::wasi_sees_virtual_root::cranelift::universal ... ok
+Running wast `tests/wast/spec/align.wast`
+test wasi::wasitests::unstable::mem_fs::wasi_sees_virtual_root::singlepass::universal ... ok
+Running wast `tests/wast/spec/align.wast`
+test wast::spec::align::cranelift::universal ... ok
+Running wast `tests/wast/spec/binary.wast`
+test wast::spec::address::singlepass::universal ... ok
+Running wast `tests/wast/spec/binary.wast`
+test wast::spec::address::cranelift::universal ... ok
+test wast::spec::align::singlepass::universal ... ok
+Running wast `tests/wast/spec/binary-leb128.wast`
+Running wast `tests/wast/spec/binary.wast`
+test wasi::wasitests::unstable::mem_fs::path_symlink::llvm::universal ... ok
+test wast::spec::binary::cranelift::universal ... ok
+Running wast `tests/wast/spec/binary-leb128.wast`
+Running wast `tests/wast/spec/binary-leb128.wast`
+test wast::spec::binary_leb128::singlepass::universal ... ok
+Running wast `tests/wast/spec/block.wast`
+test wasi::wasitests::unstable::mem_fs::path_symlink::cranelift::universal ... ok
+Running wast `tests/wast/spec/block.wast`
+test wast::spec::binary_leb128::cranelift::universal ... ok
+test wast::spec::binary::singlepass::universal ... ok
+Running wast `tests/wast/spec/block.wast`
+Running wast `tests/wast/spec/br.wast`
+test wast::spec::block::singlepass::universal ... ok
+Running wast `tests/wast/spec/br.wast`
+test wast::spec::binary::llvm::universal ... ok
+Running wast `tests/wast/spec/br.wast`
+test wast::spec::br::singlepass::universal ... ok
+Running wast `tests/wast/spec/br_if.wast`
+test wast::spec::br::cranelift::universal ... ok
+Running wast `tests/wast/spec/br_if.wast`
+test wast::spec::binary_leb128::llvm::universal ... ok
+Running wast `tests/wast/spec/br_if.wast`
+test wast::spec::br_if::singlepass::universal ... ok
+Running wast `tests/wast/spec/br_table.wast`
+test wast::spec::br::llvm::universal ... ok
+Running wast `tests/wast/spec/br_table.wast`
+test wast::spec::br_if::cranelift::universal ... ok
+test wast::spec::block::llvm::universal ... ok
+test wasi::wasitests::unstable::mem_fs::path_link::llvm::universal ... ok
+Running wast `tests/wast/spec/br_table.wast`
+Running wast `tests/wast/spec/bulk.wast`
+Running wast `tests/wast/spec/bulk.wast`
+test wast::spec::bulk::cranelift::universal ... ok
+Running wast `tests/wast/spec/bulk.wast`
+test wast::spec::address::llvm::universal ... ok
+test wast::spec::br_table::singlepass::universal ... ok
+Running wast `tests/wast/spec/call.wast`
+test wast::spec::bulk::singlepass::universal ... ok
+Running wast `tests/wast/spec/call.wast`
+Running wast `tests/wast/spec/call.wast`
+test wast::spec::call::singlepass::universal ... ok
+Running wast `tests/wast/spec/call_indirect.wast`
+test wast::spec::align::llvm::universal ... ok
+test wast::spec::br_if::llvm::universal ... ok
+Running wast `tests/wast/spec/call_indirect.wast`
+test wast::spec::call::cranelift::universal ... ok
+test wast::spec::block::cranelift::universal ... ok
+Running wast `tests/wast/spec/comments.wast`
+Running wast `tests/wast/spec/comments.wast`
+test wast::spec::comments::llvm::universal ... ok
+test wast::spec::comments::cranelift::universal ... ok
+Running wast `tests/wast/spec/conversions.wast`
+Running wast `tests/wast/spec/call_indirect.wast`
+Running wast `tests/wast/spec/comments.wast`
+test wast::spec::comments::singlepass::universal ... ok
+Running wast `tests/wast/spec/conversions.wast`
+test wast::spec::call_indirect::singlepass::universal ... ok
+Running wast `tests/wast/spec/conversions.wast`
+test wast::spec::conversions::cranelift::universal ... ok
+Running wast `tests/wast/spec/custom.wast`
+test wast::spec::custom::cranelift::universal ... ok
+Running wast `tests/wast/spec/custom.wast`
+test wast::spec::custom::llvm::universal ... ok
+Running wast `tests/wast/spec/custom.wast`
+test wast::spec::custom::singlepass::universal ... ok
+Running wast `tests/wast/spec/data.wast`
+test wast::spec::conversions::singlepass::universal ... ok
+Running wast `tests/wast/spec/data.wast`
+test wast::spec::data::cranelift::universal ... ok
+Running wast `tests/wast/spec/data.wast`
+test wast::spec::data::singlepass::universal ... ok
+Running wast `tests/wast/spec/elem.wast`
+test wast::spec::call_indirect::cranelift::universal ... ok
+test wast::spec::data::llvm::universal ... ok
+Running wast `tests/wast/spec/elem.wast`
+Running wast `tests/wast/spec/elem.wast`
+test wast::spec::call::llvm::universal ... ok
+test wast::spec::conversions::llvm::universal ... ok
+Running wast `tests/wast/spec/endianness.wast`
+Running wast `tests/wast/spec/endianness.wast`
+test wast::spec::endianness::cranelift::universal ... ok
+Running wast `tests/wast/spec/endianness.wast`
+test wast::spec::elem::cranelift::universal ... ok
+Running wast `tests/wast/spec/exports.wast`
+test wast::spec::endianness::singlepass::universal ... ok
+Running wast `tests/wast/spec/exports.wast`
+test wast::spec::endianness::llvm::universal ... ok
+Running wast `tests/wast/spec/exports.wast`
+test wast::spec::call_indirect::llvm::universal ... ok
+test wast::spec::exports::cranelift::universal ... ok
+Running wast `tests/wast/spec/f32.wast`
+Running wast `tests/wast/spec/f32.wast`
+test wast::spec::elem::singlepass::universal ... ok
+Running wast `tests/wast/spec/f32.wast`
+test wast::spec::exports::singlepass::universal ... ok
+Running wast `tests/wast/spec/f32_bitwise.wast`
+test wast::spec::f32_bitwise::cranelift::universal ... ok
+Running wast `tests/wast/spec/f32_bitwise.wast`
+test wast::spec::f32::singlepass::universal ... ok
+Running wast `tests/wast/spec/f32_bitwise.wast`
+test wast::spec::f32_bitwise::singlepass::universal ... ok
+Running wast `tests/wast/spec/f32_cmp.wast`
+test wast::spec::f32_bitwise::llvm::universal ... ok
+Running wast `tests/wast/spec/f32_cmp.wast`
+test wast::spec::bulk::llvm::universal ... ok
+Running wast `tests/wast/spec/f32_cmp.wast`
+test wast::spec::f32::cranelift::universal ... ok
+Running wast `tests/wast/spec/f64.wast`
+test wast::spec::f32::llvm::universal ... ok
+Running wast `tests/wast/spec/f64.wast`
+test wast::spec::f32_cmp::cranelift::universal ... ok
+Running wast `tests/wast/spec/f64.wast`
+test wast::spec::f32_cmp::singlepass::universal ... ok
+Running wast `tests/wast/spec/f64_bitwise.wast`
+test wast::spec::f64_bitwise::cranelift::universal ... ok
+test wast::spec::f64::cranelift::universal ... ok
+Running wast `tests/wast/spec/f64_bitwise.wast`
+Running wast `tests/wast/spec/f64_bitwise.wast`
+test wast::spec::f64_bitwise::singlepass::universal ... ok
+Running wast `tests/wast/spec/f64_cmp.wast`
+test wast::spec::f32_cmp::llvm::universal ... ok
+Running wast `tests/wast/spec/f64_cmp.wast`
+test wast::spec::f64::singlepass::universal ... ok
+Running wast `tests/wast/spec/f64_cmp.wast`
+test wast::spec::f64_bitwise::llvm::universal ... ok
+Running wast `tests/wast/spec/fac.wast`
+test wast::spec::f64::llvm::universal ... ok
+Running wast `tests/wast/spec/fac.wast`
+test wast::spec::fac::cranelift::universal ... ok
+Running wast `tests/wast/spec/fac.wast`
+test wast::spec::fac::singlepass::universal ... ok
+test wast::spec::f64_cmp::cranelift::universal ... ok
+Running wast `tests/wast/spec/float_exprs.wast`
+Running wast `tests/wast/spec/float_exprs.wast`
+test wast::spec::f64_cmp::singlepass::universal ... ok
+Running wast `tests/wast/spec/float_exprs.wast`
+test wast::spec::fac::llvm::universal ... ok
+Running wast `tests/wast/spec/float_literals.wast`
+test wast::spec::f64_cmp::llvm::universal ... ok
+Running wast `tests/wast/spec/float_literals.wast`
+test wast::spec::float_literals::cranelift::universal ... ok
+Running wast `tests/wast/spec/float_literals.wast`
+test wast::spec::exports::llvm::universal ... ok
+Running wast `tests/wast/spec/float_memory.wast`
+test wast::spec::float_literals::singlepass::universal ... ok
+Running wast `tests/wast/spec/float_memory.wast`
+test wast::spec::float_memory::cranelift::universal ... ok
+Running wast `tests/wast/spec/float_memory.wast`
+test wast::spec::float_memory::singlepass::universal ... ok
+test wast::spec::float_literals::llvm::universal ... ok
+Running wast `tests/wast/spec/float_misc.wast`
+Running wast `tests/wast/spec/float_misc.wast`
+test wasi::wasitests::unstable::mem_fs::path_link::singlepass::universal ... ok
+Running wast `tests/wast/spec/float_misc.wast`
+test wasi::wasitests::unstable::mem_fs::path_rename::llvm::universal ... ok
+Running wast `tests/wast/spec/forward.wast`
+test wast::spec::forward::cranelift::universal ... ok
+test wast::spec::float_misc::singlepass::universal ... ok
+Running wast `tests/wast/spec/forward.wast`
+test wast::spec::forward::singlepass::universal ... ok
+Running wast `tests/wast/spec/func.wast`
+Running wast `tests/wast/spec/forward.wast`
+test wast::spec::br_table::llvm::universal ... ok
+Running wast `tests/wast/spec/func.wast`
+test wast::spec::br_table::cranelift::universal ... ok
+test wast::spec::forward::llvm::universal ... ok
+Running wast `tests/wast/spec/func_ptrs.wast`
+Running wast `tests/wast/spec/func.wast`
+test wasi::wasitests::unstable::host_fs::mapdir_with_leading_slash::cranelift::universal ... ok
+Running wast `tests/wast/spec/func_ptrs.wast`
+83: i32
+test wast::spec::float_exprs::singlepass::universal ... ok
+test wast::spec::func::singlepass::universal ... ok
+Running wast `tests/wast/spec/func_ptrs.wast`
+test wast::spec::float_misc::cranelift::universal ... ok
+Running wast `tests/wast/spec/global.wast`
+Running wast `tests/wast/spec/global.wast`
+83: i32
+83: i32
+test wast::spec::func_ptrs::singlepass::universal ... ok
+Running wast `tests/wast/spec/global.wast`
+test wast::spec::func_ptrs::cranelift::universal ... ok
+test wast::spec::func::cranelift::universal ... ok
+Running wast `tests/wast/spec/i32.wast`
+test wast::spec::global::cranelift::universal ... ok
+Running wast `tests/wast/spec/i32.wast`
+Running wast `tests/wast/spec/i32.wast`
+test wast::spec::global::singlepass::universal ... ok
+Running wast `tests/wast/spec/i64.wast`
+test wast::spec::float_misc::llvm::universal ... ok
+Running wast `tests/wast/spec/i64.wast`
+test wasi::wasitests::unstable::mem_fs::path_rename::cranelift::universal ... ok
+test wasi::wasitests::unstable::mem_fs::envvar::cranelift::universal ... ok
+Running wast `tests/wast/spec/i64.wast`
+Running wast `tests/wast/spec/imports.wast`
+test wast::spec::i64::singlepass::universal ... ok
+Running wast `tests/wast/spec/imports.wast`
+test wasi::wasitests::unstable::mem_fs::path_link::cranelift::universal ... ok
+Running wast `tests/wast/spec/imports.wast`
+test wast::spec::float_memory::llvm::universal ... ok
+13: i32
+14: i32
+42: f32
+13: i32
+13: i32
+13: f32
+13: i32
+25: f64
+53: f64
+24: f64
+24: f64
+0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000026461938652294957: f64
+13: i32
+Running wast `tests/wast/spec/inline-module.wast`
+test wast::spec::inline_module::cranelift::universal ... ok
+13: i32
+14: i32
+42: f32
+13: i32
+13: i32
+13: f32
+13: i32
+25: f64
+53: f64
+24: f64
+24: f64
+24: f64
+13: i32
+Running wast `tests/wast/spec/inline-module.wast`
+test wast::spec::i64::cranelift::universal ... ok
+test wasi::wasitests::snapshot1::host_fs::fd_append::cranelift::universal ... ok
+Running wast `tests/wast/spec/inline-module.wast`
+Running wast `tests/wast/spec/int_exprs.wast`
+test wast::spec::i32::singlepass::universal ... ok
+test wast::spec::i32::cranelift::universal ... ok
+Running wast `tests/wast/spec/int_exprs.wast`
+test wast::spec::inline_module::singlepass::universal ... ok
+Running wast `tests/wast/spec/int_exprs.wast`
+Running wast `tests/wast/spec/int_literals.wast`
+test wast::spec::i64::llvm::universal ... ok
+test wast::spec::imports::singlepass::universal ... ok
+Running wast `tests/wast/spec/int_literals.wast`
+test wast::spec::func_ptrs::llvm::universal ... ok
+Running wast `tests/wast/spec/labels.wast`
+Running wast `tests/wast/spec/int_literals.wast`
+test wast::spec::int_literals::singlepass::universal ... ok
+Running wast `tests/wast/spec/labels.wast`
+test wast::spec::int_literals::cranelift::universal ... ok
+Running wast `tests/wast/spec/labels.wast`
+test wast::spec::inline_module::llvm::universal ... ok
+Running wast `tests/wast/spec/left-to-right.wast`
+test wast::spec::labels::cranelift::universal ... ok
+Running wast `tests/wast/spec/left-to-right.wast`
+test wast::spec::labels::singlepass::universal ... ok
+Running wast `tests/wast/spec/left-to-right.wast`
+test wast::spec::left_to_right::cranelift::universal ... ok
+Running wast `tests/wast/spec/linking.wast`
+test wast::spec::imports::cranelift::universal ... ok
+Running wast `tests/wast/spec/linking.wast`
+test wast::spec::int_exprs::singlepass::universal ... ok
+Running wast `tests/wast/spec/linking.wast`
+test wast::spec::left_to_right::singlepass::universal ... ok
+Running wast `tests/wast/spec/load.wast`
+test wast::spec::load::cranelift::universal ... ok
+13: i32
+14: i32
+42: f32
+13: i32
+13: i32
+13: f32
+13: i32
+25: f64
+53: f64
+24: f64
+24: f64
+24: f64
+Running wast `tests/wast/spec/load.wast`
+test wast::spec::int_literals::llvm::universal ... ok
+Running wast `tests/wast/spec/load.wast`
+test wast::spec::i32::llvm::universal ... ok
+13: i32
+Running wast `tests/wast/spec/local_get.wast`
+test wast::spec::func::llvm::universal ... ok
+Running wast `tests/wast/spec/local_get.wast`
+test wast::spec::load::singlepass::universal ... ok
+test wast::spec::linking::cranelift::universal ... ok
+Running wast `tests/wast/spec/local_set.wast`
+test wast::spec::local_set::cranelift::universal ... ok
+Running wast `tests/wast/spec/local_set.wast`
+Running wast `tests/wast/spec/local_get.wast`
+test wast::spec::elem::llvm::universal ... ok
+Running wast `tests/wast/spec/local_set.wast`
+test wast::spec::local_set::singlepass::universal ... ok
+Running wast `tests/wast/spec/local_tee.wast`
+test wast::spec::int_exprs::cranelift::universal ... ok
+Running wast `tests/wast/spec/local_tee.wast`
+test wast::spec::local_get::singlepass::universal ... ok
+Running wast `tests/wast/spec/local_tee.wast`
+test wast::spec::local_tee::cranelift::universal ... ok
+Running wast `tests/wast/spec/memory.wast`
+test wast::spec::local_tee::singlepass::universal ... ok
+Running wast `tests/wast/spec/memory.wast`
+test wast::spec::local_get::llvm::universal ... ok
+test wast::spec::local_set::llvm::universal ... ok
+Running wast `tests/wast/spec/memory.wast`
+Running wast `tests/wast/spec/memory_copy.wast`
+test wast::spec::local_tee::llvm::universal ... ok
+test wast::spec::linking::singlepass::universal ... ok
+Running wast `tests/wast/spec/memory_copy.wast`
+test wast::spec::global::llvm::universal ... ok
+test wast::spec::local_get::cranelift::universal ... ok
+Running wast `tests/wast/spec/memory_fill.wast`
+Running wast `tests/wast/spec/memory_fill.wast`
+test wast::spec::labels::llvm::universal ... ok
+test wast::spec::memory::cranelift::universal ... ok
+Running wast `tests/wast/spec/memory_grow.wast`
+Running wast `tests/wast/spec/memory_fill.wast`
+test wast::spec::left_to_right::llvm::universal ... ok
+Running wast `tests/wast/spec/memory_copy.wast`
+Running wast `tests/wast/spec/memory_grow.wast`
+test wast::spec::memory::singlepass::universal ... ok
+Running wast `tests/wast/spec/memory_grow.wast`
+test wast::spec::load::llvm::universal ... ok
+Running wast `tests/wast/spec/memory_init.wast`
+test wast::spec::memory_grow::singlepass::universal ... ok
+Running wast `tests/wast/spec/memory_init.wast`
+test wast::spec::float_exprs::cranelift::universal ... ok
+test wast::spec::memory_fill::cranelift::universal ... ok
+Running wast `tests/wast/spec/memory_redundancy.wast`
+test wast::spec::memory_redundancy::cranelift::universal ... ok
+Running wast `tests/wast/spec/memory_init.wast`
+test wast::spec::memory_grow::cranelift::universal ... ok
+Running wast `tests/wast/spec/memory_redundancy.wast`
+Running wast `tests/wast/spec/memory_redundancy.wast`
+test wast::spec::memory::llvm::universal ... ok
+test wast::spec::memory_redundancy::singlepass::universal ... ok
+Running wast `tests/wast/spec/memory_size.wast`
+Running wast `tests/wast/spec/memory_size.wast`
+test wast::spec::memory_fill::singlepass::universal ... ok
+Running wast `tests/wast/spec/memory_size.wast`
+test wast::spec::memory_init::singlepass::universal ... ok
+test wast::spec::memory_size::singlepass::universal ... ok
+Running wast `tests/wast/spec/memory_trap.wast`
+Running wast `tests/wast/spec/memory_trap.wast`
+test wast::spec::memory_size::cranelift::universal ... ok
+test wast::spec::memory_redundancy::llvm::universal ... ok
+test wast::spec::memory_init::cranelift::universal ... ok
+Running wast `tests/wast/spec/memory_trap.wast`
+Running wast `tests/wast/spec/proposals/multi-value/binary.wast`
+Running wast `tests/wast/spec/proposals/multi-value/binary.wast`
+test wast::spec::multi_value::binary::cranelift::universal ... ok
+Running wast `tests/wast/spec/proposals/multi-value/binary.wast`
+test wast::spec::memory_copy::singlepass::universal ... ok
+Running wast `tests/wast/spec/proposals/multi-value/block.wast`
+test wast::spec::multi_value::binary::singlepass::universal ... ok
+test wast::spec::memory_size::llvm::universal ... ok
+Running wast `tests/wast/spec/proposals/multi-value/block.wast`
+test wast::spec::memory_trap::llvm::universal ... ok
+Running wast `tests/wast/spec/proposals/multi-value/block.wast`
+Running wast `tests/wast/spec/proposals/multi-value/br.wast`
+test wast::spec::multi_value::block::singlepass::universal ... ok
+test wast::spec::multi_value::binary::llvm::universal ... ok
+Running wast `tests/wast/spec/proposals/multi-value/br.wast`
+test wast::spec::memory_trap::singlepass::universal ... ok
+Running wast `tests/wast/spec/proposals/multi-value/br.wast`
+test wast::spec::multi_value::br::singlepass::universal ... ok
+Running wast `tests/wast/spec/proposals/multi-value/call.wast`
+Running wast `tests/wast/spec/proposals/multi-value/call.wast`
+test wast::spec::linking::llvm::universal ... ok
+Running wast `tests/wast/spec/proposals/multi-value/call.wast`
+test wast::spec::multi_value::call::singlepass::universal ... ok
+Running wast `tests/wast/spec/proposals/multi-value/call_indirect.wast`
+test wast::spec::multi_value::call::cranelift::universal ... ok
+test wast::spec::multi_value::call::llvm::universal ... ok
+Running wast `tests/wast/spec/proposals/multi-value/call_indirect.wast`
+test wast::spec::memory_fill::llvm::universal ... ok
+test wast::spec::multi_value::call_indirect::cranelift::universal ... ok
+Running wast `tests/wast/spec/proposals/multi-value/call_indirect.wast`
+test wast::spec::multi_value::call_indirect::singlepass::universal ... ok
+Running wast `tests/wast/spec/proposals/multi-value/fac.wast`
+Running wast `tests/wast/spec/proposals/multi-value/fac.wast`
+test wast::spec::multi_value::fac::singlepass::universal ... ok
+Running wast `tests/wast/spec/proposals/multi-value/func.wast`
+Running wast `tests/wast/spec/proposals/multi-value/fac.wast`
+test wast::spec::multi_value::fac::cranelift::universal ... ok
+Running wast `tests/wast/spec/proposals/multi-value/func.wast`
+test wast::spec::multi_value::br::cranelift::universal ... ok
+Running wast `tests/wast/spec/proposals/multi-value/func.wast`
+test wast::spec::memory_copy::cranelift::universal ... ok
+Running wast `tests/wast/spec/proposals/multi-value/if.wast`
+test wast::spec::multi_value::fac::llvm::universal ... ok
+Running wast `tests/wast/spec/proposals/multi-value/if.wast`
+test wast::spec::multi_value::block::cranelift::universal ... ok
+Running wast `tests/wast/spec/proposals/multi-value/if.wast`
+test wast::spec::multi_value::r#if::singlepass::universal ... ok
+test wast::spec::multi_value::br::llvm::universal ... ok
+Running wast `tests/wast/spec/proposals/multi-value/loop.wast`
+Running wast `tests/wast/spec/proposals/multi-value/loop.wast`
+test wast::spec::multi_value::r#loop::cranelift::universal ... ok
+test wast::spec::memory_trap::cranelift::universal ... ok
+Running wast `tests/wast/spec/proposals/multi-value/loop.wast`
+test wast::spec::int_exprs::llvm::universal ... ok
+Running wast `tests/wast/spec/proposals/multi-value/type.wast`
+test wast::spec::multi_value::r#loop::singlepass::universal ... ok
+test wast::spec::multi_value::r#if::cranelift::universal ... ok
+Running wast `tests/wast/spec/proposals/multi-value/type.wast`
+Running wast `tests/wast/spec/names.wast`
+test wast::spec::multi_value::r#type::cranelift::universal ... ok
+Running wast `tests/wast/spec/names.wast`
+test wast::spec::multi_value::r#type::singlepass::universal ... ok
+Running wast `tests/wast/spec/proposals/multi-value/type.wast`
+Running wast `tests/wast/spec/names.wast`
+test wast::spec::multi_value::r#type::llvm::universal ... ok
+test wast::spec::multi_value::r#loop::llvm::universal ... ok
+test wast::spec::memory_init::llvm::universal ... ok
+Running wast `tests/wast/spec/nop.wast`
+Running wast `tests/wast/spec/nop.wast`
+Running wast `tests/wast/spec/nop.wast`
+test wast::spec::imports::llvm::universal ... ok
+Running wast `tests/wast/spec/const.wast`
+42: i32
+123: i32
+test wast::spec::names::singlepass::universal ... ok
+Running wast `tests/wast/spec/const.wast`
+test wast::spec::nop::singlepass::universal ... ok
+Running wast `tests/wast/spec/const.wast`
+42: i32
+123: i32
+test wast::spec::names::cranelift::universal ... ok
+Running wast `tests/wast/spec/if.wast`
+test wast::spec::nop::llvm::universal ... ok
+test wast::spec::nop::cranelift::universal ... ok
+Running wast `tests/wast/spec/if.wast`
+Running wast `tests/wast/spec/if.wast`
+test wast::spec::r#if::singlepass::universal ... ok
+Running wast `tests/wast/spec/loop.wast`
+test wast::spec::r#loop::cranelift::universal ... ok
+Running wast `tests/wast/spec/loop.wast`
+test wast::spec::r#const::singlepass::universal ... ok
+Running wast `tests/wast/spec/loop.wast`
+test wast::spec::multi_value::r#if::llvm::universal ... ok
+Running wast `tests/wast/spec/return.wast`
+test wast::spec::r#if::cranelift::universal ... ok
+Running wast `tests/wast/spec/return.wast`
+test wast::spec::r#loop::singlepass::universal ... ok
+Running wast `tests/wast/spec/return.wast`
+test wast::spec::multi_value::func::singlepass::universal ... ok
+Running wast `tests/wast/spec/type.wast`
+test wast::spec::r#return::singlepass::universal ... ok
+Running wast `tests/wast/spec/type.wast`
+42: i32
+123: i32
+test wast::spec::names::llvm::universal ... ok
+test wast::spec::r#type::cranelift::universal ... ok
+Running wast `tests/wast/spec/type.wast`
+test wast::spec::r#type::singlepass::universal ... ok
+Running wast `tests/wast/spec/ref_func.wast`
+Running wast `tests/wast/spec/ref_func.wast`
+test wast::spec::r#type::llvm::universal ... ok
+test wast::spec::ref_func::cranelift::universal ... ok
+Running wast `tests/wast/spec/ref_is_null.wast`
+test wast::spec::r#if::llvm::universal ... ok
+Running wast `tests/wast/spec/ref_func.wast`
+Running wast `tests/wast/spec/ref_is_null.wast`
+test wast::spec::r#return::cranelift::universal ... ok
+test wast::spec::memory_grow::llvm::universal ... ok
+test wast::spec::r#return::llvm::universal ... ok
+Running wast `tests/wast/spec/ref_null.wast`
+Running wast `tests/wast/spec/ref_null.wast`
+Running wast `tests/wast/spec/ref_is_null.wast`
+test wast::spec::ref_null::cranelift::universal ... ok
+test wast::spec::ref_is_null::singlepass::universal ... ok
+Running wast `tests/wast/spec/ref_null.wast`
+Running wast `tests/wast/spec/select.wast`
+test wast::spec::ref_null::singlepass::universal ... ok
+Running wast `tests/wast/spec/select.wast`
+test wast::spec::ref_func::singlepass::universal ... ok
+test wast::spec::ref_null::llvm::universal ... ok
+Running wast `tests/wast/spec/select.wast`
+Running wast `tests/wast/spec/proposals/simd/simd_address.wast`
+test wast::spec::r#const::cranelift::universal ... ok
+Running wast `tests/wast/spec/proposals/simd/simd_address.wast`
+test wast::spec::ref_is_null::cranelift::universal ... ok
+test wast::spec::simd::simd_address::singlepass::universal ... ignored
+Running wast `tests/wast/spec/proposals/simd/simd_align.wast`
+test wast::spec::select::singlepass::universal ... ok
+test wast::spec::simd::simd_address::cranelift::universal ... ok
+test wast::spec::simd::simd_align::singlepass::universal ... ignored
+Running wast `tests/wast/spec/proposals/simd/simd_align.wast`
+test wast::spec::ref_is_null::llvm::universal ... ok
+Running wast `tests/wast/spec/proposals/simd/simd_bit_shift.wast`
+Running wast `tests/wast/spec/proposals/simd/simd_bit_shift.wast`
+test wast::spec::multi_value::func::llvm::universal ... ok
+test wast::spec::simd::simd_bit_shift::singlepass::universal ... ignored
+Running wast `tests/wast/spec/proposals/simd/simd_bitwise.wast`
+test wast::spec::simd::simd_address::llvm::universal ... ok
+Running wast `tests/wast/spec/proposals/simd/simd_bitwise.wast`
+test wast::spec::simd::simd_bitwise::cranelift::universal ... ok
+test wast::spec::simd::simd_bitwise::singlepass::universal ... ignored
+Running wast `tests/wast/spec/proposals/simd/simd_boolean.wast`
+test wast::spec::simd::simd_bit_shift::cranelift::universal ... ok
+Running wast `tests/wast/spec/proposals/simd/simd_boolean.wast`
+test wast::spec::simd::simd_boolean::cranelift::universal ... ok
+test wast::spec::simd::simd_boolean::singlepass::universal ... ignored
+Running wast `tests/wast/spec/proposals/simd/simd_const.wast`
+test wast::spec::simd::simd_align::cranelift::universal ... ok
+Running wast `tests/wast/spec/proposals/simd/simd_const.wast`
+test wast::spec::simd::simd_bit_shift::llvm::universal ... ok
+test wast::spec::simd::simd_const::singlepass::universal ... ignored
+Running wast `tests/wast/spec/proposals/simd/simd_conversions.wast`
+test wast::spec::simd::simd_conversions::cranelift::universal ... ok
+Running wast `tests/wast/spec/proposals/simd/simd_conversions.wast`
+test wast::spec::multi_value::block::llvm::universal ... ok
+test wast::spec::simd::simd_conversions::singlepass::universal ... ignored
+Running wast `tests/wast/spec/proposals/simd/simd_f32x4.wast`
+test wast::spec::simd::simd_boolean::llvm::universal ... ok
+test wast::spec::simd::simd_bitwise::llvm::universal ... ok
+test wast::spec::simd::simd_f32x4::singlepass::universal ... ignored
+Running wast `tests/wast/spec/proposals/simd/simd_f32x4.wast`
+Running wast `tests/wast/spec/proposals/simd/simd_f32x4_arith.wast`
+test wast::spec::multi_value::call_indirect::llvm::universal ... ok
+Running wast `tests/wast/spec/proposals/simd/simd_f32x4_arith.wast`
+test wast::spec::simd::simd_f32x4::cranelift::universal ... ok
+test wast::spec::simd::simd_f32x4_arith::singlepass::universal ... ignored
+Running wast `tests/wast/spec/proposals/simd/simd_f32x4_cmp.wast`
+test wast::spec::r#loop::llvm::universal ... ok
+Running wast `tests/wast/spec/proposals/simd/simd_f32x4_cmp.wast`
+test wast::spec::ref_func::llvm::universal ... ok
+test wast::spec::simd::simd_f32x4_cmp::singlepass::universal ... ignored
+test wast::spec::simd::simd_conversions::llvm::universal ... ok
+Running wast `tests/wast/spec/proposals/simd/simd_f32x4_pmin_pmax.wast`
+Running wast `tests/wast/spec/proposals/simd/simd_f32x4_pmin_pmax.wast`
+test wast::spec::select::llvm::universal ... ok
+test wast::spec::simd::simd_f32x4_pmin_pmax::singlepass::universal ... ignored
+Running wast `tests/wast/spec/proposals/simd/simd_f32x4_rounding.wast`
+test wast::spec::multi_value::func::cranelift::universal ... ok
+test wast::spec::select::cranelift::universal ... ok
+test wast::spec::simd::simd_f32x4_rounding::singlepass::universal ... ignored
+Running wast `tests/wast/spec/proposals/simd/simd_f32x4_rounding.wast`
+test wast::spec::simd::simd_f32x4_rounding::cranelift::universal ... ok
+test wast::spec::simd::simd_f32x4_arith::cranelift::universal ... okRunning wast `tests/wast/spec/proposals/simd/simd_f64x2.wast`
+
+test wast::spec::simd::simd_f64x2::singlepass::universal ... ignored
+Running wast `tests/wast/spec/proposals/simd/simd_f64x2.wast`
+Running wast `tests/wast/spec/proposals/simd/simd_f64x2_arith.wast`
+test wast::spec::simd::simd_f32x4_rounding::llvm::universal ... ok
+test wast::spec::simd::simd_f32x4::llvm::universal ... ok
+test wast::spec::simd::simd_f64x2_arith::singlepass::universal ... ignored
+Running wast `tests/wast/spec/proposals/simd/simd_f64x2_arith.wast`
+Running wast `tests/wast/spec/proposals/simd/simd_f64x2_cmp.wast`
+test wast::spec::simd::simd_f32x4_cmp::cranelift::universal ... ok
+Running wast `tests/wast/spec/proposals/simd/simd_f64x2_cmp.wast`
+test wast::spec::simd::simd_f32x4_arith::llvm::universal ... ok
+test wast::spec::simd::simd_f64x2_cmp::singlepass::universal ... ignored
+Running wast `tests/wast/spec/proposals/simd/simd_f64x2_pmin_pmax.wast`
+test wast::spec::simd::simd_f64x2_arith::cranelift::universal ... ok
+test wast::spec::simd::simd_f64x2_cmp::cranelift::universal ... ok
+test wast::spec::simd::simd_f64x2_pmin_pmax::singlepass::universal ... ignored
+Running wast `tests/wast/spec/proposals/simd/simd_f64x2_pmin_pmax.wast`
+test wast::spec::simd::simd_f32x4_pmin_pmax::cranelift::universal ... ok
+Running wast `tests/wast/spec/proposals/simd/simd_f64x2_rounding.wast`
+Running wast `tests/wast/spec/proposals/simd/simd_f64x2_rounding.wast`
+test wast::spec::simd::simd_f32x4_cmp::llvm::universal ... ok
+test wast::spec::simd::simd_f64x2_rounding::singlepass::universal ... ignored
+Running wast `tests/wast/spec/proposals/simd/simd_i16x8_arith2.wast`
+test wast::spec::simd::simd_f64x2::cranelift::universal ... ok
+test wast::spec::simd::simd_f64x2_rounding::cranelift::universal ... ok
+test wast::spec::simd::simd_i16x8_arith2::singlepass::universal ... ignored
+Running wast `tests/wast/spec/proposals/simd/simd_i16x8_arith2.wast`
+test wast::spec::simd::simd_f64x2_rounding::llvm::universal ... ok
+Running wast `tests/wast/spec/proposals/simd/simd_i16x8_arith.wast`
+test wast::spec::simd::simd_f64x2_cmp::llvm::universal ... ok
+test wast::spec::simd::simd_i16x8_arith::singlepass::universal ... ignored
+Running wast `tests/wast/spec/proposals/simd/simd_i16x8_cmp.wast`
+Running wast `tests/wast/spec/proposals/simd/simd_i16x8_arith.wast`
+test wast::spec::simd::simd_const::cranelift::universal ... ok
+test wast::spec::simd::simd_f32x4_pmin_pmax::llvm::universal ... ok
+test wast::spec::simd::simd_i16x8_cmp::singlepass::universal ... ignored
+Running wast `tests/wast/spec/proposals/simd/simd_i16x8_cmp.wast`
+test wast::spec::simd::simd_i16x8_cmp::cranelift::universal ... ok
+Running wast `tests/wast/spec/proposals/simd/simd_i16x8_extadd_pairwise_i8x16.wast`
+test wast::spec::simd::simd_f64x2::llvm::universal ... ok
+test wast::spec::simd::simd_i16x8_extadd_pairwise_i8x16::singlepass::universal ... ignored
+Running wast `tests/wast/spec/proposals/simd/simd_i16x8_extadd_pairwise_i8x16.wast`
+test wast::spec::memory_copy::llvm::universal ... ok
+Running wast `tests/wast/spec/proposals/simd/simd_i16x8_extmul_i8x16.wast`
+test wast::spec::simd::simd_i16x8_extadd_pairwise_i8x16::cranelift::universal ... ok
+test wast::spec::simd::simd_f64x2_pmin_pmax::cranelift::universal ... ok
+test wast::spec::simd::simd_i16x8_arith::cranelift::universal ... ok
+test wast::spec::simd::simd_i16x8_extmul_i8x16::singlepass::universal ... ignored
+test wast::spec::simd::simd_i16x8_q15mulr_sat_s::singlepass::universal ... ignored
+Running wast `tests/wast/spec/proposals/simd/simd_i16x8_extmul_i8x16.wast`
+test wast::spec::simd::simd_f64x2_arith::llvm::universal ... ok
+test wast::spec::simd::simd_f64x2_pmin_pmax::llvm::universal ... ok
+test wast::spec::simd::simd_i16x8_sat_arith::singlepass::universal ... ignored
+Running wast `tests/wast/spec/proposals/simd/simd_i16x8_sat_arith.wast`
+Running wast `tests/wast/spec/proposals/simd/simd_i32x4_arith2.wast`
+Running wast `tests/wast/spec/proposals/simd/simd_i16x8_q15mulr_sat_s.wast`
+Running wast `tests/wast/spec/proposals/simd/simd_i16x8_sat_arith.wast`
+Running wast `tests/wast/spec/proposals/simd/simd_i16x8_q15mulr_sat_s.wast`
+test wast::spec::simd::simd_i16x8_q15mulr_sat_s::cranelift::universal ... ok
+Running wast `tests/wast/spec/proposals/simd/simd_i32x4_arith2.wast`
+test wast::spec::simd::simd_i16x8_q15mulr_sat_s::llvm::universal ... ok
+test wast::spec::simd::simd_i32x4_arith2::singlepass::universal ... ignored
+Running wast `tests/wast/spec/proposals/simd/simd_i32x4_arith.wast`
+test wast::spec::simd::simd_i16x8_sat_arith::cranelift::universal ... ok
+test wast::spec::simd::simd_i16x8_extmul_i8x16::cranelift::universal ... ok
+test wast::spec::simd::simd_i32x4_arith::singlepass::universal ... ignored
+Running wast `tests/wast/spec/proposals/simd/simd_i32x4_cmp.wast`
+test wast::spec::simd::simd_i32x4_arith2::cranelift::universal ... ok
+test wast::spec::simd::simd_i16x8_extmul_i8x16::llvm::universal ... ok
+test wast::spec::simd::simd_i32x4_cmp::singlepass::universal ... ignored
+test wast::spec::simd::simd_i16x8_extadd_pairwise_i8x16::llvm::universal ... ok
+test wast::spec::simd::simd_i16x8_arith::llvm::universal ... ok
+test wast::spec::simd::simd_align::llvm::universal ... ok
+test wast::spec::simd::simd_i32x4_dot_i16x8::singlepass::universal ... ignored
+Running wast `tests/wast/spec/proposals/simd/simd_i32x4_arith.wast`
+Running wast `tests/wast/spec/proposals/simd/simd_i32x4_dot_i16x8.wast`
+Running wast `tests/wast/spec/proposals/simd/simd_i32x4_dot_i16x8.wast`
+Running wast `tests/wast/spec/proposals/simd/simd_i32x4_extadd_pairwise_i16x8.wast`
+Running wast `tests/wast/spec/proposals/simd/simd_i32x4_extadd_pairwise_i16x8.wast`
+Running wast `tests/wast/spec/proposals/simd/simd_i32x4_cmp.wast`
+test wast::spec::simd::simd_i32x4_dot_i16x8::cranelift::universal ... ok
+test wast::spec::simd::simd_i32x4_extadd_pairwise_i16x8::singlepass::universal ... ignored
+Running wast `tests/wast/spec/proposals/simd/simd_i32x4_extmul_i16x8.wast`
+test wast::spec::simd::simd_i32x4_extadd_pairwise_i16x8::cranelift::universal ... ok
+test wast::spec::simd::simd_i16x8_arith2::llvm::universal ... ok
+test wast::spec::simd::simd_i32x4_extmul_i16x8::singlepass::universal ... ignored
+Running wast `tests/wast/spec/proposals/simd/simd_i32x4_trunc_sat_f32x4.wast`
+Running wast `tests/wast/spec/proposals/simd/simd_i32x4_extmul_i16x8.wast`
+test wast::spec::simd::simd_i32x4_cmp::cranelift::universal ... ok
+test wast::spec::simd::simd_i32x4_dot_i16x8::llvm::universal ... ok
+test wast::spec::simd::simd_i32x4_extmul_i16x8::cranelift::universal ... ok
+test wast::spec::simd::simd_i32x4_extadd_pairwise_i16x8::llvm::universal ... ok
+test wast::spec::simd::simd_i32x4_trunc_sat_f32x4::singlepass::universal ... ignored
+test wast::spec::simd::simd_i32x4_trunc_sat_f64x2::singlepass::universal ... ignored
+Running wast `tests/wast/spec/proposals/simd/simd_i32x4_trunc_sat_f64x2.wast`
+test wast::spec::simd::simd_i32x4_trunc_sat_f32x4::cranelift::universal ... ok
+Running wast `tests/wast/spec/proposals/simd/simd_i32x4_trunc_sat_f64x2.wast`
+Running wast `tests/wast/spec/proposals/simd/simd_i64x2_arith2.wast`
+Running wast `tests/wast/spec/proposals/simd/simd_i64x2_arith2.wast`
+Running wast `tests/wast/spec/proposals/simd/simd_i32x4_trunc_sat_f32x4.wast`
+test wast::spec::simd::simd_i64x2_arith2::cranelift::universal ... ok
+test wast::spec::simd::simd_i64x2_arith2::singlepass::universal ... ignored
+Running wast `tests/wast/spec/proposals/simd/simd_i64x2_arith.wast`
+test wast::spec::simd::simd_i32x4_extmul_i16x8::llvm::universal ... ok
+test wast::spec::simd::simd_i32x4_trunc_sat_f64x2::llvm::universal ... ok
+test wast::spec::simd::simd_i64x2_arith::singlepass::universal ... ignored
+Running wast `tests/wast/spec/proposals/simd/simd_i64x2_cmp.wast`
+Running wast `tests/wast/spec/proposals/simd/simd_i64x2_arith.wast`
+test wast::spec::simd::simd_i32x4_trunc_sat_f64x2::cranelift::universal ... ok
+Running wast `tests/wast/spec/proposals/simd/simd_i64x2_cmp.wast`
+test wast::spec::simd::simd_i64x2_arith::cranelift::universal ... ok
+test wast::spec::simd::simd_i64x2_cmp::cranelift::universal ... ok
+test wast::spec::simd::simd_i64x2_cmp::singlepass::universal ... ignored
+test wast::spec::simd::simd_i32x4_trunc_sat_f32x4::llvm::universal ... ok
+test wast::spec::simd::simd_i64x2_extmul_i32x4::singlepass::universal ... ignored
+test wast::spec::simd::simd_i32x4_arith::llvm::universal ... ok
+test wast::spec::simd::simd_i16x8_sat_arith::llvm::universal ... ok
+test wast::spec::simd::simd_i8x16_arith2::singlepass::universal ... ignored
+Running wast `tests/wast/spec/proposals/simd/simd_i8x16_arith2.wast`
+Running wast `tests/wast/spec/proposals/simd/simd_i64x2_extmul_i32x4.wast`
+Running wast `tests/wast/spec/proposals/simd/simd_i8x16_arith2.wast`
+Running wast `tests/wast/spec/proposals/simd/simd_i64x2_extmul_i32x4.wast`
+Running wast `tests/wast/spec/proposals/simd/simd_i8x16_arith.wast`
+test wast::spec::simd::simd_i16x8_cmp::llvm::universal ... ok
+test wast::spec::simd::simd_i64x2_arith2::llvm::universal ... ok
+test wast::spec::simd::simd_i16x8_arith2::cranelift::universal ... ok
+test wast::spec::simd::simd_i8x16_arith::singlepass::universal ... ignored
+Running wast `tests/wast/spec/proposals/simd/simd_i8x16_cmp.wast`
+Running wast `tests/wast/spec/proposals/simd/simd_i8x16_cmp.wast`
+Running wast `tests/wast/spec/proposals/simd/simd_i8x16_arith.wast`
+test wast::spec::simd::simd_i64x2_extmul_i32x4::cranelift::universal ... ok
+test wast::spec::simd::simd_i8x16_cmp::singlepass::universal ... ignored
+Running wast `tests/wast/spec/proposals/simd/simd_i8x16_sat_arith.wast`
+test wast::spec::simd::simd_i32x4_arith::cranelift::universal ... ok
+Running wast `tests/wast/spec/proposals/simd/simd_i8x16_sat_arith.wast`
+test wast::spec::simd::simd_i8x16_arith::cranelift::universal ... ok
+test wast::spec::simd::simd_i8x16_sat_arith::singlepass::universal ... ignored
+Running wast `tests/wast/spec/proposals/simd/simd_int_to_int_extend.wast`
+test wast::spec::simd::simd_i64x2_extmul_i32x4::llvm::universal ... ok
+test wast::spec::simd::simd_i32x4_arith2::llvm::universal ... ok
+test wast::spec::simd::simd_int_to_int_extend::singlepass::universal ... ignored
+test wast::spec::simd::simd_int_to_int_extend::cranelift::universal ... ok
+Running wast `tests/wast/spec/proposals/simd/simd_lane.wast`
+Running wast `tests/wast/spec/proposals/simd/simd_int_to_int_extend.wast`
+test wast::spec::simd::simd_i64x2_cmp::llvm::universal ... ok
+test wast::spec::simd::simd_lane::singlepass::universal ... ignored
+Running wast `tests/wast/spec/proposals/simd/simd_load16_lane.wast`
+Running wast `tests/wast/spec/proposals/simd/simd_lane.wast`
+test wast::spec::simd::simd_i8x16_cmp::cranelift::universal ... ok
+test wast::spec::simd::simd_i8x16_sat_arith::cranelift::universal ... ok
+test wast::spec::simd::simd_load16_lane::singlepass::universal ... ignored
+Running wast `tests/wast/spec/proposals/simd/simd_load16_lane.wast`
+Running wast `tests/wast/spec/proposals/simd/simd_load32_lane.wast`
+test wast::spec::simd::simd_i64x2_arith::llvm::universal ... ok
+test wast::spec::simd::simd_load32_lane::cranelift::universal ... ok
+test wast::spec::simd::simd_load32_lane::singlepass::universal ... ignored
+Running wast `tests/wast/spec/proposals/simd/simd_load64_lane.wast`
+Running wast `tests/wast/spec/proposals/simd/simd_load32_lane.wast`
+test wast::spec::simd::simd_i8x16_arith::llvm::universal ... ok
+test wast::spec::simd::simd_i8x16_sat_arith::llvm::universal ... ok
+test wast::spec::simd::simd_load64_lane::singlepass::universal ... ignored
+Running wast `tests/wast/spec/proposals/simd/simd_load64_lane.wast`
+Running wast `tests/wast/spec/proposals/simd/simd_load8_lane.wast`
+test wast::spec::simd::simd_load8_lane::cranelift::universal ... ok
+test wast::spec::simd::simd_i8x16_arith2::cranelift::universal ... ok
+test wast::spec::simd::simd_load8_lane::singlepass::universal ... ignored
+Running wast `tests/wast/spec/proposals/simd/simd_load.wast`
+test wast::spec::simd::simd_load64_lane::cranelift::universal ... ok
+test wast::spec::simd::simd_load32_lane::llvm::universal ... ok
+test wast::spec::simd::simd_load::singlepass::universal ... ignored
+test wast::spec::simd::simd_int_to_int_extend::llvm::universal ... ok
+test wast::spec::simd::simd_i8x16_cmp::llvm::universal ... okRunning wast `tests/wast/spec/proposals/simd/simd_load.wast`
+
+test wast::spec::simd::simd_load_extend::singlepass::universal ... ignored
+test wast::spec::simd::simd_i32x4_cmp::llvm::universal ... ok
+Running wast `tests/wast/spec/proposals/simd/simd_load_splat.wast`
+test wast::spec::simd::simd_load64_lane::llvm::universal ... ok
+Running wast `tests/wast/spec/proposals/simd/simd_load_extend.wast`
+test wast::spec::simd::simd_load16_lane::cranelift::universal ... ok
+test wast::spec::simd::simd_load_splat::singlepass::universal ... ignored
+Running wast `tests/wast/spec/proposals/simd/simd_load8_lane.wast`
+Running wast `tests/wast/spec/proposals/simd/simd_load_splat.wast`
+Running wast `tests/wast/spec/proposals/simd/simd_load_zero.wast`
+test wast::spec::simd::simd_load16_lane::llvm::universal ... ok
+test wast::spec::simd::simd_load_zero::singlepass::universal ... ignored
+Running wast `tests/wast/spec/proposals/simd/simd_splat.wast`
+Running wast `tests/wast/spec/proposals/simd/simd_load_extend.wast`
+Running wast `tests/wast/spec/proposals/simd/simd_load_zero.wast`
+test wast::spec::simd::simd_load::cranelift::universal ... ok
+Running wast `tests/wast/spec/proposals/simd/simd_splat.wast`
+test wast::spec::simd::simd_splat::cranelift::universal ... ok
+test wast::spec::simd::simd_splat::singlepass::universal ... ignored
+test wast::spec::simd::simd_load_zero::cranelift::universal ... ok
+Running wast `tests/wast/spec/proposals/simd/simd_store16_lane.wast`
+test wast::spec::simd::simd_lane::cranelift::universal ... ok
+Running wast `tests/wast/spec/proposals/simd/simd_store16_lane.wast`
+test wast::spec::simd::simd_store16_lane::singlepass::universal ... ignored
+Running wast `tests/wast/spec/proposals/simd/simd_store32_lane.wast`
+test wast::spec::simd::simd_store16_lane::cranelift::universal ... ok
+test wast::spec::simd::simd_store32_lane::cranelift::universal ... ok
+Running wast `tests/wast/spec/proposals/simd/simd_store32_lane.wast`
+test wast::spec::simd::simd_store32_lane::singlepass::universal ... ignored
+Running wast `tests/wast/spec/proposals/simd/simd_store64_lane.wast`
+test wast::spec::simd::simd_store64_lane::cranelift::universal ... ok
+Running wast `tests/wast/spec/proposals/simd/simd_store64_lane.wast`
+test wast::spec::simd::simd_i8x16_arith2::llvm::universal ... ok
+test wast::spec::simd::simd_store64_lane::singlepass::universal ... ignored
+Running wast `tests/wast/spec/proposals/simd/simd_store8_lane.wast`
+test wast::spec::simd::simd_load_zero::llvm::universal ... ok
+test wast::spec::simd::simd_load_extend::llvm::universal ... ok
+test wast::spec::simd::simd_store8_lane::singlepass::universal ... ignored
+test wast::spec::simd::simd_store32_lane::llvm::universal ... ok
+test wast::spec::simd::simd_store64_lane::llvm::universal ... ok
+test wast::spec::simd::simd_store::singlepass::universal ... ignored
+Running wast `tests/wast/spec/proposals/simd/simd_store.wast`
+Running wast `tests/wast/spec/proposals/simd/simd_store8_lane.wast`
+test wast::spec::simd::simd_load_extend::cranelift::universal ... ok
+Running wast `tests/wast/spec/proposals/simd/simd_store.wast`
+test wast::spec::simd::simd_load8_lane::llvm::universal ... ok
+Running wast `tests/wast/spec/skip-stack-guard-page.wast`
+Running wast `tests/wast/spec/skip-stack-guard-page.wast`
+Running wast `tests/wast/spec/skip-stack-guard-page.wast`
+test wast::spec::simd::simd_store16_lane::llvm::universal ... ok
+Running wast `tests/wast/spec/stack.wast`
+test wast::spec::simd::simd_store::cranelift::universal ... ok
+Running wast `tests/wast/spec/stack.wast`
+test wast::spec::simd::simd_load_splat::llvm::universal ... ok
+test wast::spec::skip_stack_guard_page::singlepass::universal ... ok
+Running wast `tests/wast/spec/stack.wast`
+Running wast `tests/wast/spec/start.wast`
+test wast::spec::stack::cranelift::universal ... ok
+Running wast `tests/wast/spec/start.wast`
+test wast::spec::stack::singlepass::universal ... ok
+Running wast `tests/wast/spec/start.wast`
+1: i32
+2: i32
+test wast::spec::start::cranelift::universal ... ok
+1: i32
+Running wast `tests/wast/spec/store.wast`
+test wast::spec::simd::simd_load::llvm::universal ... ok
+Running wast `tests/wast/spec/store.wast`
+2: i32
+test wast::spec::start::singlepass::universal ... ok
+Running wast `tests/wast/spec/store.wast`
+test wast::spec::store::singlepass::universal ... ok
+test wast::spec::store::llvm::universal ... ok
+Running wast `tests/wast/spec/switch.wast`
+Running wast `tests/wast/spec/switch.wast`
+1: i32
+test wast::spec::store::cranelift::universal ... ok
+Running wast `tests/wast/spec/switch.wast`
+test wast::spec::switch::cranelift::universal ... ok
+test wast::spec::switch::singlepass::universal ... ok
+Running wast `tests/wast/spec/table.wast`
+test wast::spec::table::llvm::universal ... ok
+Running wast `tests/wast/spec/table.wast`
+test wast::spec::table::singlepass::universal ... ok
+Running wast `tests/wast/spec/table.wast`
+test wast::spec::table::cranelift::universal ... ok
+Running wast `tests/wast/spec/table_copy.wast`
+test wast::spec::skip_stack_guard_page::cranelift::universal ... ok
+2: i32
+Running wast `tests/wast/spec/table_copy.wast`
+Running wast `tests/wast/spec/table_copy.wast`
+test wast::spec::switch::llvm::universal ... ok
+Running wast `tests/wast/spec/table_fill.wast`
+test wast::spec::table_fill::cranelift::universal ... ok
+Running wast `tests/wast/spec/table_fill.wast`
+test wast::spec::start::llvm::universal ... ok
+Running wast `tests/wast/spec/table_fill.wast`
+test wast::spec::table_fill::llvm::universal ... ok
+Running wast `tests/wast/spec/table_get.wast`
+test wast::spec::stack::llvm::universal ... ok
+Running wast `tests/wast/spec/table_get.wast`
+test wast::spec::table_fill::singlepass::universal ... ok
+Running wast `tests/wast/spec/table_get.wast`
+test wast::spec::table_get::singlepass::universal ... ok
+Running wast `tests/wast/spec/table_grow.wast`
+test wast::spec::table_get::cranelift::universal ... ok
+Running wast `tests/wast/spec/table_grow.wast`
+test wast::spec::table_grow::cranelift::universal ... ok
+Running wast `tests/wast/spec/table_grow.wast`
+test wast::spec::table_get::llvm::universal ... ok
+test wast::spec::table_grow::singlepass::universal ... ok
+Running wast `tests/wast/spec/table_init.wast`
+Running wast `tests/wast/spec/table_init.wast`
+test wast::spec::simd::simd_lane::llvm::universal ... ok
+Running wast `tests/wast/spec/table_init.wast`
+test wast::spec::table_grow::llvm::universal ... ok
+Running wast `tests/wast/spec/table_set.wast`
+test wast::spec::table_set::cranelift::universal ... ok
+Running wast `tests/wast/spec/table_set.wast`
+test wast::spec::table_set::llvm::universal ... ok
+Running wast `tests/wast/spec/table_set.wast`
+test wast::spec::table_set::singlepass::universal ... ok
+Running wast `tests/wast/spec/table_size.wast`
+test wast::spec::table_size::cranelift::universal ... ok
+Running wast `tests/wast/spec/table_size.wast`
+test wast::spec::table_size::llvm::universal ... ok
+Running wast `tests/wast/spec/table_size.wast`
+test wast::spec::table_size::singlepass::universal ... ok
+Running wast `tests/wast/spec/table-sub.wast`
+test wast::spec::table_sub::cranelift::universal ... ok
+Running wast `tests/wast/spec/table-sub.wast`
+test wast::spec::table_sub::llvm::universal ... ok
+Running wast `tests/wast/spec/table-sub.wast`
+test wast::spec::table_sub::singlepass::universal ... ok
+Running wast `tests/wast/spec/token.wast`
+test wast::spec::token::cranelift::universal ... ok
+Running wast `tests/wast/spec/token.wast`
+test wast::spec::token::llvm::universal ... ok
+Running wast `tests/wast/spec/token.wast`
+test wast::spec::token::singlepass::universal ... ok
+Running wast `tests/wast/spec/traps.wast`
+test wast::spec::traps::cranelift::universal ... ok
+Running wast `tests/wast/spec/traps.wast`
+test wast::spec::traps::llvm::universal ... ok
+Running wast `tests/wast/spec/traps.wast`
+test wast::spec::table_init::singlepass::universal ... ok
+Running wast `tests/wast/spec/unreachable.wast`
+test wast::spec::skip_stack_guard_page::llvm::universal ... ok
+test wast::spec::simd::simd_store8_lane::cranelift::universal ... ok
+test wast::spec::simd::simd_load_splat::cranelift::universal ... ok
+test wast::spec::simd::simd_store8_lane::llvm::universal ... ok
+test wast::spec::traps::singlepass::universal ... ok
+Running wast `tests/wast/spec/unreached-invalid.wast`
+Running wast `tests/wast/spec/unreached-invalid.wast`
+test wast::spec::unreached_invalid::cranelift::universal ... ok
+test wast::spec::unreached_invalid::singlepass::universal ... ok
+Running wast `tests/wast/spec/unwind.wast`
+Running wast `tests/wast/spec/unreachable.wast`
+Running wast `tests/wast/spec/unreachable.wast`
+Running wast `tests/wast/spec/unreached-invalid.wast`
+test wast::spec::unreached_invalid::llvm::universal ... ok
+Running wast `tests/wast/spec/unwind.wast`
+test wast::spec::unreachable::cranelift::universal ... ok
+Running wast `tests/wast/spec/unwind.wast`
+Running wast `tests/wast/spec/utf8-custom-section-id.wast`
+test wast::spec::utf8_custom_section_id::cranelift::universal ... ok
+Running wast `tests/wast/spec/utf8-custom-section-id.wast`
+test wast::spec::utf8_custom_section_id::llvm::universal ... ok
+Running wast `tests/wast/spec/utf8-custom-section-id.wast`
+test wast::spec::utf8_custom_section_id::singlepass::universal ... ok
+Running wast `tests/wast/spec/utf8-import-field.wast`
+test wast::spec::utf8_import_field::cranelift::universal ... ok
+test wast::spec::unwind::singlepass::universal ... ok
+test wast::spec::unwind::cranelift::universal ... ok
+Running wast `tests/wast/spec/utf8-import-field.wast`
+Running wast `tests/wast/spec/utf8-import-field.wast`
+Running wast `tests/wast/spec/utf8-import-module.wast`
+test wast::spec::utf8_import_field::llvm::universal ... ok
+test wast::spec::utf8_import_field::singlepass::universal ... ok
+test wast::spec::utf8_import_module::cranelift::universal ... ok
+Running wast `tests/wast/spec/utf8-import-module.wast`
+Running wast `tests/wast/spec/utf8-import-module.wast`
+test wast::spec::simd::simd_store::llvm::universal ... ok
+test wast::spec::float_exprs::llvm::universal ... ok
+test wast::spec::simd::simd_splat::llvm::universal ... ok
+Running wast `tests/wast/wasmer/call-indirect-spilled-stack.wast`
+test wast::spec::utf8_import_module::singlepass::universal ... ok
+Running wast `tests/wast/spec/utf8-invalid-encoding.wast`
+test wast::spec::utf8_invalid_encoding::singlepass::universal ... ok
+Running wast `tests/wast/spec/utf8-invalid-encoding.wast`
+Running wast `tests/wast/wasmer/call-indirect-spilled-stack.wast`
+Running wast `tests/wast/spec/utf8-invalid-encoding.wast`
+test wast::spec::utf8_invalid_encoding::cranelift::universal ... ok
+test wast::spec::utf8_invalid_encoding::llvm::universal ... ok
+test wast::spec::utf8_import_module::llvm::universal ... ok
+Running wast `tests/wast/wasmer/call-indirect-spilled-stack.wast`
+test wast::wasmer::call_indirect_spilled_stack::cranelift::universal ... okRunning wast `tests/wast/wasmer/divide.wast`
+
+Running wast `tests/wast/wasmer/divide.wast`
+Running wast `tests/wast/wasmer/fac.wast`
+test wast::wasmer::call_indirect_spilled_stack::singlepass::universal ... ok
+Running wast `tests/wast/wasmer/fac.wast`
+test wast::wasmer::divide::singlepass::universal ... ok
+Running wast `tests/wast/wasmer/fac.wast`
+test wast::spec::unreachable::singlepass::universal ... ok
+Running wast `tests/wast/wasmer/int-extend-garbage.wast`
+Running wast `tests/wast/wasmer/divide.wast`
+test wast::wasmer::int_extend_garbage::cranelift::universal ... ok
+test wast::wasmer::divide::cranelift::universal ... ok
+test wast::wasmer::fac::singlepass::universal ... ok
+Running wast `tests/wast/wasmer/int-extend-garbage.wast`
+test wast::spec::unwind::llvm::universal ... ok
+Running wast `tests/wast/wasmer/max_size_of_memory.wast`
+test wast::wasmer::int_extend_garbage::singlepass::universal ... ok
+Running wast `tests/wast/wasmer/max_size_of_memory.wast`
+test wast::wasmer::max_size_of_memory::singlepass::universal ... ok
+test wast::wasmer::max_size_of_memory::llvm::universal ... ok
+Running wast `tests/wast/wasmer/multiple-traps.wast`
+Running wast `tests/wast/wasmer/multiple-traps.wast`
+Running wast `tests/wast/wasmer/int-extend-garbage.wast`
+Running wast `tests/wast/wasmer/max_size_of_memory.wast`
+test wast::wasmer::max_size_of_memory::cranelift::universal ... ok
+test wast::wasmer::multiple_traps::cranelift::universal ... ok
+Running wast `tests/wast/wasmer/multiple-traps.wast`
+Running wast `tests/wast/wasmer/nan-canonicalization.wast`
+test wast::wasmer::fac::cranelift::universal ... ok
+Running wast `tests/wast/wasmer/nan-canonicalization.wast`
+test wast::wasmer::multiple_traps::singlepass::universal ... ok
+Running wast `tests/wast/wasmer/nan-canonicalization.wast`
+test wast::wasmer::multiple_traps::llvm::universal ... ok
+test wast::spec::table_init::cranelift::universal ... ok
+test wast::wasmer::call_indirect_spilled_stack::llvm::universal ... ok
+test wast::wasmer::fac::llvm::universal ... ok
+Running wast `tests/wast/wasmer/nan-canonicalization-issue-2347.wast`
+Running wast `tests/wast/wasmer/nan-canonicalization-issue-2159.wast`
+Running wast `tests/wast/wasmer/nan-canonicalization-issue-2159.wast`
+Running wast `tests/wast/wasmer/nan-canonicalization-issue-2159.wast`
+test wast::wasmer::nan_canonicalization_issue_2347::cranelift::universal ... ok
+test wast::wasmer::divide::llvm::universal ... ok
+test wast::wasmer::nan_canonicalization::singlepass::universal ... ok
+test wast::wasmer::int_extend_garbage::llvm::universal ... ok
+test wast::spec::unreachable::llvm::universal ... ok
+Running wast `tests/wast/wasmer/rotate-shift-overflow.wast`
+Running wast `tests/wast/wasmer/nan-canonicalization-issue-2347.wast`
+Running wast `tests/wast/wasmer/rotate-shift-overflow.wast`
+Running wast `tests/wast/wasmer/nan-canonicalization-issue-2347.wast`
+Running wast `tests/wast/wasmer/rotate-shift-overflow.wast`
+test wast::wasmer::nan_canonicalization_issue_2159::singlepass::universal ... ok
+Running wast `tests/wast/wasmer/stack-overflow.wast`
+test wast::wasmer::nan_canonicalization_issue_2347::singlepass::universal ... ok
+Running wast `tests/wast/wasmer/stack-overflow.wast`
+test wast::wasmer::stack_overflow::cranelift::universal ... ok
+Running wast `tests/wast/wasmer/stack-overflow.wast`
+test wast::wasmer::stack_overflow::singlepass::universal ... ok
+Running wast `tests/wast/wasmer/stack-overflow-sret.wast`
+test wast::wasmer::rotate_shift_overflow::singlepass::universal ... ok
+test wast::wasmer::nan_canonicalization_issue_2159::llvm::universal ... ok
+Running wast `tests/wast/wasmer/stack-overflow-sret.wast`
+test wast::wasmer::stack_overflow::llvm::universal ... ok
+test wast::wasmer::nan_canonicalization_issue_2159::cranelift::universal ... ok
+Running wast `tests/wast/wasmer/stack-overflow-sret.wast`
+test wast::wasmer::stack_overflow_sret::singlepass::universal ... ok
+test wast::wasmer::rotate_shift_overflow::cranelift::universal ... ok
+test wast::wasmer::nan_canonicalization::cranelift::universal ... ok
+test wast::wasmer::nan_canonicalization_issue_2347::llvm::universal ... ok
+test wast::spec::table_copy::singlepass::universal ... ok
+test wast::wasmer::rotate_shift_overflow::llvm::universal ... ok
+test wast::wasmer::nan_canonicalization::llvm::universal ... ok
+test wast::wasmer::stack_overflow_sret::llvm::universal ... ok
+test wast::wasmer::stack_overflow_sret::cranelift::universal ... ok
+test wast::spec::table_copy::cranelift::universal ... ok
+test wast::spec::table_init::llvm::universal ... ok
+test wast::spec::table_copy::llvm::universal ... ok
+test wast::spec::simd::simd_const::llvm::universal ... ok
+test wast::spec::r#const::llvm::universal ... ok
+
+failures:
+
+failures:
+    serialize::test_deserialize::cranelift::universal
+    serialize::test_deserialize::llvm::universal
+    serialize::test_deserialize::singlepass::universal
+
+test result: FAILED. 791 passed; 3 failed; 166 ignored; 0 measured; 0 filtered out; finished in 20.91s
+
