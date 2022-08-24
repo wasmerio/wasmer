@@ -127,7 +127,7 @@ impl NativeWasmTypeInto for u128 {
 
     #[inline]
     fn into_raw(self, _store: &mut impl AsStoreMut) -> f64 {
-        self.into()
+        self as _
     }
 
     #[inline]
