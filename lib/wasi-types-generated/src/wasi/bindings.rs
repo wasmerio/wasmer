@@ -17,6 +17,8 @@ pub mod wasi {
   /// Identifier for a device containing a file system. Can be used in combination
   /// with `inode` to uniquely identify a file or directory in the filesystem.
   pub type Device = u64;
+  pub type Linkcount = u64;
+  pub type Snapshot0Linkcount = u32;
   /// Identifiers for clocks, snapshot0 version.
   #[repr(u8)]
   #[derive(Clone, Copy, PartialEq, Eq)]
@@ -1419,10 +1421,10 @@ pub mod wasi {
       })
     }
     /// Dummy function to expose types into generated code
-    pub fn expose_types_dummy_func(&self, store: &mut wasmer::Store,fd: Fd,dirent: Dirent,event_enum: EventEnum,event: Event,fdstat: Fdstat,subscription_clock: SubscriptionClock,snapshot0_subscription_clock: Snapshot0SubscriptionClock,subscription: Subscription,snapshot0_subscription: Snapshot0Subscription,device: Device,)-> Result<(), wasmer::RuntimeError> {
+    pub fn expose_types_dummy_func(&self, store: &mut wasmer::Store,fd: Fd,dirent: Dirent,event_enum: EventEnum,event: Event,fdstat: Fdstat,subscription_clock: SubscriptionClock,snapshot0_subscription_clock: Snapshot0SubscriptionClock,subscription: Subscription,snapshot0_subscription: Snapshot0Subscription,device: Device,linkcount: Linkcount,snapshot0_linkcount: Snapshot0Linkcount,)-> Result<(), wasmer::RuntimeError> {
       let func_canonical_abi_realloc = &self.func_canonical_abi_realloc;
       let _memory = &self.memory;
-      let ptr0 = func_canonical_abi_realloc.call(store, 0, 0, 8, 304)?;
+      let ptr0 = func_canonical_abi_realloc.call(store, 0, 0, 8, 320)?;
       let _memory_view = _memory.view(&store);
       unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 0, wit_bindgen_wasmer::rt::as_i32(wit_bindgen_wasmer::rt::as_i32(fd)))?;
       let Dirent{ d_next:d_next1, d_ino:d_ino1, d_type:d_type1, d_namlen:d_namlen1, } = dirent;
@@ -1607,6 +1609,10 @@ pub mod wasi {
       };
       let _memory_view = _memory.view(&store);
       unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 296, wit_bindgen_wasmer::rt::as_i64(wit_bindgen_wasmer::rt::as_i64(device)))?;
+      let _memory_view = _memory.view(&store);
+      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 304, wit_bindgen_wasmer::rt::as_i64(wit_bindgen_wasmer::rt::as_i64(linkcount)))?;
+      let _memory_view = _memory.view(&store);
+      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 312, wit_bindgen_wasmer::rt::as_i32(wit_bindgen_wasmer::rt::as_i32(snapshot0_linkcount)))?;
       self.func_expose_types_dummy_func.call(store, ptr0, )?;
       Ok(())
     }

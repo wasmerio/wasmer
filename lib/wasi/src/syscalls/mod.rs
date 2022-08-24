@@ -26,8 +26,8 @@ use self::types::{
     wasi::{
         Addressfamily, Advice, BusErrno, Clockid, Dircookie, Dirent, Errno, Event, EventEnum,
         EventFdReadwrite, Eventrwflags, Eventtype, Fd as WasiFd, Fdflags, Fdstat, Filesize,
-        Filetype, Rights, Snapshot0Clockid, Sockoption, Sockstatus, Socktype, Streamsecurity,
-        Subscription, SubscriptionEnum, SubscriptionFsReadwrite, Timestamp,
+        Filetype, Linkcount, Rights, Snapshot0Clockid, Sockoption, Sockstatus, Socktype,
+        Streamsecurity, Subscription, SubscriptionEnum, SubscriptionFsReadwrite, Timestamp,
     },
     *,
 };
@@ -2185,8 +2185,7 @@ pub fn path_link<M: MemorySize>(
         false
     ));
 
-    if inodes.arena[source_inode].stat.write().unwrap().st_nlink == __wasi_linkcount_t::max_value()
-    {
+    if inodes.arena[source_inode].stat.write().unwrap().st_nlink == Linkcount::max_value() {
         return Errno::Mlink;
     }
     {

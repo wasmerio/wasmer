@@ -16,6 +16,8 @@ expose-types-dummy-func: func(
   subscription: subscription,
   snapshot0-subscription: snapshot0-subscription,
   device: device,
+  linkcount: linkcount,
+  snapshot0-linkcount: snapshot0-linkcount,
 )
 
 
@@ -54,6 +56,9 @@ type inode = u64
 /// Identifier for a device containing a file system. Can be used in combination
 /// with `inode` to uniquely identify a file or directory in the filesystem.
 type device = u64
+
+type linkcount = u64
+type snapshot0-linkcount = u32
 
 /// Identifiers for clocks, snapshot0 version.
 enum snapshot0-clockid {

@@ -1,8 +1,8 @@
 use std::fmt;
 use wasmer_derive::ValueType;
-use wasmer_wasi_types_generated::wasi::{Device, Filesize, Filetype, Inode, Timestamp};
-
-pub type __wasi_linkcount_t = u32;
+use wasmer_wasi_types_generated::wasi::{
+    Device, Filesize, Filetype, Inode, Snapshot0Linkcount, Timestamp,
+};
 
 pub type __wasi_whence_t = u8;
 pub const __WASI_WHENCE_CUR: u8 = 0;
@@ -15,7 +15,7 @@ pub struct __wasi_filestat_t {
     pub st_dev: Device,
     pub st_ino: Inode,
     pub st_filetype: Filetype,
-    pub st_nlink: __wasi_linkcount_t,
+    pub st_nlink: Snapshot0Linkcount,
     pub st_size: Filesize,
     pub st_atim: Timestamp,
     pub st_mtim: Timestamp,
