@@ -1,6 +1,6 @@
 pub use self::inner::{FromToNativeWasmType, HostFunction, WasmTypeList, WithEnv, WithoutEnv};
 use crate::js::exports::{ExportError, Exportable};
-use crate::js::externals::Extern;
+use crate::js::externals::{Extern, VMExtern};
 use crate::js::function_env::FunctionEnvMut;
 use crate::js::store::{AsStoreMut, AsStoreRef, InternalStoreHandle, StoreHandle, StoreMut};
 use crate::js::types::{param_from_js, AsJs}; /* ValFuncRef */
@@ -76,6 +76,11 @@ impl Function {
                                  args: &[Value]|
               -> Result<Vec<Value>, RuntimeError> { func(args) };
         Self::new_with_env(store, &env, ty, wrapped_func)
+    }
+
+    /// To `VMExtern`.
+    pub fn to_vm_extern(&self) -> VMExtern {
+        VMExtern::Function(self.handle.internal_handle())
     }
 
     /// Creates a new host `Function` (dynamic) with the provided signature.

@@ -10,13 +10,30 @@ pub use self::memory::{Memory, MemoryError};
 pub use self::memory_view::MemoryView;
 pub use self::table::Table;
 
-use crate::js::export::Export;
+use crate::js::export::{Export, VMMemory, VMTable, VMFunction, VMGlobal};
 use crate::js::exports::{ExportError, Exportable};
 use crate::js::store::StoreObject;
+use crate::js::store::InternalStoreHandle;
 use crate::js::store::{AsStoreMut, AsStoreRef};
 use crate::js::types::AsJs;
 use crate::js::ExternType;
 use std::fmt;
+
+
+/// The value of an export passed from one instance to another.
+pub enum VMExtern {
+    /// A function export value.
+    Function(InternalStoreHandle<VMFunction>),
+
+    /// A table export value.
+    Table(InternalStoreHandle<VMTable>),
+
+    /// A memory export value.
+    Memory(InternalStoreHandle<VMMemory>),
+
+    /// A global export value.
+    Global(InternalStoreHandle<VMGlobal>),
+}
 
 /// An `Extern` is the runtime representation of an entity that
 /// can be imported or exported.
@@ -45,13 +62,23 @@ impl Extern {
         }
     }
 
-    /// Create an `Extern` from an `wasmer_compiler::Export`.
-    pub fn from_vm_extern(store: &mut impl AsStoreMut, export: Export) -> Self {
-        match export {
-            Export::Function(f) => Self::Function(Function::from_vm_extern(store, f)),
-            Export::Memory(m) => Self::Memory(Memory::from_vm_extern(store, m)),
-            Export::Global(g) => Self::Global(Global::from_vm_extern(store, g)),
-            Export::Table(t) => Self::Table(Table::from_vm_extern(store, t)),
+    /// Create an `Extern` from an `wasmer_engine::Export`.
+    pub fn from_vm_extern(store: &mut impl AsStoreMut, vm_extern: VMExtern) -> Self {
+        match vm_extern {
+            VMExtern::Function(f) => Self::Function(Function::from_vm_extern(store, f)),
+            VMExtern::Memory(m) => Self::Memory(Memory::from_vm_extern(store, m)),
+            VMExtern::Global(g) => Self::Global(Global::from_vm_extern(store, g)),
+            VMExtern::Table(t) => Self::Table(Table::from_vm_extern(store, t)),
+        }
+    }
+
+    /// To `VMExtern`.
+    pub fn to_vm_extern(&self) -> VMExtern {
+        match self {
+            Self::Function(f) => f.to_vm_extern(),
+            Self::Global(g) => g.to_vm_extern(),
+            Self::Memory(m) => m.to_vm_extern(),
+            Self::Table(t) => t.to_vm_extern(),
         }
     }
 
