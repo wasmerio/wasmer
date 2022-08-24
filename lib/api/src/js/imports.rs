@@ -7,6 +7,7 @@ use crate::js::module::Module;
 use crate::js::store::AsStoreRef;
 use crate::js::types::AsJs;
 use crate::Extern;
+use wasmer_types::ImportError;
 use std::collections::HashMap;
 use std::fmt;
 

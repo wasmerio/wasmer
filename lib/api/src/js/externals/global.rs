@@ -123,7 +123,7 @@ impl Global {
     ///
     /// assert_eq!(g.get(), Value::I32(1));
     /// ```
-    pub fn get(&self, store: &impl AsStoreRef) -> Value {
+    pub fn get(&self, store: &mut impl AsStoreMut) -> Value {
         unsafe {
             let raw = self
                 .handle
@@ -135,15 +135,6 @@ impl Global {
             let ty = self.handle.get(store.as_store_ref().objects()).ty;
             Value::from_raw(store, ty.ty, raw)
         }
-        /*
-        match self.vm_global.ty.ty {
-            ValType::I32 => Value::I32(self.vm_global.global.value().as_f64().unwrap() as _),
-            ValType::I64 => Value::I64(self.vm_global.global.value().as_f64().unwrap() as _),
-            ValType::F32 => Value::F32(self.vm_global.global.value().as_f64().unwrap() as _),
-            ValType::F64 => Value::F64(self.vm_global.global.value().as_f64().unwrap()),
-            _ => unimplemented!("The type is not yet supported in the JS Global API"),
-        }
-        */
     }
 
     /// Sets a custom value [`Value`] to the runtime Global.

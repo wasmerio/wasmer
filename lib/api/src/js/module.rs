@@ -559,7 +559,8 @@ impl Module {
     /// custom sections. That's why an iterator (rather than one element)
     /// is returned.
     pub fn custom_sections<'a>(&'a self, name: &'a str) -> impl Iterator<Item = Box<[u8]>> + 'a {
-        unimplemented!() // TODO: implement on JavaScript
+        // TODO: implement on JavaScript
+        unimplemented!()
     }
 }
 

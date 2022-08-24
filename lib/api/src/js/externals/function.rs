@@ -316,7 +316,7 @@ impl Function {
     /// assert_eq!(f.ty().results(), vec![Type::I32]);
     /// ```
     pub fn ty(&self, store: &impl AsStoreRef) -> FunctionType {
-        &self.handle.get(store.as_store_ref().objects()).ty.clone()
+        self.handle.get(store.as_store_ref().objects()).ty.clone()
     }
 
     /// Returns the number of parameters that this function takes.
