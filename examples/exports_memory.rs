@@ -75,7 +75,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("String offset: {:?}", ptr.offset());
     println!("String length: {:?}", length);
 
-    // We now know where to fin our string, let's read it.
+    // We now know where to find our string, let's read it.
     //
     // We will get bytes out of the memory so we need to
     // decode them into a string.
