@@ -14,6 +14,9 @@ pub mod wasi {
   pub type Dirnamlen = u32;
   /// File serial number that is unique within its file system.
   pub type Inode = u64;
+  /// Identifier for a device containing a file system. Can be used in combination
+  /// with `inode` to uniquely identify a file or directory in the filesystem.
+  pub type Device = u64;
   /// Identifiers for clocks, snapshot0 version.
   #[repr(u8)]
   #[derive(Clone, Copy, PartialEq, Eq)]
@@ -1416,10 +1419,10 @@ pub mod wasi {
       })
     }
     /// Dummy function to expose types into generated code
-    pub fn expose_types_dummy_func(&self, store: &mut wasmer::Store,fd: Fd,dirent: Dirent,event_enum: EventEnum,event: Event,fdstat: Fdstat,subscription_clock: SubscriptionClock,snapshot0_subscription_clock: Snapshot0SubscriptionClock,subscription: Subscription,snapshot0_subscription: Snapshot0Subscription,)-> Result<(), wasmer::RuntimeError> {
+    pub fn expose_types_dummy_func(&self, store: &mut wasmer::Store,fd: Fd,dirent: Dirent,event_enum: EventEnum,event: Event,fdstat: Fdstat,subscription_clock: SubscriptionClock,snapshot0_subscription_clock: Snapshot0SubscriptionClock,subscription: Subscription,snapshot0_subscription: Snapshot0Subscription,device: Device,)-> Result<(), wasmer::RuntimeError> {
       let func_canonical_abi_realloc = &self.func_canonical_abi_realloc;
       let _memory = &self.memory;
-      let ptr0 = func_canonical_abi_realloc.call(store, 0, 0, 8, 296)?;
+      let ptr0 = func_canonical_abi_realloc.call(store, 0, 0, 8, 304)?;
       let _memory_view = _memory.view(&store);
       unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 0, wit_bindgen_wasmer::rt::as_i32(wit_bindgen_wasmer::rt::as_i32(fd)))?;
       let Dirent{ d_next:d_next1, d_ino:d_ino1, d_type:d_type1, d_namlen:d_namlen1, } = dirent;
@@ -1602,6 +1605,8 @@ pub mod wasi {
           unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 256, wit_bindgen_wasmer::rt::as_i32(wit_bindgen_wasmer::rt::as_i32(file_descriptor28)))?;
         },
       };
+      let _memory_view = _memory.view(&store);
+      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 296, wit_bindgen_wasmer::rt::as_i64(wit_bindgen_wasmer::rt::as_i64(device)))?;
       self.func_expose_types_dummy_func.call(store, ptr0, )?;
       Ok(())
     }

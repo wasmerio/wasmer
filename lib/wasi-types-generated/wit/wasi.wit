@@ -15,6 +15,7 @@ expose-types-dummy-func: func(
   snapshot0-subscription-clock: snapshot0-subscription-clock,
   subscription: subscription,
   snapshot0-subscription: snapshot0-subscription,
+  device: device,
 )
 
 

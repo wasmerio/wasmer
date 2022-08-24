@@ -5,10 +5,8 @@ use std::{
 use wasmer_derive::ValueType;
 use wasmer_types::ValueType;
 use wasmer_wasi_types_generated::wasi::{
-    Fd, Filesize, Filetype, Inode, Preopentype, Rights, Timestamp,
+    Device, Fd, Filesize, Filetype, Inode, Preopentype, Rights, Timestamp,
 };
-
-pub type __wasi_device_t = u64;
 
 pub const __WASI_STDIN_FILENO: Fd = 0;
 pub const __WASI_STDOUT_FILENO: Fd = 1;
@@ -110,7 +108,7 @@ pub type __wasi_filedelta_t = i64;
 #[derive(Copy, Clone, PartialEq, Eq, ValueType)]
 #[repr(C)]
 pub struct __wasi_filestat_t {
-    pub st_dev: __wasi_device_t,
+    pub st_dev: Device,
     pub st_ino: Inode,
     pub st_filetype: Filetype,
     pub st_nlink: __wasi_linkcount_t,

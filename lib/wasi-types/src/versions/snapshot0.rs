@@ -1,7 +1,6 @@
-use crate::*;
 use std::fmt;
 use wasmer_derive::ValueType;
-use wasmer_wasi_types_generated::wasi::{Filesize, Filetype, Inode, Timestamp};
+use wasmer_wasi_types_generated::wasi::{Device, Filesize, Filetype, Inode, Timestamp};
 
 pub type __wasi_linkcount_t = u32;
 
@@ -13,7 +12,7 @@ pub const __WASI_WHENCE_SET: u8 = 2;
 #[derive(Copy, Clone, PartialEq, Eq, ValueType)]
 #[repr(C)]
 pub struct __wasi_filestat_t {
-    pub st_dev: __wasi_device_t,
+    pub st_dev: Device,
     pub st_ino: Inode,
     pub st_filetype: Filetype,
     pub st_nlink: __wasi_linkcount_t,
