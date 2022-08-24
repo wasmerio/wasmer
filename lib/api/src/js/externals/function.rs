@@ -599,7 +599,7 @@ mod inner {
     use super::RuntimeError;
     use super::VMFunctionBody;
     use crate::js::function_env::{FunctionEnvMut, VMFunctionEnvironment};
-    use crate::js::store::{AsStoreMut, InternalStoreHandle, StoreHandle, StoreMut};
+    use crate::js::store::{AsStoreMut, AsStoreRef, InternalStoreHandle, StoreHandle, StoreMut};
     use crate::js::FunctionEnv;
     use crate::js::NativeWasmTypeInto;
     use std::array::TryFromSliceError;
@@ -640,6 +640,9 @@ mod inner {
         /// This method panics if `self` cannot fit in the
         /// `Self::Native` type.
         fn to_native(self) -> Self::Native;
+
+        /// Returns whether this native type belongs to the given store
+        fn is_from_store(&self, _store: &impl AsStoreRef) -> bool;
     }
 
     macro_rules! from_to_native_wasm_type {
@@ -657,6 +660,11 @@ mod inner {
                     #[inline]
                     fn to_native(self) -> Self::Native {
                         self as Self::Native
+                    }
+
+                    #[inline]
+                    fn is_from_store(&self, _store: &impl AsStoreRef) -> bool {
+                        self.handle.store_id() == store.as_store_ref().objects().id()
                     }
                 }
             )*
@@ -678,6 +686,11 @@ mod inner {
                     #[inline]
                     fn to_native(self) -> Self::Native {
                         Self::Native::from_ne_bytes(Self::to_ne_bytes(self))
+                    }
+
+                    #[inline]
+                    fn is_from_store(&self, _store: &impl AsStoreRef) -> bool {
+                        self.handle.store_id() == store.as_store_ref().objects().id()
                     }
                 }
             )*

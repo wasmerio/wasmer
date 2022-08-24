@@ -1,4 +1,4 @@
-use crate::js::NativeWasmTypeInto;
+use crate::{AsStoreRef, js::NativeWasmTypeInto};
 use crate::js::{externals::MemoryView, FromToNativeWasmType};
 use crate::js::{MemoryAccessError, WasmRef, WasmSlice};
 use std::convert::TryFrom;
@@ -233,6 +233,10 @@ where
             offset: M::native_to_offset(n),
             _phantom: PhantomData,
         }
+    }
+    #[inline]
+    fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
+        true // TODO ???
     }
 }
 
