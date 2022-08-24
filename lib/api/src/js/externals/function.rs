@@ -905,7 +905,7 @@ mod inner {
     where
         Args: WasmTypeList,
         Rets: WasmTypeList,
-        Kind: HostFunctionKind
+        Kind: HostFunctionKind,
     {
         /// Get the pointer to the function body.
         fn function_body_ptr() -> *const VMFunctionBody;

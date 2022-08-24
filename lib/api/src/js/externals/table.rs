@@ -148,7 +148,7 @@ impl Table {
     /// Returns an error if the range is out of bounds of either the source or
     /// destination tables.
     pub fn copy(
-        _store: &mut impl AsStoreMut, 
+        _store: &mut impl AsStoreMut,
         _dst_table: &Self,
         _dst_index: u32,
         _src_table: &Self,

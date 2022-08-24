@@ -10,15 +10,14 @@ pub use self::memory::{Memory, MemoryError};
 pub use self::memory_view::MemoryView;
 pub use self::table::Table;
 
-use crate::js::export::{Export, VMMemory, VMTable, VMFunction, VMGlobal};
+use crate::js::export::{Export, VMFunction, VMGlobal, VMMemory, VMTable};
 use crate::js::exports::{ExportError, Exportable};
-use crate::js::store::StoreObject;
 use crate::js::store::InternalStoreHandle;
+use crate::js::store::StoreObject;
 use crate::js::store::{AsStoreMut, AsStoreRef};
 use crate::js::types::AsJs;
 use crate::js::ExternType;
 use std::fmt;
-
 
 /// The value of an export passed from one instance to another.
 pub enum VMExtern {

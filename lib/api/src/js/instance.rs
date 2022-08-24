@@ -85,8 +85,11 @@ impl Instance {
     /// Those are, as defined by the spec:
     ///  * Link errors that happen when plugging the imports into the instance
     ///  * Runtime errors that happen when running the module `start` function.
-    pub fn new_by_index(store: &mut impl AsStoreMut, module: &Module, externs: &[Extern]) 
-    -> Result<Self, InstantiationError> {
+    pub fn new_by_index(
+        store: &mut impl AsStoreMut,
+        module: &Module,
+        externs: &[Extern],
+    ) -> Result<Self, InstantiationError> {
         let imports = externs.to_vec();
         let mut handle = module.instantiate(store, &imports)?;
         let exports = module

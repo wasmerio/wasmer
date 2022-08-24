@@ -17,7 +17,7 @@ use wasmer_types::RawValue;
 /// A WebAssembly function that can be called natively
 /// (using the Native ABI).
 pub struct TypedFunction<Args, Rets> {
-    func: Function,
+    pub(crate) func: Function,
     _phantom: PhantomData<fn(Args) -> Rets>,
 }
 

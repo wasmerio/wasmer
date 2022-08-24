@@ -1,6 +1,6 @@
-use crate::{AsStoreRef, js::NativeWasmTypeInto};
 use crate::js::{externals::MemoryView, FromToNativeWasmType};
 use crate::js::{MemoryAccessError, WasmRef, WasmSlice};
+use crate::{js::NativeWasmTypeInto, AsStoreRef};
 use std::convert::TryFrom;
 use std::{fmt, marker::PhantomData, mem};
 pub use wasmer_types::Memory32;

@@ -178,7 +178,6 @@ pub enum LinkError {
 #[derive(Debug)]
 #[cfg_attr(feature = "std", derive(Error))]
 pub enum InstantiationError {
-
     /// A linking ocurred during instantiation.
     #[cfg_attr(feature = "std", error(transparent))]
     Link(LinkError),

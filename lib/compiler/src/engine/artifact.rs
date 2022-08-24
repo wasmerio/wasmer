@@ -343,7 +343,7 @@ impl Artifact {
         // Get pointers to where metadata about local tables should live in VM memory.
 
         let (allocator, memory_definition_locations, table_definition_locations) =
-            InstanceAllocator::new(&*module);
+            InstanceAllocator::new(&module);
         let finished_memories = tunables
             .create_memories(
                 context,
@@ -400,7 +400,7 @@ impl Artifact {
             .iter()
             .map(|init| DataInitializer {
                 location: init.location.clone(),
-                data: &*init.data,
+                data: &init.data,
             })
             .collect::<Vec<_>>();
         handle
