@@ -4,7 +4,7 @@ use wasmer::{FunctionEnvMut, Memory, Memory64, MemorySize, StoreMut, WasmPtr, Wa
 use wasmer_wasi_types::*;
 use wasmer_wasi_types_generated::wasi::{
     Advice, BusErrno, Clockid, Dircookie, Errno, Event, Fd, Fdflags, Fdstat, Rights, Sockoption,
-    Sockstatus, Socktype, Subscription, Timestamp,
+    Sockstatus, Socktype, Streamsecurity, Subscription, Timestamp,
 };
 
 type MemoryType = Memory64;
@@ -666,7 +666,7 @@ pub(crate) fn port_bridge(
     network_len: MemoryOffset,
     token: WasmPtr<u8, MemoryType>,
     token_len: MemoryOffset,
-    security: __wasi_streamsecurity_t,
+    security: Streamsecurity,
 ) -> Errno {
     super::port_bridge::<MemoryType>(ctx, network, network_len, token, token_len, security)
 }

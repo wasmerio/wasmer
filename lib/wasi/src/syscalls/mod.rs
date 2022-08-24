@@ -26,8 +26,8 @@ use self::types::{
     wasi::{
         Advice, BusErrno, Clockid, Dircookie, Dirent, Errno, Event, EventEnum, EventFdReadwrite,
         Eventrwflags, Eventtype, Fd as WasiFd, Fdflags, Fdstat, Filetype, Rights, Snapshot0Clockid,
-        Sockoption, Sockstatus, Socktype, Subscription, SubscriptionEnum, SubscriptionFsReadwrite,
-        Timestamp,
+        Sockoption, Sockstatus, Socktype, Streamsecurity, Subscription, SubscriptionEnum,
+        SubscriptionFsReadwrite, Timestamp,
     },
     *,
 };
@@ -4331,7 +4331,7 @@ pub fn port_bridge<M: MemorySize>(
     network_len: M::Offset,
     token: WasmPtr<u8, M>,
     token_len: M::Offset,
-    security: __wasi_streamsecurity_t,
+    security: Streamsecurity,
 ) -> Errno {
     debug!("wasi::port_bridge");
     let env = ctx.data();
@@ -4339,10 +4339,10 @@ pub fn port_bridge<M: MemorySize>(
     let network = unsafe { get_input_str!(&memory, network, network_len) };
     let token = unsafe { get_input_str!(&memory, token, token_len) };
     let security = match security {
-        __WASI_STREAM_SECURITY_UNENCRYPTED => StreamSecurity::Unencrypted,
-        __WASI_STREAM_SECURITY_ANY_ENCRYPTION => StreamSecurity::AnyEncyption,
-        __WASI_STREAM_SECURITY_CLASSIC_ENCRYPTION => StreamSecurity::ClassicEncryption,
-        __WASI_STREAM_SECURITY_DOUBLE_ENCRYPTION => StreamSecurity::DoubleEncryption,
+        Streamsecurity::Unencrypted => StreamSecurity::Unencrypted,
+        Streamsecurity::AnyEncryption => StreamSecurity::AnyEncyption,
+        Streamsecurity::ClassicEncryption => StreamSecurity::ClassicEncryption,
+        Streamsecurity::DoubleEncryption => StreamSecurity::DoubleEncryption,
         _ => return Errno::Inval,
     };
 

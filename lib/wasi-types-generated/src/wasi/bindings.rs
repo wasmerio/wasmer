@@ -1290,6 +1290,32 @@ pub mod wasi {
       }
     }
   }
+  #[repr(u8)]
+  #[derive(Clone, Copy, PartialEq, Eq)]
+  pub enum Streamsecurity {
+    Unencrypted,
+    AnyEncryption,
+    ClassicEncryption,
+    DoubleEncryption,
+  }
+  impl core::fmt::Debug for Streamsecurity {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+      match self {
+        Streamsecurity::Unencrypted => {
+          f.debug_tuple("Streamsecurity::Unencrypted").finish()
+        }
+        Streamsecurity::AnyEncryption => {
+          f.debug_tuple("Streamsecurity::AnyEncryption").finish()
+        }
+        Streamsecurity::ClassicEncryption => {
+          f.debug_tuple("Streamsecurity::ClassicEncryption").finish()
+        }
+        Streamsecurity::DoubleEncryption => {
+          f.debug_tuple("Streamsecurity::DoubleEncryption").finish()
+        }
+      }
+    }
+  }
   
   /// Auxiliary data associated with the wasm exports.
   #[derive(Default)]

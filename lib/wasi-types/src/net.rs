@@ -4,12 +4,6 @@ use wasmer_wasi_types_generated::wasi::Fd;
 
 use crate::__wasi_option_timestamp_t;
 
-pub type __wasi_streamsecurity_t = u8;
-pub const __WASI_STREAM_SECURITY_UNENCRYPTED: __wasi_streamsecurity_t = 0;
-pub const __WASI_STREAM_SECURITY_ANY_ENCRYPTION: __wasi_streamsecurity_t = 1;
-pub const __WASI_STREAM_SECURITY_CLASSIC_ENCRYPTION: __wasi_streamsecurity_t = 2;
-pub const __WASI_STREAM_SECURITY_DOUBLE_ENCRYPTION: __wasi_streamsecurity_t = 3;
-
 pub type __wasi_sockproto_t = u16;
 pub const __WASI_SOCK_PROTO_IP: __wasi_sockproto_t = 0;
 pub const __WASI_SOCK_PROTO_ICMP: __wasi_sockproto_t = 1;

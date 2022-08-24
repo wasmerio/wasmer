@@ -738,3 +738,10 @@ enum sockoption {
     %type,
     proto,
 }
+
+enum streamsecurity {
+    unencrypted,
+    any-encryption,
+    classic-encryption,
+    double-encryption,
+}
