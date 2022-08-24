@@ -664,7 +664,7 @@ mod inner {
 
                     #[inline]
                     fn is_from_store(&self, _store: &impl AsStoreRef) -> bool {
-                        self.handle.store_id() == store.as_store_ref().objects().id()
+                        true // Javascript only has one store
                     }
                 }
             )*
@@ -690,7 +690,7 @@ mod inner {
 
                     #[inline]
                     fn is_from_store(&self, _store: &impl AsStoreRef) -> bool {
-                        self.handle.store_id() == store.as_store_ref().objects().id()
+                        true // Javascript only has one store
                     }
                 }
             )*

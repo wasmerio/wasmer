@@ -235,8 +235,8 @@ where
         }
     }
     #[inline]
-    fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
-        true // TODO ???
+    fn is_from_store(&self, _store: &impl AsStoreRef) -> bool {
+        true // in Javascript there are no different stores
     }
 }
 
