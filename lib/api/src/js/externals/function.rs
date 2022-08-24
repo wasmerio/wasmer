@@ -900,12 +900,13 @@ mod inner {
     where
         Args: WasmTypeList,
         Rets: WasmTypeList,
-        Kind: HostFunctionKind,
-        T: Sized,
-        Self: Sized,
+        Kind: HostFunctionKind
     {
         /// Get the pointer to the function body.
         fn function_body_ptr() -> *const VMFunctionBody;
+
+        // /// Get the pointer to the function call trampoline.
+        // fn call_trampoline_address() -> VMTrampoline;
     }
 
     /// Empty trait to specify the kind of `HostFunction`: With or
