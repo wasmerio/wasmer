@@ -45,16 +45,6 @@ impl<Args: WasmTypeList, Rets: WasmTypeList> Clone for TypedFunction<Args, Rets>
     }
 }
 
-impl<Args, Rets> From<TypedFunction<Args, Rets>> for Function
-where
-    Args: WasmTypeList,
-    Rets: WasmTypeList,
-{
-    fn from(other: TypedFunction<Args, Rets>) -> Self {
-        other.func
-    }
-}
-
 macro_rules! impl_native_traits {
     (  $( $x:ident ),* ) => {
         #[allow(unused_parens, non_snake_case)]
