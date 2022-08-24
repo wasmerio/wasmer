@@ -230,13 +230,13 @@ impl Function {
         note = "new_native_with_env() has been renamed to new_typed_with_env()."
     )]
     /// Creates a new host `Function` with an environment from a typed function.
-    pub fn new_native_with_env<T, F, Args, Rets>(
+    pub fn new_native_with_env<T: Send + 'static, F, Args, Rets>(
         store: &mut impl AsStoreMut,
         env: &FunctionEnv<T>,
         func: F,
     ) -> Self
     where
-        F: HostFunction<T, Args, Rets, WithEnv>,
+        F: HostFunction<T, Args, Rets, WithEnv> + 'static + Send + Sync,
         Args: WasmTypeList,
         Rets: WasmTypeList,
     {
