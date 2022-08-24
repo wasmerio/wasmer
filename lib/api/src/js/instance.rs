@@ -75,6 +75,39 @@ impl Instance {
         Ok(self_instance)
     }
 
+    /// Creates a new `Instance` from a WebAssembly [`Module`] and a
+    /// vector of imports.
+    ///
+    /// ## Errors
+    ///
+    /// The function can return [`InstantiationError`]s.
+    ///
+    /// Those are, as defined by the spec:
+    ///  * Link errors that happen when plugging the imports into the instance
+    ///  * Runtime errors that happen when running the module `start` function.
+    pub fn new_by_index(store: &mut impl AsStoreMut, module: &Module, externs: &[Extern]) 
+    -> Result<Self, InstantiationError> {
+        let imports = externs.to_vec();
+        let mut handle = module.instantiate(store, &imports)?;
+        let exports = module
+            .exports()
+            .map(|export| {
+                let name = export.name().to_string();
+                let export = handle.lookup(&name).expect("export");
+                let extern_ = Extern::from_vm_extern(store, export);
+                (name, extern_)
+            })
+            .collect::<Exports>();
+
+        let instance = Self {
+            _handle: StoreHandle::new(store.objects_mut(), handle),
+            module: module.clone(),
+            exports,
+        };
+
+        Ok(instance)
+    }
+
     /// Creates a Wasmer `Instance` from a Wasmer `Module` and a WebAssembly Instance
     ///
     /// # Important
