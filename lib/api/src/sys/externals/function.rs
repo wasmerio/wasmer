@@ -41,6 +41,16 @@ pub struct Function {
     pub(crate) handle: StoreHandle<VMFunction>,
 }
 
+impl<Args, Rets> From<TypedFunction<Args, Rets>> for Function
+where
+    Args: WasmTypeList,
+    Rets: WasmTypeList,
+{
+    fn from(other: TypedFunction<Args, Rets>) -> Self {
+        other.func
+    }
+}
+
 impl Function {
     /// Creates a new host `Function` (dynamic) with the provided signature.
     ///
