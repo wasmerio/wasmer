@@ -4,12 +4,6 @@ use wasmer_wasi_types_generated::wasi::Fd;
 
 use crate::__wasi_option_timestamp_t;
 
-pub type __wasi_sockstatus_t = u8;
-pub const __WASI_SOCK_STATUS_OPENING: __wasi_sockstatus_t = 0;
-pub const __WASI_SOCK_STATUS_OPENED: __wasi_sockstatus_t = 1;
-pub const __WASI_SOCK_STATUS_CLOSED: __wasi_sockstatus_t = 2;
-pub const __WASI_SOCK_STATUS_FAILED: __wasi_sockstatus_t = 3;
-
 pub type __wasi_sockoption_t = u8;
 pub const __WASI_SOCK_OPTION_NOOP: __wasi_sockoption_t = 0;
 pub const __WASI_SOCK_OPTION_REUSE_PORT: __wasi_sockoption_t = 1;

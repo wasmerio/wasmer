@@ -1,4 +1,3 @@
-use super::types::*;
 use std::collections::BTreeSet;
 use wasmer::Module;
 use wasmer_wasi_types_generated::wasi::Errno;

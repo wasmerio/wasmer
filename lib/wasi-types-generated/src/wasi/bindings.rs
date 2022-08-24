@@ -1146,6 +1146,32 @@ pub mod wasi {
       }
     }
   }
+  #[repr(u8)]
+  #[derive(Clone, Copy, PartialEq, Eq)]
+  pub enum Sockstatus {
+    Opening,
+    Opened,
+    Closed,
+    Failed,
+  }
+  impl core::fmt::Debug for Sockstatus {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+      match self {
+        Sockstatus::Opening => {
+          f.debug_tuple("Sockstatus::Opening").finish()
+        }
+        Sockstatus::Opened => {
+          f.debug_tuple("Sockstatus::Opened").finish()
+        }
+        Sockstatus::Closed => {
+          f.debug_tuple("Sockstatus::Closed").finish()
+        }
+        Sockstatus::Failed => {
+          f.debug_tuple("Sockstatus::Failed").finish()
+        }
+      }
+    }
+  }
   
   /// Auxiliary data associated with the wasm exports.
   #[derive(Default)]

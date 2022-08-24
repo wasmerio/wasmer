@@ -701,3 +701,10 @@ enum socktype {
     raw,
     seqpacket,
 }
+
+enum sockstatus {
+    opening,
+    opened,
+    closed,
+    failed,
+}

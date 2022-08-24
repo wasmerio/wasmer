@@ -3,8 +3,8 @@ use crate::{WasiEnv, WasiError, WasiState, WasiThread};
 use wasmer::{FunctionEnvMut, Memory, Memory64, MemorySize, StoreMut, WasmPtr, WasmSlice};
 use wasmer_wasi_types::*;
 use wasmer_wasi_types_generated::wasi::{
-    Advice, BusErrno, Clockid, Dircookie, Errno, Event, Fd, Fdflags, Fdstat, Rights, Socktype,
-    Subscription, Timestamp,
+    Advice, BusErrno, Clockid, Dircookie, Errno, Event, Fd, Fdflags, Fdstat, Rights, Sockstatus,
+    Socktype, Subscription, Timestamp,
 };
 
 type MemoryType = Memory64;
@@ -796,7 +796,7 @@ pub(crate) fn http_status(
 pub(crate) fn sock_status(
     ctx: FunctionEnvMut<WasiEnv>,
     sock: Fd,
-    ret_status: WasmPtr<__wasi_sockstatus_t, MemoryType>,
+    ret_status: WasmPtr<Sockstatus, MemoryType>,
 ) -> Errno {
     super::sock_status::<MemoryType>(ctx, sock, ret_status)
 }

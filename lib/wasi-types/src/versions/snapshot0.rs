@@ -1,11 +1,7 @@
 use crate::*;
 use std::fmt;
-use std::mem::{self, MaybeUninit};
 use wasmer_derive::ValueType;
-use wasmer_types::ValueType;
-use wasmer_wasi_types_generated::wasi::{
-    Eventtype, Filetype, Snapshot0SubscriptionClock as SubscriptionClock, Timestamp,
-};
+use wasmer_wasi_types_generated::wasi::{Filetype, Timestamp};
 
 pub type __wasi_linkcount_t = u32;
 

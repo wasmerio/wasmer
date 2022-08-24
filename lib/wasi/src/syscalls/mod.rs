@@ -26,7 +26,7 @@ use self::types::{
     wasi::{
         Advice, BusErrno, Clockid, Dircookie, Dirent, Errno, Event, EventEnum, EventFdReadwrite,
         Eventrwflags, Eventtype, Fd as WasiFd, Fdflags, Fdstat, Filetype, Rights, Snapshot0Clockid,
-        Socktype, Subscription, SubscriptionEnum, SubscriptionFsReadwrite, Timestamp,
+        Sockstatus, Socktype, Subscription, SubscriptionEnum, SubscriptionFsReadwrite, Timestamp,
     },
     *,
 };
@@ -4631,7 +4631,7 @@ pub fn sock_shutdown(
 pub fn sock_status<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
-    ret_status: WasmPtr<__wasi_sockstatus_t, M>,
+    ret_status: WasmPtr<Sockstatus, M>,
 ) -> Errno {
     debug!("wasi::sock_status");
 
@@ -4641,10 +4641,10 @@ pub fn sock_status<M: MemorySize>(
 
     use super::state::WasiSocketStatus;
     let status = match status {
-        WasiSocketStatus::Opening => __WASI_SOCK_STATUS_OPENING,
-        WasiSocketStatus::Opened => __WASI_SOCK_STATUS_OPENED,
-        WasiSocketStatus::Closed => __WASI_SOCK_STATUS_CLOSED,
-        WasiSocketStatus::Failed => __WASI_SOCK_STATUS_FAILED,
+        WasiSocketStatus::Opening => Sockstatus::Opening,
+        WasiSocketStatus::Opened => Sockstatus::Opened,
+        WasiSocketStatus::Closed => Sockstatus::Closed,
+        WasiSocketStatus::Failed => Sockstatus::Failed,
     };
 
     let env = ctx.data();

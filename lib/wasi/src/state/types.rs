@@ -1,5 +1,4 @@
 /// types for use in the WASI filesystem
-use crate::syscalls::types::*;
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 #[cfg(all(unix, feature = "sys-poll"))]

@@ -1,12 +1,4 @@
-use crate::*;
-use std::convert::TryFrom;
-use std::fmt;
-use std::mem::{self, MaybeUninit};
-use wasmer_types::ValueType;
-use wasmer_wasi_types_generated::wasi::{
-    Clockid, Errno, Eventtype, Fd, Subclockflags, Subscription, SubscriptionClock,
-    SubscriptionEnum, SubscriptionFsReadwrite, Timestamp, Userdata,
-};
+use wasmer_wasi_types_generated::wasi::{Eventtype, SubscriptionClock, SubscriptionFsReadwrite};
 
 /// Safe Rust wrapper around `__wasi_subscription_t::type_` and `__wasi_subscription_t::u`
 #[derive(Debug, Clone)]
