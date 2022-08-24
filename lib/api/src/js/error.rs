@@ -178,13 +178,19 @@ pub enum LinkError {
 #[derive(Debug)]
 #[cfg_attr(feature = "std", derive(Error))]
 pub enum InstantiationError {
+
     /// A linking ocurred during instantiation.
-    #[cfg_attr(feature = "std", error("Link error: {0}"))]
-    Link(String),
+    #[cfg_attr(feature = "std", error(transparent))]
+    Link(LinkError),
 
     /// A runtime error occured while invoking the start function
     #[cfg_attr(feature = "std", error(transparent))]
     Start(RuntimeError),
+
+    /// The module was compiled with a CPU feature that is not available on
+    /// the current host.
+    #[cfg_attr(feature = "std", error("missing required CPU features: {0:?}"))]
+    CpuFeature(String),
 
     /// Import from a different [`Store`].
     /// This error occurs when an import from a different store is used.
