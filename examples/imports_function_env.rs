@@ -80,8 +80,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     fn get_counter(env: FunctionEnvMut<Env>) -> i32 {
         *env.data().counter.lock().unwrap()
     }
-    fn add_to_counter(mut env: FunctionEnvMut<Env>, add: i32) -> i32 {
-        let mut counter_ref = env.data_mut().counter.lock().unwrap();
+    fn add_to_counter(env: FunctionEnvMut<Env>, add: i32) -> i32 {
+        let mut counter_ref = env.data().counter.lock().unwrap();
 
         *counter_ref += add;
         *counter_ref

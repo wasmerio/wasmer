@@ -83,16 +83,16 @@ impl<'a> WasiTest<'a> {
             out
         };
         let module = Module::new(store, &wasm_bytes)?;
-        let (env, _tempdirs, stdout_rx, stderr_rx) =
+        let (mut env, _tempdirs, stdout_rx, stderr_rx) =
             self.create_wasi_env(store, filesystem_kind)?;
         let imports = self.get_imports(store, &env.env, &module)?;
         let instance = Instance::new(&mut store, &module, &imports)?;
 
-        let start = instance.exports.get_function("_start")?;
-        let memory = instance.exports.get_memory("memory")?;
-        let wasi_env = env.data_mut(&mut store);
-        wasi_env.set_memory(memory.clone());
+        env.initialize(&mut store, &instance).unwrap();
+        let wasi_env = env.data(&store);
 
+        let start = instance.exports.get_function("_start")?;
+        
         if let Some(stdin) = &self.stdin {
             let state = wasi_env.state();
             let mut wasi_stdin = state.stdin().unwrap().unwrap();

@@ -4,7 +4,7 @@ use std::collections::BTreeSet;
 use std::path::PathBuf;
 use wasmer::{AsStoreMut, FunctionEnv, Instance, Module, RuntimeError, Value};
 use wasmer_wasi::{
-    get_wasi_versions, import_object_for_all_wasi_versions, is_wasix_module, WasiEnv, WasiError,
+    get_wasi_versions, import_object_for_all_wasi_versions, WasiEnv, WasiError,
     WasiState, WasiVersion,
 };
 
@@ -69,7 +69,7 @@ impl Wasi {
     /// Helper function for instantiating a module with Wasi imports for the `Run` command.
     pub fn instantiate(
         &self,
-        store: &mut impl AsStoreMut,
+        mut store: &mut impl AsStoreMut,
         module: &Module,
         program_name: String,
         args: Vec<String>,
@@ -99,8 +99,7 @@ impl Wasi {
         let mut import_object = import_object_for_all_wasi_versions(store, &wasi_env.env);
         import_object.import_shared_memory(module, store);
         let instance = Instance::new(store, module, &import_object)?;
-        let memory = instance.exports.get_memory("memory")?;
-        wasi_env.data_mut(store).set_memory(memory.clone());
+        wasi_env.initialize(&mut store, &instance)?;
         Ok((wasi_env.env, instance))
     }
 

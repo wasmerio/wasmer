@@ -3,10 +3,10 @@ use std::ptr::NonNull;
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{
     GlobalType, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, MemoryType,
-    ModuleInfo, TableIndex, TableType,
+    ModuleInfo, TableIndex, TableType, MemoryStyle
 };
 use wasmer_vm::{InternalStoreHandle, MemoryError, StoreObjects};
-use wasmer_vm::{MemoryStyle, TableStyle};
+use wasmer_vm::TableStyle;
 use wasmer_vm::{VMGlobal, VMMemory, VMTable};
 use wasmer_vm::{VMMemoryDefinition, VMTableDefinition};
 

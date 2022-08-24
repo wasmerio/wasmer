@@ -25,7 +25,7 @@ use std::sync::{Arc, Mutex, RwLock};
 use wasmer::{
     imports, namespace, AsStoreMut, ExportError, Exports, Function, FunctionEnv, FunctionEnvMut,
     FunctionType, Global, Imports, Instance, Memory, MemoryType, Module, Pages, RuntimeError,
-    Table, TableType, TypedFunction, Value, WasmPtr,
+    Table, TableType, TypedFunction, Value, WasmPtr, AsStoreRef,
 };
 use wasmer_types::Type as ValType;
 
@@ -98,7 +98,7 @@ impl EmEnv {
         }
     }
 
-    pub fn set_memory(&mut self, memory: Memory) {
+    pub fn set_memory(&self, memory: Memory) {
         let mut w = self.memory.write().unwrap();
         *w = Some(memory);
     }
@@ -108,12 +108,13 @@ impl EmEnv {
         (&*self.memory.read().unwrap()).as_ref().cloned().unwrap()
     }
 
-    pub fn set_functions(&mut self, funcs: EmscriptenFunctions) {
-        self.funcs = Arc::new(Mutex::new(funcs));
+    pub fn set_functions(&self, funcs: EmscriptenFunctions) {
+        let mut w = self.funcs.lock().unwrap();
+        *w = funcs;
     }
 
     pub fn set_data(
-        &mut self,
+        &self,
         data: &EmscriptenGlobalsData,
         mapped_dirs: HashMap<String, PathBuf>,
     ) {
@@ -823,7 +824,7 @@ pub fn run_emscripten_instance(
     if let Ok(func) = instance.exports.get_typed_function(&env, "setThrew") {
         emfuncs.set_threw = Some(func);
     }
-    env.data_mut().set_functions(emfuncs);
+    env.data().set_functions(emfuncs);
 
     set_up_emscripten(&mut env, instance)?;
 
@@ -864,12 +865,12 @@ fn store_module_arguments(env: &mut FunctionEnvMut<EmEnv>, args: Vec<&str>) -> (
 }
 
 pub fn emscripten_set_up_memory(
-    store: &mut impl AsStoreMut,
+    store: &impl AsStoreRef,
     env: &FunctionEnv<EmEnv>,
     memory: &Memory,
     globals: &EmscriptenGlobalsData,
 ) -> Result<(), String> {
-    env.as_mut(store).set_memory(memory.clone());
+    env.as_ref(store).set_memory(memory.clone());
     let memory = memory.view(store);
     let dynamictop_ptr = WasmPtr::<i32>::new(globals.dynamictop_ptr).deref(&memory);
     let dynamic_base = globals.dynamic_base;
