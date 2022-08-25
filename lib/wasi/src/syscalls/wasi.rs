@@ -113,7 +113,7 @@ pub(crate) fn fd_fdstat_set_rights(
 pub(crate) fn fd_filestat_get(
     ctx: FunctionEnvMut<WasiEnv>,
     fd: WasiFd,
-    buf: WasmPtr<__wasi_filestat_t, MemoryType>,
+    buf: WasmPtr<Filestat, MemoryType>,
 ) -> Errno {
     super::fd_filestat_get::<MemoryType>(ctx, fd, buf)
 }
@@ -247,7 +247,7 @@ pub(crate) fn path_filestat_get(
     flags: __wasi_lookupflags_t,
     path: WasmPtr<u8, MemoryType>,
     path_len: MemoryOffset,
-    buf: WasmPtr<__wasi_filestat_t, MemoryType>,
+    buf: WasmPtr<Filestat, MemoryType>,
 ) -> Errno {
     super::path_filestat_get::<MemoryType>(ctx, fd, flags, path, path_len, buf)
 }

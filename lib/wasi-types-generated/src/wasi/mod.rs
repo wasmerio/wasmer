@@ -616,6 +616,74 @@ unsafe impl ValueType for Snapshot0Filestat {
     }
 }
 
+unsafe impl ValueType for Filestat {
+    fn zero_padding_bytes(&self, bytes: &mut [MaybeUninit<u8>]) {
+        macro_rules! field {
+            ($($f:tt)*) => {
+                &self.$($f)* as *const _ as usize - self as *const _ as usize
+            };
+        }
+        macro_rules! field_end {
+            ($($f:tt)*) => {
+                field!($($f)*) + std::mem::size_of_val(&self.$($f)*)
+            };
+        }
+        macro_rules! zero {
+            ($start:expr, $end:expr) => {
+                for i in $start..$end {
+                    bytes[i] = MaybeUninit::new(0);
+                }
+            };
+        }
+        self.st_dev
+            .zero_padding_bytes(&mut bytes[field!(st_dev)..field_end!(st_dev)]);
+        zero!(field_end!(st_dev), field!(st_ino));
+
+        self.st_ino
+            .zero_padding_bytes(&mut bytes[field!(st_ino)..field_end!(st_ino)]);
+        zero!(field_end!(st_ino), field!(st_filetype));
+
+        self.st_filetype
+            .zero_padding_bytes(&mut bytes[field!(st_filetype)..field_end!(st_filetype)]);
+        zero!(field_end!(st_filetype), field!(st_nlink));
+
+        self.st_nlink
+            .zero_padding_bytes(&mut bytes[field!(st_nlink)..field_end!(st_nlink)]);
+        zero!(field_end!(st_nlink), field!(st_size));
+
+        self.st_size
+            .zero_padding_bytes(&mut bytes[field!(st_size)..field_end!(st_size)]);
+        zero!(field_end!(st_size), field!(st_atim));
+
+        self.st_atim
+            .zero_padding_bytes(&mut bytes[field!(st_atim)..field_end!(st_atim)]);
+        zero!(field_end!(st_atim), field!(st_mtim));
+
+        self.st_mtim
+            .zero_padding_bytes(&mut bytes[field!(st_mtim)..field_end!(st_mtim)]);
+        zero!(field_end!(st_mtim), field!(st_ctim));
+
+        self.st_ctim
+            .zero_padding_bytes(&mut bytes[field!(st_ctim)..field_end!(st_ctim)]);
+        zero!(field_end!(st_ctim), std::mem::size_of_val(self));
+    }
+}
+
+impl Default for Filestat {
+    fn default() -> Self {
+        Self {
+            st_dev: Default::default(),
+            st_ino: Default::default(),
+            st_filetype: Filetype::Unknown,
+            st_nlink: 1,
+            st_size: Default::default(),
+            st_atim: Default::default(),
+            st_mtim: Default::default(),
+            st_ctim: Default::default(),
+        }
+    }
+}
+
 // TODO: if necessary, must be implemented in wit-bindgen
 unsafe impl wit_bindgen_wasmer::wasmer::FromToNativeWasmType for Errno {
     type Native = i32;

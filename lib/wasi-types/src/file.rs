@@ -4,9 +4,7 @@ use std::{
 };
 use wasmer_derive::ValueType;
 use wasmer_types::ValueType;
-use wasmer_wasi_types_generated::wasi::{
-    Device, Fd, Filesize, Filetype, Inode, Linkcount, Preopentype, Rights, Timestamp,
-};
+use wasmer_wasi_types_generated::wasi::{Fd, Preopentype, Rights};
 
 pub const __WASI_STDIN_FILENO: Fd = 0;
 pub const __WASI_STDOUT_FILENO: Fd = 1;
@@ -104,65 +102,6 @@ unsafe impl ValueType for __wasi_prestat_t {
 }
 
 pub type __wasi_filedelta_t = i64;
-
-#[derive(Copy, Clone, PartialEq, Eq, ValueType)]
-#[repr(C)]
-pub struct __wasi_filestat_t {
-    pub st_dev: Device,
-    pub st_ino: Inode,
-    pub st_filetype: Filetype,
-    pub st_nlink: Linkcount,
-    pub st_size: Filesize,
-    pub st_atim: Timestamp,
-    pub st_mtim: Timestamp,
-    pub st_ctim: Timestamp,
-}
-
-impl Default for __wasi_filestat_t {
-    fn default() -> Self {
-        __wasi_filestat_t {
-            st_dev: Default::default(),
-            st_ino: Default::default(),
-            st_filetype: Filetype::Unknown,
-            st_nlink: 1,
-            st_size: Default::default(),
-            st_atim: Default::default(),
-            st_mtim: Default::default(),
-            st_ctim: Default::default(),
-        }
-    }
-}
-
-impl fmt::Debug for __wasi_filestat_t {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let convert_ts_into_time_string = |ts| {
-            let tspec = ::time::OffsetDateTime::from_unix_timestamp_nanos(ts);
-            format!("{} ({})", tspec.format("%a, %d %b %Y %T %z"), ts)
-        };
-        f.debug_struct("__wasi_filestat_t")
-            .field("st_dev", &self.st_dev)
-            .field("st_ino", &self.st_ino)
-            .field(
-                "st_filetype",
-                &format!("{} ({})", self.st_filetype.name(), self.st_filetype as u8,),
-            )
-            .field("st_nlink", &self.st_nlink)
-            .field("st_size", &self.st_size)
-            .field(
-                "st_atim",
-                &convert_ts_into_time_string(self.st_atim as i128),
-            )
-            .field(
-                "st_mtim",
-                &convert_ts_into_time_string(self.st_mtim as i128),
-            )
-            .field(
-                "st_ctim",
-                &convert_ts_into_time_string(self.st_ctim as i128),
-            )
-            .finish()
-    }
-}
 
 pub type __wasi_fstflags_t = u16;
 pub const __WASI_FILESTAT_SET_ATIM: __wasi_fstflags_t = 1 << 0;

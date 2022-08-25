@@ -453,8 +453,8 @@ impl VirtualFile for Pipe {
 /*
 TODO: Think about using this
 trait WasiFdBacking: std::fmt::Debug {
-    fn get_stat(&self) -> &__wasi_filestat_t;
-    fn get_stat_mut(&mut self) -> &mut __wasi_filestat_t;
+    fn get_stat(&self) -> &Filestat;
+    fn get_stat_mut(&mut self) -> &mut Filestat;
     fn is_preopened(&self) -> bool;
     fn get_name(&self) -> &str;
 }

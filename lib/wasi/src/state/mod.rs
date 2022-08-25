@@ -53,7 +53,7 @@ use std::{
 use tracing::{debug, trace};
 use wasmer_vbus::BusSpawnedProcess;
 use wasmer_wasi_types_generated::wasi::{
-    Errno, Fd as WasiFd, Fdflags, Fdstat, Filesize, Filetype, Preopentype, Rights,
+    Errno, Fd as WasiFd, Fdflags, Fdstat, Filesize, Filestat, Filetype, Preopentype, Rights,
 };
 
 use wasmer_vfs::{FileSystem, FsError, OpenOptions, VirtualFile};
@@ -96,7 +96,7 @@ pub const MAX_SYMLINKS: u32 = 128;
 #[derive(Debug)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct InodeVal {
-    pub stat: RwLock<__wasi_filestat_t>,
+    pub stat: RwLock<Filestat>,
     pub is_preopened: bool,
     pub name: String,
     pub kind: RwLock<Kind>,
@@ -1024,9 +1024,9 @@ impl WasiFs {
                                         kind,
                                         false,
                                         file.to_string_lossy().to_string(),
-                                        __wasi_filestat_t {
+                                        Filestat {
                                             st_filetype: file_type,
-                                            ..__wasi_filestat_t::default()
+                                            ..Filestat::default()
                                         },
                                     );
 
@@ -1310,7 +1310,7 @@ impl WasiFs {
             .map(|a| a.inode)
     }
 
-    pub fn filestat_fd(&self, inodes: &WasiInodes, fd: WasiFd) -> Result<__wasi_filestat_t, Errno> {
+    pub fn filestat_fd(&self, inodes: &WasiInodes, fd: WasiFd) -> Result<Filestat, Errno> {
         let inode = self.get_fd_inode(fd)?;
         Ok(*inodes.arena[inode].stat.read().unwrap().deref())
     }
@@ -1452,7 +1452,7 @@ impl WasiFs {
         is_preopened: bool,
         name: String,
     ) -> Inode {
-        let stat = __wasi_filestat_t::default();
+        let stat = Filestat::default();
         self.create_inode_with_stat(inodes, kind, is_preopened, name, stat)
     }
 
@@ -1463,7 +1463,7 @@ impl WasiFs {
         kind: Kind,
         is_preopened: bool,
         name: String,
-        mut stat: __wasi_filestat_t,
+        mut stat: Filestat,
     ) -> Inode {
         stat.st_ino = self.get_next_inode_index();
 
@@ -1528,10 +1528,10 @@ impl WasiFs {
     }
 
     fn create_virtual_root(&self, inodes: &mut WasiInodes) -> Inode {
-        let stat = __wasi_filestat_t {
+        let stat = Filestat {
             st_filetype: Filetype::Directory,
             st_ino: self.get_next_inode_index(),
-            ..__wasi_filestat_t::default()
+            ..Filestat::default()
         };
         let root_kind = Kind::Root {
             entries: HashMap::new(),
@@ -1585,10 +1585,10 @@ impl WasiFs {
         rights: Rights,
         fd_flags: Fdflags,
     ) {
-        let stat = __wasi_filestat_t {
+        let stat = Filestat {
             st_filetype: Filetype::CharacterDevice,
             st_ino: self.get_next_inode_index(),
-            ..__wasi_filestat_t::default()
+            ..Filestat::default()
         };
         let kind = Kind::File {
             fd: Some(raw_fd),
@@ -1617,22 +1617,18 @@ impl WasiFs {
         );
     }
 
-    pub fn get_stat_for_kind(
-        &self,
-        inodes: &WasiInodes,
-        kind: &Kind,
-    ) -> Result<__wasi_filestat_t, Errno> {
+    pub fn get_stat_for_kind(&self, inodes: &WasiInodes, kind: &Kind) -> Result<Filestat, Errno> {
         let md = match kind {
             Kind::File { handle, path, .. } => match handle {
                 Some(wf) => {
-                    return Ok(__wasi_filestat_t {
+                    return Ok(Filestat {
                         st_filetype: Filetype::RegularFile,
                         st_size: wf.size(),
                         st_atim: wf.last_accessed(),
                         st_mtim: wf.last_modified(),
                         st_ctim: wf.created_time(),
 
-                        ..__wasi_filestat_t::default()
+                        ..Filestat::default()
                     })
                 }
                 None => self
@@ -1674,13 +1670,13 @@ impl WasiFs {
             }
             _ => return Err(Errno::Io),
         };
-        Ok(__wasi_filestat_t {
+        Ok(Filestat {
             st_filetype: virtual_file_type_to_wasi_file_type(md.file_type()),
             st_size: md.len(),
             st_atim: md.accessed(),
             st_mtim: md.modified(),
             st_ctim: md.created(),
-            ..__wasi_filestat_t::default()
+            ..Filestat::default()
         })
     }
 

@@ -4,7 +4,8 @@ use wasmer::{FunctionEnvMut, Memory, Memory64, MemorySize, StoreMut, WasmPtr, Wa
 use wasmer_wasi_types::*;
 use wasmer_wasi_types_generated::wasi::{
     Addressfamily, Advice, BusErrno, Clockid, Dircookie, Errno, Event, Fd, Fdflags, Fdstat,
-    Filesize, Rights, Sockoption, Sockstatus, Socktype, Streamsecurity, Subscription, Timestamp,
+    Filesize, Filestat, Rights, Sockoption, Sockstatus, Socktype, Streamsecurity, Subscription,
+    Timestamp,
 };
 
 type MemoryType = Memory64;
@@ -110,7 +111,7 @@ pub(crate) fn fd_fdstat_set_rights(
 pub(crate) fn fd_filestat_get(
     ctx: FunctionEnvMut<WasiEnv>,
     fd: Fd,
-    buf: WasmPtr<__wasi_filestat_t, MemoryType>,
+    buf: WasmPtr<Filestat, MemoryType>,
 ) -> Errno {
     super::fd_filestat_get::<MemoryType>(ctx, fd, buf)
 }
@@ -244,7 +245,7 @@ pub(crate) fn path_filestat_get(
     flags: __wasi_lookupflags_t,
     path: WasmPtr<u8, MemoryType>,
     path_len: MemoryOffset,
-    buf: WasmPtr<__wasi_filestat_t, MemoryType>,
+    buf: WasmPtr<Filestat, MemoryType>,
 ) -> Errno {
     super::path_filestat_get::<MemoryType>(ctx, fd, flags, path, path_len, buf)
 }

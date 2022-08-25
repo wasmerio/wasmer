@@ -26,7 +26,7 @@ use self::types::{
     wasi::{
         Addressfamily, Advice, BusErrno, Clockid, Dircookie, Dirent, Errno, Event, EventEnum,
         EventFdReadwrite, Eventrwflags, Eventtype, Fd as WasiFd, Fdflags, Fdstat, Filesize,
-        Filetype, Linkcount, Rights, Snapshot0Clockid, Sockoption, Sockstatus, Socktype,
+        Filestat, Filetype, Linkcount, Rights, Snapshot0Clockid, Sockoption, Sockstatus, Socktype,
         Streamsecurity, Subscription, SubscriptionEnum, SubscriptionFsReadwrite, Timestamp,
     },
     *,
@@ -690,12 +690,12 @@ pub fn fd_fdstat_set_rights(
 /// - `Fd fd`
 ///     The open file descriptor whose metadata will be read
 /// Output:
-/// - `__wasi_filestat_t *buf`
+/// - `Filestat *buf`
 ///     Where the metadata from `fd` will be written
 pub fn fd_filestat_get<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
-    buf: WasmPtr<__wasi_filestat_t, M>,
+    buf: WasmPtr<Filestat, M>,
 ) -> Errno {
     debug!("wasi::fd_filestat_get");
     let env = ctx.data();
@@ -1980,7 +1980,7 @@ pub fn path_filestat_get<M: MemorySize>(
     flags: __wasi_lookupflags_t,
     path: WasmPtr<u8, M>,
     path_len: M::Offset,
-    buf: WasmPtr<__wasi_filestat_t, M>,
+    buf: WasmPtr<Filestat, M>,
 ) -> Errno {
     debug!("wasi::path_filestat_get (fd={})", fd);
     let env = ctx.data();
@@ -2023,7 +2023,7 @@ pub fn path_filestat_get_internal(
     fd: WasiFd,
     flags: __wasi_lookupflags_t,
     path_string: &str,
-) -> Result<__wasi_filestat_t, Errno> {
+) -> Result<Filestat, Errno> {
     let root_dir = state.fs.get_fd(fd)?;
 
     if !root_dir.rights.contains(Rights::PATH_FILESTAT_GET) {

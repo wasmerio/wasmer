@@ -3,7 +3,8 @@ use crate::syscalls::types::{self, snapshot0};
 use crate::{mem_error_to_wasi, Memory32, MemorySize, WasiEnv, WasiError, WasiThread};
 use wasmer::{AsStoreMut, FunctionEnvMut, WasmPtr};
 use wasmer_wasi_types_generated::wasi::{
-    Errno, Event, Fd, Filesize, Filetype, Snapshot0Filestat, Snapshot0Subscription, Subscription,
+    Errno, Event, Fd, Filesize, Filestat, Filetype, Snapshot0Filestat, Snapshot0Subscription,
+    Subscription,
 };
 
 /// Wrapper around `syscalls::fd_filestat_get` with extra logic to handle the size
@@ -24,10 +25,10 @@ pub fn fd_filestat_get(
     // transmute the WasmPtr<T1> into a WasmPtr<T2> where T2 > T1, this will read extra memory.
     // The edge case of this cenv.mausing an OOB is not handled, if the new field is OOB, then the entire
     // memory access will fail.
-    let new_buf: WasmPtr<types::__wasi_filestat_t, Memory32> = buf.cast();
+    let new_buf: WasmPtr<Filestat, Memory32> = buf.cast();
 
     // Copy the data including the extra data
-    let new_filestat_setup: types::__wasi_filestat_t = wasi_try_mem!(new_buf.read(&memory));
+    let new_filestat_setup: Filestat = wasi_try_mem!(new_buf.read(&memory));
 
     // Set up complete, make the call with the pointer that will write to the
     // struct and some unrelated memory after the struct.
@@ -78,8 +79,8 @@ pub fn path_filestat_get(
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
 
-    let new_buf: WasmPtr<types::__wasi_filestat_t, Memory32> = buf.cast();
-    let new_filestat_setup: types::__wasi_filestat_t = wasi_try_mem!(new_buf.read(&memory));
+    let new_buf: WasmPtr<Filestat, Memory32> = buf.cast();
+    let new_filestat_setup: Filestat = wasi_try_mem!(new_buf.read(&memory));
 
     let result =
         syscalls::path_filestat_get::<Memory32>(ctx.as_mut(), fd, flags, path, path_len, new_buf);
