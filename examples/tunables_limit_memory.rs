@@ -6,8 +6,8 @@ use wasmer::{
     wat2wasm, BaseTunables, Instance, Memory, MemoryType, Module, Pages, Store, TableType, Target,
     Tunables,
 };
-use wasmer_types::MemoryStyle;
 use wasmer_compiler_cranelift::Cranelift;
+use wasmer_types::MemoryStyle;
 
 /// A custom tunables that allows you to set a memory limit.
 ///
