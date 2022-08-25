@@ -27,7 +27,7 @@ use self::types::{
         Addressfamily, Advice, BusErrno, Clockid, Dircookie, Dirent, Errno, Event, EventEnum,
         EventFdReadwrite, Eventrwflags, Eventtype, Fd as WasiFd, Fdflags, Fdstat, Filesize,
         Filestat, Filetype, Linkcount, Rights, Snapshot0Clockid, Sockoption, Sockstatus, Socktype,
-        Streamsecurity, Subscription, SubscriptionEnum, SubscriptionFsReadwrite, Timestamp,
+        Streamsecurity, Subscription, SubscriptionEnum, SubscriptionFsReadwrite, Timestamp, Whence,
     },
     *,
 };
@@ -1492,7 +1492,7 @@ pub fn fd_event<M: MemorySize>(
 ///     File descriptor to mutate
 /// - `__wasi_filedelta_t offset`
 ///     Number of bytes to adjust offset by
-/// - `__wasi_whence_t whence`
+/// - `Whence whence`
 ///     What the offset is relative to
 /// Output:
 /// - `Filesize *fd`
@@ -1501,7 +1501,7 @@ pub fn fd_seek<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
     offset: __wasi_filedelta_t,
-    whence: __wasi_whence_t,
+    whence: Whence,
     newoffset: WasmPtr<Filesize, M>,
 ) -> Result<Errno, WasiError> {
     trace!("wasi::fd_seek: fd={}, offset={}", fd, offset);
@@ -1516,12 +1516,12 @@ pub fn fd_seek<M: MemorySize>(
 
     // TODO: handle case if fd is a dir?
     match whence {
-        __WASI_WHENCE_CUR => {
+        Whence::Cur => {
             let mut fd_map = state.fs.fd_map.write().unwrap();
             let fd_entry = wasi_try_ok!(fd_map.get_mut(&fd).ok_or(Errno::Badf));
             fd_entry.offset = (fd_entry.offset as i64 + offset) as u64
         }
-        __WASI_WHENCE_END => {
+        Whence::End => {
             use std::io::SeekFrom;
             let inode_idx = fd_entry.inode;
             let mut guard = inodes.arena[inode_idx].write();
@@ -1559,7 +1559,7 @@ pub fn fd_seek<M: MemorySize>(
                 }
             }
         }
-        __WASI_WHENCE_SET => {
+        Whence::Set => {
             let mut fd_map = state.fs.fd_map.write().unwrap();
             let fd_entry = wasi_try_ok!(fd_map.get_mut(&fd).ok_or(Errno::Badf));
             fd_entry.offset = offset as u64

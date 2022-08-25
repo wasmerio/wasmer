@@ -5,7 +5,7 @@ use wasmer_wasi_types::*;
 use wasmer_wasi_types_generated::wasi::{
     Addressfamily, Advice, BusErrno, Clockid, Dircookie, Errno, Event, Fd, Fdflags, Fdstat,
     Filesize, Filestat, Rights, Sockoption, Sockstatus, Socktype, Streamsecurity, Subscription,
-    Timestamp,
+    Timestamp, Whence,
 };
 
 type MemoryType = Memory32;
@@ -202,7 +202,7 @@ pub(crate) fn fd_seek(
     ctx: FunctionEnvMut<WasiEnv>,
     fd: Fd,
     offset: __wasi_filedelta_t,
-    whence: __wasi_whence_t,
+    whence: Whence,
     newoffset: WasmPtr<Filesize, MemoryType>,
 ) -> Result<Errno, WasiError> {
     super::fd_seek::<MemoryType>(ctx, fd, offset, whence, newoffset)

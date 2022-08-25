@@ -131,8 +131,3 @@ pub fn print_right_set(rights: Rights) {
     }
     println!("{:#?}", right_set);
 }
-
-pub type __wasi_whence_t = u8;
-pub const __WASI_WHENCE_SET: __wasi_whence_t = 0;
-pub const __WASI_WHENCE_CUR: __wasi_whence_t = 1;
-pub const __WASI_WHENCE_END: __wasi_whence_t = 2;

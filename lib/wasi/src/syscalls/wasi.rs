@@ -2,7 +2,7 @@
 use crate::{WasiEnv, WasiError, WasiState, WasiThread};
 use wasmer::{Memory, Memory32, MemorySize, StoreMut, WasmPtr, WasmSlice};
 use wasmer_wasi_types::{
-    wasi::{Errno, Event, Fd as WasiFd, Filesize, Timestamp},
+    wasi::{Errno, Event, Fd as WasiFd, Filesize, Timestamp, Whence},
     *,
 };
 
@@ -204,7 +204,7 @@ pub(crate) fn fd_seek(
     ctx: FunctionEnvMut<WasiEnv>,
     fd: WasiFd,
     offset: __wasi_filedelta_t,
-    whence: __wasi_whence_t,
+    whence: Whence,
     newoffset: WasmPtr<Filesize, MemoryType>,
 ) -> Result<Errno, WasiError> {
     super::fd_seek::<MemoryType>(ctx, fd, offset, whence, newoffset)
