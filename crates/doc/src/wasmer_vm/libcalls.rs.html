@@ -896,7 +896,7 @@
 <span class="doccomment">/// `vmctx` must be dereferenceable.</span>
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
 <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_vm_memory32_size</span>(<span class="ident">vmctx</span>: <span class="kw-2">*mut</span> <span class="ident">VMContext</span>, <span class="ident">memory_index</span>: <span class="ident">u32</span>) -&gt; <span class="ident">u32</span> {
-    <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance</span>();
+    <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance</span>();
     <span class="kw">let</span> <span class="ident">memory_index</span> <span class="op">=</span> <span class="ident">LocalMemoryIndex::from_u32</span>(<span class="ident">memory_index</span>);
 
     <span class="ident">instance</span>.<span class="ident">memory_size</span>(<span class="ident">memory_index</span>).<span class="number">0</span>
@@ -912,7 +912,7 @@
     <span class="ident">vmctx</span>: <span class="kw-2">*mut</span> <span class="ident">VMContext</span>,
     <span class="ident">memory_index</span>: <span class="ident">u32</span>,
 ) -&gt; <span class="ident">u32</span> {
-    <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance</span>();
+    <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance</span>();
     <span class="kw">let</span> <span class="ident">memory_index</span> <span class="op">=</span> <span class="ident">MemoryIndex::from_u32</span>(<span class="ident">memory_index</span>);
 
     <span class="ident">instance</span>.<span class="ident">imported_memory_size</span>(<span class="ident">memory_index</span>).<span class="number">0</span>
@@ -1010,7 +1010,7 @@
 <span class="doccomment">/// `vmctx` must be dereferenceable.</span>
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
 <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_vm_table_size</span>(<span class="ident">vmctx</span>: <span class="kw-2">*mut</span> <span class="ident">VMContext</span>, <span class="ident">table_index</span>: <span class="ident">u32</span>) -&gt; <span class="ident">u32</span> {
-    <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance</span>();
+    <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance</span>();
     <span class="kw">let</span> <span class="ident">table_index</span> <span class="op">=</span> <span class="ident">LocalTableIndex::from_u32</span>(<span class="ident">table_index</span>);
 
     <span class="ident">instance</span>.<span class="ident">table_size</span>(<span class="ident">table_index</span>)
@@ -1026,7 +1026,7 @@
     <span class="ident">vmctx</span>: <span class="kw-2">*mut</span> <span class="ident">VMContext</span>,
     <span class="ident">table_index</span>: <span class="ident">u32</span>,
 ) -&gt; <span class="ident">u32</span> {
-    <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance</span>();
+    <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance</span>();
     <span class="kw">let</span> <span class="ident">table_index</span> <span class="op">=</span> <span class="ident">TableIndex::from_u32</span>(<span class="ident">table_index</span>);
 
     <span class="ident">instance</span>.<span class="ident">imported_table_size</span>(<span class="ident">table_index</span>)
@@ -1043,7 +1043,7 @@
     <span class="ident">table_index</span>: <span class="ident">u32</span>,
     <span class="ident">elem_index</span>: <span class="ident">u32</span>,
 ) -&gt; <span class="ident">RawTableElement</span> {
-    <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance</span>();
+    <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance</span>();
     <span class="kw">let</span> <span class="ident">table_index</span> <span class="op">=</span> <span class="ident">LocalTableIndex::from_u32</span>(<span class="ident">table_index</span>);
 
     <span class="comment">// TODO: type checking, maybe have specialized accessors</span>
@@ -1202,7 +1202,7 @@
     <span class="ident">vmctx</span>: <span class="kw-2">*mut</span> <span class="ident">VMContext</span>,
     <span class="ident">function_index</span>: <span class="ident">u32</span>,
 ) -&gt; <span class="ident">VMFuncRef</span> {
-    <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance</span>();
+    <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance</span>();
     <span class="kw">let</span> <span class="ident">function_index</span> <span class="op">=</span> <span class="ident">FunctionIndex::from_u32</span>(<span class="ident">function_index</span>);
 
     <span class="ident">instance</span>.<span class="ident">func_ref</span>(<span class="ident">function_index</span>).<span class="ident">unwrap</span>()
@@ -1217,7 +1217,7 @@
 <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_vm_elem_drop</span>(<span class="ident">vmctx</span>: <span class="kw-2">*mut</span> <span class="ident">VMContext</span>, <span class="ident">elem_index</span>: <span class="ident">u32</span>) {
     <span class="ident">on_host_stack</span>(<span class="op">|</span><span class="op">|</span> {
         <span class="kw">let</span> <span class="ident">elem_index</span> <span class="op">=</span> <span class="ident">ElemIndex::from_u32</span>(<span class="ident">elem_index</span>);
-        <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance</span>();
+        <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance</span>();
         <span class="ident">instance</span>.<span class="ident">elem_drop</span>(<span class="ident">elem_index</span>);
     })
 }
@@ -1237,7 +1237,7 @@
 ) {
     <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> {
         <span class="kw">let</span> <span class="ident">memory_index</span> <span class="op">=</span> <span class="ident">LocalMemoryIndex::from_u32</span>(<span class="ident">memory_index</span>);
-        <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance</span>();
+        <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance</span>();
         <span class="ident">instance</span>.<span class="ident">local_memory_copy</span>(<span class="ident">memory_index</span>, <span class="ident">dst</span>, <span class="ident">src</span>, <span class="ident">len</span>)
     };
     <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">trap</span>) <span class="op">=</span> <span class="ident">result</span> {
@@ -1260,7 +1260,7 @@
 ) {
     <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> {
         <span class="kw">let</span> <span class="ident">memory_index</span> <span class="op">=</span> <span class="ident">MemoryIndex::from_u32</span>(<span class="ident">memory_index</span>);
-        <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance</span>();
+        <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance</span>();
         <span class="ident">instance</span>.<span class="ident">imported_memory_copy</span>(<span class="ident">memory_index</span>, <span class="ident">dst</span>, <span class="ident">src</span>, <span class="ident">len</span>)
     };
     <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">trap</span>) <span class="op">=</span> <span class="ident">result</span> {
@@ -1283,7 +1283,7 @@
 ) {
     <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> {
         <span class="kw">let</span> <span class="ident">memory_index</span> <span class="op">=</span> <span class="ident">LocalMemoryIndex::from_u32</span>(<span class="ident">memory_index</span>);
-        <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance</span>();
+        <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance</span>();
         <span class="ident">instance</span>.<span class="ident">local_memory_fill</span>(<span class="ident">memory_index</span>, <span class="ident">dst</span>, <span class="ident">val</span>, <span class="ident">len</span>)
     };
     <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">trap</span>) <span class="op">=</span> <span class="ident">result</span> {
@@ -1306,7 +1306,7 @@
 ) {
     <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> {
         <span class="kw">let</span> <span class="ident">memory_index</span> <span class="op">=</span> <span class="ident">MemoryIndex::from_u32</span>(<span class="ident">memory_index</span>);
-        <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance</span>();
+        <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance</span>();
         <span class="ident">instance</span>.<span class="ident">imported_memory_fill</span>(<span class="ident">memory_index</span>, <span class="ident">dst</span>, <span class="ident">val</span>, <span class="ident">len</span>)
     };
     <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">trap</span>) <span class="op">=</span> <span class="ident">result</span> {
@@ -1331,7 +1331,7 @@
     <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> {
         <span class="kw">let</span> <span class="ident">memory_index</span> <span class="op">=</span> <span class="ident">MemoryIndex::from_u32</span>(<span class="ident">memory_index</span>);
         <span class="kw">let</span> <span class="ident">data_index</span> <span class="op">=</span> <span class="ident">DataIndex::from_u32</span>(<span class="ident">data_index</span>);
-        <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance</span>();
+        <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance</span>();
         <span class="ident">instance</span>.<span class="ident">memory_init</span>(<span class="ident">memory_index</span>, <span class="ident">data_index</span>, <span class="ident">dst</span>, <span class="ident">src</span>, <span class="ident">len</span>)
     };
     <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">trap</span>) <span class="op">=</span> <span class="ident">result</span> {
@@ -1348,7 +1348,7 @@
 <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_vm_data_drop</span>(<span class="ident">vmctx</span>: <span class="kw-2">*mut</span> <span class="ident">VMContext</span>, <span class="ident">data_index</span>: <span class="ident">u32</span>) {
     <span class="ident">on_host_stack</span>(<span class="op">|</span><span class="op">|</span> {
         <span class="kw">let</span> <span class="ident">data_index</span> <span class="op">=</span> <span class="ident">DataIndex::from_u32</span>(<span class="ident">data_index</span>);
-        <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance</span>();
+        <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance</span>();
         <span class="ident">instance</span>.<span class="ident">data_drop</span>(<span class="ident">data_index</span>)
     })
 }

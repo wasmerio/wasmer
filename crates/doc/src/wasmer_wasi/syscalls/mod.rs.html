@@ -5931,7 +5931,7 @@
     <span class="kw">let</span> <span class="ident">env</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>();
     <span class="kw">let</span> (<span class="ident">memory</span>, <span class="kw-2">mut</span> <span class="ident">state</span>) <span class="op">=</span> <span class="ident">env</span>.<span class="ident">get_memory_and_wasi_state</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>, <span class="number">0</span>);
 
-    <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">write_buffer_array</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">state</span>.<span class="ident">args</span>, <span class="ident">argv</span>, <span class="ident">argv_buf</span>);
+    <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">write_buffer_array</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="kw-2">&amp;</span><span class="ident">state</span>.<span class="ident">args</span>, <span class="ident">argv</span>, <span class="ident">argv_buf</span>);
 
     <span class="macro">debug!</span>(
         <span class="string">&quot;=&gt; args:\n{}&quot;</span>,
@@ -6057,7 +6057,7 @@
     <span class="kw">let</span> (<span class="ident">memory</span>, <span class="kw-2">mut</span> <span class="ident">state</span>) <span class="op">=</span> <span class="ident">env</span>.<span class="ident">get_memory_and_wasi_state</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>, <span class="number">0</span>);
     <span class="macro">trace!</span>(<span class="string">&quot; -&gt; State envs: {:?}&quot;</span>, <span class="ident">state</span>.<span class="ident">envs</span>);
 
-    <span class="ident">write_buffer_array</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">state</span>.<span class="ident">envs</span>, <span class="ident">environ</span>, <span class="ident">environ_buf</span>)
+    <span class="ident">write_buffer_array</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="kw-2">&amp;</span><span class="ident">state</span>.<span class="ident">envs</span>, <span class="ident">environ</span>, <span class="ident">environ_buf</span>)
 }
 
 <span class="doccomment">/// ### `environ_sizes_get()`</span>
@@ -11179,7 +11179,7 @@
             <span class="ident">sock</span>,
             <span class="ident">__WASI_RIGHT_SOCK_SEND</span>,
             <span class="op">|</span><span class="ident">socket</span><span class="op">|</span> {
-                <span class="kw">let</span> <span class="ident">buf</span> <span class="op">=</span> (<span class="kw-2">&amp;</span><span class="ident">buf</span>[..]).<span class="ident">to_vec</span>();
+                <span class="kw">let</span> <span class="ident">buf</span> <span class="op">=</span> (<span class="ident">buf</span>[..]).<span class="ident">to_vec</span>();
                 <span class="ident">socket</span>.<span class="ident">send_bytes</span>::<span class="op">&lt;</span><span class="ident">M</span><span class="op">&gt;</span>(<span class="ident">Bytes::from</span>(<span class="ident">buf</span>))
             }
         ));

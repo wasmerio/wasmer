@@ -1615,7 +1615,7 @@
 
     <span class="doccomment">/// Get a reference to the memory</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">memory</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">_mem_idx</span>: <span class="ident">u32</span>) -&gt; <span class="ident">Memory</span> {
-        (<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="self">self</span>.<span class="ident">memory</span>.<span class="ident">read</span>().<span class="ident">unwrap</span>()).<span class="ident">as_ref</span>().<span class="ident">cloned</span>().<span class="ident">unwrap</span>()
+        (<span class="kw-2">*</span><span class="self">self</span>.<span class="ident">memory</span>.<span class="ident">read</span>().<span class="ident">unwrap</span>()).<span class="ident">as_ref</span>().<span class="ident">cloned</span>().<span class="ident">unwrap</span>()
     }
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set_functions</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">funcs</span>: <span class="ident">EmscriptenFunctions</span>) {
