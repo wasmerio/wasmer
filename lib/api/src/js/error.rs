@@ -1,5 +1,5 @@
 use crate::js::lib::std::string::String;
-use crate::js::trap::RuntimeError;
+use crate::js::trap::{RuntimeError, WasmerRuntimeError};
 #[cfg(feature = "std")]
 use std::borrow::Cow;
 #[cfg(feature = "std")]
@@ -199,6 +199,15 @@ pub enum InstantiationError {
     /// A generic error occured while invoking API functions
     #[cfg_attr(feature = "std", error(transparent))]
     Wasm(WasmError),
+
+    #[cfg_attr(feature = "std", error(transparent))]
+    Runtime(WasmerRuntimeError),
+}
+
+impl From<WasmerRuntimeError> for InstantiationError {
+    fn from(original: WasmerRuntimeError) -> Self {
+        Self::Runtime(original)
+    }
 }
 
 impl From<WasmError> for InstantiationError {

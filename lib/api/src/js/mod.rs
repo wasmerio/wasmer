@@ -45,11 +45,10 @@ mod value;
 mod wasm_bindgen_polyfill;
 
 pub use crate::js::error::{DeserializeError, InstantiationError, SerializeError};
-pub use crate::js::export::Export;
 pub use crate::js::exports::{ExportError, Exportable, Exports, ExportsIterator};
 pub use crate::js::externals::{
     Extern, FromToNativeWasmType, Function, Global, HostFunction, Memory, MemoryError, MemoryView,
-    Table, WasmTypeList,
+    Table, WasmTypeList, VMExtern,
 };
 pub use crate::js::function_env::{FunctionEnv, FunctionEnvMut};
 pub use crate::js::imports::Imports;

@@ -1,7 +1,6 @@
 use crate::js::error::InstantiationError;
-use crate::js::export::Export;
 use crate::js::exports::Exports;
-use crate::js::externals::Extern;
+use crate::js::externals::{Extern, VMExtern};
 use crate::js::imports::Imports;
 use crate::js::module::Module;
 use crate::js::store::{AsStoreMut, AsStoreRef, StoreHandle};
@@ -90,25 +89,11 @@ impl Instance {
         module: &Module,
         externs: &[Extern],
     ) -> Result<Self, InstantiationError> {
-        let imports = externs.to_vec();
-        let mut handle = module.instantiate(store, &imports)?;
-        let exports = module
-            .exports()
-            .map(|export| {
-                let name = export.name().to_string();
-                let export = handle.lookup(&name).expect("export");
-                let extern_ = Extern::from_vm_extern(store, export);
-                (name, extern_)
-            })
-            .collect::<Exports>();
-
-        let instance = Self {
-            _handle: StoreHandle::new(store.objects_mut(), handle),
-            module: module.clone(),
-            exports,
-        };
-
-        Ok(instance)
+        let mut imports = Imports::new();
+        for (import_ty, extern_ty) in module.imports().zip(externs.iter()) {
+            imports.define(import_ty.module(), import_ty.name(), extern_ty.clone());
+        }
+        Self::new(store, module, &imports)
     }
 
     /// Creates a Wasmer `Instance` from a Wasmer `Module` and a WebAssembly Instance
@@ -139,12 +124,10 @@ impl Instance {
                             &name
                         ))
                     })?;
-                let export: Export =
-                    Export::from_js_value(js_export, &mut store, extern_type)?.into();
-                let extern_ = Extern::from_vm_extern(&mut store, export);
-                Ok((name.to_string(), extern_))
+
+                Ok((name.to_string(), ))
             })
-            .collect::<Result<Exports, InstantiationError>>()?;
+            .collect::<Result<Vec<VMExtern>, InstantiationError>>()?;
 
         Ok(Self {
             _handle: instance,

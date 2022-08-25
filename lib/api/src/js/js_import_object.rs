@@ -1,6 +1,7 @@
 use crate::js::error::WasmError;
 use crate::js::store::AsStoreMut;
-use crate::js::{Export, ExternType, Module};
+use crate::js::{ExternType, Module};
+use crate::js::externals::VMExtern;
 use std::collections::HashMap;
 
 /// This struct is used in case you want to create an `Instance`
@@ -43,6 +44,7 @@ impl JsImportObject {
         }
     }
 
+    /*
     /// Gets an export given a module and a name
     ///
     /// # Usage
@@ -74,6 +76,7 @@ impl JsImportObject {
             ))),
         }
     }
+    */
 }
 
 impl Into<js_sys::Object> for JsImportObject {

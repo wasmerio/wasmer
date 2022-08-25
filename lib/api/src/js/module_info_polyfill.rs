@@ -505,41 +505,25 @@ pub fn parse_global_section(
 
 /// Parses the Export section of the wasm module.
 pub fn parse_export_section<'data>(
-    exports: ExportSectionReader<'data>,
+    exports: VMExternSectionReader<'data>,
     module_info: &mut ModuleInfoPolyfill,
 ) -> WasmResult<()> {
     module_info.reserve_exports(exports.get_count())?;
-
-    for entry in exports {
-        let Export {
-            field,
-            ref kind,
-            index,
-        } = entry.map_err(transform_err)?;
-
-        // The input has already been validated, so we should be able to
-        // assume valid UTF-8 and use `from_utf8_unchecked` if performance
-        // becomes a concern here.
-        let index = index as usize;
-        match *kind {
-            ExternalKind::Function => {
+    for (index, entry) in exports.enumerate() {
+        match entry {
+            VMExtern::Function(handle) => {
                 module_info.declare_func_export(FunctionIndex::new(index), field)?
-            }
-            ExternalKind::Table => {
+            },
+            VMExtern::Table(handle) => {
                 module_info.declare_table_export(TableIndex::new(index), field)?
-            }
-            ExternalKind::Memory => {
+
+            },
+            VMExtern::Memory(handle) => {
                 module_info.declare_memory_export(MemoryIndex::new(index), field)?
-            }
-            ExternalKind::Global => {
+            },
+            VMExtern::Global(handle) => {
                 module_info.declare_global_export(GlobalIndex::new(index), field)?
-            }
-            ExternalKind::Type | ExternalKind::Module | ExternalKind::Instance => {
-                unimplemented!("module linking not implemented yet")
-            }
-            ExternalKind::Tag => {
-                unimplemented!("exception handling not implemented yet")
-            }
+            },
         }
     }
     Ok(())
