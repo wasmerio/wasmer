@@ -1423,6 +1423,23 @@ pub mod wasi {
       }
     }
   }
+  #[repr(C)]
+  #[derive(Copy, Clone)]
+  pub struct Tty {
+    pub cols: u32,
+    pub rows: u32,
+    pub width: u32,
+    pub height: u32,
+    pub stdin_tty: bool,
+    pub stdout_tty: bool,
+    pub stderr_tty: bool,
+    pub echo: bool,
+    pub line_buffered: bool,
+  }
+  impl core::fmt::Debug for Tty {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+      f.debug_struct("Tty").field("cols", &self.cols).field("rows", &self.rows).field("width", &self.width).field("height", &self.height).field("stdin-tty", &self.stdin_tty).field("stdout-tty", &self.stdout_tty).field("stderr-tty", &self.stderr_tty).field("echo", &self.echo).field("line-buffered", &self.line_buffered).finish()}
+  }
   
   /// Auxiliary data associated with the wasm exports.
   #[derive(Default)]
@@ -1497,10 +1514,10 @@ pub mod wasi {
       })
     }
     /// Dummy function to expose types into generated code
-    pub fn expose_types_dummy_func(&self, store: &mut wasmer::Store,fd: Fd,dirent: Dirent,event_enum: EventEnum,event: Event,fdstat: Fdstat,subscription_clock: SubscriptionClock,snapshot0_subscription_clock: Snapshot0SubscriptionClock,subscription: Subscription,snapshot0_subscription: Snapshot0Subscription,device: Device,linkcount: Linkcount,snapshot0_linkcount: Snapshot0Linkcount,filestat: Filestat,snapshot0_filestat: Snapshot0Filestat,)-> Result<(), wasmer::RuntimeError> {
+    pub fn expose_types_dummy_func(&self, store: &mut wasmer::Store,fd: Fd,dirent: Dirent,event_enum: EventEnum,event: Event,fdstat: Fdstat,subscription_clock: SubscriptionClock,snapshot0_subscription_clock: Snapshot0SubscriptionClock,subscription: Subscription,snapshot0_subscription: Snapshot0Subscription,device: Device,linkcount: Linkcount,snapshot0_linkcount: Snapshot0Linkcount,filestat: Filestat,snapshot0_filestat: Snapshot0Filestat,tty: Tty,)-> Result<(), wasmer::RuntimeError> {
       let func_canonical_abi_realloc = &self.func_canonical_abi_realloc;
       let _memory = &self.memory;
-      let ptr0 = func_canonical_abi_realloc.call(store, 0, 0, 8, 440)?;
+      let ptr0 = func_canonical_abi_realloc.call(store, 0, 0, 8, 464)?;
       let _memory_view = _memory.view(&store);
       unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 0, wit_bindgen_wasmer::rt::as_i32(wit_bindgen_wasmer::rt::as_i32(fd)))?;
       let Dirent{ d_next:d_next1, d_ino:d_ino1, d_type:d_type1, d_namlen:d_namlen1, } = dirent;
@@ -1723,6 +1740,25 @@ pub mod wasi {
       unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 424, wit_bindgen_wasmer::rt::as_i64(wit_bindgen_wasmer::rt::as_i64(st_mtim30)))?;
       let _memory_view = _memory.view(&store);
       unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 432, wit_bindgen_wasmer::rt::as_i64(wit_bindgen_wasmer::rt::as_i64(st_ctim30)))?;
+      let Tty{ cols:cols31, rows:rows31, width:width31, height:height31, stdin_tty:stdin_tty31, stdout_tty:stdout_tty31, stderr_tty:stderr_tty31, echo:echo31, line_buffered:line_buffered31, } = tty;
+      let _memory_view = _memory.view(&store);
+      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 440, wit_bindgen_wasmer::rt::as_i32(wit_bindgen_wasmer::rt::as_i32(cols31)))?;
+      let _memory_view = _memory.view(&store);
+      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 444, wit_bindgen_wasmer::rt::as_i32(wit_bindgen_wasmer::rt::as_i32(rows31)))?;
+      let _memory_view = _memory.view(&store);
+      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 448, wit_bindgen_wasmer::rt::as_i32(wit_bindgen_wasmer::rt::as_i32(width31)))?;
+      let _memory_view = _memory.view(&store);
+      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 452, wit_bindgen_wasmer::rt::as_i32(wit_bindgen_wasmer::rt::as_i32(height31)))?;
+      let _memory_view = _memory.view(&store);
+      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 456, wit_bindgen_wasmer::rt::as_i32(match stdin_tty31 { true => 1, false => 0 }) as u8)?;
+      let _memory_view = _memory.view(&store);
+      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 457, wit_bindgen_wasmer::rt::as_i32(match stdout_tty31 { true => 1, false => 0 }) as u8)?;
+      let _memory_view = _memory.view(&store);
+      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 458, wit_bindgen_wasmer::rt::as_i32(match stderr_tty31 { true => 1, false => 0 }) as u8)?;
+      let _memory_view = _memory.view(&store);
+      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 459, wit_bindgen_wasmer::rt::as_i32(match echo31 { true => 1, false => 0 }) as u8)?;
+      let _memory_view = _memory.view(&store);
+      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 460, wit_bindgen_wasmer::rt::as_i32(match line_buffered31 { true => 1, false => 0 }) as u8)?;
       self.func_expose_types_dummy_func.call(store, ptr0, )?;
       Ok(())
     }

@@ -28,20 +28,6 @@ pub struct __wasi_iovec_t<M: MemorySize> {
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, ValueType)]
 #[repr(C)]
-pub struct __wasi_tty_t {
-    pub cols: u32,
-    pub rows: u32,
-    pub width: u32,
-    pub height: u32,
-    pub stdin_tty: __wasi_bool_t,
-    pub stdout_tty: __wasi_bool_t,
-    pub stderr_tty: __wasi_bool_t,
-    pub echo: __wasi_bool_t,
-    pub line_buffered: __wasi_bool_t,
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq, ValueType)]
-#[repr(C)]
 pub struct __wasi_pipe_handles_t {
     pub pipe: Fd,
     pub other: Fd,

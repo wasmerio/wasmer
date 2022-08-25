@@ -105,6 +105,64 @@ unsafe impl ValueType for Event {
     }
 }
 
+unsafe impl ValueType for Tty {
+    fn zero_padding_bytes(&self, bytes: &mut [MaybeUninit<u8>]) {
+        macro_rules! field {
+            ($($f:tt)*) => {
+                &self.$($f)* as *const _ as usize - self as *const _ as usize
+            };
+        }
+        macro_rules! field_end {
+            ($($f:tt)*) => {
+                field!($($f)*) + std::mem::size_of_val(&self.$($f)*)
+            };
+        }
+        macro_rules! zero {
+            ($start:expr, $end:expr) => {
+                for i in $start..$end {
+                    bytes[i] = MaybeUninit::new(0);
+                }
+            };
+        }
+
+        self.cols
+            .zero_padding_bytes(&mut bytes[field!(cols)..field_end!(cols)]);
+        zero!(field_end!(cols), field!(rows));
+
+        self.rows
+            .zero_padding_bytes(&mut bytes[field!(rows)..field_end!(rows)]);
+        zero!(field_end!(rows), field!(width));
+
+        self.width
+            .zero_padding_bytes(&mut bytes[field!(width)..field_end!(width)]);
+        zero!(field_end!(width), field!(height));
+
+        self.height
+            .zero_padding_bytes(&mut bytes[field!(height)..field_end!(height)]);
+        zero!(field_end!(height), field!(stdin_tty));
+
+        self.stdin_tty
+            .zero_padding_bytes(&mut bytes[field!(stdin_tty)..field_end!(stdin_tty)]);
+        zero!(field_end!(stdin_tty), field!(stdout_tty));
+
+        self.stdout_tty
+            .zero_padding_bytes(&mut bytes[field!(stdout_tty)..field_end!(stdout_tty)]);
+        zero!(field_end!(stdout_tty), field!(stderr_tty));
+
+        self.stderr_tty
+            .zero_padding_bytes(&mut bytes[field!(stderr_tty)..field_end!(stderr_tty)]);
+        zero!(field_end!(stderr_tty), field!(echo));
+
+        self.echo
+            .zero_padding_bytes(&mut bytes[field!(echo)..field_end!(echo)]);
+        zero!(field_end!(echo), field!(line_buffered));
+
+        self.line_buffered
+            .zero_padding_bytes(&mut bytes[field!(line_buffered)..field_end!(line_buffered)]);
+        zero!(field_end!(line_buffered), std::mem::size_of_val(self));
+    }
+}
+
 // TODO: if necessary, must be implemented in wit-bindgen
 unsafe impl ValueType for Eventtype {
     #[inline]

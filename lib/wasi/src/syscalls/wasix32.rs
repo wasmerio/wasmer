@@ -5,7 +5,7 @@ use wasmer_wasi_types::*;
 use wasmer_wasi_types_generated::wasi::{
     Addressfamily, Advice, BusErrno, Clockid, Dircookie, Errno, Event, Fd, Fdflags, Fdstat,
     Filesize, Filestat, Fstflags, Rights, Sockoption, Sockstatus, Socktype, Streamsecurity,
-    Subscription, Timestamp, Whence,
+    Subscription, Timestamp, Tty, Whence,
 };
 
 type MemoryType = Memory32;
@@ -428,17 +428,11 @@ pub(crate) fn fd_pipe(
     super::fd_pipe::<MemoryType>(ctx, ro_fd1, ro_fd2)
 }
 
-pub(crate) fn tty_get(
-    ctx: FunctionEnvMut<WasiEnv>,
-    tty_state: WasmPtr<__wasi_tty_t, MemoryType>,
-) -> Errno {
+pub(crate) fn tty_get(ctx: FunctionEnvMut<WasiEnv>, tty_state: WasmPtr<Tty, MemoryType>) -> Errno {
     super::tty_get::<MemoryType>(ctx, tty_state)
 }
 
-pub(crate) fn tty_set(
-    ctx: FunctionEnvMut<WasiEnv>,
-    tty_state: WasmPtr<__wasi_tty_t, MemoryType>,
-) -> Errno {
+pub(crate) fn tty_set(ctx: FunctionEnvMut<WasiEnv>, tty_state: WasmPtr<Tty, MemoryType>) -> Errno {
     super::tty_set::<MemoryType>(ctx, tty_state)
 }
 

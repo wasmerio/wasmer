@@ -28,7 +28,7 @@ use self::types::{
         EventFdReadwrite, Eventrwflags, Eventtype, Fd as WasiFd, Fdflags, Fdstat, Filesize,
         Filestat, Filetype, Fstflags, Linkcount, Rights, Snapshot0Clockid, Sockoption, Sockstatus,
         Socktype, Streamsecurity, Subscription, SubscriptionEnum, SubscriptionFsReadwrite,
-        Timestamp, Whence,
+        Timestamp, Tty, Whence,
     },
     *,
 };
@@ -3321,37 +3321,22 @@ pub fn random_get<M: MemorySize>(
 /// Retrieves the current state of the TTY
 pub fn tty_get<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    tty_state: WasmPtr<__wasi_tty_t, M>,
+    tty_state: WasmPtr<Tty, M>,
 ) -> Errno {
     debug!("wasi::tty_stdin");
     let env = ctx.data();
 
     let state = env.runtime.tty_get();
-    let state = __wasi_tty_t {
+    let state = Tty {
         cols: state.cols,
         rows: state.rows,
         width: state.width,
         height: state.height,
-        stdin_tty: match state.stdin_tty {
-            false => __WASI_BOOL_FALSE,
-            true => __WASI_BOOL_TRUE,
-        },
-        stdout_tty: match state.stdout_tty {
-            false => __WASI_BOOL_FALSE,
-            true => __WASI_BOOL_TRUE,
-        },
-        stderr_tty: match state.stderr_tty {
-            false => __WASI_BOOL_FALSE,
-            true => __WASI_BOOL_TRUE,
-        },
-        echo: match state.echo {
-            false => __WASI_BOOL_FALSE,
-            true => __WASI_BOOL_TRUE,
-        },
-        line_buffered: match state.line_buffered {
-            false => __WASI_BOOL_FALSE,
-            true => __WASI_BOOL_TRUE,
-        },
+        stdin_tty: state.stdin_tty,
+        stdout_tty: state.stdout_tty,
+        stderr_tty: state.stderr_tty,
+        echo: state.echo,
+        line_buffered: state.line_buffered,
     };
 
     let memory = env.memory_view(&ctx);
@@ -3364,7 +3349,7 @@ pub fn tty_get<M: MemorySize>(
 /// Updates the properties of the rect
 pub fn tty_set<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    tty_state: WasmPtr<__wasi_tty_t, M>,
+    tty_state: WasmPtr<Tty, M>,
 ) -> Errno {
     debug!("wasi::tty_set");
 
@@ -3376,31 +3361,11 @@ pub fn tty_set<M: MemorySize>(
         rows: state.rows,
         width: state.width,
         height: state.height,
-        stdin_tty: match state.stdin_tty {
-            __WASI_BOOL_FALSE => false,
-            __WASI_BOOL_TRUE => true,
-            _ => return Errno::Inval,
-        },
-        stdout_tty: match state.stdout_tty {
-            __WASI_BOOL_FALSE => false,
-            __WASI_BOOL_TRUE => true,
-            _ => return Errno::Inval,
-        },
-        stderr_tty: match state.stderr_tty {
-            __WASI_BOOL_FALSE => false,
-            __WASI_BOOL_TRUE => true,
-            _ => return Errno::Inval,
-        },
-        echo: match state.echo {
-            __WASI_BOOL_FALSE => false,
-            __WASI_BOOL_TRUE => true,
-            _ => return Errno::Inval,
-        },
-        line_buffered: match state.line_buffered {
-            __WASI_BOOL_FALSE => false,
-            __WASI_BOOL_TRUE => true,
-            _ => return Errno::Inval,
-        },
+        stdin_tty: state.stdin_tty,
+        stdout_tty: state.stdout_tty,
+        stderr_tty: state.stderr_tty,
+        echo: state.echo,
+        line_buffered: state.line_buffered,
     };
 
     env.runtime.tty_set(state);

@@ -20,6 +20,7 @@ expose-types-dummy-func: func(
   snapshot0-linkcount: snapshot0-linkcount,
   filestat: filestat,
   snapshot0-filestat: snapshot0-filestat,
+  tty: tty,
 )
 
 
@@ -793,4 +794,16 @@ enum whence {
     set,
     cur,
     end,
+}
+
+record tty {
+    cols: u32,
+    rows: u32,
+    width: u32,
+    height: u32,
+    stdin-tty: bool,
+    stdout-tty: bool,
+    stderr-tty: bool,
+    echo: bool,
+    line-buffered: bool,
 }
