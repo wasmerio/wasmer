@@ -984,6 +984,7 @@ mod http_fetch {
                     .expect("Could not join downloading thread");
                 match super::get_libwasmer_cache_path() {
                     Ok(mut cache_path) => {
+                        let _ = std::fs::create_dir_all(&cache_path);
                         cache_path.push(&filename);
                         if !cache_path.exists() {
                             if let Err(err) = std::fs::copy(&filename, &cache_path) {
