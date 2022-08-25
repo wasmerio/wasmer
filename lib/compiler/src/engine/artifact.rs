@@ -123,7 +123,6 @@ impl Artifact {
         let metadata_slice = Self::get_byte_slice(bytes, MetadataHeader::LEN, bytes.len())?;
         let metadata_slice = Self::get_byte_slice(metadata_slice, 0, metadata_len)?;
 
-        let metadata_slice: &[u8] = &metadata_slice[..metadata_len];
         let serializable = SerializableModule::deserialize(metadata_slice)?;
         let artifact = ArtifactBuild::from_serializable(serializable);
         let mut inner_engine = engine.inner_mut();
@@ -602,6 +601,7 @@ impl Artifact {
     ) -> Result<Self, DeserializeError> {
         let metadata_len = MetadataHeader::parse(bytes)?;
         let metadata_slice = Self::get_byte_slice(bytes, MetadataHeader::LEN, bytes.len())?;
+        let metadata_slice = Self::get_byte_slice(metadata_slice, 0, metadata_len)?;
         let metadata: ModuleMetadata = ModuleMetadata::deserialize(metadata_slice)?;
 
         const WORD_SIZE: usize = mem::size_of::<usize>();
