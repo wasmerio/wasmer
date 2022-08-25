@@ -560,7 +560,16 @@ impl Module {
     /// is returned.
     pub fn custom_sections<'a>(&'a self, name: &'a str) -> impl Iterator<Item = Box<[u8]>> + 'a {
         // TODO: implement on JavaScript
-        unimplemented!()
+        DefaultCustomSectionsIterator { }
+    }
+}
+
+pub struct DefaultCustomSectionsIterator { }
+
+impl Iterator for DefaultCustomSectionsIterator {
+    type Item = Box<[u8]>;
+    fn next(&mut self) -> Option<Self::Item> {
+        None
     }
 }
 
