@@ -9,9 +9,9 @@ use crate::js::store::{AsStoreMut, StoreHandle};
 use crate::js::types::{AsJs, ExportType, ImportType};
 use crate::js::RuntimeError;
 use crate::AsStoreRef;
-#[cfg(feature = "js-serializable-module")]
 use bytes::Bytes;
 use js_sys::{Reflect, Uint8Array, WebAssembly};
+use std::borrow::Cow;
 use std::fmt;
 use std::io;
 use std::path::Path;
@@ -88,6 +88,24 @@ impl IntoBytes for Vec<u8> {
 }
 
 impl IntoBytes for &[u8] {
+    fn into_bytes(self) -> Bytes {
+        Bytes::from(self.to_vec())
+    }
+}
+
+impl<const N: usize> IntoBytes for &[u8; N] {
+    fn into_bytes(self) -> Bytes {
+        Bytes::from(self.to_vec())
+    }
+}
+
+impl IntoBytes for &str {
+    fn into_bytes(self) -> Bytes {
+        Bytes::from(self.as_bytes().to_vec())
+    }
+}
+
+impl IntoBytes for Cow<'_, [u8]> {
     fn into_bytes(self) -> Bytes {
         Bytes::from(self.to_vec())
     }

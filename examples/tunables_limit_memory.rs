@@ -2,10 +2,11 @@ use std::ptr::NonNull;
 
 use wasmer::{
     imports,
-    vm::{self, MemoryError, MemoryStyle, TableStyle, VMMemoryDefinition, VMTableDefinition},
+    vm::{self, MemoryError, TableStyle, VMMemoryDefinition, VMTableDefinition},
     wat2wasm, BaseTunables, Instance, Memory, MemoryType, Module, Pages, Store, TableType, Target,
     Tunables,
 };
+use wasmer_types::MemoryStyle;
 use wasmer_compiler_cranelift::Cranelift;
 
 /// A custom tunables that allows you to set a memory limit.

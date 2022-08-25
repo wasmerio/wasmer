@@ -107,7 +107,10 @@ pub union __wasi_busevent_u {
 #[repr(C)]
 pub struct __wasi_busevent_t {
     pub tag: __wasi_buseventtype_t,
+    #[cfg(target_pointer_width = "64")]
     pub padding: [u8; 79],
+    #[cfg(target_pointer_width = "32")]
+    pub padding: [u8; 63],
 }
 
 #[derive(Copy, Clone)]

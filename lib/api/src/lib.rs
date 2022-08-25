@@ -55,7 +55,7 @@
 //!     "#;
 //!
 //!     let mut store = Store::default();
-//!     let module = Module::new(&store, &module_wat)?;
+//!     let module = Module::new(&store, module_wat)?;
 //!     // The module doesn't import anything, so we create an empty import object.
 //!     let import_object = imports! {};
 //!     let instance = Instance::new(&mut store, &module, &import_object)?;
