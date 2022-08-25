@@ -18,6 +18,8 @@ expose-types-dummy-func: func(
   device: device,
   linkcount: linkcount,
   snapshot0-linkcount: snapshot0-linkcount,
+  filestat: filestat,
+  snapshot0-filestat: snapshot0-filestat,
 )
 
 
@@ -757,4 +759,26 @@ enum addressfamily {
     inet4,
     inet6,
     unix,
+}
+
+record snapshot0-filestat {
+    st-dev: device,
+    st-ino: inode,
+    st-filetype: filetype,
+    st-nlink: snapshot0-linkcount,
+    st-size: filesize,
+    st-atim: timestamp,
+    st-mtim: timestamp,
+    st-ctim: timestamp,
+}
+
+record filestat {
+    st-dev: device,
+    st-ino: inode,
+    st-filetype: filetype,
+    st-nlink: linkcount,
+    st-size: filesize,
+    st-atim: timestamp,
+    st-mtim: timestamp,
+    st-ctim: timestamp,
 }

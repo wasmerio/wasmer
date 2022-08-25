@@ -3,7 +3,7 @@ use crate::syscalls::types::{self, snapshot0};
 use crate::{mem_error_to_wasi, Memory32, MemorySize, WasiEnv, WasiError, WasiThread};
 use wasmer::{AsStoreMut, FunctionEnvMut, WasmPtr};
 use wasmer_wasi_types_generated::wasi::{
-    Errno, Event, Fd, Filesize, Filetype, Snapshot0Subscription, Subscription,
+    Errno, Event, Fd, Filesize, Filetype, Snapshot0Filestat, Snapshot0Subscription, Subscription,
 };
 
 /// Wrapper around `syscalls::fd_filestat_get` with extra logic to handle the size
@@ -15,7 +15,7 @@ use wasmer_wasi_types_generated::wasi::{
 pub fn fd_filestat_get(
     mut ctx: FunctionEnvMut<WasiEnv>,
     fd: Fd,
-    buf: WasmPtr<snapshot0::__wasi_filestat_t, Memory32>,
+    buf: WasmPtr<Snapshot0Filestat, Memory32>,
 ) -> Errno {
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
@@ -40,7 +40,7 @@ pub fn fd_filestat_get(
     // get the values written to memory
     let new_filestat = wasi_try_mem!(new_buf.deref(&memory).read());
     // translate the new struct into the old struct in host memory
-    let old_stat = snapshot0::__wasi_filestat_t {
+    let old_stat = Snapshot0Filestat {
         st_dev: new_filestat.st_dev,
         st_ino: new_filestat.st_ino,
         st_filetype: new_filestat.st_filetype,
@@ -70,7 +70,7 @@ pub fn path_filestat_get(
     flags: types::__wasi_lookupflags_t,
     path: WasmPtr<u8, Memory32>,
     path_len: u32,
-    buf: WasmPtr<snapshot0::__wasi_filestat_t, Memory32>,
+    buf: WasmPtr<Snapshot0Filestat, Memory32>,
 ) -> Errno {
     // TODO: understand what's happening inside this function, then do the correct thing
 
@@ -88,7 +88,7 @@ pub fn path_filestat_get(
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
     let new_filestat = wasi_try_mem!(new_buf.deref(&memory).read());
-    let old_stat = snapshot0::__wasi_filestat_t {
+    let old_stat = Snapshot0Filestat {
         st_dev: new_filestat.st_dev,
         st_ino: new_filestat.st_ino,
         st_filetype: new_filestat.st_filetype,

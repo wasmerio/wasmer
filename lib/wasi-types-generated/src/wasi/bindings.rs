@@ -1347,6 +1347,38 @@ pub mod wasi {
       }
     }
   }
+  #[repr(C)]
+  #[derive(Copy, Clone)]
+  pub struct Snapshot0Filestat {
+    pub st_dev: Device,
+    pub st_ino: Inode,
+    pub st_filetype: Filetype,
+    pub st_nlink: Snapshot0Linkcount,
+    pub st_size: Filesize,
+    pub st_atim: Timestamp,
+    pub st_mtim: Timestamp,
+    pub st_ctim: Timestamp,
+  }
+  impl core::fmt::Debug for Snapshot0Filestat {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+      f.debug_struct("Snapshot0Filestat").field("st-dev", &self.st_dev).field("st-ino", &self.st_ino).field("st-filetype", &self.st_filetype).field("st-nlink", &self.st_nlink).field("st-size", &self.st_size).field("st-atim", &self.st_atim).field("st-mtim", &self.st_mtim).field("st-ctim", &self.st_ctim).finish()}
+  }
+  #[repr(C)]
+  #[derive(Copy, Clone)]
+  pub struct Filestat {
+    pub st_dev: Device,
+    pub st_ino: Inode,
+    pub st_filetype: Filetype,
+    pub st_nlink: Linkcount,
+    pub st_size: Filesize,
+    pub st_atim: Timestamp,
+    pub st_mtim: Timestamp,
+    pub st_ctim: Timestamp,
+  }
+  impl core::fmt::Debug for Filestat {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+      f.debug_struct("Filestat").field("st-dev", &self.st_dev).field("st-ino", &self.st_ino).field("st-filetype", &self.st_filetype).field("st-nlink", &self.st_nlink).field("st-size", &self.st_size).field("st-atim", &self.st_atim).field("st-mtim", &self.st_mtim).field("st-ctim", &self.st_ctim).finish()}
+  }
   
   /// Auxiliary data associated with the wasm exports.
   #[derive(Default)]
@@ -1421,10 +1453,10 @@ pub mod wasi {
       })
     }
     /// Dummy function to expose types into generated code
-    pub fn expose_types_dummy_func(&self, store: &mut wasmer::Store,fd: Fd,dirent: Dirent,event_enum: EventEnum,event: Event,fdstat: Fdstat,subscription_clock: SubscriptionClock,snapshot0_subscription_clock: Snapshot0SubscriptionClock,subscription: Subscription,snapshot0_subscription: Snapshot0Subscription,device: Device,linkcount: Linkcount,snapshot0_linkcount: Snapshot0Linkcount,)-> Result<(), wasmer::RuntimeError> {
+    pub fn expose_types_dummy_func(&self, store: &mut wasmer::Store,fd: Fd,dirent: Dirent,event_enum: EventEnum,event: Event,fdstat: Fdstat,subscription_clock: SubscriptionClock,snapshot0_subscription_clock: Snapshot0SubscriptionClock,subscription: Subscription,snapshot0_subscription: Snapshot0Subscription,device: Device,linkcount: Linkcount,snapshot0_linkcount: Snapshot0Linkcount,filestat: Filestat,snapshot0_filestat: Snapshot0Filestat,)-> Result<(), wasmer::RuntimeError> {
       let func_canonical_abi_realloc = &self.func_canonical_abi_realloc;
       let _memory = &self.memory;
-      let ptr0 = func_canonical_abi_realloc.call(store, 0, 0, 8, 320)?;
+      let ptr0 = func_canonical_abi_realloc.call(store, 0, 0, 8, 440)?;
       let _memory_view = _memory.view(&store);
       unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 0, wit_bindgen_wasmer::rt::as_i32(wit_bindgen_wasmer::rt::as_i32(fd)))?;
       let Dirent{ d_next:d_next1, d_ino:d_ino1, d_type:d_type1, d_namlen:d_namlen1, } = dirent;
@@ -1613,6 +1645,40 @@ pub mod wasi {
       unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 304, wit_bindgen_wasmer::rt::as_i64(wit_bindgen_wasmer::rt::as_i64(linkcount)))?;
       let _memory_view = _memory.view(&store);
       unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 312, wit_bindgen_wasmer::rt::as_i32(wit_bindgen_wasmer::rt::as_i32(snapshot0_linkcount)))?;
+      let Filestat{ st_dev:st_dev29, st_ino:st_ino29, st_filetype:st_filetype29, st_nlink:st_nlink29, st_size:st_size29, st_atim:st_atim29, st_mtim:st_mtim29, st_ctim:st_ctim29, } = filestat;
+      let _memory_view = _memory.view(&store);
+      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 320, wit_bindgen_wasmer::rt::as_i64(wit_bindgen_wasmer::rt::as_i64(st_dev29)))?;
+      let _memory_view = _memory.view(&store);
+      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 328, wit_bindgen_wasmer::rt::as_i64(wit_bindgen_wasmer::rt::as_i64(st_ino29)))?;
+      let _memory_view = _memory.view(&store);
+      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 336, wit_bindgen_wasmer::rt::as_i32(st_filetype29 as i32) as u8)?;
+      let _memory_view = _memory.view(&store);
+      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 344, wit_bindgen_wasmer::rt::as_i64(wit_bindgen_wasmer::rt::as_i64(st_nlink29)))?;
+      let _memory_view = _memory.view(&store);
+      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 352, wit_bindgen_wasmer::rt::as_i64(wit_bindgen_wasmer::rt::as_i64(st_size29)))?;
+      let _memory_view = _memory.view(&store);
+      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 360, wit_bindgen_wasmer::rt::as_i64(wit_bindgen_wasmer::rt::as_i64(st_atim29)))?;
+      let _memory_view = _memory.view(&store);
+      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 368, wit_bindgen_wasmer::rt::as_i64(wit_bindgen_wasmer::rt::as_i64(st_mtim29)))?;
+      let _memory_view = _memory.view(&store);
+      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 376, wit_bindgen_wasmer::rt::as_i64(wit_bindgen_wasmer::rt::as_i64(st_ctim29)))?;
+      let Snapshot0Filestat{ st_dev:st_dev30, st_ino:st_ino30, st_filetype:st_filetype30, st_nlink:st_nlink30, st_size:st_size30, st_atim:st_atim30, st_mtim:st_mtim30, st_ctim:st_ctim30, } = snapshot0_filestat;
+      let _memory_view = _memory.view(&store);
+      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 384, wit_bindgen_wasmer::rt::as_i64(wit_bindgen_wasmer::rt::as_i64(st_dev30)))?;
+      let _memory_view = _memory.view(&store);
+      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 392, wit_bindgen_wasmer::rt::as_i64(wit_bindgen_wasmer::rt::as_i64(st_ino30)))?;
+      let _memory_view = _memory.view(&store);
+      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 400, wit_bindgen_wasmer::rt::as_i32(st_filetype30 as i32) as u8)?;
+      let _memory_view = _memory.view(&store);
+      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 404, wit_bindgen_wasmer::rt::as_i32(wit_bindgen_wasmer::rt::as_i32(st_nlink30)))?;
+      let _memory_view = _memory.view(&store);
+      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 408, wit_bindgen_wasmer::rt::as_i64(wit_bindgen_wasmer::rt::as_i64(st_size30)))?;
+      let _memory_view = _memory.view(&store);
+      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 416, wit_bindgen_wasmer::rt::as_i64(wit_bindgen_wasmer::rt::as_i64(st_atim30)))?;
+      let _memory_view = _memory.view(&store);
+      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 424, wit_bindgen_wasmer::rt::as_i64(wit_bindgen_wasmer::rt::as_i64(st_mtim30)))?;
+      let _memory_view = _memory.view(&store);
+      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 432, wit_bindgen_wasmer::rt::as_i64(wit_bindgen_wasmer::rt::as_i64(st_ctim30)))?;
       self.func_expose_types_dummy_func.call(store, ptr0, )?;
       Ok(())
     }
