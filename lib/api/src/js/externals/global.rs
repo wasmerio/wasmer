@@ -1,6 +1,6 @@
 use crate::js::export::VMGlobal;
 use crate::js::exports::{ExportError, Exportable};
-use crate::js::externals::Extern;
+use crate::js::externals::{Extern, VMExtern};
 use crate::js::store::{AsStoreMut, AsStoreRef, InternalStoreHandle, StoreHandle};
 use crate::js::value::Value;
 use crate::js::wasm_bindgen_polyfill::Global as JSGlobal;
@@ -53,6 +53,11 @@ impl Global {
     /// ```
     pub fn new_mut(store: &mut impl AsStoreMut, val: Value) -> Self {
         Self::from_value(store, val, Mutability::Var).unwrap()
+    }
+
+    /// To `VMExtern`.
+    pub(crate) fn to_vm_extern(&self) -> VMExtern {
+        VMExtern::Global(self.handle.internal_handle())
     }
 
     /// Create a `Global` with the initial value [`Value`] and the provided [`Mutability`].

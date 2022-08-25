@@ -1,6 +1,6 @@
 use crate::js::export::VMMemory;
 use crate::js::exports::{ExportError, Exportable};
-use crate::js::externals::Extern;
+use crate::js::externals::{Extern, VMExtern};
 use crate::js::store::{AsStoreMut, AsStoreRef, InternalStoreHandle, StoreHandle, StoreObjects};
 use crate::js::{MemoryAccessError, MemoryType};
 use std::marker::PhantomData;
@@ -116,6 +116,11 @@ impl Memory {
     pub fn new_from_existing(new_store: &mut impl AsStoreMut, memory: VMMemory) -> Self {
         let handle = StoreHandle::new(new_store.objects_mut(), memory);
         Self::from_vm_extern(new_store, handle.internal_handle())
+    }
+
+    /// To `VMExtern`.
+    pub(crate) fn to_vm_extern(&self) -> VMExtern {
+        VMExtern::Memory(self.handle.internal_handle())
     }
 
     /// Returns the [`MemoryType`] of the `Memory`.
