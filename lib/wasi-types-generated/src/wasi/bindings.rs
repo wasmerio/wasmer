@@ -799,13 +799,13 @@ pub mod wasi {
   wit_bindgen_wasmer::bitflags::bitflags! {
     /// Which file time attributes to adjust.
     pub struct Fstflags: u8 {/// Adjust the last data access timestamp to the value stored in `filestat::atim`.
-      const ATIM = 1 << 0;
+      const SET_ATIM = 1 << 0;
       /// Adjust the last data access timestamp to the time of clock `clockid::realtime`.
-      const ATIM_NOW = 1 << 1;
+      const SET_ATIM_NOW = 1 << 1;
       /// Adjust the last data modification timestamp to the value stored in `filestat::mtim`.
-      const MTIM = 1 << 2;
+      const SET_MTIM = 1 << 2;
       /// Adjust the last data modification timestamp to the time of clock `clockid::realtime`.
-      const MTIM_NOW = 1 << 3;
+      const SET_MTIM_NOW = 1 << 3;
     }
   }
   

@@ -193,6 +193,12 @@ unsafe impl ValueType for Eventrwflags {
 }
 
 // TODO: if necessary, must be implemented in wit-bindgen
+unsafe impl ValueType for Fstflags {
+    #[inline]
+    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
+}
+
+// TODO: if necessary, must be implemented in wit-bindgen
 unsafe impl ValueType for SubscriptionEnum {
     fn zero_padding_bytes(&self, bytes: &mut [MaybeUninit<u8>]) {
         macro_rules! field {
@@ -952,6 +958,24 @@ unsafe impl wit_bindgen_wasmer::wasmer::FromToNativeWasmType for Rights {
 
 // TODO: if necessary, must be implemented in wit-bindgen
 unsafe impl wit_bindgen_wasmer::wasmer::FromToNativeWasmType for Eventrwflags {
+    type Native = i32;
+
+    fn to_native(self) -> Self::Native {
+        self.bits() as i32
+    }
+    fn from_native(n: Self::Native) -> Self {
+        Self::from_bits_truncate(n as u8)
+    }
+
+    #[cfg(feature = "sys")]
+    fn is_from_store(&self, _store: &impl wit_bindgen_wasmer::wasmer::AsStoreRef) -> bool {
+        // TODO: find correct implementation
+        false
+    }
+}
+
+// TODO: if necessary, must be implemented in wit-bindgen
+unsafe impl wit_bindgen_wasmer::wasmer::FromToNativeWasmType for Fstflags {
     type Native = i32;
 
     fn to_native(self) -> Self::Native {

@@ -2,7 +2,7 @@
 use crate::{WasiEnv, WasiError, WasiState, WasiThread};
 use wasmer::{Memory, Memory32, MemorySize, StoreMut, WasmPtr, WasmSlice};
 use wasmer_wasi_types::{
-    wasi::{Errno, Event, Fd as WasiFd, Filesize, Timestamp, Whence},
+    wasi::{Errno, Event, Fd as WasiFd, Filesize, Fstflags, Fstflags, Timestamp, Whence},
     *,
 };
 
@@ -131,7 +131,7 @@ pub(crate) fn fd_filestat_set_times(
     fd: WasiFd,
     st_atim: Timestamp,
     st_mtim: Timestamp,
-    fst_flags: __wasi_fstflags_t,
+    fst_flags: Fstflags,
 ) -> Errno {
     super::fd_filestat_set_times(ctx, fd, st_atim, st_mtim, fst_flags)
 }
@@ -260,7 +260,7 @@ pub(crate) fn path_filestat_set_times(
     path_len: MemoryOffset,
     st_atim: Timestamp,
     st_mtim: Timestamp,
-    fst_flags: __wasi_fstflags_t,
+    fst_flags: Fstflags,
 ) -> Errno {
     super::path_filestat_set_times::<MemoryType>(
         ctx, fd, flags, path, path_len, st_atim, st_mtim, fst_flags,

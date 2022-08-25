@@ -26,8 +26,9 @@ use self::types::{
     wasi::{
         Addressfamily, Advice, BusErrno, Clockid, Dircookie, Dirent, Errno, Event, EventEnum,
         EventFdReadwrite, Eventrwflags, Eventtype, Fd as WasiFd, Fdflags, Fdstat, Filesize,
-        Filestat, Filetype, Linkcount, Rights, Snapshot0Clockid, Sockoption, Sockstatus, Socktype,
-        Streamsecurity, Subscription, SubscriptionEnum, SubscriptionFsReadwrite, Timestamp, Whence,
+        Filestat, Filetype, Fstflags, Linkcount, Rights, Snapshot0Clockid, Sockoption, Sockstatus,
+        Socktype, Streamsecurity, Subscription, SubscriptionEnum, SubscriptionFsReadwrite,
+        Timestamp, Whence,
     },
     *,
 };
@@ -768,14 +769,14 @@ pub fn fd_filestat_set_size(
 ///     Last accessed time
 /// - `Timestamp st_mtim`
 ///     Last modified time
-/// - `__wasi_fstflags_t fst_flags`
+/// - `Fstflags fst_flags`
 ///     Bit-vector for controlling which times get set
 pub fn fd_filestat_set_times(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
     st_atim: Timestamp,
     st_mtim: Timestamp,
-    fst_flags: __wasi_fstflags_t,
+    fst_flags: Fstflags,
 ) -> Errno {
     debug!("wasi::fd_filestat_set_times");
     let env = ctx.data();
@@ -786,9 +787,8 @@ pub fn fd_filestat_set_times(
         return Errno::Access;
     }
 
-    if (fst_flags & __WASI_FILESTAT_SET_ATIM != 0 && fst_flags & __WASI_FILESTAT_SET_ATIM_NOW != 0)
-        || (fst_flags & __WASI_FILESTAT_SET_MTIM != 0
-            && fst_flags & __WASI_FILESTAT_SET_MTIM_NOW != 0)
+    if (fst_flags.contains(Fstflags::SET_ATIM) && fst_flags.contains(Fstflags::SET_ATIM_NOW))
+        || (fst_flags.contains(Fstflags::SET_MTIM) && fst_flags.contains(Fstflags::SET_MTIM_NOW))
     {
         return Errno::Inval;
     }
@@ -796,8 +796,8 @@ pub fn fd_filestat_set_times(
     let inode_idx = fd_entry.inode;
     let inode = &inodes.arena[inode_idx];
 
-    if fst_flags & __WASI_FILESTAT_SET_ATIM != 0 || fst_flags & __WASI_FILESTAT_SET_ATIM_NOW != 0 {
-        let time_to_set = if fst_flags & __WASI_FILESTAT_SET_ATIM != 0 {
+    if fst_flags.contains(Fstflags::SET_ATIM) || fst_flags.contains(Fstflags::SET_ATIM_NOW) {
+        let time_to_set = if fst_flags.contains(Fstflags::SET_ATIM) {
             st_atim
         } else {
             wasi_try!(get_current_time_in_nanos())
@@ -805,8 +805,8 @@ pub fn fd_filestat_set_times(
         inode.stat.write().unwrap().st_atim = time_to_set;
     }
 
-    if fst_flags & __WASI_FILESTAT_SET_MTIM != 0 || fst_flags & __WASI_FILESTAT_SET_MTIM_NOW != 0 {
-        let time_to_set = if fst_flags & __WASI_FILESTAT_SET_MTIM != 0 {
+    if fst_flags.contains(Fstflags::SET_MTIM) || fst_flags.contains(Fstflags::SET_MTIM_NOW) {
+        let time_to_set = if fst_flags.contains(Fstflags::SET_MTIM) {
             st_mtim
         } else {
             wasi_try!(get_current_time_in_nanos())
@@ -2060,7 +2060,7 @@ pub fn path_filestat_get_internal(
 ///     The timestamp that the last accessed time attribute is set to
 /// -  `Timestamp st_mtim`
 ///     The timestamp that the last modified time attribute is set to
-/// - `__wasi_fstflags_t fst_flags`
+/// - `Fstflags fst_flags`
 ///     A bitmask controlling which attributes are set
 pub fn path_filestat_set_times<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
@@ -2070,7 +2070,7 @@ pub fn path_filestat_set_times<M: MemorySize>(
     path_len: M::Offset,
     st_atim: Timestamp,
     st_mtim: Timestamp,
-    fst_flags: __wasi_fstflags_t,
+    fst_flags: Fstflags,
 ) -> Errno {
     debug!("wasi::path_filestat_set_times");
     let env = ctx.data();
@@ -2080,9 +2080,8 @@ pub fn path_filestat_set_times<M: MemorySize>(
     if !fd_entry.rights.contains(Rights::PATH_FILESTAT_SET_TIMES) {
         return Errno::Access;
     }
-    if (fst_flags & __WASI_FILESTAT_SET_ATIM != 0 && fst_flags & __WASI_FILESTAT_SET_ATIM_NOW != 0)
-        || (fst_flags & __WASI_FILESTAT_SET_MTIM != 0
-            && fst_flags & __WASI_FILESTAT_SET_MTIM_NOW != 0)
+    if (fst_flags.contains(Fstflags::SET_ATIM) && fst_flags.contains(Fstflags::SET_ATIM_NOW))
+        || (fst_flags.contains(Fstflags::SET_MTIM) && fst_flags.contains(Fstflags::SET_MTIM_NOW))
     {
         return Errno::Inval;
     }
@@ -2103,16 +2102,16 @@ pub fn path_filestat_set_times<M: MemorySize>(
 
     let inode = &inodes.arena[fd_inode];
 
-    if fst_flags & __WASI_FILESTAT_SET_ATIM != 0 || fst_flags & __WASI_FILESTAT_SET_ATIM_NOW != 0 {
-        let time_to_set = if fst_flags & __WASI_FILESTAT_SET_ATIM != 0 {
+    if fst_flags.contains(Fstflags::SET_ATIM) || fst_flags.contains(Fstflags::SET_ATIM_NOW) {
+        let time_to_set = if fst_flags.contains(Fstflags::SET_ATIM) {
             st_atim
         } else {
             wasi_try!(get_current_time_in_nanos())
         };
         inode.stat.write().unwrap().st_atim = time_to_set;
     }
-    if fst_flags & __WASI_FILESTAT_SET_MTIM != 0 || fst_flags & __WASI_FILESTAT_SET_MTIM_NOW != 0 {
-        let time_to_set = if fst_flags & __WASI_FILESTAT_SET_MTIM != 0 {
+    if fst_flags.contains(Fstflags::SET_MTIM) || fst_flags.contains(Fstflags::SET_MTIM_NOW) {
+        let time_to_set = if fst_flags.contains(Fstflags::SET_MTIM) {
             st_mtim
         } else {
             wasi_try!(get_current_time_in_nanos())

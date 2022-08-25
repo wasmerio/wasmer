@@ -64,7 +64,7 @@ type snapshot0-linkcount = u32
 
 /// Identifiers for clocks, snapshot0 version.
 enum snapshot0-clockid {
-    // TODO: wit appears to not have support for enum type size
+    // TODO: wit appears to not have support for enum tag types
     //(@witx tag u32)
 
     /// The clock measuring real time. Time value zero corresponds with
@@ -83,7 +83,7 @@ enum snapshot0-clockid {
 
 /// Identifiers for clocks.
 enum clockid {
-    // TODO: wit appears to not have support for enum type size
+    // TODO: wit appears to not have support for enum tag types
     //(@witx tag u32)
 
     /// The clock measuring real time. Time value zero corresponds with
@@ -101,7 +101,7 @@ enum clockid {
 /// API; some are used in higher-level library layers, and others are provided
 /// merely for alignment with POSIX.
 enum errno {
-    // TODO: wit appears to not have support for enum type size
+    // TODO: wit appears to not have support for enum tag types
     //(@witx tag u16)
 
     /// No error occurred. System call completed successfully.
@@ -261,7 +261,7 @@ enum errno {
 }
 
 enum bus-errno {
-    // TODO: wit appears to not have support for enum type size
+    // TODO: wit appears to not have support for enum tag types
     //(@witx tag u32)
 
     /// No error occurred. Call completed successfully.
@@ -409,7 +409,7 @@ flags rights {
 
 /// The type of a file descriptor or file.
 enum filetype {
-    // TODO: wit appears to not have support for enum type size
+    // TODO: wit appears to not have support for enum tag types
     //(@witx tag u8)
 
     /// The type of the file descriptor or file is unknown or is different from any of the other types specified.
@@ -458,7 +458,7 @@ record dirent {
 
 /// File or memory access pattern advisory information.
 enum advice {
-    // TODO: wit appears to not have support for enum type size
+    // TODO: wit appears to not have support for enum tag types
     //enum (@witx tag u8)
 
     /// The application has no advice to give on its behavior with respect to the specified data.
@@ -477,7 +477,7 @@ enum advice {
 
 /// File descriptor flags.
 flags fdflags {
-    // TODO: wit appears to not have support for flags type size
+    // TODO: wit appears to not have support for flags repr
     //(@witx repr u16)
 
     /// Append mode: Data written to the file is always appended to the file's end.
@@ -509,22 +509,22 @@ record fdstat {
 
 /// Which file time attributes to adjust.
 flags fstflags {
-    // TODO: wit appears to not have support for flags type size
+    // TODO: wit appears to not have support for flags repr
     //(@witx repr u16)
 
     /// Adjust the last data access timestamp to the value stored in `filestat::atim`.
-    atim,
+    set-atim,
     /// Adjust the last data access timestamp to the time of clock `clockid::realtime`.
-    atim-now,
+    set-atim-now,
     /// Adjust the last data modification timestamp to the value stored in `filestat::mtim`.
-    mtim,
+    set-mtim,
     /// Adjust the last data modification timestamp to the time of clock `clockid::realtime`.
-    mtim-now,
+    set-mtim-now,
 }
 
 /// Flags determining the method of how paths are resolved.
 flags lookup {
-    // TODO: wit appears to not have support for flags type size
+    // TODO: wit appears to not have support for flags repr
     //(@witx repr u32)
 
     /// As long as the resolved path corresponds to a symbolic link, it is expanded.
@@ -533,7 +533,7 @@ flags lookup {
 
 /// Open flags used by `path_open`.
 flags oflags {
-    // TODO: wit appears to not have support for flags type size
+    // TODO: wit appears to not have support for flags repr
     //(@witx repr u16)
 
     /// Create file if it does not exist.
@@ -552,7 +552,7 @@ type userdata = u64
 
 /// Type of a subscription to an event or its occurrence.
 enum eventtype {
-    // TODO: wit appears to not have support for enum type size
+    // TODO: wit appears to not have support for enum tag types
     //(@witx tag u8)
 
     /// The time value of clock `subscription_clock::id` has
@@ -569,7 +569,7 @@ enum eventtype {
 /// Flags determining how to interpret the timestamp provided in
 /// `subscription-clock::timeout`.
 flags subclockflags {
-    // TODO: wit appears to not have support for flags type size
+    // TODO: wit appears to not have support for flags repr
     //@witx repr u16)
     /// If set, treat the timestamp provided in
     /// `subscription-clock::timeout` as an absolute timestamp of clock
@@ -609,7 +609,7 @@ record subscription-clock {
 
 /// Identifiers for preopened capabilities.
 enum preopentype {
-    // TODO: wit appears to not have support for enum type size
+    // TODO: wit appears to not have support for enum tag types
     //(@witx tag u8)
 
     /// A pre-opened directory.
@@ -619,7 +619,7 @@ enum preopentype {
 /// The state of the file descriptor subscribed to with
 /// `eventtype::fd_read` or `eventtype::fd_write`.
 flags eventrwflags {
-    // TODO: wit appears to not have support for flags type size
+    // TODO: wit appears to not have support for flags repr
     //@witx repr u16)
 
     /// The peer of this socket has closed or disconnected.

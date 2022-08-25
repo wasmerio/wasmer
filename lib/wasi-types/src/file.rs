@@ -103,12 +103,6 @@ unsafe impl ValueType for __wasi_prestat_t {
 
 pub type __wasi_filedelta_t = i64;
 
-pub type __wasi_fstflags_t = u16;
-pub const __WASI_FILESTAT_SET_ATIM: __wasi_fstflags_t = 1 << 0;
-pub const __WASI_FILESTAT_SET_ATIM_NOW: __wasi_fstflags_t = 1 << 1;
-pub const __WASI_FILESTAT_SET_MTIM: __wasi_fstflags_t = 1 << 2;
-pub const __WASI_FILESTAT_SET_MTIM_NOW: __wasi_fstflags_t = 1 << 3;
-
 pub type __wasi_lookupflags_t = u32;
 pub const __WASI_LOOKUP_SYMLINK_FOLLOW: __wasi_lookupflags_t = 1 << 0;
 
