@@ -23,9 +23,9 @@ use std::f64;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, RwLock};
 use wasmer::{
-    imports, namespace, AsStoreMut, ExportError, Exports, Function, FunctionEnv, FunctionEnvMut,
-    FunctionType, Global, Imports, Instance, Memory, MemoryType, Module, Pages, RuntimeError,
-    Table, TableType, TypedFunction, Value, WasmPtr, AsStoreRef,
+    imports, namespace, AsStoreMut, AsStoreRef, ExportError, Exports, Function, FunctionEnv,
+    FunctionEnvMut, FunctionType, Global, Imports, Instance, Memory, MemoryType, Module, Pages,
+    RuntimeError, Table, TableType, TypedFunction, Value, WasmPtr,
 };
 use wasmer_types::Type as ValType;
 
@@ -113,11 +113,7 @@ impl EmEnv {
         *w = funcs;
     }
 
-    pub fn set_data(
-        &self,
-        data: &EmscriptenGlobalsData,
-        mapped_dirs: HashMap<String, PathBuf>,
-    ) {
+    pub fn set_data(&self, data: &EmscriptenGlobalsData, mapped_dirs: HashMap<String, PathBuf>) {
         let mut w = self.data.lock().unwrap();
         *w = Some(EmscriptenData::new(data.clone(), mapped_dirs));
     }

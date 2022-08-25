@@ -215,7 +215,10 @@ impl<M: MemorySize> WasmPtr<u8, M> {
     /// This method is safe to call even if the memory is being concurrently
     /// modified.
     #[inline]
-    pub fn read_utf8_string_with_nul(&self, view: &MemoryView) -> Result<String, MemoryAccessError> {
+    pub fn read_utf8_string_with_nul(
+        &self,
+        view: &MemoryView,
+    ) -> Result<String, MemoryAccessError> {
         let vec = self.read_until(view, |&byte| byte == 0)?;
         Ok(String::from_utf8(vec)?)
     }

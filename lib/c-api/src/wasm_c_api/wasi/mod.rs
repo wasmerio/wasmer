@@ -4,7 +4,7 @@
 
 pub use super::unstable::wasi::wasi_get_unordered_imports;
 use super::{
-    externals::{wasm_extern_t, wasm_extern_vec_t, wasm_func_t, wasm_memory_t},
+    externals::{wasm_extern_t, wasm_extern_vec_t, wasm_func_t},
     instance::wasm_instance_t,
     module::wasm_module_t,
     store::{wasm_store_t, StoreRef},

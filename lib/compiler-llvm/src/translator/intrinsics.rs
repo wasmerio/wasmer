@@ -26,9 +26,10 @@ use std::collections::{hash_map::Entry, HashMap};
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{
     CompileError, FunctionIndex, FunctionType as FuncType, GlobalIndex, LocalFunctionIndex,
-    MemoryIndex, ModuleInfo as WasmerCompilerModule, Mutability, SignatureIndex, TableIndex, Type,
+    MemoryIndex, MemoryStyle, ModuleInfo as WasmerCompilerModule, Mutability, SignatureIndex,
+    TableIndex, Type,
 };
-use wasmer_vm::{MemoryStyle, TrapCode, VMBuiltinFunctionIndex, VMOffsets};
+use wasmer_vm::{TrapCode, VMBuiltinFunctionIndex, VMOffsets};
 
 pub fn type_to_llvm_ptr<'ctx>(
     intrinsics: &Intrinsics<'ctx>,

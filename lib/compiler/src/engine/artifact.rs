@@ -28,8 +28,8 @@ use wasmer_types::MetadataHeader;
 use wasmer_types::SerializableCompilation;
 use wasmer_types::{
     CompileError, CpuFeature, DataInitializer, DeserializeError, FunctionIndex, LocalFunctionIndex,
-    MemoryIndex, ModuleInfo, OwnedDataInitializer, SerializableModule, SerializeError,
-    SignatureIndex, TableIndex, MemoryStyle,
+    MemoryIndex, MemoryStyle, ModuleInfo, OwnedDataInitializer, SerializableModule, SerializeError,
+    SignatureIndex, TableIndex,
 };
 #[cfg(feature = "static-artifact-create")]
 use wasmer_types::{CompileModuleInfo, Target};

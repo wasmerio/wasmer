@@ -67,12 +67,13 @@ use std::ops::Deref;
 use std::sync::atomic::{AtomicU32, Ordering};
 use thiserror::Error;
 use wasmer::{
-    imports, namespace, AsStoreMut, Exports, Function, FunctionEnv, Imports, Memory, Memory32,
-    MemoryAccessError, MemorySize, Module, TypedFunction, Memory64, MemoryView, AsStoreRef, Instance, ExportError
+    imports, namespace, AsStoreMut, AsStoreRef, ExportError, Exports, Function, FunctionEnv,
+    Imports, Instance, Memory, Memory32, Memory64, MemoryAccessError, MemorySize, MemoryView,
+    Module, TypedFunction,
 };
 
 pub use runtime::{
-    PluggableRuntimeImplementation, WasiRuntimeImplementation, WasiThreadError, WasiTtyState
+    PluggableRuntimeImplementation, WasiRuntimeImplementation, WasiThreadError, WasiTtyState,
 };
 use std::sync::{Arc, RwLockReadGuard, RwLockWriteGuard};
 use std::time::Duration;
@@ -98,7 +99,7 @@ impl WasiThreadId {
 
     pub fn inc(&mut self) -> WasiThreadId {
         self.0 += 1;
-        self.clone()
+        *self
     }
 }
 
@@ -124,7 +125,7 @@ impl WasiCallingId {
 
     pub fn inc(&mut self) -> WasiCallingId {
         self.0 += 1;
-        self.clone()
+        *self
     }
 }
 
@@ -148,15 +149,14 @@ impl From<u32> for WasiBusProcessId {
         Self(id)
     }
 }
-impl Into<u32> for WasiBusProcessId {
-    fn into(self) -> u32 {
-        self.0 as u32
+impl From<WasiBusProcessId> for u32 {
+    fn from(b: WasiBusProcessId) -> Self {
+        b.0 as Self
     }
 }
 
 #[derive(Clone)]
-pub struct WasiEnvInner
-{
+pub struct WasiEnvInner {
     /// Represents a reference to the memory
     memory: Memory,
     /// Represents the module that is being used (this is NOT send/sync)
@@ -178,15 +178,13 @@ pub struct WasiEnvInner
 /// The code itself makes safe use of the struct so multiple threads don't access
 /// it (without this the JS code prevents the reference to the module from being stored
 /// which is needed for the multithreading mode)
-unsafe impl Send for WasiEnvInner { }
-unsafe impl Sync for WasiEnvInner { }
+unsafe impl Send for WasiEnvInner {}
+unsafe impl Sync for WasiEnvInner {}
 
 /// The environment provided to the WASI imports.
 #[derive(Derivative, Clone)]
 #[derivative(Debug)]
-pub struct WasiEnv
-where
-{
+pub struct WasiEnv {
     /// ID of this thread (zero is the main thread)
     id: WasiThreadId,
     /// Shared state of the WASI system. Manages all the data that the
@@ -207,13 +205,15 @@ lazy_static::lazy_static! {
 
 /// Returns the current thread ID
 pub fn current_caller_id() -> WasiCallingId {
-    CALLER_ID.with(|f| {
-        let mut caller_id = f.borrow_mut();
-        if *caller_id == 0 {
-            *caller_id = CALLER_ID_SEED.fetch_add(1, Ordering::AcqRel);
-        }
-        *caller_id
-    }).into()
+    CALLER_ID
+        .with(|f| {
+            let mut caller_id = f.borrow_mut();
+            if *caller_id == 0 {
+                *caller_id = CALLER_ID_SEED.fetch_add(1, Ordering::AcqRel);
+            }
+            *caller_id
+        })
+        .into()
 }
 
 impl WasiEnv {
@@ -223,22 +223,21 @@ impl WasiEnv {
     }
 
     fn new_ext(state: Arc<WasiState>) -> Self {
-        let ret = Self {
+        Self {
             id: 0u32.into(),
             state,
             inner: None,
             runtime: Arc::new(PluggableRuntimeImplementation::default()),
-        };
-        ret
+        }
     }
-    
+
     /// Returns a copy of the current runtime implementation for this environment
-    pub fn runtime<'a>(&'a self) -> &'a (dyn WasiRuntimeImplementation) {
+    pub fn runtime(&self) -> &'_ (dyn WasiRuntimeImplementation) {
         self.runtime.deref()
     }
 
     /// Overrides the runtime implementation for this environment
-    pub fn set_runtime<R>(&mut self, runtime: R) 
+    pub fn set_runtime<R>(&mut self, runtime: R)
     where
         R: WasiRuntimeImplementation + Send + Sync + 'static,
     {
@@ -260,10 +259,12 @@ impl WasiEnv {
     // Sleeps for a period of time
     pub fn sleep(&self, duration: Duration) -> Result<(), WasiError> {
         let duration = duration.as_nanos();
-        let start = syscalls::platform_clock_time_get(__WASI_CLOCK_MONOTONIC, 1_000_000).unwrap() as u128;
+        let start =
+            syscalls::platform_clock_time_get(__WASI_CLOCK_MONOTONIC, 1_000_000).unwrap() as u128;
         self.yield_now()?;
         loop {
-            let now = syscalls::platform_clock_time_get(__WASI_CLOCK_MONOTONIC, 1_000_000).unwrap() as u128;
+            let now = syscalls::platform_clock_time_get(__WASI_CLOCK_MONOTONIC, 1_000_000).unwrap()
+                as u128;
             let delta = match now.checked_sub(start) {
                 Some(a) => a,
                 None => {
@@ -286,22 +287,23 @@ impl WasiEnv {
     }
 
     /// Accesses the virtual networking implementation
-    pub fn net<'a>(&'a self) -> &'a (dyn VirtualNetworking) {
+    pub fn net(&self) -> &'_ (dyn VirtualNetworking) {
         self.runtime.networking()
     }
 
     /// Accesses the virtual bus implementation
-    pub fn bus<'a>(&'a self) -> &'a (dyn VirtualBus) {
+    pub fn bus(&self) -> &'_ (dyn VirtualBus) {
         self.runtime.bus()
     }
 
     /// Providers safe access to the initialized part of WasiEnv
     /// (it must be initialized before it can be used)
     pub fn inner(&self) -> &WasiEnvInner {
-        self.inner.as_ref()
+        self.inner
+            .as_ref()
             .expect("You must initialize the WasiEnv before using it")
     }
-    
+
     /// Providers safe access to the memory
     /// (it must be initialized before it can be used)
     pub fn memory_view<'a>(&'a self, store: &'a impl AsStoreRef) -> MemoryView<'a> {
@@ -324,8 +326,12 @@ impl WasiEnv {
     pub fn state(&self) -> &WasiState {
         &self.state
     }
-    
-    pub(crate) fn get_memory_and_wasi_state<'a>(&'a self, store: &'a impl AsStoreRef, _mem_index: u32) -> (MemoryView<'a>, &WasiState) {
+
+    pub(crate) fn get_memory_and_wasi_state<'a>(
+        &'a self,
+        store: &'a impl AsStoreRef,
+        _mem_index: u32,
+    ) -> (MemoryView<'a>, &WasiState) {
         let memory = self.memory_view(store);
         let state = self.state.deref();
         (memory, state)
@@ -386,16 +392,18 @@ impl WasiFunctionEnv {
 
     /// Gets a mutable- reference to the host state in this context.
     pub fn data_mut<'a>(&'a mut self, store: &'a mut impl AsStoreMut) -> &'a mut WasiEnv {
-        self.env
-            .as_mut(store)
+        self.env.as_mut(store)
     }
 
     /// Initializes the WasiEnv using the instance exports
     /// (this must be executed before attempting to use it)
     /// (as the stores can not by themselves be passed between threads we can store the module
     ///  in a thread-local variables and use it later - for multithreading)
-    pub fn initialize(&mut self, store: &mut impl AsStoreMut, instance: &Instance) -> Result<(), ExportError>
-    {
+    pub fn initialize(
+        &mut self,
+        store: &mut impl AsStoreMut,
+        instance: &Instance,
+    ) -> Result<(), ExportError> {
         // List all the exports and imports
         for ns in instance.module().exports() {
             //trace!("module::export - {} ({:?})", ns.name(), ns.ty());
@@ -411,9 +419,15 @@ impl WasiFunctionEnv {
         let new_inner = WasiEnvInner {
             memory,
             module: instance.module().clone(),
-            thread_spawn: instance.exports.get_typed_function(store, "_start_thread").ok(),
+            thread_spawn: instance
+                .exports
+                .get_typed_function(store, "_start_thread")
+                .ok(),
             react: instance.exports.get_typed_function(store, "_react").ok(),
-            thread_local_destroy: instance.exports.get_typed_function(store, "_thread_local_destroy").ok(),
+            thread_local_destroy: instance
+                .exports
+                .get_typed_function(store, "_thread_local_destroy")
+                .ok(),
         };
 
         let env = self.data_mut(store);
@@ -574,11 +588,7 @@ fn wasi_snapshot_preview1_exports(
     namespace
 }
 
-fn wasix_exports_32(
-    mut store: &mut impl AsStoreMut,
-    env: &FunctionEnv<WasiEnv>,
-) -> Exports
-{
+fn wasix_exports_32(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>) -> Exports {
     use syscalls::*;
     let namespace = namespace! {
         "args_get" => Function::new_typed_with_env(&mut store, env, args_get::<Memory32>),
@@ -699,11 +709,7 @@ fn wasix_exports_32(
     namespace
 }
 
-fn wasix_exports_64(
-    mut store: &mut impl AsStoreMut,
-    env: &FunctionEnv<WasiEnv>,
-) -> Exports
-{
+fn wasix_exports_64(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>) -> Exports {
     use syscalls::*;
     let namespace = namespace! {
         "args_get" => Function::new_typed_with_env(&mut store, env, args_get::<Memory64>),

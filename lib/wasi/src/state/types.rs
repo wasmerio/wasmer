@@ -148,7 +148,8 @@ pub fn wasi_error_into_bus_err(bus_error: __bus_errno_t) -> VirtualBusError {
         __BUS_EINVOKE => InvokeFailed,
         __BUS_ECONSUMED => AlreadyConsumed,
         __BUS_EMEMVIOLATION => MemoryAccessViolation,
-        __BUS_EUNKNOWN | _ => UnknownError,
+        __BUS_EUNKNOWN => UnknownError,
+        _ => UnknownError,
     }
 }
 

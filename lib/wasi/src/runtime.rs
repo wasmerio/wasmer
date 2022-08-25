@@ -2,8 +2,8 @@ use std::fmt;
 use std::ops::Deref;
 use std::sync::atomic::{AtomicU32, Ordering};
 use thiserror::Error;
-use wasmer::{Module, Store};
 use wasmer::vm::VMMemory;
+use wasmer::{Module, Store};
 use wasmer_vbus::{UnsupportedVirtualBus, VirtualBus};
 use wasmer_vnet::VirtualNetworking;
 
@@ -53,7 +53,8 @@ pub struct WasiTtyState {
 /// Represents an implementation of the WASI runtime - by default everything is
 /// unimplemented.
 pub trait WasiRuntimeImplementation
-where Self: fmt::Debug + Sync,
+where
+    Self: fmt::Debug + Sync,
 {
     /// For WASI runtimes that support it they can implement a message BUS implementation
     /// which allows runtimes to pass serialized messages between each other similar to
@@ -93,8 +94,7 @@ where Self: fmt::Debug + Sync,
         _store: Store,
         _existing_module: Module,
         _existing_memory: VMMemory,
-    ) -> Result<(), WasiThreadError>
-    {
+    ) -> Result<(), WasiThreadError> {
         Err(WasiThreadError::Unsupported)
     }
 
@@ -118,15 +118,13 @@ where Self: fmt::Debug + Sync,
 }
 
 #[derive(Debug)]
-pub struct PluggableRuntimeImplementation
-{
+pub struct PluggableRuntimeImplementation {
     pub bus: Box<dyn VirtualBus + Sync>,
     pub networking: Box<dyn VirtualNetworking + Sync>,
     pub thread_id_seed: AtomicU32,
 }
 
-impl PluggableRuntimeImplementation
-{
+impl PluggableRuntimeImplementation {
     pub fn set_bus_implementation<I>(&mut self, bus: I)
     where
         I: VirtualBus + Sync,
@@ -142,9 +140,7 @@ impl PluggableRuntimeImplementation
     }
 }
 
-impl Default
-for PluggableRuntimeImplementation
-{
+impl Default for PluggableRuntimeImplementation {
     fn default() -> Self {
         Self {
             #[cfg(not(feature = "host-vnet"))]
@@ -157,21 +153,19 @@ for PluggableRuntimeImplementation
     }
 }
 
-impl WasiRuntimeImplementation
-for PluggableRuntimeImplementation
-{
-    fn bus<'a>(&'a self) -> &'a (dyn VirtualBus) {
+impl WasiRuntimeImplementation for PluggableRuntimeImplementation {
+    fn bus(&self) -> &'_ (dyn VirtualBus) {
         self.bus.deref()
     }
 
-    fn networking<'a>(&'a self) -> &'a (dyn VirtualNetworking) {
+    fn networking(&self) -> &'_ (dyn VirtualNetworking) {
         self.networking.deref()
     }
 
     fn thread_generate_id(&self) -> WasiThreadId {
         self.thread_id_seed.fetch_add(1, Ordering::Relaxed).into()
     }
-    
+
     #[cfg(feature = "sys-thread")]
     fn thread_spawn(
         &self,
@@ -179,18 +173,15 @@ for PluggableRuntimeImplementation
         store: Store,
         existing_module: Module,
         existing_memory: VMMemory,
-    ) -> Result<(), WasiThreadError>
-    {
-        let existing_module = existing_module.clone();
-        std::thread::spawn(move || {
-            callback(store, existing_module, existing_memory)
-        });
+    ) -> Result<(), WasiThreadError> {
+        let existing_module = existing_module;
+        std::thread::spawn(move || callback(store, existing_module, existing_memory));
         Ok(())
     }
 
     fn thread_parallelism(&self) -> Result<usize, WasiThreadError> {
         std::thread::available_parallelism()
-            .map(|a| usize::from(a))
+            .map(usize::from)
             .map_err(|_| WasiThreadError::Unsupported)
     }
 }

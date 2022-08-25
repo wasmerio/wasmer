@@ -6,8 +6,8 @@ use std::io::Read;
 use tracing::{debug, info, metadata::LevelFilter};
 #[cfg(feature = "sys")]
 use tracing_subscriber::fmt::SubscriberBuilder;
-use wasmer::{Instance, Module, Store, Features, Cranelift, EngineBuilder};
-use wasmer_wasi::{Pipe, WasiState, import_object_for_all_wasi_versions, WasiError};
+use wasmer::{Cranelift, EngineBuilder, Features, Instance, Module, Store};
+use wasmer_wasi::{import_object_for_all_wasi_versions, Pipe, WasiError, WasiState};
 
 #[cfg(feature = "sys")]
 mod sys {
@@ -28,8 +28,7 @@ mod js {
 
 fn test_coreutils() {
     let mut features = Features::new();
-    features
-        .threads(true);
+    features.threads(true);
 
     info!("Creating engine");
     let compiler = Cranelift::default();
@@ -51,12 +50,11 @@ fn test_coreutils() {
 
     #[cfg(feature = "sys")]
     SubscriberBuilder::default()
-            .with_max_level(LevelFilter::DEBUG)
-            .init();
+        .with_max_level(LevelFilter::DEBUG)
+        .init();
 
     // We do it many times (to make sure the compiled modules are reusable)
-    for n in 0..2
-    {
+    for n in 0..2 {
         let store = Store::new(engine.clone());
         let module = module.clone();
 
@@ -66,14 +64,12 @@ fn test_coreutils() {
     }
 }
 
-fn run_test(mut store: Store, module: Module)
-{
+fn run_test(mut store: Store, module: Module) {
     // Create the `WasiEnv`.
     let mut stdout = Pipe::new();
     let mut wasi_state_builder = WasiState::new("echo");
-    wasi_state_builder
-        .args(&["apple"]);
-    
+    wasi_state_builder.args(&["apple"]);
+
     let mut wasi_env = wasi_state_builder
         .stdout(Box::new(stdout.clone()))
         .finalize(&mut store)
@@ -92,9 +88,12 @@ fn run_test(mut store: Store, module: Module)
     let ret = start.call(&mut store, &[]);
     if let Err(e) = ret {
         match e.downcast::<WasiError>() {
-            Ok(WasiError::Exit(0)) => { }
+            Ok(WasiError::Exit(0)) => {}
             _ => {
-                assert!(false, "The call should have returned Err(WasiError::Exit(0))");        
+                assert!(
+                    false,
+                    "The call should have returned Err(WasiError::Exit(0))"
+                );
             }
         }
     }

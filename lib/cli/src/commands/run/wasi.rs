@@ -4,7 +4,7 @@ use std::collections::BTreeSet;
 use std::path::PathBuf;
 use wasmer::{AsStoreMut, FunctionEnv, Instance, Module, RuntimeError, Value};
 use wasmer_wasi::{
-    get_wasi_versions, import_object_for_all_wasi_versions, WasiEnv, WasiError,
+    get_wasi_versions, import_object_for_all_wasi_versions, is_wasix_module, WasiEnv, WasiError,
     WasiState, WasiVersion,
 };
 
@@ -91,7 +91,7 @@ impl Wasi {
             }
         }
 
-        let wasi_env = wasi_state_builder.finalize(store)?;
+        let mut wasi_env = wasi_state_builder.finalize(store)?;
         wasi_env.env.as_mut(store).state.fs.is_wasix.store(
             is_wasix_module(module),
             std::sync::atomic::Ordering::Release,

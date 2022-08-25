@@ -1,33 +1,26 @@
 use std::{
-    sync::{
-        Mutex,
-        Arc,
-        Condvar
-    },
-    time::Duration
+    sync::{Arc, Condvar, Mutex},
+    time::Duration,
 };
 
 /// Represents a running thread which allows a joiner to
 /// wait for the thread to exit
 #[derive(Debug, Clone)]
-pub struct WasiThread
-{
+pub struct WasiThread {
     finished: Arc<(Mutex<bool>, Condvar)>,
 }
 
-impl Default
-for WasiThread
-{
-    fn default() -> Self
-    {
+#[allow(clippy::mutex_atomic)]
+impl Default for WasiThread {
+    fn default() -> Self {
         Self {
             finished: Arc::new((Mutex::new(false), Condvar::default())),
         }
     }
 }
 
-impl WasiThread
-{
+#[allow(clippy::mutex_atomic)]
+impl WasiThread {
     /// Marks the thread as finished (which will cause anyone that
     /// joined on it to wake up)
     pub fn mark_finished(&self) {
@@ -39,7 +32,7 @@ impl WasiThread
     /// Waits until the thread is finished or the timeout is reached
     pub fn join(&self, timeout: Duration) -> bool {
         let mut finished = self.finished.0.lock().unwrap();
-        if *finished == true {
+        if *finished {
             return true;
         }
         loop {
@@ -48,7 +41,7 @@ impl WasiThread
                 return false;
             }
             finished = woken.0;
-            if *finished == true {
+            if *finished {
                 return true;
             }
         }

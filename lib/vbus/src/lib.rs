@@ -32,7 +32,7 @@ pub trait VirtualBus: fmt::Debug + Send + Sync + 'static {
     }
 
     /// Creates a listener thats used to receive BUS commands
-    fn listen<'a>(&'a self) -> Result<&'a dyn VirtualBusListener> {
+    fn listen(&self) -> Result<&'_ dyn VirtualBusListener> {
         Err(VirtualBusError::Unsupported)
     }
 }
@@ -86,7 +86,7 @@ impl SpawnOptionsConfig {
     }
 
     pub fn working_dir(&self) -> Option<&str> {
-        self.working_dir.as_ref().map(|a| a.as_str())
+        self.working_dir.as_deref()
     }
 
     pub fn remote_instance(&self) -> Option<&str> {
@@ -215,7 +215,10 @@ pub trait VirtualBusInvokable: fmt::Debug + Send + Sync + 'static {
 
 pub trait VirtualBusInvoked: fmt::Debug + Unpin + 'static {
     //// Returns once the bus has been invoked (or failed)
-    fn poll_invoked(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<Box<dyn VirtualBusInvocation + Sync>>>;
+    fn poll_invoked(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Result<Box<dyn VirtualBusInvocation + Sync>>>;
 }
 
 pub trait VirtualBusProcess:
@@ -236,20 +239,18 @@ pub trait VirtualBusInvocation:
 }
 
 #[derive(Debug)]
-pub struct InstantInvocation
-{
+pub struct InstantInvocation {
     val: Option<BusInvocationEvent>,
     err: Option<VirtualBusError>,
     call: Option<Box<dyn VirtualBusInvocation + Sync>>,
 }
 
-impl InstantInvocation
-{
+impl InstantInvocation {
     pub fn response(format: BusDataFormat, data: Vec<u8>) -> Self {
         Self {
             val: Some(BusInvocationEvent::Response { format, data }),
             err: None,
-            call: None
+            call: None,
         }
     }
 
@@ -257,7 +258,7 @@ impl InstantInvocation
         Self {
             val: None,
             err: Some(err),
-            call: None
+            call: None,
         }
     }
 
@@ -265,15 +266,16 @@ impl InstantInvocation
         Self {
             val: None,
             err: None,
-            call: Some(val)
+            call: Some(val),
         }
     }
 }
 
-impl VirtualBusInvoked
-for InstantInvocation
-{
-    fn poll_invoked(mut self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Result<Box<dyn VirtualBusInvocation + Sync>>> {
+impl VirtualBusInvoked for InstantInvocation {
+    fn poll_invoked(
+        mut self: Pin<&mut Self>,
+        _cx: &mut Context<'_>,
+    ) -> Poll<Result<Box<dyn VirtualBusInvocation + Sync>>> {
         if let Some(err) = self.err.take() {
             return Poll::Ready(Err(err));
         }
@@ -285,47 +287,35 @@ for InstantInvocation
             })));
         }
         match self.call.take() {
-            Some(val) => {
-                Poll::Ready(Ok(val))
-            },
-            None => {
-                Poll::Ready(Err(VirtualBusError::AlreadyConsumed))
-            }
+            Some(val) => Poll::Ready(Ok(val)),
+            None => Poll::Ready(Err(VirtualBusError::AlreadyConsumed)),
         }
     }
 }
 
-impl VirtualBusInvocation
-for InstantInvocation
-{
+impl VirtualBusInvocation for InstantInvocation {
     fn poll_event(mut self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<BusInvocationEvent> {
         match self.val.take() {
-            Some(val) => {
-                Poll::Ready(val)
-            },
-            None => {
-                Poll::Ready(BusInvocationEvent::Fault { fault: VirtualBusError::AlreadyConsumed })
-            }
+            Some(val) => Poll::Ready(val),
+            None => Poll::Ready(BusInvocationEvent::Fault {
+                fault: VirtualBusError::AlreadyConsumed,
+            }),
         }
     }
 }
 
-impl VirtualBusInvokable
-for InstantInvocation
-{
+impl VirtualBusInvokable for InstantInvocation {
     fn invoke(
         &self,
         _topic_hash: u128,
         _format: BusDataFormat,
         _buf: Vec<u8>,
     ) -> Box<dyn VirtualBusInvoked> {
-        Box::new(
-            InstantInvocation {
-                val: None,
-                err: Some(VirtualBusError::InvalidTopic),
-                call: None
-            }
-        )
+        Box::new(InstantInvocation {
+            val: None,
+            err: Some(VirtualBusError::InvalidTopic),
+            call: None,
+        })
     }
 }
 
@@ -350,8 +340,8 @@ pub enum BusInvocationEvent {
     /// The service has responded with a fault
     Fault {
         /// Fault code that was raised
-        fault: VirtualBusError
-    }
+        fault: VirtualBusError,
+    },
 }
 
 pub trait VirtualBusListener: fmt::Debug + Send + Sync + Unpin + 'static {
@@ -371,8 +361,7 @@ pub struct BusCallEvent {
     pub data: Vec<u8>,
 }
 
-pub trait VirtualBusCalled: fmt::Debug + Send + Sync + 'static
-{
+pub trait VirtualBusCalled: fmt::Debug + Send + Sync + 'static {
     /// Polls for new calls to this service
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<BusCallEvent>;
 
@@ -400,8 +389,7 @@ pub enum BusDataFormat {
 #[derive(Debug, Default)]
 pub struct UnsupportedVirtualBus {}
 
-impl VirtualBus for UnsupportedVirtualBus {
-}
+impl VirtualBus for UnsupportedVirtualBus {}
 
 #[derive(Debug, Default)]
 pub struct UnsupportedVirtualBusSpawner {}
