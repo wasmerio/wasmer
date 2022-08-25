@@ -4,8 +4,8 @@ use wasmer::{FunctionEnvMut, Memory, Memory32, MemorySize, StoreMut, WasmPtr, Wa
 use wasmer_wasi_types::*;
 use wasmer_wasi_types_generated::wasi::{
     Addressfamily, Advice, BusErrno, Clockid, Dircookie, Errno, Event, Fd, Fdflags, Fdstat,
-    Filesize, Filestat, Fstflags, Rights, Sockoption, Sockstatus, Socktype, Streamsecurity,
-    Subscription, Timestamp, Tty, Whence,
+    Filesize, Filestat, Fstflags, Pid, Rights, Sockoption, Sockstatus, Socktype, Streamsecurity,
+    Subscription, Tid, Timestamp, Tty, Whence,
 };
 
 type MemoryType = Memory32;
@@ -458,7 +458,7 @@ pub(crate) fn thread_spawn(
     method_len: MemoryOffset,
     user_data: u64,
     reactor: __wasi_bool_t,
-    ret_tid: WasmPtr<__wasi_tid_t, MemoryType>,
+    ret_tid: WasmPtr<Tid, MemoryType>,
 ) -> Errno {
     super::thread_spawn::<MemoryType>(ctx, method, method_len, user_data, reactor, ret_tid)
 }
@@ -470,17 +470,11 @@ pub(crate) fn thread_sleep(
     super::thread_sleep(ctx, duration)
 }
 
-pub(crate) fn thread_id(
-    ctx: FunctionEnvMut<WasiEnv>,
-    ret_tid: WasmPtr<__wasi_tid_t, MemoryType>,
-) -> Errno {
+pub(crate) fn thread_id(ctx: FunctionEnvMut<WasiEnv>, ret_tid: WasmPtr<Tid, MemoryType>) -> Errno {
     super::thread_id::<MemoryType>(ctx, ret_tid)
 }
 
-pub(crate) fn thread_join(
-    ctx: FunctionEnvMut<WasiEnv>,
-    tid: __wasi_tid_t,
-) -> Result<Errno, WasiError> {
+pub(crate) fn thread_join(ctx: FunctionEnvMut<WasiEnv>, tid: Tid) -> Result<Errno, WasiError> {
     super::thread_join(ctx, tid)
 }
 
@@ -502,10 +496,7 @@ pub(crate) fn sched_yield(ctx: FunctionEnvMut<WasiEnv>) -> Result<Errno, WasiErr
     super::sched_yield(ctx)
 }
 
-pub(crate) fn getpid(
-    ctx: FunctionEnvMut<WasiEnv>,
-    ret_pid: WasmPtr<__wasi_pid_t, MemoryType>,
-) -> Errno {
+pub(crate) fn getpid(ctx: FunctionEnvMut<WasiEnv>, ret_pid: WasmPtr<Pid, MemoryType>) -> Errno {
     super::getpid::<MemoryType>(ctx, ret_pid)
 }
 

@@ -19,6 +19,8 @@ pub mod wasi {
   pub type Device = u64;
   pub type Linkcount = u64;
   pub type Snapshot0Linkcount = u32;
+  pub type Tid = u32;
+  pub type Pid = u32;
   /// Identifiers for clocks, snapshot0 version.
   #[repr(u8)]
   #[derive(Clone, Copy, PartialEq, Eq)]
@@ -1514,10 +1516,10 @@ pub mod wasi {
       })
     }
     /// Dummy function to expose types into generated code
-    pub fn expose_types_dummy_func(&self, store: &mut wasmer::Store,fd: Fd,dirent: Dirent,event_enum: EventEnum,event: Event,fdstat: Fdstat,subscription_clock: SubscriptionClock,snapshot0_subscription_clock: Snapshot0SubscriptionClock,subscription: Subscription,snapshot0_subscription: Snapshot0Subscription,device: Device,linkcount: Linkcount,snapshot0_linkcount: Snapshot0Linkcount,filestat: Filestat,snapshot0_filestat: Snapshot0Filestat,tty: Tty,)-> Result<(), wasmer::RuntimeError> {
+    pub fn expose_types_dummy_func(&self, store: &mut wasmer::Store,fd: Fd,dirent: Dirent,event_enum: EventEnum,event: Event,fdstat: Fdstat,subscription_clock: SubscriptionClock,snapshot0_subscription_clock: Snapshot0SubscriptionClock,subscription: Subscription,snapshot0_subscription: Snapshot0Subscription,device: Device,linkcount: Linkcount,snapshot0_linkcount: Snapshot0Linkcount,filestat: Filestat,snapshot0_filestat: Snapshot0Filestat,tty: Tty,tid: Tid,pid: Pid,)-> Result<(), wasmer::RuntimeError> {
       let func_canonical_abi_realloc = &self.func_canonical_abi_realloc;
       let _memory = &self.memory;
-      let ptr0 = func_canonical_abi_realloc.call(store, 0, 0, 8, 464)?;
+      let ptr0 = func_canonical_abi_realloc.call(store, 0, 0, 8, 472)?;
       let _memory_view = _memory.view(&store);
       unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 0, wit_bindgen_wasmer::rt::as_i32(wit_bindgen_wasmer::rt::as_i32(fd)))?;
       let Dirent{ d_next:d_next1, d_ino:d_ino1, d_type:d_type1, d_namlen:d_namlen1, } = dirent;
@@ -1759,6 +1761,10 @@ pub mod wasi {
       unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 459, wit_bindgen_wasmer::rt::as_i32(match echo31 { true => 1, false => 0 }) as u8)?;
       let _memory_view = _memory.view(&store);
       unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 460, wit_bindgen_wasmer::rt::as_i32(match line_buffered31 { true => 1, false => 0 }) as u8)?;
+      let _memory_view = _memory.view(&store);
+      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 464, wit_bindgen_wasmer::rt::as_i32(wit_bindgen_wasmer::rt::as_i32(tid)))?;
+      let _memory_view = _memory.view(&store);
+      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 468, wit_bindgen_wasmer::rt::as_i32(wit_bindgen_wasmer::rt::as_i32(pid)))?;
       self.func_expose_types_dummy_func.call(store, ptr0, )?;
       Ok(())
     }

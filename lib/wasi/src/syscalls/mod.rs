@@ -26,9 +26,9 @@ use self::types::{
     wasi::{
         Addressfamily, Advice, BusErrno, Clockid, Dircookie, Dirent, Errno, Event, EventEnum,
         EventFdReadwrite, Eventrwflags, Eventtype, Fd as WasiFd, Fdflags, Fdstat, Filesize,
-        Filestat, Filetype, Fstflags, Linkcount, Rights, Snapshot0Clockid, Sockoption, Sockstatus,
-        Socktype, Streamsecurity, Subscription, SubscriptionEnum, SubscriptionFsReadwrite,
-        Timestamp, Tty, Whence,
+        Filestat, Filetype, Fstflags, Linkcount, Pid, Rights, Snapshot0Clockid, Sockoption,
+        Sockstatus, Socktype, Streamsecurity, Subscription, SubscriptionEnum,
+        SubscriptionFsReadwrite, Tid, Timestamp, Tty, Whence,
     },
     *,
 };
@@ -3456,7 +3456,7 @@ pub fn thread_spawn<M: MemorySize>(
     method_len: M::Offset,
     user_data: u64,
     reactor: __wasi_bool_t,
-    ret_tid: WasmPtr<__wasi_tid_t, M>,
+    ret_tid: WasmPtr<Tid, M>,
 ) -> Errno {
     debug!("wasi::thread_spawn");
     let env = ctx.data();
@@ -3525,7 +3525,7 @@ pub fn thread_spawn<M: MemorySize>(
             }));
         id
     };
-    let child: __wasi_tid_t = child.into();
+    let child: Tid = child.into();
 
     wasi_try_mem!(ret_tid.write(&memory, child));
     Errno::Success
@@ -3554,12 +3554,12 @@ pub fn thread_sleep(
 /// (threads indices are sequencial from zero)
 pub fn thread_id<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    ret_tid: WasmPtr<__wasi_tid_t, M>,
+    ret_tid: WasmPtr<Tid, M>,
 ) -> Errno {
     debug!("wasi::thread_id");
 
     let env = ctx.data();
-    let tid: __wasi_tid_t = env.id.into();
+    let tid: Tid = env.id.into();
     let memory = env.memory_view(&ctx);
     wasi_try_mem!(ret_tid.write(&memory, tid));
     Errno::Success
@@ -3572,10 +3572,7 @@ pub fn thread_id<M: MemorySize>(
 /// ## Parameters
 ///
 /// * `tid` - Handle of the thread to wait on
-pub fn thread_join(
-    ctx: FunctionEnvMut<'_, WasiEnv>,
-    tid: __wasi_tid_t,
-) -> Result<Errno, WasiError> {
+pub fn thread_join(ctx: FunctionEnvMut<'_, WasiEnv>, tid: Tid) -> Result<Errno, WasiError> {
     debug!("wasi::thread_join");
 
     let env = ctx.data();
@@ -3619,17 +3616,14 @@ pub fn thread_parallelism<M: MemorySize>(
 
 /// ### `getpid()`
 /// Returns the handle of the current process
-pub fn getpid<M: MemorySize>(
-    ctx: FunctionEnvMut<'_, WasiEnv>,
-    ret_pid: WasmPtr<__wasi_pid_t, M>,
-) -> Errno {
+pub fn getpid<M: MemorySize>(ctx: FunctionEnvMut<'_, WasiEnv>, ret_pid: WasmPtr<Pid, M>) -> Errno {
     debug!("wasi::getpid");
 
     let env = ctx.data();
     let pid = env.runtime().getpid();
     if let Some(pid) = pid {
         let memory = env.memory_view(&ctx);
-        wasi_try_mem!(ret_pid.write(&memory, pid as __wasi_pid_t));
+        wasi_try_mem!(ret_pid.write(&memory, pid as Pid));
         Errno::Success
     } else {
         Errno::Notsup

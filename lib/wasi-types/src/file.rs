@@ -10,9 +10,6 @@ pub const __WASI_STDIN_FILENO: Fd = 0;
 pub const __WASI_STDOUT_FILENO: Fd = 1;
 pub const __WASI_STDERR_FILENO: Fd = 2;
 
-pub type __wasi_pid_t = u32;
-pub type __wasi_tid_t = u32;
-
 pub type __wasi_eventfdflags = u16;
 pub const __WASI_EVENTFDFLAGS_SEMAPHORE: __wasi_eventfdflags = 1 << 0;
 

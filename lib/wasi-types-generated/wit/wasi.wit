@@ -21,6 +21,8 @@ expose-types-dummy-func: func(
   filestat: filestat,
   snapshot0-filestat: snapshot0-filestat,
   tty: tty,
+  tid: tid,
+  pid: pid,
 )
 
 
@@ -62,6 +64,9 @@ type device = u64
 
 type linkcount = u64
 type snapshot0-linkcount = u32
+
+type tid = u32
+type pid = u32
 
 /// Identifiers for clocks, snapshot0 version.
 enum snapshot0-clockid {
