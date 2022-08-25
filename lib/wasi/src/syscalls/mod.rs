@@ -307,7 +307,7 @@ pub fn args_get<M: MemorySize>(
     let env = ctx.data();
     let (memory, mut state) = env.get_memory_and_wasi_state(&ctx, 0);
 
-    let result = write_buffer_array(&memory, &*state.args, argv, argv_buf);
+    let result = write_buffer_array(&memory, &state.args, argv, argv_buf);
 
     debug!(
         "=> args:\n{}",
@@ -433,7 +433,7 @@ pub fn environ_get<M: MemorySize>(
     let (memory, mut state) = env.get_memory_and_wasi_state(&ctx, 0);
     trace!(" -> State envs: {:?}", state.envs);
 
-    write_buffer_array(&memory, &*state.envs, environ, environ_buf)
+    write_buffer_array(&memory, &state.envs, environ, environ_buf)
 }
 
 /// ### `environ_sizes_get()`
@@ -5555,7 +5555,7 @@ pub unsafe fn sock_send_file<M: MemorySize>(
             sock,
             __WASI_RIGHT_SOCK_SEND,
             |socket| {
-                let buf = (&buf[..]).to_vec();
+                let buf = (buf[..]).to_vec();
                 socket.send_bytes::<M>(Bytes::from(buf))
             }
         ));
