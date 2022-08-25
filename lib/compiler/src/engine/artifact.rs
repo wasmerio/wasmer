@@ -28,12 +28,12 @@ use wasmer_types::MetadataHeader;
 use wasmer_types::SerializableCompilation;
 use wasmer_types::{
     CompileError, CpuFeature, DataInitializer, DeserializeError, FunctionIndex, LocalFunctionIndex,
-    MemoryIndex, ModuleInfo, OwnedDataInitializer, SerializableModule, SerializeError,
+    MemoryIndex, MemoryStyle, ModuleInfo, OwnedDataInitializer, SerializableModule, SerializeError,
     SignatureIndex, TableIndex,
 };
 #[cfg(feature = "static-artifact-create")]
 use wasmer_types::{CompileModuleInfo, Target};
-use wasmer_vm::{FunctionBodyPtr, MemoryStyle, TableStyle, VMSharedSignatureIndex, VMTrampoline};
+use wasmer_vm::{FunctionBodyPtr, TableStyle, VMSharedSignatureIndex, VMTrampoline};
 use wasmer_vm::{InstanceAllocator, InstanceHandle, StoreObjects, TrapHandlerFn, VMExtern};
 
 /// A compiled wasm module, ready to be instantiated.

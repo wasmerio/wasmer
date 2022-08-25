@@ -1,7 +1,7 @@
 use proc_macro2::TokenStream;
 use proc_macro_error::abort;
 use quote::quote;
-use syn::{Data, DeriveInput, Fields, Member, Meta, MetaList, NestedMeta};
+use syn::{Data, DeriveInput, Field, Member, Meta, MetaList, NestedMeta};
 
 /// We can only validate types that have a well defined layout.
 fn check_repr(input: &DeriveInput) {
@@ -35,7 +35,7 @@ fn check_repr(input: &DeriveInput) {
 }
 
 /// Zero out any padding bytes between fields.
-fn zero_padding(fields: &Fields) -> TokenStream {
+fn zero_padding(fields: Vec<&Field>) -> TokenStream {
     let names: Vec<_> = fields
         .iter()
         .enumerate()
@@ -93,18 +93,18 @@ pub fn impl_value_type(input: &DeriveInput) -> TokenStream {
 
     let struct_name = &input.ident;
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
-    let fields = match &input.data {
-        Data::Struct(ds) => &ds.fields,
+    let zero_padding = match &input.data {
+        Data::Struct(ds) => zero_padding(ds.fields.iter().collect()),
         _ => abort!(input, "ValueType can only be derived for structs"),
     };
-
-    let zero_padding = zero_padding(fields);
 
     quote! {
         unsafe impl #impl_generics ::wasmer::ValueType for #struct_name #ty_generics #where_clause {
             #[inline]
             fn zero_padding_bytes(&self, _bytes: &mut [::core::mem::MaybeUninit<u8>]) {
-                #zero_padding
+                unsafe {
+                    #zero_padding
+                }
             }
         }
     }

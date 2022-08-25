@@ -47,8 +47,8 @@ pub use wasmer_types::{
 
 pub use wasmer_types::{
     Bytes, CompileError, DeserializeError, ExportIndex, GlobalInit, LocalFunctionIndex,
-    MiddlewareError, Pages, ParseCpuFeatureError, SerializeError, ValueType, WasmError, WasmResult,
-    WASM_MAX_PAGES, WASM_MIN_PAGES, WASM_PAGE_SIZE,
+    MemoryStyle, MiddlewareError, Pages, ParseCpuFeatureError, SerializeError, ValueType,
+    WasmError, WasmResult, WASM_MAX_PAGES, WASM_MIN_PAGES, WASM_PAGE_SIZE,
 };
 
 // TODO: should those be moved into wasmer::vm as well?
@@ -57,8 +57,8 @@ pub mod vm {
     //! The `vm` module re-exports wasmer-vm types.
 
     pub use wasmer_vm::{
-        MemoryError, MemoryStyle, TableStyle, VMExtern, VMMemory, VMMemoryDefinition,
-        VMOwnedMemory, VMSharedMemory, VMTable, VMTableDefinition,
+        MemoryError, TableStyle, VMExtern, VMMemory, VMMemoryDefinition, VMOwnedMemory,
+        VMSharedMemory, VMTable, VMTableDefinition,
     };
 }
 

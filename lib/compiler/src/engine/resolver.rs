@@ -4,13 +4,13 @@ use crate::LinkError;
 use more_asserts::assert_ge;
 use wasmer_types::entity::{BoxedSlice, EntityRef, PrimaryMap};
 use wasmer_types::{
-    ExternType, FunctionIndex, ImportError, ImportIndex, MemoryIndex, ModuleInfo, TableIndex,
+    ExternType, FunctionIndex, ImportError, ImportIndex, MemoryIndex, MemoryStyle, ModuleInfo,
+    TableIndex,
 };
 
 use wasmer_vm::{
-    FunctionBodyPtr, Imports, LinearMemory, MemoryStyle, StoreObjects, TableStyle, VMExtern,
-    VMFunctionBody, VMFunctionImport, VMFunctionKind, VMGlobalImport, VMMemoryImport,
-    VMTableImport,
+    FunctionBodyPtr, Imports, LinearMemory, StoreObjects, TableStyle, VMExtern, VMFunctionBody,
+    VMFunctionImport, VMFunctionKind, VMGlobalImport, VMMemoryImport, VMTableImport,
 };
 
 /// Get an `ExternType` given a import index.

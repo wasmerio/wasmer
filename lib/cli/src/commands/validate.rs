@@ -27,7 +27,7 @@ impl Validate {
         if !is_wasm(&module_contents) {
             bail!("`wasmer validate` only validates WebAssembly files");
         }
-        Module::validate(&store, &module_contents)?;
+        Module::validate(&store, module_contents)?;
         eprintln!("Validation passed for `{}`.", self.path.display());
         Ok(())
     }

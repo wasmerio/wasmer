@@ -17,29 +17,44 @@
 
 mod builder;
 mod guard;
+mod parking;
 mod pipe;
 mod socket;
+mod thread;
 mod types;
 
 pub use self::builder::*;
 pub use self::guard::*;
+pub use self::guard::*;
+pub use self::parking::*;
 pub use self::pipe::*;
 pub use self::socket::*;
+pub use self::thread::*;
 pub use self::types::*;
 use crate::syscalls::types::*;
 use crate::utils::map_io_err;
 use crate::WasiBusProcessId;
-use crate::WasiThread;
+use crate::WasiCallingId;
+use crate::WasiFunctionEnv;
 use crate::WasiThreadId;
+use cooked_waker::ViaRawPointer;
+use cooked_waker::Wake;
+use cooked_waker::WakeRef;
+use derivative::Derivative;
 use generational_arena::Arena;
 pub use generational_arena::Index as Inode;
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::sync::mpsc;
 use std::sync::Arc;
+use std::sync::Condvar;
+use std::sync::MutexGuard;
+use std::task::Waker;
+use std::time::Duration;
 use std::{
     borrow::Borrow,
     io::Write,
@@ -51,7 +66,10 @@ use std::{
     },
 };
 use tracing::{debug, trace};
+use wasmer::Store;
 use wasmer_vbus::BusSpawnedProcess;
+use wasmer_vbus::VirtualBusCalled;
+use wasmer_vbus::VirtualBusInvocation;
 
 use wasmer_vfs::{FileSystem, FsError, OpenOptions, VirtualFile};
 
@@ -83,7 +101,7 @@ pub const MAX_SYMLINKS: u32 = 128;
 pub struct InodeVal {
     pub stat: RwLock<__wasi_filestat_t>,
     pub is_preopened: bool,
-    pub name: String,
+    pub name: Cow<'static, str>,
     pub kind: RwLock<Kind>,
 }
 
@@ -654,8 +672,7 @@ impl WasiFs {
         for c in path.components() {
             let segment_name = c.as_os_str().to_string_lossy().to_string();
             let guard = inodes.arena[cur_inode].read();
-            let deref = guard.deref();
-            match deref {
+            match guard.deref() {
                 Kind::Dir { ref entries, .. } | Kind::Root { ref entries } => {
                     if let Some(_entry) = entries.get(&segment_name) {
                         // TODO: this should be fixed
@@ -673,14 +690,13 @@ impl WasiFs {
                         inodes,
                         kind,
                         false,
-                        segment_name.clone(),
+                        segment_name.clone().into(),
                     );
 
                     // reborrow to insert
                     {
                         let mut guard = inodes.arena[cur_inode].write();
-                        let deref_mut = guard.deref_mut();
-                        match deref_mut {
+                        match guard.deref_mut() {
                             Kind::Dir {
                                 ref mut entries, ..
                             }
@@ -727,8 +743,7 @@ impl WasiFs {
         let base_inode = self.get_fd_inode(base).map_err(fs_error_from_wasi_err)?;
 
         let guard = inodes.arena[base_inode].read();
-        let deref = guard.deref();
-        match deref {
+        match guard.deref() {
             Kind::Dir { ref entries, .. } | Kind::Root { ref entries } => {
                 if let Some(_entry) = entries.get(&name) {
                     // TODO: eventually change the logic here to allow overwrites
@@ -748,8 +763,7 @@ impl WasiFs {
 
                 {
                     let mut guard = inodes.arena[base_inode].write();
-                    let deref_mut = guard.deref_mut();
-                    match deref_mut {
+                    match guard.deref_mut() {
                         Kind::Dir {
                             ref mut entries, ..
                         }
@@ -794,8 +808,7 @@ impl WasiFs {
             _ => {
                 let base_inode = self.get_fd_inode(fd).map_err(fs_error_from_wasi_err)?;
                 let mut guard = inodes.arena[base_inode].write();
-                let deref_mut = guard.deref_mut();
-                match deref_mut {
+                match guard.deref_mut() {
                     Kind::File { ref mut handle, .. } => {
                         std::mem::swap(handle, &mut ret);
                     }
@@ -815,8 +828,7 @@ impl WasiFs {
     ) -> Result<__wasi_filesize_t, __wasi_errno_t> {
         let inode = self.get_fd_inode(fd)?;
         let mut guard = inodes.arena[inode].write();
-        let deref_mut = guard.deref_mut();
-        match deref_mut {
+        match guard.deref_mut() {
             Kind::File { handle, .. } => {
                 if let Some(h) = handle {
                     let new_size = h.size();
@@ -905,8 +917,7 @@ impl WasiFs {
             // loading inodes as necessary
             'symlink_resolution: while symlink_count < MAX_SYMLINKS {
                 let mut guard = inodes.arena[cur_inode].write();
-                let deref_mut = guard.deref_mut();
-                match deref_mut {
+                match guard.deref_mut() {
                     Kind::Buffer { .. } => unimplemented!("state::get_inode_at_path for buffers"),
                     Kind::Dir {
                         ref mut entries,
@@ -1011,7 +1022,7 @@ impl WasiFs {
                                         inodes,
                                         kind,
                                         false,
-                                        file.to_string_lossy().to_string(),
+                                        file.to_string_lossy().to_string().into(),
                                         __wasi_filestat_t {
                                             st_filetype: file_type,
                                             ..__wasi_filestat_t::default()
@@ -1172,12 +1183,10 @@ impl WasiFs {
         let mut res = BaseFdAndRelPath::None;
         // for each preopened directory
         let preopen_fds = self.preopen_fds.read().unwrap();
-        let deref = preopen_fds.deref();
-        for po_fd in deref {
+        for po_fd in preopen_fds.deref() {
             let po_inode = self.fd_map.read().unwrap()[po_fd].inode;
             let guard = inodes.arena[po_inode].read();
-            let deref = guard.deref();
-            let po_path = match deref {
+            let po_path = match guard.deref() {
                 Kind::Dir { path, .. } => &**path,
                 Kind::Root { .. } => Path::new("/"),
                 _ => unreachable!("Preopened FD that's not a directory or the root"),
@@ -1219,8 +1228,7 @@ impl WasiFs {
         while cur_inode != base_inode {
             counter += 1;
             let guard = inodes.arena[cur_inode].read();
-            let deref = guard.deref();
-            match deref {
+            match guard.deref() {
                 Kind::Dir { parent, .. } => {
                     if let Some(p) = parent {
                         cur_inode = *p;
@@ -1355,9 +1363,8 @@ impl WasiFs {
         debug!("fdstat: {:?}", fd);
 
         let guard = inodes.arena[fd.inode].read();
-        let deref = guard.deref();
         Ok(__wasi_fdstat_t {
-            fs_filetype: match deref {
+            fs_filetype: match guard.deref() {
                 Kind::File { .. } => __WASI_FILETYPE_REGULAR_FILE,
                 Kind::Dir { .. } => __WASI_FILETYPE_DIRECTORY,
                 Kind::Symlink { .. } => __WASI_FILETYPE_SYMBOLIC_LINK,
@@ -1419,8 +1426,7 @@ impl WasiFs {
                 }
 
                 let mut guard = inodes.arena[fd.inode].write();
-                let deref_mut = guard.deref_mut();
-                match deref_mut {
+                match guard.deref_mut() {
                     Kind::File {
                         handle: Some(file), ..
                     } => file.flush().map_err(|_| __WASI_EIO)?,
@@ -1444,7 +1450,7 @@ impl WasiFs {
         name: String,
     ) -> Result<Inode, __wasi_errno_t> {
         let stat = self.get_stat_for_kind(inodes, &kind)?;
-        Ok(self.create_inode_with_stat(inodes, kind, is_preopened, name, stat))
+        Ok(self.create_inode_with_stat(inodes, kind, is_preopened, name.into(), stat))
     }
 
     /// Creates an inode and inserts it given a Kind, does not assume the file exists.
@@ -1453,7 +1459,7 @@ impl WasiFs {
         inodes: &mut WasiInodes,
         kind: Kind,
         is_preopened: bool,
-        name: String,
+        name: Cow<'static, str>,
     ) -> Inode {
         let stat = __wasi_filestat_t::default();
         self.create_inode_with_stat(inodes, kind, is_preopened, name, stat)
@@ -1465,7 +1471,7 @@ impl WasiFs {
         inodes: &mut WasiInodes,
         kind: Kind,
         is_preopened: bool,
-        name: String,
+        name: Cow<'static, str>,
         mut stat: __wasi_filestat_t,
     ) -> Inode {
         stat.st_ino = self.get_next_inode_index();
@@ -1543,7 +1549,7 @@ impl WasiFs {
         inodes.arena.insert(InodeVal {
             stat: RwLock::new(stat),
             is_preopened: true,
-            name: "/".to_string(),
+            name: "/".into(),
             kind: RwLock::new(root_kind),
         })
     }
@@ -1602,7 +1608,7 @@ impl WasiFs {
             inodes.arena.insert(InodeVal {
                 stat: RwLock::new(stat),
                 is_preopened: true,
-                name: name.to_string(),
+                name: name.to_string().into(),
                 kind: RwLock::new(kind),
             })
         };
@@ -1655,8 +1661,7 @@ impl WasiFs {
                 let base_po_inode = &self.fd_map.read().unwrap()[base_po_dir].inode;
                 let base_po_inode_v = &inodes.arena[*base_po_inode];
                 let guard = base_po_inode_v.read();
-                let deref = guard.deref();
-                match deref {
+                match guard.deref() {
                     Kind::Root { .. } => {
                         self.fs_backing.symlink_metadata(path_to_symlink).map_err(fs_error_into_wasi_err)?
                     }
@@ -1698,8 +1703,7 @@ impl WasiFs {
         let is_preopened = inodeval.is_preopened;
 
         let mut guard = inodeval.write();
-        let deref_mut = guard.deref_mut();
-        match deref_mut {
+        match guard.deref_mut() {
             Kind::File { ref mut handle, .. } => {
                 let mut empty_handle = None;
                 std::mem::swap(handle, &mut empty_handle);
@@ -1721,16 +1725,14 @@ impl WasiFs {
                 if let Some(p) = *parent {
                     drop(guard);
                     let mut guard = inodes.arena[p].write();
-                    let deref_mut = guard.deref_mut();
-                    match deref_mut {
+                    match guard.deref_mut() {
                         Kind::Dir { entries, .. } | Kind::Root { entries } => {
                             self.fd_map.write().unwrap().remove(&fd).unwrap();
                             if is_preopened {
                                 let mut idx = None;
                                 {
                                     let preopen_fds = self.preopen_fds.read().unwrap();
-                                    let preopen_fds_iter = preopen_fds.iter().enumerate();
-                                    for (i, po_fd) in preopen_fds_iter {
+                                    for (i, po_fd) in preopen_fds.iter().enumerate() {
                                         if *po_fd == fd {
                                             idx = Some(i);
                                             break;
@@ -1814,21 +1816,146 @@ impl WasiState {
     }
 }
 
+pub(crate) struct WasiThreadContext {
+    pub ctx: WasiFunctionEnv,
+    pub store: RefCell<Store>,
+}
+
+/// The code itself makes safe use of the struct so multiple threads don't access
+/// it (without this the JS code prevents the reference to the module from being stored
+/// which is needed for the multithreading mode)
+unsafe impl Send for WasiThreadContext {}
+unsafe impl Sync for WasiThreadContext {}
+
 /// Structures used for the threading and sub-processes
 ///
 /// These internal implementation details are hidden away from the
 /// consumer who should instead implement the vbus trait on the runtime
-#[derive(Debug, Default)]
+
+#[derive(Derivative, Default)]
+#[derivative(Debug)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub(crate) struct WasiStateThreading {
-    #[cfg_attr(feature = "enable-serde", serde(skip))]
-    pub threads: HashMap<WasiThreadId, WasiThread>,
-    pub thread_seed: u32,
-    #[cfg_attr(feature = "enable-serde", serde(skip))]
-    pub processes: HashMap<WasiBusProcessId, BusSpawnedProcess>,
-    #[cfg_attr(feature = "enable-serde", serde(skip))]
+    threads: Arc<RwLock<HashMap<WasiThreadId, WasiThread>>>,
+    thread_count: Arc<AtomicU32>,
+    pub processes: HashMap<WasiBusProcessId, Box<BusSpawnedProcess>>,
     pub process_reuse: HashMap<Cow<'static, str>, WasiBusProcessId>,
     pub process_seed: u32,
+    pub thread_seed: WasiThreadId,
+    pub thread_local: HashMap<(WasiThreadId, u32), u64>,
+    pub thread_local_user_data: HashMap<u32, u64>,
+    pub thread_local_seed: u32,
+    #[derivative(Debug = "ignore")]
+    pub thread_ctx: HashMap<WasiCallingId, Arc<WasiThreadContext>>,
+}
+
+impl WasiStateThreading {
+    /// Creates a a thread and returns it
+    pub fn new_thread(&mut self) -> WasiThreadHandle {
+        let id = self.thread_seed.inc();
+        let ctrl = WasiThread::default();
+        {
+            let mut guard = self.threads.write().unwrap();
+            guard.insert(id, ctrl);
+        }
+        self.thread_count.fetch_add(1, Ordering::AcqRel);
+
+        WasiThreadHandle {
+            id,
+            threads: self.threads.clone(),
+            thread_count: self.thread_count.clone(),
+        }
+    }
+
+    pub fn get(&self, tid: &WasiThreadId) -> Option<WasiThread> {
+        let guard = self.threads.read().unwrap();
+        guard.get(tid).cloned()
+    }
+
+    pub fn active_threads(&self) -> u32 {
+        self.thread_count.load(Ordering::Acquire)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct WasiThreadHandle {
+    id: WasiThreadId,
+    threads: Arc<RwLock<HashMap<WasiThreadId, WasiThread>>>,
+    pub(crate) thread_count: Arc<AtomicU32>,
+}
+
+impl WasiThreadHandle {
+    pub fn id(&self) -> WasiThreadId {
+        self.id
+    }
+}
+
+impl Drop for WasiThreadHandle {
+    fn drop(&mut self) {
+        if let Some(ctrl) = {
+            let mut guard = self.threads.write().unwrap();
+            guard.remove(&self.id)
+        } {
+            ctrl.mark_finished();
+        }
+        self.thread_count.fetch_sub(1, Ordering::AcqRel);
+    }
+}
+
+/// Represents a futex which will make threads wait for completion in a more
+/// CPU efficient manner
+#[derive(Debug, Clone)]
+pub struct WasiFutex {
+    pub(crate) refcnt: Arc<AtomicU32>,
+    pub(crate) inner: Arc<(Mutex<()>, Condvar)>,
+}
+
+#[derive(Debug)]
+pub struct WasiBusCall {
+    pub bid: WasiBusProcessId,
+    pub invocation: Box<dyn VirtualBusInvocation + Sync>,
+}
+
+/// Protected area of the BUS state
+#[derive(Debug, Default)]
+pub struct WasiBusProtectedState {
+    pub call_seed: u64,
+    pub called: HashMap<u64, Box<dyn VirtualBusCalled + Sync + Unpin>>,
+    pub calls: HashMap<u64, WasiBusCall>,
+}
+
+/// Structure that holds the state of BUS calls to this process and from
+/// this process. BUS calls are the equivalent of RPC's with support
+/// for all the major serializers
+#[derive(Debug, Default)]
+pub struct WasiBusState {
+    protected: Mutex<WasiBusProtectedState>,
+    poll_waker: WasiParkingLot,
+}
+
+impl WasiBusState {
+    /// Gets a reference to the waker that can be used for
+    /// asynchronous calls
+    pub fn get_poll_waker(&self) -> Waker {
+        self.poll_waker.get_waker()
+    }
+
+    /// Wakes one of the reactors thats currently waiting
+    pub fn poll_wake(&self) {
+        self.poll_waker.wake()
+    }
+
+    /// Will wait until either the reactor is triggered
+    /// or the timeout occurs
+    pub fn poll_wait(&self, timeout: Duration) -> bool {
+        self.poll_waker.wait(timeout)
+    }
+
+    /// Locks the protected area of the BUS and returns a guard that
+    /// can be used to access it
+    pub fn protected(&self) -> MutexGuard<WasiBusProtectedState> {
+        self.protected.lock().unwrap()
+    }
 }
 
 /// Top level data type containing all* the state with which WASI can
@@ -1864,7 +1991,9 @@ pub(crate) struct WasiStateThreading {
 pub struct WasiState {
     pub fs: WasiFs,
     pub inodes: Arc<RwLock<WasiInodes>>,
-    pub(crate) threading: Mutex<WasiStateThreading>,
+    pub(crate) threading: RwLock<WasiStateThreading>,
+    pub(crate) futexs: Mutex<HashMap<u64, WasiFutex>>,
+    pub(crate) bus: WasiBusState,
     pub args: Vec<Vec<u8>>,
     pub envs: Vec<Vec<u8>>,
 }
@@ -1959,5 +2088,27 @@ pub fn virtual_file_type_to_wasi_file_type(file_type: wasmer_vfs::FileType) -> _
         __WASI_FILETYPE_SYMBOLIC_LINK
     } else {
         __WASI_FILETYPE_UNKNOWN
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct WasiDummyWaker;
+
+impl WakeRef for WasiDummyWaker {
+    fn wake_by_ref(&self) {}
+}
+
+impl Wake for WasiDummyWaker {
+    fn wake(self) {}
+}
+
+unsafe impl ViaRawPointer for WasiDummyWaker {
+    type Target = ();
+    fn into_raw(self) -> *mut () {
+        std::mem::forget(self);
+        std::ptr::null_mut()
+    }
+    unsafe fn from_raw(_ptr: *mut ()) -> Self {
+        WasiDummyWaker
     }
 }

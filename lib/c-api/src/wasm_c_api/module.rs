@@ -475,7 +475,7 @@ pub unsafe extern "C" fn wasm_module_deserialize(
 #[no_mangle]
 pub unsafe extern "C" fn wasm_module_serialize(module: &wasm_module_t, out: &mut wasm_byte_vec_t) {
     let byte_vec = c_try!(module.inner.serialize(); otherwise ());
-    out.set_buffer(byte_vec);
+    out.set_buffer(byte_vec.to_vec());
 }
 
 #[cfg(test)]

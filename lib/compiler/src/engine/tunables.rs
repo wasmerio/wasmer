@@ -2,11 +2,11 @@ use crate::engine::error::LinkError;
 use std::ptr::NonNull;
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{
-    GlobalType, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, MemoryType,
-    ModuleInfo, TableIndex, TableType,
+    GlobalType, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, MemoryStyle,
+    MemoryType, ModuleInfo, TableIndex, TableType,
 };
+use wasmer_vm::TableStyle;
 use wasmer_vm::{InternalStoreHandle, MemoryError, StoreObjects};
-use wasmer_vm::{MemoryStyle, TableStyle};
 use wasmer_vm::{VMGlobal, VMMemory, VMTable};
 use wasmer_vm::{VMMemoryDefinition, VMTableDefinition};
 

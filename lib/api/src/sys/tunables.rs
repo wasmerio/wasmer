@@ -1,11 +1,9 @@
 use crate::sys::{MemoryType, Pages, TableType};
 use std::ptr::NonNull;
 use wasmer_compiler::Tunables;
-use wasmer_types::{PointerWidth, Target};
+use wasmer_types::{MemoryStyle, PointerWidth, Target};
 use wasmer_vm::MemoryError;
-use wasmer_vm::{
-    MemoryStyle, TableStyle, VMMemory, VMMemoryDefinition, VMTable, VMTableDefinition,
-};
+use wasmer_vm::{TableStyle, VMMemory, VMMemoryDefinition, VMTable, VMTableDefinition};
 
 /// Tunable parameters for WebAssembly compilation.
 /// This is the reference implementation of the `Tunables` trait,

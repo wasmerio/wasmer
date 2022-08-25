@@ -25,7 +25,7 @@ fn issue_2329(mut config: crate::Config) -> Result<()> {
     }
 
     pub fn read_memory(mut ctx: FunctionEnvMut<Env>, guest_ptr: u32) -> u32 {
-        dbg!(ctx.data_mut().memory.as_ref());
+        dbg!(ctx.data().memory.as_ref());
         dbg!(guest_ptr);
         0
     }
@@ -101,7 +101,7 @@ fn call_with_static_data_pointers(mut config: crate::Config) -> Result<()> {
     ) -> u64 {
         println!("{:?}", (a, b, c, d, e, f, g, h));
         let mut buf = vec![0; d as usize];
-        let memory = ctx.data_mut().memory.as_ref().unwrap().clone();
+        let memory = ctx.data().memory.as_ref().unwrap().clone();
         memory.view(&ctx).read(e, &mut buf).unwrap();
         let input_string = std::str::from_utf8(&buf).unwrap();
         assert_eq!(input_string, "bananapeach");

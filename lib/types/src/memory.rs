@@ -1,14 +1,10 @@
 use crate::{Pages, ValueType};
-use core::ptr::NonNull;
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 use std::convert::{TryFrom, TryInto};
 use std::iter::Sum;
 use std::ops::{Add, AddAssign};
-
-use super::MemoryError;
-use super::MemoryType;
 
 /// Implementation styles for WebAssembly linear memory.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, RkyvSerialize, RkyvDeserialize, Archive)]
@@ -127,83 +123,5 @@ unsafe impl MemorySize for Memory64 {
     }
     fn native_to_offset(native: Self::Native) -> Self::Offset {
         native as Self::Offset
-    }
-}
-
-/// Represents memory that is used by the WebAsssembly module
-pub trait LinearMemory
-where
-    Self: std::fmt::Debug + Send,
-{
-    /// Returns the type for this memory.
-    fn ty(&self) -> MemoryType;
-
-    /// Returns the size of hte memory in pages
-    fn size(&self) -> Pages;
-
-    /// Returns the memory style for this memory.
-    fn style(&self) -> MemoryStyle;
-
-    /// Grow memory by the specified amount of wasm pages.
-    ///
-    /// Returns `None` if memory can't be grown by the specified amount
-    /// of wasm pages.
-    fn grow(&mut self, delta: Pages) -> Result<Pages, MemoryError>;
-
-    /// Return a `VMMemoryDefinition` for exposing the memory to compiled wasm code.
-    fn vmmemory(&self) -> NonNull<VMMemoryDefinition>;
-
-    /// Attempts to clone this memory (if its clonable)
-    fn try_clone(&self) -> Option<Box<dyn LinearMemory + 'static>>;
-}
-
-/// The fields compiled code needs to access to utilize a WebAssembly linear
-/// memory defined within the instance, namely the start address and the
-/// size in bytes.
-#[derive(Debug, Copy, Clone)]
-#[repr(C)]
-pub struct VMMemoryDefinition {
-    /// The start address which is always valid, even if the memory grows.
-    pub base: *mut u8,
-
-    /// The current logical size of this linear memory in bytes.
-    pub current_length: usize,
-}
-
-/// # Safety
-/// This data is safe to share between threads because it's plain data that
-/// is the user's responsibility to synchronize.
-unsafe impl Send for VMMemoryDefinition {}
-/// # Safety
-/// This data is safe to share between threads because it's plain data that
-/// is the user's responsibility to synchronize. And it's `Copy` so there's
-/// really no difference between passing it by reference or by value as far as
-/// correctness in a multi-threaded context is concerned.
-unsafe impl Sync for VMMemoryDefinition {}
-
-#[cfg(test)]
-mod test_vmmemory_definition {
-    use super::VMMemoryDefinition;
-    use crate::ModuleInfo;
-    use crate::VMOffsets;
-    use memoffset::offset_of;
-    use std::mem::size_of;
-
-    #[test]
-    fn check_vmmemory_definition_offsets() {
-        let module = ModuleInfo::new();
-        let offsets = VMOffsets::new(size_of::<*mut u8>() as u8, &module);
-        assert_eq!(
-            size_of::<VMMemoryDefinition>(),
-            usize::from(offsets.size_of_vmmemory_definition())
-        );
-        assert_eq!(
-            offset_of!(VMMemoryDefinition, base),
-            usize::from(offsets.vmmemory_definition_base())
-        );
-        assert_eq!(
-            offset_of!(VMMemoryDefinition, current_length),
-            usize::from(offsets.vmmemory_definition_current_length())
-        );
     }
 }

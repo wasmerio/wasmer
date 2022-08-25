@@ -69,7 +69,7 @@ impl Wasi {
     /// Helper function for instantiating a module with Wasi imports for the `Run` command.
     pub fn instantiate(
         &self,
-        store: &mut impl AsStoreMut,
+        mut store: &mut impl AsStoreMut,
         module: &Module,
         program_name: String,
         args: Vec<String>,
@@ -91,7 +91,7 @@ impl Wasi {
             }
         }
 
-        let wasi_env = wasi_state_builder.finalize(store)?;
+        let mut wasi_env = wasi_state_builder.finalize(store)?;
         wasi_env.env.as_mut(store).state.fs.is_wasix.store(
             is_wasix_module(module),
             std::sync::atomic::Ordering::Release,
@@ -99,8 +99,7 @@ impl Wasi {
         let mut import_object = import_object_for_all_wasi_versions(store, &wasi_env.env);
         import_object.import_shared_memory(module, store);
         let instance = Instance::new(store, module, &import_object)?;
-        let memory = instance.exports.get_memory("memory")?;
-        wasi_env.data_mut(store).set_memory(memory.clone());
+        wasi_env.initialize(&mut store, &instance)?;
         Ok((wasi_env.env, instance))
     }
 

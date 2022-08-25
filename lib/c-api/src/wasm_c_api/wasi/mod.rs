@@ -4,7 +4,7 @@
 
 pub use super::unstable::wasi::wasi_get_unordered_imports;
 use super::{
-    externals::{wasm_extern_t, wasm_extern_vec_t, wasm_func_t, wasm_memory_t},
+    externals::{wasm_extern_t, wasm_extern_vec_t, wasm_func_t},
     instance::wasm_instance_t,
     module::wasm_module_t,
     store::{wasm_store_t, StoreRef},
@@ -197,14 +197,6 @@ pub unsafe extern "C" fn wasi_env_new(
 #[no_mangle]
 pub extern "C" fn wasi_env_delete(_state: Option<Box<wasi_env_t>>) {}
 
-/// Set the memory on a [`wasi_env_t`].
-#[no_mangle]
-pub unsafe extern "C" fn wasi_env_set_memory(env: &mut wasi_env_t, memory: &wasm_memory_t) {
-    let mut store_mut = env.store.store_mut();
-    let wasi_env = env.inner.data_mut(&mut store_mut);
-    wasi_env.set_memory(memory.extern_.memory());
-}
-
 #[no_mangle]
 pub unsafe extern "C" fn wasi_env_read_stdout(
     env: &mut wasi_env_t,
@@ -212,8 +204,8 @@ pub unsafe extern "C" fn wasi_env_read_stdout(
     buffer_len: usize,
 ) -> isize {
     let inner_buffer = slice::from_raw_parts_mut(buffer as *mut _, buffer_len as usize);
-    let mut store_mut = env.store.store_mut();
-    let state = env.inner.data_mut(&mut store_mut).state();
+    let store = env.store.store();
+    let state = env.inner.data(&store).state();
 
     if let Ok(mut stdout) = state.stdout() {
         if let Some(stdout) = stdout.as_mut() {
@@ -382,11 +374,10 @@ pub unsafe extern "C" fn wasi_env_initialize_instance(
     store: &mut wasm_store_t,
     instance: &mut wasm_instance_t,
 ) -> bool {
-    let mem = c_try!(instance.inner.exports.get_memory("memory"); otherwise false);
     wasi_env
         .inner
-        .data_mut(&mut store.inner.store_mut())
-        .set_memory(mem.clone());
+        .initialize(&mut store.inner.store_mut(), &instance.inner)
+        .unwrap();
     true
 }
 

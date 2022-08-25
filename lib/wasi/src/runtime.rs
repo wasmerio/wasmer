@@ -2,8 +2,12 @@ use std::fmt;
 use std::ops::Deref;
 use std::sync::atomic::{AtomicU32, Ordering};
 use thiserror::Error;
+use wasmer::vm::VMMemory;
+use wasmer::{Module, Store};
 use wasmer_vbus::{UnsupportedVirtualBus, VirtualBus};
 use wasmer_vnet::VirtualNetworking;
+
+use crate::WasiCallingId;
 
 use super::types::*;
 use super::WasiError;
@@ -15,6 +19,11 @@ pub enum WasiThreadError {
     Unsupported,
     #[error("The method named is not an exported function")]
     MethodNotFound,
+    #[error("Failed to create the requested memory")]
+    MemoryCreateFailed,
+    /// This will happen if WASM is running in a thread has not been created by the spawn_wasm call
+    #[error("WASM context is invalid")]
+    InvalidWasmContext,
 }
 
 impl From<WasiThreadError> for __wasi_errno_t {
@@ -22,6 +31,8 @@ impl From<WasiThreadError> for __wasi_errno_t {
         match a {
             WasiThreadError::Unsupported => __WASI_ENOTSUP,
             WasiThreadError::MethodNotFound => __WASI_EINVAL,
+            WasiThreadError::MemoryCreateFailed => __WASI_EFAULT,
+            WasiThreadError::InvalidWasmContext => __WASI_ENOEXEC,
         }
     }
 }
@@ -41,7 +52,10 @@ pub struct WasiTtyState {
 
 /// Represents an implementation of the WASI runtime - by default everything is
 /// unimplemented.
-pub trait WasiRuntimeImplementation: fmt::Debug + Sync {
+pub trait WasiRuntimeImplementation
+where
+    Self: fmt::Debug + Sync,
+{
     /// For WASI runtimes that support it they can implement a message BUS implementation
     /// which allows runtimes to pass serialized messages between each other similar to
     /// RPC's. BUS implementation can be implemented that communicate across runtimes
@@ -76,7 +90,10 @@ pub trait WasiRuntimeImplementation: fmt::Debug + Sync {
     /// Spawns a new thread by invoking the
     fn thread_spawn(
         &self,
-        _callback: Box<dyn FnOnce() + Send + 'static>,
+        _callback: Box<dyn FnOnce(Store, Module, VMMemory) + Send + 'static>,
+        _store: Store,
+        _existing_module: Module,
+        _existing_memory: VMMemory,
     ) -> Result<(), WasiThreadError> {
         Err(WasiThreadError::Unsupported)
     }
@@ -89,7 +106,7 @@ pub trait WasiRuntimeImplementation: fmt::Debug + Sync {
     /// Invokes whenever a WASM thread goes idle. In some runtimes (like singlethreaded
     /// execution environments) they will need to do asynchronous work whenever the main
     /// thread goes idle and this is the place to hook for that.
-    fn yield_now(&self, _id: WasiThreadId) -> Result<(), WasiError> {
+    fn yield_now(&self, _id: WasiCallingId) -> Result<(), WasiError> {
         std::thread::yield_now();
         Ok(())
     }
@@ -137,15 +154,34 @@ impl Default for PluggableRuntimeImplementation {
 }
 
 impl WasiRuntimeImplementation for PluggableRuntimeImplementation {
-    fn bus(&self) -> &(dyn VirtualBus) {
+    fn bus(&self) -> &'_ (dyn VirtualBus) {
         self.bus.deref()
     }
 
-    fn networking(&self) -> &(dyn VirtualNetworking) {
+    fn networking(&self) -> &'_ (dyn VirtualNetworking) {
         self.networking.deref()
     }
 
     fn thread_generate_id(&self) -> WasiThreadId {
         self.thread_id_seed.fetch_add(1, Ordering::Relaxed).into()
+    }
+
+    #[cfg(feature = "sys-thread")]
+    fn thread_spawn(
+        &self,
+        callback: Box<dyn FnOnce(Store, Module, VMMemory) + Send + 'static>,
+        store: Store,
+        existing_module: Module,
+        existing_memory: VMMemory,
+    ) -> Result<(), WasiThreadError> {
+        let existing_module = existing_module;
+        std::thread::spawn(move || callback(store, existing_module, existing_memory));
+        Ok(())
+    }
+
+    fn thread_parallelism(&self) -> Result<usize, WasiThreadError> {
+        std::thread::available_parallelism()
+            .map(usize::from)
+            .map_err(|_| WasiThreadError::Unsupported)
     }
 }
