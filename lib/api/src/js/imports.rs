@@ -1,11 +1,13 @@
 //! The import module contains the implementation data structures and helper functions used to
 //! manipulate and access a wasm module's imports including memories, tables, globals, and
 //! functions.
-use crate::js::error::InstantiationError;
+use crate::js::error::{InstantiationError, WasmError};
+use crate::js::export::Export;
 use crate::js::exports::Exports;
 use crate::js::module::Module;
-use crate::js::store::AsStoreRef;
+use crate::js::store::{AsStoreMut, AsStoreRef};
 use crate::js::types::AsJs;
+use crate::js::ExternType;
 use crate::Extern;
 use std::collections::HashMap;
 use std::fmt;
@@ -178,6 +180,50 @@ impl Imports {
     /// Iterates through all the imports in this structure
     pub fn iter<'a>(&'a self) -> ImportsIterator<'a> {
         ImportsIterator::new(self)
+    }
+
+    /// Create a new `Imports` from a JS Object, it receives a reference to a `Module` to
+    /// map and assign the types of each import and the JS Object
+    /// that contains the values of imports.
+    ///
+    /// # Usage
+    /// ```ignore
+    /// let import_object = Imports::new_from_js_object(&mut store, &module, js_object);
+    /// ```
+    pub fn new_from_js_object(
+        store: &mut impl AsStoreMut,
+        module: &Module,
+        object: js_sys::Object,
+    ) -> Result<Self, WasmError> {
+        let module_imports: HashMap<(String, String), ExternType> = module
+            .imports()
+            .map(|import| {
+                (
+                    (import.module().to_string(), import.name().to_string()),
+                    import.ty().clone(),
+                )
+            })
+            .collect::<HashMap<(String, String), ExternType>>();
+
+        let mut map: HashMap<(String, String), Extern> = HashMap::new();
+
+        for module_entry in js_sys::Object::entries(&object).iter() {
+            let module_entry: js_sys::Array = module_entry.into();
+            let module_name = module_entry.get(0).as_string().unwrap().to_string();
+            let module_import_object: js_sys::Object = module_entry.get(1).into();
+            for import_entry in js_sys::Object::entries(&module_import_object).iter() {
+                let import_entry: js_sys::Array = import_entry.into();
+                let import_name = import_entry.get(0).as_string().unwrap().to_string();
+                let import_js: wasm_bindgen::JsValue = import_entry.get(1);
+                let key = (module_name.clone(), import_name);
+                let extern_type = module_imports.get(&key).unwrap();
+                let export = Export::from_js_value(import_js, store, extern_type.clone())?;
+                let extern_ = Extern::from_vm_extern(store, export);
+                map.insert(key, extern_);
+            }
+        }
+
+        Ok(Self { map })
     }
 }
 
