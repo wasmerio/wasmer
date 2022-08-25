@@ -1,10 +1,10 @@
 use crate::syscalls;
-use crate::syscalls::types::{self, snapshot0};
+use crate::syscalls::types;
 use crate::{mem_error_to_wasi, Memory32, MemorySize, WasiEnv, WasiError, WasiThread};
 use wasmer::{AsStoreMut, FunctionEnvMut, WasmPtr};
 use wasmer_wasi_types_generated::wasi::{
     Errno, Event, Fd, Filesize, Filestat, Filetype, Snapshot0Filestat, Snapshot0Subscription,
-    Subscription,
+    Snapshot0Whence, Subscription,
 };
 
 /// Wrapper around `syscalls::fd_filestat_get` with extra logic to handle the size
@@ -112,15 +112,13 @@ pub fn fd_seek(
     ctx: FunctionEnvMut<WasiEnv>,
     fd: Fd,
     offset: types::__wasi_filedelta_t,
-    whence: snapshot0::__wasi_whence_t,
+    whence: Snapshot0Whence,
     newoffset: WasmPtr<Filesize, Memory32>,
 ) -> Result<Errno, WasiError> {
     let new_whence = match whence {
-        snapshot0::__WASI_WHENCE_CUR => types::__WASI_WHENCE_CUR,
-        snapshot0::__WASI_WHENCE_END => types::__WASI_WHENCE_END,
-        snapshot0::__WASI_WHENCE_SET => types::__WASI_WHENCE_SET,
-        // if it's invalid, let the new fd_seek handle it
-        _ => whence,
+        Snapshot0Whence::Cur => types::__WASI_WHENCE_CUR,
+        Snapshot0Whence::End => types::__WASI_WHENCE_END,
+        Snapshot0Whence::Set => types::__WASI_WHENCE_SET,
     };
     syscalls::fd_seek::<Memory32>(ctx, fd, offset, new_whence, newoffset)
 }

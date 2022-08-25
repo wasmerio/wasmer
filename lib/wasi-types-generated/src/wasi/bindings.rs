@@ -1379,6 +1379,50 @@ pub mod wasi {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
       f.debug_struct("Filestat").field("st-dev", &self.st_dev).field("st-ino", &self.st_ino).field("st-filetype", &self.st_filetype).field("st-nlink", &self.st_nlink).field("st-size", &self.st_size).field("st-atim", &self.st_atim).field("st-mtim", &self.st_mtim).field("st-ctim", &self.st_ctim).finish()}
   }
+  #[repr(u8)]
+  #[derive(Clone, Copy, PartialEq, Eq)]
+  pub enum Snapshot0Whence {
+    Cur,
+    End,
+    Set,
+  }
+  impl core::fmt::Debug for Snapshot0Whence {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+      match self {
+        Snapshot0Whence::Cur => {
+          f.debug_tuple("Snapshot0Whence::Cur").finish()
+        }
+        Snapshot0Whence::End => {
+          f.debug_tuple("Snapshot0Whence::End").finish()
+        }
+        Snapshot0Whence::Set => {
+          f.debug_tuple("Snapshot0Whence::Set").finish()
+        }
+      }
+    }
+  }
+  #[repr(u8)]
+  #[derive(Clone, Copy, PartialEq, Eq)]
+  pub enum Whence {
+    Set,
+    Cur,
+    End,
+  }
+  impl core::fmt::Debug for Whence {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+      match self {
+        Whence::Set => {
+          f.debug_tuple("Whence::Set").finish()
+        }
+        Whence::Cur => {
+          f.debug_tuple("Whence::Cur").finish()
+        }
+        Whence::End => {
+          f.debug_tuple("Whence::End").finish()
+        }
+      }
+    }
+  }
   
   /// Auxiliary data associated with the wasm exports.
   #[derive(Default)]

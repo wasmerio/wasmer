@@ -782,3 +782,15 @@ record filestat {
     st-mtim: timestamp,
     st-ctim: timestamp,
 }
+
+enum snapshot0-whence {
+  cur,
+  end,
+  set,
+}
+
+enum whence {
+    set,
+    cur,
+    end,
+}

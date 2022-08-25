@@ -19,7 +19,6 @@ mod net;
 mod signal;
 mod subscription;
 mod time;
-mod versions;
 
 pub use crate::time::*;
 pub use bus::*;
@@ -29,7 +28,6 @@ pub use io::*;
 pub use net::*;
 pub use signal::*;
 pub use subscription::*;
-pub use versions::*;
 
 pub type __wasi_exitcode_t = u32;
 
