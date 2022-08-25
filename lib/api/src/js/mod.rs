@@ -30,7 +30,6 @@ mod externals;
 mod function_env;
 mod imports;
 mod instance;
-mod js_import_object;
 mod mem_access;
 mod module;
 #[cfg(feature = "wasm-types-polyfill")]
@@ -54,7 +53,6 @@ pub use crate::js::externals::{
 pub use crate::js::function_env::{FunctionEnv, FunctionEnvMut};
 pub use crate::js::imports::Imports;
 pub use crate::js::instance::Instance;
-pub use crate::js::js_import_object::JsImportObject;
 pub use crate::js::mem_access::{MemoryAccessError, WasmRef, WasmSlice, WasmSliceIter};
 pub use crate::js::module::{Module, ModuleTypeHints};
 pub use crate::js::native::TypedFunction;
