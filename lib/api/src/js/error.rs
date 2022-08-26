@@ -199,6 +199,10 @@ pub enum InstantiationError {
     /// A generic error occured while invoking API functions
     #[cfg_attr(feature = "std", error(transparent))]
     Wasm(WasmError),
+
+    /// Insufficient resources available for execution.
+    #[cfg_attr(feature = "std", error("Can't get {0} from the instance exports"))]
+    NotInExports(String),
 }
 
 impl From<WasmError> for InstantiationError {
