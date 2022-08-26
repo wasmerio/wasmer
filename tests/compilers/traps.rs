@@ -262,7 +262,7 @@ fn trap_start_function_import(config: crate::Config) -> Result<()> {
         )
     "#;
 
-    let module = Module::new(&store, &binary)?;
+    let module = Module::new(&store, binary)?;
     let sig = FunctionType::new(vec![], vec![]);
     let func = Function::new(&mut store, &sig, |_| Err(RuntimeError::new("user trap")));
     let err = Instance::new(
@@ -302,7 +302,7 @@ fn rust_panic_import(config: crate::Config) -> Result<()> {
         )
     "#;
 
-    let module = Module::new(&store, &binary)?;
+    let module = Module::new(&store, binary)?;
     let sig = FunctionType::new(vec![], vec![]);
     let func = Function::new(&mut store, &sig, |_| panic!("this is a panic"));
     let f0 = Function::new_typed(&mut store, || panic!("this is another panic"));
@@ -347,7 +347,7 @@ fn rust_panic_start_function(config: crate::Config) -> Result<()> {
         )
     "#;
 
-    let module = Module::new(&store, &binary)?;
+    let module = Module::new(&store, binary)?;
     let sig = FunctionType::new(vec![], vec![]);
     let func = Function::new(&mut store, &sig, |_| panic!("this is a panic"));
     let err = panic::catch_unwind(AssertUnwindSafe(|| {
@@ -393,7 +393,7 @@ fn mismatched_arguments(config: crate::Config) -> Result<()> {
         )
     "#;
 
-    let module = Module::new(&store, &binary)?;
+    let module = Module::new(&store, binary)?;
     let instance = Instance::new(&mut store, &module, &imports! {})?;
     let func: &Function = instance.exports.get("foo")?;
     assert_eq!(
@@ -432,7 +432,7 @@ fn call_signature_mismatch(config: crate::Config) -> Result<()> {
         )
     "#;
 
-    let module = Module::new(&store, &binary)?;
+    let module = Module::new(&store, binary)?;
     let err = Instance::new(&mut store, &module, &imports! {})
         .err()
         .expect("expected error");
