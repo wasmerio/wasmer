@@ -118,10 +118,8 @@ impl Instance {
             .map(|export_type| {
                 let name = export_type.name();
                 let extern_type = export_type.ty().clone();
-                let js_export =
-                    js_sys::Reflect::get(&instance_exports, &name.into()).map_err(|_e| {
-                        InstantiationError::NotInExports(name.to_string())
-                    })?;
+                let js_export = js_sys::Reflect::get(&instance_exports, &name.into())
+                    .map_err(|_e| InstantiationError::NotInExports(name.to_string()))?;
                 let export: Export =
                     Export::from_js_value(js_export, &mut store, extern_type)?.into();
                 let extern_ = Extern::from_vm_extern(&mut store, export);

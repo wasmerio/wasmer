@@ -1092,7 +1092,7 @@ mod inner {
         Kind: HostFunctionKind,
     {
         /// Get the pointer to the function body.
-        fn function_body_ptr(self) -> *const VMFunctionBody;
+        fn function_body_ptr(&self) -> *const VMFunctionBody;
 
         /// Get the pointer to the function call trampoline.
         fn call_trampoline_address() -> VMTrampoline;
@@ -1268,7 +1268,7 @@ mod inner {
                 Func: Fn(FunctionEnvMut<T>, $( $x , )*) -> RetsAsResult + 'static,
             {
                 #[allow(non_snake_case)]
-                fn function_body_ptr(self) -> *const VMFunctionBody {
+                fn function_body_ptr(&self) -> *const VMFunctionBody {
                     /// This is a function that wraps the real host
                     /// function. Its address will be used inside the
                     /// runtime.
@@ -1352,7 +1352,7 @@ mod inner {
                 Func: Fn($( $x , )*) -> RetsAsResult + 'static,
             {
                 #[allow(non_snake_case)]
-                fn function_body_ptr(self) -> *const VMFunctionBody {
+                fn function_body_ptr(&self) -> *const VMFunctionBody {
                     /// This is a function that wraps the real host
                     /// function. Its address will be used inside the
                     /// runtime.
