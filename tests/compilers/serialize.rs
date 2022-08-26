@@ -1,6 +1,13 @@
 use anyhow::Result;
 use wasmer::*;
 
+#[test]
+fn sanity_test_artifact_deserialize() {
+    let engine = Engine::headless();
+    let result = unsafe { Artifact::deserialize(&engine, &[]) };
+    assert!(result.is_err());
+}
+
 #[compiler_test(serialize)]
 fn test_serialize(config: crate::Config) -> Result<()> {
     let mut store = config.store();
