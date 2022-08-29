@@ -23,6 +23,20 @@ singlepass+aarch64+macos traps::start_trap_pretty
 llvm       traps::start_trap_pretty
 cranelift+aarch64+macos    traps::start_trap_pretty
 
+# Atomics (WIP)
+singlepass spec::threads::atomic
+singlepass spec::threads::exports
+singlepass spec::threads::imports
+singlepass spec::threads::memory
+cranelift spec::threads::atomic
+cranelift spec::threads::exports
+cranelift spec::threads::imports
+cranelift spec::threads::memory
+llvm spec::threads::atomic
+llvm spec::threads::exports
+llvm spec::threads::imports
+llvm spec::threads::memory
+
 # Also neither LLVM nor Cranelift currently implement stack probing on AArch64.
 # https://github.com/wasmerio/wasmer/issues/2808
 cranelift+aarch64 spec::skip_stack_guard_page
