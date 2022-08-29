@@ -12,14 +12,25 @@ pub use self::table::Table;
 
 use crate::js::export::{Export, VMFunction, VMGlobal, VMMemory, VMTable};
 use crate::js::exports::{ExportError, Exportable};
-use crate::js::store::InternalStoreHandle;
-use crate::js::store::StoreObject;
-use crate::js::store::{AsStoreMut, AsStoreRef};
 use crate::js::types::AsJs;
+use crate::js::store::StoreObject;
+
+/* 
+
+
+use crate::js::store::InternalStoreHandle;
+use crate::js::store::{AsStoreMut, AsStoreRef};
 use crate::js::ExternType;
 use std::fmt;
-use wasm_bindgen::{JsValue, JsCast};
+*/
 use crate::js::error::WasmError;
+use crate::js::store::{AsStoreMut, AsStoreRef, InternalStoreHandle};
+use crate::js::wasm_bindgen_polyfill::Global as JsGlobal;
+use js_sys::Function as JsFunction;
+use js_sys::WebAssembly::{Memory as JsMemory, Table as JsTable};
+use std::fmt;
+use wasm_bindgen::{JsCast, JsValue};
+use wasmer_types::{ExternType, FunctionType, GlobalType, MemoryType, TableType};
 
 /// The value of an export passed from one instance to another.
 pub enum VMExtern {
@@ -67,10 +78,10 @@ impl VMExtern {
     ) -> Result<Self, WasmError> {
         match extern_type {
             ExternType::Memory(memory_type) => {
-                if val.is_instance_of::<Memory>() {
+                if val.is_instance_of::<JsMemory>() {
                     Ok(Self::Memory(InternalStoreHandle::new(
                         &mut store.objects_mut(),
-                        VMMemory::new(val.unchecked_into::<Memory>(), memory_type),
+                        VMMemory::new(val.unchecked_into::<JsMemory>(), memory_type),
                     )))
                 } else {
                     Err(WasmError::TypeMismatch(
@@ -83,30 +94,30 @@ impl VMExtern {
                 }
             }
             ExternType::Global(global_type) => {
-                if val.is_instance_of::<Global>() {
+                if val.is_instance_of::<JsGlobal>() {
                     Ok(Self::Global(InternalStoreHandle::new(
                         &mut store.objects_mut(),
-                        VMGlobal::new(val.unchecked_into::<Global>(), global_type),
+                        VMGlobal::new(val.unchecked_into::<JsGlobal>(), global_type),
                     )))
                 } else {
                     panic!("Extern type doesn't match js value type");
                 }
             }
             ExternType::Function(function_type) => {
-                if val.is_instance_of::<Function>() {
+                if val.is_instance_of::<JsFunction>() {
                     Ok(Self::Function(InternalStoreHandle::new(
                         &mut store.objects_mut(),
-                        VMFunction::new(val.unchecked_into::<Function>(), function_type),
+                        VMFunction::new(val.unchecked_into::<JsFunction>(), function_type),
                     )))
                 } else {
                     panic!("Extern type doesn't match js value type");
                 }
             }
             ExternType::Table(table_type) => {
-                if val.is_instance_of::<Table>() {
+                if val.is_instance_of::<JsTable>() {
                     Ok(Self::Table(InternalStoreHandle::new(
                         &mut store.objects_mut(),
-                        VMTable::new(val.unchecked_into::<Table>(), table_type),
+                        VMTable::new(val.unchecked_into::<JsTable>(), table_type),
                     )))
                 } else {
                     panic!("Extern type doesn't match js value type");

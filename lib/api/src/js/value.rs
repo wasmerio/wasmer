@@ -110,7 +110,7 @@ impl Value {
     ///
     /// # Safety
     ///
-    pub unsafe fn from_raw(store: &mut impl AsStoreMut, ty: Type, raw: f64) -> Self {
+    pub unsafe fn from_raw(_store: &impl AsStoreRef, ty: Type, raw: f64) -> Self {
         match ty {
             Type::I32 => Self::I32(raw as _),
             Type::I64 => Self::I64(raw as _),

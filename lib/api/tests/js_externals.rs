@@ -29,7 +29,7 @@ mod js {
     fn global_get() {
         let mut store = Store::default();
         let global_i32 = Global::new(&mut store, Value::I32(10));
-        assert_eq!(global_i32.get(&store), Value::I32(10));
+        assert_eq!(global_i32.get(&mut store), Value::I32(10));
         // 64-bit values are not yet fully supported in some versions of Node
         // Commenting this tests for now:
 

@@ -128,7 +128,7 @@ impl Global {
     ///
     /// assert_eq!(g.get(), Value::I32(1));
     /// ```
-    pub fn get(&self, store: &mut impl AsStoreMut) -> Value {
+    pub fn get(&self, store: &impl AsStoreRef) -> Value {
         unsafe {
             let raw = self
                 .handle
