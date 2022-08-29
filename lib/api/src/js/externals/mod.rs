@@ -12,10 +12,10 @@ pub use self::table::Table;
 
 use crate::js::export::{Export, VMFunction, VMGlobal, VMMemory, VMTable};
 use crate::js::exports::{ExportError, Exportable};
-use crate::js::types::AsJs;
 use crate::js::store::StoreObject;
+use crate::js::types::AsJs;
 
-/* 
+/*
 
 
 use crate::js::store::InternalStoreHandle;
