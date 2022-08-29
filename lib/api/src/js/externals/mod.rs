@@ -18,6 +18,8 @@ use crate::js::store::{AsStoreMut, AsStoreRef};
 use crate::js::types::AsJs;
 use crate::js::ExternType;
 use std::fmt;
+use wasm_bindgen::{JsValue, JsCast};
+use crate::js::error::WasmError;
 
 /// The value of an export passed from one instance to another.
 pub enum VMExtern {
@@ -32,6 +34,86 @@ pub enum VMExtern {
 
     /// A global export value.
     Global(InternalStoreHandle<VMGlobal>),
+}
+
+impl VMExtern {
+    /// Return the export as a `JSValue`.
+    pub fn as_jsvalue<'context>(&self, store: &'context impl AsStoreRef) -> &'context JsValue {
+        match self {
+            Self::Memory(js_wasm_memory) => js_wasm_memory
+                .get(store.as_store_ref().objects())
+                .memory
+                .as_ref(),
+            Self::Function(js_func) => js_func
+                .get(store.as_store_ref().objects())
+                .function
+                .as_ref(),
+            Self::Table(js_wasm_table) => js_wasm_table
+                .get(store.as_store_ref().objects())
+                .table
+                .as_ref(),
+            Self::Global(js_wasm_global) => js_wasm_global
+                .get(store.as_store_ref().objects())
+                .global
+                .as_ref(),
+        }
+    }
+
+    /// Convert a `JsValue` into an `Export` within a given `Context`.
+    pub fn from_js_value(
+        val: JsValue,
+        store: &mut impl AsStoreMut,
+        extern_type: ExternType,
+    ) -> Result<Self, WasmError> {
+        match extern_type {
+            ExternType::Memory(memory_type) => {
+                if val.is_instance_of::<Memory>() {
+                    Ok(Self::Memory(InternalStoreHandle::new(
+                        &mut store.objects_mut(),
+                        VMMemory::new(val.unchecked_into::<Memory>(), memory_type),
+                    )))
+                } else {
+                    Err(WasmError::TypeMismatch(
+                        val.js_typeof()
+                            .as_string()
+                            .map(Into::into)
+                            .unwrap_or("unknown".into()),
+                        "Memory".into(),
+                    ))
+                }
+            }
+            ExternType::Global(global_type) => {
+                if val.is_instance_of::<Global>() {
+                    Ok(Self::Global(InternalStoreHandle::new(
+                        &mut store.objects_mut(),
+                        VMGlobal::new(val.unchecked_into::<Global>(), global_type),
+                    )))
+                } else {
+                    panic!("Extern type doesn't match js value type");
+                }
+            }
+            ExternType::Function(function_type) => {
+                if val.is_instance_of::<Function>() {
+                    Ok(Self::Function(InternalStoreHandle::new(
+                        &mut store.objects_mut(),
+                        VMFunction::new(val.unchecked_into::<Function>(), function_type),
+                    )))
+                } else {
+                    panic!("Extern type doesn't match js value type");
+                }
+            }
+            ExternType::Table(table_type) => {
+                if val.is_instance_of::<Table>() {
+                    Ok(Self::Table(InternalStoreHandle::new(
+                        &mut store.objects_mut(),
+                        VMTable::new(val.unchecked_into::<Table>(), table_type),
+                    )))
+                } else {
+                    panic!("Extern type doesn't match js value type");
+                }
+            }
+        }
+    }
 }
 
 /// An `Extern` is the runtime representation of an entity that

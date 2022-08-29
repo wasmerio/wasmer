@@ -112,6 +112,7 @@ impl Instance {
         instance: StoreHandle<WebAssembly::Instance>,
         imports: Imports,
     ) -> Result<Self, InstantiationError> {
+        use crate::js::externals::VMExtern;
         let instance_exports = instance.get(store.as_store_ref().objects()).exports();
         let exports = module
             .exports()
@@ -120,8 +121,8 @@ impl Instance {
                 let extern_type = export_type.ty().clone();
                 let js_export = js_sys::Reflect::get(&instance_exports, &name.into())
                     .map_err(|_e| InstantiationError::NotInExports(name.to_string()))?;
-                let export: Export =
-                    Export::from_js_value(js_export, &mut store, extern_type)?.into();
+                let export: VMExtern =
+                    VMExtern::from_js_value(js_export, &mut store, extern_type)?.into();
                 let extern_ = Extern::from_vm_extern(&mut store, export);
                 Ok((name.to_string(), extern_))
             })
