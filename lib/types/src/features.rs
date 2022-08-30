@@ -41,7 +41,7 @@ impl Features {
     /// Create a new feature
     pub fn new() -> Self {
         Self {
-            threads: false,
+            threads: true,
             // Reference types should be on by default
             reference_types: true,
             // SIMD should be on by default
@@ -249,7 +249,7 @@ mod test_features {
         assert_eq!(
             default,
             Features {
-                threads: false,
+                threads: true,
                 reference_types: true,
                 simd: true,
                 bulk_memory: true,
