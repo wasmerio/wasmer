@@ -10,6 +10,7 @@ pub fn is_wasi_module(module: &Module) -> bool {
 }
 
 #[allow(dead_code)]
+#[cfg(feature = "wasix")]
 /// Returns if the module is WASIX or not
 pub fn is_wasix_module(module: &Module) -> bool {
     match get_wasi_versions(module, false).ok_or(false) {

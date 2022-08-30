@@ -3220,11 +3220,7 @@ dependencies = [
 name = "wasmer-vbus"
 version = "3.0.0-beta"
 dependencies = [
- "libc",
- "slab",
  "thiserror",
- "tracing",
- "typetag",
  "wasmer-vfs",
 ]
 
@@ -3268,11 +3264,7 @@ name = "wasmer-vnet"
 version = "3.0.0-beta"
 dependencies = [
  "bytes",
- "libc",
- "slab",
  "thiserror",
- "tracing",
- "typetag",
  "wasmer-vfs",
 ]
 

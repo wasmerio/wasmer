@@ -18,7 +18,9 @@ pub mod windows;
 
 pub mod legacy;
 //pub mod wasi;
+#[cfg(feature = "wasix")]
 pub mod wasix32;
+#[cfg(feature = "wasix")]
 pub mod wasix64;
 
 use self::types::*;
