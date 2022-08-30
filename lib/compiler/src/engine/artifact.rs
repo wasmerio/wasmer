@@ -116,9 +116,13 @@ impl Artifact {
                 "The provided bytes are not wasmer-universal".to_string(),
             ));
         }
-        let bytes = &bytes[ArtifactBuild::MAGIC_HEADER.len()..];
+
+        let bytes = Self::get_byte_slice(bytes, ArtifactBuild::MAGIC_HEADER.len(), bytes.len())?;
+
         let metadata_len = MetadataHeader::parse(bytes)?;
-        let metadata_slice: &[u8] = &bytes[MetadataHeader::LEN..][..metadata_len];
+        let metadata_slice = Self::get_byte_slice(bytes, MetadataHeader::LEN, bytes.len())?;
+        let metadata_slice = Self::get_byte_slice(metadata_slice, 0, metadata_len)?;
+
         let serializable = SerializableModule::deserialize(metadata_slice)?;
         let artifact = ArtifactBuild::from_serializable(serializable);
         let mut inner_engine = engine.inner_mut();
@@ -343,7 +347,7 @@ impl Artifact {
         // Get pointers to where metadata about local tables should live in VM memory.
 
         let (allocator, memory_definition_locations, table_definition_locations) =
-            InstanceAllocator::new(&*module);
+            InstanceAllocator::new(&module);
         let finished_memories = tunables
             .create_memories(
                 context,
@@ -400,7 +404,7 @@ impl Artifact {
             .iter()
             .map(|init| DataInitializer {
                 location: init.location.clone(),
-                data: &*init.data,
+                data: &init.data,
             })
             .collect::<Vec<_>>();
         handle
@@ -573,6 +577,19 @@ impl Artifact {
         ))
     }
 
+    fn get_byte_slice(input: &[u8], start: usize, end: usize) -> Result<&[u8], DeserializeError> {
+        if (start == end && input.len() > start)
+            || (start < end && input.len() > start && input.len() >= end)
+        {
+            Ok(&input[start..end])
+        } else {
+            Err(DeserializeError::InvalidByteLength {
+                expected: end - start,
+                got: input.len(),
+            })
+        }
+    }
+
     /// Deserialize a ArtifactBuild from an object file
     ///
     /// # Safety
@@ -583,15 +600,17 @@ impl Artifact {
         bytes: &[u8],
     ) -> Result<Self, DeserializeError> {
         let metadata_len = MetadataHeader::parse(bytes)?;
-
-        let metadata_slice = &bytes[MetadataHeader::LEN..][..metadata_len];
+        let metadata_slice = Self::get_byte_slice(bytes, MetadataHeader::LEN, bytes.len())?;
+        let metadata_slice = Self::get_byte_slice(metadata_slice, 0, metadata_len)?;
         let metadata: ModuleMetadata = ModuleMetadata::deserialize(metadata_slice)?;
 
         const WORD_SIZE: usize = mem::size_of::<usize>();
         let mut byte_buffer = [0u8; WORD_SIZE];
 
         let mut cur_offset = MetadataHeader::LEN + metadata_len;
-        byte_buffer[0..WORD_SIZE].clone_from_slice(&bytes[cur_offset..(cur_offset + WORD_SIZE)]);
+
+        let byte_buffer_slice = Self::get_byte_slice(bytes, cur_offset, cur_offset + WORD_SIZE)?;
+        byte_buffer[0..WORD_SIZE].clone_from_slice(byte_buffer_slice);
         cur_offset += WORD_SIZE;
 
         let num_finished_functions = usize::from_ne_bytes(byte_buffer);
@@ -603,8 +622,9 @@ impl Artifact {
 
         // read finished functions in order now...
         for _i in 0..num_finished_functions {
-            byte_buffer[0..WORD_SIZE]
-                .clone_from_slice(&bytes[cur_offset..(cur_offset + WORD_SIZE)]);
+            let byte_buffer_slice =
+                Self::get_byte_slice(bytes, cur_offset, cur_offset + WORD_SIZE)?;
+            byte_buffer[0..WORD_SIZE].clone_from_slice(byte_buffer_slice);
             let fp = FunctionBodyPtr(usize::from_ne_bytes(byte_buffer) as _);
             cur_offset += WORD_SIZE;
 
@@ -625,12 +645,15 @@ impl Artifact {
 
         // read trampolines in order
         let mut finished_function_call_trampolines = PrimaryMap::new();
-        byte_buffer[0..WORD_SIZE].clone_from_slice(&bytes[cur_offset..(cur_offset + WORD_SIZE)]);
+
+        let byte_buffer_slice = Self::get_byte_slice(bytes, cur_offset, cur_offset + WORD_SIZE)?;
+        byte_buffer[0..WORD_SIZE].clone_from_slice(byte_buffer_slice);
         cur_offset += WORD_SIZE;
         let num_function_trampolines = usize::from_ne_bytes(byte_buffer);
         for _ in 0..num_function_trampolines {
-            byte_buffer[0..WORD_SIZE]
-                .clone_from_slice(&bytes[cur_offset..(cur_offset + WORD_SIZE)]);
+            let byte_buffer_slice =
+                Self::get_byte_slice(bytes, cur_offset, cur_offset + WORD_SIZE)?;
+            byte_buffer[0..WORD_SIZE].clone_from_slice(byte_buffer_slice);
             cur_offset += WORD_SIZE;
             let trampoline_ptr_bytes = usize::from_ne_bytes(byte_buffer);
             let trampoline = mem::transmute::<usize, VMTrampoline>(trampoline_ptr_bytes);
@@ -640,12 +663,14 @@ impl Artifact {
 
         // read dynamic function trampolines in order now...
         let mut finished_dynamic_function_trampolines = PrimaryMap::new();
-        byte_buffer[0..WORD_SIZE].clone_from_slice(&bytes[cur_offset..(cur_offset + WORD_SIZE)]);
+        let byte_buffer_slice = Self::get_byte_slice(bytes, cur_offset, cur_offset + WORD_SIZE)?;
+        byte_buffer[0..WORD_SIZE].clone_from_slice(byte_buffer_slice);
         cur_offset += WORD_SIZE;
         let num_dynamic_trampoline_functions = usize::from_ne_bytes(byte_buffer);
         for _i in 0..num_dynamic_trampoline_functions {
-            byte_buffer[0..WORD_SIZE]
-                .clone_from_slice(&bytes[cur_offset..(cur_offset + WORD_SIZE)]);
+            let byte_buffer_slice =
+                Self::get_byte_slice(bytes, cur_offset, cur_offset + WORD_SIZE)?;
+            byte_buffer[0..WORD_SIZE].clone_from_slice(byte_buffer_slice);
             let fp = FunctionBodyPtr(usize::from_ne_bytes(byte_buffer) as _);
             cur_offset += WORD_SIZE;
 

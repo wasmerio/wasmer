@@ -7,7 +7,7 @@ use std::iter::Sum;
 use std::ops::{Add, AddAssign};
 
 /// Implementation styles for WebAssembly linear memory.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, RkyvSerialize, RkyvDeserialize, Archive)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, RkyvSerialize, RkyvDeserialize, Archive)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[archive(as = "Self")]
 pub enum MemoryStyle {
@@ -84,6 +84,9 @@ pub unsafe trait MemorySize: Copy {
     /// Zero value used for `WasmPtr::is_null`.
     const ZERO: Self::Offset;
 
+    /// One value used for counting.
+    const ONE: Self::Offset;
+
     /// Convert an `Offset` to a `Native`.
     fn offset_to_native(offset: Self::Offset) -> Self::Native;
 
@@ -98,6 +101,7 @@ unsafe impl MemorySize for Memory32 {
     type Offset = u32;
     type Native = i32;
     const ZERO: Self::Offset = 0;
+    const ONE: Self::Offset = 1;
     fn offset_to_native(offset: Self::Offset) -> Self::Native {
         offset as Self::Native
     }
@@ -113,6 +117,7 @@ unsafe impl MemorySize for Memory64 {
     type Offset = u64;
     type Native = i64;
     const ZERO: Self::Offset = 0;
+    const ONE: Self::Offset = 1;
     fn offset_to_native(offset: Self::Offset) -> Self::Native {
         offset as Self::Native
     }

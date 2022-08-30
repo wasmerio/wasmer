@@ -21,8 +21,7 @@ use wasmer_object::{emit_serialized, get_object_for_target};
 pub type PrefixerFn = Box<dyn Fn(&[u8]) -> String + Send>;
 
 const WASMER_MAIN_C_SOURCE: &[u8] = include_bytes!("wasmer_create_exe_main.c");
-#[cfg(feature = "static-artifact-create")]
-const WASMER_STATIC_MAIN_C_SOURCE: &[u8] = include_bytes!("wasmer_static_create_exe_main.c");
+const WASMER_DESERIALIZE_HEADER: &str = include_str!("wasmer_deserialize_module.h");
 
 #[derive(Debug, Clone)]
 struct CrossCompile {
@@ -40,6 +39,7 @@ struct CrossCompileSetup {
     target: Triple,
     zig_binary_path: PathBuf,
     library: PathBuf,
+    working_dir: PathBuf,
 }
 
 #[derive(Debug, Parser)]
@@ -111,6 +111,11 @@ pub struct CreateExe {
 impl CreateExe {
     /// Runs logic for the `compile` subcommand
     pub fn execute(&self) -> Result<()> {
+        let object_format = self.object_format.unwrap_or(ObjectFormat::Symbols);
+        let working_dir = tempfile::tempdir()?;
+        let starting_cd = env::current_dir()?;
+        let output_path = starting_cd.join(&self.output);
+
         /* Making library_path, tarball zig_binary_path flags require that target_triple flag
          * is set cannot be encoded with structopt, so we have to perform cli flag validation
          * manually here */
@@ -150,10 +155,6 @@ impl CreateExe {
             })
             .unwrap_or_default();
 
-        let object_format = self.object_format.unwrap_or(ObjectFormat::Symbols);
-        let working_dir = tempfile::tempdir()?;
-        let starting_cd = env::current_dir()?;
-        let output_path = starting_cd.join(&self.output);
         env::set_current_dir(&working_dir)?;
 
         let cross_compilation: Option<CrossCompileSetup> = if let Some(mut cross_subc) =
@@ -256,6 +257,7 @@ impl CreateExe {
                 target,
                 zig_binary_path,
                 library,
+                working_dir: working_dir.path().to_path_buf(),
             })
         } else {
             None
@@ -268,30 +270,37 @@ impl CreateExe {
         println!("Format: {:?}", object_format);
 
         #[cfg(not(windows))]
-        let wasm_object_path = PathBuf::from("wasm.o");
+        let wasm_object_path = working_dir.path().join("wasm.o");
         #[cfg(windows)]
-        let wasm_object_path = PathBuf::from("wasm.obj");
+        let wasm_object_path = working_dir.path().join("wasm.obj");
 
         let wasm_module_path = starting_cd.join(&self.path);
+
+        let static_defs_header_path: PathBuf = working_dir.path().join("static_defs.h");
 
         if let Some(header_path) = self.header.as_ref() {
             /* In this case, since a header file is given, the input file is expected to be an
              * object created with `create-obj` subcommand */
             let header_path = starting_cd.join(&header_path);
-            std::fs::copy(&header_path, Path::new("static_defs.h"))
+            std::fs::copy(&header_path, &static_defs_header_path)
                 .context("Could not access given header file")?;
+            let object_file_path = wasm_module_path;
             if let Some(setup) = cross_compilation.as_ref() {
                 self.compile_zig(
                     output_path,
-                    wasm_module_path,
-                    std::path::Path::new("static_defs.h").into(),
+                    object_file_path,
+                    static_defs_header_path,
                     setup,
                 )?;
             } else {
                 self.link(
-                    output_path,
-                    wasm_module_path,
-                    std::path::Path::new("static_defs.h").into(),
+                    static_defs_header_path,
+                    LinkCode {
+                        object_paths: vec![object_file_path, "main_obj.obj".into()],
+                        output_path,
+                        working_dir: working_dir.path().to_path_buf(),
+                        ..Default::default()
+                    },
                 )?;
             }
         } else {
@@ -307,9 +316,44 @@ impl CreateExe {
                         .map_err(|err| anyhow::anyhow!(err.to_string()))?;
                     writer.flush()?;
                     drop(writer);
+                    // Write down header file that includes deserialize function
+                    {
+                        let mut writer = BufWriter::new(File::create(&static_defs_header_path)?);
+                        writer.write_all(WASMER_DESERIALIZE_HEADER.as_bytes())?;
+                        writer.flush()?;
+                    }
 
-                    let cli_given_triple = self.target_triple.clone();
-                    self.compile_c(wasm_object_path, cli_given_triple, output_path)?;
+                    // write C src to disk
+                    let c_src_path: PathBuf = working_dir.path().join("wasmer_main.c");
+                    #[cfg(not(windows))]
+                    let c_src_obj: PathBuf = working_dir.path().join("wasmer_main.o");
+                    #[cfg(windows)]
+                    let c_src_obj: PathBuf = working_dir.path().join("wasmer_main.obj");
+
+                    {
+                        let mut c_src_file = fs::OpenOptions::new()
+                            .create_new(true)
+                            .write(true)
+                            .open(&c_src_path)
+                            .context("Failed to open C source code file")?;
+                        c_src_file.write_all(WASMER_MAIN_C_SOURCE)?;
+                    }
+                    run_c_compile(
+                        &c_src_path,
+                        &c_src_obj,
+                        static_defs_header_path,
+                        self.target_triple.clone(),
+                    )
+                    .context("Failed to compile C source code")?;
+                    LinkCode {
+                        object_paths: vec![c_src_obj, wasm_object_path],
+                        output_path,
+                        additional_libraries: self.libraries.clone(),
+                        target: self.target_triple.clone(),
+                        ..Default::default()
+                    }
+                    .run()
+                    .context("Failed to link objects together")?;
                 }
                 #[cfg(not(feature = "static-artifact-create"))]
                 ObjectFormat::Symbols => {
@@ -336,27 +380,31 @@ impl CreateExe {
                     );
                     // Write object file with functions
                     let object_file_path: std::path::PathBuf =
-                        std::path::Path::new("functions.o").into();
+                        working_dir.path().join("functions.o");
                     let mut writer = BufWriter::new(File::create(&object_file_path)?);
                     obj.write_stream(&mut writer)
                         .map_err(|err| anyhow::anyhow!(err.to_string()))?;
                     writer.flush()?;
                     // Write down header file that includes pointer arrays and the deserialize function
-                    let mut writer = BufWriter::new(File::create("static_defs.h")?);
+                    let mut writer = BufWriter::new(File::create(&static_defs_header_path)?);
                     writer.write_all(header_file_src.as_bytes())?;
                     writer.flush()?;
                     if let Some(setup) = cross_compilation.as_ref() {
                         self.compile_zig(
                             output_path,
                             object_file_path,
-                            std::path::Path::new("static_defs.h").into(),
+                            static_defs_header_path,
                             setup,
                         )?;
                     } else {
                         self.link(
-                            output_path,
-                            object_file_path,
-                            std::path::Path::new("static_defs.h").into(),
+                            static_defs_header_path,
+                            LinkCode {
+                                object_paths: vec![object_file_path, "main_obj.obj".into()],
+                                output_path,
+                                working_dir: working_dir.path().to_path_buf(),
+                                ..Default::default()
+                            },
                         )?;
                     }
                 }
@@ -379,55 +427,25 @@ impl CreateExe {
         Ok(())
     }
 
-    fn compile_c(
-        &self,
-        wasm_object_path: PathBuf,
-        target_triple: Option<wasmer::Triple>,
-        output_path: PathBuf,
-    ) -> anyhow::Result<()> {
-        // write C src to disk
-        let c_src_path = Path::new("wasmer_main.c");
-        #[cfg(not(windows))]
-        let c_src_obj = PathBuf::from("wasmer_main.o");
-        #[cfg(windows)]
-        let c_src_obj = PathBuf::from("wasmer_main.obj");
-
-        {
-            let mut c_src_file = fs::OpenOptions::new()
-                .create_new(true)
-                .write(true)
-                .open(&c_src_path)
-                .context("Failed to open C source code file")?;
-            c_src_file.write_all(WASMER_MAIN_C_SOURCE)?;
-        }
-        run_c_compile(c_src_path, &c_src_obj, target_triple.clone())
-            .context("Failed to compile C source code")?;
-        LinkCode {
-            object_paths: vec![c_src_obj, wasm_object_path],
-            output_path,
-            additional_libraries: self.libraries.clone(),
-            target: target_triple,
-            ..Default::default()
-        }
-        .run()
-        .context("Failed to link objects together")?;
-
-        Ok(())
-    }
-
     fn compile_zig(
         &self,
         output_path: PathBuf,
         object_path: PathBuf,
-        mut header_code_path: PathBuf,
+        mut header_path: PathBuf,
         setup: &CrossCompileSetup,
     ) -> anyhow::Result<()> {
-        let c_src_path = Path::new("wasmer_main.c");
+        debug_assert!(
+            header_path.is_absolute(),
+            "compile_zig() called with relative header file path {}",
+            header_path.display()
+        );
         let CrossCompileSetup {
             ref target,
             ref zig_binary_path,
             ref library,
+            ref working_dir,
         } = setup;
+        let c_src_path = working_dir.join("wasmer_main.c");
         let mut libwasmer_path = library.to_path_buf();
 
         println!("Library Path: {}", libwasmer_path.display());
@@ -449,15 +467,11 @@ impl CreateExe {
                 .write(true)
                 .open(&c_src_path)
                 .context("Failed to open C source code file")?;
-            c_src_file.write_all(WASMER_STATIC_MAIN_C_SOURCE)?;
+            c_src_file.write_all(WASMER_MAIN_C_SOURCE)?;
         }
 
-        if !header_code_path.is_dir() {
-            header_code_path.pop();
-        }
-
-        if header_code_path.display().to_string().is_empty() {
-            header_code_path = std::env::current_dir()?;
+        if !header_path.is_dir() {
+            header_path.pop();
         }
 
         /* Compile main function */
@@ -478,7 +492,7 @@ impl CreateExe {
                 .arg(&format!("-L{}", libwasmer_path.display()))
                 .arg(&format!("-l:{}", lib_filename))
                 .arg(&format!("-I{}", include_dir.display()))
-                .arg(&format!("-I{}", header_code_path.display()));
+                .arg(&format!("-I{}", header_path.display()));
             if !zig_triple.contains("windows") {
                 cmd_mut = cmd_mut.arg("-lunwind");
             }
@@ -500,18 +514,13 @@ impl CreateExe {
     }
 
     #[cfg(feature = "static-artifact-create")]
-    fn link(
-        &self,
-        output_path: PathBuf,
-        object_path: PathBuf,
-        mut header_code_path: PathBuf,
-    ) -> anyhow::Result<()> {
-        let linkcode = LinkCode {
-            object_paths: vec![object_path, "main_obj.obj".into()],
-            output_path,
-            ..Default::default()
-        };
-        let c_src_path = Path::new("wasmer_main.c");
+    fn link(&self, mut header_path: PathBuf, linkcode: LinkCode) -> anyhow::Result<()> {
+        debug_assert!(
+            header_path.is_absolute(),
+            "link() called with relative header file path {}",
+            header_path.display()
+        );
+        let c_src_path: PathBuf = linkcode.working_dir.join("wasmer_main.c");
         let mut libwasmer_path = get_libwasmer_path()?
             .canonicalize()
             .context("Failed to find libwasmer")?;
@@ -531,15 +540,11 @@ impl CreateExe {
                 .write(true)
                 .open(&c_src_path)
                 .context("Failed to open C source code file")?;
-            c_src_file.write_all(WASMER_STATIC_MAIN_C_SOURCE)?;
+            c_src_file.write_all(WASMER_MAIN_C_SOURCE)?;
         }
 
-        if !header_code_path.is_dir() {
-            header_code_path.pop();
-        }
-
-        if header_code_path.display().to_string().is_empty() {
-            header_code_path = std::env::current_dir()?;
+        if !header_path.is_dir() {
+            header_path.pop();
         }
 
         /* Compile main function */
@@ -568,7 +573,7 @@ impl CreateExe {
                 .arg("-ldl")
                 .arg("-lm")
                 .arg("-pthread")
-                .arg(&format!("-I{}", header_code_path.display()))
+                .arg(&format!("-I{}", header_path.display()))
                 .arg("-v")
                 .arg("-o")
                 .arg("main_obj.obj")
@@ -652,8 +657,15 @@ fn get_libwasmer_cache_path() -> anyhow::Result<PathBuf> {
 fn run_c_compile(
     path_to_c_src: &Path,
     output_name: &Path,
+    mut header_path: PathBuf,
     target: Option<Triple>,
 ) -> anyhow::Result<()> {
+    debug_assert!(
+        header_path.is_absolute(),
+        "run_c_compile() called with relative header file path {}",
+        header_path.display()
+    );
+
     #[cfg(not(windows))]
     let c_compiler = "cc";
     // We must use a C++ compiler on Windows because wasm.h uses `static_assert`
@@ -661,13 +673,17 @@ fn run_c_compile(
     #[cfg(windows)]
     let c_compiler = "clang++";
 
+    if !header_path.is_dir() {
+        header_path.pop();
+    }
+
     let mut command = Command::new(c_compiler);
     let command = command
         .arg("-O2")
         .arg("-c")
         .arg(path_to_c_src)
-        .arg("-I")
-        .arg(get_wasmer_include_directory()?);
+        .arg(&format!("-I{}", header_path.display()))
+        .arg(&format!("-I{}", get_wasmer_include_directory()?.display()));
 
     let command = if let Some(target) = target {
         command.arg("-target").arg(format!("{}", target))
@@ -706,6 +722,8 @@ struct LinkCode {
     libwasmer_path: PathBuf,
     /// The target to link the executable for.
     target: Option<Triple>,
+    /// Working directory
+    working_dir: PathBuf,
 }
 
 impl Default for LinkCode {
@@ -722,6 +740,7 @@ impl Default for LinkCode {
             output_path: PathBuf::from("a.out"),
             libwasmer_path: get_libwasmer_path().unwrap(),
             target: None,
+            working_dir: env::current_dir().expect("could not get current dir from environment"),
         }
     }
 }
@@ -965,6 +984,7 @@ mod http_fetch {
                     .expect("Could not join downloading thread");
                 match super::get_libwasmer_cache_path() {
                     Ok(mut cache_path) => {
+                        let _ = std::fs::create_dir_all(&cache_path);
                         cache_path.push(&filename);
                         if !cache_path.exists() {
                             if let Err(err) = std::fs::copy(&filename, &cache_path) {

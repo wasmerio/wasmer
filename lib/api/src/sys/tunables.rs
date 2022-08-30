@@ -174,4 +174,138 @@ mod tests {
             s => panic!("Unexpected memory style: {:?}", s),
         }
     }
+
+    use std::cell::UnsafeCell;
+    use std::ptr::NonNull;
+    use wasmer_types::{MemoryError, MemoryStyle, MemoryType, Pages, WASM_PAGE_SIZE};
+    use wasmer_vm::{LinearMemory, MaybeInstanceOwned};
+
+    #[derive(Debug)]
+    struct VMTinyMemory {
+        mem: [u8; WASM_PAGE_SIZE],
+    }
+
+    unsafe impl Send for VMTinyMemory {}
+    unsafe impl Sync for VMTinyMemory {}
+
+    impl VMTinyMemory {
+        pub fn new() -> Result<Self, MemoryError> {
+            Ok(VMTinyMemory {
+                mem: [0; WASM_PAGE_SIZE],
+            })
+        }
+    }
+
+    impl LinearMemory for VMTinyMemory {
+        fn ty(&self) -> MemoryType {
+            MemoryType {
+                minimum: Pages::from(1u32),
+                maximum: Some(Pages::from(1u32)),
+                shared: false,
+            }
+        }
+        fn size(&self) -> Pages {
+            Pages::from(1u32)
+        }
+        fn style(&self) -> MemoryStyle {
+            MemoryStyle::Static {
+                bound: Pages::from(1u32),
+                offset_guard_size: 0,
+            }
+        }
+        fn grow(&mut self, delta: Pages) -> Result<Pages, MemoryError> {
+            Err(MemoryError::CouldNotGrow {
+                current: Pages::from(100u32),
+                attempted_delta: delta,
+            })
+        }
+        fn vmmemory(&self) -> NonNull<VMMemoryDefinition> {
+            MaybeInstanceOwned::Host(Box::new(UnsafeCell::new(VMMemoryDefinition {
+                base: self.mem.as_ptr() as _,
+                current_length: WASM_PAGE_SIZE,
+            })))
+            .as_ptr()
+        }
+        fn try_clone(&self) -> Option<Box<dyn LinearMemory + 'static>> {
+            None
+        }
+    }
+
+    impl From<VMTinyMemory> for wasmer_vm::VMMemory {
+        fn from(mem: VMTinyMemory) -> Self {
+            Self(Box::new(mem))
+        }
+    }
+
+    struct TinyTunables;
+    impl Tunables for TinyTunables {
+        fn memory_style(&self, _memory: &MemoryType) -> MemoryStyle {
+            MemoryStyle::Static {
+                bound: Pages::from(1u32),
+                offset_guard_size: 0,
+            }
+        }
+
+        /// Construct a `TableStyle` for the provided `TableType`
+        fn table_style(&self, _table: &TableType) -> TableStyle {
+            TableStyle::CallerChecksSignature
+        }
+        fn create_host_memory(
+            &self,
+            _ty: &MemoryType,
+            _style: &MemoryStyle,
+        ) -> Result<VMMemory, MemoryError> {
+            let memory = VMTinyMemory::new().unwrap();
+            Ok(VMMemory::from_custom(memory))
+        }
+        unsafe fn create_vm_memory(
+            &self,
+            _ty: &MemoryType,
+            _style: &MemoryStyle,
+            _vm_definition_location: NonNull<VMMemoryDefinition>,
+        ) -> Result<VMMemory, MemoryError> {
+            let memory = VMTinyMemory::new().unwrap();
+            Ok(memory.into())
+        }
+
+        /// Create a table owned by the host given a [`TableType`] and a [`TableStyle`].
+        fn create_host_table(&self, ty: &TableType, style: &TableStyle) -> Result<VMTable, String> {
+            VMTable::new(ty, style)
+        }
+
+        /// Create a table owned by the VM given a [`TableType`] and a [`TableStyle`].
+        ///
+        /// # Safety
+        /// - `vm_definition_location` must point to a valid location in VM memory.
+        unsafe fn create_vm_table(
+            &self,
+            ty: &TableType,
+            style: &TableStyle,
+            vm_definition_location: NonNull<VMTableDefinition>,
+        ) -> Result<VMTable, String> {
+            VMTable::from_definition(ty, style, vm_definition_location)
+        }
+    }
+
+    #[test]
+    fn check_linearmemory() {
+        let tunables = TinyTunables {};
+        let vmmemory = tunables.create_host_memory(
+            &MemoryType::new(1u32, Some(100u32), true),
+            &MemoryStyle::Static {
+                bound: Pages::from(1u32),
+                offset_guard_size: 0u64,
+            },
+        );
+        let mut vmmemory = vmmemory.unwrap();
+        assert!(vmmemory.grow(Pages::from(2u32)).is_err());
+        assert_eq!(vmmemory.size(), Pages::from(1u32));
+        assert_eq!(
+            vmmemory.grow(Pages::from(0u32)).err().unwrap(),
+            MemoryError::CouldNotGrow {
+                current: Pages::from(100u32),
+                attempted_delta: Pages::from(0u32)
+            }
+        );
+    }
 }

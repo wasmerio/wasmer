@@ -33,7 +33,7 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.59
+          toolchain: 1.61
 
       - name: Install NodeJS
         uses: actions/setup-node@v2

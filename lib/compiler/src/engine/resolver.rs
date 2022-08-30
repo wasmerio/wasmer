@@ -8,8 +8,9 @@ use wasmer_types::{
 };
 
 use wasmer_vm::{
-    FunctionBodyPtr, Imports, MemoryStyle, StoreObjects, TableStyle, VMExtern, VMFunctionBody,
-    VMFunctionImport, VMFunctionKind, VMGlobalImport, VMMemoryImport, VMTableImport,
+    FunctionBodyPtr, Imports, LinearMemory, MemoryStyle, StoreObjects, TableStyle, VMExtern,
+    VMFunctionBody, VMFunctionImport, VMFunctionKind, VMGlobalImport, VMMemoryImport,
+    VMTableImport,
 };
 
 /// Get an `ExternType` given a import index.
@@ -149,7 +150,7 @@ pub fn resolve_imports(
                                 bound: import_bound,
                                 ..
                             },
-                        ) = (export_memory_style.clone(), &import_memory_style)
+                        ) = (export_memory_style, &import_memory_style)
                         {
                             assert_ge!(bound, *import_bound);
                         }
