@@ -1,11 +1,17 @@
 <!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="`Wasmer` is the most popular WebAssembly runtime for Rust. It supports JIT (Just In Time) and AOT (Ahead Of Time) compilation as well as pluggable compilers suited to your needs."><meta name="keywords" content="rust, rustlang, rust-lang, wasmer"><title>wasmer - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../normalize.css"><link rel="stylesheet" type="text/css" href="../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../dark.css" disabled><link rel="stylesheet" type="text/css" href="../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../storage.js"></script><script src="../crates.js"></script><script defer src="../main.js"></script>
-    <noscript><link rel="stylesheet" href="../noscript.css"></noscript><link rel="shortcut icon" href="https:&#x2F;&#x2F;wasmer.io&#x2F;images&#x2F;icons&#x2F;favicon-32x32.png"></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a class="sidebar-logo" href="../wasmer/index.html"><div class="logo-container"><img src="https:&#x2F;&#x2F;github.com&#x2F;wasmerio.png?size=200" alt="logo"></div>
-        </a><h2 class="location">Crate wasmer</h2><div class="block version"><div class="narrow-helper"></div><p>Version 3.0.0-beta</p></div><div class="sidebar-elems"><a id="all-types" href="all.html"><p>See all wasmer's items</p></a><div class="block items"><ul><li><a href="#modules">Modules</a></li><li><a href="#macros">Macros</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#constants">Constants</a></li><li><a href="#traits">Traits</a></li><li><a href="#functions">Functions</a></li><li><a href="#types">Type Definitions</a></li></ul></div><div id="sidebar-vars" data-name="wasmer" data-ty="mod" data-relpath=""></div><script defer src="sidebar-items.js"></script></div></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../wasmer/index.html"><img src="https:&#x2F;&#x2F;github.com&#x2F;wasmerio.png?size=200" alt="logo"></a><nav class="sub"><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu" title="themes"><img width="18" height="18" alt="Pick another theme!" src="../brush.svg"></button><div id="theme-choices" role="menu"></div></div><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" id="help-button" title="help">?</button><a id="settings-menu" href="../settings.html" title="settings"><img width="18" height="18" alt="Change settings" src="../wheel.svg"></a></div></form></nav></div><section id="main-content" class="content"><h1 class="fqn"><span class="in-band">Crate <a class="mod" href="#">wasmer</a><button id="copy-path" onclick="copy_path(this)" title="Copy item path to clipboard"><img src="../clipboard.svg" width="19" height="18" alt="Copy item path"></button></span><span class="out-of-band"><span id="render-detail"><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class="inner">&#x2212;</span>]</a></span><a class="srclink" href="../src/wasmer/lib.rs.html#1-439" title="goto source code">[src]</a></span></h1><details class="rustdoc-toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p><a href="https://wasmer.io/"><code>Wasmer</code></a> is the most popular
+    <noscript><link rel="stylesheet" href="../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../wasmer/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div>
+        </a><h2 class="location"></h2>
+    </nav>
+    <nav class="sidebar"><a class="sidebar-logo" href="../wasmer/index.html"><div class="logo-container">
+                    <img src="https://github.com/wasmerio.png?size=200" alt="logo"></div>
+        </a><h2 class="location"><a href="#">Crate wasmer</a></h2><div class="sidebar-elems"><div class="block"><ul><li class="version">Version 3.0.0-beta</li><li><a id="all-types" href="all.html">All Items</a></li></div></ul><section><div class="block"><ul><li><a href="#modules">Modules</a></li><li><a href="#macros">Macros</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#constants">Constants</a></li><li><a href="#traits">Traits</a></li><li><a href="#functions">Functions</a></li><li><a href="#types">Type Definitions</a></li><li><a href="#derives">Derive Macros</a></li></ul></div></section><div id="sidebar-vars" data-name="wasmer" data-ty="mod" data-relpath=""></div><script defer src="sidebar-items.js"></script></div></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../wasmer/index.html">
+                        <img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><nav class="sub"><div class="theme-picker hidden"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu" title="themes"><img width="22" height="22" alt="Pick another theme!" src="../brush.svg"></button><div id="theme-choices" role="menu"></div></div><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><button type="button" id="help-button" title="help">?</button><a id="settings-menu" href="../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../wheel.svg"></a></div></form></nav></div><section id="main-content" class="content"><div class="main-heading">
+    <h1 class="fqn"><span class="in-band">Crate <a class="mod" href="#">wasmer</a><button id="copy-path" onclick="copy_path(this)" title="Copy item path to clipboard"><img src="../clipboard.svg" width="19" height="18" alt="Copy item path"></button></span></h1><span class="out-of-band"><a class="srclink" href="../src/wasmer/lib.rs.html#1-439">source</a> · <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class="inner">&#x2212;</span>]</a></span></div><details class="rustdoc-toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p><a href="https://wasmer.io/"><code>Wasmer</code></a> is the most popular
 <a href="https://webassembly.org/">WebAssembly</a> runtime for Rust. It supports
 JIT (Just In Time) and AOT (Ahead Of Time) compilation as well as
 pluggable compilers suited to your needs.</p>
 <p>It’s designed to be safe and secure, and runnable in any kind of environment.</p>
-<h2 id="usage" class="section-header"><a href="#usage">Usage</a></h2>
+<h2 id="usage"><a href="#usage">Usage</a></h2>
 <p>Here is a small example of using Wasmer to run a WebAssembly module
 written with its WAT format (textual format):</p>
 
@@ -35,7 +41,7 @@ written with its WAT format (textual format):</p>
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
 <p><a href="https://github.com/wasmerio/wasmer/tree/master/examples">Discover the full collection of examples</a>.</p>
-<h2 id="overview-of-the-features" class="section-header"><a href="#overview-of-the-features">Overview of the Features</a></h2>
+<h2 id="overview-of-the-features"><a href="#overview-of-the-features">Overview of the Features</a></h2>
 <p>Wasmer is not only fast, but also designed to be <em>highly customizable</em>:</p>
 <ul>
 <li>
@@ -80,7 +86,7 @@ near-native speeds.</p>
 <p>Note: if one wants to use multiple compilers at the same time, it’s
 also possible! One will need to import them directly via each of the
 compiler crates.</p>
-<h2 id="table-of-contents" class="section-header"><a href="#table-of-contents">Table of Contents</a></h2>
+<h2 id="table-of-contents"><a href="#table-of-contents">Table of Contents</a></h2>
 <ul>
 <li><a href="#webassembly-primitives">WebAssembly Primitives</a>
 <ul>
@@ -103,14 +109,14 @@ compiler crates.</p>
 <li><a href="#cargo-features">Cargo Features</a></li>
 <li><a href="#using-wasmer-in-a-javascript-environment">Using Wasmer in a JavaScript environment</a></li>
 </ul>
-<h2 id="webassembly-primitives" class="section-header"><a href="#webassembly-primitives">WebAssembly Primitives</a></h2>
+<h2 id="webassembly-primitives"><a href="#webassembly-primitives">WebAssembly Primitives</a></h2>
 <p>In order to make use of the power of the <code>wasmer</code> API, it’s important
 to understand the primitives around which the API is built.</p>
 <p>Wasm only deals with a small number of core data types, these data
 types can be found in the <a href="sys/value/enum.Value.html" title="Value"><code>Value</code></a> type.</p>
 <p>In addition to the core Wasm types, the core types of the API are
 referred to as “externs”.</p>
-<h3 id="externs" class="section-header"><a href="#externs">Externs</a></h3>
+<h3 id="externs"><a href="#externs">Externs</a></h3>
 <p>An <a href="sys/externals/enum.Extern.html" title="Extern"><code>Extern</code></a> is a type that can be imported or exported from a Wasm
 module.</p>
 <p>To import an extern, simply give it a namespace and a name with the
@@ -132,7 +138,7 @@ from any instance via <code>instance.exports</code>:</p>
 <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">add</span>.<span class="ident">call</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>, <span class="number">5</span>, <span class="number">37</span>)<span class="question-mark">?</span>;
 <span class="macro">assert_eq!</span>(<span class="ident">result</span>, <span class="number">42</span>);</code></pre></div>
 <p>These are the primary types that the <code>wasmer</code> API uses.</p>
-<h4 id="functions" class="section-header"><a href="#functions">Functions</a></h4>
+<h4 id="functions"><a href="#functions">Functions</a></h4>
 <p>There are 2 types of functions in <code>wasmer</code>:</p>
 <ol>
 <li>Wasm functions,</li>
@@ -154,17 +160,17 @@ the WebAssembly System Interface.</p>
 <p>In the <code>wasmer</code> API we support functions which take their arguments and
 return their results dynamically, <a href="sys/externals/function/struct.Function.html" title="Function"><code>Function</code></a>, and functions which
 take their arguments and return their results statically, <a href="sys/native/struct.TypedFunction.html" title="TypedFunction"><code>TypedFunction</code></a>.</p>
-<h4 id="memories" class="section-header"><a href="#memories">Memories</a></h4>
+<h4 id="memories"><a href="#memories">Memories</a></h4>
 <p>Memories store data.</p>
 <p>In most Wasm programs, nearly all data will live in a <a href="sys/externals/memory/struct.Memory.html" title="Memory"><code>Memory</code></a>.</p>
 <p>This data can be shared between the host and guest to allow for more
 interesting programs.</p>
-<h4 id="globals" class="section-header"><a href="#globals">Globals</a></h4>
+<h4 id="globals"><a href="#globals">Globals</a></h4>
 <p>A <a href="sys/externals/global/struct.Global.html" title="Global"><code>Global</code></a> is a type that may be either mutable or immutable, and
 contains one of the core Wasm types defined in <a href="sys/value/enum.Value.html" title="Value"><code>Value</code></a>.</p>
-<h4 id="tables" class="section-header"><a href="#tables">Tables</a></h4>
+<h4 id="tables"><a href="#tables">Tables</a></h4>
 <p>A <a href="sys/externals/table/struct.Table.html" title="Table"><code>Table</code></a> is an indexed list of items.</p>
-<h2 id="project-layout" class="section-header"><a href="#project-layout">Project Layout</a></h2>
+<h2 id="project-layout"><a href="#project-layout">Project Layout</a></h2>
 <p>The Wasmer project is divided into a number of crates, below is a dependency
 graph with transitive dependencies removed.</p>
 <div>
@@ -185,14 +191,14 @@ Emscripten ABI,</li>
 </ol>
 <p>These two abstractions have multiple options that can be enabled
 with features.</p>
-<h3 id="engine" class="section-header"><a href="#engine">Engine</a></h3>
+<h3 id="engine"><a href="#engine">Engine</a></h3>
 <p>The engine is a system that uses a compiler to make a WebAssembly
 module executable.</p>
-<h3 id="compilers" class="section-header"><a href="#compilers">Compilers</a></h3>
+<h3 id="compilers"><a href="#compilers">Compilers</a></h3>
 <p>A compiler is a system that handles the details of making a Wasm
 module executable. For example, by generating native machine code
 for each Wasm function.</p>
-<h2 id="cargo-features" class="section-header"><a href="#cargo-features">Cargo Features</a></h2>
+<h2 id="cargo-features"><a href="#cargo-features">Cargo Features</a></h2>
 <p>This crate comes in 2 flavors:</p>
 <ol>
 <li><code>sys</code>
@@ -207,7 +213,7 @@ environment</a>).</li>
 </ol>
 <p>Consequently, we can group the features by the <code>sys</code> or <code>js</code>
 features.</p>
-<h3 id="features-for-the-sys-feature-group-enabled" class="section-header"><a href="#features-for-the-sys-feature-group-enabled">Features for the <code>sys</code> feature group (enabled)</a></h3>
+<h3 id="features-for-the-sys-feature-group-enabled"><a href="#features-for-the-sys-feature-group-enabled">Features for the <code>sys</code> feature group (enabled)</a></h3>
 <p>The default features can be enabled with the <code>sys-default</code> feature.</p>
 <p>The features for the <code>sys</code> feature group can be broken down into 2
 kinds: features that enable new functionality and features that
@@ -243,7 +249,7 @@ set Wasmer’s LLVM compiler as the default,</li>
 (disabled),
 set Wasmer’s Singlepass compiler as the default.</li>
 </ul>
-<h3 id="features-for-the-js-feature-group-disabled" class="section-header"><a href="#features-for-the-js-feature-group-disabled">Features for the <code>js</code> feature group (disabled)</a></h3>
+<h3 id="features-for-the-js-feature-group-disabled"><a href="#features-for-the-js-feature-group-disabled">Features for the <code>js</code> feature group (disabled)</a></h3>
 <p>The default features can be enabled with the <code>js-default</code> feature.</p>
 <p>Here are the detailed list of features:</p>
 <ul>
@@ -262,7 +268,7 @@ allows to read a Wasm file in its text format. This feature is
 normally used only in development environments. It will add
 around 650kb to the Wasm bundle (120Kb gzipped).</li>
 </ul>
-<h2 id="using-wasmer-in-a-javascript-environment" class="section-header"><a href="#using-wasmer-in-a-javascript-environment">Using Wasmer in a JavaScript environment</a></h2>
+<h2 id="using-wasmer-in-a-javascript-environment"><a href="#using-wasmer-in-a-javascript-environment">Using Wasmer in a JavaScript environment</a></h2>
 <p>Imagine a Rust program that uses this <code>wasmer</code> crate to execute a
 WebAssembly module. It is possible to compile this Rust progam to
 WebAssembly by turning on the <code>js</code> Cargo feature of this <code>wasmer</code>
@@ -298,7 +304,7 @@ API is the same!</p>
 or <code>js-default</code> Cargo features.</p>
 </div></details><h2 id="reexports" class="small-section-header"><a href="#reexports">Re-exports</a></h2>
 <div class="item-table"><div class="item-row"><div class="item-left import-item"><code>pub use wasmer_compiler::wasmparser;</code></div><div class="item-right docblock-short"></div></div></div><h2 id="modules" class="small-section-header"><a href="#modules">Modules</a></h2>
-<div class="item-table"><div class="item-row"><div class="item-left module-item"><a class="mod" href="sys/index.html" title="wasmer::sys mod">sys</a></div><div class="item-right docblock-short"></div></div><div class="item-row"><div class="item-left module-item"><a class="mod" href="vm/index.html" title="wasmer::vm mod">vm</a></div><div class="item-right docblock-short"><p>The <code>vm</code> module re-exports wasmer-vm types.</p>
+<div class="item-table"><div class="item-row"><div class="item-left module-item"><a class="mod" href="sys/index.html" title="wasmer::sys mod">sys</a><span title="Restricted Visibility">&nbsp;🔒</span> </div><div class="item-right docblock-short"></div></div><div class="item-row"><div class="item-left module-item"><a class="mod" href="vm/index.html" title="wasmer::vm mod">vm</a></div><div class="item-right docblock-short"><p>The <code>vm</code> module re-exports wasmer-vm types.</p>
 </div></div></div><h2 id="macros" class="small-section-header"><a href="#macros">Macros</a></h2>
 <div class="item-table"><div class="item-row"><div class="item-left module-item"><a class="macro" href="macro.imports.html" title="wasmer::imports macro">imports</a></div><div class="item-right docblock-short"><p>Generate an <a href="struct.Imports.html"><code>Imports</code></a> easily with the <code>imports!</code> macro.</p>
 </div></div></div><h2 id="structs" class="small-section-header"><a href="#structs">Structs</a></h2>
@@ -441,5 +447,5 @@ binary WebAssembly module.</p>
 </div></div><div class="item-row"><div class="item-left module-item"><a class="type" href="type.WasmPtr64.html" title="wasmer::WasmPtr64 type">WasmPtr64</a></div><div class="item-right docblock-short"><p>Alias for `WasmPtr&lt;T, Memory64&gt;.</p>
 </div></div><div class="item-row"><div class="item-left module-item"><a class="type" href="type.WasmResult.html" title="wasmer::WasmResult type">WasmResult</a></div><div class="item-right docblock-short"><p>A convenient alias for a <code>Result</code> that uses <code>WasmError</code> as the error type.</p>
 </div></div></div><h2 id="derives" class="small-section-header"><a href="#derives">Derive Macros</a></h2>
-<div class="item-table"><div class="item-row"><div class="item-left module-item"><a class="derive" href="derive.ValueType.html" title="wasmer::ValueType derive">ValueType</a></div><div class="item-right docblock-short"></div></div></div></section><section id="search" class="content hidden"></section></div></main><div id="rustdoc-vars" data-root-path="../" data-current-crate="wasmer" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.59.0 (9d1b2106e 2022-02-23)" ></div>
+<div class="item-table"><div class="item-row"><div class="item-left module-item"><a class="derive" href="derive.ValueType.html" title="wasmer::ValueType derive">ValueType</a></div><div class="item-right docblock-short"></div></div></div></section><section id="search" class="content hidden"></section></div></main><div id="rustdoc-vars" data-root-path="../" data-current-crate="wasmer" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.61.0 (fe5b13d68 2022-05-18)" ></div>
 </body></html>

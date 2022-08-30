@@ -1,8 +1,12 @@
 <!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Manually manage memory through raw pointers."><meta name="keywords" content="rust, rustlang, rust-lang, ptr"><title>wasmer_types::lib::std::ptr - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../../storage.js"></script><script src="../../../../crates.js"></script><script defer src="../../../../main.js"></script>
-    <noscript><link rel="stylesheet" href="../../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../../favicon.svg"></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a class="sidebar-logo" href="../../../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../../../rust-logo.png" alt="logo"></div>
-        </a><h2 class="location">Module ptr</h2><div class="sidebar-elems"><div class="block items"><ul><li><a href="#macros">Macros</a></li><li><a href="#structs">Structs</a></li><li><a href="#traits">Traits</a></li><li><a href="#functions">Functions</a></li></ul></div><div id="sidebar-vars" data-name="ptr" data-ty="mod" data-relpath="./"></div><script defer src="./sidebar-items.js"></script></div></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../../wasmer_types/index.html"><img class="rust-logo" src="../../../../rust-logo.png" alt="logo"></a><nav class="sub"><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu" title="themes"><img width="18" height="18" alt="Pick another theme!" src="../../../../brush.svg"></button><div id="theme-choices" role="menu"></div></div><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" id="help-button" title="help">?</button><a id="settings-menu" href="../../../../settings.html" title="settings"><img width="18" height="18" alt="Change settings" src="../../../../wheel.svg"></a></div></form></nav></div><section id="main-content" class="content"><h1 class="fqn"><span class="in-band">Module <a href="../../../index.html">wasmer_types</a>::<wbr><a href="../../index.html">lib</a>::<wbr><a href="../index.html">std</a>::<wbr><a class="mod" href="#">ptr</a><button id="copy-path" onclick="copy_path(this)" title="Copy item path to clipboard"><img src="../../../../clipboard.svg" width="19" height="18" alt="Copy item path"></button></span><span class="out-of-band"><span class="since" title="Stable since Rust version 1.0.0">1.0.0</span><span id="render-detail"><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class="inner">&#x2212;</span>]</a></span><a class="srclink" href="https://doc.rust-lang.org/1.59.0/src/core/lib.rs.html#294" title="goto source code">[src]</a></span></h1><details class="rustdoc-toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Manually manage memory through raw pointers.</p>
-<p><em><a href="https://doc.rust-lang.org/1.59.0/std/primitive.pointer.html">See also the pointer primitive types</a>.</em></p>
-<h2 id="safety" class="section-header"><a href="#safety">Safety</a></h2>
+    <noscript><link rel="stylesheet" href="../../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../../favicon.svg"></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../../../rust-logo.svg" alt="logo"></div>
+        </a><h2 class="location"></h2>
+    </nav>
+    <nav class="sidebar"><a class="sidebar-logo" href="../../../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../../../rust-logo.svg" alt="logo"></div>
+        </a><h2 class="location"><a href="#">Module ptr</a></h2><div class="sidebar-elems"><section><div class="block"><ul><li><a href="#macros">Macros</a></li><li><a href="#structs">Structs</a></li><li><a href="#traits">Traits</a></li><li><a href="#functions">Functions</a></li></ul></div></section><div id="sidebar-vars" data-name="ptr" data-ty="mod" data-relpath="./"></div><script defer src="./sidebar-items.js"></script></div></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../../wasmer_types/index.html"><img class="rust-logo" src="../../../../rust-logo.svg" alt="logo"></a><nav class="sub"><div class="theme-picker hidden"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu" title="themes"><img width="22" height="22" alt="Pick another theme!" src="../../../../brush.svg"></button><div id="theme-choices" role="menu"></div></div><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><button type="button" id="help-button" title="help">?</button><a id="settings-menu" href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../wheel.svg"></a></div></form></nav></div><section id="main-content" class="content"><div class="main-heading">
+    <h1 class="fqn"><span class="in-band">Module <a href="../../../index.html">wasmer_types</a>::<wbr><a href="../../index.html">lib</a>::<wbr><a href="../index.html">std</a>::<wbr><a class="mod" href="#">ptr</a><button id="copy-path" onclick="copy_path(this)" title="Copy item path to clipboard"><img src="../../../../clipboard.svg" width="19" height="18" alt="Copy item path"></button></span></h1><span class="out-of-band"><span class="since" title="Stable since Rust version 1.0.0">1.0.0</span> · <a class="srclink" href="https://doc.rust-lang.org/1.61.0/src/core/lib.rs.html#296">source</a> · <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class="inner">&#x2212;</span>]</a></span></div><details class="rustdoc-toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Manually manage memory through raw pointers.</p>
+<p><em><a href="https://doc.rust-lang.org/1.61.0/std/primitive.pointer.html">See also the pointer primitive types</a>.</em></p>
+<h2 id="safety"><a href="#safety">Safety</a></h2>
 <p>Many functions in this module take raw pointers as arguments and read from
 or write to them. For this to be safe, these pointers must be <em>valid</em>.
 Whether a pointer is valid depends on the operation it is used for
@@ -34,12 +38,12 @@ be used for inter-thread synchronization.</li>
 underlying object is live and no reference (just raw pointers) is used to
 access the same memory.</li>
 </ul>
-<p>These axioms, along with careful use of <a href="https://doc.rust-lang.org/1.59.0/std/primitive.pointer.html#method.offset"><code>offset</code></a> for pointer arithmetic,
+<p>These axioms, along with careful use of <a href="https://doc.rust-lang.org/1.61.0/std/primitive.pointer.html#method.offset"><code>offset</code></a> for pointer arithmetic,
 are enough to correctly implement many useful things in unsafe code. Stronger guarantees
 will be provided eventually, as the <a href="../../nomicon/aliasing.html">aliasing</a> rules are being determined. For more
 information, see the <a href="../../book/ch19-01-unsafe-rust.html#dereferencing-a-raw-pointer">book</a> as well as the section in the reference devoted
 to <a href="../../reference/behavior-considered-undefined.html">undefined behavior</a>.</p>
-<h3 id="alignment" class="section-header"><a href="#alignment">Alignment</a></h3>
+<h3 id="alignment"><a href="#alignment">Alignment</a></h3>
 <p>Valid raw pointers as defined above are not necessarily properly aligned (where
 “proper” alignment is defined by the pointee type, i.e., <code>*const T</code> must be
 aligned to <code>mem::align_of::&lt;T&gt;()</code>). However, most functions require their
@@ -49,12 +53,229 @@ this requirement in their documentation. Notable exceptions to this are
 <p>When a function requires proper alignment, it does so even if the access
 has size 0, i.e., even if memory is not actually touched. Consider using
 <a href="struct.NonNull.html#method.dangling" title="NonNull::dangling"><code>NonNull::dangling</code></a> in such cases.</p>
-<h3 id="allocated-object" class="section-header"><a href="#allocated-object">Allocated object</a></h3>
-<p>For several operations, such as <a href="https://doc.rust-lang.org/1.59.0/std/primitive.pointer.html#method.offset"><code>offset</code></a> or field projections (<code>expr.field</code>), the notion of an
+<h3 id="allocated-object"><a href="#allocated-object">Allocated object</a></h3>
+<p>For several operations, such as <a href="https://doc.rust-lang.org/1.61.0/std/primitive.pointer.html#method.offset"><code>offset</code></a> or field projections (<code>expr.field</code>), the notion of an
 “allocated object” becomes relevant. An allocated object is a contiguous region of memory.
 Common examples of allocated objects include stack-allocated variables (each variable is a
 separate allocated object), heap allocations (each allocation created by the global allocator is
 a separate allocated object), and <code>static</code> variables.</p>
+<h2 id="strict-provenance"><a href="#strict-provenance">Strict Provenance</a></h2>
+<p><strong>The following text is non-normative, insufficiently formal, and is an extremely strict
+interpretation of provenance. It’s ok if your code doesn’t strictly conform to it.</strong></p>
+<p><a href="https://github.com/rust-lang/rust/issues/95228">Strict Provenance</a> is an experimental set of APIs that help tools that try
+to validate the memory-safety of your program’s execution. Notably this includes <a href="https://github.com/rust-lang/miri">miri</a>
+and <a href="https://www.cl.cam.ac.uk/research/security/ctsrd/cheri/">CHERI</a>, which can detect when you access out of bounds memory or otherwise violate
+Rust’s memory model.</p>
+<p>Provenance must exist in some form for any programming
+language compiled for modern computer architectures, but specifying a model for provenance
+in a way that is useful to both compilers and programmers is an ongoing challenge.
+The <a href="https://github.com/rust-lang/rust/issues/95228">Strict Provenance</a> experiment seeks to explore the question: <em>what if we just said you
+couldn’t do all the nasty operations that make provenance so messy?</em></p>
+<p>What APIs would have to be removed? What APIs would have to be added? How much would code
+have to change, and is it worse or better now? Would any patterns become truly inexpressible?
+Could we carve out special exceptions for those patterns? Should we?</p>
+<p>A secondary goal of this project is to see if we can disambiguate the many functions of
+pointer&lt;-&gt;integer casts enough for the definition of <code>usize</code> to be loosened so that it
+isn’t <em>pointer</em>-sized but address-space/offset/allocation-sized (we’ll probably continue
+to conflate these notions). This would potentially make it possible to more efficiently
+target platforms where pointers are larger than offsets, such as CHERI and maybe some
+segmented architecures.</p>
+<h3 id="provenance"><a href="#provenance">Provenance</a></h3>
+<p><strong>This section is <em>non-normative</em> and is part of the <a href="https://github.com/rust-lang/rust/issues/95228">Strict Provenance</a> experiment.</strong></p>
+<p>Pointers are not <em>simply</em> an “integer” or “address”. For instance, it’s uncontroversial
+to say that a Use After Free is clearly Undefined Behaviour, even if you “get lucky”
+and the freed memory gets reallocated before your read/write (in fact this is the
+worst-case scenario, UAFs would be much less concerning if this didn’t happen!).
+To rationalize this claim, pointers need to somehow be <em>more</em> than just their addresses:
+they must have provenance.</p>
+<p>When an allocation is created, that allocation has a unique Original Pointer. For alloc
+APIs this is literally the pointer the call returns, and for local variables and statics,
+this is the name of the variable/static. This is mildly overloading the term “pointer”
+for the sake of brevity/exposition.</p>
+<p>The Original Pointer for an allocation is guaranteed to have unique access to the entire
+allocation and <em>only</em> that allocation. In this sense, an allocation can be thought of
+as a “sandbox” that cannot be broken into or out of. <em>Provenance</em> is the permission
+to access an allocation’s sandbox and has both a <em>spatial</em> and <em>temporal</em> component:</p>
+<ul>
+<li>Spatial: A range of bytes that the pointer is allowed to access.</li>
+<li>Temporal: The lifetime (of the allocation) that access to these bytes is tied to.</li>
+</ul>
+<p>Spatial provenance makes sure you don’t go beyond your sandbox, while temporal provenance
+makes sure that you can’t “get lucky” after your permission to access some memory
+has been revoked (either through deallocations or borrows expiring).</p>
+<p>Provenance is implicitly shared with all pointers transitively derived from
+The Original Pointer through operations like <a href="https://doc.rust-lang.org/1.61.0/std/primitive.pointer.html#method.offset"><code>offset</code></a>, borrowing, and pointer casts.
+Some operations may <em>shrink</em> the derived provenance, limiting how much memory it can
+access or how long it’s valid for (i.e. borrowing a subfield and subslicing).</p>
+<p>Shrinking provenance cannot be undone: even if you “know” there is a larger allocation, you
+can’t derive a pointer with a larger provenance. Similarly, you cannot “recombine”
+two contiguous provenances back into one (i.e. with a <code>fn merge(&amp;[T], &amp;[T]) -&gt; &amp;[T]</code>).</p>
+<p>A reference to a value always has provenance over exactly the memory that field occupies.
+A reference to a slice always has provenance over exactly the range that slice describes.</p>
+<p>If an allocation is deallocated, all pointers with provenance to that allocation become
+invalidated, and effectively lose their provenance.</p>
+<p>The strict provenance experiment is mostly only interested in exploring stricter <em>spatial</em>
+provenance. In this sense it can be thought of as a subset of the more ambitious and
+formal <a href="https://plv.mpi-sws.org/rustbelt/stacked-borrows/">Stacked Borrows</a> research project, which is what tools like <a href="https://github.com/rust-lang/miri">miri</a> are based on.
+In particular, Stacked Borrows is necessary to properly describe what borrows are allowed
+to do and when they become invalidated. This necessarily involves much more complex
+<em>temporal</em> reasoning than simply identifying allocations. Adjusting APIs and code
+for the strict provenance experiment will also greatly help Stacked Borrows.</p>
+<h3 id="pointer-vs-addresses"><a href="#pointer-vs-addresses">Pointer Vs Addresses</a></h3>
+<p><strong>This section is <em>non-normative</em> and is part of the <a href="https://github.com/rust-lang/rust/issues/95228">Strict Provenance</a> experiment.</strong></p>
+<p>One of the largest historical issues with trying to define provenance is that programmers
+freely convert between pointers and integers. Once you allow for this, it generally becomes
+impossible to accurately track and preserve provenance information, and you need to appeal
+to very complex and unreliable heuristics. But of course, converting between pointers and
+integers is very useful, so what can we do?</p>
+<p>Also did you know WASM is actually a “Harvard Architecture”? As in function pointers are
+handled completely differently from data pointers? And we kind of just shipped Rust on WASM
+without really addressing the fact that we let you freely convert between function pointers
+and data pointers, because it mostly Just Works? Let’s just put that on the “pointer casts
+are dubious” pile.</p>
+<p>Strict Provenance attempts to square these circles by decoupling Rust’s traditional conflation
+of pointers and <code>usize</code> (and <code>isize</code>), and defining a pointer to semantically contain the
+following information:</p>
+<ul>
+<li>The <strong>address-space</strong> it is part of (e.g. “data” vs “code” in WASM).</li>
+<li>The <strong>address</strong> it points to, which can be represented by a <code>usize</code>.</li>
+<li>The <strong>provenance</strong> it has, defining the memory it has permission to access.</li>
+</ul>
+<p>Under Strict Provenance, a usize <em>cannot</em> accurately represent a pointer, and converting from
+a pointer to a usize is generally an operation which <em>only</em> extracts the address. It is
+therefore <em>impossible</em> to construct a valid pointer from a usize because there is no way
+to restore the address-space and provenance.</p>
+<p>The key insight to making this model <em>at all</em> viable is the <a href="https://doc.rust-lang.org/1.61.0/std/primitive.pointer.html#method.with_addr"><code>with_addr</code></a> method:</p>
+<div class="example-wrap"><pre class="language-text"><code>    /// Creates a new pointer with the given address.
+    ///
+    /// This performs the same operation as an `addr as ptr` cast, but copies
+    /// the *address-space* and *provenance* of `self` to the new pointer.
+    /// This allows us to dynamically preserve and propagate this important
+    /// information in a way that is otherwise impossible with a unary cast.
+    ///
+    /// This is equivalent to using `wrapping_offset` to offset `self` to the
+    /// given address, and therefore has all the same capabilities and restrictions.
+    pub fn with_addr(self, addr: usize) -&gt; Self;</code></pre></div>
+<p>So you’re still able to drop down to the address representation and do whatever
+clever bit tricks you want <em>as long as</em> you’re able to keep around a pointer
+into the allocation you care about that can “reconstitute” the other parts of the pointer.
+Usually this is very easy, because you only are taking a pointer, messing with the address,
+and then immediately converting back to a pointer. To make this use case more ergonomic,
+we provide the <a href="https://doc.rust-lang.org/1.61.0/std/primitive.pointer.html#method.map_addr"><code>map_addr</code></a> method.</p>
+<p>To help make it clear that code is “following” Strict Provenance semantics, we also
+provide an <a href="https://doc.rust-lang.org/1.61.0/std/primitive.pointer.html#method.addr"><code>addr</code></a> method which is currently equivalent to <code>ptr as usize</code>. In the
+future we may provide a lint for pointer&lt;-&gt;integer casts to help you audit if your
+code conforms to strict provenance.</p>
+<h3 id="using-strict-provenance"><a href="#using-strict-provenance">Using Strict Provenance</a></h3>
+<p>Most code needs no changes to conform to strict provenance, as the only really concerning
+operation that <em>wasn’t</em> obviously already Undefined Behaviour is casts from usize to a
+pointer. For code which <em>does</em> cast a usize to a pointer, the scope of the change depends
+on exactly what you’re doing.</p>
+<p>In general you just need to make sure that if you want to convert a usize address to a
+pointer and then use that pointer to read/write memory, you need to keep around a pointer
+that has sufficient provenance to perform that read/write itself. In this way all of your
+casts from an address to a pointer are essentially just applying offsets/indexing.</p>
+<p>This is generally trivial to do for simple cases like tagged pointers <em>as long as you
+represent the tagged pointer as an actual pointer and not a usize</em>. For instance:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attribute">#![<span class="ident">feature</span>(<span class="ident">strict_provenance</span>)]</span>
+
+<span class="kw">unsafe</span> {
+    <span class="comment">// A flag we want to pack into our pointer</span>
+    <span class="kw">static</span> <span class="ident">HAS_DATA</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="number">0x1</span>;
+    <span class="kw">static</span> <span class="ident">FLAG_MASK</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="op">!</span><span class="ident">HAS_DATA</span>;
+
+    <span class="comment">// Our value, which must have enough alignment to have spare least-significant-bits.</span>
+    <span class="kw">let</span> <span class="ident">my_precious_data</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">17</span>;
+    <span class="macro">assert!</span>(<span class="ident">core::mem::align_of</span>::<span class="op">&lt;</span><span class="ident">u32</span><span class="op">&gt;</span>() <span class="op">&gt;</span> <span class="number">1</span>);
+
+    <span class="comment">// Create a tagged pointer</span>
+    <span class="kw">let</span> <span class="ident">ptr</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">my_precious_data</span> <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">u32</span>;
+    <span class="kw">let</span> <span class="ident">tagged</span> <span class="op">=</span> <span class="ident">ptr</span>.<span class="ident">map_addr</span>(<span class="op">|</span><span class="ident">addr</span><span class="op">|</span> <span class="ident">addr</span> <span class="op">|</span> <span class="ident">HAS_DATA</span>);
+
+    <span class="comment">// Check the flag:</span>
+    <span class="kw">if</span> <span class="ident">tagged</span>.<span class="ident">addr</span>() <span class="op">&amp;</span> <span class="ident">HAS_DATA</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
+        <span class="comment">// Untag and read the pointer</span>
+        <span class="kw">let</span> <span class="ident">data</span> <span class="op">=</span> <span class="kw-2">*</span><span class="ident">tagged</span>.<span class="ident">map_addr</span>(<span class="op">|</span><span class="ident">addr</span><span class="op">|</span> <span class="ident">addr</span> <span class="op">&amp;</span> <span class="ident">FLAG_MASK</span>);
+        <span class="macro">assert_eq!</span>(<span class="ident">data</span>, <span class="number">17</span>);
+    } <span class="kw">else</span> {
+        <span class="macro">unreachable!</span>()
+    }
+}</code></pre></div>
+<p>(Yes, if you’ve been using AtomicUsize for pointers in concurrent datastructures, you should
+be using AtomicPtr instead. If that messes up the way you atomically manipulate pointers,
+we would like to know why, and what needs to be done to fix it.)</p>
+<p>Something more complicated and just generally <em>evil</em> like an XOR-List requires more significant
+changes like allocating all nodes in a pre-allocated Vec or Arena and using a pointer
+to the whole allocation to reconstitute the XORed addresses.</p>
+<p>Situations where a valid pointer <em>must</em> be created from just an address, such as baremetal code
+accessing a memory-mapped interface at a fixed address, are an open question on how to support.
+These situations <em>will</em> still be allowed, but we might require some kind of “I know what I’m
+doing” annotation to explain the situation to the compiler. It’s also possible they need no
+special attention at all, because they’re generally accessing memory outside the scope of
+“the abstract machine”, or already using “I know what I’m doing” annotations like “volatile”.</p>
+<p>Under <a href="https://github.com/rust-lang/rust/issues/95228">Strict Provenance</a> it is Undefined Behaviour to:</p>
+<ul>
+<li>
+<p>Access memory through a pointer that does not have provenance over that memory.</p>
+</li>
+<li>
+<p><a href="https://doc.rust-lang.org/1.61.0/std/primitive.pointer.html#method.offset"><code>offset</code></a> a pointer to or from an address it doesn’t have provenance over.
+This means it’s always UB to offset a pointer derived from something deallocated,
+even if the offset is 0. Note that a pointer “one past the end” of its provenance
+is not actually outside its provenance, it just has 0 bytes it can load/store.</p>
+</li>
+</ul>
+<p>But it <em>is</em> still sound to:</p>
+<ul>
+<li>
+<p>Create an invalid pointer from just an address (see <a href="fn.invalid.html"><code>ptr::invalid</code></a>). This can
+be used for sentinel values like <code>null</code> <em>or</em> to represent a tagged pointer that will
+never be dereferencable. In general, it is always sound for an integer to pretend
+to be a pointer “for fun” as long as you don’t use operations on it which require
+it to be valid (offset, read, write, etc).</p>
+</li>
+<li>
+<p>Forge an allocation of size zero at any sufficiently aligned non-null address.
+i.e. the usual “ZSTs are fake, do what you want” rules apply <em>but</em> this only applies
+for actual forgery (integers cast to pointers). If you borrow some struct’s field
+that <em>happens</em> to be zero-sized, the resulting pointer will have provenance tied to
+that allocation and it will still get invalidated if the allocation gets deallocated.
+In the future we may introduce an API to make such a forged allocation explicit.</p>
+</li>
+<li>
+<p><a href="https://doc.rust-lang.org/1.61.0/std/primitive.pointer.html#method.wrapping_offset"><code>wrapping_offset</code></a> a pointer outside its provenance. This includes invalid pointers
+which have “no” provenance. Unfortunately there may be practical limits on this for a
+particular platform, and it’s an open question as to how to specify this (if at all).
+Notably, <a href="https://www.cl.cam.ac.uk/research/security/ctsrd/cheri/">CHERI</a> relies on a compression scheme that can’t handle a
+pointer getting offset “too far” out of bounds. If this happens, the address
+returned by <code>addr</code> will be the value you expect, but the provenance will get invalidated
+and using it to read/write will fault. The details of this are architecture-specific
+and based on alignment, but the buffer on either side of the pointer’s range is pretty
+generous (think kilobytes, not bytes).</p>
+</li>
+<li>
+<p>Compare arbitrary pointers by address. Addresses <em>are</em> just integers and so there is
+always a coherent answer, even if the pointers are invalid or from different
+address-spaces/provenances. Of course, comparing addresses from different address-spaces
+is generally going to be <em>meaningless</em>, but so is comparing Kilograms to Meters, and Rust
+doesn’t prevent that either. Similarly, if you get “lucky” and notice that a pointer
+one-past-the-end is the “same” address as the start of an unrelated allocation, anything
+you do with that fact is <em>probably</em> going to be gibberish. The scope of that gibberish
+is kept under control by the fact that the two pointers <em>still</em> aren’t allowed to access
+the other’s allocation (bytes), because they still have different provenance.</p>
+</li>
+<li>
+<p>Perform pointer tagging tricks. This falls out of <a href="https://doc.rust-lang.org/1.61.0/std/primitive.pointer.html#method.wrapping_offset"><code>wrapping_offset</code></a> but is worth
+mentioning in more detail because of the limitations of <a href="https://www.cl.cam.ac.uk/research/security/ctsrd/cheri/">CHERI</a>. Low-bit tagging
+is very robust, and often doesn’t even go out of bounds because types ensure
+size &gt;= align (and over-aligning actually gives CHERI more flexibility). Anything
+more complex than this rapidly enters “extremely platform-specific” territory as
+certain things may or may not be allowed based on specific supported operations.
+For instance, ARM explicitly supports high-bit tagging, and so CHERI on ARM inherits
+that and should support it.</p>
+</li>
+</ul>
 </div></details><h2 id="macros" class="small-section-header"><a href="#macros">Macros</a></h2>
 <div class="item-table"><div class="item-row"><div class="item-left module-item"><a class="macro" href="macro.addr_of.html" title="wasmer_types::lib::std::ptr::addr_of macro">addr_of</a></div><div class="item-right docblock-short"><p>Create a <code>const</code> raw pointer to a place, without creating an intermediate reference.</p>
 </div></div><div class="item-row"><div class="item-left module-item"><a class="macro" href="macro.addr_of_mut.html" title="wasmer_types::lib::std::ptr::addr_of_mut macro">addr_of_mut</a></div><div class="item-right docblock-short"><p>Create a <code>mut</code> raw pointer to a place, without creating an intermediate reference.</p>
@@ -67,6 +288,8 @@ a separate allocated object), and <code>static</code> variables.</p>
 <div class="item-table"><div class="item-row"><div class="item-left unstable module-item"><a class="fn" href="fn.from_raw_parts.html" title="wasmer_types::lib::std::ptr::from_raw_parts fn">from_raw_parts</a><span class="stab unstable" title="">Experimental</span></div><div class="item-right docblock-short"><p>Forms a (possibly-wide) raw pointer from a data address and metadata.</p>
 </div></div><div class="item-row"><div class="item-left unstable module-item"><a class="fn" href="fn.from_raw_parts_mut.html" title="wasmer_types::lib::std::ptr::from_raw_parts_mut fn">from_raw_parts_mut</a><span class="stab unstable" title="">Experimental</span></div><div class="item-right docblock-short"><p>Performs the same functionality as <a href="fn.from_raw_parts.html" title="from_raw_parts"><code>from_raw_parts</code></a>, except that a
 raw <code>*mut</code> pointer is returned, as opposed to a raw <code>*const</code> pointer.</p>
+</div></div><div class="item-row"><div class="item-left unstable module-item"><a class="fn" href="fn.invalid.html" title="wasmer_types::lib::std::ptr::invalid fn">invalid</a><span class="stab unstable" title="">Experimental</span></div><div class="item-right docblock-short"><p>Creates an invalid pointer with the given address.</p>
+</div></div><div class="item-row"><div class="item-left unstable module-item"><a class="fn" href="fn.invalid_mut.html" title="wasmer_types::lib::std::ptr::invalid_mut fn">invalid_mut</a><span class="stab unstable" title="">Experimental</span></div><div class="item-right docblock-short"><p>Creates an invalid mutable pointer with the given address.</p>
 </div></div><div class="item-row"><div class="item-left unstable module-item"><a class="fn" href="fn.metadata.html" title="wasmer_types::lib::std::ptr::metadata fn">metadata</a><span class="stab unstable" title="">Experimental</span></div><div class="item-right docblock-short"><p>Extract the metadata component of a pointer.</p>
 </div></div><div class="item-row"><div class="item-left module-item"><a class="fn" href="fn.copy.html" title="wasmer_types::lib::std::ptr::copy fn">copy</a><a title="unsafe function" href="#"><sup>⚠</sup></a></div><div class="item-right docblock-short"><p>Copies <code>count * size_of::&lt;T&gt;()</code> bytes from <code>src</code> to <code>dst</code>. The source
 and destination may overlap.</p>
@@ -99,5 +322,5 @@ dropping the old value.</p>
 dropping the old value.</p>
 </div></div><div class="item-row"><div class="item-left module-item"><a class="fn" href="fn.write_volatile.html" title="wasmer_types::lib::std::ptr::write_volatile fn">write_volatile</a><a title="unsafe function" href="#"><sup>⚠</sup></a></div><div class="item-right docblock-short"><p>Performs a volatile write of a memory location with the given value without
 reading or dropping the old value.</p>
-</div></div></div></section><section id="search" class="content hidden"></section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer_types" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.59.0 (9d1b2106e 2022-02-23)" ></div>
+</div></div></div></section><section id="search" class="content hidden"></section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer_types" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.61.0 (fe5b13d68 2022-05-18)" ></div>
 </body></html>
