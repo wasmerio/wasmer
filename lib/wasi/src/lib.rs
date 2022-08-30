@@ -399,6 +399,7 @@ pub fn generate_import_object_from_env(
         WasiVersion::Wasix32v1 => generate_import_object_wasix32_v1(store, env),
         #[cfg(feature = "wasix")]
         WasiVersion::Wasix64v1 => generate_import_object_wasix64_v1(store, env),
+        #[allow(unreachable_code)]
         _ => unimplemented!(),
     }
 }
