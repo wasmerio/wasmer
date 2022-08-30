@@ -533,7 +533,7 @@ pub unsafe extern "C" fn wasi_console_out_seek(
 pub unsafe extern "C" fn wasi_console_out_clone(
     ptr: *const wasi_console_out_t,
 ) -> *mut wasi_console_out_t {
-    Box::leak(Box::new((&*ptr).clone()))
+    Box::leak(Box::new((*ptr).clone()))
 }
 
 #[derive(Debug)]
