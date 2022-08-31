@@ -967,6 +967,7 @@ impl MachineARM64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
         cb: F,
     ) -> Result<(), CompileError> {
         let tmp_addr = self.acquire_temp_gpr().ok_or_else(|| {
@@ -1103,7 +1104,7 @@ impl MachineARM64 {
                 Location::GPR(tmp_addr),
             )?;
             self.assembler
-                .emit_bcond_label_far(Condition::Ne, heap_access_oob)?;
+                .emit_bcond_label_far(Condition::Ne, unaligned_atomic)?;
         }
         let begin = self.assembler.get_offset().0;
         cb(self, tmp_addr)?;
@@ -1127,6 +1128,7 @@ impl MachineARM64 {
         _imported_memories: bool,
         _offset: i32,
         _heap_access_oob: Label,
+        _unaligned_atomic: Label,
         _cb: F,
     ) {
         unimplemented!();
@@ -3175,6 +3177,7 @@ impl Machine for MachineARM64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.memory_op(
             addr,
@@ -3185,6 +3188,7 @@ impl Machine for MachineARM64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| this.emit_relaxed_ldr32(Size::S32, ret, Location::Memory(addr, 0)),
         )
     }
@@ -3197,6 +3201,7 @@ impl Machine for MachineARM64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.memory_op(
             addr,
@@ -3207,6 +3212,7 @@ impl Machine for MachineARM64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| this.emit_relaxed_ldr8(Size::S32, ret, Location::Memory(addr, 0)),
         )
     }
@@ -3219,6 +3225,7 @@ impl Machine for MachineARM64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.memory_op(
             addr,
@@ -3229,6 +3236,7 @@ impl Machine for MachineARM64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| this.emit_relaxed_ldr8s(Size::S32, ret, Location::Memory(addr, 0)),
         )
     }
@@ -3241,6 +3249,7 @@ impl Machine for MachineARM64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.memory_op(
             addr,
@@ -3251,6 +3260,7 @@ impl Machine for MachineARM64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| this.emit_relaxed_ldr16(Size::S32, ret, Location::Memory(addr, 0)),
         )
     }
@@ -3263,6 +3273,7 @@ impl Machine for MachineARM64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.memory_op(
             addr,
@@ -3273,6 +3284,7 @@ impl Machine for MachineARM64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| this.emit_relaxed_ldr16s(Size::S32, ret, Location::Memory(addr, 0)),
         )
     }
@@ -3285,6 +3297,7 @@ impl Machine for MachineARM64 {
         _imported_memories: bool,
         _offset: i32,
         _heap_access_oob: Label,
+        _unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass i32_atomic_load unimplemented");
     }
@@ -3297,6 +3310,7 @@ impl Machine for MachineARM64 {
         _imported_memories: bool,
         _offset: i32,
         _heap_access_oob: Label,
+        _unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass i32_atomic_load_8u unimplemented");
     }
@@ -3309,6 +3323,7 @@ impl Machine for MachineARM64 {
         _imported_memories: bool,
         _offset: i32,
         _heap_access_oob: Label,
+        _unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass i32_atomic_load_16u unimplemented");
     }
@@ -3321,6 +3336,7 @@ impl Machine for MachineARM64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.memory_op(
             target_addr,
@@ -3331,6 +3347,7 @@ impl Machine for MachineARM64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| this.emit_relaxed_str32(target_value, Location::Memory(addr, 0)),
         )
     }
@@ -3343,6 +3360,7 @@ impl Machine for MachineARM64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.memory_op(
             target_addr,
@@ -3353,6 +3371,7 @@ impl Machine for MachineARM64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| this.emit_relaxed_str8(target_value, Location::Memory(addr, 0)),
         )
     }
@@ -3365,6 +3384,7 @@ impl Machine for MachineARM64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.memory_op(
             target_addr,
@@ -3375,6 +3395,7 @@ impl Machine for MachineARM64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| this.emit_relaxed_str16(target_value, Location::Memory(addr, 0)),
         )
     }
@@ -3387,6 +3408,7 @@ impl Machine for MachineARM64 {
         _imported_memories: bool,
         _offset: i32,
         _heap_access_oob: Label,
+        _unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass i32_atomic_save unimplemented");
     }
@@ -3399,6 +3421,7 @@ impl Machine for MachineARM64 {
         _imported_memories: bool,
         _offset: i32,
         _heap_access_oob: Label,
+        _unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass i32_atomic_save_8 unimplemented");
     }
@@ -3411,6 +3434,7 @@ impl Machine for MachineARM64 {
         _imported_memories: bool,
         _offset: i32,
         _heap_access_oob: Label,
+        _unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass i32_atomic_save_16 unimplemented");
     }
@@ -3425,6 +3449,7 @@ impl Machine for MachineARM64 {
         _imported_memories: bool,
         _offset: i32,
         _heap_access_oob: Label,
+        _unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass i32_atomic_add unimplemented");
     }
@@ -3439,6 +3464,7 @@ impl Machine for MachineARM64 {
         _imported_memories: bool,
         _offset: i32,
         _heap_access_oob: Label,
+        _unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass i32_atomic_add_8u unimplemented");
     }
@@ -3453,6 +3479,7 @@ impl Machine for MachineARM64 {
         _imported_memories: bool,
         _offset: i32,
         _heap_access_oob: Label,
+        _unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass i32_atomic_add_16u unimplemented");
     }
@@ -3467,6 +3494,7 @@ impl Machine for MachineARM64 {
         _imported_memories: bool,
         _offset: i32,
         _heap_access_oob: Label,
+        _unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass i32_atomic_sub unimplemented");
     }
@@ -3481,6 +3509,7 @@ impl Machine for MachineARM64 {
         _imported_memories: bool,
         _offset: i32,
         _heap_access_oob: Label,
+        _unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass i32_atomic_sub_8u unimplemented");
     }
@@ -3495,6 +3524,7 @@ impl Machine for MachineARM64 {
         _imported_memories: bool,
         _offset: i32,
         _heap_access_oob: Label,
+        _unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass i32_atomic_sub_16u unimplemented");
     }
@@ -3509,6 +3539,7 @@ impl Machine for MachineARM64 {
         _imported_memories: bool,
         _offset: i32,
         _heap_access_oob: Label,
+        _unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass i32_atomic_and unimplemented");
     }
@@ -3523,6 +3554,7 @@ impl Machine for MachineARM64 {
         _imported_memories: bool,
         _offset: i32,
         _heap_access_oob: Label,
+        _unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass i32_atomic_and_8u unimplemented");
     }
@@ -3537,6 +3569,7 @@ impl Machine for MachineARM64 {
         _imported_memories: bool,
         _offset: i32,
         _heap_access_oob: Label,
+        _unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass i32_atomic_and_16u unimplemented");
     }
@@ -3551,6 +3584,7 @@ impl Machine for MachineARM64 {
         _imported_memories: bool,
         _offset: i32,
         _heap_access_oob: Label,
+        _unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass i32_atomic_or unimplemented");
     }
@@ -3565,6 +3599,7 @@ impl Machine for MachineARM64 {
         _imported_memories: bool,
         _offset: i32,
         _heap_access_oob: Label,
+        _unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass i32_atomic_or_8u unimplemented");
     }
@@ -3579,6 +3614,7 @@ impl Machine for MachineARM64 {
         _imported_memories: bool,
         _offset: i32,
         _heap_access_oob: Label,
+        _unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass i32_atomic_or_16u unimplemented");
     }
@@ -3593,6 +3629,7 @@ impl Machine for MachineARM64 {
         _imported_memories: bool,
         _offset: i32,
         _heap_access_oob: Label,
+        _unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass i32_atomic_xor unimplemented");
     }
@@ -3607,6 +3644,7 @@ impl Machine for MachineARM64 {
         _imported_memories: bool,
         _offset: i32,
         _heap_access_oob: Label,
+        _unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass i32_atomic_xor_8u unimplemented");
     }
@@ -3621,6 +3659,7 @@ impl Machine for MachineARM64 {
         _imported_memories: bool,
         _offset: i32,
         _heap_access_oob: Label,
+        _unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass i32_atomic_xor_16u unimplemented");
     }
@@ -3635,6 +3674,7 @@ impl Machine for MachineARM64 {
         _imported_memories: bool,
         _offset: i32,
         _heap_access_oob: Label,
+        _unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass i32_atomic_xchg unimplemented");
     }
@@ -3649,6 +3689,7 @@ impl Machine for MachineARM64 {
         _imported_memories: bool,
         _offset: i32,
         _heap_access_oob: Label,
+        _unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass i32_atomic_xchg_8u unimplemented");
     }
@@ -3663,6 +3704,7 @@ impl Machine for MachineARM64 {
         _imported_memories: bool,
         _offset: i32,
         _heap_access_oob: Label,
+        _unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass i32_atomic_xchg_16u unimplemented");
     }
@@ -3678,6 +3720,7 @@ impl Machine for MachineARM64 {
         _imported_memories: bool,
         _offset: i32,
         _heap_access_oob: Label,
+        _unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass i32_atomic_cmpxchg unimplemented");
     }
@@ -3693,6 +3736,7 @@ impl Machine for MachineARM64 {
         _imported_memories: bool,
         _offset: i32,
         _heap_access_oob: Label,
+        _unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass i32_atomic_cmpxchg_8u unimplemented");
     }
@@ -3708,6 +3752,7 @@ impl Machine for MachineARM64 {
         _imported_memories: bool,
         _offset: i32,
         _heap_access_oob: Label,
+        _unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass i32_atomic_cmpxchg_16u unimplemented");
     }
@@ -4214,6 +4259,7 @@ impl Machine for MachineARM64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.memory_op(
             addr,
@@ -4224,6 +4270,7 @@ impl Machine for MachineARM64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| this.emit_relaxed_ldr64(Size::S64, ret, Location::Memory(addr, 0)),
         )
     }
@@ -4236,6 +4283,7 @@ impl Machine for MachineARM64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.memory_op(
             addr,
@@ -4246,6 +4294,7 @@ impl Machine for MachineARM64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| this.emit_relaxed_ldr8(Size::S64, ret, Location::Memory(addr, 0)),
         )
     }
@@ -4258,6 +4307,7 @@ impl Machine for MachineARM64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.memory_op(
             addr,
@@ -4268,6 +4318,7 @@ impl Machine for MachineARM64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| this.emit_relaxed_ldr8s(Size::S64, ret, Location::Memory(addr, 0)),
         )
     }
@@ -4280,6 +4331,7 @@ impl Machine for MachineARM64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.memory_op(
             addr,
@@ -4290,6 +4342,7 @@ impl Machine for MachineARM64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| this.emit_relaxed_ldr16(Size::S64, ret, Location::Memory(addr, 0)),
         )
     }
@@ -4302,6 +4355,7 @@ impl Machine for MachineARM64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.memory_op(
             addr,
@@ -4312,6 +4366,7 @@ impl Machine for MachineARM64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| this.emit_relaxed_ldr16s(Size::S64, ret, Location::Memory(addr, 0)),
         )
     }
@@ -4324,6 +4379,7 @@ impl Machine for MachineARM64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.memory_op(
             addr,
@@ -4334,6 +4390,7 @@ impl Machine for MachineARM64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| this.emit_relaxed_ldr32(Size::S64, ret, Location::Memory(addr, 0)),
         )
     }
@@ -4346,6 +4403,7 @@ impl Machine for MachineARM64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.memory_op(
             addr,
@@ -4356,6 +4414,7 @@ impl Machine for MachineARM64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| this.emit_relaxed_ldr32s(Size::S64, ret, Location::Memory(addr, 0)),
         )
     }
@@ -4368,6 +4427,7 @@ impl Machine for MachineARM64 {
         _imported_memories: bool,
         _offset: i32,
         _heap_access_oob: Label,
+        _unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass i64_atomic_load unimplemented");
     }
@@ -4380,6 +4440,7 @@ impl Machine for MachineARM64 {
         _imported_memories: bool,
         _offset: i32,
         _heap_access_oob: Label,
+        _unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass i64_atomic_load_8u unimplemented");
     }
@@ -4392,6 +4453,7 @@ impl Machine for MachineARM64 {
         _imported_memories: bool,
         _offset: i32,
         _heap_access_oob: Label,
+        _unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass i64_atomic_load_16u unimplemented");
     }
@@ -4404,6 +4466,7 @@ impl Machine for MachineARM64 {
         _imported_memories: bool,
         _offset: i32,
         _heap_access_oob: Label,
+        _unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass i64_atomic_load_32u unimplemented");
     }
@@ -4416,6 +4479,7 @@ impl Machine for MachineARM64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.memory_op(
             target_addr,
@@ -4426,6 +4490,7 @@ impl Machine for MachineARM64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| this.emit_relaxed_str64(target_value, Location::Memory(addr, 0)),
         )
     }
@@ -4438,6 +4503,7 @@ impl Machine for MachineARM64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.memory_op(
             target_addr,
@@ -4448,6 +4514,7 @@ impl Machine for MachineARM64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| this.emit_relaxed_str8(target_value, Location::Memory(addr, 0)),
         )
     }
@@ -4460,6 +4527,7 @@ impl Machine for MachineARM64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.memory_op(
             target_addr,
@@ -4470,6 +4538,7 @@ impl Machine for MachineARM64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| this.emit_relaxed_str16(target_value, Location::Memory(addr, 0)),
         )
     }
@@ -4482,6 +4551,7 @@ impl Machine for MachineARM64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.memory_op(
             target_addr,
@@ -4492,6 +4562,7 @@ impl Machine for MachineARM64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| this.emit_relaxed_str32(target_value, Location::Memory(addr, 0)),
         )
     }
@@ -4504,6 +4575,7 @@ impl Machine for MachineARM64 {
         _imported_memories: bool,
         _offset: i32,
         _heap_access_oob: Label,
+        _unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass i64_atomic_save unimplemented");
     }
@@ -4516,6 +4588,7 @@ impl Machine for MachineARM64 {
         _imported_memories: bool,
         _offset: i32,
         _heap_access_oob: Label,
+        _unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass i64_atomic_save_8 unimplemented");
     }
@@ -4528,6 +4601,7 @@ impl Machine for MachineARM64 {
         _imported_memories: bool,
         _offset: i32,
         _heap_access_oob: Label,
+        _unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass i64_atomic_save_16 unimplemented");
     }
@@ -4540,6 +4614,7 @@ impl Machine for MachineARM64 {
         _imported_memories: bool,
         _offset: i32,
         _heap_access_oob: Label,
+        _unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass i64_atomic_save_32 unimplemented");
     }
@@ -4554,6 +4629,7 @@ impl Machine for MachineARM64 {
         _imported_memories: bool,
         _offset: i32,
         _heap_access_oob: Label,
+        _unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass i64_atomic_add unimplemented");
     }
@@ -4568,6 +4644,7 @@ impl Machine for MachineARM64 {
         _imported_memories: bool,
         _offset: i32,
         _heap_access_oob: Label,
+        _unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass i64_atomic_add_8u unimplemented");
     }
@@ -4582,6 +4659,7 @@ impl Machine for MachineARM64 {
         _imported_memories: bool,
         _offset: i32,
         _heap_access_oob: Label,
+        _unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass i64_atomic_add_16u unimplemented");
     }
@@ -4596,6 +4674,7 @@ impl Machine for MachineARM64 {
         _imported_memories: bool,
         _offset: i32,
         _heap_access_oob: Label,
+        _unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass i64_atomic_add_32u unimplemented");
     }
@@ -4610,6 +4689,7 @@ impl Machine for MachineARM64 {
         _imported_memories: bool,
         _offset: i32,
         _heap_access_oob: Label,
+        _unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass i64_atomic_sub unimplemented");
     }
@@ -4624,6 +4704,7 @@ impl Machine for MachineARM64 {
         _imported_memories: bool,
         _offset: i32,
         _heap_access_oob: Label,
+        _unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass i64_atomic_sub_8u unimplemented");
     }
@@ -4638,6 +4719,7 @@ impl Machine for MachineARM64 {
         _imported_memories: bool,
         _offset: i32,
         _heap_access_oob: Label,
+        _unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass i64_atomic_sub_16u unimplemented");
     }
@@ -4652,6 +4734,7 @@ impl Machine for MachineARM64 {
         _imported_memories: bool,
         _offset: i32,
         _heap_access_oob: Label,
+        _unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass i64_atomic_sub_32u unimplemented");
     }
@@ -4666,6 +4749,7 @@ impl Machine for MachineARM64 {
         _imported_memories: bool,
         _offset: i32,
         _heap_access_oob: Label,
+        _unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass i64_atomic_and unimplemented");
     }
@@ -4680,6 +4764,7 @@ impl Machine for MachineARM64 {
         _imported_memories: bool,
         _offset: i32,
         _heap_access_oob: Label,
+        _unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass i64_atomic_and_8u unimplemented");
     }
@@ -4694,6 +4779,7 @@ impl Machine for MachineARM64 {
         _imported_memories: bool,
         _offset: i32,
         _heap_access_oob: Label,
+        _unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass i64_atomic_and_16u unimplemented");
     }
@@ -4708,6 +4794,7 @@ impl Machine for MachineARM64 {
         _imported_memories: bool,
         _offset: i32,
         _heap_access_oob: Label,
+        _unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass i64_atomic_and_32u unimplemented");
     }
@@ -4722,6 +4809,7 @@ impl Machine for MachineARM64 {
         _imported_memories: bool,
         _offset: i32,
         _heap_access_oob: Label,
+        _unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass i64_atomic_or unimplemented");
     }
@@ -4736,6 +4824,7 @@ impl Machine for MachineARM64 {
         _imported_memories: bool,
         _offset: i32,
         _heap_access_oob: Label,
+        _unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass i64_atomic_or_8u unimplemented");
     }
@@ -4750,6 +4839,7 @@ impl Machine for MachineARM64 {
         _imported_memories: bool,
         _offset: i32,
         _heap_access_oob: Label,
+        _unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass i64_atomic_or_16u unimplemented");
     }
@@ -4764,6 +4854,7 @@ impl Machine for MachineARM64 {
         _imported_memories: bool,
         _offset: i32,
         _heap_access_oob: Label,
+        _unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass i64_atomic_or_32u unimplemented");
     }
@@ -4778,6 +4869,7 @@ impl Machine for MachineARM64 {
         _imported_memories: bool,
         _offset: i32,
         _heap_access_oob: Label,
+        _unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass i64_atomic_xor unimplemented");
     }
@@ -4792,6 +4884,7 @@ impl Machine for MachineARM64 {
         _imported_memories: bool,
         _offset: i32,
         _heap_access_oob: Label,
+        _unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass i64_atomic_xor_8u unimplemented");
     }
@@ -4806,6 +4899,7 @@ impl Machine for MachineARM64 {
         _imported_memories: bool,
         _offset: i32,
         _heap_access_oob: Label,
+        _unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass i64_atomic_xor_16u unimplemented");
     }
@@ -4820,6 +4914,7 @@ impl Machine for MachineARM64 {
         _imported_memories: bool,
         _offset: i32,
         _heap_access_oob: Label,
+        _unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass i64_atomic_xor_32u unimplemented");
     }
@@ -4834,6 +4929,7 @@ impl Machine for MachineARM64 {
         _imported_memories: bool,
         _offset: i32,
         _heap_access_oob: Label,
+        _unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass i64_atomic_xchg unimplemented");
     }
@@ -4848,6 +4944,7 @@ impl Machine for MachineARM64 {
         _imported_memories: bool,
         _offset: i32,
         _heap_access_oob: Label,
+        _unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass i64_atomic_xchg_8u unimplemented");
     }
@@ -4862,6 +4959,7 @@ impl Machine for MachineARM64 {
         _imported_memories: bool,
         _offset: i32,
         _heap_access_oob: Label,
+        _unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass i64_atomic_xchg_16u unimplemented");
     }
@@ -4876,6 +4974,7 @@ impl Machine for MachineARM64 {
         _imported_memories: bool,
         _offset: i32,
         _heap_access_oob: Label,
+        _unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass i64_atomic_xchg_32u unimplemented");
     }
@@ -4891,6 +4990,7 @@ impl Machine for MachineARM64 {
         _imported_memories: bool,
         _offset: i32,
         _heap_access_oob: Label,
+        _unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass i64_atomic_cmpxchg unimplemented");
     }
@@ -4906,6 +5006,7 @@ impl Machine for MachineARM64 {
         _imported_memories: bool,
         _offset: i32,
         _heap_access_oob: Label,
+        _unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass i64_atomic_cmpxchg_8u unimplemented");
     }
@@ -4921,6 +5022,7 @@ impl Machine for MachineARM64 {
         _imported_memories: bool,
         _offset: i32,
         _heap_access_oob: Label,
+        _unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass i64_atomic_cmpxchg_16u unimplemented");
     }
@@ -4936,6 +5038,7 @@ impl Machine for MachineARM64 {
         _imported_memories: bool,
         _offset: i32,
         _heap_access_oob: Label,
+        _unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass i64_atomic_cmpxchg_32u unimplemented");
     }
@@ -4949,6 +5052,7 @@ impl Machine for MachineARM64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.memory_op(
             addr,
@@ -4959,6 +5063,7 @@ impl Machine for MachineARM64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| this.emit_relaxed_ldr32(Size::S32, ret, Location::Memory(addr, 0)),
         )
     }
@@ -4972,6 +5077,7 @@ impl Machine for MachineARM64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         let canonicalize = canonicalize && self.arch_supports_canonicalize_nan();
         self.memory_op(
@@ -4983,6 +5089,7 @@ impl Machine for MachineARM64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 if !canonicalize {
                     this.emit_relaxed_str32(target_value, Location::Memory(addr, 0))
@@ -5001,6 +5108,7 @@ impl Machine for MachineARM64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.memory_op(
             addr,
@@ -5011,6 +5119,7 @@ impl Machine for MachineARM64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| this.emit_relaxed_ldr64(Size::S64, ret, Location::Memory(addr, 0)),
         )
     }
@@ -5024,6 +5133,7 @@ impl Machine for MachineARM64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         let canonicalize = canonicalize && self.arch_supports_canonicalize_nan();
         self.memory_op(
@@ -5035,6 +5145,7 @@ impl Machine for MachineARM64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 if !canonicalize {
                     this.emit_relaxed_str64(target_value, Location::Memory(addr, 0))

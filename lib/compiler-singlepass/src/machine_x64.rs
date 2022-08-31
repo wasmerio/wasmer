@@ -492,6 +492,7 @@ impl MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
         cb: F,
     ) -> Result<(), CompileError> {
         // This function as been re-writen to use only 2 temporary register instead of 3
@@ -590,7 +591,7 @@ impl MachineX86_64 {
 
         self.release_gpr(tmp2);
 
-        let align = memarg.align;
+        let align = value_size as u32;
         if check_alignment && align != 1 {
             let tmp_aligncheck = self.acquire_temp_gpr().ok_or_else(|| {
                 CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
@@ -602,11 +603,11 @@ impl MachineX86_64 {
             )?;
             self.assembler.emit_and(
                 Size::S64,
-                Location::Imm32((align - 1).into()),
+                Location::Imm32(align - 1),
                 Location::GPR(tmp_aligncheck),
             )?;
             self.assembler
-                .emit_jmp(Condition::NotEqual, heap_access_oob)?;
+                .emit_jmp(Condition::NotEqual, unaligned_atomic)?;
             self.release_gpr(tmp_aligncheck);
         }
         let begin = self.assembler.get_offset().0;
@@ -632,6 +633,7 @@ impl MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
         cb: F,
     ) -> Result<(), CompileError> {
         if memory_sz > stack_sz {
@@ -660,6 +662,7 @@ impl MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.load_address(memory_sz, Location::GPR(compare), Location::Memory(addr, 0))?;
                 this.move_location(stack_sz, Location::GPR(compare), ret)?;
@@ -3311,6 +3314,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.memory_op(
             addr,
@@ -3321,6 +3325,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.emit_relaxed_binop(
                     AssemblerX64::emit_mov,
@@ -3340,6 +3345,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.memory_op(
             addr,
@@ -3350,6 +3356,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.emit_relaxed_zx_sx(
                     AssemblerX64::emit_movzx,
@@ -3370,6 +3377,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.memory_op(
             addr,
@@ -3380,6 +3388,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.emit_relaxed_zx_sx(
                     AssemblerX64::emit_movsx,
@@ -3400,6 +3409,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.memory_op(
             addr,
@@ -3410,6 +3420,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.emit_relaxed_zx_sx(
                     AssemblerX64::emit_movzx,
@@ -3430,6 +3441,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.memory_op(
             addr,
@@ -3440,6 +3452,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.emit_relaxed_zx_sx(
                     AssemblerX64::emit_movsx,
@@ -3460,6 +3473,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.memory_op(
             addr,
@@ -3470,6 +3484,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| this.emit_relaxed_mov(Size::S32, Location::Memory(addr, 0), ret),
         )
     }
@@ -3482,6 +3497,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.memory_op(
             addr,
@@ -3492,6 +3508,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.emit_relaxed_zero_extension(
                     Size::S8,
@@ -3511,6 +3528,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.memory_op(
             addr,
@@ -3521,6 +3539,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.emit_relaxed_zero_extension(
                     Size::S16,
@@ -3540,6 +3559,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.memory_op(
             target_addr,
@@ -3550,6 +3570,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.emit_relaxed_binop(
                     AssemblerX64::emit_mov,
@@ -3569,6 +3590,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.memory_op(
             target_addr,
@@ -3579,6 +3601,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.emit_relaxed_binop(
                     AssemblerX64::emit_mov,
@@ -3598,6 +3621,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.memory_op(
             target_addr,
@@ -3608,6 +3632,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.emit_relaxed_binop(
                     AssemblerX64::emit_mov,
@@ -3630,6 +3655,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.memory_op(
             target_addr,
@@ -3640,6 +3666,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.emit_relaxed_binop(
                     AssemblerX64::emit_mov,
@@ -3659,6 +3686,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.memory_op(
             target_addr,
@@ -3669,6 +3697,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.emit_relaxed_binop(
                     AssemblerX64::emit_mov,
@@ -3688,6 +3717,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.memory_op(
             target_addr,
@@ -3698,6 +3728,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.emit_relaxed_binop(
                     AssemblerX64::emit_mov,
@@ -3719,6 +3750,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         let value = self.acquire_temp_gpr().ok_or_else(|| {
             CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
@@ -3733,6 +3765,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.assembler.emit_lock_xadd(
                     Size::S32,
@@ -3756,6 +3789,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         let value = self.acquire_temp_gpr().ok_or_else(|| {
             CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
@@ -3770,6 +3804,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.assembler.emit_lock_xadd(
                     Size::S8,
@@ -3793,6 +3828,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         let value = self.acquire_temp_gpr().ok_or_else(|| {
             CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
@@ -3807,6 +3843,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.assembler.emit_lock_xadd(
                     Size::S16,
@@ -3830,6 +3867,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         let value = self.acquire_temp_gpr().ok_or_else(|| {
             CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
@@ -3844,6 +3882,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.assembler.emit_lock_xadd(
                     Size::S32,
@@ -3867,6 +3906,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         let value = self.acquire_temp_gpr().ok_or_else(|| {
             CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
@@ -3881,6 +3921,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.assembler.emit_lock_xadd(
                     Size::S8,
@@ -3904,6 +3945,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         let value = self.acquire_temp_gpr().ok_or_else(|| {
             CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
@@ -3918,6 +3960,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.assembler.emit_lock_xadd(
                     Size::S16,
@@ -3941,6 +3984,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.emit_compare_and_swap(
             loc,
@@ -3954,6 +3998,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, src, dst| {
                 this.assembler
                     .emit_and(Size::S32, Location::GPR(src), Location::GPR(dst))
@@ -3971,6 +4016,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.emit_compare_and_swap(
             loc,
@@ -3984,6 +4030,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, src, dst| {
                 this.assembler
                     .emit_and(Size::S32, Location::GPR(src), Location::GPR(dst))
@@ -4001,6 +4048,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.emit_compare_and_swap(
             loc,
@@ -4014,6 +4062,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, src, dst| {
                 this.assembler
                     .emit_and(Size::S32, Location::GPR(src), Location::GPR(dst))
@@ -4031,6 +4080,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.emit_compare_and_swap(
             loc,
@@ -4044,6 +4094,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, src, dst| {
                 this.assembler
                     .emit_or(Size::S32, Location::GPR(src), Location::GPR(dst))
@@ -4061,6 +4112,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.emit_compare_and_swap(
             loc,
@@ -4074,6 +4126,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, src, dst| {
                 this.assembler
                     .emit_or(Size::S32, Location::GPR(src), Location::GPR(dst))
@@ -4091,6 +4144,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.emit_compare_and_swap(
             loc,
@@ -4104,6 +4158,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, src, dst| {
                 this.assembler
                     .emit_or(Size::S32, Location::GPR(src), Location::GPR(dst))
@@ -4121,6 +4176,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.emit_compare_and_swap(
             loc,
@@ -4134,6 +4190,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, src, dst| {
                 this.assembler
                     .emit_xor(Size::S32, Location::GPR(src), Location::GPR(dst))
@@ -4151,6 +4208,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.emit_compare_and_swap(
             loc,
@@ -4164,6 +4222,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, src, dst| {
                 this.assembler
                     .emit_xor(Size::S32, Location::GPR(src), Location::GPR(dst))
@@ -4181,6 +4240,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.emit_compare_and_swap(
             loc,
@@ -4194,6 +4254,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, src, dst| {
                 this.assembler
                     .emit_xor(Size::S32, Location::GPR(src), Location::GPR(dst))
@@ -4211,6 +4272,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         let value = self.acquire_temp_gpr().ok_or_else(|| {
             CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
@@ -4225,6 +4287,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.assembler
                     .emit_xchg(Size::S32, Location::GPR(value), Location::Memory(addr, 0))
@@ -4245,6 +4308,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         let value = self.acquire_temp_gpr().ok_or_else(|| {
             CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
@@ -4260,6 +4324,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.assembler
                     .emit_xchg(Size::S8, Location::GPR(value), Location::Memory(addr, 0))
@@ -4280,6 +4345,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         let value = self.acquire_temp_gpr().ok_or_else(|| {
             CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
@@ -4295,6 +4361,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.assembler
                     .emit_xchg(Size::S16, Location::GPR(value), Location::Memory(addr, 0))
@@ -4316,6 +4383,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         let compare = self.reserve_unused_temp_gpr(GPR::RAX);
         let value = if cmp == Location::GPR(GPR::R14) {
@@ -4342,6 +4410,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.assembler.emit_lock_cmpxchg(
                     Size::S32,
@@ -4368,6 +4437,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         let compare = self.reserve_unused_temp_gpr(GPR::RAX);
         let value = if cmp == Location::GPR(GPR::R14) {
@@ -4394,6 +4464,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.assembler.emit_lock_cmpxchg(
                     Size::S8,
@@ -4420,6 +4491,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         let compare = self.reserve_unused_temp_gpr(GPR::RAX);
         let value = if cmp == Location::GPR(GPR::R14) {
@@ -4446,6 +4518,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.assembler.emit_lock_cmpxchg(
                     Size::S16,
@@ -4910,6 +4983,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.memory_op(
             addr,
@@ -4920,6 +4994,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.emit_relaxed_binop(
                     AssemblerX64::emit_mov,
@@ -4939,6 +5014,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.memory_op(
             addr,
@@ -4949,6 +5025,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.emit_relaxed_zx_sx(
                     AssemblerX64::emit_movzx,
@@ -4969,6 +5046,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.memory_op(
             addr,
@@ -4979,6 +5057,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.emit_relaxed_zx_sx(
                     AssemblerX64::emit_movsx,
@@ -4999,6 +5078,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.memory_op(
             addr,
@@ -5009,6 +5089,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.emit_relaxed_zx_sx(
                     AssemblerX64::emit_movzx,
@@ -5029,6 +5110,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.memory_op(
             addr,
@@ -5039,6 +5121,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.emit_relaxed_zx_sx(
                     AssemblerX64::emit_movsx,
@@ -5059,6 +5142,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.memory_op(
             addr,
@@ -5069,6 +5153,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 match ret {
                     Location::GPR(_) => {}
@@ -5101,6 +5186,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.memory_op(
             addr,
@@ -5111,6 +5197,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.emit_relaxed_zx_sx(
                     AssemblerX64::emit_movsx,
@@ -5131,6 +5218,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.memory_op(
             addr,
@@ -5141,6 +5229,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| this.emit_relaxed_mov(Size::S64, Location::Memory(addr, 0), ret),
         )
     }
@@ -5153,6 +5242,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.memory_op(
             addr,
@@ -5163,6 +5253,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.emit_relaxed_zero_extension(
                     Size::S8,
@@ -5182,6 +5273,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.memory_op(
             addr,
@@ -5192,6 +5284,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.emit_relaxed_zero_extension(
                     Size::S16,
@@ -5211,6 +5304,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.memory_op(
             addr,
@@ -5221,6 +5315,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 match ret {
                     Location::GPR(_) => {}
@@ -5253,6 +5348,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.memory_op(
             target_addr,
@@ -5263,6 +5359,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.emit_relaxed_binop(
                     AssemblerX64::emit_mov,
@@ -5282,6 +5379,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.memory_op(
             target_addr,
@@ -5292,6 +5390,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.emit_relaxed_binop(
                     AssemblerX64::emit_mov,
@@ -5311,6 +5410,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.memory_op(
             target_addr,
@@ -5321,6 +5421,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.emit_relaxed_binop(
                     AssemblerX64::emit_mov,
@@ -5340,6 +5441,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.memory_op(
             target_addr,
@@ -5350,6 +5452,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.emit_relaxed_binop(
                     AssemblerX64::emit_mov,
@@ -5369,6 +5472,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.memory_op(
             target_addr,
@@ -5379,6 +5483,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| this.emit_relaxed_atomic_xchg(Size::S64, value, Location::Memory(addr, 0)),
         )
     }
@@ -5391,6 +5496,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.memory_op(
             target_addr,
@@ -5401,6 +5507,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| this.emit_relaxed_atomic_xchg(Size::S8, value, Location::Memory(addr, 0)),
         )
     }
@@ -5413,6 +5520,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.memory_op(
             target_addr,
@@ -5423,6 +5531,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| this.emit_relaxed_atomic_xchg(Size::S16, value, Location::Memory(addr, 0)),
         )
     }
@@ -5435,6 +5544,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.memory_op(
             target_addr,
@@ -5445,6 +5555,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| this.emit_relaxed_atomic_xchg(Size::S32, value, Location::Memory(addr, 0)),
         )
     }
@@ -5459,6 +5570,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         let value = self.acquire_temp_gpr().ok_or_else(|| {
             CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
@@ -5473,9 +5585,10 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.assembler.emit_lock_xadd(
-                    Size::S32,
+                    Size::S64,
                     Location::GPR(value),
                     Location::Memory(addr, 0),
                 )
@@ -5496,6 +5609,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         let value = self.acquire_temp_gpr().ok_or_else(|| {
             CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
@@ -5510,6 +5624,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.assembler.emit_lock_xadd(
                     Size::S8,
@@ -5533,6 +5648,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         let value = self.acquire_temp_gpr().ok_or_else(|| {
             CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
@@ -5547,6 +5663,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.assembler.emit_lock_xadd(
                     Size::S16,
@@ -5570,6 +5687,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         let value = self.acquire_temp_gpr().ok_or_else(|| {
             CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
@@ -5584,6 +5702,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.assembler.emit_lock_xadd(
                     Size::S32,
@@ -5607,6 +5726,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         let value = self.acquire_temp_gpr().ok_or_else(|| {
             CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
@@ -5621,6 +5741,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.assembler.emit_lock_xadd(
                     Size::S64,
@@ -5644,6 +5765,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         let value = self.acquire_temp_gpr().ok_or_else(|| {
             CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
@@ -5658,6 +5780,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.assembler.emit_lock_xadd(
                     Size::S8,
@@ -5681,6 +5804,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         let value = self.acquire_temp_gpr().ok_or_else(|| {
             CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
@@ -5695,6 +5819,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.assembler.emit_lock_xadd(
                     Size::S16,
@@ -5718,6 +5843,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         let value = self.acquire_temp_gpr().ok_or_else(|| {
             CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
@@ -5732,6 +5858,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.assembler.emit_lock_xadd(
                     Size::S32,
@@ -5755,6 +5882,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.emit_compare_and_swap(
             loc,
@@ -5768,6 +5896,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, src, dst| {
                 this.assembler
                     .emit_and(Size::S64, Location::GPR(src), Location::GPR(dst))
@@ -5785,6 +5914,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.emit_compare_and_swap(
             loc,
@@ -5798,6 +5928,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, src, dst| {
                 this.assembler
                     .emit_and(Size::S64, Location::GPR(src), Location::GPR(dst))
@@ -5815,6 +5946,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.emit_compare_and_swap(
             loc,
@@ -5828,6 +5960,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, src, dst| {
                 this.assembler
                     .emit_and(Size::S64, Location::GPR(src), Location::GPR(dst))
@@ -5845,6 +5978,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.emit_compare_and_swap(
             loc,
@@ -5858,6 +5992,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, src, dst| {
                 this.assembler
                     .emit_and(Size::S64, Location::GPR(src), Location::GPR(dst))
@@ -5875,6 +6010,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.emit_compare_and_swap(
             loc,
@@ -5888,6 +6024,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, src, dst| {
                 this.location_or(Size::S64, Location::GPR(src), Location::GPR(dst), false)
             },
@@ -5904,6 +6041,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.emit_compare_and_swap(
             loc,
@@ -5917,6 +6055,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, src, dst| {
                 this.location_or(Size::S64, Location::GPR(src), Location::GPR(dst), false)
             },
@@ -5933,6 +6072,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.emit_compare_and_swap(
             loc,
@@ -5946,6 +6086,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, src, dst| {
                 this.location_or(Size::S64, Location::GPR(src), Location::GPR(dst), false)
             },
@@ -5962,6 +6103,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.emit_compare_and_swap(
             loc,
@@ -5975,6 +6117,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, src, dst| {
                 this.location_or(Size::S64, Location::GPR(src), Location::GPR(dst), false)
             },
@@ -5991,6 +6134,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.emit_compare_and_swap(
             loc,
@@ -6004,6 +6148,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, src, dst| {
                 this.location_xor(Size::S64, Location::GPR(src), Location::GPR(dst), false)
             },
@@ -6020,6 +6165,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.emit_compare_and_swap(
             loc,
@@ -6033,6 +6179,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, src, dst| {
                 this.location_xor(Size::S64, Location::GPR(src), Location::GPR(dst), false)
             },
@@ -6049,6 +6196,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.emit_compare_and_swap(
             loc,
@@ -6062,6 +6210,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, src, dst| {
                 this.location_xor(Size::S64, Location::GPR(src), Location::GPR(dst), false)
             },
@@ -6078,6 +6227,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.emit_compare_and_swap(
             loc,
@@ -6091,6 +6241,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, src, dst| {
                 this.location_xor(Size::S64, Location::GPR(src), Location::GPR(dst), false)
             },
@@ -6107,6 +6258,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         let value = self.acquire_temp_gpr().ok_or_else(|| {
             CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
@@ -6121,6 +6273,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.assembler
                     .emit_xchg(Size::S64, Location::GPR(value), Location::Memory(addr, 0))
@@ -6141,6 +6294,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         let value = self.acquire_temp_gpr().ok_or_else(|| {
             CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
@@ -6156,6 +6310,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.assembler
                     .emit_xchg(Size::S8, Location::GPR(value), Location::Memory(addr, 0))
@@ -6176,6 +6331,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         let value = self.acquire_temp_gpr().ok_or_else(|| {
             CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
@@ -6191,6 +6347,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.assembler
                     .emit_xchg(Size::S16, Location::GPR(value), Location::Memory(addr, 0))
@@ -6211,6 +6368,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         let value = self.acquire_temp_gpr().ok_or_else(|| {
             CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
@@ -6226,6 +6384,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.assembler
                     .emit_xchg(Size::S32, Location::GPR(value), Location::Memory(addr, 0))
@@ -6247,6 +6406,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         let compare = self.reserve_unused_temp_gpr(GPR::RAX);
         let value = if cmp == Location::GPR(GPR::R14) {
@@ -6273,6 +6433,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.assembler.emit_lock_cmpxchg(
                     Size::S64,
@@ -6299,6 +6460,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         let compare = self.reserve_unused_temp_gpr(GPR::RAX);
         let value = if cmp == Location::GPR(GPR::R14) {
@@ -6325,6 +6487,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.assembler.emit_lock_cmpxchg(
                     Size::S8,
@@ -6351,6 +6514,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         let compare = self.reserve_unused_temp_gpr(GPR::RAX);
         let value = if cmp == Location::GPR(GPR::R14) {
@@ -6377,6 +6541,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.assembler.emit_lock_cmpxchg(
                     Size::S16,
@@ -6403,6 +6568,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         let compare = self.reserve_unused_temp_gpr(GPR::RAX);
         let value = if cmp == Location::GPR(GPR::R14) {
@@ -6429,9 +6595,10 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.assembler.emit_lock_cmpxchg(
-                    Size::S16,
+                    Size::S32,
                     Location::GPR(value),
                     Location::Memory(addr, 0),
                 )?;
@@ -6453,6 +6620,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.memory_op(
             addr,
@@ -6463,6 +6631,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.emit_relaxed_binop(
                     AssemblerX64::emit_mov,
@@ -6483,6 +6652,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         let canonicalize = canonicalize && self.arch_supports_canonicalize_nan();
         self.memory_op(
@@ -6494,6 +6664,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 if !canonicalize {
                     this.emit_relaxed_binop(
@@ -6517,6 +6688,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         self.memory_op(
             addr,
@@ -6527,6 +6699,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.emit_relaxed_binop(
                     AssemblerX64::emit_mov,
@@ -6547,6 +6720,7 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
         let canonicalize = canonicalize && self.arch_supports_canonicalize_nan();
         self.memory_op(
@@ -6558,6 +6732,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 if !canonicalize {
                     this.emit_relaxed_binop(
