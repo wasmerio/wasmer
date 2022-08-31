@@ -109,7 +109,7 @@ impl Instance {
         instance: WebAssembly::Instance,
     ) -> Result<Self, InstantiationError> {
         use crate::js::externals::VMExtern;
-        let instance_exports = instance.get(store.as_store_ref().objects()).exports();
+        let instance_exports = instance.exports();
         let exports = module
             .exports()
             .map(|export_type| {

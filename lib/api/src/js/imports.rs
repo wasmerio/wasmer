@@ -195,6 +195,7 @@ impl Imports {
         module: &Module,
         object: js_sys::Object,
     ) -> Result<Self, WasmError> {
+        use crate::js::externals::VMExtern;
         let module_imports: HashMap<(String, String), ExternType> = module
             .imports()
             .map(|import| {
@@ -217,7 +218,7 @@ impl Imports {
                 let import_js: wasm_bindgen::JsValue = import_entry.get(1);
                 let key = (module_name.clone(), import_name);
                 let extern_type = module_imports.get(&key).unwrap();
-                let export = Export::from_js_value(import_js, store, extern_type.clone())?;
+                let export = VMExtern::from_js_value(import_js, store, extern_type.clone())?;
                 let extern_ = Extern::from_vm_extern(store, export);
                 map.insert(key, extern_);
             }
