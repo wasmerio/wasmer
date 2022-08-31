@@ -6,6 +6,10 @@ use wasm_bindgen::convert::FromWasmAbi;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsValue;
 
+pub trait CoreError: fmt::Debug + fmt::Display + core::any::Any { }
+
+impl<T: fmt::Debug + fmt::Display + core::any::Any> CoreError for T { }
+
 /// A struct representing an aborted instruction execution, with a message
 /// indicating the cause.
 #[wasm_bindgen]
@@ -30,7 +34,10 @@ impl PartialEq for RuntimeError {
 #[derive(Debug)]
 enum RuntimeErrorSource {
     Generic(String),
+    #[cfg(feature = "std")]
     User(Box<dyn Error + Send + Sync>),
+    #[cfg(feature = "core")]
+    User(Box<dyn CoreError + Send + Sync>),
     Js(JsValue),
 }
 
@@ -74,7 +81,19 @@ impl RuntimeError {
     ///
     /// This error object can be passed through Wasm frames and later retrieved
     /// using the `downcast` method.
+    #[cfg(feature = "std")]
     pub fn user(error: Box<dyn Error + Send + Sync>) -> Self {
+        match error.downcast::<Self>() {
+            // The error is already a RuntimeError, we return it directly
+            Ok(runtime_error) => *runtime_error,
+            Err(error) => RuntimeError {
+                inner: Arc::new(RuntimeErrorSource::User(error)),
+            },
+        }
+    }
+
+    #[cfg(feature = "core")]
+    pub fn user(error: Box<dyn CoreError + Send + Sync>) -> Self {
         match error.downcast::<Self>() {
             // The error is already a RuntimeError, we return it directly
             Ok(runtime_error) => *runtime_error,

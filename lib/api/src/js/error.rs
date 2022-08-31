@@ -2,6 +2,8 @@ use crate::js::lib::std::string::String;
 use crate::js::trap::RuntimeError;
 #[cfg(feature = "std")]
 use std::borrow::Cow;
+#[cfg(feature = "core")]
+use crate::alloc::borrow::Cow;
 #[cfg(feature = "std")]
 use thiserror::Error;
 
@@ -115,7 +117,7 @@ impl From<wasm_bindgen::JsValue> for WasmError {
 pub enum SerializeError {
     /// An IO error
     #[cfg_attr(feature = "std", error(transparent))]
-    Io(#[from] std::io::Error),
+    Io(#[cfg_attr(feature = "std", from)] std::io::Error),
     /// A generic serialization error
     #[cfg_attr(feature = "std", error("{0}"))]
     Generic(String),
@@ -124,11 +126,12 @@ pub enum SerializeError {
 /// The Deserialize error can occur when loading a
 /// compiled Module from a binary.
 /// Copied from wasmer_compiler::DeSerializeError
-#[derive(Error, Debug)]
+#[derive(Debug)]
+#[cfg_attr(feature = "std", derive(Error))]
 pub enum DeserializeError {
     /// An IO error
     #[cfg_attr(feature = "std", error(transparent))]
-    Io(#[from] std::io::Error),
+    Io(#[cfg_attr(feature = "std", from)] std::io::Error),
     /// A generic deserialization error
     #[cfg_attr(feature = "std", error("{0}"))]
     Generic(String),
