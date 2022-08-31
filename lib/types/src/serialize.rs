@@ -16,7 +16,7 @@ use std::path::Path;
 use std::{fs, mem};
 
 /// The compilation related data for a serialized modules
-#[derive(Archive, RkyvDeserialize, RkyvSerialize)]
+#[derive(Archive, Default, RkyvDeserialize, RkyvSerialize)]
 #[allow(missing_docs)]
 pub struct SerializableCompilation {
     pub function_bodies: PrimaryMap<LocalFunctionIndex, FunctionBody>,
@@ -144,7 +144,7 @@ impl SerializableModule {
 
     /// Returns data initializers to pass to `InstanceHandle::initialize`
     pub fn data_initializers(&self) -> &[OwnedDataInitializer] {
-        &*self.data_initializers
+        &self.data_initializers
     }
 
     /// Returns the memory styles associated with this `Artifact`.

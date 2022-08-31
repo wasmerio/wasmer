@@ -19,7 +19,9 @@ pub mod windows;
 
 pub mod legacy;
 //pub mod wasi;
+#[cfg(feature = "wasix")]
 pub mod wasix32;
+#[cfg(feature = "wasix")]
 pub mod wasix64;
 
 use self::types::{
@@ -310,7 +312,7 @@ pub fn args_get<M: MemorySize>(
     let env = ctx.data();
     let (memory, mut state) = env.get_memory_and_wasi_state(&ctx, 0);
 
-    let result = write_buffer_array(&memory, &*state.args, argv, argv_buf);
+    let result = write_buffer_array(&memory, &state.args, argv, argv_buf);
 
     debug!(
         "=> args:\n{}",
@@ -442,7 +444,7 @@ pub fn environ_get<M: MemorySize>(
     let (memory, mut state) = env.get_memory_and_wasi_state(&ctx, 0);
     trace!(" -> State envs: {:?}", state.envs);
 
-    write_buffer_array(&memory, &*state.envs, environ, environ_buf)
+    write_buffer_array(&memory, &state.envs, environ, environ_buf)
 }
 
 /// ### `environ_sizes_get()`

@@ -12,8 +12,10 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 - #[3096](https://github.com/wasmerio/wasmer/pull/3096) create-exe: use cached wasmer tarballs for network fetches
 
 ### Changed
+- #[3131](https://github.com/wasmerio/wasmer/pull/3131) Update migration docs for MemoryView changes
 
 ### Fixed
+- #[3130](https://github.com/wasmerio/wasmer/pull/3130) Remove panics from Artifact::deserialize
 
 ## 3.0.0-beta - 2022/08/08
 

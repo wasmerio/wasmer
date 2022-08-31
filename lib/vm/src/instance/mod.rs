@@ -10,16 +10,16 @@ mod allocator;
 
 use crate::export::VMExtern;
 use crate::imports::Imports;
-use crate::memory::MemoryError;
 use crate::store::{InternalStoreHandle, StoreObjects};
 use crate::table::TableElement;
 use crate::trap::{catch_traps, Trap, TrapCode};
 use crate::vmcontext::{
-    VMBuiltinFunctionsArray, VMCallerCheckedAnyfunc, VMContext, VMFunctionContext,
-    VMFunctionImport, VMFunctionKind, VMGlobalDefinition, VMGlobalImport, VMMemoryDefinition,
+    memory_copy, memory_fill, VMBuiltinFunctionsArray, VMCallerCheckedAnyfunc, VMContext,
+    VMFunctionContext, VMFunctionImport, VMFunctionKind, VMGlobalDefinition, VMGlobalImport,
     VMMemoryImport, VMSharedSignatureIndex, VMTableDefinition, VMTableImport, VMTrampoline,
 };
 use crate::{FunctionBodyPtr, MaybeInstanceOwned, TrapHandlerFn, VMFunctionBody};
+use crate::{LinearMemory, VMMemoryDefinition};
 use crate::{VMFuncRef, VMFunction, VMGlobal, VMMemory, VMTable};
 pub use allocator::InstanceAllocator;
 use memoffset::offset_of;
@@ -36,8 +36,8 @@ use std::sync::Arc;
 use wasmer_types::entity::{packed_option::ReservedValue, BoxedSlice, EntityRef, PrimaryMap};
 use wasmer_types::{
     DataIndex, DataInitializer, ElemIndex, ExportIndex, FunctionIndex, GlobalIndex, GlobalInit,
-    LocalFunctionIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex,
-    ModuleInfo, Pages, SignatureIndex, TableIndex, TableInitializer, VMOffsets,
+    LocalFunctionIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryError,
+    MemoryIndex, ModuleInfo, Pages, SignatureIndex, TableIndex, TableInitializer, VMOffsets,
 };
 
 /// A WebAssembly instance.
@@ -116,7 +116,7 @@ impl Instance {
     }
 
     pub(crate) fn module_ref(&self) -> &ModuleInfo {
-        &*self.module
+        &self.module
     }
 
     fn context(&self) -> &StoreObjects {
@@ -632,7 +632,7 @@ impl Instance {
 
         let memory = self.memory(memory_index);
         // The following memory copy is not synchronized and is not atomic:
-        unsafe { memory.memory_copy(dst, src, len) }
+        unsafe { memory_copy(&memory, dst, src, len) }
     }
 
     /// Perform a `memory.copy` on an imported memory.
@@ -646,7 +646,7 @@ impl Instance {
         let import = self.imported_memory(memory_index);
         let memory = unsafe { import.definition.as_ref() };
         // The following memory copy is not synchronized and is not atomic:
-        unsafe { memory.memory_copy(dst, src, len) }
+        unsafe { memory_copy(memory, dst, src, len) }
     }
 
     /// Perform the `memory.fill` operation on a locally defined memory.
@@ -663,7 +663,7 @@ impl Instance {
     ) -> Result<(), Trap> {
         let memory = self.memory(memory_index);
         // The following memory fill is not synchronized and is not atomic:
-        unsafe { memory.memory_fill(dst, val, len) }
+        unsafe { memory_fill(&memory, dst, val, len) }
     }
 
     /// Perform the `memory.fill` operation on an imported memory.
@@ -681,7 +681,7 @@ impl Instance {
         let import = self.imported_memory(memory_index);
         let memory = unsafe { import.definition.as_ref() };
         // The following memory fill is not synchronized and is not atomic:
-        unsafe { memory.memory_fill(dst, val, len) }
+        unsafe { memory_fill(memory, dst, val, len) }
     }
 
     /// Performs the `memory.init` operation.
@@ -868,7 +868,7 @@ impl InstanceHandle {
                 let instance = instance_handle.instance_mut();
                 let vmctx_ptr = instance.vmctx_ptr();
                 (instance.funcrefs, instance.imported_funcrefs) = build_funcrefs(
-                    &*instance.module,
+                    &instance.module,
                     context,
                     &imports,
                     &instance.functions,

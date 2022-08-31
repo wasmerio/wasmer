@@ -11,7 +11,7 @@ use std::slice;
 #[cfg(feature = "tracing")]
 use tracing::warn;
 use wasmer_types::Pages;
-use wasmer_vm::{InternalStoreHandle, MemoryError, StoreHandle, VMExtern, VMMemory};
+use wasmer_vm::{InternalStoreHandle, LinearMemory, MemoryError, StoreHandle, VMExtern, VMMemory};
 
 use super::MemoryView;
 
@@ -58,6 +58,12 @@ impl Memory {
         Ok(Self {
             handle: StoreHandle::new(store.objects_mut(), memory),
         })
+    }
+
+    /// Create a memory object from an existing memory and attaches it to the store
+    pub fn new_from_existing(new_store: &mut impl AsStoreMut, memory: VMMemory) -> Self {
+        let handle = StoreHandle::new(new_store.objects_mut(), memory);
+        Self::from_vm_extern(new_store, handle.internal_handle())
     }
 
     /// Returns the [`MemoryType`] of the `Memory`.
@@ -140,6 +146,12 @@ impl Memory {
     /// Checks whether this `Memory` can be used with the given context.
     pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
         self.handle.store_id() == store.as_store_ref().objects().id()
+    }
+
+    /// Attempts to clone this memory (if its clonable)
+    pub fn try_clone(&self, store: &impl AsStoreRef) -> Option<VMMemory> {
+        let mem = self.handle.get(store.as_store_ref().objects());
+        mem.try_clone().map(|mem| mem.into())
     }
 
     pub(crate) fn to_vm_extern(&self) -> VMExtern {

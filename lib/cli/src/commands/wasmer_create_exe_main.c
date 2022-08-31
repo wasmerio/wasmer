@@ -1,7 +1,5 @@
-
 #include "wasmer.h"
-//#include "my_wasm.h"
-
+#include "static_defs.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -11,8 +9,8 @@
 // TODO: make this define templated so that the Rust code can toggle it on/off
 #define WASI
 
-extern size_t WASMER_MODULE_LENGTH asm("WASMER_MODULE_LENGTH");
-extern char WASMER_MODULE_DATA asm("WASMER_MODULE_DATA");
+extern wasm_module_t* wasmer_object_module_new(wasm_store_t* store, const char* module_name) asm("wasmer_object_module_new");
+
 
 static void print_wasmer_error() {
   int error_len = wasmer_last_error_length();
@@ -95,11 +93,7 @@ int main(int argc, char *argv[]) {
   wasm_engine_t *engine = wasm_engine_new_with_config(config);
   wasm_store_t *store = wasm_store_new(engine);
 
-  wasm_byte_vec_t module_byte_vec = {
-    .size = WASMER_MODULE_LENGTH,
-    .data = (const char*)&WASMER_MODULE_DATA,
-  };
-  wasm_module_t *module = wasm_module_deserialize(store, &module_byte_vec);
+  wasm_module_t *module = wasmer_object_module_new(store, "module");
 
   if (!module) {
     fprintf(stderr, "Failed to create module\n");

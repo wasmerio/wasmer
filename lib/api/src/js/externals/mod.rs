@@ -46,7 +46,7 @@ impl Extern {
     }
 
     /// Create an `Extern` from an `wasmer_compiler::Export`.
-    pub fn from_vm_export(store: &mut impl AsStoreMut, export: Export) -> Self {
+    pub fn from_vm_extern(store: &mut impl AsStoreMut, export: Export) -> Self {
         match export {
             Export::Function(f) => Self::Function(Function::from_vm_extern(store, f)),
             Export::Memory(m) => Self::Memory(Memory::from_vm_extern(store, m)),

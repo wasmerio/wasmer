@@ -7,11 +7,7 @@ license = "MIT"
 edition = "2018"
 
 [dependencies]
-libc = { version = "^0.2", default-features = false, optional = true }
 thiserror = "1"
-tracing = { version = "0.1" }
-typetag = { version = "0.1", optional = true }
-slab = { version = "0.4", optional = true }
 wasmer-vfs = { path = "../vfs", version = "=3.0.0-beta", default-features = false }
 bytes = "1"
 

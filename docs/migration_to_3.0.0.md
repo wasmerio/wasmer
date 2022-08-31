@@ -117,6 +117,62 @@ env_mut.memory = Some(instance.exports.get_memory("memory"));
 env_mut.alloc_guest_memory = Some(instance.exports.get_typed_function("__alloc"));
 ```
 
+### New `MemoryView` API (preparation for shared memory)
+
+Reading from memory has slightly changed compared to 2.x:
+
+```rust
+// 2.x
+let memory = instance.exports.get_memory("mem")?;
+println!("Memory size (pages) {:?}", memory.size());
+println!("Memory size (bytes) {:?}", memory.data_size());
+
+let load = instance
+    .exports
+    .get_native_function::<(), (WasmPtr<u8, Array>, i32)>("load")?;
+
+let (ptr, length) = load.call(&mut store)?;
+let str = ptr.get_utf8_string(memory, length as u32).unwrap();
+println!("Memory contents: {:?}", str);
+```
+
+```rust
+// 3.x
+let memory = instance.exports.get_memory("mem")?;
+let memory_view = memory.view(&store);
+println!("Memory size (pages) {:?}", memory_view.size());
+println!("Memory size (bytes) {:?}", memory_view.data_size());
+
+let load: TypedFunction<(), (WasmPtr<u8>, i32)> =
+    instance.exports.get_typed_function(&mut store, "load")?;
+
+let (ptr, length) = load.call(&mut store)?;
+let memory_view = memory.view(&store);
+let str = ptr.read_utf8_string(&memory_view, length as u32).unwrap();
+println!("Memory contents: {:?}", str);
+```
+
+The reason for this change is that in the future this will enable 
+safely sharing memory across threads. The same thing goes for reading slices:
+
+```rust
+// 2.x
+let new_str = b"Hello, Wasmer!";
+let values = ptr.deref(memory, 0, new_str.len() as u32).unwrap();
+for i in 0..new_str.len() {
+    values[i].set(new_str[i]);
+}
+```
+
+```rust
+// 3.x
+let memory_view = memory.view(&store); // (can be reused)
+let new_str = b"Hello, Wasmer!";
+let values = ptr.slice(&memory_view, new_str.len() as u32).unwrap();
+for i in 0..new_str.len() {
+    values.index(i as u64).write(new_str[i]).unwrap();
+}
+```
 
 ### Managing imports
 

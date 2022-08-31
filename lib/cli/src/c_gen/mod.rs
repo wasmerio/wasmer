@@ -125,7 +125,7 @@ impl CType {
                 #[allow(clippy::borrowed_box)]
                 let ret: CType = return_value
                     .as_ref()
-                    .map(|i: &Box<CType>| (&**i).clone())
+                    .map(|i: &Box<CType>| (**i).clone())
                     .unwrap_or_default();
                 ret.generate_c(w);
                 w.push(' ');
@@ -183,7 +183,7 @@ impl CType {
                 #[allow(clippy::borrowed_box)]
                 let ret: CType = return_value
                     .as_ref()
-                    .map(|i: &Box<CType>| (&**i).clone())
+                    .map(|i: &Box<CType>| (**i).clone())
                     .unwrap_or_default();
                 ret.generate_c(w);
                 w.push(' ');
