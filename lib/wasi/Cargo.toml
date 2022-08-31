@@ -44,8 +44,9 @@ tracing-wasm = "0.2"
 
 [features]
 default = ["sys-default"]
+wasix = []
 
-sys = ["wasmer/sys"]
+sys = ["wasmer/sys", "wasix"]
 sys-default = ["wasmer/wat", "wasmer/compiler", "sys", "logging", "host-fs", "sys-poll", "host-vnet" ]
 sys-poll = []
 

@@ -3,9 +3,8 @@ use crate::js::error::WasmError;
 use crate::js::error::{CompileError, InstantiationError};
 #[cfg(feature = "js-serializable-module")]
 use crate::js::error::{DeserializeError, SerializeError};
-use crate::js::externals::Extern;
 use crate::js::imports::Imports;
-use crate::js::store::{AsStoreMut, StoreHandle};
+use crate::js::store::AsStoreMut;
 use crate::js::types::{AsJs, ExportType, ImportType};
 use crate::js::RuntimeError;
 use crate::AsStoreRef;
@@ -222,7 +221,7 @@ impl Module {
         &self,
         store: &mut impl AsStoreMut,
         imports: &Imports,
-    ) -> Result<(StoreHandle<WebAssembly::Instance>, Vec<Extern>), RuntimeError> {
+    ) -> Result<WebAssembly::Instance, RuntimeError> {
         // Ensure all imports come from the same store.
         if imports
             .into_iter()
@@ -232,46 +231,10 @@ impl Module {
                 InstantiationError::DifferentStores,
             )));
         }
-        let imports_object = js_sys::Object::new();
-        let mut import_externs: Vec<Extern> = vec![];
-        for import_type in self.imports() {
-            let resolved_import = imports.get_export(import_type.module(), import_type.name());
-            if let Some(import) = resolved_import {
-                let val = js_sys::Reflect::get(&imports_object, &import_type.module().into())?;
-                if !val.is_undefined() {
-                    // If the namespace is already set
-                    js_sys::Reflect::set(
-                        &val,
-                        &import_type.name().into(),
-                        &import.as_jsvalue(&store.as_store_ref()),
-                    )?;
-                } else {
-                    // If the namespace doesn't exist
-                    let import_namespace = js_sys::Object::new();
-                    js_sys::Reflect::set(
-                        &import_namespace,
-                        &import_type.name().into(),
-                        &import.as_jsvalue(&store.as_store_ref()),
-                    )?;
-                    js_sys::Reflect::set(
-                        &imports_object,
-                        &import_type.module().into(),
-                        &import_namespace.into(),
-                    )?;
-                }
-                import_externs.push(import);
-            }
-            // in case the import is not found, the JS Wasm VM will handle
-            // the error for us, so we don't need to handle it
-        }
-        Ok((
-            StoreHandle::new(
-                store.as_store_mut().objects_mut(),
-                WebAssembly::Instance::new(&self.module, &imports_object)
-                    .map_err(|e: JsValue| -> RuntimeError { e.into() })?,
-            ),
-            import_externs,
-        ))
+
+        let imports_js_obj = imports.as_jsvalue(store).into();
+        Ok(WebAssembly::Instance::new(&self.module, &imports_js_obj)
+            .map_err(|e: JsValue| -> RuntimeError { e.into() })?)
     }
 
     /// Returns the name of the current module.
