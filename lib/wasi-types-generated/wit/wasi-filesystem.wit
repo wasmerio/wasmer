@@ -355,272 +355,272 @@ resource descriptor {
         advice: advice
     ) -> expected<unit, errno>
     
-//         /// Force the allocation of space in a file.
-//         ///
-//         /// Note: This is similar to `posix_fallocate` in POSIX.
-//         fallocate: func(
-//             /// The offset at which to start the allocation.
-//             offset: filesize,
-//             /// The length of the area that is allocated.
-//             len: filesize
-//         ) -> expected<unit, errno>
-//         
-//         /// Synchronize the data of a file to disk.
-//         ///
-//         /// Note: This is similar to `fdatasync` in POSIX.
-//         datasync: func() -> expected<unit, errno>
-//         
-//         /// Get information associated with a descriptor.
-//         ///
-//         /// Note: This returns similar flags to `fsync(fd, F_GETFL)` in POSIX, as well
-//         /// as additional fields.
-//         ///
-//         /// Note: This was called `fdstat_get` in earlier versions of WASI.
-//         info: func() -> expected<info, errno>
-//         
-//         /// Adjust the size of an open file. If this increases the file's size, the
-//         /// extra bytes are filled with zeros.
-//         ///
-//         /// Note: This was called `fd_filestat_set_size` in earlier versions of WASI.
-//         set-size: func(size: filesize) -> expected<unit, errno>
-//         
-//         /// Adjust the timestamps of an open file or directory.
-//         ///
-//         /// Note: This is similar to `futimens` in POSIX.
-//         ///
-//         /// Note: This was called `fd_filestat_set_times` in earlier versions of WASI.
-//         set-times: func(
-//             /// The desired values of the data access timestamp.
-//             atim: new-timestamp,
-//             /// The desired values of the data modification timestamp.
-//             mtim: new-timestamp,
-//         ) -> expected<unit, errno>
-//         
-//         /// Read from a descriptor, without using and updating the descriptor's offset.
-//         ///
-//         /// Note: This is similar to `pread` in POSIX.
-//         pread: func(
-//             /// The offset within the file at which to read.
-//             offset: filesize,
-//         ) -> stream<u8, errno>
-//         
-//         /// Write to a descriptor, without using and updating the descriptor's offset.
-//         ///
-//         /// Note: This is similar to `pwrite` in POSIX.
-//         pwrite: func(
-//             /// Data to write
-//             buf: stream<u8, unit>,
-//             /// The offset within the file at which to write.
-//             offset: filesize,
-//         ) -> future<expected<unit, errno>>
-//         
-//         /// Read from a descriptor.
-//         ///
-//         /// The meaning of `read` on a directory is unspecified.
-//         ///
-//         /// Note: This is similar to `read` in POSIX.
-//         read: func() -> stream<u8, errno>
-//         
-//         /// Read directory entries from a directory.
-//         ///
-//         /// When successful, the contents of the output buffer consist of a sequence of
-//         /// directory entries. Each directory entry consists of a `dirent` object,
-//         /// followed by `dirent::d_namlen` bytes holding the name of the directory
-//         /// entry.
-//         ///
-//         /// This function fills the output buffer as much as possible, potentially
-//         /// truncating the last directory entry. This allows the caller to grow its
-//         /// read buffer size in case it's too small to fit a single large directory
-//         /// entry, or skip the oversized directory entry.
-//         readdir: func(
-//             /// If true, rewind the current position to the beginning before reading.
-//             rewind: bool
-//         ) -> stream<u8, errno>
-//         
-//         /// Move the offset of a descriptor.
-//         ///
-//         /// The meaning of `seek` on a directory is unspecified.
-//         ///
-//         /// Returns new offset of the descriptor, relative to the start of the file.
-//         ///
-//         /// Note: This is similar to `lseek` in POSIX.
-//         seek: func(
-//             /// The method to compute the new offset.
-//             %from: seek-from,
-//         ) -> expected<filesize, errno>
-//         
-//         /// Synchronize the data and metadata of a file to disk.
-//         ///
-//         /// Note: This is similar to `fsync` in POSIX.
-//         sync: func() -> expected<unit, errno>
-//         
-//         /// Return the current offset of a descriptor.
-//         ///
-//         /// Returns the current offset of the descriptor, relative to the start of the file.
-//         ///
-//         /// Note: This is similar to `lseek(fd, 0, SEEK_CUR)` in POSIX.
-//         tell: func() -> expected<filesize, errno>
-//         
-//         /// Write to a descriptor.
-//         ///
-//         /// Note: This is similar to `write` in POSIX.
-//         write: func(
-//             /// Data to write
-//             buf: stream<u8, unit>,
-//         ) -> future<expected<unit, errno>>
-//         
-//         /// Create a directory.
-//         ///
-//         /// Note: This is similar to `mkdirat` in POSIX.
-//         create-directory-at: func(
-//             /// The relative path at which to create the directory.
-//             path: string,
-//         ) -> expected<unit, errno>
-//         
-//         /// Return the attributes of a file or directory.
-//         ///
-//         /// Note: This is similar to `fstatat` in POSIX.
-//         ///
-//         /// Note: This was called `fd_filestat_get` in earlier versions of WASI.
-//         stat-at: func(
-//             /// Flags determining the method of how the path is resolved.
-//             at-flags: at-flags,
-//             /// The relative path of the file or directory to inspect.
-//             path: string,
-//         ) -> expected<stat, errno>
-//         
-//         /// Adjust the timestamps of a file or directory.
-//         ///
-//         /// Note: This is similar to `utimensat` in POSIX.
-//         ///
-//         /// Note: This was called `path_filestat_set_times` in earlier versions of WASI.
-//         set-times-at: func(
-//             /// Flags determining the method of how the path is resolved.
-//             at-flags: at-flags,
-//             /// The relative path of the file or directory to operate on.
-//             path: string,
-//             /// The desired values of the data access timestamp.
-//             atim: new-timestamp,
-//             /// The desired values of the data modification timestamp.
-//             mtim: new-timestamp,
-//         ) -> expected<unit, errno>
-//         
-//         /// Create a hard link.
-//         ///
-//         /// Note: This is similar to `linkat` in POSIX.
-//         link-at: func(
-//             /// Flags determining the method of how the path is resolved.
-//             old-at-flags: at-flags,
-//             /// The relative source path from which to link.
-//             old-path: string,
-//             /// The base directory for `new-path`.
-//             new-descriptor: handle descriptor,
-//             /// The relative destination path at which to create the hard link.
-//             new-path: string,
-//         ) -> expected<unit, errno>
-//         
-//         /// Open a file or directory.
-//         ///
-//         /// The returned descriptor is not guaranteed to be the lowest-numbered
-//         /// descriptor not currently open/ it is randomized to prevent applications
-//         /// from depending on making assumptions about indexes, since this is
-//         /// error-prone in multi-threaded contexts. The returned descriptor is
-//         /// guaranteed to be less than 2**31.
-//         ///
-//         /// Note: This is similar to `openat` in POSIX.
-//         open-at: func(
-//             /// Flags determining the method of how the path is resolved.
-//             at-flags: at-flags,
-//             /// The relative path of the object to open.
-//             path: string,
-//             /// The method by which to open the file.
-//             o-flags: o-flags,
-//             /// Flags to use for the resulting descriptor.
-//             %flags: %flags,
-//             /// Permissions to use when creating a new file.
-//             mode: mode
-//         ) -> expected<descriptor, errno>
-//         
-//         /// Read the contents of a symbolic link.
-//         ///
-//         /// Note: This is similar to `readlinkat` in POSIX.
-//         readlink-at: func(
-//             /// The relative path of the symbolic link from which to read.
-//             path: string,
-//         ) -> expected<string, errno>
-//         
-//         /// Remove a directory.
-//         ///
-//         /// Return `errno::notempty` if the directory is not empty.
-//         ///
-//         /// Note: This is similar to `unlinkat(fd, path, AT_REMOVEDIR)` in POSIX.
-//         remove-directory-at: func(
-//             /// The relative path to a directory to remove.
-//             path: string,
-//         ) -> expected<unit, errno>
-//         
-//         /// Rename a filesystem object.
-//         ///
-//         /// Note: This is similar to `renameat` in POSIX.
-//         rename-at: func(
-//             /// The relative source path of the file or directory to rename.
-//             old-path: string,
-//             /// The base directory for `new-path`.
-//             new-descriptor: handle descriptor,
-//             /// The relative destination path to which to rename the file or directory.
-//             new-path: string,
-//         ) -> expected<unit, errno>
-//         
-//         /// Create a symbolic link.
-//         ///
-//         /// Note: This is similar to `symlinkat` in POSIX.
-//         symlink-at: func(
-//             /// The contents of the symbolic link.
-//             old-path: string,
-//             /// The relative destination path at which to create the symbolic link.
-//             new-path: string,
-//         ) -> expected<unit, errno>
-//         
-//         /// Unlink a filesystem object that is not a directory.
-//         ///
-//         /// Return `errno::isdir` if the path refers to a directory.
-//         /// Note: This is similar to `unlinkat(fd, path, 0)` in POSIX.
-//         unlink-file-at: func(
-//             /// The relative path to a file to unlink.
-//             path: string,
-//         ) -> expected<unit, errno>
-//         
-//         /// Change the permissions of a filesystem object that is not a directory.
-//         ///
-//         /// Note that the ultimate meanings of these permissions is
-//         /// filesystem-specific.
-//         ///
-//         /// Note: This is similar to `fchmodat` in POSIX.
-//         change-file-permissions-at: func(
-//             /// Flags determining the method of how the path is resolved.
-//             at-flags: at-flags,
-//             /// The relative path to operate on.
-//             path: string,
-//             /// The new permissions for the filesystem object.
-//             mode: mode,
-//         ) -> expected<unit, errno>
-//         
-//         /// Change the permissions of a directory.
-//         ///
-//         /// Note that the ultimate meanings of these permissions is
-//         /// filesystem-specific.
-//         ///
-//         /// Unlike in POSIX, the `executable` flag is not reinterpreted as a "search"
-//         /// flag. `read` on a directory implies readability and searchability, and
-//         /// `execute` is not valid for directories.
-//         ///
-//         /// Note: This is similar to `fchmodat` in POSIX.
-//         change-directory-permissions-at: func(
-//             /// Flags determining the method of how the path is resolved.
-//             at-flags: at-flags,
-//             /// The relative path to operate on.
-//             path: string,
-//             /// The new permissions for the directory.
-//             mode: mode,
-//         ) -> expected<unit, errno>
+    /// Force the allocation of space in a file.
+    ///
+    /// Note: This is similar to `posix_fallocate` in POSIX.
+    fallocate: func(
+        /// The offset at which to start the allocation.
+        offset: filesize,
+        /// The length of the area that is allocated.
+        len: filesize
+    ) -> expected<unit, errno>
+    
+    /// Synchronize the data of a file to disk.
+    ///
+    /// Note: This is similar to `fdatasync` in POSIX.
+    datasync: func() -> expected<unit, errno>
+    
+    /// Get information associated with a descriptor.
+    ///
+    /// Note: This returns similar flags to `fsync(fd, F_GETFL)` in POSIX, as well
+    /// as additional fields.
+    ///
+    /// Note: This was called `fdstat_get` in earlier versions of WASI.
+    info: func() -> expected<info, errno>
+    
+    /// Adjust the size of an open file. If this increases the file's size, the
+    /// extra bytes are filled with zeros.
+    ///
+    /// Note: This was called `fd_filestat_set_size` in earlier versions of WASI.
+    set-size: func(size: filesize) -> expected<unit, errno>
+    
+    /// Adjust the timestamps of an open file or directory.
+    ///
+    /// Note: This is similar to `futimens` in POSIX.
+    ///
+    /// Note: This was called `fd_filestat_set_times` in earlier versions of WASI.
+    set-times: func(
+        /// The desired values of the data access timestamp.
+        atim: new-timestamp,
+        /// The desired values of the data modification timestamp.
+        mtim: new-timestamp,
+    ) -> expected<unit, errno>
+    
+//    /// Read from a descriptor, without using and updating the descriptor's offset.
+//    ///
+//    /// Note: This is similar to `pread` in POSIX.
+//    pread: func(
+//        /// The offset within the file at which to read.
+//        offset: filesize,
+//    ) -> stream<u8, errno>
+//    
+//    /// Write to a descriptor, without using and updating the descriptor's offset.
+//    ///
+//    /// Note: This is similar to `pwrite` in POSIX.
+//    pwrite: func(
+//        /// Data to write
+//        buf: stream<u8, unit>,
+//        /// The offset within the file at which to write.
+//        offset: filesize,
+//    ) -> future<expected<unit, errno>>
+//  
+//    /// Read from a descriptor.
+//    ///
+//    /// The meaning of `read` on a directory is unspecified.
+//    ///
+//    /// Note: This is similar to `read` in POSIX.
+//    read: func() -> stream<u8, errno>
+//
+//    /// Read directory entries from a directory.
+//    ///
+//    /// When successful, the contents of the output buffer consist of a sequence of
+//    /// directory entries. Each directory entry consists of a `dirent` object,
+//    /// followed by `dirent::d_namlen` bytes holding the name of the directory
+//    /// entry.
+//    ///
+//    /// This function fills the output buffer as much as possible, potentially
+//    /// truncating the last directory entry. This allows the caller to grow its
+//    /// read buffer size in case it's too small to fit a single large directory
+//    /// entry, or skip the oversized directory entry.
+//    readdir: func(
+//        /// If true, rewind the current position to the beginning before reading.
+//        rewind: bool
+//    ) -> stream<u8, errno>
+    
+    /// Move the offset of a descriptor.
+    ///
+    /// The meaning of `seek` on a directory is unspecified.
+    ///
+    /// Returns new offset of the descriptor, relative to the start of the file.
+    ///
+    /// Note: This is similar to `lseek` in POSIX.
+    seek: func(
+        /// The method to compute the new offset.
+        %from: seek-from,
+    ) -> expected<filesize, errno>
+    
+    /// Synchronize the data and metadata of a file to disk.
+    ///
+    /// Note: This is similar to `fsync` in POSIX.
+    sync: func() -> expected<unit, errno>
+    
+    /// Return the current offset of a descriptor.
+    ///
+    /// Returns the current offset of the descriptor, relative to the start of the file.
+    ///
+    /// Note: This is similar to `lseek(fd, 0, SEEK_CUR)` in POSIX.
+    tell: func() -> expected<filesize, errno>
+    
+//    /// Write to a descriptor.
+//    ///
+//    /// Note: This is similar to `write` in POSIX.
+//    write: func(
+//        /// Data to write
+//        buf: stream<u8, unit>,
+//    ) -> future<expected<unit, errno>>
+    
+    /// Create a directory.
+    ///
+    /// Note: This is similar to `mkdirat` in POSIX.
+    create-directory-at: func(
+        /// The relative path at which to create the directory.
+        path: string,
+    ) -> expected<unit, errno>
+    
+    /// Return the attributes of a file or directory.
+    ///
+    /// Note: This is similar to `fstatat` in POSIX.
+    ///
+    /// Note: This was called `fd_filestat_get` in earlier versions of WASI.
+    stat-at: func(
+        /// Flags determining the method of how the path is resolved.
+        at-flags: at-flags,
+        /// The relative path of the file or directory to inspect.
+        path: string,
+    ) -> expected<stat, errno>
+    
+    /// Adjust the timestamps of a file or directory.
+    ///
+    /// Note: This is similar to `utimensat` in POSIX.
+    ///
+    /// Note: This was called `path_filestat_set_times` in earlier versions of WASI.
+    set-times-at: func(
+        /// Flags determining the method of how the path is resolved.
+        at-flags: at-flags,
+        /// The relative path of the file or directory to operate on.
+        path: string,
+        /// The desired values of the data access timestamp.
+        atim: new-timestamp,
+        /// The desired values of the data modification timestamp.
+        mtim: new-timestamp,
+    ) -> expected<unit, errno>
+    
+    /// Create a hard link.
+    ///
+    /// Note: This is similar to `linkat` in POSIX.
+    link-at: func(
+        /// Flags determining the method of how the path is resolved.
+        old-at-flags: at-flags,
+        /// The relative source path from which to link.
+        old-path: string,
+        /// The base directory for `new-path`.
+        new-descriptor: handle descriptor,
+        /// The relative destination path at which to create the hard link.
+        new-path: string,
+    ) -> expected<unit, errno>
+    
+    /// Open a file or directory.
+    ///
+    /// The returned descriptor is not guaranteed to be the lowest-numbered
+    /// descriptor not currently open/ it is randomized to prevent applications
+    /// from depending on making assumptions about indexes, since this is
+    /// error-prone in multi-threaded contexts. The returned descriptor is
+    /// guaranteed to be less than 2**31.
+    ///
+    /// Note: This is similar to `openat` in POSIX.
+    open-at: func(
+        /// Flags determining the method of how the path is resolved.
+        at-flags: at-flags,
+        /// The relative path of the object to open.
+        path: string,
+        /// The method by which to open the file.
+        o-flags: o-flags,
+        /// Flags to use for the resulting descriptor.
+        %flags: %flags,
+        /// Permissions to use when creating a new file.
+        mode: mode
+    ) -> expected<descriptor, errno>
+    
+    /// Read the contents of a symbolic link.
+    ///
+    /// Note: This is similar to `readlinkat` in POSIX.
+    readlink-at: func(
+        /// The relative path of the symbolic link from which to read.
+        path: string,
+    ) -> expected<string, errno>
+    
+    /// Remove a directory.
+    ///
+    /// Return `errno::notempty` if the directory is not empty.
+    ///
+    /// Note: This is similar to `unlinkat(fd, path, AT_REMOVEDIR)` in POSIX.
+    remove-directory-at: func(
+        /// The relative path to a directory to remove.
+        path: string,
+    ) -> expected<unit, errno>
+    
+    /// Rename a filesystem object.
+    ///
+    /// Note: This is similar to `renameat` in POSIX.
+    rename-at: func(
+        /// The relative source path of the file or directory to rename.
+        old-path: string,
+        /// The base directory for `new-path`.
+        new-descriptor: handle descriptor,
+        /// The relative destination path to which to rename the file or directory.
+        new-path: string,
+    ) -> expected<unit, errno>
+    
+    /// Create a symbolic link.
+    ///
+    /// Note: This is similar to `symlinkat` in POSIX.
+    symlink-at: func(
+        /// The contents of the symbolic link.
+        old-path: string,
+        /// The relative destination path at which to create the symbolic link.
+        new-path: string,
+    ) -> expected<unit, errno>
+    
+    /// Unlink a filesystem object that is not a directory.
+    ///
+    /// Return `errno::isdir` if the path refers to a directory.
+    /// Note: This is similar to `unlinkat(fd, path, 0)` in POSIX.
+    unlink-file-at: func(
+        /// The relative path to a file to unlink.
+        path: string,
+    ) -> expected<unit, errno>
+    
+    /// Change the permissions of a filesystem object that is not a directory.
+    ///
+    /// Note that the ultimate meanings of these permissions is
+    /// filesystem-specific.
+    ///
+    /// Note: This is similar to `fchmodat` in POSIX.
+    change-file-permissions-at: func(
+        /// Flags determining the method of how the path is resolved.
+        at-flags: at-flags,
+        /// The relative path to operate on.
+        path: string,
+        /// The new permissions for the filesystem object.
+        mode: mode,
+    ) -> expected<unit, errno>
+    
+    /// Change the permissions of a directory.
+    ///
+    /// Note that the ultimate meanings of these permissions is
+    /// filesystem-specific.
+    ///
+    /// Unlike in POSIX, the `executable` flag is not reinterpreted as a "search"
+    /// flag. `read` on a directory implies readability and searchability, and
+    /// `execute` is not valid for directories.
+    ///
+    /// Note: This is similar to `fchmodat` in POSIX.
+    change-directory-permissions-at: func(
+        /// Flags determining the method of how the path is resolved.
+        at-flags: at-flags,
+        /// The relative path to operate on.
+        path: string,
+        /// The new permissions for the directory.
+        mode: mode,
+    ) -> expected<unit, errno>
 }

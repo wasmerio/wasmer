@@ -1,2 +1,2 @@
-mod bindings;
-pub use bindings::wasi_snapshot0::*;
+// mod bindings;
+// pub use bindings::wasi_snapshot0::*;

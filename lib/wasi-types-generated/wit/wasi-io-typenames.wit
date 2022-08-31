@@ -1,109 +1,103 @@
 // Extracted from https://github.com/WebAssembly/wasi-io/blob/main/standard/io/witx/typenames.witx
 
+/// Size of a range of bytes in memory.
+type size = u32
 
+/// A region of memory for scatter/gather reads.
+record iovec {
+    /// The address of the buffer to be filled.
+    /// TODO: (field $buf (@witx pointer u8))
+    /// wit has no "pointer"
+    /// pointer<u8>
+    buf: size,
+    /// The length of the buffer to be filled.
+    buf_len: size,
+}
 
+/// A region of memory for scatter/gather writes.
+record ciovec {
+    /// The address of the buffer to be written.
+    /// TODO: (field $buf (field $buf (@witx const_pointer u8))): wit has no "pointer"
+    buf: size,
+    /// The length of the buffer to be written.
+    buf_len: size,
+}
 
+type iovec_array: list<iovec>
 
+type ciovec_array: list<ciovec>
 
+/// Relative offset within a file.
+type filedelta = s64
 
+/// The position relative to which to set the offset of the file descriptor.
+enum whence {
+    /// Seek relative to start-of-file.
+    set,
+    /// Seek relative to current position.
+    cur,
+    /// Seek relative to end-of-file.
+    end,
+}
 
+/// Number of hard links to an inode.
+type linkcount = s64
 
+/// File permissions. This represents the permissions associated with a
+/// file in a filesystem, and don't fully reflect all the conditions
+/// which determine whether a given WASI program can access the file.
+///
+/// TODO: (@witx repr u8)
+flags permissions {
+    /// For files, permission to read the file.
+    /// For directories, permission to do `readdir` and access files
+    /// within the directory.
+    ///
+    /// Note: This is similar to the read bit being set on files, and the
+    /// read *and* execute bits being set on directories, in POSIX.
+    read,
+    /// For files, permission to mutate the file.
+    /// For directories, permission to create, remove, and rename items
+    /// within the directory.
+    write,
+    /// For files, permission to "execute" the file, using whatever
+    /// concept of "executing" the host filesystem has.
+    /// This flag is not valid for directories.
+    execute,
+    /// For filesystems which have a concept of multiple "users", this flag
+    /// indicates that the file is only accessible by the effective "user"
+    /// that the WASI store uses to access the filesystem, and inaccessible
+    /// to other "users".
+    private,
+}
 
+/// File attributes.
+record filestat {
+    /// Device ID of device containing the file.
+    $dev $device)
+    /// File serial number.
+    $ino $inode)
+    /// File type.
+    $filetype $filetype)
+    /// File permissions.
+    $permissions $permissions)
+    /// Number of hard links to the file.
+    $nlink $linkcount)
+    /// For regular files, the file size in bytes. For symbolic links, the length in bytes of the pathname contained in the symbolic link.
+    $size $filesize)
+    /// Last data access timestamp.
+    $atim $timestamp)
+    /// Last data modification timestamp.
+    $mtim $timestamp)
+    /// Last file status change timestamp.
+    $ctim $timestamp)
+}
 
-
-//    ;;; A region of memory for scatter/gather reads.
-//    (typename $iovec
-//      (record
-//        ;;; The address of the buffer to be filled.
-//        (field $buf (@witx pointer u8))
-//        ;;; The length of the buffer to be filled.
-//        (field $buf_len $size)
-//      )
-//    )
 //    
-//    ;;; A region of memory for scatter/gather writes.
-//    (typename $ciovec
-//      (record
-//        ;;; The address of the buffer to be written.
-//        (field $buf (@witx const_pointer u8))
-//        ;;; The length of the buffer to be written.
-//        (field $buf_len $size)
-//      )
-//    )
-//    
-//    (typename $iovec_array (list $iovec))
-//    (typename $ciovec_array (list $ciovec))
-//    
-//    ;;; Relative offset within a file.
-//    (typename $filedelta s64)
-//    
-//    ;;; The position relative to which to set the offset of the file descriptor.
-//    (typename $whence
-//      (enum (@witx tag u8)
-//        ;;; Seek relative to start-of-file.
-//        $set
-//        ;;; Seek relative to current position.
-//        $cur
-//        ;;; Seek relative to end-of-file.
-//        $end
-//      )
-//    )
-
-//    ;;; Number of hard links to an inode.
-//    (typename $linkcount u64)
-//    
-//    ;;; File permissions. This represents the permissions associated with a
-//    ;;; file in a filesystem, and don't fully reflect all the conditions
-//    ;;; which determine whether a given WASI program can access the file.
-//    (typename $permissions
-//      (flags (@witx repr u8)
-//        ;;; For files, permission to read the file.
-//        ;;; For directories, permission to do `readdir` and access files
-//        ;;; within the directory.
-//        ;;;
-//        ;;; Note: This is similar to the read bit being set on files, and the
-//        ;;; read *and* execute bits being set on directories, in POSIX.
-//        $read
-//    
-//        ;;; For files, permission to mutate the file.
-//        ;;; For directories, permission to create, remove, and rename items
-//        ;;; within the directory.
-//        $write
-//    
-//        ;;; For files, permission to "execute" the file, using whatever
-//        ;;; concept of "executing" the host filesystem has.
-//        ;;; This flag is not valid for directories.
-//        $execute
-//    
-//        ;;; For filesystems which have a concept of multiple "users", this flag
-//        ;;; indicates that the file is only accessible by the effective "user"
-//        ;;; that the WASI store uses to access the filesystem, and inaccessible
-//        ;;; to other "users".
-//        $private
-//      )
-//    )
-//    
-//    ;;; File attributes.
+//    ;;; 
 //    (typename $filestat
 //      (record
-//        ;;; Device ID of device containing the file.
-//        (field $dev $device)
-//        ;;; File serial number.
-//        (field $ino $inode)
-//        ;;; File type.
-//        (field $filetype $filetype)
-//        ;;; File permissions.
-//        (field $permissions $permissions)
-//        ;;; Number of hard links to the file.
-//        (field $nlink $linkcount)
-//        ;;; For regular files, the file size in bytes. For symbolic links, the length in bytes of the pathname contained in the symbolic link.
-//        (field $size $filesize)
-//        ;;; Last data access timestamp.
-//        (field $atim $timestamp)
-//        ;;; Last data modification timestamp.
-//        (field $mtim $timestamp)
-//        ;;; Last file status change timestamp.
-//        (field $ctim $timestamp)
+
 //      )
 //    )
 //    
