@@ -158,19 +158,15 @@ impl Module {
     /// # }
     /// ```
     #[allow(unreachable_code)]
-    pub fn new(store: &impl AsStoreRef, bytes: impl IntoBytes) -> Result<Self, CompileError> {
-        let mut bytes = bytes.into_bytes();
+    pub fn new(store: &impl AsStoreRef, bytes: impl AsRef<[u8]>) -> Result<Self, CompileError> {
         #[cfg(feature = "wat")]
-        if !bytes.starts_with(b"\0asm") {
-            let parsed_bytes = wat::parse_bytes(&bytes[..]).map_err(|e| {
-                CompileError::Wasm(WasmError::Generic(format!(
-                    "Error when converting wat: {}",
-                    e
-                )))
-            })?;
-            bytes = Bytes::from(parsed_bytes.to_vec());
-        }
-        Self::from_binary(store, bytes)
+        let bytes = wat::parse_bytes(bytes.as_ref()).map_err(|e| {
+            CompileError::Wasm(WasmError::Generic(format!(
+                "Error when converting wat: {}",
+                e
+            )))
+        })?;
+        Self::from_binary(store, bytes.as_ref())
     }
 
     #[cfg(feature = "compiler")]
@@ -182,7 +178,7 @@ impl Module {
         let file_ref = file.as_ref();
         let canonical = file_ref.canonicalize()?;
         let wasm_bytes = std::fs::read(file_ref)?;
-        let mut module = Self::new(store, wasm_bytes)?;
+        let mut module = Self::new(store, &wasm_bytes)?;
         // Set the module name to the absolute path of the filename.
         // This is useful for debugging the stack traces.
         let filename = canonical.as_path().to_str().unwrap();
@@ -196,12 +192,8 @@ impl Module {
     /// Opposed to [`Module::new`], this function is not compatible with
     /// the WebAssembly text format (if the "wat" feature is enabled for
     /// this crate).
-    pub fn from_binary(
-        store: &impl AsStoreRef,
-        binary: impl IntoBytes,
-    ) -> Result<Self, CompileError> {
-        let binary = binary.into_bytes();
-        Self::validate(store, binary.clone())?;
+    pub fn from_binary(store: &impl AsStoreRef, binary: &[u8]) -> Result<Self, CompileError> {
+        Self::validate(store, binary)?;
         unsafe { Self::from_binary_unchecked(store, binary) }
     }
 
@@ -215,9 +207,8 @@ impl Module {
     /// beforehand.
     pub unsafe fn from_binary_unchecked(
         store: &impl AsStoreRef,
-        binary: impl IntoBytes,
+        binary: &[u8],
     ) -> Result<Self, CompileError> {
-        let binary = binary.into_bytes();
         let module = Self::compile(store, binary)?;
         Ok(module)
     }
@@ -229,13 +220,12 @@ impl Module {
     /// This validation is normally pretty fast and checks the enabled
     /// WebAssembly features in the Store Engine to assure deterministic
     /// validation of the Module.
-    pub fn validate(store: &impl AsStoreRef, binary: impl IntoBytes) -> Result<(), CompileError> {
-        let binary = binary.into_bytes();
-        store.as_store_ref().engine().validate(&binary[..])
+    pub fn validate(store: &impl AsStoreRef, binary: &[u8]) -> Result<(), CompileError> {
+        store.as_store_ref().engine().validate(binary)
     }
 
     #[cfg(feature = "compiler")]
-    fn compile(store: &impl AsStoreRef, binary: impl IntoBytes) -> Result<Self, CompileError> {
+    fn compile(store: &impl AsStoreRef, binary: &[u8]) -> Result<Self, CompileError> {
         let binary = binary.into_bytes();
         let artifact = store
             .as_store_ref()
@@ -306,9 +296,10 @@ impl Module {
     /// ```
     pub unsafe fn deserialize(
         store: &impl AsStoreRef,
-        bytes: &[u8],
+        bytes: impl IntoBytes,
     ) -> Result<Self, DeserializeError> {
-        let artifact = store.as_store_ref().engine().deserialize(bytes)?;
+        let bytes = bytes.into_bytes();
+        let artifact = store.as_store_ref().engine().deserialize(&bytes)?;
         Ok(Self::from_artifact(artifact))
     }
 

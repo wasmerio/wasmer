@@ -169,19 +169,15 @@ impl Module {
     /// # }
     /// ```
     #[allow(unreachable_code)]
-    pub fn new(_store: &impl AsStoreRef, bytes: impl IntoBytes) -> Result<Self, CompileError> {
-        let mut bytes = bytes.into_bytes();
+    pub fn new(_store: &impl AsStoreRef, bytes: impl AsRef<[u8]>) -> Result<Self, CompileError> {
         #[cfg(feature = "wat")]
-        if bytes.starts_with(b"\0asm") == false {
-            let parsed_bytes = wat::parse_bytes(bytes.as_ref()).map_err(|e| {
-                CompileError::Wasm(WasmError::Generic(format!(
-                    "Error when converting wat: {}",
-                    e
-                )))
-            })?;
-            bytes = Bytes::from(parsed_bytes.to_vec());
-        }
-        Self::from_binary(_store, bytes)
+        let bytes = wat::parse_bytes(bytes.as_ref()).map_err(|e| {
+            CompileError::Wasm(WasmError::Generic(format!(
+                "Error when converting wat: {}",
+                e
+            )))
+        })?;
+        Self::from_binary(_store, bytes.as_ref())
     }
 
     /// Creates a new WebAssembly module from a file path.
@@ -197,11 +193,7 @@ impl Module {
     /// Opposed to [`Module::new`], this function is not compatible with
     /// the WebAssembly text format (if the "wat" feature is enabled for
     /// this crate).
-    pub fn from_binary(
-        _store: &impl AsStoreRef,
-        binary: impl IntoBytes,
-    ) -> Result<Self, CompileError> {
-        let binary = binary.into_bytes();
+    pub fn from_binary(_store: &impl AsStoreRef, binary: &[u8]) -> Result<Self, CompileError> {
         //
         // Self::validate(store, binary)?;
         unsafe { Self::from_binary_unchecked(_store, binary) }
@@ -215,9 +207,8 @@ impl Module {
     /// We maintain the `unsafe` to preserve the same API as Wasmer
     pub unsafe fn from_binary_unchecked(
         _store: &impl AsStoreRef,
-        binary: impl IntoBytes,
+        binary: &[u8],
     ) -> Result<Self, CompileError> {
-        let binary = binary.into_bytes();
         let js_bytes = Uint8Array::view(&binary[..]);
         let module = WebAssembly::Module::new(&js_bytes.into()).unwrap();
 
@@ -260,7 +251,7 @@ impl Module {
     /// This validation is normally pretty fast and checks the enabled
     /// WebAssembly features in the Store Engine to assure deterministic
     /// validation of the Module.
-    pub fn validate(_store: &impl AsStoreRef, binary: impl IntoBytes) -> Result<(), CompileError> {
+    pub fn validate(_store: &impl AsStoreRef, binary: &[u8]) -> Result<(), CompileError> {
         let binary = binary.into_bytes();
         let js_bytes = unsafe { Uint8Array::view(&binary[..]) };
         match WebAssembly::validate(&js_bytes.into()) {
