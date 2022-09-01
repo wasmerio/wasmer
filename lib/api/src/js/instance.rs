@@ -20,8 +20,6 @@ use std::fmt;
 pub struct Instance {
     _handle: StoreHandle<WebAssembly::Instance>,
     module: Module,
-    #[allow(dead_code)]
-    imports: Imports,
     /// The exports for an instance.
     pub exports: Exports,
 }
@@ -65,12 +63,11 @@ impl Instance {
         module: &Module,
         imports: &Imports,
     ) -> Result<Self, InstantiationError> {
-        let import_copy = imports.clone();
-        let (instance, _imports): (StoreHandle<WebAssembly::Instance>, Vec<Extern>) = module
+        let instance: WebAssembly::Instance = module
             .instantiate(&mut store, imports)
             .map_err(|e| InstantiationError::Start(e))?;
 
-        let self_instance = Self::from_module_and_instance(store, module, instance, import_copy)?;
+        let self_instance = Self::from_module_and_instance(store, module, instance)?;
         //self_instance.init_envs(&imports.iter().map(Extern::to_export).collect::<Vec<_>>())?;
         Ok(self_instance)
     }
@@ -87,10 +84,9 @@ impl Instance {
     pub fn from_module_and_instance(
         mut store: &mut impl AsStoreMut,
         module: &Module,
-        instance: StoreHandle<WebAssembly::Instance>,
-        imports: Imports,
+        instance: WebAssembly::Instance,
     ) -> Result<Self, InstantiationError> {
-        let instance_exports = instance.get(store.as_store_ref().objects()).exports();
+        let instance_exports = instance.exports();
         let exports = module
             .exports()
             .map(|export_type| {
@@ -109,11 +105,10 @@ impl Instance {
                 Ok((name.to_string(), extern_))
             })
             .collect::<Result<Exports, InstantiationError>>()?;
-
+        let handle = StoreHandle::new(store.as_store_mut().objects_mut(), instance);
         Ok(Self {
-            _handle: instance,
+            _handle: handle,
             module: module.clone(),
-            imports,
             exports,
         })
     }

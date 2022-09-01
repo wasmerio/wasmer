@@ -47,9 +47,9 @@ pub use crate::state::{
     WasiStateCreationError, ALL_RIGHTS, VIRTUAL_ROOT_FD,
 };
 pub use crate::syscalls::types;
-pub use crate::utils::{
-    get_wasi_version, get_wasi_versions, is_wasi_module, is_wasix_module, WasiVersion,
-};
+#[cfg(feature = "wasix")]
+pub use crate::utils::is_wasix_module;
+pub use crate::utils::{get_wasi_version, get_wasi_versions, is_wasi_module, WasiVersion};
 pub use wasmer_vbus::{UnsupportedVirtualBus, VirtualBus};
 #[deprecated(since = "2.1.0", note = "Please use `wasmer_vfs::FsError`")]
 pub use wasmer_vfs::FsError as WasiFsError;
@@ -213,6 +213,7 @@ impl WasiFunctionEnv {
             }
         }
 
+        #[cfg(feature = "wasix")]
         if is_wasix_module(module) {
             self.data_mut(store)
                 .state
@@ -423,8 +424,12 @@ pub fn generate_import_object_from_env(
         WasiVersion::Snapshot1 | WasiVersion::Latest => {
             generate_import_object_snapshot1(store, env)
         }
+        #[cfg(feature = "wasix")]
         WasiVersion::Wasix32v1 => generate_import_object_wasix32_v1(store, env),
+        #[cfg(feature = "wasix")]
         WasiVersion::Wasix64v1 => generate_import_object_wasix64_v1(store, env),
+        #[cfg(not(feature = "wasix"))]
+        _ => unimplemented!(),
     }
 }
 
@@ -566,6 +571,7 @@ fn generate_import_object_snapshot1(
 }
 
 /// Combines a state generating function with the import list for snapshot 1
+#[cfg(feature = "wasix")]
 fn generate_import_object_wasix32_v1(
     mut store: &mut impl AsStoreMut,
     env: &FunctionEnv<WasiEnv>,
@@ -684,6 +690,7 @@ fn generate_import_object_wasix32_v1(
     }
 }
 
+#[cfg(feature = "wasix")]
 fn generate_import_object_wasix64_v1(
     mut store: &mut impl AsStoreMut,
     env: &FunctionEnv<WasiEnv>,

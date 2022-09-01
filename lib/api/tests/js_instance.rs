@@ -93,6 +93,61 @@ mod js {
     }
 
     #[wasm_bindgen_test]
+    fn test_imports_from_js_object() {
+        let mut store = Store::default();
+        let mut module = Module::new(
+            &store,
+            br#"
+        (module
+            (func $imported (import "env" "imported") (param i32) (result i32))
+            (func (export "exported") (param i32) (result i32)
+                (call $imported (local.get 0))
+            )
+        )
+        "#,
+        )
+        .unwrap();
+        module
+            .set_type_hints(ModuleTypeHints {
+                imports: vec![ExternType::Function(FunctionType::new(
+                    vec![Type::I32],
+                    vec![Type::I32],
+                ))],
+                exports: vec![ExternType::Function(FunctionType::new(
+                    vec![Type::I32],
+                    vec![Type::I32],
+                ))],
+            })
+            .unwrap();
+
+        let obj: js_sys::Object = js_sys::Function::new_with_args(
+            "",
+            "return {
+            \"env\": {
+                \"imported\": function(num) {
+                    console.log(\"Calling `imported`...\");
+                    var result = num * 2;
+                    console.log(\"Result of `imported`: \", result);
+                    return result;
+                }
+            }
+        };",
+        )
+        .call0(&wasm_bindgen::JsValue::UNDEFINED)
+        .unwrap()
+        .into();
+
+        let import_object = Imports::new_from_js_object(&mut store, &module, obj)
+            .expect("Can't get imports from js object");
+        let instance = Instance::new(&mut store, &module, &import_object).unwrap();
+
+        let exported = instance.exports.get_function("exported").unwrap();
+
+        let expected = vec![Val::I32(6)].into_boxed_slice();
+        assert_eq!(exported.call(&mut store, &[Val::I32(3)]).unwrap(), expected);
+    }
+
+    #[wasm_bindgen_test]
     fn test_imported_function_dynamic() {
         let mut store = Store::default();
         let mut module = Module::new(
