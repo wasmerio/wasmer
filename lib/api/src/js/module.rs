@@ -105,7 +105,7 @@ pub struct Module {
     // WebAssembly type hints
     type_hints: Option<ModuleTypeHints>,
     #[cfg(feature = "js-serializable-module")]
-    raw_bytes: Option<Vec<u8>>,
+    raw_bytes: Option<Bytes>,
 }
 
 impl Module {
@@ -209,7 +209,7 @@ impl Module {
         _store: &impl AsStoreRef,
         binary: &[u8],
     ) -> Result<Self, CompileError> {
-        let js_bytes = Uint8Array::view(&binary[..]);
+        let js_bytes = Uint8Array::view(binary);
         let module = WebAssembly::Module::new(&js_bytes.into()).unwrap();
 
         // The module is now validated, so we can safely parse it's types
@@ -241,7 +241,7 @@ impl Module {
             type_hints,
             name,
             #[cfg(feature = "js-serializable-module")]
-            raw_bytes: Some(binary.to_vec()),
+            raw_bytes: Some(binary),
         })
     }
 
@@ -252,8 +252,7 @@ impl Module {
     /// WebAssembly features in the Store Engine to assure deterministic
     /// validation of the Module.
     pub fn validate(_store: &impl AsStoreRef, binary: &[u8]) -> Result<(), CompileError> {
-        let binary = binary.into_bytes();
-        let js_bytes = unsafe { Uint8Array::view(&binary[..]) };
+        let js_bytes = unsafe { Uint8Array::view(binary) };
         match WebAssembly::validate(&js_bytes.into()) {
             Ok(true) => Ok(()),
             _ => Err(CompileError::Validate("Invalid Wasm file".to_owned())),
@@ -306,7 +305,7 @@ impl Module {
     /// can later process via [`Module::deserialize`].
     ///
     #[cfg(feature = "js-serializable-module")]
-    pub fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
+    pub fn serialize(&self) -> Result<Bytes, SerializeError> {
         self.raw_bytes.clone().ok_or(SerializeError::Generic(
             "Not able to serialize module".to_string(),
         ))

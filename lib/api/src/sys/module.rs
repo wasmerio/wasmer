@@ -226,11 +226,10 @@ impl Module {
 
     #[cfg(feature = "compiler")]
     fn compile(store: &impl AsStoreRef, binary: &[u8]) -> Result<Self, CompileError> {
-        let binary = binary.into_bytes();
         let artifact = store
             .as_store_ref()
             .engine()
-            .compile(&binary[..], store.as_store_ref().tunables())?;
+            .compile(binary, store.as_store_ref().tunables())?;
         Ok(Self::from_artifact(artifact))
     }
 
@@ -248,8 +247,8 @@ impl Module {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
-        self.artifact.serialize()
+    pub fn serialize(&self) -> Result<Bytes, SerializeError> {
+        self.artifact.serialize().map(|bytes| bytes.into())
     }
 
     /// Serializes a module into a file that the `Engine`
