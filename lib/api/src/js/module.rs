@@ -241,7 +241,7 @@ impl Module {
             type_hints,
             name,
             #[cfg(feature = "js-serializable-module")]
-            raw_bytes: Some(binary),
+            raw_bytes: Some(binary.into_bytes()),
         })
     }
 
