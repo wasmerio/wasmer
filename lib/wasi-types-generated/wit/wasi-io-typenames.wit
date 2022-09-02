@@ -11,7 +11,7 @@ record iovec {
     /// pointer<u8>
     buf: size,
     /// The length of the buffer to be filled.
-    buf_len: size,
+    buf-len: size,
 }
 
 /// A region of memory for scatter/gather writes.
@@ -20,12 +20,12 @@ record ciovec {
     /// TODO: (field $buf (field $buf (@witx const_pointer u8))): wit has no "pointer"
     buf: size,
     /// The length of the buffer to be written.
-    buf_len: size,
+    buf-len: size,
 }
 
-type iovec_array: list<iovec>
+type iovec-array: list<iovec>
 
-type ciovec_array: list<ciovec>
+type ciovec-array: list<ciovec>
 
 /// Relative offset within a file.
 type filedelta = s64
