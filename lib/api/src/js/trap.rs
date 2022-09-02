@@ -6,9 +6,75 @@ use wasm_bindgen::convert::FromWasmAbi;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsValue;
 
-pub trait CoreError: fmt::Debug + fmt::Display + core::any::Any { }
+pub trait CoreError: fmt::Debug + fmt::Display {
+    fn source(&self) -> Option<&(dyn CoreError + 'static)> {
+        None
+    }
 
-impl<T: fmt::Debug + fmt::Display + core::any::Any> CoreError for T { }
+    fn type_id(&self) -> core::any::TypeId
+    where
+        Self: 'static,
+    {
+        core::any::TypeId::of::<Self>()
+    }
+
+    fn description(&self) -> &str {
+        "description() is deprecated; use Display"
+    }
+    fn cause(&self) -> Option<&dyn CoreError> {
+        self.source()
+    }
+}
+
+impl<T: fmt::Debug + fmt::Display> CoreError for T { }
+
+impl dyn CoreError + 'static {
+    /// Returns `true` if the inner type is the same as `T`.
+    pub fn core_is_equal<T: CoreError + 'static>(&self) -> bool {
+        let t = core::any::TypeId::of::<T>();
+        let concrete = self.type_id();
+        t == concrete
+    }
+}
+
+impl dyn CoreError + Send {
+    #[inline]
+    /// Attempts to downcast the box to a concrete type.
+    pub fn downcast_core<T: CoreError + 'static>(self: Box<Self>) -> Result<Box<T>, Box<dyn CoreError + Send>> {
+        let err: Box<dyn CoreError> = self;
+        <dyn CoreError>::downcast_core(err).map_err(|s| unsafe {
+            // Reapply the `Send` marker.
+            core::mem::transmute::<Box<dyn CoreError>, Box<dyn CoreError + Send>>(s)
+        })
+    }
+}
+
+impl dyn CoreError + Send + Sync {
+    #[inline]
+    /// Attempts to downcast the box to a concrete type.
+    pub fn downcast_core<T: CoreError + 'static>(self: Box<Self>) -> Result<Box<T>, Box<Self>> {
+        let err: Box<dyn CoreError> = self;
+        <dyn CoreError>::downcast_core(err).map_err(|s| unsafe {
+            // Reapply the `Send + Sync` marker.
+            core::mem::transmute::<Box<dyn CoreError>, Box<dyn CoreError + Send + Sync>>(s)
+        })
+    }
+}
+
+impl dyn CoreError {
+    #[inline]
+    /// Attempts to downcast the box to a concrete type.
+    pub fn downcast_core<T: CoreError + 'static>(self: Box<Self>) -> Result<Box<T>, Box<dyn CoreError>> {
+        if self.core_is_equal::<T>() {
+            unsafe {
+                let raw: *mut dyn CoreError = Box::into_raw(self);
+                Ok(Box::from_raw(raw as *mut T))
+            }
+        } else {
+            Err(self)
+        }
+    }
+}
 
 /// A struct representing an aborted instruction execution, with a message
 /// indicating the cause.
@@ -71,7 +137,17 @@ impl RuntimeError {
 
     /// Raises a custom user Error
     #[deprecated(since = "2.1.1", note = "return a Result from host functions instead")]
+    #[cfg(feature = "std")]
     pub(crate) fn raise(error: Box<dyn Error + Send + Sync>) -> ! {
+        let error = Self::user(error);
+        let js_error: JsValue = error.into();
+        wasm_bindgen::throw_val(js_error)
+    }
+
+    /// Raises a custom user Error
+    #[deprecated(since = "2.1.1", note = "return a Result from host functions instead")]
+    #[cfg(feature = "core")]
+    pub(crate) fn raise(error: Box<dyn CoreError + Send + Sync>) -> ! {
         let error = Self::user(error);
         let js_error: JsValue = error.into();
         wasm_bindgen::throw_val(js_error)
@@ -94,7 +170,7 @@ impl RuntimeError {
 
     #[cfg(feature = "core")]
     pub fn user(error: Box<dyn CoreError + Send + Sync>) -> Self {
-        match error.downcast::<Self>() {
+        match error.downcast_core::<Self>() {
             // The error is already a RuntimeError, we return it directly
             Ok(runtime_error) => *runtime_error,
             Err(error) => RuntimeError {
@@ -112,7 +188,10 @@ impl RuntimeError {
     pub fn downcast<T: Error + 'static>(self) -> Result<T, Self> {
         match Arc::try_unwrap(self.inner) {
             // We only try to downcast user errors
+            #[cfg(feature = "std")]
             Ok(RuntimeErrorSource::User(err)) if err.is::<T>() => Ok(*err.downcast::<T>().unwrap()),
+            #[cfg(feature = "core")]
+            Ok(RuntimeErrorSource::User(err)) if (*err).core_is_equal::<T>() => Ok(*err.downcast_core::<T>().unwrap()),
             Ok(inner) => Err(Self {
                 inner: Arc::new(inner),
             }),
@@ -123,7 +202,10 @@ impl RuntimeError {
     /// Returns true if the `RuntimeError` is the same as T
     pub fn is<T: Error + 'static>(&self) -> bool {
         match self.inner.as_ref() {
+            #[cfg(feature = "std")]
             RuntimeErrorSource::User(err) => err.is::<T>(),
+            #[cfg(feature = "core")]
+            RuntimeErrorSource::User(err) => (*err).core_is_equal::<T>(),
             _ => false,
         }
     }
@@ -144,6 +226,7 @@ impl fmt::Display for RuntimeError {
     }
 }
 
+#[cfg(feature = "std")]
 impl std::error::Error for RuntimeError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self.inner.as_ref() {
