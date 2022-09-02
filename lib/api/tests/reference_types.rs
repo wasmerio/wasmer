@@ -1,13 +1,13 @@
-use anyhow::Result;
-use macro_wasmer_universal_test::universal_test;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
-#[cfg(feature = "js")]
-use wasm_bindgen_test::*;
-use wasmer::*;
-
 #[cfg(feature = "sys")]
 pub mod reference_types {
+
+    use anyhow::Result;
+    use macro_wasmer_universal_test::universal_test;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::Arc;
+    #[cfg(feature = "js")]
+    use wasm_bindgen_test::*;
+    use wasmer::*;
 
     #[universal_test]
     fn func_ref_passed_and_returned() -> Result<()> {
