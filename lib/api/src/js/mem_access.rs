@@ -197,6 +197,12 @@ impl<'a, T: ValueType> WasmSlice<'a, T> {
         self.len
     }
 
+    /// Return if the slice is empty.
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
     /// Get a `WasmRef` to an element in the slice.
     #[inline]
     pub fn index(self, idx: u64) -> WasmRef<'a, T> {

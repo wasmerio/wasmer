@@ -4,7 +4,7 @@
 use wasmer_types::{NativeWasmType, RawValue, Type};
 use wasmer_vm::{VMExternRef, VMFuncRef};
 
-use crate::{ExternRef, Function};
+use crate::{ExternRef, Function, TypedFunction, WasmTypeList};
 
 use super::store::AsStoreMut;
 
@@ -162,6 +162,16 @@ impl NativeWasmTypeInto for Option<ExternRef> {
     #[inline]
     unsafe fn from_raw(store: &mut impl AsStoreMut, raw: RawValue) -> Self {
         VMExternRef::from_raw(raw).map(|e| ExternRef::from_vm_externref(store, e))
+    }
+}
+
+impl<Args, Rets> From<TypedFunction<Args, Rets>> for Function
+where
+    Args: WasmTypeList,
+    Rets: WasmTypeList,
+{
+    fn from(other: TypedFunction<Args, Rets>) -> Self {
+        other.func
     }
 }
 

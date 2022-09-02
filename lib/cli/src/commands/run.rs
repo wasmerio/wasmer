@@ -272,7 +272,7 @@ impl Run {
         let module_result: Result<Module> = if !self.disable_cache && contents.len() > 0x1000 {
             self.get_module_from_cache(&store, &contents, &compiler_type)
         } else {
-            Module::new(&store, &contents).map_err(|e| e.into())
+            Module::new(&store, contents).map_err(|e| e.into())
         };
         #[cfg(not(feature = "cache"))]
         let module_result = Module::new(&store, &contents);
@@ -319,7 +319,7 @@ impl Run {
                         warning!("cached module is corrupted: {}", err);
                     }
                 }
-                let module = Module::new(store, &contents)?;
+                let module = Module::new(store, contents)?;
                 // Store the compiled Module in cache
                 cache.store(hash, &module)?;
                 Ok(module)

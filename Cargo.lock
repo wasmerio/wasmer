@@ -2923,6 +2923,7 @@ name = "wasmer"
 version = "3.0.0-beta"
 dependencies = [
  "anyhow",
+ "bytes",
  "cfg-if 1.0.0",
  "hashbrown 0.11.2",
  "indexmap",

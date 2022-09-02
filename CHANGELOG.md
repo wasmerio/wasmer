@@ -13,6 +13,7 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ### Changed
 - #[3131](https://github.com/wasmerio/wasmer/pull/3131) Update migration docs for MemoryView changes
+- #[3129](https://github.com/wasmerio/wasmer/pull/3129) Fix differences between -sys and -js API
 
 ### Fixed
 - #[3130](https://github.com/wasmerio/wasmer/pull/3130) Remove panics from Artifact::deserialize

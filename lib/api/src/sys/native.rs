@@ -17,7 +17,7 @@ use wasmer_types::RawValue;
 /// A WebAssembly function that can be called natively
 /// (using the Native ABI).
 pub struct TypedFunction<Args, Rets> {
-    func: Function,
+    pub(crate) func: Function,
     _phantom: PhantomData<fn(Args) -> Rets>,
 }
 
@@ -42,16 +42,6 @@ impl<Args: WasmTypeList, Rets: WasmTypeList> Clone for TypedFunction<Args, Rets>
             func: self.func.clone(),
             _phantom: PhantomData,
         }
-    }
-}
-
-impl<Args, Rets> From<TypedFunction<Args, Rets>> for Function
-where
-    Args: WasmTypeList,
-    Rets: WasmTypeList,
-{
-    fn from(other: TypedFunction<Args, Rets>) -> Self {
-        other.func
     }
 }
 
