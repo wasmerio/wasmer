@@ -1,7 +1,0 @@
-[package]
-name = "macro-wasmer-test"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-macro-wasmer-universal-test = { version = "0.1.0", path = "../macro-wasmer-universal-test" }
