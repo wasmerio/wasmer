@@ -318,6 +318,7 @@
 <span id="311">311</span>
 <span id="312">312</span>
 <span id="313">313</span>
+<span id="314">314</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::exports</span>::{<span class="ident">ExportError</span>, <span class="ident">Exportable</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::externals::Extern</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::store</span>::{<span class="ident">AsStoreMut</span>, <span class="ident">AsStoreRef</span>};
@@ -474,6 +475,7 @@
         <span class="ident">mem</span>.<span class="ident">try_clone</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">mem</span><span class="op">|</span> <span class="ident">mem</span>.<span class="ident">into</span>())
     }
 
+    <span class="doccomment">/// To `VMExtern`.</span>
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">to_vm_extern</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">VMExtern</span> {
         <span class="ident">VMExtern::Memory</span>(<span class="self">self</span>.<span class="ident">handle</span>.<span class="ident">internal_handle</span>())
     }

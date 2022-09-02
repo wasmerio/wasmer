@@ -245,13 +245,23 @@
 <span id="238">238</span>
 <span id="239">239</span>
 <span id="240">240</span>
+<span id="241">241</span>
+<span id="242">242</span>
+<span id="243">243</span>
+<span id="244">244</span>
+<span id="245">245</span>
+<span id="246">246</span>
+<span id="247">247</span>
+<span id="248">248</span>
+<span id="249">249</span>
+<span id="250">250</span>
 </pre><pre class="rust"><code><span class="doccomment">//! This module permits to create native functions</span>
 <span class="doccomment">//! easily in Rust, thanks to its advanced typing system.</span>
 
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">NativeWasmType</span>, <span class="ident">RawValue</span>, <span class="ident">Type</span>};
 <span class="kw">use</span> <span class="ident">wasmer_vm</span>::{<span class="ident">VMExternRef</span>, <span class="ident">VMFuncRef</span>};
 
-<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">ExternRef</span>, <span class="ident">Function</span>};
+<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">ExternRef</span>, <span class="ident">Function</span>, <span class="ident">TypedFunction</span>, <span class="ident">WasmTypeList</span>};
 
 <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::store::AsStoreMut</span>;
 
@@ -409,6 +419,16 @@
     <span class="attribute">#[<span class="ident">inline</span>]</span>
     <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_raw</span>(<span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">raw</span>: <span class="ident">RawValue</span>) -&gt; <span class="self">Self</span> {
         <span class="ident">VMExternRef::from_raw</span>(<span class="ident">raw</span>).<span class="ident">map</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">ExternRef::from_vm_externref</span>(<span class="ident">store</span>, <span class="ident">e</span>))
+    }
+}
+
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">Args</span>, <span class="ident">Rets</span><span class="op">&gt;</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">TypedFunction</span><span class="op">&lt;</span><span class="ident">Args</span>, <span class="ident">Rets</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Function</span>
+<span class="kw">where</span>
+    <span class="ident">Args</span>: <span class="ident">WasmTypeList</span>,
+    <span class="ident">Rets</span>: <span class="ident">WasmTypeList</span>,
+{
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">other</span>: <span class="ident">TypedFunction</span><span class="op">&lt;</span><span class="ident">Args</span>, <span class="ident">Rets</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
+        <span class="ident">other</span>.<span class="ident">func</span>
     }
 }
 

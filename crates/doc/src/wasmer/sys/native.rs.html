@@ -159,16 +159,6 @@
 <span id="152">152</span>
 <span id="153">153</span>
 <span id="154">154</span>
-<span id="155">155</span>
-<span id="156">156</span>
-<span id="157">157</span>
-<span id="158">158</span>
-<span id="159">159</span>
-<span id="160">160</span>
-<span id="161">161</span>
-<span id="162">162</span>
-<span id="163">163</span>
-<span id="164">164</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Native Functions.</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! This module creates the helper `TypedFunction` that let us call WebAssembly</span>
@@ -188,7 +178,7 @@
 <span class="doccomment">/// A WebAssembly function that can be called natively</span>
 <span class="doccomment">/// (using the Native ABI).</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">TypedFunction</span><span class="op">&lt;</span><span class="ident">Args</span>, <span class="ident">Rets</span><span class="op">&gt;</span> {
-    <span class="ident">func</span>: <span class="ident">Function</span>,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">func</span>: <span class="ident">Function</span>,
     <span class="ident">_phantom</span>: <span class="ident">PhantomData</span><span class="op">&lt;</span><span class="kw">fn</span>(<span class="ident">Args</span>) -&gt; <span class="ident">Rets</span><span class="op">&gt;</span>,
 }
 
@@ -213,16 +203,6 @@
             <span class="ident">func</span>: <span class="self">self</span>.<span class="ident">func</span>.<span class="ident">clone</span>(),
             <span class="ident">_phantom</span>: <span class="ident">PhantomData</span>,
         }
-    }
-}
-
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">Args</span>, <span class="ident">Rets</span><span class="op">&gt;</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">TypedFunction</span><span class="op">&lt;</span><span class="ident">Args</span>, <span class="ident">Rets</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Function</span>
-<span class="kw">where</span>
-    <span class="ident">Args</span>: <span class="ident">WasmTypeList</span>,
-    <span class="ident">Rets</span>: <span class="ident">WasmTypeList</span>,
-{
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">other</span>: <span class="ident">TypedFunction</span><span class="op">&lt;</span><span class="ident">Args</span>, <span class="ident">Rets</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident">other</span>.<span class="ident">func</span>
     }
 }
 
