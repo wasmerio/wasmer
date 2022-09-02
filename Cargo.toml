@@ -52,6 +52,7 @@ members = [
     "tests/lib/compiler-test-derive",
     "tests/integration/cli",
     "tests/integration/ios",
+    "lib/api/macro-wasmer-test",
     "fuzz",
 ]
 resolver = "2"
