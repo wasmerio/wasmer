@@ -37,6 +37,15 @@ impl dyn CoreError + 'static {
     }
 }
 
+impl dyn CoreError + Send + Sync + 'static {
+    /// Returns `true` if the inner type is the same as `T`.
+    pub fn core_is_equal<T: CoreError + 'static>(&self) -> bool {
+        let t = core::any::TypeId::of::<T>();
+        let concrete = self.type_id();
+        t == concrete
+    }
+}
+
 impl dyn CoreError + Send {
     #[inline]
     /// Attempts to downcast the box to a concrete type.
