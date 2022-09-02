@@ -1,6 +1,8 @@
 use crate::sys::InstantiationError;
 use crate::AsStoreMut;
 use crate::AsStoreRef;
+use bytes::Bytes;
+use std::borrow::Cow;
 use std::fmt;
 use std::io;
 use std::path::Path;
@@ -52,6 +54,46 @@ pub struct Module {
     // ownership of the code and its metadata.
     artifact: Arc<Artifact>,
     module_info: Arc<ModuleInfo>,
+}
+
+pub trait IntoBytes {
+    fn into_bytes(self) -> Bytes;
+}
+
+impl IntoBytes for Bytes {
+    fn into_bytes(self) -> Bytes {
+        self
+    }
+}
+
+impl IntoBytes for Vec<u8> {
+    fn into_bytes(self) -> Bytes {
+        Bytes::from(self)
+    }
+}
+
+impl IntoBytes for &[u8] {
+    fn into_bytes(self) -> Bytes {
+        Bytes::from(self.to_vec())
+    }
+}
+
+impl<const N: usize> IntoBytes for &[u8; N] {
+    fn into_bytes(self) -> Bytes {
+        Bytes::from(self.to_vec())
+    }
+}
+
+impl IntoBytes for &str {
+    fn into_bytes(self) -> Bytes {
+        Bytes::from(self.as_bytes().to_vec())
+    }
+}
+
+impl IntoBytes for Cow<'_, [u8]> {
+    fn into_bytes(self) -> Bytes {
+        Bytes::from(self.to_vec())
+    }
 }
 
 impl Module {
@@ -124,7 +166,6 @@ impl Module {
                 e
             )))
         })?;
-
         Self::from_binary(store, bytes.as_ref())
     }
 
@@ -206,8 +247,8 @@ impl Module {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
-        self.artifact.serialize()
+    pub fn serialize(&self) -> Result<Bytes, SerializeError> {
+        self.artifact.serialize().map(|bytes| bytes.into())
     }
 
     /// Serializes a module into a file that the `Engine`
@@ -254,9 +295,10 @@ impl Module {
     /// ```
     pub unsafe fn deserialize(
         store: &impl AsStoreRef,
-        bytes: &[u8],
+        bytes: impl IntoBytes,
     ) -> Result<Self, DeserializeError> {
-        let artifact = store.as_store_ref().engine().deserialize(bytes)?;
+        let bytes = bytes.into_bytes();
+        let artifact = store.as_store_ref().engine().deserialize(&bytes)?;
         Ok(Self::from_artifact(artifact))
     }
 
