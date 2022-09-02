@@ -46,3 +46,6 @@ jobs:
 
       - name: Compile Wasmer to WebAssembly and test with a JavaScript host
         run: make test-js
+
+      - name: Compile Wasmer to WebAssembly and test with a JavaScript host (no-std)
+        run: make test-js-core
