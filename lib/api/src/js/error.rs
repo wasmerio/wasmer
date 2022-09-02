@@ -1,3 +1,5 @@
+#[cfg(feature = "core")]
+use crate::alloc::borrow::Cow;
 use crate::js::lib::std::string::String;
 use crate::js::trap::RuntimeError;
 #[cfg(feature = "std")]
@@ -116,7 +118,7 @@ impl From<wasm_bindgen::JsValue> for WasmError {
 pub enum SerializeError {
     /// An IO error
     #[cfg_attr(feature = "std", error(transparent))]
-    Io(#[from] std::io::Error),
+    Io(#[cfg_attr(feature = "std", from)] std::io::Error),
     /// A generic serialization error
     #[cfg_attr(feature = "std", error("{0}"))]
     Generic(String),
@@ -125,11 +127,12 @@ pub enum SerializeError {
 /// The Deserialize error can occur when loading a
 /// compiled Module from a binary.
 /// Copied from wasmer_compiler::DeSerializeError
-#[derive(Error, Debug)]
+#[derive(Debug)]
+#[cfg_attr(feature = "std", derive(Error))]
 pub enum DeserializeError {
     /// An IO error
     #[cfg_attr(feature = "std", error(transparent))]
-    Io(#[from] std::io::Error),
+    Io(#[cfg_attr(feature = "std", from)] std::io::Error),
     /// A generic deserialization error
     #[cfg_attr(feature = "std", error("{0}"))]
     Generic(String),
@@ -151,19 +154,20 @@ pub enum DeserializeError {
 /// This is based on the [link error][link-error] API.
 ///
 /// [link-error]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/WebAssembly/LinkError
-#[derive(Error, Debug)]
-#[error("Link error: {0}")]
+#[derive(Debug)]
+#[cfg_attr(feature = "std", derive(Error))]
+#[cfg_attr(feature = "std", error("Link error: {0}"))]
 pub enum LinkError {
     /// An error occurred when checking the import types.
-    #[error("Error while importing {0:?}.{1:?}: {2}")]
+    #[cfg_attr(feature = "std", error("Error while importing {0:?}.{1:?}: {2}"))]
     Import(String, String, ImportError),
 
     #[cfg(not(target_arch = "wasm32"))]
     /// A trap ocurred during linking.
-    #[error("RuntimeError occurred during linking: {0}")]
+    #[cfg_attr(feature = "std", error("RuntimeError occurred during linking: {0}"))]
     Trap(#[source] RuntimeError),
     /// Insufficient resources available for linking.
-    #[error("Insufficient resources: {0}")]
+    #[cfg_attr(feature = "std", error("Insufficient resources: {0}"))]
     Resource(String),
 }
 
