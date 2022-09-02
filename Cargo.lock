@@ -1405,13 +1405,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "macro-wasmer-test"
-version = "0.1.0"
-dependencies = [
- "macro-wasmer-universal-test",
-]
-
-[[package]]
 name = "macro-wasmer-universal-test"
 version = "0.1.0"
 dependencies = [

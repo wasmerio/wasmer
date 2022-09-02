@@ -1,16 +1,11 @@
 use anyhow::Result;
 #[cfg(feature = "js")]
 use wasm_bindgen_test::*;
+use macro_wasmer_universal_test::universal_test;
 
 use wasmer::*;
 
-#[cfg(feature = "js")]
-#[cfg_attr(feature = "js", wasm_bindgen_test)]
-fn module_get_name_js() {
-    module_get_name().unwrap();    
-}
-
-#[cfg_attr(feature = "sys", test)]
+#[universal_test]
 fn module_get_name() -> Result<()> {
     let store = Store::default();
     let wat = r#"(module)"#;
@@ -20,13 +15,7 @@ fn module_get_name() -> Result<()> {
     Ok(())
 }
 
-#[cfg(feature = "js")]
-#[cfg_attr(feature = "js", wasm_bindgen_test)]
-fn module_set_name_js() {
-    module_set_name().unwrap();    
-}
-
-#[cfg_attr(feature = "sys", test)]
+#[universal_test]
 fn module_set_name() -> Result<()> {
     let store = Store::default();
     let wat = r#"(module $name)"#;
@@ -39,13 +28,7 @@ fn module_set_name() -> Result<()> {
     Ok(())
 }
 
-#[cfg(feature = "js")]
-#[cfg_attr(feature = "js", wasm_bindgen_test)]
-fn imports_js() {
-    imports().unwrap();    
-}
-
-#[cfg_attr(feature = "sys", test)]
+#[universal_test]
 fn imports() -> Result<()> {
     let store = Store::default();
     let wat = r#"(module
@@ -117,13 +100,7 @@ fn imports() -> Result<()> {
     Ok(())
 }
 
-#[cfg(feature = "js")]
-#[cfg_attr(feature = "js", wasm_bindgen_test)]
-fn exports_js() {
-    exports().unwrap();    
-}
-
-#[cfg_attr(feature = "sys", test)]
+#[universal_test]
 fn exports() -> Result<()> {
     let store = Store::default();
     let wat = r#"(module
@@ -184,13 +161,7 @@ fn exports() -> Result<()> {
     Ok(())
 }
 
-#[cfg(feature = "js")]
-#[cfg_attr(feature = "js", wasm_bindgen_test)]
-fn calling_host_functions_with_negative_values_works_js() {
-    calling_host_functions_with_negative_values_works().unwrap();    
-}
-
-#[cfg_attr(feature = "sys", test)]
+#[universal_test]
 fn calling_host_functions_with_negative_values_works() -> Result<()> {
     let mut store = Store::default();
     let wat = r#"(module

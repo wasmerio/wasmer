@@ -1,17 +1,12 @@
 use anyhow::Result;
 #[cfg(feature = "js")]
 use wasm_bindgen_test::*;
+use macro_wasmer_universal_test::universal_test;
 
 use wasmer::*;
 
 
-#[cfg(feature = "js")]
-#[cfg_attr(feature = "js", wasm_bindgen_test)]
-fn exports_work_after_multiple_instances_have_been_freed_js() {
-    exports_work_after_multiple_instances_have_been_freed().unwrap();
-}
-
-#[cfg_attr(feature = "sys", test)]
+#[universal_test]
 fn exports_work_after_multiple_instances_have_been_freed() -> Result<()> {
     let mut store = Store::default();
     let module = Module::new(
@@ -50,13 +45,7 @@ fn exports_work_after_multiple_instances_have_been_freed() -> Result<()> {
 }
 
 
-#[cfg(feature = "js")]
-#[cfg_attr(feature = "js", wasm_bindgen_test)]
-fn unit_native_function_env_js() {
-    unit_native_function_env().unwrap();
-}
-
-#[cfg_attr(feature = "sys", test)]
+#[universal_test]
 fn unit_native_function_env() -> Result<()> {
     let mut store = Store::default();
 

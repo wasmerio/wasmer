@@ -1,16 +1,11 @@
 use anyhow::Result;
 #[cfg(feature = "js")]
 use wasm_bindgen_test::*;
+use macro_wasmer_universal_test::universal_test;
 
 use wasmer::*;
 
-#[cfg(feature = "js")]
-#[cfg_attr(feature = "js", wasm_bindgen_test)]
-fn global_new_js() {
-    global_new().unwrap();
-}
-
-#[cfg_attr(feature = "sys", test)]
+#[universal_test]
 fn global_new() -> Result<()> {
     let mut store = Store::default();
     let global = Global::new(&mut store, Value::I32(10));
@@ -35,13 +30,7 @@ fn global_new() -> Result<()> {
 }
 
 
-#[cfg(feature = "js")]
-#[cfg_attr(feature = "js", wasm_bindgen_test)]
-fn global_get_js() {
-    global_get().unwrap();
-}
-
-#[cfg_attr(feature = "sys", test)]
+#[universal_test]
 fn global_get() -> Result<()> {
     let mut store = Store::default();
     let global_i32 = Global::new(&mut store, Value::I32(10));
@@ -56,13 +45,7 @@ fn global_get() -> Result<()> {
     Ok(())
 }
 
-#[cfg(feature = "js")]
-#[cfg_attr(feature = "js", wasm_bindgen_test)]
-fn global_set_js() {
-    global_set().unwrap();
-}
-
-#[cfg_attr(feature = "sys", test)]
+#[universal_test]
 fn global_set() -> Result<()> {
     let mut store = Store::default();
     let global_i32 = Global::new(&mut store, Value::I32(10));
@@ -80,13 +63,7 @@ fn global_set() -> Result<()> {
     Ok(())
 }
 
-#[cfg(feature = "js")]
-#[cfg_attr(feature = "js", wasm_bindgen_test)]
-fn table_new_js() {
-    table_new().unwrap();
-}
-
-#[cfg_attr(feature = "sys", test)]
+#[universal_test]
 fn table_new() -> Result<()> {
     let mut store = Store::default();
     let table_type = TableType {
@@ -110,14 +87,7 @@ fn table_new() -> Result<()> {
     Ok(())
 }
 
-#[cfg_attr(feature = "sys", test)]
-#[cfg_attr(feature = "js", wasm_bindgen_test)]
-#[ignore]
-fn table_get_js() {
-    table_get().unwrap();
-}
-
-#[cfg_attr(feature = "sys", test)]
+#[universal_test]
 fn table_get() -> Result<()> {
     let mut store = Store::default();
     let table_type = TableType {
@@ -133,26 +103,13 @@ fn table_get() -> Result<()> {
     Ok(())
 }
 
-#[cfg_attr(feature = "sys", test)]
-#[cfg_attr(feature = "js", wasm_bindgen_test)]
-#[ignore]
-fn table_set_js() {
-    table_set().unwrap();
-}
-
-#[cfg_attr(feature = "sys", test)]
+#[universal_test]
 fn table_set() -> Result<()> {
     // Table set not yet tested
     Ok(())
 }
 
-#[cfg(feature = "js")]
-#[cfg_attr(feature = "js", wasm_bindgen_test)]
-fn table_grow_js() {
-    table_grow().unwrap();
-}
-
-#[cfg_attr(feature = "sys", test)]
+#[universal_test]
 fn table_grow() -> Result<()> {
     let mut store = Store::default();
     let table_type = TableType {
@@ -173,26 +130,13 @@ fn table_grow() -> Result<()> {
     Ok(())
 }
 
-#[cfg_attr(feature = "sys", test)]
-#[cfg_attr(feature = "js", wasm_bindgen_test)]
-#[ignore]
-fn table_copy_js() {
-    table_copy().unwrap();
-}
-
-#[cfg_attr(feature = "sys", test)]
+#[universal_test]
 fn table_copy() -> Result<()> {
     // TODO: table copy test not yet implemented
     Ok(())
 }
 
-#[cfg(feature = "js")]
-#[cfg_attr(feature = "js", wasm_bindgen_test)]
-fn memory_new_js() {
-    memory_new().unwrap();
-}
-
-#[cfg_attr(feature = "sys", test)]
+#[universal_test]
 fn memory_new() -> Result<()> {
     let mut store = Store::default();
     let memory_type = MemoryType {
@@ -206,13 +150,7 @@ fn memory_new() -> Result<()> {
     Ok(())
 }
 
-#[cfg(feature = "js")]
-#[cfg_attr(feature = "js", wasm_bindgen_test)]
-fn memory_grow_js() {
-    memory_grow().unwrap();
-}
-
-#[cfg_attr(feature = "sys", test)]
+#[universal_test]
 fn memory_grow() -> Result<()> {
     let mut store = Store::default();
     let desc = MemoryType::new(Pages(10), Some(Pages(16)), false);
@@ -240,13 +178,7 @@ fn memory_grow() -> Result<()> {
     Ok(())
 }
 
-#[cfg(feature = "js")]
-#[cfg_attr(feature = "js", wasm_bindgen_test)]
-fn function_new_js() {
-    function_new().unwrap();
-}
-
-#[cfg_attr(feature = "sys", test)]
+#[universal_test]
 fn function_new() -> Result<()> {
     let mut store = Store::default();
     let function = Function::new_typed(&mut store, || {});
@@ -278,13 +210,7 @@ fn function_new() -> Result<()> {
     Ok(())
 }
 
-#[cfg(feature = "js")]
-#[cfg_attr(feature = "js", wasm_bindgen_test)]
-fn function_new_env_js() {
-    function_new_env().unwrap();
-}
-
-#[cfg_attr(feature = "sys", test)]
+#[universal_test]
 fn function_new_env() -> Result<()> {
     let mut store = Store::default();
     #[derive(Clone)]
@@ -336,13 +262,7 @@ fn function_new_env() -> Result<()> {
     Ok(())
 }
 
-#[cfg(feature = "js")]
-#[cfg_attr(feature = "js", wasm_bindgen_test)]
-fn function_new_dynamic_js() {
-    function_new_dynamic().unwrap();
-}
-
-#[cfg_attr(feature = "sys", test)]
+#[universal_test]
 fn function_new_dynamic() -> Result<()> {
     let mut store = Store::default();
 
@@ -401,13 +321,7 @@ fn function_new_dynamic() -> Result<()> {
     Ok(())
 }
 
-#[cfg(feature = "js")]
-#[cfg_attr(feature = "js", wasm_bindgen_test)]
-fn function_new_dynamic_env_js() {
-    function_new_dynamic_env().unwrap();
-}
-
-#[cfg_attr(feature = "sys", test)]
+#[universal_test]
 fn function_new_dynamic_env() -> Result<()> {
     let mut store = Store::default();
     #[derive(Clone)]

@@ -6,13 +6,7 @@ use wasmer::*;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
-#[cfg(feature = "js")]
-#[cfg_attr(feature = "js", wasm_bindgen_test)]
-fn func_ref_passed_and_returned_js() {
-    func_ref_passed_and_returned().unwrap();
-}
-
-#[cfg_attr(feature = "sys", test)]
+#[universal_test]
 fn func_ref_passed_and_returned() -> Result<()> {
     let mut store = Store::default();
     let wat = r#"(module
@@ -67,13 +61,7 @@ fn func_ref_passed_and_returned() -> Result<()> {
 }
 
 
-#[cfg(feature = "js")]
-#[cfg_attr(feature = "js", wasm_bindgen_test)]
-fn func_ref_passed_and_called_js() {
-    func_ref_passed_and_called().unwrap();
-}
-
-#[cfg_attr(feature = "sys", test)]
+#[universal_test]
 fn func_ref_passed_and_called() -> Result<()> {
     let mut store = Store::default();
     let wat = r#"(module
@@ -236,13 +224,7 @@ fn extern_ref_passed_and_returned() -> Result<()> {
 }
 
 
-#[cfg(feature = "js")]
-#[cfg_attr(feature = "js", wasm_bindgen_test)]
-fn extern_ref_ref_counting_basic_js() {
-    extern_ref_ref_counting_basic().unwrap();
-}
-
-#[cfg_attr(feature = "sys", test)]
+#[universal_test]
 fn extern_ref_ref_counting_basic() -> Result<()> {
     let mut store = Store::default();
     let wat = r#"(module
@@ -264,13 +246,7 @@ fn extern_ref_ref_counting_basic() -> Result<()> {
 }
 
 
-#[cfg(feature = "js")]
-#[cfg_attr(feature = "js", wasm_bindgen_test)]
-fn refs_in_globals_js() {
-    refs_in_globals().unwrap();
-}
-
-#[cfg_attr(feature = "sys", test)]
+#[universal_test]
 fn refs_in_globals() -> Result<()> {
     let mut store = Store::default();
     let wat = r#"(module
@@ -336,13 +312,7 @@ fn refs_in_globals() -> Result<()> {
 }
 
 
-#[cfg(feature = "js")]
-#[cfg_attr(feature = "js", wasm_bindgen_test)]
-fn extern_ref_ref_counting_table_basic_js() {
-    extern_ref_ref_counting_table_basic().unwrap();
-}
-
-#[cfg_attr(feature = "sys", test)]
+#[universal_test]
 fn extern_ref_ref_counting_table_basic() -> Result<()> {
     let mut store = Store::default();
     let wat = r#"(module
@@ -385,13 +355,7 @@ fn extern_ref_ref_counting_table_basic() -> Result<()> {
 }
 
 
-#[cfg(feature = "js")]
-#[cfg_attr(feature = "js", wasm_bindgen_test)]
-fn extern_ref_ref_counting_global_basic_js() {
-    extern_ref_ref_counting_global_basic().unwrap();
-}
-
-#[cfg_attr(feature = "sys", test)]
+#[universal_test]
 fn extern_ref_ref_counting_global_basic() -> Result<()> {
     let mut store = Store::default();
     let wat = r#"(module
@@ -421,13 +385,7 @@ fn extern_ref_ref_counting_global_basic() -> Result<()> {
 }
 
 
-#[cfg(feature = "js")]
-#[cfg_attr(feature = "js", wasm_bindgen_test)]
-fn extern_ref_ref_counting_traps_js() {
-    extern_ref_ref_counting_traps().unwrap();
-}
-
-#[cfg_attr(feature = "sys", test)]
+#[universal_test]
 fn extern_ref_ref_counting_traps() -> Result<()> {
     let mut store = Store::default();
     let wat = r#"(module
@@ -451,13 +409,7 @@ fn extern_ref_ref_counting_traps() -> Result<()> {
 }
 
 
-#[cfg(feature = "js")]
-#[cfg_attr(feature = "js", wasm_bindgen_test)]
-fn extern_ref_ref_counting_table_instructions_js() {
-    extern_ref_ref_counting_table_instructions().unwrap();
-}
-
-#[cfg_attr(feature = "sys", test)]
+#[universal_test]
 fn extern_ref_ref_counting_table_instructions() -> Result<()> {
     let mut store = Store::default();
     let wat = r#"(module
