@@ -156,7 +156,7 @@ pub enum DeserializeError {
 /// [link-error]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/WebAssembly/LinkError
 #[derive(Debug)]
 #[cfg_attr(feature = "std", derive(Error))]
-#[error("Link error: {0}")]
+#[cfg_attr(feature = "std", error("Link error: {0}"))]
 pub enum LinkError {
     /// An error occurred when checking the import types.
     #[cfg_attr(feature = "std", error("Error while importing {0:?}.{1:?}: {2}"))]
