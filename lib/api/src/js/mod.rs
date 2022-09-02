@@ -86,6 +86,9 @@ pub use wasmer_types::{
 #[cfg(feature = "wat")]
 pub use wat::parse_bytes as wat2wasm;
 
+#[cfg(feature = "wasm-types-polyfill")]
+pub use wasmparser;
+
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 

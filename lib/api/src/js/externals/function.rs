@@ -1,6 +1,6 @@
 pub use self::inner::{FromToNativeWasmType, HostFunction, WasmTypeList, WithEnv, WithoutEnv};
 use crate::js::exports::{ExportError, Exportable};
-use crate::js::externals::Extern;
+use crate::js::externals::{Extern, VMExtern};
 use crate::js::function_env::FunctionEnvMut;
 use crate::js::store::{AsStoreMut, AsStoreRef, InternalStoreHandle, StoreHandle, StoreMut};
 use crate::js::types::{param_from_js, AsJs}; /* ValFuncRef */
@@ -26,6 +26,7 @@ fn result_to_js(val: &Value) -> JsValue {
         Value::I64(i) => JsValue::from_f64(*i as _),
         Value::F32(f) => JsValue::from_f64(*f as _),
         Value::F64(f) => JsValue::from_f64(*f),
+        Value::V128(f) => JsValue::from_f64(*f as _),
         val => unimplemented!(
             "The value `{:?}` is not yet supported in the JS Function API",
             val
@@ -75,6 +76,11 @@ impl Function {
                                  args: &[Value]|
               -> Result<Vec<Value>, RuntimeError> { func(args) };
         Self::new_with_env(store, &env, ty, wrapped_func)
+    }
+
+    /// To `VMExtern`.
+    pub fn to_vm_extern(&self) -> VMExtern {
+        VMExtern::Function(self.handle.internal_handle())
     }
 
     /// Creates a new host `Function` (dynamic) with the provided signature.
@@ -229,13 +235,13 @@ impl Function {
         note = "new_native_with_env() has been renamed to new_typed_with_env()."
     )]
     /// Creates a new host `Function` with an environment from a typed function.
-    pub fn new_native_with_env<T, F, Args, Rets>(
+    pub fn new_native_with_env<T: Send + 'static, F, Args, Rets>(
         store: &mut impl AsStoreMut,
         env: &FunctionEnv<T>,
         func: F,
     ) -> Self
     where
-        F: HostFunction<T, Args, Rets, WithEnv>,
+        F: HostFunction<T, Args, Rets, WithEnv> + 'static + Send + Sync,
         Args: WasmTypeList,
         Rets: WasmTypeList,
     {
@@ -309,8 +315,8 @@ impl Function {
     /// assert_eq!(f.ty().params(), vec![Type::I32, Type::I32]);
     /// assert_eq!(f.ty().results(), vec![Type::I32]);
     /// ```
-    pub fn ty<'context>(&self, store: &'context impl AsStoreRef) -> &'context FunctionType {
-        &self.handle.get(store.as_store_ref().objects()).ty
+    pub fn ty(&self, store: &impl AsStoreRef) -> FunctionType {
+        self.handle.get(store.as_store_ref().objects()).ty.clone()
     }
 
     /// Returns the number of parameters that this function takes.
@@ -598,7 +604,7 @@ mod inner {
     use super::RuntimeError;
     use super::VMFunctionBody;
     use crate::js::function_env::{FunctionEnvMut, VMFunctionEnvironment};
-    use crate::js::store::{AsStoreMut, InternalStoreHandle, StoreHandle, StoreMut};
+    use crate::js::store::{AsStoreMut, AsStoreRef, InternalStoreHandle, StoreHandle, StoreMut};
     use crate::js::FunctionEnv;
     use crate::js::NativeWasmTypeInto;
     use std::array::TryFromSliceError;
@@ -639,6 +645,9 @@ mod inner {
         /// This method panics if `self` cannot fit in the
         /// `Self::Native` type.
         fn to_native(self) -> Self::Native;
+
+        /// Returns whether this native type belongs to the given store
+        fn is_from_store(&self, _store: &impl AsStoreRef) -> bool;
     }
 
     macro_rules! from_to_native_wasm_type {
@@ -656,6 +665,11 @@ mod inner {
                     #[inline]
                     fn to_native(self) -> Self::Native {
                         self as Self::Native
+                    }
+
+                    #[inline]
+                    fn is_from_store(&self, _store: &impl AsStoreRef) -> bool {
+                        true // Javascript only has one store
                     }
                 }
             )*
@@ -677,6 +691,11 @@ mod inner {
                     #[inline]
                     fn to_native(self) -> Self::Native {
                         Self::Native::from_ne_bytes(Self::to_ne_bytes(self))
+                    }
+
+                    #[inline]
+                    fn is_from_store(&self, _store: &impl AsStoreRef) -> bool {
+                        true // Javascript only has one store
                     }
                 }
             )*
@@ -887,11 +906,12 @@ mod inner {
         Args: WasmTypeList,
         Rets: WasmTypeList,
         Kind: HostFunctionKind,
-        T: Sized,
-        Self: Sized,
     {
         /// Get the pointer to the function body.
-        fn function_body_ptr(self) -> *const VMFunctionBody;
+        fn function_body_ptr(&self) -> *const VMFunctionBody;
+
+        // /// Get the pointer to the function call trampoline.
+        // fn call_trampoline_address() -> VMTrampoline;
     }
 
     /// Empty trait to specify the kind of `HostFunction`: With or
@@ -1102,7 +1122,7 @@ mod inner {
                 Func: Fn(FunctionEnvMut<'_, T>, $( $x , )*) -> RetsAsResult + 'static,
             {
                 #[allow(non_snake_case)]
-                fn function_body_ptr(self) -> *const VMFunctionBody {
+                fn function_body_ptr(&self) -> *const VMFunctionBody {
                     /// This is a function that wraps the real host
                     /// function. Its address will be used inside the
                     /// runtime.
@@ -1150,7 +1170,7 @@ mod inner {
                 Func: Fn($( $x , )*) -> RetsAsResult + 'static,
             {
                 #[allow(non_snake_case)]
-                fn function_body_ptr(self) -> *const VMFunctionBody {
+                fn function_body_ptr(&self) -> *const VMFunctionBody {
                     /// This is a function that wraps the real host
                     /// function. Its address will be used inside the
                     /// runtime.

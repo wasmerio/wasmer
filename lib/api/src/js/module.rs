@@ -324,6 +324,32 @@ impl Module {
         Self::new(_store, bytes).map_err(|e| DeserializeError::Compiler(e))
     }
 
+    #[cfg(feature = "compiler")]
+    /// Deserializes a a serialized Module located in a `Path` into a `Module`.
+    /// > Note: the module has to be serialized before with the `serialize` method.
+    ///
+    /// # Safety
+    ///
+    /// Please check [`Module::deserialize`].
+    ///
+    /// # Usage
+    ///
+    /// ```ignore
+    /// # use wasmer::*;
+    /// # let mut store = Store::default();
+    /// # fn main() -> anyhow::Result<()> {
+    /// let module = Module::deserialize_from_file(&store, path)?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub unsafe fn deserialize_from_file(
+        store: &impl AsStoreRef,
+        path: impl AsRef<Path>,
+    ) -> Result<Self, DeserializeError> {
+        let artifact = std::fs::read(path.as_ref())?;
+        Ok(Self::new(store, bytes).map_err(|e| DeserializeError::Compiler(e)))
+    }
+
     /// Sets the name of the current module.
     /// This is normally useful for stacktraces and debugging.
     ///
@@ -531,16 +557,26 @@ impl Module {
         ExportsIterator::new(iter, exports.length() as usize)
     }
 
-    // /// Get the custom sections of the module given a `name`.
-    // ///
-    // /// # Important
-    // ///
-    // /// Following the WebAssembly spec, one name can have multiple
-    // /// custom sections. That's why an iterator (rather than one element)
-    // /// is returned.
-    // pub fn custom_sections<'a>(&'a self, name: &'a str) -> impl Iterator<Item = Arc<[u8]>> + 'a {
-    //     unimplemented!();
-    // }
+    /// Get the custom sections of the module given a `name`.
+    ///
+    /// # Important
+    ///
+    /// Following the WebAssembly spec, one name can have multiple
+    /// custom sections. That's why an iterator (rather than one element)
+    /// is returned.
+    pub fn custom_sections<'a>(&'a self, name: &'a str) -> impl Iterator<Item = Box<[u8]>> + 'a {
+        // TODO: implement on JavaScript
+        DefaultCustomSectionsIterator {}
+    }
+}
+
+pub struct DefaultCustomSectionsIterator {}
+
+impl Iterator for DefaultCustomSectionsIterator {
+    type Item = Box<[u8]>;
+    fn next(&mut self) -> Option<Self::Item> {
+        None
+    }
 }
 
 impl fmt::Debug for Module {

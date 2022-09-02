@@ -4,6 +4,7 @@ use crate::js::trap::RuntimeError;
 use std::borrow::Cow;
 #[cfg(feature = "std")]
 use thiserror::Error;
+use wasmer_types::ImportError;
 
 // Compilation Errors
 //
@@ -144,6 +145,28 @@ pub enum DeserializeError {
     Compiler(CompileError),
 }
 
+/// The WebAssembly.LinkError object indicates an error during
+/// module instantiation (besides traps from the start function).
+///
+/// This is based on the [link error][link-error] API.
+///
+/// [link-error]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/WebAssembly/LinkError
+#[derive(Error, Debug)]
+#[error("Link error: {0}")]
+pub enum LinkError {
+    /// An error occurred when checking the import types.
+    #[error("Error while importing {0:?}.{1:?}: {2}")]
+    Import(String, String, ImportError),
+
+    #[cfg(not(target_arch = "wasm32"))]
+    /// A trap ocurred during linking.
+    #[error("RuntimeError occurred during linking: {0}")]
+    Trap(#[source] RuntimeError),
+    /// Insufficient resources available for linking.
+    #[error("Insufficient resources: {0}")]
+    Resource(String),
+}
+
 /// An error while instantiating a module.
 ///
 /// This is not a common WebAssembly error, however
@@ -156,12 +179,17 @@ pub enum DeserializeError {
 #[cfg_attr(feature = "std", derive(Error))]
 pub enum InstantiationError {
     /// A linking ocurred during instantiation.
-    #[cfg_attr(feature = "std", error("Link error: {0}"))]
-    Link(String),
+    #[cfg_attr(feature = "std", error(transparent))]
+    Link(LinkError),
 
     /// A runtime error occured while invoking the start function
     #[cfg_attr(feature = "std", error(transparent))]
     Start(RuntimeError),
+
+    /// The module was compiled with a CPU feature that is not available on
+    /// the current host.
+    #[cfg_attr(feature = "std", error("missing required CPU features: {0:?}"))]
+    CpuFeature(String),
 
     /// Import from a different [`Store`].
     /// This error occurs when an import from a different store is used.
@@ -171,6 +199,10 @@ pub enum InstantiationError {
     /// A generic error occured while invoking API functions
     #[cfg_attr(feature = "std", error(transparent))]
     Wasm(WasmError),
+
+    /// Insufficient resources available for execution.
+    #[cfg_attr(feature = "std", error("Can't get {0} from the instance exports"))]
+    NotInExports(String),
 }
 
 impl From<WasmError> for InstantiationError {

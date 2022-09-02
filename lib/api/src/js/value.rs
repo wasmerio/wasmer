@@ -7,7 +7,7 @@ use wasmer_types::Type;
 //use crate::ExternRef;
 use crate::js::externals::function::Function;
 
-use super::store::AsStoreRef;
+use super::store::{AsStoreMut, AsStoreRef};
 
 /// WebAssembly computations manipulate values of basic value types:
 /// * Integers (32 or 64 bit width)
@@ -37,6 +37,9 @@ pub enum Value {
 
     /// A first-class reference to a WebAssembly function.
     FuncRef(Option<Function>),
+
+    /// A 128-bit number
+    V128(u128),
 }
 
 macro_rules! accessors {
@@ -76,6 +79,7 @@ impl Value {
             Self::I64(_) => Type::I64,
             Self::F32(_) => Type::F32,
             Self::F64(_) => Type::F64,
+            Self::V128(_) => Type::V128,
             //Self::ExternRef(_) => Type::ExternRef,
             Self::FuncRef(_) => Type::FuncRef,
         }
@@ -88,6 +92,7 @@ impl Value {
             Self::I64(v) => v as f64,
             Self::F32(v) => v as f64,
             Self::F64(v) => v,
+            Self::V128(v) => v as f64,
             Self::FuncRef(Some(ref f)) => f
                 .handle
                 .get(store.as_store_ref().objects())
@@ -107,12 +112,12 @@ impl Value {
     ///
     pub unsafe fn from_raw(_store: &impl AsStoreRef, ty: Type, raw: f64) -> Self {
         match ty {
-            Type::I32 => Self::I32(raw as i32),
-            Type::I64 => Self::I64(raw as i64),
-            Type::F32 => Self::F32(raw as f32),
+            Type::I32 => Self::I32(raw as _),
+            Type::I64 => Self::I64(raw as _),
+            Type::F32 => Self::F32(raw as _),
             Type::F64 => Self::F64(raw),
+            Type::V128 => Self::V128(raw as _),
             Type::FuncRef => todo!(),
-            Type::V128 => todo!(),
             Type::ExternRef => todo!(),
             //Self::ExternRef(
             //{
@@ -134,6 +139,7 @@ impl Value {
             | Self::I64(_)
             | Self::F32(_)
             | Self::F64(_)
+            | Self::V128(_)
             //| Self::ExternRef(None)
             | Self::FuncRef(None) => true,
             //Self::ExternRef(Some(e)) => e.is_from_store(store),
@@ -147,6 +153,7 @@ impl Value {
         (I64(i64) i64 unwrap_i64 *e)
         (F32(f32) f32 unwrap_f32 *e)
         (F64(f64) f64 unwrap_f64 *e)
+        (V128(u128) v128 unwrap_v128 *e)
         //(ExternRef(&Option<ExternRef>) externref unwrap_externref e)
         (FuncRef(&Option<Function>) funcref unwrap_funcref e)
     }
@@ -159,6 +166,7 @@ impl fmt::Debug for Value {
             Self::I64(v) => write!(f, "I64({:?})", v),
             Self::F32(v) => write!(f, "F32({:?})", v),
             Self::F64(v) => write!(f, "F64({:?})", v),
+            Self::V128(v) => write!(f, "V128({:?})", v),
             //Self::ExternRef(None) => write!(f, "Null ExternRef"),
             //Self::ExternRef(Some(v)) => write!(f, "ExternRef({:?})", v),
             Self::FuncRef(None) => write!(f, "Null FuncRef"),
@@ -174,9 +182,16 @@ impl ToString for Value {
             Self::I64(v) => v.to_string(),
             Self::F32(v) => v.to_string(),
             Self::F64(v) => v.to_string(),
+            Self::V128(v) => v.to_string(),
             //Self::ExternRef(_) => "externref".to_string(),
             Self::FuncRef(_) => "funcref".to_string(),
         }
+    }
+}
+
+impl From<u128> for Value {
+    fn from(val: u128) -> Self {
+        Self::V128(val)
     }
 }
 
@@ -246,8 +261,17 @@ const NOT_I32: &str = "Value is not of Wasm type i32";
 const NOT_I64: &str = "Value is not of Wasm type i64";
 const NOT_F32: &str = "Value is not of Wasm type f32";
 const NOT_F64: &str = "Value is not of Wasm type f64";
+const NOT_V128: &str = "Value is not of Wasm type u128";
 const NOT_FUNCREF: &str = "Value is not of Wasm type funcref";
 //const NOT_EXTERNREF: &str = "Value is not of Wasm type externref";
+
+impl TryFrom<Value> for u128 {
+    type Error = &'static str;
+
+    fn try_from(value: Value) -> Result<Self, Self::Error> {
+        value.v128().ok_or(NOT_V128)
+    }
+}
 
 impl TryFrom<Value> for i32 {
     type Error = &'static str;
