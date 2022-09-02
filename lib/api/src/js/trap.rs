@@ -26,7 +26,7 @@ pub trait CoreError: fmt::Debug + fmt::Display {
     }
 }
 
-impl<T: fmt::Debug + fmt::Display> CoreError for T { }
+impl<T: fmt::Debug + fmt::Display> CoreError for T {}
 
 impl dyn CoreError + 'static {
     /// Returns `true` if the inner type is the same as `T`.
@@ -49,7 +49,9 @@ impl dyn CoreError + Send + Sync + 'static {
 impl dyn CoreError + Send {
     #[inline]
     /// Attempts to downcast the box to a concrete type.
-    pub fn downcast_core<T: CoreError + 'static>(self: Box<Self>) -> Result<Box<T>, Box<dyn CoreError + Send>> {
+    pub fn downcast_core<T: CoreError + 'static>(
+        self: Box<Self>,
+    ) -> Result<Box<T>, Box<dyn CoreError + Send>> {
         let err: Box<dyn CoreError> = self;
         <dyn CoreError>::downcast_core(err).map_err(|s| unsafe {
             // Reapply the `Send` marker.
@@ -73,7 +75,9 @@ impl dyn CoreError + Send + Sync {
 impl dyn CoreError {
     #[inline]
     /// Attempts to downcast the box to a concrete type.
-    pub fn downcast_core<T: CoreError + 'static>(self: Box<Self>) -> Result<Box<T>, Box<dyn CoreError>> {
+    pub fn downcast_core<T: CoreError + 'static>(
+        self: Box<Self>,
+    ) -> Result<Box<T>, Box<dyn CoreError>> {
         if self.core_is_equal::<T>() {
             unsafe {
                 let raw: *mut dyn CoreError = Box::into_raw(self);
@@ -200,7 +204,9 @@ impl RuntimeError {
             #[cfg(feature = "std")]
             Ok(RuntimeErrorSource::User(err)) if err.is::<T>() => Ok(*err.downcast::<T>().unwrap()),
             #[cfg(feature = "core")]
-            Ok(RuntimeErrorSource::User(err)) if (*err).core_is_equal::<T>() => Ok(*err.downcast_core::<T>().unwrap()),
+            Ok(RuntimeErrorSource::User(err)) if (*err).core_is_equal::<T>() => {
+                Ok(*err.downcast_core::<T>().unwrap())
+            }
             Ok(inner) => Err(Self {
                 inner: Arc::new(inner),
             }),

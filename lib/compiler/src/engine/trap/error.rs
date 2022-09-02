@@ -12,9 +12,9 @@ pub struct RuntimeError {
     inner: Arc<RuntimeErrorInner>,
 }
 
-pub trait CoreError: fmt::Debug + fmt::Display + core::any::Any { }
+pub trait CoreError: fmt::Debug + fmt::Display + core::any::Any {}
 
-impl<T: fmt::Debug + fmt::Display + core::any::Any> CoreError for T { }
+impl<T: fmt::Debug + fmt::Display + core::any::Any> CoreError for T {}
 
 /// The source of the `RuntimeError`.
 #[derive(Debug)]
