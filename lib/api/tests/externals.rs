@@ -1,7 +1,7 @@
 use anyhow::Result;
+use macro_wasmer_universal_test::universal_test;
 #[cfg(feature = "js")]
 use wasm_bindgen_test::*;
-use macro_wasmer_universal_test::universal_test;
 
 use wasmer::*;
 
@@ -28,7 +28,6 @@ fn global_new() -> Result<()> {
 
     Ok(())
 }
-
 
 #[universal_test]
 fn global_get() -> Result<()> {
@@ -201,8 +200,7 @@ fn function_new() -> Result<()> {
         function.ty(&mut store).clone(),
         FunctionType::new(vec![], vec![Type::I32])
     );
-    let function =
-        Function::new_typed(&mut store, || -> (i32, i64, f32, f64) { (1, 2, 3.0, 4.0) });
+    let function = Function::new_typed(&mut store, || -> (i32, i64, f32, f64) { (1, 2, 3.0, 4.0) });
     assert_eq!(
         function.ty(&mut store).clone(),
         FunctionType::new(vec![], vec![Type::I32, Type::I64, Type::F32, Type::F64])
@@ -218,17 +216,13 @@ fn function_new_env() -> Result<()> {
 
     let my_env = MyEnv {};
     let env = FunctionEnv::new(&mut store, my_env);
-    let function =
-        Function::new_typed_with_env(&mut store, &env, |_env: FunctionEnvMut<MyEnv>| {});
+    let function = Function::new_typed_with_env(&mut store, &env, |_env: FunctionEnvMut<MyEnv>| {});
     assert_eq!(
         function.ty(&mut store).clone(),
         FunctionType::new(vec![], vec![])
     );
-    let function = Function::new_typed_with_env(
-        &mut store,
-        &env,
-        |_env: FunctionEnvMut<MyEnv>, _a: i32| {},
-    );
+    let function =
+        Function::new_typed_with_env(&mut store, &env, |_env: FunctionEnvMut<MyEnv>, _a: i32| {});
     assert_eq!(
         function.ty(&mut store).clone(),
         FunctionType::new(vec![Type::I32], vec![])
@@ -243,9 +237,7 @@ fn function_new_env() -> Result<()> {
         FunctionType::new(vec![Type::I32, Type::I64, Type::F32, Type::F64], vec![])
     );
     let function =
-        Function::new_typed_with_env(&mut store, &env, |_env: FunctionEnvMut<MyEnv>| -> i32 {
-            1
-        });
+        Function::new_typed_with_env(&mut store, &env, |_env: FunctionEnvMut<MyEnv>| -> i32 { 1 });
     assert_eq!(
         function.ty(&mut store).clone(),
         FunctionType::new(vec![], vec![Type::I32])
@@ -281,8 +273,7 @@ fn function_new_dynamic() -> Result<()> {
         |_values: &[Value]| unimplemented!(),
     );
     assert_eq!(function.ty(&mut store).clone(), function_type);
-    let function_type =
-        FunctionType::new(vec![Type::I32, Type::I64, Type::F32, Type::F64], vec![]);
+    let function_type = FunctionType::new(vec![Type::I32, Type::I64, Type::F32, Type::F64], vec![]);
     let function = Function::new(
         &mut store,
         &function_type,
@@ -296,8 +287,7 @@ fn function_new_dynamic() -> Result<()> {
         |_values: &[Value]| unimplemented!(),
     );
     assert_eq!(function.ty(&mut store).clone(), function_type);
-    let function_type =
-        FunctionType::new(vec![], vec![Type::I32, Type::I64, Type::F32, Type::F64]);
+    let function_type = FunctionType::new(vec![], vec![Type::I32, Type::I64, Type::F32, Type::F64]);
     let function = Function::new(
         &mut store,
         &function_type,
@@ -346,8 +336,7 @@ fn function_new_dynamic_env() -> Result<()> {
         |_env: FunctionEnvMut<MyEnv>, _values: &[Value]| unimplemented!(),
     );
     assert_eq!(function.ty(&mut store).clone(), function_type);
-    let function_type =
-        FunctionType::new(vec![Type::I32, Type::I64, Type::F32, Type::F64], vec![]);
+    let function_type = FunctionType::new(vec![Type::I32, Type::I64, Type::F32, Type::F64], vec![]);
     let function = Function::new_with_env(
         &mut store,
         &env,
@@ -363,8 +352,7 @@ fn function_new_dynamic_env() -> Result<()> {
         |_env: FunctionEnvMut<MyEnv>, _values: &[Value]| unimplemented!(),
     );
     assert_eq!(function.ty(&mut store).clone(), function_type);
-    let function_type =
-        FunctionType::new(vec![], vec![Type::I32, Type::I64, Type::F32, Type::F64]);
+    let function_type = FunctionType::new(vec![], vec![Type::I32, Type::I64, Type::F32, Type::F64]);
     let function = Function::new_with_env(
         &mut store,
         &env,
