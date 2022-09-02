@@ -25,16 +25,11 @@ impl Inspect {
     fn inner_execute(&self) -> Result<()> {
         let (store, _compiler_type) = self.store.get_store()?;
         let module_contents = std::fs::read(&self.path)?;
-        let module = Module::new(&store, &module_contents)?;
-        println!(
-            "Type: {}",
-            if !is_wasm(&module_contents) {
-                "wat"
-            } else {
-                "wasm"
-            }
-        );
-        println!("Size: {}", ByteSize(module_contents.len() as _));
+        let iswasm = is_wasm(&module_contents);
+        let module_len = module_contents.len();
+        let module = Module::new(&store, module_contents)?;
+        println!("Type: {}", if !iswasm { "wat" } else { "wasm" });
+        println!("Size: {}", ByteSize(module_len as _));
         println!("Imports:");
         println!("  Functions:");
         for f in module.imports().functions() {

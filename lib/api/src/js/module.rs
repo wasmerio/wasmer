@@ -8,7 +8,9 @@ use crate::js::store::AsStoreMut;
 use crate::js::types::{AsJs, ExportType, ImportType};
 use crate::js::RuntimeError;
 use crate::AsStoreRef;
+use bytes::Bytes;
 use js_sys::{Reflect, Uint8Array, WebAssembly};
+use std::borrow::Cow;
 use std::fmt;
 use std::io;
 use std::path::Path;
@@ -48,6 +50,46 @@ pub struct ModuleTypeHints {
     pub exports: Vec<ExternType>,
 }
 
+pub trait IntoBytes {
+    fn into_bytes(self) -> Bytes;
+}
+
+impl IntoBytes for Bytes {
+    fn into_bytes(self) -> Bytes {
+        self
+    }
+}
+
+impl IntoBytes for Vec<u8> {
+    fn into_bytes(self) -> Bytes {
+        Bytes::from(self)
+    }
+}
+
+impl IntoBytes for &[u8] {
+    fn into_bytes(self) -> Bytes {
+        Bytes::from(self.to_vec())
+    }
+}
+
+impl<const N: usize> IntoBytes for &[u8; N] {
+    fn into_bytes(self) -> Bytes {
+        Bytes::from(self.to_vec())
+    }
+}
+
+impl IntoBytes for &str {
+    fn into_bytes(self) -> Bytes {
+        Bytes::from(self.as_bytes().to_vec())
+    }
+}
+
+impl IntoBytes for Cow<'_, [u8]> {
+    fn into_bytes(self) -> Bytes {
+        Bytes::from(self.to_vec())
+    }
+}
+
 /// A WebAssembly Module contains stateless WebAssembly
 /// code that has already been compiled and can be instantiated
 /// multiple times.
@@ -63,7 +105,7 @@ pub struct Module {
     // WebAssembly type hints
     type_hints: Option<ModuleTypeHints>,
     #[cfg(feature = "js-serializable-module")]
-    raw_bytes: Option<Vec<u8>>,
+    raw_bytes: Option<Bytes>,
 }
 
 impl Module {
@@ -199,7 +241,7 @@ impl Module {
             type_hints,
             name,
             #[cfg(feature = "js-serializable-module")]
-            raw_bytes: Some(binary.to_vec()),
+            raw_bytes: Some(binary.into_bytes()),
         })
     }
 
@@ -263,7 +305,7 @@ impl Module {
     /// can later process via [`Module::deserialize`].
     ///
     #[cfg(feature = "js-serializable-module")]
-    pub fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
+    pub fn serialize(&self) -> Result<Bytes, SerializeError> {
         self.raw_bytes.clone().ok_or(SerializeError::Generic(
             "Not able to serialize module".to_string(),
         ))
@@ -276,8 +318,9 @@ impl Module {
     #[cfg(feature = "js-serializable-module")]
     pub unsafe fn deserialize(
         _store: &impl AsStoreRef,
-        bytes: &[u8],
+        bytes: impl IntoBytes,
     ) -> Result<Self, DeserializeError> {
+        let bytes = bytes.into_bytes();
         Self::new(_store, bytes).map_err(|e| DeserializeError::Compiler(e))
     }
 
