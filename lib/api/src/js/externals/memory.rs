@@ -1,6 +1,6 @@
 use crate::js::export::VMMemory;
 use crate::js::exports::{ExportError, Exportable};
-use crate::js::externals::Extern;
+use crate::js::externals::{Extern, VMExtern};
 use crate::js::store::{AsStoreMut, AsStoreRef, InternalStoreHandle, StoreHandle, StoreObjects};
 use crate::js::{MemoryAccessError, MemoryType};
 use std::marker::PhantomData;
@@ -118,6 +118,11 @@ impl Memory {
         Self::from_vm_extern(new_store, handle.internal_handle())
     }
 
+    /// To `VMExtern`.
+    pub(crate) fn to_vm_extern(&self) -> VMExtern {
+        VMExtern::Memory(self.handle.internal_handle())
+    }
+
     /// Returns the [`MemoryType`] of the `Memory`.
     ///
     /// # Example
@@ -215,6 +220,12 @@ impl Memory {
     /// Checks whether this `Global` can be used with the given context.
     pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
         self.handle.store_id() == store.as_store_ref().objects().id()
+    }
+}
+
+impl std::cmp::PartialEq for Memory {
+    fn eq(&self, other: &Self) -> bool {
+        self.handle == other.handle
     }
 }
 

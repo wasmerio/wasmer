@@ -1,6 +1,6 @@
-use crate::js::NativeWasmTypeInto;
 use crate::js::{externals::MemoryView, FromToNativeWasmType};
 use crate::js::{MemoryAccessError, WasmRef, WasmSlice};
+use crate::{js::NativeWasmTypeInto, AsStoreRef};
 use std::convert::TryFrom;
 use std::{fmt, marker::PhantomData, mem};
 pub use wasmer_types::Memory32;
@@ -71,7 +71,7 @@ impl<T, M: MemorySize> WasmPtr<T, M> {
 
     /// Get the offset into Wasm linear memory for this `WasmPtr`.
     #[inline]
-    pub fn offset(self) -> M::Offset {
+    pub fn offset(&self) -> M::Offset {
         self.offset
     }
 
@@ -233,6 +233,10 @@ where
             offset: M::native_to_offset(n),
             _phantom: PhantomData,
         }
+    }
+    #[inline]
+    fn is_from_store(&self, _store: &impl AsStoreRef) -> bool {
+        true // in Javascript there are no different stores
     }
 }
 

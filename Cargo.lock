@@ -2923,6 +2923,7 @@ name = "wasmer"
 version = "3.0.0-beta"
 dependencies = [
  "anyhow",
+ "bytes",
  "cfg-if 1.0.0",
  "hashbrown 0.11.2",
  "indexmap",
@@ -3220,11 +3221,7 @@ dependencies = [
 name = "wasmer-vbus"
 version = "3.0.0-beta"
 dependencies = [
- "libc",
- "slab",
  "thiserror",
- "tracing",
- "typetag",
  "wasmer-vfs",
 ]
 
@@ -3268,11 +3265,7 @@ name = "wasmer-vnet"
 version = "3.0.0-beta"
 dependencies = [
  "bytes",
- "libc",
- "slab",
  "thiserror",
- "tracing",
- "typetag",
  "wasmer-vfs",
 ]
 

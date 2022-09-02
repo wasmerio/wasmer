@@ -76,7 +76,7 @@ impl<T, M: MemorySize> WasmPtr<T, M> {
 
     /// Get the offset into Wasm linear memory for this `WasmPtr`.
     #[inline]
-    pub fn offset(self) -> M::Offset {
+    pub fn offset(&self) -> M::Offset {
         self.offset
     }
 
