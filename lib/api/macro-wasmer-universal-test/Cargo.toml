@@ -1,0 +1,12 @@
+[package]
+name = "macro-wasmer-universal-test"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+proc-quote = "0.4.0"
+proc-macro2 = "1.0.43"     
+syn = "1.0.99"

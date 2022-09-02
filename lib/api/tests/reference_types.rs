@@ -1,7 +1,7 @@
 use anyhow::Result;
 #[cfg(feature = "js")]
 use wasm_bindgen_test::*;
-
+use macro_wasmer_universal_test::universal_test;
 use wasmer::*;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -144,13 +144,7 @@ fn func_ref_passed_and_called() -> Result<()> {
 }
 
 
-#[cfg(feature = "js")]
-#[cfg_attr(feature = "js", wasm_bindgen_test)]
-fn extern_ref_passed_and_returned_js() {
-    extern_ref_passed_and_returned().unwrap();
-}
-
-#[cfg_attr(feature = "sys", test)]
+#[macro_wasmer_universal_test::universal_test]
 fn extern_ref_passed_and_returned() -> Result<()> {
     use std::collections::HashMap;
     let mut store = Store::default();
