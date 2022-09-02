@@ -356,7 +356,7 @@
 
     <span class="doccomment">/// Get the offset into Wasm linear memory for this `WasmPtr`.</span>
     <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">offset</span>(<span class="self">self</span>) -&gt; <span class="ident">M::Offset</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">offset</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">M::Offset</span> {
         <span class="self">self</span>.<span class="ident">offset</span>
     }
 
