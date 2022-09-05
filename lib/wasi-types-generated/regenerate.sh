@@ -6,14 +6,9 @@ rm -f \
     "$BASEDIR"/src/bindings.rs \
     "$BASEDIR"/src/*/bindings.rs
 
-wit-bindgen wasmer \
+cat "$BASEDIR"/wit-clean/typenames.wit "$BASEDIR"/wit-clean/wasi_unstable.wit > "$BASEDIR"/wit-clean/output.wit
+
+wit-bindgen rust-wasm \
     --import \
-    "$BASEDIR"/wit/wasi.wit \
+    "$BASEDIR"/wit-clean/output.wit \
     --out-dir "$BASEDIR"/src/wasi
-
-wit-bindgen wasmer \
-    --import \
-    "$BASEDIR"/wit/wasi-filesystem.wit \
-    --out-dir "$BASEDIR"/src/wasi_filesystem
-
-#wit-bindgen rust-wasm --import wit/wasi-snapshot0.wit wit/wasi-filesystem.wit --out-dir .
