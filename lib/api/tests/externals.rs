@@ -102,7 +102,6 @@ fn table_new() -> Result<(), String> {
 
 #[universal_test]
 fn table_get() -> Result<(), String> {
-    
     // Tables are not yet fully supported in Wasm
     // This test was marked as #[ignore] on -sys, which is why it is commented out.
 
