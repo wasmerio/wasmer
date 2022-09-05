@@ -1,4 +1,3 @@
-use anyhow::Result;
 use macro_wasmer_universal_test::universal_test;
 #[cfg(feature = "js")]
 use wasm_bindgen_test::*;
@@ -6,7 +5,7 @@ use wasm_bindgen_test::*;
 use wasmer::*;
 
 #[universal_test]
-fn exports_work_after_multiple_instances_have_been_freed() -> Result<()> {
+fn exports_work_after_multiple_instances_have_been_freed() -> Result<(), String> {
     let mut store = Store::default();
     let module = Module::new(
         &store,
@@ -19,15 +18,20 @@ fn exports_work_after_multiple_instances_have_been_freed() -> Result<()> {
     i32.add)
   (export \"sum\" (func $sum_f)))
 ",
-    )?;
+    )
+    .map_err(|e| format!("{e:?}"))?;
 
     let imports = Imports::new();
-    let instance = Instance::new(&mut store, &module, &imports)?;
+    let instance = Instance::new(&mut store, &module, &imports).map_err(|e| format!("{e:?}"))?;
     let instance2 = instance.clone();
     let instance3 = instance.clone();
 
     // The function is cloned to “break” the connection with `instance`.
-    let sum = instance.exports.get_function("sum")?.clone();
+    let sum = instance
+        .exports
+        .get_function("sum")
+        .map_err(|e| format!("{e:?}"))?
+        .clone();
 
     drop(instance);
     drop(instance2);
@@ -35,7 +39,8 @@ fn exports_work_after_multiple_instances_have_been_freed() -> Result<()> {
 
     // All instances have been dropped, but `sum` continues to work!
     assert_eq!(
-        sum.call(&mut store, &[Value::I32(1), Value::I32(2)])?
+        sum.call(&mut store, &[Value::I32(1), Value::I32(2)])
+            .map_err(|e| format!("{e:?}"))?
             .into_vec(),
         vec![Value::I32(3)],
     );
@@ -44,7 +49,7 @@ fn exports_work_after_multiple_instances_have_been_freed() -> Result<()> {
 }
 
 #[universal_test]
-fn unit_native_function_env() -> Result<()> {
+fn unit_native_function_env() -> Result<(), String> {
     let mut store = Store::default();
 
     #[derive(Clone)]
@@ -66,7 +71,9 @@ fn unit_native_function_env() -> Result<()> {
     let imported = Function::new_with_env(&mut store, &env, imported_signature, imported_fn);
 
     let expected = vec![Value::I32(12)].into_boxed_slice();
-    let result = imported.call(&mut store, &[Value::I32(4)])?;
+    let result = imported
+        .call(&mut store, &[Value::I32(4)])
+        .map_err(|e| format!("{e:?}"))?;
     assert_eq!(result, expected);
 
     Ok(())

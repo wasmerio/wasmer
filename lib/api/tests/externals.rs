@@ -1,4 +1,3 @@
-use anyhow::Result;
 use macro_wasmer_universal_test::universal_test;
 #[cfg(feature = "js")]
 use wasm_bindgen_test::*;
@@ -6,7 +5,7 @@ use wasm_bindgen_test::*;
 use wasmer::*;
 
 #[universal_test]
-fn global_new() -> Result<()> {
+fn global_new() -> Result<(), String> {
     let mut store = Store::default();
     let global = Global::new(&mut store, Value::I32(10));
     assert_eq!(
@@ -30,7 +29,7 @@ fn global_new() -> Result<()> {
 }
 
 #[universal_test]
-fn global_get() -> Result<()> {
+fn global_get() -> Result<(), String> {
     let mut store = Store::default();
 
     let global_i32 = Global::new(&mut store, Value::I32(10));
@@ -57,7 +56,7 @@ fn global_get() -> Result<()> {
 }
 
 #[universal_test]
-fn global_set() -> Result<()> {
+fn global_set() -> Result<(), String> {
     let mut store = Store::default();
     let global_i32 = Global::new(&mut store, Value::I32(10));
     // Set on a constant should error
@@ -68,14 +67,16 @@ fn global_set() -> Result<()> {
     assert!(global_i32_mut.set(&mut store, Value::I64(20)).is_err());
 
     // Set on same type should succeed
-    global_i32_mut.set(&mut store, Value::I32(20))?;
+    global_i32_mut
+        .set(&mut store, Value::I32(20))
+        .map_err(|e| format!("{e:?}"))?;
     assert_eq!(global_i32_mut.get(&mut store), Value::I32(20));
 
     Ok(())
 }
 
 #[universal_test]
-fn table_new() -> Result<()> {
+fn table_new() -> Result<(), String> {
     let mut store = Store::default();
     let table_type = TableType {
         ty: Type::FuncRef,
@@ -83,7 +84,8 @@ fn table_new() -> Result<()> {
         maximum: None,
     };
     let f = Function::new_typed(&mut store, || {});
-    let table = Table::new(&mut store, table_type, Value::FuncRef(Some(f)))?;
+    let table = Table::new(&mut store, table_type, Value::FuncRef(Some(f)))
+        .map_err(|e| format!("{e:?}"))?;
     assert_eq!(table.ty(&mut store), table_type);
 
     // Anyrefs not yet supported
@@ -92,7 +94,7 @@ fn table_new() -> Result<()> {
     //     minimum: 0,
     //     maximum: None,
     // };
-    // let table = Table::new(&store, table_type, Value::ExternRef(ExternRef::Null))?;
+    // let table = Table::new(&store, table_type, Value::ExternRef(ExternRef::Null)).map_err(|e| format!("{e:?}"))?;
     // assert_eq!(*table.ty(), table_type);
 
     Ok(())
@@ -100,7 +102,7 @@ fn table_new() -> Result<()> {
 
 #[cfg_attr(feature = "sys", ignore)]
 #[universal_test]
-fn table_get() -> Result<()> {
+fn table_get() -> Result<(), String> {
     // Tables are not yet fully supported in Wasm
     #[cfg(feature = "sys")]
     {
@@ -111,7 +113,8 @@ fn table_get() -> Result<()> {
             maximum: Some(1),
         };
         let f = Function::new_typed(&mut store, |num: i32| num + 1);
-        let table = Table::new(&mut store, table_type, Value::FuncRef(Some(f)))?;
+        let table = Table::new(&mut store, table_type, Value::FuncRef(Some(f)))
+            .map_err(|e| format!("{e:?}"))?;
         assert_eq!(table.ty(&mut store), table_type);
         let _elem = table.get(&mut store, 0).unwrap();
         // assert_eq!(elem.funcref().unwrap(), f);
@@ -121,13 +124,13 @@ fn table_get() -> Result<()> {
 }
 
 #[universal_test]
-fn table_set() -> Result<()> {
+fn table_set() -> Result<(), String> {
     // Table set not yet tested
     Ok(())
 }
 
 #[universal_test]
-fn table_grow() -> Result<()> {
+fn table_grow() -> Result<(), String> {
     // Tables are not yet fully supported in Wasm
     #[cfg(feature = "sys")]
     {
@@ -138,13 +141,16 @@ fn table_grow() -> Result<()> {
             maximum: Some(10),
         };
         let f = Function::new_typed(&mut store, |num: i32| num + 1);
-        let table = Table::new(&mut store, table_type, Value::FuncRef(Some(f.clone())))?;
+        let table = Table::new(&mut store, table_type, Value::FuncRef(Some(f.clone())))
+            .map_err(|e| format!("{e:?}"))?;
         // Growing to a bigger maximum should return None
         let old_len = table.grow(&mut store, 12, Value::FuncRef(Some(f.clone())));
         assert!(old_len.is_err());
 
         // Growing to a bigger maximum should return None
-        let old_len = table.grow(&mut store, 5, Value::FuncRef(Some(f)))?;
+        let old_len = table
+            .grow(&mut store, 5, Value::FuncRef(Some(f)))
+            .map_err(|e| format!("{e:?}"))?;
         assert_eq!(old_len, 0);
     }
 
@@ -152,30 +158,30 @@ fn table_grow() -> Result<()> {
 }
 
 #[universal_test]
-fn table_copy() -> Result<()> {
+fn table_copy() -> Result<(), String> {
     // TODO: table copy test not yet implemented
     Ok(())
 }
 
 #[universal_test]
-fn memory_new() -> Result<()> {
+fn memory_new() -> Result<(), String> {
     let mut store = Store::default();
     let memory_type = MemoryType {
         shared: false,
         minimum: Pages(0),
         maximum: Some(Pages(10)),
     };
-    let memory = Memory::new(&mut store, memory_type)?;
+    let memory = Memory::new(&mut store, memory_type).map_err(|e| format!("{e:?}"))?;
     assert_eq!(memory.view(&mut store).size(), Pages(0));
     assert_eq!(memory.ty(&mut store), memory_type);
     Ok(())
 }
 
 #[universal_test]
-fn memory_grow() -> Result<()> {
+fn memory_grow() -> Result<(), String> {
     let mut store = Store::default();
     let desc = MemoryType::new(Pages(10), Some(Pages(16)), false);
-    let memory = Memory::new(&mut store, desc)?;
+    let memory = Memory::new(&mut store, desc).map_err(|e| format!("{e:?}"))?;
     assert_eq!(memory.view(&mut store).size(), Pages(10));
 
     let result = memory.grow(&mut store, Pages(2)).unwrap();
@@ -203,7 +209,7 @@ fn memory_grow() -> Result<()> {
 }
 
 #[universal_test]
-fn function_new() -> Result<()> {
+fn function_new() -> Result<(), String> {
     let mut store = Store::default();
     let function = Function::new_typed(&mut store, || {});
     assert_eq!(
@@ -234,7 +240,7 @@ fn function_new() -> Result<()> {
 }
 
 #[universal_test]
-fn function_new_env() -> Result<()> {
+fn function_new_env() -> Result<(), String> {
     let mut store = Store::default();
     #[derive(Clone)]
     struct MyEnv {}
@@ -280,7 +286,7 @@ fn function_new_env() -> Result<()> {
 }
 
 #[universal_test]
-fn function_new_dynamic() -> Result<()> {
+fn function_new_dynamic() -> Result<(), String> {
     let mut store = Store::default();
 
     // Using &FunctionType signature
@@ -337,7 +343,7 @@ fn function_new_dynamic() -> Result<()> {
 }
 
 #[universal_test]
-fn function_new_dynamic_env() -> Result<()> {
+fn function_new_dynamic_env() -> Result<(), String> {
     let mut store = Store::default();
     #[derive(Clone)]
     struct MyEnv {}

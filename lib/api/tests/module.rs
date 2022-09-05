@@ -1,4 +1,3 @@
-use anyhow::Result;
 use macro_wasmer_universal_test::universal_test;
 #[cfg(feature = "js")]
 use wasm_bindgen_test::*;
@@ -6,20 +5,22 @@ use wasm_bindgen_test::*;
 use wasmer::*;
 
 #[universal_test]
-fn module_get_name() -> Result<()> {
+fn module_get_name() -> Result<(), String> {
     let store = Store::default();
     let wat = r#"(module)"#;
-    let module = Module::new(&store, wat)?;
+    let module = Module::new(&store, wat)
+        .map_err(|e| format!("{e:?}"))
+        .map_err(|e| format!("{e:?}"))?;
     assert_eq!(module.name(), None);
 
     Ok(())
 }
 
 #[universal_test]
-fn module_set_name() -> Result<()> {
+fn module_set_name() -> Result<(), String> {
     let store = Store::default();
     let wat = r#"(module $name)"#;
-    let mut module = Module::new(&store, wat)?;
+    let mut module = Module::new(&store, wat).map_err(|e| format!("{e:?}"))?;
     assert_eq!(module.name(), Some("name"));
 
     module.set_name("new_name");
@@ -29,7 +30,7 @@ fn module_set_name() -> Result<()> {
 }
 
 #[universal_test]
-fn imports() -> Result<()> {
+fn imports() -> Result<(), String> {
     let store = Store::default();
     let wat = r#"(module
 (import "host" "func" (func))
@@ -37,7 +38,7 @@ fn imports() -> Result<()> {
 (import "host" "table" (table 1 anyfunc))
 (import "host" "global" (global i32))
 )"#;
-    let module = Module::new(&store, wat)?;
+    let module = Module::new(&store, wat).map_err(|e| format!("{e:?}"))?;
     assert_eq!(
         module.imports().collect::<Vec<_>>(),
         vec![
@@ -101,7 +102,7 @@ fn imports() -> Result<()> {
 }
 
 #[universal_test]
-fn exports() -> Result<()> {
+fn exports() -> Result<(), String> {
     let store = Store::default();
     let wat = r#"(module
 (func (export "func") nop)
@@ -109,7 +110,7 @@ fn exports() -> Result<()> {
 (table (export "table") 1 funcref)
 (global (export "global") i32 (i32.const 0))
 )"#;
-    let module = Module::new(&store, wat)?;
+    let module = Module::new(&store, wat).map_err(|e| format!("{e:?}"))?;
     assert_eq!(
         module.exports().collect::<Vec<_>>(),
         vec![
@@ -162,7 +163,7 @@ fn exports() -> Result<()> {
 }
 
 #[universal_test]
-fn calling_host_functions_with_negative_values_works() -> Result<()> {
+fn calling_host_functions_with_negative_values_works() -> Result<(), String> {
     let mut store = Store::default();
     let wat = r#"(module
 (import "host" "host_func1" (func (param i64)))
@@ -191,7 +192,7 @@ fn calling_host_functions_with_negative_values_works() -> Result<()> {
 (func (export "call_host_func8")
       (call 7 (i32.const -1)))
 )"#;
-    let module = Module::new(&store, wat)?;
+    let module = Module::new(&store, wat).map_err(|e| format!("{e:?}"))?;
     let imports = imports! {
         "host" => {
             "host_func1" => Function::new_typed(&mut store, |p: u64| {
@@ -228,41 +229,49 @@ fn calling_host_functions_with_negative_values_works() -> Result<()> {
             }),
         }
     };
-    let instance = Instance::new(&mut store, &module, &imports)?;
+    let instance = Instance::new(&mut store, &module, &imports).map_err(|e| format!("{e:?}"))?;
 
     let f1: TypedFunction<(), ()> = instance
         .exports
-        .get_typed_function(&mut store, "call_host_func1")?;
+        .get_typed_function(&mut store, "call_host_func1")
+        .map_err(|e| format!("{e:?}"))?;
     let f2: TypedFunction<(), ()> = instance
         .exports
-        .get_typed_function(&mut store, "call_host_func2")?;
+        .get_typed_function(&mut store, "call_host_func2")
+        .map_err(|e| format!("{e:?}"))?;
     let f3: TypedFunction<(), ()> = instance
         .exports
-        .get_typed_function(&mut store, "call_host_func3")?;
+        .get_typed_function(&mut store, "call_host_func3")
+        .map_err(|e| format!("{e:?}"))?;
     let f4: TypedFunction<(), ()> = instance
         .exports
-        .get_typed_function(&mut store, "call_host_func4")?;
+        .get_typed_function(&mut store, "call_host_func4")
+        .map_err(|e| format!("{e:?}"))?;
     let f5: TypedFunction<(), ()> = instance
         .exports
-        .get_typed_function(&mut store, "call_host_func5")?;
+        .get_typed_function(&mut store, "call_host_func5")
+        .map_err(|e| format!("{e:?}"))?;
     let f6: TypedFunction<(), ()> = instance
         .exports
-        .get_typed_function(&mut store, "call_host_func6")?;
+        .get_typed_function(&mut store, "call_host_func6")
+        .map_err(|e| format!("{e:?}"))?;
     let f7: TypedFunction<(), ()> = instance
         .exports
-        .get_typed_function(&mut store, "call_host_func7")?;
+        .get_typed_function(&mut store, "call_host_func7")
+        .map_err(|e| format!("{e:?}"))?;
     let f8: TypedFunction<(), ()> = instance
         .exports
-        .get_typed_function(&mut store, "call_host_func8")?;
+        .get_typed_function(&mut store, "call_host_func8")
+        .map_err(|e| format!("{e:?}"))?;
 
-    f1.call(&mut store)?;
-    f2.call(&mut store)?;
-    f3.call(&mut store)?;
-    f4.call(&mut store)?;
-    f5.call(&mut store)?;
-    f6.call(&mut store)?;
-    f7.call(&mut store)?;
-    f8.call(&mut store)?;
+    f1.call(&mut store).map_err(|e| format!("{e:?}"))?;
+    f2.call(&mut store).map_err(|e| format!("{e:?}"))?;
+    f3.call(&mut store).map_err(|e| format!("{e:?}"))?;
+    f4.call(&mut store).map_err(|e| format!("{e:?}"))?;
+    f5.call(&mut store).map_err(|e| format!("{e:?}"))?;
+    f6.call(&mut store).map_err(|e| format!("{e:?}"))?;
+    f7.call(&mut store).map_err(|e| format!("{e:?}"))?;
+    f8.call(&mut store).map_err(|e| format!("{e:?}"))?;
 
     Ok(())
 }
