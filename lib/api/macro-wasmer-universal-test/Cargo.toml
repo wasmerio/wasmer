@@ -2,6 +2,8 @@
 name = "macro-wasmer-universal-test"
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
+description = "Universal test macro for wasmer-test"
 
 [lib]
 proc-macro = true
