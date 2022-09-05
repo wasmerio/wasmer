@@ -99,6 +99,7 @@ fn table_new() -> Result<()> {
 }
 
 #[universal_test]
+#[cfg_attr(feature = "sys", ignore)]
 fn table_get() -> Result<()> {
     // Tables are not yet fully supported in Wasm
     #[cfg(feature = "sys")]
