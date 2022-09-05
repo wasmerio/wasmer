@@ -32,14 +32,26 @@ fn global_new() -> Result<()> {
 #[universal_test]
 fn global_get() -> Result<()> {
     let mut store = Store::default();
+
     let global_i32 = Global::new(&mut store, Value::I32(10));
     assert_eq!(global_i32.get(&mut store), Value::I32(10));
-    let global_i64 = Global::new(&mut store, Value::I64(20));
-    assert_eq!(global_i64.get(&mut store), Value::I64(20));
+
+    // 64-bit values are not yet fully supported in some versions of Node
+    #[cfg(feature = "sys")]
+    {
+        let global_i64 = Global::new(&mut store, Value::I64(20));
+        assert_eq!(global_i64.get(&mut store), Value::I64(20));
+    }
+
     let global_f32 = Global::new(&mut store, Value::F32(10.0));
     assert_eq!(global_f32.get(&mut store), Value::F32(10.0));
-    let global_f64 = Global::new(&mut store, Value::F64(20.0));
-    assert_eq!(global_f64.get(&mut store), Value::F64(20.0));
+
+    // 64-bit values are not yet fully supported in some versions of Node
+    #[cfg(feature = "sys")]
+    {
+        let global_f64 = Global::new(&mut store, Value::F64(20.0));
+        assert_eq!(global_f64.get(&mut store), Value::F64(20.0));
+    }
 
     Ok(())
 }
@@ -88,17 +100,22 @@ fn table_new() -> Result<()> {
 
 #[universal_test]
 fn table_get() -> Result<()> {
-    let mut store = Store::default();
-    let table_type = TableType {
-        ty: Type::FuncRef,
-        minimum: 0,
-        maximum: Some(1),
-    };
-    let f = Function::new_typed(&mut store, |num: i32| num + 1);
-    let table = Table::new(&mut store, table_type, Value::FuncRef(Some(f)))?;
-    assert_eq!(table.ty(&mut store), table_type);
-    let _elem = table.get(&mut store, 0).unwrap();
-    // assert_eq!(elem.funcref().unwrap(), f);
+    // Tables are not yet fully supported in Wasm
+    #[cfg(feature = "sys")]
+    {
+        let mut store = Store::default();
+        let table_type = TableType {
+            ty: Type::FuncRef,
+            minimum: 0,
+            maximum: Some(1),
+        };
+        let f = Function::new_typed(&mut store, |num: i32| num + 1);
+        let table = Table::new(&mut store, table_type, Value::FuncRef(Some(f)))?;
+        assert_eq!(table.ty(&mut store), table_type);
+        let _elem = table.get(&mut store, 0).unwrap();
+        // assert_eq!(elem.funcref().unwrap(), f);
+    }
+
     Ok(())
 }
 
@@ -110,21 +127,25 @@ fn table_set() -> Result<()> {
 
 #[universal_test]
 fn table_grow() -> Result<()> {
-    let mut store = Store::default();
-    let table_type = TableType {
-        ty: Type::FuncRef,
-        minimum: 0,
-        maximum: Some(10),
-    };
-    let f = Function::new_typed(&mut store, |num: i32| num + 1);
-    let table = Table::new(&mut store, table_type, Value::FuncRef(Some(f.clone())))?;
-    // Growing to a bigger maximum should return None
-    let old_len = table.grow(&mut store, 12, Value::FuncRef(Some(f.clone())));
-    assert!(old_len.is_err());
+    // Tables are not yet fully supported in Wasm
+    #[cfg(feature = "sys")]
+    {
+        let mut store = Store::default();
+        let table_type = TableType {
+            ty: Type::FuncRef,
+            minimum: 0,
+            maximum: Some(10),
+        };
+        let f = Function::new_typed(&mut store, |num: i32| num + 1);
+        let table = Table::new(&mut store, table_type, Value::FuncRef(Some(f.clone())))?;
+        // Growing to a bigger maximum should return None
+        let old_len = table.grow(&mut store, 12, Value::FuncRef(Some(f.clone())));
+        assert!(old_len.is_err());
 
-    // Growing to a bigger maximum should return None
-    let old_len = table.grow(&mut store, 5, Value::FuncRef(Some(f)))?;
-    assert_eq!(old_len, 0);
+        // Growing to a bigger maximum should return None
+        let old_len = table.grow(&mut store, 5, Value::FuncRef(Some(f)))?;
+        assert_eq!(old_len, 0);
+    }
 
     Ok(())
 }
@@ -169,10 +190,13 @@ fn memory_grow() -> Result<()> {
         })
     );
 
-    let bad_desc = MemoryType::new(Pages(15), Some(Pages(10)), false);
-    let bad_result = Memory::new(&mut store, bad_desc);
-
-    assert!(matches!(bad_result, Err(MemoryError::InvalidMemory { .. })));
+    // JS will never give BadMemory unless V8 is broken somehow
+    #[cfg(feature = "sys")]
+    {
+        let bad_desc = MemoryType::new(Pages(15), Some(Pages(10)), false);
+        let bad_result = Memory::new(&mut store, bad_desc);
+        assert!(matches!(bad_result, Err(MemoryError::InvalidMemory { .. })));
+    }
 
     Ok(())
 }
