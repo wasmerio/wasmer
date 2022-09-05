@@ -100,25 +100,24 @@ fn table_new() -> Result<(), String> {
     Ok(())
 }
 
-#[cfg_attr(feature = "sys", ignore)]
 #[universal_test]
 fn table_get() -> Result<(), String> {
+    
     // Tables are not yet fully supported in Wasm
-    #[cfg(feature = "sys")]
-    {
-        let mut store = Store::default();
-        let table_type = TableType {
-            ty: Type::FuncRef,
-            minimum: 0,
-            maximum: Some(1),
-        };
-        let f = Function::new_typed(&mut store, |num: i32| num + 1);
-        let table = Table::new(&mut store, table_type, Value::FuncRef(Some(f)))
-            .map_err(|e| format!("{e:?}"))?;
-        assert_eq!(table.ty(&mut store), table_type);
-        let _elem = table.get(&mut store, 0).unwrap();
-        // assert_eq!(elem.funcref().unwrap(), f);
-    }
+    // This test was marked as #[ignore] on -sys, which is why it is commented out.
+
+    //    let mut store = Store::default();
+    //    let table_type = TableType {
+    //        ty: Type::FuncRef,
+    //        minimum: 0,
+    //        maximum: Some(1),
+    //    };
+    //    let f = Function::new_typed(&mut store, |num: i32| num + 1);
+    //    let table = Table::new(&mut store, table_type, Value::FuncRef(Some(f)))
+    //        .map_err(|e| format!("{e:?}"))?;
+    //    assert_eq!(table.ty(&mut store), table_type);
+    //    let _elem = table.get(&mut store, 0).unwrap();
+    //    assert_eq!(elem.funcref().unwrap(), f);
 
     Ok(())
 }
