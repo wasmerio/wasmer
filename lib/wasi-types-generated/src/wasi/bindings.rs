@@ -1,7 +1,5 @@
 #[allow(clippy::all)]
-pub mod wasi {
-  #[allow(unused_imports)]
-  use wit_bindgen_wasmer::{anyhow, wasmer};
+pub mod output {
   /// Non-negative file size or length of a region within a file.
   pub type Filesize = u64;
   /// Timestamp in nanoseconds.
@@ -531,9 +529,10 @@ pub mod wasi {
   }
   
   impl std::error::Error for BusErrno{}
-  wit_bindgen_wasmer::bitflags::bitflags! {
+  wit_bindgen_rust::bitflags::bitflags! {
     /// File descriptor rights, determining which actions may be performed.
-    pub struct Rights: u64 {/// The right to invoke `fd_datasync`.
+    pub struct Rights: u64 {
+      /// The right to invoke `fd_datasync`.
       /// 
       /// If `rights::path_open` is set, includes the right to invoke
       /// `path_open` with `fdflags::dsync`.
@@ -628,17 +627,13 @@ pub mod wasi {
       const SOCK_SEND_TO = 1 << 38;
     }
   }
-  
-  impl core::fmt::Display for Rights{
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-      f.write_str("Rights(")?;
-      core::fmt::Debug::fmt(self, f)?;
-      f.write_str(" (0x")?;
-      core::fmt::LowerHex::fmt(&self.bits, f)?;
-      f.write_str("))")?;
-      Ok(())}
+  impl Rights {
+        /// Convert from a raw integer, preserving any unknown bits. See
+        /// <https://github.com/bitflags/bitflags/issues/263#issuecomment-957088321>
+        pub fn from_bits_preserve(bits: u64) -> Self {
+              Self { bits }
+        }
   }
-  
   /// The type of a file descriptor or file.
   #[repr(u8)]
   #[derive(Clone, Copy, PartialEq, Eq)]
@@ -753,9 +748,10 @@ pub mod wasi {
       }
     }
   }
-  wit_bindgen_wasmer::bitflags::bitflags! {
+  wit_bindgen_rust::bitflags::bitflags! {
     /// File descriptor flags.
-    pub struct Fdflags: u8 {/// Append mode: Data written to the file is always appended to the file's end.
+    pub struct Fdflags: u8 {
+      /// Append mode: Data written to the file is always appended to the file's end.
       const APPEND = 1 << 0;
       /// Write according to synchronized I/O data integrity completion. Only the data stored in the file is synchronized.
       const DSYNC = 1 << 1;
@@ -769,17 +765,13 @@ pub mod wasi {
       const SYNC = 1 << 4;
     }
   }
-  
-  impl core::fmt::Display for Fdflags{
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-      f.write_str("Fdflags(")?;
-      core::fmt::Debug::fmt(self, f)?;
-      f.write_str(" (0x")?;
-      core::fmt::LowerHex::fmt(&self.bits, f)?;
-      f.write_str("))")?;
-      Ok(())}
+  impl Fdflags {
+        /// Convert from a raw integer, preserving any unknown bits. See
+        /// <https://github.com/bitflags/bitflags/issues/263#issuecomment-957088321>
+        pub fn from_bits_preserve(bits: u8) -> Self {
+              Self { bits }
+        }
   }
-  
   /// File descriptor attributes.
   #[repr(C)]
   #[derive(Copy, Clone)]
@@ -798,9 +790,10 @@ pub mod wasi {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
       f.debug_struct("Fdstat").field("fs-filetype", &self.fs_filetype).field("fs-flags", &self.fs_flags).field("fs-rights-base", &self.fs_rights_base).field("fs-rights-inheriting", &self.fs_rights_inheriting).finish()}
   }
-  wit_bindgen_wasmer::bitflags::bitflags! {
+  wit_bindgen_rust::bitflags::bitflags! {
     /// Which file time attributes to adjust.
-    pub struct Fstflags: u8 {/// Adjust the last data access timestamp to the value stored in `filestat::atim`.
+    pub struct Fstflags: u8 {
+      /// Adjust the last data access timestamp to the value stored in `filestat::atim`.
       const SET_ATIM = 1 << 0;
       /// Adjust the last data access timestamp to the time of clock `clockid::realtime`.
       const SET_ATIM_NOW = 1 << 1;
@@ -810,37 +803,31 @@ pub mod wasi {
       const SET_MTIM_NOW = 1 << 3;
     }
   }
-  
-  impl core::fmt::Display for Fstflags{
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-      f.write_str("Fstflags(")?;
-      core::fmt::Debug::fmt(self, f)?;
-      f.write_str(" (0x")?;
-      core::fmt::LowerHex::fmt(&self.bits, f)?;
-      f.write_str("))")?;
-      Ok(())}
+  impl Fstflags {
+        /// Convert from a raw integer, preserving any unknown bits. See
+        /// <https://github.com/bitflags/bitflags/issues/263#issuecomment-957088321>
+        pub fn from_bits_preserve(bits: u8) -> Self {
+              Self { bits }
+        }
   }
-  
-  wit_bindgen_wasmer::bitflags::bitflags! {
+  wit_bindgen_rust::bitflags::bitflags! {
     /// Flags determining the method of how paths are resolved.
-    pub struct Lookup: u8 {/// As long as the resolved path corresponds to a symbolic link, it is expanded.
+    pub struct Lookup: u8 {
+      /// As long as the resolved path corresponds to a symbolic link, it is expanded.
       const SYMLINK_FOLLOW = 1 << 0;
     }
   }
-  
-  impl core::fmt::Display for Lookup{
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-      f.write_str("Lookup(")?;
-      core::fmt::Debug::fmt(self, f)?;
-      f.write_str(" (0x")?;
-      core::fmt::LowerHex::fmt(&self.bits, f)?;
-      f.write_str("))")?;
-      Ok(())}
+  impl Lookup {
+        /// Convert from a raw integer, preserving any unknown bits. See
+        /// <https://github.com/bitflags/bitflags/issues/263#issuecomment-957088321>
+        pub fn from_bits_preserve(bits: u8) -> Self {
+              Self { bits }
+        }
   }
-  
-  wit_bindgen_wasmer::bitflags::bitflags! {
+  wit_bindgen_rust::bitflags::bitflags! {
     /// Open flags used by `path_open`.
-    pub struct Oflags: u8 {/// Create file if it does not exist.
+    pub struct Oflags: u8 {
+      /// Create file if it does not exist.
       const CREATE = 1 << 0;
       /// Fail if not a directory.
       const DIRECTORY = 1 << 1;
@@ -850,17 +837,13 @@ pub mod wasi {
       const TRUNC = 1 << 3;
     }
   }
-  
-  impl core::fmt::Display for Oflags{
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-      f.write_str("Oflags(")?;
-      core::fmt::Debug::fmt(self, f)?;
-      f.write_str(" (0x")?;
-      core::fmt::LowerHex::fmt(&self.bits, f)?;
-      f.write_str("))")?;
-      Ok(())}
+  impl Oflags {
+        /// Convert from a raw integer, preserving any unknown bits. See
+        /// <https://github.com/bitflags/bitflags/issues/263#issuecomment-957088321>
+        pub fn from_bits_preserve(bits: u8) -> Self {
+              Self { bits }
+        }
   }
-  
   /// User-provided value that may be attached to objects that is retained when
   /// extracted from the implementation.
   pub type Userdata = u64;
@@ -893,10 +876,11 @@ pub mod wasi {
       }
     }
   }
-  wit_bindgen_wasmer::bitflags::bitflags! {
+  wit_bindgen_rust::bitflags::bitflags! {
     /// Flags determining how to interpret the timestamp provided in
     /// `subscription-clock::timeout`.
-    pub struct Subclockflags: u8 {/// If set, treat the timestamp provided in
+    pub struct Subclockflags: u8 {
+      /// If set, treat the timestamp provided in
       /// `subscription-clock::timeout` as an absolute timestamp of clock
       /// `subscription-clock::id`. If clear, treat the timestamp
       /// provided in `subscription-clock::timeout` relative to the
@@ -904,17 +888,13 @@ pub mod wasi {
       const SUBSCRIPTION_CLOCK_ABSTIME = 1 << 0;
     }
   }
-  
-  impl core::fmt::Display for Subclockflags{
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-      f.write_str("Subclockflags(")?;
-      core::fmt::Debug::fmt(self, f)?;
-      f.write_str(" (0x")?;
-      core::fmt::LowerHex::fmt(&self.bits, f)?;
-      f.write_str("))")?;
-      Ok(())}
+  impl Subclockflags {
+        /// Convert from a raw integer, preserving any unknown bits. See
+        /// <https://github.com/bitflags/bitflags/issues/263#issuecomment-957088321>
+        pub fn from_bits_preserve(bits: u8) -> Self {
+              Self { bits }
+        }
   }
-  
   /// The contents of a `subscription` when type is `eventtype::clock`.
   #[repr(C)]
   #[derive(Copy, Clone)]
@@ -969,24 +949,21 @@ pub mod wasi {
       }
     }
   }
-  wit_bindgen_wasmer::bitflags::bitflags! {
+  wit_bindgen_rust::bitflags::bitflags! {
     /// The state of the file descriptor subscribed to with
     /// `eventtype::fd_read` or `eventtype::fd_write`.
-    pub struct Eventrwflags: u8 {/// The peer of this socket has closed or disconnected.
+    pub struct Eventrwflags: u8 {
+      /// The peer of this socket has closed or disconnected.
       const FD_READWRITE_HANGUP = 1 << 0;
     }
   }
-  
-  impl core::fmt::Display for Eventrwflags{
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-      f.write_str("Eventrwflags(")?;
-      core::fmt::Debug::fmt(self, f)?;
-      f.write_str(" (0x")?;
-      core::fmt::LowerHex::fmt(&self.bits, f)?;
-      f.write_str("))")?;
-      Ok(())}
+  impl Eventrwflags {
+        /// Convert from a raw integer, preserving any unknown bits. See
+        /// <https://github.com/bitflags/bitflags/issues/263#issuecomment-957088321>
+        pub fn from_bits_preserve(bits: u8) -> Self {
+              Self { bits }
+        }
   }
-  
   /// The contents of an `event` for the `eventtype::fd_read` and
   /// `eventtype::fd_write` variants
   #[repr(C)]
@@ -1094,19 +1071,6 @@ pub mod wasi {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
       f.debug_struct("SubscriptionFsReadwrite").field("file-descriptor", &self.file_descriptor).finish()}
   }
-  impl wit_bindgen_wasmer::Endian for SubscriptionFsReadwrite {
-    fn into_le(self) -> Self {
-      Self {
-        file_descriptor: self.file_descriptor.into_le(),
-      }
-    }
-    fn from_le(self) -> Self {
-      Self {
-        file_descriptor: self.file_descriptor.from_le(),
-      }
-    }
-  }
-  unsafe impl wit_bindgen_wasmer::AllBytesValid for SubscriptionFsReadwrite {}
   #[repr(C)]
   #[derive(Copy, Clone)]
   pub struct Snapshot0Subscription {
@@ -1442,336 +1406,326 @@ pub mod wasi {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
       f.debug_struct("Tty").field("cols", &self.cols).field("rows", &self.rows).field("width", &self.width).field("height", &self.height).field("stdin-tty", &self.stdin_tty).field("stdout-tty", &self.stdout_tty).field("stderr-tty", &self.stderr_tty).field("echo", &self.echo).field("line-buffered", &self.line_buffered).finish()}
   }
-  
-  /// Auxiliary data associated with the wasm exports.
-  #[derive(Default)]
-  pub struct WasiData {
-  }
-  
-  pub struct Wasi {
-    #[allow(dead_code)]
-    env: wasmer::FunctionEnv<WasiData>,
-    func_canonical_abi_realloc: wasmer::TypedFunction<(i32, i32, i32, i32), i32>,
-    func_expose_types_dummy_func: wasmer::TypedFunction<i32, ()>,
-    memory: wasmer::Memory,
-  }
-  impl Wasi {
-    #[allow(unused_variables)]
-    
-    /// Adds any intrinsics, if necessary for this exported wasm
-    /// functionality to the `ImportObject` provided.
-    ///
-    /// This function returns the `WasiData` which needs to be
-    /// passed through to `Wasi::new`.
-    fn add_to_imports(
-    mut store: impl wasmer::AsStoreMut,
-    imports: &mut wasmer::Imports,
-    ) -> wasmer::FunctionEnv<WasiData> {
-      let env = wasmer::FunctionEnv::new(&mut store, WasiData::default());
-      env
-    }
-    
-    /// Instantiates the provided `module` using the specified
-    /// parameters, wrapping up the result in a structure that
-    /// translates between wasm and the host.
-    ///
-    /// The `imports` provided will have intrinsics added to it
-    /// automatically, so it's not necessary to call
-    /// `add_to_imports` beforehand. This function will
-    /// instantiate the `module` otherwise using `imports`, and
-    /// both an instance of this structure and the underlying
-    /// `wasmer::Instance` will be returned.
-    pub fn instantiate(
-    mut store: impl wasmer::AsStoreMut,
-    module: &wasmer::Module,
-    imports: &mut wasmer::Imports,
-    ) -> anyhow::Result<(Self, wasmer::Instance)> {
-      let env = Self::add_to_imports(&mut store, imports);
-      let instance = wasmer::Instance::new(
-      &mut store, module, &*imports)?;
-      
-      Ok((Self::new(store, &instance, env)?, instance))
-    }
-    
-    /// Low-level creation wrapper for wrapping up the exports
-    /// of the `instance` provided in this structure of wasm
-    /// exports.
-    ///
-    /// This function will extract exports from the `instance`
-    /// and wrap them all up in the returned structure which can
-    /// be used to interact with the wasm module.
-    pub fn new(
-    store: impl wasmer::AsStoreMut,
-    _instance: &wasmer::Instance,
-    env: wasmer::FunctionEnv<WasiData>,
-    ) -> Result<Self, wasmer::ExportError> {
-      let func_canonical_abi_realloc= _instance.exports.get_typed_function(&store, "canonical_abi_realloc")?;
-      let func_expose_types_dummy_func= _instance.exports.get_typed_function(&store, "expose-types-dummy-func")?;
-      let memory= _instance.exports.get_memory("memory")?.clone();
-      Ok(Wasi{
-        func_canonical_abi_realloc,
-        func_expose_types_dummy_func,
-        memory,
-        env,
-      })
-    }
-    /// Dummy function to expose types into generated code
-    pub fn expose_types_dummy_func(&self, store: &mut wasmer::Store,fd: Fd,dirent: Dirent,event_enum: EventEnum,event: Event,fdstat: Fdstat,subscription_clock: SubscriptionClock,snapshot0_subscription_clock: Snapshot0SubscriptionClock,subscription: Subscription,snapshot0_subscription: Snapshot0Subscription,device: Device,linkcount: Linkcount,snapshot0_linkcount: Snapshot0Linkcount,filestat: Filestat,snapshot0_filestat: Snapshot0Filestat,tty: Tty,tid: Tid,pid: Pid,)-> Result<(), wasmer::RuntimeError> {
-      let func_canonical_abi_realloc = &self.func_canonical_abi_realloc;
-      let _memory = &self.memory;
-      let ptr0 = func_canonical_abi_realloc.call(store, 0, 0, 8, 472)?;
-      let _memory_view = _memory.view(&store);
-      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 0, wit_bindgen_wasmer::rt::as_i32(wit_bindgen_wasmer::rt::as_i32(fd)))?;
+  /// Dummy function to expose types into generated code
+  pub fn expose_types_dummy_func(fd: Fd,dirent: Dirent,event_enum: EventEnum,event: Event,fdstat: Fdstat,subscription_clock: SubscriptionClock,snapshot0_subscription_clock: Snapshot0SubscriptionClock,subscription: Subscription,snapshot0_subscription: Snapshot0Subscription,device: Device,linkcount: Linkcount,snapshot0_linkcount: Snapshot0Linkcount,filestat: Filestat,snapshot0_filestat: Snapshot0Filestat,tty: Tty,tid: Tid,pid: Pid,) -> (){
+    unsafe {
+      let ptr0 = OUTPUT_RET_AREA.0.as_mut_ptr() as i32;
+      *((ptr0 + 0) as *mut i32) = wit_bindgen_rust::rt::as_i32(fd);
       let Dirent{ d_next:d_next1, d_ino:d_ino1, d_type:d_type1, d_namlen:d_namlen1, } = dirent;
-      let _memory_view = _memory.view(&store);
-      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 8, wit_bindgen_wasmer::rt::as_i64(wit_bindgen_wasmer::rt::as_i64(d_next1)))?;
-      let _memory_view = _memory.view(&store);
-      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 16, wit_bindgen_wasmer::rt::as_i64(wit_bindgen_wasmer::rt::as_i64(d_ino1)))?;
-      let _memory_view = _memory.view(&store);
-      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 24, wit_bindgen_wasmer::rt::as_i32(d_type1 as i32) as u8)?;
-      let _memory_view = _memory.view(&store);
-      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 28, wit_bindgen_wasmer::rt::as_i32(wit_bindgen_wasmer::rt::as_i32(d_namlen1)))?;
+      *((ptr0 + 8) as *mut i64) = wit_bindgen_rust::rt::as_i64(d_next1);
+      *((ptr0 + 16) as *mut i64) = wit_bindgen_rust::rt::as_i64(d_ino1);
+      *((ptr0 + 24) as *mut u8) = (match d_type1 {
+        Filetype::Unknown => 0,
+        Filetype::BlockDevice => 1,
+        Filetype::CharacterDevice => 2,
+        Filetype::Directory => 3,
+        Filetype::RegularFile => 4,
+        Filetype::SocketDgram => 5,
+        Filetype::SocketStream => 6,
+        Filetype::SymbolicLink => 7,
+        Filetype::Fifo => 8,
+      }) as u8;
+      *((ptr0 + 28) as *mut i32) = wit_bindgen_rust::rt::as_i32(d_namlen1);
       match event_enum {
         EventEnum::FdRead(e) => {
-          let _memory_view = _memory.view(&store);
-          unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 32, wit_bindgen_wasmer::rt::as_i32(0i32) as u8)?;
+          *((ptr0 + 32) as *mut u8) = (0i32) as u8;
           let EventFdReadwrite{ nbytes:nbytes2, flags:flags2, } = e;
-          let _memory_view = _memory.view(&store);
-          unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 40, wit_bindgen_wasmer::rt::as_i64(wit_bindgen_wasmer::rt::as_i64(nbytes2)))?;
+          *((ptr0 + 40) as *mut i64) = wit_bindgen_rust::rt::as_i64(nbytes2);
           let flags3 = flags2;
-          let _memory_view = _memory.view(&store);
-          unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 48, wit_bindgen_wasmer::rt::as_i32((flags3.bits >> 0) as i32) as u8)?;
+          *((ptr0 + 48) as *mut u8) = ((flags3.bits() >> 0) as i32) as u8;
+          
         },
         EventEnum::FdWrite(e) => {
-          let _memory_view = _memory.view(&store);
-          unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 32, wit_bindgen_wasmer::rt::as_i32(1i32) as u8)?;
+          *((ptr0 + 32) as *mut u8) = (1i32) as u8;
           let EventFdReadwrite{ nbytes:nbytes4, flags:flags4, } = e;
-          let _memory_view = _memory.view(&store);
-          unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 40, wit_bindgen_wasmer::rt::as_i64(wit_bindgen_wasmer::rt::as_i64(nbytes4)))?;
+          *((ptr0 + 40) as *mut i64) = wit_bindgen_rust::rt::as_i64(nbytes4);
           let flags5 = flags4;
-          let _memory_view = _memory.view(&store);
-          unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 48, wit_bindgen_wasmer::rt::as_i32((flags5.bits >> 0) as i32) as u8)?;
+          *((ptr0 + 48) as *mut u8) = ((flags5.bits() >> 0) as i32) as u8;
+          
         },
         EventEnum::Clock=> {
           let e = ();
           {
-            let _memory_view = _memory.view(&store);
-            unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 32, wit_bindgen_wasmer::rt::as_i32(2i32) as u8)?;
+            *((ptr0 + 32) as *mut u8) = (2i32) as u8;
             let () = e;
+            
           }
         }
       };
       let Event{ userdata:userdata6, error:error6, data:data6, } = event;
-      let _memory_view = _memory.view(&store);
-      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 56, wit_bindgen_wasmer::rt::as_i64(wit_bindgen_wasmer::rt::as_i64(userdata6)))?;
-      let _memory_view = _memory.view(&store);
-      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 64, wit_bindgen_wasmer::rt::as_i32(error6 as i32) as u8)?;
+      *((ptr0 + 56) as *mut i64) = wit_bindgen_rust::rt::as_i64(userdata6);
+      *((ptr0 + 64) as *mut u8) = (match error6 {
+        Errno::Success => 0,
+        Errno::Toobig => 1,
+        Errno::Access => 2,
+        Errno::Addrinuse => 3,
+        Errno::Addrnotavail => 4,
+        Errno::Afnosupport => 5,
+        Errno::Again => 6,
+        Errno::Already => 7,
+        Errno::Badf => 8,
+        Errno::Badmsg => 9,
+        Errno::Busy => 10,
+        Errno::Canceled => 11,
+        Errno::Child => 12,
+        Errno::Connaborted => 13,
+        Errno::Connrefused => 14,
+        Errno::Connreset => 15,
+        Errno::Deadlk => 16,
+        Errno::Destaddrreq => 17,
+        Errno::Dom => 18,
+        Errno::Dquot => 19,
+        Errno::Exist => 20,
+        Errno::Fault => 21,
+        Errno::Fbig => 22,
+        Errno::Hostunreach => 23,
+        Errno::Idrm => 24,
+        Errno::Ilseq => 25,
+        Errno::Inprogress => 26,
+        Errno::Intr => 27,
+        Errno::Inval => 28,
+        Errno::Io => 29,
+        Errno::Isconn => 30,
+        Errno::Isdir => 31,
+        Errno::Loop => 32,
+        Errno::Mfile => 33,
+        Errno::Mlink => 34,
+        Errno::Msgsize => 35,
+        Errno::Multihop => 36,
+        Errno::Nametoolong => 37,
+        Errno::Netdown => 38,
+        Errno::Netreset => 39,
+        Errno::Netunreach => 40,
+        Errno::Nfile => 41,
+        Errno::Nobufs => 42,
+        Errno::Nodev => 43,
+        Errno::Noent => 44,
+        Errno::Noexec => 45,
+        Errno::Nolck => 46,
+        Errno::Nolink => 47,
+        Errno::Nomem => 48,
+        Errno::Nomsg => 49,
+        Errno::Noprotoopt => 50,
+        Errno::Nospc => 51,
+        Errno::Nosys => 52,
+        Errno::Notconn => 53,
+        Errno::Notdir => 54,
+        Errno::Notempty => 55,
+        Errno::Notrecoverable => 56,
+        Errno::Notsock => 57,
+        Errno::Notsup => 58,
+        Errno::Notty => 59,
+        Errno::Nxio => 60,
+        Errno::Overflow => 61,
+        Errno::Ownerdead => 62,
+        Errno::Perm => 63,
+        Errno::Pipe => 64,
+        Errno::Proto => 65,
+        Errno::Protonosupport => 66,
+        Errno::Prototype => 67,
+        Errno::Range => 68,
+        Errno::Rofs => 69,
+        Errno::Spipe => 70,
+        Errno::Srch => 71,
+        Errno::Stale => 72,
+        Errno::Timedout => 73,
+        Errno::Txtbsy => 74,
+        Errno::Xdev => 75,
+        Errno::Notcapable => 76,
+      }) as u8;
       match data6 {
         EventEnum::FdRead(e) => {
-          let _memory_view = _memory.view(&store);
-          unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 72, wit_bindgen_wasmer::rt::as_i32(0i32) as u8)?;
+          *((ptr0 + 72) as *mut u8) = (0i32) as u8;
           let EventFdReadwrite{ nbytes:nbytes7, flags:flags7, } = e;
-          let _memory_view = _memory.view(&store);
-          unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 80, wit_bindgen_wasmer::rt::as_i64(wit_bindgen_wasmer::rt::as_i64(nbytes7)))?;
+          *((ptr0 + 80) as *mut i64) = wit_bindgen_rust::rt::as_i64(nbytes7);
           let flags8 = flags7;
-          let _memory_view = _memory.view(&store);
-          unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 88, wit_bindgen_wasmer::rt::as_i32((flags8.bits >> 0) as i32) as u8)?;
+          *((ptr0 + 88) as *mut u8) = ((flags8.bits() >> 0) as i32) as u8;
+          
         },
         EventEnum::FdWrite(e) => {
-          let _memory_view = _memory.view(&store);
-          unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 72, wit_bindgen_wasmer::rt::as_i32(1i32) as u8)?;
+          *((ptr0 + 72) as *mut u8) = (1i32) as u8;
           let EventFdReadwrite{ nbytes:nbytes9, flags:flags9, } = e;
-          let _memory_view = _memory.view(&store);
-          unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 80, wit_bindgen_wasmer::rt::as_i64(wit_bindgen_wasmer::rt::as_i64(nbytes9)))?;
+          *((ptr0 + 80) as *mut i64) = wit_bindgen_rust::rt::as_i64(nbytes9);
           let flags10 = flags9;
-          let _memory_view = _memory.view(&store);
-          unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 88, wit_bindgen_wasmer::rt::as_i32((flags10.bits >> 0) as i32) as u8)?;
+          *((ptr0 + 88) as *mut u8) = ((flags10.bits() >> 0) as i32) as u8;
+          
         },
         EventEnum::Clock=> {
           let e = ();
           {
-            let _memory_view = _memory.view(&store);
-            unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 72, wit_bindgen_wasmer::rt::as_i32(2i32) as u8)?;
+            *((ptr0 + 72) as *mut u8) = (2i32) as u8;
             let () = e;
+            
           }
         }
       };
       let Fdstat{ fs_filetype:fs_filetype11, fs_flags:fs_flags11, fs_rights_base:fs_rights_base11, fs_rights_inheriting:fs_rights_inheriting11, } = fdstat;
-      let _memory_view = _memory.view(&store);
-      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 96, wit_bindgen_wasmer::rt::as_i32(fs_filetype11 as i32) as u8)?;
+      *((ptr0 + 96) as *mut u8) = (match fs_filetype11 {
+        Filetype::Unknown => 0,
+        Filetype::BlockDevice => 1,
+        Filetype::CharacterDevice => 2,
+        Filetype::Directory => 3,
+        Filetype::RegularFile => 4,
+        Filetype::SocketDgram => 5,
+        Filetype::SocketStream => 6,
+        Filetype::SymbolicLink => 7,
+        Filetype::Fifo => 8,
+      }) as u8;
       let flags12 = fs_flags11;
-      let _memory_view = _memory.view(&store);
-      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 97, wit_bindgen_wasmer::rt::as_i32((flags12.bits >> 0) as i32) as u8)?;
+      *((ptr0 + 97) as *mut u8) = ((flags12.bits() >> 0) as i32) as u8;
       let flags13 = fs_rights_base11;
-      let _memory_view = _memory.view(&store);
-      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 104, wit_bindgen_wasmer::rt::as_i32((flags13.bits >> 32) as i32))?;
-      let _memory_view = _memory.view(&store);
-      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 100, wit_bindgen_wasmer::rt::as_i32((flags13.bits >> 0) as i32))?;
+      *((ptr0 + 104) as *mut i32) = (flags13.bits() >> 32) as i32;
+      *((ptr0 + 100) as *mut i32) = (flags13.bits() >> 0) as i32;
       let flags14 = fs_rights_inheriting11;
-      let _memory_view = _memory.view(&store);
-      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 112, wit_bindgen_wasmer::rt::as_i32((flags14.bits >> 32) as i32))?;
-      let _memory_view = _memory.view(&store);
-      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 108, wit_bindgen_wasmer::rt::as_i32((flags14.bits >> 0) as i32))?;
+      *((ptr0 + 112) as *mut i32) = (flags14.bits() >> 32) as i32;
+      *((ptr0 + 108) as *mut i32) = (flags14.bits() >> 0) as i32;
       let SubscriptionClock{ clock_id:clock_id15, timeout:timeout15, precision:precision15, flags:flags15, } = subscription_clock;
-      let _memory_view = _memory.view(&store);
-      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 120, wit_bindgen_wasmer::rt::as_i32(clock_id15 as i32) as u8)?;
-      let _memory_view = _memory.view(&store);
-      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 128, wit_bindgen_wasmer::rt::as_i64(wit_bindgen_wasmer::rt::as_i64(timeout15)))?;
-      let _memory_view = _memory.view(&store);
-      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 136, wit_bindgen_wasmer::rt::as_i64(wit_bindgen_wasmer::rt::as_i64(precision15)))?;
+      *((ptr0 + 120) as *mut u8) = (match clock_id15 {
+        Clockid::Realtime => 0,
+        Clockid::Monotonic => 1,
+      }) as u8;
+      *((ptr0 + 128) as *mut i64) = wit_bindgen_rust::rt::as_i64(timeout15);
+      *((ptr0 + 136) as *mut i64) = wit_bindgen_rust::rt::as_i64(precision15);
       let flags16 = flags15;
-      let _memory_view = _memory.view(&store);
-      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 144, wit_bindgen_wasmer::rt::as_i32((flags16.bits >> 0) as i32) as u8)?;
+      *((ptr0 + 144) as *mut u8) = ((flags16.bits() >> 0) as i32) as u8;
       let Snapshot0SubscriptionClock{ identifier:identifier17, id:id17, timeout:timeout17, precision:precision17, flags:flags17, } = snapshot0_subscription_clock;
-      let _memory_view = _memory.view(&store);
-      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 152, wit_bindgen_wasmer::rt::as_i64(wit_bindgen_wasmer::rt::as_i64(identifier17)))?;
-      let _memory_view = _memory.view(&store);
-      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 160, wit_bindgen_wasmer::rt::as_i32(id17 as i32) as u8)?;
-      let _memory_view = _memory.view(&store);
-      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 168, wit_bindgen_wasmer::rt::as_i64(wit_bindgen_wasmer::rt::as_i64(timeout17)))?;
-      let _memory_view = _memory.view(&store);
-      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 176, wit_bindgen_wasmer::rt::as_i64(wit_bindgen_wasmer::rt::as_i64(precision17)))?;
+      *((ptr0 + 152) as *mut i64) = wit_bindgen_rust::rt::as_i64(identifier17);
+      *((ptr0 + 160) as *mut u8) = (match id17 {
+        Snapshot0Clockid::Realtime => 0,
+        Snapshot0Clockid::Monotonic => 1,
+        Snapshot0Clockid::ProcessCputimeId => 2,
+        Snapshot0Clockid::ThreadCputimeId => 3,
+      }) as u8;
+      *((ptr0 + 168) as *mut i64) = wit_bindgen_rust::rt::as_i64(timeout17);
+      *((ptr0 + 176) as *mut i64) = wit_bindgen_rust::rt::as_i64(precision17);
       let flags18 = flags17;
-      let _memory_view = _memory.view(&store);
-      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 184, wit_bindgen_wasmer::rt::as_i32((flags18.bits >> 0) as i32) as u8)?;
+      *((ptr0 + 184) as *mut u8) = ((flags18.bits() >> 0) as i32) as u8;
       let Subscription{ userdata:userdata19, data:data19, } = subscription;
-      let _memory_view = _memory.view(&store);
-      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 192, wit_bindgen_wasmer::rt::as_i64(wit_bindgen_wasmer::rt::as_i64(userdata19)))?;
+      *((ptr0 + 192) as *mut i64) = wit_bindgen_rust::rt::as_i64(userdata19);
       match data19 {
         SubscriptionEnum::Clock(e) => {
-          let _memory_view = _memory.view(&store);
-          unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 200, wit_bindgen_wasmer::rt::as_i32(0i32) as u8)?;
+          *((ptr0 + 200) as *mut u8) = (0i32) as u8;
           let SubscriptionClock{ clock_id:clock_id20, timeout:timeout20, precision:precision20, flags:flags20, } = e;
-          let _memory_view = _memory.view(&store);
-          unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 208, wit_bindgen_wasmer::rt::as_i32(clock_id20 as i32) as u8)?;
-          let _memory_view = _memory.view(&store);
-          unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 216, wit_bindgen_wasmer::rt::as_i64(wit_bindgen_wasmer::rt::as_i64(timeout20)))?;
-          let _memory_view = _memory.view(&store);
-          unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 224, wit_bindgen_wasmer::rt::as_i64(wit_bindgen_wasmer::rt::as_i64(precision20)))?;
+          *((ptr0 + 208) as *mut u8) = (match clock_id20 {
+            Clockid::Realtime => 0,
+            Clockid::Monotonic => 1,
+          }) as u8;
+          *((ptr0 + 216) as *mut i64) = wit_bindgen_rust::rt::as_i64(timeout20);
+          *((ptr0 + 224) as *mut i64) = wit_bindgen_rust::rt::as_i64(precision20);
           let flags21 = flags20;
-          let _memory_view = _memory.view(&store);
-          unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 232, wit_bindgen_wasmer::rt::as_i32((flags21.bits >> 0) as i32) as u8)?;
+          *((ptr0 + 232) as *mut u8) = ((flags21.bits() >> 0) as i32) as u8;
+          
         },
         SubscriptionEnum::Read(e) => {
-          let _memory_view = _memory.view(&store);
-          unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 200, wit_bindgen_wasmer::rt::as_i32(1i32) as u8)?;
+          *((ptr0 + 200) as *mut u8) = (1i32) as u8;
           let SubscriptionFsReadwrite{ file_descriptor:file_descriptor22, } = e;
-          let _memory_view = _memory.view(&store);
-          unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 208, wit_bindgen_wasmer::rt::as_i32(wit_bindgen_wasmer::rt::as_i32(file_descriptor22)))?;
+          *((ptr0 + 208) as *mut i32) = wit_bindgen_rust::rt::as_i32(file_descriptor22);
+          
         },
         SubscriptionEnum::Write(e) => {
-          let _memory_view = _memory.view(&store);
-          unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 200, wit_bindgen_wasmer::rt::as_i32(2i32) as u8)?;
+          *((ptr0 + 200) as *mut u8) = (2i32) as u8;
           let SubscriptionFsReadwrite{ file_descriptor:file_descriptor23, } = e;
-          let _memory_view = _memory.view(&store);
-          unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 208, wit_bindgen_wasmer::rt::as_i32(wit_bindgen_wasmer::rt::as_i32(file_descriptor23)))?;
+          *((ptr0 + 208) as *mut i32) = wit_bindgen_rust::rt::as_i32(file_descriptor23);
+          
         },
       };
       let Snapshot0Subscription{ userdata:userdata24, data:data24, } = snapshot0_subscription;
-      let _memory_view = _memory.view(&store);
-      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 240, wit_bindgen_wasmer::rt::as_i64(wit_bindgen_wasmer::rt::as_i64(userdata24)))?;
+      *((ptr0 + 240) as *mut i64) = wit_bindgen_rust::rt::as_i64(userdata24);
       match data24 {
         Snapshot0SubscriptionEnum::Clock(e) => {
-          let _memory_view = _memory.view(&store);
-          unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 248, wit_bindgen_wasmer::rt::as_i32(0i32) as u8)?;
+          *((ptr0 + 248) as *mut u8) = (0i32) as u8;
           let Snapshot0SubscriptionClock{ identifier:identifier25, id:id25, timeout:timeout25, precision:precision25, flags:flags25, } = e;
-          let _memory_view = _memory.view(&store);
-          unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 256, wit_bindgen_wasmer::rt::as_i64(wit_bindgen_wasmer::rt::as_i64(identifier25)))?;
-          let _memory_view = _memory.view(&store);
-          unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 264, wit_bindgen_wasmer::rt::as_i32(id25 as i32) as u8)?;
-          let _memory_view = _memory.view(&store);
-          unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 272, wit_bindgen_wasmer::rt::as_i64(wit_bindgen_wasmer::rt::as_i64(timeout25)))?;
-          let _memory_view = _memory.view(&store);
-          unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 280, wit_bindgen_wasmer::rt::as_i64(wit_bindgen_wasmer::rt::as_i64(precision25)))?;
+          *((ptr0 + 256) as *mut i64) = wit_bindgen_rust::rt::as_i64(identifier25);
+          *((ptr0 + 264) as *mut u8) = (match id25 {
+            Snapshot0Clockid::Realtime => 0,
+            Snapshot0Clockid::Monotonic => 1,
+            Snapshot0Clockid::ProcessCputimeId => 2,
+            Snapshot0Clockid::ThreadCputimeId => 3,
+          }) as u8;
+          *((ptr0 + 272) as *mut i64) = wit_bindgen_rust::rt::as_i64(timeout25);
+          *((ptr0 + 280) as *mut i64) = wit_bindgen_rust::rt::as_i64(precision25);
           let flags26 = flags25;
-          let _memory_view = _memory.view(&store);
-          unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 288, wit_bindgen_wasmer::rt::as_i32((flags26.bits >> 0) as i32) as u8)?;
+          *((ptr0 + 288) as *mut u8) = ((flags26.bits() >> 0) as i32) as u8;
+          
         },
         Snapshot0SubscriptionEnum::Read(e) => {
-          let _memory_view = _memory.view(&store);
-          unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 248, wit_bindgen_wasmer::rt::as_i32(1i32) as u8)?;
+          *((ptr0 + 248) as *mut u8) = (1i32) as u8;
           let SubscriptionFsReadwrite{ file_descriptor:file_descriptor27, } = e;
-          let _memory_view = _memory.view(&store);
-          unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 256, wit_bindgen_wasmer::rt::as_i32(wit_bindgen_wasmer::rt::as_i32(file_descriptor27)))?;
+          *((ptr0 + 256) as *mut i32) = wit_bindgen_rust::rt::as_i32(file_descriptor27);
+          
         },
         Snapshot0SubscriptionEnum::Write(e) => {
-          let _memory_view = _memory.view(&store);
-          unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 248, wit_bindgen_wasmer::rt::as_i32(2i32) as u8)?;
+          *((ptr0 + 248) as *mut u8) = (2i32) as u8;
           let SubscriptionFsReadwrite{ file_descriptor:file_descriptor28, } = e;
-          let _memory_view = _memory.view(&store);
-          unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 256, wit_bindgen_wasmer::rt::as_i32(wit_bindgen_wasmer::rt::as_i32(file_descriptor28)))?;
+          *((ptr0 + 256) as *mut i32) = wit_bindgen_rust::rt::as_i32(file_descriptor28);
+          
         },
       };
-      let _memory_view = _memory.view(&store);
-      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 296, wit_bindgen_wasmer::rt::as_i64(wit_bindgen_wasmer::rt::as_i64(device)))?;
-      let _memory_view = _memory.view(&store);
-      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 304, wit_bindgen_wasmer::rt::as_i64(wit_bindgen_wasmer::rt::as_i64(linkcount)))?;
-      let _memory_view = _memory.view(&store);
-      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 312, wit_bindgen_wasmer::rt::as_i32(wit_bindgen_wasmer::rt::as_i32(snapshot0_linkcount)))?;
+      *((ptr0 + 296) as *mut i64) = wit_bindgen_rust::rt::as_i64(device);
+      *((ptr0 + 304) as *mut i64) = wit_bindgen_rust::rt::as_i64(linkcount);
+      *((ptr0 + 312) as *mut i32) = wit_bindgen_rust::rt::as_i32(snapshot0_linkcount);
       let Filestat{ st_dev:st_dev29, st_ino:st_ino29, st_filetype:st_filetype29, st_nlink:st_nlink29, st_size:st_size29, st_atim:st_atim29, st_mtim:st_mtim29, st_ctim:st_ctim29, } = filestat;
-      let _memory_view = _memory.view(&store);
-      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 320, wit_bindgen_wasmer::rt::as_i64(wit_bindgen_wasmer::rt::as_i64(st_dev29)))?;
-      let _memory_view = _memory.view(&store);
-      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 328, wit_bindgen_wasmer::rt::as_i64(wit_bindgen_wasmer::rt::as_i64(st_ino29)))?;
-      let _memory_view = _memory.view(&store);
-      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 336, wit_bindgen_wasmer::rt::as_i32(st_filetype29 as i32) as u8)?;
-      let _memory_view = _memory.view(&store);
-      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 344, wit_bindgen_wasmer::rt::as_i64(wit_bindgen_wasmer::rt::as_i64(st_nlink29)))?;
-      let _memory_view = _memory.view(&store);
-      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 352, wit_bindgen_wasmer::rt::as_i64(wit_bindgen_wasmer::rt::as_i64(st_size29)))?;
-      let _memory_view = _memory.view(&store);
-      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 360, wit_bindgen_wasmer::rt::as_i64(wit_bindgen_wasmer::rt::as_i64(st_atim29)))?;
-      let _memory_view = _memory.view(&store);
-      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 368, wit_bindgen_wasmer::rt::as_i64(wit_bindgen_wasmer::rt::as_i64(st_mtim29)))?;
-      let _memory_view = _memory.view(&store);
-      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 376, wit_bindgen_wasmer::rt::as_i64(wit_bindgen_wasmer::rt::as_i64(st_ctim29)))?;
+      *((ptr0 + 320) as *mut i64) = wit_bindgen_rust::rt::as_i64(st_dev29);
+      *((ptr0 + 328) as *mut i64) = wit_bindgen_rust::rt::as_i64(st_ino29);
+      *((ptr0 + 336) as *mut u8) = (match st_filetype29 {
+        Filetype::Unknown => 0,
+        Filetype::BlockDevice => 1,
+        Filetype::CharacterDevice => 2,
+        Filetype::Directory => 3,
+        Filetype::RegularFile => 4,
+        Filetype::SocketDgram => 5,
+        Filetype::SocketStream => 6,
+        Filetype::SymbolicLink => 7,
+        Filetype::Fifo => 8,
+      }) as u8;
+      *((ptr0 + 344) as *mut i64) = wit_bindgen_rust::rt::as_i64(st_nlink29);
+      *((ptr0 + 352) as *mut i64) = wit_bindgen_rust::rt::as_i64(st_size29);
+      *((ptr0 + 360) as *mut i64) = wit_bindgen_rust::rt::as_i64(st_atim29);
+      *((ptr0 + 368) as *mut i64) = wit_bindgen_rust::rt::as_i64(st_mtim29);
+      *((ptr0 + 376) as *mut i64) = wit_bindgen_rust::rt::as_i64(st_ctim29);
       let Snapshot0Filestat{ st_dev:st_dev30, st_ino:st_ino30, st_filetype:st_filetype30, st_nlink:st_nlink30, st_size:st_size30, st_atim:st_atim30, st_mtim:st_mtim30, st_ctim:st_ctim30, } = snapshot0_filestat;
-      let _memory_view = _memory.view(&store);
-      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 384, wit_bindgen_wasmer::rt::as_i64(wit_bindgen_wasmer::rt::as_i64(st_dev30)))?;
-      let _memory_view = _memory.view(&store);
-      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 392, wit_bindgen_wasmer::rt::as_i64(wit_bindgen_wasmer::rt::as_i64(st_ino30)))?;
-      let _memory_view = _memory.view(&store);
-      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 400, wit_bindgen_wasmer::rt::as_i32(st_filetype30 as i32) as u8)?;
-      let _memory_view = _memory.view(&store);
-      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 404, wit_bindgen_wasmer::rt::as_i32(wit_bindgen_wasmer::rt::as_i32(st_nlink30)))?;
-      let _memory_view = _memory.view(&store);
-      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 408, wit_bindgen_wasmer::rt::as_i64(wit_bindgen_wasmer::rt::as_i64(st_size30)))?;
-      let _memory_view = _memory.view(&store);
-      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 416, wit_bindgen_wasmer::rt::as_i64(wit_bindgen_wasmer::rt::as_i64(st_atim30)))?;
-      let _memory_view = _memory.view(&store);
-      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 424, wit_bindgen_wasmer::rt::as_i64(wit_bindgen_wasmer::rt::as_i64(st_mtim30)))?;
-      let _memory_view = _memory.view(&store);
-      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 432, wit_bindgen_wasmer::rt::as_i64(wit_bindgen_wasmer::rt::as_i64(st_ctim30)))?;
+      *((ptr0 + 384) as *mut i64) = wit_bindgen_rust::rt::as_i64(st_dev30);
+      *((ptr0 + 392) as *mut i64) = wit_bindgen_rust::rt::as_i64(st_ino30);
+      *((ptr0 + 400) as *mut u8) = (match st_filetype30 {
+        Filetype::Unknown => 0,
+        Filetype::BlockDevice => 1,
+        Filetype::CharacterDevice => 2,
+        Filetype::Directory => 3,
+        Filetype::RegularFile => 4,
+        Filetype::SocketDgram => 5,
+        Filetype::SocketStream => 6,
+        Filetype::SymbolicLink => 7,
+        Filetype::Fifo => 8,
+      }) as u8;
+      *((ptr0 + 404) as *mut i32) = wit_bindgen_rust::rt::as_i32(st_nlink30);
+      *((ptr0 + 408) as *mut i64) = wit_bindgen_rust::rt::as_i64(st_size30);
+      *((ptr0 + 416) as *mut i64) = wit_bindgen_rust::rt::as_i64(st_atim30);
+      *((ptr0 + 424) as *mut i64) = wit_bindgen_rust::rt::as_i64(st_mtim30);
+      *((ptr0 + 432) as *mut i64) = wit_bindgen_rust::rt::as_i64(st_ctim30);
       let Tty{ cols:cols31, rows:rows31, width:width31, height:height31, stdin_tty:stdin_tty31, stdout_tty:stdout_tty31, stderr_tty:stderr_tty31, echo:echo31, line_buffered:line_buffered31, } = tty;
-      let _memory_view = _memory.view(&store);
-      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 440, wit_bindgen_wasmer::rt::as_i32(wit_bindgen_wasmer::rt::as_i32(cols31)))?;
-      let _memory_view = _memory.view(&store);
-      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 444, wit_bindgen_wasmer::rt::as_i32(wit_bindgen_wasmer::rt::as_i32(rows31)))?;
-      let _memory_view = _memory.view(&store);
-      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 448, wit_bindgen_wasmer::rt::as_i32(wit_bindgen_wasmer::rt::as_i32(width31)))?;
-      let _memory_view = _memory.view(&store);
-      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 452, wit_bindgen_wasmer::rt::as_i32(wit_bindgen_wasmer::rt::as_i32(height31)))?;
-      let _memory_view = _memory.view(&store);
-      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 456, wit_bindgen_wasmer::rt::as_i32(match stdin_tty31 { true => 1, false => 0 }) as u8)?;
-      let _memory_view = _memory.view(&store);
-      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 457, wit_bindgen_wasmer::rt::as_i32(match stdout_tty31 { true => 1, false => 0 }) as u8)?;
-      let _memory_view = _memory.view(&store);
-      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 458, wit_bindgen_wasmer::rt::as_i32(match stderr_tty31 { true => 1, false => 0 }) as u8)?;
-      let _memory_view = _memory.view(&store);
-      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 459, wit_bindgen_wasmer::rt::as_i32(match echo31 { true => 1, false => 0 }) as u8)?;
-      let _memory_view = _memory.view(&store);
-      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 460, wit_bindgen_wasmer::rt::as_i32(match line_buffered31 { true => 1, false => 0 }) as u8)?;
-      let _memory_view = _memory.view(&store);
-      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 464, wit_bindgen_wasmer::rt::as_i32(wit_bindgen_wasmer::rt::as_i32(tid)))?;
-      let _memory_view = _memory.view(&store);
-      unsafe { _memory_view.data_unchecked_mut() }.store(ptr0 + 468, wit_bindgen_wasmer::rt::as_i32(wit_bindgen_wasmer::rt::as_i32(pid)))?;
-      self.func_expose_types_dummy_func.call(store, ptr0, )?;
-      Ok(())
+      *((ptr0 + 440) as *mut i32) = wit_bindgen_rust::rt::as_i32(cols31);
+      *((ptr0 + 444) as *mut i32) = wit_bindgen_rust::rt::as_i32(rows31);
+      *((ptr0 + 448) as *mut i32) = wit_bindgen_rust::rt::as_i32(width31);
+      *((ptr0 + 452) as *mut i32) = wit_bindgen_rust::rt::as_i32(height31);
+      *((ptr0 + 456) as *mut u8) = (match stdin_tty31 { true => 1, false => 0 }) as u8;
+      *((ptr0 + 457) as *mut u8) = (match stdout_tty31 { true => 1, false => 0 }) as u8;
+      *((ptr0 + 458) as *mut u8) = (match stderr_tty31 { true => 1, false => 0 }) as u8;
+      *((ptr0 + 459) as *mut u8) = (match echo31 { true => 1, false => 0 }) as u8;
+      *((ptr0 + 460) as *mut u8) = (match line_buffered31 { true => 1, false => 0 }) as u8;
+      *((ptr0 + 464) as *mut i32) = wit_bindgen_rust::rt::as_i32(tid);
+      *((ptr0 + 468) as *mut i32) = wit_bindgen_rust::rt::as_i32(pid);
+      #[link(wasm_import_module = "output")]
+      extern "C" {
+        #[cfg_attr(target_arch = "wasm32", link_name = "expose-types-dummy-func")]
+        #[cfg_attr(not(target_arch = "wasm32"), link_name = "output_expose-types-dummy-func")]
+        fn wit_import(_: i32, );
+      }
+      wit_import(ptr0);
+      ()
     }
   }
-  #[allow(unused_imports)]
-  use wasmer::AsStoreMut as _;
-  #[allow(unused_imports)]
-  use wasmer::AsStoreRef as _;
-  use wit_bindgen_wasmer::rt::RawMem;
+  
+  #[repr(align(8))]
+  struct RetArea([u8; 472]);
+  static mut OUTPUT_RET_AREA: RetArea = RetArea([0; 472]);
 }

@@ -6,6 +6,7 @@
 /// This API predated the convention of naming modules with a `wasi_unstable_`
 /// prefix and a version number. It is preserved here for compatibility, but
 /// we shouldn't follow this pattern in new APIs.
+/*
 (module $wasi_unstable
   /// Linear memory to be accessed by WASI functions that need it.
   (import "memory" (memory))
@@ -508,3 +509,4 @@
     (result $error (expected (error $errno)))
   )
 )
+*/

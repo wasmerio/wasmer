@@ -1,8 +1,8 @@
 mod bindings;
-pub use bindings::wasi::*;
+pub use bindings::output::*;
 
 use std::mem::MaybeUninit;
-use wasmer_types::ValueType;
+use wasmer::ValueType;
 
 // TODO: if necessary, must be implemented in wit-bindgen
 unsafe impl ValueType for Errno {
@@ -754,8 +754,44 @@ impl Default for Filestat {
     }
 }
 
+impl std::fmt::Display for Sockoption {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match *self {
+            Self::Noop => "Sockoption::Noop",
+            Self::ReusePort => "Sockoption::ReusePort",
+            Self::ReuseAddr => "Sockoption::ReuseAddr",
+            Self::NoDelay => "Sockoption::NoDelay",
+            Self::DontRoute => "Sockoption::DontRoute",
+            Self::OnlyV6 => "Sockoption::OnlyV6",
+            Self::Broadcast => "Sockoption::Broadcast",
+            Self::MulticastLoopV4 => "Sockoption::MulticastLoopV4",
+            Self::MulticastLoopV6 => "Sockoption::MulticastLoopV6",
+            Self::Promiscuous => "Sockoption::Promiscuous",
+            Self::Listening => "Sockoption::Listening",
+            Self::LastError => "Sockoption::LastError",
+            Self::KeepAlive => "Sockoption::KeepAlive",
+            Self::Linger => "Sockoption::Linger",
+            Self::OobInline => "Sockoption::OobInline",
+            Self::RecvBufSize => "Sockoption::RecvBufSize",
+            Self::SendBufSize => "Sockoption::SendBufSize",
+            Self::RecvLowat => "Sockoption::RecvLowat",
+            Self::SendLowat => "Sockoption::SendLowat",
+            Self::RecvTimeout => "Sockoption::RecvTimeout",
+            Self::SendTimeout => "Sockoption::SendTimeout",
+            Self::ConnectTimeout => "Sockoption::ConnectTimeout",
+            Self::AcceptTimeout => "Sockoption::AcceptTimeout",
+            Self::Ttl => "Sockoption::Ttl",
+            Self::MulticastTtlV4 => "Sockoption::MulticastTtlV4",
+            Self::Type => "Sockoption::Type",
+            Self::Proto => "Sockoption::Proto",
+        };
+        write!(f, "{}", s)
+    }
+}
+
+/* 
 // TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl wit_bindgen_wasmer::wasmer::FromToNativeWasmType for Errno {
+unsafe impl wit_bindgen_rust::FromToNativeWasmType for Errno {
     type Native = i32;
 
     fn to_native(self) -> Self::Native {
@@ -846,14 +882,14 @@ unsafe impl wit_bindgen_wasmer::wasmer::FromToNativeWasmType for Errno {
     }
 
     #[cfg(feature = "sys")]
-    fn is_from_store(&self, _store: &impl wit_bindgen_wasmer::wasmer::AsStoreRef) -> bool {
+    fn is_from_store(&self, _store: &impl wit_bindgen_rust::AsStoreRef) -> bool {
         // TODO: find correct implementation
         false
     }
 }
 
 // TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl wit_bindgen_wasmer::wasmer::FromToNativeWasmType for BusErrno {
+unsafe impl wit_bindgen_rust::FromToNativeWasmType for BusErrno {
     type Native = i32;
 
     fn to_native(self) -> Self::Native {
@@ -887,14 +923,14 @@ unsafe impl wit_bindgen_wasmer::wasmer::FromToNativeWasmType for BusErrno {
     }
 
     #[cfg(feature = "sys")]
-    fn is_from_store(&self, _store: &impl wit_bindgen_wasmer::wasmer::AsStoreRef) -> bool {
+    fn is_from_store(&self, _store: &impl wit_bindgen_rust::AsStoreRef) -> bool {
         // TODO: find correct implementation
         false
     }
 }
 
 // TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl wit_bindgen_wasmer::wasmer::FromToNativeWasmType for Advice {
+unsafe impl wit_bindgen_rust::FromToNativeWasmType for Advice {
     type Native = i32;
 
     fn to_native(self) -> Self::Native {
@@ -914,14 +950,14 @@ unsafe impl wit_bindgen_wasmer::wasmer::FromToNativeWasmType for Advice {
     }
 
     #[cfg(feature = "sys")]
-    fn is_from_store(&self, _store: &impl wit_bindgen_wasmer::wasmer::AsStoreRef) -> bool {
+    fn is_from_store(&self, _store: &impl wit_bindgen_rust::AsStoreRef) -> bool {
         // TODO: find correct implementation
         false
     }
 }
 
 // TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl wit_bindgen_wasmer::wasmer::FromToNativeWasmType for Socktype {
+unsafe impl wit_bindgen_rust::FromToNativeWasmType for Socktype {
     type Native = i32;
 
     fn to_native(self) -> Self::Native {
@@ -939,14 +975,14 @@ unsafe impl wit_bindgen_wasmer::wasmer::FromToNativeWasmType for Socktype {
     }
 
     #[cfg(feature = "sys")]
-    fn is_from_store(&self, _store: &impl wit_bindgen_wasmer::wasmer::AsStoreRef) -> bool {
+    fn is_from_store(&self, _store: &impl wit_bindgen_rust::AsStoreRef) -> bool {
         // TODO: find correct implementation
         false
     }
 }
 
 // TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl wit_bindgen_wasmer::wasmer::FromToNativeWasmType for Sockstatus {
+unsafe impl wit_bindgen_rust::FromToNativeWasmType for Sockstatus {
     type Native = i32;
 
     fn to_native(self) -> Self::Native {
@@ -964,14 +1000,14 @@ unsafe impl wit_bindgen_wasmer::wasmer::FromToNativeWasmType for Sockstatus {
     }
 
     #[cfg(feature = "sys")]
-    fn is_from_store(&self, _store: &impl wit_bindgen_wasmer::wasmer::AsStoreRef) -> bool {
+    fn is_from_store(&self, _store: &impl wit_bindgen_rust::AsStoreRef) -> bool {
         // TODO: find correct implementation
         false
     }
 }
 
 // TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl wit_bindgen_wasmer::wasmer::FromToNativeWasmType for Streamsecurity {
+unsafe impl wit_bindgen_rust::FromToNativeWasmType for Streamsecurity {
     type Native = i32;
 
     fn to_native(self) -> Self::Native {
@@ -989,14 +1025,14 @@ unsafe impl wit_bindgen_wasmer::wasmer::FromToNativeWasmType for Streamsecurity 
     }
 
     #[cfg(feature = "sys")]
-    fn is_from_store(&self, _store: &impl wit_bindgen_wasmer::wasmer::AsStoreRef) -> bool {
+    fn is_from_store(&self, _store: &impl wit_bindgen_rust::AsStoreRef) -> bool {
         // TODO: find correct implementation
         false
     }
 }
 
 // TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl wit_bindgen_wasmer::wasmer::FromToNativeWasmType for Rights {
+unsafe impl wit_bindgen_rust::FromToNativeWasmType for Rights {
     type Native = i64;
 
     fn to_native(self) -> Self::Native {
@@ -1008,14 +1044,14 @@ unsafe impl wit_bindgen_wasmer::wasmer::FromToNativeWasmType for Rights {
     }
 
     #[cfg(feature = "sys")]
-    fn is_from_store(&self, _store: &impl wit_bindgen_wasmer::wasmer::AsStoreRef) -> bool {
+    fn is_from_store(&self, _store: &impl wit_bindgen_rust::AsStoreRef) -> bool {
         // TODO: find correct implementation
         false
     }
 }
 
 // TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl wit_bindgen_wasmer::wasmer::FromToNativeWasmType for Eventrwflags {
+unsafe impl wit_bindgen_rust::FromToNativeWasmType for Eventrwflags {
     type Native = i32;
 
     fn to_native(self) -> Self::Native {
@@ -1026,14 +1062,14 @@ unsafe impl wit_bindgen_wasmer::wasmer::FromToNativeWasmType for Eventrwflags {
     }
 
     #[cfg(feature = "sys")]
-    fn is_from_store(&self, _store: &impl wit_bindgen_wasmer::wasmer::AsStoreRef) -> bool {
+    fn is_from_store(&self, _store: &impl wit_bindgen_rust::AsStoreRef) -> bool {
         // TODO: find correct implementation
         false
     }
 }
 
 // TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl wit_bindgen_wasmer::wasmer::FromToNativeWasmType for Fstflags {
+unsafe impl wit_bindgen_rust::FromToNativeWasmType for Fstflags {
     type Native = i32;
 
     fn to_native(self) -> Self::Native {
@@ -1044,14 +1080,14 @@ unsafe impl wit_bindgen_wasmer::wasmer::FromToNativeWasmType for Fstflags {
     }
 
     #[cfg(feature = "sys")]
-    fn is_from_store(&self, _store: &impl wit_bindgen_wasmer::wasmer::AsStoreRef) -> bool {
+    fn is_from_store(&self, _store: &impl wit_bindgen_rust::AsStoreRef) -> bool {
         // TODO: find correct implementation
         false
     }
 }
 
 // TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl wit_bindgen_wasmer::wasmer::FromToNativeWasmType for Subclockflags {
+unsafe impl wit_bindgen_rust::FromToNativeWasmType for Subclockflags {
     type Native = i32;
 
     fn to_native(self) -> Self::Native {
@@ -1062,14 +1098,14 @@ unsafe impl wit_bindgen_wasmer::wasmer::FromToNativeWasmType for Subclockflags {
     }
 
     #[cfg(feature = "sys")]
-    fn is_from_store(&self, _store: &impl wit_bindgen_wasmer::wasmer::AsStoreRef) -> bool {
+    fn is_from_store(&self, _store: &impl wit_bindgen_rust::AsStoreRef) -> bool {
         // TODO: find correct implementation
         false
     }
 }
 
 // TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl wit_bindgen_wasmer::wasmer::FromToNativeWasmType for Clockid {
+unsafe impl wit_bindgen_rust::FromToNativeWasmType for Clockid {
     type Native = i32;
 
     fn to_native(self) -> Self::Native {
@@ -1085,14 +1121,14 @@ unsafe impl wit_bindgen_wasmer::wasmer::FromToNativeWasmType for Clockid {
     }
 
     #[cfg(feature = "sys")]
-    fn is_from_store(&self, _store: &impl wit_bindgen_wasmer::wasmer::AsStoreRef) -> bool {
+    fn is_from_store(&self, _store: &impl wit_bindgen_rust::AsStoreRef) -> bool {
         // TODO: find correct implementation
         false
     }
 }
 
 // TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl wit_bindgen_wasmer::wasmer::FromToNativeWasmType for Snapshot0Clockid {
+unsafe impl wit_bindgen_rust::FromToNativeWasmType for Snapshot0Clockid {
     type Native = i32;
 
     fn to_native(self) -> Self::Native {
@@ -1110,14 +1146,14 @@ unsafe impl wit_bindgen_wasmer::wasmer::FromToNativeWasmType for Snapshot0Clocki
     }
 
     #[cfg(feature = "sys")]
-    fn is_from_store(&self, _store: &impl wit_bindgen_wasmer::wasmer::AsStoreRef) -> bool {
+    fn is_from_store(&self, _store: &impl wit_bindgen_rust::AsStoreRef) -> bool {
         // TODO: find correct implementation
         false
     }
 }
 
 // TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl wit_bindgen_wasmer::wasmer::FromToNativeWasmType for Sockoption {
+unsafe impl wit_bindgen_rust::FromToNativeWasmType for Sockoption {
     type Native = i32;
 
     fn to_native(self) -> Self::Native {
@@ -1158,49 +1194,14 @@ unsafe impl wit_bindgen_wasmer::wasmer::FromToNativeWasmType for Sockoption {
     }
 
     #[cfg(feature = "sys")]
-    fn is_from_store(&self, _store: &impl wit_bindgen_wasmer::wasmer::AsStoreRef) -> bool {
+    fn is_from_store(&self, _store: &impl wit_bindgen_rust::AsStoreRef) -> bool {
         // TODO: find correct implementation
         false
     }
 }
 
-impl std::fmt::Display for Sockoption {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let s = match *self {
-            Self::Noop => "Sockoption::Noop",
-            Self::ReusePort => "Sockoption::ReusePort",
-            Self::ReuseAddr => "Sockoption::ReuseAddr",
-            Self::NoDelay => "Sockoption::NoDelay",
-            Self::DontRoute => "Sockoption::DontRoute",
-            Self::OnlyV6 => "Sockoption::OnlyV6",
-            Self::Broadcast => "Sockoption::Broadcast",
-            Self::MulticastLoopV4 => "Sockoption::MulticastLoopV4",
-            Self::MulticastLoopV6 => "Sockoption::MulticastLoopV6",
-            Self::Promiscuous => "Sockoption::Promiscuous",
-            Self::Listening => "Sockoption::Listening",
-            Self::LastError => "Sockoption::LastError",
-            Self::KeepAlive => "Sockoption::KeepAlive",
-            Self::Linger => "Sockoption::Linger",
-            Self::OobInline => "Sockoption::OobInline",
-            Self::RecvBufSize => "Sockoption::RecvBufSize",
-            Self::SendBufSize => "Sockoption::SendBufSize",
-            Self::RecvLowat => "Sockoption::RecvLowat",
-            Self::SendLowat => "Sockoption::SendLowat",
-            Self::RecvTimeout => "Sockoption::RecvTimeout",
-            Self::SendTimeout => "Sockoption::SendTimeout",
-            Self::ConnectTimeout => "Sockoption::ConnectTimeout",
-            Self::AcceptTimeout => "Sockoption::AcceptTimeout",
-            Self::Ttl => "Sockoption::Ttl",
-            Self::MulticastTtlV4 => "Sockoption::MulticastTtlV4",
-            Self::Type => "Sockoption::Type",
-            Self::Proto => "Sockoption::Proto",
-        };
-        write!(f, "{}", s)
-    }
-}
-
 // TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl wit_bindgen_wasmer::wasmer::FromToNativeWasmType for Fdflags {
+unsafe impl wit_bindgen_rust::FromToNativeWasmType for Fdflags {
     type Native = i32;
 
     fn to_native(self) -> Self::Native {
@@ -1211,14 +1212,14 @@ unsafe impl wit_bindgen_wasmer::wasmer::FromToNativeWasmType for Fdflags {
     }
 
     #[cfg(feature = "sys")]
-    fn is_from_store(&self, _store: &impl wit_bindgen_wasmer::wasmer::AsStoreRef) -> bool {
+    fn is_from_store(&self, _store: &impl wit_bindgen_rust::AsStoreRef) -> bool {
         // TODO: find correct implementation
         false
     }
 }
 
 // TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl wit_bindgen_wasmer::wasmer::FromToNativeWasmType for Preopentype {
+unsafe impl wit_bindgen_rust::FromToNativeWasmType for Preopentype {
     type Native = i32;
 
     fn to_native(self) -> Self::Native {
@@ -1233,14 +1234,14 @@ unsafe impl wit_bindgen_wasmer::wasmer::FromToNativeWasmType for Preopentype {
     }
 
     #[cfg(feature = "sys")]
-    fn is_from_store(&self, _store: &impl wit_bindgen_wasmer::wasmer::AsStoreRef) -> bool {
+    fn is_from_store(&self, _store: &impl wit_bindgen_rust::AsStoreRef) -> bool {
         // TODO: find correct implementation
         false
     }
 }
 
 // TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl wit_bindgen_wasmer::wasmer::FromToNativeWasmType for Addressfamily {
+unsafe impl wit_bindgen_rust::FromToNativeWasmType for Addressfamily {
     type Native = i32;
 
     fn to_native(self) -> Self::Native {
@@ -1258,14 +1259,14 @@ unsafe impl wit_bindgen_wasmer::wasmer::FromToNativeWasmType for Addressfamily {
     }
 
     #[cfg(feature = "sys")]
-    fn is_from_store(&self, _store: &impl wit_bindgen_wasmer::wasmer::AsStoreRef) -> bool {
+    fn is_from_store(&self, _store: &impl wit_bindgen_rust::AsStoreRef) -> bool {
         // TODO: find correct implementation
         false
     }
 }
 
 // TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl wit_bindgen_wasmer::wasmer::FromToNativeWasmType for Snapshot0Whence {
+unsafe impl wit_bindgen_rust::FromToNativeWasmType for Snapshot0Whence {
     type Native = i32;
 
     fn to_native(self) -> Self::Native {
@@ -1282,14 +1283,14 @@ unsafe impl wit_bindgen_wasmer::wasmer::FromToNativeWasmType for Snapshot0Whence
     }
 
     #[cfg(feature = "sys")]
-    fn is_from_store(&self, _store: &impl wit_bindgen_wasmer::wasmer::AsStoreRef) -> bool {
+    fn is_from_store(&self, _store: &impl wit_bindgen_rust::AsStoreRef) -> bool {
         // TODO: find correct implementation
         false
     }
 }
 
 // TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl wit_bindgen_wasmer::wasmer::FromToNativeWasmType for Whence {
+unsafe impl wit_bindgen_rust::FromToNativeWasmType for Whence {
     type Native = i32;
 
     fn to_native(self) -> Self::Native {
@@ -1306,12 +1307,12 @@ unsafe impl wit_bindgen_wasmer::wasmer::FromToNativeWasmType for Whence {
     }
 
     #[cfg(feature = "sys")]
-    fn is_from_store(&self, _store: &impl wit_bindgen_wasmer::wasmer::AsStoreRef) -> bool {
+    fn is_from_store(&self, _store: &impl wit_bindgen_rust::AsStoreRef) -> bool {
         // TODO: find correct implementation
         false
     }
 }
-
+*/
 // TODO: if necessary, must be implemented in wit-bindgen
 unsafe impl ValueType for Snapshot0Clockid {
     #[inline]

@@ -6,14 +6,15 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-wasmer-derive = { path = "../derive", version = "=3.0.0-beta" }
-wasmer-types = { path = "../types", version = "=3.0.0-beta" }
+wasmer = { default-features = false, path = "../api", version = "3.0.0-beta" }
 
-[dependencies.wit-bindgen-wasmer]
+# this crate is called "gen-rust" on bytecodealliance/master
+[dependencies.wit-bindgen-rust]
 default-features = false
-git = "https://github.com/wasmerio/wit-bindgen.git"
-branch = "silwol/wasi-types-generation"
+git = "https://github.com/wasmerio/wit-bindgen"
+branch = "main"
+package = "wit-bindgen-rust"
 
 [features]
-js = ["wit-bindgen-wasmer/js"]
-sys = ["wit-bindgen-wasmer/sys"]
+js = []
+sys = []
