@@ -1148,6 +1148,10 @@ mod inner {
                         match result {
                             Ok(Ok(result)) => return result.into_c_struct(&mut store),
                             #[allow(deprecated)]
+                            #[cfg(feature = "std")]
+                            Ok(Err(trap)) => RuntimeError::raise(Box::new(trap)),
+                            #[cfg(feature = "core")]
+                            #[allow(deprecated)]
                             Ok(Err(trap)) => RuntimeError::raise(Box::new(trap)),
                             Err(_panic) => unimplemented!(),
                         }
@@ -1191,6 +1195,10 @@ mod inner {
 
                         match result {
                             Ok(Ok(result)) => return result.into_c_struct(&mut store),
+                            #[cfg(feature = "std")]
+                            #[allow(deprecated)]
+                            Ok(Err(trap)) => RuntimeError::raise(Box::new(trap)),
+                            #[cfg(feature = "core")]
                             #[allow(deprecated)]
                             Ok(Err(trap)) => RuntimeError::raise(Box::new(trap)),
                             Err(_panic) => unimplemented!(),
