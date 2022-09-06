@@ -88,7 +88,10 @@ impl WasiPipe {
             read_buffer: None,
         };
 
-        WasiPipePair { send: pipe1, recv: pipe2 }
+        WasiPipePair {
+            send: pipe1,
+            recv: pipe2,
+        }
     }
 
     pub fn recv<M: MemorySize>(
