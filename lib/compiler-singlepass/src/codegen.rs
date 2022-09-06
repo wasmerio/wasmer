@@ -6417,6 +6417,173 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     [WpType::I32].iter().cloned(),
                 )?;
             }
+            Operator::MemoryAtomicWait32 { ref memarg } => {
+                let timeout = self.value_stack.pop().unwrap();
+                let val = self.value_stack.pop().unwrap();
+                let dst = self.value_stack.pop().unwrap();
+                self.release_locations_only_regs(&[timeout, val, dst])?;
+
+                let memory_index = MemoryIndex::new(memarg.memory as usize);
+                let (memory_atomic_wait32, memory_index) =
+                    if self.module.local_memory_index(memory_index).is_some() {
+                        (
+                            VMBuiltinFunctionIndex::get_memory_atomic_wait32_index(),
+                            memory_index,
+                        )
+                    } else {
+                        (
+                            VMBuiltinFunctionIndex::get_imported_memory_atomic_wait32_index(),
+                            memory_index,
+                        )
+                    };
+
+                self.machine.move_location(
+                    Size::S64,
+                    Location::Memory(
+                        self.machine.get_vmctx_reg(),
+                        self.vmoffsets.vmctx_builtin_function(memory_atomic_wait32) as i32,
+                    ),
+                    Location::GPR(self.machine.get_grp_for_call()),
+                )?;
+
+                // TODO: should this be 3?
+                self.release_locations_only_osr_state(1)?;
+
+                self.emit_call_native(
+                    |this| {
+                        this.machine
+                            .emit_call_register(this.machine.get_grp_for_call())
+                    },
+                    // [vmctx, memory_index, dst, src, timeout]
+                    [
+                        Location::Imm32(memory_index.index() as u32),
+                        dst,
+                        val,
+                        timeout,
+                    ]
+                    .iter()
+                    .cloned(),
+                    [WpType::I32, WpType::I32, WpType::I32, WpType::I64]
+                        .iter()
+                        .cloned(),
+                )?;
+                self.release_locations_only_stack(&[dst, val, timeout])?;
+                let ret = self.acquire_locations(
+                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )?[0];
+                self.value_stack.push(ret);
+                self.machine.move_location(
+                    Size::S32,
+                    Location::GPR(self.machine.get_gpr_for_ret()),
+                    ret,
+                )?;
+            }
+            Operator::MemoryAtomicWait64 { ref memarg } => {
+                let timeout = self.value_stack.pop().unwrap();
+                let val = self.value_stack.pop().unwrap();
+                let dst = self.value_stack.pop().unwrap();
+                self.release_locations_only_regs(&[timeout, val, dst])?;
+
+                let memory_index = MemoryIndex::new(memarg.memory as usize);
+                let (memory_atomic_wait64, memory_index) =
+                    if self.module.local_memory_index(memory_index).is_some() {
+                        (
+                            VMBuiltinFunctionIndex::get_memory_atomic_wait64_index(),
+                            memory_index,
+                        )
+                    } else {
+                        (
+                            VMBuiltinFunctionIndex::get_imported_memory_atomic_wait64_index(),
+                            memory_index,
+                        )
+                    };
+
+                self.machine.move_location(
+                    Size::S64,
+                    Location::Memory(
+                        self.machine.get_vmctx_reg(),
+                        self.vmoffsets.vmctx_builtin_function(memory_atomic_wait64) as i32,
+                    ),
+                    Location::GPR(self.machine.get_grp_for_call()),
+                )?;
+
+                // TODO: should this be 3?
+                self.release_locations_only_osr_state(1)?;
+
+                self.emit_call_native(
+                    |this| {
+                        this.machine
+                            .emit_call_register(this.machine.get_grp_for_call())
+                    },
+                    // [vmctx, memory_index, dst, src, timeout]
+                    [
+                        Location::Imm32(memory_index.index() as u32),
+                        dst,
+                        val,
+                        timeout,
+                    ]
+                    .iter()
+                    .cloned(),
+                    [WpType::I32, WpType::I32, WpType::I64, WpType::I64]
+                        .iter()
+                        .cloned(),
+                )?;
+                self.release_locations_only_stack(&[dst, val, timeout])?;
+                let ret = self.acquire_locations(
+                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )?[0];
+                self.value_stack.push(ret);
+                self.machine.move_location(
+                    Size::S32,
+                    Location::GPR(self.machine.get_gpr_for_ret()),
+                    ret,
+                )?;
+            }
+            Operator::MemoryAtomicNotify { ref memarg } => {
+                let dst = self.value_stack.pop().unwrap();
+                self.release_locations_only_regs(&[dst])?;
+
+                let memory_index = MemoryIndex::new(memarg.memory as usize);
+                let (memory_atomic_wait32, memory_index) =
+                    if self.module.local_memory_index(memory_index).is_some() {
+                        (
+                            VMBuiltinFunctionIndex::get_memory_atomic_wait32_index(),
+                            memory_index,
+                        )
+                    } else {
+                        (
+                            VMBuiltinFunctionIndex::get_imported_memory_atomic_wait32_index(),
+                            memory_index,
+                        )
+                    };
+
+                self.machine.move_location(
+                    Size::S64,
+                    Location::Memory(
+                        self.machine.get_vmctx_reg(),
+                        self.vmoffsets.vmctx_builtin_function(memory_atomic_wait32) as i32,
+                    ),
+                    Location::GPR(self.machine.get_grp_for_call()),
+                )?;
+
+                // TODO: should this be 3?
+                self.release_locations_only_osr_state(1)?;
+
+                self.emit_call_native(
+                    |this| {
+                        this.machine
+                            .emit_call_register(this.machine.get_grp_for_call())
+                    },
+                    // [vmctx, memory_index, dst, src, timeout]
+                    [Location::Imm32(memory_index.index() as u32), dst]
+                        .iter()
+                        .cloned(),
+                    [WpType::I32, WpType::I32].iter().cloned(),
+                )?;
+                self.release_locations_only_stack(&[dst])?;
+            }
             _ => {
                 return Err(CompileError::Codegen(format!(
                     "not yet implemented: {:?}",

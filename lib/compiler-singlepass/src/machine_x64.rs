@@ -2415,7 +2415,8 @@ impl Machine for MachineX86_64 {
             Location::GPR(_)
             | Location::Memory(_, _)
             | Location::Memory2(_, _, _, _)
-            | Location::Imm32(_) => match size_val {
+            | Location::Imm32(_)
+            | Location::Imm64(_) => match size_val {
                 Size::S32 | Size::S64 => self.assembler.emit_mov(size_val, source, dst),
                 Size::S16 | Size::S8 => {
                     if signed {

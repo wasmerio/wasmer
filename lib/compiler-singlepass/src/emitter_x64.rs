@@ -1430,6 +1430,9 @@ impl EmitterX64 for AssemblerX64 {
             (Size::S32, Location::Imm64(imm), Size::S64, Location::GPR(dst)) => {
                 dynasm!(self ; mov Rq(dst as u8), imm as i32);
             }
+            (Size::S16, Location::Imm64(imm), Size::S64, Location::GPR(dst)) => {
+                dynasm!(self ; mov Rq(dst as u8), imm as i32);
+            }
             _ => {
                 codegen_error!(
                     "singlepass can't emit MOVZX {:?} {:?} {:?} {:?}",
