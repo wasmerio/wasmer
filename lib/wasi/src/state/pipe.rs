@@ -177,6 +177,8 @@ impl Read for WasiPipe {
                     let read = reader.read(buf).map(|_| buf_len as usize)?;
                     inner_buf.advance(read);
                     return Ok(read);
+                } else if buf_len == 0 {
+                    return Ok(0);
                 }
             }
             let rx = self.rx.lock().unwrap();
@@ -185,7 +187,9 @@ impl Read for WasiPipe {
                 // Errors can happen if the sender has been dropped already
                 // In this case, just return 0 to indicate that we can't read any
                 // bytes anymore
-                Err(_) => { return Ok(0); },
+                Err(_) => {
+                    return Ok(0);
+                }
             };
             self.read_buffer.replace(Bytes::from(data));
         }
