@@ -135,9 +135,10 @@ impl io::Read for wasi_console_out_t {
         let self_read = self.read;
         let mut data = self.get_data_mut("read")?;
         let result = unsafe {
+            let ptr = buf.as_mut_ptr() as *mut c_char;
             (self_read)(
                 data.as_mut_ptr() as *const c_void,
-                buf.as_mut_ptr() as *mut c_char,
+                ptr,
                 buf.len(),
             )
         };
@@ -323,10 +324,11 @@ unsafe extern "C" fn wasi_console_out_read_memory_2(
     let ptr = ptr as *mut WasiPipe;
     let ptr = &mut *ptr;
     let slice = std::slice::from_raw_parts_mut(byte_ptr as *mut u8, max_bytes);
-    match ptr.read(slice) {
+    let r = match ptr.read(slice) {
         Ok(o) => o as i64,
         Err(_) => -1,
-    }
+    };
+    r
 }
 
 unsafe extern "C" fn wasi_console_out_write_memory(
@@ -439,7 +441,8 @@ unsafe extern "C" fn wasi_console_out_delete_memory(ptr: *const c_void, /* = *Wa
 #[no_mangle]
 unsafe extern "C" fn wasi_console_out_delete_memory_2(ptr: *const c_void, /* = *WasiPipe */) -> i64 {
     let ptr = ptr as *const WasiPipe;
-    let _: WasiPipe = std::mem::transmute_copy(&*ptr); // dropped here, destructors run here
+    let mut pipe: WasiPipe = std::mem::transmute_copy(&*ptr); // dropped here, destructors run here
+    pipe.close();
     0
 }
 

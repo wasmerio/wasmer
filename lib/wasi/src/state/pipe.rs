@@ -180,12 +180,13 @@ impl Read for WasiPipe {
                 }
             }
             let rx = self.rx.lock().unwrap();
-            let data = rx.recv().map_err(|_| {
-                io::Error::new(
-                    io::ErrorKind::BrokenPipe,
-                    "the wasi pipe is not connected".to_string(),
-                )
-            })?;
+            let data = match rx.recv() {
+                Ok(o) => o,
+                // Errors can happen if the sender has been dropped already
+                // In this case, just return 0 to indicate that we can't read any
+                // bytes anymore
+                Err(_) => { return Ok(0); },
+            };
             self.read_buffer.replace(Bytes::from(data));
         }
     }
