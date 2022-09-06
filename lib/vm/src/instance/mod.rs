@@ -929,7 +929,8 @@ impl Instance {
         &mut self,
         memory_index: LocalMemoryIndex,
         dst: u32,
-    ) -> Result<(), Trap> {
+        count: u32,
+    ) -> Result<u32, Trap> {
         //let memory = self.memory(memory_index);
         //if ! memory.shared {
         // We should trap according to spec, but official test rely on not trapping...
@@ -938,21 +939,26 @@ impl Instance {
         // fetch the notifier
         let key = (memory_index.as_u32(), dst);
         let mut conds = self.conditions.lock().unwrap();
+        let mut cnt = 0u32;
         if conds.contains_key(&key) {
             let v = conds.get_mut(&key).unwrap();
             for (t, b) in v {
-                *b = true; // mark as was waiked up
-                t.unpark(); // wakeup!
+                if cnt < count {
+                    *b = true; // mark as was waiked up
+                    t.unpark(); // wakeup!
+                    cnt += 1;
+                }
             }
         }
-        Ok(())
+        Ok(cnt)
     }
     /// Perform an Atomic.Notify
     pub(crate) fn imported_memory_notify(
         &mut self,
         memory_index: MemoryIndex,
         dst: u32,
-    ) -> Result<(), Trap> {
+        count: u32,
+    ) -> Result<u32, Trap> {
         //let import = self.imported_memory(memory_index);
         //let memory = unsafe { import.definition.as_ref() };
         //if ! memory.shared {
@@ -962,14 +968,18 @@ impl Instance {
         // fetch the notifier
         let key = (memory_index.as_u32(), dst);
         let mut conds = self.conditions.lock().unwrap();
+        let mut cnt = 0u32;
         if conds.contains_key(&key) {
             let v = conds.get_mut(&key).unwrap();
             for (t, b) in v {
-                *b = true; // mark as was waiked up
-                t.unpark(); // wakeup!
+                if cnt < count {
+                    *b = true; // mark as was waiked up
+                    t.unpark(); // wakeup!
+                    cnt += 1;
+                }
             }
         }
-        Ok(())
+        Ok(cnt)
     }
 }
 

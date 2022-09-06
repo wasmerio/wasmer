@@ -777,16 +777,18 @@ pub unsafe extern "C" fn wasmer_vm_memory32_atomic_notify(
     vmctx: *mut VMContext,
     memory_index: u32,
     dst: u32,
-) {
+    cnt: u32,
+) -> u32 {
     let result = {
         let instance = (*vmctx).instance_mut();
         let memory_index = LocalMemoryIndex::from_u32(memory_index);
 
-        instance.local_memory_notify(memory_index, dst)
+        instance.local_memory_notify(memory_index, dst, cnt)
     };
     if let Err(trap) = result {
         raise_lib_trap(trap);
     }
+    result.unwrap()
 }
 
 /// Implementation of memory.notfy for imported 32-bit memories.
@@ -799,12 +801,13 @@ pub unsafe extern "C" fn wasmer_vm_imported_memory32_atomic_notify(
     vmctx: *mut VMContext,
     memory_index: u32,
     dst: u32,
-) {
+    cnt: u32,
+) -> u32 {
     let result = {
         let instance = (*vmctx).instance_mut();
         let memory_index = MemoryIndex::from_u32(memory_index);
 
-        instance.imported_memory_notify(memory_index, dst)
+        instance.imported_memory_notify(memory_index, dst, cnt)
     };
     if let Err(trap) = result {
         raise_lib_trap(trap);

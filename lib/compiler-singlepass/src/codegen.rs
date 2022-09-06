@@ -6542,19 +6542,20 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::MemoryAtomicNotify { ref memarg } => {
+                let cnt = self.value_stack.pop().unwrap();
                 let dst = self.value_stack.pop().unwrap();
-                self.release_locations_only_regs(&[dst])?;
+                self.release_locations_only_regs(&[cnt, dst])?;
 
                 let memory_index = MemoryIndex::new(memarg.memory as usize);
-                let (memory_atomic_wait32, memory_index) =
+                let (memory_atomic_notify, memory_index) =
                     if self.module.local_memory_index(memory_index).is_some() {
                         (
-                            VMBuiltinFunctionIndex::get_memory_atomic_wait32_index(),
+                            VMBuiltinFunctionIndex::get_memory_atomic_notify_index(),
                             memory_index,
                         )
                     } else {
                         (
-                            VMBuiltinFunctionIndex::get_imported_memory_atomic_wait32_index(),
+                            VMBuiltinFunctionIndex::get_imported_memory_atomic_notify_index(),
                             memory_index,
                         )
                     };
@@ -6563,7 +6564,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     Size::S64,
                     Location::Memory(
                         self.machine.get_vmctx_reg(),
-                        self.vmoffsets.vmctx_builtin_function(memory_atomic_wait32) as i32,
+                        self.vmoffsets.vmctx_builtin_function(memory_atomic_notify) as i32,
                     ),
                     Location::GPR(self.machine.get_grp_for_call()),
                 )?;
@@ -6582,7 +6583,17 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         .cloned(),
                     [WpType::I32, WpType::I32].iter().cloned(),
                 )?;
-                self.release_locations_only_stack(&[dst])?;
+                self.release_locations_only_stack(&[dst, cnt])?;
+                let ret = self.acquire_locations(
+                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )?[0];
+                self.value_stack.push(ret);
+                self.machine.move_location(
+                    Size::S32,
+                    Location::GPR(self.machine.get_gpr_for_ret()),
+                    ret,
+                )?;
             }
             _ => {
                 return Err(CompileError::Codegen(format!(
