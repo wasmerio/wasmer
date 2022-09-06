@@ -2,7 +2,7 @@ use crate::syscalls::types::*;
 use crate::syscalls::{read_bytes, write_bytes};
 use bytes::{Buf, Bytes};
 use std::convert::TryInto;
-use std::io::{self, Read};
+use std::io::{self, Read, Write, Seek, SeekFrom};
 use std::ops::DerefMut;
 use std::sync::mpsc;
 use std::sync::Mutex;
@@ -90,6 +90,24 @@ impl WasiPipe {
             std::mem::swap(guard.deref_mut(), &mut null_tx);
         }
         self.read_buffer.take();
+    }
+}
+
+impl Write for WasiPipe {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        let buf_len = buf.len();
+        let tx = self.tx.lock().unwrap();
+        tx.send(buf.to_vec()).map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{e}")))?;
+        Ok(buf_len)
+    }
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+
+impl Seek for WasiPipe {
+    fn seek(&mut self, _: SeekFrom) -> io::Result<u64> {
+        Ok(0)
     }
 }
 
