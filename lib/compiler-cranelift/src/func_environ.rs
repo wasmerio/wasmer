@@ -104,6 +104,15 @@ pub struct FuncEnvironment<'module_environment> {
     /// The external function signature for implementing wasm's `table.fill`.
     table_fill_sig: Option<ir::SigRef>,
 
+    /// The external function signature for implementing wasm's `memory32.atomic.wait32`.
+    memory32_atomic_wait32_sig: Option<ir::SigRef>,
+
+    /// The external function signature for implementing wasm's `memory32.atomic.wait64`.
+    memory32_atomic_wait64_sig: Option<ir::SigRef>,
+
+    /// The external function signature for implementing wasm's `memory32.atomic.notify`.
+    memory32_atomic_notify_sig: Option<ir::SigRef>,
+
     /// Offsets to struct fields accessed by JIT code.
     offsets: VMOffsets,
 
@@ -143,6 +152,9 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
             data_drop_sig: None,
             func_ref_sig: None,
             table_fill_sig: None,
+            memory32_atomic_wait32_sig: None,
+            memory32_atomic_wait64_sig: None,
+            memory32_atomic_notify_sig: None,
             offsets: VMOffsets::new(target_config.pointer_bytes(), module),
             memory_styles,
             table_styles,
@@ -682,6 +694,139 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
     fn get_data_drop_func(&mut self, func: &mut Function) -> (ir::SigRef, VMBuiltinFunctionIndex) {
         let sig = self.get_data_drop_sig(func);
         (sig, VMBuiltinFunctionIndex::get_data_drop_index())
+    }
+
+    fn get_memory32_atomic_wait32_sig(&mut self, func: &mut Function) -> ir::SigRef {
+        let sig = self.memory32_atomic_wait32_sig.unwrap_or_else(|| {
+            func.import_signature(Signature {
+                params: vec![
+                    AbiParam::special(self.pointer_type(), ArgumentPurpose::VMContext),
+                    // Memory Index
+                    AbiParam::new(I32),
+                    // Dst
+                    AbiParam::new(I32),
+                    // Val
+                    AbiParam::new(I32),
+                    // Timeout
+                    AbiParam::new(I64),
+                ],
+                returns: vec![AbiParam::new(I32)],
+                call_conv: self.target_config.default_call_conv,
+            })
+        });
+        self.memory32_atomic_wait32_sig = Some(sig);
+        sig
+    }
+
+    /// Return the memory.atomic.wait32 function signature to call for the given index,
+    /// along with the translated index value to pass to it
+    /// and its index in `VMBuiltinFunctionsArray`.
+    fn get_memory_atomic_wait32_func(
+        &mut self,
+        func: &mut Function,
+        index: MemoryIndex,
+    ) -> (ir::SigRef, usize, VMBuiltinFunctionIndex) {
+        if self.module.is_imported_memory(index) {
+            (
+                self.get_memory32_atomic_wait32_sig(func),
+                index.index(),
+                VMBuiltinFunctionIndex::get_imported_memory_atomic_wait32_index(),
+            )
+        } else {
+            (
+                self.get_memory32_atomic_wait32_sig(func),
+                self.module.local_memory_index(index).unwrap().index(),
+                VMBuiltinFunctionIndex::get_memory_atomic_wait32_index(),
+            )
+        }
+    }
+
+    fn get_memory32_atomic_wait64_sig(&mut self, func: &mut Function) -> ir::SigRef {
+        let sig = self.memory32_atomic_wait64_sig.unwrap_or_else(|| {
+            func.import_signature(Signature {
+                params: vec![
+                    AbiParam::special(self.pointer_type(), ArgumentPurpose::VMContext),
+                    // Memory Index
+                    AbiParam::new(I32),
+                    // Dst
+                    AbiParam::new(I32),
+                    // Val
+                    AbiParam::new(I64),
+                    // Timeout
+                    AbiParam::new(I64),
+                ],
+                returns: vec![AbiParam::new(I32)],
+                call_conv: self.target_config.default_call_conv,
+            })
+        });
+        self.memory32_atomic_wait64_sig = Some(sig);
+        sig
+    }
+
+    /// Return the memory.atomic.wait64 function signature to call for the given index,
+    /// along with the translated index value to pass to it
+    /// and its index in `VMBuiltinFunctionsArray`.
+    fn get_memory_atomic_wait64_func(
+        &mut self,
+        func: &mut Function,
+        index: MemoryIndex,
+    ) -> (ir::SigRef, usize, VMBuiltinFunctionIndex) {
+        if self.module.is_imported_memory(index) {
+            (
+                self.get_memory32_atomic_wait64_sig(func),
+                index.index(),
+                VMBuiltinFunctionIndex::get_imported_memory_atomic_wait64_index(),
+            )
+        } else {
+            (
+                self.get_memory32_atomic_wait64_sig(func),
+                self.module.local_memory_index(index).unwrap().index(),
+                VMBuiltinFunctionIndex::get_memory_atomic_wait64_index(),
+            )
+        }
+    }
+
+    fn get_memory32_atomic_notify_sig(&mut self, func: &mut Function) -> ir::SigRef {
+        let sig = self.memory32_atomic_notify_sig.unwrap_or_else(|| {
+            func.import_signature(Signature {
+                params: vec![
+                    AbiParam::special(self.pointer_type(), ArgumentPurpose::VMContext),
+                    // Memory Index
+                    AbiParam::new(I32),
+                    // Dst
+                    AbiParam::new(I32),
+                    // Count
+                    AbiParam::new(I32),
+                ],
+                returns: vec![AbiParam::new(I32)],
+                call_conv: self.target_config.default_call_conv,
+            })
+        });
+        self.memory32_atomic_notify_sig = Some(sig);
+        sig
+    }
+
+    /// Return the memory.atomic.notify function signature to call for the given index,
+    /// along with the translated index value to pass to it
+    /// and its index in `VMBuiltinFunctionsArray`.
+    fn get_memory_atomic_notify_func(
+        &mut self,
+        func: &mut Function,
+        index: MemoryIndex,
+    ) -> (ir::SigRef, usize, VMBuiltinFunctionIndex) {
+        if self.module.is_imported_memory(index) {
+            (
+                self.get_memory32_atomic_notify_sig(func),
+                index.index(),
+                VMBuiltinFunctionIndex::get_imported_memory_atomic_notify_index(),
+            )
+        } else {
+            (
+                self.get_memory32_atomic_notify_sig(func),
+                self.module.local_memory_index(index).unwrap().index(),
+                VMBuiltinFunctionIndex::get_memory_atomic_notify_index(),
+            )
+        }
     }
 
     /// Translates load of builtin function and returns a pair of values `vmctx`
@@ -1389,29 +1534,43 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
 
     fn translate_atomic_wait(
         &mut self,
-        _pos: FuncCursor,
-        _index: MemoryIndex,
+        mut pos: FuncCursor,
+        index: MemoryIndex,
         _heap: ir::Heap,
-        _addr: ir::Value,
-        _expected: ir::Value,
-        _timeout: ir::Value,
+        addr: ir::Value,
+        expected: ir::Value,
+        timeout: ir::Value,
     ) -> WasmResult<ir::Value> {
-        Err(WasmError::Unsupported(
-            "wasm atomics (fn translate_atomic_wait)".to_string(),
-        ))
+        let (func_sig, index_arg, func_idx) = if pos.func.dfg.value_type(expected) == I64 {
+            self.get_memory_atomic_wait64_func(pos.func, index)
+        } else {
+            self.get_memory_atomic_wait32_func(pos.func, index)
+        };
+        let memory_index = pos.ins().iconst(I32, index_arg as i64);
+        let (vmctx, func_addr) = self.translate_load_builtin_function_address(&mut pos, func_idx);
+        let call_inst = pos.ins().call_indirect(
+            func_sig,
+            func_addr,
+            &[vmctx, memory_index, addr, expected, timeout],
+        );
+        Ok(*pos.func.dfg.inst_results(call_inst).first().unwrap())
     }
 
     fn translate_atomic_notify(
         &mut self,
-        _pos: FuncCursor,
-        _index: MemoryIndex,
+        mut pos: FuncCursor,
+        index: MemoryIndex,
         _heap: ir::Heap,
-        _addr: ir::Value,
-        _count: ir::Value,
+        addr: ir::Value,
+        count: ir::Value,
     ) -> WasmResult<ir::Value> {
-        Err(WasmError::Unsupported(
-            "wasm atomics (fn translate_atomic_notify)".to_string(),
-        ))
+        let (func_sig, index_arg, func_idx) = self.get_memory_atomic_notify_func(pos.func, index);
+        let memory_index = pos.ins().iconst(I32, index_arg as i64);
+        let (vmctx, func_addr) = self.translate_load_builtin_function_address(&mut pos, func_idx);
+        let call_inst =
+            pos.ins()
+                .call_indirect(func_sig, func_addr, &[vmctx, memory_index, addr, count]);
+        Ok(*pos.func.dfg.inst_results(call_inst).first().unwrap())
     }
 
     fn get_global_type(&self, global_index: GlobalIndex) -> Option<WasmerType> {
