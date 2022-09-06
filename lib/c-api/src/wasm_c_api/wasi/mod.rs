@@ -23,8 +23,8 @@ use std::{
     sync::MutexGuard,
 };
 use wasmer_wasi::{
-    get_wasi_version, FsError, Pipe, VirtualFile, WasiFile, WasiFunctionEnv, WasiState,
-    WasiStateBuilder, WasiVersion,
+    get_wasi_version, FsError, VirtualFile, WasiFile, WasiFunctionEnv, WasiPipe, WasiState,
+    WasiStateBuilder, WasiVersion, WasiPipePair,
 };
 
 /// Function callback that takes:
@@ -300,39 +300,39 @@ extern "C" fn wasi_console_out_delete_null(_: *const c_void) -> i64 {
 }
 
 unsafe extern "C" fn wasi_console_out_read_memory(
-    ptr: *const c_void,    /* = *Pipe */
+    ptr: *const c_void,    /* = *WasiPipePair */
     byte_ptr: *mut c_char, /* &[u8] bytes to read */
     max_bytes: usize,      /* max bytes to read */
 ) -> i64 {
     use std::io::Read;
-    let ptr = ptr as *mut Pipe;
+    let ptr = ptr as *mut WasiPipePair;
     let ptr = &mut *ptr;
     let slice = std::slice::from_raw_parts_mut(byte_ptr as *mut u8, max_bytes);
-    match ptr.read(slice) {
+    match ptr.recv.read(slice) {
         Ok(o) => o as i64,
         Err(_) => -1,
     }
 }
 
 unsafe extern "C" fn wasi_console_out_write_memory(
-    ptr: *const c_void, /* = *Pipe */
+    ptr: *const c_void, /* = *WasiPipePair */
     byte_ptr: *const c_char,
     byte_len: usize,
     flush: bool,
 ) -> i64 {
     use std::io::Write;
 
-    let ptr = ptr as *mut Pipe;
+    let ptr = ptr as *mut WasiPipePair;
     let ptr = &mut *ptr;
 
     if flush {
-        match ptr.flush() {
+        match ptr.send.flush() {
             Ok(()) => 0,
             Err(_) => -1,
         }
     } else {
         let slice = std::slice::from_raw_parts(byte_ptr as *const u8, byte_len);
-        match ptr.write(slice) {
+        match ptr.send.write(slice) {
             Ok(o) => o as i64,
             Err(_) => -1,
         }
@@ -340,13 +340,13 @@ unsafe extern "C" fn wasi_console_out_write_memory(
 }
 
 unsafe extern "C" fn wasi_console_out_seek_memory(
-    ptr: *const c_void, /* = *Pipe */
+    ptr: *const c_void, /* = *WasiPipePair */
     direction: c_char,
     seek_to: i64,
 ) -> i64 {
     use std::io::Seek;
 
-    let ptr = ptr as *mut Pipe;
+    let ptr = ptr as *mut WasiPipePair;
     let ptr = &mut *ptr;
 
     let seek_from = match direction {
@@ -358,15 +358,15 @@ unsafe extern "C" fn wasi_console_out_seek_memory(
         }
     };
 
-    match ptr.seek(seek_from) {
+    match ptr.recv.seek(seek_from) {
         Ok(o) => o as i64,
         Err(_) => -1,
     }
 }
 
-unsafe extern "C" fn wasi_console_out_delete_memory(ptr: *const c_void /* = *Pipe */) -> i64 {
-    let ptr = ptr as *const Pipe;
-    let _: Pipe = std::mem::transmute_copy(&*ptr); // dropped here, destructors run here
+unsafe extern "C" fn wasi_console_out_delete_memory(ptr: *const c_void /* = *WasiPipe */) -> i64 {
+    let ptr = ptr as *const WasiPipePair;
+    let _: WasiPipePair = std::mem::transmute_copy(&*ptr); // dropped here, destructors run here
     0
 }
 
@@ -376,9 +376,13 @@ unsafe extern "C" fn wasi_console_out_delete_memory(ptr: *const c_void /* = *Pip
 pub unsafe extern "C" fn wasi_pipe_new() -> *mut wasi_console_out_t {
     use std::mem::ManuallyDrop;
 
-    let data = Pipe::new();
-    let mut data = ManuallyDrop::new(data);
-    let ptr: &mut Pipe = &mut data;
+    let (send, recv) = WasiPipe::new();
+    let pair = WasiPipePair {
+        send,
+        recv,
+    };
+    let mut data = ManuallyDrop::new(pair);
+    let ptr: &mut WasiPipePair = &mut data;
 
     wasi_console_out_new(
         wasi_console_out_read_memory,
@@ -386,7 +390,7 @@ pub unsafe extern "C" fn wasi_pipe_new() -> *mut wasi_console_out_t {
         wasi_console_out_seek_memory,
         wasi_console_out_delete_memory,
         ptr as *mut _ as *mut c_void,
-        std::mem::size_of::<Pipe>(),
+        std::mem::size_of::<WasiPipePair>(),
     )
 }
 

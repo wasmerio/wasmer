@@ -2,12 +2,13 @@ use crate::syscalls::types::*;
 use crate::syscalls::{read_bytes, write_bytes};
 use bytes::{Buf, Bytes};
 use std::convert::TryInto;
-use std::io::{self, Read, Write, Seek, SeekFrom};
+use std::io::{self, Read, Seek, SeekFrom, Write};
 use std::ops::DerefMut;
 use std::sync::mpsc;
 use std::sync::Mutex;
 use wasmer::WasmSlice;
 use wasmer::{MemorySize, MemoryView};
+use wasmer_vfs::{FsError, VirtualFile};
 
 #[derive(Debug)]
 pub struct WasiPipe {
@@ -19,8 +20,59 @@ pub struct WasiPipe {
     read_buffer: Option<Bytes>,
 }
 
+#[derive(Debug)]
+pub struct WasiPipePair {
+    pub send: WasiPipe,
+    pub recv: WasiPipe,
+}
+
+impl Write for WasiPipePair {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.send.write(buf)
+    }
+    fn flush(&mut self) -> io::Result<()> {
+        self.send.flush()
+    }
+}
+
+impl Seek for WasiPipePair {
+    fn seek(&mut self, _: SeekFrom) -> io::Result<u64> {
+        Ok(0)
+    }
+}
+
+impl Read for WasiPipePair {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        self.recv.read(buf)
+    }
+}
+
+impl VirtualFile for WasiPipePair {
+    fn last_accessed(&self) -> u64 {
+        self.recv.last_accessed()
+    }
+    fn last_modified(&self) -> u64 {
+        self.recv.last_modified()
+    }
+    fn created_time(&self) -> u64 {
+        self.recv.created_time()
+    }
+    fn size(&self) -> u64 {
+        self.recv.size()
+    }
+    fn set_len(&mut self, i: u64) -> Result<(), FsError> {
+        self.recv.set_len(i)
+    }
+    fn unlink(&mut self) -> Result<(), FsError> {
+        self.recv.unlink()
+    }
+    fn bytes_available_read(&self) -> Result<Option<usize>, FsError> {
+        self.recv.bytes_available_read()
+    }
+}
+
 impl WasiPipe {
-    pub fn new() -> (WasiPipe, WasiPipe) {
+    pub fn new() -> WasiPipePair {
         let (tx1, rx1) = mpsc::channel();
         let (tx2, rx2) = mpsc::channel();
 
@@ -36,7 +88,7 @@ impl WasiPipe {
             read_buffer: None,
         };
 
-        (pipe1, pipe2)
+        WasiPipePair { send: pipe1, recv: pipe2 }
     }
 
     pub fn recv<M: MemorySize>(
@@ -97,7 +149,8 @@ impl Write for WasiPipe {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         let buf_len = buf.len();
         let tx = self.tx.lock().unwrap();
-        tx.send(buf.to_vec()).map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{e}")))?;
+        tx.send(buf.to_vec())
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{e}")))?;
         Ok(buf_len)
     }
     fn flush(&mut self) -> io::Result<()> {
@@ -132,5 +185,37 @@ impl Read for WasiPipe {
             })?;
             self.read_buffer.replace(Bytes::from(data));
         }
+    }
+}
+
+impl VirtualFile for WasiPipe {
+    fn last_accessed(&self) -> u64 {
+        0
+    }
+    fn last_modified(&self) -> u64 {
+        0
+    }
+    fn created_time(&self) -> u64 {
+        0
+    }
+    fn size(&self) -> u64 {
+        self.read_buffer
+            .as_ref()
+            .map(|s| s.len() as u64)
+            .unwrap_or_default()
+    }
+    fn set_len(&mut self, _: u64) -> Result<(), FsError> {
+        Ok(())
+    }
+    fn unlink(&mut self) -> Result<(), FsError> {
+        Ok(())
+    }
+    fn bytes_available_read(&self) -> Result<Option<usize>, FsError> {
+        Ok(Some(
+            self.read_buffer
+                .as_ref()
+                .map(|s| s.len())
+                .unwrap_or_default(),
+        ))
     }
 }

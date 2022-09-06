@@ -43,8 +43,8 @@ mod utils;
 use crate::syscalls::*;
 
 pub use crate::state::{
-    Fd, Pipe, Stderr, Stdin, Stdout, WasiFs, WasiInodes, WasiState, WasiStateBuilder,
-    WasiStateCreationError, ALL_RIGHTS, VIRTUAL_ROOT_FD,
+    Fd, Stderr, Stdin, Stdout, WasiFs, WasiInodes, WasiState, WasiStateBuilder,
+    WasiStateCreationError, ALL_RIGHTS, VIRTUAL_ROOT_FD, WasiPipe, WasiPipePair,
 };
 pub use crate::syscalls::types;
 #[cfg(feature = "wasix")]

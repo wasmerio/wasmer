@@ -1807,7 +1807,9 @@ pub fn fd_pipe<M: MemorySize>(
     let env = ctx.data();
     let (memory, state, mut inodes) = env.get_memory_and_wasi_state_and_inodes_mut(&ctx, 0);
 
-    let (pipe1, pipe2) = WasiPipe::new();
+    let pipes = WasiPipe::new();
+    let pipe1 = pipes.send;
+    let pipe2 = pipes.recv;
 
     let inode1 = state.fs.create_inode_with_default_stat(
         inodes.deref_mut(),
