@@ -234,7 +234,7 @@ impl Module {
     }
 
     /// Serializes a module into a binary representation that the `Engine`
-    /// can later process via 
+    /// can later process via
     #[cfg_attr(feature = "compiler", doc = "[`Module::deserialize`].")]
     #[cfg_attr(not(feature = "compiler"), doc = "`Module::deserialize`.")]
     ///
@@ -253,8 +253,8 @@ impl Module {
         self.artifact.serialize().map(|bytes| bytes.into())
     }
 
-    /// Serializes a module into a file that the `Engine` 
-    /// can later process via 
+    /// Serializes a module into a file that the `Engine`
+    /// can later process via
     #[cfg_attr(feature = "compiler", doc = "[`Module::deserialize_from_file`].")]
     #[cfg_attr(not(feature = "compiler"), doc = "`Module::deserialize_from_file`.")]
     ///

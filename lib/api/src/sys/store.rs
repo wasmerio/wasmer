@@ -29,7 +29,7 @@ pub(crate) struct StoreInner {
 #[cfg_attr(feature = "compiler", doc = "[`Tunables`]")]
 #[cfg_attr(not(feature = "compiler"), doc = "`Tunables`")]
 /// (that are used to create the memories, tables and globals).
-/// 
+///
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#store>
 pub struct Store {
     pub(crate) inner: Box<StoreInner>,

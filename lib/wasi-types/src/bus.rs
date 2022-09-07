@@ -1,10 +1,7 @@
 use super::*;
 use wasmer_derive::ValueType;
 use wasmer_types::MemorySize;
-use wasmer_wasi_types_generated::wasi::{
-    BusErrno, Fd, BusDataFormat, 
-    BusEventType
-};
+use wasmer_wasi_types_generated::wasi::{BusDataFormat, BusErrno, BusEventType, Fd};
 
 pub type __wasi_bid_t = u32;
 

@@ -30,7 +30,7 @@ use self::types::{
         EventFdReadwrite, Eventrwflags, Eventtype, Fd as WasiFd, Fdflags, Fdstat, Filesize,
         Filestat, Filetype, Fstflags, Linkcount, Pid, Rights, Snapshot0Clockid, Sockoption,
         Sockstatus, Socktype, Streamsecurity, Subscription, SubscriptionEnum,
-        SubscriptionFsReadwrite, Tid, Timestamp, Tty, Whence,
+        SubscriptionFsReadwrite, Tid, Timestamp, Tty, Whence, BusDataFormat,
     },
     *,
 };
@@ -3917,7 +3917,7 @@ pub fn bus_call<M: MemorySize>(
     keep_alive: __wasi_bool_t,
     topic: WasmPtr<u8, M>,
     topic_len: M::Offset,
-    format: __wasi_busdataformat_t,
+    format: BusDataFormat,
     buf: WasmPtr<u8, M>,
     buf_len: M::Offset,
     ret_cid: WasmPtr<__wasi_cid_t, M>,
@@ -3954,7 +3954,7 @@ pub fn bus_subcall<M: MemorySize>(
     keep_alive: __wasi_bool_t,
     topic: WasmPtr<u8, M>,
     topic_len: M::Offset,
-    format: __wasi_busdataformat_t,
+    format: BusDataFormat,
     buf: WasmPtr<u8, M>,
     buf_len: M::Offset,
     ret_cid: WasmPtr<__wasi_cid_t, M>,
@@ -4019,7 +4019,7 @@ pub fn bus_poll<M: MemorySize>(
 pub fn call_reply<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     cid: __wasi_cid_t,
-    format: __wasi_busdataformat_t,
+    format: BusDataFormat,
     buf: WasmPtr<u8, M>,
     buf_len: M::Offset,
 ) -> BusErrno {

@@ -3,9 +3,9 @@ use crate::{WasiEnv, WasiError, WasiState, WasiThread};
 use wasmer::{FunctionEnvMut, Memory, Memory32, MemorySize, StoreMut, WasmPtr, WasmSlice};
 use wasmer_wasi_types::*;
 use wasmer_wasi_types_generated::wasi::{
-    Addressfamily, Advice, BusErrno, Clockid, Dircookie, Errno, Event, Fd, Fdflags, Fdstat,
-    Filesize, Filestat, Fstflags, Pid, Rights, Sockoption, Sockstatus, Socktype, Streamsecurity,
-    Subscription, Tid, Timestamp, Tty, Whence,
+    Addressfamily, Advice, BusDataFormat, BusErrno, Clockid, Dircookie, Errno, Event, Fd, Fdflags,
+    Fdstat, Filesize, Filestat, Fstflags, Pid, Rights, Sockoption, Sockstatus, Socktype,
+    Streamsecurity, Subscription, Tid, Timestamp, Tty, Whence,
 };
 
 type MemoryType = Memory32;
@@ -578,7 +578,7 @@ pub(crate) fn bus_call(
     keep_alive: __wasi_bool_t,
     topic: WasmPtr<u8, MemoryType>,
     topic_len: MemoryOffset,
-    format: __wasi_busdataformat_t,
+    format: BusDataFormat,
     buf: WasmPtr<u8, MemoryType>,
     buf_len: MemoryOffset,
     ret_cid: WasmPtr<__wasi_cid_t, MemoryType>,
@@ -594,7 +594,7 @@ pub(crate) fn bus_subcall(
     keep_alive: __wasi_bool_t,
     topic: WasmPtr<u8, MemoryType>,
     topic_len: MemoryOffset,
-    format: __wasi_busdataformat_t,
+    format: BusDataFormat,
     buf: WasmPtr<u8, MemoryType>,
     buf_len: MemoryOffset,
     ret_cid: WasmPtr<__wasi_cid_t, MemoryType>,
@@ -627,7 +627,7 @@ pub(crate) fn bus_poll(
 pub(crate) fn call_reply(
     ctx: FunctionEnvMut<WasiEnv>,
     cid: __wasi_cid_t,
-    format: __wasi_busdataformat_t,
+    format: BusDataFormat,
     buf: WasmPtr<u8, MemoryType>,
     buf_len: MemoryOffset,
 ) -> BusErrno {
