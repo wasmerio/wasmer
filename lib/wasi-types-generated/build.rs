@@ -63,7 +63,6 @@ fn main() {
 
         match &i.kind {
             wit_parser::TypeDefKind::Enum(e) => {
-
                 contents.push_str(
                     &format!(
                         "
