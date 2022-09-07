@@ -1,7 +1,7 @@
 //! The import module contains the implementation data structures and helper functions used to
 //! manipulate and access a wasm module's imports including memories, tables, globals, and
 //! functions.
-use crate::js::error::{InstantiationError, WasmError};
+use crate::js::error::{InstantiationError, LinkError, WasmError};
 use crate::js::export::Export;
 use crate::js::exports::Exports;
 use crate::js::module::Module;
@@ -11,6 +11,7 @@ use crate::js::ExternType;
 use crate::Extern;
 use std::collections::HashMap;
 use std::fmt;
+use wasmer_types::ImportError;
 
 /// All of the import data used when instantiating.
 ///
@@ -132,7 +133,7 @@ impl Imports {
     /// Resolve and return a vector of imports in the order they are defined in the `module`'s source code.
     ///
     /// This means the returned `Vec<Extern>` might be a subset of the imports contained in `self`.
-    pub fn imports_for_module(&self, module: &Module) -> Result<Vec<Extern>, InstantiationError> {
+    pub fn imports_for_module(&self, module: &Module) -> Result<Vec<Extern>, LinkError> {
         let mut ret = vec![];
         for import in module.imports() {
             if let Some(imp) = self
@@ -141,12 +142,11 @@ impl Imports {
             {
                 ret.push(imp.clone());
             } else {
-                return Err(InstantiationError::Link(format!(
-                    "Error while importing {0:?}.{1:?}: unknown import. Expected {2:?}",
-                    import.module(),
-                    import.name(),
-                    import.ty()
-                )));
+                return Err(LinkError::Import(
+                    import.module().to_string(),
+                    import.name().to_string(),
+                    ImportError::UnknownImport(import.ty().clone()),
+                ));
             }
         }
         Ok(ret)
@@ -195,6 +195,7 @@ impl Imports {
         module: &Module,
         object: js_sys::Object,
     ) -> Result<Self, WasmError> {
+        use crate::js::externals::VMExtern;
         let module_imports: HashMap<(String, String), ExternType> = module
             .imports()
             .map(|import| {
@@ -217,7 +218,7 @@ impl Imports {
                 let import_js: wasm_bindgen::JsValue = import_entry.get(1);
                 let key = (module_name.clone(), import_name);
                 let extern_type = module_imports.get(&key).unwrap();
-                let export = Export::from_js_value(import_js, store, extern_type.clone())?;
+                let export = VMExtern::from_js_value(import_js, store, extern_type.clone())?;
                 let extern_ = Extern::from_vm_extern(store, export);
                 map.insert(key, extern_);
             }

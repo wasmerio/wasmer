@@ -154,6 +154,7 @@ impl Memory {
         mem.try_clone().map(|mem| mem.into())
     }
 
+    /// To `VMExtern`.
     pub(crate) fn to_vm_extern(&self) -> VMExtern {
         VMExtern::Memory(self.handle.internal_handle())
     }

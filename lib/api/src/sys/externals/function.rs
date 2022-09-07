@@ -204,6 +204,7 @@ impl Function {
         Rets: WasmTypeList,
     {
         let env = FunctionEnv::new(store, ());
+        let func_ptr = func.function_body_ptr();
         let host_data = Box::new(StaticFunction {
             raw_store: store.as_store_mut().as_raw() as *mut u8,
             env,
@@ -211,7 +212,6 @@ impl Function {
         });
         let function_type = FunctionType::new(Args::wasm_types(), Rets::wasm_types());
 
-        let func_ptr = <F as HostFunction<(), Args, Rets, WithoutEnv>>::function_body_ptr();
         let type_index = store
             .as_store_mut()
             .engine()
@@ -289,6 +289,7 @@ impl Function {
     {
         // println!("new native {:p}", &new_env);
 
+        let func_ptr = func.function_body_ptr();
         let host_data = Box::new(StaticFunction {
             raw_store: store.as_store_mut().as_raw() as *mut u8,
             env: env.clone(),
@@ -296,7 +297,6 @@ impl Function {
         });
         let function_type = FunctionType::new(Args::wasm_types(), Rets::wasm_types());
 
-        let func_ptr = <F as HostFunction<T, Args, Rets, WithEnv>>::function_body_ptr();
         let type_index = store
             .as_store_mut()
             .engine()
@@ -1092,7 +1092,7 @@ mod inner {
         Kind: HostFunctionKind,
     {
         /// Get the pointer to the function body.
-        fn function_body_ptr() -> *const VMFunctionBody;
+        fn function_body_ptr(&self) -> *const VMFunctionBody;
 
         /// Get the pointer to the function call trampoline.
         fn call_trampoline_address() -> VMTrampoline;
@@ -1268,7 +1268,7 @@ mod inner {
                 Func: Fn(FunctionEnvMut<T>, $( $x , )*) -> RetsAsResult + 'static,
             {
                 #[allow(non_snake_case)]
-                fn function_body_ptr() -> *const VMFunctionBody {
+                fn function_body_ptr(&self) -> *const VMFunctionBody {
                     /// This is a function that wraps the real host
                     /// function. Its address will be used inside the
                     /// runtime.
@@ -1352,7 +1352,7 @@ mod inner {
                 Func: Fn($( $x , )*) -> RetsAsResult + 'static,
             {
                 #[allow(non_snake_case)]
-                fn function_body_ptr() -> *const VMFunctionBody {
+                fn function_body_ptr(&self) -> *const VMFunctionBody {
                     /// This is a function that wraps the real host
                     /// function. Its address will be used inside the
                     /// runtime.

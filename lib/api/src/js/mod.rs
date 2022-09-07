@@ -7,12 +7,12 @@ compile_error!(
 compile_error!("Both the `std` and `core` features are disabled. Please enable one of them.");
 
 #[cfg(feature = "core")]
-extern crate alloc;
+pub(crate) extern crate alloc;
 
 mod lib {
     #[cfg(feature = "core")]
     pub mod std {
-        pub use alloc::{borrow, boxed, str, string, sync, vec};
+        pub use crate::alloc::{borrow, boxed, str, string, sync, vec};
         pub use core::fmt;
         pub use hashbrown as collections;
     }
@@ -23,7 +23,7 @@ mod lib {
     }
 }
 
-mod error;
+pub(crate) mod error;
 mod export;
 mod exports;
 mod externals;
@@ -85,6 +85,9 @@ pub use wasmer_types::{
 
 #[cfg(feature = "wat")]
 pub use wat::parse_bytes as wat2wasm;
+
+#[cfg(feature = "wasm-types-polyfill")]
+pub use wasmparser;
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
