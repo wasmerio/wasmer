@@ -96,6 +96,30 @@ where
     libcalls.insert("wasmer_vm_memory32_init".to_string(), LibCall::Memory32Init);
     libcalls.insert("wasmer_vm_data_drop".to_string(), LibCall::DataDrop);
     libcalls.insert("wasmer_vm_raise_trap".to_string(), LibCall::RaiseTrap);
+    libcalls.insert(
+        "wasmer_vm_memory32_atomic_wait32".to_string(),
+        LibCall::Memory32AtomicWait32,
+    );
+    libcalls.insert(
+        "wasmer_vm_imported_memory32_atomic_wait32".to_string(),
+        LibCall::ImportedMemory32AtomicWait32,
+    );
+    libcalls.insert(
+        "wasmer_vm_memory32_atomic_wait64".to_string(),
+        LibCall::Memory32AtomicWait64,
+    );
+    libcalls.insert(
+        "wasmer_vm_imported_memory32_atomic_wait64".to_string(),
+        LibCall::ImportedMemory32AtomicWait64,
+    );
+    libcalls.insert(
+        "wasmer_vm_memory32_atomic_notify".to_string(),
+        LibCall::Memory32AtomicNotify,
+    );
+    libcalls.insert(
+        "wasmer_vm_imported_memory32_atomic_notify".to_string(),
+        LibCall::ImportedMemory32AtomicNotify,
+    );
 
     let elf = object::File::parse(contents).map_err(map_object_err)?;
 
