@@ -26,11 +26,11 @@ pub mod wasix64;
 
 use self::types::{
     wasi::{
-        Addressfamily, Advice, BusErrno, Clockid, Dircookie, Dirent, Errno, Event, EventEnum,
-        EventFdReadwrite, Eventrwflags, Eventtype, Fd as WasiFd, Fdflags, Fdstat, Filesize,
-        Filestat, Filetype, Fstflags, Linkcount, Pid, Rights, Snapshot0Clockid, Sockoption,
-        Sockstatus, Socktype, Streamsecurity, Subscription, SubscriptionEnum,
-        SubscriptionFsReadwrite, Tid, Timestamp, Tty, Whence, BusDataFormat,
+        Addressfamily, Advice, BusDataFormat, BusErrno, Clockid, Dircookie, Dirent, Errno, Event,
+        EventEnum, EventFdReadwrite, Eventrwflags, Eventtype, Fd as WasiFd, Fdflags, Fdstat,
+        Filesize, Filestat, Filetype, Fstflags, Linkcount, Pid, Rights, Snapshot0Clockid,
+        Sockoption, Sockstatus, Socktype, Streamsecurity, Subscription, SubscriptionEnum,
+        SubscriptionFsReadwrite, Tid, Timestamp, Tty, Whence,
     },
     *,
 };

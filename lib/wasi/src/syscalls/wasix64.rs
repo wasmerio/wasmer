@@ -3,9 +3,9 @@ use crate::{WasiEnv, WasiError, WasiState, WasiThread};
 use wasmer::{FunctionEnvMut, Memory, Memory64, MemorySize, StoreMut, WasmPtr, WasmSlice};
 use wasmer_wasi_types::*;
 use wasmer_wasi_types_generated::wasi::{
-    Addressfamily, Advice, BusErrno, Clockid, Dircookie, Errno, Event, Fd, Fdflags, Fdstat,
-    Filesize, Filestat, Fstflags, Pid, Rights, Sockoption, Sockstatus, Socktype, Streamsecurity,
-    Subscription, Tid, Timestamp, Tty, Whence, BusDataFormat,
+    Addressfamily, Advice, BusDataFormat, BusErrno, Clockid, Dircookie, Errno, Event, Fd, Fdflags,
+    Fdstat, Filesize, Filestat, Fstflags, Pid, Rights, Sockoption, Sockstatus, Socktype,
+    Streamsecurity, Subscription, Tid, Timestamp, Tty, Whence,
 };
 
 type MemoryType = Memory64;
