@@ -2,6 +2,7 @@
 name = "wasmer-wasi-types-generated"
 version = "3.0.0-beta"
 edition = "2018"
+build = "build.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -14,6 +15,10 @@ default-features = false
 git = "https://github.com/wasmerio/wit-bindgen"
 branch = "main"
 package = "wit-bindgen-rust"
+
+[build-dependencies]
+wit-parser = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "f1682df9adacb515227d061a4601b2b4c997e7a2", package = "wit-parser" }
+convert_case = "0.5.0"
 
 [features]
 js = ["wasmer/js"]

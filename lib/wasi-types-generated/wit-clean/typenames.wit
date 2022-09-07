@@ -8,6 +8,8 @@
 expose-types-dummy-func: func(
   fd: fd,
   dirent: dirent,
+  snapshot0-dirent: snapshot0-dirent,
+  snapshot0-event: snapshot0-event,
   event-enum: event-enum,
   event: event,
   fdstat: fdstat,
