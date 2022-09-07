@@ -13,4 +13,6 @@ wit-bindgen rust-wasm \
     "$BASEDIR"/wit-clean/output.wit \
     --out-dir "$BASEDIR"/src/wasi
 
-# sed "mod output" "pub mod output"
+awk '{sub(/mod output/,"pub mod output")}1' src/wasi/bindings.rs > src/wasi/bindings2.rs
+cp src/wasi/bindings2.rs src/wasi/bindings.rs
+rm src/wasi/bindings2.rs
