@@ -179,3 +179,58 @@ impl std::fmt::Display for Sockoption {
         write!(f, "{}", s)
     }
 }
+
+// TODO: if necessary, must be implemented in wit-bindgen
+unsafe impl wasmer::FromToNativeWasmType for Fdflags {
+    type Native = i32;
+
+    fn to_native(self) -> Self::Native {
+        self.bits() as i32
+    }
+    fn from_native(n: Self::Native) -> Self {
+        Self::from_bits_truncate(n as u8)
+    }
+
+    #[cfg(feature = "sys")]
+    fn is_from_store(&self, _store: &impl wasmer::AsStoreRef) -> bool {
+        // TODO: find correct implementation
+        false
+    }
+}
+
+// TODO: if necessary, must be implemented in wit-bindgen
+unsafe impl wasmer::FromToNativeWasmType for Rights {
+    type Native = i64;
+
+    fn to_native(self) -> Self::Native {
+        self.bits() as i64
+    }
+
+    fn from_native(n: Self::Native) -> Self {
+        Self::from_bits_truncate(n as u64)
+    }
+
+    #[cfg(feature = "sys")]
+    fn is_from_store(&self, _store: &impl wasmer::AsStoreRef) -> bool {
+        // TODO: find correct implementation
+        false
+    }
+}
+
+// TODO: if necessary, must be implemented in wit-bindgen
+unsafe impl wasmer::FromToNativeWasmType for Fstflags {
+    type Native = i32;
+
+    fn to_native(self) -> Self::Native {
+        self.bits() as i32
+    }
+    fn from_native(n: Self::Native) -> Self {
+        Self::from_bits_truncate(n as u8)
+    }
+
+    #[cfg(feature = "sys")]
+    fn is_from_store(&self, _store: &impl wasmer::AsStoreRef) -> bool {
+        // TODO: find correct implementation
+        false
+    }
+}
