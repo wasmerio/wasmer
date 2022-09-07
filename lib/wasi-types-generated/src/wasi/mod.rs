@@ -5,7 +5,13 @@ use std::mem::MaybeUninit;
 use wasmer::ValueType;
 
 // TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl ValueType for Busdataformat {
+unsafe impl ValueType for BusEventType {
+    #[inline]
+    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
+}
+
+// TODO: if necessary, must be implemented in wit-bindgen
+unsafe impl ValueType for BusDataFormat {
     #[inline]
     fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
 }

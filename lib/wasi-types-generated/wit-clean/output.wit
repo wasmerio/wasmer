@@ -23,7 +23,7 @@ expose-types-dummy-func: func(
   tty: tty,
   tid: tid,
   pid: pid,
-  busdataformat: busdataformat,
+  bus-data-format: bus-data-format,
 )
 
 
@@ -814,7 +814,7 @@ record tty {
     line-buffered: bool,
 }
 
-enum busdataformat {
+enum bus-data-format {
     raw,
     bincode,
     message-pack,
@@ -822,7 +822,17 @@ enum busdataformat {
     yaml,
     xml,
     rkyv,
-}// WASI Preview. This is an evolution of the API that WASI initially
+}
+
+enum bus-event-type {
+    noop,
+    exit,
+    call,
+    result,
+    fault,
+    close,
+}
+// WASI Preview. This is an evolution of the API that WASI initially
 // launched with.
 //
 // Some content here is derived from [CloudABI](https://github.com/NuxiNL/cloudabi).

@@ -1408,7 +1408,7 @@ pub mod output {
   }
   #[repr(u8)]
   #[derive(Clone, Copy, PartialEq, Eq)]
-  pub enum Busdataformat {
+  pub enum BusDataFormat {
     Raw,
     Bincode,
     MessagePack,
@@ -1417,35 +1417,69 @@ pub mod output {
     Xml,
     Rkyv,
   }
-  impl core::fmt::Debug for Busdataformat {
+  impl core::fmt::Debug for BusDataFormat {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
       match self {
-        Busdataformat::Raw => {
-          f.debug_tuple("Busdataformat::Raw").finish()
+        BusDataFormat::Raw => {
+          f.debug_tuple("BusDataFormat::Raw").finish()
         }
-        Busdataformat::Bincode => {
-          f.debug_tuple("Busdataformat::Bincode").finish()
+        BusDataFormat::Bincode => {
+          f.debug_tuple("BusDataFormat::Bincode").finish()
         }
-        Busdataformat::MessagePack => {
-          f.debug_tuple("Busdataformat::MessagePack").finish()
+        BusDataFormat::MessagePack => {
+          f.debug_tuple("BusDataFormat::MessagePack").finish()
         }
-        Busdataformat::Json => {
-          f.debug_tuple("Busdataformat::Json").finish()
+        BusDataFormat::Json => {
+          f.debug_tuple("BusDataFormat::Json").finish()
         }
-        Busdataformat::Yaml => {
-          f.debug_tuple("Busdataformat::Yaml").finish()
+        BusDataFormat::Yaml => {
+          f.debug_tuple("BusDataFormat::Yaml").finish()
         }
-        Busdataformat::Xml => {
-          f.debug_tuple("Busdataformat::Xml").finish()
+        BusDataFormat::Xml => {
+          f.debug_tuple("BusDataFormat::Xml").finish()
         }
-        Busdataformat::Rkyv => {
-          f.debug_tuple("Busdataformat::Rkyv").finish()
+        BusDataFormat::Rkyv => {
+          f.debug_tuple("BusDataFormat::Rkyv").finish()
+        }
+      }
+    }
+  }
+  #[repr(u8)]
+  #[derive(Clone, Copy, PartialEq, Eq)]
+  pub enum BusEventType {
+    Noop,
+    Exit,
+    Call,
+    Result,
+    Fault,
+    Close,
+  }
+  impl core::fmt::Debug for BusEventType {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+      match self {
+        BusEventType::Noop => {
+          f.debug_tuple("BusEventType::Noop").finish()
+        }
+        BusEventType::Exit => {
+          f.debug_tuple("BusEventType::Exit").finish()
+        }
+        BusEventType::Call => {
+          f.debug_tuple("BusEventType::Call").finish()
+        }
+        BusEventType::Result => {
+          f.debug_tuple("BusEventType::Result").finish()
+        }
+        BusEventType::Fault => {
+          f.debug_tuple("BusEventType::Fault").finish()
+        }
+        BusEventType::Close => {
+          f.debug_tuple("BusEventType::Close").finish()
         }
       }
     }
   }
   /// Dummy function to expose types into generated code
-  pub fn expose_types_dummy_func(fd: Fd,dirent: Dirent,event_enum: EventEnum,event: Event,fdstat: Fdstat,subscription_clock: SubscriptionClock,snapshot0_subscription_clock: Snapshot0SubscriptionClock,subscription: Subscription,snapshot0_subscription: Snapshot0Subscription,device: Device,linkcount: Linkcount,snapshot0_linkcount: Snapshot0Linkcount,filestat: Filestat,snapshot0_filestat: Snapshot0Filestat,tty: Tty,tid: Tid,pid: Pid,busdataformat: Busdataformat,) -> (){
+  pub fn expose_types_dummy_func(fd: Fd,dirent: Dirent,event_enum: EventEnum,event: Event,fdstat: Fdstat,subscription_clock: SubscriptionClock,snapshot0_subscription_clock: Snapshot0SubscriptionClock,subscription: Subscription,snapshot0_subscription: Snapshot0Subscription,device: Device,linkcount: Linkcount,snapshot0_linkcount: Snapshot0Linkcount,filestat: Filestat,snapshot0_filestat: Snapshot0Filestat,tty: Tty,tid: Tid,pid: Pid,bus_data_format: BusDataFormat,) -> (){
     unsafe {
       let ptr0 = OUTPUT_RET_AREA.0.as_mut_ptr() as i32;
       *((ptr0 + 0) as *mut i32) = wit_bindgen_rust::rt::as_i32(fd);
@@ -1752,14 +1786,14 @@ pub mod output {
       *((ptr0 + 460) as *mut u8) = (match line_buffered31 { true => 1, false => 0 }) as u8;
       *((ptr0 + 464) as *mut i32) = wit_bindgen_rust::rt::as_i32(tid);
       *((ptr0 + 468) as *mut i32) = wit_bindgen_rust::rt::as_i32(pid);
-      *((ptr0 + 472) as *mut u8) = (match busdataformat {
-        Busdataformat::Raw => 0,
-        Busdataformat::Bincode => 1,
-        Busdataformat::MessagePack => 2,
-        Busdataformat::Json => 3,
-        Busdataformat::Yaml => 4,
-        Busdataformat::Xml => 5,
-        Busdataformat::Rkyv => 6,
+      *((ptr0 + 472) as *mut u8) = (match bus_data_format {
+        BusDataFormat::Raw => 0,
+        BusDataFormat::Bincode => 1,
+        BusDataFormat::MessagePack => 2,
+        BusDataFormat::Json => 3,
+        BusDataFormat::Yaml => 4,
+        BusDataFormat::Xml => 5,
+        BusDataFormat::Rkyv => 6,
       }) as u8;
       #[link(wasm_import_module = "output")]
       extern "C" {
