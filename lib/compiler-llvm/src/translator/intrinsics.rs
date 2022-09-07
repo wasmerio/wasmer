@@ -1078,11 +1078,7 @@ impl<'ctx> Intrinsics<'ctx> {
             memory_notify: module.add_function(
                 "wasmer_vm_memory32_atomic_notify",
                 i32_ty.fn_type(
-                    &[
-                        ctx_ptr_ty_basic_md,
-                        i32_ty_basic_md,
-                        i32_ty_basic_md,
-                    ],
+                    &[ctx_ptr_ty_basic_md, i32_ty_basic_md, i32_ty_basic_md],
                     false,
                 ),
                 None,
@@ -1090,11 +1086,7 @@ impl<'ctx> Intrinsics<'ctx> {
             imported_memory_notify: module.add_function(
                 "wasmer_vm_imported_memory32_atomic_notify",
                 i32_ty.fn_type(
-                    &[
-                        ctx_ptr_ty_basic_md,
-                        i32_ty_basic_md,
-                        i32_ty_basic_md,
-                    ],
+                    &[ctx_ptr_ty_basic_md, i32_ty_basic_md, i32_ty_basic_md],
                     false,
                 ),
                 None,
@@ -1131,22 +1123,74 @@ impl<'ctx> Intrinsics<'ctx> {
                 .fn_type(&[ctx_ptr_ty_basic_md, i32_ty_basic_md], false)
                 .ptr_type(AddressSpace::Generic),
             memory32_wait32_ptr_ty: i32_ty
-                .fn_type(&[ctx_ptr_ty_basic_md, i32_ty_basic_md, i32_ty_basic_md, i32_ty_basic_md, i64_ty_basic_md], false)
+                .fn_type(
+                    &[
+                        ctx_ptr_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        i64_ty_basic_md,
+                    ],
+                    false,
+                )
                 .ptr_type(AddressSpace::Generic),
             imported_memory32_wait32_ptr_ty: i32_ty
-                .fn_type(&[ctx_ptr_ty_basic_md, i32_ty_basic_md, i32_ty_basic_md, i32_ty_basic_md, i64_ty_basic_md], false)
+                .fn_type(
+                    &[
+                        ctx_ptr_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        i64_ty_basic_md,
+                    ],
+                    false,
+                )
                 .ptr_type(AddressSpace::Generic),
             memory32_wait64_ptr_ty: i32_ty
-                .fn_type(&[ctx_ptr_ty_basic_md, i32_ty_basic_md, i32_ty_basic_md, i64_ty_basic_md, i64_ty_basic_md], false)
+                .fn_type(
+                    &[
+                        ctx_ptr_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        i64_ty_basic_md,
+                        i64_ty_basic_md,
+                    ],
+                    false,
+                )
                 .ptr_type(AddressSpace::Generic),
             imported_memory32_wait64_ptr_ty: i32_ty
-                .fn_type(&[ctx_ptr_ty_basic_md, i32_ty_basic_md, i32_ty_basic_md, i64_ty_basic_md, i64_ty_basic_md], false)
+                .fn_type(
+                    &[
+                        ctx_ptr_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        i64_ty_basic_md,
+                        i64_ty_basic_md,
+                    ],
+                    false,
+                )
                 .ptr_type(AddressSpace::Generic),
             memory32_notify_ptr_ty: i32_ty
-                .fn_type(&[ctx_ptr_ty_basic_md, i32_ty_basic_md, i32_ty_basic_md, i32_ty_basic_md], false)
+                .fn_type(
+                    &[
+                        ctx_ptr_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                    ],
+                    false,
+                )
                 .ptr_type(AddressSpace::Generic),
             imported_memory32_notify_ptr_ty: i32_ty
-                .fn_type(&[ctx_ptr_ty_basic_md, i32_ty_basic_md, i32_ty_basic_md, i32_ty_basic_md], false)
+                .fn_type(
+                    &[
+                        ctx_ptr_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                    ],
+                    false,
+                )
                 .ptr_type(AddressSpace::Generic),
 
             ctx_ptr_ty,
@@ -1809,7 +1853,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                 .into_pointer_value()
         })
     }
-    
+
     pub fn memory_wait64(
         &mut self,
         memory_index: MemoryIndex,
@@ -1851,7 +1895,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                 .into_pointer_value()
         })
     }
-    
+
     pub fn memory_notify(
         &mut self,
         memory_index: MemoryIndex,
@@ -1893,7 +1937,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                 .into_pointer_value()
         })
     }
-    
+
     pub fn get_offsets(&self) -> &VMOffsets {
         &self.offsets
     }
