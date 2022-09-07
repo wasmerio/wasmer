@@ -1099,8 +1099,25 @@ mod tests {
                 wasi_pipe_write_str(override_stdin_2, "hello");
                 wasi_pipe_delete(override_stdin_2);
 
+                /*
+                // testrust.wasm:
+
+                use std::io::{self, Write};
+
+                fn main() -> io::Result<()> {
+
+                    let mut input = String::new();
+                    io::stdin().read_line(&mut input)?;
+
+                    io::stdout().write_all(format!("stdout: {input}").as_bytes())?;
+                    io::stderr().write_all(format!("stderr: {input}").as_bytes())?;
+
+                    Ok(())
+                }
+                */
+                
                 // Load binary.
-                FILE* file = fopen("tests/wasm-c-api/example/stdio.wasm", "rb");
+                FILE* file = fopen("tests/wasm-c-api/example/testrust.wasm", "rb");
                 if (!file) {
                     printf("> Error loading module!\n");
                     return 1;
