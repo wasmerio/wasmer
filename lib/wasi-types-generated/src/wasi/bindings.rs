@@ -1513,8 +1513,84 @@ pub mod output {
       }
     }
   }
+  pub type Bid = u32;
+  pub type Cid = u32;
+  /// __wasi_option_t
+  pub type OptionTag = u8;
+  #[repr(C)]
+  #[derive(Copy, Clone)]
+  pub struct OptionBid {
+    pub tag: OptionTag,
+    pub bid: Bid,
+  }
+  impl core::fmt::Debug for OptionBid {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+      f.debug_struct("OptionBid").field("tag", &self.tag).field("bid", &self.bid).finish()}
+  }
+  #[repr(C)]
+  #[derive(Copy, Clone)]
+  pub struct OptionCid {
+    pub tag: OptionTag,
+    pub cid: Cid,
+  }
+  impl core::fmt::Debug for OptionCid {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+      f.debug_struct("OptionCid").field("tag", &self.tag).field("cid", &self.cid).finish()}
+  }
+  #[repr(C)]
+  #[derive(Copy, Clone)]
+  pub struct OptionFd {
+    pub tag: OptionTag,
+    pub fd: Fd,
+  }
+  impl core::fmt::Debug for OptionFd {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+      f.debug_struct("OptionFd").field("tag", &self.tag).field("fd", &self.fd).finish()}
+  }
+  #[repr(C)]
+  #[derive(Copy, Clone)]
+  pub struct BusHandles {
+    pub bid: Bid,
+    pub stdin: OptionFd,
+    pub stdout: OptionFd,
+    pub stderr: OptionFd,
+  }
+  impl core::fmt::Debug for BusHandles {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+      f.debug_struct("BusHandles").field("bid", &self.bid).field("stdin", &self.stdin).field("stdout", &self.stdout).field("stderr", &self.stderr).finish()}
+  }
+  pub type ExitCode = u32;
+  #[repr(C)]
+  #[derive(Copy, Clone)]
+  pub struct BusEventExit {
+    pub bid: Bid,
+    pub rval: ExitCode,
+  }
+  impl core::fmt::Debug for BusEventExit {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+      f.debug_struct("BusEventExit").field("bid", &self.bid).field("rval", &self.rval).finish()}
+  }
+  #[repr(C)]
+  #[derive(Copy, Clone)]
+  pub struct BusEventFault {
+    pub cid: Cid,
+    pub err: BusErrno,
+  }
+  impl core::fmt::Debug for BusEventFault {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+      f.debug_struct("BusEventFault").field("cid", &self.cid).field("err", &self.err).finish()}
+  }
+  #[repr(C)]
+  #[derive(Copy, Clone)]
+  pub struct BusEventClose {
+    pub cid: Cid,
+  }
+  impl core::fmt::Debug for BusEventClose {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+      f.debug_struct("BusEventClose").field("cid", &self.cid).finish()}
+  }
   /// Dummy function to expose types into generated code
-  pub fn expose_types_dummy_func(fd: Fd,dirent: Dirent,snapshot0_dirent: Snapshot0Dirent,snapshot0_event: Snapshot0Event,event_enum: EventEnum,event: Event,fdstat: Fdstat,subscription_clock: SubscriptionClock,snapshot0_subscription_clock: Snapshot0SubscriptionClock,subscription: Subscription,snapshot0_subscription: Snapshot0Subscription,device: Device,linkcount: Linkcount,snapshot0_linkcount: Snapshot0Linkcount,filestat: Filestat,snapshot0_filestat: Snapshot0Filestat,tty: Tty,tid: Tid,pid: Pid,bus_data_format: BusDataFormat,) -> (){
+  pub fn expose_types_dummy_func(fd: Fd,dirent: Dirent,snapshot0_dirent: Snapshot0Dirent,snapshot0_event: Snapshot0Event,event_enum: EventEnum,event: Event,fdstat: Fdstat,subscription_clock: SubscriptionClock,snapshot0_subscription_clock: Snapshot0SubscriptionClock,subscription: Subscription,snapshot0_subscription: Snapshot0Subscription,device: Device,linkcount: Linkcount,snapshot0_linkcount: Snapshot0Linkcount,filestat: Filestat,snapshot0_filestat: Snapshot0Filestat,tty: Tty,tid: Tid,pid: Pid,bus_data_format: BusDataFormat,bid: Bid,option_bid: OptionBid,cid: Cid,option_cid: OptionCid,option_fd: OptionFd,bus_handles: BusHandles,exit_code: ExitCode,bus_event_exit: BusEventExit,bus_event_fault: BusEventFault,bus_event_close: BusEventClose,) -> (){
     unsafe {
       let ptr0 = OUTPUT_RET_AREA.0.as_mut_ptr() as i32;
       *((ptr0 + 0) as *mut i32) = wit_bindgen_rust::rt::as_i32(fd);
@@ -1935,6 +2011,58 @@ pub mod output {
         BusDataFormat::Xml => 5,
         BusDataFormat::Rkyv => 6,
       }) as u8;
+      *((ptr0 + 532) as *mut i32) = wit_bindgen_rust::rt::as_i32(bid);
+      let OptionBid{ tag:tag36, bid:bid36, } = option_bid;
+      *((ptr0 + 536) as *mut u8) = (wit_bindgen_rust::rt::as_i32(tag36)) as u8;
+      *((ptr0 + 540) as *mut i32) = wit_bindgen_rust::rt::as_i32(bid36);
+      *((ptr0 + 544) as *mut i32) = wit_bindgen_rust::rt::as_i32(cid);
+      let OptionCid{ tag:tag37, cid:cid37, } = option_cid;
+      *((ptr0 + 548) as *mut u8) = (wit_bindgen_rust::rt::as_i32(tag37)) as u8;
+      *((ptr0 + 552) as *mut i32) = wit_bindgen_rust::rt::as_i32(cid37);
+      let OptionFd{ tag:tag38, fd:fd38, } = option_fd;
+      *((ptr0 + 556) as *mut u8) = (wit_bindgen_rust::rt::as_i32(tag38)) as u8;
+      *((ptr0 + 560) as *mut i32) = wit_bindgen_rust::rt::as_i32(fd38);
+      let BusHandles{ bid:bid39, stdin:stdin39, stdout:stdout39, stderr:stderr39, } = bus_handles;
+      *((ptr0 + 564) as *mut i32) = wit_bindgen_rust::rt::as_i32(bid39);
+      let OptionFd{ tag:tag40, fd:fd40, } = stdin39;
+      *((ptr0 + 568) as *mut u8) = (wit_bindgen_rust::rt::as_i32(tag40)) as u8;
+      *((ptr0 + 572) as *mut i32) = wit_bindgen_rust::rt::as_i32(fd40);
+      let OptionFd{ tag:tag41, fd:fd41, } = stdout39;
+      *((ptr0 + 576) as *mut u8) = (wit_bindgen_rust::rt::as_i32(tag41)) as u8;
+      *((ptr0 + 580) as *mut i32) = wit_bindgen_rust::rt::as_i32(fd41);
+      let OptionFd{ tag:tag42, fd:fd42, } = stderr39;
+      *((ptr0 + 584) as *mut u8) = (wit_bindgen_rust::rt::as_i32(tag42)) as u8;
+      *((ptr0 + 588) as *mut i32) = wit_bindgen_rust::rt::as_i32(fd42);
+      *((ptr0 + 592) as *mut i32) = wit_bindgen_rust::rt::as_i32(exit_code);
+      let BusEventExit{ bid:bid43, rval:rval43, } = bus_event_exit;
+      *((ptr0 + 596) as *mut i32) = wit_bindgen_rust::rt::as_i32(bid43);
+      *((ptr0 + 600) as *mut i32) = wit_bindgen_rust::rt::as_i32(rval43);
+      let BusEventFault{ cid:cid44, err:err44, } = bus_event_fault;
+      *((ptr0 + 604) as *mut i32) = wit_bindgen_rust::rt::as_i32(cid44);
+      *((ptr0 + 608) as *mut u8) = (match err44 {
+        BusErrno::Success => 0,
+        BusErrno::Ser => 1,
+        BusErrno::Des => 2,
+        BusErrno::Wapm => 3,
+        BusErrno::Fetch => 4,
+        BusErrno::Compile => 5,
+        BusErrno::Abi => 6,
+        BusErrno::Aborted => 7,
+        BusErrno::Badhandle => 8,
+        BusErrno::Topic => 9,
+        BusErrno::Badcb => 10,
+        BusErrno::Unsupported => 11,
+        BusErrno::Badrequest => 12,
+        BusErrno::Denied => 13,
+        BusErrno::Internal => 14,
+        BusErrno::Alloc => 15,
+        BusErrno::Invoke => 16,
+        BusErrno::Consumed => 17,
+        BusErrno::Memviolation => 18,
+        BusErrno::Unknown => 19,
+      }) as u8;
+      let BusEventClose{ cid:cid45, } = bus_event_close;
+      *((ptr0 + 612) as *mut i32) = wit_bindgen_rust::rt::as_i32(cid45);
       #[link(wasm_import_module = "output")]
       extern "C" {
         #[cfg_attr(target_arch = "wasm32", link_name = "expose-types-dummy-func")]
@@ -1947,6 +2075,6 @@ pub mod output {
   }
   
   #[repr(align(8))]
-  struct RetArea([u8; 536]);
-  static mut OUTPUT_RET_AREA: RetArea = RetArea([0; 536]);
+  struct RetArea([u8; 616]);
+  static mut OUTPUT_RET_AREA: RetArea = RetArea([0; 616]);
 }

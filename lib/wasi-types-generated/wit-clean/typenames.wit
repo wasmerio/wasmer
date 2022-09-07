@@ -26,9 +26,17 @@ expose-types-dummy-func: func(
   tid: tid,
   pid: pid,
   bus-data-format: bus-data-format,
+  bid: bid,
+  option-bid: option-bid,
+  cid: cid,
+  option-cid: option-cid,
+  option-fd: option-fd,
+  bus-handles: bus-handles,
+  exit-code: exit-code,
+  bus-event-exit: bus-event-exit,
+  bus-event-fault: bus-event-fault,
+  bus-event-close: bus-event-close,
 )
-
-
 
 /// Type names used by low-level WASI interfaces.
 
@@ -833,4 +841,49 @@ enum bus-event-type {
     result,
     fault,
     close,
+}
+
+type bid = u32
+
+type cid = u32
+
+/// __wasi_option_t
+type option-tag = u8
+
+record option-bid {
+    tag: option-tag,
+    bid: bid
+}
+
+record option-cid {
+    tag: option-tag,
+    cid: cid
+}
+
+record option-fd {
+    tag: option-tag,
+    fd: fd
+}
+
+record bus-handles {
+    bid: bid,
+    stdin: option-fd,
+    stdout: option-fd,
+    stderr: option-fd,
+}
+
+type exit-code = u32
+
+record bus-event-exit {
+    bid: bid,
+    rval: exit-code,
+}
+
+record bus-event-fault {
+    cid: cid,
+    err: bus-errno,
+}
+
+record bus-event-close {
+    cid: cid,
 }

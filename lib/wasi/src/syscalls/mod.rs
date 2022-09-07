@@ -30,7 +30,7 @@ use self::types::{
         EventEnum, EventFdReadwrite, Eventrwflags, Eventtype, Fd as WasiFd, Fdflags, Fdstat,
         Filesize, Filestat, Filetype, Fstflags, Linkcount, Pid, Rights, Snapshot0Clockid,
         Sockoption, Sockstatus, Socktype, Streamsecurity, Subscription, SubscriptionEnum,
-        SubscriptionFsReadwrite, Tid, Timestamp, Tty, Whence,
+        SubscriptionFsReadwrite, Tid, Timestamp, Tty, Whence, Cid, OptionFd, Bid, BusHandles,
     },
     *,
 };
@@ -3682,7 +3682,7 @@ pub fn process_spawn<M: MemorySize>(
     stderr: __wasi_stdiomode_t,
     working_dir: WasmPtr<u8, M>,
     working_dir_len: M::Offset,
-    ret_handles: WasmPtr<__wasi_bus_handles_t, M>,
+    ret_handles: WasmPtr<BusHandles, M>,
 ) -> BusErrno {
     let env = ctx.data();
     let bus = env.runtime.bus();
@@ -3721,11 +3721,11 @@ pub fn process_spawn<M: MemorySize>(
         .map_err(bus_error_into_wasi_err));
 
     let conv_stdio_fd = |a: Option<FileDescriptor>| match a {
-        Some(fd) => __wasi_option_fd_t {
+        Some(fd) => OptionFd {
             tag: __WASI_OPTION_SOME,
             fd: fd.into(),
         },
-        None => __wasi_option_fd_t {
+        None => OptionFd {
             tag: __WASI_OPTION_NONE,
             fd: 0,
         },
@@ -3745,7 +3745,7 @@ pub fn process_spawn<M: MemorySize>(
         bid
     };
 
-    let handles = __wasi_bus_handles_t {
+    let handles = BusHandles {
         bid,
         stdin,
         stdout,
@@ -3774,7 +3774,7 @@ pub fn bus_open_local<M: MemorySize>(
     name: WasmPtr<u8, M>,
     name_len: M::Offset,
     reuse: __wasi_bool_t,
-    ret_bid: WasmPtr<__wasi_bid_t, M>,
+    ret_bid: WasmPtr<Bid, M>,
 ) -> BusErrno {
     let env = ctx.data();
     let bus = env.runtime.bus();
@@ -3809,7 +3809,7 @@ pub fn bus_open_remote<M: MemorySize>(
     instance_len: M::Offset,
     token: WasmPtr<u8, M>,
     token_len: M::Offset,
-    ret_bid: WasmPtr<__wasi_bid_t, M>,
+    ret_bid: WasmPtr<Bid, M>,
 ) -> BusErrno {
     let env = ctx.data();
     let bus = env.runtime.bus();
@@ -3832,7 +3832,7 @@ fn bus_open_local_internal<M: MemorySize>(
     reuse: bool,
     instance: Option<String>,
     token: Option<String>,
-    ret_bid: WasmPtr<__wasi_bid_t, M>,
+    ret_bid: WasmPtr<Bid, M>,
 ) -> BusErrno {
     let env = ctx.data();
     let bus = env.runtime.bus();
@@ -3889,7 +3889,7 @@ fn bus_open_local_internal<M: MemorySize>(
 /// ## Parameters
 ///
 /// * `bid` - Handle of the bus process handle to be closed
-pub fn bus_close(ctx: FunctionEnvMut<'_, WasiEnv>, bid: __wasi_bid_t) -> BusErrno {
+pub fn bus_close(ctx: FunctionEnvMut<'_, WasiEnv>, bid: Bid) -> BusErrno {
     trace!("wasi::bus_close (bid={})", bid);
     let bid: WasiBusProcessId = bid.into();
 
@@ -3913,14 +3913,14 @@ pub fn bus_close(ctx: FunctionEnvMut<'_, WasiEnv>, bid: __wasi_bid_t) -> BusErrn
 /// * `buf` - The buffer where data to be transmitted is stored
 pub fn bus_call<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    bid: __wasi_bid_t,
+    bid: Bid,
     keep_alive: __wasi_bool_t,
     topic: WasmPtr<u8, M>,
     topic_len: M::Offset,
     format: BusDataFormat,
     buf: WasmPtr<u8, M>,
     buf_len: M::Offset,
-    ret_cid: WasmPtr<__wasi_cid_t, M>,
+    ret_cid: WasmPtr<Cid, M>,
 ) -> BusErrno {
     let env = ctx.data();
     let bus = env.runtime.bus();
@@ -3950,14 +3950,14 @@ pub fn bus_call<M: MemorySize>(
 /// * `buf` - The buffer where data to be transmitted is stored
 pub fn bus_subcall<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    parent: __wasi_cid_t,
+    parent: Cid,
     keep_alive: __wasi_bool_t,
     topic: WasmPtr<u8, M>,
     topic_len: M::Offset,
     format: BusDataFormat,
     buf: WasmPtr<u8, M>,
     buf_len: M::Offset,
-    ret_cid: WasmPtr<__wasi_cid_t, M>,
+    ret_cid: WasmPtr<Cid, M>,
 ) -> BusErrno {
     let env = ctx.data();
     let bus = env.runtime.bus();
@@ -4018,7 +4018,7 @@ pub fn bus_poll<M: MemorySize>(
 /// * `buf` - The buffer where data to be transmitted is stored
 pub fn call_reply<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    cid: __wasi_cid_t,
+    cid: Cid,
     format: BusDataFormat,
     buf: WasmPtr<u8, M>,
     buf_len: M::Offset,
@@ -4045,7 +4045,7 @@ pub fn call_reply<M: MemorySize>(
 /// * `fault` - Fault to be raised on the bus
 pub fn call_fault(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    cid: __wasi_cid_t,
+    cid: Cid,
     fault: BusErrno,
 ) -> BusErrno {
     let env = ctx.data();
@@ -4060,7 +4060,7 @@ pub fn call_fault(
 /// ## Parameters
 ///
 /// * `cid` - Handle of the bus call handle to be dropped
-pub fn call_close(ctx: FunctionEnvMut<'_, WasiEnv>, cid: __wasi_cid_t) -> BusErrno {
+pub fn call_close(ctx: FunctionEnvMut<'_, WasiEnv>, cid: Cid) -> BusErrno {
     let env = ctx.data();
     let bus = env.runtime.bus();
     trace!("wasi::call_close (cid={})", cid);
