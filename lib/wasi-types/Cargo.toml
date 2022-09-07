@@ -20,3 +20,5 @@ time = "0.2"
 
 [features]
 enable-serde = ["serde", "wasmer-types/serde"]
+sys = ["wasmer-wasi-types-generated/sys"]
+js = ["wasmer-wasi-types-generated/js"]

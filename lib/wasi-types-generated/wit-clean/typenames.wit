@@ -23,6 +23,7 @@ expose-types-dummy-func: func(
   tty: tty,
   tid: tid,
   pid: pid,
+  busdataformat: busdataformat,
 )
 
 
@@ -811,4 +812,14 @@ record tty {
     stderr-tty: bool,
     echo: bool,
     line-buffered: bool,
+}
+
+enum busdataformat {
+    raw,
+    bincode,
+    message-pack,
+    json,
+    yaml,
+    xml,
+    rkyv,
 }

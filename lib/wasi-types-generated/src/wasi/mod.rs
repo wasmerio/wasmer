@@ -5,6 +5,12 @@ use std::mem::MaybeUninit;
 use wasmer::ValueType;
 
 // TODO: if necessary, must be implemented in wit-bindgen
+unsafe impl ValueType for Busdataformat {
+    #[inline]
+    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
+}
+
+// TODO: if necessary, must be implemented in wit-bindgen
 unsafe impl ValueType for Errno {
     #[inline]
     fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
@@ -789,9 +795,8 @@ impl std::fmt::Display for Sockoption {
     }
 }
 
-/* 
 // TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl wit_bindgen_rust::FromToNativeWasmType for Errno {
+unsafe impl wasmer::FromToNativeWasmType for Errno {
     type Native = i32;
 
     fn to_native(self) -> Self::Native {
@@ -882,415 +887,416 @@ unsafe impl wit_bindgen_rust::FromToNativeWasmType for Errno {
     }
 
     #[cfg(feature = "sys")]
-    fn is_from_store(&self, _store: &impl wit_bindgen_rust::AsStoreRef) -> bool {
+    fn is_from_store(&self, _store: &impl wasmer::AsStoreRef) -> bool {
         // TODO: find correct implementation
         false
     }
 }
 
-// TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl wit_bindgen_rust::FromToNativeWasmType for BusErrno {
-    type Native = i32;
+/* 
+    // TODO: if necessary, must be implemented in wit-bindgen
+    unsafe impl wit_bindgen_rust::FromToNativeWasmType for BusErrno {
+        type Native = i32;
 
-    fn to_native(self) -> Self::Native {
-        self as i32
-    }
-    fn from_native(n: Self::Native) -> Self {
-        match n {
-            0 => Self::Success,
-            1 => Self::Ser,
-            2 => Self::Des,
-            3 => Self::Wapm,
-            4 => Self::Fetch,
-            5 => Self::Compile,
-            6 => Self::Abi,
-            7 => Self::Aborted,
-            8 => Self::Badhandle,
-            9 => Self::Topic,
-            10 => Self::Badcb,
-            11 => Self::Unsupported,
-            12 => Self::Badrequest,
-            13 => Self::Denied,
-            14 => Self::Internal,
-            15 => Self::Alloc,
-            16 => Self::Invoke,
-            17 => Self::Consumed,
-            18 => Self::Memviolation,
-            19 => Self::Unknown,
-            // TODO: What should we map invalid native values to?
-            _ => Self::Unknown,
+        fn to_native(self) -> Self::Native {
+            self as i32
+        }
+        fn from_native(n: Self::Native) -> Self {
+            match n {
+                0 => Self::Success,
+                1 => Self::Ser,
+                2 => Self::Des,
+                3 => Self::Wapm,
+                4 => Self::Fetch,
+                5 => Self::Compile,
+                6 => Self::Abi,
+                7 => Self::Aborted,
+                8 => Self::Badhandle,
+                9 => Self::Topic,
+                10 => Self::Badcb,
+                11 => Self::Unsupported,
+                12 => Self::Badrequest,
+                13 => Self::Denied,
+                14 => Self::Internal,
+                15 => Self::Alloc,
+                16 => Self::Invoke,
+                17 => Self::Consumed,
+                18 => Self::Memviolation,
+                19 => Self::Unknown,
+                // TODO: What should we map invalid native values to?
+                _ => Self::Unknown,
+            }
+        }
+
+        #[cfg(feature = "sys")]
+        fn is_from_store(&self, _store: &impl wit_bindgen_rust::AsStoreRef) -> bool {
+            // TODO: find correct implementation
+            false
         }
     }
 
-    #[cfg(feature = "sys")]
-    fn is_from_store(&self, _store: &impl wit_bindgen_rust::AsStoreRef) -> bool {
-        // TODO: find correct implementation
-        false
-    }
-}
+    // TODO: if necessary, must be implemented in wit-bindgen
+    unsafe impl wit_bindgen_rust::FromToNativeWasmType for Advice {
+        type Native = i32;
 
-// TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl wit_bindgen_rust::FromToNativeWasmType for Advice {
-    type Native = i32;
+        fn to_native(self) -> Self::Native {
+            self as i32
+        }
+        fn from_native(n: Self::Native) -> Self {
+            match n {
+                0 => Self::Normal,
+                1 => Self::Sequential,
+                2 => Self::Random,
+                3 => Self::Willneed,
+                4 => Self::Dontneed,
+                5 => Self::Noreuse,
+                // TODO: What should we map invalid native values to?
+                _ => todo!("Need to decide what to do here…"),
+            }
+        }
 
-    fn to_native(self) -> Self::Native {
-        self as i32
-    }
-    fn from_native(n: Self::Native) -> Self {
-        match n {
-            0 => Self::Normal,
-            1 => Self::Sequential,
-            2 => Self::Random,
-            3 => Self::Willneed,
-            4 => Self::Dontneed,
-            5 => Self::Noreuse,
-            // TODO: What should we map invalid native values to?
-            _ => todo!("Need to decide what to do here…"),
+        #[cfg(feature = "sys")]
+        fn is_from_store(&self, _store: &impl wit_bindgen_rust::AsStoreRef) -> bool {
+            // TODO: find correct implementation
+            false
         }
     }
 
-    #[cfg(feature = "sys")]
-    fn is_from_store(&self, _store: &impl wit_bindgen_rust::AsStoreRef) -> bool {
-        // TODO: find correct implementation
-        false
-    }
-}
+    // TODO: if necessary, must be implemented in wit-bindgen
+    unsafe impl wit_bindgen_rust::FromToNativeWasmType for Socktype {
+        type Native = i32;
 
-// TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl wit_bindgen_rust::FromToNativeWasmType for Socktype {
-    type Native = i32;
+        fn to_native(self) -> Self::Native {
+            self as i32
+        }
+        fn from_native(n: Self::Native) -> Self {
+            match n {
+                0 => Self::Dgram,
+                1 => Self::Stream,
+                2 => Self::Raw,
+                3 => Self::Seqpacket,
+                // TODO: What should we map invalid native values to?
+                _ => todo!("Need to decide what to do here…"),
+            }
+        }
 
-    fn to_native(self) -> Self::Native {
-        self as i32
-    }
-    fn from_native(n: Self::Native) -> Self {
-        match n {
-            0 => Self::Dgram,
-            1 => Self::Stream,
-            2 => Self::Raw,
-            3 => Self::Seqpacket,
-            // TODO: What should we map invalid native values to?
-            _ => todo!("Need to decide what to do here…"),
+        #[cfg(feature = "sys")]
+        fn is_from_store(&self, _store: &impl wit_bindgen_rust::AsStoreRef) -> bool {
+            // TODO: find correct implementation
+            false
         }
     }
 
-    #[cfg(feature = "sys")]
-    fn is_from_store(&self, _store: &impl wit_bindgen_rust::AsStoreRef) -> bool {
-        // TODO: find correct implementation
-        false
-    }
-}
+    // TODO: if necessary, must be implemented in wit-bindgen
+    unsafe impl wit_bindgen_rust::FromToNativeWasmType for Sockstatus {
+        type Native = i32;
 
-// TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl wit_bindgen_rust::FromToNativeWasmType for Sockstatus {
-    type Native = i32;
+        fn to_native(self) -> Self::Native {
+            self as i32
+        }
+        fn from_native(n: Self::Native) -> Self {
+            match n {
+                0 => Self::Opening,
+                1 => Self::Opened,
+                2 => Self::Closed,
+                3 => Self::Failed,
+                // TODO: What should we map invalid native values to?
+                _ => todo!("Need to decide what to do here…"),
+            }
+        }
 
-    fn to_native(self) -> Self::Native {
-        self as i32
-    }
-    fn from_native(n: Self::Native) -> Self {
-        match n {
-            0 => Self::Opening,
-            1 => Self::Opened,
-            2 => Self::Closed,
-            3 => Self::Failed,
-            // TODO: What should we map invalid native values to?
-            _ => todo!("Need to decide what to do here…"),
+        #[cfg(feature = "sys")]
+        fn is_from_store(&self, _store: &impl wit_bindgen_rust::AsStoreRef) -> bool {
+            // TODO: find correct implementation
+            false
         }
     }
 
-    #[cfg(feature = "sys")]
-    fn is_from_store(&self, _store: &impl wit_bindgen_rust::AsStoreRef) -> bool {
-        // TODO: find correct implementation
-        false
-    }
-}
+    // TODO: if necessary, must be implemented in wit-bindgen
+    unsafe impl wit_bindgen_rust::FromToNativeWasmType for Streamsecurity {
+        type Native = i32;
 
-// TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl wit_bindgen_rust::FromToNativeWasmType for Streamsecurity {
-    type Native = i32;
+        fn to_native(self) -> Self::Native {
+            self as i32
+        }
+        fn from_native(n: Self::Native) -> Self {
+            match n {
+                0 => Self::Unencrypted,
+                1 => Self::AnyEncryption,
+                2 => Self::ClassicEncryption,
+                3 => Self::DoubleEncryption,
+                // TODO: What should we map invalid native values to?
+                _ => todo!("Need to decide what to do here…"),
+            }
+        }
 
-    fn to_native(self) -> Self::Native {
-        self as i32
-    }
-    fn from_native(n: Self::Native) -> Self {
-        match n {
-            0 => Self::Unencrypted,
-            1 => Self::AnyEncryption,
-            2 => Self::ClassicEncryption,
-            3 => Self::DoubleEncryption,
-            // TODO: What should we map invalid native values to?
-            _ => todo!("Need to decide what to do here…"),
+        #[cfg(feature = "sys")]
+        fn is_from_store(&self, _store: &impl wit_bindgen_rust::AsStoreRef) -> bool {
+            // TODO: find correct implementation
+            false
         }
     }
 
-    #[cfg(feature = "sys")]
-    fn is_from_store(&self, _store: &impl wit_bindgen_rust::AsStoreRef) -> bool {
-        // TODO: find correct implementation
-        false
-    }
-}
+    // TODO: if necessary, must be implemented in wit-bindgen
+    unsafe impl wit_bindgen_rust::FromToNativeWasmType for Rights {
+        type Native = i64;
 
-// TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl wit_bindgen_rust::FromToNativeWasmType for Rights {
-    type Native = i64;
+        fn to_native(self) -> Self::Native {
+            self.bits() as i64
+        }
 
-    fn to_native(self) -> Self::Native {
-        self.bits() as i64
-    }
+        fn from_native(n: Self::Native) -> Self {
+            Self::from_bits_truncate(n as u64)
+        }
 
-    fn from_native(n: Self::Native) -> Self {
-        Self::from_bits_truncate(n as u64)
-    }
-
-    #[cfg(feature = "sys")]
-    fn is_from_store(&self, _store: &impl wit_bindgen_rust::AsStoreRef) -> bool {
-        // TODO: find correct implementation
-        false
-    }
-}
-
-// TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl wit_bindgen_rust::FromToNativeWasmType for Eventrwflags {
-    type Native = i32;
-
-    fn to_native(self) -> Self::Native {
-        self.bits() as i32
-    }
-    fn from_native(n: Self::Native) -> Self {
-        Self::from_bits_truncate(n as u8)
-    }
-
-    #[cfg(feature = "sys")]
-    fn is_from_store(&self, _store: &impl wit_bindgen_rust::AsStoreRef) -> bool {
-        // TODO: find correct implementation
-        false
-    }
-}
-
-// TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl wit_bindgen_rust::FromToNativeWasmType for Fstflags {
-    type Native = i32;
-
-    fn to_native(self) -> Self::Native {
-        self.bits() as i32
-    }
-    fn from_native(n: Self::Native) -> Self {
-        Self::from_bits_truncate(n as u8)
-    }
-
-    #[cfg(feature = "sys")]
-    fn is_from_store(&self, _store: &impl wit_bindgen_rust::AsStoreRef) -> bool {
-        // TODO: find correct implementation
-        false
-    }
-}
-
-// TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl wit_bindgen_rust::FromToNativeWasmType for Subclockflags {
-    type Native = i32;
-
-    fn to_native(self) -> Self::Native {
-        self.bits() as i32
-    }
-    fn from_native(n: Self::Native) -> Self {
-        Self::from_bits_truncate(n as u8)
-    }
-
-    #[cfg(feature = "sys")]
-    fn is_from_store(&self, _store: &impl wit_bindgen_rust::AsStoreRef) -> bool {
-        // TODO: find correct implementation
-        false
-    }
-}
-
-// TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl wit_bindgen_rust::FromToNativeWasmType for Clockid {
-    type Native = i32;
-
-    fn to_native(self) -> Self::Native {
-        self as i32
-    }
-    fn from_native(n: Self::Native) -> Self {
-        match n {
-            0 => Self::Realtime,
-            1 => Self::Monotonic,
-            // TODO: What should we map invalid native values to?
-            _ => todo!("Need to decide what to do here…"),
+        #[cfg(feature = "sys")]
+        fn is_from_store(&self, _store: &impl wit_bindgen_rust::AsStoreRef) -> bool {
+            // TODO: find correct implementation
+            false
         }
     }
 
-    #[cfg(feature = "sys")]
-    fn is_from_store(&self, _store: &impl wit_bindgen_rust::AsStoreRef) -> bool {
-        // TODO: find correct implementation
-        false
-    }
-}
+    // TODO: if necessary, must be implemented in wit-bindgen
+    unsafe impl wit_bindgen_rust::FromToNativeWasmType for Eventrwflags {
+        type Native = i32;
 
-// TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl wit_bindgen_rust::FromToNativeWasmType for Snapshot0Clockid {
-    type Native = i32;
+        fn to_native(self) -> Self::Native {
+            self.bits() as i32
+        }
+        fn from_native(n: Self::Native) -> Self {
+            Self::from_bits_truncate(n as u8)
+        }
 
-    fn to_native(self) -> Self::Native {
-        self as i32
-    }
-    fn from_native(n: Self::Native) -> Self {
-        match n {
-            0 => Self::Realtime,
-            1 => Self::Monotonic,
-            2 => Self::ProcessCputimeId,
-            3 => Self::ThreadCputimeId,
-            // TODO: What should we map invalid native values to?
-            _ => todo!("Need to decide what to do here…"),
+        #[cfg(feature = "sys")]
+        fn is_from_store(&self, _store: &impl wit_bindgen_rust::AsStoreRef) -> bool {
+            // TODO: find correct implementation
+            false
         }
     }
 
-    #[cfg(feature = "sys")]
-    fn is_from_store(&self, _store: &impl wit_bindgen_rust::AsStoreRef) -> bool {
-        // TODO: find correct implementation
-        false
-    }
-}
+    // TODO: if necessary, must be implemented in wit-bindgen
+    unsafe impl wit_bindgen_rust::FromToNativeWasmType for Fstflags {
+        type Native = i32;
 
-// TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl wit_bindgen_rust::FromToNativeWasmType for Sockoption {
-    type Native = i32;
+        fn to_native(self) -> Self::Native {
+            self.bits() as i32
+        }
+        fn from_native(n: Self::Native) -> Self {
+            Self::from_bits_truncate(n as u8)
+        }
 
-    fn to_native(self) -> Self::Native {
-        self as i32
-    }
-    fn from_native(n: Self::Native) -> Self {
-        match n {
-            0 => Self::Noop,
-            1 => Self::ReusePort,
-            2 => Self::ReuseAddr,
-            3 => Self::NoDelay,
-            4 => Self::DontRoute,
-            5 => Self::OnlyV6,
-            6 => Self::Broadcast,
-            7 => Self::MulticastLoopV4,
-            8 => Self::MulticastLoopV6,
-            9 => Self::Promiscuous,
-            10 => Self::Listening,
-            11 => Self::LastError,
-            12 => Self::KeepAlive,
-            13 => Self::Linger,
-            14 => Self::OobInline,
-            15 => Self::RecvBufSize,
-            16 => Self::SendBufSize,
-            17 => Self::RecvLowat,
-            18 => Self::SendLowat,
-            19 => Self::RecvTimeout,
-            20 => Self::SendTimeout,
-            21 => Self::ConnectTimeout,
-            22 => Self::AcceptTimeout,
-            23 => Self::Ttl,
-            24 => Self::MulticastTtlV4,
-            25 => Self::Type,
-            26 => Self::Proto,
-            // TODO: What should we map invalid native values to?
-            _ => todo!("Need to decide what to do here…"),
+        #[cfg(feature = "sys")]
+        fn is_from_store(&self, _store: &impl wit_bindgen_rust::AsStoreRef) -> bool {
+            // TODO: find correct implementation
+            false
         }
     }
 
-    #[cfg(feature = "sys")]
-    fn is_from_store(&self, _store: &impl wit_bindgen_rust::AsStoreRef) -> bool {
-        // TODO: find correct implementation
-        false
-    }
-}
+    // TODO: if necessary, must be implemented in wit-bindgen
+    unsafe impl wit_bindgen_rust::FromToNativeWasmType for Subclockflags {
+        type Native = i32;
 
-// TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl wit_bindgen_rust::FromToNativeWasmType for Fdflags {
-    type Native = i32;
+        fn to_native(self) -> Self::Native {
+            self.bits() as i32
+        }
+        fn from_native(n: Self::Native) -> Self {
+            Self::from_bits_truncate(n as u8)
+        }
 
-    fn to_native(self) -> Self::Native {
-        self.bits() as i32
-    }
-    fn from_native(n: Self::Native) -> Self {
-        Self::from_bits_truncate(n as u8)
-    }
-
-    #[cfg(feature = "sys")]
-    fn is_from_store(&self, _store: &impl wit_bindgen_rust::AsStoreRef) -> bool {
-        // TODO: find correct implementation
-        false
-    }
-}
-
-// TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl wit_bindgen_rust::FromToNativeWasmType for Preopentype {
-    type Native = i32;
-
-    fn to_native(self) -> Self::Native {
-        self as i32
-    }
-    fn from_native(n: Self::Native) -> Self {
-        match n {
-            0 => Self::Dir,
-            // TODO: What should we map invalid native values to?
-            _ => todo!("Need to decide what to do here…"),
+        #[cfg(feature = "sys")]
+        fn is_from_store(&self, _store: &impl wit_bindgen_rust::AsStoreRef) -> bool {
+            // TODO: find correct implementation
+            false
         }
     }
 
-    #[cfg(feature = "sys")]
-    fn is_from_store(&self, _store: &impl wit_bindgen_rust::AsStoreRef) -> bool {
-        // TODO: find correct implementation
-        false
-    }
-}
+    // TODO: if necessary, must be implemented in wit-bindgen
+    unsafe impl wit_bindgen_rust::FromToNativeWasmType for Clockid {
+        type Native = i32;
 
-// TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl wit_bindgen_rust::FromToNativeWasmType for Addressfamily {
-    type Native = i32;
+        fn to_native(self) -> Self::Native {
+            self as i32
+        }
+        fn from_native(n: Self::Native) -> Self {
+            match n {
+                0 => Self::Realtime,
+                1 => Self::Monotonic,
+                // TODO: What should we map invalid native values to?
+                _ => todo!("Need to decide what to do here…"),
+            }
+        }
 
-    fn to_native(self) -> Self::Native {
-        self as i32
-    }
-    fn from_native(n: Self::Native) -> Self {
-        match n {
-            0 => Self::Unspec,
-            1 => Self::Inet4,
-            2 => Self::Inet6,
-            3 => Self::Unix,
-            // TODO: What should we map invalid native values to?
-            _ => todo!("Need to decide what to do here…"),
+        #[cfg(feature = "sys")]
+        fn is_from_store(&self, _store: &impl wit_bindgen_rust::AsStoreRef) -> bool {
+            // TODO: find correct implementation
+            false
         }
     }
 
-    #[cfg(feature = "sys")]
-    fn is_from_store(&self, _store: &impl wit_bindgen_rust::AsStoreRef) -> bool {
-        // TODO: find correct implementation
-        false
-    }
-}
+    // TODO: if necessary, must be implemented in wit-bindgen
+    unsafe impl wit_bindgen_rust::FromToNativeWasmType for Snapshot0Clockid {
+        type Native = i32;
 
-// TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl wit_bindgen_rust::FromToNativeWasmType for Snapshot0Whence {
-    type Native = i32;
+        fn to_native(self) -> Self::Native {
+            self as i32
+        }
+        fn from_native(n: Self::Native) -> Self {
+            match n {
+                0 => Self::Realtime,
+                1 => Self::Monotonic,
+                2 => Self::ProcessCputimeId,
+                3 => Self::ThreadCputimeId,
+                // TODO: What should we map invalid native values to?
+                _ => todo!("Need to decide what to do here…"),
+            }
+        }
 
-    fn to_native(self) -> Self::Native {
-        self as i32
-    }
-    fn from_native(n: Self::Native) -> Self {
-        match n {
-            0 => Self::Cur,
-            1 => Self::End,
-            2 => Self::Set,
-            // TODO: What should we map invalid native values to?
-            _ => todo!("Need to decide what to do here…"),
+        #[cfg(feature = "sys")]
+        fn is_from_store(&self, _store: &impl wit_bindgen_rust::AsStoreRef) -> bool {
+            // TODO: find correct implementation
+            false
         }
     }
 
-    #[cfg(feature = "sys")]
-    fn is_from_store(&self, _store: &impl wit_bindgen_rust::AsStoreRef) -> bool {
-        // TODO: find correct implementation
-        false
-    }
-}
+    // TODO: if necessary, must be implemented in wit-bindgen
+    unsafe impl wit_bindgen_rust::FromToNativeWasmType for Sockoption {
+        type Native = i32;
 
-// TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl wit_bindgen_rust::FromToNativeWasmType for Whence {
+        fn to_native(self) -> Self::Native {
+            self as i32
+        }
+        fn from_native(n: Self::Native) -> Self {
+            match n {
+                0 => Self::Noop,
+                1 => Self::ReusePort,
+                2 => Self::ReuseAddr,
+                3 => Self::NoDelay,
+                4 => Self::DontRoute,
+                5 => Self::OnlyV6,
+                6 => Self::Broadcast,
+                7 => Self::MulticastLoopV4,
+                8 => Self::MulticastLoopV6,
+                9 => Self::Promiscuous,
+                10 => Self::Listening,
+                11 => Self::LastError,
+                12 => Self::KeepAlive,
+                13 => Self::Linger,
+                14 => Self::OobInline,
+                15 => Self::RecvBufSize,
+                16 => Self::SendBufSize,
+                17 => Self::RecvLowat,
+                18 => Self::SendLowat,
+                19 => Self::RecvTimeout,
+                20 => Self::SendTimeout,
+                21 => Self::ConnectTimeout,
+                22 => Self::AcceptTimeout,
+                23 => Self::Ttl,
+                24 => Self::MulticastTtlV4,
+                25 => Self::Type,
+                26 => Self::Proto,
+                // TODO: What should we map invalid native values to?
+                _ => todo!("Need to decide what to do here…"),
+            }
+        }
+
+        #[cfg(feature = "sys")]
+        fn is_from_store(&self, _store: &impl wit_bindgen_rust::AsStoreRef) -> bool {
+            // TODO: find correct implementation
+            false
+        }
+    }
+
+    // TODO: if necessary, must be implemented in wit-bindgen
+    unsafe impl wit_bindgen_rust::FromToNativeWasmType for Fdflags {
+        type Native = i32;
+
+        fn to_native(self) -> Self::Native {
+            self.bits() as i32
+        }
+        fn from_native(n: Self::Native) -> Self {
+            Self::from_bits_truncate(n as u8)
+        }
+
+        #[cfg(feature = "sys")]
+        fn is_from_store(&self, _store: &impl wit_bindgen_rust::AsStoreRef) -> bool {
+            // TODO: find correct implementation
+            false
+        }
+    }
+
+    // TODO: if necessary, must be implemented in wit-bindgen
+    unsafe impl wit_bindgen_rust::FromToNativeWasmType for Preopentype {
+        type Native = i32;
+
+        fn to_native(self) -> Self::Native {
+            self as i32
+        }
+        fn from_native(n: Self::Native) -> Self {
+            match n {
+                0 => Self::Dir,
+                // TODO: What should we map invalid native values to?
+                _ => todo!("Need to decide what to do here…"),
+            }
+        }
+
+        #[cfg(feature = "sys")]
+        fn is_from_store(&self, _store: &impl wit_bindgen_rust::AsStoreRef) -> bool {
+            // TODO: find correct implementation
+            false
+        }
+    }
+
+    // TODO: if necessary, must be implemented in wit-bindgen
+    unsafe impl wit_bindgen_rust::FromToNativeWasmType for Addressfamily {
+        type Native = i32;
+
+        fn to_native(self) -> Self::Native {
+            self as i32
+        }
+        fn from_native(n: Self::Native) -> Self {
+            match n {
+                0 => Self::Unspec,
+                1 => Self::Inet4,
+                2 => Self::Inet6,
+                3 => Self::Unix,
+                // TODO: What should we map invalid native values to?
+                _ => todo!("Need to decide what to do here…"),
+            }
+        }
+
+        #[cfg(feature = "sys")]
+        fn is_from_store(&self, _store: &impl wit_bindgen_rust::AsStoreRef) -> bool {
+            // TODO: find correct implementation
+            false
+        }
+    }
+
+    // TODO: if necessary, must be implemented in wit-bindgen
+    unsafe impl wit_bindgen_rust::FromToNativeWasmType for Snapshot0Whence {
+        type Native = i32;
+
+        fn to_native(self) -> Self::Native {
+            self as i32
+        }
+        fn from_native(n: Self::Native) -> Self {
+            match n {
+                0 => Self::Cur,
+                1 => Self::End,
+                2 => Self::Set,
+                // TODO: What should we map invalid native values to?
+                _ => todo!("Need to decide what to do here…"),
+            }
+        }
+
+        #[cfg(feature = "sys")]
+        fn is_from_store(&self, _store: &impl wit_bindgen_rust::AsStoreRef) -> bool {
+            // TODO: find correct implementation
+            false
+        }
+    }
+
+    // TODO: if necessary, must be implemented in wit-bindgen
+    unsafe impl wit_bindgen_rust::FromToNativeWasmType for Whence {
     type Native = i32;
 
     fn to_native(self) -> Self::Native {
@@ -1313,6 +1319,7 @@ unsafe impl wit_bindgen_rust::FromToNativeWasmType for Whence {
     }
 }
 */
+
 // TODO: if necessary, must be implemented in wit-bindgen
 unsafe impl ValueType for Snapshot0Clockid {
     #[inline]

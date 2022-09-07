@@ -12,3 +12,5 @@ wit-bindgen rust-wasm \
     --import \
     "$BASEDIR"/wit-clean/output.wit \
     --out-dir "$BASEDIR"/src/wasi
+
+# sed "mod output" "pub mod output"

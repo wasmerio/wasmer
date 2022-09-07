@@ -23,6 +23,7 @@ expose-types-dummy-func: func(
   tty: tty,
   tid: tid,
   pid: pid,
+  busdataformat: busdataformat,
 )
 
 
@@ -812,7 +813,16 @@ record tty {
     echo: bool,
     line-buffered: bool,
 }
-// WASI Preview. This is an evolution of the API that WASI initially
+
+enum busdataformat {
+    raw,
+    bincode,
+    message-pack,
+    json,
+    yaml,
+    xml,
+    rkyv,
+}// WASI Preview. This is an evolution of the API that WASI initially
 // launched with.
 //
 // Some content here is derived from [CloudABI](https://github.com/NuxiNL/cloudabi).

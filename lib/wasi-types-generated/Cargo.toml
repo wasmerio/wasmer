@@ -16,5 +16,5 @@ branch = "main"
 package = "wit-bindgen-rust"
 
 [features]
-js = []
-sys = []
+js = ["wasmer/js"]
+sys = ["wasmer/sys"]
