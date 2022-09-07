@@ -1,7 +1,7 @@
 use std::io::{Read, Write};
 
 use wasmer::{Instance, Module, Store};
-use wasmer_wasi::{Pipe, WasiState};
+use wasmer_wasi::{WasiPipe, WasiState, WasiPipePair};
 
 mod sys {
     #[test]
@@ -73,10 +73,10 @@ fn test_stdout() {
     "#).unwrap();
 
     // Create the `WasiEnv`.
-    let mut stdout = Pipe::default();
+    let WasiPipePair { send, mut recv } = WasiPipe::new();
     let wasi_env = WasiState::new("command-name")
         .args(&["Gordon"])
-        .stdout(Box::new(stdout.clone()))
+        .stdout(Box::new(send))
         .finalize(&mut store)
         .unwrap();
 
@@ -93,7 +93,7 @@ fn test_stdout() {
     start.call(&mut store, &[]).unwrap();
 
     let mut stdout_str = String::new();
-    stdout.read_to_string(&mut stdout_str).unwrap();
+    recv.read_to_string(&mut stdout_str).unwrap();
     let stdout_as_str = stdout_str.as_str();
     assert_eq!(stdout_as_str, "hello world\n");
 }
@@ -110,7 +110,7 @@ fn test_env() {
     });
 
     // Create the `WasiEnv`.
-    let mut stdout = Pipe::new();
+    let WasiPipePair { send, mut recv } = WasiPipe::new();
     let mut wasi_state_builder = WasiState::new("command-name");
     wasi_state_builder
         .args(&["Gordon"])
@@ -119,7 +119,7 @@ fn test_env() {
         .env("TEST2", "VALUE2");
     // panic!("envs: {:?}", wasi_state_builder.envs);
     let wasi_env = wasi_state_builder
-        .stdout(Box::new(stdout.clone()))
+        .stdout(Box::new(send))
         .finalize(&mut store)
         .unwrap();
 
@@ -136,7 +136,7 @@ fn test_env() {
     start.call(&mut store, &[]).unwrap();
 
     let mut stdout_str = String::new();
-    stdout.read_to_string(&mut stdout_str).unwrap();
+    recv.read_to_string(&mut stdout_str).unwrap();
     let stdout_as_str = stdout_str.as_str();
     assert_eq!(stdout_as_str, "Env vars:\nDOG=X\nTEST2=VALUE2\nTEST=VALUE\nDOG Ok(\"X\")\nDOG_TYPE Err(NotPresent)\nSET VAR Ok(\"HELLO\")\n");
 }
@@ -146,15 +146,17 @@ fn test_stdin() {
     let module = Module::new(&store, include_bytes!("stdin-hello.wasm")).unwrap();
 
     // Create the `WasiEnv`.
-    let mut stdin = Pipe::new();
-    let wasi_env = WasiState::new("command-name")
-        .stdin(Box::new(stdin.clone()))
-        .finalize(&mut store)
-        .unwrap();
+    let WasiPipePair { mut send, mut recv } = WasiPipe::new();
 
     // Write to STDIN
     let buf = "Hello, stdin!\n".as_bytes().to_owned();
-    stdin.write(&buf[..]).unwrap();
+    send.write(&buf[..]).unwrap();
+    send.close();
+
+    let wasi_env = WasiState::new("command-name")
+        .stdin(Box::new(send))
+        .finalize(&mut store)
+        .unwrap();
 
     // Generate an `ImportObject`.
     let import_object = wasi_env.import_object(&mut store, &module).unwrap();
@@ -171,6 +173,6 @@ fn test_stdin() {
 
     // We assure stdin is now empty
     let mut buf = Vec::new();
-    stdin.read_to_end(&mut buf).unwrap();
+    recv.read_to_end(&mut buf).unwrap();
     assert_eq!(buf.len(), 0);
 }

@@ -265,12 +265,7 @@ extern "C" fn wasi_pipe_read_null(_: *const c_void, _: *mut c_char, _: usize) ->
     0
 }
 
-extern "C" fn wasi_pipe_write_null(
-    _: *const c_void,
-    _: *const c_char,
-    _: usize,
-    _: bool,
-) -> i64 {
+extern "C" fn wasi_pipe_write_null(_: *const c_void, _: *const c_char, _: usize, _: bool) -> i64 {
     0
 }
 
@@ -349,9 +344,7 @@ unsafe extern "C" fn wasi_pipe_seek_memory_2(
 }
 
 #[no_mangle]
-unsafe extern "C" fn wasi_pipe_delete_memory_2(
-    ptr: *const c_void, /* = *WasiPipe */
-) -> i64 {
+unsafe extern "C" fn wasi_pipe_delete_memory_2(ptr: *const c_void /* = *WasiPipe */) -> i64 {
     let ptr = ptr as *const WasiPipe;
     let mut pipe: WasiPipe = std::mem::transmute_copy(&*ptr); // dropped here, destructors run here
     pipe.close();
@@ -361,9 +354,7 @@ unsafe extern "C" fn wasi_pipe_delete_memory_2(
 /// Creates a new `wasi_pipe_t` which uses a memory buffer
 /// for backing stdin / stdout / stderr
 #[no_mangle]
-pub unsafe extern "C" fn wasi_pipe_new(
-    ptr_user: &mut *mut wasi_pipe_t,
-) -> *mut wasi_pipe_t {
+pub unsafe extern "C" fn wasi_pipe_new(ptr_user: &mut *mut wasi_pipe_t) -> *mut wasi_pipe_t {
     use std::mem::ManuallyDrop;
 
     let pair = WasiPipe::new();
@@ -415,10 +406,7 @@ pub unsafe extern "C" fn wasi_pipe_write_bytes(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn wasi_pipe_write_str(
-    ptr: *const wasi_pipe_t,
-    buf: *const c_char,
-) -> i64 {
+pub unsafe extern "C" fn wasi_pipe_write_str(ptr: *const wasi_pipe_t, buf: *const c_char) -> i64 {
     use std::io::Write;
     let c_str = std::ffi::CStr::from_ptr(buf);
     let as_bytes_with_nul = c_str.to_bytes();
@@ -462,10 +450,7 @@ pub unsafe extern "C" fn wasi_pipe_delete_str(buf: *mut c_char) {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn wasi_pipe_read_str(
-    ptr: *const wasi_pipe_t,
-    buf: *mut *mut c_char,
-) -> i64 {
+pub unsafe extern "C" fn wasi_pipe_read_str(ptr: *const wasi_pipe_t, buf: *mut *mut c_char) -> i64 {
     use std::ffi::CString;
     use std::io::Read;
 
@@ -1109,7 +1094,7 @@ mod tests {
                 wasi_config_overwrite_stdout(config, override_stdout_1);
                 wasi_config_overwrite_stderr(config, override_stderr_1);
 
-                // write to stdin, then close all senders in order 
+                // write to stdin, then close all senders in order
                 // not to block during execution
                 wasi_pipe_write_str(override_stdin_2, "hello");
                 wasi_pipe_delete(override_stdin_2);
