@@ -10,6 +10,7 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ### Added
 - #[3096](https://github.com/wasmerio/wasmer/pull/3096) create-exe: use cached wasmer tarballs for network fetches
+- Support installing pre-built binaries via `cargo-binstall`
 
 ### Changed
 - #[3131](https://github.com/wasmerio/wasmer/pull/3131) Update migration docs for MemoryView changes
