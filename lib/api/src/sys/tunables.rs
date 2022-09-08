@@ -308,4 +308,33 @@ mod tests {
             }
         );
     }
+
+    #[test]
+    fn check_customtunables() -> Result<(), Box<dyn std::error::Error>> {
+        use crate::{imports, wat2wasm, Instance, Memory, Module, Store};
+        use wasmer_compiler_cranelift::Cranelift;
+
+        let wasm_bytes = wat2wasm(
+            br#"(module (memory 3) (export "memory" (memory 0)))"#
+        )?;
+        let compiler = Cranelift::default();
+
+        let tunables = TinyTunables {};
+        let mut store = Store::new_with_tunables(compiler, tunables);
+        let module = Module::new(&store, wasm_bytes)?;
+        let import_object = imports! {};
+        let instance = Instance::new(&mut store, &module, &import_object)?;
+
+        let mut memories: Vec<Memory> = instance
+            .exports
+            .iter()
+            .memories()
+            .map(|pair| pair.1.clone())
+            .collect();
+        assert_eq!(memories.len(), 1);
+        let first_memory = memories.pop().unwrap();
+        assert_eq!(first_memory.ty(&store).maximum.unwrap(), Pages(1));
+
+        Ok(())
+    }
 }
