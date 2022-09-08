@@ -98,7 +98,6 @@ fn main() {
                         }}
                     }}
                 
-                    #[cfg(feature = \"sys\")]
                     fn is_from_store(&self, _store: &impl wasmer::AsStoreRef) -> bool {{ false }}
                 }}
                 "

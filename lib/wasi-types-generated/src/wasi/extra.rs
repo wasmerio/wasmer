@@ -3755,7 +3755,6 @@ unsafe impl wasmer::FromToNativeWasmType for Snapshot0Clockid {
         }
     }
 
-    #[cfg(feature = "sys")]
     fn is_from_store(&self, _store: &impl wasmer::AsStoreRef) -> bool {
         false
     }
@@ -3783,7 +3782,6 @@ unsafe impl wasmer::FromToNativeWasmType for Clockid {
         }
     }
 
-    #[cfg(feature = "sys")]
     fn is_from_store(&self, _store: &impl wasmer::AsStoreRef) -> bool {
         false
     }
@@ -3886,7 +3884,6 @@ unsafe impl wasmer::FromToNativeWasmType for Errno {
         }
     }
 
-    #[cfg(feature = "sys")]
     fn is_from_store(&self, _store: &impl wasmer::AsStoreRef) -> bool {
         false
     }
@@ -3932,7 +3929,6 @@ unsafe impl wasmer::FromToNativeWasmType for BusErrno {
         }
     }
 
-    #[cfg(feature = "sys")]
     fn is_from_store(&self, _store: &impl wasmer::AsStoreRef) -> bool {
         false
     }
@@ -3973,7 +3969,6 @@ unsafe impl wasmer::FromToNativeWasmType for Filetype {
         }
     }
 
-    #[cfg(feature = "sys")]
     fn is_from_store(&self, _store: &impl wasmer::AsStoreRef) -> bool {
         false
     }
@@ -4017,7 +4012,6 @@ unsafe impl wasmer::FromToNativeWasmType for Advice {
         }
     }
 
-    #[cfg(feature = "sys")]
     fn is_from_store(&self, _store: &impl wasmer::AsStoreRef) -> bool {
         false
     }
@@ -4076,7 +4070,6 @@ unsafe impl wasmer::FromToNativeWasmType for Eventtype {
         }
     }
 
-    #[cfg(feature = "sys")]
     fn is_from_store(&self, _store: &impl wasmer::AsStoreRef) -> bool {
         false
     }
@@ -4121,7 +4114,6 @@ unsafe impl wasmer::FromToNativeWasmType for Preopentype {
         }
     }
 
-    #[cfg(feature = "sys")]
     fn is_from_store(&self, _store: &impl wasmer::AsStoreRef) -> bool {
         false
     }
@@ -4211,7 +4203,6 @@ unsafe impl wasmer::FromToNativeWasmType for Socktype {
         }
     }
 
-    #[cfg(feature = "sys")]
     fn is_from_store(&self, _store: &impl wasmer::AsStoreRef) -> bool {
         false
     }
@@ -4241,7 +4232,6 @@ unsafe impl wasmer::FromToNativeWasmType for Sockstatus {
         }
     }
 
-    #[cfg(feature = "sys")]
     fn is_from_store(&self, _store: &impl wasmer::AsStoreRef) -> bool {
         false
     }
@@ -4294,7 +4284,6 @@ unsafe impl wasmer::FromToNativeWasmType for Sockoption {
         }
     }
 
-    #[cfg(feature = "sys")]
     fn is_from_store(&self, _store: &impl wasmer::AsStoreRef) -> bool {
         false
     }
@@ -4324,7 +4313,6 @@ unsafe impl wasmer::FromToNativeWasmType for Streamsecurity {
         }
     }
 
-    #[cfg(feature = "sys")]
     fn is_from_store(&self, _store: &impl wasmer::AsStoreRef) -> bool {
         false
     }
@@ -4354,7 +4342,6 @@ unsafe impl wasmer::FromToNativeWasmType for Addressfamily {
         }
     }
 
-    #[cfg(feature = "sys")]
     fn is_from_store(&self, _store: &impl wasmer::AsStoreRef) -> bool {
         false
     }
@@ -4395,7 +4382,6 @@ unsafe impl wasmer::FromToNativeWasmType for Snapshot0Whence {
         }
     }
 
-    #[cfg(feature = "sys")]
     fn is_from_store(&self, _store: &impl wasmer::AsStoreRef) -> bool {
         false
     }
@@ -4424,7 +4410,6 @@ unsafe impl wasmer::FromToNativeWasmType for Whence {
         }
     }
 
-    #[cfg(feature = "sys")]
     fn is_from_store(&self, _store: &impl wasmer::AsStoreRef) -> bool {
         false
     }
@@ -4463,7 +4448,6 @@ unsafe impl wasmer::FromToNativeWasmType for BusDataFormat {
         }
     }
 
-    #[cfg(feature = "sys")]
     fn is_from_store(&self, _store: &impl wasmer::AsStoreRef) -> bool {
         false
     }
@@ -4495,7 +4479,6 @@ unsafe impl wasmer::FromToNativeWasmType for BusEventType {
         }
     }
 
-    #[cfg(feature = "sys")]
     fn is_from_store(&self, _store: &impl wasmer::AsStoreRef) -> bool {
         false
     }
@@ -4523,7 +4506,6 @@ unsafe impl wasmer::FromToNativeWasmType for OptionTag {
         }
     }
 
-    #[cfg(feature = "sys")]
     fn is_from_store(&self, _store: &impl wasmer::AsStoreRef) -> bool {
         false
     }
@@ -4614,7 +4596,6 @@ unsafe impl wasmer::FromToNativeWasmType for StdioMode {
         }
     }
 
-    #[cfg(feature = "sys")]
     fn is_from_store(&self, _store: &impl wasmer::AsStoreRef) -> bool {
         false
     }
@@ -4904,7 +4885,6 @@ unsafe impl wasmer::FromToNativeWasmType for SockProto {
         }
     }
 
-    #[cfg(feature = "sys")]
     fn is_from_store(&self, _store: &impl wasmer::AsStoreRef) -> bool {
         false
     }
@@ -4932,7 +4912,6 @@ unsafe impl wasmer::FromToNativeWasmType for Bool {
         }
     }
 
-    #[cfg(feature = "sys")]
     fn is_from_store(&self, _store: &impl wasmer::AsStoreRef) -> bool {
         false
     }
@@ -4994,7 +4973,6 @@ unsafe impl wasmer::FromToNativeWasmType for Signal {
         }
     }
 
-    #[cfg(feature = "sys")]
     fn is_from_store(&self, _store: &impl wasmer::AsStoreRef) -> bool {
         false
     }
@@ -5054,7 +5032,6 @@ unsafe impl wasmer::FromToNativeWasmType for Timeout {
         }
     }
 
-    #[cfg(feature = "sys")]
     fn is_from_store(&self, _store: &impl wasmer::AsStoreRef) -> bool {
         false
     }

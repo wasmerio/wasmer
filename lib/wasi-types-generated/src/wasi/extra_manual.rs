@@ -191,7 +191,6 @@ unsafe impl wasmer::FromToNativeWasmType for Fdflags {
         Self::from_bits_truncate(n as u8)
     }
 
-    #[cfg(feature = "sys")]
     fn is_from_store(&self, _store: &impl wasmer::AsStoreRef) -> bool {
         // TODO: find correct implementation
         false
@@ -210,7 +209,6 @@ unsafe impl wasmer::FromToNativeWasmType for Rights {
         Self::from_bits_truncate(n as u64)
     }
 
-    #[cfg(feature = "sys")]
     fn is_from_store(&self, _store: &impl wasmer::AsStoreRef) -> bool {
         // TODO: find correct implementation
         false
@@ -228,7 +226,6 @@ unsafe impl wasmer::FromToNativeWasmType for Fstflags {
         Self::from_bits_truncate(n as u8)
     }
 
-    #[cfg(feature = "sys")]
     fn is_from_store(&self, _store: &impl wasmer::AsStoreRef) -> bool {
         // TODO: find correct implementation
         false
@@ -246,7 +243,6 @@ unsafe impl wasmer::FromToNativeWasmType for Oflags {
         Self::from_bits_truncate(n as u8)
     }
 
-    #[cfg(feature = "sys")]
     fn is_from_store(&self, _store: &impl wasmer::AsStoreRef) -> bool {
         // TODO: find correct implementation
         false
