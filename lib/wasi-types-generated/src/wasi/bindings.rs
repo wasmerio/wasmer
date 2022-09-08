@@ -1522,7 +1522,24 @@ pub mod output {
   pub type Bid = u32;
   pub type Cid = u32;
   /// __wasi_option_t
-  pub type OptionTag = u8;
+  #[repr(u8)]
+  #[derive(Clone, Copy, PartialEq, Eq)]
+  pub enum OptionTag {
+    None,
+    Some,
+  }
+  impl core::fmt::Debug for OptionTag {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+      match self {
+        OptionTag::None => {
+          f.debug_tuple("OptionTag::None").finish()
+        }
+        OptionTag::Some => {
+          f.debug_tuple("OptionTag::Some").finish()
+        }
+      }
+    }
+  }
   #[repr(C)]
   #[derive(Copy, Clone)]
   pub struct OptionBid {
@@ -1626,8 +1643,1143 @@ pub mod output {
   }
   pub type FileDelta = i64;
   pub type LookupFlags = u32;
+  pub type Count = u32;
+  #[repr(C)]
+  #[derive(Copy, Clone)]
+  pub struct PipeHandles {
+    pub pipe: Fd,
+    pub other: Fd,
+  }
+  impl core::fmt::Debug for PipeHandles {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+      f.debug_struct("PipeHandles").field("pipe", &self.pipe).field("other", &self.other).finish()}
+  }
+  #[repr(u8)]
+  #[derive(Clone, Copy, PartialEq, Eq)]
+  pub enum StdioMode {
+    Reserved,
+    Piped,
+    Inherit,
+    Null,
+    Log,
+  }
+  impl core::fmt::Debug for StdioMode {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+      match self {
+        StdioMode::Reserved => {
+          f.debug_tuple("StdioMode::Reserved").finish()
+        }
+        StdioMode::Piped => {
+          f.debug_tuple("StdioMode::Piped").finish()
+        }
+        StdioMode::Inherit => {
+          f.debug_tuple("StdioMode::Inherit").finish()
+        }
+        StdioMode::Null => {
+          f.debug_tuple("StdioMode::Null").finish()
+        }
+        StdioMode::Log => {
+          f.debug_tuple("StdioMode::Log").finish()
+        }
+      }
+    }
+  }
+  #[repr(u16)]
+  #[derive(Clone, Copy, PartialEq, Eq)]
+  pub enum SockProto {
+    Ip,
+    Icmp,
+    Igmp,
+    ProtoThree,
+    Ipip,
+    ProtoFive,
+    Tcp,
+    ProtoSeven,
+    Egp,
+    ProtoNine,
+    ProtoTen,
+    ProtoEleven,
+    Pup,
+    ProtoThirteen,
+    ProtoFourteen,
+    ProtoFifteen,
+    ProtoSixteen,
+    Udp,
+    ProtoEighteen,
+    ProtoNineteen,
+    ProtoTwenty,
+    ProtoTwentyone,
+    Idp,
+    ProtoTwentythree,
+    ProtoTwentyfour,
+    ProtoTwentyfive,
+    ProtoTwentysix,
+    ProtoTwentyseven,
+    ProtoTwentyeight,
+    ProtoTp,
+    ProtoThirty,
+    ProtoThirtyone,
+    ProtoThirtytwo,
+    Dccp,
+    ProtoThirtyfour,
+    ProtoThirtyfive,
+    ProtoThirtysix,
+    ProtoThirtyseven,
+    ProtoThirtyeight,
+    ProtoThirtynine,
+    ProtoFourty,
+    Ipv6,
+    ProtoFourtytwo,
+    Routing,
+    Fragment,
+    ProtoFourtyfive,
+    Rsvp,
+    Gre,
+    ProtoFourtyeight,
+    ProtoFourtynine,
+    Esp,
+    Ah,
+    ProtoFiftytwo,
+    ProtoFiftythree,
+    ProtoFiftyfour,
+    ProtoFiftyfive,
+    ProtoFiftysix,
+    ProtoFiftyseven,
+    Icmpv6,
+    None,
+    Dstopts,
+    ProtoSixtyone,
+    ProtoSixtytwo,
+    ProtoSixtythree,
+    ProtoSixtyfour,
+    ProtoSixtyfive,
+    ProtoSixtysix,
+    ProtoSixtyseven,
+    ProtoSixtyeight,
+    ProtoSixtynine,
+    ProtoSeventy,
+    ProtoSeventyone,
+    ProtoSeventytwo,
+    ProtoSeventythree,
+    ProtoSeventyfour,
+    ProtoSeventyfive,
+    ProtoSeventysix,
+    ProtoSeventyseven,
+    ProtoSeventyeight,
+    ProtoSeventynine,
+    ProtoEighty,
+    ProtoEightyone,
+    ProtoEightytwo,
+    ProtoEightythree,
+    ProtoEightyfour,
+    ProtoEightyfive,
+    ProtoEightysix,
+    ProtoEightyseven,
+    ProtoEightyeight,
+    ProtoEightynine,
+    ProtoNinety,
+    ProtoNinetyone,
+    Mtp,
+    ProtoNinetythree,
+    Beetph,
+    ProtoNinetyfive,
+    ProtoNinetysix,
+    ProtoNineetyseven,
+    Encap,
+    ProtoNinetynine,
+    ProtoOnehundred,
+    ProtoOnehundredandone,
+    ProtoOnehundredandtwo,
+    Pim,
+    ProtoOnehundredandfour,
+    ProtoOnehundredandfive,
+    ProtoOnehundredandsix,
+    ProtoOnehundredandseven,
+    Comp,
+    ProtoOnehundredandnine,
+    ProtoOnehundredandten,
+    ProtoOnehundredandeleven,
+    ProtoOnehundredandtwelve,
+    ProtoOnehundredandthirteen,
+    ProtoOnehundredandfourteen,
+    ProtoOnehundredandfifteen,
+    ProtoOnehundredandsixteen,
+    ProtoOnehundredandseventeen,
+    ProtoOnehundredandeighteen,
+    ProtoOnehundredandnineteen,
+    ProtoOnehundredandtwenty,
+    ProtoOnehundredandtwentyone,
+    ProtoOnehundredandtwentytwo,
+    ProtoOnehundredandtwentythree,
+    ProtoOnehundredandtwentyfour,
+    ProtoOnehundredandtwentyfive,
+    ProtoOnehundredandtwentysix,
+    ProtoOnehundredandtwentyseven,
+    ProtoOnehundredandtwentyeight,
+    ProtoOnehundredandtwentynine,
+    ProtoOnehundredandthirty,
+    ProtoOnehundredandthirtyone,
+    Sctp,
+    ProtoOnehundredandthirtythree,
+    ProtoOnehundredandthirtyfour,
+    Mh,
+    Udplite,
+    Mpls,
+    ProtoOnehundredandthirtyeight,
+    ProtoOnehundredandthirtynine,
+    ProtoOnehundredandfourty,
+    ProtoOnehundredandfourtyone,
+    ProtoOnehundredandfourtytwo,
+    Ethernet,
+    ProtoOnehundredandfourtyfour,
+    ProtoOnehundredandfourtyfive,
+    ProtoOnehundredandfourtysix,
+    ProtoOnehundredandfourtyseven,
+    ProtoOnehundredandfourtyeight,
+    ProtoOnehundredandfourtynine,
+    ProtoOnehundredandfifty,
+    ProtoOnehundredandfiftyone,
+    ProtoOnehundredandfiftytwo,
+    ProtoOnehundredandfiftythree,
+    ProtoOnehundredandfiftyfour,
+    ProtoOnehundredandfiftyfive,
+    ProtoOnehundredandfiftysix,
+    ProtoOnehundredandfiftyseven,
+    ProtoOnehundredandfiftyeight,
+    ProtoOnehundredandfiftynine,
+    ProtoOnehundredandsixty,
+    ProtoOnehundredandsixtyone,
+    ProtoOnehundredandsixtytwo,
+    ProtoOnehundredandsixtythree,
+    ProtoOnehundredandsixtyfour,
+    ProtoOnehundredandsixtyfive,
+    ProtoOnehundredandsixtysix,
+    ProtoOnehundredandsixtyseven,
+    ProtoOnehundredandsixtyeight,
+    ProtoOnehundredandsixtynine,
+    ProtoOnehundredandseventy,
+    ProtoOnehundredandseventyone,
+    ProtoOnehundredandseventytwo,
+    ProtoOnehundredandseventythree,
+    ProtoOnehundredandseventyfour,
+    ProtoOnehundredandseventyfive,
+    ProtoOnehundredandseventysix,
+    ProtoOnehundredandseventyseven,
+    ProtoOnehundredandseventyeight,
+    ProtoOnehundredandseventynine,
+    ProtoOnehundredandeighty,
+    ProtoOnehundredandeightyone,
+    ProtoOnehundredandeightytwo,
+    ProtoOnehundredandeightythree,
+    ProtoOnehundredandeightyfour,
+    ProtoOnehundredandeightyfive,
+    ProtoOnehundredandeightysix,
+    ProtoOnehundredandeightyseven,
+    ProtoOnehundredandeightyeight,
+    ProtoOnehundredandeightynine,
+    ProtoOnehundredandninety,
+    ProtoOnehundredandninetyone,
+    ProtoOnehundredandninetytwo,
+    ProtoOnehundredandninetythree,
+    ProtoOnehundredandninetyfour,
+    ProtoOnehundredandninetyfive,
+    ProtoOnehundredandninetysix,
+    ProtoOnehundredandninetyseven,
+    ProtoOnehundredandninetyeight,
+    ProtoOnehundredandninetynine,
+    ProtoTwohundred,
+    ProtoTwohundredandone,
+    ProtoTwohundredandtwo,
+    ProtoTwohundredandthree,
+    ProtoTwohundredandfour,
+    ProtoTwohundredandfive,
+    ProtoTwohundredandsix,
+    ProtoTwohundredandseven,
+    ProtoTwohundredandeight,
+    ProtoTwohundredandnine,
+    ProtoTwohundredandten,
+    ProtoTwohundredandeleven,
+    ProtoTwohundredandtwelve,
+    ProtoTwohundredandthirteen,
+    ProtoTwohundredandfourteen,
+    ProtoTwohundredandfifteen,
+    ProtoTwohundredandsixteen,
+    ProtoTwohundredandseventeen,
+    ProtoTwohundredandeighteen,
+    ProtoTwohundredandnineteen,
+    ProtoTwohundredandtwenty,
+    ProtoTwohundredandtwentyone,
+    ProtoTwohundredandtwentytwo,
+    ProtoTwohundredandtwentythree,
+    ProtoTwohundredandtwentyfour,
+    ProtoTwohundredandtwentyfive,
+    ProtoTwohundredandtwentysix,
+    ProtoTwohundredandtwentyseven,
+    ProtoTwohundredandtwentyeight,
+    ProtoTwohundredandtwentynine,
+    ProtoTwohundredandthirty,
+    ProtoTwohundredandthirtyone,
+    ProtoTwohundredandthirtytwo,
+    ProtoTwohundredandthirtythree,
+    ProtoTwohundredandthirtyfour,
+    ProtoTwohundredandthirtyfive,
+    ProtoTwohundredandthirtysix,
+    ProtoTwohundredandthirtyseven,
+    ProtoTwohundredandthirtyeight,
+    ProtoTwohundredandthirtynine,
+    ProtoTwohundredandfourty,
+    ProtoTwohundredandfourtyone,
+    ProtoTwohundredandfourtytwo,
+    ProtoTwohundredandfourtythree,
+    ProtoTwohundredandfourtyfour,
+    ProtoTwohundredandfourtyfive,
+    ProtoTwohundredandfourtysix,
+    ProtoTwohundredandfourtyseven,
+    ProtoTwohundredandfourtyeight,
+    ProtoTwohundredandfourtynine,
+    ProtoTwohundredandfifty,
+    ProtoTwohundredandfiftyone,
+    ProtoTwohundredandfiftytwo,
+    ProtoTwohundredandfiftythree,
+    ProtoTwohundredandfiftyfour,
+    ProtoRaw,
+    ProtoTwohundredandfiftysix,
+    ProtoTwohundredandfiftyseven,
+    ProtoTwohundredandfiftyeight,
+    ProtoTwohundredandfiftynine,
+    ProtoTwohundredandsixty,
+    ProtoTwohundredandsixtyone,
+    Mptcp,
+    Max,
+  }
+  impl core::fmt::Debug for SockProto {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+      match self {
+        SockProto::Ip => {
+          f.debug_tuple("SockProto::Ip").finish()
+        }
+        SockProto::Icmp => {
+          f.debug_tuple("SockProto::Icmp").finish()
+        }
+        SockProto::Igmp => {
+          f.debug_tuple("SockProto::Igmp").finish()
+        }
+        SockProto::ProtoThree => {
+          f.debug_tuple("SockProto::ProtoThree").finish()
+        }
+        SockProto::Ipip => {
+          f.debug_tuple("SockProto::Ipip").finish()
+        }
+        SockProto::ProtoFive => {
+          f.debug_tuple("SockProto::ProtoFive").finish()
+        }
+        SockProto::Tcp => {
+          f.debug_tuple("SockProto::Tcp").finish()
+        }
+        SockProto::ProtoSeven => {
+          f.debug_tuple("SockProto::ProtoSeven").finish()
+        }
+        SockProto::Egp => {
+          f.debug_tuple("SockProto::Egp").finish()
+        }
+        SockProto::ProtoNine => {
+          f.debug_tuple("SockProto::ProtoNine").finish()
+        }
+        SockProto::ProtoTen => {
+          f.debug_tuple("SockProto::ProtoTen").finish()
+        }
+        SockProto::ProtoEleven => {
+          f.debug_tuple("SockProto::ProtoEleven").finish()
+        }
+        SockProto::Pup => {
+          f.debug_tuple("SockProto::Pup").finish()
+        }
+        SockProto::ProtoThirteen => {
+          f.debug_tuple("SockProto::ProtoThirteen").finish()
+        }
+        SockProto::ProtoFourteen => {
+          f.debug_tuple("SockProto::ProtoFourteen").finish()
+        }
+        SockProto::ProtoFifteen => {
+          f.debug_tuple("SockProto::ProtoFifteen").finish()
+        }
+        SockProto::ProtoSixteen => {
+          f.debug_tuple("SockProto::ProtoSixteen").finish()
+        }
+        SockProto::Udp => {
+          f.debug_tuple("SockProto::Udp").finish()
+        }
+        SockProto::ProtoEighteen => {
+          f.debug_tuple("SockProto::ProtoEighteen").finish()
+        }
+        SockProto::ProtoNineteen => {
+          f.debug_tuple("SockProto::ProtoNineteen").finish()
+        }
+        SockProto::ProtoTwenty => {
+          f.debug_tuple("SockProto::ProtoTwenty").finish()
+        }
+        SockProto::ProtoTwentyone => {
+          f.debug_tuple("SockProto::ProtoTwentyone").finish()
+        }
+        SockProto::Idp => {
+          f.debug_tuple("SockProto::Idp").finish()
+        }
+        SockProto::ProtoTwentythree => {
+          f.debug_tuple("SockProto::ProtoTwentythree").finish()
+        }
+        SockProto::ProtoTwentyfour => {
+          f.debug_tuple("SockProto::ProtoTwentyfour").finish()
+        }
+        SockProto::ProtoTwentyfive => {
+          f.debug_tuple("SockProto::ProtoTwentyfive").finish()
+        }
+        SockProto::ProtoTwentysix => {
+          f.debug_tuple("SockProto::ProtoTwentysix").finish()
+        }
+        SockProto::ProtoTwentyseven => {
+          f.debug_tuple("SockProto::ProtoTwentyseven").finish()
+        }
+        SockProto::ProtoTwentyeight => {
+          f.debug_tuple("SockProto::ProtoTwentyeight").finish()
+        }
+        SockProto::ProtoTp => {
+          f.debug_tuple("SockProto::ProtoTp").finish()
+        }
+        SockProto::ProtoThirty => {
+          f.debug_tuple("SockProto::ProtoThirty").finish()
+        }
+        SockProto::ProtoThirtyone => {
+          f.debug_tuple("SockProto::ProtoThirtyone").finish()
+        }
+        SockProto::ProtoThirtytwo => {
+          f.debug_tuple("SockProto::ProtoThirtytwo").finish()
+        }
+        SockProto::Dccp => {
+          f.debug_tuple("SockProto::Dccp").finish()
+        }
+        SockProto::ProtoThirtyfour => {
+          f.debug_tuple("SockProto::ProtoThirtyfour").finish()
+        }
+        SockProto::ProtoThirtyfive => {
+          f.debug_tuple("SockProto::ProtoThirtyfive").finish()
+        }
+        SockProto::ProtoThirtysix => {
+          f.debug_tuple("SockProto::ProtoThirtysix").finish()
+        }
+        SockProto::ProtoThirtyseven => {
+          f.debug_tuple("SockProto::ProtoThirtyseven").finish()
+        }
+        SockProto::ProtoThirtyeight => {
+          f.debug_tuple("SockProto::ProtoThirtyeight").finish()
+        }
+        SockProto::ProtoThirtynine => {
+          f.debug_tuple("SockProto::ProtoThirtynine").finish()
+        }
+        SockProto::ProtoFourty => {
+          f.debug_tuple("SockProto::ProtoFourty").finish()
+        }
+        SockProto::Ipv6 => {
+          f.debug_tuple("SockProto::Ipv6").finish()
+        }
+        SockProto::ProtoFourtytwo => {
+          f.debug_tuple("SockProto::ProtoFourtytwo").finish()
+        }
+        SockProto::Routing => {
+          f.debug_tuple("SockProto::Routing").finish()
+        }
+        SockProto::Fragment => {
+          f.debug_tuple("SockProto::Fragment").finish()
+        }
+        SockProto::ProtoFourtyfive => {
+          f.debug_tuple("SockProto::ProtoFourtyfive").finish()
+        }
+        SockProto::Rsvp => {
+          f.debug_tuple("SockProto::Rsvp").finish()
+        }
+        SockProto::Gre => {
+          f.debug_tuple("SockProto::Gre").finish()
+        }
+        SockProto::ProtoFourtyeight => {
+          f.debug_tuple("SockProto::ProtoFourtyeight").finish()
+        }
+        SockProto::ProtoFourtynine => {
+          f.debug_tuple("SockProto::ProtoFourtynine").finish()
+        }
+        SockProto::Esp => {
+          f.debug_tuple("SockProto::Esp").finish()
+        }
+        SockProto::Ah => {
+          f.debug_tuple("SockProto::Ah").finish()
+        }
+        SockProto::ProtoFiftytwo => {
+          f.debug_tuple("SockProto::ProtoFiftytwo").finish()
+        }
+        SockProto::ProtoFiftythree => {
+          f.debug_tuple("SockProto::ProtoFiftythree").finish()
+        }
+        SockProto::ProtoFiftyfour => {
+          f.debug_tuple("SockProto::ProtoFiftyfour").finish()
+        }
+        SockProto::ProtoFiftyfive => {
+          f.debug_tuple("SockProto::ProtoFiftyfive").finish()
+        }
+        SockProto::ProtoFiftysix => {
+          f.debug_tuple("SockProto::ProtoFiftysix").finish()
+        }
+        SockProto::ProtoFiftyseven => {
+          f.debug_tuple("SockProto::ProtoFiftyseven").finish()
+        }
+        SockProto::Icmpv6 => {
+          f.debug_tuple("SockProto::Icmpv6").finish()
+        }
+        SockProto::None => {
+          f.debug_tuple("SockProto::None").finish()
+        }
+        SockProto::Dstopts => {
+          f.debug_tuple("SockProto::Dstopts").finish()
+        }
+        SockProto::ProtoSixtyone => {
+          f.debug_tuple("SockProto::ProtoSixtyone").finish()
+        }
+        SockProto::ProtoSixtytwo => {
+          f.debug_tuple("SockProto::ProtoSixtytwo").finish()
+        }
+        SockProto::ProtoSixtythree => {
+          f.debug_tuple("SockProto::ProtoSixtythree").finish()
+        }
+        SockProto::ProtoSixtyfour => {
+          f.debug_tuple("SockProto::ProtoSixtyfour").finish()
+        }
+        SockProto::ProtoSixtyfive => {
+          f.debug_tuple("SockProto::ProtoSixtyfive").finish()
+        }
+        SockProto::ProtoSixtysix => {
+          f.debug_tuple("SockProto::ProtoSixtysix").finish()
+        }
+        SockProto::ProtoSixtyseven => {
+          f.debug_tuple("SockProto::ProtoSixtyseven").finish()
+        }
+        SockProto::ProtoSixtyeight => {
+          f.debug_tuple("SockProto::ProtoSixtyeight").finish()
+        }
+        SockProto::ProtoSixtynine => {
+          f.debug_tuple("SockProto::ProtoSixtynine").finish()
+        }
+        SockProto::ProtoSeventy => {
+          f.debug_tuple("SockProto::ProtoSeventy").finish()
+        }
+        SockProto::ProtoSeventyone => {
+          f.debug_tuple("SockProto::ProtoSeventyone").finish()
+        }
+        SockProto::ProtoSeventytwo => {
+          f.debug_tuple("SockProto::ProtoSeventytwo").finish()
+        }
+        SockProto::ProtoSeventythree => {
+          f.debug_tuple("SockProto::ProtoSeventythree").finish()
+        }
+        SockProto::ProtoSeventyfour => {
+          f.debug_tuple("SockProto::ProtoSeventyfour").finish()
+        }
+        SockProto::ProtoSeventyfive => {
+          f.debug_tuple("SockProto::ProtoSeventyfive").finish()
+        }
+        SockProto::ProtoSeventysix => {
+          f.debug_tuple("SockProto::ProtoSeventysix").finish()
+        }
+        SockProto::ProtoSeventyseven => {
+          f.debug_tuple("SockProto::ProtoSeventyseven").finish()
+        }
+        SockProto::ProtoSeventyeight => {
+          f.debug_tuple("SockProto::ProtoSeventyeight").finish()
+        }
+        SockProto::ProtoSeventynine => {
+          f.debug_tuple("SockProto::ProtoSeventynine").finish()
+        }
+        SockProto::ProtoEighty => {
+          f.debug_tuple("SockProto::ProtoEighty").finish()
+        }
+        SockProto::ProtoEightyone => {
+          f.debug_tuple("SockProto::ProtoEightyone").finish()
+        }
+        SockProto::ProtoEightytwo => {
+          f.debug_tuple("SockProto::ProtoEightytwo").finish()
+        }
+        SockProto::ProtoEightythree => {
+          f.debug_tuple("SockProto::ProtoEightythree").finish()
+        }
+        SockProto::ProtoEightyfour => {
+          f.debug_tuple("SockProto::ProtoEightyfour").finish()
+        }
+        SockProto::ProtoEightyfive => {
+          f.debug_tuple("SockProto::ProtoEightyfive").finish()
+        }
+        SockProto::ProtoEightysix => {
+          f.debug_tuple("SockProto::ProtoEightysix").finish()
+        }
+        SockProto::ProtoEightyseven => {
+          f.debug_tuple("SockProto::ProtoEightyseven").finish()
+        }
+        SockProto::ProtoEightyeight => {
+          f.debug_tuple("SockProto::ProtoEightyeight").finish()
+        }
+        SockProto::ProtoEightynine => {
+          f.debug_tuple("SockProto::ProtoEightynine").finish()
+        }
+        SockProto::ProtoNinety => {
+          f.debug_tuple("SockProto::ProtoNinety").finish()
+        }
+        SockProto::ProtoNinetyone => {
+          f.debug_tuple("SockProto::ProtoNinetyone").finish()
+        }
+        SockProto::Mtp => {
+          f.debug_tuple("SockProto::Mtp").finish()
+        }
+        SockProto::ProtoNinetythree => {
+          f.debug_tuple("SockProto::ProtoNinetythree").finish()
+        }
+        SockProto::Beetph => {
+          f.debug_tuple("SockProto::Beetph").finish()
+        }
+        SockProto::ProtoNinetyfive => {
+          f.debug_tuple("SockProto::ProtoNinetyfive").finish()
+        }
+        SockProto::ProtoNinetysix => {
+          f.debug_tuple("SockProto::ProtoNinetysix").finish()
+        }
+        SockProto::ProtoNineetyseven => {
+          f.debug_tuple("SockProto::ProtoNineetyseven").finish()
+        }
+        SockProto::Encap => {
+          f.debug_tuple("SockProto::Encap").finish()
+        }
+        SockProto::ProtoNinetynine => {
+          f.debug_tuple("SockProto::ProtoNinetynine").finish()
+        }
+        SockProto::ProtoOnehundred => {
+          f.debug_tuple("SockProto::ProtoOnehundred").finish()
+        }
+        SockProto::ProtoOnehundredandone => {
+          f.debug_tuple("SockProto::ProtoOnehundredandone").finish()
+        }
+        SockProto::ProtoOnehundredandtwo => {
+          f.debug_tuple("SockProto::ProtoOnehundredandtwo").finish()
+        }
+        SockProto::Pim => {
+          f.debug_tuple("SockProto::Pim").finish()
+        }
+        SockProto::ProtoOnehundredandfour => {
+          f.debug_tuple("SockProto::ProtoOnehundredandfour").finish()
+        }
+        SockProto::ProtoOnehundredandfive => {
+          f.debug_tuple("SockProto::ProtoOnehundredandfive").finish()
+        }
+        SockProto::ProtoOnehundredandsix => {
+          f.debug_tuple("SockProto::ProtoOnehundredandsix").finish()
+        }
+        SockProto::ProtoOnehundredandseven => {
+          f.debug_tuple("SockProto::ProtoOnehundredandseven").finish()
+        }
+        SockProto::Comp => {
+          f.debug_tuple("SockProto::Comp").finish()
+        }
+        SockProto::ProtoOnehundredandnine => {
+          f.debug_tuple("SockProto::ProtoOnehundredandnine").finish()
+        }
+        SockProto::ProtoOnehundredandten => {
+          f.debug_tuple("SockProto::ProtoOnehundredandten").finish()
+        }
+        SockProto::ProtoOnehundredandeleven => {
+          f.debug_tuple("SockProto::ProtoOnehundredandeleven").finish()
+        }
+        SockProto::ProtoOnehundredandtwelve => {
+          f.debug_tuple("SockProto::ProtoOnehundredandtwelve").finish()
+        }
+        SockProto::ProtoOnehundredandthirteen => {
+          f.debug_tuple("SockProto::ProtoOnehundredandthirteen").finish()
+        }
+        SockProto::ProtoOnehundredandfourteen => {
+          f.debug_tuple("SockProto::ProtoOnehundredandfourteen").finish()
+        }
+        SockProto::ProtoOnehundredandfifteen => {
+          f.debug_tuple("SockProto::ProtoOnehundredandfifteen").finish()
+        }
+        SockProto::ProtoOnehundredandsixteen => {
+          f.debug_tuple("SockProto::ProtoOnehundredandsixteen").finish()
+        }
+        SockProto::ProtoOnehundredandseventeen => {
+          f.debug_tuple("SockProto::ProtoOnehundredandseventeen").finish()
+        }
+        SockProto::ProtoOnehundredandeighteen => {
+          f.debug_tuple("SockProto::ProtoOnehundredandeighteen").finish()
+        }
+        SockProto::ProtoOnehundredandnineteen => {
+          f.debug_tuple("SockProto::ProtoOnehundredandnineteen").finish()
+        }
+        SockProto::ProtoOnehundredandtwenty => {
+          f.debug_tuple("SockProto::ProtoOnehundredandtwenty").finish()
+        }
+        SockProto::ProtoOnehundredandtwentyone => {
+          f.debug_tuple("SockProto::ProtoOnehundredandtwentyone").finish()
+        }
+        SockProto::ProtoOnehundredandtwentytwo => {
+          f.debug_tuple("SockProto::ProtoOnehundredandtwentytwo").finish()
+        }
+        SockProto::ProtoOnehundredandtwentythree => {
+          f.debug_tuple("SockProto::ProtoOnehundredandtwentythree").finish()
+        }
+        SockProto::ProtoOnehundredandtwentyfour => {
+          f.debug_tuple("SockProto::ProtoOnehundredandtwentyfour").finish()
+        }
+        SockProto::ProtoOnehundredandtwentyfive => {
+          f.debug_tuple("SockProto::ProtoOnehundredandtwentyfive").finish()
+        }
+        SockProto::ProtoOnehundredandtwentysix => {
+          f.debug_tuple("SockProto::ProtoOnehundredandtwentysix").finish()
+        }
+        SockProto::ProtoOnehundredandtwentyseven => {
+          f.debug_tuple("SockProto::ProtoOnehundredandtwentyseven").finish()
+        }
+        SockProto::ProtoOnehundredandtwentyeight => {
+          f.debug_tuple("SockProto::ProtoOnehundredandtwentyeight").finish()
+        }
+        SockProto::ProtoOnehundredandtwentynine => {
+          f.debug_tuple("SockProto::ProtoOnehundredandtwentynine").finish()
+        }
+        SockProto::ProtoOnehundredandthirty => {
+          f.debug_tuple("SockProto::ProtoOnehundredandthirty").finish()
+        }
+        SockProto::ProtoOnehundredandthirtyone => {
+          f.debug_tuple("SockProto::ProtoOnehundredandthirtyone").finish()
+        }
+        SockProto::Sctp => {
+          f.debug_tuple("SockProto::Sctp").finish()
+        }
+        SockProto::ProtoOnehundredandthirtythree => {
+          f.debug_tuple("SockProto::ProtoOnehundredandthirtythree").finish()
+        }
+        SockProto::ProtoOnehundredandthirtyfour => {
+          f.debug_tuple("SockProto::ProtoOnehundredandthirtyfour").finish()
+        }
+        SockProto::Mh => {
+          f.debug_tuple("SockProto::Mh").finish()
+        }
+        SockProto::Udplite => {
+          f.debug_tuple("SockProto::Udplite").finish()
+        }
+        SockProto::Mpls => {
+          f.debug_tuple("SockProto::Mpls").finish()
+        }
+        SockProto::ProtoOnehundredandthirtyeight => {
+          f.debug_tuple("SockProto::ProtoOnehundredandthirtyeight").finish()
+        }
+        SockProto::ProtoOnehundredandthirtynine => {
+          f.debug_tuple("SockProto::ProtoOnehundredandthirtynine").finish()
+        }
+        SockProto::ProtoOnehundredandfourty => {
+          f.debug_tuple("SockProto::ProtoOnehundredandfourty").finish()
+        }
+        SockProto::ProtoOnehundredandfourtyone => {
+          f.debug_tuple("SockProto::ProtoOnehundredandfourtyone").finish()
+        }
+        SockProto::ProtoOnehundredandfourtytwo => {
+          f.debug_tuple("SockProto::ProtoOnehundredandfourtytwo").finish()
+        }
+        SockProto::Ethernet => {
+          f.debug_tuple("SockProto::Ethernet").finish()
+        }
+        SockProto::ProtoOnehundredandfourtyfour => {
+          f.debug_tuple("SockProto::ProtoOnehundredandfourtyfour").finish()
+        }
+        SockProto::ProtoOnehundredandfourtyfive => {
+          f.debug_tuple("SockProto::ProtoOnehundredandfourtyfive").finish()
+        }
+        SockProto::ProtoOnehundredandfourtysix => {
+          f.debug_tuple("SockProto::ProtoOnehundredandfourtysix").finish()
+        }
+        SockProto::ProtoOnehundredandfourtyseven => {
+          f.debug_tuple("SockProto::ProtoOnehundredandfourtyseven").finish()
+        }
+        SockProto::ProtoOnehundredandfourtyeight => {
+          f.debug_tuple("SockProto::ProtoOnehundredandfourtyeight").finish()
+        }
+        SockProto::ProtoOnehundredandfourtynine => {
+          f.debug_tuple("SockProto::ProtoOnehundredandfourtynine").finish()
+        }
+        SockProto::ProtoOnehundredandfifty => {
+          f.debug_tuple("SockProto::ProtoOnehundredandfifty").finish()
+        }
+        SockProto::ProtoOnehundredandfiftyone => {
+          f.debug_tuple("SockProto::ProtoOnehundredandfiftyone").finish()
+        }
+        SockProto::ProtoOnehundredandfiftytwo => {
+          f.debug_tuple("SockProto::ProtoOnehundredandfiftytwo").finish()
+        }
+        SockProto::ProtoOnehundredandfiftythree => {
+          f.debug_tuple("SockProto::ProtoOnehundredandfiftythree").finish()
+        }
+        SockProto::ProtoOnehundredandfiftyfour => {
+          f.debug_tuple("SockProto::ProtoOnehundredandfiftyfour").finish()
+        }
+        SockProto::ProtoOnehundredandfiftyfive => {
+          f.debug_tuple("SockProto::ProtoOnehundredandfiftyfive").finish()
+        }
+        SockProto::ProtoOnehundredandfiftysix => {
+          f.debug_tuple("SockProto::ProtoOnehundredandfiftysix").finish()
+        }
+        SockProto::ProtoOnehundredandfiftyseven => {
+          f.debug_tuple("SockProto::ProtoOnehundredandfiftyseven").finish()
+        }
+        SockProto::ProtoOnehundredandfiftyeight => {
+          f.debug_tuple("SockProto::ProtoOnehundredandfiftyeight").finish()
+        }
+        SockProto::ProtoOnehundredandfiftynine => {
+          f.debug_tuple("SockProto::ProtoOnehundredandfiftynine").finish()
+        }
+        SockProto::ProtoOnehundredandsixty => {
+          f.debug_tuple("SockProto::ProtoOnehundredandsixty").finish()
+        }
+        SockProto::ProtoOnehundredandsixtyone => {
+          f.debug_tuple("SockProto::ProtoOnehundredandsixtyone").finish()
+        }
+        SockProto::ProtoOnehundredandsixtytwo => {
+          f.debug_tuple("SockProto::ProtoOnehundredandsixtytwo").finish()
+        }
+        SockProto::ProtoOnehundredandsixtythree => {
+          f.debug_tuple("SockProto::ProtoOnehundredandsixtythree").finish()
+        }
+        SockProto::ProtoOnehundredandsixtyfour => {
+          f.debug_tuple("SockProto::ProtoOnehundredandsixtyfour").finish()
+        }
+        SockProto::ProtoOnehundredandsixtyfive => {
+          f.debug_tuple("SockProto::ProtoOnehundredandsixtyfive").finish()
+        }
+        SockProto::ProtoOnehundredandsixtysix => {
+          f.debug_tuple("SockProto::ProtoOnehundredandsixtysix").finish()
+        }
+        SockProto::ProtoOnehundredandsixtyseven => {
+          f.debug_tuple("SockProto::ProtoOnehundredandsixtyseven").finish()
+        }
+        SockProto::ProtoOnehundredandsixtyeight => {
+          f.debug_tuple("SockProto::ProtoOnehundredandsixtyeight").finish()
+        }
+        SockProto::ProtoOnehundredandsixtynine => {
+          f.debug_tuple("SockProto::ProtoOnehundredandsixtynine").finish()
+        }
+        SockProto::ProtoOnehundredandseventy => {
+          f.debug_tuple("SockProto::ProtoOnehundredandseventy").finish()
+        }
+        SockProto::ProtoOnehundredandseventyone => {
+          f.debug_tuple("SockProto::ProtoOnehundredandseventyone").finish()
+        }
+        SockProto::ProtoOnehundredandseventytwo => {
+          f.debug_tuple("SockProto::ProtoOnehundredandseventytwo").finish()
+        }
+        SockProto::ProtoOnehundredandseventythree => {
+          f.debug_tuple("SockProto::ProtoOnehundredandseventythree").finish()
+        }
+        SockProto::ProtoOnehundredandseventyfour => {
+          f.debug_tuple("SockProto::ProtoOnehundredandseventyfour").finish()
+        }
+        SockProto::ProtoOnehundredandseventyfive => {
+          f.debug_tuple("SockProto::ProtoOnehundredandseventyfive").finish()
+        }
+        SockProto::ProtoOnehundredandseventysix => {
+          f.debug_tuple("SockProto::ProtoOnehundredandseventysix").finish()
+        }
+        SockProto::ProtoOnehundredandseventyseven => {
+          f.debug_tuple("SockProto::ProtoOnehundredandseventyseven").finish()
+        }
+        SockProto::ProtoOnehundredandseventyeight => {
+          f.debug_tuple("SockProto::ProtoOnehundredandseventyeight").finish()
+        }
+        SockProto::ProtoOnehundredandseventynine => {
+          f.debug_tuple("SockProto::ProtoOnehundredandseventynine").finish()
+        }
+        SockProto::ProtoOnehundredandeighty => {
+          f.debug_tuple("SockProto::ProtoOnehundredandeighty").finish()
+        }
+        SockProto::ProtoOnehundredandeightyone => {
+          f.debug_tuple("SockProto::ProtoOnehundredandeightyone").finish()
+        }
+        SockProto::ProtoOnehundredandeightytwo => {
+          f.debug_tuple("SockProto::ProtoOnehundredandeightytwo").finish()
+        }
+        SockProto::ProtoOnehundredandeightythree => {
+          f.debug_tuple("SockProto::ProtoOnehundredandeightythree").finish()
+        }
+        SockProto::ProtoOnehundredandeightyfour => {
+          f.debug_tuple("SockProto::ProtoOnehundredandeightyfour").finish()
+        }
+        SockProto::ProtoOnehundredandeightyfive => {
+          f.debug_tuple("SockProto::ProtoOnehundredandeightyfive").finish()
+        }
+        SockProto::ProtoOnehundredandeightysix => {
+          f.debug_tuple("SockProto::ProtoOnehundredandeightysix").finish()
+        }
+        SockProto::ProtoOnehundredandeightyseven => {
+          f.debug_tuple("SockProto::ProtoOnehundredandeightyseven").finish()
+        }
+        SockProto::ProtoOnehundredandeightyeight => {
+          f.debug_tuple("SockProto::ProtoOnehundredandeightyeight").finish()
+        }
+        SockProto::ProtoOnehundredandeightynine => {
+          f.debug_tuple("SockProto::ProtoOnehundredandeightynine").finish()
+        }
+        SockProto::ProtoOnehundredandninety => {
+          f.debug_tuple("SockProto::ProtoOnehundredandninety").finish()
+        }
+        SockProto::ProtoOnehundredandninetyone => {
+          f.debug_tuple("SockProto::ProtoOnehundredandninetyone").finish()
+        }
+        SockProto::ProtoOnehundredandninetytwo => {
+          f.debug_tuple("SockProto::ProtoOnehundredandninetytwo").finish()
+        }
+        SockProto::ProtoOnehundredandninetythree => {
+          f.debug_tuple("SockProto::ProtoOnehundredandninetythree").finish()
+        }
+        SockProto::ProtoOnehundredandninetyfour => {
+          f.debug_tuple("SockProto::ProtoOnehundredandninetyfour").finish()
+        }
+        SockProto::ProtoOnehundredandninetyfive => {
+          f.debug_tuple("SockProto::ProtoOnehundredandninetyfive").finish()
+        }
+        SockProto::ProtoOnehundredandninetysix => {
+          f.debug_tuple("SockProto::ProtoOnehundredandninetysix").finish()
+        }
+        SockProto::ProtoOnehundredandninetyseven => {
+          f.debug_tuple("SockProto::ProtoOnehundredandninetyseven").finish()
+        }
+        SockProto::ProtoOnehundredandninetyeight => {
+          f.debug_tuple("SockProto::ProtoOnehundredandninetyeight").finish()
+        }
+        SockProto::ProtoOnehundredandninetynine => {
+          f.debug_tuple("SockProto::ProtoOnehundredandninetynine").finish()
+        }
+        SockProto::ProtoTwohundred => {
+          f.debug_tuple("SockProto::ProtoTwohundred").finish()
+        }
+        SockProto::ProtoTwohundredandone => {
+          f.debug_tuple("SockProto::ProtoTwohundredandone").finish()
+        }
+        SockProto::ProtoTwohundredandtwo => {
+          f.debug_tuple("SockProto::ProtoTwohundredandtwo").finish()
+        }
+        SockProto::ProtoTwohundredandthree => {
+          f.debug_tuple("SockProto::ProtoTwohundredandthree").finish()
+        }
+        SockProto::ProtoTwohundredandfour => {
+          f.debug_tuple("SockProto::ProtoTwohundredandfour").finish()
+        }
+        SockProto::ProtoTwohundredandfive => {
+          f.debug_tuple("SockProto::ProtoTwohundredandfive").finish()
+        }
+        SockProto::ProtoTwohundredandsix => {
+          f.debug_tuple("SockProto::ProtoTwohundredandsix").finish()
+        }
+        SockProto::ProtoTwohundredandseven => {
+          f.debug_tuple("SockProto::ProtoTwohundredandseven").finish()
+        }
+        SockProto::ProtoTwohundredandeight => {
+          f.debug_tuple("SockProto::ProtoTwohundredandeight").finish()
+        }
+        SockProto::ProtoTwohundredandnine => {
+          f.debug_tuple("SockProto::ProtoTwohundredandnine").finish()
+        }
+        SockProto::ProtoTwohundredandten => {
+          f.debug_tuple("SockProto::ProtoTwohundredandten").finish()
+        }
+        SockProto::ProtoTwohundredandeleven => {
+          f.debug_tuple("SockProto::ProtoTwohundredandeleven").finish()
+        }
+        SockProto::ProtoTwohundredandtwelve => {
+          f.debug_tuple("SockProto::ProtoTwohundredandtwelve").finish()
+        }
+        SockProto::ProtoTwohundredandthirteen => {
+          f.debug_tuple("SockProto::ProtoTwohundredandthirteen").finish()
+        }
+        SockProto::ProtoTwohundredandfourteen => {
+          f.debug_tuple("SockProto::ProtoTwohundredandfourteen").finish()
+        }
+        SockProto::ProtoTwohundredandfifteen => {
+          f.debug_tuple("SockProto::ProtoTwohundredandfifteen").finish()
+        }
+        SockProto::ProtoTwohundredandsixteen => {
+          f.debug_tuple("SockProto::ProtoTwohundredandsixteen").finish()
+        }
+        SockProto::ProtoTwohundredandseventeen => {
+          f.debug_tuple("SockProto::ProtoTwohundredandseventeen").finish()
+        }
+        SockProto::ProtoTwohundredandeighteen => {
+          f.debug_tuple("SockProto::ProtoTwohundredandeighteen").finish()
+        }
+        SockProto::ProtoTwohundredandnineteen => {
+          f.debug_tuple("SockProto::ProtoTwohundredandnineteen").finish()
+        }
+        SockProto::ProtoTwohundredandtwenty => {
+          f.debug_tuple("SockProto::ProtoTwohundredandtwenty").finish()
+        }
+        SockProto::ProtoTwohundredandtwentyone => {
+          f.debug_tuple("SockProto::ProtoTwohundredandtwentyone").finish()
+        }
+        SockProto::ProtoTwohundredandtwentytwo => {
+          f.debug_tuple("SockProto::ProtoTwohundredandtwentytwo").finish()
+        }
+        SockProto::ProtoTwohundredandtwentythree => {
+          f.debug_tuple("SockProto::ProtoTwohundredandtwentythree").finish()
+        }
+        SockProto::ProtoTwohundredandtwentyfour => {
+          f.debug_tuple("SockProto::ProtoTwohundredandtwentyfour").finish()
+        }
+        SockProto::ProtoTwohundredandtwentyfive => {
+          f.debug_tuple("SockProto::ProtoTwohundredandtwentyfive").finish()
+        }
+        SockProto::ProtoTwohundredandtwentysix => {
+          f.debug_tuple("SockProto::ProtoTwohundredandtwentysix").finish()
+        }
+        SockProto::ProtoTwohundredandtwentyseven => {
+          f.debug_tuple("SockProto::ProtoTwohundredandtwentyseven").finish()
+        }
+        SockProto::ProtoTwohundredandtwentyeight => {
+          f.debug_tuple("SockProto::ProtoTwohundredandtwentyeight").finish()
+        }
+        SockProto::ProtoTwohundredandtwentynine => {
+          f.debug_tuple("SockProto::ProtoTwohundredandtwentynine").finish()
+        }
+        SockProto::ProtoTwohundredandthirty => {
+          f.debug_tuple("SockProto::ProtoTwohundredandthirty").finish()
+        }
+        SockProto::ProtoTwohundredandthirtyone => {
+          f.debug_tuple("SockProto::ProtoTwohundredandthirtyone").finish()
+        }
+        SockProto::ProtoTwohundredandthirtytwo => {
+          f.debug_tuple("SockProto::ProtoTwohundredandthirtytwo").finish()
+        }
+        SockProto::ProtoTwohundredandthirtythree => {
+          f.debug_tuple("SockProto::ProtoTwohundredandthirtythree").finish()
+        }
+        SockProto::ProtoTwohundredandthirtyfour => {
+          f.debug_tuple("SockProto::ProtoTwohundredandthirtyfour").finish()
+        }
+        SockProto::ProtoTwohundredandthirtyfive => {
+          f.debug_tuple("SockProto::ProtoTwohundredandthirtyfive").finish()
+        }
+        SockProto::ProtoTwohundredandthirtysix => {
+          f.debug_tuple("SockProto::ProtoTwohundredandthirtysix").finish()
+        }
+        SockProto::ProtoTwohundredandthirtyseven => {
+          f.debug_tuple("SockProto::ProtoTwohundredandthirtyseven").finish()
+        }
+        SockProto::ProtoTwohundredandthirtyeight => {
+          f.debug_tuple("SockProto::ProtoTwohundredandthirtyeight").finish()
+        }
+        SockProto::ProtoTwohundredandthirtynine => {
+          f.debug_tuple("SockProto::ProtoTwohundredandthirtynine").finish()
+        }
+        SockProto::ProtoTwohundredandfourty => {
+          f.debug_tuple("SockProto::ProtoTwohundredandfourty").finish()
+        }
+        SockProto::ProtoTwohundredandfourtyone => {
+          f.debug_tuple("SockProto::ProtoTwohundredandfourtyone").finish()
+        }
+        SockProto::ProtoTwohundredandfourtytwo => {
+          f.debug_tuple("SockProto::ProtoTwohundredandfourtytwo").finish()
+        }
+        SockProto::ProtoTwohundredandfourtythree => {
+          f.debug_tuple("SockProto::ProtoTwohundredandfourtythree").finish()
+        }
+        SockProto::ProtoTwohundredandfourtyfour => {
+          f.debug_tuple("SockProto::ProtoTwohundredandfourtyfour").finish()
+        }
+        SockProto::ProtoTwohundredandfourtyfive => {
+          f.debug_tuple("SockProto::ProtoTwohundredandfourtyfive").finish()
+        }
+        SockProto::ProtoTwohundredandfourtysix => {
+          f.debug_tuple("SockProto::ProtoTwohundredandfourtysix").finish()
+        }
+        SockProto::ProtoTwohundredandfourtyseven => {
+          f.debug_tuple("SockProto::ProtoTwohundredandfourtyseven").finish()
+        }
+        SockProto::ProtoTwohundredandfourtyeight => {
+          f.debug_tuple("SockProto::ProtoTwohundredandfourtyeight").finish()
+        }
+        SockProto::ProtoTwohundredandfourtynine => {
+          f.debug_tuple("SockProto::ProtoTwohundredandfourtynine").finish()
+        }
+        SockProto::ProtoTwohundredandfifty => {
+          f.debug_tuple("SockProto::ProtoTwohundredandfifty").finish()
+        }
+        SockProto::ProtoTwohundredandfiftyone => {
+          f.debug_tuple("SockProto::ProtoTwohundredandfiftyone").finish()
+        }
+        SockProto::ProtoTwohundredandfiftytwo => {
+          f.debug_tuple("SockProto::ProtoTwohundredandfiftytwo").finish()
+        }
+        SockProto::ProtoTwohundredandfiftythree => {
+          f.debug_tuple("SockProto::ProtoTwohundredandfiftythree").finish()
+        }
+        SockProto::ProtoTwohundredandfiftyfour => {
+          f.debug_tuple("SockProto::ProtoTwohundredandfiftyfour").finish()
+        }
+        SockProto::ProtoRaw => {
+          f.debug_tuple("SockProto::ProtoRaw").finish()
+        }
+        SockProto::ProtoTwohundredandfiftysix => {
+          f.debug_tuple("SockProto::ProtoTwohundredandfiftysix").finish()
+        }
+        SockProto::ProtoTwohundredandfiftyseven => {
+          f.debug_tuple("SockProto::ProtoTwohundredandfiftyseven").finish()
+        }
+        SockProto::ProtoTwohundredandfiftyeight => {
+          f.debug_tuple("SockProto::ProtoTwohundredandfiftyeight").finish()
+        }
+        SockProto::ProtoTwohundredandfiftynine => {
+          f.debug_tuple("SockProto::ProtoTwohundredandfiftynine").finish()
+        }
+        SockProto::ProtoTwohundredandsixty => {
+          f.debug_tuple("SockProto::ProtoTwohundredandsixty").finish()
+        }
+        SockProto::ProtoTwohundredandsixtyone => {
+          f.debug_tuple("SockProto::ProtoTwohundredandsixtyone").finish()
+        }
+        SockProto::Mptcp => {
+          f.debug_tuple("SockProto::Mptcp").finish()
+        }
+        SockProto::Max => {
+          f.debug_tuple("SockProto::Max").finish()
+        }
+      }
+    }
+  }
+  #[repr(u8)]
+  #[derive(Clone, Copy, PartialEq, Eq)]
+  pub enum Bool {
+    False,
+    True,
+  }
+  impl core::fmt::Debug for Bool {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+      match self {
+        Bool::False => {
+          f.debug_tuple("Bool::False").finish()
+        }
+        Bool::True => {
+          f.debug_tuple("Bool::True").finish()
+        }
+      }
+    }
+  }
+  #[repr(C)]
+  #[derive(Copy, Clone)]
+  pub struct OptionTimestamp {
+    pub tag: OptionTag,
+    pub u: Timestamp,
+  }
+  impl core::fmt::Debug for OptionTimestamp {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+      f.debug_struct("OptionTimestamp").field("tag", &self.tag).field("u", &self.u).finish()}
+  }
   /// Dummy function to expose types into generated code
-  pub fn expose_types_dummy_func(fd: Fd,dirent: Dirent,snapshot0_dirent: Snapshot0Dirent,snapshot0_event: Snapshot0Event,event_enum: EventEnum,event: Event,fdstat: Fdstat,subscription_clock: SubscriptionClock,snapshot0_subscription_clock: Snapshot0SubscriptionClock,subscription: Subscription,snapshot0_subscription: Snapshot0Subscription,device: Device,linkcount: Linkcount,snapshot0_linkcount: Snapshot0Linkcount,filestat: Filestat,snapshot0_filestat: Snapshot0Filestat,tty: Tty,tid: Tid,pid: Pid,bus_data_format: BusDataFormat,bid: Bid,option_bid: OptionBid,cid: Cid,option_cid: OptionCid,option_fd: OptionFd,bus_handles: BusHandles,exit_code: ExitCode,bus_event_exit: BusEventExit,bus_event_fault: BusEventFault,bus_event_close: BusEventClose,prestat_u_dir: PrestatUDir,prestat_u: PrestatU,event_fd_flags: EventFdFlags,prestat: Prestat,file_delta: FileDelta,lookup_flags: LookupFlags,) -> (){
+  pub fn expose_types_dummy_func(fd: Fd,dirent: Dirent,snapshot0_dirent: Snapshot0Dirent,snapshot0_event: Snapshot0Event,event_enum: EventEnum,event: Event,fdstat: Fdstat,subscription_clock: SubscriptionClock,snapshot0_subscription_clock: Snapshot0SubscriptionClock,subscription: Subscription,snapshot0_subscription: Snapshot0Subscription,device: Device,linkcount: Linkcount,snapshot0_linkcount: Snapshot0Linkcount,filestat: Filestat,snapshot0_filestat: Snapshot0Filestat,tty: Tty,tid: Tid,pid: Pid,bus_data_format: BusDataFormat,bid: Bid,option_bid: OptionBid,cid: Cid,option_cid: OptionCid,option_fd: OptionFd,bus_handles: BusHandles,exit_code: ExitCode,bus_event_exit: BusEventExit,bus_event_fault: BusEventFault,bus_event_close: BusEventClose,prestat_u_dir: PrestatUDir,prestat_u: PrestatU,event_fd_flags: EventFdFlags,prestat: Prestat,file_delta: FileDelta,lookup_flags: LookupFlags,count: Count,bool: Bool,pipe_handles: PipeHandles,stdio_mode: StdioMode,sock_proto: SockProto,option_timestamp: OptionTimestamp,) -> (){
     unsafe {
       let ptr0 = OUTPUT_RET_AREA.0.as_mut_ptr() as i32;
       *((ptr0 + 0) as *mut i32) = wit_bindgen_rust::rt::as_i32(fd);
@@ -2050,25 +3202,43 @@ pub mod output {
       }) as u8;
       *((ptr0 + 532) as *mut i32) = wit_bindgen_rust::rt::as_i32(bid);
       let OptionBid{ tag:tag36, bid:bid36, } = option_bid;
-      *((ptr0 + 536) as *mut u8) = (wit_bindgen_rust::rt::as_i32(tag36)) as u8;
+      *((ptr0 + 536) as *mut u8) = (match tag36 {
+        OptionTag::None => 0,
+        OptionTag::Some => 1,
+      }) as u8;
       *((ptr0 + 540) as *mut i32) = wit_bindgen_rust::rt::as_i32(bid36);
       *((ptr0 + 544) as *mut i32) = wit_bindgen_rust::rt::as_i32(cid);
       let OptionCid{ tag:tag37, cid:cid37, } = option_cid;
-      *((ptr0 + 548) as *mut u8) = (wit_bindgen_rust::rt::as_i32(tag37)) as u8;
+      *((ptr0 + 548) as *mut u8) = (match tag37 {
+        OptionTag::None => 0,
+        OptionTag::Some => 1,
+      }) as u8;
       *((ptr0 + 552) as *mut i32) = wit_bindgen_rust::rt::as_i32(cid37);
       let OptionFd{ tag:tag38, fd:fd38, } = option_fd;
-      *((ptr0 + 556) as *mut u8) = (wit_bindgen_rust::rt::as_i32(tag38)) as u8;
+      *((ptr0 + 556) as *mut u8) = (match tag38 {
+        OptionTag::None => 0,
+        OptionTag::Some => 1,
+      }) as u8;
       *((ptr0 + 560) as *mut i32) = wit_bindgen_rust::rt::as_i32(fd38);
       let BusHandles{ bid:bid39, stdin:stdin39, stdout:stdout39, stderr:stderr39, } = bus_handles;
       *((ptr0 + 564) as *mut i32) = wit_bindgen_rust::rt::as_i32(bid39);
       let OptionFd{ tag:tag40, fd:fd40, } = stdin39;
-      *((ptr0 + 568) as *mut u8) = (wit_bindgen_rust::rt::as_i32(tag40)) as u8;
+      *((ptr0 + 568) as *mut u8) = (match tag40 {
+        OptionTag::None => 0,
+        OptionTag::Some => 1,
+      }) as u8;
       *((ptr0 + 572) as *mut i32) = wit_bindgen_rust::rt::as_i32(fd40);
       let OptionFd{ tag:tag41, fd:fd41, } = stdout39;
-      *((ptr0 + 576) as *mut u8) = (wit_bindgen_rust::rt::as_i32(tag41)) as u8;
+      *((ptr0 + 576) as *mut u8) = (match tag41 {
+        OptionTag::None => 0,
+        OptionTag::Some => 1,
+      }) as u8;
       *((ptr0 + 580) as *mut i32) = wit_bindgen_rust::rt::as_i32(fd41);
       let OptionFd{ tag:tag42, fd:fd42, } = stderr39;
-      *((ptr0 + 584) as *mut u8) = (wit_bindgen_rust::rt::as_i32(tag42)) as u8;
+      *((ptr0 + 584) as *mut u8) = (match tag42 {
+        OptionTag::None => 0,
+        OptionTag::Some => 1,
+      }) as u8;
       *((ptr0 + 588) as *mut i32) = wit_bindgen_rust::rt::as_i32(fd42);
       *((ptr0 + 592) as *mut i32) = wit_bindgen_rust::rt::as_i32(exit_code);
       let BusEventExit{ bid:bid43, rval:rval43, } = bus_event_exit;
@@ -2115,6 +3285,293 @@ pub mod output {
       *((ptr0 + 632) as *mut i32) = wit_bindgen_rust::rt::as_i32(pr_name_len51);
       *((ptr0 + 640) as *mut i64) = wit_bindgen_rust::rt::as_i64(file_delta);
       *((ptr0 + 648) as *mut i32) = wit_bindgen_rust::rt::as_i32(lookup_flags);
+      *((ptr0 + 652) as *mut i32) = wit_bindgen_rust::rt::as_i32(count);
+      *((ptr0 + 656) as *mut u8) = (match bool {
+        Bool::False => 0,
+        Bool::True => 1,
+      }) as u8;
+      let PipeHandles{ pipe:pipe52, other:other52, } = pipe_handles;
+      *((ptr0 + 660) as *mut i32) = wit_bindgen_rust::rt::as_i32(pipe52);
+      *((ptr0 + 664) as *mut i32) = wit_bindgen_rust::rt::as_i32(other52);
+      *((ptr0 + 668) as *mut u8) = (match stdio_mode {
+        StdioMode::Reserved => 0,
+        StdioMode::Piped => 1,
+        StdioMode::Inherit => 2,
+        StdioMode::Null => 3,
+        StdioMode::Log => 4,
+      }) as u8;
+      *((ptr0 + 670) as *mut u16) = (match sock_proto {
+        SockProto::Ip => 0,
+        SockProto::Icmp => 1,
+        SockProto::Igmp => 2,
+        SockProto::ProtoThree => 3,
+        SockProto::Ipip => 4,
+        SockProto::ProtoFive => 5,
+        SockProto::Tcp => 6,
+        SockProto::ProtoSeven => 7,
+        SockProto::Egp => 8,
+        SockProto::ProtoNine => 9,
+        SockProto::ProtoTen => 10,
+        SockProto::ProtoEleven => 11,
+        SockProto::Pup => 12,
+        SockProto::ProtoThirteen => 13,
+        SockProto::ProtoFourteen => 14,
+        SockProto::ProtoFifteen => 15,
+        SockProto::ProtoSixteen => 16,
+        SockProto::Udp => 17,
+        SockProto::ProtoEighteen => 18,
+        SockProto::ProtoNineteen => 19,
+        SockProto::ProtoTwenty => 20,
+        SockProto::ProtoTwentyone => 21,
+        SockProto::Idp => 22,
+        SockProto::ProtoTwentythree => 23,
+        SockProto::ProtoTwentyfour => 24,
+        SockProto::ProtoTwentyfive => 25,
+        SockProto::ProtoTwentysix => 26,
+        SockProto::ProtoTwentyseven => 27,
+        SockProto::ProtoTwentyeight => 28,
+        SockProto::ProtoTp => 29,
+        SockProto::ProtoThirty => 30,
+        SockProto::ProtoThirtyone => 31,
+        SockProto::ProtoThirtytwo => 32,
+        SockProto::Dccp => 33,
+        SockProto::ProtoThirtyfour => 34,
+        SockProto::ProtoThirtyfive => 35,
+        SockProto::ProtoThirtysix => 36,
+        SockProto::ProtoThirtyseven => 37,
+        SockProto::ProtoThirtyeight => 38,
+        SockProto::ProtoThirtynine => 39,
+        SockProto::ProtoFourty => 40,
+        SockProto::Ipv6 => 41,
+        SockProto::ProtoFourtytwo => 42,
+        SockProto::Routing => 43,
+        SockProto::Fragment => 44,
+        SockProto::ProtoFourtyfive => 45,
+        SockProto::Rsvp => 46,
+        SockProto::Gre => 47,
+        SockProto::ProtoFourtyeight => 48,
+        SockProto::ProtoFourtynine => 49,
+        SockProto::Esp => 50,
+        SockProto::Ah => 51,
+        SockProto::ProtoFiftytwo => 52,
+        SockProto::ProtoFiftythree => 53,
+        SockProto::ProtoFiftyfour => 54,
+        SockProto::ProtoFiftyfive => 55,
+        SockProto::ProtoFiftysix => 56,
+        SockProto::ProtoFiftyseven => 57,
+        SockProto::Icmpv6 => 58,
+        SockProto::None => 59,
+        SockProto::Dstopts => 60,
+        SockProto::ProtoSixtyone => 61,
+        SockProto::ProtoSixtytwo => 62,
+        SockProto::ProtoSixtythree => 63,
+        SockProto::ProtoSixtyfour => 64,
+        SockProto::ProtoSixtyfive => 65,
+        SockProto::ProtoSixtysix => 66,
+        SockProto::ProtoSixtyseven => 67,
+        SockProto::ProtoSixtyeight => 68,
+        SockProto::ProtoSixtynine => 69,
+        SockProto::ProtoSeventy => 70,
+        SockProto::ProtoSeventyone => 71,
+        SockProto::ProtoSeventytwo => 72,
+        SockProto::ProtoSeventythree => 73,
+        SockProto::ProtoSeventyfour => 74,
+        SockProto::ProtoSeventyfive => 75,
+        SockProto::ProtoSeventysix => 76,
+        SockProto::ProtoSeventyseven => 77,
+        SockProto::ProtoSeventyeight => 78,
+        SockProto::ProtoSeventynine => 79,
+        SockProto::ProtoEighty => 80,
+        SockProto::ProtoEightyone => 81,
+        SockProto::ProtoEightytwo => 82,
+        SockProto::ProtoEightythree => 83,
+        SockProto::ProtoEightyfour => 84,
+        SockProto::ProtoEightyfive => 85,
+        SockProto::ProtoEightysix => 86,
+        SockProto::ProtoEightyseven => 87,
+        SockProto::ProtoEightyeight => 88,
+        SockProto::ProtoEightynine => 89,
+        SockProto::ProtoNinety => 90,
+        SockProto::ProtoNinetyone => 91,
+        SockProto::Mtp => 92,
+        SockProto::ProtoNinetythree => 93,
+        SockProto::Beetph => 94,
+        SockProto::ProtoNinetyfive => 95,
+        SockProto::ProtoNinetysix => 96,
+        SockProto::ProtoNineetyseven => 97,
+        SockProto::Encap => 98,
+        SockProto::ProtoNinetynine => 99,
+        SockProto::ProtoOnehundred => 100,
+        SockProto::ProtoOnehundredandone => 101,
+        SockProto::ProtoOnehundredandtwo => 102,
+        SockProto::Pim => 103,
+        SockProto::ProtoOnehundredandfour => 104,
+        SockProto::ProtoOnehundredandfive => 105,
+        SockProto::ProtoOnehundredandsix => 106,
+        SockProto::ProtoOnehundredandseven => 107,
+        SockProto::Comp => 108,
+        SockProto::ProtoOnehundredandnine => 109,
+        SockProto::ProtoOnehundredandten => 110,
+        SockProto::ProtoOnehundredandeleven => 111,
+        SockProto::ProtoOnehundredandtwelve => 112,
+        SockProto::ProtoOnehundredandthirteen => 113,
+        SockProto::ProtoOnehundredandfourteen => 114,
+        SockProto::ProtoOnehundredandfifteen => 115,
+        SockProto::ProtoOnehundredandsixteen => 116,
+        SockProto::ProtoOnehundredandseventeen => 117,
+        SockProto::ProtoOnehundredandeighteen => 118,
+        SockProto::ProtoOnehundredandnineteen => 119,
+        SockProto::ProtoOnehundredandtwenty => 120,
+        SockProto::ProtoOnehundredandtwentyone => 121,
+        SockProto::ProtoOnehundredandtwentytwo => 122,
+        SockProto::ProtoOnehundredandtwentythree => 123,
+        SockProto::ProtoOnehundredandtwentyfour => 124,
+        SockProto::ProtoOnehundredandtwentyfive => 125,
+        SockProto::ProtoOnehundredandtwentysix => 126,
+        SockProto::ProtoOnehundredandtwentyseven => 127,
+        SockProto::ProtoOnehundredandtwentyeight => 128,
+        SockProto::ProtoOnehundredandtwentynine => 129,
+        SockProto::ProtoOnehundredandthirty => 130,
+        SockProto::ProtoOnehundredandthirtyone => 131,
+        SockProto::Sctp => 132,
+        SockProto::ProtoOnehundredandthirtythree => 133,
+        SockProto::ProtoOnehundredandthirtyfour => 134,
+        SockProto::Mh => 135,
+        SockProto::Udplite => 136,
+        SockProto::Mpls => 137,
+        SockProto::ProtoOnehundredandthirtyeight => 138,
+        SockProto::ProtoOnehundredandthirtynine => 139,
+        SockProto::ProtoOnehundredandfourty => 140,
+        SockProto::ProtoOnehundredandfourtyone => 141,
+        SockProto::ProtoOnehundredandfourtytwo => 142,
+        SockProto::Ethernet => 143,
+        SockProto::ProtoOnehundredandfourtyfour => 144,
+        SockProto::ProtoOnehundredandfourtyfive => 145,
+        SockProto::ProtoOnehundredandfourtysix => 146,
+        SockProto::ProtoOnehundredandfourtyseven => 147,
+        SockProto::ProtoOnehundredandfourtyeight => 148,
+        SockProto::ProtoOnehundredandfourtynine => 149,
+        SockProto::ProtoOnehundredandfifty => 150,
+        SockProto::ProtoOnehundredandfiftyone => 151,
+        SockProto::ProtoOnehundredandfiftytwo => 152,
+        SockProto::ProtoOnehundredandfiftythree => 153,
+        SockProto::ProtoOnehundredandfiftyfour => 154,
+        SockProto::ProtoOnehundredandfiftyfive => 155,
+        SockProto::ProtoOnehundredandfiftysix => 156,
+        SockProto::ProtoOnehundredandfiftyseven => 157,
+        SockProto::ProtoOnehundredandfiftyeight => 158,
+        SockProto::ProtoOnehundredandfiftynine => 159,
+        SockProto::ProtoOnehundredandsixty => 160,
+        SockProto::ProtoOnehundredandsixtyone => 161,
+        SockProto::ProtoOnehundredandsixtytwo => 162,
+        SockProto::ProtoOnehundredandsixtythree => 163,
+        SockProto::ProtoOnehundredandsixtyfour => 164,
+        SockProto::ProtoOnehundredandsixtyfive => 165,
+        SockProto::ProtoOnehundredandsixtysix => 166,
+        SockProto::ProtoOnehundredandsixtyseven => 167,
+        SockProto::ProtoOnehundredandsixtyeight => 168,
+        SockProto::ProtoOnehundredandsixtynine => 169,
+        SockProto::ProtoOnehundredandseventy => 170,
+        SockProto::ProtoOnehundredandseventyone => 171,
+        SockProto::ProtoOnehundredandseventytwo => 172,
+        SockProto::ProtoOnehundredandseventythree => 173,
+        SockProto::ProtoOnehundredandseventyfour => 174,
+        SockProto::ProtoOnehundredandseventyfive => 175,
+        SockProto::ProtoOnehundredandseventysix => 176,
+        SockProto::ProtoOnehundredandseventyseven => 177,
+        SockProto::ProtoOnehundredandseventyeight => 178,
+        SockProto::ProtoOnehundredandseventynine => 179,
+        SockProto::ProtoOnehundredandeighty => 180,
+        SockProto::ProtoOnehundredandeightyone => 181,
+        SockProto::ProtoOnehundredandeightytwo => 182,
+        SockProto::ProtoOnehundredandeightythree => 183,
+        SockProto::ProtoOnehundredandeightyfour => 184,
+        SockProto::ProtoOnehundredandeightyfive => 185,
+        SockProto::ProtoOnehundredandeightysix => 186,
+        SockProto::ProtoOnehundredandeightyseven => 187,
+        SockProto::ProtoOnehundredandeightyeight => 188,
+        SockProto::ProtoOnehundredandeightynine => 189,
+        SockProto::ProtoOnehundredandninety => 190,
+        SockProto::ProtoOnehundredandninetyone => 191,
+        SockProto::ProtoOnehundredandninetytwo => 192,
+        SockProto::ProtoOnehundredandninetythree => 193,
+        SockProto::ProtoOnehundredandninetyfour => 194,
+        SockProto::ProtoOnehundredandninetyfive => 195,
+        SockProto::ProtoOnehundredandninetysix => 196,
+        SockProto::ProtoOnehundredandninetyseven => 197,
+        SockProto::ProtoOnehundredandninetyeight => 198,
+        SockProto::ProtoOnehundredandninetynine => 199,
+        SockProto::ProtoTwohundred => 200,
+        SockProto::ProtoTwohundredandone => 201,
+        SockProto::ProtoTwohundredandtwo => 202,
+        SockProto::ProtoTwohundredandthree => 203,
+        SockProto::ProtoTwohundredandfour => 204,
+        SockProto::ProtoTwohundredandfive => 205,
+        SockProto::ProtoTwohundredandsix => 206,
+        SockProto::ProtoTwohundredandseven => 207,
+        SockProto::ProtoTwohundredandeight => 208,
+        SockProto::ProtoTwohundredandnine => 209,
+        SockProto::ProtoTwohundredandten => 210,
+        SockProto::ProtoTwohundredandeleven => 211,
+        SockProto::ProtoTwohundredandtwelve => 212,
+        SockProto::ProtoTwohundredandthirteen => 213,
+        SockProto::ProtoTwohundredandfourteen => 214,
+        SockProto::ProtoTwohundredandfifteen => 215,
+        SockProto::ProtoTwohundredandsixteen => 216,
+        SockProto::ProtoTwohundredandseventeen => 217,
+        SockProto::ProtoTwohundredandeighteen => 218,
+        SockProto::ProtoTwohundredandnineteen => 219,
+        SockProto::ProtoTwohundredandtwenty => 220,
+        SockProto::ProtoTwohundredandtwentyone => 221,
+        SockProto::ProtoTwohundredandtwentytwo => 222,
+        SockProto::ProtoTwohundredandtwentythree => 223,
+        SockProto::ProtoTwohundredandtwentyfour => 224,
+        SockProto::ProtoTwohundredandtwentyfive => 225,
+        SockProto::ProtoTwohundredandtwentysix => 226,
+        SockProto::ProtoTwohundredandtwentyseven => 227,
+        SockProto::ProtoTwohundredandtwentyeight => 228,
+        SockProto::ProtoTwohundredandtwentynine => 229,
+        SockProto::ProtoTwohundredandthirty => 230,
+        SockProto::ProtoTwohundredandthirtyone => 231,
+        SockProto::ProtoTwohundredandthirtytwo => 232,
+        SockProto::ProtoTwohundredandthirtythree => 233,
+        SockProto::ProtoTwohundredandthirtyfour => 234,
+        SockProto::ProtoTwohundredandthirtyfive => 235,
+        SockProto::ProtoTwohundredandthirtysix => 236,
+        SockProto::ProtoTwohundredandthirtyseven => 237,
+        SockProto::ProtoTwohundredandthirtyeight => 238,
+        SockProto::ProtoTwohundredandthirtynine => 239,
+        SockProto::ProtoTwohundredandfourty => 240,
+        SockProto::ProtoTwohundredandfourtyone => 241,
+        SockProto::ProtoTwohundredandfourtytwo => 242,
+        SockProto::ProtoTwohundredandfourtythree => 243,
+        SockProto::ProtoTwohundredandfourtyfour => 244,
+        SockProto::ProtoTwohundredandfourtyfive => 245,
+        SockProto::ProtoTwohundredandfourtysix => 246,
+        SockProto::ProtoTwohundredandfourtyseven => 247,
+        SockProto::ProtoTwohundredandfourtyeight => 248,
+        SockProto::ProtoTwohundredandfourtynine => 249,
+        SockProto::ProtoTwohundredandfifty => 250,
+        SockProto::ProtoTwohundredandfiftyone => 251,
+        SockProto::ProtoTwohundredandfiftytwo => 252,
+        SockProto::ProtoTwohundredandfiftythree => 253,
+        SockProto::ProtoTwohundredandfiftyfour => 254,
+        SockProto::ProtoRaw => 255,
+        SockProto::ProtoTwohundredandfiftysix => 256,
+        SockProto::ProtoTwohundredandfiftyseven => 257,
+        SockProto::ProtoTwohundredandfiftyeight => 258,
+        SockProto::ProtoTwohundredandfiftynine => 259,
+        SockProto::ProtoTwohundredandsixty => 260,
+        SockProto::ProtoTwohundredandsixtyone => 261,
+        SockProto::Mptcp => 262,
+        SockProto::Max => 263,
+      }) as u16;
+      let OptionTimestamp{ tag:tag53, u:u53, } = option_timestamp;
+      *((ptr0 + 672) as *mut u8) = (match tag53 {
+        OptionTag::None => 0,
+        OptionTag::Some => 1,
+      }) as u8;
+      *((ptr0 + 680) as *mut i64) = wit_bindgen_rust::rt::as_i64(u53);
       #[link(wasm_import_module = "output")]
       extern "C" {
         #[cfg_attr(target_arch = "wasm32", link_name = "expose-types-dummy-func")]
@@ -2127,6 +3584,6 @@ pub mod output {
   }
   
   #[repr(align(8))]
-  struct RetArea([u8; 656]);
-  static mut OUTPUT_RET_AREA: RetArea = RetArea([0; 656]);
+  struct RetArea([u8; 688]);
+  static mut OUTPUT_RET_AREA: RetArea = RetArea([0; 688]);
 }

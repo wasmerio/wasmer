@@ -458,7 +458,7 @@ pub(crate) fn thread_spawn(
     method: WasmPtr<u8, MemoryType>,
     method_len: MemoryOffset,
     user_data: u64,
-    reactor: __wasi_bool_t,
+    reactor: Bool,
     ret_tid: WasmPtr<Tid, MemoryType>,
 ) -> Errno {
     super::thread_spawn::<MemoryType>(ctx, method, method_len, user_data, reactor, ret_tid)
@@ -505,14 +505,14 @@ pub(crate) fn process_spawn(
     ctx: FunctionEnvMut<WasiEnv>,
     name: WasmPtr<u8, MemoryType>,
     name_len: MemoryOffset,
-    chroot: __wasi_bool_t,
+    chroot: Bool,
     args: WasmPtr<u8, MemoryType>,
     args_len: MemoryOffset,
     preopen: WasmPtr<u8, MemoryType>,
     preopen_len: MemoryOffset,
-    stdin: __wasi_stdiomode_t,
-    stdout: __wasi_stdiomode_t,
-    stderr: __wasi_stdiomode_t,
+    stdin: StdioMode,
+    stdout: StdioMode,
+    stderr: StdioMode,
     working_dir: WasmPtr<u8, MemoryType>,
     working_dir_len: MemoryOffset,
     ret_handles: WasmPtr<BusHandles, MemoryType>,
@@ -539,7 +539,7 @@ pub(crate) fn bus_open_local(
     ctx: FunctionEnvMut<WasiEnv>,
     name: WasmPtr<u8, MemoryType>,
     name_len: MemoryOffset,
-    reuse: __wasi_bool_t,
+    reuse: Bool,
     ret_bid: WasmPtr<Bid, MemoryType>,
 ) -> BusErrno {
     super::bus_open_local::<MemoryType>(ctx, name, name_len, reuse, ret_bid)
@@ -549,7 +549,7 @@ pub(crate) fn bus_open_remote(
     ctx: FunctionEnvMut<WasiEnv>,
     name: WasmPtr<u8, MemoryType>,
     name_len: MemoryOffset,
-    reuse: __wasi_bool_t,
+    reuse: Bool,
     instance: WasmPtr<u8, MemoryType>,
     instance_len: MemoryOffset,
     token: WasmPtr<u8, MemoryType>,
@@ -576,7 +576,7 @@ pub(crate) fn bus_close(ctx: FunctionEnvMut<WasiEnv>, bid: Bid) -> BusErrno {
 pub(crate) fn bus_call(
     ctx: FunctionEnvMut<WasiEnv>,
     bid: Bid,
-    keep_alive: __wasi_bool_t,
+    keep_alive: Bool,
     topic: WasmPtr<u8, MemoryType>,
     topic_len: MemoryOffset,
     format: BusDataFormat,
@@ -592,7 +592,7 @@ pub(crate) fn bus_call(
 pub(crate) fn bus_subcall(
     ctx: FunctionEnvMut<WasiEnv>,
     parent: Cid,
-    keep_alive: __wasi_bool_t,
+    keep_alive: Bool,
     topic: WasmPtr<u8, MemoryType>,
     topic_len: MemoryOffset,
     format: BusDataFormat,
@@ -706,8 +706,8 @@ pub(crate) fn port_route_add(
     ctx: FunctionEnvMut<WasiEnv>,
     cidr: WasmPtr<__wasi_cidr_t, MemoryType>,
     via_router: WasmPtr<__wasi_addr_t, MemoryType>,
-    preferred_until: WasmPtr<__wasi_option_timestamp_t, MemoryType>,
-    expires_at: WasmPtr<__wasi_option_timestamp_t, MemoryType>,
+    preferred_until: WasmPtr<OptionTimestamp, MemoryType>,
+    expires_at: WasmPtr<OptionTimestamp, MemoryType>,
 ) -> Errno {
     super::port_route_add::<MemoryType>(ctx, cidr, via_router, preferred_until, expires_at)
 }
@@ -748,7 +748,7 @@ pub(crate) fn http_request(
     method_len: MemoryOffset,
     headers: WasmPtr<u8, MemoryType>,
     headers_len: MemoryOffset,
-    gzip: __wasi_bool_t,
+    gzip: Bool,
     ret_handles: WasmPtr<__wasi_http_handles_t, MemoryType>,
 ) -> Errno {
     super::http_request::<MemoryType>(
@@ -804,7 +804,7 @@ pub(crate) fn sock_open(
     ctx: FunctionEnvMut<WasiEnv>,
     af: Addressfamily,
     ty: Socktype,
-    pt: __wasi_sockproto_t,
+    pt: SockProto,
     ro_sock: WasmPtr<Fd, MemoryType>,
 ) -> Errno {
     super::sock_open::<MemoryType>(ctx, af, ty, pt, ro_sock)
@@ -814,7 +814,7 @@ pub(crate) fn sock_set_opt_flag(
     ctx: FunctionEnvMut<WasiEnv>,
     sock: Fd,
     opt: Sockoption,
-    flag: __wasi_bool_t,
+    flag: Bool,
 ) -> Errno {
     super::sock_set_opt_flag(ctx, sock, opt, flag)
 }
@@ -823,7 +823,7 @@ pub(crate) fn sock_get_opt_flag(
     ctx: FunctionEnvMut<WasiEnv>,
     sock: Fd,
     opt: Sockoption,
-    ret_flag: WasmPtr<__wasi_bool_t, MemoryType>,
+    ret_flag: WasmPtr<Bool, MemoryType>,
 ) -> Errno {
     super::sock_get_opt_flag::<MemoryType>(ctx, sock, opt, ret_flag)
 }
@@ -832,7 +832,7 @@ pub fn sock_set_opt_time(
     ctx: FunctionEnvMut<WasiEnv>,
     sock: Fd,
     opt: Sockoption,
-    time: WasmPtr<__wasi_option_timestamp_t, MemoryType>,
+    time: WasmPtr<OptionTimestamp, MemoryType>,
 ) -> Errno {
     super::sock_set_opt_time(ctx, sock, opt, time)
 }
@@ -841,7 +841,7 @@ pub fn sock_get_opt_time(
     ctx: FunctionEnvMut<WasiEnv>,
     sock: Fd,
     opt: Sockoption,
-    ret_time: WasmPtr<__wasi_option_timestamp_t, MemoryType>,
+    ret_time: WasmPtr<OptionTimestamp, MemoryType>,
 ) -> Errno {
     super::sock_get_opt_time(ctx, sock, opt, ret_time)
 }

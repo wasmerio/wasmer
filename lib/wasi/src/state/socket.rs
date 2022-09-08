@@ -16,7 +16,9 @@ use wasmer_vnet::{
     IpCidr, IpRoute, SocketHttpRequest, VirtualIcmpSocket, VirtualNetworking, VirtualRawSocket,
     VirtualTcpListener, VirtualTcpSocket, VirtualUdpSocket, VirtualWebSocket,
 };
-use wasmer_wasi_types_generated::wasi::{Addressfamily, Errno, Fdflags, Sockoption, Socktype};
+use wasmer_wasi_types_generated::wasi::{
+    Addressfamily, Errno, Fdflags, OptionTag, Sockoption, Socktype,
+};
 
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
@@ -38,7 +40,7 @@ pub enum InodeSocketKind {
     PreSocket {
         family: Addressfamily,
         ty: Socktype,
-        pt: __wasi_sockproto_t,
+        pt: SockProto,
         addr: Option<SocketAddr>,
         only_v6: bool,
         reuse_port: bool,
@@ -1361,14 +1363,12 @@ pub(crate) fn read_route<M: MemorySize>(
             }
         },
         preferred_until: match route.preferred_until.tag {
-            __WASI_OPTION_NONE => None,
-            __WASI_OPTION_SOME => Some(Duration::from_nanos(route.preferred_until.u)),
-            _ => return Err(Errno::Inval),
+            OptionTag::None => None,
+            OptionTag::Some => Some(Duration::from_nanos(route.preferred_until.u)),
         },
         expires_at: match route.expires_at.tag {
-            __WASI_OPTION_NONE => None,
-            __WASI_OPTION_SOME => Some(Duration::from_nanos(route.expires_at.u)),
-            _ => return Err(Errno::Inval),
+            OptionTag::None => None,
+            OptionTag::Some => Some(Duration::from_nanos(route.expires_at.u)),
         },
     })
 }
@@ -1425,22 +1425,22 @@ pub(crate) fn write_route<M: MemorySize>(
         }
     };
     let preferred_until = match route.preferred_until {
-        None => __wasi_option_timestamp_t {
-            tag: __WASI_OPTION_NONE,
+        None => OptionTimestamp {
+            tag: OptionTag::None,
             u: 0,
         },
-        Some(u) => __wasi_option_timestamp_t {
-            tag: __WASI_OPTION_SOME,
+        Some(u) => OptionTimestamp {
+            tag: OptionTag::Some,
             u: u.as_nanos() as u64,
         },
     };
     let expires_at = match route.expires_at {
-        None => __wasi_option_timestamp_t {
-            tag: __WASI_OPTION_NONE,
+        None => OptionTimestamp {
+            tag: OptionTag::None,
             u: 0,
         },
-        Some(u) => __wasi_option_timestamp_t {
-            tag: __WASI_OPTION_SOME,
+        Some(u) => OptionTimestamp {
+            tag: OptionTag::Some,
             u: u.as_nanos() as u64,
         },
     };

@@ -29,8 +29,9 @@ use self::types::{
         Addressfamily, Advice, Bid, BusDataFormat, BusErrno, BusHandles, Cid, Clockid, Dircookie,
         Dirent, Errno, Event, EventEnum, EventFdReadwrite, Eventrwflags, Eventtype, Fd as WasiFd,
         Fdflags, Fdstat, Filesize, Filestat, Filetype, Fstflags, Linkcount, OptionFd, Pid, Prestat,
-        Rights, Snapshot0Clockid, Sockoption, Sockstatus, Socktype, Streamsecurity, Subscription,
-        SubscriptionEnum, SubscriptionFsReadwrite, Tid, Timestamp, Tty, Whence,
+        Rights, Snapshot0Clockid, Sockoption, Sockstatus, Socktype, StdioMode as WasiStdioMode,
+        Streamsecurity, Subscription, SubscriptionEnum, SubscriptionFsReadwrite, Tid, Timestamp,
+        Tty, Whence,
     },
     *,
 };
@@ -3457,7 +3458,7 @@ pub fn thread_spawn<M: MemorySize>(
     method: WasmPtr<u8, M>,
     method_len: M::Offset,
     user_data: u64,
-    reactor: __wasi_bool_t,
+    reactor: Bool,
     ret_tid: WasmPtr<Tid, M>,
 ) -> Errno {
     debug!("wasi::thread_spawn");
@@ -3479,8 +3480,8 @@ pub fn thread_spawn<M: MemorySize>(
     */
 
     let reactor = match reactor {
-        __WASI_BOOL_FALSE => false,
-        __WASI_BOOL_TRUE => true,
+        Bool::False => false,
+        Bool::True => true,
         _ => return Errno::Inval,
     };
 
@@ -3672,14 +3673,14 @@ pub fn process_spawn<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     name: WasmPtr<u8, M>,
     name_len: M::Offset,
-    chroot: __wasi_bool_t,
+    chroot: Bool,
     args: WasmPtr<u8, M>,
     args_len: M::Offset,
     preopen: WasmPtr<u8, M>,
     preopen_len: M::Offset,
-    stdin: __wasi_stdiomode_t,
-    stdout: __wasi_stdiomode_t,
-    stderr: __wasi_stdiomode_t,
+    stdin: WasiStdioMode,
+    stdout: WasiStdioMode,
+    stderr: WasiStdioMode,
     working_dir: WasmPtr<u8, M>,
     working_dir_len: M::Offset,
     ret_handles: WasmPtr<BusHandles, M>,
@@ -3691,7 +3692,7 @@ pub fn process_spawn<M: MemorySize>(
     let args = unsafe { get_input_str_bus!(&memory, args, args_len) };
     let preopen = unsafe { get_input_str_bus!(&memory, preopen, preopen_len) };
     let working_dir = unsafe { get_input_str_bus!(&memory, working_dir, working_dir_len) };
-    let chroot = chroot == __WASI_BOOL_TRUE;
+    let chroot = chroot == Bool::True;
     debug!("wasi::process_spawn (name={})", name);
 
     let args: Vec<_> = args.split(&['\n', '\r']).map(|a| a.to_string()).collect();
@@ -3701,10 +3702,10 @@ pub fn process_spawn<M: MemorySize>(
         .map(|a| a.to_string())
         .collect();
 
-    let conv_stdio_mode = |mode: __wasi_stdiomode_t| match mode {
-        __WASI_STDIO_MODE_PIPED => StdioMode::Piped,
-        __WASI_STDIO_MODE_INHERIT => StdioMode::Inherit,
-        __WASI_STDIO_MODE_LOG => StdioMode::Log,
+    let conv_stdio_mode = |mode: WasiStdioMode| match mode {
+        WasiStdioMode::Piped => StdioMode::Piped,
+        WasiStdioMode::Inherit => StdioMode::Inherit,
+        WasiStdioMode::Log => StdioMode::Log,
         /*__WASI_STDIO_MODE_NULL |*/ _ => StdioMode::Null,
     };
 
@@ -3722,11 +3723,11 @@ pub fn process_spawn<M: MemorySize>(
 
     let conv_stdio_fd = |a: Option<FileDescriptor>| match a {
         Some(fd) => OptionFd {
-            tag: __WASI_OPTION_SOME,
+            tag: OptionTag::Some,
             fd: fd.into(),
         },
         None => OptionFd {
-            tag: __WASI_OPTION_NONE,
+            tag: OptionTag::None,
             fd: 0,
         },
     };
@@ -3773,14 +3774,14 @@ pub fn bus_open_local<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     name: WasmPtr<u8, M>,
     name_len: M::Offset,
-    reuse: __wasi_bool_t,
+    reuse: Bool,
     ret_bid: WasmPtr<Bid, M>,
 ) -> BusErrno {
     let env = ctx.data();
     let bus = env.runtime.bus();
     let memory = env.memory_view(&ctx);
     let name = unsafe { get_input_str_bus!(&memory, name, name_len) };
-    let reuse = reuse == __WASI_BOOL_TRUE;
+    let reuse = reuse == Bool::True;
     debug!("wasi::bus_open_local (name={}, reuse={})", name, reuse);
 
     bus_open_local_internal(ctx, name, reuse, None, None, ret_bid)
@@ -3804,7 +3805,7 @@ pub fn bus_open_remote<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     name: WasmPtr<u8, M>,
     name_len: M::Offset,
-    reuse: __wasi_bool_t,
+    reuse: Bool,
     instance: WasmPtr<u8, M>,
     instance_len: M::Offset,
     token: WasmPtr<u8, M>,
@@ -3817,7 +3818,7 @@ pub fn bus_open_remote<M: MemorySize>(
     let name = unsafe { get_input_str_bus!(&memory, name, name_len) };
     let instance = unsafe { get_input_str_bus!(&memory, instance, instance_len) };
     let token = unsafe { get_input_str_bus!(&memory, token, token_len) };
-    let reuse = reuse == __WASI_BOOL_TRUE;
+    let reuse = reuse == Bool::True;
     debug!(
         "wasi::bus_open_remote (name={}, reuse={}, instance={})",
         name, reuse, instance
@@ -3914,7 +3915,7 @@ pub fn bus_close(ctx: FunctionEnvMut<'_, WasiEnv>, bid: Bid) -> BusErrno {
 pub fn bus_call<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     bid: Bid,
-    keep_alive: __wasi_bool_t,
+    keep_alive: Bool,
     topic: WasmPtr<u8, M>,
     topic_len: M::Offset,
     format: BusDataFormat,
@@ -3926,7 +3927,7 @@ pub fn bus_call<M: MemorySize>(
     let bus = env.runtime.bus();
     let memory = env.memory_view(&ctx);
     let topic = unsafe { get_input_str_bus!(&memory, topic, topic_len) };
-    let keep_alive = keep_alive == __WASI_BOOL_TRUE;
+    let keep_alive = keep_alive == Bool::True;
     trace!(
         "wasi::bus_call (bid={}, topic={}, buf_len={})",
         bid,
@@ -3951,7 +3952,7 @@ pub fn bus_call<M: MemorySize>(
 pub fn bus_subcall<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     parent: Cid,
-    keep_alive: __wasi_bool_t,
+    keep_alive: Bool,
     topic: WasmPtr<u8, M>,
     topic_len: M::Offset,
     format: BusDataFormat,
@@ -3963,7 +3964,7 @@ pub fn bus_subcall<M: MemorySize>(
     let bus = env.runtime.bus();
     let memory = env.memory_view(&ctx);
     let topic = unsafe { get_input_str_bus!(&memory, topic, topic_len) };
-    let keep_alive = keep_alive == __WASI_BOOL_TRUE;
+    let keep_alive = keep_alive == Bool::True;
     trace!(
         "wasi::bus_subcall (parent={}, topic={}, buf_len={})",
         parent,
@@ -4136,7 +4137,7 @@ pub fn http_request<M: MemorySize>(
     method_len: M::Offset,
     headers: WasmPtr<u8, M>,
     headers_len: M::Offset,
-    gzip: __wasi_bool_t,
+    gzip: Bool,
     ret_handles: WasmPtr<__wasi_http_handles_t, M>,
 ) -> Errno {
     debug!("wasi::http_request");
@@ -4147,8 +4148,8 @@ pub fn http_request<M: MemorySize>(
     let headers = unsafe { get_input_str!(&memory, headers, headers_len) };
 
     let gzip = match gzip {
-        __WASI_BOOL_FALSE => false,
-        __WASI_BOOL_TRUE => true,
+        Bool::False => false,
+        Bool::True => true,
         _ => return Errno::Inval,
     };
 
@@ -4258,10 +4259,10 @@ pub fn http_status<M: MemorySize>(
 
     // Write everything else and return the status to the caller
     let status = __wasi_http_status_t {
-        ok: __WASI_BOOL_TRUE,
+        ok: Bool::True,
         redirect: match http_status.redirected {
-            true => __WASI_BOOL_TRUE,
-            false => __WASI_BOOL_FALSE,
+            true => Bool::True,
+            false => Bool::False,
         },
         size: wasi_try!(Ok(http_status.size)),
         status: http_status.status,
@@ -4456,8 +4457,8 @@ pub fn port_route_add<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     cidr: WasmPtr<__wasi_cidr_t, M>,
     via_router: WasmPtr<__wasi_addr_t, M>,
-    preferred_until: WasmPtr<__wasi_option_timestamp_t, M>,
-    expires_at: WasmPtr<__wasi_option_timestamp_t, M>,
+    preferred_until: WasmPtr<OptionTimestamp, M>,
+    expires_at: WasmPtr<OptionTimestamp, M>,
 ) -> Errno {
     debug!("wasi::port_route_add");
     let env = ctx.data();
@@ -4466,14 +4467,14 @@ pub fn port_route_add<M: MemorySize>(
     let via_router = wasi_try!(super::state::read_ip(&memory, via_router));
     let preferred_until = wasi_try_mem!(preferred_until.read(&memory));
     let preferred_until = match preferred_until.tag {
-        __WASI_OPTION_NONE => None,
-        __WASI_OPTION_SOME => Some(Duration::from_nanos(preferred_until.u)),
+        OptionTag::None => None,
+        OptionTag::Some => Some(Duration::from_nanos(preferred_until.u)),
         _ => return Errno::Inval,
     };
     let expires_at = wasi_try_mem!(expires_at.read(&memory));
     let expires_at = match expires_at.tag {
-        __WASI_OPTION_NONE => None,
-        __WASI_OPTION_SOME => Some(Duration::from_nanos(expires_at.u)),
+        OptionTag::None => None,
+        OptionTag::Some => Some(Duration::from_nanos(expires_at.u)),
         _ => return Errno::Inval,
     };
 
@@ -4696,7 +4697,7 @@ pub fn sock_open<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     af: Addressfamily,
     ty: Socktype,
-    pt: __wasi_sockproto_t,
+    pt: SockProto,
     ro_sock: WasmPtr<WasiFd, M>,
 ) -> Errno {
     debug!("wasi::sock_open");
@@ -4754,13 +4755,13 @@ pub fn sock_set_opt_flag(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     opt: Sockoption,
-    flag: __wasi_bool_t,
+    flag: Bool,
 ) -> Errno {
     debug!("wasi::sock_set_opt_flag(ty={})", opt);
 
     let flag = match flag {
-        __WASI_BOOL_FALSE => false,
-        __WASI_BOOL_TRUE => true,
+        Bool::False => false,
+        Bool::True => true,
         _ => return Errno::Inval,
     };
 
@@ -4783,7 +4784,7 @@ pub fn sock_get_opt_flag<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     opt: Sockoption,
-    ret_flag: WasmPtr<__wasi_bool_t, M>,
+    ret_flag: WasmPtr<Bool, M>,
 ) -> Errno {
     debug!("wasi::sock_get_opt_flag(ty={})", opt);
     let env = ctx.data();
@@ -4794,8 +4795,8 @@ pub fn sock_get_opt_flag<M: MemorySize>(
         socket.get_opt_flag(option)
     }));
     let flag = match flag {
-        false => __WASI_BOOL_FALSE,
-        true => __WASI_BOOL_TRUE,
+        false => Bool::False,
+        true => Bool::True,
     };
 
     wasi_try_mem!(ret_flag.write(&memory, flag));
@@ -4815,7 +4816,7 @@ pub fn sock_set_opt_time<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     opt: Sockoption,
-    time: WasmPtr<__wasi_option_timestamp_t, M>,
+    time: WasmPtr<OptionTimestamp, M>,
 ) -> Errno {
     debug!("wasi::sock_set_opt_time(ty={})", opt);
 
@@ -4823,8 +4824,8 @@ pub fn sock_set_opt_time<M: MemorySize>(
     let memory = env.memory_view(&ctx);
     let time = wasi_try_mem!(time.read(&memory));
     let time = match time.tag {
-        __WASI_OPTION_NONE => None,
-        __WASI_OPTION_SOME => Some(Duration::from_nanos(time.u)),
+        OptionTag::None => None,
+        OptionTag::Some => Some(Duration::from_nanos(time.u)),
         _ => return Errno::Inval,
     };
 
@@ -4855,7 +4856,7 @@ pub fn sock_get_opt_time<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     opt: Sockoption,
-    ret_time: WasmPtr<__wasi_option_timestamp_t, M>,
+    ret_time: WasmPtr<OptionTimestamp, M>,
 ) -> Errno {
     debug!("wasi::sock_get_opt_time(ty={})", opt);
     let env = ctx.data();
@@ -4874,12 +4875,12 @@ pub fn sock_get_opt_time<M: MemorySize>(
         socket.opt_time(ty)
     }));
     let time = match time {
-        None => __wasi_option_timestamp_t {
-            tag: __WASI_OPTION_NONE,
+        None => OptionTimestamp {
+            tag: OptionTag::None,
             u: 0,
         },
-        Some(timeout) => __wasi_option_timestamp_t {
-            tag: __WASI_OPTION_SOME,
+        Some(timeout) => OptionTimestamp {
+            tag: OptionTag::Some,
             u: timeout.as_nanos() as Timestamp,
         },
     };
