@@ -48,6 +48,16 @@ expose-types-dummy-func: func(
   stdio-mode: stdio-mode,
   sock-proto: sock-proto,
   option-timestamp: option-timestamp,
+  addr-unspec: addr-unspec,
+  addr-unspec-port: addr-unspec-port,
+  cidr-unspec: cidr-unspec,
+  http-handles: http-handles,
+  http-status: http-status,
+  ri-flags: ri-flags,
+  ro-flags: ro-flags,
+  sd-flags: sd-flags,
+  si-flags: si-flags,
+  timeout: timeout,
 )
 
 /// Type names used by low-level WASI interfaces.
@@ -1242,6 +1252,48 @@ enum signal {
     sigpoll,
     sigpwr,
     sigsys,
+}
+
+record addr-unspec {
+    n0: u8,
+}
+
+record addr-unspec-port {
+    port: u16,
+    addr: addr-unspec,
+}
+
+record cidr-unspec {
+    addr: addr-unspec,
+    prefix: u8,
+}
+
+record http-handles {
+    req: fd,
+    res: fd,
+    hdr: fd,
+}
+
+record http-status {
+    ok: %bool,
+    redirect: %bool,
+    size: filesize,
+    status: u16,
+}
+
+type ri-flags = u16
+
+type ro-flags = u16
+
+type sd-flags = u8
+
+type si-flags = u16
+
+enum timeout {
+    read,
+    write,
+    connect,
+    accept,
 }// WASI Preview. This is an evolution of the API that WASI initially
 // launched with.
 //

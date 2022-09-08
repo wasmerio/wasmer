@@ -725,7 +725,7 @@ pub(crate) fn port_route_clear(ctx: FunctionEnvMut<WasiEnv>) -> Errno {
 
 pub(crate) fn port_route_list(
     ctx: FunctionEnvMut<WasiEnv>,
-    routes: WasmPtr<__wasi_route_t, MemoryType>,
+    routes: WasmPtr<Route, MemoryType>,
     nroutes: WasmPtr<MemoryOffset, MemoryType>,
 ) -> Errno {
     super::port_route_list::<MemoryType>(ctx, routes, nroutes)
@@ -749,7 +749,7 @@ pub(crate) fn http_request(
     headers: WasmPtr<u8, MemoryType>,
     headers_len: MemoryOffset,
     gzip: Bool,
-    ret_handles: WasmPtr<__wasi_http_handles_t, MemoryType>,
+    ret_handles: WasmPtr<HttpHandles, MemoryType>,
 ) -> Errno {
     super::http_request::<MemoryType>(
         ctx,
@@ -767,7 +767,7 @@ pub(crate) fn http_request(
 pub(crate) fn http_status(
     ctx: FunctionEnvMut<WasiEnv>,
     sock: Fd,
-    status: WasmPtr<__wasi_http_status_t, MemoryType>,
+    status: WasmPtr<HttpStatus, MemoryType>,
     status_text: WasmPtr<u8, MemoryType>,
     status_text_len: WasmPtr<MemoryOffset, MemoryType>,
     headers: WasmPtr<u8, MemoryType>,
@@ -935,9 +935,9 @@ pub(crate) fn sock_recv(
     sock: Fd,
     ri_data: WasmPtr<__wasi_iovec_t<MemoryType>, MemoryType>,
     ri_data_len: MemoryOffset,
-    ri_flags: __wasi_riflags_t,
+    ri_flags: RiFlags,
     ro_data_len: WasmPtr<MemoryOffset, MemoryType>,
-    ro_flags: WasmPtr<__wasi_roflags_t, MemoryType>,
+    ro_flags: WasmPtr<RoFlags, MemoryType>,
 ) -> Result<Errno, WasiError> {
     super::sock_recv::<MemoryType>(
         ctx,
@@ -955,9 +955,9 @@ pub(crate) fn sock_recv_from(
     sock: Fd,
     ri_data: WasmPtr<__wasi_iovec_t<MemoryType>, MemoryType>,
     ri_data_len: MemoryOffset,
-    ri_flags: __wasi_riflags_t,
+    ri_flags: RiFlags,
     ro_data_len: WasmPtr<MemoryOffset, MemoryType>,
-    ro_flags: WasmPtr<__wasi_roflags_t, MemoryType>,
+    ro_flags: WasmPtr<RoFlags, MemoryType>,
     ro_addr: WasmPtr<__wasi_addr_port_t, MemoryType>,
 ) -> Result<Errno, WasiError> {
     super::sock_recv_from::<MemoryType>(
@@ -977,7 +977,7 @@ pub(crate) fn sock_send(
     sock: Fd,
     si_data: WasmPtr<__wasi_ciovec_t<MemoryType>, MemoryType>,
     si_data_len: MemoryOffset,
-    si_flags: __wasi_siflags_t,
+    si_flags: SiFlags,
     ret_data_len: WasmPtr<MemoryOffset, MemoryType>,
 ) -> Result<Errno, WasiError> {
     super::sock_send::<MemoryType>(ctx, sock, si_data, si_data_len, si_flags, ret_data_len)
@@ -988,7 +988,7 @@ pub(crate) fn sock_send_to(
     sock: Fd,
     si_data: WasmPtr<__wasi_ciovec_t<MemoryType>, MemoryType>,
     si_data_len: MemoryOffset,
-    si_flags: __wasi_siflags_t,
+    si_flags: SiFlags,
     addr: WasmPtr<__wasi_addr_port_t, MemoryType>,
     ret_data_len: WasmPtr<MemoryOffset, MemoryType>,
 ) -> Result<Errno, WasiError> {
@@ -1014,11 +1014,7 @@ pub(crate) fn sock_send_file(
     unsafe { super::sock_send_file::<MemoryType>(ctx, out_fd, in_fd, offset, count, ret_sent) }
 }
 
-pub(crate) fn sock_shutdown(
-    ctx: FunctionEnvMut<WasiEnv>,
-    sock: Fd,
-    how: __wasi_sdflags_t,
-) -> Errno {
+pub(crate) fn sock_shutdown(ctx: FunctionEnvMut<WasiEnv>, sock: Fd, how: SdFlags) -> Errno {
     super::sock_shutdown(ctx, sock, how)
 }
 

@@ -414,9 +414,9 @@ pub(crate) fn sock_recv(
     sock: WasiFd,
     ri_data: WasmPtr<__wasi_iovec_t<MemoryType>, MemoryType>,
     ri_data_len: MemoryOffset,
-    ri_flags: __wasi_riflags_t,
+    ri_flags: RiFlags,
     ro_data_len: WasmPtr<MemoryOffset, MemoryType>,
-    ro_flags: WasmPtr<__wasi_roflags_t, MemoryType>,
+    ro_flags: WasmPtr<RoFlags, MemoryType>,
 ) -> Result<Errno, WasiError> {
     super::sock_recv::<MemoryType>(
         ctx,
@@ -434,7 +434,7 @@ pub(crate) fn sock_send(
     sock: WasiFd,
     si_data: WasmPtr<__wasi_ciovec_t<MemoryType>, MemoryType>,
     si_data_len: MemoryOffset,
-    si_flags: __wasi_siflags_t,
+    si_flags: SiFlags,
     ret_data_len: WasmPtr<MemoryOffset, MemoryType>,
 ) -> Result<Errno, WasiError> {
     super::sock_send::<MemoryType>(ctx, sock, si_data, si_data_len, si_flags, ret_data_len)
@@ -443,7 +443,7 @@ pub(crate) fn sock_send(
 pub(crate) fn sock_shutdown(
     ctx: FunctionEnvMut<WasiEnv>,
     sock: WasiFd,
-    how: __wasi_sdflags_t,
+    how: SdFlags,
 ) -> Errno {
     super::sock_shutdown(ctx, sock, how)
 }

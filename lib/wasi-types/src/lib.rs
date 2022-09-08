@@ -210,8 +210,6 @@ pub mod time {
     use wasmer_wasi_types_generated::wasi::{OptionTag, Timestamp};
 }
 
-// --- not ported
-
 pub mod net {
     use super::*;
     use wasmer_derive::ValueType;
@@ -219,32 +217,15 @@ pub mod net {
 
     use crate::OptionTimestamp;
 
-    pub use wasmer_wasi_types_generated::wasi::SockProto;
+    pub use wasmer_wasi_types_generated::wasi::{
+        AddrUnspec, AddrUnspecPort, CidrUnspec, HttpHandles, HttpStatus, RiFlags, RoFlags, SdFlags,
+        SiFlags, SockProto, Timeout,
+    };
 
     #[derive(Debug, Copy, Clone, PartialEq, Eq, ValueType)]
     #[repr(C)]
     pub struct __wasi_hardwareaddress_t {
         pub octs: [u8; 6],
-    }
-
-    #[derive(Debug, Copy, Clone, PartialEq, Eq, ValueType)]
-    #[repr(C)]
-    pub struct __wasi_addr_unspec_t {
-        pub n0: u8,
-    }
-
-    #[derive(Debug, Copy, Clone, PartialEq, Eq, ValueType)]
-    #[repr(C)]
-    pub struct __wasi_addr_unspec_port_t {
-        pub port: u16,
-        pub addr: __wasi_addr_unspec_t,
-    }
-
-    #[derive(Debug, Copy, Clone, PartialEq, Eq, ValueType)]
-    #[repr(C)]
-    pub struct __wasi_cidr_unspec_t {
-        pub addr: __wasi_addr_unspec_t,
-        pub prefix: u8,
     }
 
     #[derive(Debug, Copy, Clone, PartialEq, Eq, ValueType)]
@@ -348,49 +329,21 @@ pub mod net {
 
     #[derive(Debug, Copy, Clone, ValueType)]
     #[repr(C)]
-    pub struct __wasi_route_t {
+    pub struct Route {
         pub cidr: __wasi_cidr_t,
         pub via_router: __wasi_addr_t,
         pub preferred_until: OptionTimestamp,
         pub expires_at: OptionTimestamp,
     }
 
-    #[derive(Debug, Copy, Clone, PartialEq, Eq, ValueType)]
-    #[repr(C)]
-    pub struct __wasi_http_handles_t {
-        pub req: Fd,
-        pub res: Fd,
-        pub hdr: Fd,
-    }
+    pub const __WASI_SOCK_RECV_INPUT_PEEK: RiFlags = 1 << 0;
+    pub const __WASI_SOCK_RECV_INPUT_WAITALL: RiFlags = 1 << 1;
+    pub const __WASI_SOCK_RECV_INPUT_DATA_TRUNCATED: RiFlags = 1 << 2;
 
-    #[derive(Debug, Copy, Clone, PartialEq, Eq, ValueType)]
-    #[repr(C)]
-    pub struct __wasi_http_status_t {
-        pub ok: Bool,
-        pub redirect: Bool,
-        pub size: Filesize,
-        pub status: u16,
-    }
+    pub const __WASI_SOCK_RECV_OUTPUT_DATA_TRUNCATED: RoFlags = 1 << 0;
 
-    pub type __wasi_riflags_t = u16;
-    pub const __WASI_SOCK_RECV_INPUT_PEEK: __wasi_riflags_t = 1 << 0;
-    pub const __WASI_SOCK_RECV_INPUT_WAITALL: __wasi_riflags_t = 1 << 1;
-    pub const __WASI_SOCK_RECV_INPUT_DATA_TRUNCATED: __wasi_riflags_t = 1 << 2;
-
-    pub type __wasi_roflags_t = u16;
-    pub const __WASI_SOCK_RECV_OUTPUT_DATA_TRUNCATED: __wasi_roflags_t = 1 << 0;
-
-    pub type __wasi_sdflags_t = u8;
-    pub const __WASI_SHUT_RD: __wasi_sdflags_t = 1 << 0;
-    pub const __WASI_SHUT_WR: __wasi_sdflags_t = 1 << 1;
-
-    pub type __wasi_siflags_t = u16;
-
-    pub type __wasi_timeout_t = u8;
-    pub const __WASI_TIMEOUT_READ: __wasi_timeout_t = 0;
-    pub const __WASI_TIMEOUT_WRITE: __wasi_timeout_t = 1;
-    pub const __WASI_TIMEOUT_CONNECT: __wasi_timeout_t = 2;
-    pub const __WASI_TIMEOUT_ACCEPT: __wasi_timeout_t = 3;
+    pub const __WASI_SHUT_RD: SdFlags = 1 << 0;
+    pub const __WASI_SHUT_WR: SdFlags = 1 << 1;
 }
 
 pub mod signal {

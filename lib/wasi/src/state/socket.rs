@@ -1322,7 +1322,7 @@ pub(crate) fn write_ip_port<M: MemorySize>(
 #[allow(dead_code)]
 pub(crate) fn read_route<M: MemorySize>(
     memory: &MemoryView,
-    ptr: WasmPtr<__wasi_route_t, M>,
+    ptr: WasmPtr<Route, M>,
 ) -> Result<IpRoute, Errno> {
     let route_ptr = ptr.deref(memory);
     let route = route_ptr.read().map_err(crate::mem_error_to_wasi)?;
@@ -1375,7 +1375,7 @@ pub(crate) fn read_route<M: MemorySize>(
 
 pub(crate) fn write_route<M: MemorySize>(
     memory: &MemoryView,
-    ptr: WasmPtr<__wasi_route_t, M>,
+    ptr: WasmPtr<Route, M>,
     route: IpRoute,
 ) -> Result<(), Errno> {
     let cidr = {
@@ -1445,7 +1445,7 @@ pub(crate) fn write_route<M: MemorySize>(
         },
     };
 
-    let route = __wasi_route_t {
+    let route = Route {
         cidr,
         via_router,
         preferred_until,

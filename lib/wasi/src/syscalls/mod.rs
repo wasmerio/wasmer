@@ -4138,7 +4138,7 @@ pub fn http_request<M: MemorySize>(
     headers: WasmPtr<u8, M>,
     headers_len: M::Offset,
     gzip: Bool,
-    ret_handles: WasmPtr<__wasi_http_handles_t, M>,
+    ret_handles: WasmPtr<HttpHandles, M>,
 ) -> Errno {
     debug!("wasi::http_request");
     let env = ctx.data();
@@ -4217,7 +4217,7 @@ pub fn http_request<M: MemorySize>(
     );
     let rights = Rights::all_socket();
 
-    let handles = __wasi_http_handles_t {
+    let handles = HttpHandles {
         req: wasi_try!(state
             .fs
             .create_fd(rights, rights, Fdflags::empty(), 0, inode_req)),
@@ -4245,7 +4245,7 @@ pub fn http_request<M: MemorySize>(
 pub fn http_status<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
-    status: WasmPtr<__wasi_http_status_t, M>,
+    status: WasmPtr<HttpStatus, M>,
 ) -> Errno {
     debug!("wasi::http_status");
 
@@ -4258,7 +4258,7 @@ pub fn http_status<M: MemorySize>(
     }));
 
     // Write everything else and return the status to the caller
-    let status = __wasi_http_status_t {
+    let status = HttpStatus {
         ok: Bool::True,
         redirect: match http_status.redirected {
             true => Bool::True,
@@ -4519,7 +4519,7 @@ pub fn port_route_clear(ctx: FunctionEnvMut<'_, WasiEnv>) -> Errno {
 /// * `routes` - The buffer where routes will be stored
 pub fn port_route_list<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    routes: WasmPtr<__wasi_route_t, M>,
+    routes: WasmPtr<Route, M>,
     nroutes: WasmPtr<M::Offset, M>,
 ) -> Errno {
     debug!("wasi::port_route_list");
@@ -4558,11 +4558,7 @@ pub fn port_route_list<M: MemorySize>(
 /// ## Parameters
 ///
 /// * `how` - Which channels on the socket to shut down.
-pub fn sock_shutdown(
-    ctx: FunctionEnvMut<'_, WasiEnv>,
-    sock: WasiFd,
-    how: __wasi_sdflags_t,
-) -> Errno {
+pub fn sock_shutdown(ctx: FunctionEnvMut<'_, WasiEnv>, sock: WasiFd, how: SdFlags) -> Errno {
     debug!("wasi::sock_shutdown");
 
     let both = __WASI_SHUT_RD | __WASI_SHUT_WR;
@@ -5239,9 +5235,9 @@ pub fn sock_recv<M: MemorySize>(
     sock: WasiFd,
     ri_data: WasmPtr<__wasi_iovec_t<M>, M>,
     ri_data_len: M::Offset,
-    _ri_flags: __wasi_riflags_t,
+    _ri_flags: RiFlags,
     ro_data_len: WasmPtr<M::Offset, M>,
-    ro_flags: WasmPtr<__wasi_roflags_t, M>,
+    ro_flags: WasmPtr<RoFlags, M>,
 ) -> Result<Errno, WasiError> {
     debug!("wasi::sock_recv");
 
@@ -5278,9 +5274,9 @@ pub fn sock_recv_from<M: MemorySize>(
     sock: WasiFd,
     ri_data: WasmPtr<__wasi_iovec_t<M>, M>,
     ri_data_len: M::Offset,
-    _ri_flags: __wasi_riflags_t,
+    _ri_flags: RiFlags,
     ro_data_len: WasmPtr<M::Offset, M>,
-    ro_flags: WasmPtr<__wasi_roflags_t, M>,
+    ro_flags: WasmPtr<RoFlags, M>,
     ro_addr: WasmPtr<__wasi_addr_port_t, M>,
 ) -> Result<Errno, WasiError> {
     debug!("wasi::sock_recv_from");
@@ -5321,7 +5317,7 @@ pub fn sock_send<M: MemorySize>(
     sock: WasiFd,
     si_data: WasmPtr<__wasi_ciovec_t<M>, M>,
     si_data_len: M::Offset,
-    _si_flags: __wasi_siflags_t,
+    _si_flags: SiFlags,
     ret_data_len: WasmPtr<M::Offset, M>,
 ) -> Result<Errno, WasiError> {
     debug!("wasi::sock_send");
@@ -5360,7 +5356,7 @@ pub fn sock_send_to<M: MemorySize>(
     sock: WasiFd,
     si_data: WasmPtr<__wasi_ciovec_t<M>, M>,
     si_data_len: M::Offset,
-    _si_flags: __wasi_siflags_t,
+    _si_flags: SiFlags,
     addr: WasmPtr<__wasi_addr_port_t, M>,
     ret_data_len: WasmPtr<M::Offset, M>,
 ) -> Result<Errno, WasiError> {

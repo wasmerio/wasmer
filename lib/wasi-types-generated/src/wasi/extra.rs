@@ -2575,6 +2575,100 @@ impl core::fmt::Debug for Signal {
         }
     }
 }
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct AddrUnspec {
+    pub n0: u8,
+}
+impl core::fmt::Debug for AddrUnspec {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("AddrUnspec").field("n0", &self.n0).finish()
+    }
+}
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct AddrUnspecPort {
+    pub port: u16,
+    pub addr: AddrUnspec,
+}
+impl core::fmt::Debug for AddrUnspecPort {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("AddrUnspecPort")
+            .field("port", &self.port)
+            .field("addr", &self.addr)
+            .finish()
+    }
+}
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct CidrUnspec {
+    pub addr: AddrUnspec,
+    pub prefix: u8,
+}
+impl core::fmt::Debug for CidrUnspec {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("CidrUnspec")
+            .field("addr", &self.addr)
+            .field("prefix", &self.prefix)
+            .finish()
+    }
+}
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct HttpHandles {
+    pub req: Fd,
+    pub res: Fd,
+    pub hdr: Fd,
+}
+impl core::fmt::Debug for HttpHandles {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("HttpHandles")
+            .field("req", &self.req)
+            .field("res", &self.res)
+            .field("hdr", &self.hdr)
+            .finish()
+    }
+}
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct HttpStatus {
+    pub ok: Bool,
+    pub redirect: Bool,
+    pub size: Filesize,
+    pub status: u16,
+}
+impl core::fmt::Debug for HttpStatus {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("HttpStatus")
+            .field("ok", &self.ok)
+            .field("redirect", &self.redirect)
+            .field("size", &self.size)
+            .field("status", &self.status)
+            .finish()
+    }
+}
+pub type RiFlags = u16;
+pub type RoFlags = u16;
+pub type SdFlags = u8;
+pub type SiFlags = u16;
+#[repr(u8)]
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum Timeout {
+    Read,
+    Write,
+    Connect,
+    Accept,
+}
+impl core::fmt::Debug for Timeout {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Timeout::Read => f.debug_tuple("Timeout::Read").finish(),
+            Timeout::Write => f.debug_tuple("Timeout::Write").finish(),
+            Timeout::Connect => f.debug_tuple("Timeout::Connect").finish(),
+            Timeout::Accept => f.debug_tuple("Timeout::Accept").finish(),
+        }
+    }
+}
 /// Dummy function to expose types into generated code
 pub fn expose_types_dummy_func(
     fd: Fd,
@@ -2619,6 +2713,16 @@ pub fn expose_types_dummy_func(
     stdio_mode: StdioMode,
     sock_proto: SockProto,
     option_timestamp: OptionTimestamp,
+    addr_unspec: AddrUnspec,
+    addr_unspec_port: AddrUnspecPort,
+    cidr_unspec: CidrUnspec,
+    http_handles: HttpHandles,
+    http_status: HttpStatus,
+    ri_flags: RiFlags,
+    ro_flags: RoFlags,
+    sd_flags: SdFlags,
+    si_flags: SiFlags,
+    timeout: Timeout,
 ) -> () {
     unsafe {
         let ptr0 = OUTPUT_RET_AREA.0.as_mut_ptr() as i32;
@@ -3559,6 +3663,56 @@ pub fn expose_types_dummy_func(
             OptionTag::Some => 1,
         }) as u8;
         *((ptr0 + 680) as *mut i64) = wit_bindgen_rust::rt::as_i64(u53);
+        let AddrUnspec { n0: n054 } = addr_unspec;
+        *((ptr0 + 688) as *mut u8) = (wit_bindgen_rust::rt::as_i32(n054)) as u8;
+        let AddrUnspecPort {
+            port: port55,
+            addr: addr55,
+        } = addr_unspec_port;
+        *((ptr0 + 690) as *mut u16) = (wit_bindgen_rust::rt::as_i32(port55)) as u16;
+        let AddrUnspec { n0: n056 } = addr55;
+        *((ptr0 + 692) as *mut u8) = (wit_bindgen_rust::rt::as_i32(n056)) as u8;
+        let CidrUnspec {
+            addr: addr57,
+            prefix: prefix57,
+        } = cidr_unspec;
+        let AddrUnspec { n0: n058 } = addr57;
+        *((ptr0 + 694) as *mut u8) = (wit_bindgen_rust::rt::as_i32(n058)) as u8;
+        *((ptr0 + 695) as *mut u8) = (wit_bindgen_rust::rt::as_i32(prefix57)) as u8;
+        let HttpHandles {
+            req: req59,
+            res: res59,
+            hdr: hdr59,
+        } = http_handles;
+        *((ptr0 + 696) as *mut i32) = wit_bindgen_rust::rt::as_i32(req59);
+        *((ptr0 + 700) as *mut i32) = wit_bindgen_rust::rt::as_i32(res59);
+        *((ptr0 + 704) as *mut i32) = wit_bindgen_rust::rt::as_i32(hdr59);
+        let HttpStatus {
+            ok: ok60,
+            redirect: redirect60,
+            size: size60,
+            status: status60,
+        } = http_status;
+        *((ptr0 + 712) as *mut u8) = (match ok60 {
+            Bool::False => 0,
+            Bool::True => 1,
+        }) as u8;
+        *((ptr0 + 713) as *mut u8) = (match redirect60 {
+            Bool::False => 0,
+            Bool::True => 1,
+        }) as u8;
+        *((ptr0 + 720) as *mut i64) = wit_bindgen_rust::rt::as_i64(size60);
+        *((ptr0 + 728) as *mut u16) = (wit_bindgen_rust::rt::as_i32(status60)) as u16;
+        *((ptr0 + 736) as *mut u16) = (wit_bindgen_rust::rt::as_i32(ri_flags)) as u16;
+        *((ptr0 + 738) as *mut u16) = (wit_bindgen_rust::rt::as_i32(ro_flags)) as u16;
+        *((ptr0 + 740) as *mut u8) = (wit_bindgen_rust::rt::as_i32(sd_flags)) as u8;
+        *((ptr0 + 742) as *mut u16) = (wit_bindgen_rust::rt::as_i32(si_flags)) as u16;
+        *((ptr0 + 744) as *mut u8) = (match timeout {
+            Timeout::Read => 0,
+            Timeout::Write => 1,
+            Timeout::Connect => 2,
+            Timeout::Accept => 3,
+        }) as u8;
         #[link(wasm_import_module = "output")]
         extern "C" {
             #[cfg_attr(target_arch = "wasm32", link_name = "expose-types-dummy-func")]
@@ -3574,8 +3728,8 @@ pub fn expose_types_dummy_func(
 }
 
 #[repr(align(8))]
-struct RetArea([u8; 688]);
-static mut OUTPUT_RET_AREA: RetArea = RetArea([0; 688]);
+struct RetArea([u8; 752]);
+static mut OUTPUT_RET_AREA: RetArea = RetArea([0; 752]);
 
 // TODO: if necessary, must be implemented in wit-bindgen
 unsafe impl ValueType for Snapshot0Clockid {
@@ -4837,6 +4991,66 @@ unsafe impl wasmer::FromToNativeWasmType for Signal {
             29 => Self::Sigsys,
 
             q => todo!("could not serialize number {q} to enum Signal"),
+        }
+    }
+
+    #[cfg(feature = "sys")]
+    fn is_from_store(&self, _store: &impl wasmer::AsStoreRef) -> bool {
+        false
+    }
+}
+
+// TODO: if necessary, must be implemented in wit-bindgen
+unsafe impl ValueType for AddrUnspec {
+    #[inline]
+    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
+}
+
+// TODO: if necessary, must be implemented in wit-bindgen
+unsafe impl ValueType for AddrUnspecPort {
+    #[inline]
+    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
+}
+
+// TODO: if necessary, must be implemented in wit-bindgen
+unsafe impl ValueType for CidrUnspec {
+    #[inline]
+    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
+}
+
+// TODO: if necessary, must be implemented in wit-bindgen
+unsafe impl ValueType for HttpHandles {
+    #[inline]
+    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
+}
+
+// TODO: if necessary, must be implemented in wit-bindgen
+unsafe impl ValueType for HttpStatus {
+    #[inline]
+    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
+}
+
+// TODO: if necessary, must be implemented in wit-bindgen
+unsafe impl ValueType for Timeout {
+    #[inline]
+    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
+}
+
+unsafe impl wasmer::FromToNativeWasmType for Timeout {
+    type Native = i32;
+
+    fn to_native(self) -> Self::Native {
+        self as i32
+    }
+
+    fn from_native(n: Self::Native) -> Self {
+        match n {
+            0 => Self::Read,
+            1 => Self::Write,
+            2 => Self::Connect,
+            3 => Self::Accept,
+
+            q => todo!("could not serialize number {q} to enum Timeout"),
         }
     }
 
