@@ -183,6 +183,7 @@ mod tests {
     #[derive(Debug)]
     struct VMTinyMemory {
         mem: [u8; WASM_PAGE_SIZE],
+        memory_definition: VMMemoryDefinition,
     }
 
     unsafe impl Send for VMTinyMemory {}
@@ -190,8 +191,13 @@ mod tests {
 
     impl VMTinyMemory {
         pub fn new() -> Result<Self, MemoryError> {
+            let memory = [0; WASM_PAGE_SIZE];
             Ok(VMTinyMemory {
-                mem: [0; WASM_PAGE_SIZE],
+                mem: memory,
+                memory_definition: VMMemoryDefinition {
+                    base: memory.as_ptr() as _,
+                    current_length: WASM_PAGE_SIZE,
+                },
             })
         }
     }
@@ -220,11 +226,7 @@ mod tests {
             })
         }
         fn vmmemory(&self) -> NonNull<VMMemoryDefinition> {
-            MaybeInstanceOwned::Host(Box::new(UnsafeCell::new(VMMemoryDefinition {
-                base: self.mem.as_ptr() as _,
-                current_length: WASM_PAGE_SIZE,
-            })))
-            .as_ptr()
+            MaybeInstanceOwned::Host(Box::new(UnsafeCell::new(self.memory_definition))).as_ptr()
         }
         fn try_clone(&self) -> Option<Box<dyn LinearMemory + 'static>> {
             None
