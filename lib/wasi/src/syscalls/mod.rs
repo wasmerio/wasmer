@@ -3276,9 +3276,9 @@ pub fn proc_exit(
 /// Send a signal to the process of the calling thread.
 /// Note: This is similar to `raise` in POSIX.
 /// Inputs:
-/// - `__wasi_signal_t`
+/// - `Signal`
 ///   Signal to be raised for this process
-pub fn proc_raise(ctx: FunctionEnvMut<'_, WasiEnv>, sig: __wasi_signal_t) -> Errno {
+pub fn proc_raise(ctx: FunctionEnvMut<'_, WasiEnv>, sig: Signal) -> Errno {
     debug!("wasi::proc_raise");
     unimplemented!("wasi::proc_raise")
 }

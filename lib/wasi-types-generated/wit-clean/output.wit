@@ -1209,6 +1209,39 @@ enum %bool {
 record option-timestamp {
     tag: option-tag,
     u: timestamp,
+}
+
+enum signal {
+    sighup,
+    sigint,
+    sigquit,
+    sigill,
+    sigtrap,
+    sigabrt,
+    sigbus,
+    sigfpe,
+    sigkill,
+    sigusr1,
+    sigsegv,
+    sigusr2,
+    sigpipe,
+    sigalrm,
+    sigterm,
+    sigchld,
+    sigcont,
+    sigstop,
+    sigtstp,
+    sigttin,
+    sigttou,
+    sigurg,
+    sigxcpu,
+    sigxfsz,
+    sigvtalrm,
+    sigprof,
+    sigwinch,
+    sigpoll,
+    sigpwr,
+    sigsys,
 }// WASI Preview. This is an evolution of the API that WASI initially
 // launched with.
 //

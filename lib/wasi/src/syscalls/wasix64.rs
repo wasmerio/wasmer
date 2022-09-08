@@ -392,7 +392,7 @@ pub(crate) fn proc_exit(
     super::proc_exit(ctx, code)
 }
 
-pub(crate) fn proc_raise(ctx: FunctionEnvMut<WasiEnv>, sig: __wasi_signal_t) -> Errno {
+pub(crate) fn proc_raise(ctx: FunctionEnvMut<WasiEnv>, sig: Signal) -> Errno {
     super::proc_raise(ctx, sig)
 }
 

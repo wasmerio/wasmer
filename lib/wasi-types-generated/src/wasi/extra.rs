@@ -2505,6 +2505,76 @@ impl core::fmt::Debug for OptionTimestamp {
             .finish()
     }
 }
+#[repr(u8)]
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum Signal {
+    Sighup,
+    Sigint,
+    Sigquit,
+    Sigill,
+    Sigtrap,
+    Sigabrt,
+    Sigbus,
+    Sigfpe,
+    Sigkill,
+    Sigusr1,
+    Sigsegv,
+    Sigusr2,
+    Sigpipe,
+    Sigalrm,
+    Sigterm,
+    Sigchld,
+    Sigcont,
+    Sigstop,
+    Sigtstp,
+    Sigttin,
+    Sigttou,
+    Sigurg,
+    Sigxcpu,
+    Sigxfsz,
+    Sigvtalrm,
+    Sigprof,
+    Sigwinch,
+    Sigpoll,
+    Sigpwr,
+    Sigsys,
+}
+impl core::fmt::Debug for Signal {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Signal::Sighup => f.debug_tuple("Signal::Sighup").finish(),
+            Signal::Sigint => f.debug_tuple("Signal::Sigint").finish(),
+            Signal::Sigquit => f.debug_tuple("Signal::Sigquit").finish(),
+            Signal::Sigill => f.debug_tuple("Signal::Sigill").finish(),
+            Signal::Sigtrap => f.debug_tuple("Signal::Sigtrap").finish(),
+            Signal::Sigabrt => f.debug_tuple("Signal::Sigabrt").finish(),
+            Signal::Sigbus => f.debug_tuple("Signal::Sigbus").finish(),
+            Signal::Sigfpe => f.debug_tuple("Signal::Sigfpe").finish(),
+            Signal::Sigkill => f.debug_tuple("Signal::Sigkill").finish(),
+            Signal::Sigusr1 => f.debug_tuple("Signal::Sigusr1").finish(),
+            Signal::Sigsegv => f.debug_tuple("Signal::Sigsegv").finish(),
+            Signal::Sigusr2 => f.debug_tuple("Signal::Sigusr2").finish(),
+            Signal::Sigpipe => f.debug_tuple("Signal::Sigpipe").finish(),
+            Signal::Sigalrm => f.debug_tuple("Signal::Sigalrm").finish(),
+            Signal::Sigterm => f.debug_tuple("Signal::Sigterm").finish(),
+            Signal::Sigchld => f.debug_tuple("Signal::Sigchld").finish(),
+            Signal::Sigcont => f.debug_tuple("Signal::Sigcont").finish(),
+            Signal::Sigstop => f.debug_tuple("Signal::Sigstop").finish(),
+            Signal::Sigtstp => f.debug_tuple("Signal::Sigtstp").finish(),
+            Signal::Sigttin => f.debug_tuple("Signal::Sigttin").finish(),
+            Signal::Sigttou => f.debug_tuple("Signal::Sigttou").finish(),
+            Signal::Sigurg => f.debug_tuple("Signal::Sigurg").finish(),
+            Signal::Sigxcpu => f.debug_tuple("Signal::Sigxcpu").finish(),
+            Signal::Sigxfsz => f.debug_tuple("Signal::Sigxfsz").finish(),
+            Signal::Sigvtalrm => f.debug_tuple("Signal::Sigvtalrm").finish(),
+            Signal::Sigprof => f.debug_tuple("Signal::Sigprof").finish(),
+            Signal::Sigwinch => f.debug_tuple("Signal::Sigwinch").finish(),
+            Signal::Sigpoll => f.debug_tuple("Signal::Sigpoll").finish(),
+            Signal::Sigpwr => f.debug_tuple("Signal::Sigpwr").finish(),
+            Signal::Sigsys => f.debug_tuple("Signal::Sigsys").finish(),
+        }
+    }
+}
 /// Dummy function to expose types into generated code
 pub fn expose_types_dummy_func(
     fd: Fd,
@@ -4718,4 +4788,60 @@ unsafe impl wasmer::FromToNativeWasmType for Bool {
 unsafe impl ValueType for OptionTimestamp {
     #[inline]
     fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
+}
+
+// TODO: if necessary, must be implemented in wit-bindgen
+unsafe impl ValueType for Signal {
+    #[inline]
+    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
+}
+
+unsafe impl wasmer::FromToNativeWasmType for Signal {
+    type Native = i32;
+
+    fn to_native(self) -> Self::Native {
+        self as i32
+    }
+
+    fn from_native(n: Self::Native) -> Self {
+        match n {
+            0 => Self::Sighup,
+            1 => Self::Sigint,
+            2 => Self::Sigquit,
+            3 => Self::Sigill,
+            4 => Self::Sigtrap,
+            5 => Self::Sigabrt,
+            6 => Self::Sigbus,
+            7 => Self::Sigfpe,
+            8 => Self::Sigkill,
+            9 => Self::Sigusr1,
+            10 => Self::Sigsegv,
+            11 => Self::Sigusr2,
+            12 => Self::Sigpipe,
+            13 => Self::Sigalrm,
+            14 => Self::Sigterm,
+            15 => Self::Sigchld,
+            16 => Self::Sigcont,
+            17 => Self::Sigstop,
+            18 => Self::Sigtstp,
+            19 => Self::Sigttin,
+            20 => Self::Sigttou,
+            21 => Self::Sigurg,
+            22 => Self::Sigxcpu,
+            23 => Self::Sigxfsz,
+            24 => Self::Sigvtalrm,
+            25 => Self::Sigprof,
+            26 => Self::Sigwinch,
+            27 => Self::Sigpoll,
+            28 => Self::Sigpwr,
+            29 => Self::Sigsys,
+
+            q => todo!("could not serialize number {q} to enum Signal"),
+        }
+    }
+
+    #[cfg(feature = "sys")]
+    fn is_from_store(&self, _store: &impl wasmer::AsStoreRef) -> bool {
+        false
+    }
 }

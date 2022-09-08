@@ -2778,6 +2778,136 @@ pub mod output {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
       f.debug_struct("OptionTimestamp").field("tag", &self.tag).field("u", &self.u).finish()}
   }
+  #[repr(u8)]
+  #[derive(Clone, Copy, PartialEq, Eq)]
+  pub enum Signal {
+    Sighup,
+    Sigint,
+    Sigquit,
+    Sigill,
+    Sigtrap,
+    Sigabrt,
+    Sigbus,
+    Sigfpe,
+    Sigkill,
+    Sigusr1,
+    Sigsegv,
+    Sigusr2,
+    Sigpipe,
+    Sigalrm,
+    Sigterm,
+    Sigchld,
+    Sigcont,
+    Sigstop,
+    Sigtstp,
+    Sigttin,
+    Sigttou,
+    Sigurg,
+    Sigxcpu,
+    Sigxfsz,
+    Sigvtalrm,
+    Sigprof,
+    Sigwinch,
+    Sigpoll,
+    Sigpwr,
+    Sigsys,
+  }
+  impl core::fmt::Debug for Signal {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+      match self {
+        Signal::Sighup => {
+          f.debug_tuple("Signal::Sighup").finish()
+        }
+        Signal::Sigint => {
+          f.debug_tuple("Signal::Sigint").finish()
+        }
+        Signal::Sigquit => {
+          f.debug_tuple("Signal::Sigquit").finish()
+        }
+        Signal::Sigill => {
+          f.debug_tuple("Signal::Sigill").finish()
+        }
+        Signal::Sigtrap => {
+          f.debug_tuple("Signal::Sigtrap").finish()
+        }
+        Signal::Sigabrt => {
+          f.debug_tuple("Signal::Sigabrt").finish()
+        }
+        Signal::Sigbus => {
+          f.debug_tuple("Signal::Sigbus").finish()
+        }
+        Signal::Sigfpe => {
+          f.debug_tuple("Signal::Sigfpe").finish()
+        }
+        Signal::Sigkill => {
+          f.debug_tuple("Signal::Sigkill").finish()
+        }
+        Signal::Sigusr1 => {
+          f.debug_tuple("Signal::Sigusr1").finish()
+        }
+        Signal::Sigsegv => {
+          f.debug_tuple("Signal::Sigsegv").finish()
+        }
+        Signal::Sigusr2 => {
+          f.debug_tuple("Signal::Sigusr2").finish()
+        }
+        Signal::Sigpipe => {
+          f.debug_tuple("Signal::Sigpipe").finish()
+        }
+        Signal::Sigalrm => {
+          f.debug_tuple("Signal::Sigalrm").finish()
+        }
+        Signal::Sigterm => {
+          f.debug_tuple("Signal::Sigterm").finish()
+        }
+        Signal::Sigchld => {
+          f.debug_tuple("Signal::Sigchld").finish()
+        }
+        Signal::Sigcont => {
+          f.debug_tuple("Signal::Sigcont").finish()
+        }
+        Signal::Sigstop => {
+          f.debug_tuple("Signal::Sigstop").finish()
+        }
+        Signal::Sigtstp => {
+          f.debug_tuple("Signal::Sigtstp").finish()
+        }
+        Signal::Sigttin => {
+          f.debug_tuple("Signal::Sigttin").finish()
+        }
+        Signal::Sigttou => {
+          f.debug_tuple("Signal::Sigttou").finish()
+        }
+        Signal::Sigurg => {
+          f.debug_tuple("Signal::Sigurg").finish()
+        }
+        Signal::Sigxcpu => {
+          f.debug_tuple("Signal::Sigxcpu").finish()
+        }
+        Signal::Sigxfsz => {
+          f.debug_tuple("Signal::Sigxfsz").finish()
+        }
+        Signal::Sigvtalrm => {
+          f.debug_tuple("Signal::Sigvtalrm").finish()
+        }
+        Signal::Sigprof => {
+          f.debug_tuple("Signal::Sigprof").finish()
+        }
+        Signal::Sigwinch => {
+          f.debug_tuple("Signal::Sigwinch").finish()
+        }
+        Signal::Sigpoll => {
+          f.debug_tuple("Signal::Sigpoll").finish()
+        }
+        Signal::Sigpwr => {
+          f.debug_tuple("Signal::Sigpwr").finish()
+        }
+        Signal::Sigsys => {
+          f.debug_tuple("Signal::Sigsys").finish()
+        }
+      }
+    }
+  }
   /// Dummy function to expose types into generated code
   pub fn expose_types_dummy_func(fd: Fd,dirent: Dirent,snapshot0_dirent: Snapshot0Dirent,snapshot0_event: Snapshot0Event,event_enum: EventEnum,event: Event,fdstat: Fdstat,subscription_clock: SubscriptionClock,snapshot0_subscription_clock: Snapshot0SubscriptionClock,subscription: Subscription,snapshot0_subscription: Snapshot0Subscription,device: Device,linkcount: Linkcount,snapshot0_linkcount: Snapshot0Linkcount,filestat: Filestat,snapshot0_filestat: Snapshot0Filestat,tty: Tty,tid: Tid,pid: Pid,bus_data_format: BusDataFormat,bid: Bid,option_bid: OptionBid,cid: Cid,option_cid: OptionCid,option_fd: OptionFd,bus_handles: BusHandles,exit_code: ExitCode,bus_event_exit: BusEventExit,bus_event_fault: BusEventFault,bus_event_close: BusEventClose,prestat_u_dir: PrestatUDir,prestat_u: PrestatU,event_fd_flags: EventFdFlags,prestat: Prestat,file_delta: FileDelta,lookup_flags: LookupFlags,count: Count,bool: Bool,pipe_handles: PipeHandles,stdio_mode: StdioMode,sock_proto: SockProto,option_timestamp: OptionTimestamp,) -> (){
     unsafe {
