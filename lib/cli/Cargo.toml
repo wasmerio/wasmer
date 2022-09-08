@@ -142,3 +142,32 @@ http = [
   "dirs",
   "serde_json",
 ]
+
+[package.metadata.binstall]
+pkg-fmt = "tgz"
+
+[package.metadata.binstall.overrides.aarch64-apple-darwin]
+pkg-url = "{ repo }/releases/download/{ version }/wasmer-darwin-arm64.{ archive-format }"
+bin-dir = "wasmer-darwin-arm64/bin/{ bin }"
+
+#https://github.com/wasmerio/wasmer/releases/download/3.0.0-beta/wasmer-darwin-arm64.tar.gz
+
+[package.metadata.binstall.overrides.x86_64-apple-darwin]
+pkg-url = "{ repo }/releases/download/{ version }/wasmer-darwin-amd64.{ archive-format }"
+bin-dir = "wasmer-darwin-amd64/bin/{ bin }"
+
+[package.metadata.binstall.overrides.aarch64-unknown-linux-gnu]
+pkg-url = "{ repo }/releases/download/{ version }/wasmer-linux-aarch64.{ archive-format }"
+bin-dir = "wasmer-linux-aarch64/bin/{ bin }"
+
+[package.metadata.binstall.overrides.x86_64-unknown-linux-gnu]
+pkg-url = "{ repo }/releases/download/{ version }/wasmer-linux-amd64.{ archive-format }"
+bin-dir = "wasmer-linux-amd64/bin/{ bin }"
+
+[package.metadata.binstall.overrides.x86_64-unknown-linux-musl]
+pkg-url = "{ repo }/releases/download/{ version }/wasmer-linux-musl-amd64.{ archive-format }"
+bin-dir = "wasmer-linux-musl-amd64/bin/{ bin }"
+
+[package.metadata.binstall.overrides.x86_64-pc-windows-msvc]
+pkg-url = "{ repo }/releases/download/{ version }/wasmer-windows-amd64.{ archive-format }"
+bin-dir = "wasmer-windows-amd64/bin/{ bin }.exe"
