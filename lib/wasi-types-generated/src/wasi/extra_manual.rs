@@ -253,7 +253,6 @@ unsafe impl wasmer::FromToNativeWasmType for Oflags {
     }
 }
 
-
 impl PartialEq for OptionCid {
     fn eq(&self, other: &Self) -> bool {
         self.tag == other.tag && self.cid == other.cid
