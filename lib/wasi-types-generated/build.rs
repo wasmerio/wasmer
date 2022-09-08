@@ -5,6 +5,7 @@ const WIT_1: &str = include_str!("./wit-clean/output.wit");
 const BINDINGS_RS: &str = include_str!("./src/wasi/bindings.rs");
 
 fn main() {
+    /*
     let bindings_rs = BINDINGS_RS
         .replace("#[allow(clippy::all)]", "")
         .replace("pub mod output {", "")
@@ -109,4 +110,5 @@ fn main() {
         }
     }
     std::fs::write(path, contents).unwrap();
+    */
 }
