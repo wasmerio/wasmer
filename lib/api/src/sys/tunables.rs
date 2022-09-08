@@ -314,9 +314,7 @@ mod tests {
         use crate::{imports, wat2wasm, Instance, Memory, Module, Store};
         use wasmer_compiler_cranelift::Cranelift;
 
-        let wasm_bytes = wat2wasm(
-            br#"(module (memory 3) (export "memory" (memory 0)))"#
-        )?;
+        let wasm_bytes = wat2wasm(br#"(module (memory 3) (export "memory" (memory 0)))"#)?;
         let compiler = Cranelift::default();
 
         let tunables = TinyTunables {};
