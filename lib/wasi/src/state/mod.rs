@@ -55,6 +55,7 @@ use wasmer_vbus::BusSpawnedProcess;
 use wasmer_wasi_types_generated::wasi::{
     Errno, Fd as WasiFd, Fdflags, Fdstat, Filesize, Filestat, Filetype, Preopentype, Rights,
 };
+use wasmer_wasi_types_generated::wasi::{Prestat, PrestatEnum};
 
 use wasmer_vfs::{FileSystem, FsError, OpenOptions, VirtualFile};
 
@@ -1370,7 +1371,7 @@ impl WasiFs {
         })
     }
 
-    pub fn prestat_fd(&self, inodes: &WasiInodes, fd: WasiFd) -> Result<__wasi_prestat_t, Errno> {
+    pub fn prestat_fd(&self, inodes: &WasiInodes, fd: WasiFd) -> Result<Prestat, Errno> {
         let inode = self.get_fd_inode(fd)?;
         trace!("in prestat_fd {:?}", self.get_fd(fd)?);
 
@@ -1383,8 +1384,8 @@ impl WasiFs {
         }
     }
 
-    pub(crate) fn prestat_fd_inner(&self, inode_val: &InodeVal) -> __wasi_prestat_t {
-        __wasi_prestat_t {
+    pub(crate) fn prestat_fd_inner(&self, inode_val: &InodeVal) -> Prestat {
+        Prestat {
             pr_type: Preopentype::Dir,
             u: PrestatEnum::Dir {
                 // REVIEW:

@@ -813,6 +813,8 @@ fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
   }
   wit_bindgen_rust::bitflags::bitflags! {
 /// Which file time attributes to adjust.
+/// TODO: wit appears to not have support for flags repr
+/// (@witx repr u16)
 pub struct Fstflags: u8 {
   /// Adjust the last data access timestamp to the value stored in `filestat::atim`.
   const SET_ATIM = 1 << 0;
@@ -833,6 +835,8 @@ pub fn from_bits_preserve(bits: u8) -> Self {
   }
   wit_bindgen_rust::bitflags::bitflags! {
 /// Flags determining the method of how paths are resolved.
+/// TODO: wit appears to not have support for flags repr
+/// (@witx repr u32)
 pub struct Lookup: u8 {
   /// As long as the resolved path corresponds to a symbolic link, it is expanded.
   const SYMLINK_FOLLOW = 1 << 0;
@@ -847,6 +851,8 @@ pub fn from_bits_preserve(bits: u8) -> Self {
   }
   wit_bindgen_rust::bitflags::bitflags! {
 /// Open flags used by `path_open`.
+/// TODO: wit appears to not have support for flags repr
+/// (@witx repr u16)
 pub struct Oflags: u8 {
   /// Create file if it does not exist.
   const CREATE = 1 << 0;
@@ -1593,8 +1599,39 @@ pub cid: Cid,
 fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
   f.debug_struct("BusEventClose").field("cid", &self.cid).finish()}
   }
+  pub type EventFdFlags = u16;
+  #[repr(C)]
+  #[derive(Copy, Clone)]
+  pub struct PrestatUDir {
+pub pr_name_len: u32,
+  }
+  impl core::fmt::Debug for PrestatUDir {
+fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+  f.debug_struct("PrestatUDir").field("pr-name-len", &self.pr_name_len).finish()}
+  }
+  #[repr(C)]
+  #[derive(Copy, Clone)]
+  pub struct PrestatU {
+pub dir: PrestatUDir,
+  }
+  impl core::fmt::Debug for PrestatU {
+fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+  f.debug_struct("PrestatU").field("dir", &self.dir).finish()}
+  }
+  #[repr(C)]
+  #[derive(Copy, Clone)]
+  pub struct Prestat {
+pub pr_type: Preopentype,
+pub u: PrestatU,
+  }
+  impl core::fmt::Debug for Prestat {
+fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+  f.debug_struct("Prestat").field("pr-type", &self.pr_type).field("u", &self.u).finish()}
+  }
+  pub type FileDelta = i64;
+  pub type LookupFlags = u32;
   /// Dummy function to expose types into generated code
-  pub fn expose_types_dummy_func(fd: Fd,dirent: Dirent,snapshot0_dirent: Snapshot0Dirent,snapshot0_event: Snapshot0Event,event_enum: EventEnum,event: Event,fdstat: Fdstat,subscription_clock: SubscriptionClock,snapshot0_subscription_clock: Snapshot0SubscriptionClock,subscription: Subscription,snapshot0_subscription: Snapshot0Subscription,device: Device,linkcount: Linkcount,snapshot0_linkcount: Snapshot0Linkcount,filestat: Filestat,snapshot0_filestat: Snapshot0Filestat,tty: Tty,tid: Tid,pid: Pid,bus_data_format: BusDataFormat,bid: Bid,option_bid: OptionBid,cid: Cid,option_cid: OptionCid,option_fd: OptionFd,bus_handles: BusHandles,exit_code: ExitCode,bus_event_exit: BusEventExit,bus_event_fault: BusEventFault,bus_event_close: BusEventClose,) -> (){
+  pub fn expose_types_dummy_func(fd: Fd,dirent: Dirent,snapshot0_dirent: Snapshot0Dirent,snapshot0_event: Snapshot0Event,event_enum: EventEnum,event: Event,fdstat: Fdstat,subscription_clock: SubscriptionClock,snapshot0_subscription_clock: Snapshot0SubscriptionClock,subscription: Subscription,snapshot0_subscription: Snapshot0Subscription,device: Device,linkcount: Linkcount,snapshot0_linkcount: Snapshot0Linkcount,filestat: Filestat,snapshot0_filestat: Snapshot0Filestat,tty: Tty,tid: Tid,pid: Pid,bus_data_format: BusDataFormat,bid: Bid,option_bid: OptionBid,cid: Cid,option_cid: OptionCid,option_fd: OptionFd,bus_handles: BusHandles,exit_code: ExitCode,bus_event_exit: BusEventExit,bus_event_fault: BusEventFault,bus_event_close: BusEventClose,prestat_u_dir: PrestatUDir,prestat_u: PrestatU,event_fd_flags: EventFdFlags,prestat: Prestat,file_delta: FileDelta,lookup_flags: LookupFlags,) -> (){
 unsafe {
   let ptr0 = OUTPUT_RET_AREA.0.as_mut_ptr() as i32;
   *((ptr0 + 0) as *mut i32) = wit_bindgen_rust::rt::as_i32(fd);
@@ -2067,6 +2104,21 @@ BusErrno::Unknown => 19,
   }) as u8;
   let BusEventClose{ cid:cid45, } = bus_event_close;
   *((ptr0 + 612) as *mut i32) = wit_bindgen_rust::rt::as_i32(cid45);
+  let PrestatUDir{ pr_name_len:pr_name_len46, } = prestat_u_dir;
+  *((ptr0 + 616) as *mut i32) = wit_bindgen_rust::rt::as_i32(pr_name_len46);
+  let PrestatU{ dir:dir47, } = prestat_u;
+  let PrestatUDir{ pr_name_len:pr_name_len48, } = dir47;
+  *((ptr0 + 620) as *mut i32) = wit_bindgen_rust::rt::as_i32(pr_name_len48);
+  *((ptr0 + 624) as *mut u16) = (wit_bindgen_rust::rt::as_i32(event_fd_flags)) as u16;
+  let Prestat{ pr_type:pr_type49, u:u49, } = prestat;
+  *((ptr0 + 628) as *mut u8) = (match pr_type49 {
+Preopentype::Dir => 0,
+  }) as u8;
+  let PrestatU{ dir:dir50, } = u49;
+  let PrestatUDir{ pr_name_len:pr_name_len51, } = dir50;
+  *((ptr0 + 632) as *mut i32) = wit_bindgen_rust::rt::as_i32(pr_name_len51);
+  *((ptr0 + 640) as *mut i64) = wit_bindgen_rust::rt::as_i64(file_delta);
+  *((ptr0 + 648) as *mut i32) = wit_bindgen_rust::rt::as_i32(lookup_flags);
   #[link(wasm_import_module = "output")]
   extern "C" {
 #[cfg_attr(target_arch = "wasm32", link_name = "expose-types-dummy-func")]
@@ -2079,8 +2131,8 @@ fn wit_import(_: i32, );
   }
   
   #[repr(align(8))]
-  struct RetArea([u8; 616]);
-  static mut OUTPUT_RET_AREA: RetArea = RetArea([0; 616]);
+  struct RetArea([u8; 656]);
+  static mut OUTPUT_RET_AREA: RetArea = RetArea([0; 656]);
 
     
 // TODO: if necessary, must be implemented in wit-bindgen
@@ -2904,6 +2956,20 @@ unsafe impl ValueType for BusEventFault {
                 
 // TODO: if necessary, must be implemented in wit-bindgen
 unsafe impl ValueType for BusEventClose {
+    #[inline]
+    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) { }
+}
+
+                
+// TODO: if necessary, must be implemented in wit-bindgen
+unsafe impl ValueType for PrestatUDir {
+    #[inline]
+    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) { }
+}
+
+                
+// TODO: if necessary, must be implemented in wit-bindgen
+unsafe impl ValueType for PrestatU {
     #[inline]
     fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) { }
 }

@@ -235,11 +235,89 @@ unsafe impl wasmer::FromToNativeWasmType for Fstflags {
     }
 }
 
-impl PartialEq for OptionCid {
-    fn eq(&self, other: &Self) -> bool {
-        self.tag == other.tag &&
-        self.cid == other.cid
+// TODO: if necessary, must be implemented in wit-bindgen
+unsafe impl wasmer::FromToNativeWasmType for Oflags {
+    type Native = i32;
+
+    fn to_native(self) -> Self::Native {
+        self.bits() as i32
+    }
+    fn from_native(n: Self::Native) -> Self {
+        Self::from_bits_truncate(n as u8)
+    }
+
+    #[cfg(feature = "sys")]
+    fn is_from_store(&self, _store: &impl wasmer::AsStoreRef) -> bool {
+        // TODO: find correct implementation
+        false
     }
 }
 
-impl Eq for OptionCid { }
+
+impl PartialEq for OptionCid {
+    fn eq(&self, other: &Self) -> bool {
+        self.tag == other.tag && self.cid == other.cid
+    }
+}
+
+impl Eq for OptionCid {}
+
+#[derive(Copy, Clone)]
+pub enum PrestatEnum {
+    Dir { pr_name_len: u32 },
+}
+
+impl PrestatEnum {
+    pub fn untagged(self) -> PrestatU {
+        match self {
+            PrestatEnum::Dir { pr_name_len } => PrestatU {
+                dir: PrestatUDir { pr_name_len },
+            },
+        }
+    }
+}
+
+impl Prestat {
+    #[allow(clippy::trivially_copy_pass_by_ref)]
+    pub fn tagged(&self) -> Option<PrestatEnum> {
+        match self.pr_type {
+            Preopentype::Dir => Some(PrestatEnum::Dir {
+                pr_name_len: self.u.dir.pr_name_len,
+            }),
+        }
+    }
+}
+
+unsafe impl wasmer::ValueType for Prestat {
+    fn zero_padding_bytes(&self, bytes: &mut [core::mem::MaybeUninit<u8>]) {
+        macro_rules! field {
+            ($($f:tt)*) => {
+                &self.$($f)* as *const _ as usize - self as *const _ as usize
+            };
+        }
+        macro_rules! field_end {
+            ($($f:tt)*) => {
+                field!($($f)*) + core::mem::size_of_val(&self.$($f)*)
+            };
+        }
+        macro_rules! zero {
+            ($start:expr, $end:expr) => {
+                for i in $start..$end {
+                    bytes[i] = core::mem::MaybeUninit::new(0);
+                }
+            };
+        }
+        self.pr_type
+            .zero_padding_bytes(&mut bytes[field!(pr_type)..field_end!(pr_type)]);
+        zero!(field_end!(pr_type), field!(u));
+        match self.pr_type {
+            Preopentype::Dir => {
+                self.u
+                    .dir
+                    .zero_padding_bytes(&mut bytes[field!(u.dir)..field_end!(u.dir)]);
+                zero!(field_end!(u.dir), field_end!(u));
+            }
+        }
+        zero!(field_end!(u), core::mem::size_of_val(self));
+    }
+}

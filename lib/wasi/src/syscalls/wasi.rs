@@ -150,7 +150,7 @@ pub(crate) fn fd_pread(
 pub(crate) fn fd_prestat_get(
     ctx: FunctionEnvMut<WasiEnv>,
     fd: WasiFd,
-    buf: WasmPtr<__wasi_prestat_t, MemoryType>,
+    buf: WasmPtr<Prestat, MemoryType>,
 ) -> Errno {
     super::fd_prestat_get::<MemoryType>(ctx, fd, buf)
 }
@@ -203,7 +203,7 @@ pub(crate) fn fd_renumber(ctx: FunctionEnvMut<WasiEnv>, from: WasiFd, to: WasiFd
 pub(crate) fn fd_seek(
     ctx: FunctionEnvMut<WasiEnv>,
     fd: WasiFd,
-    offset: __wasi_filedelta_t,
+    offset: FileDelta,
     whence: Whence,
     newoffset: WasmPtr<Filesize, MemoryType>,
 ) -> Result<Errno, WasiError> {
@@ -244,7 +244,7 @@ pub(crate) fn path_create_directory(
 pub(crate) fn path_filestat_get(
     ctx: FunctionEnvMut<WasiEnv>,
     fd: WasiFd,
-    flags: __wasi_lookupflags_t,
+    flags: LookupFlags,
     path: WasmPtr<u8, MemoryType>,
     path_len: MemoryOffset,
     buf: WasmPtr<Filestat, MemoryType>,
@@ -255,7 +255,7 @@ pub(crate) fn path_filestat_get(
 pub(crate) fn path_filestat_set_times(
     ctx: FunctionEnvMut<WasiEnv>,
     fd: WasiFd,
-    flags: __wasi_lookupflags_t,
+    flags: LookupFlags,
     path: WasmPtr<u8, MemoryType>,
     path_len: MemoryOffset,
     st_atim: Timestamp,
@@ -270,7 +270,7 @@ pub(crate) fn path_filestat_set_times(
 pub(crate) fn path_link(
     ctx: FunctionEnvMut<WasiEnv>,
     old_fd: WasiFd,
-    old_flags: __wasi_lookupflags_t,
+    old_flags: LookupFlags,
     old_path: WasmPtr<u8, MemoryType>,
     old_path_len: MemoryOffset,
     new_fd: WasiFd,
@@ -292,10 +292,10 @@ pub(crate) fn path_link(
 pub(crate) fn path_open(
     ctx: FunctionEnvMut<WasiEnv>,
     dirfd: WasiFd,
-    dirflags: __wasi_lookupflags_t,
+    dirflags: LookupFlags,
     path: WasmPtr<u8, MemoryType>,
     path_len: MemoryOffset,
-    o_flags: __wasi_oflags_t,
+    o_flags: Oflags,
     fs_rights_base: __wasi_rights_t,
     fs_rights_inheriting: __wasi_rights_t,
     fs_flags: WasiFdflags,

@@ -31,6 +31,9 @@ fn main() {
     "
     )
     .replace("        ", "");
+
+    let excluded_from_impl_valuetype = ["Prestat"];
+
     for (_, i) in result.types.iter() {
         match i.kind {
             | TypeDefKind::Record(_)
@@ -47,6 +50,9 @@ fn main() {
             // | TypeDefKind::Type(_) 
             => {
                 let name = i.name.clone().unwrap_or_default().to_case(Case::Pascal);
+                if excluded_from_impl_valuetype.iter().any(|s| *s == name.as_str()) {
+                    continue;
+                }
                 contents.push_str(&format!("
                     // TODO: if necessary, must be implemented in wit-bindgen
                     unsafe impl ValueType for {name} {{

@@ -36,6 +36,12 @@ expose-types-dummy-func: func(
   bus-event-exit: bus-event-exit,
   bus-event-fault: bus-event-fault,
   bus-event-close: bus-event-close,
+  prestat-u-dir: prestat-u-dir,
+  prestat-u: prestat-u,
+  event-fd-flags: event-fd-flags,
+  prestat: prestat,
+  file-delta: file-delta,
+  lookup-flags: lookup-flags,
 )
 
 /// Type names used by low-level WASI interfaces.
@@ -525,10 +531,9 @@ record fdstat {
 }
 
 /// Which file time attributes to adjust.
+/// TODO: wit appears to not have support for flags repr
+/// (@witx repr u16)
 flags fstflags {
-    // TODO: wit appears to not have support for flags repr
-    //(@witx repr u16)
-
     /// Adjust the last data access timestamp to the value stored in `filestat::atim`.
     set-atim,
     /// Adjust the last data access timestamp to the time of clock `clockid::realtime`.
@@ -540,19 +545,17 @@ flags fstflags {
 }
 
 /// Flags determining the method of how paths are resolved.
+///  TODO: wit appears to not have support for flags repr
+/// (@witx repr u32)
 flags lookup {
-    // TODO: wit appears to not have support for flags repr
-    //(@witx repr u32)
-
     /// As long as the resolved path corresponds to a symbolic link, it is expanded.
     symlink-follow,
 }
 
 /// Open flags used by `path_open`.
+/// TODO: wit appears to not have support for flags repr
+/// (@witx repr u16)
 flags oflags {
-    // TODO: wit appears to not have support for flags repr
-    //(@witx repr u16)
-
     /// Create file if it does not exist.
     create,
     /// Fail if not a directory.
@@ -887,3 +890,22 @@ record bus-event-fault {
 record bus-event-close {
     cid: cid,
 }
+
+type event-fd-flags = u16
+
+record prestat-u-dir {
+    pr-name-len: u32,
+}
+
+record prestat-u {
+    dir: prestat-u-dir,
+}
+
+record prestat {
+    pr-type: preopentype,
+    u: prestat-u,
+}
+
+type file-delta = s64
+
+type lookup-flags = u32

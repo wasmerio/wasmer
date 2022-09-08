@@ -68,7 +68,7 @@ pub fn fd_filestat_get(
 pub fn path_filestat_get(
     mut ctx: FunctionEnvMut<WasiEnv>,
     fd: Fd,
-    flags: types::__wasi_lookupflags_t,
+    flags: types::LookupFlags,
     path: WasmPtr<u8, Memory32>,
     path_len: u32,
     buf: WasmPtr<Snapshot0Filestat, Memory32>,
@@ -111,7 +111,7 @@ pub fn path_filestat_get(
 pub fn fd_seek(
     ctx: FunctionEnvMut<WasiEnv>,
     fd: Fd,
-    offset: types::__wasi_filedelta_t,
+    offset: types::FileDelta,
     whence: Snapshot0Whence,
     newoffset: WasmPtr<Filesize, Memory32>,
 ) -> Result<Errno, WasiError> {

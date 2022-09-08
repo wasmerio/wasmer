@@ -26,11 +26,11 @@ pub mod wasix64;
 
 use self::types::{
     wasi::{
-        Addressfamily, Advice, BusDataFormat, BusErrno, Clockid, Dircookie, Dirent, Errno, Event,
-        EventEnum, EventFdReadwrite, Eventrwflags, Eventtype, Fd as WasiFd, Fdflags, Fdstat,
-        Filesize, Filestat, Filetype, Fstflags, Linkcount, Pid, Rights, Snapshot0Clockid,
-        Sockoption, Sockstatus, Socktype, Streamsecurity, Subscription, SubscriptionEnum,
-        SubscriptionFsReadwrite, Tid, Timestamp, Tty, Whence, Cid, OptionFd, Bid, BusHandles,
+        Addressfamily, Advice, Bid, BusDataFormat, BusErrno, BusHandles, Cid, Clockid, Dircookie,
+        Dirent, Errno, Event, EventEnum, EventFdReadwrite, Eventrwflags, Eventtype, Fd as WasiFd,
+        Fdflags, Fdstat, Filesize, Filestat, Filetype, Fstflags, Linkcount, OptionFd, Pid, Prestat,
+        Rights, Snapshot0Clockid, Sockoption, Sockstatus, Socktype, Streamsecurity, Subscription,
+        SubscriptionEnum, SubscriptionFsReadwrite, Tid, Timestamp, Tty, Whence,
     },
     *,
 };
@@ -924,7 +924,7 @@ pub fn fd_pread<M: MemorySize>(
 pub fn fd_prestat_get<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
-    buf: WasmPtr<__wasi_prestat_t, M>,
+    buf: WasmPtr<Prestat, M>,
 ) -> Errno {
     trace!("wasi::fd_prestat_get: fd={}", fd);
     let env = ctx.data();
@@ -1457,7 +1457,7 @@ pub fn fd_dup<M: MemorySize>(
 pub fn fd_event<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     initial_val: u64,
-    flags: __wasi_eventfdflags,
+    flags: EventFdFlags,
     ret_fd: WasmPtr<WasiFd, M>,
 ) -> Errno {
     debug!("wasi::fd_event");
@@ -1467,7 +1467,7 @@ pub fn fd_event<M: MemorySize>(
 
     let kind = Kind::EventNotifications {
         counter: Arc::new(AtomicU64::new(initial_val)),
-        is_semaphore: flags & __WASI_EVENTFDFLAGS_SEMAPHORE != 0,
+        is_semaphore: flags & EventFdFlags_SEMAPHORE != 0,
         wakers: Default::default(),
     };
 
@@ -1492,7 +1492,7 @@ pub fn fd_event<M: MemorySize>(
 /// Inputs:
 /// - `Fd fd`
 ///     File descriptor to mutate
-/// - `__wasi_filedelta_t offset`
+/// - `FileDelta offset`
 ///     Number of bytes to adjust offset by
 /// - `Whence whence`
 ///     What the offset is relative to
@@ -1502,7 +1502,7 @@ pub fn fd_event<M: MemorySize>(
 pub fn fd_seek<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
-    offset: __wasi_filedelta_t,
+    offset: FileDelta,
     whence: Whence,
     newoffset: WasmPtr<Filesize, M>,
 ) -> Result<Errno, WasiError> {
@@ -1967,7 +1967,7 @@ pub fn path_create_directory<M: MemorySize>(
 /// Inputs:
 /// - `Fd fd`
 ///     The directory that `path` is relative to
-/// - `__wasi_lookupflags_t flags`
+/// - `LookupFlags flags`
 ///     Flags to control how `path` is understood
 /// - `const char *path`
 ///     String containing the file path
@@ -1979,7 +1979,7 @@ pub fn path_create_directory<M: MemorySize>(
 pub fn path_filestat_get<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
-    flags: __wasi_lookupflags_t,
+    flags: LookupFlags,
     path: WasmPtr<u8, M>,
     path_len: M::Offset,
     buf: WasmPtr<Filestat, M>,
@@ -2009,7 +2009,7 @@ pub fn path_filestat_get<M: MemorySize>(
 /// Inputs:
 /// - `Fd fd`
 ///     The directory that `path` is relative to
-/// - `__wasi_lookupflags_t flags`
+/// - `LookupFlags flags`
 ///     Flags to control how `path` is understood
 /// - `const char *path`
 ///     String containing the file path
@@ -2023,7 +2023,7 @@ pub fn path_filestat_get_internal(
     state: &WasiState,
     inodes: &mut crate::WasiInodes,
     fd: WasiFd,
-    flags: __wasi_lookupflags_t,
+    flags: LookupFlags,
     path_string: &str,
 ) -> Result<Filestat, Errno> {
     let root_dir = state.fs.get_fd(fd)?;
@@ -2052,7 +2052,7 @@ pub fn path_filestat_get_internal(
 /// Inputs:
 /// - `Fd fd`
 ///     The directory relative to which the path is resolved
-/// - `__wasi_lookupflags_t flags`
+/// - `LookupFlags flags`
 ///     Flags to control how the path is understood
 /// - `const char *path`
 ///     String containing the file path
@@ -2067,7 +2067,7 @@ pub fn path_filestat_get_internal(
 pub fn path_filestat_set_times<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
-    flags: __wasi_lookupflags_t,
+    flags: LookupFlags,
     path: WasmPtr<u8, M>,
     path_len: M::Offset,
     st_atim: Timestamp,
@@ -2129,7 +2129,7 @@ pub fn path_filestat_set_times<M: MemorySize>(
 /// Inputs:
 /// - `Fd old_fd`
 ///     The directory relative to which the `old_path` is
-/// - `__wasi_lookupflags_t old_flags`
+/// - `LookupFlags old_flags`
 ///     Flags to control how `old_path` is understood
 /// - `const char *old_path`
 ///     String containing the old file path
@@ -2144,7 +2144,7 @@ pub fn path_filestat_set_times<M: MemorySize>(
 pub fn path_link<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     old_fd: WasiFd,
-    old_flags: __wasi_lookupflags_t,
+    old_flags: LookupFlags,
     old_path: WasmPtr<u8, M>,
     old_path_len: M::Offset,
     new_fd: WasiFd,
@@ -2218,13 +2218,13 @@ pub fn path_link<M: MemorySize>(
 /// Inputs:
 /// - `Fd dirfd`
 ///     The fd corresponding to the directory that the file is in
-/// - `__wasi_lookupflags_t dirflags`
+/// - `LookupFlags dirflags`
 ///     Flags specifying how the path will be resolved
 /// - `char *path`
 ///     The path of the file or directory to open
 /// - `u32 path_len`
 ///     The length of the `path` string
-/// - `__wasi_oflags_t o_flags`
+/// - `Oflags o_flags`
 ///     How the file will be opened
 /// - `Rights fs_rights_base`
 ///     The rights of the created file descriptor
@@ -2240,10 +2240,10 @@ pub fn path_link<M: MemorySize>(
 pub fn path_open<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     dirfd: WasiFd,
-    dirflags: __wasi_lookupflags_t,
+    dirflags: LookupFlags,
     path: WasmPtr<u8, M>,
     path_len: M::Offset,
-    o_flags: __wasi_oflags_t,
+    o_flags: Oflags,
     fs_rights_base: Rights,
     fs_rights_inheriting: Rights,
     fs_flags: Fdflags,
@@ -2310,10 +2310,10 @@ pub fn path_open<M: MemorySize>(
                     wasi_try_mem!(fd_ref.write(*special_fd));
                     return Errno::Success;
                 }
-                if o_flags & __WASI_O_DIRECTORY != 0 {
+                if o_flags.contains(Oflags::DIRECTORY) {
                     return Errno::Notdir;
                 }
-                if o_flags & __WASI_O_EXCL != 0 {
+                if o_flags.contains(Oflags::EXCL) {
                     return Errno::Exist;
                 }
 
@@ -2323,8 +2323,8 @@ pub fn path_open<M: MemorySize>(
                     if write_permission {
                         (
                             fs_flags.contains(Fdflags::APPEND),
-                            o_flags & __WASI_O_TRUNC != 0,
-                            o_flags & __WASI_O_CREAT != 0,
+                            o_flags.contains(Oflags::TRUNC),
+                            o_flags.contains(Oflags::CREATE),
                         )
                     } else {
                         (false, false, false)
@@ -2340,10 +2340,10 @@ pub fn path_open<M: MemorySize>(
                 if adjusted_rights.contains(Rights::FD_WRITE) {
                     open_flags |= Fd::WRITE;
                 }
-                if o_flags & __WASI_O_CREAT != 0 {
+                if o_flags.contains(Oflags::CREATE) {
                     open_flags |= Fd::CREATE;
                 }
-                if o_flags & __WASI_O_TRUNC != 0 {
+                if o_flags.contains(Oflags::TRUNC) {
                     open_flags |= Fd::TRUNCATE;
                 }
                 *handle = Some(wasi_try!(open_options
@@ -2370,8 +2370,8 @@ pub fn path_open<M: MemorySize>(
     } else {
         // less-happy path, we have to try to create the file
         debug!("Maybe creating file");
-        if o_flags & __WASI_O_CREAT != 0 {
-            if o_flags & __WASI_O_DIRECTORY != 0 {
+        if o_flags.contains(Oflags::CREATE) {
+            if o_flags.contains(Oflags::DIRECTORY) {
                 return Errno::Notdir;
             }
             debug!("Creating file");
@@ -4043,11 +4043,7 @@ pub fn call_reply<M: MemorySize>(
 ///
 /// * `cid` - Handle of the call to raise a fault on
 /// * `fault` - Fault to be raised on the bus
-pub fn call_fault(
-    ctx: FunctionEnvMut<'_, WasiEnv>,
-    cid: Cid,
-    fault: BusErrno,
-) -> BusErrno {
+pub fn call_fault(ctx: FunctionEnvMut<'_, WasiEnv>, cid: Cid, fault: BusErrno) -> BusErrno {
     let env = ctx.data();
     let bus = env.runtime.bus();
     debug!("wasi::call_fault (cid={}, fault={})", cid, fault);

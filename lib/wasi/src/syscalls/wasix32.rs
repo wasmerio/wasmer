@@ -3,9 +3,10 @@ use crate::{WasiEnv, WasiError, WasiState, WasiThread};
 use wasmer::{FunctionEnvMut, Memory, Memory32, MemorySize, StoreMut, WasmPtr, WasmSlice};
 use wasmer_wasi_types::*;
 use wasmer_wasi_types_generated::wasi::{
-    Addressfamily, Advice, BusDataFormat, BusErrno, Clockid, Dircookie, Errno, Event, Fd, Fdflags,
-    Fdstat, Filesize, Filestat, Fstflags, Pid, Rights, Sockoption, Sockstatus, Socktype,
-    Streamsecurity, Subscription, Tid, Timestamp, Tty, Whence, BusHandles, Bid, Cid
+    Addressfamily, Advice, Bid, BusDataFormat, BusErrno, BusHandles, Cid, Clockid, Dircookie,
+    Errno, Event, EventFdFlags, Fd, Fdflags, Fdstat, Filesize, Filestat, Fstflags, Pid, Prestat,
+    Rights, Sockoption, Sockstatus, Socktype, Streamsecurity, Subscription, Tid, Timestamp, Tty,
+    Whence,
 };
 
 type MemoryType = Memory32;
@@ -148,7 +149,7 @@ pub(crate) fn fd_pread(
 pub(crate) fn fd_prestat_get(
     ctx: FunctionEnvMut<WasiEnv>,
     fd: Fd,
-    buf: WasmPtr<__wasi_prestat_t, MemoryType>,
+    buf: WasmPtr<Prestat, MemoryType>,
 ) -> Errno {
     super::fd_prestat_get::<MemoryType>(ctx, fd, buf)
 }
@@ -201,7 +202,7 @@ pub(crate) fn fd_renumber(ctx: FunctionEnvMut<WasiEnv>, from: Fd, to: Fd) -> Err
 pub(crate) fn fd_seek(
     ctx: FunctionEnvMut<WasiEnv>,
     fd: Fd,
-    offset: __wasi_filedelta_t,
+    offset: FileDelta,
     whence: Whence,
     newoffset: WasmPtr<Filesize, MemoryType>,
 ) -> Result<Errno, WasiError> {
@@ -242,7 +243,7 @@ pub(crate) fn path_create_directory(
 pub(crate) fn path_filestat_get(
     ctx: FunctionEnvMut<WasiEnv>,
     fd: Fd,
-    flags: __wasi_lookupflags_t,
+    flags: LookupFlags,
     path: WasmPtr<u8, MemoryType>,
     path_len: MemoryOffset,
     buf: WasmPtr<Filestat, MemoryType>,
@@ -253,7 +254,7 @@ pub(crate) fn path_filestat_get(
 pub(crate) fn path_filestat_set_times(
     ctx: FunctionEnvMut<WasiEnv>,
     fd: Fd,
-    flags: __wasi_lookupflags_t,
+    flags: LookupFlags,
     path: WasmPtr<u8, MemoryType>,
     path_len: MemoryOffset,
     st_atim: Timestamp,
@@ -268,7 +269,7 @@ pub(crate) fn path_filestat_set_times(
 pub(crate) fn path_link(
     ctx: FunctionEnvMut<WasiEnv>,
     old_fd: Fd,
-    old_flags: __wasi_lookupflags_t,
+    old_flags: LookupFlags,
     old_path: WasmPtr<u8, MemoryType>,
     old_path_len: MemoryOffset,
     new_fd: Fd,
@@ -290,10 +291,10 @@ pub(crate) fn path_link(
 pub(crate) fn path_open(
     ctx: FunctionEnvMut<WasiEnv>,
     dirfd: Fd,
-    dirflags: __wasi_lookupflags_t,
+    dirflags: LookupFlags,
     path: WasmPtr<u8, MemoryType>,
     path_len: MemoryOffset,
-    o_flags: __wasi_oflags_t,
+    o_flags: Oflags,
     fs_rights_base: Rights,
     fs_rights_inheriting: Rights,
     fs_flags: Fdflags,
@@ -414,7 +415,7 @@ pub(crate) fn fd_dup(
 pub(crate) fn fd_event(
     ctx: FunctionEnvMut<WasiEnv>,
     initial_val: u64,
-    flags: __wasi_eventfdflags,
+    flags: EventFdFlags,
     ret_fd: WasmPtr<Fd, MemoryType>,
 ) -> Errno {
     super::fd_event(ctx, initial_val, flags, ret_fd)
@@ -634,11 +635,7 @@ pub(crate) fn call_reply(
     super::call_reply::<MemoryType>(ctx, cid, format, buf, buf_len)
 }
 
-pub(crate) fn call_fault(
-    ctx: FunctionEnvMut<WasiEnv>,
-    cid: Cid,
-    fault: BusErrno,
-) -> BusErrno {
+pub(crate) fn call_fault(ctx: FunctionEnvMut<WasiEnv>, cid: Cid, fault: BusErrno) -> BusErrno {
     super::call_fault(ctx, cid, fault)
 }
 
