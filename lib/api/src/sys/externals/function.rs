@@ -148,12 +148,14 @@ impl Function {
             address: std::ptr::null(),
             ctx: DynamicFunction { func: wrapper },
         });
+        // This is a trick, because we only know the "final" function body pointer
+        // address once the ctx is already properly placed somewhere.
         host_data.address = host_data.ctx.func_body_ptr();
 
         // We don't yet have the address with the Wasm ABI signature.
         // The engine linker will replace the address with one pointing to a
         // generated dynamic trampoline.
-        let func_ptr = std::ptr::null() as *const VMFunctionBody;
+        let func_ptr = host_data.address as *const VMFunctionBody;
         let type_index = store
             .as_store_mut()
             .engine()

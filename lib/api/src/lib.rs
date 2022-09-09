@@ -439,7 +439,7 @@ mod js;
 pub use js::*;
 
 #[test]
-fn test_meeting() {
+fn test_externrefs_dynamic_function() {
 
     fn neg_callback(
         mut env: FunctionEnvMut<()>,
@@ -488,7 +488,6 @@ fn test_meeting() {
     let f = exports.get_function("f").unwrap();
     let g = exports.get_function("g").unwrap();
 
-    /* 
     // -- does not work: 
     let h = Function::new_with_env(
         &mut store,
@@ -496,12 +495,12 @@ fn test_meeting() {
         FunctionType::new([Type::I32], [Type::I32]),
         neg_callback
     );
-    */
 
-    let h = Function::new_typed(
-        &mut store,
-        |i: i32| -> i32 { -i }
-    );
+    // // -- does work
+    // let h = Function::new_typed(
+    //     &mut store,
+    //     |i: i32| -> i32 { -i }
+    // );
     table.set(&mut store, 0, Value::FuncRef(Some(g.clone()))).unwrap();
     table.set(&mut store, 1, Value::FuncRef(None)).unwrap();
     assert!(table.set(&mut store, 2, Value::FuncRef(Some(f.clone()))).is_err()); // should be false?

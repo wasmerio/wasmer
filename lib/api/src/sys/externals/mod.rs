@@ -54,20 +54,6 @@ impl Extern {
             VMExtern::Table(t) => Self::Table(Table::from_vm_extern(store, t)),
         }
     }
-
-    pub fn as_table(&self) -> Option<&Table> {
-        match self {
-            Extern::Table(t) => Some(t),
-            _ => None,
-        }
-    }
-
-    pub fn as_function(&self) -> Option<&Function> {
-        match self {
-            Extern::Function(f) => Some(f),
-            _ => None,
-        }
-    }
     
     /// Checks whether this `Extern` can be used with the given context.
     pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {

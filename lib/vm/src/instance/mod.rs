@@ -72,6 +72,9 @@ pub(crate) struct Instance {
     /// Pointers to function call trampolines in executable memory.
     function_call_trampolines: BoxedSlice<SignatureIndex, VMTrampoline>,
 
+    /// Pointers to function dynamic trampolines in executable memory.
+    function_dynamic_trampolines: BoxedSlice<FunctionIndex, FunctionBodyPtr>,
+
     /// Passive elements in this instantiation. As `elem.drop`s happen, these
     /// entries get removed.
     passive_elements: RefCell<HashMap<ElemIndex, Box<[Option<VMFuncRef>]>>>,
@@ -819,6 +822,7 @@ impl InstanceHandle {
         context: &mut StoreObjects,
         finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
         finished_function_call_trampolines: BoxedSlice<SignatureIndex, VMTrampoline>,
+        finished_function_dynamic_trampolines: BoxedSlice<FunctionIndex, FunctionBodyPtr>,
         finished_memories: BoxedSlice<LocalMemoryIndex, InternalStoreHandle<VMMemory>>,
         finished_tables: BoxedSlice<LocalTableIndex, InternalStoreHandle<VMTable>>,
         finished_globals: BoxedSlice<LocalGlobalIndex, InternalStoreHandle<VMGlobal>>,
@@ -854,6 +858,7 @@ impl InstanceHandle {
                 globals: finished_globals,
                 functions: finished_functions,
                 function_call_trampolines: finished_function_call_trampolines,
+                function_dynamic_trampolines: finished_function_dynamic_trampolines,
                 passive_elements: Default::default(),
                 passive_data,
                 funcrefs,

@@ -333,6 +333,7 @@ impl Artifact {
         self.preinstantiate()?;
 
         let module = Arc::new(self.create_module_info());
+        // TODO: remove finished_dynamic_function_trampolines from here
         let imports = resolve_imports(
             &module,
             imports,
@@ -379,6 +380,7 @@ impl Artifact {
             context,
             self.finished_functions().clone(),
             self.finished_function_call_trampolines().clone(),
+            self.finished_dynamic_function_trampolines().clone(),
             finished_memories,
             finished_tables,
             finished_globals,
