@@ -5,6 +5,7 @@ use std::convert::TryInto;
 use std::io::{self, Read, Seek, SeekFrom, Write};
 use std::ops::DerefMut;
 use std::sync::mpsc;
+use std::sync::Arc;
 use std::sync::Mutex;
 use wasmer::WasmSlice;
 use wasmer::{MemorySize, MemoryView};
@@ -20,6 +21,7 @@ pub struct WasiPipe {
     read_buffer: Option<Bytes>,
 }
 
+/// Pipe pair of (a, b) WasiPipes that are connected together
 #[derive(Debug)]
 pub struct WasiPipePair {
     pub send: WasiPipe,
@@ -98,6 +100,82 @@ impl WasiPipePair {
             send: pipe1,
             recv: pipe2,
         }
+    }
+
+    pub fn new_arc() -> WasiSharedPipePair {
+        WasiSharedPipePair {
+            inner: Arc::new(Mutex::new(Self::new())),
+        }
+    }
+}
+
+/// Shared version of WasiPipePair for situations where you need
+/// to emulate the old behaviour of `Pipe` (both send and recv on one channel).
+#[derive(Debug, Clone)]
+pub struct WasiSharedPipePair {
+    inner: Arc<Mutex<WasiPipePair>>,
+}
+
+impl Write for WasiSharedPipePair {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        match self.inner.lock().as_mut().map(|l| l.write(buf)) {
+            Ok(r) => r,
+            Err(_) => Ok(0),
+        }
+    }
+    fn flush(&mut self) -> io::Result<()> {
+        match self.inner.lock().as_mut().map(|l| l.flush()) {
+            Ok(r) => r,
+            Err(_) => Ok(()),
+        }
+    }
+}
+
+impl Seek for WasiSharedPipePair {
+    fn seek(&mut self, _: SeekFrom) -> io::Result<u64> {
+        Ok(0)
+    }
+}
+
+impl Read for WasiSharedPipePair {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        match self.inner.lock().as_mut().map(|l| l.read(buf)) {
+            Ok(r) => r,
+            Err(_) => Ok(0),
+        }
+    }
+}
+
+impl VirtualFile for WasiSharedPipePair {
+    fn last_accessed(&self) -> u64 {
+        self.inner.lock().map(|l| l.last_accessed()).unwrap_or(0)
+    }
+    fn last_modified(&self) -> u64 {
+        self.inner.lock().map(|l| l.last_modified()).unwrap_or(0)
+    }
+    fn created_time(&self) -> u64 {
+        self.inner.lock().map(|l| l.created_time()).unwrap_or(0)
+    }
+    fn size(&self) -> u64 {
+        self.inner.lock().map(|l| l.size()).unwrap_or(0)
+    }
+    fn set_len(&mut self, i: u64) -> Result<(), FsError> {
+        match self.inner.lock().as_mut().map(|l| l.set_len(i)) {
+            Ok(r) => r,
+            Err(_) => Err(FsError::Lock),
+        }
+    }
+    fn unlink(&mut self) -> Result<(), FsError> {
+        match self.inner.lock().as_mut().map(|l| l.unlink()) {
+            Ok(r) => r,
+            Err(_) => Err(FsError::Lock),
+        }
+    }
+    fn bytes_available_read(&self) -> Result<Option<usize>, FsError> {
+        self.inner
+            .lock()
+            .map(|l| l.bytes_available_read())
+            .unwrap_or(Ok(None))
     }
 }
 
@@ -203,6 +281,8 @@ impl Read for WasiPipe {
             //
             // println!("abc");
             // println!("def");
+            //
+            // get_stdout() // would only return "abc\n" instead of "abc\ndef\n"
 
             let data = match rx.try_recv() {
                 Ok(mut s) => {
@@ -216,7 +296,8 @@ impl Read for WasiPipe {
                         // Errors can happen if the sender has been dropped already
                         // In this case, just return 0 to indicate that we can't read any
                         // bytes anymore
-                        Err(_) => {
+                        Err(e) => {
+                            eprintln!("WasiPipe read error: {e}");
                             return Ok(0);
                         }
                     }

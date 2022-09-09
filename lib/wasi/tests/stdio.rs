@@ -146,15 +146,14 @@ fn test_stdin() {
     let module = Module::new(&store, include_bytes!("stdin-hello.wasm")).unwrap();
 
     // Create the `WasiEnv`.
-    let WasiPipePair { mut send, mut recv } = WasiPipePair::new();
+    let mut pipe = WasiPipePair::new_arc();
 
     // Write to STDIN
     let buf = "Hello, stdin!\n".as_bytes().to_owned();
-    send.write(&buf[..]).unwrap();
-    send.close();
+    pipe.write(&buf[..]).unwrap();
 
     let wasi_env = WasiState::new("command-name")
-        .stdin(Box::new(send))
+        .stdin(Box::new(pipe.clone()))
         .finalize(&mut store)
         .unwrap();
 
@@ -173,6 +172,6 @@ fn test_stdin() {
 
     // We assure stdin is now empty
     let mut buf = Vec::new();
-    recv.read_to_end(&mut buf).unwrap();
+    pipe.read_to_end(&mut buf).unwrap();
     assert_eq!(buf.len(), 0);
 }
