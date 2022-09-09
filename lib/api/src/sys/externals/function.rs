@@ -519,9 +519,9 @@ impl Function {
 
     pub(crate) fn vm_funcref(&self, store: &impl AsStoreRef) -> VMFuncRef {
         let vm_function = self.handle.get(store.as_store_ref().objects());
-        if vm_function.kind == VMFunctionKind::Dynamic {
+        /*if vm_function.kind == VMFunctionKind::Dynamic {
             panic!("dynamic functions cannot be used in tables or as funcrefs");
-        }
+        }*/
         VMFuncRef(vm_function.anyfunc.as_ptr())
     }
 
