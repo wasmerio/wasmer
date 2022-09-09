@@ -184,7 +184,7 @@ mod sys {
                 FunctionType::new([Type::I32, Type::I32], [Type::I32]),
                 |values| -> Result<Vec<_>, _> {
                     Ok(vec![Value::I32(
-                        values[0].unwrap_i32() + values[0].unwrap_i32(),
+                        values[0].unwrap_i32() + values[1].unwrap_i32(),
                     )])
                 },
             );
