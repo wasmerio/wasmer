@@ -1,24 +1,27 @@
 #[cfg(feature = "sys")]
-mod sys {
+pub mod reference_types {
+
     use anyhow::Result;
+    use macro_wasmer_universal_test::universal_test;
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::Arc;
-    use wasmer::FunctionEnv;
+    #[cfg(feature = "js")]
+    use wasm_bindgen_test::*;
     use wasmer::*;
 
-    #[test]
+    #[universal_test]
     fn func_ref_passed_and_returned() -> Result<()> {
         let mut store = Store::default();
         let wat = r#"(module
-    (import "env" "func_ref_identity" (func (param funcref) (result funcref)))
-    (type $ret_i32_ty (func (result i32)))
-    (table $table (export "table") 2 2 funcref)
+(import "env" "func_ref_identity" (func (param funcref) (result funcref)))
+(type $ret_i32_ty (func (result i32)))
+(table $table (export "table") 2 2 funcref)
 
-    (func (export "run") (param) (result funcref)
-          (call 0 (ref.null func)))
-    (func (export "call_set_value") (param $fr funcref) (result i32)
-          (table.set $table (i32.const 0) (local.get $fr))
-          (call_indirect $table (type $ret_i32_ty) (i32.const 0)))
+(func (export "run") (param) (result funcref)
+      (call 0 (ref.null func)))
+(func (export "call_set_value") (param $fr funcref) (result i32)
+      (table.set $table (i32.const 0) (local.get $fr))
+      (call_indirect $table (type $ret_i32_ty) (i32.const 0)))
 )"#;
         let module = Module::new(&store, wat)?;
         #[derive(Clone, Debug)]
@@ -60,25 +63,25 @@ mod sys {
         Ok(())
     }
 
-    #[test]
+    #[universal_test]
     fn func_ref_passed_and_called() -> Result<()> {
         let mut store = Store::default();
         let wat = r#"(module
-    (func $func_ref_call (import "env" "func_ref_call") (param funcref) (result i32))
-    (type $ret_i32_ty (func (result i32)))
-    (table $table (export "table") 2 2 funcref)
+(func $func_ref_call (import "env" "func_ref_call") (param funcref) (result i32))
+(type $ret_i32_ty (func (result i32)))
+(table $table (export "table") 2 2 funcref)
 
-    (func $product (param $x i32) (param $y i32) (result i32)
-          (i32.mul (local.get $x) (local.get $y)))
-    ;; TODO: figure out exactly why this statement is needed
-    (elem declare func $product)
-    (func (export "call_set_value") (param $fr funcref) (result i32)
-          (table.set $table (i32.const 0) (local.get $fr))
-          (call_indirect $table (type $ret_i32_ty) (i32.const 0)))
-    (func (export "call_func") (param $fr funcref) (result i32)
-          (call $func_ref_call (local.get $fr)))
-    (func (export "call_host_func_with_wasm_func") (result i32)
-          (call $func_ref_call (ref.func $product)))
+(func $product (param $x i32) (param $y i32) (result i32)
+      (i32.mul (local.get $x) (local.get $y)))
+;; TODO: figure out exactly why this statement is needed
+(elem declare func $product)
+(func (export "call_set_value") (param $fr funcref) (result i32)
+      (table.set $table (i32.const 0) (local.get $fr))
+      (call_indirect $table (type $ret_i32_ty) (i32.const 0)))
+(func (export "call_func") (param $fr funcref) (result i32)
+      (call $func_ref_call (local.get $fr)))
+(func (export "call_host_func_with_wasm_func") (result i32)
+      (call $func_ref_call (ref.func $product)))
 )"#;
         let module = Module::new(&store, wat)?;
         let env = FunctionEnv::new(&mut store, ());
@@ -130,25 +133,25 @@ mod sys {
         Ok(())
     }
 
-    #[test]
+    #[macro_wasmer_universal_test::universal_test]
     fn extern_ref_passed_and_returned() -> Result<()> {
         use std::collections::HashMap;
         let mut store = Store::default();
         let wat = r#"(module
-        (func $extern_ref_identity (import "env" "extern_ref_identity") (param externref) (result externref))
-        (func $extern_ref_identity_native (import "env" "extern_ref_identity_native") (param externref) (result externref))
-        (func $get_new_extern_ref (import "env" "get_new_extern_ref") (result externref))
-        (func $get_new_extern_ref_native (import "env" "get_new_extern_ref_native") (result externref))
+    (func $extern_ref_identity (import "env" "extern_ref_identity") (param externref) (result externref))
+    (func $extern_ref_identity_native (import "env" "extern_ref_identity_native") (param externref) (result externref))
+    (func $get_new_extern_ref (import "env" "get_new_extern_ref") (result externref))
+    (func $get_new_extern_ref_native (import "env" "get_new_extern_ref_native") (result externref))
 
-        (func (export "run") (param) (result externref)
-              (call $extern_ref_identity (ref.null extern)))
-        (func (export "run_native") (param) (result externref)
-              (call $extern_ref_identity_native (ref.null extern)))
-        (func (export "get_hashmap") (param) (result externref)
-              (call $get_new_extern_ref))
-        (func (export "get_hashmap_native") (param) (result externref)
-              (call $get_new_extern_ref_native))
-    )"#;
+    (func (export "run") (param) (result externref)
+          (call $extern_ref_identity (ref.null extern)))
+    (func (export "run_native") (param) (result externref)
+          (call $extern_ref_identity_native (ref.null extern)))
+    (func (export "get_hashmap") (param) (result externref)
+          (call $get_new_extern_ref))
+    (func (export "get_hashmap_native") (param) (result externref)
+          (call $get_new_extern_ref_native))
+)"#;
         let module = Module::new(&store, wat)?;
         let env = FunctionEnv::new(&mut store, ());
         let imports = imports! {
@@ -221,13 +224,13 @@ mod sys {
         Ok(())
     }
 
-    #[test]
+    #[universal_test]
     fn extern_ref_ref_counting_basic() -> Result<()> {
         let mut store = Store::default();
         let wat = r#"(module
-        (func (export "drop") (param $er externref) (result)
-              (drop (local.get $er)))
-    )"#;
+    (func (export "drop") (param $er externref) (result)
+          (drop (local.get $er)))
+)"#;
         let module = Module::new(&store, wat)?;
         let instance = Instance::new(&mut store, &module, &imports! {})?;
         let f: TypedFunction<Option<ExternRef>, ()> =
@@ -242,16 +245,16 @@ mod sys {
         Ok(())
     }
 
-    #[test]
+    #[universal_test]
     fn refs_in_globals() -> Result<()> {
         let mut store = Store::default();
         let wat = r#"(module
-        (global $er_global (export "er_global") (mut externref) (ref.null extern))
-        (global $fr_global (export "fr_global") (mut funcref) (ref.null func))
-        (global $fr_immutable_global (export "fr_immutable_global") funcref (ref.func $hello))
-        (func $hello (param) (result i32)
-              (i32.const 73))
-    )"#;
+    (global $er_global (export "er_global") (mut externref) (ref.null extern))
+    (global $fr_global (export "fr_global") (mut funcref) (ref.null func))
+    (global $fr_immutable_global (export "fr_immutable_global") funcref (ref.func $hello))
+    (func $hello (param) (result i32)
+          (i32.const 73))
+)"#;
         let module = Module::new(&store, wat)?;
         let instance = Instance::new(&mut store, &module, &imports! {})?;
         {
@@ -307,20 +310,20 @@ mod sys {
         Ok(())
     }
 
-    #[test]
+    #[universal_test]
     fn extern_ref_ref_counting_table_basic() -> Result<()> {
         let mut store = Store::default();
         let wat = r#"(module
-        (global $global (export "global") (mut externref) (ref.null extern))
-        (table $table (export "table") 4 4 externref)
-        (func $insert (param $er externref) (param $idx i32)
-               (table.set $table (local.get $idx) (local.get $er)))
-        (func $intermediate (param $er externref) (param $idx i32)
-              (call $insert (local.get $er) (local.get $idx)))
-        (func $insert_into_table (export "insert_into_table") (param $er externref) (param $idx i32) (result externref)
-              (call $intermediate (local.get $er) (local.get $idx))
-              (local.get $er))
-    )"#;
+    (global $global (export "global") (mut externref) (ref.null extern))
+    (table $table (export "table") 4 4 externref)
+    (func $insert (param $er externref) (param $idx i32)
+           (table.set $table (local.get $idx) (local.get $er)))
+    (func $intermediate (param $er externref) (param $idx i32)
+          (call $insert (local.get $er) (local.get $idx)))
+    (func $insert_into_table (export "insert_into_table") (param $er externref) (param $idx i32) (result externref)
+          (call $intermediate (local.get $er) (local.get $idx))
+          (local.get $er))
+)"#;
         let module = Module::new(&store, wat)?;
         let instance = Instance::new(&mut store, &module, &imports! {})?;
 
@@ -349,15 +352,15 @@ mod sys {
         Ok(())
     }
 
-    #[test]
+    #[universal_test]
     fn extern_ref_ref_counting_global_basic() -> Result<()> {
         let mut store = Store::default();
         let wat = r#"(module
-        (global $global (export "global") (mut externref) (ref.null extern))
-        (func $get_from_global (export "get_from_global") (result externref)
-              (drop (global.get $global))
-              (global.get $global))
-    )"#;
+    (global $global (export "global") (mut externref) (ref.null extern))
+    (func $get_from_global (export "get_from_global") (result externref)
+          (drop (global.get $global))
+          (global.get $global))
+)"#;
         let module = Module::new(&store, wat)?;
         let instance = Instance::new(&mut store, &module, &imports! {})?;
 
@@ -378,14 +381,14 @@ mod sys {
         Ok(())
     }
 
-    #[test]
+    #[universal_test]
     fn extern_ref_ref_counting_traps() -> Result<()> {
         let mut store = Store::default();
         let wat = r#"(module
-        (func $pass_er (export "pass_extern_ref") (param externref)
-              (local.get 0)
-              (unreachable))
-    )"#;
+    (func $pass_er (export "pass_extern_ref") (param externref)
+          (local.get 0)
+          (unreachable))
+)"#;
         let module = Module::new(&store, wat)?;
         let instance = Instance::new(&mut store, &module, &imports! {})?;
 
@@ -401,19 +404,19 @@ mod sys {
         Ok(())
     }
 
-    #[test]
+    #[universal_test]
     fn extern_ref_ref_counting_table_instructions() -> Result<()> {
         let mut store = Store::default();
         let wat = r#"(module
-        (table $table1 (export "table1") 2 12 externref)
-        (table $table2 (export "table2") 6 12 externref)
-        (func $grow_table_with_ref (export "grow_table_with_ref") (param $er externref) (param $size i32) (result i32)
-              (table.grow $table1 (local.get $er) (local.get $size)))
-        (func $fill_table_with_ref (export "fill_table_with_ref") (param $er externref) (param $start i32) (param $end i32)
-              (table.fill $table1 (local.get $start) (local.get $er) (local.get $end)))
-        (func $copy_into_table2 (export "copy_into_table2")
-              (table.copy $table2 $table1 (i32.const 0) (i32.const 0) (i32.const 4)))
-    )"#;
+    (table $table1 (export "table1") 2 12 externref)
+    (table $table2 (export "table2") 6 12 externref)
+    (func $grow_table_with_ref (export "grow_table_with_ref") (param $er externref) (param $size i32) (result i32)
+          (table.grow $table1 (local.get $er) (local.get $size)))
+    (func $fill_table_with_ref (export "fill_table_with_ref") (param $er externref) (param $start i32) (param $end i32)
+          (table.fill $table1 (local.get $start) (local.get $er) (local.get $end)))
+    (func $copy_into_table2 (export "copy_into_table2")
+          (table.copy $table2 $table1 (i32.const 0) (i32.const 0) (i32.const 4)))
+)"#;
         let module = Module::new(&store, wat)?;
         let instance = Instance::new(&mut store, &module, &imports! {})?;
 
