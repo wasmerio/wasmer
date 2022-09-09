@@ -182,8 +182,8 @@ mod tests {
 
     #[derive(Debug)]
     struct VMTinyMemory {
-        mem: [u8; WASM_PAGE_SIZE],
-        memory_definition: VMMemoryDefinition,
+        mem: Vec<u8>,
+        memory_definition: Option<VMMemoryDefinition>,
     }
 
     unsafe impl Send for VMTinyMemory {}
@@ -191,31 +191,35 @@ mod tests {
 
     impl VMTinyMemory {
         pub fn new() -> Result<Self, MemoryError> {
-            let memory = [0; WASM_PAGE_SIZE];
-            Ok(VMTinyMemory {
+            let sz = 18 * WASM_PAGE_SIZE;
+            let mut memory = Vec::new();
+            memory.resize(sz, 0);
+            let mut ret = VMTinyMemory {
                 mem: memory,
-                memory_definition: VMMemoryDefinition {
-                    base: memory.as_ptr() as _,
-                    current_length: WASM_PAGE_SIZE,
-                },
-            })
+                memory_definition: None,
+            };
+            ret.memory_definition = Some(VMMemoryDefinition {
+                base: ret.mem.as_ptr() as _,
+                current_length: sz,
+            });
+            Ok(ret)
         }
     }
 
     impl LinearMemory for VMTinyMemory {
         fn ty(&self) -> MemoryType {
             MemoryType {
-                minimum: Pages::from(1u32),
-                maximum: Some(Pages::from(1u32)),
+                minimum: Pages::from(18u32),
+                maximum: Some(Pages::from(18u32)),
                 shared: false,
             }
         }
         fn size(&self) -> Pages {
-            Pages::from(1u32)
+            Pages::from(18u32)
         }
         fn style(&self) -> MemoryStyle {
             MemoryStyle::Static {
-                bound: Pages::from(1u32),
+                bound: Pages::from(18u32),
                 offset_guard_size: 0,
             }
         }
@@ -226,7 +230,10 @@ mod tests {
             })
         }
         fn vmmemory(&self) -> NonNull<VMMemoryDefinition> {
-            MaybeInstanceOwned::Host(Box::new(UnsafeCell::new(self.memory_definition))).as_ptr()
+            MaybeInstanceOwned::Host(Box::new(UnsafeCell::new(
+                self.memory_definition.unwrap().clone(),
+            )))
+            .as_ptr()
         }
         fn try_clone(&self) -> Option<Box<dyn LinearMemory + 'static>> {
             None
@@ -243,7 +250,7 @@ mod tests {
     impl Tunables for TinyTunables {
         fn memory_style(&self, _memory: &MemoryType) -> MemoryStyle {
             MemoryStyle::Static {
-                bound: Pages::from(1u32),
+                bound: Pages::from(18u32),
                 offset_guard_size: 0,
             }
         }
@@ -264,9 +271,14 @@ mod tests {
             &self,
             _ty: &MemoryType,
             _style: &MemoryStyle,
-            _vm_definition_location: NonNull<VMMemoryDefinition>,
+            vm_definition_location: NonNull<VMMemoryDefinition>,
         ) -> Result<VMMemory, MemoryError> {
             let memory = VMTinyMemory::new().unwrap();
+            // now, it's important to update vm_definition_location with the memory information!
+            let mut ptr = vm_definition_location;
+            let md = ptr.as_mut();
+            md.base = memory.memory_definition.unwrap().base;
+            md.current_length = memory.memory_definition.unwrap().current_length;
             Ok(memory.into())
         }
 
@@ -295,13 +307,13 @@ mod tests {
         let vmmemory = tunables.create_host_memory(
             &MemoryType::new(1u32, Some(100u32), true),
             &MemoryStyle::Static {
-                bound: Pages::from(1u32),
+                bound: Pages::from(18u32),
                 offset_guard_size: 0u64,
             },
         );
         let mut vmmemory = vmmemory.unwrap();
-        assert!(vmmemory.grow(Pages::from(2u32)).is_err());
-        assert_eq!(vmmemory.size(), Pages::from(1u32));
+        assert!(vmmemory.grow(Pages::from(50u32)).is_err());
+        assert_eq!(vmmemory.size(), Pages::from(18u32));
         assert_eq!(
             vmmemory.grow(Pages::from(0u32)).err().unwrap(),
             MemoryError::CouldNotGrow {
@@ -316,11 +328,19 @@ mod tests {
         use crate::{imports, wat2wasm, Instance, Memory, Module, Store};
         use wasmer_compiler_cranelift::Cranelift;
 
-        let wasm_bytes = wat2wasm(br#"(module (memory 3) (export "memory" (memory 0)))"#)?;
+        let wasm_bytes = wat2wasm(
+            br#"(module
+            (memory (;0;) 18)
+            (global (;0;) (mut i32) i32.const 1048576)
+            (export "memory" (memory 0))
+            (data (;0;) (i32.const 1048576) "*\00\00\00")
+          )"#,
+        )?;
         let compiler = Cranelift::default();
 
         let tunables = TinyTunables {};
         let mut store = Store::new_with_tunables(compiler, tunables);
+        //let mut store = Store::new(compiler);
         let module = Module::new(&store, wasm_bytes)?;
         let import_object = imports! {};
         let instance = Instance::new(&mut store, &module, &import_object)?;
@@ -333,7 +353,7 @@ mod tests {
             .collect();
         assert_eq!(memories.len(), 1);
         let first_memory = memories.pop().unwrap();
-        assert_eq!(first_memory.ty(&store).maximum.unwrap(), Pages(1));
+        assert_eq!(first_memory.ty(&store).maximum.unwrap(), Pages(18));
 
         Ok(())
     }
