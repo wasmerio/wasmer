@@ -1,5 +1,6 @@
 var N = null;var sourcesIndex = {};
 sourcesIndex["compiler_test_derive"] = {"name":"","files":["ignores.rs","lib.rs"]};
+sourcesIndex["macro_wasmer_universal_test"] = {"name":"","files":["lib.rs"]};
 sourcesIndex["test_generator"] = {"name":"","files":["lib.rs","processors.rs"]};
 sourcesIndex["wasi_test_generator"] = {"name":"","files":["main.rs","set_up_toolchain.rs","util.rs","wasi_version.rs","wasitests.rs"]};
 sourcesIndex["wasmer"] = {"name":"","dirs":[{"name":"sys","dirs":[{"name":"externals","files":["function.rs","global.rs","memory.rs","memory_view.rs","mod.rs","table.rs"]}],"files":["exports.rs","extern_ref.rs","function_env.rs","imports.rs","instance.rs","mem_access.rs","mod.rs","module.rs","native.rs","native_type.rs","ptr.rs","store.rs","tunables.rs","value.rs"]}],"files":["lib.rs"]};
