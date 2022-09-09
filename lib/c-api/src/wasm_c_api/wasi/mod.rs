@@ -23,8 +23,8 @@ use std::{
     sync::MutexGuard,
 };
 use wasmer_wasi::{
-    get_wasi_version, FsError, VirtualFile, WasiFile, WasiFunctionEnv, WasiPipe, WasiState,
-    WasiStateBuilder, WasiVersion,
+    get_wasi_version, FsError, VirtualFile, WasiFile, WasiFunctionEnv, WasiPipe, WasiPipePair,
+    WasiState, WasiStateBuilder, WasiVersion,
 };
 
 /// Function callback that takes:
@@ -286,11 +286,10 @@ unsafe extern "C" fn wasi_pipe_read_memory_2(
     let ptr = ptr as *mut WasiPipe;
     let ptr = &mut *ptr;
     let slice = std::slice::from_raw_parts_mut(byte_ptr as *mut u8, max_bytes);
-    let r = match ptr.read(slice) {
+    match ptr.read(slice) {
         Ok(o) => o as i64,
         Err(_) => -1,
-    };
-    r
+    }
 }
 
 unsafe extern "C" fn wasi_pipe_write_memory_2(
@@ -357,7 +356,7 @@ unsafe extern "C" fn wasi_pipe_delete_memory_2(ptr: *const c_void /* = *WasiPipe
 pub unsafe extern "C" fn wasi_pipe_new(ptr_user: &mut *mut wasi_pipe_t) -> *mut wasi_pipe_t {
     use std::mem::ManuallyDrop;
 
-    let pair = WasiPipe::new();
+    let pair = WasiPipePair::new();
 
     let mut data1 = ManuallyDrop::new(pair.send);
     let ptr1: &mut WasiPipe = &mut data1;
@@ -1115,7 +1114,7 @@ mod tests {
                     Ok(())
                 }
                 */
-                
+
                 // Load binary.
                 FILE* file = fopen("tests/wasm-c-api/example/testrust.wasm", "rb");
                 if (!file) {

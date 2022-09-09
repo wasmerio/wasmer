@@ -1,7 +1,7 @@
 use std::io::{Read, Write};
 
 use wasmer::{Instance, Module, Store};
-use wasmer_wasi::{WasiPipe, WasiState, WasiPipePair};
+use wasmer_wasi::{WasiPipe, WasiPipePair, WasiState};
 
 mod sys {
     #[test]
@@ -73,7 +73,7 @@ fn test_stdout() {
     "#).unwrap();
 
     // Create the `WasiEnv`.
-    let WasiPipePair { send, mut recv } = WasiPipe::new();
+    let WasiPipePair { send, mut recv } = WasiPipePair::new();
     let wasi_env = WasiState::new("command-name")
         .args(&["Gordon"])
         .stdout(Box::new(send))
@@ -110,7 +110,7 @@ fn test_env() {
     });
 
     // Create the `WasiEnv`.
-    let WasiPipePair { send, mut recv } = WasiPipe::new();
+    let WasiPipePair { send, mut recv } = WasiPipePair::new();
     let mut wasi_state_builder = WasiState::new("command-name");
     wasi_state_builder
         .args(&["Gordon"])
@@ -146,7 +146,7 @@ fn test_stdin() {
     let module = Module::new(&store, include_bytes!("stdin-hello.wasm")).unwrap();
 
     // Create the `WasiEnv`.
-    let WasiPipePair { mut send, mut recv } = WasiPipe::new();
+    let WasiPipePair { mut send, mut recv } = WasiPipePair::new();
 
     // Write to STDIN
     let buf = "Hello, stdin!\n".as_bytes().to_owned();

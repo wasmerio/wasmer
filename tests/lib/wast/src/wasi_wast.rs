@@ -9,7 +9,7 @@ use wasmer_vfs::{host_fs, mem_fs, FileSystem};
 use wasmer_wasi::types::{__wasi_filesize_t, __wasi_timestamp_t};
 use wasmer_wasi::{
     generate_import_object_from_env, get_wasi_version, FsError, VirtualFile, WasiEnv,
-    WasiFunctionEnv, WasiPipe, WasiState, WasiVersion,
+    WasiFunctionEnv, WasiPipePair, WasiState, WasiVersion,
 };
 use wast::parser::{self, Parse, ParseBuffer, Parser};
 
@@ -143,7 +143,7 @@ impl<'a> WasiTest<'a> {
     )> {
         let mut builder = WasiState::new(self.wasm_path);
 
-        let stdin_pipe = WasiPipe::new();
+        let stdin_pipe = WasiPipePair::new();
         builder.stdin(Box::new(stdin_pipe));
 
         for (name, value) in &self.envs {

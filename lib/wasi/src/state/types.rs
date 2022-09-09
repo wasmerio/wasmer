@@ -4,12 +4,7 @@ use crate::syscalls::types::*;
 use serde::{Deserialize, Serialize};
 #[cfg(all(unix, feature = "sys-poll"))]
 use std::convert::TryInto;
-use std::{
-    collections::VecDeque,
-    io::{self, Read, Seek, Write},
-    sync::{Arc, Mutex},
-    time::Duration,
-};
+use std::time::Duration;
 use wasmer_vbus::BusError;
 
 #[cfg(feature = "host-fs")]

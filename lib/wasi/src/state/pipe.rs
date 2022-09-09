@@ -71,7 +71,13 @@ impl VirtualFile for WasiPipePair {
     }
 }
 
-impl WasiPipe {
+impl Default for WasiPipePair {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl WasiPipePair {
     pub fn new() -> WasiPipePair {
         let (tx1, rx1) = mpsc::channel();
         let (tx2, rx2) = mpsc::channel();
@@ -93,7 +99,9 @@ impl WasiPipe {
             recv: pipe2,
         }
     }
+}
 
+impl WasiPipe {
     pub fn recv<M: MemorySize>(
         &mut self,
         memory: &MemoryView,
@@ -189,7 +197,7 @@ impl Read for WasiPipe {
                 }
             }
             let rx = self.rx.lock().unwrap();
-            
+
             // We need to figure out whether we need to block here.
             // The problem is that in cases of multiple buffered reads like:
             //
@@ -200,7 +208,7 @@ impl Read for WasiPipe {
                 Ok(mut s) => {
                     s.append(&mut rx.try_iter().flat_map(|f| f.into_iter()).collect());
                     s
-                },
+                }
                 Err(_) => {
                     // could not immediately receive bytes, so we need to block
                     match rx.recv() {

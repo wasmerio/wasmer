@@ -32,7 +32,7 @@ use crate::{
     state::{
         self, fs_error_into_wasi_err, iterate_poll_events, net_error_into_wasi_err, poll,
         virtual_file_type_to_wasi_file_type, Fd, Inode, InodeSocket, InodeSocketKind, InodeVal,
-        Kind, PollEvent, PollEventBuilder, WasiPipe, WasiState, MAX_SYMLINKS,
+        Kind, PollEvent, PollEventBuilder, WasiPipePair, WasiState, MAX_SYMLINKS,
     },
     WasiEnv, WasiError, WasiThread, WasiThreadId,
 };
@@ -1807,7 +1807,7 @@ pub fn fd_pipe<M: MemorySize>(
     let env = ctx.data();
     let (memory, state, mut inodes) = env.get_memory_and_wasi_state_and_inodes_mut(&ctx, 0);
 
-    let pipes = WasiPipe::new();
+    let pipes = WasiPipePair::new();
     let pipe1 = pipes.send;
     let pipe2 = pipes.recv;
 
