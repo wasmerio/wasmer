@@ -173,22 +173,45 @@ impl Read for WasiPipe {
             if let Some(inner_buf) = self.read_buffer.as_mut() {
                 let buf_len = inner_buf.len();
                 if buf_len > 0 {
-                    let mut reader = inner_buf.as_ref();
-                    let read = reader.read(buf).map(|_| buf_len as usize)?;
-                    inner_buf.advance(read);
-                    return Ok(read);
-                } else if buf_len == 0 {
+                    if inner_buf.len() > buf.len() {
+                        let mut reader = inner_buf.as_ref();
+                        let read = reader.read_exact(buf).map(|_| buf.len())?;
+                        inner_buf.advance(read);
+                        return Ok(read);
+                    } else {
+                        let mut reader = inner_buf.as_ref();
+                        let read = reader.read(buf).map(|_| buf_len as usize)?;
+                        inner_buf.advance(read);
+                        return Ok(read);
+                    }
+                } else {
                     return Ok(0);
                 }
             }
             let rx = self.rx.lock().unwrap();
-            let data = match rx.recv() {
-                Ok(o) => o,
-                // Errors can happen if the sender has been dropped already
-                // In this case, just return 0 to indicate that we can't read any
-                // bytes anymore
+            
+            // We need to figure out whether we need to block here.
+            // The problem is that in cases of multiple buffered reads like:
+            //
+            // println!("abc");
+            // println!("def");
+
+            let data = match rx.try_recv() {
+                Ok(mut s) => {
+                    s.append(&mut rx.try_iter().flat_map(|f| f.into_iter()).collect());
+                    s
+                },
                 Err(_) => {
-                    return Ok(0);
+                    // could not immediately receive bytes, so we need to block
+                    match rx.recv() {
+                        Ok(o) => o,
+                        // Errors can happen if the sender has been dropped already
+                        // In this case, just return 0 to indicate that we can't read any
+                        // bytes anymore
+                        Err(_) => {
+                            return Ok(0);
+                        }
+                    }
                 }
             };
             self.read_buffer.replace(Bytes::from(data));
