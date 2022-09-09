@@ -24,7 +24,6 @@ llvm       traps::start_trap_pretty
 cranelift+aarch64+macos    traps::start_trap_pretty
 
 # Atomics (WIP)
-singlepass+aarch64 spec::threads::atomic
 singlepass spec::threads::imports
 cranelift spec::threads::imports
 llvm spec::threads::imports

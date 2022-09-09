@@ -153,6 +153,31 @@ pub trait EmitterARM64 {
     fn emit_strb(&mut self, sz: Size, reg: Location, dst: Location) -> Result<(), CompileError>;
     fn emit_strh(&mut self, sz: Size, reg: Location, dst: Location) -> Result<(), CompileError>;
 
+    fn emit_ldaxr(&mut self, sz: Size, reg: Location, dst: Location) -> Result<(), CompileError>;
+    fn emit_ldaxrb(&mut self, sz: Size, reg: Location, dst: Location) -> Result<(), CompileError>;
+    fn emit_ldaxrh(&mut self, sz: Size, reg: Location, dst: Location) -> Result<(), CompileError>;
+    fn emit_stlxr(
+        &mut self,
+        sz: Size,
+        status: Location,
+        reg: Location,
+        dst: Location,
+    ) -> Result<(), CompileError>;
+    fn emit_stlxrb(
+        &mut self,
+        sz: Size,
+        status: Location,
+        reg: Location,
+        dst: Location,
+    ) -> Result<(), CompileError>;
+    fn emit_stlxrh(
+        &mut self,
+        sz: Size,
+        status: Location,
+        reg: Location,
+        dst: Location,
+    ) -> Result<(), CompileError>;
+
     fn emit_mov(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CompileError>;
 
     fn emit_movn(&mut self, sz: Size, reg: Location, val: u32) -> Result<(), CompileError>;
@@ -1055,6 +1080,105 @@ impl EmitterARM64 for Assembler {
                 };
             }
             _ => codegen_error!("singlepass can't emit STRH {:?}, {:?}", reg, dst),
+        }
+        Ok(())
+    }
+
+    fn emit_ldaxr(&mut self, sz: Size, reg: Location, dst: Location) -> Result<(), CompileError> {
+        match (sz, reg, dst) {
+            (Size::S32, Location::GPR(reg), Location::GPR(dst)) => {
+                let reg = reg.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; ldaxr W(reg), [X(dst)]);
+            }
+            (Size::S64, Location::GPR(reg), Location::GPR(dst)) => {
+                let reg = reg.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; ldaxr X(reg), [X(dst)]);
+            }
+            _ => codegen_error!("singlepass can't emit LDAXR {:?}, {:?}", reg, dst),
+        }
+        Ok(())
+    }
+    fn emit_ldaxrb(&mut self, _sz: Size, reg: Location, dst: Location) -> Result<(), CompileError> {
+        match (reg, dst) {
+            (Location::GPR(reg), Location::GPR(dst)) => {
+                let reg = reg.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; ldaxrb W(reg), [X(dst)]);
+            }
+            _ => codegen_error!("singlepass can't emit LDAXRB {:?}, {:?}", reg, dst),
+        }
+        Ok(())
+    }
+    fn emit_ldaxrh(&mut self, _sz: Size, reg: Location, dst: Location) -> Result<(), CompileError> {
+        match (reg, dst) {
+            (Location::GPR(reg), Location::GPR(dst)) => {
+                let reg = reg.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; ldaxrh W(reg), [X(dst)]);
+            }
+            _ => codegen_error!("singlepass can't emit LDAXRH {:?}, {:?}", reg, dst),
+        }
+        Ok(())
+    }
+    fn emit_stlxr(
+        &mut self,
+        sz: Size,
+        status: Location,
+        reg: Location,
+        dst: Location,
+    ) -> Result<(), CompileError> {
+        match (sz, status, reg, dst) {
+            (Size::S32, Location::GPR(status), Location::GPR(reg), Location::GPR(dst)) => {
+                let reg = reg.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                let status = status.into_index() as u32;
+                dynasm!(self ; stlxr W(status), W(reg), [X(dst)]);
+            }
+            (Size::S64, Location::GPR(status), Location::GPR(reg), Location::GPR(dst)) => {
+                let reg = reg.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                let status = status.into_index() as u32;
+                dynasm!(self ; stlxr W(status), X(reg), [X(dst)]);
+            }
+            _ => codegen_error!("singlepass can't emit STLXR {:?}, {:?}", reg, dst),
+        }
+        Ok(())
+    }
+    fn emit_stlxrb(
+        &mut self,
+        _sz: Size,
+        status: Location,
+        reg: Location,
+        dst: Location,
+    ) -> Result<(), CompileError> {
+        match (status, reg, dst) {
+            (Location::GPR(status), Location::GPR(reg), Location::GPR(dst)) => {
+                let reg = reg.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                let status = status.into_index() as u32;
+                dynasm!(self ; stlxrb W(status), W(reg), [X(dst)]);
+            }
+            _ => codegen_error!("singlepass can't emit STLXRB {:?}, {:?}", reg, dst),
+        }
+        Ok(())
+    }
+    fn emit_stlxrh(
+        &mut self,
+        _sz: Size,
+        status: Location,
+        reg: Location,
+        dst: Location,
+    ) -> Result<(), CompileError> {
+        match (status, reg, dst) {
+            (Location::GPR(status), Location::GPR(reg), Location::GPR(dst)) => {
+                let reg = reg.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                let status = status.into_index() as u32;
+                dynasm!(self ; stlxrh W(status), W(reg), [X(dst)]);
+            }
+            _ => codegen_error!("singlepass can't emit STLXRH {:?}, {:?}", reg, dst),
         }
         Ok(())
     }

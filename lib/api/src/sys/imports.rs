@@ -114,11 +114,11 @@ impl Imports {
 
     /// Imports (any) shared memory into the imports.
     /// (if the module does not import memory then this function is ignored)
-    pub fn import_shared_memory(
-        &mut self,
+    pub(crate) fn import_shared_memory(
+        &self,
         module: &Module,
         store: &mut impl AsStoreMut,
-    ) -> Option<VMSharedMemory> {
+    ) -> Self {
         // Determine if shared memory needs to be created and imported
         let shared_memory = module
             .imports()
@@ -130,16 +130,21 @@ impl Imports {
                 VMSharedMemory::new(&ty, &style).unwrap()
             });
 
+        let mut ret = self.clone();
         if let Some(memory) = shared_memory {
-            self.define(
-                "env",
-                "memory",
-                Memory::new_from_existing(store, memory.clone().into()),
-            );
-            Some(memory)
-        } else {
-            None
-        }
+            // if the memory has already be defined, don't redefine it!
+            if !self
+                .map
+                .contains_key(&("env".to_string(), "memory".to_string()))
+            {
+                ret.define(
+                    "env",
+                    "memory",
+                    Memory::new_from_existing(store, memory.into()),
+                );
+            }
+        };
+        ret
     }
 
     /// Returns the contents of a namespace as an `Exports`.
@@ -162,10 +167,15 @@ impl Imports {
     /// Resolve and return a vector of imports in the order they are defined in the `module`'s source code.
     ///
     /// This means the returned `Vec<Extern>` might be a subset of the imports contained in `self`.
-    pub fn imports_for_module(&self, module: &Module) -> Result<Vec<Extern>, LinkError> {
+    pub fn imports_for_module(
+        &self,
+        module: &Module,
+        store: &mut impl AsStoreMut,
+    ) -> Result<Vec<Extern>, LinkError> {
         let mut ret = vec![];
+        let imports = self.import_shared_memory(module, store);
         for import in module.imports() {
-            if let Some(imp) = self
+            if let Some(imp) = imports
                 .map
                 .get(&(import.module().to_string(), import.name().to_string()))
             {
