@@ -131,6 +131,81 @@ mod sys {
     }
 
     #[test]
+    fn func_ref_passed_and_called_dynamic() -> Result<()> {
+        let mut store = Store::default();
+        let wat = r#"(module
+    (func $func_ref_call (import "env" "func_ref_call") (param funcref) (result i32))
+    (type $ret_i32_ty (func (result i32)))
+    (table $table (export "table") 2 2 funcref)
+
+    (func $product (param $x i32) (param $y i32) (result i32)
+          (i32.mul (local.get $x) (local.get $y)))
+    ;; TODO: figure out exactly why this statement is needed
+    (elem declare func $product)
+    (func (export "call_set_value") (param $fr funcref) (result i32)
+          (table.set $table (i32.const 0) (local.get $fr))
+          (call_indirect $table (type $ret_i32_ty) (i32.const 0)))
+    (func (export "call_func") (param $fr funcref) (result i32)
+          (call $func_ref_call (local.get $fr)))
+    (func (export "call_host_func_with_wasm_func") (result i32)
+          (call $func_ref_call (ref.func $product)))
+)"#;
+        let module = Module::new(&store, wat)?;
+        let env = FunctionEnv::new(&mut store, ());
+        fn func_ref_call(
+            mut env: FunctionEnvMut<()>,
+            values: &[Value],
+        ) -> Result<Vec<Value>, RuntimeError> {
+            // TODO: look into `Box<[Value]>` being returned breakage
+            let f = values[0].unwrap_funcref().as_ref().unwrap();
+            let f: TypedFunction<(i32, i32), i32> = f.typed(&mut env)?;
+            Ok(vec![Value::I32(f.call(&mut env, 7, 9)?)])
+        }
+
+        let imports = imports! {
+            "env" => {
+                "func_ref_call" => Function::new_with_env(
+                    &mut store,
+                    &env,
+                    FunctionType::new([Type::FuncRef], [Type::I32]),
+                    func_ref_call
+                ),
+                // "func_ref_call_native" => Function::new_native(&mut store, |f: Function| -> Result<i32, RuntimeError> {
+                //     let f: TypedFunction::<(i32, i32), i32> = f.typed(&mut store)?;
+                //     f.call(&mut store, 7, 9)
+                // })
+            },
+        };
+
+        let instance = Instance::new(&mut store, &module, &imports)?;
+        {
+            let sum_func = Function::new(
+                &mut store,
+                FunctionType::new([Type::I32, Type::I32], [Type::I32]),
+                |values| -> Result<Vec<_>, _> {
+                    Ok(vec![Value::I32(
+                        values[0].unwrap_i32() + values[0].unwrap_i32(),
+                    )])
+                },
+            );
+
+            let call_func: &Function = instance.exports.get_function("call_func")?;
+            let result = call_func.call(&mut store, &[Value::FuncRef(Some(sum_func))])?;
+            assert_eq!(result[0].unwrap_i32(), 16);
+        }
+
+        {
+            let f: TypedFunction<(), i32> = instance
+                .exports
+                .get_typed_function(&mut store, "call_host_func_with_wasm_func")?;
+            let result = f.call(&mut store)?;
+            assert_eq!(result, 63);
+        }
+
+        Ok(())
+    }
+
+    #[test]
     fn extern_ref_passed_and_returned() -> Result<()> {
         use std::collections::HashMap;
         let mut store = Store::default();
