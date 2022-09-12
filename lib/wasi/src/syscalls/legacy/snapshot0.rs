@@ -60,7 +60,7 @@ pub fn fd_filestat_get(
     // into memory leaving it as it should be
     wasi_try_mem!(buf.deref(&memory).write(old_stat));
 
-    Errno::from(result)
+    result
 }
 
 /// Wrapper around `syscalls::path_filestat_get` with extra logic to handle the size
