@@ -27,5 +27,16 @@ fn fail_if_wit_files_arent_up_to_date() {
         .next()
         .unwrap();
     let generated_str = String::from_utf8_lossy(generated);
+    let generated_str = generated_str
+        .lines()
+        .map(|s| s.to_string())
+        .collect::<Vec<String>>()
+        .join("\r\n");
+    let generated_str = generated_str.replace("mod output {", "pub mod output {");
+    let bindings_target = bindings_target
+        .lines()
+        .map(|s| s.to_string())
+        .collect::<Vec<String>>()
+        .join("\r\n");
     pretty_assertions::assert_eq!(generated_str, bindings_target); // output.wit out of date? regenerate bindings.rs
 }
