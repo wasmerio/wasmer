@@ -47,15 +47,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ansi_term"
-version = "0.12.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d52a9bb7ec0cf484c551830a7ce27bd20d67eac647e1befb56b0be4ee39a55d2"
-dependencies = [
- "winapi",
-]
-
-[[package]]
 name = "anyhow"
 version = "1.0.63"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -257,7 +248,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a6358dedf60f4d9b8db43ad187391afe959746101346fe51bb978126bec61dfb"
 dependencies = [
  "clap 3.2.20",
- "heck",
+ "heck 0.4.0",
  "indexmap",
  "log",
  "proc-macro2",
@@ -338,7 +329,7 @@ version = "3.2.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ea0c8bce528c4be4da13ea6fead8965e95b6073585a2f05204bd8f4119f82a65"
 dependencies = [
- "heck",
+ "heck 0.4.0",
  "proc-macro-error",
  "proc-macro2",
  "quote",
@@ -1178,6 +1169,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8a9ee70c43aaf417c914396645a0fa852624801b24ebb7ae78fe8272889ac888"
 dependencies = [
  "ahash",
+]
+
+[[package]]
+name = "heck"
+version = "0.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6d621efb26863f0e9924c6ac577e8275e5e6b77455db64ffa6c65c904e9e132c"
+dependencies = [
+ "unicode-segmentation",
 ]
 
 [[package]]
@@ -2840,6 +2840,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "unicode-segmentation"
+version = "1.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7e8820f5d777f6224dc4be3632222971ac30164d4a258d595640799554ebfd99"
+
+[[package]]
 name = "unicode-width"
 version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3454,7 +3460,10 @@ name = "wasmer-wasi-types-generated"
 version = "3.0.0-beta"
 dependencies = [
  "convert_case",
+ "pretty_assertions",
  "wasmer",
+ "wit-bindgen-gen-core",
+ "wit-bindgen-gen-rust-wasm",
  "wit-bindgen-rust",
  "wit-parser",
 ]
@@ -3789,6 +3798,34 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c811ca4a8c853ef420abd8592ba53ddbbac90410fab6903b3e79972a631f7680"
 
 [[package]]
+name = "wit-bindgen-gen-core"
+version = "0.1.0"
+source = "git+https://github.com/wasmerio/wit-bindgen?branch=force-generate-structs#095d295be6392259924e48488af188d3ed3e4102"
+dependencies = [
+ "anyhow",
+ "wit-parser",
+]
+
+[[package]]
+name = "wit-bindgen-gen-rust"
+version = "0.1.0"
+source = "git+https://github.com/wasmerio/wit-bindgen?branch=force-generate-structs#095d295be6392259924e48488af188d3ed3e4102"
+dependencies = [
+ "heck 0.3.3",
+ "wit-bindgen-gen-core",
+]
+
+[[package]]
+name = "wit-bindgen-gen-rust-wasm"
+version = "0.1.0"
+source = "git+https://github.com/wasmerio/wit-bindgen?branch=force-generate-structs#095d295be6392259924e48488af188d3ed3e4102"
+dependencies = [
+ "heck 0.3.3",
+ "wit-bindgen-gen-core",
+ "wit-bindgen-gen-rust",
+]
+
+[[package]]
 name = "wit-bindgen-rust"
 version = "0.1.0"
 source = "git+https://github.com/wasmerio/wit-bindgen?branch=main#005a9e6d5befe4652c0e6e05578b245ab96b3cea"
@@ -3798,8 +3835,8 @@ dependencies = [
 
 [[package]]
 name = "wit-parser"
-version = "0.2.0"
-source = "git+https://github.com/bytecodealliance/wit-bindgen?rev=f1682df9adacb515227d061a4601b2b4c997e7a2#f1682df9adacb515227d061a4601b2b4c997e7a2"
+version = "0.1.0"
+source = "git+https://github.com/wasmerio/wit-bindgen?branch=force-generate-structs#095d295be6392259924e48488af188d3ed3e4102"
 dependencies = [
  "anyhow",
  "id-arena",

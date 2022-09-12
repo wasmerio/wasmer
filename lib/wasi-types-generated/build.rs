@@ -5,7 +5,6 @@ const WIT_1: &str = include_str!("./wit-clean/output.wit");
 const BINDINGS_RS: &str = include_str!("./src/wasi/bindings.rs");
 
 fn main() {
-    /*
     let bindings_rs = BINDINGS_RS
         .replace("#[allow(clippy::all)]", "")
         .replace("pub mod output {", "")
@@ -48,7 +47,7 @@ fn main() {
             | TypeDefKind::List(_)
             | TypeDefKind::Future(_)
             | TypeDefKind::Stream(_)
-            // | TypeDefKind::Type(_) 
+            // | TypeDefKind::Type(_)
             => {
                 let name = i.name.clone().unwrap_or_default().to_case(Case::Pascal);
                 if excluded_from_impl_valuetype.iter().any(|s| *s == name.as_str()) {
@@ -75,7 +74,7 @@ fn main() {
                         "
                 unsafe impl wasmer::FromToNativeWasmType for {name} {{
                     type Native = i32;
-                
+
                     fn to_native(self) -> Self::Native {{
                         self as i32
                     }}
@@ -98,7 +97,7 @@ fn main() {
                             q => todo!(\"could not serialize number {{q}} to enum {name}\"),
                         }}
                     }}
-                
+
                     fn is_from_store(&self, _store: &impl wasmer::AsStoreRef) -> bool {{ false }}
                 }}
                 "
@@ -110,5 +109,4 @@ fn main() {
         }
     }
     std::fs::write(path, contents).unwrap();
-    */
 }

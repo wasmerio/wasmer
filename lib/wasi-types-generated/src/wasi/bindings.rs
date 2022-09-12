@@ -1,5 +1,10 @@
 #[allow(clippy::all)]
 pub mod output {
+  /// Type names used by low-level WASI interfaces.
+  /// An array size.
+  /// 
+  /// Note: This is similar to `size_t` in POSIX.
+  pub type Size = u32;
   /// Non-negative file size or length of a region within a file.
   pub type Filesize = u64;
   /// Timestamp in nanoseconds.
