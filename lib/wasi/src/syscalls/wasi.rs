@@ -2,7 +2,7 @@
 use crate::{WasiEnv, WasiError, WasiState, WasiThread};
 use wasmer::{Memory, Memory32, MemorySize, StoreMut, WasmPtr, WasmSlice};
 use wasmer_wasi_types::{
-    wasi::{Errno, Event, Fd as WasiFd, Filesize, Fstflags, Fstflags, Timestamp, Whence},
+    wasi::{Errno, Event, Fd as WasiFd, Filesize, Fstflags, Fstflags, Timestamp, Whence, Clockid},
     *,
 };
 
@@ -27,7 +27,7 @@ pub(crate) fn args_sizes_get(
 
 pub(crate) fn clock_res_get(
     ctx: FunctionEnvMut<WasiEnv>,
-    clock_id: wasi_snapshot0::Clockid,
+    clock_id: Clockid,
     resolution: WasmPtr<Timestamp, MemoryType>,
 ) -> Errno {
     super::clock_res_get::<MemoryType>(ctx, clock_id, resolution)
@@ -35,7 +35,7 @@ pub(crate) fn clock_res_get(
 
 pub(crate) fn clock_time_get(
     ctx: FunctionEnvMut<WasiEnv>,
-    clock_id: wasi_snapshot0::Clockid,
+    clock_id: Clockid,
     precision: Timestamp,
     time: WasmPtr<Timestamp, MemoryType>,
 ) -> Errno {
