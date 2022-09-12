@@ -73,13 +73,7 @@ pub mod bus {
 }
 
 pub mod file {
-    use std::{
-        fmt,
-        mem::{self, MaybeUninit},
-    };
-    use wasmer_derive::ValueType;
-    use wasmer_types::ValueType;
-    use wasmer_wasi_types_generated::wasi::{Fd, Preopentype, Prestat, Rights};
+    use wasmer_wasi_types_generated::wasi::{Fd, Rights};
 
     pub use wasmer_wasi_types_generated::wasi::{EventFdFlags, FileDelta, LookupFlags, Oflags};
 
@@ -182,7 +176,6 @@ pub mod directory {
 pub mod io {
     use wasmer_derive::ValueType;
     use wasmer_types::MemorySize;
-    use wasmer_wasi_types_generated::wasi::Fd;
 
     pub use wasmer_wasi_types_generated::wasi::Bool;
     pub use wasmer_wasi_types_generated::wasi::Count;
@@ -205,15 +198,12 @@ pub mod io {
 }
 
 pub mod time {
-    use wasmer_derive::ValueType;
     pub use wasmer_wasi_types_generated::wasi::OptionTimestamp;
-    use wasmer_wasi_types_generated::wasi::{OptionTag, Timestamp};
 }
 
 pub mod net {
-    use super::*;
     use wasmer_derive::ValueType;
-    use wasmer_wasi_types_generated::wasi::{Addressfamily, Fd, Filesize};
+    use wasmer_wasi_types_generated::wasi::Addressfamily;
 
     use crate::OptionTimestamp;
 
