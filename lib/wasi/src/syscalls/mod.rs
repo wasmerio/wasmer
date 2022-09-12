@@ -1468,7 +1468,7 @@ pub fn fd_event<M: MemorySize>(
 
     let kind = Kind::EventNotifications {
         counter: Arc::new(AtomicU64::new(initial_val)),
-        is_semaphore: flags & EventFdFlags_SEMAPHORE != 0,
+        is_semaphore: flags & EVENT_FD_FLAGS_SEMAPHORE != 0,
         wakers: Default::default(),
     };
 

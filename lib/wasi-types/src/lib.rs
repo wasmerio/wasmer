@@ -87,7 +87,7 @@ pub mod file {
     pub const __WASI_STDOUT_FILENO: Fd = 1;
     pub const __WASI_STDERR_FILENO: Fd = 2;
 
-    pub const EventFdFlags_SEMAPHORE: EventFdFlags = 1;
+    pub const EVENT_FD_FLAGS_SEMAPHORE: EventFdFlags = 1;
 
     pub const __WASI_LOOKUP_SYMLINK_FOLLOW: LookupFlags = 1;
 
