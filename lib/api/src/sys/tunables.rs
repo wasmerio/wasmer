@@ -178,12 +178,12 @@ mod tests {
     use std::cell::UnsafeCell;
     use std::ptr::NonNull;
     use wasmer_types::{MemoryError, MemoryStyle, MemoryType, Pages, WASM_PAGE_SIZE};
-    use wasmer_vm::{LinearMemory, MaybeInstanceOwned};
+    use wasmer_vm::LinearMemory;
 
     #[derive(Debug)]
     struct VMTinyMemory {
         mem: Vec<u8>,
-        memory_definition: Option<VMMemoryDefinition>,
+        memory_definition: Option<UnsafeCell<VMMemoryDefinition>>,
     }
 
     unsafe impl Send for VMTinyMemory {}
@@ -198,10 +198,10 @@ mod tests {
                 mem: memory,
                 memory_definition: None,
             };
-            ret.memory_definition = Some(VMMemoryDefinition {
+            ret.memory_definition = Some(UnsafeCell::new(VMMemoryDefinition {
                 base: ret.mem.as_ptr() as _,
                 current_length: sz,
-            });
+            }));
             Ok(ret)
         }
     }
@@ -230,10 +230,17 @@ mod tests {
             })
         }
         fn vmmemory(&self) -> NonNull<VMMemoryDefinition> {
-            MaybeInstanceOwned::Host(Box::new(UnsafeCell::new(
-                self.memory_definition.unwrap().clone(),
-            )))
-            .as_ptr()
+            unsafe {
+                NonNull::new(
+                    self.memory_definition
+                        .as_ref()
+                        .unwrap()
+                        .get()
+                        .as_mut()
+                        .unwrap() as _,
+                )
+                .unwrap()
+            }
         }
         fn try_clone(&self) -> Option<Box<dyn LinearMemory + 'static>> {
             None
@@ -277,8 +284,10 @@ mod tests {
             // now, it's important to update vm_definition_location with the memory information!
             let mut ptr = vm_definition_location;
             let md = ptr.as_mut();
-            md.base = memory.memory_definition.unwrap().base;
-            md.current_length = memory.memory_definition.unwrap().current_length;
+            let unsafecell = memory.memory_definition.as_ref().unwrap();
+            let def = unsafecell.get().as_ref().unwrap();
+            md.base = def.base;
+            md.current_length = def.current_length;
             Ok(memory.into())
         }
 
@@ -354,6 +363,9 @@ mod tests {
         assert_eq!(memories.len(), 1);
         let first_memory = memories.pop().unwrap();
         assert_eq!(first_memory.ty(&store).maximum.unwrap(), Pages(18));
+        let view = first_memory.view(&store);
+        let x = unsafe { view.data_unchecked_mut() }[0];
+        assert_eq!(x, 0);
 
         Ok(())
     }
