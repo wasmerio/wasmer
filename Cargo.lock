@@ -2920,6 +2920,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasi-types-generator-extra"
+version = "0.1.0"
+dependencies = [
+ "convert_case",
+ "wit-parser",
+]
+
+[[package]]
 name = "wasm-bindgen"
 version = "0.2.82"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3459,7 +3467,6 @@ dependencies = [
 name = "wasmer-wasi-types-generated"
 version = "3.0.0-beta"
 dependencies = [
- "convert_case",
  "pretty_assertions",
  "wasmer",
  "wit-bindgen-gen-core",

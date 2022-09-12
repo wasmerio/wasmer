@@ -45,6 +45,7 @@ members = [
     "lib/wasi",
     "lib/wasi-types",
     "lib/wasi-types-generated",
+    "lib/wasi-types-generated/wasi-types-generator-extra",
     "lib/wasi-experimental-io-devices",
     "lib/wasi-local-networking",
     "lib/types",

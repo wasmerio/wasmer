@@ -1,11 +1,10 @@
 use convert_case::{Case, Casing};
 use wit_parser::TypeDefKind;
 
-const WIT_1: &str = include_str!("./wit-clean/output.wit");
-const BINDINGS_RS: &str = include_str!("./src/wasi/bindings.rs");
+const WIT_1: &str = include_str!("../../wit-clean/output.wit");
+const BINDINGS_RS: &str = include_str!("../../src/wasi/bindings.rs");
 
 fn main() {
-    /*
     let bindings_rs = BINDINGS_RS
         .replace("#[allow(clippy::all)]", "")
         .replace("pub mod output {", "")
@@ -16,8 +15,10 @@ fn main() {
     bindings_rs.pop();
     let bindings_rs = bindings_rs.join("\n");
 
-    let target_path = std::env::var("CARGO_MANIFEST_DIR").unwrap();
+    let target_path = env!("CARGO_MANIFEST_DIR");
     let path = std::path::Path::new(&target_path)
+        .parent()
+        .unwrap()
         .join("src")
         .join("wasi")
         .join("extra.rs");
@@ -68,47 +69,43 @@ fn main() {
 
         let name = i.name.clone().unwrap_or_default().to_case(Case::Pascal);
 
-        match &i.kind {
-            wit_parser::TypeDefKind::Enum(e) => {
-                contents.push_str(
-                    &format!(
-                        "
-                unsafe impl wasmer::FromToNativeWasmType for {name} {{
-                    type Native = i32;
+        if let wit_parser::TypeDefKind::Enum(e) = &i.kind {
+            contents.push_str(
+                &format!(
+                    "
+            unsafe impl wasmer::FromToNativeWasmType for {name} {{
+                type Native = i32;
 
-                    fn to_native(self) -> Self::Native {{
-                        self as i32
-                    }}
-
-                    fn from_native(n: Self::Native) -> Self {{
-                        match n {{\n"
-                    )
-                    .replace("                ", ""),
-                );
-
-                for (i, case) in e.cases.iter().enumerate() {
-                    contents.push_str(&format!(
-                        "            {i} => Self::{},\n",
-                        case.name.to_case(Case::Pascal)
-                    ));
-                }
-                contents.push_str(
-                    &format!(
-                        "
-                            q => todo!(\"could not serialize number {{q}} to enum {name}\"),
-                        }}
-                    }}
-
-                    fn is_from_store(&self, _store: &impl wasmer::AsStoreRef) -> bool {{ false }}
+                fn to_native(self) -> Self::Native {{
+                    self as i32
                 }}
-                "
-                    )
-                    .replace("                ", ""),
-                );
+
+                fn from_native(n: Self::Native) -> Self {{
+                    match n {{\n"
+                )
+                .replace("                ", ""),
+            );
+
+            for (i, case) in e.cases.iter().enumerate() {
+                contents.push_str(&format!(
+                    "            {i} => Self::{},\n",
+                    case.name.to_case(Case::Pascal)
+                ));
             }
-            _ => {}
+            contents.push_str(
+                &format!(
+                    "
+                        q => todo!(\"could not serialize number {{q}} to enum {name}\"),
+                    }}
+                }}
+
+                fn is_from_store(&self, _store: &impl wasmer::AsStoreRef) -> bool {{ false }}
+            }}
+            "
+                )
+                .replace("                ", ""),
+            );
         }
     }
     std::fs::write(path, contents).unwrap();
-    */
 }

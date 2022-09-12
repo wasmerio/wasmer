@@ -23,3 +23,11 @@ awk '{sub(/mod output/,"pub mod output")}1' src/wasi/bindings.rs > src/wasi/bind
 cargo fmt --all
 cp src/wasi/bindings2.rs src/wasi/bindings.rs
 rm src/wasi/bindings2.rs
+
+cd ./wasi-types-generator-extra
+cargo build
+pwd
+../../../target/debug/wasi-types-generator-extra
+cd ..
+
+cargo fmt --all
