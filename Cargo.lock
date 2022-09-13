@@ -3033,6 +3033,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasmer-c-api-test-runner"
+version = "0.1.0"
+
+[[package]]
 name = "wasmer-cache"
 version = "3.0.0-beta"
 dependencies = [

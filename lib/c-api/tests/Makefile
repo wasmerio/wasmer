@@ -17,6 +17,8 @@ endif
 $(info * CFLAGS: $(CFLAGS))
 $(info * LDFLAGS: $(LDFLAGS))
 $(info * LDLIBS: $(LDLIBS))
+$(info * ROOT_DIR: $(ROOT_DIR))
+$(info * WASMER_DIR: $(WASMER_DIR))
 
 CAPI_BASE_TESTS = \
 	wasm-c-api/example/callback	wasm-c-api/example/global	wasm-c-api/example/hello \
@@ -29,20 +31,8 @@ CAPI_BASE_TESTS_NOT_WORKING = \
 
 ALL = $(CAPI_BASE_TESTS)
 
-.PHONY: all
-all: $(ALL)
-
-.PHONY: test-capi-base
-.SILENT: test-capi-base
-test-capi-base: $(CAPI_BASE_TESTS)
-	set -o errexit; \
-	$(foreach example,$?,echo Running \"$(example)\" example; cd $(shell dirname $(realpath $(example))) && ./$(shell basename $(example)); echo;)
-
-.PHONY: test-capi-base
-.SILENT: test-capi-base
-test-capi: test-capi-base
-
-test: test-capi
+test: 
+	WASMER_DIR="$(WASMER_DIR)" ROOT_DIR="$(ROOT_DIR)" CFLAGS="$(CFLAGS)" LDFLAGS="$(LDFLAGS)" LDLIBS="$(LDLIBS)" cargo test --manifest-path="./wasmer-c-api-test-runner/Cargo.toml" -- --nocapture
 
 .SILENT: clean
 .PHONY: clean

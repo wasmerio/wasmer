@@ -46,6 +46,7 @@ members = [
     "lib/wasi-types",
     "lib/wasi-experimental-io-devices",
     "lib/wasi-local-networking",
+    "lib/c-api/tests/wasmer-c-api-test-runner",
     "lib/types",
     "tests/wasi-wast",
     "tests/lib/wast",
