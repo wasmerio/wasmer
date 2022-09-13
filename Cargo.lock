@@ -1234,9 +1234,7 @@ dependencies = [
 
 [[package]]
 name = "inline-c"
-version = "0.1.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "340dd3d6102fa919bd20987024a6d84954c36ec691ac1efea37742ee983c8dd5"
+version = "0.1.0"
 dependencies = [
  "assert_cmd",
  "cc",
@@ -1251,9 +1249,7 @@ dependencies = [
 
 [[package]]
 name = "inline-c-macro"
-version = "0.1.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "17f5621ec7adacda881d7c2826c064f5c29c72fd44333f97df61b458a583ae15"
+version = "0.1.6"
 dependencies = [
  "proc-macro2",
  "quote",
