@@ -38,7 +38,7 @@ int main(int argc, const char* argv[]) {
 
   // Load binary.
   printf("Loading binary...\n");
-  FILE* file = fopen("assets/qjs.wasm", "r");
+  FILE* file = fopen("assets/qjs.wasm", "rb");
   if (!file) {
     printf("> Error loading module!\n");
     return 1;
@@ -49,7 +49,7 @@ int main(int argc, const char* argv[]) {
   wasm_byte_vec_t binary;
   wasm_byte_vec_new_uninitialized(&binary, file_size);
   if (fread(binary.data, file_size, 1, file) != 1) {
-    printf("> Error loading module!\n");
+    printf("> Error initializing module!\n");
     return 1;
   }
   fclose(file);
@@ -137,12 +137,12 @@ int main(int argc, const char* argv[]) {
   }
   printf("Call completed\n");
 
-  {
-    FILE *memory_stream;
-    char* stdout;
-    size_t stdout_size = 0;
+  if(true) {
 
-    memory_stream = open_memstream(&stdout, &stdout_size);
+    // NOTE: previously, this used open_memstream,
+    // which is not cross-platform
+    FILE *memory_stream = NULL;
+    memory_stream = tmpfile(); // stdio.h
 
     if (NULL == memory_stream) {
       printf("> Error creating a memory stream.\n");
@@ -161,15 +161,20 @@ int main(int argc, const char* argv[]) {
       }
 
       if (data_read_size > 0) {
-        stdout_size += data_read_size;
         fwrite(buffer, sizeof(char), data_read_size, memory_stream);
       }
     } while (BUF_SIZE == data_read_size);
 
+    // print memory_stream
+    rewind(memory_stream);
+    fputs("WASI Stdout: ", stdout);
+    char buffer2[256];
+    while (!feof(memory_stream)) {
+      if (fgets(buffer2, 256, memory_stream) == NULL) break;
+      fputs(buffer2, stdout);
+    }
+    fputs("\n", stdout);
     fclose(memory_stream);
-
-    printf("WASI Stdout: `%.*s`\n", (int) stdout_size, stdout);
-    free(stdout);
   }
 
 

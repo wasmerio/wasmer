@@ -3055,6 +3055,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasmer-capi-examples-runner"
+version = "0.1.0"
+dependencies = [
+ "cc",
+ "target-lexicon 0.11.2",
+]
+
+[[package]]
 name = "wasmer-cli"
 version = "3.0.0-beta"
 dependencies = [

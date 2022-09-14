@@ -30,6 +30,36 @@ impl Config {
     }
 }
 
+
+#[derive(Default)]
+pub struct RemoveTestsOnDrop { }
+
+impl Drop for RemoveTestsOnDrop { 
+    fn drop(&mut self) {
+        let manifest_dir = env!("CARGO_MANIFEST_DIR");    
+        for entry in std::fs::read_dir(&manifest_dir).unwrap() {
+            let entry = entry.unwrap();
+            let path = entry.path();
+            let extension = path.extension().and_then(|s| s.to_str());
+            if extension == Some("obj") || extension == Some("exe") {
+                println!("removing {}", path.display());
+                let _ = std::fs::remove_file(&path);
+            }
+        }
+        if let Some(parent) = std::path::Path::new(&manifest_dir).parent() {
+            for entry in std::fs::read_dir(&parent).unwrap() {
+                let entry = entry.unwrap();
+                let path = entry.path();
+                let extension = path.extension().and_then(|s| s.to_str());
+                if extension == Some("obj") || extension == Some("exe") {
+                    println!("removing {}", path.display());
+                    let _ = std::fs::remove_file(&path);
+                }
+            }
+        }
+    }
+}
+
 const CAPI_BASE_TESTS: &[&str] = &[
     "wasm-c-api/example/callback",
     "wasm-c-api/example/memory",
@@ -56,136 +86,142 @@ const CAPI_BASE_TESTS_NOT_WORKING: &[&str] = &[
 #[test]
 fn test_ok() {
 
+    let _drop = RemoveTestsOnDrop::default();
     let config = Config::get();
     println!("config: {:#?}", config);
 
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
-    
     let host = target_lexicon::HOST.to_string();
     let target = &host;
 
-    #[cfg(target_os = "windows")]
-    for test in CAPI_BASE_TESTS.iter() {
+    if target.contains("msvc") {
+        for test in CAPI_BASE_TESTS.iter() {
 
-        let mut build = cc::Build::new();
-        let mut build = build
-            .cargo_metadata(false)
-            .warnings(true)
-            .static_crt(true)
-            .extra_warnings(true)
-            .warnings_into_errors(false)
-            .debug(config.ldflags.contains("-g"))
-            .host(&host)
-            .target(target)
-            .opt_level(1);
-
-        let compiler = build.try_get_compiler().unwrap();
-        let mut command = compiler.to_command();
-
-        command.arg(&format!("{manifest_dir}/../{test}.c"));
-        if !config.msvc_cflags.is_empty() {
-            command.arg(config.msvc_cflags.clone());
-        } else if !config.wasmer_dir.is_empty() {
-            command.arg("/I");
-            command.arg(&format!("{}/include", config.wasmer_dir));
+            let mut build = cc::Build::new();
+            let mut build = build
+                .cargo_metadata(false)
+                .warnings(true)
+                .static_crt(true)
+                .extra_warnings(true)
+                .warnings_into_errors(false)
+                .debug(config.ldflags.contains("-g"))
+                .host(&host)
+                .target(target)
+                .opt_level(1);
+    
+            let compiler = build.try_get_compiler().unwrap();
+            let mut command = compiler.to_command();
+    
+            command.arg(&format!("{manifest_dir}/../{test}.c"));
+            if !config.msvc_cflags.is_empty() {
+                command.arg(config.msvc_cflags.clone());
+            } else if !config.wasmer_dir.is_empty() {
+                command.arg("/I");
+                command.arg(&format!("{}/include", config.wasmer_dir));
+            }
+            command.arg("/link");
+            if !config.msvc_ldlibs.is_empty() {
+                command.arg(config.msvc_ldlibs.clone());
+            } else if !config.wasmer_dir.is_empty() {
+                command.arg(&format!("/LIBPATH:{}/lib", config.wasmer_dir));
+                command.arg(&format!("{}/lib/wasmer.dll.lib", config.wasmer_dir));
+            }
+            let wasmer_dll_dir = format!("{}/lib", config.wasmer_dir);
+            command.arg(&format!("/OUT:\"{manifest_dir}/../{test}.exe\""));
+    
+            let exe_dir = format!("{manifest_dir}/../wasm-c-api/example");
+    
+            // run vcvars
+            let vcvars_bat_path = find_vcvars64(&compiler).expect("no vcvars64.bat");
+            let mut vcvars = std::process::Command::new("cmd");
+            vcvars.arg("/C");
+            vcvars.arg(vcvars_bat_path);
+            println!("running {vcvars:?}");
+    
+            // cmd /C vcvars64.bat
+            let output = vcvars.output()
+            .expect("could not invoke vcvars64.bat at {vcvars_bat_path}");
+            
+            if !output.status.success() {
+                println!("");
+                println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
+                println!("stderr: {}", String::from_utf8_lossy(&output.stderr));
+                panic!("failed to invoke vcvars64.bat {test}");
+            }
+    
+            println!("compiling {test}: {command:?}");
+    
+            // compile
+            let output = command.output().expect(&format!("failed to compile {command:#?}"));
+            if !output.status.success() {
+                println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
+                println!("stdout: {}", String::from_utf8_lossy(&output.stderr));
+                panic!("failed to compile {test}");
+            }
+    
+            let path = std::env::var("PATH").unwrap_or_default();
+            let newpath = format!("{wasmer_dll_dir};{path}");
+    
+            // execute
+            let mut command = std::process::Command::new(&format!("{manifest_dir}/../{test}.exe"));
+            command.env("PATH", newpath.clone());
+            command.current_dir(exe_dir.clone());
+            println!("executing {test}: {command:?}");
+            println!("setting current dir = {exe_dir}");
+            let output = command.output().expect(&format!("failed to run {command:#?}"));
+            if !output.status.success() {
+                println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
+                println!("stdout: {}", String::from_utf8_lossy(&output.stderr));
+                panic!("failed to execute {test}");
+            }
+    
+            // cc -g -IC:/Users/felix/Development/wasmer/lib/c-api/tests/ 
+            //          -IC:/Users/felix/Development/wasmer/package/include  
+            //
+            //          -Wl,-rpath,C:/Users/felix/Development/wasmer/package/lib  
+            //
+            //          wasm-c-api/example/callback.c  
+            //
+            //          -LC:/Users/felix/Development/wasmer/package/lib -lwasmer 
+            // 
+            // -o wasm-c-api/example/callback
+    
         }
-        command.arg("/link");
-        if !config.msvc_ldlibs.is_empty() {
-            command.arg(config.msvc_ldlibs.clone());
-        } else if !config.wasmer_dir.is_empty() {
-            command.arg(&format!("/LIBPATH:{}/lib", config.wasmer_dir));
-            command.arg(&format!("{}/lib/wasmer.dll.lib", config.wasmer_dir));
+    } else {
+        for test in CAPI_BASE_TESTS.iter() {
+
+            let mut command = std::process::Command::new("cc");
+    
+            command.arg(config.cflags.clone());
+            command.arg(config.ldflags.clone());
+            command.arg(&format!("{manifest_dir}/../{test}.c"));
+            command.arg(config.ldlibs.clone());
+            command.arg("-o");
+            command.arg(&format!("{manifest_dir}/../{test}"));
+    
+            // compile
+            let output = command.output().expect(&format!("failed to compile {command:#?}"));
+            if !output.status.success() {
+                println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
+                println!("stdout: {}", String::from_utf8_lossy(&output.stderr));
+                panic!("failed to compile {test}");
+            }
+    
+            // execute
+            let mut command = std::process::Command::new(&format!("{manifest_dir}/../{test}"));
+            let output = command.output().expect(&format!("failed to run {command:#?}"));
+            if !output.status.success() {
+                println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
+                println!("stdout: {}", String::from_utf8_lossy(&output.stderr));
+                panic!("failed to execute {test}");
+            }
         }
-        let wasmer_dll_dir = format!("{}/lib", config.wasmer_dir);
-        command.arg(&format!("/OUT:\"{manifest_dir}/../{test}.exe\""));
-
-        let exe_dir = format!("{manifest_dir}/../wasm-c-api/example");
-
-        // run vcvars
-        let vcvars_bat_path = find_vcvars64(&compiler).expect("no vcvars64.bat");
-        let mut vcvars = std::process::Command::new("cmd");
-        vcvars.arg("/C");
-        vcvars.arg(vcvars_bat_path);
-        println!("running {vcvars:?}");
-
-        // cmd /C vcvars64.bat
-        let output = vcvars.output()
-        .expect("could not invoke vcvars64.bat at {vcvars_bat_path}");
-        
-        if !output.status.success() {
-            println!("");
-            println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
-            println!("stderr: {}", String::from_utf8_lossy(&output.stderr));
-            panic!("failed to invoke vcvars64.bat {test}");
-        }
-
-        println!("compiling {test}: {command:?}");
-
-        // compile
-        let output = command.output().expect(&format!("failed to compile {command:#?}"));
-        if !output.status.success() {
-            println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
-            println!("stdout: {}", String::from_utf8_lossy(&output.stderr));
-            panic!("failed to compile {test}");
-        }
-
-        let path = std::env::var("PATH").unwrap_or_default();
-        let newpath = format!("{wasmer_dll_dir};{path}");
-
-        // execute
-        let mut command = std::process::Command::new(&format!("{manifest_dir}/../{test}.exe"));
-        command.env("PATH", newpath.clone());
-        command.current_dir(exe_dir.clone());
-        println!("executing {test}: {command:?}");
-        println!("setting current dir = {exe_dir}");
-        let output = command.output().expect(&format!("failed to run {command:#?}"));
-        if !output.status.success() {
-            println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
-            println!("stdout: {}", String::from_utf8_lossy(&output.stderr));
-            panic!("failed to execute {test}");
-        }
-
-        // cc -g -IC:/Users/felix/Development/wasmer/lib/c-api/tests/ 
-        //          -IC:/Users/felix/Development/wasmer/package/include  
-        //
-        //          -Wl,-rpath,C:/Users/felix/Development/wasmer/package/lib  
-        //
-        //          wasm-c-api/example/callback.c  
-        //
-        //          -LC:/Users/felix/Development/wasmer/package/lib -lwasmer 
-        // 
-        // -o wasm-c-api/example/callback
-
     }
 
-    #[cfg(not(target_os = "windows"))]
     for test in CAPI_BASE_TESTS.iter() {
-
-        let mut command = std::process::Command::new("cc");
-
-        command.arg(config.cflags.clone());
-        command.arg(config.ldflags.clone());
-        command.arg(&format!("{manifest_dir}/../{test}.c"));
-        command.arg(config.ldlibs.clone());
-        command.arg("-o");
-        command.arg(&format!("{manifest_dir}/../{test}"));
-
-        // compile
-        let output = command.output().expect(&format!("failed to compile {command:#?}"));
-        if !output.status.success() {
-            println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
-            println!("stdout: {}", String::from_utf8_lossy(&output.stderr));
-            panic!("failed to compile {test}");
-        }
-
-        // execute
-        let mut command = std::process::Command::new(&format!("{manifest_dir}/../{test}"));
-        let output = command.output().expect(&format!("failed to run {command:#?}"));
-        if !output.status.success() {
-            println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
-            println!("stdout: {}", String::from_utf8_lossy(&output.stderr));
-            panic!("failed to compile {test}");
-        }
+        let _ = std::fs::remove_file(&format!("{manifest_dir}/{test}.obj"));
+        let _ = std::fs::remove_file(&format!("{manifest_dir}/../{test}.exe"));
+        let _ = std::fs::remove_file(&format!("{manifest_dir}/../{test}"));
     }
  }
 

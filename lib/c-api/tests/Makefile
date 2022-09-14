@@ -35,7 +35,7 @@ $(info * LDFLAGS: $(LDFLAGS))
 $(info * LDLIBS: $(LDLIBS))
 
 test: 
-	cargo test --manifest-path="./wasmer-c-api-test-runner/Cargo.toml" -- --nocapture
+	WASMER_DIR="$(WASMER_DIR)" ROOT_DIR="$(ROOT_DIR)" CFLAGS="$(CFLAGS)" LDFLAGS="$(LDFLAGS)" LDLIBS="$(LDLIBS)" cargo test --manifest-path="./wasmer-c-api-test-runner/Cargo.toml" -- --nocapture
 
 .SILENT: clean
 .PHONY: clean
