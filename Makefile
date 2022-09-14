@@ -608,6 +608,10 @@ package-capi:
 	if [ -f $(TARGET_DIR)/wasmer.dll ]; then \
 		cp $(TARGET_DIR)/wasmer.dll package/lib/wasmer.dll ;\
 	fi
+	
+	if [ -f $(TARGET_DIR)/wasmer.dll.lib ]; then \
+		cp $(TARGET_DIR)/wasmer.dll.lib package/lib/wasmer.dll.lib ;\
+	fi
 	if [ -f $(TARGET_DIR)/wasmer.lib ]; then \
 		cp $(TARGET_DIR)/wasmer.lib package/lib/wasmer.lib ;\
 	fi
