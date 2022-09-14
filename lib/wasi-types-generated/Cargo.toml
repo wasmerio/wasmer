@@ -14,7 +14,7 @@ wasmer = { default-features = false, path = "../api", version = "3.0.0-beta" }
 [dependencies.wit-bindgen-rust]
 default-features = false
 git = "https://github.com/wasmerio/wit-bindgen"
-branch = "main"
+branch = "force-generate-structs"
 package = "wit-bindgen-rust"
 
 [dev-dependencies.wit-bindgen-gen-rust-wasm]

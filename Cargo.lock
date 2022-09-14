@@ -3835,7 +3835,7 @@ dependencies = [
 [[package]]
 name = "wit-bindgen-rust"
 version = "0.1.0"
-source = "git+https://github.com/wasmerio/wit-bindgen?branch=main#005a9e6d5befe4652c0e6e05578b245ab96b3cea"
+source = "git+https://github.com/wasmerio/wit-bindgen?branch=force-generate-structs#24f9626a575df6416c35047147a67bc9d9b78afc"
 dependencies = [
  "bitflags",
 ]
