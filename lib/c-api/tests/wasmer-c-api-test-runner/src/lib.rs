@@ -96,9 +96,31 @@ fn test_ok() {
             command.arg(&format!("/LIBPATH:{}/lib", config.wasmer_dir));
             command.arg(&format!("{}/lib/wasmer.dll.lib", config.wasmer_dir));
         }
-        command.arg(&format!("/OUT:{manifest_dir}/../{test}.exe"));
+        let wasmer_dll_dir = format!("{}/lib", config.wasmer_dir);
+        command.arg(&format!("/OUT:\"{manifest_dir}/../{test}.exe\""));
 
-        println!("command: {command:#?}");
+        let exe_dir = format!("{manifest_dir}/../wasm-c-api/example");
+
+        // run vcvars
+        let vcvars_bat_path = find_vcvars64(&compiler).expect("no vcvars64.bat");
+        let mut vcvars = std::process::Command::new("cmd");
+        vcvars.arg("/C");
+        vcvars.arg(vcvars_bat_path);
+        println!("running {vcvars:?}");
+
+        // cmd /C vcvars64.bat
+        let output = vcvars.output()
+        .expect("could not invoke vcvars64.bat at {vcvars_bat_path}");
+        
+        if !output.status.success() {
+            println!("");
+            println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
+            println!("stderr: {}", String::from_utf8_lossy(&output.stderr));
+            panic!("failed to invoke vcvars64.bat {test}");
+        }
+
+        println!("compiling {test}: {command:?}");
+
         // compile
         let output = command.output().expect(&format!("failed to compile {command:#?}"));
         if !output.status.success() {
@@ -107,13 +129,20 @@ fn test_ok() {
             panic!("failed to compile {test}");
         }
 
+        let path = std::env::var("PATH").unwrap_or_default();
+        let newpath = format!("{wasmer_dll_dir};{path}");
+
         // execute
         let mut command = std::process::Command::new(&format!("{manifest_dir}/../{test}.exe"));
+        command.env("PATH", newpath.clone());
+        command.current_dir(exe_dir.clone());
+        println!("executing {test}: {command:?}");
+        println!("setting current dir = {exe_dir}");
         let output = command.output().expect(&format!("failed to run {command:#?}"));
         if !output.status.success() {
             println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
             println!("stdout: {}", String::from_utf8_lossy(&output.stderr));
-            panic!("failed to compile {test}");
+            panic!("failed to execute {test}");
         }
 
         // cc -g -IC:/Users/felix/Development/wasmer/lib/c-api/tests/ 
@@ -158,4 +187,18 @@ fn test_ok() {
             panic!("failed to compile {test}");
         }
     }
+ }
+
+ #[cfg(test)]
+ fn find_vcvars64(compiler: &cc::Tool) -> Option<String> {
+    
+    if !compiler.is_like_msvc() {
+        return None;
+    }
+    
+    let path = compiler.path();
+    let path = format!("{}", path.display());
+    let split = path.split("VC").nth(0)?;
+
+    Some(format!("{split}VC\\Auxiliary\\Build\\vcvars64.bat"))
  }
