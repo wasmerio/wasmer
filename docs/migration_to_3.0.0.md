@@ -28,6 +28,7 @@ This version introduces the following changes to make the Wasmer API more ergono
    The previous variants still exist in order to support the migration, but they have been deprecated.
 4. `WasmerEnv` and associated traits and macro have been removed. To use a function environment, you will need to create a `FunctionEnv` object and pass it along when you construct the function. For convenience, these functions also exist in a variant without the environment for simpler use cases that don't need it. For the variants with the environment, it can be retrieved from the first argument of the function. Because the `WasmerEnv` and all helpers don't exists anymore, you have to import memory yourself, there isn't any per instance initialisation automatically done anymore. It's especially important in wasi use with `WasiEnv`. `Env` can be accessed from a `FunctionEnvMut<'_, WasiEnv>` using `FunctionEnvMut::data()` or `FunctionEnvMut::data_mut()`.
 5. The `Engine`s API has been simplified, Instead of the user choosing and setting up an engine explicitly, everything now uses a single engine. All functionalities of the `universal`, `staticlib` and `dylib` engines should be available in this new engine unless explicitly stated as unsupported.
+6. Loupe has been removed. Memory inspection should be done manually
 
 ## How to use Wasmer 3.0.0
 
