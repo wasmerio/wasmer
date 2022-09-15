@@ -67,7 +67,11 @@ impl Config {
         let wasmer_base_dir = env!("CARGO_MANIFEST_DIR");
         let mut path2 = wasmer_base_dir.split("wasmer").collect::<Vec<_>>();
         path2.pop();
-        let wasmer_base_dir = path2.join("wasmer");
+        let mut wasmer_base_dir = path2.join("wasmer");
+
+        if wasmer_base_dir.contains("wasmer/lib/c-api") {
+            wasmer_base_dir = wasmer_base_dir.split("wasmer/lib/c-api").next().unwrap().to_string();
+        }
 
         if config.wasmer_dir.is_empty() {
             println!("manifest dir = {manifest_dir}, wasmer root dir = {wasmer_base_dir}");
@@ -203,7 +207,13 @@ fn test_run() {
         }
     } else {
         for test in TESTS.iter() {
-            let mut command = std::process::Command::new("cc");
+
+            let compiler_cmd = match std::process::Command::new("cc").output() {
+                Ok(_) => "cc",
+                Err(_) => "gcc",
+            };
+
+            let mut command = std::process::Command::new(compiler_cmd);
 
             if !config.cflags.is_empty() {
                 command.arg(config.cflags.clone());
