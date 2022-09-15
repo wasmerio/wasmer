@@ -26,7 +26,7 @@ pub unsafe extern "C" fn wat2wasm(wat: &wasm_byte_vec_t, out: &mut wasm_byte_vec
 
 #[cfg(test)]
 mod tests {
-    use inline_c::assert_c;
+    use wasmer_inline_c::assert_c;
 
     #[test]
     fn test_wat2wasm() {

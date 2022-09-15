@@ -41,7 +41,7 @@ paste = "1.0"
 
 [dev-dependencies]
 field-offset = "0.3.3"
-inline-c = { path = "../../../wasmer-inline-c-rs" }
+wasmer-inline-c = "0.1.0"
 
 [features]
 default = [

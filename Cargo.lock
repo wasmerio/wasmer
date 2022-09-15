@@ -1233,23 +1233,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "inline-c"
-version = "0.1.0"
-dependencies = [
- "assert_cmd",
- "cc",
- "inline-c-macro",
- "lazy_static",
- "predicates",
- "regex",
- "rustc_version 0.3.3",
- "target-lexicon 0.11.2",
- "tempfile",
-]
-
-[[package]]
 name = "inline-c-macro"
-version = "0.1.6"
+version = "0.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "17f5621ec7adacda881d7c2826c064f5c29c72fd44333f97df61b458a583ae15"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3015,7 +3002,6 @@ dependencies = [
  "cfg-if 1.0.0",
  "enumset",
  "field-offset",
- "inline-c",
  "lazy_static",
  "libc",
  "paste",
@@ -3027,6 +3013,7 @@ dependencies = [
  "wasmer-compiler-llvm",
  "wasmer-compiler-singlepass",
  "wasmer-emscripten",
+ "wasmer-inline-c",
  "wasmer-middlewares",
  "wasmer-types",
  "wasmer-wasi",
@@ -3228,6 +3215,23 @@ dependencies = [
  "time",
  "wasmer",
  "wasmer-types",
+]
+
+[[package]]
+name = "wasmer-inline-c"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e4c5002da7f51d03c06452231ba2a4f4d84dae7f282dd3145aba01d260545210"
+dependencies = [
+ "assert_cmd",
+ "cc",
+ "inline-c-macro",
+ "lazy_static",
+ "predicates",
+ "regex",
+ "rustc_version 0.3.3",
+ "target-lexicon 0.11.2",
+ "tempfile",
 ]
 
 [[package]]

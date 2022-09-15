@@ -97,7 +97,7 @@ pub unsafe extern "C" fn wasm_global_type(
 
 #[cfg(test)]
 mod tests {
-    use inline_c::assert_c;
+    use wasmer_inline_c::assert_c;
 
     #[test]
     fn test_set_host_global_immutable() {
