@@ -11,4 +11,4 @@ convert_case = "0.5.0"
 [dependencies.wit-parser]
 default-features = false
 package = "wasmer-wit-parser"
-version = "0.1.0"
+version = "0.1.1"
