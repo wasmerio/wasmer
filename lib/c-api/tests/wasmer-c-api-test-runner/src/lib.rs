@@ -4,7 +4,6 @@ use std::error::Error;
 #[cfg(test)]
 static INCLUDE_REGEX: &str = "#include \"(.*)\"";
 
-
 #[derive(Debug)]
 pub struct Config {
     pub wasmer_dir: String,
@@ -136,7 +135,7 @@ fn test_ok() {
                 command.arg(&format!("{}/include", config.wasmer_dir));
                 let mut log = String::new();
                 fixup_symlinks(&[format!("{}/include", config.wasmer_dir)], &mut log)
-                .expect(&format!("failed to fix symlinks: {log}"));
+                    .expect(&format!("failed to fix symlinks: {log}"));
                 println!("{log}");
             }
             command.arg("/link");
@@ -273,10 +272,7 @@ fn fixup_symlinks(include_paths: &[String], log: &mut String) -> Result<(), Box<
 }
 
 #[cfg(test)]
-fn fixup_symlinks_inner(
-    include_paths: &[String],
-    log: &mut String,
-) -> Result<(), Box<dyn Error>> {
+fn fixup_symlinks_inner(include_paths: &[String], log: &mut String) -> Result<(), Box<dyn Error>> {
     log.push_str(&format!("fixup symlinks: {include_paths:#?}"));
     let regex = regex::Regex::new(INCLUDE_REGEX).unwrap();
     for path in include_paths.iter() {
