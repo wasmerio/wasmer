@@ -32,7 +32,7 @@ package = "wit-bindgen-gen-core"
 [dev-dependencies.wit-parser]
 default-features = false
 git = "https://github.com/wasmerio/wit-bindgen"
-branch = "force-generate-structs"
+rev = "7fc6c57af548310c21b97d6c5d9dbb648a674f58"
 package = "wit-parser"
 
 [dev-dependencies.pretty_assertions]

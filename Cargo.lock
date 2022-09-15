@@ -2924,7 +2924,7 @@ name = "wasi-types-generator-extra"
 version = "0.1.0"
 dependencies = [
  "convert_case",
- "wit-parser 0.1.0 (git+https://github.com/wasmerio/wit-bindgen?branch=force-generate-structs)",
+ "wit-parser",
 ]
 
 [[package]]
@@ -3472,7 +3472,7 @@ dependencies = [
  "wit-bindgen-gen-core",
  "wit-bindgen-gen-rust-wasm",
  "wit-bindgen-rust",
- "wit-parser 0.1.0 (git+https://github.com/wasmerio/wit-bindgen?branch=force-generate-structs)",
+ "wit-parser",
 ]
 
 [[package]]
@@ -3810,7 +3810,7 @@ version = "0.1.0"
 source = "git+https://github.com/wasmerio/wit-bindgen?rev=7fc6c57af548310c21b97d6c5d9dbb648a674f58#7fc6c57af548310c21b97d6c5d9dbb648a674f58"
 dependencies = [
  "anyhow",
- "wit-parser 0.1.0 (git+https://github.com/wasmerio/wit-bindgen?rev=7fc6c57af548310c21b97d6c5d9dbb648a674f58)",
+ "wit-parser",
 ]
 
 [[package]]
@@ -3838,18 +3838,6 @@ version = "0.1.0"
 source = "git+https://github.com/wasmerio/wit-bindgen?rev=7fc6c57af548310c21b97d6c5d9dbb648a674f58#7fc6c57af548310c21b97d6c5d9dbb648a674f58"
 dependencies = [
  "bitflags",
-]
-
-[[package]]
-name = "wit-parser"
-version = "0.1.0"
-source = "git+https://github.com/wasmerio/wit-bindgen?branch=force-generate-structs#24f9626a575df6416c35047147a67bc9d9b78afc"
-dependencies = [
- "anyhow",
- "id-arena",
- "pulldown-cmark",
- "unicode-normalization",
- "unicode-xid",
 ]
 
 [[package]]
