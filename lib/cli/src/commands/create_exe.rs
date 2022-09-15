@@ -554,7 +554,6 @@ impl CreateExe {
 
         /* Compile main function */
         let compilation = {
-
             let compiler_cmd = match Command::new("cc").output() {
                 Ok(_) => "cc",
                 Err(_) => "gcc",
