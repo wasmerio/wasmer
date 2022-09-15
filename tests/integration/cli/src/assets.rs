@@ -36,7 +36,7 @@ pub const WASMER_TARGET_PATH2: &str = concat!(
 pub const LIBWASMER_FILENAME: &str = "libwasmer.a";
 
 #[cfg(windows)]
-pub const LIBWASMER_PATH: &str = "wasmer.lib";
+pub const LIBWASMER_FILENAME: &str = "wasmer.lib";
 
 /// Get the path to the `libwasmer.a` static library.
 pub fn get_libwasmer_path() -> PathBuf {

@@ -58,7 +58,8 @@ impl Drop for RemoveTestsOnDrop {
     }
 }
 
-const CAPI_BASE_TESTS: &[&str] = &[
+#[cfg(test)]
+pub const CAPI_BASE_TESTS: &[&str] = &[
     "wasm-c-api/example/callback",
     "wasm-c-api/example/memory",
     "wasm-c-api/example/start",
@@ -70,7 +71,8 @@ const CAPI_BASE_TESTS: &[&str] = &[
     "wasm-c-api/example/multi",
 ];
 
-const CAPI_BASE_TESTS_NOT_WORKING: &[&str] = &[
+#[allow(unused_variables, dead_code)]
+pub const CAPI_BASE_TESTS_NOT_WORKING: &[&str] = &[
     "wasm-c-api/example/finalize",
     "wasm-c-api/example/hostref",
     "wasm-c-api/example/threads",
@@ -137,7 +139,7 @@ fn test_ok() {
                 .expect("could not invoke vcvars64.bat at {vcvars_bat_path}");
 
             if !output.status.success() {
-                println!("");
+                println!();
                 println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
                 println!("stderr: {}", String::from_utf8_lossy(&output.stderr));
                 panic!("failed to invoke vcvars64.bat {test}");
