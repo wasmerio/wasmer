@@ -70,8 +70,9 @@ impl Config {
             println!("manifest dir = {manifest_dir}, wasmer root dir = {wasmer_base_dir}");
             config.wasmer_dir = wasmer_base_dir.clone() + "wasmer/package";
             if !std::path::Path::new(&config.wasmer_dir).exists() {
-                
-                if !std::path::Path::new(&format!("{wasmer_base_dir}wasmer/target/release")).exists() {
+                if !std::path::Path::new(&format!("{wasmer_base_dir}wasmer/target/release"))
+                    .exists()
+                {
                     println!("running make build-capi...");
                     // run make build-capi
                     let mut cmd = std::process::Command::new("make");
