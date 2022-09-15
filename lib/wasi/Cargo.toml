@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-wasi"
-version = "3.0.0-beta"
+version = "3.0.0-beta.2"
 description = "WASI implementation library for Wasmer WebAssembly runtime"
 categories = ["wasm", "os"]
 keywords = ["wasm", "webassembly", "wasi", "sandbox", "ABI"]
@@ -16,12 +16,12 @@ thiserror = "1"
 generational-arena = { version = "0.2" }
 tracing = "0.1"
 getrandom = "0.2"
-wasmer-wasi-types = { path = "../wasi-types", version = "=3.0.0-beta" }
-wasmer = { path = "../api", version = "=3.0.0-beta", default-features = false }
-wasmer-vfs = { path = "../vfs", version = "=3.0.0-beta", default-features = false }
-wasmer-vbus = { path = "../vbus", version = "=3.0.0-beta", default-features = false }
-wasmer-vnet = { path = "../vnet", version = "=3.0.0-beta", default-features = false }
-wasmer-wasi-local-networking = { path = "../wasi-local-networking", version = "=3.0.0-beta", default-features = false, optional = true }
+wasmer-wasi-types = { path = "../wasi-types", version = "=3.0.0-beta.2" }
+wasmer = { path = "../api", version = "=3.0.0-beta.2", default-features = false }
+wasmer-vfs = { path = "../vfs", version = "=3.0.0-beta.2", default-features = false }
+wasmer-vbus = { path = "../vbus", version = "=3.0.0-beta.2", default-features = false }
+wasmer-vnet = { path = "../vnet", version = "=3.0.0-beta.2", default-features = false }
+wasmer-wasi-local-networking = { path = "../wasi-local-networking", version = "=3.0.0-beta.2", default-features = false, optional = true }
 typetag = { version = "0.1", optional = true }
 serde = { version = "1.0", default-features = false, features = ["derive"], optional = true }
 bincode = { version = "1.3", optional = true }
