@@ -88,6 +88,8 @@
 <span id="81">81</span>
 <span id="82">82</span>
 <span id="83">83</span>
+<span id="84">84</span>
+<span id="85">85</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::store::StoreOptions</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::warning</span>;
 <span class="kw">use</span> <span class="ident">anyhow</span>::{<span class="ident">Context</span>, <span class="prelude-ty">Result</span>};
@@ -136,7 +138,9 @@
                     .<span class="ident">fold</span>(<span class="ident">CpuFeature::set</span>(), <span class="op">|</span><span class="ident">a</span>, <span class="ident">b</span><span class="op">|</span> <span class="ident">a</span> <span class="op">|</span> <span class="ident">b</span>);
                 <span class="comment">// Cranelift requires SSE2, so we have this &quot;hack&quot; for now to facilitate</span>
                 <span class="comment">// usage</span>
-                <span class="ident">features</span> <span class="op">|</span><span class="op">=</span> <span class="ident">CpuFeature::SSE2</span>;
+                <span class="kw">if</span> <span class="ident">target_triple</span>.<span class="ident">architecture</span> <span class="op">==</span> <span class="ident">Architecture::X86_64</span> {
+                    <span class="ident">features</span> <span class="op">|</span><span class="op">=</span> <span class="ident">CpuFeature::SSE2</span>;
+                }
                 <span class="ident">Target::new</span>(<span class="ident">target_triple</span>.<span class="ident">clone</span>(), <span class="ident">features</span>)
             })
             .<span class="ident">unwrap_or_default</span>();
