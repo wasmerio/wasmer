@@ -88,6 +88,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "async-trait"
+version = "0.1.57"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "76464446b8bc32758d7e88ee1a804d9914cd9b1cb264c029899680b0be29826f"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "atty"
 version = "0.2.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2924,7 +2935,7 @@ name = "wasi-types-generator-extra"
 version = "0.1.0"
 dependencies = [
  "convert_case",
- "wit-parser",
+ "wasmer-wit-parser",
 ]
 
 [[package]]
@@ -3469,10 +3480,10 @@ version = "3.0.0-beta"
 dependencies = [
  "pretty_assertions",
  "wasmer",
- "wit-bindgen-gen-core",
- "wit-bindgen-gen-rust-wasm",
- "wit-bindgen-rust",
- "wit-parser",
+ "wasmer-wit-bindgen-gen-core",
+ "wasmer-wit-bindgen-gen-rust-wasm",
+ "wasmer-wit-bindgen-rust",
+ "wasmer-wit-parser",
 ]
 
 [[package]]
@@ -3487,6 +3498,73 @@ dependencies = [
  "wasmer-vfs",
  "wasmer-wasi",
  "wast 38.0.1",
+]
+
+[[package]]
+name = "wasmer-wit-bindgen-gen-core"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fa4ec8184a86c6617db132eb50cfc20c4c80bfbd0b202d6ec0b7a72dab048c80"
+dependencies = [
+ "anyhow",
+ "wasmer-wit-parser",
+]
+
+[[package]]
+name = "wasmer-wit-bindgen-gen-rust"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "63adda6387873b03418918a991a12ffcfbd4001e56189fede57a29b57d6323ee"
+dependencies = [
+ "heck 0.3.3",
+ "wasmer-wit-bindgen-gen-core",
+]
+
+[[package]]
+name = "wasmer-wit-bindgen-gen-rust-wasm"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8ea1c4fe28c7c0e405c137a646ec27aa089ee26292d314710e05fd32aa5cd07b"
+dependencies = [
+ "heck 0.3.3",
+ "wasmer-wit-bindgen-gen-core",
+ "wasmer-wit-bindgen-gen-rust",
+]
+
+[[package]]
+name = "wasmer-wit-bindgen-rust"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "37a3c6469325eda1d7f9dfe0c36f53d4dc9b33844666f0177f15c56282371407"
+dependencies = [
+ "async-trait",
+ "bitflags",
+ "wasmer-wit-bindgen-rust-impl",
+]
+
+[[package]]
+name = "wasmer-wit-bindgen-rust-impl"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "88d0cb0e77c96a85622cf03cb6cd05501ca4fa4643349fadd96f98aee938a8c6"
+dependencies = [
+ "proc-macro2",
+ "syn",
+ "wasmer-wit-bindgen-gen-core",
+ "wasmer-wit-bindgen-gen-rust-wasm",
+]
+
+[[package]]
+name = "wasmer-wit-parser"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3c5783fc22d78862b20aec7c87c52eb1dbc7a238706d1207eaa94050af6a5393"
+dependencies = [
+ "anyhow",
+ "id-arena",
+ "pulldown-cmark",
+ "unicode-normalization",
+ "unicode-xid",
 ]
 
 [[package]]
@@ -3803,54 +3881,6 @@ name = "windows_x86_64_msvc"
 version = "0.36.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c811ca4a8c853ef420abd8592ba53ddbbac90410fab6903b3e79972a631f7680"
-
-[[package]]
-name = "wit-bindgen-gen-core"
-version = "0.1.0"
-source = "git+https://github.com/wasmerio/wit-bindgen?rev=7fc6c57af548310c21b97d6c5d9dbb648a674f58#7fc6c57af548310c21b97d6c5d9dbb648a674f58"
-dependencies = [
- "anyhow",
- "wit-parser",
-]
-
-[[package]]
-name = "wit-bindgen-gen-rust"
-version = "0.1.0"
-source = "git+https://github.com/wasmerio/wit-bindgen?rev=7fc6c57af548310c21b97d6c5d9dbb648a674f58#7fc6c57af548310c21b97d6c5d9dbb648a674f58"
-dependencies = [
- "heck 0.3.3",
- "wit-bindgen-gen-core",
-]
-
-[[package]]
-name = "wit-bindgen-gen-rust-wasm"
-version = "0.1.0"
-source = "git+https://github.com/wasmerio/wit-bindgen?rev=7fc6c57af548310c21b97d6c5d9dbb648a674f58#7fc6c57af548310c21b97d6c5d9dbb648a674f58"
-dependencies = [
- "heck 0.3.3",
- "wit-bindgen-gen-core",
- "wit-bindgen-gen-rust",
-]
-
-[[package]]
-name = "wit-bindgen-rust"
-version = "0.1.0"
-source = "git+https://github.com/wasmerio/wit-bindgen?rev=7fc6c57af548310c21b97d6c5d9dbb648a674f58#7fc6c57af548310c21b97d6c5d9dbb648a674f58"
-dependencies = [
- "bitflags",
-]
-
-[[package]]
-name = "wit-parser"
-version = "0.1.0"
-source = "git+https://github.com/wasmerio/wit-bindgen?rev=7fc6c57af548310c21b97d6c5d9dbb648a674f58#7fc6c57af548310c21b97d6c5d9dbb648a674f58"
-dependencies = [
- "anyhow",
- "id-arena",
- "pulldown-cmark",
- "unicode-normalization",
- "unicode-xid",
-]
 
 [[package]]
 name = "x11-dl"
