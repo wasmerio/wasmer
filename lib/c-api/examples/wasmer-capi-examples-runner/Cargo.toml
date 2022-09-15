@@ -1,0 +1,9 @@
+[package]
+name = "wasmer-capi-examples-runner"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[dependencies]
+cc = "1.0"
+target-lexicon = "0.11"
