@@ -2841,9 +2841,9 @@ dependencies = [
 
 [[package]]
 name = "unicode-segmentation"
-version = "1.9.0"
+version = "1.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7e8820f5d777f6224dc4be3632222971ac30164d4a258d595640799554ebfd99"
+checksum = "0fdbf052a0783de01e944a6ce7a8cb939e295b1e7be835a1112c3b9a7f047a5a"
 
 [[package]]
 name = "unicode-width"
@@ -2924,7 +2924,7 @@ name = "wasi-types-generator-extra"
 version = "0.1.0"
 dependencies = [
  "convert_case",
- "wit-parser",
+ "wit-parser 0.1.0 (git+https://github.com/wasmerio/wit-bindgen?branch=force-generate-structs)",
 ]
 
 [[package]]
@@ -3472,7 +3472,7 @@ dependencies = [
  "wit-bindgen-gen-core",
  "wit-bindgen-gen-rust-wasm",
  "wit-bindgen-rust",
- "wit-parser",
+ "wit-parser 0.1.0 (git+https://github.com/wasmerio/wit-bindgen?branch=force-generate-structs)",
 ]
 
 [[package]]
@@ -3807,16 +3807,16 @@ checksum = "c811ca4a8c853ef420abd8592ba53ddbbac90410fab6903b3e79972a631f7680"
 [[package]]
 name = "wit-bindgen-gen-core"
 version = "0.1.0"
-source = "git+https://github.com/wasmerio/wit-bindgen?branch=force-generate-structs#095d295be6392259924e48488af188d3ed3e4102"
+source = "git+https://github.com/wasmerio/wit-bindgen?rev=24f9626a575df6416c35047147a67bc9d9b78afc#24f9626a575df6416c35047147a67bc9d9b78afc"
 dependencies = [
  "anyhow",
- "wit-parser",
+ "wit-parser 0.1.0 (git+https://github.com/wasmerio/wit-bindgen?rev=24f9626a575df6416c35047147a67bc9d9b78afc)",
 ]
 
 [[package]]
 name = "wit-bindgen-gen-rust"
 version = "0.1.0"
-source = "git+https://github.com/wasmerio/wit-bindgen?branch=force-generate-structs#095d295be6392259924e48488af188d3ed3e4102"
+source = "git+https://github.com/wasmerio/wit-bindgen?rev=24f9626a575df6416c35047147a67bc9d9b78afc#24f9626a575df6416c35047147a67bc9d9b78afc"
 dependencies = [
  "heck 0.3.3",
  "wit-bindgen-gen-core",
@@ -3825,7 +3825,7 @@ dependencies = [
 [[package]]
 name = "wit-bindgen-gen-rust-wasm"
 version = "0.1.0"
-source = "git+https://github.com/wasmerio/wit-bindgen?branch=force-generate-structs#095d295be6392259924e48488af188d3ed3e4102"
+source = "git+https://github.com/wasmerio/wit-bindgen?rev=24f9626a575df6416c35047147a67bc9d9b78afc#24f9626a575df6416c35047147a67bc9d9b78afc"
 dependencies = [
  "heck 0.3.3",
  "wit-bindgen-gen-core",
@@ -3835,7 +3835,7 @@ dependencies = [
 [[package]]
 name = "wit-bindgen-rust"
 version = "0.1.0"
-source = "git+https://github.com/wasmerio/wit-bindgen?branch=force-generate-structs#24f9626a575df6416c35047147a67bc9d9b78afc"
+source = "git+https://github.com/wasmerio/wit-bindgen?rev=24f9626a575df6416c35047147a67bc9d9b78afc#24f9626a575df6416c35047147a67bc9d9b78afc"
 dependencies = [
  "bitflags",
 ]
@@ -3843,7 +3843,19 @@ dependencies = [
 [[package]]
 name = "wit-parser"
 version = "0.1.0"
-source = "git+https://github.com/wasmerio/wit-bindgen?branch=force-generate-structs#095d295be6392259924e48488af188d3ed3e4102"
+source = "git+https://github.com/wasmerio/wit-bindgen?branch=force-generate-structs#24f9626a575df6416c35047147a67bc9d9b78afc"
+dependencies = [
+ "anyhow",
+ "id-arena",
+ "pulldown-cmark",
+ "unicode-normalization",
+ "unicode-xid",
+]
+
+[[package]]
+name = "wit-parser"
+version = "0.1.0"
+source = "git+https://github.com/wasmerio/wit-bindgen?rev=24f9626a575df6416c35047147a67bc9d9b78afc#24f9626a575df6416c35047147a67bc9d9b78afc"
 dependencies = [
  "anyhow",
  "id-arena",
