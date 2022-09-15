@@ -10,8 +10,8 @@ fn fail_if_wit_files_arent_up_to_date() {
     let output_wit = concat!(env!("CARGO_MANIFEST_DIR"), "/wit-clean/output.wit");
     let bindings_target =
         include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/wasi/bindings.rs"));
-    let mut generator = wit_bindgen_gen_rust_wasm::Opts {
-        ..wit_bindgen_gen_rust_wasm::Opts::default()
+    let mut generator = wit_bindgen_rust_wasm::Opts {
+        ..wit_bindgen_rust_wasm::Opts::default()
     }
     .build();
     let output_wit_parsed = wit_parser::Interface::parse_file(output_wit).unwrap();
