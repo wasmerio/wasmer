@@ -33,30 +33,42 @@ impl Config {
             msvc_ldlibs: std::env::var("MSVC_LDLIBS").unwrap_or_default(),
         };
 
+        let wasmer_base_dir = find_wasmer_base_dir();
         let manifest_dir = env!("CARGO_MANIFEST_DIR");
-        let wasmer_base_dir = env!("CARGO_MANIFEST_DIR");
-        let mut path2 = wasmer_base_dir.split("wasmer").collect::<Vec<_>>();
-        path2.pop();
-        let mut wasmer_base_dir = path2.join("wasmer");
-
-        if wasmer_base_dir.contains("wasmer/lib/c-api") {
-            wasmer_base_dir = wasmer_base_dir
-                .split("wasmer/lib/c-api")
-                .next()
-                .unwrap()
-                .to_string();
-        }
 
         if config.wasmer_dir.is_empty() {
             println!("manifest dir = {manifest_dir}, wasmer root dir = {wasmer_base_dir}");
             config.wasmer_dir = wasmer_base_dir.clone() + "wasmer/package";
         }
         if config.root_dir.is_empty() {
-            config.root_dir = wasmer_base_dir + "wasmer/lib/c-api/examples";
+            config.root_dir = wasmer_base_dir + "wasmer/lib/c-api/tests";
         }
 
         config
     }
+}
+
+fn find_wasmer_base_dir() -> String {
+    let wasmer_base_dir = env!("CARGO_MANIFEST_DIR");
+    let mut path2 = wasmer_base_dir.split("wasmer").collect::<Vec<_>>();
+    path2.pop();
+    let mut wasmer_base_dir = path2.join("wasmer");
+
+    if wasmer_base_dir.contains("wasmer/lib/c-api") {
+        wasmer_base_dir = wasmer_base_dir
+            .split("wasmer/lib/c-api")
+            .next()
+            .unwrap()
+            .to_string();
+    } else if wasmer_base_dir.contains("wasmer\\lib\\c-api") {
+        wasmer_base_dir = wasmer_base_dir
+            .split("wasmer\\lib\\c-api")
+            .next()
+            .unwrap()
+            .to_string();
+    }
+
+    wasmer_base_dir
 }
 
 #[derive(Default)]
@@ -251,8 +263,8 @@ fn test_ok() {
                 .expect(&format!("failed to compile {command:#?}"));
             if !output.status.success() {
                 println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
-                println!("stdout: {}", String::from_utf8_lossy(&output.stderr));
-                panic!("failed to compile {test}");
+                println!("stderr: {}", String::from_utf8_lossy(&output.stderr));
+                panic!("failed to compile {test}: {command:#?}");
             }
 
             // execute
@@ -262,8 +274,8 @@ fn test_ok() {
                 .expect(&format!("failed to run {command:#?}"));
             if !output.status.success() {
                 println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
-                println!("stdout: {}", String::from_utf8_lossy(&output.stderr));
-                panic!("failed to execute {test}");
+                println!("stderr: {}", String::from_utf8_lossy(&output.stderr));
+                panic!("failed to execute {test}: {command:#?}");
             }
         }
     }

@@ -64,18 +64,7 @@ impl Config {
 
         // resolve the path until the /wasmer root directory
         let manifest_dir = env!("CARGO_MANIFEST_DIR");
-        let wasmer_base_dir = env!("CARGO_MANIFEST_DIR");
-        let mut path2 = wasmer_base_dir.split("wasmer").collect::<Vec<_>>();
-        path2.pop();
-        let mut wasmer_base_dir = path2.join("wasmer");
-
-        if wasmer_base_dir.contains("wasmer/lib/c-api") {
-            wasmer_base_dir = wasmer_base_dir
-                .split("wasmer/lib/c-api")
-                .next()
-                .unwrap()
-                .to_string();
-        }
+        let wasmer_base_dir = find_wasmer_base_dir();
 
         if config.wasmer_dir.is_empty() {
             println!("manifest dir = {manifest_dir}, wasmer root dir = {wasmer_base_dir}");
@@ -87,6 +76,29 @@ impl Config {
 
         config
     }
+}
+
+fn find_wasmer_base_dir() -> String {
+    let wasmer_base_dir = env!("CARGO_MANIFEST_DIR");
+    let mut path2 = wasmer_base_dir.split("wasmer").collect::<Vec<_>>();
+    path2.pop();
+    let mut wasmer_base_dir = path2.join("wasmer");
+
+    if wasmer_base_dir.contains("wasmer/lib/c-api") {
+        wasmer_base_dir = wasmer_base_dir
+            .split("wasmer/lib/c-api")
+            .next()
+            .unwrap()
+            .to_string();
+    } else if wasmer_base_dir.contains("wasmer\\lib\\c-api") {
+        wasmer_base_dir = wasmer_base_dir
+            .split("wasmer\\lib\\c-api")
+            .next()
+            .unwrap()
+            .to_string();
+    }
+
+    wasmer_base_dir
 }
 
 #[cfg(test)]
@@ -241,8 +253,8 @@ fn test_run() {
                 .expect(&format!("failed to compile {command:#?}"));
             if !output.status.success() {
                 println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
-                println!("stdout: {}", String::from_utf8_lossy(&output.stderr));
-                panic!("failed to compile {test}");
+                println!("stderr: {}", String::from_utf8_lossy(&output.stderr));
+                panic!("failed to compile {test}: {command:#?}");
             }
 
             // execute
