@@ -1,7 +1,9 @@
 [package]
 name = "wasmer-c-api-test-runner"
-version = "0.1.0"
+version = "3.0.0-beta.2"
 edition = "2021"
+license = "MIT"
+description = "wasmer-c-api-test-runner"
 
 [dependencies]
 cc = "1.0"

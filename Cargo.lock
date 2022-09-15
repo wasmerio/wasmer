@@ -3039,7 +3039,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-c-api-test-runner"
-version = "0.1.0"
+version = "3.0.0-beta.2"
 dependencies = [
  "cc",
  "regex",
@@ -3063,7 +3063,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-capi-examples-runner"
-version = "0.1.0"
+version = "3.0.0-beta.2"
 dependencies = [
  "cc",
  "regex",
