@@ -39,6 +39,24 @@ impl Config {
         if config.wasmer_dir.is_empty() {
             println!("manifest dir = {manifest_dir}, wasmer root dir = {wasmer_base_dir}");
             config.wasmer_dir = wasmer_base_dir.clone() + "wasmer/package";
+            if !std::path::Path::new(&config.wasmer_dir).exists() {
+                
+                if !std::path::Path::new(&format!("{wasmer_base_dir}wasmer/target/release")).exists() {
+                    println!("running make build-capi...");
+                    // run make build-capi
+                    let mut cmd = std::process::Command::new("make");
+                    cmd.arg("build-capi");
+                    cmd.current_dir(wasmer_base_dir.clone() + "wasmer");
+                    let _ = cmd.output();
+                }
+
+                println!("running make package...");
+                // run make package
+                let mut cmd = std::process::Command::new("make");
+                cmd.arg("package");
+                cmd.current_dir(wasmer_base_dir.clone() + "wasmer");
+                let _ = cmd.output();
+            }
         }
         if config.root_dir.is_empty() {
             config.root_dir = wasmer_base_dir + "wasmer/lib/c-api/tests";
