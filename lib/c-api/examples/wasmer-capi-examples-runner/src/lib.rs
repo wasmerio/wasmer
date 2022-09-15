@@ -70,7 +70,11 @@ impl Config {
         let mut wasmer_base_dir = path2.join("wasmer");
 
         if wasmer_base_dir.contains("wasmer/lib/c-api") {
-            wasmer_base_dir = wasmer_base_dir.split("wasmer/lib/c-api").next().unwrap().to_string();
+            wasmer_base_dir = wasmer_base_dir
+                .split("wasmer/lib/c-api")
+                .next()
+                .unwrap()
+                .to_string();
         }
 
         if config.wasmer_dir.is_empty() {
@@ -207,7 +211,6 @@ fn test_run() {
         }
     } else {
         for test in TESTS.iter() {
-
             let compiler_cmd = match std::process::Command::new("cc").output() {
                 Ok(_) => "cc",
                 Err(_) => "gcc",
