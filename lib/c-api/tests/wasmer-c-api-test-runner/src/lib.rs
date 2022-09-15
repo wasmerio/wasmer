@@ -53,9 +53,9 @@ impl Config {
                 }
 
                 println!("running make package...");
-                // run make package
+                // run make package-capi
                 let mut cmd = std::process::Command::new("make");
-                cmd.arg("package");
+                cmd.arg("package-capi");
                 cmd.current_dir(wasmer_base_dir.clone() + "wasmer");
                 let result = cmd.output();
                 println!("make package: {result:#?}");
