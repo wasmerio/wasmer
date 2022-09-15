@@ -48,7 +48,8 @@ impl Config {
                     let mut cmd = std::process::Command::new("make");
                     cmd.arg("build-capi");
                     cmd.current_dir(wasmer_base_dir.clone() + "wasmer");
-                    let _ = cmd.output();
+                    let result = cmd.output();
+                    println!("make build-capi: {result:#?}");
                 }
 
                 println!("running make package...");
@@ -56,7 +57,22 @@ impl Config {
                 let mut cmd = std::process::Command::new("make");
                 cmd.arg("package");
                 cmd.current_dir(wasmer_base_dir.clone() + "wasmer");
-                let _ = cmd.output();
+                let result = cmd.output();
+                println!("make package: {result:#?}");
+
+                println!("list {}", config.wasmer_dir);
+                match std::fs::read_dir(&config.wasmer_dir) {
+                    Ok(o) => {
+                        for entry in o {
+                            let entry = entry.unwrap();
+                            let path = entry.path();
+                            println!("    {:?}", path.file_name());
+                        }
+                    }
+                    Err(e) => {
+                        println!("error in reading config.wasmer_dir: {e}");
+                    }
+                };
             }
         }
         if config.root_dir.is_empty() {
