@@ -1,3 +1,10 @@
+#[cfg(test)]
+use std::error::Error;
+
+#[cfg(test)]
+static INCLUDE_REGEX: &str = "#include \"(.*)\"";
+
+
 #[derive(Debug)]
 pub struct Config {
     pub wasmer_dir: String,
@@ -14,7 +21,7 @@ pub struct Config {
 
 impl Config {
     pub fn get() -> Config {
-        Config {
+        let mut config = Config {
             wasmer_dir: std::env::var("WASMER_DIR").unwrap_or_default(),
             root_dir: std::env::var("ROOT_DIR").unwrap_or_default(),
 
@@ -25,7 +32,21 @@ impl Config {
             msvc_cflags: std::env::var("MSVC_CFLAGS").unwrap_or_default(),
             msvc_ldflags: std::env::var("MSVC_LDFLAGS").unwrap_or_default(),
             msvc_ldlibs: std::env::var("MSVC_LDLIBS").unwrap_or_default(),
+        };
+
+        if config.wasmer_dir.is_empty() {
+            let manifest_dir = env!("CARGO_MANIFEST_DIR");
+            if let Some(s) = manifest_dir.split("wasmer").next() {
+                config.wasmer_dir = s.to_string() + "wasmer/package";
+            }
         }
+        if config.root_dir.is_empty() {
+            let manifest_dir = env!("CARGO_MANIFEST_DIR");
+            if let Some(s) = manifest_dir.split("wasmer/lib/c-api/tests").next() {
+                config.wasmer_dir = s.to_string() + "wasmer/lib/c-api/tests";
+            }
+        }
+        config
     }
 }
 
@@ -113,6 +134,10 @@ fn test_ok() {
             } else if !config.wasmer_dir.is_empty() {
                 command.arg("/I");
                 command.arg(&format!("{}/include", config.wasmer_dir));
+                let mut log = String::new();
+                fixup_symlinks(&[format!("{}/include", config.wasmer_dir)], &mut log)
+                .expect(&format!("failed to fix symlinks: {log}"));
+                println!("{log}");
             }
             command.arg("/link");
             if !config.msvc_ldlibs.is_empty() {
@@ -225,6 +250,62 @@ fn test_ok() {
         let _ = std::fs::remove_file(&format!("{manifest_dir}/../{test}.exe"));
         let _ = std::fs::remove_file(&format!("{manifest_dir}/../{test}"));
     }
+}
+
+#[cfg(test)]
+fn fixup_symlinks(include_paths: &[String], log: &mut String) -> Result<(), Box<dyn Error>> {
+    log.push_str(&format!("include paths: {include_paths:?}"));
+    for i in include_paths {
+        let i = i.replacen("-I", "", 1);
+        let mut paths_headers = Vec::new();
+        for entry in std::fs::read_dir(&i)? {
+            let entry = entry?;
+            let path = entry.path();
+            let path_display = format!("{}", path.display());
+            if path_display.ends_with("h") {
+                paths_headers.push(path_display);
+            }
+        }
+        fixup_symlinks_inner(&paths_headers, log)?;
+    }
+
+    Ok(())
+}
+
+#[cfg(test)]
+fn fixup_symlinks_inner(
+    include_paths: &[String],
+    log: &mut String,
+) -> Result<(), Box<dyn Error>> {
+    log.push_str(&format!("fixup symlinks: {include_paths:#?}"));
+    let regex = regex::Regex::new(INCLUDE_REGEX).unwrap();
+    for path in include_paths.iter() {
+        let file = std::fs::read_to_string(&path)?;
+        let lines_3 = file.lines().take(3).collect::<Vec<_>>();
+        log.push_str(&format!("first 3 lines of {path:?}: {:#?}\n", lines_3));
+
+        let parent = std::path::Path::new(&path).parent().unwrap();
+        if let Ok(symlink) = std::fs::read_to_string(parent.clone().join(&file)) {
+            log.push_str(&format!("symlinking {path:?}\n"));
+            std::fs::write(&path, symlink)?;
+        }
+
+        // follow #include directives and recurse
+        let filepaths = regex
+            .captures_iter(&file)
+            .map(|c| c[1].to_string())
+            .collect::<Vec<_>>();
+        log.push_str(&format!("regex captures: ({path:?}): {:#?}\n", filepaths));
+        let joined_filepaths = filepaths
+            .iter()
+            .filter_map(|s| {
+                let path = parent.clone().join(s);
+                Some(format!("{}", path.display()))
+            })
+            .collect::<Vec<_>>();
+        fixup_symlinks_inner(&joined_filepaths, log)?;
+    }
+    Ok(())
 }
 
 #[cfg(test)]
