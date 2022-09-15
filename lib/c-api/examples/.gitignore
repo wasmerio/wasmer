@@ -1,5 +1,5 @@
 
-
+*
 *.o
 *.exe
 
@@ -9,3 +9,5 @@
 !Makefile
 !assets
 !assets/*
+!wasmer-capi-examples-runner
+!wasmer-capi-examples-runner/*

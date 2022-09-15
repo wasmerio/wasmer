@@ -14,7 +14,7 @@ impl Drop for RemoveTestsOnDrop {
             let entry = entry.unwrap();
             let path = entry.path();
             let extension = path.extension().and_then(|s| s.to_str());
-            if extension == Some("obj") || extension == Some("exe") {
+            if extension == Some("obj") || extension == Some("exe") || extension == Some("o") {
                 println!("removing {}", path.display());
                 let _ = std::fs::remove_file(&path);
             }
@@ -24,7 +24,7 @@ impl Drop for RemoveTestsOnDrop {
                 let entry = entry.unwrap();
                 let path = entry.path();
                 let extension = path.extension().and_then(|s| s.to_str());
-                if extension == Some("obj") || extension == Some("exe") {
+                if extension == Some("obj") || extension == Some("exe") || extension == Some("o") {
                     println!("removing {}", path.display());
                     let _ = std::fs::remove_file(&path);
                 }
@@ -62,17 +62,19 @@ impl Config {
             msvc_ldlibs: std::env::var("MSVC_LDLIBS").unwrap_or_default(),
         };
 
+        // resolve the path until the /wasmer root directory
+        let manifest_dir = env!("CARGO_MANIFEST_DIR");
+        let wasmer_base_dir = env!("CARGO_MANIFEST_DIR");
+        let mut path2 = wasmer_base_dir.split("wasmer").collect::<Vec<_>>();
+        path2.pop();
+        let wasmer_base_dir = path2.join("wasmer");
+
         if config.wasmer_dir.is_empty() {
-            let manifest_dir = env!("CARGO_MANIFEST_DIR");
-            if let Some(s) = manifest_dir.split("wasmer").next() {
-                config.wasmer_dir = s.to_string() + "wasmer/package";
-            }
+            println!("manifest dir = {manifest_dir}, wasmer root dir = {wasmer_base_dir}");
+            config.wasmer_dir = wasmer_base_dir.clone() + "wasmer/package";
         }
         if config.root_dir.is_empty() {
-            let manifest_dir = env!("CARGO_MANIFEST_DIR");
-            if let Some(s) = manifest_dir.split("wasmer/lib/c-api/examples").next() {
-                config.wasmer_dir = s.to_string() + "wasmer/lib/c-api/examples";
-            }
+            config.root_dir = wasmer_base_dir + "wasmer/lib/c-api/examples";
         }
 
         config
