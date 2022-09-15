@@ -14,19 +14,19 @@ wasmer = { default-features = false, path = "../api", version = "3.0.0-beta" }
 [dependencies.wit-bindgen-rust]
 default-features = false
 git = "https://github.com/wasmerio/wit-bindgen"
-rev = "24f9626a575df6416c35047147a67bc9d9b78afc"
+rev = "7fc6c57af548310c21b97d6c5d9dbb648a674f58"
 package = "wit-bindgen-rust"
 
 [dev-dependencies.wit-bindgen-gen-rust-wasm]
 default-features = false
 git = "https://github.com/wasmerio/wit-bindgen"
-rev = "24f9626a575df6416c35047147a67bc9d9b78afc"
+rev = "7fc6c57af548310c21b97d6c5d9dbb648a674f58"
 package = "wit-bindgen-gen-rust-wasm"
 
 [dev-dependencies.wit-bindgen-core]
 default-features = false
 git = "https://github.com/wasmerio/wit-bindgen"
-rev = "24f9626a575df6416c35047147a67bc9d9b78afc"
+rev = "7fc6c57af548310c21b97d6c5d9dbb648a674f58"
 package = "wit-bindgen-gen-core"
 
 [dev-dependencies.wit-parser]

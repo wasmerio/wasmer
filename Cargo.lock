@@ -3807,16 +3807,16 @@ checksum = "c811ca4a8c853ef420abd8592ba53ddbbac90410fab6903b3e79972a631f7680"
 [[package]]
 name = "wit-bindgen-gen-core"
 version = "0.1.0"
-source = "git+https://github.com/wasmerio/wit-bindgen?rev=24f9626a575df6416c35047147a67bc9d9b78afc#24f9626a575df6416c35047147a67bc9d9b78afc"
+source = "git+https://github.com/wasmerio/wit-bindgen?rev=7fc6c57af548310c21b97d6c5d9dbb648a674f58#7fc6c57af548310c21b97d6c5d9dbb648a674f58"
 dependencies = [
  "anyhow",
- "wit-parser 0.1.0 (git+https://github.com/wasmerio/wit-bindgen?rev=24f9626a575df6416c35047147a67bc9d9b78afc)",
+ "wit-parser 0.1.0 (git+https://github.com/wasmerio/wit-bindgen?rev=7fc6c57af548310c21b97d6c5d9dbb648a674f58)",
 ]
 
 [[package]]
 name = "wit-bindgen-gen-rust"
 version = "0.1.0"
-source = "git+https://github.com/wasmerio/wit-bindgen?rev=24f9626a575df6416c35047147a67bc9d9b78afc#24f9626a575df6416c35047147a67bc9d9b78afc"
+source = "git+https://github.com/wasmerio/wit-bindgen?rev=7fc6c57af548310c21b97d6c5d9dbb648a674f58#7fc6c57af548310c21b97d6c5d9dbb648a674f58"
 dependencies = [
  "heck 0.3.3",
  "wit-bindgen-gen-core",
@@ -3825,7 +3825,7 @@ dependencies = [
 [[package]]
 name = "wit-bindgen-gen-rust-wasm"
 version = "0.1.0"
-source = "git+https://github.com/wasmerio/wit-bindgen?rev=24f9626a575df6416c35047147a67bc9d9b78afc#24f9626a575df6416c35047147a67bc9d9b78afc"
+source = "git+https://github.com/wasmerio/wit-bindgen?rev=7fc6c57af548310c21b97d6c5d9dbb648a674f58#7fc6c57af548310c21b97d6c5d9dbb648a674f58"
 dependencies = [
  "heck 0.3.3",
  "wit-bindgen-gen-core",
@@ -3835,7 +3835,7 @@ dependencies = [
 [[package]]
 name = "wit-bindgen-rust"
 version = "0.1.0"
-source = "git+https://github.com/wasmerio/wit-bindgen?rev=24f9626a575df6416c35047147a67bc9d9b78afc#24f9626a575df6416c35047147a67bc9d9b78afc"
+source = "git+https://github.com/wasmerio/wit-bindgen?rev=7fc6c57af548310c21b97d6c5d9dbb648a674f58#7fc6c57af548310c21b97d6c5d9dbb648a674f58"
 dependencies = [
  "bitflags",
 ]
@@ -3855,7 +3855,7 @@ dependencies = [
 [[package]]
 name = "wit-parser"
 version = "0.1.0"
-source = "git+https://github.com/wasmerio/wit-bindgen?rev=24f9626a575df6416c35047147a67bc9d9b78afc#24f9626a575df6416c35047147a67bc9d9b78afc"
+source = "git+https://github.com/wasmerio/wit-bindgen?rev=7fc6c57af548310c21b97d6c5d9dbb648a674f58#7fc6c57af548310c21b97d6c5d9dbb648a674f58"
 dependencies = [
  "anyhow",
  "id-arena",
