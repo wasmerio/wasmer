@@ -167,7 +167,10 @@ pub extern "C" fn wasmer_is_engine_available(engine: wasmer_engine_t) -> bool {
 #[cfg(test)]
 mod tests {
     use std::env::{remove_var, set_var};
+    #[cfg(target_os = "windows")]
     use wasmer_inline_c::assert_c;
+    #[cfg(not(target_os = "windows"))]
+    use inline_c::assert_c;
 
     #[test]
     fn test_wasmer_is_headless() {

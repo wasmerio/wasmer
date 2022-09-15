@@ -440,7 +440,10 @@ pub extern "C" fn wasm_engine_new_with_config(
 
 #[cfg(test)]
 mod tests {
+    #[cfg(target_os = "windows")]
     use wasmer_inline_c::assert_c;
+    #[cfg(not(target_os = "windows"))]
+    use inline_c::assert_c;
 
     #[test]
     fn test_engine_new() {
