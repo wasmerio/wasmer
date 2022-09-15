@@ -75,7 +75,7 @@ impl Config {
                 };
 
                 println!("list {}/include", config.wasmer_dir);
-                match std::fs::read_dir(&config.wasmer_dir) {
+                match std::fs::read_dir(&format!("{}/include", config.wasmer_dir)) {
                     Ok(o) => {
                         for entry in o {
                             let entry = entry.unwrap();
@@ -181,6 +181,11 @@ fn test_ok() {
     let host = target_lexicon::HOST.to_string();
     let target = &host;
 
+    let wasmer_dll_dir = format!("{}/lib", config.wasmer_dir);
+    let exe_dir = format!("{manifest_dir}/../wasm-c-api/example");
+    let path = std::env::var("PATH").unwrap_or_default();
+    let newpath = format!("{wasmer_dll_dir};{path}");
+
     if target.contains("msvc") {
         for test in CAPI_BASE_TESTS.iter() {
             let mut build = cc::Build::new();
@@ -216,10 +221,7 @@ fn test_ok() {
                 command.arg(&format!("/LIBPATH:{}/lib", config.wasmer_dir));
                 command.arg(&format!("{}/lib/wasmer.dll.lib", config.wasmer_dir));
             }
-            let wasmer_dll_dir = format!("{}/lib", config.wasmer_dir);
             command.arg(&format!("/OUT:\"{manifest_dir}/../{test}.exe\""));
-
-            let exe_dir = format!("{manifest_dir}/../wasm-c-api/example");
 
             // run vcvars
             let vcvars_bat_path = find_vcvars64(&compiler).expect("no vcvars64.bat");
@@ -251,9 +253,6 @@ fn test_ok() {
                 println!("stdout: {}", String::from_utf8_lossy(&output.stderr));
                 panic!("failed to compile {test}");
             }
-
-            let path = std::env::var("PATH").unwrap_or_default();
-            let newpath = format!("{wasmer_dll_dir};{path}");
 
             // execute
             let mut command = std::process::Command::new(&format!("{manifest_dir}/../{test}.exe"));
@@ -320,6 +319,8 @@ fn test_ok() {
 
             // execute
             let mut command = std::process::Command::new(&format!("{manifest_dir}/../{test}"));
+            command.env("PATH", newpath.clone());
+            command.current_dir(exe_dir.clone());
             let output = command
                 .output()
                 .expect(&format!("failed to run {command:#?}"));

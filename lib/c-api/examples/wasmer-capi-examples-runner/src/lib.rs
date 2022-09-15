@@ -164,6 +164,14 @@ fn test_run() {
     //       -IC:/Users/felix/Development/wasmer/package/include
     //       -c -o deprecated-header.o deprecated-header.c
 
+    let wasmer_dll_dir = format!("{}/lib", config.wasmer_dir);
+    let path = std::env::var("PATH").unwrap_or_default();
+    let newpath = format!("{wasmer_dll_dir};{path}");
+    let exe_dir = match std::path::Path::new(&manifest_dir).parent() {
+        Some(parent) => format!("{}", parent.display()),
+        None => format!("{manifest_dir}"),
+    };
+
     if target.contains("msvc") {
         for test in TESTS.iter() {
             let mut build = cc::Build::new();
@@ -199,13 +207,7 @@ fn test_run() {
                 command.arg(&format!("/LIBPATH:{}/lib", config.wasmer_dir));
                 command.arg(&format!("{}/lib/wasmer.dll.lib", config.wasmer_dir));
             }
-            let wasmer_dll_dir = format!("{}/lib", config.wasmer_dir);
             command.arg(&format!("/OUT:\"{manifest_dir}/../{test}.exe\""));
-
-            let exe_dir = match std::path::Path::new(&manifest_dir).parent() {
-                Some(parent) => format!("{}", parent.display()),
-                None => format!("{manifest_dir}"),
-            };
 
             // run vcvars
             let vcvars_bat_path = find_vcvars64(&compiler).expect("no vcvars64.bat");
@@ -237,9 +239,6 @@ fn test_run() {
                 println!("stdout: {}", String::from_utf8_lossy(&output.stderr));
                 panic!("failed to compile {test}");
             }
-
-            let path = std::env::var("PATH").unwrap_or_default();
-            let newpath = format!("{wasmer_dll_dir};{path}");
 
             // execute
             let mut command = std::process::Command::new(&format!("{manifest_dir}/../{test}.exe"));
@@ -296,6 +295,8 @@ fn test_run() {
 
             // execute
             let mut command = std::process::Command::new(&format!("{manifest_dir}/../{test}"));
+            command.env("PATH", newpath.clone());
+            command.current_dir(exe_dir.clone());
             let output = command
                 .output()
                 .expect(&format!("failed to run {command:#?}"));
