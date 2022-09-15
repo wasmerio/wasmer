@@ -207,10 +207,10 @@ pub unsafe extern "C" fn wasm_instance_exports(
 
 #[cfg(test)]
 mod tests {
-    #[cfg(target_os = "windows")]
-    use wasmer_inline_c::assert_c;
     #[cfg(not(target_os = "windows"))]
     use inline_c::assert_c;
+    #[cfg(target_os = "windows")]
+    use wasmer_inline_c::assert_c;
 
     #[test]
     fn test_instance_new() {
