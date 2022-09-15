@@ -205,10 +205,20 @@ fn test_run() {
         for test in TESTS.iter() {
             let mut command = std::process::Command::new("cc");
 
-            command.arg(config.cflags.clone());
+            if !config.cflags.is_empty() {
+                command.arg(config.cflags.clone());
+            } else if !config.wasmer_dir.is_empty() {
+                command.arg("-I");
+                command.arg(&format!("{}/include", config.wasmer_dir));
+            }
             command.arg(config.ldflags.clone());
             command.arg(&format!("{manifest_dir}/../{test}.c"));
-            command.arg(config.ldlibs.clone());
+            if !config.ldlibs.is_empty() {
+                command.arg(config.ldlibs.clone());
+            } else if !config.wasmer_dir.is_empty() {
+                command.arg(&format!("-L{}/lib", config.wasmer_dir));
+                command.arg(&format!("-lwasmer"));
+            }
             command.arg("-o");
             command.arg(&format!("{manifest_dir}/../{test}"));
 
