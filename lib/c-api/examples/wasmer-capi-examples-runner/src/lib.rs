@@ -271,7 +271,9 @@ fn test_run() {
                 command.arg("-I");
                 command.arg(&format!("{}/include", config.wasmer_dir));
             }
-            command.arg(config.ldflags.clone());
+            if !config.ldflags.is_empty() {
+                command.arg(config.ldflags.clone());
+            }
             command.arg(&format!("{manifest_dir}/../{test}.c"));
             if !config.ldlibs.is_empty() {
                 command.arg(config.ldlibs.clone());

@@ -73,6 +73,20 @@ impl Config {
                         println!("error in reading config.wasmer_dir: {e}");
                     }
                 };
+
+                println!("list {}/include", config.wasmer_dir);
+                match std::fs::read_dir(&config.wasmer_dir) {
+                    Ok(o) => {
+                        for entry in o {
+                            let entry = entry.unwrap();
+                            let path = entry.path();
+                            println!("    {:?}", path.file_name());
+                        }
+                    }
+                    Err(e) => {
+                        println!("error in reading config.wasmer_dir: {e}");
+                    }
+                };
             }
         }
         if config.root_dir.is_empty() {
@@ -281,7 +295,9 @@ fn test_ok() {
                 command.arg("-I");
                 command.arg(&format!("{}/include", config.wasmer_dir));
             }
-            command.arg(config.ldflags.clone());
+            if !config.ldflags.is_empty() {
+                command.arg(config.ldflags.clone());
+            }
             command.arg(&format!("{manifest_dir}/../{test}.c"));
             if !config.ldlibs.is_empty() {
                 command.arg(config.ldlibs.clone());
