@@ -105,9 +105,7 @@ impl Config {
             println!("manifest dir = {manifest_dir}, wasmer root dir = {wasmer_base_dir}");
             config.wasmer_dir = wasmer_base_dir.clone() + "/package";
             if !std::path::Path::new(&config.wasmer_dir).exists() {
-                if !std::path::Path::new(&format!("{wasmer_base_dir}/target/release"))
-                    .exists()
-                {
+                if !std::path::Path::new(&format!("{wasmer_base_dir}/target/release")).exists() {
                     println!("running make build-capi...");
                     // run make build-capi
                     let mut cmd = std::process::Command::new("make");
@@ -160,13 +158,15 @@ fn find_wasmer_base_dir() -> String {
             .split("wasmer/lib/c-api")
             .next()
             .unwrap()
-            .to_string() + "wasmer";
+            .to_string()
+            + "wasmer";
     } else if wasmer_base_dir.contains("wasmer\\lib\\c-api") {
         wasmer_base_dir = wasmer_base_dir
             .split("wasmer\\lib\\c-api")
             .next()
             .unwrap()
-            .to_string() + "wasmer";
+            .to_string()
+            + "wasmer";
     }
 
     wasmer_base_dir
@@ -307,6 +307,8 @@ fn test_run() {
             } else if !config.wasmer_dir.is_empty() {
                 command.arg("-I");
                 command.arg(&format!("{}/include", config.wasmer_dir));
+                command.arg("-I");
+                command.arg(&config.root_dir);
             }
             if !config.ldflags.is_empty() {
                 for f in config.ldflags.split_whitespace() {
