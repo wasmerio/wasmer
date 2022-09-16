@@ -376,6 +376,13 @@ fn test_ok() {
             if !output.status.success() {
                 println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
                 println!("stderr: {}", String::from_utf8_lossy(&output.stderr));
+                println!("listing {manifest_dir}/../{test}:");
+                if let Ok(r) = std::fs::read_dir(&format!("{manifest_dir}/../")) {
+                    for entry in r {
+                        let entry = entry.unwrap();
+                        println!("    {entry:?}");
+                    }
+                }
                 panic!("failed to execute {test}: {command:#?}");
             }
         }
