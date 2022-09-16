@@ -33,6 +33,42 @@ impl Drop for RemoveTestsOnDrop {
     }
 }
 
+fn make_package() {
+
+    let wasmer_root_dir = find_wasmer_base_dir();
+    let _ = std::fs::create_dir_all(&format!("{wasmer_root_dir}/package/lib"));
+    let _ = std::fs::create_dir_all(&format!("{wasmer_root_dir}/package/include"));
+    let _ = std::fs::copy(
+        &format!("{wasmer_root_dir}/lib/c-api/tests/wasm.h"), 
+        &format!("{wasmer_root_dir}/package/include/wasm.h")
+    );
+    let _ = std::fs::copy(
+        &format!("{wasmer_root_dir}/lib/c-api/tests/wasmer.h"), 
+        &format!("{wasmer_root_dir}/package/include/wasmer.h")
+    );
+    #[cfg(target_os = "windows")]
+    let _ = std::fs::copy(
+        &format!("{wasmer_root_dir}/target/release/wasmer.dll"), 
+        &format!("{wasmer_root_dir}/package/lib")
+    );
+    #[cfg(target_os = "windows")]
+    let _ = std::fs::copy(
+        &format!("{wasmer_root_dir}/target/release/wasmer.dll.lib"), 
+        &format!("{wasmer_root_dir}/package/lib")
+    );
+    #[cfg(not(target_os = "windows"))]
+    let _ = std::fs::copy(
+        &format!("{wasmer_root_dir}/target/release/libwasmer.so"), 
+        &format!("{wasmer_root_dir}/package/lib")
+    );
+    #[cfg(not(target_os = "windows"))]
+    let _ = std::fs::copy(
+        &format!("{wasmer_root_dir}/target/release/libwasmer.lib"), 
+        &format!("{wasmer_root_dir}/package/lib")
+    );
+    println!("copying done (make package)");
+}
+
 #[derive(Debug)]
 pub struct Config {
     pub wasmer_dir: String,
@@ -88,6 +124,7 @@ impl Config {
                 cmd.arg("package-capi");
                 cmd.current_dir(wasmer_base_dir.clone() + "wasmer");
                 let result = cmd.output();
+                make_package();
                 println!("make package: {result:#?}");
 
                 println!("list {}", config.wasmer_dir);
@@ -265,17 +302,23 @@ fn test_run() {
             let mut command = std::process::Command::new(compiler_cmd);
 
             if !config.cflags.is_empty() {
-                command.arg(config.cflags.clone());
+                for f in config.cflags.split_whitespace() {
+                    command.arg(f);
+                }
             } else if !config.wasmer_dir.is_empty() {
                 command.arg("-I");
                 command.arg(&format!("{}/include", config.wasmer_dir));
             }
             if !config.ldflags.is_empty() {
-                command.arg(config.ldflags.clone());
+                for f in config.ldflags.split_whitespace() {
+                    command.arg(f);
+                }
             }
             command.arg(&format!("{manifest_dir}/../{test}.c"));
             if !config.ldlibs.is_empty() {
-                command.arg(config.ldlibs.clone());
+                for f in config.ldlibs.split_whitespace() {
+                    command.arg(f);
+                }
             } else if !config.wasmer_dir.is_empty() {
                 command.arg(&format!("-L{}/lib", config.wasmer_dir));
                 command.arg(&format!("-lwasmer"));
