@@ -151,37 +151,36 @@ impl Drop for RemoveTestsOnDrop {
 }
 
 fn make_package() {
-
     let wasmer_root_dir = find_wasmer_base_dir();
     let _ = std::fs::create_dir_all(&format!("{wasmer_root_dir}/package/lib"));
     let _ = std::fs::create_dir_all(&format!("{wasmer_root_dir}/package/include"));
     let _ = std::fs::copy(
-        &format!("{wasmer_root_dir}/lib/c-api/tests/wasm.h"), 
-        &format!("{wasmer_root_dir}/package/include/wasm.h")
+        &format!("{wasmer_root_dir}/lib/c-api/tests/wasm.h"),
+        &format!("{wasmer_root_dir}/package/include/wasm.h"),
     );
     let _ = std::fs::copy(
-        &format!("{wasmer_root_dir}/lib/c-api/tests/wasmer.h"), 
-        &format!("{wasmer_root_dir}/package/include/wasmer.h")
-    );
-    #[cfg(target_os = "windows")]
-    let _ = std::fs::copy(
-        &format!("{wasmer_root_dir}/target/release/wasmer.dll"), 
-        &format!("{wasmer_root_dir}/package/lib")
+        &format!("{wasmer_root_dir}/lib/c-api/tests/wasmer.h"),
+        &format!("{wasmer_root_dir}/package/include/wasmer.h"),
     );
     #[cfg(target_os = "windows")]
     let _ = std::fs::copy(
-        &format!("{wasmer_root_dir}/target/release/wasmer.dll.lib"), 
-        &format!("{wasmer_root_dir}/package/lib")
+        &format!("{wasmer_root_dir}/target/release/wasmer.dll"),
+        &format!("{wasmer_root_dir}/package/lib"),
+    );
+    #[cfg(target_os = "windows")]
+    let _ = std::fs::copy(
+        &format!("{wasmer_root_dir}/target/release/wasmer.dll.lib"),
+        &format!("{wasmer_root_dir}/package/lib"),
     );
     #[cfg(not(target_os = "windows"))]
     let _ = std::fs::copy(
-        &format!("{wasmer_root_dir}/target/release/libwasmer.so"), 
-        &format!("{wasmer_root_dir}/package/lib")
+        &format!("{wasmer_root_dir}/target/release/libwasmer.so"),
+        &format!("{wasmer_root_dir}/package/lib"),
     );
     #[cfg(not(target_os = "windows"))]
     let _ = std::fs::copy(
-        &format!("{wasmer_root_dir}/target/release/libwasmer.lib"), 
-        &format!("{wasmer_root_dir}/package/lib")
+        &format!("{wasmer_root_dir}/target/release/libwasmer.lib"),
+        &format!("{wasmer_root_dir}/package/lib"),
     );
     println!("copying done (make package)");
 }
