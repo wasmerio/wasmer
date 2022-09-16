@@ -231,6 +231,8 @@ fn test_run() {
             } else if !config.wasmer_dir.is_empty() {
                 command.arg("/I");
                 command.arg(&format!("{}/include", config.wasmer_dir));
+                command.arg("/I");
+                command.arg(&format!("{}", config.root_dir));
                 let mut log = String::new();
                 fixup_symlinks(&[
                     format!("{}/include", config.wasmer_dir),
