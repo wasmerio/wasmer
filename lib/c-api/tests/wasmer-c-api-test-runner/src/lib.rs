@@ -246,8 +246,11 @@ fn test_ok() {
                 command.arg("/I");
                 command.arg(&format!("{}/include", config.wasmer_dir));
                 let mut log = String::new();
-                fixup_symlinks(&[format!("{}/include", config.wasmer_dir)], &mut log)
-                    .expect(&format!("failed to fix symlinks: {log}"));
+                fixup_symlinks(&[
+                    format!("{}/include", config.wasmer_dir),
+                    format!("{}", config.root_dir),
+                ], &mut log)
+                .expect(&format!("failed to fix symlinks: {log}"));
                 println!("{log}");
             }
             command.arg("/link");
@@ -389,7 +392,11 @@ fn fixup_symlinks(include_paths: &[String], log: &mut String) -> Result<(), Box<
     for i in include_paths {
         let i = i.replacen("-I", "", 1);
         let mut paths_headers = Vec::new();
-        for entry in std::fs::read_dir(&i)? {
+        let readdir = match std::fs::read_dir(&i) {
+            Ok(o) => o,
+            Err(_) => continue,
+        };
+        for entry in readdir {
             let entry = entry?;
             let path = entry.path();
             let path_display = format!("{}", path.display());
@@ -408,7 +415,10 @@ fn fixup_symlinks_inner(include_paths: &[String], log: &mut String) -> Result<()
     log.push_str(&format!("fixup symlinks: {include_paths:#?}"));
     let regex = regex::Regex::new(INCLUDE_REGEX).unwrap();
     for path in include_paths.iter() {
-        let file = std::fs::read_to_string(&path)?;
+        let file = match std::fs::read_to_string(&path) {
+            Ok(o) => o,
+            _ => continue,
+        };
         let lines_3 = file.lines().take(3).collect::<Vec<_>>();
         log.push_str(&format!("first 3 lines of {path:?}: {:#?}\n", lines_3));
 
