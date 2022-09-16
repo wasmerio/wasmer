@@ -108,12 +108,14 @@ mod test_vmfunction_body {
 }
 
 /// A safe wrapper around `VMFunctionBody`.
+/// 
+/// If set to None, the function pointer hasn't been resolved yet.
 #[derive(Clone, Copy, Debug)]
 #[repr(transparent)]
-pub struct FunctionBodyPtr(pub *const VMFunctionBody);
+pub struct FunctionBodyPtr(pub Option<*const VMFunctionBody>);
 
 impl std::ops::Deref for FunctionBodyPtr {
-    type Target = *const VMFunctionBody;
+    type Target = Option<*const VMFunctionBody>;
 
     fn deref(&self) -> &Self::Target {
         &self.0

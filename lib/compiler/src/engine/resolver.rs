@@ -96,10 +96,11 @@ pub fn resolve_imports(
                 let f = handle.get(context);
                 let address = match f.kind {
                     VMFunctionKind::Dynamic => {
-                        FunctionBodyPtrType::Dynamic({ FunctionIndex::new(function_imports.len()) })
+                        FunctionBodyPtrType::Dynamic(FunctionIndex::new(function_imports.len()))
                     }
                     VMFunctionKind::Static => {
-                        FunctionBodyPtrType::Static(unsafe { f.anyfunc.as_ptr().as_ref().func_ptr })
+                        // unwrap is safe for static functions
+                        FunctionBodyPtrType::Static(unsafe { f.anyfunc.as_ptr().as_ref().func_ptr }.unwrap())
                     }
                 };
                 function_imports.push(VMFunctionImport {

@@ -537,8 +537,10 @@ impl Default for VMSharedSignatureIndex {
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 #[repr(C)]
 pub struct VMCallerCheckedAnyfunc {
-    /// Function body.
-    pub func_ptr: *const VMFunctionBody,
+    /// Function body. 
+    /// 
+    /// If set to None, the function pointer isn't initialized yet.
+    pub func_ptr: Option<*const VMFunctionBody>,
     /// Function signature id.
     pub type_index: VMSharedSignatureIndex,
     /// Function `VMContext` or host env.

@@ -303,7 +303,7 @@ impl Instance {
                     .expect("function index is out of bounds")
                     .0;
                 (
-                    body as *const _,
+                    body,
                     VMFunctionContext {
                         vmctx: self.vmctx_ptr(),
                     },
@@ -314,20 +314,28 @@ impl Instance {
                 let import = self.imported_function(start_index);
                 let body = match import.body.clone() {
                     FunctionBodyPtrType::Dynamic(index_in_module) => {
-                        self.function_dynamic_trampolines[index_in_module].0
+                        self.function_dynamic_trampolines.get(index_in_module).and_then(|s| s.0)
                     }
-                    FunctionBodyPtrType::Static(s) => s,
+                    FunctionBodyPtrType::Static(s) => Some(s),
                 };
                 (body, import.environment)
             }
         };
 
         // Make the call.
-        unsafe {
-            catch_traps(trap_handler, || {
-                mem::transmute::<*const VMFunctionBody, unsafe extern "C" fn(VMFunctionContext)>(
-                    callee_address,
-                )(callee_vmctx)
+        if let Some(callee_address) = callee_address.clone() {
+            unsafe {
+                catch_traps(trap_handler, || {
+                    mem::transmute::<*const VMFunctionBody, unsafe extern "C" fn(VMFunctionContext)>(
+                        callee_address,
+                    )(callee_vmctx)
+                })
+            }
+        } else {
+            println!("error: cannot invoke dynamic function: function pointer not initialized");
+            Err(Trap::Lib { 
+                trap_code: TrapCode::UnreachableCodeReached, 
+                backtrace: backtrace::Backtrace::new(),
             })
         }
     }
