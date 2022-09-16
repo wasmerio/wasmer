@@ -55,7 +55,7 @@ pub use crate::store::{
 pub use crate::table::{TableElement, VMTable};
 pub use crate::trap::*;
 pub use crate::vmcontext::{
-    VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionContext, VMFunctionContext,
+    VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionContext, VMFunctionContext, FunctionBodyPtrType,
     VMFunctionImport, VMFunctionKind, VMGlobalDefinition, VMGlobalImport, VMMemoryDefinition,
     VMMemoryImport, VMSharedSignatureIndex, VMTableDefinition, VMTableImport, VMTrampoline,
 };

@@ -15,7 +15,7 @@ use crate::{VMBuiltinFunctionIndex, VMFunction};
 use std::convert::TryFrom;
 use std::ptr::{self, NonNull};
 use std::u32;
-use wasmer_types::RawValue;
+use wasmer_types::{RawValue, FunctionIndex};
 
 /// Union representing the first parameter passed when calling a function.
 ///
@@ -63,13 +63,29 @@ impl std::hash::Hash for VMFunctionContext {
 #[repr(C)]
 pub struct VMFunctionImport {
     /// A pointer to the imported function body.
-    pub body: *const VMFunctionBody,
+    pub body: FunctionBodyPtrType,
 
     /// A pointer to the `VMContext` that owns the function or host env data.
     pub environment: VMFunctionContext,
 
     /// Handle to the `VMFunction` in the context.
     pub handle: InternalStoreHandle<VMFunction>,
+}
+
+/// If the function body (pointing to a function trampoline)
+/// is a dynamic function, we only store the index of the function
+/// inside the module instead of the pointer itself. This way,
+/// the linker doesn't have to do any patching of pointers at the
+/// expense of a performance hit at runtime
+#[derive(Debug, Copy, Clone)]
+#[repr(C, u8)]
+pub enum FunctionBodyPtrType {
+    /// Dynamic function, function pointer is resolved when the
+    /// function is called. Stores the `FunctionIndex` of the 
+    /// function in the module.
+    Dynamic(FunctionIndex),
+    /// Static function pointer initialized when the module is created
+    Static(*const VMFunctionBody),
 }
 
 #[cfg(test)]

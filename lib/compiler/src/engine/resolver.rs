@@ -10,7 +10,7 @@ use wasmer_types::{
 use wasmer_vm::{
     FunctionBodyPtr, Imports, LinearMemory, MemoryStyle, StoreObjects, TableStyle, VMExtern,
     VMFunctionBody, VMFunctionImport, VMFunctionKind, VMGlobalImport, VMMemoryImport,
-    VMTableImport,
+    VMTableImport, FunctionBodyPtrType,
 };
 
 /// Get an `ExternType` given a import index.
@@ -56,7 +56,6 @@ pub fn resolve_imports(
     module: &ModuleInfo,
     imports: &[VMExtern],
     context: &StoreObjects,
-    finished_dynamic_function_trampolines: &BoxedSlice<FunctionIndex, FunctionBodyPtr>,
     memory_styles: &PrimaryMap<MemoryIndex, MemoryStyle>,
     _table_styles: &PrimaryMap<TableIndex, TableStyle>,
 ) -> Result<Imports, LinkError> {
@@ -96,16 +95,13 @@ pub fn resolve_imports(
             VMExtern::Function(handle) => {
                 let f = handle.get(context);
                 let address = match f.kind {
-                    VMFunctionKind::Dynamic => {
-                        // If this is a dynamic imported function,
-                        // the address of the function is the address of the
-                        // reverse trampoline.
-                        let index = FunctionIndex::new(function_imports.len());
-                        finished_dynamic_function_trampolines[index].0 as *mut VMFunctionBody as _
-                    }
-                    VMFunctionKind::Static => unsafe { f.anyfunc.as_ptr().as_ref().func_ptr },
+                    VMFunctionKind::Dynamic => FunctionBodyPtrType::Dynamic({
+                        FunctionIndex::new(function_imports.len())
+                    }),
+                    VMFunctionKind::Static => FunctionBodyPtrType::Static(unsafe { 
+                        f.anyfunc.as_ptr().as_ref().func_ptr 
+                    }),
                 };
-
                 function_imports.push(VMFunctionImport {
                     body: address,
                     environment: unsafe { f.anyfunc.as_ptr().as_ref().vmctx },
