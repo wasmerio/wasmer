@@ -54,7 +54,7 @@ impl Extern {
             VMExtern::Table(t) => Self::Table(Table::from_vm_extern(store, t)),
         }
     }
-    
+
     /// Checks whether this `Extern` can be used with the given context.
     pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
         match self {

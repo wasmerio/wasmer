@@ -440,7 +440,6 @@ pub use js::*;
 
 #[test]
 fn test_externrefs_dynamic_function() {
-
     fn neg_callback(
         mut env: FunctionEnvMut<()>,
         values: &[Value],
@@ -454,12 +453,24 @@ fn test_externrefs_dynamic_function() {
         assert_eq!(table.get(store, i).is_some(), expect_set);
     }
 
-    fn check_call(store: &mut Store, func: &Function, arg1: i32, functionindex: i32, expected: i32) {
-        assert_eq!(func.call(store, &[Value::I32(arg1), Value::I32(functionindex)]).unwrap()[0], Value::I32(expected));
+    fn check_call(
+        store: &mut Store,
+        func: &Function,
+        arg1: i32,
+        functionindex: i32,
+        expected: i32,
+    ) {
+        assert_eq!(
+            func.call(store, &[Value::I32(arg1), Value::I32(functionindex)])
+                .unwrap()[0],
+            Value::I32(expected)
+        );
     }
 
     let mut store = Store::default();
-    let module = Module::new(&store, r#"
+    let module = Module::new(
+        &store,
+        r#"
     (module
         (table (export "table") 2 10 funcref)
       
@@ -472,28 +483,26 @@ fn test_externrefs_dynamic_function() {
       
         (elem (i32.const 1) $f)
       )
-    "#).unwrap();
+    "#,
+    )
+    .unwrap();
 
     let env = FunctionEnv::new(&mut store, ());
-    let imports = imports!{};
-    let instance = Instance::new(
-        &mut store, 
-        &module, 
-        &imports
-    ).unwrap();
+    let imports = imports! {};
+    let instance = Instance::new(&mut store, &module, &imports).unwrap();
 
     let exports = instance.exports;
     let table = exports.get_table("table").unwrap();
-    let call_indirect = exports.get_function("call_indirect").unwrap();    
+    let call_indirect = exports.get_function("call_indirect").unwrap();
     let f = exports.get_function("f").unwrap();
     let g = exports.get_function("g").unwrap();
 
-    // -- does not work: 
+    // -- does not work:
     let h = Function::new_with_env(
         &mut store,
         &env,
         FunctionType::new([Type::I32], [Type::I32]),
-        neg_callback
+        neg_callback,
     );
 
     // // -- does work
@@ -501,9 +510,13 @@ fn test_externrefs_dynamic_function() {
     //     &mut store,
     //     |i: i32| -> i32 { -i }
     // );
-    table.set(&mut store, 0, Value::FuncRef(Some(g.clone()))).unwrap();
+    table
+        .set(&mut store, 0, Value::FuncRef(Some(g.clone())))
+        .unwrap();
     table.set(&mut store, 1, Value::FuncRef(None)).unwrap();
-    assert!(table.set(&mut store, 2, Value::FuncRef(Some(f.clone()))).is_err()); // should be false?
+    assert!(table
+        .set(&mut store, 2, Value::FuncRef(Some(f.clone())))
+        .is_err()); // should be false?
 
     check_table(&mut store, &table, 0, true);
     // check_table(&mut store, &table, 1, false); // false should be because of FuncRef(None)
@@ -512,7 +525,9 @@ fn test_externrefs_dynamic_function() {
     table.grow(&mut store, 3, Value::FuncRef(None)).unwrap();
     assert_eq!(table.size(&store), 5);
 
-    table.set(&mut store, 2, Value::FuncRef(Some(f.clone()))).unwrap();
+    table
+        .set(&mut store, 2, Value::FuncRef(Some(f.clone())))
+        .unwrap();
     table.set(&mut store, 3, Value::FuncRef(Some(h))).unwrap();
     assert!(table.set(&mut store, 5, Value::FuncRef(None)).is_err());
 

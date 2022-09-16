@@ -15,7 +15,7 @@ use crate::{VMBuiltinFunctionIndex, VMFunction};
 use std::convert::TryFrom;
 use std::ptr::{self, NonNull};
 use std::u32;
-use wasmer_types::{RawValue, FunctionIndex};
+use wasmer_types::{FunctionIndex, RawValue};
 
 /// Union representing the first parameter passed when calling a function.
 ///
@@ -81,7 +81,7 @@ pub struct VMFunctionImport {
 #[repr(C, u8)]
 pub enum FunctionBodyPtrType {
     /// Dynamic function, function pointer is resolved when the
-    /// function is called. Stores the `FunctionIndex` of the 
+    /// function is called. Stores the `FunctionIndex` of the
     /// function in the module.
     Dynamic(FunctionIndex),
     /// Static function pointer initialized when the module is created

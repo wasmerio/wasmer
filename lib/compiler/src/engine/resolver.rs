@@ -8,9 +8,9 @@ use wasmer_types::{
 };
 
 use wasmer_vm::{
-    FunctionBodyPtr, Imports, LinearMemory, MemoryStyle, StoreObjects, TableStyle, VMExtern,
-    VMFunctionBody, VMFunctionImport, VMFunctionKind, VMGlobalImport, VMMemoryImport,
-    VMTableImport, FunctionBodyPtrType,
+    FunctionBodyPtr, FunctionBodyPtrType, Imports, LinearMemory, MemoryStyle, StoreObjects,
+    TableStyle, VMExtern, VMFunctionBody, VMFunctionImport, VMFunctionKind, VMGlobalImport,
+    VMMemoryImport, VMTableImport,
 };
 
 /// Get an `ExternType` given a import index.
@@ -95,12 +95,12 @@ pub fn resolve_imports(
             VMExtern::Function(handle) => {
                 let f = handle.get(context);
                 let address = match f.kind {
-                    VMFunctionKind::Dynamic => FunctionBodyPtrType::Dynamic({
-                        FunctionIndex::new(function_imports.len())
-                    }),
-                    VMFunctionKind::Static => FunctionBodyPtrType::Static(unsafe { 
-                        f.anyfunc.as_ptr().as_ref().func_ptr 
-                    }),
+                    VMFunctionKind::Dynamic => {
+                        FunctionBodyPtrType::Dynamic({ FunctionIndex::new(function_imports.len()) })
+                    }
+                    VMFunctionKind::Static => {
+                        FunctionBodyPtrType::Static(unsafe { f.anyfunc.as_ptr().as_ref().func_ptr })
+                    }
                 };
                 function_imports.push(VMFunctionImport {
                     body: address,

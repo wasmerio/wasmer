@@ -18,7 +18,9 @@ use crate::vmcontext::{
     VMFunctionContext, VMFunctionImport, VMFunctionKind, VMGlobalDefinition, VMGlobalImport,
     VMMemoryImport, VMSharedSignatureIndex, VMTableDefinition, VMTableImport, VMTrampoline,
 };
-use crate::{FunctionBodyPtr, FunctionBodyPtrType, MaybeInstanceOwned, TrapHandlerFn, VMFunctionBody};
+use crate::{
+    FunctionBodyPtr, FunctionBodyPtrType, MaybeInstanceOwned, TrapHandlerFn, VMFunctionBody,
+};
 use crate::{LinearMemory, VMMemoryDefinition};
 use crate::{VMFuncRef, VMFunction, VMGlobal, VMMemory, VMTable};
 pub use allocator::InstanceAllocator;
@@ -313,7 +315,7 @@ impl Instance {
                 let body = match import.body.clone() {
                     FunctionBodyPtrType::Dynamic(index_in_module) => {
                         self.function_dynamic_trampolines[index_in_module].0
-                    },
+                    }
                     FunctionBodyPtrType::Static(s) => s,
                 };
                 (body, import.environment)
