@@ -103,16 +103,16 @@ impl Config {
 
         if config.wasmer_dir.is_empty() {
             println!("manifest dir = {manifest_dir}, wasmer root dir = {wasmer_base_dir}");
-            config.wasmer_dir = wasmer_base_dir.clone() + "wasmer/package";
+            config.wasmer_dir = wasmer_base_dir.clone() + "/package";
             if !std::path::Path::new(&config.wasmer_dir).exists() {
-                if !std::path::Path::new(&format!("{wasmer_base_dir}wasmer/target/release"))
+                if !std::path::Path::new(&format!("{wasmer_base_dir}/target/release"))
                     .exists()
                 {
                     println!("running make build-capi...");
                     // run make build-capi
                     let mut cmd = std::process::Command::new("make");
                     cmd.arg("build-capi");
-                    cmd.current_dir(wasmer_base_dir.clone() + "wasmer");
+                    cmd.current_dir(wasmer_base_dir.clone());
                     let result = cmd.output();
                     println!("make build-capi: {result:#?}");
                 }
@@ -121,7 +121,7 @@ impl Config {
                 // run make package
                 let mut cmd = std::process::Command::new("make");
                 cmd.arg("package-capi");
-                cmd.current_dir(wasmer_base_dir.clone() + "wasmer");
+                cmd.current_dir(wasmer_base_dir.clone());
                 let result = cmd.output();
                 make_package();
                 println!("make package: {result:#?}");
@@ -142,7 +142,7 @@ impl Config {
             }
         }
         if config.root_dir.is_empty() {
-            config.root_dir = wasmer_base_dir + "wasmer/lib/c-api/examples";
+            config.root_dir = wasmer_base_dir + "/lib/c-api/examples";
         }
 
         config
@@ -160,13 +160,13 @@ fn find_wasmer_base_dir() -> String {
             .split("wasmer/lib/c-api")
             .next()
             .unwrap()
-            .to_string();
+            .to_string() + "wasmer";
     } else if wasmer_base_dir.contains("wasmer\\lib\\c-api") {
         wasmer_base_dir = wasmer_base_dir
             .split("wasmer\\lib\\c-api")
             .next()
             .unwrap()
-            .to_string();
+            .to_string() + "wasmer";
     }
 
     wasmer_base_dir
