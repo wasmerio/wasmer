@@ -46,7 +46,9 @@ impl Compile {
                     .fold(CpuFeature::set(), |a, b| a | b);
                 // Cranelift requires SSE2, so we have this "hack" for now to facilitate
                 // usage
-                features |= CpuFeature::SSE2;
+                if target_triple.architecture == Architecture::X86_64 {
+                    features |= CpuFeature::SSE2;
+                }
                 Target::new(target_triple.clone(), features)
             })
             .unwrap_or_default();
