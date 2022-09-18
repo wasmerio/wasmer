@@ -359,7 +359,7 @@ fn test_run() {
                         println!("    {entry:?}");
                     }
                 }
-                panic!("failed to execute {test}");
+                panic!("failed to execute {test} executable");
             }
         }
     }
