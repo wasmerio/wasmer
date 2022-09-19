@@ -11,7 +11,7 @@ use std::path::PathBuf;
 #[cfg(target_os = "wasi")]
 #[link(wasm_import_module = "wasi_unstable")]
 extern "C" {
-    fn poll_oneoff(subscriptons: u32, events: u32, nsubscriptons: u32, nevents: u32) -> u16;
+    fn poll_oneoff(subscriptions: u32, events: u32, nsubscriptions: u32, nevents: u32) -> u16;
 }
 
 #[derive(Debug, Copy, Clone)]
