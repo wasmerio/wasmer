@@ -106,12 +106,14 @@ impl WasiBidirectionalPipePair {
         }
     }
 
+    #[allow(dead_code)]
     pub fn with_blocking(mut self, block: bool) -> Self {
         self.set_blocking(block);
         self
     }
 
     /// Whether to block on reads (ususally for waiting for stdin keyboard input). Default: `true`
+    #[allow(dead_code)]
     pub fn set_blocking(&mut self, block: bool) {
         self.send.set_blocking(block);
         self.recv.set_blocking(block);
@@ -138,12 +140,14 @@ impl WasiBidirectionalSharedPipePair {
         }
     }
 
+    #[allow(dead_code)]
     pub fn with_blocking(mut self, block: bool) -> Self {
         self.set_blocking(block);
         self
     }
 
     /// Whether to block on reads (ususally for waiting for stdin keyboard input). Default: `true`
+    #[allow(dead_code)]
     pub fn set_blocking(&mut self, block: bool) {
         self.inner.lock().unwrap().set_blocking(block);
     }
