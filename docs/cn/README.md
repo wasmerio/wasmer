@@ -65,7 +65,7 @@ iwr https://win.wasmer.io -useb | iex
 
 #### 执行WebAssembly文件
 
-安装Wasmer之后，你已经准备好执行第一个WebAssemby文件了! 🎉
+安装Wasmer之后，你已经准备好执行第一个WebAssembly文件了! 🎉
 
 您可以通过运行 QuickJS 开始: [qjs.wasm](https://registry-cdn.wapm.io/contents/_/quickjs/0.0.3/build/qjs.wasm)
 
