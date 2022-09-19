@@ -7,7 +7,7 @@ use wasmer_types::entity::PrimaryMap;
 use wasmer_types::{LocalFunctionIndex, ModuleInfo};
 use wasmer_types::{Relocation, RelocationKind, RelocationTarget, Relocations, SectionIndex};
 use wasmer_vm::libcalls::function_pointer;
-use wasmer_vm::SectionBodyPtr;
+use wasmer_vm::{SectionBodyPtr, FunctionBodyPtrType};
 
 fn apply_relocation(
     body: usize,
@@ -18,7 +18,12 @@ fn apply_relocation(
     libcall_trampoline_len: usize,
 ) {
     let target_func_address: usize = match r.reloc_target {
-        RelocationTarget::LocalFunc(index) => *allocated_functions[index].ptr as usize,
+        RelocationTarget::LocalFunc(index) => {
+            match *allocated_functions[index].ptr {
+                FunctionBodyPtrType::Static(s) => s as usize,
+                FunctionBodyPtrType::Dynamic(_) => return,
+            }
+        },
         RelocationTarget::LibCall(libcall) => {
             // Use the direct target of the libcall if the relocation supports
             // a full 64-bit address. Otherwise use a trampoline.
@@ -125,7 +130,10 @@ pub fn link_module(
         }
     }
     for (i, function_relocs) in function_relocations.iter() {
-        let body = *allocated_functions[i].ptr as usize;
+        let body = match *allocated_functions[i].ptr {
+            FunctionBodyPtrType::Static(s) => s as usize,
+            FunctionBodyPtrType::Dynamic(_) => continue,
+        };
         for r in function_relocs {
             apply_relocation(
                 body,

@@ -165,7 +165,9 @@ impl Function {
         };
         let call_trampoline = host_data.ctx.call_trampoline_address();
         let anyfunc = VMCallerCheckedAnyfunc {
-            func_ptr,
+            // TODO: shouldn't this be None, since we don't have the final address yet? 
+            // Why does a native function need a trampoline?
+            func_ptr: Some(func_ptr),
             type_index,
             vmctx,
             call_trampoline,
@@ -224,7 +226,7 @@ impl Function {
         let call_trampoline =
             <F as HostFunction<(), Args, Rets, WithoutEnv>>::call_trampoline_address();
         let anyfunc = VMCallerCheckedAnyfunc {
-            func_ptr,
+            func_ptr: Some(func_ptr),
             type_index,
             vmctx,
             call_trampoline,
@@ -309,7 +311,7 @@ impl Function {
         let call_trampoline =
             <F as HostFunction<T, Args, Rets, WithEnv>>::call_trampoline_address();
         let anyfunc = VMCallerCheckedAnyfunc {
-            func_ptr,
+            func_ptr: Some(func_ptr),
             type_index,
             vmctx,
             call_trampoline,
@@ -359,6 +361,8 @@ impl Function {
         params: &[Value],
         results: &mut [Value],
     ) -> Result<(), RuntimeError> {
+        use wasmer_vm::FunctionBodyPtrType;
+
         let format_types_for_error_message = |items: &[Value]| {
             items
                 .iter()
@@ -406,13 +410,29 @@ impl Function {
         // Call the trampoline.
         let vm_function = self.handle.get(store.as_store_ref().objects());
         if let Err(error) = unsafe {
-            wasmer_call_trampoline(
-                store.as_store_ref().signal_handler(),
-                vm_function.anyfunc.as_ptr().as_ref().vmctx,
-                trampoline,
-                vm_function.anyfunc.as_ptr().as_ref().func_ptr,
-                values_vec.as_mut_ptr() as *mut u8,
-            )
+            // TODO IMPORTANT: This is the point where the dynamic function needs to be 
+            // looked up and called
+            match vm_function.anyfunc.as_ptr().as_ref().func_ptr {
+                FunctionBodyPtrType::Static(s) => {
+                    wasmer_call_trampoline(
+                        store.as_store_ref().signal_handler(),
+                        vm_function.anyfunc.as_ptr().as_ref().vmctx,
+                        trampoline,
+                        s,
+                        values_vec.as_mut_ptr() as *mut u8,
+                    )
+                },
+                FunctionBodyPtrType::Dynamic(_) => {
+                    // dynamic function
+                    wasmer_call_trampoline(
+                        store.as_store_ref().signal_handler(),
+                        vm_function.anyfunc.as_ptr().as_ref().vmctx,
+                        trampoline,
+                        s,
+                        values_vec.as_mut_ptr() as *mut u8,
+                    )
+                }
+            }
         } {
             return Err(RuntimeError::from_trap(error));
         }

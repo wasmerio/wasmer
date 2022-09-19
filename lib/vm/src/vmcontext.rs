@@ -77,7 +77,7 @@ pub struct VMFunctionImport {
 /// inside the module instead of the pointer itself. This way,
 /// the linker doesn't have to do any patching of pointers at the
 /// expense of a performance hit at runtime
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 #[repr(C, u8)]
 pub enum FunctionBodyPtrType {
     /// Dynamic function, function pointer is resolved when the
@@ -86,6 +86,16 @@ pub enum FunctionBodyPtrType {
     Dynamic(FunctionIndex),
     /// Static function pointer initialized when the module is created
     Static(*const VMFunctionBody),
+}
+
+impl FunctionBodyPtrType {
+    /// Returns the `*const VMFunctionBody` or None if the function is dynamically resolved instead.
+    pub fn as_option_ptr(&self) -> Option<*const VMFunctionBody> {
+        match self {
+            FunctionBodyPtrType::Dynamic(_) => None,
+            FunctionBodyPtrType::Static(s) => Some(*s),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -537,10 +547,8 @@ impl Default for VMSharedSignatureIndex {
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 #[repr(C)]
 pub struct VMCallerCheckedAnyfunc {
-    /// Function body. 
-    /// 
-    /// If set to None, the function pointer isn't initialized yet.
-    pub func_ptr: Option<*const VMFunctionBody>,
+    /// Function body pointer 
+    pub func_ptr: FunctionBodyPtrType,
     /// Function signature id.
     pub type_index: VMSharedSignatureIndex,
     /// Function `VMContext` or host env.

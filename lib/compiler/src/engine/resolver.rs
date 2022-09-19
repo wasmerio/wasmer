@@ -100,7 +100,7 @@ pub fn resolve_imports(
                     }
                     VMFunctionKind::Static => {
                         // unwrap is safe for static functions
-                        FunctionBodyPtrType::Static(unsafe { f.anyfunc.as_ptr().as_ref().func_ptr }.unwrap())
+                        FunctionBodyPtrType::Static(unsafe { f.anyfunc.as_ptr().as_ref().func_ptr }.as_option_ptr().unwrap())
                     }
                 };
                 function_imports.push(VMFunctionImport {

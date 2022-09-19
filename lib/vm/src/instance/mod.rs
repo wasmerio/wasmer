@@ -300,8 +300,7 @@ impl Instance {
                 let body = self
                     .functions
                     .get(local_index)
-                    .expect("function index is out of bounds")
-                    .0;
+                    .and_then(|s| s.as_option_ptr());
                 (
                     body,
                     VMFunctionContext {
@@ -314,7 +313,7 @@ impl Instance {
                 let import = self.imported_function(start_index);
                 let body = match import.body.clone() {
                     FunctionBodyPtrType::Dynamic(index_in_module) => {
-                        self.function_dynamic_trampolines.get(index_in_module).and_then(|s| s.0)
+                        self.function_dynamic_trampolines.get(index_in_module).and_then(|s| s.0.as_option_ptr())
                     }
                     FunctionBodyPtrType::Static(s) => Some(s),
                 };

@@ -5,7 +5,7 @@
 //! signalhandling mechanisms.
 
 use crate::vmcontext::{VMFunctionContext, VMTrampoline};
-use crate::{Trap, VMFunctionBody};
+use crate::{Trap, VMFunctionBody, FunctionBodyPtr, FunctionBodyPtrType};
 use backtrace::Backtrace;
 use core::ptr::{read, read_unaligned};
 use corosensei::stack::DefaultStack;
@@ -614,14 +614,28 @@ pub unsafe fn wasmer_call_trampoline(
     trap_handler: Option<*const TrapHandlerFn<'static>>,
     vmctx: VMFunctionContext,
     trampoline: VMTrampoline,
-    callee: *const VMFunctionBody,
+    callee: FunctionBodyPtrType,
     values_vec: *mut u8,
 ) -> Result<(), Trap> {
-    catch_traps(trap_handler, || {
-        mem::transmute::<_, extern "C" fn(VMFunctionContext, *const VMFunctionBody, *mut u8)>(
-            trampoline,
-        )(vmctx, callee, values_vec);
-    })
+    match callee {
+        FunctionBodyPtrType::Static(s) => {
+            catch_traps(trap_handler, || {
+                mem::transmute::<_, extern "C" fn(VMFunctionContext, *const VMFunctionBody, *mut u8)>(
+                    trampoline,
+                )(vmctx, s, values_vec);
+            })
+        },
+        FunctionBodyPtrType::Dynamic(d) => {
+            Ok(())
+            /*
+                catch_traps(trap_handler, || {
+                    mem::transmute::<_, extern "C" fn(VMFunctionContext, *const VMFunctionBody, *mut u8)>(
+                        trampoline,
+                    )(vmctx, callee, values_vec);
+                })
+            */
+        }
+    }
 }
 
 /// Catches any wasm traps that happen within the execution of `closure`,

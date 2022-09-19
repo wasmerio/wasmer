@@ -25,7 +25,9 @@ use wasmer_types::{CompileError, Features, Target};
 use wasmer_types::{CustomSection, CustomSectionProtection, SectionIndex};
 #[cfg(not(target_arch = "wasm32"))]
 use wasmer_vm::{
-    FunctionBodyPtr, SectionBodyPtr, SignatureRegistry, VMFunctionBody, VMSharedSignatureIndex,
+    FunctionBodyPtr, FunctionBodyPtrType,
+    SectionBodyPtr, SignatureRegistry, 
+    VMFunctionBody, VMSharedSignatureIndex,
     VMTrampoline,
 };
 
@@ -280,7 +282,7 @@ impl EngineInner {
         let allocated_functions_result = allocated_functions
             .drain(0..functions.len())
             .map(|slice| FunctionExtent {
-                ptr: FunctionBodyPtr(slice.as_ptr()),
+                ptr: FunctionBodyPtr(FunctionBodyPtrType::Static(slice.as_ptr())),
                 length: slice.len(),
             })
             .collect::<PrimaryMap<LocalFunctionIndex, _>>();
@@ -298,7 +300,7 @@ impl EngineInner {
 
         let allocated_dynamic_function_trampolines = allocated_functions
             .drain(..)
-            .map(|slice| FunctionBodyPtr(slice.as_ptr()))
+            .map(|slice| FunctionBodyPtr(FunctionBodyPtrType::Static(slice.as_ptr())))
             .collect::<PrimaryMap<FunctionIndex, _>>();
 
         let mut exec_iter = allocated_executable_sections.iter();

@@ -29,12 +29,14 @@ use wasmer_types::SerializableCompilation;
 use wasmer_types::{
     CompileError, CpuFeature, DataInitializer, DeserializeError, FunctionIndex, LocalFunctionIndex,
     MemoryIndex, ModuleInfo, OwnedDataInitializer, SerializableModule, SerializeError,
-    SignatureIndex, TableIndex,
+    SignatureIndex, TableIndex
 };
 #[cfg(feature = "static-artifact-create")]
 use wasmer_types::{CompileModuleInfo, Target};
 use wasmer_vm::{FunctionBodyPtr, MemoryStyle, TableStyle, VMSharedSignatureIndex, VMTrampoline};
 use wasmer_vm::{InstanceAllocator, InstanceHandle, StoreObjects, TrapHandlerFn, VMExtern};
+#[cfg(feature = "static-artifact-load")]
+use wasmer_vm::FunctionBodyPtrType;
 
 /// A compiled wasm module, ready to be instantiated.
 pub struct Artifact {
@@ -625,7 +627,7 @@ impl Artifact {
             let byte_buffer_slice =
                 Self::get_byte_slice(bytes, cur_offset, cur_offset + WORD_SIZE)?;
             byte_buffer[0..WORD_SIZE].clone_from_slice(byte_buffer_slice);
-            let fp = FunctionBodyPtr(usize::from_ne_bytes(byte_buffer) as _);
+            let fp = FunctionBodyPtr(FunctionBodyPtrType::Static(usize::from_ne_bytes(byte_buffer) as _));
             cur_offset += WORD_SIZE;
 
             // TODO: we can read back the length here if we serialize it. This will improve debug output.
@@ -671,7 +673,7 @@ impl Artifact {
             let byte_buffer_slice =
                 Self::get_byte_slice(bytes, cur_offset, cur_offset + WORD_SIZE)?;
             byte_buffer[0..WORD_SIZE].clone_from_slice(byte_buffer_slice);
-            let fp = FunctionBodyPtr(usize::from_ne_bytes(byte_buffer) as _);
+            let fp = FunctionBodyPtr(FunctionBodyPtrType::Static(usize::from_ne_bytes(byte_buffer) as _));
             cur_offset += WORD_SIZE;
 
             // TODO: we can read back the length here if we serialize it. This will improve debug output.

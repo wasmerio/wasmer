@@ -202,7 +202,10 @@ pub fn register(
         },
     ) in finished_functions.iter()
     {
-        let start = **start as usize;
+        let start = match start.0.as_option_ptr() {
+            Some(s) => s as usize,
+            None => continue,
+        };
         // end is "last byte" of the function code
         let end = start + len - 1;
         min = cmp::min(min, start);
