@@ -23,7 +23,7 @@ use std::{
     sync::MutexGuard,
 };
 use wasmer_wasi::{
-    get_wasi_version, FsError, VirtualFile, WasiFile, WasiFunctionEnv, WasiPipe, WasiPipePair,
+    get_wasi_version, FsError, VirtualFile, WasiFile, WasiFunctionEnv, WasiPipe, WasiBidirectionalPipePair,
     WasiState, WasiStateBuilder, WasiVersion,
 };
 
@@ -352,7 +352,7 @@ unsafe extern "C" fn wasi_pipe_delete_memory_2(ptr: *const c_void /* = *WasiPipe
 pub unsafe extern "C" fn wasi_pipe_new(ptr_user: &mut *mut wasi_pipe_t) -> *mut wasi_pipe_t {
     use std::mem::ManuallyDrop;
 
-    let pair = WasiPipePair::new();
+    let pair = WasiBidirectionalPipePair::new();
 
     let mut data1 = ManuallyDrop::new(pair.send);
     let ptr1: &mut WasiPipe = &mut data1;

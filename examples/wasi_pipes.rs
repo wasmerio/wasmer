@@ -14,7 +14,7 @@
 use std::io::{Read, Write};
 use wasmer::{Instance, Module, Store};
 use wasmer_compiler_cranelift::Cranelift;
-use wasmer_wasi::{WasiPipePair, WasiState};
+use wasmer_wasi::{WasiBidirectionalPipePair, WasiState};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let wasm_path = concat!(
@@ -36,8 +36,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Creating `WasiEnv`...");
     // First, we create the `WasiEnv` with the stdio pipes
-    let mut input = WasiPipePair::new_arc();
-    let mut output = WasiPipePair::new_arc();
+    let mut input = WasiBidirectionalPipePair::new_arc();
+    let mut output = WasiBidirectionalPipePair::new_arc();
     let wasi_env = WasiState::new("hello")
         .stdin(Box::new(input.clone()))
         .stdout(Box::new(output.clone()))

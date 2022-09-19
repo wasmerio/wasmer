@@ -23,12 +23,12 @@ pub struct WasiPipe {
 
 /// Pipe pair of (a, b) WasiPipes that are connected together
 #[derive(Debug)]
-pub struct WasiPipePair {
+pub struct WasiBidirectionalPipePair {
     pub send: WasiPipe,
     pub recv: WasiPipe,
 }
 
-impl Write for WasiPipePair {
+impl Write for WasiBidirectionalPipePair {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         self.send.write(buf)
     }
@@ -37,19 +37,19 @@ impl Write for WasiPipePair {
     }
 }
 
-impl Seek for WasiPipePair {
+impl Seek for WasiBidirectionalPipePair {
     fn seek(&mut self, _: SeekFrom) -> io::Result<u64> {
         Ok(0)
     }
 }
 
-impl Read for WasiPipePair {
+impl Read for WasiBidirectionalPipePair {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         self.recv.read(buf)
     }
 }
 
-impl VirtualFile for WasiPipePair {
+impl VirtualFile for WasiBidirectionalPipePair {
     fn last_accessed(&self) -> u64 {
         self.recv.last_accessed()
     }
@@ -73,14 +73,14 @@ impl VirtualFile for WasiPipePair {
     }
 }
 
-impl Default for WasiPipePair {
+impl Default for WasiBidirectionalPipePair {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl WasiPipePair {
-    pub fn new() -> WasiPipePair {
+impl WasiBidirectionalPipePair {
+    pub fn new() -> WasiBidirectionalPipePair {
         let (tx1, rx1) = mpsc::channel();
         let (tx2, rx2) = mpsc::channel();
 
@@ -96,27 +96,27 @@ impl WasiPipePair {
             read_buffer: None,
         };
 
-        WasiPipePair {
+        WasiBidirectionalPipePair {
             send: pipe1,
             recv: pipe2,
         }
     }
 
-    pub fn new_arc() -> WasiSharedPipePair {
-        WasiSharedPipePair {
+    pub fn new_arc() -> WasiBidirectionalSharedPipePair {
+        WasiBidirectionalSharedPipePair {
             inner: Arc::new(Mutex::new(Self::new())),
         }
     }
 }
 
-/// Shared version of WasiPipePair for situations where you need
+/// Shared version of WasiBidirectionalPipePair for situations where you need
 /// to emulate the old behaviour of `Pipe` (both send and recv on one channel).
 #[derive(Debug, Clone)]
-pub struct WasiSharedPipePair {
-    inner: Arc<Mutex<WasiPipePair>>,
+pub struct WasiBidirectionalSharedPipePair {
+    inner: Arc<Mutex<WasiBidirectionalPipePair>>,
 }
 
-impl Write for WasiSharedPipePair {
+impl Write for WasiBidirectionalSharedPipePair {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         match self.inner.lock().as_mut().map(|l| l.write(buf)) {
             Ok(r) => r,
@@ -131,13 +131,13 @@ impl Write for WasiSharedPipePair {
     }
 }
 
-impl Seek for WasiSharedPipePair {
+impl Seek for WasiBidirectionalSharedPipePair {
     fn seek(&mut self, _: SeekFrom) -> io::Result<u64> {
         Ok(0)
     }
 }
 
-impl Read for WasiSharedPipePair {
+impl Read for WasiBidirectionalSharedPipePair {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         match self.inner.lock().as_mut().map(|l| l.read(buf)) {
             Ok(r) => r,
@@ -146,7 +146,7 @@ impl Read for WasiSharedPipePair {
     }
 }
 
-impl VirtualFile for WasiSharedPipePair {
+impl VirtualFile for WasiBidirectionalSharedPipePair {
     fn last_accessed(&self) -> u64 {
         self.inner.lock().map(|l| l.last_accessed()).unwrap_or(0)
     }
