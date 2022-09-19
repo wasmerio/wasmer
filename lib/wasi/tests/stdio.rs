@@ -1,7 +1,7 @@
 use std::io::{Read, Write};
 
 use wasmer::{Instance, Module, Store};
-use wasmer_wasi::{WasiPipe, WasiBidirectionalPipePair, WasiState};
+use wasmer_wasi::{WasiPipe, WasiBidirectionalSharedPipePair, WasiState};
 
 mod sys {
     #[test]
@@ -146,7 +146,7 @@ fn test_stdin() {
     let module = Module::new(&store, include_bytes!("stdin-hello.wasm")).unwrap();
 
     // Create the `WasiEnv`.
-    let mut pipe = WasiBidirectionalPipePair::new_arc();
+    let mut pipe = WasiBidirectionalSharedPipePair::new();
 
     // Write to STDIN
     let buf = "Hello, stdin!\n".as_bytes().to_owned();

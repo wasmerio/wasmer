@@ -101,12 +101,6 @@ impl WasiBidirectionalPipePair {
             recv: pipe2,
         }
     }
-
-    pub fn new_arc() -> WasiBidirectionalSharedPipePair {
-        WasiBidirectionalSharedPipePair {
-            inner: Arc::new(Mutex::new(Self::new())),
-        }
-    }
 }
 
 /// Shared version of WasiBidirectionalPipePair for situations where you need
@@ -114,6 +108,20 @@ impl WasiBidirectionalPipePair {
 #[derive(Debug, Clone)]
 pub struct WasiBidirectionalSharedPipePair {
     inner: Arc<Mutex<WasiBidirectionalPipePair>>,
+}
+
+impl Default for WasiBidirectionalSharedPipePair {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl WasiBidirectionalSharedPipePair {
+    pub fn new() -> Self {
+        Self {
+            inner: Arc::new(Mutex::new(WasiBidirectionalPipePair::new())),
+        }
+    }
 }
 
 impl Write for WasiBidirectionalSharedPipePair {
@@ -296,7 +304,7 @@ impl Read for WasiPipe {
                         // Errors can happen if the sender has been dropped already
                         // In this case, just return 0 to indicate that we can't read any
                         // bytes anymore
-                        Err(e) => {
+                        Err(_) => {
                             return Ok(0);
                         }
                     }

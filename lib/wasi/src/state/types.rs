@@ -370,6 +370,9 @@ pub(crate) fn poll(
 
 pub trait WasiPath {}
 
+#[deprecated(since = "3.0.0-beta.2", note = "Moved to `wasmer_wasi::pipe::WasiBidirectionalSharedPipePair`, `Pipe` is only a transitional reexport")]
+pub use crate::state::WasiBidirectionalSharedPipePair as Pipe;
+
 /*
 TODO: Think about using this
 trait WasiFdBacking: std::fmt::Debug {
