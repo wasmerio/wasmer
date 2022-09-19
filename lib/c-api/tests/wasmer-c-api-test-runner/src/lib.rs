@@ -451,6 +451,10 @@ fn fixup_symlinks_inner(include_paths: &[String], log: &mut String) -> Result<()
             Ok(o) => o,
             _ => continue,
         };
+        // VERY hacky.
+        if file.contains("#include \"../wasmer.h\"") {
+            std::fs::write(&path, file.replace("#include \"../wasmer.h\"", "#include \"wasmer.h\""))?;
+        }
         let lines_3 = file.lines().take(3).collect::<Vec<_>>();
         log.push_str(&format!("first 3 lines of {path:?}: {:#?}\n", lines_3));
 
