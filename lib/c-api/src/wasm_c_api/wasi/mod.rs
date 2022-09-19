@@ -55,12 +55,28 @@ pub struct wasi_pipe_t {
     read: WasiConsoleIoReadCallback,
     write: WasiConsoleIoWriteCallback,
     seek: WasiConsoleIoSeekCallback,
+    data: Option<Box<Arc<Mutex<WasiPipeDataWithDestructor>>>>,
+}
+
+struct WasiPipeDataWithDestructor {
+    data: Vec<c_char>,
     destructor: WasiConsoleIoEnvDestructor,
-    data: Option<Box<Arc<Mutex<Vec<c_char>>>>>,
+}
+
+impl Drop for WasiPipeDataWithDestructor {
+    fn drop(&mut self) {
+        let error = unsafe { (self.destructor)(self.data.as_mut_ptr() as *const c_void) };
+        if error < 0 {
+            panic!("error dropping wasi_pipe_t: {}", error);
+        }
+    }
 }
 
 impl wasi_pipe_t {
-    fn get_data_mut(&self, op_id: &'static str) -> io::Result<MutexGuard<Vec<c_char>>> {
+    fn get_data_mut(
+        &self,
+        op_id: &'static str,
+    ) -> io::Result<MutexGuard<WasiPipeDataWithDestructor>> {
         self.data
             .as_ref()
             .ok_or_else(|| {
@@ -79,36 +95,6 @@ impl wasi_pipe_t {
     }
 }
 
-impl Drop for wasi_pipe_t {
-    fn drop(&mut self) {
-        let data = match self.data.take() {
-            Some(s) => s,
-            None => {
-                return;
-            }
-        };
-
-        let value = match Arc::try_unwrap(*data) {
-            Ok(o) => o,
-            Err(_) => {
-                return;
-            }
-        };
-
-        let mut inner_value = match value.into_inner() {
-            Ok(o) => o,
-            Err(_) => {
-                return;
-            }
-        };
-
-        let error = unsafe { (self.destructor)(inner_value.as_mut_ptr() as *const c_void) };
-        if error < 0 {
-            println!("error dropping wasi_pipe_t: {error}");
-        }
-    }
-}
-
 impl fmt::Debug for wasi_pipe_t {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "wasi_pipe_t")
@@ -121,7 +107,7 @@ impl io::Read for wasi_pipe_t {
         let mut data = self.get_data_mut("read")?;
         let result = unsafe {
             let ptr = buf.as_mut_ptr() as *mut c_char;
-            (self_read)(data.as_mut_ptr() as *const c_void, ptr, buf.len())
+            (self_read)(data.data.as_mut_ptr() as *const c_void, ptr, buf.len())
         };
         if result >= 0 {
             Ok(result as usize)
@@ -140,7 +126,7 @@ impl io::Write for wasi_pipe_t {
         let mut data = self.get_data_mut("write")?;
         let result = unsafe {
             (self_write)(
-                data.as_mut_ptr() as *const c_void,
+                data.data.as_mut_ptr() as *const c_void,
                 buf.as_ptr() as *const c_char,
                 buf.len(),
                 false,
@@ -164,7 +150,7 @@ impl io::Write for wasi_pipe_t {
         let bytes_to_write = &[];
         let result: i64 = unsafe {
             (self_write)(
-                data.as_mut_ptr() as *const c_void,
+                data.data.as_mut_ptr() as *const c_void,
                 bytes_to_write.as_ptr(),
                 0,
                 true,
@@ -190,7 +176,7 @@ impl io::Seek for wasi_pipe_t {
             SeekFrom::End(s) => (1, s),
             SeekFrom::Current(s) => (2, s),
         };
-        let result = unsafe { (self_seek)(data.as_mut_ptr() as *const c_void, id, pos) };
+        let result = unsafe { (self_seek)(data.data.as_mut_ptr() as *const c_void, id, pos) };
         if result >= 0 {
             Ok(result.try_into().unwrap_or(0))
         } else {
@@ -213,9 +199,7 @@ impl VirtualFile for wasi_pipe_t {
         0
     }
     fn size(&self) -> u64 {
-        self.get_data_mut("size")
-            .map(|s| s.len() as u64)
-            .unwrap_or(0)
+        0
     }
     fn set_len(&mut self, _: u64) -> Result<(), FsError> {
         Ok(())
@@ -241,8 +225,10 @@ pub unsafe extern "C" fn wasi_pipe_new_internal(
         read,
         write,
         seek,
-        destructor,
-        data: Some(Box::new(Arc::new(Mutex::new(data_vec)))),
+        data: Some(Box::new(Arc::new(Mutex::new(WasiPipeDataWithDestructor {
+            data: data_vec,
+            destructor,
+        })))),
     }))
 }
 
