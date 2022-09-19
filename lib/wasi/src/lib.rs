@@ -43,7 +43,9 @@ mod utils;
 use crate::syscalls::*;
 
 pub use crate::state::{
-    Fd, Stderr, Stdin, Stdout, WasiBidirectionalPipePair, WasiFs, WasiInodes, WasiPipe, WasiState,
+    Fd, Stderr, Stdin, Stdout, 
+    WasiBidirectionalPipePair, WasiBidirectionalSharedPipePair, Pipe,
+    WasiFs, WasiInodes, WasiPipe, WasiState,
     WasiStateBuilder, WasiStateCreationError, ALL_RIGHTS, VIRTUAL_ROOT_FD,
 };
 pub use crate::syscalls::types;

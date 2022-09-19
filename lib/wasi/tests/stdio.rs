@@ -1,7 +1,7 @@
 use std::io::{Read, Write};
 
 use wasmer::{Instance, Module, Store};
-use wasmer_wasi::{WasiBidirectionalSharedPipePair, WasiPipe, WasiState};
+use wasmer_wasi::{WasiBidirectionalSharedPipePair, WasiState};
 
 mod sys {
     #[test]
@@ -73,10 +73,10 @@ fn test_stdout() {
     "#).unwrap();
 
     // Create the `WasiEnv`.
-    let WasiBidirectionalPipePair { send, mut recv } = WasiBidirectionalPipePair::new();
+    let mut pipe = WasiBidirectionalSharedPipePair::new();
     let wasi_env = WasiState::new("command-name")
         .args(&["Gordon"])
-        .stdout(Box::new(send))
+        .stdout(Box::new(pipe.clone()))
         .finalize(&mut store)
         .unwrap();
 
@@ -93,7 +93,7 @@ fn test_stdout() {
     start.call(&mut store, &[]).unwrap();
 
     let mut stdout_str = String::new();
-    recv.read_to_string(&mut stdout_str).unwrap();
+    pipe.read_to_string(&mut stdout_str).unwrap();
     let stdout_as_str = stdout_str.as_str();
     assert_eq!(stdout_as_str, "hello world\n");
 }
@@ -110,7 +110,7 @@ fn test_env() {
     });
 
     // Create the `WasiEnv`.
-    let WasiBidirectionalPipePair { send, mut recv } = WasiBidirectionalPipePair::new();
+    let mut pipe = WasiBidirectionalSharedPipePair::new();
     let mut wasi_state_builder = WasiState::new("command-name");
     wasi_state_builder
         .args(&["Gordon"])
@@ -119,7 +119,7 @@ fn test_env() {
         .env("TEST2", "VALUE2");
     // panic!("envs: {:?}", wasi_state_builder.envs);
     let wasi_env = wasi_state_builder
-        .stdout(Box::new(send))
+        .stdout(Box::new(pipe.clone()))
         .finalize(&mut store)
         .unwrap();
 
@@ -136,7 +136,7 @@ fn test_env() {
     start.call(&mut store, &[]).unwrap();
 
     let mut stdout_str = String::new();
-    recv.read_to_string(&mut stdout_str).unwrap();
+    pipe.read_to_string(&mut stdout_str).unwrap();
     let stdout_as_str = stdout_str.as_str();
     assert_eq!(stdout_as_str, "Env vars:\nDOG=X\nTEST2=VALUE2\nTEST=VALUE\nDOG Ok(\"X\")\nDOG_TYPE Err(NotPresent)\nSET VAR Ok(\"HELLO\")\n");
 }
