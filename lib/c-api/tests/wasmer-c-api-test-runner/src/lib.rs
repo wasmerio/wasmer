@@ -280,6 +280,7 @@ fn test_ok() {
                 println!();
                 println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
                 println!("stderr: {}", String::from_utf8_lossy(&output.stderr));
+                print_wasmer_root_to_stdout(&config);
                 panic!("failed to invoke vcvars64.bat {test}");
             }
 
@@ -292,6 +293,7 @@ fn test_ok() {
             if !output.status.success() {
                 println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
                 println!("stdout: {}", String::from_utf8_lossy(&output.stderr));
+                print_wasmer_root_to_stdout(&config);
                 panic!("failed to compile {test}");
             }
 
@@ -307,6 +309,7 @@ fn test_ok() {
             if !output.status.success() {
                 println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
                 println!("stdout: {}", String::from_utf8_lossy(&output.stderr));
+                print_wasmer_root_to_stdout(&config);
                 panic!("failed to execute {test}");
             }
 
@@ -396,28 +399,21 @@ fn test_ok() {
 fn print_wasmer_root_to_stdout(config: &Config) {
     println!("print_wasmer_root_to_stdout");
 
-    let mut cmd = std::process::Command::new("cargo");
-    cmd.arg("install");
-    cmd.arg("exa");
-    let _ = cmd.output().unwrap();
-    
-    println!("exa installed, listing wasmer dir");
+    use walkdir::WalkDir;
 
-    let mut cmd = std::process::Command::new("exa");
-    cmd.arg("--tree");
-    cmd.arg(&config.wasmer_dir);
-    let o = cmd.output().unwrap();
-    println!("{}", String::from_utf8_lossy(&o.stdout));
-    println!("{}", String::from_utf8_lossy(&o.stderr));
+    for entry in WalkDir::new(&config.wasmer_dir)
+            .into_iter()
+            .filter_map(Result::ok) {
+        let f_name = String::from(entry.path().canonicalize().unwrap().to_string_lossy());
+        println!("{f_name}");
+    }
 
-    println!("exa installed, listing root dir");
-
-    let mut cmd = std::process::Command::new("exa");
-    cmd.arg("--tree");
-    cmd.arg(&config.root_dir);
-    let o = cmd.output().unwrap();
-    println!("{}", String::from_utf8_lossy(&o.stdout));
-    println!("{}", String::from_utf8_lossy(&o.stderr));
+    for entry in WalkDir::new(&config.root_dir)
+    .into_iter()
+    .filter_map(Result::ok) {
+        let f_name = String::from(entry.path().canonicalize().unwrap().to_string_lossy());
+        println!("{f_name}");
+    }
 
     println!("printed");
 }

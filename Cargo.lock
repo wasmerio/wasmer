@@ -3044,6 +3044,7 @@ dependencies = [
  "cc",
  "regex",
  "target-lexicon 0.11.2",
+ "walkdir",
 ]
 
 [[package]]
@@ -3067,6 +3068,7 @@ dependencies = [
  "cc",
  "regex",
  "target-lexicon 0.11.2",
+ "walkdir",
 ]
 
 [[package]]
