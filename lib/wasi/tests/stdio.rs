@@ -73,7 +73,7 @@ fn test_stdout() {
     "#).unwrap();
 
     // Create the `WasiEnv`.
-    let mut pipe = WasiBidirectionalSharedPipePair::new();
+    let mut pipe = WasiBidirectionalSharedPipePair::new().with_blocking(false);
     let wasi_env = WasiState::new("command-name")
         .args(&["Gordon"])
         .stdout(Box::new(pipe.clone()))
@@ -110,7 +110,7 @@ fn test_env() {
     });
 
     // Create the `WasiEnv`.
-    let mut pipe = WasiBidirectionalSharedPipePair::new();
+    let mut pipe = WasiBidirectionalSharedPipePair::new().with_blocking(false);
     let mut wasi_state_builder = WasiState::new("command-name");
     wasi_state_builder
         .args(&["Gordon"])
@@ -146,7 +146,7 @@ fn test_stdin() {
     let module = Module::new(&store, include_bytes!("stdin-hello.wasm")).unwrap();
 
     // Create the `WasiEnv`.
-    let mut pipe = WasiBidirectionalSharedPipePair::new();
+    let mut pipe = WasiBidirectionalSharedPipePair::new().with_blocking(false);
 
     // Write to STDIN
     let buf = "Hello, stdin!\n".as_bytes().to_owned();

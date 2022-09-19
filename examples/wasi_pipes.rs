@@ -36,8 +36,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Creating `WasiEnv`...");
     // First, we create the `WasiEnv` with the stdio pipes
-    let mut input = WasiBidirectionalSharedPipePair::new();
-    let mut output = WasiBidirectionalSharedPipePair::new();
+    let mut input = WasiBidirectionalSharedPipePair::new().with_blocking(false);
+    let mut output = WasiBidirectionalSharedPipePair::new().with_blocking(false);
     let wasi_env = WasiState::new("hello")
         .stdin(Box::new(input.clone()))
         .stdout(Box::new(output.clone()))
