@@ -361,6 +361,7 @@ fn test_ok() {
 
             print_wasmer_root_to_stdout(&config);
 
+            println!("compile: {command:#?}");
             // compile
             let output = command
                 .output()
@@ -376,6 +377,7 @@ fn test_ok() {
             let mut command = std::process::Command::new(&format!("{manifest_dir}/../{test}"));
             command.env("PATH", newpath.clone());
             command.current_dir(exe_dir.clone());
+            println!("execute: {command:#?}");
             let output = command
                 .output()
                 .expect(&format!("failed to run {command:#?}"));
@@ -454,7 +456,7 @@ fn fixup_symlinks_inner(include_paths: &[String], log: &mut String) -> Result<()
         // VERY hacky.
         if file.contains("#include \"../wasmer.h\"") {
             std::fs::write(&path, file.replace("#include \"../wasmer.h\"", "#include \"wasmer.h\""))?;
-        }
+        }fixup_symlinks_i
         let lines_3 = file.lines().take(3).collect::<Vec<_>>();
         log.push_str(&format!("first 3 lines of {path:?}: {:#?}\n", lines_3));
 

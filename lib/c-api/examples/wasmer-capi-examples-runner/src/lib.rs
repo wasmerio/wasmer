@@ -336,6 +336,7 @@ fn test_run() {
             command.arg("-o");
             command.arg(&format!("{manifest_dir}/../{test}"));
 
+            println!("compile: {command:#?}");
             // compile
             let output = command
                 .output()
@@ -351,6 +352,7 @@ fn test_run() {
             let mut command = std::process::Command::new(&format!("{manifest_dir}/../{test}"));
             command.env("PATH", newpath.clone());
             command.current_dir(exe_dir.clone());
+            println!("execute: {command:#?}");
             let output = command
                 .output()
                 .expect(&format!("failed to run {command:#?}"));
