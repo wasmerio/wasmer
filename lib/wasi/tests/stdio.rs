@@ -1,7 +1,7 @@
 use std::io::{Read, Write};
 
 use wasmer::{Instance, Module, Store};
-use wasmer_wasi::{WasiPipe, WasiBidirectionalSharedPipePair, WasiState};
+use wasmer_wasi::{WasiBidirectionalSharedPipePair, WasiPipe, WasiState};
 
 mod sys {
     #[test]

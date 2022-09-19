@@ -23,8 +23,8 @@ use std::{
     sync::MutexGuard,
 };
 use wasmer_wasi::{
-    get_wasi_version, FsError, VirtualFile, WasiFile, WasiFunctionEnv, WasiPipe, WasiBidirectionalPipePair,
-    WasiState, WasiStateBuilder, WasiVersion,
+    get_wasi_version, FsError, VirtualFile, WasiBidirectionalPipePair, WasiFile, WasiFunctionEnv,
+    WasiPipe, WasiState, WasiStateBuilder, WasiVersion,
 };
 
 /// Function callback that takes:
@@ -355,11 +355,16 @@ pub unsafe extern "C" fn wasi_pipe_new(ptr_user: &mut *mut wasi_pipe_t) -> *mut 
 
 /// Same as `wasi_pipe_new`, but the pipe will block to wait for stdin input
 #[no_mangle]
-pub unsafe extern "C" fn wasi_pipe_new_blocking(ptr_user: &mut *mut wasi_pipe_t) -> *mut wasi_pipe_t {
+pub unsafe extern "C" fn wasi_pipe_new_blocking(
+    ptr_user: &mut *mut wasi_pipe_t,
+) -> *mut wasi_pipe_t {
     wasi_pipe_new_internal_memory(ptr_user, true)
 }
 
-unsafe fn wasi_pipe_new_internal_memory(ptr_user: &mut *mut wasi_pipe_t, blocking: bool) -> *mut wasi_pipe_t {
+unsafe fn wasi_pipe_new_internal_memory(
+    ptr_user: &mut *mut wasi_pipe_t,
+    blocking: bool,
+) -> *mut wasi_pipe_t {
     use std::mem::ManuallyDrop;
 
     let mut pair = WasiBidirectionalPipePair::new();

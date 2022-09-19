@@ -213,13 +213,12 @@ impl VirtualFile for WasiBidirectionalSharedPipePair {
 }
 
 impl WasiPipe {
-    
     /// Same as `set_blocking`, but as a builder method
     pub fn with_blocking(mut self, block: bool) -> Self {
         self.set_blocking(block);
         self
     }
-    
+
     /// Whether to block on reads (ususally for waiting for stdin keyboard input). Default: `true`
     pub fn set_blocking(&mut self, block: bool) {
         self.block = block;
