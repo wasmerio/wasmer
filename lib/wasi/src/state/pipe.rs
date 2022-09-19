@@ -297,7 +297,6 @@ impl Read for WasiPipe {
                         // In this case, just return 0 to indicate that we can't read any
                         // bytes anymore
                         Err(e) => {
-                            eprintln!("WasiPipe read error: {e}");
                             return Ok(0);
                         }
                     }
