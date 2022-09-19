@@ -271,6 +271,8 @@ fn test_run() {
 
             println!("compiling {test}: {command:?}");
 
+            print_wasmer_root_to_stdout(&config);
+
             // compile
             let output = command
                 .output()
@@ -278,6 +280,7 @@ fn test_run() {
             if !output.status.success() {
                 println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
                 println!("stdout: {}", String::from_utf8_lossy(&output.stderr));
+                print_wasmer_root_to_stdout(&config);
                 panic!("failed to compile {test}");
             }
 
@@ -293,6 +296,7 @@ fn test_run() {
             if !output.status.success() {
                 println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
                 println!("stdout: {}", String::from_utf8_lossy(&output.stderr));
+                print_wasmer_root_to_stdout(&config);
                 panic!("failed to execute {test}");
             }
         }
@@ -363,6 +367,36 @@ fn test_run() {
             }
         }
     }
+}
+
+#[cfg(test)]
+fn print_wasmer_root_to_stdout(config: &Config) {
+    println!("print_wasmer_root_to_stdout");
+
+    let mut cmd = std::process::Command::new("cargo");
+    cmd.arg("install");
+    cmd.arg("exa");
+    let _ = cmd.output().unwrap();
+    
+    println!("exa installed, listing wasmer dir");
+
+    let mut cmd = std::process::Command::new("exa");
+    cmd.arg("--tree");
+    cmd.arg(&config.wasmer_dir);
+    let o = cmd.output().unwrap();
+    println!("{}", String::from_utf8_lossy(&o.stdout));
+    println!("{}", String::from_utf8_lossy(&o.stderr));
+
+    println!("exa installed, listing root dir");
+
+    let mut cmd = std::process::Command::new("exa");
+    cmd.arg("--tree");
+    cmd.arg(&config.root_dir);
+    let o = cmd.output().unwrap();
+    println!("{}", String::from_utf8_lossy(&o.stdout));
+    println!("{}", String::from_utf8_lossy(&o.stderr));
+
+    println!("printed");
 }
 
 #[cfg(test)]

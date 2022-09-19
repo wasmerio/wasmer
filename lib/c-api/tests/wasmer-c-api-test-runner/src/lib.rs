@@ -356,6 +356,8 @@ fn test_ok() {
             command.arg("-o");
             command.arg(&format!("{manifest_dir}/../{test}"));
 
+            print_wasmer_root_to_stdout(&config);
+
             // compile
             let output = command
                 .output()
@@ -363,6 +365,7 @@ fn test_ok() {
             if !output.status.success() {
                 println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
                 println!("stderr: {}", String::from_utf8_lossy(&output.stderr));
+                print_wasmer_root_to_stdout(&config);
                 panic!("failed to compile {test}: {command:#?}");
             }
 
@@ -376,13 +379,7 @@ fn test_ok() {
             if !output.status.success() {
                 println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
                 println!("stderr: {}", String::from_utf8_lossy(&output.stderr));
-                println!("listing {manifest_dir}/../{test}:");
-                if let Ok(r) = std::fs::read_dir(&format!("{manifest_dir}/../")) {
-                    for entry in r {
-                        let entry = entry.unwrap();
-                        println!("    {entry:?}");
-                    }
-                }
+                print_wasmer_root_to_stdout(&config);
                 panic!("failed to execute {test}: {command:#?}");
             }
         }
@@ -393,6 +390,36 @@ fn test_ok() {
         let _ = std::fs::remove_file(&format!("{manifest_dir}/../{test}.exe"));
         let _ = std::fs::remove_file(&format!("{manifest_dir}/../{test}"));
     }
+}
+
+#[cfg(test)]
+fn print_wasmer_root_to_stdout(config: &Config) {
+    println!("print_wasmer_root_to_stdout");
+
+    let mut cmd = std::process::Command::new("cargo");
+    cmd.arg("install");
+    cmd.arg("exa");
+    let _ = cmd.output().unwrap();
+    
+    println!("exa installed, listing wasmer dir");
+
+    let mut cmd = std::process::Command::new("exa");
+    cmd.arg("--tree");
+    cmd.arg(&config.wasmer_dir);
+    let o = cmd.output().unwrap();
+    println!("{}", String::from_utf8_lossy(&o.stdout));
+    println!("{}", String::from_utf8_lossy(&o.stderr));
+
+    println!("exa installed, listing root dir");
+
+    let mut cmd = std::process::Command::new("exa");
+    cmd.arg("--tree");
+    cmd.arg(&config.root_dir);
+    let o = cmd.output().unwrap();
+    println!("{}", String::from_utf8_lossy(&o.stdout));
+    println!("{}", String::from_utf8_lossy(&o.stderr));
+
+    println!("printed");
 }
 
 #[cfg(test)]
