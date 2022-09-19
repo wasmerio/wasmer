@@ -202,14 +202,6 @@ jobs:
       - name: Test
         if: matrix.run_test && matrix.os != 'windows-2019'
         run: |
-          make
-        env:
-          TARGET: ${{ matrix.target }}
-          TARGET_DIR: target/${{ matrix.target }}/release
-          CARGO_TARGET: --target ${{ matrix.target }}
-      - name: Test
-        if: matrix.run_test && matrix.os != 'windows-2019'
-        run: |
           make test
         env:
           TARGET: ${{ matrix.target }}
