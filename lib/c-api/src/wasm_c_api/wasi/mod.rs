@@ -514,9 +514,9 @@ pub unsafe extern "C" fn wasi_pipe_seek(
 #[derive(Debug)]
 #[allow(non_camel_case_types)]
 pub struct wasi_config_t {
-    inherit_stdout: Option<Box<wasi_pipe_t>>,
-    inherit_stderr: Option<Box<wasi_pipe_t>>,
-    inherit_stdin: Option<Box<wasi_pipe_t>>,
+    stdout: Option<Box<wasi_pipe_t>>,
+    stderr: Option<Box<wasi_pipe_t>>,
+    stdin: Option<Box<wasi_pipe_t>>,
     state_builder: WasiStateBuilder,
 }
 
@@ -530,9 +530,9 @@ pub unsafe extern "C" fn wasi_config_new(
     let prog_name = c_try!(name_c_str.to_str());
 
     Some(Box::new(wasi_config_t {
-        inherit_stdout: None,
-        inherit_stderr: None,
-        inherit_stdin: None,
+        stdout: None,
+        stderr: None,
+        stdin: None,
         state_builder: WasiState::new(prog_name),
     }))
 }
@@ -623,32 +623,32 @@ pub unsafe extern "C" fn wasi_config_mapdir(
 
 #[no_mangle]
 pub extern "C" fn wasi_config_capture_stdout(config: &mut wasi_config_t) {
-    config.inherit_stdout = Some(unsafe { Box::from_raw(wasi_pipe_new_null()) });
+    config.stdout = Some(unsafe { Box::from_raw(wasi_pipe_new_null()) });
 }
 
 #[no_mangle]
 pub extern "C" fn wasi_config_inherit_stdout(config: &mut wasi_config_t) {
-    config.inherit_stdout = None;
+    config.stdout = None;
 }
 
 #[no_mangle]
 pub extern "C" fn wasi_config_capture_stderr(config: &mut wasi_config_t) {
-    config.inherit_stderr = Some(unsafe { Box::from_raw(wasi_pipe_new_null()) });
+    config.stderr = Some(unsafe { Box::from_raw(wasi_pipe_new_null()) });
 }
 
 #[no_mangle]
 pub extern "C" fn wasi_config_inherit_stderr(config: &mut wasi_config_t) {
-    config.inherit_stderr = None;
+    config.stderr = None;
 }
 
 #[no_mangle]
 pub extern "C" fn wasi_config_capture_stdin(config: &mut wasi_config_t) {
-    config.inherit_stdin = Some(unsafe { Box::from_raw(wasi_pipe_new_null()) });
+    config.stdin = Some(unsafe { Box::from_raw(wasi_pipe_new_null()) });
 }
 
 #[no_mangle]
 pub extern "C" fn wasi_config_inherit_stdin(config: &mut wasi_config_t) {
-    config.inherit_stdin = None;
+    config.stdin = None;
 }
 
 #[no_mangle]
@@ -693,15 +693,15 @@ pub unsafe extern "C" fn wasi_env_new(
     let store = &mut store?.inner;
     let mut store_mut = store.store_mut();
 
-    if let Some(stdout) = config.inherit_stdout {
+    if let Some(stdout) = config.stdout {
         config.state_builder.stdout(stdout);
     }
 
-    if let Some(stderr) = config.inherit_stderr {
+    if let Some(stderr) = config.stderr {
         config.state_builder.stderr(stderr);
     }
 
-    if let Some(stdin) = config.inherit_stdin {
+    if let Some(stdin) = config.stdin {
         config.state_builder.stdin(stdin);
     }
 
