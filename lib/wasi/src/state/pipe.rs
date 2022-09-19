@@ -19,6 +19,8 @@ pub struct WasiPipe {
     rx: Mutex<mpsc::Receiver<Vec<u8>>>,
     /// Buffers the last read message from the pipe while its being consumed
     read_buffer: Option<Bytes>,
+    /// Whether the pipe should block or not block to wait for stdin reads
+    block: bool,
 }
 
 /// Pipe pair of (a, b) WasiPipes that are connected together
@@ -88,18 +90,31 @@ impl WasiBidirectionalPipePair {
             tx: Mutex::new(tx1),
             rx: Mutex::new(rx2),
             read_buffer: None,
+            block: true,
         };
 
         let pipe2 = WasiPipe {
             tx: Mutex::new(tx2),
             rx: Mutex::new(rx1),
             read_buffer: None,
+            block: true,
         };
 
         WasiBidirectionalPipePair {
             send: pipe1,
             recv: pipe2,
         }
+    }
+
+    pub fn with_blocking(mut self, block: bool) -> Self {
+        self.set_blocking(block);
+        self
+    }
+
+    /// Whether to block on reads (ususally for waiting for stdin keyboard input). Default: `true`
+    pub fn set_blocking(&mut self, block: bool) {
+        self.send.set_blocking(block);
+        self.recv.set_blocking(block);
     }
 }
 
@@ -121,6 +136,16 @@ impl WasiBidirectionalSharedPipePair {
         Self {
             inner: Arc::new(Mutex::new(WasiBidirectionalPipePair::new())),
         }
+    }
+
+    pub fn with_blocking(mut self, block: bool) -> Self {
+        self.set_blocking(block);
+        self
+    }
+
+    /// Whether to block on reads (ususally for waiting for stdin keyboard input). Default: `true`
+    pub fn set_blocking(&mut self, block: bool) {
+        self.inner.lock().unwrap().set_blocking(block);
     }
 }
 
@@ -188,6 +213,18 @@ impl VirtualFile for WasiBidirectionalSharedPipePair {
 }
 
 impl WasiPipe {
+    
+    /// Same as `set_blocking`, but as a builder method
+    pub fn with_blocking(mut self, block: bool) -> Self {
+        self.set_blocking(block);
+        self
+    }
+    
+    /// Whether to block on reads (ususally for waiting for stdin keyboard input). Default: `true`
+    pub fn set_blocking(&mut self, block: bool) {
+        self.block = block;
+    }
+
     pub fn recv<M: MemorySize>(
         &mut self,
         memory: &MemoryView,
@@ -278,7 +315,7 @@ impl Read for WasiPipe {
                         inner_buf.advance(read);
                         return Ok(read);
                     }
-                } else {
+                } else if !self.block {
                     return Ok(0);
                 }
             }

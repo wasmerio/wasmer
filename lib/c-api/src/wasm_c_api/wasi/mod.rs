@@ -350,9 +350,21 @@ unsafe extern "C" fn wasi_pipe_delete_memory_2(ptr: *const c_void /* = *WasiPipe
 /// for backing stdin / stdout / stderr
 #[no_mangle]
 pub unsafe extern "C" fn wasi_pipe_new(ptr_user: &mut *mut wasi_pipe_t) -> *mut wasi_pipe_t {
+    wasi_pipe_new_internal_memory(ptr_user, false)
+}
+
+/// Same as `wasi_pipe_new`, but the pipe will block to wait for stdin input
+#[no_mangle]
+pub unsafe extern "C" fn wasi_pipe_new_blocking(ptr_user: &mut *mut wasi_pipe_t) -> *mut wasi_pipe_t {
+    wasi_pipe_new_internal_memory(ptr_user, true)
+}
+
+unsafe fn wasi_pipe_new_internal_memory(ptr_user: &mut *mut wasi_pipe_t, blocking: bool) -> *mut wasi_pipe_t {
     use std::mem::ManuallyDrop;
 
-    let pair = WasiBidirectionalPipePair::new();
+    let mut pair = WasiBidirectionalPipePair::new();
+    pair.send.set_blocking(blocking);
+    pair.recv.set_blocking(blocking);
 
     let mut data1 = ManuallyDrop::new(pair.send);
     let ptr1: &mut WasiPipe = &mut data1;
