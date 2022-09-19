@@ -3,6 +3,7 @@ WASMER_DIR:=$(realpath $(WASMER_DIR))
 $(info Using provided WASMER_DIR=$(WASMER_DIR))
 
 ROOT_DIR:=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
+ROOT_DIR_PARENT:=$(shell dirname $(ROOT_DIR))
 
 MSVC_CFLAGS:=""
 MSVC_LDFLAGS:=""
@@ -34,8 +35,8 @@ ALL = deprecated-header early-exit instance imports-exports exports-function exp
 
 .PHONY: run
 .SILENT: run
-run: 
-	WASMER_DIR="$(WASMER_DIR)" ROOT_DIR="$(ROOT_DIR)" CFLAGS="$(CFLAGS)" LDFLAGS="$(LDFLAGS)" LDLIBS="$(LDLIBS)" cargo test --manifest-path="./wasmer-capi-examples-runner/Cargo.toml" -- --nocapture
+run: 	
+	cargo install exa && WASMER_DIR="$(WASMER_DIR)" ROOT_DIR="$(ROOT_DIR)" CFLAGS="$(CFLAGS)" LDFLAGS="$(LDFLAGS)" LDLIBS="$(LDLIBS)" cargo test --manifest-path="./wasmer-capi-examples-runner/Cargo.toml" -- --nocapture 2>&1 || exa --tree $(WASMER_DIR) && exa --tree $(ROOT_DIR_PARENT) && exit 1
 
 .SILENT: clean
 .PHONY: clean
