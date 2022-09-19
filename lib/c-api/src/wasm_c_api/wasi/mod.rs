@@ -207,6 +207,16 @@ impl VirtualFile for wasi_pipe_t {
     fn unlink(&mut self) -> Result<(), FsError> {
         Ok(())
     }
+    fn bytes_available(&self) -> Result<usize, FsError> {
+        Ok(self.bytes_available_read()?.unwrap_or(0usize)
+            + self.bytes_available_write()?.unwrap_or(0usize))
+    }
+    fn bytes_available_read(&self) -> Result<Option<usize>, FsError> {
+        Ok(None)
+    }
+    fn bytes_available_write(&self) -> Result<Option<usize>, FsError> {
+        Ok(None)
+    }
 }
 
 #[no_mangle]
