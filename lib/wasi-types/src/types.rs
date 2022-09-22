@@ -24,11 +24,11 @@ pub type __wasi_exitcode_t = u32;
 pub type __wasi_userdata_t = u64;
 
 pub mod bus {
-    use wasmer_derive::ValueType;
-    use wasmer_types::MemorySize;
     use crate::wasi::{
         BusDataFormat, BusEventClose, BusEventExit, BusEventFault, BusEventType, Cid, OptionCid,
     };
+    use wasmer_derive::ValueType;
+    use wasmer_types::MemorySize;
 
     // Not sure how to port these types to .wit with generics ...
 
@@ -101,8 +101,8 @@ pub mod file {
 }
 
 pub mod directory {
-    use std::mem;
     use crate::wasi;
+    use std::mem;
 
     pub const __WASI_DIRCOOKIE_START: wasi::Dircookie = 0;
 
@@ -202,8 +202,8 @@ pub mod time {
 }
 
 pub mod net {
-    use wasmer_derive::ValueType;
     use crate::wasi::Addressfamily;
+    use wasmer_derive::ValueType;
 
     use crate::wasi::OptionTimestamp;
 
