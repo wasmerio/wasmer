@@ -339,9 +339,9 @@ fn test_ok() {
                 }
             } else if !config.wasmer_dir.is_empty() {
                 command.arg("-I");
-                command.arg(&format!("{}/wasm-c-api", config.root_dir));
+                command.arg(&format!("{}/wasm-c-api/", config.root_dir));
                 command.arg("-I");
-                command.arg(&format!("{}/include", config.wasmer_dir));
+                command.arg(&format!("{}/include/", config.wasmer_dir));
             }
             if !config.ldflags.is_empty() {
                 for f in config.ldflags.split_whitespace() {
@@ -355,7 +355,7 @@ fn test_ok() {
                 }
             } else if !config.wasmer_dir.is_empty() {
                 command.arg("-L");
-                command.arg(&format!("{}/lib", config.wasmer_dir));
+                command.arg(&format!("{}/lib/", config.wasmer_dir));
                 command.arg(&format!("-lwasmer"));
             }
             command.arg("-o");
