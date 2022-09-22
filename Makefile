@@ -92,7 +92,7 @@ endif
 CARGO_BINARY ?= cargo
 CARGO_TARGET ?=
 
-# Variables that can be overriden by the users to force to enable or
+# Variables that can be overridden by the users to force to enable or
 # to disable a specific compiler.
 ENABLE_CRANELIFT ?=
 ENABLE_LLVM ?=
@@ -670,7 +670,7 @@ endif
 
 #####
 #
-# Installating (for Distros).
+# Installation (for Distros).
 #
 #####
 
