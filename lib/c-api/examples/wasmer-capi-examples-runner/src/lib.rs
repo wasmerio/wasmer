@@ -195,7 +195,7 @@ fn test_run() {
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
     let host = target_lexicon::HOST.to_string();
     let target = &host;
-    
+
     let wasmer_dll_dir = format!("{}/lib", config.wasmer_dir);
     let libwasmer_so_path = format!("{}/lib/libwasmer.so", config.wasmer_dir);
     let path = std::env::var("PATH").unwrap_or_default();
@@ -231,10 +231,14 @@ fn test_run() {
                 command.arg("/I");
                 command.arg(&format!("{}", config.root_dir));
                 let mut log = String::new();
-                fixup_symlinks(&[
-                    format!("{}/include", config.wasmer_dir),
-                    format!("{}", config.root_dir),
-                ], &mut log)
+                fixup_symlinks(
+                    &[
+                        format!("{}/include", config.wasmer_dir),
+                        format!("{}", config.root_dir),
+                    ],
+                    &mut log,
+                    &config.root_dir,
+                )
                 .expect(&format!("failed to fix symlinks: {log}"));
                 println!("{log}");
             }
@@ -316,6 +320,16 @@ fn test_run() {
                 command.arg(&format!("{}/include", config.wasmer_dir));
                 command.arg("-I");
                 command.arg(&config.root_dir);
+                let mut log = String::new();
+                fixup_symlinks(
+                    &[
+                        format!("{}/include", config.wasmer_dir),
+                        format!("{}", config.root_dir),
+                    ],
+                    &mut log,
+                    &config.root_dir,
+                )
+                .expect(&format!("failed to fix symlinks: {log}"));
             }
             if !config.ldflags.is_empty() {
                 for f in config.ldflags.split_whitespace() {
@@ -334,17 +348,17 @@ fn test_run() {
             }
             command.arg("-o");
             command.arg(&format!("{manifest_dir}/../{test}"));
-            
+
             // cc -g -IC:/Users/felix/Development/wasmer/lib/c-api/examples/../tests
             //       -IC:/Users/felix/Development/wasmer/package/include
             //       -c -o deprecated-header.o deprecated-header.c
 
             /*
                 cc -I /home/runner/work/wasmer/wasmer/lib/c-api/tests
-                -I" "/home/runner/work/wasmer/wasmer/package/include" 
-                "/home/runner/work/wasmer/wasmer/lib/c-api/tests/wasmer-c-api-test-runner/../wasm-c-api/example/callback.c" 
-                "-L/home/runner/work/wasmer/wasmer/package/lib" 
-                "-lwasmer" 
+                -I" "/home/runner/work/wasmer/wasmer/package/include"
+                "/home/runner/work/wasmer/wasmer/lib/c-api/tests/wasmer-c-api-test-runner/../wasm-c-api/example/callback.c"
+                "-L/home/runner/work/wasmer/wasmer/package/lib"
+                "-lwasmer"
                 "-o" "/home/runner/work/wasmer/wasmer/lib/c-api/tests/wasmer-c-api-test-runner/../wasm-c-api/example/callback"
             */
 
@@ -386,15 +400,17 @@ fn print_wasmer_root_to_stdout(config: &Config) {
     use walkdir::WalkDir;
 
     for entry in WalkDir::new(&config.wasmer_dir)
-            .into_iter()
-            .filter_map(Result::ok) {
+        .into_iter()
+        .filter_map(Result::ok)
+    {
         let f_name = String::from(entry.path().canonicalize().unwrap().to_string_lossy());
         println!("{f_name}");
     }
 
     for entry in WalkDir::new(&config.root_dir)
-    .into_iter()
-    .filter_map(Result::ok) {
+        .into_iter()
+        .filter_map(Result::ok)
+    {
         let f_name = String::from(entry.path().canonicalize().unwrap().to_string_lossy());
         println!("{f_name}");
     }
@@ -403,7 +419,13 @@ fn print_wasmer_root_to_stdout(config: &Config) {
 }
 
 #[cfg(test)]
-fn fixup_symlinks(include_paths: &[String], log: &mut String) -> Result<(), Box<dyn Error>> {
+fn fixup_symlinks(include_paths: &[String], log: &mut String, root_dir: &str) -> Result<(), Box<dyn Error>> {
+    
+    let source = std::path::Path::new(root_dir).join("lib").join("c-api").join("tests").join("wasm-c-api").join("include").join("wasm.h");
+    let target = std::path::Path::new(root_dir).join("lib").join("c-api").join("tests").join("wasm.h");
+    println!("copying {} -> {}", source.display(), target.display());
+    let _ = std::fs::copy(source, target);
+
     log.push_str(&format!("include paths: {include_paths:?}"));
     for i in include_paths {
         let i = i.replacen("-I", "", 1);
