@@ -1182,6 +1182,19 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
         // Then append the regular call arguments.
         real_call_args.extend_from_slice(call_args);
 
+        let function_type_offset =
+            i32::try_from(self.offsets.vmctx_vmfunction_import_vmctx(callee_index)).unwrap();
+
+        let is_dynamic = pos.ins().IntCompare(opcode, ctrl_typevar, cond, arg0, arg1);
+
+        // pos.ins().load(pointer_type, mem_flags, base, function_type_offset);
+        if is_dynamic {
+            let dynamic_function_offset =
+            i32::try_from(self.offsets.vmctx_vmfunction_import_vmctx(callee_index)).unwrap();
+
+            function_addr = pos.ins().load(, dynamic_function_offset);
+        }
+
         Ok(pos.ins().call_indirect(sig_ref, func_addr, &real_call_args))
     }
 
