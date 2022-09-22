@@ -143,7 +143,7 @@ impl<'a> WasiTest<'a> {
     )> {
         let mut builder = WasiState::new(self.wasm_path);
 
-        let stdin_pipe = WasiBidirectionalPipePair::new();
+        let stdin_pipe = WasiBidirectionalPipePair::new().with_blocking(false);
         builder.stdin(Box::new(stdin_pipe));
 
         for (name, value) in &self.envs {
