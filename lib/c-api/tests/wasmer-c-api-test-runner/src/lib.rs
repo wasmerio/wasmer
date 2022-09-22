@@ -218,6 +218,7 @@ fn test_ok() {
     let target = &host;
 
     let wasmer_dll_dir = format!("{}/lib", config.wasmer_dir);
+    let libwasmer_so_path = format!("{}/lib/libwasmer.so", config.wasmer_dir);
     let exe_dir = format!("{manifest_dir}/../wasm-c-api/example");
     let path = std::env::var("PATH").unwrap_or_default();
     let newpath = format!("{wasmer_dll_dir};{path}");
@@ -338,7 +339,7 @@ fn test_ok() {
                 }
             } else if !config.wasmer_dir.is_empty() {
                 command.arg("-I");
-                command.arg(&config.root_dir);
+                command.arg(&format!("{}/wasm-c-api", config.root_dir));
                 command.arg("-I");
                 command.arg(&format!("{}/include", config.wasmer_dir));
             }
@@ -375,7 +376,7 @@ fn test_ok() {
 
             // execute
             let mut command = std::process::Command::new(&format!("{manifest_dir}/../{test}"));
-            command.env("PATH", newpath.clone());
+            command.env("LD_PRELOAD", libwasmer_so_path.clone());
             command.current_dir(exe_dir.clone());
             println!("execute: {command:#?}");
             let output = command
@@ -453,10 +454,6 @@ fn fixup_symlinks_inner(include_paths: &[String], log: &mut String) -> Result<()
             Ok(o) => o,
             _ => continue,
         };
-        // VERY hacky.
-        if file.contains("#include \"../wasmer.h\"") {
-            std::fs::write(&path, file.replace("#include \"../wasmer.h\"", "#include \"wasmer.h\""))?;
-        }
         let lines_3 = file.lines().take(3).collect::<Vec<_>>();
         log.push_str(&format!("first 3 lines of {path:?}: {:#?}\n", lines_3));
 

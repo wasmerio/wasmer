@@ -195,12 +195,9 @@ fn test_run() {
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
     let host = target_lexicon::HOST.to_string();
     let target = &host;
-
-    // cc -g -IC:/Users/felix/Development/wasmer/lib/c-api/examples/../tests
-    //       -IC:/Users/felix/Development/wasmer/package/include
-    //       -c -o deprecated-header.o deprecated-header.c
-
+    
     let wasmer_dll_dir = format!("{}/lib", config.wasmer_dir);
+    let libwasmer_so_path = format!("{}/lib/libwasmer.so", config.wasmer_dir);
     let path = std::env::var("PATH").unwrap_or_default();
     let newpath = format!("{wasmer_dll_dir};{path}");
     let exe_dir = match std::path::Path::new(&manifest_dir).parent() {
@@ -269,14 +266,15 @@ fn test_run() {
                 panic!("failed to invoke vcvars64.bat {test}");
             }
 
-            println!("compiling {test}: {command:?}");
+            println!("compiling WINDOWS {test}: {command:?}");
 
             print_wasmer_root_to_stdout(&config);
 
             // compile
             let output = command
                 .output()
-                .expect(&format!("failed to compile {command:#?}"));
+                .map_err(|e| format!("failed to compile {command:#?}: {e}"))
+                .unwrap();
             if !output.status.success() {
                 println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
                 println!("stdout: {}", String::from_utf8_lossy(&output.stderr));
@@ -335,12 +333,26 @@ fn test_run() {
             }
             command.arg("-o");
             command.arg(&format!("{manifest_dir}/../{test}"));
+            
+            // cc -g -IC:/Users/felix/Development/wasmer/lib/c-api/examples/../tests
+            //       -IC:/Users/felix/Development/wasmer/package/include
+            //       -c -o deprecated-header.o deprecated-header.c
 
-            println!("compile: {command:#?}");
+            /*
+                cc -I /home/runner/work/wasmer/wasmer/lib/c-api/tests
+                -I" "/home/runner/work/wasmer/wasmer/package/include" 
+                "/home/runner/work/wasmer/wasmer/lib/c-api/tests/wasmer-c-api-test-runner/../wasm-c-api/example/callback.c" 
+                "-L/home/runner/work/wasmer/wasmer/package/lib" 
+                "-lwasmer" 
+                "-o" "/home/runner/work/wasmer/wasmer/lib/c-api/tests/wasmer-c-api-test-runner/../wasm-c-api/example/callback"
+            */
+
+            println!("compiling LINUX {command:#?}");
             // compile
             let output = command
                 .output()
-                .expect(&format!("failed to compile {command:#?}"));
+                .map_err(|e| format!("failed to compile {command:#?}: {e}"))
+                .unwrap();
             if !output.status.success() {
                 println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
                 println!("stderr: {}", String::from_utf8_lossy(&output.stderr));
@@ -350,7 +362,7 @@ fn test_run() {
 
             // execute
             let mut command = std::process::Command::new(&format!("{manifest_dir}/../{test}"));
-            command.env("PATH", newpath.clone());
+            command.env("LD_PRELOAD", libwasmer_so_path.clone());
             command.current_dir(exe_dir.clone());
             println!("execute: {command:#?}");
             let output = command
@@ -422,10 +434,6 @@ fn fixup_symlinks_inner(include_paths: &[String], log: &mut String) -> Result<()
             Ok(o) => o,
             _ => continue,
         };
-        // VERY hacky.
-        if file.contains("#include \"../wasmer.h\"") {
-            std::fs::write(&path, file.replace("#include \"../wasmer.h\"", "#include \"wasmer.h\""))?;
-        }
         let lines_3 = file.lines().take(3).collect::<Vec<_>>();
         log.push_str(&format!("first 3 lines of {path:?}: {:#?}\n", lines_3));
 

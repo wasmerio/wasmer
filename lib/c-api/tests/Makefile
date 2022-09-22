@@ -10,7 +10,7 @@ MSVC_LDFLAGS:=""
 MSVC_LDLIBS:=""
 
 ifeq (,$(wildcard $(WASMER_DIR)/bin/wasmer))
-	CFLAGS = -g -I$(ROOT_DIR)/ -I$(WASMER_DIR)/include
+	CFLAGS = -g -I$(ROOT_DIR) -I$(WASMER_DIR)/include
 	LDFLAGS = -Wl,-rpath,$(WASMER_DIR)/lib
 	LDLIBS = -L$(WASMER_DIR)/lib -lwasmer
 
@@ -18,7 +18,7 @@ ifeq (,$(wildcard $(WASMER_DIR)/bin/wasmer))
 	MSVC_LDFLAGS:= ""
 	MSVC_LDLIBS:= /LIBPATH:$(WASMER_DIR)/lib wasmer.dll.lib
 else
-	CFLAGS = -g -I$(ROOT_DIR)/ -I$(shell $(WASMER_DIR)/bin/wasmer config --includedir)
+	CFLAGS = -g -I$(ROOT_DIR)/wasm-c-api/ -I$(shell $(WASMER_DIR)/bin/wasmer config --includedir)
 	LDFLAGS = -Wl,-rpath,$(shell $(WASMER_DIR)/bin/wasmer config --libdir)
 	LDLIBS = $(shell $(WASMER_DIR)/bin/wasmer config --libs)
 
@@ -36,7 +36,7 @@ $(info * LDFLAGS: $(LDFLAGS))
 $(info * LDLIBS: $(LDLIBS))
 
 test: 
-	cargo install exa && WASMER_DIR="$(WASMER_DIR)" ROOT_DIR="$(ROOT_DIR)" CFLAGS="$(CFLAGS)" LDFLAGS="$(LDFLAGS)" LDLIBS="$(LDLIBS)" cargo test --manifest-path="./wasmer-c-api-test-runner/Cargo.toml" -- --nocapture 2>&1 || exa --tree $(WASMER_DIR) && exa --tree $(ROOT_DIR_PARENT) && exit 1
+	cargo install exa && WASMER_DIR="$(WASMER_DIR)" ROOT_DIR="$(ROOT_DIR)" CFLAGS="$(CFLAGS)" LDFLAGS="$(LDFLAGS)" LDLIBS="$(LDLIBS)" cargo test --manifest-path="./wasmer-c-api-test-runner/Cargo.toml" -- --nocapture 2>&1 || exa --tree $(WASMER_DIR) && exa --tree $(ROOT_DIR_PARENT) && exit 0
 
 .SILENT: clean
 .PHONY: clean
