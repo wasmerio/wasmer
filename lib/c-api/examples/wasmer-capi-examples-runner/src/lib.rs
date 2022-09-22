@@ -328,7 +328,8 @@ fn test_run() {
                     command.arg(f);
                 }
             } else if !config.wasmer_dir.is_empty() {
-                command.arg(&format!("-L{}/lib", config.wasmer_dir));
+                command.arg("-L");
+                command.arg(&format!("{}/lib", config.wasmer_dir));
                 command.arg(&format!("-lwasmer"));
             }
             command.arg("-o");
