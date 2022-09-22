@@ -3,7 +3,7 @@ use crate::{WasiEnv, WasiError, WasiState, WasiThread};
 use wasmer::{Memory, Memory32, MemorySize, StoreMut, WasmPtr, WasmSlice};
 use wasmer_wasi_types::{
     wasi::{Errno, Event, Fd as WasiFd, Filesize, Fstflags, Fstflags, Timestamp, Whence, Clockid},
-    *,
+    types::*,
 };
 
 type MemoryType = Memory32;

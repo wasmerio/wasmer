@@ -1,8 +1,8 @@
 #![deny(dead_code)]
 use crate::{WasiEnv, WasiError, WasiState, WasiThread};
 use wasmer::{FunctionEnvMut, Memory, Memory32, MemorySize, StoreMut, WasmPtr, WasmSlice};
-use wasmer_wasi_types::*;
-use wasmer_wasi_types_generated::wasi::{
+use wasmer_wasi_types::types::*;
+use wasmer_wasi_types::wasi::{
     Addressfamily, Advice, Bid, BusDataFormat, BusErrno, BusHandles, Cid, Clockid, Dircookie,
     Errno, Event, EventFdFlags, Fd, Fdflags, Fdstat, Filesize, Filestat, Fstflags, Pid, Prestat,
     Rights, Sockoption, Sockstatus, Socktype, Streamsecurity, Subscription, Tid, Timestamp, Tty,

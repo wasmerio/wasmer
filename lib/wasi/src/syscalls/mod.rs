@@ -1,8 +1,8 @@
 #![allow(unused, clippy::too_many_arguments, clippy::cognitive_complexity)]
 
 pub mod types {
-    pub use wasmer_wasi_types::*;
-    pub use wasmer_wasi_types_generated::wasi;
+    pub use wasmer_wasi_types::types::*;
+    pub use wasmer_wasi_types::wasi;
 }
 
 #[cfg(any(

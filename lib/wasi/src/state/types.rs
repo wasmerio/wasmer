@@ -10,7 +10,7 @@ use std::{
     time::Duration,
 };
 use wasmer_vbus::BusError;
-use wasmer_wasi_types_generated::wasi::{BusErrno, Errno};
+use wasmer_wasi_types::wasi::{BusErrno, Errno};
 
 #[cfg(feature = "host-fs")]
 pub use wasmer_vfs::host_fs::{Stderr, Stdin, Stdout};

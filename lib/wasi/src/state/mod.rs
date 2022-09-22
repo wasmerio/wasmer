@@ -52,10 +52,10 @@ use std::{
 };
 use tracing::{debug, trace};
 use wasmer_vbus::BusSpawnedProcess;
-use wasmer_wasi_types_generated::wasi::{
+use wasmer_wasi_types::wasi::{
     Errno, Fd as WasiFd, Fdflags, Fdstat, Filesize, Filestat, Filetype, Preopentype, Rights,
 };
-use wasmer_wasi_types_generated::wasi::{Prestat, PrestatEnum};
+use wasmer_wasi_types::wasi::{Prestat, PrestatEnum};
 
 use wasmer_vfs::{FileSystem, FsError, OpenOptions, VirtualFile};
 

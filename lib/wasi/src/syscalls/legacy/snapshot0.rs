@@ -2,7 +2,7 @@ use crate::syscalls;
 use crate::syscalls::types;
 use crate::{mem_error_to_wasi, Memory32, MemorySize, WasiEnv, WasiError, WasiThread};
 use wasmer::{AsStoreMut, FunctionEnvMut, WasmPtr};
-use wasmer_wasi_types_generated::wasi::{
+use wasmer_wasi_types::wasi::{
     Errno, Event, Fd, Filesize, Filestat, Filetype, Snapshot0Filestat, Snapshot0Subscription,
     Snapshot0Whence, Subscription, Whence,
 };

@@ -67,7 +67,7 @@ use wasmer::{
     Imports, Instance, Memory, Memory32, MemoryAccessError, MemorySize, MemoryView, Module,
     TypedFunction,
 };
-use wasmer_wasi_types_generated::wasi::{BusErrno, Errno, Snapshot0Clockid};
+use wasmer_wasi_types::wasi::{BusErrno, Errno, Snapshot0Clockid};
 
 pub use runtime::{
     PluggableRuntimeImplementation, WasiRuntimeImplementation, WasiThreadError, WasiTtyState,

@@ -1,6 +1,6 @@
 use std::collections::BTreeSet;
 use wasmer::Module;
-use wasmer_wasi_types_generated::wasi::Errno;
+use wasmer_wasi_types::wasi::Errno;
 
 #[allow(dead_code)]
 /// Check if a provided module is compiled for some version of WASI.

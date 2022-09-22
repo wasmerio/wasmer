@@ -16,7 +16,7 @@ use wasmer_vnet::{
     IpCidr, IpRoute, SocketHttpRequest, VirtualIcmpSocket, VirtualNetworking, VirtualRawSocket,
     VirtualTcpListener, VirtualTcpSocket, VirtualUdpSocket, VirtualWebSocket,
 };
-use wasmer_wasi_types_generated::wasi::{
+use wasmer_wasi_types::wasi::{
     Addressfamily, Errno, Fdflags, OptionTag, Sockoption, Socktype,
 };
 

@@ -4,7 +4,7 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use thiserror::Error;
 use wasmer_vbus::{UnsupportedVirtualBus, VirtualBus};
 use wasmer_vnet::VirtualNetworking;
-use wasmer_wasi_types_generated::wasi::Errno;
+use wasmer_wasi_types::wasi::Errno;
 
 use super::WasiError;
 use super::WasiThreadId;

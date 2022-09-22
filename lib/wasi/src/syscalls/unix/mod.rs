@@ -5,7 +5,7 @@ use libc::{
 };
 use std::mem;
 use wasmer::WasmRef;
-use wasmer_wasi_types_generated::wasi::{Errno, Snapshot0Clockid, Timestamp};
+use wasmer_wasi_types::wasi::{Errno, Snapshot0Clockid, Timestamp};
 
 pub fn platform_clock_res_get(
     clock_id: Snapshot0Clockid,

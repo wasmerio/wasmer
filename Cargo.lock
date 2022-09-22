@@ -3435,7 +3435,6 @@ dependencies = [
  "wasmer-vnet",
  "wasmer-wasi-local-networking",
  "wasmer-wasi-types",
- "wasmer-wasi-types-generated",
  "winapi",
 ]
 
@@ -3467,19 +3466,12 @@ name = "wasmer-wasi-types"
 version = "3.0.0-beta"
 dependencies = [
  "byteorder",
+ "pretty_assertions",
  "serde",
  "time",
+ "wasmer",
  "wasmer-derive",
  "wasmer-types",
- "wasmer-wasi-types-generated",
-]
-
-[[package]]
-name = "wasmer-wasi-types-generated"
-version = "3.0.0-beta"
-dependencies = [
- "pretty_assertions",
- "wasmer",
  "wasmer-wit-bindgen-gen-core",
  "wasmer-wit-bindgen-gen-rust-wasm",
  "wasmer-wit-bindgen-rust",

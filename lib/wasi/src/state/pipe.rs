@@ -8,7 +8,7 @@ use std::sync::mpsc;
 use std::sync::Mutex;
 use wasmer::WasmSlice;
 use wasmer::{MemorySize, MemoryView};
-use wasmer_wasi_types_generated::wasi::Errno;
+use wasmer_wasi_types::wasi::Errno;
 
 #[derive(Debug)]
 pub struct WasiPipe {
