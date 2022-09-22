@@ -36,7 +36,7 @@ ALL = deprecated-header early-exit instance imports-exports exports-function exp
 .PHONY: run
 .SILENT: run
 run: 	
-	cargo install exa && WASMER_DIR="$(WASMER_DIR)" ROOT_DIR="$(ROOT_DIR)" CFLAGS="$(CFLAGS)" LDFLAGS="$(LDFLAGS)" LDLIBS="$(LDLIBS)" cargo test --manifest-path="./wasmer-capi-examples-runner/Cargo.toml" -- --nocapture 2>&1 || exa --tree $(WASMER_DIR) && exa --tree $(ROOT_DIR_PARENT) && exit 0
+	WASMER_DIR="$(WASMER_DIR)" ROOT_DIR="$(ROOT_DIR)" CFLAGS="$(CFLAGS)" LDFLAGS="$(LDFLAGS)" LDLIBS="$(LDLIBS)" cargo test --manifest-path="./wasmer-capi-examples-runner/Cargo.toml" -- --nocapture 2>&1
 
 .SILENT: clean
 .PHONY: clean

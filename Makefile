@@ -602,7 +602,7 @@ package-capi:
 	mkdir -p "package/lib"
 	cp lib/c-api/wasmer.h* package/include
 	cp lib/c-api/wasmer_wasm.h* package/include
-	cp lib/c-api/wasm.h* package/include
+	cp lib/c-api/tests/wasm-c-api/include/wasm.h* package/include
 	cp lib/c-api/README.md package/include/README.md
 
 	if [ -f $(TARGET_DIR)/wasmer.dll ]; then \

@@ -36,7 +36,7 @@ $(info * LDFLAGS: $(LDFLAGS))
 $(info * LDLIBS: $(LDLIBS))
 
 test: 
-	cargo install exa && WASMER_DIR="$(WASMER_DIR)" ROOT_DIR="$(ROOT_DIR)" CFLAGS="$(CFLAGS)" LDFLAGS="$(LDFLAGS)" LDLIBS="$(LDLIBS)" cargo test --manifest-path="./wasmer-c-api-test-runner/Cargo.toml" -- --nocapture 2>&1 || exa --tree $(WASMER_DIR) && exa --tree $(ROOT_DIR_PARENT) && exit 0
+	cargo test --manifest-path="./wasmer-c-api-test-runner/Cargo.toml" -- --nocapture 2>&1
 
 .SILENT: clean
 .PHONY: clean
