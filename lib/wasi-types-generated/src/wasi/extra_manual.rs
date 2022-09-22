@@ -316,3 +316,13 @@ unsafe impl wasmer::ValueType for Prestat {
         zero!(field_end!(u), core::mem::size_of_val(self));
     }
 }
+
+impl SubscriptionEnum {
+    pub fn raw_tag(&self) -> Eventtype {
+        match self {
+            SubscriptionEnum::Clock(_) => Eventtype::Clock,
+            SubscriptionEnum::Read(_) => Eventtype::FdRead,
+            SubscriptionEnum::Write(_) => Eventtype::FdWrite,
+        }
+    }
+}
