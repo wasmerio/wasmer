@@ -245,13 +245,13 @@ fn test_ok() {
                 command.arg(config.msvc_cflags.clone());
             } else if !config.wasmer_dir.is_empty() {
                 command.arg("/I");
-                command.arg(&format!("{}", config.root_dir));
+                command.arg(&format!("{}/wasm-c-api/", config.root_dir));
                 command.arg("/I");
-                command.arg(&format!("{}/include", config.wasmer_dir));
+                command.arg(&format!("{}/include/", config.wasmer_dir));
                 let mut log = String::new();
                 fixup_symlinks(&[
-                    format!("{}/include", config.wasmer_dir),
-                    format!("{}", config.root_dir),
+                    format!("{}/include/", config.wasmer_dir),
+                    format!("{}/wasm-c-api/", config.root_dir),
                 ], &mut log)
                 .expect(&format!("failed to fix symlinks: {log}"));
                 println!("{log}");
