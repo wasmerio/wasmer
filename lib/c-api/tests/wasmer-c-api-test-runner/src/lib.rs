@@ -350,6 +350,7 @@ fn test_ok() {
                 command.arg("-L");
                 command.arg(&format!("{}/lib/", config.wasmer_dir));
                 command.arg(&format!("-lwasmer"));
+                command.arg(&format!("-Wl,-rpath,{}/lib/", config.wasmer_dir));
             }
             command.arg("-o");
             command.arg(&format!("{manifest_dir}/../{test}"));

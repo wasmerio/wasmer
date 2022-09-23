@@ -72,14 +72,6 @@ fn make_package() {
 pub struct Config {
     pub wasmer_dir: String,
     pub root_dir: String,
-    // linux + mac
-    pub cflags: String,
-    pub ldflags: String,
-    pub ldlibs: String,
-    // windows msvc
-    pub msvc_cflags: String,
-    pub msvc_ldflags: String,
-    pub msvc_ldlibs: String,
 }
 
 impl Config {
@@ -87,14 +79,6 @@ impl Config {
         let mut config = Config {
             wasmer_dir: std::env::var("WASMER_DIR").unwrap_or_default(),
             root_dir: std::env::var("ROOT_DIR").unwrap_or_default(),
-
-            cflags: std::env::var("CFLAGS").unwrap_or_default(),
-            ldflags: std::env::var("LDFLAGS").unwrap_or_default(),
-            ldlibs: std::env::var("LDLIBS").unwrap_or_default(),
-
-            msvc_cflags: std::env::var("MSVC_CFLAGS").unwrap_or_default(),
-            msvc_ldflags: std::env::var("MSVC_LDFLAGS").unwrap_or_default(),
-            msvc_ldlibs: std::env::var("MSVC_LDLIBS").unwrap_or_default(),
         };
 
         // resolve the path until the /wasmer root directory
@@ -214,7 +198,7 @@ fn test_run() {
                 .static_crt(true)
                 .extra_warnings(true)
                 .warnings_into_errors(false)
-                .debug(config.ldflags.contains("-g"))
+                .debug(true)
                 .host(&host)
                 .target(target)
                 .opt_level(1);
@@ -223,9 +207,7 @@ fn test_run() {
             let mut command = compiler.to_command();
 
             command.arg(&format!("{manifest_dir}/../{test}.c"));
-            if !config.msvc_cflags.is_empty() {
-                command.arg(config.msvc_cflags.clone());
-            } else if !config.wasmer_dir.is_empty() {
+            if !config.wasmer_dir.is_empty() {
                 command.arg("/I");
                 command.arg(&format!("{}/include", config.wasmer_dir));
                 command.arg("/I");
@@ -243,9 +225,7 @@ fn test_run() {
                 println!("{log}");
             }
             command.arg("/link");
-            if !config.msvc_ldlibs.is_empty() {
-                command.arg(config.msvc_ldlibs.clone());
-            } else if !config.wasmer_dir.is_empty() {
+            if !config.wasmer_dir.is_empty() {
                 command.arg(&format!("/LIBPATH:{}/lib", config.wasmer_dir));
                 command.arg(&format!("{}/lib/wasmer.dll.lib", config.wasmer_dir));
             }
@@ -311,11 +291,7 @@ fn test_run() {
 
             let mut command = std::process::Command::new(compiler_cmd);
 
-            if !config.cflags.is_empty() {
-                for f in config.cflags.split_whitespace() {
-                    command.arg(f);
-                }
-            } else if !config.wasmer_dir.is_empty() {
+            if !config.wasmer_dir.is_empty() {
                 command.arg("-I");
                 command.arg(&format!("{}/include", config.wasmer_dir));
                 command.arg("-I");
@@ -331,20 +307,12 @@ fn test_run() {
                 )
                 .expect(&format!("failed to fix symlinks: {log}"));
             }
-            if !config.ldflags.is_empty() {
-                for f in config.ldflags.split_whitespace() {
-                    command.arg(f);
-                }
-            }
             command.arg(&format!("{manifest_dir}/../{test}.c"));
-            if !config.ldlibs.is_empty() {
-                for f in config.ldlibs.split_whitespace() {
-                    command.arg(f);
-                }
-            } else if !config.wasmer_dir.is_empty() {
+            if !config.wasmer_dir.is_empty() {
                 command.arg("-L");
                 command.arg(&format!("{}/lib/", config.wasmer_dir));
                 command.arg(&format!("-lwasmer"));
+                command.arg(&format!("-Wl,-rpath,{}/lib/", config.wasmer_dir));
             }
             command.arg("-o");
             command.arg(&format!("{manifest_dir}/../{test}"));
