@@ -9,6 +9,7 @@ pub struct RemoveTestsOnDrop {}
 
 impl Drop for RemoveTestsOnDrop {
     fn drop(&mut self) {
+        return;
         let manifest_dir = env!("CARGO_MANIFEST_DIR");
         for entry in std::fs::read_dir(&manifest_dir).unwrap() {
             let entry = entry.unwrap();
@@ -187,8 +188,14 @@ fn test_run() {
         None => format!("{manifest_dir}"),
     };
 
-    if target.contains("msvc") {
-        for test in TESTS.iter() {
+    for test in TESTS.iter() {
+            
+        let mut manifest_dir_parent = std::path::Path::new(&manifest_dir);
+        let mut manifest_dir_parent = manifest_dir_parent.parent().unwrap();
+        let c_file_path = manifest_dir_parent.join(&format!("{test}.c"));
+        
+        if target.contains("msvc") {
+
             let mut build = cc::Build::new();
             let mut build = build
                 .cargo_metadata(false)
@@ -204,12 +211,10 @@ fn test_run() {
             let compiler = build.try_get_compiler().unwrap();
             let mut command = compiler.to_command();
 
-            command.arg(&format!("{manifest_dir}/../{test}.c"));
+            command.arg(&format!("{}", c_file_path.display()));
             if !config.wasmer_dir.is_empty() {
                 command.arg("/I");
-                command.arg(&format!("{}/include", config.wasmer_dir));
-                command.arg("/I");
-                command.arg(&format!("{}", config.root_dir));
+                command.arg(&format!("{}/include/", config.wasmer_dir));
                 let mut log = String::new();
                 fixup_symlinks(
                     &[
@@ -222,38 +227,46 @@ fn test_run() {
                 .expect(&format!("failed to fix symlinks: {log}"));
                 println!("{log}");
             }
+            
+            let exe_outpath = manifest_dir_parent.join(&format!("{test}.exe"));
+            let exe_outpath = format!("{}", exe_outpath.display());
+            println!("compiling exe to {exe_outpath}");
+
+            command.arg(&format!("/Fo:{}/", manifest_dir_parent.display()));
             command.arg("/link");
             if !config.wasmer_dir.is_empty() {
                 command.arg(&format!("/LIBPATH:{}/lib", config.wasmer_dir));
                 command.arg(&format!("{}/lib/wasmer.dll.lib", config.wasmer_dir));
             }
-            command.arg(&format!("/OUT:\"{manifest_dir}/../{test}.exe\""));
+            command.arg(&format!("/OUT:{exe_outpath}"));
 
-            // run vcvars
-            let vcvars_bat_path = find_vcvars64(&compiler).expect("no vcvars64.bat");
-            let mut vcvars = std::process::Command::new("cmd");
-            vcvars.arg("/C");
-            vcvars.arg(vcvars_bat_path);
-            println!("running {vcvars:?}");
-
-            // cmd /C vcvars64.bat
-            let output = vcvars
-                .output()
-                .expect("could not invoke vcvars64.bat at {vcvars_bat_path}");
-
-            if !output.status.success() {
-                println!();
-                println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
-                println!("stderr: {}", String::from_utf8_lossy(&output.stderr));
-                panic!("failed to invoke vcvars64.bat {test}");
-            }
+            // read vcvars into file, append command, then execute the bat
 
             println!("compiling WINDOWS {test}: {command:?}");
 
+            let vcvars_bat_path = find_vcvarsall(&compiler).expect("no vcvarsall.bat");
+            let vcvars_bat_path_parent = std::path::Path::new(&vcvars_bat_path).parent().unwrap();
+            let vcvars_modified_output = vcvars_bat_path_parent.join("compile-windows.bat");
+            let vcvars_bat_file = std::fs::read_to_string(&vcvars_bat_path).unwrap();
+            let batch_formatted = format!("{}\\", vcvars_bat_path_parent.display());
+            let vcvars_bat_file = vcvars_bat_file
+                .replace("%~dp0", &batch_formatted.replace("\\", "\\\\"))
+                .replace("\"%1\"", "\"x64\"");    
+            let vcvars_modified = format!("{vcvars_bat_file}\r\n{command:?}");
+            let path = std::path::Path::new(&manifest_dir).join("compile-windows.bat");
+            println!("outputting batch to {}", path.display());
+            std::fs::write(&path, vcvars_modified).unwrap();
+
             print_wasmer_root_to_stdout(&config);
 
+            let mut vcvars = std::process::Command::new("cmd");
+            vcvars.arg("/C");
+            vcvars.arg(&path);
+            vcvars.arg("x64");
+            vcvars.current_dir(&vcvars_bat_path_parent);
+
             // compile
-            let output = command
+            let output = vcvars
                 .output()
                 .map_err(|e| format!("failed to compile {command:#?}: {e}"))
                 .unwrap();
@@ -263,9 +276,15 @@ fn test_run() {
                 print_wasmer_root_to_stdout(&config);
                 panic!("failed to compile {test}");
             }
-
+            
+            if !std::path::Path::new(&exe_outpath).exists() {
+                panic!("error: {exe_outpath} does not exist");
+            }
+            if !std::path::Path::new(&wasmer_dll_dir).join("wasmer.dll").exists() {
+                panic!("error: {wasmer_dll_dir} has no wasmer.dll");
+            }
             // execute
-            let mut command = std::process::Command::new(&format!("{manifest_dir}/../{test}.exe"));
+            let mut command = std::process::Command::new(&exe_outpath);
             command.env("PATH", newpath.clone());
             command.current_dir(exe_dir.clone());
             println!("executing {test}: {command:?}");
@@ -274,14 +293,13 @@ fn test_run() {
                 .output()
                 .expect(&format!("failed to run {command:#?}"));
             if !output.status.success() {
+                println!("{output:#?}");
                 println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
-                println!("stdout: {}", String::from_utf8_lossy(&output.stderr));
+                println!("stderr: {}", String::from_utf8_lossy(&output.stderr));
                 print_wasmer_root_to_stdout(&config);
                 panic!("failed to execute {test}");
             }
-        }
-    } else {
-        for test in TESTS.iter() {
+        } else {
             let compiler_cmd = match std::process::Command::new("cc").output() {
                 Ok(_) => "cc",
                 Err(_) => "gcc",
@@ -292,8 +310,6 @@ fn test_run() {
             if !config.wasmer_dir.is_empty() {
                 command.arg("-I");
                 command.arg(&format!("{}/include", config.wasmer_dir));
-                command.arg("-I");
-                command.arg(&config.root_dir);
                 let mut log = String::new();
                 fixup_symlinks(
                     &[
@@ -305,7 +321,7 @@ fn test_run() {
                 )
                 .expect(&format!("failed to fix symlinks: {log}"));
             }
-            command.arg(&format!("{manifest_dir}/../{test}.c"));
+            command.arg(&c_file_path);
             if !config.wasmer_dir.is_empty() {
                 command.arg("-L");
                 command.arg(&format!("{}/lib/", config.wasmer_dir));
@@ -464,7 +480,7 @@ fn fixup_symlinks_inner(include_paths: &[String], log: &mut String) -> Result<()
 }
 
 #[cfg(test)]
-fn find_vcvars64(compiler: &cc::Tool) -> Option<String> {
+fn find_vcvarsall(compiler: &cc::Tool) -> Option<String> {
     if !compiler.is_like_msvc() {
         return None;
     }
@@ -473,5 +489,5 @@ fn find_vcvars64(compiler: &cc::Tool) -> Option<String> {
     let path = format!("{}", path.display());
     let split = path.split("VC").nth(0)?;
 
-    Some(format!("{split}VC\\Auxiliary\\Build\\vcvars64.bat"))
+    Some(format!("{split}VC\\Auxiliary\\Build\\vcvarsall.bat"))
 }
