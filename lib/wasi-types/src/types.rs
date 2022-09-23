@@ -341,7 +341,7 @@ pub mod signal {
 }
 
 pub mod subscription {
-    use crate::wasi::{
+    pub use crate::wasi::{
         Eventtype, SubscriptionClock, SubscriptionEnum as EventType, SubscriptionFsReadwrite,
     };
 }
