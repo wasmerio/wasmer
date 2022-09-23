@@ -387,10 +387,23 @@ fn print_wasmer_root_to_stdout(config: &Config) {
 }
 
 #[cfg(test)]
-fn fixup_symlinks(include_paths: &[String], log: &mut String, root_dir: &str) -> Result<(), Box<dyn Error>> {
-    
-    let source = std::path::Path::new(root_dir).join("lib").join("c-api").join("tests").join("wasm-c-api").join("include").join("wasm.h");
-    let target = std::path::Path::new(root_dir).join("lib").join("c-api").join("tests").join("wasm.h");
+fn fixup_symlinks(
+    include_paths: &[String],
+    log: &mut String,
+    root_dir: &str,
+) -> Result<(), Box<dyn Error>> {
+    let source = std::path::Path::new(root_dir)
+        .join("lib")
+        .join("c-api")
+        .join("tests")
+        .join("wasm-c-api")
+        .join("include")
+        .join("wasm.h");
+    let target = std::path::Path::new(root_dir)
+        .join("lib")
+        .join("c-api")
+        .join("tests")
+        .join("wasm.h");
     println!("copying {} -> {}", source.display(), target.display());
     let _ = std::fs::copy(source, target);
 
