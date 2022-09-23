@@ -8,14 +8,6 @@ static INCLUDE_REGEX: &str = "#include \"(.*)\"";
 pub struct Config {
     pub wasmer_dir: String,
     pub root_dir: String,
-    // linux + mac
-    pub cflags: String,
-    pub ldflags: String,
-    pub ldlibs: String,
-    // windows msvc
-    pub msvc_cflags: String,
-    pub msvc_ldflags: String,
-    pub msvc_ldlibs: String,
 }
 
 impl Config {
@@ -23,14 +15,6 @@ impl Config {
         let mut config = Config {
             wasmer_dir: std::env::var("WASMER_DIR").unwrap_or_default(),
             root_dir: std::env::var("ROOT_DIR").unwrap_or_default(),
-
-            cflags: std::env::var("CFLAGS").unwrap_or_default(),
-            ldflags: std::env::var("LDFLAGS").unwrap_or_default(),
-            ldlibs: std::env::var("LDLIBS").unwrap_or_default(),
-
-            msvc_cflags: std::env::var("MSVC_CFLAGS").unwrap_or_default(),
-            msvc_ldflags: std::env::var("MSVC_LDFLAGS").unwrap_or_default(),
-            msvc_ldlibs: std::env::var("MSVC_LDLIBS").unwrap_or_default(),
         };
 
         let wasmer_base_dir = find_wasmer_base_dir();
@@ -232,7 +216,7 @@ fn test_ok() {
                 .static_crt(true)
                 .extra_warnings(true)
                 .warnings_into_errors(false)
-                .debug(config.ldflags.contains("-g"))
+                .debug(true)
                 .host(&host)
                 .target(target)
                 .opt_level(1);
@@ -266,14 +250,14 @@ fn test_ok() {
             command.arg(&format!("{manifest_dir}/../{test}.c"));
             if !config.wasmer_dir.is_empty() {
                 command.arg("/I");
-                command.arg(&format!("{}/wasm-c-api/", config.root_dir));
+                command.arg(&format!("{}/wasm-c-api/include/", config.root_dir));
                 command.arg("/I");
                 command.arg(&format!("{}/include/", config.wasmer_dir));
                 let mut log = String::new();
                 fixup_symlinks(
                     &[
                         format!("{}/include/", config.wasmer_dir),
-                        format!("{}/wasm-c-api/", config.root_dir),
+                        format!("{}/wasm-c-api/include/", config.root_dir),
                         format!("{}", config.root_dir),
                     ],
                     &mut log,
@@ -344,20 +328,16 @@ fn test_ok() {
             };
             let mut command = std::process::Command::new(compiler_cmd);
 
-            if !config.cflags.is_empty() {
-                for f in config.cflags.split_whitespace() {
-                    command.arg(f);
-                }
-            } else if !config.wasmer_dir.is_empty() {
+            if !config.wasmer_dir.is_empty() {
                 command.arg("-I");
-                command.arg(&format!("{}/wasm-c-api/", config.root_dir));
+                command.arg(&format!("{}/wasm-c-api/include/", config.root_dir));
                 command.arg("-I");
                 command.arg(&format!("{}/include/", config.wasmer_dir));
                 let mut log = String::new();
                 fixup_symlinks(
                     &[
                         format!("{}/include/", config.wasmer_dir),
-                        format!("{}/wasm-c-api/", config.root_dir),
+                        format!("{}/wasm-c-api/include/", config.root_dir),
                         format!("{}", config.root_dir),
                     ],
                     &mut log,
@@ -365,17 +345,8 @@ fn test_ok() {
                 )
                 .expect(&format!("failed to fix symlinks: {log}"));
             }
-            if !config.ldflags.is_empty() {
-                for f in config.ldflags.split_whitespace() {
-                    command.arg(f);
-                }
-            }
             command.arg(&format!("{manifest_dir}/../{test}.c"));
-            if !config.ldlibs.is_empty() {
-                for f in config.ldlibs.split_whitespace() {
-                    command.arg(f);
-                }
-            } else if !config.wasmer_dir.is_empty() {
+            if !config.wasmer_dir.is_empty() {
                 command.arg("-L");
                 command.arg(&format!("{}/lib/", config.wasmer_dir));
                 command.arg(&format!("-lwasmer"));

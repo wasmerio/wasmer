@@ -5,26 +5,14 @@ $(info Using provided WASMER_DIR=$(WASMER_DIR))
 ROOT_DIR:=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 ROOT_DIR_PARENT:=$(shell dirname $(ROOT_DIR))
 
-MSVC_CFLAGS:=""
-MSVC_LDFLAGS:=""
-MSVC_LDLIBS:=""
-
 ifeq (,$(wildcard $(WASMER_DIR)/bin/wasmer))
 	CFLAGS = -g -I $(ROOT_DIR) -I $(WASMER_DIR)/include
 	LDFLAGS = -Wl,-rpath,$(WASMER_DIR)/lib
 	LDLIBS = -L $(WASMER_DIR)/lib -lwasmer
-
-	MSVC_CFLAGS:= /DEBUG /I $(ROOT_DIR)/ /I $(WASMER_DIR)/include
-	MSVC_LDFLAGS:= ""
-	MSVC_LDLIBS:= /LIBPATH:$(WASMER_DIR)/lib wasmer.dll.lib
 else
-	CFLAGS = -g -I $(ROOT_DIR)/wasm-c-api/ -I $(shell $(WASMER_DIR)/bin/wasmer config --includedir)
+	CFLAGS = -g -I $(ROOT_DIR)/wasm-c-api/include/ -I $(shell $(WASMER_DIR)/bin/wasmer config --includedir)
 	LDFLAGS = -Wl,-rpath,$(shell $(WASMER_DIR)/bin/wasmer config --libdir)
 	LDLIBS = $(shell $(WASMER_DIR)/bin/wasmer config --libs)
-
-	MSVC_CFLAGS:= /DEBUG /I $(ROOT_DIR)/ /I $(shell $(WASMER_DIR)/bin/wasmer config --includedir)
-	MSVC_LDFLAGS:= ""
-	MSVC_LDLIBS:= /LIBPATH:$(shell $(WASMER_DIR)/bin/wasmer config --libs) wasmer.dll.lib
 endif
 
 
