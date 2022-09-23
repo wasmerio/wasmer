@@ -5,6 +5,7 @@ use crate::translator::{
     type_to_irtype, FuncEnvironment as BaseFuncEnvironment, GlobalVariable, TargetEnvironment,
 };
 use cranelift_codegen::cursor::FuncCursor;
+use cranelift_codegen::flowgraph::ControlFlowGraph;
 use cranelift_codegen::ir;
 use cranelift_codegen::ir::condcodes::*;
 use cranelift_codegen::ir::immediates::{Offset32, Uimm64};
@@ -1171,10 +1172,38 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
         // Load the callee address.
         let body_offset =
             i32::try_from(self.offsets.vmctx_vmfunction_import_body(callee_index)).unwrap();
-        let func_addr = pos.ins().load(pointer_type, mem_flags, base, body_offset);
+        
+        // The body_offset is the WASM pointer to the `FunctionBodyPtrType`. 
+        // Since that is a tagged Rust enum, we need to split the load into two parts
+        //
+        // First field (u8): whether the address is dynamic or static
+        //
+        // Second field: either a pointer with the function address (static)
+        // or a u32 indicating the function index in the module
+        let u8_type = ir::types::Type::int(8).unwrap(); // safe unwrap, 8 bits will be valid
+        let tag = pos.ins().load(u8_type, mem_flags, base, body_offset);
+        
+        // Emit instruction to compare the tag: if it is a static (0) tag,
+        // jump to the static CFG, if it is dynamic (1), jump to the dynamic cfg
+        let (is_dynamic_op, cfg_dynamic) = pos.ins().IntCompare(
+            ir::Opcode::Brif, // branch if 1
+            u8_type, 
+            ir::condcodes::IntCC::Equal, 
+            tag, 
+            0.into(),
+        );
+        
+        // Block for calling a dynamic function, can be jumped over
+        let dynamic_cfg = {
+            // CFG: "call dynamic function"
+            let func_addr = cfg_dynamic.ins().load(u8_type, mem_flags, base, body_offset + 1);
+        };
+
+        // CFG: "call static function"
+        let func_addr = pos.ins().load(u8_type, mem_flags, base, body_offset + 1);
 
         // First append the callee vmctx address.
-        let vmctx_offset =
+        let vmctx_offset = 
             i32::try_from(self.offsets.vmctx_vmfunction_import_vmctx(callee_index)).unwrap();
         let vmctx = pos.ins().load(pointer_type, mem_flags, base, vmctx_offset);
         real_call_args.push(vmctx);
@@ -1184,16 +1213,6 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
 
         let function_type_offset =
             i32::try_from(self.offsets.vmctx_vmfunction_import_vmctx(callee_index)).unwrap();
-
-        let is_dynamic = pos.ins().IntCompare(opcode, ctrl_typevar, cond, arg0, arg1);
-
-        // pos.ins().load(pointer_type, mem_flags, base, function_type_offset);
-        if is_dynamic {
-            let dynamic_function_offset =
-            i32::try_from(self.offsets.vmctx_vmfunction_import_vmctx(callee_index)).unwrap();
-
-            function_addr = pos.ins().load(, dynamic_function_offset);
-        }
 
         Ok(pos.ins().call_indirect(sig_ref, func_addr, &real_call_args))
     }

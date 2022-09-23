@@ -80,12 +80,12 @@ pub struct VMFunctionImport {
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 #[repr(C, u8)]
 pub enum FunctionBodyPtrType {
+        /// Static function pointer initialized when the module is created
+        Static(*const VMFunctionBody),
     /// Dynamic function, function pointer is resolved when the
     /// function is called. Stores the `FunctionIndex` of the
     /// function in the module.
     Dynamic(FunctionIndex),
-    /// Static function pointer initialized when the module is created
-    Static(*const VMFunctionBody),
 }
 
 impl FunctionBodyPtrType {

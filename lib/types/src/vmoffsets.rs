@@ -210,18 +210,17 @@ impl VMOffsets {
     /// The offset of the `vmctx` field.
     #[allow(clippy::identity_op)]
     pub const fn vmfunction_import_vmctx(&self) -> u8 {
-        std::mem::size_of::<FunctionBodyPtrType>()
+        1 + (1 * self.pointer_size)
     }
 
     /// The offset of the `handle` field.
     pub const fn vmfunction_import_handle(&self) -> u8 {
-        std::mem::size_of::<FunctionBodyPtrType>() +
-        std::mem::size_of::<VMFunctionContext>()
+        1 + (2 * self.pointer_size)
     }
 
     /// Return the size of `VMFunctionImport`.
     pub const fn size_of_vmfunction_import(&self) -> u8 {
-        3 * self.pointer_size
+        1 + (3 * self.pointer_size)
     }
 }
 
