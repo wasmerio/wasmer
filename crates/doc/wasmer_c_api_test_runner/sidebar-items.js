@@ -1,0 +1,1 @@
+initSidebarItems({"constant":[["CAPI_BASE_TESTS_NOT_WORKING",""]],"fn":[["find_wasmer_base_dir",""],["make_package",""]],"struct":[["Config",""],["RemoveTestsOnDrop",""]]});

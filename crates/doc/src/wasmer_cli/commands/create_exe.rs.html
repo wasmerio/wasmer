@@ -1110,6 +1110,16 @@
 <span id="1103">1103</span>
 <span id="1104">1104</span>
 <span id="1105">1105</span>
+<span id="1106">1106</span>
+<span id="1107">1107</span>
+<span id="1108">1108</span>
+<span id="1109">1109</span>
+<span id="1110">1110</span>
+<span id="1111">1111</span>
+<span id="1112">1112</span>
+<span id="1113">1113</span>
+<span id="1114">1114</span>
+<span id="1115">1115</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Create a standalone native executable for a given Wasm file.</span>
 
 <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::ObjectFormat</span>;
@@ -1592,9 +1602,14 @@
             <span class="ident">include_dir</span>.<span class="ident">pop</span>();
             <span class="ident">include_dir</span>.<span class="ident">push</span>(<span class="string">&quot;include&quot;</span>);
 
+            <span class="kw">let</span> <span class="ident">compiler_cmd</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">std::process::Command::new</span>(<span class="string">&quot;cc&quot;</span>).<span class="ident">output</span>() {
+                <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="string">&quot;cc&quot;</span>,
+                <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="string">&quot;gcc&quot;</span>,
+            };
+
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">cmd</span> <span class="op">=</span> <span class="ident">Command::new</span>(<span class="ident">zig_binary_path</span>);
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">cmd_mut</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Command</span> <span class="op">=</span> <span class="ident">cmd</span>
-                .<span class="ident">arg</span>(<span class="string">&quot;cc&quot;</span>)
+                .<span class="ident">arg</span>(<span class="ident">compiler_cmd</span>)
                 .<span class="ident">arg</span>(<span class="string">&quot;-w&quot;</span>)
                 .<span class="ident">arg</span>(<span class="string">&quot;-fgnu-inline-asm&quot;</span>)
                 .<span class="ident">arg</span>(<span class="string">&quot;-fsanitize=undefined&quot;</span>)
@@ -1661,7 +1676,12 @@
 
         <span class="comment">/* Compile main function */</span>
         <span class="kw">let</span> <span class="ident">compilation</span> <span class="op">=</span> {
-            <span class="ident">Command::new</span>(<span class="string">&quot;cc&quot;</span>)
+            <span class="kw">let</span> <span class="ident">compiler_cmd</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">Command::new</span>(<span class="string">&quot;cc&quot;</span>).<span class="ident">output</span>() {
+                <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="string">&quot;cc&quot;</span>,
+                <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="string">&quot;gcc&quot;</span>,
+            };
+
+            <span class="ident">Command::new</span>(<span class="ident">compiler_cmd</span>)
                 .<span class="ident">arg</span>(<span class="string">&quot;-c&quot;</span>)
                 .<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="ident">c_src_path</span>)
                 .<span class="ident">arg</span>(<span class="kw">if</span> <span class="ident">linkcode</span>.<span class="ident">optimization_flag</span>.<span class="ident">is_empty</span>() {

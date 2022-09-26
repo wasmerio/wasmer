@@ -259,6 +259,9 @@
 <span id="252">252</span>
 <span id="253">253</span>
 <span id="254">254</span>
+<span id="255">255</span>
+<span id="256">256</span>
+<span id="257">257</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Unstable non-standard Wasmer-specific types for the</span>
 <span class="doccomment">//! `wasm_engine_t` and siblings.</span>
 
@@ -275,7 +278,7 @@
 <span class="doccomment">/// # Example</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// ```rust</span>
-<span class="doccomment">/// # use inline_c::assert_c;</span>
+<span class="doccomment">/// # use wasmer_inline_c::assert_c;</span>
 <span class="doccomment">/// # fn main() {</span>
 <span class="doccomment">/// #    (assert_c! {</span>
 <span class="doccomment">/// # #include &quot;tests/wasmer.h&quot;</span>
@@ -319,7 +322,7 @@
 <span class="doccomment">/// # Example</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// ```rust</span>
-<span class="doccomment">/// # use inline_c::assert_c;</span>
+<span class="doccomment">/// # use wasmer_inline_c::assert_c;</span>
 <span class="doccomment">/// # fn main() {</span>
 <span class="doccomment">/// #    (assert_c! {</span>
 <span class="doccomment">/// # #include &quot;tests/wasmer.h&quot;</span>
@@ -366,7 +369,7 @@
 <span class="doccomment">/// # Example</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// ```rust</span>
-<span class="doccomment">/// # use inline_c::assert_c;</span>
+<span class="doccomment">/// # use wasmer_inline_c::assert_c;</span>
 <span class="doccomment">/// # fn main() {</span>
 <span class="doccomment">/// #    (assert_c! {</span>
 <span class="doccomment">/// # #include &quot;tests/wasmer.h&quot;</span>
@@ -427,8 +430,11 @@
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
 <span class="kw">mod</span> <span class="ident">tests</span> {
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>))]</span>
     <span class="kw">use</span> <span class="ident">inline_c::assert_c</span>;
     <span class="kw">use</span> <span class="ident">std::env</span>::{<span class="ident">remove_var</span>, <span class="ident">set_var</span>};
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>)]</span>
+    <span class="kw">use</span> <span class="ident">wasmer_inline_c::assert_c</span>;
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_wasmer_is_headless</span>() {
