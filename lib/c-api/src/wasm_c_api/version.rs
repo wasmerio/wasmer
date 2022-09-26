@@ -40,7 +40,7 @@ pub unsafe extern "C" fn wasmer_version() -> *const c_char {
 /// # Example
 ///
 /// ```rust
-/// # use inline_c::assert_c;
+/// # use wasmer_inline_c::assert_c;
 /// # fn main() {
 /// #    (assert_c! {
 /// # #include "tests/wasmer.h"
@@ -98,7 +98,7 @@ pub unsafe extern "C" fn wasmer_version_patch() -> u8 {
 /// # Example
 ///
 /// ```rust
-/// # use inline_c::assert_c;
+/// # use wasmer_inline_c::assert_c;
 /// # fn main() {
 /// #    (assert_c! {
 /// # #include "tests/wasmer.h"
