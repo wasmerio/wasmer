@@ -189,13 +189,11 @@ fn test_run() {
     };
 
     for test in TESTS.iter() {
-            
         let mut manifest_dir_parent = std::path::Path::new(&manifest_dir);
         let mut manifest_dir_parent = manifest_dir_parent.parent().unwrap();
         let c_file_path = manifest_dir_parent.join(&format!("{test}.c"));
-        
-        if target.contains("msvc") {
 
+        if target.contains("msvc") {
             let mut build = cc::Build::new();
             let mut build = build
                 .cargo_metadata(false)
@@ -227,7 +225,7 @@ fn test_run() {
                 .expect(&format!("failed to fix symlinks: {log}"));
                 println!("{log}");
             }
-            
+
             let exe_outpath = manifest_dir_parent.join(&format!("{test}.exe"));
             let exe_outpath = format!("{}", exe_outpath.display());
             println!("compiling exe to {exe_outpath}");
@@ -251,7 +249,7 @@ fn test_run() {
             let batch_formatted = format!("{}\\", vcvars_bat_path_parent.display());
             let vcvars_bat_file = vcvars_bat_file
                 .replace("%~dp0", &batch_formatted.replace("\\", "\\\\"))
-                .replace("\"%1\"", "\"x64\"");    
+                .replace("\"%1\"", "\"x64\"");
             let vcvars_modified = format!("{vcvars_bat_file}\r\n{command:?}");
             let path = std::path::Path::new(&manifest_dir).join("compile-windows.bat");
             println!("outputting batch to {}", path.display());
@@ -276,11 +274,14 @@ fn test_run() {
                 print_wasmer_root_to_stdout(&config);
                 panic!("failed to compile {test}");
             }
-            
+
             if !std::path::Path::new(&exe_outpath).exists() {
                 panic!("error: {exe_outpath} does not exist");
             }
-            if !std::path::Path::new(&wasmer_dll_dir).join("wasmer.dll").exists() {
+            if !std::path::Path::new(&wasmer_dll_dir)
+                .join("wasmer.dll")
+                .exists()
+            {
                 panic!("error: {wasmer_dll_dir} has no wasmer.dll");
             }
             // execute
