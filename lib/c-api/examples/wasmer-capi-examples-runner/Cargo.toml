@@ -1,8 +1,9 @@
 [package]
 name = "wasmer-capi-examples-runner"
-version = "0.1.0"
+version = "3.0.0-beta.2"
 edition = "2021"
 license = "MIT"
+description = "wasmer-capi-examples-runner"
 
 [dependencies]
 cc = "1.0"
