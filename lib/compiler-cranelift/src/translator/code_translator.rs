@@ -575,7 +575,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             bitcast_arguments(args, &types, builder);
             let func_index = FunctionIndex::from_u32(*function_index);
 
-            let call = environ.translate_call(builder.cursor(), func_index, fref, args)?;
+            let call = environ.translate_call(builder, func_index, fref, args)?;
             let inst_results = builder.inst_results(call);
             debug_assert_eq!(
                 inst_results.len(),
@@ -606,7 +606,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             let sig_idx = SignatureIndex::from_u32(*index);
 
             let call = environ.translate_call_indirect(
-                builder.cursor(),
+                builder,
                 TableIndex::from_u32(*table_index),
                 table,
                 sig_idx,

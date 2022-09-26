@@ -169,7 +169,7 @@ pub trait FuncEnvironment: TargetEnvironment {
     #[cfg_attr(feature = "cargo-clippy", allow(clippy::too_many_arguments))]
     fn translate_call_indirect(
         &mut self,
-        pos: FuncCursor,
+        builder: &mut FunctionBuilder,
         table_index: TableIndex,
         table: ir::Table,
         sig_index: SignatureIndex,
@@ -187,12 +187,12 @@ pub trait FuncEnvironment: TargetEnvironment {
     /// Return the call instruction whose results are the WebAssembly return values.
     fn translate_call(
         &mut self,
-        mut pos: FuncCursor,
+        builder: &mut FunctionBuilder,
         _callee_index: FunctionIndex,
         callee: ir::FuncRef,
         call_args: &[ir::Value],
     ) -> WasmResult<ir::Inst> {
-        Ok(pos.ins().call(callee, call_args))
+        Ok(builder.cursor().ins().call(callee, call_args))
     }
 
     /// Translate a `memory.grow` WebAssembly instruction.

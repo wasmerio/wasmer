@@ -1058,7 +1058,7 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
 
     fn translate_call_indirect(
         &mut self,
-        mut pos: FuncCursor<'_>,
+        builder: &mut FunctionBuilder,
         table_index: TableIndex,
         table: ir::Table,
         sig_index: SignatureIndex,
@@ -1066,6 +1066,7 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
         callee: ir::Value,
         call_args: &[ir::Value],
     ) -> WasmResult<ir::Inst> {
+        let pos = builder.cursor();
         let pointer_type = self.pointer_type();
 
         let table_entry_addr = pos.ins().table_addr(pointer_type, table, callee, 0);
@@ -1139,11 +1140,12 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
 
     fn translate_call(
         &mut self,
-        mut pos: FuncCursor<'_>,
+        builder: &mut FunctionBuilder,
         callee_index: FunctionIndex,
         callee: ir::FuncRef,
         call_args: &[ir::Value],
     ) -> WasmResult<ir::Inst> {
+        let pos = builder.cursor();
         let mut real_call_args = Vec::with_capacity(call_args.len() + 2);
 
         // Handle direct calls to locally-defined functions.
