@@ -7,6 +7,7 @@ description = "Generator for wasi-types"
 
 [dependencies]
 convert_case = "0.5.0"
+regex = "1.6.0"
 
 [dependencies.wit-parser]
 default-features = false

@@ -532,103 +532,103 @@ impl core::fmt::Display for BusErrno {
 
 impl std::error::Error for BusErrno {}
 wit_bindgen_rust::bitflags::bitflags! {
-/// File descriptor rights, determining which actions may be performed.
-pub struct Rights: u64 {
-  /// The right to invoke `fd_datasync`.
-  ///
-  /// If `rights::path_open` is set, includes the right to invoke
-  /// `path_open` with `fdflags::dsync`.
-  const FD_DATASYNC = 1 << 0;
-  /// The right to invoke `fd_read` and `sock_recv`.
-  ///
-  /// If `rights::fd_seek` is set, includes the right to invoke `fd_pread`.
-  const FD_READ = 1 << 1;
-  /// The right to invoke `fd_seek`. This flag implies `rights::fd_tell`.
-  const FD_SEEK = 1 << 2;
-  /// The right to invoke `fd_fdstat_set_flags`.
-  const FD_FDSTAT_SET_FLAGS = 1 << 3;
-  /// The right to invoke `fd_sync`.
-  ///
-  /// If `rights::path_open` is set, includes the right to invoke
-  /// `path_open` with `fdflags::rsync` and `fdflags::dsync`.
-  const FD_SYNC = 1 << 4;
-  /// The right to invoke `fd_seek` in such a way that the file offset
-  /// remains unaltered (i.e., `whence::cur` with offset zero), or to
-  /// invoke `fd_tell`.
-  const FD_TELL = 1 << 5;
-  /// The right to invoke `fd_write` and `sock_send`.
-  /// If `rights::fd_seek` is set, includes the right to invoke `fd_pwrite`.
-  const FD_WRITE = 1 << 6;
-  /// The right to invoke `fd_advise`.
-  const FD_ADVISE = 1 << 7;
-  /// The right to invoke `fd_allocate`.
-  const FD_ALLOCATE = 1 << 8;
-  /// The right to invoke `path_create_directory`.
-  const PATH_CREATE_DIRECTORY = 1 << 9;
-  /// If `rights::path_open` is set, the right to invoke `path_open` with `oflags::creat`.
-  const PATH_CREATE_FILE = 1 << 10;
-  /// The right to invoke `path_link` with the file descriptor as the
-  /// source directory.
-  const PATH_LINK_SOURCE = 1 << 11;
-  /// The right to invoke `path_link` with the file descriptor as the
-  /// target directory.
-  const PATH_LINK_TARGET = 1 << 12;
-  /// The right to invoke `path_open`.
-  const PATH_OPEN = 1 << 13;
-  /// The right to invoke `fd_readdir`.
-  const FD_READDIR = 1 << 14;
-  /// The right to invoke `path_readlink`.
-  const PATH_READLINK = 1 << 15;
-  /// The right to invoke `path_rename` with the file descriptor as the source directory.
-  const PATH_RENAME_SOURCE = 1 << 16;
-  /// The right to invoke `path_rename` with the file descriptor as the target directory.
-  const PATH_RENAME_TARGET = 1 << 17;
-  /// The right to invoke `path_filestat_get`.
-  const PATH_FILESTAT_GET = 1 << 18;
-  /// The right to change a file's size (there is no `path_filestat_set_size`).
-  /// If `rights::path_open` is set, includes the right to invoke `path_open` with `oflags::trunc`.
-  const PATH_FILESTAT_SET_SIZE = 1 << 19;
-  /// The right to invoke `path_filestat_set_times`.
-  const PATH_FILESTAT_SET_TIMES = 1 << 20;
-  /// The right to invoke `fd_filestat_get`.
-  const FD_FILESTAT_GET = 1 << 21;
-  /// The right to invoke `fd_filestat_set_size`.
-  const FD_FILESTAT_SET_SIZE = 1 << 22;
-  /// The right to invoke `fd_filestat_set_times`.
-  const FD_FILESTAT_SET_TIMES = 1 << 23;
-  /// The right to invoke `path_symlink`.
-  const PATH_SYMLINK = 1 << 24;
-  /// The right to invoke `path_remove_directory`.
-  const PATH_REMOVE_DIRECTORY = 1 << 25;
-  /// The right to invoke `path_unlink_file`.
-  const PATH_UNLINK_FILE = 1 << 26;
-  /// If `rights::fd_read` is set, includes the right to invoke `poll_oneoff` to subscribe to `eventtype::fd_read`.
-  /// If `rights::fd_write` is set, includes the right to invoke `poll_oneoff` to subscribe to `eventtype::fd_write`.
-  const POLL_FD_READWRITE = 1 << 27;
-  /// The right to invoke `sock_shutdown`.
-  const SOCK_SHUTDOWN = 1 << 28;
-  /// TODO: Found in wasmer-wasi-types rust project, but not in wasi-snapshot0
-  const SOCK_ACCEPT = 1 << 29;
-  /// TODO: Found in wasmer-wasi-types rust project, but not in wasi-snapshot0
-  const SOCK_CONNECT = 1 << 30;
-  /// TODO: Found in wasmer-wasi-types rust project, but not in wasi-snapshot0
-  const SOCK_LISTEN = 1 << 31;
-  /// TODO: Found in wasmer-wasi-types rust project, but not in wasi-snapshot0
-  const SOCK_BIND = 1 << 32;
-  /// TODO: Found in wasmer-wasi-types rust project, but not in wasi-snapshot0
-  const SOCK_RECV = 1 << 33;
-  /// TODO: Found in wasmer-wasi-types rust project, but not in wasi-snapshot0
-  const SOCK_SEND = 1 << 34;
-  /// TODO: Found in wasmer-wasi-types rust project, but not in wasi-snapshot0
-  const SOCK_ADDR_LOCAL = 1 << 35;
-  /// TODO: Found in wasmer-wasi-types rust project, but not in wasi-snapshot0
-  const SOCK_ADDR_REMOTE = 1 << 36;
-  /// TODO: Found in wasmer-wasi-types rust project, but not in wasi-snapshot0
-  const SOCK_RECV_FROM = 1 << 37;
-  /// TODO: Found in wasmer-wasi-types rust project, but not in wasi-snapshot0
-  const SOCK_SEND_TO = 1 << 38;
-}
+  /// File descriptor rights, determining which actions may be performed.
+  pub struct Rights: u64 {
+    /// The right to invoke `fd_datasync`.
+    ///
+    /// If `rights::path_open` is set, includes the right to invoke
+    /// `path_open` with `fdflags::dsync`.
+    const FD_DATASYNC = 1 << 0;
+    /// The right to invoke `fd_read` and `sock_recv`.
+    ///
+    /// If `rights::fd_seek` is set, includes the right to invoke `fd_pread`.
+    const FD_READ = 1 << 1;
+    /// The right to invoke `fd_seek`. This flag implies `rights::fd_tell`.
+    const FD_SEEK = 1 << 2;
+    /// The right to invoke `fd_fdstat_set_flags`.
+    const FD_FDSTAT_SET_FLAGS = 1 << 3;
+    /// The right to invoke `fd_sync`.
+    ///
+    /// If `rights::path_open` is set, includes the right to invoke
+    /// `path_open` with `fdflags::rsync` and `fdflags::dsync`.
+    const FD_SYNC = 1 << 4;
+    /// The right to invoke `fd_seek` in such a way that the file offset
+    /// remains unaltered (i.e., `whence::cur` with offset zero), or to
+    /// invoke `fd_tell`.
+    const FD_TELL = 1 << 5;
+    /// The right to invoke `fd_write` and `sock_send`.
+    /// If `rights::fd_seek` is set, includes the right to invoke `fd_pwrite`.
+    const FD_WRITE = 1 << 6;
+    /// The right to invoke `fd_advise`.
+    const FD_ADVISE = 1 << 7;
+    /// The right to invoke `fd_allocate`.
+    const FD_ALLOCATE = 1 << 8;
+    /// The right to invoke `path_create_directory`.
+    const PATH_CREATE_DIRECTORY = 1 << 9;
+    /// If `rights::path_open` is set, the right to invoke `path_open` with `oflags::creat`.
+    const PATH_CREATE_FILE = 1 << 10;
+    /// The right to invoke `path_link` with the file descriptor as the
+    /// source directory.
+    const PATH_LINK_SOURCE = 1 << 11;
+    /// The right to invoke `path_link` with the file descriptor as the
+    /// target directory.
+    const PATH_LINK_TARGET = 1 << 12;
+    /// The right to invoke `path_open`.
+    const PATH_OPEN = 1 << 13;
+    /// The right to invoke `fd_readdir`.
+    const FD_READDIR = 1 << 14;
+    /// The right to invoke `path_readlink`.
+    const PATH_READLINK = 1 << 15;
+    /// The right to invoke `path_rename` with the file descriptor as the source directory.
+    const PATH_RENAME_SOURCE = 1 << 16;
+    /// The right to invoke `path_rename` with the file descriptor as the target directory.
+    const PATH_RENAME_TARGET = 1 << 17;
+    /// The right to invoke `path_filestat_get`.
+    const PATH_FILESTAT_GET = 1 << 18;
+    /// The right to change a file's size (there is no `path_filestat_set_size`).
+    /// If `rights::path_open` is set, includes the right to invoke `path_open` with `oflags::trunc`.
+    const PATH_FILESTAT_SET_SIZE = 1 << 19;
+    /// The right to invoke `path_filestat_set_times`.
+    const PATH_FILESTAT_SET_TIMES = 1 << 20;
+    /// The right to invoke `fd_filestat_get`.
+    const FD_FILESTAT_GET = 1 << 21;
+    /// The right to invoke `fd_filestat_set_size`.
+    const FD_FILESTAT_SET_SIZE = 1 << 22;
+    /// The right to invoke `fd_filestat_set_times`.
+    const FD_FILESTAT_SET_TIMES = 1 << 23;
+    /// The right to invoke `path_symlink`.
+    const PATH_SYMLINK = 1 << 24;
+    /// The right to invoke `path_remove_directory`.
+    const PATH_REMOVE_DIRECTORY = 1 << 25;
+    /// The right to invoke `path_unlink_file`.
+    const PATH_UNLINK_FILE = 1 << 26;
+    /// If `rights::fd_read` is set, includes the right to invoke `poll_oneoff` to subscribe to `eventtype::fd_read`.
+    /// If `rights::fd_write` is set, includes the right to invoke `poll_oneoff` to subscribe to `eventtype::fd_write`.
+    const POLL_FD_READWRITE = 1 << 27;
+    /// The right to invoke `sock_shutdown`.
+    const SOCK_SHUTDOWN = 1 << 28;
+    /// TODO: Found in wasmer-wasi-types rust project, but not in wasi-snapshot0
+    const SOCK_ACCEPT = 1 << 29;
+    /// TODO: Found in wasmer-wasi-types rust project, but not in wasi-snapshot0
+    const SOCK_CONNECT = 1 << 30;
+    /// TODO: Found in wasmer-wasi-types rust project, but not in wasi-snapshot0
+    const SOCK_LISTEN = 1 << 31;
+    /// TODO: Found in wasmer-wasi-types rust project, but not in wasi-snapshot0
+    const SOCK_BIND = 1 << 32;
+    /// TODO: Found in wasmer-wasi-types rust project, but not in wasi-snapshot0
+    const SOCK_RECV = 1 << 33;
+    /// TODO: Found in wasmer-wasi-types rust project, but not in wasi-snapshot0
+    const SOCK_SEND = 1 << 34;
+    /// TODO: Found in wasmer-wasi-types rust project, but not in wasi-snapshot0
+    const SOCK_ADDR_LOCAL = 1 << 35;
+    /// TODO: Found in wasmer-wasi-types rust project, but not in wasi-snapshot0
+    const SOCK_ADDR_REMOTE = 1 << 36;
+    /// TODO: Found in wasmer-wasi-types rust project, but not in wasi-snapshot0
+    const SOCK_RECV_FROM = 1 << 37;
+    /// TODO: Found in wasmer-wasi-types rust project, but not in wasi-snapshot0
+    const SOCK_SEND_TO = 1 << 38;
   }
+}
 impl Rights {
     /// Convert from a raw integer, preserving any unknown bits. See
     /// <https://github.com/bitflags/bitflags/issues/263#issuecomment-957088321>
@@ -750,22 +750,22 @@ impl core::fmt::Debug for Advice {
     }
 }
 wit_bindgen_rust::bitflags::bitflags! {
-/// File descriptor flags.
-pub struct Fdflags: u8 {
-  /// Append mode: Data written to the file is always appended to the file's end.
-  const APPEND = 1 << 0;
-  /// Write according to synchronized I/O data integrity completion. Only the data stored in the file is synchronized.
-  const DSYNC = 1 << 1;
-  /// Non-blocking mode.
-  const NONBLOCK = 1 << 2;
-  /// Synchronized read I/O operations.
-  const RSYNC = 1 << 3;
-  /// Write according to synchronized I/O file integrity completion. In
-  /// addition to synchronizing the data stored in the file, the implementation
-  /// may also synchronously update the file's metadata.
-  const SYNC = 1 << 4;
-}
+  /// File descriptor flags.
+  pub struct Fdflags: u16 {
+    /// Append mode: Data written to the file is always appended to the file's end.
+    const APPEND = 1 << 0;
+    /// Write according to synchronized I/O data integrity completion. Only the data stored in the file is synchronized.
+    const DSYNC = 1 << 1;
+    /// Non-blocking mode.
+    const NONBLOCK = 1 << 2;
+    /// Synchronized read I/O operations.
+    const RSYNC = 1 << 3;
+    /// Write according to synchronized I/O file integrity completion. In
+    /// addition to synchronizing the data stored in the file, the implementation
+    /// may also synchronously update the file's metadata.
+    const SYNC = 1 << 4;
   }
+}
 impl Fdflags {
     /// Convert from a raw integer, preserving any unknown bits. See
     /// <https://github.com/bitflags/bitflags/issues/263#issuecomment-957088321>
@@ -798,20 +798,20 @@ impl core::fmt::Debug for Fdstat {
     }
 }
 wit_bindgen_rust::bitflags::bitflags! {
-/// Which file time attributes to adjust.
-/// TODO: wit appears to not have support for flags repr
-/// (@witx repr u16)
-pub struct Fstflags: u8 {
-  /// Adjust the last data access timestamp to the value stored in `filestat::atim`.
-  const SET_ATIM = 1 << 0;
-  /// Adjust the last data access timestamp to the time of clock `clockid::realtime`.
-  const SET_ATIM_NOW = 1 << 1;
-  /// Adjust the last data modification timestamp to the value stored in `filestat::mtim`.
-  const SET_MTIM = 1 << 2;
-  /// Adjust the last data modification timestamp to the time of clock `clockid::realtime`.
-  const SET_MTIM_NOW = 1 << 3;
-}
+  /// Which file time attributes to adjust.
+  /// TODO: wit appears to not have support for flags repr
+  /// (@witx repr u16)
+  pub struct Fstflags: u16 {
+    /// Adjust the last data access timestamp to the value stored in `filestat::atim`.
+    const SET_ATIM = 1 << 0;
+    /// Adjust the last data access timestamp to the time of clock `clockid::realtime`.
+    const SET_ATIM_NOW = 1 << 1;
+    /// Adjust the last data modification timestamp to the value stored in `filestat::mtim`.
+    const SET_MTIM = 1 << 2;
+    /// Adjust the last data modification timestamp to the time of clock `clockid::realtime`.
+    const SET_MTIM_NOW = 1 << 3;
   }
+}
 impl Fstflags {
     /// Convert from a raw integer, preserving any unknown bits. See
     /// <https://github.com/bitflags/bitflags/issues/263#issuecomment-957088321>
@@ -820,14 +820,14 @@ impl Fstflags {
     }
 }
 wit_bindgen_rust::bitflags::bitflags! {
-/// Flags determining the method of how paths are resolved.
-/// TODO: wit appears to not have support for flags repr
-/// (@witx repr u32)
-pub struct Lookup: u8 {
-  /// As long as the resolved path corresponds to a symbolic link, it is expanded.
-  const SYMLINK_FOLLOW = 1 << 0;
-}
+  /// Flags determining the method of how paths are resolved.
+  /// TODO: wit appears to not have support for flags repr
+  /// (@witx repr u32)
+  pub struct Lookup: u32 {
+    /// As long as the resolved path corresponds to a symbolic link, it is expanded.
+    const SYMLINK_FOLLOW = 1 << 0;
   }
+}
 impl Lookup {
     /// Convert from a raw integer, preserving any unknown bits. See
     /// <https://github.com/bitflags/bitflags/issues/263#issuecomment-957088321>
@@ -836,20 +836,20 @@ impl Lookup {
     }
 }
 wit_bindgen_rust::bitflags::bitflags! {
-/// Open flags used by `path_open`.
-/// TODO: wit appears to not have support for flags repr
-/// (@witx repr u16)
-pub struct Oflags: u8 {
-  /// Create file if it does not exist.
-  const CREATE = 1 << 0;
-  /// Fail if not a directory.
-  const DIRECTORY = 1 << 1;
-  /// Fail if file already exists.
-  const EXCL = 1 << 2;
-  /// Truncate file to size 0.
-  const TRUNC = 1 << 3;
-}
+  /// Open flags used by `path_open`.
+  /// TODO: wit appears to not have support for flags repr
+  /// (@witx repr u16)
+  pub struct Oflags: u16 {
+    /// Create file if it does not exist.
+    const CREATE = 1 << 0;
+    /// Fail if not a directory.
+    const DIRECTORY = 1 << 1;
+    /// Fail if file already exists.
+    const EXCL = 1 << 2;
+    /// Truncate file to size 0.
+    const TRUNC = 1 << 3;
   }
+}
 impl Oflags {
     /// Convert from a raw integer, preserving any unknown bits. See
     /// <https://github.com/bitflags/bitflags/issues/263#issuecomment-957088321>
@@ -884,17 +884,17 @@ impl core::fmt::Debug for Eventtype {
     }
 }
 wit_bindgen_rust::bitflags::bitflags! {
-/// Flags determining how to interpret the timestamp provided in
-/// `subscription-clock::timeout`.
-pub struct Subclockflags: u8 {
-  /// If set, treat the timestamp provided in
-  /// `subscription-clock::timeout` as an absolute timestamp of clock
-  /// `subscription-clock::id`. If clear, treat the timestamp
-  /// provided in `subscription-clock::timeout` relative to the
-  /// current time value of clock `subscription-clock::id`.
-  const SUBSCRIPTION_CLOCK_ABSTIME = 1 << 0;
-}
+  /// Flags determining how to interpret the timestamp provided in
+  /// `subscription-clock::timeout`.
+  pub struct Subclockflags: u16 {
+    /// If set, treat the timestamp provided in
+    /// `subscription-clock::timeout` as an absolute timestamp of clock
+    /// `subscription-clock::id`. If clear, treat the timestamp
+    /// provided in `subscription-clock::timeout` relative to the
+    /// current time value of clock `subscription-clock::id`.
+    const SUBSCRIPTION_CLOCK_ABSTIME = 1 << 0;
   }
+}
 impl Subclockflags {
     /// Convert from a raw integer, preserving any unknown bits. See
     /// <https://github.com/bitflags/bitflags/issues/263#issuecomment-957088321>
@@ -968,13 +968,13 @@ impl core::fmt::Debug for Preopentype {
     }
 }
 wit_bindgen_rust::bitflags::bitflags! {
-/// The state of the file descriptor subscribed to with
-/// `eventtype::fd_read` or `eventtype::fd_write`.
-pub struct Eventrwflags: u8 {
-  /// The peer of this socket has closed or disconnected.
-  const FD_READWRITE_HANGUP = 1 << 0;
-}
+  /// The state of the file descriptor subscribed to with
+  /// `eventtype::fd_read` or `eventtype::fd_write`.
+  pub struct Eventrwflags: u16 {
+    /// The peer of this socket has closed or disconnected.
+    const FD_READWRITE_HANGUP = 1 << 0;
   }
+}
 impl Eventrwflags {
     /// Convert from a raw integer, preserving any unknown bits. See
     /// <https://github.com/bitflags/bitflags/issues/263#issuecomment-957088321>

@@ -9,7 +9,61 @@ fn main() {
         .replace("#[allow(clippy::all)]", "")
         .replace("pub mod output {", "")
         .replace("mod output {", "")
-        .replace("    ", "");
+        .replace("pub struct Rights: u8 {", "pub struct Rights: u64 {")
+        .replace("pub struct Lookup: u8 {", "pub struct Lookup: u32 {")
+        .replace("pub struct Oflags: u8 {", "pub struct Oflags: u16 {")
+        .replace(
+            "pub struct Subclockflags: u8 {",
+            "pub struct Subclockflags: u16 {",
+        )
+        .replace(
+            "pub struct Eventrwflags: u8 {",
+            "pub struct Eventrwflags: u16 {",
+        )
+        .replace("pub struct Fstflags: u8 {", "pub struct Fstflags: u16 {")
+        .replace("pub struct Fdflags: u8 {", "pub struct Fdflags: u16 {");
+
+    let re = regex::Regex::new(r"impl Rights {((.|\n)*)\(bits: u8\)((.|\n)*)").unwrap();
+    let bindings_rs = re.replace(
+        &bindings_rs,
+        r"impl Rights {((.|\n)*)\(bits: u64\)((.|\n)*)",
+    );
+
+    let re = regex::Regex::new(r"impl Lookup {((.|\n)*)\(bits: u8\)((.|\n)*)").unwrap();
+    let bindings_rs = re.replace(
+        &bindings_rs,
+        r"impl Lookup {((.|\n)*)\(bits: u32\)((.|\n)*)",
+    );
+
+    let re = regex::Regex::new(r"impl Oflags {((.|\n)*)\(bits: u8\)((.|\n)*)").unwrap();
+    let bindings_rs = re.replace(
+        &bindings_rs,
+        r"impl Oflags {((.|\n)*)\(bits: u16\)((.|\n)*)",
+    );
+
+    let re = regex::Regex::new(r"impl Subclockflags {((.|\n)*)\(bits: u8\)((.|\n)*)").unwrap();
+    let bindings_rs = re.replace(
+        &bindings_rs,
+        r"impl Subclockflags {((.|\n)*)\(bits: u16\)((.|\n)*)",
+    );
+
+    let re = regex::Regex::new(r"impl Eventrwflags {((.|\n)*)\(bits: u8\)((.|\n)*)").unwrap();
+    let bindings_rs = re.replace(
+        &bindings_rs,
+        r"impl Eventrwflags {((.|\n)*)\(bits: u16\)((.|\n)*)",
+    );
+
+    let re = regex::Regex::new(r"impl Fstflags {((.|\n)*)\(bits: u8\)((.|\n)*)").unwrap();
+    let bindings_rs = re.replace(
+        &bindings_rs,
+        r"impl Fstflags {((.|\n)*)\(bits: u16\)((.|\n)*)",
+    );
+
+    let re = regex::Regex::new(r"impl Fdflags {((.|\n)*)\(bits: u8\)((.|\n)*)").unwrap();
+    let bindings_rs = re.replace(
+        &bindings_rs,
+        r"impl Fdflags {((.|\n)*)\(bits: u16\)((.|\n)*)",
+    );
 
     let mut bindings_rs = bindings_rs.lines().collect::<Vec<_>>();
     bindings_rs.pop();
