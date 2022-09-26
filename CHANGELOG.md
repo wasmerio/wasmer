@@ -14,7 +14,7 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## Fixed
 
-## 3.0.0-beta.2 - 2022/09/15
+## 3.0.0-beta.2 - 2022/09/26
 
 ## Added
 
