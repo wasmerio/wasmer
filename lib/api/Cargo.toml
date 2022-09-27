@@ -73,7 +73,7 @@ hashbrown = { version = "0.11", optional = true }
 wat = "1.0"
 anyhow = "1.0"
 wasm-bindgen-test = "0.3.0"
-macro-wasmer-universal-test = { version = "0.1.0", path = "./macro-wasmer-universal-test" }
+macro-wasmer-universal-test = { version = "3.0.0-beta.2", path = "./macro-wasmer-universal-test" }
 
 # Specific to `js`.
 #
