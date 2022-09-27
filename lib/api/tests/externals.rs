@@ -7,7 +7,6 @@ use wasmer::*;
 #[cfg(feature = "sys")]
 #[test]
 fn test_wasi_fdrights() {
-
     use std::path::{Path, PathBuf};
 
     fn create_temp_dir() -> PathBuf {
@@ -32,9 +31,7 @@ fn test_wasi_fdrights() {
     fn nuke_dir<P: AsRef<Path>>(path: P) -> Result<(), String> {
         use std::fs;
         let path = path.as_ref();
-        for entry in
-            fs::read_dir(path).map_err(|e| format!("{}", path.display()))?
-        {
+        for entry in fs::read_dir(path).map_err(|e| format!("{}", path.display()))? {
             let entry = entry.map_err(|e| format!("{}", path.display()))?;
             let path = entry.path();
 
@@ -44,11 +41,9 @@ fn test_wasi_fdrights() {
 
             if file_type.is_dir() {
                 nuke_dir(&path)?;
-                fs::remove_dir(&path)
-                    .map_err(|e| format!("{}: {e}", path.display()))?;
+                fs::remove_dir(&path).map_err(|e| format!("{}: {e}", path.display()))?;
             } else {
-                fs::remove_file(&path)
-                    .map_err(|e| format!("{}: {e}", path.display()))?;
+                fs::remove_file(&path).map_err(|e| format!("{}: {e}", path.display()))?;
             }
         }
 
@@ -62,7 +57,7 @@ fn test_wasi_fdrights() {
     let _ = std::fs::create_dir_all(temp_dir.join("src"));
     let _ = std::fs::write(temp_dir.join("src").join("main.rs"), MAIN_RS);
     let _ = std::fs::write(temp_dir.join("Cargo.toml"), CARGO_TOML);
-    
+
     let mut cmd = std::process::Command::new("rustup");
     cmd.arg("target");
     cmd.arg("add");
@@ -114,7 +109,8 @@ fn test_wasi_fdrights() {
     assert!(result.is_err()); // program should panic (file not readable)
 
     // intentionally wrong to make the CI test fail
-    let expected = r#"cannot access / (fd 5): Errno { code: 9, name: "EACCESS", message: "No access." }"#;
+    let expected =
+        r#"cannot access / (fd 5): Errno { code: 9, name: "EACCESS", message: "No access." }"#;
     if expected != format!("{result:?}") {
         println!("expected:");
         println!("{expected}");
