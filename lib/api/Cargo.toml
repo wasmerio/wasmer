@@ -55,7 +55,7 @@ winapi = "0.3"
 wat = "1.0"
 tempfile = "3.1"
 anyhow = "1.0"
-macro-wasmer-universal-test = { version = "0.1.0", path = "./macro-wasmer-universal-test" }
+macro-wasmer-universal-test = { version = "3.0.0-beta.2", path = "./macro-wasmer-universal-test" }
 
 # Dependencies and Develoment Dependencies for `js`.
 [target.'cfg(target_arch = "wasm32")'.dependencies]
