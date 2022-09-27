@@ -17,7 +17,7 @@ Read the documentation of [`", $c_ty, "`] to see more concrete examples.
 # Example
 
 ```rust
-# use inline_c::assert_c;
+# use wasmer_inline_c::assert_c;
 # fn main() {
 #    (assert_c! {
 # #include \"tests/wasmer.h\"
@@ -120,7 +120,7 @@ void example(", $c_ty, " x, ", $c_ty, " y) {
 # Example
 
 ```rust
-# use inline_c::assert_c;
+# use wasmer_inline_c::assert_c;
 # fn main() {
 #    (assert_c! {
 # #include \"tests/wasmer.h\"
@@ -153,7 +153,7 @@ int main() {
 # Example
 
 ```rust
-# use inline_c::assert_c;
+# use wasmer_inline_c::assert_c;
 # fn main() {
 #    (assert_c! {
 # #include \"tests/wasmer.h\"

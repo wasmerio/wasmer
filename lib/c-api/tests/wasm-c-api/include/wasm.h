@@ -133,7 +133,12 @@ WASM_API_EXTERN own wasm_config_t* wasm_config_new();
 
 WASM_DECLARE_OWN(engine)
 
+// During testing, we use a custom implementation of wasm_engine_new
+#if defined(TEST_WASM) || defined(TEST_WASMER)
+wasm_engine_t* wasm_engine_new();
+#else
 WASM_API_EXTERN own wasm_engine_t* wasm_engine_new();
+#endif
 WASM_API_EXTERN own wasm_engine_t* wasm_engine_new_with_config(own wasm_config_t*);
 
 

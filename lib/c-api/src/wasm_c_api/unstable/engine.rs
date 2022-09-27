@@ -14,7 +14,7 @@ use super::target_lexicon::wasmer_target_t;
 /// # Example
 ///
 /// ```rust
-/// # use inline_c::assert_c;
+/// # use wasmer_inline_c::assert_c;
 /// # fn main() {
 /// #    (assert_c! {
 /// # #include "tests/wasmer.h"
@@ -58,7 +58,7 @@ pub extern "C" fn wasm_config_set_target(config: &mut wasm_config_t, target: Box
 /// # Example
 ///
 /// ```rust
-/// # use inline_c::assert_c;
+/// # use wasmer_inline_c::assert_c;
 /// # fn main() {
 /// #    (assert_c! {
 /// # #include "tests/wasmer.h"
@@ -105,7 +105,7 @@ pub extern "C" fn wasm_config_set_features(
 /// # Example
 ///
 /// ```rust
-/// # use inline_c::assert_c;
+/// # use wasmer_inline_c::assert_c;
 /// # fn main() {
 /// #    (assert_c! {
 /// # #include "tests/wasmer.h"
@@ -166,8 +166,11 @@ pub extern "C" fn wasmer_is_engine_available(engine: wasmer_engine_t) -> bool {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(not(target_os = "windows"))]
     use inline_c::assert_c;
     use std::env::{remove_var, set_var};
+    #[cfg(target_os = "windows")]
+    use wasmer_inline_c::assert_c;
 
     #[test]
     fn test_wasmer_is_headless() {

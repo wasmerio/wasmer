@@ -132,7 +132,10 @@ pub extern "C" fn wasm_extern_as_table(r#extern: Option<&wasm_extern_t>) -> Opti
 
 #[cfg(test)]
 mod tests {
+    #[cfg(not(target_os = "windows"))]
     use inline_c::assert_c;
+    #[cfg(target_os = "windows")]
+    use wasmer_inline_c::assert_c;
 
     #[test]
     fn test_extern_copy() {
