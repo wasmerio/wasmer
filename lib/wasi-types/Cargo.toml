@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-wasi-types"
-version = "3.0.0-beta"
+version = "3.0.0-beta.2"
 description = "WASI types for Wasmer WebAssembly runtime"
 categories = ["wasm", "os"]
 keywords = ["wasm", "webassembly", "wasi", "sandbox", "ABI"]
@@ -18,8 +18,8 @@ wit-bindgen-rust = { package = "wasmer-wit-bindgen-rust", version = "0.1.1" }
 wit-bindgen-rust-wasm = { package = "wasmer-wit-bindgen-gen-rust-wasm", version = "0.1.1" }
 wit-bindgen-core = { package = "wasmer-wit-bindgen-gen-core", version = "0.1.1" }
 wit-parser = { package = "wasmer-wit-parser", version = "0.1.1" }
-wasmer-types = { path = "../types", version = "=3.0.0-beta" }
-wasmer-derive = { path = "../derive", version = "=3.0.0-beta" }
+wasmer-types = { path = "../types", version = "=3.0.0-beta.2" }
+wasmer-derive = { path = "../derive", version = "=3.0.0-beta.2" }
 serde = { version = "1.0", features = ["derive"], optional = true }
 byteorder = "1.3"
 time = "0.2"
