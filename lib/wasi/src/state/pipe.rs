@@ -2,7 +2,7 @@ use crate::syscalls::types::*;
 use crate::syscalls::{read_bytes, write_bytes};
 use bytes::{Buf, Bytes};
 use std::convert::TryInto;
-use std::io::{self, Read};
+use std::io::Read;
 use std::ops::DerefMut;
 use std::sync::mpsc;
 use std::sync::Mutex;
