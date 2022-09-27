@@ -188,7 +188,7 @@ unsafe impl wasmer::FromToNativeWasmType for Fdflags {
         self.bits() as i32
     }
     fn from_native(n: Self::Native) -> Self {
-        Self::from_bits_truncate(n as u8)
+        Self::from_bits_truncate(n as u16)
     }
 
     fn is_from_store(&self, _store: &impl wasmer::AsStoreRef) -> bool {
@@ -223,7 +223,7 @@ unsafe impl wasmer::FromToNativeWasmType for Fstflags {
         self.bits() as i32
     }
     fn from_native(n: Self::Native) -> Self {
-        Self::from_bits_truncate(n as u8)
+        Self::from_bits_truncate(n as u16)
     }
 
     fn is_from_store(&self, _store: &impl wasmer::AsStoreRef) -> bool {
@@ -240,7 +240,7 @@ unsafe impl wasmer::FromToNativeWasmType for Oflags {
         self.bits() as i32
     }
     fn from_native(n: Self::Native) -> Self {
-        Self::from_bits_truncate(n as u8)
+        Self::from_bits_truncate(n as u16)
     }
 
     fn is_from_store(&self, _store: &impl wasmer::AsStoreRef) -> bool {

@@ -4,8 +4,21 @@ use wit_parser::TypeDefKind;
 const WIT_1: &str = include_str!("../../wit-clean/output.wit");
 const BINDINGS_RS: &str = include_str!("../../src/wasi/bindings.rs");
 
+fn replace_in_string(s: &str, id: &str, ty: &str) -> String {
+    let parts = s.split(&format!("impl {id} {{")).collect::<Vec<_>>();
+    if parts.len() == 1 {
+        return s.to_string();
+    }
+    let replaced = parts[1].replacen(
+        "from_bits_preserve(bits: u8)",
+        &format!("from_bits_preserve(bits: {ty})"),
+        1,
+    );
+    format!("{}impl {id} {{ {replaced}", parts[0])
+}
+
 fn main() {
-    let bindings_rs = BINDINGS_RS
+    let mut bindings_rs = BINDINGS_RS
         .replace("#[allow(clippy::all)]", "")
         .replace("pub mod output {", "")
         .replace("mod output {", "")
@@ -23,47 +36,13 @@ fn main() {
         .replace("pub struct Fstflags: u8 {", "pub struct Fstflags: u16 {")
         .replace("pub struct Fdflags: u8 {", "pub struct Fdflags: u16 {");
 
-    let re = regex::Regex::new(r"impl Rights {((.|\n)*)\(bits: u8\)((.|\n)*)").unwrap();
-    let bindings_rs = re.replace(
-        &bindings_rs,
-        r"impl Rights {((.|\n)*)\(bits: u64\)((.|\n)*)",
-    );
-
-    let re = regex::Regex::new(r"impl Lookup {((.|\n)*)\(bits: u8\)((.|\n)*)").unwrap();
-    let bindings_rs = re.replace(
-        &bindings_rs,
-        r"impl Lookup {((.|\n)*)\(bits: u32\)((.|\n)*)",
-    );
-
-    let re = regex::Regex::new(r"impl Oflags {((.|\n)*)\(bits: u8\)((.|\n)*)").unwrap();
-    let bindings_rs = re.replace(
-        &bindings_rs,
-        r"impl Oflags {((.|\n)*)\(bits: u16\)((.|\n)*)",
-    );
-
-    let re = regex::Regex::new(r"impl Subclockflags {((.|\n)*)\(bits: u8\)((.|\n)*)").unwrap();
-    let bindings_rs = re.replace(
-        &bindings_rs,
-        r"impl Subclockflags {((.|\n)*)\(bits: u16\)((.|\n)*)",
-    );
-
-    let re = regex::Regex::new(r"impl Eventrwflags {((.|\n)*)\(bits: u8\)((.|\n)*)").unwrap();
-    let bindings_rs = re.replace(
-        &bindings_rs,
-        r"impl Eventrwflags {((.|\n)*)\(bits: u16\)((.|\n)*)",
-    );
-
-    let re = regex::Regex::new(r"impl Fstflags {((.|\n)*)\(bits: u8\)((.|\n)*)").unwrap();
-    let bindings_rs = re.replace(
-        &bindings_rs,
-        r"impl Fstflags {((.|\n)*)\(bits: u16\)((.|\n)*)",
-    );
-
-    let re = regex::Regex::new(r"impl Fdflags {((.|\n)*)\(bits: u8\)((.|\n)*)").unwrap();
-    let bindings_rs = re.replace(
-        &bindings_rs,
-        r"impl Fdflags {((.|\n)*)\(bits: u16\)((.|\n)*)",
-    );
+    bindings_rs = replace_in_string(&bindings_rs, "Oflags", "u16");
+    bindings_rs = replace_in_string(&bindings_rs, "Subclockflags", "u16");
+    bindings_rs = replace_in_string(&bindings_rs, "Eventrwflags", "u16");
+    bindings_rs = replace_in_string(&bindings_rs, "Fstflags", "u16");
+    bindings_rs = replace_in_string(&bindings_rs, "Fdflags", "u16");
+    bindings_rs = replace_in_string(&bindings_rs, "Lookup", "u32");
+    bindings_rs = replace_in_string(&bindings_rs, "Rights", "u64");
 
     let mut bindings_rs = bindings_rs.lines().collect::<Vec<_>>();
     bindings_rs.pop();
@@ -87,6 +66,8 @@ fn main() {
     "
     )
     .replace("        ", "");
+
+    println!("output to {}", path.display());
 
     let excluded_from_impl_valuetype = ["Prestat"];
 

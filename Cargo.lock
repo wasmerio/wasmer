@@ -2935,7 +2935,6 @@ name = "wasi-types-generator-extra"
 version = "0.1.0"
 dependencies = [
  "convert_case",
- "regex",
  "wasmer-wit-parser",
 ]
 

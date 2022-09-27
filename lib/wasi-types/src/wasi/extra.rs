@@ -769,7 +769,7 @@ wit_bindgen_rust::bitflags::bitflags! {
 impl Fdflags {
     /// Convert from a raw integer, preserving any unknown bits. See
     /// <https://github.com/bitflags/bitflags/issues/263#issuecomment-957088321>
-    pub fn from_bits_preserve(bits: u8) -> Self {
+    pub fn from_bits_preserve(bits: u16) -> Self {
         Self { bits }
     }
 }
@@ -815,7 +815,7 @@ wit_bindgen_rust::bitflags::bitflags! {
 impl Fstflags {
     /// Convert from a raw integer, preserving any unknown bits. See
     /// <https://github.com/bitflags/bitflags/issues/263#issuecomment-957088321>
-    pub fn from_bits_preserve(bits: u8) -> Self {
+    pub fn from_bits_preserve(bits: u16) -> Self {
         Self { bits }
     }
 }
@@ -831,7 +831,7 @@ wit_bindgen_rust::bitflags::bitflags! {
 impl Lookup {
     /// Convert from a raw integer, preserving any unknown bits. See
     /// <https://github.com/bitflags/bitflags/issues/263#issuecomment-957088321>
-    pub fn from_bits_preserve(bits: u8) -> Self {
+    pub fn from_bits_preserve(bits: u32) -> Self {
         Self { bits }
     }
 }
@@ -853,7 +853,7 @@ wit_bindgen_rust::bitflags::bitflags! {
 impl Oflags {
     /// Convert from a raw integer, preserving any unknown bits. See
     /// <https://github.com/bitflags/bitflags/issues/263#issuecomment-957088321>
-    pub fn from_bits_preserve(bits: u8) -> Self {
+    pub fn from_bits_preserve(bits: u16) -> Self {
         Self { bits }
     }
 }
@@ -898,7 +898,7 @@ wit_bindgen_rust::bitflags::bitflags! {
 impl Subclockflags {
     /// Convert from a raw integer, preserving any unknown bits. See
     /// <https://github.com/bitflags/bitflags/issues/263#issuecomment-957088321>
-    pub fn from_bits_preserve(bits: u8) -> Self {
+    pub fn from_bits_preserve(bits: u16) -> Self {
         Self { bits }
     }
 }
@@ -978,7 +978,7 @@ wit_bindgen_rust::bitflags::bitflags! {
 impl Eventrwflags {
     /// Convert from a raw integer, preserving any unknown bits. See
     /// <https://github.com/bitflags/bitflags/issues/263#issuecomment-957088321>
-    pub fn from_bits_preserve(bits: u8) -> Self {
+    pub fn from_bits_preserve(bits: u16) -> Self {
         Self { bits }
     }
 }
