@@ -403,7 +403,10 @@ pub unsafe extern "C" fn wasi_get_start_function(
 
 #[cfg(test)]
 mod tests {
+    #[cfg(not(target_os = "windows"))]
     use inline_c::assert_c;
+    #[cfg(target_os = "windows")]
+    use wasmer_inline_c::assert_c;
 
     #[test]
     fn test_wasi_get_wasi_version_snapshot0() {

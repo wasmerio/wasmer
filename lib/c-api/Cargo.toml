@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-c-api"
-version = "3.0.0-beta"
+version = "3.0.0-beta.2"
 description = "Wasmer C API library"
 categories = ["wasm", "api-bindings"]
 keywords = ["wasm", "webassembly", "runtime"]
@@ -22,15 +22,15 @@ crate-type = ["staticlib", "cdylib"] #"cdylib", "rlib", "staticlib"]
 [dependencies]
 # We rename `wasmer` to `wasmer-api` to avoid the conflict with this
 # library name (see `[lib]`).
-wasmer-api = { version = "=3.0.0-beta", path = "../api", default-features = false, features = ["sys"], package = "wasmer" }
-wasmer-compiler-cranelift = { version = "=3.0.0-beta", path = "../compiler-cranelift", optional = true }
-wasmer-compiler-singlepass = { version = "=3.0.0-beta", path = "../compiler-singlepass", optional = true }
-wasmer-compiler-llvm = { version = "=3.0.0-beta", path = "../compiler-llvm", optional = true }
-wasmer-emscripten = { version = "=3.0.0-beta", path = "../emscripten", optional = true }
-wasmer-compiler = { version = "=3.0.0-beta", path = "../compiler" }
-wasmer-middlewares = { version = "=3.0.0-beta", path = "../middlewares", optional = true }
-wasmer-wasi = { version = "=3.0.0-beta", path = "../wasi", default-features = false, features = ["host-fs", "sys"], optional = true }
-wasmer-types = { version = "=3.0.0-beta", path = "../types" }
+wasmer-api = { version = "=3.0.0-beta.2", path = "../api", default-features = false, features = ["sys"], package = "wasmer" }
+wasmer-compiler-cranelift = { version = "=3.0.0-beta.2", path = "../compiler-cranelift", optional = true }
+wasmer-compiler-singlepass = { version = "=3.0.0-beta.2", path = "../compiler-singlepass", optional = true }
+wasmer-compiler-llvm = { version = "=3.0.0-beta.2", path = "../compiler-llvm", optional = true }
+wasmer-emscripten = { version = "=3.0.0-beta.2", path = "../emscripten", optional = true }
+wasmer-compiler = { version = "=3.0.0-beta.2", path = "../compiler" }
+wasmer-middlewares = { version = "=3.0.0-beta.2", path = "../middlewares", optional = true }
+wasmer-wasi = { version = "=3.0.0-beta.2", path = "../wasi", default-features = false, features = ["host-fs", "sys"], optional = true }
+wasmer-types = { version = "=3.0.0-beta.2", path = "../types" }
 enumset = "1.0.2"
 cfg-if = "1.0"
 lazy_static = "1.4"
@@ -41,7 +41,12 @@ paste = "1.0"
 
 [dev-dependencies]
 field-offset = "0.3.3"
-inline-c = "0.1.5"
+
+[target.'cfg(target_os = "windows")'.dev-dependencies]
+wasmer-inline-c = "0.1.1"
+
+[target.'cfg(not(target_os = "windows"))'.dev-dependencies]
+inline-c = "0.1.7"
 
 [features]
 default = [

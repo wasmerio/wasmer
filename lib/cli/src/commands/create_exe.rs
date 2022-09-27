@@ -480,9 +480,14 @@ impl CreateExe {
             include_dir.pop();
             include_dir.push("include");
 
+            let compiler_cmd = match std::process::Command::new("cc").output() {
+                Ok(_) => "cc",
+                Err(_) => "gcc",
+            };
+
             let mut cmd = Command::new(zig_binary_path);
             let mut cmd_mut: &mut Command = cmd
-                .arg("cc")
+                .arg(compiler_cmd)
                 .arg("-w")
                 .arg("-fgnu-inline-asm")
                 .arg("-fsanitize=undefined")
@@ -549,7 +554,12 @@ impl CreateExe {
 
         /* Compile main function */
         let compilation = {
-            Command::new("cc")
+            let compiler_cmd = match Command::new("cc").output() {
+                Ok(_) => "cc",
+                Err(_) => "gcc",
+            };
+
+            Command::new(compiler_cmd)
                 .arg("-c")
                 .arg(&c_src_path)
                 .arg(if linkcode.optimization_flag.is_empty() {

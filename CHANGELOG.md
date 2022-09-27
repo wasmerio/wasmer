@@ -8,24 +8,65 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **Unreleased**
 
-### Added
-- #[3096](https://github.com/wasmerio/wasmer/pull/3096) create-exe: use cached wasmer tarballs for network fetches
-- Support installing pre-built binaries via `cargo-binstall`
+## Added
 
-### Changed
-- #[3131](https://github.com/wasmerio/wasmer/pull/3131) Update migration docs for MemoryView changes
-- #[3129](https://github.com/wasmerio/wasmer/pull/3129) Fix differences between -sys and -js API
+## Changed
 
-### Fixed
-- #[3130](https://github.com/wasmerio/wasmer/pull/3130) Remove panics from Artifact::deserialize
+## Fixed
+
+## 3.0.0-beta.2 - 2022/09/26
+
+## Added
+
+- [#3176](https://github.com/wasmerio/wasmer/pull/3176)  Add support for `cargo-binstall`
+- [#3117](https://github.com/wasmerio/wasmer/pull/3117)  Add tests for wasmer-cli create-{exe,obj} commands
+- [#3116](https://github.com/wasmerio/wasmer/pull/3116)  Multithreading, full networking and RPC for WebAssembly
+- [#3101](https://github.com/wasmerio/wasmer/pull/3101)  CI/build.yaml: add libwasmer headless in default distribution
+- [#3090](https://github.com/wasmerio/wasmer/pull/3090)  Added version to the wasmer cli
+- [#3089](https://github.com/wasmerio/wasmer/pull/3089)  Add wasi_* C-API function changes in migration guide for 3.0.0
+
+## Changed
+
+- [#3165](https://github.com/wasmerio/wasmer/pull/3165)  Initial port of make test-js-core (port wasmer API to core)
+- [#3164](https://github.com/wasmerio/wasmer/pull/3164)  Synchronize between -sys and -js tests
+- [#3142](https://github.com/wasmerio/wasmer/pull/3142)  Bump rust toolchain
+- [#3141](https://github.com/wasmerio/wasmer/pull/3141)  The API breaking changes from future WASIX/Network/Threading addition
+- [#3138](https://github.com/wasmerio/wasmer/pull/3138)  Js imports revamp
+- [#3134](https://github.com/wasmerio/wasmer/pull/3134)  Bring libwasmer-headless.a from 22MiB to 7.2MiB (on my machine)
+- [#3132](https://github.com/wasmerio/wasmer/pull/3132)  Revert "Lower libwasmer headless size"
+- [#3131](https://github.com/wasmerio/wasmer/pull/3131)  Update for migration-to-3.0.0 for MemoryView changes
+- [#3130](https://github.com/wasmerio/wasmer/pull/3130)  Remove panics from Artifact::deserialize
+- [#3128](https://github.com/wasmerio/wasmer/pull/3128)  scripts/publish.py: validate crates version before publishing
+- [#3126](https://github.com/wasmerio/wasmer/pull/3126)  scripts/publish.py: replace toposort dependency with python std graphlib module
+- [#3123](https://github.com/wasmerio/wasmer/pull/3123)  Lower libwasmer headless size
+- [#3122](https://github.com/wasmerio/wasmer/pull/3122)  Update Cargo.lock dependencies
+- [#3119](https://github.com/wasmerio/wasmer/pull/3119)  Added LinearMemory trait
+- [#3118](https://github.com/wasmerio/wasmer/pull/3118)  Refactor Artifact enum into a struct
+- [#3114](https://github.com/wasmerio/wasmer/pull/3114)  Implemented shared memory for Wasmer in preparation for multithreading
+- [#3104](https://github.com/wasmerio/wasmer/pull/3104)  Re-enabled ExternRef tests
+- [#3103](https://github.com/wasmerio/wasmer/pull/3103)  create-exe: prefer libwasmer headless when cross-compiling
+- [#3097](https://github.com/wasmerio/wasmer/pull/3097)  MemoryView lifetime tied to memory and not StoreRef
+- [#3096](https://github.com/wasmerio/wasmer/pull/3096)  create-exe: use cached wasmer tarballs for network fetches
+- [#3095](https://github.com/wasmerio/wasmer/pull/3095)  create-exe: list supported cross-compilation target triples in help …
+- [#3083](https://github.com/wasmerio/wasmer/pull/3083)  Disable wasm build in build CI
+
+## Fixed
+
+- [#3185](https://github.com/wasmerio/wasmer/pull/3185)  Fix `wasmer compile` command for non-x86 target
+- [#3184](https://github.com/wasmerio/wasmer/pull/3184)  Fix windows build
+- [#3137](https://github.com/wasmerio/wasmer/pull/3137)  Fix cache path not being present during installation of cross-tarball
+- [#3129](https://github.com/wasmerio/wasmer/pull/3129)  Fix differences between -sys and -js API
+- [#3115](https://github.com/wasmerio/wasmer/pull/3115)  Fix static object signature deserialization
+- [#3093](https://github.com/wasmerio/wasmer/pull/3093)  Fixed a potential issue when renaming a file
+- [#3088](https://github.com/wasmerio/wasmer/pull/3088)  Fixed an issue when renaming a file from a preopened dir directly (for 3084)
 
 ## 3.0.0-beta - 2022/08/08
 
 ### Added
-- #[3076](https://github.com/wasmerio/wasmer/pull/3076) Add support for cross-compiling in create-exe with zig cc
+- [#3076](https://github.com/wasmerio/wasmer/pull/3076) Add support for cross-compiling in create-exe with zig cc
 
 ### Changed
-- #[3079](https://github.com/wasmerio/wasmer/pull/3079) Migrate CLI tools to `clap` from `structopt`
+- [#3079](https://github.com/wasmerio/wasmer/pull/3079) Migrate CLI tools to `clap` from `structopt`
 - [#3048](https://github.com/wasmerio/wasmer/pull/3048) Automatically publish wasmer as "cloudcompiler" package to wapm.dev on every release
 - [#3075](https://github.com/wasmerio/wasmer/pull/3075) Remove __wbindgen_thread_id
 - [#3072](https://github.com/wasmerio/wasmer/pull/3072) Add back `Function::*_with_env(…)` functions
@@ -82,8 +123,8 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 - [#2963](https://github.com/wasmerio/wasmer/pull/2963) Remove accidental dependency on libwayland and libxcb in ClI
 - [#2942](https://github.com/wasmerio/wasmer/pull/2942) Fix clippy lints.
 - [#2943](https://github.com/wasmerio/wasmer/pull/2943) Fix build error on some archs by using c_char instead of i8
-- [2976](https://github.com/wasmerio/wasmer/pull/2976) Upgrade minimum enumset to one that compiles
-- [2988](https://github.com/wasmerio/wasmer/pull/2988) Have make targets install-capi-lib,install-pkgconfig work without building the wasmer binary
+- [#2976](https://github.com/wasmerio/wasmer/pull/2976) Upgrade minimum enumset to one that compiles
+- [#2988](https://github.com/wasmerio/wasmer/pull/2988) Have make targets install-capi-lib,install-pkgconfig work without building the wasmer binary
 - [#2967](https://github.com/wasmerio/wasmer/pull/2967) Fix singlepass on arm64 that was trying to emit a sub opcode with a constant as destination (for #2959) 
 - [#2948](https://github.com/wasmerio/wasmer/pull/2948) Fix regression on gen_import_call_trampoline_arm64()
 - [#2944](https://github.com/wasmerio/wasmer/pull/2944) Fix duplicate entries in the CHANGELOG 

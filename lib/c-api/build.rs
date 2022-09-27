@@ -1,7 +1,7 @@
 //! This build script aims at:
 //!
 //! * generating the C header files for the C API,
-//! * setting `inline-c` up.
+//! * setting `wasmer-inline-c` up.
 
 use cbindgen::{Builder, Language};
 use std::{
@@ -83,7 +83,7 @@ fn main() {
     build_cdylib_link_arg();
 }
 
-/// Check whether we should build the C API headers or set `inline-c` up.
+/// Check whether we should build the C API headers or set `wasmer-inline-c` up.
 fn running_self() -> bool {
     env::var("DOCS_RS").is_err()
         && env::var("_CBINDGEN_IS_RUNNING").is_err()
