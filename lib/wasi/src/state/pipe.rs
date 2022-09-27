@@ -106,12 +106,12 @@ impl Read for WasiPipe {
                 }
             }
             let rx = self.rx.lock().unwrap();
-            let data = rx.recv().map_err(|_| {
-                io::Error::new(
-                    io::ErrorKind::BrokenPipe,
-                    "the wasi pipe is not connected".to_string(),
-                )
-            })?;
+            let data = match rx.recv() {
+                Ok(o) => o,
+                Err(_) => {
+                    return Ok(0);
+                }
+            };
             self.read_buffer.replace(Bytes::from(data));
         }
     }
