@@ -1458,7 +1458,7 @@ dependencies = [
 
 [[package]]
 name = "macro-wasmer-universal-test"
-version = "0.1.0"
+version = "3.0.0-beta.2"
 dependencies = [
  "proc-macro2",
  "proc-quote",
