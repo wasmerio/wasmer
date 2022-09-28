@@ -673,7 +673,9 @@ pub unsafe extern "C" fn wasi_config_overwrite_stdin(
     config_overwrite: &mut wasi_config_t,
     stdin_overwrite: *mut wasi_pipe_t,
 ) {
-    config_overwrite.state_builder.stdin(Box::from_raw(stdin_overwrite));
+    config_overwrite
+        .state_builder
+        .stdin(Box::from_raw(stdin_overwrite));
 }
 
 #[no_mangle]
@@ -681,7 +683,9 @@ pub unsafe extern "C" fn wasi_config_overwrite_stdout(
     config_overwrite: &mut wasi_config_t,
     stdout_overwrite: *mut wasi_pipe_t,
 ) {
-    config_overwrite.state_builder.stdout(Box::from_raw(stdout_overwrite));
+    config_overwrite
+        .state_builder
+        .stdout(Box::from_raw(stdout_overwrite));
 }
 
 #[no_mangle]
@@ -689,7 +693,9 @@ pub unsafe extern "C" fn wasi_config_overwrite_stderr(
     config_overwrite: &mut wasi_config_t,
     stderr_overwrite: *mut wasi_pipe_t,
 ) {
-    config_overwrite.state_builder.stderr(Box::from_raw(stderr_overwrite));
+    config_overwrite
+        .state_builder
+        .stderr(Box::from_raw(stderr_overwrite));
 }
 
 #[allow(non_camel_case_types)]
