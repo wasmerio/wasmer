@@ -30,6 +30,7 @@ members = [
     "lib/cache",
     "lib/c-api",
     "lib/cli",
+    "lib/api/macro-wasmer-universal-test",
     "lib/cli-compiler",
     "lib/compiler",
     "lib/compiler-cranelift",

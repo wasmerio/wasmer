@@ -1,6 +1,6 @@
 [package]
 name = "macro-wasmer-universal-test"
-version = "0.1.0"
+version = "3.0.0-beta.2"
 edition = "2021"
 license = "MIT"
 description = "Universal test macro for wasmer-test"
@@ -12,4 +12,4 @@ proc-macro = true
 proc-quote = "0.4.0"
 proc-macro2 = "1.0.43"     
 syn = { version = "1.0.99", features = ["full"] }
-quote = "*"
+quote = "1.0.21"
