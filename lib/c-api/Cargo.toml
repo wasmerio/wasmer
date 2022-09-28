@@ -43,10 +43,10 @@ paste = "1.0"
 field-offset = "0.3.3"
 
 [target.'cfg(target_os = "windows")'.dev-dependencies]
-wasmer-inline-c = "0.1.1"
+wasmer-inline-c = "0.1.2"
 
 [target.'cfg(not(target_os = "windows"))'.dev-dependencies]
-inline-c = "0.1.7"
+inline-c = { git = "https://github.com/Hywan/inline-c-rs", rev = "d4e0478f96d02602a50bb976098a9a79dd62297d" }
 
 [features]
 default = [
