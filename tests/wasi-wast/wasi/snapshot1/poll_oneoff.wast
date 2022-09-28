@@ -3,6 +3,6 @@
 (wasi_test "poll_oneoff.wasm"
   (map_dirs "hamlet:test_fs/hamlet")
   (temp_dirs "temp")
-  (assert_return (i64.const 0))
-  (assert_stdout "__wasi_event_t { userdata: 1193046, error: 0, type_: 1, u: __wasi_event_u { __wasi_event_fd_readwrite_t { nbytes: 2259, flags: 0 } } }\n[__wasi_event_t { userdata: 1193046, error: 0, type_: 1, u: __wasi_event_u { __wasi_event_fd_readwrite_t { nbytes: 2259, flags: 0 } } }, __wasi_event_t { userdata: 1193046, error: 0, type_: 2, u: __wasi_event_u { __wasi_event_fd_readwrite_t { nbytes: 1234, flags: 0 } } }]\nStdin: OK\nStdout: OK\nStderr: OK\n")
+  (assert_return (i64.const 101))
+  (assert_stderr "thread 'main' panicked at 'Could not open file: Os { code: 2, kind: NotFound, message: \"No such file or directory\" }', /Users/fs/Development/wasmer/tests/wasi-wast/wasi/tests/poll_oneoff.rs:155:14\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n")
 )
