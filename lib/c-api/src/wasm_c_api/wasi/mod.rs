@@ -670,26 +670,26 @@ pub extern "C" fn wasi_config_inherit_stdin(config: &mut wasi_config_t) {
 
 #[no_mangle]
 pub unsafe extern "C" fn wasi_config_overwrite_stdin(
-    config: &mut wasi_config_t,
-    stdin: *mut wasi_pipe_t,
+    config_overwrite: &mut wasi_config_t,
+    stdin_overwrite: *mut wasi_pipe_t,
 ) {
-    config.state_builder.stdin(Box::from_raw(stdin));
+    config_overwrite.state_builder.stdin(Box::from_raw(stdin_overwrite));
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn wasi_config_overwrite_stdout(
-    config: &mut wasi_config_t,
-    stdout: *mut wasi_pipe_t,
+    config_overwrite: &mut wasi_config_t,
+    stdout_overwrite: *mut wasi_pipe_t,
 ) {
-    config.state_builder.stdout(Box::from_raw(stdout));
+    config_overwrite.state_builder.stdout(Box::from_raw(stdout_overwrite));
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn wasi_config_overwrite_stderr(
-    config: &mut wasi_config_t,
-    stderr: *mut wasi_pipe_t,
+    config_overwrite: &mut wasi_config_t,
+    stderr_overwrite: *mut wasi_pipe_t,
 ) {
-    config.state_builder.stderr(Box::from_raw(stderr));
+    config_overwrite.state_builder.stderr(Box::from_raw(stderr_overwrite));
 }
 
 #[allow(non_camel_case_types)]
