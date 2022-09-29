@@ -1,3 +1,9 @@
+//! This generator is run when regenerate.sh is executed and fixes a couple
+//! of issues that wit-bindgen currently doesn't support.
+//!
+//! Eventually this functionality should be upstreamed into wit-bindgen,
+//! see issue [#3177](https://github.com/wasmerio/wasmer/issues/3177).
+
 use convert_case::{Case, Casing};
 use wit_parser::TypeDefKind;
 
