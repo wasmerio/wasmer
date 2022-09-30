@@ -1145,6 +1145,7 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
         callee: ir::FuncRef,
         call_args: &[ir::Value],
     ) -> WasmResult<ir::Inst> {
+
         let pos = builder.cursor();
         let mut real_call_args = Vec::with_capacity(call_args.len() + 2);
 
@@ -1184,30 +1185,37 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
         // or a u32 indicating the function index in the module
         let u8_type = ir::types::Type::int(8).unwrap(); // safe unwrap, 8 bits will be valid
         let tag = pos.ins().load(u8_type, mem_flags, base, body_offset);
-        
-        // Emit instruction to compare the tag: if it is a static (0) tag,
-        // jump to the static CFG, if it is dynamic (1), jump to the dynamic cfg
-        let (is_dynamic_op, cfg_dynamic) = pos.ins().IntCompare(
-            ir::Opcode::Brif, // branch if 1
-            u8_type, 
-            ir::condcodes::IntCC::Equal, 
-            tag, 
-            0.into(),
-        );
-        
-        // Block for calling a dynamic function, can be jumped over
-        let dynamic_cfg = {
-            // CFG: "call dynamic function"
-            let func_addr = cfg_dynamic.ins().load(u8_type, mem_flags, base, body_offset + 1);
-        };
+        let iconst_0 = pos.ins().iconst( u8_type, 0);
+        let condition_value = pos.ins().icmp(IntCC::Equal, tag, iconst_0);
 
-        // CFG: "call static function"
-        let func_addr = pos.ins().load(u8_type, mem_flags, base, body_offset + 1);
+        let then_block = builder.create_block();
+        let else_block = builder.create_block();
+        let merge_block = builder.create_block();
+
+        builder.append_block_param(merge_block, u8_type); // ??? u8_type return?
+        
+        // Test the if condition and conditionally branch.
+        builder.ins().brz(condition_value, else_block, &[]);
+
+        // Fall through to then block.
+        builder.ins().jump(then_block, &[]);
+
+        builder.switch_to_block(then_block);
+
+        builder.seal_block(then_block);
+
+        let mut then_return = builder.ins().iconst(u8_type, 0); // u8_type return?
+        
+        // ----------
+
+        // then body = regular static load
+        let func_addr = builder.ins().load(u8_type, mem_flags, base, body_offset + 1);
 
         // First append the callee vmctx address.
         let vmctx_offset = 
             i32::try_from(self.offsets.vmctx_vmfunction_import_vmctx(callee_index)).unwrap();
-        let vmctx = pos.ins().load(pointer_type, mem_flags, base, vmctx_offset);
+
+        let vmctx = builder.ins().load(pointer_type, mem_flags, base, vmctx_offset);
         real_call_args.push(vmctx);
 
         // Then append the regular call arguments.
@@ -1216,7 +1224,65 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
         let function_type_offset =
             i32::try_from(self.offsets.vmctx_vmfunction_import_vmctx(callee_index)).unwrap();
 
-        Ok(pos.ins().call_indirect(sig_ref, func_addr, &real_call_args))
+        let then_return = builder.ins().call_indirect(sig_ref, func_addr, &real_call_args);
+
+        // Jump to the merge block, passing it the block return value.
+        builder.ins().jump(merge_block, &[then_return]);
+
+        // ----------
+
+        builder.switch_to_block(else_block);
+        builder.seal_block(else_block);
+        let mut else_return = builder.ins().iconst(u8_type, 0);
+
+        let func_addr = builder.ins().load(u8_type, mem_flags, base, body_offset + 1);
+
+        // --------
+        
+        // Jump to the merge block, passing it the block return value.
+        builder.ins().jump(merge_block, &[else_return]);
+
+        // Switch to the merge block for subsequent statements.
+        builder.switch_to_block(merge_block);
+
+        // We've now seen all the predecessors of the merge block.
+        builder.seal_block(merge_block);
+
+        // Read the value of the if-else by reading the merge block
+        // parameter.
+        let phi = builder.block_params(merge_block)[0];
+
+        Ok(builder.ins().iconst(u8_type, 0))
+            /* 
+    
+    
+            // Jump to the merge block, passing it the block return value.
+            self.builder.ins().jump(merge_block, &[then_return]);
+    
+            self.builder.switch_to_block(else_block);
+            self.builder.seal_block(else_block);
+            let mut else_return = self.builder.ins().iconst(self.int, 0);
+            for expr in else_body {
+                else_return = self.translate_expr(expr);
+            }
+    
+            phi
+            */
+
+
+        // Emit instruction to compare the tag: if it is a static (0) tag,
+        // jump to the static CFG, if it is dynamic (1), jump to the dynamic cfg
+
+        
+        // Block for calling a dynamic function, can be jumped over
+        let dynamic_cfg = {
+            // CFG: "call dynamic function"
+        };
+
+        // CFG: "call static function"
+
+
+        Ok()
     }
 
     fn translate_memory_grow(
