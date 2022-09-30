@@ -263,3 +263,57 @@ fn regression_gpr_exhaustion_for_calls(mut config: crate::Config) -> Result<()> 
     let instance = Instance::new(&mut store, &module, &imports)?;
     Ok(())
 }
+
+#[compiler_test(issues)]
+fn test_popcnt(mut config: crate::Config) -> Result<()> {
+    let mut store = config.store();
+    let mut env = FunctionEnv::new(&mut store, ());
+    let imports: Imports = imports! {};
+
+    let wat = r#"
+    (module
+        (func $popcnt_i32 (export "popcnt_i32") (param i32) (result i32)
+            local.get 0
+            i32.popcnt
+        )
+        (func $popcnt_i64 (export "popcnt_i64") (param i64) (result i64)
+            local.get 0
+            i64.popcnt
+        )
+    )"#;
+
+    let module = Module::new(&store, wat)?;
+    let instance = Instance::new(&mut store, &module, &imports)?;
+
+    let popcnt_i32 = instance.exports.get_function("popcnt_i32").unwrap();
+    let popcnt_i64 = instance.exports.get_function("popcnt_i64").unwrap();
+
+    let get_next_number_i32 = |mut num: i32| {
+        num ^= num << 13;
+        num ^= num >> 17;
+        num ^= num << 5;
+        num
+    };
+    let get_next_number_i64 = |mut num: i64| {
+        num ^= num << 34;
+        num ^= num >> 40;
+        num ^= num << 7;
+        num
+    };
+
+    let mut num = 1;
+    for _ in 1..10000 {
+        let result = popcnt_i32.call(&mut store, &[Value::I32(num)]).unwrap();
+        assert_eq!(&Value::I32(num.count_ones() as i32), result.get(0).unwrap());
+        num = get_next_number_i32(num);
+    }
+
+    let mut num = 1;
+    for _ in 1..10000 {
+        let result = popcnt_i64.call(&mut store, &[Value::I64(num)]).unwrap();
+        assert_eq!(&Value::I64(num.count_ones() as i64), result.get(0).unwrap());
+        num = get_next_number_i64(num);
+    }
+
+    Ok(())
+}

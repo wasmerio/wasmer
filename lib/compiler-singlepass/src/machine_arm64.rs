@@ -3047,9 +3047,29 @@ impl Machine for MachineARM64 {
         };
         let label_loop = self.assembler.get_label();
         let label_exit = self.assembler.get_label();
+
+        // If target is apple M1 processor, then:
+        // ```
+        // mov w1, 1
+        // mov w2, 32
+        // lsl w3, w1, w2
+        // ```
+        // result in `w3` register is not zero,
+        // in spite of the fact that in Aarch64 documentation the result must be 0.
+        #[cfg(target_vendor = "apple")]
+        let src_is_one_label = self.assembler.get_label();
+
         self.assembler
             .emit_mov(Size::S32, Location::GPR(GPR::XzrSp), dest)?; // 0 => dest
         self.assembler.emit_cbz_label(Size::S32, src, label_exit)?; // src==0, exit
+
+        // If `src` reg value equal to `1`, then skip loop and go to `src_is_one_label`.
+        #[cfg(target_vendor = "apple")]
+        {
+            self.assembler.emit_cmp(Size::S32, Location::Imm32(1), src)?; // cmp `src`, 1
+            self.assembler.emit_bcond_label(Condition::Eq, src_is_one_label)?; // if `src` == 1 goto src_is_one_label
+        }
+
         self.assembler.emit_label(label_loop)?; // loop:
         self.assembler
             .emit_add(Size::S32, dest, Location::Imm8(1), dest)?; // inc dest
@@ -3058,6 +3078,15 @@ impl Machine for MachineARM64 {
             .emit_add(Size::S32, tmp, Location::Imm8(1), tmp)?; // inc tmp
         self.assembler.emit_lsl(Size::S32, src, tmp, src)?; // src << tmp => src
         self.assembler.emit_cbnz_label(Size::S32, src, label_loop)?; // if src!=0 goto loop
+
+        // Write 1 to `dest`, in case `src` is equal to 1.
+        #[cfg(target_vendor = "apple")]
+        {
+            self.assembler.emit_b_label(label_exit)?; // if comes from loop then goto exit
+            self.assembler.emit_label(src_is_one_label)?;
+            self.assembler.emit_mov(Size::S32, Location::Imm32(1), dest)?; // `dest` <= 1
+        }
+
         self.assembler.emit_label(label_exit)?;
         if ret != dest {
             self.move_location(Size::S32, dest, ret)?;
@@ -4085,9 +4114,29 @@ impl Machine for MachineARM64 {
         };
         let label_loop = self.assembler.get_label();
         let label_exit = self.assembler.get_label();
+
+        // If target is apple M1 processor, then:
+        // ```
+        // mov x1, 1
+        // mov x2, 32
+        // lsl x3, x1, x2
+        // ```
+        // result in `x3` register is not zero,
+        // in spite of the fact that in Aarch64 documentation the result must be 0.
+        #[cfg(target_vendor = "apple")]
+        let src_is_one_label = self.assembler.get_label();
+
         self.assembler
             .emit_mov(Size::S32, Location::GPR(GPR::XzrSp), dest)?;
         self.assembler.emit_cbz_label(Size::S64, src, label_exit)?;
+
+        // If `src` reg value equal to `1`, then skip loop and go to `src_is_one_label`.
+        #[cfg(target_vendor = "apple")]
+        {
+            self.assembler.emit_cmp(Size::S64, Location::Imm64(1), src)?; // cmp `src`, 1
+            self.assembler.emit_bcond_label(Condition::Eq, src_is_one_label)?; // if `src` == 1 goto src_is_one_label
+        }
+
         self.assembler.emit_label(label_loop)?;
         self.assembler
             .emit_add(Size::S32, dest, Location::Imm8(1), dest)?;
@@ -4096,6 +4145,15 @@ impl Machine for MachineARM64 {
             .emit_add(Size::S32, tmp, Location::Imm8(1), tmp)?;
         self.assembler.emit_lsl(Size::S64, src, tmp, src)?;
         self.assembler.emit_cbnz_label(Size::S64, src, label_loop)?;
+
+        // Write 1 to `dest`, in case `src` is equal to 1.
+        #[cfg(target_vendor = "apple")]
+        {
+            self.assembler.emit_b_label(label_exit)?; // if comes from loop then goto exit
+            self.assembler.emit_label(src_is_one_label)?;
+            self.assembler.emit_mov(Size::S64, Location::Imm64(1), dest)?; // `dest` <= 1
+        }
+
         self.assembler.emit_label(label_exit)?;
         if ret != dest {
             self.move_location(Size::S64, dest, ret)?;
