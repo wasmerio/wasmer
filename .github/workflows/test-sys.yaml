@@ -210,7 +210,7 @@ jobs:
       - name: Test
         if: matrix.run_test && matrix.os != 'windows-2019'
         run: |
-          make test
+          make build-capi && make package-capi && export WASMER_DIR=`pwd`/package && make test
         env:
           TARGET: ${{ matrix.target }}
           TARGET_DIR: target/${{ matrix.target }}/release
@@ -235,12 +235,14 @@ jobs:
           CARGO_TARGET: --target ${{ matrix.target }}
       - name: Test
         if: matrix.run_test && matrix.os == 'windows-2019'
+        shell: bash
         run: |
-          make test
+          make build-capi && make package-capi && export WASMER_DIR=`pwd`/package && make test
       - name: Test C API
         if: matrix.run_test_capi && matrix.os == 'windows-2019'
+        shell: bash
         run: |
-          make test-capi
+          export WASMER_DIR=`pwd`/package && make test-capi
       - name: Build Doc
         if: matrix.run_build_docs
         run: |

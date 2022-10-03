@@ -9,6 +9,10 @@
 #include <stdio.h>
 #include <string.h>
 
+#if defined(_WIN32) || defined(_WIN64)
+#define strtok_r strtok_s
+#endif
+
 wasm_engine_t *wasm_engine_new() {
   wasm_config_t *config = wasm_config_new();
 

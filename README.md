@@ -77,7 +77,7 @@ curl https://get.wasmer.io -sSfL | sh
     choco install wasmer
     ```
 
-  * <a href="https://crates.io/crates/cargo-binstall/">Cargo</a>
+  * <a href="https://crates.io/crates/cargo-binstall/">Cargo binstall</a>
   
     ```sh
     cargo binstall wasmer

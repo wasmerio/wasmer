@@ -36,7 +36,7 @@ pub const WASMER_TARGET_PATH2: &str = concat!(
 pub const LIBWASMER_FILENAME: &str = "libwasmer.a";
 
 #[cfg(windows)]
-pub const LIBWASMER_PATH: &str = "wasmer.lib";
+pub const LIBWASMER_FILENAME: &str = "wasmer.lib";
 
 /// Get the path to the `libwasmer.a` static library.
 pub fn get_libwasmer_path() -> PathBuf {
@@ -63,6 +63,18 @@ pub fn get_wasmer_path() -> PathBuf {
         ret = PathBuf::from(format!("{}wasmer", WASMER_TARGET_PATH2));
     }
     if !ret.exists() {
+        if let Some(s) = env!("CARGO_MANIFEST_DIR").split("wasmer").next() {
+            #[cfg(target_os = "windows")]
+            {
+                return std::path::Path::new(&format!("{s}wasmer/target/release/wasmer.exe"))
+                    .to_path_buf();
+            }
+            #[cfg(not(target_os = "windows"))]
+            {
+                return std::path::Path::new(&format!("{s}wasmer/target/release/wasmer"))
+                    .to_path_buf();
+            }
+        }
         panic!("Could not find wasmer executable path! {:?}", ret);
     }
     ret
