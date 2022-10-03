@@ -947,12 +947,15 @@ impl InstanceHandle {
         &mut self,
         trap_handler: Option<*const TrapHandlerFn<'static>>,
         data_initializers: &[DataInitializer<'_>],
+        initialize_memory: bool,
     ) -> Result<(), Trap> {
         let instance = self.instance_mut();
 
         // Apply the initializers.
         initialize_tables(instance)?;
-        initialize_memories(instance, data_initializers)?;
+        if initialize_memory {
+            initialize_memories(instance, data_initializers)?;
+        }
 
         // The WebAssembly spec specifies that the start function is
         // invoked automatically at instantiation time.

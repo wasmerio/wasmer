@@ -398,6 +398,7 @@ impl Artifact {
         &self,
         trap_handler: Option<*const TrapHandlerFn<'static>>,
         handle: &mut InstanceHandle,
+        initialize_memory: bool,
     ) -> Result<(), InstantiationError> {
         let data_initializers = self
             .data_initializers()
@@ -408,7 +409,7 @@ impl Artifact {
             })
             .collect::<Vec<_>>();
         handle
-            .finish_instantiation(trap_handler, &data_initializers)
+            .finish_instantiation(trap_handler, &data_initializers, initialize_memory)
             .map_err(|trap| InstantiationError::Start(RuntimeError::from_trap(trap)))
     }
 
