@@ -18,18 +18,18 @@ pub struct Wasi {
     pre_opened_directories: Vec<PathBuf>,
 
     /// Map a host directory to a different location for the Wasm module
-    #[clap(
+    #[arg(
         long = "mapdir",
         name = "GUEST_DIR:HOST_DIR",
-        parse(try_from_str = parse_mapdir),
+        value_parser = parse_mapdir,
     )]
     mapped_dirs: Vec<(String, PathBuf)>,
 
     /// Pass custom environment variables
-    #[clap(
+    #[arg(
         long = "env",
         name = "KEY=VALUE",
-        parse(try_from_str = parse_envvar),
+        value_parser = parse_envvar,
     )]
     env_vars: Vec<(String, String)>,
 

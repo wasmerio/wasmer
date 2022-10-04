@@ -30,7 +30,7 @@ pub struct Run {
     disable_cache: bool,
 
     /// File to run
-    #[clap(name = "FILE", parse(from_os_str))]
+    #[clap(name = "FILE", value_parser = clap::value_parser!(std::ffi::OsString))]
     path: PathBuf,
 
     /// Invoke a specified function
