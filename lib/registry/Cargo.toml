@@ -5,3 +5,5 @@ edition = "2021"
 
 [dependencies]
 dirs = "4.0.0"
+graphql_client = "0.11.0"
+serde = "1.0.145"

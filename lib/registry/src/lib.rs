@@ -1,5 +1,34 @@
 use std::path::{Path, PathBuf};
 
+pub mod queries {
+    
+    use graphql_client::*;
+
+    #[derive(GraphQLQuery)]
+    #[graphql(
+        schema_path = "graphql/schema.graphql",
+        query_path = "graphql/queries/get_package_version.graphql",
+        response_derives = "Debug"
+    )]
+    pub(crate) struct GetPackageVersionQuery;
+
+    #[derive(GraphQLQuery)]
+    #[graphql(
+        schema_path = "graphql/schema.graphql",
+        query_path = "graphql/queries/get_package.graphql",
+        response_derives = "Debug"
+    )]
+    pub(crate) struct GetPackageQuery;
+
+    #[derive(GraphQLQuery)]
+    #[graphql(
+        schema_path = "graphql/schema.graphql",
+        query_path = "graphql/queries/test_if_registry_present.graphql",
+        response_derives = "Debug"
+    )]
+    pub(crate) struct TestIfRegistryPresent;
+}
+
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord)]
 pub struct PackageDownloadInfo {
     pub package: String,
