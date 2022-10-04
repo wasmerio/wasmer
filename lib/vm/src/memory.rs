@@ -5,11 +5,13 @@
 //!
 //! `Memory` is to WebAssembly linear memories what `Table` is to WebAssembly tables.
 
+use crate::trap::{Trap, TrapCode};
 use crate::{mmap::Mmap, store::MaybeInstanceOwned, vmcontext::VMMemoryDefinition};
 use more_asserts::assert_ge;
 use std::cell::UnsafeCell;
 use std::convert::TryInto;
 use std::ptr::NonNull;
+use std::slice;
 use wasmer_types::{Bytes, MemoryError, MemoryStyle, MemoryType, Pages};
 
 // The memory mapped area
@@ -410,4 +412,22 @@ where
 
     /// Attempts to clone this memory (if its clonable)
     fn try_clone(&self) -> Option<Box<dyn LinearMemory + 'static>>;
+
+    #[doc(hidden)]
+    unsafe fn initialize_with_data(&self, start: usize, data: &[u8]) -> Result<(), Trap> {
+        let memory = self.vmmemory().as_ref();
+        if start
+            .checked_add(data.len())
+            .map_or(true, |end| end > memory.current_length)
+        {
+            return Err(Trap::lib(TrapCode::HeapAccessOutOfBounds));
+        }
+
+        let mem_slice = slice::from_raw_parts_mut(memory.base, memory.current_length);
+        let end = start + data.len();
+        let to_init = &mut mem_slice[start..end];
+        to_init.copy_from_slice(data);
+
+        Ok(())
+    }
 }

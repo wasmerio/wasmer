@@ -245,6 +245,13 @@ mod tests {
         fn try_clone(&self) -> Option<Box<dyn LinearMemory + 'static>> {
             None
         }
+        /*
+        // this code allow custom memory to be ignoring init_memory
+        use wasmer_vm::Trap;
+        unsafe fn initialize_with_data(&self, _start: usize, _data: &[u8]) -> Result<(), Trap> {
+            Ok(())
+        }
+        */
     }
 
     impl From<VMTinyMemory> for wasmer_vm::VMMemory {

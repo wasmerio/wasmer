@@ -343,7 +343,6 @@ impl Module {
         &self,
         store: &mut impl AsStoreMut,
         imports: &[crate::Extern],
-        initialize_memory: bool,
     ) -> Result<InstanceHandle, InstantiationError> {
         // Ensure all imports come from the same context.
         for import in imports {
@@ -371,7 +370,6 @@ impl Module {
             self.artifact.finish_instantiation(
                 store.as_store_ref().signal_handler(),
                 &mut instance_handle,
-                initialize_memory,
             )?;
 
             Ok(instance_handle)
