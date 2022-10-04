@@ -41,6 +41,7 @@ pub fn download_and_unpack_targz(url: &str, target_path: &Path) -> Result<PathBu
 }
 
 pub fn install_package(name: &str, version: Option<&str>) -> Result<PathBuf, String> {
+    std::thread::sleep(std::time::Duration::from_secs(4));
     Err(format!("unimplemented"))
 }
 

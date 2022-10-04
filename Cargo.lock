@@ -48,6 +48,12 @@ dependencies = [
 
 [[package]]
 name = "ansi_term"
+version = "0.7.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "30275ad0ad84ec1c06dde3b3f7d23c6006b7d76d61a85e7060b426b747eff70d"
+
+[[package]]
+name = "ansi_term"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d52a9bb7ec0cf484c551830a7ce27bd20d67eac647e1befb56b0be4ee39a55d2"
@@ -353,7 +359,7 @@ version = "2.34.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a0610544180c38b88101fecf2dd634b174a62eef6946f84dfc6a7127512b381c"
 dependencies = [
- "ansi_term",
+ "ansi_term 0.12.1",
  "atty",
  "bitflags",
  "strsim 0.8.0",
@@ -826,6 +832,16 @@ dependencies = [
  "block-buffer",
  "crypto-common",
  "subtle",
+]
+
+[[package]]
+name = "dirs"
+version = "2.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "13aea89a5c93364a98e9b37b2fa237effbb694d5cfe01c5b70941f7eb087d5e3"
+dependencies = [
+ "cfg-if 0.1.10",
+ "dirs-sys",
 ]
 
 [[package]]
@@ -2406,6 +2422,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6e63cff320ae2c57904679ba7cb63280a3dc4613885beafb148ee7bf9aa9042d"
 
 [[package]]
+name = "spinner"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6e3a7cd01625b7e43e62815677d692cb59b221c2fdc2853d1eb86a260ee0c272"
+dependencies = [
+ "ansi_term 0.7.5",
+ "term 0.6.1",
+]
+
+[[package]]
 name = "stable_deref_trait"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2526,6 +2552,16 @@ dependencies = [
 
 [[package]]
 name = "term"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c0863a3345e70f61d613eab32ee046ccd1bcc5f9105fe402c61fcd0c13eeb8b5"
+dependencies = [
+ "dirs 2.0.2",
+ "winapi",
+]
+
+[[package]]
+name = "term"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c59df8ac95d96ff9bede18eb7300b0fda5e5d8d90960e76f8e14ae765eedbf1f"
@@ -2579,7 +2615,7 @@ dependencies = [
  "getopts",
  "libc",
  "num_cpus",
- "term",
+ "term 0.7.0",
 ]
 
 [[package]]
@@ -3118,12 +3154,13 @@ dependencies = [
  "cfg-if 1.0.0",
  "clap 4.0.5",
  "colored 2.0.0",
- "dirs",
+ "dirs 4.0.0",
  "distance",
  "fern",
  "http_req",
  "log",
  "serde_json",
+ "spinner",
  "target-lexicon 0.12.4",
  "tempfile",
  "unix_mode",
@@ -3340,7 +3377,7 @@ dependencies = [
 name = "wasmer-registry"
 version = "3.0.0-beta.2"
 dependencies = [
- "dirs",
+ "dirs 4.0.0",
 ]
 
 [[package]]

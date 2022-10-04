@@ -39,8 +39,6 @@ fn parse_cli_args() -> Result<(), anyhow::Error> {
     let firstarg = args.get(1).map(|s| s.as_str());
     let secondarg = args.get(2).map(|s| s.as_str());
 
-    println!("{:?}", (firstarg, secondarg));
-
     match (firstarg, secondarg) {
         (None, _) | (Some("help"), _) | (Some("--help"), _) => return print_help(),
 
@@ -79,24 +77,32 @@ fn parse_cli_args() -> Result<(), anyhow::Error> {
                     // Try finding the local package
                     let mut args_without_package = args.clone();
                     args_without_package.remove(1);
-                    println!("args without package: {:#?}", args_without_package);
-                    return RunWithoutFile::try_parse_from(args_without_package.iter())?
-                        .into_run_args(o)
-                        .execute();
-                } else if let Ok(o) =
-                    wasmer_registry::install_package(&package, version.as_ref().map(|s| s.as_str()))
-                {
-                    // Try auto-installing the remote package
-                    let mut args_without_package = args.clone();
-                    args_without_package.remove(1);
                     return RunWithoutFile::try_parse_from(args_without_package.iter())?
                         .into_run_args(o)
                         .execute();
                 } else {
-                    // Failed to find the remote package
-                    //
-                    // TODO: print list of similar packages
-                    return print_help();
+                    let sp =
+                        spinner::SpinnerBuilder::new(format!("Installing package {package} ..."))
+                            .spinner(vec![
+                                "⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷", " ", "⠁", "⠂", "⠄", "⡀",
+                                "⢀", "⠠", "⠐", "⠈",
+                            ])
+                            .start();
+
+                    let v = version.as_ref().map(|s| s.as_str());
+                    let result = wasmer_registry::install_package(&package, v);
+                    sp.close();
+                    print!("\r\n");
+                    if let Ok(o) = result {
+                        // Try auto-installing the remote package
+                        let mut args_without_package = args.clone();
+                        args_without_package.remove(1);
+                        return RunWithoutFile::try_parse_from(args_without_package.iter())?
+                            .into_run_args(o)
+                            .execute();
+                    } else {
+                        return print_help();
+                    }
                 }
             } else {
                 return print_help();
@@ -107,13 +113,11 @@ fn parse_cli_args() -> Result<(), anyhow::Error> {
 
 fn split_version(s: &str) -> Result<(String, Option<String>), anyhow::Error> {
     let package_version = s.split("@").collect::<Vec<_>>();
-    let r = match package_version.as_slice() {
+    match package_version.as_slice() {
         &[p, v] => Ok((p.trim().to_string(), Some(v.trim().to_string()))),
         &[p] => Ok((p.trim().to_string(), None)),
         _ => Err(anyhow!("Invalid package / version: {s:?}")),
-    };
-    println!("{:?}", r);
-    r
+    }
 }
 
 fn print_help() -> Result<(), anyhow::Error> {
