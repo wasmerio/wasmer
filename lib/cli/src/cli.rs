@@ -44,7 +44,7 @@ fn parse_cli_args() -> Result<(), anyhow::Error> {
 
         (Some("-vV"), _)
         | (Some("version"), Some("--verbose"))
-        | (Some("--version"), Some("--verbose")) => return print_version(false),
+        | (Some("--version"), Some("--verbose")) => return print_version(true),
 
         (Some("-v"), _) | (Some("-V"), _) | (Some("version"), _) | (Some("--version"), _) => {
             return print_version(false)
@@ -125,7 +125,29 @@ fn print_help() -> Result<(), anyhow::Error> {
     Ok(())
 }
 
-fn print_version(_: bool) -> Result<(), anyhow::Error> {
-    println!("version");
+fn print_version(verbose: bool) -> Result<(), anyhow::Error> {
+    if !verbose {
+        println!("{}", env!("CARGO_PKG_VERSION"));
+    } else {
+        println!("wasmer {} ({} {})", env!("CARGO_PKG_VERSION"), env!("WASMER_BUILD_GIT_HASH_SHORT"), env!("WASMER_BUILD_DATE"));
+        println!("binary: {}", env!("CARGO_PKG_NAME"));
+        println!("commit-hash: {}", env!("WASMER_BUILD_GIT_HASH"));
+        println!("commit-date: {}", env!("WASMER_BUILD_DATE"));
+        println!("host: {}", target_lexicon::HOST);
+        println!("compiler: {}", {
+
+            #[allow(unused_mut)]
+            let mut s = Vec::<&'static str>::new();
+
+            #[cfg(feature = "singlepass")]
+            s.push("singlepass");
+            #[cfg(feature = "cranelift")]
+            s.push("cranelift");
+            #[cfg(feature = "llvm")]
+            s.push("llvm");
+
+            s.join(",")
+        });
+    }
     Ok(())
 }
