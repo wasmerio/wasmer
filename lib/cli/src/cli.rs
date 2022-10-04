@@ -36,10 +36,12 @@ fn parse_cli_args() -> Result<(), anyhow::Error> {
         return Run::from_binfmt_args().execute();
     }
 
-    match (
-        args.get(1).map(|s| s.as_str()),
-        args.get(2).map(|s| s.as_str()),
-    ) {
+    let firstarg = args.get(1).map(|s| s.as_str());
+    let secondarg = args.get(2).map(|s| s.as_str());
+
+    println!("{:?}", (firstarg, secondarg));
+
+    match (firstarg, secondarg) {
         (None, _) | (Some("help"), _) | (Some("--help"), _) => return print_help(),
 
         (Some("-vV"), _)
@@ -61,7 +63,13 @@ fn parse_cli_args() -> Result<(), anyhow::Error> {
         #[cfg(feature = "binfmt")]
         (Some("binfmt"), _) => Binfmt::try_parse_from(args.iter())?.execute(),
         (Some("run"), Some(package)) | (Some(package), _) => {
-            if let Ok(run) = Run::try_parse() {
+            // Disable printing backtraces in case `Run::try_parse_from` panics
+            let hook = std::panic::take_hook();
+            std::panic::set_hook(Box::new(|_| {}));
+            let result = std::panic::catch_unwind(|| Run::try_parse_from(args.iter()));
+            std::panic::set_hook(hook);
+
+            if let Ok(Ok(run)) = result {
                 return run.execute();
             } else if let Ok((package, version)) = split_version(package) {
                 if let Ok(o) = wasmer_registry::get_package_local(
@@ -71,6 +79,7 @@ fn parse_cli_args() -> Result<(), anyhow::Error> {
                     // Try finding the local package
                     let mut args_without_package = args.clone();
                     args_without_package.remove(1);
+                    println!("args without package: {:#?}", args_without_package);
                     return RunWithoutFile::try_parse_from(args_without_package.iter())?
                         .into_run_args(o)
                         .execute();
@@ -98,11 +107,13 @@ fn parse_cli_args() -> Result<(), anyhow::Error> {
 
 fn split_version(s: &str) -> Result<(String, Option<String>), anyhow::Error> {
     let package_version = s.split("@").collect::<Vec<_>>();
-    match package_version.as_slice() {
+    let r = match package_version.as_slice() {
         &[p, v] => Ok((p.trim().to_string(), Some(v.trim().to_string()))),
         &[p] => Ok((p.trim().to_string(), None)),
         _ => Err(anyhow!("Invalid package / version: {s:?}")),
-    }
+    };
+    println!("{:?}", r);
+    r
 }
 
 fn print_help() -> Result<(), anyhow::Error> {
