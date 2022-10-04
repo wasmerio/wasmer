@@ -1,0 +1,5 @@
+mutation LoginMutation($username: String!, $password: String!) {
+  tokenAuth(input: {username: $username, password: $password}) {
+    refreshToken
+  }
+}

@@ -1,0 +1,7 @@
+[package]
+name = "wasmer-registry"
+version = "3.0.0-beta.2"
+edition = "2021"
+
+[dependencies]
+dirs = "4.0.0"

@@ -50,6 +50,7 @@ members = [
     "lib/c-api/tests/wasmer-c-api-test-runner",
     "lib/c-api/examples/wasmer-capi-examples-runner",
     "lib/types",
+    "lib/registry",
     "tests/wasi-wast",
     "tests/lib/wast",
     "tests/lib/compiler-test-derive",

@@ -3135,6 +3135,7 @@ dependencies = [
  "wasmer-compiler-singlepass",
  "wasmer-emscripten",
  "wasmer-object",
+ "wasmer-registry",
  "wasmer-types",
  "wasmer-vfs",
  "wasmer-vm",
@@ -3333,6 +3334,13 @@ dependencies = [
  "object 0.28.4",
  "thiserror",
  "wasmer-types",
+]
+
+[[package]]
+name = "wasmer-registry"
+version = "3.0.0-beta.2"
+dependencies = [
+ "dirs",
 ]
 
 [[package]]

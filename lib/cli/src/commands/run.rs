@@ -21,6 +21,83 @@ mod wasi;
 #[cfg(feature = "wasi")]
 use wasi::Wasi;
 
+/// Same as `wasmer run`, but without the required `path` argument (injected previously)
+#[derive(Debug, Parser, Clone, Default)]
+pub struct RunWithoutFile {
+    /// Disable the cache
+    #[cfg(feature = "cache")]
+    #[clap(long = "disable-cache")]
+    disable_cache: bool,
+
+    /// Invoke a specified function
+    #[clap(long = "invoke", short = 'i')]
+    invoke: Option<String>,
+
+    /// The command name is a string that will override the first argument passed
+    /// to the wasm program. This is used in wapm to provide nicer output in
+    /// help commands and error messages of the running wasm program
+    #[clap(long = "command-name", hide = true)]
+    command_name: Option<String>,
+
+    /// A prehashed string, used to speed up start times by avoiding hashing the
+    /// wasm module. If the specified hash is not found, Wasmer will hash the module
+    /// as if no `cache-key` argument was passed.
+    #[cfg(feature = "cache")]
+    #[clap(long = "cache-key", hide = true)]
+    cache_key: Option<String>,
+
+    #[clap(flatten)]
+    store: StoreOptions,
+
+    // TODO: refactor WASI structure to allow shared options with Emscripten
+    #[cfg(feature = "wasi")]
+    #[clap(flatten)]
+    wasi: Wasi,
+
+    /// Enable non-standard experimental IO devices
+    #[cfg(feature = "io-devices")]
+    #[clap(long = "enable-io-devices")]
+    enable_experimental_io_devices: bool,
+
+    /// Enable debug output
+    #[cfg(feature = "debug")]
+    #[clap(long = "debug", short = 'd')]
+    debug: bool,
+
+    #[cfg(feature = "debug")]
+    #[clap(short, long, parse(from_occurrences))]
+    verbose: u8,
+
+    /// Application arguments
+    #[clap(value_name = "ARGS")]
+    args: Vec<String>,
+}
+
+impl RunWithoutFile {
+    /// Given a local path, returns the `Run` command (overriding the `--path` argument).
+    pub fn into_run_args(self, pathbuf: PathBuf) -> Run {
+        Run {
+            #[cfg(feature = "cache")]
+            disable_cache: self.disable_cache,
+            path: pathbuf,
+            invoke: self.invoke,
+            command_name: self.command_name,
+            #[cfg(feature = "cache")]
+            cache_key: self.cache_key,
+            store: self.store,
+            #[cfg(feature = "wasi")]
+            wasi: self.wasi,
+            #[cfg(feature = "io-devices")]
+            enable_experimental_io_devices: self.enable_experimental_io_devices,
+            #[cfg(feature = "debug")]
+            debug: self.debug,
+            #[cfg(feature = "debug")]
+            verbose: self.verbose,
+            args: self.args,
+        }
+    }
+}
+
 #[derive(Debug, Parser, Clone, Default)]
 /// The options for the `wasmer run` subcommand
 pub struct Run {

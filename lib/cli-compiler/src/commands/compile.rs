@@ -18,7 +18,7 @@ pub struct Compile {
     path: PathBuf,
 
     /// Output file
-    #[clap(name = "OUTPUT PATH", short = 'o', value_parser = clap::value_parser!(std::ffi::OsString)))]
+    #[clap(name = "OUTPUT PATH", short = 'o', value_parser = clap::value_parser!(std::ffi::OsString))]
     output: PathBuf,
 
     /// Compilation Target triple
