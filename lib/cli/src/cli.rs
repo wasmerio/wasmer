@@ -15,6 +15,135 @@ use crate::error::PrettyError;
 use anyhow::Result;
 use clap::Parser;
 
+#[derive(Parser)]
+#[cfg_attr(
+    not(feature = "headless"),
+    clap(
+        name = "wasmer",
+        about = "WebAssembly standalone runtime.",
+        version,
+        author
+    )
+)]
+#[cfg_attr(
+    feature = "headless",
+    clap(
+        name = "wasmer-headless",
+        about = "WebAssembly standalone runtime (headless).",
+        version,
+        author
+    )
+)]
+/// The options for the wasmer Command Line Interface
+enum WasmerCLIOptions {
+    /// Run a WebAssembly file. Formats accepted: wasm, wat
+    #[clap(name = "run")]
+    Run(Run),
+
+    /// Wasmer cache
+    #[clap(subcommand, name = "cache")]
+    Cache(Cache),
+
+    /// Validate a WebAssembly binary
+    #[clap(name = "validate")]
+    Validate(Validate),
+
+    /// Compile a WebAssembly binary
+    #[cfg(feature = "compiler")]
+    #[clap(name = "compile")]
+    Compile(Compile),
+
+    /// Compile a WebAssembly binary into a native executable
+    ///
+    /// To use, you need to set the `WASMER_DIR` environment variable
+    /// to the location of your Wasmer installation. This will probably be `~/.wasmer`. It
+    /// should include a `lib`, `include` and `bin` subdirectories. To create an executable
+    /// you will need `libwasmer`, so by setting `WASMER_DIR` the CLI knows where to look for
+    /// header files and libraries.
+    ///
+    /// Example usage:
+    ///
+    /// ```text
+    /// $ # in two lines:
+    /// $ export WASMER_DIR=/home/user/.wasmer/
+    /// $ wasmer create-exe qjs.wasm -o qjs.exe # or in one line:
+    /// $ WASMER_DIR=/home/user/.wasmer/ wasmer create-exe qjs.wasm -o qjs.exe
+    /// $ file qjs.exe
+    /// qjs.exe: ELF 64-bit LSB pie executable, x86-64 ...
+    /// ```
+    ///
+    /// ## Cross-compilation
+    ///
+    /// Accepted target triple values must follow the
+    /// ['target_lexicon'](https://crates.io/crates/target-lexicon) crate format.
+    ///
+    /// The recommended targets we try to support are:
+    ///
+    /// - "x86_64-linux-gnu"
+    /// - "aarch64-linux-gnu"
+    /// - "x86_64-apple-darwin"
+    /// - "arm64-apple-darwin"
+    #[cfg(any(feature = "static-artifact-create", feature = "wasmer-artifact-create"))]
+    #[clap(name = "create-exe", verbatim_doc_comment)]
+    CreateExe(CreateExe),
+
+    /// Compile a WebAssembly binary into an object file
+    ///
+    /// To use, you need to set the `WASMER_DIR` environment variable to the location of your
+    /// Wasmer installation. This will probably be `~/.wasmer`. It should include a `lib`,
+    /// `include` and `bin` subdirectories. To create an object you will need `libwasmer`, so by
+    /// setting `WASMER_DIR` the CLI knows where to look for header files and libraries.
+    ///
+    /// Example usage:
+    ///
+    /// ```text
+    /// $ # in two lines:
+    /// $ export WASMER_DIR=/home/user/.wasmer/
+    /// $ wasmer create-obj qjs.wasm --object-format symbols -o qjs.obj # or in one line:
+    /// $ WASMER_DIR=/home/user/.wasmer/ wasmer create-exe qjs.wasm --object-format symbols -o qjs.obj
+    /// $ file qjs.obj
+    /// qjs.obj: ELF 64-bit LSB relocatable, x86-64 ...
+    /// ```
+    ///
+    /// ## Cross-compilation
+    ///
+    /// Accepted target triple values must follow the
+    /// ['target_lexicon'](https://crates.io/crates/target-lexicon) crate format.
+    ///
+    /// The recommended targets we try to support are:
+    ///
+    /// - "x86_64-linux-gnu"
+    /// - "aarch64-linux-gnu"
+    /// - "x86_64-apple-darwin"
+    /// - "arm64-apple-darwin"
+    #[cfg(feature = "static-artifact-create")]
+    #[structopt(name = "create-obj", verbatim_doc_comment)]
+    CreateObj(CreateObj),
+
+    /// Get various configuration information needed
+    /// to compile programs which use Wasmer
+    #[clap(name = "config")]
+    Config(Config),
+
+    /// Update wasmer to the latest version
+    #[clap(name = "self-update")]
+    SelfUpdate(SelfUpdate),
+
+    /// Inspect a WebAssembly file
+    #[clap(name = "inspect")]
+    Inspect(Inspect),
+
+    /// Run spec testsuite
+    #[cfg(feature = "wast")]
+    #[clap(name = "wast")]
+    Wast(Wast),
+
+    /// Unregister and/or register wasmer as binfmt interpreter
+    #[cfg(target_os = "linux")]
+    #[clap(name = "binfmt")]
+    Binfmt(Binfmt),
+}
+
 /// The main function for the Wasmer CLI tool.
 pub fn wasmer_main() {
     // We allow windows to print properly colors
@@ -39,8 +168,12 @@ fn parse_cli_args() -> Result<(), anyhow::Error> {
     let firstarg = args.get(1).map(|s| s.as_str());
     let secondarg = args.get(2).map(|s| s.as_str());
 
+    let mut args_without_first_arg = args.clone();
+    args_without_first_arg.remove(0);
+
     match (firstarg, secondarg) {
-        (None, _) | (Some("help"), _) | (Some("--help"), _) => return print_help(),
+        (None, _) | (Some("help"), _) | (Some("--help"), _) => return print_help(true),
+        (Some("-h"), _) => return print_help(false),
 
         (Some("-vV"), _)
         | (Some("version"), Some("--verbose"))
@@ -50,17 +183,25 @@ fn parse_cli_args() -> Result<(), anyhow::Error> {
             return print_version(false)
         }
 
-        (Some("cache"), _) => Cache::try_parse_from(args.iter())?.execute(),
-        (Some("compile"), _) => Compile::try_parse_from(args.iter())?.execute(),
-        (Some("config"), _) => Config::try_parse_from(args.iter())?.execute(),
-        (Some("create-exe"), _) => CreateExe::try_parse_from(args.iter())?.execute(),
-        (Some("inspect"), _) => Inspect::try_parse_from(args.iter())?.execute(),
-        (Some("self-update"), _) => SelfUpdate::try_parse_from(args.iter())?.execute(),
-        (Some("validate"), _) => Validate::try_parse_from(args.iter())?.execute(),
-        (Some("wast"), _) => Wast::try_parse_from(args.iter())?.execute(),
+        (Some("cache"), _) => Cache::try_parse_from(args_without_first_arg.iter())?.execute(),
+        (Some("compile"), _) => Compile::try_parse_from(args_without_first_arg.iter())?.execute(),
+        (Some("config"), _) => Config::try_parse_from(args_without_first_arg.iter())?.execute(),
+        (Some("create-exe"), _) => {
+            CreateExe::try_parse_from(args_without_first_arg.iter())?.execute()
+        }
+        (Some("inspect"), _) => Inspect::try_parse_from(args_without_first_arg.iter())?.execute(),
+        (Some("self-update"), _) => {
+            SelfUpdate::try_parse_from(args_without_first_arg.iter())?.execute()
+        }
+        (Some("validate"), _) => Validate::try_parse_from(args_without_first_arg.iter())?.execute(),
+        (Some("wast"), _) => Wast::try_parse_from(args_without_first_arg.iter())?.execute(),
         #[cfg(feature = "binfmt")]
-        (Some("binfmt"), _) => Binfmt::try_parse_from(args.iter())?.execute(),
+        (Some("binfmt"), _) => Binfmt::try_parse_from(args_without_first_arg.iter())?.execute(),
         (Some("run"), Some(package)) | (Some(package), _) => {
+            if package.starts_with("-") {
+                return Err(anyhow!("Unknown CLI argument {package:?}"));
+            }
+
             // Disable printing backtraces in case `Run::try_parse_from` panics
             let hook = std::panic::take_hook();
             std::panic::set_hook(Box::new(|_| {}));
@@ -101,11 +242,11 @@ fn parse_cli_args() -> Result<(), anyhow::Error> {
                             .into_run_args(o)
                             .execute();
                     } else {
-                        return print_help();
+                        return print_help(true);
                     }
                 }
             } else {
-                return print_help();
+                return print_help(true);
             }
         }
     }
@@ -120,8 +261,14 @@ fn split_version(s: &str) -> Result<(String, Option<String>), anyhow::Error> {
     }
 }
 
-fn print_help() -> Result<(), anyhow::Error> {
-    println!("help");
+fn print_help(verbose: bool) -> Result<(), anyhow::Error> {
+    use clap::CommandFactory;
+    let mut cmd = WasmerCLIOptions::command();
+    if verbose {
+        let _ = cmd.print_long_help();
+    } else {
+        let _ = cmd.print_help();
+    }
     Ok(())
 }
 
@@ -129,13 +276,17 @@ fn print_version(verbose: bool) -> Result<(), anyhow::Error> {
     if !verbose {
         println!("{}", env!("CARGO_PKG_VERSION"));
     } else {
-        println!("wasmer {} ({} {})", env!("CARGO_PKG_VERSION"), env!("WASMER_BUILD_GIT_HASH_SHORT"), env!("WASMER_BUILD_DATE"));
+        println!(
+            "wasmer {} ({} {})",
+            env!("CARGO_PKG_VERSION"),
+            env!("WASMER_BUILD_GIT_HASH_SHORT"),
+            env!("WASMER_BUILD_DATE")
+        );
         println!("binary: {}", env!("CARGO_PKG_NAME"));
         println!("commit-hash: {}", env!("WASMER_BUILD_GIT_HASH"));
         println!("commit-date: {}", env!("WASMER_BUILD_DATE"));
         println!("host: {}", target_lexicon::HOST);
         println!("compiler: {}", {
-
             #[allow(unused_mut)]
             let mut s = Vec::<&'static str>::new();
 
