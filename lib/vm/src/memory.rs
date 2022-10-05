@@ -344,6 +344,11 @@ impl LinearMemory for VMMemory {
     fn try_clone(&self) -> Option<Box<dyn LinearMemory + 'static>> {
         self.0.try_clone()
     }
+
+    /// Initialize memory with data
+    unsafe fn initialize_with_data(&self, start: usize, data: &[u8]) -> Result<(), Trap> {
+        self.0.initialize_with_data(start, data)
+    }
 }
 
 impl VMMemory {
@@ -387,6 +392,28 @@ impl VMMemory {
     }
 }
 
+#[doc(hidden)]
+/// Default implementation to initialize memory with data
+pub unsafe fn initialize_memory_with_data(
+    memory: &VMMemoryDefinition,
+    start: usize,
+    data: &[u8],
+) -> Result<(), Trap> {
+    if start
+        .checked_add(data.len())
+        .map_or(true, |end| end > memory.current_length)
+    {
+        return Err(Trap::lib(TrapCode::HeapAccessOutOfBounds));
+    }
+
+    let mem_slice = slice::from_raw_parts_mut(memory.base, memory.current_length);
+    let end = start + data.len();
+    let to_init = &mut mem_slice[start..end];
+    to_init.copy_from_slice(data);
+
+    Ok(())
+}
+
 /// Represents memory that is used by the WebAsssembly module
 pub trait LinearMemory
 where
@@ -416,18 +443,7 @@ where
     #[doc(hidden)]
     unsafe fn initialize_with_data(&self, start: usize, data: &[u8]) -> Result<(), Trap> {
         let memory = self.vmmemory().as_ref();
-        if start
-            .checked_add(data.len())
-            .map_or(true, |end| end > memory.current_length)
-        {
-            return Err(Trap::lib(TrapCode::HeapAccessOutOfBounds));
-        }
 
-        let mem_slice = slice::from_raw_parts_mut(memory.base, memory.current_length);
-        let end = start + data.len();
-        let to_init = &mut mem_slice[start..end];
-        to_init.copy_from_slice(data);
-
-        Ok(())
+        initialize_memory_with_data(memory, start, data)
     }
 }
