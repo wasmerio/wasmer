@@ -2764,7 +2764,7 @@
     <span class="doccomment">/// the trait system to automatically generate the appropriate</span>
     <span class="doccomment">/// host functions.</span>
     <span class="attribute">#[<span class="ident">doc</span>(<span class="ident">hidden</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">HostFunctionKind</span> {}
+    <span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">HostFunctionKind</span>: <span class="ident">private::HostFunctionKindSealed</span> {}
 
     <span class="doccomment">/// An empty struct to help Rust typing to determine</span>
     <span class="doccomment">/// when a `HostFunction` does have an environment.</span>
