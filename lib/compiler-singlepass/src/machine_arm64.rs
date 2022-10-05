@@ -3051,6 +3051,8 @@ impl Machine for MachineARM64 {
             .emit_mov(Size::S32, Location::GPR(GPR::XzrSp), dest)?; // 0 => dest
         self.assembler.emit_cbz_label(Size::S32, src, label_exit)?; // src==0, exit
         self.assembler.emit_label(label_loop)?; // loop:
+        self.assembler
+            .emit_add(Size::S32, dest, Location::Imm8(1), dest)?; // dest += 1
         self.assembler.emit_clz(Size::S32, src, tmp)?; // clz src => tmp
         self.assembler.emit_lsl(Size::S32, src, tmp, src)?; // src << tmp => src
         self.assembler.emit_lsl(Size::S32, src, Location::Imm8(1), src)?; // src << 1 => src
