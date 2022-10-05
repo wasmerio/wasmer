@@ -540,7 +540,6 @@ pub fn install_package(name: &str, version: Option<&str>) -> Result<PathBuf, Str
     for r in registries.iter() {
         let registry_test = test_if_registry_present(r);
         if !registry_test.clone().unwrap_or(false) {
-            println!(" warning: registry {r} not present: {:#?}", registry_test);
             continue;
         }
         match query_package_from_registry(&r, name, version) {
@@ -567,13 +566,15 @@ pub fn install_package(name: &str, version: Option<&str>) -> Result<PathBuf, Str
 
     let did_you_mean = error_packages.iter()
     .flat_map(|(packages, _)| {
-
-    }).collect::<Vec<_>>();
+        packages.iter().filter_map(|f| {
+            let from = url::Url::parse(&f.registry).ok()?.host_str()?.to_string();
+            Some(format!("     {}@{} (from {from})", f.package, f.version))
+        })
+    }).collect::<Vec<_>>()
+    .join("\r\n");
     
-    // println!("error packages: {:#?}", error_packages);
-
     let url_of_package = url_of_package
-    .ok_or(format!("Package {version_str} not found in registries: {registries_searched:#?}"))?;
+    .ok_or(format!("Package {version_str} not found in registries: {registries_searched:?}.\r\n\r\nDid you mean:\r\n{did_you_mean}\r\n"))?;
 
     println!("url of package: {:#?} in registries: {registries_searched:#?}", url_of_package.1);
     Err(format!("unimplemented"))

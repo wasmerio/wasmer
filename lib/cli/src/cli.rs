@@ -234,15 +234,19 @@ fn parse_cli_args() -> Result<(), anyhow::Error> {
                     let result = wasmer_registry::install_package(&package, v);
                     sp.close();
                     print!("\r\n");
-                    if let Ok(o) = result {
-                        // Try auto-installing the remote package
-                        let mut args_without_package = args.clone();
-                        args_without_package.remove(1);
-                        return RunWithoutFile::try_parse_from(args_without_package.iter())?
-                            .into_run_args(o)
-                            .execute();
-                    } else {
-                        return print_help(true);
+                    match result {
+                        Ok(o) => {
+                            // Try auto-installing the remote package
+                            let mut args_without_package = args.clone();
+                            args_without_package.remove(1);
+                            return RunWithoutFile::try_parse_from(args_without_package.iter())?
+                                .into_run_args(o)
+                                .execute();
+                        },
+                        Err(e) => {
+                            println!("{e}");
+                            return Ok(());
+                        }
                     }
                 }
             } else {
