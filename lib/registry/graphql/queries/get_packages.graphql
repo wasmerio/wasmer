@@ -1,8 +1,8 @@
-query GetPackageQuery ($name: String!) {
-  package: getPackage(name:$name) {
+query GetPackagesQuery ($names: [String!]!) {
+  package: getPackages(names:$names) {
     name
     private
-    lastVersion {
+    versions {
       version
       distribution {
         downloadUrl
