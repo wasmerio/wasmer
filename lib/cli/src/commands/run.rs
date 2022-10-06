@@ -65,8 +65,8 @@ pub struct RunWithoutFile {
     debug: bool,
 
     #[cfg(feature = "debug")]
-    #[clap(short, long, parse(from_occurrences))]
-    verbose: u8,
+    #[clap(long = "verbose")]
+    verbose: Option<u8>,
 
     /// Application arguments
     #[clap(value_name = "ARGS")]
@@ -93,8 +93,8 @@ impl RunWithoutFile {
                 self.wasi.map_dir(alias, real_dir.clone());
 
                 #[cfg(feature = "wasi")] {
-                    println!("setting PYTHONHOME to /{}", real_dir.display());
-                    self.wasi.set_env("PYTHONHOME", &format!("{}", real_dir.display()));
+                    println!("setting PYTHONHOME to /lib/python3.7");
+                    self.wasi.set_env("PYTHONHOME", "/lib/python3.7");
                 }        
             }
         }
@@ -115,7 +115,7 @@ impl RunWithoutFile {
             #[cfg(feature = "debug")]
             debug: self.debug,
             #[cfg(feature = "debug")]
-            verbose: self.verbose,
+            verbose: self.verbose.unwrap_or(0),
             args: self.args,
         }
     }
@@ -169,7 +169,7 @@ pub struct Run {
     debug: bool,
 
     #[cfg(feature = "debug")]
-    #[clap(short, long, parse(from_occurrences))]
+    #[clap(short, long, num_args(0..))]
     verbose: u8,
 
     /// Application arguments

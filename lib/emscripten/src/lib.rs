@@ -74,12 +74,24 @@ pub use self::utils::{
     get_emscripten_table_size, is_emscripten_module,
 };
 
+/// State of the emscripten environment (environment variables, CLI args)
+#[derive(Debug, Clone, Default)]
+pub struct EmscriptenState {
+    /// Environment variables in a [key -> value] mapping
+    pub env_vars: HashMap<String, String>,
+    /// Command line arguments that this module received
+    pub cli_args: Vec<String>,
+}
+
 #[derive(Clone)]
 /// The environment provided to the Emscripten imports.
 pub struct EmEnv {
     memory: Arc<RwLock<Option<Memory>>>,
     data: Arc<Mutex<Option<EmscriptenData>>>,
     funcs: Arc<Mutex<EmscriptenFunctions>>,
+    // State that is passed to the wasm module (environment variables, CLI args, ...)
+    #[allow(dead_code)]
+    state: Arc<Mutex<EmscriptenState>>,
 }
 
 impl Default for EmEnv {
@@ -95,6 +107,16 @@ impl EmEnv {
             memory: Arc::new(RwLock::new(None)),
             data: Arc::new(Mutex::new(None)),
             funcs: Arc::new(Mutex::new(EmscriptenFunctions::new())),
+            state: Arc::new(Mutex::new(EmscriptenState::default())),
+        }
+    }
+
+    pub fn new_with_state(emstate: EmscriptenState) -> Self {
+        Self {
+            memory: Arc::new(RwLock::new(None)),
+            data: Arc::new(Mutex::new(None)),
+            funcs: Arc::new(Mutex::new(EmscriptenFunctions::new())),
+            state: Arc::new(Mutex::new(emstate)),
         }
     }
 
@@ -119,6 +141,46 @@ impl EmEnv {
     ) {
         let mut w = self.data.lock().unwrap();
         *w = Some(EmscriptenData::new(data.clone(), mapped_dirs));
+    }
+
+    pub fn get_env_var(
+        &self,
+        key: &str,
+    ) -> Option<String> {
+        let w = self.state.lock().ok()?;
+        w.env_vars.get(key).cloned()
+    }
+
+    pub fn get_env_vars_len(&self) -> usize {
+        let w = self.state.lock().unwrap();
+        w.env_vars.len()
+    }
+
+    pub fn set_env_var(
+        &self,
+        key: &str,
+        value: &str,
+    ) -> Option<String> {
+        let mut w = self.state.lock().ok()?;
+        w.env_vars.insert(key.to_string(), value.to_string())
+    }
+
+    pub fn remove_env_var(
+        &mut self,
+        key: &str,
+    ) -> Option<String> {
+        let mut w = self.state.lock().ok()?;
+        w.env_vars.remove(key)
+    }
+
+    pub fn get_args_size(&self) -> usize {
+        let w = self.state.lock().unwrap();
+        w.cli_args.len()
+    }
+
+    pub fn get_args(&self) -> Vec<String> {
+        let w = self.state.lock().unwrap();
+        w.cli_args.clone()
     }
 }
 

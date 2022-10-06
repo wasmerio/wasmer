@@ -1,9 +1,8 @@
 /// NOTE: These syscalls only support wasm_32 for now because they take u32 offset
 use libc::{
-    c_int, getenv, getgrnam as libc_getgrnam, getpwnam as libc_getpwnam, putenv, setenv, sysconf,
-    unsetenv,
+    c_int, getgrnam as libc_getgrnam, getpwnam as libc_getpwnam, sysconf,
 };
-use std::ffi::CStr;
+use std::ffi::{CStr, CString};
 use std::mem;
 use std::os::raw::c_char;
 
@@ -17,55 +16,82 @@ use wasmer::{FunctionEnvMut, WasmPtr};
 pub fn _getenv(mut ctx: FunctionEnvMut<EmEnv>, name: i32) -> u32 {
     debug!("emscripten::_getenv");
 
-    let memory = ctx.data().memory(0);
+    let em_env = ctx.data();
+    let memory = em_env.memory(0);
     let name_addr = emscripten_memory_pointer!(memory.view(&ctx), name) as *const c_char;
 
     debug!("=> name({:?})", unsafe { CStr::from_ptr(name_addr) });
 
-    let c_str = unsafe { getenv(name_addr) };
-    if c_str.is_null() {
-        return 0;
-    }
-
-    unsafe { copy_cstr_into_wasm(&mut ctx, c_str) }
+    let c_string = unsafe { CStr::from_ptr(name_addr) };
+    let c_string = c_string.to_string_lossy();
+    let env_var = em_env.get_env_var(c_string.as_ref());
+    let env_var = match env_var {
+        Some(s) => s,
+        None => return 0,
+    };
+    let new_env_var =  match CString::new(env_var) {
+        Ok(s) => s,
+        Err(_) => return 0,
+    };
+    unsafe { copy_cstr_into_wasm(&mut ctx, new_env_var.as_ptr()) }
 }
 
 /// emscripten: _setenv // (name: *const char, name: *const value, overwrite: int);
 pub fn _setenv(ctx: FunctionEnvMut<EmEnv>, name: c_int, value: c_int, overwrite: c_int) -> c_int {
     debug!("emscripten::_setenv");
 
-    let memory = ctx.data().memory(0);
+    let em_env = ctx.data();
+    let memory = em_env.memory(0);
     let name_addr = emscripten_memory_pointer!(memory.view(&ctx), name) as *const c_char;
     let value_addr = emscripten_memory_pointer!(memory.view(&ctx), value) as *const c_char;
 
-    debug!("=> name({:?})", unsafe { CStr::from_ptr(name_addr) });
-    debug!("=> value({:?})", unsafe { CStr::from_ptr(value_addr) });
+    let name = unsafe { CStr::from_ptr(name_addr) }.to_string_lossy();
+    let value = unsafe { CStr::from_ptr(value_addr) }.to_string_lossy();
 
-    unsafe { setenv(name_addr, value_addr, overwrite) }
+    debug!("=> name({:?})", name);
+    debug!("=> value({:?})", value);
+
+    let previous_entry = em_env.set_env_var(name.as_ref(), value.as_ref());
+    
+    if let (0, Some(prev)) = (overwrite, previous_entry) {
+        let _ = em_env.set_env_var(name.as_ref(), prev.as_ref());
+    }
+
+    0
 }
 
 /// emscripten: _putenv // (name: *const char);
 pub fn _putenv(ctx: FunctionEnvMut<EmEnv>, name: c_int) -> c_int {
     debug!("emscripten::_putenv");
 
-    let memory = ctx.data().memory(0);
+    let em_env = ctx.data();
+    let memory = em_env.memory(0);
     let name_addr = emscripten_memory_pointer!(memory.view(&ctx), name) as *const c_char;
 
-    debug!("=> name({:?})", unsafe { CStr::from_ptr(name_addr) });
+    let name = unsafe { CStr::from_ptr(name_addr) }.to_string_lossy();
+    debug!("=> name({:?})", name);
 
-    unsafe { putenv(name_addr as _) }
+    em_env.set_env_var(name.as_ref(), "");
+
+    0
 }
 
 /// emscripten: _unsetenv // (name: *const char);
-pub fn _unsetenv(ctx: FunctionEnvMut<EmEnv>, name: c_int) -> c_int {
+pub fn _unsetenv(mut ctx: FunctionEnvMut<EmEnv>, name: c_int) -> c_int {
     debug!("emscripten::_unsetenv");
 
-    let memory = ctx.data().memory(0);
-    let name_addr = emscripten_memory_pointer!(memory.view(&ctx), name) as *const c_char;
+    let name = {
+        let em_env = ctx.data();
+        let memory = em_env.memory(0);
+        let name_addr = emscripten_memory_pointer!(memory.view(&ctx), name) as *const c_char;
+        unsafe { CStr::from_ptr(name_addr) }.to_string_lossy().to_string()
+    };
 
-    debug!("=> name({:?})", unsafe { CStr::from_ptr(name_addr) });
+    debug!("=> name({:?})", name);
+    let em_env = ctx.data_mut();
+    em_env.remove_env_var(name.as_ref());
 
-    unsafe { unsetenv(name_addr) }
+    0
 }
 
 #[allow(clippy::cast_ptr_alignment)]
