@@ -1,19 +1,19 @@
-use std::path::{Path, PathBuf};
-use std::env;
 use std::collections::BTreeMap;
+use std::env;
+use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
 use serde::Serialize;
 
 pub mod graphql {
 
+    use core::time;
     use graphql_client::*;
     #[cfg(not(target_os = "wasi"))]
     use reqwest::{
         blocking::{multipart::Form, Client},
         header::USER_AGENT,
     };
-    use core::time;
     use std::env;
     use std::time::Duration;
     #[cfg(target_os = "wasi")]
@@ -161,7 +161,7 @@ pub mod graphql {
             .multipart(form)
             .bearer_auth(env::var("WAPM_REGISTRY_TOKEN").unwrap_or(login_token.to_string()))
             .header(USER_AGENT, user_agent);
-        
+
         if let Some(t) = timeout {
             res = res.timeout(t);
         }
@@ -217,7 +217,7 @@ pub mod graphql {
             .multipart(form)
             .bearer_auth(env::var("WAPM_REGISTRY_TOKEN").unwrap_or(login_token.to_string()))
             .header(USER_AGENT, user_agent);
-        
+
         if let Some(t) = timeout {
             res = res.timeout(t);
         }
@@ -253,13 +253,7 @@ pub mod graphql {
         for<'de> R: serde::Deserialize<'de>,
         V: serde::Serialize,
     {
-        execute_query_modifier_inner(
-            registry_url, 
-            login_token, 
-            query, 
-            Some(timeout), 
-            |f| f
-        )
+        execute_query_modifier_inner(registry_url, login_token, query, Some(timeout), |f| f)
     }
 }
 
@@ -356,14 +350,12 @@ fn format_graphql(registry: &str) -> String {
 }
 
 impl PartialWapmConfig {
-
     pub fn from_file() -> Result<Self, String> {
         let path = Self::get_file_location()?;
 
         match std::fs::read_to_string(&path) {
             Ok(config_toml) => {
-                toml::from_str(&config_toml)
-                .map_err(|e| format!("could not parse {path:?}: {e}"))
+                toml::from_str(&config_toml).map_err(|e| format!("could not parse {path:?}: {e}"))
             }
             Err(_e) => Ok(Self::default()),
         }
@@ -379,10 +371,7 @@ impl PartialWapmConfig {
 
     pub fn get_folder() -> Result<PathBuf, String> {
         Ok(
-            if let Some(folder_str) = env::var("WASMER_DIR")
-                .ok()
-                .filter(|s| !s.is_empty())
-            {
+            if let Some(folder_str) = env::var("WASMER_DIR").ok().filter(|s| !s.is_empty()) {
                 let folder = PathBuf::from(folder_str);
                 std::fs::create_dir_all(folder.clone())
                     .map_err(|e| format!("cannot create config directory: {e}"))?;
@@ -426,13 +415,26 @@ pub fn get_command_local(name: &str) -> Result<PathBuf, String> {
     Err(format!("unimplemented"))
 }
 
-pub fn get_package_local_dir(registry_host: &str, name: &str, version: &str) -> Result<PathBuf, String> {
-    if !name.contains("/") { 
-        return Err(format!("package name has to be in the format namespace/package: {name:?}")); 
+pub fn get_package_local_dir(
+    registry_host: &str,
+    name: &str,
+    version: &str,
+) -> Result<PathBuf, String> {
+    if !name.contains("/") {
+        return Err(format!(
+            "package name has to be in the format namespace/package: {name:?}"
+        ));
     }
-    let namespace = name.split("/").nth(0).ok_or(format!("missing namespace for {name:?}"))?;
-    let name = name.split("/").nth(1).ok_or(format!("missing name for {name:?}"))?;
-    let install_dir = get_global_install_dir(registry_host).ok_or(format!("no install dir for {name:?}"))?;
+    let namespace = name
+        .split("/")
+        .nth(0)
+        .ok_or(format!("missing namespace for {name:?}"))?;
+    let name = name
+        .split("/")
+        .nth(1)
+        .ok_or(format!("missing name for {name:?}"))?;
+    let install_dir =
+        get_global_install_dir(registry_host).ok_or(format!("no install dir for {name:?}"))?;
     Ok(install_dir.join(namespace).join(name).join(version))
 }
 
@@ -446,17 +448,18 @@ pub struct LocalPackage {
 }
 
 fn get_all_names_in_dir(dir: &PathBuf) -> Vec<(PathBuf, String)> {
+    if !dir.is_dir() {
+        return Vec::new();
+    }
 
-    if !dir.is_dir() { return Vec::new(); }
-    
     let read_dir = match std::fs::read_dir(dir) {
         Ok(o) => o,
         Err(_) => return Vec::new(),
     };
 
     let entries = read_dir
-    .map(|res| res.map(|e| e.path()))
-    .collect::<Result<Vec<_>, std::io::Error>>();
+        .map(|res| res.map(|e| e.path()))
+        .collect::<Result<Vec<_>, std::io::Error>>();
 
     let registry_entries = match entries {
         Ok(o) => o,
@@ -464,25 +467,21 @@ fn get_all_names_in_dir(dir: &PathBuf) -> Vec<(PathBuf, String)> {
     };
 
     registry_entries
-    .into_iter()
-    .filter_map(|re| {
-        Some((re.clone(), re.file_name()?.to_str()?.to_string()))
-    })
-    .collect()
+        .into_iter()
+        .filter_map(|re| Some((re.clone(), re.file_name()?.to_str()?.to_string())))
+        .collect()
 }
 
 /// Returns a list of all locally installed packages
 pub fn get_all_local_packages() -> Vec<LocalPackage> {
-
     let mut packages = Vec::new();
 
     'outer: for registry in get_all_available_registries().unwrap_or_default() {
-        
         let root_dir = match get_global_install_dir(&registry) {
             Some(o) => o,
             None => continue 'outer,
         };
- 
+
         for (registry_path, registry_host) in get_all_names_in_dir(&root_dir) {
             for (package_path, package_name) in get_all_names_in_dir(&registry_path) {
                 for (version_path, package_version) in get_all_names_in_dir(&package_path) {
@@ -494,9 +493,9 @@ pub fn get_all_local_packages() -> Vec<LocalPackage> {
                         Ok(o) => o,
                         Err(_) => continue,
                     };
-                    packages.push(LocalPackage { 
-                        registry: registry_host.clone(), 
-                        name: package_name.clone(), 
+                    packages.push(LocalPackage {
+                        registry: registry_host.clone(),
+                        name: package_name.clone(),
                         version: package_version,
                         manifest: manifest,
                         path: version_path,
@@ -511,34 +510,44 @@ pub fn get_all_local_packages() -> Vec<LocalPackage> {
 
 pub fn get_local_package(name: &str, version: Option<&str>) -> Option<LocalPackage> {
     get_all_local_packages()
-    .iter()
-    .filter(|p| {
-        if p.name != name { return false; }
-        if let Some(v) = version {
-            if p.version != v { return false; }
-        }
-        true
-    })
-    .cloned()
-    .next()
+        .iter()
+        .filter(|p| {
+            if p.name != name {
+                return false;
+            }
+            if let Some(v) = version {
+                if p.version != v {
+                    return false;
+                }
+            }
+            true
+        })
+        .cloned()
+        .next()
 }
 
-pub fn get_package_local_wasm_file(registry_host: &str, name: &str, version: &str) -> Result<PathBuf, String> {
-    
+pub fn get_package_local_wasm_file(
+    registry_host: &str,
+    name: &str,
+    version: &str,
+) -> Result<PathBuf, String> {
     let dir = get_package_local_dir(registry_host, name, version)?;
     let wapm_toml_path = dir.join("wapm.toml");
     let wapm_toml_str = std::fs::read_to_string(&wapm_toml_path)
         .map_err(|e| format!("cannot parse wapm.toml for {name}@{version}"))?;
     let wapm = toml::from_str::<wapm_toml::Manifest>(&wapm_toml_str)
         .map_err(|e| format!("cannot parse wapm.toml for {name}@{version}"))?;
-    
+
     // TODO: this will just return the path for the first command, so this might not be correct
-    let command_name = wapm.command
+    let command_name = wapm
+        .command
         .unwrap_or_default()
         .first()
         .map(|m| m.get_module())
-        .ok_or(format!("cannot get entrypoint for {name}@{version}: package has no commands"))?;
-    
+        .ok_or(format!(
+            "cannot get entrypoint for {name}@{version}: package has no commands"
+        ))?;
+
     Ok(dir.join(command_name))
 }
 
@@ -553,11 +562,7 @@ pub fn query_package_from_registry(
     name: &str,
     version: Option<&str>,
 ) -> Result<PackageDownloadInfo, (Vec<PackageDownloadInfo>, String)> {
-
-    use crate::graphql::{
-        GetPackagesQuery, get_packages_query,
-        execute_query
-    };
+    use crate::graphql::{execute_query, get_packages_query, GetPackagesQuery};
     use graphql_client::GraphQLQuery;
 
     let q = if name.contains("/") {
@@ -572,61 +577,72 @@ pub fn query_package_from_registry(
     };
 
     let response: get_packages_query::ResponseData = execute_query(registry_url, "", &q)
-    .map_err(|e| (Vec::new(), format!("Error sending GetPackagesQuery:  {e}")))?;
+        .map_err(|e| (Vec::new(), format!("Error sending GetPackagesQuery:  {e}")))?;
 
-    let available_packages = response.package
-    .iter()
-    .filter_map(|p| {
-        
-        let p = p.as_ref()?;
-        let mut versions = Vec::new();
-        
-        for v in p.versions.iter() {
-            for v in v.iter() {
-                let v = match v.as_ref() {
-                    Some(s) => s,
-                    None => continue,
-                };
+    let available_packages = response
+        .package
+        .iter()
+        .filter_map(|p| {
+            let p = p.as_ref()?;
+            let mut versions = Vec::new();
 
-                versions.push(PackageDownloadInfo { 
-                    registry: registry_url.to_string(),
-                    package: p.name.clone(), 
-    
-                    version: v.version.clone(),
-    
-                    commands: toml::from_str::<wapm_toml::Manifest>(
-                        &v.manifest
-                    ).ok()?
-                    .command.unwrap_or_default()
-                    .iter().map(|s| s.get_name()).collect(), 
-                    
-                    url: v.distribution.download_url.clone(), 
-                });
+            for v in p.versions.iter() {
+                for v in v.iter() {
+                    let v = match v.as_ref() {
+                        Some(s) => s,
+                        None => continue,
+                    };
+
+                    versions.push(PackageDownloadInfo {
+                        registry: registry_url.to_string(),
+                        package: p.name.clone(),
+
+                        version: v.version.clone(),
+
+                        commands: toml::from_str::<wapm_toml::Manifest>(&v.manifest)
+                            .ok()?
+                            .command
+                            .unwrap_or_default()
+                            .iter()
+                            .map(|s| s.get_name())
+                            .collect(),
+
+                        url: v.distribution.download_url.clone(),
+                    });
+                }
             }
-        }
 
-        Some(versions)
-    })
-    .collect::<Vec<_>>()
-    .into_iter()
-    .flat_map(|v| v.into_iter())
-    .collect::<Vec<_>>();
+            Some(versions)
+        })
+        .collect::<Vec<_>>()
+        .into_iter()
+        .flat_map(|v| v.into_iter())
+        .collect::<Vec<_>>();
 
-    let queried_package = available_packages.iter()
-    .filter_map(|v| {
-        if name.contains("/") && v.package != name {
-            return None;
-        }
+    let queried_package = available_packages
+        .iter()
+        .filter_map(|v| {
+            if name.contains("/") && v.package != name {
+                return None;
+            }
 
-        if version.is_some() && v.version != version.clone().unwrap() {
-            return None;
-        }
+            if version.is_some() && v.version != version.clone().unwrap() {
+                return None;
+            }
 
-        Some(v)
-    }).next().cloned();
+            Some(v)
+        })
+        .next()
+        .cloned();
 
     match queried_package {
-        None => Err((available_packages, format!("No package found for {name}@{}", version.unwrap_or("latest")))),
+        None => Err((
+            available_packages,
+            format!(
+                "No package found for {name}@{}",
+                version.unwrap_or("latest")
+            ),
+        )),
         Some(s) => Ok(s),
     }
 }
@@ -634,18 +650,18 @@ pub fn query_package_from_registry(
 /// Returs the path to the directory where all packages on this computer are being stored
 pub fn get_global_install_dir(registry_host: &str) -> Option<PathBuf> {
     Some(
-        PartialWapmConfig::get_folder().ok()?
+        PartialWapmConfig::get_folder()
+            .ok()?
             .join("checkouts")
             .join(registry_host),
     )
 }
 
 pub fn download_and_unpack_targz(url: &str, target_path: &Path) -> Result<PathBuf, String> {
-
     let target_targz_path = target_path.to_path_buf().join("package.tar.gz");
 
-    let mut resp = reqwest::blocking::get(url)
-        .map_err(|e| format!("failed to download {url}: {e}"))?;
+    let mut resp =
+        reqwest::blocking::get(url).map_err(|e| format!("failed to download {url}: {e}"))?;
 
     if !target_targz_path.exists() {
         // create all the parent paths, only remove the created directory, not the parent dirs
@@ -654,22 +670,29 @@ pub fn download_and_unpack_targz(url: &str, target_path: &Path) -> Result<PathBu
     }
 
     {
-        let mut file = std::fs::File::create(&target_targz_path)
-            .map_err(|e| format!("failed to download {url} into {}: {e}", target_targz_path.display()))?;
+        let mut file = std::fs::File::create(&target_targz_path).map_err(|e| {
+            format!(
+                "failed to download {url} into {}: {e}",
+                target_targz_path.display()
+            )
+        })?;
 
-        reqwest::blocking::get(url)
-            .map_err(|e| format!("{e}"))?;
-        
+        reqwest::blocking::get(url).map_err(|e| format!("{e}"))?;
+
         resp.copy_to(&mut file).map_err(|e| format!("{e}"))?;
     }
 
-    let file = std::fs::File::open(&target_targz_path)
-        .map_err(|e| format!("failed to download {url} into {}: {e}", target_targz_path.display()))?;
+    let file = std::fs::File::open(&target_targz_path).map_err(|e| {
+        format!(
+            "failed to download {url} into {}: {e}",
+            target_targz_path.display()
+        )
+    })?;
 
     let gz_decoded = flate2::read::GzDecoder::new(file);
     let mut ar = tar::Archive::new(gz_decoded);
     ar.unpack(target_path)
-    .map_err(|e| format!("failed to unpack {}: {e}", target_targz_path.display()))?;
+        .map_err(|e| format!("failed to unpack {}: {e}", target_targz_path.display()))?;
 
     let _ = std::fs::remove_file(target_targz_path);
 
@@ -677,11 +700,10 @@ pub fn download_and_unpack_targz(url: &str, target_path: &Path) -> Result<PathBu
 }
 
 pub fn install_package(name: &str, version: Option<&str>) -> Result<PathBuf, String> {
-    
     let registries = get_all_available_registries()?;
     let mut url_of_package = None;
     let mut error_packages = Vec::new();
-    
+
     for r in registries.iter() {
         let registry_test = test_if_registry_present(r);
         if !registry_test.clone().unwrap_or(false) {
@@ -691,88 +713,93 @@ pub fn install_package(name: &str, version: Option<&str>) -> Result<PathBuf, Str
             Ok(o) => {
                 url_of_package = Some((r, o));
                 break;
-            },
+            }
             Err(e) => {
                 error_packages.push(e);
-            },
+            }
         }
     }
-    
+
     let version_str = match version {
         None => format!("{name}"),
         Some(v) => format!("{name}@{v}"),
     };
-    
+
     let registries_searched = registries
         .iter()
         .filter_map(|s| url::Url::parse(s).ok())
         .filter_map(|s| Some(format!("{}", s.host_str()?)))
         .collect::<Vec<_>>();
 
-    let did_you_mean = error_packages.iter()
-    .flat_map(|(packages, _)| {
-        packages.iter().filter_map(|f| {
-            let from = url::Url::parse(&f.registry).ok()?.host_str()?.to_string();
-            Some(format!("     {}@{} (from {from})", f.package, f.version))
+    let did_you_mean = error_packages
+        .iter()
+        .flat_map(|(packages, _)| {
+            packages.iter().filter_map(|f| {
+                let from = url::Url::parse(&f.registry).ok()?.host_str()?.to_string();
+                Some(format!("     {}@{} (from {from})", f.package, f.version))
+            })
         })
-    }).collect::<Vec<_>>()
-    .join("\r\n");
-    
+        .collect::<Vec<_>>()
+        .join("\r\n");
+
     let (_, package_info) = url_of_package
     .ok_or(format!("Package {version_str} not found in registries: {registries_searched:?}.\r\n\r\nDid you mean:\r\n{did_you_mean}\r\n"))?;
 
     let host = url::Url::parse(&package_info.url)
-    .map_err(|e| format!("invalid url: {}: {e}", package_info.url))?
-    .host_str()
-    .ok_or(format!("invalid url: {}", package_info.url))?
-    .to_string();
+        .map_err(|e| format!("invalid url: {}: {e}", package_info.url))?
+        .host_str()
+        .ok_or(format!("invalid url: {}", package_info.url))?
+        .to_string();
 
-    let dir = get_package_local_dir(
-        &host, 
-        &package_info.package, 
-        &package_info.version
-    )?;
+    let dir = get_package_local_dir(&host, &package_info.package, &package_info.version)?;
 
     let version = package_info.version;
     let name = package_info.package;
 
     let target_path = download_and_unpack_targz(&package_info.url, &dir)?;
 
-    let wapm_toml = std::fs::read_to_string(target_path.join("wapm.toml"))
-    .map_err(|_| format!("Package {name}@{version} has no wapm.toml (path: {})", target_path.display()))?;
+    let wapm_toml = std::fs::read_to_string(target_path.join("wapm.toml")).map_err(|_| {
+        format!(
+            "Package {name}@{version} has no wapm.toml (path: {})",
+            target_path.display()
+        )
+    })?;
 
     let wapm_toml = toml::from_str::<wapm_toml::Manifest>(&wapm_toml)
-    .map_err(|e| format!("Could not parse toml for {name}@{version}: {e}"))?;
+        .map_err(|e| format!("Could not parse toml for {name}@{version}: {e}"))?;
 
     let commands = wapm_toml.command.unwrap_or_default();
-    let entrypoint_module = commands.first()
-    .ok_or(format!("Cannot run {name}@{version}: package has no commands"))?;
-    
+    let entrypoint_module = commands.first().ok_or(format!(
+        "Cannot run {name}@{version}: package has no commands"
+    ))?;
+
     let module_name = entrypoint_module.get_module();
     let modules = wapm_toml.module.unwrap_or_default();
     let entrypoint_module = modules
-    .iter()
-    .filter(|m| m.name == module_name)
-    .next()
-    .ok_or(format!("Cannot run {name}@{version}: module {module_name} not found in wapm.toml"))?;
-    
+        .iter()
+        .filter(|m| m.name == module_name)
+        .next()
+        .ok_or(format!(
+            "Cannot run {name}@{version}: module {module_name} not found in wapm.toml"
+        ))?;
+
     Ok(target_path.join(&entrypoint_module.source))
 }
 
 pub fn test_if_registry_present(registry: &str) -> Result<bool, String> {
-
+    use crate::graphql::{test_if_registry_present, TestIfRegistryPresent};
     use graphql_client::GraphQLQuery;
     use std::time::Duration;
-    use crate::graphql::{TestIfRegistryPresent, test_if_registry_present};
 
     let q = TestIfRegistryPresent::build_query(test_if_registry_present::Variables {});
     let _ = crate::graphql::execute_query_modifier_inner_check_json(
-        registry, 
-        "", 
-        &q, 
-        Some(Duration::from_secs(1)), 
-        |f| f
-    ).map_err(|e| format!("{e}"))?;
+        registry,
+        "",
+        &q,
+        Some(Duration::from_secs(1)),
+        |f| f,
+    )
+    .map_err(|e| format!("{e}"))?;
 
     Ok(true)
 }
@@ -783,12 +810,12 @@ pub fn get_all_available_registries() -> Result<Vec<String>, String> {
     match config.registry {
         Registries::Single(s) => {
             registries.push(format_graphql(&s.url));
-        },
+        }
         Registries::Multi(m) => {
             for key in m.tokens.keys() {
                 registries.push(format_graphql(&key));
             }
-        }   
+        }
     }
     Ok(registries)
 }

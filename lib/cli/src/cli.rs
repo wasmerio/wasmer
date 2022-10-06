@@ -199,21 +199,28 @@ fn parse_cli_args() -> Result<(), anyhow::Error> {
         #[cfg(feature = "binfmt")]
         (Some("binfmt"), _) => Binfmt::try_parse_from(args_without_first_arg.iter())?.execute(),
         (Some("list"), Some("--installed")) => {
-            use prettytable::{format, Table, row};
+            use prettytable::{format, row, Table};
 
             let rows = get_all_local_packages()
-            .into_iter()
-            .map(|pkg| {
+                .into_iter()
+                .map(|pkg| {
+                    let commands = pkg
+                        .manifest
+                        .command
+                        .unwrap_or_default()
+                        .iter()
+                        .map(|c| c.get_name())
+                        .collect::<Vec<_>>()
+                        .join(" \r\n");
 
-                let commands = pkg.manifest.command
-                .unwrap_or_default()
-                .iter()
-                .map(|c| c.get_name())
-                .collect::<Vec<_>>()
-                .join(" \r\n");
-
-                row![pkg.registry.clone(), pkg.name.clone(), pkg.version.clone(), commands]
-            }).collect::<Vec<_>>();
+                    row![
+                        pkg.registry.clone(),
+                        pkg.name.clone(),
+                        pkg.version.clone(),
+                        commands
+                    ]
+                })
+                .collect::<Vec<_>>();
 
             let mut table = Table::init(rows);
             table.set_titles(row!["Registry", "Package", "Version", "Commands"]);
@@ -237,7 +244,7 @@ fn parse_cli_args() -> Result<(), anyhow::Error> {
 
             if let Ok(Ok(run)) = result {
                 return run.execute();
-            } else if let Ok((package, version)) = split_version(package) {                
+            } else if let Ok((package, version)) = split_version(package) {
                 if let Some(package) = wasmer_registry::get_local_package(
                     &package,
                     version.as_ref().map(|s| s.as_str()),
@@ -251,13 +258,12 @@ fn parse_cli_args() -> Result<(), anyhow::Error> {
                 }
 
                 // else: local package not found
-                let sp =
-                    spinner::SpinnerBuilder::new(format!("Installing package {package} ..."))
-                        .spinner(vec![
-                            "⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷", " ", "⠁", "⠂", "⠄", "⡀",
-                            "⢀", "⠠", "⠐", "⠈",
-                        ])
-                        .start();
+                let sp = spinner::SpinnerBuilder::new(format!("Installing package {package} ..."))
+                    .spinner(vec![
+                        "⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷", " ", "⠁", "⠂", "⠄", "⡀", "⢀", "⠠",
+                        "⠐", "⠈",
+                    ])
+                    .start();
 
                 let v = version.as_ref().map(|s| s.as_str());
                 let result = wasmer_registry::install_package(&package, v);
@@ -271,7 +277,7 @@ fn parse_cli_args() -> Result<(), anyhow::Error> {
                         return RunWithoutFile::try_parse_from(args_without_package.iter())?
                             .into_run_args(o)
                             .execute();
-                    },
+                    }
                     Err(e) => {
                         println!("{e}");
                         return Ok(());
