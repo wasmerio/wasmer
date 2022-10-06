@@ -1252,6 +1252,12 @@ fn initialize_memories(
 
         let start = get_memory_init_start(init, instance);
         unsafe {
+            if start
+                .checked_add(init.data.len())
+                .map_or(true, |end| end > memory.vmmemory().as_ref().current_length)
+            {
+                return Err(Trap::lib(TrapCode::HeapAccessOutOfBounds));
+            }
             memory.initialize_with_data(start, init.data)?;
         }
     }
