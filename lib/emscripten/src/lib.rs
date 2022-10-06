@@ -75,12 +75,24 @@ pub use self::utils::{
 };
 
 /// State of the emscripten environment (environment variables, CLI args)
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct EmscriptenState {
     /// Environment variables in a [key -> value] mapping
     pub env_vars: HashMap<String, String>,
     /// Command line arguments that this module received
     pub cli_args: Vec<String>,
+}
+
+impl Default for EmscriptenState {
+    fn default() -> Self {
+        Self {
+            env_vars: std::env::vars_os()
+            .filter_map(|(k, v)| {
+                Some((k.to_str()?.to_string(), v.to_str()?.to_string()))
+            }).collect(),
+            cli_args: Vec::new(),
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -148,7 +160,8 @@ impl EmEnv {
         key: &str,
     ) -> Option<String> {
         let w = self.state.lock().ok()?;
-        w.env_vars.get(key).cloned()
+        let result = w.env_vars.get(key).cloned();
+        result
     }
 
     pub fn get_env_vars_len(&self) -> usize {
@@ -166,7 +179,7 @@ impl EmEnv {
     }
 
     pub fn remove_env_var(
-        &mut self,
+        &self,
         key: &str,
     ) -> Option<String> {
         let mut w = self.state.lock().ok()?;

@@ -93,9 +93,10 @@ impl RunWithoutFile {
                 self.wasi.map_dir(alias, real_dir.clone());
 
                 #[cfg(feature = "wasi")] {
-                    println!("setting PYTHONHOME to /lib/python3.7");
-                    self.wasi.set_env("PYTHONHOME", "/lib/python3.7");
-                }        
+                    let target = format!("{}", real_dir.parent().unwrap().display());
+                    println!("setting PYTHONHOME to {target}");
+                    self.wasi.set_env("PYTHONHOME", &target);
+                }
             }
         }
 
@@ -238,8 +239,12 @@ impl Run {
             };
             // TODO: refactor this
             if is_emscripten_module(&module) {
+                let em_env = EmEnv::new();
+                for (k, v) in self.wasi.env_vars.iter() {
+                    em_env.set_env_var(k, v);
+                }
                 // create an EmEnv with default global
-                let env = FunctionEnv::new(&mut store, EmEnv::new());
+                let env = FunctionEnv::new(&mut store, em_env);
                 let mut emscripten_globals = EmscriptenGlobals::new(&mut store, &env, &module)
                     .map_err(|e| anyhow!("{}", e))?;
                 env.as_mut(&mut store)

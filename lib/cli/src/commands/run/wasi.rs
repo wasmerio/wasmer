@@ -15,7 +15,7 @@ use clap::Parser;
 pub struct Wasi {
     /// WASI pre-opened directory
     #[clap(long = "dir", name = "DIR", group = "wasi")]
-    pre_opened_directories: Vec<PathBuf>,
+    pub(crate) pre_opened_directories: Vec<PathBuf>,
 
     /// Map a host directory to a different location for the Wasm module
     #[arg(
@@ -23,7 +23,7 @@ pub struct Wasi {
         name = "GUEST_DIR:HOST_DIR",
         value_parser = parse_mapdir,
     )]
-    mapped_dirs: Vec<(String, PathBuf)>,
+    pub(crate) mapped_dirs: Vec<(String, PathBuf)>,
 
     /// Pass custom environment variables
     #[arg(
@@ -31,7 +31,7 @@ pub struct Wasi {
         name = "KEY=VALUE",
         value_parser = parse_envvar,
     )]
-    env_vars: Vec<(String, String)>,
+    pub(crate) env_vars: Vec<(String, String)>,
 
     /// Enable experimental IO devices
     #[cfg(feature = "experimental-io-devices")]
