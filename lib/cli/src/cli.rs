@@ -253,7 +253,7 @@ fn parse_cli_args() -> Result<(), anyhow::Error> {
                     let mut args_without_package = args.clone();
                     args_without_package.remove(1);
                     return RunWithoutFile::try_parse_from(args_without_package.iter())?
-                        .into_run_args(package.path)
+                        .into_run_args(package.path, Some(package.manifest.clone()))
                         .execute();
                 }
 
@@ -270,12 +270,12 @@ fn parse_cli_args() -> Result<(), anyhow::Error> {
                 sp.close();
                 print!("\r\n");
                 match result {
-                    Ok(o) => {
+                    Ok((package, buf)) => {
                         // Try auto-installing the remote package
                         let mut args_without_package = args.clone();
                         args_without_package.remove(1);
                         return RunWithoutFile::try_parse_from(args_without_package.iter())?
-                            .into_run_args(o)
+                            .into_run_args(buf, Some(package.manifest.clone()))
                             .execute();
                     }
                     Err(e) => {

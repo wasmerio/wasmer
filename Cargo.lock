@@ -3858,6 +3858,7 @@ dependencies = [
  "target-lexicon 0.12.4",
  "tempfile",
  "unix_mode",
+ "wapm-toml",
  "wasmer",
  "wasmer-cache",
  "wasmer-compiler",

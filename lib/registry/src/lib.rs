@@ -730,7 +730,7 @@ pub fn download_and_unpack_targz(url: &str, target_path: &Path) -> Result<PathBu
     Ok(target_path.to_path_buf())
 }
 
-pub fn install_package(name: &str, version: Option<&str>) -> Result<PathBuf, String> {
+pub fn install_package(name: &str, version: Option<&str>) -> Result<(LocalPackage, PathBuf), String> {
     let registries = get_all_available_registries()?;
     let mut url_of_package = None;
     let mut error_packages = Vec::new();
@@ -817,13 +817,13 @@ pub fn install_package(name: &str, version: Option<&str>) -> Result<PathBuf, Str
     let wapm_toml = toml::from_str::<wapm_toml::Manifest>(&wapm_toml)
         .map_err(|e| format!("Could not parse toml for {name}@{version}: {e}"))?;
 
-    let commands = wapm_toml.command.unwrap_or_default();
+    let commands = wapm_toml.command.clone().unwrap_or_default();
     let entrypoint_module = commands.first().ok_or(format!(
         "Cannot run {name}@{version}: package has no commands"
     ))?;
 
     let module_name = entrypoint_module.get_module();
-    let modules = wapm_toml.module.unwrap_or_default();
+    let modules = wapm_toml.module.clone().unwrap_or_default();
     let entrypoint_module = modules
         .iter()
         .filter(|m| m.name == module_name)
@@ -832,7 +832,13 @@ pub fn install_package(name: &str, version: Option<&str>) -> Result<PathBuf, Str
             "Cannot run {name}@{version}: module {module_name} not found in wapm.toml"
         ))?;
 
-    Ok(target_path.join(&entrypoint_module.source))
+    Ok((LocalPackage {
+        registry: package_info.registry.clone(),
+        name: wapm_toml.package.name.clone(),
+        version: wapm_toml.package.version.to_string(),
+        manifest: wapm_toml,
+        path: target_path.clone(),
+    }, target_path.join(&entrypoint_module.source)))
 }
 
 pub fn test_if_registry_present(registry: &str) -> Result<bool, String> {

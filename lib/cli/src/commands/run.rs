@@ -75,7 +75,30 @@ pub struct RunWithoutFile {
 
 impl RunWithoutFile {
     /// Given a local path, returns the `Run` command (overriding the `--path` argument).
-    pub fn into_run_args(self, pathbuf: PathBuf) -> Run {
+    pub fn into_run_args(mut self, pathbuf: PathBuf, manifest: Option<wapm_toml::Manifest>) -> Run {
+        
+        #[cfg(feature = "wasi")]
+        if let Some(fs) = manifest.as_ref().and_then(|m| m.fs.as_ref()) {
+            for (alias, real_dir) in fs.iter() {
+                let real_dir = if let Some(parent) = pathbuf.parent() {
+                    parent.join(real_dir)
+                } else {
+                    pathbuf.join(real_dir)
+                };
+                if !real_dir.exists() {
+                    println!("warning: cannot map {alias:?} to {}: directory does not exist", real_dir.display());
+                    continue;
+                }
+                println!("mapping {alias:?} -> {}", real_dir.display());
+                self.wasi.map_dir(alias, real_dir.clone());
+
+                #[cfg(feature = "wasi")] {
+                    println!("setting PYTHONHOME to /{}", real_dir.display());
+                    self.wasi.set_env("PYTHONHOME", &format!("{}", real_dir.display()));
+                }        
+            }
+        }
+
         Run {
             #[cfg(feature = "cache")]
             disable_cache: self.disable_cache,
