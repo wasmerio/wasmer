@@ -555,13 +555,37 @@ pub fn query_command_from_registry(name: &str) -> Result<PackageDownloadInfo, St
     Err(format!("unimplemented"))
 }
 
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
+pub enum QueryPackageError {
+    AmbigouusName {
+        name: String,
+        packages: Vec<PackageDownloadInfo>,
+    },
+    ErrorSendingQuery(String),
+    NoPackageFound {
+        name: String,
+        version: Option<String>,
+        packages: Vec<PackageDownloadInfo>,
+    }
+}
+
+impl QueryPackageError {
+    pub fn get_packages(&self) -> Vec<PackageDownloadInfo> {
+        match self {
+            QueryPackageError::AmbigouusName { name: _, packages } |
+            QueryPackageError::NoPackageFound { name: _, version: _, packages }
+            => packages.clone(),
+            _ => Vec::new(),
+        }
+    }
+}
 /// Returns the download info of the packages, on error returns all the available packages
 /// i.e. (("foo/python", "wapm.io"), ("bar/python" "wapm.io")))
 pub fn query_package_from_registry(
     registry_url: &str,
     name: &str,
     version: Option<&str>,
-) -> Result<PackageDownloadInfo, (Vec<PackageDownloadInfo>, String)> {
+) -> Result<PackageDownloadInfo, QueryPackageError> {
     use crate::graphql::{execute_query, get_packages_query, GetPackagesQuery};
     use graphql_client::GraphQLQuery;
 
@@ -577,7 +601,7 @@ pub fn query_package_from_registry(
     };
 
     let response: get_packages_query::ResponseData = execute_query(registry_url, "", &q)
-        .map_err(|e| (Vec::new(), format!("Error sending GetPackagesQuery:  {e}")))?;
+        .map_err(|e| QueryPackageError::ErrorSendingQuery(format!("Error sending GetPackagesQuery:  {e}")))?;
 
     let available_packages = response
         .package
@@ -619,6 +643,13 @@ pub fn query_package_from_registry(
         .flat_map(|v| v.into_iter())
         .collect::<Vec<_>>();
 
+    if !name.contains("/") {
+        return Err(QueryPackageError::AmbigouusName {
+            name: name.to_string(),
+            packages: available_packages,
+        });
+    }
+
     let queried_package = available_packages
         .iter()
         .filter_map(|v| {
@@ -636,13 +667,13 @@ pub fn query_package_from_registry(
         .cloned();
 
     match queried_package {
-        None => Err((
-            available_packages,
-            format!(
-                "No package found for {name}@{}",
-                version.unwrap_or("latest")
-            ),
-        )),
+        None => {
+            return Err(QueryPackageError::NoPackageFound { 
+                name: name.to_string(), 
+                version: version.as_ref().map(|s| s.to_string()),
+                packages: available_packages,
+            });
+        },
         Some(s) => Ok(s),
     }
 }
@@ -731,19 +762,33 @@ pub fn install_package(name: &str, version: Option<&str>) -> Result<PathBuf, Str
         .filter_map(|s| Some(format!("{}", s.host_str()?)))
         .collect::<Vec<_>>();
 
-    let did_you_mean = error_packages
+    let mut error_str = format!("Package {version_str} not found in registries {registries_searched:?}.");
+    let mut did_you_mean = error_packages
         .iter()
-        .flat_map(|(packages, _)| {
+        .flat_map(|error| {
+            if let QueryPackageError::AmbigouusName { name, packages: _ } = error {
+                error_str = format!("Ambigouus package name {name:?}. Please specify the package in the namespace/name format.");
+            }
+            let packages = error.get_packages();
             packages.iter().filter_map(|f| {
                 let from = url::Url::parse(&f.registry).ok()?.host_str()?.to_string();
                 Some(format!("     {}@{} (from {from})", f.package, f.version))
             })
+            .collect::<Vec<_>>()
+            .into_iter()
         })
-        .collect::<Vec<_>>()
-        .join("\r\n");
+        .collect::<Vec<_>>();
+    
+    let did_you_mean = if did_you_mean.is_empty() {
+        String::new()
+    } else {
+        did_you_mean.sort();
+        did_you_mean.dedup();
+        format!("\r\n\r\nDid you mean:\r\n{}\r\n", did_you_mean.join("\r\n"))
+    };
 
     let (_, package_info) = url_of_package
-    .ok_or(format!("Package {version_str} not found in registries: {registries_searched:?}.\r\n\r\nDid you mean:\r\n{did_you_mean}\r\n"))?;
+    .ok_or(format!("{error_str}{did_you_mean}"))?;
 
     let host = url::Url::parse(&package_info.url)
         .map_err(|e| format!("invalid url: {}: {e}", package_info.url))?
@@ -751,7 +796,8 @@ pub fn install_package(name: &str, version: Option<&str>) -> Result<PathBuf, Str
         .ok_or(format!("invalid url: {}", package_info.url))?
         .to_string();
 
-    let dir = get_package_local_dir(&host, &package_info.package, &package_info.version)?;
+    let dir = get_package_local_dir(
+        &host, &package_info.package, &package_info.version)?;
 
     let version = package_info.version;
     let name = package_info.package;
