@@ -802,7 +802,10 @@ pub fn install_package(name: &str, version: Option<&str>) -> Result<PathBuf, Str
     let version = package_info.version;
     let name = package_info.package;
 
-    let target_path = download_and_unpack_targz(&package_info.url, &dir)?;
+    if !dir.join("wapm.toml").exists() {
+        download_and_unpack_targz(&package_info.url, &dir)?;
+    }
+    let target_path = dir;
 
     let wapm_toml = std::fs::read_to_string(target_path.join("wapm.toml")).map_err(|_| {
         format!(
