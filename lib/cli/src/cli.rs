@@ -14,6 +14,7 @@ use crate::commands::{Cache, Config, Inspect, Run, RunWithoutFile, SelfUpdate, V
 use crate::error::PrettyError;
 use anyhow::Result;
 use clap::Parser;
+use wasmer_registry::get_all_local_packages;
 
 #[derive(Parser)]
 #[cfg_attr(
@@ -197,6 +198,32 @@ fn parse_cli_args() -> Result<(), anyhow::Error> {
         (Some("wast"), _) => Wast::try_parse_from(args_without_first_arg.iter())?.execute(),
         #[cfg(feature = "binfmt")]
         (Some("binfmt"), _) => Binfmt::try_parse_from(args_without_first_arg.iter())?.execute(),
+        (Some("list"), Some("--installed")) => {
+            use prettytable::{format, Table, row};
+
+            let rows = get_all_local_packages()
+            .into_iter()
+            .map(|pkg| {
+
+                let commands = pkg.manifest.command
+                .unwrap_or_default()
+                .iter()
+                .map(|c| c.get_name())
+                .collect::<Vec<_>>()
+                .join(" \r\n");
+
+                row![pkg.registry.clone(), pkg.name.clone(), pkg.version.clone(), commands]
+            }).collect::<Vec<_>>();
+
+            let mut table = Table::init(rows);
+            table.set_titles(row!["Registry", "Package", "Version", "Commands"]);
+            table.add_empty_row();
+            table.set_format(*format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
+            table.set_format(*format::consts::FORMAT_NO_COLSEP);
+            let _ = table.printstd();
+            println!("");
+            Ok(())
+        }
         (Some("run"), Some(package)) | (Some(package), _) => {
             if package.starts_with("-") {
                 return Err(anyhow!("Unknown CLI argument {package:?}"));
@@ -210,8 +237,8 @@ fn parse_cli_args() -> Result<(), anyhow::Error> {
 
             if let Ok(Ok(run)) = result {
                 return run.execute();
-            } else if let Ok((package, version)) = split_version(package) {
-                if let Ok(o) = wasmer_registry::get_package_local(
+            } else if let Ok((package, version)) = split_version(package) {                
+                if let Some(package) = wasmer_registry::get_local_package(
                     &package,
                     version.as_ref().map(|s| s.as_str()),
                 ) {
@@ -219,34 +246,35 @@ fn parse_cli_args() -> Result<(), anyhow::Error> {
                     let mut args_without_package = args.clone();
                     args_without_package.remove(1);
                     return RunWithoutFile::try_parse_from(args_without_package.iter())?
-                        .into_run_args(o)
+                        .into_run_args(package.path)
                         .execute();
-                } else {
-                    let sp =
-                        spinner::SpinnerBuilder::new(format!("Installing package {package} ..."))
-                            .spinner(vec![
-                                "⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷", " ", "⠁", "⠂", "⠄", "⡀",
-                                "⢀", "⠠", "⠐", "⠈",
-                            ])
-                            .start();
+                }
 
-                    let v = version.as_ref().map(|s| s.as_str());
-                    let result = wasmer_registry::install_package(&package, v);
-                    sp.close();
-                    print!("\r\n");
-                    match result {
-                        Ok(o) => {
-                            // Try auto-installing the remote package
-                            let mut args_without_package = args.clone();
-                            args_without_package.remove(1);
-                            return RunWithoutFile::try_parse_from(args_without_package.iter())?
-                                .into_run_args(o)
-                                .execute();
-                        },
-                        Err(e) => {
-                            println!("{e}");
-                            return Ok(());
-                        }
+                // else: local package not found
+                let sp =
+                    spinner::SpinnerBuilder::new(format!("Installing package {package} ..."))
+                        .spinner(vec![
+                            "⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷", " ", "⠁", "⠂", "⠄", "⡀",
+                            "⢀", "⠠", "⠐", "⠈",
+                        ])
+                        .start();
+
+                let v = version.as_ref().map(|s| s.as_str());
+                let result = wasmer_registry::install_package(&package, v);
+                sp.close();
+                print!("\r\n");
+                match result {
+                    Ok(o) => {
+                        // Try auto-installing the remote package
+                        let mut args_without_package = args.clone();
+                        args_without_package.remove(1);
+                        return RunWithoutFile::try_parse_from(args_without_package.iter())?
+                            .into_run_args(o)
+                            .execute();
+                    },
+                    Err(e) => {
+                        println!("{e}");
+                        return Ok(());
                     }
                 }
             } else {

@@ -247,7 +247,6 @@ pub mod graphql {
         registry_url: &str,
         login_token: &str,
         timeout: Duration,
-        only_check_json_response: bool,
         query: &QueryBody<V>,
     ) -> anyhow::Result<R>
     where
@@ -427,8 +426,120 @@ pub fn get_command_local(name: &str) -> Result<PathBuf, String> {
     Err(format!("unimplemented"))
 }
 
-pub fn get_package_local(name: &str, version: Option<&str>) -> Result<PathBuf, String> {
-    Err(format!("unimplemented"))
+pub fn get_package_local_dir(registry_host: &str, name: &str, version: &str) -> Result<PathBuf, String> {
+    if !name.contains("/") { 
+        return Err(format!("package name has to be in the format namespace/package: {name:?}")); 
+    }
+    let namespace = name.split("/").nth(0).ok_or(format!("missing namespace for {name:?}"))?;
+    let name = name.split("/").nth(1).ok_or(format!("missing name for {name:?}"))?;
+    let install_dir = get_global_install_dir(registry_host).ok_or(format!("no install dir for {name:?}"))?;
+    Ok(install_dir.join(namespace).join(name).join(version))
+}
+
+#[derive(Debug, Clone)]
+pub struct LocalPackage {
+    pub registry: String,
+    pub name: String,
+    pub version: String,
+    pub manifest: wapm_toml::Manifest,
+    pub path: PathBuf,
+}
+
+fn get_all_names_in_dir(dir: &PathBuf) -> Vec<(PathBuf, String)> {
+
+    if !dir.is_dir() { return Vec::new(); }
+    
+    let read_dir = match std::fs::read_dir(dir) {
+        Ok(o) => o,
+        Err(_) => return Vec::new(),
+    };
+
+    let entries = read_dir
+    .map(|res| res.map(|e| e.path()))
+    .collect::<Result<Vec<_>, std::io::Error>>();
+
+    let registry_entries = match entries {
+        Ok(o) => o,
+        Err(_) => return Vec::new(),
+    };
+
+    registry_entries
+    .into_iter()
+    .filter_map(|re| {
+        Some((re.clone(), re.file_name()?.to_str()?.to_string()))
+    })
+    .collect()
+}
+
+/// Returns a list of all locally installed packages
+pub fn get_all_local_packages() -> Vec<LocalPackage> {
+
+    let mut packages = Vec::new();
+
+    'outer: for registry in get_all_available_registries().unwrap_or_default() {
+        
+        let root_dir = match get_global_install_dir(&registry) {
+            Some(o) => o,
+            None => continue 'outer,
+        };
+ 
+        for (registry_path, registry_host) in get_all_names_in_dir(&root_dir) {
+            for (package_path, package_name) in get_all_names_in_dir(&registry_path) {
+                for (version_path, package_version) in get_all_names_in_dir(&package_path) {
+                    let toml_str = match std::fs::read_to_string(version_path.join("wapm.toml")) {
+                        Ok(o) => o,
+                        Err(_) => continue,
+                    };
+                    let manifest = match toml::from_str(&toml_str) {
+                        Ok(o) => o,
+                        Err(_) => continue,
+                    };
+                    packages.push(LocalPackage { 
+                        registry: registry_host.clone(), 
+                        name: package_name.clone(), 
+                        version: package_version,
+                        manifest: manifest,
+                        path: version_path,
+                    });
+                }
+            }
+        }
+    }
+
+    packages
+}
+
+pub fn get_local_package(name: &str, version: Option<&str>) -> Option<LocalPackage> {
+    get_all_local_packages()
+    .iter()
+    .filter(|p| {
+        if p.name != name { return false; }
+        if let Some(v) = version {
+            if p.version != v { return false; }
+        }
+        true
+    })
+    .cloned()
+    .next()
+}
+
+pub fn get_package_local_wasm_file(registry_host: &str, name: &str, version: &str) -> Result<PathBuf, String> {
+    
+    let dir = get_package_local_dir(registry_host, name, version)?;
+    let wapm_toml_path = dir.join("wapm.toml");
+    let wapm_toml_str = std::fs::read_to_string(&wapm_toml_path)
+        .map_err(|e| format!("cannot parse wapm.toml for {name}@{version}"))?;
+    let wapm = toml::from_str::<wapm_toml::Manifest>(&wapm_toml_str)
+        .map_err(|e| format!("cannot parse wapm.toml for {name}@{version}"))?;
+    
+    // TODO: this will just return the path for the first command, so this might not be correct
+    let command_name = wapm.command
+        .unwrap_or_default()
+        .first()
+        .map(|m| m.get_module())
+        .ok_or(format!("cannot get entrypoint for {name}@{version}: package has no commands"))?;
+    
+    Ok(dir.join(command_name))
 }
 
 pub fn query_command_from_registry(name: &str) -> Result<PackageDownloadInfo, String> {
@@ -501,7 +612,7 @@ pub fn query_package_from_registry(
     .flat_map(|v| v.into_iter())
     .collect::<Vec<_>>();
 
-    let mut queried_package = available_packages.iter()
+    let queried_package = available_packages.iter()
     .filter_map(|v| {
         if name.contains("/") && v.package != name {
             return None;
@@ -530,13 +641,47 @@ pub fn get_global_install_dir(registry_host: &str) -> Option<PathBuf> {
 }
 
 pub fn download_and_unpack_targz(url: &str, target_path: &Path) -> Result<PathBuf, String> {
-    Err(format!("unimplemented"))
+
+    let target_targz_path = target_path.to_path_buf().join("package.tar.gz");
+
+    let mut resp = reqwest::blocking::get(url)
+        .map_err(|e| format!("failed to download {url}: {e}"))?;
+
+    if !target_targz_path.exists() {
+        // create all the parent paths, only remove the created directory, not the parent dirs
+        let _ = std::fs::create_dir_all(&target_targz_path);
+        let _ = std::fs::remove_dir(&target_targz_path);
+    }
+
+    {
+        let mut file = std::fs::File::create(&target_targz_path)
+            .map_err(|e| format!("failed to download {url} into {}: {e}", target_targz_path.display()))?;
+
+        reqwest::blocking::get(url)
+            .map_err(|e| format!("{e}"))?;
+        
+        resp.copy_to(&mut file).map_err(|e| format!("{e}"))?;
+    }
+
+    let file = std::fs::File::open(&target_targz_path)
+        .map_err(|e| format!("failed to download {url} into {}: {e}", target_targz_path.display()))?;
+
+    let gz_decoded = flate2::read::GzDecoder::new(file);
+    let mut ar = tar::Archive::new(gz_decoded);
+    ar.unpack(target_path)
+    .map_err(|e| format!("failed to unpack {}: {e}", target_targz_path.display()))?;
+
+    let _ = std::fs::remove_file(target_targz_path);
+
+    Ok(target_path.to_path_buf())
 }
 
 pub fn install_package(name: &str, version: Option<&str>) -> Result<PathBuf, String> {
+    
     let registries = get_all_available_registries()?;
     let mut url_of_package = None;
     let mut error_packages = Vec::new();
+    
     for r in registries.iter() {
         let registry_test = test_if_registry_present(r);
         if !registry_test.clone().unwrap_or(false) {
@@ -573,11 +718,45 @@ pub fn install_package(name: &str, version: Option<&str>) -> Result<PathBuf, Str
     }).collect::<Vec<_>>()
     .join("\r\n");
     
-    let url_of_package = url_of_package
+    let (_, package_info) = url_of_package
     .ok_or(format!("Package {version_str} not found in registries: {registries_searched:?}.\r\n\r\nDid you mean:\r\n{did_you_mean}\r\n"))?;
 
-    println!("url of package: {:#?} in registries: {registries_searched:#?}", url_of_package.1);
-    Err(format!("unimplemented"))
+    let host = url::Url::parse(&package_info.url)
+    .map_err(|e| format!("invalid url: {}: {e}", package_info.url))?
+    .host_str()
+    .ok_or(format!("invalid url: {}", package_info.url))?
+    .to_string();
+
+    let dir = get_package_local_dir(
+        &host, 
+        &package_info.package, 
+        &package_info.version
+    )?;
+
+    let version = package_info.version;
+    let name = package_info.package;
+
+    let target_path = download_and_unpack_targz(&package_info.url, &dir)?;
+
+    let wapm_toml = std::fs::read_to_string(target_path.join("wapm.toml"))
+    .map_err(|_| format!("Package {name}@{version} has no wapm.toml (path: {})", target_path.display()))?;
+
+    let wapm_toml = toml::from_str::<wapm_toml::Manifest>(&wapm_toml)
+    .map_err(|e| format!("Could not parse toml for {name}@{version}: {e}"))?;
+
+    let commands = wapm_toml.command.unwrap_or_default();
+    let entrypoint_module = commands.first()
+    .ok_or(format!("Cannot run {name}@{version}: package has no commands"))?;
+    
+    let module_name = entrypoint_module.get_module();
+    let modules = wapm_toml.module.unwrap_or_default();
+    let entrypoint_module = modules
+    .iter()
+    .filter(|m| m.name == module_name)
+    .next()
+    .ok_or(format!("Cannot run {name}@{version}: module {module_name} not found in wapm.toml"))?;
+    
+    Ok(target_path.join(&entrypoint_module.source))
 }
 
 pub fn test_if_registry_present(registry: &str) -> Result<bool, String> {
