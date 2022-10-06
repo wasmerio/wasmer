@@ -1105,7 +1105,7 @@ mod inner {
     /// the trait system to automatically generate the appropriate
     /// host functions.
     #[doc(hidden)]
-    pub trait HostFunctionKind {}
+    pub trait HostFunctionKind: private::HostFunctionKindSealed {}
 
     /// An empty struct to help Rust typing to determine
     /// when a `HostFunction` does have an environment.

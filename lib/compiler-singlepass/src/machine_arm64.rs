@@ -3052,11 +3052,11 @@ impl Machine for MachineARM64 {
         self.assembler.emit_cbz_label(Size::S32, src, label_exit)?; // src==0, exit
         self.assembler.emit_label(label_loop)?; // loop:
         self.assembler
-            .emit_add(Size::S32, dest, Location::Imm8(1), dest)?; // inc dest
+            .emit_add(Size::S32, dest, Location::Imm8(1), dest)?; // dest += 1
         self.assembler.emit_clz(Size::S32, src, tmp)?; // clz src => tmp
-        self.assembler
-            .emit_add(Size::S32, tmp, Location::Imm8(1), tmp)?; // inc tmp
         self.assembler.emit_lsl(Size::S32, src, tmp, src)?; // src << tmp => src
+        self.assembler
+            .emit_lsl(Size::S32, src, Location::Imm8(1), src)?; // src << 1 => src
         self.assembler.emit_cbnz_label(Size::S32, src, label_loop)?; // if src!=0 goto loop
         self.assembler.emit_label(label_exit)?;
         if ret != dest {
@@ -4086,16 +4086,16 @@ impl Machine for MachineARM64 {
         let label_loop = self.assembler.get_label();
         let label_exit = self.assembler.get_label();
         self.assembler
-            .emit_mov(Size::S32, Location::GPR(GPR::XzrSp), dest)?;
-        self.assembler.emit_cbz_label(Size::S64, src, label_exit)?;
+            .emit_mov(Size::S32, Location::GPR(GPR::XzrSp), dest)?; // dest <= 0
+        self.assembler.emit_cbz_label(Size::S64, src, label_exit)?; // src == 0, then goto label_exit
         self.assembler.emit_label(label_loop)?;
         self.assembler
-            .emit_add(Size::S32, dest, Location::Imm8(1), dest)?;
-        self.assembler.emit_clz(Size::S64, src, tmp)?;
+            .emit_add(Size::S32, dest, Location::Imm8(1), dest)?; // dest += 1
+        self.assembler.emit_clz(Size::S64, src, tmp)?; // clz src => tmp
+        self.assembler.emit_lsl(Size::S64, src, tmp, src)?; // src << tmp => src
         self.assembler
-            .emit_add(Size::S32, tmp, Location::Imm8(1), tmp)?;
-        self.assembler.emit_lsl(Size::S64, src, tmp, src)?;
-        self.assembler.emit_cbnz_label(Size::S64, src, label_loop)?;
+            .emit_lsl(Size::S64, src, Location::Imm8(1), src)?; // src << 1 => src
+        self.assembler.emit_cbnz_label(Size::S64, src, label_loop)?; // src != 0, then goto label_loop
         self.assembler.emit_label(label_exit)?;
         if ret != dest {
             self.move_location(Size::S64, dest, ret)?;
