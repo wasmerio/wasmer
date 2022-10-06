@@ -721,9 +721,13 @@ impl Instance {
         let passive_data = self.passive_data.borrow();
         let data = passive_data.get(&data_index).map_or(&[][..], |d| &**d);
 
+        let current_length = unsafe { memory.vmmemory().as_ref().current_length };
         if src
             .checked_add(len)
-            .map_or(true, |end| end as usize > data.len())
+            .map_or(true, |n| n as usize > data.len())
+            || dst
+                .checked_add(len)
+                .map_or(true, |m| usize::try_from(m).unwrap() > current_length)
         {
             return Err(Trap::lib(TrapCode::HeapAccessOutOfBounds));
         }
@@ -1252,9 +1256,10 @@ fn initialize_memories(
 
         let start = get_memory_init_start(init, instance);
         unsafe {
+            let current_length = memory.vmmemory().as_ref().current_length;
             if start
                 .checked_add(init.data.len())
-                .map_or(true, |end| end > memory.vmmemory().as_ref().current_length)
+                .map_or(true, |end| end > current_length)
             {
                 return Err(Trap::lib(TrapCode::HeapAccessOutOfBounds));
             }
