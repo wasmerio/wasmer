@@ -77,9 +77,36 @@ impl RunWithoutFile {
     /// Given a local path, returns the `Run` command (overriding the `--path` argument).
     pub fn into_run_args(mut self, pathbuf: PathBuf, manifest: Option<wapm_toml::Manifest>) -> Run {
         
+        let mut use_pkg_fs = false;
+        #[cfg(feature = "wasi")] {
+            let pkg_fs = match pathbuf.parent() {
+                Some(parent) => parent.join("pkg_fs"),
+                None => pathbuf.join("pkg_fs"),
+            };
+            if let Some(mut m) = manifest.as_ref().and_then(|m| m.package.pkg_fs_mount_point.clone()) {
+                use_pkg_fs = true;
+                if m == "." {
+                    self.wasi.map_dir("/", pkg_fs);
+                } else {
+                    if m.starts_with(".") { 
+                        m = format!("{}{}", pkg_fs.display(), &m[1..]); 
+                    }
+                    let path = std::path::Path::new(&m).to_path_buf();
+                    self.wasi.map_dir("/", path);
+                }
+            }
+        }
+
         #[cfg(feature = "wasi")]
         if let Some(fs) = manifest.as_ref().and_then(|m| m.fs.as_ref()) {
             for (alias, real_dir) in fs.iter() {
+                let mut real_dir = format!("{}", real_dir.display());
+                if real_dir.starts_with("/") {
+                    real_dir = (&real_dir[1..]).to_string();
+                }
+                if use_pkg_fs {
+                    real_dir = format!("pkg_fs/{real_dir}");
+                }
                 let real_dir = if let Some(parent) = pathbuf.parent() {
                     parent.join(real_dir)
                 } else {
@@ -89,14 +116,9 @@ impl RunWithoutFile {
                     println!("warning: cannot map {alias:?} to {}: directory does not exist", real_dir.display());
                     continue;
                 }
-                println!("mapping {alias:?} -> {}", real_dir.display());
-                self.wasi.map_dir(alias, real_dir.clone());
-
-                #[cfg(feature = "wasi")] {
-                    let target = format!("{}", real_dir.parent().unwrap().display());
-                    println!("setting PYTHONHOME to {target}");
-                    self.wasi.set_env("PYTHONHOME", &target);
-                }
+                let alias_pathbuf = std::path::Path::new(&real_dir).to_path_buf();
+                self.wasi.map_dir(alias, alias_pathbuf);
+                
             }
         }
 
@@ -248,7 +270,7 @@ impl Run {
                 let mut emscripten_globals = EmscriptenGlobals::new(&mut store, &env, &module)
                     .map_err(|e| anyhow!("{}", e))?;
                 env.as_mut(&mut store)
-                    .set_data(&emscripten_globals.data, Default::default());
+                    .set_data(&emscripten_globals.data, self.wasi.mapped_dirs.clone().into_iter().collect());
                 let import_object =
                     generate_emscripten_env(&mut store, &env, &mut emscripten_globals);
                 let mut instance = match Instance::new(&mut store, &module, &import_object) {

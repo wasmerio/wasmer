@@ -198,7 +198,7 @@ fn parse_cli_args() -> Result<(), anyhow::Error> {
         (Some("wast"), _) => Wast::try_parse_from(args_without_first_arg.iter())?.execute(),
         #[cfg(feature = "binfmt")]
         (Some("binfmt"), _) => Binfmt::try_parse_from(args_without_first_arg.iter())?.execute(),
-        (Some("list"), Some("--installed")) => {
+        (Some("list"), _) => {
             use prettytable::{format, row, Table};
 
             let rows = get_all_local_packages()
@@ -222,13 +222,20 @@ fn parse_cli_args() -> Result<(), anyhow::Error> {
                 })
                 .collect::<Vec<_>>();
 
-            let mut table = Table::init(rows);
-            table.set_titles(row!["Registry", "Package", "Version", "Commands"]);
-            table.add_empty_row();
-            table.set_format(*format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
-            table.set_format(*format::consts::FORMAT_NO_COLSEP);
-            let _ = table.printstd();
-            println!("");
+            let empty_table = rows.is_empty();
+            if empty_table {
+                println!("--------------------------------------");
+                println!("Registry  Package  Version  Commands ");
+                println!("======================================");
+                println!("");
+            } else {
+                let mut table = Table::init(rows);
+                table.set_titles(row!["Registry", "Package", "Version", "Commands"]);
+                table.set_format(*format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
+                table.set_format(*format::consts::FORMAT_NO_COLSEP);
+                let _ = table.printstd();
+            }
+
             Ok(())
         }
         (Some("run"), Some(package)) | (Some(package), _) => {
@@ -249,11 +256,17 @@ fn parse_cli_args() -> Result<(), anyhow::Error> {
                     &package,
                     version.as_ref().map(|s| s.as_str()),
                 ) {
+                    let local_package_wasm_path = wasmer_registry::get_package_local_wasm_file(
+                        &package.registry,
+                        &package.name,
+                        &package.version,
+                    ).map_err(|e| anyhow!("{e}"))?;
+                    
                     // Try finding the local package
                     let mut args_without_package = args.clone();
                     args_without_package.remove(1);
                     return RunWithoutFile::try_parse_from(args_without_package.iter())?
-                        .into_run_args(package.path, Some(package.manifest.clone()))
+                        .into_run_args(local_package_wasm_path, Some(package.manifest.clone()))
                         .execute();
                 }
 

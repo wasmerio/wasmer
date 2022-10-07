@@ -493,8 +493,8 @@ pub fn get_all_local_packages() -> Vec<LocalPackage> {
             None => continue 'outer,
         };
 
-        for (registry_path, registry_host) in get_all_names_in_dir(&root_dir) {
-            for (package_path, package_name) in get_all_names_in_dir(&registry_path) {
+        for (username_path, user_name) in get_all_names_in_dir(&root_dir) {
+            for (package_path, package_name) in get_all_names_in_dir(&username_path) {
                 for (version_path, package_version) in get_all_names_in_dir(&package_path) {
                     let toml_str = match std::fs::read_to_string(version_path.join("wapm.toml")) {
                         Ok(o) => o,
@@ -505,8 +505,8 @@ pub fn get_all_local_packages() -> Vec<LocalPackage> {
                         Err(_) => continue,
                     };
                     packages.push(LocalPackage {
-                        registry: registry_host.clone(),
-                        name: package_name.clone(),
+                        registry: host.clone(),
+                        name: format!("{user_name}/{package_name}"),
                         version: package_version,
                         manifest: manifest,
                         path: version_path,
@@ -550,7 +550,7 @@ pub fn get_package_local_wasm_file(
         .map_err(|e| format!("cannot parse wapm.toml for {name}@{version}"))?;
 
     // TODO: this will just return the path for the first command, so this might not be correct
-    let command_name = wapm
+    let module_name = wapm
         .command
         .unwrap_or_default()
         .first()
@@ -558,8 +558,19 @@ pub fn get_package_local_wasm_file(
         .ok_or(format!(
             "cannot get entrypoint for {name}@{version}: package has no commands"
         ))?;
-
-    Ok(dir.join(command_name))
+    
+    let wasm_file_name = wapm
+        .module
+        .unwrap_or_default()
+        .iter()
+        .filter(|m| m.name == module_name)
+        .map(|m| m.source.clone())
+        .next()
+        .ok_or(format!(
+            "cannot get entrypoint for {name}@{version}: package has no commands"
+        ))?;
+    
+    Ok(dir.join(&wasm_file_name))
 }
 
 pub fn query_command_from_registry(name: &str) -> Result<PackageDownloadInfo, String> {
