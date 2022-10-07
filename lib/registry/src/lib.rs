@@ -7,7 +7,6 @@ use serde::Serialize;
 
 pub mod graphql {
 
-    use core::time;
     use graphql_client::*;
     #[cfg(not(target_os = "wasi"))]
     use reqwest::{
@@ -49,13 +48,13 @@ pub mod graphql {
         /// there was a failure while attempting to set up the proxy.
         pub fn maybe_set_up_proxy() -> anyhow::Result<Option<reqwest::Proxy>> {
             use std::env;
-            let proxy = if let Ok(proxy_url) = env::var("ALL_PROXY").or(env::var("all_proxy")) {
+            let proxy = if let Ok(proxy_url) = env::var("ALL_PROXY").or_else(|_| env::var("all_proxy")) {
                 reqwest::Proxy::all(&proxy_url).map(|proxy| (proxy_url, proxy, "ALL_PROXY"))
-            } else if let Ok(https_proxy_url) = env::var("HTTPS_PROXY").or(env::var("https_proxy"))
+            } else if let Ok(https_proxy_url) = env::var("HTTPS_PROXY").or_else(|_| env::var("https_proxy"))
             {
                 reqwest::Proxy::https(&https_proxy_url)
                     .map(|proxy| (https_proxy_url, proxy, "HTTPS_PROXY"))
-            } else if let Ok(http_proxy_url) = env::var("HTTP_PROXY").or(env::var("http_proxy")) {
+            } else if let Ok(http_proxy_url) = env::var("HTTP_PROXY").or_else(|_| env::var("http_proxy")) {
                 reqwest::Proxy::http(&http_proxy_url)
                     .map(|proxy| (http_proxy_url, proxy, "http_proxy"))
             } else {
@@ -159,7 +158,7 @@ pub mod graphql {
         let mut res = client
             .post(registry_url)
             .multipart(form)
-            .bearer_auth(env::var("WAPM_REGISTRY_TOKEN").unwrap_or(login_token.to_string()))
+            .bearer_auth(env::var("WAPM_REGISTRY_TOKEN").unwrap_or_else(|_| login_token.to_string()))
             .header(USER_AGENT, user_agent);
 
         if let Some(t) = timeout {
@@ -169,7 +168,8 @@ pub mod graphql {
         let res = res.send()?;
 
         let _: Response<serde_json::Value> = res.json()?;
-        return Ok(());
+        
+        Ok(())
     }
 
     pub fn execute_query_modifier_inner<R, V, F>(
@@ -215,7 +215,7 @@ pub mod graphql {
         let mut res = client
             .post(registry_url)
             .multipart(form)
-            .bearer_auth(env::var("WAPM_REGISTRY_TOKEN").unwrap_or(login_token.to_string()))
+            .bearer_auth(env::var("WAPM_REGISTRY_TOKEN").unwrap_or_else(|_| login_token.to_string()))
             .header(USER_AGENT, user_agent);
 
         if let Some(t) = timeout {
@@ -226,7 +226,7 @@ pub mod graphql {
         let response_body: Response<R> = res.json()?;
         if let Some(errors) = response_body.errors {
             let error_messages: Vec<String> = errors.into_iter().map(|err| err.message).collect();
-            return Err(anyhow::anyhow!("{}", error_messages.join(", ")).into());
+            return Err(anyhow::anyhow!("{}", error_messages.join(", ")));
         }
         Ok(response_body.data.expect("missing response data"))
     }
@@ -342,7 +342,7 @@ pub struct Registry {
 fn format_graphql(registry: &str) -> String {
     if registry.ends_with("/graphql") {
         registry.to_string()
-    } else if registry.ends_with("/") {
+    } else if registry.ends_with('/') {
         format!("{}graphql", registry)
     } else {
         format!("{}/graphql", registry)
@@ -366,7 +366,7 @@ impl PartialWapmConfig {
         if let Some(pwd) = std::env::var("PWD").ok() {
             return Ok(PathBuf::from(pwd));
         }
-        Ok(std::env::current_dir()?)
+        std::env::current_dir()
     }
 
     pub fn get_folder() -> Result<PathBuf, String> {
@@ -411,8 +411,8 @@ pub struct PackageDownloadInfo {
     pub url: String,
 }
 
-pub fn get_command_local(name: &str) -> Result<PathBuf, String> {
-    Err(format!("unimplemented"))
+pub fn get_command_local(_name: &str) -> Result<PathBuf, String> {
+    Err("unimplemented".to_string())
 }
 
 pub fn get_package_local_dir(
@@ -420,17 +420,17 @@ pub fn get_package_local_dir(
     name: &str,
     version: &str,
 ) -> Result<PathBuf, String> {
-    if !name.contains("/") {
+    if !name.contains('/') {
         return Err(format!(
             "package name has to be in the format namespace/package: {name:?}"
         ));
     }
     let namespace = name
-        .split("/")
-        .nth(0)
+        .split('/')
+        .next()
         .ok_or(format!("missing namespace for {name:?}"))?;
     let name = name
-        .split("/")
+        .split('/')
         .nth(1)
         .ok_or(format!("missing name for {name:?}"))?;
     let install_dir =
@@ -507,7 +507,7 @@ pub fn get_all_local_packages() -> Vec<LocalPackage> {
                         registry: host.clone(),
                         name: format!("{user_name}/{package_name}"),
                         version: package_version,
-                        manifest: manifest,
+                        manifest,
                         path: version_path,
                     });
                 }
@@ -532,8 +532,8 @@ pub fn get_local_package(name: &str, version: Option<&str>) -> Option<LocalPacka
             }
             true
         })
-        .cloned()
         .next()
+        .cloned()
 }
 
 pub fn get_package_local_wasm_file(
@@ -544,9 +544,9 @@ pub fn get_package_local_wasm_file(
     let dir = get_package_local_dir(registry_host, name, version)?;
     let wapm_toml_path = dir.join("wapm.toml");
     let wapm_toml_str = std::fs::read_to_string(&wapm_toml_path)
-        .map_err(|e| format!("cannot parse wapm.toml for {name}@{version}"))?;
+        .map_err(|e| format!("cannot read wapm.toml for {name}@{version}: {e}"))?;
     let wapm = toml::from_str::<wapm_toml::Manifest>(&wapm_toml_str)
-        .map_err(|e| format!("cannot parse wapm.toml for {name}@{version}"))?;
+        .map_err(|e| format!("cannot parse wapm.toml for {name}@{version}: {e}"))?;
 
     // TODO: this will just return the path for the first command, so this might not be correct
     let module_name = wapm
@@ -572,8 +572,8 @@ pub fn get_package_local_wasm_file(
     Ok(dir.join(&wasm_file_name))
 }
 
-pub fn query_command_from_registry(name: &str) -> Result<PackageDownloadInfo, String> {
-    Err(format!("unimplemented"))
+pub fn query_command_from_registry(_name: &str) -> Result<PackageDownloadInfo, String> {
+    Err("unimplemented".to_string())
 }
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
@@ -613,8 +613,8 @@ pub fn query_package_from_registry(
     use crate::graphql::{execute_query, get_packages_query, GetPackagesQuery};
     use graphql_client::GraphQLQuery;
 
-    let q = if name.contains("/") {
-        let name = name.split("/").nth(1).unwrap();
+    let q = if name.contains('/') {
+        let name = name.split('/').nth(1).unwrap();
         GetPackagesQuery::build_query(get_packages_query::Variables {
             names: vec![name.to_string()],
         })
@@ -669,7 +669,7 @@ pub fn query_package_from_registry(
         .flat_map(|v| v.into_iter())
         .collect::<Vec<_>>();
 
-    if !name.contains("/") {
+    if !name.contains('/') {
         return Err(QueryPackageError::AmbigouusName {
             name: name.to_string(),
             packages: available_packages,
@@ -678,16 +678,16 @@ pub fn query_package_from_registry(
 
     let queried_package = available_packages
         .iter()
-        .filter_map(|v| {
-            if name.contains("/") && v.package != name {
-                return None;
+        .filter(|v| {
+            if name.contains('/') && v.package != name {
+                return false;
             }
 
-            if version.is_some() && v.version != version.clone().unwrap() {
-                return None;
+            if version.is_some() && v.version != version.unwrap() {
+                return false;
             }
 
-            Some(v)
+            true
         })
         .next()
         .cloned();
@@ -769,7 +769,7 @@ pub fn install_package(
         if !registry_test.clone().unwrap_or(false) {
             continue;
         }
-        match query_package_from_registry(&r, name, version) {
+        match query_package_from_registry(r, name, version) {
             Ok(o) => {
                 url_of_package = Some((r, o));
                 break;
@@ -781,14 +781,14 @@ pub fn install_package(
     }
 
     let version_str = match version {
-        None => format!("{name}"),
+        None => name.to_string(),
         Some(v) => format!("{name}@{v}"),
     };
 
     let registries_searched = registries
         .iter()
         .filter_map(|s| url::Url::parse(s).ok())
-        .filter_map(|s| Some(format!("{}", s.host_str()?)))
+        .filter_map(|s| Some(s.host_str()?.to_string()))
         .collect::<Vec<_>>();
 
     let mut error_str =
@@ -854,15 +854,14 @@ pub fn install_package(
     let modules = wapm_toml.module.clone().unwrap_or_default();
     let entrypoint_module = modules
         .iter()
-        .filter(|m| m.name == module_name)
-        .next()
+        .find(|m| m.name == module_name)
         .ok_or(format!(
             "Cannot run {name}@{version}: module {module_name} not found in wapm.toml"
         ))?;
 
     Ok((
         LocalPackage {
-            registry: package_info.registry.clone(),
+            registry: package_info.registry,
             name: wapm_toml.package.name.clone(),
             version: wapm_toml.package.version.to_string(),
             manifest: wapm_toml,
@@ -899,7 +898,7 @@ pub fn get_all_available_registries() -> Result<Vec<String>, String> {
         }
         Registries::Multi(m) => {
             for key in m.tokens.keys() {
-                registries.push(format_graphql(&key));
+                registries.push(format_graphql(key));
             }
         }
     }
