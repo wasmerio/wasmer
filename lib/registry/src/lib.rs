@@ -530,7 +530,7 @@ pub fn get_all_local_packages() -> Vec<LocalPackage> {
 pub fn get_local_package(name: &str, version: Option<&str>) -> Option<LocalPackage> {
     get_all_local_packages()
         .iter()
-        .filter(|p| {
+        .find(|p| {
             if p.name != name {
                 return false;
             }
@@ -541,7 +541,6 @@ pub fn get_local_package(name: &str, version: Option<&str>) -> Option<LocalPacka
             }
             true
         })
-        .next()
         .cloned()
 }
 
@@ -687,7 +686,7 @@ pub fn query_package_from_registry(
 
     let queried_package = available_packages
         .iter()
-        .filter(|v| {
+        .find(|v| {
             if name.contains('/') && v.package != name {
                 return false;
             }
@@ -698,7 +697,6 @@ pub fn query_package_from_registry(
 
             true
         })
-        .next()
         .cloned();
 
     match queried_package {

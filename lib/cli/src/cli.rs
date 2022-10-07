@@ -16,7 +16,7 @@ use anyhow::Result;
 use clap::Parser;
 use wasmer_registry::get_all_local_packages;
 
-#[derive(Parser)]
+#[derive(Parser, Debug)]
 #[cfg_attr(
     not(feature = "headless"),
     clap(
@@ -145,6 +145,29 @@ enum WasmerCLIOptions {
     Binfmt(Binfmt),
 }
 
+impl WasmerCLIOptions {
+    fn execute(&self) -> Result<()> {
+        match self {
+            Self::Run(options) => options.execute(),
+            Self::SelfUpdate(options) => options.execute(),
+            Self::Cache(cache) => cache.execute(),
+            Self::Validate(validate) => validate.execute(),
+            #[cfg(feature = "compiler")]
+            Self::Compile(compile) => compile.execute(),
+            #[cfg(any(feature = "static-artifact-create", feature = "wasmer-artifact-create"))]
+            Self::CreateExe(create_exe) => create_exe.execute(),
+            #[cfg(feature = "static-artifact-create")]
+            Self::CreateObj(create_obj) => create_obj.execute(),
+            Self::Config(config) => config.execute(),
+            Self::Inspect(inspect) => inspect.execute(),
+            #[cfg(feature = "wast")]
+            Self::Wast(wast) => wast.execute(),
+            #[cfg(target_os = "linux")]
+            Self::Binfmt(binfmt) => binfmt.execute(),
+        }
+    }
+}
+
 /// The main function for the Wasmer CLI tool.
 pub fn wasmer_main() {
     // We allow windows to print properly colors
@@ -172,6 +195,9 @@ fn parse_cli_args() -> Result<(), anyhow::Error> {
     let mut args_without_first_arg = args.clone();
     args_without_first_arg.remove(0);
 
+    let mut args_without_first_and_second_arg = args_without_first_arg.clone();
+    args_without_first_and_second_arg.remove(0);
+
     match (firstarg, secondarg) {
         (None, _) | (Some("help"), _) | (Some("--help"), _) => return print_help(true),
         (Some("-h"), _) => return print_help(false),
@@ -183,21 +209,6 @@ fn parse_cli_args() -> Result<(), anyhow::Error> {
         (Some("-v"), _) | (Some("-V"), _) | (Some("version"), _) | (Some("--version"), _) => {
             return print_version(false)
         }
-
-        (Some("cache"), _) => Cache::try_parse_from(args_without_first_arg.iter())?.execute(),
-        (Some("compile"), _) => Compile::try_parse_from(args_without_first_arg.iter())?.execute(),
-        (Some("config"), _) => Config::try_parse_from(args_without_first_arg.iter())?.execute(),
-        (Some("create-exe"), _) => {
-            CreateExe::try_parse_from(args_without_first_arg.iter())?.execute()
-        }
-        (Some("inspect"), _) => Inspect::try_parse_from(args_without_first_arg.iter())?.execute(),
-        (Some("self-update"), _) => {
-            SelfUpdate::try_parse_from(args_without_first_arg.iter())?.execute()
-        }
-        (Some("validate"), _) => Validate::try_parse_from(args_without_first_arg.iter())?.execute(),
-        (Some("wast"), _) => Wast::try_parse_from(args_without_first_arg.iter())?.execute(),
-        #[cfg(feature = "binfmt")]
-        (Some("binfmt"), _) => Binfmt::try_parse_from(args_without_first_arg.iter())?.execute(),
         (Some("list"), _) => {
             use prettytable::{format, row, Table};
 
@@ -298,13 +309,43 @@ fn parse_cli_args() -> Result<(), anyhow::Error> {
                     }
                 }
             } else {
-                return print_help(true);
+                return WasmerCLIOptions::try_parse()?.execute();
+                /* 
+                let hook = std::panic::take_hook();
+                std::panic::set_hook(Box::new(|_| {}));
+                let cli_result = std::panic::catch_unwind(|| WasmerCLIOptions::try_parse_from(args.iter()));
+                std::panic::set_hook(hook);
+                
+                match cli_result {
+                    Ok(Ok(opts)) => return opts.execute(),
+                    Ok(Err(e)) => { 
+                        return Err(anyhow::anyhow!("Error: {e}")); 
+                    },
+                    Err(_) => {
+                        return Err(anyhow::anyhow!("Error when trying to parse CLI arguments"));
+                    }
+                }*/
             }
         }
     }
 }
 
 fn split_version(s: &str) -> Result<(String, Option<String>), anyhow::Error> {
+    let prohibited_package_names = [
+        "run",
+        "cache",
+        "validate",
+        "compile",
+        "create-exe",
+        "create-obj",
+        "config",
+        "inspect",
+        "wast",
+        "help",
+    ];
+    if prohibited_package_names.contains(&s.trim()) {
+        return Err(anyhow::anyhow!("Invalid package name {s:?}"));
+    }
     let package_version = s.split("@").collect::<Vec<_>>();
     match package_version.as_slice() {
         &[p, v] => Ok((p.trim().to_string(), Some(v.trim().to_string()))),
