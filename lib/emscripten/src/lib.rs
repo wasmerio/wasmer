@@ -87,9 +87,8 @@ impl Default for EmscriptenState {
     fn default() -> Self {
         Self {
             env_vars: std::env::vars_os()
-            .filter_map(|(k, v)| {
-                Some((k.to_str()?.to_string(), v.to_str()?.to_string()))
-            }).collect(),
+                .filter_map(|(k, v)| Some((k.to_str()?.to_string(), v.to_str()?.to_string())))
+                .collect(),
             cli_args: Vec::new(),
         }
     }
@@ -155,10 +154,7 @@ impl EmEnv {
         *w = Some(EmscriptenData::new(data.clone(), mapped_dirs));
     }
 
-    pub fn get_env_var(
-        &self,
-        key: &str,
-    ) -> Option<String> {
+    pub fn get_env_var(&self, key: &str) -> Option<String> {
         let w = self.state.lock().ok()?;
         let result = w.env_vars.get(key).cloned();
         result
@@ -169,19 +165,12 @@ impl EmEnv {
         w.env_vars.len()
     }
 
-    pub fn set_env_var(
-        &self,
-        key: &str,
-        value: &str,
-    ) -> Option<String> {
+    pub fn set_env_var(&self, key: &str, value: &str) -> Option<String> {
         let mut w = self.state.lock().ok()?;
         w.env_vars.insert(key.to_string(), value.to_string())
     }
 
-    pub fn remove_env_var(
-        &self,
-        key: &str,
-    ) -> Option<String> {
+    pub fn remove_env_var(&self, key: &str) -> Option<String> {
         let mut w = self.state.lock().ok()?;
         w.env_vars.remove(key)
     }

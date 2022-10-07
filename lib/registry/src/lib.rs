@@ -477,7 +477,6 @@ pub fn get_all_local_packages() -> Vec<LocalPackage> {
     let mut packages = Vec::new();
 
     'outer: for registry in get_all_available_registries().unwrap_or_default() {
-
         let host = match url::Url::parse(&registry) {
             Ok(o) => o.host_str().map(|s| s.to_string()),
             Err(_) => continue 'outer,
@@ -487,7 +486,7 @@ pub fn get_all_local_packages() -> Vec<LocalPackage> {
             Some(s) => s,
             None => continue 'outer,
         };
-        
+
         let root_dir = match get_global_install_dir(&host) {
             Some(o) => o,
             None => continue 'outer,
@@ -558,7 +557,7 @@ pub fn get_package_local_wasm_file(
         .ok_or(format!(
             "cannot get entrypoint for {name}@{version}: package has no commands"
         ))?;
-    
+
     let wasm_file_name = wapm
         .module
         .unwrap_or_default()
@@ -569,7 +568,7 @@ pub fn get_package_local_wasm_file(
         .ok_or(format!(
             "cannot get entrypoint for {name}@{version}: package has no commands"
         ))?;
-    
+
     Ok(dir.join(&wasm_file_name))
 }
 
@@ -588,15 +587,18 @@ pub enum QueryPackageError {
         name: String,
         version: Option<String>,
         packages: Vec<PackageDownloadInfo>,
-    }
+    },
 }
 
 impl QueryPackageError {
     pub fn get_packages(&self) -> Vec<PackageDownloadInfo> {
         match self {
-            QueryPackageError::AmbigouusName { name: _, packages } |
-            QueryPackageError::NoPackageFound { name: _, version: _, packages }
-            => packages.clone(),
+            QueryPackageError::AmbigouusName { name: _, packages }
+            | QueryPackageError::NoPackageFound {
+                name: _,
+                version: _,
+                packages,
+            } => packages.clone(),
             _ => Vec::new(),
         }
     }
@@ -622,8 +624,10 @@ pub fn query_package_from_registry(
         })
     };
 
-    let response: get_packages_query::ResponseData = execute_query(registry_url, "", &q)
-        .map_err(|e| QueryPackageError::ErrorSendingQuery(format!("Error sending GetPackagesQuery:  {e}")))?;
+    let response: get_packages_query::ResponseData =
+        execute_query(registry_url, "", &q).map_err(|e| {
+            QueryPackageError::ErrorSendingQuery(format!("Error sending GetPackagesQuery:  {e}"))
+        })?;
 
     let available_packages = response
         .package
@@ -690,12 +694,12 @@ pub fn query_package_from_registry(
 
     match queried_package {
         None => {
-            return Err(QueryPackageError::NoPackageFound { 
-                name: name.to_string(), 
+            return Err(QueryPackageError::NoPackageFound {
+                name: name.to_string(),
                 version: version.as_ref().map(|s| s.to_string()),
                 packages: available_packages,
             });
-        },
+        }
         Some(s) => Ok(s),
     }
 }
@@ -752,7 +756,10 @@ pub fn download_and_unpack_targz(url: &str, target_path: &Path) -> Result<PathBu
     Ok(target_path.to_path_buf())
 }
 
-pub fn install_package(name: &str, version: Option<&str>) -> Result<(LocalPackage, PathBuf), String> {
+pub fn install_package(
+    name: &str,
+    version: Option<&str>,
+) -> Result<(LocalPackage, PathBuf), String> {
     let registries = get_all_available_registries()?;
     let mut url_of_package = None;
     let mut error_packages = Vec::new();
@@ -784,7 +791,8 @@ pub fn install_package(name: &str, version: Option<&str>) -> Result<(LocalPackag
         .filter_map(|s| Some(format!("{}", s.host_str()?)))
         .collect::<Vec<_>>();
 
-    let mut error_str = format!("Package {version_str} not found in registries {registries_searched:?}.");
+    let mut error_str =
+        format!("Package {version_str} not found in registries {registries_searched:?}.");
     let mut did_you_mean = error_packages
         .iter()
         .flat_map(|error| {
@@ -800,7 +808,7 @@ pub fn install_package(name: &str, version: Option<&str>) -> Result<(LocalPackag
             .into_iter()
         })
         .collect::<Vec<_>>();
-    
+
     let did_you_mean = if did_you_mean.is_empty() {
         String::new()
     } else {
@@ -809,8 +817,7 @@ pub fn install_package(name: &str, version: Option<&str>) -> Result<(LocalPackag
         format!("\r\n\r\nDid you mean:\r\n{}\r\n", did_you_mean.join("\r\n"))
     };
 
-    let (_, package_info) = url_of_package
-    .ok_or(format!("{error_str}{did_you_mean}"))?;
+    let (_, package_info) = url_of_package.ok_or(format!("{error_str}{did_you_mean}"))?;
 
     let host = url::Url::parse(&package_info.registry)
         .map_err(|e| format!("invalid url: {}: {e}", package_info.registry))?
@@ -818,8 +825,7 @@ pub fn install_package(name: &str, version: Option<&str>) -> Result<(LocalPackag
         .ok_or(format!("invalid url: {}", package_info.registry))?
         .to_string();
 
-    let dir = get_package_local_dir(
-        &host, &package_info.package, &package_info.version)?;
+    let dir = get_package_local_dir(&host, &package_info.package, &package_info.version)?;
 
     let version = package_info.version;
     let name = package_info.package;
@@ -854,13 +860,16 @@ pub fn install_package(name: &str, version: Option<&str>) -> Result<(LocalPackag
             "Cannot run {name}@{version}: module {module_name} not found in wapm.toml"
         ))?;
 
-    Ok((LocalPackage {
-        registry: package_info.registry.clone(),
-        name: wapm_toml.package.name.clone(),
-        version: wapm_toml.package.version.to_string(),
-        manifest: wapm_toml,
-        path: target_path.clone(),
-    }, target_path.join(&entrypoint_module.source)))
+    Ok((
+        LocalPackage {
+            registry: package_info.registry.clone(),
+            name: wapm_toml.package.name.clone(),
+            version: wapm_toml.package.version.to_string(),
+            manifest: wapm_toml,
+            path: target_path.clone(),
+        },
+        target_path.join(&entrypoint_module.source),
+    ))
 }
 
 pub fn test_if_registry_present(registry: &str) -> Result<bool, String> {

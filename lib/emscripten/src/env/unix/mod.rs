@@ -1,7 +1,5 @@
 /// NOTE: These syscalls only support wasm_32 for now because they take u32 offset
-use libc::{
-    c_int, getgrnam as libc_getgrnam, getpwnam as libc_getpwnam, sysconf,
-};
+use libc::{c_int, getgrnam as libc_getgrnam, getpwnam as libc_getpwnam, sysconf};
 use std::ffi::{CStr, CString};
 use std::mem;
 use std::os::raw::c_char;
@@ -29,7 +27,7 @@ pub fn _getenv(mut ctx: FunctionEnvMut<EmEnv>, name: i32) -> u32 {
         Some(s) => s,
         None => return 0,
     };
-    let new_env_var =  match CString::new(env_var) {
+    let new_env_var = match CString::new(env_var) {
         Ok(s) => s,
         Err(_) => return 0,
     };
@@ -52,7 +50,7 @@ pub fn _setenv(ctx: FunctionEnvMut<EmEnv>, name: c_int, value: c_int, overwrite:
     debug!("=> value({:?})", value);
 
     let previous_entry = em_env.set_env_var(name.as_ref(), value.as_ref());
-    
+
     if let (0, Some(prev)) = (overwrite, previous_entry) {
         let _ = em_env.set_env_var(name.as_ref(), prev.as_ref());
     }
@@ -84,7 +82,9 @@ pub fn _unsetenv(mut ctx: FunctionEnvMut<EmEnv>, name: c_int) -> c_int {
         let em_env = ctx.data();
         let memory = em_env.memory(0);
         let name_addr = emscripten_memory_pointer!(memory.view(&ctx), name) as *const c_char;
-        unsafe { CStr::from_ptr(name_addr) }.to_string_lossy().to_string()
+        unsafe { CStr::from_ptr(name_addr) }
+            .to_string_lossy()
+            .to_string()
     };
 
     debug!("=> name({:?})", name);

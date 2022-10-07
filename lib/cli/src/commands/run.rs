@@ -76,18 +76,21 @@ pub struct RunWithoutFile {
 impl RunWithoutFile {
     /// Given a local path, returns the `Run` command (overriding the `--path` argument).
     pub fn into_run_args(mut self, pathbuf: PathBuf, manifest: Option<wapm_toml::Manifest>) -> Run {
-        
-        #[cfg(feature = "wasi")] {
+        #[cfg(feature = "wasi")]
+        {
             let pkg_fs = match pathbuf.parent() {
                 Some(parent) => parent.join("pkg_fs"),
                 None => pathbuf.join("pkg_fs"),
             };
-            if let Some(mut m) = manifest.as_ref().and_then(|m| m.package.pkg_fs_mount_point.clone()) {
+            if let Some(mut m) = manifest
+                .as_ref()
+                .and_then(|m| m.package.pkg_fs_mount_point.clone())
+            {
                 if m == "." {
                     self.wasi.map_dir("/", pkg_fs);
                 } else {
-                    if m.starts_with(".") { 
-                        m = format!("{}{}", pkg_fs.display(), &m[1..]); 
+                    if m.starts_with(".") {
+                        m = format!("{}{}", pkg_fs.display(), &m[1..]);
                     }
                     let path = std::path::Path::new(&m).to_path_buf();
                     self.wasi.map_dir("/", path);
@@ -108,7 +111,10 @@ impl RunWithoutFile {
                     pathbuf.join(real_dir)
                 };
                 if !real_dir.exists() {
-                    println!("warning: cannot map {alias:?} to {}: directory does not exist", real_dir.display());
+                    println!(
+                        "warning: cannot map {alias:?} to {}: directory does not exist",
+                        real_dir.display()
+                    );
                     continue;
                 }
                 let alias_pathbuf = std::path::Path::new(&real_dir).to_path_buf();
@@ -123,11 +129,16 @@ impl RunWithoutFile {
                 }
 
                 let root_display = format!("{}", alias_pathbuf.display());
-                for entry in walkdir::WalkDir::new(&alias_pathbuf).into_iter().filter_entry(|e| is_dir(e)).filter_map(|e| e.ok()) {
+                for entry in walkdir::WalkDir::new(&alias_pathbuf)
+                    .into_iter()
+                    .filter_entry(|e| is_dir(e))
+                    .filter_map(|e| e.ok())
+                {
                     let pathbuf = entry.path().canonicalize().unwrap();
                     let path = format!("{}", pathbuf.display());
                     let relativepath = path.replacen(&root_display, "", 1);
-                    self.wasi.map_dir(&format!("/{alias}{relativepath}"), pathbuf);
+                    self.wasi
+                        .map_dir(&format!("/{alias}{relativepath}"), pathbuf);
                 }
             }
         }
@@ -279,8 +290,10 @@ impl Run {
                 let env = FunctionEnv::new(&mut store, em_env);
                 let mut emscripten_globals = EmscriptenGlobals::new(&mut store, &env, &module)
                     .map_err(|e| anyhow!("{}", e))?;
-                env.as_mut(&mut store)
-                    .set_data(&emscripten_globals.data, self.wasi.mapped_dirs.clone().into_iter().collect());
+                env.as_mut(&mut store).set_data(
+                    &emscripten_globals.data,
+                    self.wasi.mapped_dirs.clone().into_iter().collect(),
+                );
                 let import_object =
                     generate_emscripten_env(&mut store, &env, &mut emscripten_globals);
                 let mut instance = match Instance::new(&mut store, &module, &import_object) {

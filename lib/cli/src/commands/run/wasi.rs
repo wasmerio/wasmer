@@ -52,10 +52,10 @@ pub struct Wasi {
 
 #[allow(dead_code)]
 impl Wasi {
-
     pub fn map_dir(&mut self, alias: &str, target_on_disk: PathBuf) {
         self.mapped_dirs.push((alias.to_string(), target_on_disk));
-        self.pre_opened_directories.push(std::path::Path::new(alias).to_path_buf());
+        self.pre_opened_directories
+            .push(std::path::Path::new(alias).to_path_buf());
     }
 
     pub fn set_env(&mut self, key: &str, value: &str) {

@@ -260,8 +260,9 @@ fn parse_cli_args() -> Result<(), anyhow::Error> {
                         &package.registry,
                         &package.name,
                         &package.version,
-                    ).map_err(|e| anyhow!("{e}"))?;
-                    
+                    )
+                    .map_err(|e| anyhow!("{e}"))?;
+
                     // Try finding the local package
                     let mut args_without_package = args.clone();
                     args_without_package.remove(1);
