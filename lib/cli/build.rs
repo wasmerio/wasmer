@@ -2,7 +2,6 @@ use chrono::prelude::*;
 use std::process::Command;
 
 pub fn main() {
-
     // Set WASMER_GIT_HASH
     let git_hash = Command::new("git")
         .args(&["rev-parse", "HEAD"])
