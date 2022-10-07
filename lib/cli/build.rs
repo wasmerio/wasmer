@@ -2,8 +2,6 @@ use chrono::prelude::*;
 use std::process::Command;
 
 pub fn main() {
-    println!("cargo:rerun-if-changed=build.rs");
-    println!("cargo:rerun-if-env-changed=WASMER_INSTALL_PREFIX");
 
     // Set WASMER_GIT_HASH
     let git_hash = Command::new("git")
