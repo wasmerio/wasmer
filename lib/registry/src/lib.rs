@@ -477,7 +477,18 @@ pub fn get_all_local_packages() -> Vec<LocalPackage> {
     let mut packages = Vec::new();
 
     'outer: for registry in get_all_available_registries().unwrap_or_default() {
-        let root_dir = match get_global_install_dir(&registry) {
+
+        let host = match url::Url::parse(&registry) {
+            Ok(o) => o.host_str().map(|s| s.to_string()),
+            Err(_) => continue 'outer,
+        };
+
+        let host = match host {
+            Some(s) => s,
+            None => continue 'outer,
+        };
+        
+        let root_dir = match get_global_install_dir(&host) {
             Some(o) => o,
             None => continue 'outer,
         };
@@ -790,10 +801,10 @@ pub fn install_package(name: &str, version: Option<&str>) -> Result<(LocalPackag
     let (_, package_info) = url_of_package
     .ok_or(format!("{error_str}{did_you_mean}"))?;
 
-    let host = url::Url::parse(&package_info.url)
-        .map_err(|e| format!("invalid url: {}: {e}", package_info.url))?
+    let host = url::Url::parse(&package_info.registry)
+        .map_err(|e| format!("invalid url: {}: {e}", package_info.registry))?
         .host_str()
-        .ok_or(format!("invalid url: {}", package_info.url))?
+        .ok_or(format!("invalid url: {}", package_info.registry))?
         .to_string();
 
     let dir = get_package_local_dir(
