@@ -77,14 +77,12 @@ impl RunWithoutFile {
     /// Given a local path, returns the `Run` command (overriding the `--path` argument).
     pub fn into_run_args(mut self, pathbuf: PathBuf, manifest: Option<wapm_toml::Manifest>) -> Run {
         
-        let mut use_pkg_fs = false;
         #[cfg(feature = "wasi")] {
             let pkg_fs = match pathbuf.parent() {
                 Some(parent) => parent.join("pkg_fs"),
                 None => pathbuf.join("pkg_fs"),
             };
             if let Some(mut m) = manifest.as_ref().and_then(|m| m.package.pkg_fs_mount_point.clone()) {
-                use_pkg_fs = true;
                 if m == "." {
                     self.wasi.map_dir("/", pkg_fs);
                 } else {
@@ -104,9 +102,6 @@ impl RunWithoutFile {
                 if real_dir.starts_with("/") {
                     real_dir = (&real_dir[1..]).to_string();
                 }
-                if use_pkg_fs {
-                    real_dir = format!("pkg_fs/{real_dir}");
-                }
                 let real_dir = if let Some(parent) = pathbuf.parent() {
                     parent.join(real_dir)
                 } else {
@@ -117,8 +112,23 @@ impl RunWithoutFile {
                     continue;
                 }
                 let alias_pathbuf = std::path::Path::new(&real_dir).to_path_buf();
-                self.wasi.map_dir(alias, alias_pathbuf);
-                
+                self.wasi.map_dir(alias, alias_pathbuf.clone());
+
+                fn is_dir(e: &walkdir::DirEntry) -> bool {
+                    let meta = match e.metadata() {
+                        Ok(o) => o,
+                        Err(_) => return false,
+                    };
+                    meta.is_dir()
+                }
+
+                let root_display = format!("{}", alias_pathbuf.display());
+                for entry in walkdir::WalkDir::new(&alias_pathbuf).into_iter().filter_entry(|e| is_dir(e)).filter_map(|e| e.ok()) {
+                    let pathbuf = entry.path().canonicalize().unwrap();
+                    let path = format!("{}", pathbuf.display());
+                    let relativepath = path.replacen(&root_display, "", 1);
+                    self.wasi.map_dir(&format!("/{alias}{relativepath}"), pathbuf);
+                }
             }
         }
 
