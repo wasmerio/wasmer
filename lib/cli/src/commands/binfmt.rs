@@ -8,7 +8,7 @@ use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 use Action::*;
 
-#[derive(Parser, Clone, Copy)]
+#[derive(Debug, Parser, Clone, Copy)]
 enum Action {
     /// Register wasmer as binfmt interpreter
     Register,
