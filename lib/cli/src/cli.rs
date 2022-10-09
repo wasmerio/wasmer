@@ -310,16 +310,16 @@ fn parse_cli_args() -> Result<(), anyhow::Error> {
                 }
             } else {
                 return WasmerCLIOptions::try_parse()?.execute();
-                /* 
+                /*
                 let hook = std::panic::take_hook();
                 std::panic::set_hook(Box::new(|_| {}));
                 let cli_result = std::panic::catch_unwind(|| WasmerCLIOptions::try_parse_from(args.iter()));
                 std::panic::set_hook(hook);
-                
+
                 match cli_result {
                     Ok(Ok(opts)) => return opts.execute(),
-                    Ok(Err(e)) => { 
-                        return Err(anyhow::anyhow!("Error: {e}")); 
+                    Ok(Err(e)) => {
+                        return Err(anyhow::anyhow!("Error: {e}"));
                     },
                     Err(_) => {
                         return Err(anyhow::anyhow!("Error when trying to parse CLI arguments"));
