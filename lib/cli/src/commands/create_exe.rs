@@ -46,11 +46,11 @@ struct CrossCompileSetup {
 /// The options for the `wasmer create-exe` subcommand
 pub struct CreateExe {
     /// Input file
-    #[clap(name = "FILE", value_parser = clap::value_parser!(std::ffi::OsString))]
+    #[clap(name = "FILE", parse(from_os_str))]
     path: PathBuf,
 
     /// Output file
-    #[clap(name = "OUTPUT PATH", short = 'o', value_parser = clap::value_parser!(std::ffi::OsString))]
+    #[clap(name = "OUTPUT PATH", short = 'o', parse(from_os_str))]
     output: PathBuf,
 
     /// Compilation Target triple

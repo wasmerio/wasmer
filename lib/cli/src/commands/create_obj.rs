@@ -19,18 +19,18 @@ const WASMER_SERIALIZED_HEADER: &[u8] = include_bytes!("wasmer_deserialize_modul
 /// The options for the `wasmer create-exe` subcommand
 pub struct CreateObj {
     /// Input file
-    #[clap(name = "FILE", value_parser = clap::value_parser!(std::ffi::OsString))]
+    #[clap(name = "FILE", parse(from_os_str))]
     path: PathBuf,
 
     /// Output file
-    #[clap(name = "OUTPUT_PATH", short = 'o', value_parser = clap::value_parser!(std::ffi::OsString))]
+    #[clap(name = "OUTPUT_PATH", short = 'o', parse(from_os_str))]
     output: PathBuf,
 
     /// Header output file
     #[clap(
         name = "OUTPUT_HEADER_PATH",
         long = "output-header-path",
-        value_parser = clap::value_parser!(std::ffi::OsString)
+        parse(from_os_str)
     )]
     header_output: Option<PathBuf>,
 
@@ -56,7 +56,7 @@ pub struct CreateObj {
     #[clap(name = "OBJECT_FORMAT", long = "object-format", verbatim_doc_comment)]
     object_format: Option<ObjectFormat>,
 
-    #[clap(short = 'm', number_of_values = 1)]
+    #[clap(short = 'm', multiple = true, number_of_values = 1)]
     cpu_features: Vec<CpuFeature>,
 
     #[clap(flatten)]

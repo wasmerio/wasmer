@@ -8,7 +8,7 @@ use wasmer::*;
 /// The options for the `wasmer validate` subcommand
 pub struct Validate {
     /// File to validate as WebAssembly
-    #[clap(name = "FILE", value_parser = clap::value_parser!(std::ffi::OsString))]
+    #[clap(name = "FILE", parse(from_os_str))]
     path: PathBuf,
 
     #[clap(flatten)]

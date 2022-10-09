@@ -14,11 +14,11 @@ use wasmer_types::{
 /// The options for the `wasmer compile` subcommand
 pub struct Compile {
     /// Input file
-    #[clap(name = "FILE", value_parser = clap::value_parser!(std::ffi::OsString))]
+    #[clap(name = "FILE", parse(from_os_str))]
     path: PathBuf,
 
     /// Output file
-    #[clap(name = "OUTPUT PATH", short = 'o', value_parser = clap::value_parser!(std::ffi::OsString))]
+    #[clap(name = "OUTPUT PATH", short = 'o', parse(from_os_str))]
     output: PathBuf,
 
     /// Compilation Target triple
