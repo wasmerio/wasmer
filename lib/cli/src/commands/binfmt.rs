@@ -22,7 +22,7 @@ enum Action {
 ///
 /// Check the wasmer repository for a systemd service definition example
 /// to automate the process at start-up.
-#[derive(Parser)]
+#[derive(Debug, Parser)]
 pub struct Binfmt {
     // Might be better to traverse the mount list
     /// Mount point of binfmt_misc fs
