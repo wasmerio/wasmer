@@ -213,7 +213,7 @@ pub struct Run {
     debug: bool,
 
     #[cfg(feature = "debug")]
-    #[clap(short, long, num_args(0..))]
+    #[clap(short, long, parse(from_occurrences))]
     verbose: u8,
 
     /// Application arguments
