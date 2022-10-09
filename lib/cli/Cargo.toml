@@ -63,7 +63,7 @@ wapm-toml = "0.1.2"
 walkdir = "2.3.2"
 
 [build-dependencies]
-chrono = "0.4.22" 
+chrono = { version = "^0.4", default-features = false, features = [ "std", "clock" ] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 unix_mode = "0.1.3"
