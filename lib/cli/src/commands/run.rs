@@ -89,7 +89,7 @@ impl RunWithoutFile {
                 if m == "." {
                     self.wasi.map_dir("/", pkg_fs);
                 } else {
-                    if m.starts_with(".") {
+                    if m.starts_with('.') {
                         m = format!("{}{}", pkg_fs.display(), &m[1..]);
                     }
                     let path = std::path::Path::new(&m).to_path_buf();
@@ -102,7 +102,7 @@ impl RunWithoutFile {
         if let Some(fs) = manifest.as_ref().and_then(|m| m.fs.as_ref()) {
             for (alias, real_dir) in fs.iter() {
                 let mut real_dir = format!("{}", real_dir.display());
-                if real_dir.starts_with("/") {
+                if real_dir.starts_with('/') {
                     real_dir = (&real_dir[1..]).to_string();
                 }
                 let real_dir = if let Some(parent) = pathbuf.parent() {
@@ -131,7 +131,7 @@ impl RunWithoutFile {
                 let root_display = format!("{}", alias_pathbuf.display());
                 for entry in walkdir::WalkDir::new(&alias_pathbuf)
                     .into_iter()
-                    .filter_entry(|e| is_dir(e))
+                    .filter_entry(is_dir)
                     .filter_map(|e| e.ok())
                 {
                     let pathbuf = entry.path().canonicalize().unwrap();

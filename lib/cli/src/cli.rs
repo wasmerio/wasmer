@@ -199,15 +199,15 @@ fn parse_cli_args() -> Result<(), anyhow::Error> {
     args_without_first_and_second_arg.remove(0);
 
     match (firstarg, secondarg) {
-        (None, _) | (Some("help"), _) | (Some("--help"), _) => return print_help(true),
-        (Some("-h"), _) => return print_help(false),
+        (None, _) | (Some("help"), _) | (Some("--help"), _) => print_help(true),
+        (Some("-h"), _) => print_help(false),
 
         (Some("-vV"), _)
         | (Some("version"), Some("--verbose"))
-        | (Some("--version"), Some("--verbose")) => return print_version(true),
+        | (Some("--version"), Some("--verbose")) => print_version(true),
 
         (Some("-v"), _) | (Some("-V"), _) | (Some("version"), _) | (Some("--version"), _) => {
-            return print_version(false)
+            print_version(false)
         }
         (Some("list"), _) => {
             use prettytable::{format, row, Table};
@@ -224,12 +224,7 @@ fn parse_cli_args() -> Result<(), anyhow::Error> {
                         .collect::<Vec<_>>()
                         .join(" \r\n");
 
-                    row![
-                        pkg.registry.clone(),
-                        pkg.name.clone(),
-                        pkg.version.clone(),
-                        commands
-                    ]
+                    row![pkg.registry, pkg.name, pkg.version, commands]
                 })
                 .collect::<Vec<_>>();
 
@@ -238,7 +233,7 @@ fn parse_cli_args() -> Result<(), anyhow::Error> {
                 println!("--------------------------------------");
                 println!("Registry  Package  Version  Commands ");
                 println!("======================================");
-                println!("");
+                println!();
             } else {
                 let mut table = Table::init(rows);
                 table.set_titles(row!["Registry", "Package", "Version", "Commands"]);
@@ -250,7 +245,7 @@ fn parse_cli_args() -> Result<(), anyhow::Error> {
             Ok(())
         }
         (Some("run"), Some(package)) | (Some(package), _) => {
-            if package.starts_with("-") {
+            if package.starts_with('-') {
                 return Err(anyhow!("Unknown CLI argument {package:?}"));
             }
 
@@ -261,12 +256,11 @@ fn parse_cli_args() -> Result<(), anyhow::Error> {
             std::panic::set_hook(hook);
 
             if let Ok(Ok(run)) = result {
-                return run.execute();
+                run.execute()
             } else if let Ok((package, version)) = split_version(package) {
-                if let Some(package) = wasmer_registry::get_local_package(
-                    &package,
-                    version.as_ref().map(|s| s.as_str()),
-                ) {
+                if let Some(package) =
+                    wasmer_registry::get_local_package(&package, version.as_deref())
+                {
                     let local_package_wasm_path = wasmer_registry::get_package_local_wasm_file(
                         &package.registry,
                         &package.name,
@@ -278,7 +272,7 @@ fn parse_cli_args() -> Result<(), anyhow::Error> {
                     let mut args_without_package = args.clone();
                     args_without_package.remove(1);
                     return RunWithoutFile::try_parse_from(args_without_package.iter())?
-                        .into_run_args(local_package_wasm_path, Some(package.manifest.clone()))
+                        .into_run_args(local_package_wasm_path, Some(package.manifest))
                         .execute();
                 }
 
@@ -290,7 +284,7 @@ fn parse_cli_args() -> Result<(), anyhow::Error> {
                     ])
                     .start();
 
-                let v = version.as_ref().map(|s| s.as_str());
+                let v = version.as_deref();
                 let result = wasmer_registry::install_package(&package, v);
                 sp.close();
                 print!("\r\n");
@@ -300,16 +294,16 @@ fn parse_cli_args() -> Result<(), anyhow::Error> {
                         let mut args_without_package = args.clone();
                         args_without_package.remove(1);
                         return RunWithoutFile::try_parse_from(args_without_package.iter())?
-                            .into_run_args(buf, Some(package.manifest.clone()))
+                            .into_run_args(buf, Some(package.manifest))
                             .execute();
                     }
                     Err(e) => {
                         println!("{e}");
-                        return Ok(());
+                        Ok(())
                     }
                 }
             } else {
-                return WasmerCLIOptions::try_parse()?.execute();
+                WasmerCLIOptions::try_parse()?.execute()
                 /*
                 let hook = std::panic::take_hook();
                 std::panic::set_hook(Box::new(|_| {}));
@@ -346,10 +340,10 @@ fn split_version(s: &str) -> Result<(String, Option<String>), anyhow::Error> {
     if prohibited_package_names.contains(&s.trim()) {
         return Err(anyhow::anyhow!("Invalid package name {s:?}"));
     }
-    let package_version = s.split("@").collect::<Vec<_>>();
-    match package_version.as_slice() {
-        &[p, v] => Ok((p.trim().to_string(), Some(v.trim().to_string()))),
-        &[p] => Ok((p.trim().to_string(), None)),
+    let package_version = s.split('@').collect::<Vec<_>>();
+    match *package_version.as_slice() {
+        [p, v] => Ok((p.trim().to_string(), Some(v.trim().to_string()))),
+        [p] => Ok((p.trim().to_string(), None)),
         _ => Err(anyhow!("Invalid package / version: {s:?}")),
     }
 }
@@ -365,6 +359,7 @@ fn print_help(verbose: bool) -> Result<(), anyhow::Error> {
     Ok(())
 }
 
+#[allow(unused_mut, clippy::vec_init_then_push)]
 fn print_version(verbose: bool) -> Result<(), anyhow::Error> {
     if !verbose {
         println!("{}", env!("CARGO_PKG_VERSION"));
@@ -380,7 +375,6 @@ fn print_version(verbose: bool) -> Result<(), anyhow::Error> {
         println!("commit-date: {}", env!("WASMER_BUILD_DATE"));
         println!("host: {}", target_lexicon::HOST);
         println!("compiler: {}", {
-            #[allow(unused_mut)]
             let mut s = Vec::<&'static str>::new();
 
             #[cfg(feature = "singlepass")]
