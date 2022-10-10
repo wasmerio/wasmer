@@ -32,3 +32,7 @@ front, not once in each call.
 ## Divide by Zero: `divide.wast`
 
 This is a simple test to check that a divide by zero is correctly trapped
+
+## Atomic Load: `atomic_load.wast`
+
+This is a simple test to check that load an atomic "to far" in memory trigger a OutOfBound trap

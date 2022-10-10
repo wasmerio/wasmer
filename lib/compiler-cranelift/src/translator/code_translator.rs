@@ -2408,11 +2408,24 @@ fn finalise_atomic_mem_addr<FE: FuncEnvironment + ?Sized>(
     state: &mut FuncTranslationState,
     environ: &mut FE,
 ) -> WasmResult<Value> {
-    // Check the alignment of `linear_mem_addr`.
     let access_ty_bytes = access_ty.bytes();
-    let final_lma = builder
-        .ins()
-        .iadd_imm(linear_mem_addr, memarg.offset as i64);
+    let final_lma = if memarg.offset > 0 {
+        assert!(builder.func.dfg.value_type(linear_mem_addr) == I32);
+        let linear_mem_addr = builder.ins().uextend(I64, linear_mem_addr);
+        let a = builder
+            .ins()
+            .iadd_imm(linear_mem_addr, memarg.offset as i64);
+        let cflags = builder.ins().ifcmp_imm(a, 0x1_0000_0000i64);
+        builder.ins().trapif(
+            IntCC::UnsignedGreaterThanOrEqual,
+            cflags,
+            ir::TrapCode::HeapOutOfBounds,
+        );
+        builder.ins().ireduce(I32, a)
+    } else {
+        linear_mem_addr
+    };
+    // Check the alignment of `linear_mem_addr`.
     if access_ty_bytes != 1 {
         assert!(access_ty_bytes == 2 || access_ty_bytes == 4 || access_ty_bytes == 8);
         let final_lma_misalignment = builder
