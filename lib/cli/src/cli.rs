@@ -13,7 +13,7 @@ use crate::commands::Wast;
 use crate::commands::{Cache, Config, Inspect, Run, RunWithoutFile, SelfUpdate, Validate};
 use crate::error::PrettyError;
 use anyhow::Result;
-use clap::Parser;
+use clap::{ErrorKind, Parser};
 use wasmer_registry::get_all_local_packages;
 
 #[derive(Parser, Debug)]
@@ -174,90 +174,71 @@ pub fn wasmer_main() {
     #[cfg(windows)]
     colored::control::set_virtual_terminal(true).unwrap();
 
-    let cmd_output = parse_cli_args();
-
-    PrettyError::report(cmd_output);
+    PrettyError::report(wasmer_main_inner())
 }
 
-fn parse_cli_args() -> Result<(), anyhow::Error> {
-    let args = std::env::args().collect::<Vec<_>>();
-    let binpath = args.get(0).map(|s| s.as_ref()).unwrap_or("");
-
+fn wasmer_main_inner() -> Result<(), anyhow::Error> {
+    // We try to run wasmer with the normal arguments.
+    // Eg. `wasmer <SUBCOMMAND>`
+    // In case that fails, we fallback trying the Run subcommand directly.
+    // Eg. `wasmer myfile.wasm --dir=.`
+    //
     // In case we've been run as wasmer-binfmt-interpreter myfile.wasm args,
     // we assume that we're registered via binfmt_misc
-    if cfg!(target_os = "linux") && binpath.ends_with("wasmer-binfmt-interpreter") {
-        return Run::from_binfmt_args().execute();
-    }
+    let args = std::env::args().collect::<Vec<_>>();
+    let binpath = args.get(0).map(|s| s.as_ref()).unwrap_or("");
 
     let firstarg = args.get(1).map(|s| s.as_str());
     let secondarg = args.get(2).map(|s| s.as_str());
 
-    let mut args_without_first_arg = args.clone();
-    args_without_first_arg.remove(0);
-
-    let mut args_without_first_and_second_arg = args_without_first_arg.clone();
-    args_without_first_and_second_arg.remove(0);
-
     match (firstarg, secondarg) {
-        (None, _) | (Some("help"), _) | (Some("--help"), _) => print_help(true),
-        (Some("-h"), _) => print_help(false),
-
+        (None, _) | (Some("help"), _) | (Some("--help"), _) => {
+            return print_help(true);
+        }
+        (Some("-h"), _) => {
+            return print_help(false);
+        }
         (Some("-vV"), _)
         | (Some("version"), Some("--verbose"))
-        | (Some("--version"), Some("--verbose")) => print_version(true),
+        | (Some("--version"), Some("--verbose")) => {
+            return print_version(true);
+        }
 
         (Some("-v"), _) | (Some("-V"), _) | (Some("version"), _) | (Some("--version"), _) => {
-            print_version(false)
+            return print_version(false);
         }
         (Some("list"), _) => {
-            use prettytable::{format, row, Table};
-
-            let rows = get_all_local_packages()
-                .into_iter()
-                .map(|pkg| {
-                    let commands = pkg
-                        .manifest
-                        .command
-                        .unwrap_or_default()
-                        .iter()
-                        .map(|c| c.get_name())
-                        .collect::<Vec<_>>()
-                        .join(" \r\n");
-
-                    row![pkg.registry, pkg.name, pkg.version, commands]
-                })
-                .collect::<Vec<_>>();
-
-            let empty_table = rows.is_empty();
-            if empty_table {
-                println!("--------------------------------------");
-                println!("Registry  Package  Version  Commands ");
-                println!("======================================");
-                println!();
-            } else {
-                let mut table = Table::init(rows);
-                table.set_titles(row!["Registry", "Package", "Version", "Commands"]);
-                table.set_format(*format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
-                table.set_format(*format::consts::FORMAT_NO_COLSEP);
-                let _ = table.printstd();
-            }
-
-            Ok(())
+            return print_packages();
         }
-        (Some("run"), Some(package)) | (Some(package), _) => {
-            if package.starts_with('-') {
-                return Err(anyhow!("Unknown CLI argument {package:?}"));
+        _ => {}
+    }
+
+    let command = args.get(1);
+    let options = if cfg!(target_os = "linux") && binpath.ends_with("wasmer-binfmt-interpreter") {
+        WasmerCLIOptions::Run(Run::from_binfmt_args())
+    } else {
+        match command.unwrap_or(&"".to_string()).as_ref() {
+            "cache" | "compile" | "config" | "create-exe" | "help" | "inspect" | "run"
+            | "self-update" | "validate" | "wast" | "binfmt" => WasmerCLIOptions::parse(),
+            _ => {
+                WasmerCLIOptions::try_parse_from(args.iter()).unwrap_or_else(|e| {
+                    match e.kind() {
+                        // This fixes a issue that:
+                        // 1. Shows the version twice when doing `wasmer -V`
+                        // 2. Shows the run help (instead of normal help) when doing `wasmer --help`
+                        ErrorKind::DisplayVersion | ErrorKind::DisplayHelp => e.exit(),
+                        _ => WasmerCLIOptions::Run(Run::parse()),
+                    }
+                })
             }
+        }
+    };
 
-            // Disable printing backtraces in case `Run::try_parse_from` panics
-            let hook = std::panic::take_hook();
-            std::panic::set_hook(Box::new(|_| {}));
-            let result = std::panic::catch_unwind(|| Run::try_parse_from(args.iter()));
-            std::panic::set_hook(hook);
-
-            if let Ok(Ok(run)) = result {
-                run.execute()
-            } else if let Ok((package, version)) = split_version(package) {
+    // Check if the file is a package name
+    if let WasmerCLIOptions::Run(r) = &options {
+        if !r.path.exists() {
+            let package = format!("{}", r.path.display());
+            if let Ok((package, version)) = split_version(&package) {
                 if let Some(package) =
                     wasmer_registry::get_local_package(&package, version.as_deref())
                 {
@@ -299,29 +280,14 @@ fn parse_cli_args() -> Result<(), anyhow::Error> {
                     }
                     Err(e) => {
                         println!("{e}");
-                        Ok(())
+                        return Ok(());
                     }
                 }
-            } else {
-                WasmerCLIOptions::try_parse()?.execute()
-                /*
-                let hook = std::panic::take_hook();
-                std::panic::set_hook(Box::new(|_| {}));
-                let cli_result = std::panic::catch_unwind(|| WasmerCLIOptions::try_parse_from(args.iter()));
-                std::panic::set_hook(hook);
-
-                match cli_result {
-                    Ok(Ok(opts)) => return opts.execute(),
-                    Ok(Err(e)) => {
-                        return Err(anyhow::anyhow!("Error: {e}"));
-                    },
-                    Err(_) => {
-                        return Err(anyhow::anyhow!("Error when trying to parse CLI arguments"));
-                    }
-                }*/
             }
         }
     }
+
+    options.execute()
 }
 
 fn split_version(s: &str) -> Result<(String, Option<String>), anyhow::Error> {
@@ -346,6 +312,42 @@ fn split_version(s: &str) -> Result<(String, Option<String>), anyhow::Error> {
         [p] => Ok((p.trim().to_string(), None)),
         _ => Err(anyhow!("Invalid package / version: {s:?}")),
     }
+}
+
+fn print_packages() -> Result<(), anyhow::Error> {
+    use prettytable::{format, row, Table};
+
+    let rows = get_all_local_packages()
+        .into_iter()
+        .map(|pkg| {
+            let commands = pkg
+                .manifest
+                .command
+                .unwrap_or_default()
+                .iter()
+                .map(|c| c.get_name())
+                .collect::<Vec<_>>()
+                .join(" \r\n");
+
+            row![pkg.registry, pkg.name, pkg.version, commands]
+        })
+        .collect::<Vec<_>>();
+
+    let empty_table = rows.is_empty();
+    if empty_table {
+        println!("--------------------------------------");
+        println!("Registry  Package  Version  Commands ");
+        println!("======================================");
+        println!();
+    } else {
+        let mut table = Table::init(rows);
+        table.set_titles(row!["Registry", "Package", "Version", "Commands"]);
+        table.set_format(*format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
+        table.set_format(*format::consts::FORMAT_NO_COLSEP);
+        let _ = table.printstd();
+    }
+
+    Ok(())
 }
 
 fn print_help(verbose: bool) -> Result<(), anyhow::Error> {

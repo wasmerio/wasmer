@@ -175,7 +175,7 @@ pub struct Run {
 
     /// File to run
     #[clap(name = "FILE", parse(from_os_str))]
-    path: PathBuf,
+    pub(crate) path: PathBuf,
 
     /// Invoke a specified function
     #[clap(long = "invoke", short = 'i')]
