@@ -86,7 +86,7 @@ pub unsafe extern "C" fn wasm_frame_func_name(
 #[no_mangle]
 pub unsafe extern "C" fn wasm_function_name_delete(name: Option<&mut wasm_function_name>) {
     if let Some(s) = name {
-        if s.name != std::ptr::null_mut() {
+        if s.name.is_null() {
             let _ = CString::from_raw(s.name);
         }
     }
