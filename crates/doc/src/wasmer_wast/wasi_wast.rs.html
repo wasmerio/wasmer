@@ -676,16 +676,14 @@
 <span id="671">671</span>
 <span id="672">672</span>
 <span id="673">673</span>
-<span id="674">674</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">anyhow::Context</span>;
 <span class="kw">use</span> <span class="ident">std::fs</span>::{<span class="ident">read_dir</span>, <span class="ident">File</span>, <span class="ident">OpenOptions</span>, <span class="ident">ReadDir</span>};
 <span class="kw">use</span> <span class="ident">std::io</span>::{<span class="self">self</span>, <span class="ident">Read</span>, <span class="ident">Seek</span>, <span class="ident">Write</span>};
 <span class="kw">use</span> <span class="ident">std::path</span>::{<span class="ident">Path</span>, <span class="ident">PathBuf</span>};
 <span class="kw">use</span> <span class="ident">std::sync</span>::{<span class="ident">mpsc</span>, <span class="ident">Arc</span>, <span class="ident">Mutex</span>};
-<span class="kw">use</span> <span class="ident">wasmer::FunctionEnv</span>;
-<span class="kw">use</span> <span class="ident">wasmer</span>::{<span class="ident">Imports</span>, <span class="ident">Instance</span>, <span class="ident">Module</span>, <span class="ident">Store</span>};
+<span class="kw">use</span> <span class="ident">wasmer</span>::{<span class="ident">FunctionEnv</span>, <span class="ident">Imports</span>, <span class="ident">Instance</span>, <span class="ident">Module</span>, <span class="ident">Store</span>};
 <span class="kw">use</span> <span class="ident">wasmer_vfs</span>::{<span class="ident">host_fs</span>, <span class="ident">mem_fs</span>, <span class="ident">FileSystem</span>};
-<span class="kw">use</span> <span class="ident">wasmer_wasi::types</span>::{<span class="ident">__wasi_filesize_t</span>, <span class="ident">__wasi_timestamp_t</span>};
+<span class="kw">use</span> <span class="ident">wasmer_wasi::types::wasi</span>::{<span class="ident">Filesize</span>, <span class="ident">Timestamp</span>};
 <span class="kw">use</span> <span class="ident">wasmer_wasi</span>::{
     <span class="ident">generate_import_object_from_env</span>, <span class="ident">get_wasi_version</span>, <span class="ident">FsError</span>, <span class="ident">Pipe</span>, <span class="ident">VirtualFile</span>, <span class="ident">WasiEnv</span>,
     <span class="ident">WasiFunctionEnv</span>, <span class="ident">WasiState</span>, <span class="ident">WasiVersion</span>,
@@ -1293,19 +1291,19 @@
 }
 
 <span class="kw">impl</span> <span class="ident">VirtualFile</span> <span class="kw">for</span> <span class="ident">OutputCapturerer</span> {
-    <span class="kw">fn</span> <span class="ident">last_accessed</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">__wasi_timestamp_t</span> {
+    <span class="kw">fn</span> <span class="ident">last_accessed</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Timestamp</span> {
         <span class="number">0</span>
     }
-    <span class="kw">fn</span> <span class="ident">last_modified</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">__wasi_timestamp_t</span> {
+    <span class="kw">fn</span> <span class="ident">last_modified</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Timestamp</span> {
         <span class="number">0</span>
     }
-    <span class="kw">fn</span> <span class="ident">created_time</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">__wasi_timestamp_t</span> {
+    <span class="kw">fn</span> <span class="ident">created_time</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Timestamp</span> {
         <span class="number">0</span>
     }
     <span class="kw">fn</span> <span class="ident">size</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u64</span> {
         <span class="number">0</span>
     }
-    <span class="kw">fn</span> <span class="ident">set_len</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">_new_size</span>: <span class="ident">__wasi_filesize_t</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">FsError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">set_len</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">_new_size</span>: <span class="ident">Filesize</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">FsError</span><span class="op">&gt;</span> {
         <span class="prelude-val">Ok</span>(())
     }
     <span class="kw">fn</span> <span class="ident">unlink</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">FsError</span><span class="op">&gt;</span> {

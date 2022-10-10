@@ -465,8 +465,8 @@
 <span id="458">458</span>
 <span id="459">459</span>
 <span id="460">460</span>
+<span id="461">461</span>
 </pre><pre class="rust"><code><span class="doccomment">/// types for use in the WASI filesystem</span>
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::syscalls::types</span>::<span class="kw-2">*</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">unix</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;sys-poll&quot;</span>))]</span>
@@ -478,6 +478,7 @@
     <span class="ident">time::Duration</span>,
 };
 <span class="kw">use</span> <span class="ident">wasmer_vbus::BusError</span>;
+<span class="kw">use</span> <span class="ident">wasmer_wasi_types::wasi</span>::{<span class="ident">BusErrno</span>, <span class="ident">Errno</span>};
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;host-fs&quot;</span>)]</span>
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_vfs::host_fs</span>::{<span class="ident">Stderr</span>, <span class="ident">Stdin</span>, <span class="ident">Stdout</span>};
@@ -487,135 +488,136 @@
 <span class="kw">use</span> <span class="ident">wasmer_vfs</span>::{<span class="ident">FsError</span>, <span class="ident">VirtualFile</span>};
 <span class="kw">use</span> <span class="ident">wasmer_vnet::NetworkError</span>;
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">fs_error_from_wasi_err</span>(<span class="ident">err</span>: <span class="ident">__wasi_errno_t</span>) -&gt; <span class="ident">FsError</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">fs_error_from_wasi_err</span>(<span class="ident">err</span>: <span class="ident">Errno</span>) -&gt; <span class="ident">FsError</span> {
     <span class="kw">match</span> <span class="ident">err</span> {
-        <span class="ident">__WASI_EBADF</span> =&gt; <span class="ident">FsError::InvalidFd</span>,
-        <span class="ident">__WASI_EEXIST</span> =&gt; <span class="ident">FsError::AlreadyExists</span>,
-        <span class="ident">__WASI_EIO</span> =&gt; <span class="ident">FsError::IOError</span>,
-        <span class="ident">__WASI_EADDRINUSE</span> =&gt; <span class="ident">FsError::AddressInUse</span>,
-        <span class="ident">__WASI_EADDRNOTAVAIL</span> =&gt; <span class="ident">FsError::AddressNotAvailable</span>,
-        <span class="ident">__WASI_EPIPE</span> =&gt; <span class="ident">FsError::BrokenPipe</span>,
-        <span class="ident">__WASI_ECONNABORTED</span> =&gt; <span class="ident">FsError::ConnectionAborted</span>,
-        <span class="ident">__WASI_ECONNREFUSED</span> =&gt; <span class="ident">FsError::ConnectionRefused</span>,
-        <span class="ident">__WASI_ECONNRESET</span> =&gt; <span class="ident">FsError::ConnectionReset</span>,
-        <span class="ident">__WASI_EINTR</span> =&gt; <span class="ident">FsError::Interrupted</span>,
-        <span class="ident">__WASI_EINVAL</span> =&gt; <span class="ident">FsError::InvalidInput</span>,
-        <span class="ident">__WASI_ENOTCONN</span> =&gt; <span class="ident">FsError::NotConnected</span>,
-        <span class="ident">__WASI_ENODEV</span> =&gt; <span class="ident">FsError::NoDevice</span>,
-        <span class="ident">__WASI_ENOENT</span> =&gt; <span class="ident">FsError::EntityNotFound</span>,
-        <span class="ident">__WASI_EPERM</span> =&gt; <span class="ident">FsError::PermissionDenied</span>,
-        <span class="ident">__WASI_ETIMEDOUT</span> =&gt; <span class="ident">FsError::TimedOut</span>,
-        <span class="ident">__WASI_EPROTO</span> =&gt; <span class="ident">FsError::UnexpectedEof</span>,
-        <span class="ident">__WASI_EAGAIN</span> =&gt; <span class="ident">FsError::WouldBlock</span>,
-        <span class="ident">__WASI_ENOSPC</span> =&gt; <span class="ident">FsError::WriteZero</span>,
-        <span class="ident">__WASI_ENOTEMPTY</span> =&gt; <span class="ident">FsError::DirectoryNotEmpty</span>,
+        <span class="ident">Errno::Badf</span> =&gt; <span class="ident">FsError::InvalidFd</span>,
+        <span class="ident">Errno::Exist</span> =&gt; <span class="ident">FsError::AlreadyExists</span>,
+        <span class="ident">Errno::Io</span> =&gt; <span class="ident">FsError::IOError</span>,
+        <span class="ident">Errno::Addrinuse</span> =&gt; <span class="ident">FsError::AddressInUse</span>,
+        <span class="ident">Errno::Addrnotavail</span> =&gt; <span class="ident">FsError::AddressNotAvailable</span>,
+        <span class="ident">Errno::Pipe</span> =&gt; <span class="ident">FsError::BrokenPipe</span>,
+        <span class="ident">Errno::Connaborted</span> =&gt; <span class="ident">FsError::ConnectionAborted</span>,
+        <span class="ident">Errno::Connrefused</span> =&gt; <span class="ident">FsError::ConnectionRefused</span>,
+        <span class="ident">Errno::Connreset</span> =&gt; <span class="ident">FsError::ConnectionReset</span>,
+        <span class="ident">Errno::Intr</span> =&gt; <span class="ident">FsError::Interrupted</span>,
+        <span class="ident">Errno::Inval</span> =&gt; <span class="ident">FsError::InvalidInput</span>,
+        <span class="ident">Errno::Notconn</span> =&gt; <span class="ident">FsError::NotConnected</span>,
+        <span class="ident">Errno::Nodev</span> =&gt; <span class="ident">FsError::NoDevice</span>,
+        <span class="ident">Errno::Noent</span> =&gt; <span class="ident">FsError::EntityNotFound</span>,
+        <span class="ident">Errno::Perm</span> =&gt; <span class="ident">FsError::PermissionDenied</span>,
+        <span class="ident">Errno::Timedout</span> =&gt; <span class="ident">FsError::TimedOut</span>,
+        <span class="ident">Errno::Proto</span> =&gt; <span class="ident">FsError::UnexpectedEof</span>,
+        <span class="ident">Errno::Again</span> =&gt; <span class="ident">FsError::WouldBlock</span>,
+        <span class="ident">Errno::Nospc</span> =&gt; <span class="ident">FsError::WriteZero</span>,
+        <span class="ident">Errno::Notempty</span> =&gt; <span class="ident">FsError::DirectoryNotEmpty</span>,
         <span class="kw">_</span> =&gt; <span class="ident">FsError::UnknownError</span>,
     }
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">fs_error_into_wasi_err</span>(<span class="ident">fs_error</span>: <span class="ident">FsError</span>) -&gt; <span class="ident">__wasi_errno_t</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">fs_error_into_wasi_err</span>(<span class="ident">fs_error</span>: <span class="ident">FsError</span>) -&gt; <span class="ident">Errno</span> {
     <span class="kw">match</span> <span class="ident">fs_error</span> {
-        <span class="ident">FsError::AlreadyExists</span> =&gt; <span class="ident">__WASI_EEXIST</span>,
-        <span class="ident">FsError::AddressInUse</span> =&gt; <span class="ident">__WASI_EADDRINUSE</span>,
-        <span class="ident">FsError::AddressNotAvailable</span> =&gt; <span class="ident">__WASI_EADDRNOTAVAIL</span>,
-        <span class="ident">FsError::BaseNotDirectory</span> =&gt; <span class="ident">__WASI_ENOTDIR</span>,
-        <span class="ident">FsError::BrokenPipe</span> =&gt; <span class="ident">__WASI_EPIPE</span>,
-        <span class="ident">FsError::ConnectionAborted</span> =&gt; <span class="ident">__WASI_ECONNABORTED</span>,
-        <span class="ident">FsError::ConnectionRefused</span> =&gt; <span class="ident">__WASI_ECONNREFUSED</span>,
-        <span class="ident">FsError::ConnectionReset</span> =&gt; <span class="ident">__WASI_ECONNRESET</span>,
-        <span class="ident">FsError::Interrupted</span> =&gt; <span class="ident">__WASI_EINTR</span>,
-        <span class="ident">FsError::InvalidData</span> =&gt; <span class="ident">__WASI_EIO</span>,
-        <span class="ident">FsError::InvalidFd</span> =&gt; <span class="ident">__WASI_EBADF</span>,
-        <span class="ident">FsError::InvalidInput</span> =&gt; <span class="ident">__WASI_EINVAL</span>,
-        <span class="ident">FsError::IOError</span> =&gt; <span class="ident">__WASI_EIO</span>,
-        <span class="ident">FsError::NoDevice</span> =&gt; <span class="ident">__WASI_ENODEV</span>,
-        <span class="ident">FsError::NotAFile</span> =&gt; <span class="ident">__WASI_EINVAL</span>,
-        <span class="ident">FsError::NotConnected</span> =&gt; <span class="ident">__WASI_ENOTCONN</span>,
-        <span class="ident">FsError::EntityNotFound</span> =&gt; <span class="ident">__WASI_ENOENT</span>,
-        <span class="ident">FsError::PermissionDenied</span> =&gt; <span class="ident">__WASI_EPERM</span>,
-        <span class="ident">FsError::TimedOut</span> =&gt; <span class="ident">__WASI_ETIMEDOUT</span>,
-        <span class="ident">FsError::UnexpectedEof</span> =&gt; <span class="ident">__WASI_EPROTO</span>,
-        <span class="ident">FsError::WouldBlock</span> =&gt; <span class="ident">__WASI_EAGAIN</span>,
-        <span class="ident">FsError::WriteZero</span> =&gt; <span class="ident">__WASI_ENOSPC</span>,
-        <span class="ident">FsError::DirectoryNotEmpty</span> =&gt; <span class="ident">__WASI_ENOTEMPTY</span>,
-        <span class="ident">FsError::Lock</span> <span class="op">|</span> <span class="ident">FsError::UnknownError</span> =&gt; <span class="ident">__WASI_EIO</span>,
+        <span class="ident">FsError::AlreadyExists</span> =&gt; <span class="ident">Errno::Exist</span>,
+        <span class="ident">FsError::AddressInUse</span> =&gt; <span class="ident">Errno::Addrinuse</span>,
+        <span class="ident">FsError::AddressNotAvailable</span> =&gt; <span class="ident">Errno::Addrnotavail</span>,
+        <span class="ident">FsError::BaseNotDirectory</span> =&gt; <span class="ident">Errno::Notdir</span>,
+        <span class="ident">FsError::BrokenPipe</span> =&gt; <span class="ident">Errno::Pipe</span>,
+        <span class="ident">FsError::ConnectionAborted</span> =&gt; <span class="ident">Errno::Connaborted</span>,
+        <span class="ident">FsError::ConnectionRefused</span> =&gt; <span class="ident">Errno::Connrefused</span>,
+        <span class="ident">FsError::ConnectionReset</span> =&gt; <span class="ident">Errno::Connreset</span>,
+        <span class="ident">FsError::Interrupted</span> =&gt; <span class="ident">Errno::Intr</span>,
+        <span class="ident">FsError::InvalidData</span> =&gt; <span class="ident">Errno::Io</span>,
+        <span class="ident">FsError::InvalidFd</span> =&gt; <span class="ident">Errno::Badf</span>,
+        <span class="ident">FsError::InvalidInput</span> =&gt; <span class="ident">Errno::Inval</span>,
+        <span class="ident">FsError::IOError</span> =&gt; <span class="ident">Errno::Io</span>,
+        <span class="ident">FsError::NoDevice</span> =&gt; <span class="ident">Errno::Nodev</span>,
+        <span class="ident">FsError::NotAFile</span> =&gt; <span class="ident">Errno::Inval</span>,
+        <span class="ident">FsError::NotConnected</span> =&gt; <span class="ident">Errno::Notconn</span>,
+        <span class="ident">FsError::EntityNotFound</span> =&gt; <span class="ident">Errno::Noent</span>,
+        <span class="ident">FsError::PermissionDenied</span> =&gt; <span class="ident">Errno::Perm</span>,
+        <span class="ident">FsError::TimedOut</span> =&gt; <span class="ident">Errno::Timedout</span>,
+        <span class="ident">FsError::UnexpectedEof</span> =&gt; <span class="ident">Errno::Proto</span>,
+        <span class="ident">FsError::WouldBlock</span> =&gt; <span class="ident">Errno::Again</span>,
+        <span class="ident">FsError::WriteZero</span> =&gt; <span class="ident">Errno::Nospc</span>,
+        <span class="ident">FsError::DirectoryNotEmpty</span> =&gt; <span class="ident">Errno::Notempty</span>,
+        <span class="ident">FsError::Lock</span> <span class="op">|</span> <span class="ident">FsError::UnknownError</span> =&gt; <span class="ident">Errno::Io</span>,
     }
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">net_error_into_wasi_err</span>(<span class="ident">net_error</span>: <span class="ident">NetworkError</span>) -&gt; <span class="ident">__wasi_errno_t</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">net_error_into_wasi_err</span>(<span class="ident">net_error</span>: <span class="ident">NetworkError</span>) -&gt; <span class="ident">Errno</span> {
     <span class="kw">match</span> <span class="ident">net_error</span> {
-        <span class="ident">NetworkError::InvalidFd</span> =&gt; <span class="ident">__WASI_EBADF</span>,
-        <span class="ident">NetworkError::AlreadyExists</span> =&gt; <span class="ident">__WASI_EEXIST</span>,
-        <span class="ident">NetworkError::Lock</span> =&gt; <span class="ident">__WASI_EIO</span>,
-        <span class="ident">NetworkError::IOError</span> =&gt; <span class="ident">__WASI_EIO</span>,
-        <span class="ident">NetworkError::AddressInUse</span> =&gt; <span class="ident">__WASI_EADDRINUSE</span>,
-        <span class="ident">NetworkError::AddressNotAvailable</span> =&gt; <span class="ident">__WASI_EADDRNOTAVAIL</span>,
-        <span class="ident">NetworkError::BrokenPipe</span> =&gt; <span class="ident">__WASI_EPIPE</span>,
-        <span class="ident">NetworkError::ConnectionAborted</span> =&gt; <span class="ident">__WASI_ECONNABORTED</span>,
-        <span class="ident">NetworkError::ConnectionRefused</span> =&gt; <span class="ident">__WASI_ECONNREFUSED</span>,
-        <span class="ident">NetworkError::ConnectionReset</span> =&gt; <span class="ident">__WASI_ECONNRESET</span>,
-        <span class="ident">NetworkError::Interrupted</span> =&gt; <span class="ident">__WASI_EINTR</span>,
-        <span class="ident">NetworkError::InvalidData</span> =&gt; <span class="ident">__WASI_EIO</span>,
-        <span class="ident">NetworkError::InvalidInput</span> =&gt; <span class="ident">__WASI_EINVAL</span>,
-        <span class="ident">NetworkError::NotConnected</span> =&gt; <span class="ident">__WASI_ENOTCONN</span>,
-        <span class="ident">NetworkError::NoDevice</span> =&gt; <span class="ident">__WASI_ENODEV</span>,
-        <span class="ident">NetworkError::PermissionDenied</span> =&gt; <span class="ident">__WASI_EPERM</span>,
-        <span class="ident">NetworkError::TimedOut</span> =&gt; <span class="ident">__WASI_ETIMEDOUT</span>,
-        <span class="ident">NetworkError::UnexpectedEof</span> =&gt; <span class="ident">__WASI_EPROTO</span>,
-        <span class="ident">NetworkError::WouldBlock</span> =&gt; <span class="ident">__WASI_EAGAIN</span>,
-        <span class="ident">NetworkError::WriteZero</span> =&gt; <span class="ident">__WASI_ENOSPC</span>,
-        <span class="ident">NetworkError::Unsupported</span> =&gt; <span class="ident">__WASI_ENOTSUP</span>,
-        <span class="ident">NetworkError::UnknownError</span> =&gt; <span class="ident">__WASI_EIO</span>,
+        <span class="ident">NetworkError::InvalidFd</span> =&gt; <span class="ident">Errno::Badf</span>,
+        <span class="ident">NetworkError::AlreadyExists</span> =&gt; <span class="ident">Errno::Exist</span>,
+        <span class="ident">NetworkError::Lock</span> =&gt; <span class="ident">Errno::Io</span>,
+        <span class="ident">NetworkError::IOError</span> =&gt; <span class="ident">Errno::Io</span>,
+        <span class="ident">NetworkError::AddressInUse</span> =&gt; <span class="ident">Errno::Addrinuse</span>,
+        <span class="ident">NetworkError::AddressNotAvailable</span> =&gt; <span class="ident">Errno::Addrnotavail</span>,
+        <span class="ident">NetworkError::BrokenPipe</span> =&gt; <span class="ident">Errno::Pipe</span>,
+        <span class="ident">NetworkError::ConnectionAborted</span> =&gt; <span class="ident">Errno::Connaborted</span>,
+        <span class="ident">NetworkError::ConnectionRefused</span> =&gt; <span class="ident">Errno::Connrefused</span>,
+        <span class="ident">NetworkError::ConnectionReset</span> =&gt; <span class="ident">Errno::Connreset</span>,
+        <span class="ident">NetworkError::Interrupted</span> =&gt; <span class="ident">Errno::Intr</span>,
+        <span class="ident">NetworkError::InvalidData</span> =&gt; <span class="ident">Errno::Io</span>,
+        <span class="ident">NetworkError::InvalidInput</span> =&gt; <span class="ident">Errno::Inval</span>,
+        <span class="ident">NetworkError::NotConnected</span> =&gt; <span class="ident">Errno::Notconn</span>,
+        <span class="ident">NetworkError::NoDevice</span> =&gt; <span class="ident">Errno::Nodev</span>,
+        <span class="ident">NetworkError::PermissionDenied</span> =&gt; <span class="ident">Errno::Perm</span>,
+        <span class="ident">NetworkError::TimedOut</span> =&gt; <span class="ident">Errno::Timedout</span>,
+        <span class="ident">NetworkError::UnexpectedEof</span> =&gt; <span class="ident">Errno::Proto</span>,
+        <span class="ident">NetworkError::WouldBlock</span> =&gt; <span class="ident">Errno::Again</span>,
+        <span class="ident">NetworkError::WriteZero</span> =&gt; <span class="ident">Errno::Nospc</span>,
+        <span class="ident">NetworkError::Unsupported</span> =&gt; <span class="ident">Errno::Notsup</span>,
+        <span class="ident">NetworkError::UnknownError</span> =&gt; <span class="ident">Errno::Io</span>,
     }
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">bus_error_into_wasi_err</span>(<span class="ident">bus_error</span>: <span class="ident">BusError</span>) -&gt; <span class="ident">__bus_errno_t</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">bus_error_into_wasi_err</span>(<span class="ident">bus_error</span>: <span class="ident">BusError</span>) -&gt; <span class="ident">BusErrno</span> {
     <span class="kw">use</span> <span class="ident">BusError</span>::<span class="kw-2">*</span>;
     <span class="kw">match</span> <span class="ident">bus_error</span> {
-        <span class="ident">Serialization</span> =&gt; <span class="ident">__BUS_ESER</span>,
-        <span class="ident">Deserialization</span> =&gt; <span class="ident">__BUS_EDES</span>,
-        <span class="ident">InvalidWapm</span> =&gt; <span class="ident">__BUS_EWAPM</span>,
-        <span class="ident">FetchFailed</span> =&gt; <span class="ident">__BUS_EFETCH</span>,
-        <span class="ident">CompileError</span> =&gt; <span class="ident">__BUS_ECOMPILE</span>,
-        <span class="ident">InvalidABI</span> =&gt; <span class="ident">__BUS_EABI</span>,
-        <span class="ident">Aborted</span> =&gt; <span class="ident">__BUS_EABORTED</span>,
-        <span class="ident">BadHandle</span> =&gt; <span class="ident">__BUS_EBADHANDLE</span>,
-        <span class="ident">InvalidTopic</span> =&gt; <span class="ident">__BUS_ETOPIC</span>,
-        <span class="ident">BadCallback</span> =&gt; <span class="ident">__BUS_EBADCB</span>,
-        <span class="ident">Unsupported</span> =&gt; <span class="ident">__BUS_EUNSUPPORTED</span>,
-        <span class="ident">BadRequest</span> =&gt; <span class="ident">__BUS_EBADREQUEST</span>,
-        <span class="ident">AccessDenied</span> =&gt; <span class="ident">__BUS_EDENIED</span>,
-        <span class="ident">InternalError</span> =&gt; <span class="ident">__BUS_EINTERNAL</span>,
-        <span class="ident">MemoryAllocationFailed</span> =&gt; <span class="ident">__BUS_EALLOC</span>,
-        <span class="ident">InvokeFailed</span> =&gt; <span class="ident">__BUS_EINVOKE</span>,
-        <span class="ident">AlreadyConsumed</span> =&gt; <span class="ident">__BUS_ECONSUMED</span>,
-        <span class="ident">MemoryAccessViolation</span> =&gt; <span class="ident">__BUS_EMEMVIOLATION</span>,
-        <span class="ident">UnknownError</span> =&gt; <span class="ident">__BUS_EUNKNOWN</span>,
+        <span class="ident">Serialization</span> =&gt; <span class="ident">BusErrno::Ser</span>,
+        <span class="ident">Deserialization</span> =&gt; <span class="ident">BusErrno::Des</span>,
+        <span class="ident">InvalidWapm</span> =&gt; <span class="ident">BusErrno::Wapm</span>,
+        <span class="ident">FetchFailed</span> =&gt; <span class="ident">BusErrno::Fetch</span>,
+        <span class="ident">CompileError</span> =&gt; <span class="ident">BusErrno::Compile</span>,
+        <span class="ident">InvalidABI</span> =&gt; <span class="ident">BusErrno::Abi</span>,
+        <span class="ident">Aborted</span> =&gt; <span class="ident">BusErrno::Aborted</span>,
+        <span class="ident">BadHandle</span> =&gt; <span class="ident">BusErrno::Badhandle</span>,
+        <span class="ident">InvalidTopic</span> =&gt; <span class="ident">BusErrno::Topic</span>,
+        <span class="ident">BadCallback</span> =&gt; <span class="ident">BusErrno::Badcb</span>,
+        <span class="ident">Unsupported</span> =&gt; <span class="ident">BusErrno::Unsupported</span>,
+        <span class="ident">BadRequest</span> =&gt; <span class="ident">BusErrno::Badrequest</span>,
+        <span class="ident">AccessDenied</span> =&gt; <span class="ident">BusErrno::Denied</span>,
+        <span class="ident">InternalError</span> =&gt; <span class="ident">BusErrno::Internal</span>,
+        <span class="ident">MemoryAllocationFailed</span> =&gt; <span class="ident">BusErrno::Alloc</span>,
+        <span class="ident">InvokeFailed</span> =&gt; <span class="ident">BusErrno::Invoke</span>,
+        <span class="ident">AlreadyConsumed</span> =&gt; <span class="ident">BusErrno::Consumed</span>,
+        <span class="ident">MemoryAccessViolation</span> =&gt; <span class="ident">BusErrno::Memviolation</span>,
+        <span class="ident">UnknownError</span> =&gt; <span class="ident">BusErrno::Unknown</span>,
     }
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">wasi_error_into_bus_err</span>(<span class="ident">bus_error</span>: <span class="ident">__bus_errno_t</span>) -&gt; <span class="ident">BusError</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">wasi_error_into_bus_err</span>(<span class="ident">bus_error</span>: <span class="ident">BusErrno</span>) -&gt; <span class="ident">BusError</span> {
     <span class="kw">use</span> <span class="ident">BusError</span>::<span class="kw-2">*</span>;
     <span class="kw">match</span> <span class="ident">bus_error</span> {
-        <span class="ident">__BUS_ESER</span> =&gt; <span class="ident">Serialization</span>,
-        <span class="ident">__BUS_EDES</span> =&gt; <span class="ident">Deserialization</span>,
-        <span class="ident">__BUS_EWAPM</span> =&gt; <span class="ident">InvalidWapm</span>,
-        <span class="ident">__BUS_EFETCH</span> =&gt; <span class="ident">FetchFailed</span>,
-        <span class="ident">__BUS_ECOMPILE</span> =&gt; <span class="ident">CompileError</span>,
-        <span class="ident">__BUS_EABI</span> =&gt; <span class="ident">InvalidABI</span>,
-        <span class="ident">__BUS_EABORTED</span> =&gt; <span class="ident">Aborted</span>,
-        <span class="ident">__BUS_EBADHANDLE</span> =&gt; <span class="ident">BadHandle</span>,
-        <span class="ident">__BUS_ETOPIC</span> =&gt; <span class="ident">InvalidTopic</span>,
-        <span class="ident">__BUS_EBADCB</span> =&gt; <span class="ident">BadCallback</span>,
-        <span class="ident">__BUS_EUNSUPPORTED</span> =&gt; <span class="ident">Unsupported</span>,
-        <span class="ident">__BUS_EBADREQUEST</span> =&gt; <span class="ident">BadRequest</span>,
-        <span class="ident">__BUS_EDENIED</span> =&gt; <span class="ident">AccessDenied</span>,
-        <span class="ident">__BUS_EINTERNAL</span> =&gt; <span class="ident">InternalError</span>,
-        <span class="ident">__BUS_EALLOC</span> =&gt; <span class="ident">MemoryAllocationFailed</span>,
-        <span class="ident">__BUS_EINVOKE</span> =&gt; <span class="ident">InvokeFailed</span>,
-        <span class="ident">__BUS_ECONSUMED</span> =&gt; <span class="ident">AlreadyConsumed</span>,
-        <span class="ident">__BUS_EMEMVIOLATION</span> =&gt; <span class="ident">MemoryAccessViolation</span>,
-        <span class="comment">/*__BUS_EUNKNOWN |*/</span> <span class="kw">_</span> =&gt; <span class="ident">UnknownError</span>,
+        <span class="ident">BusErrno::Success</span> =&gt; <span class="ident">UnknownError</span>,
+        <span class="ident">BusErrno::Ser</span> =&gt; <span class="ident">Serialization</span>,
+        <span class="ident">BusErrno::Des</span> =&gt; <span class="ident">Deserialization</span>,
+        <span class="ident">BusErrno::Wapm</span> =&gt; <span class="ident">InvalidWapm</span>,
+        <span class="ident">BusErrno::Fetch</span> =&gt; <span class="ident">FetchFailed</span>,
+        <span class="ident">BusErrno::Compile</span> =&gt; <span class="ident">CompileError</span>,
+        <span class="ident">BusErrno::Abi</span> =&gt; <span class="ident">InvalidABI</span>,
+        <span class="ident">BusErrno::Aborted</span> =&gt; <span class="ident">Aborted</span>,
+        <span class="ident">BusErrno::Badhandle</span> =&gt; <span class="ident">BadHandle</span>,
+        <span class="ident">BusErrno::Topic</span> =&gt; <span class="ident">InvalidTopic</span>,
+        <span class="ident">BusErrno::Badcb</span> =&gt; <span class="ident">BadCallback</span>,
+        <span class="ident">BusErrno::Unsupported</span> =&gt; <span class="ident">Unsupported</span>,
+        <span class="ident">BusErrno::Badrequest</span> =&gt; <span class="ident">BadRequest</span>,
+        <span class="ident">BusErrno::Denied</span> =&gt; <span class="ident">AccessDenied</span>,
+        <span class="ident">BusErrno::Internal</span> =&gt; <span class="ident">InternalError</span>,
+        <span class="ident">BusErrno::Alloc</span> =&gt; <span class="ident">MemoryAllocationFailed</span>,
+        <span class="ident">BusErrno::Invoke</span> =&gt; <span class="ident">InvokeFailed</span>,
+        <span class="ident">BusErrno::Consumed</span> =&gt; <span class="ident">AlreadyConsumed</span>,
+        <span class="ident">BusErrno::Memviolation</span> =&gt; <span class="ident">MemoryAccessViolation</span>,
+        <span class="ident">BusErrno::Unknown</span> =&gt; <span class="ident">UnknownError</span>,
     }
 }
 
@@ -919,8 +921,8 @@
 <span class="comment">/*
 TODO: Think about using this
 trait WasiFdBacking: std::fmt::Debug {
-    fn get_stat(&amp;self) -&gt; &amp;__wasi_filestat_t;
-    fn get_stat_mut(&amp;mut self) -&gt; &amp;mut __wasi_filestat_t;
+    fn get_stat(&amp;self) -&gt; &amp;Filestat;
+    fn get_stat_mut(&amp;mut self) -&gt; &amp;mut Filestat;
     fn is_preopened(&amp;self) -&gt; bool;
     fn get_name(&amp;self) -&gt; &amp;str;
 }

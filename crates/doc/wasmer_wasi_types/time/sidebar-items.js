@@ -1,1 +1,0 @@
-initSidebarItems({"constant":[["__WASI_CLOCK_MONOTONIC",""],["__WASI_CLOCK_PROCESS_CPUTIME_ID",""],["__WASI_CLOCK_REALTIME",""],["__WASI_CLOCK_THREAD_CPUTIME_ID",""]],"struct":[["__wasi_option_timestamp_t",""]],"type":[["__wasi_clockid_t",""],["__wasi_timestamp_t",""]]});

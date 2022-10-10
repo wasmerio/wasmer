@@ -833,6 +833,8 @@
 <span id="826">826</span>
 <span id="827">827</span>
 <span id="828">828</span>
+<span id="829">829</span>
+<span id="830">830</span>
 </pre><pre class="rust"><code><span class="attribute">#![<span class="ident">deny</span>(<span class="ident">unused_mut</span>)]</span>
 <span class="attribute">#![<span class="ident">doc</span>(<span class="ident">html_favicon_url</span> <span class="op">=</span> <span class="string">&quot;https://wasmer.io/images/icons/favicon-32x32.png&quot;</span>)]</span>
 <span class="attribute">#![<span class="ident">doc</span>(<span class="ident">html_logo_url</span> <span class="op">=</span> <span class="string">&quot;https://github.com/wasmerio.png?size=200&quot;</span>)]</span>
@@ -892,7 +894,6 @@
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_vfs::VirtualFile</span> <span class="kw">as</span> <span class="ident">WasiFile</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_vfs</span>::{<span class="ident">FsError</span>, <span class="ident">VirtualFile</span>};
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_vnet</span>::{<span class="ident">UnsupportedVirtualNetworking</span>, <span class="ident">VirtualNetworking</span>};
-<span class="kw">use</span> <span class="ident">wasmer_wasi_types::__WASI_CLOCK_MONOTONIC</span>;
 
 <span class="kw">use</span> <span class="ident">derivative</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident">std::ops::Deref</span>;
@@ -903,6 +904,7 @@
     <span class="ident">Imports</span>, <span class="ident">Instance</span>, <span class="ident">Memory</span>, <span class="ident">Memory32</span>, <span class="ident">MemoryAccessError</span>, <span class="ident">MemorySize</span>, <span class="ident">MemoryView</span>, <span class="ident">Module</span>,
     <span class="ident">TypedFunction</span>,
 };
+<span class="kw">use</span> <span class="ident">wasmer_wasi_types::wasi</span>::{<span class="ident">BusErrno</span>, <span class="ident">Errno</span>, <span class="ident">Snapshot0Clockid</span>};
 
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">runtime</span>::{
     <span class="ident">PluggableRuntimeImplementation</span>, <span class="ident">WasiRuntimeImplementation</span>, <span class="ident">WasiThreadError</span>, <span class="ident">WasiTtyState</span>,
@@ -1156,10 +1158,12 @@
     <span class="comment">// Sleeps for a period of time</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">sleep</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">duration</span>: <span class="ident">Duration</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">WasiError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">duration</span> <span class="op">=</span> <span class="ident">duration</span>.<span class="ident">as_nanos</span>();
-        <span class="kw">let</span> <span class="ident">start</span> <span class="op">=</span> <span class="ident">platform_clock_time_get</span>(<span class="ident">__WASI_CLOCK_MONOTONIC</span>, <span class="number">1_000_000</span>).<span class="ident">unwrap</span>() <span class="kw">as</span> <span class="ident">u128</span>;
+        <span class="kw">let</span> <span class="ident">start</span> <span class="op">=</span>
+            <span class="ident">platform_clock_time_get</span>(<span class="ident">Snapshot0Clockid::Monotonic</span>, <span class="number">1_000_000</span>).<span class="ident">unwrap</span>() <span class="kw">as</span> <span class="ident">u128</span>;
         <span class="self">self</span>.<span class="ident">yield_now</span>()<span class="question-mark">?</span>;
         <span class="kw">loop</span> {
-            <span class="kw">let</span> <span class="ident">now</span> <span class="op">=</span> <span class="ident">platform_clock_time_get</span>(<span class="ident">__WASI_CLOCK_MONOTONIC</span>, <span class="number">1_000_000</span>).<span class="ident">unwrap</span>() <span class="kw">as</span> <span class="ident">u128</span>;
+            <span class="kw">let</span> <span class="ident">now</span> <span class="op">=</span>
+                <span class="ident">platform_clock_time_get</span>(<span class="ident">Snapshot0Clockid::Monotonic</span>, <span class="number">1_000_000</span>).<span class="ident">unwrap</span>() <span class="kw">as</span> <span class="ident">u128</span>;
             <span class="kw">let</span> <span class="ident">delta</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">now</span>.<span class="ident">checked_sub</span>(<span class="ident">start</span>) {
                 <span class="prelude-val">Some</span>(<span class="ident">a</span>) =&gt; <span class="ident">a</span>,
                 <span class="prelude-val">None</span> =&gt; {
@@ -1644,21 +1648,21 @@
     }
 }
 
-<span class="kw">fn</span> <span class="ident">mem_error_to_wasi</span>(<span class="ident">err</span>: <span class="ident">MemoryAccessError</span>) -&gt; <span class="ident">types::__wasi_errno_t</span> {
+<span class="kw">fn</span> <span class="ident">mem_error_to_wasi</span>(<span class="ident">err</span>: <span class="ident">MemoryAccessError</span>) -&gt; <span class="ident">Errno</span> {
     <span class="kw">match</span> <span class="ident">err</span> {
-        <span class="ident">MemoryAccessError::HeapOutOfBounds</span> =&gt; <span class="ident">types::__WASI_EFAULT</span>,
-        <span class="ident">MemoryAccessError::Overflow</span> =&gt; <span class="ident">types::__WASI_EOVERFLOW</span>,
-        <span class="ident">MemoryAccessError::NonUtf8String</span> =&gt; <span class="ident">types::__WASI_EINVAL</span>,
-        <span class="kw">_</span> =&gt; <span class="ident">types::__WASI_EINVAL</span>,
+        <span class="ident">MemoryAccessError::HeapOutOfBounds</span> =&gt; <span class="ident">Errno::Fault</span>,
+        <span class="ident">MemoryAccessError::Overflow</span> =&gt; <span class="ident">Errno::Overflow</span>,
+        <span class="ident">MemoryAccessError::NonUtf8String</span> =&gt; <span class="ident">Errno::Inval</span>,
+        <span class="kw">_</span> =&gt; <span class="ident">Errno::Inval</span>,
     }
 }
 
-<span class="kw">fn</span> <span class="ident">mem_error_to_bus</span>(<span class="ident">err</span>: <span class="ident">MemoryAccessError</span>) -&gt; <span class="ident">types::__bus_errno_t</span> {
+<span class="kw">fn</span> <span class="ident">mem_error_to_bus</span>(<span class="ident">err</span>: <span class="ident">MemoryAccessError</span>) -&gt; <span class="ident">BusErrno</span> {
     <span class="kw">match</span> <span class="ident">err</span> {
-        <span class="ident">MemoryAccessError::HeapOutOfBounds</span> =&gt; <span class="ident">types::__BUS_EMEMVIOLATION</span>,
-        <span class="ident">MemoryAccessError::Overflow</span> =&gt; <span class="ident">types::__BUS_EMEMVIOLATION</span>,
-        <span class="ident">MemoryAccessError::NonUtf8String</span> =&gt; <span class="ident">types::__BUS_EBADREQUEST</span>,
-        <span class="kw">_</span> =&gt; <span class="ident">types::__BUS_EUNKNOWN</span>,
+        <span class="ident">MemoryAccessError::HeapOutOfBounds</span> =&gt; <span class="ident">BusErrno::Memviolation</span>,
+        <span class="ident">MemoryAccessError::Overflow</span> =&gt; <span class="ident">BusErrno::Memviolation</span>,
+        <span class="ident">MemoryAccessError::NonUtf8String</span> =&gt; <span class="ident">BusErrno::Badrequest</span>,
+        <span class="kw">_</span> =&gt; <span class="ident">BusErrno::Unknown</span>,
     }
 }
 </code></pre></div>

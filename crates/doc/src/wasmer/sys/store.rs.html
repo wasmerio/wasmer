@@ -346,6 +346,8 @@
 <span id="339">339</span>
 <span id="340">340</span>
 <span id="341">341</span>
+<span id="342">342</span>
+<span id="343">343</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::tunables::BaseTunables</span>;
 <span class="kw">use</span> <span class="ident">std::fmt</span>;
 <span class="kw">use</span> <span class="ident">std::sync</span>::{<span class="ident">Arc</span>, <span class="ident">RwLock</span>};
@@ -374,7 +376,9 @@
 <span class="doccomment">///</span>
 <span class="doccomment">/// The `Store` holds the engine (that is —amongst many things— used to compile</span>
 <span class="doccomment">/// the Wasm bytes into a valid module artifact), in addition to the</span>
-<span class="doccomment">/// [`Tunables`] (that are used to create the memories, tables and globals).</span>
+<span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>, <span class="ident">doc</span> <span class="op">=</span> <span class="string">&quot;[`Tunables`]&quot;</span>)]</span>
+<span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>), <span class="ident">doc</span> <span class="op">=</span> <span class="string">&quot;`Tunables`&quot;</span>)]</span>
+<span class="doccomment">/// (that are used to create the memories, tables and globals).</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// Spec: &lt;https://webassembly.github.io/spec/core/exec/runtime.html#store&gt;</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Store</span> {

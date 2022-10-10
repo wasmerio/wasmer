@@ -293,9 +293,9 @@
 <span id="286">286</span>
 <span id="287">287</span>
 <span id="288">288</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">super</span>::types</span>::<span class="kw-2">*</span>;
-<span class="kw">use</span> <span class="ident">std::collections::BTreeSet</span>;
+</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std::collections::BTreeSet</span>;
 <span class="kw">use</span> <span class="ident">wasmer::Module</span>;
+<span class="kw">use</span> <span class="ident">wasmer_wasi_types::wasi::Errno</span>;
 
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
 <span class="doccomment">/// Check if a provided module is compiled for some version of WASI.</span>
@@ -317,29 +317,29 @@
     }
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">map_io_err</span>(<span class="ident">err</span>: <span class="ident">std::io::Error</span>) -&gt; <span class="ident">__wasi_errno_t</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">map_io_err</span>(<span class="ident">err</span>: <span class="ident">std::io::Error</span>) -&gt; <span class="ident">Errno</span> {
     <span class="kw">use</span> <span class="ident">std::io::ErrorKind</span>;
     <span class="kw">match</span> <span class="ident">err</span>.<span class="ident">kind</span>() {
-        <span class="ident">ErrorKind::NotFound</span> =&gt; <span class="ident">__WASI_ENOENT</span>,
-        <span class="ident">ErrorKind::PermissionDenied</span> =&gt; <span class="ident">__WASI_EPERM</span>,
-        <span class="ident">ErrorKind::ConnectionRefused</span> =&gt; <span class="ident">__WASI_ECONNREFUSED</span>,
-        <span class="ident">ErrorKind::ConnectionReset</span> =&gt; <span class="ident">__WASI_ECONNRESET</span>,
-        <span class="ident">ErrorKind::ConnectionAborted</span> =&gt; <span class="ident">__WASI_ECONNABORTED</span>,
-        <span class="ident">ErrorKind::NotConnected</span> =&gt; <span class="ident">__WASI_ENOTCONN</span>,
-        <span class="ident">ErrorKind::AddrInUse</span> =&gt; <span class="ident">__WASI_EADDRINUSE</span>,
-        <span class="ident">ErrorKind::AddrNotAvailable</span> =&gt; <span class="ident">__WASI_EADDRNOTAVAIL</span>,
-        <span class="ident">ErrorKind::BrokenPipe</span> =&gt; <span class="ident">__WASI_EPIPE</span>,
-        <span class="ident">ErrorKind::AlreadyExists</span> =&gt; <span class="ident">__WASI_EEXIST</span>,
-        <span class="ident">ErrorKind::WouldBlock</span> =&gt; <span class="ident">__WASI_EAGAIN</span>,
-        <span class="ident">ErrorKind::InvalidInput</span> =&gt; <span class="ident">__WASI_EIO</span>,
-        <span class="ident">ErrorKind::InvalidData</span> =&gt; <span class="ident">__WASI_EIO</span>,
-        <span class="ident">ErrorKind::TimedOut</span> =&gt; <span class="ident">__WASI_ETIMEDOUT</span>,
-        <span class="ident">ErrorKind::WriteZero</span> =&gt; <span class="ident">__WASI_EIO</span>,
-        <span class="ident">ErrorKind::Interrupted</span> =&gt; <span class="ident">__WASI_EINTR</span>,
-        <span class="ident">ErrorKind::Other</span> =&gt; <span class="ident">__WASI_EIO</span>,
-        <span class="ident">ErrorKind::UnexpectedEof</span> =&gt; <span class="ident">__WASI_EIO</span>,
-        <span class="ident">ErrorKind::Unsupported</span> =&gt; <span class="ident">__WASI_ENOTSUP</span>,
-        <span class="kw">_</span> =&gt; <span class="ident">__WASI_EIO</span>,
+        <span class="ident">ErrorKind::NotFound</span> =&gt; <span class="ident">Errno::Noent</span>,
+        <span class="ident">ErrorKind::PermissionDenied</span> =&gt; <span class="ident">Errno::Perm</span>,
+        <span class="ident">ErrorKind::ConnectionRefused</span> =&gt; <span class="ident">Errno::Connrefused</span>,
+        <span class="ident">ErrorKind::ConnectionReset</span> =&gt; <span class="ident">Errno::Connreset</span>,
+        <span class="ident">ErrorKind::ConnectionAborted</span> =&gt; <span class="ident">Errno::Connaborted</span>,
+        <span class="ident">ErrorKind::NotConnected</span> =&gt; <span class="ident">Errno::Notconn</span>,
+        <span class="ident">ErrorKind::AddrInUse</span> =&gt; <span class="ident">Errno::Addrinuse</span>,
+        <span class="ident">ErrorKind::AddrNotAvailable</span> =&gt; <span class="ident">Errno::Addrnotavail</span>,
+        <span class="ident">ErrorKind::BrokenPipe</span> =&gt; <span class="ident">Errno::Pipe</span>,
+        <span class="ident">ErrorKind::AlreadyExists</span> =&gt; <span class="ident">Errno::Exist</span>,
+        <span class="ident">ErrorKind::WouldBlock</span> =&gt; <span class="ident">Errno::Again</span>,
+        <span class="ident">ErrorKind::InvalidInput</span> =&gt; <span class="ident">Errno::Io</span>,
+        <span class="ident">ErrorKind::InvalidData</span> =&gt; <span class="ident">Errno::Io</span>,
+        <span class="ident">ErrorKind::TimedOut</span> =&gt; <span class="ident">Errno::Timedout</span>,
+        <span class="ident">ErrorKind::WriteZero</span> =&gt; <span class="ident">Errno::Io</span>,
+        <span class="ident">ErrorKind::Interrupted</span> =&gt; <span class="ident">Errno::Intr</span>,
+        <span class="ident">ErrorKind::Other</span> =&gt; <span class="ident">Errno::Io</span>,
+        <span class="ident">ErrorKind::UnexpectedEof</span> =&gt; <span class="ident">Errno::Io</span>,
+        <span class="ident">ErrorKind::Unsupported</span> =&gt; <span class="ident">Errno::Notsup</span>,
+        <span class="kw">_</span> =&gt; <span class="ident">Errno::Io</span>,
     }
 }
 

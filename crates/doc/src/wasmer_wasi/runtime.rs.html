@@ -162,8 +162,8 @@
 <span class="kw">use</span> <span class="ident">thiserror::Error</span>;
 <span class="kw">use</span> <span class="ident">wasmer_vbus</span>::{<span class="ident">UnsupportedVirtualBus</span>, <span class="ident">VirtualBus</span>};
 <span class="kw">use</span> <span class="ident">wasmer_vnet::VirtualNetworking</span>;
+<span class="kw">use</span> <span class="ident">wasmer_wasi_types::wasi::Errno</span>;
 
-<span class="kw">use</span> <span class="ident"><span class="kw">super</span>::types</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::WasiError</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::WasiThreadId</span>;
 
@@ -175,11 +175,11 @@
     <span class="ident">MethodNotFound</span>,
 }
 
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">WasiThreadError</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">__wasi_errno_t</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">a</span>: <span class="ident">WasiThreadError</span>) -&gt; <span class="ident">__wasi_errno_t</span> {
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">WasiThreadError</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Errno</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">a</span>: <span class="ident">WasiThreadError</span>) -&gt; <span class="ident">Errno</span> {
         <span class="kw">match</span> <span class="ident">a</span> {
-            <span class="ident">WasiThreadError::Unsupported</span> =&gt; <span class="ident">__WASI_ENOTSUP</span>,
-            <span class="ident">WasiThreadError::MethodNotFound</span> =&gt; <span class="ident">__WASI_EINVAL</span>,
+            <span class="ident">WasiThreadError::Unsupported</span> =&gt; <span class="ident">Errno::Notsup</span>,
+            <span class="ident">WasiThreadError::MethodNotFound</span> =&gt; <span class="ident">Errno::Inval</span>,
         }
     }
 }

@@ -516,6 +516,10 @@
 <span id="509">509</span>
 <span id="510">510</span>
 <span id="511">511</span>
+<span id="512">512</span>
+<span id="513">513</span>
+<span id="514">514</span>
+<span id="515">515</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::InstantiationError</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::AsStoreMut</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::AsStoreRef</span>;
@@ -752,7 +756,9 @@
     }
 
     <span class="doccomment">/// Serializes a module into a binary representation that the `Engine`</span>
-    <span class="doccomment">/// can later process via [`Module::deserialize`].</span>
+    <span class="doccomment">/// can later process via</span>
+    <span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>, <span class="ident">doc</span> <span class="op">=</span> <span class="string">&quot;[`Module::deserialize`].&quot;</span>)]</span>
+    <span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>), <span class="ident">doc</span> <span class="op">=</span> <span class="string">&quot;`Module::deserialize`.&quot;</span>)]</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// # Usage</span>
     <span class="doccomment">///</span>
@@ -770,7 +776,9 @@
     }
 
     <span class="doccomment">/// Serializes a module into a file that the `Engine`</span>
-    <span class="doccomment">/// can later process via [`Module::deserialize_from_file`].</span>
+    <span class="doccomment">/// can later process via</span>
+    <span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>, <span class="ident">doc</span> <span class="op">=</span> <span class="string">&quot;[`Module::deserialize_from_file`].&quot;</span>)]</span>
+    <span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>), <span class="ident">doc</span> <span class="op">=</span> <span class="string">&quot;`Module::deserialize_from_file`.&quot;</span>)]</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// # Usage</span>
     <span class="doccomment">///</span>

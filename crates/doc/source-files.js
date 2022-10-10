@@ -3,6 +3,7 @@ sourcesIndex["compiler_test_derive"] = {"name":"","files":["ignores.rs","lib.rs"
 sourcesIndex["macro_wasmer_universal_test"] = {"name":"","files":["lib.rs"]};
 sourcesIndex["test_generator"] = {"name":"","files":["lib.rs","processors.rs"]};
 sourcesIndex["wasi_test_generator"] = {"name":"","files":["main.rs","set_up_toolchain.rs","util.rs","wasi_version.rs","wasitests.rs"]};
+sourcesIndex["wasi_types_generator_extra"] = {"name":"","files":["main.rs"]};
 sourcesIndex["wasmer"] = {"name":"","dirs":[{"name":"sys","dirs":[{"name":"externals","files":["function.rs","global.rs","memory.rs","memory_view.rs","mod.rs","table.rs"]}],"files":["exports.rs","extern_ref.rs","function_env.rs","imports.rs","instance.rs","mem_access.rs","mod.rs","module.rs","native.rs","native_type.rs","ptr.rs","store.rs","tunables.rs","value.rs"]}],"files":["lib.rs"]};
 sourcesIndex["wasmer_c_api"] = {"name":"","dirs":[{"name":"wasm_c_api","dirs":[{"name":"externals","files":["function.rs","global.rs","memory.rs","mod.rs","table.rs"]},{"name":"types","files":["export.rs","extern_.rs","frame.rs","function.rs","global.rs","import.rs","memory.rs","mod.rs","mutability.rs","table.rs","value.rs"]},{"name":"unstable","dirs":[{"name":"middlewares","files":["metering.rs","mod.rs"]},{"name":"parser","files":["mod.rs","operator.rs"]}],"files":["engine.rs","features.rs","mod.rs","module.rs","target_lexicon.rs","wasi.rs"]},{"name":"wasi","files":["mod.rs"]}],"files":["engine.rs","function_env.rs","instance.rs","macros.rs","mod.rs","module.rs","store.rs","trap.rs","value.rs","version.rs","wat.rs"]}],"files":["error.rs","lib.rs"]};
 sourcesIndex["wasmer_c_api_test_runner"] = {"name":"","files":["lib.rs"]};
@@ -27,6 +28,6 @@ sourcesIndex["wasmer_vnet"] = {"name":"","files":["lib.rs"]};
 sourcesIndex["wasmer_wasi"] = {"name":"","dirs":[{"name":"state","files":["builder.rs","guard.rs","mod.rs","pipe.rs","socket.rs","types.rs"]},{"name":"syscalls","dirs":[{"name":"legacy","files":["mod.rs","snapshot0.rs"]},{"name":"unix","files":["mod.rs"]}],"files":["mod.rs","wasix32.rs","wasix64.rs"]}],"files":["lib.rs","macros.rs","runtime.rs","utils.rs"]};
 sourcesIndex["wasmer_wasi_experimental_io_devices"] = {"name":"","files":["lib.rs"]};
 sourcesIndex["wasmer_wasi_local_networking"] = {"name":"","files":["lib.rs"]};
-sourcesIndex["wasmer_wasi_types"] = {"name":"","dirs":[{"name":"versions","files":["mod.rs","snapshot0.rs"]}],"files":["advice.rs","bus.rs","directory.rs","error.rs","event.rs","file.rs","io.rs","lib.rs","net.rs","signal.rs","subscription.rs","time.rs"]};
+sourcesIndex["wasmer_wasi_types"] = {"name":"","dirs":[{"name":"wasi","files":["extra.rs","extra_manual.rs","mod.rs"]}],"files":["lib.rs","types.rs"]};
 sourcesIndex["wasmer_wast"] = {"name":"","files":["error.rs","lib.rs","spectest.rs","wasi_wast.rs","wast.rs"]};
 createSourceSidebar();

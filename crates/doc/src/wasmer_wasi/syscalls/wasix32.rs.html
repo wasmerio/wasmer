@@ -1036,39 +1036,16 @@
 <span id="1029">1029</span>
 <span id="1030">1030</span>
 <span id="1031">1031</span>
-<span id="1032">1032</span>
-<span id="1033">1033</span>
-<span id="1034">1034</span>
-<span id="1035">1035</span>
-<span id="1036">1036</span>
-<span id="1037">1037</span>
-<span id="1038">1038</span>
-<span id="1039">1039</span>
-<span id="1040">1040</span>
-<span id="1041">1041</span>
-<span id="1042">1042</span>
-<span id="1043">1043</span>
-<span id="1044">1044</span>
-<span id="1045">1045</span>
-<span id="1046">1046</span>
-<span id="1047">1047</span>
-<span id="1048">1048</span>
-<span id="1049">1049</span>
-<span id="1050">1050</span>
-<span id="1051">1051</span>
-<span id="1052">1052</span>
-<span id="1053">1053</span>
-<span id="1054">1054</span>
-<span id="1055">1055</span>
-<span id="1056">1056</span>
-<span id="1057">1057</span>
-<span id="1058">1058</span>
-<span id="1059">1059</span>
-<span id="1060">1060</span>
 </pre><pre class="rust"><code><span class="attribute">#![<span class="ident">deny</span>(<span class="ident">dead_code</span>)]</span>
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">WasiEnv</span>, <span class="ident">WasiError</span>, <span class="ident">WasiState</span>, <span class="ident">WasiThread</span>};
 <span class="kw">use</span> <span class="ident">wasmer</span>::{<span class="ident">FunctionEnvMut</span>, <span class="ident">Memory</span>, <span class="ident">Memory32</span>, <span class="ident">MemorySize</span>, <span class="ident">StoreMut</span>, <span class="ident">WasmPtr</span>, <span class="ident">WasmSlice</span>};
-<span class="kw">use</span> <span class="ident">wasmer_wasi_types</span>::<span class="kw-2">*</span>;
+<span class="kw">use</span> <span class="ident">wasmer_wasi_types::types</span>::<span class="kw-2">*</span>;
+<span class="kw">use</span> <span class="ident">wasmer_wasi_types::wasi</span>::{
+    <span class="ident">Addressfamily</span>, <span class="ident">Advice</span>, <span class="ident">Bid</span>, <span class="ident">BusDataFormat</span>, <span class="ident">BusErrno</span>, <span class="ident">BusHandles</span>, <span class="ident">Cid</span>, <span class="ident">Clockid</span>, <span class="ident">Dircookie</span>,
+    <span class="ident">Errno</span>, <span class="ident">Event</span>, <span class="ident">EventFdFlags</span>, <span class="ident">Fd</span>, <span class="ident">Fdflags</span>, <span class="ident">Fdstat</span>, <span class="ident">Filesize</span>, <span class="ident">Filestat</span>, <span class="ident">Fstflags</span>, <span class="ident">Pid</span>, <span class="ident">Prestat</span>,
+    <span class="ident">Rights</span>, <span class="ident">Sockoption</span>, <span class="ident">Sockstatus</span>, <span class="ident">Socktype</span>, <span class="ident">Streamsecurity</span>, <span class="ident">Subscription</span>, <span class="ident">Tid</span>, <span class="ident">Timestamp</span>, <span class="ident">Tty</span>,
+    <span class="ident">Whence</span>,
+};
 
 <span class="kw">type</span> <span class="ident">MemoryType</span> <span class="op">=</span> <span class="ident">Memory32</span>;
 <span class="kw">type</span> <span class="ident">MemoryOffset</span> <span class="op">=</span> <span class="ident">u32</span>;
@@ -1077,7 +1054,7 @@
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
     <span class="ident">argv</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">argv_buf</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::args_get</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">argv</span>, <span class="ident">argv_buf</span>)
 }
 
@@ -1085,24 +1062,24 @@
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
     <span class="ident">argc</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">MemoryOffset</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">argv_buf_size</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">MemoryOffset</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::args_sizes_get</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">argc</span>, <span class="ident">argv_buf_size</span>)
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">clock_res_get</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">clock_id</span>: <span class="ident">__wasi_clockid_t</span>,
-    <span class="ident">resolution</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_timestamp_t</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+    <span class="ident">clock_id</span>: <span class="ident">Clockid</span>,
+    <span class="ident">resolution</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">Timestamp</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
+) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::clock_res_get</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">clock_id</span>, <span class="ident">resolution</span>)
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">clock_time_get</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">clock_id</span>: <span class="ident">__wasi_clockid_t</span>,
-    <span class="ident">precision</span>: <span class="ident">__wasi_timestamp_t</span>,
-    <span class="ident">time</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_timestamp_t</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+    <span class="ident">clock_id</span>: <span class="ident">Clockid</span>,
+    <span class="ident">precision</span>: <span class="ident">Timestamp</span>,
+    <span class="ident">time</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">Timestamp</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
+) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::clock_time_get</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">clock_id</span>, <span class="ident">precision</span>, <span class="ident">time</span>)
 }
 
@@ -1110,7 +1087,7 @@
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
     <span class="ident">environ</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">environ_buf</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::environ_get</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">environ</span>, <span class="ident">environ_buf</span>)
 }
 
@@ -1118,218 +1095,210 @@
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
     <span class="ident">environ_count</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">MemoryOffset</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">environ_buf_size</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">MemoryOffset</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::environ_sizes_get</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">environ_count</span>, <span class="ident">environ_buf_size</span>)
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">fd_advise</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">fd</span>: <span class="ident">__wasi_fd_t</span>,
-    <span class="ident">offset</span>: <span class="ident">__wasi_filesize_t</span>,
-    <span class="ident">len</span>: <span class="ident">__wasi_filesize_t</span>,
-    <span class="ident">advice</span>: <span class="ident">__wasi_advice_t</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+    <span class="ident">fd</span>: <span class="ident">Fd</span>,
+    <span class="ident">offset</span>: <span class="ident">Filesize</span>,
+    <span class="ident">len</span>: <span class="ident">Filesize</span>,
+    <span class="ident">advice</span>: <span class="ident">Advice</span>,
+) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::fd_advise</span>(<span class="ident">ctx</span>, <span class="ident">fd</span>, <span class="ident">offset</span>, <span class="ident">len</span>, <span class="ident">advice</span>)
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">fd_allocate</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">fd</span>: <span class="ident">__wasi_fd_t</span>,
-    <span class="ident">offset</span>: <span class="ident">__wasi_filesize_t</span>,
-    <span class="ident">len</span>: <span class="ident">__wasi_filesize_t</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+    <span class="ident">fd</span>: <span class="ident">Fd</span>,
+    <span class="ident">offset</span>: <span class="ident">Filesize</span>,
+    <span class="ident">len</span>: <span class="ident">Filesize</span>,
+) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::fd_allocate</span>(<span class="ident">ctx</span>, <span class="ident">fd</span>, <span class="ident">offset</span>, <span class="ident">len</span>)
 }
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">fd_close</span>(<span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>, <span class="ident">fd</span>: <span class="ident">__wasi_fd_t</span>) -&gt; <span class="ident">__wasi_errno_t</span> {
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">fd_close</span>(<span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>, <span class="ident">fd</span>: <span class="ident">Fd</span>) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::fd_close</span>(<span class="ident">ctx</span>, <span class="ident">fd</span>)
 }
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">fd_datasync</span>(<span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>, <span class="ident">fd</span>: <span class="ident">__wasi_fd_t</span>) -&gt; <span class="ident">__wasi_errno_t</span> {
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">fd_datasync</span>(<span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>, <span class="ident">fd</span>: <span class="ident">Fd</span>) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::fd_datasync</span>(<span class="ident">ctx</span>, <span class="ident">fd</span>)
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">fd_fdstat_get</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">fd</span>: <span class="ident">__wasi_fd_t</span>,
-    <span class="ident">buf_ptr</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_fdstat_t</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+    <span class="ident">fd</span>: <span class="ident">Fd</span>,
+    <span class="ident">buf_ptr</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">Fdstat</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
+) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::fd_fdstat_get</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">fd</span>, <span class="ident">buf_ptr</span>)
 }
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">fd_fdstat_set_flags</span>(
-    <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">fd</span>: <span class="ident">__wasi_fd_t</span>,
-    <span class="ident">flags</span>: <span class="ident">__wasi_fdflags_t</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">fd_fdstat_set_flags</span>(<span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>, <span class="ident">fd</span>: <span class="ident">Fd</span>, <span class="ident">flags</span>: <span class="ident">Fdflags</span>) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::fd_fdstat_set_flags</span>(<span class="ident">ctx</span>, <span class="ident">fd</span>, <span class="ident">flags</span>)
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">fd_fdstat_set_rights</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">fd</span>: <span class="ident">__wasi_fd_t</span>,
-    <span class="ident">fs_rights_base</span>: <span class="ident">__wasi_rights_t</span>,
-    <span class="ident">fs_rights_inheriting</span>: <span class="ident">__wasi_rights_t</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+    <span class="ident">fd</span>: <span class="ident">Fd</span>,
+    <span class="ident">fs_rights_base</span>: <span class="ident">Rights</span>,
+    <span class="ident">fs_rights_inheriting</span>: <span class="ident">Rights</span>,
+) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::fd_fdstat_set_rights</span>(<span class="ident">ctx</span>, <span class="ident">fd</span>, <span class="ident">fs_rights_base</span>, <span class="ident">fs_rights_inheriting</span>)
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">fd_filestat_get</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">fd</span>: <span class="ident">__wasi_fd_t</span>,
-    <span class="ident">buf</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_filestat_t</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+    <span class="ident">fd</span>: <span class="ident">Fd</span>,
+    <span class="ident">buf</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">Filestat</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
+) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::fd_filestat_get</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">fd</span>, <span class="ident">buf</span>)
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">fd_filestat_set_size</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">fd</span>: <span class="ident">__wasi_fd_t</span>,
-    <span class="ident">st_size</span>: <span class="ident">__wasi_filesize_t</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+    <span class="ident">fd</span>: <span class="ident">Fd</span>,
+    <span class="ident">st_size</span>: <span class="ident">Filesize</span>,
+) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::fd_filestat_set_size</span>(<span class="ident">ctx</span>, <span class="ident">fd</span>, <span class="ident">st_size</span>)
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">fd_filestat_set_times</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">fd</span>: <span class="ident">__wasi_fd_t</span>,
-    <span class="ident">st_atim</span>: <span class="ident">__wasi_timestamp_t</span>,
-    <span class="ident">st_mtim</span>: <span class="ident">__wasi_timestamp_t</span>,
-    <span class="ident">fst_flags</span>: <span class="ident">__wasi_fstflags_t</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+    <span class="ident">fd</span>: <span class="ident">Fd</span>,
+    <span class="ident">st_atim</span>: <span class="ident">Timestamp</span>,
+    <span class="ident">st_mtim</span>: <span class="ident">Timestamp</span>,
+    <span class="ident">fst_flags</span>: <span class="ident">Fstflags</span>,
+) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::fd_filestat_set_times</span>(<span class="ident">ctx</span>, <span class="ident">fd</span>, <span class="ident">st_atim</span>, <span class="ident">st_mtim</span>, <span class="ident">fst_flags</span>)
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">fd_pread</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">fd</span>: <span class="ident">__wasi_fd_t</span>,
+    <span class="ident">fd</span>: <span class="ident">Fd</span>,
     <span class="ident">iovs</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_iovec_t</span><span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">iovs_len</span>: <span class="ident">MemoryOffset</span>,
-    <span class="ident">offset</span>: <span class="ident">__wasi_filesize_t</span>,
+    <span class="ident">offset</span>: <span class="ident">Filesize</span>,
     <span class="ident">nread</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">MemoryOffset</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">__wasi_errno_t</span>, <span class="ident">WasiError</span><span class="op">&gt;</span> {
+) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Errno</span>, <span class="ident">WasiError</span><span class="op">&gt;</span> {
     <span class="ident"><span class="kw">super</span>::fd_pread</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">fd</span>, <span class="ident">iovs</span>, <span class="ident">iovs_len</span>, <span class="ident">offset</span>, <span class="ident">nread</span>)
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">fd_prestat_get</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">fd</span>: <span class="ident">__wasi_fd_t</span>,
-    <span class="ident">buf</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_prestat_t</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+    <span class="ident">fd</span>: <span class="ident">Fd</span>,
+    <span class="ident">buf</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">Prestat</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
+) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::fd_prestat_get</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">fd</span>, <span class="ident">buf</span>)
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">fd_prestat_dir_name</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">fd</span>: <span class="ident">__wasi_fd_t</span>,
+    <span class="ident">fd</span>: <span class="ident">Fd</span>,
     <span class="ident">path</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">path_len</span>: <span class="ident">MemoryOffset</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::fd_prestat_dir_name</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">fd</span>, <span class="ident">path</span>, <span class="ident">path_len</span>)
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">fd_pwrite</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">fd</span>: <span class="ident">__wasi_fd_t</span>,
+    <span class="ident">fd</span>: <span class="ident">Fd</span>,
     <span class="ident">iovs</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_ciovec_t</span><span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">iovs_len</span>: <span class="ident">MemoryOffset</span>,
-    <span class="ident">offset</span>: <span class="ident">__wasi_filesize_t</span>,
+    <span class="ident">offset</span>: <span class="ident">Filesize</span>,
     <span class="ident">nwritten</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">MemoryOffset</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">__wasi_errno_t</span>, <span class="ident">WasiError</span><span class="op">&gt;</span> {
+) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Errno</span>, <span class="ident">WasiError</span><span class="op">&gt;</span> {
     <span class="ident"><span class="kw">super</span>::fd_pwrite</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">fd</span>, <span class="ident">iovs</span>, <span class="ident">iovs_len</span>, <span class="ident">offset</span>, <span class="ident">nwritten</span>)
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">fd_read</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">fd</span>: <span class="ident">__wasi_fd_t</span>,
+    <span class="ident">fd</span>: <span class="ident">Fd</span>,
     <span class="ident">iovs</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_iovec_t</span><span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">iovs_len</span>: <span class="ident">MemoryOffset</span>,
     <span class="ident">nread</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">MemoryOffset</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">__wasi_errno_t</span>, <span class="ident">WasiError</span><span class="op">&gt;</span> {
+) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Errno</span>, <span class="ident">WasiError</span><span class="op">&gt;</span> {
     <span class="ident"><span class="kw">super</span>::fd_read</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">fd</span>, <span class="ident">iovs</span>, <span class="ident">iovs_len</span>, <span class="ident">nread</span>)
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">fd_readdir</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">fd</span>: <span class="ident">__wasi_fd_t</span>,
+    <span class="ident">fd</span>: <span class="ident">Fd</span>,
     <span class="ident">buf</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">buf_len</span>: <span class="ident">MemoryOffset</span>,
-    <span class="ident">cookie</span>: <span class="ident">__wasi_dircookie_t</span>,
+    <span class="ident">cookie</span>: <span class="ident">Dircookie</span>,
     <span class="ident">bufused</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">MemoryOffset</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::fd_readdir</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">fd</span>, <span class="ident">buf</span>, <span class="ident">buf_len</span>, <span class="ident">cookie</span>, <span class="ident">bufused</span>)
 }
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">fd_renumber</span>(
-    <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">from</span>: <span class="ident">__wasi_fd_t</span>,
-    <span class="ident">to</span>: <span class="ident">__wasi_fd_t</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">fd_renumber</span>(<span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>, <span class="ident">from</span>: <span class="ident">Fd</span>, <span class="ident">to</span>: <span class="ident">Fd</span>) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::fd_renumber</span>(<span class="ident">ctx</span>, <span class="ident">from</span>, <span class="ident">to</span>)
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">fd_seek</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">fd</span>: <span class="ident">__wasi_fd_t</span>,
-    <span class="ident">offset</span>: <span class="ident">__wasi_filedelta_t</span>,
-    <span class="ident">whence</span>: <span class="ident">__wasi_whence_t</span>,
-    <span class="ident">newoffset</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_filesize_t</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">__wasi_errno_t</span>, <span class="ident">WasiError</span><span class="op">&gt;</span> {
+    <span class="ident">fd</span>: <span class="ident">Fd</span>,
+    <span class="ident">offset</span>: <span class="ident">FileDelta</span>,
+    <span class="ident">whence</span>: <span class="ident">Whence</span>,
+    <span class="ident">newoffset</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">Filesize</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
+) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Errno</span>, <span class="ident">WasiError</span><span class="op">&gt;</span> {
     <span class="ident"><span class="kw">super</span>::fd_seek</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">fd</span>, <span class="ident">offset</span>, <span class="ident">whence</span>, <span class="ident">newoffset</span>)
 }
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">fd_sync</span>(<span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>, <span class="ident">fd</span>: <span class="ident">__wasi_fd_t</span>) -&gt; <span class="ident">__wasi_errno_t</span> {
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">fd_sync</span>(<span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>, <span class="ident">fd</span>: <span class="ident">Fd</span>) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::fd_sync</span>(<span class="ident">ctx</span>, <span class="ident">fd</span>)
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">fd_tell</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">fd</span>: <span class="ident">__wasi_fd_t</span>,
-    <span class="ident">offset</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_filesize_t</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+    <span class="ident">fd</span>: <span class="ident">Fd</span>,
+    <span class="ident">offset</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">Filesize</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
+) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::fd_tell</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">fd</span>, <span class="ident">offset</span>)
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">fd_write</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">fd</span>: <span class="ident">__wasi_fd_t</span>,
+    <span class="ident">fd</span>: <span class="ident">Fd</span>,
     <span class="ident">iovs</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_ciovec_t</span><span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">iovs_len</span>: <span class="ident">MemoryOffset</span>,
     <span class="ident">nwritten</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">MemoryOffset</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">__wasi_errno_t</span>, <span class="ident">WasiError</span><span class="op">&gt;</span> {
+) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Errno</span>, <span class="ident">WasiError</span><span class="op">&gt;</span> {
     <span class="ident"><span class="kw">super</span>::fd_write</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">fd</span>, <span class="ident">iovs</span>, <span class="ident">iovs_len</span>, <span class="ident">nwritten</span>)
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">path_create_directory</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">fd</span>: <span class="ident">__wasi_fd_t</span>,
+    <span class="ident">fd</span>: <span class="ident">Fd</span>,
     <span class="ident">path</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">path_len</span>: <span class="ident">MemoryOffset</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::path_create_directory</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">fd</span>, <span class="ident">path</span>, <span class="ident">path_len</span>)
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">path_filestat_get</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">fd</span>: <span class="ident">__wasi_fd_t</span>,
-    <span class="ident">flags</span>: <span class="ident">__wasi_lookupflags_t</span>,
+    <span class="ident">fd</span>: <span class="ident">Fd</span>,
+    <span class="ident">flags</span>: <span class="ident">LookupFlags</span>,
     <span class="ident">path</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">path_len</span>: <span class="ident">MemoryOffset</span>,
-    <span class="ident">buf</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_filestat_t</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+    <span class="ident">buf</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">Filestat</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
+) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::path_filestat_get</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">fd</span>, <span class="ident">flags</span>, <span class="ident">path</span>, <span class="ident">path_len</span>, <span class="ident">buf</span>)
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">path_filestat_set_times</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">fd</span>: <span class="ident">__wasi_fd_t</span>,
-    <span class="ident">flags</span>: <span class="ident">__wasi_lookupflags_t</span>,
+    <span class="ident">fd</span>: <span class="ident">Fd</span>,
+    <span class="ident">flags</span>: <span class="ident">LookupFlags</span>,
     <span class="ident">path</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">path_len</span>: <span class="ident">MemoryOffset</span>,
-    <span class="ident">st_atim</span>: <span class="ident">__wasi_timestamp_t</span>,
-    <span class="ident">st_mtim</span>: <span class="ident">__wasi_timestamp_t</span>,
-    <span class="ident">fst_flags</span>: <span class="ident">__wasi_fstflags_t</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+    <span class="ident">st_atim</span>: <span class="ident">Timestamp</span>,
+    <span class="ident">st_mtim</span>: <span class="ident">Timestamp</span>,
+    <span class="ident">fst_flags</span>: <span class="ident">Fstflags</span>,
+) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::path_filestat_set_times</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(
         <span class="ident">ctx</span>, <span class="ident">fd</span>, <span class="ident">flags</span>, <span class="ident">path</span>, <span class="ident">path_len</span>, <span class="ident">st_atim</span>, <span class="ident">st_mtim</span>, <span class="ident">fst_flags</span>,
     )
@@ -1337,14 +1306,14 @@
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">path_link</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">old_fd</span>: <span class="ident">__wasi_fd_t</span>,
-    <span class="ident">old_flags</span>: <span class="ident">__wasi_lookupflags_t</span>,
+    <span class="ident">old_fd</span>: <span class="ident">Fd</span>,
+    <span class="ident">old_flags</span>: <span class="ident">LookupFlags</span>,
     <span class="ident">old_path</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">old_path_len</span>: <span class="ident">MemoryOffset</span>,
-    <span class="ident">new_fd</span>: <span class="ident">__wasi_fd_t</span>,
+    <span class="ident">new_fd</span>: <span class="ident">Fd</span>,
     <span class="ident">new_path</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">new_path_len</span>: <span class="ident">MemoryOffset</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::path_link</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(
         <span class="ident">ctx</span>,
         <span class="ident">old_fd</span>,
@@ -1359,16 +1328,16 @@
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">path_open</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">dirfd</span>: <span class="ident">__wasi_fd_t</span>,
-    <span class="ident">dirflags</span>: <span class="ident">__wasi_lookupflags_t</span>,
+    <span class="ident">dirfd</span>: <span class="ident">Fd</span>,
+    <span class="ident">dirflags</span>: <span class="ident">LookupFlags</span>,
     <span class="ident">path</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">path_len</span>: <span class="ident">MemoryOffset</span>,
-    <span class="ident">o_flags</span>: <span class="ident">__wasi_oflags_t</span>,
-    <span class="ident">fs_rights_base</span>: <span class="ident">__wasi_rights_t</span>,
-    <span class="ident">fs_rights_inheriting</span>: <span class="ident">__wasi_rights_t</span>,
-    <span class="ident">fs_flags</span>: <span class="ident">__wasi_fdflags_t</span>,
-    <span class="ident">fd</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_fd_t</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+    <span class="ident">o_flags</span>: <span class="ident">Oflags</span>,
+    <span class="ident">fs_rights_base</span>: <span class="ident">Rights</span>,
+    <span class="ident">fs_rights_inheriting</span>: <span class="ident">Rights</span>,
+    <span class="ident">fs_flags</span>: <span class="ident">Fdflags</span>,
+    <span class="ident">fd</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">Fd</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
+) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::path_open</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(
         <span class="ident">ctx</span>,
         <span class="ident">dirfd</span>,
@@ -1385,34 +1354,34 @@
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">path_readlink</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">dir_fd</span>: <span class="ident">__wasi_fd_t</span>,
+    <span class="ident">dir_fd</span>: <span class="ident">Fd</span>,
     <span class="ident">path</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">path_len</span>: <span class="ident">MemoryOffset</span>,
     <span class="ident">buf</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">buf_len</span>: <span class="ident">MemoryOffset</span>,
     <span class="ident">buf_used</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">MemoryOffset</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::path_readlink</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">dir_fd</span>, <span class="ident">path</span>, <span class="ident">path_len</span>, <span class="ident">buf</span>, <span class="ident">buf_len</span>, <span class="ident">buf_used</span>)
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">path_remove_directory</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">fd</span>: <span class="ident">__wasi_fd_t</span>,
+    <span class="ident">fd</span>: <span class="ident">Fd</span>,
     <span class="ident">path</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">path_len</span>: <span class="ident">MemoryOffset</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::path_remove_directory</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">fd</span>, <span class="ident">path</span>, <span class="ident">path_len</span>)
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">path_rename</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">old_fd</span>: <span class="ident">__wasi_fd_t</span>,
+    <span class="ident">old_fd</span>: <span class="ident">Fd</span>,
     <span class="ident">old_path</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">old_path_len</span>: <span class="ident">MemoryOffset</span>,
-    <span class="ident">new_fd</span>: <span class="ident">__wasi_fd_t</span>,
+    <span class="ident">new_fd</span>: <span class="ident">Fd</span>,
     <span class="ident">new_path</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">new_path_len</span>: <span class="ident">MemoryOffset</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::path_rename</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(
         <span class="ident">ctx</span>,
         <span class="ident">old_fd</span>,
@@ -1428,29 +1397,29 @@
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
     <span class="ident">old_path</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">old_path_len</span>: <span class="ident">MemoryOffset</span>,
-    <span class="ident">fd</span>: <span class="ident">__wasi_fd_t</span>,
+    <span class="ident">fd</span>: <span class="ident">Fd</span>,
     <span class="ident">new_path</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">new_path_len</span>: <span class="ident">MemoryOffset</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::path_symlink</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">old_path</span>, <span class="ident">old_path_len</span>, <span class="ident">fd</span>, <span class="ident">new_path</span>, <span class="ident">new_path_len</span>)
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">path_unlink_file</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">fd</span>: <span class="ident">__wasi_fd_t</span>,
+    <span class="ident">fd</span>: <span class="ident">Fd</span>,
     <span class="ident">path</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">path_len</span>: <span class="ident">MemoryOffset</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::path_unlink_file</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">fd</span>, <span class="ident">path</span>, <span class="ident">path_len</span>)
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">poll_oneoff</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">in_</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_subscription_t</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-    <span class="ident">out_</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_event_t</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
+    <span class="ident">in_</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">Subscription</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
+    <span class="ident">out_</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">Event</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">nsubscriptions</span>: <span class="ident">MemoryOffset</span>,
     <span class="ident">nevents</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">MemoryOffset</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">__wasi_errno_t</span>, <span class="ident">WasiError</span><span class="op">&gt;</span> {
+) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Errno</span>, <span class="ident">WasiError</span><span class="op">&gt;</span> {
     <span class="ident"><span class="kw">super</span>::poll_oneoff</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">in_</span>, <span class="ident">out_</span>, <span class="ident">nsubscriptions</span>, <span class="ident">nevents</span>)
 }
 
@@ -1461,7 +1430,7 @@
     <span class="ident"><span class="kw">super</span>::proc_exit</span>(<span class="ident">ctx</span>, <span class="ident">code</span>)
 }
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">proc_raise</span>(<span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>, <span class="ident">sig</span>: <span class="ident">__wasi_signal_t</span>) -&gt; <span class="ident">__wasi_errno_t</span> {
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">proc_raise</span>(<span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>, <span class="ident">sig</span>: <span class="ident">Signal</span>) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::proc_raise</span>(<span class="ident">ctx</span>, <span class="ident">sig</span>)
 }
 
@@ -1469,46 +1438,40 @@
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
     <span class="ident">buf</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">buf_len</span>: <span class="ident">MemoryOffset</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::random_get</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">buf</span>, <span class="ident">buf_len</span>)
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">fd_dup</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">fd</span>: <span class="ident">__wasi_fd_t</span>,
-    <span class="ident">ret_fd</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_fd_t</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+    <span class="ident">fd</span>: <span class="ident">Fd</span>,
+    <span class="ident">ret_fd</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">Fd</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
+) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::fd_dup</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">fd</span>, <span class="ident">ret_fd</span>)
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">fd_event</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
     <span class="ident">initial_val</span>: <span class="ident">u64</span>,
-    <span class="ident">flags</span>: <span class="ident">__wasi_eventfdflags</span>,
-    <span class="ident">ret_fd</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_fd_t</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+    <span class="ident">flags</span>: <span class="ident">EventFdFlags</span>,
+    <span class="ident">ret_fd</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">Fd</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
+) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::fd_event</span>(<span class="ident">ctx</span>, <span class="ident">initial_val</span>, <span class="ident">flags</span>, <span class="ident">ret_fd</span>)
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">fd_pipe</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">ro_fd1</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_fd_t</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-    <span class="ident">ro_fd2</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_fd_t</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+    <span class="ident">ro_fd1</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">Fd</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
+    <span class="ident">ro_fd2</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">Fd</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
+) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::fd_pipe</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">ro_fd1</span>, <span class="ident">ro_fd2</span>)
 }
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">tty_get</span>(
-    <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">tty_state</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_tty_t</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">tty_get</span>(<span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>, <span class="ident">tty_state</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">Tty</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::tty_get</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">tty_state</span>)
 }
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">tty_set</span>(
-    <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">tty_state</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_tty_t</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">tty_set</span>(<span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>, <span class="ident">tty_state</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">Tty</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::tty_set</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">tty_state</span>)
 }
 
@@ -1516,7 +1479,7 @@
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
     <span class="ident">path</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">path_len</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">MemoryOffset</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::getcwd</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">path</span>, <span class="ident">path_len</span>)
 }
 
@@ -1524,7 +1487,7 @@
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
     <span class="ident">path</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">path_len</span>: <span class="ident">MemoryOffset</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::chdir</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">path</span>, <span class="ident">path_len</span>)
 }
 
@@ -1533,55 +1496,46 @@
     <span class="ident">method</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">method_len</span>: <span class="ident">MemoryOffset</span>,
     <span class="ident">user_data</span>: <span class="ident">u64</span>,
-    <span class="ident">reactor</span>: <span class="ident">__wasi_bool_t</span>,
-    <span class="ident">ret_tid</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_tid_t</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+    <span class="ident">reactor</span>: <span class="ident">Bool</span>,
+    <span class="ident">ret_tid</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">Tid</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
+) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::thread_spawn</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">method</span>, <span class="ident">method_len</span>, <span class="ident">user_data</span>, <span class="ident">reactor</span>, <span class="ident">ret_tid</span>)
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">thread_sleep</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">duration</span>: <span class="ident">__wasi_timestamp_t</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">__wasi_errno_t</span>, <span class="ident">WasiError</span><span class="op">&gt;</span> {
+    <span class="ident">duration</span>: <span class="ident">Timestamp</span>,
+) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Errno</span>, <span class="ident">WasiError</span><span class="op">&gt;</span> {
     <span class="ident"><span class="kw">super</span>::thread_sleep</span>(<span class="ident">ctx</span>, <span class="ident">duration</span>)
 }
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">thread_id</span>(
-    <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">ret_tid</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_tid_t</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">thread_id</span>(<span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>, <span class="ident">ret_tid</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">Tid</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::thread_id</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">ret_tid</span>)
 }
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">thread_join</span>(
-    <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">tid</span>: <span class="ident">__wasi_tid_t</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">__wasi_errno_t</span>, <span class="ident">WasiError</span><span class="op">&gt;</span> {
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">thread_join</span>(<span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>, <span class="ident">tid</span>: <span class="ident">Tid</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Errno</span>, <span class="ident">WasiError</span><span class="op">&gt;</span> {
     <span class="ident"><span class="kw">super</span>::thread_join</span>(<span class="ident">ctx</span>, <span class="ident">tid</span>)
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">thread_parallelism</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
     <span class="ident">ret_parallelism</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">MemoryOffset</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::thread_parallelism</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">ret_parallelism</span>)
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">thread_exit</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
     <span class="ident">exitcode</span>: <span class="ident">__wasi_exitcode_t</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">__wasi_errno_t</span>, <span class="ident">WasiError</span><span class="op">&gt;</span> {
+) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Errno</span>, <span class="ident">WasiError</span><span class="op">&gt;</span> {
     <span class="ident"><span class="kw">super</span>::thread_exit</span>(<span class="ident">ctx</span>, <span class="ident">exitcode</span>)
 }
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">sched_yield</span>(<span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">__wasi_errno_t</span>, <span class="ident">WasiError</span><span class="op">&gt;</span> {
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">sched_yield</span>(<span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Errno</span>, <span class="ident">WasiError</span><span class="op">&gt;</span> {
     <span class="ident"><span class="kw">super</span>::sched_yield</span>(<span class="ident">ctx</span>)
 }
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">getpid</span>(
-    <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">ret_pid</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_pid_t</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">getpid</span>(<span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>, <span class="ident">ret_pid</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">Pid</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::getpid</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">ret_pid</span>)
 }
 
@@ -1589,18 +1543,18 @@
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
     <span class="ident">name</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">name_len</span>: <span class="ident">MemoryOffset</span>,
-    <span class="ident">chroot</span>: <span class="ident">__wasi_bool_t</span>,
+    <span class="ident">chroot</span>: <span class="ident">Bool</span>,
     <span class="ident">args</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">args_len</span>: <span class="ident">MemoryOffset</span>,
     <span class="ident">preopen</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">preopen_len</span>: <span class="ident">MemoryOffset</span>,
-    <span class="ident">stdin</span>: <span class="ident">__wasi_stdiomode_t</span>,
-    <span class="ident">stdout</span>: <span class="ident">__wasi_stdiomode_t</span>,
-    <span class="ident">stderr</span>: <span class="ident">__wasi_stdiomode_t</span>,
+    <span class="ident">stdin</span>: <span class="ident">StdioMode</span>,
+    <span class="ident">stdout</span>: <span class="ident">StdioMode</span>,
+    <span class="ident">stderr</span>: <span class="ident">StdioMode</span>,
     <span class="ident">working_dir</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">working_dir_len</span>: <span class="ident">MemoryOffset</span>,
-    <span class="ident">ret_handles</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_bus_handles_t</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-) -&gt; <span class="ident">__bus_errno_t</span> {
+    <span class="ident">ret_handles</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">BusHandles</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
+) -&gt; <span class="ident">BusErrno</span> {
     <span class="ident"><span class="kw">super</span>::process_spawn</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(
         <span class="ident">ctx</span>,
         <span class="ident">name</span>,
@@ -1623,9 +1577,9 @@
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
     <span class="ident">name</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">name_len</span>: <span class="ident">MemoryOffset</span>,
-    <span class="ident">reuse</span>: <span class="ident">__wasi_bool_t</span>,
-    <span class="ident">ret_bid</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_bid_t</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-) -&gt; <span class="ident">__bus_errno_t</span> {
+    <span class="ident">reuse</span>: <span class="ident">Bool</span>,
+    <span class="ident">ret_bid</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">Bid</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
+) -&gt; <span class="ident">BusErrno</span> {
     <span class="ident"><span class="kw">super</span>::bus_open_local</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">name</span>, <span class="ident">name_len</span>, <span class="ident">reuse</span>, <span class="ident">ret_bid</span>)
 }
 
@@ -1633,13 +1587,13 @@
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
     <span class="ident">name</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">name_len</span>: <span class="ident">MemoryOffset</span>,
-    <span class="ident">reuse</span>: <span class="ident">__wasi_bool_t</span>,
+    <span class="ident">reuse</span>: <span class="ident">Bool</span>,
     <span class="ident">instance</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">instance_len</span>: <span class="ident">MemoryOffset</span>,
     <span class="ident">token</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">token_len</span>: <span class="ident">MemoryOffset</span>,
-    <span class="ident">ret_bid</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_bid_t</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-) -&gt; <span class="ident">__bus_errno_t</span> {
+    <span class="ident">ret_bid</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">Bid</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
+) -&gt; <span class="ident">BusErrno</span> {
     <span class="ident"><span class="kw">super</span>::bus_open_remote</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(
         <span class="ident">ctx</span>,
         <span class="ident">name</span>,
@@ -1653,21 +1607,21 @@
     )
 }
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">bus_close</span>(<span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>, <span class="ident">bid</span>: <span class="ident">__wasi_bid_t</span>) -&gt; <span class="ident">__bus_errno_t</span> {
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">bus_close</span>(<span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>, <span class="ident">bid</span>: <span class="ident">Bid</span>) -&gt; <span class="ident">BusErrno</span> {
     <span class="ident"><span class="kw">super</span>::bus_close</span>(<span class="ident">ctx</span>, <span class="ident">bid</span>)
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">bus_call</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">bid</span>: <span class="ident">__wasi_bid_t</span>,
-    <span class="ident">keep_alive</span>: <span class="ident">__wasi_bool_t</span>,
+    <span class="ident">bid</span>: <span class="ident">Bid</span>,
+    <span class="ident">keep_alive</span>: <span class="ident">Bool</span>,
     <span class="ident">topic</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">topic_len</span>: <span class="ident">MemoryOffset</span>,
-    <span class="ident">format</span>: <span class="ident">__wasi_busdataformat_t</span>,
+    <span class="ident">format</span>: <span class="ident">BusDataFormat</span>,
     <span class="ident">buf</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">buf_len</span>: <span class="ident">MemoryOffset</span>,
-    <span class="ident">ret_cid</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_cid_t</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-) -&gt; <span class="ident">__bus_errno_t</span> {
+    <span class="ident">ret_cid</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">Cid</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
+) -&gt; <span class="ident">BusErrno</span> {
     <span class="ident"><span class="kw">super</span>::bus_call</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(
         <span class="ident">ctx</span>, <span class="ident">bid</span>, <span class="ident">keep_alive</span>, <span class="ident">topic</span>, <span class="ident">topic_len</span>, <span class="ident">format</span>, <span class="ident">buf</span>, <span class="ident">buf_len</span>, <span class="ident">ret_cid</span>,
     )
@@ -1675,15 +1629,15 @@
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">bus_subcall</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">parent</span>: <span class="ident">__wasi_cid_t</span>,
-    <span class="ident">keep_alive</span>: <span class="ident">__wasi_bool_t</span>,
+    <span class="ident">parent</span>: <span class="ident">Cid</span>,
+    <span class="ident">keep_alive</span>: <span class="ident">Bool</span>,
     <span class="ident">topic</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">topic_len</span>: <span class="ident">MemoryOffset</span>,
-    <span class="ident">format</span>: <span class="ident">__wasi_busdataformat_t</span>,
+    <span class="ident">format</span>: <span class="ident">BusDataFormat</span>,
     <span class="ident">buf</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">buf_len</span>: <span class="ident">MemoryOffset</span>,
-    <span class="ident">ret_cid</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_cid_t</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-) -&gt; <span class="ident">__bus_errno_t</span> {
+    <span class="ident">ret_cid</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">Cid</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
+) -&gt; <span class="ident">BusErrno</span> {
     <span class="ident"><span class="kw">super</span>::bus_subcall</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(
         <span class="ident">ctx</span>, <span class="ident">parent</span>, <span class="ident">keep_alive</span>, <span class="ident">topic</span>, <span class="ident">topic_len</span>, <span class="ident">format</span>, <span class="ident">buf</span>, <span class="ident">buf_len</span>, <span class="ident">ret_cid</span>,
     )
@@ -1691,13 +1645,13 @@
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">bus_poll</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">timeout</span>: <span class="ident">__wasi_timestamp_t</span>,
+    <span class="ident">timeout</span>: <span class="ident">Timestamp</span>,
     <span class="ident">events</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">nevents</span>: <span class="ident">MemoryOffset</span>,
     <span class="ident">malloc</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">malloc_len</span>: <span class="ident">MemoryOffset</span>,
     <span class="ident">ret_nevents</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">MemoryOffset</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-) -&gt; <span class="ident">__bus_errno_t</span> {
+) -&gt; <span class="ident">BusErrno</span> {
     <span class="ident"><span class="kw">super</span>::bus_poll</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(
         <span class="ident">ctx</span>,
         <span class="ident">timeout</span>,
@@ -1711,23 +1665,19 @@
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">call_reply</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">cid</span>: <span class="ident">__wasi_cid_t</span>,
-    <span class="ident">format</span>: <span class="ident">__wasi_busdataformat_t</span>,
+    <span class="ident">cid</span>: <span class="ident">Cid</span>,
+    <span class="ident">format</span>: <span class="ident">BusDataFormat</span>,
     <span class="ident">buf</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">buf_len</span>: <span class="ident">MemoryOffset</span>,
-) -&gt; <span class="ident">__bus_errno_t</span> {
+) -&gt; <span class="ident">BusErrno</span> {
     <span class="ident"><span class="kw">super</span>::call_reply</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">cid</span>, <span class="ident">format</span>, <span class="ident">buf</span>, <span class="ident">buf_len</span>)
 }
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">call_fault</span>(
-    <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">cid</span>: <span class="ident">__wasi_cid_t</span>,
-    <span class="ident">fault</span>: <span class="ident">__bus_errno_t</span>,
-) -&gt; <span class="ident">__bus_errno_t</span> {
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">call_fault</span>(<span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>, <span class="ident">cid</span>: <span class="ident">Cid</span>, <span class="ident">fault</span>: <span class="ident">BusErrno</span>) -&gt; <span class="ident">BusErrno</span> {
     <span class="ident"><span class="kw">super</span>::call_fault</span>(<span class="ident">ctx</span>, <span class="ident">cid</span>, <span class="ident">fault</span>)
 }
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">call_close</span>(<span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>, <span class="ident">cid</span>: <span class="ident">__wasi_cid_t</span>) -&gt; <span class="ident">__bus_errno_t</span> {
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">call_close</span>(<span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>, <span class="ident">cid</span>: <span class="ident">Cid</span>) -&gt; <span class="ident">BusErrno</span> {
     <span class="ident"><span class="kw">super</span>::call_close</span>(<span class="ident">ctx</span>, <span class="ident">cid</span>)
 }
 
@@ -1737,34 +1687,34 @@
     <span class="ident">network_len</span>: <span class="ident">MemoryOffset</span>,
     <span class="ident">token</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">token_len</span>: <span class="ident">MemoryOffset</span>,
-    <span class="ident">security</span>: <span class="ident">__wasi_streamsecurity_t</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+    <span class="ident">security</span>: <span class="ident">Streamsecurity</span>,
+) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::port_bridge</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">network</span>, <span class="ident">network_len</span>, <span class="ident">token</span>, <span class="ident">token_len</span>, <span class="ident">security</span>)
 }
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">port_unbridge</span>(<span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>) -&gt; <span class="ident">__wasi_errno_t</span> {
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">port_unbridge</span>(<span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::port_unbridge</span>(<span class="ident">ctx</span>)
 }
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">port_dhcp_acquire</span>(<span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>) -&gt; <span class="ident">__wasi_errno_t</span> {
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">port_dhcp_acquire</span>(<span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::port_dhcp_acquire</span>(<span class="ident">ctx</span>)
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">port_addr_add</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
     <span class="ident">addr</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_cidr_t</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::port_addr_add</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">addr</span>)
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">port_addr_remove</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
     <span class="ident">addr</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_addr_t</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::port_addr_remove</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">addr</span>)
 }
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">port_addr_clear</span>(<span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>) -&gt; <span class="ident">__wasi_errno_t</span> {
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">port_addr_clear</span>(<span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::port_addr_clear</span>(<span class="ident">ctx</span>)
 }
 
@@ -1772,21 +1722,21 @@
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
     <span class="ident">addrs</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_cidr_t</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">naddrs</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">MemoryOffset</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::port_addr_list</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">addrs</span>, <span class="ident">naddrs</span>)
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">port_mac</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
     <span class="ident">ret_mac</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_hardwareaddress_t</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::port_mac</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">ret_mac</span>)
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">port_gateway_set</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
     <span class="ident">ip</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_addr_t</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::port_gateway_set</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">ip</span>)
 }
 
@@ -1794,28 +1744,28 @@
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
     <span class="ident">cidr</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_cidr_t</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">via_router</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_addr_t</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-    <span class="ident">preferred_until</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_option_timestamp_t</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-    <span class="ident">expires_at</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_option_timestamp_t</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+    <span class="ident">preferred_until</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">OptionTimestamp</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
+    <span class="ident">expires_at</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">OptionTimestamp</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
+) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::port_route_add</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">cidr</span>, <span class="ident">via_router</span>, <span class="ident">preferred_until</span>, <span class="ident">expires_at</span>)
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">port_route_remove</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
     <span class="ident">ip</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_addr_t</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::port_route_remove</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">ip</span>)
 }
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">port_route_clear</span>(<span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>) -&gt; <span class="ident">__wasi_errno_t</span> {
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">port_route_clear</span>(<span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::port_route_clear</span>(<span class="ident">ctx</span>)
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">port_route_list</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">routes</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_route_t</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
+    <span class="ident">routes</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">Route</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">nroutes</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">MemoryOffset</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::port_route_list</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">routes</span>, <span class="ident">nroutes</span>)
 }
 
@@ -1823,8 +1773,8 @@
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
     <span class="ident">url</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">url_len</span>: <span class="ident">MemoryOffset</span>,
-    <span class="ident">ret_sock</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_fd_t</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+    <span class="ident">ret_sock</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">Fd</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
+) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::ws_connect</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">url</span>, <span class="ident">url_len</span>, <span class="ident">ret_sock</span>)
 }
 
@@ -1836,9 +1786,9 @@
     <span class="ident">method_len</span>: <span class="ident">MemoryOffset</span>,
     <span class="ident">headers</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">headers_len</span>: <span class="ident">MemoryOffset</span>,
-    <span class="ident">gzip</span>: <span class="ident">__wasi_bool_t</span>,
-    <span class="ident">ret_handles</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_http_handles_t</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+    <span class="ident">gzip</span>: <span class="ident">Bool</span>,
+    <span class="ident">ret_handles</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">HttpHandles</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
+) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::http_request</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(
         <span class="ident">ctx</span>,
         <span class="ident">url</span>,
@@ -1854,183 +1804,179 @@
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">http_status</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">sock</span>: <span class="ident">__wasi_fd_t</span>,
-    <span class="ident">status</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_http_status_t</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
+    <span class="ident">sock</span>: <span class="ident">Fd</span>,
+    <span class="ident">status</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">HttpStatus</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">status_text</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">status_text_len</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">MemoryOffset</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">headers</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">headers_len</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">MemoryOffset</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::http_status</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">sock</span>, <span class="ident">status</span>)
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">sock_status</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">sock</span>: <span class="ident">__wasi_fd_t</span>,
-    <span class="ident">ret_status</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_sockstatus_t</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+    <span class="ident">sock</span>: <span class="ident">Fd</span>,
+    <span class="ident">ret_status</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">Sockstatus</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
+) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::sock_status</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">sock</span>, <span class="ident">ret_status</span>)
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">sock_addr_local</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">sock</span>: <span class="ident">__wasi_fd_t</span>,
+    <span class="ident">sock</span>: <span class="ident">Fd</span>,
     <span class="ident">ret_addr</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_addr_port_t</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::sock_addr_local</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">sock</span>, <span class="ident">ret_addr</span>)
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">sock_addr_peer</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">sock</span>: <span class="ident">__wasi_fd_t</span>,
+    <span class="ident">sock</span>: <span class="ident">Fd</span>,
     <span class="ident">ro_addr</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_addr_port_t</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::sock_addr_peer</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">sock</span>, <span class="ident">ro_addr</span>)
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">sock_open</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">af</span>: <span class="ident">__wasi_addressfamily_t</span>,
-    <span class="ident">ty</span>: <span class="ident">__wasi_socktype_t</span>,
-    <span class="ident">pt</span>: <span class="ident">__wasi_sockproto_t</span>,
-    <span class="ident">ro_sock</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_fd_t</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+    <span class="ident">af</span>: <span class="ident">Addressfamily</span>,
+    <span class="ident">ty</span>: <span class="ident">Socktype</span>,
+    <span class="ident">pt</span>: <span class="ident">SockProto</span>,
+    <span class="ident">ro_sock</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">Fd</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
+) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::sock_open</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">af</span>, <span class="ident">ty</span>, <span class="ident">pt</span>, <span class="ident">ro_sock</span>)
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">sock_set_opt_flag</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">sock</span>: <span class="ident">__wasi_fd_t</span>,
-    <span class="ident">opt</span>: <span class="ident">__wasi_sockoption_t</span>,
-    <span class="ident">flag</span>: <span class="ident">__wasi_bool_t</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+    <span class="ident">sock</span>: <span class="ident">Fd</span>,
+    <span class="ident">opt</span>: <span class="ident">Sockoption</span>,
+    <span class="ident">flag</span>: <span class="ident">Bool</span>,
+) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::sock_set_opt_flag</span>(<span class="ident">ctx</span>, <span class="ident">sock</span>, <span class="ident">opt</span>, <span class="ident">flag</span>)
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">sock_get_opt_flag</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">sock</span>: <span class="ident">__wasi_fd_t</span>,
-    <span class="ident">opt</span>: <span class="ident">__wasi_sockoption_t</span>,
-    <span class="ident">ret_flag</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_bool_t</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+    <span class="ident">sock</span>: <span class="ident">Fd</span>,
+    <span class="ident">opt</span>: <span class="ident">Sockoption</span>,
+    <span class="ident">ret_flag</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">Bool</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
+) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::sock_get_opt_flag</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">sock</span>, <span class="ident">opt</span>, <span class="ident">ret_flag</span>)
 }
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">sock_set_opt_time</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">sock</span>: <span class="ident">__wasi_fd_t</span>,
-    <span class="ident">opt</span>: <span class="ident">__wasi_sockoption_t</span>,
-    <span class="ident">time</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_option_timestamp_t</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+    <span class="ident">sock</span>: <span class="ident">Fd</span>,
+    <span class="ident">opt</span>: <span class="ident">Sockoption</span>,
+    <span class="ident">time</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">OptionTimestamp</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
+) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::sock_set_opt_time</span>(<span class="ident">ctx</span>, <span class="ident">sock</span>, <span class="ident">opt</span>, <span class="ident">time</span>)
 }
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">sock_get_opt_time</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">sock</span>: <span class="ident">__wasi_fd_t</span>,
-    <span class="ident">opt</span>: <span class="ident">__wasi_sockoption_t</span>,
-    <span class="ident">ret_time</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_option_timestamp_t</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+    <span class="ident">sock</span>: <span class="ident">Fd</span>,
+    <span class="ident">opt</span>: <span class="ident">Sockoption</span>,
+    <span class="ident">ret_time</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">OptionTimestamp</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
+) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::sock_get_opt_time</span>(<span class="ident">ctx</span>, <span class="ident">sock</span>, <span class="ident">opt</span>, <span class="ident">ret_time</span>)
 }
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">sock_set_opt_size</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">sock</span>: <span class="ident">__wasi_fd_t</span>,
-    <span class="ident">opt</span>: <span class="ident">__wasi_sockoption_t</span>,
-    <span class="ident">size</span>: <span class="ident">__wasi_filesize_t</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+    <span class="ident">sock</span>: <span class="ident">Fd</span>,
+    <span class="ident">opt</span>: <span class="ident">Sockoption</span>,
+    <span class="ident">size</span>: <span class="ident">Filesize</span>,
+) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::sock_set_opt_size</span>(<span class="ident">ctx</span>, <span class="ident">sock</span>, <span class="ident">opt</span>, <span class="ident">size</span>)
 }
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">sock_get_opt_size</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">sock</span>: <span class="ident">__wasi_fd_t</span>,
-    <span class="ident">opt</span>: <span class="ident">__wasi_sockoption_t</span>,
-    <span class="ident">ret_size</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_filesize_t</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+    <span class="ident">sock</span>: <span class="ident">Fd</span>,
+    <span class="ident">opt</span>: <span class="ident">Sockoption</span>,
+    <span class="ident">ret_size</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">Filesize</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
+) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::sock_get_opt_size</span>(<span class="ident">ctx</span>, <span class="ident">sock</span>, <span class="ident">opt</span>, <span class="ident">ret_size</span>)
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">sock_join_multicast_v4</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">sock</span>: <span class="ident">__wasi_fd_t</span>,
+    <span class="ident">sock</span>: <span class="ident">Fd</span>,
     <span class="ident">multiaddr</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_addr_ip4_t</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">iface</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_addr_ip4_t</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::sock_join_multicast_v4</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">sock</span>, <span class="ident">multiaddr</span>, <span class="ident">iface</span>)
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">sock_leave_multicast_v4</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">sock</span>: <span class="ident">__wasi_fd_t</span>,
+    <span class="ident">sock</span>: <span class="ident">Fd</span>,
     <span class="ident">multiaddr</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_addr_ip4_t</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">iface</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_addr_ip4_t</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::sock_leave_multicast_v4</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">sock</span>, <span class="ident">multiaddr</span>, <span class="ident">iface</span>)
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">sock_join_multicast_v6</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">sock</span>: <span class="ident">__wasi_fd_t</span>,
+    <span class="ident">sock</span>: <span class="ident">Fd</span>,
     <span class="ident">multiaddr</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_addr_ip6_t</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">iface</span>: <span class="ident">u32</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::sock_join_multicast_v6</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">sock</span>, <span class="ident">multiaddr</span>, <span class="ident">iface</span>)
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">sock_leave_multicast_v6</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">sock</span>: <span class="ident">__wasi_fd_t</span>,
+    <span class="ident">sock</span>: <span class="ident">Fd</span>,
     <span class="ident">multiaddr</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_addr_ip6_t</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">iface</span>: <span class="ident">u32</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::sock_leave_multicast_v6</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">sock</span>, <span class="ident">multiaddr</span>, <span class="ident">iface</span>)
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">sock_bind</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">sock</span>: <span class="ident">__wasi_fd_t</span>,
+    <span class="ident">sock</span>: <span class="ident">Fd</span>,
     <span class="ident">addr</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_addr_port_t</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::sock_bind</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">sock</span>, <span class="ident">addr</span>)
 }
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">sock_listen</span>(
-    <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">sock</span>: <span class="ident">__wasi_fd_t</span>,
-    <span class="ident">backlog</span>: <span class="ident">MemoryOffset</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">sock_listen</span>(<span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>, <span class="ident">sock</span>: <span class="ident">Fd</span>, <span class="ident">backlog</span>: <span class="ident">MemoryOffset</span>) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::sock_listen</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">sock</span>, <span class="ident">backlog</span>)
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">sock_accept</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">sock</span>: <span class="ident">__wasi_fd_t</span>,
-    <span class="ident">fd_flags</span>: <span class="ident">__wasi_fdflags_t</span>,
-    <span class="ident">ro_fd</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_fd_t</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
+    <span class="ident">sock</span>: <span class="ident">Fd</span>,
+    <span class="ident">fd_flags</span>: <span class="ident">Fdflags</span>,
+    <span class="ident">ro_fd</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">Fd</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">ro_addr</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_addr_port_t</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">__wasi_errno_t</span>, <span class="ident">WasiError</span><span class="op">&gt;</span> {
+) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Errno</span>, <span class="ident">WasiError</span><span class="op">&gt;</span> {
     <span class="ident"><span class="kw">super</span>::sock_accept</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">sock</span>, <span class="ident">fd_flags</span>, <span class="ident">ro_fd</span>, <span class="ident">ro_addr</span>)
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">sock_connect</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">sock</span>: <span class="ident">__wasi_fd_t</span>,
+    <span class="ident">sock</span>: <span class="ident">Fd</span>,
     <span class="ident">addr</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_addr_port_t</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::sock_connect</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">sock</span>, <span class="ident">addr</span>)
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">sock_recv</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">sock</span>: <span class="ident">__wasi_fd_t</span>,
+    <span class="ident">sock</span>: <span class="ident">Fd</span>,
     <span class="ident">ri_data</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_iovec_t</span><span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">ri_data_len</span>: <span class="ident">MemoryOffset</span>,
-    <span class="ident">ri_flags</span>: <span class="ident">__wasi_riflags_t</span>,
+    <span class="ident">ri_flags</span>: <span class="ident">RiFlags</span>,
     <span class="ident">ro_data_len</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">MemoryOffset</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-    <span class="ident">ro_flags</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_roflags_t</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">__wasi_errno_t</span>, <span class="ident">WasiError</span><span class="op">&gt;</span> {
+    <span class="ident">ro_flags</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">RoFlags</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
+) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Errno</span>, <span class="ident">WasiError</span><span class="op">&gt;</span> {
     <span class="ident"><span class="kw">super</span>::sock_recv</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(
         <span class="ident">ctx</span>,
         <span class="ident">sock</span>,
@@ -2044,14 +1990,14 @@
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">sock_recv_from</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">sock</span>: <span class="ident">__wasi_fd_t</span>,
+    <span class="ident">sock</span>: <span class="ident">Fd</span>,
     <span class="ident">ri_data</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_iovec_t</span><span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">ri_data_len</span>: <span class="ident">MemoryOffset</span>,
-    <span class="ident">ri_flags</span>: <span class="ident">__wasi_riflags_t</span>,
+    <span class="ident">ri_flags</span>: <span class="ident">RiFlags</span>,
     <span class="ident">ro_data_len</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">MemoryOffset</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-    <span class="ident">ro_flags</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_roflags_t</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
+    <span class="ident">ro_flags</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">RoFlags</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">ro_addr</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_addr_port_t</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">__wasi_errno_t</span>, <span class="ident">WasiError</span><span class="op">&gt;</span> {
+) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Errno</span>, <span class="ident">WasiError</span><span class="op">&gt;</span> {
     <span class="ident"><span class="kw">super</span>::sock_recv_from</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(
         <span class="ident">ctx</span>,
         <span class="ident">sock</span>,
@@ -2066,24 +2012,24 @@
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">sock_send</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">sock</span>: <span class="ident">__wasi_fd_t</span>,
+    <span class="ident">sock</span>: <span class="ident">Fd</span>,
     <span class="ident">si_data</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_ciovec_t</span><span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">si_data_len</span>: <span class="ident">MemoryOffset</span>,
-    <span class="ident">si_flags</span>: <span class="ident">__wasi_siflags_t</span>,
+    <span class="ident">si_flags</span>: <span class="ident">SiFlags</span>,
     <span class="ident">ret_data_len</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">MemoryOffset</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">__wasi_errno_t</span>, <span class="ident">WasiError</span><span class="op">&gt;</span> {
+) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Errno</span>, <span class="ident">WasiError</span><span class="op">&gt;</span> {
     <span class="ident"><span class="kw">super</span>::sock_send</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">sock</span>, <span class="ident">si_data</span>, <span class="ident">si_data_len</span>, <span class="ident">si_flags</span>, <span class="ident">ret_data_len</span>)
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">sock_send_to</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">sock</span>: <span class="ident">__wasi_fd_t</span>,
+    <span class="ident">sock</span>: <span class="ident">Fd</span>,
     <span class="ident">si_data</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_ciovec_t</span><span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">si_data_len</span>: <span class="ident">MemoryOffset</span>,
-    <span class="ident">si_flags</span>: <span class="ident">__wasi_siflags_t</span>,
+    <span class="ident">si_flags</span>: <span class="ident">SiFlags</span>,
     <span class="ident">addr</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_addr_port_t</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">ret_data_len</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">MemoryOffset</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">__wasi_errno_t</span>, <span class="ident">WasiError</span><span class="op">&gt;</span> {
+) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Errno</span>, <span class="ident">WasiError</span><span class="op">&gt;</span> {
     <span class="ident"><span class="kw">super</span>::sock_send_to</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(
         <span class="ident">ctx</span>,
         <span class="ident">sock</span>,
@@ -2097,20 +2043,16 @@
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">sock_send_file</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">out_fd</span>: <span class="ident">__wasi_fd_t</span>,
-    <span class="ident">in_fd</span>: <span class="ident">__wasi_fd_t</span>,
-    <span class="ident">offset</span>: <span class="ident">__wasi_filesize_t</span>,
-    <span class="ident">count</span>: <span class="ident">__wasi_filesize_t</span>,
-    <span class="ident">ret_sent</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_filesize_t</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">__wasi_errno_t</span>, <span class="ident">WasiError</span><span class="op">&gt;</span> {
+    <span class="ident">out_fd</span>: <span class="ident">Fd</span>,
+    <span class="ident">in_fd</span>: <span class="ident">Fd</span>,
+    <span class="ident">offset</span>: <span class="ident">Filesize</span>,
+    <span class="ident">count</span>: <span class="ident">Filesize</span>,
+    <span class="ident">ret_sent</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">Filesize</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
+) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Errno</span>, <span class="ident">WasiError</span><span class="op">&gt;</span> {
     <span class="kw">unsafe</span> { <span class="ident"><span class="kw">super</span>::sock_send_file</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">out_fd</span>, <span class="ident">in_fd</span>, <span class="ident">offset</span>, <span class="ident">count</span>, <span class="ident">ret_sent</span>) }
 }
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">sock_shutdown</span>(
-    <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">sock</span>: <span class="ident">__wasi_fd_t</span>,
-    <span class="ident">how</span>: <span class="ident">__wasi_sdflags_t</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">sock_shutdown</span>(<span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>, <span class="ident">sock</span>: <span class="ident">Fd</span>, <span class="ident">how</span>: <span class="ident">SdFlags</span>) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::sock_shutdown</span>(<span class="ident">ctx</span>, <span class="ident">sock</span>, <span class="ident">how</span>)
 }
 
@@ -2122,7 +2064,7 @@
     <span class="ident">ips</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_addr_t</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
     <span class="ident">nips</span>: <span class="ident">MemoryOffset</span>,
     <span class="ident">ret_nips</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">MemoryOffset</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
-) -&gt; <span class="ident">__wasi_errno_t</span> {
+) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::resolve</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">host</span>, <span class="ident">host_len</span>, <span class="ident">port</span>, <span class="ident">ips</span>, <span class="ident">nips</span>, <span class="ident">ret_nips</span>)
 }
 </code></pre></div>

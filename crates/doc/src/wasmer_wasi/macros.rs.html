@@ -121,7 +121,7 @@
 <span class="doccomment">/// succeeded or returns the error value.</span>
 <span class="macro">macro_rules!</span> <span class="ident">wasi_try</span> {
     (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">expr</span>:<span class="ident">expr</span>) =&gt; {{
-        <span class="kw">let</span> <span class="ident">res</span>: <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw">_</span>, <span class="ident"><span class="kw">crate</span>::syscalls::types::__wasi_errno_t</span><span class="op">&gt;</span> <span class="op">=</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">expr</span>;
+        <span class="kw">let</span> <span class="ident">res</span>: <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw">_</span>, <span class="ident"><span class="kw">crate</span>::syscalls::types::wasi::Errno</span><span class="op">&gt;</span> <span class="op">=</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">expr</span>;
         <span class="kw">match</span> <span class="ident">res</span> {
             <span class="prelude-val">Ok</span>(<span class="ident">val</span>) =&gt; {
                 <span class="macro">tracing::trace!</span>(<span class="string">&quot;wasi::wasi_try::val: {:?}&quot;</span>, <span class="ident">val</span>);
@@ -139,7 +139,7 @@
 <span class="doccomment">/// succeeded or returns the error value. Results are wrapped in an Ok</span>
 <span class="macro">macro_rules!</span> <span class="ident">wasi_try_ok</span> {
     (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">expr</span>:<span class="ident">expr</span>) =&gt; {{
-        <span class="kw">let</span> <span class="ident">res</span>: <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw">_</span>, <span class="ident"><span class="kw">crate</span>::syscalls::types::__wasi_errno_t</span><span class="op">&gt;</span> <span class="op">=</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">expr</span>;
+        <span class="kw">let</span> <span class="ident">res</span>: <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw">_</span>, <span class="ident"><span class="kw">crate</span>::syscalls::types::wasi::Errno</span><span class="op">&gt;</span> <span class="op">=</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">expr</span>;
         <span class="kw">match</span> <span class="ident">res</span> {
             <span class="prelude-val">Ok</span>(<span class="ident">val</span>) =&gt; {
                 <span class="macro">tracing::trace!</span>(<span class="string">&quot;wasi::wasi_try_ok::val: {:?}&quot;</span>, <span class="ident">val</span>);
@@ -153,14 +153,14 @@
     }};
 
     (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">expr</span>:<span class="ident">expr</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">thread</span>:<span class="ident">expr</span>) =&gt; {{
-        <span class="kw">let</span> <span class="ident">res</span>: <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw">_</span>, <span class="ident"><span class="kw">crate</span>::syscalls::types::__wasi_errno_t</span><span class="op">&gt;</span> <span class="op">=</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">expr</span>;
+        <span class="kw">let</span> <span class="ident">res</span>: <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw">_</span>, <span class="ident"><span class="kw">crate</span>::syscalls::types::wasi::Errno</span><span class="op">&gt;</span> <span class="op">=</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">expr</span>;
         <span class="kw">match</span> <span class="ident">res</span> {
             <span class="prelude-val">Ok</span>(<span class="ident">val</span>) =&gt; {
                 <span class="macro">tracing::trace!</span>(<span class="string">&quot;wasi::wasi_try_ok::val: {:?}&quot;</span>, <span class="ident">val</span>);
                 <span class="ident">val</span>
             }
             <span class="prelude-val">Err</span>(<span class="ident">err</span>) =&gt; {
-                <span class="kw">if</span> <span class="ident">err</span> <span class="op">==</span> <span class="ident">__WASI_EINTR</span> {
+                <span class="kw">if</span> <span class="ident">err</span> <span class="op">==</span> <span class="ident"><span class="kw">crate</span>::syscalls::types::wasi::Errno::Intr</span> {
                     <span class="macro-nonterminal">$</span><span class="macro-nonterminal">thread</span>.<span class="ident">yield_now</span>()<span class="question-mark">?</span>;
                 }
                 <span class="macro">tracing::debug!</span>(<span class="string">&quot;wasi::wasi_try_ok::err: {:?}&quot;</span>, <span class="ident">err</span>);
@@ -174,7 +174,7 @@
 <span class="doccomment">/// succeeded or returns the error value.</span>
 <span class="macro">macro_rules!</span> <span class="ident">wasi_try_bus</span> {
     (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">expr</span>:<span class="ident">expr</span>) =&gt; {{
-        <span class="kw">let</span> <span class="ident">res</span>: <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw">_</span>, <span class="ident"><span class="kw">crate</span>::syscalls::types::__bus_errno_t</span><span class="op">&gt;</span> <span class="op">=</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">expr</span>;
+        <span class="kw">let</span> <span class="ident">res</span>: <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw">_</span>, <span class="ident"><span class="kw">crate</span>::syscalls::types::wasi::BusErrno</span><span class="op">&gt;</span> <span class="op">=</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">expr</span>;
         <span class="kw">match</span> <span class="ident">res</span> {
             <span class="prelude-val">Ok</span>(<span class="ident">val</span>) =&gt; {
                 <span class="macro">tracing::trace!</span>(<span class="string">&quot;wasi::wasi_try_bus::val: {:?}&quot;</span>, <span class="ident">val</span>);
@@ -188,21 +188,21 @@
     }};
 }
 
-<span class="doccomment">/// Like `wasi_try` but converts a `MemoryAccessError` to a __wasi_errno_t`.</span>
+<span class="doccomment">/// Like `wasi_try` but converts a `MemoryAccessError` to a `wasi::Errno`.</span>
 <span class="macro">macro_rules!</span> <span class="ident">wasi_try_mem</span> {
     (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">expr</span>:<span class="ident">expr</span>) =&gt; {{
         <span class="macro">wasi_try!</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">expr</span>.<span class="ident">map_err</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">crate::mem_error_to_wasi</span>))
     }};
 }
 
-<span class="doccomment">/// Like `wasi_try` but converts a `MemoryAccessError` to a __bus_errno_t`.</span>
+<span class="doccomment">/// Like `wasi_try` but converts a `MemoryAccessError` to a `wasi::BusErrno`.</span>
 <span class="macro">macro_rules!</span> <span class="ident">wasi_try_mem_bus</span> {
     (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">expr</span>:<span class="ident">expr</span>) =&gt; {{
         <span class="macro">wasi_try_bus!</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">expr</span>.<span class="ident">map_err</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">crate::mem_error_to_bus</span>))
     }};
 }
 
-<span class="doccomment">/// Like `wasi_try` but converts a `MemoryAccessError` to a __wasi_errno_t`.</span>
+<span class="doccomment">/// Like `wasi_try` but converts a `MemoryAccessError` to a `wasi::Errno`.</span>
 <span class="macro">macro_rules!</span> <span class="ident">wasi_try_mem_ok</span> {
     (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">expr</span>:<span class="ident">expr</span>) =&gt; {{
         <span class="macro">wasi_try_ok!</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">expr</span>.<span class="ident">map_err</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">crate::mem_error_to_wasi</span>))

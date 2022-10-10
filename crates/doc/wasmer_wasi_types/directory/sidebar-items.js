@@ -1,1 +1,0 @@
-initSidebarItems({"constant":[["__WASI_DIRCOOKIE_START",""]],"fn":[["dirent_to_le_bytes",""]],"struct":[["__wasi_dirent_t",""]],"type":[["__wasi_dircookie_t",""]]});
