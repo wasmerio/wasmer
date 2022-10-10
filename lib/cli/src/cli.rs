@@ -12,7 +12,6 @@ use crate::commands::CreateObj;
 use crate::commands::Wast;
 use crate::commands::{Cache, Config, Inspect, Run, RunWithoutFile, SelfUpdate, Validate};
 use crate::error::PrettyError;
-use anyhow::Result;
 use clap::{ErrorKind, Parser};
 use wasmer_registry::get_all_local_packages;
 
@@ -146,7 +145,7 @@ enum WasmerCLIOptions {
 }
 
 impl WasmerCLIOptions {
-    fn execute(&self) -> Result<()> {
+    fn execute(&self) -> Result<(), anyhow::Error> {
         match self {
             Self::Run(options) => options.execute(),
             Self::SelfUpdate(options) => options.execute(),
@@ -238,9 +237,39 @@ fn wasmer_main_inner() -> Result<(), anyhow::Error> {
     if let WasmerCLIOptions::Run(r) = &options {
         if !r.path.exists() {
             let package = format!("{}", r.path.display());
-            if let Ok((package, version)) = split_version(&package) {
+            if let Ok(mut sv) = split_version(&package) {
+                let mut package_download_info = None;
+                if !sv.package.contains('/') {
+                    let sp = spinner::SpinnerBuilder::new(format!(
+                        "Looking up command {} ...",
+                        sv.package
+                    ))
+                    .spinner(vec![
+                        "⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷", " ", "⠁", "⠂", "⠄", "⡀", "⢀", "⠠",
+                        "⠐", "⠈",
+                    ])
+                    .start();
+
+                    for registry in
+                        wasmer_registry::get_all_available_registries().unwrap_or_default()
+                    {
+                        let result =
+                            wasmer_registry::query_command_from_registry(&registry, &sv.package);
+                        print!("\r\n");
+                        let command = sv.package.clone();
+                        if let Ok(o) = result {
+                            package_download_info = Some(o.clone());
+                            sp.close();
+                            sv.package = o.package;
+                            sv.version = Some(o.version);
+                            sv.command = Some(command);
+                            break;
+                        }
+                    }
+                }
+
                 if let Some(package) =
-                    wasmer_registry::get_local_package(&package, version.as_deref())
+                    wasmer_registry::get_local_package(&sv.package, sv.version.as_deref())
                 {
                     let local_package_wasm_path = wasmer_registry::get_package_local_wasm_file(
                         &package.registry,
@@ -252,21 +281,26 @@ fn wasmer_main_inner() -> Result<(), anyhow::Error> {
                     // Try finding the local package
                     let mut args_without_package = args.clone();
                     args_without_package.remove(1);
-                    return RunWithoutFile::try_parse_from(args_without_package.iter())?
+
+                    let mut run_args = RunWithoutFile::try_parse_from(args_without_package.iter())?;
+                    run_args.command_name = sv.command.clone();
+                    return run_args
                         .into_run_args(local_package_wasm_path, Some(package.manifest))
                         .execute();
                 }
 
                 // else: local package not found
-                let sp = spinner::SpinnerBuilder::new(format!("Installing package {package} ..."))
-                    .spinner(vec![
-                        "⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷", " ", "⠁", "⠂", "⠄", "⡀", "⢀", "⠠",
-                        "⠐", "⠈",
-                    ])
-                    .start();
+                let sp =
+                    spinner::SpinnerBuilder::new(format!("Installing package {} ...", sv.package))
+                        .spinner(vec![
+                            "⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷", " ", "⠁", "⠂", "⠄", "⡀", "⢀",
+                            "⠠", "⠐", "⠈",
+                        ])
+                        .start();
 
-                let v = version.as_deref();
-                let result = wasmer_registry::install_package(&package, v);
+                let v = sv.version.as_deref();
+                let result =
+                    wasmer_registry::install_package(&sv.package, v, package_download_info);
                 sp.close();
                 print!("\r\n");
                 match result {
@@ -274,7 +308,12 @@ fn wasmer_main_inner() -> Result<(), anyhow::Error> {
                         // Try auto-installing the remote package
                         let mut args_without_package = args.clone();
                         args_without_package.remove(1);
-                        return RunWithoutFile::try_parse_from(args_without_package.iter())?
+
+                        let mut run_args =
+                            RunWithoutFile::try_parse_from(args_without_package.iter())?;
+                        run_args.command_name = sv.command.clone();
+
+                        return run_args
                             .into_run_args(buf, Some(package.manifest))
                             .execute();
                     }
@@ -290,7 +329,14 @@ fn wasmer_main_inner() -> Result<(), anyhow::Error> {
     options.execute()
 }
 
-fn split_version(s: &str) -> Result<(String, Option<String>), anyhow::Error> {
+#[derive(Debug, Clone, PartialEq, Default)]
+struct SplitVersion {
+    package: String,
+    version: Option<String>,
+    command: Option<String>,
+}
+
+fn split_version(s: &str) -> Result<SplitVersion, anyhow::Error> {
     let prohibited_package_names = [
         "run",
         "cache",
@@ -303,15 +349,52 @@ fn split_version(s: &str) -> Result<(String, Option<String>), anyhow::Error> {
         "wast",
         "help",
     ];
-    if prohibited_package_names.contains(&s.trim()) {
-        return Err(anyhow::anyhow!("Invalid package name {s:?}"));
-    }
+
     let package_version = s.split('@').collect::<Vec<_>>();
-    match *package_version.as_slice() {
-        [p, v] => Ok((p.trim().to_string(), Some(v.trim().to_string()))),
-        [p] => Ok((p.trim().to_string(), None)),
-        _ => Err(anyhow!("Invalid package / version: {s:?}")),
+    let (mut package, mut version) = match *package_version.as_slice() {
+        [p, v] => (p.trim().to_string(), Some(v.trim().to_string())),
+        [p] => (p.trim().to_string(), None),
+        _ => {
+            return Err(anyhow!("Invalid package / version: {s:?}"));
+        }
+    };
+
+    let version_clone = version.clone().unwrap_or_default();
+    let command = if package.contains(':') {
+        let package_command = version_clone.split('@').collect::<Vec<_>>();
+        let (p, c) = match package_command.as_slice() {
+            [p, v] => (p.trim().to_string(), Some(v.trim().to_string())),
+            [p] => (p.trim().to_string(), None),
+            _ => {
+                return Err(anyhow!("Invalid package / command: {s:?}"));
+            }
+        };
+        package = p;
+        c
+    } else if version_clone.contains(':') {
+        let version_command = version_clone.split('@').collect::<Vec<_>>();
+        let (v, command) = match version_command.as_slice() {
+            [p, v] => (p.trim().to_string(), Some(v.trim().to_string())),
+            [p] => (p.trim().to_string(), None),
+            _ => {
+                return Err(anyhow!("Invalid version / command: {s:?}"));
+            }
+        };
+        version = Some(v);
+        command
+    } else {
+        None
+    };
+
+    if prohibited_package_names.contains(&package.trim()) {
+        return Err(anyhow::anyhow!("Invalid package name {package:?}"));
     }
+
+    Ok(SplitVersion {
+        package,
+        version,
+        command,
+    })
 }
 
 fn print_packages() -> Result<(), anyhow::Error> {

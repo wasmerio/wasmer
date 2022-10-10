@@ -37,7 +37,7 @@ pub struct RunWithoutFile {
     /// to the wasm program. This is used in wapm to provide nicer output in
     /// help commands and error messages of the running wasm program
     #[clap(long = "command-name", hide = true)]
-    command_name: Option<String>,
+    pub(crate) command_name: Option<String>,
 
     /// A prehashed string, used to speed up start times by avoiding hashing the
     /// wasm module. If the specified hash is not found, Wasmer will hash the module
