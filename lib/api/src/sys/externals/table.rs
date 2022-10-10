@@ -216,7 +216,7 @@ impl<'a> Exportable<'a> for Table {
 fn test_table_grow_3197() {
     use crate::{imports, Instance, Module, Store, Table, TableType, Type, Value};
 
-    const WAT:&str = r#"(module (table (import "env" "table") 100 funcref))"#;
+    const WAT: &str = r#"(module (table (import "env" "table") 100 funcref))"#;
 
     let mut store = Store::default();
     let module = Module::new(&store, WAT).unwrap();
