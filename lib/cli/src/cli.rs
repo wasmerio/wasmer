@@ -364,7 +364,7 @@ fn print_help(verbose: bool) -> Result<(), anyhow::Error> {
 #[allow(unused_mut, clippy::vec_init_then_push)]
 fn print_version(verbose: bool) -> Result<(), anyhow::Error> {
     if !verbose {
-        println!("{}", env!("CARGO_PKG_VERSION"));
+        println!("wasmer {}", env!("CARGO_PKG_VERSION"));
     } else {
         println!(
             "wasmer {} ({} {})",
