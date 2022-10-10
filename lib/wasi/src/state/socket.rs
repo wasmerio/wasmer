@@ -16,6 +16,7 @@ use wasmer_vnet::{
     IpCidr, IpRoute, SocketHttpRequest, VirtualIcmpSocket, VirtualNetworking, VirtualRawSocket,
     VirtualTcpListener, VirtualTcpSocket, VirtualUdpSocket, VirtualWebSocket,
 };
+use wasmer_wasi_types::wasi::{Addressfamily, Errno, Fdflags, OptionTag, Sockoption, Socktype};
 
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
@@ -35,9 +36,9 @@ pub enum InodeHttpSocketType {
 //#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub enum InodeSocketKind {
     PreSocket {
-        family: __wasi_addressfamily_t,
-        ty: __wasi_socktype_t,
-        pt: __wasi_sockproto_t,
+        family: Addressfamily,
+        ty: Socktype,
+        pt: SockProto,
         addr: Option<SocketAddr>,
         only_v6: bool,
         reuse_port: bool,
@@ -89,38 +90,37 @@ pub enum WasiSocketOption {
     Proto,
 }
 
-impl From<__wasi_sockoption_t> for WasiSocketOption {
-    fn from(opt: __wasi_sockoption_t) -> Self {
+impl From<Sockoption> for WasiSocketOption {
+    fn from(opt: Sockoption) -> Self {
         use WasiSocketOption::*;
         match opt {
-            __WASI_SOCK_OPTION_NOOP => Noop,
-            __WASI_SOCK_OPTION_REUSE_PORT => ReusePort,
-            __WASI_SOCK_OPTION_REUSE_ADDR => ReuseAddr,
-            __WASI_SOCK_OPTION_NO_DELAY => NoDelay,
-            __WASI_SOCK_OPTION_DONT_ROUTE => DontRoute,
-            __WASI_SOCK_OPTION_ONLY_V6 => OnlyV6,
-            __WASI_SOCK_OPTION_BROADCAST => Broadcast,
-            __WASI_SOCK_OPTION_MULTICAST_LOOP_V4 => MulticastLoopV4,
-            __WASI_SOCK_OPTION_MULTICAST_LOOP_V6 => MulticastLoopV6,
-            __WASI_SOCK_OPTION_PROMISCUOUS => Promiscuous,
-            __WASI_SOCK_OPTION_LISTENING => Listening,
-            __WASI_SOCK_OPTION_LAST_ERROR => LastError,
-            __WASI_SOCK_OPTION_KEEP_ALIVE => KeepAlive,
-            __WASI_SOCK_OPTION_LINGER => Linger,
-            __WASI_SOCK_OPTION_OOB_INLINE => OobInline,
-            __WASI_SOCK_OPTION_RECV_BUF_SIZE => RecvBufSize,
-            __WASI_SOCK_OPTION_SEND_BUF_SIZE => SendBufSize,
-            __WASI_SOCK_OPTION_RECV_LOWAT => RecvLowat,
-            __WASI_SOCK_OPTION_SEND_LOWAT => SendLowat,
-            __WASI_SOCK_OPTION_RECV_TIMEOUT => RecvTimeout,
-            __WASI_SOCK_OPTION_SEND_TIMEOUT => SendTimeout,
-            __WASI_SOCK_OPTION_CONNECT_TIMEOUT => ConnectTimeout,
-            __WASI_SOCK_OPTION_ACCEPT_TIMEOUT => AcceptTimeout,
-            __WASI_SOCK_OPTION_TTL => Ttl,
-            __WASI_SOCK_OPTION_MULTICAST_TTL_V4 => MulticastTtlV4,
-            __WASI_SOCK_OPTION_TYPE => Type,
-            __WASI_SOCK_OPTION_PROTO => Proto,
-            _ => Noop,
+            Sockoption::Noop => Noop,
+            Sockoption::ReusePort => ReusePort,
+            Sockoption::ReuseAddr => ReuseAddr,
+            Sockoption::NoDelay => NoDelay,
+            Sockoption::DontRoute => DontRoute,
+            Sockoption::OnlyV6 => OnlyV6,
+            Sockoption::Broadcast => Broadcast,
+            Sockoption::MulticastLoopV4 => MulticastLoopV4,
+            Sockoption::MulticastLoopV6 => MulticastLoopV6,
+            Sockoption::Promiscuous => Promiscuous,
+            Sockoption::Listening => Listening,
+            Sockoption::LastError => LastError,
+            Sockoption::KeepAlive => KeepAlive,
+            Sockoption::Linger => Linger,
+            Sockoption::OobInline => OobInline,
+            Sockoption::RecvBufSize => RecvBufSize,
+            Sockoption::SendBufSize => SendBufSize,
+            Sockoption::RecvLowat => RecvLowat,
+            Sockoption::SendLowat => SendLowat,
+            Sockoption::RecvTimeout => RecvTimeout,
+            Sockoption::SendTimeout => SendTimeout,
+            Sockoption::ConnectTimeout => ConnectTimeout,
+            Sockoption::AcceptTimeout => AcceptTimeout,
+            Sockoption::Ttl => Ttl,
+            Sockoption::MulticastTtlV4 => MulticastTtlV4,
+            Sockoption::Type => Type,
+            Sockoption::Proto => Proto,
         }
     }
 }
@@ -162,7 +162,7 @@ impl InodeSocket {
         &mut self,
         net: &(dyn VirtualNetworking),
         set_addr: SocketAddr,
-    ) -> Result<Option<InodeSocket>, __wasi_errno_t> {
+    ) -> Result<Option<InodeSocket>, Errno> {
         match &mut self.kind {
             InodeSocketKind::PreSocket {
                 family,
@@ -173,18 +173,18 @@ impl InodeSocket {
                 ..
             } => {
                 match *family {
-                    __WASI_ADDRESS_FAMILY_INET4 => {
+                    Addressfamily::Inet4 => {
                         if !set_addr.is_ipv4() {
-                            return Err(__WASI_EINVAL);
+                            return Err(Errno::Inval);
                         }
                     }
-                    __WASI_ADDRESS_FAMILY_INET6 => {
+                    Addressfamily::Inet6 => {
                         if !set_addr.is_ipv6() {
-                            return Err(__WASI_EINVAL);
+                            return Err(Errno::Inval);
                         }
                     }
                     _ => {
-                        return Err(__WASI_ENOTSUP);
+                        return Err(Errno::Notsup);
                     }
                 }
 
@@ -192,21 +192,21 @@ impl InodeSocket {
                 let addr = (*addr).unwrap();
 
                 Ok(match *ty {
-                    __WASI_SOCK_TYPE_STREAM => {
+                    Socktype::Stream => {
                         // we already set the socket address - next we need a bind or connect so nothing
                         // more to do at this time
                         None
                     }
-                    __WASI_SOCK_TYPE_DGRAM => {
+                    Socktype::Dgram => {
                         let socket = net
                             .bind_udp(addr, *reuse_port, *reuse_addr)
                             .map_err(net_error_into_wasi_err)?;
                         Some(InodeSocket::new(InodeSocketKind::UdpSocket(socket)))
                     }
-                    _ => return Err(__WASI_EINVAL),
+                    _ => return Err(Errno::Inval),
                 })
             }
-            _ => Err(__WASI_ENOTSUP),
+            _ => Err(Errno::Notsup),
         }
     }
 
@@ -214,7 +214,7 @@ impl InodeSocket {
         &mut self,
         net: &(dyn VirtualNetworking),
         _backlog: usize,
-    ) -> Result<Option<InodeSocket>, __wasi_errno_t> {
+    ) -> Result<Option<InodeSocket>, Errno> {
         match &self.kind {
             InodeSocketKind::PreSocket {
                 ty,
@@ -225,9 +225,9 @@ impl InodeSocket {
                 accept_timeout,
                 ..
             } => Ok(match *ty {
-                __WASI_SOCK_TYPE_STREAM => {
+                Socktype::Stream => {
                     if addr.is_none() {
-                        return Err(__WASI_EINVAL);
+                        return Err(Errno::Inval);
                     }
                     let addr = *addr.as_ref().unwrap();
                     let mut socket = net
@@ -240,38 +240,38 @@ impl InodeSocket {
                     }
                     Some(InodeSocket::new(InodeSocketKind::TcpListener(socket)))
                 }
-                _ => return Err(__WASI_ENOTSUP),
+                _ => return Err(Errno::Notsup),
             }),
-            InodeSocketKind::Closed => Err(__WASI_EIO),
-            _ => Err(__WASI_ENOTSUP),
+            InodeSocketKind::Closed => Err(Errno::Io),
+            _ => Err(Errno::Notsup),
         }
     }
 
     pub fn accept(
         &self,
-        _fd_flags: __wasi_fdflags_t,
-    ) -> Result<(Box<dyn VirtualTcpSocket + Sync>, SocketAddr), __wasi_errno_t> {
+        _fd_flags: Fdflags,
+    ) -> Result<(Box<dyn VirtualTcpSocket + Sync>, SocketAddr), Errno> {
         let (sock, addr) = match &self.kind {
             InodeSocketKind::TcpListener(sock) => sock.accept().map_err(net_error_into_wasi_err),
-            InodeSocketKind::PreSocket { .. } => Err(__WASI_ENOTCONN),
-            InodeSocketKind::Closed => Err(__WASI_EIO),
-            _ => Err(__WASI_ENOTSUP),
+            InodeSocketKind::PreSocket { .. } => Err(Errno::Notconn),
+            InodeSocketKind::Closed => Err(Errno::Io),
+            _ => Err(Errno::Notsup),
         }?;
         Ok((sock, addr))
     }
 
     pub fn accept_timeout(
         &self,
-        _fd_flags: __wasi_fdflags_t,
+        _fd_flags: Fdflags,
         timeout: Duration,
-    ) -> Result<(Box<dyn VirtualTcpSocket + Sync>, SocketAddr), __wasi_errno_t> {
+    ) -> Result<(Box<dyn VirtualTcpSocket + Sync>, SocketAddr), Errno> {
         let (sock, addr) = match &self.kind {
             InodeSocketKind::TcpListener(sock) => sock
                 .accept_timeout(timeout)
                 .map_err(net_error_into_wasi_err),
-            InodeSocketKind::PreSocket { .. } => Err(__WASI_ENOTCONN),
-            InodeSocketKind::Closed => Err(__WASI_EIO),
-            _ => Err(__WASI_ENOTSUP),
+            InodeSocketKind::PreSocket { .. } => Err(Errno::Notconn),
+            InodeSocketKind::Closed => Err(Errno::Io),
+            _ => Err(Errno::Notsup),
         }?;
         Ok((sock, addr))
     }
@@ -280,7 +280,7 @@ impl InodeSocket {
         &mut self,
         net: &(dyn VirtualNetworking),
         peer: SocketAddr,
-    ) -> Result<Option<InodeSocket>, __wasi_errno_t> {
+    ) -> Result<Option<InodeSocket>, Errno> {
         match &mut self.kind {
             InodeSocketKind::PreSocket {
                 ty,
@@ -290,7 +290,7 @@ impl InodeSocket {
                 connect_timeout,
                 ..
             } => Ok(match *ty {
-                __WASI_SOCK_TYPE_STREAM => {
+                Socktype::Stream => {
                     let addr = match addr {
                         Some(a) => *a,
                         None => {
@@ -316,19 +316,19 @@ impl InodeSocket {
                     }
                     Some(InodeSocket::new(InodeSocketKind::TcpStream(socket)))
                 }
-                __WASI_SOCK_TYPE_DGRAM => return Err(__WASI_EINVAL),
-                _ => return Err(__WASI_ENOTSUP),
+                Socktype::Dgram => return Err(Errno::Inval),
+                _ => return Err(Errno::Notsup),
             }),
             InodeSocketKind::UdpSocket(sock) => {
                 sock.connect(peer).map_err(net_error_into_wasi_err)?;
                 Ok(None)
             }
-            InodeSocketKind::Closed => Err(__WASI_EIO),
-            _ => Err(__WASI_ENOTSUP),
+            InodeSocketKind::Closed => Err(Errno::Io),
+            _ => Err(Errno::Notsup),
         }
     }
 
-    pub fn status(&self) -> Result<WasiSocketStatus, __wasi_errno_t> {
+    pub fn status(&self) -> Result<WasiSocketStatus, Errno> {
         Ok(match &self.kind {
             InodeSocketKind::PreSocket { .. } => WasiSocketStatus::Opening,
             InodeSocketKind::WebSocket(_) => WasiSocketStatus::Opened,
@@ -341,14 +341,14 @@ impl InodeSocket {
         })
     }
 
-    pub fn http_status(&self) -> Result<WasiHttpStatus, __wasi_errno_t> {
+    pub fn http_status(&self) -> Result<WasiHttpStatus, Errno> {
         Ok(match &self.kind {
             InodeSocketKind::HttpRequest(http, ..) => {
                 let http = http.lock().unwrap();
                 let guard = http.status.lock().unwrap();
                 let status = guard
                     .recv()
-                    .map_err(|_| __WASI_EIO)?
+                    .map_err(|_| Errno::Io)?
                     .map_err(net_error_into_wasi_err)?;
                 WasiHttpStatus {
                     ok: true,
@@ -357,12 +357,12 @@ impl InodeSocket {
                     size: status.size as u64,
                 }
             }
-            InodeSocketKind::Closed => return Err(__WASI_EIO),
-            _ => return Err(__WASI_ENOTSUP),
+            InodeSocketKind::Closed => return Err(Errno::Io),
+            _ => return Err(Errno::Notsup),
         })
     }
 
-    pub fn addr_local(&self) -> Result<SocketAddr, __wasi_errno_t> {
+    pub fn addr_local(&self) -> Result<SocketAddr, Errno> {
         Ok(match &self.kind {
             InodeSocketKind::PreSocket { family, addr, .. } => {
                 if let Some(addr) = addr {
@@ -370,9 +370,9 @@ impl InodeSocket {
                 } else {
                     SocketAddr::new(
                         match *family {
-                            __WASI_ADDRESS_FAMILY_INET4 => IpAddr::V4(Ipv4Addr::UNSPECIFIED),
-                            __WASI_ADDRESS_FAMILY_INET6 => IpAddr::V6(Ipv6Addr::UNSPECIFIED),
-                            _ => return Err(__WASI_EINVAL),
+                            Addressfamily::Inet4 => IpAddr::V4(Ipv4Addr::UNSPECIFIED),
+                            Addressfamily::Inet6 => IpAddr::V6(Ipv6Addr::UNSPECIFIED),
+                            _ => return Err(Errno::Inval),
                         },
                         0,
                     )
@@ -388,18 +388,18 @@ impl InodeSocket {
             InodeSocketKind::UdpSocket(sock) => {
                 sock.addr_local().map_err(net_error_into_wasi_err)?
             }
-            InodeSocketKind::Closed => return Err(__WASI_EIO),
-            _ => return Err(__WASI_ENOTSUP),
+            InodeSocketKind::Closed => return Err(Errno::Io),
+            _ => return Err(Errno::Notsup),
         })
     }
 
-    pub fn addr_peer(&self) -> Result<SocketAddr, __wasi_errno_t> {
+    pub fn addr_peer(&self) -> Result<SocketAddr, Errno> {
         Ok(match &self.kind {
             InodeSocketKind::PreSocket { family, .. } => SocketAddr::new(
                 match *family {
-                    __WASI_ADDRESS_FAMILY_INET4 => IpAddr::V4(Ipv4Addr::UNSPECIFIED),
-                    __WASI_ADDRESS_FAMILY_INET6 => IpAddr::V6(Ipv6Addr::UNSPECIFIED),
-                    _ => return Err(__WASI_EINVAL),
+                    Addressfamily::Inet4 => IpAddr::V4(Ipv4Addr::UNSPECIFIED),
+                    Addressfamily::Inet6 => IpAddr::V6(Ipv6Addr::UNSPECIFIED),
+                    _ => return Err(Errno::Inval),
                 },
                 0,
             ),
@@ -423,16 +423,12 @@ impl InodeSocket {
                             )
                         })
                 })?,
-            InodeSocketKind::Closed => return Err(__WASI_EIO),
-            _ => return Err(__WASI_ENOTSUP),
+            InodeSocketKind::Closed => return Err(Errno::Io),
+            _ => return Err(Errno::Notsup),
         })
     }
 
-    pub fn set_opt_flag(
-        &mut self,
-        option: WasiSocketOption,
-        val: bool,
-    ) -> Result<(), __wasi_errno_t> {
+    pub fn set_opt_flag(&mut self, option: WasiSocketOption, val: bool) -> Result<(), Errno> {
         match &mut self.kind {
             InodeSocketKind::PreSocket {
                 only_v6,
@@ -444,20 +440,20 @@ impl InodeSocket {
                     WasiSocketOption::OnlyV6 => *only_v6 = val,
                     WasiSocketOption::ReusePort => *reuse_port = val,
                     WasiSocketOption::ReuseAddr => *reuse_addr = val,
-                    _ => return Err(__WASI_EINVAL),
+                    _ => return Err(Errno::Inval),
                 };
             }
             InodeSocketKind::Raw(sock) => match option {
                 WasiSocketOption::Promiscuous => {
                     sock.set_promiscuous(val).map_err(net_error_into_wasi_err)?
                 }
-                _ => return Err(__WASI_EINVAL),
+                _ => return Err(Errno::Inval),
             },
             InodeSocketKind::TcpStream(sock) => match option {
                 WasiSocketOption::NoDelay => {
                     sock.set_nodelay(val).map_err(net_error_into_wasi_err)?
                 }
-                _ => return Err(__WASI_EINVAL),
+                _ => return Err(Errno::Inval),
             },
             InodeSocketKind::UdpSocket(sock) => match option {
                 WasiSocketOption::Broadcast => {
@@ -469,15 +465,15 @@ impl InodeSocket {
                 WasiSocketOption::MulticastLoopV6 => sock
                     .set_multicast_loop_v6(val)
                     .map_err(net_error_into_wasi_err)?,
-                _ => return Err(__WASI_EINVAL),
+                _ => return Err(Errno::Inval),
             },
-            InodeSocketKind::Closed => return Err(__WASI_EIO),
-            _ => return Err(__WASI_ENOTSUP),
+            InodeSocketKind::Closed => return Err(Errno::Io),
+            _ => return Err(Errno::Notsup),
         }
         Ok(())
     }
 
-    pub fn get_opt_flag(&self, option: WasiSocketOption) -> Result<bool, __wasi_errno_t> {
+    pub fn get_opt_flag(&self, option: WasiSocketOption) -> Result<bool, Errno> {
         Ok(match &self.kind {
             InodeSocketKind::PreSocket {
                 only_v6,
@@ -488,17 +484,17 @@ impl InodeSocket {
                 WasiSocketOption::OnlyV6 => *only_v6,
                 WasiSocketOption::ReusePort => *reuse_port,
                 WasiSocketOption::ReuseAddr => *reuse_addr,
-                _ => return Err(__WASI_EINVAL),
+                _ => return Err(Errno::Inval),
             },
             InodeSocketKind::Raw(sock) => match option {
                 WasiSocketOption::Promiscuous => {
                     sock.promiscuous().map_err(net_error_into_wasi_err)?
                 }
-                _ => return Err(__WASI_EINVAL),
+                _ => return Err(Errno::Inval),
             },
             InodeSocketKind::TcpStream(sock) => match option {
                 WasiSocketOption::NoDelay => sock.nodelay().map_err(net_error_into_wasi_err)?,
-                _ => return Err(__WASI_EINVAL),
+                _ => return Err(Errno::Inval),
             },
             InodeSocketKind::UdpSocket(sock) => match option {
                 WasiSocketOption::Broadcast => sock.broadcast().map_err(net_error_into_wasi_err)?,
@@ -508,14 +504,14 @@ impl InodeSocket {
                 WasiSocketOption::MulticastLoopV6 => {
                     sock.multicast_loop_v6().map_err(net_error_into_wasi_err)?
                 }
-                _ => return Err(__WASI_EINVAL),
+                _ => return Err(Errno::Inval),
             },
-            InodeSocketKind::Closed => return Err(__WASI_EIO),
-            _ => return Err(__WASI_ENOTSUP),
+            InodeSocketKind::Closed => return Err(Errno::Io),
+            _ => return Err(Errno::Notsup),
         })
     }
 
-    pub fn set_send_buf_size(&mut self, size: usize) -> Result<(), __wasi_errno_t> {
+    pub fn set_send_buf_size(&mut self, size: usize) -> Result<(), Errno> {
         match &mut self.kind {
             InodeSocketKind::PreSocket { send_buf_size, .. } => {
                 *send_buf_size = Some(size);
@@ -524,13 +520,13 @@ impl InodeSocket {
                 sock.set_send_buf_size(size)
                     .map_err(net_error_into_wasi_err)?;
             }
-            InodeSocketKind::Closed => return Err(__WASI_EIO),
-            _ => return Err(__WASI_ENOTSUP),
+            InodeSocketKind::Closed => return Err(Errno::Io),
+            _ => return Err(Errno::Notsup),
         }
         Ok(())
     }
 
-    pub fn send_buf_size(&self) -> Result<usize, __wasi_errno_t> {
+    pub fn send_buf_size(&self) -> Result<usize, Errno> {
         match &self.kind {
             InodeSocketKind::PreSocket { send_buf_size, .. } => {
                 Ok((*send_buf_size).unwrap_or_default())
@@ -538,12 +534,12 @@ impl InodeSocket {
             InodeSocketKind::TcpStream(sock) => {
                 sock.send_buf_size().map_err(net_error_into_wasi_err)
             }
-            InodeSocketKind::Closed => Err(__WASI_EIO),
-            _ => Err(__WASI_ENOTSUP),
+            InodeSocketKind::Closed => Err(Errno::Io),
+            _ => Err(Errno::Notsup),
         }
     }
 
-    pub fn set_recv_buf_size(&mut self, size: usize) -> Result<(), __wasi_errno_t> {
+    pub fn set_recv_buf_size(&mut self, size: usize) -> Result<(), Errno> {
         match &mut self.kind {
             InodeSocketKind::PreSocket { recv_buf_size, .. } => {
                 *recv_buf_size = Some(size);
@@ -552,13 +548,13 @@ impl InodeSocket {
                 sock.set_recv_buf_size(size)
                     .map_err(net_error_into_wasi_err)?;
             }
-            InodeSocketKind::Closed => return Err(__WASI_EIO),
-            _ => return Err(__WASI_ENOTSUP),
+            InodeSocketKind::Closed => return Err(Errno::Io),
+            _ => return Err(Errno::Notsup),
         }
         Ok(())
     }
 
-    pub fn recv_buf_size(&self) -> Result<usize, __wasi_errno_t> {
+    pub fn recv_buf_size(&self) -> Result<usize, Errno> {
         match &self.kind {
             InodeSocketKind::PreSocket { recv_buf_size, .. } => {
                 Ok((*recv_buf_size).unwrap_or_default())
@@ -566,31 +562,28 @@ impl InodeSocket {
             InodeSocketKind::TcpStream(sock) => {
                 sock.recv_buf_size().map_err(net_error_into_wasi_err)
             }
-            InodeSocketKind::Closed => Err(__WASI_EIO),
-            _ => Err(__WASI_ENOTSUP),
+            InodeSocketKind::Closed => Err(Errno::Io),
+            _ => Err(Errno::Notsup),
         }
     }
 
-    pub fn set_linger(
-        &mut self,
-        linger: Option<std::time::Duration>,
-    ) -> Result<(), __wasi_errno_t> {
+    pub fn set_linger(&mut self, linger: Option<std::time::Duration>) -> Result<(), Errno> {
         match &mut self.kind {
             InodeSocketKind::TcpStream(sock) => {
                 sock.set_linger(linger).map_err(net_error_into_wasi_err)
             }
-            InodeSocketKind::PreSocket { .. } => Err(__WASI_EIO),
-            InodeSocketKind::Closed => Err(__WASI_EIO),
-            _ => Err(__WASI_ENOTSUP),
+            InodeSocketKind::PreSocket { .. } => Err(Errno::Io),
+            InodeSocketKind::Closed => Err(Errno::Io),
+            _ => Err(Errno::Notsup),
         }
     }
 
-    pub fn linger(&self) -> Result<Option<std::time::Duration>, __wasi_errno_t> {
+    pub fn linger(&self) -> Result<Option<std::time::Duration>, Errno> {
         match &self.kind {
             InodeSocketKind::TcpStream(sock) => sock.linger().map_err(net_error_into_wasi_err),
-            InodeSocketKind::PreSocket { .. } => Err(__WASI_EIO),
-            InodeSocketKind::Closed => Err(__WASI_EIO),
-            _ => Err(__WASI_ENOTSUP),
+            InodeSocketKind::PreSocket { .. } => Err(Errno::Io),
+            InodeSocketKind::Closed => Err(Errno::Io),
+            _ => Err(Errno::Notsup),
         }
     }
 
@@ -598,7 +591,7 @@ impl InodeSocket {
         &mut self,
         ty: TimeType,
         timeout: Option<std::time::Duration>,
-    ) -> Result<(), __wasi_errno_t> {
+    ) -> Result<(), Errno> {
         match &mut self.kind {
             InodeSocketKind::TcpStream(sock) => sock
                 .set_opt_time(ty, timeout)
@@ -607,7 +600,7 @@ impl InodeSocket {
                 TimeType::AcceptTimeout => {
                     sock.set_timeout(timeout).map_err(net_error_into_wasi_err)
                 }
-                _ => Err(__WASI_EINVAL),
+                _ => Err(Errno::Inval),
             },
             InodeSocketKind::PreSocket {
                 recv_timeout,
@@ -632,19 +625,19 @@ impl InodeSocket {
                     *send_timeout = timeout;
                     Ok(())
                 }
-                _ => Err(__WASI_EIO),
+                _ => Err(Errno::Io),
             },
-            InodeSocketKind::Closed => Err(__WASI_EIO),
-            _ => Err(__WASI_ENOTSUP),
+            InodeSocketKind::Closed => Err(Errno::Io),
+            _ => Err(Errno::Notsup),
         }
     }
 
-    pub fn opt_time(&self, ty: TimeType) -> Result<Option<std::time::Duration>, __wasi_errno_t> {
+    pub fn opt_time(&self, ty: TimeType) -> Result<Option<std::time::Duration>, Errno> {
         match &self.kind {
             InodeSocketKind::TcpStream(sock) => sock.opt_time(ty).map_err(net_error_into_wasi_err),
             InodeSocketKind::TcpListener(sock) => match ty {
                 TimeType::AcceptTimeout => sock.timeout().map_err(net_error_into_wasi_err),
-                _ => Err(__WASI_EINVAL),
+                _ => Err(Errno::Inval),
             },
             InodeSocketKind::PreSocket {
                 recv_timeout,
@@ -657,67 +650,63 @@ impl InodeSocket {
                 TimeType::AcceptTimeout => Ok(*accept_timeout),
                 TimeType::ReadTimeout => Ok(*recv_timeout),
                 TimeType::WriteTimeout => Ok(*send_timeout),
-                _ => Err(__WASI_EINVAL),
+                _ => Err(Errno::Inval),
             },
-            InodeSocketKind::Closed => Err(__WASI_EIO),
-            _ => Err(__WASI_ENOTSUP),
+            InodeSocketKind::Closed => Err(Errno::Io),
+            _ => Err(Errno::Notsup),
         }
     }
 
-    pub fn set_ttl(&mut self, ttl: u32) -> Result<(), __wasi_errno_t> {
+    pub fn set_ttl(&mut self, ttl: u32) -> Result<(), Errno> {
         match &mut self.kind {
             InodeSocketKind::TcpStream(sock) => sock.set_ttl(ttl).map_err(net_error_into_wasi_err),
             InodeSocketKind::UdpSocket(sock) => sock.set_ttl(ttl).map_err(net_error_into_wasi_err),
-            InodeSocketKind::PreSocket { .. } => Err(__WASI_EIO),
-            InodeSocketKind::Closed => Err(__WASI_EIO),
-            _ => Err(__WASI_ENOTSUP),
+            InodeSocketKind::PreSocket { .. } => Err(Errno::Io),
+            InodeSocketKind::Closed => Err(Errno::Io),
+            _ => Err(Errno::Notsup),
         }
     }
 
-    pub fn ttl(&self) -> Result<u32, __wasi_errno_t> {
+    pub fn ttl(&self) -> Result<u32, Errno> {
         match &self.kind {
             InodeSocketKind::TcpStream(sock) => sock.ttl().map_err(net_error_into_wasi_err),
             InodeSocketKind::UdpSocket(sock) => sock.ttl().map_err(net_error_into_wasi_err),
-            InodeSocketKind::PreSocket { .. } => Err(__WASI_EIO),
-            InodeSocketKind::Closed => Err(__WASI_EIO),
-            _ => Err(__WASI_ENOTSUP),
+            InodeSocketKind::PreSocket { .. } => Err(Errno::Io),
+            InodeSocketKind::Closed => Err(Errno::Io),
+            _ => Err(Errno::Notsup),
         }
     }
 
-    pub fn set_multicast_ttl_v4(&mut self, ttl: u32) -> Result<(), __wasi_errno_t> {
+    pub fn set_multicast_ttl_v4(&mut self, ttl: u32) -> Result<(), Errno> {
         match &mut self.kind {
             InodeSocketKind::UdpSocket(sock) => sock
                 .set_multicast_ttl_v4(ttl)
                 .map_err(net_error_into_wasi_err),
-            InodeSocketKind::PreSocket { .. } => Err(__WASI_EIO),
-            InodeSocketKind::Closed => Err(__WASI_EIO),
-            _ => Err(__WASI_ENOTSUP),
+            InodeSocketKind::PreSocket { .. } => Err(Errno::Io),
+            InodeSocketKind::Closed => Err(Errno::Io),
+            _ => Err(Errno::Notsup),
         }
     }
 
-    pub fn multicast_ttl_v4(&self) -> Result<u32, __wasi_errno_t> {
+    pub fn multicast_ttl_v4(&self) -> Result<u32, Errno> {
         match &self.kind {
             InodeSocketKind::UdpSocket(sock) => {
                 sock.multicast_ttl_v4().map_err(net_error_into_wasi_err)
             }
-            InodeSocketKind::PreSocket { .. } => Err(__WASI_EIO),
-            InodeSocketKind::Closed => Err(__WASI_EIO),
-            _ => Err(__WASI_ENOTSUP),
+            InodeSocketKind::PreSocket { .. } => Err(Errno::Io),
+            InodeSocketKind::Closed => Err(Errno::Io),
+            _ => Err(Errno::Notsup),
         }
     }
 
-    pub fn join_multicast_v4(
-        &mut self,
-        multiaddr: Ipv4Addr,
-        iface: Ipv4Addr,
-    ) -> Result<(), __wasi_errno_t> {
+    pub fn join_multicast_v4(&mut self, multiaddr: Ipv4Addr, iface: Ipv4Addr) -> Result<(), Errno> {
         match &mut self.kind {
             InodeSocketKind::UdpSocket(sock) => sock
                 .join_multicast_v4(multiaddr, iface)
                 .map_err(net_error_into_wasi_err),
-            InodeSocketKind::PreSocket { .. } => Err(__WASI_EIO),
-            InodeSocketKind::Closed => Err(__WASI_EIO),
-            _ => Err(__WASI_ENOTSUP),
+            InodeSocketKind::PreSocket { .. } => Err(Errno::Io),
+            InodeSocketKind::Closed => Err(Errno::Io),
+            _ => Err(Errno::Notsup),
         }
     }
 
@@ -725,44 +714,36 @@ impl InodeSocket {
         &mut self,
         multiaddr: Ipv4Addr,
         iface: Ipv4Addr,
-    ) -> Result<(), __wasi_errno_t> {
+    ) -> Result<(), Errno> {
         match &mut self.kind {
             InodeSocketKind::UdpSocket(sock) => sock
                 .leave_multicast_v4(multiaddr, iface)
                 .map_err(net_error_into_wasi_err),
-            InodeSocketKind::PreSocket { .. } => Err(__WASI_EIO),
-            InodeSocketKind::Closed => Err(__WASI_EIO),
-            _ => Err(__WASI_ENOTSUP),
+            InodeSocketKind::PreSocket { .. } => Err(Errno::Io),
+            InodeSocketKind::Closed => Err(Errno::Io),
+            _ => Err(Errno::Notsup),
         }
     }
 
-    pub fn join_multicast_v6(
-        &mut self,
-        multiaddr: Ipv6Addr,
-        iface: u32,
-    ) -> Result<(), __wasi_errno_t> {
+    pub fn join_multicast_v6(&mut self, multiaddr: Ipv6Addr, iface: u32) -> Result<(), Errno> {
         match &mut self.kind {
             InodeSocketKind::UdpSocket(sock) => sock
                 .join_multicast_v6(multiaddr, iface)
                 .map_err(net_error_into_wasi_err),
-            InodeSocketKind::PreSocket { .. } => Err(__WASI_EIO),
-            InodeSocketKind::Closed => Err(__WASI_EIO),
-            _ => Err(__WASI_ENOTSUP),
+            InodeSocketKind::PreSocket { .. } => Err(Errno::Io),
+            InodeSocketKind::Closed => Err(Errno::Io),
+            _ => Err(Errno::Notsup),
         }
     }
 
-    pub fn leave_multicast_v6(
-        &mut self,
-        multiaddr: Ipv6Addr,
-        iface: u32,
-    ) -> Result<(), __wasi_errno_t> {
+    pub fn leave_multicast_v6(&mut self, multiaddr: Ipv6Addr, iface: u32) -> Result<(), Errno> {
         match &mut self.kind {
             InodeSocketKind::UdpSocket(sock) => sock
                 .leave_multicast_v6(multiaddr, iface)
                 .map_err(net_error_into_wasi_err),
-            InodeSocketKind::PreSocket { .. } => Err(__WASI_EIO),
-            InodeSocketKind::Closed => Err(__WASI_EIO),
-            _ => Err(__WASI_ENOTSUP),
+            InodeSocketKind::PreSocket { .. } => Err(Errno::Io),
+            InodeSocketKind::Closed => Err(Errno::Io),
+            _ => Err(Errno::Notsup),
         }
     }
 
@@ -770,13 +751,13 @@ impl InodeSocket {
         &mut self,
         memory: &MemoryView,
         iov: WasmSlice<__wasi_ciovec_t<M>>,
-    ) -> Result<usize, __wasi_errno_t> {
+    ) -> Result<usize, Errno> {
         let buf_len: M::Offset = iov
             .iter()
             .filter_map(|a| a.read().ok())
             .map(|a| a.buf_len)
             .sum();
-        let buf_len: usize = buf_len.try_into().map_err(|_| __WASI_EINVAL)?;
+        let buf_len: usize = buf_len.try_into().map_err(|_| Errno::Inval)?;
         let mut buf = Vec::with_capacity(buf_len);
         write_bytes(&mut buf, memory, iov)?;
         match &mut self.kind {
@@ -785,13 +766,13 @@ impl InodeSocket {
                 match ty {
                     InodeHttpSocketType::Request => {
                         if sock.request.is_none() {
-                            return Err(__WASI_EIO);
+                            return Err(Errno::Io);
                         }
                         let request = sock.request.as_ref().unwrap();
-                        request.send(buf).map(|_| buf_len).map_err(|_| __WASI_EIO)
+                        request.send(buf).map(|_| buf_len).map_err(|_| Errno::Io)
                     }
                     _ => {
-                        return Err(__WASI_EIO);
+                        return Err(Errno::Io);
                     }
                 }
             }
@@ -808,14 +789,14 @@ impl InodeSocket {
             InodeSocketKind::UdpSocket(sock) => {
                 sock.send(Bytes::from(buf)).map_err(net_error_into_wasi_err)
             }
-            InodeSocketKind::PreSocket { .. } => Err(__WASI_ENOTCONN),
-            InodeSocketKind::Closed => Err(__WASI_EIO),
-            _ => Err(__WASI_ENOTSUP),
+            InodeSocketKind::PreSocket { .. } => Err(Errno::Notconn),
+            InodeSocketKind::Closed => Err(Errno::Io),
+            _ => Err(Errno::Notsup),
         }
         .map(|_| buf_len)
     }
 
-    pub fn send_bytes<M: MemorySize>(&mut self, buf: Bytes) -> Result<usize, __wasi_errno_t> {
+    pub fn send_bytes<M: MemorySize>(&mut self, buf: Bytes) -> Result<usize, Errno> {
         let buf_len = buf.len();
         match &mut self.kind {
             InodeSocketKind::HttpRequest(sock, ty) => {
@@ -823,16 +804,16 @@ impl InodeSocket {
                 match ty {
                     InodeHttpSocketType::Request => {
                         if sock.request.is_none() {
-                            return Err(__WASI_EIO);
+                            return Err(Errno::Io);
                         }
                         let request = sock.request.as_ref().unwrap();
                         request
                             .send(buf.to_vec())
                             .map(|_| buf_len)
-                            .map_err(|_| __WASI_EIO)
+                            .map_err(|_| Errno::Io)
                     }
                     _ => {
-                        return Err(__WASI_EIO);
+                        return Err(Errno::Io);
                     }
                 }
             }
@@ -843,9 +824,9 @@ impl InodeSocket {
             InodeSocketKind::Raw(sock) => sock.send(buf).map_err(net_error_into_wasi_err),
             InodeSocketKind::TcpStream(sock) => sock.send(buf).map_err(net_error_into_wasi_err),
             InodeSocketKind::UdpSocket(sock) => sock.send(buf).map_err(net_error_into_wasi_err),
-            InodeSocketKind::PreSocket { .. } => Err(__WASI_ENOTCONN),
-            InodeSocketKind::Closed => Err(__WASI_EIO),
-            _ => Err(__WASI_ENOTSUP),
+            InodeSocketKind::PreSocket { .. } => Err(Errno::Notconn),
+            InodeSocketKind::Closed => Err(Errno::Io),
+            _ => Err(Errno::Notsup),
         }
         .map(|_| buf_len)
     }
@@ -855,7 +836,7 @@ impl InodeSocket {
         memory: &MemoryView,
         iov: WasmSlice<__wasi_ciovec_t<M>>,
         addr: WasmPtr<__wasi_addr_port_t, M>,
-    ) -> Result<usize, __wasi_errno_t> {
+    ) -> Result<usize, Errno> {
         let (addr_ip, addr_port) = read_ip_port(memory, addr)?;
         let addr = SocketAddr::new(addr_ip, addr_port);
         let buf_len: M::Offset = iov
@@ -863,7 +844,7 @@ impl InodeSocket {
             .filter_map(|a| a.read().ok())
             .map(|a| a.buf_len)
             .sum();
-        let buf_len: usize = buf_len.try_into().map_err(|_| __WASI_EINVAL)?;
+        let buf_len: usize = buf_len.try_into().map_err(|_| Errno::Inval)?;
         let mut buf = Vec::with_capacity(buf_len);
         write_bytes(&mut buf, memory, iov)?;
         match &mut self.kind {
@@ -873,9 +854,9 @@ impl InodeSocket {
             InodeSocketKind::UdpSocket(sock) => sock
                 .send_to(Bytes::from(buf), addr)
                 .map_err(net_error_into_wasi_err),
-            InodeSocketKind::PreSocket { .. } => Err(__WASI_ENOTCONN),
-            InodeSocketKind::Closed => Err(__WASI_EIO),
-            _ => Err(__WASI_ENOTSUP),
+            InodeSocketKind::PreSocket { .. } => Err(Errno::Notconn),
+            InodeSocketKind::Closed => Err(Errno::Io),
+            _ => Err(Errno::Notsup),
         }
         .map(|_| buf_len)
     }
@@ -884,7 +865,7 @@ impl InodeSocket {
         &mut self,
         memory: &MemoryView,
         iov: WasmSlice<__wasi_iovec_t<M>>,
-    ) -> Result<usize, __wasi_errno_t> {
+    ) -> Result<usize, Errno> {
         loop {
             if let Some(buf) = self.read_buffer.as_mut() {
                 let buf_len = buf.len();
@@ -905,22 +886,22 @@ impl InodeSocket {
                     match ty {
                         InodeHttpSocketType::Response => {
                             if sock.response.is_none() {
-                                return Err(__WASI_EIO);
+                                return Err(Errno::Io);
                             }
                             let response = sock.response.as_ref().unwrap();
-                            Bytes::from(response.recv().map_err(|_| __WASI_EIO)?)
+                            Bytes::from(response.recv().map_err(|_| Errno::Io)?)
                         }
                         InodeHttpSocketType::Headers => {
                             if sock.headers.is_none() {
-                                return Err(__WASI_EIO);
+                                return Err(Errno::Io);
                             }
                             let headers = sock.headers.as_ref().unwrap();
-                            let headers = headers.recv().map_err(|_| __WASI_EIO)?;
+                            let headers = headers.recv().map_err(|_| Errno::Io)?;
                             let headers = format!("{}: {}", headers.0, headers.1);
                             Bytes::from(headers.as_bytes().to_vec())
                         }
                         _ => {
-                            return Err(__WASI_EIO);
+                            return Err(Errno::Io);
                         }
                     }
                 }
@@ -940,9 +921,9 @@ impl InodeSocket {
                     let read = sock.recv().map_err(net_error_into_wasi_err)?;
                     read.data
                 }
-                InodeSocketKind::PreSocket { .. } => return Err(__WASI_ENOTCONN),
-                InodeSocketKind::Closed => return Err(__WASI_EIO),
-                _ => return Err(__WASI_ENOTSUP),
+                InodeSocketKind::PreSocket { .. } => return Err(Errno::Notconn),
+                InodeSocketKind::Closed => return Err(Errno::Io),
+                _ => return Err(Errno::Notsup),
             };
             self.read_buffer.replace(data);
             self.read_addr.take();
@@ -954,7 +935,7 @@ impl InodeSocket {
         memory: &MemoryView,
         iov: WasmSlice<__wasi_iovec_t<M>>,
         addr: WasmPtr<__wasi_addr_port_t, M>,
-    ) -> Result<usize, __wasi_errno_t> {
+    ) -> Result<usize, Errno> {
         loop {
             if let Some(buf) = self.read_buffer.as_mut() {
                 if !buf.is_empty() {
@@ -972,16 +953,16 @@ impl InodeSocket {
                 InodeSocketKind::UdpSocket(sock) => {
                     sock.recv_from().map_err(net_error_into_wasi_err)?
                 }
-                InodeSocketKind::PreSocket { .. } => return Err(__WASI_ENOTCONN),
-                InodeSocketKind::Closed => return Err(__WASI_EIO),
-                _ => return Err(__WASI_ENOTSUP),
+                InodeSocketKind::PreSocket { .. } => return Err(Errno::Notconn),
+                InodeSocketKind::Closed => return Err(Errno::Io),
+                _ => return Err(Errno::Notsup),
             };
             self.read_buffer.replace(rcv.data);
             self.read_addr.replace(rcv.addr);
         }
     }
 
-    pub fn shutdown(&mut self, how: std::net::Shutdown) -> Result<(), __wasi_errno_t> {
+    pub fn shutdown(&mut self, how: std::net::Shutdown) -> Result<(), Errno> {
         use std::net::Shutdown;
         match &mut self.kind {
             InodeSocketKind::TcpStream(sock) => {
@@ -1004,9 +985,9 @@ impl InodeSocket {
                     }
                 };
             }
-            InodeSocketKind::PreSocket { .. } => return Err(__WASI_ENOTCONN),
-            InodeSocketKind::Closed => return Err(__WASI_EIO),
-            _ => return Err(__WASI_ENOTSUP),
+            InodeSocketKind::PreSocket { .. } => return Err(Errno::Notconn),
+            InodeSocketKind::Closed => return Err(Errno::Io),
+            _ => return Err(Errno::Notsup),
         }
         Ok(())
     }
@@ -1132,25 +1113,25 @@ impl Drop for InodeSocket {
 pub(crate) fn read_ip<M: MemorySize>(
     memory: &MemoryView,
     ptr: WasmPtr<__wasi_addr_t, M>,
-) -> Result<IpAddr, __wasi_errno_t> {
+) -> Result<IpAddr, Errno> {
     let addr_ptr = ptr.deref(memory);
     let addr = addr_ptr.read().map_err(crate::mem_error_to_wasi)?;
 
     let o = addr.u.octs;
     Ok(match addr.tag {
-        __WASI_ADDRESS_FAMILY_INET4 => IpAddr::V4(Ipv4Addr::new(o[0], o[1], o[2], o[3])),
-        __WASI_ADDRESS_FAMILY_INET6 => {
+        Addressfamily::Inet4 => IpAddr::V4(Ipv4Addr::new(o[0], o[1], o[2], o[3])),
+        Addressfamily::Inet6 => {
             let [a, b, c, d, e, f, g, h] = unsafe { transmute::<_, [u16; 8]>(o) };
             IpAddr::V6(Ipv6Addr::new(a, b, c, d, e, f, g, h))
         }
-        _ => return Err(__WASI_EINVAL),
+        _ => return Err(Errno::Inval),
     })
 }
 
 pub(crate) fn read_ip_v4<M: MemorySize>(
     memory: &MemoryView,
     ptr: WasmPtr<__wasi_addr_ip4_t, M>,
-) -> Result<Ipv4Addr, __wasi_errno_t> {
+) -> Result<Ipv4Addr, Errno> {
     let addr_ptr = ptr.deref(memory);
     let addr = addr_ptr.read().map_err(crate::mem_error_to_wasi)?;
 
@@ -1161,7 +1142,7 @@ pub(crate) fn read_ip_v4<M: MemorySize>(
 pub(crate) fn read_ip_v6<M: MemorySize>(
     memory: &MemoryView,
     ptr: WasmPtr<__wasi_addr_ip6_t, M>,
-) -> Result<Ipv6Addr, __wasi_errno_t> {
+) -> Result<Ipv6Addr, Errno> {
     let addr_ptr = ptr.deref(memory);
     let addr = addr_ptr.read().map_err(crate::mem_error_to_wasi)?;
 
@@ -1173,12 +1154,12 @@ pub(crate) fn write_ip<M: MemorySize>(
     memory: &MemoryView,
     ptr: WasmPtr<__wasi_addr_t, M>,
     ip: IpAddr,
-) -> Result<(), __wasi_errno_t> {
+) -> Result<(), Errno> {
     let ip = match ip {
         IpAddr::V4(ip) => {
             let o = ip.octets();
             __wasi_addr_t {
-                tag: __WASI_ADDRESS_FAMILY_INET4,
+                tag: Addressfamily::Inet4,
                 u: __wasi_addr_u {
                     octs: [o[0], o[1], o[2], o[3], 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
                 },
@@ -1187,7 +1168,7 @@ pub(crate) fn write_ip<M: MemorySize>(
         IpAddr::V6(ip) => {
             let o = ip.octets();
             __wasi_addr_t {
-                tag: __WASI_ADDRESS_FAMILY_INET6,
+                tag: Addressfamily::Inet6,
                 u: __wasi_addr_u { octs: o },
             }
         }
@@ -1202,17 +1183,17 @@ pub(crate) fn write_ip<M: MemorySize>(
 pub(crate) fn read_cidr<M: MemorySize>(
     memory: &MemoryView,
     ptr: WasmPtr<__wasi_cidr_t, M>,
-) -> Result<IpCidr, __wasi_errno_t> {
+) -> Result<IpCidr, Errno> {
     let addr_ptr = ptr.deref(memory);
     let addr = addr_ptr.read().map_err(crate::mem_error_to_wasi)?;
 
     let o = addr.u.octs;
     Ok(match addr.tag {
-        __WASI_ADDRESS_FAMILY_INET4 => IpCidr {
+        Addressfamily::Inet4 => IpCidr {
             ip: IpAddr::V4(Ipv4Addr::new(o[0], o[1], o[2], o[3])),
             prefix: o[4],
         },
-        __WASI_ADDRESS_FAMILY_INET6 => {
+        Addressfamily::Inet6 => {
             let [a, b, c, d, e, f, g, h] = {
                 let o = [
                     o[0], o[1], o[2], o[3], o[4], o[5], o[6], o[7], o[8], o[9], o[10], o[11],
@@ -1225,7 +1206,7 @@ pub(crate) fn read_cidr<M: MemorySize>(
                 prefix: o[16],
             }
         }
-        _ => return Err(__WASI_EINVAL),
+        _ => return Err(Errno::Inval),
     })
 }
 
@@ -1234,13 +1215,13 @@ pub(crate) fn write_cidr<M: MemorySize>(
     memory: &MemoryView,
     ptr: WasmPtr<__wasi_cidr_t, M>,
     cidr: IpCidr,
-) -> Result<(), __wasi_errno_t> {
+) -> Result<(), Errno> {
     let p = cidr.prefix;
     let cidr = match cidr.ip {
         IpAddr::V4(ip) => {
             let o = ip.octets();
             __wasi_cidr_t {
-                tag: __WASI_ADDRESS_FAMILY_INET4,
+                tag: Addressfamily::Inet4,
                 u: __wasi_cidr_u {
                     octs: [
                         o[0], o[1], o[2], o[3], p, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -1251,7 +1232,7 @@ pub(crate) fn write_cidr<M: MemorySize>(
         IpAddr::V6(ip) => {
             let o = ip.octets();
             __wasi_cidr_t {
-                tag: __WASI_ADDRESS_FAMILY_INET6,
+                tag: Addressfamily::Inet6,
                 u: __wasi_cidr_u {
                     octs: [
                         o[0], o[1], o[2], o[3], o[4], o[5], o[6], o[7], o[8], o[9], o[10], o[11],
@@ -1270,17 +1251,17 @@ pub(crate) fn write_cidr<M: MemorySize>(
 pub(crate) fn read_ip_port<M: MemorySize>(
     memory: &MemoryView,
     ptr: WasmPtr<__wasi_addr_port_t, M>,
-) -> Result<(IpAddr, u16), __wasi_errno_t> {
+) -> Result<(IpAddr, u16), Errno> {
     let addr_ptr = ptr.deref(memory);
     let addr = addr_ptr.read().map_err(crate::mem_error_to_wasi)?;
 
     let o = addr.u.octs;
     Ok(match addr.tag {
-        __WASI_ADDRESS_FAMILY_INET4 => {
+        Addressfamily::Inet4 => {
             let port = u16::from_ne_bytes([o[0], o[1]]);
             (IpAddr::V4(Ipv4Addr::new(o[2], o[3], o[4], o[5])), port)
         }
-        __WASI_ADDRESS_FAMILY_INET6 => {
+        Addressfamily::Inet6 => {
             let [a, b, c, d, e, f, g, h] = {
                 let o = [
                     o[2], o[3], o[4], o[5], o[6], o[7], o[8], o[9], o[10], o[11], o[12], o[13],
@@ -1293,7 +1274,7 @@ pub(crate) fn read_ip_port<M: MemorySize>(
                 u16::from_ne_bytes([o[0], o[1]]),
             )
         }
-        _ => return Err(__WASI_EINVAL),
+        _ => return Err(Errno::Inval),
     })
 }
 
@@ -1303,13 +1284,13 @@ pub(crate) fn write_ip_port<M: MemorySize>(
     ptr: WasmPtr<__wasi_addr_port_t, M>,
     ip: IpAddr,
     port: u16,
-) -> Result<(), __wasi_errno_t> {
+) -> Result<(), Errno> {
     let p = port.to_be_bytes();
     let ipport = match ip {
         IpAddr::V4(ip) => {
             let o = ip.octets();
             __wasi_addr_port_t {
-                tag: __WASI_ADDRESS_FAMILY_INET4,
+                tag: Addressfamily::Inet4,
                 u: __wasi_addr_port_u {
                     octs: [
                         p[0], p[1], o[0], o[1], o[2], o[3], 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -1320,7 +1301,7 @@ pub(crate) fn write_ip_port<M: MemorySize>(
         IpAddr::V6(ip) => {
             let o = ip.octets();
             __wasi_addr_port_t {
-                tag: __WASI_ADDRESS_FAMILY_INET6,
+                tag: Addressfamily::Inet6,
                 u: __wasi_addr_port_u {
                     octs: [
                         p[0], p[1], o[0], o[1], o[2], o[3], o[4], o[5], o[6], o[7], o[8], o[9],
@@ -1339,8 +1320,8 @@ pub(crate) fn write_ip_port<M: MemorySize>(
 #[allow(dead_code)]
 pub(crate) fn read_route<M: MemorySize>(
     memory: &MemoryView,
-    ptr: WasmPtr<__wasi_route_t, M>,
-) -> Result<IpRoute, __wasi_errno_t> {
+    ptr: WasmPtr<Route, M>,
+) -> Result<IpRoute, Errno> {
     let route_ptr = ptr.deref(memory);
     let route = route_ptr.read().map_err(crate::mem_error_to_wasi)?;
 
@@ -1348,11 +1329,11 @@ pub(crate) fn read_route<M: MemorySize>(
         cidr: {
             let o = route.cidr.u.octs;
             match route.cidr.tag {
-                __WASI_ADDRESS_FAMILY_INET4 => IpCidr {
+                Addressfamily::Inet4 => IpCidr {
                     ip: IpAddr::V4(Ipv4Addr::new(o[0], o[1], o[2], o[3])),
                     prefix: o[4],
                 },
-                __WASI_ADDRESS_FAMILY_INET6 => {
+                Addressfamily::Inet6 => {
                     let [a, b, c, d, e, f, g, h] = {
                         let o = [
                             o[0], o[1], o[2], o[3], o[4], o[5], o[6], o[7], o[8], o[9], o[10],
@@ -1365,45 +1346,43 @@ pub(crate) fn read_route<M: MemorySize>(
                         prefix: o[16],
                     }
                 }
-                _ => return Err(__WASI_EINVAL),
+                _ => return Err(Errno::Inval),
             }
         },
         via_router: {
             let o = route.via_router.u.octs;
             match route.via_router.tag {
-                __WASI_ADDRESS_FAMILY_INET4 => IpAddr::V4(Ipv4Addr::new(o[0], o[1], o[2], o[3])),
-                __WASI_ADDRESS_FAMILY_INET6 => {
+                Addressfamily::Inet4 => IpAddr::V4(Ipv4Addr::new(o[0], o[1], o[2], o[3])),
+                Addressfamily::Inet6 => {
                     let [a, b, c, d, e, f, g, h] = unsafe { transmute::<_, [u16; 8]>(o) };
                     IpAddr::V6(Ipv6Addr::new(a, b, c, d, e, f, g, h))
                 }
-                _ => return Err(__WASI_EINVAL),
+                _ => return Err(Errno::Inval),
             }
         },
         preferred_until: match route.preferred_until.tag {
-            __WASI_OPTION_NONE => None,
-            __WASI_OPTION_SOME => Some(Duration::from_nanos(route.preferred_until.u)),
-            _ => return Err(__WASI_EINVAL),
+            OptionTag::None => None,
+            OptionTag::Some => Some(Duration::from_nanos(route.preferred_until.u)),
         },
         expires_at: match route.expires_at.tag {
-            __WASI_OPTION_NONE => None,
-            __WASI_OPTION_SOME => Some(Duration::from_nanos(route.expires_at.u)),
-            _ => return Err(__WASI_EINVAL),
+            OptionTag::None => None,
+            OptionTag::Some => Some(Duration::from_nanos(route.expires_at.u)),
         },
     })
 }
 
 pub(crate) fn write_route<M: MemorySize>(
     memory: &MemoryView,
-    ptr: WasmPtr<__wasi_route_t, M>,
+    ptr: WasmPtr<Route, M>,
     route: IpRoute,
-) -> Result<(), __wasi_errno_t> {
+) -> Result<(), Errno> {
     let cidr = {
         let p = route.cidr.prefix;
         match route.cidr.ip {
             IpAddr::V4(ip) => {
                 let o = ip.octets();
                 __wasi_cidr_t {
-                    tag: __WASI_ADDRESS_FAMILY_INET4,
+                    tag: Addressfamily::Inet4,
                     u: __wasi_cidr_u {
                         octs: [
                             o[0], o[1], o[2], o[3], p, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -1414,7 +1393,7 @@ pub(crate) fn write_route<M: MemorySize>(
             IpAddr::V6(ip) => {
                 let o = ip.octets();
                 __wasi_cidr_t {
-                    tag: __WASI_ADDRESS_FAMILY_INET6,
+                    tag: Addressfamily::Inet6,
                     u: __wasi_cidr_u {
                         octs: [
                             o[0], o[1], o[2], o[3], o[4], o[5], o[6], o[7], o[8], o[9], o[10],
@@ -1429,7 +1408,7 @@ pub(crate) fn write_route<M: MemorySize>(
         IpAddr::V4(ip) => {
             let o = ip.octets();
             __wasi_addr_t {
-                tag: __WASI_ADDRESS_FAMILY_INET4,
+                tag: Addressfamily::Inet4,
                 u: __wasi_addr_u {
                     octs: [o[0], o[1], o[2], o[3], 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
                 },
@@ -1438,33 +1417,33 @@ pub(crate) fn write_route<M: MemorySize>(
         IpAddr::V6(ip) => {
             let o = ip.octets();
             __wasi_addr_t {
-                tag: __WASI_ADDRESS_FAMILY_INET6,
+                tag: Addressfamily::Inet6,
                 u: __wasi_addr_u { octs: o },
             }
         }
     };
     let preferred_until = match route.preferred_until {
-        None => __wasi_option_timestamp_t {
-            tag: __WASI_OPTION_NONE,
+        None => OptionTimestamp {
+            tag: OptionTag::None,
             u: 0,
         },
-        Some(u) => __wasi_option_timestamp_t {
-            tag: __WASI_OPTION_SOME,
+        Some(u) => OptionTimestamp {
+            tag: OptionTag::Some,
             u: u.as_nanos() as u64,
         },
     };
     let expires_at = match route.expires_at {
-        None => __wasi_option_timestamp_t {
-            tag: __WASI_OPTION_NONE,
+        None => OptionTimestamp {
+            tag: OptionTag::None,
             u: 0,
         },
-        Some(u) => __wasi_option_timestamp_t {
-            tag: __WASI_OPTION_SOME,
+        Some(u) => OptionTimestamp {
+            tag: OptionTag::Some,
             u: u.as_nanos() as u64,
         },
     };
 
-    let route = __wasi_route_t {
+    let route = Route {
         cidr,
         via_router,
         preferred_until,
@@ -1474,23 +1453,4 @@ pub(crate) fn write_route<M: MemorySize>(
     let route_ptr = ptr.deref(memory);
     route_ptr.write(route).map_err(crate::mem_error_to_wasi)?;
     Ok(())
-}
-
-pub(crate) fn all_socket_rights() -> __wasi_rights_t {
-    __WASI_RIGHT_FD_FDSTAT_SET_FLAGS
-        | __WASI_RIGHT_FD_FILESTAT_GET
-        | __WASI_RIGHT_FD_READ
-        | __WASI_RIGHT_FD_WRITE
-        | __WASI_RIGHT_POLL_FD_READWRITE
-        | __WASI_RIGHT_SOCK_SHUTDOWN
-        | __WASI_RIGHT_SOCK_CONNECT
-        | __WASI_RIGHT_SOCK_LISTEN
-        | __WASI_RIGHT_SOCK_BIND
-        | __WASI_RIGHT_SOCK_ACCEPT
-        | __WASI_RIGHT_SOCK_RECV
-        | __WASI_RIGHT_SOCK_SEND
-        | __WASI_RIGHT_SOCK_ADDR_LOCAL
-        | __WASI_RIGHT_SOCK_ADDR_REMOTE
-        | __WASI_RIGHT_SOCK_RECV_FROM
-        | __WASI_RIGHT_SOCK_SEND_TO
 }
