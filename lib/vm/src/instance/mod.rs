@@ -206,6 +206,7 @@ impl Instance {
         unsafe { self.vmctx_plus_offset(self.offsets.vmctx_tables_begin()) }
     }
 
+    #[allow(dead_code)]
     /// Get a locally defined or imported memory.
     fn get_memory(&self, index: MemoryIndex) -> VMMemoryDefinition {
         if let Some(local_index) = self.module.local_memory_index(index) {
@@ -238,6 +239,21 @@ impl Instance {
     /// Return a pointer to the `VMMemoryDefinition`s.
     fn memories_ptr(&self) -> *mut VMMemoryDefinition {
         unsafe { self.vmctx_plus_offset(self.offsets.vmctx_memories_begin()) }
+    }
+
+    /// Get a locally defined or imported memory.
+    fn get_vmmemory(&self, index: MemoryIndex) -> &VMMemory {
+        if let Some(local_index) = self.module.local_memory_index(index) {
+            unsafe {
+                self.memories
+                    .get(local_index)
+                    .unwrap()
+                    .get(self.context.as_ref().unwrap())
+            }
+        } else {
+            let import = self.imported_memory(index);
+            unsafe { import.handle.get(self.context.as_ref().unwrap()) }
+        }
     }
 
     /// Return the indexed `VMGlobalDefinition`.
@@ -701,29 +717,22 @@ impl Instance {
     ) -> Result<(), Trap> {
         // https://webassembly.github.io/bulk-memory-operations/core/exec/instructions.html#exec-memory-init
 
-        let memory = self.get_memory(memory_index);
+        let memory = self.get_vmmemory(memory_index);
         let passive_data = self.passive_data.borrow();
         let data = passive_data.get(&data_index).map_or(&[][..], |d| &**d);
 
+        let current_length = unsafe { memory.vmmemory().as_ref().current_length };
         if src
             .checked_add(len)
             .map_or(true, |n| n as usize > data.len())
-            || dst.checked_add(len).map_or(true, |m| {
-                usize::try_from(m).unwrap() > memory.current_length
-            })
+            || dst
+                .checked_add(len)
+                .map_or(true, |m| usize::try_from(m).unwrap() > current_length)
         {
             return Err(Trap::lib(TrapCode::HeapAccessOutOfBounds));
         }
-
         let src_slice = &data[src as usize..(src + len) as usize];
-
-        unsafe {
-            let dst_start = memory.base.add(dst as usize);
-            let dst_slice = slice::from_raw_parts_mut(dst_start, len as usize);
-            dst_slice.copy_from_slice(src_slice);
-        }
-
-        Ok(())
+        unsafe { memory.initialize_with_data(dst as usize, src_slice) }
     }
 
     /// Drop the given data segment, truncating its length to zero.
@@ -1147,6 +1156,7 @@ fn get_memory_init_start(init: &DataInitializer<'_>, instance: &Instance) -> usi
 }
 
 #[allow(clippy::mut_from_ref)]
+#[allow(dead_code)]
 /// Return a byte-slice view of a memory's data.
 unsafe fn get_memory_slice<'instance>(
     init: &DataInitializer<'_>,
@@ -1242,21 +1252,18 @@ fn initialize_memories(
     data_initializers: &[DataInitializer<'_>],
 ) -> Result<(), Trap> {
     for init in data_initializers {
-        let memory = instance.get_memory(init.location.memory_index);
+        let memory = instance.get_vmmemory(init.location.memory_index);
 
         let start = get_memory_init_start(init, instance);
-        if start
-            .checked_add(init.data.len())
-            .map_or(true, |end| end > memory.current_length)
-        {
-            return Err(Trap::lib(TrapCode::HeapAccessOutOfBounds));
-        }
-
         unsafe {
-            let mem_slice = get_memory_slice(init, instance);
-            let end = start + init.data.len();
-            let to_init = &mut mem_slice[start..end];
-            to_init.copy_from_slice(init.data);
+            let current_length = memory.vmmemory().as_ref().current_length;
+            if start
+                .checked_add(init.data.len())
+                .map_or(true, |end| end > current_length)
+            {
+                return Err(Trap::lib(TrapCode::HeapAccessOutOfBounds));
+            }
+            memory.initialize_with_data(start, init.data)?;
         }
     }
 

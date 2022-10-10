@@ -5,11 +5,13 @@
 //!
 //! `Memory` is to WebAssembly linear memories what `Table` is to WebAssembly tables.
 
+use crate::trap::Trap;
 use crate::{mmap::Mmap, store::MaybeInstanceOwned, vmcontext::VMMemoryDefinition};
 use more_asserts::assert_ge;
 use std::cell::UnsafeCell;
 use std::convert::TryInto;
 use std::ptr::NonNull;
+use std::slice;
 use wasmer_types::{Bytes, MemoryError, MemoryStyle, MemoryType, Pages};
 
 // The memory mapped area
@@ -342,6 +344,11 @@ impl LinearMemory for VMMemory {
     fn try_clone(&self) -> Option<Box<dyn LinearMemory + 'static>> {
         self.0.try_clone()
     }
+
+    /// Initialize memory with data
+    unsafe fn initialize_with_data(&self, start: usize, data: &[u8]) -> Result<(), Trap> {
+        self.0.initialize_with_data(start, data)
+    }
 }
 
 impl VMMemory {
@@ -385,6 +392,21 @@ impl VMMemory {
     }
 }
 
+#[doc(hidden)]
+/// Default implementation to initialize memory with data
+pub unsafe fn initialize_memory_with_data(
+    memory: &VMMemoryDefinition,
+    start: usize,
+    data: &[u8],
+) -> Result<(), Trap> {
+    let mem_slice = slice::from_raw_parts_mut(memory.base, memory.current_length);
+    let end = start + data.len();
+    let to_init = &mut mem_slice[start..end];
+    to_init.copy_from_slice(data);
+
+    Ok(())
+}
+
 /// Represents memory that is used by the WebAsssembly module
 pub trait LinearMemory
 where
@@ -410,4 +432,14 @@ where
 
     /// Attempts to clone this memory (if its clonable)
     fn try_clone(&self) -> Option<Box<dyn LinearMemory + 'static>>;
+
+    #[doc(hidden)]
+    /// # Safety
+    /// This function is unsafe because WebAssembly specification requires that data is always set at initialization time.
+    /// It should be the implementors responsibility to make sure this respects the spec
+    unsafe fn initialize_with_data(&self, start: usize, data: &[u8]) -> Result<(), Trap> {
+        let memory = self.vmmemory().as_ref();
+
+        initialize_memory_with_data(memory, start, data)
+    }
 }
