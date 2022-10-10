@@ -58,6 +58,35 @@ impl<'a> MemoryView<'a> {
         self.size
     }
 
+    // TODO: do we want a proper implementation here instead?
+    /// Retrieve a slice of the memory contents.
+    ///
+    /// # Safety
+    ///
+    /// Until the returned slice is dropped, it is undefined behaviour to
+    /// modify the memory contents in any way including by calling a wasm
+    /// function that writes to the memory or by resizing the memory.
+    #[doc(hidden)]
+    pub unsafe fn data_unchecked(&self) -> &[u8] {
+        unimplemented!("direct data pointer access is not possible in JavaScript");
+    }
+
+    // TODO: do we want a proper implementation here instead?
+    /// Retrieve a mutable slice of the memory contents.
+    ///
+    /// # Safety
+    ///
+    /// This method provides interior mutability without an UnsafeCell. Until
+    /// the returned value is dropped, it is undefined behaviour to read or
+    /// write to the pointed-to memory in any way except through this slice,
+    /// including by calling a wasm function that reads the memory contents or
+    /// by resizing this Memory.
+    #[allow(clippy::mut_from_ref)]
+    #[doc(hidden)]
+    pub unsafe fn data_unchecked_mut(&self) -> &mut [u8] {
+        unimplemented!("direct data pointer access is not possible in JavaScript");
+    }
+
     /// Returns the size (in [`Pages`]) of the `Memory`.
     ///
     /// # Example

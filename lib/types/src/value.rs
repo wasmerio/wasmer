@@ -98,6 +98,7 @@ macro_rules! primitives {
     )*)
 }
 primitives! {
+    bool
     i8 u8
     i16 u16
     i32 u32
