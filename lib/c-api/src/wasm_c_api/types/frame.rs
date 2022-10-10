@@ -3,13 +3,6 @@ use libc::c_char;
 use std::ffi::CString;
 use wasmer_api::FrameInfo;
 
-#[repr(C)]
-#[allow(non_camel_case_types)]
-#[derive(Debug, Clone)]
-pub struct wasm_function_name {
-    pub name: *mut c_char,
-}
-
 #[allow(non_camel_case_types)]
 #[derive(Debug, Clone)]
 pub struct wasm_frame_t {
@@ -56,6 +49,45 @@ pub unsafe extern "C" fn wasm_frame_module_offset(frame: &wasm_frame_t) -> usize
     frame.info.module_offset()
 }
 
+#[repr(C)]
+#[allow(non_camel_case_types)]
+#[derive(Debug, Clone)]
+pub struct wasm_module_name {
+    pub name: *mut c_char,
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasm_frame_module_name(
+    frame: &wasm_frame_t,
+    out: Option<&mut wasm_module_name>,
+) -> u32 {
+    let out = match out {
+        Some(s) => s,
+        None => return 1,
+    };
+
+    let module_name =
+        Some(frame.info.module_name()).and_then(|f| Some(CString::new(f).ok()?.into_raw()));
+
+    match module_name {
+        Some(s) => {
+            out.name = s;
+            0
+        }
+        None => {
+            out.name = std::ptr::null_mut();
+            1
+        }
+    }
+}
+
+#[repr(C)]
+#[allow(non_camel_case_types)]
+#[derive(Debug, Clone)]
+pub struct wasm_function_name {
+    pub name: *mut c_char,
+}
+
 #[no_mangle]
 pub unsafe extern "C" fn wasm_frame_func_name(
     frame: &wasm_frame_t,
@@ -79,6 +111,15 @@ pub unsafe extern "C" fn wasm_frame_func_name(
         None => {
             out.name = std::ptr::null_mut();
             1
+        }
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasm_module_name_delete(name: Option<&mut wasm_module_name>) {
+    if let Some(s) = name {
+        if s.name.is_null() {
+            let _ = CString::from_raw(s.name);
         }
     }
 }
