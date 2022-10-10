@@ -416,6 +416,38 @@
 <span id="411">411</span>
 <span id="412">412</span>
 <span id="413">413</span>
+<span id="414">414</span>
+<span id="415">415</span>
+<span id="416">416</span>
+<span id="417">417</span>
+<span id="418">418</span>
+<span id="419">419</span>
+<span id="420">420</span>
+<span id="421">421</span>
+<span id="422">422</span>
+<span id="423">423</span>
+<span id="424">424</span>
+<span id="425">425</span>
+<span id="426">426</span>
+<span id="427">427</span>
+<span id="428">428</span>
+<span id="429">429</span>
+<span id="430">430</span>
+<span id="431">431</span>
+<span id="432">432</span>
+<span id="433">433</span>
+<span id="434">434</span>
+<span id="435">435</span>
+<span id="436">436</span>
+<span id="437">437</span>
+<span id="438">438</span>
+<span id="439">439</span>
+<span id="440">440</span>
+<span id="441">441</span>
+<span id="442">442</span>
+<span id="443">443</span>
+<span id="444">444</span>
+<span id="445">445</span>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
 
@@ -423,11 +455,13 @@
 <span class="doccomment">//!</span>
 <span class="doccomment">//! `Memory` is to WebAssembly linear memories what `Table` is to WebAssembly tables.</span>
 
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::trap::Trap</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">mmap::Mmap</span>, <span class="ident">store::MaybeInstanceOwned</span>, <span class="ident">vmcontext::VMMemoryDefinition</span>};
 <span class="kw">use</span> <span class="ident">more_asserts::assert_ge</span>;
 <span class="kw">use</span> <span class="ident">std::cell::UnsafeCell</span>;
 <span class="kw">use</span> <span class="ident">std::convert::TryInto</span>;
 <span class="kw">use</span> <span class="ident">std::ptr::NonNull</span>;
+<span class="kw">use</span> <span class="ident">std::slice</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">Bytes</span>, <span class="ident">MemoryError</span>, <span class="ident">MemoryStyle</span>, <span class="ident">MemoryType</span>, <span class="ident">Pages</span>};
 
 <span class="comment">// The memory mapped area</span>
@@ -760,6 +794,11 @@
     <span class="kw">fn</span> <span class="ident">try_clone</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">LinearMemory</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="number">0</span>.<span class="ident">try_clone</span>()
     }
+
+    <span class="doccomment">/// Initialize memory with data</span>
+    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">initialize_with_data</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">start</span>: <span class="ident">usize</span>, <span class="ident">data</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Trap</span><span class="op">&gt;</span> {
+        <span class="self">self</span>.<span class="number">0</span>.<span class="ident">initialize_with_data</span>(<span class="ident">start</span>, <span class="ident">data</span>)
+    }
 }
 
 <span class="kw">impl</span> <span class="ident">VMMemory</span> {
@@ -803,6 +842,21 @@
     }
 }
 
+<span class="attribute">#[<span class="ident">doc</span>(<span class="ident">hidden</span>)]</span>
+<span class="doccomment">/// Default implementation to initialize memory with data</span>
+<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">initialize_memory_with_data</span>(
+    <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">VMMemoryDefinition</span>,
+    <span class="ident">start</span>: <span class="ident">usize</span>,
+    <span class="ident">data</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>],
+) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Trap</span><span class="op">&gt;</span> {
+    <span class="kw">let</span> <span class="ident">mem_slice</span> <span class="op">=</span> <span class="ident">slice::from_raw_parts_mut</span>(<span class="ident">memory</span>.<span class="ident">base</span>, <span class="ident">memory</span>.<span class="ident">current_length</span>);
+    <span class="kw">let</span> <span class="ident">end</span> <span class="op">=</span> <span class="ident">start</span> <span class="op">+</span> <span class="ident">data</span>.<span class="ident">len</span>();
+    <span class="kw">let</span> <span class="ident">to_init</span> <span class="op">=</span> <span class="kw-2">&amp;mut</span> <span class="ident">mem_slice</span>[<span class="ident">start</span>..<span class="ident">end</span>];
+    <span class="ident">to_init</span>.<span class="ident">copy_from_slice</span>(<span class="ident">data</span>);
+
+    <span class="prelude-val">Ok</span>(())
+}
+
 <span class="doccomment">/// Represents memory that is used by the WebAsssembly module</span>
 <span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">LinearMemory</span>
 <span class="kw">where</span>
@@ -828,6 +882,16 @@
 
     <span class="doccomment">/// Attempts to clone this memory (if its clonable)</span>
     <span class="kw">fn</span> <span class="ident">try_clone</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">LinearMemory</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span><span class="op">&gt;</span>;
+
+    <span class="attribute">#[<span class="ident">doc</span>(<span class="ident">hidden</span>)]</span>
+    <span class="doccomment">/// # Safety</span>
+    <span class="doccomment">/// This function is unsafe because WebAssembly specification requires that data is always set at initialization time.</span>
+    <span class="doccomment">/// It should be the implementors responsibility to make sure this respects the spec</span>
+    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">initialize_with_data</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">start</span>: <span class="ident">usize</span>, <span class="ident">data</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Trap</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">vmmemory</span>().<span class="ident">as_ref</span>();
+
+        <span class="ident">initialize_memory_with_data</span>(<span class="ident">memory</span>, <span class="ident">start</span>, <span class="ident">data</span>)
+    }
 }
 </code></pre></div>
 </section><section id="search" class="content hidden"></section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_vm" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.61.0 (fe5b13d68 2022-05-18)" ></div>

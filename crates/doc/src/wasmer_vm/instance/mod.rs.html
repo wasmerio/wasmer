@@ -1340,6 +1340,13 @@
 <span id="1335">1335</span>
 <span id="1336">1336</span>
 <span id="1337">1337</span>
+<span id="1338">1338</span>
+<span id="1339">1339</span>
+<span id="1340">1340</span>
+<span id="1341">1341</span>
+<span id="1342">1342</span>
+<span id="1343">1343</span>
+<span id="1344">1344</span>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
 
@@ -1548,6 +1555,7 @@
         <span class="kw">unsafe</span> { <span class="self">self</span>.<span class="ident">vmctx_plus_offset</span>(<span class="self">self</span>.<span class="ident">offsets</span>.<span class="ident">vmctx_tables_begin</span>()) }
     }
 
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
     <span class="doccomment">/// Get a locally defined or imported memory.</span>
     <span class="kw">fn</span> <span class="ident">get_memory</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">index</span>: <span class="ident">MemoryIndex</span>) -&gt; <span class="ident">VMMemoryDefinition</span> {
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">local_index</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">module</span>.<span class="ident">local_memory_index</span>(<span class="ident">index</span>) {
@@ -1580,6 +1588,21 @@
     <span class="doccomment">/// Return a pointer to the `VMMemoryDefinition`s.</span>
     <span class="kw">fn</span> <span class="ident">memories_ptr</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">*mut</span> <span class="ident">VMMemoryDefinition</span> {
         <span class="kw">unsafe</span> { <span class="self">self</span>.<span class="ident">vmctx_plus_offset</span>(<span class="self">self</span>.<span class="ident">offsets</span>.<span class="ident">vmctx_memories_begin</span>()) }
+    }
+
+    <span class="doccomment">/// Get a locally defined or imported memory.</span>
+    <span class="kw">fn</span> <span class="ident">get_vmmemory</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">index</span>: <span class="ident">MemoryIndex</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">VMMemory</span> {
+        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">local_index</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">module</span>.<span class="ident">local_memory_index</span>(<span class="ident">index</span>) {
+            <span class="kw">unsafe</span> {
+                <span class="self">self</span>.<span class="ident">memories</span>
+                    .<span class="ident">get</span>(<span class="ident">local_index</span>)
+                    .<span class="ident">unwrap</span>()
+                    .<span class="ident">get</span>(<span class="self">self</span>.<span class="ident">context</span>.<span class="ident">as_ref</span>().<span class="ident">unwrap</span>())
+            }
+        } <span class="kw">else</span> {
+            <span class="kw">let</span> <span class="ident">import</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">imported_memory</span>(<span class="ident">index</span>);
+            <span class="kw">unsafe</span> { <span class="ident">import</span>.<span class="ident">handle</span>.<span class="ident">get</span>(<span class="self">self</span>.<span class="ident">context</span>.<span class="ident">as_ref</span>().<span class="ident">unwrap</span>()) }
+        }
     }
 
     <span class="doccomment">/// Return the indexed `VMGlobalDefinition`.</span>
@@ -2043,29 +2066,22 @@
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Trap</span><span class="op">&gt;</span> {
         <span class="comment">// https://webassembly.github.io/bulk-memory-operations/core/exec/instructions.html#exec-memory-init</span>
 
-        <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_memory</span>(<span class="ident">memory_index</span>);
+        <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_vmmemory</span>(<span class="ident">memory_index</span>);
         <span class="kw">let</span> <span class="ident">passive_data</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">passive_data</span>.<span class="ident">borrow</span>();
         <span class="kw">let</span> <span class="ident">data</span> <span class="op">=</span> <span class="ident">passive_data</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">data_index</span>).<span class="ident">map_or</span>(<span class="kw-2">&amp;</span>[][..], <span class="op">|</span><span class="ident">d</span><span class="op">|</span> <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="kw-2">*</span><span class="ident">d</span>);
 
+        <span class="kw">let</span> <span class="ident">current_length</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">memory</span>.<span class="ident">vmmemory</span>().<span class="ident">as_ref</span>().<span class="ident">current_length</span> };
         <span class="kw">if</span> <span class="ident">src</span>
             .<span class="ident">checked_add</span>(<span class="ident">len</span>)
             .<span class="ident">map_or</span>(<span class="bool-val">true</span>, <span class="op">|</span><span class="ident">n</span><span class="op">|</span> <span class="ident">n</span> <span class="kw">as</span> <span class="ident">usize</span> <span class="op">&gt;</span> <span class="ident">data</span>.<span class="ident">len</span>())
-            <span class="op">|</span><span class="op">|</span> <span class="ident">dst</span>.<span class="ident">checked_add</span>(<span class="ident">len</span>).<span class="ident">map_or</span>(<span class="bool-val">true</span>, <span class="op">|</span><span class="ident">m</span><span class="op">|</span> {
-                <span class="ident">usize::try_from</span>(<span class="ident">m</span>).<span class="ident">unwrap</span>() <span class="op">&gt;</span> <span class="ident">memory</span>.<span class="ident">current_length</span>
-            })
+            <span class="op">|</span><span class="op">|</span> <span class="ident">dst</span>
+                .<span class="ident">checked_add</span>(<span class="ident">len</span>)
+                .<span class="ident">map_or</span>(<span class="bool-val">true</span>, <span class="op">|</span><span class="ident">m</span><span class="op">|</span> <span class="ident">usize::try_from</span>(<span class="ident">m</span>).<span class="ident">unwrap</span>() <span class="op">&gt;</span> <span class="ident">current_length</span>)
         {
             <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Trap::lib</span>(<span class="ident">TrapCode::HeapAccessOutOfBounds</span>));
         }
-
         <span class="kw">let</span> <span class="ident">src_slice</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">data</span>[<span class="ident">src</span> <span class="kw">as</span> <span class="ident">usize</span>..(<span class="ident">src</span> <span class="op">+</span> <span class="ident">len</span>) <span class="kw">as</span> <span class="ident">usize</span>];
-
-        <span class="kw">unsafe</span> {
-            <span class="kw">let</span> <span class="ident">dst_start</span> <span class="op">=</span> <span class="ident">memory</span>.<span class="ident">base</span>.<span class="ident">add</span>(<span class="ident">dst</span> <span class="kw">as</span> <span class="ident">usize</span>);
-            <span class="kw">let</span> <span class="ident">dst_slice</span> <span class="op">=</span> <span class="ident">slice::from_raw_parts_mut</span>(<span class="ident">dst_start</span>, <span class="ident">len</span> <span class="kw">as</span> <span class="ident">usize</span>);
-            <span class="ident">dst_slice</span>.<span class="ident">copy_from_slice</span>(<span class="ident">src_slice</span>);
-        }
-
-        <span class="prelude-val">Ok</span>(())
+        <span class="kw">unsafe</span> { <span class="ident">memory</span>.<span class="ident">initialize_with_data</span>(<span class="ident">dst</span> <span class="kw">as</span> <span class="ident">usize</span>, <span class="ident">src_slice</span>) }
     }
 
     <span class="doccomment">/// Drop the given data segment, truncating its length to zero.</span>
@@ -2489,6 +2505,7 @@
 }
 
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::mut_from_ref</span>)]</span>
+<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
 <span class="doccomment">/// Return a byte-slice view of a memory&#39;s data.</span>
 <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">get_memory_slice</span><span class="op">&lt;</span><span class="lifetime">&#39;instance</span><span class="op">&gt;</span>(
     <span class="ident">init</span>: <span class="kw-2">&amp;</span><span class="ident">DataInitializer</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>,
@@ -2584,21 +2601,18 @@
     <span class="ident">data_initializers</span>: <span class="kw-2">&amp;</span>[<span class="ident">DataInitializer</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>],
 ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Trap</span><span class="op">&gt;</span> {
     <span class="kw">for</span> <span class="ident">init</span> <span class="kw">in</span> <span class="ident">data_initializers</span> {
-        <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">instance</span>.<span class="ident">get_memory</span>(<span class="ident">init</span>.<span class="ident">location</span>.<span class="ident">memory_index</span>);
+        <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">instance</span>.<span class="ident">get_vmmemory</span>(<span class="ident">init</span>.<span class="ident">location</span>.<span class="ident">memory_index</span>);
 
         <span class="kw">let</span> <span class="ident">start</span> <span class="op">=</span> <span class="ident">get_memory_init_start</span>(<span class="ident">init</span>, <span class="ident">instance</span>);
-        <span class="kw">if</span> <span class="ident">start</span>
-            .<span class="ident">checked_add</span>(<span class="ident">init</span>.<span class="ident">data</span>.<span class="ident">len</span>())
-            .<span class="ident">map_or</span>(<span class="bool-val">true</span>, <span class="op">|</span><span class="ident">end</span><span class="op">|</span> <span class="ident">end</span> <span class="op">&gt;</span> <span class="ident">memory</span>.<span class="ident">current_length</span>)
-        {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Trap::lib</span>(<span class="ident">TrapCode::HeapAccessOutOfBounds</span>));
-        }
-
         <span class="kw">unsafe</span> {
-            <span class="kw">let</span> <span class="ident">mem_slice</span> <span class="op">=</span> <span class="ident">get_memory_slice</span>(<span class="ident">init</span>, <span class="ident">instance</span>);
-            <span class="kw">let</span> <span class="ident">end</span> <span class="op">=</span> <span class="ident">start</span> <span class="op">+</span> <span class="ident">init</span>.<span class="ident">data</span>.<span class="ident">len</span>();
-            <span class="kw">let</span> <span class="ident">to_init</span> <span class="op">=</span> <span class="kw-2">&amp;mut</span> <span class="ident">mem_slice</span>[<span class="ident">start</span>..<span class="ident">end</span>];
-            <span class="ident">to_init</span>.<span class="ident">copy_from_slice</span>(<span class="ident">init</span>.<span class="ident">data</span>);
+            <span class="kw">let</span> <span class="ident">current_length</span> <span class="op">=</span> <span class="ident">memory</span>.<span class="ident">vmmemory</span>().<span class="ident">as_ref</span>().<span class="ident">current_length</span>;
+            <span class="kw">if</span> <span class="ident">start</span>
+                .<span class="ident">checked_add</span>(<span class="ident">init</span>.<span class="ident">data</span>.<span class="ident">len</span>())
+                .<span class="ident">map_or</span>(<span class="bool-val">true</span>, <span class="op">|</span><span class="ident">end</span><span class="op">|</span> <span class="ident">end</span> <span class="op">&gt;</span> <span class="ident">current_length</span>)
+            {
+                <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Trap::lib</span>(<span class="ident">TrapCode::HeapAccessOutOfBounds</span>));
+            }
+            <span class="ident">memory</span>.<span class="ident">initialize_with_data</span>(<span class="ident">start</span>, <span class="ident">init</span>.<span class="ident">data</span>)<span class="question-mark">?</span>;
         }
     }
 

@@ -316,6 +316,74 @@
 <span id="309">309</span>
 <span id="310">310</span>
 <span id="311">311</span>
+<span id="312">312</span>
+<span id="313">313</span>
+<span id="314">314</span>
+<span id="315">315</span>
+<span id="316">316</span>
+<span id="317">317</span>
+<span id="318">318</span>
+<span id="319">319</span>
+<span id="320">320</span>
+<span id="321">321</span>
+<span id="322">322</span>
+<span id="323">323</span>
+<span id="324">324</span>
+<span id="325">325</span>
+<span id="326">326</span>
+<span id="327">327</span>
+<span id="328">328</span>
+<span id="329">329</span>
+<span id="330">330</span>
+<span id="331">331</span>
+<span id="332">332</span>
+<span id="333">333</span>
+<span id="334">334</span>
+<span id="335">335</span>
+<span id="336">336</span>
+<span id="337">337</span>
+<span id="338">338</span>
+<span id="339">339</span>
+<span id="340">340</span>
+<span id="341">341</span>
+<span id="342">342</span>
+<span id="343">343</span>
+<span id="344">344</span>
+<span id="345">345</span>
+<span id="346">346</span>
+<span id="347">347</span>
+<span id="348">348</span>
+<span id="349">349</span>
+<span id="350">350</span>
+<span id="351">351</span>
+<span id="352">352</span>
+<span id="353">353</span>
+<span id="354">354</span>
+<span id="355">355</span>
+<span id="356">356</span>
+<span id="357">357</span>
+<span id="358">358</span>
+<span id="359">359</span>
+<span id="360">360</span>
+<span id="361">361</span>
+<span id="362">362</span>
+<span id="363">363</span>
+<span id="364">364</span>
+<span id="365">365</span>
+<span id="366">366</span>
+<span id="367">367</span>
+<span id="368">368</span>
+<span id="369">369</span>
+<span id="370">370</span>
+<span id="371">371</span>
+<span id="372">372</span>
+<span id="373">373</span>
+<span id="374">374</span>
+<span id="375">375</span>
+<span id="376">376</span>
+<span id="377">377</span>
+<span id="378">378</span>
+<span id="379">379</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys</span>::{<span class="ident">MemoryType</span>, <span class="ident">Pages</span>, <span class="ident">TableType</span>};
 <span class="kw">use</span> <span class="ident">std::ptr::NonNull</span>;
 <span class="kw">use</span> <span class="ident">wasmer_compiler::Tunables</span>;
@@ -496,11 +564,12 @@
     <span class="kw">use</span> <span class="ident">std::cell::UnsafeCell</span>;
     <span class="kw">use</span> <span class="ident">std::ptr::NonNull</span>;
     <span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">MemoryError</span>, <span class="ident">MemoryStyle</span>, <span class="ident">MemoryType</span>, <span class="ident">Pages</span>, <span class="ident">WASM_PAGE_SIZE</span>};
-    <span class="kw">use</span> <span class="ident">wasmer_vm</span>::{<span class="ident">LinearMemory</span>, <span class="ident">MaybeInstanceOwned</span>};
+    <span class="kw">use</span> <span class="ident">wasmer_vm::LinearMemory</span>;
 
     <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
     <span class="kw">struct</span> <span class="ident">VMTinyMemory</span> {
-        <span class="ident">mem</span>: [<span class="ident">u8</span>; <span class="ident">WASM_PAGE_SIZE</span>],
+        <span class="ident">mem</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,
+        <span class="ident">memory_definition</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">UnsafeCell</span><span class="op">&lt;</span><span class="ident">VMMemoryDefinition</span><span class="op">&gt;</span><span class="op">&gt;</span>,
     }
 
     <span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">Send</span> <span class="kw">for</span> <span class="ident">VMTinyMemory</span> {}
@@ -508,26 +577,35 @@
 
     <span class="kw">impl</span> <span class="ident">VMTinyMemory</span> {
         <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>() -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">MemoryError</span><span class="op">&gt;</span> {
-            <span class="prelude-val">Ok</span>(<span class="ident">VMTinyMemory</span> {
-                <span class="ident">mem</span>: [<span class="number">0</span>; <span class="ident">WASM_PAGE_SIZE</span>],
-            })
+            <span class="kw">let</span> <span class="ident">sz</span> <span class="op">=</span> <span class="number">18</span> <span class="op">*</span> <span class="ident">WASM_PAGE_SIZE</span>;
+            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
+            <span class="ident">memory</span>.<span class="ident">resize</span>(<span class="ident">sz</span>, <span class="number">0</span>);
+            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">VMTinyMemory</span> {
+                <span class="ident">mem</span>: <span class="ident">memory</span>,
+                <span class="ident">memory_definition</span>: <span class="prelude-val">None</span>,
+            };
+            <span class="ident">ret</span>.<span class="ident">memory_definition</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">UnsafeCell::new</span>(<span class="ident">VMMemoryDefinition</span> {
+                <span class="ident">base</span>: <span class="ident">ret</span>.<span class="ident">mem</span>.<span class="ident">as_ptr</span>() <span class="kw">as</span> <span class="kw">_</span>,
+                <span class="ident">current_length</span>: <span class="ident">sz</span>,
+            }));
+            <span class="prelude-val">Ok</span>(<span class="ident">ret</span>)
         }
     }
 
     <span class="kw">impl</span> <span class="ident">LinearMemory</span> <span class="kw">for</span> <span class="ident">VMTinyMemory</span> {
         <span class="kw">fn</span> <span class="ident">ty</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">MemoryType</span> {
             <span class="ident">MemoryType</span> {
-                <span class="ident">minimum</span>: <span class="ident">Pages::from</span>(<span class="number">1u32</span>),
-                <span class="ident">maximum</span>: <span class="prelude-val">Some</span>(<span class="ident">Pages::from</span>(<span class="number">1u32</span>)),
+                <span class="ident">minimum</span>: <span class="ident">Pages::from</span>(<span class="number">18u32</span>),
+                <span class="ident">maximum</span>: <span class="prelude-val">Some</span>(<span class="ident">Pages::from</span>(<span class="number">18u32</span>)),
                 <span class="ident">shared</span>: <span class="bool-val">false</span>,
             }
         }
         <span class="kw">fn</span> <span class="ident">size</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Pages</span> {
-            <span class="ident">Pages::from</span>(<span class="number">1u32</span>)
+            <span class="ident">Pages::from</span>(<span class="number">18u32</span>)
         }
         <span class="kw">fn</span> <span class="ident">style</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">MemoryStyle</span> {
             <span class="ident">MemoryStyle::Static</span> {
-                <span class="ident">bound</span>: <span class="ident">Pages::from</span>(<span class="number">1u32</span>),
+                <span class="ident">bound</span>: <span class="ident">Pages::from</span>(<span class="number">18u32</span>),
                 <span class="ident">offset_guard_size</span>: <span class="number">0</span>,
             }
         }
@@ -538,15 +616,28 @@
             })
         }
         <span class="kw">fn</span> <span class="ident">vmmemory</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">VMMemoryDefinition</span><span class="op">&gt;</span> {
-            <span class="ident">MaybeInstanceOwned::Host</span>(<span class="ident">Box::new</span>(<span class="ident">UnsafeCell::new</span>(<span class="ident">VMMemoryDefinition</span> {
-                <span class="ident">base</span>: <span class="self">self</span>.<span class="ident">mem</span>.<span class="ident">as_ptr</span>() <span class="kw">as</span> <span class="kw">_</span>,
-                <span class="ident">current_length</span>: <span class="ident">WASM_PAGE_SIZE</span>,
-            })))
-            .<span class="ident">as_ptr</span>()
+            <span class="kw">unsafe</span> {
+                <span class="ident">NonNull::new</span>(
+                    <span class="self">self</span>.<span class="ident">memory_definition</span>
+                        .<span class="ident">as_ref</span>()
+                        .<span class="ident">unwrap</span>()
+                        .<span class="ident">get</span>()
+                        .<span class="ident">as_mut</span>()
+                        .<span class="ident">unwrap</span>() <span class="kw">as</span> <span class="kw">_</span>,
+                )
+                .<span class="ident">unwrap</span>()
+            }
         }
         <span class="kw">fn</span> <span class="ident">try_clone</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">LinearMemory</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span><span class="op">&gt;</span> {
             <span class="prelude-val">None</span>
         }
+        <span class="comment">/*
+        // this code allow custom memory to be ignoring init_memory
+        use wasmer_vm::Trap;
+        unsafe fn initialize_with_data(&amp;self, _start: usize, _data: &amp;[u8]) -&gt; Result&lt;(), Trap&gt; {
+            Ok(())
+        }
+        */</span>
     }
 
     <span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">VMTinyMemory</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">wasmer_vm::VMMemory</span> {
@@ -559,7 +650,7 @@
     <span class="kw">impl</span> <span class="ident">Tunables</span> <span class="kw">for</span> <span class="ident">TinyTunables</span> {
         <span class="kw">fn</span> <span class="ident">memory_style</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">_memory</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryType</span>) -&gt; <span class="ident">MemoryStyle</span> {
             <span class="ident">MemoryStyle::Static</span> {
-                <span class="ident">bound</span>: <span class="ident">Pages::from</span>(<span class="number">1u32</span>),
+                <span class="ident">bound</span>: <span class="ident">Pages::from</span>(<span class="number">18u32</span>),
                 <span class="ident">offset_guard_size</span>: <span class="number">0</span>,
             }
         }
@@ -580,9 +671,16 @@
             <span class="kw-2">&amp;</span><span class="self">self</span>,
             <span class="ident">_ty</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryType</span>,
             <span class="ident">_style</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryStyle</span>,
-            <span class="ident">_vm_definition_location</span>: <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">VMMemoryDefinition</span><span class="op">&gt;</span>,
+            <span class="ident">vm_definition_location</span>: <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">VMMemoryDefinition</span><span class="op">&gt;</span>,
         ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">VMMemory</span>, <span class="ident">MemoryError</span><span class="op">&gt;</span> {
             <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">VMTinyMemory::new</span>().<span class="ident">unwrap</span>();
+            <span class="comment">// now, it&#39;s important to update vm_definition_location with the memory information!</span>
+            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">ptr</span> <span class="op">=</span> <span class="ident">vm_definition_location</span>;
+            <span class="kw">let</span> <span class="ident">md</span> <span class="op">=</span> <span class="ident">ptr</span>.<span class="ident">as_mut</span>();
+            <span class="kw">let</span> <span class="ident">unsafecell</span> <span class="op">=</span> <span class="ident">memory</span>.<span class="ident">memory_definition</span>.<span class="ident">as_ref</span>().<span class="ident">unwrap</span>();
+            <span class="kw">let</span> <span class="ident">def</span> <span class="op">=</span> <span class="ident">unsafecell</span>.<span class="ident">get</span>().<span class="ident">as_ref</span>().<span class="ident">unwrap</span>();
+            <span class="ident">md</span>.<span class="ident">base</span> <span class="op">=</span> <span class="ident">def</span>.<span class="ident">base</span>;
+            <span class="ident">md</span>.<span class="ident">current_length</span> <span class="op">=</span> <span class="ident">def</span>.<span class="ident">current_length</span>;
             <span class="prelude-val">Ok</span>(<span class="ident">memory</span>.<span class="ident">into</span>())
         }
 
@@ -611,13 +709,13 @@
         <span class="kw">let</span> <span class="ident">vmmemory</span> <span class="op">=</span> <span class="ident">tunables</span>.<span class="ident">create_host_memory</span>(
             <span class="kw-2">&amp;</span><span class="ident">MemoryType::new</span>(<span class="number">1u32</span>, <span class="prelude-val">Some</span>(<span class="number">100u32</span>), <span class="bool-val">true</span>),
             <span class="kw-2">&amp;</span><span class="ident">MemoryStyle::Static</span> {
-                <span class="ident">bound</span>: <span class="ident">Pages::from</span>(<span class="number">1u32</span>),
+                <span class="ident">bound</span>: <span class="ident">Pages::from</span>(<span class="number">18u32</span>),
                 <span class="ident">offset_guard_size</span>: <span class="number">0u64</span>,
             },
         );
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">vmmemory</span> <span class="op">=</span> <span class="ident">vmmemory</span>.<span class="ident">unwrap</span>();
-        <span class="macro">assert!</span>(<span class="ident">vmmemory</span>.<span class="ident">grow</span>(<span class="ident">Pages::from</span>(<span class="number">2u32</span>)).<span class="ident">is_err</span>());
-        <span class="macro">assert_eq!</span>(<span class="ident">vmmemory</span>.<span class="ident">size</span>(), <span class="ident">Pages::from</span>(<span class="number">1u32</span>));
+        <span class="macro">assert!</span>(<span class="ident">vmmemory</span>.<span class="ident">grow</span>(<span class="ident">Pages::from</span>(<span class="number">50u32</span>)).<span class="ident">is_err</span>());
+        <span class="macro">assert_eq!</span>(<span class="ident">vmmemory</span>.<span class="ident">size</span>(), <span class="ident">Pages::from</span>(<span class="number">18u32</span>));
         <span class="macro">assert_eq!</span>(
             <span class="ident">vmmemory</span>.<span class="ident">grow</span>(<span class="ident">Pages::from</span>(<span class="number">0u32</span>)).<span class="ident">err</span>().<span class="ident">unwrap</span>(),
             <span class="ident">MemoryError::CouldNotGrow</span> {
@@ -625,6 +723,44 @@
                 <span class="ident">attempted_delta</span>: <span class="ident">Pages::from</span>(<span class="number">0u32</span>)
             }
         );
+    }
+
+    <span class="attribute">#[<span class="ident">test</span>]</span>
+    <span class="kw">fn</span> <span class="ident">check_customtunables</span>() -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">std::error::Error</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+        <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">imports</span>, <span class="ident">wat2wasm</span>, <span class="ident">Instance</span>, <span class="ident">Memory</span>, <span class="ident">Module</span>, <span class="ident">Store</span>};
+        <span class="kw">use</span> <span class="ident">wasmer_compiler_cranelift::Cranelift</span>;
+
+        <span class="kw">let</span> <span class="ident">wasm_bytes</span> <span class="op">=</span> <span class="ident">wat2wasm</span>(
+            <span class="string">br#&quot;(module
+            (memory (;0;) 18)
+            (global (;0;) (mut i32) i32.const 1048576)
+            (export &quot;memory&quot; (memory 0))
+            (data (;0;) (i32.const 1048576) &quot;*\00\00\00&quot;)
+          )&quot;#</span>,
+        )<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">compiler</span> <span class="op">=</span> <span class="ident">Cranelift::default</span>();
+
+        <span class="kw">let</span> <span class="ident">tunables</span> <span class="op">=</span> <span class="ident">TinyTunables</span> {};
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">store</span> <span class="op">=</span> <span class="ident">Store::new_with_tunables</span>(<span class="ident">compiler</span>, <span class="ident">tunables</span>);
+        <span class="comment">//let mut store = Store::new(compiler);</span>
+        <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">Module::new</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>, <span class="ident">wasm_bytes</span>)<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">import_object</span> <span class="op">=</span> <span class="macro">imports!</span> {};
+        <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> <span class="ident">Instance::new</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>, <span class="kw-2">&amp;</span><span class="ident">module</span>, <span class="kw-2">&amp;</span><span class="ident">import_object</span>)<span class="question-mark">?</span>;
+
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">memories</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Memory</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">instance</span>
+            .<span class="ident">exports</span>
+            .<span class="ident">iter</span>()
+            .<span class="ident">memories</span>()
+            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">pair</span><span class="op">|</span> <span class="ident">pair</span>.<span class="number">1</span>.<span class="ident">clone</span>())
+            .<span class="ident">collect</span>();
+        <span class="macro">assert_eq!</span>(<span class="ident">memories</span>.<span class="ident">len</span>(), <span class="number">1</span>);
+        <span class="kw">let</span> <span class="ident">first_memory</span> <span class="op">=</span> <span class="ident">memories</span>.<span class="ident">pop</span>().<span class="ident">unwrap</span>();
+        <span class="macro">assert_eq!</span>(<span class="ident">first_memory</span>.<span class="ident">ty</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>).<span class="ident">maximum</span>.<span class="ident">unwrap</span>(), <span class="ident">Pages</span>(<span class="number">18</span>));
+        <span class="kw">let</span> <span class="ident">view</span> <span class="op">=</span> <span class="ident">first_memory</span>.<span class="ident">view</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>);
+        <span class="kw">let</span> <span class="ident">x</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">view</span>.<span class="ident">data_unchecked_mut</span>() }[<span class="number">0</span>];
+        <span class="macro">assert_eq!</span>(<span class="ident">x</span>, <span class="number">0</span>);
+
+        <span class="prelude-val">Ok</span>(())
     }
 }
 </code></pre></div>
