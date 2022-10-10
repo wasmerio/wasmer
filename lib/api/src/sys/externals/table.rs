@@ -211,3 +211,18 @@ impl<'a> Exportable<'a> for Table {
         }
     }
 }
+
+#[test]
+fn test_table_grow_3197() {
+    use crate::{imports, Instance, Module, Store, Table, TableType, Type, Value};
+
+    const WAT:&str = r#"(module (table (import "env" "table") 100 funcref))"#;
+
+    let mut store = Store::default();
+    let module = Module::new(&store, WAT).unwrap();
+    let ty = TableType::new(Type::FuncRef, 0, None);
+    let table = Table::new(&mut store, ty, Value::FuncRef(None)).unwrap();
+    table.grow(&mut store, 100, Value::FuncRef(None)).unwrap();
+    let imports = imports! {"env" => {"table" => table}};
+    let _instance = Instance::new(&mut store, &module, &imports).unwrap();
+}
