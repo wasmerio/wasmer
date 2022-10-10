@@ -1,12 +1,11 @@
 //! The import module contains the implementation data structures and helper functions used to
 //! manipulate and access a wasm module's imports including memories, tables, globals, and
 //! functions.
-use crate::{AsStoreMut, Exports, Extern, Memory, Module};
+use crate::{Exports, Extern, Module};
 use std::collections::HashMap;
 use std::fmt;
 use wasmer_compiler::LinkError;
 use wasmer_types::ImportError;
-use wasmer_vm::VMSharedMemory;
 
 /// All of the import data used when instantiating.
 ///
@@ -55,8 +54,7 @@ impl Imports {
     /// import_object.get_export("module", "name");
     /// ```
     pub fn get_export(&self, module: &str, name: &str) -> Option<Extern> {
-        if self.exists(module, name)
-        {
+        if self.exists(module, name) {
             let ext = &self.map[&(module.to_string(), name.to_string())];
             return Some(ext.clone());
         }
@@ -72,8 +70,7 @@ impl Imports {
     /// import_object.exists("module", "name");
     /// ```
     pub fn exists(&self, module: &str, name: &str) -> bool {
-        self
-            .map
+        self.map
             .contains_key(&(module.to_string(), name.to_string()))
     }
 
@@ -124,41 +121,6 @@ impl Imports {
             .insert((ns.to_string(), name.to_string()), val.into());
     }
 
-    /// Imports (any) shared memory into the imports.
-    /// (if the module does not import memory then this function is ignored)
-    pub(crate) fn import_shared_memory(
-        &self,
-        module: &Module,
-        store: &mut impl AsStoreMut,
-    ) -> Self {
-        // Determine if shared memory needs to be created and imported
-        let shared_memory = module
-            .imports()
-            .memories()
-            .next()
-            .map(|a| *a.ty())
-            .map(|ty| {
-                let style = store.as_store_ref().tunables().memory_style(&ty);
-                VMSharedMemory::new(&ty, &style).unwrap()
-            });
-
-        let mut ret = self.clone();
-        if let Some(memory) = shared_memory {
-            // if the memory has already be defined, don't redefine it!
-            if !self
-                .map
-                .contains_key(&("env".to_string(), "memory".to_string()))
-            {
-                ret.define(
-                    "env",
-                    "memory",
-                    Memory::new_from_existing(store, memory.into()),
-                );
-            }
-        };
-        ret
-    }
-
     /// Returns the contents of a namespace as an `Exports`.
     ///
     /// Returns `None` if the namespace doesn't exist.
@@ -179,15 +141,10 @@ impl Imports {
     /// Resolve and return a vector of imports in the order they are defined in the `module`'s source code.
     ///
     /// This means the returned `Vec<Extern>` might be a subset of the imports contained in `self`.
-    pub fn imports_for_module(
-        &self,
-        module: &Module,
-        store: &mut impl AsStoreMut,
-    ) -> Result<Vec<Extern>, LinkError> {
+    pub fn imports_for_module(&self, module: &Module) -> Result<Vec<Extern>, LinkError> {
         let mut ret = vec![];
-        let imports = self.import_shared_memory(module, store);
         for import in module.imports() {
-            if let Some(imp) = imports
+            if let Some(imp) = self
                 .map
                 .get(&(import.module().to_string(), import.name().to_string()))
             {

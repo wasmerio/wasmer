@@ -116,7 +116,7 @@ impl Instance {
         imports: &Imports,
     ) -> Result<Self, InstantiationError> {
         let imports = imports
-            .imports_for_module(module, store)
+            .imports_for_module(module)
             .map_err(InstantiationError::Link)?;
         let mut handle = module.instantiate(store, &imports)?;
         let exports = module
