@@ -16,6 +16,8 @@ pub fn main() {
             "cargo:rustc-env=WASMER_BUILD_GIT_HASH_SHORT={}",
             &git_hash[..5]
         );
+    } else {
+        println!("cargo:rustc-env=WASMER_BUILD_GIT_HASH_SHORT=??????");
     }
 
     let utc: DateTime<Utc> = Utc::now();
