@@ -1,5 +1,14 @@
 use super::super::instance::wasm_instance_t;
+use libc::c_char;
+use std::ffi::CString;
 use wasmer_api::FrameInfo;
+
+#[repr(C)]
+#[allow(non_camel_case_types)]
+#[derive(Debug, Clone)]
+pub struct wasm_function_name {
+    pub name: *mut c_char,
+}
 
 #[allow(non_camel_case_types)]
 #[derive(Debug, Clone)]
@@ -45,6 +54,42 @@ pub unsafe extern "C" fn wasm_frame_func_offset(frame: &wasm_frame_t) -> usize {
 #[no_mangle]
 pub unsafe extern "C" fn wasm_frame_module_offset(frame: &wasm_frame_t) -> usize {
     frame.info.module_offset()
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasm_frame_func_name(
+    frame: &wasm_frame_t,
+    out: Option<&mut wasm_function_name>,
+) -> u32 {
+    let out = match out {
+        Some(s) => s,
+        None => return 1,
+    };
+
+    let func_name = frame
+        .info
+        .function_name()
+        .and_then(|f| Some(CString::new(f).ok()?.into_raw()));
+
+    match func_name {
+        Some(s) => {
+            out.name = s;
+            0
+        }
+        None => {
+            out.name = std::ptr::null_mut();
+            1
+        }
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasm_function_name_delete(name: Option<&mut wasm_function_name>) {
+    if let Some(s) = name {
+        if s.name != std::ptr::null_mut() {
+            let _ = CString::from_raw(s.name);
+        }
+    }
 }
 
 wasm_declare_boxed_vec!(frame);
