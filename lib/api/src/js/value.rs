@@ -342,6 +342,37 @@ impl TryFrom<Value> for Option<ExternRef> {
     }
 }
 
+#[test]
+fn get_set_externref_globals_via_api() -> anyhow::Result<()> {
+    use crate::{Engine, Store, Global, Value, ExternRef};
+
+    let mut store = Store::default();
+
+    // Initialize with a null externref.
+    let global = Global::new(
+        &mut store,
+        Value::ExternRef(None),
+    );
+    assert!(global.get(&mut store).unwrap_externref().is_none());
+
+    global.set(
+        &mut store,
+        Val::ExternRef(Some(ExternRef::new(&mut store, "hello".to_string()))),
+    )?;
+    let r = global.get(&mut store).unwrap_externref().unwrap();
+    assert_eq!(r.downcast(&store).unwrap(), "hello".to_string());
+
+    // Initialize with a non-null externref.
+    let global = Global::new(
+        &mut store,
+        Value::ExternRef(Some(ExternRef::new(&mut store, 42_i32))),
+    );
+    let r = global.get(&mut store).unwrap_externref().unwrap();
+    assert_eq!(r.downcast(&store).copied().unwrap(), 42_i32);
+
+    Ok(())
+}
+
 #[cfg(tests)]
 mod tests {
     use super::*;
