@@ -4,7 +4,7 @@ use std::string::{String, ToString};
 
 use wasmer_types::Type;
 
-//use crate::ExternRef;
+use crate::ExternRef;
 use crate::js::externals::function::Function;
 
 use super::store::{AsStoreMut, AsStoreRef};
@@ -33,7 +33,7 @@ pub enum Value {
     F64(f64),
 
     /// An `externref` value which can hold opaque data to the wasm instance itself.
-    //ExternRef(Option<ExternRef>),
+    ExternRef(Option<ExternRef>),
 
     /// A first-class reference to a WebAssembly function.
     FuncRef(Option<Function>),
@@ -80,7 +80,7 @@ impl Value {
             Self::F32(_) => Type::F32,
             Self::F64(_) => Type::F64,
             Self::V128(_) => Type::V128,
-            //Self::ExternRef(_) => Type::ExternRef,
+            Self::ExternRef(_) => Type::ExternRef,
             Self::FuncRef(_) => Type::FuncRef,
         }
     }
@@ -101,8 +101,8 @@ impl Value {
                 .unwrap_or(0_f64), //TODO is this correct?
 
             Self::FuncRef(None) => 0_f64,
-            //Self::ExternRef(Some(ref e)) => unsafe { *e.address().0 } as .into_raw(),
-            //Self::ExternRef(None) =>  externref: 0 },
+            Self::ExternRef(Some(ref e)) => unsafe { *e.address().0 }.into_raw(),
+            Self::ExternRef(None) =>  0_f64,
         }
     }
 
@@ -110,7 +110,7 @@ impl Value {
     ///
     /// # Safety
     ///
-    pub unsafe fn from_raw(_store: &impl AsStoreRef, ty: Type, raw: f64) -> Self {
+    pub unsafe fn from_raw(store: &impl AsStoreRef, ty: Type, raw: f64) -> Self {
         match ty {
             Type::I32 => Self::I32(raw as _),
             Type::I64 => Self::I64(raw as _),
@@ -118,11 +118,10 @@ impl Value {
             Type::F64 => Self::F64(raw),
             Type::V128 => Self::V128(raw as _),
             Type::FuncRef => todo!(),
-            Type::ExternRef => todo!(),
-            //Self::ExternRef(
-            //{
-            //VMExternRef::from_raw(raw).map(|e| ExternRef::from_vm_externref(store, e)),
-            //),
+            Type::ExternRef => Self::ExternRef({
+                VMExternRef::from_raw(raw)
+                .map(|e| ExternRef::from_vm_externref(store, e))
+            }),
         }
     }
 
@@ -140,9 +139,9 @@ impl Value {
             | Self::F32(_)
             | Self::F64(_)
             | Self::V128(_)
-            //| Self::ExternRef(None)
+            | Self::ExternRef(None)
             | Self::FuncRef(None) => true,
-            //Self::ExternRef(Some(e)) => e.is_from_store(store),
+            Self::ExternRef(Some(e)) => e.is_from_store(store),
             Self::FuncRef(Some(f)) => f.is_from_store(store),
         }
     }
@@ -154,7 +153,7 @@ impl Value {
         (F32(f32) f32 unwrap_f32 *e)
         (F64(f64) f64 unwrap_f64 *e)
         (V128(u128) v128 unwrap_v128 *e)
-        //(ExternRef(&Option<ExternRef>) externref unwrap_externref e)
+        (ExternRef(&Option<ExternRef>) externref unwrap_externref e)
         (FuncRef(&Option<Function>) funcref unwrap_funcref e)
     }
 }
@@ -167,8 +166,8 @@ impl fmt::Debug for Value {
             Self::F32(v) => write!(f, "F32({:?})", v),
             Self::F64(v) => write!(f, "F64({:?})", v),
             Self::V128(v) => write!(f, "V128({:?})", v),
-            //Self::ExternRef(None) => write!(f, "Null ExternRef"),
-            //Self::ExternRef(Some(v)) => write!(f, "ExternRef({:?})", v),
+            Self::ExternRef(None) => write!(f, "Null ExternRef"),
+            Self::ExternRef(Some(v)) => write!(f, "ExternRef({:?})", v),
             Self::FuncRef(None) => write!(f, "Null FuncRef"),
             Self::FuncRef(Some(v)) => write!(f, "FuncRef({:?})", v),
         }
@@ -183,7 +182,7 @@ impl ToString for Value {
             Self::F32(v) => v.to_string(),
             Self::F64(v) => v.to_string(),
             Self::V128(v) => v.to_string(),
-            //Self::ExternRef(_) => "externref".to_string(),
+            Self::ExternRef(_) => "externref".to_string(),
             Self::FuncRef(_) => "funcref".to_string(),
         }
     }
@@ -245,17 +244,17 @@ impl From<Option<Function>> for Value {
     }
 }
 
-//impl From<ExternRef> for Value {
-//    fn from(val: ExternRef) -> Self {
-//        Self::ExternRef(Some(val))
-//    }
-//}
-//
-//impl From<Option<ExternRef>> for Value {
-//    fn from(val: Option<ExternRef>) -> Self {
-//        Self::ExternRef(val)
-//    }
-//}
+impl From<ExternRef> for Value {
+    fn from(val: ExternRef) -> Self {
+        Self::ExternRef(Some(val))
+    }
+}
+
+impl From<Option<ExternRef>> for Value {
+    fn from(val: Option<ExternRef>) -> Self {
+        Self::ExternRef(val)
+    }
+}
 
 const NOT_I32: &str = "Value is not of Wasm type i32";
 const NOT_I64: &str = "Value is not of Wasm type i64";
@@ -332,16 +331,16 @@ impl TryFrom<Value> for Option<Function> {
     }
 }
 
-//impl TryFrom<Value> for Option<ExternRef> {
-//    type Error = &'static str;
-//
-//    fn try_from(value: Value) -> Result<Self, Self::Error> {
-//        match value {
-//            Value::ExternRef(e) => Ok(e),
-//            _ => Err(NOT_EXTERNREF),
-//        }
-//    }
-//}
+impl TryFrom<Value> for Option<ExternRef> {
+    type Error = &'static str;
+
+    fn try_from(value: Value) -> Result<Self, Self::Error> {
+        match value {
+            Value::ExternRef(e) => Ok(e),
+            _ => Err("not an externref value"),
+        }
+    }
+}
 
 #[cfg(tests)]
 mod tests {
