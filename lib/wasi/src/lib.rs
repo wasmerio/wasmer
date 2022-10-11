@@ -57,7 +57,6 @@ pub use wasmer_vfs::FsError as WasiFsError;
 pub use wasmer_vfs::VirtualFile as WasiFile;
 pub use wasmer_vfs::{FsError, VirtualFile};
 pub use wasmer_vnet::{UnsupportedVirtualNetworking, VirtualNetworking};
-use wasmer_wasi_types::__WASI_CLOCK_MONOTONIC;
 
 use derivative::*;
 use std::ops::Deref;
@@ -68,6 +67,7 @@ use wasmer::{
     Imports, Instance, Memory, Memory32, MemoryAccessError, MemorySize, MemoryView, Module,
     TypedFunction,
 };
+use wasmer_wasi_types::wasi::{BusErrno, Errno, Snapshot0Clockid};
 
 pub use runtime::{
     PluggableRuntimeImplementation, WasiRuntimeImplementation, WasiThreadError, WasiTtyState,
@@ -321,10 +321,12 @@ impl WasiEnv {
     // Sleeps for a period of time
     pub fn sleep(&self, duration: Duration) -> Result<(), WasiError> {
         let duration = duration.as_nanos();
-        let start = platform_clock_time_get(__WASI_CLOCK_MONOTONIC, 1_000_000).unwrap() as u128;
+        let start =
+            platform_clock_time_get(Snapshot0Clockid::Monotonic, 1_000_000).unwrap() as u128;
         self.yield_now()?;
         loop {
-            let now = platform_clock_time_get(__WASI_CLOCK_MONOTONIC, 1_000_000).unwrap() as u128;
+            let now =
+                platform_clock_time_get(Snapshot0Clockid::Monotonic, 1_000_000).unwrap() as u128;
             let delta = match now.checked_sub(start) {
                 Some(a) => a,
                 None => {
@@ -809,20 +811,20 @@ fn generate_import_object_wasix64_v1(
     }
 }
 
-fn mem_error_to_wasi(err: MemoryAccessError) -> types::__wasi_errno_t {
+fn mem_error_to_wasi(err: MemoryAccessError) -> Errno {
     match err {
-        MemoryAccessError::HeapOutOfBounds => types::__WASI_EFAULT,
-        MemoryAccessError::Overflow => types::__WASI_EOVERFLOW,
-        MemoryAccessError::NonUtf8String => types::__WASI_EINVAL,
-        _ => types::__WASI_EINVAL,
+        MemoryAccessError::HeapOutOfBounds => Errno::Fault,
+        MemoryAccessError::Overflow => Errno::Overflow,
+        MemoryAccessError::NonUtf8String => Errno::Inval,
+        _ => Errno::Inval,
     }
 }
 
-fn mem_error_to_bus(err: MemoryAccessError) -> types::__bus_errno_t {
+fn mem_error_to_bus(err: MemoryAccessError) -> BusErrno {
     match err {
-        MemoryAccessError::HeapOutOfBounds => types::__BUS_EMEMVIOLATION,
-        MemoryAccessError::Overflow => types::__BUS_EMEMVIOLATION,
-        MemoryAccessError::NonUtf8String => types::__BUS_EBADREQUEST,
-        _ => types::__BUS_EUNKNOWN,
+        MemoryAccessError::HeapOutOfBounds => BusErrno::Memviolation,
+        MemoryAccessError::Overflow => BusErrno::Memviolation,
+        MemoryAccessError::NonUtf8String => BusErrno::Badrequest,
+        _ => BusErrno::Unknown,
     }
 }
