@@ -13,6 +13,7 @@ use crate::commands::Wast;
 use crate::commands::{Cache, Config, Inspect, Run, RunWithoutFile, SelfUpdate, Validate};
 use crate::error::PrettyError;
 use clap::{ErrorKind, Parser};
+use spinner::SpinnerHandle;
 use wasmer_registry::get_all_local_packages;
 
 #[derive(Parser, Debug)]
@@ -240,15 +241,7 @@ fn wasmer_main_inner() -> Result<(), anyhow::Error> {
             if let Ok(mut sv) = split_version(&package) {
                 let mut package_download_info = None;
                 if !sv.package.contains('/') {
-                    let sp = spinner::SpinnerBuilder::new(format!(
-                        "Looking up command {} ...",
-                        sv.package
-                    ))
-                    .spinner(vec![
-                        "⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷", " ", "⠁", "⠂", "⠄", "⡀", "⢀", "⠠",
-                        "⠐", "⠈",
-                    ])
-                    .start();
+                    let sp = start_spinner(format!("Looking up command {} ...", sv.package));
 
                     for registry in
                         wasmer_registry::get_all_available_registries().unwrap_or_default()
@@ -290,13 +283,7 @@ fn wasmer_main_inner() -> Result<(), anyhow::Error> {
                 }
 
                 // else: local package not found
-                let sp =
-                    spinner::SpinnerBuilder::new(format!("Installing package {} ...", sv.package))
-                        .spinner(vec![
-                            "⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷", " ", "⠁", "⠂", "⠄", "⡀", "⢀",
-                            "⠠", "⠐", "⠈",
-                        ])
-                        .start();
+                let sp = start_spinner(format!("Installing package {} ...", sv.package));
 
                 let v = sv.version.as_deref();
                 let result =
@@ -327,6 +314,14 @@ fn wasmer_main_inner() -> Result<(), anyhow::Error> {
     }
 
     options.execute()
+}
+
+fn start_spinner(msg: String) -> SpinnerHandle {
+    spinner::SpinnerBuilder::new(msg)
+        .spinner(vec![
+            "⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷", " ", "⠁", "⠂", "⠄", "⡀", "⢀", "⠠", "⠐", "⠈",
+        ])
+        .start()
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]
