@@ -3,10 +3,9 @@ use std::fs::{read_dir, File, OpenOptions, ReadDir};
 use std::io::{self, Read, Seek, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{mpsc, Arc, Mutex};
-use wasmer::FunctionEnv;
-use wasmer::{Imports, Instance, Module, Store};
+use wasmer::{FunctionEnv, Imports, Instance, Module, Store};
 use wasmer_vfs::{host_fs, mem_fs, FileSystem};
-use wasmer_wasi::types::{__wasi_filesize_t, __wasi_timestamp_t};
+use wasmer_wasi::types::wasi::{Filesize, Timestamp};
 use wasmer_wasi::{
     generate_import_object_from_env, get_wasi_version, FsError, Pipe, VirtualFile, WasiEnv,
     WasiFunctionEnv, WasiState, WasiVersion,
@@ -614,19 +613,19 @@ impl Write for OutputCapturerer {
 }
 
 impl VirtualFile for OutputCapturerer {
-    fn last_accessed(&self) -> __wasi_timestamp_t {
+    fn last_accessed(&self) -> Timestamp {
         0
     }
-    fn last_modified(&self) -> __wasi_timestamp_t {
+    fn last_modified(&self) -> Timestamp {
         0
     }
-    fn created_time(&self) -> __wasi_timestamp_t {
+    fn created_time(&self) -> Timestamp {
         0
     }
     fn size(&self) -> u64 {
         0
     }
-    fn set_len(&mut self, _new_size: __wasi_filesize_t) -> Result<(), FsError> {
+    fn set_len(&mut self, _new_size: Filesize) -> Result<(), FsError> {
         Ok(())
     }
     fn unlink(&mut self) -> Result<(), FsError> {

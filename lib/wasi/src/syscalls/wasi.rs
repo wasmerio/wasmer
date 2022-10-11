@@ -1,7 +1,10 @@
 #![deny(dead_code)]
 use crate::{WasiEnv, WasiError, WasiState, WasiThread};
-use wasmer::{StoreMut, Memory, Memory32, MemorySize, WasmPtr, WasmSlice};
-use wasmer_wasi_types::*;
+use wasmer::{Memory, Memory32, MemorySize, StoreMut, WasmPtr, WasmSlice};
+use wasmer_wasi_types::{
+    wasi::{Errno, Event, Fd as WasiFd, Filesize, Fstflags, Fstflags, Timestamp, Whence, Clockid},
+    types::*,
+};
 
 type MemoryType = Memory32;
 type MemoryOffset = u32;
@@ -10,7 +13,7 @@ pub(crate) fn args_get(
     ctx: FunctionEnvMut<WasiEnv>,
     argv: WasmPtr<WasmPtr<u8, MemoryType>, MemoryType>,
     argv_buf: WasmPtr<u8, MemoryType>,
-) -> __wasi_errno_t {
+) -> Errno {
     super::args_get::<MemoryType>(ctx, argv, argv_buf)
 }
 
@@ -18,24 +21,24 @@ pub(crate) fn args_sizes_get(
     ctx: FunctionEnvMut<WasiEnv>,
     argc: WasmPtr<MemoryOffset, MemoryType>,
     argv_buf_size: WasmPtr<MemoryOffset, MemoryType>,
-) -> __wasi_errno_t {
+) -> Errno {
     super::args_sizes_get::<MemoryType>(ctx, argc, argv_buf_size)
 }
 
 pub(crate) fn clock_res_get(
     ctx: FunctionEnvMut<WasiEnv>,
-    clock_id: __wasi_clockid_t,
-    resolution: WasmPtr<__wasi_timestamp_t, MemoryType>,
-) -> __wasi_errno_t {
+    clock_id: Clockid,
+    resolution: WasmPtr<Timestamp, MemoryType>,
+) -> Errno {
     super::clock_res_get::<MemoryType>(ctx, clock_id, resolution)
 }
 
 pub(crate) fn clock_time_get(
     ctx: FunctionEnvMut<WasiEnv>,
-    clock_id: __wasi_clockid_t,
-    precision: __wasi_timestamp_t,
-    time: WasmPtr<__wasi_timestamp_t, MemoryType>,
-) -> __wasi_errno_t {
+    clock_id: Clockid,
+    precision: Timestamp,
+    time: WasmPtr<Timestamp, MemoryType>,
+) -> Errno {
     super::clock_time_get::<MemoryType>(ctx, clock_id, precision, time)
 }
 
@@ -43,7 +46,7 @@ pub(crate) fn environ_get(
     ctx: FunctionEnvMut<WasiEnv>,
     environ: WasmPtr<WasmPtr<u8, MemoryType>, MemoryType>,
     environ_buf: WasmPtr<u8, MemoryType>,
-) -> __wasi_errno_t {
+) -> Errno {
     super::environ_get::<MemoryType>(ctx, environ, environ_buf)
 }
 
@@ -51,218 +54,214 @@ pub(crate) fn environ_sizes_get(
     ctx: FunctionEnvMut<WasiEnv>,
     environ_count: WasmPtr<MemoryOffset, MemoryType>,
     environ_buf_size: WasmPtr<MemoryOffset, MemoryType>,
-) -> __wasi_errno_t {
+) -> Errno {
     super::environ_sizes_get::<MemoryType>(ctx, environ_count, environ_buf_size)
 }
 
 pub(crate) fn fd_advise(
     ctx: FunctionEnvMut<WasiEnv>,
-    fd: __wasi_fd_t,
-    offset: __wasi_filesize_t,
-    len: __wasi_filesize_t,
+    fd: WasiFd,
+    offset: Filesize,
+    len: Filesize,
     advice: __wasi_advice_t,
-) -> __wasi_errno_t {
+) -> Errno {
     super::fd_advise(ctx, fd, offset, len, advice)
 }
 
 pub(crate) fn fd_allocate(
     ctx: FunctionEnvMut<WasiEnv>,
-    fd: __wasi_fd_t,
-    offset: __wasi_filesize_t,
-    len: __wasi_filesize_t,
-) -> __wasi_errno_t {
+    fd: WasiFd,
+    offset: Filesize,
+    len: Filesize,
+) -> Errno {
     super::fd_allocate(ctx, fd, offset, len)
 }
 
-pub(crate) fn fd_close(ctx: FunctionEnvMut<WasiEnv>, fd: __wasi_fd_t) -> __wasi_errno_t {
+pub(crate) fn fd_close(ctx: FunctionEnvMut<WasiEnv>, fd: WasiFd) -> Errno {
     super::fd_close(ctx, fd)
 }
 
-pub(crate) fn fd_datasync(ctx: FunctionEnvMut<WasiEnv>, fd: __wasi_fd_t) -> __wasi_errno_t {
+pub(crate) fn fd_datasync(ctx: FunctionEnvMut<WasiEnv>, fd: WasiFd) -> Errno {
     super::fd_datasync(ctx, fd)
 }
 
 pub(crate) fn fd_fdstat_get(
     ctx: FunctionEnvMut<WasiEnv>,
-    fd: __wasi_fd_t,
-    buf_ptr: WasmPtr<__wasi_fdstat_t, MemoryType>,
-) -> __wasi_errno_t {
+    fd: WasiFd,
+    buf_ptr: WasmPtr<WasiFdstat, MemoryType>,
+) -> Errno {
     super::fd_fdstat_get::<MemoryType>(ctx, fd, buf_ptr)
 }
 
 pub(crate) fn fd_fdstat_set_flags(
     ctx: FunctionEnvMut<WasiEnv>,
-    fd: __wasi_fd_t,
-    flags: __wasi_fdflags_t,
-) -> __wasi_errno_t {
+    fd: WasiFd,
+    flags: WasiFdflags,
+) -> Errno {
     super::fd_fdstat_set_flags(ctx, fd, flags)
 }
 
 pub(crate) fn fd_fdstat_set_rights(
     ctx: FunctionEnvMut<WasiEnv>,
-    fd: __wasi_fd_t,
+    fd: WasiFd,
     fs_rights_base: __wasi_rights_t,
     fs_rights_inheriting: __wasi_rights_t,
-) -> __wasi_errno_t {
+) -> Errno {
     super::fd_fdstat_set_rights(ctx, fd, fs_rights_base, fs_rights_inheriting)
 }
 
 pub(crate) fn fd_filestat_get(
     ctx: FunctionEnvMut<WasiEnv>,
-    fd: __wasi_fd_t,
-    buf: WasmPtr<__wasi_filestat_t, MemoryType>,
-) -> __wasi_errno_t {
+    fd: WasiFd,
+    buf: WasmPtr<Filestat, MemoryType>,
+) -> Errno {
     super::fd_filestat_get::<MemoryType>(ctx, fd, buf)
 }
 
 pub(crate) fn fd_filestat_set_size(
     ctx: FunctionEnvMut<WasiEnv>,
-    fd: __wasi_fd_t,
-    st_size: __wasi_filesize_t,
-) -> __wasi_errno_t {
+    fd: WasiFd,
+    st_size: Filesize,
+) -> Errno {
     super::fd_filestat_set_size(ctx, fd, st_size)
 }
 
 pub(crate) fn fd_filestat_set_times(
     ctx: FunctionEnvMut<WasiEnv>,
-    fd: __wasi_fd_t,
-    st_atim: __wasi_timestamp_t,
-    st_mtim: __wasi_timestamp_t,
-    fst_flags: __wasi_fstflags_t,
-) -> __wasi_errno_t {
+    fd: WasiFd,
+    st_atim: Timestamp,
+    st_mtim: Timestamp,
+    fst_flags: Fstflags,
+) -> Errno {
     super::fd_filestat_set_times(ctx, fd, st_atim, st_mtim, fst_flags)
 }
 
 pub(crate) fn fd_pread(
     ctx: FunctionEnvMut<WasiEnv>,
-    fd: __wasi_fd_t,
+    fd: WasiFd,
     iovs: WasmPtr<__wasi_iovec_t<MemoryType>, MemoryType>,
     iovs_len: MemoryOffset,
-    offset: __wasi_filesize_t,
+    offset: Filesize,
     nread: WasmPtr<MemoryOffset, MemoryType>,
-) -> Result<__wasi_errno_t, WasiError> {
+) -> Result<Errno, WasiError> {
     super::fd_pread::<MemoryType>(ctx, fd, iovs, iovs_len, offset, nread)
 }
 
 pub(crate) fn fd_prestat_get(
     ctx: FunctionEnvMut<WasiEnv>,
-    fd: __wasi_fd_t,
-    buf: WasmPtr<__wasi_prestat_t, MemoryType>,
-) -> __wasi_errno_t {
+    fd: WasiFd,
+    buf: WasmPtr<Prestat, MemoryType>,
+) -> Errno {
     super::fd_prestat_get::<MemoryType>(ctx, fd, buf)
 }
 
 pub(crate) fn fd_prestat_dir_name(
     ctx: FunctionEnvMut<WasiEnv>,
-    fd: __wasi_fd_t,
+    fd: WasiFd,
     path: WasmPtr<u8, MemoryType>,
     path_len: MemoryOffset,
-) -> __wasi_errno_t {
+) -> Errno {
     super::fd_prestat_dir_name::<MemoryType>(ctx, fd, path, path_len)
 }
 
 pub(crate) fn fd_pwrite(
     ctx: FunctionEnvMut<WasiEnv>,
-    fd: __wasi_fd_t,
+    fd: WasiFd,
     iovs: WasmPtr<__wasi_ciovec_t<MemoryType>, MemoryType>,
     iovs_len: MemoryOffset,
-    offset: __wasi_filesize_t,
+    offset: Filesize,
     nwritten: WasmPtr<MemoryOffset, MemoryType>,
-) -> Result<__wasi_errno_t, WasiError> {
+) -> Result<Errno, WasiError> {
     super::fd_pwrite::<MemoryType>(ctx, fd, iovs, iovs_len, offset, nwritten)
 }
 
 pub(crate) fn fd_read(
     ctx: FunctionEnvMut<WasiEnv>,
-    fd: __wasi_fd_t,
+    fd: WasiFd,
     iovs: WasmPtr<__wasi_iovec_t<MemoryType>, MemoryType>,
     iovs_len: MemoryOffset,
     nread: WasmPtr<MemoryOffset, MemoryType>,
-) -> Result<__wasi_errno_t, WasiError> {
+) -> Result<Errno, WasiError> {
     super::fd_read::<MemoryType>(ctx, fd, iovs, iovs_len, nread)
 }
 
 pub(crate) fn fd_readdir(
     ctx: FunctionEnvMut<WasiEnv>,
-    fd: __wasi_fd_t,
+    fd: WasiFd,
     buf: WasmPtr<u8, MemoryType>,
     buf_len: MemoryOffset,
     cookie: __wasi_dircookie_t,
     bufused: WasmPtr<MemoryOffset, MemoryType>,
-) -> __wasi_errno_t {
+) -> Errno {
     super::fd_readdir::<MemoryType>(ctx, fd, buf, buf_len, cookie, bufused)
 }
 
-pub(crate) fn fd_renumber(
-    ctx: FunctionEnvMut<WasiEnv>,
-    from: __wasi_fd_t,
-    to: __wasi_fd_t,
-) -> __wasi_errno_t {
+pub(crate) fn fd_renumber(ctx: FunctionEnvMut<WasiEnv>, from: WasiFd, to: WasiFd) -> Errno {
     super::fd_renumber(ctx, from, to)
 }
 
 pub(crate) fn fd_seek(
     ctx: FunctionEnvMut<WasiEnv>,
-    fd: __wasi_fd_t,
-    offset: __wasi_filedelta_t,
-    whence: __wasi_whence_t,
-    newoffset: WasmPtr<__wasi_filesize_t, MemoryType>,
-) -> Result<__wasi_errno_t, WasiError> {
+    fd: WasiFd,
+    offset: FileDelta,
+    whence: Whence,
+    newoffset: WasmPtr<Filesize, MemoryType>,
+) -> Result<Errno, WasiError> {
     super::fd_seek::<MemoryType>(ctx, fd, offset, whence, newoffset)
 }
 
-pub(crate) fn fd_sync(ctx: FunctionEnvMut<WasiEnv>, fd: __wasi_fd_t) -> __wasi_errno_t {
+pub(crate) fn fd_sync(ctx: FunctionEnvMut<WasiEnv>, fd: WasiFd) -> Errno {
     super::fd_sync(ctx, fd)
 }
 
 pub(crate) fn fd_tell(
     ctx: FunctionEnvMut<WasiEnv>,
-    fd: __wasi_fd_t,
-    offset: WasmPtr<__wasi_filesize_t, MemoryType>,
-) -> __wasi_errno_t {
+    fd: WasiFd,
+    offset: WasmPtr<Filesize, MemoryType>,
+) -> Errno {
     super::fd_tell::<MemoryType>(ctx, fd, offset)
 }
 
 pub(crate) fn fd_write(
     ctx: FunctionEnvMut<WasiEnv>,
-    fd: __wasi_fd_t,
+    fd: WasiFd,
     iovs: WasmPtr<__wasi_ciovec_t<MemoryType>, MemoryType>,
     iovs_len: MemoryOffset,
     nwritten: WasmPtr<MemoryOffset, MemoryType>,
-) -> Result<__wasi_errno_t, WasiError> {
+) -> Result<Errno, WasiError> {
     super::fd_write::<MemoryType>(ctx, fd, iovs, iovs_len, nwritten)
 }
 
 pub(crate) fn path_create_directory(
     ctx: FunctionEnvMut<WasiEnv>,
-    fd: __wasi_fd_t,
+    fd: WasiFd,
     path: WasmPtr<u8, MemoryType>,
     path_len: MemoryOffset,
-) -> __wasi_errno_t {
+) -> Errno {
     super::path_create_directory::<MemoryType>(ctx, fd, path, path_len)
 }
 
 pub(crate) fn path_filestat_get(
     ctx: FunctionEnvMut<WasiEnv>,
-    fd: __wasi_fd_t,
-    flags: __wasi_lookupflags_t,
+    fd: WasiFd,
+    flags: LookupFlags,
     path: WasmPtr<u8, MemoryType>,
     path_len: MemoryOffset,
-    buf: WasmPtr<__wasi_filestat_t, MemoryType>,
-) -> __wasi_errno_t {
+    buf: WasmPtr<Filestat, MemoryType>,
+) -> Errno {
     super::path_filestat_get::<MemoryType>(ctx, fd, flags, path, path_len, buf)
 }
 
 pub(crate) fn path_filestat_set_times(
     ctx: FunctionEnvMut<WasiEnv>,
-    fd: __wasi_fd_t,
-    flags: __wasi_lookupflags_t,
+    fd: WasiFd,
+    flags: LookupFlags,
     path: WasmPtr<u8, MemoryType>,
     path_len: MemoryOffset,
-    st_atim: __wasi_timestamp_t,
-    st_mtim: __wasi_timestamp_t,
-    fst_flags: __wasi_fstflags_t,
-) -> __wasi_errno_t {
+    st_atim: Timestamp,
+    st_mtim: Timestamp,
+    fst_flags: Fstflags,
+) -> Errno {
     super::path_filestat_set_times::<MemoryType>(
         ctx, fd, flags, path, path_len, st_atim, st_mtim, fst_flags,
     )
@@ -270,14 +269,14 @@ pub(crate) fn path_filestat_set_times(
 
 pub(crate) fn path_link(
     ctx: FunctionEnvMut<WasiEnv>,
-    old_fd: __wasi_fd_t,
-    old_flags: __wasi_lookupflags_t,
+    old_fd: WasiFd,
+    old_flags: LookupFlags,
     old_path: WasmPtr<u8, MemoryType>,
     old_path_len: MemoryOffset,
-    new_fd: __wasi_fd_t,
+    new_fd: WasiFd,
     new_path: WasmPtr<u8, MemoryType>,
     new_path_len: MemoryOffset,
-) -> __wasi_errno_t {
+) -> Errno {
     super::path_link::<MemoryType>(
         ctx,
         old_fd,
@@ -292,16 +291,16 @@ pub(crate) fn path_link(
 
 pub(crate) fn path_open(
     ctx: FunctionEnvMut<WasiEnv>,
-    dirfd: __wasi_fd_t,
-    dirflags: __wasi_lookupflags_t,
+    dirfd: WasiFd,
+    dirflags: LookupFlags,
     path: WasmPtr<u8, MemoryType>,
     path_len: MemoryOffset,
-    o_flags: __wasi_oflags_t,
+    o_flags: Oflags,
     fs_rights_base: __wasi_rights_t,
     fs_rights_inheriting: __wasi_rights_t,
-    fs_flags: __wasi_fdflags_t,
-    fd: WasmPtr<__wasi_fd_t, MemoryType>,
-) -> __wasi_errno_t {
+    fs_flags: WasiFdflags,
+    fd: WasmPtr<WasiFd, MemoryType>,
+) -> Errno {
     super::path_open::<MemoryType>(
         ctx,
         dirfd,
@@ -318,34 +317,34 @@ pub(crate) fn path_open(
 
 pub(crate) fn path_readlink(
     ctx: FunctionEnvMut<WasiEnv>,
-    dir_fd: __wasi_fd_t,
+    dir_fd: WasiFd,
     path: WasmPtr<u8, MemoryType>,
     path_len: MemoryOffset,
     buf: WasmPtr<u8, MemoryType>,
     buf_len: MemoryOffset,
     buf_used: WasmPtr<MemoryOffset, MemoryType>,
-) -> __wasi_errno_t {
+) -> Errno {
     super::path_readlink::<MemoryType>(ctx, dir_fd, path, path_len, buf, buf_len, buf_used)
 }
 
 pub(crate) fn path_remove_directory(
     ctx: FunctionEnvMut<WasiEnv>,
-    fd: __wasi_fd_t,
+    fd: WasiFd,
     path: WasmPtr<u8, MemoryType>,
     path_len: MemoryOffset,
-) -> __wasi_errno_t {
+) -> Errno {
     super::path_remove_directory::<MemoryType>(ctx, fd, path, path_len)
 }
 
 pub(crate) fn path_rename(
     ctx: FunctionEnvMut<WasiEnv>,
-    old_fd: __wasi_fd_t,
+    old_fd: WasiFd,
     old_path: WasmPtr<u8, MemoryType>,
     old_path_len: MemoryOffset,
-    new_fd: __wasi_fd_t,
+    new_fd: WasiFd,
     new_path: WasmPtr<u8, MemoryType>,
     new_path_len: MemoryOffset,
-) -> __wasi_errno_t {
+) -> Errno {
     super::path_rename::<MemoryType>(
         ctx,
         old_fd,
@@ -361,29 +360,29 @@ pub(crate) fn path_symlink(
     ctx: FunctionEnvMut<WasiEnv>,
     old_path: WasmPtr<u8, MemoryType>,
     old_path_len: MemoryOffset,
-    fd: __wasi_fd_t,
+    fd: WasiFd,
     new_path: WasmPtr<u8, MemoryType>,
     new_path_len: MemoryOffset,
-) -> __wasi_errno_t {
+) -> Errno {
     super::path_symlink::<MemoryType>(ctx, old_path, old_path_len, fd, new_path, new_path_len)
 }
 
 pub(crate) fn path_unlink_file(
     ctx: FunctionEnvMut<WasiEnv>,
-    fd: __wasi_fd_t,
+    fd: WasiFd,
     path: WasmPtr<u8, MemoryType>,
     path_len: MemoryOffset,
-) -> __wasi_errno_t {
+) -> Errno {
     super::path_unlink_file::<MemoryType>(ctx, fd, path, path_len)
 }
 
 pub(crate) fn poll_oneoff(
     ctx: FunctionEnvMut<WasiEnv>,
     in_: WasmPtr<__wasi_subscription_t, MemoryType>,
-    out_: WasmPtr<__wasi_event_t, MemoryType>,
+    out_: WasmPtr<Event, MemoryType>,
     nsubscriptions: MemoryOffset,
     nevents: WasmPtr<MemoryOffset, MemoryType>,
-) -> Result<__wasi_errno_t, WasiError> {
+) -> Result<Errno, WasiError> {
     super::poll_oneoff::<MemoryType>(ctx, in_, out_, nsubscriptions, nevents)
 }
 
@@ -394,7 +393,7 @@ pub(crate) fn proc_exit(
     super::proc_exit(ctx, code)
 }
 
-pub(crate) fn proc_raise(ctx: FunctionEnvMut<WasiEnv>, sig: __wasi_signal_t) -> __wasi_errno_t {
+pub(crate) fn proc_raise(ctx: FunctionEnvMut<WasiEnv>, sig: Signal) -> Errno {
     super::proc_raise(ctx, sig)
 }
 
@@ -402,23 +401,23 @@ pub(crate) fn random_get(
     ctx: FunctionEnvMut<WasiEnv>,
     buf: WasmPtr<u8, MemoryType>,
     buf_len: MemoryOffset,
-) -> __wasi_errno_t {
+) -> Errno {
     super::random_get::<MemoryType>(ctx, buf, buf_len)
 }
 
-pub(crate) fn sched_yield(ctx: FunctionEnvMut<WasiEnv>) -> Result<__wasi_errno_t, WasiError> {
+pub(crate) fn sched_yield(ctx: FunctionEnvMut<WasiEnv>) -> Result<Errno, WasiError> {
     super::sched_yield(ctx)
 }
 
 pub(crate) fn sock_recv(
     ctx: FunctionEnvMut<WasiEnv>,
-    sock: __wasi_fd_t,
+    sock: WasiFd,
     ri_data: WasmPtr<__wasi_iovec_t<MemoryType>, MemoryType>,
     ri_data_len: MemoryOffset,
-    ri_flags: __wasi_riflags_t,
+    ri_flags: RiFlags,
     ro_data_len: WasmPtr<MemoryOffset, MemoryType>,
-    ro_flags: WasmPtr<__wasi_roflags_t, MemoryType>,
-) -> Result<__wasi_errno_t, WasiError> {
+    ro_flags: WasmPtr<RoFlags, MemoryType>,
+) -> Result<Errno, WasiError> {
     super::sock_recv::<MemoryType>(
         ctx,
         sock,
@@ -432,19 +431,19 @@ pub(crate) fn sock_recv(
 
 pub(crate) fn sock_send(
     ctx: FunctionEnvMut<WasiEnv>,
-    sock: __wasi_fd_t,
+    sock: WasiFd,
     si_data: WasmPtr<__wasi_ciovec_t<MemoryType>, MemoryType>,
     si_data_len: MemoryOffset,
-    si_flags: __wasi_siflags_t,
+    si_flags: SiFlags,
     ret_data_len: WasmPtr<MemoryOffset, MemoryType>,
-) -> Result<__wasi_errno_t, WasiError> {
+) -> Result<Errno, WasiError> {
     super::sock_send::<MemoryType>(ctx, sock, si_data, si_data_len, si_flags, ret_data_len)
 }
 
 pub(crate) fn sock_shutdown(
     ctx: FunctionEnvMut<WasiEnv>,
-    sock: __wasi_fd_t,
-    how: __wasi_sdflags_t,
-) -> __wasi_errno_t {
+    sock: WasiFd,
+    how: SdFlags,
+) -> Errno {
     super::sock_shutdown(ctx, sock, how)
 }

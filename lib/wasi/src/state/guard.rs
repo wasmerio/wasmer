@@ -50,7 +50,7 @@ pub(crate) struct WasiStateFileGuard {
 }
 
 impl WasiStateFileGuard {
-    pub fn new(state: &WasiState, fd: __wasi_fd_t) -> Result<Option<Self>, FsError> {
+    pub fn new(state: &WasiState, fd: wasi::Fd) -> Result<Option<Self>, FsError> {
         let inodes = state.inodes.read().unwrap();
         let fd_map = state.fs.fd_map.read().unwrap();
         if let Some(fd) = fd_map.get(&fd) {

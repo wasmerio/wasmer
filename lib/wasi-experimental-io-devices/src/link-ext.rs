@@ -5,7 +5,10 @@ use std::collections::{BTreeSet, VecDeque};
 use std::convert::TryInto;
 use std::io::{Read, Seek, SeekFrom, Write};
 use tracing::debug;
-use wasmer_wasi::{types::*, WasiInodes};
+use wasmer_wasi::{
+    types::{wasi::Filesize, *},
+    WasiInodes,
+};
 use wasmer_wasi::{Fd, VirtualFile, WasiFs, WasiFsError, ALL_RIGHTS, VIRTUAL_ROOT_FD};
 
 use minifb::{Key, KeyRepeat, MouseButton, Scale, Window, WindowOptions};
@@ -417,7 +420,7 @@ impl VirtualFile for FrameBuffer {
     fn size(&self) -> u64 {
         0
     }
-    fn set_len(&mut self, _new_size: __wasi_filesize_t) -> Result<(), WasiFsError> {
+    fn set_len(&mut self, _new_size: Filesize) -> Result<(), WasiFsError> {
         Ok(())
     }
     fn unlink(&mut self) -> Result<(), WasiFsError> {
