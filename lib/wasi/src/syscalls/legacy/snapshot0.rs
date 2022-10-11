@@ -1,7 +1,11 @@
 use crate::syscalls;
-use crate::syscalls::types::{self, snapshot0};
+use crate::syscalls::types;
 use crate::{mem_error_to_wasi, Memory32, MemorySize, WasiEnv, WasiError, WasiThread};
 use wasmer::{AsStoreMut, FunctionEnvMut, WasmPtr};
+use wasmer_wasi_types::wasi::{
+    Errno, Event, Fd, Filesize, Filestat, Filetype, Snapshot0Filestat, Snapshot0Subscription,
+    Snapshot0Whence, Subscription, Whence,
+};
 
 /// Wrapper around `syscalls::fd_filestat_get` with extra logic to handle the size
 /// difference of `wasi_filestat_t`
@@ -11,19 +15,20 @@ use wasmer::{AsStoreMut, FunctionEnvMut, WasmPtr};
 /// that syscall, then it may break.
 pub fn fd_filestat_get(
     mut ctx: FunctionEnvMut<WasiEnv>,
-    fd: types::__wasi_fd_t,
-    buf: WasmPtr<snapshot0::__wasi_filestat_t, Memory32>,
-) -> types::__wasi_errno_t {
+    fd: Fd,
+    buf: WasmPtr<Snapshot0Filestat, Memory32>,
+) -> Errno {
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
+    // TODO: understand what's happening inside this function, then do the correct thing
 
     // transmute the WasmPtr<T1> into a WasmPtr<T2> where T2 > T1, this will read extra memory.
     // The edge case of this cenv.mausing an OOB is not handled, if the new field is OOB, then the entire
     // memory access will fail.
-    let new_buf: WasmPtr<types::__wasi_filestat_t, Memory32> = buf.cast();
+    let new_buf: WasmPtr<Filestat, Memory32> = buf.cast();
 
     // Copy the data including the extra data
-    let new_filestat_setup: types::__wasi_filestat_t = wasi_try_mem!(new_buf.read(&memory));
+    let new_filestat_setup: Filestat = wasi_try_mem!(new_buf.read(&memory));
 
     // Set up complete, make the call with the pointer that will write to the
     // struct and some unrelated memory after the struct.
@@ -36,7 +41,7 @@ pub fn fd_filestat_get(
     // get the values written to memory
     let new_filestat = wasi_try_mem!(new_buf.deref(&memory).read());
     // translate the new struct into the old struct in host memory
-    let old_stat = snapshot0::__wasi_filestat_t {
+    let old_stat = Snapshot0Filestat {
         st_dev: new_filestat.st_dev,
         st_ino: new_filestat.st_ino,
         st_filetype: new_filestat.st_filetype,
@@ -62,18 +67,20 @@ pub fn fd_filestat_get(
 /// difference of `wasi_filestat_t`
 pub fn path_filestat_get(
     mut ctx: FunctionEnvMut<WasiEnv>,
-    fd: types::__wasi_fd_t,
-    flags: types::__wasi_lookupflags_t,
+    fd: Fd,
+    flags: types::LookupFlags,
     path: WasmPtr<u8, Memory32>,
     path_len: u32,
-    buf: WasmPtr<snapshot0::__wasi_filestat_t, Memory32>,
-) -> types::__wasi_errno_t {
+    buf: WasmPtr<Snapshot0Filestat, Memory32>,
+) -> Errno {
+    // TODO: understand what's happening inside this function, then do the correct thing
+
     // see `fd_filestat_get` in this file for an explanation of this strange behavior
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
 
-    let new_buf: WasmPtr<types::__wasi_filestat_t, Memory32> = buf.cast();
-    let new_filestat_setup: types::__wasi_filestat_t = wasi_try_mem!(new_buf.read(&memory));
+    let new_buf: WasmPtr<Filestat, Memory32> = buf.cast();
+    let new_filestat_setup: Filestat = wasi_try_mem!(new_buf.read(&memory));
 
     let result =
         syscalls::path_filestat_get::<Memory32>(ctx.as_mut(), fd, flags, path, path_len, new_buf);
@@ -82,7 +89,7 @@ pub fn path_filestat_get(
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
     let new_filestat = wasi_try_mem!(new_buf.deref(&memory).read());
-    let old_stat = snapshot0::__wasi_filestat_t {
+    let old_stat = Snapshot0Filestat {
         st_dev: new_filestat.st_dev,
         st_ino: new_filestat.st_ino,
         st_filetype: new_filestat.st_filetype,
@@ -100,20 +107,18 @@ pub fn path_filestat_get(
 }
 
 /// Wrapper around `syscalls::fd_seek` with extra logic to remap the values
-/// of `__wasi_whence_t`
+/// of `Whence`
 pub fn fd_seek(
     ctx: FunctionEnvMut<WasiEnv>,
-    fd: types::__wasi_fd_t,
-    offset: types::__wasi_filedelta_t,
-    whence: snapshot0::__wasi_whence_t,
-    newoffset: WasmPtr<types::__wasi_filesize_t, Memory32>,
-) -> Result<types::__wasi_errno_t, WasiError> {
+    fd: Fd,
+    offset: types::FileDelta,
+    whence: Snapshot0Whence,
+    newoffset: WasmPtr<Filesize, Memory32>,
+) -> Result<Errno, WasiError> {
     let new_whence = match whence {
-        snapshot0::__WASI_WHENCE_CUR => types::__WASI_WHENCE_CUR,
-        snapshot0::__WASI_WHENCE_END => types::__WASI_WHENCE_END,
-        snapshot0::__WASI_WHENCE_SET => types::__WASI_WHENCE_SET,
-        // if it's invalid, let the new fd_seek handle it
-        _ => whence,
+        Snapshot0Whence::Cur => Whence::Cur,
+        Snapshot0Whence::End => Whence::End,
+        Snapshot0Whence::Set => Whence::Set,
     };
     syscalls::fd_seek::<Memory32>(ctx, fd, offset, new_whence, newoffset)
 }
@@ -122,11 +127,12 @@ pub fn fd_seek(
 /// userdata field back
 pub fn poll_oneoff(
     mut ctx: FunctionEnvMut<WasiEnv>,
-    in_: WasmPtr<snapshot0::__wasi_subscription_t, Memory32>,
-    out_: WasmPtr<types::__wasi_event_t, Memory32>,
+    in_: WasmPtr<Snapshot0Subscription, Memory32>,
+    out_: WasmPtr<Event, Memory32>,
     nsubscriptions: u32,
     nevents: WasmPtr<u32, Memory32>,
-) -> Result<types::__wasi_errno_t, WasiError> {
+) -> Result<Errno, WasiError> {
+    // TODO: verify that the assumptions in the comment here still applyd
     // in this case the new type is smaller than the old type, so it all fits into memory,
     // we just need to readjust and copy it
 
@@ -138,31 +144,14 @@ pub fn poll_oneoff(
     let in_origs = wasi_try_mem_ok!(in_origs.read_to_vec());
 
     // get a pointer to the smaller new type
-    let in_new_type_ptr: WasmPtr<types::__wasi_subscription_t, Memory32> = in_.cast();
+    let in_new_type_ptr: WasmPtr<Subscription, Memory32> = in_.cast();
 
     for (in_sub_new, orig) in
         wasi_try_mem_ok!(in_new_type_ptr.slice(&memory, nsubscriptions_offset))
             .iter()
             .zip(in_origs.iter())
     {
-        wasi_try_mem_ok!(in_sub_new.write(types::__wasi_subscription_t {
-            userdata: orig.userdata,
-            type_: orig.type_,
-            u: if orig.type_ == types::__WASI_EVENTTYPE_CLOCK {
-                types::__wasi_subscription_u {
-                    clock: types::__wasi_subscription_clock_t {
-                        clock_id: unsafe { orig.u.clock.clock_id },
-                        timeout: unsafe { orig.u.clock.timeout },
-                        precision: unsafe { orig.u.clock.precision },
-                        flags: unsafe { orig.u.clock.flags },
-                    },
-                }
-            } else {
-                types::__wasi_subscription_u {
-                    fd_readwrite: unsafe { orig.u.fd_readwrite },
-                }
-            },
-        }));
+        wasi_try_mem_ok!(in_sub_new.write(Subscription::from(*orig)));
     }
 
     // make the call

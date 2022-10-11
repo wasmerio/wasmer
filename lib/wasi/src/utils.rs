@@ -1,6 +1,6 @@
-use super::types::*;
 use std::collections::BTreeSet;
 use wasmer::Module;
+use wasmer_wasi_types::wasi::Errno;
 
 #[allow(dead_code)]
 /// Check if a provided module is compiled for some version of WASI.
@@ -22,29 +22,29 @@ pub fn is_wasix_module(module: &Module) -> bool {
     }
 }
 
-pub fn map_io_err(err: std::io::Error) -> __wasi_errno_t {
+pub fn map_io_err(err: std::io::Error) -> Errno {
     use std::io::ErrorKind;
     match err.kind() {
-        ErrorKind::NotFound => __WASI_ENOENT,
-        ErrorKind::PermissionDenied => __WASI_EPERM,
-        ErrorKind::ConnectionRefused => __WASI_ECONNREFUSED,
-        ErrorKind::ConnectionReset => __WASI_ECONNRESET,
-        ErrorKind::ConnectionAborted => __WASI_ECONNABORTED,
-        ErrorKind::NotConnected => __WASI_ENOTCONN,
-        ErrorKind::AddrInUse => __WASI_EADDRINUSE,
-        ErrorKind::AddrNotAvailable => __WASI_EADDRNOTAVAIL,
-        ErrorKind::BrokenPipe => __WASI_EPIPE,
-        ErrorKind::AlreadyExists => __WASI_EEXIST,
-        ErrorKind::WouldBlock => __WASI_EAGAIN,
-        ErrorKind::InvalidInput => __WASI_EIO,
-        ErrorKind::InvalidData => __WASI_EIO,
-        ErrorKind::TimedOut => __WASI_ETIMEDOUT,
-        ErrorKind::WriteZero => __WASI_EIO,
-        ErrorKind::Interrupted => __WASI_EINTR,
-        ErrorKind::Other => __WASI_EIO,
-        ErrorKind::UnexpectedEof => __WASI_EIO,
-        ErrorKind::Unsupported => __WASI_ENOTSUP,
-        _ => __WASI_EIO,
+        ErrorKind::NotFound => Errno::Noent,
+        ErrorKind::PermissionDenied => Errno::Perm,
+        ErrorKind::ConnectionRefused => Errno::Connrefused,
+        ErrorKind::ConnectionReset => Errno::Connreset,
+        ErrorKind::ConnectionAborted => Errno::Connaborted,
+        ErrorKind::NotConnected => Errno::Notconn,
+        ErrorKind::AddrInUse => Errno::Addrinuse,
+        ErrorKind::AddrNotAvailable => Errno::Addrnotavail,
+        ErrorKind::BrokenPipe => Errno::Pipe,
+        ErrorKind::AlreadyExists => Errno::Exist,
+        ErrorKind::WouldBlock => Errno::Again,
+        ErrorKind::InvalidInput => Errno::Io,
+        ErrorKind::InvalidData => Errno::Io,
+        ErrorKind::TimedOut => Errno::Timedout,
+        ErrorKind::WriteZero => Errno::Io,
+        ErrorKind::Interrupted => Errno::Intr,
+        ErrorKind::Other => Errno::Io,
+        ErrorKind::UnexpectedEof => Errno::Io,
+        ErrorKind::Unsupported => Errno::Notsup,
+        _ => Errno::Io,
     }
 }
 
