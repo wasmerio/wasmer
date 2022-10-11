@@ -344,7 +344,7 @@ impl TryFrom<Value> for Option<ExternRef> {
 
 #[test]
 fn get_set_externref_globals_via_api() -> anyhow::Result<()> {
-    use crate::{Engine, Store, Global, Value, ExternRef};
+    use crate::{Store, Global, Value, ExternRef};
 
     let mut store = Store::default();
 
@@ -357,7 +357,7 @@ fn get_set_externref_globals_via_api() -> anyhow::Result<()> {
 
     global.set(
         &mut store,
-        Val::ExternRef(Some(ExternRef::new(&mut store, "hello".to_string()))),
+        Value::ExternRef(Some(ExternRef::new(&mut store, "hello".to_string()))),
     )?;
     let r = global.get(&mut store).unwrap_externref().unwrap();
     assert_eq!(r.downcast(&store).unwrap(), "hello".to_string());
