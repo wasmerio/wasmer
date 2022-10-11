@@ -5,17 +5,18 @@ use libc::{
 };
 use std::mem;
 use wasmer::WasmRef;
+use wasmer_wasi_types::wasi::{Errno, Snapshot0Clockid, Timestamp};
 
 pub fn platform_clock_res_get(
-    clock_id: __wasi_clockid_t,
-    resolution: WasmRef<__wasi_timestamp_t>,
-) -> Result<i64, __wasi_errno_t> {
+    clock_id: Snapshot0Clockid,
+    resolution: WasmRef<Timestamp>,
+) -> Result<i64, Errno> {
     let unix_clock_id = match clock_id {
-        __WASI_CLOCK_MONOTONIC => CLOCK_MONOTONIC,
-        __WASI_CLOCK_PROCESS_CPUTIME_ID => CLOCK_PROCESS_CPUTIME_ID,
-        __WASI_CLOCK_REALTIME => CLOCK_REALTIME,
-        __WASI_CLOCK_THREAD_CPUTIME_ID => CLOCK_THREAD_CPUTIME_ID,
-        _ => return Err(__WASI_EINVAL),
+        Snapshot0Clockid::Monotonic => CLOCK_MONOTONIC,
+        Snapshot0Clockid::ProcessCputimeId => CLOCK_PROCESS_CPUTIME_ID,
+        Snapshot0Clockid::Realtime => CLOCK_REALTIME,
+        Snapshot0Clockid::ThreadCputimeId => CLOCK_THREAD_CPUTIME_ID,
+        _ => return Err(Errno::Inval),
     };
 
     let (output, timespec_out) = unsafe {
@@ -31,15 +32,15 @@ pub fn platform_clock_res_get(
 }
 
 pub fn platform_clock_time_get(
-    clock_id: __wasi_clockid_t,
-    precision: __wasi_timestamp_t,
-) -> Result<i64, __wasi_errno_t> {
+    clock_id: Snapshot0Clockid,
+    precision: Timestamp,
+) -> Result<i64, Errno> {
     let unix_clock_id = match clock_id {
-        __WASI_CLOCK_MONOTONIC => CLOCK_MONOTONIC,
-        __WASI_CLOCK_PROCESS_CPUTIME_ID => CLOCK_PROCESS_CPUTIME_ID,
-        __WASI_CLOCK_REALTIME => CLOCK_REALTIME,
-        __WASI_CLOCK_THREAD_CPUTIME_ID => CLOCK_THREAD_CPUTIME_ID,
-        _ => return Err(__WASI_EINVAL),
+        Snapshot0Clockid::Monotonic => CLOCK_MONOTONIC,
+        Snapshot0Clockid::ProcessCputimeId => CLOCK_PROCESS_CPUTIME_ID,
+        Snapshot0Clockid::Realtime => CLOCK_REALTIME,
+        Snapshot0Clockid::ThreadCputimeId => CLOCK_THREAD_CPUTIME_ID,
+        _ => return Err(Errno::Inval),
     };
 
     let (output, timespec_out) = unsafe {

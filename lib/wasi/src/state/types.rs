@@ -1,5 +1,4 @@
 /// types for use in the WASI filesystem
-use crate::syscalls::types::*;
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 #[cfg(all(unix, feature = "sys-poll"))]
@@ -11,6 +10,7 @@ use std::{
     time::Duration,
 };
 use wasmer_vbus::BusError;
+use wasmer_wasi_types::wasi::{BusErrno, Errno};
 
 #[cfg(feature = "host-fs")]
 pub use wasmer_vfs::host_fs::{Stderr, Stdin, Stdout};
@@ -20,135 +20,136 @@ pub use wasmer_vfs::mem_fs::{Stderr, Stdin, Stdout};
 use wasmer_vfs::{FsError, VirtualFile};
 use wasmer_vnet::NetworkError;
 
-pub fn fs_error_from_wasi_err(err: __wasi_errno_t) -> FsError {
+pub fn fs_error_from_wasi_err(err: Errno) -> FsError {
     match err {
-        __WASI_EBADF => FsError::InvalidFd,
-        __WASI_EEXIST => FsError::AlreadyExists,
-        __WASI_EIO => FsError::IOError,
-        __WASI_EADDRINUSE => FsError::AddressInUse,
-        __WASI_EADDRNOTAVAIL => FsError::AddressNotAvailable,
-        __WASI_EPIPE => FsError::BrokenPipe,
-        __WASI_ECONNABORTED => FsError::ConnectionAborted,
-        __WASI_ECONNREFUSED => FsError::ConnectionRefused,
-        __WASI_ECONNRESET => FsError::ConnectionReset,
-        __WASI_EINTR => FsError::Interrupted,
-        __WASI_EINVAL => FsError::InvalidInput,
-        __WASI_ENOTCONN => FsError::NotConnected,
-        __WASI_ENODEV => FsError::NoDevice,
-        __WASI_ENOENT => FsError::EntityNotFound,
-        __WASI_EPERM => FsError::PermissionDenied,
-        __WASI_ETIMEDOUT => FsError::TimedOut,
-        __WASI_EPROTO => FsError::UnexpectedEof,
-        __WASI_EAGAIN => FsError::WouldBlock,
-        __WASI_ENOSPC => FsError::WriteZero,
-        __WASI_ENOTEMPTY => FsError::DirectoryNotEmpty,
+        Errno::Badf => FsError::InvalidFd,
+        Errno::Exist => FsError::AlreadyExists,
+        Errno::Io => FsError::IOError,
+        Errno::Addrinuse => FsError::AddressInUse,
+        Errno::Addrnotavail => FsError::AddressNotAvailable,
+        Errno::Pipe => FsError::BrokenPipe,
+        Errno::Connaborted => FsError::ConnectionAborted,
+        Errno::Connrefused => FsError::ConnectionRefused,
+        Errno::Connreset => FsError::ConnectionReset,
+        Errno::Intr => FsError::Interrupted,
+        Errno::Inval => FsError::InvalidInput,
+        Errno::Notconn => FsError::NotConnected,
+        Errno::Nodev => FsError::NoDevice,
+        Errno::Noent => FsError::EntityNotFound,
+        Errno::Perm => FsError::PermissionDenied,
+        Errno::Timedout => FsError::TimedOut,
+        Errno::Proto => FsError::UnexpectedEof,
+        Errno::Again => FsError::WouldBlock,
+        Errno::Nospc => FsError::WriteZero,
+        Errno::Notempty => FsError::DirectoryNotEmpty,
         _ => FsError::UnknownError,
     }
 }
 
-pub fn fs_error_into_wasi_err(fs_error: FsError) -> __wasi_errno_t {
+pub fn fs_error_into_wasi_err(fs_error: FsError) -> Errno {
     match fs_error {
-        FsError::AlreadyExists => __WASI_EEXIST,
-        FsError::AddressInUse => __WASI_EADDRINUSE,
-        FsError::AddressNotAvailable => __WASI_EADDRNOTAVAIL,
-        FsError::BaseNotDirectory => __WASI_ENOTDIR,
-        FsError::BrokenPipe => __WASI_EPIPE,
-        FsError::ConnectionAborted => __WASI_ECONNABORTED,
-        FsError::ConnectionRefused => __WASI_ECONNREFUSED,
-        FsError::ConnectionReset => __WASI_ECONNRESET,
-        FsError::Interrupted => __WASI_EINTR,
-        FsError::InvalidData => __WASI_EIO,
-        FsError::InvalidFd => __WASI_EBADF,
-        FsError::InvalidInput => __WASI_EINVAL,
-        FsError::IOError => __WASI_EIO,
-        FsError::NoDevice => __WASI_ENODEV,
-        FsError::NotAFile => __WASI_EINVAL,
-        FsError::NotConnected => __WASI_ENOTCONN,
-        FsError::EntityNotFound => __WASI_ENOENT,
-        FsError::PermissionDenied => __WASI_EPERM,
-        FsError::TimedOut => __WASI_ETIMEDOUT,
-        FsError::UnexpectedEof => __WASI_EPROTO,
-        FsError::WouldBlock => __WASI_EAGAIN,
-        FsError::WriteZero => __WASI_ENOSPC,
-        FsError::DirectoryNotEmpty => __WASI_ENOTEMPTY,
-        FsError::Lock | FsError::UnknownError => __WASI_EIO,
+        FsError::AlreadyExists => Errno::Exist,
+        FsError::AddressInUse => Errno::Addrinuse,
+        FsError::AddressNotAvailable => Errno::Addrnotavail,
+        FsError::BaseNotDirectory => Errno::Notdir,
+        FsError::BrokenPipe => Errno::Pipe,
+        FsError::ConnectionAborted => Errno::Connaborted,
+        FsError::ConnectionRefused => Errno::Connrefused,
+        FsError::ConnectionReset => Errno::Connreset,
+        FsError::Interrupted => Errno::Intr,
+        FsError::InvalidData => Errno::Io,
+        FsError::InvalidFd => Errno::Badf,
+        FsError::InvalidInput => Errno::Inval,
+        FsError::IOError => Errno::Io,
+        FsError::NoDevice => Errno::Nodev,
+        FsError::NotAFile => Errno::Inval,
+        FsError::NotConnected => Errno::Notconn,
+        FsError::EntityNotFound => Errno::Noent,
+        FsError::PermissionDenied => Errno::Perm,
+        FsError::TimedOut => Errno::Timedout,
+        FsError::UnexpectedEof => Errno::Proto,
+        FsError::WouldBlock => Errno::Again,
+        FsError::WriteZero => Errno::Nospc,
+        FsError::DirectoryNotEmpty => Errno::Notempty,
+        FsError::Lock | FsError::UnknownError => Errno::Io,
     }
 }
 
-pub fn net_error_into_wasi_err(net_error: NetworkError) -> __wasi_errno_t {
+pub fn net_error_into_wasi_err(net_error: NetworkError) -> Errno {
     match net_error {
-        NetworkError::InvalidFd => __WASI_EBADF,
-        NetworkError::AlreadyExists => __WASI_EEXIST,
-        NetworkError::Lock => __WASI_EIO,
-        NetworkError::IOError => __WASI_EIO,
-        NetworkError::AddressInUse => __WASI_EADDRINUSE,
-        NetworkError::AddressNotAvailable => __WASI_EADDRNOTAVAIL,
-        NetworkError::BrokenPipe => __WASI_EPIPE,
-        NetworkError::ConnectionAborted => __WASI_ECONNABORTED,
-        NetworkError::ConnectionRefused => __WASI_ECONNREFUSED,
-        NetworkError::ConnectionReset => __WASI_ECONNRESET,
-        NetworkError::Interrupted => __WASI_EINTR,
-        NetworkError::InvalidData => __WASI_EIO,
-        NetworkError::InvalidInput => __WASI_EINVAL,
-        NetworkError::NotConnected => __WASI_ENOTCONN,
-        NetworkError::NoDevice => __WASI_ENODEV,
-        NetworkError::PermissionDenied => __WASI_EPERM,
-        NetworkError::TimedOut => __WASI_ETIMEDOUT,
-        NetworkError::UnexpectedEof => __WASI_EPROTO,
-        NetworkError::WouldBlock => __WASI_EAGAIN,
-        NetworkError::WriteZero => __WASI_ENOSPC,
-        NetworkError::Unsupported => __WASI_ENOTSUP,
-        NetworkError::UnknownError => __WASI_EIO,
+        NetworkError::InvalidFd => Errno::Badf,
+        NetworkError::AlreadyExists => Errno::Exist,
+        NetworkError::Lock => Errno::Io,
+        NetworkError::IOError => Errno::Io,
+        NetworkError::AddressInUse => Errno::Addrinuse,
+        NetworkError::AddressNotAvailable => Errno::Addrnotavail,
+        NetworkError::BrokenPipe => Errno::Pipe,
+        NetworkError::ConnectionAborted => Errno::Connaborted,
+        NetworkError::ConnectionRefused => Errno::Connrefused,
+        NetworkError::ConnectionReset => Errno::Connreset,
+        NetworkError::Interrupted => Errno::Intr,
+        NetworkError::InvalidData => Errno::Io,
+        NetworkError::InvalidInput => Errno::Inval,
+        NetworkError::NotConnected => Errno::Notconn,
+        NetworkError::NoDevice => Errno::Nodev,
+        NetworkError::PermissionDenied => Errno::Perm,
+        NetworkError::TimedOut => Errno::Timedout,
+        NetworkError::UnexpectedEof => Errno::Proto,
+        NetworkError::WouldBlock => Errno::Again,
+        NetworkError::WriteZero => Errno::Nospc,
+        NetworkError::Unsupported => Errno::Notsup,
+        NetworkError::UnknownError => Errno::Io,
     }
 }
 
-pub fn bus_error_into_wasi_err(bus_error: BusError) -> __bus_errno_t {
+pub fn bus_error_into_wasi_err(bus_error: BusError) -> BusErrno {
     use BusError::*;
     match bus_error {
-        Serialization => __BUS_ESER,
-        Deserialization => __BUS_EDES,
-        InvalidWapm => __BUS_EWAPM,
-        FetchFailed => __BUS_EFETCH,
-        CompileError => __BUS_ECOMPILE,
-        InvalidABI => __BUS_EABI,
-        Aborted => __BUS_EABORTED,
-        BadHandle => __BUS_EBADHANDLE,
-        InvalidTopic => __BUS_ETOPIC,
-        BadCallback => __BUS_EBADCB,
-        Unsupported => __BUS_EUNSUPPORTED,
-        BadRequest => __BUS_EBADREQUEST,
-        AccessDenied => __BUS_EDENIED,
-        InternalError => __BUS_EINTERNAL,
-        MemoryAllocationFailed => __BUS_EALLOC,
-        InvokeFailed => __BUS_EINVOKE,
-        AlreadyConsumed => __BUS_ECONSUMED,
-        MemoryAccessViolation => __BUS_EMEMVIOLATION,
-        UnknownError => __BUS_EUNKNOWN,
+        Serialization => BusErrno::Ser,
+        Deserialization => BusErrno::Des,
+        InvalidWapm => BusErrno::Wapm,
+        FetchFailed => BusErrno::Fetch,
+        CompileError => BusErrno::Compile,
+        InvalidABI => BusErrno::Abi,
+        Aborted => BusErrno::Aborted,
+        BadHandle => BusErrno::Badhandle,
+        InvalidTopic => BusErrno::Topic,
+        BadCallback => BusErrno::Badcb,
+        Unsupported => BusErrno::Unsupported,
+        BadRequest => BusErrno::Badrequest,
+        AccessDenied => BusErrno::Denied,
+        InternalError => BusErrno::Internal,
+        MemoryAllocationFailed => BusErrno::Alloc,
+        InvokeFailed => BusErrno::Invoke,
+        AlreadyConsumed => BusErrno::Consumed,
+        MemoryAccessViolation => BusErrno::Memviolation,
+        UnknownError => BusErrno::Unknown,
     }
 }
 
-pub fn wasi_error_into_bus_err(bus_error: __bus_errno_t) -> BusError {
+pub fn wasi_error_into_bus_err(bus_error: BusErrno) -> BusError {
     use BusError::*;
     match bus_error {
-        __BUS_ESER => Serialization,
-        __BUS_EDES => Deserialization,
-        __BUS_EWAPM => InvalidWapm,
-        __BUS_EFETCH => FetchFailed,
-        __BUS_ECOMPILE => CompileError,
-        __BUS_EABI => InvalidABI,
-        __BUS_EABORTED => Aborted,
-        __BUS_EBADHANDLE => BadHandle,
-        __BUS_ETOPIC => InvalidTopic,
-        __BUS_EBADCB => BadCallback,
-        __BUS_EUNSUPPORTED => Unsupported,
-        __BUS_EBADREQUEST => BadRequest,
-        __BUS_EDENIED => AccessDenied,
-        __BUS_EINTERNAL => InternalError,
-        __BUS_EALLOC => MemoryAllocationFailed,
-        __BUS_EINVOKE => InvokeFailed,
-        __BUS_ECONSUMED => AlreadyConsumed,
-        __BUS_EMEMVIOLATION => MemoryAccessViolation,
-        /*__BUS_EUNKNOWN |*/ _ => UnknownError,
+        BusErrno::Success => UnknownError,
+        BusErrno::Ser => Serialization,
+        BusErrno::Des => Deserialization,
+        BusErrno::Wapm => InvalidWapm,
+        BusErrno::Fetch => FetchFailed,
+        BusErrno::Compile => CompileError,
+        BusErrno::Abi => InvalidABI,
+        BusErrno::Aborted => Aborted,
+        BusErrno::Badhandle => BadHandle,
+        BusErrno::Topic => InvalidTopic,
+        BusErrno::Badcb => BadCallback,
+        BusErrno::Unsupported => Unsupported,
+        BusErrno::Badrequest => BadRequest,
+        BusErrno::Denied => AccessDenied,
+        BusErrno::Internal => InternalError,
+        BusErrno::Alloc => MemoryAllocationFailed,
+        BusErrno::Invoke => InvokeFailed,
+        BusErrno::Consumed => AlreadyConsumed,
+        BusErrno::Memviolation => MemoryAccessViolation,
+        BusErrno::Unknown => UnknownError,
     }
 }
 
@@ -452,8 +453,8 @@ impl VirtualFile for Pipe {
 /*
 TODO: Think about using this
 trait WasiFdBacking: std::fmt::Debug {
-    fn get_stat(&self) -> &__wasi_filestat_t;
-    fn get_stat_mut(&mut self) -> &mut __wasi_filestat_t;
+    fn get_stat(&self) -> &Filestat;
+    fn get_stat_mut(&mut self) -> &mut Filestat;
     fn is_preopened(&self) -> bool;
     fn get_name(&self) -> &str;
 }

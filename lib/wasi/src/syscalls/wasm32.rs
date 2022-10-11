@@ -1,26 +1,29 @@
-use crate::syscalls::types::*;
+use crate::syscalls::types::{
+    wasi::{Errno, Snapshot0Clockid, Timestamp},
+    *,
+};
 use chrono::prelude::*;
 use std::mem;
 use wasmer::WasmRef;
 
 pub fn platform_clock_res_get(
-    clock_id: __wasi_clockid_t,
-    resolution: WasmRef<__wasi_timestamp_t>,
-) -> Result<i64, __wasi_errno_t> {
+    clock_id: Snapshot0Clockid,
+    resolution: WasmRef<Timestamp>,
+) -> Result<i64, Errno> {
     let t_out = match clock_id {
-        __WASI_CLOCK_MONOTONIC => 10_000_000,
-        __WASI_CLOCK_REALTIME => 1,
-        __WASI_CLOCK_PROCESS_CPUTIME_ID => 1,
-        __WASI_CLOCK_THREAD_CPUTIME_ID => 1,
-        _ => return Err(__WASI_EINVAL),
+        Snapshot0Clockid::Monotonic => 10_000_000,
+        Snapshot0Clockid::Realtime => 1,
+        Snapshot0Clockid::ProcessCputimeId => 1,
+        Snapshot0Clockid::ThreadCputimeId => 1,
+        _ => return Err(Errno::Inval),
     };
     Ok(t_out)
 }
 
 pub fn platform_clock_time_get(
-    clock_id: __wasi_clockid_t,
-    precision: __wasi_timestamp_t,
-) -> Result<i64, __wasi_errno_t> {
+    clock_id: Snapshot0Clockid,
+    precision: Timestamp,
+) -> Result<i64, Errno> {
     let new_time: DateTime<Local> = Local::now();
     Ok(new_time.timestamp_nanos() as i64)
 }

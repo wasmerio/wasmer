@@ -45,6 +45,7 @@ members = [
     "lib/vm",
     "lib/wasi",
     "lib/wasi-types",
+    "lib/wasi-types/wasi-types-generator-extra",
     "lib/wasi-experimental-io-devices",
     "lib/wasi-local-networking",
     "lib/c-api/tests/wasmer-c-api-test-runner",
