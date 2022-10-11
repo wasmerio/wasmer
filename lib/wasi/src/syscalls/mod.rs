@@ -42,7 +42,7 @@ use crate::{
     mem_error_to_wasi,
     state::{
         self, fs_error_into_wasi_err, iterate_poll_events, net_error_into_wasi_err, poll,
-        virtual_file_type_to_wasi_file_type, Fd, Inode, InodeSocket, InodeSocketKind, InodeVal,
+        virtual_file_type_to_wasi_file_type, Inode, InodeSocket, InodeSocketKind, InodeVal,
         Kind, PollEvent, PollEventBuilder, WasiBidirectionalPipePair, WasiState, MAX_SYMLINKS,
     },
     Fd, WasiEnv, WasiError, WasiThread, WasiThreadId,
