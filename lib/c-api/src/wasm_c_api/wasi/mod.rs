@@ -60,7 +60,45 @@ pub struct wasi_pipe_t {
 
 struct WasiPipeDataWithDestructor {
     data: Vec<c_char>,
+    // Buffer of already-read data that is being read into,
+    // then the result is returned
+    temp_buffer: Vec<u8>,
     destructor: WasiConsoleIoEnvDestructor,
+}
+
+impl WasiPipeDataWithDestructor {
+    fn read_buffer(&mut self, read_cb: WasiConsoleIoReadCallback, max_read: Option<usize>) -> io::Result<Vec<u8>> {
+
+        const BLOCK_SIZE: usize = 1024;
+
+        let mut final_buf = Vec::new();
+
+        match max_read {
+            None => {
+                // read from pipe until EOF encountered
+            },
+            Some(max) => {
+                // read from pipe until either EOF or maximum number of bytes
+                for i in 
+            }
+        }
+
+        /* 
+        let result = unsafe {
+            let ptr = buf.as_mut_ptr() as *mut c_char;
+            (self_read)(data.data.as_mut_ptr() as *const c_void, ptr, buf.len())
+        };
+        if result >= 0 {
+            Ok(result as usize)
+        } else {
+            Err(io::Error::new(
+                io::ErrorKind::Other,
+                format!("could not read from wasi_pipe_t: {result}"),
+            ))
+        }
+        */
+
+    }
 }
 
 impl Drop for WasiPipeDataWithDestructor {
@@ -73,6 +111,15 @@ impl Drop for WasiPipeDataWithDestructor {
 }
 
 impl wasi_pipe_t {
+
+    /// Read bytes from this pipe into the internal buffer, 
+    /// returning how many bytes were read
+    fn read_from_pipe_store_in_buffer(&self) -> io::Result<usize> {
+        let mut data = self.get_data_mut("read_from_pipe")?;
+        data.read_into_buffer();
+        Ok(data.temp_buffer.len())
+    }
+
     fn get_data_mut(
         &self,
         op_id: &'static str,
@@ -105,17 +152,8 @@ impl io::Read for wasi_pipe_t {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         let self_read = self.read;
         let mut data = self.get_data_mut("read")?;
-        let result = unsafe {
-            let ptr = buf.as_mut_ptr() as *mut c_char;
-            (self_read)(data.data.as_mut_ptr() as *const c_void, ptr, buf.len())
-        };
-        if result >= 0 {
-            Ok(result as usize)
-        } else {
-            Err(io::Error::new(
-                io::ErrorKind::Other,
-                format!("could not read from wasi_pipe_t: {result}"),
-            ))
+        if data.temp_buffer.len() >= buf.len() {
+            // fill up buf by draining temp_buffer first, then read more bytes
         }
     }
 }
@@ -212,7 +250,7 @@ impl VirtualFile for wasi_pipe_t {
             + self.bytes_available_write()?.unwrap_or(0usize))
     }
     fn bytes_available_read(&self) -> Result<Option<usize>, FsError> {
-        Ok(None)
+        let read = self.read_from_pipe_store_in_buffer();
     }
     fn bytes_available_write(&self) -> Result<Option<usize>, FsError> {
         Ok(None)
@@ -237,6 +275,7 @@ pub unsafe extern "C" fn wasi_pipe_new_internal(
         seek,
         data: Some(Box::new(Arc::new(Mutex::new(WasiPipeDataWithDestructor {
             data: data_vec,
+            temp_buffer: Vec::new(),
             destructor,
         })))),
     }))
@@ -461,15 +500,17 @@ pub unsafe extern "C" fn wasi_pipe_delete_str(buf: *mut c_char) {
     let _ = CString::from_raw(buf);
 }
 
-#[no_mangle]
-pub unsafe extern "C" fn wasi_pipe_read_str(ptr: *const wasi_pipe_t, buf: *mut *mut c_char) -> i64 {
-    use std::ffi::CString;
+unsafe fn wasi_pipe_read_bytes_internal(
+    ptr: *const wasi_pipe_t, 
+    buf: &mut Vec<u8>
+) -> i64 {
+
     use std::io::Read;
 
     const BLOCK_SIZE: usize = 1024;
 
-    let mut target = Vec::new();
     let ptr = &mut *(ptr as *mut wasi_pipe_t);
+    let mut target = Vec::new();
 
     loop {
         let mut v = vec![0; BLOCK_SIZE];
@@ -485,6 +526,20 @@ pub unsafe extern "C" fn wasi_pipe_read_str(ptr: *const wasi_pipe_t, buf: *mut *
                 return -1;
             }
         }
+    }
+
+    *buf = target;
+    0
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasi_pipe_read_str(ptr: *const wasi_pipe_t, buf: *mut *mut c_char) -> i64 {
+    use std::ffi::CString;
+
+    let mut target = Vec::new();
+    let read_result = wasi_pipe_read_bytes_internal(ptr, &mut target);
+    if read_result < 0 {
+        return read_result;
     }
 
     target.push(0);
