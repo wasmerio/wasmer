@@ -27,6 +27,7 @@ pub(crate) mod error;
 mod export;
 mod exports;
 mod externals;
+mod extern_ref;
 mod function_env;
 mod imports;
 mod instance;
@@ -70,6 +71,7 @@ pub use crate::js::types::{
 };
 pub use crate::js::value::Value;
 pub use crate::js::value::Value as Val;
+pub use crate::js::extern_ref::ExternRef;
 
 pub mod vm {
     //! The `vm` module re-exports wasmer-vm types.

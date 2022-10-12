@@ -1,6 +1,7 @@
 use std::convert::TryFrom;
 use std::fmt;
 use std::string::{String, ToString};
+use std::sync::Arc;
 
 use wasmer_types::Type;
 
@@ -14,7 +15,7 @@ use super::store::{AsStoreMut, AsStoreRef};
 /// * Floating-point (32 or 64 bit width)
 ///
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#values>
-#[derive(Clone, PartialEq)]
+#[derive(Clone)]
 pub enum Value {
     /// A 32-bit integer.
     ///
@@ -33,13 +34,30 @@ pub enum Value {
     F64(f64),
 
     /// An `externref` value which can hold opaque data to the wasm instance itself.
-    ExternRef(Option<ExternRef>),
+    ExternRef(Option<Arc<ExternRef>>),
 
     /// A first-class reference to a WebAssembly function.
     FuncRef(Option<Function>),
 
     /// A 128-bit number
     V128(u128),
+}
+
+impl PartialEq for Value {
+    fn eq(&self, other: &Self) -> bool {
+        use self::Value::*;
+        match (self, other) {
+            (I32(a), I32(b)) => a.eq(b),
+            (I64(a), I64(b)) => a.eq(b),
+            (F32(a), F32(b)) => a.eq(b),
+            (F64(a), F64(b)) => a.eq(b),
+            (ExternRef(Some(a)), ExternRef(Some(b))) => Arc::ptr_eq(a, b),
+            (ExternRef(None), ExternRef(None)) => true,
+            (FuncRef(a), FuncRef(b)) => a.eq(b),
+            (V128(a), V128(b)) => a.eq(b),
+            _ => false
+        }
+    }
 }
 
 macro_rules! accessors {
@@ -101,7 +119,7 @@ impl Value {
                 .unwrap_or(0_f64), //TODO is this correct?
 
             Self::FuncRef(None) => 0_f64,
-            Self::ExternRef(Some(ref e)) => e.to_raw(),
+            Self::ExternRef(Some(ref e)) => Arc::as_ptr(e) as usize as f64,
             Self::ExternRef(None) =>  0_f64,
         }
     }
@@ -118,7 +136,7 @@ impl Value {
             Type::F64 => Self::F64(raw),
             Type::V128 => Self::V128(raw as _),
             Type::FuncRef => todo!(),
-            Type::ExternRef => Self::ExternRef(unsafe { ExternRef::from_raw(raw) }),
+            Type::ExternRef => Self::ExternRef(Some(unsafe { Arc::from_raw(raw as usize as *const _) })),
         }
     }
 
@@ -138,7 +156,7 @@ impl Value {
             | Self::V128(_)
             | Self::ExternRef(None)
             | Self::FuncRef(None) => true,
-            Self::ExternRef(Some(e)) => e.is_from_store(store),
+            Self::ExternRef(Some(e)) => (&*e).is_from_store(store),
             Self::FuncRef(Some(f)) => f.is_from_store(store),
         }
     }
@@ -150,7 +168,7 @@ impl Value {
         (F32(f32) f32 unwrap_f32 *e)
         (F64(f64) f64 unwrap_f64 *e)
         (V128(u128) v128 unwrap_v128 *e)
-        (ExternRef(&Option<ExternRef>) externref unwrap_externref e)
+        (ExternRef(&Option<Arc<ExternRef>>) externref unwrap_externref e)
         (FuncRef(&Option<Function>) funcref unwrap_funcref e)
     }
 }
@@ -241,14 +259,14 @@ impl From<Option<Function>> for Value {
     }
 }
 
-impl From<ExternRef> for Value {
-    fn from(val: ExternRef) -> Self {
+impl From<Arc<ExternRef>> for Value {
+    fn from(val: Arc<ExternRef>) -> Self {
         Self::ExternRef(Some(val))
     }
 }
 
-impl From<Option<ExternRef>> for Value {
-    fn from(val: Option<ExternRef>) -> Self {
+impl From<Option<Arc<ExternRef>>> for Value {
+    fn from(val: Option<Arc<ExternRef>>) -> Self {
         Self::ExternRef(val)
     }
 }
@@ -328,7 +346,7 @@ impl TryFrom<Value> for Option<Function> {
     }
 }
 
-impl TryFrom<Value> for Option<ExternRef> {
+impl TryFrom<Value> for Option<Arc<ExternRef>> {
     type Error = &'static str;
 
     fn try_from(value: Value) -> Result<Self, Self::Error> {
@@ -342,6 +360,7 @@ impl TryFrom<Value> for Option<ExternRef> {
 #[test]
 fn get_set_externref_globals_via_api() -> anyhow::Result<()> {
     use crate::{Store, Global, Value, ExternRef};
+    use std::sync::Arc;
 
     let mut store = Store::default();
 
@@ -352,20 +371,20 @@ fn get_set_externref_globals_via_api() -> anyhow::Result<()> {
     );
     assert!(global.get(&mut store).unwrap_externref().is_none());
 
-    global.set(
-        &mut store,
-        Value::ExternRef(Some(ExternRef::new(&mut store, "hello".to_string()))),
-    )?;
-    let r = global.get(&mut store).unwrap_externref().unwrap();
-    assert_eq!(r.downcast(&store).unwrap(), "hello".to_string());
+    let value = Value::ExternRef(Some(Arc::new(ExternRef::new(&mut store, "hello".to_string()))));
+    global.set(&mut store, value)?;
+
+    let r = global.get(&mut store).unwrap_externref().clone().unwrap();
+    let s: &String = r.downcast(&store).unwrap();
+    assert_eq!(s.clone(), "hello".to_string());
 
     // Initialize with a non-null externref.
-    let global = Global::new(
-        &mut store,
-        Value::ExternRef(Some(ExternRef::new(&mut store, 42_i32))),
-    );
-    let r = global.get(&mut store).unwrap_externref().unwrap();
-    assert_eq!(r.downcast(&store).copied().unwrap(), 42_i32);
+    let value = Value::ExternRef(Some(Arc::new(ExternRef::new(&mut store, 42_i32))));
+    let global = Global::new(&mut store, value);
+
+    let r = global.get(&mut store).unwrap_externref().clone().unwrap();
+    let u: &i32 = r.downcast(&store).unwrap();
+    assert_eq!(*u, 42_i32);
 
     Ok(())
 }

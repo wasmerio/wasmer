@@ -4,6 +4,7 @@
 use crate::js::store::AsStoreRef;
 use crate::js::value::Value;
 use wasm_bindgen::JsValue;
+use std::sync::Arc;
 pub use wasmer_types::{
     ExportType, ExternType, FunctionType, GlobalType, ImportType, MemoryType, Mutability,
     TableType, Type as ValType,
@@ -44,6 +45,10 @@ impl AsJs for Value {
             Self::F32(f) => JsValue::from_f64(*f as f64),
             Self::F64(f) => JsValue::from_f64(*f),
             Self::V128(f) => JsValue::from_f64(*f as f64),
+            Self::ExternRef(None) => JsValue::null(),
+            Self::ExternRef(Some(f)) => JsValue::from_f64({
+                Arc::as_ptr(f) as usize as f64
+            }),
             Self::FuncRef(Some(func)) => func
                 .handle
                 .get(store.as_store_ref().objects())
