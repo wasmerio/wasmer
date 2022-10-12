@@ -73,31 +73,42 @@ impl WasiPipeDataWithDestructor {
 
         let mut final_buf = Vec::new();
 
-        match max_read {
-            None => {
-                // read from pipe until EOF encountered
-            },
-            Some(max) => {
-                // read from pipe until either EOF or maximum number of bytes
-                for i in 
+        let max_read = max_read.unwrap_or(usize::MAX);
+        let mut cur_read = 0;
+
+        // Read bytes until either EOF is reached or max_read bytes are reached
+        loop {
+            if cur_read >= max_read {
+                break;
             }
+
+            let mut temp_buffer = if cur_read + BLOCK_SIZE > max_read {
+                vec![0;max_read - cur_read]
+            } else {
+                vec![0;BLOCK_SIZE]
+            };
+
+            let result = unsafe {
+                let ptr = temp_buffer.as_mut_ptr() as *mut c_char;
+                (read_cb)(self.data.as_mut_ptr() as *const c_void, ptr, temp_buffer.len())
+            };
+
+            if result < 0 {
+                return Err(io::Error::new(
+                    io::ErrorKind::Other,
+                    format!("could not read from wasi_pipe_t: {result}"),
+                ));
+            }
+
+            if result == 0 {
+                break; // EOF
+            }
+
+            cur_read += temp_buffer.len();
+            final_buf.append(&mut temp_buffer);
         }
 
-        /* 
-        let result = unsafe {
-            let ptr = buf.as_mut_ptr() as *mut c_char;
-            (self_read)(data.data.as_mut_ptr() as *const c_void, ptr, buf.len())
-        };
-        if result >= 0 {
-            Ok(result as usize)
-        } else {
-            Err(io::Error::new(
-                io::ErrorKind::Other,
-                format!("could not read from wasi_pipe_t: {result}"),
-            ))
-        }
-        */
-
+        Ok(final_buf)
     }
 }
 
@@ -150,11 +161,24 @@ impl fmt::Debug for wasi_pipe_t {
 
 impl io::Read for wasi_pipe_t {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        
         let self_read = self.read;
         let mut data = self.get_data_mut("read")?;
-        if data.temp_buffer.len() >= buf.len() {
-            // fill up buf by draining temp_buffer first, then read more bytes
+        
+        // fill up buf by draining temp_buffer first, then read more bytes
+        let bytes_to_read = data.temp_buffer.len().min(buf.len());
+        let temp_buffer_drained: Vec<_> = data.temp_buffer.drain(..bytes_to_read).collect();
+        assert!(temp_buffer_drained.len() <= buf.len());
+
+        // If temp_buffer is exhausted, try reading the remaining bytes from the pipe
+        if buf.len() >= temp_buffer_drained.len() {
+            let secondary_bytes_to_read = data.temp_buffer.len().min(buf.len());
+            data.read_buffer(self_read, Some(secondary_bytes_to_read))?;
+            temp_buffer_drained.append(data.temp_buffer.drain(..secondary_bytes_to_read).collect());
         }
+
+        assert_eq!(buf.len(), temp_buffer_drained.len());
+        buf.clone_from_slice(&temp_buffer_drained);
     }
 }
 
@@ -250,7 +274,10 @@ impl VirtualFile for wasi_pipe_t {
             + self.bytes_available_write()?.unwrap_or(0usize))
     }
     fn bytes_available_read(&self) -> Result<Option<usize>, FsError> {
-        let read = self.read_from_pipe_store_in_buffer();
+        let self_read = self.read;
+        let mut data = self.get_data_mut("bytes_available_read")?;
+        data.read_buffer(self_read, None)?;
+        Ok(Some(data.temp_buffer.len()))
     }
     fn bytes_available_write(&self) -> Result<Option<usize>, FsError> {
         Ok(None)
