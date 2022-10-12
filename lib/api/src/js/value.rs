@@ -101,7 +101,7 @@ impl Value {
                 .unwrap_or(0_f64), //TODO is this correct?
 
             Self::FuncRef(None) => 0_f64,
-            Self::ExternRef(Some(ref e)) => unsafe { *e.address().0 }.into_raw(),
+            Self::ExternRef(Some(ref e)) => e.to_raw(),
             Self::ExternRef(None) =>  0_f64,
         }
     }
@@ -118,10 +118,7 @@ impl Value {
             Type::F64 => Self::F64(raw),
             Type::V128 => Self::V128(raw as _),
             Type::FuncRef => todo!(),
-            Type::ExternRef => Self::ExternRef({
-                VMExternRef::from_raw(raw)
-                .map(|e| ExternRef::from_vm_externref(store, e))
-            }),
+            Type::ExternRef => Self::ExternRef(unsafe { ExternRef::from_raw(raw) }),
         }
     }
 
