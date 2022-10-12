@@ -57,9 +57,7 @@ pub struct wasm_name_t {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn wasm_frame_module_name(
-    frame: &wasm_frame_t,
-) -> wasm_name_t {
+pub unsafe extern "C" fn wasm_frame_module_name(frame: &wasm_frame_t) -> wasm_name_t {
     let null = wasm_name_t {
         name: core::ptr::null_mut(),
     };
@@ -69,14 +67,12 @@ pub unsafe extern "C" fn wasm_frame_module_name(
 
     match module_name {
         Some(s) => wasm_name_t { name: s },
-        None => null
+        None => null,
     }
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn wasm_frame_func_name(
-    frame: &wasm_frame_t,
-) -> wasm_name_t {
+pub unsafe extern "C" fn wasm_frame_func_name(frame: &wasm_frame_t) -> wasm_name_t {
     let null = wasm_name_t {
         name: core::ptr::null_mut(),
     };
