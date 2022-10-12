@@ -52,50 +52,33 @@ pub unsafe extern "C" fn wasm_frame_module_offset(frame: &wasm_frame_t) -> usize
 #[repr(C)]
 #[allow(non_camel_case_types)]
 #[derive(Debug, Clone)]
-pub struct wasm_module_name {
+pub struct wasm_name_t {
     pub name: *mut c_char,
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_frame_module_name(
     frame: &wasm_frame_t,
-    out: Option<&mut wasm_module_name>,
-) -> u32 {
-    let out = match out {
-        Some(s) => s,
-        None => return 1,
+) -> wasm_name_t {
+    let null = wasm_name_t {
+        name: core::ptr::null_mut(),
     };
 
     let module_name =
         Some(frame.info.module_name()).and_then(|f| Some(CString::new(f).ok()?.into_raw()));
 
     match module_name {
-        Some(s) => {
-            out.name = s;
-            0
-        }
-        None => {
-            out.name = std::ptr::null_mut();
-            1
-        }
+        Some(s) => wasm_name_t { name: s },
+        None => null
     }
-}
-
-#[repr(C)]
-#[allow(non_camel_case_types)]
-#[derive(Debug, Clone)]
-pub struct wasm_function_name {
-    pub name: *mut c_char,
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_frame_func_name(
     frame: &wasm_frame_t,
-    out: Option<&mut wasm_function_name>,
-) -> u32 {
-    let out = match out {
-        Some(s) => s,
-        None => return 1,
+) -> wasm_name_t {
+    let null = wasm_name_t {
+        name: core::ptr::null_mut(),
     };
 
     let func_name = frame
@@ -104,30 +87,15 @@ pub unsafe extern "C" fn wasm_frame_func_name(
         .and_then(|f| Some(CString::new(f).ok()?.into_raw()));
 
     match func_name {
-        Some(s) => {
-            out.name = s;
-            0
-        }
-        None => {
-            out.name = std::ptr::null_mut();
-            1
-        }
+        Some(s) => wasm_name_t { name: s },
+        None => null,
     }
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn wasm_module_name_delete(name: Option<&mut wasm_module_name>) {
+pub unsafe extern "C" fn wasm_name_delete(name: Option<&mut wasm_name_t>) {
     if let Some(s) = name {
-        if s.name.is_null() {
-            let _ = CString::from_raw(s.name);
-        }
-    }
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn wasm_function_name_delete(name: Option<&mut wasm_function_name>) {
-    if let Some(s) = name {
-        if s.name.is_null() {
+        if !s.name.is_null() {
             let _ = CString::from_raw(s.name);
         }
     }
