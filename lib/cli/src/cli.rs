@@ -391,10 +391,7 @@ fn test_split_version() {
 
 fn split_version(s: &str) -> Result<SplitVersion, anyhow::Error> {
     let command = WasmerCLIOptions::command();
-    let prohibited_package_names = command
-        .get_subcommands()
-        .map(|s| s.get_name())
-        .collect::<Vec<_>>();
+    let mut prohibited_package_names = command.get_subcommands().map(|s| s.get_name());
 
     let re1 = regex::Regex::new(r#"(.*)/(.*)@(.*):(.*)"#).unwrap();
     let re2 = regex::Regex::new(r#"(.*)/(.*)@(.*)"#).unwrap();
@@ -404,7 +401,7 @@ fn split_version(s: &str) -> Result<SplitVersion, anyhow::Error> {
         re1.captures(s)
             .map(|c| {
                 c.iter()
-                    .filter_map(|f| f)
+                    .flatten()
                     .map(|m| m.as_str().to_owned())
                     .collect::<Vec<_>>()
             })
@@ -413,7 +410,7 @@ fn split_version(s: &str) -> Result<SplitVersion, anyhow::Error> {
         re2.captures(s)
             .map(|c| {
                 c.iter()
-                    .filter_map(|f| f)
+                    .flatten()
                     .map(|m| m.as_str().to_owned())
                     .collect::<Vec<_>>()
             })
@@ -422,7 +419,7 @@ fn split_version(s: &str) -> Result<SplitVersion, anyhow::Error> {
         re3.captures(s)
             .map(|c| {
                 c.iter()
-                    .filter_map(|f| f)
+                    .flatten()
                     .map(|m| m.as_str().to_owned())
                     .collect::<Vec<_>>()
             })
@@ -451,7 +448,7 @@ fn split_version(s: &str) -> Result<SplitVersion, anyhow::Error> {
         command: captures.get(4).cloned(),
     };
 
-    if prohibited_package_names.contains(&sv.package.trim()) {
+    if prohibited_package_names.any(|s| s == sv.package.trim()) {
         return Err(anyhow::anyhow!("Invalid package name {:?}", sv.package));
     }
 
