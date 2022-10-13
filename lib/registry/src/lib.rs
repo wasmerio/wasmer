@@ -445,8 +445,8 @@ pub fn get_package_local_dir(
     let (namespace, name) = name
         .split_once('/')
         .ok_or_else(|| format!("missing namespace / name for {name:?}"))?;
-    let install_dir =
-        get_global_install_dir(registry_host).ok_or_else(|| format!("no install dir for {name:?}"))?;
+    let install_dir = get_global_install_dir(registry_host)
+        .ok_or_else(|| format!("no install dir for {name:?}"))?;
     Ok(install_dir.join(namespace).join(name).join(version))
 }
 
@@ -488,20 +488,20 @@ fn get_all_names_in_dir(dir: &PathBuf) -> Vec<(PathBuf, String)> {
 pub fn get_all_local_packages() -> Vec<LocalPackage> {
     let mut packages = Vec::new();
 
-    'outer: for registry in get_all_available_registries().unwrap_or_default() {
+    for registry in get_all_available_registries().unwrap_or_default() {
         let host = match url::Url::parse(&registry) {
             Ok(o) => o.host_str().map(|s| s.to_string()),
-            Err(_) => continue 'outer,
+            Err(_) => continue,
         };
 
         let host = match host {
             Some(s) => s,
-            None => continue 'outer,
+            None => continue,
         };
 
         let root_dir = match get_global_install_dir(&host) {
             Some(o) => o,
-            None => continue 'outer,
+            None => continue,
         };
 
         for (username_path, user_name) in get_all_names_in_dir(&root_dir) {
@@ -565,9 +565,9 @@ pub fn get_package_local_wasm_file(
         .unwrap_or_default()
         .first()
         .map(|m| m.get_module())
-        .ok_or_else(|| format!(
-            "cannot get entrypoint for {name}@{version}: package has no commands"
-        ))?;
+        .ok_or_else(|| {
+            format!("cannot get entrypoint for {name}@{version}: package has no commands")
+        })?;
 
     let wasm_file_name = wapm
         .module
@@ -576,9 +576,9 @@ pub fn get_package_local_wasm_file(
         .filter(|m| m.name == module_name)
         .map(|m| m.source.clone())
         .next()
-        .ok_or_else(|| format!(
-            "cannot get entrypoint for {name}@{version}: package has no commands"
-        ))?;
+        .ok_or_else(|| {
+            format!("cannot get entrypoint for {name}@{version}: package has no commands")
+        })?;
 
     Ok(dir.join(&wasm_file_name))
 }
@@ -858,7 +858,8 @@ pub fn install_package(
                 format!("\r\n\r\nDid you mean:\r\n{}\r\n", did_you_mean.join("\r\n"))
             };
 
-            let (_, package_info) = url_of_package.ok_or_else(|| format!("{error_str}{did_you_mean}"))?;
+            let (_, package_info) =
+                url_of_package.ok_or_else(|| format!("{error_str}{did_you_mean}"))?;
 
             package_info
         }
@@ -891,18 +892,18 @@ pub fn install_package(
         .map_err(|e| format!("Could not parse toml for {name}@{version}: {e}"))?;
 
     let commands = wapm_toml.command.clone().unwrap_or_default();
-    let entrypoint_module = commands.first().ok_or_else(|| format!(
-        "Cannot run {name}@{version}: package has no commands"
-    ))?;
+    let entrypoint_module = commands
+        .first()
+        .ok_or_else(|| format!("Cannot run {name}@{version}: package has no commands"))?;
 
     let module_name = entrypoint_module.get_module();
     let modules = wapm_toml.module.clone().unwrap_or_default();
     let entrypoint_module = modules
         .iter()
         .find(|m| m.name == module_name)
-        .ok_or_else(|| format!(
-            "Cannot run {name}@{version}: module {module_name} not found in wapm.toml"
-        ))?;
+        .ok_or_else(|| {
+            format!("Cannot run {name}@{version}: module {module_name} not found in wapm.toml")
+        })?;
 
     Ok((
         LocalPackage {
