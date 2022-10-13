@@ -12,7 +12,7 @@ use crate::commands::CreateObj;
 use crate::commands::Wast;
 use crate::commands::{Cache, Config, Inspect, Run, RunWithoutFile, SelfUpdate, Validate};
 use crate::error::PrettyError;
-use clap::{ErrorKind, Parser};
+use clap::{ErrorKind, Parser, CommandFactory};
 use spinner::SpinnerHandle;
 use wasmer_registry::{get_all_local_packages, PackageDownloadInfo};
 
@@ -358,18 +358,11 @@ struct SplitVersion {
 }
 
 fn split_version(s: &str) -> Result<SplitVersion, anyhow::Error> {
-    let prohibited_package_names = [
-        "run",
-        "cache",
-        "validate",
-        "compile",
-        "create-exe",
-        "create-obj",
-        "config",
-        "inspect",
-        "wast",
-        "help",
-    ];
+    let command = WasmerCLIOptions::command();
+    let prohibited_package_names = command
+    .get_subcommands()
+    .map(|s| s.get_name())
+    .collect::<Vec<_>>();
 
     let package_version = s.split('@').collect::<Vec<_>>();
     let (mut package, mut version) = match *package_version.as_slice() {
@@ -455,7 +448,6 @@ fn print_packages() -> Result<(), anyhow::Error> {
 }
 
 fn print_help(verbose: bool) -> Result<(), anyhow::Error> {
-    use clap::CommandFactory;
     let mut cmd = WasmerCLIOptions::command();
     if verbose {
         let _ = cmd.print_long_help();
