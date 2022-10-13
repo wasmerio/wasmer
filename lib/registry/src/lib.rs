@@ -715,7 +715,7 @@ pub fn query_package_from_registry(
                 return false;
             }
 
-            if version.is_some() && v.version != version.unwrap() {
+            if version == Some(&v.version) {
                 return false;
             }
 
