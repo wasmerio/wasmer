@@ -5,6 +5,7 @@ use crate::store::{CompilerType, StoreOptions};
 use crate::suggestions::suggest_function_exports;
 use crate::warning;
 use anyhow::{anyhow, Context, Result};
+use std::ops::Deref;
 use std::path::PathBuf;
 use std::str::FromStr;
 use wasmer::FunctionEnv;
@@ -144,23 +145,25 @@ impl RunWithoutFile {
         }
 
         Run {
-            #[cfg(feature = "cache")]
-            disable_cache: self.disable_cache,
             path: pathbuf,
-            invoke: self.invoke,
-            command_name: self.command_name,
-            #[cfg(feature = "cache")]
-            cache_key: self.cache_key,
-            store: self.store,
-            #[cfg(feature = "wasi")]
-            wasi: self.wasi,
-            #[cfg(feature = "io-devices")]
-            enable_experimental_io_devices: self.enable_experimental_io_devices,
-            #[cfg(feature = "debug")]
-            debug: self.debug,
-            #[cfg(feature = "debug")]
-            verbose: self.verbose.unwrap_or(0),
-            args: self.args,
+            options: RunWithoutFile {
+                #[cfg(feature = "cache")]
+                disable_cache: self.disable_cache,
+                invoke: self.invoke,
+                command_name: self.command_name,
+                #[cfg(feature = "cache")]
+                cache_key: self.cache_key,
+                store: self.store,
+                #[cfg(feature = "wasi")]
+                wasi: self.wasi,
+                #[cfg(feature = "io-devices")]
+                enable_experimental_io_devices: self.enable_experimental_io_devices,
+                #[cfg(feature = "debug")]
+                debug: self.debug,
+                #[cfg(feature = "debug")]
+                verbose: self.verbose.unwrap_or(0),
+                args: self.args,
+            },
         }
     }
 }
@@ -168,57 +171,19 @@ impl RunWithoutFile {
 #[derive(Debug, Parser, Clone, Default)]
 /// The options for the `wasmer run` subcommand
 pub struct Run {
-    /// Disable the cache
-    #[cfg(feature = "cache")]
-    #[clap(long = "disable-cache")]
-    disable_cache: bool,
-
     /// File to run
     #[clap(name = "FILE", parse(from_os_str))]
     pub(crate) path: PathBuf,
 
-    /// Invoke a specified function
-    #[clap(long = "invoke", short = 'i')]
-    invoke: Option<String>,
-
-    /// The command name is a string that will override the first argument passed
-    /// to the wasm program. This is used in wapm to provide nicer output in
-    /// help commands and error messages of the running wasm program
-    #[clap(long = "command-name", hide = true)]
-    command_name: Option<String>,
-
-    /// A prehashed string, used to speed up start times by avoiding hashing the
-    /// wasm module. If the specified hash is not found, Wasmer will hash the module
-    /// as if no `cache-key` argument was passed.
-    #[cfg(feature = "cache")]
-    #[clap(long = "cache-key", hide = true)]
-    cache_key: Option<String>,
-
     #[clap(flatten)]
-    store: StoreOptions,
+    pub(crate) options: RunWithoutFile,
+}
 
-    // TODO: refactor WASI structure to allow shared options with Emscripten
-    #[cfg(feature = "wasi")]
-    #[clap(flatten)]
-    wasi: Wasi,
-
-    /// Enable non-standard experimental IO devices
-    #[cfg(feature = "io-devices")]
-    #[clap(long = "enable-io-devices")]
-    enable_experimental_io_devices: bool,
-
-    /// Enable debug output
-    #[cfg(feature = "debug")]
-    #[clap(long = "debug", short = 'd')]
-    debug: bool,
-
-    #[cfg(feature = "debug")]
-    #[clap(short, long, parse(from_occurrences))]
-    verbose: u8,
-
-    /// Application arguments
-    #[clap(value_name = "ARGS")]
-    args: Vec<String>,
+impl Deref for Run {
+    type Target = RunWithoutFile;
+    fn deref(&self) -> &Self::Target {
+        &self.options
+    }
 }
 
 impl Run {

@@ -484,7 +484,7 @@ fn print_packages() -> Result<(), anyhow::Error> {
     table.set_format(*format::consts::FORMAT_NO_COLSEP);
     if empty_table {
         table.add_empty_row();
-    } 
+    }
     let _ = table.printstd();
 
     Ok(())
