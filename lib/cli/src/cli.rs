@@ -478,18 +478,14 @@ fn print_packages() -> Result<(), anyhow::Error> {
         .collect::<Vec<_>>();
 
     let empty_table = rows.is_empty();
+    let mut table = Table::init(rows);
+    table.set_titles(row!["Registry", "Package", "Version", "Commands"]);
+    table.set_format(*format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
+    table.set_format(*format::consts::FORMAT_NO_COLSEP);
     if empty_table {
-        println!("--------------------------------------");
-        println!("Registry  Package  Version  Commands ");
-        println!("======================================");
-        println!();
-    } else {
-        let mut table = Table::init(rows);
-        table.set_titles(row!["Registry", "Package", "Version", "Commands"]);
-        table.set_format(*format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
-        table.set_format(*format::consts::FORMAT_NO_COLSEP);
-        let _ = table.printstd();
-    }
+        table.add_empty_row();
+    } 
+    let _ = table.printstd();
 
     Ok(())
 }

@@ -442,14 +442,9 @@ pub fn get_package_local_dir(
             "package name has to be in the format namespace/package: {name:?}"
         ));
     }
-    let namespace = name
-        .split('/')
-        .next()
-        .ok_or(format!("missing namespace for {name:?}"))?;
-    let name = name
-        .split('/')
-        .nth(1)
-        .ok_or(format!("missing name for {name:?}"))?;
+    let (namespace, name) = name
+        .split_once('/')
+        .ok_or(format!("missing namespace / name for {name:?}"))?;
     let install_dir =
         get_global_install_dir(registry_host).ok_or(format!("no install dir for {name:?}"))?;
     Ok(install_dir.join(namespace).join(name).join(version))
