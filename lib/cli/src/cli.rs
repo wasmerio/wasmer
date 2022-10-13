@@ -14,7 +14,7 @@ use crate::commands::{Cache, Config, Inspect, Run, RunWithoutFile, SelfUpdate, V
 use crate::error::PrettyError;
 use clap::{ErrorKind, Parser};
 use spinner::SpinnerHandle;
-use wasmer_registry::get_all_local_packages;
+use wasmer_registry::{get_all_local_packages, PackageDownloadInfo};
 
 #[derive(Parser, Debug)]
 #[cfg_attr(
@@ -236,84 +236,111 @@ fn wasmer_main_inner() -> Result<(), anyhow::Error> {
 
     // Check if the file is a package name
     if let WasmerCLIOptions::Run(r) = &options {
-        if !r.path.exists() {
-            let package = format!("{}", r.path.display());
-            if let Ok(mut sv) = split_version(&package) {
-                let mut package_download_info = None;
-                if !sv.package.contains('/') {
-                    let sp = start_spinner(format!("Looking up command {} ...", sv.package));
-
-                    for registry in
-                        wasmer_registry::get_all_available_registries().unwrap_or_default()
-                    {
-                        let result =
-                            wasmer_registry::query_command_from_registry(&registry, &sv.package);
-                        print!("\r\n");
-                        let command = sv.package.clone();
-                        if let Ok(o) = result {
-                            package_download_info = Some(o.clone());
-                            sp.close();
-                            sv.package = o.package;
-                            sv.version = Some(o.version);
-                            sv.command = Some(command);
-                            break;
-                        }
-                    }
-                }
-
-                if let Some(package) =
-                    wasmer_registry::get_local_package(&sv.package, sv.version.as_deref())
-                {
-                    let local_package_wasm_path = wasmer_registry::get_package_local_wasm_file(
-                        &package.registry,
-                        &package.name,
-                        &package.version,
-                    )
-                    .map_err(|e| anyhow!("{e}"))?;
-
-                    // Try finding the local package
-                    let mut args_without_package = args.clone();
-                    args_without_package.remove(1);
-
-                    let mut run_args = RunWithoutFile::try_parse_from(args_without_package.iter())?;
-                    run_args.command_name = sv.command.clone();
-                    return run_args
-                        .into_run_args(local_package_wasm_path, Some(package.manifest))
-                        .execute();
-                }
-
-                // else: local package not found
-                let sp = start_spinner(format!("Installing package {} ...", sv.package));
-
-                let v = sv.version.as_deref();
-                let result =
-                    wasmer_registry::install_package(&sv.package, v, package_download_info);
-                sp.close();
-                print!("\r\n");
-                match result {
-                    Ok((package, buf)) => {
-                        // Try auto-installing the remote package
-                        let mut args_without_package = args.clone();
-                        args_without_package.remove(1);
-
-                        let mut run_args =
-                            RunWithoutFile::try_parse_from(args_without_package.iter())?;
-                        run_args.command_name = sv.command.clone();
-
-                        return run_args
-                            .into_run_args(buf, Some(package.manifest))
-                            .execute();
-                    }
-                    Err(e) => {
-                        println!("{e}");
-                        return Ok(());
-                    }
-                }
-            }
-        }
+        return try_run_package_or_file(&args, r);
     }
 
     options.execute()
+}
+
+fn try_run_package_or_file(args: &[String], r: &Run) -> Result<(), anyhow::Error> {
+    // Check "r.path" is a file or a package / command name
+    if r.path.exists() {
+        return r.execute();
+    }
+
+    let package = format!("{}", r.path.display());
+
+    let mut sv = match split_version(&package) {
+        Ok(o) => o,
+        Err(_) => return r.execute(),
+    };
+
+    let mut package_download_info = None;
+    if !sv.package.contains('/') {
+        if let Ok(o) = try_lookup_command(&mut sv) {
+            package_download_info = Some(o);
+        }
+    }
+
+    match try_execute_local_package(&args, &sv) {
+        Ok(o) => return Ok(o),
+        Err(_) => {} // local package not found
+    }
+
+    // download and install package
+    try_autoinstall_package(&args, &sv, package_download_info)
+}
+
+fn try_lookup_command(sv: &mut SplitVersion) -> Result<PackageDownloadInfo, anyhow::Error> {
+    let sp = start_spinner(format!("Looking up command {} ...", sv.package));
+
+    for registry in wasmer_registry::get_all_available_registries().unwrap_or_default() {
+        let result = wasmer_registry::query_command_from_registry(&registry, &sv.package);
+        print!("\r\n");
+        let command = sv.package.clone();
+        if let Ok(o) = result {
+            sv.package = o.package.clone();
+            sv.version = Some(o.version.clone());
+            sv.command = Some(command);
+            return Ok(o);
+        }
+    }
+
+    sp.close();
+    Err(anyhow::anyhow!("command {sv:?} not found"))
+}
+
+fn try_execute_local_package(args: &[String], sv: &SplitVersion) -> Result<(), anyhow::Error> {
+    let package = match wasmer_registry::get_local_package(&sv.package, sv.version.as_deref()) {
+        Some(p) => p,
+        None => return Err(anyhow::anyhow!("no local package {sv:?} found")),
+    };
+
+    let local_package_wasm_path = wasmer_registry::get_package_local_wasm_file(
+        &package.registry,
+        &package.name,
+        &package.version,
+    )
+    .map_err(|e| anyhow!("{e}"))?;
+
+    // Try finding the local package
+    let mut args_without_package = args.to_vec();
+    args_without_package.remove(1);
+
+    let mut run_args = RunWithoutFile::try_parse_from(args_without_package.iter())?;
+    run_args.command_name = sv.command.clone();
+    run_args
+        .into_run_args(local_package_wasm_path, Some(package.manifest))
+        .execute()
+}
+
+fn try_autoinstall_package(
+    args: &[String],
+    sv: &SplitVersion,
+    package: Option<PackageDownloadInfo>,
+) -> Result<(), anyhow::Error> {
+    let sp = start_spinner(format!("Installing package {} ...", sv.package));
+    let v = sv.version.as_deref();
+    let result = wasmer_registry::install_package(&sv.package, v, package);
+    sp.close();
+    print!("\r\n");
+    let (package, buf) = match result {
+        Ok(o) => o,
+        Err(e) => {
+            return Err(anyhow::anyhow!("{e}"));
+        }
+    };
+
+    // Try auto-installing the remote package
+    let mut args_without_package = args.to_vec();
+    args_without_package.remove(1);
+
+    let mut run_args = RunWithoutFile::try_parse_from(args_without_package.iter())?;
+    run_args.command_name = sv.command.clone();
+
+    run_args
+        .into_run_args(buf, Some(package.manifest))
+        .execute()
 }
 
 fn start_spinner(msg: String) -> SpinnerHandle {
