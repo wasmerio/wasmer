@@ -76,11 +76,11 @@ pub fn get_emscripten_metadata(module: &Module) -> Result<Option<(u32, u32)>, St
         &module.info().global_initializers[max_idx],
         &module.info().global_initializers[snd_max_idx],
     ) {
-        let dynamic_base = (*dynamic_base as u32).checked_sub(32).ok_or(format!(
+        let dynamic_base = (*dynamic_base as u32).checked_sub(32).ok_or_else(|| format!(
             "emscripten unexpected dynamic_base {}",
             *dynamic_base as u32
         ))?;
-        let dynamictop_ptr = (*dynamictop_ptr as u32).checked_sub(32).ok_or(format!(
+        let dynamictop_ptr = (*dynamictop_ptr as u32).checked_sub(32).ok_or_else(|| format!(
             "emscripten unexpected dynamictop_ptr {}",
             *dynamictop_ptr as u32
         ))?;

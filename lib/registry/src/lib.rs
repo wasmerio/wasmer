@@ -444,9 +444,9 @@ pub fn get_package_local_dir(
     }
     let (namespace, name) = name
         .split_once('/')
-        .ok_or(format!("missing namespace / name for {name:?}"))?;
+        .ok_or_else(|| format!("missing namespace / name for {name:?}"))?;
     let install_dir =
-        get_global_install_dir(registry_host).ok_or(format!("no install dir for {name:?}"))?;
+        get_global_install_dir(registry_host).ok_or_else(|| format!("no install dir for {name:?}"))?;
     Ok(install_dir.join(namespace).join(name).join(version))
 }
 
@@ -565,7 +565,7 @@ pub fn get_package_local_wasm_file(
         .unwrap_or_default()
         .first()
         .map(|m| m.get_module())
-        .ok_or(format!(
+        .ok_or_else(|| format!(
             "cannot get entrypoint for {name}@{version}: package has no commands"
         ))?;
 
@@ -576,7 +576,7 @@ pub fn get_package_local_wasm_file(
         .filter(|m| m.name == module_name)
         .map(|m| m.source.clone())
         .next()
-        .ok_or(format!(
+        .ok_or_else(|| format!(
             "cannot get entrypoint for {name}@{version}: package has no commands"
         ))?;
 
@@ -858,7 +858,7 @@ pub fn install_package(
                 format!("\r\n\r\nDid you mean:\r\n{}\r\n", did_you_mean.join("\r\n"))
             };
 
-            let (_, package_info) = url_of_package.ok_or(format!("{error_str}{did_you_mean}"))?;
+            let (_, package_info) = url_of_package.ok_or_else(|| format!("{error_str}{did_you_mean}"))?;
 
             package_info
         }
@@ -867,7 +867,7 @@ pub fn install_package(
     let host = url::Url::parse(&package_info.registry)
         .map_err(|e| format!("invalid url: {}: {e}", package_info.registry))?
         .host_str()
-        .ok_or(format!("invalid url: {}", package_info.registry))?
+        .ok_or_else(|| format!("invalid url: {}", package_info.registry))?
         .to_string();
 
     let dir = get_package_local_dir(&host, &package_info.package, &package_info.version)?;
@@ -891,7 +891,7 @@ pub fn install_package(
         .map_err(|e| format!("Could not parse toml for {name}@{version}: {e}"))?;
 
     let commands = wapm_toml.command.clone().unwrap_or_default();
-    let entrypoint_module = commands.first().ok_or(format!(
+    let entrypoint_module = commands.first().ok_or_else(|| format!(
         "Cannot run {name}@{version}: package has no commands"
     ))?;
 
@@ -900,7 +900,7 @@ pub fn install_package(
     let entrypoint_module = modules
         .iter()
         .find(|m| m.name == module_name)
-        .ok_or(format!(
+        .ok_or_else(|| format!(
             "Cannot run {name}@{version}: module {module_name} not found in wapm.toml"
         ))?;
 
