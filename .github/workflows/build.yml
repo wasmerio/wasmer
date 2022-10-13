@@ -217,7 +217,7 @@ jobs:
         run: |
           make build-wapm
       - name: Install Nightly Rust for Headless
-        uses: dtolnay/rust-toolchain@nightly
+        uses: dtolnay/rust-toolchain@nightly-2022-10-09
         with:
           target: ${{ matrix.target }}
           components: "rust-src"
@@ -236,7 +236,7 @@ jobs:
           echo "incremental = false" >> Cargo.toml
           echo "codegen-units = 1" >> Cargo.toml
           echo "rpath = false" >> Cargo.toml
-          rustup override set nightly
+          rustup override set nightly-2022-10-09
           make build-wasmer-headless-minimal
           rustup override unset
       - name: Build Wasmer with minimal "sys" features
