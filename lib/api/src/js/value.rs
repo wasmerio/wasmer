@@ -357,38 +357,6 @@ impl TryFrom<Value> for Option<Arc<ExternRef>> {
     }
 }
 
-#[test]
-fn get_set_externref_globals_via_api() -> anyhow::Result<()> {
-    use crate::{Store, Global, Value, ExternRef};
-    use std::sync::Arc;
-
-    let mut store = Store::default();
-
-    // Initialize with a null externref.
-    let global = Global::new(
-        &mut store,
-        Value::ExternRef(None),
-    );
-    assert!(global.get(&mut store).unwrap_externref().is_none());
-
-    let value = Value::ExternRef(Some(Arc::new(ExternRef::new(&mut store, "hello".to_string()))));
-    global.set(&mut store, value)?;
-
-    let r = global.get(&mut store).unwrap_externref().clone().unwrap();
-    let s: &String = r.downcast(&store).unwrap();
-    assert_eq!(s.clone(), "hello".to_string());
-
-    // Initialize with a non-null externref.
-    let value = Value::ExternRef(Some(Arc::new(ExternRef::new(&mut store, 42_i32))));
-    let global = Global::new(&mut store, value);
-
-    let r = global.get(&mut store).unwrap_externref().clone().unwrap();
-    let u: &i32 = r.downcast(&store).unwrap();
-    assert_eq!(*u, 42_i32);
-
-    Ok(())
-}
-
 #[cfg(tests)]
 mod tests {
     use super::*;

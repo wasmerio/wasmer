@@ -66,6 +66,7 @@ impl Global {
         val: Value,
         mutability: Mutability,
     ) -> Result<Self, RuntimeError> {
+        use std::sync::Arc;
         if !val.is_from_store(store) {
             return Err(RuntimeError::new(
                 "cross-`WasmerEnv` values are not supported",
@@ -81,6 +82,10 @@ impl Global {
             Value::I64(i) => ("i64", JsValue::from_f64(i as _)),
             Value::F32(f) => ("f32", JsValue::from_f64(f as _)),
             Value::F64(f) => ("f64", JsValue::from_f64(f)),
+            Value::ExternRef(Some(ref e)) => ("externref", JsValue::from_f64({
+                Arc::as_ptr(e) as usize as f64
+            })),
+            Value::ExternRef(None) => ("externref", JsValue::from_f64(0.0)),
             _ => unimplemented!("The type is not yet supported in the JS Global API"),
         };
         // This is the value type as string, even though is incorrectly called "value"
