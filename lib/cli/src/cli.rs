@@ -448,9 +448,11 @@ fn split_version(s: &str) -> Result<SplitVersion, anyhow::Error> {
         command: captures.get(4).cloned(),
     };
 
-    if prohibited_package_names.any(|s| s == sv.package.trim()) {
-        return Err(anyhow::anyhow!("Invalid package name {:?}", sv.package));
-    }
+    let svp = sv.package.clone();
+    anyhow::ensure!(
+        !prohibited_package_names.any(|s| s == sv.package.trim()),
+        "Invalid package name {svp:?}"
+    );
 
     Ok(sv)
 }
