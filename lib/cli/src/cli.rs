@@ -262,13 +262,12 @@ fn try_run_package_or_file(args: &[String], r: &Run) -> Result<(), anyhow::Error
         }
     }
 
-    match try_execute_local_package(&args, &sv) {
-        Ok(o) => return Ok(o),
-        Err(_) => {} // local package not found
+    if let Ok(o) = try_execute_local_package(args, &sv) {
+        return Ok(o);
     }
 
-    // download and install package
-    try_autoinstall_package(&args, &sv, package_download_info)
+    // else: local package not found - try to download and install package
+    try_autoinstall_package(args, &sv, package_download_info)
 }
 
 fn try_lookup_command(sv: &mut SplitVersion) -> Result<PackageDownloadInfo, anyhow::Error> {
