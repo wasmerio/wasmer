@@ -651,16 +651,10 @@ pub fn query_package_from_registry(
     use crate::graphql::{execute_query, get_packages_query, GetPackagesQuery};
     use graphql_client::GraphQLQuery;
 
-    let q = if name.contains('/') {
-        let name = name.split('/').nth(1).unwrap();
-        GetPackagesQuery::build_query(get_packages_query::Variables {
-            names: vec![name.to_string()],
-        })
-    } else {
-        GetPackagesQuery::build_query(get_packages_query::Variables {
-            names: vec![name.to_string()],
-        })
-    };
+    let name_query = name.split('/').nth(1).unwrap_or(name);
+    let q = GetPackagesQuery::build_query(get_packages_query::Variables {
+        names: vec![name_query.to_string()],
+    });
 
     let response: get_packages_query::ResponseData =
         execute_query(registry_url, "", &q).map_err(|e| {
