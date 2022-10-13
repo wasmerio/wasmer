@@ -3810,6 +3810,7 @@ dependencies = [
  "http_req",
  "log",
  "prettytable-rs",
+ "regex",
  "serde_json",
  "spinner",
  "target-lexicon 0.12.4",

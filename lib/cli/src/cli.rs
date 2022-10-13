@@ -12,7 +12,7 @@ use crate::commands::CreateObj;
 use crate::commands::Wast;
 use crate::commands::{Cache, Config, Inspect, Run, RunWithoutFile, SelfUpdate, Validate};
 use crate::error::PrettyError;
-use clap::{ErrorKind, Parser, CommandFactory};
+use clap::{CommandFactory, ErrorKind, Parser};
 use spinner::SpinnerHandle;
 use wasmer_registry::{get_all_local_packages, PackageDownloadInfo};
 
@@ -357,58 +357,105 @@ struct SplitVersion {
     command: Option<String>,
 }
 
+#[test]
+fn test_split_version() {
+    assert_eq!(
+        split_version("namespace/name@version:command").unwrap(),
+        SplitVersion {
+            package: "namespace/name".to_string(),
+            version: Some("version".to_string()),
+            command: Some("command".to_string()),
+        }
+    );
+    assert_eq!(
+        split_version("namespace/name@version").unwrap(),
+        SplitVersion {
+            package: "namespace/name".to_string(),
+            version: Some("version".to_string()),
+            command: None,
+        }
+    );
+    assert_eq!(
+        split_version("namespace/name").unwrap(),
+        SplitVersion {
+            package: "namespace/name".to_string(),
+            version: None,
+            command: None,
+        }
+    );
+    assert_eq!(
+        format!("{}", split_version("namespace").unwrap_err()),
+        "Invalid package version: \"namespace\"".to_string(),
+    );
+}
+
 fn split_version(s: &str) -> Result<SplitVersion, anyhow::Error> {
     let command = WasmerCLIOptions::command();
     let prohibited_package_names = command
-    .get_subcommands()
-    .map(|s| s.get_name())
-    .collect::<Vec<_>>();
+        .get_subcommands()
+        .map(|s| s.get_name())
+        .collect::<Vec<_>>();
 
-    let package_version = s.split('@').collect::<Vec<_>>();
-    let (mut package, mut version) = match *package_version.as_slice() {
-        [p, v] => (p.trim().to_string(), Some(v.trim().to_string())),
-        [p] => (p.trim().to_string(), None),
-        _ => {
-            return Err(anyhow!("Invalid package / version: {s:?}"));
+    let re1 = regex::Regex::new(r#"(.*)/(.*)@(.*):(.*)"#).unwrap();
+    let re2 = regex::Regex::new(r#"(.*)/(.*)@(.*)"#).unwrap();
+    let re3 = regex::Regex::new(r#"(.*)/(.*)"#).unwrap();
+
+    let captures = if re1.is_match(s) {
+        re1.captures(s)
+            .map(|c| {
+                c.iter()
+                    .filter_map(|f| f)
+                    .map(|m| m.as_str().to_owned())
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default()
+    } else if re2.is_match(s) {
+        re2.captures(s)
+            .map(|c| {
+                c.iter()
+                    .filter_map(|f| f)
+                    .map(|m| m.as_str().to_owned())
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default()
+    } else if re3.is_match(s) {
+        re3.captures(s)
+            .map(|c| {
+                c.iter()
+                    .filter_map(|f| f)
+                    .map(|m| m.as_str().to_owned())
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default()
+    } else {
+        return Err(anyhow::anyhow!("Invalid package version: {s:?}"));
+    };
+
+    let namespace = match captures.get(1).cloned() {
+        Some(s) => s,
+        None => {
+            return Err(anyhow::anyhow!(
+                "Invalid package version: {s:?}: no namespace"
+            ))
         }
     };
 
-    let version_clone = version.clone().unwrap_or_default();
-    let command = if package.contains(':') {
-        let package_command = version_clone.split('@').collect::<Vec<_>>();
-        let (p, c) = match package_command.as_slice() {
-            [p, v] => (p.trim().to_string(), Some(v.trim().to_string())),
-            [p] => (p.trim().to_string(), None),
-            _ => {
-                return Err(anyhow!("Invalid package / command: {s:?}"));
-            }
-        };
-        package = p;
-        c
-    } else if version_clone.contains(':') {
-        let version_command = version_clone.split('@').collect::<Vec<_>>();
-        let (v, command) = match version_command.as_slice() {
-            [p, v] => (p.trim().to_string(), Some(v.trim().to_string())),
-            [p] => (p.trim().to_string(), None),
-            _ => {
-                return Err(anyhow!("Invalid version / command: {s:?}"));
-            }
-        };
-        version = Some(v);
-        command
-    } else {
-        None
+    let name = match captures.get(2).cloned() {
+        Some(s) => s,
+        None => return Err(anyhow::anyhow!("Invalid package version: {s:?}: no name")),
     };
 
-    if prohibited_package_names.contains(&package.trim()) {
-        return Err(anyhow::anyhow!("Invalid package name {package:?}"));
+    let sv = SplitVersion {
+        package: format!("{namespace}/{name}"),
+        version: captures.get(3).cloned(),
+        command: captures.get(4).cloned(),
+    };
+
+    if prohibited_package_names.contains(&sv.package.trim()) {
+        return Err(anyhow::anyhow!("Invalid package name {:?}", sv.package));
     }
 
-    Ok(SplitVersion {
-        package,
-        version,
-        command,
-    })
+    Ok(sv)
 }
 
 fn print_packages() -> Result<(), anyhow::Error> {
