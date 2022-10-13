@@ -5562,8 +5562,6 @@
 <span id="5555">5555</span>
 <span id="5556">5556</span>
 <span id="5557">5557</span>
-<span id="5558">5558</span>
-<span id="5559">5559</span>
 </pre><pre class="rust"><code><span class="attribute">#![<span class="ident">allow</span>(<span class="ident">unused</span>, <span class="ident">clippy::too_many_arguments</span>, <span class="ident">clippy::cognitive_complexity</span>)]</span>
 
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">types</span> {
@@ -6535,13 +6533,11 @@
     <span class="kw">let</span> <span class="ident">deref</span> <span class="op">=</span> <span class="ident">guard</span>.<span class="ident">deref</span>();
     <span class="kw">match</span> <span class="ident">deref</span> {
         <span class="ident">Kind::Dir</span> { .. } <span class="op">|</span> <span class="ident">Kind::Root</span> { .. } =&gt; {
-            <span class="comment">// TODO: verify this: null termination, etc</span>
             <span class="kw">let</span> <span class="ident">path_len</span>: <span class="ident">u64</span> <span class="op">=</span> <span class="ident">path_len</span>.<span class="ident">into</span>();
-            <span class="kw">if</span> (<span class="ident">inode_val</span>.<span class="ident">name</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">u64</span>) <span class="op">&lt;</span> <span class="ident">path_len</span> {
+            <span class="kw">if</span> (<span class="ident">inode_val</span>.<span class="ident">name</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">u64</span>) <span class="op">&lt;</span><span class="op">=</span> <span class="ident">path_len</span> {
                 <span class="macro">wasi_try_mem!</span>(<span class="ident">path_chars</span>
                     .<span class="ident">subslice</span>(<span class="number">0</span>..<span class="ident">inode_val</span>.<span class="ident">name</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">u64</span>)
                     .<span class="ident">write_slice</span>(<span class="ident">inode_val</span>.<span class="ident">name</span>.<span class="ident">as_bytes</span>()));
-                <span class="macro">wasi_try_mem!</span>(<span class="ident">path_chars</span>.<span class="ident">index</span>(<span class="ident">inode_val</span>.<span class="ident">name</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">u64</span>).<span class="ident">write</span>(<span class="number">0</span>));
 
                 <span class="macro">trace!</span>(<span class="string">&quot;=&gt; result: \&quot;{}\&quot;&quot;</span>, <span class="ident">inode_val</span>.<span class="ident">name</span>);
 

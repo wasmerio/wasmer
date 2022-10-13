@@ -3349,7 +3349,7 @@
             <span class="ident">pr_type</span>: <span class="ident">Preopentype::Dir</span>,
             <span class="ident">u</span>: <span class="ident">PrestatEnum::Dir</span> {
                 <span class="comment">// REVIEW:</span>
-                <span class="ident">pr_name_len</span>: <span class="ident">inode_val</span>.<span class="ident">name</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">u32</span> <span class="op">+</span> <span class="number">1</span>,
+                <span class="ident">pr_name_len</span>: <span class="ident">inode_val</span>.<span class="ident">name</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">u32</span>, <span class="comment">// no need for +1, because there is no 0 end-of-string marker</span>
             }
             .<span class="ident">untagged</span>(),
         }
