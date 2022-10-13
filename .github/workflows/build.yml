@@ -217,8 +217,9 @@ jobs:
         run: |
           make build-wapm
       - name: Install Nightly Rust for Headless
-        uses: dtolnay/rust-toolchain@nightly-2022-10-09
+        uses: dtolnay/rust-toolchain@nightly
         with:
+          toolchain: "2022-10-09"
           target: ${{ matrix.target }}
           components: "rust-src"
       - name: Build Minimal Wasmer Headless
