@@ -87,7 +87,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         *counter_ref
     }
 
-    let mut env = FunctionEnv::new(
+    let env = FunctionEnv::new(
         &mut store,
         Env {
             counter: shared_counter.clone(),
@@ -97,8 +97,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create an import object.
     let import_object = imports! {
         "env" => {
-            "get_counter" => Function::new_native(&mut store, &env, get_counter),
-            "add_to_counter" => Function::new_native(&mut store, &env, add_to_counter),
+            "get_counter" => Function::new_typed_with_env(&mut store, &env, get_counter),
+            "add_to_counter" => Function::new_typed_with_env(&mut store, &env, add_to_counter),
         }
     };
 
@@ -112,7 +112,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let increment_counter_loop: TypedFunction<i32, i32> = instance
         .exports
         .get_function("increment_counter_loop")?
-        .native(&mut store)?;
+        .typed(&mut store)?;
 
     let counter_value: i32 = *shared_counter.lock().unwrap();
     println!("Initial ounter value: {:?}", counter_value);

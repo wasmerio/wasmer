@@ -7,12 +7,12 @@ compile_error!(
 compile_error!("Both the `std` and `core` features are disabled. Please enable one of them.");
 
 #[cfg(feature = "core")]
-extern crate alloc;
+pub(crate) extern crate alloc;
 
 mod lib {
     #[cfg(feature = "core")]
     pub mod std {
-        pub use alloc::{borrow, boxed, str, string, sync, vec};
+        pub use crate::alloc::{borrow, boxed, str, string, sync, vec};
         pub use core::fmt;
         pub use hashbrown as collections;
     }
@@ -23,14 +23,13 @@ mod lib {
     }
 }
 
-mod error;
+pub(crate) mod error;
 mod export;
 mod exports;
 mod externals;
 mod function_env;
 mod imports;
 mod instance;
-mod js_import_object;
 mod mem_access;
 mod module;
 #[cfg(feature = "wasm-types-polyfill")]
@@ -48,13 +47,12 @@ pub use crate::js::error::{DeserializeError, InstantiationError, SerializeError}
 pub use crate::js::export::Export;
 pub use crate::js::exports::{ExportError, Exportable, Exports, ExportsIterator};
 pub use crate::js::externals::{
-    Extern, FromToNativeWasmType, Function, Global, HostFunction, Memory, MemoryError, Table,
-    WasmTypeList,
+    Extern, FromToNativeWasmType, Function, Global, HostFunction, Memory, MemoryError, MemoryView,
+    Table, WasmTypeList,
 };
 pub use crate::js::function_env::{FunctionEnv, FunctionEnvMut};
 pub use crate::js::imports::Imports;
 pub use crate::js::instance::Instance;
-pub use crate::js::js_import_object::JsImportObject;
 pub use crate::js::mem_access::{MemoryAccessError, WasmRef, WasmSlice, WasmSliceIter};
 pub use crate::js::module::{Module, ModuleTypeHints};
 pub use crate::js::native::TypedFunction;
@@ -73,6 +71,12 @@ pub use crate::js::types::{
 pub use crate::js::value::Value;
 pub use crate::js::value::Value as Val;
 
+pub mod vm {
+    //! The `vm` module re-exports wasmer-vm types.
+
+    pub use crate::js::export::VMMemory;
+}
+
 pub use wasmer_types::is_wasm;
 pub use wasmer_types::{
     Bytes, ExportIndex, GlobalInit, LocalFunctionIndex, Pages, ValueType, WASM_MAX_PAGES,
@@ -81,6 +85,9 @@ pub use wasmer_types::{
 
 #[cfg(feature = "wat")]
 pub use wat::parse_bytes as wat2wasm;
+
+#[cfg(feature = "wasm-types-polyfill")]
+pub use wasmparser;
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

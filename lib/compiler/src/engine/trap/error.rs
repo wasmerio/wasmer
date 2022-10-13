@@ -12,12 +12,19 @@ pub struct RuntimeError {
     inner: Arc<RuntimeErrorInner>,
 }
 
+pub trait CoreError: fmt::Debug + fmt::Display + core::any::Any {}
+
+impl<T: fmt::Debug + fmt::Display + core::any::Any> CoreError for T {}
+
 /// The source of the `RuntimeError`.
 #[derive(Debug)]
 enum RuntimeErrorSource {
     Generic(String),
     OutOfMemory,
+    #[cfg(feature = "std")]
     User(Box<dyn Error + Send + Sync>),
+    #[cfg(feature = "core")]
+    User(Box<dyn CoreError + Send + Sync>),
     Trap(TrapCode),
 }
 
@@ -110,7 +117,29 @@ impl RuntimeError {
     ///
     /// This error object can be passed through Wasm frames and later retrieved
     /// using the `downcast` method.
+    #[cfg(feature = "std")]
     pub fn user(error: Box<dyn Error + Send + Sync>) -> Self {
+        match error.downcast::<Self>() {
+            // The error is already a RuntimeError, we return it directly
+            Ok(runtime_error) => *runtime_error,
+            Err(error) => {
+                let info = FRAME_INFO.read().unwrap();
+                Self::new_with_trace(
+                    &info,
+                    None,
+                    RuntimeErrorSource::User(error),
+                    Backtrace::new_unresolved(),
+                )
+            }
+        }
+    }
+
+    /// Creates a custom user Error.
+    ///
+    /// This error object can be passed through Wasm frames and later retrieved
+    /// using the `downcast` method.
+    #[cfg(feature = "core")]
+    pub fn user(error: Box<dyn CoreError + Send + Sync>) -> Self {
         match error.downcast::<Self>() {
             // The error is already a RuntimeError, we return it directly
             Ok(runtime_error) => *runtime_error,

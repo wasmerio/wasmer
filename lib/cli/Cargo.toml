@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-cli"
-version = "3.0.0-alpha.4"
+version = "3.0.0-beta.2"
 description = "Wasmer CLI"
 categories = ["wasm", "command-line-interface"]
 keywords = ["wasm", "webassembly", "cli"]
@@ -25,24 +25,24 @@ doc = false
 required-features = ["headless"]
 
 [dependencies]
-wasmer = { version = "=3.0.0-alpha.4", path = "../api", default-features = false }
-wasmer-compiler = { version = "=3.0.0-alpha.4", path = "../compiler", features = ["compiler", ] }
-wasmer-compiler-cranelift = { version = "=3.0.0-alpha.4", path = "../compiler-cranelift", optional = true }
-wasmer-compiler-singlepass = { version = "=3.0.0-alpha.4", path = "../compiler-singlepass", optional = true }
-wasmer-compiler-llvm = { version = "=3.0.0-alpha.4", path = "../compiler-llvm", optional = true }
-wasmer-emscripten = { version = "=3.0.0-alpha.4", path = "../emscripten", optional = true }
-wasmer-vm = { version = "=3.0.0-alpha.4", path = "../vm" }
-wasmer-wasi = { version = "=3.0.0-alpha.4", path = "../wasi", optional = true }
-wasmer-wasi-experimental-io-devices = { version = "=3.0.0-alpha.4", path = "../wasi-experimental-io-devices", optional = true, features = ["link_external_libs"] }
-wasmer-wast = { version = "=3.0.0-alpha.4", path = "../../tests/lib/wast", optional = true }
-wasmer-cache = { version = "=3.0.0-alpha.4", path = "../cache", optional = true }
-wasmer-types = { version = "=3.0.0-alpha.4", path = "../types" }
-wasmer-object = { version = "=3.0.0-alpha.4", path = "../object", optional = true }
-wasmer-vfs  = { version = "=3.0.0-alpha.4", path = "../vfs", default-features = false, features = ["host-fs"] }
+wasmer = { version = "=3.0.0-beta.2", path = "../api", default-features = false }
+wasmer-compiler = { version = "=3.0.0-beta.2", path = "../compiler", features = ["compiler", ] }
+wasmer-compiler-cranelift = { version = "=3.0.0-beta.2", path = "../compiler-cranelift", optional = true }
+wasmer-compiler-singlepass = { version = "=3.0.0-beta.2", path = "../compiler-singlepass", optional = true }
+wasmer-compiler-llvm = { version = "=3.0.0-beta.2", path = "../compiler-llvm", optional = true }
+wasmer-emscripten = { version = "=3.0.0-beta.2", path = "../emscripten", optional = true }
+wasmer-vm = { version = "=3.0.0-beta.2", path = "../vm" }
+wasmer-wasi = { version = "=3.0.0-beta.2", path = "../wasi", optional = true }
+wasmer-wasi-experimental-io-devices = { version = "=3.0.0-beta.2", path = "../wasi-experimental-io-devices", optional = true, features = ["link_external_libs"] }
+wasmer-wast = { version = "=3.0.0-beta.2", path = "../../tests/lib/wast", optional = true }
+wasmer-cache = { version = "=3.0.0-beta.2", path = "../cache", optional = true }
+wasmer-types = { version = "=3.0.0-beta.2", path = "../types" }
+wasmer-object = { version = "=3.0.0-beta.2", path = "../object", optional = true }
+wasmer-vfs  = { version = "=3.0.0-beta.2", path = "../vfs", default-features = false, features = ["host-fs"] }
 atty = "0.2"
 colored = "2.0"
 anyhow = "1.0"
-structopt = { version = "0.3", features = ["suggestions"] }
+clap = { version = "3.1", features = ["derive"] }
 # For the function names autosuggestion
 distance = "0.4"
 # For the inspect subcommand
@@ -52,6 +52,10 @@ cfg-if = "1.0"
 fern = { version = "0.6", features = ["colored"], optional = true }
 log = { version = "0.4", optional = true }
 tempfile = "3"
+http_req  = { version="^0.8", default-features = false, features = ["rust-tls"], optional = true }
+dirs = { version = "4.0", optional = true }
+serde_json = { version = "1.0", optional = true }
+target-lexicon = { version = "0.12", features = ["std"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 unix_mode = "0.1.3"
@@ -62,6 +66,7 @@ unix_mode = "0.1.3"
 default = [
     "wat",
     "wast",
+    "http",
     "cache",
     "wasi",
     "emscripten",
@@ -131,3 +136,38 @@ enable-serde = [
   "wasmer-types/enable-serde",
   "wasmer-wasi/enable-serde",
 ]
+
+http = [
+  "http_req",
+  "dirs",
+  "serde_json",
+]
+
+[package.metadata.binstall]
+pkg-fmt = "tgz"
+
+[package.metadata.binstall.overrides.aarch64-apple-darwin]
+pkg-url = "{ repo }/releases/download/{ version }/wasmer-darwin-arm64.{ archive-format }"
+bin-dir = "wasmer-darwin-arm64/bin/{ bin }"
+
+#https://github.com/wasmerio/wasmer/releases/download/3.0.0-beta/wasmer-darwin-arm64.tar.gz
+
+[package.metadata.binstall.overrides.x86_64-apple-darwin]
+pkg-url = "{ repo }/releases/download/{ version }/wasmer-darwin-amd64.{ archive-format }"
+bin-dir = "wasmer-darwin-amd64/bin/{ bin }"
+
+[package.metadata.binstall.overrides.aarch64-unknown-linux-gnu]
+pkg-url = "{ repo }/releases/download/{ version }/wasmer-linux-aarch64.{ archive-format }"
+bin-dir = "wasmer-linux-aarch64/bin/{ bin }"
+
+[package.metadata.binstall.overrides.x86_64-unknown-linux-gnu]
+pkg-url = "{ repo }/releases/download/{ version }/wasmer-linux-amd64.{ archive-format }"
+bin-dir = "wasmer-linux-amd64/bin/{ bin }"
+
+[package.metadata.binstall.overrides.x86_64-unknown-linux-musl]
+pkg-url = "{ repo }/releases/download/{ version }/wasmer-linux-musl-amd64.{ archive-format }"
+bin-dir = "wasmer-linux-musl-amd64/bin/{ bin }"
+
+[package.metadata.binstall.overrides.x86_64-pc-windows-msvc]
+pkg-url = "{ repo }/releases/download/{ version }/wasmer-windows-amd64.{ archive-format }"
+bin-dir = "wasmer-windows-amd64/bin/{ bin }.exe"

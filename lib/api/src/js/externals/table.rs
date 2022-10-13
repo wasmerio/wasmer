@@ -1,6 +1,6 @@
 use crate::js::export::{VMFunction, VMTable};
 use crate::js::exports::{ExportError, Exportable};
-use crate::js::externals::Extern;
+use crate::js::externals::{Extern, VMExtern};
 use crate::js::store::{AsStoreMut, AsStoreRef, InternalStoreHandle, StoreHandle};
 use crate::js::value::Value;
 use crate::js::RuntimeError;
@@ -75,6 +75,11 @@ impl Table {
         })
     }
 
+    /// To `VMExtern`.
+    pub fn to_vm_extern(&self) -> VMExtern {
+        VMExtern::Table(self.handle.internal_handle())
+    }
+
     /// Returns the [`TableType`] of the `Table`.
     pub fn ty(&self, store: &impl AsStoreRef) -> TableType {
         self.handle.get(store.as_store_ref().objects()).ty
@@ -128,7 +133,7 @@ impl Table {
     /// Returns an error if the `delta` is out of bounds for the table.
     pub fn grow(
         &self,
-        store: &mut AsStoreMut,
+        _store: &mut impl AsStoreMut,
         _delta: u32,
         _init: Value,
     ) -> Result<u32, RuntimeError> {
@@ -143,6 +148,7 @@ impl Table {
     /// Returns an error if the range is out of bounds of either the source or
     /// destination tables.
     pub fn copy(
+        _store: &mut impl AsStoreMut,
         _dst_table: &Self,
         _dst_index: u32,
         _src_table: &Self,

@@ -1,6 +1,12 @@
 use anyhow::Result;
-use wasmer::FunctionEnv;
 use wasmer::*;
+
+#[test]
+fn sanity_test_artifact_deserialize() {
+    let engine = Engine::headless();
+    let result = unsafe { Artifact::deserialize(&engine, &[]) };
+    assert!(result.is_err());
+}
 
 #[compiler_test(serialize)]
 fn test_serialize(config: crate::Config) -> Result<()> {
@@ -39,7 +45,7 @@ fn test_deserialize(config: crate::Config) -> Result<()> {
     let serialized_bytes = module.serialize()?;
 
     let headless_store = config.headless_store();
-    let deserialized_module = unsafe { Module::deserialize(&headless_store, &serialized_bytes)? };
+    let deserialized_module = unsafe { Module::deserialize(&headless_store, serialized_bytes)? };
     assert_eq!(deserialized_module.name(), Some("name"));
     assert_eq!(
         deserialized_module.exports().collect::<Vec<_>>(),
@@ -54,8 +60,7 @@ fn test_deserialize(config: crate::Config) -> Result<()> {
         vec![Type::I32, Type::I64, Type::I32, Type::F32, Type::F64],
         vec![Type::I64],
     );
-    let mut env = FunctionEnv::new(&mut store, ());
-    let f0 = Function::new(&mut store, &env, &func_type, |_ctx, params| {
+    let f0 = Function::new(&mut store, &func_type, |params| {
         let param_0: i64 = params[0].unwrap_i32() as i64;
         let param_1: i64 = params[1].unwrap_i64() as i64;
         let param_2: i64 = params[2].unwrap_i32() as i64;

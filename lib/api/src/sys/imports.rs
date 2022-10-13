@@ -16,10 +16,10 @@ use wasmer_types::ImportError;
 ///
 /// # Usage:
 /// ```no_run
-/// use wasmer::{Store, Exports, Module, Instance, imports, Imports, Function, FunctionEnv, FunctionEnvMut};
-/// # fn foo_test(mut env: FunctionEnv<()>, mut store: &mut Store, module: Module) {
+/// use wasmer::{Store, Exports, Module, Instance, imports, Imports, Function, FunctionEnvMut};
+/// # fn foo_test(mut store: &mut Store, module: Module) {
 ///
-/// let host_fn = Function::new_native(&mut store, &env, foo);
+/// let host_fn = Function::new_typed(&mut store, foo);
 /// let import_object: Imports = imports! {
 ///     "env" => {
 ///         "foo" => host_fn,
@@ -28,7 +28,7 @@ use wasmer_types::ImportError;
 ///
 /// let instance = Instance::new(&mut store, &module, &import_object).expect("Could not instantiate module.");
 ///
-/// fn foo(_env: FunctionEnvMut<()>, n: i32) -> i32 {
+/// fn foo(n: i32) -> i32 {
 ///     n
 /// }
 ///
@@ -99,13 +99,12 @@ impl Imports {
     /// ```no_run
     /// # use wasmer::{FunctionEnv, Store};
     /// # let mut store: Store = Default::default();
-    /// # let env = FunctionEnv::new(&mut store, ());
     /// use wasmer::{StoreMut, Imports, Function, FunctionEnvMut};
-    /// fn foo(_env: FunctionEnvMut<()>, n: i32) -> i32 {
+    /// fn foo(n: i32) -> i32 {
     ///     n
     /// }
     /// let mut import_object = Imports::new();
-    /// import_object.define("env", "foo", Function::new_native(&mut store, &env, foo));
+    /// import_object.define("env", "foo", Function::new_typed(&mut store, foo));
     /// ```
     pub fn define(&mut self, ns: &str, name: &str, val: impl Into<Extern>) {
         self.map
@@ -210,18 +209,17 @@ impl fmt::Debug for Imports {
 /// # Usage
 ///
 /// ```
-/// # use wasmer::{StoreMut, Function, Store, FunctionEnv, FunctionEnvMut};
+/// # use wasmer::{StoreMut, Function, FunctionEnvMut, Store};
 /// # let mut store = Store::default();
-/// # let env = FunctionEnv::new(&mut store, ());
 /// use wasmer::imports;
 ///
 /// let import_object = imports! {
 ///     "env" => {
-///         "foo" => Function::new_native(&mut store, &env, foo)
+///         "foo" => Function::new_typed(&mut store, foo)
 ///     },
 /// };
 ///
-/// fn foo(_env: FunctionEnvMut<()>, n: i32) -> i32 {
+/// fn foo(n: i32) -> i32 {
 ///     n
 /// }
 /// ```
@@ -270,7 +268,6 @@ macro_rules! import_namespace {
 
 #[cfg(test)]
 mod test {
-    use crate::sys::FunctionEnv;
     use crate::sys::{AsStoreMut, Global, Store, Value};
     use wasmer_types::Type;
     use wasmer_vm::VMExtern;
@@ -300,53 +297,51 @@ mod test {
     #[test]
     fn imports_macro_allows_trailing_comma_and_none() {
         use crate::sys::Function;
-        use crate::sys::FunctionEnvMut;
 
         let mut store: Store = Default::default();
-        let env = FunctionEnv::new(&mut store, ());
 
-        fn func(_env: FunctionEnvMut<()>, arg: i32) -> i32 {
+        fn func(arg: i32) -> i32 {
             arg + 1
         }
 
         let _ = imports! {
             "env" => {
-                "func" => Function::new_native(&mut store, &env, func),
+                "func" => Function::new_typed(&mut store, func),
             },
         };
         let _ = imports! {
             "env" => {
-                "func" => Function::new_native(&mut store, &env, func),
+                "func" => Function::new_typed(&mut store, func),
             }
         };
         let _ = imports! {
             "env" => {
-                "func" => Function::new_native(&mut store, &env, func),
+                "func" => Function::new_typed(&mut store, func),
             },
             "abc" => {
-                "def" => Function::new_native(&mut store, &env, func),
+                "def" => Function::new_typed(&mut store, func),
             }
         };
         let _ = imports! {
             "env" => {
-                "func" => Function::new_native(&mut store, &env, func)
+                "func" => Function::new_typed(&mut store, func)
             },
         };
         let _ = imports! {
             "env" => {
-                "func" => Function::new_native(&mut store, &env, func)
+                "func" => Function::new_typed(&mut store, func)
             }
         };
         let _ = imports! {
             "env" => {
-                "func1" => Function::new_native(&mut store, &env, func),
-                "func2" => Function::new_native(&mut store, &env, func)
+                "func1" => Function::new_typed(&mut store, func),
+                "func2" => Function::new_typed(&mut store, func)
             }
         };
         let _ = imports! {
             "env" => {
-                "func1" => Function::new_native(&mut store, &env, func),
-                "func2" => Function::new_native(&mut store, &env, func),
+                "func1" => Function::new_typed(&mut store, func),
+                "func2" => Function::new_typed(&mut store, func),
             }
         };
     }

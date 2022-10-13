@@ -92,7 +92,7 @@ endif
 CARGO_BINARY ?= cargo
 CARGO_TARGET ?=
 
-# Variables that can be overriden by the users to force to enable or
+# Variables that can be overridden by the users to force to enable or
 # to disable a specific compiler.
 ENABLE_CRANELIFT ?=
 ENABLE_LLVM ?=
@@ -389,7 +389,7 @@ build-wasmer-headless-minimal: RUSTFLAGS += -C panic=abort
 build-wasmer-headless-minimal:
 	RUSTFLAGS="${RUSTFLAGS}" xargo build --target $(HOST_TARGET) --release --manifest-path=lib/cli/Cargo.toml --no-default-features --features headless-minimal --bin wasmer-headless
 ifeq ($(IS_DARWIN), 1)
-	strip -u target/$(HOST_TARGET)/release/wasmer-headless
+	strip target/$(HOST_TARGET)/release/wasmer-headless
 else ifeq ($(IS_WINDOWS), 1)
 	strip --strip-unneeded target/$(HOST_TARGET)/release/wasmer-headless.exe
 else
@@ -454,16 +454,17 @@ build-capi-llvm-universal: capi-setup
 
 # Headless (we include the minimal to be able to run)
 
-build-capi-headless-universal: capi-setup
-	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
+build-capi-headless: capi-setup
+ifeq ($(CARGO_TARGET),)
+	RUSTFLAGS="${RUSTFLAGS} -C panic=abort -C link-dead-code -C lto -O -C embed-bitcode=yes" $(CARGO_BINARY) build --target $(HOST_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features compiler-headless,wasi
-
-build-capi-headless-all: capi-setup
-	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
+else
+	RUSTFLAGS="${RUSTFLAGS} -C panic=abort -C link-dead-code -C lto -O -C embed-bitcode=yes" $(CARGO_BINARY) build $(CARGO_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features compiler-headless,wasi
+endif
 
 build-capi-headless-ios: capi-setup
-	RUSTFLAGS="${RUSTFLAGS}" cargo lipo --manifest-path lib/c-api/Cargo.toml --release \
+	RUSTFLAGS="${RUSTFLAGS} -C panic=abort" cargo lipo --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features compiler-headless,wasi
 
 #####
@@ -484,6 +485,9 @@ test-packages:
 	$(CARGO_BINARY) test $(CARGO_TARGET) --manifest-path lib/cli/Cargo.toml $(compiler_features) --release
 
 test-js: test-js-api test-js-wasi
+
+test-js-core:
+	cd lib/api && wasm-pack test --node -- --no-default-features --features js,core,wasm-types-polyfill,wat
 
 test-js-api:
 	cd lib/api && wasm-pack test --node -- --no-default-features --features js-default,wat
@@ -538,8 +542,8 @@ test-examples:
 	$(CARGO_BINARY) test $(CARGO_TARGET) $(compiler_features) --features wasi --examples
 	$(CARGO_BINARY) test $(CARGO_TARGET) --release $(compiler_features) --features wasi --examples
 
-test-integration:
-	$(CARGO_BINARY) test $(CARGO_TARGET) --no-fail-fast -p wasmer-integration-tests-cli
+test-integration-cli:
+	$(CARGO_BINARY) test $(CARGO_TARGET) --no-fail-fast -p wasmer-integration-tests-cli -- --nocapture
 
 test-integration-ios:
 	$(CARGO_BINARY) test $(CARGO_TARGET) -p wasmer-integration-tests-ios
@@ -598,11 +602,15 @@ package-capi:
 	mkdir -p "package/lib"
 	cp lib/c-api/wasmer.h* package/include
 	cp lib/c-api/wasmer_wasm.h* package/include
-	cp lib/c-api/wasm.h* package/include
+	cp lib/c-api/tests/wasm-c-api/include/wasm.h* package/include
 	cp lib/c-api/README.md package/include/README.md
 
 	if [ -f $(TARGET_DIR)/wasmer.dll ]; then \
 		cp $(TARGET_DIR)/wasmer.dll package/lib/wasmer.dll ;\
+	fi
+	
+	if [ -f $(TARGET_DIR)/wasmer.dll.lib ]; then \
+		cp $(TARGET_DIR)/wasmer.dll.lib package/lib/wasmer.dll.lib ;\
 	fi
 	if [ -f $(TARGET_DIR)/wasmer.lib ]; then \
 		cp $(TARGET_DIR)/wasmer.lib package/lib/wasmer.lib ;\
@@ -617,6 +625,32 @@ package-capi:
 	fi
 	if [ -f $(TARGET_DIR)/libwasmer.a ]; then \
 		cp $(TARGET_DIR)/libwasmer.a package/lib/libwasmer.a ;\
+	fi
+
+package-capi-headless: build-capi-headless
+	mkdir -p "package/include"
+	mkdir -p "package/lib"
+	cp lib/c-api/wasmer.h* package/include
+	cp lib/c-api/wasmer_wasm.h* package/include
+	cp lib/c-api/wasm.h* package/include
+	cp lib/c-api/README.md package/include/README.md
+
+	if [ -f $(TARGET_DIR)/wasmer.dll ]; then \
+		cp $(TARGET_DIR)/wasmer.dll package/lib/wasmer-headless.dll ;\
+	fi
+	if [ -f $(TARGET_DIR)/wasmer.lib ]; then \
+		cp $(TARGET_DIR)/wasmer.lib package/lib/wasmer-headless.lib ;\
+	fi
+
+	if [ -f $(TARGET_DIR)/libwasmer.dylib ]; then \
+		cp $(TARGET_DIR)/libwasmer.dylib package/lib/libwasmer-headless.dylib ;\
+	fi
+
+	if [ -f $(TARGET_DIR)/libwasmer.so ]; then \
+		cp $(TARGET_DIR)/libwasmer.so package/lib/libwasmer-headless.so ;\
+	fi
+	if [ -f $(TARGET_DIR)/libwasmer.a ]; then \
+		cp $(TARGET_DIR)/libwasmer.a package/lib/libwasmer-headless.a ;\
 	fi
 
 package-docs: build-docs build-docs-capi
@@ -640,7 +674,7 @@ endif
 
 #####
 #
-# Installating (for Distros).
+# Installation (for Distros).
 #
 #####
 

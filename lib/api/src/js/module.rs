@@ -3,14 +3,14 @@ use crate::js::error::WasmError;
 use crate::js::error::{CompileError, InstantiationError};
 #[cfg(feature = "js-serializable-module")]
 use crate::js::error::{DeserializeError, SerializeError};
-use crate::js::externals::Extern;
 use crate::js::imports::Imports;
-use crate::js::store::Store;
-use crate::js::store::{AsStoreMut, StoreHandle};
+use crate::js::store::AsStoreMut;
 use crate::js::types::{AsJs, ExportType, ImportType};
 use crate::js::RuntimeError;
 use crate::AsStoreRef;
+use bytes::Bytes;
 use js_sys::{Reflect, Uint8Array, WebAssembly};
+use std::borrow::Cow;
 use std::fmt;
 use std::io;
 use std::path::Path;
@@ -50,6 +50,46 @@ pub struct ModuleTypeHints {
     pub exports: Vec<ExternType>,
 }
 
+pub trait IntoBytes {
+    fn into_bytes(self) -> Bytes;
+}
+
+impl IntoBytes for Bytes {
+    fn into_bytes(self) -> Bytes {
+        self
+    }
+}
+
+impl IntoBytes for Vec<u8> {
+    fn into_bytes(self) -> Bytes {
+        Bytes::from(self)
+    }
+}
+
+impl IntoBytes for &[u8] {
+    fn into_bytes(self) -> Bytes {
+        Bytes::from(self.to_vec())
+    }
+}
+
+impl<const N: usize> IntoBytes for &[u8; N] {
+    fn into_bytes(self) -> Bytes {
+        Bytes::from(self.to_vec())
+    }
+}
+
+impl IntoBytes for &str {
+    fn into_bytes(self) -> Bytes {
+        Bytes::from(self.as_bytes().to_vec())
+    }
+}
+
+impl IntoBytes for Cow<'_, [u8]> {
+    fn into_bytes(self) -> Bytes {
+        Bytes::from(self.to_vec())
+    }
+}
+
 /// A WebAssembly Module contains stateless WebAssembly
 /// code that has already been compiled and can be instantiated
 /// multiple times.
@@ -65,7 +105,7 @@ pub struct Module {
     // WebAssembly type hints
     type_hints: Option<ModuleTypeHints>,
     #[cfg(feature = "js-serializable-module")]
-    raw_bytes: Option<Vec<u8>>,
+    raw_bytes: Option<Bytes>,
 }
 
 impl Module {
@@ -201,7 +241,7 @@ impl Module {
             type_hints,
             name,
             #[cfg(feature = "js-serializable-module")]
-            raw_bytes: Some(binary.to_vec()),
+            raw_bytes: Some(binary.into_bytes()),
         })
     }
 
@@ -223,7 +263,7 @@ impl Module {
         &self,
         store: &mut impl AsStoreMut,
         imports: &Imports,
-    ) -> Result<(StoreHandle<WebAssembly::Instance>, Vec<Extern>), RuntimeError> {
+    ) -> Result<WebAssembly::Instance, RuntimeError> {
         // Ensure all imports come from the same store.
         if imports
             .into_iter()
@@ -233,46 +273,10 @@ impl Module {
                 InstantiationError::DifferentStores,
             )));
         }
-        let imports_object = js_sys::Object::new();
-        let mut import_externs: Vec<Extern> = vec![];
-        for import_type in self.imports() {
-            let resolved_import = imports.get_export(import_type.module(), import_type.name());
-            if let Some(import) = resolved_import {
-                let val = js_sys::Reflect::get(&imports_object, &import_type.module().into())?;
-                if !val.is_undefined() {
-                    // If the namespace is already set
-                    js_sys::Reflect::set(
-                        &val,
-                        &import_type.name().into(),
-                        &import.as_jsvalue(&store.as_store_ref()),
-                    )?;
-                } else {
-                    // If the namespace doesn't exist
-                    let import_namespace = js_sys::Object::new();
-                    js_sys::Reflect::set(
-                        &import_namespace,
-                        &import_type.name().into(),
-                        &import.as_jsvalue(&store.as_store_ref()),
-                    )?;
-                    js_sys::Reflect::set(
-                        &imports_object,
-                        &import_type.module().into(),
-                        &import_namespace.into(),
-                    )?;
-                }
-                import_externs.push(import);
-            }
-            // in case the import is not found, the JS Wasm VM will handle
-            // the error for us, so we don't need to handle it
-        }
-        Ok((
-            StoreHandle::new(
-                store.as_store_mut().objects_mut(),
-                WebAssembly::Instance::new(&self.module, &imports_object)
-                    .map_err(|e: JsValue| -> RuntimeError { e.into() })?,
-            ),
-            import_externs,
-        ))
+
+        let imports_js_obj = imports.as_jsvalue(store).into();
+        Ok(WebAssembly::Instance::new(&self.module, &imports_js_obj)
+            .map_err(|e: JsValue| -> RuntimeError { e.into() })?)
     }
 
     /// Returns the name of the current module.
@@ -301,7 +305,7 @@ impl Module {
     /// can later process via [`Module::deserialize`].
     ///
     #[cfg(feature = "js-serializable-module")]
-    pub fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
+    pub fn serialize(&self) -> Result<Bytes, SerializeError> {
         self.raw_bytes.clone().ok_or(SerializeError::Generic(
             "Not able to serialize module".to_string(),
         ))
@@ -314,9 +318,36 @@ impl Module {
     #[cfg(feature = "js-serializable-module")]
     pub unsafe fn deserialize(
         _store: &impl AsStoreRef,
-        bytes: &[u8],
+        bytes: impl IntoBytes,
     ) -> Result<Self, DeserializeError> {
+        let bytes = bytes.into_bytes();
         Self::new(_store, bytes).map_err(|e| DeserializeError::Compiler(e))
+    }
+
+    #[cfg(feature = "compiler")]
+    /// Deserializes a a serialized Module located in a `Path` into a `Module`.
+    /// > Note: the module has to be serialized before with the `serialize` method.
+    ///
+    /// # Safety
+    ///
+    /// Please check [`Module::deserialize`].
+    ///
+    /// # Usage
+    ///
+    /// ```ignore
+    /// # use wasmer::*;
+    /// # let mut store = Store::default();
+    /// # fn main() -> anyhow::Result<()> {
+    /// let module = Module::deserialize_from_file(&store, path)?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub unsafe fn deserialize_from_file(
+        store: &impl AsStoreRef,
+        path: impl AsRef<Path>,
+    ) -> Result<Self, DeserializeError> {
+        let artifact = std::fs::read(path.as_ref())?;
+        Ok(Self::new(store, bytes).map_err(|e| DeserializeError::Compiler(e)))
     }
 
     /// Sets the name of the current module.
@@ -526,16 +557,26 @@ impl Module {
         ExportsIterator::new(iter, exports.length() as usize)
     }
 
-    // /// Get the custom sections of the module given a `name`.
-    // ///
-    // /// # Important
-    // ///
-    // /// Following the WebAssembly spec, one name can have multiple
-    // /// custom sections. That's why an iterator (rather than one element)
-    // /// is returned.
-    // pub fn custom_sections<'a>(&'a self, name: &'a str) -> impl Iterator<Item = Arc<[u8]>> + 'a {
-    //     unimplemented!();
-    // }
+    /// Get the custom sections of the module given a `name`.
+    ///
+    /// # Important
+    ///
+    /// Following the WebAssembly spec, one name can have multiple
+    /// custom sections. That's why an iterator (rather than one element)
+    /// is returned.
+    pub fn custom_sections<'a>(&'a self, name: &'a str) -> impl Iterator<Item = Box<[u8]>> + 'a {
+        // TODO: implement on JavaScript
+        DefaultCustomSectionsIterator {}
+    }
+}
+
+pub struct DefaultCustomSectionsIterator {}
+
+impl Iterator for DefaultCustomSectionsIterator {
+    type Item = Box<[u8]>;
+    fn next(&mut self) -> Option<Self::Item> {
+        None
+    }
 }
 
 impl fmt::Debug for Module {

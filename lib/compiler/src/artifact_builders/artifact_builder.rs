@@ -201,7 +201,7 @@ impl ArtifactCreate for ArtifactBuild {
     }
 
     fn data_initializers(&self) -> &[OwnedDataInitializer] {
-        &*self.serializable.data_initializers
+        &self.serializable.data_initializers
     }
 
     fn memory_styles(&self) -> &PrimaryMap<MemoryIndex, MemoryStyle> {

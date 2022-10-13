@@ -7,23 +7,24 @@ use wasmer::{FunctionEnvMut, WasmPtr};
 
 pub fn execvp(ctx: FunctionEnvMut<EmEnv>, command_name_offset: u32, argv_offset: u32) -> i32 {
     // a single reference to re-use
-    let emscripten_memory = ctx.data().memory(0);
+    let memory = ctx.data().memory(0);
+    let emscripten_memory = memory.view(&ctx);
 
     // read command name as string
     let command_name_string_vec = WasmPtr::<u8>::new(command_name_offset)
-        .read_until(&ctx, &emscripten_memory, |&byte| byte == 0)
+        .read_until(&emscripten_memory, |&byte| byte == 0)
         .unwrap();
     let command_name_string = CString::new(command_name_string_vec).unwrap();
 
     // get the array of args
     let argv = WasmPtr::<WasmPtr<u8>>::new(argv_offset)
-        .read_until(&ctx, &emscripten_memory, |&ptr| ptr.is_null())
+        .read_until(&emscripten_memory, |&ptr| ptr.is_null())
         .unwrap();
     let arg_strings: Vec<CString> = argv
         .into_iter()
         .map(|ptr| {
             let vec = ptr
-                .read_until(&ctx, &emscripten_memory, |&byte| byte == 0)
+                .read_until(&emscripten_memory, |&byte| byte == 0)
                 .unwrap();
             CString::new(vec).unwrap()
         })

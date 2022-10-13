@@ -1,5 +1,6 @@
 use crate::RuntimeError;
-use crate::{Memory, Memory32, Memory64, MemorySize, WasmPtr};
+#[allow(unused_imports)]
+use crate::{Memory, Memory32, Memory64, MemorySize, MemoryView, WasmPtr};
 use std::{
     convert::TryInto,
     fmt,
@@ -13,7 +14,6 @@ use thiserror::Error;
 use wasmer_types::ValueType;
 
 use super::externals::memory::MemoryBuffer;
-use super::store::AsStoreRef;
 
 /// Error for invalid [`Memory`] access.
 #[derive(Clone, Copy, Debug, Error)]
@@ -62,9 +62,9 @@ pub struct WasmRef<'a, T: ValueType> {
 impl<'a, T: ValueType> WasmRef<'a, T> {
     /// Creates a new `WasmRef` at the given offset in a memory.
     #[inline]
-    pub fn new(store: &'a impl AsStoreRef, memory: &'a Memory, offset: u64) -> Self {
+    pub fn new(view: &'a MemoryView, offset: u64) -> Self {
         Self {
-            buffer: memory.buffer(store),
+            buffer: view.buffer,
             offset,
             marker: PhantomData,
         }
@@ -160,12 +160,7 @@ impl<'a, T: ValueType> WasmSlice<'a, T> {
     ///
     /// Returns a `MemoryAccessError` if the slice length overflows.
     #[inline]
-    pub fn new(
-        store: &'a impl AsStoreRef,
-        memory: &'a Memory,
-        offset: u64,
-        len: u64,
-    ) -> Result<Self, MemoryAccessError> {
+    pub fn new(view: &'a MemoryView, offset: u64, len: u64) -> Result<Self, MemoryAccessError> {
         let total_len = len
             .checked_mul(mem::size_of::<T>() as u64)
             .ok_or(MemoryAccessError::Overflow)?;
@@ -173,7 +168,7 @@ impl<'a, T: ValueType> WasmSlice<'a, T> {
             .checked_add(total_len)
             .ok_or(MemoryAccessError::Overflow)?;
         Ok(Self {
-            buffer: memory.buffer(store),
+            buffer: view.buffer(),
             offset,
             len,
             marker: PhantomData,

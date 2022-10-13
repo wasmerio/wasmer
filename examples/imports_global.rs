@@ -15,9 +15,7 @@
 //!
 //! Ready?
 
-use wasmer::{
-    imports, wat2wasm, FunctionEnv, Global, Instance, Module, Store, TypedFunction, Value,
-};
+use wasmer::{imports, wat2wasm, Global, Instance, Module, Store, TypedFunction, Value};
 use wasmer_compiler_cranelift::Cranelift;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -40,7 +38,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // the default provided by Wasmer.
     // You can use `Store::default()` for that.
     let mut store = Store::new(Cranelift::default());
-    let mut env = FunctionEnv::new(&mut store, ());
 
     println!("Compiling module...");
     // Let's compile the Wasm module.
@@ -70,11 +67,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let get_some: TypedFunction<(), f32> = instance
         .exports
         .get_function("get_some")?
-        .native(&mut store)?;
+        .typed(&mut store)?;
     let get_other: TypedFunction<(), f32> = instance
         .exports
         .get_function("get_other")?
-        .native(&mut store)?;
+        .typed(&mut store)?;
 
     let some_result = get_some.call(&mut store)?;
     let other_result = get_other.call(&mut store)?;
@@ -107,7 +104,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let set_other: TypedFunction<f32, ()> = instance
         .exports
         .get_function("set_other")?
-        .native(&mut store)?;
+        .typed(&mut store)?;
     set_other.call(&mut store, 42.0)?;
 
     println!("other value (via Global API): {:?}", other.get(&mut store));

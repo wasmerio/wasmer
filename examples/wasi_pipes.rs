@@ -12,7 +12,7 @@
 //! Ready?
 
 use std::io::{Read, Write};
-use wasmer::{FunctionEnv, Instance, Module, Store};
+use wasmer::{Instance, Module, Store};
 use wasmer_compiler_cranelift::Cranelift;
 use wasmer_wasi::{Pipe, WasiState};
 
@@ -38,7 +38,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // First, we create the `WasiEnv` with the stdio pipes
     let mut input = Pipe::new();
     let mut output = Pipe::new();
-    let mut wasi_env = WasiState::new("hello")
+    let wasi_env = WasiState::new("hello")
         .stdin(Box::new(input.clone()))
         .stdout(Box::new(output.clone()))
         .finalize(&mut store)?;

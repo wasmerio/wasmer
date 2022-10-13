@@ -16,7 +16,8 @@ mod value;
 pub use crate::sys::exports::{ExportError, Exportable, Exports, ExportsIterator};
 pub use crate::sys::extern_ref::ExternRef;
 pub use crate::sys::externals::{
-    Extern, FromToNativeWasmType, Function, Global, HostFunction, Memory, Table, WasmTypeList,
+    Extern, FromToNativeWasmType, Function, Global, HostFunction, Memory, MemoryView, Table,
+    WasmTypeList,
 };
 pub use crate::sys::function_env::{FunctionEnv, FunctionEnvMut};
 pub use crate::sys::imports::Imports;

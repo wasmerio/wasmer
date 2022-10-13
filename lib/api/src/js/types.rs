@@ -43,6 +43,7 @@ impl AsJs for Value {
             Self::I64(i) => JsValue::from_f64(*i as f64),
             Self::F32(f) => JsValue::from_f64(*f as f64),
             Self::F64(f) => JsValue::from_f64(*f),
+            Self::V128(f) => JsValue::from_f64(*f as f64),
             Self::FuncRef(Some(func)) => func
                 .handle
                 .get(store.as_store_ref().objects())

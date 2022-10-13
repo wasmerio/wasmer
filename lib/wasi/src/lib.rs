@@ -47,9 +47,9 @@ pub use crate::state::{
     WasiStateCreationError, ALL_RIGHTS, VIRTUAL_ROOT_FD,
 };
 pub use crate::syscalls::types;
-pub use crate::utils::{
-    get_wasi_version, get_wasi_versions, is_wasi_module, is_wasix_module, WasiVersion,
-};
+#[cfg(feature = "wasix")]
+pub use crate::utils::is_wasix_module;
+pub use crate::utils::{get_wasi_version, get_wasi_versions, is_wasi_module, WasiVersion};
 pub use wasmer_vbus::{UnsupportedVirtualBus, VirtualBus};
 #[deprecated(since = "2.1.0", note = "Please use `wasmer_vfs::FsError`")]
 pub use wasmer_vfs::FsError as WasiFsError;
@@ -57,15 +57,17 @@ pub use wasmer_vfs::FsError as WasiFsError;
 pub use wasmer_vfs::VirtualFile as WasiFile;
 pub use wasmer_vfs::{FsError, VirtualFile};
 pub use wasmer_vnet::{UnsupportedVirtualNetworking, VirtualNetworking};
-use wasmer_wasi_types::__WASI_CLOCK_MONOTONIC;
 
 use derivative::*;
 use std::ops::Deref;
 use thiserror::Error;
+use tracing::trace;
 use wasmer::{
-    imports, namespace, AsStoreMut, Exports, Function, FunctionEnv, Imports, Memory, Memory32,
-    MemoryAccessError, MemorySize, Module, TypedFunction,
+    imports, namespace, AsStoreMut, AsStoreRef, ExportError, Exports, Function, FunctionEnv,
+    Imports, Instance, Memory, Memory32, MemoryAccessError, MemorySize, MemoryView, Module,
+    TypedFunction,
 };
+use wasmer_wasi_types::wasi::{BusErrno, Errno, Snapshot0Clockid};
 
 pub use runtime::{
     PluggableRuntimeImplementation, WasiRuntimeImplementation, WasiThreadError, WasiTtyState,
@@ -113,12 +115,6 @@ impl From<WasiBusProcessId> for u32 {
     }
 }
 
-#[cfg(target_family = "wasm")]
-#[link(wasm_import_module = "__wbindgen_thread_xform__")]
-extern "C" {
-    fn __wbindgen_thread_id() -> u32;
-}
-
 #[derive(Debug, Clone)]
 pub struct WasiThread {
     /// ID of this thread
@@ -134,7 +130,8 @@ impl WasiThread {
     /// Waits for the thread to exit (false = timeout)
     pub fn join(&self, timeout: Duration) -> bool {
         let guard = self.join.lock().unwrap();
-        match guard.recv_timeout(timeout) {
+        let timeout = guard.recv_timeout(timeout);
+        match timeout {
             Ok(_) => true,
             Err(mpsc::RecvTimeoutError::Disconnected) => true,
             Err(mpsc::RecvTimeoutError::Timeout) => false,
@@ -171,6 +168,33 @@ impl WasiFunctionEnv {
         self.env.as_mut(store)
     }
 
+    /// Initializes the WasiEnv using the instance exports
+    /// (this must be executed before attempting to use it)
+    /// (as the stores can not by themselves be passed between threads we can store the module
+    ///  in a thread-local variables and use it later - for multithreading)
+    pub fn initialize(
+        &mut self,
+        store: &mut impl AsStoreMut,
+        instance: &Instance,
+    ) -> Result<(), ExportError> {
+        // List all the exports and imports
+        for ns in instance.module().exports() {
+            //trace!("module::export - {} ({:?})", ns.name(), ns.ty());
+            trace!("module::export - {}", ns.name());
+        }
+        for ns in instance.module().imports() {
+            trace!("module::import - {}::{}", ns.module(), ns.name());
+        }
+
+        // First we get the malloc function which if it exists will be used to
+        // create the pthread_self structure
+        let memory = instance.exports.get_memory("memory")?.clone();
+        let env = self.data_mut(store);
+        env.set_memory(memory);
+
+        Ok(())
+    }
+
     /// Like `import_object` but containing all the WASI versions detected in
     /// the module.
     pub fn import_object_for_all_wasi_versions(
@@ -189,6 +213,7 @@ impl WasiFunctionEnv {
             }
         }
 
+        #[cfg(feature = "wasix")]
         if is_wasix_module(module) {
             self.data_mut(store)
                 .state
@@ -296,10 +321,12 @@ impl WasiEnv {
     // Sleeps for a period of time
     pub fn sleep(&self, duration: Duration) -> Result<(), WasiError> {
         let duration = duration.as_nanos();
-        let start = platform_clock_time_get(__WASI_CLOCK_MONOTONIC, 1_000_000).unwrap() as u128;
+        let start =
+            platform_clock_time_get(Snapshot0Clockid::Monotonic, 1_000_000).unwrap() as u128;
         self.yield_now()?;
         loop {
-            let now = platform_clock_time_get(__WASI_CLOCK_MONOTONIC, 1_000_000).unwrap() as u128;
+            let now =
+                platform_clock_time_get(Snapshot0Clockid::Monotonic, 1_000_000).unwrap() as u128;
             let delta = match now.checked_sub(start) {
                 Some(a) => a,
                 None => {
@@ -330,11 +357,6 @@ impl WasiEnv {
     pub fn bus(&self) -> &(dyn VirtualBus) {
         self.runtime.bus()
     }
-    pub(crate) fn get_memory_and_wasi_state(&self, _mem_index: u32) -> (&Memory, &WasiState) {
-        let memory = self.memory();
-        let state = self.state.deref();
-        (memory, state)
-    }
 
     /// Set the memory of the WasiEnv (can only be done once)
     pub fn set_memory(&mut self, memory: Memory) {
@@ -342,6 +364,12 @@ impl WasiEnv {
             panic!("Memory of a WasiEnv can only be set once!");
         }
         self.memory = Some(memory);
+    }
+
+    /// Providers safe access to the memory
+    /// (it must be initialized before it can be used)
+    pub fn memory_view<'a>(&'a self, store: &'a impl AsStoreRef) -> MemoryView<'a> {
+        self.memory().view(store)
     }
 
     /// Get memory, that needs to have been set fist
@@ -354,21 +382,33 @@ impl WasiEnv {
         &self.state
     }
 
-    pub fn get_memory_and_wasi_state_and_inodes(
-        &self,
+    pub(crate) fn get_memory_and_wasi_state<'a>(
+        &'a self,
+        store: &'a impl AsStoreRef,
         _mem_index: u32,
-    ) -> (&Memory, &WasiState, RwLockReadGuard<WasiInodes>) {
-        let memory = self.memory();
+    ) -> (MemoryView<'a>, &WasiState) {
+        let memory = self.memory_view(store);
+        let state = self.state.deref();
+        (memory, state)
+    }
+
+    pub(crate) fn get_memory_and_wasi_state_and_inodes<'a>(
+        &'a self,
+        store: &'a impl AsStoreRef,
+        _mem_index: u32,
+    ) -> (MemoryView<'a>, &WasiState, RwLockReadGuard<WasiInodes>) {
+        let memory = self.memory_view(store);
         let state = self.state.deref();
         let inodes = state.inodes.read().unwrap();
         (memory, state, inodes)
     }
 
-    pub(crate) fn get_memory_and_wasi_state_and_inodes_mut(
-        &self,
+    pub(crate) fn get_memory_and_wasi_state_and_inodes_mut<'a>(
+        &'a self,
+        store: &'a impl AsStoreRef,
         _mem_index: u32,
-    ) -> (&Memory, &WasiState, RwLockWriteGuard<WasiInodes>) {
-        let memory = self.memory();
+    ) -> (MemoryView<'a>, &WasiState, RwLockWriteGuard<WasiInodes>) {
+        let memory = self.memory_view(store);
         let state = self.state.deref();
         let inodes = state.inodes.write().unwrap();
         (memory, state, inodes)
@@ -378,129 +418,133 @@ impl WasiEnv {
 /// Create an [`Imports`]  from a [`Context`]
 pub fn generate_import_object_from_env(
     store: &mut impl AsStoreMut,
-    ctx: &FunctionEnv<WasiEnv>,
+    env: &FunctionEnv<WasiEnv>,
     version: WasiVersion,
 ) -> Imports {
     match version {
-        WasiVersion::Snapshot0 => generate_import_object_snapshot0(store, ctx),
+        WasiVersion::Snapshot0 => generate_import_object_snapshot0(store, env),
         WasiVersion::Snapshot1 | WasiVersion::Latest => {
-            generate_import_object_snapshot1(store, ctx)
+            generate_import_object_snapshot1(store, env)
         }
-        WasiVersion::Wasix32v1 => generate_import_object_wasix32_v1(store, ctx),
-        WasiVersion::Wasix64v1 => generate_import_object_wasix64_v1(store, ctx),
+        #[cfg(feature = "wasix")]
+        WasiVersion::Wasix32v1 => generate_import_object_wasix32_v1(store, env),
+        #[cfg(feature = "wasix")]
+        WasiVersion::Wasix64v1 => generate_import_object_wasix64_v1(store, env),
+        #[cfg(not(feature = "wasix"))]
+        _ => unimplemented!(),
     }
 }
 
-fn wasi_unstable_exports(mut store: &mut impl AsStoreMut, ctx: &FunctionEnv<WasiEnv>) -> Exports {
+fn wasi_unstable_exports(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>) -> Exports {
     let namespace = namespace! {
-        "args_get" => Function::new_native(&mut store, ctx, args_get::<Memory32>),
-        "args_sizes_get" => Function::new_native(&mut store, ctx, args_sizes_get::<Memory32>),
-        "clock_res_get" => Function::new_native(&mut store, ctx, clock_res_get::<Memory32>),
-        "clock_time_get" => Function::new_native(&mut store, ctx, clock_time_get::<Memory32>),
-        "environ_get" => Function::new_native(&mut store, ctx, environ_get::<Memory32>),
-        "environ_sizes_get" => Function::new_native(&mut store, ctx, environ_sizes_get::<Memory32>),
-        "fd_advise" => Function::new_native(&mut store, ctx, fd_advise),
-        "fd_allocate" => Function::new_native(&mut store, ctx, fd_allocate),
-        "fd_close" => Function::new_native(&mut store, ctx, fd_close),
-        "fd_datasync" => Function::new_native(&mut store, ctx, fd_datasync),
-        "fd_fdstat_get" => Function::new_native(&mut store, ctx, fd_fdstat_get::<Memory32>),
-        "fd_fdstat_set_flags" => Function::new_native(&mut store, ctx, fd_fdstat_set_flags),
-        "fd_fdstat_set_rights" => Function::new_native(&mut store, ctx, fd_fdstat_set_rights),
-        "fd_filestat_get" => Function::new_native(&mut store, ctx, legacy::snapshot0::fd_filestat_get),
-        "fd_filestat_set_size" => Function::new_native(&mut store, ctx, fd_filestat_set_size),
-        "fd_filestat_set_times" => Function::new_native(&mut store, ctx, fd_filestat_set_times),
-        "fd_pread" => Function::new_native(&mut store, ctx, fd_pread::<Memory32>),
-        "fd_prestat_get" => Function::new_native(&mut store, ctx, fd_prestat_get::<Memory32>),
-        "fd_prestat_dir_name" => Function::new_native(&mut store, ctx, fd_prestat_dir_name::<Memory32>),
-        "fd_pwrite" => Function::new_native(&mut store, ctx, fd_pwrite::<Memory32>),
-        "fd_read" => Function::new_native(&mut store, ctx, fd_read::<Memory32>),
-        "fd_readdir" => Function::new_native(&mut store, ctx, fd_readdir::<Memory32>),
-        "fd_renumber" => Function::new_native(&mut store, ctx, fd_renumber),
-        "fd_seek" => Function::new_native(&mut store, ctx, legacy::snapshot0::fd_seek),
-        "fd_sync" => Function::new_native(&mut store, ctx, fd_sync),
-        "fd_tell" => Function::new_native(&mut store, ctx, fd_tell::<Memory32>),
-        "fd_write" => Function::new_native(&mut store, ctx, fd_write::<Memory32>),
-        "path_create_directory" => Function::new_native(&mut store, ctx, path_create_directory::<Memory32>),
-        "path_filestat_get" => Function::new_native(&mut store, ctx, legacy::snapshot0::path_filestat_get),
-        "path_filestat_set_times" => Function::new_native(&mut store, ctx, path_filestat_set_times::<Memory32>),
-        "path_link" => Function::new_native(&mut store, ctx, path_link::<Memory32>),
-        "path_open" => Function::new_native(&mut store, ctx, path_open::<Memory32>),
-        "path_readlink" => Function::new_native(&mut store, ctx, path_readlink::<Memory32>),
-        "path_remove_directory" => Function::new_native(&mut store, ctx, path_remove_directory::<Memory32>),
-        "path_rename" => Function::new_native(&mut store, ctx, path_rename::<Memory32>),
-        "path_symlink" => Function::new_native(&mut store, ctx, path_symlink::<Memory32>),
-        "path_unlink_file" => Function::new_native(&mut store, ctx, path_unlink_file::<Memory32>),
-        "poll_oneoff" => Function::new_native(&mut store, ctx, legacy::snapshot0::poll_oneoff),
-        "proc_exit" => Function::new_native(&mut store, ctx, proc_exit),
-        "proc_raise" => Function::new_native(&mut store, ctx, proc_raise),
-        "random_get" => Function::new_native(&mut store, ctx, random_get::<Memory32>),
-        "sched_yield" => Function::new_native(&mut store, ctx, sched_yield),
-        "sock_recv" => Function::new_native(&mut store, ctx, sock_recv::<Memory32>),
-        "sock_send" => Function::new_native(&mut store, ctx, sock_send::<Memory32>),
-        "sock_shutdown" => Function::new_native(&mut store, ctx, sock_shutdown),
+        "args_get" => Function::new_typed_with_env(&mut store, env, args_get::<Memory32>),
+        "args_sizes_get" => Function::new_typed_with_env(&mut store, env, args_sizes_get::<Memory32>),
+        "clock_res_get" => Function::new_typed_with_env(&mut store, env, clock_res_get::<Memory32>),
+        "clock_time_get" => Function::new_typed_with_env(&mut store, env, clock_time_get::<Memory32>),
+        "environ_get" => Function::new_typed_with_env(&mut store, env, environ_get::<Memory32>),
+        "environ_sizes_get" => Function::new_typed_with_env(&mut store, env, environ_sizes_get::<Memory32>),
+        "fd_advise" => Function::new_typed_with_env(&mut store, env, fd_advise),
+        "fd_allocate" => Function::new_typed_with_env(&mut store, env, fd_allocate),
+        "fd_close" => Function::new_typed_with_env(&mut store, env, fd_close),
+        "fd_datasync" => Function::new_typed_with_env(&mut store, env, fd_datasync),
+        "fd_fdstat_get" => Function::new_typed_with_env(&mut store, env, fd_fdstat_get::<Memory32>),
+        "fd_fdstat_set_flags" => Function::new_typed_with_env(&mut store, env, fd_fdstat_set_flags),
+        "fd_fdstat_set_rights" => Function::new_typed_with_env(&mut store, env, fd_fdstat_set_rights),
+        "fd_filestat_get" => Function::new_typed_with_env(&mut store, env, legacy::snapshot0::fd_filestat_get),
+        "fd_filestat_set_size" => Function::new_typed_with_env(&mut store, env, fd_filestat_set_size),
+        "fd_filestat_set_times" => Function::new_typed_with_env(&mut store, env, fd_filestat_set_times),
+        "fd_pread" => Function::new_typed_with_env(&mut store, env, fd_pread::<Memory32>),
+        "fd_prestat_get" => Function::new_typed_with_env(&mut store, env, fd_prestat_get::<Memory32>),
+        "fd_prestat_dir_name" => Function::new_typed_with_env(&mut store, env, fd_prestat_dir_name::<Memory32>),
+        "fd_pwrite" => Function::new_typed_with_env(&mut store, env, fd_pwrite::<Memory32>),
+        "fd_read" => Function::new_typed_with_env(&mut store, env, fd_read::<Memory32>),
+        "fd_readdir" => Function::new_typed_with_env(&mut store, env, fd_readdir::<Memory32>),
+        "fd_renumber" => Function::new_typed_with_env(&mut store, env, fd_renumber),
+        "fd_seek" => Function::new_typed_with_env(&mut store, env, legacy::snapshot0::fd_seek),
+        "fd_sync" => Function::new_typed_with_env(&mut store, env, fd_sync),
+        "fd_tell" => Function::new_typed_with_env(&mut store, env, fd_tell::<Memory32>),
+        "fd_write" => Function::new_typed_with_env(&mut store, env, fd_write::<Memory32>),
+        "path_create_directory" => Function::new_typed_with_env(&mut store, env, path_create_directory::<Memory32>),
+        "path_filestat_get" => Function::new_typed_with_env(&mut store, env, legacy::snapshot0::path_filestat_get),
+        "path_filestat_set_times" => Function::new_typed_with_env(&mut store, env, path_filestat_set_times::<Memory32>),
+        "path_link" => Function::new_typed_with_env(&mut store, env, path_link::<Memory32>),
+        "path_open" => Function::new_typed_with_env(&mut store, env, path_open::<Memory32>),
+        "path_readlink" => Function::new_typed_with_env(&mut store, env, path_readlink::<Memory32>),
+        "path_remove_directory" => Function::new_typed_with_env(&mut store, env, path_remove_directory::<Memory32>),
+        "path_rename" => Function::new_typed_with_env(&mut store, env, path_rename::<Memory32>),
+        "path_symlink" => Function::new_typed_with_env(&mut store, env, path_symlink::<Memory32>),
+        "path_unlink_file" => Function::new_typed_with_env(&mut store, env, path_unlink_file::<Memory32>),
+        "poll_oneoff" => Function::new_typed_with_env(&mut store, env, legacy::snapshot0::poll_oneoff),
+        "proc_exit" => Function::new_typed_with_env(&mut store, env, proc_exit),
+        "proc_raise" => Function::new_typed_with_env(&mut store, env, proc_raise),
+        "random_get" => Function::new_typed_with_env(&mut store, env, random_get::<Memory32>),
+        "sched_yield" => Function::new_typed_with_env(&mut store, env, sched_yield),
+        "sock_recv" => Function::new_typed_with_env(&mut store, env, sock_recv::<Memory32>),
+        "sock_send" => Function::new_typed_with_env(&mut store, env, sock_send::<Memory32>),
+        "sock_shutdown" => Function::new_typed_with_env(&mut store, env, sock_shutdown),
     };
     namespace
 }
 
 fn wasi_snapshot_preview1_exports(
     mut store: &mut impl AsStoreMut,
-    ctx: &FunctionEnv<WasiEnv>,
+    env: &FunctionEnv<WasiEnv>,
 ) -> Exports {
     let namespace = namespace! {
-        "args_get" => Function::new_native(&mut store, ctx, args_get::<Memory32>),
-        "args_sizes_get" => Function::new_native(&mut store, ctx, args_sizes_get::<Memory32>),
-        "clock_res_get" => Function::new_native(&mut store, ctx, clock_res_get::<Memory32>),
-        "clock_time_get" => Function::new_native(&mut store, ctx, clock_time_get::<Memory32>),
-        "environ_get" => Function::new_native(&mut store, ctx, environ_get::<Memory32>),
-        "environ_sizes_get" => Function::new_native(&mut store, ctx, environ_sizes_get::<Memory32>),
-        "fd_advise" => Function::new_native(&mut store, ctx, fd_advise),
-        "fd_allocate" => Function::new_native(&mut store, ctx, fd_allocate),
-        "fd_close" => Function::new_native(&mut store, ctx, fd_close),
-        "fd_datasync" => Function::new_native(&mut store, ctx, fd_datasync),
-        "fd_fdstat_get" => Function::new_native(&mut store, ctx, fd_fdstat_get::<Memory32>),
-        "fd_fdstat_set_flags" => Function::new_native(&mut store, ctx, fd_fdstat_set_flags),
-        "fd_fdstat_set_rights" => Function::new_native(&mut store, ctx, fd_fdstat_set_rights),
-        "fd_filestat_get" => Function::new_native(&mut store, ctx, fd_filestat_get::<Memory32>),
-        "fd_filestat_set_size" => Function::new_native(&mut store, ctx, fd_filestat_set_size),
-        "fd_filestat_set_times" => Function::new_native(&mut store, ctx, fd_filestat_set_times),
-        "fd_pread" => Function::new_native(&mut store, ctx, fd_pread::<Memory32>),
-        "fd_prestat_get" => Function::new_native(&mut store, ctx, fd_prestat_get::<Memory32>),
-        "fd_prestat_dir_name" => Function::new_native(&mut store, ctx, fd_prestat_dir_name::<Memory32>),
-        "fd_pwrite" => Function::new_native(&mut store, ctx, fd_pwrite::<Memory32>),
-        "fd_read" => Function::new_native(&mut store, ctx, fd_read::<Memory32>),
-        "fd_readdir" => Function::new_native(&mut store, ctx, fd_readdir::<Memory32>),
-        "fd_renumber" => Function::new_native(&mut store, ctx, fd_renumber),
-        "fd_seek" => Function::new_native(&mut store, ctx, fd_seek::<Memory32>),
-        "fd_sync" => Function::new_native(&mut store, ctx, fd_sync),
-        "fd_tell" => Function::new_native(&mut store, ctx, fd_tell::<Memory32>),
-        "fd_write" => Function::new_native(&mut store, ctx, fd_write::<Memory32>),
-        "path_create_directory" => Function::new_native(&mut store, ctx, path_create_directory::<Memory32>),
-        "path_filestat_get" => Function::new_native(&mut store, ctx, path_filestat_get::<Memory32>),
-        "path_filestat_set_times" => Function::new_native(&mut store, ctx, path_filestat_set_times::<Memory32>),
-        "path_link" => Function::new_native(&mut store, ctx, path_link::<Memory32>),
-        "path_open" => Function::new_native(&mut store, ctx, path_open::<Memory32>),
-        "path_readlink" => Function::new_native(&mut store, ctx, path_readlink::<Memory32>),
-        "path_remove_directory" => Function::new_native(&mut store, ctx, path_remove_directory::<Memory32>),
-        "path_rename" => Function::new_native(&mut store, ctx, path_rename::<Memory32>),
-        "path_symlink" => Function::new_native(&mut store, ctx, path_symlink::<Memory32>),
-        "path_unlink_file" => Function::new_native(&mut store, ctx, path_unlink_file::<Memory32>),
-        "poll_oneoff" => Function::new_native(&mut store, ctx, poll_oneoff::<Memory32>),
-        "proc_exit" => Function::new_native(&mut store, ctx, proc_exit),
-        "proc_raise" => Function::new_native(&mut store, ctx, proc_raise),
-        "random_get" => Function::new_native(&mut store, ctx, random_get::<Memory32>),
-        "sched_yield" => Function::new_native(&mut store, ctx, sched_yield),
-        "sock_recv" => Function::new_native(&mut store, ctx, sock_recv::<Memory32>),
-        "sock_send" => Function::new_native(&mut store, ctx, sock_send::<Memory32>),
-        "sock_shutdown" => Function::new_native(&mut store, ctx, sock_shutdown),
+        "args_get" => Function::new_typed_with_env(&mut store, env, args_get::<Memory32>),
+        "args_sizes_get" => Function::new_typed_with_env(&mut store, env, args_sizes_get::<Memory32>),
+        "clock_res_get" => Function::new_typed_with_env(&mut store, env, clock_res_get::<Memory32>),
+        "clock_time_get" => Function::new_typed_with_env(&mut store, env, clock_time_get::<Memory32>),
+        "environ_get" => Function::new_typed_with_env(&mut store, env, environ_get::<Memory32>),
+        "environ_sizes_get" => Function::new_typed_with_env(&mut store, env, environ_sizes_get::<Memory32>),
+        "fd_advise" => Function::new_typed_with_env(&mut store, env, fd_advise),
+        "fd_allocate" => Function::new_typed_with_env(&mut store, env, fd_allocate),
+        "fd_close" => Function::new_typed_with_env(&mut store, env, fd_close),
+        "fd_datasync" => Function::new_typed_with_env(&mut store, env, fd_datasync),
+        "fd_fdstat_get" => Function::new_typed_with_env(&mut store, env, fd_fdstat_get::<Memory32>),
+        "fd_fdstat_set_flags" => Function::new_typed_with_env(&mut store, env, fd_fdstat_set_flags),
+        "fd_fdstat_set_rights" => Function::new_typed_with_env(&mut store, env, fd_fdstat_set_rights),
+        "fd_filestat_get" => Function::new_typed_with_env(&mut store, env, fd_filestat_get::<Memory32>),
+        "fd_filestat_set_size" => Function::new_typed_with_env(&mut store, env, fd_filestat_set_size),
+        "fd_filestat_set_times" => Function::new_typed_with_env(&mut store, env, fd_filestat_set_times),
+        "fd_pread" => Function::new_typed_with_env(&mut store, env, fd_pread::<Memory32>),
+        "fd_prestat_get" => Function::new_typed_with_env(&mut store, env, fd_prestat_get::<Memory32>),
+        "fd_prestat_dir_name" => Function::new_typed_with_env(&mut store, env, fd_prestat_dir_name::<Memory32>),
+        "fd_pwrite" => Function::new_typed_with_env(&mut store, env, fd_pwrite::<Memory32>),
+        "fd_read" => Function::new_typed_with_env(&mut store, env, fd_read::<Memory32>),
+        "fd_readdir" => Function::new_typed_with_env(&mut store, env, fd_readdir::<Memory32>),
+        "fd_renumber" => Function::new_typed_with_env(&mut store, env, fd_renumber),
+        "fd_seek" => Function::new_typed_with_env(&mut store, env, fd_seek::<Memory32>),
+        "fd_sync" => Function::new_typed_with_env(&mut store, env, fd_sync),
+        "fd_tell" => Function::new_typed_with_env(&mut store, env, fd_tell::<Memory32>),
+        "fd_write" => Function::new_typed_with_env(&mut store, env, fd_write::<Memory32>),
+        "path_create_directory" => Function::new_typed_with_env(&mut store, env, path_create_directory::<Memory32>),
+        "path_filestat_get" => Function::new_typed_with_env(&mut store, env, path_filestat_get::<Memory32>),
+        "path_filestat_set_times" => Function::new_typed_with_env(&mut store, env, path_filestat_set_times::<Memory32>),
+        "path_link" => Function::new_typed_with_env(&mut store, env, path_link::<Memory32>),
+        "path_open" => Function::new_typed_with_env(&mut store, env, path_open::<Memory32>),
+        "path_readlink" => Function::new_typed_with_env(&mut store, env, path_readlink::<Memory32>),
+        "path_remove_directory" => Function::new_typed_with_env(&mut store, env, path_remove_directory::<Memory32>),
+        "path_rename" => Function::new_typed_with_env(&mut store, env, path_rename::<Memory32>),
+        "path_symlink" => Function::new_typed_with_env(&mut store, env, path_symlink::<Memory32>),
+        "path_unlink_file" => Function::new_typed_with_env(&mut store, env, path_unlink_file::<Memory32>),
+        "poll_oneoff" => Function::new_typed_with_env(&mut store, env, poll_oneoff::<Memory32>),
+        "proc_exit" => Function::new_typed_with_env(&mut store, env, proc_exit),
+        "proc_raise" => Function::new_typed_with_env(&mut store, env, proc_raise),
+        "random_get" => Function::new_typed_with_env(&mut store, env, random_get::<Memory32>),
+        "sched_yield" => Function::new_typed_with_env(&mut store, env, sched_yield),
+        "sock_recv" => Function::new_typed_with_env(&mut store, env, sock_recv::<Memory32>),
+        "sock_send" => Function::new_typed_with_env(&mut store, env, sock_send::<Memory32>),
+        "sock_shutdown" => Function::new_typed_with_env(&mut store, env, sock_shutdown),
     };
     namespace
 }
 pub fn import_object_for_all_wasi_versions(
     store: &mut impl AsStoreMut,
-    ctx: &FunctionEnv<WasiEnv>,
+    env: &FunctionEnv<WasiEnv>,
 ) -> Imports {
-    let wasi_unstable_exports = wasi_unstable_exports(store, ctx);
-    let wasi_snapshot_preview1_exports = wasi_snapshot_preview1_exports(store, ctx);
+    let wasi_unstable_exports = wasi_unstable_exports(store, env);
+    let wasi_snapshot_preview1_exports = wasi_snapshot_preview1_exports(store, env);
     imports! {
         "wasi_unstable" => wasi_unstable_exports,
         "wasi_snapshot_preview1" => wasi_snapshot_preview1_exports,
@@ -510,9 +554,9 @@ pub fn import_object_for_all_wasi_versions(
 /// Combines a state generating function with the import list for legacy WASI
 fn generate_import_object_snapshot0(
     store: &mut impl AsStoreMut,
-    ctx: &FunctionEnv<WasiEnv>,
+    env: &FunctionEnv<WasiEnv>,
 ) -> Imports {
-    let wasi_unstable_exports = wasi_unstable_exports(store, ctx);
+    let wasi_unstable_exports = wasi_unstable_exports(store, env);
     imports! {
         "wasi_unstable" => wasi_unstable_exports
     }
@@ -520,265 +564,267 @@ fn generate_import_object_snapshot0(
 
 fn generate_import_object_snapshot1(
     store: &mut impl AsStoreMut,
-    ctx: &FunctionEnv<WasiEnv>,
+    env: &FunctionEnv<WasiEnv>,
 ) -> Imports {
-    let wasi_snapshot_preview1_exports = wasi_snapshot_preview1_exports(store, ctx);
+    let wasi_snapshot_preview1_exports = wasi_snapshot_preview1_exports(store, env);
     imports! {
         "wasi_snapshot_preview1" => wasi_snapshot_preview1_exports
     }
 }
 
 /// Combines a state generating function with the import list for snapshot 1
+#[cfg(feature = "wasix")]
 fn generate_import_object_wasix32_v1(
     mut store: &mut impl AsStoreMut,
-    ctx: &FunctionEnv<WasiEnv>,
+    env: &FunctionEnv<WasiEnv>,
 ) -> Imports {
     use self::wasix32::*;
     imports! {
         "wasix_32v1" => {
-            "args_get" => Function::new_native(&mut store, ctx, args_get),
-            "args_sizes_get" => Function::new_native(&mut store, ctx, args_sizes_get),
-            "clock_res_get" => Function::new_native(&mut store, ctx, clock_res_get),
-            "clock_time_get" => Function::new_native(&mut store, ctx, clock_time_get),
-            "environ_get" => Function::new_native(&mut store, ctx, environ_get),
-            "environ_sizes_get" => Function::new_native(&mut store, ctx, environ_sizes_get),
-            "fd_advise" => Function::new_native(&mut store, ctx, fd_advise),
-            "fd_allocate" => Function::new_native(&mut store, ctx, fd_allocate),
-            "fd_close" => Function::new_native(&mut store, ctx, fd_close),
-            "fd_datasync" => Function::new_native(&mut store, ctx, fd_datasync),
-            "fd_fdstat_get" => Function::new_native(&mut store, ctx, fd_fdstat_get),
-            "fd_fdstat_set_flags" => Function::new_native(&mut store, ctx, fd_fdstat_set_flags),
-            "fd_fdstat_set_rights" => Function::new_native(&mut store, ctx, fd_fdstat_set_rights),
-            "fd_filestat_get" => Function::new_native(&mut store, ctx, fd_filestat_get),
-            "fd_filestat_set_size" => Function::new_native(&mut store, ctx, fd_filestat_set_size),
-            "fd_filestat_set_times" => Function::new_native(&mut store, ctx, fd_filestat_set_times),
-            "fd_pread" => Function::new_native(&mut store, ctx, fd_pread),
-            "fd_prestat_get" => Function::new_native(&mut store, ctx, fd_prestat_get),
-            "fd_prestat_dir_name" => Function::new_native(&mut store, ctx, fd_prestat_dir_name),
-            "fd_pwrite" => Function::new_native(&mut store, ctx, fd_pwrite),
-            "fd_read" => Function::new_native(&mut store, ctx, fd_read),
-            "fd_readdir" => Function::new_native(&mut store, ctx, fd_readdir),
-            "fd_renumber" => Function::new_native(&mut store, ctx, fd_renumber),
-            "fd_dup" => Function::new_native(&mut store, ctx, fd_dup),
-            "fd_event" => Function::new_native(&mut store, ctx, fd_event),
-            "fd_seek" => Function::new_native(&mut store, ctx, fd_seek),
-            "fd_sync" => Function::new_native(&mut store, ctx, fd_sync),
-            "fd_tell" => Function::new_native(&mut store, ctx, fd_tell),
-            "fd_write" => Function::new_native(&mut store, ctx, fd_write),
-            "fd_pipe" => Function::new_native(&mut store, ctx, fd_pipe),
-            "path_create_directory" => Function::new_native(&mut store, ctx, path_create_directory),
-            "path_filestat_get" => Function::new_native(&mut store, ctx, path_filestat_get),
-            "path_filestat_set_times" => Function::new_native(&mut store, ctx, path_filestat_set_times),
-            "path_link" => Function::new_native(&mut store, ctx, path_link),
-            "path_open" => Function::new_native(&mut store, ctx, path_open),
-            "path_readlink" => Function::new_native(&mut store, ctx, path_readlink),
-            "path_remove_directory" => Function::new_native(&mut store, ctx, path_remove_directory),
-            "path_rename" => Function::new_native(&mut store, ctx, path_rename),
-            "path_symlink" => Function::new_native(&mut store, ctx, path_symlink),
-            "path_unlink_file" => Function::new_native(&mut store, ctx, path_unlink_file),
-            "poll_oneoff" => Function::new_native(&mut store, ctx, poll_oneoff),
-            "proc_exit" => Function::new_native(&mut store, ctx, proc_exit),
-            "proc_raise" => Function::new_native(&mut store, ctx, proc_raise),
-            "random_get" => Function::new_native(&mut store, ctx, random_get),
-            "tty_get" => Function::new_native(&mut store, ctx, tty_get),
-            "tty_set" => Function::new_native(&mut store, ctx, tty_set),
-            "getcwd" => Function::new_native(&mut store, ctx, getcwd),
-            "chdir" => Function::new_native(&mut store, ctx, chdir),
-            "thread_spawn" => Function::new_native(&mut store, ctx, thread_spawn),
-            "thread_sleep" => Function::new_native(&mut store, ctx, thread_sleep),
-            "thread_id" => Function::new_native(&mut store, ctx, thread_id),
-            "thread_join" => Function::new_native(&mut store, ctx, thread_join),
-            "thread_parallelism" => Function::new_native(&mut store, ctx, thread_parallelism),
-            "thread_exit" => Function::new_native(&mut store, ctx, thread_exit),
-            "sched_yield" => Function::new_native(&mut store, ctx, sched_yield),
-            "getpid" => Function::new_native(&mut store, ctx, getpid),
-            "process_spawn" => Function::new_native(&mut store, ctx, process_spawn),
-            "bus_open_local" => Function::new_native(&mut store, ctx, bus_open_local),
-            "bus_open_remote" => Function::new_native(&mut store, ctx, bus_open_remote),
-            "bus_close" => Function::new_native(&mut store, ctx, bus_close),
-            "bus_call" => Function::new_native(&mut store, ctx, bus_call),
-            "bus_subcall" => Function::new_native(&mut store, ctx, bus_subcall),
-            "bus_poll" => Function::new_native(&mut store, ctx, bus_poll),
-            "call_reply" => Function::new_native(&mut store, ctx, call_reply),
-            "call_fault" => Function::new_native(&mut store, ctx, call_fault),
-            "call_close" => Function::new_native(&mut store, ctx, call_close),
-            "ws_connect" => Function::new_native(&mut store, ctx, ws_connect),
-            "http_request" => Function::new_native(&mut store, ctx, http_request),
-            "http_status" => Function::new_native(&mut store, ctx, http_status),
-            "port_bridge" => Function::new_native(&mut store, ctx, port_bridge),
-            "port_unbridge" => Function::new_native(&mut store, ctx, port_unbridge),
-            "port_dhcp_acquire" => Function::new_native(&mut store, ctx, port_dhcp_acquire),
-            "port_addr_add" => Function::new_native(&mut store, ctx, port_addr_add),
-            "port_addr_remove" => Function::new_native(&mut store, ctx, port_addr_remove),
-            "port_addr_clear" => Function::new_native(&mut store, ctx, port_addr_clear),
-            "port_addr_list" => Function::new_native(&mut store, ctx, port_addr_list),
-            "port_mac" => Function::new_native(&mut store, ctx, port_mac),
-            "port_gateway_set" => Function::new_native(&mut store, ctx, port_gateway_set),
-            "port_route_add" => Function::new_native(&mut store, ctx, port_route_add),
-            "port_route_remove" => Function::new_native(&mut store, ctx, port_route_remove),
-            "port_route_clear" => Function::new_native(&mut store, ctx, port_route_clear),
-            "port_route_list" => Function::new_native(&mut store, ctx, port_route_list),
-            "sock_status" => Function::new_native(&mut store, ctx, sock_status),
-            "sock_addr_local" => Function::new_native(&mut store, ctx, sock_addr_local),
-            "sock_addr_peer" => Function::new_native(&mut store, ctx, sock_addr_peer),
-            "sock_open" => Function::new_native(&mut store, ctx, sock_open),
-            "sock_set_opt_flag" => Function::new_native(&mut store, ctx, sock_set_opt_flag),
-            "sock_get_opt_flag" => Function::new_native(&mut store, ctx, sock_get_opt_flag),
-            "sock_set_opt_time" => Function::new_native(&mut store, ctx, sock_set_opt_time),
-            "sock_get_opt_time" => Function::new_native(&mut store, ctx, sock_get_opt_time),
-            "sock_set_opt_size" => Function::new_native(&mut store, ctx, sock_set_opt_size),
-            "sock_get_opt_size" => Function::new_native(&mut store, ctx, sock_get_opt_size),
-            "sock_join_multicast_v4" => Function::new_native(&mut store, ctx, sock_join_multicast_v4),
-            "sock_leave_multicast_v4" => Function::new_native(&mut store, ctx, sock_leave_multicast_v4),
-            "sock_join_multicast_v6" => Function::new_native(&mut store, ctx, sock_join_multicast_v6),
-            "sock_leave_multicast_v6" => Function::new_native(&mut store, ctx, sock_leave_multicast_v6),
-            "sock_bind" => Function::new_native(&mut store, ctx, sock_bind),
-            "sock_listen" => Function::new_native(&mut store, ctx, sock_listen),
-            "sock_accept" => Function::new_native(&mut store, ctx, sock_accept),
-            "sock_connect" => Function::new_native(&mut store, ctx, sock_connect),
-            "sock_recv" => Function::new_native(&mut store, ctx, sock_recv),
-            "sock_recv_from" => Function::new_native(&mut store, ctx, sock_recv_from),
-            "sock_send" => Function::new_native(&mut store, ctx, sock_send),
-            "sock_send_to" => Function::new_native(&mut store, ctx, sock_send_to),
-            "sock_send_file" => Function::new_native(&mut store, ctx, sock_send_file),
-            "sock_shutdown" => Function::new_native(&mut store, ctx, sock_shutdown),
-            "resolve" => Function::new_native(&mut store, ctx, resolve),
+            "args_get" => Function::new_typed_with_env(&mut store, env, args_get),
+            "args_sizes_get" => Function::new_typed_with_env(&mut store, env, args_sizes_get),
+            "clock_res_get" => Function::new_typed_with_env(&mut store, env, clock_res_get),
+            "clock_time_get" => Function::new_typed_with_env(&mut store, env, clock_time_get),
+            "environ_get" => Function::new_typed_with_env(&mut store, env, environ_get),
+            "environ_sizes_get" => Function::new_typed_with_env(&mut store, env, environ_sizes_get),
+            "fd_advise" => Function::new_typed_with_env(&mut store, env, fd_advise),
+            "fd_allocate" => Function::new_typed_with_env(&mut store, env, fd_allocate),
+            "fd_close" => Function::new_typed_with_env(&mut store, env, fd_close),
+            "fd_datasync" => Function::new_typed_with_env(&mut store, env, fd_datasync),
+            "fd_fdstat_get" => Function::new_typed_with_env(&mut store, env, fd_fdstat_get),
+            "fd_fdstat_set_flags" => Function::new_typed_with_env(&mut store, env, fd_fdstat_set_flags),
+            "fd_fdstat_set_rights" => Function::new_typed_with_env(&mut store, env, fd_fdstat_set_rights),
+            "fd_filestat_get" => Function::new_typed_with_env(&mut store, env, fd_filestat_get),
+            "fd_filestat_set_size" => Function::new_typed_with_env(&mut store, env, fd_filestat_set_size),
+            "fd_filestat_set_times" => Function::new_typed_with_env(&mut store, env, fd_filestat_set_times),
+            "fd_pread" => Function::new_typed_with_env(&mut store, env, fd_pread),
+            "fd_prestat_get" => Function::new_typed_with_env(&mut store, env, fd_prestat_get),
+            "fd_prestat_dir_name" => Function::new_typed_with_env(&mut store, env, fd_prestat_dir_name),
+            "fd_pwrite" => Function::new_typed_with_env(&mut store, env, fd_pwrite),
+            "fd_read" => Function::new_typed_with_env(&mut store, env, fd_read),
+            "fd_readdir" => Function::new_typed_with_env(&mut store, env, fd_readdir),
+            "fd_renumber" => Function::new_typed_with_env(&mut store, env, fd_renumber),
+            "fd_dup" => Function::new_typed_with_env(&mut store, env, fd_dup),
+            "fd_event" => Function::new_typed_with_env(&mut store, env, fd_event),
+            "fd_seek" => Function::new_typed_with_env(&mut store, env, fd_seek),
+            "fd_sync" => Function::new_typed_with_env(&mut store, env, fd_sync),
+            "fd_tell" => Function::new_typed_with_env(&mut store, env, fd_tell),
+            "fd_write" => Function::new_typed_with_env(&mut store, env, fd_write),
+            "fd_pipe" => Function::new_typed_with_env(&mut store, env, fd_pipe),
+            "path_create_directory" => Function::new_typed_with_env(&mut store, env, path_create_directory),
+            "path_filestat_get" => Function::new_typed_with_env(&mut store, env, path_filestat_get),
+            "path_filestat_set_times" => Function::new_typed_with_env(&mut store, env, path_filestat_set_times),
+            "path_link" => Function::new_typed_with_env(&mut store, env, path_link),
+            "path_open" => Function::new_typed_with_env(&mut store, env, path_open),
+            "path_readlink" => Function::new_typed_with_env(&mut store, env, path_readlink),
+            "path_remove_directory" => Function::new_typed_with_env(&mut store, env, path_remove_directory),
+            "path_rename" => Function::new_typed_with_env(&mut store, env, path_rename),
+            "path_symlink" => Function::new_typed_with_env(&mut store, env, path_symlink),
+            "path_unlink_file" => Function::new_typed_with_env(&mut store, env, path_unlink_file),
+            "poll_oneoff" => Function::new_typed_with_env(&mut store, env, poll_oneoff),
+            "proc_exit" => Function::new_typed_with_env(&mut store, env, proc_exit),
+            "proc_raise" => Function::new_typed_with_env(&mut store, env, proc_raise),
+            "random_get" => Function::new_typed_with_env(&mut store, env, random_get),
+            "tty_get" => Function::new_typed_with_env(&mut store, env, tty_get),
+            "tty_set" => Function::new_typed_with_env(&mut store, env, tty_set),
+            "getcwd" => Function::new_typed_with_env(&mut store, env, getcwd),
+            "chdir" => Function::new_typed_with_env(&mut store, env, chdir),
+            "thread_spawn" => Function::new_typed_with_env(&mut store, env, thread_spawn),
+            "thread_sleep" => Function::new_typed_with_env(&mut store, env, thread_sleep),
+            "thread_id" => Function::new_typed_with_env(&mut store, env, thread_id),
+            "thread_join" => Function::new_typed_with_env(&mut store, env, thread_join),
+            "thread_parallelism" => Function::new_typed_with_env(&mut store, env, thread_parallelism),
+            "thread_exit" => Function::new_typed_with_env(&mut store, env, thread_exit),
+            "sched_yield" => Function::new_typed_with_env(&mut store, env, sched_yield),
+            "getpid" => Function::new_typed_with_env(&mut store, env, getpid),
+            "process_spawn" => Function::new_typed_with_env(&mut store, env, process_spawn),
+            "bus_open_local" => Function::new_typed_with_env(&mut store, env, bus_open_local),
+            "bus_open_remote" => Function::new_typed_with_env(&mut store, env, bus_open_remote),
+            "bus_close" => Function::new_typed_with_env(&mut store, env, bus_close),
+            "bus_call" => Function::new_typed_with_env(&mut store, env, bus_call),
+            "bus_subcall" => Function::new_typed_with_env(&mut store, env, bus_subcall),
+            "bus_poll" => Function::new_typed_with_env(&mut store, env, bus_poll),
+            "call_reply" => Function::new_typed_with_env(&mut store, env, call_reply),
+            "call_fault" => Function::new_typed_with_env(&mut store, env, call_fault),
+            "call_close" => Function::new_typed_with_env(&mut store, env, call_close),
+            "ws_connect" => Function::new_typed_with_env(&mut store, env, ws_connect),
+            "http_request" => Function::new_typed_with_env(&mut store, env, http_request),
+            "http_status" => Function::new_typed_with_env(&mut store, env, http_status),
+            "port_bridge" => Function::new_typed_with_env(&mut store, env, port_bridge),
+            "port_unbridge" => Function::new_typed_with_env(&mut store, env, port_unbridge),
+            "port_dhcp_acquire" => Function::new_typed_with_env(&mut store, env, port_dhcp_acquire),
+            "port_addr_add" => Function::new_typed_with_env(&mut store, env, port_addr_add),
+            "port_addr_remove" => Function::new_typed_with_env(&mut store, env, port_addr_remove),
+            "port_addr_clear" => Function::new_typed_with_env(&mut store, env, port_addr_clear),
+            "port_addr_list" => Function::new_typed_with_env(&mut store, env, port_addr_list),
+            "port_mac" => Function::new_typed_with_env(&mut store, env, port_mac),
+            "port_gateway_set" => Function::new_typed_with_env(&mut store, env, port_gateway_set),
+            "port_route_add" => Function::new_typed_with_env(&mut store, env, port_route_add),
+            "port_route_remove" => Function::new_typed_with_env(&mut store, env, port_route_remove),
+            "port_route_clear" => Function::new_typed_with_env(&mut store, env, port_route_clear),
+            "port_route_list" => Function::new_typed_with_env(&mut store, env, port_route_list),
+            "sock_status" => Function::new_typed_with_env(&mut store, env, sock_status),
+            "sock_addr_local" => Function::new_typed_with_env(&mut store, env, sock_addr_local),
+            "sock_addr_peer" => Function::new_typed_with_env(&mut store, env, sock_addr_peer),
+            "sock_open" => Function::new_typed_with_env(&mut store, env, sock_open),
+            "sock_set_opt_flag" => Function::new_typed_with_env(&mut store, env, sock_set_opt_flag),
+            "sock_get_opt_flag" => Function::new_typed_with_env(&mut store, env, sock_get_opt_flag),
+            "sock_set_opt_time" => Function::new_typed_with_env(&mut store, env, sock_set_opt_time),
+            "sock_get_opt_time" => Function::new_typed_with_env(&mut store, env, sock_get_opt_time),
+            "sock_set_opt_size" => Function::new_typed_with_env(&mut store, env, sock_set_opt_size),
+            "sock_get_opt_size" => Function::new_typed_with_env(&mut store, env, sock_get_opt_size),
+            "sock_join_multicast_v4" => Function::new_typed_with_env(&mut store, env, sock_join_multicast_v4),
+            "sock_leave_multicast_v4" => Function::new_typed_with_env(&mut store, env, sock_leave_multicast_v4),
+            "sock_join_multicast_v6" => Function::new_typed_with_env(&mut store, env, sock_join_multicast_v6),
+            "sock_leave_multicast_v6" => Function::new_typed_with_env(&mut store, env, sock_leave_multicast_v6),
+            "sock_bind" => Function::new_typed_with_env(&mut store, env, sock_bind),
+            "sock_listen" => Function::new_typed_with_env(&mut store, env, sock_listen),
+            "sock_accept" => Function::new_typed_with_env(&mut store, env, sock_accept),
+            "sock_connect" => Function::new_typed_with_env(&mut store, env, sock_connect),
+            "sock_recv" => Function::new_typed_with_env(&mut store, env, sock_recv),
+            "sock_recv_from" => Function::new_typed_with_env(&mut store, env, sock_recv_from),
+            "sock_send" => Function::new_typed_with_env(&mut store, env, sock_send),
+            "sock_send_to" => Function::new_typed_with_env(&mut store, env, sock_send_to),
+            "sock_send_file" => Function::new_typed_with_env(&mut store, env, sock_send_file),
+            "sock_shutdown" => Function::new_typed_with_env(&mut store, env, sock_shutdown),
+            "resolve" => Function::new_typed_with_env(&mut store, env, resolve),
         }
     }
 }
 
+#[cfg(feature = "wasix")]
 fn generate_import_object_wasix64_v1(
     mut store: &mut impl AsStoreMut,
-    ctx: &FunctionEnv<WasiEnv>,
+    env: &FunctionEnv<WasiEnv>,
 ) -> Imports {
     use self::wasix64::*;
     imports! {
         "wasix_64v1" => {
-            "args_get" => Function::new_native(&mut store, ctx, args_get),
-            "args_sizes_get" => Function::new_native(&mut store, ctx, args_sizes_get),
-            "clock_res_get" => Function::new_native(&mut store, ctx, clock_res_get),
-            "clock_time_get" => Function::new_native(&mut store, ctx, clock_time_get),
-            "environ_get" => Function::new_native(&mut store, ctx, environ_get),
-            "environ_sizes_get" => Function::new_native(&mut store, ctx, environ_sizes_get),
-            "fd_advise" => Function::new_native(&mut store, ctx, fd_advise),
-            "fd_allocate" => Function::new_native(&mut store, ctx, fd_allocate),
-            "fd_close" => Function::new_native(&mut store, ctx, fd_close),
-            "fd_datasync" => Function::new_native(&mut store, ctx, fd_datasync),
-            "fd_fdstat_get" => Function::new_native(&mut store, ctx, fd_fdstat_get),
-            "fd_fdstat_set_flags" => Function::new_native(&mut store, ctx, fd_fdstat_set_flags),
-            "fd_fdstat_set_rights" => Function::new_native(&mut store, ctx, fd_fdstat_set_rights),
-            "fd_filestat_get" => Function::new_native(&mut store, ctx, fd_filestat_get),
-            "fd_filestat_set_size" => Function::new_native(&mut store, ctx, fd_filestat_set_size),
-            "fd_filestat_set_times" => Function::new_native(&mut store, ctx, fd_filestat_set_times),
-            "fd_pread" => Function::new_native(&mut store, ctx, fd_pread),
-            "fd_prestat_get" => Function::new_native(&mut store, ctx, fd_prestat_get),
-            "fd_prestat_dir_name" => Function::new_native(&mut store, ctx, fd_prestat_dir_name),
-            "fd_pwrite" => Function::new_native(&mut store, ctx, fd_pwrite),
-            "fd_read" => Function::new_native(&mut store, ctx, fd_read),
-            "fd_readdir" => Function::new_native(&mut store, ctx, fd_readdir),
-            "fd_renumber" => Function::new_native(&mut store, ctx, fd_renumber),
-            "fd_dup" => Function::new_native(&mut store, ctx, fd_dup),
-            "fd_event" => Function::new_native(&mut store, ctx, fd_event),
-            "fd_seek" => Function::new_native(&mut store, ctx, fd_seek),
-            "fd_sync" => Function::new_native(&mut store, ctx, fd_sync),
-            "fd_tell" => Function::new_native(&mut store, ctx, fd_tell),
-            "fd_write" => Function::new_native(&mut store, ctx, fd_write),
-            "fd_pipe" => Function::new_native(&mut store, ctx, fd_pipe),
-            "path_create_directory" => Function::new_native(&mut store, ctx, path_create_directory),
-            "path_filestat_get" => Function::new_native(&mut store, ctx, path_filestat_get),
-            "path_filestat_set_times" => Function::new_native(&mut store, ctx, path_filestat_set_times),
-            "path_link" => Function::new_native(&mut store, ctx, path_link),
-            "path_open" => Function::new_native(&mut store, ctx, path_open),
-            "path_readlink" => Function::new_native(&mut store, ctx, path_readlink),
-            "path_remove_directory" => Function::new_native(&mut store, ctx, path_remove_directory),
-            "path_rename" => Function::new_native(&mut store, ctx, path_rename),
-            "path_symlink" => Function::new_native(&mut store, ctx, path_symlink),
-            "path_unlink_file" => Function::new_native(&mut store, ctx, path_unlink_file),
-            "poll_oneoff" => Function::new_native(&mut store, ctx, poll_oneoff),
-            "proc_exit" => Function::new_native(&mut store, ctx, proc_exit),
-            "proc_raise" => Function::new_native(&mut store, ctx, proc_raise),
-            "random_get" => Function::new_native(&mut store, ctx, random_get),
-            "tty_get" => Function::new_native(&mut store, ctx, tty_get),
-            "tty_set" => Function::new_native(&mut store, ctx, tty_set),
-            "getcwd" => Function::new_native(&mut store, ctx, getcwd),
-            "chdir" => Function::new_native(&mut store, ctx, chdir),
-            "thread_spawn" => Function::new_native(&mut store, ctx, thread_spawn),
-            "thread_sleep" => Function::new_native(&mut store, ctx, thread_sleep),
-            "thread_id" => Function::new_native(&mut store, ctx, thread_id),
-            "thread_join" => Function::new_native(&mut store, ctx, thread_join),
-            "thread_parallelism" => Function::new_native(&mut store, ctx, thread_parallelism),
-            "thread_exit" => Function::new_native(&mut store, ctx, thread_exit),
-            "sched_yield" => Function::new_native(&mut store, ctx, sched_yield),
-            "getpid" => Function::new_native(&mut store, ctx, getpid),
-            "process_spawn" => Function::new_native(&mut store, ctx, process_spawn),
-            "bus_open_local" => Function::new_native(&mut store, ctx, bus_open_local),
-            "bus_open_remote" => Function::new_native(&mut store, ctx, bus_open_remote),
-            "bus_close" => Function::new_native(&mut store, ctx, bus_close),
-            "bus_call" => Function::new_native(&mut store, ctx, bus_call),
-            "bus_subcall" => Function::new_native(&mut store, ctx, bus_subcall),
-            "bus_poll" => Function::new_native(&mut store, ctx, bus_poll),
-            "call_reply" => Function::new_native(&mut store, ctx, call_reply),
-            "call_fault" => Function::new_native(&mut store, ctx, call_fault),
-            "call_close" => Function::new_native(&mut store, ctx, call_close),
-            "ws_connect" => Function::new_native(&mut store, ctx, ws_connect),
-            "http_request" => Function::new_native(&mut store, ctx, http_request),
-            "http_status" => Function::new_native(&mut store, ctx, http_status),
-            "port_bridge" => Function::new_native(&mut store, ctx, port_bridge),
-            "port_unbridge" => Function::new_native(&mut store, ctx, port_unbridge),
-            "port_dhcp_acquire" => Function::new_native(&mut store, ctx, port_dhcp_acquire),
-            "port_addr_add" => Function::new_native(&mut store, ctx, port_addr_add),
-            "port_addr_remove" => Function::new_native(&mut store, ctx, port_addr_remove),
-            "port_addr_clear" => Function::new_native(&mut store, ctx, port_addr_clear),
-            "port_addr_list" => Function::new_native(&mut store, ctx, port_addr_list),
-            "port_mac" => Function::new_native(&mut store, ctx, port_mac),
-            "port_gateway_set" => Function::new_native(&mut store, ctx, port_gateway_set),
-            "port_route_add" => Function::new_native(&mut store, ctx, port_route_add),
-            "port_route_remove" => Function::new_native(&mut store, ctx, port_route_remove),
-            "port_route_clear" => Function::new_native(&mut store, ctx, port_route_clear),
-            "port_route_list" => Function::new_native(&mut store, ctx, port_route_list),
-            "sock_status" => Function::new_native(&mut store, ctx, sock_status),
-            "sock_addr_local" => Function::new_native(&mut store, ctx, sock_addr_local),
-            "sock_addr_peer" => Function::new_native(&mut store, ctx, sock_addr_peer),
-            "sock_open" => Function::new_native(&mut store, ctx, sock_open),
-            "sock_set_opt_flag" => Function::new_native(&mut store, ctx, sock_set_opt_flag),
-            "sock_get_opt_flag" => Function::new_native(&mut store, ctx, sock_get_opt_flag),
-            "sock_set_opt_time" => Function::new_native(&mut store, ctx, sock_set_opt_time),
-            "sock_get_opt_time" => Function::new_native(&mut store, ctx, sock_get_opt_time),
-            "sock_set_opt_size" => Function::new_native(&mut store, ctx, sock_set_opt_size),
-            "sock_get_opt_size" => Function::new_native(&mut store, ctx, sock_get_opt_size),
-            "sock_join_multicast_v4" => Function::new_native(&mut store, ctx, sock_join_multicast_v4),
-            "sock_leave_multicast_v4" => Function::new_native(&mut store, ctx, sock_leave_multicast_v4),
-            "sock_join_multicast_v6" => Function::new_native(&mut store, ctx, sock_join_multicast_v6),
-            "sock_leave_multicast_v6" => Function::new_native(&mut store, ctx, sock_leave_multicast_v6),
-            "sock_bind" => Function::new_native(&mut store, ctx, sock_bind),
-            "sock_listen" => Function::new_native(&mut store, ctx, sock_listen),
-            "sock_accept" => Function::new_native(&mut store, ctx, sock_accept),
-            "sock_connect" => Function::new_native(&mut store, ctx, sock_connect),
-            "sock_recv" => Function::new_native(&mut store, ctx, sock_recv),
-            "sock_recv_from" => Function::new_native(&mut store, ctx, sock_recv_from),
-            "sock_send" => Function::new_native(&mut store, ctx, sock_send),
-            "sock_send_to" => Function::new_native(&mut store, ctx, sock_send_to),
-            "sock_send_file" => Function::new_native(&mut store, ctx, sock_send_file),
-            "sock_shutdown" => Function::new_native(&mut store, ctx, sock_shutdown),
-            "resolve" => Function::new_native(&mut store, ctx, resolve),
+            "args_get" => Function::new_typed_with_env(&mut store, env, args_get),
+            "args_sizes_get" => Function::new_typed_with_env(&mut store, env, args_sizes_get),
+            "clock_res_get" => Function::new_typed_with_env(&mut store, env, clock_res_get),
+            "clock_time_get" => Function::new_typed_with_env(&mut store, env, clock_time_get),
+            "environ_get" => Function::new_typed_with_env(&mut store, env, environ_get),
+            "environ_sizes_get" => Function::new_typed_with_env(&mut store, env, environ_sizes_get),
+            "fd_advise" => Function::new_typed_with_env(&mut store, env, fd_advise),
+            "fd_allocate" => Function::new_typed_with_env(&mut store, env, fd_allocate),
+            "fd_close" => Function::new_typed_with_env(&mut store, env, fd_close),
+            "fd_datasync" => Function::new_typed_with_env(&mut store, env, fd_datasync),
+            "fd_fdstat_get" => Function::new_typed_with_env(&mut store, env, fd_fdstat_get),
+            "fd_fdstat_set_flags" => Function::new_typed_with_env(&mut store, env, fd_fdstat_set_flags),
+            "fd_fdstat_set_rights" => Function::new_typed_with_env(&mut store, env, fd_fdstat_set_rights),
+            "fd_filestat_get" => Function::new_typed_with_env(&mut store, env, fd_filestat_get),
+            "fd_filestat_set_size" => Function::new_typed_with_env(&mut store, env, fd_filestat_set_size),
+            "fd_filestat_set_times" => Function::new_typed_with_env(&mut store, env, fd_filestat_set_times),
+            "fd_pread" => Function::new_typed_with_env(&mut store, env, fd_pread),
+            "fd_prestat_get" => Function::new_typed_with_env(&mut store, env, fd_prestat_get),
+            "fd_prestat_dir_name" => Function::new_typed_with_env(&mut store, env, fd_prestat_dir_name),
+            "fd_pwrite" => Function::new_typed_with_env(&mut store, env, fd_pwrite),
+            "fd_read" => Function::new_typed_with_env(&mut store, env, fd_read),
+            "fd_readdir" => Function::new_typed_with_env(&mut store, env, fd_readdir),
+            "fd_renumber" => Function::new_typed_with_env(&mut store, env, fd_renumber),
+            "fd_dup" => Function::new_typed_with_env(&mut store, env, fd_dup),
+            "fd_event" => Function::new_typed_with_env(&mut store, env, fd_event),
+            "fd_seek" => Function::new_typed_with_env(&mut store, env, fd_seek),
+            "fd_sync" => Function::new_typed_with_env(&mut store, env, fd_sync),
+            "fd_tell" => Function::new_typed_with_env(&mut store, env, fd_tell),
+            "fd_write" => Function::new_typed_with_env(&mut store, env, fd_write),
+            "fd_pipe" => Function::new_typed_with_env(&mut store, env, fd_pipe),
+            "path_create_directory" => Function::new_typed_with_env(&mut store, env, path_create_directory),
+            "path_filestat_get" => Function::new_typed_with_env(&mut store, env, path_filestat_get),
+            "path_filestat_set_times" => Function::new_typed_with_env(&mut store, env, path_filestat_set_times),
+            "path_link" => Function::new_typed_with_env(&mut store, env, path_link),
+            "path_open" => Function::new_typed_with_env(&mut store, env, path_open),
+            "path_readlink" => Function::new_typed_with_env(&mut store, env, path_readlink),
+            "path_remove_directory" => Function::new_typed_with_env(&mut store, env, path_remove_directory),
+            "path_rename" => Function::new_typed_with_env(&mut store, env, path_rename),
+            "path_symlink" => Function::new_typed_with_env(&mut store, env, path_symlink),
+            "path_unlink_file" => Function::new_typed_with_env(&mut store, env, path_unlink_file),
+            "poll_oneoff" => Function::new_typed_with_env(&mut store, env, poll_oneoff),
+            "proc_exit" => Function::new_typed_with_env(&mut store, env, proc_exit),
+            "proc_raise" => Function::new_typed_with_env(&mut store, env, proc_raise),
+            "random_get" => Function::new_typed_with_env(&mut store, env, random_get),
+            "tty_get" => Function::new_typed_with_env(&mut store, env, tty_get),
+            "tty_set" => Function::new_typed_with_env(&mut store, env, tty_set),
+            "getcwd" => Function::new_typed_with_env(&mut store, env, getcwd),
+            "chdir" => Function::new_typed_with_env(&mut store, env, chdir),
+            "thread_spawn" => Function::new_typed_with_env(&mut store, env, thread_spawn),
+            "thread_sleep" => Function::new_typed_with_env(&mut store, env, thread_sleep),
+            "thread_id" => Function::new_typed_with_env(&mut store, env, thread_id),
+            "thread_join" => Function::new_typed_with_env(&mut store, env, thread_join),
+            "thread_parallelism" => Function::new_typed_with_env(&mut store, env, thread_parallelism),
+            "thread_exit" => Function::new_typed_with_env(&mut store, env, thread_exit),
+            "sched_yield" => Function::new_typed_with_env(&mut store, env, sched_yield),
+            "getpid" => Function::new_typed_with_env(&mut store, env, getpid),
+            "process_spawn" => Function::new_typed_with_env(&mut store, env, process_spawn),
+            "bus_open_local" => Function::new_typed_with_env(&mut store, env, bus_open_local),
+            "bus_open_remote" => Function::new_typed_with_env(&mut store, env, bus_open_remote),
+            "bus_close" => Function::new_typed_with_env(&mut store, env, bus_close),
+            "bus_call" => Function::new_typed_with_env(&mut store, env, bus_call),
+            "bus_subcall" => Function::new_typed_with_env(&mut store, env, bus_subcall),
+            "bus_poll" => Function::new_typed_with_env(&mut store, env, bus_poll),
+            "call_reply" => Function::new_typed_with_env(&mut store, env, call_reply),
+            "call_fault" => Function::new_typed_with_env(&mut store, env, call_fault),
+            "call_close" => Function::new_typed_with_env(&mut store, env, call_close),
+            "ws_connect" => Function::new_typed_with_env(&mut store, env, ws_connect),
+            "http_request" => Function::new_typed_with_env(&mut store, env, http_request),
+            "http_status" => Function::new_typed_with_env(&mut store, env, http_status),
+            "port_bridge" => Function::new_typed_with_env(&mut store, env, port_bridge),
+            "port_unbridge" => Function::new_typed_with_env(&mut store, env, port_unbridge),
+            "port_dhcp_acquire" => Function::new_typed_with_env(&mut store, env, port_dhcp_acquire),
+            "port_addr_add" => Function::new_typed_with_env(&mut store, env, port_addr_add),
+            "port_addr_remove" => Function::new_typed_with_env(&mut store, env, port_addr_remove),
+            "port_addr_clear" => Function::new_typed_with_env(&mut store, env, port_addr_clear),
+            "port_addr_list" => Function::new_typed_with_env(&mut store, env, port_addr_list),
+            "port_mac" => Function::new_typed_with_env(&mut store, env, port_mac),
+            "port_gateway_set" => Function::new_typed_with_env(&mut store, env, port_gateway_set),
+            "port_route_add" => Function::new_typed_with_env(&mut store, env, port_route_add),
+            "port_route_remove" => Function::new_typed_with_env(&mut store, env, port_route_remove),
+            "port_route_clear" => Function::new_typed_with_env(&mut store, env, port_route_clear),
+            "port_route_list" => Function::new_typed_with_env(&mut store, env, port_route_list),
+            "sock_status" => Function::new_typed_with_env(&mut store, env, sock_status),
+            "sock_addr_local" => Function::new_typed_with_env(&mut store, env, sock_addr_local),
+            "sock_addr_peer" => Function::new_typed_with_env(&mut store, env, sock_addr_peer),
+            "sock_open" => Function::new_typed_with_env(&mut store, env, sock_open),
+            "sock_set_opt_flag" => Function::new_typed_with_env(&mut store, env, sock_set_opt_flag),
+            "sock_get_opt_flag" => Function::new_typed_with_env(&mut store, env, sock_get_opt_flag),
+            "sock_set_opt_time" => Function::new_typed_with_env(&mut store, env, sock_set_opt_time),
+            "sock_get_opt_time" => Function::new_typed_with_env(&mut store, env, sock_get_opt_time),
+            "sock_set_opt_size" => Function::new_typed_with_env(&mut store, env, sock_set_opt_size),
+            "sock_get_opt_size" => Function::new_typed_with_env(&mut store, env, sock_get_opt_size),
+            "sock_join_multicast_v4" => Function::new_typed_with_env(&mut store, env, sock_join_multicast_v4),
+            "sock_leave_multicast_v4" => Function::new_typed_with_env(&mut store, env, sock_leave_multicast_v4),
+            "sock_join_multicast_v6" => Function::new_typed_with_env(&mut store, env, sock_join_multicast_v6),
+            "sock_leave_multicast_v6" => Function::new_typed_with_env(&mut store, env, sock_leave_multicast_v6),
+            "sock_bind" => Function::new_typed_with_env(&mut store, env, sock_bind),
+            "sock_listen" => Function::new_typed_with_env(&mut store, env, sock_listen),
+            "sock_accept" => Function::new_typed_with_env(&mut store, env, sock_accept),
+            "sock_connect" => Function::new_typed_with_env(&mut store, env, sock_connect),
+            "sock_recv" => Function::new_typed_with_env(&mut store, env, sock_recv),
+            "sock_recv_from" => Function::new_typed_with_env(&mut store, env, sock_recv_from),
+            "sock_send" => Function::new_typed_with_env(&mut store, env, sock_send),
+            "sock_send_to" => Function::new_typed_with_env(&mut store, env, sock_send_to),
+            "sock_send_file" => Function::new_typed_with_env(&mut store, env, sock_send_file),
+            "sock_shutdown" => Function::new_typed_with_env(&mut store, env, sock_shutdown),
+            "resolve" => Function::new_typed_with_env(&mut store, env, resolve),
         }
     }
 }
 
-fn mem_error_to_wasi(err: MemoryAccessError) -> types::__wasi_errno_t {
+fn mem_error_to_wasi(err: MemoryAccessError) -> Errno {
     match err {
-        MemoryAccessError::HeapOutOfBounds => types::__WASI_EFAULT,
-        MemoryAccessError::Overflow => types::__WASI_EOVERFLOW,
-        MemoryAccessError::NonUtf8String => types::__WASI_EINVAL,
-        _ => types::__WASI_EINVAL,
+        MemoryAccessError::HeapOutOfBounds => Errno::Fault,
+        MemoryAccessError::Overflow => Errno::Overflow,
+        MemoryAccessError::NonUtf8String => Errno::Inval,
+        _ => Errno::Inval,
     }
 }
 
-fn mem_error_to_bus(err: MemoryAccessError) -> types::__bus_errno_t {
+fn mem_error_to_bus(err: MemoryAccessError) -> BusErrno {
     match err {
-        MemoryAccessError::HeapOutOfBounds => types::__BUS_EMEMVIOLATION,
-        MemoryAccessError::Overflow => types::__BUS_EMEMVIOLATION,
-        MemoryAccessError::NonUtf8String => types::__BUS_EBADREQUEST,
-        _ => types::__BUS_EUNKNOWN,
+        MemoryAccessError::HeapOutOfBounds => BusErrno::Memviolation,
+        MemoryAccessError::Overflow => BusErrno::Memviolation,
+        MemoryAccessError::NonUtf8String => BusErrno::Badrequest,
+        _ => BusErrno::Unknown,
     }
 }

@@ -3,8 +3,8 @@ use std::ptr::NonNull;
 use wasmer::{
     imports,
     vm::{self, MemoryError, MemoryStyle, TableStyle, VMMemoryDefinition, VMTableDefinition},
-    wat2wasm, BaseTunables, FunctionEnv, Instance, Memory, MemoryType, Module, Pages, Store,
-    TableType, Target, Tunables,
+    wat2wasm, BaseTunables, Instance, Memory, MemoryType, Module, Pages, Store, TableType, Target,
+    Tunables,
 };
 use wasmer_compiler_cranelift::Cranelift;
 
@@ -143,7 +143,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Create a store, that holds the engine and our custom tunables
     let mut store = Store::new_with_tunables(compiler, tunables);
-    let mut env = FunctionEnv::new(&mut store, ());
 
     println!("Compiling module...");
     let module = Module::new(&store, wasm_bytes)?;

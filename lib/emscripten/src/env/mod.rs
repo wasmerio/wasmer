@@ -75,16 +75,15 @@ pub fn ___build_environment(mut ctx: FunctionEnvMut<EmEnv>, environ: c_int) {
     debug!("emscripten::___build_environment {}", environ);
     const MAX_ENV_VALUES: u32 = 64;
     const TOTAL_ENV_SIZE: u32 = 1024;
-    let environment = emscripten_memory_pointer!(ctx, ctx.data().memory(0), environ) as *mut c_int;
+    let memory = ctx.data().memory(0);
+    let environment = emscripten_memory_pointer!(memory.view(&ctx), environ) as *mut c_int;
     let (mut pool_offset, env_ptr, mut pool_ptr) = unsafe {
         let (pool_offset, _pool_slice): (u32, &mut [u8]) =
             allocate_on_stack(&mut ctx, TOTAL_ENV_SIZE as u32);
         let (env_offset, _env_slice): (u32, &mut [u8]) =
             allocate_on_stack(&mut ctx, (MAX_ENV_VALUES * 4) as u32);
-        let env_ptr =
-            emscripten_memory_pointer!(ctx, ctx.data().memory(0), env_offset) as *mut c_int;
-        let pool_ptr =
-            emscripten_memory_pointer!(ctx, ctx.data().memory(0), pool_offset) as *mut u8;
+        let env_ptr = emscripten_memory_pointer!(memory.view(&ctx), env_offset) as *mut c_int;
+        let pool_ptr = emscripten_memory_pointer!(memory.view(&ctx), pool_offset) as *mut u8;
         *env_ptr = pool_offset as i32;
         *environment = env_offset as i32;
 
@@ -136,7 +135,8 @@ pub fn _pathconf(ctx: FunctionEnvMut<EmEnv>, path_addr: c_int, name: c_int) -> c
         "emscripten::_pathconf {} {} - UNIMPLEMENTED",
         path_addr, name
     );
-    let _path = emscripten_memory_pointer!(ctx, ctx.data().memory(0), path_addr) as *const c_char;
+    let memory = ctx.data().memory(0);
+    let _path = emscripten_memory_pointer!(memory.view(&ctx), path_addr) as *const c_char;
     match name {
         0 => 32000,
         1 | 2 | 3 => 255,

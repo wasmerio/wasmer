@@ -64,7 +64,7 @@ fn issue_2329(mut config: crate::Config) -> Result<()> {
     let mut env = FunctionEnv::new(&mut store, env);
     let imports: Imports = imports! {
         "env" => {
-            "__read_memory" => Function::new_native(
+            "__read_memory" => Function::new_typed_with_env(
                 &mut store,
                 &env,
                 read_memory
@@ -102,7 +102,7 @@ fn call_with_static_data_pointers(mut config: crate::Config) -> Result<()> {
         println!("{:?}", (a, b, c, d, e, f, g, h));
         let mut buf = vec![0; d as usize];
         let memory = ctx.data_mut().memory.as_ref().unwrap().clone();
-        memory.read(&mut ctx, e, &mut buf).unwrap();
+        memory.view(&ctx).read(e, &mut buf).unwrap();
         let input_string = std::str::from_utf8(&buf).unwrap();
         assert_eq!(input_string, "bananapeach");
         0
@@ -197,14 +197,23 @@ fn call_with_static_data_pointers(mut config: crate::Config) -> Result<()> {
     env.as_mut(&mut store).memory = Some(memory.clone());
     let mut exports = Exports::new();
     exports.insert("memory", memory);
-    exports.insert("banana", Function::new_native(&mut store, &env, banana));
-    exports.insert("peach", Function::new_native(&mut store, &env, peach));
+    exports.insert(
+        "banana",
+        Function::new_typed_with_env(&mut store, &env, banana),
+    );
+    exports.insert(
+        "peach",
+        Function::new_typed_with_env(&mut store, &env, peach),
+    );
     exports.insert(
         "chaenomeles",
-        Function::new_native(&mut store, &env, chaenomeles),
+        Function::new_typed_with_env(&mut store, &env, chaenomeles),
     );
-    exports.insert("mango", Function::new_native(&mut store, &env, mango));
-    exports.insert("gas", Function::new_native(&mut store, &env, gas));
+    exports.insert(
+        "mango",
+        Function::new_typed_with_env(&mut store, &env, mango),
+    );
+    exports.insert("gas", Function::new_typed_with_env(&mut store, &env, gas));
     let mut imports = Imports::new();
     imports.register_namespace("env", exports);
     let instance = Instance::new(&mut store, &module, &imports)?;
@@ -252,5 +261,59 @@ fn regression_gpr_exhaustion_for_calls(mut config: crate::Config) -> Result<()> 
     let module = Module::new(&store, wat)?;
     let imports: Imports = imports! {};
     let instance = Instance::new(&mut store, &module, &imports)?;
+    Ok(())
+}
+
+#[compiler_test(issues)]
+fn test_popcnt(mut config: crate::Config) -> Result<()> {
+    let mut store = config.store();
+    let mut env = FunctionEnv::new(&mut store, ());
+    let imports: Imports = imports! {};
+
+    let wat = r#"
+    (module
+        (func $popcnt_i32 (export "popcnt_i32") (param i32) (result i32)
+            local.get 0
+            i32.popcnt
+        )
+        (func $popcnt_i64 (export "popcnt_i64") (param i64) (result i64)
+            local.get 0
+            i64.popcnt
+        )
+    )"#;
+
+    let module = Module::new(&store, wat)?;
+    let instance = Instance::new(&mut store, &module, &imports)?;
+
+    let popcnt_i32 = instance.exports.get_function("popcnt_i32").unwrap();
+    let popcnt_i64 = instance.exports.get_function("popcnt_i64").unwrap();
+
+    let get_next_number_i32 = |mut num: i32| {
+        num ^= num << 13;
+        num ^= num >> 17;
+        num ^= num << 5;
+        num
+    };
+    let get_next_number_i64 = |mut num: i64| {
+        num ^= num << 34;
+        num ^= num >> 40;
+        num ^= num << 7;
+        num
+    };
+
+    let mut num = 1;
+    for _ in 1..10000 {
+        let result = popcnt_i32.call(&mut store, &[Value::I32(num)]).unwrap();
+        assert_eq!(&Value::I32(num.count_ones() as i32), result.get(0).unwrap());
+        num = get_next_number_i32(num);
+    }
+
+    let mut num = 1;
+    for _ in 1..10000 {
+        let result = popcnt_i64.call(&mut store, &[Value::I64(num)]).unwrap();
+        assert_eq!(&Value::I64(num.count_ones() as i64), result.get(0).unwrap());
+        num = get_next_number_i64(num);
+    }
+
     Ok(())
 }

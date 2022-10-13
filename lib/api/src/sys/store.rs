@@ -26,7 +26,9 @@ pub(crate) struct StoreInner {
 ///
 /// The `Store` holds the engine (that is —amongst many things— used to compile
 /// the Wasm bytes into a valid module artifact), in addition to the
-/// [`Tunables`] (that are used to create the memories, tables and globals).
+#[cfg_attr(feature = "compiler", doc = "[`Tunables`]")]
+#[cfg_attr(not(feature = "compiler"), doc = "`Tunables`")]
+/// (that are used to create the memories, tables and globals).
 ///
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#store>
 pub struct Store {
@@ -242,7 +244,7 @@ impl<'a> StoreRef<'a> {
         self.inner
             .trap_handler
             .as_ref()
-            .map(|handler| &*handler as *const _)
+            .map(|handler| handler as *const _)
     }
 }
 

@@ -1,6 +1,6 @@
 use crate::js::export::VMGlobal;
 use crate::js::exports::{ExportError, Exportable};
-use crate::js::externals::Extern;
+use crate::js::externals::{Extern, VMExtern};
 use crate::js::store::{AsStoreMut, AsStoreRef, InternalStoreHandle, StoreHandle};
 use crate::js::value::Value;
 use crate::js::wasm_bindgen_polyfill::Global as JSGlobal;
@@ -53,6 +53,11 @@ impl Global {
     /// ```
     pub fn new_mut(store: &mut impl AsStoreMut, val: Value) -> Self {
         Self::from_value(store, val, Mutability::Var).unwrap()
+    }
+
+    /// To `VMExtern`.
+    pub(crate) fn to_vm_extern(&self) -> VMExtern {
+        VMExtern::Global(self.handle.internal_handle())
     }
 
     /// Create a `Global` with the initial value [`Value`] and the provided [`Mutability`].
@@ -135,15 +140,6 @@ impl Global {
             let ty = self.handle.get(store.as_store_ref().objects()).ty;
             Value::from_raw(store, ty.ty, raw)
         }
-        /*
-        match self.vm_global.ty.ty {
-            ValType::I32 => Value::I32(self.vm_global.global.value().as_f64().unwrap() as _),
-            ValType::I64 => Value::I64(self.vm_global.global.value().as_f64().unwrap() as _),
-            ValType::F32 => Value::F32(self.vm_global.global.value().as_f64().unwrap() as _),
-            ValType::F64 => Value::F64(self.vm_global.global.value().as_f64().unwrap()),
-            _ => unimplemented!("The type is not yet supported in the JS Global API"),
-        }
-        */
     }
 
     /// Sets a custom value [`Value`] to the runtime Global.

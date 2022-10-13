@@ -15,9 +15,7 @@
 //! Ready?
 
 use std::mem;
-use wasmer::{
-    imports, wat2wasm, Bytes, FunctionEnv, Instance, Module, Pages, Store, TypedFunction,
-};
+use wasmer::{imports, wat2wasm, Bytes, Instance, Module, Pages, Store, TypedFunction};
 use wasmer_compiler_cranelift::Cranelift;
 
 // this example is a work in progress:
@@ -59,7 +57,6 @@ fn main() -> anyhow::Result<()> {
     // the default provided by Wasmer.
     // You can use `Store::default()` for that.
     let mut store = Store::new(Cranelift::default());
-    let mut env = FunctionEnv::new(&mut store, ());
 
     println!("Compiling module...");
     // Let's compile the Wasm module.
@@ -95,15 +92,18 @@ fn main() -> anyhow::Result<()> {
     // The size in bytes can be found either by querying its pages or by
     // querying the memory directly.
     println!("Querying memory size...");
-    assert_eq!(memory.size(&mut store), Pages::from(1));
-    assert_eq!(memory.size(&mut store).bytes(), Bytes::from(65536 as usize));
-    assert_eq!(memory.data_size(&mut store), 65536);
+    let memory_view = memory.view(&store);
+    assert_eq!(memory_view.size(), Pages::from(1));
+    assert_eq!(memory_view.size().bytes(), Bytes::from(65536 as usize));
+    assert_eq!(memory_view.data_size(), 65536);
 
     // Sometimes, the guest module may also export a function to let you
     // query the memory. Here we have a `mem_size` function, let's try it:
     let result = mem_size.call(&mut store)?;
+
+    let memory_view = memory.view(&store);
     println!("Memory size: {:?}", result);
-    assert_eq!(Pages::from(result as u32), memory.size(&mut store));
+    assert_eq!(Pages::from(result as u32), memory_view.size());
 
     // Now that we know the size of our memory, it's time to see how wa
     // can change this.
@@ -111,10 +111,13 @@ fn main() -> anyhow::Result<()> {
     // A memory can be grown to allow storing more things into it. Let's
     // see how we can do that:
     println!("Growing memory...");
+
     // Here we are requesting two more pages for our memory.
     memory.grow(&mut store, 2)?;
-    assert_eq!(memory.size(&mut store), Pages::from(3));
-    assert_eq!(memory.data_size(&mut store), 65536 * 3);
+
+    let memory_view = memory.view(&store);
+    assert_eq!(memory_view.size(), Pages::from(3));
+    assert_eq!(memory_view.data_size(), 65536 * 3);
 
     // Now that we know how to query and adjust the size of the memory,
     // let's see how wa can write to it or read from it.

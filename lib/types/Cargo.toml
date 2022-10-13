@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-types"
-version = "3.0.0-alpha.4"
+version = "3.0.0-beta.2"
 description = "Wasmer Common Types"
 categories = ["wasm", "no-std", "data-structures"]
 keywords = ["wasm", "webassembly", "types"]
@@ -20,6 +20,9 @@ rkyv = { version = "0.7.38", features = ["indexmap"] }
 enum-iterator = "0.7.0"
 target-lexicon = { version = "0.12.2", default-features = false }
 enumset = "1.0"
+
+[dev-dependencies]
+memoffset = "0.6"
 
 [features]
 default = ["std"]

@@ -13,7 +13,7 @@
 //!
 //! Ready?
 
-use wasmer::{imports, wat2wasm, FunctionEnv, Instance, Module, Store, TypedFunction};
+use wasmer::{imports, wat2wasm, Instance, Module, Store, TypedFunction};
 use wasmer_compiler_cranelift::Cranelift;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -39,7 +39,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // the default provided by Wasmer.
     // You can use `Store::default()` for that.
     let mut store = Store::new(Cranelift::default());
-    let mut env = FunctionEnv::new(&mut store, ());
 
     println!("Compiling module...");
     // Let's compile the Wasm module.
@@ -62,7 +61,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let div_by_zero: TypedFunction<(), i32> = instance
         .exports
         .get_function("div_by_zero")?
-        .native(&mut store)?;
+        .typed(&mut store)?;
 
     println!("Calling `div_by_zero` function...");
     // Let's call the `div_by_zero` exported function.

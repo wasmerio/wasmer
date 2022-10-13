@@ -114,6 +114,28 @@ impl NativeWasmTypeInto for f64 {
     }
 }
 
+impl NativeWasmTypeInto for u128 {
+    #[inline]
+    unsafe fn from_abi(_store: &mut impl AsStoreMut, abi: Self::Abi) -> Self {
+        abi
+    }
+
+    #[inline]
+    fn into_abi(self, _store: &mut impl AsStoreMut) -> Self::Abi {
+        self
+    }
+
+    #[inline]
+    fn into_raw(self, _store: &mut impl AsStoreMut) -> f64 {
+        self as _
+    }
+
+    #[inline]
+    unsafe fn from_raw(_store: &mut impl AsStoreMut, raw: f64) -> Self {
+        raw as _
+    }
+}
+
 impl NativeWasmType for Function {
     const WASM_TYPE: Type = Type::FuncRef;
     type Abi = f64;

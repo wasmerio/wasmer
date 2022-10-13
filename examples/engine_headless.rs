@@ -45,7 +45,7 @@
 //! Ready?
 
 use tempfile::NamedTempFile;
-use wasmer::{imports, wat2wasm, EngineBuilder, FunctionEnv, Instance, Module, Store, Value};
+use wasmer::{imports, wat2wasm, EngineBuilder, Instance, Module, Store, Value};
 use wasmer_compiler_cranelift::Cranelift;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -74,7 +74,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let compiler = Cranelift::default();
 
         // Create a store, that holds the engine.
-        let mut store = Store::new(compiler);
+        let store = Store::new(compiler);
 
         println!("Compiling module...");
         // Let's compile the Wasm module.
@@ -96,7 +96,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // We create a headless Universal engine.
         let engine = EngineBuilder::headless();
         let mut store = Store::new(engine);
-        let mut env = FunctionEnv::new(&mut store, ());
 
         println!("Deserializing module...");
         // Here we go.

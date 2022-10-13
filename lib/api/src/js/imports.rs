@@ -1,14 +1,17 @@
 //! The import module contains the implementation data structures and helper functions used to
 //! manipulate and access a wasm module's imports including memories, tables, globals, and
 //! functions.
-use crate::js::error::InstantiationError;
+use crate::js::error::{InstantiationError, LinkError, WasmError};
+use crate::js::export::Export;
 use crate::js::exports::Exports;
 use crate::js::module::Module;
-use crate::js::store::AsStoreRef;
+use crate::js::store::{AsStoreMut, AsStoreRef};
 use crate::js::types::AsJs;
+use crate::js::ExternType;
 use crate::Extern;
 use std::collections::HashMap;
 use std::fmt;
+use wasmer_types::ImportError;
 
 /// All of the import data used when instantiating.
 ///
@@ -22,7 +25,7 @@ use std::fmt;
 /// use wasmer::{Exports, Module, Store, Instance, imports, Imports, Function};
 /// # fn foo_test(module: Module, store: Store) {
 ///
-/// let host_fn = Function::new_native(foo);
+/// let host_fn = Function::new_typed(foo);
 /// let import_object: Imports = imports! {
 ///     "env" => {
 ///         "foo" => host_fn,
@@ -103,7 +106,7 @@ impl Imports {
     ///     n
     /// }
     /// let mut import_object = Imports::new();
-    /// import_object.define("env", "foo", Function::new_native(foo));
+    /// import_object.define("env", "foo", Function::new_typed(&store, foo));
     /// ```
     pub fn define(&mut self, ns: &str, name: &str, val: impl Into<Extern>) {
         self.map
@@ -130,7 +133,7 @@ impl Imports {
     /// Resolve and return a vector of imports in the order they are defined in the `module`'s source code.
     ///
     /// This means the returned `Vec<Extern>` might be a subset of the imports contained in `self`.
-    pub fn imports_for_module(&self, module: &Module) -> Result<Vec<Extern>, InstantiationError> {
+    pub fn imports_for_module(&self, module: &Module) -> Result<Vec<Extern>, LinkError> {
         let mut ret = vec![];
         for import in module.imports() {
             if let Some(imp) = self
@@ -139,12 +142,11 @@ impl Imports {
             {
                 ret.push(imp.clone());
             } else {
-                return Err(InstantiationError::Link(format!(
-                    "Error while importing {0:?}.{1:?}: unknown import. Expected {2:?}",
-                    import.module(),
-                    import.name(),
-                    import.ty()
-                )));
+                return Err(LinkError::Import(
+                    import.module().to_string(),
+                    import.name().to_string(),
+                    ImportError::UnknownImport(import.ty().clone()),
+                ));
             }
         }
         Ok(ret)
@@ -173,6 +175,107 @@ impl Imports {
                 .expect("Error while setting into the js imports object");
         }
         imports
+    }
+
+    /// Iterates through all the imports in this structure
+    pub fn iter<'a>(&'a self) -> ImportsIterator<'a> {
+        ImportsIterator::new(self)
+    }
+
+    /// Create a new `Imports` from a JS Object, it receives a reference to a `Module` to
+    /// map and assign the types of each import and the JS Object
+    /// that contains the values of imports.
+    ///
+    /// # Usage
+    /// ```ignore
+    /// let import_object = Imports::new_from_js_object(&mut store, &module, js_object);
+    /// ```
+    pub fn new_from_js_object(
+        store: &mut impl AsStoreMut,
+        module: &Module,
+        object: js_sys::Object,
+    ) -> Result<Self, WasmError> {
+        use crate::js::externals::VMExtern;
+        let module_imports: HashMap<(String, String), ExternType> = module
+            .imports()
+            .map(|import| {
+                (
+                    (import.module().to_string(), import.name().to_string()),
+                    import.ty().clone(),
+                )
+            })
+            .collect::<HashMap<(String, String), ExternType>>();
+
+        let mut map: HashMap<(String, String), Extern> = HashMap::new();
+
+        for module_entry in js_sys::Object::entries(&object).iter() {
+            let module_entry: js_sys::Array = module_entry.into();
+            let module_name = module_entry.get(0).as_string().unwrap().to_string();
+            let module_import_object: js_sys::Object = module_entry.get(1).into();
+            for import_entry in js_sys::Object::entries(&module_import_object).iter() {
+                let import_entry: js_sys::Array = import_entry.into();
+                let import_name = import_entry.get(0).as_string().unwrap().to_string();
+                let import_js: wasm_bindgen::JsValue = import_entry.get(1);
+                let key = (module_name.clone(), import_name);
+                let extern_type = module_imports.get(&key).unwrap();
+                let export = VMExtern::from_js_value(import_js, store, extern_type.clone())?;
+                let extern_ = Extern::from_vm_extern(store, export);
+                map.insert(key, extern_);
+            }
+        }
+
+        Ok(Self { map })
+    }
+}
+
+impl AsJs for Imports {
+    fn as_jsvalue(&self, store: &impl AsStoreRef) -> wasm_bindgen::JsValue {
+        let imports_object = js_sys::Object::new();
+        for (namespace, name, extern_) in self.iter() {
+            let val = js_sys::Reflect::get(&imports_object, &namespace.into()).unwrap();
+            if !val.is_undefined() {
+                // If the namespace is already set
+                js_sys::Reflect::set(
+                    &val,
+                    &name.into(),
+                    &extern_.as_jsvalue(&store.as_store_ref()),
+                )
+                .unwrap();
+            } else {
+                // If the namespace doesn't exist
+                let import_namespace = js_sys::Object::new();
+                js_sys::Reflect::set(
+                    &import_namespace,
+                    &name.into(),
+                    &extern_.as_jsvalue(&store.as_store_ref()),
+                )
+                .unwrap();
+                js_sys::Reflect::set(&imports_object, &namespace.into(), &import_namespace.into())
+                    .unwrap();
+            }
+        }
+        imports_object.into()
+    }
+}
+
+pub struct ImportsIterator<'a> {
+    iter: std::collections::hash_map::Iter<'a, (String, String), Extern>,
+}
+
+impl<'a> ImportsIterator<'a> {
+    fn new(imports: &'a Imports) -> Self {
+        let iter = imports.map.iter();
+        Self { iter }
+    }
+}
+
+impl<'a> Iterator for ImportsIterator<'a> {
+    type Item = (&'a str, &'a str, &'a Extern);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter
+            .next()
+            .map(|(k, v)| (k.0.as_str(), k.1.as_str(), v))
     }
 }
 
@@ -240,7 +343,7 @@ impl fmt::Debug for Imports {
 ///
 /// let import_object = imports! {
 ///     "env" => {
-///         "foo" => Function::new_native(&store, foo)
+///         "foo" => Function::new_typed(&store, foo)
 ///     },
 /// };
 ///
@@ -291,89 +394,18 @@ macro_rules! import_namespace {
     };
 }
 
-/*
+#[cfg(test)]
 mod test {
-    use crate::js::exports::Exportable;
-    use crate::js::Type;
-    use crate::js::{Global, Store, Val};
+    use crate::js::{Global, Store, Value};
 
-    use crate::js::export::Export;
+    // use wasm_bindgen::*;
     use wasm_bindgen_test::*;
-    fn namespace() {
-        let mut store = Store::default();
-        let g1 = Global::new(&store, Val::I32(0));
-        let namespace = namespace! {
-            "happy" => g1
-        };
-        let imports1 = imports! {
-            "dog" => namespace
-        };
 
-        let happy_dog_entry = imports1.get_export("dog", "happy").unwrap();
-
-        assert!(
-            if let Export::Global(happy_dog_global) = happy_dog_entry.to_export() {
-                happy_dog_global.ty.ty == Type::I32
-            } else {
-                false
-            }
-        );
-    }
-
-    fn imports_macro_allows_trailing_comma_and_none() {
-        use crate::js::Function;
-
-        let mut store = Default::default();
-
-        fn func(arg: i32) -> i32 {
-            arg + 1
-        }
-
-        let _ = imports! {
-            "env" => {
-                "func" => Function::new_native(&store, func),
-            },
-        };
-        let _ = imports! {
-            "env" => {
-                "func" => Function::new_native(&store, func),
-            }
-        };
-        let _ = imports! {
-            "env" => {
-                "func" => Function::new_native(&store, func),
-            },
-            "abc" => {
-                "def" => Function::new_native(&store, func),
-            }
-        };
-        let _ = imports! {
-            "env" => {
-                "func" => Function::new_native(&store, func)
-            },
-        };
-        let _ = imports! {
-            "env" => {
-                "func" => Function::new_native(&store, func)
-            }
-        };
-        let _ = imports! {
-            "env" => {
-                "func1" => Function::new_native(&store, func),
-                "func2" => Function::new_native(&store, func)
-            }
-        };
-        let _ = imports! {
-            "env" => {
-                "func1" => Function::new_native(&store, func),
-                "func2" => Function::new_native(&store, func),
-            }
-        };
-    }
-
+    #[wasm_bindgen_test]
     fn chaining_works() {
         let mut store = Store::default();
-        let g = Global::new(&store, Val::I32(0));
+
+        let g = Global::new(&mut store, Value::I32(0));
 
         let mut imports1 = imports! {
             "dog" => {
@@ -386,7 +418,7 @@ mod test {
                 "small" => g.clone()
             },
             "cat" => {
-                "small" => g.clone()
+                "small" => g
             }
         };
 
@@ -400,62 +432,162 @@ mod test {
         assert!(happy.is_some());
         assert!(small.is_some());
     }
+    // fn namespace() {
+    //     let mut store = Store::default();
+    //     let g1 = Global::new(&store, Val::I32(0));
+    //     let namespace = namespace! {
+    //         "happy" => g1
+    //     };
+    //     let imports1 = imports! {
+    //         "dog" => namespace
+    //     };
 
-    fn extending_conflict_overwrites() {
-        let mut store = Store::default();
-        let g1 = Global::new(&store, Val::I32(0));
-        let g2 = Global::new(&store, Val::F32(0.));
+    //     let happy_dog_entry = imports1.get_export("dog", "happy").unwrap();
 
-        let mut imports1 = imports! {
-            "dog" => {
-                "happy" => g1,
-            },
-        };
+    //     assert!(
+    //         if let Export::Global(happy_dog_global) = happy_dog_entry.to_export() {
+    //             happy_dog_global.ty.ty == Type::I32
+    //         } else {
+    //             false
+    //         }
+    //     );
+    // }
 
-        let imports2 = imports! {
-            "dog" => {
-                "happy" => g2,
-            },
-        };
+    // fn imports_macro_allows_trailing_comma_and_none() {
+    //     use crate::js::Function;
 
-        imports1.extend(&imports2);
-        let happy_dog_entry = imports1.get_export("dog", "happy").unwrap();
+    //     let mut store = Default::default();
 
-        assert!(
-            if let Export::Global(happy_dog_global) = happy_dog_entry.to_export() {
-                happy_dog_global.ty.ty == Type::F32
-            } else {
-                false
-            }
-        );
+    //     fn func(arg: i32) -> i32 {
+    //         arg + 1
+    //     }
 
-        // now test it in reverse
-        let mut store = Store::default();
-        let g1 = Global::new(&store, Val::I32(0));
-        let g2 = Global::new(&store, Val::F32(0.));
+    //     let _ = imports! {
+    //         "env" => {
+    //             "func" => Function::new_typed(&store, func),
+    //         },
+    //     };
+    //     let _ = imports! {
+    //         "env" => {
+    //             "func" => Function::new_typed(&store, func),
+    //         }
+    //     };
+    //     let _ = imports! {
+    //         "env" => {
+    //             "func" => Function::new_typed(&store, func),
+    //         },
+    //         "abc" => {
+    //             "def" => Function::new_typed(&store, func),
+    //         }
+    //     };
+    //     let _ = imports! {
+    //         "env" => {
+    //             "func" => Function::new_typed(&store, func)
+    //         },
+    //     };
+    //     let _ = imports! {
+    //         "env" => {
+    //             "func" => Function::new_typed(&store, func)
+    //         }
+    //     };
+    //     let _ = imports! {
+    //         "env" => {
+    //             "func1" => Function::new_typed(&store, func),
+    //             "func2" => Function::new_typed(&store, func)
+    //         }
+    //     };
+    //     let _ = imports! {
+    //         "env" => {
+    //             "func1" => Function::new_typed(&store, func),
+    //             "func2" => Function::new_typed(&store, func),
+    //         }
+    //     };
+    // }
 
-        let imports1 = imports! {
-            "dog" => {
-                "happy" => g1,
-            },
-        };
+    // fn chaining_works() {
+    //     let mut store = Store::default();
+    //     let g = Global::new(&store, Val::I32(0));
 
-        let mut imports2 = imports! {
-            "dog" => {
-                "happy" => g2,
-            },
-        };
+    //     let mut imports1 = imports! {
+    //         "dog" => {
+    //             "happy" => g.clone()
+    //         }
+    //     };
 
-        imports2.extend(&imports1);
-        let happy_dog_entry = imports2.get_export("dog", "happy").unwrap();
+    //     let imports2 = imports! {
+    //         "dog" => {
+    //             "small" => g.clone()
+    //         },
+    //         "cat" => {
+    //             "small" => g.clone()
+    //         }
+    //     };
 
-        assert!(
-            if let Export::Global(happy_dog_global) = happy_dog_entry.to_export() {
-                happy_dog_global.ty.ty == Type::I32
-            } else {
-                false
-            }
-        );
-    }
+    //     imports1.extend(&imports2);
+
+    //     let small_cat_export = imports1.get_export("cat", "small");
+    //     assert!(small_cat_export.is_some());
+
+    //     let happy = imports1.get_export("dog", "happy");
+    //     let small = imports1.get_export("dog", "small");
+    //     assert!(happy.is_some());
+    //     assert!(small.is_some());
+    // }
+
+    // fn extending_conflict_overwrites() {
+    //     let mut store = Store::default();
+    //     let g1 = Global::new(&store, Val::I32(0));
+    //     let g2 = Global::new(&store, Val::F32(0.));
+
+    //     let mut imports1 = imports! {
+    //         "dog" => {
+    //             "happy" => g1,
+    //         },
+    //     };
+
+    //     let imports2 = imports! {
+    //         "dog" => {
+    //             "happy" => g2,
+    //         },
+    //     };
+
+    //     imports1.extend(&imports2);
+    //     let happy_dog_entry = imports1.get_export("dog", "happy").unwrap();
+
+    //     assert!(
+    //         if let Export::Global(happy_dog_global) = happy_dog_entry.to_export() {
+    //             happy_dog_global.ty.ty == Type::F32
+    //         } else {
+    //             false
+    //         }
+    //     );
+
+    //     // now test it in reverse
+    //     let mut store = Store::default();
+    //     let g1 = Global::new(&store, Val::I32(0));
+    //     let g2 = Global::new(&store, Val::F32(0.));
+
+    //     let imports1 = imports! {
+    //         "dog" => {
+    //             "happy" => g1,
+    //         },
+    //     };
+
+    //     let mut imports2 = imports! {
+    //         "dog" => {
+    //             "happy" => g2,
+    //         },
+    //     };
+
+    //     imports2.extend(&imports1);
+    //     let happy_dog_entry = imports2.get_export("dog", "happy").unwrap();
+
+    //     assert!(
+    //         if let Export::Global(happy_dog_global) = happy_dog_entry.to_export() {
+    //             happy_dog_global.ty.ty == Type::I32
+    //         } else {
+    //             false
+    //         }
+    //     );
+    // }
 }
-    */

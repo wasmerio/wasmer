@@ -11,8 +11,9 @@ pub fn _emscripten_memcpy_big(ctx: FunctionEnvMut<EmEnv>, dest: u32, src: u32, l
         "emscripten::_emscripten_memcpy_big {}, {}, {}",
         dest, src, len
     );
-    let dest_addr = emscripten_memory_pointer!(ctx, ctx.data().memory(0), dest) as *mut c_void;
-    let src_addr = emscripten_memory_pointer!(ctx, ctx.data().memory(0), src) as *mut c_void;
+    let memory = ctx.data().memory(0);
+    let dest_addr = emscripten_memory_pointer!(memory.view(&ctx), dest) as *mut c_void;
+    let src_addr = emscripten_memory_pointer!(memory.view(&ctx), src) as *mut c_void;
     unsafe {
         memcpy(dest_addr, src_addr, len as size_t);
     }
@@ -20,7 +21,8 @@ pub fn _emscripten_memcpy_big(ctx: FunctionEnvMut<EmEnv>, dest: u32, src: u32, l
 }
 
 fn get_heap_size(ctx: &FunctionEnvMut<EmEnv>) -> u32 {
-    ctx.data().memory(0).size(&ctx).bytes().0 as u32
+    let memory = ctx.data().memory(0);
+    memory.view(&ctx).size().bytes().0 as u32
 }
 
 /// emscripten: _emscripten_get_heap_size
@@ -42,7 +44,8 @@ fn align_up(mut val: usize, multiple: usize) -> usize {
 
 fn resize_heap(ctx: &mut FunctionEnvMut<EmEnv>, requested_size: u32) -> u32 {
     debug!("emscripten::_emscripten_resize_heap {}", requested_size);
-    let current_memory_pages = ctx.data().memory(0).size(&ctx);
+    let memory = ctx.data().memory(0);
+    let current_memory_pages = memory.view(&ctx).size();
     let current_memory = current_memory_pages.bytes().0 as u32;
 
     // implementation from emscripten
@@ -85,14 +88,18 @@ pub fn sbrk(mut ctx: FunctionEnvMut<EmEnv>, increment: i32) -> i32 {
     debug!("emscripten::sbrk");
     // let old_dynamic_top = 0;
     // let new_dynamic_top = 0;
-    let memory = ctx.data().memory(0);
     let top_ptr = get_emscripten_data(&ctx)
         .as_ref()
         .unwrap()
         .globals
         .dynamictop_ptr;
-    let dynamictop_ptr = WasmPtr::<i32>::new(top_ptr).deref(&ctx, &memory);
-    let old_dynamic_top = dynamictop_ptr.read().unwrap();
+
+    let dynamictop_ptr = WasmPtr::<i32>::new(top_ptr);
+    let old_dynamic_top = {
+        let memory = ctx.data().memory(0);
+        let memory = memory.view(&ctx);
+        dynamictop_ptr.deref(&memory).read().unwrap()
+    };
     let new_dynamic_top: i32 = old_dynamic_top + increment;
     let total_memory = get_heap_size(&ctx) as i32;
     debug!(
@@ -114,7 +121,9 @@ pub fn sbrk(mut ctx: FunctionEnvMut<EmEnv>, increment: i32) -> i32 {
         }
     }
     // re-borrow the top ptr
-    let dynamictop_ptr = WasmPtr::<i32>::new(top_ptr).deref(&ctx, &memory);
+    let memory = ctx.data().memory(0);
+    let memory = memory.view(&ctx);
+    let dynamictop_ptr = WasmPtr::<i32>::new(top_ptr).deref(&memory);
     dynamictop_ptr.write(new_dynamic_top).unwrap();
     old_dynamic_top as _
 }
@@ -124,7 +133,8 @@ pub fn get_total_memory(ctx: FunctionEnvMut<EmEnv>) -> u32 {
     debug!("emscripten::get_total_memory");
     // instance.memories[0].current_pages()
     // TODO: Fix implementation
-    ctx.data().memory(0).size(&ctx).bytes().0 as u32
+    let memory = ctx.data().memory(0);
+    memory.view(&ctx).size().bytes().0 as u32
 }
 
 /// emscripten: enlargeMemory

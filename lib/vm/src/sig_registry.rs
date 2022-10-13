@@ -41,7 +41,8 @@ impl SignatureRegistry {
     pub fn register(&self, sig: &FunctionType) -> VMSharedSignatureIndex {
         let mut inner = self.inner.write().unwrap();
         let len = inner.signature2index.len();
-        match inner.signature2index.entry(sig.clone()) {
+        let entry = inner.signature2index.entry(sig.clone());
+        match entry {
             hash_map::Entry::Occupied(entry) => *entry.get(),
             hash_map::Entry::Vacant(entry) => {
                 // Keep `signature_hash` len under 2**32 -- VMSharedSignatureIndex::new(std::u32::MAX)

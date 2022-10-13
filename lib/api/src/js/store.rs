@@ -182,7 +182,6 @@ impl<T: AsStoreMut> AsStoreMut for &'_ mut T {
 
 pub use objects::*;
 
-use crate::js::FunctionEnv;
 mod objects {
     use crate::js::{
         export::{VMFunction, VMGlobal, VMMemory, VMTable},
@@ -262,6 +261,11 @@ mod objects {
         /// Returns the ID of this context.
         pub fn id(&self) -> StoreId {
             self.id
+        }
+
+        /// Sets the ID of this store
+        pub fn set_id(&mut self, id: StoreId) {
+            self.id = id;
         }
 
         /// Returns a pair of mutable references from two handles.
@@ -433,6 +437,7 @@ mod objects {
     /// Data used by the generated code is generally located inline within the
     /// `VMContext` for items defined in an instance. Host-defined objects are
     /// allocated separately and owned directly by the context.
+    #[allow(dead_code)]
     pub enum MaybeInstanceOwned<T> {
         /// The data is owned here.
         Host(Box<UnsafeCell<T>>),
@@ -443,6 +448,7 @@ mod objects {
 
     impl<T> MaybeInstanceOwned<T> {
         /// Returns underlying pointer to the VM data.
+        #[allow(dead_code)]
         pub fn as_ptr(&self) -> NonNull<T> {
             match self {
                 MaybeInstanceOwned::Host(p) => unsafe { NonNull::new_unchecked(p.get()) },

@@ -1,0 +1,12 @@
+[package]
+name = "wasmer-capi-examples-runner"
+version = "3.0.0-beta.2"
+edition = "2021"
+license = "MIT"
+description = "wasmer-capi-examples-runner"
+
+[dependencies]
+cc = "1.0"
+target-lexicon = "0.11"
+regex = "1.6"
+walkdir = "2.3.2"

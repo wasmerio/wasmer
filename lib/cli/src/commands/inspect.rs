@@ -1,18 +1,18 @@
 use crate::store::StoreOptions;
 use anyhow::{Context, Result};
 use bytesize::ByteSize;
+use clap::Parser;
 use std::path::PathBuf;
-use structopt::StructOpt;
 use wasmer::*;
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Parser)]
 /// The options for the `wasmer validate` subcommand
 pub struct Inspect {
     /// File to validate as WebAssembly
-    #[structopt(name = "FILE", parse(from_os_str))]
+    #[clap(name = "FILE", parse(from_os_str))]
     path: PathBuf,
 
-    #[structopt(flatten)]
+    #[clap(flatten)]
     store: StoreOptions,
 }
 
@@ -25,16 +25,11 @@ impl Inspect {
     fn inner_execute(&self) -> Result<()> {
         let (store, _compiler_type) = self.store.get_store()?;
         let module_contents = std::fs::read(&self.path)?;
-        let module = Module::new(&store, &module_contents)?;
-        println!(
-            "Type: {}",
-            if !is_wasm(&module_contents) {
-                "wat"
-            } else {
-                "wasm"
-            }
-        );
-        println!("Size: {}", ByteSize(module_contents.len() as _));
+        let iswasm = is_wasm(&module_contents);
+        let module_len = module_contents.len();
+        let module = Module::new(&store, module_contents)?;
+        println!("Type: {}", if !iswasm { "wat" } else { "wasm" });
+        println!("Size: {}", ByteSize(module_len as _));
         println!("Imports:");
         println!("  Functions:");
         for f in module.imports().functions() {

@@ -1,12 +1,14 @@
 pub(crate) mod function;
 pub(crate) mod global;
 pub(crate) mod memory;
+pub(crate) mod memory_view;
 pub(crate) mod table;
 
 pub use self::function::{FromToNativeWasmType, Function, HostFunction, WasmTypeList};
 
 pub use self::global::Global;
 pub use self::memory::Memory;
+pub use self::memory_view::MemoryView;
 pub use self::table::Table;
 
 use crate::sys::exports::{ExportError, Exportable};

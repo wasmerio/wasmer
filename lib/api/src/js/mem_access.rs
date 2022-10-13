@@ -1,7 +1,6 @@
 use crate::js::externals::memory::MemoryBuffer;
-use crate::js::store::AsStoreRef;
 use crate::js::RuntimeError;
-use crate::js::{Memory, Memory32, Memory64, WasmPtr};
+use crate::js::{Memory32, Memory64, MemoryView, WasmPtr};
 use std::{
     convert::TryInto,
     fmt,
@@ -61,9 +60,9 @@ pub struct WasmRef<'a, T: ValueType> {
 impl<'a, T: ValueType> WasmRef<'a, T> {
     /// Creates a new `WasmRef` at the given offset in a memory.
     #[inline]
-    pub fn new(store: &'a impl AsStoreRef, memory: &'a Memory, offset: u64) -> Self {
+    pub fn new(view: &'a MemoryView, offset: u64) -> Self {
         Self {
-            buffer: memory.buffer(store),
+            buffer: view.buffer(),
             offset,
             marker: PhantomData,
         }
@@ -159,12 +158,7 @@ impl<'a, T: ValueType> WasmSlice<'a, T> {
     ///
     /// Returns a `MemoryAccessError` if the slice length overflows.
     #[inline]
-    pub fn new(
-        store: &'a impl AsStoreRef,
-        memory: &'a Memory,
-        offset: u64,
-        len: u64,
-    ) -> Result<Self, MemoryAccessError> {
+    pub fn new(memory: &'a MemoryView, offset: u64, len: u64) -> Result<Self, MemoryAccessError> {
         let total_len = len
             .checked_mul(mem::size_of::<T>() as u64)
             .ok_or(MemoryAccessError::Overflow)?;
@@ -172,7 +166,7 @@ impl<'a, T: ValueType> WasmSlice<'a, T> {
             .checked_add(total_len)
             .ok_or(MemoryAccessError::Overflow)?;
         Ok(Self {
-            buffer: memory.buffer(store),
+            buffer: memory.buffer(),
             offset,
             len,
             marker: PhantomData,
@@ -201,6 +195,12 @@ impl<'a, T: ValueType> WasmSlice<'a, T> {
     #[inline]
     pub fn len(self) -> u64 {
         self.len
+    }
+
+    /// Return if the slice is empty.
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
     }
 
     /// Get a `WasmRef` to an element in the slice.

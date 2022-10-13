@@ -109,7 +109,7 @@ pub struct FunctionMetering<F: Fn(&Operator) -> u64 + Send + Sync> {
 /// # Example
 ///
 /// See the [`get_remaining_points`] function to get an example.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Eq, PartialEq)]
 pub enum MeteringPoints {
     /// The given number of metering points is left for the execution.
     /// If the value is 0, all points are consumed but the execution
@@ -406,7 +406,7 @@ mod tests {
             .exports
             .get_function("add_one")
             .unwrap()
-            .native(&store)
+            .typed(&store)
             .unwrap();
         add_one.call(&mut store, 1).unwrap();
         assert_eq!(
@@ -447,7 +447,7 @@ mod tests {
             .exports
             .get_function("add_one")
             .unwrap()
-            .native(&store)
+            .typed(&store)
             .unwrap();
 
         // Increase a bit to have enough for 3 calls

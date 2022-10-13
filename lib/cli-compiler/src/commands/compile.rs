@@ -1,34 +1,34 @@
 use crate::store::StoreOptions;
 use crate::warning;
 use anyhow::{Context, Result};
+use clap::Parser;
 use std::path::{Path, PathBuf};
-use structopt::StructOpt;
-use wasmer_compiler::ModuleEnvironment;
-use wasmer_compiler::{ArtifactBuild, ArtifactCreate};
+use wasmer_compiler::{ArtifactBuild, ArtifactCreate, ModuleEnvironment};
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::{
-    CompileError, CpuFeature, MemoryIndex, MemoryStyle, TableIndex, TableStyle, Target, Triple,
+    Architecture, CompileError, CpuFeature, MemoryIndex, MemoryStyle, TableIndex, TableStyle,
+    Target, Triple,
 };
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Parser)]
 /// The options for the `wasmer compile` subcommand
 pub struct Compile {
     /// Input file
-    #[structopt(name = "FILE", parse(from_os_str))]
+    #[clap(name = "FILE", parse(from_os_str))]
     path: PathBuf,
 
     /// Output file
-    #[structopt(name = "OUTPUT PATH", short = "o", parse(from_os_str))]
+    #[clap(name = "OUTPUT PATH", short = 'o', parse(from_os_str))]
     output: PathBuf,
 
     /// Compilation Target triple
-    #[structopt(long = "target")]
+    #[clap(long = "target")]
     target_triple: Option<Triple>,
 
-    #[structopt(flatten)]
+    #[clap(flatten)]
     store: StoreOptions,
 
-    #[structopt(short = "m", multiple = true, number_of_values = 1)]
+    #[clap(short = 'm')]
     cpu_features: Vec<CpuFeature>,
 }
 
@@ -51,7 +51,9 @@ impl Compile {
                     .fold(CpuFeature::set(), |a, b| a | b);
                 // Cranelift requires SSE2, so we have this "hack" for now to facilitate
                 // usage
-                features |= CpuFeature::SSE2;
+                if target_triple.architecture == Architecture::X86_64 {
+                    features |= CpuFeature::SSE2;
+                }
                 Target::new(target_triple.clone(), features)
             })
             .unwrap_or_default();
