@@ -686,7 +686,7 @@ pub fn get_if_package_has_new_version(
         Some(ref o) => Some(())
             .map(|_| {
                 let modified = package_dir.join(&o).metadata().ok()?.modified().ok()?;
-                let version = semver::Version::parse(&o).ok()?;
+                let version = semver::Version::parse(o).ok()?;
                 all_installed_versions.push(version);
                 if modified.elapsed().ok()? <= max_timeout {
                     Some(())
@@ -722,16 +722,12 @@ pub fn get_if_package_has_new_version(
     // If the version is specified, don't check for updates
     // (since the package returned from the server would be the same)
     if all_installed_versions.is_empty() || (may_have_newer_version && version.is_none()) {
-        let available_packages = query_available_packages_from_registry(
-            registry_url,
-            name,
-            version.as_ref().map(|s| s.as_str()),
-        )
-        .unwrap_or_default();
+        let available_packages =
+            query_available_packages_from_registry(registry_url, name).unwrap_or_default();
 
         for p in available_packages {
             if p.is_latest_version {
-                return Ok(Some(p.clone()));
+                return Ok(Some(p));
             }
         }
     }
@@ -744,7 +740,6 @@ pub fn get_if_package_has_new_version(
 pub fn query_available_packages_from_registry(
     registry_url: &str,
     name: &str,
-    version: Option<&str>,
 ) -> Result<Vec<PackageDownloadInfo>, QueryPackageError> {
     use crate::graphql::{execute_query, get_packages_query, GetPackagesQuery};
     use graphql_client::GraphQLQuery;
@@ -812,7 +807,7 @@ pub fn query_package_from_registry(
     name: &str,
     version: Option<&str>,
 ) -> Result<PackageDownloadInfo, QueryPackageError> {
-    let available_packages = query_available_packages_from_registry(registry_url, name, version)?;
+    let available_packages = query_available_packages_from_registry(registry_url, name)?;
 
     if !name.contains('/') {
         return Err(QueryPackageError::AmbigouusName {
@@ -934,17 +929,14 @@ pub fn install_package(
                 }
 
                 if !force_install {
-                    match get_if_package_has_new_version(
+                    if let Ok(Some(package)) = get_if_package_has_new_version(
                         r,
                         name,
                         version.map(|s| s.to_string()),
                         Duration::from_secs(60 * 5),
                     ) {
-                        Ok(Some(package)) => {
-                            url_of_package = Some((r, package));
-                            break;
-                        }
-                        _ => {}
+                        url_of_package = Some((r, package));
+                        break;
                     }
                 }
 
@@ -1045,7 +1037,6 @@ pub fn install_package(
 pub fn test_if_registry_present(registry: &str) -> Result<bool, String> {
     use crate::graphql::{test_if_registry_present, TestIfRegistryPresent};
     use graphql_client::GraphQLQuery;
-    use std::time::Duration;
 
     let q = TestIfRegistryPresent::build_query(test_if_registry_present::Variables {});
     let _ = crate::graphql::execute_query_modifier_inner_check_json(
