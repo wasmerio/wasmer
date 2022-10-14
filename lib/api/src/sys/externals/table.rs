@@ -212,8 +212,9 @@ impl<'a> Exportable<'a> for Table {
     }
 }
 
+/// Check the example from <https://github.com/wasmerio/wasmer/issues/3197>.
 #[test]
-fn test_table_grow_3197() {
+fn test_table_grow_issue_3197() {
     use crate::{imports, Instance, Module, Store, Table, TableType, Type, Value};
 
     const WAT: &str = r#"(module (table (import "env" "table") 100 funcref))"#;
