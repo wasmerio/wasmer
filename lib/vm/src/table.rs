@@ -196,7 +196,6 @@ impl VMTable {
 
         self.vec
             .resize(usize::try_from(new_len).unwrap(), init_value.into());
-        self.table.minimum = new_len;
 
         // update table definition
         unsafe {

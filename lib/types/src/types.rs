@@ -154,7 +154,7 @@ fn is_table_compatible(exported: &TableType, imported: &TableType) -> bool {
     } = imported;
 
     is_table_element_type_compatible(*exported_ty, *imported_ty)
-        && imported_minimum <= exported_minimum
+        && imported_minimum >= exported_minimum
         && (imported_maximum.is_none()
             || (!exported_maximum.is_none()
                 && imported_maximum.unwrap() >= exported_maximum.unwrap()))
