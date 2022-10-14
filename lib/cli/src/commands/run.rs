@@ -603,12 +603,14 @@ impl Run {
         let store = StoreOptions::default();
         // TODO: store.compiler.features.all = true; ?
         Ok(Self {
-            args,
             path: executable.into(),
-            command_name: Some(original_executable),
-            store,
-            wasi: Wasi::for_binfmt_interpreter()?,
-            ..Self::default()
+            options: RunWithoutFile {
+                args,
+                command_name: Some(original_executable),
+                store,
+                wasi: Wasi::for_binfmt_interpreter()?,
+                ..Self::default()
+            },
         })
     }
     #[cfg(not(target_os = "linux"))]
