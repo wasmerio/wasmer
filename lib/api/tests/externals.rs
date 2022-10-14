@@ -210,10 +210,7 @@ fn memory_grow() -> Result<(), String> {
 fn function_new() -> Result<(), String> {
     let mut store = Store::default();
     let function = Function::new_typed(&mut store, || {});
-    assert_eq!(
-        function.ty(&mut store),
-        FunctionType::new(vec![], vec![])
-    );
+    assert_eq!(function.ty(&mut store), FunctionType::new(vec![], vec![]));
     let function = Function::new_typed(&mut store, |_a: i32| {});
     assert_eq!(
         function.ty(&mut store),
@@ -246,10 +243,7 @@ fn function_new_env() -> Result<(), String> {
     let my_env = MyEnv {};
     let env = FunctionEnv::new(&mut store, my_env);
     let function = Function::new_typed_with_env(&mut store, &env, |_env: FunctionEnvMut<MyEnv>| {});
-    assert_eq!(
-        function.ty(&mut store),
-        FunctionType::new(vec![], vec![])
-    );
+    assert_eq!(function.ty(&mut store), FunctionType::new(vec![], vec![]));
     let function =
         Function::new_typed_with_env(&mut store, &env, |_env: FunctionEnvMut<MyEnv>, _a: i32| {});
     assert_eq!(
