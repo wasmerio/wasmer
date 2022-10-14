@@ -67,8 +67,11 @@ struct WasiPipeDataWithDestructor {
 }
 
 impl WasiPipeDataWithDestructor {
-    fn read_buffer(&mut self, read_cb: WasiConsoleIoReadCallback, max_read: Option<usize>) -> io::Result<Vec<u8>> {
-
+    fn read_buffer(
+        &mut self,
+        read_cb: WasiConsoleIoReadCallback,
+        max_read: Option<usize>,
+    ) -> io::Result<Vec<u8>> {
         const BLOCK_SIZE: usize = 1024;
 
         let mut final_buf = Vec::new();
@@ -83,14 +86,18 @@ impl WasiPipeDataWithDestructor {
             }
 
             let mut temp_buffer = if cur_read + BLOCK_SIZE > max_read {
-                vec![0;max_read - cur_read]
+                vec![0; max_read - cur_read]
             } else {
-                vec![0;BLOCK_SIZE]
+                vec![0; BLOCK_SIZE]
             };
 
             let result = unsafe {
                 let ptr = temp_buffer.as_mut_ptr() as *mut c_char;
-                (read_cb)(self.data.as_mut_ptr() as *const c_void, ptr, temp_buffer.len())
+                (read_cb)(
+                    self.data.as_mut_ptr() as *const c_void,
+                    ptr,
+                    temp_buffer.len(),
+                )
             };
 
             if result < 0 {
@@ -122,7 +129,6 @@ impl Drop for WasiPipeDataWithDestructor {
 }
 
 impl wasi_pipe_t {
-
     fn get_data_mut(
         &self,
         op_id: &'static str,
@@ -153,10 +159,9 @@ impl fmt::Debug for wasi_pipe_t {
 
 impl io::Read for wasi_pipe_t {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        
         let self_read = self.read;
         let mut data = self.get_data_mut("read")?;
-        
+
         // fill up buf by draining temp_buffer first, then read more bytes
         let bytes_to_read = data.temp_buffer.len().min(buf.len());
         let mut temp_buffer_drained: Vec<_> = data.temp_buffer.drain(..bytes_to_read).collect();
@@ -167,7 +172,8 @@ impl io::Read for wasi_pipe_t {
         if buf.len() >= temp_buffer_drained.len() {
             let secondary_bytes_to_read = data.temp_buffer.len().min(buf.len());
             data.read_buffer(self_read, Some(secondary_bytes_to_read))?;
-            temp_buffer_drained.append(&mut data.temp_buffer.drain(..secondary_bytes_to_read).collect());
+            temp_buffer_drained
+                .append(&mut data.temp_buffer.drain(..secondary_bytes_to_read).collect());
             bytes_read += secondary_bytes_to_read;
         }
 
@@ -523,11 +529,7 @@ pub unsafe extern "C" fn wasi_pipe_delete_str(buf: *mut c_char) {
     let _ = CString::from_raw(buf);
 }
 
-unsafe fn wasi_pipe_read_bytes_internal(
-    ptr: *const wasi_pipe_t, 
-    buf: &mut Vec<u8>
-) -> i64 {
-
+unsafe fn wasi_pipe_read_bytes_internal(ptr: *const wasi_pipe_t, buf: &mut Vec<u8>) -> i64 {
     use std::io::Read;
 
     const BLOCK_SIZE: usize = 1024;
