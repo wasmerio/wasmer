@@ -4,6 +4,7 @@ query GetPackageVersionQuery ($name: String!, $version: String) {
       name
      }
      version
+     isLastVersion
      distribution {
       downloadUrl
      }

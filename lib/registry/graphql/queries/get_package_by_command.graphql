@@ -3,6 +3,8 @@ query GetPackageByCommandQuery ($commandName: String!) {
     command
     packageVersion {
       version
+      isLastVersion
+      manifest
       distribution {
         downloadUrl
       }

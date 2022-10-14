@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 use std::env;
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 use serde::Deserialize;
 use serde::Serialize;
@@ -424,7 +425,9 @@ pub struct PackageDownloadInfo {
     pub registry: String,
     pub package: String,
     pub version: String,
+    pub is_latest_version: bool,
     pub commands: String,
+    pub manifest: String,
     pub url: String,
 }
 
@@ -609,6 +612,8 @@ pub fn query_command_from_registry(
         registry: registry_url.to_string(),
         package,
         version,
+        is_latest_version: command.package_version.is_last_version,
+        manifest: command.package_version.manifest,
         commands: command_name.to_string(),
         url,
     })
@@ -641,13 +646,106 @@ impl QueryPackageError {
         }
     }
 }
-/// Returns the download info of the packages, on error returns all the available packages
-/// i.e. (("foo/python", "wapm.io"), ("bar/python" "wapm.io")))
-pub fn query_package_from_registry(
+
+/// Returns true if a package has a newer version
+///
+/// Also returns true if the package is not installed yet.
+pub fn get_if_package_has_new_version(
+    registry_url: &str,
+    name: &str,
+    version: Option<String>,
+    max_timeout: Duration,
+) -> Result<Option<PackageDownloadInfo>, String> {
+    if !test_if_registry_present(registry_url).unwrap_or(false) {
+        return Ok(None);
+    }
+
+    let host = match url::Url::parse(registry_url) {
+        Ok(o) => match o.host_str().map(|s| s.to_string()) {
+            Some(s) => s,
+            None => return Err(format!("invalid host: {registry_url}")),
+        },
+        Err(_) => return Err(format!("invalid host: {registry_url}")),
+    };
+
+    let (namespace, name) = name
+        .split_once('/')
+        .ok_or_else(|| format!("missing namespace / name for {name:?}"))?;
+
+    let package_dir = get_global_install_dir(&host).map(|path| path.join(namespace).join(name));
+
+    let package_dir = match package_dir {
+        Some(s) => s,
+        None => return Err(format!("package dir does not exist {name}/{namespace}")),
+    };
+
+    // all installed versions of this package
+    let mut all_installed_versions = Vec::new();
+
+    let may_have_newer_version = match version {
+        Some(ref o) => Some(())
+            .map(|_| {
+                let modified = package_dir.join(&o).metadata().ok()?.modified().ok()?;
+                let version = semver::Version::parse(&o).ok()?;
+                all_installed_versions.push(version);
+                if modified.elapsed().ok()? <= max_timeout {
+                    Some(())
+                } else {
+                    None
+                }
+            })
+            .is_some(),
+        None => {
+            let read_dir = match std::fs::read_dir(&package_dir) {
+                Ok(o) => o,
+                Err(_) => return Err(format!("{}", package_dir.display())),
+            };
+
+            // if there is any package younger than $max_timeout, return false
+            read_dir
+                .filter_map(|entry| {
+                    let entry = entry.ok()?;
+                    let version = semver::Version::parse(entry.file_name().to_str()?).ok()?;
+                    all_installed_versions.push(version);
+                    let modified = entry.metadata().ok()?.modified().ok()?;
+                    if modified.elapsed().ok()? <= max_timeout {
+                        Some(())
+                    } else {
+                        None
+                    }
+                })
+                .next()
+                .is_some()
+        }
+    };
+
+    // If the version is specified, don't check for updates
+    // (since the package returned from the server would be the same)
+    if all_installed_versions.is_empty() || (may_have_newer_version && version.is_none()) {
+        let available_packages = query_available_packages_from_registry(
+            registry_url,
+            name,
+            version.as_ref().map(|s| s.as_str()),
+        )
+        .unwrap_or_default();
+
+        for p in available_packages {
+            if p.is_latest_version {
+                return Ok(Some(p.clone()));
+            }
+        }
+    }
+
+    Err(format!(
+        "Cannot find package {name:?} either locally or in registry"
+    ))
+}
+
+pub fn query_available_packages_from_registry(
     registry_url: &str,
     name: &str,
     version: Option<&str>,
-) -> Result<PackageDownloadInfo, QueryPackageError> {
+) -> Result<Vec<PackageDownloadInfo>, QueryPackageError> {
     use crate::graphql::{execute_query, get_packages_query, GetPackagesQuery};
     use graphql_client::GraphQLQuery;
 
@@ -658,7 +756,7 @@ pub fn query_package_from_registry(
 
     let response: get_packages_query::ResponseData =
         execute_query(registry_url, "", &q).map_err(|e| {
-            QueryPackageError::ErrorSendingQuery(format!("Error sending GetPackagesQuery:  {e}"))
+            QueryPackageError::ErrorSendingQuery(format!("Error sending GetPackagesQuery: {e}"))
         })?;
 
     let available_packages = response
@@ -675,14 +773,17 @@ pub fn query_package_from_registry(
                         None => continue,
                     };
 
+                    let manifest = toml::from_str::<wapm_toml::Manifest>(&v.manifest).ok()?;
+
                     versions.push(PackageDownloadInfo {
                         registry: registry_url.to_string(),
                         package: p.name.clone(),
 
                         version: v.version.clone(),
+                        is_latest_version: v.is_last_version,
+                        manifest: v.manifest.clone(),
 
-                        commands: toml::from_str::<wapm_toml::Manifest>(&v.manifest)
-                            .ok()?
+                        commands: manifest
                             .command
                             .unwrap_or_default()
                             .iter()
@@ -700,6 +801,18 @@ pub fn query_package_from_registry(
         .into_iter()
         .flat_map(|v| v.into_iter())
         .collect::<Vec<_>>();
+
+    Ok(available_packages)
+}
+
+/// Returns the download info of the packages, on error returns all the available packages
+/// i.e. (("foo/python", "wapm.io"), ("bar/python" "wapm.io")))
+pub fn query_package_from_registry(
+    registry_url: &str,
+    name: &str,
+    version: Option<&str>,
+) -> Result<PackageDownloadInfo, QueryPackageError> {
+    let available_packages = query_available_packages_from_registry(registry_url, name, version)?;
 
     if !name.contains('/') {
         return Err(QueryPackageError::AmbigouusName {
@@ -799,22 +912,6 @@ pub fn install_package(
             let mut url_of_package = None;
             let mut error_packages = Vec::new();
 
-            for r in registries.iter() {
-                let registry_test = test_if_registry_present(r);
-                if !registry_test.clone().unwrap_or(false) {
-                    continue;
-                }
-                match query_package_from_registry(r, name, version) {
-                    Ok(o) => {
-                        url_of_package = Some((r, o));
-                        break;
-                    }
-                    Err(e) => {
-                        error_packages.push(e);
-                    }
-                }
-            }
-
             let version_str = match version {
                 None => name.to_string(),
                 Some(v) => format!("{name}@{v}"),
@@ -828,6 +925,37 @@ pub fn install_package(
 
             let mut error_str =
                 format!("Package {version_str} not found in registries {registries_searched:?}.");
+
+            for r in registries.iter() {
+                let registry_test = test_if_registry_present(r);
+                if !registry_test.clone().unwrap_or(false) {
+                    continue;
+                }
+
+                match get_if_package_has_new_version(
+                    r,
+                    name,
+                    version.map(|s| s.to_string()),
+                    Duration::from_secs(60 * 5),
+                ) {
+                    Ok(Some(package)) => {
+                        url_of_package = Some((r, package));
+                        break;
+                    }
+                    _ => {}
+                }
+
+                match query_package_from_registry(r, name, version) {
+                    Ok(o) => {
+                        url_of_package = Some((r, o));
+                        break;
+                    }
+                    Err(e) => {
+                        error_packages.push(e);
+                    }
+                }
+            }
+
             let mut did_you_mean = error_packages
                 .iter()
                 .flat_map(|error| {

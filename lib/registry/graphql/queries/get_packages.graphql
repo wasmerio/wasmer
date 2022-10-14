@@ -4,6 +4,7 @@ query GetPackagesQuery ($names: [String!]!) {
     private
     versions {
       version
+      isLastVersion
       distribution {
         downloadUrl
       }

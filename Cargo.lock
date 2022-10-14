@@ -4036,6 +4036,7 @@ dependencies = [
  "flate2",
  "graphql_client",
  "reqwest",
+ "semver 1.0.14",
  "serde",
  "serde_json",
  "tar",
