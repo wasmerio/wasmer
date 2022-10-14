@@ -609,7 +609,7 @@ impl Run {
                 command_name: Some(original_executable),
                 store,
                 wasi: Wasi::for_binfmt_interpreter()?,
-                ..Self::default()
+                ..Default::default()
             },
         })
     }
