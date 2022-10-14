@@ -164,7 +164,11 @@ fn is_table_compatible(
                 && imported_maximum.unwrap() >= exported_maximum.unwrap()))
 }
 
-fn is_memory_compatible(exported: &MemoryType, imported: &MemoryType, _: Option<u32>) -> bool {
+fn is_memory_compatible(
+    exported: &MemoryType,
+    imported: &MemoryType,
+    imported_runtime_size: Option<u32>,
+) -> bool {
     let MemoryType {
         minimum: exported_minimum,
         maximum: exported_maximum,
@@ -176,7 +180,7 @@ fn is_memory_compatible(exported: &MemoryType, imported: &MemoryType, _: Option<
         shared: imported_shared,
     } = imported;
 
-    imported_minimum <= exported_minimum
+    imported_minimum.0 <= imported_runtime_size.unwrap_or(exported_minimum.0)
         && (imported_maximum.is_none()
             || (!exported_maximum.is_none()
                 && imported_maximum.unwrap() >= exported_maximum.unwrap()))

@@ -363,7 +363,7 @@ impl VMMemory {
 
     /// Returns the size of the allocated memory block
     pub fn get_runtime_size(&self) -> u32 {
-        unsafe { self.0.vmmemory().as_ref() }.current_length as u32
+        self.0.size().0
     }
 
     /// Create a new linear memory instance with specified minimum and maximum number of wasm pages.
