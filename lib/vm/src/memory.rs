@@ -361,7 +361,7 @@ impl VMMemory {
         Ok(Self(Box::new(VMOwnedMemory::new(memory, style)?)))
     }
 
-    /// Returns the size of the allocated memory block
+    /// Returns the number of pages in the allocated memory block
     pub fn get_runtime_size(&self) -> u32 {
         self.0.size().0
     }
