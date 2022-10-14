@@ -143,8 +143,7 @@ pub fn compiler_test(attrs: TokenStream, input: TokenStream) -> TokenStream {
             #llvm_compiler_test
         }
     };
-    #[cfg(test)]
-    TokenStream::from(x)
+    x.into()
 }
 
 #[cfg(test)]
