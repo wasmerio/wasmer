@@ -636,7 +636,7 @@ pub unsafe extern "C" fn wasi_config_new(
 
 #[no_mangle]
 pub unsafe extern "C" fn wasi_config_env(
-    config: &mut wasi_config_t,
+    wasi_config: &mut wasi_config_t,
     key: *const c_char,
     value: *const c_char,
 ) {
@@ -648,22 +648,22 @@ pub unsafe extern "C" fn wasi_config_env(
     let value_cstr = CStr::from_ptr(value);
     let value_bytes = value_cstr.to_bytes();
 
-    config.state_builder.env(key_bytes, value_bytes);
+    wasi_config.state_builder.env(key_bytes, value_bytes);
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn wasi_config_arg(config: &mut wasi_config_t, arg: *const c_char) {
+pub unsafe extern "C" fn wasi_config_arg(wasi_config: &mut wasi_config_t, arg: *const c_char) {
     debug_assert!(!arg.is_null());
 
     let arg_cstr = CStr::from_ptr(arg);
     let arg_bytes = arg_cstr.to_bytes();
 
-    config.state_builder.arg(arg_bytes);
+    wasi_config.state_builder.arg(arg_bytes);
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn wasi_config_preopen_dir(
-    config: &mut wasi_config_t,
+    wasi_config: &mut wasi_config_t,
     dir: *const c_char,
 ) -> bool {
     let dir_cstr = CStr::from_ptr(dir);
@@ -676,7 +676,7 @@ pub unsafe extern "C" fn wasi_config_preopen_dir(
         }
     };
 
-    if let Err(e) = config.state_builder.preopen_dir(dir_str) {
+    if let Err(e) = wasi_config.state_builder.preopen_dir(dir_str) {
         update_last_error(e);
         return false;
     }
@@ -686,7 +686,7 @@ pub unsafe extern "C" fn wasi_config_preopen_dir(
 
 #[no_mangle]
 pub unsafe extern "C" fn wasi_config_mapdir(
-    config: &mut wasi_config_t,
+    wasi_config: &mut wasi_config_t,
     alias: *const c_char,
     dir: *const c_char,
 ) -> bool {
@@ -710,7 +710,7 @@ pub unsafe extern "C" fn wasi_config_mapdir(
         }
     };
 
-    if let Err(e) = config.state_builder.map_dir(alias_str, dir_str) {
+    if let Err(e) = wasi_config.state_builder.map_dir(alias_str, dir_str) {
         update_last_error(e);
         return false;
     }
@@ -719,33 +719,33 @@ pub unsafe extern "C" fn wasi_config_mapdir(
 }
 
 #[no_mangle]
-pub extern "C" fn wasi_config_capture_stdout(config: &mut wasi_config_t) {
-    config.stdout = Some(unsafe { Box::from_raw(wasi_pipe_new_null()) });
+pub extern "C" fn wasi_config_capture_stdout(wasi_config: &mut wasi_config_t) {
+    wasi_config.stdout = Some(unsafe { Box::from_raw(wasi_pipe_new_null()) });
 }
 
 #[no_mangle]
-pub extern "C" fn wasi_config_inherit_stdout(config: &mut wasi_config_t) {
-    config.stdout = None;
+pub extern "C" fn wasi_config_inherit_stdout(wasi_config: &mut wasi_config_t) {
+    wasi_config.stdout = None;
 }
 
 #[no_mangle]
-pub extern "C" fn wasi_config_capture_stderr(config: &mut wasi_config_t) {
-    config.stderr = Some(unsafe { Box::from_raw(wasi_pipe_new_null()) });
+pub extern "C" fn wasi_config_capture_stderr(wasi_config: &mut wasi_config_t) {
+    wasi_config.stderr = Some(unsafe { Box::from_raw(wasi_pipe_new_null()) });
 }
 
 #[no_mangle]
-pub extern "C" fn wasi_config_inherit_stderr(config: &mut wasi_config_t) {
-    config.stderr = None;
+pub extern "C" fn wasi_config_inherit_stderr(wasi_config: &mut wasi_config_t) {
+    wasi_config.stderr = None;
 }
 
 #[no_mangle]
-pub extern "C" fn wasi_config_capture_stdin(config: &mut wasi_config_t) {
-    config.stdin = Some(unsafe { Box::from_raw(wasi_pipe_new_null()) });
+pub extern "C" fn wasi_config_capture_stdin(wasi_config: &mut wasi_config_t) {
+    wasi_config.stdin = Some(unsafe { Box::from_raw(wasi_pipe_new_null()) });
 }
 
 #[no_mangle]
-pub extern "C" fn wasi_config_inherit_stdin(config: &mut wasi_config_t) {
-    config.stdin = None;
+pub extern "C" fn wasi_config_inherit_stdin(wasi_config: &mut wasi_config_t) {
+    wasi_config.stdin = None;
 }
 
 #[no_mangle]
@@ -791,24 +791,24 @@ pub struct wasi_env_t {
 #[no_mangle]
 pub unsafe extern "C" fn wasi_env_new(
     store: Option<&mut wasm_store_t>,
-    mut config: Box<wasi_config_t>,
+    mut wasi_config: Box<wasi_config_t>,
 ) -> Option<Box<wasi_env_t>> {
     let store = &mut store?.inner;
     let mut store_mut = store.store_mut();
 
-    if let Some(stdout) = config.stdout {
-        config.state_builder.stdout(stdout);
+    if let Some(stdout) = wasi_config.stdout {
+        wasi_config.state_builder.stdout(stdout);
     }
 
-    if let Some(stderr) = config.stderr {
-        config.state_builder.stderr(stderr);
+    if let Some(stderr) = wasi_config.stderr {
+        wasi_config.state_builder.stderr(stderr);
     }
 
-    if let Some(stdin) = config.stdin {
-        config.state_builder.stdin(stdin);
+    if let Some(stdin) = wasi_config.stdin {
+        wasi_config.state_builder.stdin(stdin);
     }
 
-    let wasi_state = c_try!(config.state_builder.finalize(&mut store_mut));
+    let wasi_state = c_try!(wasi_config.state_builder.finalize(&mut store_mut));
 
     Some(Box::new(wasi_env_t {
         inner: wasi_state,
