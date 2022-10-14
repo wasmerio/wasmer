@@ -123,14 +123,6 @@ impl Drop for WasiPipeDataWithDestructor {
 
 impl wasi_pipe_t {
 
-    /// Read bytes from this pipe into the internal buffer, 
-    /// returning how many bytes were read
-    fn read_from_pipe_store_in_buffer(&self) -> io::Result<usize> {
-        let mut data = self.get_data_mut("read_from_pipe")?;
-        data.read_into_buffer();
-        Ok(data.temp_buffer.len())
-    }
-
     fn get_data_mut(
         &self,
         op_id: &'static str,
@@ -167,18 +159,22 @@ impl io::Read for wasi_pipe_t {
         
         // fill up buf by draining temp_buffer first, then read more bytes
         let bytes_to_read = data.temp_buffer.len().min(buf.len());
-        let temp_buffer_drained: Vec<_> = data.temp_buffer.drain(..bytes_to_read).collect();
+        let mut temp_buffer_drained: Vec<_> = data.temp_buffer.drain(..bytes_to_read).collect();
         assert!(temp_buffer_drained.len() <= buf.len());
 
         // If temp_buffer is exhausted, try reading the remaining bytes from the pipe
+        let mut bytes_read = bytes_to_read;
         if buf.len() >= temp_buffer_drained.len() {
             let secondary_bytes_to_read = data.temp_buffer.len().min(buf.len());
             data.read_buffer(self_read, Some(secondary_bytes_to_read))?;
-            temp_buffer_drained.append(data.temp_buffer.drain(..secondary_bytes_to_read).collect());
+            temp_buffer_drained.append(&mut data.temp_buffer.drain(..secondary_bytes_to_read).collect());
+            bytes_read += secondary_bytes_to_read;
         }
 
         assert_eq!(buf.len(), temp_buffer_drained.len());
         buf.clone_from_slice(&temp_buffer_drained);
+
+        Ok(bytes_read)
     }
 }
 
