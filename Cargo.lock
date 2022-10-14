@@ -2316,6 +2316,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde-wasm-bindgen"
+version = "0.4.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e3b4c031cd0d9014307d82b8abf653c0290fbdaeb4c02d00c63cf52f728628bf"
+dependencies = [
+ "js-sys",
+ "serde",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "serde_bytes"
 version = "0.11.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3070,6 +3081,8 @@ dependencies = [
  "js-sys",
  "macro-wasmer-universal-test",
  "more-asserts",
+ "serde",
+ "serde-wasm-bindgen",
  "target-lexicon 0.12.4",
  "tempfile",
  "thiserror",

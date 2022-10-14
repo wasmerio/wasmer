@@ -3,9 +3,10 @@ use crate::js::store::{AsStoreMut, AsStoreRef, InternalStoreHandle};
 use crate::js::wasm_bindgen_polyfill::Global;
 use js_sys::Function;
 use js_sys::WebAssembly::{Memory, Table};
+use serde::{Deserialize, Serialize};
 use std::fmt;
 use wasm_bindgen::{JsCast, JsValue};
-use wasmer_types::{ExternType, FunctionType, GlobalType, MemoryType, TableType};
+use wasmer_types::{ExternType, FunctionType, GlobalType, MemoryType, TableType, WASM_PAGE_SIZE};
 
 /// Represents linear memory that is managed by the javascript runtime
 #[derive(Clone, Debug, PartialEq)]
@@ -17,13 +18,27 @@ pub struct VMMemory {
 unsafe impl Send for VMMemory {}
 unsafe impl Sync for VMMemory {}
 
+#[derive(Serialize, Deserialize)]
+struct DummyBuffer {
+    #[serde(rename = "byteLength")]
+    byte_length: u32,
+}
+
 impl VMMemory {
     pub(crate) fn new(memory: Memory, ty: MemoryType) -> Self {
         Self { memory, ty }
     }
 
+    /// Returns the size of the memory buffer in pages
     pub fn get_runtime_size(&self) -> u32 {
-        self.memory.get_runtime_size()
+        let dummy: DummyBuffer = match serde_wasm_bindgen::from_value(self.memory.buffer()) {
+            Ok(o) => o,
+            Err(_) => return 0,
+        };
+        if dummy.byte_length == 0 {
+            return 0;
+        }
+        dummy.byte_length / 65536
     }
 
     /// Attempts to clone this memory (if its clonable)
@@ -61,7 +76,7 @@ impl VMTable {
         Self { table, ty }
     }
     pub fn get_runtime_size(&self) -> u32 {
-        self.table.get_runtime_size()
+        self.table.length()
     }
 }
 
