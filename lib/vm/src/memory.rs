@@ -361,6 +361,11 @@ impl VMMemory {
         Ok(Self(Box::new(VMOwnedMemory::new(memory, style)?)))
     }
 
+    /// Returns the size of the allocated memory block
+    pub fn get_runtime_size(&self) -> u32 {
+        unsafe { self.0.vmmemory().as_ref() }.current_length as u32
+    }
+    
     /// Create a new linear memory instance with specified minimum and maximum number of wasm pages.
     ///
     /// This creates a `Memory` with metadata owned by a VM, pointed to by

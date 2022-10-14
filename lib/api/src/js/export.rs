@@ -22,6 +22,10 @@ impl VMMemory {
         Self { memory, ty }
     }
 
+    pub fn get_runtime_size(&self) -> u32 {
+        self.memory.get_runtime_size()
+    }
+
     /// Attempts to clone this memory (if its clonable)
     pub(crate) fn try_clone(&self) -> Option<VMMemory> {
         Some(self.clone())
@@ -55,6 +59,9 @@ unsafe impl Sync for VMTable {}
 impl VMTable {
     pub(crate) fn new(table: Table, ty: TableType) -> Self {
         Self { table, ty }
+    }
+    pub fn get_runtime_size(&self) -> u32 {
+        self.table.get_runtime_size()
     }
 }
 
