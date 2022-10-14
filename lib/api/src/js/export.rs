@@ -38,7 +38,7 @@ impl VMMemory {
         if dummy.byte_length == 0 {
             return 0;
         }
-        dummy.byte_length / WASM_PAGE_SIZE
+        dummy.byte_length / WASM_PAGE_SIZE as u32
     }
 
     /// Attempts to clone this memory (if its clonable)
