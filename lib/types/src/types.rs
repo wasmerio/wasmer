@@ -141,7 +141,11 @@ fn is_table_element_type_compatible(exported_type: Type, imported_type: Type) ->
     }
 }
 
-fn is_table_compatible(exported: &TableType, imported: &TableType, imported_runtime_size: Option<u32>) -> bool {
+fn is_table_compatible(
+    exported: &TableType,
+    imported: &TableType,
+    imported_runtime_size: Option<u32>,
+) -> bool {
     let TableType {
         ty: exported_ty,
         minimum: exported_minimum,
