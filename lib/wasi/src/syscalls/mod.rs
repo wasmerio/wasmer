@@ -2657,18 +2657,6 @@ pub fn path_rename<M: MemorySize>(
         source_path.to_str().as_ref().unwrap(),
         true
     ));
-    if state
-        .fs
-        .get_inode_at_path(
-            inodes.deref_mut(),
-            new_fd,
-            target_path.to_str().as_ref().unwrap(),
-            true,
-        )
-        .is_ok()
-    {
-        return Errno::Exist;
-    }
     let (source_parent_inode, source_entry_name) =
         wasi_try!(state
             .fs
