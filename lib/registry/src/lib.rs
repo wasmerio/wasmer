@@ -904,6 +904,7 @@ pub fn install_package(
     name: &str,
     version: Option<&str>,
     package_download_info: Option<PackageDownloadInfo>,
+    force_install: bool,
 ) -> Result<(LocalPackage, PathBuf), String> {
     let package_info = match package_download_info {
         Some(s) => s,
@@ -932,17 +933,19 @@ pub fn install_package(
                     continue;
                 }
 
-                match get_if_package_has_new_version(
-                    r,
-                    name,
-                    version.map(|s| s.to_string()),
-                    Duration::from_secs(60 * 5),
-                ) {
-                    Ok(Some(package)) => {
-                        url_of_package = Some((r, package));
-                        break;
+                if !force_install {
+                    match get_if_package_has_new_version(
+                        r,
+                        name,
+                        version.map(|s| s.to_string()),
+                        Duration::from_secs(60 * 5),
+                    ) {
+                        Ok(Some(package)) => {
+                            url_of_package = Some((r, package));
+                            break;
+                        }
+                        _ => {}
                     }
-                    _ => {}
                 }
 
                 match query_package_from_registry(r, name, version) {

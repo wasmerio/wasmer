@@ -25,6 +25,10 @@ use wasi::Wasi;
 /// Same as `wasmer run`, but without the required `path` argument (injected previously)
 #[derive(Debug, Parser, Clone, Default)]
 pub struct RunWithoutFile {
+    /// When installing packages with `wasmer $package`, force re-downloading the package
+    #[clap(long = "force", short = 'f')]
+    pub(crate) force_install: bool,
+
     /// Disable the cache
     #[cfg(feature = "cache")]
     #[clap(long = "disable-cache")]
@@ -147,6 +151,7 @@ impl RunWithoutFile {
         Run {
             path: pathbuf,
             options: RunWithoutFile {
+                force_install: self.force_install,
                 #[cfg(feature = "cache")]
                 disable_cache: self.disable_cache,
                 invoke: self.invoke,

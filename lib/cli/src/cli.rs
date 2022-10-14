@@ -267,7 +267,7 @@ fn try_run_package_or_file(args: &[String], r: &Run) -> Result<(), anyhow::Error
     }
 
     // else: local package not found - try to download and install package
-    try_autoinstall_package(args, &sv, package_download_info)
+    try_autoinstall_package(args, &sv, package_download_info, r.force_install)
 }
 
 fn try_lookup_command(sv: &mut SplitVersion) -> Result<PackageDownloadInfo, anyhow::Error> {
@@ -317,10 +317,11 @@ fn try_autoinstall_package(
     args: &[String],
     sv: &SplitVersion,
     package: Option<PackageDownloadInfo>,
+    force_install: bool,
 ) -> Result<(), anyhow::Error> {
     let sp = start_spinner(format!("Installing package {} ...", sv.package));
     let v = sv.version.as_deref();
-    let result = wasmer_registry::install_package(&sv.package, v, package);
+    let result = wasmer_registry::install_package(&sv.package, v, package, force_install);
     sp.close();
     print!("\r\n");
     let (package, buf) = match result {
