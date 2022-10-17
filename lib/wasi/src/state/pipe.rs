@@ -319,8 +319,6 @@ impl Read for WasiPipe {
                         inner_buf.advance(read);
                         return Ok(read);
                     }
-                } else if !self.block {
-                    return Ok(0);
                 }
             }
             let rx = self.rx.lock().unwrap();
@@ -339,18 +337,26 @@ impl Read for WasiPipe {
                     s
                 }
                 Err(_) => {
-                    // could not immediately receive bytes, so we need to block
-                    match rx.recv() {
-                        Ok(o) => o,
-                        // Errors can happen if the sender has been dropped already
-                        // In this case, just return 0 to indicate that we can't read any
-                        // bytes anymore
-                        Err(_) => {
-                            return Ok(0);
+                    if !self.block {
+                        // If self.block is explicitly set to false, never block
+                        Vec::new()
+                    } else {
+                        // could not immediately receive bytes, so we need to block
+                        match rx.recv() {
+                            Ok(o) => o,
+                            // Errors can happen if the sender has been dropped already
+                            // In this case, just return 0 to indicate that we can't read any
+                            // bytes anymore
+                            Err(_) => {
+                                return Ok(0);
+                            }
                         }
                     }
                 }
             };
+            if data.is_empty() && self.read_buffer.as_ref().map(|s| s.len()).unwrap_or(0) == 0 {
+                return Ok(0);
+            }
             self.read_buffer.replace(Bytes::from(data));
         }
     }
