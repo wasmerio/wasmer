@@ -357,7 +357,7 @@ impl VMMemory {
     ///
     /// This creates a `Memory` with owned metadata: this can be used to create a memory
     /// that will be imported into Wasm modules.
-    pub fn new(memory: &MemoryType, style: &MemoryStyle) -> Result<VMMemory, MemoryError> {
+    pub fn new(memory: &MemoryType, style: &MemoryStyle) -> Result<Self, MemoryError> {
         Ok(Self(Box::new(VMOwnedMemory::new(memory, style)?)))
     }
 
@@ -377,7 +377,7 @@ impl VMMemory {
         memory: &MemoryType,
         style: &MemoryStyle,
         vm_memory_location: NonNull<VMMemoryDefinition>,
-    ) -> Result<VMMemory, MemoryError> {
+    ) -> Result<Self, MemoryError> {
         Ok(Self(Box::new(VMOwnedMemory::from_definition(
             memory,
             style,
@@ -389,9 +389,9 @@ impl VMMemory {
     /// are natively supported
     /// - VMOwnedMemory -> VMMemory
     /// - Box<dyn LinearMemory + 'static> -> VMMemory
-    pub fn from_custom<IntoVMMemory>(memory: IntoVMMemory) -> VMMemory
+    pub fn from_custom<IntoVMMemory>(memory: IntoVMMemory) -> Self
     where
-        IntoVMMemory: Into<VMMemory>,
+        IntoVMMemory: Into<Self>,
     {
         memory.into()
     }
