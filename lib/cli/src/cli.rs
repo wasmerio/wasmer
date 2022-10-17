@@ -37,6 +37,11 @@ use wasmer_registry::{get_all_local_packages, PackageDownloadInfo};
 )]
 /// The options for the wasmer Command Line Interface
 enum WasmerCLIOptions {
+
+    /// List all locally installed packages
+    #[clap(name = "list")]
+    List,
+
     /// Run a WebAssembly file. Formats accepted: wasm, wat
     #[clap(name = "run")]
     Run(Run),
@@ -160,6 +165,7 @@ impl WasmerCLIOptions {
             Self::CreateObj(create_obj) => create_obj.execute(),
             Self::Config(config) => config.execute(),
             Self::Inspect(inspect) => inspect.execute(),
+            Self::List => print_packages(),
             #[cfg(feature = "wast")]
             Self::Wast(wast) => wast.execute(),
             #[cfg(target_os = "linux")]
@@ -207,9 +213,6 @@ fn wasmer_main_inner() -> Result<(), anyhow::Error> {
         (Some("-v"), _) | (Some("-V"), _) | (Some("version"), _) | (Some("--version"), _) => {
             return print_version(false);
         }
-        (Some("list"), _) => {
-            return print_packages();
-        }
         _ => {}
     }
 
@@ -219,7 +222,7 @@ fn wasmer_main_inner() -> Result<(), anyhow::Error> {
     } else {
         match command.unwrap_or(&"".to_string()).as_ref() {
             "cache" | "compile" | "config" | "create-exe" | "help" | "inspect" | "run"
-            | "self-update" | "validate" | "wast" | "binfmt" => WasmerCLIOptions::parse(),
+            | "self-update" | "validate" | "wast" | "binfmt" | "list" => WasmerCLIOptions::parse(),
             _ => {
                 WasmerCLIOptions::try_parse_from(args.iter()).unwrap_or_else(|e| {
                     match e.kind() {
