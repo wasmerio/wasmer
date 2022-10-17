@@ -290,7 +290,8 @@ fn try_lookup_command(sv: &mut SplitVersion) -> Result<PackageDownloadInfo, anyh
 }
 
 fn try_execute_local_package(args: &[String], sv: &SplitVersion) -> Result<(), anyhow::Error> {
-    let package = match wasmer_registry::get_local_package(&sv.package, sv.version.as_deref()) {
+    let package = match wasmer_registry::get_local_package(None, &sv.package, sv.version.as_deref())
+    {
         Some(p) => p,
         None => return Err(anyhow::anyhow!("no local package {sv:?} found")),
     };
@@ -321,7 +322,7 @@ fn try_autoinstall_package(
 ) -> Result<(), anyhow::Error> {
     let sp = start_spinner(format!("Installing package {} ...", sv.package));
     let v = sv.version.as_deref();
-    let result = wasmer_registry::install_package(&sv.package, v, package, force_install);
+    let result = wasmer_registry::install_package(None, &sv.package, v, package, force_install);
     sp.close();
     print!("\r\n");
     let (package, buf) = match result {
@@ -461,7 +462,7 @@ fn split_version(s: &str) -> Result<SplitVersion, anyhow::Error> {
 fn print_packages() -> Result<(), anyhow::Error> {
     use prettytable::{format, row, Table};
 
-    let rows = get_all_local_packages()
+    let rows = get_all_local_packages(None)
         .into_iter()
         .map(|pkg| {
             let commands = pkg

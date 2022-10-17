@@ -488,10 +488,13 @@ fn get_all_names_in_dir(dir: &PathBuf) -> Vec<(PathBuf, String)> {
 }
 
 /// Returns a list of all locally installed packages
-pub fn get_all_local_packages() -> Vec<LocalPackage> {
+pub fn get_all_local_packages(registry: Option<&str>) -> Vec<LocalPackage> {
     let mut packages = Vec::new();
-
-    for registry in get_all_available_registries().unwrap_or_default() {
+    let registries = match registry {
+        Some(s) => vec![s.to_string()],
+        None => get_all_available_registries().unwrap_or_default(),
+    };
+    for registry in registries {
         let host = match url::Url::parse(&registry) {
             Ok(o) => o.host_str().map(|s| s.to_string()),
             Err(_) => continue,
@@ -533,8 +536,12 @@ pub fn get_all_local_packages() -> Vec<LocalPackage> {
     packages
 }
 
-pub fn get_local_package(name: &str, version: Option<&str>) -> Option<LocalPackage> {
-    get_all_local_packages()
+pub fn get_local_package(
+    registry: Option<&str>,
+    name: &str,
+    version: Option<&str>,
+) -> Option<LocalPackage> {
+    get_all_local_packages(registry)
         .iter()
         .find(|p| {
             if p.name != name {
@@ -744,9 +751,8 @@ pub fn query_available_packages_from_registry(
     use crate::graphql::{execute_query, get_packages_query, GetPackagesQuery};
     use graphql_client::GraphQLQuery;
 
-    let name_query = name.split('/').nth(1).unwrap_or(name);
     let q = GetPackagesQuery::build_query(get_packages_query::Variables {
-        names: vec![name_query.to_string()],
+        names: vec![name.to_string()],
     });
 
     let response: get_packages_query::ResponseData =
@@ -783,7 +789,8 @@ pub fn query_available_packages_from_registry(
                             .unwrap_or_default()
                             .iter()
                             .map(|s| s.get_name())
-                            .collect(),
+                            .collect::<Vec<_>>()
+                            .join(", "),
 
                         url: v.distribution.download_url.clone(),
                     });
@@ -823,7 +830,7 @@ pub fn query_package_from_registry(
                 return false;
             }
 
-            if version == Some(&v.version) {
+            if version != Some(&v.version) {
                 return false;
             }
 
@@ -896,6 +903,7 @@ pub fn download_and_unpack_targz(url: &str, target_path: &Path) -> Result<PathBu
 }
 
 pub fn install_package(
+    registry: Option<&str>,
     name: &str,
     version: Option<&str>,
     package_download_info: Option<PackageDownloadInfo>,
@@ -904,7 +912,10 @@ pub fn install_package(
     let package_info = match package_download_info {
         Some(s) => s,
         None => {
-            let registries = get_all_available_registries()?;
+            let registries = match registry {
+                Some(s) => vec![s.to_string()],
+                None => get_all_available_registries()?,
+            };
             let mut url_of_package = None;
             let mut error_packages = Vec::new();
 
@@ -993,7 +1004,7 @@ pub fn install_package(
     let version = package_info.version;
     let name = package_info.package;
 
-    if !dir.join("wapm.toml").exists() {
+    if !dir.join("wapm.toml").exists() || force_install {
         download_and_unpack_targz(&package_info.url, &dir)?;
     }
     let target_path = dir;
@@ -1065,4 +1076,51 @@ pub fn get_all_available_registries() -> Result<Vec<String>, String> {
         }
     }
     Ok(registries)
+}
+
+#[test]
+fn test_install_package() {
+    let registry = "https://registry.wapm.io/graphql";
+    if !test_if_registry_present(registry).unwrap_or(false) {
+        panic!("registry.wapm.io not reachable, test will fail");
+    }
+
+    let wabt = query_package_from_registry(registry, "wasmer/wabt", Some("1.0.29")).unwrap();
+
+    assert_eq!(wabt.registry, registry);
+    assert_eq!(wabt.package, "wasmer/wabt");
+    assert_eq!(wabt.version, "1.0.29");
+    assert_eq!(
+        wabt.commands,
+        "wat2wasm, wast2json, wasm2wat, wasm-interp, wasm-validate, wasm-strip"
+    );
+    assert_eq!(
+        wabt.url,
+        "https://registry-cdn.wapm.io/packages/wasmer/wabt/wabt-1.0.29.tar.gz".to_string()
+    );
+
+    let (package, _) =
+        install_package(Some(registry), "wasmer/wabt", Some("1.0.29"), None, true).unwrap();
+
+    assert_eq!(
+        package.path,
+        get_global_install_dir("registry.wapm.io")
+            .unwrap()
+            .join("wasmer")
+            .join("wabt")
+            .join("1.0.29")
+    );
+
+    let all_installed_packages = get_all_local_packages(Some(registry));
+    let is_installed = all_installed_packages
+        .iter()
+        .any(|p| p.name == "wasmer/wabt" && p.version == "1.0.29");
+    if !is_installed {
+        let panic_str = get_all_local_packages(Some(registry))
+            .iter()
+            .map(|p| format!("{} {} {}", p.registry, p.name, p.version))
+            .collect::<Vec<_>>()
+            .join("\r\n");
+        panic!("get all local packages: failed to install:\r\n{panic_str}");
+    }
 }
