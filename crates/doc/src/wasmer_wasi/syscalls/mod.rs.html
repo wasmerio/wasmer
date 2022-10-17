@@ -5562,6 +5562,8 @@
 <span id="5555">5555</span>
 <span id="5556">5556</span>
 <span id="5557">5557</span>
+<span id="5558">5558</span>
+<span id="5559">5559</span>
 </pre><pre class="rust"><code><span class="attribute">#![<span class="ident">allow</span>(<span class="ident">unused</span>, <span class="ident">clippy::too_many_arguments</span>, <span class="ident">clippy::cognitive_complexity</span>)]</span>
 
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">types</span> {
@@ -5607,7 +5609,7 @@
     <span class="ident">state</span>::{
         <span class="self">self</span>, <span class="ident">fs_error_into_wasi_err</span>, <span class="ident">iterate_poll_events</span>, <span class="ident">net_error_into_wasi_err</span>, <span class="ident">poll</span>,
         <span class="ident">virtual_file_type_to_wasi_file_type</span>, <span class="ident">Inode</span>, <span class="ident">InodeSocket</span>, <span class="ident">InodeSocketKind</span>, <span class="ident">InodeVal</span>, <span class="ident">Kind</span>,
-        <span class="ident">PollEvent</span>, <span class="ident">PollEventBuilder</span>, <span class="ident">WasiPipe</span>, <span class="ident">WasiState</span>, <span class="ident">MAX_SYMLINKS</span>,
+        <span class="ident">PollEvent</span>, <span class="ident">PollEventBuilder</span>, <span class="ident">WasiBidirectionalPipePair</span>, <span class="ident">WasiState</span>, <span class="ident">MAX_SYMLINKS</span>,
     },
     <span class="ident">Fd</span>, <span class="ident">WasiEnv</span>, <span class="ident">WasiError</span>, <span class="ident">WasiThread</span>, <span class="ident">WasiThreadId</span>,
 };
@@ -7368,7 +7370,9 @@
     <span class="kw">let</span> <span class="ident">env</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>();
     <span class="kw">let</span> (<span class="ident">memory</span>, <span class="ident">state</span>, <span class="kw-2">mut</span> <span class="ident">inodes</span>) <span class="op">=</span> <span class="ident">env</span>.<span class="ident">get_memory_and_wasi_state_and_inodes_mut</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>, <span class="number">0</span>);
 
-    <span class="kw">let</span> (<span class="ident">pipe1</span>, <span class="ident">pipe2</span>) <span class="op">=</span> <span class="ident">WasiPipe::new</span>();
+    <span class="kw">let</span> <span class="ident">pipes</span> <span class="op">=</span> <span class="ident">WasiBidirectionalPipePair::new</span>();
+    <span class="kw">let</span> <span class="ident">pipe1</span> <span class="op">=</span> <span class="ident">pipes</span>.<span class="ident">send</span>;
+    <span class="kw">let</span> <span class="ident">pipe2</span> <span class="op">=</span> <span class="ident">pipes</span>.<span class="ident">recv</span>;
 
     <span class="kw">let</span> <span class="ident">inode1</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">create_inode_with_default_stat</span>(
         <span class="ident">inodes</span>.<span class="ident">deref_mut</span>(),

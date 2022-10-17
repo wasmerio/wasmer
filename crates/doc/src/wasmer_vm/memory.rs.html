@@ -807,7 +807,7 @@
     <span class="doccomment">///</span>
     <span class="doccomment">/// This creates a `Memory` with owned metadata: this can be used to create a memory</span>
     <span class="doccomment">/// that will be imported into Wasm modules.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryType</span>, <span class="ident">style</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryStyle</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">VMMemory</span>, <span class="ident">MemoryError</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryType</span>, <span class="ident">style</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryStyle</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">MemoryError</span><span class="op">&gt;</span> {
         <span class="prelude-val">Ok</span>(<span class="self">Self</span>(<span class="ident">Box::new</span>(<span class="ident">VMOwnedMemory::new</span>(<span class="ident">memory</span>, <span class="ident">style</span>)<span class="question-mark">?</span>)))
     }
 
@@ -822,7 +822,7 @@
         <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryType</span>,
         <span class="ident">style</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryStyle</span>,
         <span class="ident">vm_memory_location</span>: <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">VMMemoryDefinition</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">VMMemory</span>, <span class="ident">MemoryError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">MemoryError</span><span class="op">&gt;</span> {
         <span class="prelude-val">Ok</span>(<span class="self">Self</span>(<span class="ident">Box::new</span>(<span class="ident">VMOwnedMemory::from_definition</span>(
             <span class="ident">memory</span>,
             <span class="ident">style</span>,
@@ -834,9 +834,9 @@
     <span class="doccomment">/// are natively supported</span>
     <span class="doccomment">/// - VMOwnedMemory -&gt; VMMemory</span>
     <span class="doccomment">/// - Box&lt;dyn LinearMemory + &#39;static&gt; -&gt; VMMemory</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_custom</span><span class="op">&lt;</span><span class="ident">IntoVMMemory</span><span class="op">&gt;</span>(<span class="ident">memory</span>: <span class="ident">IntoVMMemory</span>) -&gt; <span class="ident">VMMemory</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_custom</span><span class="op">&lt;</span><span class="ident">IntoVMMemory</span><span class="op">&gt;</span>(<span class="ident">memory</span>: <span class="ident">IntoVMMemory</span>) -&gt; <span class="self">Self</span>
     <span class="kw">where</span>
-        <span class="ident">IntoVMMemory</span>: <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">VMMemory</span><span class="op">&gt;</span>,
+        <span class="ident">IntoVMMemory</span>: <span class="ident">Into</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span>,
     {
         <span class="ident">memory</span>.<span class="ident">into</span>()
     }

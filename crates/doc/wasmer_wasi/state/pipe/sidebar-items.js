@@ -1,1 +1,1 @@
-initSidebarItems({"struct":[["WasiPipe",""]]});
+initSidebarItems({"struct":[["WasiBidirectionalPipePair","Pipe pair of (a, b) WasiPipes that are connected together"],["WasiBidirectionalSharedPipePair","Shared version of WasiBidirectionalPipePair for situations where you need to emulate the old behaviour of `Pipe` (both send and recv on one channel)."],["WasiPipe",""]]});
