@@ -829,16 +829,16 @@ pub fn query_package_from_registry(
 
     let mut queried_packages = available_packages
         .iter()
-        .filter_map(|v| {
+        .filter(|v| {
             if name.contains('/') && v.package != name {
-                return None;
+                return false;
             }
 
             if version.is_some() && version != Some(&v.version) {
-                return None;
+                return false;
             }
 
-            Some(v)
+            true
         })
         .collect::<Vec<_>>();
 

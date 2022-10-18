@@ -295,8 +295,10 @@ fn try_run_package_or_file(args: &[String], r: &Run) -> Result<(), anyhow::Error
         }
     }
 
-    if let Ok(o) = try_execute_local_package(args, &sv) {
-        return Ok(o);
+    match try_execute_local_package(args, &sv) {
+        Ok(o) => return Ok(o),
+        Err(ExecuteLocalPackageError::DuringExec(e)) => return Err(e),
+        _ => {}
     }
 
     // else: local package not found - try to download and install package
@@ -322,12 +324,21 @@ fn try_lookup_command(sv: &mut SplitVersion) -> Result<PackageDownloadInfo, anyh
     Err(anyhow::anyhow!("command {sv} not found"))
 }
 
-fn try_execute_local_package(args: &[String], sv: &SplitVersion) -> Result<(), anyhow::Error> {
-    let package = match wasmer_registry::get_local_package(None, &sv.package, sv.version.as_deref())
-    {
-        Some(p) => p,
-        None => return Err(anyhow::anyhow!("no local package {sv:?} found")),
-    };
+// We need to distinguish between errors that happen
+// before vs. during execution
+enum ExecuteLocalPackageError {
+    BeforeExec(anyhow::Error),
+    DuringExec(anyhow::Error),
+}
+
+fn try_execute_local_package(
+    args: &[String],
+    sv: &SplitVersion,
+) -> Result<(), ExecuteLocalPackageError> {
+    let package = wasmer_registry::get_local_package(None, &sv.package, sv.version.as_deref())
+        .ok_or_else(|| {
+            ExecuteLocalPackageError::BeforeExec(anyhow::anyhow!("no local package {sv:?} found"))
+        })?;
 
     let local_package_wasm_path = wasmer_registry::get_package_local_wasm_file(
         &package.registry,
@@ -335,7 +346,7 @@ fn try_execute_local_package(args: &[String], sv: &SplitVersion) -> Result<(), a
         &package.version,
         sv.command.as_deref(),
     )
-    .map_err(|e| anyhow!("{e}"))?;
+    .map_err(|e| ExecuteLocalPackageError::BeforeExec(anyhow!("{e}")))?;
 
     // Try finding the local package
     let mut args_without_package = args.to_vec();
@@ -356,10 +367,15 @@ fn try_execute_local_package(args: &[String], sv: &SplitVersion) -> Result<(), a
         args_without_package.remove(0);
     }
 
-    RunWithoutFile::try_parse_from(args_without_package.iter())?
+    RunWithoutFile::try_parse_from(args_without_package.iter())
+        .map_err(|e| ExecuteLocalPackageError::DuringExec(e.into()))?
         .into_run_args(local_package_wasm_path.clone(), Some(package.manifest))
         .execute()
-        .map_err(|e| e.context(anyhow::anyhow!("{}", local_package_wasm_path.display())))
+        .map_err(|e| {
+            ExecuteLocalPackageError::DuringExec(
+                e.context(anyhow::anyhow!("{}", local_package_wasm_path.display())),
+            )
+        })
 }
 
 fn try_autoinstall_package(
