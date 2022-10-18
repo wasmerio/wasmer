@@ -49,13 +49,13 @@ fn run_wasi_works() -> anyhow::Result<()> {
 #[test]
 fn test_wasmer_run_works() -> anyhow::Result<()> {
     let output = Command::new(get_wasmer_path())
-    .arg("run")
-    .arg("registry.wapm.io/graphql:python/python")
-    .arg(test_python_script())
-    .output()?;
+        .arg("run")
+        .arg("registry.wapm.io/python/python")
+        .arg(test_python_script())
+        .output()?;
 
     let stdout = std::str::from_utf8(&output.stdout)
-    .expect("stdout is not utf8! need to handle arbitrary bytes");
+        .expect("stdout is not utf8! need to handle arbitrary bytes");
 
     if !output.status.success() || stdout != "hello" {
         bail!(

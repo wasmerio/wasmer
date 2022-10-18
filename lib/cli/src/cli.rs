@@ -258,6 +258,7 @@ fn try_run_package_or_file(args: &[String], r: &Run) -> Result<(), anyhow::Error
         Ok(o) => o,
         Err(_) => {
             let mut fake_sv = SplitVersion {
+                registry: None,
                 package: package.to_string(),
                 version: None,
                 command: None,
@@ -265,6 +266,7 @@ fn try_run_package_or_file(args: &[String], r: &Run) -> Result<(), anyhow::Error
             is_fake_sv = true;
             match try_lookup_command(&mut fake_sv) {
                 Ok(o) => SplitVersion {
+                    registry: None,
                     package: o.package,
                     version: Some(o.version),
                     command: r.command_name.clone(),
@@ -306,11 +308,13 @@ fn try_run_package_or_file(args: &[String], r: &Run) -> Result<(), anyhow::Error
 }
 
 fn try_lookup_command(sv: &mut SplitVersion) -> Result<PackageDownloadInfo, anyhow::Error> {
+    use std::io::Write;
     let sp = start_spinner(format!("Looking up command {} ...", sv.package));
 
     for registry in wasmer_registry::get_all_available_registries().unwrap_or_default() {
         let result = wasmer_registry::query_command_from_registry(&registry, &sv.package);
-        print!("\r\n");
+        print!("\r");
+        let _ = std::io::stdout().flush();
         let command = sv.package.clone();
         if let Ok(o) = result {
             sv.package = o.package.clone();
@@ -321,6 +325,8 @@ fn try_lookup_command(sv: &mut SplitVersion) -> Result<PackageDownloadInfo, anyh
     }
 
     sp.close();
+    print!("\r");
+    let _ = std::io::stdout().flush();
     Err(anyhow::anyhow!("command {sv} not found"))
 }
 
@@ -384,11 +390,19 @@ fn try_autoinstall_package(
     package: Option<PackageDownloadInfo>,
     force_install: bool,
 ) -> Result<(), anyhow::Error> {
+    use std::io::Write;
     let sp = start_spinner(format!("Installing package {} ...", sv.package));
     let v = sv.version.as_deref();
-    let result = wasmer_registry::install_package(None, &sv.package, v, package, force_install);
+    let result = wasmer_registry::install_package(
+        sv.registry.as_deref(),
+        &sv.package,
+        v,
+        package,
+        force_install,
+    );
     sp.close();
-    print!("\r\n");
+    print!("\r");
+    let _ = std::io::stdout().flush();
     let (package, buf) = match result {
         Ok(o) => o,
         Err(e) => {
@@ -418,6 +432,7 @@ fn start_spinner(msg: String) -> SpinnerHandle {
 
 #[derive(Debug, Clone, PartialEq, Default)]
 struct SplitVersion {
+    registry: Option<String>,
     package: String,
     version: Option<String>,
     command: Option<String>,
@@ -438,8 +453,27 @@ impl fmt::Display for SplitVersion {
 #[test]
 fn test_split_version() {
     assert_eq!(
+        split_version("registry.wapm.io/graphql/python/python").unwrap(),
+        SplitVersion {
+            registry: Some("https://registry.wapm.io/graphql".to_string()),
+            package: "python/python".to_string(),
+            version: None,
+            command: None,
+        }
+    );
+    assert_eq!(
+        split_version("registry.wapm.io/python/python").unwrap(),
+        SplitVersion {
+            registry: Some("https://registry.wapm.io/graphql".to_string()),
+            package: "python/python".to_string(),
+            version: None,
+            command: None,
+        }
+    );
+    assert_eq!(
         split_version("namespace/name@version:command").unwrap(),
         SplitVersion {
+            registry: None,
             package: "namespace/name".to_string(),
             version: Some("version".to_string()),
             command: Some("command".to_string()),
@@ -448,6 +482,7 @@ fn test_split_version() {
     assert_eq!(
         split_version("namespace/name@version").unwrap(),
         SplitVersion {
+            registry: None,
             package: "namespace/name".to_string(),
             version: Some("version".to_string()),
             command: None,
@@ -456,6 +491,16 @@ fn test_split_version() {
     assert_eq!(
         split_version("namespace/name").unwrap(),
         SplitVersion {
+            registry: None,
+            package: "namespace/name".to_string(),
+            version: None,
+            command: None,
+        }
+    );
+    assert_eq!(
+        split_version("registry.wapm.io/namespace/name").unwrap(),
+        SplitVersion {
+            registry: Some("https://registry.wapm.io/graphql".to_string()),
             package: "namespace/name".to_string(),
             version: None,
             command: None,
@@ -519,7 +564,7 @@ fn split_version(s: &str) -> Result<SplitVersion, anyhow::Error> {
         return Err(anyhow::anyhow!("Invalid package version: {s:?}"));
     };
 
-    let namespace = match captures.get(1).cloned() {
+    let mut namespace = match captures.get(1).cloned() {
         Some(s) => s,
         None => {
             return Err(anyhow::anyhow!(
@@ -533,7 +578,22 @@ fn split_version(s: &str) -> Result<SplitVersion, anyhow::Error> {
         None => return Err(anyhow::anyhow!("Invalid package version: {s:?}: no name")),
     };
 
+    let mut registry = None;
+    if namespace.contains("/") {
+        let (r, n) = namespace.rsplit_once('/').unwrap();
+        let mut real_registry = r.to_string();
+        if !real_registry.ends_with("graphql") {
+            real_registry = format!("{real_registry}/graphql");
+        }
+        if !real_registry.contains("://") {
+            real_registry = format!("https://{real_registry}");
+        }
+        registry = Some(real_registry);
+        namespace = n.to_string();
+    }
+
     let sv = SplitVersion {
+        registry,
         package: format!("{namespace}/{name}"),
         version: if no_version {
             None
