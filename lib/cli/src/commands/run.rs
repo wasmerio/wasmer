@@ -161,7 +161,7 @@ impl RunWithoutFile {
             };
             let mut wasi_map = BTreeMap::new();
             for (k, v) in wasi_map_dir {
-                let path_v = v.canonicalize().unwrap_or(v.clone());
+                let path_v = v.canonicalize().unwrap_or_else(|_| v.clone());
                 let mut k_path = std::path::Path::new(&k).to_path_buf();
                 if k_path.is_relative() {
                     k_path = parent.join(&k);

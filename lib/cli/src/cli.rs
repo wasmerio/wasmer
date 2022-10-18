@@ -285,7 +285,7 @@ fn try_run_package_or_file(args: &[String], r: &Run) -> Result<(), anyhow::Error
     }
 
     if sv.command.is_none() && is_fake_sv {
-        sv.command = Some(package.to_string());
+        sv.command = Some(package);
     }
 
     let mut package_download_info = None;
@@ -333,7 +333,7 @@ fn try_execute_local_package(args: &[String], sv: &SplitVersion) -> Result<(), a
         &package.registry,
         &package.name,
         &package.version,
-        sv.command.as_ref().map(|s| s.as_str()),
+        sv.command.as_deref(),
     )
     .map_err(|e| anyhow!("{e}"))?;
 
@@ -406,11 +406,7 @@ struct SplitVersion {
 
 impl fmt::Display for SplitVersion {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let version = self
-            .version
-            .as_ref()
-            .map(|s| s.as_str())
-            .unwrap_or("latest");
+        let version = self.version.as_deref().unwrap_or("latest");
         let command = self
             .command
             .as_ref()
