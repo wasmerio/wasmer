@@ -14,6 +14,7 @@ use crate::commands::{Cache, Config, Inspect, Run, RunWithoutFile, SelfUpdate, V
 use crate::error::PrettyError;
 use clap::{CommandFactory, ErrorKind, Parser};
 use spinner::SpinnerHandle;
+use std::fmt;
 use wasmer_registry::{get_all_local_packages, PackageDownloadInfo};
 
 #[derive(Parser, Debug)]
@@ -37,7 +38,6 @@ use wasmer_registry::{get_all_local_packages, PackageDownloadInfo};
 )]
 /// The options for the wasmer Command Line Interface
 enum WasmerCLIOptions {
-
     /// List all locally installed packages
     #[clap(name = "list")]
     List,
@@ -253,10 +253,40 @@ fn try_run_package_or_file(args: &[String], r: &Run) -> Result<(), anyhow::Error
 
     let package = format!("{}", r.path.display());
 
+    let mut is_fake_sv = false;
     let mut sv = match split_version(&package) {
         Ok(o) => o,
-        Err(_) => return r.execute(),
+        Err(_) => {
+            let mut fake_sv = SplitVersion {
+                package: package.to_string(),
+                version: None,
+                command: None,
+            };
+            is_fake_sv = true;
+            match try_lookup_command(&mut fake_sv) {
+                Ok(o) => SplitVersion {
+                    package: o.package,
+                    version: Some(o.version),
+                    command: r.command_name.clone(),
+                },
+                Err(e) => {
+                    return Err(
+                        anyhow::anyhow!("No package for command {package:?} found, file {package:?} not found either")
+                        .context(e)
+                        .context(anyhow::anyhow!("{}", r.path.display()))
+                    );
+                }
+            }
+        }
     };
+
+    if sv.command.is_none() {
+        sv.command = r.command_name.clone();
+    }
+
+    if sv.command.is_none() && is_fake_sv {
+        sv.command = Some(package.to_string());
+    }
 
     let mut package_download_info = None;
     if !sv.package.contains('/') {
@@ -289,7 +319,7 @@ fn try_lookup_command(sv: &mut SplitVersion) -> Result<PackageDownloadInfo, anyh
     }
 
     sp.close();
-    Err(anyhow::anyhow!("command {sv:?} not found"))
+    Err(anyhow::anyhow!("command {sv} not found"))
 }
 
 fn try_execute_local_package(args: &[String], sv: &SplitVersion) -> Result<(), anyhow::Error> {
@@ -303,6 +333,7 @@ fn try_execute_local_package(args: &[String], sv: &SplitVersion) -> Result<(), a
         &package.registry,
         &package.name,
         &package.version,
+        sv.command.as_ref().map(|s| s.as_str()),
     )
     .map_err(|e| anyhow!("{e}"))?;
 
@@ -310,11 +341,22 @@ fn try_execute_local_package(args: &[String], sv: &SplitVersion) -> Result<(), a
     let mut args_without_package = args.to_vec();
     args_without_package.remove(1);
 
-    let mut run_args = RunWithoutFile::try_parse_from(args_without_package.iter())?;
-    run_args.command_name = sv.command.clone();
-    run_args
-        .into_run_args(local_package_wasm_path, Some(package.manifest))
+    if args_without_package.get(1) == Some(&sv.package)
+        || args_without_package.get(1) == sv.command.as_ref()
+    {
+        args_without_package.remove(1);
+    }
+
+    if args_without_package.get(0) == Some(&sv.package)
+        || args_without_package.get(0) == sv.command.as_ref()
+    {
+        args_without_package.remove(0);
+    }
+
+    RunWithoutFile::try_parse_from(args_without_package.iter())?
+        .into_run_args(local_package_wasm_path.clone(), Some(package.manifest))
         .execute()
+        .map_err(|e| e.context(anyhow::anyhow!("{}", local_package_wasm_path.display())))
 }
 
 fn try_autoinstall_package(
@@ -362,6 +404,22 @@ struct SplitVersion {
     command: Option<String>,
 }
 
+impl fmt::Display for SplitVersion {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let version = self
+            .version
+            .as_ref()
+            .map(|s| s.as_str())
+            .unwrap_or("latest");
+        let command = self
+            .command
+            .as_ref()
+            .map(|s| format!(":{s}"))
+            .unwrap_or_default();
+        write!(f, "{}@{version}{command}", self.package)
+    }
+}
+
 #[test]
 fn test_split_version() {
     assert_eq!(
@@ -401,6 +459,9 @@ fn split_version(s: &str) -> Result<SplitVersion, anyhow::Error> {
     let re1 = regex::Regex::new(r#"(.*)/(.*)@(.*):(.*)"#).unwrap();
     let re2 = regex::Regex::new(r#"(.*)/(.*)@(.*)"#).unwrap();
     let re3 = regex::Regex::new(r#"(.*)/(.*)"#).unwrap();
+    let re4 = regex::Regex::new(r#"(.*)/(.*):(.*)"#).unwrap();
+
+    let mut no_version = false;
 
     let captures = if re1.is_match(s) {
         re1.captures(s)
@@ -413,6 +474,16 @@ fn split_version(s: &str) -> Result<SplitVersion, anyhow::Error> {
             .unwrap_or_default()
     } else if re2.is_match(s) {
         re2.captures(s)
+            .map(|c| {
+                c.iter()
+                    .flatten()
+                    .map(|m| m.as_str().to_owned())
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default()
+    } else if re4.is_match(s) {
+        no_version = true;
+        re4.captures(s)
             .map(|c| {
                 c.iter()
                     .flatten()
@@ -449,8 +520,12 @@ fn split_version(s: &str) -> Result<SplitVersion, anyhow::Error> {
 
     let sv = SplitVersion {
         package: format!("{namespace}/{name}"),
-        version: captures.get(3).cloned(),
-        command: captures.get(4).cloned(),
+        version: if no_version {
+            None
+        } else {
+            captures.get(3).cloned()
+        },
+        command: captures.get(if no_version { 3 } else { 4 }).cloned(),
     };
 
     let svp = sv.package.clone();

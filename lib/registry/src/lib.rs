@@ -561,6 +561,7 @@ pub fn get_package_local_wasm_file(
     registry_host: &str,
     name: &str,
     version: &str,
+    command: Option<&str>,
 ) -> Result<PathBuf, String> {
     let dir = get_package_local_dir(registry_host, name, version)?;
     let wapm_toml_path = dir.join("wapm.toml");
@@ -570,14 +571,17 @@ pub fn get_package_local_wasm_file(
         .map_err(|e| format!("cannot parse wapm.toml for {name}@{version}: {e}"))?;
 
     // TODO: this will just return the path for the first command, so this might not be correct
-    let module_name = wapm
-        .command
-        .unwrap_or_default()
-        .first()
-        .map(|m| m.get_module())
-        .ok_or_else(|| {
-            format!("cannot get entrypoint for {name}@{version}: package has no commands")
-        })?;
+    let module_name = match command {
+        Some(s) => s.to_string(),
+        None => wapm
+            .command
+            .unwrap_or_default()
+            .first()
+            .map(|m| m.get_module())
+            .ok_or_else(|| {
+                format!("cannot get entrypoint for {name}@{version}: package has no commands")
+            })?,
+    };
 
     let wasm_file_name = wapm
         .module

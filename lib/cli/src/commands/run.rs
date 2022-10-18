@@ -5,6 +5,7 @@ use crate::store::{CompilerType, StoreOptions};
 use crate::suggestions::suggest_function_exports;
 use crate::warning;
 use anyhow::{anyhow, Context, Result};
+use std::collections::BTreeMap;
 use std::ops::Deref;
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -82,6 +83,9 @@ impl RunWithoutFile {
     /// Given a local path, returns the `Run` command (overriding the `--path` argument).
     pub fn into_run_args(mut self, pathbuf: PathBuf, manifest: Option<wapm_toml::Manifest>) -> Run {
         #[cfg(feature = "wasi")]
+        let mut wasi_map_dir = Vec::new();
+
+        #[cfg(feature = "wasi")]
         {
             let pkg_fs = match pathbuf.parent() {
                 Some(parent) => parent.join("pkg_fs"),
@@ -92,13 +96,13 @@ impl RunWithoutFile {
                 .and_then(|m| m.package.pkg_fs_mount_point.clone())
             {
                 if m == "." {
-                    self.wasi.map_dir("/", pkg_fs);
+                    wasi_map_dir.push(("/".to_string(), pkg_fs));
                 } else {
                     if m.starts_with('.') {
                         m = format!("{}{}", pkg_fs.display(), &m[1..]);
                     }
                     let path = std::path::Path::new(&m).to_path_buf();
-                    self.wasi.map_dir("/", path);
+                    wasi_map_dir.push(("/".to_string(), path));
                 }
             }
         }
@@ -123,7 +127,7 @@ impl RunWithoutFile {
                     continue;
                 }
                 let alias_pathbuf = std::path::Path::new(&real_dir).to_path_buf();
-                self.wasi.map_dir(alias, alias_pathbuf.clone());
+                wasi_map_dir.push((alias.to_string(), alias_pathbuf.clone()));
 
                 fn is_dir(e: &walkdir::DirEntry) -> bool {
                     let meta = match e.metadata() {
@@ -142,9 +146,31 @@ impl RunWithoutFile {
                     let pathbuf = entry.path().canonicalize().unwrap();
                     let path = format!("{}", pathbuf.display());
                     let relativepath = path.replacen(&root_display, "", 1);
-                    self.wasi
-                        .map_dir(&format!("/{alias}{relativepath}"), pathbuf);
+                    wasi_map_dir.push((format!("/{alias}{relativepath}"), pathbuf));
                 }
+            }
+        }
+
+        // If a directory is mapped twice, the WASI runtime will throw an error
+        // We need to calculate the "key" path, then deduplicate the mapping
+        #[cfg(feature = "wasi")]
+        {
+            let parent = match pathbuf.parent() {
+                Some(parent) => parent.to_path_buf(),
+                None => pathbuf.clone(),
+            };
+            let mut wasi_map = BTreeMap::new();
+            for (k, v) in wasi_map_dir {
+                let path_v = v.canonicalize().unwrap_or(v.clone());
+                let mut k_path = std::path::Path::new(&k).to_path_buf();
+                if k_path.is_relative() {
+                    k_path = parent.join(&k);
+                }
+                let key = format!("{}", k_path.canonicalize().unwrap_or(k_path).display());
+                wasi_map.insert(key, (k, path_v));
+            }
+            for (_, (k, v)) in wasi_map {
+                self.wasi.map_dir(&k, v);
             }
         }
 
@@ -155,7 +181,10 @@ impl RunWithoutFile {
                 #[cfg(feature = "cache")]
                 disable_cache: self.disable_cache,
                 invoke: self.invoke,
-                command_name: self.command_name,
+                // If the RunWithoutFile was constructed via a package name,
+                // the correct syntax is "package:command-name" (--command-name would be
+                // interpreted as a CLI argument for the .wasm file)
+                command_name: None,
                 #[cfg(feature = "cache")]
                 cache_key: self.cache_key,
                 store: self.store,
