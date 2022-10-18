@@ -2821,10 +2821,15 @@ pub fn path_symlink<M: MemorySize>(
         wasi_try!(state
             .fs
             .get_parent_inode_at_path(inodes.deref_mut(), fd, old_path_path, true));
-    let depth = wasi_try!(state
+    let depth = state
         .fs
-        .path_depth_from_fd(inodes.deref(), fd, source_inode))
-        - 1;
+        .path_depth_from_fd(inodes.deref(), fd, source_inode);
+
+    // depth == -1 means folder is not relative
+    let depth = match depth {
+        Ok(depth) => depth as i32 - 1,
+        Err(_) => -1,
+    };
 
     let new_path_path = std::path::Path::new(&new_path_str);
     let (target_parent_inode, entry_name) =
