@@ -110,8 +110,7 @@ fn run_with_toplevel_dir_overwrite() {
             .unwrap();
 
         let lorem_string = "lorem ispum";
-        let lorem_bytes: Vec<u8> = lorem_string.bytes().collect();
-        f.write_all(&lorem_bytes[..]).unwrap();
+        f.write_all(lorem_string.as_bytes()).unwrap();
     }
 
     std::fs::rename(&file_to_create, &file_to_rename_to).unwrap();
