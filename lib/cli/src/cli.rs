@@ -346,7 +346,7 @@ fn try_execute_local_package(
             ExecuteLocalPackageError::BeforeExec(anyhow::anyhow!("no local package {sv:?} found"))
         })?;
 
-    let local_package_wasm_path = wasmer_registry::get_package_local_wasm_file(
+    let (package_dir, local_package_wasm_path) = wasmer_registry::get_package_local_wasm_file(
         &package.registry,
         &package.name,
         &package.version,
@@ -375,7 +375,11 @@ fn try_execute_local_package(
 
     RunWithoutFile::try_parse_from(args_without_package.iter())
         .map_err(|e| ExecuteLocalPackageError::DuringExec(e.into()))?
-        .into_run_args(local_package_wasm_path.clone(), Some(package.manifest))
+        .into_run_args(
+            package_dir,
+            local_package_wasm_path.clone(),
+            Some(package.manifest),
+        )
         .execute()
         .map_err(|e| {
             ExecuteLocalPackageError::DuringExec(
@@ -403,7 +407,7 @@ fn try_autoinstall_package(
     sp.close();
     print!("\r");
     let _ = std::io::stdout().flush();
-    let (package, buf) = match result {
+    let (package, package_dir, buf) = match result {
         Ok(o) => o,
         Err(e) => {
             return Err(anyhow::anyhow!("{e}"));
@@ -418,7 +422,7 @@ fn try_autoinstall_package(
     run_args.command_name = sv.command.clone();
 
     run_args
-        .into_run_args(buf, Some(package.manifest))
+        .into_run_args(package_dir, buf, Some(package.manifest))
         .execute()
 }
 
@@ -579,7 +583,7 @@ fn split_version(s: &str) -> Result<SplitVersion, anyhow::Error> {
     };
 
     let mut registry = None;
-    if namespace.contains("/") {
+    if namespace.contains('/') {
         let (r, n) = namespace.rsplit_once('/').unwrap();
         let mut real_registry = r.to_string();
         if !real_registry.ends_with("graphql") {

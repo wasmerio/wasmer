@@ -81,16 +81,18 @@ pub struct RunWithoutFile {
 
 impl RunWithoutFile {
     /// Given a local path, returns the `Run` command (overriding the `--path` argument).
-    pub fn into_run_args(mut self, pathbuf: PathBuf, manifest: Option<wapm_toml::Manifest>) -> Run {
+    pub fn into_run_args(
+        mut self,
+        package_root_dir: PathBuf,
+        pathbuf: PathBuf,
+        manifest: Option<wapm_toml::Manifest>,
+    ) -> Run {
         #[cfg(feature = "wasi")]
         let mut wasi_map_dir = Vec::new();
 
         #[cfg(feature = "wasi")]
         {
-            let pkg_fs = match pathbuf.parent() {
-                Some(parent) => parent.join("pkg_fs"),
-                None => pathbuf.join("pkg_fs"),
-            };
+            let pkg_fs = package_root_dir.join("pkg_fs");
             if let Some(mut m) = manifest
                 .as_ref()
                 .and_then(|m| m.package.pkg_fs_mount_point.clone())
@@ -114,11 +116,7 @@ impl RunWithoutFile {
                 if real_dir.starts_with('/') {
                     real_dir = (&real_dir[1..]).to_string();
                 }
-                let real_dir = if let Some(parent) = pathbuf.parent() {
-                    parent.join(real_dir)
-                } else {
-                    pathbuf.join(real_dir)
-                };
+                let real_dir = package_root_dir.join(real_dir);
                 if !real_dir.exists() {
                     println!(
                         "warning: cannot map {alias:?} to {}: directory does not exist",
@@ -155,16 +153,12 @@ impl RunWithoutFile {
         // We need to calculate the "key" path, then deduplicate the mapping
         #[cfg(feature = "wasi")]
         {
-            let parent = match pathbuf.parent() {
-                Some(parent) => parent.to_path_buf(),
-                None => pathbuf.clone(),
-            };
             let mut wasi_map = BTreeMap::new();
             for (k, v) in wasi_map_dir {
                 let path_v = v.canonicalize().unwrap_or_else(|_| v.clone());
                 let mut k_path = std::path::Path::new(&k).to_path_buf();
                 if k_path.is_relative() {
-                    k_path = parent.join(&k);
+                    k_path = package_root_dir.join(&k);
                 }
                 let key = format!("{}", k_path.canonicalize().unwrap_or(k_path).display());
                 wasi_map.insert(key, (k, path_v));

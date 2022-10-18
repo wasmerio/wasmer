@@ -557,12 +557,14 @@ pub fn get_local_package(
         .cloned()
 }
 
+/// Given a [registry, name, version, command?], returns the
+/// (package dir path, .wasm file path) of the command to execute
 pub fn get_package_local_wasm_file(
     registry_host: &str,
     name: &str,
     version: &str,
     command: Option<&str>,
-) -> Result<PathBuf, String> {
+) -> Result<(PathBuf, PathBuf), String> {
     let dir = get_package_local_dir(registry_host, name, version)?;
     let wapm_toml_path = dir.join("wapm.toml");
     let wapm_toml_str = std::fs::read_to_string(&wapm_toml_path)
@@ -594,7 +596,8 @@ pub fn get_package_local_wasm_file(
             format!("cannot get entrypoint for {name}@{version}: package has no commands")
         })?;
 
-    Ok(dir.join(&wasm_file_name))
+    let wasm_path = dir.join(&wasm_file_name);
+    Ok((dir, wasm_path))
 }
 
 pub fn query_command_from_registry(
@@ -919,13 +922,15 @@ pub fn download_and_unpack_targz(url: &str, target_path: &Path) -> Result<PathBu
     Ok(target_path.to_path_buf())
 }
 
+/// Given a triple of [registry, name, version], downloads and installs the
+/// .tar.gz if it doesn't yet exist, returns the (package dir, entrypoint .wasm file path)
 pub fn install_package(
     registry: Option<&str>,
     name: &str,
     version: Option<&str>,
     package_download_info: Option<PackageDownloadInfo>,
     force_install: bool,
-) -> Result<(LocalPackage, PathBuf), String> {
+) -> Result<(LocalPackage, PathBuf, PathBuf), String> {
     let package_info = match package_download_info {
         Some(s) => s,
         None => {
@@ -1051,6 +1056,7 @@ pub fn install_package(
             format!("Cannot run {name}@{version}: module {module_name} not found in wapm.toml")
         })?;
 
+    let entrypoint_source = target_path.join(&entrypoint_module.source);
     Ok((
         LocalPackage {
             registry: package_info.registry,
@@ -1059,7 +1065,8 @@ pub fn install_package(
             manifest: wapm_toml,
             path: target_path.clone(),
         },
-        target_path.join(&entrypoint_module.source),
+        target_path,
+        entrypoint_source,
     ))
 }
 
