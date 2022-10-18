@@ -205,7 +205,7 @@ impl crate::FileSystem for FileSystem {
             // Write lock.
             let mut fs = self.inner.try_write().map_err(|_| FsError::Lock)?;
 
-            if let Some((position, inode_of_file)) =  inode_dest {
+            if let Some((position, inode_of_file)) = inode_dest {
                 // Remove the file from the storage.
                 fs.storage.remove(inode_of_file);
 
