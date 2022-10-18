@@ -5,7 +5,7 @@ use crate::store::{CompilerType, StoreOptions};
 use crate::suggestions::suggest_function_exports;
 use crate::warning;
 use anyhow::{anyhow, Context, Result};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::ops::Deref;
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -79,44 +79,32 @@ pub struct RunWithoutFile {
     args: Vec<String>,
 }
 
+#[allow(dead_code)]
+fn is_dir(e: &walkdir::DirEntry) -> bool {
+    let meta = match e.metadata() {
+        Ok(o) => o,
+        Err(_) => return false,
+    };
+    meta.is_dir()
+}
+
 impl RunWithoutFile {
     /// Given a local path, returns the `Run` command (overriding the `--path` argument).
     pub fn into_run_args(
         mut self,
-        package_root_dir: PathBuf,
-        pathbuf: PathBuf,
+        package_root_dir: PathBuf, // <- package dir
+        pathbuf: PathBuf,          // <- wasm file
         manifest: Option<wapm_toml::Manifest>,
     ) -> Run {
         #[cfg(feature = "wasi")]
-        let mut wasi_map_dir = Vec::new();
-
-        #[cfg(feature = "wasi")]
         {
-            let pkg_fs = package_root_dir.join("pkg_fs");
-            if let Some(mut m) = manifest
+            let default = HashMap::default();
+            let fs = manifest
                 .as_ref()
-                .and_then(|m| m.package.pkg_fs_mount_point.clone())
-            {
-                if m == "." {
-                    wasi_map_dir.push(("/".to_string(), pkg_fs));
-                } else {
-                    if m.starts_with('.') {
-                        m = format!("{}{}", pkg_fs.display(), &m[1..]);
-                    }
-                    let path = std::path::Path::new(&m).to_path_buf();
-                    wasi_map_dir.push(("/".to_string(), path));
-                }
-            }
-        }
-
-        #[cfg(feature = "wasi")]
-        if let Some(fs) = manifest.as_ref().and_then(|m| m.fs.as_ref()) {
+                .and_then(|m| m.fs.as_ref())
+                .unwrap_or(&default);
             for (alias, real_dir) in fs.iter() {
-                let mut real_dir = format!("{}", real_dir.display());
-                if real_dir.starts_with('/') {
-                    real_dir = (&real_dir[1..]).to_string();
-                }
-                let real_dir = package_root_dir.join(real_dir);
+                let real_dir = package_root_dir.join(&real_dir);
                 if !real_dir.exists() {
                     println!(
                         "warning: cannot map {alias:?} to {}: directory does not exist",
@@ -124,47 +112,8 @@ impl RunWithoutFile {
                     );
                     continue;
                 }
-                let alias_pathbuf = std::path::Path::new(&real_dir).to_path_buf();
-                wasi_map_dir.push((alias.to_string(), alias_pathbuf.clone()));
 
-                fn is_dir(e: &walkdir::DirEntry) -> bool {
-                    let meta = match e.metadata() {
-                        Ok(o) => o,
-                        Err(_) => return false,
-                    };
-                    meta.is_dir()
-                }
-
-                let root_display = format!("{}", alias_pathbuf.display());
-                for entry in walkdir::WalkDir::new(&alias_pathbuf)
-                    .into_iter()
-                    .filter_entry(is_dir)
-                    .filter_map(|e| e.ok())
-                {
-                    let pathbuf = entry.path().canonicalize().unwrap();
-                    let path = format!("{}", pathbuf.display());
-                    let relativepath = path.replacen(&root_display, "", 1);
-                    wasi_map_dir.push((format!("/{alias}{relativepath}"), pathbuf));
-                }
-            }
-        }
-
-        // If a directory is mapped twice, the WASI runtime will throw an error
-        // We need to calculate the "key" path, then deduplicate the mapping
-        #[cfg(feature = "wasi")]
-        {
-            let mut wasi_map = BTreeMap::new();
-            for (k, v) in wasi_map_dir {
-                let path_v = v.canonicalize().unwrap_or_else(|_| v.clone());
-                let mut k_path = std::path::Path::new(&k).to_path_buf();
-                if k_path.is_relative() {
-                    k_path = package_root_dir.join(&k);
-                }
-                let key = format!("{}", k_path.canonicalize().unwrap_or(k_path).display());
-                wasi_map.insert(key, (k, path_v));
-            }
-            for (_, (k, v)) in wasi_map {
-                self.wasi.map_dir(&k, v);
+                self.wasi.map_dir(alias, real_dir.clone());
             }
         }
 
