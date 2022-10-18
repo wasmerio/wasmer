@@ -158,7 +158,11 @@ impl crate::FileSystem for FileSystem {
     }
 
     fn rename(&self, from: &Path, to: &Path) -> Result<()> {
-        let ((position_of_from, inode, inode_of_from_parent), (inode_of_to_parent, name_of_to)) = {
+        let (
+            (position_of_from, inode, inode_of_from_parent),
+            (inode_of_to_parent, name_of_to),
+            inode_dest,
+        ) = {
             // Read lock.
             let fs = self.inner.try_read().map_err(|_| FsError::Lock)?;
 
@@ -180,6 +184,10 @@ impl crate::FileSystem for FileSystem {
             let inode_of_from_parent = fs.inode_of_parent(parent_of_from)?;
             let inode_of_to_parent = fs.inode_of_parent(parent_of_to)?;
 
+            // Find the inode of the dest file if it exists
+            let maybe_position_and_inode_of_file =
+                fs.as_parent_get_position_and_inode_of_file(inode_of_to_parent, &name_of_to)?;
+
             // Get the child indexes to update in the parent nodes, in
             // addition to the inode of the directory to update.
             let (position_of_from, inode) = fs
@@ -189,12 +197,24 @@ impl crate::FileSystem for FileSystem {
             (
                 (position_of_from, inode, inode_of_from_parent),
                 (inode_of_to_parent, name_of_to),
+                maybe_position_and_inode_of_file,
             )
         };
 
         {
             // Write lock.
             let mut fs = self.inner.try_write().map_err(|_| FsError::Lock)?;
+
+            match inode_dest {
+                Some((position, inode_of_file)) => {
+                    // Remove the file from the storage.
+                    fs.storage.remove(inode_of_file);
+
+                    // Remove the child from the parent directory.
+                    fs.remove_child_from_node(inode_of_to_parent, position)?;
+                }
+                None => (),
+            }
 
             // Update the file name, and update the modified time.
             fs.update_node_name(inode, name_of_to)?;

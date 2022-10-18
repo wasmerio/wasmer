@@ -2671,13 +2671,14 @@ pub fn path_rename<M: MemorySize>(
         wasi_try!(state
             .fs
             .get_parent_inode_at_path(inodes.deref_mut(), new_fd, target_path, true));
+    let mut need_create = true;
     let host_adjusted_target_path = {
         let guard = inodes.arena[target_parent_inode].read();
         let deref = guard.deref();
         match deref {
             Kind::Dir { entries, path, .. } => {
                 if entries.contains_key(&target_entry_name) {
-                    return Errno::Exist;
+                    need_create = false;
                 }
                 let mut out_path = path.clone();
                 out_path.push(std::path::Path::new(&target_entry_name));
@@ -2770,7 +2771,7 @@ pub fn path_rename<M: MemorySize>(
         }
     }
 
-    {
+    if need_create {
         let mut guard = inodes.arena[target_parent_inode].write();
         if let Kind::Dir { entries, .. } = guard.deref_mut() {
             let result = entries.insert(target_entry_name, source_entry);
