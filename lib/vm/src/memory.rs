@@ -357,8 +357,13 @@ impl VMMemory {
     ///
     /// This creates a `Memory` with owned metadata: this can be used to create a memory
     /// that will be imported into Wasm modules.
-    pub fn new(memory: &MemoryType, style: &MemoryStyle) -> Result<VMMemory, MemoryError> {
+    pub fn new(memory: &MemoryType, style: &MemoryStyle) -> Result<Self, MemoryError> {
         Ok(Self(Box::new(VMOwnedMemory::new(memory, style)?)))
+    }
+
+    /// Returns the number of pages in the allocated memory block
+    pub fn get_runtime_size(&self) -> u32 {
+        self.0.size().0
     }
 
     /// Create a new linear memory instance with specified minimum and maximum number of wasm pages.
@@ -372,7 +377,7 @@ impl VMMemory {
         memory: &MemoryType,
         style: &MemoryStyle,
         vm_memory_location: NonNull<VMMemoryDefinition>,
-    ) -> Result<VMMemory, MemoryError> {
+    ) -> Result<Self, MemoryError> {
         Ok(Self(Box::new(VMOwnedMemory::from_definition(
             memory,
             style,
@@ -384,9 +389,9 @@ impl VMMemory {
     /// are natively supported
     /// - VMOwnedMemory -> VMMemory
     /// - Box<dyn LinearMemory + 'static> -> VMMemory
-    pub fn from_custom<IntoVMMemory>(memory: IntoVMMemory) -> VMMemory
+    pub fn from_custom<IntoVMMemory>(memory: IntoVMMemory) -> Self
     where
-        IntoVMMemory: Into<VMMemory>,
+        IntoVMMemory: Into<Self>,
     {
         memory.into()
     }

@@ -43,7 +43,7 @@ use crate::{
     state::{
         self, fs_error_into_wasi_err, iterate_poll_events, net_error_into_wasi_err, poll,
         virtual_file_type_to_wasi_file_type, Inode, InodeSocket, InodeSocketKind, InodeVal, Kind,
-        PollEvent, PollEventBuilder, WasiPipe, WasiState, MAX_SYMLINKS,
+        PollEvent, PollEventBuilder, WasiBidirectionalPipePair, WasiState, MAX_SYMLINKS,
     },
     Fd, WasiEnv, WasiError, WasiThread, WasiThreadId,
 };
@@ -969,13 +969,11 @@ pub fn fd_prestat_dir_name<M: MemorySize>(
     let deref = guard.deref();
     match deref {
         Kind::Dir { .. } | Kind::Root { .. } => {
-            // TODO: verify this: null termination, etc
             let path_len: u64 = path_len.into();
-            if (inode_val.name.len() as u64) < path_len {
+            if (inode_val.name.len() as u64) <= path_len {
                 wasi_try_mem!(path_chars
                     .subslice(0..inode_val.name.len() as u64)
                     .write_slice(inode_val.name.as_bytes()));
-                wasi_try_mem!(path_chars.index(inode_val.name.len() as u64).write(0));
 
                 trace!("=> result: \"{}\"", inode_val.name);
 
@@ -1806,7 +1804,9 @@ pub fn fd_pipe<M: MemorySize>(
     let env = ctx.data();
     let (memory, state, mut inodes) = env.get_memory_and_wasi_state_and_inodes_mut(&ctx, 0);
 
-    let (pipe1, pipe2) = WasiPipe::new();
+    let pipes = WasiBidirectionalPipePair::new();
+    let pipe1 = pipes.send;
+    let pipe2 = pipes.recv;
 
     let inode1 = state.fs.create_inode_with_default_stat(
         inodes.deref_mut(),
