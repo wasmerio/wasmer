@@ -48,6 +48,14 @@ fn get_extern_type(context: &StoreObjects, extern_: &VMExtern) -> ExternType {
     }
 }
 
+fn get_runtime_size(context: &StoreObjects, extern_: &VMExtern) -> Option<u32> {
+    match extern_ {
+        VMExtern::Table(t) => Some(t.get(context).get_runtime_size()),
+        VMExtern::Memory(m) => Some(m.get(context).get_runtime_size()),
+        _ => None,
+    }
+}
+
 /// This function allows to match all imports of a `ModuleInfo` with concrete definitions provided by
 /// a `Resolver`.
 ///
@@ -85,7 +93,8 @@ pub fn resolve_imports(
             ));
         };
         let extern_type = get_extern_type(context, resolved);
-        if !extern_type.is_compatible_with(&import_extern) {
+        let runtime_size = get_runtime_size(context, resolved);
+        if !extern_type.is_compatible_with(&import_extern, runtime_size) {
             return Err(LinkError::Import(
                 module_name.to_string(),
                 field.to_string(),

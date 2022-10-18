@@ -146,6 +146,7 @@ languages**, so you can use WebAssembly _anywhere_.
 | ![Lisp logo] | [**Lisp**][Lisp integration] | *no published package* | |
 | ![Julia logo] | [**Julia**][Julia integration] | *no published package* | |
 | ![VLang logo] | [**V**][vlang integration] | *no published package* | |
+| ![Ocaml logo] | [**OCaml**][OCaml integration] | [`wasmer` OCaml package] | |
 
 [👋&nbsp;&nbsp;Missing a language?](https://github.com/wasmerio/wasmer/issues/new?assignees=&labels=%F0%9F%8E%89+enhancement&template=---feature-request.md&title=)
 
@@ -237,6 +238,10 @@ languages**, so you can use WebAssembly _anywhere_.
 
 [vlang logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/vlang.svg
 [vlang integration]: https://github.com/vlang/wasmer
+
+[OCaml logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/ocaml.svg
+[OCaml integration]: https://github.com/wasmer/wasmer-ocaml
+[`wasmer` OCaml package]: https://opam.ocaml.org/packages/wasmer/
 
 ## Contribute
 
