@@ -99,8 +99,7 @@ fn run_with_toplevel_dir_overwrite() {
     小さなものを表す古語の「柴」から
 
 の3つの説が代表的。";
-        let shiba_bytes: Vec<u8> = shiba_string.bytes().collect();
-        f.write_all(&shiba_bytes[..]).unwrap();
+        f.write_all(shiba_string.as_bytes()).unwrap();
     }
 
     {
