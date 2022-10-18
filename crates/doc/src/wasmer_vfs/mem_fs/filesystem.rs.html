@@ -1378,6 +1378,23 @@
 <span id="1373">1373</span>
 <span id="1374">1374</span>
 <span id="1375">1375</span>
+<span id="1376">1376</span>
+<span id="1377">1377</span>
+<span id="1378">1378</span>
+<span id="1379">1379</span>
+<span id="1380">1380</span>
+<span id="1381">1381</span>
+<span id="1382">1382</span>
+<span id="1383">1383</span>
+<span id="1384">1384</span>
+<span id="1385">1385</span>
+<span id="1386">1386</span>
+<span id="1387">1387</span>
+<span id="1388">1388</span>
+<span id="1389">1389</span>
+<span id="1390">1390</span>
+<span id="1391">1391</span>
+<span id="1392">1392</span>
 </pre><pre class="rust"><code><span class="doccomment">//! This module contains the [`FileSystem`] type itself.</span>
 
 <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
@@ -1538,7 +1555,11 @@
     }
 
     <span class="kw">fn</span> <span class="ident">rename</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">from</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>, <span class="ident">to</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="kw">let</span> ((<span class="ident">position_of_from</span>, <span class="ident">inode</span>, <span class="ident">inode_of_from_parent</span>), (<span class="ident">inode_of_to_parent</span>, <span class="ident">name_of_to</span>)) <span class="op">=</span> {
+        <span class="kw">let</span> (
+            (<span class="ident">position_of_from</span>, <span class="ident">inode</span>, <span class="ident">inode_of_from_parent</span>),
+            (<span class="ident">inode_of_to_parent</span>, <span class="ident">name_of_to</span>),
+            <span class="ident">inode_dest</span>,
+        ) <span class="op">=</span> {
             <span class="comment">// Read lock.</span>
             <span class="kw">let</span> <span class="ident">fs</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">try_read</span>().<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">FsError::Lock</span>)<span class="question-mark">?</span>;
 
@@ -1560,6 +1581,10 @@
             <span class="kw">let</span> <span class="ident">inode_of_from_parent</span> <span class="op">=</span> <span class="ident">fs</span>.<span class="ident">inode_of_parent</span>(<span class="ident">parent_of_from</span>)<span class="question-mark">?</span>;
             <span class="kw">let</span> <span class="ident">inode_of_to_parent</span> <span class="op">=</span> <span class="ident">fs</span>.<span class="ident">inode_of_parent</span>(<span class="ident">parent_of_to</span>)<span class="question-mark">?</span>;
 
+            <span class="comment">// Find the inode of the dest file if it exists</span>
+            <span class="kw">let</span> <span class="ident">maybe_position_and_inode_of_file</span> <span class="op">=</span>
+                <span class="ident">fs</span>.<span class="ident">as_parent_get_position_and_inode_of_file</span>(<span class="ident">inode_of_to_parent</span>, <span class="kw-2">&amp;</span><span class="ident">name_of_to</span>)<span class="question-mark">?</span>;
+
             <span class="comment">// Get the child indexes to update in the parent nodes, in</span>
             <span class="comment">// addition to the inode of the directory to update.</span>
             <span class="kw">let</span> (<span class="ident">position_of_from</span>, <span class="ident">inode</span>) <span class="op">=</span> <span class="ident">fs</span>
@@ -1569,12 +1594,21 @@
             (
                 (<span class="ident">position_of_from</span>, <span class="ident">inode</span>, <span class="ident">inode_of_from_parent</span>),
                 (<span class="ident">inode_of_to_parent</span>, <span class="ident">name_of_to</span>),
+                <span class="ident">maybe_position_and_inode_of_file</span>,
             )
         };
 
         {
             <span class="comment">// Write lock.</span>
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">fs</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">try_write</span>().<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">FsError::Lock</span>)<span class="question-mark">?</span>;
+
+            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>((<span class="ident">position</span>, <span class="ident">inode_of_file</span>)) <span class="op">=</span> <span class="ident">inode_dest</span> {
+                <span class="comment">// Remove the file from the storage.</span>
+                <span class="ident">fs</span>.<span class="ident">storage</span>.<span class="ident">remove</span>(<span class="ident">inode_of_file</span>);
+
+                <span class="comment">// Remove the child from the parent directory.</span>
+                <span class="ident">fs</span>.<span class="ident">remove_child_from_node</span>(<span class="ident">inode_of_to_parent</span>, <span class="ident">position</span>)<span class="question-mark">?</span>;
+            }
 
             <span class="comment">// Update the file name, and update the modified time.</span>
             <span class="ident">fs</span>.<span class="ident">update_node_name</span>(<span class="ident">inode</span>, <span class="ident">name_of_to</span>)<span class="question-mark">?</span>;
