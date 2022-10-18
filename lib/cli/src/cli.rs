@@ -339,16 +339,19 @@ fn try_execute_local_package(args: &[String], sv: &SplitVersion) -> Result<(), a
 
     // Try finding the local package
     let mut args_without_package = args.to_vec();
+
+    // "wasmer run package arg1 arg2" => "wasmer package arg1 arg2"
     args_without_package.remove(1);
 
+    // "wasmer package arg1 arg2" => "wasmer arg1 arg2"
     if args_without_package.get(1) == Some(&sv.package)
-        || args_without_package.get(1) == sv.command.as_ref()
+        || sv.command.is_some() && args_without_package.get(1) == sv.command.as_ref()
     {
         args_without_package.remove(1);
     }
 
     if args_without_package.get(0) == Some(&sv.package)
-        || args_without_package.get(0) == sv.command.as_ref()
+        || sv.command.is_some() && args_without_package.get(0) == sv.command.as_ref()
     {
         args_without_package.remove(0);
     }

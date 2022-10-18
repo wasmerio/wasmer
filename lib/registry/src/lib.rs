@@ -827,22 +827,35 @@ pub fn query_package_from_registry(
         });
     }
 
-    let queried_package = available_packages
+    let mut queried_packages = available_packages
         .iter()
-        .find(|v| {
+        .filter_map(|v| {
             if name.contains('/') && v.package != name {
-                return false;
+                return None;
             }
 
-            if version != Some(&v.version) {
-                return false;
+            if version.is_some() && version != Some(&v.version) {
+                return None;
             }
 
-            true
+            Some(v)
         })
-        .cloned();
+        .collect::<Vec<_>>();
 
-    match queried_package {
+    let selected_package = match version {
+        Some(s) => queried_packages.iter().find(|p| p.version == s),
+        None => {
+            if let Some(latest) = queried_packages.iter().find(|s| s.is_latest_version) {
+                Some(latest)
+            } else {
+                // sort package by version, select highest
+                queried_packages.sort_by_key(|k| semver::Version::parse(&k.version).ok());
+                queried_packages.first()
+            }
+        }
+    };
+
+    match selected_package {
         None => {
             return Err(QueryPackageError::NoPackageFound {
                 name: name.to_string(),
@@ -850,7 +863,7 @@ pub fn query_package_from_registry(
                 packages: available_packages,
             });
         }
-        Some(s) => Ok(s),
+        Some(s) => Ok((*s).clone()),
     }
 }
 
@@ -944,12 +957,13 @@ pub fn install_package(
                 }
 
                 if !force_install {
-                    if let Ok(Some(package)) = get_if_package_has_new_version(
+                    let package_has_new_version = get_if_package_has_new_version(
                         r,
                         name,
                         version.map(|s| s.to_string()),
                         Duration::from_secs(60 * 5),
-                    ) {
+                    );
+                    if let Ok(Some(package)) = package_has_new_version {
                         url_of_package = Some((r, package));
                         break;
                     }
