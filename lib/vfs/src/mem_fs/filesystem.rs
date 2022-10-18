@@ -205,15 +205,12 @@ impl crate::FileSystem for FileSystem {
             // Write lock.
             let mut fs = self.inner.try_write().map_err(|_| FsError::Lock)?;
 
-            match inode_dest {
-                Some((position, inode_of_file)) => {
-                    // Remove the file from the storage.
-                    fs.storage.remove(inode_of_file);
+            if let Some((position, inode_of_file)) =  inode_dest {
+                // Remove the file from the storage.
+                fs.storage.remove(inode_of_file);
 
-                    // Remove the child from the parent directory.
-                    fs.remove_child_from_node(inode_of_to_parent, position)?;
-                }
-                None => (),
+                // Remove the child from the parent directory.
+                fs.remove_child_from_node(inode_of_to_parent, position)?;
             }
 
             // Update the file name, and update the modified time.
