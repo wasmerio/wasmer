@@ -2659,7 +2659,8 @@ pub fn path_rename<M: MemorySize>(
         source_path.to_str().as_ref().unwrap(),
         true
     ));
-    state.fs.get_inode_at_path(
+    // Create the destination inode if the file exists.
+    let _ = state.fs.get_inode_at_path(
         inodes.deref_mut(),
         new_fd,
         target_path.to_str().as_ref().unwrap(),
