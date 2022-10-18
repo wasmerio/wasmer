@@ -141,7 +141,11 @@ fn is_table_element_type_compatible(exported_type: Type, imported_type: Type) ->
     }
 }
 
-fn is_table_compatible(exported: &TableType, imported: &TableType) -> bool {
+fn is_table_compatible(
+    exported: &TableType,
+    imported: &TableType,
+    imported_runtime_size: Option<u32>,
+) -> bool {
     let TableType {
         ty: exported_ty,
         minimum: exported_minimum,
@@ -154,13 +158,17 @@ fn is_table_compatible(exported: &TableType, imported: &TableType) -> bool {
     } = imported;
 
     is_table_element_type_compatible(*exported_ty, *imported_ty)
-        && imported_minimum <= exported_minimum
+        && *imported_minimum <= imported_runtime_size.unwrap_or(*exported_minimum)
         && (imported_maximum.is_none()
             || (!exported_maximum.is_none()
                 && imported_maximum.unwrap() >= exported_maximum.unwrap()))
 }
 
-fn is_memory_compatible(exported: &MemoryType, imported: &MemoryType) -> bool {
+fn is_memory_compatible(
+    exported: &MemoryType,
+    imported: &MemoryType,
+    imported_runtime_size: Option<u32>,
+) -> bool {
     let MemoryType {
         minimum: exported_minimum,
         maximum: exported_maximum,
@@ -172,7 +180,7 @@ fn is_memory_compatible(exported: &MemoryType, imported: &MemoryType) -> bool {
         shared: imported_shared,
     } = imported;
 
-    imported_minimum <= exported_minimum
+    imported_minimum.0 <= imported_runtime_size.unwrap_or(exported_minimum.0)
         && (imported_maximum.is_none()
             || (!exported_maximum.is_none()
                 && imported_maximum.unwrap() >= exported_maximum.unwrap()))
@@ -211,12 +219,12 @@ impl ExternType {
         (Memory(MemoryType) memory unwrap_memory)
     }
     /// Check if two externs are compatible
-    pub fn is_compatible_with(&self, other: &Self) -> bool {
+    pub fn is_compatible_with(&self, other: &Self, runtime_size: Option<u32>) -> bool {
         match (self, other) {
             (Self::Function(a), Self::Function(b)) => a == b,
             (Self::Global(a), Self::Global(b)) => is_global_compatible(*a, *b),
-            (Self::Table(a), Self::Table(b)) => is_table_compatible(a, b),
-            (Self::Memory(a), Self::Memory(b)) => is_memory_compatible(a, b),
+            (Self::Table(a), Self::Table(b)) => is_table_compatible(a, b, runtime_size),
+            (Self::Memory(a), Self::Memory(b)) => is_memory_compatible(a, b, runtime_size),
             // The rest of possibilities, are not compatible
             _ => false,
         }
