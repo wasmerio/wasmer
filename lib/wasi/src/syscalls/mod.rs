@@ -2829,7 +2829,7 @@ pub fn path_symlink<M: MemorySize>(
         .fs
         .path_depth_from_fd(inodes.deref(), fd, source_inode);
 
-    // depth == -1 means folder is not relative
+    // depth == -1 means folder is not relative. See issue #3233.
     let depth = match depth {
         Ok(depth) => depth as i32 - 1,
         Err(_) => -1,
