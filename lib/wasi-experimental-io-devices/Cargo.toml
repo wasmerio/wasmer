@@ -9,6 +9,7 @@ edition.workspace = true
 homepage.workspace = true
 license.workspace = true
 repository.workspace = true
+rust-version.workspace = true
 version.workspace = true
 
 [badges]
@@ -31,7 +32,7 @@ enable-serde = [
     "wasmer-wasi/enable-serde"
 ]
 # This feature exists, so that "cargo build --all" doesn't
-# accidentally link libxcbcommon and libwayland into the CLI 
+# accidentally link libxcbcommon and libwayland into the CLI
 # libraries. When using wasi-experimental-io-devices, users
 # have to enable this feature manually
 link_external_libs = [

@@ -11,7 +11,9 @@ autoexamples = false
 
 [dependencies]
 wasmer = { version = "=3.0.0-beta.2", path = "lib/api", default-features = false }
-wasmer-compiler = { version = "=3.0.0-beta.2", path = "lib/compiler", features = ["compiler"] }
+wasmer-compiler = { version = "=3.0.0-beta.2", path = "lib/compiler", features = [
+    "compiler",
+] }
 wasmer-compiler-cranelift = { version = "=3.0.0-beta.2", path = "lib/compiler-cranelift", optional = true }
 wasmer-compiler-singlepass = { version = "=3.0.0-beta.2", path = "lib/compiler-singlepass", optional = true }
 wasmer-compiler-llvm = { version = "=3.0.0-beta.2", path = "lib/compiler-llvm", optional = true }
@@ -63,10 +65,11 @@ resolver = "2"
 [workspace.package]
 version = "3.0.0-beta.2"
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
-repository = "https://github.com/wasmerio/wasmer"
+edition = "2018"
 homepage = "https://wasmer.io/"
 license = "MIT OR Apache-2.0 WITH LLVM-exception"
-edition = "2018"
+repository = "https://github.com/wasmerio/wasmer"
+rust-version = "1.64"
 
 [build-dependencies]
 test-generator = { path = "tests/lib/test-generator" }
@@ -76,7 +79,9 @@ glob = "0.3"
 rustc_version = "0.4"
 
 [dev-dependencies]
-wasmer = { version = "=3.0.0-beta.2", path = "lib/api", default-features = false, features = ["cranelift"] }
+wasmer = { version = "=3.0.0-beta.2", path = "lib/api", default-features = false, features = [
+    "cranelift",
+] }
 anyhow = "1.0"
 criterion = "0.3"
 lazy_static = "1.4"
@@ -110,10 +115,7 @@ wast = ["wasmer-wast"]
 wasi = ["wasmer-wasi"]
 emscripten = ["wasmer-emscripten"]
 wat = ["wasmer/wat"]
-compiler = [
-    "wasmer/compiler",
-    "wasmer-compiler/translator",
-]
+compiler = ["wasmer/compiler", "wasmer-compiler/translator"]
 singlepass = ["wasmer-compiler-singlepass", "compiler"]
 cranelift = ["wasmer-compiler-cranelift", "compiler"]
 llvm = ["wasmer-compiler-llvm", "compiler"]
@@ -128,9 +130,7 @@ test-singlepass = ["singlepass"]
 test-cranelift = ["cranelift"]
 test-llvm = ["llvm"]
 
-test-universal = [
-    "test-generator/test-universal",
-]
+test-universal = ["test-generator/test-universal"]
 
 # Specifies that we're running in coverage testing mode. This disables tests
 # that raise signals because that interferes with tarpaulin.
