@@ -100,6 +100,7 @@ fn test_wasmer_run_works_with_dir() -> anyhow::Result<()> {
 
     Ok(())
 }
+
 #[test]
 fn test_wasmer_run_works() -> anyhow::Result<()> {
     let output = Command::new(get_wasmer_path())
@@ -113,7 +114,47 @@ fn test_wasmer_run_works() -> anyhow::Result<()> {
 
     if stdout != "hello\n" {
         bail!(
-            "running python/python failed with: stdout: {}\n\nstderr: {}",
+            "1 running python/python failed with: stdout: {}\n\nstderr: {}",
+            stdout,
+            std::str::from_utf8(&output.stderr)
+                .expect("stderr is not utf8! need to handle arbitrary bytes")
+        );
+    }
+
+    // same test again, but this time with "wasmer run ..."
+    let output = Command::new(get_wasmer_path())
+        .arg("run")
+        .arg("registry.wapm.io/python/python")
+        .arg(format!("--mapdir=.:{}", ASSET_PATH))
+        .arg("test.py")
+        .output()?;
+
+    let stdout = std::str::from_utf8(&output.stdout)
+        .expect("stdout is not utf8! need to handle arbitrary bytes");
+
+    if stdout != "hello\n" {
+        bail!(
+            "2 running python/python failed with: stdout: {}\n\nstderr: {}",
+            stdout,
+            std::str::from_utf8(&output.stderr)
+                .expect("stderr is not utf8! need to handle arbitrary bytes")
+        );
+    }
+
+    // same test again, but this time without specifying the registry
+    let output = Command::new(get_wasmer_path())
+        .arg("run")
+        .arg("python/python")
+        .arg(format!("--mapdir=.:{}", ASSET_PATH))
+        .arg("test.py")
+        .output()?;
+
+    let stdout = std::str::from_utf8(&output.stdout)
+        .expect("stdout is not utf8! need to handle arbitrary bytes");
+
+    if stdout != "hello\n" {
+        bail!(
+            "3 running python/python failed with: stdout: {}\n\nstderr: {}",
             stdout,
             std::str::from_utf8(&output.stderr)
                 .expect("stderr is not utf8! need to handle arbitrary bytes")

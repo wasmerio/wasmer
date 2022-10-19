@@ -270,6 +270,7 @@ fn try_run_package_or_file(args: &[String], r: &Run) -> Result<(), anyhow::Error
         Ok(o) => o,
         Err(_) => {
             let mut fake_sv = SplitVersion {
+                original: package.to_string(),
                 registry: None,
                 package: package.to_string(),
                 version: None,
@@ -278,6 +279,7 @@ fn try_run_package_or_file(args: &[String], r: &Run) -> Result<(), anyhow::Error
             is_fake_sv = true;
             match try_lookup_command(&mut fake_sv) {
                 Ok(o) => SplitVersion {
+                    original: format!("{}@{}", o.package, o.version),
                     registry: None,
                     package: o.package,
                     version: Some(o.version),
@@ -366,20 +368,14 @@ fn try_execute_local_package(
     // Try finding the local package
     let mut args_without_package = args.to_vec();
 
-    // "wasmer run package arg1 arg2" => "wasmer package arg1 arg2"
+    // remove either "run" or $package
     args_without_package.remove(1);
 
     // "wasmer package arg1 arg2" => "wasmer arg1 arg2"
-    if args_without_package.get(1) == Some(&sv.package)
-        || sv.command.is_some() && args_without_package.get(1) == sv.command.as_ref()
+    if (args_without_package.get(1).is_some() && args_without_package[1].starts_with(&sv.original))
+        || (sv.command.is_some() && args_without_package[1].ends_with(sv.command.as_ref().unwrap()))
     {
         args_without_package.remove(1);
-    }
-
-    if args_without_package.get(0) == Some(&sv.package)
-        || sv.command.is_some() && args_without_package.get(0) == sv.command.as_ref()
-    {
-        args_without_package.remove(0);
     }
 
     RunWithoutFile::try_parse_from(args_without_package.iter())
@@ -438,6 +434,7 @@ fn start_spinner(msg: String) -> SpinnerHandle {
 
 #[derive(Debug, Clone, PartialEq, Default)]
 struct SplitVersion {
+    original: String,
     registry: Option<String>,
     package: String,
     version: Option<String>,
@@ -599,6 +596,7 @@ fn split_version(s: &str) -> Result<SplitVersion, anyhow::Error> {
     }
 
     let sv = SplitVersion {
+        original: s.to_string(),
         registry,
         package: format!("{namespace}/{name}"),
         version: if no_version {
