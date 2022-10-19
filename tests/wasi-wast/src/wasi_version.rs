@@ -33,7 +33,7 @@ impl WasiVersion {
         match self {
             WasiVersion::Unstable => "unstable",
             WasiVersion::Snapshot1 => "snapshot1",
-            WasiVersion::CurrentNightly => "nightly-2022-10-18",
+            WasiVersion::CurrentNightly => "nightly_2022_10_18",
         }
     }
 }
