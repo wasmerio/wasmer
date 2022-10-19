@@ -458,6 +458,7 @@ fn test_split_version() {
     assert_eq!(
         split_version("registry.wapm.io/graphql/python/python").unwrap(),
         SplitVersion {
+            original: "registry.wapm.io/graphql/python/python".to_string(),
             registry: Some("https://registry.wapm.io/graphql".to_string()),
             package: "python/python".to_string(),
             version: None,
@@ -467,6 +468,7 @@ fn test_split_version() {
     assert_eq!(
         split_version("registry.wapm.io/python/python").unwrap(),
         SplitVersion {
+            original: "registry.wapm.io/python/python".to_string(),
             registry: Some("https://registry.wapm.io/graphql".to_string()),
             package: "python/python".to_string(),
             version: None,
@@ -476,6 +478,7 @@ fn test_split_version() {
     assert_eq!(
         split_version("namespace/name@version:command").unwrap(),
         SplitVersion {
+            original: "namespace/name@version:command".to_string(),
             registry: None,
             package: "namespace/name".to_string(),
             version: Some("version".to_string()),
@@ -485,6 +488,7 @@ fn test_split_version() {
     assert_eq!(
         split_version("namespace/name@version").unwrap(),
         SplitVersion {
+            original: "namespace/name@version".to_string(),
             registry: None,
             package: "namespace/name".to_string(),
             version: Some("version".to_string()),
@@ -494,6 +498,7 @@ fn test_split_version() {
     assert_eq!(
         split_version("namespace/name").unwrap(),
         SplitVersion {
+            original: "namespace/name".to_string(),
             registry: None,
             package: "namespace/name".to_string(),
             version: None,
@@ -503,6 +508,7 @@ fn test_split_version() {
     assert_eq!(
         split_version("registry.wapm.io/namespace/name").unwrap(),
         SplitVersion {
+            original: "registry.wapm.io/namespace/name".to_string(),
             registry: Some("https://registry.wapm.io/graphql".to_string()),
             package: "namespace/name".to_string(),
             version: None,
