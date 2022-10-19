@@ -380,7 +380,7 @@ fn try_execute_local_package(
     RunWithoutFile::try_parse_from(args_without_package.iter())
         .map_err(|e| ExecuteLocalPackageError::DuringExec(e.into()))?
         .into_run_args(package_dir, sv.command.as_deref())
-        .map_err(|e| ExecuteLocalPackageError::DuringExec(e.into()))?
+        .map_err(ExecuteLocalPackageError::DuringExec)?
         .execute()
         .map_err(|e| ExecuteLocalPackageError::DuringExec(e.context(anyhow::anyhow!("{}", sv))))
 }
