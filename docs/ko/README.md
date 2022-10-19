@@ -131,6 +131,7 @@ Wasmer 런타임은 **다른 언어에 내장된** 라이브러리로 사용할 
 | ![Zig logo] | [**Zig**][Zig integration] | *공개 패키지 없음* | |
 | ![Dart logo] | [**Dart**][Dart integration] | [`wasm` pub package] | |
 |  | [**Lisp**][Lisp integration] | *under heavy development - no published package* | |
+| ![Ocaml logo] | [**OCaml**][OCaml integration] | [`wasmer` OCaml package] | |
 
 [👋&nbsp;&nbsp;없는 언어가 있습니까?](https://github.com/wasmerio/wasmer/issues/new?assignees=&labels=%F0%9F%8E%89+enhancement&template=---feature-request.md&title=)
 
@@ -207,6 +208,10 @@ Wasmer 런타임은 **다른 언어에 내장된** 라이브러리로 사용할 
 [`wasm` pub package]: https://pub.dev/packages/wasm
 
 [lisp integration]: https://github.com/helmutkian/cl-wasm-runtime
+
+[OCaml logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/ocaml.svg
+[OCaml integration]: https://github.com/wasmerio/wasmer-ocaml
+[`wasmer` OCaml package]: https://opam.ocaml.org/packages/wasmer/
 
 ## 기여
 
