@@ -93,16 +93,15 @@ impl RunWithoutFile {
     pub fn into_run_args(
         mut self,
         package_root_dir: PathBuf, // <- package dir
-        pathbuf: PathBuf,          // <- wasm file
-        manifest: Option<wapm_toml::Manifest>,
-    ) -> Run {
+        command: Option<&str>,
+    ) -> Result<Run, anyhow::Error> {
+        let (manifest, pathbuf) =
+            wasmer_registry::get_executable_file_from_path(&package_root_dir, command)?;
+
         #[cfg(feature = "wasi")]
         {
             let default = HashMap::default();
-            let fs = manifest
-                .as_ref()
-                .and_then(|m| m.fs.as_ref())
-                .unwrap_or(&default);
+            let fs = manifest.fs.as_ref().unwrap_or(&default);
             for (alias, real_dir) in fs.iter() {
                 let real_dir = package_root_dir.join(&real_dir);
                 if !real_dir.exists() {
@@ -117,7 +116,7 @@ impl RunWithoutFile {
             }
         }
 
-        Run {
+        Ok(Run {
             path: pathbuf,
             options: RunWithoutFile {
                 force_install: self.force_install,
@@ -141,7 +140,7 @@ impl RunWithoutFile {
                 verbose: self.verbose.unwrap_or(0),
                 args: self.args,
             },
-        }
+        })
     }
 }
 

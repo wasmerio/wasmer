@@ -458,8 +458,57 @@ pub struct LocalPackage {
     pub registry: String,
     pub name: String,
     pub version: String,
-    pub manifest: wapm_toml::Manifest,
-    pub path: PathBuf,
+}
+
+impl LocalPackage {
+    pub fn get_path(&self) -> Result<PathBuf, String> {
+        let host = url::Url::parse(&self.registry)
+            .ok()
+            .and_then(|o| o.host_str().map(|s| s.to_string()))
+            .unwrap_or_else(|| self.registry.clone());
+
+        get_package_local_dir(&host, &self.name, &self.version)
+    }
+}
+
+/// Returns the (manifest, .wasm file name), given a package dir
+pub fn get_executable_file_from_path(
+    package_dir: &PathBuf,
+    command: Option<&str>,
+) -> Result<(wapm_toml::Manifest, PathBuf), anyhow::Error> {
+    let wapm_toml = std::fs::read_to_string(package_dir.join("wapm.toml"))
+        .map_err(|_| anyhow::anyhow!("Package {package_dir:?} has no wapm.toml"))?;
+
+    let wapm_toml = toml::from_str::<wapm_toml::Manifest>(&wapm_toml)
+        .map_err(|e| anyhow::anyhow!("Could not parse toml for {package_dir:?}: {e}"))?;
+
+    let name = wapm_toml.package.name.clone();
+    let version = wapm_toml.package.version.clone();
+
+    let commands = wapm_toml.command.clone().unwrap_or_default();
+    let entrypoint_module = match command {
+        Some(s) => commands.iter().find(|c| c.get_name() == s).ok_or_else(|| {
+            anyhow::anyhow!("Cannot run {name}@{version}: package has no command {s:?}")
+        })?,
+        None => commands.first().ok_or_else(|| {
+            anyhow::anyhow!("Cannot run {name}@{version}: package has no commands")
+        })?,
+    };
+
+    let module_name = entrypoint_module.get_module();
+    let modules = wapm_toml.module.clone().unwrap_or_default();
+    let entrypoint_module = modules
+        .iter()
+        .find(|m| m.name == module_name)
+        .ok_or_else(|| {
+            anyhow::anyhow!(
+                "Cannot run {name}@{version}: module {module_name} not found in wapm.toml"
+            )
+        })?;
+
+    let entrypoint_source = package_dir.join(&entrypoint_module.source);
+
+    Ok((wapm_toml, entrypoint_source))
 }
 
 fn get_all_names_in_dir(dir: &PathBuf) -> Vec<(PathBuf, String)> {
@@ -494,17 +543,25 @@ pub fn get_all_local_packages(registry: Option<&str>) -> Vec<LocalPackage> {
         Some(s) => vec![s.to_string()],
         None => get_all_available_registries().unwrap_or_default(),
     };
-    for registry in registries {
-        let host = match url::Url::parse(&registry) {
-            Ok(o) => o.host_str().map(|s| s.to_string()),
-            Err(_) => continue,
-        };
 
-        let host = match host {
-            Some(s) => s,
-            None => continue,
-        };
+    let mut registry_hosts = registries
+        .into_iter()
+        .filter_map(|s| url::Url::parse(&s).ok()?.host_str().map(|s| s.to_string()))
+        .collect::<Vec<_>>();
 
+    let mut registries_in_root_dir = get_checkouts_dir()
+        .as_ref()
+        .map(get_all_names_in_dir)
+        .unwrap_or_default()
+        .into_iter()
+        .filter_map(|(path, p)| if path.is_dir() { Some(p) } else { None })
+        .collect();
+
+    registry_hosts.append(&mut registries_in_root_dir);
+    registry_hosts.sort();
+    registry_hosts.dedup();
+
+    for host in registry_hosts {
         let root_dir = match get_global_install_dir(&host) {
             Some(o) => o,
             None => continue,
@@ -513,11 +570,7 @@ pub fn get_all_local_packages(registry: Option<&str>) -> Vec<LocalPackage> {
         for (username_path, user_name) in get_all_names_in_dir(&root_dir) {
             for (package_path, package_name) in get_all_names_in_dir(&username_path) {
                 for (version_path, package_version) in get_all_names_in_dir(&package_path) {
-                    let toml_str = match std::fs::read_to_string(version_path.join("wapm.toml")) {
-                        Ok(o) => o,
-                        Err(_) => continue,
-                    };
-                    let manifest = match toml::from_str(&toml_str) {
+                    let _ = match std::fs::read_to_string(version_path.join("wapm.toml")) {
                         Ok(o) => o,
                         Err(_) => continue,
                     };
@@ -525,8 +578,6 @@ pub fn get_all_local_packages(registry: Option<&str>) -> Vec<LocalPackage> {
                         registry: host.clone(),
                         name: format!("{user_name}/{package_name}"),
                         version: package_version,
-                        manifest,
-                        path: version_path,
                     });
                 }
             }
@@ -555,49 +606,6 @@ pub fn get_local_package(
             true
         })
         .cloned()
-}
-
-/// Given a [registry, name, version, command?], returns the
-/// (package dir path, .wasm file path) of the command to execute
-pub fn get_package_local_wasm_file(
-    registry_host: &str,
-    name: &str,
-    version: &str,
-    command: Option<&str>,
-) -> Result<(PathBuf, PathBuf), String> {
-    let dir = get_package_local_dir(registry_host, name, version)?;
-    let wapm_toml_path = dir.join("wapm.toml");
-    let wapm_toml_str = std::fs::read_to_string(&wapm_toml_path)
-        .map_err(|e| format!("cannot read wapm.toml for {name}@{version}: {e}"))?;
-    let wapm = toml::from_str::<wapm_toml::Manifest>(&wapm_toml_str)
-        .map_err(|e| format!("cannot parse wapm.toml for {name}@{version}: {e}"))?;
-
-    // TODO: this will just return the path for the first command, so this might not be correct
-    let module_name = match command {
-        Some(s) => s.to_string(),
-        None => wapm
-            .command
-            .unwrap_or_default()
-            .first()
-            .map(|m| m.get_module())
-            .ok_or_else(|| {
-                format!("cannot get entrypoint for {name}@{version}: package has no commands")
-            })?,
-    };
-
-    let wasm_file_name = wapm
-        .module
-        .unwrap_or_default()
-        .iter()
-        .filter(|m| m.name == module_name)
-        .map(|m| m.source.clone())
-        .next()
-        .ok_or_else(|| {
-            format!("cannot get entrypoint for {name}@{version}: package has no commands")
-        })?;
-
-    let wasm_path = dir.join(&wasm_file_name);
-    Ok((dir, wasm_path))
 }
 
 pub fn query_command_from_registry(
@@ -870,14 +878,13 @@ pub fn query_package_from_registry(
     }
 }
 
+pub fn get_checkouts_dir() -> Option<PathBuf> {
+    Some(PartialWapmConfig::get_folder().ok()?.join("checkouts"))
+}
+
 /// Returs the path to the directory where all packages on this computer are being stored
 pub fn get_global_install_dir(registry_host: &str) -> Option<PathBuf> {
-    Some(
-        PartialWapmConfig::get_folder()
-            .ok()?
-            .join("checkouts")
-            .join(registry_host),
-    )
+    Some(get_checkouts_dir()?.join(registry_host))
 }
 
 pub fn download_and_unpack_targz(url: &str, target_path: &Path) -> Result<PathBuf, String> {
@@ -930,7 +937,7 @@ pub fn install_package(
     version: Option<&str>,
     package_download_info: Option<PackageDownloadInfo>,
     force_install: bool,
-) -> Result<(LocalPackage, PathBuf, PathBuf), String> {
+) -> Result<(LocalPackage, PathBuf), String> {
     let package_info = match package_download_info {
         Some(s) => s,
         None => {
@@ -1030,43 +1037,14 @@ pub fn install_package(
     if !dir.join("wapm.toml").exists() || force_install {
         download_and_unpack_targz(&package_info.url, &dir)?;
     }
-    let target_path = dir;
 
-    let wapm_toml = std::fs::read_to_string(target_path.join("wapm.toml")).map_err(|_| {
-        format!(
-            "Package {name}@{version} has no wapm.toml (path: {})",
-            target_path.display()
-        )
-    })?;
-
-    let wapm_toml = toml::from_str::<wapm_toml::Manifest>(&wapm_toml)
-        .map_err(|e| format!("Could not parse toml for {name}@{version}: {e}"))?;
-
-    let commands = wapm_toml.command.clone().unwrap_or_default();
-    let entrypoint_module = commands
-        .first()
-        .ok_or_else(|| format!("Cannot run {name}@{version}: package has no commands"))?;
-
-    let module_name = entrypoint_module.get_module();
-    let modules = wapm_toml.module.clone().unwrap_or_default();
-    let entrypoint_module = modules
-        .iter()
-        .find(|m| m.name == module_name)
-        .ok_or_else(|| {
-            format!("Cannot run {name}@{version}: module {module_name} not found in wapm.toml")
-        })?;
-
-    let entrypoint_source = target_path.join(&entrypoint_module.source);
     Ok((
         LocalPackage {
             registry: package_info.registry,
-            name: wapm_toml.package.name.clone(),
-            version: wapm_toml.package.version.to_string(),
-            manifest: wapm_toml,
-            path: target_path.clone(),
+            name: name,
+            version: version,
         },
-        target_path,
-        entrypoint_source,
+        dir,
     ))
 }
 
@@ -1128,7 +1106,7 @@ fn test_install_package() {
         install_package(Some(registry), "wasmer/wabt", Some("1.0.29"), None, true).unwrap();
 
     assert_eq!(
-        package.path,
+        package.get_path().unwrap(),
         get_global_install_dir("registry.wapm.io")
             .unwrap()
             .join("wasmer")

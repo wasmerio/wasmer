@@ -303,6 +303,7 @@ fn try_run_package_or_file(args: &[String], r: &Run) -> Result<(), anyhow::Error
         _ => {}
     }
 
+    println!("finding local package {} failed", sv);
     // else: local package not found - try to download and install package
     try_autoinstall_package(args, &sv, package_download_info, r.force_install)
 }
@@ -346,13 +347,9 @@ fn try_execute_local_package(
             ExecuteLocalPackageError::BeforeExec(anyhow::anyhow!("no local package {sv:?} found"))
         })?;
 
-    let (package_dir, local_package_wasm_path) = wasmer_registry::get_package_local_wasm_file(
-        &package.registry,
-        &package.name,
-        &package.version,
-        sv.command.as_deref(),
-    )
-    .map_err(|e| ExecuteLocalPackageError::BeforeExec(anyhow!("{e}")))?;
+    let package_dir = package
+        .get_path()
+        .map_err(|e| ExecuteLocalPackageError::BeforeExec(anyhow::anyhow!("{e}")))?;
 
     // Try finding the local package
     let mut args_without_package = args.to_vec();
@@ -375,17 +372,10 @@ fn try_execute_local_package(
 
     RunWithoutFile::try_parse_from(args_without_package.iter())
         .map_err(|e| ExecuteLocalPackageError::DuringExec(e.into()))?
-        .into_run_args(
-            package_dir,
-            local_package_wasm_path.clone(),
-            Some(package.manifest),
-        )
+        .into_run_args(package_dir, sv.command.as_deref())
+        .map_err(|e| ExecuteLocalPackageError::DuringExec(e.into()))?
         .execute()
-        .map_err(|e| {
-            ExecuteLocalPackageError::DuringExec(
-                e.context(anyhow::anyhow!("{}", local_package_wasm_path.display())),
-            )
-        })
+        .map_err(|e| ExecuteLocalPackageError::DuringExec(e.context(anyhow::anyhow!("{}", sv))))
 }
 
 fn try_autoinstall_package(
@@ -407,7 +397,7 @@ fn try_autoinstall_package(
     sp.close();
     print!("\r");
     let _ = std::io::stdout().flush();
-    let (package, package_dir, buf) = match result {
+    let (_, package_dir) = match result {
         Ok(o) => o,
         Err(e) => {
             return Err(anyhow::anyhow!("{e}"));
@@ -422,7 +412,7 @@ fn try_autoinstall_package(
     run_args.command_name = sv.command.clone();
 
     run_args
-        .into_run_args(package_dir, buf, Some(package.manifest))
+        .into_run_args(package_dir, sv.command.as_deref())?
         .execute()
 }
 
@@ -621,9 +611,11 @@ fn print_packages() -> Result<(), anyhow::Error> {
 
     let rows = get_all_local_packages(None)
         .into_iter()
-        .map(|pkg| {
-            let commands = pkg
-                .manifest
+        .filter_map(|pkg| {
+            let package_root_path = pkg.get_path().ok()?;
+            let (manifest, _) =
+                wasmer_registry::get_executable_file_from_path(&package_root_path, None).ok()?;
+            let commands = manifest
                 .command
                 .unwrap_or_default()
                 .iter()
@@ -631,7 +623,7 @@ fn print_packages() -> Result<(), anyhow::Error> {
                 .collect::<Vec<_>>()
                 .join(" \r\n");
 
-            row![pkg.registry, pkg.name, pkg.version, commands]
+            Some(row![pkg.registry, pkg.name, pkg.version, commands])
         })
         .collect::<Vec<_>>();
 
