@@ -1,0 +1,13 @@
+[package]
+name = "adamz/qjs"
+version = "0.0.1"
+description = "https://github.com/bellard/quickjs"
+license = "MIT"
+
+[[command]]
+name = "qjs"
+module = "qjs"
+
+[[module]]
+name = "qjs"
+source = "qjs.wasm"

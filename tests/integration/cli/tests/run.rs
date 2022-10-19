@@ -42,24 +42,51 @@ fn run_wasi_works() -> anyhow::Result<()> {
     Ok(())
 }
 
-
 #[test]
-fn test_wasmer_run_works() -> anyhow::Result<()> {
-    
+fn test_wasmer_run_works_with_dir() -> anyhow::Result<()> {
     let temp_dir = tempfile::TempDir::new()?;
     let qjs_path = temp_dir.path().join("qjs.wasm");
-    
+
     std::fs::copy(wasi_test_wasm_path(), &qjs_path)?;
-    std::fs::write(format!("{}/{}", C_ASSET_PATH, "qjs-wapm.toml"), temp_dir.path().join("wapm.toml"))?;
-    
+    std::fs::copy(
+        format!("{}/{}", C_ASSET_PATH, "qjs-wapm.toml"),
+        temp_dir.path().join("wapm.toml"),
+    )?;
+
+    assert!(temp_dir.path().exists());
+    assert!(temp_dir.path().join("wapm.toml").exists());
+    assert!(temp_dir.path().join("qjs.wasm").exists());
+
+    // test with "wasmer qjs.wasm"
     let output = Command::new(get_wasmer_path())
-        .arg("run")
         .arg(temp_dir.path())
-        .arg(format!("--mapdir=.:{}", temp_dir.path()))
+        .arg("--")
+        .arg("--quit")
         .output()?;
 
     let stdout = std::str::from_utf8(&output.stdout)
-    .expect("stdout is not utf8! need to handle arbitrary bytes");
+        .expect("stdout is not utf8! need to handle arbitrary bytes");
+
+    if !output.status.success() {
+        bail!(
+            "running {} failed with: stdout: {}\n\nstderr: {}",
+            qjs_path.display(),
+            stdout,
+            std::str::from_utf8(&output.stderr)
+                .expect("stderr is not utf8! need to handle arbitrary bytes")
+        );
+    }
+
+    // test again with "wasmer run qjs.wasm"
+    let output = Command::new(get_wasmer_path())
+    .arg("run")
+    .arg(temp_dir.path())
+    .arg("--")
+    .arg("--quit")
+    .output()?;
+
+    let stdout = std::str::from_utf8(&output.stdout)
+        .expect("stdout is not utf8! need to handle arbitrary bytes");
 
     if !output.status.success() {
         bail!(
