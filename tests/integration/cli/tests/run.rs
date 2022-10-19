@@ -16,10 +16,6 @@ fn test_no_start_wat_path() -> String {
     format!("{}/{}", ASSET_PATH, "no_start.wat")
 }
 
-fn test_python_script() -> String {
-    format!("{}/{}", ASSET_PATH, "test.py")
-}
-
 #[test]
 fn run_wasi_works() -> anyhow::Result<()> {
     let output = Command::new(get_wasmer_path())
@@ -49,15 +45,15 @@ fn run_wasi_works() -> anyhow::Result<()> {
 #[test]
 fn test_wasmer_run_works() -> anyhow::Result<()> {
     let output = Command::new(get_wasmer_path())
-        .arg("run")
         .arg("registry.wapm.io/python/python")
-        .arg(test_python_script())
+        .arg(format!("--mapdir=.:{}", ASSET_PATH))
+        .arg("test.py")
         .output()?;
 
     let stdout = std::str::from_utf8(&output.stdout)
         .expect("stdout is not utf8! need to handle arbitrary bytes");
 
-    if !output.status.success() || stdout != "hello" {
+    if stdout != "hello\n" {
         bail!(
             "running python/python failed with: stdout: {}\n\nstderr: {}",
             stdout,

@@ -248,6 +248,13 @@ fn wasmer_main_inner() -> Result<(), anyhow::Error> {
 fn try_run_package_or_file(args: &[String], r: &Run) -> Result<(), anyhow::Error> {
     // Check "r.path" is a file or a package / command name
     if r.path.exists() {
+        if r.path.is_dir() && r.path.join("wapm.toml").exists() {
+            let mut args_without_package = args.to_vec();
+            let _ = args_without_package.remove(1);
+            return RunWithoutFile::try_parse_from(args_without_package.iter())?
+                .into_run_args(r.path.clone(), r.command_name.as_deref())?
+                .execute();
+        }
         return r.execute();
     }
 
