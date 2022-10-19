@@ -102,6 +102,7 @@ qjs >
 | ![Postgres logo] | [**Postgres**][Postgres integration] | *sin paquete publicado* | [Documentación][postgres docs] |
 |  | [**Swift**][Swift integration] | *sin paquete publicado* | |
 | ![Zig logo] | [**Zig**][Zig integration] | *no published package* | |
+| ![Ocaml logo] | [**OCaml**][OCaml integration] | [`wasmer` OCaml package] | |
 
 [👋 Falta algún lenguaje?](https://github.com/wasmerio/wasmer/issues/new?assignees=&labels=%F0%9F%8E%89+enhancement&template=---feature-request.md&title=)
 
@@ -172,6 +173,10 @@ qjs >
 
 [zig logo]: https://raw.githubusercontent.com/ziglang/logo/master/zig-favicon.png
 [zig integration]: https://github.com/zigwasm/wasmer-zig
+
+[OCaml logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/ocaml.svg
+[OCaml integration]: https://github.com/wasmerio/wasmer-ocaml
+[`wasmer` OCaml package]: https://opam.ocaml.org/packages/wasmer/
 
 ## Contribuye
 
