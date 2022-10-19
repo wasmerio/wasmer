@@ -250,7 +250,12 @@ fn try_run_package_or_file(args: &[String], r: &Run) -> Result<(), anyhow::Error
     if r.path.exists() {
         if r.path.is_dir() && r.path.join("wapm.toml").exists() {
             let mut args_without_package = args.to_vec();
-            let _ = args_without_package.remove(1);
+            if args_without_package.get(1) == Some(&format!("{}", r.path.display())) {
+                let _ = args_without_package.remove(1);
+            } else if args_without_package.get(2) == Some(&format!("{}", r.path.display())) {
+                let _ = args_without_package.remove(1);
+                let _ = args_without_package.remove(1);
+            }
             return RunWithoutFile::try_parse_from(args_without_package.iter())?
                 .into_run_args(r.path.clone(), r.command_name.as_deref())?
                 .execute();

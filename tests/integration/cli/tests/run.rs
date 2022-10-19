@@ -79,11 +79,11 @@ fn test_wasmer_run_works_with_dir() -> anyhow::Result<()> {
 
     // test again with "wasmer run qjs.wasm"
     let output = Command::new(get_wasmer_path())
-    .arg("run")
-    .arg(temp_dir.path())
-    .arg("--")
-    .arg("--quit")
-    .output()?;
+        .arg("run")
+        .arg(temp_dir.path())
+        .arg("--")
+        .arg("--quit")
+        .output()?;
 
     let stdout = std::str::from_utf8(&output.stdout)
         .expect("stdout is not utf8! need to handle arbitrary bytes");
