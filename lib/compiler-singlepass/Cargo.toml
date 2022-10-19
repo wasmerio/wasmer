@@ -1,15 +1,16 @@
 [package]
 name = "wasmer-compiler-singlepass"
-version = "3.0.0-beta.2"
 description = "Singlepass compiler for Wasmer WebAssembly runtime"
 categories = ["wasm"]
 keywords = ["wasm", "webassembly", "compiler", "singlepass"]
-authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
-repository = "https://github.com/wasmerio/wasmer"
 documentation = "https://docs.rs/wasmer-compiler-singlepass/"
-license = "MIT"
 readme = "README.md"
-edition = "2018"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+version.workspace = true
 
 [dependencies]
 wasmer-compiler = { path = "../compiler", version = "=3.0.0-beta.2", features = ["translator", "compiler"], default-features = false }

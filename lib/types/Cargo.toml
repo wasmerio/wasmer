@@ -1,14 +1,15 @@
 [package]
 name = "wasmer-types"
-version = "3.0.0-beta.2"
 description = "Wasmer Common Types"
 categories = ["wasm", "no-std", "data-structures"]
 keywords = ["wasm", "webassembly", "types"]
-authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
-repository = "https://github.com/wasmerio/wasmer"
-license = "MIT OR Apache-2.0 WITH LLVM-exception"
 readme = "README.md"
-edition = "2018"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+version.workspace = true
 
 [dependencies]
 serde = { version = "1.0", features = ["derive", "rc"], optional = true, default-features = false }

@@ -1,10 +1,12 @@
 [package]
 name = "wasmer-vbus"
-version = "3.0.0-beta.2"
 description = "Wasmer Virtual Bus"
-authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
-license = "MIT"
-edition = "2018"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+version.workspace = true
 
 [dependencies]
 thiserror = "1"

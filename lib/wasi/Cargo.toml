@@ -1,14 +1,15 @@
 [package]
 name = "wasmer-wasi"
-version = "3.0.0-beta.2"
 description = "WASI implementation library for Wasmer WebAssembly runtime"
 categories = ["wasm", "os"]
 keywords = ["wasm", "webassembly", "wasi", "sandbox", "ABI"]
-authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
-repository = "https://github.com/wasmerio/wasmer"
-license = "MIT"
 readme = "README.md"
-edition = "2018"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+version.workspace = true
 
 [dependencies]
 cfg-if = "1.0"

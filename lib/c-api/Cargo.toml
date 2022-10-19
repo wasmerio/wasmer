@@ -1,15 +1,16 @@
 [package]
 name = "wasmer-c-api"
-version = "3.0.0-beta.2"
 description = "Wasmer C API library"
 categories = ["wasm", "api-bindings"]
 keywords = ["wasm", "webassembly", "runtime"]
-authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
-repository = "https://github.com/wasmerio/wasmer"
 documentation = "https://wasmerio.github.io/wasmer/c-api/"
-license = "MIT"
 readme = "README.md"
-edition = "2018"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+version.workspace = true
 
 [lib]
 # The library name is `wasmer` so that we generate dylib like
