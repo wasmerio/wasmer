@@ -1041,8 +1041,8 @@ pub fn install_package(
     Ok((
         LocalPackage {
             registry: package_info.registry,
-            name: name,
-            version: version,
+            name,
+            version,
         },
         dir,
     ))
