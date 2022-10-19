@@ -240,7 +240,7 @@ languages**, so you can use WebAssembly _anywhere_.
 [vlang integration]: https://github.com/vlang/wasmer
 
 [OCaml logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/ocaml.svg
-[OCaml integration]: https://github.com/wasmer/wasmer-ocaml
+[OCaml integration]: https://github.com/wasmerio/wasmer-ocaml
 [`wasmer` OCaml package]: https://opam.ocaml.org/packages/wasmer/
 
 ## Contribute

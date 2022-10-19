@@ -133,6 +133,7 @@ Sprachen** verwendet werden, so dass Sie WebAssembly _überall_ einsetzen könne
 |  | [**Swift**][Swift Integration] | *kein Paket veröffentlicht* | |
 | ![Zig logo] | [**Zig**][Zig Integration] | *kein Paket veröffentlicht* | |
 | ![Dart logo] | [**Dart**][Dart Integration] | [`wasm` pub Paket] | |
+| ![Ocaml logo] | [**OCaml**][OCaml integration] | [`wasmer` OCaml package] | |
 
 [👋&nbsp;&nbsp;Fehlt eine Sprache?](https://github.com/wasmerio/wasmer/issues/new?assignees=&labels=%F0%9F%8E%89+enhancement&template=---feature-request.md&title=)
 
@@ -207,6 +208,10 @@ Sprachen** verwendet werden, so dass Sie WebAssembly _überall_ einsetzen könne
 [dart logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/dart.svg
 [dart integration]: https://github.com/dart-lang/wasm
 [`wasm` pub package]: https://pub.dev/packages/wasm
+
+[OCaml logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/ocaml.svg
+[OCaml integration]: https://github.com/wasmerio/wasmer-ocaml
+[`wasmer` OCaml package]: https://opam.ocaml.org/packages/wasmer/
 
 ## Unterstützen
 
