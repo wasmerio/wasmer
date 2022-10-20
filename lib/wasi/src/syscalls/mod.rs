@@ -2279,7 +2279,7 @@ pub fn path_open<M: MemorySize>(
     }
     let path_string = unsafe { get_input_str!(&memory, path, path_len) };
 
-    debug!("=> fd: {}, path: {}", dirfd, &path_string);
+    debug!("=> correct function fd: {}, path: {}", dirfd, &path_string);
 
     let path_arg = std::path::PathBuf::from(&path_string);
     let maybe_inode = state.fs.get_inode_at_path(
