@@ -112,7 +112,7 @@ fn test_wasmer_run_works() -> anyhow::Result<()> {
     let stdout = std::str::from_utf8(&output.stdout)
         .expect("stdout is not utf8! need to handle arbitrary bytes");
 
-    if stdout != "hello\n" {
+    if !stdout.ends_with("hello\n") {
         bail!(
             "1 running python/python failed with: stdout: {}\n\nstderr: {}",
             stdout,
@@ -132,7 +132,7 @@ fn test_wasmer_run_works() -> anyhow::Result<()> {
     let stdout = std::str::from_utf8(&output.stdout)
         .expect("stdout is not utf8! need to handle arbitrary bytes");
 
-    if stdout != "hello\n" {
+    if !stdout.ends_with("hello\n") {
         bail!(
             "2 running python/python failed with: stdout: {}\n\nstderr: {}",
             stdout,
@@ -152,7 +152,7 @@ fn test_wasmer_run_works() -> anyhow::Result<()> {
     let stdout = std::str::from_utf8(&output.stdout)
         .expect("stdout is not utf8! need to handle arbitrary bytes");
 
-    if stdout != "hello\n" {
+    if !stdout.ends_with("hello\n") {
         bail!(
             "3 running python/python failed with: stdout: {}\n\nstderr: {}",
             stdout,
