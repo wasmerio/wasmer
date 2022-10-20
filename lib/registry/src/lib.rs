@@ -1083,12 +1083,16 @@ pub fn get_all_available_registries() -> Result<Vec<String>, String> {
 
 #[test]
 fn test_install_package() {
+    println!("test install package...");
     let registry = "https://registry.wapm.io/graphql";
     if !test_if_registry_present(registry).unwrap_or(false) {
         panic!("registry.wapm.io not reachable, test will fail");
     }
+    println!("registry present");
 
     let wabt = query_package_from_registry(registry, "wasmer/wabt", Some("1.0.29")).unwrap();
+
+    println!("wabt queried: {wabt:#?}");
 
     assert_eq!(wabt.registry, registry);
     assert_eq!(wabt.package, "wasmer/wabt");
@@ -1104,6 +1108,8 @@ fn test_install_package() {
 
     let (package, _) =
         install_package(Some(registry), "wasmer/wabt", Some("1.0.29"), None, true).unwrap();
+    
+    println!("package installed: {package:#?}");
 
     assert_eq!(
         package.get_path().unwrap(),
@@ -1115,9 +1121,15 @@ fn test_install_package() {
     );
 
     let all_installed_packages = get_all_local_packages(Some(registry));
+    
+    println!("all_installed_packages: {all_installed_packages:#?}");
+
     let is_installed = all_installed_packages
         .iter()
         .any(|p| p.name == "wasmer/wabt" && p.version == "1.0.29");
+
+    println!("is_installed: {is_installed:#?}");
+
     if !is_installed {
         let panic_str = get_all_local_packages(Some(registry))
             .iter()
@@ -1126,4 +1138,6 @@ fn test_install_package() {
             .join("\r\n");
         panic!("get all local packages: failed to install:\r\n{panic_str}");
     }
+
+    println!("ok, done");
 }
