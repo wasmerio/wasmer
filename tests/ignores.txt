@@ -96,3 +96,29 @@ wasitests::unstable::host_fs::unix_open_special_files
 wasitests::snapshot1::host_fs::unix_open_special_files
 wasitests::unstable::mem_fs::unix_open_special_files
 wasitests::snapshot1::mem_fs::unix_open_special_files
+
+# These tests are all tests that are disabled for unstable + snapshot1,
+# so they are also disabled for nightly
+wasitests::nightly_2022_10_18::host_fs::close_preopen_fd
+wasitests::nightly_2022_10_18::host_fs::create_dir
+wasitests::nightly_2022_10_18::host_fs::envvar
+wasitests::nightly_2022_10_18::host_fs::fd_allocate
+wasitests::nightly_2022_10_18::host_fs::fd_close
+wasitests::nightly_2022_10_18::host_fs::fd_pread
+wasitests::nightly_2022_10_18::host_fs::fd_read
+wasitests::nightly_2022_10_18::host_fs::fd_rename_path
+wasitests::nightly_2022_10_18::host_fs::poll_oneoff
+wasitests::nightly_2022_10_18::host_fs::readlink
+wasitests::nightly_2022_10_18::host_fs::unix_open_special_files
+wasitests::nightly_2022_10_18::host_fs::writing
+wasitests::nightly_2022_10_18::mem_fs::close_preopen_fd
+wasitests::nightly_2022_10_18::mem_fs::create_dir
+wasitests::nightly_2022_10_18::mem_fs::envvar
+wasitests::nightly_2022_10_18::mem_fs::fd_allocate
+wasitests::nightly_2022_10_18::mem_fs::fd_close
+wasitests::nightly_2022_10_18::mem_fs::fd_pread
+wasitests::nightly_2022_10_18::mem_fs::fd_read
+wasitests::nightly_2022_10_18::mem_fs::poll_oneoff
+wasitests::nightly_2022_10_18::mem_fs::readlink
+wasitests::nightly_2022_10_18::mem_fs::unix_open_special_files
+wasitests::nightly_2022_10_18::mem_fs::writing
