@@ -9,7 +9,8 @@ pub enum WasiVersion {
     Snapshot1,
     /// This is for making tests pass on Apple M1 while
     /// still keeping the old test for compatibility reasons
-    CurrentNightly,
+    #[allow(non_camel_case_types)]
+    Nightly_2022_10_18,
 }
 
 impl WasiVersion {
@@ -18,14 +19,14 @@ impl WasiVersion {
     }
 
     pub const fn current_nightly() -> Self {
-        Self::CurrentNightly
+        Self::Nightly_2022_10_18
     }
 
     pub fn get_compiler_toolchain(&self) -> &'static str {
         match self {
             WasiVersion::Unstable => "nightly-2019-09-13",
             WasiVersion::Snapshot1 => "1.53.0",
-            WasiVersion::CurrentNightly => "nightly-2022-10-18",
+            WasiVersion::Nightly_2022_10_18 => "nightly-2022-10-18",
         }
     }
 
@@ -33,7 +34,7 @@ impl WasiVersion {
         match self {
             WasiVersion::Unstable => "unstable",
             WasiVersion::Snapshot1 => "snapshot1",
-            WasiVersion::CurrentNightly => "nightly_2022_10_18",
+            WasiVersion::Nightly_2022_10_18 => "nightly_2022_10_18",
         }
     }
 }
