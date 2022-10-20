@@ -106,7 +106,11 @@ impl OpenOptionsConfig {
     }
 }
 
-// TODO: manually implement debug
+impl fmt::Debug for OpenOptions {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.conf.fmt(f)
+    }
+}
 
 pub struct OpenOptions {
     opener: Box<dyn FileOpener>,

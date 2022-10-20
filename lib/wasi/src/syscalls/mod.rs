@@ -2250,6 +2250,7 @@ pub fn path_open<M: MemorySize>(
     fs_flags: Fdflags,
     fd: WasmPtr<WasiFd, M>,
 ) -> Errno {
+    println!("wasi::path_open");
     debug!("wasi::path_open");
     if dirflags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0 {
         debug!("  - will follow symlinks when opening path");
@@ -2270,14 +2271,16 @@ pub fn path_open<M: MemorySize>(
     // - __WASI_O_EXCL (fail if file exists)
     // - __WASI_O_TRUNC (truncate size to 0)
 
+    println!("wasi::path_open get_fd");
     let working_dir = wasi_try!(state.fs.get_fd(dirfd));
+    println!("wasi::path_open got fd");
     let working_dir_rights_inheriting = working_dir.rights_inheriting;
 
     // ASSUMPTION: open rights apply recursively
-    if !working_dir.rights.contains(Rights::PATH_OPEN) {
-        return Errno::Access;
-    }
     let path_string = unsafe { get_input_str!(&memory, path, path_len) };
+    
+    // maximum: working dir rights
+    // minimum: whatever rights are provided
 
     debug!("=> correct function fd: {}, path: {}", dirfd, &path_string);
 
@@ -2295,7 +2298,9 @@ pub fn path_open<M: MemorySize>(
     //              TODO: look into this; file a bug report if this is a bug
     let adjusted_rights = /*fs_rights_base &*/ working_dir_rights_inheriting;
     let mut open_options = state.fs_new_open_options();
+    println!("wasi::path_open open options: {:#?}", open_options);
     let inode = if let Ok(inode) = maybe_inode {
+        println!("path exists: {:#?}", inode);
         // Happy path, we found the file we're trying to open
         let mut guard = inodes.arena[inode].write();
         let deref_mut = guard.deref_mut();
@@ -2347,9 +2352,11 @@ pub fn path_open<M: MemorySize>(
                 if o_flags.contains(Oflags::TRUNC) {
                     open_flags |= Fd::TRUNCATE;
                 }
+                println!("opening handle...");
                 *handle = Some(wasi_try!(open_options
                     .open(&path)
                     .map_err(fs_error_into_wasi_err)));
+                println!("wasi try ok for {path_string}");
             }
             Kind::Buffer { .. } => unimplemented!("wasi::path_open for Buffer type files"),
             Kind::Dir { .. }
@@ -2369,6 +2376,7 @@ pub fn path_open<M: MemorySize>(
         }
         inode
     } else {
+        println!("path does not yet exist");
         // less-happy path, we have to try to create the file
         debug!("Maybe creating file");
         if o_flags.contains(Oflags::CREATE) {
@@ -2393,7 +2401,11 @@ pub fn path_open<M: MemorySize>(
                         new_path.push(&new_entity_name);
                         new_path
                     }
-                    Kind::Root { .. } => return Errno::Access,
+                    Kind::Root { .. } => {
+                        let mut new_path = std::path::PathBuf::new();
+                        new_path.push(&new_entity_name);
+                        new_path
+                    },
                     _ => return Errno::Inval,
                 }
             };
@@ -2409,12 +2421,17 @@ pub fn path_open<M: MemorySize>(
                     .create_new(true);
                 open_flags |= Fd::READ | Fd::WRITE | Fd::CREATE | Fd::TRUNCATE;
 
-                Some(wasi_try!(open_options.open(&new_file_host_path).map_err(
+                println!("creating file... {path_string} -> {}", new_file_host_path.display());
+                let result = Some(wasi_try!(open_options.open(&new_file_host_path).map_err(
                     |e| {
                         debug!("Error opening file {}", e);
                         fs_error_into_wasi_err(e)
                     }
-                )))
+                )));
+
+                println!("file created... {result:#?}");
+
+                result
             };
 
             let new_inode = {
@@ -2446,6 +2463,7 @@ pub fn path_open<M: MemorySize>(
             return maybe_inode.unwrap_err();
         }
     };
+    println!("wasi::path_open inode: {:#?}", inode);
 
     {
         debug!("inode {:?} value {:#?} found!", inode, inodes.arena[inode]);
@@ -2464,6 +2482,7 @@ pub fn path_open<M: MemorySize>(
     wasi_try_mem!(fd_ref.write(out_fd));
     debug!("wasi::path_open returning fd {}", out_fd);
 
+    println!("ok success {path_string:?}");
     Errno::Success
 }
 
