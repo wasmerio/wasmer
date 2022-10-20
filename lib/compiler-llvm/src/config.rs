@@ -130,7 +130,7 @@ impl LLVM {
             target_lexicon::BinaryFormat::Elf
         };
         let triple = Triple {
-            architecture: architecture,
+            architecture,
             vendor: target.triple().vendor.clone(),
             operating_system,
             environment: target.triple().environment,
