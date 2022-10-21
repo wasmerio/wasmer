@@ -1108,7 +1108,7 @@ fn test_install_package() {
 
     let (package, _) =
         install_package(Some(registry), "wasmer/wabt", Some("1.0.29"), None, true).unwrap();
-    
+
     println!("package installed: {package:#?}");
 
     assert_eq!(
@@ -1121,7 +1121,7 @@ fn test_install_package() {
     );
 
     let all_installed_packages = get_all_local_packages(Some(registry));
-    
+
     println!("all_installed_packages: {all_installed_packages:#?}");
 
     let is_installed = all_installed_packages
