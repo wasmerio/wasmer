@@ -101,6 +101,7 @@ fn test_wasmer_run_works_with_dir() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[cfg(not(target_env = "musl"))]
 #[test]
 fn test_wasmer_run_works() -> anyhow::Result<()> {
     let output = Command::new(get_wasmer_path())
