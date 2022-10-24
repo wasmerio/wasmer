@@ -18,6 +18,7 @@ include!(concat!(env!("OUT_DIR"), "/generated_spectests.rs"));
 
 pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()> {
     println!("Running wast `{}`", wast_path);
+    let _ = std::env::set_var("RUST_LOG","debug");
     let try_nan_canonicalization = wast_path.contains("nan-canonicalization");
     let mut features = Features::default();
     let is_bulkmemory = wast_path.contains("bulk-memory");

@@ -81,7 +81,7 @@ impl Run {
     /// Execute the run command
     pub fn execute(&self) -> Result<()> {
         #[cfg(feature = "debug")]
-        if self.debug {
+        if self.debug || std::env::var("WASMER_DEBUG").is_ok() {
             logging::set_up_logging(self.verbose).unwrap();
         }
         self.inner_execute().with_context(|| {

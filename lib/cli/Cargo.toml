@@ -69,6 +69,7 @@ default = [
     "http",
     "cache",
     "wasi",
+    "debug",
     "emscripten",
     "compiler",
     "wasmer-artifact-create",
@@ -114,14 +115,17 @@ experimental-io-devices = [
 singlepass = [
     "wasmer-compiler-singlepass",
     "compiler",
+    "debug",
 ]
 cranelift = [
     "wasmer-compiler-cranelift",
     "compiler",
+    "debug",
 ]
 llvm = [
     "wasmer-compiler-llvm",
     "compiler",
+    "debug",
 ]
 debug = ["fern", "log", "wasmer-wasi/logging"]
 disable-all-logging = ["wasmer-wasi/disable-all-logging"]

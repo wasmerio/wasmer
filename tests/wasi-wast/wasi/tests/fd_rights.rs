@@ -5,7 +5,7 @@ fn main() {
         .read(false) // <- should only be writeable, not readable
         .write(true)
         .create(true)
-        .open("foo.txt")
+        .open("/foo.txt")
         .unwrap();
     filehandle.write_all(b"test");
 

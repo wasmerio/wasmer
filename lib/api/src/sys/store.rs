@@ -38,10 +38,32 @@ pub struct Store {
     trap_handler: Arc<RwLock<Option<Box<TrapHandlerFn<'static>>>>>,
 }
 
+fn setup_logger() -> Result<(), fern::InitError> {
+    fern::Dispatch::new()
+        .format(|out, message, record| {
+            out.finish(format_args!(
+                "[{}][{}] {}",
+                record.target(),
+                record.level(),
+                message
+            ))
+        })
+        .level(log::LevelFilter::Debug)
+        .chain(std::io::stdout())
+        .apply()?;
+    Ok(())
+}
+
+fn set_up_logging() {
+    let _ = setup_logger();
+    std::env::set_var("RUST_LOG", "wasmer_wasi=debug");
+}
+
 impl Store {
     #[cfg(feature = "compiler")]
     /// Creates a new `Store` with a specific [`Engine`].
     pub fn new(engine: impl Into<Engine>) -> Self {
+        set_up_logging();
         let engine = engine.into();
         let target = engine.target().clone();
         Self::new_with_tunables(engine, BaseTunables::for_target(&target))

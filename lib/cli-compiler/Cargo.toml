@@ -49,19 +49,22 @@ unix_mode = "0.1.3"
 [features]
 # Don't add the compiler features in default, please add them on the Makefile
 # since we might want to autoconfigure them depending on the availability on the host.
-default = []
+default = ["debug"]
 engine = []
 compiler = [
     "wasmer-compiler/translator",
     "wasmer-compiler/compiler",
+    "debug",
 ]
 singlepass = [
     "wasmer-compiler-singlepass",
     "compiler",
+    "debug",
 ]
 cranelift = [
     "wasmer-compiler-cranelift",
     "compiler",
+    "debug",
 ]
 debug = ["fern", "log"]
 disable-all-logging = []
