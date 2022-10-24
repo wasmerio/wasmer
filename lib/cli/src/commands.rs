@@ -10,6 +10,7 @@ mod create_exe;
 #[cfg(feature = "static-artifact-create")]
 mod create_obj;
 mod inspect;
+mod list;
 mod run;
 mod self_update;
 mod validate;
@@ -26,7 +27,7 @@ pub use create_exe::*;
 pub use create_obj::*;
 #[cfg(feature = "wast")]
 pub use wast::*;
-pub use {cache::*, config::*, inspect::*, run::*, self_update::*, validate::*};
+pub use {cache::*, config::*, inspect::*, list::*, run::*, self_update::*, validate::*};
 
 /// The kind of object format to emit.
 #[derive(Debug, Copy, Clone, clap::Parser)]
