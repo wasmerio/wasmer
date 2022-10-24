@@ -72,15 +72,51 @@ pub trait FileOpener {
 
 #[derive(Debug, Clone)]
 pub struct OpenOptionsConfig {
-    read: bool,
-    write: bool,
-    create_new: bool,
-    create: bool,
-    append: bool,
-    truncate: bool,
+    pub read: bool,
+    pub write: bool,
+    pub create_new: bool,
+    pub create: bool,
+    pub append: bool,
+    pub truncate: bool,
 }
 
 impl OpenOptionsConfig {
+    /// Returns the minimum allowed rights, given the rights of the parent directory
+    pub fn minimum_rights(&self, parent_rights: &Self) -> Self {
+        Self {
+            read: if !parent_rights.read {
+                false
+            } else {
+                self.read
+            },
+            write: if !parent_rights.write {
+                false
+            } else {
+                self.write
+            },
+            create_new: if !parent_rights.create_new {
+                false
+            } else {
+                self.create_new
+            },
+            create: if !parent_rights.create {
+                false
+            } else {
+                self.create
+            },
+            append: if !parent_rights.append {
+                false
+            } else {
+                self.append
+            },
+            truncate: if !parent_rights.truncate {
+                false
+            } else {
+                self.truncate
+            },
+        }
+    }
+
     pub const fn read(&self) -> bool {
         self.read
     }
@@ -131,6 +167,11 @@ impl OpenOptions {
             },
         }
     }
+
+    pub fn get_config(&self) -> OpenOptionsConfig {
+        self.conf.clone()
+    }
+
     pub fn options(&mut self, options: OpenOptionsConfig) -> &mut Self {
         self.conf = options;
         self
