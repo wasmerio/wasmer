@@ -258,7 +258,34 @@ pub struct FrameInfo {
     instr: SourceLoc,
 }
 
+#[cfg(test)]
+#[derive(Debug, Clone)]
+pub struct FrameInfo {
+    pub module_name: String,
+    pub func_index: u32,
+    pub function_name: Option<String>,
+    pub func_start: SourceLoc,
+    pub instr: SourceLoc,
+}
+
 impl FrameInfo {
+    /// Creates a new [FrameInfo], useful for testing.
+    pub fn new(
+        module_name: String,
+        func_index: u32,
+        function_name: Option<String>,
+        func_start: SourceLoc,
+        instr: SourceLoc,
+    ) -> Self {
+        Self {
+            module_name,
+            func_index,
+            function_name,
+            func_start,
+            instr,
+        }
+    }
+
     /// Returns the WebAssembly function index for this frame.
     ///
     /// This function index is the index in the function index space of the

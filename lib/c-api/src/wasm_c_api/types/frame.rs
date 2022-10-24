@@ -94,3 +94,34 @@ pub unsafe extern "C" fn wasm_name_delete(name: Option<&mut wasm_name_t>) {
 }
 
 wasm_declare_boxed_vec!(frame);
+
+#[cfg(test)]
+#[test]
+fn test_frame_name() {
+    use std::ffi::CStr;
+    use wasmer_types::SourceLoc;
+
+    let info = wasm_frame_t {
+        info: FrameInfo::new(
+            "module_name".to_string(),
+            5,
+            Some("function_name".to_string()),
+            SourceLoc::new(10),
+            SourceLoc::new(20),
+        ),
+    };
+
+    unsafe {
+        let mut wasm_frame_func_name = wasm_frame_func_name(&info);
+        let s = CStr::from_ptr(wasm_frame_func_name.name);
+        assert_eq!(s.to_str().unwrap(), "function_name");
+        wasm_name_delete(Some(&mut wasm_frame_func_name));
+
+        let mut wasm_frame_module_name = wasm_frame_module_name(&info);
+        let s = CStr::from_ptr(wasm_frame_module_name.name);
+        assert_eq!(s.to_str().unwrap(), "module_name");
+        wasm_name_delete(Some(&mut wasm_frame_module_name));
+    }
+
+    println!("{:#?}", info);
+}
