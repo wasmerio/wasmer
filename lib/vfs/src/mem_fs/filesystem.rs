@@ -327,7 +327,7 @@ impl FileSystemInner {
         let mut components = path.components();
 
         match components.next() {
-            Some(Component::RootDir) => {}
+            Some(Component::RootDir) | None => {}
             _ => return Err(FsError::BaseNotDirectory),
         }
 
