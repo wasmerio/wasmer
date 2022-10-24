@@ -258,16 +258,6 @@ pub struct FrameInfo {
     instr: SourceLoc,
 }
 
-#[cfg(test)]
-#[derive(Debug, Clone)]
-pub struct FrameInfo {
-    pub module_name: String,
-    pub func_index: u32,
-    pub function_name: Option<String>,
-    pub func_start: SourceLoc,
-    pub instr: SourceLoc,
-}
-
 impl FrameInfo {
     /// Creates a new [FrameInfo], useful for testing.
     pub fn new(
