@@ -592,9 +592,7 @@ fn generate_import_object_wasix32_v1(
             "fd_allocate" => Function::new_typed_with_env(&mut store, env, fd_allocate),
             "fd_close" => Function::new_typed_with_env(&mut store, env, fd_close),
             "fd_datasync" => Function::new_typed_with_env(&mut store, env, fd_datasync),
-            "fd_fdstat_get" => {
-                Function::new_typed_with_env(&mut store, env, fd_fdstat_get)
-            },
+            "fd_fdstat_get" => Function::new_typed_with_env(&mut store, env, fd_fdstat_get),
             "fd_fdstat_set_flags" => Function::new_typed_with_env(&mut store, env, fd_fdstat_set_flags),
             "fd_fdstat_set_rights" => Function::new_typed_with_env(&mut store, env, fd_fdstat_set_rights),
             "fd_filestat_get" => Function::new_typed_with_env(&mut store, env, fd_filestat_get),

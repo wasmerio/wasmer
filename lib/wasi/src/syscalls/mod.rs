@@ -2214,12 +2214,6 @@ pub fn path_link<M: MemorySize>(
     Errno::Success
 }
 
-#[derive(Copy, Clone, Debug)]
-struct FdRightsInternal {
-    create: bool,
-    read: bool,
-    write: bool,
-}
 /// ### `path_open()`
 /// Open file located at the given path
 /// Inputs:
@@ -2331,11 +2325,11 @@ pub fn path_open<M: MemorySize>(
         }
         Err(_) => wasmer_vfs::OpenOptionsConfig {
             append: fs_flags.contains(Fdflags::APPEND),
-            write: true,
-            create_new: true,
-            create: true,
-            read: true,
-            truncate: true,
+            write: adjusted_rights.contains(Rights::FD_WRITE),
+            create_new: o_flags.contains(Oflags::CREATE),
+            create: o_flags.contains(Oflags::CREATE),
+            read: fs_rights_inheriting.contains(Rights::FD_READ),
+            truncate: o_flags.contains(Oflags::TRUNC),
         },
     };
 
