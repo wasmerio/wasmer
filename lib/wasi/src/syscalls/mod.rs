@@ -2315,7 +2315,7 @@ pub fn path_open<M: MemorySize>(
             };
 
             wasmer_vfs::OpenOptionsConfig {
-                read: adjusted_rights.contains(Rights::FD_READ),
+                read: fs_rights_base.contains(Rights::FD_READ),
                 write: write_permission,
                 create_new: create_permission && o_flags.contains(Oflags::EXCL),
                 create: create_permission,
@@ -2325,8 +2325,8 @@ pub fn path_open<M: MemorySize>(
         }
         Err(_) => wasmer_vfs::OpenOptionsConfig {
             append: fs_flags.contains(Fdflags::APPEND),
-            write: adjusted_rights.contains(Rights::FD_WRITE),
-            read: adjusted_rights.contains(Rights::FD_READ),
+            write: fs_rights_base.contains(Rights::FD_WRITE),
+            read: fs_rights_base.contains(Rights::FD_READ),
             create_new: o_flags.contains(Oflags::CREATE) && o_flags.contains(Oflags::EXCL),
             create: o_flags.contains(Oflags::CREATE),
             truncate: o_flags.contains(Oflags::TRUNC),
