@@ -1,10 +1,6 @@
 use std::io::{Read, Write};
 
 fn main() {
-    let readdir = std::fs::read_dir("/").unwrap();
-    let files = readdir.collect::<Vec<_>>();
-    assert!(files.is_empty());
-
     let mut filehandle = std::fs::OpenOptions::new()
         .read(false) // <- should only be writeable, not readable
         .write(true)
