@@ -2317,7 +2317,7 @@ pub fn path_open<M: MemorySize>(
             wasmer_vfs::OpenOptionsConfig {
                 read: adjusted_rights.contains(Rights::FD_READ),
                 write: write_permission,
-                create_new: create_permission,
+                create_new: create_permission && o_flags.contains(Oflags::EXCL),
                 create: create_permission,
                 append: append_permission,
                 truncate: truncate_permission,
@@ -2326,9 +2326,9 @@ pub fn path_open<M: MemorySize>(
         Err(_) => wasmer_vfs::OpenOptionsConfig {
             append: fs_flags.contains(Fdflags::APPEND),
             write: adjusted_rights.contains(Rights::FD_WRITE),
-            create_new: o_flags.contains(Oflags::CREATE),
+            read: adjusted_rights.contains(Rights::FD_READ),
+            create_new: o_flags.contains(Oflags::CREATE) && o_flags.contains(Oflags::EXCL),
             create: o_flags.contains(Oflags::CREATE),
-            read: fs_rights_inheriting.contains(Rights::FD_READ),
             truncate: o_flags.contains(Oflags::TRUNC),
         },
     };
@@ -2336,11 +2336,12 @@ pub fn path_open<M: MemorySize>(
     let parent_rights = wasmer_vfs::OpenOptionsConfig {
         read: working_dir.rights.contains(Rights::FD_READ),
         write: working_dir.rights.contains(Rights::FD_WRITE),
-        create_new: working_dir.rights.contains(Rights::PATH_CREATE_FILE),
-        create: working_dir.rights.contains(Rights::PATH_OPEN),
-        append: working_dir.rights.contains(Rights::FD_WRITE)
-            && working_dir.rights.contains(Rights::FD_TELL),
-        truncate: working_dir.rights.contains(Rights::FD_WRITE),
+        // The parent is a directory, which is why these options
+        // aren't inherited from the parent (append / truncate doesn't work on directories)
+        create_new: true,
+        create: true,
+        append: true,
+        truncate: true,
     };
 
     let minimum_rights = target_rights.minimum_rights(&parent_rights);
