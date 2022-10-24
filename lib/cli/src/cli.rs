@@ -267,7 +267,7 @@ impl fmt::Display for SplitVersion {
 #[test]
 fn test_split_version() {
     assert_eq!(
-        split_version("registry.wapm.io/graphql/python/python").unwrap(),
+        SplitVersion::new("registry.wapm.io/graphql/python/python").unwrap(),
         SplitVersion {
             original: "registry.wapm.io/graphql/python/python".to_string(),
             registry: Some("https://registry.wapm.io/graphql".to_string()),
@@ -277,7 +277,7 @@ fn test_split_version() {
         }
     );
     assert_eq!(
-        split_version("registry.wapm.io/python/python").unwrap(),
+        SplitVersion::new("registry.wapm.io/python/python").unwrap(),
         SplitVersion {
             original: "registry.wapm.io/python/python".to_string(),
             registry: Some("https://registry.wapm.io/graphql".to_string()),
@@ -287,7 +287,7 @@ fn test_split_version() {
         }
     );
     assert_eq!(
-        split_version("namespace/name@version:command").unwrap(),
+        SplitVersion::new("namespace/name@version:command").unwrap(),
         SplitVersion {
             original: "namespace/name@version:command".to_string(),
             registry: None,
@@ -297,7 +297,7 @@ fn test_split_version() {
         }
     );
     assert_eq!(
-        split_version("namespace/name@version").unwrap(),
+        SplitVersion::new("namespace/name@version").unwrap(),
         SplitVersion {
             original: "namespace/name@version".to_string(),
             registry: None,
@@ -307,7 +307,7 @@ fn test_split_version() {
         }
     );
     assert_eq!(
-        split_version("namespace/name").unwrap(),
+        SplitVersion::new("namespace/name").unwrap(),
         SplitVersion {
             original: "namespace/name".to_string(),
             registry: None,
@@ -317,7 +317,7 @@ fn test_split_version() {
         }
     );
     assert_eq!(
-        split_version("registry.wapm.io/namespace/name").unwrap(),
+        SplitVersion::new("registry.wapm.io/namespace/name").unwrap(),
         SplitVersion {
             original: "registry.wapm.io/namespace/name".to_string(),
             registry: Some("https://registry.wapm.io/graphql".to_string()),
@@ -327,7 +327,7 @@ fn test_split_version() {
         }
     );
     assert_eq!(
-        format!("{}", split_version("namespace").unwrap_err()),
+        format!("{}", SplitVersion::new("namespace").unwrap_err()),
         "Invalid package version: \"namespace\"".to_string(),
     );
 }
