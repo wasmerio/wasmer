@@ -88,6 +88,11 @@ impl VMTable {
         unsafe { Self::new_inner(table, style, None) }
     }
 
+    /// Returns the size of the table
+    pub fn get_runtime_size(&self) -> u32 {
+        self.vec.len() as u32
+    }
+
     /// Create a new linear table instance with specified minimum and maximum number of elements.
     ///
     /// This creates a `Table` with metadata owned by a VM, pointed to by

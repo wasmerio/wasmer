@@ -43,7 +43,7 @@ use crate::{
     state::{
         self, fs_error_into_wasi_err, iterate_poll_events, net_error_into_wasi_err, poll,
         virtual_file_type_to_wasi_file_type, Inode, InodeSocket, InodeSocketKind, InodeVal, Kind,
-        PollEvent, PollEventBuilder, WasiPipe, WasiState, MAX_SYMLINKS,
+        PollEvent, PollEventBuilder, WasiBidirectionalPipePair, WasiState, MAX_SYMLINKS,
     },
     Fd, WasiEnv, WasiError, WasiThread, WasiThreadId,
 };
@@ -969,13 +969,11 @@ pub fn fd_prestat_dir_name<M: MemorySize>(
     let deref = guard.deref();
     match deref {
         Kind::Dir { .. } | Kind::Root { .. } => {
-            // TODO: verify this: null termination, etc
             let path_len: u64 = path_len.into();
-            if (inode_val.name.len() as u64) < path_len {
+            if (inode_val.name.len() as u64) <= path_len {
                 wasi_try_mem!(path_chars
                     .subslice(0..inode_val.name.len() as u64)
                     .write_slice(inode_val.name.as_bytes()));
-                wasi_try_mem!(path_chars.index(inode_val.name.len() as u64).write(0));
 
                 trace!("=> result: \"{}\"", inode_val.name);
 
@@ -1806,7 +1804,9 @@ pub fn fd_pipe<M: MemorySize>(
     let env = ctx.data();
     let (memory, state, mut inodes) = env.get_memory_and_wasi_state_and_inodes_mut(&ctx, 0);
 
-    let (pipe1, pipe2) = WasiPipe::new();
+    let pipes = WasiBidirectionalPipePair::new();
+    let pipe1 = pipes.send;
+    let pipe2 = pipes.recv;
 
     let inode1 = state.fs.create_inode_with_default_stat(
         inodes.deref_mut(),
@@ -2659,18 +2659,13 @@ pub fn path_rename<M: MemorySize>(
         source_path.to_str().as_ref().unwrap(),
         true
     ));
-    if state
-        .fs
-        .get_inode_at_path(
-            inodes.deref_mut(),
-            new_fd,
-            target_path.to_str().as_ref().unwrap(),
-            true,
-        )
-        .is_ok()
-    {
-        return Errno::Exist;
-    }
+    // Create the destination inode if the file exists.
+    let _ = state.fs.get_inode_at_path(
+        inodes.deref_mut(),
+        new_fd,
+        target_path.to_str().as_ref().unwrap(),
+        true,
+    );
     let (source_parent_inode, source_entry_name) =
         wasi_try!(state
             .fs
@@ -2679,13 +2674,14 @@ pub fn path_rename<M: MemorySize>(
         wasi_try!(state
             .fs
             .get_parent_inode_at_path(inodes.deref_mut(), new_fd, target_path, true));
+    let mut need_create = true;
     let host_adjusted_target_path = {
         let guard = inodes.arena[target_parent_inode].read();
         let deref = guard.deref();
         match deref {
             Kind::Dir { entries, path, .. } => {
                 if entries.contains_key(&target_entry_name) {
-                    return Errno::Exist;
+                    need_create = false;
                 }
                 let mut out_path = path.clone();
                 out_path.push(std::path::Path::new(&target_entry_name));
@@ -2778,7 +2774,7 @@ pub fn path_rename<M: MemorySize>(
         }
     }
 
-    {
+    if need_create {
         let mut guard = inodes.arena[target_parent_inode].write();
         if let Kind::Dir { entries, .. } = guard.deref_mut() {
             let result = entries.insert(target_entry_name, source_entry);
@@ -2829,10 +2825,15 @@ pub fn path_symlink<M: MemorySize>(
         wasi_try!(state
             .fs
             .get_parent_inode_at_path(inodes.deref_mut(), fd, old_path_path, true));
-    let depth = wasi_try!(state
+    let depth = state
         .fs
-        .path_depth_from_fd(inodes.deref(), fd, source_inode))
-        - 1;
+        .path_depth_from_fd(inodes.deref(), fd, source_inode);
+
+    // depth == -1 means folder is not relative. See issue #3233.
+    let depth = match depth {
+        Ok(depth) => depth as i32 - 1,
+        Err(_) => -1,
+    };
 
     let new_path_path = std::path::Path::new(&new_path_str);
     let (target_parent_inode, entry_name) =
