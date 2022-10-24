@@ -84,36 +84,12 @@ impl OpenOptionsConfig {
     /// Returns the minimum allowed rights, given the rights of the parent directory
     pub fn minimum_rights(&self, parent_rights: &Self) -> Self {
         Self {
-            read: if !parent_rights.read {
-                false
-            } else {
-                self.read
-            },
-            write: if !parent_rights.write {
-                false
-            } else {
-                self.write
-            },
-            create_new: if !parent_rights.create_new {
-                false
-            } else {
-                self.create_new
-            },
-            create: if !parent_rights.create {
-                false
-            } else {
-                self.create
-            },
-            append: if !parent_rights.append {
-                false
-            } else {
-                self.append
-            },
-            truncate: if !parent_rights.truncate {
-                false
-            } else {
-                self.truncate
-            },
+            read: parent_rights.read && self.read,
+            write: parent_rights.write && self.write,
+            create_new: parent_rights.create_new && self.create_new,
+            create: parent_rights.create && self.create,
+            append: parent_rights.append && self.append,
+            truncate: parent_rights.truncate && self.truncate,
         }
     }
 
