@@ -2297,39 +2297,37 @@ pub fn path_open<M: MemorySize>(
     //
     // Maximum rights: should be the working dir rights
     // Minimum rights: whatever rights are provided
-    let adjusted_rights = /*fs_rights_base &*/ working_dir_rights_inheriting;
     let mut open_options = state.fs_new_open_options();
+
+    let write_permission = fs_rights_base.contains(Rights::FD_WRITE);
+
+    // append, truncate, and create all require the permission to write
+    let (append_permission, truncate_permission, create_permission) = if write_permission {
+        (
+            fs_flags.contains(Fdflags::APPEND),
+            o_flags.contains(Oflags::TRUNC),
+            o_flags.contains(Oflags::CREATE),
+        )
+    } else {
+        (false, false, false)
+    };
+
     let target_rights = match maybe_inode {
-        Ok(_) => {
-            let write_permission = adjusted_rights.contains(Rights::FD_WRITE);
-
-            // append, truncate, and create all require the permission to write
-            let (append_permission, truncate_permission, create_permission) = if write_permission {
-                (
-                    fs_flags.contains(Fdflags::APPEND),
-                    o_flags.contains(Oflags::TRUNC),
-                    o_flags.contains(Oflags::CREATE),
-                )
-            } else {
-                (false, false, false)
-            };
-
-            wasmer_vfs::OpenOptionsConfig {
-                read: fs_rights_base.contains(Rights::FD_READ),
-                write: write_permission,
-                create_new: create_permission && o_flags.contains(Oflags::EXCL),
-                create: create_permission,
-                append: append_permission,
-                truncate: truncate_permission,
-            }
-        }
-        Err(_) => wasmer_vfs::OpenOptionsConfig {
-            append: fs_flags.contains(Fdflags::APPEND),
-            write: fs_rights_base.contains(Rights::FD_WRITE),
+        Ok(_) => wasmer_vfs::OpenOptionsConfig {
             read: fs_rights_base.contains(Rights::FD_READ),
-            create_new: o_flags.contains(Oflags::CREATE) && o_flags.contains(Oflags::EXCL),
-            create: o_flags.contains(Oflags::CREATE),
-            truncate: o_flags.contains(Oflags::TRUNC),
+            write: write_permission,
+            create_new: create_permission && o_flags.contains(Oflags::EXCL),
+            create: create_permission,
+            append: append_permission,
+            truncate: truncate_permission,
+        },
+        Err(_) => wasmer_vfs::OpenOptionsConfig {
+            read: fs_rights_base.contains(Rights::FD_READ),
+            write: write_permission,
+            create_new: create_permission && o_flags.contains(Oflags::EXCL),
+            create: create_permission,
+            append: append_permission,
+            truncate: truncate_permission,
         },
     };
 
@@ -2511,7 +2509,7 @@ pub fn path_open<M: MemorySize>(
     // TODO: check and reduce these
     // TODO: ensure a mutable fd to root can never be opened
     let out_fd = wasi_try!(state.fs.create_fd(
-        adjusted_rights,
+        fs_rights_base,
         fs_rights_inheriting,
         fs_flags,
         open_flags,
