@@ -112,6 +112,7 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 - [#2947](https://github.com/wasmerio/wasmer/pull/2947) Converted the WASI js test into a generic stdio test that works for both sys and js versions of wasmer
 - [#2940](https://github.com/wasmerio/wasmer/pull/2940) Merge wasmer3 back to master branch
 - [#2939](https://github.com/wasmerio/wasmer/pull/2939) Rename NativeFunc to TypedFunction
+- [#2868](https://github.com/wasmerio/wasmer/pull/2868) Removed loupe crate dependency
 
 ### Fixed
 - [#3045](https://github.com/wasmerio/wasmer/pull/3045) Fixed WASI fd_read syscall when reading multiple iovs and read is partial (for #2904)
@@ -142,7 +143,6 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 - [#2836](https://github.com/wasmerio/wasmer/pull/2836) Improve TrapInformation data stored at runtime
 - [#2864](https://github.com/wasmerio/wasmer/pull/2864) `wasmer-cli`: remove wasi-experimental-io-devices from default builds
 - [#2933](https://github.com/wasmerio/wasmer/pull/2933) Rename NativeFunc to TypedFunction.
-- [#2868](https://github.com/wasmerio/wasmer/pull/2868) Removed loupe crate dependency
 
 ### Fixed
 - [#2829](https://github.com/wasmerio/wasmer/pull/2829) Improve error message oriented from JS object.
