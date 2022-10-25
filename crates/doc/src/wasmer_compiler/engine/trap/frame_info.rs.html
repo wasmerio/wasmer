@@ -322,6 +322,23 @@
 <span id="317">317</span>
 <span id="318">318</span>
 <span id="319">319</span>
+<span id="320">320</span>
+<span id="321">321</span>
+<span id="322">322</span>
+<span id="323">323</span>
+<span id="324">324</span>
+<span id="325">325</span>
+<span id="326">326</span>
+<span id="327">327</span>
+<span id="328">328</span>
+<span id="329">329</span>
+<span id="330">330</span>
+<span id="331">331</span>
+<span id="332">332</span>
+<span id="333">333</span>
+<span id="334">334</span>
+<span id="335">335</span>
+<span id="336">336</span>
 </pre><pre class="rust"><code><span class="doccomment">//! This module is used for having backtraces in the Wasm runtime.</span>
 <span class="doccomment">//! Once the Compiler has compiled the ModuleInfo, and we have a set of</span>
 <span class="doccomment">//! compiled functions (addresses and function index) and a module,</span>
@@ -583,6 +600,23 @@
 }
 
 <span class="kw">impl</span> <span class="ident">FrameInfo</span> {
+    <span class="doccomment">/// Creates a new [FrameInfo], useful for testing.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(
+        <span class="ident">module_name</span>: <span class="ident">String</span>,
+        <span class="ident">func_index</span>: <span class="ident">u32</span>,
+        <span class="ident">function_name</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
+        <span class="ident">func_start</span>: <span class="ident">SourceLoc</span>,
+        <span class="ident">instr</span>: <span class="ident">SourceLoc</span>,
+    ) -&gt; <span class="self">Self</span> {
+        <span class="self">Self</span> {
+            <span class="ident">module_name</span>,
+            <span class="ident">func_index</span>,
+            <span class="ident">function_name</span>,
+            <span class="ident">func_start</span>,
+            <span class="ident">instr</span>,
+        }
+    }
+
     <span class="doccomment">/// Returns the WebAssembly function index for this frame.</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// This function index is the index in the function index space of the</span>
