@@ -511,6 +511,27 @@
 <span id="506">506</span>
 <span id="507">507</span>
 <span id="508">508</span>
+<span id="509">509</span>
+<span id="510">510</span>
+<span id="511">511</span>
+<span id="512">512</span>
+<span id="513">513</span>
+<span id="514">514</span>
+<span id="515">515</span>
+<span id="516">516</span>
+<span id="517">517</span>
+<span id="518">518</span>
+<span id="519">519</span>
+<span id="520">520</span>
+<span id="521">521</span>
+<span id="522">522</span>
+<span id="523">523</span>
+<span id="524">524</span>
+<span id="525">525</span>
+<span id="526">526</span>
+<span id="527">527</span>
+<span id="528">528</span>
+<span id="529">529</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std::any::Any</span>;
 <span class="kw">use</span> <span class="ident">std::ffi::OsString</span>;
 <span class="kw">use</span> <span class="ident">std::fmt</span>;
@@ -585,15 +606,27 @@
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">OpenOptionsConfig</span> {
-    <span class="ident">read</span>: <span class="ident">bool</span>,
-    <span class="ident">write</span>: <span class="ident">bool</span>,
-    <span class="ident">create_new</span>: <span class="ident">bool</span>,
-    <span class="ident">create</span>: <span class="ident">bool</span>,
-    <span class="ident">append</span>: <span class="ident">bool</span>,
-    <span class="ident">truncate</span>: <span class="ident">bool</span>,
+    <span class="kw">pub</span> <span class="ident">read</span>: <span class="ident">bool</span>,
+    <span class="kw">pub</span> <span class="ident">write</span>: <span class="ident">bool</span>,
+    <span class="kw">pub</span> <span class="ident">create_new</span>: <span class="ident">bool</span>,
+    <span class="kw">pub</span> <span class="ident">create</span>: <span class="ident">bool</span>,
+    <span class="kw">pub</span> <span class="ident">append</span>: <span class="ident">bool</span>,
+    <span class="kw">pub</span> <span class="ident">truncate</span>: <span class="ident">bool</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">OpenOptionsConfig</span> {
+    <span class="doccomment">/// Returns the minimum allowed rights, given the rights of the parent directory</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">minimum_rights</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">parent_rights</span>: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; <span class="self">Self</span> {
+        <span class="self">Self</span> {
+            <span class="ident">read</span>: <span class="ident">parent_rights</span>.<span class="ident">read</span> <span class="op">&amp;&amp;</span> <span class="self">self</span>.<span class="ident">read</span>,
+            <span class="ident">write</span>: <span class="ident">parent_rights</span>.<span class="ident">write</span> <span class="op">&amp;&amp;</span> <span class="self">self</span>.<span class="ident">write</span>,
+            <span class="ident">create_new</span>: <span class="ident">parent_rights</span>.<span class="ident">create_new</span> <span class="op">&amp;&amp;</span> <span class="self">self</span>.<span class="ident">create_new</span>,
+            <span class="ident">create</span>: <span class="ident">parent_rights</span>.<span class="ident">create</span> <span class="op">&amp;&amp;</span> <span class="self">self</span>.<span class="ident">create</span>,
+            <span class="ident">append</span>: <span class="ident">parent_rights</span>.<span class="ident">append</span> <span class="op">&amp;&amp;</span> <span class="self">self</span>.<span class="ident">append</span>,
+            <span class="ident">truncate</span>: <span class="ident">parent_rights</span>.<span class="ident">truncate</span> <span class="op">&amp;&amp;</span> <span class="self">self</span>.<span class="ident">truncate</span>,
+        }
+    }
+
     <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">read</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
         <span class="self">self</span>.<span class="ident">read</span>
     }
@@ -619,7 +652,11 @@
     }
 }
 
-<span class="comment">// TODO: manually implement debug</span>
+<span class="kw">impl</span> <span class="ident">fmt::Debug</span> <span class="kw">for</span> <span class="ident">OpenOptions</span> {
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">fmt::Formatter</span>) -&gt; <span class="ident">fmt::Result</span> {
+        <span class="self">self</span>.<span class="ident">conf</span>.<span class="ident">fmt</span>(<span class="ident">f</span>)
+    }
+}
 
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">OpenOptions</span> {
     <span class="ident">opener</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">FileOpener</span><span class="op">&gt;</span>,
@@ -640,6 +677,11 @@
             },
         }
     }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_config</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">OpenOptionsConfig</span> {
+        <span class="self">self</span>.<span class="ident">conf</span>.<span class="ident">clone</span>()
+    }
+
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">options</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">options</span>: <span class="ident">OpenOptionsConfig</span>) -&gt; <span class="kw-2">&amp;mut</span> <span class="self">Self</span> {
         <span class="self">self</span>.<span class="ident">conf</span> <span class="op">=</span> <span class="ident">options</span>;
         <span class="self">self</span>
