@@ -8,7 +8,7 @@ use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 use Action::*;
 
-#[derive(Parser, Clone, Copy)]
+#[derive(Debug, Parser, Clone, Copy)]
 enum Action {
     /// Register wasmer as binfmt interpreter
     Register,
@@ -22,7 +22,7 @@ enum Action {
 ///
 /// Check the wasmer repository for a systemd service definition example
 /// to automate the process at start-up.
-#[derive(Parser)]
+#[derive(Debug, Parser)]
 pub struct Binfmt {
     // Might be better to traverse the mount list
     /// Mount point of binfmt_misc fs

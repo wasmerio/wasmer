@@ -15,7 +15,7 @@ use clap::Parser;
 pub struct Wasi {
     /// WASI pre-opened directory
     #[clap(long = "dir", name = "DIR", group = "wasi")]
-    pre_opened_directories: Vec<PathBuf>,
+    pub(crate) pre_opened_directories: Vec<PathBuf>,
 
     /// Map a host directory to a different location for the Wasm module
     #[clap(
@@ -23,7 +23,7 @@ pub struct Wasi {
         name = "GUEST_DIR:HOST_DIR",
         parse(try_from_str = parse_mapdir),
     )]
-    mapped_dirs: Vec<(String, PathBuf)>,
+    pub(crate) mapped_dirs: Vec<(String, PathBuf)>,
 
     /// Pass custom environment variables
     #[clap(
@@ -31,7 +31,7 @@ pub struct Wasi {
         name = "KEY=VALUE",
         parse(try_from_str = parse_envvar),
     )]
-    env_vars: Vec<(String, String)>,
+    pub(crate) env_vars: Vec<(String, String)>,
 
     /// Enable experimental IO devices
     #[cfg(feature = "experimental-io-devices")]
@@ -52,6 +52,14 @@ pub struct Wasi {
 
 #[allow(dead_code)]
 impl Wasi {
+    pub fn map_dir(&mut self, alias: &str, target_on_disk: PathBuf) {
+        self.mapped_dirs.push((alias.to_string(), target_on_disk));
+    }
+
+    pub fn set_env(&mut self, key: &str, value: &str) {
+        self.env_vars.push((key.to_string(), value.to_string()));
+    }
+
     /// Gets the WASI version (if any) for the provided module
     pub fn get_versions(module: &Module) -> Option<BTreeSet<WasiVersion>> {
         // Get the wasi version in strict mode, so no other imports are

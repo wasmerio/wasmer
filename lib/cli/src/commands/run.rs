@@ -5,6 +5,8 @@ use crate::store::{CompilerType, StoreOptions};
 use crate::suggestions::suggest_function_exports;
 use crate::warning;
 use anyhow::{anyhow, Context, Result};
+use std::collections::HashMap;
+use std::ops::Deref;
 use std::path::PathBuf;
 use std::str::FromStr;
 use wasmer::FunctionEnv;
@@ -13,7 +15,9 @@ use wasmer::*;
 use wasmer_cache::{Cache, FileSystemCache, Hash};
 use wasmer_types::Type as ValueType;
 
+use crate::cli::SplitVersion;
 use clap::Parser;
+use wasmer_registry::PackageDownloadInfo;
 
 #[cfg(feature = "wasi")]
 mod wasi;
@@ -21,17 +25,17 @@ mod wasi;
 #[cfg(feature = "wasi")]
 use wasi::Wasi;
 
+/// Same as `wasmer run`, but without the required `path` argument (injected previously)
 #[derive(Debug, Parser, Clone, Default)]
-/// The options for the `wasmer run` subcommand
-pub struct Run {
+pub struct RunWithoutFile {
+    /// When installing packages with `wasmer $package`, force re-downloading the package
+    #[clap(long = "force", short = 'f')]
+    pub(crate) force_install: bool,
+
     /// Disable the cache
     #[cfg(feature = "cache")]
     #[clap(long = "disable-cache")]
     disable_cache: bool,
-
-    /// File to run
-    #[clap(name = "FILE", parse(from_os_str))]
-    path: PathBuf,
 
     /// Invoke a specified function
     #[clap(long = "invoke", short = 'i')]
@@ -41,7 +45,7 @@ pub struct Run {
     /// to the wasm program. This is used in wapm to provide nicer output in
     /// help commands and error messages of the running wasm program
     #[clap(long = "command-name", hide = true)]
-    command_name: Option<String>,
+    pub(crate) command_name: Option<String>,
 
     /// A prehashed string, used to speed up start times by avoiding hashing the
     /// wasm module. If the specified hash is not found, Wasmer will hash the module
@@ -69,12 +73,95 @@ pub struct Run {
     debug: bool,
 
     #[cfg(feature = "debug")]
-    #[clap(short, long, parse(from_occurrences))]
-    verbose: u8,
+    #[clap(long = "verbose")]
+    verbose: Option<u8>,
 
     /// Application arguments
     #[clap(value_name = "ARGS")]
     args: Vec<String>,
+}
+
+#[allow(dead_code)]
+fn is_dir(e: &walkdir::DirEntry) -> bool {
+    let meta = match e.metadata() {
+        Ok(o) => o,
+        Err(_) => return false,
+    };
+    meta.is_dir()
+}
+
+impl RunWithoutFile {
+    /// Given a local path, returns the `Run` command (overriding the `--path` argument).
+    pub fn into_run_args(
+        mut self,
+        package_root_dir: PathBuf, // <- package dir
+        command: Option<&str>,
+    ) -> Result<Run, anyhow::Error> {
+        let (manifest, pathbuf) =
+            wasmer_registry::get_executable_file_from_path(&package_root_dir, command)?;
+
+        #[cfg(feature = "wasi")]
+        {
+            let default = HashMap::default();
+            let fs = manifest.fs.as_ref().unwrap_or(&default);
+            for (alias, real_dir) in fs.iter() {
+                let real_dir = package_root_dir.join(&real_dir);
+                if !real_dir.exists() {
+                    println!(
+                        "warning: cannot map {alias:?} to {}: directory does not exist",
+                        real_dir.display()
+                    );
+                    continue;
+                }
+
+                self.wasi.map_dir(alias, real_dir.clone());
+            }
+        }
+
+        Ok(Run {
+            path: pathbuf,
+            options: RunWithoutFile {
+                force_install: self.force_install,
+                #[cfg(feature = "cache")]
+                disable_cache: self.disable_cache,
+                invoke: self.invoke,
+                // If the RunWithoutFile was constructed via a package name,
+                // the correct syntax is "package:command-name" (--command-name would be
+                // interpreted as a CLI argument for the .wasm file)
+                command_name: None,
+                #[cfg(feature = "cache")]
+                cache_key: self.cache_key,
+                store: self.store,
+                #[cfg(feature = "wasi")]
+                wasi: self.wasi,
+                #[cfg(feature = "io-devices")]
+                enable_experimental_io_devices: self.enable_experimental_io_devices,
+                #[cfg(feature = "debug")]
+                debug: self.debug,
+                #[cfg(feature = "debug")]
+                verbose: self.verbose.unwrap_or(0),
+                args: self.args,
+            },
+        })
+    }
+}
+
+#[derive(Debug, Parser, Clone, Default)]
+/// The options for the `wasmer run` subcommand
+pub struct Run {
+    /// File to run
+    #[clap(name = "FILE", parse(from_os_str))]
+    pub(crate) path: PathBuf,
+
+    #[clap(flatten)]
+    pub(crate) options: RunWithoutFile,
+}
+
+impl Deref for Run {
+    type Target = RunWithoutFile;
+    fn deref(&self) -> &Self::Target {
+        &self.options
+    }
 }
 
 impl Run {
@@ -138,12 +225,18 @@ impl Run {
             };
             // TODO: refactor this
             if is_emscripten_module(&module) {
+                let em_env = EmEnv::new();
+                for (k, v) in self.wasi.env_vars.iter() {
+                    em_env.set_env_var(k, v);
+                }
                 // create an EmEnv with default global
-                let env = FunctionEnv::new(&mut store, EmEnv::new());
+                let env = FunctionEnv::new(&mut store, em_env);
                 let mut emscripten_globals = EmscriptenGlobals::new(&mut store, &env, &module)
                     .map_err(|e| anyhow!("{}", e))?;
-                env.as_mut(&mut store)
-                    .set_data(&emscripten_globals.data, Default::default());
+                env.as_mut(&mut store).set_data(
+                    &emscripten_globals.data,
+                    self.wasi.mapped_dirs.clone().into_iter().collect(),
+                );
                 let import_object =
                     generate_emscripten_env(&mut store, &env, &mut emscripten_globals);
                 let mut instance = match Instance::new(&mut store, &module, &import_object) {
@@ -483,16 +576,205 @@ impl Run {
         let store = StoreOptions::default();
         // TODO: store.compiler.features.all = true; ?
         Ok(Self {
-            args,
             path: executable.into(),
-            command_name: Some(original_executable),
-            store,
-            wasi: Wasi::for_binfmt_interpreter()?,
-            ..Self::default()
+            options: RunWithoutFile {
+                args,
+                command_name: Some(original_executable),
+                store,
+                wasi: Wasi::for_binfmt_interpreter()?,
+                ..Default::default()
+            },
         })
     }
     #[cfg(not(target_os = "linux"))]
     fn from_binfmt_args_fallible() -> Result<Run> {
         bail!("binfmt_misc is only available on linux.")
     }
+}
+
+fn start_spinner(msg: String) -> spinner::SpinnerHandle {
+    spinner::SpinnerBuilder::new(msg)
+        .spinner(vec![
+            "⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷", " ", "⠁", "⠂", "⠄", "⡀", "⢀", "⠠", "⠐", "⠈",
+        ])
+        .start()
+}
+
+pub(crate) fn try_autoinstall_package(
+    args: &[String],
+    sv: &SplitVersion,
+    package: Option<PackageDownloadInfo>,
+    force_install: bool,
+) -> Result<(), anyhow::Error> {
+    use std::io::Write;
+    let sp = start_spinner(format!("Installing package {} ...", sv.package));
+    let v = sv.version.as_deref();
+    let result = wasmer_registry::install_package(
+        sv.registry.as_deref(),
+        &sv.package,
+        v,
+        package,
+        force_install,
+    );
+    sp.close();
+    print!("\r");
+    let _ = std::io::stdout().flush();
+    let (_, package_dir) = match result {
+        Ok(o) => o,
+        Err(e) => {
+            return Err(anyhow::anyhow!("{e}"));
+        }
+    };
+
+    // Try auto-installing the remote package
+    let mut args_without_package = args.to_vec();
+    args_without_package.remove(1);
+
+    let mut run_args = RunWithoutFile::try_parse_from(args_without_package.iter())?;
+    run_args.command_name = sv.command.clone();
+
+    run_args
+        .into_run_args(package_dir, sv.command.as_deref())?
+        .execute()
+}
+
+// We need to distinguish between errors that happen
+// before vs. during execution
+enum ExecuteLocalPackageError {
+    BeforeExec(anyhow::Error),
+    DuringExec(anyhow::Error),
+}
+
+fn try_execute_local_package(
+    args: &[String],
+    sv: &SplitVersion,
+) -> Result<(), ExecuteLocalPackageError> {
+    let package = wasmer_registry::get_local_package(None, &sv.package, sv.version.as_deref())
+        .ok_or_else(|| {
+            ExecuteLocalPackageError::BeforeExec(anyhow::anyhow!("no local package {sv:?} found"))
+        })?;
+
+    let package_dir = package
+        .get_path()
+        .map_err(|e| ExecuteLocalPackageError::BeforeExec(anyhow::anyhow!("{e}")))?;
+
+    // Try finding the local package
+    let mut args_without_package = args.to_vec();
+
+    // remove either "run" or $package
+    args_without_package.remove(1);
+
+    // "wasmer package arg1 arg2" => "wasmer arg1 arg2"
+    if (args_without_package.get(1).is_some() && args_without_package[1].starts_with(&sv.original))
+        || (sv.command.is_some() && args_without_package[1].ends_with(sv.command.as_ref().unwrap()))
+    {
+        args_without_package.remove(1);
+    }
+
+    RunWithoutFile::try_parse_from(args_without_package.iter())
+        .map_err(|e| ExecuteLocalPackageError::DuringExec(e.into()))?
+        .into_run_args(package_dir, sv.command.as_deref())
+        .map_err(ExecuteLocalPackageError::DuringExec)?
+        .execute()
+        .map_err(|e| ExecuteLocalPackageError::DuringExec(e.context(anyhow::anyhow!("{}", sv))))
+}
+
+fn try_lookup_command(sv: &mut SplitVersion) -> Result<PackageDownloadInfo, anyhow::Error> {
+    use std::io::Write;
+    let sp = start_spinner(format!("Looking up command {} ...", sv.package));
+
+    for registry in wasmer_registry::get_all_available_registries().unwrap_or_default() {
+        let result = wasmer_registry::query_command_from_registry(&registry, &sv.package);
+        print!("\r");
+        let _ = std::io::stdout().flush();
+        let command = sv.package.clone();
+        if let Ok(o) = result {
+            sv.package = o.package.clone();
+            sv.version = Some(o.version.clone());
+            sv.command = Some(command);
+            return Ok(o);
+        }
+    }
+
+    sp.close();
+    print!("\r");
+    let _ = std::io::stdout().flush();
+    Err(anyhow::anyhow!("command {sv} not found"))
+}
+
+pub(crate) fn try_run_package_or_file(args: &[String], r: &Run) -> Result<(), anyhow::Error> {
+    // Check "r.path" is a file or a package / command name
+    if r.path.exists() {
+        if r.path.is_dir() && r.path.join("wapm.toml").exists() {
+            let mut args_without_package = args.to_vec();
+            if args_without_package.get(1) == Some(&format!("{}", r.path.display())) {
+                let _ = args_without_package.remove(1);
+            } else if args_without_package.get(2) == Some(&format!("{}", r.path.display())) {
+                let _ = args_without_package.remove(1);
+                let _ = args_without_package.remove(1);
+            }
+            return RunWithoutFile::try_parse_from(args_without_package.iter())?
+                .into_run_args(r.path.clone(), r.command_name.as_deref())?
+                .execute();
+        }
+        return r.execute();
+    }
+
+    let package = format!("{}", r.path.display());
+
+    let mut is_fake_sv = false;
+    let mut sv = match SplitVersion::new(&package) {
+        Ok(o) => o,
+        Err(_) => {
+            let mut fake_sv = SplitVersion {
+                original: package.to_string(),
+                registry: None,
+                package: package.to_string(),
+                version: None,
+                command: None,
+            };
+            is_fake_sv = true;
+            match try_lookup_command(&mut fake_sv) {
+                Ok(o) => SplitVersion {
+                    original: format!("{}@{}", o.package, o.version),
+                    registry: None,
+                    package: o.package,
+                    version: Some(o.version),
+                    command: r.command_name.clone(),
+                },
+                Err(e) => {
+                    return Err(
+                        anyhow::anyhow!("No package for command {package:?} found, file {package:?} not found either")
+                        .context(e)
+                        .context(anyhow::anyhow!("{}", r.path.display()))
+                    );
+                }
+            }
+        }
+    };
+
+    if sv.command.is_none() {
+        sv.command = r.command_name.clone();
+    }
+
+    if sv.command.is_none() && is_fake_sv {
+        sv.command = Some(package);
+    }
+
+    let mut package_download_info = None;
+    if !sv.package.contains('/') {
+        if let Ok(o) = try_lookup_command(&mut sv) {
+            package_download_info = Some(o);
+        }
+    }
+
+    match try_execute_local_package(args, &sv) {
+        Ok(o) => return Ok(o),
+        Err(ExecuteLocalPackageError::DuringExec(e)) => return Err(e),
+        _ => {}
+    }
+
+    println!("finding local package {} failed", sv);
+    // else: local package not found - try to download and install package
+    try_autoinstall_package(args, &sv, package_download_info, r.force_install)
 }

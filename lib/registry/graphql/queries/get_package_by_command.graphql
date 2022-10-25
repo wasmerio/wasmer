@@ -1,0 +1,16 @@
+query GetPackageByCommandQuery ($commandName: String!) {
+  getCommand(name: $commandName) {
+    command
+    packageVersion {
+      version
+      isLastVersion
+      manifest
+      distribution {
+        downloadUrl
+      }
+      package {
+        displayName
+      }
+    }
+  }
+}

@@ -1,0 +1,14 @@
+query GetPackagesQuery ($names: [String!]!) {
+  package: getPackages(names:$names) {
+    name
+    private
+    versions {
+      version
+      isLastVersion
+      distribution {
+        downloadUrl
+      }
+      manifest
+    }
+  }
+}

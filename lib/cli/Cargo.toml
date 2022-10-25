@@ -37,12 +37,14 @@ wasmer-wasi-experimental-io-devices = { version = "=3.0.0-beta.2", path = "../wa
 wasmer-wast = { version = "=3.0.0-beta.2", path = "../../tests/lib/wast", optional = true }
 wasmer-cache = { version = "=3.0.0-beta.2", path = "../cache", optional = true }
 wasmer-types = { version = "=3.0.0-beta.2", path = "../types" }
+wasmer-registry = { version = "=3.0.0-beta.2", path = "../registry" }
 wasmer-object = { version = "=3.0.0-beta.2", path = "../object", optional = true }
 wasmer-vfs  = { version = "=3.0.0-beta.2", path = "../vfs", default-features = false, features = ["host-fs"] }
 atty = "0.2"
 colored = "2.0"
 anyhow = "1.0"
-clap = { version = "3.1", features = ["derive"] }
+spinner = "0.5.0"
+clap = { version = "3.2.22", features = ["derive"] }
 # For the function names autosuggestion
 distance = "0.4"
 # For the inspect subcommand
@@ -56,6 +58,15 @@ http_req  = { version="^0.8", default-features = false, features = ["rust-tls"],
 dirs = { version = "4.0", optional = true }
 serde_json = { version = "1.0", optional = true }
 target-lexicon = { version = "0.12", features = ["std"] }
+prettytable-rs = "0.9.0"
+wapm-toml = "0.1.2"
+walkdir = "2.3.2"
+regex = "1.6.0"
+toml = "0.5.9"
+url = "2.3.1"
+
+[build-dependencies]
+chrono = { version = "^0.4", default-features = false, features = [ "std", "clock" ] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 unix_mode = "0.1.3"
