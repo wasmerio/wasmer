@@ -18,27 +18,27 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## Added
 
-- [#3215](https://github.com/wasmerio/wasmer/pull/#3215)  Update wasmer --version logic, integrate wapm-cli
-- [#3218](https://github.com/wasmerio/wasmer/pull/#3218)  Seal `HostFunctionKind`
-- [#3222](https://github.com/wasmerio/wasmer/pull/#3222)  Add function to retrieve function name from wasm_frame_t
+- [#3215](https://github.com/wasmerio/wasmer/pull/3215)  Update wasmer --version logic, integrate wapm-cli
+- [#3218](https://github.com/wasmerio/wasmer/pull/3218)  Seal `HostFunctionKind`
+- [#3222](https://github.com/wasmerio/wasmer/pull/3222)  Add function to retrieve function name from wasm_frame_t
 
 ## Changed
 
-- [#3248](https://github.com/wasmerio/wasmer/pull/#3248)  Move loupe CHANGELOG entry from 2.3.0 to 3.x
-- [#3230](https://github.com/wasmerio/wasmer/pull/#3230)  Remove test if dest file exist on path_rename wasi syscall (for #3228)
-- [#3223](https://github.com/wasmerio/wasmer/pull/#3223)  Delete lib/wasi-types-generated directory
+- [#3248](https://github.com/wasmerio/wasmer/pull/3248)  Move loupe CHANGELOG entry from 2.3.0 to 3.x
+- [#3230](https://github.com/wasmerio/wasmer/pull/3230)  Remove test if dest file exist on path_rename wasi syscall (for #3228)
+- [#3223](https://github.com/wasmerio/wasmer/pull/3223)  Delete lib/wasi-types-generated directory
 
 ## Fixed
 
-- [#3240](https://github.com/wasmerio/wasmer/pull/#3240)  Fix filesystem rights on WASI, add integration test for file permissions
-- [#3238](https://github.com/wasmerio/wasmer/pull/#3238)  Fixed main README ocaml homepage link and added ocaml in other language README
-- [#3229](https://github.com/wasmerio/wasmer/pull/#3229)  Fixed version to nightly-2022-10-09 for the CI build Minimal Wasmer Headless again
-- [#3227](https://github.com/wasmerio/wasmer/pull/#3227)  Fixed version to nightly-2022-10-09 for the CI build Minimal Wasmer Headless
-- [#3226](https://github.com/wasmerio/wasmer/pull/#3226)  Fixed version to nightly-2002-10-09 for the CI build Minimal Wasmer Headless
-- [#3221](https://github.com/wasmerio/wasmer/pull/#3221)  Fix #3197
-- [#3211](https://github.com/wasmerio/wasmer/pull/#3211)  Fix popcnt for aarch64
-- [#3204](https://github.com/wasmerio/wasmer/pull/#3204)  Fixed a typo in README
-- [#3199](https://github.com/wasmerio/wasmer/pull/#3199)  Release fixes
+- [#3240](https://github.com/wasmerio/wasmer/pull/3240)  Fix filesystem rights on WASI, add integration test for file permissions
+- [#3238](https://github.com/wasmerio/wasmer/pull/3238)  Fixed main README ocaml homepage link and added ocaml in other language README
+- [#3229](https://github.com/wasmerio/wasmer/pull/3229)  Fixed version to nightly-2022-10-09 for the CI build Minimal Wasmer Headless again
+- [#3227](https://github.com/wasmerio/wasmer/pull/3227)  Fixed version to nightly-2022-10-09 for the CI build Minimal Wasmer Headless
+- [#3226](https://github.com/wasmerio/wasmer/pull/3226)  Fixed version to nightly-2002-10-09 for the CI build Minimal Wasmer Headless
+- [#3221](https://github.com/wasmerio/wasmer/pull/3221)  Fix #3197
+- [#3211](https://github.com/wasmerio/wasmer/pull/3211)  Fix popcnt for aarch64
+- [#3204](https://github.com/wasmerio/wasmer/pull/3204)  Fixed a typo in README
+- [#3199](https://github.com/wasmerio/wasmer/pull/3199)  Release fixes
 
 ## 3.0.0-beta.2 - 2022/09/26
 
