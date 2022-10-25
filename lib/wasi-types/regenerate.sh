@@ -27,7 +27,7 @@ rm src/wasi/bindings2.rs
 cd ./wasi-types-generator-extra
 cargo build
 pwd
-../../../target/debug/wasi-types-generator-extra
+`pwd`/target/debug/wasi-types-generator-extra
 cd ..
 
 cargo fmt --all
