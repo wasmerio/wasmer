@@ -1,1 +1,1 @@
-initSidebarItems({"enum":[["WasmerCLIOptions","The options for the wasmer Command Line Interface"]],"fn":[["wasmer_main","The main function for the Wasmer CLI tool."]]});
+initSidebarItems({"enum":[["WasmerCLIOptions","The options for the wasmer Command Line Interface"]],"fn":[["print_help",""],["print_version",""],["wasmer_main","The main function for the Wasmer CLI tool."],["wasmer_main_inner",""]],"struct":[["SplitVersion",""]]});

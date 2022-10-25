@@ -166,7 +166,7 @@
 <span class="kw">use</span> <span class="ident">std::path</span>::{<span class="ident">Path</span>, <span class="ident">PathBuf</span>};
 <span class="kw">use</span> <span class="ident">Action</span>::<span class="kw-2">*</span>;
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Parser</span>, <span class="ident">Clone</span>, <span class="ident">Copy</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Parser</span>, <span class="ident">Clone</span>, <span class="ident">Copy</span>)]</span>
 <span class="kw">enum</span> <span class="ident">Action</span> {
     <span class="doccomment">/// Register wasmer as binfmt interpreter</span>
     <span class="ident">Register</span>,
@@ -180,7 +180,7 @@
 <span class="doccomment">///</span>
 <span class="doccomment">/// Check the wasmer repository for a systemd service definition example</span>
 <span class="doccomment">/// to automate the process at start-up.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Parser</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Parser</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Binfmt</span> {
     <span class="comment">// Might be better to traverse the mount list</span>
     <span class="doccomment">/// Mount point of binfmt_misc fs</span>

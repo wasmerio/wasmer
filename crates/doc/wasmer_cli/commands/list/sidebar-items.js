@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["List","Subcommand for listing packages"]]});
