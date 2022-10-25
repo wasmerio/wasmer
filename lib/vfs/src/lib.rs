@@ -72,15 +72,27 @@ pub trait FileOpener {
 
 #[derive(Debug, Clone)]
 pub struct OpenOptionsConfig {
-    read: bool,
-    write: bool,
-    create_new: bool,
-    create: bool,
-    append: bool,
-    truncate: bool,
+    pub read: bool,
+    pub write: bool,
+    pub create_new: bool,
+    pub create: bool,
+    pub append: bool,
+    pub truncate: bool,
 }
 
 impl OpenOptionsConfig {
+    /// Returns the minimum allowed rights, given the rights of the parent directory
+    pub fn minimum_rights(&self, parent_rights: &Self) -> Self {
+        Self {
+            read: parent_rights.read && self.read,
+            write: parent_rights.write && self.write,
+            create_new: parent_rights.create_new && self.create_new,
+            create: parent_rights.create && self.create,
+            append: parent_rights.append && self.append,
+            truncate: parent_rights.truncate && self.truncate,
+        }
+    }
+
     pub const fn read(&self) -> bool {
         self.read
     }
@@ -106,7 +118,11 @@ impl OpenOptionsConfig {
     }
 }
 
-// TODO: manually implement debug
+impl fmt::Debug for OpenOptions {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.conf.fmt(f)
+    }
+}
 
 pub struct OpenOptions {
     opener: Box<dyn FileOpener>,
@@ -127,6 +143,11 @@ impl OpenOptions {
             },
         }
     }
+
+    pub fn get_config(&self) -> OpenOptionsConfig {
+        self.conf.clone()
+    }
+
     pub fn options(&mut self, options: OpenOptionsConfig) -> &mut Self {
         self.conf = options;
         self

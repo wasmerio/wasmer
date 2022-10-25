@@ -20,6 +20,8 @@ fn main() -> anyhow::Result<()> {
         .expect("Can't get directory");
     build_deps::rerun_if_changed_paths("tests/wasi-wast/wasi/snapshot1/*")
         .expect("Can't get directory");
+    build_deps::rerun_if_changed_paths("tests/wasi-wast/wasi/nightly-2022-10-18/*")
+        .expect("Can't get directory");
 
     let out_dir = PathBuf::from(
         env::var_os("OUT_DIR").expect("The OUT_DIR environment variable must be set"),
@@ -66,7 +68,7 @@ fn main() -> anyhow::Result<()> {
         };
 
         with_test_module(&mut wasitests, "wasitests", |wasitests| {
-            for wasi_version in &["unstable", "snapshot1"] {
+            for wasi_version in &["unstable", "snapshot1", "nightly_2022_10_18"] {
                 with_test_module(wasitests, wasi_version, |wasitests| {
                     for (wasi_filesystem_test_name, wasi_filesystem_kind) in &[
                         ("host_fs", "WasiFileSystemKind::Host"),
