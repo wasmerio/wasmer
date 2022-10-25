@@ -5,6 +5,8 @@ edition = "2021"
 license = "MIT"
 description = "Generator for wasi-types"
 
+[workspace]
+
 [dependencies]
 convert_case = "0.5.0"
 
