@@ -18,27 +18,27 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## Added
 
-- [#3215](https://github.com/wasmerio/wasmer/pull/#3215)  Update wasmer --version logic, integrate wapm-cli
-- [#3218](https://github.com/wasmerio/wasmer/pull/#3218)  Seal `HostFunctionKind`
-- [#3222](https://github.com/wasmerio/wasmer/pull/#3222)  Add function to retrieve function name from wasm_frame_t
+- [#3215](https://github.com/wasmerio/wasmer/pull/3215)  Update wasmer --version logic, integrate wapm-cli
+- [#3218](https://github.com/wasmerio/wasmer/pull/3218)  Seal `HostFunctionKind`
+- [#3222](https://github.com/wasmerio/wasmer/pull/3222)  Add function to retrieve function name from wasm_frame_t
 
 ## Changed
 
-- [#3248](https://github.com/wasmerio/wasmer/pull/#3248)  Move loupe CHANGELOG entry from 2.3.0 to 3.x
-- [#3230](https://github.com/wasmerio/wasmer/pull/#3230)  Remove test if dest file exist on path_rename wasi syscall (for #3228)
-- [#3223](https://github.com/wasmerio/wasmer/pull/#3223)  Delete lib/wasi-types-generated directory
+- [#3248](https://github.com/wasmerio/wasmer/pull/3248)  Move loupe CHANGELOG entry from 2.3.0 to 3.x
+- [#3230](https://github.com/wasmerio/wasmer/pull/3230)  Remove test if dest file exist on path_rename wasi syscall (for #3228)
+- [#3223](https://github.com/wasmerio/wasmer/pull/3223)  Delete lib/wasi-types-generated directory
 
 ## Fixed
 
-- [#3240](https://github.com/wasmerio/wasmer/pull/#3240)  Fix filesystem rights on WASI, add integration test for file permissions
-- [#3238](https://github.com/wasmerio/wasmer/pull/#3238)  Fixed main README ocaml homepage link and added ocaml in other language README
-- [#3229](https://github.com/wasmerio/wasmer/pull/#3229)  Fixed version to nightly-2022-10-09 for the CI build Minimal Wasmer Headless again
-- [#3227](https://github.com/wasmerio/wasmer/pull/#3227)  Fixed version to nightly-2022-10-09 for the CI build Minimal Wasmer Headless
-- [#3226](https://github.com/wasmerio/wasmer/pull/#3226)  Fixed version to nightly-2002-10-09 for the CI build Minimal Wasmer Headless
-- [#3221](https://github.com/wasmerio/wasmer/pull/#3221)  Fix #3197
-- [#3211](https://github.com/wasmerio/wasmer/pull/#3211)  Fix popcnt for aarch64
-- [#3204](https://github.com/wasmerio/wasmer/pull/#3204)  Fixed a typo in README
-- [#3199](https://github.com/wasmerio/wasmer/pull/#3199)  Release fixes
+- [#3240](https://github.com/wasmerio/wasmer/pull/3240)  Fix filesystem rights on WASI, add integration test for file permissions
+- [#3238](https://github.com/wasmerio/wasmer/pull/3238)  Fixed main README ocaml homepage link and added ocaml in other language README
+- [#3229](https://github.com/wasmerio/wasmer/pull/3229)  Fixed version to nightly-2022-10-09 for the CI build Minimal Wasmer Headless again
+- [#3227](https://github.com/wasmerio/wasmer/pull/3227)  Fixed version to nightly-2022-10-09 for the CI build Minimal Wasmer Headless
+- [#3226](https://github.com/wasmerio/wasmer/pull/3226)  Fixed version to nightly-2002-10-09 for the CI build Minimal Wasmer Headless
+- [#3221](https://github.com/wasmerio/wasmer/pull/3221)  Fix #3197
+- [#3211](https://github.com/wasmerio/wasmer/pull/3211)  Fix popcnt for aarch64
+- [#3204](https://github.com/wasmerio/wasmer/pull/3204)  Fixed a typo in README
+- [#3199](https://github.com/wasmerio/wasmer/pull/3199)  Release fixes
 
 ## 3.0.0-beta.2 - 2022/09/26
 
@@ -105,8 +105,8 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 - [#3035](https://github.com/wasmerio/wasmer/pull/3035) Added a simple "divide by zero" wast test, for #1899, as the trap information are correctly tracked on singlepass now
 - [#3021](https://github.com/wasmerio/wasmer/pull/3021) Add back missing Aarch64 relocations (needed for llvm compiler)
 - [#3008](https://github.com/wasmerio/wasmer/pull/3008) Add a new cargo public-api CI check
-- [#2941](https://github.com/wasmerio/wasmer/pull/2941) Implementation of WASIX and a fully networking for Web Assembly 
-- [#2952](https://github.com/wasmerio/wasmer/pull/2952) CI: add make build-wasmer-wasm test 
+- [#2941](https://github.com/wasmerio/wasmer/pull/2941) Implementation of WASIX and a fully networking for Web Assembly
+- [#2952](https://github.com/wasmerio/wasmer/pull/2952) CI: add make build-wasmer-wasm test
 - [#2982](https://github.com/wasmerio/wasmer/pull/2982) Add a rustfmt.toml file to the repository
 
 ### Changed
@@ -126,13 +126,13 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 - [#2946](https://github.com/wasmerio/wasmer/pull/2946) Remove dylib,staticlib engines in favor of a single Universal engine
 - [#2949](https://github.com/wasmerio/wasmer/pull/2949) Switch back to using custom LLVM builds on CI
 - [#2892](https://github.com/wasmerio/wasmer/pull/2892) Renamed `get_native_function` to `get_typed_function`, marked former as deprecated.
-- [#2976](https://github.com/wasmerio/wasmer/pull/2976) Upgrade enumset minimum version to one that compiles 
-- [#2974](https://github.com/wasmerio/wasmer/pull/2974) Context api tests 
-- [#2973](https://github.com/wasmerio/wasmer/pull/2973) Port C API to new Context API  
-- [#2969](https://github.com/wasmerio/wasmer/pull/2969) Port JS API to new Context API 
-- [#2966](https://github.com/wasmerio/wasmer/pull/2966) Singlepass nopanic #2966 
-- [#2957](https://github.com/wasmerio/wasmer/pull/2957) Enable multi-value handling in Singlepass compiler 
-- [#2954](https://github.com/wasmerio/wasmer/pull/2954) Some fixes to x86_64 Singlepass compiler, when using atomics 
+- [#2976](https://github.com/wasmerio/wasmer/pull/2976) Upgrade enumset minimum version to one that compiles
+- [#2974](https://github.com/wasmerio/wasmer/pull/2974) Context api tests
+- [#2973](https://github.com/wasmerio/wasmer/pull/2973) Port C API to new Context API
+- [#2969](https://github.com/wasmerio/wasmer/pull/2969) Port JS API to new Context API
+- [#2966](https://github.com/wasmerio/wasmer/pull/2966) Singlepass nopanic #2966
+- [#2957](https://github.com/wasmerio/wasmer/pull/2957) Enable multi-value handling in Singlepass compiler
+- [#2954](https://github.com/wasmerio/wasmer/pull/2954) Some fixes to x86_64 Singlepass compiler, when using atomics
 - [#2953](https://github.com/wasmerio/wasmer/pull/2953) Makefile: add check target
 - [#2950](https://github.com/wasmerio/wasmer/pull/2950) compiler-cranelift: Fix typo in enum variant
 - [#2947](https://github.com/wasmerio/wasmer/pull/2947) Converted the WASI js test into a generic stdio test that works for both sys and js versions of wasmer
@@ -152,9 +152,9 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 - [#2943](https://github.com/wasmerio/wasmer/pull/2943) Fix build error on some archs by using c_char instead of i8
 - [#2976](https://github.com/wasmerio/wasmer/pull/2976) Upgrade minimum enumset to one that compiles
 - [#2988](https://github.com/wasmerio/wasmer/pull/2988) Have make targets install-capi-lib,install-pkgconfig work without building the wasmer binary
-- [#2967](https://github.com/wasmerio/wasmer/pull/2967) Fix singlepass on arm64 that was trying to emit a sub opcode with a constant as destination (for #2959) 
+- [#2967](https://github.com/wasmerio/wasmer/pull/2967) Fix singlepass on arm64 that was trying to emit a sub opcode with a constant as destination (for #2959)
 - [#2948](https://github.com/wasmerio/wasmer/pull/2948) Fix regression on gen_import_call_trampoline_arm64()
-- [#2944](https://github.com/wasmerio/wasmer/pull/2944) Fix duplicate entries in the CHANGELOG 
+- [#2944](https://github.com/wasmerio/wasmer/pull/2944) Fix duplicate entries in the CHANGELOG
 
 ## 2.3.0 - 2022/06/06
 
