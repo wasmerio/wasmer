@@ -2509,7 +2509,7 @@ pub fn path_open<M: MemorySize>(
     // TODO: check and reduce these
     // TODO: ensure a mutable fd to root can never be opened
     let out_fd = wasi_try!(state.fs.create_fd(
-        fs_rights_base,
+        working_dir_rights_inheriting,
         fs_rights_inheriting,
         fs_flags,
         open_flags,
