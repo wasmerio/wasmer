@@ -15,8 +15,6 @@ use std::convert::TryInto;
 use std::ffi::CStr;
 use std::os::raw::c_char;
 use std::slice;
-#[cfg(feature = "pirita_file")]
-use wasmer_api::{AsStoreMut, Imports, Module};
 use std::sync::{Arc, Mutex};
 use std::{
     convert::TryFrom,
@@ -25,6 +23,8 @@ use std::{
     io::{self, SeekFrom},
     sync::MutexGuard,
 };
+#[cfg(feature = "pirita_file")]
+use wasmer_api::{AsStoreMut, Imports, Module};
 use wasmer_wasi::{
     get_wasi_version, FsError, VirtualFile, WasiBidirectionalPipePair, WasiFile, WasiFunctionEnv,
     WasiPipe, WasiState, WasiStateBuilder, WasiVersion,
@@ -521,7 +521,7 @@ fn test_wasi_pipe_with_destructor() {
     let wasi_pipe_t_ptr = unsafe { &mut *wasi_pipe_t_ptr };
     let second_wasi_pipe_t_ptr = unsafe { &mut *second_wasi_pipe_t_ptr };
 
-    let data = b"hello".into_iter().map(|v| *v as i8).collect::<Vec<_>>();
+    let data = b"hello".iter().map(|v| *v as i8).collect::<Vec<_>>();
     let result = unsafe { wasi_pipe_write_bytes(wasi_pipe_t_ptr, data.as_ptr(), data.len()) };
     assert_eq!(result, 5);
 
@@ -815,7 +815,6 @@ pub unsafe extern "C" fn wasi_config_overwrite_stderr(
         .state_builder
         .stderr(Box::from_raw(stderr_overwrite));
 }
-
 
 #[repr(C)]
 pub struct wasi_filesystem_t {

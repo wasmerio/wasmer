@@ -2,10 +2,7 @@
 //! Create a standalone native executable for a given Wasm file.
 
 use super::ObjectFormat;
-use crate::{
-    commands::{CrossCompile, PrefixerFn},
-    store::CompilerOptions,
-};
+use crate::{commands::PrefixerFn, store::CompilerOptions};
 use anyhow::{Context, Result};
 use clap::Parser;
 #[cfg(feature = "pirita_file")]

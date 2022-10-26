@@ -12,7 +12,7 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::io::BufWriter;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::Command;
 use wasmer::*;
 use wasmer_object::{emit_serialized, get_object_for_target};
 
@@ -175,7 +175,7 @@ impl CreateExe {
         {
             let working_dir = tempdir::TempDir::new("testpirita")?;
             let working_dir = working_dir.path().to_path_buf();
-            
+
             if let Ok(pirita) =
                 PiritaFileMmap::parse(wasm_module_path.clone(), &ParseOptions::default())
             {
@@ -400,13 +400,10 @@ impl CreateExe {
                     }
                 }))?;
             let library = if let Some(v) = cross_subc.library_path.clone() {
-                v.clone().canonicalize().unwrap_or(v.clone())
+                v.canonicalize().unwrap_or(v)
             } else {
                 {
-                    let libwasmer_path = if target_triple
-                        .clone()
-                        .unwrap_or(Triple::host())
-                        .operating_system
+                    let libwasmer_path = if target_triple.unwrap_or(Triple::host()).operating_system
                         == wasmer_types::OperatingSystem::Windows
                     {
                         "lib/wasmer.lib"
@@ -427,10 +424,7 @@ impl CreateExe {
 
                         let _ = std::fs::create_dir_all(&target_file_path);
                         let files = untar(local_tarball.clone(), target_file_path.clone())?;
-                        tarball_dir = target_file_path
-                            .clone()
-                            .canonicalize()
-                            .unwrap_or(target_file_path.clone());
+                        tarball_dir = target_file_path.canonicalize().unwrap_or(target_file_path);
                         files.into_iter().find(|f| f.contains(libwasmer_path)).ok_or_else(|| {
                             anyhow!("Could not find libwasmer for {} target in the provided tarball path.", target)})?
                     } else {
@@ -449,10 +443,9 @@ impl CreateExe {
                                 .unwrap_or(target_file_path.clone());
 
                             tarball_dir = target_file_path
-                                .clone()
                                 .canonicalize()
                                 .unwrap_or(target_file_path.clone());
-                            let files = untar(tarball.clone(), target_file_path.clone())?;
+                            let files = untar(tarball, target_file_path)?;
                             files.into_iter().find(|f| f.contains(libwasmer_path)).ok_or_else(|| {
                                 anyhow!("Could not find libwasmer for {} target in the fetched release from Github: you can download it manually and specify its path with the --cross-compilation-library-path LIBRARY_PATH flag.", target)})?
                         }
@@ -546,7 +539,7 @@ impl CreateExe {
         libwasmer_path.pop();
 
         if let Some(entrypoint) = pirita_main_atom.as_ref() {
-            let c_code = Self::generate_pirita_wasmer_main_c_static(&pirita_atoms, entrypoint);
+            let c_code = Self::generate_pirita_wasmer_main_c_static(pirita_atoms, entrypoint);
             std::fs::write(&c_src_path, c_code)?;
         } else {
             std::fs::write(&c_src_path, WASMER_STATIC_MAIN_C_SOURCE)?;
@@ -926,10 +919,10 @@ impl CreateExe {
         let mut c_code_to_instantiate = String::new();
         let mut deallocate_module = String::new();
 
-        let atom_to_run = Self::normalize_atom_name(&atom_to_run);
+        let atom_to_run = Self::normalize_atom_name(atom_to_run);
 
         for atom_name in atom_names.iter() {
-            let atom_name = Self::normalize_atom_name(&atom_name);
+            let atom_name = Self::normalize_atom_name(atom_name);
 
             c_code_to_instantiate.push_str(&format!(
                 "
@@ -948,13 +941,11 @@ impl CreateExe {
 
         c_code_to_instantiate.push_str(&format!("wasm_module_t *module = atom_{atom_to_run};"));
 
-        let c_code = WASMER_STATIC_MAIN_C_SOURCE
+        WASMER_STATIC_MAIN_C_SOURCE
             .replace("#define WASI", "#define WASI\r\n#define WASI_PIRITA")
             .replace("// INSTANTIATE_MODULES", &c_code_to_instantiate)
             .replace("##atom-name##", &atom_to_run)
-            .replace("wasm_module_delete(module);", &deallocate_module);
-
-        c_code
+            .replace("wasm_module_delete(module);", &deallocate_module)
     }
 
     #[cfg(feature = "pirita_file")]
@@ -1070,7 +1061,7 @@ impl CreateExe {
         libwasmer_path.pop();
 
         if let Some(entrypoint) = pirita_main_atom.as_ref() {
-            let c_code = Self::generate_pirita_wasmer_main_c_static(&pirita_atoms, entrypoint);
+            let c_code = Self::generate_pirita_wasmer_main_c_static(pirita_atoms, entrypoint);
             std::fs::write(&c_src_path, c_code)?;
         } else {
             std::fs::write(&c_src_path, WASMER_STATIC_MAIN_C_SOURCE)?;
@@ -1146,7 +1137,10 @@ impl CreateExe {
 
 #[test]
 fn test_normalize_atom_name() {
-    assert_eq!(CreateExe::normalize_atom_name("atom-name-with-dash"), "atom_name_with_dash".to_string());
+    assert_eq!(
+        CreateExe::normalize_atom_name("atom-name-with-dash"),
+        "atom_name_with_dash".to_string()
+    );
 }
 
 fn triple_to_zig_triple(target_triple: &Triple) -> String {
