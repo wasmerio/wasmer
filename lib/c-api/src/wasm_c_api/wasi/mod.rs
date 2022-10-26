@@ -8,12 +8,15 @@ use super::{
     instance::wasm_instance_t,
     module::wasm_module_t,
     store::{wasm_store_t, StoreRef},
+    types::wasm_byte_vec_t,
 };
 use crate::error::update_last_error;
 use std::convert::TryInto;
 use std::ffi::CStr;
 use std::os::raw::c_char;
 use std::slice;
+#[cfg(feature = "pirita_file")]
+use wasmer_api::{AsStoreMut, Imports, Module};
 use std::sync::{Arc, Mutex};
 use std::{
     convert::TryFrom,
@@ -811,6 +814,135 @@ pub unsafe extern "C" fn wasi_config_overwrite_stderr(
     config_overwrite
         .state_builder
         .stderr(Box::from_raw(stderr_overwrite));
+}
+
+
+#[repr(C)]
+pub struct wasi_filesystem_t {
+    ptr: *const c_char,
+    size: usize,
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasi_filesystem_init_static_memory(
+    volume_bytes: Option<&wasm_byte_vec_t>,
+) -> Option<Box<wasi_filesystem_t>> {
+    let volume_bytes = volume_bytes.as_ref()?;
+    Some(Box::new(wasi_filesystem_t {
+        ptr: {
+            let ptr = (volume_bytes.data.as_ref()?) as *const _ as *const c_char;
+            if ptr.is_null() {
+                return None;
+            }
+            ptr
+        },
+        size: volume_bytes.size,
+    }))
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasi_filesystem_delete(ptr: *mut wasi_filesystem_t) {
+    let _ = Box::from_raw(ptr);
+}
+
+/// Initializes the `imports` with an import object that links to
+/// the custom file system
+#[cfg(feature = "pirita_file")]
+#[no_mangle]
+pub unsafe extern "C" fn wasi_env_with_filesystem(
+    config: Box<wasi_config_t>,
+    store: Option<&mut wasm_store_t>,
+    module: Option<&wasm_module_t>,
+    fs: Option<&wasi_filesystem_t>,
+    imports: Option<&mut wasm_extern_vec_t>,
+    package: *const c_char,
+) -> Option<Box<wasi_env_t>> {
+    wasi_env_with_filesystem_inner(config, store, module, fs, imports, package)
+}
+
+#[cfg(feature = "pirita_file")]
+unsafe fn wasi_env_with_filesystem_inner(
+    config: Box<wasi_config_t>,
+    store: Option<&mut wasm_store_t>,
+    module: Option<&wasm_module_t>,
+    fs: Option<&wasi_filesystem_t>,
+    imports: Option<&mut wasm_extern_vec_t>,
+    package: *const c_char,
+) -> Option<Box<wasi_env_t>> {
+    let store = &mut store?.inner;
+    let fs = fs.as_ref()?;
+    let package_str = CStr::from_ptr(package);
+    let package = package_str.to_str().unwrap_or("");
+    let module = &module.as_ref()?.inner;
+    let imports = imports?;
+
+    let (wasi_env, import_object) = prepare_webc_env(
+        config,
+        &mut store.store_mut(),
+        module,
+        std::mem::transmute(fs.ptr), // cast wasi_filesystem_t.ptr as &'static [u8]
+        fs.size,
+        package,
+    )?;
+
+    imports_set_buffer(&store, module, import_object, imports)?;
+
+    Some(Box::new(wasi_env_t {
+        inner: wasi_env,
+        store: store.clone(),
+    }))
+}
+
+#[cfg(feature = "pirita_file")]
+fn prepare_webc_env(
+    config: Box<wasi_config_t>,
+    store: &mut impl AsStoreMut,
+    module: &Module,
+    bytes: &'static u8,
+    len: usize,
+    package_name: &str,
+) -> Option<(WasiFunctionEnv, Imports)> {
+    use pirita::FsEntryType;
+    use pirita::StaticFileSystem;
+
+    let slice = unsafe { std::slice::from_raw_parts(bytes, len) };
+    let volumes = pirita::PiritaFile::parse_volumes_from_fileblock(slice).ok()?;
+    let top_level_dirs = volumes
+        .into_iter()
+        .flat_map(|(_, volume)| {
+            volume
+                .header
+                .top_level
+                .iter()
+                .cloned()
+                .filter(|e| e.fs_type == FsEntryType::Dir)
+                .map(|e| e.text.to_string())
+                .collect::<Vec<_>>()
+                .into_iter()
+        })
+        .collect::<Vec<_>>();
+
+    let filesystem = Box::new(StaticFileSystem::init(slice, &package_name)?);
+    let mut wasi_env = config.state_builder;
+
+    if !config.inherit_stdout {
+        wasi_env.stdout(Box::new(Pipe::new()));
+    }
+
+    if !config.inherit_stderr {
+        wasi_env.stderr(Box::new(Pipe::new()));
+    }
+
+    wasi_env.set_fs(filesystem);
+
+    for f_name in top_level_dirs.iter() {
+        wasi_env
+            .preopen(|p| p.directory(f_name).read(true).write(true).create(true))
+            .ok()?;
+    }
+    let env = wasi_env.finalize(store).ok()?;
+    let import_object = env.import_object(store, &module).ok()?;
+    Some((env, import_object))
 }
 
 #[allow(non_camel_case_types)]

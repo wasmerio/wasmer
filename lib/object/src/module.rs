@@ -401,7 +401,7 @@ pub fn emit_compilation(
 /// #     symbol_registry: impl SymbolRegistry,
 /// # ) -> Result<(), ObjectError> {
 /// let mut object = get_object_for_target(&triple)?;
-/// emit_compilation(&mut object, compilation, &symbol_registry, &triple)?;
+/// emit_serialized(&mut object, bytes, &triple, "WASMER_MODULE")?;
 /// # Ok(())
 /// # }
 /// ```
@@ -409,11 +409,12 @@ pub fn emit_serialized(
     obj: &mut Object,
     sercomp: &[u8],
     triple: &Triple,
+    object_name: &str,
 ) -> Result<(), ObjectError> {
     obj.set_mangling(object::write::Mangling::None);
     //let module_name = module.compile_info.module.name.clone();
-    let len_name = "WASMER_MODULE_LENGTH";
-    let data_name = "WASMER_MODULE_DATA";
+    let len_name = format!("{}_LENGTH", object_name);
+    let data_name = format!("{}_DATA", object_name);
     //let metadata_name = "WASMER_MODULE_METADATA";
 
     let align = match triple.architecture {

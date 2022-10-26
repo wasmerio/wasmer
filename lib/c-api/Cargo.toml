@@ -39,6 +39,12 @@ thiserror = "1"
 typetag = { version = "0.1", optional = true }
 paste = "1.0"
 
+[dependencies.pirita]
+path = "../../../pirita/crates/pirita"
+default-features = false
+features = ["webc_runner"]
+optional = true
+
 [dev-dependencies]
 field-offset = "0.3.3"
 
@@ -90,6 +96,7 @@ wasmer-artifact-load = ["wasmer-compiler/wasmer-artifact-load"]
 wasmer-artifact-create = ["wasmer-compiler/wasmer-artifact-create"]
 static-artifact-load = ["wasmer-compiler/static-artifact-load"]
 static-artifact-create = ["wasmer-compiler/static-artifact-create"]
+pirita_file = ["pirita"]
 
 # Deprecated features.
 jit = ["compiler"]

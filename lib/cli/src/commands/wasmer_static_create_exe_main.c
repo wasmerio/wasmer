@@ -1,24 +1,22 @@
-
 #include "wasmer.h"
-//#include "my_wasm.h"
-
+#include "static_defs.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #define own
 
-
+// TODO: make this define templated so that the Rust code can toggle it on/off
 #define WASI
 
 #ifdef WASI_PIRITA
 extern size_t VOLUMES_LENGTH asm("VOLUMES_LENGTH");
 extern char VOLUMES_DATA asm("VOLUMES_DATA");
-// DECLARE_MODULES
-#else
-extern size_t WASMER_MODULE_LENGTH asm("WASMER_MODULE_LENGTH");
-extern char WASMER_MODULE_DATA asm("WASMER_MODULE_DATA");
 #endif
+
+extern wasm_module_t* wasmer_module_new(wasm_store_t* store) asm("wasmer_module_new");
+extern wasm_module_t* wasmer_static_module_new(wasm_store_t* store,const char* wasm_name) asm("wasmer_static_module_new");
+
 
 static void print_wasmer_error() {
   int error_len = wasmer_last_error_length();
@@ -101,21 +99,17 @@ int main(int argc, char *argv[]) {
   wasm_engine_t *engine = wasm_engine_new_with_config(config);
   wasm_store_t *store = wasm_store_new(engine);
 
-#ifdef WASI_PIRITA
-  // INSTANTIATE_MODULES
-#else
-  wasm_byte_vec_t module_byte_vec = {
-    .size = WASMER_MODULE_LENGTH,
-    .data = &WASMER_MODULE_DATA,
-  };
-  wasm_module_t *module = wasm_module_deserialize(store, &module_byte_vec);
+  #ifdef WASI_PIRITA
+    // INSTANTIATE_MODULES
+  #else
+    wasm_module_t *module = wasmer_static_module_new(store, "module");
+  #endif
 
   if (!module) {
     fprintf(stderr, "Failed to create module\n");
     print_wasmer_error();
     return -1;
   }
-#endif
 
   // We have now finished the memory buffer book keeping and we have a valid
   // Module.

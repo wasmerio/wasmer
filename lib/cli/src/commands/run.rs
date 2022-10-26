@@ -216,6 +216,14 @@ impl Run {
     }
 
     fn inner_execute(&self) -> Result<()> {
+        #[cfg(feature = "pirita_file")]
+        {
+            if let Some(pf) = pirita::PiritaContainer::load_mmap(self.path.clone()) {
+                return pf
+                    .run(&self.command_name.clone().unwrap_or_default())
+                    .map_err(|e| anyhow!("Could not run PiritaFile: {e}"));
+            }
+        }
         let (mut store, module) = self.get_store_module()?;
         #[cfg(feature = "emscripten")]
         {
