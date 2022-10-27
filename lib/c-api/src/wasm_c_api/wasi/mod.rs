@@ -23,7 +23,7 @@ use std::{
     io::{self, SeekFrom},
     sync::MutexGuard,
 };
-#[cfg(feature = "pirita_file")]
+#[cfg(feature = "webc_runner")]
 use wasmer_api::{AsStoreMut, Imports, Module};
 use wasmer_wasi::{
     get_wasi_version, FsError, VirtualFile, WasiBidirectionalPipePair, WasiFile, WasiFunctionEnv,
@@ -846,7 +846,7 @@ pub unsafe extern "C" fn wasi_filesystem_delete(ptr: *mut wasi_filesystem_t) {
 
 /// Initializes the `imports` with an import object that links to
 /// the custom file system
-#[cfg(feature = "pirita_file")]
+#[cfg(feature = "webc_runner")]
 #[no_mangle]
 pub unsafe extern "C" fn wasi_env_with_filesystem(
     config: Box<wasi_config_t>,
@@ -859,7 +859,7 @@ pub unsafe extern "C" fn wasi_env_with_filesystem(
     wasi_env_with_filesystem_inner(config, store, module, fs, imports, package)
 }
 
-#[cfg(feature = "pirita_file")]
+#[cfg(feature = "webc_runner")]
 unsafe fn wasi_env_with_filesystem_inner(
     config: Box<wasi_config_t>,
     store: Option<&mut wasm_store_t>,
@@ -892,7 +892,7 @@ unsafe fn wasi_env_with_filesystem_inner(
     }))
 }
 
-#[cfg(feature = "pirita_file")]
+#[cfg(feature = "webc_runner")]
 fn prepare_webc_env(
     config: Box<wasi_config_t>,
     store: &mut impl AsStoreMut,
@@ -901,11 +901,11 @@ fn prepare_webc_env(
     len: usize,
     package_name: &str,
 ) -> Option<(WasiFunctionEnv, Imports)> {
-    use pirita::FsEntryType;
-    use pirita::StaticFileSystem;
+    use wasmer_vfs::static_fs::StaticFileSystem;
+    use webc::FsEntryType;
 
     let slice = unsafe { std::slice::from_raw_parts(bytes, len) };
-    let volumes = pirita::PiritaFile::parse_volumes_from_fileblock(slice).ok()?;
+    let volumes = webc::WebC::parse_volumes_from_fileblock(slice).ok()?;
     let top_level_dirs = volumes
         .into_iter()
         .flat_map(|(_, volume)| {
@@ -924,12 +924,12 @@ fn prepare_webc_env(
     let filesystem = Box::new(StaticFileSystem::init(slice, &package_name)?);
     let mut wasi_env = config.state_builder;
 
-    if !config.inherit_stdout {
-        wasi_env.stdout(Box::new(Pipe::new()));
+    if let Some(s) = config.stdout {
+        wasi_env.stdout(s);
     }
 
-    if !config.inherit_stderr {
-        wasi_env.stderr(Box::new(Pipe::new()));
+    if let Some(s) = config.stderr {
+        wasi_env.stderr(s);
     }
 
     wasi_env.set_fs(filesystem);

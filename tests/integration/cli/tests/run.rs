@@ -76,7 +76,7 @@ fn test_wasmer_create_exe_pirita_works() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[cfg(feature = "pirita_file")]
+#[cfg(feature = "webc_runner")]
 #[test]
 fn test_wasmer_run_pirita_works() -> anyhow::Result<()> {
     let temp_dir = tempfile::TempDir::new()?;

@@ -65,6 +65,8 @@ walkdir = "2.3.2"
 regex = "1.6.0"
 toml = "0.5.9"
 url = "2.3.1"
+nuke-dir = { version = "0.1.0", optional = true }
+webc = { version = "3.0.0", optional = true }
 
 [build-dependencies]
 chrono = { version = "^0.4", default-features = false, features = [ "std", "clock" ] }
@@ -93,7 +95,7 @@ wast = ["wasmer-wast"]
 wasi = ["wasmer-wasi"]
 emscripten = ["wasmer-emscripten"]
 wat = ["wasmer/wat"]
-webc_runner = ["wasmer/webc_runner"]
+webc_runner = ["wasmer/webc_runner", "nuke-dir", "webc"]
 compiler = [
     "wasmer-compiler/translator",
     "wasmer-compiler/compiler",

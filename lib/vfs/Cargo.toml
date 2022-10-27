@@ -21,7 +21,7 @@ default = ["host-fs", "mem-fs", "webc-fs", "static-fs"]
 host-fs = ["libc"]
 mem-fs = ["slab"]
 webc-fs = ["webc", "anyhow"]
-static-fs = ["webc", "anyhow"]
+static-fs = ["webc", "anyhow", "mem-fs"]
 enable-serde = [
     "serde",
     "typetag"

@@ -3847,7 +3847,9 @@ dependencies = [
  "wasmer-inline-c",
  "wasmer-middlewares",
  "wasmer-types",
+ "wasmer-vfs",
  "wasmer-wasi",
+ "webc",
 ]
 
 [[package]]
@@ -3900,6 +3902,7 @@ dependencies = [
  "fern",
  "http_req",
  "log",
+ "nuke-dir",
  "prettytable-rs",
  "regex",
  "serde_json",
@@ -3927,6 +3930,7 @@ dependencies = [
  "wasmer-wasi",
  "wasmer-wasi-experimental-io-devices",
  "wasmer-wast",
+ "webc",
 ]
 
 [[package]]

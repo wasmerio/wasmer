@@ -216,9 +216,9 @@ impl Run {
     }
 
     fn inner_execute(&self) -> Result<()> {
-        #[cfg(feature = "pirita_file")]
+        #[cfg(feature = "webc_runner")]
         {
-            if let Some(pf) = pirita::PiritaContainer::load_mmap(self.path.clone()) {
+            if let Ok(pf) = wasmer::runners::WapmContainer::new(self.path.clone()) {
                 return pf
                     .run(&self.command_name.clone().unwrap_or_default(), &self.args)
                     .map_err(|e| anyhow!("Could not run PiritaFile: {e}"));

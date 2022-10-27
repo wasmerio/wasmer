@@ -5,8 +5,6 @@ use super::ObjectFormat;
 use crate::{commands::PrefixerFn, store::CompilerOptions};
 use anyhow::{Context, Result};
 use clap::Parser;
-#[cfg(feature = "pirita_file")]
-use pirita::{ParseOptions, PiritaFileMmap};
 use std::env;
 use std::fs;
 use std::fs::File;
@@ -16,6 +14,8 @@ use std::path::PathBuf;
 use std::process::Command;
 use wasmer::*;
 use wasmer_object::{emit_serialized, get_object_for_target};
+#[cfg(feature = "webc_runner")]
+use webc::{ParseOptions, WebCMmap};
 
 const WASMER_SERIALIZED_HEADER: &[u8] = include_bytes!("wasmer_create_exe.h");
 
@@ -93,10 +93,9 @@ impl CreateObj {
         let output_path = starting_cd.join(&self.output);
         let object_format = self.object_format.unwrap_or(ObjectFormat::Symbols);
 
-        #[cfg(feature = "pirita_file")]
+        #[cfg(feature = "webc_runner")]
         {
-            if let Ok(pirita) =
-                PiritaFileMmap::parse(wasm_module_path.clone(), &ParseOptions::default())
+            if let Ok(pirita) = WebCMmap::parse(wasm_module_path.clone(), &ParseOptions::default())
             {
                 return self.execute_pirita(&pirita, target, output_path, object_format);
             }
@@ -168,17 +167,18 @@ impl CreateObj {
         Ok(())
     }
 
-    #[cfg(feature = "pirita_file")]
+    #[cfg(feature = "webc_runner")]
     fn execute_pirita(
         &self,
-        file: &PiritaFileMmap,
+        file: &WebCMmap,
         target: Target,
         output_path: PathBuf,
         object_format: ObjectFormat,
     ) -> Result<()> {
         if output_path.exists() {
             if output_path.is_dir() {
-                wapm_targz_to_pirita::nuke_dir(&output_path)?;
+                nuke_dir::nuke_dir(&output_path)
+                    .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
             }
         } else {
             let _ = std::fs::create_dir_all(&output_path)?;
