@@ -628,7 +628,12 @@ pub(crate) fn try_autoinstall_package(
 
     // Try auto-installing the remote package
     let mut args_without_package = args.to_vec();
-    args_without_package.remove(1);
+    if args_without_package.get(1) == Some(&sv.original) {
+        let _ = args_without_package.remove(1);
+    } else if args_without_package.get(2) == Some(&sv.original) {
+        let _ = args_without_package.remove(1);
+        let _ = args_without_package.remove(1);
+    }
 
     let mut run_args = RunWithoutFile::try_parse_from(args_without_package.iter())?;
     run_args.command_name = sv.command.clone();
