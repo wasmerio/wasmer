@@ -24,12 +24,12 @@ pub mod c_gen;
 pub mod cli;
 #[cfg(feature = "debug")]
 pub mod logging;
-pub mod store;
-pub mod suggestions;
-pub mod utils;
 /// Runners for webc files (WASI / Emscripten)
 #[cfg(feature = "webc_runner")]
 pub mod runners;
+pub mod store;
+pub mod suggestions;
+pub mod utils;
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

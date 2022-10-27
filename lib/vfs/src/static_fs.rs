@@ -1,10 +1,10 @@
 use anyhow::anyhow;
 
+use std::convert::TryInto;
 use std::io::{Error as IoError, ErrorKind as IoErrorKind, Read, Seek, SeekFrom, Write};
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::convert::TryInto;
 
 use crate::mem_fs::FileSystem as MemFileSystem;
 use crate::{

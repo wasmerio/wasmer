@@ -46,7 +46,6 @@ fn run_wasi_works() -> anyhow::Result<()> {
     Ok(())
 }
 
-
 #[test]
 fn test_wasmer_create_exe_pirita_works() -> anyhow::Result<()> {
     let temp_dir = tempfile::TempDir::new()?;
@@ -63,7 +62,7 @@ fn test_wasmer_create_exe_pirita_works() -> anyhow::Result<()> {
 
     if !output.status.success() {
         let stdout = std::str::from_utf8(&output.stdout)
-        .expect("stdout is not utf8! need to handle arbitrary bytes");
+            .expect("stdout is not utf8! need to handle arbitrary bytes");
 
         bail!(
             "running wasmer create-exe {} failed with: stdout: {}\n\nstderr: {}",

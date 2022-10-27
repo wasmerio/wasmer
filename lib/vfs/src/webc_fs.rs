@@ -1,16 +1,16 @@
-use anyhow::anyhow;
-use std::io::{Error as IoError, ErrorKind as IoErrorKind, Read, Seek, SeekFrom, Write};
-use std::ops::Deref;
-use std::path::Path;
-use std::path::PathBuf;
-use std::sync::Arc;
 use crate::mem_fs::FileSystem as MemFileSystem;
 use crate::{
     FileDescriptor, FileOpener, FileSystem, FsError, Metadata, OpenOptions, OpenOptionsConfig,
     ReadDir, VirtualFile,
 };
-use webc::{FsEntry, FsEntryType, OwnedFsEntryFile, WebC};
+use anyhow::anyhow;
 use std::convert::TryInto;
+use std::io::{Error as IoError, ErrorKind as IoErrorKind, Read, Seek, SeekFrom, Write};
+use std::ops::Deref;
+use std::path::Path;
+use std::path::PathBuf;
+use std::sync::Arc;
+use webc::{FsEntry, FsEntryType, OwnedFsEntryFile, WebC};
 
 /// Custom file system wrapper to map requested file paths
 #[derive(Debug)]
