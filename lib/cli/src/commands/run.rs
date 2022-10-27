@@ -627,9 +627,7 @@ pub(crate) fn try_autoinstall_package(
     };
 
     // Try auto-installing the remote package
-    let mut args_without_package = args.to_vec();
-    args_without_package.remove(1);
-
+    let args_without_package = fixup_args(args, &sv.original);
     let mut run_args = RunWithoutFile::try_parse_from(args_without_package.iter())?;
     run_args.command_name = sv.command.clone();
 
@@ -659,17 +657,7 @@ fn try_execute_local_package(
         .map_err(|e| ExecuteLocalPackageError::BeforeExec(anyhow::anyhow!("{e}")))?;
 
     // Try finding the local package
-    let mut args_without_package = args.to_vec();
-
-    // remove either "run" or $package
-    args_without_package.remove(1);
-
-    // "wasmer package arg1 arg2" => "wasmer arg1 arg2"
-    if (args_without_package.get(1).is_some() && args_without_package[1].starts_with(&sv.original))
-        || (sv.command.is_some() && args_without_package[1].ends_with(sv.command.as_ref().unwrap()))
-    {
-        args_without_package.remove(1);
-    }
+    let args_without_package = fixup_args(args, &sv.original);
 
     RunWithoutFile::try_parse_from(args_without_package.iter())
         .map_err(|e| ExecuteLocalPackageError::DuringExec(e.into()))?
@@ -702,17 +690,46 @@ fn try_lookup_command(sv: &mut SplitVersion) -> Result<PackageDownloadInfo, anyh
     Err(anyhow::anyhow!("command {sv} not found"))
 }
 
+/// Removes the difference between "wasmer run {file} arg1 arg2" and "wasmer {file} arg1 arg2"
+fn fixup_args(args: &[String], command: &str) -> Vec<String> {
+    let mut args_without_package = args.to_vec();
+    if args_without_package.get(1).map(|s| s.as_str()) == Some(command) {
+        let _ = args_without_package.remove(1);
+    } else if args_without_package.get(2).map(|s| s.as_str()) == Some(command) {
+        let _ = args_without_package.remove(1);
+        let _ = args_without_package.remove(1);
+    }
+    args_without_package
+}
+
+#[test]
+fn test_fixup_args() {
+    let first_args = vec![
+        format!("wasmer"),
+        format!("run"),
+        format!("python/python"),
+        format!("--arg1"),
+        format!("--arg2"),
+    ];
+
+    let second_args = vec![
+        format!("wasmer"), // no "run"
+        format!("python/python"),
+        format!("--arg1"),
+        format!("--arg2"),
+    ];
+
+    let arg1_transformed = fixup_args(&first_args, "python/python");
+    let arg2_transformed = fixup_args(&second_args, "python/python");
+
+    assert_eq!(arg1_transformed, arg2_transformed);
+}
+
 pub(crate) fn try_run_package_or_file(args: &[String], r: &Run) -> Result<(), anyhow::Error> {
     // Check "r.path" is a file or a package / command name
     if r.path.exists() {
         if r.path.is_dir() && r.path.join("wapm.toml").exists() {
-            let mut args_without_package = args.to_vec();
-            if args_without_package.get(1) == Some(&format!("{}", r.path.display())) {
-                let _ = args_without_package.remove(1);
-            } else if args_without_package.get(2) == Some(&format!("{}", r.path.display())) {
-                let _ = args_without_package.remove(1);
-                let _ = args_without_package.remove(1);
-            }
+            let args_without_package = fixup_args(args, &format!("{}", r.path.display()));
             return RunWithoutFile::try_parse_from(args_without_package.iter())?
                 .into_run_args(r.path.clone(), r.command_name.as_deref())?
                 .execute();
