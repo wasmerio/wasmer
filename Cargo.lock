@@ -2279,7 +2279,7 @@ checksum = "8b870d8c151b6f2fb93e84a13146138f05d02ed11c7e7c54f8826aaaf7c9f184"
 name = "pirita"
 version = "0.1.0"
 dependencies = [
- "webc 0.1.0",
+ "webc 3.0.0",
  "webc-runner 0.1.0",
 ]
 
@@ -2288,7 +2288,7 @@ name = "pirita"
 version = "0.1.0"
 source = "git+ssh://git@github.com/wasmerio/pirita.git?rev=bb50683a4110c451283c529c5af7cf49ff5998c3#bb50683a4110c451283c529c5af7cf49ff5998c3"
 dependencies = [
- "webc 0.1.0 (git+ssh://git@github.com/wasmerio/pirita.git?rev=bb50683a4110c451283c529c5af7cf49ff5998c3)",
+ "webc 0.1.0",
  "webc-runner 0.1.0 (git+ssh://git@github.com/wasmerio/pirita.git?rev=bb50683a4110c451283c529c5af7cf49ff5998c3)",
 ]
 
@@ -3882,7 +3882,7 @@ dependencies = [
  "sha2",
  "tar 0.4.38 (git+https://github.com/fschutt/tar-rs?rev=04ded46840bb195f6c14ca85c5a6d25b61ca349c)",
  "validator",
- "webc 0.1.0 (git+ssh://git@github.com/wasmerio/pirita.git?rev=bb50683a4110c451283c529c5af7cf49ff5998c3)",
+ "webc 0.1.0",
 ]
 
 [[package]]
@@ -4212,6 +4212,7 @@ dependencies = [
  "pirita 0.1.0 (git+ssh://git@github.com/wasmerio/pirita.git?rev=bb50683a4110c451283c529c5af7cf49ff5998c3)",
  "prettytable-rs",
  "regex",
+ "serde_cbor",
  "serde_json",
  "spinner",
  "target-lexicon 0.12.4",
@@ -4238,6 +4239,7 @@ dependencies = [
  "wasmer-wasi 3.0.0-rc.1",
  "wasmer-wasi-experimental-io-devices",
  "wasmer-wast",
+ "webc 3.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -4576,12 +4578,14 @@ dependencies = [
 name = "wasmer-vfs"
 version = "3.0.0-rc.1"
 dependencies = [
+ "anyhow",
  "libc",
  "serde",
  "slab",
  "thiserror",
  "tracing",
  "typetag",
+ "webc 3.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -5047,6 +5051,7 @@ dependencies = [
 [[package]]
 name = "webc"
 version = "0.1.0"
+source = "git+ssh://git@github.com/wasmerio/pirita.git?rev=bb50683a4110c451283c529c5af7cf49ff5998c3#bb50683a4110c451283c529c5af7cf49ff5998c3"
 dependencies = [
  "anyhow",
  "base64",
@@ -5067,8 +5072,30 @@ dependencies = [
 
 [[package]]
 name = "webc"
-version = "0.1.0"
-source = "git+ssh://git@github.com/wasmerio/pirita.git?rev=bb50683a4110c451283c529c5af7cf49ff5998c3#bb50683a4110c451283c529c5af7cf49ff5998c3"
+version = "3.0.0"
+dependencies = [
+ "anyhow",
+ "base64",
+ "indexmap",
+ "leb128",
+ "lexical-sort",
+ "memchr",
+ "memmap2",
+ "path-clean",
+ "rand 0.8.5",
+ "serde",
+ "serde_cbor",
+ "serde_json",
+ "sha2",
+ "url",
+ "walkdir",
+]
+
+[[package]]
+name = "webc"
+version = "3.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "646280298fa6a3203973571aa7b2d73ba23a0059dae5b90c4112d744a617c878"
 dependencies = [
  "anyhow",
  "base64",
@@ -5105,7 +5132,7 @@ dependencies = [
  "wapm-resolve-url",
  "wasmer 3.0.0-rc.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "wasmer-vfs 3.0.0-rc.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "webc 0.1.0",
+ "webc 3.0.0",
  "webc-vfs 0.1.0",
 ]
 
@@ -5132,7 +5159,7 @@ dependencies = [
  "wasmer-emscripten 3.0.0-rc.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "wasmer-vfs 3.0.0-rc.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "wasmer-wasi 3.0.0-rc.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "webc 0.1.0 (git+ssh://git@github.com/wasmerio/pirita.git?rev=bb50683a4110c451283c529c5af7cf49ff5998c3)",
+ "webc 0.1.0",
  "webc-vfs 0.1.0 (git+ssh://git@github.com/wasmerio/pirita.git?rev=bb50683a4110c451283c529c5af7cf49ff5998c3)",
 ]
 
@@ -5142,7 +5169,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "wasmer-vfs 3.0.0-rc.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "webc 0.1.0",
+ "webc 3.0.0",
 ]
 
 [[package]]
@@ -5152,7 +5179,7 @@ source = "git+ssh://git@github.com/wasmerio/pirita.git?rev=bb50683a4110c451283c5
 dependencies = [
  "anyhow",
  "wasmer-vfs 3.0.0-rc.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "webc 0.1.0 (git+ssh://git@github.com/wasmerio/pirita.git?rev=bb50683a4110c451283c529c5af7cf49ff5998c3)",
+ "webc 0.1.0",
 ]
 
 [[package]]
