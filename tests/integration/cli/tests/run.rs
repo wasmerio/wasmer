@@ -4,6 +4,10 @@ use anyhow::bail;
 use std::process::Command;
 use wasmer_integration_tests_cli::{get_wasmer_path, ASSET_PATH, C_ASSET_PATH};
 
+fn wasi_test_python_path() -> String {
+    format!("{}/{}", C_ASSET_PATH, "python-0.1.0.wasmer")
+}
+
 fn wasi_test_wasm_path() -> String {
     format!("{}/{}", C_ASSET_PATH, "qjs.wasm")
 }
@@ -38,6 +42,35 @@ fn run_wasi_works() -> anyhow::Result<()> {
 
     let stdout_output = std::str::from_utf8(&output.stdout).unwrap();
     assert_eq!(stdout_output, "27\n");
+
+    Ok(())
+}
+
+#[test]
+fn test_wasmer_run_pirita_works() -> anyhow::Result<()> {
+    let temp_dir = tempfile::TempDir::new()?;
+    let python_wasmer_path = temp_dir.path().join("python.wasmer");
+    std::fs::copy(wasi_test_python_path(), &python_wasmer_path)?;
+
+    let output = Command::new(get_wasmer_path())
+        .arg("run")
+        .arg(python_wasmer_path)
+        .arg("--")
+        .arg("-c")
+        .arg("print(\"hello\")")
+        .output()?;
+
+    let stdout = std::str::from_utf8(&output.stdout)
+        .expect("stdout is not utf8! need to handle arbitrary bytes");
+
+    if !stdout.ends_with("hello\n") {
+        bail!(
+            "1 running python.wasmer failed with: stdout: {}\n\nstderr: {}",
+            stdout,
+            std::str::from_utf8(&output.stderr)
+                .expect("stderr is not utf8! need to handle arbitrary bytes")
+        );
+    }
 
     Ok(())
 }

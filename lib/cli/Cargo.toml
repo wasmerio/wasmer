@@ -74,14 +74,14 @@ unix_mode = "0.1.3"
 
 [dependencies.wapm-targz-to-pirita]
 git = "ssh://git@github.com/wasmerio/pirita.git"
-rev = "6038ac45befc4c39571c24e162773849d40b4ae0"
+rev = "bb50683a4110c451283c529c5af7cf49ff5998c3"
 default-features = false
 features = []
 optional = true
 
 [dependencies.pirita]
 git = "ssh://git@github.com/wasmerio/pirita.git"
-rev = "6038ac45befc4c39571c24e162773849d40b4ae0"
+rev = "bb50683a4110c451283c529c5af7cf49ff5998c3"
 default-features = false
 features = ["mmap", "webc_runner", "wasi", "emscripten"]
 optional = true

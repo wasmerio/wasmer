@@ -220,7 +220,7 @@ impl Run {
         {
             if let Some(pf) = pirita::PiritaContainer::load_mmap(self.path.clone()) {
                 return pf
-                    .run(&self.command_name.clone().unwrap_or_default())
+                    .run(&self.command_name.clone().unwrap_or_default(), &self.args)
                     .map_err(|e| anyhow!("Could not run PiritaFile: {e}"));
             }
         }

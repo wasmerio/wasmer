@@ -2286,10 +2286,10 @@ dependencies = [
 [[package]]
 name = "pirita"
 version = "0.1.0"
-source = "git+ssh://git@github.com/wasmerio/pirita.git?rev=6038ac45befc4c39571c24e162773849d40b4ae0#6038ac45befc4c39571c24e162773849d40b4ae0"
+source = "git+ssh://git@github.com/wasmerio/pirita.git?rev=bb50683a4110c451283c529c5af7cf49ff5998c3#bb50683a4110c451283c529c5af7cf49ff5998c3"
 dependencies = [
- "webc 0.1.0 (git+ssh://git@github.com/wasmerio/pirita.git?rev=6038ac45befc4c39571c24e162773849d40b4ae0)",
- "webc-runner 0.1.0 (git+ssh://git@github.com/wasmerio/pirita.git?rev=6038ac45befc4c39571c24e162773849d40b4ae0)",
+ "webc 0.1.0 (git+ssh://git@github.com/wasmerio/pirita.git?rev=bb50683a4110c451283c529c5af7cf49ff5998c3)",
+ "webc-runner 0.1.0 (git+ssh://git@github.com/wasmerio/pirita.git?rev=bb50683a4110c451283c529c5af7cf49ff5998c3)",
 ]
 
 [[package]]
@@ -3868,7 +3868,7 @@ dependencies = [
 [[package]]
 name = "wapm-targz-to-pirita"
 version = "0.1.0"
-source = "git+ssh://git@github.com/wasmerio/pirita.git?rev=6038ac45befc4c39571c24e162773849d40b4ae0#6038ac45befc4c39571c24e162773849d40b4ae0"
+source = "git+ssh://git@github.com/wasmerio/pirita.git?rev=bb50683a4110c451283c529c5af7cf49ff5998c3#bb50683a4110c451283c529c5af7cf49ff5998c3"
 dependencies = [
  "anyhow",
  "base64",
@@ -3882,7 +3882,7 @@ dependencies = [
  "sha2",
  "tar 0.4.38 (git+https://github.com/fschutt/tar-rs?rev=04ded46840bb195f6c14ca85c5a6d25b61ca349c)",
  "validator",
- "webc 0.1.0 (git+ssh://git@github.com/wasmerio/pirita.git?rev=6038ac45befc4c39571c24e162773849d40b4ae0)",
+ "webc 0.1.0 (git+ssh://git@github.com/wasmerio/pirita.git?rev=bb50683a4110c451283c529c5af7cf49ff5998c3)",
 ]
 
 [[package]]
@@ -4209,7 +4209,7 @@ dependencies = [
  "fern",
  "http_req",
  "log",
- "pirita 0.1.0 (git+ssh://git@github.com/wasmerio/pirita.git?rev=6038ac45befc4c39571c24e162773849d40b4ae0)",
+ "pirita 0.1.0 (git+ssh://git@github.com/wasmerio/pirita.git?rev=bb50683a4110c451283c529c5af7cf49ff5998c3)",
  "prettytable-rs",
  "regex",
  "serde_json",
@@ -5068,7 +5068,7 @@ dependencies = [
 [[package]]
 name = "webc"
 version = "0.1.0"
-source = "git+ssh://git@github.com/wasmerio/pirita.git?rev=6038ac45befc4c39571c24e162773849d40b4ae0#6038ac45befc4c39571c24e162773849d40b4ae0"
+source = "git+ssh://git@github.com/wasmerio/pirita.git?rev=bb50683a4110c451283c529c5af7cf49ff5998c3#bb50683a4110c451283c529c5af7cf49ff5998c3"
 dependencies = [
  "anyhow",
  "base64",
@@ -5112,7 +5112,7 @@ dependencies = [
 [[package]]
 name = "webc-runner"
 version = "0.1.0"
-source = "git+ssh://git@github.com/wasmerio/pirita.git?rev=6038ac45befc4c39571c24e162773849d40b4ae0#6038ac45befc4c39571c24e162773849d40b4ae0"
+source = "git+ssh://git@github.com/wasmerio/pirita.git?rev=bb50683a4110c451283c529c5af7cf49ff5998c3#bb50683a4110c451283c529c5af7cf49ff5998c3"
 dependencies = [
  "anyhow",
  "futures-util",
@@ -5132,8 +5132,8 @@ dependencies = [
  "wasmer-emscripten 3.0.0-rc.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "wasmer-vfs 3.0.0-rc.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "wasmer-wasi 3.0.0-rc.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "webc 0.1.0 (git+ssh://git@github.com/wasmerio/pirita.git?rev=6038ac45befc4c39571c24e162773849d40b4ae0)",
- "webc-vfs 0.1.0 (git+ssh://git@github.com/wasmerio/pirita.git?rev=6038ac45befc4c39571c24e162773849d40b4ae0)",
+ "webc 0.1.0 (git+ssh://git@github.com/wasmerio/pirita.git?rev=bb50683a4110c451283c529c5af7cf49ff5998c3)",
+ "webc-vfs 0.1.0 (git+ssh://git@github.com/wasmerio/pirita.git?rev=bb50683a4110c451283c529c5af7cf49ff5998c3)",
 ]
 
 [[package]]
@@ -5148,11 +5148,11 @@ dependencies = [
 [[package]]
 name = "webc-vfs"
 version = "0.1.0"
-source = "git+ssh://git@github.com/wasmerio/pirita.git?rev=6038ac45befc4c39571c24e162773849d40b4ae0#6038ac45befc4c39571c24e162773849d40b4ae0"
+source = "git+ssh://git@github.com/wasmerio/pirita.git?rev=bb50683a4110c451283c529c5af7cf49ff5998c3#bb50683a4110c451283c529c5af7cf49ff5998c3"
 dependencies = [
  "anyhow",
  "wasmer-vfs 3.0.0-rc.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "webc 0.1.0 (git+ssh://git@github.com/wasmerio/pirita.git?rev=6038ac45befc4c39571c24e162773849d40b4ae0)",
+ "webc 0.1.0 (git+ssh://git@github.com/wasmerio/pirita.git?rev=bb50683a4110c451283c529c5af7cf49ff5998c3)",
 ]
 
 [[package]]
