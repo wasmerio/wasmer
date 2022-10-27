@@ -94,7 +94,7 @@ impl FileOpener for WebCFileOpener {
 }
 
 #[derive(Debug)]
-struct WebCFile {
+pub struct WebCFile {
     pub volumes: Arc<webc::IndexMap<String, webc::Volume<'static>>>,
     pub package: String,
     pub volume: String,
@@ -138,10 +138,12 @@ impl Read for WebCFile {
         let bytes = self
             .volumes
             .get(&self.volume)
-            .ok_or(IoError::new(
-                IoErrorKind::NotFound,
-                anyhow!("Unknown volume {:?}", self.volume),
-            ))?
+            .ok_or_else(|| {
+                IoError::new(
+                    IoErrorKind::NotFound,
+                    anyhow!("Unknown volume {:?}", self.volume),
+                )
+            })?
             .get_file_bytes(&self.entry)
             .map_err(|e| IoError::new(IoErrorKind::NotFound, e))?;
 

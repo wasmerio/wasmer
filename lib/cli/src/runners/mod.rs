@@ -68,7 +68,7 @@ impl WapmContainer {
             .bindings
             .iter()
             .find(|b| b.name == bindings)
-            .ok_or(ParseBindingsError::NoBindings(bindings.to_string()))?;
+            .ok_or_else(|| ParseBindingsError::NoBindings(bindings.to_string()))?;
 
         T::parse_bindings(self, &bindings.annotations).map_err(ParseBindingsError::ParseBindings)
     }
@@ -97,7 +97,7 @@ pub struct WitBindings {}
 
 impl WitBindings {
     /// Unused: creates default wit bindings
-    pub fn from_str(_s: &str) -> Result<Self, String> {
+    pub fn parse(_s: &str) -> Result<Self, String> {
         Ok(Self::default())
     }
 }
@@ -128,7 +128,7 @@ impl Bindings for WitBindings {
         let wit_bindings_str = std::str::from_utf8(wit_bindings)
             .map_err(|e| format!("could not get WitBindings file {wit_bindgen_filepath:?}: {e}"))?;
 
-        Self::from_str(wit_bindings_str)
+        Self::parse(wit_bindings_str)
     }
 }
 
@@ -177,16 +177,13 @@ pub trait Runner {
         cmd: &str,
     ) -> Result<Self::Output, Box<dyn StdError>> {
         let path = format!("{}", container.webc.path.display());
-        let command_to_exec =
-            container
-                .webc
-                .webc
-                .manifest
-                .commands
-                .get(cmd)
-                .ok_or(anyhow::anyhow!(
-                    "{path}: command {cmd:?} not found in manifest"
-                ))?;
+        let command_to_exec = container
+            .webc
+            .webc
+            .manifest
+            .commands
+            .get(cmd)
+            .ok_or_else(|| anyhow::anyhow!("{path}: command {cmd:?} not found in manifest"))?;
 
         let _path = format!("{}", container.webc.path.display());
 

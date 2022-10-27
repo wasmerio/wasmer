@@ -66,7 +66,7 @@ where
     ) -> Result<Box<dyn VirtualFile + Send + Sync>, FsError> {
         match get_volume_name_opt(path) {
             Some(volume) => {
-                let file = (&*self.webc)
+                let file = (*self.webc)
                     .volumes
                     .get(&volume)
                     .ok_or(FsError::EntityNotFound)?
@@ -168,10 +168,12 @@ where
             .webc
             .volumes
             .get(&self.volume)
-            .ok_or(IoError::new(
-                IoErrorKind::NotFound,
-                anyhow!("Unknown volume {:?}", self.volume),
-            ))?
+            .ok_or_else(|| {
+                IoError::new(
+                    IoErrorKind::NotFound,
+                    anyhow!("Unknown volume {:?}", self.volume),
+                )
+            })?
             .get_file_bytes(&self.entry)
             .map_err(|e| IoError::new(IoErrorKind::NotFound, e))?;
 
@@ -246,7 +248,7 @@ fn get_volume_name_opt<P: AsRef<Path>>(path: P) -> Option<String> {
 
 #[allow(dead_code)]
 fn get_volume_name<P: AsRef<Path>>(path: P) -> String {
-    get_volume_name_opt(path).unwrap_or("atom".to_string())
+    get_volume_name_opt(path).unwrap_or_else(|| "atom".to_string())
 }
 
 fn transform_into_read_dir<'a>(path: &Path, fs_entries: &[FsEntry<'a>]) -> crate::ReadDir {
@@ -277,7 +279,7 @@ where
         let read_dir_result = self
             .webc
             .read_dir(&self.package, &path)
-            .map(|o| transform_into_read_dir(&Path::new(&path), o.as_ref()))
+            .map(|o| transform_into_read_dir(Path::new(&path), o.as_ref()))
             .map_err(|_| FsError::EntityNotFound);
 
         match read_dir_result {
