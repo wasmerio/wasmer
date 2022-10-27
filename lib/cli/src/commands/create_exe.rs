@@ -349,7 +349,7 @@ impl CreateExe {
         cross_compile: Option<CrossCompile>,
         target_triple: Option<Triple>,
         object_format: ObjectFormat,
-        starting_cd: &PathBuf,
+        starting_cd: &Path,
     ) -> Result<Option<CrossCompileSetup>, anyhow::Error> {
         if let Some(mut cross_subc) = cross_compile.or_else(|| {
             if target_triple.is_some() {
@@ -415,12 +415,12 @@ impl CreateExe {
                         let target_file_path = local_tarball
                             .parent()
                             .and_then(|parent| Some(parent.join(local_tarball.file_stem()?)))
-                            .unwrap_or(local_tarball.clone());
+                            .unwrap_or_else(|| local_tarball.clone());
 
                         let target_file_path = target_file_path
                             .parent()
                             .and_then(|parent| Some(parent.join(target_file_path.file_stem()?)))
-                            .unwrap_or(target_file_path.clone());
+                            .unwrap_or_else(|| target_file_path.clone());
 
                         let _ = std::fs::create_dir_all(&target_file_path);
                         let files = untar(local_tarball.clone(), target_file_path.clone())?;
@@ -435,16 +435,16 @@ impl CreateExe {
                             let target_file_path = tarball
                                 .parent()
                                 .and_then(|parent| Some(parent.join(tarball.file_stem()?)))
-                                .unwrap_or(tarball.clone());
+                                .unwrap_or_else(|| tarball.clone());
 
                             let target_file_path = target_file_path
                                 .parent()
                                 .and_then(|parent| Some(parent.join(target_file_path.file_stem()?)))
-                                .unwrap_or(target_file_path.clone());
+                                .unwrap_or_else(|| target_file_path.clone());
 
                             tarball_dir = target_file_path
                                 .canonicalize()
-                                .unwrap_or(target_file_path.clone());
+                                .unwrap_or_else(|_| target_file_path.clone());
                             let files = untar(tarball, target_file_path)?;
                             files.into_iter().find(|f| f.contains(libwasmer_path)).ok_or_else(|| {
                                 anyhow!("Could not find libwasmer for {} target in the fetched release from Github: you can download it manually and specify its path with the --cross-compilation-library-path LIBRARY_PATH flag.", target)})?
@@ -477,11 +477,11 @@ impl CreateExe {
         let tempdir_path = tempdir.path();
 
         // write C src to disk
-        let c_src_path = tempdir_path.clone().join("wasmer_main.c");
+        let c_src_path = tempdir_path.join("wasmer_main.c");
         #[cfg(not(windows))]
-        let c_src_obj = tempdir_path.clone().join("wasmer_main.o");
+        let c_src_obj = tempdir_path.join("wasmer_main.o");
         #[cfg(windows)]
-        let c_src_obj = tempdir_path.clone().join("wasmer_main.obj");
+        let c_src_obj = tempdir_path.join("wasmer_main.obj");
 
         std::fs::write(
             &c_src_path,
@@ -505,6 +505,7 @@ impl CreateExe {
         Ok(())
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn compile_zig(
         &self,
         output_path: PathBuf,
