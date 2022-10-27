@@ -65,6 +65,8 @@ walkdir = "2.3.2"
 regex = "1.6.0"
 toml = "0.5.9"
 url = "2.3.1"
+webc = { version = "3.0.0", optional = true, default-features = false, features = ["std", "mmap"] }
+serde_cbor = { version = "0.11.2", optional = true }
 
 [build-dependencies]
 chrono = { version = "^0.4", default-features = false, features = [ "std", "clock" ] }
@@ -95,6 +97,7 @@ default = [
     "http",
     "cache",
     "wasi",
+    "webc_runner",
     "emscripten",
     "compiler",
     "wasmer-artifact-create",
@@ -106,6 +109,7 @@ wast = ["wasmer-wast"]
 wasi = ["wasmer-wasi"]
 emscripten = ["wasmer-emscripten"]
 wat = ["wasmer/wat"]
+webc_runner = ["webc", "serde_cbor"]
 compiler = [
     "wasmer-compiler/translator",
     "wasmer-compiler/compiler",
