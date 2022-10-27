@@ -46,6 +46,38 @@ fn run_wasi_works() -> anyhow::Result<()> {
     Ok(())
 }
 
+
+#[test]
+fn test_wasmer_create_exe_pirita_works() -> anyhow::Result<()> {
+    let temp_dir = tempfile::TempDir::new()?;
+    let python_wasmer_path = temp_dir.path().join("python.wasmer");
+    std::fs::copy(wasi_test_python_path(), &python_wasmer_path)?;
+    let python_exe_output_path = temp_dir.path().join("python");
+
+    let output = Command::new(get_wasmer_path())
+        .arg("create-exe")
+        .arg(&python_wasmer_path)
+        .arg("-o")
+        .arg(&python_exe_output_path)
+        .output()?;
+
+    if !output.status.success() {
+        let stdout = std::str::from_utf8(&output.stdout)
+        .expect("stdout is not utf8! need to handle arbitrary bytes");
+
+        bail!(
+            "running wasmer create-exe {} failed with: stdout: {}\n\nstderr: {}",
+            python_wasmer_path.display(),
+            stdout,
+            std::str::from_utf8(&output.stderr)
+                .expect("stderr is not utf8! need to handle arbitrary bytes")
+        );
+    }
+
+    Ok(())
+}
+
+#[cfg(feature = "pirita_file")]
 #[test]
 fn test_wasmer_run_pirita_works() -> anyhow::Result<()> {
     let temp_dir = tempfile::TempDir::new()?;
