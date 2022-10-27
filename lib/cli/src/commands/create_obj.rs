@@ -176,7 +176,6 @@ impl CreateObj {
         output_path: PathBuf,
         object_format: ObjectFormat,
     ) -> Result<()> {
-        use wasmer_object::Object;
         if output_path.exists() {
             if output_path.is_dir() {
                 wapm_targz_to_pirita::nuke_dir(&output_path)?;

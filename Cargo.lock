@@ -2279,8 +2279,17 @@ checksum = "8b870d8c151b6f2fb93e84a13146138f05d02ed11c7e7c54f8826aaaf7c9f184"
 name = "pirita"
 version = "0.1.0"
 dependencies = [
- "webc",
- "webc-runner",
+ "webc 0.1.0",
+ "webc-runner 0.1.0",
+]
+
+[[package]]
+name = "pirita"
+version = "0.1.0"
+source = "git+ssh://git@github.com/wasmerio/pirita.git?rev=6038ac45befc4c39571c24e162773849d40b4ae0#6038ac45befc4c39571c24e162773849d40b4ae0"
+dependencies = [
+ "webc 0.1.0 (git+ssh://git@github.com/wasmerio/pirita.git?rev=6038ac45befc4c39571c24e162773849d40b4ae0)",
+ "webc-runner 0.1.0 (git+ssh://git@github.com/wasmerio/pirita.git?rev=6038ac45befc4c39571c24e162773849d40b4ae0)",
 ]
 
 [[package]]
@@ -3859,6 +3868,7 @@ dependencies = [
 [[package]]
 name = "wapm-targz-to-pirita"
 version = "0.1.0"
+source = "git+ssh://git@github.com/wasmerio/pirita.git?rev=6038ac45befc4c39571c24e162773849d40b4ae0#6038ac45befc4c39571c24e162773849d40b4ae0"
 dependencies = [
  "anyhow",
  "base64",
@@ -3872,7 +3882,7 @@ dependencies = [
  "sha2",
  "tar 0.4.38 (git+https://github.com/fschutt/tar-rs?rev=04ded46840bb195f6c14ca85c5a6d25b61ca349c)",
  "validator",
- "webc",
+ "webc 0.1.0 (git+ssh://git@github.com/wasmerio/pirita.git?rev=6038ac45befc4c39571c24e162773849d40b4ae0)",
 ]
 
 [[package]]
@@ -4134,7 +4144,7 @@ dependencies = [
  "lazy_static",
  "libc",
  "paste",
- "pirita",
+ "pirita 0.1.0",
  "thiserror",
  "typetag",
  "wasmer 3.0.0-rc.1",
@@ -4199,7 +4209,7 @@ dependencies = [
  "fern",
  "http_req",
  "log",
- "pirita",
+ "pirita 0.1.0 (git+ssh://git@github.com/wasmerio/pirita.git?rev=6038ac45befc4c39571c24e162773849d40b4ae0)",
  "prettytable-rs",
  "regex",
  "serde_json",
@@ -5056,8 +5066,53 @@ dependencies = [
 ]
 
 [[package]]
+name = "webc"
+version = "0.1.0"
+source = "git+ssh://git@github.com/wasmerio/pirita.git?rev=6038ac45befc4c39571c24e162773849d40b4ae0#6038ac45befc4c39571c24e162773849d40b4ae0"
+dependencies = [
+ "anyhow",
+ "base64",
+ "indexmap",
+ "leb128",
+ "lexical-sort",
+ "memchr",
+ "memmap2",
+ "path-clean",
+ "rand 0.8.5",
+ "serde",
+ "serde_cbor",
+ "serde_json",
+ "sha2",
+ "url",
+ "walkdir",
+]
+
+[[package]]
 name = "webc-runner"
 version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "futures-util",
+ "lazy_static",
+ "libc",
+ "log",
+ "regex",
+ "serde",
+ "serde_cbor",
+ "serde_derive",
+ "tokio",
+ "url",
+ "wapm-resolve-url",
+ "wasmer 3.0.0-rc.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wasmer-vfs 3.0.0-rc.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "webc 0.1.0",
+ "webc-vfs 0.1.0",
+]
+
+[[package]]
+name = "webc-runner"
+version = "0.1.0"
+source = "git+ssh://git@github.com/wasmerio/pirita.git?rev=6038ac45befc4c39571c24e162773849d40b4ae0#6038ac45befc4c39571c24e162773849d40b4ae0"
 dependencies = [
  "anyhow",
  "futures-util",
@@ -5077,8 +5132,8 @@ dependencies = [
  "wasmer-emscripten 3.0.0-rc.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "wasmer-vfs 3.0.0-rc.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "wasmer-wasi 3.0.0-rc.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "webc",
- "webc-vfs",
+ "webc 0.1.0 (git+ssh://git@github.com/wasmerio/pirita.git?rev=6038ac45befc4c39571c24e162773849d40b4ae0)",
+ "webc-vfs 0.1.0 (git+ssh://git@github.com/wasmerio/pirita.git?rev=6038ac45befc4c39571c24e162773849d40b4ae0)",
 ]
 
 [[package]]
@@ -5087,7 +5142,17 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "wasmer-vfs 3.0.0-rc.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "webc",
+ "webc 0.1.0",
+]
+
+[[package]]
+name = "webc-vfs"
+version = "0.1.0"
+source = "git+ssh://git@github.com/wasmerio/pirita.git?rev=6038ac45befc4c39571c24e162773849d40b4ae0#6038ac45befc4c39571c24e162773849d40b4ae0"
+dependencies = [
+ "anyhow",
+ "wasmer-vfs 3.0.0-rc.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "webc 0.1.0 (git+ssh://git@github.com/wasmerio/pirita.git?rev=6038ac45befc4c39571c24e162773849d40b4ae0)",
 ]
 
 [[package]]
