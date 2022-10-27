@@ -437,3 +437,7 @@ mod js;
 
 #[cfg(feature = "js")]
 pub use js::*;
+
+/// Runners for WASI / Emscripten
+#[cfg(feature = "webc_runner")]
+pub mod runners;

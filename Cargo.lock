@@ -106,19 +106,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "async-compression"
-version = "0.3.15"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "942c7cd7ae39e91bde4820d74132e9862e62c2f386c3aa90ccf55949f5bad63a"
-dependencies = [
- "flate2",
- "futures-core",
- "memchr",
- "pin-project-lite",
- "tokio",
-]
-
-[[package]]
 name = "async-trait"
 version = "0.1.58"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1033,28 +1020,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "failure"
-version = "0.1.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d32e9bd16cc02eae7db7ef620b392808b89f6a5e16bb3497d159c6b92a0f4f86"
-dependencies = [
- "backtrace",
- "failure_derive",
-]
-
-[[package]]
-name = "failure_derive"
-version = "0.1.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aa4da3c766cd7a0db8242e326e9e4e081edd567072893ed320008189715366a4"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
- "synstructure",
-]
-
-[[package]]
 name = "fallible-iterator"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1311,30 +1276,11 @@ checksum = "9b919933a397b79c37e33b77bb2aa3dc8eb6e165ad809e58ff75bc7db2e34574"
 
 [[package]]
 name = "graphql-introspection-query"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "610aac641dbd2a457ad4cef34aa2827dae3f035fd214cb38c2d62d8543f3973f"
-dependencies = [
- "serde",
-]
-
-[[package]]
-name = "graphql-introspection-query"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f2a4732cf5140bd6c082434494f785a19cfb566ab07d1382c3671f5812fed6d"
 dependencies = [
  "serde",
-]
-
-[[package]]
-name = "graphql-parser"
-version = "0.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a5613c31f18676f164112732202124f373bb2103ff017b3b85ca954ea6a66ada"
-dependencies = [
- "combine",
- "failure",
 ]
 
 [[package]]
@@ -1349,43 +1295,13 @@ dependencies = [
 
 [[package]]
 name = "graphql_client"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a0bb4f09181e4f80018d01c612125b07e0156f3753bfac37055fe2a25e031ca8"
-dependencies = [
- "doc-comment",
- "graphql_query_derive 0.9.0",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "graphql_client"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7fc16d75d169fddb720d8f1c7aed6413e329e1584079b9734ff07266a193f5bc"
 dependencies = [
- "graphql_query_derive 0.11.0",
+ "graphql_query_derive",
  "serde",
  "serde_json",
-]
-
-[[package]]
-name = "graphql_client_codegen"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8e304c223c809b3bff4614018f8e6d9edb176b31d64ed9ea48b6ae8b1a03abb9"
-dependencies = [
- "failure",
- "graphql-introspection-query 0.1.0",
- "graphql-parser 0.2.3",
- "heck 0.3.3",
- "lazy_static",
- "proc-macro2",
- "quote",
- "serde",
- "serde_json",
- "syn",
 ]
 
 [[package]]
@@ -1394,8 +1310,8 @@ version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f290ecfa3bea3e8a157899dc8a1d96ee7dd6405c18c8ddd213fc58939d18a0e9"
 dependencies = [
- "graphql-introspection-query 0.2.0",
- "graphql-parser 0.4.0",
+ "graphql-introspection-query",
+ "graphql-parser",
  "heck 0.4.0",
  "lazy_static",
  "proc-macro2",
@@ -1407,23 +1323,11 @@ dependencies = [
 
 [[package]]
 name = "graphql_query_derive"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e1f6b14d5ce549227aa9e649cd9d36d008b91021275a8e0a67d71cef815adc2f"
-dependencies = [
- "failure",
- "graphql_client_codegen 0.9.0",
- "proc-macro2",
- "syn",
-]
-
-[[package]]
-name = "graphql_query_derive"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a755cc59cda2641ea3037b4f9f7ef40471c329f55c1fa2db6fa0bb7ae6c1f7ce"
 dependencies = [
- "graphql_client_codegen 0.11.0",
+ "graphql_client_codegen",
  "proc-macro2",
  "syn",
 ]
@@ -1642,17 +1546,6 @@ checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
 
 [[package]]
 name = "idna"
-version = "0.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "418a0a6fab821475f634efe3ccc45c013f742efe03d853e8d3355d5cb850ecf8"
-dependencies = [
- "matches",
- "unicode-bidi",
- "unicode-normalization",
-]
-
-[[package]]
-name = "idna"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e14ddfc70884202db2244c223200c204c2bda1bc6e0998d11b5e024d657209e6"
@@ -1794,17 +1687,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "json5"
-version = "0.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "96b0db21af676c1ce64250b5f40f3ce2cf27e4e47cb91ed91eb6fe9350b430c1"
-dependencies = [
- "pest",
- "pest_derive",
- "serde",
-]
-
-[[package]]
 name = "lazy_static"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1926,12 +1808,6 @@ checksum = "8263075bb86c5a1b1427b5ae862e8889656f126e9f77c484496e8b47cf5c5558"
 dependencies = [
  "regex-automata",
 ]
-
-[[package]]
-name = "matches"
-version = "0.1.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a3e378b66a060d48947b590737b30a1be76706c8dd7b8ba0f2fe3989c68a853f"
 
 [[package]]
 name = "memchr"
@@ -2084,6 +1960,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "61807f77802ff30975e01f4f071c8ba10c022052f98b3294119f3e615d13e5be"
 
 [[package]]
+name = "nuke-dir"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6a6842d8099b88d19a64158a6cfdc3e9ad82c738c041dab98280ef7ba98d64fa"
+
+[[package]]
 name = "num-integer"
 version = "0.1.45"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2230,40 +2112,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pest_derive"
-version = "2.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "60b75706b9642ebcb34dab3bc7750f811609a0eb1dd8b88c2d15bf628c1c65b2"
-dependencies = [
- "pest",
- "pest_generator",
-]
-
-[[package]]
-name = "pest_generator"
-version = "2.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f4f9272122f5979a6511a749af9db9bfc810393f63119970d7085fed1c4ea0db"
-dependencies = [
- "pest",
- "pest_meta",
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
-name = "pest_meta"
-version = "2.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4c8717927f9b79515e565a64fe46c38b8cd0427e64c40680b14a7365ab09ac8d"
-dependencies = [
- "once_cell",
- "pest",
- "sha1 0.10.5",
-]
-
-[[package]]
 name = "pin-project-lite"
 version = "0.2.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2274,23 +2122,6 @@ name = "pin-utils"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8b870d8c151b6f2fb93e84a13146138f05d02ed11c7e7c54f8826aaaf7c9f184"
-
-[[package]]
-name = "pirita"
-version = "0.1.0"
-dependencies = [
- "webc 3.0.0",
- "webc-runner 0.1.0",
-]
-
-[[package]]
-name = "pirita"
-version = "0.1.0"
-source = "git+ssh://git@github.com/wasmerio/pirita.git?rev=bb50683a4110c451283c529c5af7cf49ff5998c3#bb50683a4110c451283c529c5af7cf49ff5998c3"
-dependencies = [
- "webc 0.1.0",
- "webc-runner 0.1.0 (git+ssh://git@github.com/wasmerio/pirita.git?rev=bb50683a4110c451283c529c5af7cf49ff5998c3)",
-]
 
 [[package]]
 name = "pkg-config"
@@ -2701,7 +2532,6 @@ version = "0.11.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "431949c384f4e2ae07605ccaa56d1d9d2ecdb5cadd4f9577ccfab29f2e5149fc"
 dependencies = [
- "async-compression",
  "base64",
  "bytes",
  "encoding_rs",
@@ -2727,8 +2557,6 @@ dependencies = [
  "serde_urlencoded",
  "tokio",
  "tokio-rustls",
- "tokio-socks",
- "tokio-util",
  "tower-service",
  "url",
  "wasm-bindgen",
@@ -3107,17 +2935,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sha1"
-version = "0.10.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f04293dc80c3993519f2d7f6f511707ee7094fe0c6d3406feb330cdb3540eba3"
-dependencies = [
- "cfg-if 1.0.0",
- "cpufeatures",
- "digest",
-]
-
-[[package]]
 name = "sha1_smol"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3244,7 +3061,7 @@ dependencies = [
  "serde",
  "serde_derive",
  "serde_json",
- "sha1 0.6.1",
+ "sha1",
  "syn",
 ]
 
@@ -3278,32 +3095,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "synstructure"
-version = "0.12.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f36bdaa60a83aca3921b5259d5400cbf5e90fc51931376a9bd4a0eb79aa7210f"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
- "unicode-xid",
-]
-
-[[package]]
 name = "tar"
 version = "0.4.38"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4b55807c0344e1e6c04d7c965f5289c39a8d94ae23ed5c0b57aabac549f871c6"
-dependencies = [
- "filetime",
- "libc",
- "xattr",
-]
-
-[[package]]
-name = "tar"
-version = "0.4.38"
-source = "git+https://github.com/fschutt/tar-rs?rev=04ded46840bb195f6c14ca85c5a6d25b61ca349c#04ded46840bb195f6c14ca85c5a6d25b61ca349c"
 dependencies = [
  "filetime",
  "libc",
@@ -3550,18 +3345,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tokio-socks"
-version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "51165dfa029d2a65969413a6cc96f354b86b464498702f174a4efa13608fd8c0"
-dependencies = [
- "either",
- "futures-util",
- "thiserror",
- "tokio",
-]
-
-[[package]]
 name = "tokio-util"
 version = "0.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3782,24 +3565,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0d68c799ae75762b8c3fe375feb6600ef5602c883c5d21eb51c09f22b83c4643"
 dependencies = [
  "form_urlencoded",
- "idna 0.3.0",
+ "idna",
  "percent-encoding",
  "serde",
-]
-
-[[package]]
-name = "validator"
-version = "0.15.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f07b0a1390e01c0fc35ebb26b28ced33c9a3808f7f9fbe94d3cc01e233bfeed5"
-dependencies = [
- "idna 0.2.3",
- "lazy_static",
- "regex",
- "serde",
- "serde_derive",
- "serde_json",
- "url",
 ]
 
 [[package]]
@@ -3848,60 +3616,6 @@ checksum = "1ce8a968cb1cd110d136ff8b819a556d6fb6d919363c61534f6860c7eb172ba0"
 dependencies = [
  "log",
  "try-lock",
-]
-
-[[package]]
-name = "wapm-resolve-url"
-version = "0.1.0"
-source = "git+https://github.com/wasmerio/wapm-cli?branch=download-pirita#306712983d020da772062f9654ef16ebfff29647"
-dependencies = [
- "anyhow",
- "graphql_client 0.9.0",
- "reqwest",
- "serde",
- "serde_json",
- "thiserror",
- "url",
- "whoami",
-]
-
-[[package]]
-name = "wapm-targz-to-pirita"
-version = "0.1.0"
-source = "git+ssh://git@github.com/wasmerio/pirita.git?rev=bb50683a4110c451283c529c5af7cf49ff5998c3#bb50683a4110c451283c529c5af7cf49ff5998c3"
-dependencies = [
- "anyhow",
- "base64",
- "flate2",
- "json5",
- "rand 0.8.5",
- "serde",
- "serde_cbor",
- "serde_derive",
- "serde_json",
- "sha2",
- "tar 0.4.38 (git+https://github.com/fschutt/tar-rs?rev=04ded46840bb195f6c14ca85c5a6d25b61ca349c)",
- "validator",
- "webc 0.1.0",
-]
-
-[[package]]
-name = "wapm-toml"
-version = "0.1.0"
-source = "git+https://github.com/wasmerio/wapm-cli?branch=download-pirita#306712983d020da772062f9654ef16ebfff29647"
-dependencies = [
- "anyhow",
- "indexmap",
- "semver 1.0.14",
- "serde",
- "serde_cbor",
- "serde_derive",
- "serde_json",
- "serde_yaml",
- "thiserror",
- "toml",
- "validator",
- "wapm-resolve-url",
 ]
 
 [[package]]
@@ -4071,48 +3785,26 @@ dependencies = [
  "js-sys",
  "macro-wasmer-universal-test",
  "more-asserts",
+ "nuke-dir",
  "serde",
  "serde-wasm-bindgen",
+ "serde_cbor",
  "target-lexicon 0.12.4",
  "tempfile",
  "thiserror",
  "tracing",
  "wasm-bindgen",
  "wasm-bindgen-test",
- "wasmer-compiler 3.0.0-rc.1",
- "wasmer-compiler-cranelift 3.0.0-rc.1",
+ "wasmer-compiler",
+ "wasmer-compiler-cranelift",
  "wasmer-compiler-llvm",
  "wasmer-compiler-singlepass",
- "wasmer-derive 3.0.0-rc.1",
- "wasmer-types 3.0.0-rc.1",
- "wasmer-vm 3.0.0-rc.1",
+ "wasmer-derive",
+ "wasmer-types",
+ "wasmer-vm",
  "wasmparser 0.83.0",
  "wat",
- "winapi",
-]
-
-[[package]]
-name = "wasmer"
-version = "3.0.0-rc.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ee6eea8f768e7b4313e1db8f8f4d20cccf0999102d53a2c27e1d88ecdf0b638d"
-dependencies = [
- "bytes",
- "cfg-if 1.0.0",
- "indexmap",
- "js-sys",
- "more-asserts",
- "serde",
- "serde-wasm-bindgen",
- "target-lexicon 0.12.4",
- "thiserror",
- "wasm-bindgen",
- "wasmer-compiler 3.0.0-rc.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasmer-compiler-cranelift 3.0.0-rc.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasmer-derive 3.0.0-rc.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasmer-types 3.0.0-rc.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasmer-vm 3.0.0-rc.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "wat",
+ "webc",
  "winapi",
 ]
 
@@ -4123,9 +3815,9 @@ dependencies = [
  "anyhow",
  "libfuzzer-sys",
  "wasm-smith",
- "wasmer 3.0.0-rc.1",
- "wasmer-compiler 3.0.0-rc.1",
- "wasmer-compiler-cranelift 3.0.0-rc.1",
+ "wasmer",
+ "wasmer-compiler",
+ "wasmer-compiler-cranelift",
  "wasmer-compiler-llvm",
  "wasmer-compiler-singlepass",
  "wasmer-middlewares",
@@ -4144,19 +3836,18 @@ dependencies = [
  "lazy_static",
  "libc",
  "paste",
- "pirita 0.1.0",
  "thiserror",
  "typetag",
- "wasmer 3.0.0-rc.1",
- "wasmer-compiler 3.0.0-rc.1",
- "wasmer-compiler-cranelift 3.0.0-rc.1",
+ "wasmer",
+ "wasmer-compiler",
+ "wasmer-compiler-cranelift",
  "wasmer-compiler-llvm",
  "wasmer-compiler-singlepass",
- "wasmer-emscripten 3.0.0-rc.1",
+ "wasmer-emscripten",
  "wasmer-inline-c",
  "wasmer-middlewares",
- "wasmer-types 3.0.0-rc.1",
- "wasmer-wasi 3.0.0-rc.1",
+ "wasmer-types",
+ "wasmer-wasi",
 ]
 
 [[package]]
@@ -4179,7 +3870,7 @@ dependencies = [
  "rand 0.8.5",
  "tempfile",
  "thiserror",
- "wasmer 3.0.0-rc.1",
+ "wasmer",
  "wasmer-compiler-singlepass",
 ]
 
@@ -4209,10 +3900,8 @@ dependencies = [
  "fern",
  "http_req",
  "log",
- "pirita 0.1.0 (git+ssh://git@github.com/wasmerio/pirita.git?rev=bb50683a4110c451283c529c5af7cf49ff5998c3)",
  "prettytable-rs",
  "regex",
- "serde_cbor",
  "serde_json",
  "spinner",
  "target-lexicon 0.12.4",
@@ -4222,24 +3911,22 @@ dependencies = [
  "unix_mode",
  "url",
  "walkdir",
- "wapm-targz-to-pirita",
- "wapm-toml 0.2.0",
- "wasmer 3.0.0-rc.1",
+ "wapm-toml",
+ "wasmer",
  "wasmer-cache",
- "wasmer-compiler 3.0.0-rc.1",
- "wasmer-compiler-cranelift 3.0.0-rc.1",
+ "wasmer-compiler",
+ "wasmer-compiler-cranelift",
  "wasmer-compiler-llvm",
  "wasmer-compiler-singlepass",
- "wasmer-emscripten 3.0.0-rc.1",
+ "wasmer-emscripten",
  "wasmer-object",
  "wasmer-registry",
- "wasmer-types 3.0.0-rc.1",
- "wasmer-vfs 3.0.0-rc.1",
- "wasmer-vm 3.0.0-rc.1",
- "wasmer-wasi 3.0.0-rc.1",
+ "wasmer-types",
+ "wasmer-vfs",
+ "wasmer-vm",
+ "wasmer-wasi",
  "wasmer-wasi-experimental-io-devices",
  "wasmer-wast",
- "webc 3.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -4262,32 +3949,8 @@ dependencies = [
  "smallvec",
  "thiserror",
  "wasmer-object",
- "wasmer-types 3.0.0-rc.1",
- "wasmer-vm 3.0.0-rc.1",
- "wasmparser 0.83.0",
- "winapi",
-]
-
-[[package]]
-name = "wasmer-compiler"
-version = "3.0.0-rc.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e6aac0e272385c4e29cbd217f874df59362053a5bda95c340d0c90c2cf9e56ca"
-dependencies = [
- "backtrace",
- "cfg-if 1.0.0",
- "enum-iterator",
- "enumset",
- "lazy_static",
- "leb128",
- "memmap2",
- "more-asserts",
- "region",
- "rustc-demangle",
- "smallvec",
- "thiserror",
- "wasmer-types 3.0.0-rc.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasmer-vm 3.0.0-rc.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wasmer-types",
+ "wasmer-vm",
  "wasmparser 0.83.0",
  "winapi",
 ]
@@ -4308,10 +3971,10 @@ dependencies = [
  "target-lexicon 0.12.4",
  "tempfile",
  "unix_mode",
- "wasmer-compiler 3.0.0-rc.1",
- "wasmer-compiler-cranelift 3.0.0-rc.1",
+ "wasmer-compiler",
+ "wasmer-compiler-cranelift",
  "wasmer-compiler-singlepass",
- "wasmer-types 3.0.0-rc.1",
+ "wasmer-types",
 ]
 
 [[package]]
@@ -4329,27 +3992,8 @@ dependencies = [
  "smallvec",
  "target-lexicon 0.12.4",
  "tracing",
- "wasmer-compiler 3.0.0-rc.1",
- "wasmer-types 3.0.0-rc.1",
-]
-
-[[package]]
-name = "wasmer-compiler-cranelift"
-version = "3.0.0-rc.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4930b0384f8754129eabcfbd2ac33eaea976aef7a573a2c73728df7a31bab54e"
-dependencies = [
- "cranelift-codegen",
- "cranelift-entity",
- "cranelift-frontend",
- "gimli",
- "more-asserts",
- "rayon",
- "smallvec",
- "target-lexicon 0.12.4",
- "tracing",
- "wasmer-compiler 3.0.0-rc.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasmer-types 3.0.0-rc.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wasmer-compiler",
+ "wasmer-types",
 ]
 
 [[package]]
@@ -4369,9 +4013,9 @@ dependencies = [
  "semver 1.0.14",
  "smallvec",
  "target-lexicon 0.12.4",
- "wasmer-compiler 3.0.0-rc.1",
- "wasmer-types 3.0.0-rc.1",
- "wasmer-vm 3.0.0-rc.1",
+ "wasmer-compiler",
+ "wasmer-types",
+ "wasmer-vm",
 ]
 
 [[package]]
@@ -4388,8 +4032,8 @@ dependencies = [
  "rayon",
  "smallvec",
  "target-lexicon 0.12.4",
- "wasmer-compiler 3.0.0-rc.1",
- "wasmer-types 3.0.0-rc.1",
+ "wasmer-compiler",
+ "wasmer-types",
 ]
 
 [[package]]
@@ -4401,19 +4045,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
- "wasmer 3.0.0-rc.1",
-]
-
-[[package]]
-name = "wasmer-derive"
-version = "3.0.0-rc.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "75f1bc5a30f2b49dc52fe5ac9487b22b69985032f9a9b7b6d7dc27c56fca6430"
-dependencies = [
- "proc-macro-error",
- "proc-macro2",
- "quote",
- "syn",
+ "wasmer",
 ]
 
 [[package]]
@@ -4426,24 +4058,8 @@ dependencies = [
  "libc",
  "log",
  "time",
- "wasmer 3.0.0-rc.1",
- "wasmer-types 3.0.0-rc.1",
-]
-
-[[package]]
-name = "wasmer-emscripten"
-version = "3.0.0-rc.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3728fcca56d350752266116db58e2cb27b059c4a5ee58fc0cca928157c67cd31"
-dependencies = [
- "byteorder",
- "getrandom",
- "lazy_static",
- "libc",
- "log",
- "time",
- "wasmer 3.0.0-rc.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasmer-types 3.0.0-rc.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wasmer",
+ "wasmer-types",
 ]
 
 [[package]]
@@ -4491,9 +4107,9 @@ version = "3.0.0-rc.1"
 name = "wasmer-middlewares"
 version = "3.0.0-rc.1"
 dependencies = [
- "wasmer 3.0.0-rc.1",
- "wasmer-types 3.0.0-rc.1",
- "wasmer-vm 3.0.0-rc.1",
+ "wasmer",
+ "wasmer-types",
+ "wasmer-vm",
 ]
 
 [[package]]
@@ -4502,7 +4118,7 @@ version = "3.0.0-rc.1"
 dependencies = [
  "object 0.28.4",
  "thiserror",
- "wasmer-types 3.0.0-rc.1",
+ "wasmer-types",
 ]
 
 [[package]]
@@ -4512,16 +4128,16 @@ dependencies = [
  "anyhow",
  "dirs 4.0.0",
  "flate2",
- "graphql_client 0.11.0",
+ "graphql_client",
  "reqwest",
  "semver 1.0.14",
  "serde",
  "serde_json",
- "tar 0.4.38 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tar",
  "thiserror",
  "toml",
  "url",
- "wapm-toml 0.2.0",
+ "wapm-toml",
  "whoami",
 ]
 
@@ -4542,36 +4158,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "wasmer-types"
-version = "3.0.0-rc.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0065ac636258dd9277d69210ad881df5f7973491e693a7e877b0e4389afe5a2c"
-dependencies = [
- "enum-iterator",
- "enumset",
- "indexmap",
- "more-asserts",
- "rkyv",
- "target-lexicon 0.12.4",
- "thiserror",
-]
-
-[[package]]
 name = "wasmer-vbus"
 version = "3.0.0-rc.1"
 dependencies = [
  "thiserror",
- "wasmer-vfs 3.0.0-rc.1",
-]
-
-[[package]]
-name = "wasmer-vbus"
-version = "3.0.0-rc.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b3873de544e32d21953ce526c28d478e23c75fa7e574eb0104800302529ae0e4"
-dependencies = [
- "thiserror",
- "wasmer-vfs 3.0.0-rc.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wasmer-vfs",
 ]
 
 [[package]]
@@ -4585,19 +4176,7 @@ dependencies = [
  "thiserror",
  "tracing",
  "typetag",
- "webc 3.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
-name = "wasmer-vfs"
-version = "3.0.0-rc.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "02ae1e172fd3d57e25b339eb0db78d7401366c9091730cb5faf4fa603b5153cc"
-dependencies = [
- "libc",
- "slab",
- "thiserror",
- "tracing",
+ "webc",
 ]
 
 [[package]]
@@ -4619,31 +4198,7 @@ dependencies = [
  "scopeguard",
  "serde",
  "thiserror",
- "wasmer-types 3.0.0-rc.1",
- "winapi",
-]
-
-[[package]]
-name = "wasmer-vm"
-version = "3.0.0-rc.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "366dc013296afba61854d4729e360367dd1fb6651266ef1f904059dbdc1d838a"
-dependencies = [
- "backtrace",
- "cc",
- "cfg-if 1.0.0",
- "corosensei",
- "enum-iterator",
- "indexmap",
- "lazy_static",
- "libc",
- "mach",
- "memoffset",
- "more-asserts",
- "region",
- "scopeguard",
- "thiserror",
- "wasmer-types 3.0.0-rc.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wasmer-types",
  "winapi",
 ]
 
@@ -4653,18 +4208,7 @@ version = "3.0.0-rc.1"
 dependencies = [
  "bytes",
  "thiserror",
- "wasmer-vfs 3.0.0-rc.1",
-]
-
-[[package]]
-name = "wasmer-vnet"
-version = "3.0.0-rc.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e2a127fd94dd7b3fbba68c2446bab779f7b7dde3de8fa8dfd6242c5cfb2624f1"
-dependencies = [
- "bytes",
- "thiserror",
- "wasmer-vfs 3.0.0-rc.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wasmer-vfs",
 ]
 
 [[package]]
@@ -4686,36 +4230,12 @@ dependencies = [
  "typetag",
  "wasm-bindgen",
  "wasm-bindgen-test",
- "wasmer 3.0.0-rc.1",
- "wasmer-vbus 3.0.0-rc.1",
- "wasmer-vfs 3.0.0-rc.1",
- "wasmer-vnet 3.0.0-rc.1",
- "wasmer-wasi-local-networking 3.0.0-rc.1",
- "wasmer-wasi-types 3.0.0-rc.1",
- "winapi",
-]
-
-[[package]]
-name = "wasmer-wasi"
-version = "3.0.0-rc.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "58f3bd1aef78b748e2be1fb8ac04638910d85b59d38ca2a43aaeb3e336d9be56"
-dependencies = [
- "bytes",
- "cfg-if 1.0.0",
- "derivative",
- "generational-arena",
- "getrandom",
- "libc",
- "thiserror",
- "tracing",
- "wasm-bindgen",
- "wasmer 3.0.0-rc.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasmer-vbus 3.0.0-rc.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasmer-vfs 3.0.0-rc.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasmer-vnet 3.0.0-rc.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasmer-wasi-local-networking 3.0.0-rc.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasmer-wasi-types 3.0.0-rc.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wasmer",
+ "wasmer-vbus",
+ "wasmer-vfs",
+ "wasmer-vnet",
+ "wasmer-wasi-local-networking",
+ "wasmer-wasi-types",
  "winapi",
 ]
 
@@ -4729,7 +4249,7 @@ dependencies = [
  "serde",
  "tracing",
  "typetag",
- "wasmer-wasi 3.0.0-rc.1",
+ "wasmer-wasi",
 ]
 
 [[package]]
@@ -4738,20 +4258,8 @@ version = "3.0.0-rc.1"
 dependencies = [
  "bytes",
  "tracing",
- "wasmer-vfs 3.0.0-rc.1",
- "wasmer-vnet 3.0.0-rc.1",
-]
-
-[[package]]
-name = "wasmer-wasi-local-networking"
-version = "3.0.0-rc.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "75d5318cd6f3a51832b05c2aaf977177f51ece7ff1615d156d10da5d94df225e"
-dependencies = [
- "bytes",
- "tracing",
- "wasmer-vfs 3.0.0-rc.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasmer-vnet 3.0.0-rc.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wasmer-vfs",
+ "wasmer-vnet",
 ]
 
 [[package]]
@@ -4762,26 +4270,9 @@ dependencies = [
  "pretty_assertions",
  "serde",
  "time",
- "wasmer 3.0.0-rc.1",
- "wasmer-derive 3.0.0-rc.1",
- "wasmer-types 3.0.0-rc.1",
- "wasmer-wit-bindgen-gen-core",
- "wasmer-wit-bindgen-gen-rust-wasm",
- "wasmer-wit-bindgen-rust",
- "wasmer-wit-parser",
-]
-
-[[package]]
-name = "wasmer-wasi-types"
-version = "3.0.0-rc.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0777021b8eba997fe2e0bc315de2c0f897d9f22d91dd8822a3eca26ba7652f9b"
-dependencies = [
- "byteorder",
- "time",
- "wasmer 3.0.0-rc.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasmer-derive 3.0.0-rc.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasmer-types 3.0.0-rc.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wasmer",
+ "wasmer-derive",
+ "wasmer-types",
  "wasmer-wit-bindgen-gen-core",
  "wasmer-wit-bindgen-gen-rust-wasm",
  "wasmer-wit-bindgen-rust",
@@ -4796,9 +4287,9 @@ dependencies = [
  "serde",
  "tempfile",
  "thiserror",
- "wasmer 3.0.0-rc.1",
- "wasmer-vfs 3.0.0-rc.1",
- "wasmer-wasi 3.0.0-rc.1",
+ "wasmer",
+ "wasmer-vfs",
+ "wasmer-wasi",
  "wast 38.0.1",
 ]
 
@@ -4888,16 +4379,16 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "wasi-test-generator",
- "wasmer 3.0.0-rc.1",
+ "wasmer",
  "wasmer-cache",
- "wasmer-compiler 3.0.0-rc.1",
- "wasmer-compiler-cranelift 3.0.0-rc.1",
+ "wasmer-compiler",
+ "wasmer-compiler-cranelift",
  "wasmer-compiler-llvm",
  "wasmer-compiler-singlepass",
- "wasmer-emscripten 3.0.0-rc.1",
+ "wasmer-emscripten",
  "wasmer-middlewares",
- "wasmer-types 3.0.0-rc.1",
- "wasmer-wasi 3.0.0-rc.1",
+ "wasmer-types",
+ "wasmer-wasi",
  "wasmer-wast",
 ]
 
@@ -5050,49 +4541,6 @@ dependencies = [
 
 [[package]]
 name = "webc"
-version = "0.1.0"
-source = "git+ssh://git@github.com/wasmerio/pirita.git?rev=bb50683a4110c451283c529c5af7cf49ff5998c3#bb50683a4110c451283c529c5af7cf49ff5998c3"
-dependencies = [
- "anyhow",
- "base64",
- "indexmap",
- "leb128",
- "lexical-sort",
- "memchr",
- "memmap2",
- "path-clean",
- "rand 0.8.5",
- "serde",
- "serde_cbor",
- "serde_json",
- "sha2",
- "url",
- "walkdir",
-]
-
-[[package]]
-name = "webc"
-version = "3.0.0"
-dependencies = [
- "anyhow",
- "base64",
- "indexmap",
- "leb128",
- "lexical-sort",
- "memchr",
- "memmap2",
- "path-clean",
- "rand 0.8.5",
- "serde",
- "serde_cbor",
- "serde_json",
- "sha2",
- "url",
- "walkdir",
-]
-
-[[package]]
-name = "webc"
 version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "646280298fa6a3203973571aa7b2d73ba23a0059dae5b90c4112d744a617c878"
@@ -5112,74 +4560,6 @@ dependencies = [
  "sha2",
  "url",
  "walkdir",
-]
-
-[[package]]
-name = "webc-runner"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "futures-util",
- "lazy_static",
- "libc",
- "log",
- "regex",
- "serde",
- "serde_cbor",
- "serde_derive",
- "tokio",
- "url",
- "wapm-resolve-url",
- "wasmer 3.0.0-rc.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasmer-vfs 3.0.0-rc.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "webc 3.0.0",
- "webc-vfs 0.1.0",
-]
-
-[[package]]
-name = "webc-runner"
-version = "0.1.0"
-source = "git+ssh://git@github.com/wasmerio/pirita.git?rev=bb50683a4110c451283c529c5af7cf49ff5998c3#bb50683a4110c451283c529c5af7cf49ff5998c3"
-dependencies = [
- "anyhow",
- "futures-util",
- "lazy_static",
- "libc",
- "log",
- "regex",
- "serde",
- "serde_cbor",
- "serde_derive",
- "tokio",
- "url",
- "wapm-resolve-url",
- "wapm-toml 0.1.0",
- "wasmer 3.0.0-rc.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasmer-compiler 3.0.0-rc.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasmer-emscripten 3.0.0-rc.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasmer-vfs 3.0.0-rc.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasmer-wasi 3.0.0-rc.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "webc 0.1.0",
- "webc-vfs 0.1.0 (git+ssh://git@github.com/wasmerio/pirita.git?rev=bb50683a4110c451283c529c5af7cf49ff5998c3)",
-]
-
-[[package]]
-name = "webc-vfs"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "wasmer-vfs 3.0.0-rc.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "webc 3.0.0",
-]
-
-[[package]]
-name = "webc-vfs"
-version = "0.1.0"
-source = "git+ssh://git@github.com/wasmerio/pirita.git?rev=bb50683a4110c451283c529c5af7cf49ff5998c3#bb50683a4110c451283c529c5af7cf49ff5998c3"
-dependencies = [
- "anyhow",
- "wasmer-vfs 3.0.0-rc.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "webc 0.1.0",
 ]
 
 [[package]]

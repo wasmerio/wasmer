@@ -368,10 +368,10 @@ build-wasmer-debug:
 	$(CARGO_BINARY) build $(CARGO_TARGET) --manifest-path lib/cli/Cargo.toml $(compiler_features) --features "debug"  --bin wasmer
 
 build-wasmer-pirita:
-	$(CARGO_BINARY) build $(CARGO_TARGET) --release --manifest-path lib/cli/Cargo.toml $(compiler_features) --features="pirita_file" --bin wasmer
+	$(CARGO_BINARY) build $(CARGO_TARGET) --release --manifest-path lib/cli/Cargo.toml $(compiler_features) --features="webc_runner" --bin wasmer
 
 build-wasmer-pirita-debug:
-	$(CARGO_BINARY) build $(CARGO_TARGET) --manifest-path lib/cli/Cargo.toml $(compiler_features) --features "pirita_file,debug"  --bin wasmer
+	$(CARGO_BINARY) build $(CARGO_TARGET) --manifest-path lib/cli/Cargo.toml $(compiler_features) --features "webc_runner,debug"  --bin wasmer
 
 bench:
 	$(CARGO_BINARY) bench $(CARGO_TARGET) $(compiler_features)
@@ -436,7 +436,7 @@ build-capi: capi-setup
 
 build-capi-pirita: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features wat,compiler,wasi,middlewares,pirita_file $(capi_compiler_features)
+		--no-default-features --features wat,compiler,wasi,middlewares,webc_runner $(capi_compiler_features)
 
 build-capi-singlepass: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
