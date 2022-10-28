@@ -398,7 +398,7 @@ impl Run {
             });
         }
 
-        result.unwrap_or(Err("neither emscripten or wasi file".to_string()))
+        result.unwrap_or_else(|| Err("neither emscripten or wasi file".to_string()))
     }
 
     fn get_store_module(&self) -> Result<(Store, Module)> {

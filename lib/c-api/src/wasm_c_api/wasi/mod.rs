@@ -1144,7 +1144,7 @@ unsafe fn wasi_get_imports_inner(
 
     let import_object = c_try!(wasi_env.inner.import_object(&mut store_mut, &module.inner));
 
-    imports_set_buffer(&store, &module.inner, import_object, imports)?;
+    imports_set_buffer(store, &module.inner, import_object, imports)?;
 
     Some(())
 }

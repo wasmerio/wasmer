@@ -195,7 +195,7 @@ impl CreateExe {
         #[cfg(feature = "webc_runner")]
         if self.path.is_dir() {
             let pirita_volume_path = self.webc_volume_path.clone()
-                .ok_or(anyhow::anyhow!("If compiling using a directory (created by create-obj), you need to also specify the webc path again using --webc-volume-path because the volumes.o is not part of the directory"))?;
+                .ok_or_else(|| anyhow::anyhow!("If compiling using a directory (created by create-obj), you need to also specify the webc path again using --webc-volume-path because the volumes.o is not part of the directory"))?;
 
             let file = WebCMmap::parse(pirita_volume_path.clone(), &ParseOptions::default())
                 .map_err(|e| {
@@ -600,11 +600,11 @@ impl CreateExe {
         output_path: &Path,
     ) -> anyhow::Result<PathBuf> {
         #[cfg(not(windows))]
-        let volume_object_path = output_path.clone().join("volumes.o");
+        let volume_object_path = output_path.join("volumes.o");
         #[cfg(windows)]
-        let volume_object_path = output_path.clone().join("volumes.obj");
+        let volume_object_path = output_path.join("volumes.obj");
 
-        let mut volumes_object = get_object_for_target(&target.triple())?;
+        let mut volumes_object = get_object_for_target(target.triple())?;
         emit_serialized(
             &mut volumes_object,
             volume_bytes,
@@ -619,7 +619,7 @@ impl CreateExe {
         writer.flush()?;
         drop(writer);
 
-        Ok(volume_object_path.clone())
+        Ok(volume_object_path)
     }
 
     #[cfg(feature = "webc_runner")]
@@ -638,7 +638,7 @@ impl CreateExe {
         }
 
         std::fs::create_dir_all(output_path)?;
-        std::fs::create_dir_all(output_path.clone().join("atoms"))?;
+        std::fs::create_dir_all(output_path.join("atoms"))?;
 
         let atom_to_run = file
             .manifest
@@ -646,30 +646,23 @@ impl CreateExe {
             .as_ref()
             .and_then(|s| file.get_atom_name_for_command("wasi", s).ok());
         if let Some(atom_to_run) = atom_to_run.as_ref() {
-            std::fs::write(output_path.clone().join("entrypoint"), atom_to_run)?;
+            std::fs::write(output_path.join("entrypoint"), atom_to_run)?;
         }
 
         for (atom_name, atom_bytes) in file.get_all_atoms() {
-            std::fs::create_dir_all(output_path.clone().join("atoms"))?;
+            std::fs::create_dir_all(output_path.join("atoms"))?;
 
             #[cfg(not(windows))]
-            let object_path = output_path
-                .clone()
-                .join("atoms")
-                .join(&format!("{atom_name}.o"));
+            let object_path = output_path.join("atoms").join(&format!("{atom_name}.o"));
             #[cfg(windows)]
-            let object_path = output_path
-                .clone()
-                .join("atoms")
-                .join(&format!("{atom_name}.obj"));
+            let object_path = output_path.join("atoms").join(&format!("{atom_name}.obj"));
 
-            std::fs::create_dir_all(output_path.clone().join("atoms").join(&atom_name))?;
+            std::fs::create_dir_all(output_path.join("atoms").join(&atom_name))?;
 
             let header_path = output_path
-                .clone()
                 .join("atoms")
                 .join(&atom_name)
-                .join(&format!("static_defs.h"));
+                .join("static_defs.h");
 
             match object_format {
                 ObjectFormat::Serialized => {
@@ -696,12 +689,7 @@ impl CreateExe {
                     let prefixer: Option<PrefixerFn> = None;
                     let (module_info, obj, metadata_length, symbol_registry) =
                         Artifact::generate_object(
-                            compiler,
-                            &atom_bytes,
-                            prefixer,
-                            &target,
-                            tunables,
-                            features,
+                            compiler, atom_bytes, prefixer, target, tunables, features,
                         )?;
 
                     let header_file_src = crate::c_gen::staticlib_header::generate_header_file(
@@ -730,6 +718,7 @@ impl CreateExe {
     }
 
     #[cfg(feature = "webc_runner")]
+    #[allow(clippy::too_many_arguments)]
     fn link_exe_from_dir(
         &self,
         volume_bytes: &[u8],
@@ -743,21 +732,21 @@ impl CreateExe {
         let tempdir = tempdir::TempDir::new("link-exe-from-dir")?;
         let tempdir_path = tempdir.path();
 
-        let entrypoint = std::fs::read_to_string(working_dir.clone().join("entrypoint"))
+        let entrypoint = std::fs::read_to_string(working_dir.join("entrypoint"))
             .map_err(|_| anyhow::anyhow!("file has no entrypoint to run"))?;
 
-        if !working_dir.clone().join("atoms").exists() {
+        if !working_dir.join("atoms").exists() {
             return Err(anyhow::anyhow!("file has no atoms to compile"));
         }
 
         let mut atom_names = Vec::new();
-        for obj in std::fs::read_dir(working_dir.clone().join("atoms"))? {
+        for obj in std::fs::read_dir(working_dir.join("atoms"))? {
             let path = obj?.path();
             if !path.is_dir() {
                 if let Some(s) = path.file_stem() {
                     atom_names.push(
                         s.to_str()
-                            .ok_or(anyhow::anyhow!("wrong atom name"))?
+                            .ok_or_else(|| anyhow::anyhow!("wrong atom name"))?
                             .to_string(),
                     );
                 }
@@ -769,16 +758,16 @@ impl CreateExe {
                 let mut link_objects: Vec<PathBuf> = Vec::new();
 
                 let volume_object_path =
-                    Self::write_volume_obj(volume_bytes, target, &tempdir_path)?;
+                    Self::write_volume_obj(volume_bytes, target, tempdir_path)?;
 
                 link_objects.push(volume_object_path);
 
                 #[cfg(not(windows))]
-                let c_src_obj = working_dir.clone().join("wasmer_main.o");
+                let c_src_obj = working_dir.join("wasmer_main.o");
                 #[cfg(windows)]
-                let c_src_obj = working_dir.clone().join("wasmer_main.obj");
+                let c_src_obj = working_dir.join("wasmer_main.obj");
 
-                for obj in std::fs::read_dir(working_dir.clone().join("atoms"))? {
+                for obj in std::fs::read_dir(working_dir.join("atoms"))? {
                     let path = obj?.path();
                     if !path.is_dir() {
                         link_objects.push(path.to_path_buf());
@@ -787,7 +776,7 @@ impl CreateExe {
 
                 let c_code = Self::generate_pirita_wasmer_main_c(&atom_names, &entrypoint);
 
-                let c_src_path = working_dir.clone().join("wasmer_main.c");
+                let c_src_path = working_dir.join("wasmer_main.c");
 
                 std::fs::write(&c_src_path, c_code.as_bytes())
                     .context("Failed to open C source code file")?;
@@ -851,7 +840,7 @@ impl CreateExe {
                     run_c_compile(c_src_path.as_path(), &c_src_obj, self.target_triple.clone())
                         .context("Failed to compile C source code")?;
 
-                    link_objects.push(c_src_obj.clone());
+                    link_objects.push(c_src_obj);
                     LinkCode {
                         object_paths: link_objects,
                         output_path,
@@ -864,16 +853,12 @@ impl CreateExe {
                 }
             }
             ObjectFormat::Symbols => {
-                let object_file_path = working_dir
-                    .clone()
-                    .join("atoms")
-                    .join(&format!("{entrypoint}.o"));
+                let object_file_path = working_dir.join("atoms").join(&format!("{entrypoint}.o"));
                 let static_defs_file_path = working_dir
-                    .clone()
                     .join("atoms")
                     .join(&entrypoint)
                     .join("static_defs.h");
-                let volumes_obj_path = Self::write_volume_obj(volume_bytes, target, &tempdir_path)?;
+                let volumes_obj_path = Self::write_volume_obj(volume_bytes, target, tempdir_path)?;
 
                 if let Some(setup) = cross_compilation.as_ref() {
                     self.compile_zig(
@@ -983,14 +968,12 @@ impl CreateExe {
 
         c_code_to_instantiate.push_str(&format!("wasm_module_t *module = atom_{atom_to_run};"));
 
-        let c_code = WASMER_MAIN_C_SOURCE
+        WASMER_MAIN_C_SOURCE
             .replace("#define WASI", "#define WASI\r\n#define WASI_PIRITA")
             .replace("// DECLARE_MODULES", &c_code_to_add)
             .replace("// INSTANTIATE_MODULES", &c_code_to_instantiate)
-            .replace("##atom-name##", &atom_to_run)
-            .replace("wasm_module_delete(module);", &deallocate_module);
-
-        c_code
+            .replace("##atom-name##", atom_to_run)
+            .replace("wasm_module_delete(module);", &deallocate_module)
     }
 
     #[cfg(feature = "webc_runner")]

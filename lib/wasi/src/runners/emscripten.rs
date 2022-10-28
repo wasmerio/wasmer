@@ -36,7 +36,7 @@ impl crate::runners::Runner for EmscriptenRunner {
     fn run_command(
         &mut self,
         command_name: &str,
-        command: &Command,
+        _command: &Command,
         container: &WapmContainer,
     ) -> Result<Self::Output, Box<dyn StdError>> {
         let atom_name = container.get_atom_name_for_command("emscripten", command_name)?;
@@ -68,10 +68,10 @@ impl crate::runners::Runner for EmscriptenRunner {
 fn prepare_emscripten_env(
     store: &mut Store,
     module: &Module,
-    atom: Arc<WebCMmap>,
+    _atom: Arc<WebCMmap>,
     name: &str,
 ) -> Result<(EmscriptenGlobals, FunctionEnv<EmEnv>), anyhow::Error> {
-    if !is_emscripten_module(&module) {
+    if !is_emscripten_module(module) {
         return Err(anyhow!("Atom {name:?} is not an emscripten module"));
     }
 
@@ -83,7 +83,7 @@ fn prepare_emscripten_env(
     }
 
     let env = FunctionEnv::new(store, EmEnv::new());
-    let emscripten_globals = EmscriptenGlobals::new(store, &env, &module);
+    let emscripten_globals = EmscriptenGlobals::new(store, &env, module);
     let emscripten_globals = emscripten_globals.map_err(|e| anyhow!("{}", e))?;
     env.as_mut(store)
         .set_data(&emscripten_globals.data, Default::default());
@@ -96,7 +96,7 @@ fn exec_module(
     module: &Module,
     globals: &mut EmscriptenGlobals,
     em_env: FunctionEnv<EmEnv>,
-    atom: Arc<WebCMmap>,
+    _atom: Arc<WebCMmap>,
     name: &str,
     args: Vec<String>,
 ) -> Result<(), anyhow::Error> {
