@@ -878,8 +878,11 @@ pub fn query_package_from_registry(
     }
 }
 
+pub fn get_wasmer_root_dir() -> Option<PathBuf> {
+    PartialWapmConfig::get_folder().ok()
+}
 pub fn get_checkouts_dir() -> Option<PathBuf> {
-    Some(PartialWapmConfig::get_folder().ok()?.join("checkouts"))
+    Some(get_wasmer_root_dir()?.join("checkouts"))
 }
 
 /// Returs the path to the directory where all packages on this computer are being stored
@@ -887,7 +890,12 @@ pub fn get_global_install_dir(registry_host: &str) -> Option<PathBuf> {
     Some(get_checkouts_dir()?.join(registry_host))
 }
 
-pub fn download_and_unpack_targz(url: &str, target_path: &Path) -> Result<PathBuf, String> {
+/// Whether the top-level directory should be stripped
+pub fn download_and_unpack_targz(
+    url: &str,
+    target_path: &Path,
+    strip_toplevel: bool,
+) -> Result<PathBuf, String> {
     let target_targz_path = target_path.to_path_buf().join("package.tar.gz");
 
     let mut resp =
@@ -907,26 +915,73 @@ pub fn download_and_unpack_targz(url: &str, target_path: &Path) -> Result<PathBu
             )
         })?;
 
-        reqwest::blocking::get(url).map_err(|e| format!("{e}"))?;
-
         resp.copy_to(&mut file).map_err(|e| format!("{e}"))?;
     }
 
-    let file = std::fs::File::open(&target_targz_path).map_err(|e| {
-        format!(
-            "failed to download {url} into {}: {e}",
-            target_targz_path.display()
-        )
-    })?;
+    let open_file = || {
+        std::fs::File::open(&target_targz_path).map_err(|e| {
+            format!(
+                "failed to download {url} into {}: {e}",
+                target_targz_path.display()
+            )
+        })
+    };
 
-    let gz_decoded = flate2::read::GzDecoder::new(file);
-    let mut ar = tar::Archive::new(gz_decoded);
-    ar.unpack(target_path)
-        .map_err(|e| format!("failed to unpack {}: {e}", target_targz_path.display()))?;
+    let try_decode_gz = || {
+        let file = open_file()?;
+        let gz_decoded = flate2::read::GzDecoder::new(&file);
+        let mut ar = tar::Archive::new(gz_decoded);
+        if strip_toplevel {
+            unpack_sans_parent(ar, target_path)
+                .map_err(|e| format!("failed to unpack {}: {e}", target_targz_path.display()))
+        } else {
+            ar.unpack(target_path)
+                .map_err(|e| format!("failed to unpack {}: {e}", target_targz_path.display()))
+        }
+    };
+
+    let try_decode_xz = || {
+        let file = open_file()?;
+        let mut decomp: Vec<u8> = Vec::new();
+        let mut bufread = std::io::BufReader::new(&file);
+        lzma_rs::xz_decompress(&mut bufread, &mut decomp)
+            .map_err(|e| format!("failed to unpack {}: {e}", target_targz_path.display()))?;
+
+        let cursor = std::io::Cursor::new(decomp);
+        let mut ar = tar::Archive::new(cursor);
+        if strip_toplevel {
+            unpack_sans_parent(ar, target_path)
+                .map_err(|e| format!("failed to unpack {}: {e}", target_targz_path.display()))
+        } else {
+            ar.unpack(target_path)
+                .map_err(|e| format!("failed to unpack {}: {e}", target_targz_path.display()))
+        }
+    };
+
+    try_decode_gz().or_else(|_| try_decode_xz())?;
 
     let _ = std::fs::remove_file(target_targz_path);
 
     Ok(target_path.to_path_buf())
+}
+
+pub fn unpack_sans_parent<R>(mut archive: tar::Archive<R>, dst: &Path) -> std::io::Result<()>
+where
+    R: std::io::Read,
+{
+    use std::path::Component::Normal;
+
+    for entry in archive.entries()? {
+        let mut entry = entry?;
+        let path: PathBuf = entry
+            .path()?
+            .components()
+            .skip(1) // strip top-level directory
+            .filter(|c| matches!(c, Normal(_))) // prevent traversal attacks
+            .collect();
+        entry.unpack(dst.join(path))?;
+    }
+    Ok(())
 }
 
 /// Given a triple of [registry, name, version], downloads and installs the
@@ -1035,7 +1090,7 @@ pub fn install_package(
     let name = package_info.package;
 
     if !dir.join("wapm.toml").exists() || force_install {
-        download_and_unpack_targz(&package_info.url, &dir)?;
+        download_and_unpack_targz(&package_info.url, &dir, false)?;
     }
 
     Ok((

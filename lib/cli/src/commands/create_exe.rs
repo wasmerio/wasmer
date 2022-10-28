@@ -4,6 +4,10 @@ use super::ObjectFormat;
 use crate::store::CompilerOptions;
 use anyhow::{Context, Result};
 use clap::Parser;
+#[cfg(feature = "http")]
+use serde::{Deserialize, Serialize};
+#[cfg(feature = "http")]
+use std::collections::BTreeMap;
 use std::env;
 use std::fs;
 use std::fs::File;
@@ -1646,7 +1650,18 @@ fn find_zig_binary(path: Option<PathBuf>) -> Result<PathBuf> {
                 break;
             }
         }
-        retval.ok_or_else(|| anyhow!("Could not find `zig` binary in PATH."))?
+        retval
+            .or_else(|| {
+                #[cfg(feature = "http")]
+                {
+                    try_autoinstall_zig().map(|p| p.join("zig"))
+                }
+                #[cfg(not(feature = "http"))]
+                {
+                    None
+                }
+            })
+            .ok_or_else(|| anyhow!("Could not find `zig` binary in PATH."))?
     };
 
     let version = std::process::Command::new(&retval)
@@ -1673,4 +1688,127 @@ fn find_zig_binary(path: Option<PathBuf>) -> Result<PathBuf> {
     } else {
         Ok(retval)
     }
+}
+
+/// Tries to auto-install zig into ~/.wasmer/utils/zig/{version}
+#[cfg(feature = "http")]
+fn try_autoinstall_zig() -> Option<PathBuf> {
+    let zig_dir = wasmer_registry::get_wasmer_root_dir()?
+        .join("utils")
+        .join("zig");
+    let mut existing_version = None;
+
+    if !zig_dir.exists() {
+        return install_zig(&zig_dir);
+    }
+
+    if let Ok(mut rd) = std::fs::read_dir(&zig_dir) {
+        existing_version = rd.next().and_then(|entry| {
+            let string = entry.ok()?.file_name().to_str()?.to_string();
+            if zig_dir.join(&string).join("zig").exists() {
+                Some(string)
+            } else {
+                None
+            }
+        })
+    }
+
+    if let Some(exist) = existing_version {
+        return Some(zig_dir.join(exist));
+    }
+
+    install_zig(&zig_dir)
+}
+
+#[cfg(feature = "http")]
+fn install_zig(target_targz_path: &PathBuf) -> Option<PathBuf> {
+    let resp = reqwest::blocking::get("https://ziglang.org/download/index.json");
+    let resp = resp.ok()?;
+    let resp = resp.json::<ZiglangOrgJson>();
+    let resp = resp.ok()?;
+
+    let default_key = "master".to_string();
+    let (latest_version, latest_version_json) = resp
+        .versions
+        .get(&default_key)
+        .map(|v| (&default_key, v))
+        .or_else(|| resp.versions.iter().next())?;
+
+    let latest_version = match latest_version_json.version.as_ref() {
+        Some(s) => s,
+        None => latest_version,
+    };
+
+    let install_dir = target_targz_path.join(latest_version);
+    if install_dir.join("zig").exists() {
+        return Some(install_dir);
+    }
+
+    let native_host_url = latest_version_json.get_native_host_url()?;
+    let _ = std::fs::create_dir_all(&install_dir);
+    wasmer_registry::download_and_unpack_targz(&native_host_url, &install_dir, true).ok()
+}
+
+#[cfg(feature = "http")]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+struct ZiglangOrgJson {
+    #[serde(flatten)]
+    versions: BTreeMap<String, ZiglangOrgJsonTarget>,
+}
+
+#[cfg(feature = "http")]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+struct ZiglangOrgJsonTarget {
+    version: Option<String>,
+    date: String,
+    src: ZiglangOrgJsonBuildTarget,
+    #[serde(rename = "x86_64-freebsd")]
+    x86_64_freebsd: Option<ZiglangOrgJsonBuildTarget>,
+    #[serde(rename = "x86_64-macos")]
+    x86_64_macos: Option<ZiglangOrgJsonBuildTarget>,
+    #[serde(rename = "aarch64-macos")]
+    aarch64_macos: Option<ZiglangOrgJsonBuildTarget>,
+    #[serde(rename = "x86_64-windows")]
+    x86_64_windows: Option<ZiglangOrgJsonBuildTarget>,
+    #[serde(rename = "x86_64-linux")]
+    x86_64_linux: Option<ZiglangOrgJsonBuildTarget>,
+    #[serde(rename = "aarch64-linux")]
+    aarch64_linux: Option<ZiglangOrgJsonBuildTarget>,
+}
+
+impl ZiglangOrgJsonTarget {
+    pub fn get_native_host_url(&self) -> Option<String> {
+        let native_host = format!("{}", target_lexicon::HOST);
+        if native_host.starts_with("x86_64") {
+            if native_host.contains("freebsd") {
+                Some(self.x86_64_freebsd.as_ref()?.tarball.clone())
+            } else if native_host.contains("darwin") || native_host.contains("macos") {
+                Some(self.x86_64_macos.as_ref()?.tarball.clone())
+            } else if native_host.contains("windows") {
+                Some(self.x86_64_windows.as_ref()?.tarball.clone())
+            } else if native_host.contains("linux") {
+                Some(self.x86_64_linux.as_ref()?.tarball.clone())
+            } else {
+                None
+            }
+        } else if native_host.starts_with("aarch64") {
+            if native_host.contains("darwin") || native_host.contains("macos") {
+                Some(self.aarch64_macos.as_ref()?.tarball.clone())
+            } else if native_host.contains("linux") {
+                Some(self.aarch64_linux.as_ref()?.tarball.clone())
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+}
+
+#[cfg(feature = "http")]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+struct ZiglangOrgJsonBuildTarget {
+    tarball: String,
+    shasum: String,
+    size: String,
 }

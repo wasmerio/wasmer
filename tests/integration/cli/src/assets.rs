@@ -73,7 +73,6 @@ pub fn get_wasmer_path() -> PathBuf {
                 {
                     return s.join("/target/release/wasmer");
                 }
-                return s;
             }
             None => {
                 panic!("Could not find wasmer executable path! {:?}", ret);

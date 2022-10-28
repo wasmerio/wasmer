@@ -52,7 +52,7 @@ fn package_directory(in_dir: &PathBuf, out: &PathBuf) {
     use flate2::Compression;
     use std::fs::File;
     let tar = File::create(out).unwrap();
-    let enc = GzEncoder::new(tar, Compression::default());
+    let enc = GzEncoder::new(tar, Compression::none());
     let mut a = tar::Builder::new(enc);
     a.append_dir_all("", in_dir).unwrap();
     a.finish().unwrap();
