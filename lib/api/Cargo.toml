@@ -47,6 +47,8 @@ target-lexicon = { version = "0.12.2", default-features = false }
 wasmer-compiler-singlepass = { path = "../compiler-singlepass", version = "=3.0.0-rc.1", optional = true }
 wasmer-compiler-cranelift = { path = "../compiler-cranelift", version = "=3.0.0-rc.1", optional = true }
 wasmer-compiler-llvm = { path = "../compiler-llvm", version = "=3.0.0-rc.1", optional = true }
+wasmer-emscripten = { path = "../emscripten", version = "=3.0.0-rc.1", optional = true }
+wasmer-wasi = { path = "../wasi", version = "=3.0.0-rc.1", optional = true }
 
 wasm-bindgen = { version = "0.2.74", optional = true }
 js-sys = { version = "0.3.51", optional = true }
@@ -98,6 +100,8 @@ default = ["sys-default"]
 std = []
 core = ["hashbrown"]
 webc_runner = ["webc", "serde_cbor", "anyhow"]
+webc_runner_rt_emscripten = ["wasmer-emscripten"]
+webc_runner_rt_wasi = ["wasmer-wasi"]
 
 # Features for `sys`.
 sys = [

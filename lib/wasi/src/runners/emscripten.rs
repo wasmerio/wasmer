@@ -1,8 +1,7 @@
-#![cfg(feature = "rt-emscripten")]
+#![cfg(feature = "webc_runner_rt_wasi")]
 //! WebC container support for running Emscripten modules
 
-use crate::vfs::VirtualFileSystem;
-use crate::WapmContainer;
+use crate::runners::WapmContainer;
 use anyhow::anyhow;
 use serde_derive::{Deserialize, Serialize};
 use std::error::Error as StdError;

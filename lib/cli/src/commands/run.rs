@@ -14,7 +14,8 @@ use wasmer::*;
 #[cfg(feature = "cache")]
 use wasmer_cache::{Cache, FileSystemCache, Hash};
 use wasmer_types::Type as ValueType;
-
+#[cfg(feature = "webc_runner")]
+use wasmer::runners::WapmContainer;
 use crate::cli::SplitVersion;
 use clap::Parser;
 use wasmer_registry::PackageDownloadInfo;
@@ -218,9 +219,8 @@ impl Run {
     fn inner_execute(&self) -> Result<()> {
         #[cfg(feature = "webc_runner")]
         {
-            if let Ok(pf) = wasmer::runners::WapmContainer::new(self.path.clone()) {
-                return pf
-                    .run(&self.command_name.clone().unwrap_or_default(), &self.args)
+            if let Ok(pf) = WapmContainer::new(self.path.clone()) {
+                return Self::run_container(pf, &self.command_name.clone().unwrap_or_default(), &self.args)
                     .map_err(|e| anyhow!("Could not run PiritaFile: {e}"));
             }
         }
@@ -358,6 +358,44 @@ impl Run {
         };
 
         ret
+    }
+
+    #[cfg(feature = "webc_runner")]
+    fn run_container(container: WapmContainer, id: &str, args: &[String]) -> Result<(), String> {
+
+        let mut result = None;
+
+        #[cfg(feature = "wasi")]
+        {
+            if let Some(r) = result {
+                return r;
+            }
+
+            let mut runner = wasmer::runners::wasi::WasiRunner::default();
+            runner.set_args(args.to_vec());
+            result = Some(if id.is_empty() {
+                runner.run(&container).map_err(|e| format!("{e}"))
+            } else {
+                runner.run_cmd(&container, id).map_err(|e| format!("{e}"))
+            });
+        }
+
+        #[cfg(feature = "emscripten")]
+        {
+            if let Some(r) = result {
+                return r;
+            }
+
+            let mut runner = wasmer::runners::emscripten::EmscriptenRunner::default();
+            runner.set_args(args.to_vec());
+            result = Some(if id.is_empty() {
+                runner.run(&container).map_err(|e| format!("{e}"))
+            } else {
+                runner.run_cmd(&container, id).map_err(|e| format!("{e}"))
+            });
+        }
+
+        result.unwrap_or(Err("neither emscripten or wasi file".to_string()))
     }
 
     fn get_store_module(&self) -> Result<(Store, Module)> {

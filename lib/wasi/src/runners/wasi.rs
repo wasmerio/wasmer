@@ -1,8 +1,8 @@
-#![cfg(feature = "rt-wasi")]
+#![cfg(feature = "webc_runner_rt_emscripten")]
 //! WebC container support for running WASI modules
 
-use crate::vfs::VirtualFileSystem;
-use crate::WapmContainer;
+use wasmer_vfs::webc_fs::WebcFileSystem;
+use crate::runners::WapmContainer;
 use anyhow::{anyhow, Context};
 use serde_derive::{Deserialize, Serialize};
 use std::error::Error as StdError;
@@ -80,7 +80,7 @@ fn prepare_webc_env(
         })
         .collect::<Vec<_>>();
 
-    let filesystem = Box::new(VirtualFileSystem::init(webc, &package_name));
+    let filesystem = Box::new(WebcFileSystem::init(webc, &package_name));
     let mut wasi_env = WasiState::new(command);
     wasi_env.set_fs(filesystem);
     wasi_env.args(args);
