@@ -392,7 +392,7 @@ pub fn emit_compilation(
 /// ```rust
 /// # use wasmer_types::SymbolRegistry;
 /// # use wasmer_types::{Compilation, Triple};
-/// # use wasmer_object::ObjectError;
+/// # use wasmer_object::{ObjectError, emit_serialized};
 /// use wasmer_object::{get_object_for_target, emit_compilation};
 ///
 /// # fn emit_compilation_into_object(
@@ -400,6 +400,7 @@ pub fn emit_compilation(
 /// #     compilation: Compilation,
 /// #     symbol_registry: impl SymbolRegistry,
 /// # ) -> Result<(), ObjectError> {
+/// let bytes = &[ /* compilation bytes */];
 /// let mut object = get_object_for_target(&triple)?;
 /// emit_serialized(&mut object, bytes, &triple, "WASMER_MODULE")?;
 /// # Ok(())

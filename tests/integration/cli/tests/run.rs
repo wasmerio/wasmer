@@ -73,10 +73,26 @@ fn test_wasmer_create_exe_pirita_works() -> anyhow::Result<()> {
         );
     }
 
+    let output = Command::new(&python_exe_output_path)
+        .arg("-c")
+        .arg("print(\"hello\")")
+        .output()?;
+
+    let stdout = std::str::from_utf8(&output.stdout)
+        .expect("stdout is not utf8! need to handle arbitrary bytes");
+
+    if !stdout.ends_with("hello\n") {
+        bail!(
+            "1 running python.wasmer failed with: stdout: {}\n\nstderr: {}",
+            stdout,
+            std::str::from_utf8(&output.stderr)
+                .expect("stderr is not utf8! need to handle arbitrary bytes")
+        );
+    }
+
     Ok(())
 }
 
-#[cfg(feature = "webc_runner")]
 #[test]
 fn test_wasmer_run_pirita_works() -> anyhow::Result<()> {
     let temp_dir = tempfile::TempDir::new()?;
