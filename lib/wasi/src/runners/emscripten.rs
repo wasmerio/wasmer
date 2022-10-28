@@ -3,7 +3,7 @@
 
 use crate::runners::WapmContainer;
 use anyhow::anyhow;
-use serde_derive::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use std::error::Error as StdError;
 use std::sync::Arc;
 use wasmer::{Cranelift, FunctionEnv, Instance, Module, Store};
@@ -24,7 +24,7 @@ impl EmscriptenRunner {
     }
 }
 
-impl crate::Runner for EmscriptenRunner {
+impl crate::runners::Runner for EmscriptenRunner {
     type Output = ();
 
     fn can_run_command(&self, _: &str, command: &Command) -> Result<bool, Box<dyn StdError>> {
@@ -48,7 +48,7 @@ impl crate::Runner for EmscriptenRunner {
         let mut module = Module::new(&store, atom_bytes)?;
         module.set_name(&atom_name);
 
-        let (mut globals, mut env) =
+        let (mut globals, env) =
             prepare_emscripten_env(&mut store, &module, container.webc.clone(), &atom_name)?;
 
         exec_module(
@@ -82,9 +82,9 @@ fn prepare_emscripten_env(
         ));
     }
 
-    let mut env = FunctionEnv::new(store, EmEnv::new());
+    let env = FunctionEnv::new(store, EmEnv::new());
     let emscripten_globals = EmscriptenGlobals::new(store, &env, &module);
-    let mut emscripten_globals = emscripten_globals.map_err(|e| anyhow!("{}", e))?;
+    let emscripten_globals = emscripten_globals.map_err(|e| anyhow!("{}", e))?;
     env.as_mut(store)
         .set_data(&emscripten_globals.data, Default::default());
 

@@ -1144,8 +1144,18 @@ unsafe fn wasi_get_imports_inner(
 
     let import_object = c_try!(wasi_env.inner.import_object(&mut store_mut, &module.inner));
 
+    imports_set_buffer(&store, &module.inner, import_object, imports)?;
+
+    Some(())
+}
+
+pub(crate) fn imports_set_buffer(
+    store: &StoreRef,
+    module: &wasmer_api::Module,
+    import_object: wasmer_api::Imports,
+    imports: &mut wasm_extern_vec_t,
+) -> Option<()> {
     imports.set_buffer(c_try!(module
-        .inner
         .imports()
         .map(|import_type| {
             let ext = import_object

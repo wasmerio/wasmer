@@ -3785,10 +3785,8 @@ dependencies = [
  "js-sys",
  "macro-wasmer-universal-test",
  "more-asserts",
- "nuke-dir",
  "serde",
  "serde-wasm-bindgen",
- "serde_cbor",
  "target-lexicon 0.12.4",
  "tempfile",
  "thiserror",
@@ -3804,7 +3802,6 @@ dependencies = [
  "wasmer-vm",
  "wasmparser 0.83.0",
  "wat",
- "webc",
  "winapi",
 ]
 
@@ -4219,6 +4216,7 @@ dependencies = [
 name = "wasmer-wasi"
 version = "3.0.0-rc.1"
 dependencies = [
+ "anyhow",
  "bincode",
  "bytes",
  "cfg-if 1.0.0",
@@ -4227,7 +4225,9 @@ dependencies = [
  "generational-arena",
  "getrandom",
  "libc",
+ "nuke-dir",
  "serde",
+ "serde_cbor",
  "thiserror",
  "tracing",
  "tracing-wasm",
@@ -4235,11 +4235,13 @@ dependencies = [
  "wasm-bindgen",
  "wasm-bindgen-test",
  "wasmer",
+ "wasmer-emscripten",
  "wasmer-vbus",
  "wasmer-vfs",
  "wasmer-vnet",
  "wasmer-wasi-local-networking",
  "wasmer-wasi-types",
+ "webc",
  "winapi",
 ]
 

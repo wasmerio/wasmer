@@ -4,11 +4,11 @@
 use wasmer_vfs::webc_fs::WebcFileSystem;
 use crate::runners::WapmContainer;
 use anyhow::{anyhow, Context};
-use serde_derive::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use std::error::Error as StdError;
 use std::sync::Arc;
 use wasmer::{Cranelift, FunctionEnv, Instance, Module, Store};
-use wasmer_wasi::{VirtualFile, WasiFunctionEnv, WasiState};
+use crate::{VirtualFile, WasiFunctionEnv, WasiState};
 use webc::{Command, WebCMmap};
 
 #[derive(Debug, Default, Clone, PartialEq, PartialOrd, Hash, Serialize, Deserialize)]
@@ -22,7 +22,7 @@ impl WasiRunner {
     }
 }
 
-impl crate::Runner for WasiRunner {
+impl crate::runners::Runner for WasiRunner {
     type Output = ();
 
     fn can_run_command(
@@ -94,7 +94,7 @@ fn prepare_webc_env(
 pub(crate) fn exec_module(
     store: &mut Store,
     module: &Module,
-    mut wasi_env: wasmer_wasi::WasiFunctionEnv,
+    wasi_env: crate::WasiFunctionEnv,
 ) -> Result<(), anyhow::Error> {
     let import_object = wasi_env.import_object(store, &module)?;
     let instance = Instance::new(store, &module, &import_object)?;

@@ -15,7 +15,7 @@ use wasmer::*;
 use wasmer_cache::{Cache, FileSystemCache, Hash};
 use wasmer_types::Type as ValueType;
 #[cfg(feature = "webc_runner")]
-use wasmer::runners::WapmContainer;
+use wasmer_wasi::runners::{WapmContainer, Runner};
 use crate::cli::SplitVersion;
 use clap::Parser;
 use wasmer_registry::PackageDownloadInfo;
@@ -371,7 +371,7 @@ impl Run {
                 return r;
             }
 
-            let mut runner = wasmer::runners::wasi::WasiRunner::default();
+            let mut runner = wasmer_wasi::runners::wasi::WasiRunner::default();
             runner.set_args(args.to_vec());
             result = Some(if id.is_empty() {
                 runner.run(&container).map_err(|e| format!("{e}"))
@@ -386,7 +386,7 @@ impl Run {
                 return r;
             }
 
-            let mut runner = wasmer::runners::emscripten::EmscriptenRunner::default();
+            let mut runner = wasmer_wasi::runners::emscripten::EmscriptenRunner::default();
             runner.set_args(args.to_vec());
             result = Some(if id.is_empty() {
                 runner.run(&container).map_err(|e| format!("{e}"))
