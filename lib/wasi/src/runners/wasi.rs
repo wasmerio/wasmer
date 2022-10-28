@@ -1,14 +1,14 @@
 #![cfg(feature = "webc_runner_rt_emscripten")]
 //! WebC container support for running WASI modules
 
-use wasmer_vfs::webc_fs::WebcFileSystem;
 use crate::runners::WapmContainer;
+use crate::{VirtualFile, WasiFunctionEnv, WasiState};
 use anyhow::{anyhow, Context};
 use serde::{Deserialize, Serialize};
 use std::error::Error as StdError;
 use std::sync::Arc;
 use wasmer::{Cranelift, FunctionEnv, Instance, Module, Store};
-use crate::{VirtualFile, WasiFunctionEnv, WasiState};
+use wasmer_vfs::webc_fs::WebcFileSystem;
 use webc::{Command, WebCMmap};
 
 #[derive(Debug, Default, Clone, PartialEq, PartialOrd, Hash, Serialize, Deserialize)]

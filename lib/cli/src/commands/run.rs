@@ -1,3 +1,4 @@
+use crate::cli::SplitVersion;
 use crate::common::get_cache_dir;
 #[cfg(feature = "debug")]
 use crate::logging;
@@ -5,6 +6,7 @@ use crate::store::{CompilerType, StoreOptions};
 use crate::suggestions::suggest_function_exports;
 use crate::warning;
 use anyhow::{anyhow, Context, Result};
+use clap::Parser;
 use std::collections::HashMap;
 use std::ops::Deref;
 use std::path::PathBuf;
@@ -13,12 +15,10 @@ use wasmer::FunctionEnv;
 use wasmer::*;
 #[cfg(feature = "cache")]
 use wasmer_cache::{Cache, FileSystemCache, Hash};
+use wasmer_registry::PackageDownloadInfo;
 use wasmer_types::Type as ValueType;
 #[cfg(feature = "webc_runner")]
-use wasmer_wasi::runners::{WapmContainer, Runner};
-use crate::cli::SplitVersion;
-use clap::Parser;
-use wasmer_registry::PackageDownloadInfo;
+use wasmer_wasi::runners::{Runner, WapmContainer};
 
 #[cfg(feature = "wasi")]
 mod wasi;
@@ -220,8 +220,12 @@ impl Run {
         #[cfg(feature = "webc_runner")]
         {
             if let Ok(pf) = WapmContainer::new(self.path.clone()) {
-                return Self::run_container(pf, &self.command_name.clone().unwrap_or_default(), &self.args)
-                    .map_err(|e| anyhow!("Could not run PiritaFile: {e}"));
+                return Self::run_container(
+                    pf,
+                    &self.command_name.clone().unwrap_or_default(),
+                    &self.args,
+                )
+                .map_err(|e| anyhow!("Could not run PiritaFile: {e}"));
             }
         }
         let (mut store, module) = self.get_store_module()?;
@@ -362,7 +366,6 @@ impl Run {
 
     #[cfg(feature = "webc_runner")]
     fn run_container(container: WapmContainer, id: &str, args: &[String]) -> Result<(), String> {
-
         let mut result = None;
 
         #[cfg(feature = "wasi")]
