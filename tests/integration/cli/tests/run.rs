@@ -1,8 +1,9 @@
 //! Basic tests for the `run` subcommand
 
 use anyhow::bail;
+use std::path::PathBuf;
 use std::process::Command;
-use wasmer_integration_tests_cli::{get_wasmer_path, ASSET_PATH, C_ASSET_PATH};
+use wasmer_integration_tests_cli::{get_repo_root_path, get_wasmer_path, ASSET_PATH, C_ASSET_PATH};
 
 fn wasi_test_python_path() -> String {
     format!("{}/{}", C_ASSET_PATH, "python-0.1.0.wasmer")
@@ -46,6 +47,17 @@ fn run_wasi_works() -> anyhow::Result<()> {
     Ok(())
 }
 
+fn package_directory(in_dir: &PathBuf, out: &PathBuf) {
+    use flate2::write::GzEncoder;
+    use flate2::Compression;
+    use std::fs::File;
+    let tar = File::create(out).unwrap();
+    let enc = GzEncoder::new(tar, Compression::default());
+    let mut a = tar::Builder::new(enc);
+    a.append_dir_all("", in_dir).unwrap();
+    a.finish().unwrap();
+}
+
 #[test]
 fn test_wasmer_create_exe_pirita_works() -> anyhow::Result<()> {
     let temp_dir = tempfile::TempDir::new()?;
@@ -53,12 +65,35 @@ fn test_wasmer_create_exe_pirita_works() -> anyhow::Result<()> {
     std::fs::copy(wasi_test_python_path(), &python_wasmer_path)?;
     let python_exe_output_path = temp_dir.path().join("python");
 
-    let output = Command::new(get_wasmer_path())
-        .arg("create-exe")
-        .arg(&python_wasmer_path)
-        .arg("-o")
-        .arg(&python_exe_output_path)
-        .output()?;
+    let native_target = target_lexicon::HOST;
+    let root_path = get_repo_root_path().unwrap();
+    let package_path = root_path.join("package");
+    if !package_path.exists() {
+        panic!("package path {} does not exist", package_path.display());
+    }
+    let tmp_targz_path = tempfile::TempDir::new()?;
+    let tmp_targz_path = tmp_targz_path.path().join("link.tar.gz");
+    println!("compiling to target {native_target}");
+    println!(
+        "packaging /package to .tar.gz: {}",
+        tmp_targz_path.display()
+    );
+    package_directory(&package_path, &tmp_targz_path);
+    println!("packaging done");
+
+    let mut cmd = Command::new(get_wasmer_path());
+    cmd.arg("create-exe");
+    cmd.arg(&python_wasmer_path);
+    cmd.arg("--tarball");
+    cmd.arg(&tmp_targz_path);
+    cmd.arg("--target");
+    cmd.arg(format!("{native_target}"));
+    cmd.arg("-o");
+    cmd.arg(&python_exe_output_path);
+
+    println!("running: {cmd:?}");
+
+    let output = cmd.output()?;
 
     if !output.status.success() {
         let stdout = std::str::from_utf8(&output.stdout)

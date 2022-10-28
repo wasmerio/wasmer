@@ -4096,7 +4096,10 @@ name = "wasmer-integration-tests-cli"
 version = "3.0.0-rc.1"
 dependencies = [
  "anyhow",
+ "flate2",
  "rand 0.8.5",
+ "tar",
+ "target-lexicon 0.12.4",
  "tempfile",
 ]
 

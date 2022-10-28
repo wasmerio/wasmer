@@ -83,7 +83,6 @@ default = [
     "http",
     "cache",
     "wasi",
-    "webc_runner",
     "emscripten",
     "compiler",
     "wasmer-artifact-create",

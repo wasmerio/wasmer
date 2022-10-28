@@ -9,6 +9,9 @@ publish = false
 
 [dev-dependencies]
 rand = "0.8.5"
+tar = "0.4.38"
+flate2 = "1.0.24"
+target-lexicon = "0.12.4"
 
 [dependencies]
 anyhow = "1"
