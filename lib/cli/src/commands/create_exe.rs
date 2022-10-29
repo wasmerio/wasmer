@@ -463,7 +463,6 @@ impl CreateExe {
                 zig_binary_path,
                 library,
             };
-            println!("{:#?}", ccs);
             Ok(Some(ccs))
         } else {
             Ok(None)
@@ -532,7 +531,7 @@ impl CreateExe {
         /* Cross compilation is only possible with zig */
         println!("Using zig binary: {}", zig_binary_path.display());
         let zig_triple = triple_to_zig_triple(target);
-        eprintln!("Using zig target triple: {}", &zig_triple);
+        println!("Using zig target triple: {}", &zig_triple);
 
         let lib_filename = libwasmer_path
             .file_name()
@@ -798,7 +797,7 @@ impl CreateExe {
                     // Cross compilation is only possible with zig
                     println!("Library Path: {}", libwasmer_path.display());
                     println!("Using zig binary: {}", zig_binary_path.display());
-                    eprintln!("Using zig target triple: {}", &zig_triple);
+                    println!("Using zig target triple: {}", &zig_triple);
 
                     let lib_filename = libwasmer_path
                         .file_name()
@@ -813,7 +812,7 @@ impl CreateExe {
                         let mut include_dir = libwasmer_path.clone();
                         include_dir.pop();
                         include_dir.push("include");
-                        eprintln!("include dir: {}", include_dir.display());
+                        println!("include dir: {}", include_dir.display());
                         let mut cmd = Command::new(zig_binary_path);
                         let mut cmd_mut: &mut Command = cmd
                             .arg("cc")

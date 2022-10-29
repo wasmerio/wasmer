@@ -47,6 +47,7 @@ fn run_wasi_works() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "webc_runner")]
 fn package_directory(in_dir: &PathBuf, out: &PathBuf) {
     use flate2::write::GzEncoder;
     use flate2::Compression;
@@ -58,6 +59,7 @@ fn package_directory(in_dir: &PathBuf, out: &PathBuf) {
     a.finish().unwrap();
 }
 
+#[cfg(feature = "webc_runner")]
 #[test]
 fn test_wasmer_create_exe_pirita_works() -> anyhow::Result<()> {
     let temp_dir = tempfile::TempDir::new()?;
@@ -128,6 +130,7 @@ fn test_wasmer_create_exe_pirita_works() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "webc_runner")]
 #[test]
 fn test_wasmer_run_pirita_works() -> anyhow::Result<()> {
     let temp_dir = tempfile::TempDir::new()?;
