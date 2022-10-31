@@ -2396,8 +2396,12 @@ pub fn path_open<M: MemorySize>(
                     .map_err(fs_error_into_wasi_err)));
             }
             Kind::Buffer { .. } => unimplemented!("wasi::path_open for Buffer type files"),
+            Kind::Root { .. } => {
+                if !o_flags.contains(Oflags::DIRECTORY) {
+                    return Errno::Notcapable;
+                }
+            }
             Kind::Dir { .. }
-            | Kind::Root { .. }
             | Kind::Socket { .. }
             | Kind::Pipe { .. }
             | Kind::EventNotifications { .. } => {}
