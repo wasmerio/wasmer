@@ -4,7 +4,6 @@ use anyhow::{Chain, Error};
 use colored::*;
 use std::fmt::{self, Debug, Write};
 use wasmer::RuntimeError;
-use wasmer_types::TrapCode;
 
 /// A `PrettyError` for printing `anyhow::Error` nicely.
 pub struct PrettyError {
