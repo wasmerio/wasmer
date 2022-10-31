@@ -3795,6 +3795,7 @@ dependencies = [
  "distance",
  "fern",
  "http_req",
+ "libc",
  "log",
  "prettytable-rs",
  "regex",
