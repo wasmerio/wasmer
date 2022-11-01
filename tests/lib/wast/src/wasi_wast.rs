@@ -1,10 +1,10 @@
+use crate::{host_fs, mem_fs, FileSystem};
 use anyhow::Context;
 use std::fs::{read_dir, File, OpenOptions, ReadDir};
 use std::io::{self, Read, Seek, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{mpsc, Arc, Mutex};
 use wasmer::{FunctionEnv, Imports, Instance, Module, Store};
-use wasmer_vfs::{host_fs, mem_fs, FileSystem};
 use wasmer_wasi::types::wasi::{Filesize, Timestamp};
 use wasmer_wasi::{
     generate_import_object_from_env, get_wasi_version, FsError, VirtualFile,
@@ -15,10 +15,10 @@ use wast::parser::{self, Parse, ParseBuffer, Parser};
 /// The kind of filesystem `WasiTest` is going to use.
 #[derive(Debug)]
 pub enum WasiFileSystemKind {
-    /// Instruct the test runner to use `wasmer_vfs::host_fs`.
+    /// Instruct the test runner to use `crate::host_fs`.
     Host,
 
-    /// Instruct the test runner to use `wasmer_vfs::mem_fs`.
+    /// Instruct the test runner to use `crate::mem_fs`.
     InMemory,
 }
 
@@ -636,7 +636,7 @@ impl VirtualFile for OutputCapturerer {
     }
 }
 
-/// When using `wasmer_vfs::mem_fs`, we cannot rely on `BASE_TEST_DIR`
+/// When using `crate::mem_fs`, we cannot rely on `BASE_TEST_DIR`
 /// because the host filesystem cannot be used. Instead, we are
 /// copying `BASE_TEST_DIR` to the `mem_fs`.
 fn map_host_fs_to_mem_fs(

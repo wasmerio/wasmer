@@ -51,12 +51,12 @@ pub use crate::syscalls::types;
 #[cfg(feature = "wasix")]
 pub use crate::utils::is_wasix_module;
 pub use crate::utils::{get_wasi_version, get_wasi_versions, is_wasi_module, WasiVersion};
+#[deprecated(since = "2.1.0", note = "Please use `crate::FsError`")]
+pub use crate::FsError as WasiFsError;
+#[deprecated(since = "2.1.0", note = "Please use `crate::VirtualFile`")]
+pub use crate::VirtualFile as WasiFile;
+pub use crate::{FsError, VirtualFile};
 pub use wasmer_vbus::{UnsupportedVirtualBus, VirtualBus};
-#[deprecated(since = "2.1.0", note = "Please use `wasmer_vfs::FsError`")]
-pub use wasmer_vfs::FsError as WasiFsError;
-#[deprecated(since = "2.1.0", note = "Please use `wasmer_vfs::VirtualFile`")]
-pub use wasmer_vfs::VirtualFile as WasiFile;
-pub use wasmer_vfs::{FsError, VirtualFile};
 pub use wasmer_vnet::{UnsupportedVirtualNetworking, VirtualNetworking};
 
 use derivative::*;

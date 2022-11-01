@@ -2,6 +2,7 @@
 
 use crate::state::{default_fs_backing, WasiFs, WasiState};
 use crate::syscalls::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO};
+use crate::{FsError, VirtualFile};
 use crate::{WasiEnv, WasiFunctionEnv, WasiInodes};
 use generational_arena::Arena;
 use std::collections::HashMap;
@@ -11,7 +12,6 @@ use std::sync::Arc;
 use std::sync::RwLock;
 use thiserror::Error;
 use wasmer::AsStoreMut;
-use wasmer_vfs::{FsError, VirtualFile};
 
 /// Creates an empty [`WasiStateBuilder`].
 ///
@@ -50,7 +50,7 @@ pub struct WasiStateBuilder {
     stdout_override: Option<Box<dyn VirtualFile + Send + Sync + 'static>>,
     stderr_override: Option<Box<dyn VirtualFile + Send + Sync + 'static>>,
     stdin_override: Option<Box<dyn VirtualFile + Send + Sync + 'static>>,
-    fs_override: Option<Box<dyn wasmer_vfs::FileSystem>>,
+    fs_override: Option<Box<dyn crate::FileSystem>>,
     runtime_override: Option<Arc<dyn crate::WasiRuntimeImplementation + Send + Sync + 'static>>,
 }
 
@@ -311,8 +311,8 @@ impl WasiStateBuilder {
 
     /// Sets the FileSystem to be used with this WASI instance.
     ///
-    /// This is usually used in case a custom `wasmer_vfs::FileSystem` is needed.
-    pub fn set_fs(&mut self, fs: Box<dyn wasmer_vfs::FileSystem>) -> &mut Self {
+    /// This is usually used in case a custom `crate::FileSystem` is needed.
+    pub fn set_fs(&mut self, fs: Box<dyn crate::FileSystem>) -> &mut Self {
         self.fs_override = Some(fs);
 
         self

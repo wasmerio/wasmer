@@ -4064,6 +4064,7 @@ dependencies = [
 name = "wasmer-vfs"
 version = "3.0.0-rc.1"
 dependencies = [
+ "derivative",
  "libc",
  "serde",
  "slab",

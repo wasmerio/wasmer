@@ -17,7 +17,7 @@ pub type Result<T> = std::result::Result<T, NetworkError>;
 
 /// Socket descriptors are also file descriptors and so
 /// all file operations can also be used on sockets
-pub type SocketDescriptor = wasmer_vfs::FileDescriptor;
+pub type SocketDescriptor = crate::FileDescriptor;
 
 /// Represents an IP address and its netmask
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]

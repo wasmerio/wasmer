@@ -16,7 +16,11 @@ pub mod host_fs;
 #[cfg(feature = "mem-fs")]
 pub mod mem_fs;
 
+pub mod os;
+
 pub type Result<T> = std::result::Result<T, FsError>;
+
+pub trait ClonableVirtualFile: VirtualFile + Clone {}
 
 #[derive(Debug)]
 #[repr(transparent)]
@@ -249,6 +253,10 @@ pub trait VirtualFile: fmt::Debug + Write + Read + Seek + Upcastable {
     fn get_fd(&self) -> Option<FileDescriptor> {
         None
     }
+
+    fn get_special_fd(&self) -> Option<u32> {
+        None
+    }
 }
 
 // Implementation of `Upcastable` taken from https://users.rust-lang.org/t/why-does-downcasting-not-work-for-subtraits/33286/7 .
@@ -340,8 +348,8 @@ pub enum FsError {
     #[error("connection is not open")]
     NotConnected,
     /// The requested file or directory could not be found
-    #[error("entity not found")]
-    EntityNotFound,
+    #[error("entry not found")]
+    EntryNotFound,
     /// The requested device couldn't be accessed
     #[error("can't access device")]
     NoDevice,
@@ -382,7 +390,7 @@ impl From<io::Error> for FsError {
             io::ErrorKind::InvalidData => FsError::InvalidData,
             io::ErrorKind::InvalidInput => FsError::InvalidInput,
             io::ErrorKind::NotConnected => FsError::NotConnected,
-            io::ErrorKind::NotFound => FsError::EntityNotFound,
+            io::ErrorKind::NotFound => FsError::EntryNotFound,
             io::ErrorKind::PermissionDenied => FsError::PermissionDenied,
             io::ErrorKind::TimedOut => FsError::TimedOut,
             io::ErrorKind::UnexpectedEof => FsError::UnexpectedEof,

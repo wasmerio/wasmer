@@ -47,6 +47,7 @@ use crate::{
     },
     Fd, WasiEnv, WasiError, WasiThread, WasiThreadId,
 };
+use crate::{FsError, VirtualFile};
 use bytes::Bytes;
 use std::borrow::{Borrow, Cow};
 use std::convert::{Infallible, TryInto};
@@ -64,7 +65,6 @@ use wasmer::{
     MemorySize, MemoryView, Module, RuntimeError, Value, WasmPtr, WasmSlice,
 };
 use wasmer_vbus::{FileDescriptor, StdioMode};
-use wasmer_vfs::{FsError, VirtualFile};
 use wasmer_vnet::{SocketHttpRequest, StreamSecurity};
 
 #[cfg(any(
@@ -2315,7 +2315,7 @@ pub fn path_open<M: MemorySize>(
                 (false, false, false)
             };
 
-            wasmer_vfs::OpenOptionsConfig {
+            crate::OpenOptionsConfig {
                 read: fs_rights_base.contains(Rights::FD_READ),
                 write: write_permission,
                 create_new: create_permission && o_flags.contains(Oflags::EXCL),
@@ -2324,7 +2324,7 @@ pub fn path_open<M: MemorySize>(
                 truncate: truncate_permission,
             }
         }
-        Err(_) => wasmer_vfs::OpenOptionsConfig {
+        Err(_) => crate::OpenOptionsConfig {
             append: fs_flags.contains(Fdflags::APPEND),
             write: fs_rights_base.contains(Rights::FD_WRITE),
             read: fs_rights_base.contains(Rights::FD_READ),
@@ -2334,7 +2334,7 @@ pub fn path_open<M: MemorySize>(
         },
     };
 
-    let parent_rights = wasmer_vfs::OpenOptionsConfig {
+    let parent_rights = crate::OpenOptionsConfig {
         read: working_dir.rights.contains(Rights::FD_READ),
         write: working_dir.rights.contains(Rights::FD_WRITE),
         // The parent is a directory, which is why these options
