@@ -71,6 +71,27 @@ fn test_wasmer_create_exe_pirita_works() -> anyhow::Result<()> {
     let root_path = get_repo_root_path().unwrap();
     let package_path = root_path.join("package");
     if !package_path.exists() {
+        // make && make build-capi && make package-capi && make package
+        let mut c1 = std::process::Command::new("make");
+        c1.current_dir(&root_path);
+        let _ = c1.output().unwrap();
+
+        let mut c1 = std::process::Command::new("make");
+        c1.arg("build-capi");
+        c1.current_dir(&root_path);
+        let _ = c1.output().unwrap();
+
+        let mut c1 = std::process::Command::new("make");
+        c1.arg("package-capi");
+        c1.current_dir(&root_path);
+        let _ = c1.output().unwrap();
+
+        let mut c1 = std::process::Command::new("make");
+        c1.arg("package");
+        c1.current_dir(&root_path);
+        let _ = c1.output().unwrap();
+    }
+    if !package_path.exists() {
         panic!("package path {} does not exist", package_path.display());
     }
     let tmp_targz_path = tempfile::TempDir::new()?;
