@@ -147,7 +147,7 @@ impl VirtualFile for FileHandle {
             Some(Node::ReadOnlyFile { file, .. }) => file.len().try_into().unwrap_or(0),
             Some(Node::CustomFile { file, .. }) => {
                 let file = file.lock().unwrap();
-                file.size().try_into().unwrap_or(0)
+                file.size()
             }
             Some(Node::ArcFile { fs, path, .. }) => match self.arc_file.as_ref() {
                 Some(file) => file.as_ref().map(|file| file.size()).unwrap_or(0),
@@ -175,7 +175,7 @@ impl VirtualFile for FileHandle {
                 metadata.len = new_size;
             }
             Some(Node::CustomFile { file, metadata, .. }) => {
-                let mut file = file.lock().unwrap();
+                let file = file.get_mut().unwrap();
                 file.set_len(new_size)?;
                 metadata.len = new_size;
             }
@@ -580,7 +580,7 @@ impl Read for FileHandle {
             Some(Node::File { file, .. }) => file.read_to_end(buf, &mut self.cursor),
             Some(Node::ReadOnlyFile { file, .. }) => file.read_to_end(buf, &mut self.cursor),
             Some(Node::CustomFile { file, .. }) => {
-                let mut file = file.lock().unwrap();
+                let file = file.get_mut().unwrap();
                 let _ = file.seek(io::SeekFrom::Start(self.cursor as u64));
                 let read = file.read_to_end(buf)?;
                 self.cursor += read as u64;
@@ -703,7 +703,7 @@ impl Seek for FileHandle {
             Some(Node::File { file, .. }) => file.seek(position, &mut self.cursor),
             Some(Node::ReadOnlyFile { file, .. }) => file.seek(position, &mut self.cursor),
             Some(Node::CustomFile { file, .. }) => {
-                let mut file = file.lock().unwrap();
+                let file = file.get_mut().unwrap();
                 let _ = file.seek(io::SeekFrom::Start(self.cursor as u64));
                 let pos = file.seek(position)?;
                 self.cursor = pos;
@@ -760,11 +760,11 @@ impl Write for FileHandle {
                 bytes_written
             }
             Some(Node::CustomFile { file, metadata, .. }) => {
-                let mut file = file.lock().unwrap();
+                let file = file.get_mut().unwrap();
                 let _ = file.seek(io::SeekFrom::Start(self.cursor as u64));
                 let bytes_written = file.write(buf)?;
                 self.cursor += bytes_written as u64;
-                metadata.len = file.size().try_into().unwrap();
+                metadata.len = file.size();
                 bytes_written
             }
             Some(Node::ArcFile { .. }) => {
@@ -799,7 +799,7 @@ impl Write for FileHandle {
             Some(Node::File { file, .. }) => file.flush(),
             Some(Node::ReadOnlyFile { file, .. }) => file.flush(),
             Some(Node::CustomFile { file, .. }) => {
-                let mut file = file.lock().unwrap();
+                let file = file.get_mut().unwrap();
                 file.flush()
             }
             Some(Node::ArcFile { .. }) => {

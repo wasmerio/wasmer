@@ -6,16 +6,25 @@ use std::{
     sync::{Arc, RwLock},
 };
 
+type DelegateSeekFn = Box<dyn Fn(SeekFrom) -> io::Result<u64> + Send + Sync>;
+type DelegateWriteFn = Box<dyn Fn(&[u8]) -> io::Result<usize> + Send + Sync>;
+type DelegateFlushFn = Box<dyn Fn() -> io::Result<()> + Send + Sync>;
+type DelegateReadFn = Box<dyn Fn(&mut [u8]) -> io::Result<usize> + Send + Sync>;
+type DelegateSizeFn = Box<dyn Fn() -> u64 + Send + Sync>;
+type DelegateSetLenFn = Box<dyn Fn(u64) -> crate::Result<()> + Send + Sync>;
+type DelegateUnlinkFn = Box<dyn Fn() -> crate::Result<()> + Send + Sync>;
+type DelegateBytesAvailableFn = Box<dyn Fn() -> crate::Result<usize> + Send + Sync>;
+
 #[derive(Default)]
 pub struct DelegateFileInner {
-    seek: Option<Box<dyn Fn(SeekFrom) -> io::Result<u64> + Send + Sync>>,
-    write: Option<Box<dyn Fn(&[u8]) -> io::Result<usize> + Send + Sync>>,
-    flush: Option<Box<dyn Fn() -> io::Result<()> + Send + Sync>>,
-    read: Option<Box<dyn Fn(&mut [u8]) -> io::Result<usize> + Send + Sync>>,
-    size: Option<Box<dyn Fn() -> u64 + Send + Sync>>,
-    set_len: Option<Box<dyn Fn(u64) -> crate::Result<()> + Send + Sync>>,
-    unlink: Option<Box<dyn Fn() -> crate::Result<()> + Send + Sync>>,
-    bytes_available: Option<Box<dyn Fn() -> crate::Result<usize> + Send + Sync>>,
+    seek: Option<DelegateSeekFn>,
+    write: Option<DelegateWriteFn>,
+    flush: Option<DelegateFlushFn>,
+    read: Option<DelegateReadFn>,
+    size: Option<DelegateSizeFn>,
+    set_len: Option<DelegateSetLenFn>,
+    unlink: Option<DelegateUnlinkFn>,
+    bytes_available: Option<DelegateBytesAvailableFn>,
 }
 
 #[derive(Derivative, Clone)]

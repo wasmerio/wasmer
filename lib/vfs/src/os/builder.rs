@@ -15,9 +15,8 @@ pub struct RootFileSystemBuilder {
     stderr: Option<Box<dyn VirtualFile + Send + Sync>>,
     tty: Option<Box<dyn VirtualFile + Send + Sync>>,
 }
-
-impl RootFileSystemBuilder {
-    pub fn new() -> Self {
+impl Default for RootFileSystemBuilder {
+    fn default() -> Self {
         Self {
             default_root_dirs: true,
             default_dev_files: true,
@@ -27,6 +26,12 @@ impl RootFileSystemBuilder {
             stderr: None,
             tty: None,
         }
+    }
+}
+
+impl RootFileSystemBuilder {
+    pub fn new() -> Self {
+        Self::default()
     }
 
     pub fn with_stdin(mut self, file: Box<dyn VirtualFile + Send + Sync>) -> Self {

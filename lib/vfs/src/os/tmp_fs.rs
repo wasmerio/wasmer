@@ -16,16 +16,14 @@ use crate::mem_fs;
 use crate::Result as FsResult;
 use crate::*;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct TmpFileSystem {
     fs: mem_fs::FileSystem,
 }
 
 impl TmpFileSystem {
     pub fn new() -> Self {
-        Self {
-            fs: mem_fs::FileSystem::default(),
-        }
+        Self::default()
     }
 
     pub fn new_open_options_ext(&self) -> mem_fs::FileOpener {

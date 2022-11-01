@@ -22,7 +22,6 @@ pub struct FileSystem {
 
 impl FileSystem {
     pub fn new_open_options_ext(&self) -> FileOpener {
-        
         FileOpener {
             filesystem: self.clone(),
         }
@@ -48,27 +47,25 @@ impl FileSystem {
             }
             let _ = crate::FileSystem::create_dir(self, next.as_path());
             if let Ok(dir) = other.read_dir(next.as_path()) {
-                for sub_dir in dir {
-                    if let Ok(sub_dir) = sub_dir {
-                        match sub_dir.file_type() {
-                            Ok(t) if t.is_dir() => {
-                                remaining.push_back(sub_dir.path());
-                            }
-                            Ok(t) if t.is_file() => {
-                                if sub_dir.file_name().to_string_lossy().starts_with(".wh.") {
-                                    let rm = next.to_string_lossy();
-                                    let rm = &rm[".wh.".len()..];
-                                    let rm = PathBuf::from(rm);
-                                    let _ = crate::FileSystem::remove_dir(self, rm.as_path());
-                                    let _ = crate::FileSystem::remove_file(self, rm.as_path());
-                                    continue;
-                                }
-                                let _ = self
-                                    .new_open_options_ext()
-                                    .insert_arc_file(sub_dir.path(), other.clone());
-                            }
-                            _ => {}
+                for sub_dir in dir.flatten() {
+                    match sub_dir.file_type() {
+                        Ok(t) if t.is_dir() => {
+                            remaining.push_back(sub_dir.path());
                         }
+                        Ok(t) if t.is_file() => {
+                            if sub_dir.file_name().to_string_lossy().starts_with(".wh.") {
+                                let rm = next.to_string_lossy();
+                                let rm = &rm[".wh.".len()..];
+                                let rm = PathBuf::from(rm);
+                                let _ = crate::FileSystem::remove_dir(self, rm.as_path());
+                                let _ = crate::FileSystem::remove_file(self, rm.as_path());
+                                continue;
+                            }
+                            let _ = self
+                                .new_open_options_ext()
+                                .insert_arc_file(sub_dir.path(), other.clone());
+                        }
+                        _ => {}
                     }
                 }
             }
@@ -577,9 +574,7 @@ impl FileSystemInner {
                     _ => Err(FsError::BaseNotDirectory),
                 }
             }
-            InodeResolution::Redirect(fs, path) => {
-                Ok(InodeResolution::Redirect(fs, path))
-            }
+            InodeResolution::Redirect(fs, path) => Ok(InodeResolution::Redirect(fs, path)),
         }
     }
 

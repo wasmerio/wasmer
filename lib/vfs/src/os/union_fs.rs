@@ -11,13 +11,15 @@ use std::sync::Weak;
 #[allow(unused_imports, dead_code)]
 use tracing::{debug, error, info, trace, warn};
 
+pub type TempHolding = Arc<Mutex<Option<Arc<Box<dyn FileSystem>>>>>;
+
 #[derive(Debug)]
 pub struct MountPoint {
     pub path: String,
     pub name: String,
     pub fs: Option<Arc<Box<dyn FileSystem>>>,
     pub weak_fs: Weak<Box<dyn FileSystem>>,
-    pub temp_holding: Arc<Mutex<Option<Arc<Box<dyn FileSystem>>>>>,
+    pub temp_holding: TempHolding,
     pub should_sanitize: bool,
     pub new_path: Option<String>,
 }
@@ -59,12 +61,12 @@ impl MountPoint {
 
     fn strong(&self) -> Option<StrongMountPoint> {
         self.fs().map(|fs| StrongMountPoint {
-                path: self.path.clone(),
-                name: self.name.clone(),
-                fs,
-                should_sanitize: self.should_sanitize,
-                new_path: self.new_path.clone(),
-            })
+            path: self.path.clone(),
+            name: self.name.clone(),
+            fs,
+            should_sanitize: self.should_sanitize,
+            new_path: self.new_path.clone(),
+        })
     }
 }
 
@@ -77,14 +79,14 @@ pub struct StrongMountPoint {
     pub new_path: Option<String>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct UnionFileSystem {
     pub mounts: Vec<MountPoint>,
 }
 
 impl UnionFileSystem {
-    pub fn new() -> UnionFileSystem {
-        UnionFileSystem { mounts: Vec::new() }
+    pub fn new() -> Self {
+        Self::default()
     }
 
     pub fn clear(&mut self) {
@@ -160,10 +162,8 @@ impl UnionFileSystem {
                         ret = Some(Vec::new());
                     }
                     let ret = ret.as_mut().unwrap();
-                    for sub in dir {
-                        if let Ok(sub) = sub {
-                            ret.push(sub);
-                        }
+                    for sub in dir.flatten() {
+                        ret.push(sub);
                     }
                 }
                 Err(err) => {
@@ -340,7 +340,7 @@ impl FileSystem for UnionFileSystem {
 }
 
 fn filter_mounts(
-    mounts: &Vec<MountPoint>,
+    mounts: &[MountPoint],
     mut target: &str,
 ) -> impl Iterator<Item = (String, StrongMountPoint)> {
     let mut biggest_path = 0usize;

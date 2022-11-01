@@ -398,7 +398,7 @@ impl crate::FileOpener for FileOpener {
                         metadata.accessed = time();
 
                         // Truncate if needed.
-                        let mut file = file.lock().unwrap();
+                        let file = file.get_mut().unwrap();
                         if truncate {
                             file.set_len(0)?;
                             metadata.len = 0;
