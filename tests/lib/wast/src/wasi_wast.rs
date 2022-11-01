@@ -636,7 +636,7 @@ impl VirtualFile for OutputCapturerer {
     }
 }
 
-/// When using `crate::mem_fs`, we cannot rely on `BASE_TEST_DIR`
+/// When using `wasmer_vfs::mem_fs`, we cannot rely on `BASE_TEST_DIR`
 /// because the host filesystem cannot be used. Instead, we are
 /// copying `BASE_TEST_DIR` to the `mem_fs`.
 fn map_host_fs_to_mem_fs(
