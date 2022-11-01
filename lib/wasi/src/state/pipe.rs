@@ -1,6 +1,5 @@
 use crate::syscalls::types::*;
 use crate::syscalls::{read_bytes, write_bytes};
-use crate::{FsError, VirtualFile};
 use bytes::{Buf, Bytes};
 use std::convert::TryInto;
 use std::io::{self, Read, Seek, SeekFrom, Write};
@@ -10,6 +9,7 @@ use std::sync::Arc;
 use std::sync::Mutex;
 use wasmer::WasmSlice;
 use wasmer::{MemorySize, MemoryView};
+use wasmer_vfs::{FsError, VirtualFile};
 use wasmer_wasi_types::wasi::Errno;
 
 #[derive(Debug)]

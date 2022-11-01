@@ -57,7 +57,7 @@ use wasmer_wasi_types::wasi::{
 };
 use wasmer_wasi_types::wasi::{Prestat, PrestatEnum};
 
-use crate::{FileSystem, FsError, OpenOptions, VirtualFile};
+use wasmer_vfs::{FileSystem, FsError, OpenOptions, VirtualFile};
 
 /// the fd value of the virtual root
 pub const VIRTUAL_ROOT_FD: WasiFd = 3;
@@ -353,12 +353,12 @@ pub struct WasiFs {
 }
 
 /// Returns the default filesystem backing
-pub(crate) fn default_fs_backing() -> Box<dyn crate::FileSystem> {
+pub(crate) fn default_fs_backing() -> Box<dyn wasmer_vfs::FileSystem> {
     cfg_if::cfg_if! {
         if #[cfg(feature = "host-fs")] {
-            Box::new(crate::host_fs::FileSystem::default())
+            Box::new(wasmer_vfs::host_fs::FileSystem::default())
         } else if #[cfg(feature = "mem-fs")] {
-            Box::new(crate::mem_fs::FileSystem::default())
+            Box::new(wasmer_vfs::mem_fs::FileSystem::default())
         } else {
             Box::new(FallbackFileSystem::default())
         }
@@ -375,7 +375,7 @@ impl FallbackFileSystem {
 }
 
 impl FileSystem for FallbackFileSystem {
-    fn read_dir(&self, _path: &Path) -> Result<crate::ReadDir, FsError> {
+    fn read_dir(&self, _path: &Path) -> Result<wasmer_vfs::ReadDir, FsError> {
         Self::fail();
     }
     fn create_dir(&self, _path: &Path) -> Result<(), FsError> {
@@ -387,16 +387,16 @@ impl FileSystem for FallbackFileSystem {
     fn rename(&self, _from: &Path, _to: &Path) -> Result<(), FsError> {
         Self::fail();
     }
-    fn metadata(&self, _path: &Path) -> Result<crate::Metadata, FsError> {
+    fn metadata(&self, _path: &Path) -> Result<wasmer_vfs::Metadata, FsError> {
         Self::fail();
     }
-    fn symlink_metadata(&self, _path: &Path) -> Result<crate::Metadata, FsError> {
+    fn symlink_metadata(&self, _path: &Path) -> Result<wasmer_vfs::Metadata, FsError> {
         Self::fail();
     }
     fn remove_file(&self, _path: &Path) -> Result<(), FsError> {
         Self::fail();
     }
-    fn new_open_options(&self) -> crate::OpenOptions {
+    fn new_open_options(&self) -> wasmer_vfs::OpenOptions {
         Self::fail();
     }
 }
@@ -1757,7 +1757,10 @@ impl WasiFs {
 
 // Implementations of direct to FS calls so that we can easily change their implementation
 impl WasiState {
-    pub(crate) fn fs_read_dir<P: AsRef<Path>>(&self, path: P) -> Result<crate::ReadDir, Errno> {
+    pub(crate) fn fs_read_dir<P: AsRef<Path>>(
+        &self,
+        path: P,
+    ) -> Result<wasmer_vfs::ReadDir, Errno> {
         self.fs
             .fs_backing
             .read_dir(path.as_ref())
@@ -1936,7 +1939,7 @@ impl WasiState {
     }
 }
 
-pub fn virtual_file_type_to_wasi_file_type(file_type: crate::FileType) -> Filetype {
+pub fn virtual_file_type_to_wasi_file_type(file_type: wasmer_vfs::FileType) -> Filetype {
     // TODO: handle other file types
     if file_type.is_dir() {
         Filetype::Directory

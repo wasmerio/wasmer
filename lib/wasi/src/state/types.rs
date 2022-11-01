@@ -8,11 +8,11 @@ use wasmer_vbus::BusError;
 use wasmer_wasi_types::wasi::{BusErrno, Errno};
 
 #[cfg(feature = "host-fs")]
-pub use crate::host_fs::{Stderr, Stdin, Stdout};
+pub use wasmer_vfs::host_fs::{Stderr, Stdin, Stdout};
 #[cfg(feature = "mem-fs")]
-pub use crate::mem_fs::{Stderr, Stdin, Stdout};
+pub use wasmer_vfs::mem_fs::{Stderr, Stdin, Stdout};
 
-use crate::{FsError, VirtualFile};
+use wasmer_vfs::{FsError, VirtualFile};
 use wasmer_vnet::NetworkError;
 
 pub fn fs_error_from_wasi_err(err: Errno) -> FsError {

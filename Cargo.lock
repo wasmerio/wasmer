@@ -4071,6 +4071,7 @@ dependencies = [
  "thiserror",
  "tracing",
  "typetag",
+ "wasmer-wasi-types",
 ]
 
 [[package]]
