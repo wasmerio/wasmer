@@ -22,10 +22,10 @@ pub struct FileSystem {
 
 impl FileSystem {
     pub fn new_open_options_ext(&self) -> FileOpener {
-        let opener = FileOpener {
+        
+        FileOpener {
             filesystem: self.clone(),
-        };
-        opener
+        }
     }
 
     pub fn union(&self, other: &Arc<dyn crate::FileSystem + Send + Sync>) {
@@ -48,7 +48,7 @@ impl FileSystem {
             }
             let _ = crate::FileSystem::create_dir(self, next.as_path());
             if let Ok(dir) = other.read_dir(next.as_path()) {
-                for sub_dir in dir.into_iter() {
+                for sub_dir in dir {
                     if let Ok(sub_dir) = sub_dir {
                         match sub_dir.file_type() {
                             Ok(t) if t.is_dir() => {
@@ -553,7 +553,7 @@ impl FileSystemInner {
                 } => {
                     let mut path = fs_path.clone();
                     path.push(PathBuf::from(component.as_os_str()));
-                    while let Some(component) = components.next() {
+                    for component in components.by_ref() {
                         path.push(PathBuf::from(component.as_os_str()));
                     }
                     return Ok(InodeResolution::Redirect(fs.clone(), path));
@@ -578,7 +578,7 @@ impl FileSystemInner {
                 }
             }
             InodeResolution::Redirect(fs, path) => {
-                return Ok(InodeResolution::Redirect(fs, path));
+                Ok(InodeResolution::Redirect(fs, path))
             }
         }
     }

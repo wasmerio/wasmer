@@ -31,7 +31,7 @@ pub(super) struct FileHandle {
 impl Clone for FileHandle {
     fn clone(&self) -> Self {
         Self {
-            inode: self.inode.clone(),
+            inode: self.inode,
             filesystem: self.filesystem.clone(),
             readable: self.readable,
             writable: self.writable,
@@ -88,7 +88,7 @@ impl FileHandle {
             .as_mut()
             .unwrap()
             .as_mut()
-            .map_err(|err| err.clone())?
+            .map_err(|err| *err)?
             .as_mut())
     }
 }
@@ -251,7 +251,7 @@ impl VirtualFile for FileHandle {
                 Some(file) => file
                     .as_ref()
                     .map(|file| file.bytes_available())
-                    .map_err(|err| err.clone())?,
+                    .map_err(|err| *err)?,
                 None => fs
                     .new_open_options()
                     .read(self.readable)

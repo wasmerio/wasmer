@@ -58,16 +58,13 @@ impl MountPoint {
     }
 
     fn strong(&self) -> Option<StrongMountPoint> {
-        match self.fs() {
-            Some(fs) => Some(StrongMountPoint {
+        self.fs().map(|fs| StrongMountPoint {
                 path: self.path.clone(),
                 name: self.name.clone(),
                 fs,
                 should_sanitize: self.should_sanitize,
                 new_path: self.new_path.clone(),
-            }),
-            None => None,
-        }
+            })
     }
 }
 
@@ -106,15 +103,15 @@ impl UnionFileSystem {
     ) {
         self.unmount(path);
         let mut path = path.to_string();
-        if path.starts_with("/") == false {
+        if !path.starts_with('/') {
             path.insert(0, '/');
         }
-        if path.ends_with("/") == false {
+        if !path.ends_with('/') {
             path += "/";
         }
         let new_path = new_path.map(|new_path| {
             let mut new_path = new_path.to_string();
-            if new_path.ends_with("/") == false {
+            if !new_path.ends_with('/') {
                 new_path += "/";
             }
             new_path
@@ -136,15 +133,15 @@ impl UnionFileSystem {
 
     pub fn unmount(&mut self, path: &str) {
         let path1 = path.to_string();
-        let mut path2 = path1.clone();
-        if path2.starts_with("/") == false {
+        let mut path2 = path1;
+        if !path2.starts_with('/') {
             path2.insert(0, '/');
         }
         let mut path3 = path2.clone();
-        if path3.ends_with("/") == false {
-            path3.push_str("/")
+        if !path3.ends_with('/') {
+            path3.push('/')
         }
-        if path2.ends_with("/") {
+        if path2.ends_with('/') {
             path2 = (&path2[..(path2.len() - 1)]).to_string();
         }
 
@@ -183,7 +180,7 @@ impl UnionFileSystem {
 
     pub fn sanitize(mut self) -> Self {
         self.solidify();
-        self.mounts.retain(|mount| mount.should_sanitize == false);
+        self.mounts.retain(|mount| !mount.should_sanitize);
         self
     }
 
@@ -249,7 +246,7 @@ impl FileSystem for UnionFileSystem {
                 ret_error = FsError::UnknownError;
                 continue;
             };
-            if to.starts_with("/") == false {
+            if !to.starts_with('/') {
                 to = format!("/{}", to);
             }
             match mount
@@ -350,12 +347,12 @@ fn filter_mounts(
     let mut ret = Vec::new();
     for mount in mounts.iter().rev() {
         let mut test_mount_path1 = mount.path.clone();
-        if test_mount_path1.ends_with("/") == false {
-            test_mount_path1.push_str("/");
+        if !test_mount_path1.ends_with('/') {
+            test_mount_path1.push('/');
         }
 
         let mut test_mount_path2 = mount.path.clone();
-        if test_mount_path2.ends_with("/") == true {
+        if test_mount_path2.ends_with('/') {
             test_mount_path2 = test_mount_path2[..(test_mount_path2.len() - 1)].to_string();
         }
 

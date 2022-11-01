@@ -518,7 +518,7 @@ fn test_wasi_pipe_with_destructor() {
     let wasi_pipe_t_ptr = unsafe { &mut *wasi_pipe_t_ptr };
     let second_wasi_pipe_t_ptr = unsafe { &mut *second_wasi_pipe_t_ptr };
 
-    let data = b"hello".into_iter().map(|v| *v as i8).collect::<Vec<_>>();
+    let data = b"hello".iter().map(|v| *v as i8).collect::<Vec<_>>();
     let result = unsafe { wasi_pipe_write_bytes(wasi_pipe_t_ptr, data.as_ptr(), data.len()) };
     assert_eq!(result, 5);
 
