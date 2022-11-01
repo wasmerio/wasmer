@@ -207,7 +207,7 @@ impl VirtualFile for WasiStateFileGuard {
         }
     }
 
-    fn get_fd(&self) -> Option<crate::FileDescriptor> {
+    fn get_fd(&self) -> Option<wasmer_vfs::FileDescriptor> {
         let inodes = self.inodes.read().unwrap();
         let guard = self.lock_read(&inodes);
         if let Some(file) = guard.deref() {
