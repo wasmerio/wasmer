@@ -72,12 +72,13 @@ fn test_wasmer_create_exe_pirita_works() -> anyhow::Result<()> {
     let package_path = root_path.join("package");
     if !package_path.exists() {
         let current_dir = std::env::current_dir().unwrap();
-        std::env::set_current_dir(&root_path);
+        let _ = std::env::set_current_dir(&root_path);
         println!("running make && make build-capi && make package-capi && make package...");
         println!("current dir = {}", current_dir.display());
         println!("setting current dir = {}", root_path.display());
         // make && make build-capi && make package-capi && make package
         let mut c1 = std::process::Command::new("make");
+        c1.current_dir(&root_path);
         let r = c1.output().unwrap();
         if !r.status.success() {
             let stdout = String::from_utf8_lossy(&r.stdout);
@@ -87,6 +88,7 @@ fn test_wasmer_create_exe_pirita_works() -> anyhow::Result<()> {
         println!("make ok!");
         let mut c1 = std::process::Command::new("make");
         c1.arg("build-capi");
+        c1.current_dir(&root_path);
         let r = c1.output().unwrap();
         if !r.status.success() {
             let stdout = String::from_utf8_lossy(&r.stdout);
@@ -96,7 +98,19 @@ fn test_wasmer_create_exe_pirita_works() -> anyhow::Result<()> {
         println!("make build-capi ok!");
 
         let mut c1 = std::process::Command::new("make");
+        c1.arg("build-wasmer");
+        c1.current_dir(&root_path);
+        let r = c1.output().unwrap();
+        if !r.status.success() {
+            let stdout = String::from_utf8_lossy(&r.stdout);
+            let stderr = String::from_utf8_lossy(&r.stdout);
+            println!("make build-wasmer failed: (stdout = {stdout}, stderr = {stderr})");
+        }
+        println!("make build-wasmer ok!");
+
+        let mut c1 = std::process::Command::new("make");
         c1.arg("package-capi");
+        c1.current_dir(&root_path);
         let r = c1.output().unwrap();
         if !r.status.success() {
             let stdout = String::from_utf8_lossy(&r.stdout);
@@ -107,13 +121,14 @@ fn test_wasmer_create_exe_pirita_works() -> anyhow::Result<()> {
 
         let mut c1 = std::process::Command::new("make");
         c1.arg("package");
+        c1.current_dir(&root_path);
         let r = c1.output().unwrap();
         if !r.status.success() {
             let stdout = String::from_utf8_lossy(&r.stdout);
             let stderr = String::from_utf8_lossy(&r.stdout);
             println!("make package failed: (stdout = {stdout}, stderr = {stderr})");
         }
-        std::env::set_current_dir(&current_dir);
+        let _ = std::env::set_current_dir(&current_dir);
         println!("make package ok!");
     }
     if !package_path.exists() {
