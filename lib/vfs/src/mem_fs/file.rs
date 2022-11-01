@@ -28,9 +28,7 @@ pub(super) struct FileHandle {
     arc_file: Option<Result<Box<dyn VirtualFile + Send + Sync + 'static>>>,
 }
 
-impl Clone
-for FileHandle
-{
+impl Clone for FileHandle {
     fn clone(&self) -> Self {
         Self {
             inode: self.inode.clone(),
@@ -64,14 +62,13 @@ impl FileHandle {
         }
     }
 
-    fn lazy_load_arc_file_mut(&mut self) -> Result<&mut dyn VirtualFile>
-    {
+    fn lazy_load_arc_file_mut(&mut self) -> Result<&mut dyn VirtualFile> {
         if self.arc_file.is_none() {
             let fs = match self.filesystem.inner.read() {
                 Ok(fs) => fs,
                 _ => return Err(FsError::EntryNotFound),
             };
-    
+
             let inode = fs.storage.get(self.inode);
             match inode {
                 Some(Node::ArcFile { fs, path, .. }) => {
@@ -80,20 +77,19 @@ impl FileHandle {
                             .read(self.readable)
                             .write(self.writable)
                             .append(self.append_mode)
-                            .open(path.as_path())
+                            .open(path.as_path()),
                     );
-                },
-                _ => return Err(FsError::EntryNotFound)
+                }
+                _ => return Err(FsError::EntryNotFound),
             }
         }
-        Ok(
-            self.arc_file
-                .as_mut()
-                .unwrap()
-                .as_mut()
-                .map_err(|err| err.clone())?
-                .as_mut()
-        )
+        Ok(self
+            .arc_file
+            .as_mut()
+            .unwrap()
+            .as_mut()
+            .map_err(|err| err.clone())?
+            .as_mut())
     }
 }
 
@@ -152,28 +148,24 @@ impl VirtualFile for FileHandle {
             Some(Node::CustomFile { file, .. }) => {
                 let file = file.lock().unwrap();
                 file.size().try_into().unwrap_or(0)
-            },
-            Some(Node::ArcFile { fs, path, .. }) => {
-                match self.arc_file.as_ref() {
-                    Some(file) => file
-                        .as_ref()
-                        .map(|file| file.size())
-                        .unwrap_or(0),
-                    None => fs.new_open_options().read(self.readable).write(self.writable).append(self.append_mode).open(path.as_path())
-                        .map(|file| file.size())
-                        .unwrap_or(0),
-                }
+            }
+            Some(Node::ArcFile { fs, path, .. }) => match self.arc_file.as_ref() {
+                Some(file) => file.as_ref().map(|file| file.size()).unwrap_or(0),
+                None => fs
+                    .new_open_options()
+                    .read(self.readable)
+                    .write(self.writable)
+                    .append(self.append_mode)
+                    .open(path.as_path())
+                    .map(|file| file.size())
+                    .unwrap_or(0),
             },
             _ => 0,
         }
     }
 
     fn set_len(&mut self, new_size: u64) -> Result<()> {
-        let mut fs = self
-            .filesystem
-            .inner
-            .write()
-            .map_err(|_| FsError::Lock)?;
+        let mut fs = self.filesystem.inner.write().map_err(|_| FsError::Lock)?;
 
         let inode = fs.storage.get_mut(self.inode);
         match inode {
@@ -181,20 +173,17 @@ impl VirtualFile for FileHandle {
                 file.buffer
                     .resize(new_size.try_into().map_err(|_| FsError::UnknownError)?, 0);
                 metadata.len = new_size;
-            },
+            }
             Some(Node::CustomFile { file, metadata, .. }) => {
                 let mut file = file.lock().unwrap();
                 file.set_len(new_size)?;
                 metadata.len = new_size;
-            },
-            Some(Node::ReadOnlyFile { .. }) => {                
-                return Err(FsError::PermissionDenied)
-            },
+            }
+            Some(Node::ReadOnlyFile { .. }) => return Err(FsError::PermissionDenied),
             Some(Node::ArcFile { .. }) => {
                 drop(fs);
                 self.lazy_load_arc_file_mut()
                     .map(|file| file.set_len(new_size))??;
-
             }
             _ => return Err(FsError::NotAFile),
         }
@@ -205,11 +194,7 @@ impl VirtualFile for FileHandle {
     fn unlink(&mut self) -> Result<()> {
         let (inode_of_parent, position, inode_of_file) = {
             // Read lock.
-            let fs = self
-                .filesystem
-                .inner
-                .read()
-                .map_err(|_| FsError::Lock)?;
+            let fs = self.filesystem.inner.read().map_err(|_| FsError::Lock)?;
 
             // The inode of the file.
             let inode_of_file = self.inode;
@@ -228,7 +213,7 @@ impl VirtualFile for FileHandle {
                                 None
                             }
                         })
-                    },
+                    }
 
                     _ => None,
                 })
@@ -239,11 +224,7 @@ impl VirtualFile for FileHandle {
 
         {
             // Write lock.
-            let mut fs = self
-                .filesystem
-                .inner
-                .write()
-                .map_err(|_| FsError::Lock)?;
+            let mut fs = self.filesystem.inner.write().map_err(|_| FsError::Lock)?;
 
             // Remove the file from the storage.
             fs.storage.remove(inode_of_file);
@@ -256,11 +237,7 @@ impl VirtualFile for FileHandle {
     }
 
     fn bytes_available(&self) -> Result<usize> {
-        let fs = self
-            .filesystem
-            .inner
-            .read()
-            .map_err(|_| FsError::Lock)?;
+        let fs = self.filesystem.inner.read().map_err(|_| FsError::Lock)?;
 
         let inode = fs.storage.get(self.inode);
         match inode {
@@ -269,17 +246,20 @@ impl VirtualFile for FileHandle {
             Some(Node::CustomFile { file, .. }) => {
                 let file = file.lock().unwrap();
                 file.bytes_available()
-            },
-            Some(Node::ArcFile { fs, path, .. }) => {
-                match self.arc_file.as_ref() {
-                    Some(file) => file
-                        .as_ref()
-                        .map(|file| file.bytes_available())
-                        .map_err(|err| err.clone())?,
-                    None => fs.new_open_options().read(self.readable).write(self.writable).append(self.append_mode).open(path.as_path())
-                        .map(|file| file.bytes_available())?,
-                }
             }
+            Some(Node::ArcFile { fs, path, .. }) => match self.arc_file.as_ref() {
+                Some(file) => file
+                    .as_ref()
+                    .map(|file| file.bytes_available())
+                    .map_err(|err| err.clone())?,
+                None => fs
+                    .new_open_options()
+                    .read(self.readable)
+                    .write(self.writable)
+                    .append(self.append_mode)
+                    .open(path.as_path())
+                    .map(|file| file.bytes_available())?,
+            },
             _ => Err(FsError::NotAFile),
         }
     }
@@ -289,13 +269,11 @@ impl VirtualFile for FileHandle {
     }
 
     fn get_special_fd(&self) -> Option<u32> {
-        let fs = match self
-            .filesystem
-            .inner
-            .read()
-        {
+        let fs = match self.filesystem.inner.read() {
             Ok(a) => a,
-            Err(_) => { return None; }
+            Err(_) => {
+                return None;
+            }
         };
 
         let inode = fs.storage.get(self.inode);
@@ -303,18 +281,21 @@ impl VirtualFile for FileHandle {
             Some(Node::CustomFile { file, .. }) => {
                 let file = file.lock().unwrap();
                 file.get_special_fd()
-            },
-            Some(Node::ArcFile { fs, path, .. }) => {
-                match self.arc_file.as_ref() {
-                    Some(file) => file
-                        .as_ref()
-                        .map(|file| file.get_special_fd())
-                        .unwrap_or(None),
-                    None => fs.new_open_options().read(self.readable).write(self.writable).append(self.append_mode).open(path.as_path())
-                        .map(|file| file.get_special_fd())
-                        .unwrap_or(None),
-                }
             }
+            Some(Node::ArcFile { fs, path, .. }) => match self.arc_file.as_ref() {
+                Some(file) => file
+                    .as_ref()
+                    .map(|file| file.get_special_fd())
+                    .unwrap_or(None),
+                None => fs
+                    .new_open_options()
+                    .read(self.readable)
+                    .write(self.writable)
+                    .append(self.append_mode)
+                    .open(path.as_path())
+                    .map(|file| file.get_special_fd())
+                    .unwrap_or(None),
+            },
             _ => None,
         }
     }
@@ -557,16 +538,18 @@ impl Read for FileHandle {
                 let read = file.read(buf)?;
                 self.cursor += read as u64;
                 Ok(read)
-            },
+            }
             Some(Node::ArcFile { .. }) => {
                 drop(fs);
                 self.lazy_load_arc_file_mut()
                     .map(|file| file.read(buf))
-                    .map_err(|_| io::Error::new(
-                        io::ErrorKind::NotFound,
-                        format!("inode `{}` doesn't match a file", self.inode),
-                    ))?
-            },
+                    .map_err(|_| {
+                        io::Error::new(
+                            io::ErrorKind::NotFound,
+                            format!("inode `{}` doesn't match a file", self.inode),
+                        )
+                    })?
+            }
             _ => {
                 return Err(io::Error::new(
                     io::ErrorKind::NotFound,
@@ -602,16 +585,18 @@ impl Read for FileHandle {
                 let read = file.read_to_end(buf)?;
                 self.cursor += read as u64;
                 Ok(read)
-            },
+            }
             Some(Node::ArcFile { .. }) => {
                 drop(fs);
                 self.lazy_load_arc_file_mut()
                     .map(|file| file.read_to_end(buf))
-                    .map_err(|_| io::Error::new(
-                        io::ErrorKind::NotFound,
-                        format!("inode `{}` doesn't match a file", self.inode),
-                    ))?
-            },
+                    .map_err(|_| {
+                        io::Error::new(
+                            io::ErrorKind::NotFound,
+                            format!("inode `{}` doesn't match a file", self.inode),
+                        )
+                    })?
+            }
             _ => {
                 return Err(io::Error::new(
                     io::ErrorKind::NotFound,
@@ -666,16 +651,18 @@ impl Read for FileHandle {
                 file.read_exact(buf)?;
                 self.cursor += buf.len() as u64;
                 Ok(())
-            },
+            }
             Some(Node::ArcFile { .. }) => {
                 drop(fs);
                 self.lazy_load_arc_file_mut()
                     .map(|file| file.read_exact(buf))
-                    .map_err(|_| io::Error::new(
-                        io::ErrorKind::NotFound,
-                        format!("inode `{}` doesn't match a file", self.inode),
-                    ))?
-            },
+                    .map_err(|_| {
+                        io::Error::new(
+                            io::ErrorKind::NotFound,
+                            format!("inode `{}` doesn't match a file", self.inode),
+                        )
+                    })?
+            }
             _ => {
                 return Err(io::Error::new(
                     io::ErrorKind::NotFound,
@@ -721,16 +708,18 @@ impl Seek for FileHandle {
                 let pos = file.seek(position)?;
                 self.cursor = pos;
                 Ok(pos)
-            },
+            }
             Some(Node::ArcFile { .. }) => {
                 drop(fs);
                 self.lazy_load_arc_file_mut()
                     .map(|file| file.seek(position))
-                    .map_err(|_| io::Error::new(
-                        io::ErrorKind::NotFound,
-                        format!("inode `{}` doesn't match a file", self.inode),
-                    ))?
-            },
+                    .map_err(|_| {
+                        io::Error::new(
+                            io::ErrorKind::NotFound,
+                            format!("inode `{}` doesn't match a file", self.inode),
+                        )
+                    })?
+            }
             _ => {
                 return Err(io::Error::new(
                     io::ErrorKind::NotFound,
@@ -764,12 +753,12 @@ impl Write for FileHandle {
                 let bytes_written = file.write(buf, &mut self.cursor)?;
                 metadata.len = file.len().try_into().unwrap();
                 bytes_written
-            },
+            }
             Some(Node::ReadOnlyFile { file, metadata, .. }) => {
                 let bytes_written = file.write(buf, &mut self.cursor)?;
                 metadata.len = file.len().try_into().unwrap();
                 bytes_written
-            },
+            }
             Some(Node::CustomFile { file, metadata, .. }) => {
                 let mut file = file.lock().unwrap();
                 let _ = file.seek(io::SeekFrom::Start(self.cursor as u64));
@@ -777,16 +766,18 @@ impl Write for FileHandle {
                 self.cursor += bytes_written as u64;
                 metadata.len = file.size().try_into().unwrap();
                 bytes_written
-            },
+            }
             Some(Node::ArcFile { .. }) => {
                 drop(fs);
                 self.lazy_load_arc_file_mut()
                     .map(|file| file.write(buf))
-                    .map_err(|_| io::Error::new(
-                        io::ErrorKind::NotFound,
-                        format!("inode `{}` doesn't match a file", self.inode),
-                    ))??
-            },
+                    .map_err(|_| {
+                        io::Error::new(
+                            io::ErrorKind::NotFound,
+                            format!("inode `{}` doesn't match a file", self.inode),
+                        )
+                    })??
+            }
             _ => {
                 return Err(io::Error::new(
                     io::ErrorKind::NotFound,
@@ -810,22 +801,22 @@ impl Write for FileHandle {
             Some(Node::CustomFile { file, .. }) => {
                 let mut file = file.lock().unwrap();
                 file.flush()
-            },
+            }
             Some(Node::ArcFile { .. }) => {
                 drop(fs);
                 self.lazy_load_arc_file_mut()
                     .map(|file| file.flush())
-                    .map_err(|_| io::Error::new(
-                        io::ErrorKind::NotFound,
-                        format!("inode `{}` doesn't match a file", self.inode),
-                    ))?
-            },
-            _ => {
-                Err(io::Error::new(
-                    io::ErrorKind::NotFound,
-                    format!("inode `{}` doesn't match a file", self.inode),
-                ))
+                    .map_err(|_| {
+                        io::Error::new(
+                            io::ErrorKind::NotFound,
+                            format!("inode `{}` doesn't match a file", self.inode),
+                        )
+                    })?
             }
+            _ => Err(io::Error::new(
+                io::ErrorKind::NotFound,
+                format!("inode `{}` doesn't match a file", self.inode),
+            )),
         }
     }
 
@@ -1095,9 +1086,7 @@ pub(super) struct File {
 
 impl File {
     pub(super) fn new() -> Self {
-        Self {
-            buffer: Vec::new(),
-        }
+        Self { buffer: Vec::new() }
     }
 
     pub(super) fn truncate(&mut self) {
@@ -1256,9 +1245,7 @@ pub(super) struct ReadOnlyFile {
 
 impl ReadOnlyFile {
     pub(super) fn new(buffer: Cow<'static, [u8]>) -> Self {
-        Self {
-            buffer,
-        }
+        Self { buffer }
     }
 
     pub(super) fn len(&self) -> usize {
