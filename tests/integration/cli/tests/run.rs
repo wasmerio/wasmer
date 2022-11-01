@@ -71,25 +71,49 @@ fn test_wasmer_create_exe_pirita_works() -> anyhow::Result<()> {
     let root_path = get_repo_root_path().unwrap();
     let package_path = root_path.join("package");
     if !package_path.exists() {
+        println!("running make && make build-capi && make package-capi && make package...");
         // make && make build-capi && make package-capi && make package
         let mut c1 = std::process::Command::new("make");
         c1.current_dir(&root_path);
-        let _ = c1.output().unwrap();
-
+        let r = c1.output().unwrap();
+        if !r.status.success() {
+            let stdout = String::from_utf8_lossy(&r.stdout);
+            let stderr = String::from_utf8_lossy(&r.stdout);
+            println!("make failed: (stdout = {stdout}, stderr = {stderr})");
+        }
+        println!("make ok!");
         let mut c1 = std::process::Command::new("make");
         c1.arg("build-capi");
         c1.current_dir(&root_path);
-        let _ = c1.output().unwrap();
+        let r = c1.output().unwrap();
+        if !r.status.success() {
+            let stdout = String::from_utf8_lossy(&r.stdout);
+            let stderr = String::from_utf8_lossy(&r.stdout);
+            println!("make build-capi failed: (stdout = {stdout}, stderr = {stderr})");
+        }
+        println!("make build-capi ok!");
 
         let mut c1 = std::process::Command::new("make");
         c1.arg("package-capi");
         c1.current_dir(&root_path);
-        let _ = c1.output().unwrap();
+        let r = c1.output().unwrap();
+        if !r.status.success() {
+            let stdout = String::from_utf8_lossy(&r.stdout);
+            let stderr = String::from_utf8_lossy(&r.stdout);
+            println!("make package-capi: (stdout = {stdout}, stderr = {stderr})");
+        }
+        println!("make package-capi ok!");
 
         let mut c1 = std::process::Command::new("make");
         c1.arg("package");
         c1.current_dir(&root_path);
-        let _ = c1.output().unwrap();
+        let r = c1.output().unwrap();
+        if !r.status.success() {
+            let stdout = String::from_utf8_lossy(&r.stdout);
+            let stderr = String::from_utf8_lossy(&r.stdout);
+            println!("make package failed: (stdout = {stdout}, stderr = {stderr})");
+        }
+        println!("make package ok!");
     }
     if !package_path.exists() {
         panic!("package path {} does not exist", package_path.display());
