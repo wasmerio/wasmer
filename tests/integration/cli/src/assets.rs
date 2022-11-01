@@ -84,15 +84,20 @@ pub fn get_wasmer_path() -> PathBuf {
 
 pub fn get_repo_root_path() -> Option<PathBuf> {
     let mut current_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
-    loop {
+    let mut counter = 0;
+    let mut result = None;
+    while counter < 50 {
+        counter += 1;
         if current_dir.exists() && format!("{}", current_dir.display()).ends_with("wasmer") {
             if current_dir.parent()?.join("CHANGELOG.md").exists()
                 && current_dir.parent()?.join("LICENSE").exists()
             {
-                return Some(current_dir.parent()?.to_path_buf());
+                result = Some(current_dir.parent()?.to_path_buf());
+                break;
             }
         } else {
             current_dir = current_dir.parent()?;
         }
     }
+    result
 }
