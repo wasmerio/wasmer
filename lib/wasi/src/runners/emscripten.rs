@@ -75,13 +75,6 @@ fn prepare_emscripten_env(
         return Err(anyhow!("Atom {name:?} is not an emscripten module"));
     }
 
-    #[cfg(feature = "wasi")]
-    if wasmer_wasi::Wasi::has_wasi_imports(&module) {
-        return Err(anyhow!(
-            "Unsupported: atom {name:?} has both emscripten and WASI imports."
-        ));
-    }
-
     let env = FunctionEnv::new(store, EmEnv::new());
     let emscripten_globals = EmscriptenGlobals::new(store, &env, module);
     let emscripten_globals = emscripten_globals.map_err(|e| anyhow!("{}", e))?;
