@@ -14,7 +14,7 @@ extern size_t VOLUMES_LENGTH asm("VOLUMES_LENGTH");
 extern char VOLUMES_DATA asm("VOLUMES_DATA");
 #endif
 
-extern wasm_module_t* wasmer_module_new(wasm_store_t* store) asm("wasmer_module_new");
+extern wasm_module_t* wasmer_module_new(wasm_store_t* store,const char* wasm_name) asm("wasmer_module_new");
 extern wasm_module_t* wasmer_static_module_new(wasm_store_t* store,const char* wasm_name) asm("wasmer_static_module_new");
 
 

@@ -1720,7 +1720,7 @@ fn try_autoinstall_zig() -> Option<PathBuf> {
 }
 
 #[cfg(feature = "http")]
-fn install_zig(target_targz_path: &PathBuf) -> Option<PathBuf> {
+fn install_zig(target_targz_path: &Path) -> Option<PathBuf> {
     let resp = reqwest::blocking::get("https://ziglang.org/download/index.json");
     let resp = resp.ok()?;
     let resp = resp.json::<ZiglangOrgJson>();
