@@ -3,8 +3,8 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 use thiserror::Error;
 
-pub use crate::FileDescriptor;
-pub use crate::StdioMode;
+pub use wasmer_vfs::FileDescriptor;
+pub use wasmer_vfs::StdioMode;
 
 pub type Result<T> = std::result::Result<T, BusError>;
 
