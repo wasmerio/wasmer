@@ -14,9 +14,7 @@ extern size_t VOLUMES_LENGTH asm("VOLUMES_LENGTH");
 extern char VOLUMES_DATA asm("VOLUMES_DATA");
 #endif
 
-extern wasm_module_t* wasmer_module_new(wasm_store_t* store,const char* wasm_name) asm("wasmer_module_new");
-extern wasm_module_t* wasmer_static_module_new(wasm_store_t* store,const char* wasm_name) asm("wasmer_static_module_new");
-
+extern wasm_module_t* wasmer_object_module_new(wasm_store_t* store,const char* wasm_name) asm("wasmer_object_module_new");
 
 static void print_wasmer_error() {
   int error_len = wasmer_last_error_length();
@@ -102,7 +100,7 @@ int main(int argc, char *argv[]) {
   #ifdef WASI_PIRITA
     // INSTANTIATE_MODULES
   #else
-    wasm_module_t *module = wasmer_static_module_new(store, "module");
+    wasm_module_t *module = wasmer_object_module_new(store, "module");
   #endif
 
   if (!module) {

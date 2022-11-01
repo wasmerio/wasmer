@@ -915,7 +915,7 @@ impl CreateExe {
             c_code_to_instantiate.push_str(&format!(
                 "
 
-            wasm_module_t *atom_{atom_name} = wasmer_static_module_new(store, \"{atom_name}\");
+            wasm_module_t *atom_{atom_name} = wasmer_object_module_new(store, \"{atom_name}\");
 
             if (!atom_{atom_name}) {{
                 fprintf(stderr, \"Failed to create module from atom \\\"{atom_name}\\\"\\n\");
