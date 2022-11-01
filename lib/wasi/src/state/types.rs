@@ -9,7 +9,7 @@ use wasmer_wasi_types::wasi::{BusErrno, Errno};
 
 #[cfg(feature = "host-fs")]
 pub use wasmer_vfs::host_fs::{Stderr, Stdin, Stdout};
-#[cfg(feature = "mem-fs")]
+#[cfg(not(feature = "host-fs"))]
 pub use wasmer_vfs::mem_fs::{Stderr, Stdin, Stdout};
 
 use wasmer_vfs::{FsError, VirtualFile};

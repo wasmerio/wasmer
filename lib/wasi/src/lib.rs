@@ -28,11 +28,6 @@ compile_error!(
     "The `js` feature must be enabled only for the `wasm32` target (either `wasm32-unknown-unknown` or `wasm32-wasi`)."
 );
 
-#[cfg(all(feature = "host-fs", feature = "mem-fs"))]
-compile_error!(
-    "Cannot have both `host-fs` and `mem-fs` features enabled at the same time. Please, pick one."
-);
-
 #[macro_use]
 mod macros;
 mod runtime;
