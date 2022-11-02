@@ -428,8 +428,8 @@ impl CreateExe {
                         let _ = std::fs::create_dir_all(&target_file_path);
                         let files = untar(local_tarball.clone(), target_file_path.clone())?;
                         tarball_dir = target_file_path.canonicalize().unwrap_or(target_file_path);
-                        files.into_iter().find(|f| f.contains(libwasmer_path)).ok_or_else(|| {
-                            anyhow!("Could not find libwasmer for {} target in the provided tarball path.", target)})?
+                        files.iter().find(|f| f.contains(libwasmer_path)).cloned().ok_or_else(|| {
+                            anyhow!("Could not find libwasmer for {} target in the provided tarball path (files = {files:#?}, libwasmer_path = {libwasmer_path:?})", target)})?
                     } else {
                         #[cfg(feature = "http")]
                         {
