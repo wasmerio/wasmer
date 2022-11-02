@@ -589,11 +589,7 @@ endif
 package-wasmer:
 	mkdir -p "package/bin"
 ifeq ($(IS_WINDOWS), 1)
-	if [ -f $(TARGET_DIR)wasmer.exe ]; then \
-		cp $(TARGET_DIR)wasmer.exe package/bin/wasmer.exe ;\
-	else
-		cp $(TARGET_DIR)/wasmer.exe package/bin/wasmer.exe
-	fi
+	cp $(TARGET_DIR)/wasmer.exe package/bin/
 else
 	cp $(TARGET_DIR)/wasmer package/bin/
 ifeq ($(IS_DARWIN), 1)
