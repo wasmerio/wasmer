@@ -29,6 +29,9 @@ impl PrettyError {
                 let runtime: Option<&RuntimeError> = error.downcast_ref();
                 let trapcode = runtime.map(|e| e.clone().to_trap());
                 eprintln!("{:?}", PrettyError { error });
+                // we don't use process:abort() here to avoid message from rust
+                // that could interfer with testing tools
+                // but still exit with the expected error code
                 match trapcode {
                     #[cfg(target_os = "windows")]
                     Some(_) => 3,
