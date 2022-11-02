@@ -87,9 +87,6 @@ jobs:
       TARGET: ${{ matrix.target }}
     steps:
       - uses: actions/checkout@v3
-      - uses: webfactory/ssh-agent@v0.7.0
-        with:
-            ssh-private-key: ${{ secrets.PIRITA_SSH_PRIVATE_KEY }}
       - name: Set up libstdc++ on Linux
         if: matrix.build == 'linux-x64'
         run: |
