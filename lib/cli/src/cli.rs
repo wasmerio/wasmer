@@ -10,7 +10,7 @@ use crate::commands::CreateExe;
 use crate::commands::CreateObj;
 #[cfg(feature = "wast")]
 use crate::commands::Wast;
-use crate::commands::{Cache, Config, Inspect, List, Login, Run, SelfUpdate, Validate};
+use crate::commands::{Cache, Config, Inspect, List, Login, Publish, Run, SelfUpdate, Validate};
 use crate::error::PrettyError;
 use clap::{CommandFactory, ErrorKind, Parser};
 use std::fmt;
@@ -47,6 +47,10 @@ enum WasmerCLIOptions {
     /// Login into a wapm.io-like registry
     #[clap(name = "login")]
     Login(Login),
+
+    /// Publish a package to a wapm.io-like registry
+    #[clap(name = "publish")]
+    Publish(Publish),
 
     /// Wasmer cache
     #[clap(subcommand, name = "cache")]
@@ -225,7 +229,7 @@ fn wasmer_main_inner() -> Result<(), anyhow::Error> {
     } else {
         match command.unwrap_or(&"".to_string()).as_ref() {
             "cache" | "compile" | "config" | "create-exe" | "help" | "inspect" | "run"
-            | "self-update" | "validate" | "wast" | "binfmt" | "list" | "login" => {
+            | "self-update" | "validate" | "wast" | "binfmt" | "list" | "login" | "publish" => {
                 WasmerCLIOptions::parse()
             }
             _ => {
