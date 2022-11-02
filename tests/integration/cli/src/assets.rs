@@ -63,19 +63,37 @@ pub fn get_wasmer_path() -> PathBuf {
         ret = PathBuf::from(format!("{}wasmer", WASMER_TARGET_PATH2));
     }
     if !ret.exists() {
-        if let Some(s) = env!("CARGO_MANIFEST_DIR").split("wasmer").next() {
-            #[cfg(target_os = "windows")]
-            {
-                return std::path::Path::new(&format!("{s}wasmer/target/release/wasmer.exe"))
-                    .to_path_buf();
+        match get_repo_root_path() {
+            Some(s) => {
+                #[cfg(target_os = "windows")]
+                {
+                    return s.join("target").join("release").join("wasmer.exe");
+                }
+                #[cfg(not(target_os = "windows"))]
+                {
+                    return s.join("target").join("release").join("wasmer");
+                }
             }
-            #[cfg(not(target_os = "windows"))]
-            {
-                return std::path::Path::new(&format!("{s}wasmer/target/release/wasmer"))
-                    .to_path_buf();
+            None => {
+                panic!("Could not find wasmer executable path! {:?}", ret);
             }
         }
-        panic!("Could not find wasmer executable path! {:?}", ret);
     }
     ret
+}
+
+pub fn get_repo_root_path() -> Option<PathBuf> {
+    let mut current_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+    let mut counter = 0;
+    let mut result = None;
+    'outer: while counter < 50 {
+        counter += 1;
+        if current_dir.join("CHANGELOG.md").exists() && current_dir.join("LICENSE").exists() {
+            result = Some(current_dir.to_path_buf());
+            break 'outer;
+        } else {
+            current_dir = current_dir.parent()?;
+        }
+    }
+    result
 }

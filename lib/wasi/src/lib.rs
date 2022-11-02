@@ -40,6 +40,10 @@ mod state;
 mod syscalls;
 mod utils;
 
+/// Runners for WASI / Emscripten
+#[cfg(feature = "webc_runner")]
+pub mod runners;
+
 use crate::syscalls::*;
 
 pub use crate::state::{

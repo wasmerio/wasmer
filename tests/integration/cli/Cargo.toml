@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-integration-tests-cli"
-version = "3.0.0-rc.1"
+version = "3.0.0-rc.2"
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 description = "CLI integration tests"
 repository = "https://github.com/wasmerio/wasmer"
@@ -9,7 +9,14 @@ publish = false
 
 [dev-dependencies]
 rand = "0.8.5"
+tar = "0.4.38"
+flate2 = "1.0.24"
+target-lexicon = "0.12.4"
 
 [dependencies]
 anyhow = "1"
 tempfile = "3"
+
+[features]
+default = ["webc_runner"]
+webc_runner = []

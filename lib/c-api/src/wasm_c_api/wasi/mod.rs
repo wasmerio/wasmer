@@ -8,6 +8,7 @@ use super::{
     instance::wasm_instance_t,
     module::wasm_module_t,
     store::{wasm_store_t, StoreRef},
+    types::wasm_byte_vec_t,
 };
 use crate::error::update_last_error;
 use std::convert::TryInto;
@@ -22,6 +23,8 @@ use std::{
     io::{self, SeekFrom},
     sync::MutexGuard,
 };
+#[cfg(feature = "webc_runner")]
+use wasmer_api::{AsStoreMut, Imports, Module};
 use wasmer_wasi::{
     get_wasi_version, FsError, VirtualFile, WasiBidirectionalPipePair, WasiFile, WasiFunctionEnv,
     WasiPipe, WasiState, WasiStateBuilder, WasiVersion,
@@ -518,7 +521,7 @@ fn test_wasi_pipe_with_destructor() {
     let wasi_pipe_t_ptr = unsafe { &mut *wasi_pipe_t_ptr };
     let second_wasi_pipe_t_ptr = unsafe { &mut *second_wasi_pipe_t_ptr };
 
-    let data = b"hello".into_iter().map(|v| *v as i8).collect::<Vec<_>>();
+    let data = b"hello".iter().map(|v| *v as i8).collect::<Vec<_>>();
     let result = unsafe { wasi_pipe_write_bytes(wasi_pipe_t_ptr, data.as_ptr(), data.len()) };
     assert_eq!(result, 5);
 
@@ -813,6 +816,134 @@ pub unsafe extern "C" fn wasi_config_overwrite_stderr(
         .stderr(Box::from_raw(stderr_overwrite));
 }
 
+#[repr(C)]
+pub struct wasi_filesystem_t {
+    ptr: *const c_char,
+    size: usize,
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasi_filesystem_init_static_memory(
+    volume_bytes: Option<&wasm_byte_vec_t>,
+) -> Option<Box<wasi_filesystem_t>> {
+    let volume_bytes = volume_bytes.as_ref()?;
+    Some(Box::new(wasi_filesystem_t {
+        ptr: {
+            let ptr = (volume_bytes.data.as_ref()?) as *const _ as *const c_char;
+            if ptr.is_null() {
+                return None;
+            }
+            ptr
+        },
+        size: volume_bytes.size,
+    }))
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasi_filesystem_delete(ptr: *mut wasi_filesystem_t) {
+    let _ = Box::from_raw(ptr);
+}
+
+/// Initializes the `imports` with an import object that links to
+/// the custom file system
+#[cfg(feature = "webc_runner")]
+#[no_mangle]
+pub unsafe extern "C" fn wasi_env_with_filesystem(
+    config: Box<wasi_config_t>,
+    store: Option<&mut wasm_store_t>,
+    module: Option<&wasm_module_t>,
+    fs: Option<&wasi_filesystem_t>,
+    imports: Option<&mut wasm_extern_vec_t>,
+    package: *const c_char,
+) -> Option<Box<wasi_env_t>> {
+    wasi_env_with_filesystem_inner(config, store, module, fs, imports, package)
+}
+
+#[cfg(feature = "webc_runner")]
+unsafe fn wasi_env_with_filesystem_inner(
+    config: Box<wasi_config_t>,
+    store: Option<&mut wasm_store_t>,
+    module: Option<&wasm_module_t>,
+    fs: Option<&wasi_filesystem_t>,
+    imports: Option<&mut wasm_extern_vec_t>,
+    package: *const c_char,
+) -> Option<Box<wasi_env_t>> {
+    let store = &mut store?.inner;
+    let fs = fs.as_ref()?;
+    let package_str = CStr::from_ptr(package);
+    let package = package_str.to_str().unwrap_or("");
+    let module = &module.as_ref()?.inner;
+    let imports = imports?;
+
+    let (wasi_env, import_object) = prepare_webc_env(
+        config,
+        &mut store.store_mut(),
+        module,
+        std::mem::transmute(fs.ptr), // cast wasi_filesystem_t.ptr as &'static [u8]
+        fs.size,
+        package,
+    )?;
+
+    imports_set_buffer(&store, module, import_object, imports)?;
+
+    Some(Box::new(wasi_env_t {
+        inner: wasi_env,
+        store: store.clone(),
+    }))
+}
+
+#[cfg(feature = "webc_runner")]
+fn prepare_webc_env(
+    config: Box<wasi_config_t>,
+    store: &mut impl AsStoreMut,
+    module: &Module,
+    bytes: &'static u8,
+    len: usize,
+    package_name: &str,
+) -> Option<(WasiFunctionEnv, Imports)> {
+    use wasmer_vfs::static_fs::StaticFileSystem;
+    use webc::FsEntryType;
+
+    let slice = unsafe { std::slice::from_raw_parts(bytes, len) };
+    let volumes = webc::WebC::parse_volumes_from_fileblock(slice).ok()?;
+    let top_level_dirs = volumes
+        .into_iter()
+        .flat_map(|(_, volume)| {
+            volume
+                .header
+                .top_level
+                .iter()
+                .cloned()
+                .filter(|e| e.fs_type == FsEntryType::Dir)
+                .map(|e| e.text.to_string())
+                .collect::<Vec<_>>()
+                .into_iter()
+        })
+        .collect::<Vec<_>>();
+
+    let filesystem = Box::new(StaticFileSystem::init(slice, &package_name)?);
+    let mut wasi_env = config.state_builder;
+
+    if let Some(s) = config.stdout {
+        wasi_env.stdout(s);
+    }
+
+    if let Some(s) = config.stderr {
+        wasi_env.stderr(s);
+    }
+
+    wasi_env.set_fs(filesystem);
+
+    for f_name in top_level_dirs.iter() {
+        wasi_env
+            .preopen(|p| p.directory(f_name).read(true).write(true).create(true))
+            .ok()?;
+    }
+    let env = wasi_env.finalize(store).ok()?;
+    let import_object = env.import_object(store, &module).ok()?;
+    Some((env, import_object))
+}
+
 #[allow(non_camel_case_types)]
 pub struct wasi_env_t {
     /// cbindgen:ignore
@@ -1013,8 +1144,18 @@ unsafe fn wasi_get_imports_inner(
 
     let import_object = c_try!(wasi_env.inner.import_object(&mut store_mut, &module.inner));
 
+    imports_set_buffer(store, &module.inner, import_object, imports)?;
+
+    Some(())
+}
+
+pub(crate) fn imports_set_buffer(
+    store: &StoreRef,
+    module: &wasmer_api::Module,
+    import_object: wasmer_api::Imports,
+    imports: &mut wasm_extern_vec_t,
+) -> Option<()> {
     imports.set_buffer(c_try!(module
-        .inner
         .imports()
         .map(|import_type| {
             let ext = import_object

@@ -1,4 +1,5 @@
-//! Create a compiled standalone object file for a given Wasm file.
+#![allow(dead_code)]
+//! Create a standalone native executable for a given Wasm file.
 
 use super::ObjectFormat;
 use crate::{commands::PrefixerFn, store::CompilerOptions};
@@ -10,10 +11,13 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::io::BufWriter;
 use std::path::PathBuf;
+use std::process::Command;
 use wasmer::*;
 use wasmer_object::{emit_serialized, get_object_for_target};
+#[cfg(feature = "webc_runner")]
+use webc::{ParseOptions, WebCMmap};
 
-const WASMER_SERIALIZED_HEADER: &[u8] = include_bytes!("wasmer_deserialize_module.h");
+const WASMER_SERIALIZED_HEADER: &[u8] = include_bytes!("wasmer_create_exe.h");
 
 #[derive(Debug, Parser)]
 /// The options for the `wasmer create-exe` subcommand
@@ -83,16 +87,26 @@ impl CreateObj {
                 Target::new(target_triple.clone(), features)
             })
             .unwrap_or_default();
-        let (store, compiler_type) = self.compiler.get_store_for_target(target.clone())?;
+
+        let starting_cd = env::current_dir()?;
+        let wasm_module_path = starting_cd.join(&self.path);
+        let output_path = starting_cd.join(&self.output);
         let object_format = self.object_format.unwrap_or(ObjectFormat::Symbols);
+
+        #[cfg(feature = "webc_runner")]
+        {
+            if let Ok(pirita) = WebCMmap::parse(wasm_module_path.clone(), &ParseOptions::default())
+            {
+                return self.execute_pirita(&pirita, target, output_path, object_format);
+            }
+        }
+
+        let (store, compiler_type) = self.compiler.get_store_for_target(target.clone())?;
 
         println!("Compiler: {}", compiler_type.to_string());
         println!("Target: {}", target.triple());
         println!("Format: {:?}", object_format);
 
-        let starting_cd = env::current_dir()?;
-
-        let output_path = starting_cd.join(&self.output);
         let header_output = self.header_output.clone().unwrap_or_else(|| {
             let mut retval = self.output.clone();
             retval.set_extension("h");
@@ -100,7 +114,6 @@ impl CreateObj {
         });
 
         let header_output_path = starting_cd.join(&header_output);
-        let wasm_module_path = starting_cd.join(&self.path);
 
         match object_format {
             ObjectFormat::Serialized => {
@@ -108,7 +121,7 @@ impl CreateObj {
                     .context("failed to compile Wasm")?;
                 let bytes = module.serialize()?;
                 let mut obj = get_object_for_target(target.triple())?;
-                emit_serialized(&mut obj, &bytes, target.triple())?;
+                emit_serialized(&mut obj, &bytes, target.triple(), "WASMER_MODULE")?;
                 let mut writer = BufWriter::new(File::create(&output_path)?);
                 obj.write_stream(&mut writer)
                     .map_err(|err| anyhow::anyhow!(err.to_string()))?;
@@ -150,17 +163,98 @@ impl CreateObj {
             self.output.display(),
             header_output.display(),
         );
-        eprintln!("\n---\n");
-        eprintln!(
-            r#"To use, link the object file to your executable and call the `wasmer_object_module_new` function defined in the header file. For example, in the C language:
-
-	#include "{}"
-	
-	wasm_module_t *module = wasmer_object_module_new(store, "my_module_name");
-            "#,
-            header_output.display(),
-        );
 
         Ok(())
     }
+
+    #[cfg(feature = "webc_runner")]
+    fn execute_pirita(
+        &self,
+        file: &WebCMmap,
+        target: Target,
+        output_path: PathBuf,
+        object_format: ObjectFormat,
+    ) -> Result<()> {
+        if output_path.exists() {
+            if output_path.is_dir() {
+                nuke_dir::nuke_dir(&output_path)
+                    .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+            }
+        } else {
+            let _ = std::fs::create_dir_all(&output_path)?;
+        }
+        println!(
+            "outputting create-obj to directory {}",
+            output_path.display()
+        );
+        let (store, _) = self.compiler.get_store_for_target(target.clone())?;
+        crate::commands::create_exe::CreateExe::create_objs_pirita(
+            &store,
+            file,
+            &target,
+            &output_path,
+            object_format,
+        )?;
+        Ok(())
+    }
+}
+
+fn link(
+    output_path: PathBuf,
+    object_path: PathBuf,
+    header_code_path: PathBuf,
+) -> anyhow::Result<()> {
+    let libwasmer_path = get_libwasmer_path()?
+        .canonicalize()
+        .context("Failed to find libwasmer")?;
+    println!(
+        "link output {:?}",
+        Command::new("cc")
+            .arg(&header_code_path)
+            .arg(&format!("-L{}", libwasmer_path.display()))
+            //.arg(&format!("-I{}", header_code_path.display()))
+            .arg("-pie")
+            .arg("-o")
+            .arg("header_obj.o")
+            .output()?
+    );
+    //ld -relocatable a.o b.o -o c.o
+
+    println!(
+        "link output {:?}",
+        Command::new("ld")
+            .arg("-relocatable")
+            .arg(&object_path)
+            .arg("header_obj.o")
+            .arg("-o")
+            .arg(&output_path)
+            .output()?
+    );
+
+    Ok(())
+}
+
+/// path to the static libwasmer
+fn get_libwasmer_path() -> anyhow::Result<PathBuf> {
+    let mut path = get_wasmer_dir()?;
+    path.push("lib");
+
+    // TODO: prefer headless Wasmer if/when it's a separate library.
+    #[cfg(not(windows))]
+    path.push("libwasmer.a");
+    #[cfg(windows)]
+    path.push("wasmer.lib");
+
+    Ok(path)
+}
+fn get_wasmer_dir() -> anyhow::Result<PathBuf> {
+    Ok(PathBuf::from(
+        env::var("WASMER_DIR")
+            .or_else(|e| {
+                option_env!("WASMER_INSTALL_PREFIX")
+                    .map(str::to_string)
+                    .ok_or(e)
+            })
+            .context("Trying to read env var `WASMER_DIR`")?,
+    ))
 }
