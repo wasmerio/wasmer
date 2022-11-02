@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["get_volume_name",""],["get_volume_name_opt",""],["normalizes_path",""],["transform_into_read_dir",""],["translate_file_type",""]],"struct":[["WebCFile",""],["WebCFileOpener","Custom file opener, returns a WebCFile"],["WebcFileSystem","Custom file system wrapper to map requested file paths"]]});
