@@ -86,14 +86,10 @@ pub fn get_repo_root_path() -> Option<PathBuf> {
     let mut current_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
     let mut counter = 0;
     let mut result = None;
-    println!("get_repo_root_path: {}", current_dir.display());
     'outer: while counter < 50 {
         counter += 1;
-        println!("get_repo_root_path {counter}: {}", current_dir.display());
         if current_dir.exists() && format!("{}", current_dir.display()).ends_with("wasmer") {
-            println!("dir ends with wasmer: {}", current_dir.display());
             if current_dir.join("CHANGELOG.md").exists() && current_dir.join("LICENSE").exists() {
-                println!("matched!");
                 result = Some(current_dir.to_path_buf());
                 break 'outer;
             }
