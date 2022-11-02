@@ -4,6 +4,7 @@ use std::time::Duration;
 pub mod config;
 pub mod graphql;
 pub mod login;
+pub mod publish;
 pub mod utils;
 
 use crate::config::{format_graphql, Registries};

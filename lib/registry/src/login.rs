@@ -1,4 +1,4 @@
-use crate::config::{Registries, UpdateRegistry};
+use crate::config::UpdateRegistry;
 use crate::PartialWapmConfig;
 
 /// Login to a registry and save the token associated with it.
@@ -7,7 +7,7 @@ use crate::PartialWapmConfig;
 pub fn login_and_save_token(registry: &str, token: &str) -> Result<(), anyhow::Error> {
     let mut config = PartialWapmConfig::from_file().map_err(|e| anyhow::anyhow!("{e}"))?;
     config.registry.set_login_token_for_registry(
-        &config.registry.get_current_registry(),
+        &registry,
         &token,
         UpdateRegistry::Update,
     );

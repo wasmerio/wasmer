@@ -1,0 +1,5 @@
+query GetSignedUrl ($name:String!, $version:String!) {
+    url: getSignedUrlForPackageUpload(name:$name, version:$version) {
+        url
+    }
+}

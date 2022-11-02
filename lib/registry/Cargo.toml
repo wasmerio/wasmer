@@ -21,3 +21,6 @@ tar = "0.4.38"
 flate2 = "1.0.24"
 semver = "1.0.14"
 lzma-rs = "0.2.0"
+log = "0.4.17"
+console = "0.15.2"
+indicatif = { version = "0.17.1", features = ["improved_unicode"] }
