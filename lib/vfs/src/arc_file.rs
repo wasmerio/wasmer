@@ -27,6 +27,7 @@ impl Seek for ArcFile {
         inner.seek(pos)
     }
 }
+
 impl Write for ArcFile {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         let mut inner = self.inner.lock().unwrap();

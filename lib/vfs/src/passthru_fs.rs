@@ -1,3 +1,6 @@
+//! `PassthruFileSystem` simply forwards and "owns" a filesystem,
+//! passing the operations to the inner filesystem
+
 use std::path::Path;
 #[allow(unused_imports, dead_code)]
 use tracing::{debug, error, info, trace, warn};
@@ -47,4 +50,28 @@ impl FileSystem for PassthruFileSystem {
     fn new_open_options(&self) -> OpenOptions {
         self.fs.new_open_options()
     }
+}
+
+#[test]
+fn test_passthru_fs_2() {
+    let mem_fs = crate::mem_fs::FileSystem::default();
+
+    mem_fs
+    .new_open_options()
+    .read(true)
+    .write(true)
+    .create(true)
+    .open("/foo.txt")
+    .unwrap()
+    .write(b"hello")
+    .unwrap();
+
+    let mut buf = Vec::new();
+    mem_fs.new_open_options().read(true).open("/foo.txt").unwrap().read_to_end(&mut buf).unwrap();
+    assert_eq!(buf, b"hello");
+
+    let passthru_fs = PassthruFileSystem::new(Box::new(mem_fs.clone()));
+    let mut buf = Vec::new();
+    passthru_fs.new_open_options().read(true).open("/foo.txt").unwrap().read_to_end(&mut buf).unwrap();
+    assert_eq!(buf, b"hello");
 }

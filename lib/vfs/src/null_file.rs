@@ -1,3 +1,6 @@
+//! NullFile is a special file for `/dev/null`, which returns 0 for all 
+//! operations except writing.
+
 use std::io::{self, *};
 
 use crate::FileDescriptor;
@@ -11,6 +14,7 @@ impl Seek for NullFile {
         Ok(0)
     }
 }
+
 impl Write for NullFile {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         Ok(buf.len())
