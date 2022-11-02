@@ -31,6 +31,8 @@ wasmer-compiler = { version = "=3.0.0-rc.1", path = "../compiler" }
 wasmer-middlewares = { version = "=3.0.0-rc.1", path = "../middlewares", optional = true }
 wasmer-wasi = { version = "=3.0.0-rc.1", path = "../wasi", default-features = false, features = ["host-fs", "sys"], optional = true }
 wasmer-types = { version = "=3.0.0-rc.1", path = "../types" }
+wasmer-vfs = { version = "=3.0.0-rc.1", path = "../vfs", optional = true, default-features = false, features = ["static-fs"] }
+webc = { version = "3.0.1", optional = true }
 enumset = "1.0.2"
 cfg-if = "1.0"
 lazy_static = "1.4"
@@ -90,7 +92,7 @@ wasmer-artifact-load = ["wasmer-compiler/wasmer-artifact-load"]
 wasmer-artifact-create = ["wasmer-compiler/wasmer-artifact-create"]
 static-artifact-load = ["wasmer-compiler/static-artifact-load"]
 static-artifact-create = ["wasmer-compiler/static-artifact-create"]
-
+webc_runner = ["wasmer-wasi/webc_runner", "wasmer-vfs", "webc"]
 # Deprecated features.
 jit = ["compiler"]
 

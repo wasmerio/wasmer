@@ -15,6 +15,10 @@ compile_error!("At least the `host-fs` or the `mem-fs` feature must be enabled. 
 pub mod host_fs;
 #[cfg(feature = "mem-fs")]
 pub mod mem_fs;
+#[cfg(feature = "static-fs")]
+pub mod static_fs;
+#[cfg(feature = "webc-fs")]
+pub mod webc_fs;
 
 pub type Result<T> = std::result::Result<T, FsError>;
 
