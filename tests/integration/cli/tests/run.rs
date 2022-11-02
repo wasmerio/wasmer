@@ -89,6 +89,16 @@ fn test_wasmer_create_exe_pirita_works() -> anyhow::Result<()> {
         }
         println!("make ok!");
         let mut c1 = std::process::Command::new("make");
+        c1.arg("build-wasmer");
+        c1.current_dir(&root_path);
+        let r = c1.output().unwrap();
+        if !r.status.success() {
+            let stdout = String::from_utf8_lossy(&r.stdout);
+            let stderr = String::from_utf8_lossy(&r.stdout);
+            println!("make failed: (stdout = {stdout}, stderr = {stderr})");
+        }
+        println!("make build-wasmer ok!");
+        let mut c1 = std::process::Command::new("make");
         c1.arg("build-capi");
         c1.current_dir(&root_path);
         let r = c1.output().unwrap();

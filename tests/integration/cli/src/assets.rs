@@ -69,11 +69,11 @@ pub fn get_wasmer_path() -> PathBuf {
                 #[cfg(target_os = "windows")]
                 {
                     println!("got wasmer root path: {}", s.display());
-                    return s.join("/target/release/wasmer.exe");
+                    return s.join("target").join("release").join("wasmer.exe");
                 }
                 #[cfg(not(target_os = "windows"))]
                 {
-                    return s.join("/target/release/wasmer");
+                    return s.join("target").join("release").join("wasmer");
                 }
             }
             None => {
