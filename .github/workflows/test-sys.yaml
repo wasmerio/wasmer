@@ -200,7 +200,7 @@ jobs:
           echo 'RUSTC_WRAPPER=${{ runner.tool_cache }}/cargo-sccache/bin/sccache' >> $GITHUB_ENV
         shell: bash
       - name: Test integration CLI
-        if: matrix.run_test && matrix.os != 'windows-2019'
+        if: matrix.run_test
         run: |
           make && make build-capi && make package-capi && make package
           export WASMER_DIR=`pwd`/package
