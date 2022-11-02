@@ -33,6 +33,7 @@ mod macros;
 mod runtime;
 mod state;
 mod syscalls;
+mod tty_file;
 mod utils;
 
 use crate::syscalls::*;
@@ -43,6 +44,7 @@ pub use crate::state::{
     VIRTUAL_ROOT_FD,
 };
 pub use crate::syscalls::types;
+pub use crate::tty_file::TtyFile;
 #[cfg(feature = "wasix")]
 pub use crate::utils::is_wasix_module;
 pub use crate::utils::{get_wasi_version, get_wasi_versions, is_wasi_module, WasiVersion};

@@ -57,21 +57,33 @@ fn test_passthru_fs_2() {
     let mem_fs = crate::mem_fs::FileSystem::default();
 
     mem_fs
-    .new_open_options()
-    .read(true)
-    .write(true)
-    .create(true)
-    .open("/foo.txt")
-    .unwrap()
-    .write(b"hello")
-    .unwrap();
+        .new_open_options()
+        .read(true)
+        .write(true)
+        .create(true)
+        .open("/foo.txt")
+        .unwrap()
+        .write(b"hello")
+        .unwrap();
 
     let mut buf = Vec::new();
-    mem_fs.new_open_options().read(true).open("/foo.txt").unwrap().read_to_end(&mut buf).unwrap();
+    mem_fs
+        .new_open_options()
+        .read(true)
+        .open("/foo.txt")
+        .unwrap()
+        .read_to_end(&mut buf)
+        .unwrap();
     assert_eq!(buf, b"hello");
 
     let passthru_fs = PassthruFileSystem::new(Box::new(mem_fs.clone()));
     let mut buf = Vec::new();
-    passthru_fs.new_open_options().read(true).open("/foo.txt").unwrap().read_to_end(&mut buf).unwrap();
+    passthru_fs
+        .new_open_options()
+        .read(true)
+        .open("/foo.txt")
+        .unwrap()
+        .read_to_end(&mut buf)
+        .unwrap();
     assert_eq!(buf, b"hello");
 }

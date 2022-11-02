@@ -1,4 +1,4 @@
-//! NullFile is a special file for `/dev/null`, which returns 0 for all 
+//! NullFile is a special file for `/dev/null`, which returns 0 for all
 //! operations except writing.
 
 use std::io::{self, *};

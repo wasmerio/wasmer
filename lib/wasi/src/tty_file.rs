@@ -1,26 +1,22 @@
 use std::{
-    io::{
-        self,
-        *
-    },
-    sync::Arc
+    io::{self, *},
+    sync::Arc,
 };
-use crate::FileDescriptor;
-use crate::VirtualFile;
+use wasmer_vfs::FileDescriptor;
+use wasmer_vfs::VirtualFile;
 
 #[derive(Debug)]
 pub struct TtyFile {
     runtime: Arc<dyn crate::WasiRuntimeImplementation + Send + Sync + 'static>,
-    stdin: Box<dyn VirtualFile + Send + Sync + 'static>
+    stdin: Box<dyn VirtualFile + Send + Sync + 'static>,
 }
 
-impl TtyFile
-{
-    pub fn new(runtime: Arc<dyn crate::WasiRuntimeImplementation + Send + Sync + 'static>, stdin: Box<dyn VirtualFile + Send + Sync + 'static>) -> Self {
-        Self {
-            runtime,
-            stdin
-        }
+impl TtyFile {
+    pub fn new(
+        runtime: Arc<dyn crate::WasiRuntimeImplementation + Send + Sync + 'static>,
+        stdin: Box<dyn VirtualFile + Send + Sync + 'static>,
+    ) -> Self {
+        Self { runtime, stdin }
     }
 }
 
@@ -58,19 +54,19 @@ impl VirtualFile for TtyFile {
     fn size(&self) -> u64 {
         0
     }
-    fn set_len(&mut self, _new_size: u64) -> crate::Result<()> {
+    fn set_len(&mut self, _new_size: u64) -> wasmer_vfs::Result<()> {
         Ok(())
     }
-    fn unlink(&mut self) -> crate::Result<()> {
+    fn unlink(&mut self) -> wasmer_vfs::Result<()> {
         Ok(())
     }
-    fn bytes_available(&self) -> crate::Result<usize> {
+    fn bytes_available(&self) -> wasmer_vfs::Result<usize> {
         self.stdin.bytes_available()
     }
-    fn bytes_available_read(&self) -> crate::Result<Option<usize>> {
+    fn bytes_available_read(&self) -> wasmer_vfs::Result<Option<usize>> {
         self.stdin.bytes_available_read()
     }
-    fn bytes_available_write(&self) -> crate::Result<Option<usize>> {
+    fn bytes_available_write(&self) -> wasmer_vfs::Result<Option<usize>> {
         self.stdin.bytes_available_write()
     }
     fn get_fd(&self) -> Option<FileDescriptor> {

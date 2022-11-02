@@ -5,21 +5,21 @@ use std::io::{self, Read, Seek, Write};
 use std::path::{Path, PathBuf};
 use thiserror::Error;
 
-#[cfg(feature = "host-fs")]
-pub mod host_fs;
-pub mod mem_fs;
 pub mod arc_file;
 pub mod arc_fs;
 pub mod builder;
 pub mod delegate_file;
 pub mod empty_fs;
+#[cfg(feature = "host-fs")]
+pub mod host_fs;
+pub mod mem_fs;
 pub mod null_file;
 pub mod passthru_fs;
 pub mod special_file;
 pub mod tmp_fs;
 pub mod union_fs;
-// pub mod tty_file;
 pub mod zero_file;
+// tty_file -> see wasmer_wasi::tty_file
 
 pub use arc_file::*;
 pub use arc_fs::*;
@@ -31,7 +31,6 @@ pub use passthru_fs::*;
 pub use special_file::*;
 pub use tmp_fs::*;
 pub use union_fs::*;
-// pub use tty_file::*;
 pub use zero_file::*;
 
 pub type Result<T> = std::result::Result<T, FsError>;
