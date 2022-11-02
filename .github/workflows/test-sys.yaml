@@ -201,6 +201,7 @@ jobs:
         shell: bash
       - name: Test integration CLI
         if: matrix.run_test
+        shell: bash
         run: |
           make && make build-capi && make package-capi && make package
           export WASMER_DIR=`pwd`/package
