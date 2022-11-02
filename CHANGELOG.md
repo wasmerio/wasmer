@@ -14,6 +14,13 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## Fixed
 
+## 3.0.0-rc.2 - 2022/11/02
+
+## Fixed
+- [#3268](https://github.com/wasmerio/wasmer/pulls/3268) Fix fd_right nightly test to avoid foo.txt file leftover
+- [#3260](https://github.com/wasmerio/wasmer/pulls/3260) Fix bug in wasmer run
+- [#3257](https://github.com/wasmerio/wasmer/pulls/3257) Fix linux-aarch64 build
+
 ## 3.0.0-rc.1 - 2022/10/25
 
 ## Added
