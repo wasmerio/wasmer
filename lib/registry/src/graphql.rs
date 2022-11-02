@@ -39,8 +39,7 @@ mod proxy {
     /// there was a failure while attempting to set up the proxy.
     pub fn maybe_set_up_proxy() -> anyhow::Result<Option<reqwest::Proxy>> {
         use std::env;
-        let proxy = if let Ok(proxy_url) =
-            env::var("ALL_PROXY").or_else(|_| env::var("all_proxy"))
+        let proxy = if let Ok(proxy_url) = env::var("ALL_PROXY").or_else(|_| env::var("all_proxy"))
         {
             reqwest::Proxy::all(&proxy_url).map(|proxy| (proxy_url, proxy, "ALL_PROXY"))
         } else if let Ok(https_proxy_url) =
@@ -51,8 +50,7 @@ mod proxy {
         } else if let Ok(http_proxy_url) =
             env::var("HTTP_PROXY").or_else(|_| env::var("http_proxy"))
         {
-            reqwest::Proxy::http(&http_proxy_url)
-                .map(|proxy| (http_proxy_url, proxy, "http_proxy"))
+            reqwest::Proxy::http(&http_proxy_url).map(|proxy| (http_proxy_url, proxy, "http_proxy"))
         } else {
             return Ok(None);
         }
@@ -162,9 +160,7 @@ where
     let mut res = client
         .post(registry_url)
         .multipart(form)
-        .bearer_auth(
-            env::var("WAPM_REGISTRY_TOKEN").unwrap_or_else(|_| login_token.to_string()),
-        )
+        .bearer_auth(env::var("WAPM_REGISTRY_TOKEN").unwrap_or_else(|_| login_token.to_string()))
         .header(USER_AGENT, user_agent);
 
     if let Some(t) = timeout {
@@ -221,9 +217,7 @@ where
     let mut res = client
         .post(registry_url)
         .multipart(form)
-        .bearer_auth(
-            env::var("WAPM_REGISTRY_TOKEN").unwrap_or_else(|_| login_token.to_string()),
-        )
+        .bearer_auth(env::var("WAPM_REGISTRY_TOKEN").unwrap_or_else(|_| login_token.to_string()))
         .header(USER_AGENT, user_agent);
 
     if let Some(t) = timeout {

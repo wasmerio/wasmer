@@ -64,6 +64,7 @@ walkdir = "2.3.2"
 regex = "1.6.0"
 toml = "0.5.9"
 url = "2.3.1"
+dialoguer = "0.10.2"
 
 [build-dependencies]
 chrono = { version = "^0.4", default-features = false, features = [ "std", "clock" ] }
