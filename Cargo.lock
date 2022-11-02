@@ -4256,7 +4256,6 @@ dependencies = [
  "generational-arena",
  "getrandom",
  "libc",
- "nuke-dir",
  "serde",
  "serde_cbor",
  "thiserror",

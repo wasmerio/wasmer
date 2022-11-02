@@ -30,7 +30,6 @@ derivative = { version = "^2" }
 bytes = "1"
 webc = { version = "3.0.1", optional = true, default-features = false, features = ["std", "mmap"] }
 serde_cbor = { version = "0.11.2", optional = true }
-nuke-dir = { version = "0.1.0", optional = true }
 anyhow = { version = "1.0.66", optional = true }
 wasmer-emscripten = { path = "../emscripten", version = "=3.0.0-rc.1", optional = true }
 
