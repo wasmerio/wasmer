@@ -62,13 +62,11 @@ pub fn get_wasmer_path() -> PathBuf {
     if !ret.exists() {
         ret = PathBuf::from(format!("{}wasmer", WASMER_TARGET_PATH2));
     }
-    println!("get wasmer path...");
     if !ret.exists() {
         match get_repo_root_path() {
             Some(s) => {
                 #[cfg(target_os = "windows")]
                 {
-                    println!("got wasmer root path: {}", s.display());
                     return s.join("target").join("release").join("wasmer.exe");
                 }
                 #[cfg(not(target_os = "windows"))]
@@ -90,7 +88,6 @@ pub fn get_repo_root_path() -> Option<PathBuf> {
     let mut result = None;
     'outer: while counter < 50 {
         counter += 1;
-        println!("current dir: {}", current_dir.display());
         if current_dir.join("CHANGELOG.md").exists() && current_dir.join("LICENSE").exists() {
             result = Some(current_dir.to_path_buf());
             break 'outer;
