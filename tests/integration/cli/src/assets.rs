@@ -87,15 +87,15 @@ pub fn get_repo_root_path() -> Option<PathBuf> {
     let mut counter = 0;
     let mut result = None;
     println!("get_repo_root_path: {}", current_dir.display());
-    while counter < 50 {
+    'outer: while counter < 50 {
         counter += 1;
         println!("get_repo_root_path {counter}: {}", current_dir.display());
         if current_dir.exists() && format!("{}", current_dir.display()).ends_with("wasmer") {
-            if current_dir.parent()?.join("CHANGELOG.md").exists()
-                && current_dir.parent()?.join("LICENSE").exists()
-            {
-                result = Some(current_dir.parent()?.to_path_buf());
-                break;
+            println!("dir ends with wasmer: {}", current_dir.display());
+            if current_dir.join("CHANGELOG.md").exists() && current_dir.join("LICENSE").exists() {
+                println!("matched!");
+                result = Some(current_dir.to_path_buf());
+                break 'outer;
             }
         } else {
             current_dir = current_dir.parent()?;
