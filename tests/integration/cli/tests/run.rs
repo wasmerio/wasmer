@@ -59,6 +59,9 @@ fn package_directory(in_dir: &PathBuf, out: &PathBuf) {
     a.finish().unwrap();
 }
 
+/// TODO: on linux-musl, the packaging of libwasmer.a doesn't work properly
+/// Tracked in https://github.com/wasmerio/wasmer/issues/3271
+#[cfg(not(target_env = "musl"))]
 #[cfg(feature = "webc_runner")]
 #[test]
 fn test_wasmer_create_exe_pirita_works() -> anyhow::Result<()> {
