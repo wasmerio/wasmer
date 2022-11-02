@@ -87,6 +87,9 @@ jobs:
       TARGET: ${{ matrix.target }}
     steps:
       - uses: actions/checkout@v3
+      - uses: webfactory/ssh-agent@v0.7.0
+        with:
+            ssh-private-key: ${{ secrets.PIRITA_SSH_PRIVATE_KEY }}
       - name: Set up libstdc++ on Linux
         if: matrix.build == 'linux-x64'
         run: |
@@ -275,14 +278,14 @@ jobs:
           target: aarch64-unknown-linux-gnu
       - name: Build cross image
         run: |
-          docker build -t wasmer/aarch64 /home/runner/work/wasmer/wasmer/.github/cross-linux-aarch64/
+          docker build -t wasmer/aarch64 ${GITHUB_WORKSPACE}/.github/cross-linux-aarch64/
         env:
           CROSS_DOCKER_IN_DOCKER: true
       - name: Build Wasmer binary
         run: |
           make build-wasmer
         env:
-          CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v /home/runner/work/wasmer/wasmer:/project -w /project wasmer/aarch64 cross
+          CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${GITHUB_WORKSPACE}:/project -w /project wasmer/aarch64 cross
           CROSS_DOCKER_IN_DOCKER: true
           CARGO_TARGET: --target aarch64-unknown-linux-gnu
           PKG_CONFIG_PATH: /usr/lib/aarch64-linux-gnu/pkgconfig
@@ -293,7 +296,7 @@ jobs:
         run: |
           make package-capi-headless
         env:
-          CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v /home/runner/work/wasmer/wasmer:/project -w /project wasmer/aarch64 cross
+          CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${GITHUB_WORKSPACE}:/project -w /project wasmer/aarch64 cross
           CROSS_DOCKER_IN_DOCKER: true
           CARGO_TARGET: --target aarch64-unknown-linux-gnu
           PKG_CONFIG_PATH: /usr/lib/aarch64-linux-gnu/pkgconfig
@@ -305,7 +308,7 @@ jobs:
         run: |
           make build-capi
         env:
-          CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v /home/runner/work/wasmer/wasmer:/project -w /project wasmer/aarch64 cross
+          CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${GITHUB_WORKSPACE}:/project -w /project wasmer/aarch64 cross
           CROSS_DOCKER_IN_DOCKER: true
           CARGO_TARGET: --target aarch64-unknown-linux-gnu
           PKG_CONFIG_PATH: /usr/lib/aarch64-linux-gnu/pkgconfig
@@ -315,7 +318,7 @@ jobs:
         run: |
           make distribution
         env:
-          CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v /home/runner/work/wasmer/wasmer:/project -w /project wasmer/aarch64 cross
+          CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${GITHUB_WORKSPACE}:/project -w /project wasmer/aarch64 cross
           CROSS_DOCKER_IN_DOCKER: true
           CARGO_TARGET: --target aarch64-unknown-linux-gnu
           PKG_CONFIG_PATH: /usr/lib/aarch64-linux-gnu/pkgconfig
