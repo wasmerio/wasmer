@@ -159,13 +159,6 @@
 <span id="154">154</span>
 <span id="155">155</span>
 <span id="156">156</span>
-<span id="157">157</span>
-<span id="158">158</span>
-<span id="159">159</span>
-<span id="160">160</span>
-<span id="161">161</span>
-<span id="162">162</span>
-<span id="163">163</span>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
 
@@ -207,29 +200,26 @@
     <span class="doccomment">/// A `table_addr` instruction detected an out-of-bounds error.</span>
     <span class="ident">TableAccessOutOfBounds</span> <span class="op">=</span> <span class="number">3</span>,
 
-    <span class="doccomment">/// Other bounds checking error.</span>
-    <span class="ident">OutOfBounds</span> <span class="op">=</span> <span class="number">4</span>,
-
     <span class="doccomment">/// Indirect call to a null table entry.</span>
-    <span class="ident">IndirectCallToNull</span> <span class="op">=</span> <span class="number">5</span>,
+    <span class="ident">IndirectCallToNull</span> <span class="op">=</span> <span class="number">4</span>,
 
     <span class="doccomment">/// Signature mismatch on indirect call.</span>
-    <span class="ident">BadSignature</span> <span class="op">=</span> <span class="number">6</span>,
+    <span class="ident">BadSignature</span> <span class="op">=</span> <span class="number">5</span>,
 
     <span class="doccomment">/// An integer arithmetic operation caused an overflow.</span>
-    <span class="ident">IntegerOverflow</span> <span class="op">=</span> <span class="number">7</span>,
+    <span class="ident">IntegerOverflow</span> <span class="op">=</span> <span class="number">6</span>,
 
     <span class="doccomment">/// An integer division by zero.</span>
-    <span class="ident">IntegerDivisionByZero</span> <span class="op">=</span> <span class="number">8</span>,
+    <span class="ident">IntegerDivisionByZero</span> <span class="op">=</span> <span class="number">7</span>,
 
     <span class="doccomment">/// Failed float-to-int conversion.</span>
-    <span class="ident">BadConversionToInteger</span> <span class="op">=</span> <span class="number">9</span>,
+    <span class="ident">BadConversionToInteger</span> <span class="op">=</span> <span class="number">8</span>,
 
     <span class="doccomment">/// Code that was supposed to have been unreachable was reached.</span>
-    <span class="ident">UnreachableCodeReached</span> <span class="op">=</span> <span class="number">10</span>,
+    <span class="ident">UnreachableCodeReached</span> <span class="op">=</span> <span class="number">9</span>,
 
     <span class="doccomment">/// An atomic memory access was attempted with an unaligned pointer.</span>
-    <span class="ident">UnalignedAtomic</span> <span class="op">=</span> <span class="number">11</span>,
+    <span class="ident">UnalignedAtomic</span> <span class="op">=</span> <span class="number">10</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">TrapCode</span> {
@@ -240,7 +230,6 @@
             <span class="ident"><span class="self">Self</span>::HeapAccessOutOfBounds</span> =&gt; <span class="string">&quot;out of bounds memory access&quot;</span>,
             <span class="ident"><span class="self">Self</span>::HeapMisaligned</span> =&gt; <span class="string">&quot;misaligned heap&quot;</span>,
             <span class="ident"><span class="self">Self</span>::TableAccessOutOfBounds</span> =&gt; <span class="string">&quot;undefined element: out of bounds table access&quot;</span>,
-            <span class="ident"><span class="self">Self</span>::OutOfBounds</span> =&gt; <span class="string">&quot;out of bounds&quot;</span>,
             <span class="ident"><span class="self">Self</span>::IndirectCallToNull</span> =&gt; <span class="string">&quot;uninitialized element&quot;</span>,
             <span class="ident"><span class="self">Self</span>::BadSignature</span> =&gt; <span class="string">&quot;indirect call type mismatch&quot;</span>,
             <span class="ident"><span class="self">Self</span>::IntegerOverflow</span> =&gt; <span class="string">&quot;integer overflow&quot;</span>,
@@ -259,7 +248,6 @@
             <span class="ident"><span class="self">Self</span>::HeapAccessOutOfBounds</span> =&gt; <span class="string">&quot;heap_get_oob&quot;</span>,
             <span class="ident"><span class="self">Self</span>::HeapMisaligned</span> =&gt; <span class="string">&quot;heap_misaligned&quot;</span>,
             <span class="ident"><span class="self">Self</span>::TableAccessOutOfBounds</span> =&gt; <span class="string">&quot;table_get_oob&quot;</span>,
-            <span class="ident"><span class="self">Self</span>::OutOfBounds</span> =&gt; <span class="string">&quot;oob&quot;</span>,
             <span class="ident"><span class="self">Self</span>::IndirectCallToNull</span> =&gt; <span class="string">&quot;icall_null&quot;</span>,
             <span class="ident"><span class="self">Self</span>::BadSignature</span> =&gt; <span class="string">&quot;bad_sig&quot;</span>,
             <span class="ident"><span class="self">Self</span>::IntegerOverflow</span> =&gt; <span class="string">&quot;int_ovf&quot;</span>,
@@ -281,7 +269,6 @@
             <span class="string">&quot;heap_get_oob&quot;</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident"><span class="self">Self</span>::HeapAccessOutOfBounds</span>),
             <span class="string">&quot;heap_misaligned&quot;</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident"><span class="self">Self</span>::HeapMisaligned</span>),
             <span class="string">&quot;table_get_oob&quot;</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident"><span class="self">Self</span>::TableAccessOutOfBounds</span>),
-            <span class="string">&quot;oob&quot;</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident"><span class="self">Self</span>::OutOfBounds</span>),
             <span class="string">&quot;icall_null&quot;</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident"><span class="self">Self</span>::IndirectCallToNull</span>),
             <span class="string">&quot;bad_sig&quot;</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident"><span class="self">Self</span>::BadSignature</span>),
             <span class="string">&quot;int_ovf&quot;</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident"><span class="self">Self</span>::IntegerOverflow</span>),
@@ -299,12 +286,11 @@
     <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
 
     <span class="comment">// Everything but user-defined codes.</span>
-    <span class="kw">const</span> <span class="ident">CODES</span>: [<span class="ident">TrapCode</span>; <span class="number">12</span>] <span class="op">=</span> [
+    <span class="kw">const</span> <span class="ident">CODES</span>: [<span class="ident">TrapCode</span>; <span class="number">11</span>] <span class="op">=</span> [
         <span class="ident">TrapCode::StackOverflow</span>,
         <span class="ident">TrapCode::HeapAccessOutOfBounds</span>,
         <span class="ident">TrapCode::HeapMisaligned</span>,
         <span class="ident">TrapCode::TableAccessOutOfBounds</span>,
-        <span class="ident">TrapCode::OutOfBounds</span>,
         <span class="ident">TrapCode::IndirectCallToNull</span>,
         <span class="ident">TrapCode::BadSignature</span>,
         <span class="ident">TrapCode::IntegerOverflow</span>,

@@ -1958,6 +1958,7 @@
 <span id="1951">1951</span>
 <span id="1952">1952</span>
 <span id="1953">1953</span>
+<span id="1954">1954</span>
 </pre><pre class="rust"><code><span class="doccomment">//! WARNING: the API exposed here is unstable and very experimental.  Certain things are not ready</span>
 <span class="doccomment">//! yet and may be broken in patch releases.  If you&#39;re using this and have any specific needs,</span>
 <span class="doccomment">//! please [let us know here](https://github.com/wasmerio/wasmer/issues/583) or by filing an issue.</span>
@@ -3053,7 +3054,8 @@
                         {
                             <span class="ident">cur_inode</span> <span class="op">=</span> <span class="kw-2">*</span><span class="ident">entry</span>;
                         } <span class="kw">else</span> {
-                            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Errno::Noent</span>);
+                            <span class="comment">// Root is not capable of having something other then preopenned folders</span>
+                            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Errno::Notcapable</span>);
                         }
                     }
                     <span class="ident">Kind::File</span> { .. }

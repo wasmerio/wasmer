@@ -5623,6 +5623,10 @@
 <span id="5616">5616</span>
 <span id="5617">5617</span>
 <span id="5618">5618</span>
+<span id="5619">5619</span>
+<span id="5620">5620</span>
+<span id="5621">5621</span>
+<span id="5622">5622</span>
 </pre><pre class="rust"><code><span class="attribute">#![<span class="ident">allow</span>(<span class="ident">unused</span>, <span class="ident">clippy::too_many_arguments</span>, <span class="ident">clippy::cognitive_complexity</span>)]</span>
 
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">types</span> {
@@ -8021,8 +8025,12 @@
                     .<span class="ident">map_err</span>(<span class="ident">fs_error_into_wasi_err</span>)));
             }
             <span class="ident">Kind::Buffer</span> { .. } =&gt; <span class="macro">unimplemented!</span>(<span class="string">&quot;wasi::path_open for Buffer type files&quot;</span>),
+            <span class="ident">Kind::Root</span> { .. } =&gt; {
+                <span class="kw">if</span> <span class="op">!</span><span class="ident">o_flags</span>.<span class="ident">contains</span>(<span class="ident">Oflags::DIRECTORY</span>) {
+                    <span class="kw">return</span> <span class="ident">Errno::Notcapable</span>;
+                }
+            }
             <span class="ident">Kind::Dir</span> { .. }
-            <span class="op">|</span> <span class="ident">Kind::Root</span> { .. }
             <span class="op">|</span> <span class="ident">Kind::Socket</span> { .. }
             <span class="op">|</span> <span class="ident">Kind::Pipe</span> { .. }
             <span class="op">|</span> <span class="ident">Kind::EventNotifications</span> { .. } =&gt; {}
