@@ -3923,6 +3923,7 @@ dependencies = [
  "distance",
  "fern",
  "http_req",
+ "libc",
  "log",
  "nuke-dir",
  "prettytable-rs",
