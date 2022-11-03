@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 use std::env;
+use std::fmt;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -103,14 +104,6 @@ pub mod graphql {
         response_derives = "Debug"
     )]
     pub(crate) struct GetPackageByCommandQuery;
-
-    #[derive(GraphQLQuery)]
-    #[graphql(
-        schema_path = "graphql/schema.graphql",
-        query_path = "graphql/queries/get_packages.graphql",
-        response_derives = "Debug"
-    )]
-    pub(crate) struct GetPackagesQuery;
 
     #[derive(GraphQLQuery)]
     #[graphql(
@@ -665,28 +658,20 @@ pub fn query_command_from_registry(
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum QueryPackageError {
-    AmbigouusName {
-        name: String,
-        packages: Vec<PackageDownloadInfo>,
-    },
     ErrorSendingQuery(String),
     NoPackageFound {
         name: String,
         version: Option<String>,
-        packages: Vec<PackageDownloadInfo>,
     },
 }
 
-impl QueryPackageError {
-    pub fn get_packages(&self) -> Vec<PackageDownloadInfo> {
+impl fmt::Display for QueryPackageError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            QueryPackageError::AmbigouusName { name: _, packages }
-            | QueryPackageError::NoPackageFound {
-                name: _,
-                version: _,
-                packages,
-            } => packages.clone(),
-            _ => Vec::new(),
+            QueryPackageError::ErrorSendingQuery(q) => write!(f, "error sending query: {q}"),
+            QueryPackageError::NoPackageFound { name, version } => {
+                write!(f, "no package found for {name:?} (version = {version:?})")
+            }
         }
     }
 }
@@ -898,69 +883,6 @@ pub fn get_if_package_has_new_version(
     }
 }
 
-pub fn query_available_packages_from_registry(
-    registry_url: &str,
-    name: &str,
-) -> Result<Vec<PackageDownloadInfo>, QueryPackageError> {
-    use crate::graphql::{execute_query, get_packages_query, GetPackagesQuery};
-    use graphql_client::GraphQLQuery;
-
-    let q = GetPackagesQuery::build_query(get_packages_query::Variables {
-        names: vec![name.to_string()],
-    });
-
-    let response: get_packages_query::ResponseData =
-        execute_query(registry_url, "", &q).map_err(|e| {
-            QueryPackageError::ErrorSendingQuery(format!("Error sending GetPackagesQuery: {e}"))
-        })?;
-
-    let available_packages = response
-        .package
-        .iter()
-        .filter_map(|p| {
-            let p = p.as_ref()?;
-            let mut versions = Vec::new();
-
-            for v in p.versions.iter() {
-                for v in v.iter() {
-                    let v = match v.as_ref() {
-                        Some(s) => s,
-                        None => continue,
-                    };
-
-                    let manifest = toml::from_str::<wapm_toml::Manifest>(&v.manifest).ok()?;
-
-                    versions.push(PackageDownloadInfo {
-                        registry: registry_url.to_string(),
-                        package: p.name.clone(),
-
-                        version: v.version.clone(),
-                        is_latest_version: v.is_last_version,
-                        manifest: v.manifest.clone(),
-
-                        commands: manifest
-                            .command
-                            .unwrap_or_default()
-                            .iter()
-                            .map(|s| s.get_name())
-                            .collect::<Vec<_>>()
-                            .join(", "),
-
-                        url: v.distribution.download_url.clone(),
-                    });
-                }
-            }
-
-            Some(versions)
-        })
-        .collect::<Vec<_>>()
-        .into_iter()
-        .flat_map(|v| v.into_iter())
-        .collect::<Vec<_>>();
-
-    Ok(available_packages)
-}
-
 /// Returns the download info of the packages, on error returns all the available packages
 /// i.e. (("foo/python", "wapm.io"), ("bar/python" "wapm.io")))
 pub fn query_package_from_registry(
@@ -968,53 +890,47 @@ pub fn query_package_from_registry(
     name: &str,
     version: Option<&str>,
 ) -> Result<PackageDownloadInfo, QueryPackageError> {
-    let available_packages = query_available_packages_from_registry(registry_url, name)?;
+    use crate::graphql::{execute_query, get_package_version_query, GetPackageVersionQuery};
+    use graphql_client::GraphQLQuery;
 
-    if !name.contains('/') {
-        return Err(QueryPackageError::AmbigouusName {
-            name: name.to_string(),
-            packages: available_packages,
-        });
-    }
+    let q = GetPackageVersionQuery::build_query(get_package_version_query::Variables {
+        name: name.to_string(),
+        version: version.map(|s| s.to_string()),
+    });
 
-    let mut queried_packages = available_packages
-        .iter()
-        .filter(|v| {
-            if name.contains('/') && v.package != name {
-                return false;
-            }
+    let response: get_package_version_query::ResponseData = execute_query(registry_url, "", &q)
+        .map_err(|e| {
+            QueryPackageError::ErrorSendingQuery(format!("Error sending GetPackagesQuery: {e}"))
+        })?;
 
-            if version.is_some() && version != Some(&v.version) {
-                return false;
-            }
+    let v = response.package_version.as_ref().ok_or_else(|| {
+        QueryPackageError::ErrorSendingQuery(format!(
+            "Invalid response for crate {name:?}: no manifest"
+        ))
+    })?;
 
-            true
-        })
-        .collect::<Vec<_>>();
+    let manifest = toml::from_str::<wapm_toml::Manifest>(&v.manifest).map_err(|e| {
+        QueryPackageError::ErrorSendingQuery(format!("Invalid manifest for crate {name:?}: {e}"))
+    })?;
 
-    let selected_package = match version {
-        Some(s) => queried_packages.iter().find(|p| p.version == s),
-        None => {
-            if let Some(latest) = queried_packages.iter().find(|s| s.is_latest_version) {
-                Some(latest)
-            } else {
-                // sort package by version, select highest
-                queried_packages.sort_by_key(|k| semver::Version::parse(&k.version).ok());
-                queried_packages.first()
-            }
-        }
-    };
+    Ok(PackageDownloadInfo {
+        registry: registry_url.to_string(),
+        package: v.package.name.clone(),
 
-    match selected_package {
-        None => {
-            return Err(QueryPackageError::NoPackageFound {
-                name: name.to_string(),
-                version: version.as_ref().map(|s| s.to_string()),
-                packages: available_packages,
-            });
-        }
-        Some(s) => Ok((*s).clone()),
-    }
+        version: v.version.clone(),
+        is_latest_version: v.is_last_version,
+        manifest: v.manifest.clone(),
+
+        commands: manifest
+            .command
+            .unwrap_or_default()
+            .iter()
+            .map(|s| s.get_name())
+            .collect::<Vec<_>>()
+            .join(", "),
+
+        url: v.distribution.download_url.clone(),
+    })
 }
 
 pub fn get_wasmer_root_dir() -> Option<PathBuf> {
@@ -1192,35 +1108,15 @@ pub fn install_package(
                 }
             }
 
-            let mut error_str =
-                format!("Package {version_str} not found in registries {registries_searched:?}.");
+            let errors = errors
+                .into_iter()
+                .map(|(registry, e)| format!("  {registry}: {e}"))
+                .collect::<Vec<_>>()
+                .join("\r\n");
 
-            let mut did_you_mean = errors
-                .iter()
-                .flat_map(|(_registry, error)| {
-                    if let QueryPackageError::AmbigouusName { name, packages: _ } = error {
-                        error_str = format!("Ambigouus package name {name:?}. Please specify the package in the namespace/name format.");
-                    }
-                    let packages = error.get_packages();
-                    packages.iter().filter_map(|f| {
-                        let from = url::Url::parse(&f.registry).ok()?.host_str()?.to_string();
-                        Some(format!("     {}@{} (from {from})", f.package, f.version))
-                    })
-                    .collect::<Vec<_>>()
-                    .into_iter()
-                })
-                .collect::<Vec<_>>();
-
-            let did_you_mean = if did_you_mean.is_empty() {
-                String::new()
-            } else {
-                did_you_mean.sort();
-                did_you_mean.dedup();
-                format!("\r\n\r\nDid you mean:\r\n{}\r\n", did_you_mean.join("\r\n"))
-            };
-
-            let (_, package_info) =
-                url_of_package.ok_or_else(|| format!("{error_str}{did_you_mean}"))?;
+            let (_, package_info) = url_of_package.ok_or_else(|| {
+                format!("Package {version_str} not found in registries {registries_searched:?}.\r\n\r\nErrors:\r\n\r\n{errors}")
+            })?;
 
             package_info
         }
