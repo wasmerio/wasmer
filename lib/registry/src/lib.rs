@@ -699,14 +699,11 @@ pub enum GetIfPackageHasNewVersionResult {
 
 #[test]
 fn test_get_if_package_has_new_version() {
-
     let fake_registry = "https://h0.com";
     let fake_name = "namespace0/project1";
     let fake_version = "1.0.0";
-    
-    let package_path = get_package_local_dir(
-        "h0.com", fake_name, fake_version
-    ).unwrap();
+
+    let package_path = get_package_local_dir("h0.com", fake_name, fake_version).unwrap();
     let _ = std::fs::remove_file(&package_path.join("wapm.toml"));
     let _ = std::fs::remove_file(&package_path.join("wapm.toml"));
 
@@ -717,16 +714,17 @@ fn test_get_if_package_has_new_version() {
         Duration::from_secs(5 * 60),
     );
 
-    assert_eq!(r1.unwrap(), GetIfPackageHasNewVersionResult::PackageNotInstalledYet {
-        registry_url: fake_registry.to_string(),
-        namespace: "namespace0".to_string(),
-        name: "project1".to_string(),
-        version: Some(fake_version.to_string()),
-    });
-    
-    let package_path = get_package_local_dir(
-        "h0.com", fake_name, fake_version
-    ).unwrap();
+    assert_eq!(
+        r1.unwrap(),
+        GetIfPackageHasNewVersionResult::PackageNotInstalledYet {
+            registry_url: fake_registry.to_string(),
+            namespace: "namespace0".to_string(),
+            name: "project1".to_string(),
+            version: Some(fake_version.to_string()),
+        }
+    );
+
+    let package_path = get_package_local_dir("h0.com", fake_name, fake_version).unwrap();
     std::fs::create_dir_all(&package_path).unwrap();
     std::fs::write(&package_path.join("wapm.toml"), b"").unwrap();
 
@@ -737,13 +735,16 @@ fn test_get_if_package_has_new_version() {
         Duration::from_secs(5 * 60),
     );
 
-    assert_eq!(r1.unwrap(), GetIfPackageHasNewVersionResult::UseLocalAlreadyInstalled { 
-        registry_host: "h0.com".to_string(), 
-        namespace: "namespace0".to_string(), 
-        name: "project1".to_string(), 
-        version: fake_version.to_string(), 
-        path: package_path,
-    });
+    assert_eq!(
+        r1.unwrap(),
+        GetIfPackageHasNewVersionResult::UseLocalAlreadyInstalled {
+            registry_host: "h0.com".to_string(),
+            namespace: "namespace0".to_string(),
+            name: "project1".to_string(),
+            version: fake_version.to_string(),
+            path: package_path,
+        }
+    );
 }
 
 /// Returns true if a package has a newer version
