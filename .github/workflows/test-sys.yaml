@@ -218,8 +218,8 @@ jobs:
           export WASMER_DIR=`pwd`/package
           make test-integration-cli
         env:
-          TARGET: ${{ matrix.target }}
-          TARGET_DIR: target/${{ matrix.target }}/release
+          TARGET: x86_64-pc-windows-msvc
+          TARGET_DIR: target/release
           CARGO_TARGET: --target x86_64-pc-windows-msvc
       - name: Test
         if: matrix.run_test && matrix.os != 'windows-2019'
