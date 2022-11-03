@@ -20,6 +20,18 @@ pub enum WasiFileSystemKind {
 
     /// Instruct the test runner to use `wasmer_vfs::mem_fs`.
     InMemory,
+
+    /// Instruct the test runner to use `wasmer_vfs::tmp_fs`
+    Tmp,
+
+    /// Instruct the test runner to use `wasmer_vfs::passtru_fs`
+    PassthruMemory,
+
+    /// Instruct the test runner to use `wasmer_vfs::union_fs<host_fs, mem_fs>`
+    UnionHostMemory,
+
+    /// Instruct the test runner to use the TempFs returned by `wasmer_vfs::builder::RootFileSystemBuilder`
+    UnionHostMemory,
 }
 
 /// Crate holding metadata parsed from the WASI WAST about the test to be run.
@@ -207,7 +219,22 @@ impl<'a> WasiTest<'a> {
                 }
 
                 builder.set_fs(Box::new(fs));
-            }
+            },
+
+            /* 
+                /// Instruct the test runner to use `wasmer_vfs::tmp_fs`
+                Tmp,
+
+                /// Instruct the test runner to use `wasmer_vfs::passtru_fs`
+                PassthruMemory,
+
+                /// Instruct the test runner to use `wasmer_vfs::union_fs<host_fs, mem_fs>`
+                UnionHostMemory,
+
+                /// Instruct the test runner to use the TempFs returned by `wasmer_vfs::builder::RootFileSystemBuilder`
+                UnionHostMemory,
+            */
+            
         }
 
         let (stdout, stdout_rx) = OutputCapturerer::new();
