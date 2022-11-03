@@ -58,9 +58,9 @@ impl FileOpener for WebCFileOpener {
             Some(volume) => {
                 let file = (*self.volumes)
                     .get(&volume)
-                    .ok_or(FsError::EntityNotFound)?
+                    .ok_or(FsError::EntryNotFound)?
                     .get_file_entry(&format!("{}", path.display()))
-                    .map_err(|_e| FsError::EntityNotFound)?;
+                    .map_err(|_e| FsError::EntryNotFound)?;
 
                 Ok(Box::new(WebCFile {
                     package: self.package.clone(),
@@ -234,7 +234,7 @@ impl FileSystem for StaticFileSystem {
             let read_dir_result = volume
                 .read_dir(&path)
                 .map(|o| transform_into_read_dir(Path::new(&path), o.as_ref()))
-                .map_err(|_| FsError::EntityNotFound);
+                .map_err(|_| FsError::EntryNotFound);
 
             match read_dir_result {
                 Ok(o) => {

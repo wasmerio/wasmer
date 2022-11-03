@@ -28,7 +28,7 @@ fn test_root_file_system() {
     assert_eq!(dev_null.write(b"hello").unwrap(), 5);
     let mut buf = Vec::new();
     dev_null.read_to_end(&mut buf);
-    assert_eq!(buf, Vec::new());
+    assert!(buf.is_empty());
     assert!(dev_null.get_special_fd().is_none());
 
     let mut dev_zero = root_fs
@@ -39,7 +39,7 @@ fn test_root_file_system() {
         .unwrap();
     assert_eq!(dev_zero.write(b"hello").unwrap(), 5);
     let mut buf = vec![1; 10];
-    dev_zero.read(&mut buf[..]);
+    dev_zero.read(&mut buf[..]).unwrap();
     assert_eq!(buf, vec![0; 10]);
     assert!(dev_zero.get_special_fd().is_none());
 
@@ -52,7 +52,7 @@ fn test_root_file_system() {
     assert_eq!(dev_tty.write(b"hello").unwrap(), 5);
     let mut buf = Vec::new();
     dev_tty.read_to_end(&mut buf);
-    assert_eq!(buf, Vec::new());
+    assert!(buf.is_empty());
     assert!(dev_tty.get_special_fd().is_none());
 
     root_fs
