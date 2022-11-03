@@ -1447,7 +1447,7 @@ mod test_filesystem {
                         name,
                         children,
                         ..
-                    }) if name == "/" && children == &[]
+                    }) if name == "/" && children.is_empty()
                 ),
                 "`/` is empty",
             );
