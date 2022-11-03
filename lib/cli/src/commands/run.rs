@@ -36,11 +36,11 @@ pub struct RunWithoutFile {
     /// Disable the cache
     #[cfg(feature = "cache")]
     #[clap(long = "disable-cache")]
-    disable_cache: bool,
+    pub(crate) disable_cache: bool,
 
     /// Invoke a specified function
     #[clap(long = "invoke", short = 'i')]
-    invoke: Option<String>,
+    pub(crate) invoke: Option<String>,
 
     /// The command name is a string that will override the first argument passed
     /// to the wasm program. This is used in wapm to provide nicer output in
@@ -53,33 +53,33 @@ pub struct RunWithoutFile {
     /// as if no `cache-key` argument was passed.
     #[cfg(feature = "cache")]
     #[clap(long = "cache-key", hide = true)]
-    cache_key: Option<String>,
+    pub(crate) cache_key: Option<String>,
 
     #[clap(flatten)]
-    store: StoreOptions,
+    pub(crate) store: StoreOptions,
 
     // TODO: refactor WASI structure to allow shared options with Emscripten
     #[cfg(feature = "wasi")]
     #[clap(flatten)]
-    wasi: Wasi,
+    pub(crate) wasi: Wasi,
 
     /// Enable non-standard experimental IO devices
     #[cfg(feature = "io-devices")]
     #[clap(long = "enable-io-devices")]
-    enable_experimental_io_devices: bool,
+    pub(crate) enable_experimental_io_devices: bool,
 
     /// Enable debug output
     #[cfg(feature = "debug")]
     #[clap(long = "debug", short = 'd')]
-    debug: bool,
+    pub(crate) debug: bool,
 
     #[cfg(feature = "debug")]
     #[clap(long = "verbose")]
-    verbose: Option<u8>,
+    pub(crate) verbose: Option<u8>,
 
     /// Application arguments
     #[clap(value_name = "ARGS")]
-    args: Vec<String>,
+    pub(crate) args: Vec<String>,
 }
 
 #[allow(dead_code)]
@@ -140,7 +140,7 @@ impl RunWithoutFile {
                 #[cfg(feature = "debug")]
                 debug: self.debug,
                 #[cfg(feature = "debug")]
-                verbose: self.verbose.unwrap_or(0),
+                verbose: self.verbose,
                 args: self.args,
             },
         })
@@ -170,7 +170,7 @@ impl Run {
     pub fn execute(&self) -> Result<()> {
         #[cfg(feature = "debug")]
         if self.debug {
-            logging::set_up_logging(self.verbose).unwrap();
+            logging::set_up_logging(self.verbose.unwrap_or(0)).unwrap();
         }
         self.inner_execute().with_context(|| {
             format!(
@@ -774,7 +774,11 @@ fn test_fixup_args() {
     assert_eq!(arg1_transformed, arg2_transformed);
 }
 
-pub(crate) fn try_run_package_or_file(args: &[String], r: &Run) -> Result<(), anyhow::Error> {
+pub(crate) fn try_run_package_or_file(
+    args: &[String],
+    r: &Run,
+    debug: bool,
+) -> Result<(), anyhow::Error> {
     // Check "r.path" is a file or a package / command name
     if r.path.exists() {
         if r.path.is_dir() && r.path.join("wapm.toml").exists() {
@@ -840,7 +844,10 @@ pub(crate) fn try_run_package_or_file(args: &[String], r: &Run) -> Result<(), an
         _ => {}
     }
 
-    println!("finding local package {} failed", sv);
+    if debug {
+        eprintln!("finding local package {} failed", sv);
+    }
+
     // else: local package not found - try to download and install package
     try_autoinstall_package(args, &sv, package_download_info, r.force_install)
 }
