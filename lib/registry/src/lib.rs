@@ -669,6 +669,33 @@ impl QueryPackageError {
     }
 }
 
+pub enum GetIfPackageHasNewVersionResult {
+    // if version = Some(...) and the ~/.wasmer/checkouts/.../{version} exists, the package is already installed
+    UseLocalAlreadyInstalled {
+        registry_host: String,
+        namespace: String,
+        name: String,
+        version: String,
+        path: PathBuf,
+    },
+    // if version = None, check for the latest version
+    LocalVersionMayBeOutdated {
+        registry_host: String,
+        namespace: String,
+        name: String,
+        /// Versions that are already installed + whether they are
+        /// older (true) or younger (false) than the timeout
+        installed_versions: Vec<(String, bool)>,
+    },
+    // registry / namespace / name / version doesn't exist yet
+    PackageNotInstalledYet {
+        registry_url: String,
+        namespace: String,
+        name: String,
+        version: Option<String>,
+    },
+}
+
 /// Returns true if a package has a newer version
 ///
 /// Also returns true if the package is not installed yet.
@@ -677,7 +704,7 @@ pub fn get_if_package_has_new_version(
     name: &str,
     version: Option<String>,
     max_timeout: Duration,
-) -> Result<Option<PackageDownloadInfo>, String> {
+) -> Result<GetIfPackageHasNewVersionResult, String> {
     let host = match url::Url::parse(registry_url) {
         Ok(o) => match o.host_str().map(|s| s.to_string()) {
             Some(s) => s,
@@ -694,65 +721,102 @@ pub fn get_if_package_has_new_version(
 
     let package_dir = match package_dir {
         Some(s) => s,
-        None => return Err(format!("package dir does not exist {name}/{namespace}")),
-    };
-
-    // all installed versions of this package
-    let mut all_installed_versions = Vec::new();
-
-    let may_have_newer_version = match version {
-        Some(ref o) => Some(())
-            .map(|_| {
-                let modified = package_dir.join(&o).metadata().ok()?.modified().ok()?;
-                let version = semver::Version::parse(o).ok()?;
-                all_installed_versions.push(version);
-                if modified.elapsed().ok()? <= max_timeout {
-                    Some(())
-                } else {
-                    None
-                }
-            })
-            .is_some(),
         None => {
-            let read_dir = match std::fs::read_dir(&package_dir) {
-                Ok(o) => o,
-                Err(_) => return Err(format!("{}", package_dir.display())),
-            };
-
-            // if there is any package younger than $max_timeout, return false
-            read_dir
-                .filter_map(|entry| {
-                    let entry = entry.ok()?;
-                    let version = semver::Version::parse(entry.file_name().to_str()?).ok()?;
-                    all_installed_versions.push(version);
-                    let modified = entry.metadata().ok()?.modified().ok()?;
-                    if modified.elapsed().ok()? <= max_timeout {
-                        Some(())
-                    } else {
-                        None
-                    }
-                })
-                .next()
-                .is_some()
+            return Ok(GetIfPackageHasNewVersionResult::PackageNotInstalledYet {
+                registry_url: registry_url.to_string(),
+                namespace: namespace.to_string(),
+                name: name.to_string(),
+                version: version.clone(),
+            })
         }
     };
 
-    // If the version is specified, don't check for updates
-    // (since the package returned from the server would be the same)
-    if all_installed_versions.is_empty() || (may_have_newer_version && version.is_none()) {
-        let available_packages =
-            query_available_packages_from_registry(registry_url, name).unwrap_or_default();
-
-        for p in available_packages {
-            if p.is_latest_version {
-                return Ok(Some(p));
-            }
+    // if version is specified: look if that specific version exists
+    if let Some(s) = version.as_ref() {
+        let installed_path = package_dir.join(s).join("wapm.toml");
+        if installed_path.exists() {
+            return Ok(GetIfPackageHasNewVersionResult::UseLocalAlreadyInstalled {
+                registry_host: host.to_string(),
+                namespace: namespace.to_string(),
+                name: name.to_string(),
+                version: s.clone(),
+                path: installed_path,
+            });
+        } else {
+            return Ok(GetIfPackageHasNewVersionResult::PackageNotInstalledYet {
+                registry_url: registry_url.to_string(),
+                namespace: namespace.to_string(),
+                name: name.to_string(),
+                version: Some(s.clone()),
+            });
         }
     }
 
-    Err(format!(
-        "Cannot find package {name:?} either locally or in registry"
-    ))
+    // version has not been explicitly specified: check if any package < duration exists
+    let read_dir = match std::fs::read_dir(&package_dir) {
+        Ok(o) => o,
+        Err(_) => return Err(format!("{}", package_dir.display())),
+    };
+
+    // all installed versions of this package
+    let all_installed_versions = read_dir
+        .filter_map(|entry| {
+            let entry = entry.ok()?;
+            let version = semver::Version::parse(entry.file_name().to_str()?).ok()?;
+            let modified = entry.metadata().ok()?.modified().ok()?;
+            let older_than_timeout = modified.elapsed().ok()? > max_timeout;
+            Some((version, older_than_timeout))
+        })
+        .collect::<Vec<_>>();
+
+    if all_installed_versions.is_empty() {
+        // package not installed yet
+        return Ok(GetIfPackageHasNewVersionResult::PackageNotInstalledYet {
+            registry_url: registry_url.to_string(),
+            namespace: namespace.to_string(),
+            name: name.to_string(),
+            version: version.clone(),
+        });
+    } else if all_installed_versions
+        .iter()
+        .all(|(_, older_than_timeout)| *older_than_timeout)
+    {
+        // all packages are older than the timeout: there might be a new package available
+        return Ok(GetIfPackageHasNewVersionResult::LocalVersionMayBeOutdated {
+            registry_host: registry_url.to_string(),
+            namespace: namespace.to_string(),
+            name: name.to_string(),
+            installed_versions: all_installed_versions
+                .iter()
+                .map(|(key, old)| (format!("{key}"), *old))
+                .collect::<Vec<_>>(),
+        });
+    } else {
+        // return the package that was younger than timeout
+        let younger_than_timeout_version = all_installed_versions
+            .iter()
+            .filter(|(_, older_than_timeout)| !older_than_timeout)
+            .next()
+            .unwrap();
+        let version = format!("{}", younger_than_timeout_version.0);
+        let installed_path = package_dir.join(&version).join("wapm.toml");
+        if installed_path.exists() {
+            return Ok(GetIfPackageHasNewVersionResult::UseLocalAlreadyInstalled {
+                registry_host: host.to_string(),
+                namespace: namespace.to_string(),
+                name: name.to_string(),
+                version: version,
+                path: installed_path,
+            });
+        } else {
+            return Ok(GetIfPackageHasNewVersionResult::PackageNotInstalledYet {
+                registry_url: registry_url.to_string(),
+                namespace: namespace.to_string(),
+                name: name.to_string(),
+                version: None,
+            });
+        }
+    }
 }
 
 pub fn query_available_packages_from_registry(
@@ -997,7 +1061,6 @@ pub fn install_package(
                 None => get_all_available_registries()?,
             };
             let mut url_of_package = None;
-            let mut error_packages = Vec::new();
 
             let version_str = match version {
                 None => name.to_string(),
@@ -1010,8 +1073,7 @@ pub fn install_package(
                 .filter_map(|s| Some(s.host_str()?.to_string()))
                 .collect::<Vec<_>>();
 
-            let mut error_str =
-                format!("Package {version_str} not found in registries {registries_searched:?}.");
+            let mut errors = BTreeMap::new();
 
             for r in registries.iter() {
                 if !force_install {
@@ -1020,10 +1082,25 @@ pub fn install_package(
                         name,
                         version.map(|s| s.to_string()),
                         Duration::from_secs(60 * 5),
-                    );
-                    if let Ok(Some(package)) = package_has_new_version {
-                        url_of_package = Some((r, package));
-                        break;
+                    )?;
+                    match package_has_new_version {
+                        GetIfPackageHasNewVersionResult::UseLocalAlreadyInstalled {
+                            registry_host,
+                            namespace,
+                            name,
+                            version,
+                            path,
+                        } => {
+                            return Ok((
+                                LocalPackage {
+                                    registry: registry_host,
+                                    name: format!("{namespace}/{name}"),
+                                    version,
+                                },
+                                path,
+                            ));
+                        }
+                        _ => {}
                     }
                 }
 
@@ -1033,14 +1110,17 @@ pub fn install_package(
                         break;
                     }
                     Err(e) => {
-                        error_packages.push(e);
+                        errors.insert(r.clone(), e);
                     }
                 }
             }
 
-            let mut did_you_mean = error_packages
+            let mut error_str =
+                format!("Package {version_str} not found in registries {registries_searched:?}.");
+
+            let mut did_you_mean = errors
                 .iter()
-                .flat_map(|error| {
+                .flat_map(|(registry, error)| {
                     if let QueryPackageError::AmbigouusName { name, packages: _ } = error {
                         error_str = format!("Ambigouus package name {name:?}. Please specify the package in the namespace/name format.");
                     }
