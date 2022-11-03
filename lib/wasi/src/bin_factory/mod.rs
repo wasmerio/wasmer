@@ -1,12 +1,9 @@
-use std::{
-    sync::{
-        Arc, RwLock,
-    },
-    ops::{
-        Deref
-    }, collections::HashMap,
-};
 use derivative::Derivative;
+use std::{
+    collections::HashMap,
+    ops::Deref,
+    sync::{Arc, RwLock},
+};
 
 mod binary_package;
 mod cached_modules;
@@ -20,11 +17,7 @@ pub(crate) use exec::SpawnedProcess;
 
 use sha2::*;
 
-use crate::{
-    WasiState,
-    WasiRuntimeImplementation,
-    builtins::BuiltIns
-};
+use crate::{builtins::BuiltIns, WasiRuntimeImplementation, WasiState};
 
 #[derive(Derivative, Clone)]
 pub struct BinFactory {
@@ -46,7 +39,7 @@ impl BinFactory {
             builtins: BuiltIns::new(runtime.clone(), compiled_modules.clone()),
             runtime,
             cache: compiled_modules,
-            local: Arc::new(RwLock::new(HashMap::new()))
+            local: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
@@ -77,18 +70,18 @@ impl BinFactory {
         if let Some(data) = cache.get(&name) {
             return data.clone();
         }
-        
+
         // Check the filesystem for the file
         if name.starts_with("/") {
-            if let Ok(mut file) = self.state
+            if let Ok(mut file) = self
+                .state
                 .fs_new_open_options()
                 .read(true)
                 .open(name.clone())
             {
                 // Read the file
                 let mut data = Vec::with_capacity(file.size() as usize);
-                if let Ok(_) = file.read_to_end(&mut data)
-                {
+                if let Ok(_) = file.read_to_end(&mut data) {
                     let package_name = name.split("/").last().unwrap_or_else(|| name.as_str());
                     let data = BinaryPackage::new(package_name, data.into());
                     cache.insert(name, Some(data.clone()));

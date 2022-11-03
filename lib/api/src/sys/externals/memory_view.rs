@@ -4,7 +4,7 @@ use std::convert::TryInto;
 use std::marker::PhantomData;
 use std::mem::MaybeUninit;
 use std::slice;
-use wasmer_types::{Pages, LinearMemory};
+use wasmer_types::{LinearMemory, Pages};
 
 use super::memory::MemoryBuffer;
 use super::Memory;
@@ -184,7 +184,7 @@ impl<'a> MemoryView<'a> {
             self.read(offset, &mut chunk[..sublen])?;
 
             new_memory.write(offset, &chunk[..sublen])?;
-            
+
             offset += sublen as u64;
         }
         Ok(())

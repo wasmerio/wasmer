@@ -38,8 +38,7 @@ pub struct IpRoute {
 /// An implementation of virtual networking
 #[async_trait::async_trait]
 #[allow(unused_variables)]
-pub trait VirtualNetworking: fmt::Debug + Send + Sync + 'static
-{
+pub trait VirtualNetworking: fmt::Debug + Send + Sync + 'static {
     /// Establishes a web socket connection
     /// (note: this does not use the virtual sockets and is standalone
     ///        functionality that works without the network being connected)
@@ -151,7 +150,7 @@ pub trait VirtualNetworking: fmt::Debug + Send + Sync + 'static
     ) -> Result<Box<dyn VirtualTcpListener + Sync>> {
         Err(NetworkError::Unsupported)
     }
-    
+
     /// Opens a UDP socket that listens on a specific IP and Port combination
     /// Multiple servers (processes or threads) can bind to the same port if they each set
     /// the reuse-port and-or reuse-addr flags
@@ -247,7 +246,10 @@ pub trait VirtualTcpListener: fmt::Debug + Send + Sync + 'static {
     fn peek(&mut self) -> Result<usize>;
 
     /// Polls the socket for when there is data to be received
-    fn poll_accept_ready(&mut self, cx: &mut std::task::Context<'_>) -> std::task::Poll<Result<usize>>;
+    fn poll_accept_ready(
+        &mut self,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Result<usize>>;
 
     /// Sets the accept timeout
     fn set_timeout(&mut self, timeout: Option<Duration>) -> Result<()>;
@@ -292,10 +294,16 @@ pub trait VirtualSocket: fmt::Debug + Send + Sync + 'static {
     fn status(&self) -> Result<SocketStatus>;
 
     /// Polls the socket for when there is data to be received
-    fn poll_read_ready(&mut self, cx: &mut std::task::Context<'_>) -> std::task::Poll<Result<usize>>;
+    fn poll_read_ready(
+        &mut self,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Result<usize>>;
 
     /// Polls the socket for when the backpressure allows for writing to the socket
-    fn poll_write_ready(&mut self, cx: &mut std::task::Context<'_>) -> std::task::Poll<Result<usize>>;
+    fn poll_write_ready(
+        &mut self,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Result<usize>>;
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -330,10 +338,16 @@ pub trait VirtualWebSocket: fmt::Debug + Send + Sync + 'static {
     fn try_recv(&mut self) -> Result<Option<SocketReceive>>;
 
     /// Polls the socket for when there is data to be received
-    fn poll_read_ready(&mut self, cx: &mut std::task::Context<'_>) -> std::task::Poll<Result<usize>>;
+    fn poll_read_ready(
+        &mut self,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Result<usize>>;
 
     /// Polls the socket for when the backpressure allows for writing to the socket
-    fn poll_write_ready(&mut self, cx: &mut std::task::Context<'_>) -> std::task::Poll<Result<usize>>;
+    fn poll_write_ready(
+        &mut self,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Result<usize>>;
 }
 
 /// Connected sockets have a persistent connection to a remote peer
@@ -543,8 +557,7 @@ pub trait VirtualUdpSocket:
 pub struct UnsupportedVirtualNetworking {}
 
 #[async_trait::async_trait]
-impl VirtualNetworking for UnsupportedVirtualNetworking {
-}
+impl VirtualNetworking for UnsupportedVirtualNetworking {}
 
 #[derive(Error, Copy, Clone, Debug, PartialEq, Eq)]
 pub enum NetworkError {

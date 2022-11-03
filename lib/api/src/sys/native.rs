@@ -7,16 +7,14 @@
 //! let add_one = instance.exports.get_function("function_name")?;
 //! let add_one_native: TypedFunction<i32, i32> = add_one.native().unwrap();
 //! ```
-use std::marker::PhantomData;
 use std::cell::Cell;
+use std::marker::PhantomData;
 
-use crate::StoreMut;
 use crate::sys::{
     AsStoreMut, FromToNativeWasmType, Function, NativeWasmTypeInto, RuntimeError, WasmTypeList,
 };
-use wasmer_types::{
-    RawValue, OnCalledAction
-};
+use crate::StoreMut;
+use wasmer_types::{OnCalledAction, RawValue};
 
 /// A WebAssembly function that can be called natively
 /// (using the Native ABI).

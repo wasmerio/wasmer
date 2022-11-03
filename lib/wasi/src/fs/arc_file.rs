@@ -1,29 +1,22 @@
-use std::{
-    io::{
-        self,
-        *
-    },
-    sync::{
-        Arc,
-        Mutex
-    }
-};
 use derivative::Derivative;
+use std::{
+    io::{self, *},
+    sync::{Arc, Mutex},
+};
 use wasmer_vbus::FileDescriptor;
-use wasmer_vfs::{VirtualFile, ClonableVirtualFile};
+use wasmer_vfs::{ClonableVirtualFile, VirtualFile};
 
 #[derive(Derivative, Clone)]
 #[derivative(Debug)]
 pub struct ArcFile {
     #[derivative(Debug = "ignore")]
-    inner: Arc<Mutex<Box<dyn VirtualFile + Send + Sync + 'static>>>
+    inner: Arc<Mutex<Box<dyn VirtualFile + Send + Sync + 'static>>>,
 }
 
-impl ArcFile
-{
+impl ArcFile {
     pub fn new(inner: Box<dyn VirtualFile + Send + Sync + 'static>) -> Self {
         Self {
-            inner: Arc::new(Mutex::new(inner))
+            inner: Arc::new(Mutex::new(inner)),
         }
     }
 }
@@ -54,7 +47,7 @@ impl Read for ArcFile {
 
 impl VirtualFile for ArcFile {
     fn last_accessed(&self) -> u64 {
-        let inner = self.inner.lock().unwrap();        
+        let inner = self.inner.lock().unwrap();
         inner.last_accessed()
     }
     fn last_modified(&self) -> u64 {

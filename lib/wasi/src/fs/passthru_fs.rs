@@ -11,9 +11,7 @@ pub struct PassthruFileSystem {
 
 impl PassthruFileSystem {
     pub fn new(inner: Box<dyn FileSystem + Send + Sync + 'static>) -> Self {
-        Self {
-            fs: inner,
-        }
+        Self { fs: inner }
     }
 }
 

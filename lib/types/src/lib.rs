@@ -62,6 +62,7 @@ mod libcalls;
 mod memory;
 mod module;
 mod serialize;
+mod store;
 mod table;
 mod trapcode;
 mod types;
@@ -69,7 +70,6 @@ mod units;
 mod utils;
 mod value;
 mod vmoffsets;
-mod store;
 
 pub use crate::compilation::target::{
     Aarch64Architecture, Architecture, BinaryFormat, CallingConvention, CpuFeature, Endianness,
@@ -77,8 +77,8 @@ pub use crate::compilation::target::{
 };
 pub use crate::serialize::{MetadataHeader, SerializableCompilation, SerializableModule};
 pub use error::{
-    CompileError, DeserializeError, ImportError, MiddlewareError, ParseCpuFeatureError,
-    PreInstantiationError, SerializeError, WasmError, WasmResult, MemoryError,
+    CompileError, DeserializeError, ImportError, MemoryError, MiddlewareError,
+    ParseCpuFeatureError, PreInstantiationError, SerializeError, WasmError, WasmResult,
 };
 
 /// The entity module, with common helpers for Rust structures
@@ -104,11 +104,9 @@ pub use types::{
 pub use value::{RawValue, ValueType};
 
 pub use crate::libcalls::LibCall;
-pub use crate::memory::{
-    MemoryStyle, MemoryRole, LinearMemory, VMMemoryDefinition,
-};
+pub use crate::memory::{LinearMemory, MemoryRole, MemoryStyle, VMMemoryDefinition};
 pub use crate::table::TableStyle;
-pub use crate::trapcode::{TrapCode, OnCalledAction};
+pub use crate::trapcode::{OnCalledAction, TrapCode};
 pub use crate::vmoffsets::{TargetSharedSignatureIndex, VMBuiltinFunctionIndex, VMOffsets};
 
 pub use crate::utils::is_wasm;

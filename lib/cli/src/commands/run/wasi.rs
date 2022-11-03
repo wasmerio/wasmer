@@ -1,16 +1,16 @@
 use crate::utils::{parse_envvar, parse_mapdir};
 use anyhow::Result;
-use wasmer_vfs::FileSystem;
-use wasmer_wasi::fs::{PassthruFileSystem, RootFileSystemBuilder, TtyFile, SpecialFile};
-use wasmer_wasi::types::__WASI_STDIN_FILENO;
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::{collections::BTreeSet, path::Path};
-use std::path::PathBuf;
 use wasmer::{AsStoreMut, FunctionEnv, Instance, Module, RuntimeError, Value};
+use wasmer_vfs::FileSystem;
+use wasmer_wasi::fs::{PassthruFileSystem, RootFileSystemBuilder, SpecialFile, TtyFile};
+use wasmer_wasi::types::__WASI_STDIN_FILENO;
 use wasmer_wasi::{
-    get_wasi_versions, import_object_for_all_wasi_versions, WasiEnv, WasiError,
-    WasiState, WasiVersion, is_wasix_module, default_fs_backing, PluggableRuntimeImplementation,
+    default_fs_backing, get_wasi_versions, import_object_for_all_wasi_versions, is_wasix_module,
+    PluggableRuntimeImplementation, WasiEnv, WasiError, WasiState, WasiVersion,
 };
 
 use clap::Parser;
@@ -97,7 +97,8 @@ impl Wasi {
     ) -> Result<(FunctionEnv<WasiEnv>, Instance)> {
         let args = args.iter().cloned().map(|arg| arg.into_bytes());
 
-        let map_commands = self.map_commands
+        let map_commands = self
+            .map_commands
             .iter()
             .map(|map| map.split_once("=").unwrap())
             .map(|(a, b)| (a.to_string(), b.to_string()))
@@ -113,11 +114,13 @@ impl Wasi {
             .runtime(&runtime)
             .map_commands(map_commands.clone());
 
-        if is_wasix_module(module)
-        {
+        if is_wasix_module(module) {
             // If we preopen anything from the host then shallow copy it over
             let root_fs = RootFileSystemBuilder::new()
-                .with_tty(Box::new(TtyFile::new(runtime.clone(), Box::new(SpecialFile::new(__WASI_STDIN_FILENO)))))
+                .with_tty(Box::new(TtyFile::new(
+                    runtime.clone(),
+                    Box::new(SpecialFile::new(__WASI_STDIN_FILENO)),
+                )))
                 .build();
             if self.mapped_dirs.len() > 0 {
                 let fs_backing: Arc<dyn FileSystem + Send + Sync> =
@@ -125,7 +128,7 @@ impl Wasi {
                 for (src, dst) in self.mapped_dirs.clone() {
                     let src = match src.starts_with("/") {
                         true => src,
-                        false => format!("/{}", src)
+                        false => format!("/{}", src),
                     };
                     root_fs.mount(PathBuf::from(src), &fs_backing, dst)?;
                 }
@@ -155,7 +158,7 @@ impl Wasi {
         let mut wasi_env = wasi_state_builder.finalize(store)?;
         let mut import_object = import_object_for_all_wasi_versions(store, &wasi_env.env);
         import_object.import_shared_memory(module, &mut store);
-        
+
         let instance = Instance::new(store, module, &import_object)?;
         wasi_env.initialize(&mut store, &instance)?;
         Ok((wasi_env.env, instance))

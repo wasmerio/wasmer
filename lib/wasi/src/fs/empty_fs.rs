@@ -5,8 +5,7 @@ use tracing::{debug, error, info, trace, warn};
 use wasmer_vfs::*;
 
 #[derive(Debug, Default)]
-pub struct EmptyFileSystem {
-}
+pub struct EmptyFileSystem {}
 
 #[allow(unused_variables)]
 impl FileSystem for EmptyFileSystem {
@@ -43,9 +42,7 @@ impl FileSystem for EmptyFileSystem {
     }
 }
 
-impl FileOpener
-for EmptyFileSystem
-{
+impl FileOpener for EmptyFileSystem {
     #[allow(unused_variables)]
     fn open(
         &mut self,

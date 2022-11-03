@@ -101,13 +101,15 @@ impl Memory {
         let js_memory = js_sys::WebAssembly::Memory::new(&descriptor)
             .map_err(|_e| MemoryError::Generic("Error while creating the memory".to_owned()))?;
 
-        Ok(
-            js_memory
-        )
+        Ok(js_memory)
     }
 
     /// Creates a new host `Memory` from provided JavaScript memory.
-    pub fn new_raw(store: &mut impl AsStoreMut, js_memory: js_sys::WebAssembly::Memory, ty: MemoryType) -> Result<Self, MemoryError> {
+    pub fn new_raw(
+        store: &mut impl AsStoreMut,
+        js_memory: js_sys::WebAssembly::Memory,
+        ty: MemoryType,
+    ) -> Result<Self, MemoryError> {
         let vm_memory = VMMemory::new(js_memory, ty);
         Ok(Self::from_vm_export(store, vm_memory))
     }
@@ -199,8 +201,7 @@ impl Memory {
         &self,
         store: &impl AsStoreRef,
         new_store: &mut impl AsStoreMut,
-    ) -> Result<Self, MemoryError>
-    {
+    ) -> Result<Self, MemoryError> {
         // Create the new memory using the parameters of the existing memory
         let view = self.view(store);
         let ty = self.ty(store);
@@ -218,9 +219,7 @@ impl Memory {
 
         // Copy the bytes
         view.copy_to_memory(amount as u64, &new_view)
-            .map_err(|err| {
-                MemoryError::Generic(err.to_string())
-            })?;
+            .map_err(|err| MemoryError::Generic(err.to_string()))?;
 
         // Return the new memory
         Ok(new_memory)

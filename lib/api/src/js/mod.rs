@@ -73,14 +73,14 @@ pub use crate::js::value::Value as Val;
 
 pub mod vm {
     //! The `vm` module re-exports wasmer-vm types.
-    
+
     pub use crate::js::export::VMMemory;
 }
 
 pub use wasmer_types::is_wasm;
 pub use wasmer_types::{
-    Bytes, ExportIndex, GlobalInit, LocalFunctionIndex, Pages, ValueType, WASM_MAX_PAGES,
-    WASM_MIN_PAGES, WASM_PAGE_SIZE, OnCalledAction, StoreSnapshot
+    Bytes, ExportIndex, GlobalInit, LocalFunctionIndex, OnCalledAction, Pages, StoreSnapshot,
+    ValueType, WASM_MAX_PAGES, WASM_MIN_PAGES, WASM_PAGE_SIZE,
 };
 
 #[cfg(feature = "wat")]

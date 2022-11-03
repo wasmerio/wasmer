@@ -1,6 +1,5 @@
 #![allow(dead_code)]
 #![allow(unused)]
-use wasmer_vfs::*;
 use std::borrow::Cow;
 use std::ops::Add;
 use std::path::{Path, PathBuf};
@@ -10,6 +9,7 @@ use std::sync::Mutex;
 use std::sync::Weak;
 #[allow(unused_imports, dead_code)]
 use tracing::{debug, error, info, trace, warn};
+use wasmer_vfs::*;
 
 #[derive(Debug)]
 pub struct MountPoint {
@@ -87,9 +87,7 @@ pub struct UnionFileSystem {
 
 impl UnionFileSystem {
     pub fn new() -> UnionFileSystem {
-        UnionFileSystem {
-            mounts: Vec::new(),
-        }
+        UnionFileSystem { mounts: Vec::new() }
     }
 
     pub fn clear(&mut self) {
@@ -254,13 +252,16 @@ impl FileSystem for UnionFileSystem {
             if to.starts_with("/") == false {
                 to = format!("/{}", to);
             }
-            match mount.fs.rename(Path::new(from.as_ref()), Path::new(to.as_str())) {
+            match mount
+                .fs
+                .rename(Path::new(from.as_ref()), Path::new(to.as_str()))
+            {
                 Ok(ret) => {
                     trace!("rename ok");
                     return Ok(ret);
                 }
                 Err(err) => {
-                    trace!("rename error (from={}, to={}) - {}", from, to, err);            
+                    trace!("rename error (from={}, to={}) - {}", from, to, err);
                     ret_error = err;
                 }
             }
@@ -417,12 +418,7 @@ impl FileOpener for UnionFileOpener {
             }
         }
         for (path, mount) in filter_mounts(&self.mounts, path.as_ref()) {
-            match mount
-                .fs
-                .new_open_options()
-                .options(conf.clone())
-                .open(path)
-            {
+            match mount.fs.new_open_options().options(conf.clone()).open(path) {
                 Ok(ret) => return Ok(ret),
                 Err(err) if ret_err == FsError::EntryNotFound => {
                     ret_err = err;

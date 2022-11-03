@@ -3,7 +3,7 @@ use std::ptr::NonNull;
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{
     GlobalType, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, MemoryType,
-    ModuleInfo, TableIndex, TableType, Pages,
+    ModuleInfo, Pages, TableIndex, TableType,
 };
 use wasmer_vm::{InternalStoreHandle, MemoryError, StoreObjects};
 use wasmer_vm::{MemoryStyle, TableStyle};

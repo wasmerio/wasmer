@@ -1,7 +1,7 @@
 use proc_macro2::TokenStream;
 use proc_macro_error::abort;
 use quote::quote;
-use syn::{Data, DeriveInput, Member, Meta, MetaList, NestedMeta, Field};
+use syn::{Data, DeriveInput, Field, Member, Meta, MetaList, NestedMeta};
 
 /// We can only validate types that have a well defined layout.
 fn check_repr(input: &DeriveInput) {

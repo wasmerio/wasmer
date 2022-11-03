@@ -16,8 +16,8 @@ use wasmer_types::MetadataHeader;
 use wasmer_types::SerializeError;
 use wasmer_types::{
     CompileError, CpuFeature, CustomSection, Dwarf, FunctionIndex, LocalFunctionIndex, MemoryIndex,
-    MemoryStyle, ModuleInfo, OwnedDataInitializer, Relocation, SectionIndex, SignatureIndex,
-    TableIndex, TableStyle, Target, Pages,
+    MemoryStyle, ModuleInfo, OwnedDataInitializer, Pages, Relocation, SectionIndex, SignatureIndex,
+    TableIndex, TableStyle, Target,
 };
 use wasmer_types::{
     CompiledFunctionFrameInfo, FunctionBody, SerializableCompilation, SerializableModule,

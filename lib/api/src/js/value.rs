@@ -2,8 +2,8 @@ use std::convert::TryFrom;
 use std::fmt;
 use std::string::{String, ToString};
 
-use wasmer_types::Type;
 use wasmer_types::RawValue;
+use wasmer_types::Type;
 
 //use crate::ExternRef;
 use crate::js::externals::function::Function;
@@ -110,7 +110,7 @@ impl Value {
     /// Converts the `Value` into a `RawValue`.
     pub unsafe fn as_raw_value(&self, store: &impl AsStoreRef) -> RawValue {
         RawValue {
-            f64: self.as_raw(store)
+            f64: self.as_raw(store),
         }
     }
 

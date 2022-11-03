@@ -4,14 +4,12 @@ use std::io::Read;
 /// Represents a snapshot of parts of the store that mutate
 /// (such as globals and tables)
 #[derive(Debug, Default)]
-pub struct StoreSnapshot
-{
+pub struct StoreSnapshot {
     /// Global values at the time the snapshot was taken
     pub globals: HashMap<u32, u128>,
 }
 
-impl StoreSnapshot
-{
+impl StoreSnapshot {
     /// Serializes the snapshot into a set of bytes
     pub fn serialize(&self) -> Vec<u8> {
         let capacity = 32usize * self.globals.len();
@@ -25,7 +23,7 @@ impl StoreSnapshot
         }
         ret
     }
-    
+
     /// Deserializes the bytes back into a store snapshot
     pub fn deserialize(data: &[u8]) -> std::io::Result<Self> {
         let mut ret = StoreSnapshot::default();
@@ -33,7 +31,7 @@ impl StoreSnapshot
         // Read all the sections
         let mut reader = data;
         loop {
-            let mut ty_arr = [0u8; 4];            
+            let mut ty_arr = [0u8; 4];
             if let Err(err) = reader.read_exact(&mut ty_arr) {
                 if err.kind() == std::io::ErrorKind::UnexpectedEof {
                     break;
@@ -62,8 +60,10 @@ impl StoreSnapshot
                         // Set the value in the snapshot
                         ret.globals.insert(key, val);
                     }
-                },
-                _ => { break; }
+                }
+                _ => {
+                    break;
+                }
             }
         }
 

@@ -1,7 +1,7 @@
 //! The import module contains the implementation data structures and helper functions used to
 //! manipulate and access a wasm module's imports including memories, tables, globals, and
 //! functions.
-use crate::{Exports, Extern, Module, AsStoreMut, Memory};
+use crate::{AsStoreMut, Exports, Extern, Memory, Module};
 use std::collections::HashMap;
 use std::fmt;
 use wasmer_compiler::LinkError;
@@ -114,7 +114,11 @@ impl Imports {
 
     /// Imports (any) shared memory into the imports.
     /// (if the module does not import memory then this function is ignored)
-    pub fn import_shared_memory(&mut self, module: &Module, store: &mut impl AsStoreMut) -> Option<VMSharedMemory> {
+    pub fn import_shared_memory(
+        &mut self,
+        module: &Module,
+        store: &mut impl AsStoreMut,
+    ) -> Option<VMSharedMemory> {
         // Determine if shared memory needs to be created and imported
         let shared_memory = module
             .imports()
@@ -122,16 +126,16 @@ impl Imports {
             .next()
             .map(|a| *a.ty())
             .map(|ty| {
-                let style = store
-                    .as_store_ref()
-                    .tunables()
-                    .memory_style(&ty);
-                VMSharedMemory::new(&ty, &style)
-                    .unwrap()
+                let style = store.as_store_ref().tunables().memory_style(&ty);
+                VMSharedMemory::new(&ty, &style).unwrap()
             });
 
         if let Some(memory) = shared_memory {
-            self.define("env", "memory", Memory::new_from_existing(store, memory.clone().into()));
+            self.define(
+                "env",
+                "memory",
+                Memory::new_from_existing(store, memory.clone().into()),
+            );
             Some(memory)
         } else {
             None
@@ -184,27 +188,23 @@ impl Imports {
 }
 
 pub struct ImportsIterator<'a> {
-    iter: std::collections::hash_map::Iter<'a, (String, String), Extern>
+    iter: std::collections::hash_map::Iter<'a, (String, String), Extern>,
 }
 
-impl<'a> ImportsIterator<'a>
-{
+impl<'a> ImportsIterator<'a> {
     fn new(imports: &'a Imports) -> Self {
         let iter = imports.map.iter();
         Self { iter }
     }
 }
 
-impl<'a> Iterator
-for ImportsIterator<'a> {
+impl<'a> Iterator for ImportsIterator<'a> {
     type Item = (&'a str, &'a str, &'a Extern);
 
     fn next(&mut self) -> Option<Self::Item> {
         self.iter
             .next()
-            .map(|(k, v)| {
-                (k.0.as_str(), k.1.as_str(), v)
-            })
+            .map(|(k, v)| (k.0.as_str(), k.1.as_str(), v))
     }
 }
 

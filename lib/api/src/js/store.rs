@@ -6,7 +6,14 @@ use wasmer_types::OnCalledAction;
 /// wrap the actual context in a box.
 pub(crate) struct StoreInner {
     pub(crate) objects: StoreObjects,
-    pub(crate) on_called: Option<Box<dyn FnOnce(StoreMut) -> Result<OnCalledAction, Box<dyn std::error::Error + Send + Sync>>>>,
+    pub(crate) on_called: Option<
+        Box<
+            dyn FnOnce(
+                StoreMut,
+            )
+                -> Result<OnCalledAction, Box<dyn std::error::Error + Send + Sync>>,
+        >,
+    >,
 }
 
 /// The store represents all global state that can be manipulated by
@@ -40,7 +47,7 @@ impl Store {
     pub fn same(_a: &Self, _b: &Self) -> bool {
         true
     }
-    
+
     /// Returns the ID of this store
     pub fn id(&self) -> StoreId {
         self.inner.objects.id()
@@ -149,11 +156,12 @@ impl<'a> StoreMut<'a> {
     }
 
     /// Sets the unwind callback which will be invoked when the call finishes
-    pub fn on_called<F>(
-        &mut self,
-        callback: F,
-    )
-    where F: FnOnce(StoreMut<'_>) -> Result<OnCalledAction, Box<dyn std::error::Error + Send + Sync>> + Send + Sync + 'static,
+    pub fn on_called<F>(&mut self, callback: F)
+    where
+        F: FnOnce(StoreMut<'_>) -> Result<OnCalledAction, Box<dyn std::error::Error + Send + Sync>>
+            + Send
+            + Sync
+            + 'static,
     {
         self.inner.on_called.replace(Box::new(callback));
     }
@@ -328,7 +336,7 @@ mod objects {
             }
             ret
         }
-    
+
         /// Serializes the mutable things into a snapshot
         pub fn restore_snapshot(&mut self, snapshot: &wasmer_types::StoreSnapshot) {
             for (index, global) in self.globals.iter_mut().enumerate() {

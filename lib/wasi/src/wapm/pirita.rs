@@ -52,13 +52,13 @@ pub struct WapmWebQueryGetPackageVersion {
     #[serde(rename = "version")]
     pub version: String,
     #[serde(rename = "distribution")]
-    pub distribution: WapmWebQueryGetPackageLastVersionDistribution
+    pub distribution: WapmWebQueryGetPackageLastVersionDistribution,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct WapmWebQueryGetPackage {
     #[serde(rename = "lastVersion")]
-    pub last_version: WapmWebQueryGetPackageVersion
+    pub last_version: WapmWebQueryGetPackageVersion,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -66,7 +66,7 @@ pub struct WapmWebQueryData {
     #[serde(rename = "getPackage")]
     pub get_package: Option<WapmWebQueryGetPackage>,
     #[serde(rename = "getPackageVersion")]
-    pub get_package_version: Option<WapmWebQueryGetPackageVersion>
+    pub get_package_version: Option<WapmWebQueryGetPackageVersion>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

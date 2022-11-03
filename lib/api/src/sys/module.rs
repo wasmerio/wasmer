@@ -2,12 +2,10 @@ use crate::sys::InstantiationError;
 use crate::AsStoreMut;
 use crate::AsStoreRef;
 use bytes::Bytes;
-use std::borrow::Cow;
 use std::fmt;
 use std::io;
 use std::path::Path;
 use std::sync::Arc;
-use bytes::Bytes;
 use thiserror::Error;
 use wasmer_compiler::Artifact;
 use wasmer_compiler::ArtifactCreate;
@@ -57,34 +55,29 @@ pub struct Module {
     module_info: Arc<ModuleInfo>,
 }
 
-pub trait IntoBytes
-{
+pub trait IntoBytes {
     fn into_bytes(self) -> Bytes;
 }
 
-impl IntoBytes
-for Bytes {
+impl IntoBytes for Bytes {
     fn into_bytes(self) -> Bytes {
         self
     }
 }
 
-impl IntoBytes
-for Vec<u8> {
+impl IntoBytes for Vec<u8> {
     fn into_bytes(self) -> Bytes {
         Bytes::from(self)
     }
 }
 
-impl IntoBytes
-for &Vec<u8> {
+impl IntoBytes for &Vec<u8> {
     fn into_bytes(self) -> Bytes {
         Bytes::from(self.clone())
     }
 }
 
-impl IntoBytes
-for &[u8] {
+impl IntoBytes for &[u8] {
     fn into_bytes(self) -> Bytes {
         Bytes::from(self.to_vec())
     }
@@ -96,8 +89,7 @@ impl<const N: usize> IntoBytes for &[u8; N] {
     }
 }
 
-impl IntoBytes
-for &str {
+impl IntoBytes for &str {
     fn into_bytes(self) -> Bytes {
         Bytes::from(self.as_bytes().to_vec())
     }
@@ -203,7 +195,10 @@ impl Module {
     /// Opposed to [`Module::new`], this function is not compatible with
     /// the WebAssembly text format (if the "wat" feature is enabled for
     /// this crate).
-    pub fn from_binary(store: &impl AsStoreRef, binary: impl IntoBytes) -> Result<Self, CompileError> {
+    pub fn from_binary(
+        store: &impl AsStoreRef,
+        binary: impl IntoBytes,
+    ) -> Result<Self, CompileError> {
         let binary = binary.into_bytes();
         Self::validate(store, binary.clone())?;
         unsafe { Self::from_binary_unchecked(store, binary) }
@@ -265,8 +260,7 @@ impl Module {
     /// # }
     /// ```
     pub fn serialize(&self) -> Result<Bytes, SerializeError> {
-        self.artifact.serialize()
-            .map(|bytes| bytes.into())
+        self.artifact.serialize().map(|bytes| bytes.into())
     }
 
     /// Serializes a module into a file that the `Engine`
@@ -507,7 +501,6 @@ impl Module {
         // As RUST is a type safe language modules in SYS are always ok
         true
     }
-
 
     /// Get the custom sections of the module given a `name`.
     ///

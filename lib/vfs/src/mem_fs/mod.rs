@@ -3,13 +3,17 @@ mod file_opener;
 mod filesystem;
 mod stdio;
 
-use file::{File, ReadOnlyFile, FileHandle};
+use file::{File, FileHandle, ReadOnlyFile};
 pub use file_opener::FileOpener;
 pub use filesystem::FileSystem;
 pub use stdio::{Stderr, Stdin, Stdout};
 
 use crate::Metadata;
-use std::{ffi::{OsStr, OsString}, sync::{Arc, Mutex}, path::PathBuf};
+use std::{
+    ffi::{OsStr, OsString},
+    path::PathBuf,
+    sync::{Arc, Mutex},
+};
 
 type Inode = usize;
 const ROOT_INODE: Inode = 0;

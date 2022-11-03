@@ -5,8 +5,11 @@ use crate::VirtualTaskManager;
 
 use super::*;
 use std::{
+    future::Future,
     io::{Read, Seek},
-    sync::RwLockReadGuard, future::Future, pin::Pin, task::Poll,
+    pin::Pin,
+    sync::RwLockReadGuard,
+    task::Poll,
 };
 
 pub(crate) enum InodeValFilePollGuardMode {
@@ -15,9 +18,9 @@ pub(crate) enum InodeValFilePollGuardMode {
         immediate: bool,
         waker: Mutex<mpsc::UnboundedReceiver<()>>,
         counter: Arc<AtomicU64>,
-        wakers: Arc<Mutex<VecDeque<tokio::sync::mpsc::UnboundedSender<()>>>>
+        wakers: Arc<Mutex<VecDeque<tokio::sync::mpsc::UnboundedSender<()>>>>,
     },
-    Socket(InodeSocket)
+    Socket(InodeSocket),
 }
 
 pub(crate) struct InodeValFilePollGuard {
@@ -27,14 +30,26 @@ pub(crate) struct InodeValFilePollGuard {
     pub(crate) tasks: Arc<dyn VirtualTaskManager + Send + Sync + 'static>,
 }
 impl<'a> InodeValFilePollGuard {
-    pub(crate) fn new(fd: u32, guard: &Kind, subscriptions: HashMap<PollEventSet, WasiSubscription>, tasks: Arc<dyn VirtualTaskManager + Send + Sync + 'static>) -> Option<Self> {
+    pub(crate) fn new(
+        fd: u32,
+        guard: &Kind,
+        subscriptions: HashMap<PollEventSet, WasiSubscription>,
+        tasks: Arc<dyn VirtualTaskManager + Send + Sync + 'static>,
+    ) -> Option<Self> {
         let mode = match guard.deref() {
-            Kind::EventNotifications { counter, wakers, immediate, .. } => {
+            Kind::EventNotifications {
+                counter,
+                wakers,
+                immediate,
+                ..
+            } => {
                 let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
                 let immediate = {
                     let mut wakers = wakers.lock().unwrap();
                     wakers.push_back(tx);
-                    immediate.compare_exchange(true, false, Ordering::AcqRel, Ordering::Relaxed).is_ok()
+                    immediate
+                        .compare_exchange(true, false, Ordering::AcqRel, Ordering::Relaxed)
+                        .is_ok()
                 };
                 InodeValFilePollGuardMode::EventNotifications {
                     immediate,
@@ -42,7 +57,7 @@ impl<'a> InodeValFilePollGuard {
                     counter: counter.clone(),
                     wakers: wakers.clone(),
                 }
-            },
+            }
             Kind::Socket { socket } => InodeValFilePollGuardMode::Socket(socket.clone()),
             Kind::File { handle, .. } => {
                 if let Some(handle) = handle {
@@ -50,29 +65,27 @@ impl<'a> InodeValFilePollGuard {
                 } else {
                     return None;
                 }
-            },
+            }
             _ => {
                 return None;
             }
         };
-        Some(
-            Self {
-                fd,
-                mode,
-                subscriptions,
-                tasks
-            }
-        )
+        Some(Self {
+            fd,
+            mode,
+            subscriptions,
+            tasks,
+        })
     }
 }
 
-impl std::fmt::Debug
-for InodeValFilePollGuard
-{
+impl std::fmt::Debug for InodeValFilePollGuard {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self.mode {
             InodeValFilePollGuardMode::File(..) => write!(f, "guard-file"),
-            InodeValFilePollGuardMode::EventNotifications { .. } => write!(f, "guard-notifications"),
+            InodeValFilePollGuardMode::EventNotifications { .. } => {
+                write!(f, "guard-notifications")
+            }
             InodeValFilePollGuardMode::Socket(socket) => {
                 let socket = socket.inner.read().unwrap();
                 match socket.kind {
@@ -82,7 +95,7 @@ for InodeValFilePollGuard
                     InodeSocketKind::Raw(..) => write!(f, "guard-raw-socket"),
                     InodeSocketKind::HttpRequest(..) => write!(f, "guard-http-request"),
                     InodeSocketKind::WebSocket(..) => write!(f, "guard-web-socket"),
-                    _ => write!(f, "guard-socket")
+                    _ => write!(f, "guard-socket"),
                 }
             }
         }
@@ -95,17 +108,14 @@ impl InodeValFilePollGuard {
             InodeValFilePollGuardMode::File(file) => {
                 let guard = file.read().unwrap();
                 guard.bytes_available_read()
-            },
-            InodeValFilePollGuardMode::EventNotifications { counter, .. } => {
-                Ok(
-                    Some(counter.load(std::sync::atomic::Ordering::Acquire) as usize)
-                )
-            },
-            InodeValFilePollGuardMode::Socket(socket) => {
-                socket.peek()
-                    .map(|a| Some(a))
-                    .map_err(fs_error_from_wasi_err)
             }
+            InodeValFilePollGuardMode::EventNotifications { counter, .. } => Ok(Some(
+                counter.load(std::sync::atomic::Ordering::Acquire) as usize,
+            )),
+            InodeValFilePollGuardMode::Socket(socket) => socket
+                .peek()
+                .map(|a| Some(a))
+                .map_err(fs_error_from_wasi_err),
         }
     }
 
@@ -114,13 +124,11 @@ impl InodeValFilePollGuard {
             InodeValFilePollGuardMode::File(file) => {
                 let guard = file.read().unwrap();
                 guard.bytes_available_write()
-            },
+            }
             InodeValFilePollGuardMode::EventNotifications { wakers, .. } => {
                 let wakers = wakers.lock().unwrap();
-                Ok(
-                    Some(wakers.len())
-                )
-            },
+                Ok(Some(wakers.len()))
+            }
             InodeValFilePollGuardMode::Socket(socket) => {
                 if socket.can_write() {
                     Ok(Some(4096))
@@ -131,16 +139,14 @@ impl InodeValFilePollGuard {
         }
     }
 
-    pub fn is_open(&self) -> bool{
+    pub fn is_open(&self) -> bool {
         match &self.mode {
             InodeValFilePollGuardMode::File(file) => {
                 let guard = file.read().unwrap();
                 guard.is_open()
-            },
-            InodeValFilePollGuardMode::EventNotifications { .. } |
-            InodeValFilePollGuardMode::Socket(..) => {
-                true
             }
+            InodeValFilePollGuardMode::EventNotifications { .. }
+            | InodeValFilePollGuardMode::Socket(..) => true,
         }
     }
 
@@ -163,9 +169,7 @@ impl<'a> InodeValFilePollGuardJoin<'a> {
         }
     }
 }
-impl<'a> Future
-for InodeValFilePollGuardJoin<'a>
-{
+impl<'a> Future for InodeValFilePollGuardJoin<'a> {
     type Output = Vec<__wasi_event_t>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
@@ -174,21 +178,23 @@ for InodeValFilePollGuardJoin<'a>
         let mut has_close = None;
         let mut has_hangup = false;
 
-        let register_root_waker = self.tasks
-            .register_root_waker();
+        let register_root_waker = self.tasks.register_root_waker();
 
         let mut ret = Vec::new();
         for (set, s) in self.subscriptions.iter() {
             for in_event in iterate_poll_events(*set) {
                 match in_event {
-                    PollEvent::PollIn => { has_read = Some(s.clone()); },
-                    PollEvent::PollOut => { has_write = Some(s.clone()); },
+                    PollEvent::PollIn => {
+                        has_read = Some(s.clone());
+                    }
+                    PollEvent::PollOut => {
+                        has_write = Some(s.clone());
+                    }
                     PollEvent::PollHangUp => {
                         has_hangup = true;
                         has_close = Some(s.clone());
                     }
-                    PollEvent::PollError |
-                    PollEvent::PollInvalid => {
+                    PollEvent::PollError | PollEvent::PollInvalid => {
                         if has_hangup == false {
                             has_close = Some(s.clone());
                         }
@@ -201,35 +207,28 @@ for InodeValFilePollGuardJoin<'a>
                 InodeValFilePollGuardMode::File(file) => {
                     let guard = file.read().unwrap();
                     guard.poll_close_ready(cx, &register_root_waker).is_ready()
-                },
-                InodeValFilePollGuardMode::EventNotifications { .. } => {
-                    false
-                },
+                }
+                InodeValFilePollGuardMode::EventNotifications { .. } => false,
                 InodeValFilePollGuardMode::Socket(socket) => {
                     let inner = socket.inner.read().unwrap();
                     if let InodeSocketKind::Closed = inner.kind {
                         true
                     } else {
-                        if has_read.is_some() || has_write.is_some()
-                        {
+                        if has_read.is_some() || has_write.is_some() {
                             // this will be handled in the read/write poll instead
                             false
                         } else {
                             // we do a read poll which will error out if its closed
                             match socket.poll_read_ready(cx) {
-                                Poll::Ready(Err(NetworkError::ConnectionAborted)) |
-                                Poll::Ready(Err(NetworkError::ConnectionRefused)) |
-                                Poll::Ready(Err(NetworkError::ConnectionReset)) |
-                                Poll::Ready(Err(NetworkError::BrokenPipe)) |
-                                Poll::Ready(Err(NetworkError::NotConnected)) |
-                                Poll::Ready(Err(NetworkError::UnexpectedEof)) => {
-                                    true
-                                },
-                                _ => {
-                                    false
-                                }
+                                Poll::Ready(Err(NetworkError::ConnectionAborted))
+                                | Poll::Ready(Err(NetworkError::ConnectionRefused))
+                                | Poll::Ready(Err(NetworkError::ConnectionReset))
+                                | Poll::Ready(Err(NetworkError::BrokenPipe))
+                                | Poll::Ready(Err(NetworkError::NotConnected))
+                                | Poll::Ready(Err(NetworkError::UnexpectedEof)) => true,
+                                _ => false,
                             }
-                        }                        
+                        }
                     }
                 }
             };
@@ -244,7 +243,9 @@ for InodeValFilePollGuardJoin<'a>
                                 nbytes: 0,
                                 flags: if has_hangup {
                                     __WASI_EVENT_FD_READWRITE_HANGUP
-                                } else { 0 },
+                                } else {
+                                    0
+                                },
                             },
                         }
                     },
@@ -256,8 +257,13 @@ for InodeValFilePollGuardJoin<'a>
                 InodeValFilePollGuardMode::File(file) => {
                     let guard = file.read().unwrap();
                     guard.poll_read_ready(cx, &register_root_waker)
-                },
-                InodeValFilePollGuardMode::EventNotifications { waker, counter, immediate, .. } => {
+                }
+                InodeValFilePollGuardMode::EventNotifications {
+                    waker,
+                    counter,
+                    immediate,
+                    ..
+                } => {
                     if *immediate {
                         let cnt = counter.load(Ordering::Acquire);
                         Poll::Ready(Ok(cnt as usize))
@@ -270,21 +276,20 @@ for InodeValFilePollGuardJoin<'a>
                             Ok(cnt as usize)
                         })
                     }
-                },
-                InodeValFilePollGuardMode::Socket(socket) => {
-                    socket.poll_read_ready(cx)
-                        .map_err(net_error_into_io_err)
-                        .map_err(Into::<FsError>::into)
                 }
+                InodeValFilePollGuardMode::Socket(socket) => socket
+                    .poll_read_ready(cx)
+                    .map_err(net_error_into_io_err)
+                    .map_err(Into::<FsError>::into),
             };
             if let Some(s) = has_close.as_ref() {
                 poll_result = match poll_result {
-                    Poll::Ready(Err(FsError::ConnectionAborted)) |
-                    Poll::Ready(Err(FsError::ConnectionRefused)) |
-                    Poll::Ready(Err(FsError::ConnectionReset)) |
-                    Poll::Ready(Err(FsError::BrokenPipe)) |
-                    Poll::Ready(Err(FsError::NotConnected)) |
-                    Poll::Ready(Err(FsError::UnexpectedEof)) => {
+                    Poll::Ready(Err(FsError::ConnectionAborted))
+                    | Poll::Ready(Err(FsError::ConnectionRefused))
+                    | Poll::Ready(Err(FsError::ConnectionReset))
+                    | Poll::Ready(Err(FsError::BrokenPipe))
+                    | Poll::Ready(Err(FsError::NotConnected))
+                    | Poll::Ready(Err(FsError::UnexpectedEof)) => {
                         ret.push(__wasi_event_t {
                             userdata: s.user_data,
                             error: __WASI_ESUCCESS,
@@ -295,20 +300,25 @@ for InodeValFilePollGuardJoin<'a>
                                         nbytes: 0,
                                         flags: if has_hangup {
                                             __WASI_EVENT_FD_READWRITE_HANGUP
-                                        } else { 0 },
+                                        } else {
+                                            0
+                                        },
                                     },
                                 }
                             },
                         });
                         Poll::Pending
                     }
-                    a => a
+                    a => a,
                 };
             }
             if let Poll::Ready(bytes_available) = poll_result {
                 ret.push(__wasi_event_t {
                     userdata: s.user_data,
-                    error: bytes_available.clone().map(|_| __WASI_ESUCCESS).unwrap_or_else(fs_error_into_wasi_err),
+                    error: bytes_available
+                        .clone()
+                        .map(|_| __WASI_ESUCCESS)
+                        .unwrap_or_else(fs_error_into_wasi_err),
                     type_: s.event_type.raw_tag(),
                     u: {
                         __wasi_event_u {
@@ -326,8 +336,13 @@ for InodeValFilePollGuardJoin<'a>
                 InodeValFilePollGuardMode::File(file) => {
                     let guard = file.read().unwrap();
                     guard.poll_write_ready(cx, &register_root_waker)
-                },
-                InodeValFilePollGuardMode::EventNotifications { waker, counter, immediate, .. } => {
+                }
+                InodeValFilePollGuardMode::EventNotifications {
+                    waker,
+                    counter,
+                    immediate,
+                    ..
+                } => {
                     if *immediate {
                         let cnt = counter.load(Ordering::Acquire);
                         Poll::Ready(Ok(cnt as usize))
@@ -340,21 +355,20 @@ for InodeValFilePollGuardJoin<'a>
                             Ok(cnt as usize)
                         })
                     }
-                },
-                InodeValFilePollGuardMode::Socket(socket) => {
-                    socket.poll_write_ready(cx)
-                        .map_err(net_error_into_io_err)
-                        .map_err(Into::<FsError>::into)
                 }
+                InodeValFilePollGuardMode::Socket(socket) => socket
+                    .poll_write_ready(cx)
+                    .map_err(net_error_into_io_err)
+                    .map_err(Into::<FsError>::into),
             };
             if let Some(s) = has_close.as_ref() {
                 poll_result = match poll_result {
-                    Poll::Ready(Err(FsError::ConnectionAborted)) |
-                    Poll::Ready(Err(FsError::ConnectionRefused)) |
-                    Poll::Ready(Err(FsError::ConnectionReset)) |
-                    Poll::Ready(Err(FsError::BrokenPipe)) |
-                    Poll::Ready(Err(FsError::NotConnected)) |
-                    Poll::Ready(Err(FsError::UnexpectedEof)) => {
+                    Poll::Ready(Err(FsError::ConnectionAborted))
+                    | Poll::Ready(Err(FsError::ConnectionRefused))
+                    | Poll::Ready(Err(FsError::ConnectionReset))
+                    | Poll::Ready(Err(FsError::BrokenPipe))
+                    | Poll::Ready(Err(FsError::NotConnected))
+                    | Poll::Ready(Err(FsError::UnexpectedEof)) => {
                         ret.push(__wasi_event_t {
                             userdata: s.user_data,
                             error: __WASI_ESUCCESS,
@@ -365,20 +379,25 @@ for InodeValFilePollGuardJoin<'a>
                                         nbytes: 0,
                                         flags: if has_hangup {
                                             __WASI_EVENT_FD_READWRITE_HANGUP
-                                        } else { 0 },
+                                        } else {
+                                            0
+                                        },
                                     },
                                 }
                             },
                         });
                         Poll::Pending
                     }
-                    a => a
+                    a => a,
                 };
             }
             if let Poll::Ready(bytes_available) = poll_result {
                 ret.push(__wasi_event_t {
                     userdata: s.user_data,
-                    error: bytes_available.clone().map(|_| __WASI_ESUCCESS).unwrap_or_else(fs_error_into_wasi_err),
+                    error: bytes_available
+                        .clone()
+                        .map(|_| __WASI_ESUCCESS)
+                        .unwrap_or_else(fs_error_into_wasi_err),
                     type_: s.event_type.raw_tag(),
                     u: {
                         __wasi_event_u {
@@ -411,13 +430,18 @@ impl InodeValFileReadGuard {
         let guard = file.read().unwrap();
         Self {
             file: file.clone(),
-            guard: unsafe { std::mem::transmute(guard) }
+            guard: unsafe { std::mem::transmute(guard) },
         }
     }
 }
 
 impl InodeValFileReadGuard {
-    pub fn into_poll_guard(self, fd: u32, subscriptions: HashMap<PollEventSet, WasiSubscription>, tasks: Arc<dyn VirtualTaskManager + Send + Sync + 'static>) -> InodeValFilePollGuard {
+    pub fn into_poll_guard(
+        self,
+        fd: u32,
+        subscriptions: HashMap<PollEventSet, WasiSubscription>,
+        tasks: Arc<dyn VirtualTaskManager + Send + Sync + 'static>,
+    ) -> InodeValFilePollGuard {
         InodeValFilePollGuard {
             fd,
             subscriptions,
@@ -446,10 +470,13 @@ impl InodeValFileWriteGuard {
         let guard = file.write().unwrap();
         Self {
             file: file.clone(),
-            guard: unsafe { std::mem::transmute(guard) }
+            guard: unsafe { std::mem::transmute(guard) },
         }
     }
-    pub(crate) fn swap(&mut self, mut file: Box<dyn VirtualFile + Send + Sync + 'static>) -> Box<dyn VirtualFile + Send + Sync + 'static> {
+    pub(crate) fn swap(
+        &mut self,
+        mut file: Box<dyn VirtualFile + Send + Sync + 'static>,
+    ) -> Box<dyn VirtualFile + Send + Sync + 'static> {
         std::mem::swap(self.guard.deref_mut(), &mut file);
         file
     }
@@ -494,10 +521,7 @@ impl WasiStateFileGuard {
         }
     }
 
-    pub fn lock_read(
-        &self,
-        inodes: &RwLockReadGuard<WasiInodes>,
-    ) -> Option<InodeValFileReadGuard> {
+    pub fn lock_read(&self, inodes: &RwLockReadGuard<WasiInodes>) -> Option<InodeValFileReadGuard> {
         let guard = inodes.arena[self.inode].read();
         if let Kind::File { handle, .. } = guard.deref() {
             if let Some(handle) = handle.as_ref() {
@@ -655,7 +679,7 @@ impl Write for WasiStateFileGuard {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         let inodes = self.inodes.read().unwrap();
         let mut guard = self.lock_write(&inodes);
-        if let Some(file) = guard.as_mut () {
+        if let Some(file) = guard.as_mut() {
             file.write(buf)
         } else {
             Err(std::io::ErrorKind::Unsupported.into())

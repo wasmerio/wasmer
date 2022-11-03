@@ -12,10 +12,10 @@ use std::sync::Mutex;
 #[allow(unused_imports, dead_code)]
 use tracing::{debug, error, info, trace, warn};
 
+use crate::{types as wasi_types, WasiFile, WasiFsError};
 use wasmer_vfs::mem_fs;
 use wasmer_vfs::Result as FsResult;
 use wasmer_vfs::*;
-use crate::{types as wasi_types, WasiFile, WasiFsError};
 
 #[derive(Debug, Clone)]
 pub struct TmpFileSystem {
@@ -37,7 +37,12 @@ impl TmpFileSystem {
         self.fs.union(other)
     }
 
-    pub fn mount(&self, src_path: PathBuf, other: &Arc<dyn FileSystem + Send + Sync>, dst_path: PathBuf) -> Result<()> {
+    pub fn mount(
+        &self,
+        src_path: PathBuf,
+        other: &Arc<dyn FileSystem + Send + Sync>,
+        dst_path: PathBuf,
+    ) -> Result<()> {
         self.fs.mount(src_path, other, dst_path)
     }
 }

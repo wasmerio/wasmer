@@ -347,7 +347,7 @@ impl<'a, T: ValueType> WasmSlice<'a, T> {
             ret.set_len(len);
         }
         Ok(ret)
-    }    
+    }
 }
 
 impl<'a, T: ValueType> fmt::Debug for WasmSlice<'a, T> {

@@ -422,7 +422,7 @@ impl VirtualFile for File {
     }
 
     #[cfg(feature = "sys")]
-    fn bytes_available(&self) -> Result<usize> {        
+    fn bytes_available(&self) -> Result<usize> {
         host_file_bytes_available(self.inner.try_into_filedescriptor()?)
     }
 

@@ -6,8 +6,8 @@ use std::{io::Read, time::Duration};
 use tracing::{debug, info, metadata::LevelFilter};
 #[cfg(feature = "sys")]
 use tracing_subscriber::fmt::SubscriberBuilder;
-use wasmer::{Instance, Module, Store, Features, Cranelift, EngineBuilder};
-use wasmer_wasi::{Pipe, WasiState, import_object_for_all_wasi_versions, WasiError};
+use wasmer::{Cranelift, EngineBuilder, Features, Instance, Module, Store};
+use wasmer_wasi::{import_object_for_all_wasi_versions, Pipe, WasiError, WasiState};
 
 mod sys {
     #[test]
@@ -18,8 +18,7 @@ mod sys {
 
 fn test_multithreading() {
     let mut features = Features::new();
-    features
-        .threads(true);
+    features.threads(true);
 
     info!("Creating engine");
     let compiler = Cranelift::default();
@@ -41,12 +40,11 @@ fn test_multithreading() {
 
     #[cfg(feature = "sys")]
     SubscriberBuilder::default()
-            .with_max_level(LevelFilter::TRACE)
-            .init();
+        .with_max_level(LevelFilter::TRACE)
+        .init();
 
     // We do it many times (to make sure the compiled modules are reusable)
-    for n in 0..2
-    {
+    for n in 0..2 {
         let store = Store::new(engine.clone());
         let module = module.clone();
 
@@ -55,12 +53,11 @@ fn test_multithreading() {
     }
 }
 
-fn run_test(mut store: Store, module: Module)
-{
+fn run_test(mut store: Store, module: Module) {
     // Create the `WasiEnv`.
     let mut stdout = Pipe::new();
     let mut wasi_state_builder = WasiState::new("multi-threading");
-    
+
     let mut wasi_env = wasi_state_builder
         .stdout(Box::new(stdout.clone()))
         .stderr(Box::new(stdout.clone()))
@@ -69,24 +66,22 @@ fn run_test(mut store: Store, module: Module)
 
     // Start a thread that will dump STDOUT to info
     #[cfg(feature = "sys")]
-    std::thread::spawn(move || {
-        loop {
-            let mut buf = [0u8; 8192];
-            if let Ok(amt) = stdout.read(&mut buf[..]) {
-                if amt > 0 {
-                    let msg = String::from_utf8_lossy(&buf[0..amt]);
-                    for line in msg.lines() {
-                        info!("{}", line);
-                    }
-                } else {
-                    std::thread::sleep(Duration::from_millis(1));
+    std::thread::spawn(move || loop {
+        let mut buf = [0u8; 8192];
+        if let Ok(amt) = stdout.read(&mut buf[..]) {
+            if amt > 0 {
+                let msg = String::from_utf8_lossy(&buf[0..amt]);
+                for line in msg.lines() {
+                    info!("{}", line);
                 }
             } else {
-                break;
+                std::thread::sleep(Duration::from_millis(1));
             }
+        } else {
+            break;
         }
     });
-    
+
     // Generate an `ImportObject`.
     let mut import_object = import_object_for_all_wasi_versions(&mut store, &wasi_env.env);
     import_object.import_shared_memory(&module, &mut store);
@@ -100,9 +95,12 @@ fn run_test(mut store: Store, module: Module)
     let ret = start.call(&mut store, &[]);
     if let Err(e) = ret {
         match e.downcast::<WasiError>() {
-            Ok(WasiError::Exit(0)) => { }
+            Ok(WasiError::Exit(0)) => {}
             _ => {
-                assert!(false, "The call should have returned Err(WasiError::Exit(0))");        
+                assert!(
+                    false,
+                    "The call should have returned Err(WasiError::Exit(0))"
+                );
             }
         }
     }

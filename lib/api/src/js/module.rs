@@ -14,16 +14,15 @@ use std::borrow::Cow;
 use std::fmt;
 use std::io;
 use std::path::Path;
-use bytes::Bytes;
 #[cfg(feature = "std")]
 use thiserror::Error;
+#[cfg(feature = "tracing")]
+use tracing::{debug, warn};
 use wasm_bindgen::JsValue;
 use wasmer_types::{
     ExportsIterator, ExternType, FunctionType, GlobalType, ImportsIterator, MemoryType, Mutability,
     Pages, TableType, Type,
 };
-#[cfg(feature = "tracing")]
-use tracing::{debug, warn};
 
 #[derive(Debug)]
 #[cfg_attr(feature = "std", derive(Error))]
@@ -111,27 +110,23 @@ pub struct Module {
     raw_bytes: Option<Bytes>,
 }
 
-pub trait IntoBytes
-{
+pub trait IntoBytes {
     fn into_bytes(self) -> Bytes;
 }
 
-impl IntoBytes
-for Bytes {
+impl IntoBytes for Bytes {
     fn into_bytes(self) -> Bytes {
         self
     }
 }
 
-impl IntoBytes
-for Vec<u8> {
+impl IntoBytes for Vec<u8> {
     fn into_bytes(self) -> Bytes {
         Bytes::from(self)
     }
 }
 
-impl IntoBytes
-for &[u8] {
+impl IntoBytes for &[u8] {
     fn into_bytes(self) -> Bytes {
         Bytes::from(self.to_vec())
     }
@@ -227,7 +222,10 @@ impl Module {
     /// Opposed to [`Module::new`], this function is not compatible with
     /// the WebAssembly text format (if the "wat" feature is enabled for
     /// this crate).
-    pub fn from_binary(_store: &impl AsStoreRef, binary: impl IntoBytes) -> Result<Self, CompileError> {
+    pub fn from_binary(
+        _store: &impl AsStoreRef,
+        binary: impl IntoBytes,
+    ) -> Result<Self, CompileError> {
         let binary = binary.into_bytes();
         //
         // Self::validate(store, binary)?;
@@ -366,7 +364,11 @@ impl Module {
                 import_externs.push(import);
             } else {
                 #[cfg(feature = "tracing")]
-                warn!("import not found {}:{}", import_type.module(), import_type.name());
+                warn!(
+                    "import not found {}:{}",
+                    import_type.module(),
+                    import_type.name()
+                );
             }
             // in case the import is not found, the JS Wasm VM will handle
             // the error for us, so we don't need to handle it
@@ -676,8 +678,7 @@ impl Module {
     /// between threads except via a post_message())
     pub fn is_ok(&self) -> bool {
         let val = JsValue::from(&self.module);
-        !val.is_undefined() &&
-        !val.is_null()
+        !val.is_undefined() && !val.is_null()
     }
 
     // /// Get the custom sections of the module given a `name`.

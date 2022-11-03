@@ -1,18 +1,18 @@
+use derivative::Derivative;
+use std::future::Future;
 use std::io::Write;
+use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 use std::task::Waker;
 use std::{fmt, io};
-use std::future::Future;
-use std::pin::Pin;
 use thiserror::Error;
-use wasmer::{Module, Store, MemoryType};
+use tracing::*;
 use wasmer::vm::VMMemory;
+use wasmer::{MemoryType, Module, Store};
 #[cfg(feature = "sys")]
 use wasmer_types::MemoryStyle;
 use wasmer_vbus::{DefaultVirtualBus, VirtualBus};
 use wasmer_vnet::VirtualNetworking;
-use derivative::Derivative;
-use tracing::*;
 
 use crate::{WasiCallingId, WasiEnv};
 
@@ -29,9 +29,7 @@ pub mod term;
 #[cfg(feature = "termios")]
 pub use term::*;
 
-use tokio::runtime::{
-    Builder, Runtime
-};
+use tokio::runtime::{Builder, Runtime};
 
 #[derive(Error, Debug)]
 pub enum WasiThreadError {
@@ -71,8 +69,7 @@ pub struct WasiTtyState {
     pub line_feeds: bool,
 }
 
-impl Default
-for WasiTtyState {
+impl Default for WasiTtyState {
     fn default() -> Self {
         Self {
             rows: 80,
@@ -90,8 +87,7 @@ for WasiTtyState {
 }
 
 #[derive(Debug)]
-pub struct SpawnedMemory
-{
+pub struct SpawnedMemory {
     pub ty: MemoryType,
     #[cfg(feature = "sys")]
     pub style: MemoryStyle,
@@ -122,12 +118,15 @@ pub struct ReqwestResponse {
 
 /// An implementation of task management
 #[allow(unused_variables)]
-pub trait VirtualTaskManager: fmt::Debug + Send + Sync + 'static
-{
+pub trait VirtualTaskManager: fmt::Debug + Send + Sync + 'static {
     /// Invokes whenever a WASM thread goes idle. In some runtimes (like singlethreaded
     /// execution environments) they will need to do asynchronous work whenever the main
     /// thread goes idle and this is the place to hook for that.
-    fn sleep_now(&self, _id: WasiCallingId, ms: u128) -> Pin<Box<dyn Future<Output=()> + Send + Sync + 'static>>;
+    fn sleep_now(
+        &self,
+        _id: WasiCallingId,
+        ms: u128,
+    ) -> Pin<Box<dyn Future<Output = ()> + Send + Sync + 'static>>;
 
     /// Starts an asynchronous task that will run on a shared worker pool
     /// This task must not block the execution or it could cause a deadlock
@@ -139,10 +138,7 @@ pub trait VirtualTaskManager: fmt::Debug + Send + Sync + 'static
     ) -> Result<(), WasiThreadError>;
 
     /// Starts an asynchronous task on the local thread (by running it in a runtime)
-    fn block_on(
-        &self,
-        task: Pin<Box<dyn Future<Output = ()>>>,
-    );
+    fn block_on(&self, task: Pin<Box<dyn Future<Output = ()>>>);
 
     /// Starts an asynchronous task will will run on a dedicated thread
     /// pulled from the worker pool that has a stateful thread local variable
@@ -200,7 +196,7 @@ pub trait VirtualTaskManager: fmt::Debug + Send + Sync + 'static
     }
 
     /// Waits for a periodic period (if there is anyone waiting on it)
-    fn wait_for_root_waker(&self) -> Pin<Box<dyn Future<Output=()> + Send + Sync + 'static>> {
+    fn wait_for_root_waker(&self) -> Pin<Box<dyn Future<Output = ()> + Send + Sync + 'static>> {
         let (has_wakers, mut new_wakers) = {
             let periodic_wakers = self.periodic_wakers();
             let guard = periodic_wakers.lock().unwrap();
@@ -226,7 +222,8 @@ pub trait VirtualTaskManager: fmt::Debug + Send + Sync + 'static
 /// unimplemented.
 #[allow(unused_variables)]
 pub trait WasiRuntimeImplementation
-where Self: fmt::Debug + Sync,
+where
+    Self: fmt::Debug + Sync,
 {
     /// For WASI runtimes that support it they can implement a message BUS implementation
     /// which allows runtimes to pass serialized messages between each other similar to
@@ -251,8 +248,7 @@ where Self: fmt::Debug + Sync,
 
     /// Sets the TTY state
     #[cfg(not(feature = "host-termios"))]
-    fn tty_set(&self, _tty_state: WasiTtyState) {
-    }
+    fn tty_set(&self, _tty_state: WasiTtyState) {}
 
     #[cfg(feature = "host-termios")]
     fn tty_get(&self) -> WasiTtyState {
@@ -263,7 +259,7 @@ where Self: fmt::Debug + Sync,
         if let Ok(termios) = termios::Termios::from_fd(0) {
             echo = (termios.c_lflag & termios::ECHO) != 0;
             line_buffered = (termios.c_lflag & termios::ICANON) != 0;
-            line_feeds = (termios.c_lflag & termios::ONLCR) != 0;            
+            line_feeds = (termios.c_lflag & termios::ONLCR) != 0;
         }
 
         if let Some((w, h)) = term_size::dimensions() {
@@ -350,40 +346,35 @@ where Self: fmt::Debug + Sync,
                     debug!("failed to convert method ({}) - {}", method, err);
                     __WASI_EIO as u32
                 })?;
-        
+
                 let client = reqwest::ClientBuilder::default().build().map_err(|err| {
                     debug!("failed to build reqwest client - {}", err);
                     __WASI_EIO as u32
                 })?;
-        
+
                 let mut builder = client.request(method, url.as_str());
                 for (header, val) in headers {
-                    if let Ok(header) =
-                        reqwest::header::HeaderName::from_bytes(header.as_bytes())
-                    {
+                    if let Ok(header) = reqwest::header::HeaderName::from_bytes(header.as_bytes()) {
                         builder = builder.header(header, val);
                     } else {
                         debug!("failed to parse header - {}", header);
                     }
                 }
-        
+
                 if let Some(data) = data {
                     builder = builder.body(reqwest::Body::from(data));
                 }
-        
+
                 let request = builder.build().map_err(|err| {
                     debug!("failed to convert request (url={}) - {}", url.as_str(), err);
                     __WASI_EIO as u32
                 })?;
-        
-                let response = client.execute(request)
-                    .await
-                    .map_err(|err|
-                {
+
+                let response = client.execute(request).await.map_err(|err| {
                     debug!("failed to execute reqest - {}", err);
                     __WASI_EIO as u32
                 })?;
-        
+
                 let status = response.status().as_u16();
                 let status_text = response.status().as_str().to_string();
                 let data = response.bytes().await.map_err(|err| {
@@ -391,7 +382,7 @@ where Self: fmt::Debug + Sync,
                     __WASI_EIO as u32
                 })?;
                 let data = data.to_vec();
-        
+
                 Ok(ReqwestResponse {
                     pos: 0usize,
                     ok: true,
@@ -405,11 +396,10 @@ where Self: fmt::Debug + Sync,
         };
 
         let (tx, rx) = std::sync::mpsc::channel();
-        tasks
-            .block_on(Box::pin(async move {
-                let ret = work.await;
-                let _ = tx.send(ret);
-            }));
+        tasks.block_on(Box::pin(async move {
+            let ret = work.await;
+            let _ = tx.send(ret);
+        }));
         rx.try_recv().map_err(|_| __WASI_EIO)?
     }
 
@@ -426,17 +416,17 @@ where Self: fmt::Debug + Sync,
     fn web_socket(&self, url: &str) -> Result<Box<dyn WebSocketAbi>, String> {
         let url = url.to_string();
         let (tx_done, rx_done) = mpsc::unbounded_channel();
-        self.task_shared(Box::new(move ||
+        self.task_shared(Box::new(move || {
             Box::pin(async move {
-                let ret = move || async move {
-                    Box::new(TerminalWebSocket::new(url.as_str())).await
-                };
+                let ret =
+                    move || async move { Box::new(TerminalWebSocket::new(url.as_str())).await };
                 let ret = ret().await;
                 let _ = tx_done.send(ret);
             })
-        ));
+        }));
         tokio::task::block_in_place(move || {
-            rx_done.blocking_recv()
+            rx_done
+                .blocking_recv()
                 .ok_or("failed to create web socket".to_string())
         })
     }
@@ -482,14 +472,12 @@ where Self: fmt::Debug + Sync,
 
 #[derive(Derivative)]
 #[derivative(Debug)]
-pub struct PluggableRuntimeImplementation
-{
+pub struct PluggableRuntimeImplementation {
     pub bus: Arc<dyn VirtualBus<WasiEnv> + Send + Sync + 'static>,
     pub networking: Arc<dyn VirtualNetworking + Send + Sync + 'static>,
 }
 
-impl PluggableRuntimeImplementation
-{
+impl PluggableRuntimeImplementation {
     pub fn set_bus_implementation<I>(&mut self, bus: I)
     where
         I: VirtualBus<WasiEnv> + Sync,
@@ -505,9 +493,7 @@ impl PluggableRuntimeImplementation
     }
 }
 
-impl Default
-for PluggableRuntimeImplementation
-{
+impl Default for PluggableRuntimeImplementation {
     fn default() -> Self {
         Self {
             #[cfg(not(feature = "host-vnet"))]
@@ -526,42 +512,38 @@ pub struct DefaultTaskManager {
     runtime: std::sync::Arc<Runtime>,
     /// List of periodic wakers to wake (this is used by IO subsystems)
     /// that do not support async operations
-    periodic_wakers: Arc<Mutex<(Vec<Waker>, tokio::sync::broadcast::Sender<()>)>>
+    periodic_wakers: Arc<Mutex<(Vec<Waker>, tokio::sync::broadcast::Sender<()>)>>,
 }
 
-impl Default
-for DefaultTaskManager {
+impl Default for DefaultTaskManager {
     fn default() -> Self {
-        let runtime: std::sync::Arc<Runtime>
-            = std::sync::Arc::new(Builder::new_current_thread()
-                .enable_all()
-                .build()
-                .unwrap()
-            );
+        let runtime: std::sync::Arc<Runtime> =
+            std::sync::Arc::new(Builder::new_current_thread().enable_all().build().unwrap());
         let (tx, _) = tokio::sync::broadcast::channel(100);
         Self {
             runtime,
-            periodic_wakers: Arc::new(Mutex::new((Vec::new(), tx)))
+            periodic_wakers: Arc::new(Mutex::new((Vec::new(), tx))),
         }
     }
 }
 
 #[allow(unused_variables)]
 #[cfg(not(feature = "sys-thread"))]
-impl VirtualTaskManager
-for DefaultTaskManager
-{
+impl VirtualTaskManager for DefaultTaskManager {
     /// Invokes whenever a WASM thread goes idle. In some runtimes (like singlethreaded
     /// execution environments) they will need to do asynchronous work whenever the main
     /// thread goes idle and this is the place to hook for that.
-    fn sleep_now(&self, id: WasiCallingId, ms: u128) -> Pin<Box<dyn Future<Output=()> + Send + Sync + 'static>> {
+    fn sleep_now(
+        &self,
+        id: WasiCallingId,
+        ms: u128,
+    ) -> Pin<Box<dyn Future<Output = ()> + Send + Sync + 'static>> {
         if ms == 0 {
             std::thread::yield_now();
         } else {
             std::thread::sleep(std::time::Duration::from_millis(ms as u64));
         }
-        Box::pin(async move {
-        })
+        Box::pin(async move {})
     }
 
     /// Starts an asynchronous task that will run on a shared worker pool
@@ -576,11 +558,7 @@ for DefaultTaskManager
     }
 
     /// Starts an asynchronous task on the local thread (by running it in a runtime)
-    fn block_on(
-        &self,
-        task: Pin<Box<dyn Future<Output = ()>>>,
-    )
-    {
+    fn block_on(&self, task: Pin<Box<dyn Future<Output = ()>>>) {
         let _guard = self.runtime.enter();
         self.runtime.block_on(async move {
             task.await;
@@ -632,13 +610,15 @@ for DefaultTaskManager
 }
 
 #[cfg(feature = "sys-thread")]
-impl VirtualTaskManager
-for DefaultTaskManager
-{
+impl VirtualTaskManager for DefaultTaskManager {
     /// Invokes whenever a WASM thread goes idle. In some runtimes (like singlethreaded
     /// execution environments) they will need to do asynchronous work whenever the main
     /// thread goes idle and this is the place to hook for that.
-    fn sleep_now(&self, _id: WasiCallingId, ms: u128) -> Pin<Box<dyn Future<Output=()> + Send + Sync + 'static>> {
+    fn sleep_now(
+        &self,
+        _id: WasiCallingId,
+        ms: u128,
+    ) -> Pin<Box<dyn Future<Output = ()> + Send + Sync + 'static>> {
         Box::pin(async move {
             if ms == 0 {
                 tokio::task::yield_now().await;
@@ -665,11 +645,7 @@ for DefaultTaskManager
     }
 
     /// Starts an asynchronous task on the local thread (by running it in a runtime)
-    fn block_on(
-        &self,
-        task: Pin<Box<dyn Future<Output = ()>>>,
-    )
-    {
+    fn block_on(&self, task: Pin<Box<dyn Future<Output = ()>>>) {
         let _guard = self.runtime.enter();
         self.runtime.block_on(async move {
             task.await;
@@ -689,20 +665,18 @@ for DefaultTaskManager
         use wasmer::vm::VMSharedMemory;
 
         let memory: Option<VMMemory> = match spawn_type {
-            SpawnType::CreateWithType(mem) => {
-                Some(
-                    VMSharedMemory::new(&mem.ty, &mem.style)
-                        .map_err(|err| {
-                            error!("failed to create memory - {}", err);
-                        })
-                        .unwrap()
-                        .into()
-                )
-            },
+            SpawnType::CreateWithType(mem) => Some(
+                VMSharedMemory::new(&mem.ty, &mem.style)
+                    .map_err(|err| {
+                        error!("failed to create memory - {}", err);
+                    })
+                    .unwrap()
+                    .into(),
+            ),
             SpawnType::NewThread(mem) => Some(mem),
             SpawnType::Create => None,
         };
-        
+
         std::thread::spawn(move || {
             // Invoke the callback
             task(store, module, memory);
@@ -742,11 +716,9 @@ for DefaultTaskManager
     /// in a stable way (ideally we should aim for this number
     /// of background threads)
     fn thread_parallelism(&self) -> Result<usize, WasiThreadError> {
-        Ok(
-            std::thread::available_parallelism()
-                .map(|a| usize::from(a))
-                .unwrap_or(8)
-        )
+        Ok(std::thread::available_parallelism()
+            .map(|a| usize::from(a))
+            .unwrap_or(8))
     }
 
     /// Returns a reference to the periodic wakers used by this task manager
@@ -755,9 +727,7 @@ for DefaultTaskManager
     }
 }
 
-impl WasiRuntimeImplementation
-for PluggableRuntimeImplementation
-{
+impl WasiRuntimeImplementation for PluggableRuntimeImplementation {
     fn bus<'a>(&'a self) -> Arc<dyn VirtualBus<WasiEnv> + Send + Sync + 'static> {
         self.bus.clone()
     }

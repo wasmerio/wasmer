@@ -1,5 +1,5 @@
-use std::any::Any;
 use derivative::Derivative;
+use std::any::Any;
 use wasmer_types::RawValue;
 
 use crate::store::InternalStoreHandle;

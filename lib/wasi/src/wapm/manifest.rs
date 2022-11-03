@@ -1,8 +1,8 @@
-use serde::*;
 use semver::Version;
-use std::path::PathBuf;
-use std::fmt;
+use serde::*;
 use std::collections::HashMap;
+use std::fmt;
+use std::path::PathBuf;
 
 /// The name of the manifest file. This is hard-coded for now.
 pub static MANIFEST_FILE_NAME: &str = "wapm.toml";

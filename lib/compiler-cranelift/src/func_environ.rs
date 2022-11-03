@@ -973,7 +973,7 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
                     },
                     false,
                 )
-            },
+            }
             MemoryStyle::Static {
                 bound,
                 offset_guard_size,

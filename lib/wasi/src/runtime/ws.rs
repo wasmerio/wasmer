@@ -10,7 +10,11 @@ pub trait WebSocketAbi {
 
     fn set_onclose(&mut self, callback: Box<dyn Fn() + Send + 'static>);
 
-    fn set_onmessage(&mut self, callback: Box<dyn Fn(Vec<u8>) + Send + 'static>, runtime: &dyn WasiRuntimeImplementation);
+    fn set_onmessage(
+        &mut self,
+        callback: Box<dyn Fn(Vec<u8>) + Send + 'static>,
+        runtime: &dyn WasiRuntimeImplementation,
+    );
 
     #[cfg(feature = "async_ws")]
     async fn send(&mut self, data: Vec<u8>) -> Result<(), String>;

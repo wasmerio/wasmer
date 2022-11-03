@@ -3,9 +3,11 @@
 #[cfg(feature = "os")]
 use crate::bin_factory::CachedCompiledModules;
 use crate::fs::{ArcFile, TmpFileSystem};
-use crate::state::{WasiFs, WasiState, WasiFsRoot};
+use crate::state::{WasiFs, WasiFsRoot, WasiState};
 use crate::syscalls::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO};
-use crate::{WasiEnv, WasiFunctionEnv, WasiInodes, WasiControlPlane, PluggableRuntimeImplementation};
+use crate::{
+    PluggableRuntimeImplementation, WasiControlPlane, WasiEnv, WasiFunctionEnv, WasiInodes,
+};
 use generational_arena::Arena;
 use rand::Rng;
 use std::collections::HashMap;
@@ -128,8 +130,10 @@ impl WasiStateBuilder {
         Key: AsRef<[u8]>,
         Value: AsRef<[u8]>,
     {
-        self.envs
-            .push((String::from_utf8_lossy(key.as_ref()).to_string(), value.as_ref().to_vec()));
+        self.envs.push((
+            String::from_utf8_lossy(key.as_ref()).to_string(),
+            value.as_ref().to_vec(),
+        ));
 
         self
     }
@@ -141,7 +145,8 @@ impl WasiStateBuilder {
     where
         Arg: AsRef<[u8]>,
     {
-        self.args.push(String::from_utf8_lossy(arg.as_ref()).to_string());
+        self.args
+            .push(String::from_utf8_lossy(arg.as_ref()).to_string());
 
         self
     }
@@ -192,7 +197,8 @@ impl WasiStateBuilder {
         Target: AsRef<str>,
     {
         let path_buf = PathBuf::from(target.as_ref().to_string());
-        self.map_commands.insert(name.as_ref().to_string(), path_buf);
+        self.map_commands
+            .insert(name.as_ref().to_string(), path_buf);
         self
     }
 
@@ -206,7 +212,8 @@ impl WasiStateBuilder {
     {
         map_commands.into_iter().for_each(|(name, target)| {
             let path_buf = PathBuf::from(target.as_ref().to_string());
-            self.map_commands.insert(name.as_ref().to_string(), path_buf);
+            self.map_commands
+                .insert(name.as_ref().to_string(), path_buf);
         });
         self
     }
@@ -434,9 +441,7 @@ impl WasiStateBuilder {
         for arg in self.args.iter() {
             for b in arg.as_bytes().iter() {
                 if *b == 0 {
-                    return Err(WasiStateCreationError::ArgumentContainsNulByte(
-                        arg.clone(),
-                    ));
+                    return Err(WasiStateCreationError::ArgumentContainsNulByte(arg.clone()));
                 }
             }
         }
@@ -458,10 +463,7 @@ impl WasiStateBuilder {
             }) {
                 Some(InvalidCharacter::Nul) => {
                     return Err(WasiStateCreationError::EnvironmentVariableFormatError(
-                        format!(
-                            "found nul byte in env var key \"{}\" (key=value)",
-                            env_key
-                        ),
+                        format!("found nul byte in env var key \"{}\" (key=value)", env_key),
                     ))
                 }
 
@@ -487,25 +489,26 @@ impl WasiStateBuilder {
             }
         }
 
-        // Get a reference to the runtime        
-        let runtime = self.runtime_override.clone().unwrap_or_else( || {
-            Arc::new(PluggableRuntimeImplementation::default())
-        });
+        // Get a reference to the runtime
+        let runtime = self
+            .runtime_override
+            .clone()
+            .unwrap_or_else(|| Arc::new(PluggableRuntimeImplementation::default()));
 
         // Determine the STDIN
-        let stdin: Box<ArcFile> = self.stdin_override
+        let stdin: Box<ArcFile> = self
+            .stdin_override
             .take()
             .map(|a| Box::new(ArcFile::new(a)))
-            .unwrap_or_else(|| {
-                Box::new(ArcFile::new(Box::new(super::Stdin::default())))
-            });
+            .unwrap_or_else(|| Box::new(ArcFile::new(Box::new(super::Stdin::default()))));
 
         // If we are running WASIX then we start a full sandbox FS
         // otherwise we drop through to a default file system
-        let fs_backing = self.fs_override
+        let fs_backing = self
+            .fs_override
             .take()
             .unwrap_or_else(|| WasiFsRoot::Sandbox(Arc::new(TmpFileSystem::new())));
-        
+
         // self.preopens are checked in [`PreopenDirBuilder::build`]
         let inodes = RwLock::new(crate::state::WasiInodes {
             arena: Arena::new(),
@@ -519,10 +522,10 @@ impl WasiStateBuilder {
                 inodes.deref_mut(),
                 &self.preopens,
                 &self.vfs_preopens,
-                fs_backing
+                fs_backing,
             )
             .map_err(WasiStateCreationError::WasiFsCreationError)?;
-            
+
             // set up the file system, overriding base files and calling the setup function
             wasi_fs
                 .swap_file(inodes.deref(), __WASI_STDIN_FILENO, stdin)
@@ -620,7 +623,7 @@ impl WasiStateBuilder {
             self.compiled_modules.clone(),
             process,
             thread,
-            runtime
+            runtime,
         );
 
         #[cfg(feature = "os")]

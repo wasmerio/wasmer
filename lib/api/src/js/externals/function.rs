@@ -61,13 +61,9 @@ pub struct Function {
     pub(crate) handle: StoreHandle<VMFunction>,
 }
 
-impl Into<Function>
-for StoreHandle<VMFunction>
-{
+impl Into<Function> for StoreHandle<VMFunction> {
     fn into(self) -> Function {
-        Function {
-            handle: self
-        }
+        Function { handle: self }
     }
 }
 
@@ -405,7 +401,10 @@ impl Function {
     ) -> Result<Box<[Value]>, RuntimeError> {
         #[allow(unused_unsafe)]
         let params: Vec<_> = unsafe {
-            params.iter().map(|a| a.as_raw_value(&store.as_store_ref())).collect()
+            params
+                .iter()
+                .map(|a| a.as_raw_value(&store.as_store_ref()))
+                .collect()
         };
         let arr = js_sys::Array::new_with_length(params.len() as u32);
 
@@ -428,10 +427,16 @@ impl Function {
                 let store_mut = store.as_store_mut();
                 if let Some(callback) = store_mut.inner.on_called.take() {
                     match callback(store_mut) {
-                        Ok(wasmer_types::OnCalledAction::InvokeAgain) => { continue; }
-                        Ok(wasmer_types::OnCalledAction::Finish) => { break; }
-                        Ok(wasmer_types::OnCalledAction::Trap(trap)) => { return Err(RuntimeError::user(trap)) },
-                        Err(trap) => { return Err(RuntimeError::user(trap)) },
+                        Ok(wasmer_types::OnCalledAction::InvokeAgain) => {
+                            continue;
+                        }
+                        Ok(wasmer_types::OnCalledAction::Finish) => {
+                            break;
+                        }
+                        Ok(wasmer_types::OnCalledAction::Trap(trap)) => {
+                            return Err(RuntimeError::user(trap))
+                        }
+                        Err(trap) => return Err(RuntimeError::user(trap)),
                     }
                 }
                 break;

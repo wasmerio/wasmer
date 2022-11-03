@@ -27,9 +27,7 @@ pub struct MemoryView<'a> {
 
 impl<'a> MemoryView<'a> {
     pub(crate) fn new(memory: &Memory, store: &impl AsStoreRef) -> Self {
-        let memory = memory
-            .handle
-            .get(store.as_store_ref().objects());
+        let memory = memory.handle.get(store.as_store_ref().objects());
         Self::new_raw(&memory.memory)
     }
 
@@ -279,7 +277,7 @@ impl<'a> MemoryView<'a> {
             self.read(offset, &mut chunk[..sublen])?;
 
             new_memory.write(offset, &chunk[..sublen])?;
-            
+
             offset += sublen as u64;
         }
         Ok(())

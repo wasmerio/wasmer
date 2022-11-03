@@ -1,51 +1,37 @@
 use std::{
+    sync::{Arc, Condvar, Mutex},
     task::Waker,
-    sync::{
-        Mutex,
-        Arc,
-        Condvar
-    },
-    time::Duration
+    time::Duration,
 };
 
 /// Represents a waker that can be used to put a thread to
 /// sleep while it waits for an event to occur
 #[derive(Debug)]
-pub struct WasiParkingLot
-{
+pub struct WasiParkingLot {
     waker: Waker,
     run: Arc<(Mutex<bool>, Condvar)>,
 }
 
-impl Default
-for WasiParkingLot
-{
-    fn default() -> Self
-    {
-        Self::new(true)    
+impl Default for WasiParkingLot {
+    fn default() -> Self {
+        Self::new(true)
     }
 }
 
-impl WasiParkingLot
-{
+impl WasiParkingLot {
     /// Creates a new parking lot with a specific value
-    pub fn new(initial_val: bool) -> Self
-    {
+    pub fn new(initial_val: bool) -> Self {
         let run = Arc::new((Mutex::new(initial_val), Condvar::default()));
         let waker = {
             let run = run.clone();
-            waker_fn::waker_fn(move ||
-            {
+            waker_fn::waker_fn(move || {
                 let mut guard = run.0.lock().unwrap();
                 *guard = true;
                 run.1.notify_one();
             })
         };
 
-        Self {
-            waker,
-            run,
-        }
+        Self { waker, run }
     }
 
     /// Gets a reference to the waker that can be used for

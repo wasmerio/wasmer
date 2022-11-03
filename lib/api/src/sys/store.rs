@@ -1,10 +1,10 @@
 use crate::sys::tunables::BaseTunables;
+use derivative::Derivative;
 use std::fmt;
 #[cfg(feature = "compiler")]
 use wasmer_compiler::{Engine, EngineBuilder, Tunables};
 use wasmer_types::{OnCalledAction, StoreSnapshot};
-use wasmer_vm::{init_traps, TrapHandler, TrapHandlerFn, StoreId};
-use derivative::Derivative;
+use wasmer_vm::{init_traps, StoreId, TrapHandler, TrapHandlerFn};
 
 use wasmer_vm::StoreObjects;
 
@@ -24,11 +24,17 @@ pub(crate) struct StoreInner {
     #[derivative(Debug = "ignore")]
     pub(crate) trap_handler: Option<Box<TrapHandlerFn<'static>>>,
     #[derivative(Debug = "ignore")]
-    pub(crate) on_called: Option<Box<dyn FnOnce(StoreMut<'_>) -> Result<OnCalledAction, Box<dyn std::error::Error + Send + Sync>>>>,
+    pub(crate) on_called: Option<
+        Box<
+            dyn FnOnce(
+                StoreMut<'_>,
+            )
+                -> Result<OnCalledAction, Box<dyn std::error::Error + Send + Sync>>,
+        >,
+    >,
 }
 
-impl StoreInner
-{
+impl StoreInner {
     // Serializes the mutable things into a snapshot
     pub fn save_snapshot(&self) -> StoreSnapshot {
         self.objects.save_snapshot()
@@ -324,17 +330,16 @@ impl<'a> StoreMut<'a> {
     }
 
     pub(crate) unsafe fn from_raw(raw: *mut StoreInner) -> Self {
-        Self {
-            inner: &mut *raw,
-        }
+        Self { inner: &mut *raw }
     }
 
     /// Sets the unwind callback which will be invoked when the call finishes
-    pub fn on_called<F>(
-        &mut self,
-        callback: F,
-    )
-    where F: FnOnce(StoreMut<'_>) -> Result<OnCalledAction, Box<dyn std::error::Error + Send + Sync>> + Send + Sync + 'static,
+    pub fn on_called<F>(&mut self, callback: F)
+    where
+        F: FnOnce(StoreMut<'_>) -> Result<OnCalledAction, Box<dyn std::error::Error + Send + Sync>>
+            + Send
+            + Sync
+            + 'static,
     {
         self.inner.on_called.replace(Box::new(callback));
     }
@@ -368,9 +373,7 @@ impl AsStoreRef for StoreMut<'_> {
 }
 impl AsStoreMut for StoreMut<'_> {
     fn as_store_mut(&mut self) -> StoreMut<'_> {
-        StoreMut {
-            inner: self.inner,
-        }
+        StoreMut { inner: self.inner }
     }
     fn objects_mut(&mut self) -> &mut StoreObjects {
         &mut self.inner.objects

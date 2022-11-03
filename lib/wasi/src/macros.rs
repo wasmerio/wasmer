@@ -6,9 +6,7 @@ macro_rules! wasi_try {
     ($expr:expr) => {{
         let res: Result<_, crate::syscalls::types::wasi::Errno> = $expr;
         match res {
-            Ok(val) => {
-                val
-            }
+            Ok(val) => val,
             Err(err) => {
                 tracing::debug!("wasi::wasi_try::err: {:?}", err);
                 return err;
@@ -23,9 +21,7 @@ macro_rules! wasi_try_ok {
     ($expr:expr) => {{
         let res: Result<_, crate::syscalls::types::wasi::Errno> = $expr;
         match res {
-            Ok(val) => {
-                val
-            }
+            Ok(val) => val,
             Err(err) => {
                 tracing::debug!("wasi::wasi_try_ok::err: {:?}", err);
                 return Ok(err);
@@ -36,9 +32,7 @@ macro_rules! wasi_try_ok {
     ($expr:expr, $thread:expr) => {{
         let res: Result<_, crate::syscalls::types::wasi::Errno> = $expr;
         match res {
-            Ok(val) => {
-                val
-            }
+            Ok(val) => val,
             Err(err) => {
                 if err == crate::syscalls::types::wasi::Errno::Intr {
                     $thread.yield_now()?;
@@ -56,9 +50,7 @@ macro_rules! wasi_try_bus {
     ($expr:expr) => {{
         let res: Result<_, crate::syscalls::types::wasi::BusErrno> = $expr;
         match res {
-            Ok(val) => {
-                val
-            }
+            Ok(val) => val,
             Err(err) => {
                 tracing::debug!("wasi::wasi_try_bus::err: {:?}", err);
                 return err;

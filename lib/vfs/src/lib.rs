@@ -200,8 +200,7 @@ impl OpenOptions {
 /// This trait relies on your file closing when it goes out of scope via `Drop`
 //#[cfg_attr(feature = "enable-serde", typetag::serde)]
 #[async_trait::async_trait]
-pub trait VirtualFile: fmt::Debug + Write + Read + Seek + Upcastable
-{
+pub trait VirtualFile: fmt::Debug + Write + Read + Seek + Upcastable {
     /// the last time the file was accessed in nanoseconds as a UNIX timestamp
     fn last_accessed(&self) -> u64;
 
@@ -249,14 +248,18 @@ pub trait VirtualFile: fmt::Debug + Write + Read + Seek + Upcastable
     /// Polls for when read data is available again
     /// Defaults to `None` which means no asynchronous IO support - caller
     /// must poll `bytes_available_read` instead
-    fn poll_read_ready(&self, cx: &mut std::task::Context<'_>, register_root_waker: &Arc<dyn Fn(Waker) + Send + Sync + 'static>) -> std::task::Poll<Result<usize>> {
+    fn poll_read_ready(
+        &self,
+        cx: &mut std::task::Context<'_>,
+        register_root_waker: &Arc<dyn Fn(Waker) + Send + Sync + 'static>,
+    ) -> std::task::Poll<Result<usize>> {
         use std::ops::Deref;
         match self.bytes_available_read() {
             Ok(Some(0)) => {
                 let waker = cx.waker().clone();
                 register_root_waker.deref()(waker);
                 std::task::Poll::Pending
-            },
+            }
             Ok(Some(a)) => std::task::Poll::Ready(Ok(a)),
             Ok(None) => std::task::Poll::Ready(Err(FsError::WouldBlock)),
             Err(err) => std::task::Poll::Ready(Err(err)),
@@ -266,14 +269,18 @@ pub trait VirtualFile: fmt::Debug + Write + Read + Seek + Upcastable
     /// Polls for when the file can be written to again
     /// Defaults to `None` which means no asynchronous IO support - caller
     /// must poll `bytes_available_write` instead
-    fn poll_write_ready(&self, cx: &mut std::task::Context<'_>, register_root_waker: &Arc<dyn Fn(Waker) + Send + Sync + 'static>) -> std::task::Poll<Result<usize>> {
+    fn poll_write_ready(
+        &self,
+        cx: &mut std::task::Context<'_>,
+        register_root_waker: &Arc<dyn Fn(Waker) + Send + Sync + 'static>,
+    ) -> std::task::Poll<Result<usize>> {
         use std::ops::Deref;
         match self.bytes_available_write() {
             Ok(Some(0)) => {
                 let waker = cx.waker().clone();
                 register_root_waker.deref()(waker);
                 std::task::Poll::Pending
-            },
+            }
             Ok(Some(a)) => std::task::Poll::Ready(Ok(a)),
             Ok(None) => std::task::Poll::Ready(Err(FsError::WouldBlock)),
             Err(err) => std::task::Poll::Ready(Err(err)),
@@ -283,15 +290,19 @@ pub trait VirtualFile: fmt::Debug + Write + Read + Seek + Upcastable
     /// Polls for when the file can be written to again
     /// Defaults to `None` which means no asynchronous IO support - caller
     /// must poll `bytes_available_write` instead
-    fn poll_close_ready(&self, cx: &mut std::task::Context<'_>, register_root_waker: &Arc<dyn Fn(Waker) + Send + Sync + 'static>) -> std::task::Poll<()> {
+    fn poll_close_ready(
+        &self,
+        cx: &mut std::task::Context<'_>,
+        register_root_waker: &Arc<dyn Fn(Waker) + Send + Sync + 'static>,
+    ) -> std::task::Poll<()> {
         use std::ops::Deref;
         match self.is_open() {
             true => {
                 let waker = cx.waker().clone();
                 register_root_waker.deref()(waker);
                 std::task::Poll::Pending
-            },
-            false => std::task::Poll::Ready(())
+            }
+            false => std::task::Poll::Ready(()),
         }
     }
 
@@ -322,8 +333,7 @@ pub trait Upcastable {
     fn upcast_any_box(self: Box<Self>) -> Box<dyn Any>;
 }
 
-pub trait ClonableVirtualFile: VirtualFile + Clone {
-}
+pub trait ClonableVirtualFile: VirtualFile + Clone {}
 
 impl<T: Any + fmt::Debug + 'static> Upcastable for T {
     #[inline]

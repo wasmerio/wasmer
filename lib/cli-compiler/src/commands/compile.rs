@@ -104,7 +104,7 @@ impl Compile {
             &target,
             memory_styles,
             table_styles,
-            None
+            None,
         )?;
         artifact.serialize_to_file(self.output.as_ref())?;
         eprintln!(

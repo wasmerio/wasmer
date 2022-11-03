@@ -1,5 +1,5 @@
+use std::io::{self, Read, Seek, Write};
 use std::sync::Arc;
-use std::io::{self, Read, Write, Seek};
 
 #[derive(Debug)]
 pub struct RuntimeStdout {
@@ -8,9 +8,7 @@ pub struct RuntimeStdout {
 
 impl RuntimeStdout {
     pub fn new(runtime: Arc<dyn crate::WasiRuntimeImplementation + Send + Sync + 'static>) -> Self {
-        Self {
-            runtime
-        }
+        Self { runtime }
     }
 }
 
@@ -95,9 +93,7 @@ pub struct RuntimeStderr {
 
 impl RuntimeStderr {
     pub fn new(runtime: Arc<dyn crate::WasiRuntimeImplementation + Send + Sync + 'static>) -> Self {
-        Self {
-            runtime
-        }
+        Self { runtime }
     }
 }
 

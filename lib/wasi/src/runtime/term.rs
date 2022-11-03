@@ -2,7 +2,8 @@
 #[cfg(unix)]
 use {
     libc::{
-        c_int, tcsetattr, termios, ECHO, ECHOE, ECHONL, ICANON, ICRNL, IEXTEN, ISIG, IXON, OPOST, TCSANOW,
+        c_int, tcsetattr, termios, ECHO, ECHOE, ECHONL, ICANON, ICRNL, IEXTEN, ISIG, IXON, OPOST,
+        TCSANOW,
     },
     std::mem,
     std::os::unix::io::AsRawFd,
@@ -68,7 +69,7 @@ pub fn set_mode_no_line_feeds() -> std::fs::File {
     let mut termios = unsafe { termios.assume_init() };
 
     termios.c_lflag &= !ICANON;
-    
+
     unsafe { tcsetattr(fd, TCSANOW, &termios) };
     tty
 }
@@ -83,7 +84,7 @@ pub fn set_mode_line_feeds() -> std::fs::File {
     let mut termios = unsafe { termios.assume_init() };
 
     termios.c_lflag |= ICANON;
-    
+
     unsafe { tcsetattr(fd, TCSANOW, &termios) };
     tty
 }
@@ -98,7 +99,7 @@ pub fn set_mode_no_line_feeds() -> std::fs::File {
     let mut termios = unsafe { termios.assume_init() };
 
     termios.c_lflag &= !ONLCR;
-    
+
     unsafe { tcsetattr(fd, TCSANOW, &termios) };
     tty
 }
@@ -113,7 +114,7 @@ pub fn set_mode_line_feeds() -> std::fs::File {
     let mut termios = unsafe { termios.assume_init() };
 
     termios.c_lflag |= ONLCR;
-    
+
     unsafe { tcsetattr(fd, TCSANOW, &termios) };
     tty
 }
