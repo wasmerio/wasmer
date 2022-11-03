@@ -669,6 +669,7 @@ impl QueryPackageError {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum GetIfPackageHasNewVersionResult {
     // if version = Some(...) and the ~/.wasmer/checkouts/.../{version} exists, the package is already installed
     UseLocalAlreadyInstalled {
@@ -694,6 +695,55 @@ pub enum GetIfPackageHasNewVersionResult {
         name: String,
         version: Option<String>,
     },
+}
+
+#[test]
+fn test_get_if_package_has_new_version() {
+
+    let fake_registry = "https://h0.com";
+    let fake_name = "namespace0/project1";
+    let fake_version = "1.0.0";
+    
+    let package_path = get_package_local_dir(
+        "h0.com", fake_name, fake_version
+    ).unwrap();
+    let _ = std::fs::remove_file(&package_path.join("wapm.toml"));
+    let _ = std::fs::remove_file(&package_path.join("wapm.toml"));
+
+    let r1 = get_if_package_has_new_version(
+        &fake_registry,
+        "namespace0/project1",
+        Some(fake_version.to_string()),
+        Duration::from_secs(5 * 60),
+    );
+
+    assert_eq!(r1.unwrap(), GetIfPackageHasNewVersionResult::PackageNotInstalledYet {
+        registry_url: fake_registry.to_string(),
+        namespace: "namespace0".to_string(),
+        name: "project1".to_string(),
+        version: Some(fake_version.to_string()),
+    });
+    
+    let package_path = get_package_local_dir(
+        "h0.com", fake_name, fake_version
+    ).unwrap();
+    std::fs::create_dir_all(&package_path).unwrap();
+    std::fs::write(&package_path.join("wapm.toml"), b"").unwrap();
+
+    let r1 = get_if_package_has_new_version(
+        &fake_registry,
+        "namespace0/project1",
+        Some(fake_version.to_string()),
+        Duration::from_secs(5 * 60),
+    );
+
+    assert_eq!(r1.unwrap(), GetIfPackageHasNewVersionResult::UseLocalAlreadyInstalled { 
+        registry_host: "h0.com".to_string(), 
+        namespace: "namespace0".to_string(), 
+        name: "project1".to_string(), 
+        version: fake_version.to_string(), 
+        path: package_path,
+    });
 }
 
 /// Returns true if a package has a newer version
@@ -740,7 +790,7 @@ pub fn get_if_package_has_new_version(
                 namespace: namespace.to_string(),
                 name: name.to_string(),
                 version: s.clone(),
-                path: installed_path,
+                path: package_dir.join(s),
             });
         } else {
             return Ok(GetIfPackageHasNewVersionResult::PackageNotInstalledYet {
@@ -805,8 +855,8 @@ pub fn get_if_package_has_new_version(
                 registry_host: host.to_string(),
                 namespace: namespace.to_string(),
                 name: name.to_string(),
-                version: version,
-                path: installed_path,
+                version: version.clone(),
+                path: package_dir.join(&version),
             });
         } else {
             return Ok(GetIfPackageHasNewVersionResult::PackageNotInstalledYet {
