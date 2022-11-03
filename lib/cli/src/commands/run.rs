@@ -828,7 +828,7 @@ pub(crate) fn try_run_package_or_file(
             is_fake_sv = true;
             match try_lookup_command(&mut fake_sv) {
                 Ok(o) => SplitVersion {
-                    original: format!("{}@{}", o.package, o.version),
+                    original: package.to_string(),
                     registry: None,
                     package: o.package,
                     version: Some(o.version),
