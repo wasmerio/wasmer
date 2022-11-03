@@ -1093,7 +1093,8 @@ impl WasiFs {
                         {
                             cur_inode = *entry;
                         } else {
-                            return Err(Errno::Noent);
+                            // Root is not capable of having something other then preopenned folders
+                            return Err(Errno::Notcapable);
                         }
                     }
                     Kind::File { .. }

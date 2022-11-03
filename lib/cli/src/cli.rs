@@ -237,7 +237,11 @@ fn wasmer_main_inner() -> Result<(), anyhow::Error> {
 
     // Check if the file is a package name
     if let WasmerCLIOptions::Run(r) = &options {
-        return crate::commands::try_run_package_or_file(&args, r);
+        #[cfg(not(feature = "debug"))]
+        let debug = false;
+        #[cfg(feature = "debug")]
+        let debug = r.options.debug;
+        return crate::commands::try_run_package_or_file(&args, r, debug);
     }
 
     options.execute()

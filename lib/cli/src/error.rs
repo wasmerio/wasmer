@@ -3,6 +3,7 @@
 use anyhow::{Chain, Error};
 use colored::*;
 use std::fmt::{self, Debug, Write};
+use wasmer::RuntimeError;
 
 /// A `PrettyError` for printing `anyhow::Error` nicely.
 pub struct PrettyError {
@@ -25,8 +26,19 @@ impl PrettyError {
         std::process::exit(match result {
             Ok(_t) => 0,
             Err(error) => {
+                let runtime: Option<&RuntimeError> = error.downcast_ref();
+                let trapcode = runtime.map(|e| e.clone().to_trap());
                 eprintln!("{:?}", PrettyError { error });
-                1
+                // we don't use process:abort() here to avoid message from rust
+                // that could interfer with testing tools
+                // but still exit with the expected error code
+                match trapcode {
+                    #[cfg(target_os = "windows")]
+                    Some(_) => 3,
+                    #[cfg(not(target_os = "windows"))]
+                    Some(_) => 128 + libc::SIGABRT,
+                    _ => 1,
+                }
             }
         });
     }
