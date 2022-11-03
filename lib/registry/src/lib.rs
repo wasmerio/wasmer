@@ -708,7 +708,7 @@ fn test_get_if_package_has_new_version() {
     let _ = std::fs::remove_file(&package_path.join("wapm.toml"));
 
     let r1 = get_if_package_has_new_version(
-        &fake_registry,
+        fake_registry,
         "namespace0/project1",
         Some(fake_version.to_string()),
         Duration::from_secs(5 * 60),
@@ -729,7 +729,7 @@ fn test_get_if_package_has_new_version() {
     std::fs::write(&package_path.join("wapm.toml"), b"").unwrap();
 
     let r1 = get_if_package_has_new_version(
-        &fake_registry,
+        fake_registry,
         "namespace0/project1",
         Some(fake_version.to_string()),
         Duration::from_secs(5 * 60),
@@ -777,7 +777,7 @@ pub fn get_if_package_has_new_version(
                 registry_url: registry_url.to_string(),
                 namespace: namespace.to_string(),
                 name: name.to_string(),
-                version: version.clone(),
+                version,
             })
         }
     };
@@ -787,7 +787,7 @@ pub fn get_if_package_has_new_version(
         let installed_path = package_dir.join(s).join("wapm.toml");
         if installed_path.exists() {
             return Ok(GetIfPackageHasNewVersionResult::UseLocalAlreadyInstalled {
-                registry_host: host.to_string(),
+                registry_host: host,
                 namespace: namespace.to_string(),
                 name: name.to_string(),
                 version: s.clone(),
@@ -822,12 +822,12 @@ pub fn get_if_package_has_new_version(
 
     if all_installed_versions.is_empty() {
         // package not installed yet
-        return Ok(GetIfPackageHasNewVersionResult::PackageNotInstalledYet {
+        Ok(GetIfPackageHasNewVersionResult::PackageNotInstalledYet {
             registry_url: registry_url.to_string(),
             namespace: namespace.to_string(),
             name: name.to_string(),
-            version: version.clone(),
-        });
+            version,
+        })
     } else if all_installed_versions
         .iter()
         .all(|(_, older_than_timeout)| *older_than_timeout)
@@ -846,26 +846,25 @@ pub fn get_if_package_has_new_version(
         // return the package that was younger than timeout
         let younger_than_timeout_version = all_installed_versions
             .iter()
-            .filter(|(_, older_than_timeout)| !older_than_timeout)
-            .next()
+            .find(|(_, older_than_timeout)| !older_than_timeout)
             .unwrap();
         let version = format!("{}", younger_than_timeout_version.0);
         let installed_path = package_dir.join(&version).join("wapm.toml");
         if installed_path.exists() {
-            return Ok(GetIfPackageHasNewVersionResult::UseLocalAlreadyInstalled {
-                registry_host: host.to_string(),
+            Ok(GetIfPackageHasNewVersionResult::UseLocalAlreadyInstalled {
+                registry_host: host,
                 namespace: namespace.to_string(),
                 name: name.to_string(),
                 version: version.clone(),
                 path: package_dir.join(&version),
-            });
+            })
         } else {
-            return Ok(GetIfPackageHasNewVersionResult::PackageNotInstalledYet {
+            Ok(GetIfPackageHasNewVersionResult::PackageNotInstalledYet {
                 registry_url: registry_url.to_string(),
                 namespace: namespace.to_string(),
                 name: name.to_string(),
                 version: None,
-            });
+            })
         }
     }
 }
@@ -1134,24 +1133,22 @@ pub fn install_package(
                         version.map(|s| s.to_string()),
                         Duration::from_secs(60 * 5),
                     )?;
-                    match package_has_new_version {
-                        GetIfPackageHasNewVersionResult::UseLocalAlreadyInstalled {
-                            registry_host,
-                            namespace,
-                            name,
-                            version,
+                    if let GetIfPackageHasNewVersionResult::UseLocalAlreadyInstalled {
+                        registry_host,
+                        namespace,
+                        name,
+                        version,
+                        path,
+                    } = package_has_new_version
+                    {
+                        return Ok((
+                            LocalPackage {
+                                registry: registry_host,
+                                name: format!("{namespace}/{name}"),
+                                version,
+                            },
                             path,
-                        } => {
-                            return Ok((
-                                LocalPackage {
-                                    registry: registry_host,
-                                    name: format!("{namespace}/{name}"),
-                                    version,
-                                },
-                                path,
-                            ));
-                        }
-                        _ => {}
+                        ));
                     }
                 }
 
@@ -1171,7 +1168,7 @@ pub fn install_package(
 
             let mut did_you_mean = errors
                 .iter()
-                .flat_map(|(registry, error)| {
+                .flat_map(|(_registry, error)| {
                     if let QueryPackageError::AmbigouusName { name, packages: _ } = error {
                         error_str = format!("Ambigouus package name {name:?}. Please specify the package in the namespace/name format.");
                     }
