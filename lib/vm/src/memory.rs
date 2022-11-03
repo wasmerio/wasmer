@@ -10,8 +10,11 @@ use more_asserts::assert_ge;
 use std::cell::UnsafeCell;
 use std::convert::TryInto;
 use std::ptr::NonNull;
-use std::sync::{RwLock, Arc};
-use wasmer_types::{Bytes, MemoryStyle, MemoryType, Pages, MemoryError, LinearMemory, VMMemoryDefinition, MemoryRole};
+use std::sync::{Arc, RwLock};
+use wasmer_types::{
+    Bytes, LinearMemory, MemoryError, MemoryRole, MemoryStyle, MemoryType, Pages,
+    VMMemoryDefinition,
+};
 
 // Represents a region of memory that plays a particular role
 #[derive(Debug, Clone)]
@@ -37,8 +40,7 @@ struct WasmMmap {
     vm_memory_definition: MaybeInstanceOwned<VMMemoryDefinition>,
 }
 
-impl WasmMmap
-{
+impl WasmMmap {
     fn get_vm_memory_definition(&self) -> NonNull<VMMemoryDefinition> {
         self.vm_memory_definition.as_ptr()
     }
@@ -106,14 +108,12 @@ impl WasmMmap
                 Mmap::accessible_reserved(new_bytes, request_bytes).map_err(MemoryError::Region)?;
 
             let copy_len = self.alloc.len() - conf.offset_guard_size;
-            new_mmap.as_mut_slice()[..copy_len]
-                .copy_from_slice(&self.alloc.as_slice()[..copy_len]);
+            new_mmap.as_mut_slice()[..copy_len].copy_from_slice(&self.alloc.as_slice()[..copy_len]);
 
             self.alloc = new_mmap;
         } else if delta_bytes > 0 {
             // Make the newly allocated pages accessible.
-            self
-                .alloc
+            self.alloc
                 .make_accessible(prev_bytes, delta_bytes)
                 .map_err(MemoryError::Region)?;
         }
@@ -132,18 +132,12 @@ impl WasmMmap
     }
 
     /// Marks a region of the memory for a particular role
-    pub fn mark_region(&mut self, start: u64, end: u64, role: MemoryRole)
-    {
-        self.regions.push(VMMemoryRegion {
-            start,
-            end,
-            role
-        });
+    pub fn mark_region(&mut self, start: u64, end: u64, role: MemoryRole) {
+        self.regions.push(VMMemoryRegion { start, end, role });
     }
 
     /// Returns the role of a part of the memory
-    pub fn region(&self, pointer: u64) -> MemoryRole
-    {
+    pub fn region(&self, pointer: u64) -> MemoryRole {
         for region in self.regions.iter() {
             if pointer >= region.start && pointer < region.end {
                 return region.role;
@@ -154,24 +148,24 @@ impl WasmMmap
 
     /// Copies the memory
     /// (in this case it performs a copy-on-write to save memory)
-    pub fn fork(&mut self) -> Result<WasmMmap, MemoryError>
-    {
+    pub fn fork(&mut self) -> Result<WasmMmap, MemoryError> {
         let mem_length = self.size.bytes().0;
-        let mut alloc = self.alloc
+        let mut alloc = self
+            .alloc
             .fork(Some(mem_length))
             .map_err(|err| MemoryError::Generic(err))?;
         let base_ptr = alloc.as_mut_ptr();
-        Ok(
-            Self {
-                vm_memory_definition: MaybeInstanceOwned::Host(Box::new(UnsafeCell::new(VMMemoryDefinition {
+        Ok(Self {
+            vm_memory_definition: MaybeInstanceOwned::Host(Box::new(UnsafeCell::new(
+                VMMemoryDefinition {
                     base: base_ptr,
                     current_length: mem_length,
-                }))),
-                alloc,
-                size: self.size,
-                regions: self.regions.clone(),
-            }
-        )
+                },
+            ))),
+            alloc,
+            size: self.size,
+            regions: self.regions.clone(),
+        })
     }
 }
 
@@ -189,8 +183,7 @@ struct VMMemoryConfig {
     offset_guard_size: usize,
 }
 
-impl VMMemoryConfig
-{
+impl VMMemoryConfig {
     fn ty(&self, minimum: Pages) -> MemoryType {
         let mut out = self.memory;
         out.minimum = minimum;
@@ -212,8 +205,8 @@ pub struct VMOwnedMemory {
     config: VMMemoryConfig,
 }
 
-unsafe impl Send for VMOwnedMemory { }
-unsafe impl Sync for VMOwnedMemory { }
+unsafe impl Send for VMOwnedMemory {}
+unsafe impl Sync for VMOwnedMemory {}
 
 /// A shared linear memory instance.
 #[derive(Debug, Clone)]
@@ -224,8 +217,8 @@ pub struct VMSharedMemory {
     config: VMMemoryConfig,
 }
 
-unsafe impl Send for VMSharedMemory { }
-unsafe impl Sync for VMSharedMemory { }
+unsafe impl Send for VMSharedMemory {}
+unsafe impl Sync for VMSharedMemory {}
 
 impl VMOwnedMemory {
     /// Create a new linear memory instance with specified minimum and maximum number of wasm pages.
@@ -288,7 +281,7 @@ impl VMOwnedMemory {
             MemoryStyle::Static { bound, .. } => {
                 assert_ge!(*bound, memory.minimum);
                 *bound
-            },
+            }
         };
         let minimum_bytes = minimum_pages.bytes().0;
         let request_bytes = minimum_bytes.checked_add(offset_guard_bytes).unwrap();
@@ -318,7 +311,7 @@ impl VMOwnedMemory {
             alloc,
             size: memory.minimum,
         };
-        
+
         Ok(Self {
             mmap: mmap,
             config: VMMemoryConfig {
@@ -326,26 +319,22 @@ impl VMOwnedMemory {
                 offset_guard_size: offset_guard_bytes,
                 memory: *memory,
                 style: style.clone(),
-            }
+            },
         })
     }
 }
 
-impl VMOwnedMemory
-{
+impl VMOwnedMemory {
     /// Converts this owned memory into shared memory
-    pub fn to_shared(self) -> VMSharedMemory
-    {
+    pub fn to_shared(self) -> VMSharedMemory {
         VMSharedMemory {
             mmap: Arc::new(RwLock::new(self.mmap)),
-            config: self.config
+            config: self.config,
         }
     }
 }
 
-impl LinearMemory
-for VMOwnedMemory
-{
+impl LinearMemory for VMOwnedMemory {
     /// Returns the type for this memory.
     fn ty(&self) -> MemoryType {
         let minimum = self.mmap.size();
@@ -382,14 +371,10 @@ for VMOwnedMemory
 
     /// Copies this memory to a new memory
     fn fork(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
-        Ok(
-            Box::new(
-                Self {
-                    mmap: self.mmap.fork()?,
-                    config: self.config.clone(),
-                }
-            )
-        )
+        Ok(Box::new(Self {
+            mmap: self.mmap.fork()?,
+            config: self.config.clone(),
+        }))
     }
 
     /// Marks a region of the memory for a particular role
@@ -403,24 +388,19 @@ for VMOwnedMemory
     }
 }
 
-impl Into<VMMemory>
-for VMOwnedMemory
-{
+impl Into<VMMemory> for VMOwnedMemory {
     fn into(self) -> VMMemory {
         VMMemory(Box::new(self))
     }
 }
 
-impl VMSharedMemory
-{
+impl VMSharedMemory {
     /// Create a new linear memory instance with specified minimum and maximum number of wasm pages.
     ///
     /// This creates a `Memory` with owned metadata: this can be used to create a memory
     /// that will be imported into Wasm modules.
     pub fn new(memory: &MemoryType, style: &MemoryStyle) -> Result<Self, MemoryError> {
-        Ok(
-            VMOwnedMemory::new(memory, style)?.to_shared()
-        )
+        Ok(VMOwnedMemory::new(memory, style)?.to_shared())
     }
 
     /// Create a new linear memory instance with specified minimum and maximum number of wasm pages.
@@ -435,15 +415,11 @@ impl VMSharedMemory
         style: &MemoryStyle,
         vm_memory_location: NonNull<VMMemoryDefinition>,
     ) -> Result<Self, MemoryError> {
-        Ok(
-            VMOwnedMemory::from_definition(memory, style, vm_memory_location)?.to_shared()
-        )
+        Ok(VMOwnedMemory::from_definition(memory, style, vm_memory_location)?.to_shared())
     }
 }
 
-impl LinearMemory
-for VMSharedMemory
-{
+impl LinearMemory for VMSharedMemory {
     /// Returns the type for this memory.
     fn ty(&self) -> MemoryType {
         let minimum = {
@@ -487,16 +463,10 @@ for VMSharedMemory
     /// Copies this memory to a new memory
     fn fork(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
         let mut guard = self.mmap.write().unwrap();
-        Ok(
-            Box::new(
-                Self {
-                    mmap: Arc::new(RwLock::new(
-                        guard.fork()?
-                    )),
-                    config: self.config.clone(),
-                }
-            )
-        )
+        Ok(Box::new(Self {
+            mmap: Arc::new(RwLock::new(guard.fork()?)),
+            config: self.config.clone(),
+        }))
     }
 
     /// Marks a region of the memory for a particular role
@@ -512,9 +482,7 @@ for VMSharedMemory
     }
 }
 
-impl Into<VMMemory>
-for VMSharedMemory
-{
+impl Into<VMMemory> for VMSharedMemory {
     fn into(self) -> VMMemory {
         VMMemory(Box::new(self))
     }
@@ -524,17 +492,13 @@ for VMSharedMemory
 #[derive(Debug)]
 pub struct VMMemory(pub Box<dyn LinearMemory + 'static>);
 
-impl Into<VMMemory>
-for Box<dyn LinearMemory + 'static>
-{
+impl Into<VMMemory> for Box<dyn LinearMemory + 'static> {
     fn into(self) -> VMMemory {
         VMMemory(self)
     }
 }
 
-impl LinearMemory
-for VMMemory
-{
+impl LinearMemory for VMMemory {
     /// Returns the type for this memory.
     fn ty(&self) -> MemoryType {
         self.0.ty()
@@ -584,21 +548,18 @@ for VMMemory
     }
 }
 
-impl VMMemory
-{
+impl VMMemory {
     /// Creates a new linear memory instance of the correct type with specified
     /// minimum and maximum number of wasm pages.
     ///
     /// This creates a `Memory` with owned metadata: this can be used to create a memory
     /// that will be imported into Wasm modules.
     pub fn new(memory: &MemoryType, style: &MemoryStyle) -> Result<VMMemory, MemoryError> {
-        Ok(
-            if memory.shared {
-                Self(Box::new(VMSharedMemory::new(memory, style)?))
-            } else {
-                Self(Box::new(VMOwnedMemory::new(memory, style)?))
-            }
-        )
+        Ok(if memory.shared {
+            Self(Box::new(VMSharedMemory::new(memory, style)?))
+        } else {
+            Self(Box::new(VMOwnedMemory::new(memory, style)?))
+        })
     }
 
     /// Create a new linear memory instance with specified minimum and maximum number of wasm pages.
@@ -613,13 +574,19 @@ impl VMMemory
         style: &MemoryStyle,
         vm_memory_location: NonNull<VMMemoryDefinition>,
     ) -> Result<VMMemory, MemoryError> {
-        Ok(
-            if memory.shared {
-                Self(Box::new(VMSharedMemory::from_definition(memory, style, vm_memory_location)?))
-            } else {
-                Self(Box::new(VMOwnedMemory::from_definition(memory, style, vm_memory_location)?))
-            }
-        )
+        Ok(if memory.shared {
+            Self(Box::new(VMSharedMemory::from_definition(
+                memory,
+                style,
+                vm_memory_location,
+            )?))
+        } else {
+            Self(Box::new(VMOwnedMemory::from_definition(
+                memory,
+                style,
+                vm_memory_location,
+            )?))
+        })
     }
 
     /// Creates VMMemory from a custom implementation - the following into implementations
@@ -628,7 +595,8 @@ impl VMMemory
     /// - VMSharedMemory -> VMMemory
     /// - Box<dyn LinearMemory + 'static> -> VMMemory
     pub fn from_custom<IntoVMMemory>(memory: IntoVMMemory) -> VMMemory
-    where IntoVMMemory: Into<VMMemory>
+    where
+        IntoVMMemory: Into<VMMemory>,
     {
         memory.into()
     }

@@ -1,9 +1,6 @@
 use std::{
-    io::{
-        self,
-        *
-    },
-    sync::Arc
+    io::{self, *},
+    sync::Arc,
 };
 use wasmer_vbus::FileDescriptor;
 use wasmer_vfs::VirtualFile;
@@ -11,16 +8,15 @@ use wasmer_vfs::VirtualFile;
 #[derive(Debug)]
 pub struct TtyFile {
     runtime: Arc<dyn crate::WasiRuntimeImplementation + Send + Sync + 'static>,
-    stdin: Box<dyn VirtualFile + Send + Sync + 'static>
+    stdin: Box<dyn VirtualFile + Send + Sync + 'static>,
 }
 
-impl TtyFile
-{
-    pub fn new(runtime: Arc<dyn crate::WasiRuntimeImplementation + Send + Sync + 'static>, stdin: Box<dyn VirtualFile + Send + Sync + 'static>) -> Self {
-        Self {
-            runtime,
-            stdin
-        }
+impl TtyFile {
+    pub fn new(
+        runtime: Arc<dyn crate::WasiRuntimeImplementation + Send + Sync + 'static>,
+        stdin: Box<dyn VirtualFile + Send + Sync + 'static>,
+    ) -> Self {
+        Self { runtime, stdin }
     }
 }
 

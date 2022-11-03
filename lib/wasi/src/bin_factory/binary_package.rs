@@ -1,16 +1,14 @@
 use std::{
-    sync::{
-        Arc, Mutex, RwLock
-    },
     any::Any,
     borrow::Cow,
-    collections::HashMap
+    collections::HashMap,
+    sync::{Arc, Mutex, RwLock},
 };
 
+use crate::{fs::TmpFileSystem, syscalls::platform_clock_time_get};
 use derivative::*;
 use wasmer_vfs::FileSystem;
 use wasmer_wasi_types::__WASI_CLOCK_MONOTONIC;
-use crate::{fs::TmpFileSystem, syscalls::platform_clock_time_get};
 
 use super::hash_of_binary;
 
@@ -30,19 +28,24 @@ impl BinaryPackageCommand {
             name,
             ownership: None,
             hash: None,
-            atom
+            atom,
         }
     }
 
-    pub unsafe fn new_with_ownership<'a, T>(name: String, atom: Cow<'a, [u8]>, ownership: Arc<T>) -> Self
-    where T: 'static
+    pub unsafe fn new_with_ownership<'a, T>(
+        name: String,
+        atom: Cow<'a, [u8]>,
+        ownership: Arc<T>,
+    ) -> Self
+    where
+        T: 'static,
     {
         let ownership: Arc<dyn Any> = ownership;
         let mut ret = Self::new(name, std::mem::transmute(atom));
         ret.ownership = Some(std::mem::transmute(ownership));
         ret
     }
-    
+
     pub fn hash(&mut self) -> &str {
         if self.hash.is_none() {
             self.hash = Some(hash_of_binary(self.atom.as_ref()));
@@ -55,7 +58,7 @@ impl BinaryPackageCommand {
 #[derive(Derivative, Clone)]
 #[derivative(Debug)]
 pub struct BinaryPackage {
-    pub package_name: Cow<'static, str>, 
+    pub package_name: Cow<'static, str>,
     pub when_cached: u128,
     pub ownership: Option<Arc<dyn Any + Send + Sync + 'static>>,
     #[derivative(Debug = "ignore")]
@@ -78,7 +81,7 @@ impl BinaryPackage {
         let now = platform_clock_time_get(__WASI_CLOCK_MONOTONIC, 1_000_000).unwrap() as u128;
         let (package_name, version) = match package_name.split_once("@") {
             Some((a, b)) => (a.to_string(), b.to_string()),
-            None => (package_name.to_string(), "1.0.0".to_string())
+            None => (package_name.to_string(), "1.0.0".to_string()),
         };
         Self {
             package_name: package_name.into(),
@@ -99,15 +102,20 @@ impl BinaryPackage {
         }
     }
 
-    pub unsafe fn new_with_ownership<'a, T>(package_name: &str, entry: Cow<'a, [u8]>, ownership: Arc<T>) -> Self
-    where T: 'static
+    pub unsafe fn new_with_ownership<'a, T>(
+        package_name: &str,
+        entry: Cow<'a, [u8]>,
+        ownership: Arc<T>,
+    ) -> Self
+    where
+        T: 'static,
     {
         let ownership: Arc<dyn Any> = ownership;
         let mut ret = Self::new(package_name, std::mem::transmute(entry));
         ret.ownership = Some(std::mem::transmute(ownership));
         ret
     }
-    
+
     pub fn hash(&self) -> String {
         let mut hash = self.hash.lock().unwrap();
         if hash.is_none() {

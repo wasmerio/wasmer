@@ -1,7 +1,7 @@
 /// types for use in the WASI filesystem
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
-#[cfg(all(unix, feature = "sys-poll", not(feature="os")))]
+#[cfg(all(unix, feature = "sys-poll", not(feature = "os")))]
 use std::convert::TryInto;
 use std::{
     collections::VecDeque,
@@ -11,16 +11,12 @@ use std::{
 };
 use wasmer_vbus::VirtualBusError;
 
+#[cfg(all(not(feature = "mem-fs"), not(feature = "host-fs")))]
+pub use crate::{fs::NullFile as Stderr, fs::NullFile as Stdin, fs::NullFile as Stdout};
 #[cfg(feature = "host-fs")]
 pub use wasmer_vfs::host_fs::{Stderr, Stdin, Stdout};
 #[cfg(all(feature = "mem-fs", not(feature = "host-fs")))]
 pub use wasmer_vfs::mem_fs::{Stderr, Stdin, Stdout};
-#[cfg(all(not(feature = "mem-fs"), not(feature = "host-fs")))]
-pub use crate::{
-    fs::NullFile as Stderr,
-    fs::NullFile as Stdin,
-    fs::NullFile as Stdout,
-};
 
 use wasmer_vfs::{FsError, VirtualFile};
 use wasmer_vnet::NetworkError;
@@ -240,7 +236,7 @@ pub fn iterate_poll_events(pes: PollEventSet) -> PollEventIter {
     PollEventIter { pes, i: 0 }
 }
 
-#[cfg(all(unix, feature = "sys-poll", not(feature="os")))]
+#[cfg(all(unix, feature = "sys-poll", not(feature = "os")))]
 fn poll_event_set_to_platform_poll_events(mut pes: PollEventSet) -> i16 {
     let mut out = 0;
     for i in 0..16 {
@@ -257,7 +253,7 @@ fn poll_event_set_to_platform_poll_events(mut pes: PollEventSet) -> i16 {
     out
 }
 
-#[cfg(all(unix, feature = "sys-poll", not(feature="os")))]
+#[cfg(all(unix, feature = "sys-poll", not(feature = "os")))]
 fn platform_poll_events_to_pollevent_set(mut num: i16) -> PollEventSet {
     let mut peb = PollEventBuilder::new();
     for i in 0..16 {
@@ -290,7 +286,7 @@ impl PollEventBuilder {
     }
 }
 
-#[cfg(all(unix, feature = "sys-poll", not(feature="os")))]
+#[cfg(all(unix, feature = "sys-poll", not(feature = "os")))]
 pub(crate) fn poll(
     selfs: &[&(dyn VirtualFile + Send + Sync + 'static)],
     events: &[PollEventSet],
@@ -330,14 +326,13 @@ pub(crate) fn poll(
     Ok(result.try_into().unwrap())
 }
 
-#[cfg(any(not(unix), not(feature = "sys-poll"), feature="os"))]
+#[cfg(any(not(unix), not(feature = "sys-poll"), feature = "os"))]
 pub(crate) fn poll(
     files: &[super::InodeValFilePollGuard],
     events: &[PollEventSet],
     seen_events: &mut [PollEventSet],
     timeout: Duration,
 ) -> Result<u32, FsError> {
-
     if !(files.len() == events.len() && events.len() == seen_events.len()) {
         tracing::debug!("the slice length of 'files', 'events' and 'seen_events' must be the same (files={}, events={}, seen_events={})", files.len(), events.len(), seen_events.len());
         return Err(FsError::InvalidInput);
@@ -364,10 +359,8 @@ pub(crate) fn poll(
             match event {
                 PollEvent::PollIn => {
                     if can_read.is_none() {
-                        can_read = Some(
-                            file.bytes_available_read()?
-                                .map(|s| s > 0)
-                                .unwrap_or(false));
+                        can_read =
+                            Some(file.bytes_available_read()?.map(|s| s > 0).unwrap_or(false));
                     }
                     if can_read.unwrap_or_default() {
                         tracing::debug!("poll_evt can_read=true file={:?}", file);
@@ -376,19 +369,18 @@ pub(crate) fn poll(
                 }
                 PollEvent::PollOut => {
                     if can_write.is_none() {
-                        can_write = Some(file
-                            .bytes_available_write()?
-                            .map(|s| s > 0)
-                            .unwrap_or(false));
+                        can_write = Some(
+                            file.bytes_available_write()?
+                                .map(|s| s > 0)
+                                .unwrap_or(false),
+                        );
                     }
                     if can_write.unwrap_or_default() {
                         tracing::debug!("poll_evt can_write=true file={:?}", file);
                         builder = builder.add(PollEvent::PollOut);
                     }
                 }
-                PollEvent::PollHangUp |
-                PollEvent::PollInvalid |
-                PollEvent::PollError => {
+                PollEvent::PollHangUp | PollEvent::PollInvalid | PollEvent::PollError => {
                     if is_closed.is_none() {
                         is_closed = Some(file.is_open() == false);
                     }

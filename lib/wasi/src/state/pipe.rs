@@ -1,17 +1,15 @@
 use crate::syscalls::types::*;
 use crate::syscalls::{read_bytes, write_bytes};
 use bytes::{Buf, Bytes};
-use wasmer_vfs::VirtualFile;
 use std::convert::TryInto;
-use std::io::{Read, Write, Seek};
+use std::io::{Read, Seek, Write};
 use std::ops::DerefMut;
 use std::sync::mpsc::{self, TryRecvError};
 use std::sync::Mutex;
 use std::time::Duration;
 use wasmer::WasmSlice;
 use wasmer::{MemorySize, MemoryView};
-use wasmer_vfs::{FsError, VirtualFile};
-use wasmer_wasi_types::wasi::Errno;
+use wasmer_vfs::VirtualFile;
 
 #[derive(Debug)]
 pub struct WasiPipe {
@@ -306,7 +304,7 @@ impl WasiPipe {
             let mut read_buffer = self.read_buffer.lock().unwrap();
             read_buffer.take();
         }
-    }    
+    }
 }
 
 impl Write for WasiPipe {
@@ -375,9 +373,7 @@ impl Seek for WasiPipe {
     }
 }
 
-impl VirtualFile
-for WasiPipe
-{
+impl VirtualFile for WasiPipe {
     /// the last time the file was accessed in nanoseconds as a UNIX timestamp
     fn last_accessed(&self) -> u64 {
         0

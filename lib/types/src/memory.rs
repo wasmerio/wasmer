@@ -1,14 +1,14 @@
 use crate::{Pages, ValueType};
+use core::ptr::NonNull;
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
-use core::ptr::NonNull;
 use std::convert::{TryFrom, TryInto};
 use std::iter::Sum;
 use std::ops::{Add, AddAssign};
 
-use super::MemoryType;
 use super::MemoryError;
+use super::MemoryType;
 
 /// Implementation styles for WebAssembly linear memory.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, RkyvSerialize, RkyvDeserialize, Archive)]
@@ -135,8 +135,7 @@ unsafe impl MemorySize for Memory64 {
 
 /// Represents different roles that a particular region of memory plays
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub enum MemoryRole
-{
+pub enum MemoryRole {
     /// The region is used for storing data (default)
     Data,
     /// The region is used as a stack
@@ -147,8 +146,7 @@ pub enum MemoryRole
     Remote(u64),
 }
 
-impl Default
-for MemoryRole {
+impl Default for MemoryRole {
     fn default() -> Self {
         MemoryRole::Data
     }
@@ -156,7 +154,8 @@ for MemoryRole {
 
 /// Represents memory that is used by the WebAsssembly module
 pub trait LinearMemory
-where Self: std::fmt::Debug + Send
+where
+    Self: std::fmt::Debug + Send,
 {
     /// Returns the type for this memory.
     fn ty(&self) -> MemoryType;
@@ -216,10 +215,10 @@ unsafe impl Sync for VMMemoryDefinition {}
 #[cfg(test)]
 mod test_vmmemory_definition {
     use super::VMMemoryDefinition;
+    use crate::ModuleInfo;
     use crate::VMOffsets;
     use memoffset::offset_of;
     use std::mem::size_of;
-    use crate::ModuleInfo;
 
     #[test]
     fn check_vmmemory_definition_offsets() {

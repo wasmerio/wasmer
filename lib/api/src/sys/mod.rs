@@ -42,7 +42,7 @@ pub use wasmer_derive::ValueType;
 pub use wasmer_types::is_wasm;
 pub use wasmer_types::{
     CpuFeature, ExportType, ExternType, FunctionType, GlobalType, ImportType, MemoryType,
-    Mutability, TableType, Target, Type, OnCalledAction, StoreSnapshot
+    Mutability, OnCalledAction, StoreSnapshot, TableType, Target, Type,
 };
 
 pub use wasmer_types::{
@@ -57,8 +57,8 @@ pub mod vm {
     //! The `vm` module re-exports wasmer-vm types.
 
     pub use wasmer_vm::{
-        MemoryError, MemoryStyle, TableStyle, VMExtern, VMMemory, VMMemoryDefinition, VMTable,
-        VMTableDefinition, VMOwnedMemory, VMSharedMemory
+        MemoryError, MemoryStyle, TableStyle, VMExtern, VMMemory, VMMemoryDefinition,
+        VMOwnedMemory, VMSharedMemory, VMTable, VMTableDefinition,
     };
 }
 

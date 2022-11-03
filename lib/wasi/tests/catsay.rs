@@ -1,13 +1,16 @@
 #![cfg(feature = "sys")]
 #![cfg(target_os = "linux")]
-use std::{io::{Read, Write}, time::Duration};
+use std::{
+    io::{Read, Write},
+    time::Duration,
+};
 
 #[allow(unused_imports)]
 use tracing::{debug, info, metadata::LevelFilter};
 #[cfg(feature = "sys")]
 use tracing_subscriber::fmt::SubscriberBuilder;
-use wasmer::{Instance, Module, Store, Cranelift, EngineBuilder};
-use wasmer_wasi::{Pipe, WasiState, import_object_for_all_wasi_versions, WasiError};
+use wasmer::{Cranelift, EngineBuilder, Instance, Module, Store};
+use wasmer_wasi::{import_object_for_all_wasi_versions, Pipe, WasiError, WasiState};
 
 #[cfg(feature = "sys")]
 mod sys {
@@ -27,7 +30,6 @@ mod js {
 }
 
 fn test_catsay() {
-
     info!("Creating engine");
     let compiler = Cranelift::default();
     let engine = EngineBuilder::new(compiler.clone());
@@ -47,10 +49,9 @@ fn test_catsay() {
 
     #[cfg(feature = "sys")]
     SubscriberBuilder::default()
-            .with_max_level(LevelFilter::TRACE)
-            .init();
+        .with_max_level(LevelFilter::TRACE)
+        .init();
 
-    
     let engine = store.engine().clone();
     for _ in 0..10 {
         let module = module.clone();
@@ -69,14 +70,13 @@ fn test_catsay() {
     }
 }
 
-fn run_test(mut store: Store, module: Module)
-{
+fn run_test(mut store: Store, module: Module) {
     // Create the `WasiEnv`.
     let mut stdout = Pipe::new();
     let mut wasi_state_builder = WasiState::new("catsay");
 
     let mut stdin_pipe = Pipe::new();
-    
+
     let mut wasi_env = wasi_state_builder
         .stdin(Box::new(stdin_pipe.clone()))
         .stdout(Box::new(stdout.clone()))
@@ -86,28 +86,26 @@ fn run_test(mut store: Store, module: Module)
 
     // Start a thread that will dump STDOUT to info
     #[cfg(feature = "sys")]
-    std::thread::spawn(move || {
-        loop {
-            let mut buf = [0u8; 8192];
-            if let Ok(amt) = stdout.read(&mut buf[..]) {
-                if amt > 0 {
-                    let msg = String::from_utf8_lossy(&buf[0..amt]);
-                    for line in msg.lines() {
-                        info!("{}", line);
-                    }
-                } else {
-                    std::thread::sleep(Duration::from_millis(1));
+    std::thread::spawn(move || loop {
+        let mut buf = [0u8; 8192];
+        if let Ok(amt) = stdout.read(&mut buf[..]) {
+            if amt > 0 {
+                let msg = String::from_utf8_lossy(&buf[0..amt]);
+                for line in msg.lines() {
+                    info!("{}", line);
                 }
             } else {
-                break;
+                std::thread::sleep(Duration::from_millis(1));
             }
+        } else {
+            break;
         }
     });
 
     // Write some text to catsay stdin
     stdin_pipe.write_all("hi there".as_bytes()).unwrap();
     drop(stdin_pipe);
-    
+
     // Generate an `ImportObject`.
     let mut import_object = import_object_for_all_wasi_versions(&mut store, &wasi_env.env);
     import_object.import_shared_memory(&module, &mut store);
@@ -121,9 +119,13 @@ fn run_test(mut store: Store, module: Module)
     let ret = start.call(&mut store, &[]);
     if let Err(e) = ret {
         match e.downcast::<WasiError>() {
-            Ok(WasiError::Exit(0)) => { }
+            Ok(WasiError::Exit(0)) => {}
             Ok(WasiError::Exit(code)) => {
-                assert!(false, "The call should have returned Err(WasiError::Exit(0)) but returned {}", code);
+                assert!(
+                    false,
+                    "The call should have returned Err(WasiError::Exit(0)) but returned {}",
+                    code
+                );
             }
             Ok(WasiError::UnknownWasiVersion) => {
                 assert!(false, "The call should have returned Err(WasiError::Exit(0)) but returned UnknownWasiVersion");

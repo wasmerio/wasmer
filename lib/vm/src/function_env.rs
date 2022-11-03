@@ -1,5 +1,5 @@
-use std::any::Any;
 use derivative::Derivative;
+use std::any::Any;
 
 /// Underlying FunctionEnvironment used by a `VMFunction`.
 #[derive(Derivative)]

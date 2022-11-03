@@ -1,7 +1,7 @@
 use std::io::{self, *};
 
 use wasmer_vbus::FileDescriptor;
-use wasmer_vfs::{VirtualFile, ClonableVirtualFile};
+use wasmer_vfs::{ClonableVirtualFile, VirtualFile};
 
 #[derive(Debug, Clone, Default)]
 pub struct NullFile {}

@@ -1,5 +1,5 @@
-use crate::Pages;
 use crate::entity::PrimaryMap;
+use crate::Pages;
 use crate::{
     compilation::target::CpuFeature, CompileModuleInfo, CompiledFunctionFrameInfo, CustomSection,
     DeserializeError, Dwarf, Features, FunctionBody, FunctionIndex, LocalFunctionIndex,

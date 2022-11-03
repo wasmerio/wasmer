@@ -7,9 +7,9 @@ use crate::store::InternalStoreHandle;
 use crate::table::VMTable;
 use crate::vmcontext::VMFunctionKind;
 use crate::{MaybeInstanceOwned, VMCallerCheckedAnyfunc};
+use derivative::Derivative;
 use std::any::Any;
 use wasmer_types::FunctionType;
-use derivative::Derivative;
 
 /// The value of an export passed from one instance to another.
 pub enum VMExtern {

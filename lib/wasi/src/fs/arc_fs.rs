@@ -12,9 +12,7 @@ pub struct ArcFileSystem {
 
 impl ArcFileSystem {
     pub fn new(inner: Arc<dyn FileSystem + Send + Sync + 'static>) -> Self {
-        Self {
-            fs: inner,
-        }
+        Self { fs: inner }
     }
 }
 

@@ -12,6 +12,7 @@ fn fail_if_wit_files_arent_up_to_date() {
 extern crate wasmer_types as wasmer;
 
 mod advice;
+mod asyncify;
 mod bus;
 mod directory;
 mod error;
@@ -23,10 +24,10 @@ mod signal;
 mod subscription;
 mod time;
 mod versions;
-mod asyncify;
 
 pub use crate::time::*;
 pub use advice::*;
+pub use asyncify::*;
 pub use bus::*;
 pub use directory::*;
 pub use error::*;
@@ -37,7 +38,6 @@ pub use net::*;
 pub use signal::*;
 pub use subscription::*;
 pub use versions::*;
-pub use asyncify::*;
 
 pub type __wasi_exitcode_t = u32;
 

@@ -20,8 +20,7 @@ pub struct FileSystem {
     pub(super) inner: Arc<RwLock<FileSystemInner>>,
 }
 
-impl FileSystem
-{
+impl FileSystem {
     pub fn new_open_options_ext(&self) -> FileOpener {
         let opener = FileOpener {
             filesystem: self.clone(),
@@ -35,7 +34,11 @@ impl FileSystem
         let mut remaining = VecDeque::new();
         remaining.push_back(PathBuf::from("/"));
         while let Some(next) = remaining.pop_back() {
-            if next.file_name().map(|n| n.to_string_lossy().starts_with(".wh.")).unwrap_or(false) {
+            if next
+                .file_name()
+                .map(|n| n.to_string_lossy().starts_with(".wh."))
+                .unwrap_or(false)
+            {
                 let rm = next.to_string_lossy();
                 let rm = &rm[".wh.".len()..];
                 let rm = PathBuf::from(rm);
@@ -50,7 +53,7 @@ impl FileSystem
                         match sub_dir.file_type() {
                             Ok(t) if t.is_dir() => {
                                 remaining.push_back(sub_dir.path());
-                            },
+                            }
                             Ok(t) if t.is_file() => {
                                 if sub_dir.file_name().to_string_lossy().starts_with(".wh.") {
                                     let rm = next.to_string_lossy();
@@ -60,20 +63,24 @@ impl FileSystem
                                     let _ = crate::FileSystem::remove_file(self, rm.as_path());
                                     continue;
                                 }
-                                let _ = self.new_open_options_ext()
-                                    .insert_arc_file(sub_dir.path(),
-                                                     other.clone());
-                            },
-                            _ => { }
+                                let _ = self
+                                    .new_open_options_ext()
+                                    .insert_arc_file(sub_dir.path(), other.clone());
+                            }
+                            _ => {}
                         }
                     }
                 }
             }
         }
-        
     }
 
-    pub fn mount(&self, path: PathBuf, other: &Arc<dyn crate::FileSystem + Send + Sync>, dst: PathBuf) -> Result<()> {
+    pub fn mount(
+        &self,
+        path: PathBuf,
+        other: &Arc<dyn crate::FileSystem + Send + Sync>,
+        dst: PathBuf,
+    ) -> Result<()> {
         if crate::FileSystem::read_dir(self, path.as_path()).is_ok() {
             return Err(FsError::AlreadyExists);
         }
@@ -88,7 +95,7 @@ impl FileSystem
 
             // Check the path has a parent.
             let parent_of_path = path.parent().ok_or(FsError::BaseNotDirectory)?;
-            
+
             // Check the directory name.
             let name_of_directory = path
                 .file_name()
@@ -163,22 +170,20 @@ impl crate::FileSystem for FileSystem {
         // Check it's a directory and fetch the immediate children as `DirEntry`.
         let inode = guard.storage.get(inode_of_directory);
         let children = match inode {
-            Some(Node::Directory { children, .. }) => {
-                children
-                    .iter()
-                    .filter_map(|inode| guard.storage.get(*inode))
-                    .map(|node| DirEntry {
-                        path: {
-                            let mut entry_path = path.to_path_buf();
-                            entry_path.push(node.name());
+            Some(Node::Directory { children, .. }) => children
+                .iter()
+                .filter_map(|inode| guard.storage.get(*inode))
+                .map(|node| DirEntry {
+                    path: {
+                        let mut entry_path = path.to_path_buf();
+                        entry_path.push(node.name());
 
-                            entry_path
-                        },
-                        metadata: Ok(node.metadata().clone()),
-                    })
-                    .collect()
-            },
-            
+                        entry_path
+                    },
+                    metadata: Ok(node.metadata().clone()),
+                })
+                .collect(),
+
             Some(Node::ArcDirectory { fs, path, .. }) => {
                 return fs.read_dir(path.as_path());
             }
@@ -291,11 +296,12 @@ impl crate::FileSystem for FileSystem {
 
             // Get the child index to remove in the parent node, in
             // addition to the inode of the directory to remove.
-            let (position, inode_of_directory) = guard.as_parent_get_position_and_inode_of_directory(
-                inode_of_parent,
-                &name_of_directory,
-                DirectoryMustBeEmpty::Yes,
-            )?;
+            let (position, inode_of_directory) = guard
+                .as_parent_get_position_and_inode_of_directory(
+                    inode_of_parent,
+                    &name_of_directory,
+                    DirectoryMustBeEmpty::Yes,
+                )?;
 
             (inode_of_parent, position, inode_of_directory)
         };
@@ -431,14 +437,12 @@ impl crate::FileSystem for FileSystem {
         // Read lock.
         let guard = self.inner.read().map_err(|_| FsError::Lock)?;
         match guard.inode_of(path)? {
-            InodeResolution::Found(inode) => {
-                Ok(guard
-                    .storage
-                    .get(inode)
-                    .ok_or(FsError::UnknownError)?
-                    .metadata()
-                    .clone())
-            },
+            InodeResolution::Found(inode) => Ok(guard
+                .storage
+                .get(inode)
+                .ok_or(FsError::UnknownError)?
+                .metadata()
+                .clone()),
             InodeResolution::Redirect(fs, path) => {
                 drop(guard);
                 fs.metadata(path.as_path())
@@ -525,14 +529,12 @@ pub(super) struct FileSystemInner {
 }
 
 #[derive(Debug)]
-pub(super) enum InodeResolution
-{
+pub(super) enum InodeResolution {
     Found(Inode),
-    Redirect(Arc<dyn crate::FileSystem + Send + Sync + 'static>, PathBuf)
+    Redirect(Arc<dyn crate::FileSystem + Send + Sync + 'static>, PathBuf),
 }
 
-impl InodeResolution
-{
+impl InodeResolution {
     #[allow(dead_code)]
     pub fn unwrap(&self) -> Inode {
         match self {
@@ -563,21 +565,21 @@ impl FileSystemInner {
                     .filter_map(|inode| self.storage.get(*inode))
                     .find(|node| node.name() == component.as_os_str())
                     .ok_or(FsError::EntryNotFound)?,
-                Node::ArcDirectory { fs, path: fs_path, .. } => {
+                Node::ArcDirectory {
+                    fs, path: fs_path, ..
+                } => {
                     let mut path = fs_path.clone();
                     path.push(PathBuf::from(component.as_os_str()));
                     while let Some(component) = components.next() {
                         path.push(PathBuf::from(component.as_os_str()));
                     }
-                    return Ok(InodeResolution::Redirect(fs.clone(), path))
-                },
+                    return Ok(InodeResolution::Redirect(fs.clone(), path));
+                }
                 _ => return Err(FsError::BaseNotDirectory),
             };
         }
 
-        Ok(
-            InodeResolution::Found(node.inode())
-        )
+        Ok(InodeResolution::Found(node.inode()))
     }
 
     /// Get the inode associated to a “parent path”. The returned
@@ -589,12 +591,10 @@ impl FileSystemInner {
                 match self.storage.get(inode_of_parent) {
                     Some(Node::Directory { .. }) => Ok(InodeResolution::Found(inode_of_parent)),
                     Some(Node::ArcDirectory { .. }) => Ok(InodeResolution::Found(inode_of_parent)),
-                    _ => {
-                        Err(FsError::BaseNotDirectory)
-                    },
+                    _ => Err(FsError::BaseNotDirectory),
                 }
-            },
-            InodeResolution::Redirect(fs,  path) => {
+            }
+            InodeResolution::Redirect(fs, path) => {
                 return Ok(InodeResolution::Redirect(fs, path));
             }
         }
@@ -632,15 +632,15 @@ impl FileSystemInner {
                 .ok_or(FsError::InvalidInput)
                 .and_then(identity), // flatten
 
-            Some(Node::ArcDirectory { fs, path: fs_path, .. }) => {
+            Some(Node::ArcDirectory {
+                fs, path: fs_path, ..
+            }) => {
                 let mut path = fs_path.clone();
                 path.push(name_of_directory);
                 Ok((0, InodeResolution::Redirect(fs.clone(), path)))
-            },
+            }
 
-            _ => {
-                Err(FsError::BaseNotDirectory)
-            },
+            _ => Err(FsError::BaseNotDirectory),
         }
     }
 
@@ -657,23 +657,26 @@ impl FileSystemInner {
                 .enumerate()
                 .filter_map(|(nth, inode)| self.storage.get(*inode).map(|node| (nth, node)))
                 .find_map(|(nth, node)| match node {
-                    Node::File { inode, name, .. } |
-                    Node::ReadOnlyFile { inode, name, .. } |
-                    Node::CustomFile { inode, name, .. } |
-                    Node::ArcFile { inode, name, .. }
-                    if name.as_os_str() == name_of_file => {
+                    Node::File { inode, name, .. }
+                    | Node::ReadOnlyFile { inode, name, .. }
+                    | Node::CustomFile { inode, name, .. }
+                    | Node::ArcFile { inode, name, .. }
+                        if name.as_os_str() == name_of_file =>
+                    {
                         Some(Some((nth, InodeResolution::Found(*inode))))
-                    },
+                    }
                     _ => None,
                 })
                 .or(Some(None))
                 .ok_or(FsError::InvalidInput),
-            
-            Some(Node::ArcDirectory { fs, path: fs_path, .. }) => {
+
+            Some(Node::ArcDirectory {
+                fs, path: fs_path, ..
+            }) => {
                 let mut path = fs_path.clone();
                 path.push(name_of_file);
                 Ok(Some((0, InodeResolution::Redirect(fs.clone(), path))))
-            },
+            }
 
             _ => Err(FsError::BaseNotDirectory),
         }
@@ -693,25 +696,27 @@ impl FileSystemInner {
                 .enumerate()
                 .filter_map(|(nth, inode)| self.storage.get(*inode).map(|node| (nth, node)))
                 .find_map(|(nth, node)| match node {
-                    Node::File { inode, name, .. } |
-                    Node::Directory { inode, name, .. } |
-                    Node::ReadOnlyFile { inode, name, .. } |
-                    Node::CustomFile { inode, name, .. } |
-                    Node::ArcFile { inode, name, .. }
+                    Node::File { inode, name, .. }
+                    | Node::Directory { inode, name, .. }
+                    | Node::ReadOnlyFile { inode, name, .. }
+                    | Node::CustomFile { inode, name, .. }
+                    | Node::ArcFile { inode, name, .. }
                         if name.as_os_str() == name_of =>
                     {
                         Some(Some((nth, InodeResolution::Found(*inode))))
-                    },
+                    }
                     _ => None,
                 })
                 .or(Some(None))
                 .ok_or(FsError::InvalidInput),
-            
-            Some(Node::ArcDirectory { fs, path: fs_path, .. }) => {
+
+            Some(Node::ArcDirectory {
+                fs, path: fs_path, ..
+            }) => {
                 let mut path = fs_path.clone();
                 path.push(name_of);
                 Ok(Some((0, InodeResolution::Redirect(fs.clone(), path))))
-            },
+            }
 
             _ => Err(FsError::BaseNotDirectory),
         }
@@ -1600,49 +1605,67 @@ mod test_filesystem {
         let fs_inner = fs.inner.read().unwrap();
 
         assert_eq!(
-            fs_inner.canonicalize(path!("/")).map(|(a, b)| (a, b.unwrap())),
+            fs_inner
+                .canonicalize(path!("/"))
+                .map(|(a, b)| (a, b.unwrap())),
             Ok((path!(buf "/"), ROOT_INODE)),
             "canonicalizing `/`",
         );
         assert_eq!(
-            fs_inner.canonicalize(path!("foo")).map(|(a, b)| (a, b.unwrap())),
+            fs_inner
+                .canonicalize(path!("foo"))
+                .map(|(a, b)| (a, b.unwrap())),
             Err(FsError::InvalidInput),
             "canonicalizing `foo`",
         );
         assert_eq!(
-            fs_inner.canonicalize(path!("/././././foo/")).map(|(a, b)| (a, b.unwrap())),
+            fs_inner
+                .canonicalize(path!("/././././foo/"))
+                .map(|(a, b)| (a, b.unwrap())),
             Ok((path!(buf "/foo"), 1)),
             "canonicalizing `/././././foo/`",
         );
         assert_eq!(
-            fs_inner.canonicalize(path!("/foo/bar//")).map(|(a, b)| (a, b.unwrap())),
+            fs_inner
+                .canonicalize(path!("/foo/bar//"))
+                .map(|(a, b)| (a, b.unwrap())),
             Ok((path!(buf "/foo/bar"), 2)),
             "canonicalizing `/foo/bar//`",
         );
         assert_eq!(
-            fs_inner.canonicalize(path!("/foo/bar/../bar")).map(|(a, b)| (a, b.unwrap())),
+            fs_inner
+                .canonicalize(path!("/foo/bar/../bar"))
+                .map(|(a, b)| (a, b.unwrap())),
             Ok((path!(buf "/foo/bar"), 2)),
             "canonicalizing `/foo/bar/../bar`",
         );
         assert_eq!(
-            fs_inner.canonicalize(path!("/foo/bar/../..")).map(|(a, b)| (a, b.unwrap())),
+            fs_inner
+                .canonicalize(path!("/foo/bar/../.."))
+                .map(|(a, b)| (a, b.unwrap())),
             Ok((path!(buf "/"), ROOT_INODE)),
             "canonicalizing `/foo/bar/../..`",
         );
         assert_eq!(
-            fs_inner.canonicalize(path!("/foo/bar/../../..")).map(|(a, b)| (a, b.unwrap())),
+            fs_inner
+                .canonicalize(path!("/foo/bar/../../.."))
+                .map(|(a, b)| (a, b.unwrap())),
             Err(FsError::InvalidInput),
             "canonicalizing `/foo/bar/../../..`",
         );
         assert_eq!(
-            fs_inner.canonicalize(path!("C:/foo/")).map(|(a, b)| (a, b.unwrap())),
+            fs_inner
+                .canonicalize(path!("C:/foo/"))
+                .map(|(a, b)| (a, b.unwrap())),
             Err(FsError::InvalidInput),
             "canonicalizing `C:/foo/`",
         );
         assert_eq!(
-            fs_inner.canonicalize(path!(
-                "/foo/./../foo/bar/../../foo/bar/./baz/./../baz/qux/../../baz/./qux/hello.txt"
-            )).map(|(a, b)| (a, b.unwrap())),
+            fs_inner
+                .canonicalize(path!(
+                    "/foo/./../foo/bar/../../foo/bar/./baz/./../baz/qux/../../baz/./qux/hello.txt"
+                ))
+                .map(|(a, b)| (a, b.unwrap())),
             Ok((path!(buf "/foo/bar/baz/qux/hello.txt"), 5)),
             "canonicalizing a crazily stupid path name",
         );

@@ -1,14 +1,14 @@
-use std::{sync::{Mutex, Arc}, io::Write};
 use derivative::*;
+use std::{
+    io::Write,
+    sync::{Arc, Mutex},
+};
 
-use wasmer_vfs::VirtualFile;
 use wasmer_vbus::SignalHandlerAbi;
+use wasmer_vfs::VirtualFile;
 use wasmer_wasi_types::__WASI_CLOCK_MONOTONIC;
 
-use crate::{
-    types::__WASI_SIGINT,
-    syscalls::platform_clock_time_get
-};
+use crate::{syscalls::platform_clock_time_get, types::__WASI_SIGINT};
 
 const TTY_MOBILE_PAUSE: u128 = std::time::Duration::from_millis(200).as_nanos();
 
@@ -25,13 +25,9 @@ pub struct ConsoleRect {
     pub rows: u32,
 }
 
-impl Default
-for ConsoleRect {
+impl Default for ConsoleRect {
     fn default() -> Self {
-        Self {
-            cols: 80,
-            rows: 25
-        }
+        Self { cols: 80, rows: 25 }
     }
 }
 
@@ -45,22 +41,18 @@ pub struct TtyOptionsInner {
 
 #[derive(Debug, Clone)]
 pub struct TtyOptions {
-    inner: Arc<Mutex<TtyOptionsInner>>
+    inner: Arc<Mutex<TtyOptionsInner>>,
 }
 
-impl Default
-for TtyOptions {
+impl Default for TtyOptions {
     fn default() -> Self {
         Self {
             inner: Arc::new(Mutex::new(TtyOptionsInner {
                 echo: true,
                 line_buffering: true,
                 line_feeds: true,
-                rect: ConsoleRect {
-                    cols: 80,
-                    rows: 25
-                }
-            }))
+                rect: ConsoleRect { cols: 80, rows: 25 },
+            })),
         }
     }
 }
@@ -134,7 +126,7 @@ impl Tty {
         stdin: Box<dyn VirtualFile + Send + Sync + 'static>,
         stdout: Box<dyn VirtualFile + Send + Sync + 'static>,
         is_mobile: bool,
-        options: TtyOptions
+        options: TtyOptions,
     ) -> Self {
         Self {
             stdin,
@@ -143,7 +135,7 @@ impl Tty {
             last: None,
             options,
             is_mobile,
-            line: String::new()
+            line: String::new(),
         }
     }
 
@@ -164,7 +156,8 @@ impl Tty {
                 // Due to a nasty bug in xterm.js on Android mobile it sends the keys you press
                 // twice in a row with a short interval between - this hack will avoid that bug
                 if self.is_mobile {
-                    let now = platform_clock_time_get(__WASI_CLOCK_MONOTONIC, 1_000_000).unwrap() as u128;
+                    let now =
+                        platform_clock_time_get(__WASI_CLOCK_MONOTONIC, 1_000_000).unwrap() as u128;
                     if let Some((what, when)) = self.last.as_ref() {
                         if what.as_str() == data && now - *when < TTY_MOBILE_PAUSE {
                             self.last = None;
@@ -176,14 +169,11 @@ impl Tty {
 
                 self.on_data(data.as_bytes())
             }
-            InputEvent::Raw(data) => {
-                self.on_data(&data[..])
-            }
+            InputEvent::Raw(data) => self.on_data(&data[..]),
         }
     }
 
-    fn on_enter(&mut self, _data: &str)
-    {
+    fn on_enter(&mut self, _data: &str) {
         // Add a line feed on the end and take the line
         let mut data = self.line.clone();
         self.line.clear();
@@ -202,8 +192,7 @@ impl Tty {
         let _ = self.stdin.write(data.as_bytes());
     }
 
-    fn on_ctrl_c(&mut self, _data: &str)
-    {
+    fn on_ctrl_c(&mut self, _data: &str) {
         if let Some(signaler) = self.signaler.as_ref() {
             signaler.signal(__WASI_SIGINT);
 
@@ -211,7 +200,7 @@ impl Tty {
                 let options = self.options.inner.lock().unwrap();
                 (options.echo, options.line_buffering)
             };
-    
+
             self.line.clear();
             if echo {
                 self.stdout("\n".as_bytes());
@@ -220,15 +209,14 @@ impl Tty {
         }
     }
 
-    fn on_backspace(&mut self, _data: &str)
-    {
+    fn on_backspace(&mut self, _data: &str) {
         // Remove a character (if there are none left we are done)
         if self.line.is_empty() {
             return;
         }
         let len = self.line.len();
-        self.line = (&self.line[..len-1]).to_string();
-        
+        self.line = (&self.line[..len - 1]).to_string();
+
         // If echo is on then write the backspace
         {
             let options = self.options.inner.lock().unwrap();
@@ -239,96 +227,51 @@ impl Tty {
         }
     }
 
-    fn on_tab(&mut self, _data: &str)
-    {
-    }
+    fn on_tab(&mut self, _data: &str) {}
 
-    fn on_cursor_left(&mut self, _data: &str)
-    {
-    }
+    fn on_cursor_left(&mut self, _data: &str) {}
 
-    fn on_cursor_right(&mut self, _data: &str)
-    {
-    }
+    fn on_cursor_right(&mut self, _data: &str) {}
 
-    fn on_cursor_up(&mut self, _data: &str)
-    {
-    }
+    fn on_cursor_up(&mut self, _data: &str) {}
 
-    fn on_cursor_down(&mut self, _data: &str)
-    {
-    }
+    fn on_cursor_down(&mut self, _data: &str) {}
 
-    fn on_home(&mut self, _data: &str)
-    {
-    }
+    fn on_home(&mut self, _data: &str) {}
 
-    fn on_end(&mut self, _data: &str)
-    {
-    }
+    fn on_end(&mut self, _data: &str) {}
 
-    fn on_ctrl_l(&mut self, _data: &str)
-    {
-    }
+    fn on_ctrl_l(&mut self, _data: &str) {}
 
-    fn on_page_up(&mut self, _data: &str)
-    {
-    }
+    fn on_page_up(&mut self, _data: &str) {}
 
-    fn on_page_down(&mut self, _data: &str)
-    {
-    }
+    fn on_page_down(&mut self, _data: &str) {}
 
-    fn on_f1(&mut self, _data: &str)
-    {
-    }
+    fn on_f1(&mut self, _data: &str) {}
 
-    fn on_f2(&mut self, _data: &str)
-    {
-    }
+    fn on_f2(&mut self, _data: &str) {}
 
-    fn on_f3(&mut self, _data: &str)
-    {
-    }
+    fn on_f3(&mut self, _data: &str) {}
 
-    fn on_f4(&mut self, _data: &str)
-    {
-    }
+    fn on_f4(&mut self, _data: &str) {}
 
-    fn on_f5(&mut self, _data: &str)
-    {
-    }
+    fn on_f5(&mut self, _data: &str) {}
 
-    fn on_f6(&mut self, _data: &str)
-    {
-    }
+    fn on_f6(&mut self, _data: &str) {}
 
-    fn on_f7(&mut self, _data: &str)
-    {
-    }
+    fn on_f7(&mut self, _data: &str) {}
 
-    fn on_f8(&mut self, _data: &str)
-    {
-    }
+    fn on_f8(&mut self, _data: &str) {}
 
-    fn on_f9(&mut self, _data: &str)
-    {
-    }
+    fn on_f9(&mut self, _data: &str) {}
 
-    fn on_f10(&mut self, _data: &str)
-    {
-    }
+    fn on_f10(&mut self, _data: &str) {}
 
-    fn on_f11(&mut self, _data: &str)
-    {
-    }
+    fn on_f11(&mut self, _data: &str) {}
 
-    fn on_f12(&mut self, _data: &str)
-    {
-    }
+    fn on_f12(&mut self, _data: &str) {}
 
-    fn on_data(&mut self, data: &[u8])
-    {
+    fn on_data(&mut self, data: &[u8]) {
         // If we are line buffering then we need to check for some special cases
         let options = self.options.inner.lock().unwrap();
         if options.line_buffering {

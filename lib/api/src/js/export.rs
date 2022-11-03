@@ -1,15 +1,18 @@
 use crate::js::error::WasmError;
 use crate::js::store::{AsStoreMut, AsStoreRef, InternalStoreHandle};
 use crate::js::wasm_bindgen_polyfill::Global;
+use crate::MemoryView;
 use js_sys::Function;
 use js_sys::WebAssembly::{Memory, Table};
 use serde::{Deserialize, Serialize};
 use std::fmt;
-use wasm_bindgen::{JsCast, JsValue};
-use wasmer_types::{ExternType, FunctionType, GlobalType, MemoryType, TableType, Pages, WASM_PAGE_SIZE, StoreSnapshot};
-use crate::MemoryView;
-#[cfg(feature="tracing")]
+#[cfg(feature = "tracing")]
 use tracing::trace;
+use wasm_bindgen::{JsCast, JsValue};
+use wasmer_types::{
+    ExternType, FunctionType, GlobalType, MemoryType, Pages, StoreSnapshot, TableType,
+    WASM_PAGE_SIZE,
+};
 
 pub use wasmer_types::MemoryError;
 
@@ -44,7 +47,7 @@ impl VMMemory {
     pub fn fork(&self) -> Result<VMMemory, wasmer_types::MemoryError> {
         let new_memory = crate::Memory::new_internal(self.ty.clone())?;
 
-        #[cfg(feature="tracing")]
+        #[cfg(feature = "tracing")]
         trace!("memory copy started");
 
         let src = MemoryView::new_raw(&self.memory);
@@ -56,7 +59,8 @@ impl VMMemory {
             let delta = amount - dst_size;
             let pages = ((delta - 1) / WASM_PAGE_SIZE) + 1;
 
-            let our_js_memory: &crate::js::externals::memory::JSMemory = JsCast::unchecked_from_js_ref(&new_memory);
+            let our_js_memory: &crate::js::externals::memory::JSMemory =
+                JsCast::unchecked_from_js_ref(&new_memory);
             our_js_memory.grow(pages as u32).map_err(|err| {
                 if err.is_instance_of::<js_sys::RangeError>() {
                     let cur_pages = dst_size;
@@ -72,20 +76,17 @@ impl VMMemory {
             dst = MemoryView::new_raw(&new_memory);
         }
 
-        src.copy_to_memory(amount as u64, &dst)
-            .map_err(|err| {
-                wasmer_types::MemoryError::Generic(format!("failed to copy the memory - {}", err))
-            })?;
+        src.copy_to_memory(amount as u64, &dst).map_err(|err| {
+            wasmer_types::MemoryError::Generic(format!("failed to copy the memory - {}", err))
+        })?;
 
-        #[cfg(feature="tracing")]
+        #[cfg(feature = "tracing")]
         trace!("memory copy finished (size={})", dst.size().bytes().0);
 
-        Ok(
-            Self {
-                memory: new_memory,
-                ty: self.ty.clone(),
-            }
-        )
+        Ok(Self {
+            memory: new_memory,
+            ty: self.ty.clone(),
+        })
     }
 }
 
@@ -103,9 +104,7 @@ impl VMGlobal {
     /// Saves the global value into the snapshot
     pub fn save_snapshot(&self, index: usize, snapshot: &mut StoreSnapshot) {
         if let Some(val) = self.global.as_f64() {
-            let entry = snapshot.globals
-                .entry(index as u32)
-                .or_default();
+            let entry = snapshot.globals.entry(index as u32).or_default();
             *entry = val as u128;
         }
     }

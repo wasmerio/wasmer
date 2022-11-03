@@ -10,11 +10,11 @@ use crate::vmcontext::VMTableDefinition;
 use crate::Trap;
 use crate::VMExternRef;
 use crate::VMFuncRef;
+use derivative::Derivative;
 use std::cell::UnsafeCell;
 use std::convert::TryFrom;
 use std::fmt;
 use std::ptr::NonNull;
-use derivative::Derivative;
 use wasmer_types::TableStyle;
 use wasmer_types::{TableType, TrapCode, Type as ValType};
 
@@ -315,9 +315,7 @@ impl VMTable {
     pub fn copy_on_write(&self) -> Result<Self, String> {
         let mut ret = Self::new(&self.table, &self.style)?;
         ret.copy(self, 0, 0, self.size())
-            .map_err(|trap| {
-                format!("failed to copy the table - {:?}", trap)
-            })?;
+            .map_err(|trap| format!("failed to copy the table - {:?}", trap))?;
         Ok(ret)
     }
 

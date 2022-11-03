@@ -91,7 +91,7 @@ impl<'a> WasiTest<'a> {
         let wasi_env = env.data(&store);
 
         let start = instance.exports.get_function("_start")?;
-        
+
         if let Some(stdin) = &self.stdin {
             let state = wasi_env.state();
             let mut wasi_stdin = state.stdin().unwrap().unwrap();

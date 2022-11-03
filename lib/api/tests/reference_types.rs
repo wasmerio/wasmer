@@ -54,10 +54,7 @@ pub mod reference_types {
         let call_set_value: &Function = instance.exports.get_function("call_set_value")?;
         let results: Box<[Value]> =
             call_set_value.call(&mut store, &[Value::FuncRef(Some(func_to_call))])?;
-        assert!(env
-            .as_ref(&store.as_store_ref())
-            .0
-            .load(Ordering::SeqCst));
+        assert!(env.as_ref(&store.as_store_ref()).0.load(Ordering::SeqCst));
         assert_eq!(&*results, &[Value::I32(343)]);
 
         Ok(())

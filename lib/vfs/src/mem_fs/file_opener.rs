@@ -1,5 +1,5 @@
-use super::*;
 use super::filesystem::InodeResolution;
+use super::*;
 use crate::{FileType, FsError, Metadata, OpenOptionsConfig, Result, VirtualFile};
 use std::borrow::Cow;
 use std::io::{self, Seek};
@@ -12,18 +12,12 @@ pub struct FileOpener {
     pub(super) filesystem: FileSystem,
 }
 
-impl FileOpener
-{
+impl FileOpener {
     /// Inserts a readonly file into the file system that uses copy-on-write
     /// (this is required for zero-copy creation of the same file)
-    pub fn insert_ro_file(
-        &mut self,
-        path: &Path,
-        contents: Cow<'static, [u8]>
-    ) -> Result<()> {
+    pub fn insert_ro_file(&mut self, path: &Path, contents: Cow<'static, [u8]>) -> Result<()> {
         let _ = crate::FileSystem::remove_file(&self.filesystem, path);
-        let (inode_of_parent, maybe_inode_of_file, name_of_file) = 
-            self.insert_inode(path)?;
+        let (inode_of_parent, maybe_inode_of_file, name_of_file) = self.insert_inode(path)?;
 
         let inode_of_parent = match inode_of_parent {
             InodeResolution::Found(a) => a,
@@ -31,7 +25,7 @@ impl FileOpener
                 return Err(FsError::InvalidInput);
             }
         };
-        
+
         match maybe_inode_of_file {
             // The file already exists, then it can not be inserted.
             Some(_inode_of_file) => return Err(FsError::AlreadyExists),
@@ -39,11 +33,7 @@ impl FileOpener
             // The file doesn't already exist; it's OK to create it if
             None => {
                 // Write lock.
-                let mut fs = self
-                    .filesystem
-                    .inner
-                    .write()
-                    .map_err(|_| FsError::Lock)?;
+                let mut fs = self.filesystem.inner.write().map_err(|_| FsError::Lock)?;
 
                 let file = ReadOnlyFile::new(contents);
 
@@ -88,10 +78,10 @@ impl FileOpener
     pub fn insert_arc_file(
         &mut self,
         path: PathBuf,
-        fs: Arc<dyn crate::FileSystem + Send + Sync>
+        fs: Arc<dyn crate::FileSystem + Send + Sync>,
     ) -> Result<()> {
         let _ = crate::FileSystem::remove_file(&self.filesystem, path.as_path());
-        let (inode_of_parent, maybe_inode_of_file, name_of_file) = 
+        let (inode_of_parent, maybe_inode_of_file, name_of_file) =
             self.insert_inode(path.as_path())?;
 
         let inode_of_parent = match inode_of_parent {
@@ -100,7 +90,7 @@ impl FileOpener
                 return Err(FsError::InvalidInput);
             }
         };
-        
+
         match maybe_inode_of_file {
             // The file already exists, then it can not be inserted.
             Some(_inode_of_file) => return Err(FsError::AlreadyExists),
@@ -108,11 +98,7 @@ impl FileOpener
             // The file doesn't already exist; it's OK to create it if
             None => {
                 // Write lock.
-                let mut fs_lock = self
-                    .filesystem
-                    .inner
-                    .write()
-                    .map_err(|_| FsError::Lock)?;
+                let mut fs_lock = self.filesystem.inner.write().map_err(|_| FsError::Lock)?;
 
                 // Creating the file in the storage.
                 let inode_of_file = fs_lock.storage.vacant_entry().key();
@@ -155,10 +141,10 @@ impl FileOpener
     pub fn insert_arc_directory(
         &mut self,
         path: PathBuf,
-        fs: Arc<dyn crate::FileSystem + Send + Sync>
+        fs: Arc<dyn crate::FileSystem + Send + Sync>,
     ) -> Result<()> {
         let _ = crate::FileSystem::remove_dir(&self.filesystem, path.as_path());
-        let (inode_of_parent, maybe_inode_of_file, name_of_file) = 
+        let (inode_of_parent, maybe_inode_of_file, name_of_file) =
             self.insert_inode(path.as_path())?;
 
         let inode_of_parent = match inode_of_parent {
@@ -167,7 +153,7 @@ impl FileOpener
                 return Err(FsError::InvalidInput);
             }
         };
-        
+
         match maybe_inode_of_file {
             // The file already exists, then it can not be inserted.
             Some(_inode_of_file) => return Err(FsError::AlreadyExists),
@@ -175,11 +161,7 @@ impl FileOpener
             // The file doesn't already exist; it's OK to create it if
             None => {
                 // Write lock.
-                let mut fs_lock = self
-                    .filesystem
-                    .inner
-                    .write()
-                    .map_err(|_| FsError::Lock)?;
+                let mut fs_lock = self.filesystem.inner.write().map_err(|_| FsError::Lock)?;
 
                 // Creating the file in the storage.
                 let inode_of_file = fs_lock.storage.vacant_entry().key();
@@ -222,19 +204,19 @@ impl FileOpener
     pub fn insert_custom_file(
         &mut self,
         path: PathBuf,
-        file: Box<dyn crate::VirtualFile + Send + Sync>
+        file: Box<dyn crate::VirtualFile + Send + Sync>,
     ) -> Result<()> {
         let _ = crate::FileSystem::remove_file(&self.filesystem, path.as_path());
-        let (inode_of_parent, maybe_inode_of_file, name_of_file) = 
+        let (inode_of_parent, maybe_inode_of_file, name_of_file) =
             self.insert_inode(path.as_path())?;
-        
+
         let inode_of_parent = match inode_of_parent {
             InodeResolution::Found(a) => a,
             InodeResolution::Redirect(..) => {
                 return Err(FsError::InvalidInput);
             }
         };
-        
+
         match maybe_inode_of_file {
             // The file already exists, then it can not be inserted.
             Some(_inode_of_file) => return Err(FsError::AlreadyExists),
@@ -242,11 +224,7 @@ impl FileOpener
             // The file doesn't already exist; it's OK to create it if
             None => {
                 // Write lock.
-                let mut fs_lock = self
-                    .filesystem
-                    .inner
-                    .write()
-                    .map_err(|_| FsError::Lock)?;
+                let mut fs_lock = self.filesystem.inner.write().map_err(|_| FsError::Lock)?;
 
                 // Creating the file in the storage.
                 let inode_of_file = fs_lock.storage.vacant_entry().key();
@@ -288,28 +266,26 @@ impl FileOpener
         path: &Path,
     ) -> Result<(InodeResolution, Option<InodeResolution>, OsString)> {
         // Read lock.
-        let fs = self
-            .filesystem
-            .inner
-            .read()
-            .map_err(|_| FsError::Lock)?;
+        let fs = self.filesystem.inner.read().map_err(|_| FsError::Lock)?;
 
         // Check the path has a parent.
-        let parent_of_path = path.parent().ok_or({
-            FsError::BaseNotDirectory
-        })?;
+        let parent_of_path = path.parent().ok_or({ FsError::BaseNotDirectory })?;
 
         // Check the file name.
         let name_of_file = path
             .file_name()
             .ok_or(FsError::InvalidInput)?
             .to_os_string();
-        
+
         // Find the parent inode.
         let inode_of_parent = match fs.inode_of_parent(parent_of_path)? {
             InodeResolution::Found(a) => a,
             InodeResolution::Redirect(fs, parent_path) => {
-                return Ok((InodeResolution::Redirect(fs, parent_path), None, name_of_file));
+                return Ok((
+                    InodeResolution::Redirect(fs, parent_path),
+                    None,
+                    name_of_file,
+                ));
             }
         };
 
@@ -317,8 +293,12 @@ impl FileOpener
         let maybe_inode_of_file = fs
             .as_parent_get_position_and_inode_of_file(inode_of_parent, &name_of_file)?
             .map(|(_nth, inode)| inode);
-        
-        Ok((InodeResolution::Found(inode_of_parent), maybe_inode_of_file, name_of_file))
+
+        Ok((
+            InodeResolution::Found(inode_of_parent),
+            maybe_inode_of_file,
+            name_of_file,
+        ))
     }
 }
 
@@ -354,19 +334,19 @@ impl crate::FileOpener for FileOpener {
             write = false;
         }
 
-        let (inode_of_parent, maybe_inode_of_file, name_of_file) = 
-            self.insert_inode(path)?;
-        
+        let (inode_of_parent, maybe_inode_of_file, name_of_file) = self.insert_inode(path)?;
+
         let inode_of_parent = match inode_of_parent {
             InodeResolution::Found(a) => a,
             InodeResolution::Redirect(fs, mut parent_path) => {
                 parent_path.push(name_of_file);
-                return fs.new_open_options()
-                            .options(conf.clone())
-                            .open(parent_path);
+                return fs
+                    .new_open_options()
+                    .options(conf.clone())
+                    .open(parent_path);
             }
         };
-        
+
         let mut cursor = 0u64;
         let inode_of_file = match maybe_inode_of_file {
             // The file already exists, and a _new_ one _must_ be
@@ -375,22 +355,15 @@ impl crate::FileOpener for FileOpener {
 
             // The file already exists; it's OK.
             Some(inode_of_file) => {
-
                 let inode_of_file = match inode_of_file {
                     InodeResolution::Found(a) => a,
                     InodeResolution::Redirect(fs, path) => {
-                        return fs.new_open_options()
-                            .options(conf.clone())
-                            .open(path);
+                        return fs.new_open_options().options(conf.clone()).open(path);
                     }
                 };
-                
+
                 // Write lock.
-                let mut fs = self
-                    .filesystem
-                    .inner
-                    .write()
-                    .map_err(|_| FsError::Lock)?;
+                let mut fs = self.filesystem.inner.write().map_err(|_| FsError::Lock)?;
 
                 let inode = fs.storage.get_mut(inode_of_file);
                 match inode {
@@ -408,7 +381,7 @@ impl crate::FileOpener for FileOpener {
                         if append {
                             cursor = file.len() as u64;
                         }
-                    },
+                    }
 
                     Some(Node::ReadOnlyFile { metadata, .. }) => {
                         // Update the accessed time.
@@ -437,7 +410,9 @@ impl crate::FileOpener for FileOpener {
                         }
                     }
 
-                    Some(Node::ArcFile { metadata, fs, path, .. }) => {
+                    Some(Node::ArcFile {
+                        metadata, fs, path, ..
+                    }) => {
                         // Update the accessed time.
                         metadata.accessed = time();
 
@@ -478,11 +453,7 @@ impl crate::FileOpener for FileOpener {
             // 2. `create` is used with `write` or `append`.
             None if (create_new || create) && (write || append) => {
                 // Write lock.
-                let mut fs = self
-                    .filesystem
-                    .inner
-                    .write()
-                    .map_err(|_| FsError::Lock)?;
+                let mut fs = self.filesystem.inner.write().map_err(|_| FsError::Lock)?;
 
                 let file = File::new();
 
@@ -530,7 +501,7 @@ impl crate::FileOpener for FileOpener {
             read,
             write || append || truncate,
             append,
-            cursor
+            cursor,
         )))
     }
 }

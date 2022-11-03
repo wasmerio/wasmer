@@ -1,25 +1,12 @@
+use std::{ops::Deref, sync::Arc};
 use wasmer::{FunctionEnvMut, Store};
-use wasmer_vbus::{
-    SpawnOptionsConfig,
-    BusSpawnedProcess
-};
+use wasmer_vbus::{BusSpawnedProcess, SpawnOptionsConfig};
 use wasmer_wasi_types::__WASI_ENOENT;
-use std::{
-    ops::Deref,
-    sync::{
-        Arc,
-    },
-};
 
 use crate::{
-    WasiEnv,
+    bin_factory::{spawn_exec, BinaryPackage, CachedCompiledModules},
     syscalls::stderr_write,
-    WasiRuntimeImplementation,
-    bin_factory::{
-        BinaryPackage,
-        CachedCompiledModules,
-        spawn_exec
-    }, VirtualTaskManager,
+    VirtualTaskManager, WasiEnv, WasiRuntimeImplementation,
 };
 
 const HELP: &'static str = r#"USAGE:
@@ -49,16 +36,27 @@ pub struct CmdWasmer {
 }
 
 impl CmdWasmer {
-    pub fn new(runtime: Arc<dyn WasiRuntimeImplementation + Send + Sync + 'static>, compiled_modules: Arc<CachedCompiledModules>) -> Self {
+    pub fn new(
+        runtime: Arc<dyn WasiRuntimeImplementation + Send + Sync + 'static>,
+        compiled_modules: Arc<CachedCompiledModules>,
+    ) -> Self {
         Self {
             runtime,
-            cache: compiled_modules
+            cache: compiled_modules,
         }
     }
 }
 
-impl CmdWasmer{
-    fn run<'a>(&self, parent_ctx: &FunctionEnvMut<'a, WasiEnv>, name: &str, store: Store, mut config: SpawnOptionsConfig<WasiEnv>, what: Option<String>, mut args: Vec<String>) -> wasmer_vbus::Result<BusSpawnedProcess> {
+impl CmdWasmer {
+    fn run<'a>(
+        &self,
+        parent_ctx: &FunctionEnvMut<'a, WasiEnv>,
+        name: &str,
+        store: Store,
+        mut config: SpawnOptionsConfig<WasiEnv>,
+        what: Option<String>,
+        mut args: Vec<String>,
+    ) -> wasmer_vbus::Result<BusSpawnedProcess> {
         if let Some(what) = what {
             // Set the arguments of the environment by replacing the state
             let mut state = config.env().state.fork();
@@ -68,13 +66,15 @@ impl CmdWasmer{
 
             // Get the binary
             let tasks = parent_ctx.data().tasks();
-            if let Some(binary) = self.get(what.clone(), tasks)
-            {
+            if let Some(binary) = self.get(what.clone(), tasks) {
                 // Now run the module
                 spawn_exec(binary, name, store, config, &self.runtime, &self.cache)
             } else {
-                let _ = stderr_write(parent_ctx, format!("package not found - {}\r\n", what).as_bytes());
-                Ok(BusSpawnedProcess::exited_process(__WASI_ENOENT as u32))   
+                let _ = stderr_write(
+                    parent_ctx,
+                    format!("package not found - {}\r\n", what).as_bytes(),
+                );
+                Ok(BusSpawnedProcess::exited_process(__WASI_ENOENT as u32))
             }
         } else {
             let _ = stderr_write(parent_ctx, HELP_RUN.as_bytes());
@@ -82,20 +82,20 @@ impl CmdWasmer{
         }
     }
 
-    pub fn get(&self, name: String, tasks: &dyn VirtualTaskManager) -> Option<BinaryPackage>
-    {
-        self.cache.get_webc(
-            name.as_str(),
-            self.runtime.deref(),
-            tasks,
-        )
+    pub fn get(&self, name: String, tasks: &dyn VirtualTaskManager) -> Option<BinaryPackage> {
+        self.cache
+            .get_webc(name.as_str(), self.runtime.deref(), tasks)
     }
 }
 
-impl BuiltInCommand
-for CmdWasmer {
-    fn exec<'a>(&self, parent_ctx: &FunctionEnvMut<'a, WasiEnv>, name: &str, store: Store, config: SpawnOptionsConfig<WasiEnv>) -> wasmer_vbus::Result<BusSpawnedProcess>
-    {
+impl BuiltInCommand for CmdWasmer {
+    fn exec<'a>(
+        &self,
+        parent_ctx: &FunctionEnvMut<'a, WasiEnv>,
+        name: &str,
+        store: Store,
+        config: SpawnOptionsConfig<WasiEnv>,
+    ) -> wasmer_vbus::Result<BusSpawnedProcess> {
         // Read the command we want to run
         let mut args = config.env().state.args.iter().map(|a| a.as_str());
         let _alias = args.next();
@@ -107,12 +107,11 @@ for CmdWasmer {
                 let what = args.next().map(|a| a.to_string());
                 let args = args.map(|a| a.to_string()).collect();
                 self.run(parent_ctx, name, store, config, what, args)
-            },
-            Some("--help") |
-            None => {
+            }
+            Some("--help") | None => {
                 let _ = stderr_write(parent_ctx, HELP.as_bytes());
                 Ok(BusSpawnedProcess::exited_process(0))
-            },            
+            }
             Some(what) => {
                 let what = Some(what.to_string());
                 let args = args.map(|a| a.to_string()).collect();

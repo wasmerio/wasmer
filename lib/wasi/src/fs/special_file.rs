@@ -6,14 +6,12 @@ use wasmer_wasi_types::__wasi_fd_t;
 
 #[derive(Debug)]
 pub struct SpecialFile {
-    fd: __wasi_fd_t
+    fd: __wasi_fd_t,
 }
 
 impl SpecialFile {
     pub fn new(fd: __wasi_fd_t) -> Self {
-        Self {
-            fd
-        }
+        Self { fd }
     }
 }
 
@@ -61,7 +59,7 @@ impl VirtualFile for SpecialFile {
     }
     fn get_special_fd(&self) -> Option<u32> {
         Some(self.fd)
-    }    
+    }
     fn get_fd(&self) -> Option<FileDescriptor> {
         None
     }

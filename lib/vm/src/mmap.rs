@@ -9,7 +9,7 @@ use more_asserts::assert_lt;
 use std::io;
 use std::ptr;
 use std::slice;
-#[cfg(feature="tracing")]
+#[cfg(feature = "tracing")]
 use tracing::trace;
 
 /// Round `size` up to the nearest multiple of `page_size`.
@@ -34,29 +34,24 @@ pub struct Mmap {
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct FdGuard(pub i32);
 
-impl Default
-for FdGuard
-{
+impl Default for FdGuard {
     fn default() -> Self {
         Self(-1)
     }
 }
 
-impl Clone
-for FdGuard
-{
+impl Clone for FdGuard {
     fn clone(&self) -> Self {
-        unsafe {
-            FdGuard(libc::dup(self.0))
-        }
+        unsafe { FdGuard(libc::dup(self.0)) }
     }
 }
 
-impl Drop
-for FdGuard {
+impl Drop for FdGuard {
     fn drop(&mut self) {
         if self.0 >= 0 {
-            unsafe { libc::close(self.0); }
+            unsafe {
+                libc::close(self.0);
+            }
             self.0 = -1;
         }
     }
@@ -91,7 +86,6 @@ impl Mmap {
         accessible_size: usize,
         mapping_size: usize,
     ) -> Result<Self, String> {
-        
         let page_size = region::page::size();
         assert_le!(accessible_size, mapping_size);
         assert_eq!(mapping_size & (page_size - 1), 0);
@@ -111,16 +105,23 @@ impl Mmap {
                 libc::tmpfile()
             };
             if file == ptr::null_mut() {
-                return Err(format!("failed to create temporary file - {}", io::Error::last_os_error()));
+                return Err(format!(
+                    "failed to create temporary file - {}",
+                    io::Error::last_os_error()
+                ));
             }
             FdGuard(libc::fileno(file))
         };
 
         // First we initialize it with zeros
         if mapping_size > (u32::MAX as usize) {
-            unsafe { libc::ftruncate64(fd.0, mapping_size as i64); }
+            unsafe {
+                libc::ftruncate64(fd.0, mapping_size as i64);
+            }
         } else {
-            unsafe { libc::ftruncate(fd.0, mapping_size as i64); }
+            unsafe {
+                libc::ftruncate(fd.0, mapping_size as i64);
+            }
         }
 
         // Compute the flags
@@ -321,15 +322,16 @@ impl Mmap {
 
     /// Copies the memory to a new swap file (using copy-on-write if available)
     #[cfg(not(target_os = "windows"))]
-    pub fn fork(&mut self, hint_used: Option<usize>) -> Result<Self, String>
-    {
+    pub fn fork(&mut self, hint_used: Option<usize>) -> Result<Self, String> {
         // Empty memory is an edge case
         if self.len == 0 {
             return Ok(Self::new());
         }
 
         // First we sync all the data to the backing file
-        unsafe { libc::fdatasync(self.fd.0); }
+        unsafe {
+            libc::fdatasync(self.fd.0);
+        }
 
         // Open a new temporary file (which is used for swapping for the forked memory)
         let fd = unsafe {
@@ -339,22 +341,26 @@ impl Mmap {
                 libc::tmpfile()
             };
             if file == ptr::null_mut() {
-                return Err(format!("failed to create temporary file - {}", io::Error::last_os_error()));
+                return Err(format!(
+                    "failed to create temporary file - {}",
+                    io::Error::last_os_error()
+                ));
             }
             FdGuard(libc::fileno(file))
         };
 
         // Attempt to do a shallow copy (needs a backing file system that supports it)
         unsafe {
-            if libc::ioctl(fd.0, 0x94, 9, self.fd.0) != 0 // FICLONE
+            if libc::ioctl(fd.0, 0x94, 9, self.fd.0) != 0
+            // FICLONE
             {
-                #[cfg(feature="tracing")]
+                #[cfg(feature = "tracing")]
                 trace!("memory copy started");
 
                 // Determine host much to copy
                 let len = match hint_used {
                     Some(a) => a,
-                    None => self.len
+                    None => self.len,
                 };
 
                 // The shallow copy failed so we have to do it the hard way
@@ -362,10 +368,13 @@ impl Mmap {
                 let mut off_out: libc::off64_t = 0;
                 let ret = libc::copy_file_range(self.fd.0, &mut off_in, fd.0, &mut off_out, len, 0);
                 if ret < 0 {
-                    return Err(format!("failed to copy temporary file data - {}", io::Error::last_os_error()));
+                    return Err(format!(
+                        "failed to copy temporary file data - {}",
+                        io::Error::last_os_error()
+                    ));
                 }
 
-                #[cfg(feature="tracing")]
+                #[cfg(feature = "tracing")]
                 trace!("memory copy finished (size={})", len);
             }
         }
@@ -388,29 +397,26 @@ impl Mmap {
             return Err(io::Error::last_os_error().to_string());
         }
 
-        Ok(
-            Self {
-                ptr: ptr as usize,
-                len: self.len,
-                fd,
-            }
-        )
+        Ok(Self {
+            ptr: ptr as usize,
+            len: self.len,
+            fd,
+        })
     }
 
     /// Copies the memory to a new swap file (using copy-on-write if available)
     #[cfg(target_os = "windows")]
-    pub fn fork(&mut self, hint_used: Option<usize>) -> Result<Self, String>
-    {
+    pub fn fork(&mut self, hint_used: Option<usize>) -> Result<Self, String> {
         // Create a new memory which we will copy to
         let new_mmap = Self::with_at_least(self.len)?;
 
-        #[cfg(feature="tracing")]
+        #[cfg(feature = "tracing")]
         trace!("memory copy started");
 
         // Determine host much to copy
         let len = match hint_used {
             Some(a) => a,
-            None => self.len
+            None => self.len,
         };
 
         // Copy the data to the new memory
@@ -420,11 +426,9 @@ impl Mmap {
             std::ptr::copy_nonoverlapping(src, dst, len);
         }
 
-        #[cfg(feature="tracing")]
+        #[cfg(feature = "tracing")]
         trace!("memory copy finished (size={})", len);
-        Ok(
-            new_mmap
-        )
+        Ok(new_mmap)
     }
 }
 
