@@ -678,7 +678,6 @@ pub fn get_if_package_has_new_version(
     version: Option<String>,
     max_timeout: Duration,
 ) -> Result<Option<PackageDownloadInfo>, String> {
-
     let host = match url::Url::parse(registry_url) {
         Ok(o) => match o.host_str().map(|s| s.to_string()) {
             Some(s) => s,
@@ -1015,7 +1014,6 @@ pub fn install_package(
                 format!("Package {version_str} not found in registries {registries_searched:?}.");
 
             for r in registries.iter() {
-
                 if !force_install {
                     let package_has_new_version = get_if_package_has_new_version(
                         r,
