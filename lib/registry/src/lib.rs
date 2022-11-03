@@ -431,10 +431,6 @@ pub struct PackageDownloadInfo {
     pub url: String,
 }
 
-pub fn get_command_local(_name: &str) -> Result<PathBuf, String> {
-    Err("unimplemented".to_string())
-}
-
 pub fn get_package_local_dir(
     registry_host: &str,
     name: &str,
@@ -453,6 +449,19 @@ pub fn get_package_local_dir(
     Ok(install_dir.join(namespace).join(name).join(version))
 }
 
+pub fn try_finding_local_command(cmd: &str) -> Option<LocalPackage> {
+    for p in get_all_local_packages(None) {
+        if p.get_commands()
+            .unwrap_or_default()
+            .iter()
+            .any(|c| c == cmd)
+        {
+            return Some(p);
+        }
+    }
+    None
+}
+
 #[derive(Debug, Clone)]
 pub struct LocalPackage {
     pub registry: String,
@@ -468,6 +477,19 @@ impl LocalPackage {
             .unwrap_or_else(|| self.registry.clone());
 
         get_package_local_dir(&host, &self.name, &self.version)
+    }
+    pub fn get_commands(&self) -> Result<Vec<String>, String> {
+        let toml_path = self.get_path()?.join("wapm.toml");
+        let toml = std::fs::read_to_string(&toml_path)
+            .map_err(|e| format!("error reading {}: {e}", toml_path.display()))?;
+        let toml_parsed = toml::from_str::<wapm_toml::Manifest>(&toml)
+            .map_err(|e| format!("error parsing {}: {e}", toml_path.display()))?;
+        Ok(toml_parsed
+            .command
+            .unwrap_or_default()
+            .iter()
+            .map(|c| c.get_name())
+            .collect())
     }
 }
 

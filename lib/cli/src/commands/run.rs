@@ -657,6 +657,36 @@ fn start_spinner(msg: String) -> Option<spinner::SpinnerHandle> {
     )
 }
 
+/// Before looking up a command from the registry, try to see if we have
+/// the command already installed
+fn try_run_local_command(
+    args: &[String],
+    sv: &SplitVersion,
+    debug_msgs_allowed: bool,
+) -> Result<(), ExecuteLocalPackageError> {
+    let result = wasmer_registry::try_finding_local_command(&sv.original).ok_or_else(|| {
+        ExecuteLocalPackageError::BeforeExec(anyhow::anyhow!(
+            "could not find command {} locally",
+            sv.original
+        ))
+    })?;
+    let package_dir = result
+        .get_path()
+        .map_err(|e| ExecuteLocalPackageError::BeforeExec(anyhow::anyhow!("{e}")))?;
+
+    // Try auto-installing the remote package
+    let args_without_package = fixup_args(args, &sv.original);
+    let mut run_args = RunWithoutFile::try_parse_from(args_without_package.iter())
+        .map_err(|e| ExecuteLocalPackageError::DuringExec(e.into()))?;
+    run_args.command_name = sv.command.clone();
+
+    run_args
+        .into_run_args(package_dir, sv.command.as_deref(), debug_msgs_allowed)
+        .map_err(ExecuteLocalPackageError::DuringExec)?
+        .execute()
+        .map_err(ExecuteLocalPackageError::DuringExec)
+}
+
 pub(crate) fn try_autoinstall_package(
     args: &[String],
     sv: &SplitVersion,
@@ -826,6 +856,11 @@ pub(crate) fn try_run_package_or_file(
                 command: None,
             };
             is_fake_sv = true;
+            match try_run_local_command(args, &fake_sv, debug) {
+                Ok(()) => return Ok(()),
+                Err(ExecuteLocalPackageError::DuringExec(e)) => return Err(e),
+                _ => {}
+            }
             match try_lookup_command(&mut fake_sv) {
                 Ok(o) => SplitVersion {
                     original: package.to_string(),
