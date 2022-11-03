@@ -352,6 +352,26 @@ fn test_wasmer_run_works() -> anyhow::Result<()> {
         );
     }
 
+    // same test again, but this time with only the command "python" (should be looked up locally)
+    let output = Command::new(get_wasmer_path())
+        .arg("run")
+        .arg("python")
+        .arg(format!("--mapdir=.:{}", ASSET_PATH))
+        .arg("test.py")
+        .output()?;
+
+    let stdout = std::str::from_utf8(&output.stdout)
+        .expect("stdout is not utf8! need to handle arbitrary bytes");
+
+    if stdout != "hello\n" {
+        bail!(
+            "3 running python/python failed with: stdout: {}\n\nstderr: {}",
+            stdout,
+            std::str::from_utf8(&output.stderr)
+                .expect("stderr is not utf8! need to handle arbitrary bytes")
+        );
+    }
+
     Ok(())
 }
 
