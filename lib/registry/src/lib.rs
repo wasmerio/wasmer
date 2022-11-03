@@ -806,7 +806,14 @@ pub fn get_if_package_has_new_version(
     // version has not been explicitly specified: check if any package < duration exists
     let read_dir = match std::fs::read_dir(&package_dir) {
         Ok(o) => o,
-        Err(_) => return Err(format!("{}", package_dir.display())),
+        Err(_) => {
+            return Ok(GetIfPackageHasNewVersionResult::PackageNotInstalledYet {
+                registry_url: registry_url.to_string(),
+                namespace: namespace.to_string(),
+                name: name.to_string(),
+                version,
+            });
+        }
     };
 
     // all installed versions of this package
