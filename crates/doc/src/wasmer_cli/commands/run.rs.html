@@ -858,6 +858,63 @@
 <span id="851">851</span>
 <span id="852">852</span>
 <span id="853">853</span>
+<span id="854">854</span>
+<span id="855">855</span>
+<span id="856">856</span>
+<span id="857">857</span>
+<span id="858">858</span>
+<span id="859">859</span>
+<span id="860">860</span>
+<span id="861">861</span>
+<span id="862">862</span>
+<span id="863">863</span>
+<span id="864">864</span>
+<span id="865">865</span>
+<span id="866">866</span>
+<span id="867">867</span>
+<span id="868">868</span>
+<span id="869">869</span>
+<span id="870">870</span>
+<span id="871">871</span>
+<span id="872">872</span>
+<span id="873">873</span>
+<span id="874">874</span>
+<span id="875">875</span>
+<span id="876">876</span>
+<span id="877">877</span>
+<span id="878">878</span>
+<span id="879">879</span>
+<span id="880">880</span>
+<span id="881">881</span>
+<span id="882">882</span>
+<span id="883">883</span>
+<span id="884">884</span>
+<span id="885">885</span>
+<span id="886">886</span>
+<span id="887">887</span>
+<span id="888">888</span>
+<span id="889">889</span>
+<span id="890">890</span>
+<span id="891">891</span>
+<span id="892">892</span>
+<span id="893">893</span>
+<span id="894">894</span>
+<span id="895">895</span>
+<span id="896">896</span>
+<span id="897">897</span>
+<span id="898">898</span>
+<span id="899">899</span>
+<span id="900">900</span>
+<span id="901">901</span>
+<span id="902">902</span>
+<span id="903">903</span>
+<span id="904">904</span>
+<span id="905">905</span>
+<span id="906">906</span>
+<span id="907">907</span>
+<span id="908">908</span>
+<span id="909">909</span>
+<span id="910">910</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::cli::SplitVersion</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::common::get_cache_dir</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>)]</span>
@@ -957,6 +1014,7 @@
         <span class="kw-2">mut</span> <span class="self">self</span>,
         <span class="ident">package_root_dir</span>: <span class="ident">PathBuf</span>, <span class="comment">// &lt;- package dir</span>
         <span class="ident">command</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">&gt;</span>,
+        <span class="ident">_debug_output_allowed</span>: <span class="ident">bool</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Run</span>, <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
         <span class="kw">let</span> (<span class="ident">manifest</span>, <span class="ident">pathbuf</span>) <span class="op">=</span>
             <span class="ident">wasmer_registry::get_executable_file_from_path</span>(<span class="kw-2">&amp;</span><span class="ident">package_root_dir</span>, <span class="ident">command</span>)<span class="question-mark">?</span>;
@@ -968,10 +1026,12 @@
             <span class="kw">for</span> (<span class="ident">alias</span>, <span class="ident">real_dir</span>) <span class="kw">in</span> <span class="ident">fs</span>.<span class="ident">iter</span>() {
                 <span class="kw">let</span> <span class="ident">real_dir</span> <span class="op">=</span> <span class="ident">package_root_dir</span>.<span class="ident">join</span>(<span class="kw-2">&amp;</span><span class="ident">real_dir</span>);
                 <span class="kw">if</span> <span class="op">!</span><span class="ident">real_dir</span>.<span class="ident">exists</span>() {
-                    <span class="macro">println!</span>(
-                        <span class="string">&quot;warning: cannot map {alias:?} to {}: directory does not exist&quot;</span>,
-                        <span class="ident">real_dir</span>.<span class="ident">display</span>()
-                    );
+                    <span class="kw">if</span> <span class="ident">_debug_output_allowed</span> {
+                        <span class="macro">println!</span>(
+                            <span class="string">&quot;warning: cannot map {alias:?} to {}: directory does not exist&quot;</span>,
+                            <span class="ident">real_dir</span>.<span class="ident">display</span>()
+                        );
+                    }
                     <span class="kw">continue</span>;
                 }
 
@@ -1501,12 +1561,47 @@
     }
 }
 
-<span class="kw">fn</span> <span class="ident">start_spinner</span>(<span class="ident">msg</span>: <span class="ident">String</span>) -&gt; <span class="ident">spinner::SpinnerHandle</span> {
-    <span class="ident">spinner::SpinnerBuilder::new</span>(<span class="ident">msg</span>)
-        .<span class="ident">spinner</span>(<span class="macro">vec!</span>[
-            <span class="string">&quot;⣾&quot;</span>, <span class="string">&quot;⣽&quot;</span>, <span class="string">&quot;⣻&quot;</span>, <span class="string">&quot;⢿&quot;</span>, <span class="string">&quot;⡿&quot;</span>, <span class="string">&quot;⣟&quot;</span>, <span class="string">&quot;⣯&quot;</span>, <span class="string">&quot;⣷&quot;</span>, <span class="string">&quot; &quot;</span>, <span class="string">&quot;⠁&quot;</span>, <span class="string">&quot;⠂&quot;</span>, <span class="string">&quot;⠄&quot;</span>, <span class="string">&quot;⡀&quot;</span>, <span class="string">&quot;⢀&quot;</span>, <span class="string">&quot;⠠&quot;</span>, <span class="string">&quot;⠐&quot;</span>, <span class="string">&quot;⠈&quot;</span>,
-        ])
-        .<span class="ident">start</span>()
+<span class="kw">fn</span> <span class="ident">start_spinner</span>(<span class="ident">msg</span>: <span class="ident">String</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">spinner::SpinnerHandle</span><span class="op">&gt;</span> {
+    <span class="kw">if</span> <span class="op">!</span><span class="ident">isatty::stdout_isatty</span>() {
+        <span class="kw">return</span> <span class="prelude-val">None</span>;
+    }
+    <span class="prelude-val">Some</span>(
+        <span class="ident">spinner::SpinnerBuilder::new</span>(<span class="ident">msg</span>)
+            .<span class="ident">spinner</span>(<span class="macro">vec!</span>[
+                <span class="string">&quot;⣾&quot;</span>, <span class="string">&quot;⣽&quot;</span>, <span class="string">&quot;⣻&quot;</span>, <span class="string">&quot;⢿&quot;</span>, <span class="string">&quot;⡿&quot;</span>, <span class="string">&quot;⣟&quot;</span>, <span class="string">&quot;⣯&quot;</span>, <span class="string">&quot;⣷&quot;</span>, <span class="string">&quot; &quot;</span>, <span class="string">&quot;⠁&quot;</span>, <span class="string">&quot;⠂&quot;</span>, <span class="string">&quot;⠄&quot;</span>, <span class="string">&quot;⡀&quot;</span>, <span class="string">&quot;⢀&quot;</span>, <span class="string">&quot;⠠&quot;</span>, <span class="string">&quot;⠐&quot;</span>, <span class="string">&quot;⠈&quot;</span>,
+            ])
+            .<span class="ident">start</span>(),
+    )
+}
+
+<span class="doccomment">/// Before looking up a command from the registry, try to see if we have</span>
+<span class="doccomment">/// the command already installed</span>
+<span class="kw">fn</span> <span class="ident">try_run_local_command</span>(
+    <span class="ident">args</span>: <span class="kw-2">&amp;</span>[<span class="ident">String</span>],
+    <span class="ident">sv</span>: <span class="kw-2">&amp;</span><span class="ident">SplitVersion</span>,
+    <span class="ident">debug_msgs_allowed</span>: <span class="ident">bool</span>,
+) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">ExecuteLocalPackageError</span><span class="op">&gt;</span> {
+    <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">wasmer_registry::try_finding_local_command</span>(<span class="kw-2">&amp;</span><span class="ident">sv</span>.<span class="ident">original</span>).<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> {
+        <span class="ident">ExecuteLocalPackageError::BeforeExec</span>(<span class="macro">anyhow::anyhow!</span>(
+            <span class="string">&quot;could not find command {} locally&quot;</span>,
+            <span class="ident">sv</span>.<span class="ident">original</span>
+        ))
+    })<span class="question-mark">?</span>;
+    <span class="kw">let</span> <span class="ident">package_dir</span> <span class="op">=</span> <span class="ident">result</span>
+        .<span class="ident">get_path</span>()
+        .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">ExecuteLocalPackageError::BeforeExec</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>)))<span class="question-mark">?</span>;
+
+    <span class="comment">// Try auto-installing the remote package</span>
+    <span class="kw">let</span> <span class="ident">args_without_package</span> <span class="op">=</span> <span class="ident">fixup_args</span>(<span class="ident">args</span>, <span class="kw-2">&amp;</span><span class="ident">sv</span>.<span class="ident">original</span>);
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">run_args</span> <span class="op">=</span> <span class="ident">RunWithoutFile::try_parse_from</span>(<span class="ident">args_without_package</span>.<span class="ident">iter</span>())
+        .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">ExecuteLocalPackageError::DuringExec</span>(<span class="ident">e</span>.<span class="ident">into</span>()))<span class="question-mark">?</span>;
+    <span class="ident">run_args</span>.<span class="ident">command_name</span> <span class="op">=</span> <span class="ident">sv</span>.<span class="ident">command</span>.<span class="ident">clone</span>();
+
+    <span class="ident">run_args</span>
+        .<span class="ident">into_run_args</span>(<span class="ident">package_dir</span>, <span class="ident">sv</span>.<span class="ident">command</span>.<span class="ident">as_deref</span>(), <span class="ident">debug_msgs_allowed</span>)
+        .<span class="ident">map_err</span>(<span class="ident">ExecuteLocalPackageError::DuringExec</span>)<span class="question-mark">?</span>
+        .<span class="ident">execute</span>()
+        .<span class="ident">map_err</span>(<span class="ident">ExecuteLocalPackageError::DuringExec</span>)
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">try_autoinstall_package</span>(
@@ -1516,7 +1611,8 @@
     <span class="ident">force_install</span>: <span class="ident">bool</span>,
 ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
     <span class="kw">use</span> <span class="ident">std::io::Write</span>;
-    <span class="kw">let</span> <span class="ident">sp</span> <span class="op">=</span> <span class="ident">start_spinner</span>(<span class="macro">format!</span>(<span class="string">&quot;Installing package {} ...&quot;</span>, <span class="ident">sv</span>.<span class="ident">package</span>));
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">sp</span> <span class="op">=</span> <span class="ident">start_spinner</span>(<span class="macro">format!</span>(<span class="string">&quot;Installing package {} ...&quot;</span>, <span class="ident">sv</span>.<span class="ident">package</span>));
+    <span class="kw">let</span> <span class="ident">debug_msgs_allowed</span> <span class="op">=</span> <span class="ident">sp</span>.<span class="ident">is_some</span>();
     <span class="kw">let</span> <span class="ident">v</span> <span class="op">=</span> <span class="ident">sv</span>.<span class="ident">version</span>.<span class="ident">as_deref</span>();
     <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">wasmer_registry::install_package</span>(
         <span class="ident">sv</span>.<span class="ident">registry</span>.<span class="ident">as_deref</span>(),
@@ -1525,8 +1621,10 @@
         <span class="ident">package</span>,
         <span class="ident">force_install</span>,
     );
-    <span class="ident">sp</span>.<span class="ident">close</span>();
-    <span class="macro">print!</span>(<span class="string">&quot;\r&quot;</span>);
+    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">sp</span>) <span class="op">=</span> <span class="ident">sp</span>.<span class="ident">take</span>() {
+        <span class="ident">sp</span>.<span class="ident">close</span>();
+        <span class="macro">print!</span>(<span class="string">&quot;\r&quot;</span>);
+    }
     <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">std::io::stdout</span>().<span class="ident">flush</span>();
     <span class="kw">let</span> (<span class="kw">_</span>, <span class="ident">package_dir</span>) <span class="op">=</span> <span class="kw">match</span> <span class="ident">result</span> {
         <span class="prelude-val">Ok</span>(<span class="ident">o</span>) =&gt; <span class="ident">o</span>,
@@ -1541,7 +1639,7 @@
     <span class="ident">run_args</span>.<span class="ident">command_name</span> <span class="op">=</span> <span class="ident">sv</span>.<span class="ident">command</span>.<span class="ident">clone</span>();
 
     <span class="ident">run_args</span>
-        .<span class="ident">into_run_args</span>(<span class="ident">package_dir</span>, <span class="ident">sv</span>.<span class="ident">command</span>.<span class="ident">as_deref</span>())<span class="question-mark">?</span>
+        .<span class="ident">into_run_args</span>(<span class="ident">package_dir</span>, <span class="ident">sv</span>.<span class="ident">command</span>.<span class="ident">as_deref</span>(), <span class="ident">debug_msgs_allowed</span>)<span class="question-mark">?</span>
         .<span class="ident">execute</span>()
 }
 
@@ -1555,6 +1653,7 @@
 <span class="kw">fn</span> <span class="ident">try_execute_local_package</span>(
     <span class="ident">args</span>: <span class="kw-2">&amp;</span>[<span class="ident">String</span>],
     <span class="ident">sv</span>: <span class="kw-2">&amp;</span><span class="ident">SplitVersion</span>,
+    <span class="ident">debug_msgs_allowed</span>: <span class="ident">bool</span>,
 ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">ExecuteLocalPackageError</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="ident">package</span> <span class="op">=</span> <span class="ident">wasmer_registry::get_local_package</span>(<span class="prelude-val">None</span>, <span class="kw-2">&amp;</span><span class="ident">sv</span>.<span class="ident">package</span>, <span class="ident">sv</span>.<span class="ident">version</span>.<span class="ident">as_deref</span>())
         .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> {
@@ -1570,7 +1669,7 @@
 
     <span class="ident">RunWithoutFile::try_parse_from</span>(<span class="ident">args_without_package</span>.<span class="ident">iter</span>())
         .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">ExecuteLocalPackageError::DuringExec</span>(<span class="ident">e</span>.<span class="ident">into</span>()))<span class="question-mark">?</span>
-        .<span class="ident">into_run_args</span>(<span class="ident">package_dir</span>, <span class="ident">sv</span>.<span class="ident">command</span>.<span class="ident">as_deref</span>())
+        .<span class="ident">into_run_args</span>(<span class="ident">package_dir</span>, <span class="ident">sv</span>.<span class="ident">command</span>.<span class="ident">as_deref</span>(), <span class="ident">debug_msgs_allowed</span>)
         .<span class="ident">map_err</span>(<span class="ident">ExecuteLocalPackageError::DuringExec</span>)<span class="question-mark">?</span>
         .<span class="ident">execute</span>()
         .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">ExecuteLocalPackageError::DuringExec</span>(<span class="ident">e</span>.<span class="ident">context</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">sv</span>))))
@@ -1578,11 +1677,13 @@
 
 <span class="kw">fn</span> <span class="ident">try_lookup_command</span>(<span class="ident">sv</span>: <span class="kw-2">&amp;mut</span> <span class="ident">SplitVersion</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">PackageDownloadInfo</span>, <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
     <span class="kw">use</span> <span class="ident">std::io::Write</span>;
-    <span class="kw">let</span> <span class="ident">sp</span> <span class="op">=</span> <span class="ident">start_spinner</span>(<span class="macro">format!</span>(<span class="string">&quot;Looking up command {} ...&quot;</span>, <span class="ident">sv</span>.<span class="ident">package</span>));
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">sp</span> <span class="op">=</span> <span class="ident">start_spinner</span>(<span class="macro">format!</span>(<span class="string">&quot;Looking up command {} ...&quot;</span>, <span class="ident">sv</span>.<span class="ident">package</span>));
 
     <span class="kw">for</span> <span class="ident">registry</span> <span class="kw">in</span> <span class="ident">wasmer_registry::get_all_available_registries</span>().<span class="ident">unwrap_or_default</span>() {
         <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">wasmer_registry::query_command_from_registry</span>(<span class="kw-2">&amp;</span><span class="ident">registry</span>, <span class="kw-2">&amp;</span><span class="ident">sv</span>.<span class="ident">package</span>);
-        <span class="macro">print!</span>(<span class="string">&quot;\r&quot;</span>);
+        <span class="kw">if</span> <span class="ident">sp</span>.<span class="ident">is_some</span>() {
+            <span class="macro">print!</span>(<span class="string">&quot;\r&quot;</span>);
+        }
         <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">std::io::stdout</span>().<span class="ident">flush</span>();
         <span class="kw">let</span> <span class="ident">command</span> <span class="op">=</span> <span class="ident">sv</span>.<span class="ident">package</span>.<span class="ident">clone</span>();
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">o</span>) <span class="op">=</span> <span class="ident">result</span> {
@@ -1593,8 +1694,10 @@
         }
     }
 
-    <span class="ident">sp</span>.<span class="ident">close</span>();
-    <span class="macro">print!</span>(<span class="string">&quot;\r&quot;</span>);
+    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">sp</span>) <span class="op">=</span> <span class="ident">sp</span>.<span class="ident">take</span>() {
+        <span class="ident">sp</span>.<span class="ident">close</span>();
+        <span class="macro">print!</span>(<span class="string">&quot;\r&quot;</span>);
+    }
     <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">std::io::stdout</span>().<span class="ident">flush</span>();
     <span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;command {sv} not found&quot;</span>))
 }
@@ -1639,12 +1742,18 @@
     <span class="ident">r</span>: <span class="kw-2">&amp;</span><span class="ident">Run</span>,
     <span class="ident">debug</span>: <span class="ident">bool</span>,
 ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
+    <span class="kw">let</span> <span class="ident">debug_msgs_allowed</span> <span class="op">=</span> <span class="ident">isatty::stdout_isatty</span>();
+
     <span class="comment">// Check &quot;r.path&quot; is a file or a package / command name</span>
     <span class="kw">if</span> <span class="ident">r</span>.<span class="ident">path</span>.<span class="ident">exists</span>() {
         <span class="kw">if</span> <span class="ident">r</span>.<span class="ident">path</span>.<span class="ident">is_dir</span>() <span class="op">&amp;&amp;</span> <span class="ident">r</span>.<span class="ident">path</span>.<span class="ident">join</span>(<span class="string">&quot;wapm.toml&quot;</span>).<span class="ident">exists</span>() {
             <span class="kw">let</span> <span class="ident">args_without_package</span> <span class="op">=</span> <span class="ident">fixup_args</span>(<span class="ident">args</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">r</span>.<span class="ident">path</span>.<span class="ident">display</span>()));
             <span class="kw">return</span> <span class="ident">RunWithoutFile::try_parse_from</span>(<span class="ident">args_without_package</span>.<span class="ident">iter</span>())<span class="question-mark">?</span>
-                .<span class="ident">into_run_args</span>(<span class="ident">r</span>.<span class="ident">path</span>.<span class="ident">clone</span>(), <span class="ident">r</span>.<span class="ident">command_name</span>.<span class="ident">as_deref</span>())<span class="question-mark">?</span>
+                .<span class="ident">into_run_args</span>(
+                    <span class="ident">r</span>.<span class="ident">path</span>.<span class="ident">clone</span>(),
+                    <span class="ident">r</span>.<span class="ident">command_name</span>.<span class="ident">as_deref</span>(),
+                    <span class="ident">debug_msgs_allowed</span>,
+                )<span class="question-mark">?</span>
                 .<span class="ident">execute</span>();
         }
         <span class="kw">return</span> <span class="ident">r</span>.<span class="ident">execute</span>();
@@ -1664,9 +1773,14 @@
                 <span class="ident">command</span>: <span class="prelude-val">None</span>,
             };
             <span class="ident">is_fake_sv</span> <span class="op">=</span> <span class="bool-val">true</span>;
+            <span class="kw">match</span> <span class="ident">try_run_local_command</span>(<span class="ident">args</span>, <span class="kw-2">&amp;</span><span class="ident">fake_sv</span>, <span class="ident">debug</span>) {
+                <span class="prelude-val">Ok</span>(()) =&gt; <span class="kw">return</span> <span class="prelude-val">Ok</span>(()),
+                <span class="prelude-val">Err</span>(<span class="ident">ExecuteLocalPackageError::DuringExec</span>(<span class="ident">e</span>)) =&gt; <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>),
+                <span class="kw">_</span> =&gt; {}
+            }
             <span class="kw">match</span> <span class="ident">try_lookup_command</span>(<span class="kw-2">&amp;mut</span> <span class="ident">fake_sv</span>) {
                 <span class="prelude-val">Ok</span>(<span class="ident">o</span>) =&gt; <span class="ident">SplitVersion</span> {
-                    <span class="ident">original</span>: <span class="macro">format!</span>(<span class="string">&quot;{}@{}&quot;</span>, <span class="ident">o</span>.<span class="ident">package</span>, <span class="ident">o</span>.<span class="ident">version</span>),
+                    <span class="ident">original</span>: <span class="ident">package</span>.<span class="ident">to_string</span>(),
                     <span class="ident">registry</span>: <span class="prelude-val">None</span>,
                     <span class="ident">package</span>: <span class="ident">o</span>.<span class="ident">package</span>,
                     <span class="ident">version</span>: <span class="prelude-val">Some</span>(<span class="ident">o</span>.<span class="ident">version</span>),
@@ -1698,13 +1812,13 @@
         }
     }
 
-    <span class="kw">match</span> <span class="ident">try_execute_local_package</span>(<span class="ident">args</span>, <span class="kw-2">&amp;</span><span class="ident">sv</span>) {
+    <span class="kw">match</span> <span class="ident">try_execute_local_package</span>(<span class="ident">args</span>, <span class="kw-2">&amp;</span><span class="ident">sv</span>, <span class="ident">debug_msgs_allowed</span>) {
         <span class="prelude-val">Ok</span>(<span class="ident">o</span>) =&gt; <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">o</span>),
         <span class="prelude-val">Err</span>(<span class="ident">ExecuteLocalPackageError::DuringExec</span>(<span class="ident">e</span>)) =&gt; <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>),
         <span class="kw">_</span> =&gt; {}
     }
 
-    <span class="kw">if</span> <span class="ident">debug</span> {
+    <span class="kw">if</span> <span class="ident">debug</span> <span class="op">&amp;&amp;</span> <span class="ident">isatty::stdout_isatty</span>() {
         <span class="macro">eprintln!</span>(<span class="string">&quot;finding local package {} failed&quot;</span>, <span class="ident">sv</span>);
     }
 
