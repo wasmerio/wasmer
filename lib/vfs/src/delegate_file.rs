@@ -34,7 +34,25 @@ pub struct DelegateFile {
     inner: Arc<RwLock<DelegateFileInner>>,
 }
 
+#[test]
+fn test_delegate_file() {
+    let mut custom_write_buf = vec![0; 17];
+    let mut file = DelegateFile::new();
+
+    file.with_write(|_| Ok(384));
+    file.with_read(|_| Ok(986));
+    file.with_seek(|_| Ok(996));
+
+    assert_eq!(file.read(custom_write_buf.as_mut_slice()).unwrap(), 986);
+    assert_eq!(file.seek(SeekFrom::Start(0)).unwrap(), 996);
+    assert_eq!(file.write(b"hello").unwrap(), 384);
+}
+
 impl DelegateFile {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
     pub fn with_seek(
         &self,
         func: impl Fn(SeekFrom) -> io::Result<u64> + Send + Sync + 'static,
