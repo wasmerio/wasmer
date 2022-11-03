@@ -851,6 +851,13 @@
 <span id="844">844</span>
 <span id="845">845</span>
 <span id="846">846</span>
+<span id="847">847</span>
+<span id="848">848</span>
+<span id="849">849</span>
+<span id="850">850</span>
+<span id="851">851</span>
+<span id="852">852</span>
+<span id="853">853</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::cli::SplitVersion</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::common::get_cache_dir</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>)]</span>
@@ -889,11 +896,11 @@
     <span class="doccomment">/// Disable the cache</span>
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;cache&quot;</span>)]</span>
     <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;disable-cache&quot;</span>)]</span>
-    <span class="ident">disable_cache</span>: <span class="ident">bool</span>,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">disable_cache</span>: <span class="ident">bool</span>,
 
     <span class="doccomment">/// Invoke a specified function</span>
     <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;invoke&quot;</span>, <span class="ident">short</span> <span class="op">=</span> <span class="string">&#39;i&#39;</span>)]</span>
-    <span class="ident">invoke</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">invoke</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
 
     <span class="doccomment">/// The command name is a string that will override the first argument passed</span>
     <span class="doccomment">/// to the wasm program. This is used in wapm to provide nicer output in</span>
@@ -906,33 +913,33 @@
     <span class="doccomment">/// as if no `cache-key` argument was passed.</span>
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;cache&quot;</span>)]</span>
     <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;cache-key&quot;</span>, <span class="ident">hide</span> <span class="op">=</span> <span class="bool-val">true</span>)]</span>
-    <span class="ident">cache_key</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">cache_key</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
 
     <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">flatten</span>)]</span>
-    <span class="ident">store</span>: <span class="ident">StoreOptions</span>,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">store</span>: <span class="ident">StoreOptions</span>,
 
     <span class="comment">// TODO: refactor WASI structure to allow shared options with Emscripten</span>
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wasi&quot;</span>)]</span>
     <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">flatten</span>)]</span>
-    <span class="ident">wasi</span>: <span class="ident">Wasi</span>,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">wasi</span>: <span class="ident">Wasi</span>,
 
     <span class="doccomment">/// Enable non-standard experimental IO devices</span>
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;io-devices&quot;</span>)]</span>
     <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;enable-io-devices&quot;</span>)]</span>
-    <span class="ident">enable_experimental_io_devices</span>: <span class="ident">bool</span>,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">enable_experimental_io_devices</span>: <span class="ident">bool</span>,
 
     <span class="doccomment">/// Enable debug output</span>
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>)]</span>
     <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>, <span class="ident">short</span> <span class="op">=</span> <span class="string">&#39;d&#39;</span>)]</span>
-    <span class="ident">debug</span>: <span class="ident">bool</span>,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">debug</span>: <span class="ident">bool</span>,
 
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>)]</span>
     <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;verbose&quot;</span>)]</span>
-    <span class="ident">verbose</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">verbose</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,
 
     <span class="doccomment">/// Application arguments</span>
     <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">value_name</span> <span class="op">=</span> <span class="string">&quot;ARGS&quot;</span>)]</span>
-    <span class="ident">args</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">args</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
 }
 
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
@@ -993,7 +1000,7 @@
                 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>)]</span>
                 <span class="ident">debug</span>: <span class="self">self</span>.<span class="ident">debug</span>,
                 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>)]</span>
-                <span class="ident">verbose</span>: <span class="self">self</span>.<span class="ident">verbose</span>.<span class="ident">unwrap_or</span>(<span class="number">0</span>),
+                <span class="ident">verbose</span>: <span class="self">self</span>.<span class="ident">verbose</span>,
                 <span class="ident">args</span>: <span class="self">self</span>.<span class="ident">args</span>,
             },
         })
@@ -1023,7 +1030,7 @@
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">execute</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
         <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>)]</span>
         <span class="kw">if</span> <span class="self">self</span>.<span class="ident">debug</span> {
-            <span class="ident">logging::set_up_logging</span>(<span class="self">self</span>.<span class="ident">verbose</span>).<span class="ident">unwrap</span>();
+            <span class="ident">logging::set_up_logging</span>(<span class="self">self</span>.<span class="ident">verbose</span>.<span class="ident">unwrap_or</span>(<span class="number">0</span>)).<span class="ident">unwrap</span>();
         }
         <span class="self">self</span>.<span class="ident">inner_execute</span>().<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> {
             <span class="macro">format!</span>(
@@ -1627,7 +1634,11 @@
     <span class="macro">assert_eq!</span>(<span class="ident">arg1_transformed</span>, <span class="ident">arg2_transformed</span>);
 }
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">try_run_package_or_file</span>(<span class="ident">args</span>: <span class="kw-2">&amp;</span>[<span class="ident">String</span>], <span class="ident">r</span>: <span class="kw-2">&amp;</span><span class="ident">Run</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">try_run_package_or_file</span>(
+    <span class="ident">args</span>: <span class="kw-2">&amp;</span>[<span class="ident">String</span>],
+    <span class="ident">r</span>: <span class="kw-2">&amp;</span><span class="ident">Run</span>,
+    <span class="ident">debug</span>: <span class="ident">bool</span>,
+) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
     <span class="comment">// Check &quot;r.path&quot; is a file or a package / command name</span>
     <span class="kw">if</span> <span class="ident">r</span>.<span class="ident">path</span>.<span class="ident">exists</span>() {
         <span class="kw">if</span> <span class="ident">r</span>.<span class="ident">path</span>.<span class="ident">is_dir</span>() <span class="op">&amp;&amp;</span> <span class="ident">r</span>.<span class="ident">path</span>.<span class="ident">join</span>(<span class="string">&quot;wapm.toml&quot;</span>).<span class="ident">exists</span>() {
@@ -1693,7 +1704,10 @@
         <span class="kw">_</span> =&gt; {}
     }
 
-    <span class="macro">println!</span>(<span class="string">&quot;finding local package {} failed&quot;</span>, <span class="ident">sv</span>);
+    <span class="kw">if</span> <span class="ident">debug</span> {
+        <span class="macro">eprintln!</span>(<span class="string">&quot;finding local package {} failed&quot;</span>, <span class="ident">sv</span>);
+    }
+
     <span class="comment">// else: local package not found - try to download and install package</span>
     <span class="ident">try_autoinstall_package</span>(<span class="ident">args</span>, <span class="kw-2">&amp;</span><span class="ident">sv</span>, <span class="ident">package_download_info</span>, <span class="ident">r</span>.<span class="ident">force_install</span>)
 }

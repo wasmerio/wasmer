@@ -482,6 +482,10 @@
 <span id="475">475</span>
 <span id="476">476</span>
 <span id="477">477</span>
+<span id="478">478</span>
+<span id="479">479</span>
+<span id="480">480</span>
+<span id="481">481</span>
 </pre><pre class="rust"><code><span class="doccomment">//! The logic for the Wasmer CLI tool.</span>
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>)]</span>
@@ -721,7 +725,11 @@
 
     <span class="comment">// Check if the file is a package name</span>
     <span class="kw">if</span> <span class="kw">let</span> <span class="ident">WasmerCLIOptions::Run</span>(<span class="ident">r</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">options</span> {
-        <span class="kw">return</span> <span class="ident"><span class="kw">crate</span>::commands::try_run_package_or_file</span>(<span class="kw-2">&amp;</span><span class="ident">args</span>, <span class="ident">r</span>);
+        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>))]</span>
+        <span class="kw">let</span> <span class="ident">debug</span> <span class="op">=</span> <span class="bool-val">false</span>;
+        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>)]</span>
+        <span class="kw">let</span> <span class="ident">debug</span> <span class="op">=</span> <span class="ident">r</span>.<span class="ident">options</span>.<span class="ident">debug</span>;
+        <span class="kw">return</span> <span class="ident"><span class="kw">crate</span>::commands::try_run_package_or_file</span>(<span class="kw-2">&amp;</span><span class="ident">args</span>, <span class="ident">r</span>, <span class="ident">debug</span>);
     }
 
     <span class="ident">options</span>.<span class="ident">execute</span>()
