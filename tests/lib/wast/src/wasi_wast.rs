@@ -4,7 +4,9 @@ use std::io::{self, Read, Seek, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{mpsc, Arc, Mutex};
 use wasmer::{FunctionEnv, Imports, Instance, Module, Store};
-use wasmer_vfs::{host_fs, mem_fs, FileSystem};
+use wasmer_vfs::{
+    host_fs, mem_fs, passthru_fs, tmp_fs, union_fs, FileSystem, RootFileSystemBuilder,
+};
 use wasmer_wasi::types::wasi::{Filesize, Timestamp};
 use wasmer_wasi::{
     generate_import_object_from_env, get_wasi_version, FsError, VirtualFile,
@@ -189,8 +191,30 @@ impl<'a> WasiTest<'a> {
                 builder.set_fs(Box::new(fs));
             }
 
-            WasiFileSystemKind::InMemory => {
-                let fs = mem_fs::FileSystem::default();
+            other => {
+                let fs: Box<dyn FileSystem> = match other {
+                    WasiFileSystemKind::InMemory => Box::new(mem_fs::FileSystem::default()),
+                    WasiFileSystemKind::Tmp => Box::new(tmp_fs::TmpFileSystem::default()),
+                    WasiFileSystemKind::PassthruMemory => {
+                        Box::new(passthru_fs::PassthruFileSystem::new(Box::new(
+                            mem_fs::FileSystem::default(),
+                        )))
+                    }
+                    WasiFileSystemKind::RootFileSystemBuilder => {
+                        Box::new(RootFileSystemBuilder::new().build())
+                    }
+                    WasiFileSystemKind::UnionHostMemory => {
+                        Box::new(mem_fs::FileSystem::default()) // TODO
+                                                                // let a = host_fs::FileSystem::default();
+                                                                // let b = mem_fs::FileSystem::default();
+                                                                // union_fs::UnionFileSystem::new()
+                                                                // .mount(name, path, should_sanitize, fs, new_path)
+                    }
+                    _ => {
+                        panic!("unexpected filesystem type {:?}", other);
+                    }
+                };
+
                 let mut temp_dir_index: usize = 0;
 
                 let root = PathBuf::from("/");
@@ -218,18 +242,8 @@ impl<'a> WasiTest<'a> {
                     temp_dir_index += 1;
                 }
 
-                builder.set_fs(Box::new(fs));
-            },
-            WasiFileSystemKind::Tmp => {
-            },
-            WasiFileSystemKind::PassthruMemory => {
-            },
-            WasiFileSystemKind::PassthruMemory => {
-            },
-            WasiFileSystemKind::UnionHostMemory => {
-            },
-            WasiFileSystemKind::RootFileSystemBuilder => {
-            },            
+                builder.set_fs(fs);
+            }
         }
 
         let (stdout, stdout_rx) = OutputCapturerer::new();
@@ -662,7 +676,7 @@ impl VirtualFile for OutputCapturerer {
 /// because the host filesystem cannot be used. Instead, we are
 /// copying `BASE_TEST_DIR` to the `mem_fs`.
 fn map_host_fs_to_mem_fs(
-    fs: &mem_fs::FileSystem,
+    fs: &Box<dyn FileSystem>,
     directory_reader: ReadDir,
     path_prefix: &Path,
 ) -> anyhow::Result<()> {
