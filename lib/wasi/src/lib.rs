@@ -1,3 +1,5 @@
+// FIXME: merge with ./lib.rs_upstream
+
 #![deny(unused_mut)]
 #![doc(html_favicon_url = "https://wasmer.io/images/icons/favicon-32x32.png")]
 #![doc(html_logo_url = "https://github.com/wasmerio.png?size=200")]
@@ -103,13 +105,11 @@ use std::cell::RefCell;
 use std::ops::Deref;
 use std::sync::atomic::{AtomicU32, Ordering};
 use thiserror::Error;
-use tracing::trace;
 use wasmer::{
     imports, namespace, AsStoreMut, AsStoreRef, ExportError, Exports, Function, FunctionEnv,
     Global, Imports, Instance, Memory, Memory32, Memory64, MemoryAccessError, MemorySize,
     MemoryView, Module, Store, TypedFunction, Value,
 };
-use wasmer_wasi_types::wasi::{BusErrno, Errno, Snapshot0Clockid};
 
 pub use runtime::{
     PluggableRuntimeImplementation, SpawnedMemory, VirtualTaskManager, WasiRuntimeImplementation,
@@ -982,33 +982,6 @@ impl WasiFunctionEnv {
         Ok(())
     }
 
-    /// Initializes the WasiEnv using the instance exports
-    /// (this must be executed before attempting to use it)
-    /// (as the stores can not by themselves be passed between threads we can store the module
-    ///  in a thread-local variables and use it later - for multithreading)
-    pub fn initialize(
-        &mut self,
-        store: &mut impl AsStoreMut,
-        instance: &Instance,
-    ) -> Result<(), ExportError> {
-        // List all the exports and imports
-        for ns in instance.module().exports() {
-            //trace!("module::export - {} ({:?})", ns.name(), ns.ty());
-            trace!("module::export - {}", ns.name());
-        }
-        for ns in instance.module().imports() {
-            trace!("module::import - {}::{}", ns.module(), ns.name());
-        }
-
-        // First we get the malloc function which if it exists will be used to
-        // create the pthread_self structure
-        let memory = instance.exports.get_memory("memory")?.clone();
-        let env = self.data_mut(store);
-        env.set_memory(memory);
-
-        Ok(())
-    }
-
     /// Like `import_object` but containing all the WASI versions detected in
     /// the module.
     pub fn import_object_for_all_wasi_versions(
@@ -1523,7 +1496,6 @@ fn generate_import_object_snapshot1(
 }
 
 /// Combines a state generating function with the import list for snapshot 1
-#[cfg(feature = "wasix")]
 fn generate_import_object_wasix32_v1(
     store: &mut impl AsStoreMut,
     env: &FunctionEnv<WasiEnv>,
@@ -1534,7 +1506,6 @@ fn generate_import_object_wasix32_v1(
     }
 }
 
-#[cfg(feature = "wasix")]
 fn generate_import_object_wasix64_v1(
     store: &mut impl AsStoreMut,
     env: &FunctionEnv<WasiEnv>,
@@ -1545,20 +1516,20 @@ fn generate_import_object_wasix64_v1(
     }
 }
 
-fn mem_error_to_wasi(err: MemoryAccessError) -> Errno {
+fn mem_error_to_wasi(err: MemoryAccessError) -> types::__wasi_errno_t {
     match err {
-        MemoryAccessError::HeapOutOfBounds => Errno::Fault,
-        MemoryAccessError::Overflow => Errno::Overflow,
-        MemoryAccessError::NonUtf8String => Errno::Inval,
-        _ => Errno::Inval,
+        MemoryAccessError::HeapOutOfBounds => types::__WASI_EFAULT,
+        MemoryAccessError::Overflow => types::__WASI_EOVERFLOW,
+        MemoryAccessError::NonUtf8String => types::__WASI_EINVAL,
+        _ => types::__WASI_EINVAL,
     }
 }
 
-fn mem_error_to_bus(err: MemoryAccessError) -> BusErrno {
+fn mem_error_to_bus(err: MemoryAccessError) -> types::__bus_errno_t {
     match err {
-        MemoryAccessError::HeapOutOfBounds => BusErrno::Memviolation,
-        MemoryAccessError::Overflow => BusErrno::Memviolation,
-        MemoryAccessError::NonUtf8String => BusErrno::Badrequest,
-        _ => BusErrno::Unknown,
+        MemoryAccessError::HeapOutOfBounds => types::__BUS_EMEMVIOLATION,
+        MemoryAccessError::Overflow => types::__BUS_EMEMVIOLATION,
+        MemoryAccessError::NonUtf8String => types::__BUS_EBADREQUEST,
+        _ => types::__BUS_EUNKNOWN,
     }
 }

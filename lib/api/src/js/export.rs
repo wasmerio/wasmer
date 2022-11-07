@@ -10,11 +10,9 @@ use std::fmt;
 use tracing::trace;
 use wasm_bindgen::{JsCast, JsValue};
 use wasmer_types::{
-    ExternType, FunctionType, GlobalType, MemoryType, Pages, StoreSnapshot, TableType,
+    ExternType, FunctionType, GlobalType, MemoryError, MemoryType, Pages, StoreSnapshot, TableType,
     WASM_PAGE_SIZE,
 };
-
-pub use wasmer_types::MemoryError;
 
 /// Represents linear memory that is managed by the javascript runtime
 #[derive(Clone, Debug, PartialEq)]
@@ -36,6 +34,18 @@ impl VMMemory {
     /// Creates a new memory directly from a WebAssembly javascript object
     pub fn new(memory: Memory, ty: MemoryType) -> Self {
         Self { memory, ty }
+    }
+
+    /// Returns the size of the memory buffer in pages
+    pub fn get_runtime_size(&self) -> u32 {
+        let dummy: DummyBuffer = match serde_wasm_bindgen::from_value(self.memory.buffer()) {
+            Ok(o) => o,
+            Err(_) => return 0,
+        };
+        if dummy.byte_length == 0 {
+            return 0;
+        }
+        dummy.byte_length / WASM_PAGE_SIZE as u32
     }
 
     /// Attempts to clone this memory (if its clonable)

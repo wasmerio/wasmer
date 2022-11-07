@@ -2,13 +2,18 @@ use crate::syscalls::types::*;
 use crate::syscalls::{read_bytes, write_bytes};
 use bytes::{Buf, Bytes};
 use std::convert::TryInto;
+use std::io::{self, Read, Seek, SeekFrom, Write};
 use std::io::{Read, Seek, Write};
 use std::ops::DerefMut;
+use std::sync::mpsc;
+use std::sync::Arc;
 use std::sync::mpsc::{self, TryRecvError};
 use std::sync::Mutex;
 use std::time::Duration;
 use wasmer::WasmSlice;
 use wasmer::{MemorySize, MemoryView};
+use wasmer_vfs::{FsError, VirtualFile};
+use wasmer_wasi_types::wasi::Errno;
 use wasmer_vfs::VirtualFile;
 
 #[derive(Debug)]
@@ -19,6 +24,8 @@ pub struct WasiPipe {
     rx: Mutex<mpsc::Receiver<Vec<u8>>>,
     /// Buffers the last read message from the pipe while its being consumed
     read_buffer: Mutex<Option<Bytes>>,
+    /// Whether the pipe should block or not block to wait for stdin reads
+    block: bool,
 }
 
 /// Pipe pair of (a, b) WasiPipes that are connected together
@@ -88,12 +95,14 @@ impl WasiBidirectionalPipePair {
             tx: Mutex::new(tx1),
             rx: Mutex::new(rx2),
             read_buffer: Mutex::new(None),
+            block: true,
         };
 
         let pipe2 = WasiPipe {
             tx: Mutex::new(tx2),
             rx: Mutex::new(rx1),
             read_buffer: Mutex::new(None),
+            block: true,
         };
 
         WasiBidirectionalPipePair {
@@ -229,7 +238,7 @@ impl WasiPipe {
         memory: &MemoryView,
         iov: WasmSlice<__wasi_iovec_t<M>>,
         timeout: Duration,
-    ) -> Result<usize, __wasi_errno_t> {
+    ) -> Result<usize, Errno> {
         let mut elapsed = Duration::ZERO;
         let mut tick_wait = 0u64;
         loop {
@@ -250,7 +259,7 @@ impl WasiPipe {
                 Ok(a) => a,
                 Err(TryRecvError::Empty) => {
                     if elapsed > timeout {
-                        return Err(__WASI_ETIMEDOUT);
+                        return Err(Errno::Timedout);
                     }
                     // Linearly increasing wait time
                     tick_wait += 1;
@@ -266,6 +275,7 @@ impl WasiPipe {
             };
             drop(rx);
 
+            // FIXME: this looks like a race condition!
             let mut read_buffer = self.read_buffer.lock().unwrap();
             read_buffer.replace(Bytes::from(data));
         }
@@ -329,11 +339,16 @@ impl Seek for WasiPipe {
 impl Read for WasiPipe {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         loop {
-            {
-                let mut read_buffer = self.read_buffer.lock().unwrap();
-                if let Some(inner_buf) = read_buffer.as_mut() {
-                    let buf_len = inner_buf.len();
-                    if buf_len > 0 {
+            let mut read_buffer = self.read_buffer.lock().unwrap();
+            if let Some(inner_buf) = read_buffer.as_mut() {
+                let buf_len = inner_buf.len();
+                if buf_len > 0 {
+                    if inner_buf.len() > buf.len() {
+                        let mut reader = inner_buf.as_ref();
+                        let read = reader.read_exact(buf).map(|_| buf.len())?;
+                        inner_buf.advance(read);
+                        return Ok(read);
+                    } else {
                         let mut reader = inner_buf.as_ref();
                         let read = reader.read(buf).map(|_| buf_len as usize)?;
                         inner_buf.advance(read);
@@ -342,19 +357,49 @@ impl Read for WasiPipe {
                 }
             }
             let rx = self.rx.lock().unwrap();
-            if let Ok(data) = rx.recv() {
-                drop(rx);
+
+            // We need to figure out whether we need to block here.
+            // The problem is that in cases of multiple buffered reads like:
+            //
+            // println!("abc");
+            // println!("def");
+            //
+            // get_stdout() // would only return "abc\n" instead of "abc\ndef\n"
+
+            let data = match rx.try_recv() {
+                Ok(mut s) => {
+                    s.append(&mut rx.try_iter().flat_map(|f| f.into_iter()).collect());
+                    s
+                }
+                Err(_) => {
+                    if !self.block {
+                        // If self.block is explicitly set to false, never block
+                        Vec::new()
+                    } else {
+                        // could not immediately receive bytes, so we need to block
+                        match rx.recv() {
+                            Ok(o) => o,
+                            // Errors can happen if the sender has been dropped already
+                            // In this case, just return 0 to indicate that we can't read any
+                            // bytes anymore
+                            Err(_) => {
+                                return Ok(0);
+                            }
+                        }
+                    }
+                }
+            };
 
                 let mut read_buffer = self.read_buffer.lock().unwrap();
+                if data.is_empty() && read_buffer.lock().unwrap().as_ref().map(|s| s.len()).unwrap_or(0) == 0 {
+                    return Ok(0);
+                }
                 read_buffer.replace(Bytes::from(data));
-            } else {
-                return Ok(0);
-            }
         }
     }
 }
 
-impl Write for WasiPipe {
+impl std::io::Write for WasiPipe {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         let tx = self.tx.lock().unwrap();
         tx.send(buf.to_vec())
@@ -367,9 +412,35 @@ impl Write for WasiPipe {
     }
 }
 
-impl Seek for WasiPipe {
-    fn seek(&mut self, _pos: std::io::SeekFrom) -> std::io::Result<u64> {
-        Ok(0)
+impl VirtualFile for WasiPipe {
+    fn last_accessed(&self) -> u64 {
+        0
+    }
+    fn last_modified(&self) -> u64 {
+        0
+    }
+    fn created_time(&self) -> u64 {
+        0
+    }
+    fn size(&self) -> u64 {
+        self.read_buffer
+            .as_ref()
+            .map(|s| s.len() as u64)
+            .unwrap_or_default()
+    }
+    fn set_len(&mut self, _: u64) -> Result<(), FsError> {
+        Ok(())
+    }
+    fn unlink(&mut self) -> Result<(), FsError> {
+        Ok(())
+    }
+    fn bytes_available_read(&self) -> Result<Option<usize>, FsError> {
+        Ok(Some(
+            self.read_buffer
+                .as_ref()
+                .map(|s| s.len())
+                .unwrap_or_default(),
+        ))
     }
 }
 
@@ -396,31 +467,31 @@ impl VirtualFile for WasiPipe {
 
     /// Change the size of the file, if the `new_size` is greater than the current size
     /// the extra bytes will be allocated and zeroed
-    fn set_len(&mut self, _new_size: u64) -> wasmer_vfs::Result<()> {
+    fn set_len(&mut self, _new_size: u64) -> Result<(), FsError> {
         Ok(())
     }
 
     /// Request deletion of the file
-    fn unlink(&mut self) -> wasmer_vfs::Result<()> {
+    fn unlink(&mut self) -> Result<(), FsError> {
         Ok(())
     }
 
     /// Store file contents and metadata to disk
     /// Default implementation returns `Ok(())`.  You should implement this method if you care
     /// about flushing your cache to permanent storage
-    fn sync_to_disk(&self) -> wasmer_vfs::Result<()> {
+    fn sync_to_disk(&self) -> Result<(), FsError> {
         Ok(())
     }
 
     /// Returns the number of bytes available.  This function must not block
-    fn bytes_available(&self) -> wasmer_vfs::Result<usize> {
+    fn bytes_available(&self) -> Result<usize, FsError> {
         Ok(self.bytes_available_read()?.unwrap_or(0usize)
             + self.bytes_available_write()?.unwrap_or(0usize))
     }
 
     /// Returns the number of bytes available.  This function must not block
     /// Defaults to `None` which means the number of bytes is unknown
-    fn bytes_available_read(&self) -> wasmer_vfs::Result<Option<usize>> {
+    fn bytes_available_read(&self) -> Result<Option<usize>, FsError> {
         loop {
             {
                 let read_buffer = self.read_buffer.lock().unwrap();
@@ -432,6 +503,7 @@ impl VirtualFile for WasiPipe {
                 }
             }
             let rx = self.rx.lock().unwrap();
+            // FIXME: why is a bytes available check consuming data? - this shouldn't be necessary
             if let Ok(data) = rx.try_recv() {
                 drop(rx);
 
@@ -445,7 +517,7 @@ impl VirtualFile for WasiPipe {
 
     /// Returns the number of bytes available.  This function must not block
     /// Defaults to `None` which means the number of bytes is unknown
-    fn bytes_available_write(&self) -> wasmer_vfs::Result<Option<usize>> {
+    fn bytes_available_write(&self) -> Result<Option<usize>, FsError> {
         Ok(None)
     }
 

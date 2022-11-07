@@ -86,11 +86,6 @@ impl Memory {
     /// let m = Memory::new(&store, MemoryType::new(1, None, false)).unwrap();
     /// ```
     pub fn new(store: &mut impl AsStoreMut, ty: MemoryType) -> Result<Self, MemoryError> {
-        let vm_memory = VMMemory::new(Self::new_internal(ty.clone())?, ty);
-        Ok(Self::from_vm_export(store, vm_memory))
-    }
-
-    pub(crate) fn new_internal(ty: MemoryType) -> Result<js_sys::WebAssembly::Memory, MemoryError> {
         let descriptor = js_sys::Object::new();
         js_sys::Reflect::set(&descriptor, &"initial".into(), &ty.minimum.0.into()).unwrap();
         if let Some(max) = ty.maximum {
@@ -103,6 +98,11 @@ impl Memory {
 
         Ok(js_memory)
     }
+    // FIXME: resolve!
+    // pub fn new(store: &mut impl AsStoreMut, ty: MemoryType) -> Result<Self, MemoryError> {
+    //     let vm_memory = VMMemory::new(Self::new_internal(ty.clone())?, ty);
+    //     Ok(Self::from_vm_export(store, vm_memory))
+    // }
 
     /// Creates a new host `Memory` from provided JavaScript memory.
     pub fn new_raw(
@@ -111,12 +111,19 @@ impl Memory {
         ty: MemoryType,
     ) -> Result<Self, MemoryError> {
         let vm_memory = VMMemory::new(js_memory, ty);
-        Ok(Self::from_vm_export(store, vm_memory))
+        let handle = StoreHandle::new(store.objects_mut(), vm_memory);
+        Ok(Self::from_vm_extern(store, handle.internal_handle()))
     }
 
     /// Create a memory object from an existing memory and attaches it to the store
     pub fn new_from_existing(new_store: &mut impl AsStoreMut, memory: VMMemory) -> Self {
-        Self::from_vm_export(new_store, memory)
+        let handle = StoreHandle::new(new_store.objects_mut(), memory);
+        Self::from_vm_extern(new_store, handle.internal_handle())
+    }
+
+    /// To `VMExtern`.
+    pub(crate) fn to_vm_extern(&self) -> VMExtern {
+        VMExtern::Memory(self.handle.internal_handle())
     }
 
     /// Returns the [`MemoryType`] of the `Memory`.
@@ -248,15 +255,15 @@ impl Memory {
         mem.try_clone()
     }
 
+    /// Checks whether this `Global` can be used with the given context.
+    pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
+        self.handle.store_id() == store.as_store_ref().objects().id()
+    }
+
     /// Copies this memory to a new memory
     pub fn fork(&mut self, store: &impl AsStoreRef) -> Result<VMMemory, MemoryError> {
         let mem = self.handle.get(store.as_store_ref().objects());
         mem.fork()
-    }
-
-    /// Checks whether this `Global` can be used with the given context.
-    pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
-        self.handle.store_id() == store.as_store_ref().objects().id()
     }
 }
 

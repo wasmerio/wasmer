@@ -63,11 +63,11 @@ impl Instance {
         module: &Module,
         imports: &Imports,
     ) -> Result<Self, InstantiationError> {
-        let (instance, externs): (StoreHandle<WebAssembly::Instance>, Vec<Extern>) = module
+        let instance: WebAssembly::Instance = module
             .instantiate(&mut store, imports)
             .map_err(|e| InstantiationError::Start(e))?;
 
-        let self_instance = Self::from_module_and_instance(store, module, externs, instance)?;
+        let self_instance = Self::from_module_and_instance(store, module, instance)?;
         //self_instance.init_envs(&imports.iter().map(Extern::to_export).collect::<Vec<_>>())?;
         Ok(self_instance)
     }
@@ -106,10 +106,10 @@ impl Instance {
     pub fn from_module_and_instance(
         mut store: &mut impl AsStoreMut,
         module: &Module,
-        externs: Vec<Extern>,
-        instance: StoreHandle<WebAssembly::Instance>,
+        instance: WebAssembly::Instance,
     ) -> Result<Self, InstantiationError> {
-        let instance_exports = instance.get(store.as_store_ref().objects()).exports();
+        use crate::js::externals::VMExtern;
+        let instance_exports = instance.exports();
         let mut exports = module
             .exports()
             .map(|export_type| {
@@ -123,6 +123,7 @@ impl Instance {
                 Ok((name.to_string(), extern_))
             })
             .collect::<Result<Exports, InstantiationError>>()?;
+        let handle = StoreHandle::new(store.as_store_mut().objects_mut(), instance);
 
         // If the memory is imported then also export it for backwards compatibility reasons
         // (many will assume the memory is always exported) - later we can remove this
