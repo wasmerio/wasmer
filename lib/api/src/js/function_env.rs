@@ -2,7 +2,12 @@ use std::{any::Any, marker::PhantomData};
 
 use crate::js::{StoreHandle, StoreObjects};
 
-use crate::js::{AsStoreMut, AsStoreRef, StoreMut, StoreRef};
+use crate::js::{AsStoreMut, AsStoreRef, Instance, InstanceRef, StoreMut, StoreRef};
+
+struct FunctionEnvInner<T> {
+    pub inner: T,
+    pub instance: Option<InstanceRef>,
+}
 
 #[derive(Debug)]
 #[repr(transparent)]
@@ -22,7 +27,10 @@ impl<T> FunctionEnv<T> {
         Self {
             handle: StoreHandle::new(
                 store.as_store_mut().objects_mut(),
-                VMFunctionEnvironment::new(value),
+                VMFunctionEnvironment::new(FunctionEnvInner {
+                    inner: value,
+                    instance: None,
+                }),
             ),
             marker: PhantomData,
         }
@@ -40,11 +48,12 @@ impl<T> FunctionEnv<T> {
     where
         T: Any + Send + 'static + Sized,
     {
-        self.handle
+        &self.handle
             .get(store.as_store_ref().objects())
             .as_ref()
-            .downcast_ref::<T>()
+            .downcast_ref::<FunctionEnvInner<T>>()
             .unwrap()
+            .inner
     }
 
     /// Get the data as mutable
@@ -52,11 +61,12 @@ impl<T> FunctionEnv<T> {
     where
         T: Any + Send + 'static + Sized,
     {
-        self.handle
+        &mut self.handle
             .get_mut(store.objects_mut())
             .as_mut()
-            .downcast_mut::<T>()
+            .downcast_mut::<FunctionEnvInner<T>>()
             .unwrap()
+            .inner
     }
 
     /// Convert it into a `FunctionEnvMut`
@@ -68,6 +78,44 @@ impl<T> FunctionEnv<T> {
             store_mut: store.as_store_mut(),
             func_env: self,
         }
+    }
+    /// Attach an instance to an FunctionEnv for a Store
+    pub fn attach_instance<'a>(&mut self, store: &'a mut impl AsStoreMut, instance: &Instance)
+    where
+        T: Any + Send + 'static + Sized,
+    {
+        self.handle
+            .get_mut(store.objects_mut())
+            .as_mut()
+            .downcast_mut::<FunctionEnvInner<T>>()
+            .unwrap()
+            .instance = Some(unsafe { InstanceRef::from_instance(instance) });
+    }
+    /// Detach any instance to an FunctionEnv for a Store
+    pub fn detach_instance<'a>(&mut self, store: &'a mut impl AsStoreMut)
+    where
+        T: Any + Send + 'static + Sized,
+    {
+        self.handle
+            .get_mut(store.objects_mut())
+            .as_mut()
+            .downcast_mut::<FunctionEnvInner<T>>()
+            .unwrap()
+            .instance = None;
+    }
+    /// Get the Instance attached to an FunctionEnv for a Store
+    pub fn get_instance<'a>(&self, store: &'a impl AsStoreRef) -> Option<&'a Instance>
+    where
+        T: Any + Send + 'static + Sized,
+    {
+        self.handle
+            .get(store.as_store_ref().objects())
+            .as_ref()
+            .downcast_ref::<FunctionEnvInner<T>>()
+            .unwrap()
+            .instance
+            .as_ref()
+            .map(|i| i.instance())
     }
 }
 
@@ -123,6 +171,19 @@ impl<T: Send + 'static> FunctionEnvMut<'_, T> {
             store_mut: self.store_mut.as_store_mut(),
             func_env: self.func_env.clone(),
         }
+    }
+
+    /// Get the Instance attached to an FunctionEnvMut
+    pub fn get_instance(&self) -> Option<&Instance> {
+        self.func_env
+            .handle
+            .get(self.store_mut.as_store_ref().objects())
+            .as_ref()
+            .downcast_ref::<FunctionEnvInner<T>>()
+            .unwrap()
+            .instance
+            .as_ref()
+            .map(|i| i.instance())
     }
 }
 

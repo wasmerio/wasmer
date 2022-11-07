@@ -52,7 +52,7 @@ pub use crate::js::externals::{
 };
 pub use crate::js::function_env::{FunctionEnv, FunctionEnvMut};
 pub use crate::js::imports::Imports;
-pub use crate::js::instance::Instance;
+pub use crate::js::instance::{Instance, InstanceRef};
 pub use crate::js::mem_access::{MemoryAccessError, WasmRef, WasmSlice, WasmSliceIter};
 pub use crate::js::module::{Module, ModuleTypeHints};
 pub use crate::js::native::TypedFunction;

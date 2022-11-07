@@ -47,6 +47,8 @@ One of the main changes in 3.0.0 is that `Store` now owns all WebAssembly object
 
 If you define your own function, when the function is called it will hence need a reference to the store in order to access WebAssembly objects. This is achieved by the `StoreRef<'_>` and `StoreMut<'_>` types, which borrow from the store and provide access to its data. Furthermore, to prevent borrowing issues you can create new `StoreRef` and `StoreMut`s whenever you need to pass one at another function. This is done with the `AsStoreRef`, `AsStoreMut` traits.
 
+You can attach an instance to a FunctionEnv. After it's created, simply use `env.attach_instance(&mut store, &instance)`. Only one instance can be attached. Use `detach_instance(&mut store)` to detach any instance attached. To get the attached instance, use `env.get_instance(&store)`, or, for a `FunctionEnvMut`, simply `env.get_instance()`. This allows the use of instance from a function Callback.
+
 See the [examples] to find out how to do specific things in Wasmer 3.0.0.
 
 ## Project Structure

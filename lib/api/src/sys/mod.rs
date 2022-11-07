@@ -21,7 +21,7 @@ pub use crate::sys::externals::{
 };
 pub use crate::sys::function_env::{FunctionEnv, FunctionEnvMut};
 pub use crate::sys::imports::Imports;
-pub use crate::sys::instance::{Instance, InstantiationError};
+pub use crate::sys::instance::{Instance, InstanceRef, InstantiationError};
 pub use crate::sys::mem_access::{MemoryAccessError, WasmRef, WasmSlice, WasmSliceIter};
 pub use crate::sys::module::Module;
 pub use crate::sys::native::TypedFunction;

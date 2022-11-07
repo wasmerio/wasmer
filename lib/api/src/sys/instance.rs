@@ -188,3 +188,48 @@ impl fmt::Debug for Instance {
             .finish()
     }
 }
+
+/// A handle holding an `Instance`, to be used inside Callback for example
+#[derive(Hash, PartialEq, Eq)]
+pub struct InstanceRef {
+    instance: *mut Instance,
+}
+
+unsafe impl Send for InstanceRef {}
+unsafe impl Sync for InstanceRef {}
+
+impl InstanceRef {
+    /// Create a new `InstanceHandle` pointing at the instance
+    #[allow(dead_code)]
+    pub(crate) unsafe fn from_instance(instance: &Instance) -> Self {
+        Self {
+            instance: instance as *const Instance as *mut Instance,
+        }
+    }
+    /// Return a reference to the contained `Instance`.
+    #[allow(dead_code)]
+    pub(crate) fn instance(&self) -> &Instance {
+        unsafe { &*(self.instance as *const Instance) }
+    }
+    /// Return a reference to the contained `Instance`.
+    #[allow(dead_code)]
+    pub(crate) fn instance_mut(&mut self) -> &mut Instance {
+        unsafe { &mut *self.instance }
+    }
+
+    /// Clone an InstanceRef.
+    #[allow(dead_code)]
+    pub(crate) unsafe fn clone(&self) -> Self {
+        Self {
+            instance: self.instance,
+        }
+    }
+}
+
+impl fmt::Debug for InstanceRef {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("InstanceRef")
+            .field("ref", &self.instance)
+            .finish()
+    }
+}
