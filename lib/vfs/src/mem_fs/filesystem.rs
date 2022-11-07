@@ -333,7 +333,7 @@ impl crate::FileSystem for FileSystem {
 
             let from = fs.canonicalize_without_inode(from)?;
             let to = fs.canonicalize_without_inode(to)?;
-    
+
             // Check the paths have parents.
             let parent_of_from = from.parent().ok_or(FsError::BaseNotDirectory)?;
             let parent_of_to = to.parent().ok_or(FsError::BaseNotDirectory)?;
@@ -385,10 +385,11 @@ impl crate::FileSystem for FileSystem {
             // If we rename to a path that already exists, we've updated the name of the
             // current inode, but we still have the old inode in there
             if inode_of_from_parent == inode_of_to_parent {
-
-                let target_already_exists = fs.as_parent_get_position_and_inode(inode_of_to_parent, &name_of_to).ok().and_then(|o| o);
+                let target_already_exists = fs
+                    .as_parent_get_position_and_inode(inode_of_to_parent, &name_of_to)
+                    .ok()
+                    .and_then(|o| o);
                 if let Some((position_of_to, inode_of_to)) = target_already_exists {
-
                     let inode_of_to = match inode_of_to {
                         InodeResolution::Found(a) => a,
                         InodeResolution::Redirect(..) => {

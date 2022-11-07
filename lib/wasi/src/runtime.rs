@@ -1,7 +1,7 @@
-use std::{fmt, io};
 use std::io::Write;
 use std::ops::Deref;
 use std::sync::atomic::{AtomicU32, Ordering};
+use std::{fmt, io};
 use thiserror::Error;
 use wasmer_vbus::{UnsupportedVirtualBus, VirtualBus};
 use wasmer_vnet::VirtualNetworking;
