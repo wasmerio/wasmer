@@ -53,13 +53,13 @@ fn run_with_toplevel_dir() {
     #[cfg(target_os = "wasi")]
     for item in fs::read_dir(&base).unwrap() {
         println!(
-            "1 Found item: {}",
+            "run_with_toplevel_dir: wasi: Found item: {}",
             item.unwrap().path().file_name().unwrap().to_str().unwrap()
         );
     }
     #[cfg(not(target_os = "wasi"))]
     {
-        println!("2 Found item: path_renamed_file.txt");
+        println!("run_with_toplevel_dir: not wasi: Found item: path_renamed_file.txt");
     }
 
     let mut out_str = String::new();
@@ -133,13 +133,13 @@ fn run_with_toplevel_dir_overwrite() {
     #[cfg(target_os = "wasi")]
     for item in fs::read_dir(&base).unwrap() {
         println!(
-            "3 Found item: {}",
+            "run_with_toplevel_dir_overwrite: wasi: Found item: {}",
             item.unwrap().path().file_name().unwrap().to_str().unwrap()
         );
     }
     #[cfg(not(target_os = "wasi"))]
     {
-        println!("4 Found item: path_renamed_file.txt");
+        println!("run_with_toplevel_dir_overwrite: not wasi: Found item: path_renamed_file.txt");
     }
 
     let mut out_str = String::new();

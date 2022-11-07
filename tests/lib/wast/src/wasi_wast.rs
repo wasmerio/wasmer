@@ -204,6 +204,9 @@ impl<'a> WasiTest<'a> {
                         Box::new(RootFileSystemBuilder::new().build())
                     }
                     WasiFileSystemKind::UnionHostMemory => {
+                        // .tmp_wasmer_wast_0 is handled by mem_fs, everything else by mem_fs
+                        // let a = host_fs::FileSystem::default();
+                        // let b = mem_fs::FileSystem::default();
                         Box::new(mem_fs::FileSystem::default()) // TODO
                                                                 // let a = host_fs::FileSystem::default();
                                                                 // let b = mem_fs::FileSystem::default();
