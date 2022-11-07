@@ -325,13 +325,15 @@ impl crate::FileSystem for FileSystem {
     }
 
     fn rename(&self, from: &Path, to: &Path) -> Result<()> {
-        let ((position_of_from, inode, inode_of_from_parent), (inode_of_to_parent, name_of_to)) = {
+        let name_of_to;
+
+        let ((position_of_from, inode, inode_of_from_parent), inode_of_to_parent) = {
             // Read lock.
             let fs = self.inner.read().map_err(|_| FsError::Lock)?;
 
             let from = fs.canonicalize_without_inode(from)?;
             let to = fs.canonicalize_without_inode(to)?;
-
+    
             // Check the paths have parents.
             let parent_of_from = from.parent().ok_or(FsError::BaseNotDirectory)?;
             let parent_of_to = to.parent().ok_or(FsError::BaseNotDirectory)?;
@@ -341,7 +343,7 @@ impl crate::FileSystem for FileSystem {
                 .file_name()
                 .ok_or(FsError::InvalidInput)?
                 .to_os_string();
-            let name_of_to = to.file_name().ok_or(FsError::InvalidInput)?.to_os_string();
+            name_of_to = to.file_name().ok_or(FsError::InvalidInput)?.to_os_string();
 
             // Find the parent inodes.
             let inode_of_from_parent = match fs.inode_of_parent(parent_of_from)? {
@@ -365,7 +367,7 @@ impl crate::FileSystem for FileSystem {
 
             (
                 (position_of_from, inode, inode_of_from_parent),
-                (inode_of_to_parent, name_of_to),
+                inode_of_to_parent,
             )
         };
 
@@ -380,8 +382,29 @@ impl crate::FileSystem for FileSystem {
             // Write lock.
             let mut fs = self.inner.write().map_err(|_| FsError::Lock)?;
 
+            // If we rename to a path that already exists, we've updated the name of the
+            // current inode, but we still have the old inode in there
+            if inode_of_from_parent == inode_of_to_parent {
+
+                let target_already_exists = fs.as_parent_get_position_and_inode(inode_of_to_parent, &name_of_to).ok().and_then(|o| o);
+                if let Some((position_of_to, inode_of_to)) = target_already_exists {
+
+                    let inode_of_to = match inode_of_to {
+                        InodeResolution::Found(a) => a,
+                        InodeResolution::Redirect(..) => {
+                            return Err(FsError::InvalidInput);
+                        }
+                    };
+
+                    // Remove the file from the storage.
+                    fs.storage.remove(inode_of_to);
+
+                    fs.remove_child_from_node(inode_of_to_parent, position_of_to)?;
+                }
+            }
+
             // Update the file name, and update the modified time.
-            fs.update_node_name(inode, name_of_to)?;
+            fs.update_node_name(inode, name_of_to.clone())?;
 
             // The parents are different. Let's update them.
             if inode_of_from_parent != inode_of_to_parent {
