@@ -87,7 +87,7 @@ impl<T> FunctionEnv<T> {
             .instance = Some(unsafe { InstanceRef::from_instance(instance) });
     }
     /// Detach any instance to an FunctionEnv for a Store
-    pub fn detach_instance<'a>(&mut self, store: &'a mut impl AsStoreMut)
+    pub fn detach_instance(&mut self, store: &mut impl AsStoreMut)
     where
         T: Any + Send + 'static + Sized,
     {
