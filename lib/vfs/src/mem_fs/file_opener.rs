@@ -269,7 +269,7 @@ impl FileOpener {
         let fs = self.filesystem.inner.read().map_err(|_| FsError::Lock)?;
 
         // Check the path has a parent.
-        let parent_of_path = path.parent().ok_or({ FsError::BaseNotDirectory })?;
+        let parent_of_path = path.parent().ok_or(FsError::BaseNotDirectory)?;
 
         // Check the file name.
         let name_of_file = path
