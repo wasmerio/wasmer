@@ -48,7 +48,8 @@ impl<T> FunctionEnv<T> {
     where
         T: Any + Send + 'static + Sized,
     {
-        &self.handle
+        &self
+            .handle
             .get(store.as_store_ref().objects())
             .as_ref()
             .downcast_ref::<FunctionEnvInner<T>>()
@@ -61,7 +62,8 @@ impl<T> FunctionEnv<T> {
     where
         T: Any + Send + 'static + Sized,
     {
-        &mut self.handle
+        &mut self
+            .handle
             .get_mut(store.objects_mut())
             .as_mut()
             .downcast_mut::<FunctionEnvInner<T>>()
