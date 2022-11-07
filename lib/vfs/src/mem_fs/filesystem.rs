@@ -405,7 +405,7 @@ impl crate::FileSystem for FileSystem {
             }
 
             // Update the file name, and update the modified time.
-            fs.update_node_name(inode, name_of_to.clone())?;
+            fs.update_node_name(inode, name_of_to)?;
 
             // The parents are different. Let's update them.
             if inode_of_from_parent != inode_of_to_parent {

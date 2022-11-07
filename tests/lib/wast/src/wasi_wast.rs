@@ -4,9 +4,7 @@ use std::io::{self, Read, Seek, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{mpsc, Arc, Mutex};
 use wasmer::{FunctionEnv, Imports, Instance, Module, Store};
-use wasmer_vfs::{
-    host_fs, mem_fs, passthru_fs, tmp_fs, union_fs, FileSystem, RootFileSystemBuilder,
-};
+use wasmer_vfs::{host_fs, mem_fs, passthru_fs, tmp_fs, FileSystem, RootFileSystemBuilder};
 use wasmer_wasi::types::wasi::{Filesize, Timestamp};
 use wasmer_wasi::{
     generate_import_object_from_env, get_wasi_version, FsError, VirtualFile,
@@ -219,7 +217,7 @@ impl<'a> WasiTest<'a> {
 
                 let root = PathBuf::from("/");
 
-                map_host_fs_to_mem_fs(&fs, read_dir(BASE_TEST_DIR)?, &root)?;
+                map_host_fs_to_mem_fs(&*fs, read_dir(BASE_TEST_DIR)?, &root)?;
 
                 for (alias, real_dir) in &self.mapped_dirs {
                     let mut path = root.clone();
@@ -676,7 +674,7 @@ impl VirtualFile for OutputCapturerer {
 /// because the host filesystem cannot be used. Instead, we are
 /// copying `BASE_TEST_DIR` to the `mem_fs`.
 fn map_host_fs_to_mem_fs(
-    fs: &Box<dyn FileSystem>,
+    fs: &dyn FileSystem,
     directory_reader: ReadDir,
     path_prefix: &Path,
 ) -> anyhow::Result<()> {
