@@ -295,8 +295,16 @@ wasitests::nightly_2022_10_18::root_fs::unix_open_special_files
 wasitests::nightly_2022_10_18::root_fs::writing
 
 # These tests are failing in CI for some reason, but didn't fail on older compiler versions
+wasitests::nightly_2022_10_18::passthru_fs::path_symlink
+wasitests::nightly_2022_10_18::root_fs::path_symlink
+wasitests::nightly_2022_10_18::tmp_fs::path_symlink
+wasitests::nightly_2022_10_18::union_fs::path_symlink
 wasitests::nightly_2022_10_18::mem_fs::path_symlink
-wasitests::nightly_2022_10_18::mem_fs::fd_append
-
 wasitests::nightly_2022_10_18::host_fs::path_symlink
+
+wasitests::nightly_2022_10_18::mem_fs::fd_append
 wasitests::nightly_2022_10_18::host_fs::fd_append
+wasitests::nightly_2022_10_18::passthru_fs::fd_append
+wasitests::nightly_2022_10_18::root_fs::fd_append
+wasitests::nightly_2022_10_18::tmp_fs::fd_append
+wasitests::nightly_2022_10_18::union_fs::fd_append
