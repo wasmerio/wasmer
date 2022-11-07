@@ -1237,3 +1237,36 @@ enum timeout {
     connect,
     accept,
 }
+
+// FIXME: move to wasix file and re-work naming?
+type longsize = u64;
+type thread-local-key = u32;
+type thread-local-value = u64;
+type small-hash = u64;
+type hash = tuple<u64, u64>;
+
+// FIXME: should be optional<T>?
+record option-hash {
+  tag: option-tag,
+  hash: hash,
+}
+
+record stack-snapshot {
+    user: u64,
+    hash: hash,
+}
+
+record bus-event {
+    tag: bus-event-type,
+    // [u8; 63] == 504 bytes == 
+    // FIXME: why is this padding here?
+    padding: tuple<u64, u64, u64, u64, u64, u64, u64, u32, u16, u8>,
+}
+
+// FIXME: what's going on here?
+record bus-event2 {
+    tag: bus-event-type,
+    event: bus-event,
+}
+
+// FIXME: port other stuff from deleted 

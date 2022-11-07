@@ -6,7 +6,10 @@ macro_rules! wasi_try {
     ($expr:expr) => {{
         let res: Result<_, crate::syscalls::types::wasi::Errno> = $expr;
         match res {
-            Ok(val) => val,
+            Ok(val) => {
+                tracing::trace!("wasi::wasi_try::val: {:?}", val);
+                val
+            }
             Err(err) => {
                 tracing::debug!("wasi::wasi_try::err: {:?}", err);
                 return err;
@@ -21,7 +24,10 @@ macro_rules! wasi_try_ok {
     ($expr:expr) => {{
         let res: Result<_, crate::syscalls::types::wasi::Errno> = $expr;
         match res {
-            Ok(val) => val,
+            Ok(val) => {
+                tracing::trace!("wasi::wasi_try_ok::val: {:?}", val);
+                val
+            }
             Err(err) => {
                 tracing::debug!("wasi::wasi_try_ok::err: {:?}", err);
                 return Ok(err);
@@ -32,7 +38,10 @@ macro_rules! wasi_try_ok {
     ($expr:expr, $thread:expr) => {{
         let res: Result<_, crate::syscalls::types::wasi::Errno> = $expr;
         match res {
-            Ok(val) => val,
+            Ok(val) => {
+                tracing::trace!("wasi::wasi_try_ok::val: {:?}", val);
+                val
+            }
             Err(err) => {
                 if err == crate::syscalls::types::wasi::Errno::Intr {
                     $thread.yield_now()?;
@@ -50,7 +59,10 @@ macro_rules! wasi_try_bus {
     ($expr:expr) => {{
         let res: Result<_, crate::syscalls::types::wasi::BusErrno> = $expr;
         match res {
-            Ok(val) => val,
+            Ok(val) => {
+                tracing::trace!("wasi::wasi_try_bus::val: {:?}", val);
+                val
+            }
             Err(err) => {
                 tracing::debug!("wasi::wasi_try_bus::err: {:?}", err);
                 return err;
@@ -63,7 +75,7 @@ macro_rules! wasi_try_bus {
 /// succeeded or returns the error value.
 macro_rules! wasi_try_bus_ok {
     ($expr:expr) => {{
-        let res: Result<_, crate::syscalls::types::__bus_errno_t> = $expr;
+        let res: Result<_, crate::syscalls::types::BusErrno> = $expr;
         match res {
             Ok(val) => {
                 //tracing::trace!("wasi::wasi_try_bus::val: {:?}", val);
@@ -77,7 +89,7 @@ macro_rules! wasi_try_bus_ok {
     }};
 }
 
-/// Like `wasi_try` but converts a `MemoryAccessError` to a __wasi_errno_t`.
+/// Like `wasi_try` but converts a `MemoryAccessError` to a `wasi::Errno`.
 macro_rules! wasi_try_mem {
     ($expr:expr) => {{
         wasi_try!($expr.map_err($crate::mem_error_to_wasi))
@@ -91,14 +103,7 @@ macro_rules! wasi_try_mem_bus {
     }};
 }
 
-/// Like `wasi_try` but converts a `MemoryAccessError` to a __bus_errno_t`.
-macro_rules! wasi_try_mem_bus_ok {
-    ($expr:expr) => {{
-        wasi_try_bus_ok!($expr.map_err($crate::mem_error_to_bus))
-    }};
-}
-
-/// Like `wasi_try` but converts a `MemoryAccessError` to a __wasi_errno_t`.
+/// Like `wasi_try` but converts a `MemoryAccessError` to a `wasi::Errno`.
 macro_rules! wasi_try_mem_ok {
     ($expr:expr) => {{
         wasi_try_ok!($expr.map_err($crate::mem_error_to_wasi))

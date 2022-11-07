@@ -3,6 +3,7 @@ use crate::js::error::WasmError;
 use crate::js::error::{CompileError, InstantiationError};
 #[cfg(feature = "js-serializable-module")]
 use crate::js::error::{DeserializeError, SerializeError};
+use crate::js::externals::Extern;
 use crate::js::imports::Imports;
 use crate::js::store::AsStoreMut;
 use crate::js::types::{AsJs, ExportType, ImportType};
@@ -108,28 +109,6 @@ pub struct Module {
     type_hints: Option<ModuleTypeHints>,
     #[cfg(feature = "js-serializable-module")]
     raw_bytes: Option<Bytes>,
-}
-
-pub trait IntoBytes {
-    fn into_bytes(self) -> Bytes;
-}
-
-impl IntoBytes for Bytes {
-    fn into_bytes(self) -> Bytes {
-        self
-    }
-}
-
-impl IntoBytes for Vec<u8> {
-    fn into_bytes(self) -> Bytes {
-        Bytes::from(self)
-    }
-}
-
-impl IntoBytes for &[u8] {
-    fn into_bytes(self) -> Bytes {
-        Bytes::from(self.to_vec())
-    }
 }
 
 impl Module {
@@ -286,7 +265,7 @@ impl Module {
             type_hints,
             name,
             #[cfg(feature = "js-serializable-module")]
-            raw_bytes: Some(binary),
+            raw_bytes: Some(binary.into_bytes()),
         })
     }
 
@@ -296,15 +275,15 @@ impl Module {
     /// This validation is normally pretty fast and checks the enabled
     /// WebAssembly features in the Store Engine to assure deterministic
     /// validation of the Module.
-    pub fn validate(_store: &impl AsStoreRef, binary: impl IntoBytes) -> Result<(), CompileError> {
-        let binary = binary.into_bytes();
-        let js_bytes = unsafe { Uint8Array::view(&binary[..]) };
+    pub fn validate(_store: &impl AsStoreRef, binary: &[u8]) -> Result<(), CompileError> {
+        let js_bytes = unsafe { Uint8Array::view(binary) };
         match WebAssembly::validate(&js_bytes.into()) {
             Ok(true) => Ok(()),
             _ => Err(CompileError::Validate("Invalid Wasm file".to_owned())),
         }
     }
 
+    // FIXME: resolve!
     pub(crate) fn instantiate(
         &self,
         store: &mut impl AsStoreMut,
@@ -319,69 +298,89 @@ impl Module {
                 InstantiationError::DifferentStores,
             )));
         }
-        let imports_object = js_sys::Object::new();
-        let mut import_externs: Vec<Extern> = vec![];
-        for import_type in self.imports() {
-            let resolved_import = imports.get_export(import_type.module(), import_type.name());
-            #[allow(unused_variables)]
-            if let wasmer_types::ExternType::Memory(mem_ty) = import_type.ty() {
-                if resolved_import.is_some() {
-                    #[cfg(feature = "tracing")]
-                    debug!("imported shared memory {:?}", &mem_ty);
-                } else {
-                    #[cfg(feature = "tracing")]
-                    warn!(
-                        "Error while importing {0:?}.{1:?}: memory. Expected {2:?}",
-                        import_type.module(),
-                        import_type.name(),
-                        import_type.ty(),
-                    );
-                }
-            }
-            if let Some(import) = resolved_import {
-                let val = js_sys::Reflect::get(&imports_object, &import_type.module().into())?;
-                if !val.is_undefined() {
-                    // If the namespace is already set
-                    js_sys::Reflect::set(
-                        &val,
-                        &import_type.name().into(),
-                        &import.as_jsvalue(&store.as_store_ref()),
-                    )?;
-                } else {
-                    // If the namespace doesn't exist
-                    let import_namespace = js_sys::Object::new();
-                    js_sys::Reflect::set(
-                        &import_namespace,
-                        &import_type.name().into(),
-                        &import.as_jsvalue(&store.as_store_ref()),
-                    )?;
-                    js_sys::Reflect::set(
-                        &imports_object,
-                        &import_type.module().into(),
-                        &import_namespace.into(),
-                    )?;
-                }
-                import_externs.push(import);
-            } else {
-                #[cfg(feature = "tracing")]
-                warn!(
-                    "import not found {}:{}",
-                    import_type.module(),
-                    import_type.name()
-                );
-            }
-            // in case the import is not found, the JS Wasm VM will handle
-            // the error for us, so we don't need to handle it
-        }
-        Ok((
-            StoreHandle::new(
-                store.as_store_mut().objects_mut(),
-                WebAssembly::Instance::new(&self.module, &imports_object)
-                    .map_err(|e: JsValue| -> RuntimeError { e.into() })?,
-            ),
-            import_externs,
-        ))
+
+        let imports_js_obj = imports.as_jsvalue(store).into();
+        Ok(WebAssembly::Instance::new(&self.module, &imports_js_obj)
+            .map_err(|e: JsValue| -> RuntimeError { e.into() })?)
     }
+
+    // pub(crate) fn instantiate(
+    //     &self,
+    //     store: &mut impl AsStoreMut,
+    //     imports: &Imports,
+    // ) -> Result<(StoreHandle<WebAssembly::Instance>, Vec<Extern>), RuntimeError> {
+    //     // Ensure all imports come from the same store.
+    //     if imports
+    //         .into_iter()
+    //         .any(|(_, import)| !import.is_from_store(store))
+    //     {
+    //         return Err(RuntimeError::user(Box::new(
+    //             InstantiationError::DifferentStores,
+    //         )));
+    //     }
+    //     let imports_object = js_sys::Object::new();
+    //     let mut import_externs: Vec<Extern> = vec![];
+    //     for import_type in self.imports() {
+    //         let resolved_import = imports.get_export(import_type.module(), import_type.name());
+    //         #[allow(unused_variables)]
+    //         if let wasmer_types::ExternType::Memory(mem_ty) = import_type.ty() {
+    //             if resolved_import.is_some() {
+    //                 #[cfg(feature = "tracing")]
+    //                 debug!("imported shared memory {:?}", &mem_ty);
+    //             } else {
+    //                 #[cfg(feature = "tracing")]
+    //                 warn!(
+    //                     "Error while importing {0:?}.{1:?}: memory. Expected {2:?}",
+    //                     import_type.module(),
+    //                     import_type.name(),
+    //                     import_type.ty(),
+    //                 );
+    //             }
+    //         }
+    //         if let Some(import) = resolved_import {
+    //             let val = js_sys::Reflect::get(&imports_object, &import_type.module().into())?;
+    //             if !val.is_undefined() {
+    //                 // If the namespace is already set
+    //                 js_sys::Reflect::set(
+    //                     &val,
+    //                     &import_type.name().into(),
+    //                     &import.as_jsvalue(&store.as_store_ref()),
+    //                 )?;
+    //             } else {
+    //                 // If the namespace doesn't exist
+    //                 let import_namespace = js_sys::Object::new();
+    //                 js_sys::Reflect::set(
+    //                     &import_namespace,
+    //                     &import_type.name().into(),
+    //                     &import.as_jsvalue(&store.as_store_ref()),
+    //                 )?;
+    //                 js_sys::Reflect::set(
+    //                     &imports_object,
+    //                     &import_type.module().into(),
+    //                     &import_namespace.into(),
+    //                 )?;
+    //             }
+    //             import_externs.push(import);
+    //         } else {
+    //             #[cfg(feature = "tracing")]
+    //             warn!(
+    //                 "import not found {}:{}",
+    //                 import_type.module(),
+    //                 import_type.name()
+    //             );
+    //         }
+    //         // in case the import is not found, the JS Wasm VM will handle
+    //         // the error for us, so we don't need to handle it
+    //     }
+    //     Ok((
+    //         StoreHandle::new(
+    //             store.as_store_mut().objects_mut(),
+    //             WebAssembly::Instance::new(&self.module, &imports_object)
+    //                 .map_err(|e: JsValue| -> RuntimeError { e.into() })?,
+    //         ),
+    //         import_externs,
+    //     ))
+    // }
 
     /// Returns the name of the current module.
     ///
@@ -691,6 +690,26 @@ impl Module {
     // pub fn custom_sections<'a>(&'a self, name: &'a str) -> impl Iterator<Item = Arc<[u8]>> + 'a {
     //     unimplemented!();
     // }
+    /// Get the custom sections of the module given a `name`.
+    ///
+    /// # Important
+    ///
+    /// Following the WebAssembly spec, one name can have multiple
+    /// custom sections. That's why an iterator (rather than one element)
+    /// is returned.
+    pub fn custom_sections<'a>(&'a self, name: &'a str) -> impl Iterator<Item = Box<[u8]>> + 'a {
+        // TODO: implement on JavaScript
+        DefaultCustomSectionsIterator {}
+    }
+}
+
+pub struct DefaultCustomSectionsIterator {}
+
+impl Iterator for DefaultCustomSectionsIterator {
+    type Item = Box<[u8]>;
+    fn next(&mut self) -> Option<Self::Item> {
+        None
+    }
 }
 
 impl fmt::Debug for Module {

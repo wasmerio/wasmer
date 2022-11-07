@@ -196,7 +196,7 @@ import_object.define("env", "host_function", host_function);
 let instance = Instance::new(&mut store, &module, &import_object).expect("Could not instantiate module.");
 ```
 
-For WASI, don't forget to initialize it
+For WASI, don't forget to initialize the `WasiEnv` (it will import the memory)
 
 ```rust
 let mut wasi_env = WasiState::new("hello").finalize()?;

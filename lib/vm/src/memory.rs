@@ -5,16 +5,14 @@
 //!
 //! `Memory` is to WebAssembly linear memories what `Table` is to WebAssembly tables.
 
-use crate::{mmap::Mmap, store::MaybeInstanceOwned};
+use crate::trap::Trap;
+use crate::{mmap::Mmap, store::MaybeInstanceOwned, vmcontext::VMMemoryDefinition};
 use more_asserts::assert_ge;
 use std::cell::UnsafeCell;
 use std::convert::TryInto;
 use std::ptr::NonNull;
-use std::sync::{Arc, RwLock};
-use wasmer_types::{
-    Bytes, LinearMemory, MemoryError, MemoryRole, MemoryStyle, MemoryType, Pages,
-    VMMemoryDefinition,
-};
+use std::slice;
+use wasmer_types::{Bytes, MemoryError, MemoryStyle, MemoryType, Pages, MemoryRole, LinearMemory,};
 
 // Represents a region of memory that plays a particular role
 #[derive(Debug, Clone)]
@@ -36,7 +34,7 @@ struct WasmMmap {
     size: Pages,
     // List of the regions that have been marked
     regions: Vec<VMMemoryRegion>,
-    // The owned memory definition used by the generated code
+    /// The owned memory definition used by the generated code
     vm_memory_definition: MaybeInstanceOwned<VMMemoryDefinition>,
 }
 
@@ -130,43 +128,6 @@ impl WasmMmap {
 
         Ok(prev_pages)
     }
-
-    /// Marks a region of the memory for a particular role
-    pub fn mark_region(&mut self, start: u64, end: u64, role: MemoryRole) {
-        self.regions.push(VMMemoryRegion { start, end, role });
-    }
-
-    /// Returns the role of a part of the memory
-    pub fn region(&self, pointer: u64) -> MemoryRole {
-        for region in self.regions.iter() {
-            if pointer >= region.start && pointer < region.end {
-                return region.role;
-            }
-        }
-        MemoryRole::default()
-    }
-
-    /// Copies the memory
-    /// (in this case it performs a copy-on-write to save memory)
-    pub fn fork(&mut self) -> Result<WasmMmap, MemoryError> {
-        let mem_length = self.size.bytes().0;
-        let mut alloc = self
-            .alloc
-            .fork(Some(mem_length))
-            .map_err(|err| MemoryError::Generic(err))?;
-        let base_ptr = alloc.as_mut_ptr();
-        Ok(Self {
-            vm_memory_definition: MaybeInstanceOwned::Host(Box::new(UnsafeCell::new(
-                VMMemoryDefinition {
-                    base: base_ptr,
-                    current_length: mem_length,
-                },
-            ))),
-            alloc,
-            size: self.size,
-            regions: self.regions.clone(),
-        })
-    }
 }
 
 /// A linear memory instance.
@@ -207,18 +168,6 @@ pub struct VMOwnedMemory {
 
 unsafe impl Send for VMOwnedMemory {}
 unsafe impl Sync for VMOwnedMemory {}
-
-/// A shared linear memory instance.
-#[derive(Debug, Clone)]
-pub struct VMSharedMemory {
-    /// The underlying allocation.
-    mmap: Arc<RwLock<WasmMmap>>,
-    /// Configuration of this memory
-    config: VMMemoryConfig,
-}
-
-unsafe impl Send for VMSharedMemory {}
-unsafe impl Sync for VMSharedMemory {}
 
 impl VMOwnedMemory {
     /// Create a new linear memory instance with specified minimum and maximum number of wasm pages.
@@ -313,12 +262,12 @@ impl VMOwnedMemory {
         };
 
         Ok(Self {
-            mmap: mmap,
+            mmap,
             config: VMMemoryConfig {
                 maximum: memory.maximum,
                 offset_guard_size: offset_guard_bytes,
                 memory: *memory,
-                style: style.clone(),
+                style: *style,
             },
         })
     }
@@ -388,11 +337,179 @@ impl LinearMemory for VMOwnedMemory {
     }
 }
 
-impl Into<VMMemory> for VMOwnedMemory {
-    fn into(self) -> VMMemory {
-        VMMemory(Box::new(self))
+impl From<VMOwnedMemory> for VMMemory {
+    fn from(mem: VMOwnedMemory) -> Self {
+        Self(Box::new(mem))
     }
 }
+
+/// Represents linear memory that can be either owned or shared
+#[derive(Debug)]
+pub struct VMMemory(pub Box<dyn LinearMemory + 'static>);
+
+impl From<Box<dyn LinearMemory + 'static>> for VMMemory {
+    fn from(mem: Box<dyn LinearMemory + 'static>) -> Self {
+        Self(mem)
+    }
+}
+
+impl LinearMemory for VMMemory {
+    /// Returns the type for this memory.
+    fn ty(&self) -> MemoryType {
+        self.0.ty()
+    }
+
+    /// Returns the size of hte memory in pages
+    fn size(&self) -> Pages {
+        self.0.size()
+    }
+
+    /// Grow memory by the specified amount of wasm pages.
+    ///
+    /// Returns `None` if memory can't be grown by the specified amount
+    /// of wasm pages.
+    fn grow(&mut self, delta: Pages) -> Result<Pages, MemoryError> {
+        self.0.grow(delta)
+    }
+
+    /// Returns the memory style for this memory.
+    fn style(&self) -> MemoryStyle {
+        self.0.style()
+    }
+
+    /// Return a `VMMemoryDefinition` for exposing the memory to compiled wasm code.
+    fn vmmemory(&self) -> NonNull<VMMemoryDefinition> {
+        self.0.vmmemory()
+    }
+
+    /// Attempts to clone this memory (if its clonable)
+    fn try_clone(&self) -> Option<Box<dyn LinearMemory + 'static>> {
+        self.0.try_clone()
+    }
+
+    /// Initialize memory with data
+    unsafe fn initialize_with_data(&self, start: usize, data: &[u8]) -> Result<(), Trap> {
+        self.0.initialize_with_data(start, data)
+    }
+}
+
+impl VMMemory {
+    /// Creates a new linear memory instance of the correct type with specified
+    /// minimum and maximum number of wasm pages.
+    ///
+    /// This creates a `Memory` with owned metadata: this can be used to create a memory
+    /// that will be imported into Wasm modules.
+    pub fn new(memory: &MemoryType, style: &MemoryStyle) -> Result<Self, MemoryError> {
+        Ok(Self(Box::new(VMOwnedMemory::new(memory, style)?)))
+    }
+
+    /// Returns the number of pages in the allocated memory block
+    pub fn get_runtime_size(&self) -> u32 {
+        self.0.size().0
+    }
+
+    /// Create a new linear memory instance with specified minimum and maximum number of wasm pages.
+    ///
+    /// This creates a `Memory` with metadata owned by a VM, pointed to by
+    /// `vm_memory_location`: this can be used to create a local memory.
+    ///
+    /// # Safety
+    /// - `vm_memory_location` must point to a valid location in VM memory.
+    pub unsafe fn from_definition(
+        memory: &MemoryType,
+        style: &MemoryStyle,
+        vm_memory_location: NonNull<VMMemoryDefinition>,
+    ) -> Result<Self, MemoryError> {
+        Ok(if memory.shared {
+            Self(Box::new(VMSharedMemory::from_definition(
+                memory,
+                style,
+                vm_memory_location,
+            )?))
+        } else {
+            Self(Box::new(VMOwnedMemory::from_definition(
+                memory,
+                style,
+                vm_memory_location,
+            )?))
+        })
+    }
+
+    /// Creates VMMemory from a custom implementation - the following into implementations
+    /// are natively supported
+    /// - VMOwnedMemory -> VMMemory
+    /// - Box<dyn LinearMemory + 'static> -> VMMemory
+    pub fn from_custom<IntoVMMemory>(memory: IntoVMMemory) -> Self
+    where
+        IntoVMMemory: Into<Self>,
+    {
+        memory.into()
+    }
+}
+
+#[doc(hidden)]
+/// Default implementation to initialize memory with data
+pub unsafe fn initialize_memory_with_data(
+    memory: &VMMemoryDefinition,
+    start: usize,
+    data: &[u8],
+) -> Result<(), Trap> {
+    let mem_slice = slice::from_raw_parts_mut(memory.base, memory.current_length);
+    let end = start + data.len();
+    let to_init = &mut mem_slice[start..end];
+    to_init.copy_from_slice(data);
+
+    Ok(())
+}
+
+/// Represents memory that is used by the WebAsssembly module
+pub trait LinearMemory
+where
+    Self: std::fmt::Debug + Send,
+{
+    /// Returns the type for this memory.
+    fn ty(&self) -> MemoryType;
+
+    /// Returns the size of hte memory in pages
+    fn size(&self) -> Pages;
+
+    /// Returns the memory style for this memory.
+    fn style(&self) -> MemoryStyle;
+
+    /// Grow memory by the specified amount of wasm pages.
+    ///
+    /// Returns `None` if memory can't be grown by the specified amount
+    /// of wasm pages.
+    fn grow(&mut self, delta: Pages) -> Result<Pages, MemoryError>;
+
+    /// Return a `VMMemoryDefinition` for exposing the memory to compiled wasm code.
+    fn vmmemory(&self) -> NonNull<VMMemoryDefinition>;
+
+    /// Attempts to clone this memory (if its clonable)
+    fn try_clone(&self) -> Option<Box<dyn LinearMemory + 'static>>;
+
+    #[doc(hidden)]
+    /// # Safety
+    /// This function is unsafe because WebAssembly specification requires that data is always set at initialization time.
+    /// It should be the implementors responsibility to make sure this respects the spec
+    unsafe fn initialize_with_data(&self, start: usize, data: &[u8]) -> Result<(), Trap> {
+        let memory = self.vmmemory().as_ref();
+
+        initialize_memory_with_data(memory, start, data)
+    }
+}
+
+/// A shared linear memory instance.
+#[derive(Debug, Clone)]
+pub struct VMSharedMemory {
+    /// The underlying allocation.
+    mmap: Arc<RwLock<WasmMmap>>,
+    /// Configuration of this memory
+    config: VMMemoryConfig,
+}
+
+unsafe impl Send for VMSharedMemory {}
+unsafe impl Sync for VMSharedMemory {}
 
 impl VMSharedMemory {
     /// Create a new linear memory instance with specified minimum and maximum number of wasm pages.
@@ -485,119 +602,5 @@ impl LinearMemory for VMSharedMemory {
 impl Into<VMMemory> for VMSharedMemory {
     fn into(self) -> VMMemory {
         VMMemory(Box::new(self))
-    }
-}
-
-/// Represents linear memory that can be either owned or shared
-#[derive(Debug)]
-pub struct VMMemory(pub Box<dyn LinearMemory + 'static>);
-
-impl Into<VMMemory> for Box<dyn LinearMemory + 'static> {
-    fn into(self) -> VMMemory {
-        VMMemory(self)
-    }
-}
-
-impl LinearMemory for VMMemory {
-    /// Returns the type for this memory.
-    fn ty(&self) -> MemoryType {
-        self.0.ty()
-    }
-
-    /// Returns the size of hte memory in pages
-    fn size(&self) -> Pages {
-        self.0.size()
-    }
-
-    /// Grow memory by the specified amount of wasm pages.
-    ///
-    /// Returns `None` if memory can't be grown by the specified amount
-    /// of wasm pages.
-    fn grow(&mut self, delta: Pages) -> Result<Pages, MemoryError> {
-        self.0.grow(delta)
-    }
-
-    /// Returns the memory style for this memory.
-    fn style(&self) -> MemoryStyle {
-        self.0.style()
-    }
-
-    /// Return a `VMMemoryDefinition` for exposing the memory to compiled wasm code.
-    fn vmmemory(&self) -> NonNull<VMMemoryDefinition> {
-        self.0.vmmemory()
-    }
-
-    /// Attempts to clone this memory (if its clonable)
-    fn try_clone(&self) -> Option<Box<dyn LinearMemory + 'static>> {
-        self.0.try_clone()
-    }
-
-    /// Copies this memory to a new memory
-    fn fork(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
-        self.0.fork()
-    }
-
-    /// Marks a region of the memory for a particular role
-    fn mark_region(&mut self, start: u64, end: u64, role: MemoryRole) {
-        self.0.mark_region(start, end, role)
-    }
-
-    /// Returns the role of a part of the memory
-    fn region(&self, pointer: u64) -> MemoryRole {
-        self.0.region(pointer)
-    }
-}
-
-impl VMMemory {
-    /// Creates a new linear memory instance of the correct type with specified
-    /// minimum and maximum number of wasm pages.
-    ///
-    /// This creates a `Memory` with owned metadata: this can be used to create a memory
-    /// that will be imported into Wasm modules.
-    pub fn new(memory: &MemoryType, style: &MemoryStyle) -> Result<VMMemory, MemoryError> {
-        Ok(if memory.shared {
-            Self(Box::new(VMSharedMemory::new(memory, style)?))
-        } else {
-            Self(Box::new(VMOwnedMemory::new(memory, style)?))
-        })
-    }
-
-    /// Create a new linear memory instance with specified minimum and maximum number of wasm pages.
-    ///
-    /// This creates a `Memory` with metadata owned by a VM, pointed to by
-    /// `vm_memory_location`: this can be used to create a local memory.
-    ///
-    /// # Safety
-    /// - `vm_memory_location` must point to a valid location in VM memory.
-    pub unsafe fn from_definition(
-        memory: &MemoryType,
-        style: &MemoryStyle,
-        vm_memory_location: NonNull<VMMemoryDefinition>,
-    ) -> Result<VMMemory, MemoryError> {
-        Ok(if memory.shared {
-            Self(Box::new(VMSharedMemory::from_definition(
-                memory,
-                style,
-                vm_memory_location,
-            )?))
-        } else {
-            Self(Box::new(VMOwnedMemory::from_definition(
-                memory,
-                style,
-                vm_memory_location,
-            )?))
-        })
-    }
-
-    /// Creates VMMemory from a custom implementation - the following into implementations
-    /// are natively supported
-    /// - VMOwnedMemory -> VMMemory
-    /// - VMSharedMemory -> VMMemory
-    /// - Box<dyn LinearMemory + 'static> -> VMMemory
-    pub fn from_custom<IntoVMMemory>(memory: IntoVMMemory) -> VMMemory
-    where
-        IntoVMMemory: Into<VMMemory>,
-    {
-        memory.into()
     }
 }

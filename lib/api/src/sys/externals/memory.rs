@@ -10,8 +10,8 @@ use std::mem::MaybeUninit;
 use std::slice;
 #[cfg(feature = "tracing")]
 use tracing::warn;
-use wasmer_types::{LinearMemory, Pages, WASM_PAGE_SIZE};
-use wasmer_vm::{InternalStoreHandle, MemoryError, StoreHandle, VMExtern, VMMemory};
+use wasmer_types::{Pages, WASM_PAGE_SIZE};
+use wasmer_vm::{InternalStoreHandle, LinearMemory, MemoryError, StoreHandle, VMExtern, VMMemory};
 
 use super::MemoryView;
 
@@ -62,9 +62,8 @@ impl Memory {
 
     /// Create a memory object from an existing memory and attaches it to the store
     pub fn new_from_existing(new_store: &mut impl AsStoreMut, memory: VMMemory) -> Self {
-        Self {
-            handle: StoreHandle::new(new_store.objects_mut(), memory),
-        }
+        let handle = StoreHandle::new(new_store.objects_mut(), memory);
+        Self::from_vm_extern(new_store, handle.internal_handle())
     }
 
     /// Returns the [`MemoryType`] of the `Memory`.
@@ -184,6 +183,7 @@ impl Memory {
         mem.try_clone().map(|mem| mem.into())
     }
 
+    /// To `VMExtern`.
     pub(crate) fn to_vm_extern(&self) -> VMExtern {
         VMExtern::Memory(self.handle.internal_handle())
     }

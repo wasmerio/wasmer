@@ -1,6 +1,6 @@
 use crate::syscalls;
-use crate::syscalls::types::{self, snapshot0};
-use crate::{mem_error_to_wasi, Memory32, MemorySize, WasiEnv, WasiError};
+use crate::syscalls::types;
+use crate::{mem_error_to_wasi, Memory32, MemorySize, WasiEnv, WasiError, WasiThread};
 use wasmer::{AsStoreMut, FunctionEnvMut, WasmPtr};
 use wasmer_wasi_types::wasi::{
     Errno, Event, Fd, Filesize, Filestat, Filetype, Snapshot0Filestat, Snapshot0Subscription,
@@ -32,7 +32,7 @@ pub fn fd_filestat_get(
 
     // Set up complete, make the call with the pointer that will write to the
     // struct and some unrelated memory after the struct.
-    let result = syscalls::fd_filestat_get_internal::<Memory32>(&mut ctx, fd, new_buf);
+    let result = syscalls::fd_filestat_get::<Memory32>(ctx.as_mut(), fd, new_buf);
 
     // reborrow memory
     let env = ctx.data();
@@ -145,31 +145,14 @@ pub fn poll_oneoff(
         let in_origs = wasi_try_mem_ok!(in_origs.read_to_vec());
 
         // get a pointer to the smaller new type
-        let in_new_type_ptr: WasmPtr<types::__wasi_subscription_t, Memory32> = in_.cast();
+        let in_new_type_ptr: WasmPtr<Subscription, Memory32> = in_.cast();
 
         for (in_sub_new, orig) in
             wasi_try_mem_ok!(in_new_type_ptr.slice(&memory, nsubscriptions_offset))
                 .iter()
                 .zip(in_origs.iter())
         {
-            wasi_try_mem_ok!(in_sub_new.write(types::__wasi_subscription_t {
-                userdata: orig.userdata,
-                type_: orig.type_,
-                u: if orig.type_ == types::__WASI_EVENTTYPE_CLOCK {
-                    types::__wasi_subscription_u {
-                        clock: types::__wasi_subscription_clock_t {
-                            clock_id: unsafe { orig.u.clock.clock_id },
-                            timeout: unsafe { orig.u.clock.timeout },
-                            precision: unsafe { orig.u.clock.precision },
-                            flags: unsafe { orig.u.clock.flags },
-                        },
-                    }
-                } else {
-                    types::__wasi_subscription_u {
-                        fd_readwrite: unsafe { orig.u.fd_readwrite },
-                    }
-                },
-            }));
+            wasi_try_mem_ok!(in_sub_new.write(Subscription::from(*orig)));
         }
         in_new_type_ptr
     };
