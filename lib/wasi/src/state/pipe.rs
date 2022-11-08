@@ -2,23 +2,19 @@ use crate::syscalls::types::*;
 use crate::syscalls::{read_bytes, write_bytes};
 use bytes::{Buf, Bytes};
 use futures::Future;
-use tokio::sync::mpsc::error::TryRecvError;
 use std::convert::TryInto;
 use std::io::{self, Read, Seek, SeekFrom, Write, ErrorKind};
-use std::io::{Read, Seek, Write};
 use std::ops::DerefMut;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::Poll;
-use tokio::sync::mpsc::{self, TryRecvError};
+use tokio::sync::mpsc::{self, TryRecvError, TryLockError};
 use std::time::Duration;
-use tokio::sync::{mpsc, TryLockError};
 use tokio::sync::Mutex;
 use wasmer::WasmSlice;
 use wasmer::{MemorySize, MemoryView};
 use wasmer_vfs::{FsError, VirtualFile};
 use wasmer_wasi_types::wasi::Errno;
-use wasmer_vfs::VirtualFile;
 
 #[derive(Debug)]
 pub struct WasiPipe {
