@@ -290,7 +290,11 @@ ifneq (, $(TARGET))
 endif
 
 ifneq (, $(TARGET_DIR))
-	target_dir := --target-dir "$(TARGET_DIR)"
+	target_dir := --target-dir $(TARGET_DIR)
+endif
+
+ifeq (release, $(notdir $(TARGET_DIR)))
+	target_dir := --target-dir $(TARGET_DIR)/..
 endif
 
 $(info -----------)
