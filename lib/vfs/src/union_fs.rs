@@ -249,10 +249,7 @@ impl FileSystem for UnionFileSystem {
             if !to.starts_with('/') {
                 to = format!("/{}", to);
             }
-            match mount
-                .fs
-                .rename(Path::new(from.as_ref()), Path::new(to.as_str()))
-            {
+            match mount.fs.rename(Path::new(&path), Path::new(to.as_str())) {
                 Ok(ret) => {
                     trace!("rename ok");
                     return Ok(ret);
@@ -395,6 +392,7 @@ impl FileOpener for UnionFileOpener {
         debug!("open: path={}", path.display());
         let mut ret_err = FsError::EntryNotFound;
         let path = path.to_string_lossy();
+
         if conf.create() || conf.create_new() {
             for (path, mount) in filter_mounts(&self.mounts, path.as_ref()) {
                 if let Ok(mut ret) = mount

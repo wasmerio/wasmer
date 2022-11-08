@@ -204,11 +204,22 @@ impl<'a> WasiTest<'a> {
                         Box::new(RootFileSystemBuilder::new().build())
                     }
                     WasiFileSystemKind::UnionHostMemory => {
-                        let a = host_fs::FileSystem::default();
+                        let a = mem_fs::FileSystem::default();
                         let b = mem_fs::FileSystem::default();
+                        let c = mem_fs::FileSystem::default();
+                        let d = mem_fs::FileSystem::default();
+                        let e = mem_fs::FileSystem::default();
+                        let f = mem_fs::FileSystem::default();
+
                         let mut union = union_fs::UnionFileSystem::new();
-                        union.mount("mem_fs", "/.tmp_wasmer_wast_0", false, Box::new(a), None);
-                        union.mount("host_fs", "/.tmp_wasmer_wast_1", false, Box::new(b), None);
+
+                        union.mount("mem_fs", "/test_fs", false, Box::new(a), None);
+                        union.mount("mem_fs_2", "/snapshot1", false, Box::new(b), None);
+                        union.mount("mem_fs_3", "/tests", false, Box::new(c), None);
+                        union.mount("mem_fs_4", "/nightly_2022_10_18", false, Box::new(d), None);
+                        union.mount("mem_fs_5", "/unstable", false, Box::new(e), None);
+                        union.mount("mem_fs_6", "/.tmp_wasmer_wast_0", false, Box::new(f), None);
+
                         Box::new(union)
                     }
                     _ => {
