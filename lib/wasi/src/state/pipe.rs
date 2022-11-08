@@ -384,12 +384,29 @@ impl VirtualFile for WasiPipe {
     fn unlink(&mut self) -> Result<(), FsError> {
         Ok(())
     }
-    fn bytes_available_read(&self) -> Result<Option<usize>, FsError> {
-        Ok(Some(
-            self.read_buffer
-                .as_ref()
-                .map(|s| s.len())
-                .unwrap_or_default(),
-        ))
+
+    /// Returns the number of bytes available.  This function must not block
+    /// Defaults to `None` which means the number of bytes is unknown
+    fn bytes_available_read(&self) -> wasmer_vfs::Result<Option<usize>> {
+        loop {
+            {
+                let read_buffer = self.read_buffer.lock().unwrap();
+                if let Some(inner_buf) = read_buffer.as_ref() {
+                    let buf_len = inner_buf.len();
+                    if buf_len > 0 {
+                        return Ok(Some(buf_len));
+                    }
+                }
+            }
+            let rx = self.rx.lock().unwrap();
+            if let Ok(data) = rx.try_recv() {
+                drop(rx);
+
+                let mut read_buffer = self.read_buffer.lock().unwrap();
+                read_buffer.replace(Bytes::from(data));
+            } else {
+                return Ok(Some(0));
+            }
+        }
     }
 }
