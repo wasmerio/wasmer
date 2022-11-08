@@ -47,16 +47,6 @@ impl<Args: WasmTypeList, Rets: WasmTypeList> Clone for TypedFunction<Args, Rets>
     }
 }
 
-impl<Args, Rets> From<TypedFunction<Args, Rets>> for Function
-where
-    Args: WasmTypeList,
-    Rets: WasmTypeList,
-{
-    fn from(other: TypedFunction<Args, Rets>) -> Self {
-        other.func
-    }
-}
-
 thread_local! {
     static ON_CALLED: Cell<Option<Box<dyn FnOnce(StoreMut<'_>) -> Result<OnCalledAction, Box<dyn std::error::Error + Send + Sync>>>>> = Cell::new(None);
 }
