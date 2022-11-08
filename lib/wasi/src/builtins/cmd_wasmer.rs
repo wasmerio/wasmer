@@ -1,7 +1,7 @@
 use std::{ops::Deref, sync::Arc};
 use wasmer::{FunctionEnvMut, Store};
 use wasmer_vbus::{BusSpawnedProcess, SpawnOptionsConfig};
-use wasmer_wasi_types::__WASI_ENOENT;
+use wasmer_wasi_types::Errno::Noent;
 
 use crate::{
     bin_factory::{spawn_exec, BinaryPackage, CachedCompiledModules},
@@ -74,7 +74,7 @@ impl CmdWasmer {
                     parent_ctx,
                     format!("package not found - {}\r\n", what).as_bytes(),
                 );
-                Ok(BusSpawnedProcess::exited_process(__WASI_ENOENT as u32))
+                Ok(BusSpawnedProcess::exited_process(Errno::Noent as u32))
             }
         } else {
             let _ = stderr_write(parent_ctx, HELP_RUN.as_bytes());

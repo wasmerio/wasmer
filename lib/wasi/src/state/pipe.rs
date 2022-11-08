@@ -1,15 +1,19 @@
 use crate::syscalls::types::*;
 use crate::syscalls::{read_bytes, write_bytes};
 use bytes::{Buf, Bytes};
+use futures::Future;
+use tokio::sync::mpsc::error::TryRecvError;
 use std::convert::TryInto;
-use std::io::{self, Read, Seek, SeekFrom, Write};
+use std::io::{self, Read, Seek, SeekFrom, Write, ErrorKind};
 use std::io::{Read, Seek, Write};
 use std::ops::DerefMut;
-use std::sync::mpsc;
+use std::pin::Pin;
 use std::sync::Arc;
-use std::sync::mpsc::{self, TryRecvError};
-use std::sync::Mutex;
+use std::task::Poll;
+use tokio::sync::mpsc::{self, TryRecvError};
 use std::time::Duration;
+use tokio::sync::{mpsc, TryLockError};
+use tokio::sync::Mutex;
 use wasmer::WasmSlice;
 use wasmer::{MemorySize, MemoryView};
 use wasmer_vfs::{FsError, VirtualFile};
@@ -19,11 +23,11 @@ use wasmer_vfs::VirtualFile;
 #[derive(Debug)]
 pub struct WasiPipe {
     /// Sends bytes down the pipe
-    tx: Mutex<mpsc::Sender<Vec<u8>>>,
+    tx: Mutex<mpsc::UnboundedSender<Vec<u8>>>,
     /// Receives bytes from the pipe
-    rx: Mutex<mpsc::Receiver<Vec<u8>>>,
+    rx: Mutex<mpsc::UnboundedReceiver<Vec<u8>>>,
     /// Buffers the last read message from the pipe while its being consumed
-    read_buffer: Mutex<Option<Bytes>>,
+    read_buffer: std::sync::Mutex<Option<Bytes>>,
     /// Whether the pipe should block or not block to wait for stdin reads
     block: bool,
 }
@@ -78,6 +82,30 @@ impl VirtualFile for WasiBidirectionalPipePair {
     fn bytes_available_read(&self) -> Result<Option<usize>, FsError> {
         self.recv.bytes_available_read()
     }
+    fn poll_read_ready(
+        &self,
+        cx: &mut std::task::Context<'_>,
+        register_root_waker: &Arc<dyn Fn(Waker) + Send + Sync + 'static>,
+    ) -> std::task::Poll<Result<usize>> {
+        self.recv.poll_read_ready(cx, register_root_waker)
+    }
+    fn poll_write_ready(
+        &self,
+        cx: &mut std::task::Context<'_>,
+        register_root_waker: &Arc<dyn Fn(Waker) + Send + Sync + 'static>,
+    ) -> std::task::Poll<Result<usize>> {
+        self.send.poll_write_ready(cx, register_root_waker)
+    }
+    fn read_async<'a>(&'a mut self, max_size: usize, register_root_waker: &'_ Arc<dyn Fn(Waker) + Send + Sync + 'static>) -> Box<dyn Future<Output=io::Result<Vec<u8>>> + 'a>
+    where Self: Sized
+    {
+        self.recv.read_async(max_size, register_root_waker)
+    }
+    fn write_async<'a>(&'a mut self, buf: &'a [u8], register_root_waker: &'_ Arc<dyn Fn(Waker) + Send + Sync + 'static>) -> Box<dyn Future<Output=io::Result<usize>> + 'a>
+    where Self: Sized
+    {
+        self.send.write_async(buf, register_root_waker)
+    }
 }
 
 impl Default for WasiBidirectionalPipePair {
@@ -88,8 +116,8 @@ impl Default for WasiBidirectionalPipePair {
 
 impl WasiBidirectionalPipePair {
     pub fn new() -> WasiBidirectionalPipePair {
-        let (tx1, rx1) = mpsc::channel();
-        let (tx2, rx2) = mpsc::channel();
+        let (tx1, rx1) = mpsc::unbounded_channel();
+        let (tx2, rx2) = mpsc::unbounded_channel();
 
         let pipe1 = WasiPipe {
             tx: Mutex::new(tx1),
@@ -129,7 +157,7 @@ impl WasiBidirectionalPipePair {
 /// to emulate the old behaviour of `Pipe` (both send and recv on one channel).
 #[derive(Debug, Clone)]
 pub struct WasiBidirectionalSharedPipePair {
-    inner: Arc<Mutex<WasiBidirectionalPipePair>>,
+    inner: Arc<std::sync::Mutex<WasiBidirectionalPipePair>>,
 }
 
 impl Default for WasiBidirectionalSharedPipePair {
@@ -160,16 +188,10 @@ impl WasiBidirectionalSharedPipePair {
 
 impl Write for WasiBidirectionalSharedPipePair {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        match self.inner.lock().as_mut().map(|l| l.write(buf)) {
-            Ok(r) => r,
-            Err(_) => Ok(0),
-        }
+        self.inner.lock().unwrap().write(buf)
     }
     fn flush(&mut self) -> io::Result<()> {
-        match self.inner.lock().as_mut().map(|l| l.flush()) {
-            Ok(r) => r,
-            Err(_) => Ok(()),
-        }
+        self.inner.lock().unwrap().flush()
     }
 }
 
@@ -181,10 +203,7 @@ impl Seek for WasiBidirectionalSharedPipePair {
 
 impl Read for WasiBidirectionalSharedPipePair {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        match self.inner.lock().as_mut().map(|l| l.read(buf)) {
-            Ok(r) => r,
-            Err(_) => Ok(0),
-        }
+        self.inner.lock().unwrap().read(buf)
     }
 }
 
@@ -219,6 +238,42 @@ impl VirtualFile for WasiBidirectionalSharedPipePair {
             .map(|l| l.bytes_available_read())
             .unwrap_or(Ok(None))
     }
+    fn poll_read_ready(
+        &self,
+        cx: &mut std::task::Context<'_>,
+        register_root_waker: &Arc<dyn Fn(Waker) + Send + Sync + 'static>,
+    ) -> std::task::Poll<Result<usize>> {
+        self.inner
+            .lock()
+            .unwrap()
+            .poll_read_ready(cx, register_root_waker)
+    }
+    fn poll_write_ready(
+        &self,
+        cx: &mut std::task::Context<'_>,
+        register_root_waker: &Arc<dyn Fn(Waker) + Send + Sync + 'static>,
+    ) -> std::task::Poll<Result<usize>> {
+        self.inner
+            .lock()
+            .unwrap()
+            .poll_write_ready(cx, register_root_waker)
+    }
+    fn read_async<'a>(&'a mut self, max_size: usize, register_root_waker: &'_ Arc<dyn Fn(Waker) + Send + Sync + 'static>) -> Box<dyn Future<Output=io::Result<Vec<u8>>> + 'a>
+    where Self: Sized
+    {
+        self.inner
+            .lock()
+            .unwrap()
+            .read_async(max_size, register_root_waker)
+    }
+    fn write_async<'a>(&'a mut self, buf: &'a [u8], register_root_waker: &'_ Arc<dyn Fn(Waker) + Send + Sync + 'static>) -> Box<dyn Future<Output=io::Result<usize>> + 'a>
+    where Self: Sized
+    {
+        self.inner
+            .lock()
+            .unwrap()
+            .write_async(buf, register_root_waker)
+    }
 }
 
 impl WasiPipe {
@@ -233,49 +288,52 @@ impl WasiPipe {
         self.block = block;
     }
 
-    pub fn recv<M: MemorySize>(
+    pub async fn recv<M: MemorySize>(
         &mut self,
-        memory: &MemoryView,
-        iov: WasmSlice<__wasi_iovec_t<M>>,
-        timeout: Duration,
-    ) -> Result<usize, Errno> {
-        let mut elapsed = Duration::ZERO;
-        let mut tick_wait = 0u64;
+        max_size: usize,
+    ) -> Result<Bytes, Errno> {
+        let mut no_more = None;
         loop {
             {
                 let mut read_buffer = self.read_buffer.lock().unwrap();
-                if let Some(buf) = read_buffer.as_mut() {
-                    let buf_len = buf.len();
+                if let Some(inner_buf) = read_buffer.as_mut() {
+                    let buf_len = inner_buf.len();
                     if buf_len > 0 {
-                        let reader = buf.as_ref();
-                        let read = read_bytes(reader, memory, iov).map(|a| a as usize)?;
-                        buf.advance(read);
-                        return Ok(read);
+                        let read = buf_len.min(max_size);
+                        let ret = inner_buf.slice(..read);
+                        inner_buf.advance(read);
+                        return Ok(ret);
                     }
                 }
             }
-            let rx = self.rx.lock().unwrap();
-            let data = match rx.try_recv() {
-                Ok(a) => a,
-                Err(TryRecvError::Empty) => {
-                    if elapsed > timeout {
-                        return Err(Errno::Timedout);
+            if let Some(no_more) = no_more.take() {
+                return no_more;
+            }
+            let data = {
+                let mut rx = match self.rx.try_lock() {
+                    Ok(a) => a,
+                    Err(_) => {
+                        match self.block {
+                            true => self.rx.lock().await,
+                            false => { no_more = Some(Err(Errno::Again)); continue; }
+                        }
                     }
-                    // Linearly increasing wait time
-                    tick_wait += 1;
-                    let wait_time = u64::min(tick_wait / 10, 20);
-                    let wait_time = std::time::Duration::from_millis(wait_time);
-                    std::thread::park_timeout(wait_time);
-                    elapsed += wait_time;
-                    continue;
-                }
-                Err(TryRecvError::Disconnected) => {
-                    return Ok(0);
+                };
+                match self.block {
+                    true => match rx.recv().await {
+                        Some(a) => a,
+                        None => { no_more = Some(Ok(0)); continue; },
+                    },
+                    false => {
+                        match rx.try_recv() {
+                            Ok(a) => a,
+                            Err(TryRecvError::Empty) => { no_more = Some(Err(Errno::Again)); continue; },
+                            Err(TryRecvError::Disconnected) => { no_more = Some(Ok(0)); continue; }
+                        }
+                    }
                 }
             };
-            drop(rx);
 
-            // FIXME: this looks like a race condition!
             let mut read_buffer = self.read_buffer.lock().unwrap();
             read_buffer.replace(Bytes::from(data));
         }
@@ -294,20 +352,20 @@ impl WasiPipe {
         let buf_len: usize = buf_len.try_into().map_err(|_| Errno::Inval)?;
         let mut buf = Vec::with_capacity(buf_len);
         write_bytes(&mut buf, memory, iov)?;
-        let tx = self.tx.lock().unwrap();
+        let tx = self.tx.blocking_lock();
         tx.send(buf).map_err(|_| Errno::Io)?;
         Ok(buf_len)
     }
 
     pub fn close(&mut self) {
-        let (mut null_tx, _) = mpsc::channel();
-        let (_, mut null_rx) = mpsc::channel();
+        let (mut null_tx, _) = mpsc::unbounded_channel();
+        let (_, mut null_rx) = mpsc::unbounded_channel();
         {
-            let mut guard = self.rx.lock().unwrap();
+            let mut guard = self.rx.blocking_lock();
             std::mem::swap(guard.deref_mut(), &mut null_rx);
         }
         {
-            let mut guard = self.tx.lock().unwrap();
+            let mut guard = self.tx.blocking_lock();
             std::mem::swap(guard.deref_mut(), &mut null_tx);
         }
         {
@@ -320,7 +378,7 @@ impl WasiPipe {
 impl Write for WasiPipe {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         let buf_len = buf.len();
-        let tx = self.tx.lock().unwrap();
+        let tx = self.tx.blocking_lock();
         tx.send(buf.to_vec())
             .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{e}")))?;
         Ok(buf_len)
@@ -338,69 +396,65 @@ impl Seek for WasiPipe {
 
 impl Read for WasiPipe {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let mut no_more = None;
         loop {
-            let mut read_buffer = self.read_buffer.lock().unwrap();
-            if let Some(inner_buf) = read_buffer.as_mut() {
-                let buf_len = inner_buf.len();
-                if buf_len > 0 {
-                    if inner_buf.len() > buf.len() {
-                        let mut reader = inner_buf.as_ref();
-                        let read = reader.read_exact(buf).map(|_| buf.len())?;
+            {
+                let mut read_buffer = self.read_buffer.lock().unwrap();
+                if let Some(inner_buf) = read_buffer.as_mut() {
+                    let buf_len = inner_buf.len();
+                    if buf_len > 0 {
+                        let read = buf_len.min(max_size);
+                        let ret = inner_buf.slice(..read);
                         inner_buf.advance(read);
-                        return Ok(read);
-                    } else {
-                        let mut reader = inner_buf.as_ref();
-                        let read = reader.read(buf).map(|_| buf_len as usize)?;
-                        inner_buf.advance(read);
-                        return Ok(read);
+                        return Ok(ret);
                     }
                 }
             }
-            let rx = self.rx.lock().unwrap();
-
-            // We need to figure out whether we need to block here.
-            // The problem is that in cases of multiple buffered reads like:
-            //
-            // println!("abc");
-            // println!("def");
-            //
-            // get_stdout() // would only return "abc\n" instead of "abc\ndef\n"
-
-            let data = match rx.try_recv() {
-                Ok(mut s) => {
-                    s.append(&mut rx.try_iter().flat_map(|f| f.into_iter()).collect());
-                    s
-                }
-                Err(_) => {
-                    if !self.block {
-                        // If self.block is explicitly set to false, never block
-                        Vec::new()
-                    } else {
-                        // could not immediately receive bytes, so we need to block
-                        match rx.recv() {
-                            Ok(o) => o,
-                            // Errors can happen if the sender has been dropped already
-                            // In this case, just return 0 to indicate that we can't read any
-                            // bytes anymore
-                            Err(_) => {
-                                return Ok(0);
-                            }
+            if let Some(no_more) = no_more.take() {
+                return no_more;
+            }
+            let data = {
+                let mut rx = match self.rx.try_lock() {
+                    Ok(a) => a,
+                    Err(_) => {
+                        match self.block {
+                            true => self.rx.blocking_lock(),
+                            false => { no_more = Some(Err(Errno::Again)); continue; }
+                        }
+                    }
+                };
+                match self.block {
+                    true => match rx.blocking_recv(){
+                        Some(a) => a,
+                        None => { no_more = Some(Ok(0)); continue; },
+                    },
+                    false => {
+                        match rx.try_recv() {
+                            Ok(a) => a,
+                            Err(TryRecvError::Empty) => { no_more = Some(Err(Errno::Again)); continue; },
+                            Err(TryRecvError::Disconnected) => { no_more = Some(Ok(0)); continue; }
                         }
                     }
                 }
             };
 
-                let mut read_buffer = self.read_buffer.lock().unwrap();
-                if data.is_empty() && read_buffer.lock().unwrap().as_ref().map(|s| s.len()).unwrap_or(0) == 0 {
-                    return Ok(0);
-                }
-                read_buffer.replace(Bytes::from(data));
+            let mut read_buffer = self.read_buffer.lock().unwrap();
+            read_buffer.replace(Bytes::from(data));
         }
     }
 }
 
 impl std::io::Write for WasiPipe {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        let tx = match self.tx.try_lock() {
+            Ok(a) => a,
+            Err(_) => {
+                match self.block {
+                    true => self.tx.blocking_lock(),
+                    false => return Err(Into::<std::io::Error>::into(std::io::ErrorKind::WouldBlock)),
+                }
+            }
+        };
         let tx = self.tx.lock().unwrap();
         tx.send(buf.to_vec())
             .map_err(|_| Into::<std::io::Error>::into(std::io::ErrorKind::BrokenPipe))?;
@@ -409,38 +463,6 @@ impl std::io::Write for WasiPipe {
 
     fn flush(&mut self) -> std::io::Result<()> {
         Ok(())
-    }
-}
-
-impl VirtualFile for WasiPipe {
-    fn last_accessed(&self) -> u64 {
-        0
-    }
-    fn last_modified(&self) -> u64 {
-        0
-    }
-    fn created_time(&self) -> u64 {
-        0
-    }
-    fn size(&self) -> u64 {
-        self.read_buffer
-            .as_ref()
-            .map(|s| s.len() as u64)
-            .unwrap_or_default()
-    }
-    fn set_len(&mut self, _: u64) -> Result<(), FsError> {
-        Ok(())
-    }
-    fn unlink(&mut self) -> Result<(), FsError> {
-        Ok(())
-    }
-    fn bytes_available_read(&self) -> Result<Option<usize>, FsError> {
-        Ok(Some(
-            self.read_buffer
-                .as_ref()
-                .map(|s| s.len())
-                .unwrap_or_default(),
-        ))
     }
 }
 
@@ -462,7 +484,10 @@ impl VirtualFile for WasiPipe {
 
     /// the size of the file in bytes
     fn size(&self) -> u64 {
-        0
+        self.bytes_available_read()
+            .unwrap_or_default()
+            .map(|a| a as u64)
+            .unwrap_or_default()
     }
 
     /// Change the size of the file, if the `new_size` is greater than the current size
@@ -492,6 +517,7 @@ impl VirtualFile for WasiPipe {
     /// Returns the number of bytes available.  This function must not block
     /// Defaults to `None` which means the number of bytes is unknown
     fn bytes_available_read(&self) -> Result<Option<usize>, FsError> {
+        let mut no_more = None;
         loop {
             {
                 let read_buffer = self.read_buffer.lock().unwrap();
@@ -502,29 +528,40 @@ impl VirtualFile for WasiPipe {
                     }
                 }
             }
-            let rx = self.rx.lock().unwrap();
-            // FIXME: why is a bytes available check consuming data? - this shouldn't be necessary
-            if let Ok(data) = rx.try_recv() {
-                drop(rx);
-
-                let mut read_buffer = self.read_buffer.lock().unwrap();
-                read_buffer.replace(Bytes::from(data));
-            } else {
-                return Ok(Some(0));
+            if let Some(no_more) = no_more.take() {
+                return no_more;
             }
+            let data = {
+                let mut rx = match self.rx.try_lock() {
+                    Ok(a) => a,
+                    Err(_) => { no_more = Some(Ok(None)); continue; }
+                };
+                match rx.try_recv() {
+                    Ok(a) => a,
+                    Err(TryRecvError::Empty) => { no_more = Some(Ok(None)); continue; },
+                    Err(TryRecvError::Disconnected) => { no_more = Some(Ok(Some(0))); continue; }
+                }
+            };
+
+            let mut read_buffer = self.read_buffer.lock().unwrap();
+            read_buffer.replace(Bytes::from(data));
         }
     }
 
     /// Returns the number of bytes available.  This function must not block
     /// Defaults to `None` which means the number of bytes is unknown
     fn bytes_available_write(&self) -> Result<Option<usize>, FsError> {
-        Ok(None)
+        self.tx.try_lock()
+            .map(|_| Ok(8192))
+            .unwrap_or_else(|| Ok(Some(0)))
     }
 
     /// Indicates if the file is opened or closed. This function must not block
     /// Defaults to a status of being constantly open
     fn is_open(&self) -> bool {
-        true
+        self.tx.try_lock()
+            .map(|a| a.is_closed() == false)
+            .unwrap_or_else(|| true)
     }
 
     /// Returns a special file descriptor when opening this file rather than
@@ -537,5 +574,89 @@ impl VirtualFile for WasiPipe {
     /// Returns the underlying host fd
     fn get_fd(&self) -> Option<wasmer_vfs::FileDescriptor> {
         None
+    }
+
+    fn poll_read_ready(
+        &self,
+        cx: &mut std::task::Context<'_>,
+        register_root_waker: &Arc<dyn Fn(Waker) + Send + Sync + 'static>,
+    ) -> std::task::Poll<Result<usize>> {
+        let mut no_more = None;
+        loop {
+            {
+                let read_buffer = self.read_buffer.lock().unwrap();
+                if let Some(inner_buf) = read_buffer.as_ref() {
+                    let buf_len = inner_buf.len();
+                    if buf_len > 0 {
+                        return Poll::Ready(Ok(buf_len));
+                    }
+                }
+            }
+            if let Some(no_more) = no_more.take() {
+                return no_more;
+            }
+            let data = {
+                let mut rx = self.rx.lock();
+                let rx = Pin::new(&mut rx);
+                match rx.poll(cx) {
+                    Poll::Pending => { no_more = Some(Poll::Pending); continue; }
+                    Poll::Ready(mut rx) => {
+                        let rx = Pin::new(&mut rx);
+                        match rx.poll_recv(cx) {
+                            Poll::Pending => { no_more = Some(Poll::Pending); continue; }
+                            Poll::Ready(Some(a)) => a,
+                            Poll::Ready(None) => { no_more = Some(Poll::Ready(Ok(0))); continue; }
+                        }
+                    }
+                }
+            };
+
+            let mut read_buffer = self.read_buffer.lock().unwrap();
+            read_buffer.replace(Bytes::from(data));
+        }
+    }
+
+    fn poll_write_ready(
+        &self,
+        cx: &mut std::task::Context<'_>,
+        register_root_waker: &Arc<dyn Fn(Waker) + Send + Sync + 'static>,
+    ) -> std::task::Poll<Result<usize>> {
+        let mut tx = self.tx.lock();
+        let tx = Pin::new(&mut tx);
+        tx.poll(cx)
+            .map(|_| Ok(8192))
+    }
+
+    fn read_async<'a>(&'a mut self, max_size: usize, register_root_waker: &'_ Arc<dyn Fn(Waker) + Send + Sync + 'static>) -> Box<dyn Future<Output=io::Result<Vec<u8>>> + 'a>
+    where Self: Sized
+    {
+        Box::new(
+            async move {
+                self.recv(max_size)
+                    .await
+                    .map_err(|err| Into::<std::io::Error>::into(err))
+            }
+        )
+    }
+
+    fn write_async<'a>(&'a mut self, buf: &'a [u8], register_root_waker: &'_ Arc<dyn Fn(Waker) + Send + Sync + 'static>) -> Box<dyn Future<Output=io::Result<usize>> + 'a>
+    where Self: Sized
+    {
+        Box::new(
+            async move {
+                let tx = match self.tx.try_lock() {
+                    Ok(a) => a,
+                    Err(_) => {
+                        match self.block {
+                            true => self.tx.lock().await,
+                            false => return Err(Into::<std::io::Error>::into(std::io::ErrorKind::WouldBlock)),
+                        }
+                    }
+                };
+                tx.send(buf.to_vec())
+                    .map_err(|_| Into::<std::io::Error>::into(std::io::ErrorKind::BrokenPipe))?;
+                Ok(buf.len())
+            }
+        )
     }
 }

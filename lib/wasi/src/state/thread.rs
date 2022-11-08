@@ -13,7 +13,7 @@ use bytes::{Bytes, BytesMut};
 use tracing::log::trace;
 use wasmer_vbus::{BusSpawnedProcess, SignalHandlerAbi};
 use wasmer_wasi_types::{
-    __wasi_errno_t, __wasi_exitcode_t, __wasi_signal_t, __WASI_CLOCK_MONOTONIC, __WASI_ECHILD,
+    Errno, __wasi_exitcode_t, Signal, __WASI_CLOCK_MONOTONIC, __WASI_ECHILD, wasi::Signal,
 };
 
 use crate::syscalls::platform_clock_time_get;
@@ -76,7 +76,7 @@ pub struct WasiThread {
     pub(crate) id: WasiThreadId,
     finished: Arc<(Mutex<Option<u32>>, Condvar)>,
     pub(crate) signals: Arc<(
-        Mutex<Vec<__wasi_signal_t>>,
+        Mutex<Vec<Signal>>,
         tokio::sync::broadcast::Sender<()>,
     )>,
     stack: Arc<Mutex<ThreadStack>>,
@@ -133,7 +133,7 @@ impl WasiThread {
     }
 
     /// Adds a signal for this thread to process
-    pub fn signal(&self, signal: __wasi_signal_t) {
+    pub fn signal(&self, signal: Signal) {
         let mut guard = self.signals.0.lock().unwrap();
         if guard.contains(&signal) == false {
             guard.push(signal);
@@ -142,7 +142,7 @@ impl WasiThread {
     }
 
     /// Returns all the signals that are waiting to be processed
-    pub fn pop_signals(&self) -> Vec<__wasi_signal_t> {
+    pub fn pop_signals(&self) -> Vec<Signal> {
         let mut guard = self.signals.0.lock().unwrap();
         guard.drain(..).collect()
     }
@@ -480,7 +480,7 @@ impl WasiProcess {
     }
 
     /// Signals a particular thread in the process
-    pub fn signal_thread(&self, tid: &WasiThreadId, signal: __wasi_signal_t) {
+    pub fn signal_thread(&self, tid: &WasiThreadId, signal: Signal) {
         let inner = self.inner.read().unwrap();
         if let Some(thread) = inner.threads.get(tid) {
             thread.signal(signal);
@@ -495,7 +495,7 @@ impl WasiProcess {
     }
 
     /// Signals all the threads in this process
-    pub fn signal_process(&self, signal: __wasi_signal_t) {
+    pub fn signal_process(&self, signal: Signal) {
         if self.waiting.load(Ordering::Acquire) > 0 {
             let children = self.children.read().unwrap();
             for pid in children.iter() {
@@ -514,7 +514,7 @@ impl WasiProcess {
     /// Signals one of the threads every interval
     pub fn signal_interval(
         &self,
-        signal: __wasi_signal_t,
+        signal: Signal,
         interval: Option<Duration>,
         repeat: bool,
     ) {
@@ -594,7 +594,7 @@ impl WasiProcess {
     pub fn join_any_child(
         &mut self,
         timeout: Duration,
-    ) -> Result<Option<(WasiProcessId, __wasi_exitcode_t)>, __wasi_errno_t> {
+    ) -> Result<Option<(WasiProcessId, __wasi_exitcode_t)>, Errno> {
         let _guard = WasiProcessWait::new(self);
         let children: Vec<_> = {
             let children = self.children.read().unwrap();
@@ -637,7 +637,7 @@ impl WasiProcess {
 }
 
 impl SignalHandlerAbi for WasiProcess {
-    fn signal(&self, sig: __wasi_signal_t) {
+    fn signal(&self, sig: Signal) {
         self.signal_process(sig)
     }
 }

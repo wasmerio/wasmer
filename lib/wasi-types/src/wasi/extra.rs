@@ -1381,11 +1381,11 @@ pub struct Tty {
     pub rows: u32,
     pub width: u32,
     pub height: u32,
-    pub stdin_tty: bool,
-    pub stdout_tty: bool,
-    pub stderr_tty: bool,
-    pub echo: bool,
-    pub line_buffered: bool,
+    pub stdin_tty: Bool,
+    pub stdout_tty: Bool,
+    pub stderr_tty: Bool,
+    pub echo: Bool,
+    pub line_buffered: Bool,
 }
 impl core::fmt::Debug for Tty {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {

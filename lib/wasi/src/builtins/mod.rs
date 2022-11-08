@@ -2,7 +2,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use wasmer::{FunctionEnvMut, Store};
 use wasmer_vbus::{BusSpawnedProcess, SpawnOptionsConfig};
-use wasmer_wasi_types::__WASI_ENOENT;
+use wasmer_wasi_types::Errno::Noent;
 
 use crate::{
     bin_factory::CachedCompiledModules, syscalls::stderr_write, WasiEnv, WasiRuntimeImplementation,
@@ -66,7 +66,7 @@ impl BuiltIns {
                 parent_ctx,
                 format!("wasm command unknown - {}\r\n", name).as_bytes(),
             );
-            Ok(BusSpawnedProcess::exited_process(__WASI_ENOENT as u32))
+            Ok(BusSpawnedProcess::exited_process(Errno::Noent as u32))
         }
     }
 }

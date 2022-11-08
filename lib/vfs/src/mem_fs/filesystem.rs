@@ -394,7 +394,14 @@ impl crate::FileSystem for FileSystem {
 
             if let Some((position, inode_of_file)) = inode_dest {
                 // Remove the file from the storage.
-                fs.storage.remove(inode_of_file);
+                match inode_of_file {
+                    InodeResolution::Found(inode_of_file) => {
+                        fs.storage.remove(inode_of_file);
+                    },
+                    InodeResolution::Redirect(..) => {
+                        return Err(FsError::InvalidInput);
+                    }
+                }
 
                 // Remove the child from the parent directory.
                 fs.remove_child_from_node(inode_of_to_parent, position)?;
