@@ -19,7 +19,7 @@ pub struct WasiPipe {
     /// Receives bytes from the pipe
     rx: Mutex<mpsc::Receiver<Vec<u8>>>,
     /// Buffers the last read message from the pipe while its being consumed
-    read_buffer: Option<Bytes>,
+    read_buffer: Mutex<Option<Bytes>>,
     /// Whether the pipe should block or not block to wait for stdin reads
     block: bool,
 }
@@ -90,14 +90,14 @@ impl WasiBidirectionalPipePair {
         let pipe1 = WasiPipe {
             tx: Mutex::new(tx1),
             rx: Mutex::new(rx2),
-            read_buffer: None,
+            read_buffer: Mutex::new(None),
             block: true,
         };
 
         let pipe2 = WasiPipe {
             tx: Mutex::new(tx2),
             rx: Mutex::new(rx1),
-            read_buffer: None,
+            read_buffer: Mutex::new(None),
             block: true,
         };
 
@@ -235,18 +235,27 @@ impl WasiPipe {
         iov: WasmSlice<__wasi_iovec_t<M>>,
     ) -> Result<usize, Errno> {
         loop {
-            if let Some(buf) = self.read_buffer.as_mut() {
-                let buf_len = buf.len();
-                if buf_len > 0 {
-                    let reader = buf.as_ref();
-                    let read = read_bytes(reader, memory, iov).map(|_| buf_len as usize)?;
-                    buf.advance(read);
-                    return Ok(read);
+            if let Ok(mut read_buffer) = self.read_buffer.lock() {
+                if let Some(buf) = read_buffer.as_mut() {
+                    let buf_len = buf.len();
+                    if buf_len > 0 {
+                        let reader = buf.as_ref();
+                        let read = read_bytes(reader, memory, iov).map(|_| buf_len as usize)?;
+                        buf.advance(read);
+                        return Ok(read);
+                    }
                 }
             }
             let rx = self.rx.lock().unwrap();
             let data = rx.recv().map_err(|_| Errno::Io)?;
-            self.read_buffer.replace(Bytes::from(data));
+
+            let mut read_buffer = match self.read_buffer.lock() {
+                Ok(o) => o,
+                Err(_) => {
+                    return Ok(0);
+                }
+            };
+            read_buffer.replace(Bytes::from(data));
         }
     }
 
@@ -279,7 +288,9 @@ impl WasiPipe {
             let mut guard = self.tx.lock().unwrap();
             std::mem::swap(guard.deref_mut(), &mut null_tx);
         }
-        self.read_buffer.take();
+        if let Ok(mut read_buffer) = self.read_buffer.lock() {
+            read_buffer.take();
+        }
     }
 }
 
@@ -305,19 +316,21 @@ impl Seek for WasiPipe {
 impl Read for WasiPipe {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         loop {
-            if let Some(inner_buf) = self.read_buffer.as_mut() {
-                let buf_len = inner_buf.len();
-                if buf_len > 0 {
-                    if inner_buf.len() > buf.len() {
-                        let mut reader = inner_buf.as_ref();
-                        let read = reader.read_exact(buf).map(|_| buf.len())?;
-                        inner_buf.advance(read);
-                        return Ok(read);
-                    } else {
-                        let mut reader = inner_buf.as_ref();
-                        let read = reader.read(buf).map(|_| buf_len as usize)?;
-                        inner_buf.advance(read);
-                        return Ok(read);
+            if let Ok(mut read_buffer) = self.read_buffer.lock() {
+                if let Some(inner_buf) = read_buffer.as_mut() {
+                    let buf_len = inner_buf.len();
+                    if buf_len > 0 {
+                        if inner_buf.len() > buf.len() {
+                            let mut reader = inner_buf.as_ref();
+                            let read = reader.read_exact(buf).map(|_| buf.len())?;
+                            inner_buf.advance(read);
+                            return Ok(read);
+                        } else {
+                            let mut reader = inner_buf.as_ref();
+                            let read = reader.read(buf).map(|_| buf_len as usize)?;
+                            inner_buf.advance(read);
+                            return Ok(read);
+                        }
                     }
                 }
             }
@@ -354,10 +367,23 @@ impl Read for WasiPipe {
                     }
                 }
             };
-            if data.is_empty() && self.read_buffer.as_ref().map(|s| s.len()).unwrap_or(0) == 0 {
+
+            if data.is_empty() {
                 return Ok(0);
             }
-            self.read_buffer.replace(Bytes::from(data));
+
+            let mut read_buffer = match self.read_buffer.lock() {
+                Ok(o) => o,
+                Err(_) => {
+                    return Ok(0);
+                }
+            };
+
+            if read_buffer.as_ref().map(|s| s.len()).unwrap_or(0) == 0 {
+                return Ok(0);
+            }
+
+            read_buffer.replace(Bytes::from(data));
         }
     }
 }
@@ -374,8 +400,9 @@ impl VirtualFile for WasiPipe {
     }
     fn size(&self) -> u64 {
         self.read_buffer
-            .as_ref()
-            .map(|s| s.len() as u64)
+            .lock()
+            .ok()
+            .and_then(|s| s.as_ref().map(|s| s.len() as u64))
             .unwrap_or_default()
     }
     fn set_len(&mut self, _: u64) -> Result<(), FsError> {
