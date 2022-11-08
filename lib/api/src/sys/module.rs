@@ -1,13 +1,12 @@
 use crate::sys::InstantiationError;
 use crate::AsStoreMut;
 use crate::AsStoreRef;
-use bytes::Bytes;
-use std::borrow::Cow;
 use std::fmt;
 use std::io;
 use std::path::Path;
 use std::sync::Arc;
 use thiserror::Error;
+use bytes::Bytes;
 use wasmer_compiler::Artifact;
 use wasmer_compiler::ArtifactCreate;
 #[cfg(feature = "wat")]
@@ -17,6 +16,7 @@ use wasmer_types::{
 };
 use wasmer_types::{ExportType, ImportType};
 use wasmer_vm::InstanceHandle;
+use crate::IntoBytes;
 
 #[derive(Error, Debug)]
 pub enum IoCompileError {
@@ -54,46 +54,6 @@ pub struct Module {
     // ownership of the code and its metadata.
     artifact: Arc<Artifact>,
     module_info: Arc<ModuleInfo>,
-}
-
-pub trait IntoBytes {
-    fn into_bytes(self) -> Bytes;
-}
-
-impl IntoBytes for Bytes {
-    fn into_bytes(self) -> Bytes {
-        self
-    }
-}
-
-impl IntoBytes for Vec<u8> {
-    fn into_bytes(self) -> Bytes {
-        Bytes::from(self)
-    }
-}
-
-impl IntoBytes for &[u8] {
-    fn into_bytes(self) -> Bytes {
-        Bytes::from(self.to_vec())
-    }
-}
-
-impl<const N: usize> IntoBytes for &[u8; N] {
-    fn into_bytes(self) -> Bytes {
-        Bytes::from(self.to_vec())
-    }
-}
-
-impl IntoBytes for &str {
-    fn into_bytes(self) -> Bytes {
-        Bytes::from(self.as_bytes().to_vec())
-    }
-}
-
-impl IntoBytes for Cow<'_, [u8]> {
-    fn into_bytes(self) -> Bytes {
-        Bytes::from(self.to_vec())
-    }
 }
 
 impl Module {
@@ -162,12 +122,13 @@ impl Module {
         let mut bytes = bytes.into_bytes();
         #[cfg(feature = "wat")]
         if bytes.starts_with(b"\0asm") == false {
-            bytes = wat::parse_bytes(bytes.as_ref()).map_err(|e| {
+            let parsed_bytes = wat::parse_bytes(&bytes[..]).map_err(|e| {
                 CompileError::Wasm(WasmError::Generic(format!(
                     "Error when converting wat: {}",
                     e
                 )))
             })?;
+            bytes = Bytes::from(parsed_bytes.to_vec());
         }
         Self::from_binary(store, bytes.as_ref())
     }
