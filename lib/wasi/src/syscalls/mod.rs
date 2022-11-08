@@ -6894,7 +6894,7 @@ pub fn proc_spawn<M: MemorySize>(
     working_dir: WasmPtr<u8, M>,
     working_dir_len: M::Offset,
     ret_handles: WasmPtr<__wasi_bus_handles_t, M>,
-) -> __bus_errno_t {
+) -> BusErrno {
     let env = ctx.data();
     let control_plane = env.process.control_plane();
     let memory = env.memory_view(&ctx);
@@ -6915,7 +6915,7 @@ pub fn proc_spawn<M: MemorySize>(
         ctx.data().pid(),
         ctx.data().tid()
     );
-        return __BUS_EUNSUPPORTED;
+        return BusErrno::Unsupported;
     }
 
     let args: Vec<_> = args
@@ -6949,7 +6949,7 @@ pub fn proc_spawn<M: MemorySize>(
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
     wasi_try_mem_bus!(ret_handles.write(&memory, handles));
-    __BUS_ESUCCESS
+    BusErrno::Success
 }
 
 #[cfg(not(feature = "os"))]
@@ -6962,13 +6962,13 @@ pub fn proc_spawn_internal(
     _stdin: __wasi_stdiomode_t,
     _stdout: __wasi_stdiomode_t,
     _stderr: __wasi_stdiomode_t,
-) -> Result<(__wasi_bus_handles_t, FunctionEnvMut<'_, WasiEnv>), __bus_errno_t> {
+) -> Result<(__wasi_bus_handles_t, FunctionEnvMut<'_, WasiEnv>), BusErrno> {
     warn!(
         "wasi[{}:{}]::spawn is not currently supported",
         ctx.data().pid(),
         ctx.data().tid()
     );
-    Err(__BUS_EUNSUPPORTED)
+    Err(BusErrno::Unsupported)
 }
 
 /// ### `proc_join()`
@@ -7250,7 +7250,7 @@ pub fn bus_call<M: MemorySize>(
     // buf: WasmPtr<u8, M>,
     // buf_len: M::Offset,
     // ret_cid: WasmPtr<Cid, M>,
-) -> Result<__bus_errno_t, WasiError> {
+) -> Result<BusErrno, WasiError> {
     let env = ctx.data();
     let bus = env.runtime.bus();
     let memory = env.memory_view(&ctx);
@@ -7264,7 +7264,7 @@ pub fn bus_call<M: MemorySize>(
     let process = if let Some(process) = { guard.bus_processes.get(&bid) } {
         process
     } else {
-        return Ok(__BUS_EBADHANDLE);
+        return Ok(BusErrno::Badhandle);
     };
 
     // Invoke the bus process
@@ -7273,7 +7273,7 @@ pub fn bus_call<M: MemorySize>(
     // Check if the process has finished
     if let Some(code) = process.inst.exit_code() {
         debug!("process has already exited (code = {})", code);
-        return Ok(__BUS_EABORTED);
+        return Ok(BusErrno::Aborted);
     }
 
     // Invoke the call
@@ -7331,7 +7331,7 @@ pub fn bus_call<M: MemorySize>(
 
     // Return the CID and success to the caller
     wasi_try_mem_bus_ok!(ret_cid.write(&memory, cid));
-    Ok(__BUS_ESUCCESS)
+    Ok(BusErrno::Success)
 }
 
 /// Invokes a call within the context of another call
@@ -7434,9 +7434,9 @@ pub fn bus_subcall<M: MemorySize>(
 
         // Return the CID and success to the caller
         wasi_try_mem_bus_ok!(ret_cid.write(&memory, cid));
-        Ok(__BUS_ESUCCESS)
+        Ok(BusErrno::)
     } else {
-        Ok(__BUS_EBADHANDLE)
+        Ok(BusErrno::Badhandle)
     }
 }
 
@@ -7461,7 +7461,7 @@ fn conv_bus_format_from(format: __wasi_busdataformat_t) -> Result<BusDataFormat,
         __WASI_BUS_DATA_FORMAT_YAML => BusDataFormat::Yaml,
         __WASI_BUS_DATA_FORMAT_XML => BusDataFormat::Xml,
         _ => {
-            return Err(__BUS_EDES);
+            return Err(BusErrno::Des);
         }
     })
 }
@@ -7566,7 +7566,7 @@ pub fn bus_poll<M: MemorySize>(
                                 "failed to create file descriptor for BUS event buffer - {}",
                                 err
                             );
-                            __BUS_EALLOC
+                            BusErrno::Alloc
                         }))
                 }
             };
@@ -7598,14 +7598,14 @@ pub fn bus_poll<M: MemorySize>(
                                 u: __wasi_busevent_u {
                                     fault: __wasi_busevent_fault_t {
                                         cid,
-                                        err: __BUS_EABORTED,
+                                        err: BusErrno::Aborted,
                                     },
                                 },
                             })
                         };
 
                         let nevents64: u64 =
-                            wasi_try_bus_ok!(nevents.try_into().map_err(|_| __BUS_EINTERNAL));
+                            wasi_try_bus_ok!(nevents.try_into().map_err(|_| BusErrno::Internal));
                         wasi_try_mem_bus_ok!(events.write(nevents64, evt));
 
                         nevents += M::ONE;
@@ -7694,7 +7694,7 @@ pub fn bus_poll<M: MemorySize>(
 
                                 let nevents64: u64 = wasi_try_bus_ok!(nevents
                                     .try_into()
-                                    .map_err(|_| __BUS_EINTERNAL));
+                                    .map_err(|_| BusErrno::Internal));
                                 wasi_try_mem_bus_ok!(events.write(nevents64, evt));
 
                                 nevents += M::ONE;
@@ -7754,7 +7754,7 @@ pub fn bus_poll<M: MemorySize>(
 
                                 let nevents64: u64 = wasi_try_bus_ok!(nevents
                                     .try_into()
-                                    .map_err(|_| __BUS_EINTERNAL));
+                                    .map_err(|_| BusErrno::Internal));
                                 wasi_try_mem_bus_ok!(events.write(nevents64, event));
                                 nevents += M::ONE;
                             }
@@ -7817,7 +7817,7 @@ pub fn bus_poll<M: MemorySize>(
                 let event = unsafe { std::mem::transmute(event) };
 
                 let nevents64: u64 =
-                    wasi_try_bus_ok!(nevents.try_into().map_err(|_| __BUS_EINTERNAL));
+                    wasi_try_bus_ok!(nevents.try_into().map_err(|_| BusErrno::Internal));
                 wasi_try_mem_bus_ok!(events.write(nevents64, event));
                 nevents += M::ONE;
             }
@@ -7841,7 +7841,7 @@ pub fn bus_poll<M: MemorySize>(
                     ctx.data().tid()
                 );
                 wasi_try_mem_bus_ok!(ret_nevents.write(&memory, nevents));
-                return Ok(__BUS_ESUCCESS);
+                return Ok(BusErrno::Success);
             }
 
             env.yield_now()?;
@@ -7871,7 +7871,7 @@ pub fn bus_poll<M: MemorySize>(
     }
 
     wasi_try_mem_bus_ok!(ret_nevents.write(&memory, nevents));
-    Ok(__BUS_ESUCCESS)
+    Ok(BusErrno::Success)
 }
 
 #[cfg(not(feature = "os"))]
@@ -7881,7 +7881,7 @@ pub fn bus_poll<M: MemorySize>(
     events: WasmPtr<__wasi_busevent_t, M>,
     maxevents: M::Offset,
     ret_nevents: WasmPtr<M::Offset, M>,
-) -> Result<__bus_errno_t, WasiError> {
+) -> Result<BusErrno, WasiError> {
     trace!(
         "wasi[{}:{}]::bus_poll (timeout={}) is not supported without 'os' feature",
         ctx.data().pid(),
