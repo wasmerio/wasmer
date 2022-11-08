@@ -11,6 +11,89 @@ pub struct TtyFile {
     stdin: Box<dyn VirtualFile + Send + Sync + 'static>,
 }
 
+#[cfg(test)]
+mod tests {
+
+    use crate::{VirtualNetworking, WasiRuntimeImplementation, WasiThreadId};
+    use std::ops::Deref;
+    use std::sync::{
+        atomic::{AtomicU32, Ordering},
+        Arc, Mutex,
+    };
+    use wasmer_vbus::{UnsupportedVirtualBus, VirtualBus};
+
+    struct FakeRuntimeImplementation {
+        pub data: Arc<Mutex<Vec<u8>>>,
+        pub bus: Box<dyn VirtualBus + Sync>,
+        pub networking: Box<dyn VirtualNetworking + Sync>,
+        pub thread_id_seed: AtomicU32,
+    }
+
+    impl Default for FakeRuntimeImplementation {
+        fn default() -> Self {
+            FakeRuntimeImplementation {
+                data: Arc::new(Mutex::new(Vec::new())),
+                #[cfg(not(feature = "host-vnet"))]
+                networking: Box::new(wasmer_vnet::UnsupportedVirtualNetworking::default()),
+                #[cfg(feature = "host-vnet")]
+                networking: Box::new(wasmer_wasi_local_networking::LocalNetworking::default()),
+                bus: Box::new(UnsupportedVirtualBus::default()),
+                thread_id_seed: Default::default(),
+            }
+        }
+    }
+
+    impl FakeRuntimeImplementation {
+        fn get_stdout_written(&self) -> Option<Vec<u8>> {
+            let s = self.data.try_lock().ok()?;
+            Some(s.clone())
+        }
+    }
+
+    impl std::fmt::Debug for FakeRuntimeImplementation {
+        fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+            write!(f, "FakeRuntimeImplementation")
+        }
+    }
+
+    impl WasiRuntimeImplementation for FakeRuntimeImplementation {
+        fn bus(&self) -> &(dyn VirtualBus) {
+            self.bus.deref()
+        }
+
+        fn networking(&self) -> &(dyn VirtualNetworking) {
+            self.networking.deref()
+        }
+
+        fn thread_generate_id(&self) -> WasiThreadId {
+            self.thread_id_seed.fetch_add(1, Ordering::Relaxed).into()
+        }
+
+        fn stdout(&self, data: &[u8]) -> std::io::Result<()> {
+            if let Ok(mut s) = self.data.try_lock() {
+                s.extend_from_slice(data);
+            }
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn test_tty_file() {
+        use crate::state::WasiBidirectionalPipePair;
+        use crate::tty_file::TtyFile;
+        use std::io::Write;
+        use std::sync::Arc;
+
+        let mut pair = WasiBidirectionalPipePair::new();
+        pair.set_blocking(false);
+
+        let rt = Arc::new(FakeRuntimeImplementation::default());
+        let mut tty_file = TtyFile::new(rt.clone(), Box::new(pair));
+        tty_file.write(b"hello");
+        assert_eq!(rt.get_stdout_written().unwrap(), b"hello".to_vec());
+    }
+}
+
 impl TtyFile {
     pub fn new(
         runtime: Arc<dyn crate::WasiRuntimeImplementation + Send + Sync + 'static>,

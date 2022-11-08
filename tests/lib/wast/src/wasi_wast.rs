@@ -4,7 +4,9 @@ use std::io::{self, Read, Seek, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{mpsc, Arc, Mutex};
 use wasmer::{FunctionEnv, Imports, Instance, Module, Store};
-use wasmer_vfs::{host_fs, mem_fs, passthru_fs, tmp_fs, FileSystem, RootFileSystemBuilder};
+use wasmer_vfs::{
+    host_fs, mem_fs, passthru_fs, tmp_fs, union_fs, FileSystem, RootFileSystemBuilder,
+};
 use wasmer_wasi::types::wasi::{Filesize, Timestamp};
 use wasmer_wasi::{
     generate_import_object_from_env, get_wasi_version, FsError, VirtualFile,
@@ -202,11 +204,12 @@ impl<'a> WasiTest<'a> {
                         Box::new(RootFileSystemBuilder::new().build())
                     }
                     WasiFileSystemKind::UnionHostMemory => {
-                        Box::new(mem_fs::FileSystem::default()) // TODO
-                                                                // let a = host_fs::FileSystem::default();
-                                                                // let b = mem_fs::FileSystem::default();
-                                                                // union_fs::UnionFileSystem::new()
-                                                                // .mount(name, path, should_sanitize, fs, new_path)
+                        let a = host_fs::FileSystem::default();
+                        let b = mem_fs::FileSystem::default();
+                        let mut union = union_fs::UnionFileSystem::new();
+                        union.mount("mem_fs", "/.tmp_wasmer_wast_0", false, Box::new(a), None);
+                        union.mount("host_fs", "/.tmp_wasmer_wast_1", false, Box::new(b), None);
+                        Box::new(union)
                     }
                     _ => {
                         panic!("unexpected filesystem type {:?}", other);
