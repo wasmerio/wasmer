@@ -192,10 +192,6 @@ impl crate::FileSystem for FileSystem {
     }
 
     fn create_dir(&self, path: &Path) -> Result<()> {
-        if self.read_dir(path).is_ok() {
-            return Err(FsError::AlreadyExists);
-        }
-
         let (inode_of_parent, name_of_directory) = {
             // Read lock.
             let guard = self.inner.read().map_err(|_| FsError::Lock)?;
@@ -225,6 +221,10 @@ impl crate::FileSystem for FileSystem {
 
             (inode_of_parent, name_of_directory)
         };
+
+        if self.read_dir(path).is_ok() {
+            return Err(FsError::AlreadyExists);
+        }
 
         {
             // Write lock.
@@ -1066,7 +1066,7 @@ mod test_filesystem {
 
         assert_eq!(
             fs.remove_dir(path!("/foo")),
-            Err(FsError::NotAFile),
+            Err(FsError::EntryNotFound),
             "cannot remove a directory that doesn't exist",
         );
 
@@ -1131,7 +1131,7 @@ mod test_filesystem {
 
         assert_eq!(
             fs.rename(path!("/foo"), path!("/bar/baz")),
-            Err(FsError::NotAFile),
+            Err(FsError::EntryNotFound),
             "renaming to a directory that has parent that doesn't exist",
         );
 

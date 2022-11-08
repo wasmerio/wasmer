@@ -578,7 +578,7 @@ mod test_file_opener {
                     .write(true)
                     .create_new(true)
                     .open(path!("/foo/bar.txt")),
-                Err(FsError::NotAFile),
+                Err(FsError::EntryNotFound),
             ),
             "creating a file in a directory that doesn't exist",
         );
