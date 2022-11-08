@@ -3,7 +3,6 @@
 use serde::{Deserialize, Serialize};
 #[cfg(all(unix, feature = "sys-poll", not(feature = "os")))]
 use std::convert::TryInto;
-use std::time::Duration;
 use wasmer_vbus::BusError;
 use wasmer_wasi_types::wasi::{BusErrno, Errno};
 use std::{
