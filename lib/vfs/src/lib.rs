@@ -433,6 +433,9 @@ impl ReadDir {
     pub fn new(data: Vec<DirEntry>) -> Self {
         Self { data, index: 0 }
     }
+    pub fn is_empty(&self) -> bool {
+        self.data.is_empty()
+    }
 }
 
 #[derive(Debug, Clone)]
