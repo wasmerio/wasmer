@@ -219,7 +219,7 @@ jobs:
           make test-integration-cli
         env:
           TARGET: x86_64-pc-windows-msvc
-          TARGET_DIR: target/release
+          TARGET_DIR: TARGET_DIR: target/x86_64-pc-windows-msvc/release
           CARGO_TARGET: --target x86_64-pc-windows-msvc
       - name: Test
         if: matrix.run_test && matrix.os != 'windows-2019'
