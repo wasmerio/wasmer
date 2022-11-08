@@ -64,7 +64,6 @@ pub use wasmer_types::MemoryError;
 pub use wasmer_types::MemoryStyle;
 use wasmer_types::RawValue;
 pub use wasmer_types::TableStyle;
-pub use wasmer_types::{MemoryStyle, VMMemoryDefinition};
 pub use wasmer_types::{TargetSharedSignatureIndex, VMBuiltinFunctionIndex, VMOffsets};
 
 #[deprecated(

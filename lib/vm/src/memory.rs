@@ -12,7 +12,8 @@ use std::cell::UnsafeCell;
 use std::convert::TryInto;
 use std::ptr::NonNull;
 use std::slice;
-use wasmer_types::{Bytes, MemoryError, MemoryStyle, MemoryType, Pages, MemoryRole, LinearMemory,};
+use std::sync::{Arc, RwLock};
+use wasmer_types::{Bytes, MemoryError, MemoryRole, MemoryStyle, MemoryType, Pages};
 
 // Represents a region of memory that plays a particular role
 #[derive(Debug, Clone)]
@@ -127,6 +128,43 @@ impl WasmMmap {
         }
 
         Ok(prev_pages)
+    }
+
+    /// Marks a region of the memory for a particular role
+    pub fn mark_region(&mut self, start: u64, end: u64, role: MemoryRole) {
+        self.regions.push(VMMemoryRegion { start, end, role });
+    }
+
+    /// Returns the role of a part of the memory
+    pub fn region(&self, pointer: u64) -> MemoryRole {
+        for region in self.regions.iter() {
+            if pointer >= region.start && pointer < region.end {
+                return region.role;
+            }
+        }
+        MemoryRole::default()
+    }
+
+    /// Copies the memory
+    /// (in this case it performs a copy-on-write to save memory)
+    pub fn fork(&mut self) -> Result<WasmMmap, MemoryError> {
+        let mem_length = self.size.bytes().0;
+        let mut alloc = self
+            .alloc
+            .fork(Some(mem_length))
+            .map_err(|err| MemoryError::Generic(err))?;
+        let base_ptr = alloc.as_mut_ptr();
+        Ok(Self {
+            vm_memory_definition: MaybeInstanceOwned::Host(Box::new(UnsafeCell::new(
+                VMMemoryDefinition {
+                    base: base_ptr,
+                    current_length: mem_length,
+                },
+            ))),
+            alloc,
+            size: self.size,
+            regions: self.regions.clone(),
+        })
     }
 }
 
@@ -391,6 +429,21 @@ impl LinearMemory for VMMemory {
     unsafe fn initialize_with_data(&self, start: usize, data: &[u8]) -> Result<(), Trap> {
         self.0.initialize_with_data(start, data)
     }
+
+    /// Copies this memory to a new memory
+    fn fork(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
+        self.0.fork()
+    }
+
+    /// Marks a region of the memory for a particular role
+    fn mark_region(&mut self, start: u64, end: u64, role: MemoryRole) {
+        self.0.mark_region(start, end, role)
+    }
+
+    /// Returns the role of a part of the memory
+    fn region(&self, pointer: u64) -> MemoryRole {
+        self.0.region(pointer)
+    }
 }
 
 impl VMMemory {
@@ -497,6 +550,15 @@ where
 
         initialize_memory_with_data(memory, start, data)
     }
+
+    /// Copies this memory to a new memory
+    fn fork(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError>;
+
+    /// Marks a region of the memory for a particular role
+    fn mark_region(&mut self, start: u64, end: u64, role: MemoryRole);
+
+    /// Returns the role of a part of the memory
+    fn region(&self, pointer: u64) -> MemoryRole;
 }
 
 /// A shared linear memory instance.
