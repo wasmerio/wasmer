@@ -141,7 +141,7 @@ pub enum Kind {
     File {
         /// The open file, if it's open
         #[cfg_attr(feature = "enable-serde", serde(skip))]
-        handle: Option<Arc<RwLock<Box<dyn VirtualFile + Send + Sync + 'static>>>>,
+        handle: Option<Arc<tokio::sync::RwLock<Box<dyn VirtualFile + Send + Sync + 'static>>>>,
         /// The path on the host system where the file is located
         /// This is deprecated and will be removed soon
         path: PathBuf,
@@ -202,7 +202,7 @@ pub enum Kind {
         is_semaphore: bool,
         /// Receiver that wakes sleeping threads
         #[cfg_attr(feature = "enable-serde", serde(skip))]
-        wakers: Arc<Mutex<VecDeque<tokio::sync::mpsc::UnboundedSender<()>>>>,
+        wakers: Arc<tokio::sync::Mutex<VecDeque<tokio::sync::mpsc::UnboundedSender<()>>>>,
         /// Immediate waker
         immediate: Arc<AtomicBool>,
     },
@@ -217,7 +217,7 @@ pub struct Fd {
     pub rights: Rights,
     pub rights_inheriting: Rights,
     pub flags: Fdflags,
-    pub offset: u64,
+    pub offset: Arc<AtomicU64>,
     /// Flags that determine how the [`Fd`] can be used.
     ///
     /// Used when reopening a [`VirtualFile`] during [`WasiState`] deserialization.
@@ -1570,7 +1570,7 @@ impl WasiFs {
                 .map_err(fs_error_into_wasi_err)?
                 .as_mut()
                 .map(|f| f.flush().map_err(map_io_err))
-                .unwrap_or_else(|| Err(Errno::Io))?,
+                .unwrap_or_else(|| Err(Errno::Io))?
                 .flush()
                 .map_err(map_io_err)?,
             __WASI_STDERR_FILENO => inodes
@@ -1578,7 +1578,7 @@ impl WasiFs {
                 .map_err(fs_error_into_wasi_err)?
                 .as_mut()
                 .and_then(|f| f.flush().ok())
-                .ok_or(Errno::Io)?,
+                .ok_or(Errno::Io)?
                 .flush()
                 .map_err(map_io_err)?,
             _ => {
@@ -1670,7 +1670,7 @@ impl WasiFs {
         open_flags: u16,
         inode: Inode,
         idx: __wasi_fd_t,
-    ) -> Result<(), __wasi_errno_t> {
+    ) -> Result<(), Errno> {
         self.fd_map.write().unwrap().insert(
             idx,
             Fd {
@@ -1946,7 +1946,7 @@ impl WasiFs {
         &self,
         inodes: &WasiInodes,
         fd: __wasi_fd_t,
-    ) -> Result<(), __wasi_errno_t> {
+    ) -> Result<(), Errno> {
         let mut fd_map = self.fd_map.write().unwrap();
         self.close_fd_ext(inodes, &mut fd_map, fd)
     }
@@ -1957,7 +1957,7 @@ impl WasiFs {
         inodes: &WasiInodes,
         fd_map: &mut RwLockWriteGuard<HashMap<u32, Fd>>,
         fd: __wasi_fd_t,
-    ) -> Result<(), __wasi_errno_t> {
+    ) -> Result<(), Errno> {
         let pfd = fd_map.get(&fd).ok_or(__WASI_EBADF)?;
         if pfd.ref_cnt.fetch_sub(1, Ordering::AcqRel) > 1 {
             trace!("closing file descriptor({}) - ref-cnt", fd);

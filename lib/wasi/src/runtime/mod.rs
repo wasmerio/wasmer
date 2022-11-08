@@ -44,12 +44,12 @@ pub enum WasiThreadError {
     InvalidWasmContext,
 }
 
-impl From<WasiThreadError> for __wasi_errno_t {
-    fn from(a: WasiThreadError) -> __wasi_errno_t {
+impl From<WasiThreadError> for Errno {
+    fn from(a: WasiThreadError) -> Errno {
         match a {
-            WasiThreadError::Unsupported => __WASI_ENOTSUP,
+            WasiThreadError::Unsupported => Errno::Notsup,
             WasiThreadError::MethodNotFound => __WASI_EINVAL,
-            WasiThreadError::MemoryCreateFailed => __WASI_EFAULT,
+            WasiThreadError::MemoryCreateFailed => Errno::Fault,
             WasiThreadError::InvalidWasmContext => __WASI_ENOEXEC,
         }
     }
@@ -322,7 +322,7 @@ where
         headers: Vec<(String, String)>,
         data: Option<Vec<u8>>,
     ) -> Result<ReqwestResponse, u32> {
-        Err(__WASI_ENOTSUP as u32)
+        Err(Errno::Notsup as u32)
     }
 
     /// Performs a HTTP or HTTPS request to a destination URL
