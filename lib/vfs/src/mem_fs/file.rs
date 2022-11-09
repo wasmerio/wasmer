@@ -1237,10 +1237,25 @@ impl File {
             // The cursor is somewhere in the buffer: not the happy path.
             position => {
                 self.buffer.reserve_exact(buf.len());
-
-                let mut remainder = self.buffer.split_off(position as usize);
-                self.buffer.extend_from_slice(buf);
-                self.buffer.append(&mut remainder);
+                let position = position as usize;
+                if position >= self.buffer.len() {
+                    return Err(io::Error::new(
+                        io::ErrorKind::UnexpectedEof,
+                        format!(
+                            "wrong cursor position {position} > buffer length {}",
+                            self.buffer.len()
+                        ),
+                    ));
+                }
+                if position + buf.len() > self.buffer.len() {
+                    let (a, b) = buf.split_at(self.buffer.len() - position);
+                    self.buffer[position..].clone_from_slice(a);
+                    self.buffer.extend_from_slice(b);
+                } else {
+                    // pos + buffer fits in
+                    self.buffer.truncate(position as usize + buf.len());
+                    self.buffer[position..].clone_from_slice(buf);
+                }
             }
         }
 
