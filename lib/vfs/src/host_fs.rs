@@ -72,6 +72,15 @@ impl TryInto<RawHandle> for FileDescriptor {
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct FileSystem;
 
+impl FileSystem {
+    pub fn canonicalize(&self, path: &Path) -> Result<PathBuf> {
+        if !path.exists() {
+            return Err(FsError::InvalidInput);
+        }
+        fs::canonicalize(path).map_err(Into::into)
+    }
+}
+
 impl crate::FileSystem for FileSystem {
     fn read_dir(&self, path: &Path) -> Result<ReadDir> {
         let read_dir = fs::read_dir(path)?;
@@ -948,6 +957,8 @@ mod tests {
             !cur_dir.contains(&"foo".to_string()),
             "the foo directory still exists"
         );
+
+        let _ = fs_extra::remove_items(&["./test_remove_dir"]);
     }
 
     fn read_dir_names(fs: &dyn crate::FileSystem, path: &str) -> Vec<String> {
@@ -1167,6 +1178,8 @@ mod tests {
             root_metadata.modified > foo_metadata.modified,
             "the parent modified time was updated"
         );
+
+        let _ = fs_extra::remove_items(&["./test_metadata"]);
     }
 
     #[test]
@@ -1291,23 +1304,41 @@ mod tests {
         if let Some(s) = readdir.next() {
             panic!("next: {s:?}");
         }
-    }
 
-    /*
+        let _ = fs_extra::remove_items(&["./test_readdir"]);
+    }
 
     #[test]
     fn test_canonicalize() {
         let fs = FileSystem::default();
 
-        assert_eq!(fs.create_dir(path!("/foo")), Ok(()), "creating `foo`");
-        assert_eq!(fs.create_dir(path!("/foo/bar")), Ok(()), "creating `bar`");
+        let root_dir = env!("CARGO_MANIFEST_DIR");
+
+        let _ = fs_extra::remove_items(&["./test_canonicalize"]);
+
         assert_eq!(
-            fs.create_dir(path!("/foo/bar/baz")),
+            fs.create_dir(Path::new("./test_canonicalize")),
+            Ok(()),
+            "creating `test_canonicalize`"
+        );
+
+        assert_eq!(
+            fs.create_dir(Path::new("./test_canonicalize/foo")),
+            Ok(()),
+            "creating `foo`"
+        );
+        assert_eq!(
+            fs.create_dir(Path::new("./test_canonicalize/foo/bar")),
+            Ok(()),
+            "creating `bar`"
+        );
+        assert_eq!(
+            fs.create_dir(Path::new("./test_canonicalize/foo/bar/baz")),
             Ok(()),
             "creating `baz`",
         );
         assert_eq!(
-            fs.create_dir(path!("/foo/bar/baz/qux")),
+            fs.create_dir(Path::new("./test_canonicalize/foo/bar/baz/qux")),
             Ok(()),
             "creating `qux`",
         );
@@ -1316,61 +1347,60 @@ mod tests {
                 fs.new_open_options()
                     .write(true)
                     .create_new(true)
-                    .open(path!("/foo/bar/baz/qux/hello.txt")),
+                    .open(Path::new("./test_canonicalize/foo/bar/baz/qux/hello.txt")),
                 Ok(_)
             ),
             "creating `hello.txt`",
         );
 
-        let fs_inner = fs.inner.read().unwrap();
-
         assert_eq!(
-            fs_inner.canonicalize(path!("/")),
-            Ok((path!(buf "/"), ROOT_INODE)),
+            fs.canonicalize(Path::new("./test_canonicalize")),
+            Ok(Path::new(&format!("{root_dir}/test_canonicalize")).to_path_buf()),
             "canonicalizing `/`",
         );
         assert_eq!(
-            fs_inner.canonicalize(path!("foo")),
+            fs.canonicalize(Path::new("foo")),
             Err(FsError::InvalidInput),
             "canonicalizing `foo`",
         );
         assert_eq!(
-            fs_inner.canonicalize(path!("/././././foo/")),
-            Ok((path!(buf "/foo"), 1)),
+            fs.canonicalize(Path::new("./test_canonicalize/././././foo/")),
+            Ok(Path::new(&format!("{root_dir}/test_canonicalize/foo")).to_path_buf()),
             "canonicalizing `/././././foo/`",
         );
         assert_eq!(
-            fs_inner.canonicalize(path!("/foo/bar//")),
-            Ok((path!(buf "/foo/bar"), 2)),
+            fs.canonicalize(Path::new("./test_canonicalize/foo/bar//")),
+            Ok(Path::new(&format!("{root_dir}/test_canonicalize/foo/bar")).to_path_buf()),
             "canonicalizing `/foo/bar//`",
         );
         assert_eq!(
-            fs_inner.canonicalize(path!("/foo/bar/../bar")),
-            Ok((path!(buf "/foo/bar"), 2)),
+            fs.canonicalize(Path::new("./test_canonicalize/foo/bar/../bar")),
+            Ok(Path::new(&format!("{root_dir}/test_canonicalize/foo/bar")).to_path_buf()),
             "canonicalizing `/foo/bar/../bar`",
         );
         assert_eq!(
-            fs_inner.canonicalize(path!("/foo/bar/../..")),
-            Ok((path!(buf "/"), ROOT_INODE)),
+            fs.canonicalize(Path::new("./test_canonicalize/foo/bar/../..")),
+            Ok(Path::new(&format!("{root_dir}/test_canonicalize")).to_path_buf()),
             "canonicalizing `/foo/bar/../..`",
         );
         assert_eq!(
-            fs_inner.canonicalize(path!("/foo/bar/../../..")),
+            fs.canonicalize(Path::new("/foo/bar/../../..")),
             Err(FsError::InvalidInput),
             "canonicalizing `/foo/bar/../../..`",
         );
         assert_eq!(
-            fs_inner.canonicalize(path!("C:/foo/")),
+            fs.canonicalize(Path::new("C:/foo/")),
             Err(FsError::InvalidInput),
             "canonicalizing `C:/foo/`",
         );
         assert_eq!(
-            fs_inner.canonicalize(path!(
-                "/foo/./../foo/bar/../../foo/bar/./baz/./../baz/qux/../../baz/./qux/hello.txt"
+            fs.canonicalize(Path::new(
+                "./test_canonicalize/foo/./../foo/bar/../../foo/bar/./baz/./../baz/qux/../../baz/./qux/hello.txt"
             )),
-            Ok((path!(buf "/foo/bar/baz/qux/hello.txt"), 5)),
+            Ok(Path::new(&format!("{root_dir}/test_canonicalize/foo/bar/baz/qux/hello.txt")).to_path_buf()),
             "canonicalizing a crazily stupid path name",
         );
+
+        let _ = fs_extra::remove_items(&["./test_canonicalize"]);
     }
-    */
 }
