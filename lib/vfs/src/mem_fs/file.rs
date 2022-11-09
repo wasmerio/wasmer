@@ -185,6 +185,7 @@ impl VirtualFile for FileHandle {
                 self.lazy_load_arc_file_mut()
                     .map(|file| file.set_len(new_size))??;
             }
+            None => return Err(FsError::EntryNotFound),
             _ => return Err(FsError::NotAFile),
         }
 
@@ -260,6 +261,7 @@ impl VirtualFile for FileHandle {
                     .open(path.as_path())
                     .map(|file| file.bytes_available())?,
             },
+            None => return Err(FsError::EntryNotFound),
             _ => Err(FsError::NotAFile),
         }
     }

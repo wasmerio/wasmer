@@ -1133,6 +1133,9 @@ mod tests {
         use std::thread::sleep;
         use std::time::Duration;
 
+        let root_dir = env!("CARGO_MANIFEST_DIR");
+        let _ = std::env::set_current_dir(root_dir);
+
         let fs = FileSystem::default();
 
         let _ = fs_extra::remove_items(&["./test_metadata"]);

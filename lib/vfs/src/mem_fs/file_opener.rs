@@ -442,6 +442,8 @@ impl crate::FileOpener for FileOpener {
                         }
                     }
 
+                    None => return Err(FsError::EntryNotFound),
+
                     _ => return Err(FsError::NotAFile),
                 }
 

@@ -363,7 +363,7 @@ impl crate::FileSystem for FileSystem {
             // addition to the inode of the directory to update.
             let (position_of_from, inode) = fs
                 .as_parent_get_position_and_inode(inode_of_from_parent, &name_of_from)?
-                .ok_or(FsError::NotAFile)?;
+                .ok_or(FsError::EntryNotFound)?;
 
             (
                 (position_of_from, inode, inode_of_from_parent),
@@ -486,7 +486,7 @@ impl crate::FileSystem for FileSystem {
 
             match maybe_position_and_inode_of_file {
                 Some((position, inode_of_file)) => (inode_of_parent, position, inode_of_file),
-                None => return Err(FsError::NotAFile),
+                None => return Err(FsError::EntryNotFound),
             }
         };
 
@@ -1479,7 +1479,7 @@ mod test_filesystem {
 
         assert_eq!(
             fs.remove_file(path!("/foo.txt")),
-            Err(FsError::NotAFile),
+            Err(FsError::EntryNotFound),
             "removing a file that exists",
         );
     }
