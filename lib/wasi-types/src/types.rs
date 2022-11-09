@@ -20,9 +20,6 @@ pub use net::*;
 pub use signal::*;
 pub use subscription::*;
 
-pub type __wasi_exitcode_t = u32;
-pub type __wasi_userdata_t = u64;
-
 pub mod bus {
     use crate::wasi::{
         BusDataFormat, BusEventClose, BusEventExit, BusEventFault, BusEventType, Cid, OptionCid,

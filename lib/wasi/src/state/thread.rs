@@ -13,7 +13,7 @@ use bytes::{Bytes, BytesMut};
 use tracing::log::trace;
 use wasmer_vbus::{BusSpawnedProcess, SignalHandlerAbi};
 use wasmer_wasi_types::{
-    Errno, __wasi_exitcode_t, Signal, __WASI_CLOCK_MONOTONIC, __WASI_ECHILD, wasi::{Signal, TlKey, TlVal, TlUser},
+    Errno, ExitCode, Signal, __WASI_CLOCK_MONOTONIC, __WASI_ECHILD, wasi::{Signal, TlKey, TlVal, TlUser, ExitCode, Errno},
 };
 
 use crate::syscalls::platform_clock_time_get;
@@ -128,8 +128,7 @@ impl WasiThread {
     }
 
     /// Waits until the thread is finished or the timeout is reached
-    pub async fn join(&self) -> Option<ExitCode> {
-        
+    pub async fn join(&self) -> Option<ExitCode> {        
         loop {
             let rx = {
                 let finished = self.finished.lock().unwrap();
@@ -412,7 +411,10 @@ pub struct WasiProcess {
     /// Reference back to the compute engine
     pub(crate) compute: WasiControlPlane,
     /// Reference to the exit code for the main thread
-    pub(crate) finished: Arc<(Mutex<Option<u32>>, Condvar)>,
+    pub(crate) finished: Arc<Mutex<(
+        Option<ExitCode>,
+        tokio::sync::broadcast::Sender<()>,
+    )>>,
     /// List of all the children spawned from this thread
     pub(crate) children: Arc<RwLock<Vec<WasiProcessId>>>,
     /// Number of threads waiting for children to exit
@@ -564,83 +566,94 @@ impl WasiProcess {
     }
 
     /// Waits until the process is finished or the timeout is reached
-    pub fn join(&self, timeout: Duration) -> Option<__wasi_exitcode_t> {
+    pub async fn join(&self) -> Option<ExitCode> {
         let _guard = WasiProcessWait::new(self);
-        let mut finished = self.finished.0.lock().unwrap();
-        if finished.is_some() {
-            return finished.clone();
-        }
         loop {
-            let woken = self.finished.1.wait_timeout(finished, timeout).unwrap();
-            if woken.1.timed_out() {
+            let rx = {
+                let finished = self.finished.lock().unwrap();
+                if finished.0.is_some() {
+                    return finished.0.clone();
+                }
+                finished.1.subscribe()
+            };
+            if rx.recv().await.is_err() {
                 return None;
             }
-            finished = woken.0;
-            if finished.is_some() {
-                return finished.clone();
-            }
         }
     }
 
-    /// Waits for all the children to be finished
-    pub fn join_children(&mut self, timeout: Duration) -> Option<__wasi_exitcode_t> {
-        let _guard = WasiProcessWait::new(self);
-        let mut exit_code = 0;
-        let children: Vec<_> = {
-            let children = self.children.read().unwrap();
-            children.clone()
-        };
-        for pid in children {
-            if let Some(process) = self.compute.get_process(pid) {
-                match process.join(timeout) {
-                    Some(a) => {
-                        let mut children = self.children.write().unwrap();
-                        children.retain(|a| *a != pid);
-                        exit_code = a;
-                    }
-                    None => {
-                        return None;
-                    }
-                }
-            }
-        }
-        Some(exit_code)
+    /// Attempts to join on the process
+    pub fn try_join(&self) -> Option<ExitCode> {
+        let guard = self.finished.lock().unwrap();
+        guard.0.clone()
     }
 
     /// Waits for all the children to be finished
-    pub fn join_any_child(
-        &mut self,
-        timeout: Duration,
-    ) -> Result<Option<(WasiProcessId, __wasi_exitcode_t)>, Errno> {
+    pub async fn join_children(&mut self) -> Option<ExitCode> {
         let _guard = WasiProcessWait::new(self);
         let children: Vec<_> = {
             let children = self.children.read().unwrap();
             children.clone()
         };
         if children.is_empty() {
-            return Err(__WASI_ECHILD);
+            return None;
         }
+        let mut waits = Vec::new();
         for pid in children {
             if let Some(process) = self.compute.get_process(pid) {
-                if let Some(exit_code) = process.join(timeout) {
-                    let pid = process.pid();
-                    let mut children = self.children.write().unwrap();
+                let children = self.children.clone();
+                waits.push(async move {
+                    let join = process.join().await;
+                    let mut children = children.write().unwrap();
                     children.retain(|a| *a != pid);
-                    return Ok(Some((pid, exit_code)));
-                }
+                    join
+                })
             }
         }
-        Ok(None)
+        futures::future::join_all(waits.into_iter())
+            .await
+            .iter()
+            .filter_map(|a| a)
+            .next()
     }
 
-    /// Attempts to join on the process
-    pub fn try_join(&self) -> Option<__wasi_exitcode_t> {
-        let guard = self.finished.0.lock().unwrap();
-        guard.clone()
+    /// Waits for any of the children to finished
+    pub async fn join_any_child(
+        &mut self,
+    ) -> Result<Option<(WasiProcessId, ExitCode)>, Errno> {
+        let _guard = WasiProcessWait::new(self);
+        loop {
+            let children: Vec<_> = {
+                let children = self.children.read().unwrap();
+                children.clone()
+            };
+            if children.is_empty() {
+                return Err(Errno::Child);
+            }
+
+            let mut waits = Vec::new();
+            for pid in children {
+                if let Some(process) = self.compute.get_process(pid) {
+                    let children = self.children.clone();
+                    waits.push(async move {
+                        let join = process.join().await;
+                        let mut children = children.write().unwrap();
+                        children.retain(|a| *a != pid);
+                        join.map(|exit_code| (pid, exit_code))
+                    })
+                }
+            }
+            let woke = futures::future::select_all(waits.into_iter())
+                    .await
+                    .0;
+            if let Some((pid, exit_code)) = woke {
+                return Ok(Some((pid, exit_code)))
+            }
+        }
     }
 
     /// Terminate the process and all its threads
-    pub fn terminate(&self, exit_code: u32) {
+    pub fn terminate(&self, exit_code: ExitCode) {
         let guard = self.inner.read().unwrap();
         for thread in guard.threads.values() {
             thread.terminate(exit_code)
@@ -728,7 +741,7 @@ impl WasiControlPlane {
                 bus_process_reuse: Default::default(),
             })),
             children: Arc::new(RwLock::new(Default::default())),
-            finished: Arc::new((Mutex::new(None), Condvar::default())),
+            finished: Arc::new(Mutex::new((None, tokio::sync::broadcast::channel(1)))),
             waiting: Arc::new(AtomicU32::new(0)),
         };
         {

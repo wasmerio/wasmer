@@ -62,7 +62,7 @@ pub use wasmer_compiler_cranelift;
 pub use wasmer_compiler_llvm;
 #[cfg(feature = "compiler-singlepass")]
 pub use wasmer_compiler_singlepass;
-use wasmer_wasi_types::wasi::{Errno, Signal};
+use wasmer_wasi_types::wasi::{Errno, Signal, ExitCode, BusErrno};
 
 pub use crate::state::{
     default_fs_backing, Fd, Pipe, WasiControlPlane, WasiFs, WasiInodes, WasiPipe, WasiProcess,
@@ -124,7 +124,7 @@ use std::time::Duration;
 #[derive(Error, Debug)]
 pub enum WasiError {
     #[error("WASI exited with code: {0}")]
-    Exit(syscalls::types::__wasi_exitcode_t),
+    Exit(ExitCode),
     #[error("The WASI version could not be determined")]
     UnknownWasiVersion,
 }
@@ -1521,11 +1521,11 @@ fn mem_error_to_wasi(err: MemoryAccessError) -> Errno {
     }
 }
 
-fn mem_error_to_bus(err: MemoryAccessError) -> types::__bus_errno_t {
+fn mem_error_to_bus(err: MemoryAccessError) -> BusErrno {
     match err {
-        MemoryAccessError::HeapOutOfBounds => types::__BUS_EMEMVIOLATION,
-        MemoryAccessError::Overflow => types::__BUS_EMEMVIOLATION,
-        MemoryAccessError::NonUtf8String => types::__BUS_EBADREQUEST,
-        _ => types::__BUS_EUNKNOWN,
+        MemoryAccessError::HeapOutOfBounds => BusErrno::Memviolation,
+        MemoryAccessError::Overflow => BusErrno::Memviolation,
+        MemoryAccessError::NonUtf8String => BusErrno::Badrequest,
+        _ => BusErrno::Unknown,
     }
 }
