@@ -3,8 +3,8 @@ use std::path::{Path, PathBuf};
 use tracing::*;
 use wasmer_wasi_types::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO};
 
+use super::ZeroFile;
 use super::{NullFile, SpecialFile};
-use super::{TmpFileSystem, ZeroFile};
 
 pub struct RootFileSystemBuilder {
     default_root_dirs: bool,
@@ -128,8 +128,8 @@ impl RootFileSystemBuilder {
         self
     }
 
-    pub fn build(self) -> TmpFileSystem {
-        let tmp = TmpFileSystem::new();
+    pub fn build(self) -> crate::mem_fs::FileSystem {
+        let tmp = crate::mem_fs::FileSystem::default();
         if self.default_root_dirs {
             for root_dir in &["/.app", "/.private", "/bin", "/dev", "/etc", "/tmp"] {
                 if let Err(err) = tmp.create_dir(Path::new(root_dir)) {

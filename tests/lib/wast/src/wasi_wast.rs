@@ -4,9 +4,7 @@ use std::io::{self, Read, Seek, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{mpsc, Arc, Mutex};
 use wasmer::{FunctionEnv, Imports, Instance, Module, Store};
-use wasmer_vfs::{
-    host_fs, mem_fs, passthru_fs, tmp_fs, union_fs, FileSystem, RootFileSystemBuilder,
-};
+use wasmer_vfs::{host_fs, mem_fs, passthru_fs, union_fs, FileSystem, RootFileSystemBuilder};
 use wasmer_wasi::types::wasi::{Filesize, Timestamp};
 use wasmer_wasi::{
     generate_import_object_from_env, get_wasi_version, FsError, VirtualFile,
@@ -22,9 +20,6 @@ pub enum WasiFileSystemKind {
 
     /// Instruct the test runner to use `wasmer_vfs::mem_fs`.
     InMemory,
-
-    /// Instruct the test runner to use `wasmer_vfs::tmp_fs`
-    Tmp,
 
     /// Instruct the test runner to use `wasmer_vfs::passtru_fs`
     PassthruMemory,
@@ -194,7 +189,6 @@ impl<'a> WasiTest<'a> {
             other => {
                 let fs: Box<dyn FileSystem> = match other {
                     WasiFileSystemKind::InMemory => Box::new(mem_fs::FileSystem::default()),
-                    WasiFileSystemKind::Tmp => Box::new(tmp_fs::TmpFileSystem::default()),
                     WasiFileSystemKind::PassthruMemory => {
                         Box::new(passthru_fs::PassthruFileSystem::new(Box::new(
                             mem_fs::FileSystem::default(),

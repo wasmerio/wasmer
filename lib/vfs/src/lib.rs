@@ -16,7 +16,6 @@ pub mod mem_fs;
 pub mod null_file;
 pub mod passthru_fs;
 pub mod special_file;
-pub mod tmp_fs;
 pub mod union_fs;
 pub mod zero_file;
 // tty_file -> see wasmer_wasi::tty_file
@@ -33,7 +32,6 @@ pub use empty_fs::*;
 pub use null_file::*;
 pub use passthru_fs::*;
 pub use special_file::*;
-pub use tmp_fs::*;
 pub use union_fs::*;
 pub use zero_file::*;
 
