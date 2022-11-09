@@ -25,6 +25,12 @@ pub type Linkcount = u64;
 pub type Snapshot0Linkcount = u32;
 pub type Tid = u32;
 pub type Pid = u32;
+/// Thread local key
+pub type TlKey = u32;
+/// Thread local value
+pub type TlVal = u64;
+/// Thread local user data (associated with the value)
+pub type TlUser = u64;
 /// Identifiers for clocks, snapshot0 version.
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq)]

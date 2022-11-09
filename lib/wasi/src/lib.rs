@@ -62,7 +62,7 @@ pub use wasmer_compiler_cranelift;
 pub use wasmer_compiler_llvm;
 #[cfg(feature = "compiler-singlepass")]
 pub use wasmer_compiler_singlepass;
-use wasmer_wasi_types::wasi::Errno;
+use wasmer_wasi_types::wasi::{Errno, Signal};
 
 pub use crate::state::{
     default_fs_backing, Fd, Pipe, WasiControlPlane, WasiFs, WasiInodes, WasiPipe, WasiProcess,
@@ -485,23 +485,46 @@ impl WasiEnv {
         self.process.active_threads()
     }
 
-    /// Porcesses any signals that are batched up
-    pub fn process_signals(&self, store: &mut impl AsStoreMut) -> Result<(), WasiError> {
+    /// Porcesses any signals that are batched up or any forced exit codes
+    pub fn process_signals_and_exit(&self, store: &mut impl AsStoreMut) -> Result<Result<(), Errno>, WasiError>
+    {
         // If a signal handler has never been set then we need to handle signals
         // differently
         if self.inner().signal_set == false {
             let signals = self.thread.pop_signals();
+            let signal_cnt = signals.len();
             for sig in signals {
-                if sig == __WASI_SIGINT || sig == __WASI_SIGQUIT || sig == __WASI_SIGKILL {
-                    return Err(WasiError::Exit(__WASI_EINTR as u32));
+                if sig == Signal::Sigint || sig == Signal::Sigquit || sig == Signal::Sigkill {
+                    return Err(WasiError::Exit(Errno::Intr as u32));
                 } else {
                     trace!("wasi[{}]::signal-ignored: {}", self.pid(), sig);
                 }
             }
+            return signal_cnt > 0;
+        }
+
+        // Check for forced exit
+        if let Some(forced_exit) = self.should_exit() {
+            return Err(WasiError::Exit(forced_exit));
+        }
+
+        Ok(
+            self.process_signals(store)
+        )
+    }
+
+    /// Porcesses any signals that are batched up
+    pub fn process_signals(&self, store: &mut impl AsStoreMut) -> Result<bool, Errno>
+    {
+        // If a signal handler has never been set then we need to handle signals
+        // differently
+        if self.inner().signal_set == false {
+            return Ok(false);
         }
 
         // Check for any signals that we need to trigger
         // (but only if a signal handler is registered)
+        let mut has_any_signals = false;
         if let Some(handler) = self.inner().signal.clone() {
             let mut signals = self.thread.pop_signals();
 
@@ -539,7 +562,12 @@ impl WasiEnv {
                 if let Err(err) = handler.call(store, signal as i32) {
                     match err.downcast::<WasiError>() {
                         Ok(err) => {
-                            return Err(err);
+                            warn!(
+                                "wasi[{}]::signal handler wasi error - {}",
+                                self.pid(),
+                                err
+                            );
+                            return Err(Errno::Intr);
                         }
                         Err(err) => {
                             warn!(
@@ -547,57 +575,25 @@ impl WasiEnv {
                                 self.pid(),
                                 err
                             );
-                            return Err(WasiError::Exit(1));
+                            return Err(Errno::Intr);
                         }
                     }
                 }
             }
         }
-        self.yield_now()
+        Ok(true)
     }
 
-    // Yields execution
-    pub fn yield_now_with_signals(&self, store: &mut impl AsStoreMut) -> Result<(), WasiError> {
-        self.process_signals(store)?;
-        self.yield_now()
-    }
-
-    // Yields execution
-    pub fn yield_now(&self) -> Result<(), WasiError> {
+    /// Returns an exit code if the thread or process has been forced to exit
+    pub fn should_exit(&self) -> Option<u32> {
+        // Check for forced exit
         if let Some(forced_exit) = self.thread.try_join() {
-            return Err(WasiError::Exit(forced_exit));
+            return Some(forced_exit);
         }
         if let Some(forced_exit) = self.process.try_join() {
-            return Err(WasiError::Exit(forced_exit));
+            return Some(forced_exit);
         }
-        let tasks = self.tasks.clone();
-        self.tasks.block_on(Box::pin(async move {
-            tasks.sleep_now(current_caller_id(), 0);
-        }));
-        Ok(())
-    }
-
-    // Sleeps for a period of time
-    pub fn sleep(&self, store: &mut impl AsStoreMut, duration: Duration) -> Result<(), WasiError> {
-        let mut signaler = self.thread.signals.1.subscribe();
-
-        let tasks = self.tasks.clone();
-        let (tx_signaller, mut rx_signaller) = tokio::sync::mpsc::unbounded_channel();
-        self.tasks.block_on(Box::pin(async move {
-            loop {
-                tokio::select! {
-                    _ = tasks.sleep_now(current_caller_id(), duration.as_millis()) => { },
-                    _ = signaler.recv() => {
-                        let _ = tx_signaller.send(true);
-                        break;
-                    }
-                }
-            }
-        }));
-        if let Ok(true) = rx_signaller.try_recv() {
-            self.process_signals(store)?;
-        }
-        Ok(())
+        None
     }
 
     /// Accesses the virtual networking implementation
@@ -1526,11 +1522,11 @@ fn mem_error_to_wasi(err: MemoryAccessError) -> Errno {
     }
 }
 
-fn mem_error_to_bus(err: MemoryAccessError) -> types::BusErrno {
+fn mem_error_to_bus(err: MemoryAccessError) -> types::__bus_errno_t {
     match err {
-        MemoryAccessError::HeapOutOfBounds => BusErrno::Memviolation,
-        MemoryAccessError::Overflow => BusErrno::Memviolation,
-        MemoryAccessError::NonUtf8String => BusErrno::Badrequest,
-        _ => types::BusErrno::Unknown,
+        MemoryAccessError::HeapOutOfBounds => types::__BUS_EMEMVIOLATION,
+        MemoryAccessError::Overflow => types::__BUS_EMEMVIOLATION,
+        MemoryAccessError::NonUtf8String => types::__BUS_EBADREQUEST,
+        _ => types::__BUS_EUNKNOWN,
     }
 }
