@@ -108,6 +108,7 @@ impl crate::FileSystem for FileSystem {
     }
 
     fn rename(&self, from: &Path, to: &Path) -> Result<()> {
+        use filetime::{set_file_mtime, FileTime};
         if from.parent().is_none() {
             return Err(FsError::BaseNotDirectory);
         }
@@ -125,7 +126,7 @@ impl crate::FileSystem for FileSystem {
         if !to_parent.exists() {
             return Err(FsError::EntryNotFound);
         }
-        if from_parent != to_parent {
+        let result = if from_parent != to_parent {
             let _ = std::fs::create_dir_all(to_parent);
             if from.is_dir() {
                 fs_extra::move_items(
@@ -137,10 +138,7 @@ impl crate::FileSystem for FileSystem {
                     },
                 )
                 .map(|_| ())
-                .map_err(|e| {
-                    println!("error {e}");
-                    FsError::UnknownError
-                })?;
+                .map_err(|_| FsError::UnknownError)?;
                 let _ = fs_extra::remove_items(&[from]);
                 Ok(())
             } else {
@@ -150,7 +148,9 @@ impl crate::FileSystem for FileSystem {
             }
         } else {
             fs::rename(from, to).map_err(Into::into)
-        }
+        };
+        let _ = set_file_mtime(to, FileTime::now()).map(|_| ());
+        result
     }
 
     fn remove_file(&self, path: &Path) -> Result<()> {
@@ -1112,82 +1112,59 @@ mod tests {
         let _ = fs_extra::remove_items(&["./test_rename"]);
     }
 
-    /*
     #[test]
     fn test_metadata() {
         use std::thread::sleep;
         use std::time::Duration;
-        use crate::host_fs::{Metadata, FileType};
 
         let fs = FileSystem::default();
-        let root_metadata = fs.metadata(Path::new("/"));
 
-        assert!(matches!(
-            root_metadata,
-            Ok(Metadata {
-                ft: FileType { dir: true, .. },
-                accessed,
-                created,
-                modified,
-                len: 0
-            }) if accessed == created && created == modified && modified > 0
-        ));
+        let _ = fs_extra::remove_items(&["./test_metadata"]);
 
-        assert_eq!(fs.create_dir(Path::new("/foo")), Ok(()));
+        assert_eq!(fs.create_dir(Path::new("./test_metadata")), Ok(()));
 
-        let foo_metadata = fs.metadata(path!("/foo"));
+        let root_metadata = fs.metadata(Path::new("./test_metadata")).unwrap();
+
+        assert!(root_metadata.ft.dir);
+        assert!(root_metadata.accessed == root_metadata.created);
+        assert!(root_metadata.modified == root_metadata.created);
+        assert!(root_metadata.modified > 0);
+
+        assert_eq!(fs.create_dir(Path::new("./test_metadata/foo")), Ok(()));
+
+        let foo_metadata = fs.metadata(Path::new("./test_metadata/foo"));
         assert!(foo_metadata.is_ok());
         let foo_metadata = foo_metadata.unwrap();
 
-        assert!(matches!(
-            foo_metadata,
-            Metadata {
-                ft: FileType { dir: true, .. },
-                accessed,
-                created,
-                modified,
-                len: 0
-            } if accessed == created && created == modified && modified > 0
-        ));
+        assert!(foo_metadata.ft.dir);
+        assert!(foo_metadata.accessed == foo_metadata.created);
+        assert!(foo_metadata.modified == foo_metadata.created);
+        assert!(foo_metadata.modified > 0);
 
         sleep(Duration::from_secs(3));
 
-        assert_eq!(fs.rename(path!("/foo"), path!("/bar")), Ok(()));
-
-        assert!(
-            matches!(
-                fs.metadata(path!("/bar")),
-                Ok(Metadata {
-                    ft: FileType { dir: true, .. },
-                    accessed,
-                    created,
-                    modified,
-                    len: 0
-                }) if
-                    accessed == foo_metadata.accessed &&
-                    created == foo_metadata.created &&
-                    modified > foo_metadata.modified
+        assert_eq!(
+            fs.rename(
+                Path::new("./test_metadata/foo"),
+                Path::new("./test_metadata/bar")
             ),
-            "the modified time is updated when file is renamed",
+            Ok(())
         );
+
+        let bar_metadata = fs.metadata(Path::new("./test_metadata/bar")).unwrap();
+        assert!(bar_metadata.ft.dir);
+        assert!(bar_metadata.accessed == foo_metadata.accessed);
+        assert!(bar_metadata.created == foo_metadata.created);
+        assert!(bar_metadata.modified > foo_metadata.modified);
+
+        let root_metadata = fs.metadata(Path::new("./test_metadata/bar")).unwrap();
         assert!(
-            matches!(
-                fs.metadata(path!("/")),
-                Ok(Metadata {
-                    ft: FileType { dir: true, .. },
-                    accessed,
-                    created,
-                    modified,
-                    len: 0
-                }) if
-                    accessed == foo_metadata.accessed &&
-                    created == foo_metadata.created &&
-                    modified > foo_metadata.modified
-            ),
-            "the modified time of the parent is updated when file is renamed",
+            root_metadata.modified > foo_metadata.modified,
+            "the parent modified time was updated"
         );
     }
 
+    /*
     #[test]
     fn test_remove_file() {
         let fs = FileSystem::default();
