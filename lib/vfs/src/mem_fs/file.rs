@@ -71,7 +71,7 @@ impl FileHandle {
 
             let inode = fs.storage.get(self.inode);
             match inode {
-                Some(Node::ArcFile { fs, path, .. }) => {
+                Some(Node::ArcFile(ArcFileNode { fs, path, .. })) => {
                     self.arc_file.replace(
                         fs.new_open_options()
                             .read(self.readable)
@@ -143,13 +143,15 @@ impl VirtualFile for FileHandle {
 
         let inode = fs.storage.get(self.inode);
         match inode {
-            Some(Node::File { file, .. }) => file.len().try_into().unwrap_or(0),
-            Some(Node::ReadOnlyFile { file, .. }) => file.len().try_into().unwrap_or(0),
-            Some(Node::CustomFile { file, .. }) => {
+            Some(Node::File(FileNode { file, .. })) => file.len().try_into().unwrap_or(0),
+            Some(Node::ReadOnlyFile(ReadOnlyFileNode { file, .. })) => {
+                file.len().try_into().unwrap_or(0)
+            }
+            Some(Node::CustomFile(CustomFileNode { file, .. })) => {
                 let file = file.lock().unwrap();
                 file.size()
             }
-            Some(Node::ArcFile { fs, path, .. }) => match self.arc_file.as_ref() {
+            Some(Node::ArcFile(ArcFileNode { fs, path, .. })) => match self.arc_file.as_ref() {
                 Some(file) => file.as_ref().map(|file| file.size()).unwrap_or(0),
                 None => fs
                     .new_open_options()
@@ -169,18 +171,20 @@ impl VirtualFile for FileHandle {
 
         let inode = fs.storage.get_mut(self.inode);
         match inode {
-            Some(Node::File { file, metadata, .. }) => {
+            Some(Node::File(FileNode { file, metadata, .. })) => {
                 file.buffer
                     .resize(new_size.try_into().map_err(|_| FsError::UnknownError)?, 0);
                 metadata.len = new_size;
             }
-            Some(Node::CustomFile { file, metadata, .. }) => {
+            Some(Node::CustomFile(CustomFileNode { file, metadata, .. })) => {
                 let file = file.get_mut().unwrap();
                 file.set_len(new_size)?;
                 metadata.len = new_size;
             }
-            Some(Node::ReadOnlyFile { .. }) => return Err(FsError::PermissionDenied),
-            Some(Node::ArcFile { .. }) => {
+            Some(Node::ReadOnlyFile(ReadOnlyFileNode { .. })) => {
+                return Err(FsError::PermissionDenied)
+            }
+            Some(Node::ArcFile(ArcFileNode { .. })) => {
                 drop(fs);
                 self.lazy_load_arc_file_mut()
                     .map(|file| file.set_len(new_size))??;
@@ -206,7 +210,7 @@ impl VirtualFile for FileHandle {
                 .storage
                 .iter()
                 .find_map(|(inode_of_parent, node)| match node {
-                    Node::Directory { children, .. } => {
+                    Node::Directory(DirectoryNode { children, .. }) => {
                         children.iter().enumerate().find_map(|(nth, inode)| {
                             if inode == &inode_of_file {
                                 Some((nth, inode_of_parent))
@@ -242,13 +246,17 @@ impl VirtualFile for FileHandle {
 
         let inode = fs.storage.get(self.inode);
         match inode {
-            Some(Node::File { file, .. }) => Ok(file.buffer.len() - (self.cursor as usize)),
-            Some(Node::ReadOnlyFile { file, .. }) => Ok(file.buffer.len() - (self.cursor as usize)),
-            Some(Node::CustomFile { file, .. }) => {
+            Some(Node::File(FileNode { file, .. })) => {
+                Ok(file.buffer.len() - (self.cursor as usize))
+            }
+            Some(Node::ReadOnlyFile(ReadOnlyFileNode { file, .. })) => {
+                Ok(file.buffer.len() - (self.cursor as usize))
+            }
+            Some(Node::CustomFile(CustomFileNode { file, .. })) => {
                 let file = file.lock().unwrap();
                 file.bytes_available()
             }
-            Some(Node::ArcFile { fs, path, .. }) => match self.arc_file.as_ref() {
+            Some(Node::ArcFile(ArcFileNode { fs, path, .. })) => match self.arc_file.as_ref() {
                 Some(file) => file
                     .as_ref()
                     .map(|file| file.bytes_available())
@@ -280,11 +288,11 @@ impl VirtualFile for FileHandle {
 
         let inode = fs.storage.get(self.inode);
         match inode {
-            Some(Node::CustomFile { file, .. }) => {
+            Some(Node::CustomFile(CustomFileNode { file, .. })) => {
                 let file = file.lock().unwrap();
                 file.get_special_fd()
             }
-            Some(Node::ArcFile { fs, path, .. }) => match self.arc_file.as_ref() {
+            Some(Node::ArcFile(ArcFileNode { fs, path, .. })) => match self.arc_file.as_ref() {
                 Some(file) => file
                     .as_ref()
                     .map(|file| file.get_special_fd())
@@ -532,16 +540,18 @@ impl Read for FileHandle {
 
         let inode = fs.storage.get(self.inode);
         match inode {
-            Some(Node::File { file, .. }) => file.read(buf, &mut self.cursor),
-            Some(Node::ReadOnlyFile { file, .. }) => file.read(buf, &mut self.cursor),
-            Some(Node::CustomFile { file, .. }) => {
+            Some(Node::File(FileNode { file, .. })) => file.read(buf, &mut self.cursor),
+            Some(Node::ReadOnlyFile(ReadOnlyFileNode { file, .. })) => {
+                file.read(buf, &mut self.cursor)
+            }
+            Some(Node::CustomFile(CustomFileNode { file, .. })) => {
                 let mut file = file.lock().unwrap();
                 let _ = file.seek(io::SeekFrom::Start(self.cursor as u64));
                 let read = file.read(buf)?;
                 self.cursor += read as u64;
                 Ok(read)
             }
-            Some(Node::ArcFile { .. }) => {
+            Some(Node::ArcFile(ArcFileNode { .. })) => {
                 drop(fs);
                 self.lazy_load_arc_file_mut()
                     .map(|file| file.read(buf))
@@ -579,16 +589,18 @@ impl Read for FileHandle {
 
         let inode = fs.storage.get_mut(self.inode);
         match inode {
-            Some(Node::File { file, .. }) => file.read_to_end(buf, &mut self.cursor),
-            Some(Node::ReadOnlyFile { file, .. }) => file.read_to_end(buf, &mut self.cursor),
-            Some(Node::CustomFile { file, .. }) => {
+            Some(Node::File(FileNode { file, .. })) => file.read_to_end(buf, &mut self.cursor),
+            Some(Node::ReadOnlyFile(ReadOnlyFileNode { file, .. })) => {
+                file.read_to_end(buf, &mut self.cursor)
+            }
+            Some(Node::CustomFile(CustomFileNode { file, .. })) => {
                 let file = file.get_mut().unwrap();
                 let _ = file.seek(io::SeekFrom::Start(self.cursor as u64));
                 let read = file.read_to_end(buf)?;
                 self.cursor += read as u64;
                 Ok(read)
             }
-            Some(Node::ArcFile { .. }) => {
+            Some(Node::ArcFile(ArcFileNode { .. })) => {
                 drop(fs);
                 self.lazy_load_arc_file_mut()
                     .map(|file| file.read_to_end(buf))
@@ -645,16 +657,18 @@ impl Read for FileHandle {
 
         let inode = fs.storage.get(self.inode);
         match inode {
-            Some(Node::File { file, .. }) => file.read_exact(buf, &mut self.cursor),
-            Some(Node::ReadOnlyFile { file, .. }) => file.read_exact(buf, &mut self.cursor),
-            Some(Node::CustomFile { file, .. }) => {
+            Some(Node::File(FileNode { file, .. })) => file.read_exact(buf, &mut self.cursor),
+            Some(Node::ReadOnlyFile(ReadOnlyFileNode { file, .. })) => {
+                file.read_exact(buf, &mut self.cursor)
+            }
+            Some(Node::CustomFile(CustomFileNode { file, .. })) => {
                 let mut file = file.lock().unwrap();
                 let _ = file.seek(io::SeekFrom::Start(self.cursor as u64));
                 file.read_exact(buf)?;
                 self.cursor += buf.len() as u64;
                 Ok(())
             }
-            Some(Node::ArcFile { .. }) => {
+            Some(Node::ArcFile(ArcFileNode { .. })) => {
                 drop(fs);
                 self.lazy_load_arc_file_mut()
                     .map(|file| file.read_exact(buf))
@@ -702,16 +716,18 @@ impl Seek for FileHandle {
 
         let inode = fs.storage.get_mut(self.inode);
         match inode {
-            Some(Node::File { file, .. }) => file.seek(position, &mut self.cursor),
-            Some(Node::ReadOnlyFile { file, .. }) => file.seek(position, &mut self.cursor),
-            Some(Node::CustomFile { file, .. }) => {
+            Some(Node::File(FileNode { file, .. })) => file.seek(position, &mut self.cursor),
+            Some(Node::ReadOnlyFile(ReadOnlyFileNode { file, .. })) => {
+                file.seek(position, &mut self.cursor)
+            }
+            Some(Node::CustomFile(CustomFileNode { file, .. })) => {
                 let file = file.get_mut().unwrap();
                 let _ = file.seek(io::SeekFrom::Start(self.cursor as u64));
                 let pos = file.seek(position)?;
                 self.cursor = pos;
                 Ok(pos)
             }
-            Some(Node::ArcFile { .. }) => {
+            Some(Node::ArcFile(_)) => {
                 drop(fs);
                 self.lazy_load_arc_file_mut()
                     .map(|file| file.seek(position))
@@ -751,17 +767,17 @@ impl Write for FileHandle {
 
         let inode = fs.storage.get_mut(self.inode);
         let bytes_written = match inode {
-            Some(Node::File { file, metadata, .. }) => {
+            Some(Node::File(FileNode { file, metadata, .. })) => {
                 let bytes_written = file.write(buf, &mut self.cursor)?;
                 metadata.len = file.len().try_into().unwrap();
                 bytes_written
             }
-            Some(Node::ReadOnlyFile { file, metadata, .. }) => {
+            Some(Node::ReadOnlyFile(ReadOnlyFileNode { file, metadata, .. })) => {
                 let bytes_written = file.write(buf, &mut self.cursor)?;
                 metadata.len = file.len().try_into().unwrap();
                 bytes_written
             }
-            Some(Node::CustomFile { file, metadata, .. }) => {
+            Some(Node::CustomFile(CustomFileNode { file, metadata, .. })) => {
                 let file = file.get_mut().unwrap();
                 let _ = file.seek(io::SeekFrom::Start(self.cursor as u64));
                 let bytes_written = file.write(buf)?;
@@ -769,7 +785,7 @@ impl Write for FileHandle {
                 metadata.len = file.size();
                 bytes_written
             }
-            Some(Node::ArcFile { .. }) => {
+            Some(Node::ArcFile(_)) => {
                 drop(fs);
                 self.lazy_load_arc_file_mut()
                     .map(|file| file.write(buf))
@@ -798,13 +814,13 @@ impl Write for FileHandle {
 
         let inode = fs.storage.get_mut(self.inode);
         match inode {
-            Some(Node::File { file, .. }) => file.flush(),
-            Some(Node::ReadOnlyFile { file, .. }) => file.flush(),
-            Some(Node::CustomFile { file, .. }) => {
+            Some(Node::File(FileNode { file, .. })) => file.flush(),
+            Some(Node::ReadOnlyFile(ReadOnlyFileNode { file, .. })) => file.flush(),
+            Some(Node::CustomFile(CustomFileNode { file, .. })) => {
                 let file = file.get_mut().unwrap();
                 file.flush()
             }
-            Some(Node::ArcFile { .. }) => {
+            Some(Node::ArcFile(ArcFileNode { .. })) => {
                 drop(fs);
                 self.lazy_load_arc_file_mut()
                     .map(|file| file.flush())
@@ -1103,6 +1119,13 @@ impl File {
 impl File {
     pub fn read(&self, buf: &mut [u8], cursor: &mut u64) -> io::Result<usize> {
         let cur_pos = *cursor as usize;
+        let buffer_len = buf.len();
+        if *cursor > buffer_len as u64 {
+            return Err(io::Error::new(
+                io::ErrorKind::UnexpectedEof, 
+                format!("file cursor {cursor} > buffer length {buffer_len}")
+            ));
+        }
         let max_to_read = cmp::min(self.buffer.len() - cur_pos, buf.len());
         let data_to_copy = &self.buffer[cur_pos..][..max_to_read];
 
@@ -1117,25 +1140,17 @@ impl File {
 
     pub fn read_to_end(&self, buf: &mut Vec<u8>, cursor: &mut u64) -> io::Result<usize> {
         let cur_pos = *cursor as usize;
-        let data_to_copy = &self.buffer[cur_pos..];
-        let max_to_read = data_to_copy.len();
-
-        // `buf` is too small to contain the data. Let's resize it.
-        if max_to_read > buf.len() {
-            // Let's resize the capacity if needed.
-            if max_to_read > buf.capacity() {
-                buf.reserve_exact(max_to_read - buf.capacity());
-            }
-
-            // SAFETY: The space is reserved, and it's going to be
-            // filled with `copy_from_slice` below.
-            unsafe { buf.set_len(max_to_read) }
+        let buffer_len = buf.len();
+        if *cursor > buffer_len as u64 {
+            return Err(io::Error::new(
+                io::ErrorKind::UnexpectedEof, 
+                format!("file cursor {cursor} > buffer length {buffer_len}")
+            ));
         }
 
-        // SAFETY: `buf` and `data_to_copy` have the same size, see
-        // above.
-        buf.copy_from_slice(data_to_copy);
-
+        let data_to_copy = &self.buffer[cur_pos..];
+        let max_to_read = data_to_copy.len();
+        buf.extend_from_slice(data_to_copy);
         *cursor += max_to_read as u64;
 
         Ok(max_to_read)
@@ -1229,7 +1244,7 @@ impl File {
             }
         }
 
-        *cursor += buf.len() as u64;
+        *cursor = cursor.saturating_add(buf.len() as u64);
 
         Ok(buf.len())
     }
@@ -1272,6 +1287,13 @@ impl ReadOnlyFile {
     }
 
     pub fn read_to_end(&self, buf: &mut Vec<u8>, cursor: &mut u64) -> io::Result<usize> {
+        let buffer_len = self.buffer.len();
+        if *cursor > buffer_len as u64 {
+            return Err(io::Error::new(
+                io::ErrorKind::UnexpectedEof, 
+                format!("file cursor {cursor} > buffer length {buffer_len}")
+            ));
+        }
         let cur_pos = *cursor as usize;
         let data_to_copy = &self.buffer[cur_pos..];
         let max_to_read = data_to_copy.len();

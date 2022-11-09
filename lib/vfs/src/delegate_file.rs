@@ -1,4 +1,5 @@
 use crate::FileDescriptor;
+use crate::FsError;
 use crate::VirtualFile;
 use derivative::Derivative;
 use std::{
@@ -121,28 +122,36 @@ impl Default for DelegateFile {
 impl Seek for DelegateFile {
     fn seek(&mut self, pos: SeekFrom) -> io::Result<u64> {
         let inner = self.inner.read().unwrap();
-        inner.seek.as_ref().map(|seek| seek(pos)).unwrap_or(Ok(0))
+        let seek = inner.seek.as_ref().ok_or_else(|| {
+            io::Error::new(io::ErrorKind::Unsupported, "seek function not loaded on DelegateFile")
+        })?;
+        (seek)(pos)
     }
 }
 impl Write for DelegateFile {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         let inner = self.inner.read().unwrap();
-        inner
-            .write
-            .as_ref()
-            .map(|write| write(buf))
-            .unwrap_or(Ok(buf.len()))
+        let write = inner.write.as_ref().ok_or_else(|| {
+            io::Error::new(io::ErrorKind::Unsupported, "write function not loaded on DelegateFile")
+        })?;
+        (write)(buf)
     }
     fn flush(&mut self) -> io::Result<()> {
         let inner = self.inner.read().unwrap();
-        inner.flush.as_ref().map(|flush| flush()).unwrap_or(Ok(()))
+        let flush = inner.flush.as_ref().ok_or_else(|| {
+            io::Error::new(io::ErrorKind::Unsupported, "flush function not loaded on DelegateFile")
+        })?;
+        (flush)()
     }
 }
 
 impl Read for DelegateFile {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         let inner = self.inner.read().unwrap();
-        inner.read.as_ref().map(|read| read(buf)).unwrap_or(Ok(0))
+        let read = inner.read.as_ref().ok_or_else(|| {
+            io::Error::new(io::ErrorKind::Unsupported, "read function not loaded on DelegateFile")
+        })?;
+        (read)(buf)
     }
 }
 
@@ -162,27 +171,27 @@ impl VirtualFile for DelegateFile {
     }
     fn set_len(&mut self, new_size: u64) -> crate::Result<()> {
         let inner = self.inner.read().unwrap();
-        inner
+        let set_len = inner
             .set_len
             .as_ref()
-            .map(|set_len| set_len(new_size))
-            .unwrap_or(Ok(()))
+            .ok_or_else(|| FsError::UnknownError)?;
+        (set_len)(new_size)
     }
     fn unlink(&mut self) -> crate::Result<()> {
         let inner = self.inner.read().unwrap();
-        inner
+        let unlink = inner
             .unlink
             .as_ref()
-            .map(|unlink| unlink())
-            .unwrap_or(Ok(()))
+            .ok_or_else(|| FsError::UnknownError)?;
+        (unlink)()
     }
     fn bytes_available(&self) -> crate::Result<usize> {
         let inner = self.inner.read().unwrap();
-        inner
+        let bytes_available = inner
             .bytes_available
             .as_ref()
-            .map(|bytes_available| bytes_available())
-            .unwrap_or(Ok(0))
+            .ok_or_else(|| FsError::UnknownError)?;
+        (bytes_available)()
     }
     fn get_fd(&self) -> Option<FileDescriptor> {
         None

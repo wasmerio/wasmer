@@ -22,9 +22,7 @@ impl Write for ZeroFile {
 
 impl Read for ZeroFile {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        for b in buf.iter_mut() {
-            *b = 0;
-        }
+        buf.fill(0);
         Ok(buf.len())
     }
 }

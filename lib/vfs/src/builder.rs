@@ -16,74 +16,6 @@ pub struct RootFileSystemBuilder {
     tty: Option<Box<dyn VirtualFile + Send + Sync>>,
 }
 
-#[test]
-fn test_root_file_system() {
-    let root_fs = RootFileSystemBuilder::new().build();
-    let mut dev_null = root_fs
-        .new_open_options()
-        .read(true)
-        .write(true)
-        .open("/dev/null")
-        .unwrap();
-    assert_eq!(dev_null.write(b"hello").unwrap(), 5);
-    let mut buf = Vec::new();
-    dev_null.read_to_end(&mut buf);
-    assert!(buf.is_empty());
-    assert!(dev_null.get_special_fd().is_none());
-
-    let mut dev_zero = root_fs
-        .new_open_options()
-        .read(true)
-        .write(true)
-        .open("/dev/zero")
-        .unwrap();
-    assert_eq!(dev_zero.write(b"hello").unwrap(), 5);
-    let mut buf = vec![1; 10];
-    dev_zero.read(&mut buf[..]).unwrap();
-    assert_eq!(buf, vec![0; 10]);
-    assert!(dev_zero.get_special_fd().is_none());
-
-    let mut dev_tty = root_fs
-        .new_open_options()
-        .read(true)
-        .write(true)
-        .open("/dev/tty")
-        .unwrap();
-    assert_eq!(dev_tty.write(b"hello").unwrap(), 5);
-    let mut buf = Vec::new();
-    dev_tty.read_to_end(&mut buf);
-    assert!(buf.is_empty());
-    assert!(dev_tty.get_special_fd().is_none());
-
-    root_fs
-        .new_open_options()
-        .read(true)
-        .open("/bin/wasmer")
-        .unwrap();
-
-    let dev_stdin = root_fs
-        .new_open_options()
-        .read(true)
-        .write(true)
-        .open("/dev/stdin")
-        .unwrap();
-    assert_eq!(dev_stdin.get_special_fd().unwrap(), 0);
-    let dev_stdout = root_fs
-        .new_open_options()
-        .read(true)
-        .write(true)
-        .open("/dev/stdout")
-        .unwrap();
-    assert_eq!(dev_stdout.get_special_fd().unwrap(), 1);
-    let dev_stderr = root_fs
-        .new_open_options()
-        .read(true)
-        .write(true)
-        .open("/dev/stderr")
-        .unwrap();
-    assert_eq!(dev_stderr.get_special_fd().unwrap(), 2);
-}
-
 impl Default for RootFileSystemBuilder {
     fn default() -> Self {
         Self {
@@ -171,4 +103,72 @@ impl RootFileSystemBuilder {
         }
         tmp
     }
+}
+
+#[test]
+fn test_root_file_system() {
+    let root_fs = RootFileSystemBuilder::new().build();
+    let mut dev_null = root_fs
+        .new_open_options()
+        .read(true)
+        .write(true)
+        .open("/dev/null")
+        .unwrap();
+    assert_eq!(dev_null.write(b"hello").unwrap(), 5);
+    let mut buf = Vec::new();
+    dev_null.read_to_end(&mut buf);
+    assert!(buf.is_empty());
+    assert!(dev_null.get_special_fd().is_none());
+
+    let mut dev_zero = root_fs
+        .new_open_options()
+        .read(true)
+        .write(true)
+        .open("/dev/zero")
+        .unwrap();
+    assert_eq!(dev_zero.write(b"hello").unwrap(), 5);
+    let mut buf = vec![1; 10];
+    dev_zero.read(&mut buf[..]).unwrap();
+    assert_eq!(buf, vec![0; 10]);
+    assert!(dev_zero.get_special_fd().is_none());
+
+    let mut dev_tty = root_fs
+        .new_open_options()
+        .read(true)
+        .write(true)
+        .open("/dev/tty")
+        .unwrap();
+    assert_eq!(dev_tty.write(b"hello").unwrap(), 5);
+    let mut buf = Vec::new();
+    dev_tty.read_to_end(&mut buf);
+    assert!(buf.is_empty());
+    assert!(dev_tty.get_special_fd().is_none());
+
+    root_fs
+        .new_open_options()
+        .read(true)
+        .open("/bin/wasmer")
+        .unwrap();
+
+    let dev_stdin = root_fs
+        .new_open_options()
+        .read(true)
+        .write(true)
+        .open("/dev/stdin")
+        .unwrap();
+    assert_eq!(dev_stdin.get_special_fd().unwrap(), 0);
+    let dev_stdout = root_fs
+        .new_open_options()
+        .read(true)
+        .write(true)
+        .open("/dev/stdout")
+        .unwrap();
+    assert_eq!(dev_stdout.get_special_fd().unwrap(), 1);
+    let dev_stderr = root_fs
+        .new_open_options()
+        .read(true)
+        .write(true)
+        .open("/dev/stderr")
+        .unwrap();
+    assert_eq!(dev_stderr.get_special_fd().unwrap(), 2);
 }

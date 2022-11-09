@@ -83,6 +83,8 @@ pub struct StrongMountPoint {
     pub new_path: Option<String>,
 }
 
+/// Allows different filesystems of different types 
+/// to be mounted at various mount points
 #[derive(Debug, Default, Clone)]
 pub struct UnionFileSystem {
     pub mounts: Vec<MountPoint>,
