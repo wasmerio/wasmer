@@ -46,6 +46,7 @@ impl MountPoint {
         }
     }
 
+    /// Tries to recover the internal `Weak<dyn FileSystem>` to a `Arc<dyn FileSystem>`
     fn solidify(&mut self) {
         if self.fs.is_none() {
             self.fs = self.weak_fs.upgrade();
@@ -59,6 +60,7 @@ impl MountPoint {
         }
     }
 
+    /// Returns a strong-referenced copy of the internal `Arc<dyn FileSystem>`
     fn strong(&self) -> Option<StrongMountPoint> {
         self.fs().map(|fs| StrongMountPoint {
             path: self.path.clone(),
@@ -70,6 +72,8 @@ impl MountPoint {
     }
 }
 
+/// A `strong` mount point holds a strong `Arc` reference to the filesystem
+/// mounted at path `path`.
 #[derive(Debug)]
 pub struct StrongMountPoint {
     pub path: String,
@@ -184,12 +188,14 @@ impl UnionFileSystem {
         }
     }
 
+    /// Deletes all mount points that do not have `sanitize` set in the options
     pub fn sanitize(mut self) -> Self {
         self.solidify();
         self.mounts.retain(|mount| !mount.should_sanitize);
         self
     }
 
+    /// Tries to recover the internal `Weak<dyn FileSystem>` to a `Arc<dyn FileSystem>`
     pub fn solidify(&mut self) {
         for mount in self.mounts.iter_mut() {
             mount.solidify();
