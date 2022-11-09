@@ -273,6 +273,9 @@ pub trait VirtualFile: fmt::Debug + Write + Read + Seek + Upcastable {
         None
     }
 
+    /// Used for "special" files such as `stdin`, `stdout` and `stderr`.
+    /// Always returns the same file descriptor (0, 1 or 2). Returns `None`
+    /// on normal files
     fn get_special_fd(&self) -> Option<u32> {
         None
     }

@@ -261,7 +261,7 @@ impl VirtualFile for FileHandle {
                     .open(path.as_path())
                     .map(|file| file.bytes_available())?,
             },
-            None => return Err(FsError::EntryNotFound),
+            None => Err(FsError::EntryNotFound),
             _ => Err(FsError::NotAFile),
         }
     }
@@ -1239,7 +1239,8 @@ impl File {
     }
 }
 
-/// Read only file that uses copy-on-write
+/// Read only file that uses copy-on-write, used for mapping
+/// files from the `pirita` filesystem
 #[derive(Debug)]
 pub(super) struct ReadOnlyFile {
     buffer: Cow<'static, [u8]>,

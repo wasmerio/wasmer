@@ -27,25 +27,15 @@ pub struct DelegateFileInner {
     bytes_available: Option<DelegateBytesAvailableFn>,
 }
 
+/// Wrapper that forwards calls to `read`, `write`, etc.
+/// to custom, user-defined functions - similar to `VirtualFile`
+/// itself, except you don't have to create a new struct in order
+/// to implement functions
 #[derive(Derivative, Clone)]
 #[derivative(Debug)]
 pub struct DelegateFile {
     #[derivative(Debug = "ignore")]
     inner: Arc<RwLock<DelegateFileInner>>,
-}
-
-#[test]
-fn test_delegate_file() {
-    let mut custom_write_buf = vec![0; 17];
-    let mut file = DelegateFile::new();
-
-    file.with_write(|_| Ok(384));
-    file.with_read(|_| Ok(986));
-    file.with_seek(|_| Ok(996));
-
-    assert_eq!(file.read(custom_write_buf.as_mut_slice()).unwrap(), 986);
-    assert_eq!(file.seek(SeekFrom::Start(0)).unwrap(), 996);
-    assert_eq!(file.write(b"hello").unwrap(), 384);
 }
 
 impl DelegateFile {
@@ -197,4 +187,18 @@ impl VirtualFile for DelegateFile {
     fn get_fd(&self) -> Option<FileDescriptor> {
         None
     }
+}
+
+#[test]
+fn test_delegate_file() {
+    let mut custom_write_buf = vec![0; 17];
+    let mut file = DelegateFile::new();
+
+    file.with_write(|_| Ok(384));
+    file.with_read(|_| Ok(986));
+    file.with_seek(|_| Ok(996));
+
+    assert_eq!(file.read(custom_write_buf.as_mut_slice()).unwrap(), 986);
+    assert_eq!(file.seek(SeekFrom::Start(0)).unwrap(), 996);
+    assert_eq!(file.write(b"hello").unwrap(), 384);
 }

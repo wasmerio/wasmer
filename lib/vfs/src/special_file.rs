@@ -4,6 +4,8 @@ use crate::FileDescriptor;
 use crate::VirtualFile;
 use wasmer_wasi_types::wasi::Fd;
 
+/// A "special" file is a file that is locked
+/// to one file descriptor (i.e. stdout => 0, stdin => 1), etc.
 #[derive(Debug)]
 pub struct SpecialFile {
     fd: Fd,
