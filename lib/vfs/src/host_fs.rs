@@ -4,6 +4,7 @@ use crate::{
 };
 #[cfg(feature = "enable-serde")]
 use serde::{de, Deserialize, Serialize};
+use std::cmp::Ordering;
 use std::convert::TryInto;
 use std::fs;
 use std::io::{self, Read, Seek, Write};
@@ -74,7 +75,7 @@ pub struct FileSystem;
 impl crate::FileSystem for FileSystem {
     fn read_dir(&self, path: &Path) -> Result<ReadDir> {
         let read_dir = fs::read_dir(path)?;
-        let data = read_dir
+        let mut data = read_dir
             .map(|entry| {
                 let entry = entry?;
                 let metadata = entry.metadata()?;
@@ -85,6 +86,10 @@ impl crate::FileSystem for FileSystem {
             })
             .collect::<std::result::Result<Vec<DirEntry>, io::Error>>()
             .map_err::<FsError, _>(Into::into)?;
+        data.sort_by(|a, b| match (a.metadata.as_ref(), b.metadata.as_ref()) {
+            (Ok(a), Ok(b)) => a.modified.cmp(&b.modified),
+            _ => Ordering::Equal,
+        });
         Ok(ReadDir::new(data))
     }
 
@@ -1204,22 +1209,44 @@ mod tests {
         let _ = fs_extra::remove_items(&["./test_remove_file"]);
     }
 
-    /*
-
     #[test]
     fn test_readdir() {
         let fs = FileSystem::default();
 
-        assert_eq!(fs.create_dir(path!("/foo")), Ok(()), "creating `foo`");
-        assert_eq!(fs.create_dir(path!("/foo/sub")), Ok(()), "creating `sub`");
-        assert_eq!(fs.create_dir(path!("/bar")), Ok(()), "creating `bar`");
-        assert_eq!(fs.create_dir(path!("/baz")), Ok(()), "creating `bar`");
+        let _ = fs_extra::remove_items(&["./test_readdir"]);
+
+        assert_eq!(
+            fs.create_dir(Path::new("./test_readdir/")),
+            Ok(()),
+            "creating `test_readdir`"
+        );
+
+        assert_eq!(
+            fs.create_dir(Path::new("./test_readdir/foo")),
+            Ok(()),
+            "creating `foo`"
+        );
+        assert_eq!(
+            fs.create_dir(Path::new("./test_readdir/foo/sub")),
+            Ok(()),
+            "creating `sub`"
+        );
+        assert_eq!(
+            fs.create_dir(Path::new("./test_readdir/bar")),
+            Ok(()),
+            "creating `bar`"
+        );
+        assert_eq!(
+            fs.create_dir(Path::new("./test_readdir/baz")),
+            Ok(()),
+            "creating `bar`"
+        );
         assert!(
             matches!(
                 fs.new_open_options()
                     .write(true)
                     .create_new(true)
-                    .open(path!("/a.txt")),
+                    .open(Path::new("./test_readdir/a.txt")),
                 Ok(_)
             ),
             "creating `a.txt`",
@@ -1229,75 +1256,44 @@ mod tests {
                 fs.new_open_options()
                     .write(true)
                     .create_new(true)
-                    .open(path!("/b.txt")),
+                    .open(Path::new("./test_readdir/b.txt")),
                 Ok(_)
             ),
             "creating `b.txt`",
         );
 
-        let readdir = fs.read_dir(path!("/"));
+        let readdir = fs.read_dir(Path::new("./test_readdir"));
 
-        assert!(readdir.is_ok(), "reading the directory `/`");
+        assert!(readdir.is_ok(), "reading the directory `./test_readdir/`");
 
         let mut readdir = readdir.unwrap();
 
-        assert!(
-            matches!(
-                readdir.next(),
-                Some(Ok(DirEntry {
-                    path,
-                    metadata: Ok(Metadata { ft, .. }),
-                }))
-                    if path == path!(buf "/foo") && ft.is_dir()
-            ),
-            "checking entry #1",
-        );
-        assert!(
-            matches!(
-                readdir.next(),
-                Some(Ok(DirEntry {
-                    path,
-                    metadata: Ok(Metadata { ft, .. }),
-                }))
-                    if path == path!(buf "/bar") && ft.is_dir()
-            ),
-            "checking entry #2",
-        );
-        assert!(
-            matches!(
-                readdir.next(),
-                Some(Ok(DirEntry {
-                    path,
-                    metadata: Ok(Metadata { ft, .. }),
-                }))
-                    if path == path!(buf "/baz") && ft.is_dir()
-            ),
-            "checking entry #3",
-        );
-        assert!(
-            matches!(
-                readdir.next(),
-                Some(Ok(DirEntry {
-                    path,
-                    metadata: Ok(Metadata { ft, .. }),
-                }))
-                    if path == path!(buf "/a.txt") && ft.is_file()
-            ),
-            "checking entry #4",
-        );
-        assert!(
-            matches!(
-                readdir.next(),
-                Some(Ok(DirEntry {
-                    path,
-                    metadata: Ok(Metadata { ft, .. }),
-                }))
-                    if path == path!(buf "/b.txt") && ft.is_file()
-            ),
-            "checking entry #5",
-        );
-        assert!(matches!(readdir.next(), None), "no more entries");
+        let next = readdir.next().unwrap().unwrap();
+        assert!(next.path.ends_with("foo"), "checking entry #1");
+        assert!(next.path.is_dir(), "checking entry #1");
+
+        let next = readdir.next().unwrap().unwrap();
+        assert!(next.path.ends_with("bar"), "checking entry #2");
+        assert!(next.path.is_dir(), "checking entry #2");
+
+        let next = readdir.next().unwrap().unwrap();
+        assert!(next.path.ends_with("baz"), "checking entry #3");
+        assert!(next.path.is_dir(), "checking entry #3");
+
+        let next = readdir.next().unwrap().unwrap();
+        assert!(next.path.ends_with("a.txt"), "checking entry #2");
+        assert!(next.path.is_file(), "checking entry #4");
+
+        let next = readdir.next().unwrap().unwrap();
+        assert!(next.path.ends_with("b.txt"), "checking entry #2");
+        assert!(next.path.is_file(), "checking entry #5");
+
+        if let Some(s) = readdir.next() {
+            panic!("next: {s:?}");
+        }
     }
+
+    /*
 
     #[test]
     fn test_canonicalize() {
