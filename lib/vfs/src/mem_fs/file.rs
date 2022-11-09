@@ -1122,8 +1122,8 @@ impl File {
         let buffer_len = buf.len();
         if *cursor > buffer_len as u64 {
             return Err(io::Error::new(
-                io::ErrorKind::UnexpectedEof, 
-                format!("file cursor {cursor} > buffer length {buffer_len}")
+                io::ErrorKind::UnexpectedEof,
+                format!("file cursor {cursor} > buffer length {buffer_len}"),
             ));
         }
         let max_to_read = cmp::min(self.buffer.len() - cur_pos, buf.len());
@@ -1143,8 +1143,8 @@ impl File {
         let buffer_len = buf.len();
         if *cursor > buffer_len as u64 {
             return Err(io::Error::new(
-                io::ErrorKind::UnexpectedEof, 
-                format!("file cursor {cursor} > buffer length {buffer_len}")
+                io::ErrorKind::UnexpectedEof,
+                format!("file cursor {cursor} > buffer length {buffer_len}"),
             ));
         }
 
@@ -1290,8 +1290,8 @@ impl ReadOnlyFile {
         let buffer_len = self.buffer.len();
         if *cursor > buffer_len as u64 {
             return Err(io::Error::new(
-                io::ErrorKind::UnexpectedEof, 
-                format!("file cursor {cursor} > buffer length {buffer_len}")
+                io::ErrorKind::UnexpectedEof,
+                format!("file cursor {cursor} > buffer length {buffer_len}"),
             ));
         }
         let cur_pos = *cursor as usize;

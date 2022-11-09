@@ -123,7 +123,10 @@ impl Seek for DelegateFile {
     fn seek(&mut self, pos: SeekFrom) -> io::Result<u64> {
         let inner = self.inner.read().unwrap();
         let seek = inner.seek.as_ref().ok_or_else(|| {
-            io::Error::new(io::ErrorKind::Unsupported, "seek function not loaded on DelegateFile")
+            io::Error::new(
+                io::ErrorKind::Unsupported,
+                "seek function not loaded on DelegateFile",
+            )
         })?;
         (seek)(pos)
     }
@@ -132,14 +135,20 @@ impl Write for DelegateFile {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         let inner = self.inner.read().unwrap();
         let write = inner.write.as_ref().ok_or_else(|| {
-            io::Error::new(io::ErrorKind::Unsupported, "write function not loaded on DelegateFile")
+            io::Error::new(
+                io::ErrorKind::Unsupported,
+                "write function not loaded on DelegateFile",
+            )
         })?;
         (write)(buf)
     }
     fn flush(&mut self) -> io::Result<()> {
         let inner = self.inner.read().unwrap();
         let flush = inner.flush.as_ref().ok_or_else(|| {
-            io::Error::new(io::ErrorKind::Unsupported, "flush function not loaded on DelegateFile")
+            io::Error::new(
+                io::ErrorKind::Unsupported,
+                "flush function not loaded on DelegateFile",
+            )
         })?;
         (flush)()
     }
@@ -149,7 +158,10 @@ impl Read for DelegateFile {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         let inner = self.inner.read().unwrap();
         let read = inner.read.as_ref().ok_or_else(|| {
-            io::Error::new(io::ErrorKind::Unsupported, "read function not loaded on DelegateFile")
+            io::Error::new(
+                io::ErrorKind::Unsupported,
+                "read function not loaded on DelegateFile",
+            )
         })?;
         (read)(buf)
     }
@@ -179,10 +191,7 @@ impl VirtualFile for DelegateFile {
     }
     fn unlink(&mut self) -> crate::Result<()> {
         let inner = self.inner.read().unwrap();
-        let unlink = inner
-            .unlink
-            .as_ref()
-            .ok_or_else(|| FsError::UnknownError)?;
+        let unlink = inner.unlink.as_ref().ok_or_else(|| FsError::UnknownError)?;
         (unlink)()
     }
     fn bytes_available(&self) -> crate::Result<usize> {
