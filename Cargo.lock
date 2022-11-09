@@ -1116,6 +1116,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "fs_extra"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2022715d62ab30faffd124d40b76f4134a550a87792276512b18d63272333394"
+
+[[package]]
 name = "fuchsia-cprng"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4223,6 +4229,7 @@ version = "3.0.0-rc.2"
 dependencies = [
  "anyhow",
  "derivative",
+ "fs_extra",
  "libc",
  "serde",
  "slab",
