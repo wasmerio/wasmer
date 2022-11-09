@@ -32,7 +32,7 @@ use self::types::{
 };
 #[cfg(feature = "os")]
 use crate::bin_factory::spawn_exec_module;
-use crate::runtime::SpawnType;
+use crate::{runtime::SpawnType, WasiThread};
 use crate::state::{read_ip_port, write_ip_port, WasiProcessWait};
 use crate::utils::map_io_err;
 use crate::{
@@ -54,6 +54,7 @@ use crate::{
 use bytes::{Bytes, BytesMut};
 use cooked_waker::IntoWaker;
 use sha2::Sha256;
+use wasmer_wasi_types::wasi::{TlKey, TlUser, TlVal};
 use std::borrow::{Borrow, Cow};
 use std::cell::RefCell;
 use std::collections::hash_map::Entry;
@@ -183,8 +184,10 @@ pub fn stderr_write(ctx: &FunctionEnvMut<'_, WasiEnv>, buf: &[u8]) -> Result<(),
     stderr.write_all(buf).map_err(map_io_err)
 }
 
+/// Performs an immuatble operation on the socket while running in an asynchronous runtime
+/// This has built in signal support
 fn __sock_actor<T, F, Fut>(
-    ctx: &FunctionEnvMut<'_, WasiEnv>,
+    ctx: &mut FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     rights: Rights,
     actor: F,
@@ -215,7 +218,13 @@ where
                 drop(guard);
 
                 // Block on the work and process process
-                __asyncify(tasks, &env.thread, None, async move { actor(socket).await })?
+                __asyncify(
+                    ctx,
+                    None,
+                    async move {
+                        actor(socket).await
+                    }
+                )?
             }
             _ => {
                 return Err(Errno::Notsock);
@@ -226,9 +235,12 @@ where
     Ok(ret)
 }
 
+/// Asyncify takes the current thread and blocks on the async runtime associated with it
+/// thus allowed for asynchronous operations to execute. It has built in functionality
+/// to (optionally) timeout the IO, force exit the process, callback signals and pump
+/// synchronous IO engine
 fn __asyncify<T, Fut>(
-    tasks: Arc<dyn VirtualTaskManager + Send + Sync + 'static>,
-    thread: &WasiThread,
+    ctx: &mut FunctionEnvMut<'_, WasiEnv>,
     timeout: Option<Duration>,
     work: Fut,
 ) -> Result<T, Errno>
@@ -236,7 +248,9 @@ where
     T: 'static,
     Fut: std::future::Future<Output = Result<T, Errno>> + 'static,
 {
-    let mut signaler = thread.signals.1.subscribe();
+    let mut env = ctx.data();
+    let tasks = env.tasks.clone();
+    let mut signaler = env.thread.signals.1.subscribe();
 
     // Create the timeout
     let timeout = {
@@ -252,36 +266,62 @@ where
         }
     };
 
-    // Block on the work and process process
-    let tasks_inner = tasks.clone();
-    let (tx_ret, mut rx_ret) = tokio::sync::mpsc::unbounded_channel();
-    tasks.block_on(Box::pin(async move {
-        tokio::select! {
-            // The main work we are doing
-            ret = work => {
-                let _ = tx_ret.send(ret);
-            },
-            // If a signaller is triggered then we interrupt the main process
-            _ = signaler.recv() => {
-                let _ = tx_ret.send(Err(Errno::Intr));
-            },
-            // Optional timeout
-            _ = timeout => {
-                let _ = tx_ret.send(Err(Errno::Timedout));
-            },
-            // Periodically wake every 10 milliseconds for synchronously IO
-            // (but only if someone is currently registered for it)
-            _ = async move {
-                loop {
-                    tasks_inner.wait_for_root_waker().await;
-                    tasks_inner.wake_root_wakers();
-                }
-            } => { }
+    // Enter a loop that can be receive intr commands
+    loop
+    {
+        // Check if we need to exit the asynchronous loop
+        if env.should_exit().is_some() {
+            return Err(Errno::Intr);
         }
-    }));
-    rx_ret.try_recv().unwrap_or(Err(Errno::Intr))
+
+        // Block on the work and process process
+        let tasks_inner = tasks.clone();
+        let (tx_ret, mut rx_ret) = tokio::sync::mpsc::unbounded_channel();
+        tasks.block_on(Box::pin(async move {
+            tokio::select! {
+                // The main work we are doing
+                ret = work => {
+                    let _ = tx_ret.send(Some(ret));
+                },
+                // If a signaller is triggered then we interrupt the main process
+                _ = signaler.recv() => {
+                    let _ = tx_ret.send(None);
+                },
+                // Optional timeout
+                _ = timeout => {
+                    let _ = tx_ret.send(Some(Err(Errno::Timedout)));
+                },
+                // Periodically wake every 10 milliseconds for synchronously IO
+                // (but only if someone is currently registered for it)
+                _ = async move {
+                    loop {
+                        tasks_inner.wait_for_root_waker().await;
+                        tasks_inner.wake_root_wakers();
+                    }
+                } => { }
+            }
+        }));
+
+        // If a signal is received then we need to process it and if
+        // we can not then fail with an interrupt error code
+        let ret = rx_ret.try_recv().map_err(|_| Errno::Intr)?;
+        return match ret {
+            Some(a) => a,
+            None => {
+                if ctx.data().clone().process_signals(&mut ctx)? == true {
+                    env = ctx.data();
+                    continue;
+                } else {
+                    Err(Errno::Intr)
+                }
+            },
+        }
+    }
 }
 
+// This should be compiled away, it will simply wait forever however its never
+// used by itself, normally this is passed into asyncify which will still abort
+// the operating on timeouts, signals or other work due to a select! around the await
 #[derive(Default)]
 struct InfiniteSleep {}
 impl std::future::Future for InfiniteSleep {
@@ -291,8 +331,10 @@ impl std::future::Future for InfiniteSleep {
     }
 }
 
+/// Performs mutable work on a socket under an asynchronous runtime with
+/// built in signal processing
 fn __sock_actor_mut<T, F, Fut>(
-    ctx: &FunctionEnvMut<'_, WasiEnv>,
+    ctx: &mut FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     rights: Rights,
     actor: F,
@@ -321,7 +363,12 @@ where
             let socket = socket.clone();
             drop(guard);
 
-            __asyncify(tasks, &env.thread, None, async move { actor(socket).await })
+            __asyncify(
+                ctx,
+                None,
+                async move {
+                    actor(socket).await
+                })
         }
         _ => {
             return Err(Errno::Notsock);
@@ -329,8 +376,11 @@ where
     }
 }
 
+/// Replaces a socket with another socket in under an asynchronous runtime.
+/// This is used for opening sockets or connecting sockets which changes
+/// the fundamental state of the socket to another state machine
 fn __sock_upgrade<F, Fut>(
-    ctx: &FunctionEnvMut<'_, WasiEnv>,
+    ctx: &mut FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     rights: Rights,
     actor: F,
@@ -366,7 +416,12 @@ where
 
             let new_socket = {
                 // Block on the work and process process
-                __asyncify(tasks, &env.thread, None, async move { actor(socket).await })?
+                __asyncify(
+                    ctx,
+                    None,
+                    async move {
+                        actor(socket).await
+                    })?
             };
 
             if let Some(mut new_socket) = new_socket {
@@ -1297,7 +1352,7 @@ pub fn fd_prestat_dir_name<M: MemorySize>(
 /// - `u32 *nwritten`
 ///     Number of bytes written
 pub fn fd_pwrite<M: MemorySize>(
-    ctx: FunctionEnvMut<'_, WasiEnv>,
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
     iovs: WasmPtr<__wasi_ciovec_t<M>, M>,
     iovs_len: M::Offset,
@@ -1307,10 +1362,9 @@ pub fn fd_pwrite<M: MemorySize>(
     trace!("wasi[{}:{}]::fd_pwrite", ctx.data().pid(), ctx.data().tid());
     // TODO: refactor, this is just copied from `fd_write`...
     let env = ctx.data();
-    let (memory, mut state, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
+    let (mut memory, mut state, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
     let iovs_arr = wasi_try_mem_ok!(iovs.slice(&memory, iovs_len));
-    let nwritten_ref = nwritten.deref(&memory);
-
+    
     let fd_entry = wasi_try_ok!(state.fs.get_fd(fd));
     let bytes_written = match fd {
         __WASI_STDIN_FILENO => return Ok(Errno::Inval),
@@ -1369,8 +1423,7 @@ pub fn fd_pwrite<M: MemorySize>(
 
                     let socket = socket.clone();
                     wasi_try_ok!(__asyncify(
-                        env.tasks.clone(),
-                        &env.thread,
+                        &mut ctx,
                         None,
                         async move { socket.send(buf).await }
                     ))
@@ -1393,9 +1446,12 @@ pub fn fd_pwrite<M: MemorySize>(
             }
         }
     };
+    env = ctx.data();
+    memory = env.memory_view(&ctx);
 
     let bytes_written: M::Offset =
         wasi_try_ok!(bytes_written.try_into().map_err(|_| Errno::Overflow));
+    let nwritten_ref = nwritten.deref(&memory);
     wasi_try_mem_ok!(nwritten_ref.write(bytes_written));
 
     Ok(Errno::Success)
@@ -1430,7 +1486,7 @@ pub fn fd_read<M: MemorySize>(
 
     ctx.data().clone().process_signals(&mut ctx)?;
 
-    let env = ctx.data();
+    let mut env = ctx.data();
     let state = env.state.clone();
     let inodes = state.inodes.clone();
 
@@ -1465,8 +1521,7 @@ pub fn fd_read<M: MemorySize>(
 
                         let register_root_waker = env.tasks.register_root_waker();
                         let data = wasi_try_ok!(__asyncify(
-                            env.tasks.clone(),
-                            &env.thread,
+                            &mut ctx,
                             if is_non_blocking {
                                 Some(Duration::ZERO)
                             } else {
@@ -1493,6 +1548,7 @@ pub fn fd_read<M: MemorySize>(
                             Errno::Timedout => Errno::Again,
                             a => a,
                         }));
+                        env = ctx.data();
 
                         let memory = env.memory_view(&ctx);
                         let iovs_arr = wasi_try_mem_ok!(iovs.slice(&memory, iovs_len));
@@ -1515,8 +1571,7 @@ pub fn fd_read<M: MemorySize>(
 
                     let socket = socket.clone();
                     let data = wasi_try_ok!(__asyncify(
-                        env.tasks.clone(),
-                        &env.thread,
+                        &mut ctx,
                         if is_non_blocking {
                             Some(Duration::ZERO)
                         } else {
@@ -1528,6 +1583,8 @@ pub fn fd_read<M: MemorySize>(
                         Errno::Timedout => Errno::Again,
                         a => a,
                     }));
+                    env = ctx.data();
+                    memory = env.memory_view(&ctx);
 
                     let data_len = data.len();
                     let mut reader = &data[..];
@@ -1549,8 +1606,7 @@ pub fn fd_read<M: MemorySize>(
 
                     let socket = socket.clone();
                     let data = wasi_try_ok!(__asyncify(
-                        env.tasks.clone(),
-                        &env.thread,
+                        &mut ctx,
                         if is_non_blocking {
                             Some(Duration::ZERO)
                         } else {
@@ -1562,6 +1618,8 @@ pub fn fd_read<M: MemorySize>(
                         Errno::Timedout => Errno::Again,
                         a => a,
                     }));
+                    env = ctx.data();
+                    memory = env.memory_view(&ctx);
 
                     let data_len = data.len();
                     let mut reader = &data[..];
@@ -1618,8 +1676,7 @@ pub fn fd_read<M: MemorySize>(
                         // Yield until the notifications are triggered
                         let tasks_inner = env.tasks.clone();
                         rx = wasi_try_ok!(__asyncify(
-                            env.tasks.clone(),
-                            &env.thread,
+                            &mut ctx,
                             None,
                             async move {
                                 let _ = rx.recv().await;
@@ -1630,6 +1687,7 @@ pub fn fd_read<M: MemorySize>(
                             Errno::Timedout => Errno::Again,
                             a => a,
                         }));
+                        env = ctx.data();
                     }
                     ret
                 }
@@ -1662,7 +1720,6 @@ pub fn fd_read<M: MemorySize>(
         bytes_read
     );
 
-    let env = ctx.data();
     let memory = env.memory_view(&ctx);
     let nread_ref = nread.deref(&memory);
     wasi_try_mem_ok!(nread_ref.write(bytes_read));
@@ -2121,7 +2178,7 @@ pub fn fd_tell<M: MemorySize>(
 /// Errors:
 ///
 pub fn fd_write<M: MemorySize>(
-    ctx: FunctionEnvMut<'_, WasiEnv>,
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
     iovs: WasmPtr<__wasi_ciovec_t<M>, M>,
     iovs_len: M::Offset,
@@ -2133,11 +2190,10 @@ pub fn fd_write<M: MemorySize>(
         ctx.data().tid(),
         fd
     );
-    let env = ctx.data();
-    let (memory, mut state, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
+    let mut env = ctx.data();
+    let (mut memory, mut state, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
     let iovs_arr = wasi_try_mem_ok!(iovs.slice(&memory, iovs_len));
-    let nwritten_ref = nwritten.deref(&memory);
-
+    
     let fd_entry = wasi_try_ok!(state.fs.get_fd(fd));
 
     let is_stdio = match fd {
@@ -2176,8 +2232,7 @@ pub fn fd_write<M: MemorySize>(
                         let handle = handle.clone();
                         let register_root_waker = env.tasks.register_root_waker();
                         wasi_try_ok!(__asyncify(
-                            env.tasks.clone(),
-                            &env.thread,
+                            &mut ctx,
                             if is_non_blocking {
                                 Some(Duration::ZERO)
                             } else {
@@ -2220,8 +2275,7 @@ pub fn fd_write<M: MemorySize>(
 
                     let socket = socket.clone();
                     wasi_try_ok!(__asyncify(
-                        env.tasks.clone(),
-                        &env.thread,
+                        &mut ctx,
                         None,
                         async move { socket.send(buf).await }
                     ))
@@ -2263,6 +2317,8 @@ pub fn fd_write<M: MemorySize>(
                 }
             }
         };
+        env = ctx.data();
+        memory = env.memory_view(&ctx);
 
         // reborrow and update the size
         if is_stdio == false {
@@ -2281,6 +2337,7 @@ pub fn fd_write<M: MemorySize>(
         bytes_written
     };
 
+    let nwritten_ref = nwritten.deref(&memory);
     let bytes_written: M::Offset =
         wasi_try_ok!(bytes_written.try_into().map_err(|_| Errno::Overflow));
     wasi_try_mem_ok!(nwritten_ref.write(bytes_written));
@@ -3735,9 +3792,9 @@ pub fn poll_oneoff<M: MemorySize>(
 
     // First we extract all the subscriptions into an array so that they
     // can be processed
-    let env = ctx.data();
+    let mut nv = ctx.data();
     let state = ctx.data().state.deref();
-    let memory = env.memory_view(&ctx);
+    let mut memory = env.memory_view(&ctx);
     let mut subscriptions = HashMap::new();
     let subscription_array = wasi_try_mem_ok!(in_.slice(&memory, nsubscriptions));
     for sub in subscription_array.iter() {
@@ -3931,9 +3988,15 @@ pub fn poll_oneoff<M: MemorySize>(
 
     // Block on the work and process process
     let env = ctx.data();
-    let mut ret = __asyncify(env.tasks.clone(), &env.thread, time_to_sleep, async move {
-        work.await
-    });
+    let mut ret = __asyncify(
+        &mut ctx,
+        time_to_sleep,
+        async move {
+            work.await
+        }
+    );
+    env = ctx.data();
+    memory = env.memory_view(&ctx);
 
     // If its a timeout then return an event for it
     if let Err(Errno::Timedout) = ret {
@@ -3951,18 +4014,9 @@ pub fn poll_oneoff<M: MemorySize>(
         }
         ret = Ok(Errno::Success);
     }
-
-    // If its a signal then process them
-    if let Err(Errno::Intr) = ret {
-        let env = ctx.data().clone();
-        env.process_signals(&mut ctx)?;
-        ret = Ok(Errno::Success);
-    }
     let ret = wasi_try_ok!(ret);
 
     // Process all the events that were triggered
-    let mut env = ctx.data();
-    let memory = env.memory_view(&ctx);
     let event_array = wasi_try_mem_ok!(out_.slice(&memory, nsubscriptions));
     while let Ok(event) = triggered_events_rx.try_recv() {
         wasi_try_mem_ok!(event_array.index(events_seen as u64).write(event));
@@ -5167,205 +5221,6 @@ pub fn callback_thread_local_destroy<M: MemorySize>(
     Ok(())
 }
 
-// FIXME: needs manual resolve
-// /// ### `thread_spawn()`
-// /// Creates a new thread by spawning that shares the same
-// /// memory address space, file handles and main event loops.
-// /// The function referenced by the fork call must be
-// /// exported by the web assembly process.
-// ///
-// /// ## Parameters
-// ///
-// /// * `name` - Name of the function that will be invoked as a new thread
-// /// * `user_data` - User data that will be supplied to the function when its called
-// /// * `reactor` - Indicates if the function will operate as a reactor or
-// ///   as a normal thread. Reactors will be repeatable called
-// ///   whenever IO work is available to be processed.
-// ///
-// /// ## Return
-// ///
-// /// Returns the thread index of the newly created thread
-// /// (indices always start from zero)
-// pub fn thread_spawn<M: MemorySize>(
-//     ctx: FunctionEnvMut<'_, WasiEnv>,
-//     method: WasmPtr<u8, M>,
-//     method_len: M::Offset,
-//     user_data: u64,
-//     reactor: Bool,
-//     ret_tid: WasmPtr<Tid, M>,
-// ) -> Errno {
-//     debug!("wasi::thread_spawn");
-//     let env = ctx.data();
-//     let memory = env.memory_view(&ctx);
-//     let method = unsafe { get_input_str!(&memory, method, method_len) };
-//
-//     // Load the callback function
-//     if method.as_str() != "_thread_start" {
-//         return Errno::Notcapable;
-//     };
-//     /*
-//     let funct = unsafe {
-//         if env.thread_start_ref().is_none() {
-//             return Errno::Addrnotavail;
-//         }
-//         env.thread_start_ref_unchecked()
-//     };
-//     */
-//
-//     let reactor = match reactor {
-//         Bool::False => false,
-//         Bool::True => true,
-//         _ => return Errno::Inval,
-//     };
-//
-//     // Create the sub-thread
-//     let mut sub_env = env.clone();
-//     let mut sub_thread = env.new_thread();
-//     sub_env.id = sub_thread.id;
-//
-//     let child = {
-//         let id = sub_thread.id;
-//         wasi_try!(env
-//             .runtime
-//             .thread_spawn(Box::new(move || {
-//                 /*
-//                 if let Some(funct) = sub_env.thread_start_ref() {
-//                     if let Err(err) = funct.call(user_data) {
-//                         warn!("thread failed: {}", err);
-//                         std::mem::forget(sub_thread);
-//                         return;
-//                     }
-//                 } else {
-//                     warn!("failed to start thread: missing callback '__wasix_thread_start'");
-//                     std::mem::forget(sub_thread);
-//                     return;
-//                 }
-//                 */
-//
-//                 let thread = {
-//                     let mut guard = sub_env.state.threading.lock().unwrap();
-//                     let thread = guard.threads.remove(&id);
-//                     drop(guard);
-//                     thread
-//                 };
-//
-//                 if let Some(thread) = thread {
-//                     let mut thread_guard = thread.exit.lock().unwrap();
-//                     thread_guard.take();
-//                 }
-//                 drop(sub_thread);
-//             }))
-//             .map_err(|err| {
-//                 let err: Errno = err.into();
-//                 err
-//             }));
-//         id
-//     };
-//     let child: Tid = child.into();
-//
-//     wasi_try_mem!(ret_tid.write(&memory, child));
-//     Errno::Success
-// }
-
-/// ### `thread_local_destroy()`
-/// Destroys a thread local variable
-///
-/// ## Parameters
-///
-/// * `user_data` - User data that will be passed to the destructor
-///   when the thread variable goes out of scope
-/// * `key` - Thread key that was previously created
-pub fn thread_local_destroy(mut ctx: FunctionEnvMut<'_, WasiEnv>, key: __wasi_tl_key_t) -> Errno {
-    trace!(
-        "wasi[{}:{}]::thread_local_destroy (key={})",
-        ctx.data().pid(),
-        ctx.data().tid(),
-        key
-    );
-    let process = ctx.data().process.clone();
-    let mut inner = process.write();
-    if let Some(user_data) = inner.thread_local_user_data.remove(&key) {
-        if let Some(thread_local_destroy) = ctx
-            .data()
-            .inner()
-            .thread_local_destroy
-            .as_ref()
-            .map(|a| a.clone())
-        {
-            inner
-                .thread_local
-                .iter()
-                .filter(|((_, k), _)| *k == key)
-                .for_each(|((_, _), val)| {
-                    let user_data_low: u32 = (user_data & 0xFFFFFFFF) as u32;
-                    let user_data_high: u32 = (user_data >> 32) as u32;
-
-                    let val_low: u32 = (val & 0xFFFFFFFF) as u32;
-                    let val_high: u32 = (val >> 32) as u32;
-
-                    let _ = thread_local_destroy.call(
-                        &mut ctx,
-                        user_data_low as i32,
-                        user_data_high as i32,
-                        val_low as i32,
-                        val_high as i32,
-                    );
-                });
-        }
-    }
-    inner.thread_local.retain(|(_, k), _| *k != key);
-    Errno::Success
-}
-
-/// ### `thread_local_set()`
-/// Sets the value of a thread local variable
-///
-/// ## Parameters
-///
-/// * `key` - Thread key that this local variable will be associated with
-/// * `val` - Value to be set for the thread local variable
-pub fn thread_local_set(
-    ctx: FunctionEnvMut<'_, WasiEnv>,
-    key: __wasi_tl_key_t,
-    val: __wasi_tl_val_t,
-) -> Errno {
-    //trace!("wasi[{}:{}]::thread_local_set (key={}, val={})", ctx.data().pid(), ctx.data().tid(), key, val);
-    let env = ctx.data();
-
-    let current_thread = ctx.data().thread.tid();
-    let mut inner = env.process.write();
-    inner.thread_local.insert((current_thread, key), val);
-    Errno::Success
-}
-
-/// ### `thread_local_get()`
-/// Gets the value of a thread local variable
-///
-/// ## Parameters
-///
-/// * `key` - Thread key that this local variable that was previous set
-pub fn thread_local_get<M: MemorySize>(
-    ctx: FunctionEnvMut<'_, WasiEnv>,
-    key: __wasi_tl_key_t,
-    ret_val: WasmPtr<__wasi_tl_val_t, M>,
-) -> Errno {
-    //trace!("wasi[{}:{}]::thread_local_get (key={})", ctx.data().pid(), ctx.data().tid(), key);
-    let env = ctx.data();
-
-    let val = {
-        let current_thread = ctx.data().thread.tid();
-        let guard = env.process.read();
-        guard
-            .thread_local
-            .get(&(current_thread, key))
-            .map(|a| a.clone())
-    };
-    let val = val.unwrap_or_default();
-    let memory = env.memory_view(&ctx);
-    wasi_try_mem!(ret_val.write(&memory, val));
-    Errno::Success
-}
-
 /// ### `thread_spawn()`
 /// Creates a new thread by spawning that shares the same
 /// memory address space, file handles and main event loops.
@@ -5389,8 +5244,8 @@ pub fn thread_spawn<M: MemorySize>(
     user_data: u64,
     stack_base: u64,
     stack_start: u64,
-    reactor: __wasi_bool_t,
-    ret_tid: WasmPtr<__wasi_tid_t, M>,
+    reactor: Bool,
+    ret_tid: WasmPtr<Tid, M>,
 ) -> Errno {
     debug!(
         "wasi[{}:{}]::thread_spawn (reactor={}, thread_id={}, stack_base={}, caller_id={})",
@@ -5401,7 +5256,7 @@ pub fn thread_spawn<M: MemorySize>(
         stack_base,
         current_caller_id().raw()
     );
-
+    
     // Now we use the environment and memory references
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
@@ -5410,14 +5265,19 @@ pub fn thread_spawn<M: MemorySize>(
 
     // Create the handle that represents this thread
     let mut thread_handle = env.process.new_thread();
-    let thread_id: __wasi_tid_t = thread_handle.id().into();
+    let thread_id: Tid = thread_handle.id().into();
 
     // We need a copy of the process memory and a packaged store in order to
     // launch threads and reactors
-    let thread_memory = wasi_try!(ctx.data().memory().try_clone(&ctx).ok_or_else(|| {
-        error!("thread failed - the memory could not be cloned");
-        __WASI_ENOTCAPABLE
-    }));
+    let thread_memory = wasi_try!(
+        ctx.data()
+            .memory()
+            .try_clone(&ctx)
+            .ok_or_else(|| {
+                error!("thread failed - the memory could not be cloned");
+                Errno::Notcapable
+            })
+    );
     #[cfg(feature = "compiler")]
     let engine = ctx.as_store_ref().engine().clone();
 
@@ -5433,7 +5293,8 @@ pub fn thread_spawn<M: MemorySize>(
         let state = env.state.clone();
         let wasi_env = env.clone();
         let thread = thread_handle.as_thread();
-        move |mut store: Store, module: Module, memory: VMMemory| {
+        move |mut store: Store, module: Module, memory: VMMemory|
+        {
             // We need to reconstruct some things
             let module = module.clone();
             let memory = Memory::new_from_existing(&mut store, memory);
@@ -5449,39 +5310,38 @@ pub fn thread_spawn<M: MemorySize>(
 
             let mut import_object = import_object_for_all_wasi_versions(&mut store, &ctx.env);
             import_object.define("env", "memory", memory.clone());
-
+            
             let instance = match Instance::new(&mut store, &module, &import_object) {
                 Ok(a) => a,
                 Err(err) => {
                     error!("thread failed - create instance failed: {}", err);
-                    return Err(__WASI_ENOEXEC as u32);
+                    return Err(Errno::Noexec as u32);
                 }
             };
-
+            
             // Set the current thread ID
-            ctx.data_mut(&mut store).inner =
-                Some(WasiEnvInner::new(module, memory, &store, &instance));
-            trace!(
-                "threading: new context created for thread_id = {}",
-                thread.tid().raw()
+            ctx.data_mut(&mut store).inner = Some(
+                WasiEnvInner::new(module, memory, &store, &instance)
             );
+            trace!("threading: new context created for thread_id = {}", thread.tid().raw());
             Ok(WasiThreadContext {
                 ctx,
-                store: RefCell::new(store),
+                store: RefCell::new(store)
             })
         }
     };
 
     // This function calls into the module
-    let call_module = move |ctx: &WasiFunctionEnv, store: &mut Store| {
+    let call_module = move |ctx: &WasiFunctionEnv, store: &mut Store|
+    {
         // We either call the reactor callback or the thread spawn callback
         //trace!("threading: invoking thread callback (reactor={})", reactor);
         let spawn = match reactor {
-            __WASI_BOOL_FALSE => ctx.data(&store).inner().thread_spawn.clone().unwrap(),
-            __WASI_BOOL_TRUE => ctx.data(&store).inner().react.clone().unwrap(),
+            Bool::False => ctx.data(&store).inner().thread_spawn.clone().unwrap(),
+            Bool::True => ctx.data(&store).inner().react.clone().unwrap(),
             _ => {
                 debug!("thread failed - failed as the reactor type is not value");
-                return __WASI_ENOEXEC as u32;
+                return Errno::Noexec as u32;
             }
         };
 
@@ -5491,12 +5351,13 @@ pub fn thread_spawn<M: MemorySize>(
         let mut ret = Errno::Success;
         if let Err(err) = spawn.call(store, user_data_low as i32, user_data_high as i32) {
             debug!("thread failed - start: {}", err);
-            ret = __WASI_ENOEXEC;
+            ret = Errno::Noexec;
         }
         //trace!("threading: thread callback finished (reactor={}, ret={})", reactor, ret);
-
+        
         // If we are NOT a reactor then we will only run once and need to clean up
-        if reactor == __WASI_BOOL_FALSE {
+        if reactor == Bool::False
+        {
             // Clean up the environment
             ctx.cleanup(store);
         }
@@ -5506,10 +5367,11 @@ pub fn thread_spawn<M: MemorySize>(
     };
 
     // This next function gets a context for the local thread and then
-    // calls into the process
+    // calls into the process    
     let mut execute_module = {
         let state = env.state.clone();
-        move |store: &mut Option<Store>, module: Module, memory: &mut Option<VMMemory>| {
+        move |store: &mut Option<Store>, module: Module, memory: &mut Option<VMMemory>|
+        {
             // We capture the thread handle here, it is used to notify
             // anyone that is interested when this thread has terminated
             let _captured_handle = Box::new(&mut thread_handle);
@@ -5526,35 +5388,29 @@ pub fn thread_spawn<M: MemorySize>(
                     let guard = state.threading.read().unwrap();
                     guard.thread_ctx.get(&caller_id).map(|a| a.clone())
                 };
-                if let Some(thread) = thread {
+                if let Some(thread) = thread
+                {
                     let mut store = thread.store.borrow_mut();
                     let ret = call_module(&thread.ctx, store.deref_mut());
                     return ret;
                 }
 
                 // Otherwise we need to create a new context under a write lock
-                debug!(
-                    "encountered a new caller (ref={}) - creating WASM execution context...",
-                    caller_id.raw()
-                );
+                debug!("encountered a new caller (ref={}) - creating WASM execution context...", caller_id.raw());
 
                 // We can only create the context once per thread
                 let memory = match memory.take() {
                     Some(m) => m,
                     None => {
-                        debug!(
-                            "thread failed - memory can only be consumed once per context creation"
-                        );
-                        return __WASI_ENOEXEC as u32;
+                        debug!("thread failed - memory can only be consumed once per context creation");
+                        return Errno::Noexec as u32;
                     }
                 };
                 let store = match store.take() {
                     Some(s) => s,
                     None => {
-                        debug!(
-                            "thread failed - store can only be consumed once per context creation"
-                        );
-                        return __WASI_ENOEXEC as u32;
+                        debug!("thread failed - store can only be consumed once per context creation");
+                        return Errno::Noexec as u32;
                     }
                 };
 
@@ -5575,24 +5431,23 @@ pub fn thread_spawn<M: MemorySize>(
     // we store it in the state machine and only launch it whenever
     // work arrives that needs to be processed
     match reactor {
-        __WASI_BOOL_TRUE => {
+        Bool::True => {
             warn!("thread failed - reactors are not currently supported");
-            return __WASI_ENOTCAPABLE;
-        }
-        __WASI_BOOL_FALSE => {
+            return Errno::Notcapable;
+        },
+        Bool::False => {
             // If the process does not export a thread spawn function then obviously
             // we can't spawn a background thread
             if env.inner().thread_spawn.is_none() {
                 warn!("thread failed - the program does not export a _start_thread function");
-                return __WASI_ENOTCAPABLE;
+                return Errno::Notcapable;
             }
 
             // Now spawn a thread
             trace!("threading: spawning background thread");
             let thread_module = env.inner().module.clone();
             wasi_try!(tasks
-                .task_wasm(
-                    Box::new(move |store, module, thread_memory| {
+                .task_wasm(Box::new(move |store, module, thread_memory| {
                         let mut thread_memory = thread_memory;
                         let mut store = Some(store);
                         execute_module(&mut store, module, &mut thread_memory);
@@ -5602,19 +5457,163 @@ pub fn thread_spawn<M: MemorySize>(
                     crate::runtime::SpawnType::NewThread(thread_memory)
                 )
                 .map_err(|err| {
-                    let err: Errno = err.into();
+                    let err: __wasi_errno_t = err.into();
                     err
-                }));
-        }
+                })
+            );
+        },
         _ => {
             warn!("thread failed - invalid reactor parameter value");
-            return __WASI_ENOTCAPABLE;
+            return Errno::Notcapable;
         }
     }
-
+    
     // Success
     let memory = ctx.data().memory_view(&ctx);
     wasi_try_mem!(ret_tid.write(&memory, thread_id));
+    Errno::Success
+}
+
+/// ### `thread_local_create()`
+/// Create a thread local variable
+/// If The web assembly process exports function named '_thread_local_destroy'
+/// then it will be invoked when the thread goes out of scope and dies.
+///
+/// ## Parameters
+///
+/// * `user_data` - User data that will be passed to the destructor
+///   when the thread variable goes out of scope
+pub fn thread_local_create<M: MemorySize>(
+    ctx: FunctionEnvMut<'_, WasiEnv>,
+    user_data: TlUser,
+    ret_key: WasmPtr<TlKey, M>,
+) -> Errno {
+    trace!(
+        "wasi[{}:{}]::thread_local_create (user_data={})",
+        ctx.data().pid(),
+        ctx.data().tid(),
+        user_data
+    );
+    let env = ctx.data();
+
+    let key = {
+        let mut inner = env.process.write();
+        inner.thread_local_seed += 1;
+        let key = inner.thread_local_seed;
+        inner.thread_local_user_data.insert(key, user_data);
+        key
+    };
+    
+    let memory = env.memory_view(&ctx);
+    wasi_try_mem!(ret_key.write(&memory, key));
+    Errno::Success
+}
+
+/// ### `thread_local_destroy()`
+/// Destroys a thread local variable
+///
+/// ## Parameters
+///
+/// * `user_data` - User data that will be passed to the destructor
+///   when the thread variable goes out of scope
+/// * `key` - Thread key that was previously created
+pub fn thread_local_destroy(
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
+    key: TlKey
+) -> Errno {
+    trace!(
+        "wasi[{}:{}]::thread_local_destroy (key={})",
+        ctx.data().pid(),
+        ctx.data().tid(),
+        key
+    );
+    let process = ctx.data().process.clone();
+    let mut inner = process.write();
+
+    let data = inner
+        .thread_local
+        .iter()
+        .filter(|((_, k), _)| *k == key)
+        .map(|(_, v)| v.clone())            
+        .collect::<Vec<_>>();
+    inner.thread_local.retain(|(_, k), _| *k != key);
+
+    if let Some(user_data) = inner.thread_local_user_data.remove(&key) {
+        drop(inner);
+
+        if let Some(thread_local_destroy) = ctx
+            .data()
+            .inner()
+            .thread_local_destroy
+            .as_ref()
+            .map(|a| a.clone())
+        {
+            for val in data {
+                let user_data_low: u32 = (user_data & 0xFFFFFFFF) as u32;
+                let user_data_high: u32 = (user_data >> 32) as u32;
+
+                let val_low: u32 = (val & 0xFFFFFFFF) as u32;
+                let val_high: u32 = (val >> 32) as u32;
+
+                let _ = thread_local_destroy.call(
+                    &mut ctx,
+                    user_data_low as i32,
+                    user_data_high as i32,
+                    val_low as i32,
+                    val_high as i32,
+                );
+            };
+        }
+    }
+    Errno::Success
+}
+
+/// ### `thread_local_set()`
+/// Sets the value of a thread local variable
+///
+/// ## Parameters
+///
+/// * `key` - Thread key that this local variable will be associated with
+/// * `val` - Value to be set for the thread local variable
+pub fn thread_local_set(
+    ctx: FunctionEnvMut<'_, WasiEnv>,
+    key: TlKey,
+    val: TlVal,
+) -> Errno {
+    //trace!("wasi[{}:{}]::thread_local_set (key={}, val={})", ctx.data().pid(), ctx.data().tid(), key, val);
+    let env = ctx.data();
+
+    let current_thread = ctx.data().thread.tid();
+    let mut inner = env.process.write();
+    inner.thread_local.insert((current_thread, key), val);
+    Errno::Success
+}
+
+/// ### `thread_local_get()`
+/// Gets the value of a thread local variable
+///
+/// ## Parameters
+///
+/// * `key` - Thread key that this local variable that was previous set
+pub fn thread_local_get<M: MemorySize>(
+    ctx: FunctionEnvMut<'_, WasiEnv>,
+    key: TlKey,
+    ret_val: WasmPtr<TlVal, M>,
+) -> Errno {
+    //trace!("wasi[{}:{}]::thread_local_get (key={})", ctx.data().pid(), ctx.data().tid(), key);
+    let env = ctx.data();
+
+    let val = {
+        let current_thread = ctx.data().thread.tid();
+        let guard = env.process.read();
+        guard
+            .thread_local
+            .get(&(current_thread, key))
+            .map(|a| a.clone())
+    };
+    let val = val.unwrap_or_default();
+    let memory = env.memory_view(&ctx);
+    wasi_try_mem!(ret_val.write(&memory, val));
     Errno::Success
 }
 
@@ -5625,14 +5624,34 @@ pub fn thread_spawn<M: MemorySize>(
 ///
 /// * `duration` - Amount of time that the thread should sleep
 pub fn thread_sleep(
-    ctx: FunctionEnvMut<'_, WasiEnv>,
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
     duration: Timestamp,
 ) -> Result<Errno, WasiError> {
-    debug!("wasi::thread_sleep");
-
+    /*
+    trace!(
+        "wasi[{}:{}]::thread_sleep",
+        ctx.data().pid(),
+        ctx.data().tid()
+    );
+    */
+    ctx.data().process_signals_and_exit(&mut ctx)?;
     let env = ctx.data();
-    let duration = Duration::from_nanos(duration as u64);
-    env.sleep(duration)?;
+    #[cfg(feature = "sys-thread")]
+    if duration == 0 {
+        std::thread::yield_now();
+    }
+    if duration > 0 {
+        let duration = Duration::from_nanos(duration as u64);
+        let tasks = env.tasks.clone();
+        wasi_try_ok!(__asyncify(
+            &mut ctx,
+            Some(duration),
+            async move {
+                InfiniteSleep::default().await;
+                Ok(())
+            }
+        ));
+    }
     Ok(Errno::Success)
 }
 
@@ -8162,7 +8181,7 @@ pub fn call_close(ctx: FunctionEnvMut<'_, WasiEnv>, cid: Cid) -> BusErrno {
 ///
 /// Returns a socket handle which is used to send and receive data
 pub fn ws_connect<M: MemorySize>(
-    ctx: FunctionEnvMut<'_, WasiEnv>,
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
     url: WasmPtr<u8, M>,
     url_len: M::Offset,
     ret_sock: WasmPtr<WasiFd, M>,
@@ -8172,17 +8191,22 @@ pub fn ws_connect<M: MemorySize>(
         ctx.data().pid(),
         ctx.data().tid()
     );
-    let env = ctx.data();
+    let mut env = ctx.data();
     let memory = env.memory_view(&ctx);
     let url = unsafe { get_input_str!(&memory, url, url_len) };
 
     let net = env.net();
     let tasks = env.tasks.clone();
-    let socket = wasi_try!(__asyncify(tasks, &env.thread, None, async move {
-        net.ws_connect(url.as_str())
-            .await
-            .map_err(net_error_into_wasi_err)
-    }));
+    let socket = wasi_try!(__asyncify(
+        &mut ctx,
+        None,
+        async move {
+            net.ws_connect(url.as_str())
+                .await
+                .map_err(net_error_into_wasi_err)
+        }
+    ));
+    env = ctx.data();
 
     let (memory, state, mut inodes) = env.get_memory_and_wasi_state_and_inodes_mut(&ctx, 0);
 
@@ -8234,7 +8258,7 @@ pub fn http_request<M: MemorySize>(
         ctx.data().pid(),
         ctx.data().tid()
     );
-    let env = ctx.data();
+    let mut env = ctx.data();
     let memory = env.memory_view(&ctx);
     let url = unsafe { get_input_str!(&memory, url, url_len) };
     let method = unsafe { get_input_str!(&memory, method, method_len) };
@@ -8248,11 +8272,17 @@ pub fn http_request<M: MemorySize>(
 
     let net = env.net();
     let tasks = env.tasks.clone();
-    let socket = wasi_try!(__asyncify(tasks, &env.thread, None, async move {
-        net.http_request(url.as_str(), method.as_str(), headers.as_str(), gzip)
-            .await
-            .map_err(net_error_into_wasi_err)
-    }));
+    let socket = wasi_try!(__asyncify(
+        &mut ctx,
+        None,
+        async move {
+            net.http_request(url.as_str(), method.as_str(), headers.as_str(), gzip)
+                .await
+                .map_err(net_error_into_wasi_err)
+        }
+    ));
+    env = ctx.data();
+
     let socket_req = SocketHttpRequest {
         request: socket.request,
         response: None,
@@ -8339,7 +8369,7 @@ pub fn http_request<M: MemorySize>(
 /// * `status` - Pointer to a buffer that will be filled with the current
 ///   status of this HTTP request
 pub fn http_status<M: MemorySize>(
-    ctx: FunctionEnvMut<'_, WasiEnv>,
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     status: WasmPtr<HttpStatus, M>,
 ) -> Errno {
@@ -8349,16 +8379,18 @@ pub fn http_status<M: MemorySize>(
         ctx.data().tid()
     );
 
-    let env = ctx.data();
-    let memory = env.memory_view(&ctx);
+    let mut env = ctx.data();
+    let mut memory = env.memory_view(&ctx);
     let ref_status = status.deref(&memory);
 
     let http_status = wasi_try!(__sock_actor(
-        &ctx,
+        &mut ctx,
         sock,
         Rights::empty(),
         move |socket| async move { socket.http_status() }
     ));
+    env = ctx.data();
+    memory = env.memory_view(&ctx);
 
     // Write everything else and return the status to the caller
     let status = HttpStatus {
@@ -8709,7 +8741,11 @@ pub fn port_route_list<M: MemorySize>(
 /// ## Parameters
 ///
 /// * `how` - Which channels on the socket to shut down.
-pub fn sock_shutdown(ctx: FunctionEnvMut<'_, WasiEnv>, sock: WasiFd, how: SdFlags) -> Errno {
+pub fn sock_shutdown(
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
+    sock: WasiFd,
+    how: SdFlags
+) -> Errno {
     debug!(
         "wasi[{}:{}]::sock_shutdown (fd={})",
         ctx.data().pid(),
@@ -8726,10 +8762,12 @@ pub fn sock_shutdown(ctx: FunctionEnvMut<'_, WasiEnv>, sock: WasiFd, how: SdFlag
     };
 
     wasi_try!(__sock_actor_mut(
-        &ctx,
+        &mut ctx,
         sock,
         Rights::SOCK_SHUTDOWN,
-        move |socket| async move { socket.shutdown(how).await }
+        move |socket| async move {
+            socket.shutdown(how).await
+        }
     ));
 
     Errno::Success
@@ -8738,7 +8776,7 @@ pub fn sock_shutdown(ctx: FunctionEnvMut<'_, WasiEnv>, sock: WasiFd, how: SdFlag
 /// ### `sock_status()`
 /// Returns the current status of a socket
 pub fn sock_status<M: MemorySize>(
-    ctx: FunctionEnvMut<'_, WasiEnv>,
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     ret_status: WasmPtr<Sockstatus, M>,
 ) -> Errno {
@@ -8750,10 +8788,12 @@ pub fn sock_status<M: MemorySize>(
     );
 
     let status = wasi_try!(__sock_actor(
-        &ctx,
+        &mut ctx,
         sock,
         Rights::empty(),
-        move |socket| async move { socket.status() }
+        move |socket| async move {
+            socket.status()
+        }
     ));
 
     use super::state::WasiSocketStatus;
@@ -8783,7 +8823,7 @@ pub fn sock_status<M: MemorySize>(
 ///
 /// * `fd` - Socket that the address is bound to
 pub fn sock_addr_local<M: MemorySize>(
-    ctx: FunctionEnvMut<'_, WasiEnv>,
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     ret_addr: WasmPtr<__wasi_addr_port_t, M>,
 ) -> Errno {
@@ -8794,9 +8834,14 @@ pub fn sock_addr_local<M: MemorySize>(
         sock
     );
 
-    let addr = wasi_try!(__sock_actor(&ctx, sock, 0, move |socket| async move {
-        socket.addr_local()
-    }));
+    let addr = wasi_try!(__sock_actor(
+        &mut ctx,
+        sock,
+        0,
+        move |socket| async move {
+            socket.addr_local()
+        }
+    ));
     let memory = ctx.data().memory_view(&ctx);
     wasi_try!(super::state::write_ip_port(
         &memory,
@@ -8819,7 +8864,7 @@ pub fn sock_addr_local<M: MemorySize>(
 ///
 /// * `fd` - Socket that the address is bound to
 pub fn sock_addr_peer<M: MemorySize>(
-    ctx: FunctionEnvMut<'_, WasiEnv>,
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     ro_addr: WasmPtr<__wasi_addr_port_t, M>,
 ) -> Errno {
@@ -8830,13 +8875,14 @@ pub fn sock_addr_peer<M: MemorySize>(
         sock
     );
 
-    let env = ctx.data();
     let addr = wasi_try!(__sock_actor(
-        &ctx,
+        &mut ctx,
         sock,
         Rights::empty(),
         move |socket| async move { socket.addr_peer() }
     ));
+
+    let env = ctx.data();
     let memory = env.memory_view(&ctx);
     wasi_try!(super::state::write_ip_port(
         &memory,
@@ -8926,7 +8972,7 @@ pub fn sock_open<M: MemorySize>(
 /// * `sockopt` - Socket option to be set
 /// * `flag` - Value to set the option to
 pub fn sock_set_opt_flag(
-    ctx: FunctionEnvMut<'_, WasiEnv>,
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     opt: Sockoption,
     flag: Bool,
@@ -8948,10 +8994,12 @@ pub fn sock_set_opt_flag(
 
     let option: super::state::WasiSocketOption = opt.into();
     wasi_try!(__sock_actor_mut(
-        &ctx,
+        &mut ctx,
         sock,
         Rights::empty(),
-        move |socket| async move { socket.set_opt_flag(option, flag) }
+        move |socket| async move {
+            socket.set_opt_flag(option, flag)
+        }
     ));
     Errno::Success
 }
@@ -8965,7 +9013,7 @@ pub fn sock_set_opt_flag(
 /// * `fd` - Socket descriptor
 /// * `sockopt` - Socket option to be retrieved
 pub fn sock_get_opt_flag<M: MemorySize>(
-    ctx: FunctionEnvMut<'_, WasiEnv>,
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     opt: Sockoption,
     ret_flag: WasmPtr<Bool, M>,
@@ -8977,16 +9025,17 @@ pub fn sock_get_opt_flag<M: MemorySize>(
         sock,
         opt
     );
-    let env = ctx.data();
-    let memory = env.memory_view(&ctx);
-
+    
     let option: super::state::WasiSocketOption = opt.into();
     let flag = wasi_try!(__sock_actor(
-        &ctx,
+        &mut ctx,
         sock,
         Rights::empty(),
         move |socket| async move { socket.get_opt_flag(option) }
     ));
+
+    let env = ctx.data();
+    let memory = env.memory_view(&ctx);
     let flag = match flag {
         false => Bool::False,
         true => Bool::True,
@@ -9006,7 +9055,7 @@ pub fn sock_get_opt_flag<M: MemorySize>(
 /// * `sockopt` - Socket option to be set
 /// * `time` - Value to set the time to
 pub fn sock_set_opt_time<M: MemorySize>(
-    ctx: FunctionEnvMut<'_, WasiEnv>,
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     opt: Sockoption,
     time: WasmPtr<OptionTimestamp, M>,
@@ -9039,10 +9088,12 @@ pub fn sock_set_opt_time<M: MemorySize>(
 
     let option: super::state::WasiSocketOption = opt.into();
     wasi_try!(__sock_actor_mut(
-        &ctx,
+        &mut ctx,
         sock,
         Rights::empty(),
-        move |socket| async move { socket.set_opt_time(ty, time) }
+        move |socket| async move {
+            socket.set_opt_time(ty, time)
+        }
     ));
     Errno::Success
 }
@@ -9055,7 +9106,7 @@ pub fn sock_set_opt_time<M: MemorySize>(
 /// * `fd` - Socket descriptor
 /// * `sockopt` - Socket option to be retrieved
 pub fn sock_get_opt_time<M: MemorySize>(
-    ctx: FunctionEnvMut<'_, WasiEnv>,
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     opt: Sockoption,
     ret_time: WasmPtr<OptionTimestamp, M>,
@@ -9067,8 +9118,6 @@ pub fn sock_get_opt_time<M: MemorySize>(
         sock,
         opt
     );
-    let env = ctx.data();
-    let memory = env.memory_view(&ctx);
 
     let ty = match opt {
         Sockoption::RecvTimeout => wasmer_vnet::TimeType::ReadTimeout,
@@ -9080,11 +9129,15 @@ pub fn sock_get_opt_time<M: MemorySize>(
     };
 
     let time = wasi_try!(__sock_actor(
-        &ctx,
+        &mut ctx,
         sock,
         Rights::empty(),
         move |socket| async move { socket.opt_time(ty) }
     ));
+    
+    let env = ctx.data();
+    let memory = env.memory_view(&ctx);
+
     let time = match time {
         None => OptionTimestamp {
             tag: OptionTag::None,
@@ -9111,7 +9164,7 @@ pub fn sock_get_opt_time<M: MemorySize>(
 /// * `opt` - Socket option to be set
 /// * `size` - Buffer size
 pub fn sock_set_opt_size(
-    ctx: FunctionEnvMut<'_, WasiEnv>,
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     opt: Sockoption,
     size: Filesize,
@@ -9135,7 +9188,7 @@ pub fn sock_set_opt_size(
 
     let option: super::state::WasiSocketOption = opt.into();
     wasi_try!(__sock_actor_mut(
-        &ctx,
+        &mut ctx,
         sock,
         Rights::empty(),
         move |socket| async move {
@@ -9160,7 +9213,7 @@ pub fn sock_set_opt_size(
 /// * `fd` - Socket descriptor
 /// * `sockopt` - Socket option to be retrieved
 pub fn sock_get_opt_size<M: MemorySize>(
-    ctx: FunctionEnvMut<'_, WasiEnv>,
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     opt: Sockoption,
     ret_size: WasmPtr<Filesize, M>,
@@ -9172,18 +9225,23 @@ pub fn sock_get_opt_size<M: MemorySize>(
         sock,
         opt
     );
+    let size = wasi_try!(__sock_actor(
+        &mut ctx,
+        sock,
+        0,
+        move |socket| async move {
+            match opt {
+                Sockoption::RecvBufSize => socket.recv_buf_size().map(|a| a as Filesize),
+                Sockoption::SendBufSize => socket.send_buf_size().map(|a| a as Filesize),
+                Sockoption::Ttl => socket.ttl().map(|a| a as Filesize),
+                Sockoption::MulticastTtlV4 => socket.multicast_ttl_v4().map(|a| a as Filesize),
+                _ => Err(Errno::Inval),
+            }
+        }
+    ));
+    
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
-
-    let size = wasi_try!(__sock_actor(&ctx, sock, 0, move |socket| async move {
-        match opt {
-            Sockoption::RecvBufSize => socket.recv_buf_size().map(|a| a as Filesize),
-            Sockoption::SendBufSize => socket.send_buf_size().map(|a| a as Filesize),
-            Sockoption::Ttl => socket.ttl().map(|a| a as Filesize),
-            Sockoption::MulticastTtlV4 => socket.multicast_ttl_v4().map(|a| a as Filesize),
-            _ => Err(Errno::Inval),
-        }
-    }));
     wasi_try_mem!(ret_size.write(&memory, size));
 
     Errno::Success
@@ -9198,7 +9256,7 @@ pub fn sock_get_opt_size<M: MemorySize>(
 /// * `multiaddr` - Multicast group to joined
 /// * `interface` - Interface that will join
 pub fn sock_join_multicast_v4<M: MemorySize>(
-    ctx: FunctionEnvMut<'_, WasiEnv>,
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     multiaddr: WasmPtr<__wasi_addr_ip4_t, M>,
     iface: WasmPtr<__wasi_addr_ip4_t, M>,
@@ -9215,10 +9273,12 @@ pub fn sock_join_multicast_v4<M: MemorySize>(
     let multiaddr = wasi_try!(super::state::read_ip_v4(&memory, multiaddr));
     let iface = wasi_try!(super::state::read_ip_v4(&memory, iface));
     wasi_try!(__sock_actor_mut(
-        &ctx,
+        &mut ctx,
         sock,
         Rights::empty(),
-        move |socket| async move { socket.join_multicast_v4(multiaddr, iface).await }
+        move |socket| async move {
+            socket.join_multicast_v4(multiaddr, iface).await
+        }
     ));
     Errno::Success
 }
@@ -9232,7 +9292,7 @@ pub fn sock_join_multicast_v4<M: MemorySize>(
 /// * `multiaddr` - Multicast group to leave
 /// * `interface` - Interface that will left
 pub fn sock_leave_multicast_v4<M: MemorySize>(
-    ctx: FunctionEnvMut<'_, WasiEnv>,
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     multiaddr: WasmPtr<__wasi_addr_ip4_t, M>,
     iface: WasmPtr<__wasi_addr_ip4_t, M>,
@@ -9249,10 +9309,12 @@ pub fn sock_leave_multicast_v4<M: MemorySize>(
     let multiaddr = wasi_try!(super::state::read_ip_v4(&memory, multiaddr));
     let iface = wasi_try!(super::state::read_ip_v4(&memory, iface));
     wasi_try!(__sock_actor_mut(
-        &ctx,
+        &mut ctx,
         sock,
         Rights::empty(),
-        move |socket| async move { socket.leave_multicast_v4(multiaddr, iface).await }
+        move |socket| async move {
+            socket.leave_multicast_v4(multiaddr, iface).await
+        }
     ));
     Errno::Success
 }
@@ -9266,7 +9328,7 @@ pub fn sock_leave_multicast_v4<M: MemorySize>(
 /// * `multiaddr` - Multicast group to joined
 /// * `interface` - Interface that will join
 pub fn sock_join_multicast_v6<M: MemorySize>(
-    ctx: FunctionEnvMut<'_, WasiEnv>,
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     multiaddr: WasmPtr<__wasi_addr_ip6_t, M>,
     iface: u32,
@@ -9282,10 +9344,12 @@ pub fn sock_join_multicast_v6<M: MemorySize>(
     let memory = env.memory_view(&ctx);
     let multiaddr = wasi_try!(super::state::read_ip_v6(&memory, multiaddr));
     wasi_try!(__sock_actor_mut(
-        &ctx,
+        &mut ctx,
         sock,
         Rights::empty(),
-        move |socket| async move { socket.join_multicast_v6(multiaddr, iface).await }
+        move |socket| async move {
+            socket.join_multicast_v6(multiaddr, iface).await
+        }
     ));
     Errno::Success
 }
@@ -9299,7 +9363,7 @@ pub fn sock_join_multicast_v6<M: MemorySize>(
 /// * `multiaddr` - Multicast group to leave
 /// * `interface` - Interface that will left
 pub fn sock_leave_multicast_v6<M: MemorySize>(
-    ctx: FunctionEnvMut<'_, WasiEnv>,
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     multiaddr: WasmPtr<__wasi_addr_ip6_t, M>,
     iface: u32,
@@ -9315,10 +9379,12 @@ pub fn sock_leave_multicast_v6<M: MemorySize>(
     let memory = env.memory_view(&ctx);
     let multiaddr = wasi_try!(super::state::read_ip_v6(&memory, multiaddr));
     wasi_try!(__sock_actor_mut(
-        &ctx,
+        &mut ctx,
         sock,
         Rights::empty(),
-        move |socket| async move { socket.leave_multicast_v6(multiaddr, iface).await }
+        move |socket| async move {
+            socket.leave_multicast_v6(multiaddr, iface).await
+        }
     ));
     Errno::Success
 }
@@ -9332,7 +9398,7 @@ pub fn sock_leave_multicast_v6<M: MemorySize>(
 /// * `fd` - File descriptor of the socket to be bind
 /// * `addr` - Address to bind the socket to
 pub fn sock_bind<M: MemorySize>(
-    ctx: FunctionEnvMut<'_, WasiEnv>,
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     addr: WasmPtr<__wasi_addr_port_t, M>,
 ) -> Errno {
@@ -9349,7 +9415,7 @@ pub fn sock_bind<M: MemorySize>(
     let addr = SocketAddr::new(addr.0, addr.1);
     let net = env.net();
     wasi_try!(__sock_upgrade(
-        &ctx,
+        &mut ctx,
         sock,
         __WASI_RIGHT_SOCK_BIND,
         move |socket| async move { socket.bind(net, addr).await }
@@ -9370,7 +9436,7 @@ pub fn sock_bind<M: MemorySize>(
 /// * `fd` - File descriptor of the socket to be bind
 /// * `backlog` - Maximum size of the queue for pending connections
 pub fn sock_listen<M: MemorySize>(
-    ctx: FunctionEnvMut<'_, WasiEnv>,
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     backlog: M::Offset,
 ) -> Errno {
@@ -9385,7 +9451,7 @@ pub fn sock_listen<M: MemorySize>(
     let net = env.net();
     let backlog: usize = wasi_try!(backlog.try_into().map_err(|_| __WASI_EINVAL));
     wasi_try!(__sock_upgrade(
-        &ctx,
+        &mut ctx,
         sock,
         __WASI_RIGHT_SOCK_BIND,
         move |socket| async move { socket.listen(net, backlog).await }
@@ -9406,7 +9472,7 @@ pub fn sock_listen<M: MemorySize>(
 ///
 /// New socket connection
 pub fn sock_accept<M: MemorySize>(
-    ctx: FunctionEnvMut<'_, WasiEnv>,
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     fd_flags: Fdflags,
     ro_fd: WasmPtr<WasiFd, M>,
@@ -9419,63 +9485,16 @@ pub fn sock_accept<M: MemorySize>(
         sock
     );
 
-    let mut env = ctx.data();
-    let (child, addr) = {
-        let mut ret;
-        let (_, state) = env.get_memory_and_wasi_state(&ctx, 0);
-        let nonblocking = wasi_try_ok!(__sock_actor(
-            &ctx,
-            sock,
-            __WASI_RIGHT_SOCK_ACCEPT,
-            move |socket| async move { socket.nonblocking() }
-        ));
-        loop {
-            wasi_try_ok!(match __sock_actor(
-                &ctx,
-                sock,
-                __WASI_RIGHT_SOCK_ACCEPT,
-                move |socket| async move {
-                    socket.set_nonblocking(true);
-                    let ret = socket.accept(fd_flags).await;
-                    socket.set_nonblocking(nonblocking);
-                    ret
-                }
-            ) {
-                Ok(a) => {
-                    ret = a;
-                    break;
-                }
-                Err(Errno::Timeout) => {
-                    if nonblocking {
-                        trace!(
-                            "wasi[{}:{}]::sock_accept - (ret=EAGAIN)",
-                            ctx.data().pid(),
-                            ctx.data().tid()
-                        );
-                        return Ok(Errno::Again);
-                    }
-                    env.yield_now()?;
-                    continue;
-                }
-                Err(__WASI_EAGAIN) => {
-                    if nonblocking {
-                        trace!(
-                            "wasi[{}:{}]::sock_accept - (ret=EAGAIN)",
-                            ctx.data().pid(),
-                            ctx.data().tid()
-                        );
-                        return Ok(__WASI_EAGAIN);
-                    }
-                    env.clone().sleep(&mut ctx, Duration::from_millis(5))?;
-                    env = ctx.data();
-                    continue;
-                }
-                Err(err) => Err(err),
-            });
+    let (child, addr) = wasi_try_ok!(__sock_actor(
+        &mut ctx,
+        sock,
+        __WASI_RIGHT_SOCK_ACCEPT,
+        move |socket| async move {
+            socket.accept(fd_flags).await
         }
-        ret
-    };
+    ));
 
+    let env = ctx.data();
     let (memory, state, mut inodes) = env.get_memory_and_wasi_state_and_inodes_mut(&ctx, 0);
 
     let kind = Kind::Socket {
@@ -9522,7 +9541,7 @@ pub fn sock_accept<M: MemorySize>(
 /// * `fd` - Socket descriptor
 /// * `addr` - Address of the socket to connect to
 pub fn sock_connect<M: MemorySize>(
-    ctx: FunctionEnvMut<'_, WasiEnv>,
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     addr: WasmPtr<__wasi_addr_port_t, M>,
 ) -> Errno {
@@ -9539,7 +9558,7 @@ pub fn sock_connect<M: MemorySize>(
     let addr = wasi_try!(super::state::read_ip_port(&memory, addr));
     let addr = SocketAddr::new(addr.0, addr.1);
     wasi_try!(__sock_upgrade(
-        &ctx,
+        &mut ctx,
         sock,
         Rights::SOCK_CONNECT,
         move |socket| async move { socket.connect(net, addr).await }
@@ -9561,7 +9580,7 @@ pub fn sock_connect<M: MemorySize>(
 ///
 /// Number of bytes stored in ri_data and message flags.
 pub fn sock_recv<M: MemorySize>(
-    ctx: FunctionEnvMut<'_, WasiEnv>,
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     ri_data: WasmPtr<__wasi_iovec_t<M>, M>,
     ri_data_len: M::Offset,
@@ -9575,8 +9594,8 @@ pub fn sock_recv<M: MemorySize>(
         ctx.data().tid(),
         sock
     );
-    let env = ctx.data();
-    let memory = env.memory_view(&ctx);
+    let mut env = ctx.data();
+    let mut memory = env.memory_view(&ctx);
     let iovs_arr = wasi_try_mem_ok!(ri_data.slice(&memory, ri_data_len));
 
     let mut max_size = 0usize;
@@ -9587,11 +9606,16 @@ pub fn sock_recv<M: MemorySize>(
     }
 
     let data = wasi_try_ok!(__sock_actor_mut(
-        &ctx,
+        &mut ctx,
         sock,
         __WASI_RIGHT_SOCK_RECV,
-        move |socket| async move { socket.recv(max_size).await }
+        move |socket| async move {
+            socket.recv(max_size).await
+        }
     ));
+    env = ctx.data();
+    memory = env.memory_view(&ctx);
+
     let data_len = data.len();
     let mut reader = &data[..];
     let bytes_read = wasi_try_ok!(read_bytes(reader, &memory, iovs_arr).map(|_| data_len));
@@ -9617,7 +9641,7 @@ pub fn sock_recv<M: MemorySize>(
 ///
 /// Number of bytes stored in ri_data and message flags.
 pub fn sock_recv_from<M: MemorySize>(
-    ctx: FunctionEnvMut<'_, WasiEnv>,
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     ri_data: WasmPtr<__wasi_iovec_t<M>, M>,
     ri_data_len: M::Offset,
@@ -9633,8 +9657,8 @@ pub fn sock_recv_from<M: MemorySize>(
         sock
     );
 
-    let env = ctx.data();
-    let memory = env.memory_view(&ctx);
+    let mut env = ctx.data();
+    let mut memory = env.memory_view(&ctx);
     let iovs_arr = wasi_try_mem_ok!(ri_data.slice(&memory, ri_data_len));
 
     let mut max_size = 0usize;
@@ -9645,11 +9669,15 @@ pub fn sock_recv_from<M: MemorySize>(
     }
 
     let (data, peer) = wasi_try_ok!(__sock_actor_mut(
-        &ctx,
+        &mut ctx,
         sock,
         __WASI_RIGHT_SOCK_RECV_FROM,
-        move |socket| async move { socket.recv_from(max_size).await }
+        move |socket| async move {
+            socket.recv_from(max_size).await
+        }
     ));
+    env = ctx.data();
+    memory = env.memory_view(&ctx);
 
     wasi_try_ok!(write_ip_port(&memory, ro_addr, peer.ip(), peer.port()));
 
@@ -9678,7 +9706,7 @@ pub fn sock_recv_from<M: MemorySize>(
 ///
 /// Number of bytes transmitted.
 pub fn sock_send<M: MemorySize>(
-    ctx: FunctionEnvMut<'_, WasiEnv>,
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     si_data: WasmPtr<__wasi_ciovec_t<M>, M>,
     si_data_len: M::Offset,
@@ -9691,10 +9719,10 @@ pub fn sock_send<M: MemorySize>(
         ctx.data().tid(),
         sock
     );
-    let env = ctx.data();
+    let mut env = ctx.data();
     let runtime = env.runtime.clone();
 
-    let memory = env.memory_view(&ctx);
+    let mut memory = env.memory_view(&ctx);
     let iovs_arr = wasi_try_mem_ok!(si_data.slice(&memory, si_data_len));
 
     let buf_len: M::Offset = iovs_arr
@@ -9707,11 +9735,15 @@ pub fn sock_send<M: MemorySize>(
     wasi_try_ok!(write_bytes(&mut buf, &memory, iovs_arr));
 
     let bytes_written = wasi_try_ok!(__sock_actor_mut(
-        &ctx,
+        &mut ctx,
         sock,
         __WASI_RIGHT_SOCK_SEND,
-        move |socket| async move { socket.send(buf).await }
+        move |socket| async move {
+            socket.send(buf).await
+        }
     ));
+    env = ctx.data();
+    memory = env.memory_view(&ctx);
 
     let bytes_written: M::Offset =
         wasi_try_ok!(bytes_written.try_into().map_err(|_| Errno::Overflow));
@@ -9735,7 +9767,7 @@ pub fn sock_send<M: MemorySize>(
 ///
 /// Number of bytes transmitted.
 pub fn sock_send_to<M: MemorySize>(
-    ctx: FunctionEnvMut<'_, WasiEnv>,
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     si_data: WasmPtr<__wasi_ciovec_t<M>, M>,
     si_data_len: M::Offset,
@@ -9749,9 +9781,9 @@ pub fn sock_send_to<M: MemorySize>(
         ctx.data().tid(),
         sock
     );
-    let env = ctx.data();
+    let mut env = ctx.data();
 
-    let memory = env.memory_view(&ctx);
+    let mut memory = env.memory_view(&ctx);
     let iovs_arr = wasi_try_mem_ok!(si_data.slice(&memory, si_data_len));
 
     let buf_len: M::Offset = iovs_arr
@@ -9767,11 +9799,15 @@ pub fn sock_send_to<M: MemorySize>(
     let addr = SocketAddr::new(addr_ip, addr_port);
 
     let bytes_written = wasi_try_ok!(__sock_actor_mut(
-        &ctx,
+        &mut ctx,
         sock,
         Rights::SOCK_SEND_TO,
-        move |socket| async move { socket.send_to::<M>(buf, addr).await }
+        move |socket| async move {
+            socket.send_to::<M>(buf, addr).await
+        }
     ));
+    env = ctx.data();
+    memory = env.memory_view(&ctx);
 
     let bytes_written: M::Offset =
         wasi_try_ok!(bytes_written.try_into().map_err(|_| Errno::Overflow));
@@ -9807,10 +9843,10 @@ pub unsafe fn sock_send_file<M: MemorySize>(
         sock,
         in_fd
     );
-    let env = ctx.data();
+    let mut env = ctx.data();
     let net = env.net();
     let tasks = env.tasks.clone();
-    let (memory, mut state, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
+    let (mut memory, mut state, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
 
     // Set the offset of the file
     {
@@ -9874,9 +9910,16 @@ pub unsafe fn sock_send_file<M: MemorySize>(
                             let tasks = tasks.clone();
                             let max_size = buf.len();
                             let data =
-                                wasi_try_ok!(__asyncify(tasks, &env.thread, None, async move {
-                                    socket.recv(max_size).await
-                                }));
+                                wasi_try_ok!(__asyncify(
+                                    &mut ctx,
+                                    None,
+                                    async move {
+                                        socket.recv(max_size).await
+                                    }
+                                ));
+                            env = ctx.data();
+                            memory = env.memory_view(&ctx);
+
                             buf.copy_from_slice(&data[..]);
                             data.len()
                         }
@@ -9911,11 +9954,16 @@ pub unsafe fn sock_send_file<M: MemorySize>(
         // Write it down to the socket
         let buf = (&buf[..]).to_vec();
         let bytes_written = wasi_try_ok!(__sock_actor_mut(
-            &ctx,
+            &mut ctx,
             sock,
             Rights::SOCK_SEND,
-            move |socket| async move { socket.send(buf).await }
+            move |socket| async move {
+                socket.send(buf).await
+            }
         ));
+        env = ctx.data();
+        memory = env.memory_view(&ctx);
+            
         total_written += bytes_written as u64;
     }
 
@@ -9943,7 +9991,7 @@ pub unsafe fn sock_send_file<M: MemorySize>(
 ///
 /// The number of IP addresses returned during the DNS resolution.
 pub fn resolve<M: MemorySize>(
-    ctx: FunctionEnvMut<'_, WasiEnv>,
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
     host: WasmPtr<u8, M>,
     host_len: M::Offset,
     port: u16,
@@ -9952,8 +10000,8 @@ pub fn resolve<M: MemorySize>(
     ret_naddrs: WasmPtr<M::Offset, M>,
 ) -> Errno {
     let naddrs: usize = wasi_try!(naddrs.try_into().map_err(|_| Errno::Inval));
-    let env = ctx.data();
-    let memory = env.memory_view(&ctx);
+    let mut env = ctx.data();
+    let mut memory = env.memory_view(&ctx);
     let host_str = unsafe { get_input_str!(&memory, host, host_len) };
     let addrs = wasi_try_mem!(addrs.slice(&memory, wasi_try!(to_offset::<M>(naddrs))));
 
@@ -9968,11 +10016,17 @@ pub fn resolve<M: MemorySize>(
 
     let net = env.net();
     let tasks = env.tasks.clone();
-    let found_ips = wasi_try!(__asyncify(tasks, &env.thread, None, async move {
-        net.resolve(host_str.as_str(), port, None)
-            .await
-            .map_err(net_error_into_wasi_err)
-    }));
+    let found_ips = wasi_try!(__asyncify(
+        &mut ctx,
+        None,
+        async move {
+            net.resolve(host_str.as_str(), port, None)
+                .await
+                .map_err(net_error_into_wasi_err)
+        }
+    ));
+    env = ctx.data();
+    memory = env.memory_view(&ctx);
 
     let mut idx = 0;
     for found_ip in found_ips.iter().take(naddrs) {

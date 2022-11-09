@@ -13,7 +13,7 @@ use bytes::{Bytes, BytesMut};
 use tracing::log::trace;
 use wasmer_vbus::{BusSpawnedProcess, SignalHandlerAbi};
 use wasmer_wasi_types::{
-    Errno, __wasi_exitcode_t, Signal, __WASI_CLOCK_MONOTONIC, __WASI_ECHILD, wasi::Signal,
+    Errno, __wasi_exitcode_t, Signal, __WASI_CLOCK_MONOTONIC, __WASI_ECHILD, wasi::{Signal, TlKey, TlVal, TlUser},
 };
 
 use crate::syscalls::platform_clock_time_get;
@@ -145,6 +145,12 @@ impl WasiThread {
     pub fn pop_signals(&self) -> Vec<Signal> {
         let mut guard = self.signals.0.lock().unwrap();
         guard.drain(..).collect()
+    }
+
+    /// Returns true if there are any signals waiting
+    pub fn any_signals(&self) -> bool {
+        let mut guard = self.signals.0.lock().unwrap();
+        guard.is_empty() == false
     }
 
     pub fn subscribe_signals(&self) -> tokio::sync::broadcast::Receiver<()> {
@@ -369,11 +375,11 @@ pub struct WasiProcessInner {
     /// Seed used to generate thread ID's
     pub thread_seed: WasiThreadId,
     /// All the thread local variables
-    pub thread_local: HashMap<(WasiThreadId, u32), u64>,
+    pub thread_local: HashMap<(WasiThreadId, TlKey), TlVal>,
     /// User data associated with thread local data
-    pub thread_local_user_data: HashMap<u32, u64>,
-    /// Seed used to generate thread locals
-    pub thread_local_seed: u32,
+    pub thread_local_user_data: HashMap<TlKey, TlUser>,
+    /// Seed used to generate thread local keys
+    pub thread_local_seed: TlKey,
     /// Signals that will be triggered at specific intervals
     pub signal_intervals: HashMap<u8, WasiSignalInterval>,
     /// Represents all the process spun up as a bus process
