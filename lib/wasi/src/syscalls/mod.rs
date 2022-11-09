@@ -5836,7 +5836,7 @@ pub fn futex_wait<M: MemorySize>(
                 break;
             }
             let remaining = *timeout - delta;
-            sub_timeout = Some(Duration::from_nanos(remaining as u64);
+            sub_timeout = Some(Duration::from_nanos(remaining as u64));
         }
 
         // Now wait for it to be triggered
