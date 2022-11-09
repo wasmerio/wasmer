@@ -326,7 +326,7 @@ where
 struct InfiniteSleep {}
 impl std::future::Future for InfiniteSleep {
     type Output = ();
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+    fn poll(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Self::Output> {
         Poll::Pending
     }
 }
@@ -922,7 +922,7 @@ pub fn fd_fdstat_set_flags(ctx: FunctionEnvMut<'_, WasiEnv>, fd: WasiFd, flags: 
     let (_, mut state, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
     let mut fd_map = state.fs.fd_map.write().unwrap();
     let fd_entry = wasi_try!(fd_map.get_mut(&fd).ok_or(Errno::Badf));
-    let fd_entry = wasi_try!(fd_map.get_mut(&fd).ok_or(__WASI_EBADF));
+    let fd_entry = wasi_try!(fd_map.get_mut(&fd).ok_or(Errno::Badf));
     let inode = fd_entry.inode;
 
     if !fd_entry.rights.contains(Rights::FD_FDSTAT_SET_FLAGS) {
@@ -5636,10 +5636,12 @@ pub fn thread_sleep(
     */
     ctx.data().process_signals_and_exit(&mut ctx)?;
     let env = ctx.data();
+
     #[cfg(feature = "sys-thread")]
     if duration == 0 {
         std::thread::yield_now();
     }
+
     if duration > 0 {
         let duration = Duration::from_nanos(duration as u64);
         let tasks = env.tasks.clone();
@@ -5647,8 +5649,10 @@ pub fn thread_sleep(
             &mut ctx,
             Some(duration),
             async move {
+                // using an infinite async sleep here means we don't have to write the same event
+                // handling loop code for signals and timeouts
                 InfiniteSleep::default().await;
-                Ok(())
+                unreachable!("the timeout or signals will wake up this thread even though it waits forever")
             }
         ));
     }
@@ -5662,12 +5666,16 @@ pub fn thread_id<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     ret_tid: WasmPtr<Tid, M>,
 ) -> Errno {
-    //trace!("wasi[{}:{}]::thread_id", ctx.data().pid(), ctx.data().tid());
+    /*
+    trace!(
+        "wasi[{}:{}]::thread_id",
+        ctx.data().pid(),
+        ctx.data().tid()
+    );
+    */
 
     let env = ctx.data();
-    // FIXME: resolvE!
-    let tid: Tid = env.id.into();
-    // let tid: Tid= env.thread.tid().into();
+     let tid: Tid = env.thread.tid().into();
     let memory = env.memory_view(&ctx);
     wasi_try_mem!(ret_tid.write(&memory, tid));
     Errno::Success
@@ -5680,7 +5688,10 @@ pub fn thread_id<M: MemorySize>(
 /// ## Parameters
 ///
 /// * `tid` - Handle of the thread to wait on
-pub fn thread_join(ctx: FunctionEnvMut<'_, WasiEnv>, tid: Tid) -> Result<Errno, WasiError> {
+pub fn thread_join(
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
+    tid: Tid
+) -> Result<Errno, WasiError> {
     debug!("wasi::thread_join");
     debug!(
         "wasi[{}:{}]::thread_join(tid={})",
@@ -5693,12 +5704,13 @@ pub fn thread_join(ctx: FunctionEnvMut<'_, WasiEnv>, tid: Tid) -> Result<Errno, 
     let tid: WasiThreadId = tid.into();
     let other_thread = env.process.get_thread(&tid);
     if let Some(other_thread) = other_thread {
-        loop {
-            env.yield_now()?;
-            if other_thread.join(Duration::from_millis(50)).is_some() {
-                break;
+        wasi_try_ok!(__asyncify(
+            &mut ctx,
+            None,
+            async move {
+                other_thread.join().await
             }
-        }
+        ));
         Ok(Errno::Success)
     } else {
         Ok(Errno::Success)
@@ -5742,8 +5754,8 @@ pub fn futex_wait<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     futex_ptr: WasmPtr<u32, M>,
     expected: u32,
-    timeout: WasmPtr<__wasi_option_timestamp_t, M>,
-    ret_woken: WasmPtr<__wasi_bool_t, M>,
+    timeout: WasmPtr<OptionTimestamp, M>,
+    ret_woken: WasmPtr<Bool, M>,
 ) -> Result<Errno, WasiError> {
     trace!(
         "wasi[{}:{}]::futex_wait(offset={})",
@@ -5751,12 +5763,12 @@ pub fn futex_wait<M: MemorySize>(
         ctx.data().tid(),
         futex_ptr.offset()
     );
-    let env = ctx.data();
-    let state = env.state.deref();
+    let mut env = ctx.data();
+    let state = env.state.clone();
 
     let pointer: u64 = wasi_try_ok!(futex_ptr.offset().try_into().map_err(|_| Errno::Overflow));
 
-    // Register the waiting futex
+    // Register the waiting futex (if its not already registered)
     let futex = {
         use std::collections::hash_map::Entry;
         let mut guard = state.futexs.lock().unwrap();
@@ -5765,7 +5777,7 @@ pub fn futex_wait<M: MemorySize>(
             Entry::Vacant(entry) => {
                 let futex = WasiFutex {
                     refcnt: Arc::new(AtomicU32::new(1)),
-                    inner: Arc::new((Mutex::new(()), Condvar::new())),
+                    inner: Arc::new(Mutex::new((None, tokio::sync::broadcast::channel(1)))),
                 };
                 entry.insert(futex.clone());
                 futex
@@ -5773,35 +5785,56 @@ pub fn futex_wait<M: MemorySize>(
         }
     };
 
+    // Determine the timeout
+    let mut memory = env.memory_view(&ctx);
+    let timeout = wasi_try_mem_ok!(timeout.read(&memory));
+    let timeout = match timeout.tag {
+        OptionTag::Some => Some(timeout.u as u128),
+        _ => None,
+    };
+
     // Loop until we either hit a yield error or the futex is woken
-    let mut yielded = Ok(());
+    let mut woken = Bool::False;
+    let start = platform_clock_time_get(Snapshot0Clockid::Monotonic, 1).unwrap() as u128;
     loop {
-        let futex_lock = futex.inner.0.lock().unwrap();
+        let rx = {
+            let futex_lock = futex.inner.lock().unwrap();
+            // If the value of the memory is no longer the expected value
+            // then terminate from the loop (we do this under a futex lock
+            // so that its protected)
+            {
+                let view = env.memory_view(&ctx);
+                let val = wasi_try_mem_ok!(futex_ptr.read(&view));
+                if val != expected {
+                    woken = Bool::True;
+                    break;
+                }
+            }
+            futex_lock.subscribe()
+        };
 
-        // If the value of the memory is no longer the expected value
-        // then terminate from the loop (we do this under a futex lock
-        // so that its protected)
-        {
-            let view = env.memory_view(&ctx);
-            let val = wasi_try_mem_ok!(futex_ptr.read(&view));
-            if val != expected {
+        // Check if we have timed out
+        let mut sub_timeout = None;
+        if let Some(timeout) = timeout.as_ref() {
+            let now = platform_clock_time_get(Snapshot0Clockid::Monotonic, 1).unwrap() as u128;
+            let delta = now.checked_sub(start).unwrap_or(0);
+            if delta >= *timeout {
                 break;
             }
+            let remaining = *timeout - delta;
+            sub_timeout = Some(Duration::from_nanos(remaining as u64);
         }
 
-        let result = futex
-            .inner
-            .1
-            .wait_timeout(futex_lock, Duration::from_millis(50))
-            .unwrap();
-        if result.1.timed_out() {
-            yielded = env.yield_now();
-            if yielded.is_err() {
-                break;
+        // Now wait for it to be triggered
+        wasi_try_ok!(__asyncify(
+            &mut ctx,
+            sub_timeout,
+            async move {
+                let _ = rx.recv().await;
             }
-        } else {
-            break;
-        }
+        ));
+        mem = ctx.data();
+        memory = env.memory_view(&ctx);
     }
 
     // Drop the reference count to the futex (and remove it if the refcnt hits zero)
@@ -5816,8 +5849,7 @@ pub fn futex_wait<M: MemorySize>(
         }
     }
 
-    // We may have a yield error (such as a terminate)
-    yielded?;
+    wasi_try_mem_ok!(ret_woken.write(&memory, woken));
 
     Ok(Errno::Success)
 }
@@ -5832,7 +5864,7 @@ pub fn futex_wait<M: MemorySize>(
 pub fn futex_wake<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     futex: WasmPtr<u32, M>,
-    ret_woken: WasmPtr<__wasi_bool_t, M>,
+    ret_woken: WasmPtr<Bool, M>,
 ) -> Errno {
     trace!(
         "wasi[{}:{}]::futex_wake(offset={})",
@@ -5849,8 +5881,9 @@ pub fn futex_wake<M: MemorySize>(
 
     let mut guard = state.futexs.lock().unwrap();
     if let Some(futex) = guard.get(&pointer) {
-        futex.inner.1.notify_one();
-        woken = true;
+        let inner = futex.inner.lock().unwrap();
+        woken = inner.receiver_count() > 0;
+        let _ = inner.send(());
     } else {
         trace!(
             "wasi[{}:{}]::futex_wake - nothing waiting!",
@@ -5860,8 +5893,8 @@ pub fn futex_wake<M: MemorySize>(
     }
 
     let woken = match woken {
-        false => __WASI_BOOL_FALSE,
-        true => __WASI_BOOL_TRUE,
+        false => Bool::False,
+        true => Bool::True,
     };
     wasi_try_mem!(ret_woken.write(&memory, woken));
 
@@ -5876,7 +5909,7 @@ pub fn futex_wake<M: MemorySize>(
 pub fn futex_wake_all<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     futex: WasmPtr<u32, M>,
-    ret_woken: WasmPtr<__wasi_bool_t, M>,
+    ret_woken: WasmPtr<Bool, M>,
 ) -> Errno {
     trace!(
         "wasi[{}:{}]::futex_wake_all(offset={})",
@@ -5893,43 +5926,51 @@ pub fn futex_wake_all<M: MemorySize>(
 
     let mut guard = state.futexs.lock().unwrap();
     if let Some(futex) = guard.remove(&pointer) {
-        futex.inner.1.notify_all();
-        woken = true;
+        let inner = futex.inner.lock().unwrap();
+        woken = inner.receiver_count() > 0;
+        let _ = inner.send(());
     }
 
     let woken = match woken {
-        false => __WASI_BOOL_FALSE,
-        true => __WASI_BOOL_TRUE,
+        false => Bool::False,
+        true => Bool::True,
     };
     wasi_try_mem!(ret_woken.write(&memory, woken));
 
     Errno::Success
 }
 
-/// ### `getpid()`
+/// ### `proc_id()`
 /// Returns the handle of the current process
-pub fn getpid<M: MemorySize>(ctx: FunctionEnvMut<'_, WasiEnv>, ret_pid: WasmPtr<Pid, M>) -> Errno {
-    debug!("wasi[{}:{}]::getpid", ctx.data().pid(), ctx.data().tid());
+pub fn proc_id<M: MemorySize>(
+    ctx: FunctionEnvMut<'_, WasiEnv>,
+    ret_pid: WasmPtr<Pid, M>
+) -> Errno {
+    debug!(
+        "wasi[{}:{}]::getpid",
+        ctx.data().pid(),
+        ctx.data().tid()
+    );
 
     let env = ctx.data();
-    let pid = env.runtime().getpid();
-    if let Some(pid) = pid {
-        let memory = env.memory_view(&ctx);
-        wasi_try_mem!(ret_pid.write(&memory, pid as Pid));
-        Errno::Success
-    } else {
-        Errno::Notsup
-    }
+    let memory = env.memory_view(&ctx);
+    let pid = env.process.pid();
+    wasi_try_mem!(ret_pid.write(&memory, pid as Pid));
+    Errno::Success
 }
 
-/// ### `getppid()`
+/// ### `proc_parent()`
 /// Returns the parent handle of the supplied process
 pub fn proc_parent<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     pid: Pid,
     ret_parent: WasmPtr<Pid, M>,
 ) -> Errno {
-    debug!("wasi[{}:{}]::getppid", ctx.data().pid(), ctx.data().tid());
+    debug!(
+        "wasi[{}:{}]::getppid",
+        ctx.data().pid(),
+        ctx.data().tid()
+    );
 
     let env = ctx.data();
     let pid: WasiProcessId = pid.into();
@@ -5937,12 +5978,12 @@ pub fn proc_parent<M: MemorySize>(
         let memory = env.memory_view(&ctx);
         wasi_try_mem!(ret_parent.write(&memory, env.process.ppid().raw() as Pid));
     } else {
-        let compute = env.process.control_plane();
-        if let Some(process) = compute.get_process(pid) {
+        let control_plane = env.process.control_plane();
+        if let Some(process) = control_plane.get_process(pid) {
             let memory = env.memory_view(&ctx);
             wasi_try_mem!(ret_parent.write(&memory, process.pid().raw() as Pid));
         } else {
-            return __WASI_EBADF;
+            return Errno::Badf;
         }
     }
     Errno::Success
