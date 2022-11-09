@@ -25,12 +25,17 @@ pub type Linkcount = u64;
 pub type Snapshot0Linkcount = u32;
 pub type Tid = u32;
 pub type Pid = u32;
+pub type Cid = u64;
 /// Thread local key
 pub type TlKey = u32;
 /// Thread local value
 pub type TlVal = u64;
 /// Thread local user data (associated with the value)
 pub type TlUser = u64;
+
+pub type WasiHash = u128;
+pub type WasiSmallHash = u64;
+
 /// Identifiers for clocks, snapshot0 version.
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -1513,65 +1518,7 @@ impl core::fmt::Debug for OptionFd {
             .finish()
     }
 }
-#[repr(C)]
-#[derive(Copy, Clone)]
-pub struct BusHandles {
-    pub bid: Bid,
-    pub stdin: OptionFd,
-    pub stdout: OptionFd,
-    pub stderr: OptionFd,
-}
-impl core::fmt::Debug for BusHandles {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_struct("BusHandles")
-            .field("bid", &self.bid)
-            .field("stdin", &self.stdin)
-            .field("stdout", &self.stdout)
-            .field("stderr", &self.stderr)
-            .finish()
-    }
-}
 pub type ExitCode = u32;
-#[repr(C)]
-#[derive(Copy, Clone)]
-pub struct BusEventExit {
-    pub bid: Bid,
-    pub rval: ExitCode,
-}
-impl core::fmt::Debug for BusEventExit {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_struct("BusEventExit")
-            .field("bid", &self.bid)
-            .field("rval", &self.rval)
-            .finish()
-    }
-}
-#[repr(C)]
-#[derive(Copy, Clone)]
-pub struct BusEventFault {
-    pub cid: Cid,
-    pub err: BusErrno,
-}
-impl core::fmt::Debug for BusEventFault {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_struct("BusEventFault")
-            .field("cid", &self.cid)
-            .field("err", &self.err)
-            .finish()
-    }
-}
-#[repr(C)]
-#[derive(Copy, Clone)]
-pub struct BusEventClose {
-    pub cid: Cid,
-}
-impl core::fmt::Debug for BusEventClose {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_struct("BusEventClose")
-            .field("cid", &self.cid)
-            .finish()
-    }
-}
 pub type EventFdFlags = u16;
 #[repr(C)]
 #[derive(Copy, Clone)]

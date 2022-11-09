@@ -1,4 +1,5 @@
 use derivative::Derivative;
+use wasmer_wasi_types::wasi::Errno;
 use std::future::Future;
 use std::io::Write;
 use std::pin::Pin;
@@ -139,6 +140,9 @@ pub trait VirtualTaskManager: fmt::Debug + Send + Sync + 'static {
 
     /// Starts an asynchronous task on the local thread (by running it in a runtime)
     fn block_on(&self, task: Pin<Box<dyn Future<Output = ()>>>);
+
+    /// Starts an asynchronous task on the local thread (by running it in a runtime)
+    fn enter(&self) -> Box<dyn std::any::Any>;
 
     /// Starts an asynchronous task will will run on a dedicated thread
     /// pulled from the worker pool that has a stateful thread local variable
@@ -565,6 +569,11 @@ impl VirtualTaskManager for DefaultTaskManager {
         });
     }
 
+    /// Enters the task runtime
+    fn enter(&self) -> Box<dyn std::any::Any> {
+        Box::new(self.runtime.enter())
+    }
+
     /// Starts an asynchronous task will will run on a dedicated thread
     /// pulled from the worker pool that has a stateful thread local variable
     /// It is ok for this task to block execution and any async futures within its scope
@@ -650,6 +659,11 @@ impl VirtualTaskManager for DefaultTaskManager {
         self.runtime.block_on(async move {
             task.await;
         });
+    }
+
+    /// Enters the task runtime
+    fn enter(&self) -> Box<dyn std::any::Any> {
+        Box::new(self.runtime.enter())
     }
 
     /// Starts an asynchronous task will will run on a dedicated thread
