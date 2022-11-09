@@ -34,9 +34,25 @@ impl WasiThreadId {
     }
 }
 
+impl From<i32> for WasiThreadId {
+    fn from(id: i32) -> Self {
+        Self(id as u32)
+    }
+}
+impl Into<i32> for WasiThreadId {
+    fn into(self) -> i32 {
+        self.0 as i32
+    }
+}
+
 impl From<u32> for WasiThreadId {
     fn from(id: u32) -> Self {
         Self(id)
+    }
+}
+impl Into<u32> for WasiThreadId {
+    fn into(self) -> u32 {
+        self.0 as u32
     }
 }
 impl From<WasiThreadId> for u32 {
@@ -74,11 +90,14 @@ pub struct WasiThread {
     pub(crate) is_main: bool,
     pub(crate) pid: WasiProcessId,
     pub(crate) id: WasiThreadId,
-    finished: Arc<(Mutex<Option<u32>>, Condvar)>,
-    pub(crate) signals: Arc<(
-        Mutex<Vec<Signal>>,
+    finished: Arc<Mutex<(
+        Option<ExitCode>,
         tokio::sync::broadcast::Sender<()>,
-    )>,
+    )>>,
+    signals: Arc<Mutex<(
+        Vec<Signal>,
+        tokio::sync::broadcast::Sender<()>,
+    )>>,
     stack: Arc<Mutex<ThreadStack>>,
 }
 
@@ -101,60 +120,53 @@ impl WasiThread {
     /// Marks the thread as finished (which will cause anyone that
     /// joined on it to wake up)
     pub fn terminate(&self, exit_code: u32) {
-        let mut guard = self.finished.0.lock().unwrap();
-        if guard.is_none() {
-            *guard = Some(exit_code);
+        let mut guard = self.finished.lock().unwrap();
+        if guard.0.is_none() {
+            guard.0 = Some(exit_code);
         }
-        self.finished.1.notify_all();
+        let _ = guard.1.send(());
     }
 
     /// Waits until the thread is finished or the timeout is reached
-    pub fn join(&self, timeout: Duration) -> Option<__wasi_exitcode_t> {
-        let mut finished = self.finished.0.lock().unwrap();
-        if finished.is_some() {
-            return finished.clone();
-        }
+    pub async fn join(&self) -> Option<ExitCode> {
+        
         loop {
-            let woken = self.finished.1.wait_timeout(finished, timeout).unwrap();
-            if woken.1.timed_out() {
+            let rx = {
+                let finished = self.finished.lock().unwrap();
+                if finished.0.is_some() {
+                    return finished.0.clone();
+                }
+                finished.1.subscribe()
+            };
+            if rx.recv().await.is_err() {
                 return None;
-            }
-            finished = woken.0;
-            if finished.is_some() {
-                return finished.clone();
             }
         }
     }
 
     /// Attempts to join on the thread
-    pub fn try_join(&self) -> Option<__wasi_exitcode_t> {
-        let guard = self.finished.0.lock().unwrap();
-        guard.clone()
+    pub fn try_join(&self) -> Option<ExitCode> {
+        let guard = self.finished.lock().unwrap();
+        guard.0.clone()
     }
 
     /// Adds a signal for this thread to process
     pub fn signal(&self, signal: Signal) {
-        let mut guard = self.signals.0.lock().unwrap();
-        if guard.contains(&signal) == false {
-            guard.push(signal);
+        let mut guard = self.signals.lock().unwrap();
+        if guard.0.contains(&signal) == false {
+            guard.0.push(signal);
         }
-        let _ = self.signals.1.send(());
+        let _ = guard.1.send(());
     }
 
     /// Returns all the signals that are waiting to be processed
-    pub fn pop_signals(&self) -> Vec<Signal> {
-        let mut guard = self.signals.0.lock().unwrap();
-        guard.drain(..).collect()
-    }
-
-    /// Returns true if there are any signals waiting
-    pub fn any_signals(&self) -> bool {
-        let mut guard = self.signals.0.lock().unwrap();
-        guard.is_empty() == false
-    }
-
-    pub fn subscribe_signals(&self) -> tokio::sync::broadcast::Receiver<()> {
-        self.signals.1.subscribe()
+    pub fn pop_signals_or_subscribe(&self) -> Result<Vec<Signal>, tokio::sync::broadcast::Receiver<()>> {
+        let mut guard = self.signals.lock().unwrap();
+        let ret = guard.0.drain(..).collect();
+        match ret.is_empty() {
+            true => Err(guard.1.subscribe()),
+            false => Ok(ret)
+        }
     }
 
     /// Adds a stack snapshot and removes dead ones
@@ -457,16 +469,15 @@ impl WasiProcess {
             is_main = true;
             self.finished.clone()
         } else {
-            Arc::new((Mutex::new(None), Condvar::default()))
+            Arc::new(Mutex::new((None, tokio::sync::broadcast::channel(1))))
         };
 
-        let (tx_signals, _) = tokio::sync::broadcast::channel(1);
         let ctrl = WasiThread {
             pid: self.pid(),
             id,
             is_main,
             finished,
-            signals: Arc::new((Mutex::new(Vec::new()), tx_signals)),
+            signals: Arc::new(Mutex::new((Vec::new(), tokio::sync::broadcast::channel(1)))),
             stack: Arc::new(Mutex::new(ThreadStack::default())),
         };
         inner.threads.insert(id, ctrl.clone());

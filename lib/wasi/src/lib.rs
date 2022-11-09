@@ -524,7 +524,6 @@ impl WasiEnv {
 
         // Check for any signals that we need to trigger
         // (but only if a signal handler is registered)
-        let mut has_any_signals = false;
         if let Some(handler) = self.inner().signal.clone() {
             let mut signals = self.thread.pop_signals();
 

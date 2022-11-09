@@ -46,6 +46,7 @@ use generational_arena::Arena;
 pub use generational_arena::Index as Inode;
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
+use wasmer_wasi_types::wasi::ExitCode;
 use std::borrow::Cow;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -1958,7 +1959,7 @@ impl WasiFs {
         fd_map: &mut RwLockWriteGuard<HashMap<u32, Fd>>,
         fd: __wasi_fd_t,
     ) -> Result<(), Errno> {
-        let pfd = fd_map.get(&fd).ok_or(__WASI_EBADF)?;
+        let pfd = fd_map.get(&fd).ok_or(Errno::Badf)?;
         if pfd.ref_cnt.fetch_sub(1, Ordering::AcqRel) > 1 {
             trace!("closing file descriptor({}) - ref-cnt", fd);
             fd_map.remove(&fd);
@@ -2131,7 +2132,9 @@ pub(crate) struct WasiStateThreading {
 #[derive(Debug, Clone)]
 pub struct WasiFutex {
     pub(crate) refcnt: Arc<AtomicU32>,
-    pub(crate) inner: Arc<(Mutex<()>, Condvar)>,
+    pub(crate) inner: Arc<Mutex<
+        tokio::sync::broadcast::Sender<()>,
+    >>,
 }
 
 #[derive(Debug)]
