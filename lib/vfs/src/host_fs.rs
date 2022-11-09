@@ -144,7 +144,9 @@ impl crate::FileSystem for FileSystem {
                 let _ = fs_extra::remove_items(&[from]);
                 Ok(())
             } else {
-                fs::copy(from, to).map(|_| ()).map_err(Into::into)
+                let e: Result<()> = fs::copy(from, to).map(|_| ()).map_err(Into::into);
+                let _ = e?;
+                fs::remove_file(from).map(|_| ()).map_err(Into::into)
             }
         } else {
             fs::rename(from, to).map_err(Into::into)
@@ -1077,91 +1079,37 @@ mod tests {
             "renaming a file (in the same directory)",
         );
 
+        assert!(Path::new("./test_rename/bar").exists(), "./bar exists");
+        assert!(
+            Path::new("./test_rename/bar/baz").exists(),
+            "./bar/baz exists"
+        );
+        assert!(
+            !Path::new("./test_rename/foo").exists(),
+            "foo does not exist anymore"
+        );
+        assert!(
+            Path::new("./test_rename/bar/baz/world2.txt").exists(),
+            "/bar/baz/world2.txt exists"
+        );
+        assert!(
+            Path::new("./test_rename/bar/world1.txt").exists(),
+            "/bar/world1.txt (ex hello1.txt) exists"
+        );
+        assert!(
+            !Path::new("./test_rename/bar/hello1.txt").exists(),
+            "hello1.txt was moved"
+        );
+        assert!(
+            !Path::new("./test_rename/bar/hello2.txt").exists(),
+            "hello2.txt was moved"
+        );
+        assert!(
+            Path::new("./test_rename/bar/baz/world2.txt").exists(),
+            "world2.txt was moved to the correct place"
+        );
+
         let _ = fs_extra::remove_items(&["./test_rename"]);
-
-        /*
-        {
-            let fs_inner = fs.inner.read().unwrap();
-
-            dbg!(&fs_inner);
-
-            assert_eq!(
-                fs_inner.storage.len(),
-                6,
-                "storage has still all directories"
-            );
-            assert!(
-                matches!(
-                    fs_inner.storage.get(ROOT_INODE),
-                    Some(Node::Directory {
-                        inode: ROOT_INODE,
-                        name,
-                        children,
-                        ..
-                    }) if name == "/" && children == &[3]
-                ),
-                "`/` contains `bar`",
-            );
-            assert!(
-                matches!(
-                    fs_inner.storage.get(1),
-                    Some(Node::Directory {
-                        inode: 1,
-                        name,
-                        children,
-                        ..
-                    }) if name == "baz" && children == &[2, 5]
-                ),
-                "`foo` has been renamed to `baz` and contains `qux` and `world2.txt`",
-            );
-            assert!(
-                matches!(
-                    fs_inner.storage.get(2),
-                    Some(Node::Directory {
-                        inode: 2,
-                        name,
-                        children,
-                        ..
-                    }) if name == "qux" && children.is_empty()
-                ),
-                "`qux` is empty",
-            );
-            assert!(
-                matches!(
-                    fs_inner.storage.get(3),
-                    Some(Node::Directory {
-                        inode: 3,
-                        name,
-                        children,
-                        ..
-                    }) if name == "bar" && children == &[4, 1]
-                ),
-                "`bar` contains `bar` (ex `foo`)  and `world1.txt` (ex `hello1`)",
-            );
-            assert!(
-                matches!(
-                    fs_inner.storage.get(4),
-                    Some(Node::File {
-                        inode: 4,
-                        name,
-                        ..
-                    }) if name == "world1.txt"
-                ),
-                "`hello1.txt` has been renamed to `world1.txt`",
-            );
-            assert!(
-                matches!(
-                    fs_inner.storage.get(5),
-                    Some(Node::File {
-                        inode: 5,
-                        name,
-                        ..
-                    }) if name == "world2.txt"
-                ),
-                "`hello2.txt` has been renamed to `world2.txt`",
-            );
-        }
-        */
     }
 
     /*
