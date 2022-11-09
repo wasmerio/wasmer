@@ -263,6 +263,22 @@ pub trait VirtualBusInvoked: fmt::Debug + Unpin + 'static {
         cx: &mut Context<'_>,
     ) -> Poll<Result<Box<dyn VirtualBusInvocation + Sync>>>;
 }
+pub struct VirtualBusInvokedWait<'a> {
+    invoked: Pin<&'a mut dyn VirtualBusInvoked>
+}
+impl<'a> VirtualBusInvokedWait<'a> {
+    pub fn new(invoked: &'a mut dyn VirtualBusInvoked) {
+        Self { invoked: Pin::new(invoked) }
+    }
+}
+impl<'a> Future
+for VirtualBusInvokedWait<'a> {
+    type Output = Result<Box<dyn VirtualBusInvocation + Sync>>;
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        self.invoked.poll_invoked(cx)
+    }
+}
+
 
 pub trait VirtualBusProcess:
     VirtualBusScope + VirtualBusInvokable + fmt::Debug + Send + Sync + 'static

@@ -54,7 +54,7 @@ use crate::{
 use bytes::{Bytes, BytesMut};
 use cooked_waker::IntoWaker;
 use sha2::Sha256;
-use wasmer_wasi_types::wasi::{TlKey, TlUser, TlVal};
+use wasmer_wasi_types::wasi::{TlKey, TlUser, TlVal, WasiHash};
 use std::borrow::{Borrow, Cow};
 use std::cell::RefCell;
 use std::collections::hash_map::Entry;
@@ -84,7 +84,7 @@ use wasmer::{
 use wasmer_types::LinearMemory;
 use wasmer_vbus::{
     BusInvocationEvent, BusSpawnedProcess, FileDescriptor, SignalHandlerAbi, SpawnOptionsConfig,
-    StdioMode, VirtualBusError,
+    StdioMode, VirtualBusError, VirtualBusInvokedWait,
 };
 use wasmer_vfs::{FileSystem, FsError, VirtualFile};
 use wasmer_vnet::{SocketHttpRequest, StreamSecurity};
@@ -248,6 +248,20 @@ where
     T: 'static,
     Fut: std::future::Future<Output = Result<T, Errno>> + 'static,
 {
+    let mut env = ctx.data();
+
+    // Fast path (inline synchronous)
+    {
+        let _guard = env.tasks.enter();
+        let waker = WasiDummyWaker.into_waker();
+        let mut cx = Context::from_waker(&waker);
+        let pinned_work = Pin::new(&mut work);
+        if let Poll::Ready(i) = pinned_work.poll(&mut cx) {
+            return i;
+        }
+    }
+
+    // Slow path (will may put the thread to sleep)
     let mut env = ctx.data();
     let tasks = env.tasks.clone();
     let mut signaler = env.thread.signals.1.subscribe();
@@ -7105,11 +7119,11 @@ fn bus_open_local_internal<M: MemorySize>(
 
     // Check if it already exists
     if reuse {
-        let guard = env.state.threading.lock().unwrap();
+        let guard = env.process.read();
         if let Some(bid) = guard.bus_process_reuse.get(&name) {
             if guard.bus_processes.contains_key(bid) {
-                wasi_try_mem_bus_ok!(ret_bid.write(&memory, (*bid).into()));
-                return BusErrno::Success;
+                wasi_try_mem_bus_ok!(ret_bid.write(&memory, bid.clone().into()));
+                return Ok(Errno::Success);
             }
         }
     }
@@ -7120,22 +7134,21 @@ fn bus_open_local_internal<M: MemorySize>(
         None,
         None,
         None,
-        __WASI_STDIO_MODE_NULL,
-        __WASI_STDIO_MODE_NULL,
-        __WASI_STDIO_MODE_LOG
+        StdioMode::Null,
+        StdioMode::Null,
+        StdioMode::Log
     ));
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
 
-    let pid: WasiBusProcessId = handles.bid.into();
+    let pid: WasiProcessId = handles.bid.into();
     let memory = env.memory_view(&ctx);
     {
         let mut inner = env.process.write();
         inner.bus_process_reuse.insert(name, pid);
     };
 
-    wasi_try_mem_bus!(ret_bid.write(&memory, bid.into()));
-
+    wasi_try_mem_bus_ok!(ret_bid.write(&memory, pid.into()));
     BusErrno::Success
 }
 
@@ -7151,14 +7164,12 @@ pub fn bus_close(ctx: FunctionEnvMut<'_, WasiEnv>, bid: Bid) -> BusErrno {
         ctx.data().tid(),
         bid
     );
-    let bid: WasiBusProcessId = bid.into();
+    let pid: WasiProcessId = bid.into();
 
     let env = ctx.data();
     let mut inner = env.process.write();
     if let Some(process) = inner.bus_processes.remove(&bid) {
-        // FIXME
-        //let name: Cow<'static, str> = process.name.clone().into();
-        //inner.bus_process_reuse.remove(&name);
+        inner.bus_process_reuse.retain(|(_, v)| v != pid);
     }
 
     BusErrno::Success
@@ -7177,29 +7188,23 @@ pub fn bus_close(ctx: FunctionEnvMut<'_, WasiEnv>, bid: Bid) -> BusErrno {
 /// * `buf` - The buffer where data to be transmitted is stored
 pub fn bus_call<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    bid: __wasi_bid_t,
-    topic_hash: WasmPtr<__wasi_hash_t>,
-    format: __wasi_busdataformat_t,
+    bid: Bid,
+    topic_hash: WasmPtr<WasiHash>,
+    format: BusDataFormat,
     buf: WasmPtr<u8, M>,
     buf_len: M::Offset,
-    ret_cid: WasmPtr<__wasi_cid_t, M>,
-    // FIXME: align function signatures
-    // ctx: FunctionEnvMut<'_, WasiEnv>,
-    // bid: Bid,
-    // keep_alive: Bool,
-    // topic: WasmPtr<u8, M>,
-    // topic_len: M::Offset,
-    // format: BusDataFormat,
-    // buf: WasmPtr<u8, M>,
-    // buf_len: M::Offset,
-    // ret_cid: WasmPtr<Cid, M>,
+    ret_cid: WasmPtr<Cid, M>,
 ) -> Result<BusErrno, WasiError> {
-    let env = ctx.data();
+    let mut env = ctx.data();
     let bus = env.runtime.bus();
-    let memory = env.memory_view(&ctx);
+    let mut memory = env.memory_view(&ctx);
     let topic_hash = wasi_try_mem_bus_ok!(topic_hash.read(&memory));
     let buf_slice = wasi_try_mem_bus_ok!(buf.slice(&memory, buf_len));
-    trace!("wasi::bus_call (bid={}, buf_len={})", bid, buf_len);
+    trace!(
+        "wasi::bus_call (bid={}, buf_len={})",
+        bid,
+        buf_len
+    );
 
     // Get the process that we'll invoke this call for
     let mut guard = env.process.read();
@@ -7209,9 +7214,6 @@ pub fn bus_call<M: MemorySize>(
     } else {
         return Ok(BusErrno::Badhandle);
     };
-
-    // Invoke the bus process
-    let format = wasi_try_bus_ok!(conv_bus_format_from(format));
 
     // Check if the process has finished
     if let Some(code) = process.inst.exit_code() {
@@ -7228,34 +7230,15 @@ pub fn bus_call<M: MemorySize>(
     // Poll the invocation until it does its thing
     let mut invocation;
     {
-        // Fast path (does not have to create a futex creation)
-        let waker = WasiDummyWaker.into_waker();
-        let mut cx = Context::from_waker(&waker);
-        let pinned_invoked = Pin::new(invoked.deref_mut());
-        match pinned_invoked.poll_invoked(&mut cx) {
-            Poll::Ready(i) => {
-                invocation = wasi_try_bus_ok!(i.map_err(bus_error_into_wasi_err));
+        invocation = wasi_try_bus_ok!(__asyncify(
+            &mut ctx,
+            None,
+            async move {
+                VirtualBusInvokedWait::new(invoked.deref_mut()).await
             }
-            Poll::Pending => {
-                // Slow path (will put the thread to sleep)
-                let parking = WasiParkingLot::default();
-                let waker = parking.get_waker();
-                let mut cx = Context::from_waker(&waker);
-                loop {
-                    let pinned_invoked = Pin::new(invoked.deref_mut());
-                    match pinned_invoked.poll_invoked(&mut cx) {
-                        Poll::Ready(i) => {
-                            invocation = wasi_try_bus_ok!(i.map_err(bus_error_into_wasi_err));
-                            break;
-                        }
-                        Poll::Pending => {
-                            env.yield_now()?;
-                            parking.wait(Duration::from_millis(5));
-                        }
-                    }
-                }
-            }
-        }
+        ));
+        env = ctx.data();
+        memory = env.memory_view(&ctx);
     }
 
     // Record the invocation
@@ -7291,30 +7274,24 @@ pub fn bus_call<M: MemorySize>(
 pub fn bus_subcall<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     parent: Cid,
-    topic_hash: WasmPtr<__wasi_hash_t>,
-    format: __wasi_busdataformat_t,
+    topic_hash: WasmPtr<WasiHash>,
+    format: BusDataFormat,
     buf: WasmPtr<u8, M>,
     buf_len: M::Offset,
-    ret_cid: WasmPtr<__wasi_cid_t, M>,
-    // FIXME: align function signaturs
-    // ctx: FunctionEnvMut<'_, WasiEnv>,
-    // parent: Cid,
-    // keep_alive: Bool,
-    // topic: WasmPtr<u8, M>,
-    // topic_len: M::Offset,
-    // format: BusDataFormat,
-    // buf: WasmPtr<u8, M>,
-    // buf_len: M::Offset,
-    // ret_cid: WasmPtr<Cid, M>,
+    ret_cid: WasmPtr<Cid, M>,
 ) -> Result<BusErrno, WasiError> {
     let env = ctx.data();
     let bus = env.runtime.bus();
     let memory = env.memory_view(&ctx);
     let topic_hash = wasi_try_mem_bus_ok!(topic_hash.read(&memory));
     let buf_slice = wasi_try_mem_bus_ok!(buf.slice(&memory, buf_len));
-    trace!("wasi::bus_subcall (parent={}, buf_len={})", parent, buf_len);
+    trace!(
+        "wasi::bus_subcall (parent={}, buf_len={})",
+        parent,
+        buf_len
+    );
 
-    let format = wasi_try_bus_ok!(conv_bus_format_from(format));
+    let format = wasi_try_bus_ok!(format);
     let buf = wasi_try_mem_bus_ok!(buf_slice.read_to_vec());
 
     // Get the parent call that we'll invoke this call for
@@ -7330,34 +7307,15 @@ pub fn bus_subcall<M: MemorySize>(
         // Poll the invocation until it does its thing
         let invocation;
         {
-            // Fast path (does not have to create a futex creation)
-            let waker = WasiDummyWaker.into_waker();
-            let mut cx = Context::from_waker(&waker);
-            let pinned_invoked = Pin::new(invoked.deref_mut());
-            match pinned_invoked.poll_invoked(&mut cx) {
-                Poll::Ready(i) => {
-                    invocation = wasi_try_bus_ok!(i.map_err(bus_error_into_wasi_err));
+            invocation = wasi_try_bus_ok!(__asyncify(
+                &mut ctx,
+                None,
+                async move {
+                    VirtualBusInvokedWait::new(invoked.deref_mut()).await
                 }
-                Poll::Pending => {
-                    // Slow path (will put the thread to sleep)
-                    let parking = WasiParkingLot::default();
-                    let waker = parking.get_waker();
-                    let mut cx = Context::from_waker(&waker);
-                    loop {
-                        let pinned_invoked = Pin::new(invoked.deref_mut());
-                        match pinned_invoked.poll_invoked(&mut cx) {
-                            Poll::Ready(i) => {
-                                invocation = wasi_try_bus_ok!(i.map_err(bus_error_into_wasi_err));
-                                break;
-                            }
-                            Poll::Pending => {
-                                env.yield_now()?;
-                                parking.wait(Duration::from_millis(5));
-                            }
-                        }
-                    }
-                }
-            }
+            ));
+            env = ctx.data();
+            memory = env.memory_view(&ctx);
         }
 
         // Add the call and return the ID
@@ -7382,32 +7340,6 @@ pub fn bus_subcall<M: MemorySize>(
     }
 }
 
-// Function for converting the format
-fn conv_bus_format(format: BusDataFormat) -> __wasi_busdataformat_t {
-    match format {
-        BusDataFormat::Raw => __WASI_BUS_DATA_FORMAT_RAW,
-        BusDataFormat::Bincode => __WASI_BUS_DATA_FORMAT_BINCODE,
-        BusDataFormat::MessagePack => __WASI_BUS_DATA_FORMAT_MESSAGE_PACK,
-        BusDataFormat::Json => __WASI_BUS_DATA_FORMAT_JSON,
-        BusDataFormat::Yaml => __WASI_BUS_DATA_FORMAT_YAML,
-        BusDataFormat::Xml => __WASI_BUS_DATA_FORMAT_XML,
-    }
-}
-
-fn conv_bus_format_from(format: __wasi_busdataformat_t) -> Result<BusDataFormat, BusErrno> {
-    Ok(match format {
-        __WASI_BUS_DATA_FORMAT_RAW => BusDataFormat::Raw,
-        __WASI_BUS_DATA_FORMAT_BINCODE => BusDataFormat::Bincode,
-        __WASI_BUS_DATA_FORMAT_MESSAGE_PACK => BusDataFormat::MessagePack,
-        __WASI_BUS_DATA_FORMAT_JSON => BusDataFormat::Json,
-        __WASI_BUS_DATA_FORMAT_YAML => BusDataFormat::Yaml,
-        __WASI_BUS_DATA_FORMAT_XML => BusDataFormat::Xml,
-        _ => {
-            return Err(BusErrno::Des);
-        }
-    })
-}
-
 /// Polls for any outstanding events from a particular
 /// bus process by its handle
 ///
@@ -7424,19 +7356,14 @@ fn conv_bus_format_from(format: __wasi_busdataformat_t) -> Result<BusDataFormat,
 /// Returns the number of events that have occured
 #[cfg(feature = "os")]
 pub fn bus_poll<M: MemorySize>(
-    // FIXME: align function signatures!
     ctx: FunctionEnvMut<'_, WasiEnv>,
+    timeout: Timestamp,
     events: WasmPtr<__wasi_busevent_t, M>,
     maxevents: M::Offset,
     ret_nevents: WasmPtr<M::Offset, M>,
-    // ctx: FunctionEnvMut<'_, WasiEnv>,
-    // timeout: Timestamp,
-    // events: WasmPtr<u8, M>,
-    // nevents: M::Offset,
-    // malloc: WasmPtr<u8, M>,
-    // malloc_len: M::Offset,
-    // ret_nevents: WasmPtr<M::Offset, M>,
 ) -> Result<BusErrno, WasiError> {
+    use wasmer_wasi_types::wasi::{__wasi_busevent_t2, OptionCid, BusEventType};
+
     let env = ctx.data();
     let bus = env.runtime.bus();
     let memory = env.memory_view(&ctx);
@@ -7536,9 +7463,9 @@ pub fn bus_poll<M: MemorySize>(
                         );
                         let evt = unsafe {
                             std::mem::transmute(__wasi_busevent_t2 {
-                                tag: __WASI_BUS_EVENT_TYPE_FAULT,
+                                tag: BusEventType::Fault,
                                 u: __wasi_busevent_u {
-                                    fault: __wasi_busevent_fault_t {
+                                    fault: BusEventFault {
                                         cid,
                                         err: BusErrno::Aborted,
                                     },
@@ -7573,15 +7500,15 @@ pub fn bus_poll<M: MemorySize>(
 
                                         trace!("wasi[{}:{}]::bus_poll (callback, parent={}, cid={}, topic={})", ctx.data().pid(), ctx.data().tid(), cid, sub_cid, topic_hash);
                                         __wasi_busevent_t2 {
-                                            tag: __WASI_BUS_EVENT_TYPE_CALL,
+                                            tag: BusEventType::Call,
                                             u: __wasi_busevent_u {
                                                 call: __wasi_busevent_call_t {
-                                                    parent: __wasi_option_cid_t {
-                                                        tag: __WASI_OPTION_SOME,
+                                                    parent: OptionCid {
+                                                        tag: OptionTag::Some,
                                                         cid,
                                                     },
                                                     cid: sub_cid,
-                                                    format: conv_bus_format(format),
+                                                    format,
                                                     topic_hash,
                                                     fd: buf_to_fd(data),
                                                 },
@@ -7600,10 +7527,10 @@ pub fn bus_poll<M: MemorySize>(
                                             data.len()
                                         );
                                         __wasi_busevent_t2 {
-                                            tag: __WASI_BUS_EVENT_TYPE_RESULT,
+                                            tag: BusEventType::Result,
                                             u: __wasi_busevent_u {
                                                 result: __wasi_busevent_result_t {
-                                                    format: conv_bus_format(format),
+                                                    format,
                                                     cid,
                                                     fd: buf_to_fd(data),
                                                 },
@@ -7622,7 +7549,7 @@ pub fn bus_poll<M: MemorySize>(
                                             fault
                                         );
                                         __wasi_busevent_t2 {
-                                            tag: __WASI_BUS_EVENT_TYPE_FAULT,
+                                            tag: BusEventType::Fault,
                                             u: __wasi_busevent_u {
                                                 fault: __wasi_busevent_fault_t {
                                                     cid,
@@ -7678,15 +7605,15 @@ pub fn bus_poll<M: MemorySize>(
                                 };
 
                                 let event = __wasi_busevent_t2 {
-                                    tag: __WASI_BUS_EVENT_TYPE_CALL,
+                                    tag: BusEventType::Call,
                                     u: __wasi_busevent_u {
                                         call: __wasi_busevent_call_t {
                                             parent: __wasi_option_cid_t {
-                                                tag: __WASI_OPTION_SOME,
+                                                tag: OptionTag::Some,
                                                 cid,
                                             },
                                             cid: sub_cid,
-                                            format: conv_bus_format(event.format),
+                                            format,
                                             topic_hash: event.topic_hash,
                                             fd: buf_to_fd(event.data),
                                         },
@@ -7737,15 +7664,15 @@ pub fn bus_poll<M: MemorySize>(
                         };
 
                         __wasi_busevent_t2 {
-                            tag: __WASI_BUS_EVENT_TYPE_CALL,
+                            tag: BusEventType::Call,
                             u: __wasi_busevent_u {
                                 call: __wasi_busevent_call_t {
                                     parent: __wasi_option_cid_t {
-                                        tag: __WASI_OPTION_NONE,
+                                        tag: OptionTag::None,
                                         cid: 0,
                                     },
                                     cid: sub_cid,
-                                    format: conv_bus_format(event.format),
+                                    format,
                                     topic_hash: event.topic_hash,
                                     fd: buf_to_fd(event.data),
                                 },
@@ -7774,7 +7701,7 @@ pub fn bus_poll<M: MemorySize>(
         // otherwise the loop will break if the BUS futex is triggered or a timeout is reached
         loop {
             // Check for timeout (zero will mean the loop will not wait)
-            let now = platform_clock_time_get(__WASI_CLOCK_MONOTONIC, 1_000_000).unwrap() as u128;
+            let now = platform_clock_time_get(Snapshot0Clockid::Monotonic, 1_000_000).unwrap() as u128;
             let delta = now.checked_sub(start).unwrap_or(0) as __wasi_timestamp_t;
             if delta >= timeout {
                 trace!(
@@ -7819,7 +7746,7 @@ pub fn bus_poll<M: MemorySize>(
 #[cfg(not(feature = "os"))]
 pub fn bus_poll<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    timeout: __wasi_timestamp_t,
+    timeout: Timestamp,
     events: WasmPtr<__wasi_busevent_t, M>,
     maxevents: M::Offset,
     ret_nevents: WasmPtr<M::Offset, M>,
@@ -7907,7 +7834,10 @@ pub fn call_fault(ctx: FunctionEnvMut<'_, WasiEnv>, cid: Cid, fault: BusErrno) -
 /// ## Parameters
 ///
 /// * `cid` - Handle of the bus call handle to be dropped
-pub fn call_close(ctx: FunctionEnvMut<'_, WasiEnv>, cid: Cid) -> BusErrno {
+pub fn call_close(
+    ctx: FunctionEnvMut<'_, WasiEnv>,
+    cid: Cid
+) {
     let env = ctx.data();
     let bus = env.runtime.bus();
     trace!(
@@ -7920,9 +7850,6 @@ pub fn call_close(ctx: FunctionEnvMut<'_, WasiEnv>, cid: Cid) -> BusErrno {
     let mut guard = env.state.bus.protected();
     guard.calls.remove(&cid);
     guard.called.remove(&cid);
-
-    // FIXME: check return value
-    BusErrno::Success
 }
 
 /// ### `ws_connect()`
@@ -8218,14 +8145,26 @@ pub fn port_unbridge(ctx: FunctionEnvMut<'_, WasiEnv>) -> Errno {
 
 /// ### `port_dhcp_acquire()`
 /// Acquires a set of IP addresses using DHCP
-pub fn port_dhcp_acquire(ctx: FunctionEnvMut<'_, WasiEnv>) -> Errno {
+pub fn port_dhcp_acquire(
+    mut ctx: FunctionEnvMut<'_, WasiEnv>
+) -> Errno {
     debug!(
         "wasi[{}:{}]::port_dhcp_acquire",
         ctx.data().pid(),
         ctx.data().tid()
     );
     let env = ctx.data();
-    wasi_try!(env.net().dhcp_acquire().map_err(net_error_into_wasi_err));
+    let net = env.net();
+    let tasks = env.tasks.clone();
+    wasi_try!(
+        __asyncify(
+            &mut ctx,
+            None,
+            async move {
+                net.dhcp_acquire().await.map_err(net_error_into_wasi_err)
+            }
+        )
+    );
     Errno::Success
 }
 
@@ -8786,7 +8725,9 @@ pub fn sock_get_opt_flag<M: MemorySize>(
         &mut ctx,
         sock,
         Rights::empty(),
-        move |socket| async move { socket.get_opt_flag(option) }
+        move |socket| async move {
+            socket.get_opt_flag(option)
+        }
     ));
 
     let env = ctx.data();
@@ -9172,7 +9113,7 @@ pub fn sock_bind<M: MemorySize>(
     wasi_try!(__sock_upgrade(
         &mut ctx,
         sock,
-        __WASI_RIGHT_SOCK_BIND,
+        Rights::SOCK_BIND,
         move |socket| async move { socket.bind(net, addr).await }
     ));
     Errno::Success
@@ -9208,7 +9149,7 @@ pub fn sock_listen<M: MemorySize>(
     wasi_try!(__sock_upgrade(
         &mut ctx,
         sock,
-        __WASI_RIGHT_SOCK_BIND,
+        Rights::SOCK_LISTEN,
         move |socket| async move { socket.listen(net, backlog).await }
     ));
     Errno::Success
@@ -9243,7 +9184,7 @@ pub fn sock_accept<M: MemorySize>(
     let (child, addr) = wasi_try_ok!(__sock_actor(
         &mut ctx,
         sock,
-        __WASI_RIGHT_SOCK_ACCEPT,
+        Rights::SOCK_ACCEPT,
         move |socket| async move {
             socket.accept(fd_flags).await
         }
@@ -9363,7 +9304,7 @@ pub fn sock_recv<M: MemorySize>(
     let data = wasi_try_ok!(__sock_actor_mut(
         &mut ctx,
         sock,
-        __WASI_RIGHT_SOCK_RECV,
+        Rights::SOCK_RECV,
         move |socket| async move {
             socket.recv(max_size).await
         }
@@ -9426,7 +9367,7 @@ pub fn sock_recv_from<M: MemorySize>(
     let (data, peer) = wasi_try_ok!(__sock_actor_mut(
         &mut ctx,
         sock,
-        __WASI_RIGHT_SOCK_RECV_FROM,
+        Rights::SOCK_RECV_FROM,
         move |socket| async move {
             socket.recv_from(max_size).await
         }
@@ -9492,7 +9433,7 @@ pub fn sock_send<M: MemorySize>(
     let bytes_written = wasi_try_ok!(__sock_actor_mut(
         &mut ctx,
         sock,
-        __WASI_RIGHT_SOCK_SEND,
+        Rights::SOCK_SEND,
         move |socket| async move {
             socket.send(buf).await
         }
