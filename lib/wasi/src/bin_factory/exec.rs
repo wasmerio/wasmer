@@ -11,7 +11,6 @@ use wasmer_vbus::{
     BusSpawnedProcess, SpawnOptionsConfig, VirtualBusError, VirtualBusInvokable, VirtualBusProcess,
     VirtualBusScope, VirtualBusSpawner,
 };
-use wasmer_wasi_types::__WASI_ENOEXEC;
 
 use super::{BinFactory, BinaryPackage, CachedCompiledModules};
 use crate::runtime::SpawnType;
@@ -134,7 +133,7 @@ pub fn spawn_exec_module(
                                 Ok(WasiError::Exit(code)) => code,
                                 Ok(WasiError::UnknownWasiVersion) => {
                                     debug!("wasi[{}]::exec-failed: unknown wasi version", pid);
-                                    __WASI_ENOEXEC as u32
+                                    Errno::Noexec as u32
                                 }
                                 Err(err) => {
                                     debug!("wasi[{}]::exec-failed: runtime error - {}", pid, err);
@@ -158,7 +157,7 @@ pub fn spawn_exec_module(
                                 Ok(WasiError::Exit(code)) => code,
                                 Ok(WasiError::UnknownWasiVersion) => {
                                     debug!("wasi[{}]::exec-failed: unknown wasi version", pid);
-                                    __WASI_ENOEXEC as u32
+                                    Errno::Noexec as u32
                                 }
                                 Err(err) => {
                                     debug!("wasi[{}]::exec-failed: runtime error - {}", pid, err);
@@ -168,7 +167,7 @@ pub fn spawn_exec_module(
                         }
                     } else {
                         debug!("wasi[{}]::exec-failed: missing _start function", pid);
-                        __WASI_ENOEXEC as u32
+                        Errno::Noexec as u32
                     };
                     debug!("wasi[{}]::main() has exited with {}", pid, ret);
 

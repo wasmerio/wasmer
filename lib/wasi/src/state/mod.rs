@@ -1988,7 +1988,7 @@ impl WasiFs {
                 debug!("Closing dir {:?}", &path);
                 let key = path
                     .file_name()
-                    .ok_or(__WASI_EINVAL)?
+                    .ok_or(Errno::Inval)?
                     .to_string_lossy()
                     .to_string();
                 if let Some(p) = *parent {
@@ -2024,12 +2024,12 @@ impl WasiFs {
                 } else {
                     // this shouldn't be possible anymore due to Root
                     debug!("HIT UNREACHABLE CODE! Non-root directory does not have a parent");
-                    return Err(__WASI_EINVAL);
+                    return Err(Errno::Inval);
                 }
             }
             Kind::EventNotifications { .. } => {}
             Kind::Root { .. } => return Err(__WASI_EACCES),
-            Kind::Symlink { .. } | Kind::Buffer { .. } => return Err(__WASI_EINVAL),
+            Kind::Symlink { .. } | Kind::Buffer { .. } => return Err(Errno::Inval),
         }
 
         Ok(())

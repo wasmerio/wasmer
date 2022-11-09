@@ -48,9 +48,9 @@ impl From<WasiThreadError> for Errno {
     fn from(a: WasiThreadError) -> Errno {
         match a {
             WasiThreadError::Unsupported => Errno::Notsup,
-            WasiThreadError::MethodNotFound => __WASI_EINVAL,
+            WasiThreadError::MethodNotFound => Errno::Inval,
             WasiThreadError::MemoryCreateFailed => Errno::Fault,
-            WasiThreadError::InvalidWasmContext => __WASI_ENOEXEC,
+            WasiThreadError::InvalidWasmContext => Errno::Noexec,
         }
     }
 }

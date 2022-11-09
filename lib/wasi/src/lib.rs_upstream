@@ -85,7 +85,7 @@ use std::time::Duration;
 #[derive(Error, Debug)]
 pub enum WasiError {
     #[error("WASI exited with code: {0}")]
-    Exit(syscalls::types::__wasi_exitcode_t),
+    Exit(syscalls::types::ExitCode),
     #[error("The WASI version could not be determined")]
     UnknownWasiVersion,
 }
