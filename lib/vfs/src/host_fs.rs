@@ -1164,81 +1164,47 @@ mod tests {
         );
     }
 
-    /*
     #[test]
     fn test_remove_file() {
         let fs = FileSystem::default();
+
+        let _ = fs_extra::remove_items(&["./test_remove_file"]);
+
+        assert!(fs.create_dir(Path::new("./test_remove_file")).is_ok());
 
         assert!(
             matches!(
                 fs.new_open_options()
                     .write(true)
                     .create_new(true)
-                    .open(path!("/foo.txt")),
+                    .open(Path::new("./test_remove_file/foo.txt")),
                 Ok(_)
             ),
             "creating a new file",
         );
 
-        {
-            let fs_inner = fs.inner.read().unwrap();
+        assert!(read_dir_names(&fs, "./test_remove_file").contains(&"foo.txt".to_string()));
 
-            assert_eq!(fs_inner.storage.len(), 2, "storage has all files");
-            assert!(
-                matches!(
-                    fs_inner.storage.get(ROOT_INODE),
-                    Some(Node::Directory {
-                        inode: ROOT_INODE,
-                        name,
-                        children,
-                        ..
-                    }) if name == "/" && children == &[1]
-                ),
-                "`/` contains `foo.txt`",
-            );
-            assert!(
-                matches!(
-                    fs_inner.storage.get(1),
-                    Some(Node::File {
-                        inode: 1,
-                        name,
-                        ..
-                    }) if name == "foo.txt"
-                ),
-                "`foo.txt` exists and is a file",
-            );
-        }
+        assert!(Path::new("./test_remove_file/foo.txt").is_file());
 
         assert_eq!(
-            fs.remove_file(path!("/foo.txt")),
+            fs.remove_file(Path::new("./test_remove_file/foo.txt")),
             Ok(()),
             "removing a file that exists",
         );
 
-        {
-            let fs_inner = fs.inner.read().unwrap();
-
-            assert_eq!(fs_inner.storage.len(), 1, "storage no longer has the file");
-            assert!(
-                matches!(
-                    fs_inner.storage.get(ROOT_INODE),
-                    Some(Node::Directory {
-                        inode: ROOT_INODE,
-                        name,
-                        children,
-                        ..
-                    }) if name == "/" && children.is_empty()
-                ),
-                "`/` is empty",
-            );
-        }
+        assert!(!Path::new("./test_remove_file/foo.txt").exists());
 
         assert_eq!(
-            fs.remove_file(path!("/foo.txt")),
-            Err(FsError::NotAFile),
-            "removing a file that exists",
+            fs.remove_file(Path::new("./test_remove_file/foo.txt")),
+            Err(FsError::EntryNotFound),
+            "removing a file that doesn't exists",
         );
+
+        let _ = fs_extra::remove_items(&["./test_remove_file"]);
     }
+
+    /*
 
     #[test]
     fn test_readdir() {
