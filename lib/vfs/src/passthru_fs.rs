@@ -1,5 +1,6 @@
-//! `PassthruFileSystem` simply forwards and "owns" a filesystem,
-//! passing the operations to the inner filesystem
+//! Wraps a boxed file system with an implemented trait VirtualSystem -
+//! this is needed so that a Box<dyn VirtualFileSystem> can be wrapped in
+//! an Arc and shared - some of the interfaces pass around a Box<dyn VirtualFileSystem>
 
 use std::path::Path;
 #[allow(unused_imports, dead_code)]

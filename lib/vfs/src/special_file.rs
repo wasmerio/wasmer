@@ -1,3 +1,6 @@
+//! Used for /dev/stdin, /dev/stdout, dev/stderr - returns a
+//! static file descriptor (0, 1, 2)
+
 use std::io::{self, *};
 
 use crate::FileDescriptor;

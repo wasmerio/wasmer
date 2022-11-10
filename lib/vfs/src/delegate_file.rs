@@ -1,3 +1,8 @@
+//! Do not end up using this but left it anyway - allows one to implement
+//! the interface to a file using optionally supplied lambdas - good for
+//! capturing variables rather than having to implement ones own
+//! VirtualFile implementation.
+
 use crate::FileDescriptor;
 use crate::FsError;
 use crate::VirtualFile;

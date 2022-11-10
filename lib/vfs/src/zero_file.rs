@@ -1,3 +1,6 @@
+//! Used for /dev/zero - infinitely returns zero
+//! which is useful for commands like `dd if=/dev/zero of=bigfile.img size=1G`
+
 use std::io::{self, *};
 
 use crate::FileDescriptor;

@@ -1,3 +1,6 @@
+//! Used for sharing references to the same file across multiple file systems,
+//! effectively this is a symbolic link without all the complex path redirection
+
 use crate::FileDescriptor;
 use crate::{ClonableVirtualFile, VirtualFile};
 use derivative::Derivative;

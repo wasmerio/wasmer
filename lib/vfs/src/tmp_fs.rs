@@ -1,3 +1,7 @@
+//! Wraps the memory file system implementation - this has been
+//! enhanced to support mounting file systems, shared static files,
+//! readonly files, etc...
+
 #![allow(dead_code)]
 #![allow(unused)]
 use std::collections::HashMap;
