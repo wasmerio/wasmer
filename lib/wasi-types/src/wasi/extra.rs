@@ -71,7 +71,7 @@ impl core::fmt::Debug for Snapshot0Clockid {
 }
 /// Identifiers for clocks.
 #[repr(u8)]
-#[derive(Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
+#[derive(Clone, Copy, Hash, PartialEq, Eq, TryFromPrimitive)]
 pub enum Clockid {
     /// The clock measuring real time. Time value zero corresponds with
     /// 1970-01-01T00:00:00Z.

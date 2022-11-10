@@ -3,6 +3,7 @@
 
 pub mod types;
 pub mod wasi;
+pub mod asyncify;
 
 // Prevent the CI from passing if the wasi/bindings.rs is not
 // up to date with the output.wit file
