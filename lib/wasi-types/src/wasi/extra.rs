@@ -1480,7 +1480,8 @@ impl core::fmt::Debug for Tty {
 }
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
-pub enum BusDataFormat {
+#[allow(non_camel_case_types)]
+pub enum __wasi_busdataformat_t {
     Raw,
     Bincode,
     MessagePack,
@@ -1489,16 +1490,16 @@ pub enum BusDataFormat {
     Xml,
     Rkyv,
 }
-impl core::fmt::Debug for BusDataFormat {
+impl core::fmt::Debug for __wasi_busdataformat_t {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            BusDataFormat::Raw => f.debug_tuple("BusDataFormat::Raw").finish(),
-            BusDataFormat::Bincode => f.debug_tuple("BusDataFormat::Bincode").finish(),
-            BusDataFormat::MessagePack => f.debug_tuple("BusDataFormat::MessagePack").finish(),
-            BusDataFormat::Json => f.debug_tuple("BusDataFormat::Json").finish(),
-            BusDataFormat::Yaml => f.debug_tuple("BusDataFormat::Yaml").finish(),
-            BusDataFormat::Xml => f.debug_tuple("BusDataFormat::Xml").finish(),
-            BusDataFormat::Rkyv => f.debug_tuple("BusDataFormat::Rkyv").finish(),
+            __wasi_busdataformat_t::Raw => f.debug_tuple("BusDataFormat::Raw").finish(),
+            __wasi_busdataformat_t::Bincode => f.debug_tuple("BusDataFormat::Bincode").finish(),
+            __wasi_busdataformat_t::MessagePack => f.debug_tuple("BusDataFormat::MessagePack").finish(),
+            __wasi_busdataformat_t::Json => f.debug_tuple("BusDataFormat::Json").finish(),
+            __wasi_busdataformat_t::Yaml => f.debug_tuple("BusDataFormat::Yaml").finish(),
+            __wasi_busdataformat_t::Xml => f.debug_tuple("BusDataFormat::Xml").finish(),
+            __wasi_busdataformat_t::Rkyv => f.debug_tuple("BusDataFormat::Rkyv").finish(),
         }
     }
 }
@@ -1533,7 +1534,7 @@ pub struct BusHandles {
     pub stderr: OptionFd,
 }
 pub type Bid = u32;
-pub type Cid = u32;
+pub type Cid = u64;
 /// __wasi_option_t
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
@@ -3398,12 +3399,12 @@ unsafe impl ValueType for Tty {
 }
 
 // TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl ValueType for BusDataFormat {
+unsafe impl ValueType for __wasi_busdataformat_t {
     #[inline]
     fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
 }
 
-unsafe impl wasmer::FromToNativeWasmType for BusDataFormat {
+unsafe impl wasmer::FromToNativeWasmType for __wasi_busdataformat_t {
     type Native = i32;
 
     fn to_native(self) -> Self::Native {

@@ -15,7 +15,7 @@ use wasmer_vnet::{
     IpCidr, IpRoute, SocketHttpRequest, VirtualIcmpSocket, VirtualNetworking, VirtualRawSocket,
     VirtualTcpListener, VirtualTcpSocket, VirtualUdpSocket, VirtualWebSocket,
 };
-use wasmer_wasi_types::wasi::{Addressfamily, Errno, Fdflags, OptionTag, Sockoption, Socktype};
+use wasmer_wasi_types::wasi::{Addressfamily, Errno, Fdflags, OptionTag, Sockoption, Socktype, Rights};
 
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
@@ -795,7 +795,11 @@ impl InodeSocket {
         }
     }
 
-    pub fn join_multicast_v4(&self, multiaddr: Ipv4Addr, iface: Ipv4Addr) -> Result<(), Errno> {
+    pub async fn join_multicast_v4(
+        &self,
+        multiaddr: Ipv4Addr,
+        iface: Ipv4Addr
+    ) -> Result<(), Errno> {
         let mut inner = self.inner.write().unwrap();
         match &mut inner.kind {
             InodeSocketKind::UdpSocket(sock) => sock
@@ -1664,4 +1668,23 @@ pub(crate) fn write_route<M: MemorySize>(
     let route_ptr = ptr.deref(memory);
     route_ptr.write(route).map_err(crate::mem_error_to_wasi)?;
     Ok(())
+}
+
+pub(crate) fn all_socket_rights() -> Rights {
+    Rights::FD_FDSTAT_SET_FLAGS
+        .union(Rights::FD_FILESTAT_GET)
+        .union(Rights::FD_READ)
+        .union(Rights::FD_WRITE)
+        .union(Rights::POLL_FD_READWRITE)
+        .union(Rights::SOCK_SHUTDOWN)
+        .union(Rights::SOCK_CONNECT)
+        .union(Rights::SOCK_LISTEN)
+        .union(Rights::SOCK_BIND)
+        .union(Rights::SOCK_ACCEPT)
+        .union(Rights::SOCK_RECV)
+        .union(Rights::SOCK_SEND)
+        .union(Rights::SOCK_ADDR_LOCAL)
+        .union(Rights::SOCK_ADDR_REMOTE)
+        .union(Rights::SOCK_RECV_FROM)
+        .union(Rights::SOCK_SEND_TO)
 }

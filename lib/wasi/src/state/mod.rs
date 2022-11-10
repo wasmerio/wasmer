@@ -46,6 +46,7 @@ use generational_arena::Arena;
 pub use generational_arena::Index as Inode;
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
+use wasmer_wasi_types::wasi::Cid;
 use wasmer_wasi_types::wasi::Clockid;
 use std::borrow::Cow;
 use std::cell::RefCell;
@@ -2069,8 +2070,8 @@ pub struct WasiBusCall {
 #[derive(Debug, Default)]
 pub struct WasiBusProtectedState {
     pub call_seed: u64,
-    pub called: HashMap<u64, Box<dyn VirtualBusCalled + Sync + Unpin>>,
-    pub calls: HashMap<u64, WasiBusCall>,
+    pub called: HashMap<Cid, Box<dyn VirtualBusCalled + Sync + Unpin>>,
+    pub calls: HashMap<Cid, WasiBusCall>,
 }
 
 /// Structure that holds the state of BUS calls to this process and from

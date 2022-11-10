@@ -139,7 +139,7 @@ impl From<Snapshot0Subscription> for Subscription {
     }
 }
 
-impl std::fmt::Display for BusDataFormat {
+impl std::fmt::Display for __wasi_busdataformat_t {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", self)
     }

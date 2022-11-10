@@ -101,7 +101,7 @@ pub fn net_error_into_wasi_err(net_error: NetworkError) -> Errno {
     }
 }
 
-pub fn bus_error_into_wasi_err(bus_error: VirtualBusError) -> BusErrno {
+pub fn vbus_error_into_bus_errno(bus_error: VirtualBusError) -> BusErrno {
     use VirtualBusError::*;
     match bus_error {
         Serialization => BusErrno::Ser,
@@ -126,7 +126,7 @@ pub fn bus_error_into_wasi_err(bus_error: VirtualBusError) -> BusErrno {
     }
 }
 
-pub fn wasi_error_into_bus_err(bus_error: BusErrno) -> VirtualBusError {
+pub fn bus_errno_into_vbus_error(bus_error: BusErrno) -> VirtualBusError {
     use VirtualBusError::*;
     match bus_error {
         BusErrno::Ser => Serialization,

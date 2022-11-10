@@ -445,6 +445,7 @@ pub enum BusDataFormat {
     Json,
     Yaml,
     Xml,
+    Rkyv,
 }
 
 #[derive(Debug, Default)]
