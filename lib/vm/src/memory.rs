@@ -448,6 +448,11 @@ impl VMMemory {
     {
         memory.into()
     }
+
+    /// Copies this memory to a new memory
+    pub fn fork(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
+        LinearMemory::fork(self)
+    }
 }
 
 #[doc(hidden)]

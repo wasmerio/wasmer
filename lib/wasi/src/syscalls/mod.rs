@@ -54,6 +54,7 @@ use crate::{
 use bytes::{Bytes, BytesMut};
 use cooked_waker::IntoWaker;
 use sha2::Sha256;
+use wasmer_wasi_types::asyncify::__wasi_asyncify_t;
 use std::borrow::{Borrow, Cow};
 use std::cell::RefCell;
 use std::collections::hash_map::Entry;
@@ -664,12 +665,17 @@ pub fn clock_time_set<M: MemorySize>(
     time: Timestamp,
 ) -> Errno {
     trace!(
-        "wasi::clock_time_set clock_id: {}, time: {}",
+        "wasi::clock_time_set clock_id: {:?}, time: {}",
         clock_id,
         time
     );
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
+
+    let snapshot_clock_id = match clock_id {
+        Clockid::Realtime => Snapshot0Clockid::Realtime,
+        Clockid::Monotonic => Snapshot0Clockid::Monotonic
+    }
 
     let precision = 1 as Timestamp;
     let t_now = wasi_try!(platform_clock_time_get(clock_id, precision));
@@ -1214,7 +1220,7 @@ pub fn fd_pread<M: MemorySize>(
                     .stdin_mut(&state.fs.fd_map)
                     .map_err(fs_error_into_wasi_err)
             );
-            wasi_try_ok!(read_bytes(stdin.deref_mut(), &memory, iovs_arr))
+            wasi_try_ok!(read_bytes(stdin.deref_mut(), &memory, iovs))
         }
         __WASI_STDOUT_FILENO => return Ok(Errno::Inval),
         __WASI_STDERR_FILENO => return Ok(Errno::Inval),
@@ -1238,8 +1244,7 @@ pub fn fd_pread<M: MemorySize>(
                                 .map_err(map_io_err)
                         );
                         memory = env.memory_view(&ctx);
-                        iovs = wasi_try_mem_ok!(iovs.slice(&memory, iovs_len));
-                        wasi_try_ok!(read_bytes(h, &memory, iovs))
+                        wasi_try_ok!(read_bytes(h.deref_mut(), &memory, iovs))
                     } else {
                         return Ok(Errno::Inval);
                     }
@@ -1490,7 +1495,7 @@ pub fn fd_read<M: MemorySize>(
         fd
     );
 
-    ctx.data().clone().process_signals(&mut ctx)?;
+    wasi_try_ok!(ctx.data().clone().process_signals(&mut ctx));
 
     let mut env = ctx.data();
     let state = env.state.clone();
@@ -1546,11 +1551,9 @@ pub fn fd_read<M: MemorySize>(
                             async move {
                                 let mut handle = handle.write().unwrap();
                                 if is_stdio == false {
-                                    wasi_try_ok!(
-                                        handle
-                                            .seek(std::io::SeekFrom::Start(offset as u64))
-                                            .map_err(map_io_err)
-                                    );
+                                    handle
+                                        .seek(std::io::SeekFrom::Start(offset as u64))
+                                        .map_err(map_io_err)?;
                                 }
 
                                 handle
@@ -1608,7 +1611,6 @@ pub fn fd_read<M: MemorySize>(
                         max_size += buf_len;
                     }
 
-                    let socket = socket.clone();
                     let data = wasi_try_ok!(__asyncify(
                         &mut ctx,
                         if is_non_blocking {
@@ -1684,7 +1686,7 @@ pub fn fd_read<M: MemorySize>(
                             None,
                             async move {
                                 let _ = rx.recv().await;
-                                rx
+                                Ok(rx)
                             }
                         )
                         .map_err(|err| match err {
@@ -1967,7 +1969,7 @@ pub fn fd_event<M: MemorySize>(
         inodes.deref_mut(),
         kind,
         false,
-        "event".to_string(),
+        "event".to_string().into(),
     );
     let rights = Rights::FD_READ | Rights::FD_WRITE | Rights::POLL_FD_READWRITE;
     let fd = wasi_try!(state
@@ -2051,7 +2053,7 @@ pub fn fd_seek<M: MemorySize>(
                         drop(handle);
                         let mut fd_map = state.fs.fd_map.write().unwrap();
                         let fd_entry = wasi_try_ok!(fd_map.get_mut(&fd).ok_or(Errno::Badf));
-                        fd_entry.offset = (end as i64 + offset) as u64;
+                        fd_entry.offset.store((end as i64 + offset) as u64, Ordering::Release);
                         fd_entry
                             .offset
                             .store((end as i64 + offset) as u64, Ordering::Release);
@@ -2214,6 +2216,7 @@ pub fn fd_write<M: MemorySize>(
             }
         }
 
+        let is_non_blocking = fd_entry.flags.contains(Fdflags::NONBLOCK);
         let offset = fd_entry.offset.load(Ordering::Acquire) as usize;
         let inode_idx = fd_entry.inode;
         let inode = &inodes.arena[inode_idx];
@@ -2243,13 +2246,11 @@ pub fn fd_write<M: MemorySize>(
                                 None
                             },
                             async move {
-                                let mut handle = handle.write().await;
+                                let mut handle = handle.write().unwrap();
                                 if is_stdio == false {
-                                    wasi_try_ok!(
-                                        handle
-                                            .seek(std::io::SeekFrom::Start(offset as u64))
-                                            .map_err(map_io_err)
-                                    );
+                                    handle
+                                        .seek(std::io::SeekFrom::Start(offset as u64))
+                                        .map_err(map_io_err)?;
                                 }
 
                                 handle
@@ -2305,7 +2306,7 @@ pub fn fd_write<M: MemorySize>(
 
                     counter.fetch_add(val, Ordering::AcqRel);
                     {
-                        let mut guard = wakers.lock().await;
+                        let mut guard = wakers.lock().unwrap();
                         immediate.store(true, Ordering::Release);
                         while let Some(wake) = guard.pop_back() {
                             let _ = wake.send(());
@@ -2373,13 +2374,13 @@ pub fn fd_pipe<M: MemorySize>(
         inodes.deref_mut(),
         Kind::Pipe { pipe: pipe1 },
         false,
-        "pipe".to_string(),
+        "pipe".to_string().into(),
     );
     let inode2 = state.fs.create_inode_with_default_stat(
         inodes.deref_mut(),
         Kind::Pipe { pipe: pipe2 },
         false,
-        "pipe".to_string(),
+        "pipe".to_string().into(),
     );
 
     let rights = Rights::all_socket();
@@ -3795,7 +3796,7 @@ pub fn poll_oneoff<M: MemorySize>(
 
     // First we extract all the subscriptions into an array so that they
     // can be processed
-    let mut nv = ctx.data();
+    let mut env = ctx.data();
     let state = ctx.data().state.deref();
     let mut memory = env.memory_view(&ctx);
     let mut subscriptions = HashMap::new();
@@ -3809,7 +3810,7 @@ pub fn poll_oneoff<M: MemorySize>(
             SubscriptionEnum::Read(SubscriptionFsReadwrite { file_descriptor }) => {
                 match file_descriptor {
                     __WASI_STDIN_FILENO | __WASI_STDOUT_FILENO | __WASI_STDERR_FILENO => (),
-                    _ => {
+                    fd => {
                         let fd_entry = wasi_try_ok!(state.fs.get_fd(fd));
                         if !fd_entry.rights.contains(Rights::POLL_FD_READWRITE) {
                             return Ok(Errno::Access);
@@ -3822,7 +3823,7 @@ pub fn poll_oneoff<M: MemorySize>(
             SubscriptionEnum::Write(SubscriptionFsReadwrite { file_descriptor }) => {
                 match file_descriptor {
                     __WASI_STDIN_FILENO | __WASI_STDOUT_FILENO | __WASI_STDERR_FILENO => (),
-                    _ => {
+                    fd => {
                         let fd_entry = wasi_try_ok!(state.fs.get_fd(fd));
                         if !fd_entry.rights.contains(Rights::POLL_FD_READWRITE) {
                             return Ok(Errno::Access);
@@ -4011,7 +4012,7 @@ pub fn poll_oneoff<M: MemorySize>(
                 .send(Event {
                     userdata,
                     error: Errno::Success,
-                    data: EventData::Clock,
+                    data: EventEnum::Clock,
                 })
                 .unwrap();
         }
@@ -4132,7 +4133,7 @@ pub fn thread_signal(
     sig: Signal,
 ) -> Result<Errno, WasiError> {
     debug!(
-        "wasi[{}:{}]::thread_signal(tid={}, sig={})",
+        "wasi[{}:{}]::thread_signal(tid={}, sig={:?})",
         ctx.data().pid(),
         ctx.data().tid(),
         tid,
@@ -4144,7 +4145,8 @@ pub fn thread_signal(
     }
 
     let env = ctx.data();
-    env.clone().yield_now_with_signals(&mut ctx)?;
+
+    wasi_try_ok!(ctx.data().process_signals_and_exit(&mut ctx)?);
 
     Ok(Errno::Success)
 }
@@ -4171,16 +4173,21 @@ pub fn thread_signal(
 /// Inputs:
 /// - `Signal`
 ///   Signal to be raised for this process
-pub fn proc_raise(mut ctx: FunctionEnvMut<'_, WasiEnv>, sig: Signal) -> Result<Errno, WasiError> {
+pub fn proc_raise(
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
+    sig: Signal
+) -> Result<Errno, WasiError> {
     debug!(
-        "wasi[{}:{}]::proc_raise (sig={})",
+        "wasi[{}:{}]::proc_raise (sig={:?})",
         ctx.data().pid(),
         ctx.data().tid(),
         sig
     );
     let env = ctx.data();
     env.process.signal_process(sig);
-    env.clone().yield_now_with_signals(&mut ctx)?;
+
+    wasi_try_ok!(ctx.data().process_signals_and_exit(&mut ctx)?);
+
     Ok(Errno::Success)
 }
 
@@ -4197,7 +4204,7 @@ pub fn proc_raise_interval(
     repeat: Bool,
 ) -> Result<Errno, WasiError> {
     debug!(
-        "wasi[{}:{}]::proc_raise_interval (sig={})",
+        "wasi[{}:{}]::proc_raise_interval (sig={:?})",
         ctx.data().pid(),
         ctx.data().tid(),
         sig
@@ -5260,7 +5267,7 @@ pub fn thread_spawn<M: MemorySize>(
     ret_tid: WasmPtr<Tid, M>,
 ) -> Errno {
     debug!(
-        "wasi[{}:{}]::thread_spawn (reactor={}, thread_id={}, stack_base={}, caller_id={})",
+        "wasi[{}:{}]::thread_spawn (reactor={:?}, thread_id={}, stack_base={}, caller_id={})",
         ctx.data().pid(),
         ctx.data().tid(),
         reactor,
@@ -5469,8 +5476,7 @@ pub fn thread_spawn<M: MemorySize>(
                     crate::runtime::SpawnType::NewThread(thread_memory)
                 )
                 .map_err(|err| {
-                    let err: __wasi_errno_t = err.into();
-                    err
+                    Into::<Errno>::into(err)
                 })
             );
         },
@@ -5720,7 +5726,8 @@ pub fn thread_join(
             &mut ctx,
             None,
             async move {
-                other_thread.join().await
+                other_thread.join().await;
+                Ok(())
             }
         ));
         Ok(Errno::Success)
@@ -5743,7 +5750,7 @@ pub fn thread_parallelism<M: MemorySize>(
     );
 
     let env = ctx.data();
-    let parallelism = wasi_try!(env.runtime().thread_parallelism().map_err(|err| {
+    let parallelism = wasi_try!(env.tasks.thread_parallelism().map_err(|err| {
         let err: Errno = err.into();
         err
     }));
@@ -5789,7 +5796,7 @@ pub fn futex_wait<M: MemorySize>(
             Entry::Vacant(entry) => {
                 let futex = WasiFutex {
                     refcnt: Arc::new(AtomicU32::new(1)),
-                    inner: Arc::new(Mutex::new((None, tokio::sync::broadcast::channel(1)))),
+                    inner: Arc::new(Mutex::new(tokio::sync::broadcast::channel(1).0)),
                 };
                 entry.insert(futex.clone());
                 futex
@@ -5843,9 +5850,10 @@ pub fn futex_wait<M: MemorySize>(
             sub_timeout,
             async move {
                 let _ = rx.recv().await;
+                Ok(())
             }
         ));
-        mem = ctx.data();
+        env = ctx.data();
         memory = env.memory_view(&ctx);
     }
 
@@ -5967,7 +5975,7 @@ pub fn proc_id<M: MemorySize>(
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
     let pid = env.process.pid();
-    wasi_try_mem!(ret_pid.write(&memory, pid as Pid));
+    wasi_try_mem!(ret_pid.write(&memory, pid.raw() as Pid));
     Errno::Success
 }
 
@@ -6078,7 +6086,7 @@ pub fn proc_fork<M: MemorySize>(
     pid_ptr: WasmPtr<Pid, M>,
 ) -> Result<Errno, WasiError> {
     // If we were just restored then we need to return the value instead
-    let fork_op = if copy_memory == BoolRUE {
+    let fork_op = if copy_memory == Bool::True {
         "fork"
     } else {
         "vfork"

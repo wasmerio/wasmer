@@ -309,10 +309,9 @@ pub trait VirtualFile: fmt::Debug + Write + Read + Seek + Upcastable {
     }
 
     /// Asynchronously reads from this file
-    fn read_async<'a>(&'a mut self, max_size: usize, register_root_waker: &'_ Arc<dyn Fn(Waker) + Send + Sync + 'static>) -> Box<dyn Future<Output=io::Result<Vec<u8>>> + 'a>
-    where Self: Sized
+    fn read_async<'a>(&'a mut self, max_size: usize, register_root_waker: &'_ Arc<dyn Fn(Waker) + Send + Sync + 'static>) -> Pin<Box<dyn Future<Output=io::Result<Vec<u8>>> + 'a>>
     {
-        Box::new(VirtualFileAsyncRead {
+        Box::pin(VirtualFileAsyncRead {
             file: self,
             buf: Some(Vec::with_capacity(max_size)),
             register_root_waker: register_root_waker.clone()
@@ -320,10 +319,9 @@ pub trait VirtualFile: fmt::Debug + Write + Read + Seek + Upcastable {
     }
 
     /// Asynchronously writes to this file
-    fn write_async<'a>(&'a mut self, buf: &'a [u8], register_root_waker: &'_ Arc<dyn Fn(Waker) + Send + Sync + 'static>) -> Box<dyn Future<Output=io::Result<usize>> + 'a>
-    where Self: Sized
+    fn write_async<'a>(&'a mut self, buf: &'a [u8], register_root_waker: &'_ Arc<dyn Fn(Waker) + Send + Sync + 'static>) -> Pin<Box<dyn Future<Output=io::Result<usize>> + 'a>>
     {
-        Box::new(VirtualFileAsyncWrite {
+        Box::pin(VirtualFileAsyncWrite {
             file: self,
             buf,
             register_root_waker: register_root_waker.clone()
@@ -349,13 +347,13 @@ pub trait VirtualFile: fmt::Debug + Write + Read + Seek + Upcastable {
     }
 }
 
-struct VirtualFileAsyncRead<'a, T>
+struct VirtualFileAsyncRead<'a, T: ?Sized>
 {
     file: &'a mut T,
     buf: Option<Vec<u8>>,
     register_root_waker: Arc<dyn Fn(Waker) + Send + Sync + 'static>
 }
-impl<'a, T> Future
+impl<'a, T: ?Sized> Future
 for VirtualFileAsyncRead<'a, T>
 where T: VirtualFile
 {
@@ -385,12 +383,13 @@ where T: VirtualFile
     }
 }
 
-struct VirtualFileAsyncWrite<'a, T> {
+struct VirtualFileAsyncWrite<'a, T: ?Sized>
+{
     file: &'a mut T,
     buf: &'a [u8],
     register_root_waker: Arc<dyn Fn(Waker) + Send + Sync + 'static>
 }
-impl<'a, T> Future
+impl<'a, T: ?Sized> Future
 for VirtualFileAsyncWrite<'a, T>
 where T: VirtualFile
 {
