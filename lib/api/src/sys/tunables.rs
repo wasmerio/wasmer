@@ -245,6 +245,20 @@ mod tests {
         fn try_clone(&self) -> Option<Box<dyn LinearMemory + 'static>> {
             None
         }
+        fn fork(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
+            let mem = self.mem.clone();
+            Ok(
+                Box::new(
+                    Self {
+                        memory_definition: Some(UnsafeCell::new(VMMemoryDefinition {
+                            base: mem.as_ptr() as _,
+                            current_length: mem.len(),
+                        })),
+                        mem
+                    }
+                )
+            )
+        }
         /*
         // this code allow custom memory to be ignoring init_memory
         use wasmer_vm::Trap;

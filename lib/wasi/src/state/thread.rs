@@ -6,7 +6,7 @@ use std::{
         atomic::{AtomicU32, Ordering},
         Arc, Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard,
     },
-    time::Duration,
+    time::Duration, convert::TryInto,
 };
 
 use bytes::{Bytes, BytesMut};
@@ -125,7 +125,7 @@ impl WasiThread {
     /// Waits until the thread is finished or the timeout is reached
     pub async fn join(&self) -> Option<ExitCode> {        
         loop {
-            let rx = {
+            let mut rx = {
                 let finished = self.finished.lock().unwrap();
                 if finished.0.is_some() {
                     return finished.0.clone();
@@ -156,7 +156,8 @@ impl WasiThread {
     /// Returns all the signals that are waiting to be processed
     pub fn pop_signals_or_subscribe(&self) -> Result<Vec<Signal>, tokio::sync::broadcast::Receiver<()>> {
         let mut guard = self.signals.lock().unwrap();
-        let ret = guard.0.drain(..).collect();
+        let mut ret = Vec::new();
+        std::mem::swap(&mut ret, &mut guard.0);
         match ret.is_empty() {
             true => Err(guard.1.subscribe()),
             false => Ok(ret)
@@ -363,7 +364,7 @@ impl std::fmt::Display for WasiProcessId {
 #[derive(Debug)]
 pub struct WasiSignalInterval {
     /// Signal that will be raised
-    pub signal: u8,
+    pub signal: Signal,
     /// Time between the signals
     pub interval: Duration,
     /// Flag that indicates if the signal should repeat
@@ -387,7 +388,7 @@ pub struct WasiProcessInner {
     /// Seed used to generate thread local keys
     pub thread_local_seed: TlKey,
     /// Signals that will be triggered at specific intervals
-    pub signal_intervals: HashMap<u8, WasiSignalInterval>,
+    pub signal_intervals: HashMap<Signal, WasiSignalInterval>,
     /// Represents all the process spun up as a bus process
     pub bus_processes: HashMap<WasiProcessId, Box<BusSpawnedProcess>>,
     /// Indicates if the bus process can be reused
@@ -466,7 +467,7 @@ impl WasiProcess {
             is_main = true;
             self.finished.clone()
         } else {
-            Arc::new(Mutex::new((None, tokio::sync::broadcast::channel(1))))
+            Arc::new(Mutex::new((None, tokio::sync::broadcast::channel(1).0)))
         };
 
         let ctrl = WasiThread {
@@ -474,7 +475,7 @@ impl WasiProcess {
             id,
             is_main,
             finished,
-            signals: Arc::new(Mutex::new((Vec::new(), tokio::sync::broadcast::channel(1)))),
+            signals: Arc::new(Mutex::new((Vec::new(), tokio::sync::broadcast::channel(1).0))),
             stack: Arc::new(Mutex::new(ThreadStack::default())),
         };
         inner.threads.insert(id, ctrl.clone());
@@ -500,7 +501,7 @@ impl WasiProcess {
             thread.signal(signal);
         } else {
             trace!(
-                "wasi[{}]::lost-signal(tid={}, sig={})",
+                "wasi[{}]::lost-signal(tid={}, sig={:?})",
                 self.pid(),
                 tid.0,
                 signal
@@ -564,7 +565,7 @@ impl WasiProcess {
     pub async fn join(&self) -> Option<ExitCode> {
         let _guard = WasiProcessWait::new(self);
         loop {
-            let rx = {
+            let mut rx = {
                 let finished = self.finished.lock().unwrap();
                 if finished.0.is_some() {
                     return finished.0.clone();
@@ -607,7 +608,7 @@ impl WasiProcess {
         }
         futures::future::join_all(waits.into_iter())
             .await
-            .iter()
+            .into_iter()
             .filter_map(|a| a)
             .next()
     }
@@ -638,7 +639,10 @@ impl WasiProcess {
                     })
                 }
             }
-            let woke = futures::future::select_all(waits.into_iter())
+            let woke = futures::future::select_all(
+                        waits.into_iter()
+                            .map(|a| Box::pin(a))
+                    )
                     .await
                     .0;
             if let Some((pid, exit_code)) = woke {
@@ -662,8 +666,10 @@ impl WasiProcess {
 }
 
 impl SignalHandlerAbi for WasiProcess {
-    fn signal(&self, sig: Signal) {
-        self.signal_process(sig)
+    fn signal(&self, sig: u8) {
+        if let Ok(sig) = sig.try_into() {
+            self.signal_process(sig);
+        }
     }
 }
 
@@ -736,7 +742,7 @@ impl WasiControlPlane {
                 bus_process_reuse: Default::default(),
             })),
             children: Arc::new(RwLock::new(Default::default())),
-            finished: Arc::new(Mutex::new((None, tokio::sync::broadcast::channel(1)))),
+            finished: Arc::new(Mutex::new((None, tokio::sync::broadcast::channel(1).0))),
             waiting: Arc::new(AtomicU32::new(0)),
         };
         {

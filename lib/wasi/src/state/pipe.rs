@@ -285,7 +285,7 @@ impl WasiPipe {
         self.block = block;
     }
 
-    pub async fn recv<M: MemorySize>(
+    pub async fn recv(
         &mut self,
         max_size: usize,
     ) -> Result<Bytes, Errno> {

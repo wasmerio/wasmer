@@ -1,5 +1,6 @@
 use std::mem::MaybeUninit;
 use wasmer::ValueType;
+use num_enum::TryFromPrimitive;
 
 /// Type names used by low-level WASI interfaces.
 /// An array size.
@@ -31,13 +32,15 @@ pub type TlKey = u32;
 pub type TlVal = u64;
 /// Thread local user data (associated with the value)
 pub type TlUser = u64;
+/// Long size used by checkpoints
+pub type Longsize = u64;
 
 pub type WasiHash = u128;
 pub type WasiSmallHash = u64;
 
 /// Identifiers for clocks, snapshot0 version.
 #[repr(u8)]
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
 pub enum Snapshot0Clockid {
     /// The clock measuring real time. Time value zero corresponds with
     /// 1970-01-01T00:00:00Z.
@@ -68,7 +71,7 @@ impl core::fmt::Debug for Snapshot0Clockid {
 }
 /// Identifiers for clocks.
 #[repr(u8)]
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
 pub enum Clockid {
     /// The clock measuring real time. Time value zero corresponds with
     /// 1970-01-01T00:00:00Z.
@@ -92,7 +95,7 @@ impl core::fmt::Debug for Clockid {
 /// API; some are used in higher-level library layers, and others are provided
 /// merely for alignment with POSIX.
 #[repr(u8)]
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
 pub enum Errno {
     /// No error occurred. System call completed successfully.
     Success,
@@ -438,78 +441,29 @@ impl Into<std::io::ErrorKind> for Errno {
             Errno::Already => ErrorKind::AlreadyExists,
             Errno::Badf => ErrorKind::InvalidInput,
             Errno::Badmsg => ErrorKind::InvalidData,
-            Errno::Busy => ErrorKind::ResourceBusy,
             Errno::Canceled => ErrorKind::Interrupted,
             Errno::Connaborted => ErrorKind::ConnectionAborted,
             Errno::Connrefused => ErrorKind::ConnectionRefused,
             Errno::Connreset => ErrorKind::ConnectionReset,
-            Errno::Deadlk => ErrorKind::Deadlock,
-            Errno::Dom => "dom",
-            Errno::Dquot => "dquot",
-            Errno::Exist => "exist",
-            Errno::Fault => "fault",
-            Errno::Fbig => "fbig",
-            Errno::Hostunreach => "hostunreach",
-            Errno::Idrm => "idrm",
-            Errno::Ilseq => "ilseq",
-            Errno::Inprogress => "inprogress",
-            Errno::Intr => "intr",
-            Errno::Inval => "inval",
-            Errno::Io => "io",
-            Errno::Isconn => "isconn",
-            Errno::Isdir => "isdir",
-            Errno::Loop => "loop",
-            Errno::Mfile => "mfile",
-            Errno::Mlink => "mlink",
-            Errno::Msgsize => "msgsize",
-            Errno::Multihop => "multihop",
-            Errno::Nametoolong => "nametoolong",
-            Errno::Netdown => "netdown",
-            Errno::Netreset => "netreset",
-            Errno::Netunreach => "netunreach",
-            Errno::Nfile => "nfile",
-            Errno::Nobufs => "nobufs",
-            Errno::Nodev => "nodev",
-            Errno::Noent => "noent",
-            Errno::Noexec => "noexec",
-            Errno::Nolck => "nolck",
-            Errno::Nolink => "nolink",
-            Errno::Nomem => "nomem",
-            Errno::Nomsg => "nomsg",
-            Errno::Noprotoopt => "noprotoopt",
-            Errno::Nospc => "nospc",
-            Errno::Nosys => "nosys",
-            Errno::Notconn => "notconn",
-            Errno::Notdir => "notdir",
-            Errno::Notempty => "notempty",
-            Errno::Notrecoverable => "notrecoverable",
-            Errno::Notsock => "notsock",
-            Errno::Notsup => "notsup",
-            Errno::Notty => "notty",
-            Errno::Nxio => "nxio",
-            Errno::Overflow => "overflow",
-            Errno::Ownerdead => "ownerdead",
-            Errno::Perm => "perm",
-            Errno::Pipe => "pipe",
-            Errno::Proto => "proto",
-            Errno::Protonosupport => "protonosupport",
-            Errno::Prototype => "prototype",
-            Errno::Range => "range",
-            Errno::Rofs => "rofs",
-            Errno::Spipe => "spipe",
-            Errno::Srch => "srch",
-            Errno::Stale => "stale",
-            Errno::Timedout => "timedout",
-            Errno::Txtbsy => "txtbsy",
-            Errno::Xdev => "xdev",
-            Errno::Notcapable => "notcapable",
+            Errno::Exist => ErrorKind::AlreadyExists,
+            Errno::Intr => ErrorKind::Interrupted,
+            Errno::Inval => ErrorKind::InvalidInput,
+            Errno::Netreset => ErrorKind::ConnectionReset,
+            Errno::Noent => ErrorKind::NotFound,
+            Errno::Nomem => ErrorKind::OutOfMemory,
+            Errno::Nomsg => ErrorKind::InvalidData,
+            Errno::Notconn => ErrorKind::NotConnected,
+            Errno::Perm => ErrorKind::PermissionDenied,
+            Errno::Pipe => ErrorKind::BrokenPipe,
+            Errno::Timedout => ErrorKind::TimedOut,
             _ => ErrorKind::Other,
         }
     }
 }
 impl Into<std::io::Error> for Errno {
     fn into(self) -> std::io::Error {
-        Into::<std::io::ErrorKind>::into(self).into()
+        let kind = Into::<std::io::ErrorKind>::into(self);
+        std::io::Error::new(kind, self.message())
     }
 }
 impl From<std::io::Error> for Errno {
@@ -760,7 +714,7 @@ impl Rights {
 }
 /// The type of a file descriptor or file.
 #[repr(u8)]
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
 pub enum Filetype {
     /// The type of the file descriptor or file is unknown or is different from any of the other types specified.
     Unknown,
@@ -844,7 +798,7 @@ impl core::fmt::Debug for Dirent {
 }
 /// File or memory access pattern advisory information.
 #[repr(u8)]
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
 pub enum Advice {
     /// The application has no advice to give on its behavior with respect to the specified data.
     Normal,
@@ -984,7 +938,7 @@ impl Oflags {
 pub type Userdata = u64;
 /// Type of a subscription to an event or its occurrence.
 #[repr(u8)]
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
 pub enum Eventtype {
     /// The time value of clock `subscription_clock::id` has
     /// reached timestamp `subscription_clock::timeout`.
@@ -1077,7 +1031,7 @@ impl core::fmt::Debug for SubscriptionClock {
 }
 /// Identifiers for preopened capabilities.
 #[repr(u8)]
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
 pub enum Preopentype {
     /// A pre-opened directory.
     Dir,
@@ -1271,7 +1225,7 @@ impl core::fmt::Debug for Subscription {
     }
 }
 #[repr(u8)]
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
 pub enum Socktype {
     Dgram,
     Stream,
@@ -1289,7 +1243,7 @@ impl core::fmt::Debug for Socktype {
     }
 }
 #[repr(u8)]
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
 pub enum Sockstatus {
     Opening,
     Opened,
@@ -1307,7 +1261,7 @@ impl core::fmt::Debug for Sockstatus {
     }
 }
 #[repr(u8)]
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
 pub enum Sockoption {
     Noop,
     ReusePort,
@@ -1371,7 +1325,7 @@ impl core::fmt::Debug for Sockoption {
     }
 }
 #[repr(u8)]
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
 pub enum Streamsecurity {
     Unencrypted,
     AnyEncryption,
@@ -1395,7 +1349,7 @@ impl core::fmt::Debug for Streamsecurity {
     }
 }
 #[repr(u8)]
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
 pub enum Addressfamily {
     Unspec,
     Inet4,
@@ -1465,7 +1419,7 @@ impl core::fmt::Debug for Filestat {
     }
 }
 #[repr(u8)]
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
 pub enum Snapshot0Whence {
     Cur,
     End,
@@ -1481,7 +1435,7 @@ impl core::fmt::Debug for Snapshot0Whence {
     }
 }
 #[repr(u8)]
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
 pub enum Whence {
     Set,
     Cur,
@@ -1525,7 +1479,7 @@ impl core::fmt::Debug for Tty {
     }
 }
 #[repr(u8)]
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
 pub enum BusDataFormat {
     Raw,
     Bincode,
@@ -1549,7 +1503,7 @@ impl core::fmt::Debug for BusDataFormat {
     }
 }
 #[repr(u8)]
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
 pub enum BusEventType {
     Noop,
     Exit,
@@ -1572,7 +1526,7 @@ impl core::fmt::Debug for BusEventType {
 }
 #[derive(Debug, Copy, Clone, PartialEq, Eq, ValueType)]
 #[repr(C)]
-pub struct __wasi_bus_handles_t {
+pub struct BusHandles {
     pub bid: Bid,
     pub stdin: OptionFd,
     pub stdout: OptionFd,
@@ -1582,7 +1536,7 @@ pub type Bid = u32;
 pub type Cid = u32;
 /// __wasi_option_t
 #[repr(u8)]
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
 pub enum OptionTag {
     None,
     Some,
@@ -1713,7 +1667,7 @@ impl core::fmt::Debug for StdioMode {
     }
 }
 #[repr(u16)]
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
 pub enum SockProto {
     Ip,
     Icmp,
@@ -2555,7 +2509,7 @@ impl core::fmt::Debug for SockProto {
     }
 }
 #[repr(u8)]
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
 pub enum Bool {
     False,
     True,
@@ -2582,8 +2536,14 @@ impl core::fmt::Debug for OptionTimestamp {
             .finish()
     }
 }
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, ValueType)]
+#[repr(C)]
+pub struct StackSnapshot {
+    pub user: u64,
+    pub hash: u128,
+}
 #[repr(u8)]
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, Hash, PartialEq, Eq, TryFromPrimitive)]
 pub enum Signal {
     Sighup,
     Sigint,
@@ -2729,7 +2689,7 @@ pub type RoFlags = u16;
 pub type SdFlags = u8;
 pub type SiFlags = u16;
 #[repr(u8)]
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
 pub enum Timeout {
     Read,
     Write,

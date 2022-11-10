@@ -1,6 +1,5 @@
 use super::types::net_error_into_wasi_err;
 use crate::syscalls::types::*;
-use crate::syscalls::{read_bytes, write_bytes};
 use bytes::{Buf, Bytes};
 use std::future::Future;
 use std::mem::transmute;
@@ -211,7 +210,7 @@ impl InodeSocket {
                         None
                     }
                     Socktype::Dgram => {
-                        let socket = net
+                        let mut socket = net
                             .bind_udp(addr, *reuse_port, *reuse_addr)
                             .await
                             .map_err(net_error_into_wasi_err)?;
@@ -274,8 +273,8 @@ impl InodeSocket {
             }),
             InodeSocketKind::Closed => {
                 tracing::warn!("wasi[?]::sock_listen - failed - socket closed");
-                Err(Errno::io)
-            }
+                Err(Errno::Io)
+            },
             _ => {
                 tracing::warn!("wasi[?]::sock_listen - failed - not supported(2)");
                 Err(Errno::Notsup)
@@ -1132,7 +1131,7 @@ impl InodeSocket {
                     }
                 }
             }
-            InodeSocketKind::PreSocket { .. } => return Err(Errno::NotConn),
+            InodeSocketKind::PreSocket { .. } => return Err(Errno::Notconn),
             InodeSocketKind::Closed => return Err(Errno::Io),
             _ => return Err(Errno::Notsup),
         };
