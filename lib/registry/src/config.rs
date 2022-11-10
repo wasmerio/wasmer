@@ -98,7 +98,7 @@ pub fn format_graphql(registry: &str) -> String {
         registry = format!("https://{registry}");
     }
     if registry.ends_with("/graphql") {
-        registry.to_string()
+        registry
     } else if registry.ends_with('/') {
         format!("{}graphql", registry)
     } else {

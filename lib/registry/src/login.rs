@@ -1,4 +1,4 @@
-use crate::config::{format_graphql, Registries, UpdateRegistry};
+use crate::config::{format_graphql, UpdateRegistry};
 use crate::PartialWapmConfig;
 
 /// Login to a registry and save the token associated with it.
@@ -10,7 +10,7 @@ pub fn login_and_save_token(registry: &str, token: &str) -> Result<(), anyhow::E
     config.registry.set_current_registry(&registry);
     config.registry.set_login_token_for_registry(
         &config.registry.get_current_registry(),
-        &token,
+        token,
         UpdateRegistry::Update,
     );
     config.save()?;
