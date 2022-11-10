@@ -3545,6 +3545,12 @@
 <span id="3540">3540</span>
 <span id="3541">3541</span>
 <span id="3542">3542</span>
+<span id="3543">3543</span>
+<span id="3544">3544</span>
+<span id="3545">3545</span>
+<span id="3546">3546</span>
+<span id="3547">3547</span>
+<span id="3548">3548</span>
 </pre><pre class="rust"><code><span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::arm64_decl</span>::{<span class="ident">ARM64Register</span>, <span class="ident">ArgumentRegisterAllocator</span>, <span class="ident">GPR</span>, <span class="ident">NEON</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::codegen_error</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::common_decl::Size</span>;
@@ -6745,8 +6751,10 @@
         ; <span class="ident">ret</span>
     );
 
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">body</span> <span class="op">=</span> <span class="ident">a</span>.<span class="ident">finalize</span>().<span class="ident">unwrap</span>();
+    <span class="ident">body</span>.<span class="ident">shrink_to_fit</span>();
     <span class="prelude-val">Ok</span>(<span class="ident">FunctionBody</span> {
-        <span class="ident">body</span>: <span class="ident">a</span>.<span class="ident">finalize</span>().<span class="ident">unwrap</span>().<span class="ident">to_vec</span>(),
+        <span class="ident">body</span>,
         <span class="ident">unwind_info</span>: <span class="prelude-val">None</span>,
     })
 }
@@ -6900,8 +6908,10 @@
     <span class="comment">// Return.</span>
     <span class="ident">a</span>.<span class="ident">emit_ret</span>()<span class="question-mark">?</span>;
 
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">body</span> <span class="op">=</span> <span class="ident">a</span>.<span class="ident">finalize</span>().<span class="ident">unwrap</span>();
+    <span class="ident">body</span>.<span class="ident">shrink_to_fit</span>();
     <span class="prelude-val">Ok</span>(<span class="ident">FunctionBody</span> {
-        <span class="ident">body</span>: <span class="ident">a</span>.<span class="ident">finalize</span>().<span class="ident">unwrap</span>().<span class="ident">to_vec</span>(),
+        <span class="ident">body</span>,
         <span class="ident">unwind_info</span>: <span class="prelude-val">None</span>,
     })
 }
@@ -7079,7 +7089,9 @@
     }
     <span class="ident">a</span>.<span class="ident">emit_b_register</span>(<span class="ident">GPR::X16</span>)<span class="question-mark">?</span>;
 
-    <span class="kw">let</span> <span class="ident">section_body</span> <span class="op">=</span> <span class="ident">SectionBody::new_with_vec</span>(<span class="ident">a</span>.<span class="ident">finalize</span>().<span class="ident">unwrap</span>().<span class="ident">to_vec</span>());
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">contents</span> <span class="op">=</span> <span class="ident">a</span>.<span class="ident">finalize</span>().<span class="ident">unwrap</span>();
+    <span class="ident">contents</span>.<span class="ident">shrink_to_fit</span>();
+    <span class="kw">let</span> <span class="ident">section_body</span> <span class="op">=</span> <span class="ident">SectionBody::new_with_vec</span>(<span class="ident">contents</span>);
 
     <span class="prelude-val">Ok</span>(<span class="ident">CustomSection</span> {
         <span class="ident">protection</span>: <span class="ident">CustomSectionProtection::ReadExecute</span>,
