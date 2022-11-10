@@ -541,12 +541,12 @@ mod test_file_opener {
             assert!(
                 matches!(
                     fs_inner.storage.get(ROOT_INODE),
-                    Some(Node::Directory {
+                    Some(Node::Directory(DirectoryNode {
                         inode: ROOT_INODE,
                         name,
                         children,
                         ..
-                    }) if name == "/" && children == &[1]
+                    })) if name == "/" && children == &[1]
                 ),
                 "`/` contains `foo.txt`",
             );

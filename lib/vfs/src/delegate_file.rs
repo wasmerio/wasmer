@@ -183,15 +183,12 @@ impl VirtualFile for DelegateFile {
     }
     fn set_len(&mut self, new_size: u64) -> crate::Result<()> {
         let inner = self.inner.read().unwrap();
-        let set_len = inner
-            .set_len
-            .as_ref()
-            .ok_or_else(|| FsError::UnknownError)?;
+        let set_len = inner.set_len.as_ref().ok_or(FsError::UnknownError)?;
         (set_len)(new_size)
     }
     fn unlink(&mut self) -> crate::Result<()> {
         let inner = self.inner.read().unwrap();
-        let unlink = inner.unlink.as_ref().ok_or_else(|| FsError::UnknownError)?;
+        let unlink = inner.unlink.as_ref().ok_or(FsError::UnknownError)?;
         (unlink)()
     }
     fn bytes_available(&self) -> crate::Result<usize> {
@@ -199,7 +196,7 @@ impl VirtualFile for DelegateFile {
         let bytes_available = inner
             .bytes_available
             .as_ref()
-            .ok_or_else(|| FsError::UnknownError)?;
+            .ok_or(FsError::UnknownError)?;
         (bytes_available)()
     }
     fn get_fd(&self) -> Option<FileDescriptor> {

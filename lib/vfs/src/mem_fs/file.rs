@@ -440,23 +440,23 @@ mod test_virtual_file {
             assert!(
                 matches!(
                     fs_inner.storage.get(ROOT_INODE),
-                    Some(Node::Directory {
+                    Some(Node::Directory(DirectoryNode {
                         inode: ROOT_INODE,
                         name,
                         children,
                         ..
-                    }) if name == "/" && children == &[1]
+                    })) if name == "/" && children == &[1]
                 ),
                 "`/` contains `foo.txt`",
             );
             assert!(
                 matches!(
                     fs_inner.storage.get(1),
-                    Some(Node::File {
+                    Some(Node::File(FileNode {
                         inode: 1,
                         name,
                         ..
-                    }) if name == "foo.txt"
+                    })) if name == "foo.txt"
                 ),
                 "`foo.txt` exists and is a file",
             );
@@ -475,12 +475,12 @@ mod test_virtual_file {
             assert!(
                 matches!(
                     fs_inner.storage.get(ROOT_INODE),
-                    Some(Node::Directory {
+                    Some(Node::Directory(DirectoryNode {
                         inode: ROOT_INODE,
                         name,
                         children,
                         ..
-                    }) if name == "/" && children.is_empty()
+                    })) if name == "/" && children.is_empty()
                 ),
                 "`/` is empty",
             );
