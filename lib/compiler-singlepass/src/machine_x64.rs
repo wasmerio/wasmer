@@ -7736,8 +7736,10 @@ impl Machine for MachineX86_64 {
 
         a.emit_ret()?;
 
+        let mut body = a.finalize().unwrap();
+        body.shrink_to_fit();
         Ok(FunctionBody {
-            body: a.finalize().unwrap().to_vec(),
+            body,
             unwind_info: None,
         })
     }
@@ -7858,8 +7860,10 @@ impl Machine for MachineX86_64 {
         // Return.
         a.emit_ret()?;
 
+        let mut body = a.finalize().unwrap();
+        body.shrink_to_fit();
         Ok(FunctionBody {
-            body: a.finalize().unwrap().to_vec(),
+            body,
             unwind_info: None,
         })
     }
@@ -8024,7 +8028,9 @@ impl Machine for MachineX86_64 {
         }
         a.emit_host_redirection(GPR::RAX)?;
 
-        let section_body = SectionBody::new_with_vec(a.finalize().unwrap().to_vec());
+        let mut contents = a.finalize().unwrap();
+        contents.shrink_to_fit();
+        let section_body = SectionBody::new_with_vec(contents);
 
         Ok(CustomSection {
             protection: CustomSectionProtection::ReadExecute,

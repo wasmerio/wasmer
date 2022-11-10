@@ -3198,8 +3198,10 @@ pub fn gen_std_trampoline_arm64(
         ; ret
     );
 
+    let mut body = a.finalize().unwrap();
+    body.shrink_to_fit();
     Ok(FunctionBody {
-        body: a.finalize().unwrap().to_vec(),
+        body,
         unwind_info: None,
     })
 }
@@ -3353,8 +3355,10 @@ pub fn gen_std_dynamic_import_trampoline_arm64(
     // Return.
     a.emit_ret()?;
 
+    let mut body = a.finalize().unwrap();
+    body.shrink_to_fit();
     Ok(FunctionBody {
-        body: a.finalize().unwrap().to_vec(),
+        body,
         unwind_info: None,
     })
 }
@@ -3532,7 +3536,9 @@ pub fn gen_import_call_trampoline_arm64(
     }
     a.emit_b_register(GPR::X16)?;
 
-    let section_body = SectionBody::new_with_vec(a.finalize().unwrap().to_vec());
+    let mut contents = a.finalize().unwrap();
+    contents.shrink_to_fit();
+    let section_body = SectionBody::new_with_vec(contents);
 
     Ok(CustomSection {
         protection: CustomSectionProtection::ReadExecute,
