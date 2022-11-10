@@ -316,7 +316,8 @@ pub struct WasiVFork {
 /// The environment provided to the WASI imports.
 #[derive(Derivative, Clone)]
 #[derivative(Debug)]
-pub struct WasiEnv {
+pub struct WasiEnv
+{
     /// Represents the process this environment is attached to
     pub process: WasiProcess,
     /// Represents the thread this environment is attached to
