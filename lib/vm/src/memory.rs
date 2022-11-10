@@ -13,18 +13,7 @@ use std::convert::TryInto;
 use std::ptr::NonNull;
 use std::slice;
 use std::sync::{Arc, RwLock};
-use wasmer_types::{Bytes, MemoryError, MemoryRole, MemoryStyle, MemoryType, Pages};
-
-// Represents a region of memory that plays a particular role
-#[derive(Debug, Clone)]
-pub struct VMMemoryRegion {
-    // Start of the memory region
-    start: u64,
-    // End of the memory region
-    end: u64,
-    // Role that the memory region plays
-    role: MemoryRole,
-}
+use wasmer_types::{Bytes, MemoryError, MemoryStyle, MemoryType, Pages};
 
 // The memory mapped area
 #[derive(Debug)]
@@ -33,8 +22,6 @@ struct WasmMmap {
     alloc: Mmap,
     // The current logical size in wasm pages of this linear memory.
     size: Pages,
-    // List of the regions that have been marked
-    regions: Vec<VMMemoryRegion>,
     /// The owned memory definition used by the generated code
     vm_memory_definition: MaybeInstanceOwned<VMMemoryDefinition>,
 }
@@ -130,21 +117,6 @@ impl WasmMmap {
         Ok(prev_pages)
     }
 
-    /// Marks a region of the memory for a particular role
-    pub fn mark_region(&mut self, start: u64, end: u64, role: MemoryRole) {
-        self.regions.push(VMMemoryRegion { start, end, role });
-    }
-
-    /// Returns the role of a part of the memory
-    pub fn region(&self, pointer: u64) -> MemoryRole {
-        for region in self.regions.iter() {
-            if pointer >= region.start && pointer < region.end {
-                return region.role;
-            }
-        }
-        MemoryRole::default()
-    }
-
     /// Copies the memory
     /// (in this case it performs a copy-on-write to save memory)
     pub fn fork(&mut self) -> Result<WasmMmap, MemoryError> {
@@ -163,7 +135,6 @@ impl WasmMmap {
             ))),
             alloc,
             size: self.size,
-            regions: self.regions.clone(),
         })
     }
 }
@@ -294,7 +265,6 @@ impl VMOwnedMemory {
                     current_length: mem_length,
                 })))
             },
-            regions: Default::default(),
             alloc,
             size: memory.minimum,
         };
@@ -363,16 +333,6 @@ impl LinearMemory for VMOwnedMemory {
             config: self.config.clone(),
         }))
     }
-
-    /// Marks a region of the memory for a particular role
-    fn mark_region(&mut self, start: u64, end: u64, role: MemoryRole) {
-        self.mmap.mark_region(start, end, role);
-    }
-
-    /// Returns the role of a part of the memory
-    fn region(&self, pointer: u64) -> MemoryRole {
-        self.mmap.region(pointer)
-    }
 }
 
 impl From<VMOwnedMemory> for VMMemory {
@@ -433,16 +393,6 @@ impl LinearMemory for VMMemory {
     /// Copies this memory to a new memory
     fn fork(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
         self.0.fork()
-    }
-
-    /// Marks a region of the memory for a particular role
-    fn mark_region(&mut self, start: u64, end: u64, role: MemoryRole) {
-        self.0.mark_region(start, end, role)
-    }
-
-    /// Returns the role of a part of the memory
-    fn region(&self, pointer: u64) -> MemoryRole {
-        self.0.region(pointer)
     }
 }
 
@@ -553,12 +503,6 @@ where
 
     /// Copies this memory to a new memory
     fn fork(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError>;
-
-    /// Marks a region of the memory for a particular role
-    fn mark_region(&mut self, start: u64, end: u64, role: MemoryRole);
-
-    /// Returns the role of a part of the memory
-    fn region(&self, pointer: u64) -> MemoryRole;
 }
 
 /// A shared linear memory instance.
@@ -646,18 +590,6 @@ impl LinearMemory for VMSharedMemory {
             mmap: Arc::new(RwLock::new(guard.fork()?)),
             config: self.config.clone(),
         }))
-    }
-
-    /// Marks a region of the memory for a particular role
-    fn mark_region(&mut self, start: u64, end: u64, role: MemoryRole) {
-        let mut guard = self.mmap.write().unwrap();
-        guard.mark_region(start, end, role)
-    }
-
-    /// Returns the role of a part of the memory
-    fn region(&self, pointer: u64) -> MemoryRole {
-        let guard = self.mmap.read().unwrap();
-        guard.region(pointer)
     }
 }
 

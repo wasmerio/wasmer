@@ -62,7 +62,7 @@ pub use wasmer_compiler_cranelift;
 pub use wasmer_compiler_llvm;
 #[cfg(feature = "compiler-singlepass")]
 pub use wasmer_compiler_singlepass;
-use wasmer_wasi_types::wasi::{Errno, Signal, ExitCode, BusErrno};
+use wasmer_wasi_types::wasi::{Errno, Signal, ExitCode, BusErrno, Snapshot0Clockid};
 
 pub use crate::state::{
     default_fs_backing, Fd, Pipe, WasiControlPlane, WasiFs, WasiInodes, WasiPipe, WasiProcess,
@@ -88,9 +88,6 @@ pub use wasmer_vfs::FsError as WasiFsError;
 pub use wasmer_vfs::VirtualFile as WasiFile;
 pub use wasmer_vfs::{FsError, VirtualFile};
 pub use wasmer_vnet::{UnsupportedVirtualNetworking, VirtualNetworking};
-use wasmer_wasi_types::{
-    __WASI_CLOCK_MONOTONIC, __WASI_EINTR, __WASI_SIGINT, __WASI_SIGKILL, __WASI_SIGQUIT,
-};
 
 // re-exports needed for OS
 #[cfg(feature = "os")]
@@ -117,7 +114,6 @@ pub use runtime::{
     WasiThreadError, WasiTtyState, WebSocketAbi,
 };
 use std::sync::{Arc, RwLockReadGuard, RwLockWriteGuard};
-use std::time::Duration;
 
 /// This is returned in `RuntimeError`.
 /// Use `downcast` or `downcast_ref` to retrieve the `ExitCode`.
@@ -486,21 +482,24 @@ impl WasiEnv {
     }
 
     /// Porcesses any signals that are batched up or any forced exit codes
-    pub fn process_signals_and_exit(&self, store: &mut impl AsStoreMut) -> Result<Result<(), Errno>, WasiError>
+    pub fn process_signals_and_exit(&self, store: &mut impl AsStoreMut) -> Result<Result<bool, Errno>, WasiError>
     {
         // If a signal handler has never been set then we need to handle signals
         // differently
         if self.inner().signal_set == false {
-            let signals = self.thread.pop_signals();
-            let signal_cnt = signals.len();
-            for sig in signals {
-                if sig == Signal::Sigint || sig == Signal::Sigquit || sig == Signal::Sigkill {
-                    return Err(WasiError::Exit(Errno::Intr as u32));
-                } else {
-                    trace!("wasi[{}]::signal-ignored: {}", self.pid(), sig);
+            if let Ok(signals) = self.thread.pop_signals_or_subscribe() {
+                let signal_cnt = signals.len();
+                for sig in signals {
+                    if sig == Signal::Sigint || sig == Signal::Sigquit || sig == Signal::Sigkill {
+                        return Err(WasiError::Exit(Errno::Intr as u32));
+                    } else {
+                        trace!("wasi[{}]::signal-ignored: {:?}", self.pid(), sig);
+                    }
                 }
+                return Ok(Ok(signal_cnt > 0));
+            } else {
+                return Ok(Ok(false))
             }
-            return signal_cnt > 0;
         }
 
         // Check for forced exit
@@ -525,56 +524,57 @@ impl WasiEnv {
         // Check for any signals that we need to trigger
         // (but only if a signal handler is registered)
         if let Some(handler) = self.inner().signal.clone() {
-            let mut signals = self.thread.pop_signals();
-
-            // We might also have signals that trigger on timers
-            let mut now = 0;
-            let has_signal_interval = {
-                let mut any = false;
-                let inner = self.process.inner.read().unwrap();
-                if inner.signal_intervals.is_empty() == false {
-                    now =
-                        platform_clock_time_get(__WASI_CLOCK_MONOTONIC, 1_000_000).unwrap() as u128;
-                    for signal in inner.signal_intervals.values() {
+            if let Ok(mut signals) = self.thread.pop_signals_or_subscribe()
+            {
+                // We might also have signals that trigger on timers
+                let mut now = 0;
+                let has_signal_interval = {
+                    let mut any = false;
+                    let inner = self.process.inner.read().unwrap();
+                    if inner.signal_intervals.is_empty() == false {
+                        now =
+                            platform_clock_time_get(Snapshot0Clockid::Monotonic, 1_000_000).unwrap() as u128;
+                        for signal in inner.signal_intervals.values() {
+                            let elapsed = now - signal.last_signal;
+                            if elapsed >= signal.interval.as_nanos() {
+                                any = true;
+                                break;
+                            }
+                        }
+                    }
+                    any
+                };
+                if has_signal_interval {
+                    let mut inner = self.process.inner.write().unwrap();
+                    for signal in inner.signal_intervals.values_mut() {
                         let elapsed = now - signal.last_signal;
                         if elapsed >= signal.interval.as_nanos() {
-                            any = true;
-                            break;
+                            signal.last_signal = now;
+                            signals.push(signal.signal);
                         }
                     }
                 }
-                any
-            };
-            if has_signal_interval {
-                let mut inner = self.process.inner.write().unwrap();
-                for signal in inner.signal_intervals.values_mut() {
-                    let elapsed = now - signal.last_signal;
-                    if elapsed >= signal.interval.as_nanos() {
-                        signal.last_signal = now;
-                        signals.push(signal.signal);
-                    }
-                }
-            }
 
-            for signal in signals {
-                tracing::trace!("wasi[{}]::processing-signal: {}", self.pid(), signal);
-                if let Err(err) = handler.call(store, signal as i32) {
-                    match err.downcast::<WasiError>() {
-                        Ok(err) => {
-                            warn!(
-                                "wasi[{}]::signal handler wasi error - {}",
-                                self.pid(),
-                                err
-                            );
-                            return Err(Errno::Intr);
-                        }
-                        Err(err) => {
-                            warn!(
-                                "wasi[{}]::signal handler runtime error - {}",
-                                self.pid(),
-                                err
-                            );
-                            return Err(Errno::Intr);
+                for signal in signals {
+                    tracing::trace!("wasi[{}]::processing-signal: {:?}", self.pid(), signal);
+                    if let Err(err) = handler.call(store, signal as i32) {
+                        match err.downcast::<WasiError>() {
+                            Ok(err) => {
+                                warn!(
+                                    "wasi[{}]::signal handler wasi error - {}",
+                                    self.pid(),
+                                    err
+                                );
+                                return Err(Errno::Intr);
+                            }
+                            Err(err) => {
+                                warn!(
+                                    "wasi[{}]::signal handler runtime error - {}",
+                                    self.pid(),
+                                    err
+                                );
+                                return Err(Errno::Intr);
+                            }
                         }
                     }
                 }

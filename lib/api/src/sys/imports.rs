@@ -284,6 +284,7 @@ impl fmt::Debug for Imports {
 macro_rules! imports {
     ( $( $ns_name:expr => $ns:tt ),* $(,)? ) => {
         {
+            #[allow(unused_mut)]
             let mut import_object = $crate::Imports::new();
 
             $({

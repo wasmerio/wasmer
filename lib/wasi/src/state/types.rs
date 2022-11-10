@@ -1,17 +1,13 @@
 /// types for use in the WASI filesystem
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
+use wasmer_vbus::VirtualBusError;
 #[cfg(all(unix, feature = "sys-poll", not(feature = "os")))]
 use std::convert::TryInto;
-use wasmer_vbus::BusError;
-use wasmer_wasi_types::wasi::{BusErrno, Errno};
+use wasmer_wasi_types::wasi::{BusErrno, Errno, Rights};
 use std::{
-    collections::VecDeque,
-    io::{self, Read, Seek, Write},
-    sync::{Arc, Mutex},
     time::Duration,
 };
-use wasmer_vbus::VirtualBusError;
 
 #[cfg(all(not(feature = "mem-fs"), not(feature = "host-fs")))]
 pub use crate::{fs::NullFile as Stderr, fs::NullFile as Stdin, fs::NullFile as Stdout};
@@ -38,7 +34,7 @@ pub fn fs_error_from_wasi_err(err: Errno) -> FsError {
         Errno::Inval => FsError::InvalidInput,
         Errno::Notconn => FsError::NotConnected,
         Errno::Nodev => FsError::NoDevice,
-        Errno::Noent => FsError::EntityNotFound,
+        Errno::Noent => FsError::EntryNotFound,
         Errno::Perm => FsError::PermissionDenied,
         Errno::Timedout => FsError::TimedOut,
         Errno::Proto => FsError::UnexpectedEof,
@@ -67,7 +63,7 @@ pub fn fs_error_into_wasi_err(fs_error: FsError) -> Errno {
         FsError::NoDevice => Errno::Nodev,
         FsError::NotAFile => Errno::Inval,
         FsError::NotConnected => Errno::Notconn,
-        FsError::EntityNotFound => Errno::Noent,
+        FsError::EntryNotFound => Errno::Noent,
         FsError::PermissionDenied => Errno::Perm,
         FsError::TimedOut => Errno::Timedout,
         FsError::UnexpectedEof => Errno::Proto,
@@ -105,8 +101,8 @@ pub fn net_error_into_wasi_err(net_error: NetworkError) -> Errno {
     }
 }
 
-pub fn bus_error_into_wasi_err(bus_error: BusError) -> BusErrno {
-    use BusError::*;
+pub fn bus_error_into_wasi_err(bus_error: VirtualBusError) -> BusErrno {
+    use VirtualBusError::*;
     match bus_error {
         Serialization => BusErrno::Ser,
         Deserialization => BusErrno::Des,
@@ -126,15 +122,13 @@ pub fn bus_error_into_wasi_err(bus_error: BusError) -> BusErrno {
         InvokeFailed => BusErrno::Invoke,
         AlreadyConsumed => BusErrno::Consumed,
         MemoryAccessViolation => BusErrno::Memviolation,
-        UnknownError => BusErrno::Unknown,
+        _ => BusErrno::Unknown,
     }
 }
 
-pub fn wasi_error_into_bus_err(bus_error: BusErrno) -> BusError {
-    use BusError::*;
+pub fn wasi_error_into_bus_err(bus_error: BusErrno) -> VirtualBusError {
+    use VirtualBusError::*;
     match bus_error {
-        // TODO: success == unknownerror? what's that about?
-        BusErrno::Success => UnknownError,
         BusErrno::Ser => Serialization,
         BusErrno::Des => Deserialization,
         BusErrno::Wapm => InvalidWapm,
@@ -153,24 +147,24 @@ pub fn wasi_error_into_bus_err(bus_error: BusErrno) -> BusError {
         BusErrno::Invoke => InvokeFailed,
         BusErrno::Consumed => AlreadyConsumed,
         BusErrno::Memviolation => MemoryAccessViolation,
-        BusErrno::Unknown => UnknownError,
+        _ => UnknownError,
     }
 }
 
 #[allow(dead_code)]
-pub(crate) fn bus_read_rights() -> __wasi_rights_t {
-    __WASI_RIGHT_FD_FDSTAT_SET_FLAGS
-        | __WASI_RIGHT_FD_FILESTAT_GET
-        | __WASI_RIGHT_FD_READ
-        | __WASI_RIGHT_POLL_FD_READWRITE
+pub(crate) fn bus_read_rights() -> Rights {
+    Rights::FD_FDSTAT_SET_FLAGS
+        .union(Rights::FD_FILESTAT_GET)
+        .union(Rights::FD_READ)
+        .union(Rights::POLL_FD_READWRITE)
 }
 
 #[allow(dead_code)]
-pub(crate) fn bus_write_rights() -> __wasi_rights_t {
-    __WASI_RIGHT_FD_FDSTAT_SET_FLAGS
-        | __WASI_RIGHT_FD_FILESTAT_GET
-        | __WASI_RIGHT_FD_WRITE
-        | __WASI_RIGHT_POLL_FD_READWRITE
+pub(crate) fn bus_write_rights() -> Rights {
+    Rights::FD_FDSTAT_SET_FLAGS
+        .union(Rights::FD_FILESTAT_GET)
+        .union(Rights::FD_WRITE)
+        .union(Rights::POLL_FD_READWRITE)
 }
 
 #[derive(Debug, Clone)]

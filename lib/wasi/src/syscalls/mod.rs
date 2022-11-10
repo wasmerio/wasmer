@@ -26,7 +26,7 @@ use self::types::{
         Fdflags, Fdstat, Filesize, Filestat, Filetype, Fstflags, Linkcount, OptionFd, Pid, Prestat,
         Rights, Snapshot0Clockid, Sockoption, Sockstatus, Socktype, StdioMode as WasiStdioMode,
         Streamsecurity, Subscription, SubscriptionEnum, SubscriptionFsReadwrite, Tid, Timestamp,
-        Tty, Whence, ExitCode
+        Tty, Whence, ExitCode, TlKey, TlUser, TlVal, WasiHash, StackSnapshot, Longsize
     },
     *,
 };
@@ -54,7 +54,6 @@ use crate::{
 use bytes::{Bytes, BytesMut};
 use cooked_waker::IntoWaker;
 use sha2::Sha256;
-use wasmer_wasi_types::wasi::{TlKey, TlUser, TlVal, WasiHash};
 use std::borrow::{Borrow, Cow};
 use std::cell::RefCell;
 use std::collections::hash_map::Entry;
@@ -1526,6 +1525,16 @@ pub fn fd_read<M: MemorySize>(
         let inode_idx = fd_entry.inode;
         let inode = &inodes.arena[inode_idx];
 
+        let mut memory = env.memory_view(&ctx);
+        let iovs_arr = wasi_try_mem_ok!(iovs.slice(&memory, iovs_len));
+        let mut max_size = 0usize;
+        for iovs in iovs_arr.iter() {
+            let iovs = wasi_try_mem_ok!(iovs.read());
+            let buf_len: usize =
+                wasi_try_ok!(iovs.buf_len.try_into().map_err(|_| Errno::Overflow));
+            max_size += buf_len;
+        }
+
         let bytes_read = {
             let mut guard = inode.write();
             match guard.deref_mut() {
@@ -1553,7 +1562,7 @@ pub fn fd_read<M: MemorySize>(
                                 }
 
                                 handle
-                                    .read_async(&register_root_waker)
+                                    .read_async(max_size, &register_root_waker)
                                     .await
                                     .map_err(map_io_err)
                             }
@@ -1572,17 +1581,6 @@ pub fn fd_read<M: MemorySize>(
                     }
                 }
                 Kind::Socket { socket } => {
-                    let mut memory = env.memory_view(&ctx);
-                    let iovs_arr = wasi_try_mem_ok!(iovs.slice(&memory, iovs_len));
-
-                    let mut max_size = 0usize;
-                    for iovs in iovs_arr.iter() {
-                        let iovs = wasi_try_mem_ok!(iovs.read());
-                        let buf_len: usize =
-                            wasi_try_ok!(iovs.buf_len.try_into().map_err(|_| Errno::Overflow));
-                        max_size += buf_len;
-                    }
-
                     let socket = socket.clone();
                     let data = wasi_try_ok!(__asyncify(
                         &mut ctx,
@@ -4582,8 +4580,8 @@ fn handle_rewind<M: MemorySize>(ctx: &mut FunctionEnvMut<'_, WasiEnv>) -> bool {
 /// later using its stack hash.
 pub fn stack_checkpoint<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
-    snapshot_ptr: WasmPtr<__wasi_stack_snaphost_t, M>,
-    ret_val: WasmPtr<__wasi_longsize_t, M>,
+    snapshot_ptr: WasmPtr<StackSnapshot, M>,
+    ret_val: WasmPtr<Longsize, M>,
 ) -> Result<Errno, WasiError> {
     // If we were just restored then we need to return the value instead
     if handle_rewind::<M>(&mut ctx) {
@@ -4618,7 +4616,7 @@ pub fn stack_checkpoint<M: MemorySize>(
 
     // We clear the target memory location before we grab the stack so that
     // it correctly hashes
-    if let Err(err) = snapshot_ptr.write(&memory, __wasi_stack_snaphost_t { hash: 0, user: 0 }) {
+    if let Err(err) = snapshot_ptr.write(&memory, StackSnapshot { hash: 0, user: 0 }) {
         warn!(
             "wasi[{}:{}]::failed to write to stack snapshot return variable - {}",
             env.pid(),
@@ -4651,7 +4649,7 @@ pub fn stack_checkpoint<M: MemorySize>(
         };
 
         // Build a stack snapshot
-        let snapshot = __wasi_stack_snaphost_t {
+        let snapshot = StackSnapshot {
             hash,
             user: ret_offset.into(),
         };
@@ -4660,8 +4658,8 @@ pub fn stack_checkpoint<M: MemorySize>(
         let val_bytes = unsafe {
             let p = &snapshot;
             ::std::slice::from_raw_parts(
-                (p as *const __wasi_stack_snaphost_t) as *const u8,
-                ::std::mem::size_of::<__wasi_stack_snaphost_t>(),
+                (p as *const StackSnapshot) as *const u8,
+                ::std::mem::size_of::<StackSnapshot>(),
             )
         };
 
@@ -4708,7 +4706,7 @@ pub fn stack_checkpoint<M: MemorySize>(
         // Save the stack snapshot
         let env = ctx.data();
         let memory = env.memory_view(&ctx);
-        let snapshot_ptr: WasmPtr<__wasi_stack_snaphost_t, M> = WasmPtr::new(snapshot_offset);
+        let snapshot_ptr: WasmPtr<StackSnapshot, M> = WasmPtr::new(snapshot_offset);
         if let Err(err) = snapshot_ptr.write(&memory, snapshot) {
             warn!(
                 "wasi[{}:{}]::failed checkpoint - could not save stack snapshot - {}",
@@ -4749,8 +4747,8 @@ pub fn stack_checkpoint<M: MemorySize>(
 /// * `snapshot_ptr` - Contains a previously made snapshot
 pub fn stack_restore<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
-    snapshot_ptr: WasmPtr<__wasi_stack_snaphost_t, M>,
-    mut val: __wasi_longsize_t,
+    snapshot_ptr: WasmPtr<StackSnapshot, M>,
+    mut val: Longsize,
 ) -> Result<(), WasiError> {
     // Read the snapshot from the stack
     let env = ctx.data();
@@ -4811,7 +4809,7 @@ pub fn stack_restore<M: MemorySize>(
                     .user
                     .try_into()
                     .map_err(|_| Errno::Overflow)
-                    .map(|a| WasmPtr::<__wasi_longsize_t, M>::new(a))
+                    .map(|a| WasmPtr::<Longsize, M>::new(a))
                     .map(|a| {
                         a.write(&memory, val)
                             .map(|_| Errno::Success)
@@ -5648,7 +5646,7 @@ pub fn thread_sleep(
         ctx.data().tid()
     );
     */
-    ctx.data().process_signals_and_exit(&mut ctx)?;
+    wasi_try_ok!(ctx.data().process_signals_and_exit(&mut ctx)?);
     let env = ctx.data();
 
     #[cfg(feature = "sys-thread")]
@@ -6920,7 +6918,7 @@ pub fn proc_spawn_internal(
         guard.bus_processes.insert(pid.into(), Box::new(process));
     };
 
-    let handles = __wasi_bus_handles_t {
+    let handles = BusHandles {
         bid: pid.raw(),
         stdin,
         stdout,
@@ -6939,7 +6937,7 @@ pub fn proc_join<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     pid_ptr: WasmPtr<Pid, M>,
     exit_code_ptr: WasmPtr<ExitCode, M>,
-) -> Result<BusErrno, WasiError> {
+) -> Result<Errno, WasiError> {
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
     let pid = wasi_try_mem_ok!(pid_ptr.read(&memory));
@@ -6984,7 +6982,7 @@ pub fn proc_join<M: MemorySize>(
                 let env = ctx.data();
                 let memory = env.memory_view(&ctx);
                 wasi_try_mem_ok!(pid_ptr.write(&memory, -1i32 as Pid));
-                wasi_try_mem_ok!(exit_code_ptr.write(&memory, __WASI_ECHILD as u32));
+                wasi_try_mem_ok!(exit_code_ptr.write(&memory, Errno::Child as u32));
                 Ok(Errno::Child)
             }
         };
@@ -7047,11 +7045,11 @@ pub fn bus_open_local<M: MemorySize>(
     name_len: M::Offset,
     reuse: Bool,
     ret_bid: WasmPtr<Bid, M>,
-) -> BusErrno {
+) -> Result<BusErrno, WasiError> {
     let env = ctx.data();
     let bus = env.runtime.bus();
     let memory = env.memory_view(&ctx);
-    let name = unsafe { get_input_str_bus!(&memory, name, name_len) };
+    let name = unsafe { get_input_str_bus_ok!(&memory, name, name_len) };
     let reuse = reuse == Bool::True;
     debug!(
         "wasi[{}:{}]::bus_open_local (name={}, reuse={})",
@@ -7088,30 +7086,30 @@ pub fn bus_open_remote<M: MemorySize>(
     token: WasmPtr<u8, M>,
     token_len: M::Offset,
     ret_bid: WasmPtr<Bid, M>,
-) -> BusErrno {
+) -> Result<BusErrno, WasiError> {
     let env = ctx.data();
     let bus = env.runtime.bus();
     let memory = env.memory_view(&ctx);
-    let name = unsafe { get_input_str_bus!(&memory, name, name_len) };
-    let instance = unsafe { get_input_str_bus!(&memory, instance, instance_len) };
-    let token = unsafe { get_input_str_bus!(&memory, token, token_len) };
+    let name = unsafe { get_input_str_bus_ok!(&memory, name, name_len) };
+    let instance = unsafe { get_input_str_bus_ok!(&memory, instance, instance_len) };
+    let token = unsafe { get_input_str_bus_ok!(&memory, token, token_len) };
     let reuse = reuse == Bool::True;
     debug!(
         "wasi::bus_open_remote (name={}, reuse={}, instance={})",
         name, reuse, instance
     );
 
-    bus_open_local_internal(ctx, name, reuse, Some(instance), Some(token), ret_bid)
+    bus_open_internal(ctx, name, reuse, Some(instance), Some(token), ret_bid)
 }
 
-fn bus_open_local_internal<M: MemorySize>(
-    ctx: FunctionEnvMut<'_, WasiEnv>,
+fn bus_open_internal<M: MemorySize>(
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
     name: String,
     reuse: bool,
     instance: Option<String>,
     token: Option<String>,
     ret_bid: WasmPtr<Bid, M>,
-) -> BusErrno {
+) -> Result<BusErrno, WasiError> {
     let env = ctx.data();
     let bus = env.runtime.bus();
     let memory = env.memory_view(&ctx);
@@ -7123,7 +7121,7 @@ fn bus_open_local_internal<M: MemorySize>(
         if let Some(bid) = guard.bus_process_reuse.get(&name) {
             if guard.bus_processes.contains_key(bid) {
                 wasi_try_mem_bus_ok!(ret_bid.write(&memory, bid.clone().into()));
-                return Ok(Errno::Success);
+                return Ok(BusErrno::Success);
             }
         }
     }
@@ -7149,7 +7147,7 @@ fn bus_open_local_internal<M: MemorySize>(
     };
 
     wasi_try_mem_bus_ok!(ret_bid.write(&memory, pid.into()));
-    BusErrno::Success
+    Ok(BusErrno::Success)
 }
 
 /// Closes a bus process and releases all associated resources
@@ -9524,7 +9522,7 @@ pub fn sock_send_to<M: MemorySize>(
 /// ## Return
 ///
 /// Number of bytes transmitted.
-pub unsafe fn sock_send_file<M: MemorySize>(
+pub fn sock_send_file<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     in_fd: WasiFd,

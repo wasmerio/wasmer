@@ -128,22 +128,3 @@ unsafe impl MemorySize for Memory64 {
         native as Self::Offset
     }
 }
-
-/// Represents different roles that a particular region of memory plays
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub enum MemoryRole {
-    /// The region is used for storing data (default)
-    Data,
-    /// The region is used as a stack
-    Stack,
-    /// The region is used to guard against memory access violations
-    Guard,
-    /// The region resides on another remote location (holds the reference number for that location)
-    Remote(u64),
-}
-
-impl Default for MemoryRole {
-    fn default() -> Self {
-        MemoryRole::Data
-    }
-}
