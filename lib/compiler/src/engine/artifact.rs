@@ -685,6 +685,7 @@ impl Artifact {
             compile_info: metadata.compile_info,
             data_initializers: metadata.data_initializers,
             cpu_features: metadata.cpu_features,
+            module_start: None,
         });
 
         let finished_function_lengths = finished_functions

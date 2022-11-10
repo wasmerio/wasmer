@@ -2,15 +2,15 @@ use std::io::{self, *};
 
 use wasmer_vbus::FileDescriptor;
 use wasmer_vfs::VirtualFile;
-use wasmer_wasi_types::__wasi_fd_t;
+use wasmer_wasi_types::wasi::Fd;
 
 #[derive(Debug)]
 pub struct SpecialFile {
-    fd: __wasi_fd_t,
+    fd: Fd,
 }
 
 impl SpecialFile {
-    pub fn new(fd: __wasi_fd_t) -> Self {
+    pub fn new(fd: Fd) -> Self {
         Self { fd }
     }
 }

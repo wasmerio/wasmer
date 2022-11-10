@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 use tracing::*;
 use wasmer_vfs::{FileSystem, VirtualFile};
-use wasmer_wasi_types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO};
+use wasmer_wasi_types::types::{__WASI_STDIN_FILENO, __WASI_STDOUT_FILENO, __WASI_STDERR_FILENO};
 
 use super::{NullFile, SpecialFile};
 use super::{TmpFileSystem, ZeroFile};

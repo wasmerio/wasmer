@@ -1,5 +1,6 @@
 use std::fmt;
 use std::future::Future;
+use std::ops::DerefMut;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use thiserror::Error;
@@ -263,19 +264,20 @@ pub trait VirtualBusInvoked: fmt::Debug + Unpin + 'static {
         cx: &mut Context<'_>,
     ) -> Poll<Result<Box<dyn VirtualBusInvocation + Sync>>>;
 }
-pub struct VirtualBusInvokedWait<'a> {
-    invoked: Pin<&'a mut dyn VirtualBusInvoked>
+pub struct VirtualBusInvokedWait {
+    invoked: Box<dyn VirtualBusInvoked>
 }
-impl<'a> VirtualBusInvokedWait<'a> {
-    pub fn new(invoked: &'a mut dyn VirtualBusInvoked) {
-        Self { invoked: Pin::new(invoked) }
+impl VirtualBusInvokedWait {
+    pub fn new(invoked: Box<dyn VirtualBusInvoked>) -> Self {
+        Self { invoked }
     }
 }
-impl<'a> Future
-for VirtualBusInvokedWait<'a> {
+impl Future
+for VirtualBusInvokedWait {
     type Output = Result<Box<dyn VirtualBusInvocation + Sync>>;
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        self.invoked.poll_invoked(cx)
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let invoked = Pin::new(self.invoked.deref_mut());
+        invoked.poll_invoked(cx)
     }
 }
 

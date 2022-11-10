@@ -17,8 +17,6 @@ use wasmer_vnet::VirtualNetworking;
 
 use crate::{WasiCallingId, WasiEnv};
 
-use super::types::*;
-
 mod ws;
 pub use ws::*;
 
@@ -142,7 +140,7 @@ pub trait VirtualTaskManager: fmt::Debug + Send + Sync + 'static {
     fn block_on(&self, task: Pin<Box<dyn Future<Output = ()>>>);
 
     /// Starts an asynchronous task on the local thread (by running it in a runtime)
-    fn enter(&self) -> Box<dyn std::any::Any>;
+    fn enter<'a>(&'a self) -> Box<dyn std::any::Any + 'a>;
 
     /// Starts an asynchronous task will will run on a dedicated thread
     /// pulled from the worker pool that has a stateful thread local variable
@@ -325,8 +323,8 @@ where
         options: ReqwestOptions,
         headers: Vec<(String, String)>,
         data: Option<Vec<u8>>,
-    ) -> Result<ReqwestResponse, u32> {
-        Err(Errno::Notsup as u32)
+    ) -> Result<ReqwestResponse, Errno> {
+        Err(Errno::Notsup)
     }
 
     /// Performs a HTTP or HTTPS request to a destination URL
@@ -339,7 +337,7 @@ where
         _options: ReqwestOptions,
         headers: Vec<(String, String)>,
         data: Option<Vec<u8>>,
-    ) -> Result<ReqwestResponse, u32> {
+    ) -> Result<ReqwestResponse, Errno> {
         use std::convert::TryFrom;
 
         let work = {
@@ -348,12 +346,12 @@ where
             async move {
                 let method = reqwest::Method::try_from(method.as_str()).map_err(|err| {
                     debug!("failed to convert method ({}) - {}", method, err);
-                    __WASI_EIO as u32
+                    Errno::Io
                 })?;
 
                 let client = reqwest::ClientBuilder::default().build().map_err(|err| {
                     debug!("failed to build reqwest client - {}", err);
-                    __WASI_EIO as u32
+                    Errno::Io
                 })?;
 
                 let mut builder = client.request(method, url.as_str());
@@ -371,19 +369,19 @@ where
 
                 let request = builder.build().map_err(|err| {
                     debug!("failed to convert request (url={}) - {}", url.as_str(), err);
-                    __WASI_EIO as u32
+                    Errno::Io
                 })?;
 
                 let response = client.execute(request).await.map_err(|err| {
                     debug!("failed to execute reqest - {}", err);
-                    __WASI_EIO as u32
+                    Errno::Io
                 })?;
 
                 let status = response.status().as_u16();
                 let status_text = response.status().as_str().to_string();
                 let data = response.bytes().await.map_err(|err| {
                     debug!("failed to read response bytes - {}", err);
-                    __WASI_EIO as u32
+                    Errno::Io
                 })?;
                 let data = data.to_vec();
 
@@ -404,7 +402,7 @@ where
             let ret = work.await;
             let _ = tx.send(ret);
         }));
-        rx.try_recv().map_err(|_| __WASI_EIO)?
+        rx.try_recv().map_err(|_| Errno::Io)?
     }
 
     /// Make a web socket connection to a particular URL
@@ -662,7 +660,7 @@ impl VirtualTaskManager for DefaultTaskManager {
     }
 
     /// Enters the task runtime
-    fn enter(&self) -> Box<dyn std::any::Any> {
+    fn enter<'a>(&'a self) -> Box<dyn std::any::Any + 'a> {
         Box::new(self.runtime.enter())
     }
 

@@ -2,7 +2,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use wasmer::{FunctionEnvMut, Store};
 use wasmer_vbus::{BusSpawnedProcess, SpawnOptionsConfig};
-use wasmer_wasi_types::Errno::Noent;
+use wasmer_wasi_types::wasi::Errno;
 
 use crate::{
     bin_factory::CachedCompiledModules, syscalls::stderr_write, WasiEnv, WasiRuntimeImplementation,

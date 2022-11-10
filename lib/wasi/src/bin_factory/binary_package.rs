@@ -8,7 +8,7 @@ use std::{
 use crate::{fs::TmpFileSystem, syscalls::platform_clock_time_get};
 use derivative::*;
 use wasmer_vfs::FileSystem;
-use wasmer_wasi_types::__WASI_CLOCK_MONOTONIC;
+use wasmer_wasi_types::wasi::Snapshot0Clockid;
 
 use super::hash_of_binary;
 
@@ -78,7 +78,7 @@ pub struct BinaryPackage {
 
 impl BinaryPackage {
     pub fn new(package_name: &str, entry: Cow<'static, [u8]>) -> Self {
-        let now = platform_clock_time_get(__WASI_CLOCK_MONOTONIC, 1_000_000).unwrap() as u128;
+        let now = platform_clock_time_get(Snapshot0Clockid::Monotonic, 1_000_000).unwrap() as u128;
         let (package_name, version) = match package_name.split_once("@") {
             Some((a, b)) => (a.to_string(), b.to_string()),
             None => (package_name.to_string(), "1.0.0".to_string()),

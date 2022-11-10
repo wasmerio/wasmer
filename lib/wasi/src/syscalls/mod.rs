@@ -656,7 +656,7 @@ pub fn clock_time_get<M: MemorySize>(
 /// ### `clock_time_set()`
 /// Set the time of the specified clock
 /// Inputs:
-/// - `__wasi_clockid_t clock_id`
+/// - `Clockid clock_id`
 ///     The ID of the clock to query
 /// - `__wasi_timestamp_t *time`
 ///     The value of the clock in nanoseconds
@@ -926,7 +926,7 @@ pub fn fd_fdstat_get<M: MemorySize>(
 ///     The flags to apply to `fd`
 pub fn fd_fdstat_set_flags(ctx: FunctionEnvMut<'_, WasiEnv>, fd: WasiFd, flags: Fdflags) -> Errno {
     debug!(
-        "wasi[{}:{}]::fd_fdstat_set_flags (fd={}, flags={})",
+        "wasi[{}:{}]::fd_fdstat_set_flags (fd={}, flags={:?})",
         ctx.data().pid(),
         ctx.data().tid(),
         fd,
@@ -941,7 +941,7 @@ pub fn fd_fdstat_set_flags(ctx: FunctionEnvMut<'_, WasiEnv>, fd: WasiFd, flags: 
 
     if !fd_entry.rights.contains(Rights::FD_FDSTAT_SET_FLAGS) {
         debug!(
-            "wasi[{}:{}]::fd_fdstat_set_flags (fd={}, flags={}) - access denied",
+            "wasi[{}:{}]::fd_fdstat_set_flags (fd={}, flags={:?}) - access denied",
             ctx.data().pid(),
             ctx.data().tid(),
             fd,
@@ -954,7 +954,7 @@ pub fn fd_fdstat_set_flags(ctx: FunctionEnvMut<'_, WasiEnv>, fd: WasiFd, flags: 
         let mut guard = inodes.arena[inode].write();
         match guard.deref_mut() {
             Kind::Socket { socket } => {
-                let nonblocking = (flags & __WASI_FDFLAG_NONBLOCK) != 0;
+                let nonblocking = flags.contains(Fdflags::NONBLOCK);
                 debug!(
                     "wasi[{}:{}]::socket(fd={}) nonblocking={}",
                     ctx.data().pid(),
@@ -7234,7 +7234,7 @@ pub fn bus_call<M: MemorySize>(
             &mut ctx,
             None,
             async move {
-                VirtualBusInvokedWait::new(invoked.deref_mut()).await
+                VirtualBusInvokedWait::new(invoked).await
             }
         ));
         env = ctx.data();
