@@ -368,10 +368,6 @@ impl Read for WasiPipe {
                 }
             };
 
-            if data.is_empty() {
-                return Ok(0);
-            }
-
             let mut read_buffer = match self.read_buffer.lock() {
                 Ok(o) => o,
                 Err(_) => {
@@ -379,7 +375,7 @@ impl Read for WasiPipe {
                 }
             };
 
-            if read_buffer.as_ref().map(|s| s.len()).unwrap_or(0) == 0 {
+            if data.is_empty() && read_buffer.as_ref().map(|s| s.len()).unwrap_or(0) == 0 {
                 return Ok(0);
             }
 
@@ -416,8 +412,7 @@ impl VirtualFile for WasiPipe {
     /// Defaults to `None` which means the number of bytes is unknown
     fn bytes_available_read(&self) -> wasmer_vfs::Result<Option<usize>> {
         loop {
-            {
-                let read_buffer = self.read_buffer.lock().unwrap();
+            if let Ok(read_buffer) = self.read_buffer.lock() {
                 if let Some(inner_buf) = read_buffer.as_ref() {
                     let buf_len = inner_buf.len();
                     if buf_len > 0 {
