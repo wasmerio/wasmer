@@ -11,7 +11,6 @@ use std::collections::HashMap;
 use std::ops::Deref;
 use std::path::PathBuf;
 use std::str::FromStr;
-use std::sync::Arc;
 use url::Url;
 use wasmer::FunctionEnv;
 use wasmer::*;
@@ -916,7 +915,7 @@ pub(crate) fn try_run_package_or_file(
 }
 
 fn try_run_url(url: &Url, _args: &[String], r: &Run, _debug: bool) -> Result<(), anyhow::Error> {
-    let checksum = wasmer_registry::get_remote_webc_checksum(&url)
+    let checksum = wasmer_registry::get_remote_webc_checksum(url)
         .map_err(|e| anyhow::anyhow!("error fetching {url}: {e}"))?;
 
     if !wasmer_registry::get_all_installed_webc_packages()
@@ -925,7 +924,7 @@ fn try_run_url(url: &Url, _args: &[String], r: &Run, _debug: bool) -> Result<(),
     {
         let sp = start_spinner(format!("Installing {}", url));
 
-        wasmer_registry::install_webc_package(&url, &checksum)
+        wasmer_registry::install_webc_package(url, &checksum)
             .map_err(|e| anyhow::anyhow!("error fetching {url}: {e}"))?;
 
         if let Some(sp) = sp {

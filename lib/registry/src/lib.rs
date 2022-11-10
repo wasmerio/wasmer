@@ -3,7 +3,6 @@ use std::env;
 use std::fmt;
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::ptr::read;
 use std::time::Duration;
 
 use reqwest::header::ACCEPT;
@@ -1207,7 +1206,7 @@ pub fn install_webc_package(url: &Url, checksum: &str) -> Result<(), String> {
 async fn install_webc_package_inner(url: &Url, checksum: &str) -> Result<(), String> {
     use futures_util::StreamExt;
 
-    let path = get_webc_dir().ok_or_else(|| format!("no webc dir"))?;
+    let path = get_webc_dir().ok_or_else(|| "no webc dir".to_string())?;
 
     let _ = std::fs::create_dir_all(&path);
 
@@ -1242,7 +1241,7 @@ async fn install_webc_package_inner(url: &Url, checksum: &str) -> Result<(), Str
 
     while let Some(item) = stream.next().await {
         let item = item.map_err(|e| format!("{e}"))?;
-        file.write_all(&item);
+        file.write_all(&item).map_err(|e| format!("{e}"))?;
     }
 
     Ok(())
@@ -1268,7 +1267,6 @@ pub fn get_all_installed_webc_packages() -> Vec<RemoteWebcInfo> {
                 &webc::ParseOptions {
                     parse_atoms: false,
                     parse_volumes: false,
-                    parse_manifest: true,
                     ..Default::default()
                 },
             )
@@ -1319,9 +1317,8 @@ pub fn get_remote_webc_manifest(url: &Url) -> Result<RemoteWebcInfo, String> {
 
     let (manifest_start, manifest_len) =
         webc::WebC::get_manifest_offset_size(&data).map_err(|e| format!("{e}"))?;
-    let data_with_manifest =
-        get_webc_bytes(url, Some(0..manifest_start + manifest_len)).map_err(|e| format!("{e}"))?;
-    let manifest = webc::WebC::get_manifest(&data_with_manifest).map_err(|e| format!("{e}"))?;
+    let data_with_manifest = get_webc_bytes(url, Some(0..manifest_start + manifest_len))?;
+    let manifest = webc::WebC::get_manifest(&data_with_manifest).map_err(|e| e.to_string())?;
     Ok(RemoteWebcInfo {
         checksum: hex_string,
         manifest,
