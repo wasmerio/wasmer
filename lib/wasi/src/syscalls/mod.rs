@@ -6612,14 +6612,21 @@ pub fn proc_exec<M: MemorySize>(
             match builder.spawn(Some(&ctx), name.as_str(), new_store, &bin_factory) {
                 Ok(mut process) => {
                     // Wait for the sub-process to exit itself - then we will exit
-                    loop {
-                        tasks.sleep_now(current_caller_id(), 5).await;
-                        if let Some(exit_code) = process.inst.exit_code() {
-                            return OnCalledAction::Trap(Box::new(WasiError::Exit(
-                                exit_code as ExitCode,
-                            )));
+                    let (tx, rx) = std::sync::mpsc::channel();
+                    let tasks_inner = tasks.clone();
+                    tasks.block_on(Box::pin(async move {
+                        loop {
+                            tasks_inner.sleep_now(current_caller_id(), 5).await;
+                            if let Some(exit_code) = process.inst.exit_code() {
+                                tx.send(exit_code).unwrap();
+                                break;
+                            }
                         }
-                    }
+                    }));
+                    let exit_code = rx.recv().unwrap();
+                    return OnCalledAction::Trap(Box::new(WasiError::Exit(
+                        exit_code as ExitCode,
+                    )));
                 }
                 Err(err) => {
                     warn!(
