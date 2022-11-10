@@ -23,29 +23,7 @@ pub fn is_wasix_module(module: &Module) -> bool {
 }
 
 pub fn map_io_err(err: std::io::Error) -> Errno {
-    use std::io::ErrorKind;
-    match err.kind() {
-        ErrorKind::NotFound => Errno::Noent,
-        ErrorKind::PermissionDenied => Errno::Perm,
-        ErrorKind::ConnectionRefused => Errno::Connrefused,
-        ErrorKind::ConnectionReset => Errno::Connreset,
-        ErrorKind::ConnectionAborted => Errno::Connaborted,
-        ErrorKind::NotConnected => Errno::Notconn,
-        ErrorKind::AddrInUse => Errno::Addrinuse,
-        ErrorKind::AddrNotAvailable => Errno::Addrnotavail,
-        ErrorKind::BrokenPipe => Errno::Pipe,
-        ErrorKind::AlreadyExists => Errno::Exist,
-        ErrorKind::WouldBlock => Errno::Again,
-        ErrorKind::InvalidInput => Errno::Io,
-        ErrorKind::InvalidData => Errno::Io,
-        ErrorKind::TimedOut => Errno::Timedout,
-        ErrorKind::WriteZero => Errno::Io,
-        ErrorKind::Interrupted => Errno::Intr,
-        ErrorKind::Other => Errno::Io,
-        ErrorKind::UnexpectedEof => Errno::Io,
-        ErrorKind::Unsupported => Errno::Notsup,
-        _ => Errno::Io,
-    }
+    From::<std::io::Error>::from(err)
 }
 
 /// The version of WASI. This is determined by the imports namespace

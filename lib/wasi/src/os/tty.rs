@@ -1,4 +1,5 @@
 use derivative::*;
+use wasmer_wasi_types::wasi::{Snapshot0Clockid, Signal};
 use std::{
     io::Write,
     sync::{Arc, Mutex},
@@ -6,9 +7,8 @@ use std::{
 
 use wasmer_vbus::SignalHandlerAbi;
 use wasmer_vfs::VirtualFile;
-use wasmer_wasi_types::__WASI_CLOCK_MONOTONIC;
 
-use crate::{syscalls::platform_clock_time_get, types::__WASI_SIGINT};
+use crate::syscalls::platform_clock_time_get;
 
 const TTY_MOBILE_PAUSE: u128 = std::time::Duration::from_millis(200).as_nanos();
 
@@ -157,7 +157,7 @@ impl Tty {
                 // twice in a row with a short interval between - this hack will avoid that bug
                 if self.is_mobile {
                     let now =
-                        platform_clock_time_get(__WASI_CLOCK_MONOTONIC, 1_000_000).unwrap() as u128;
+                        platform_clock_time_get(Snapshot0Clockid::Monotonic, 1_000_000).unwrap() as u128;
                     if let Some((what, when)) = self.last.as_ref() {
                         if what.as_str() == data && now - *when < TTY_MOBILE_PAUSE {
                             self.last = None;
@@ -194,7 +194,7 @@ impl Tty {
 
     fn on_ctrl_c(&mut self, _data: &str) {
         if let Some(signaler) = self.signaler.as_ref() {
-            signaler.signal(__WASI_SIGINT);
+            signaler.signal(Signal::Sigint as u8);
 
             let (echo, _line_buffering) = {
                 let options = self.options.inner.lock().unwrap();

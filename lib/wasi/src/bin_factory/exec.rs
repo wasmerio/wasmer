@@ -11,6 +11,7 @@ use wasmer_vbus::{
     BusSpawnedProcess, SpawnOptionsConfig, VirtualBusError, VirtualBusInvokable, VirtualBusProcess,
     VirtualBusScope, VirtualBusSpawner,
 };
+use wasmer_wasi_types::wasi::Errno;
 
 use super::{BinFactory, BinaryPackage, CachedCompiledModules};
 use crate::runtime::SpawnType;

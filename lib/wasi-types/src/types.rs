@@ -1,6 +1,4 @@
 #![deny(unused_mut)]
-#![doc(html_favicon_url = "https://wasmer.io/images/icons/favicon-32x32.png")]
-#![doc(html_logo_url = "https://github.com/wasmerio.png?size=200")]
 #![allow(non_camel_case_types, clippy::identity_op)]
 
 //! Wasmer's WASI types implementation.
@@ -22,18 +20,17 @@ pub use subscription::*;
 
 pub mod bus {
     use crate::wasi::{
-        BusDataFormat, BusEventClose, BusEventExit, BusEventFault, BusEventType, Cid, OptionCid, WasiHash,
+        BusDataFormat, BusEventType, Cid, OptionCid, WasiHash, ExitCode, Fd, Errno, Bid,
     };
     use wasmer_derive::ValueType;
-    use wasmer_types::MemorySize;
 
     // Not sure how to port these types to .wit with generics ...
 
     #[derive(Debug, Copy, Clone, PartialEq, Eq, ValueType)]
     #[repr(C)]
     pub struct __wasi_busevent_exit_t {
-        pub bid: __wasi_bid_t,
-        pub rval: __wasi_exitcode_t,
+        pub bid: Bid,
+        pub rval: ExitCode,
     }
 
     #[derive(Debug, Copy, Clone, PartialEq, Eq, ValueType)]

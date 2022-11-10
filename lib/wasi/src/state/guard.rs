@@ -1,6 +1,6 @@
 use tokio::sync::mpsc;
 use wasmer_vnet::{net_error_into_io_err, NetworkError};
-use wasmer_wasi_types::wasi::{Subscription, Event, EventEnum, Eventrwflags, EventFdReadwrite};
+use wasmer_wasi_types::wasi::{Subscription, Event, EventEnum, Eventrwflags, EventFdReadwrite, SubscriptionEnum};
 
 use crate::VirtualTaskManager;
 
@@ -244,7 +244,7 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                                 flags: if has_hangup {
                                     Eventrwflags::FD_READWRITE_HANGUP
                                 } else {
-                                    0
+                                    Eventrwflags::empty()
                                 }
                             })
                         },
@@ -254,7 +254,7 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                                 flags: if has_hangup {
                                     Eventrwflags::FD_READWRITE_HANGUP
                                 } else {
-                                    0
+                                    Eventrwflags::empty()
                                 }
                             })
                         },
@@ -311,7 +311,7 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                                 flags: if has_hangup {
                                     Eventrwflags::FD_READWRITE_HANGUP
                                 } else {
-                                    0
+                                    Eventrwflags::empty()
                                 }
                             })
                         });
@@ -329,7 +329,7 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                         .unwrap_or_else(fs_error_into_wasi_err),
                     data: EventEnum::FdRead(EventFdReadwrite {
                         nbytes: bytes_available.unwrap_or_default() as u64,
-                        flags: 0
+                        flags: Eventrwflags::empty()
                     })
                 });
             }
@@ -380,7 +380,7 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                                 flags: if has_hangup {
                                     Eventrwflags::FD_READWRITE_HANGUP
                                 } else {
-                                    0
+                                    Eventrwflags::empty()
                                 }
                             })
                         });
@@ -398,7 +398,7 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                         .unwrap_or_else(fs_error_into_wasi_err),
                     data: EventEnum::FdWrite(EventFdReadwrite {
                         nbytes: bytes_available.unwrap_or_default() as u64,
-                        flags: 0
+                        flags: Eventrwflags::empty()
                     })
                 });
             }

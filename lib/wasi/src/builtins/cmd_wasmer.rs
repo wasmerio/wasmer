@@ -1,7 +1,7 @@
 use std::{ops::Deref, sync::Arc};
 use wasmer::{FunctionEnvMut, Store};
 use wasmer_vbus::{BusSpawnedProcess, SpawnOptionsConfig};
-use wasmer_wasi_types::Errno::Noent;
+use wasmer_wasi_types::wasi::Errno;
 
 use crate::{
     bin_factory::{spawn_exec, BinaryPackage, CachedCompiledModules},

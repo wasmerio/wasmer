@@ -25,7 +25,6 @@ pub type Linkcount = u64;
 pub type Snapshot0Linkcount = u32;
 pub type Tid = u32;
 pub type Pid = u32;
-pub type Cid = u64;
 /// Thread local key
 pub type TlKey = u32;
 /// Thread local value
@@ -426,6 +425,118 @@ impl core::fmt::Debug for Errno {
 impl core::fmt::Display for Errno {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "{} (error {})", self.name(), *self as i32)
+    }
+}
+impl Into<std::io::ErrorKind> for Errno {
+    fn into(self) -> std::io::ErrorKind {
+        use std::io::ErrorKind;
+        match self {
+            Errno::Access => ErrorKind::PermissionDenied,
+            Errno::Addrinuse => ErrorKind::AddrInUse,
+            Errno::Addrnotavail => ErrorKind::AddrNotAvailable,
+            Errno::Again => ErrorKind::WouldBlock,
+            Errno::Already => ErrorKind::AlreadyExists,
+            Errno::Badf => ErrorKind::InvalidInput,
+            Errno::Badmsg => ErrorKind::InvalidData,
+            Errno::Busy => ErrorKind::ResourceBusy,
+            Errno::Canceled => ErrorKind::Interrupted,
+            Errno::Connaborted => ErrorKind::ConnectionAborted,
+            Errno::Connrefused => ErrorKind::ConnectionRefused,
+            Errno::Connreset => ErrorKind::ConnectionReset,
+            Errno::Deadlk => ErrorKind::Deadlock,
+            Errno::Dom => "dom",
+            Errno::Dquot => "dquot",
+            Errno::Exist => "exist",
+            Errno::Fault => "fault",
+            Errno::Fbig => "fbig",
+            Errno::Hostunreach => "hostunreach",
+            Errno::Idrm => "idrm",
+            Errno::Ilseq => "ilseq",
+            Errno::Inprogress => "inprogress",
+            Errno::Intr => "intr",
+            Errno::Inval => "inval",
+            Errno::Io => "io",
+            Errno::Isconn => "isconn",
+            Errno::Isdir => "isdir",
+            Errno::Loop => "loop",
+            Errno::Mfile => "mfile",
+            Errno::Mlink => "mlink",
+            Errno::Msgsize => "msgsize",
+            Errno::Multihop => "multihop",
+            Errno::Nametoolong => "nametoolong",
+            Errno::Netdown => "netdown",
+            Errno::Netreset => "netreset",
+            Errno::Netunreach => "netunreach",
+            Errno::Nfile => "nfile",
+            Errno::Nobufs => "nobufs",
+            Errno::Nodev => "nodev",
+            Errno::Noent => "noent",
+            Errno::Noexec => "noexec",
+            Errno::Nolck => "nolck",
+            Errno::Nolink => "nolink",
+            Errno::Nomem => "nomem",
+            Errno::Nomsg => "nomsg",
+            Errno::Noprotoopt => "noprotoopt",
+            Errno::Nospc => "nospc",
+            Errno::Nosys => "nosys",
+            Errno::Notconn => "notconn",
+            Errno::Notdir => "notdir",
+            Errno::Notempty => "notempty",
+            Errno::Notrecoverable => "notrecoverable",
+            Errno::Notsock => "notsock",
+            Errno::Notsup => "notsup",
+            Errno::Notty => "notty",
+            Errno::Nxio => "nxio",
+            Errno::Overflow => "overflow",
+            Errno::Ownerdead => "ownerdead",
+            Errno::Perm => "perm",
+            Errno::Pipe => "pipe",
+            Errno::Proto => "proto",
+            Errno::Protonosupport => "protonosupport",
+            Errno::Prototype => "prototype",
+            Errno::Range => "range",
+            Errno::Rofs => "rofs",
+            Errno::Spipe => "spipe",
+            Errno::Srch => "srch",
+            Errno::Stale => "stale",
+            Errno::Timedout => "timedout",
+            Errno::Txtbsy => "txtbsy",
+            Errno::Xdev => "xdev",
+            Errno::Notcapable => "notcapable",
+            _ => ErrorKind::Other,
+        }
+    }
+}
+impl Into<std::io::Error> for Errno {
+    fn into(self) -> std::io::Error {
+        Into::<std::io::ErrorKind>::into(self).into()
+    }
+}
+impl From<std::io::Error> for Errno {
+    fn from(err: std::io::Error) -> Self {
+        use std::io::ErrorKind;
+        match err.kind() {
+            ErrorKind::NotFound => Errno::Noent,
+            ErrorKind::PermissionDenied => Errno::Perm,
+            ErrorKind::ConnectionRefused => Errno::Connrefused,
+            ErrorKind::ConnectionReset => Errno::Connreset,
+            ErrorKind::ConnectionAborted => Errno::Connaborted,
+            ErrorKind::NotConnected => Errno::Notconn,
+            ErrorKind::AddrInUse => Errno::Addrinuse,
+            ErrorKind::AddrNotAvailable => Errno::Addrnotavail,
+            ErrorKind::BrokenPipe => Errno::Pipe,
+            ErrorKind::AlreadyExists => Errno::Exist,
+            ErrorKind::WouldBlock => Errno::Again,
+            ErrorKind::InvalidInput => Errno::Io,
+            ErrorKind::InvalidData => Errno::Io,
+            ErrorKind::TimedOut => Errno::Timedout,
+            ErrorKind::WriteZero => Errno::Io,
+            ErrorKind::Interrupted => Errno::Intr,
+            ErrorKind::Other => Errno::Io,
+            ErrorKind::UnexpectedEof => Errno::Io,
+            ErrorKind::Unsupported => Errno::Notsup,
+            _ => Errno::Io,
+        }
     }
 }
 
@@ -1459,6 +1570,14 @@ impl core::fmt::Debug for BusEventType {
         }
     }
 }
+#[derive(Debug, Copy, Clone, PartialEq, Eq, ValueType)]
+#[repr(C)]
+pub struct __wasi_bus_handles_t {
+    pub bid: Bid,
+    pub stdin: OptionFd,
+    pub stdout: OptionFd,
+    pub stderr: OptionFd,
+}
 pub type Bid = u32;
 pub type Cid = u32;
 /// __wasi_option_t
@@ -1505,7 +1624,7 @@ impl core::fmt::Debug for OptionCid {
     }
 }
 #[repr(C)]
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub struct OptionFd {
     pub tag: OptionTag,
     pub fd: Fd,
@@ -3422,30 +3541,6 @@ unsafe impl ValueType for OptionCid {
 
 // TODO: if necessary, must be implemented in wit-bindgen
 unsafe impl ValueType for OptionFd {
-    #[inline]
-    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
-}
-
-// TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl ValueType for BusHandles {
-    #[inline]
-    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
-}
-
-// TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl ValueType for BusEventExit {
-    #[inline]
-    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
-}
-
-// TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl ValueType for BusEventFault {
-    #[inline]
-    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
-}
-
-// TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl ValueType for BusEventClose {
     #[inline]
     fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
 }

@@ -4,7 +4,7 @@ use std::{
     ops::{Deref, DerefMut},
     sync::{
         atomic::{AtomicU32, Ordering},
-        Arc, Condvar, Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard,
+        Arc, Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard,
     },
     time::Duration,
 };
@@ -13,7 +13,7 @@ use bytes::{Bytes, BytesMut};
 use tracing::log::trace;
 use wasmer_vbus::{BusSpawnedProcess, SignalHandlerAbi};
 use wasmer_wasi_types::{
-    Errno, ExitCode, Signal, __WASI_CLOCK_MONOTONIC, __WASI_ECHILD, wasi::{Signal, TlKey, TlVal, TlUser, ExitCode, Errno},
+    wasi::{Signal, TlKey, TlVal, TlUser, ExitCode, Errno, Snapshot0Clockid},
 };
 
 use crate::syscalls::platform_clock_time_get;
@@ -48,11 +48,6 @@ impl Into<i32> for WasiThreadId {
 impl From<u32> for WasiThreadId {
     fn from(id: u32) -> Self {
         Self(id)
-    }
-}
-impl Into<u32> for WasiThreadId {
-    fn into(self) -> u32 {
-        self.0 as u32
     }
 }
 impl From<WasiThreadId> for u32 {
@@ -547,7 +542,7 @@ impl WasiProcess {
             Some(a) => a,
         };
 
-        let now = platform_clock_time_get(__WASI_CLOCK_MONOTONIC, 1_000_000).unwrap() as u128;
+        let now = platform_clock_time_get(Snapshot0Clockid::Monotonic, 1_000_000).unwrap() as u128;
         inner.signal_intervals.insert(
             signal,
             WasiSignalInterval {
