@@ -1,4 +1,3 @@
-
 use anyhow::bail;
 use std::path::PathBuf;
 use std::process::Command;
@@ -9,7 +8,7 @@ fn login_works() -> anyhow::Result<()> {
     let wapm_dev_token = std::env::var("WAPM_DEV_TOKEN").expect("WAPM_DEV_TOKEN env var not set");
     let output = Command::new(get_wasmer_path())
         .arg("login")
-        .arg("https://registry.wapm.dev/graphql")
+        .arg("wapm.dev")
         .arg(wapm_dev_token)
         .output()?;
 
@@ -24,7 +23,7 @@ fn login_works() -> anyhow::Result<()> {
     }
 
     let stdout_output = std::str::from_utf8(&output.stdout).unwrap();
-    assert_eq!(stdout_output, r#"Login for WAPM user "ciuser" saved"#);
+    assert_eq!(stdout_output, "Login for WAPM user \"ciuser\" saved\n");
 
     Ok(())
 }

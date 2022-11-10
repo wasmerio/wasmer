@@ -89,6 +89,11 @@ pub struct Registry {
 
 pub fn format_graphql(registry: &str) -> String {
     let mut registry = registry.to_string();
+    if registry.contains("wapm.dev") {
+        registry = "https://registry.wapm.dev/graphql".to_string();
+    } else if registry.contains("wapm.io") {
+        registry = "https://registry.wapm.io/graphql".to_string();
+    }
     if !registry.starts_with("https://") {
         registry = format!("https://{registry}");
     }
@@ -102,10 +107,9 @@ pub fn format_graphql(registry: &str) -> String {
 }
 
 fn test_if_registry_present(registry: &str) -> Result<(), String> {
-    let q = TestIfRegistryPresent::build_query(test_if_registry_present::Variables {});
-    let _: test_if_registry_present::ResponseData =
-        crate::graphql::execute_query(registry, "", &q).map_err(|e| format!("{e}"))?;
-    Ok(())
+    crate::utils::get_username_registry_token(registry, "")
+        .map(|_| ())
+        .map_err(|e| format!("{e}"))
 }
 
 #[derive(PartialEq, Eq, Copy, Clone)]
@@ -180,13 +184,6 @@ impl Registries {
         let registry = format_graphql(registry);
         if let Err(e) = test_if_registry_present(&registry) {
             println!("Error when trying to ping registry {registry:?}: {e}");
-            if registry.contains("wapm.dev") {
-                println!("Note: The correct URL for wapm.dev is https://registry.wapm.dev, not {registry}");
-            } else if registry.contains("wapm.io") {
-                println!(
-                    "Note: The correct URL for wapm.io is https://registry.wapm.io, not {registry}"
-                );
-            }
             println!("WARNING: Registry {registry:?} will be used, but commands may not succeed.");
         }
         match self {
