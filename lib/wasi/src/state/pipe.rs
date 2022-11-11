@@ -17,14 +17,14 @@ use wasmer::{MemorySize, MemoryView};
 use wasmer_vfs::{FsError, VirtualFile};
 use wasmer_wasi_types::wasi::Errno;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct WasiPipe {
     /// Sends bytes down the pipe
-    tx: Mutex<mpsc::UnboundedSender<Vec<u8>>>,
+    tx: Arc<Mutex<mpsc::UnboundedSender<Vec<u8>>>>,
     /// Receives bytes from the pipe
-    rx: Mutex<mpsc::UnboundedReceiver<Vec<u8>>>,
+    rx: Arc<Mutex<mpsc::UnboundedReceiver<Vec<u8>>>>,
     /// Buffers the last read message from the pipe while its being consumed
-    read_buffer: std::sync::Mutex<Option<Bytes>>,
+    read_buffer: Arc<std::sync::Mutex<Option<Bytes>>>,
     /// Whether the pipe should block or not block to wait for stdin reads
     block: bool,
 }
@@ -93,13 +93,11 @@ impl VirtualFile for WasiBidirectionalPipePair {
     ) -> std::task::Poll<wasmer_vfs::Result<usize>> {
         self.send.poll_write_ready(cx, register_root_waker)
     }
-    fn read_async<'a>(&'a mut self, max_size: usize, register_root_waker: &'_ Arc<dyn Fn(Waker) + Send + Sync + 'static>) -> Box<dyn Future<Output=io::Result<Vec<u8>>> + 'a>
-    where Self: Sized
+    fn read_async<'a>(&'a mut self, max_size: usize, register_root_waker: &'_ Arc<dyn Fn(Waker) + Send + Sync + 'static>) -> Pin<Box<(dyn futures::Future<Output = std::result::Result<Vec<u8>, std::io::Error>> + 'a)>>
     {
         self.recv.read_async(max_size, register_root_waker)
     }
-    fn write_async<'a>(&'a mut self, buf: &'a [u8], register_root_waker: &'_ Arc<dyn Fn(Waker) + Send + Sync + 'static>) -> Box<dyn Future<Output=io::Result<usize>> + 'a>
-    where Self: Sized
+    fn write_async<'a>(&'a mut self, buf: &'a [u8], register_root_waker: &'_ Arc<dyn Fn(Waker) + Send + Sync + 'static>) -> Pin<Box<(dyn futures::Future<Output = std::result::Result<usize, std::io::Error>> + 'a)>>
     {
         self.send.write_async(buf, register_root_waker)
     }
@@ -117,16 +115,16 @@ impl WasiBidirectionalPipePair {
         let (tx2, rx2) = mpsc::unbounded_channel();
 
         let pipe1 = WasiPipe {
-            tx: Mutex::new(tx1),
-            rx: Mutex::new(rx2),
-            read_buffer: std::sync::Mutex::new(None),
+            tx: Arc::new(Mutex::new(tx1)),
+            rx: Arc::new(Mutex::new(rx2)),
+            read_buffer: Arc::new(std::sync::Mutex::new(None)),
             block: true,
         };
 
         let pipe2 = WasiPipe {
-            tx: Mutex::new(tx2),
-            rx: Mutex::new(rx1),
-            read_buffer: std::sync::Mutex::new(None),
+            tx: Arc::new(Mutex::new(tx2)),
+            rx: Arc::new(Mutex::new(rx1)),
+            read_buffer: Arc::new(std::sync::Mutex::new(None)),
             block: true,
         };
 
@@ -255,21 +253,25 @@ impl VirtualFile for WasiBidirectionalSharedPipePair {
             .unwrap()
             .poll_write_ready(cx, register_root_waker)
     }
-    fn read_async<'a>(&'a mut self, max_size: usize, register_root_waker: &'_ Arc<dyn Fn(Waker) + Send + Sync + 'static>) -> Box<dyn Future<Output=io::Result<Vec<u8>>> + 'a>
-    where Self: Sized
+    fn read_async<'a>(&'a mut self, max_size: usize, register_root_waker: &'_ Arc<dyn Fn(Waker) + Send + Sync + 'static>) -> Pin<Box<(dyn futures::Future<Output = std::result::Result<Vec<u8>, std::io::Error>> + 'a)>>
     {
-        self.inner
-            .lock()
-            .unwrap()
-            .read_async(max_size, register_root_waker)
+        let register_root_waker = register_root_waker.clone();
+        Box::pin(async move {
+            let mut inner = self.inner.lock().unwrap();
+            inner
+                .read_async(max_size, &register_root_waker)
+                .await
+        })
     }
-    fn write_async<'a>(&'a mut self, buf: &'a [u8], register_root_waker: &'_ Arc<dyn Fn(Waker) + Send + Sync + 'static>) -> Box<dyn Future<Output=io::Result<usize>> + 'a>
-    where Self: Sized
+    fn write_async<'a>(&'a mut self, buf: &'a [u8], register_root_waker: &'_ Arc<dyn Fn(Waker) + Send + Sync + 'static>) -> Pin<Box<(dyn futures::Future<Output = std::result::Result<usize, std::io::Error>> + 'a)>>
     {
-        self.inner
-            .lock()
-            .unwrap()
-            .write_async(buf, register_root_waker)
+        let register_root_waker = register_root_waker.clone();
+        Box::pin(async move {
+            let mut inner = self.inner.lock().unwrap();
+            inner
+                .write_async(buf, &register_root_waker)
+                .await
+        })
     }
 }
 
@@ -286,7 +288,7 @@ impl WasiPipe {
     }
 
     pub async fn recv(
-        &mut self,
+        &self,
         max_size: usize,
     ) -> Result<Bytes, Errno> {
         let mut no_more = None;
@@ -337,7 +339,7 @@ impl WasiPipe {
     }
 
     pub fn send<M: MemorySize>(
-        &mut self,
+        &self,
         memory: &MemoryView,
         iov: WasmSlice<__wasi_ciovec_t<M>>,
     ) -> Result<usize, Errno> {
@@ -354,7 +356,7 @@ impl WasiPipe {
         Ok(buf_len)
     }
 
-    pub fn close(&mut self) {
+    pub fn close(&self) {
         let (mut null_tx, _) = mpsc::unbounded_channel();
         let (_, mut null_rx) = mpsc::unbounded_channel();
         {
@@ -564,7 +566,7 @@ impl VirtualFile for WasiPipe {
     fn poll_read_ready(
         &self,
         cx: &mut std::task::Context<'_>,
-        register_root_waker: &Arc<dyn Fn(Waker) + Send + Sync + 'static>,
+        _register_root_waker: &Arc<dyn Fn(Waker) + Send + Sync + 'static>,
     ) -> std::task::Poll<wasmer_vfs::Result<usize>> {
         let mut no_more = None;
         loop {
@@ -581,12 +583,12 @@ impl VirtualFile for WasiPipe {
                 return no_more;
             }
             let data = {
-                let rx = Box::pin(self.rx.lock());
-                let mut rx = rx.as_mut();
+                let mut rx = Box::pin(self.rx.lock());
+                let rx = rx.as_mut();
                 match rx.poll(cx) {
                     Poll::Pending => { no_more = Some(Poll::Pending); continue; }
                     Poll::Ready(mut rx) => {
-                        let rx = Pin::new(&mut rx);
+                        let mut rx = Pin::new(&mut rx);
                         match rx.poll_recv(cx) {
                             Poll::Pending => { no_more = Some(Poll::Pending); continue; }
                             Poll::Ready(Some(a)) => a,
@@ -604,18 +606,17 @@ impl VirtualFile for WasiPipe {
     fn poll_write_ready(
         &self,
         cx: &mut std::task::Context<'_>,
-        register_root_waker: &Arc<dyn Fn(Waker) + Send + Sync + 'static>,
+        _register_root_waker: &Arc<dyn Fn(Waker) + Send + Sync + 'static>,
     ) -> std::task::Poll<wasmer_vfs::Result<usize>> {
-        let tx = Box::pin(self.tx.lock());
-        let mut tx = tx.as_mut();
+        let mut tx = Box::pin(self.tx.lock());
+        let tx = tx.as_mut();
         tx.poll(cx)
             .map(|_| Ok(8192))
     }
 
-    fn read_async<'a>(&'a mut self, max_size: usize, register_root_waker: &'_ Arc<dyn Fn(Waker) + Send + Sync + 'static>) -> Box<dyn Future<Output=io::Result<Vec<u8>>> + 'a>
-    where Self: Sized
+    fn read_async<'a>(&'a mut self, max_size: usize, _register_root_waker: &'_ Arc<dyn Fn(Waker) + Send + Sync + 'static>) -> Pin<Box<(dyn futures::Future<Output = std::result::Result<Vec<u8>, std::io::Error>> + 'a)>>
     {
-        Box::new(
+        Box::pin(
             async move {
                 self.recv(max_size)
                     .await
@@ -625,10 +626,9 @@ impl VirtualFile for WasiPipe {
         )
     }
 
-    fn write_async<'a>(&'a mut self, buf: &'a [u8], register_root_waker: &'_ Arc<dyn Fn(Waker) + Send + Sync + 'static>) -> Box<dyn Future<Output=io::Result<usize>> + 'a>
-    where Self: Sized
+    fn write_async<'a>(&'a mut self, buf: &'a [u8], _register_root_waker: &'_ Arc<dyn Fn(Waker) + Send + Sync + 'static>) -> Pin<Box<(dyn futures::Future<Output = std::result::Result<usize, std::io::Error>> + 'a)>>
     {
-        Box::new(
+        Box::pin(
             async move {
                 let tx = match self.tx.try_lock() {
                     Ok(a) => a,

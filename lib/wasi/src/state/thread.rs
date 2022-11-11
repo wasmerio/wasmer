@@ -89,7 +89,7 @@ pub struct WasiThread {
         Option<ExitCode>,
         tokio::sync::broadcast::Sender<()>,
     )>>,
-    signals: Arc<Mutex<(
+    pub(crate) signals: Arc<Mutex<(
         Vec<Signal>,
         tokio::sync::broadcast::Sender<()>,
     )>>,

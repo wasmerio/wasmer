@@ -750,8 +750,8 @@ impl InodeSocket {
     }
 
     pub fn set_ttl(&self, ttl: u32) -> Result<(), Errno> {
-        let inner = self.inner.read().unwrap();
-        match &inner.kind {
+        let mut inner = self.inner.write().unwrap();
+        match &mut inner.kind {
             InodeSocketKind::TcpStream(sock) => sock.set_ttl(ttl).map_err(net_error_into_wasi_err),
             InodeSocketKind::UdpSocket(sock) => sock.set_ttl(ttl).map_err(net_error_into_wasi_err),
             InodeSocketKind::PreSocket { .. } => Err(Errno::Io),

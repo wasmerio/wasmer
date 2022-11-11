@@ -197,7 +197,8 @@ where
     Fut: std::future::Future<Output = Result<T, Errno>>,
 {
     let env = ctx.data();
-    let (_, state, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
+    let state = env.state.clone();
+    let inodes = state.inodes.clone();
 
     let fd_entry = state.fs.get_fd(sock)?;
     let ret = {
@@ -205,8 +206,9 @@ where
             return Err(Errno::Access);
         }
 
+        let inodes_guard = inodes.read().unwrap();
         let inode_idx = fd_entry.inode;
-        let inode = &inodes.arena[inode_idx];
+        let inode = &inodes_guard.arena[inode_idx];
 
         let tasks = env.tasks.clone();
         let mut guard = inode.read();
@@ -249,22 +251,24 @@ where
 {
     let mut env = ctx.data();
 
+    /*
     // Fast path (inline synchronous)
     {
         let _guard = env.tasks.enter();
         let waker = WasiDummyWaker.into_waker();
         let mut cx = Context::from_waker(&waker);
-        let pinned_work = Pin::new(&mut work);
+        let pinned_work = Box::pin(work);
+        let mut pinned_work = pinned_work.as_mut();
         if let Poll::Ready(i) = pinned_work.poll(&mut cx) {
             return i;
         }
     }
+    */
 
     // Slow path (will may put the thread to sleep)
-    let mut env = ctx.data();
+    //let mut env = ctx.data();
     let tasks = env.tasks.clone();
-    let mut signaler = env.thread.signals.1.subscribe();
-
+    
     // Create the timeout
     let timeout = {
         let tasks_inner = tasks.clone();
@@ -279,56 +283,53 @@ where
         }
     };
 
-    // Enter a loop that can be receive intr commands
-    loop
-    {
-        // Check if we need to exit the asynchronous loop
-        if env.should_exit().is_some() {
-            return Err(Errno::Intr);
-        }
+    let mut signaler = {
+        let signals = env.thread.signals.lock().unwrap();
+        signals.1.subscribe()
+    };
 
-        // Block on the work and process process
-        let tasks_inner = tasks.clone();
-        let (tx_ret, mut rx_ret) = tokio::sync::mpsc::unbounded_channel();
-        tasks.block_on(Box::pin(async move {
-            tokio::select! {
-                // The main work we are doing
-                ret = work => {
-                    let _ = tx_ret.send(Some(ret));
-                },
-                // If a signaller is triggered then we interrupt the main process
-                _ = signaler.recv() => {
-                    let _ = tx_ret.send(None);
-                },
-                // Optional timeout
-                _ = timeout => {
-                    let _ = tx_ret.send(Some(Err(Errno::Timedout)));
-                },
-                // Periodically wake every 10 milliseconds for synchronously IO
-                // (but only if someone is currently registered for it)
-                _ = async move {
-                    loop {
-                        tasks_inner.wait_for_root_waker().await;
-                        tasks_inner.wake_root_wakers();
-                    }
-                } => { }
-            }
-        }));
+    // Check if we need to exit the asynchronous loop
+    if env.should_exit().is_some() {
+        return Err(Errno::Intr);
+    }
 
-        // If a signal is received then we need to process it and if
-        // we can not then fail with an interrupt error code
-        let ret = rx_ret.try_recv().map_err(|_| Errno::Intr)?;
-        return match ret {
-            Some(a) => a,
-            None => {
-                if ctx.data().clone().process_signals(&mut ctx)? == true {
-                    env = ctx.data();
-                    continue;
-                } else {
-                    Err(Errno::Intr)
-                }
+    // Block on the work and process process
+    let tasks_inner = tasks.clone();
+    let (tx_ret, mut rx_ret) = tokio::sync::mpsc::unbounded_channel();
+    tasks.block_on(Box::pin(async move {
+        tokio::select! {
+            // The main work we are doing
+            ret = work => {
+                let _ = tx_ret.send(Some(ret));
             },
+            // If a signaller is triggered then we interrupt the main process
+            _ = signaler.recv() => {
+                let _ = tx_ret.send(None);
+            },
+            // Optional timeout
+            _ = timeout => {
+                let _ = tx_ret.send(Some(Err(Errno::Timedout)));
+            },
+            // Periodically wake every 10 milliseconds for synchronously IO
+            // (but only if someone is currently registered for it)
+            _ = async move {
+                loop {
+                    tasks_inner.wait_for_root_waker().await;
+                    tasks_inner.wake_root_wakers();
+                }
+            } => { }
         }
+    }));
+
+    // If a signal is received then we need to process it and if
+    // we can not then fail with an interrupt error code
+    let ret = rx_ret.try_recv().map_err(|_| Errno::Intr)?;
+    return match ret {
+        Some(a) => a,
+        None => {
+            ctx.data().clone().process_signals(ctx)?;
+            Err(Errno::Intr)
+        },
     }
 }
 
@@ -358,33 +359,37 @@ where
     Fut: std::future::Future<Output = Result<T, Errno>>,
 {
     let env = ctx.data();
-    let (_, state, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
+    let state = env.state.clone();
+    let inodes = state.inodes.clone();
 
     let fd_entry = state.fs.get_fd(sock)?;
     if !rights.is_empty() && !fd_entry.rights.contains(rights) {
         return Err(Errno::Access);
     }
 
-    let inode_idx = fd_entry.inode;
-    let inode = &inodes.arena[inode_idx];
-
     let tasks = env.tasks.clone();
-    let mut guard = inode.write();
-    match guard.deref_mut() {
-        Kind::Socket { socket } => {
-            // Clone the socket and release the lock
-            let socket = socket.clone();
-            drop(guard);
+    {
+        let inode_idx = fd_entry.inode;
+        let inodes_guard = inodes.read().unwrap();
+        let inode = &inodes_guard.arena[inode_idx];
+        let mut guard = inode.write();
+        match guard.deref_mut() {
+            Kind::Socket { socket } => {
+                // Clone the socket and release the lock
+                let socket = socket.clone();
+                drop(guard);
+                drop(inodes_guard);
 
-            __asyncify(
-                ctx,
-                None,
-                async move {
-                    actor(socket).await
-                })
-        }
-        _ => {
-            return Err(Errno::Notsock);
+                __asyncify(
+                    ctx,
+                    None,
+                    async move {
+                        actor(socket).await
+                    })
+            }
+            _ => {
+                return Err(Errno::Notsock);
+            }
         }
     }
 }
@@ -403,12 +408,13 @@ where
     Fut: std::future::Future<Output = Result<Option<crate::state::InodeSocket>, Errno>>,
 {
     let env = ctx.data();
-    let (_, state, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
+    let state = env.state.clone();
+    let inodes = state.inodes.clone();
 
     let fd_entry = state.fs.get_fd(sock)?;
     if !rights.is_empty() && !fd_entry.rights.contains(rights) {
         tracing::warn!(
-            "wasi[{}:{}]::sock_upgrade(fd={}, rights={}) - failed - no access rights to upgrade",
+            "wasi[{}:{}]::sock_upgrade(fd={}, rights={:?}) - failed - no access rights to upgrade",
             ctx.data().pid(),
             ctx.data().tid(),
             sock,
@@ -417,54 +423,59 @@ where
         return Err(Errno::Access);
     }
 
-    let inode_idx = fd_entry.inode;
-    let inode = &inodes.arena[inode_idx];
-
     let tasks = env.tasks.clone();
-    let mut guard = inode.write();
-    match guard.deref_mut() {
-        Kind::Socket { socket } => {
-            let socket = socket.clone();
-            drop(guard);
+    {
+        let inode_idx = fd_entry.inode;
+        let inodes_guard = inodes.read().unwrap();
+        let inode = &inodes_guard.arena[inode_idx];
+        let mut guard = inode.write();
+        match guard.deref_mut() {
+            Kind::Socket { socket } => {
+                let socket = socket.clone();
+                drop(guard);
+                drop(inodes_guard);
 
-            let new_socket = {
-                // Block on the work and process process
-                __asyncify(
-                    ctx,
-                    None,
-                    async move {
-                        actor(socket).await
-                    })?
-            };
+                let new_socket = {
+                    // Block on the work and process process
+                    __asyncify(
+                        ctx,
+                        None,
+                        async move {
+                            actor(socket).await
+                        })?
+                };
 
-            if let Some(mut new_socket) = new_socket {
-                let mut guard = inode.write();
-                match guard.deref_mut() {
-                    Kind::Socket { socket } => {
-                        std::mem::swap(socket, &mut new_socket);
-                    }
-                    _ => {
-                        tracing::warn!(
-                            "wasi[{}:{}]::sock_upgrade(fd={}, rights={}) - failed - not a socket",
-                            ctx.data().pid(),
-                            ctx.data().tid(),
-                            sock,
-                            rights
-                        );
-                        return Err(Errno::Notsock);
+                if let Some(mut new_socket) = new_socket {
+                    let inodes_guard = inodes.read().unwrap();
+                    let inode = &inodes_guard.arena[inode_idx];
+                    let mut guard = inode.write();
+                    match guard.deref_mut() {
+                        Kind::Socket { socket } => {
+                            std::mem::swap(socket, &mut new_socket);
+                        }
+                        _ => {
+                            tracing::warn!(
+                                "wasi[{}:{}]::sock_upgrade(fd={}, rights={:?}) - failed - not a socket",
+                                ctx.data().pid(),
+                                ctx.data().tid(),
+                                sock,
+                                rights
+                            );
+                            return Err(Errno::Notsock);
+                        }
                     }
                 }
             }
-        }
-        _ => {
-            tracing::warn!(
-                "wasi[{}:{}]::sock_upgrade(fd={}, rights={}) - failed - not a socket",
-                ctx.data().pid(),
-                ctx.data().tid(),
-                sock,
-                rights
-            );
-            return Err(Errno::Notsock);
+            _ => {
+                tracing::warn!(
+                    "wasi[{}:{}]::sock_upgrade(fd={}, rights={:?}) - failed - not a socket",
+                    ctx.data().pid(),
+                    ctx.data().tid(),
+                    sock,
+                    rights
+                );
+                return Err(Errno::Notsock);
+            }
         }
     }
 
@@ -503,7 +514,7 @@ fn write_buffer_array<M: MemorySize>(
 }
 
 fn get_current_time_in_nanos() -> Result<Timestamp, Errno> {
-    let now = platform_clock_time_get(__WASI_CLOCK_MONOTONIC, 1_000_000).unwrap() as u128;
+    let now = platform_clock_time_get(Snapshot0Clockid::Monotonic, 1_000_000).unwrap() as u128;
     Ok(now as Timestamp)
 }
 
@@ -525,7 +536,8 @@ pub fn args_get<M: MemorySize>(
     let env = ctx.data();
     let (memory, mut state) = env.get_memory_and_wasi_state(&ctx, 0);
 
-    let result = write_buffer_array(&memory, &state.args, argv, argv_buf);
+    let args = state.args.iter().map(|a| a.as_bytes().to_vec()).collect::<Vec<_>>();
+    let result = write_buffer_array(&memory, &args, argv, argv_buf);
 
     debug!(
         "=> args:\n{}",
@@ -533,7 +545,7 @@ pub fn args_get<M: MemorySize>(
             .args
             .iter()
             .enumerate()
-            .map(|(i, v)| format!("{:>20}: {}", i, ::std::str::from_utf8(v).unwrap()))
+            .map(|(i, v)| format!("{:>20}: {}", i, v))
             .collect::<Vec<String>>()
             .join("\n")
     );
@@ -675,10 +687,10 @@ pub fn clock_time_set<M: MemorySize>(
     let snapshot_clock_id = match clock_id {
         Clockid::Realtime => Snapshot0Clockid::Realtime,
         Clockid::Monotonic => Snapshot0Clockid::Monotonic
-    }
+    };
 
     let precision = 1 as Timestamp;
-    let t_now = wasi_try!(platform_clock_time_get(clock_id, precision));
+    let t_now = wasi_try!(platform_clock_time_get(snapshot_clock_id, precision));
     let t_now = t_now as i64;
 
     let t_target = time as i64;
@@ -1023,7 +1035,7 @@ pub fn fd_fdstat_set_rights(
 /// - `Filestat *buf`
 ///     Where the metadata from `fd` will be written
 pub fn fd_filestat_get<M: MemorySize>(
-    ctx: FunctionEnvMut<'_, WasiEnv>,
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
     buf: WasmPtr<Filestat, M>,
 ) -> Errno {
@@ -1192,7 +1204,7 @@ pub fn fd_filestat_set_times(
 pub fn fd_pread<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
-    iovs: WasmPtr<__wasi_iovec_t<M>, M>,
+    ref_iovs: WasmPtr<__wasi_iovec_t<M>, M>,
     iovs_len: M::Offset,
     offset: Filesize,
     nread: WasmPtr<M::Offset, M>,
@@ -1207,9 +1219,8 @@ pub fn fd_pread<M: MemorySize>(
     let env = ctx.data();
     let (mut memory, mut state, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
 
-    let mut iovs = wasi_try_mem_ok!(iovs.slice(&memory, iovs_len));
-    let nread_ref = nread.deref(&memory);
-
+    let mut iovs = wasi_try_mem_ok!(ref_iovs.slice(&memory, iovs_len));
+    
     let fd_entry = wasi_try_ok!(state.fs.get_fd(fd));
     let is_non_blocking = fd_entry.flags.contains(Fdflags::NONBLOCK);
 
@@ -1244,6 +1255,7 @@ pub fn fd_pread<M: MemorySize>(
                                 .map_err(map_io_err)
                         );
                         memory = env.memory_view(&ctx);
+                        iovs = wasi_try_mem_ok!(ref_iovs.slice(&memory, iovs_len));
                         wasi_try_ok!(read_bytes(h.deref_mut(), &memory, iovs))
                     } else {
                         return Ok(Errno::Inval);
@@ -1262,6 +1274,7 @@ pub fn fd_pread<M: MemorySize>(
     };
 
     let bytes_read: M::Offset = wasi_try_ok!(bytes_read.try_into().map_err(|_| Errno::Overflow));
+    let nread_ref = nread.deref(&memory);
     wasi_try_mem_ok!(nread_ref.write(bytes_read));
     debug!("Success: {} bytes read", bytes_read);
     Ok(Errno::Success)
@@ -1376,90 +1389,97 @@ pub fn fd_pwrite<M: MemorySize>(
 ) -> Result<Errno, WasiError> {
     trace!("wasi[{}:{}]::fd_pwrite", ctx.data().pid(), ctx.data().tid());
     // TODO: refactor, this is just copied from `fd_write`...
-    let env = ctx.data();
-    let (mut memory, mut state, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
+    let mut env = ctx.data();
+    let state = env.state.clone();
+    let inodes = state.inodes.clone();
+    let mut memory = env.memory_view(&ctx);
     let iovs_arr = wasi_try_mem_ok!(iovs.slice(&memory, iovs_len));
     
     let fd_entry = wasi_try_ok!(state.fs.get_fd(fd));
-    let bytes_written = match fd {
-        __WASI_STDIN_FILENO => return Ok(Errno::Inval),
-        __WASI_STDOUT_FILENO => {
-            let mut stdout = wasi_try_ok!(
-                inodes
-                    .stdout_mut(&state.fs.fd_map)
-                    .map_err(fs_error_into_wasi_err)
-            );
-            wasi_try_ok!(write_bytes(stdout.deref_mut(), &memory, iovs_arr))
-        }
-        __WASI_STDERR_FILENO => {
-            let mut stderr = wasi_try_ok!(
-                inodes
-                    .stderr_mut(&state.fs.fd_map)
-                    .map_err(fs_error_into_wasi_err)
-            );
-            wasi_try_ok!(write_bytes(stderr.deref_mut(), &memory, iovs_arr))
-        }
-        _ => {
-            if !fd_entry.rights.contains(Rights::FD_WRITE | Rights::FD_SEEK) {
-                return Ok(Errno::Access);
+    let bytes_written = {
+        let inodes = inodes.read().unwrap();
+        match fd {
+            __WASI_STDIN_FILENO => return Ok(Errno::Inval),
+            __WASI_STDOUT_FILENO => {
+                let mut stdout = wasi_try_ok!(
+                    inodes
+                        .stdout_mut(&state.fs.fd_map)
+                        .map_err(fs_error_into_wasi_err)
+                );
+                wasi_try_ok!(write_bytes(stdout.deref_mut(), &memory, iovs_arr))
             }
+            __WASI_STDERR_FILENO => {
+                let mut stderr = wasi_try_ok!(
+                    inodes
+                        .stderr_mut(&state.fs.fd_map)
+                        .map_err(fs_error_into_wasi_err)
+                );
+                wasi_try_ok!(write_bytes(stderr.deref_mut(), &memory, iovs_arr))
+            }
+            _ => {
+                if !fd_entry.rights.contains(Rights::FD_WRITE | Rights::FD_SEEK) {
+                    return Ok(Errno::Access);
+                }
 
-            let inode_idx = fd_entry.inode;
-            let inode = &inodes.arena[inode_idx];
+                let inode_idx = fd_entry.inode;
+                let inode = &inodes.arena[inode_idx];
 
-            let mut guard = inode.write();
-            match guard.deref_mut() {
-                Kind::File { handle, .. } => {
-                    if let Some(handle) = handle {
-                        let mut handle = handle.write().unwrap();
-                        wasi_try_ok!(
-                            handle
-                                .seek(std::io::SeekFrom::Start(offset as u64))
-                                .map_err(map_io_err)
-                        );
-                        wasi_try_ok!(write_bytes(handle.deref_mut(), &memory, iovs_arr))
-                    } else {
-                        return Ok(Errno::Inval);
+                let mut guard = inode.write();
+                match guard.deref_mut() {
+                    Kind::File { handle, .. } => {
+                        if let Some(handle) = handle {
+                            let mut handle = handle.write().unwrap();
+                            wasi_try_ok!(
+                                handle
+                                    .seek(std::io::SeekFrom::Start(offset as u64))
+                                    .map_err(map_io_err)
+                            );
+                            wasi_try_ok!(write_bytes(handle.deref_mut(), &memory, iovs_arr))
+                        } else {
+                            return Ok(Errno::Inval);
+                        }
                     }
-                }
-                Kind::Socket { socket } => {
-                    let buf_len: M::Offset = iovs_arr
-                        .iter()
-                        .filter_map(|a| a.read().ok())
-                        .map(|a| a.buf_len)
-                        .sum();
-                    let buf_len: usize =
-                        wasi_try_ok!(buf_len.try_into().map_err(|_| Errno::Inval));
-                    let mut buf = Vec::with_capacity(buf_len);
-                    wasi_try_ok!(write_bytes(&mut buf, &memory, iovs_arr));
+                    Kind::Socket { socket } => {
+                        let buf_len: M::Offset = iovs_arr
+                            .iter()
+                            .filter_map(|a| a.read().ok())
+                            .map(|a| a.buf_len)
+                            .sum();
+                        let buf_len: usize =
+                            wasi_try_ok!(buf_len.try_into().map_err(|_| Errno::Inval));
+                        let mut buf = Vec::with_capacity(buf_len);
+                        wasi_try_ok!(write_bytes(&mut buf, &memory, iovs_arr));
 
-                    let socket = socket.clone();
-                    wasi_try_ok!(__asyncify(
-                        &mut ctx,
-                        None,
-                        async move { socket.send(buf).await }
-                    ))
-                }
-                Kind::Pipe { pipe } => {
-                    wasi_try_ok!(pipe.send(&memory, iovs_arr))
-                }
-                Kind::Dir { .. } | Kind::Root { .. } => {
-                    // TODO: verify
-                    return Ok(Errno::Isdir);
-                }
-                Kind::EventNotifications { .. } => return Ok(Errno::Inval),
-                Kind::Symlink { .. } => unimplemented!("Symlinks in wasi::fd_pwrite"),
-                Kind::Buffer { buffer } => {
-                    wasi_try_ok!(
-                        write_bytes(&mut buffer[(offset as usize)..], &memory, iovs_arr)
-                    )
+                        let socket = socket.clone();
+                        let ret = wasi_try_ok!(__asyncify(
+                            &mut ctx,
+                            None,
+                            async move { socket.send(buf).await }
+                        ));
+                        env = ctx.data();
+                        memory = env.memory_view(&ctx);
+                        ret
+                    }
+                    Kind::Pipe { pipe } => {
+                        let memory = env.memory_view(&ctx);
+                        wasi_try_ok!(pipe.send(&memory, iovs_arr))
+                    }
+                    Kind::Dir { .. } | Kind::Root { .. } => {
+                        // TODO: verify
+                        return Ok(Errno::Isdir);
+                    }
+                    Kind::EventNotifications { .. } => return Ok(Errno::Inval),
+                    Kind::Symlink { .. } => unimplemented!("Symlinks in wasi::fd_pwrite"),
+                    Kind::Buffer { buffer } => {
+                        wasi_try_ok!(
+                            write_bytes(&mut buffer[(offset as usize)..], &memory, iovs_arr)
+                        )
+                    }
                 }
             }
         }
     };
-    env = ctx.data();
-    memory = env.memory_view(&ctx);
-
+    
     let bytes_written: M::Offset =
         wasi_try_ok!(bytes_written.try_into().map_err(|_| Errno::Overflow));
     let nwritten_ref = nwritten.deref(&memory);
@@ -1510,7 +1530,6 @@ pub fn fd_read<M: MemorySize>(
 
     let fd_entry = wasi_try_ok!(state.fs.get_fd(fd));
     let bytes_read = {
-        let inodes = inodes.read().unwrap();
         if is_stdio == false {
             if !fd_entry.rights.contains(Rights::FD_READ) {
                 // TODO: figure out the error to return when lacking rights
@@ -1521,10 +1540,9 @@ pub fn fd_read<M: MemorySize>(
         let is_non_blocking = fd_entry.flags.contains(Fdflags::NONBLOCK);
         let offset = fd_entry.offset.load(Ordering::Acquire) as usize;
         let inode_idx = fd_entry.inode;
-        let inode = &inodes.arena[inode_idx];
-
+        
         let mut memory = env.memory_view(&ctx);
-        let iovs_arr = wasi_try_mem_ok!(iovs.slice(&memory, iovs_len));
+        let mut iovs_arr = wasi_try_mem_ok!(iovs.slice(&memory, iovs_len));
         let mut max_size = 0usize;
         for iovs in iovs_arr.iter() {
             let iovs = wasi_try_mem_ok!(iovs.read());
@@ -1534,6 +1552,8 @@ pub fn fd_read<M: MemorySize>(
         }
 
         let bytes_read = {
+            let inodes = inodes.read().unwrap();
+            let inode = &inodes.arena[inode_idx];
             let mut guard = inode.write();
             match guard.deref_mut() {
                 Kind::File { handle, .. } => {
@@ -1595,14 +1615,12 @@ pub fn fd_read<M: MemorySize>(
 
                     let data_len = data.len();
                     let mut reader = &data[..];
+                    iovs_arr = wasi_try_mem_ok!(iovs.slice(&memory, iovs_len));
                     let bytes_read =
                         wasi_try_ok!(read_bytes(reader, &memory, iovs_arr).map(|_| data_len));
                     bytes_read
                 }
                 Kind::Pipe { pipe } => {
-                    let mut memory = env.memory_view(&ctx);
-                    let iovs_arr = wasi_try_mem_ok!(iovs.slice(&memory, iovs_len));
-
                     let mut max_size = 0usize;
                     for iovs in iovs_arr.iter() {
                         let iovs = wasi_try_mem_ok!(iovs.read());
@@ -1611,6 +1629,7 @@ pub fn fd_read<M: MemorySize>(
                         max_size += buf_len;
                     }
 
+                    let pipe = pipe.clone();
                     let data = wasi_try_ok!(__asyncify(
                         &mut ctx,
                         if is_non_blocking {
@@ -1629,6 +1648,7 @@ pub fn fd_read<M: MemorySize>(
 
                     let data_len = data.len();
                     let mut reader = &data[..];
+                    iovs_arr = wasi_try_mem_ok!(iovs.slice(&memory, iovs_len));
                     let bytes_read =
                         wasi_try_ok!(read_bytes(reader, &memory, iovs_arr).map(|_| data_len));
                     bytes_read
@@ -1638,17 +1658,15 @@ pub fn fd_read<M: MemorySize>(
                     return Ok(Errno::Isdir);
                 }
                 Kind::EventNotifications {
-                    counter,
-                    is_semaphore,
-                    wakers,
+                    counter: ref_counter,
+                    is_semaphore: ref_is_semaphore,
+                    wakers: ref_wakers,
                     ..
                 } => {
-                    let counter = Arc::clone(counter);
-                    let is_semaphore: bool = *is_semaphore;
-                    let wakers = Arc::clone(wakers);
-                    drop(guard);
-                    drop(inodes);
-
+                    let counter = Arc::clone(ref_counter);
+                    let is_semaphore: bool = *ref_is_semaphore;
+                    let wakers = Arc::clone(ref_wakers);
+                    
                     let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
                     {
                         let mut guard = wakers.lock().unwrap();
@@ -1694,6 +1712,7 @@ pub fn fd_read<M: MemorySize>(
                             a => a,
                         }));
                         env = ctx.data();
+                        memory = env.memory_view(&ctx);
                     }
                     ret
                 }
@@ -2197,7 +2216,8 @@ pub fn fd_write<M: MemorySize>(
         fd
     );
     let mut env = ctx.data();
-    let (mut memory, mut state, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
+    let state = env.state.clone();
+    let mut memory = env.memory_view(&ctx);
     let iovs_arr = wasi_try_mem_ok!(iovs.slice(&memory, iovs_len));
     
     let fd_entry = wasi_try_ok!(state.fs.get_fd(fd));
@@ -2219,9 +2239,10 @@ pub fn fd_write<M: MemorySize>(
         let is_non_blocking = fd_entry.flags.contains(Fdflags::NONBLOCK);
         let offset = fd_entry.offset.load(Ordering::Acquire) as usize;
         let inode_idx = fd_entry.inode;
-        let inode = &inodes.arena[inode_idx];
-
+        
         let bytes_written = {
+            let (mut memory, _, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
+            let inode = &inodes.arena[inode_idx];
             let mut guard = inode.write();
             match guard.deref_mut() {
                 Kind::File { handle, .. } => {
@@ -2238,6 +2259,9 @@ pub fn fd_write<M: MemorySize>(
 
                         let handle = handle.clone();
                         let register_root_waker = env.tasks.register_root_waker();
+                        drop(inode);
+                        drop(guard);
+                        drop(inodes);
                         wasi_try_ok!(__asyncify(
                             &mut ctx,
                             if is_non_blocking {
@@ -2278,6 +2302,8 @@ pub fn fd_write<M: MemorySize>(
                     wasi_try_ok!(write_bytes(&mut buf, &memory, iovs_arr));
 
                     let socket = socket.clone();
+                    drop(guard);
+                    drop(inodes);
                     wasi_try_ok!(__asyncify(
                         &mut ctx,
                         None,
@@ -2336,11 +2362,13 @@ pub fn fd_write<M: MemorySize>(
 
             // we set the size but we don't return any errors if it fails as
             // pipes and sockets will not do anything with this
+            let (mut memory, _, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
             let _ = state.fs.filestat_resync_size(inodes.deref(), fd);
         }
         bytes_written
     };
 
+    let memory = env.memory_view(&ctx);
     let nwritten_ref = nwritten.deref(&memory);
     let bytes_written: M::Offset =
         wasi_try_ok!(bytes_written.try_into().map_err(|_| Errno::Overflow));
@@ -2571,7 +2599,7 @@ pub fn path_filestat_get<M: MemorySize>(
     let env = ctx.data();
     let (memory, mut state, mut inodes) = env.get_memory_and_wasi_state_and_inodes_mut(&ctx, 0);
 
-    let path_string = unsafe { get_input_str!(&memory, path, path_len) };
+    let mut path_string = unsafe { get_input_str!(&memory, path, path_len) };
     debug!(
         "wasi[{}:{}]::path_filestat_get (fd={}, path={})",
         ctx.data().pid(),
@@ -3991,7 +4019,7 @@ pub fn poll_oneoff<M: MemorySize>(
     };
 
     // Block on the work and process process
-    let env = ctx.data();
+    let mut env = ctx.data();
     let mut ret = __asyncify(
         &mut ctx,
         time_to_sleep,
@@ -4146,7 +4174,7 @@ pub fn thread_signal(
 
     let env = ctx.data();
 
-    wasi_try_ok!(ctx.data().process_signals_and_exit(&mut ctx)?);
+    wasi_try_ok!(ctx.data().clone().process_signals_and_exit(&mut ctx)?);
 
     Ok(Errno::Success)
 }
@@ -4186,7 +4214,7 @@ pub fn proc_raise(
     let env = ctx.data();
     env.process.signal_process(sig);
 
-    wasi_try_ok!(ctx.data().process_signals_and_exit(&mut ctx)?);
+    wasi_try_ok!(ctx.data().clone().process_signals_and_exit(&mut ctx)?);
 
     Ok(Errno::Success)
 }
@@ -4220,7 +4248,7 @@ pub fn proc_raise_interval(
     };
     env.process.signal_interval(sig, interval, repeat);
 
-    wasi_try_ok!(ctx.data().process_signals_and_exit(&mut ctx)?);
+    wasi_try_ok!(ctx.data().clone().process_signals_and_exit(&mut ctx)?);
 
     Ok(Errno::Success)
 }
@@ -4228,7 +4256,7 @@ pub fn proc_raise_interval(
 /// ### `sched_yield()`
 /// Yields execution of the thread
 pub fn sched_yield(
-    ctx: FunctionEnvMut<'_, WasiEnv>
+    mut ctx: FunctionEnvMut<'_, WasiEnv>
 ) -> Result<Errno, WasiError> {
     //trace!("wasi[{}:{}]::sched_yield", ctx.data().pid(), ctx.data().tid());
     let env = ctx.data();
@@ -4240,7 +4268,7 @@ pub fn sched_yield(
             tasks.sleep_now(current_caller_id(), 0).await;
             Ok(())
         }));
-    wasi_try_ok!(ctx.data().process_signals_and_exit(&mut ctx)?);
+    wasi_try_ok!(ctx.data().clone().process_signals_and_exit(&mut ctx)?);
     Ok(Errno::Success)
 }
 
@@ -4885,7 +4913,7 @@ pub fn proc_signal<M: MemorySize>(
         process.signal_process(sig);
     }
 
-    wasi_try_ok!(ctx.data().process_signals_and_exit(&mut ctx)?);
+    wasi_try_ok!(ctx.data().clone().process_signals_and_exit(&mut ctx)?);
 
     Ok(Errno::Success)
 }
@@ -5181,7 +5209,7 @@ pub fn callback_signal<M: MemorySize>(
         inner.signal_set = true;
     }
 
-    let _ = ctx.data().process_signals_and_exit(&mut ctx)?;
+    let _ = ctx.data().clone().process_signals_and_exit(&mut ctx)?;
     
     Ok(())
 }
@@ -5652,7 +5680,7 @@ pub fn thread_sleep(
         ctx.data().tid()
     );
     */
-    wasi_try_ok!(ctx.data().process_signals_and_exit(&mut ctx)?);
+    wasi_try_ok!(ctx.data().clone().process_signals_and_exit(&mut ctx)?);
     let env = ctx.data();
 
     #[cfg(feature = "sys-thread")]
@@ -5770,7 +5798,7 @@ pub fn thread_parallelism<M: MemorySize>(
 /// * `expected` - Expected value that should be currently held at the memory location
 /// * `timeout` - Timeout should the futex not be triggered in the allocated time
 pub fn futex_wait<M: MemorySize>(
-    ctx: FunctionEnvMut<'_, WasiEnv>,
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
     futex_ptr: WasmPtr<u32, M>,
     expected: u32,
     timeout: WasmPtr<OptionTimestamp, M>,
@@ -5816,7 +5844,7 @@ pub fn futex_wait<M: MemorySize>(
     let mut woken = Bool::False;
     let start = platform_clock_time_get(Snapshot0Clockid::Monotonic, 1).unwrap() as u128;
     loop {
-        let rx = {
+        let mut rx = {
             let futex_lock = futex.inner.lock().unwrap();
             // If the value of the memory is no longer the expected value
             // then terminate from the loop (we do this under a futex lock
@@ -6969,7 +6997,7 @@ pub fn proc_join<M: MemorySize>(
 
     // If the ID is maximum then it means wait for any of the children
     if pid == u32::MAX {
-        let process = ctx.data_mut().process.clone();
+        let mut process = ctx.data_mut().process.clone();
         let child_exit = wasi_try_ok!(__asyncify(
             &mut ctx,
             None,
@@ -7203,7 +7231,7 @@ pub fn bus_close(ctx: FunctionEnvMut<'_, WasiEnv>, bid: Bid) -> BusErrno {
 /// * `format` - Format of the data pushed onto the bus
 /// * `buf` - The buffer where data to be transmitted is stored
 pub fn bus_call<M: MemorySize>(
-    ctx: FunctionEnvMut<'_, WasiEnv>,
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
     bid: Bid,
     topic_hash: WasmPtr<WasiHash>,
     format: __wasi_busdataformat_t,
@@ -7299,7 +7327,7 @@ pub fn bus_call<M: MemorySize>(
 /// * `format` - Format of the data pushed onto the bus
 /// * `buf` - The buffer where data to be transmitted is stored
 pub fn bus_subcall<M: MemorySize>(
-    ctx: FunctionEnvMut<'_, WasiEnv>,
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
     parent_cid: Cid,
     topic_hash: WasmPtr<WasiHash>,
     format: __wasi_busdataformat_t,
@@ -7307,9 +7335,9 @@ pub fn bus_subcall<M: MemorySize>(
     buf_len: M::Offset,
     ret_cid: WasmPtr<Cid, M>,
 ) -> Result<BusErrno, WasiError> {
-    let env = ctx.data();
+    let mut env = ctx.data();
     let bus = env.runtime.bus();
-    let memory = env.memory_view(&ctx);
+    let mut memory = env.memory_view(&ctx);
     let topic_hash = wasi_try_mem_bus_ok!(topic_hash.read(&memory));
     let buf_slice = wasi_try_mem_bus_ok!(buf.slice(&memory, buf_len));
     trace!(
@@ -7418,9 +7446,9 @@ fn conv_bus_format_from(format: __wasi_busdataformat_t) -> BusDataFormat {
 /// Returns the number of events that have occured
 #[cfg(feature = "os")]
 pub fn bus_poll<M: MemorySize>(
-    ctx: FunctionEnvMut<'_, WasiEnv>,
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
     timeout: Timestamp,
-    events: WasmPtr<__wasi_busevent_t, M>,
+    ref_events: WasmPtr<__wasi_busevent_t, M>,
     maxevents: M::Offset,
     ret_nevents: WasmPtr<M::Offset, M>,
 ) -> Result<BusErrno, WasiError> {
@@ -7438,7 +7466,7 @@ pub fn bus_poll<M: MemorySize>(
 
     // Lets start by processing events for calls that are already running
     let mut nevents = M::ZERO;
-    let events = wasi_try_mem_bus_ok!(events.slice(&memory, maxevents));
+    let mut events = wasi_try_mem_bus_ok!(ref_events.slice(&memory, maxevents));
 
     let state = env.state.clone();
     let start = platform_clock_time_get(Snapshot0Clockid::Monotonic, 1_000_000).unwrap() as u128;
@@ -7537,6 +7565,7 @@ pub fn bus_poll<M: MemorySize>(
 
                         let nevents64: u64 =
                             wasi_try_bus_ok!(nevents.try_into().map_err(|_| BusErrno::Internal));
+                        events = wasi_try_mem_bus_ok!(ref_events.slice(&memory, maxevents));
                         wasi_try_mem_bus_ok!(events.write(nevents64, evt));
 
                         nevents += M::ONE;
@@ -7623,6 +7652,7 @@ pub fn bus_poll<M: MemorySize>(
                                 };
                                 let evt = unsafe { std::mem::transmute(evt) };
 
+                                events = wasi_try_mem_bus_ok!(ref_events.slice(&memory, maxevents));
                                 let nevents64: u64 = wasi_try_bus_ok!(nevents
                                     .try_into()
                                     .map_err(|_| BusErrno::Internal));
@@ -7683,6 +7713,7 @@ pub fn bus_poll<M: MemorySize>(
                                 };
                                 let event = unsafe { std::mem::transmute(event) };
 
+                                events = wasi_try_mem_bus_ok!(ref_events.slice(&memory, maxevents));
                                 let nevents64: u64 = wasi_try_bus_ok!(nevents
                                     .try_into()
                                     .map_err(|_| BusErrno::Internal));
@@ -7747,6 +7778,7 @@ pub fn bus_poll<M: MemorySize>(
                 };
                 let event = unsafe { std::mem::transmute(event) };
 
+                events = wasi_try_mem_bus_ok!(ref_events.slice(&memory, maxevents));
                 let nevents64: u64 =
                     wasi_try_bus_ok!(nevents.try_into().map_err(|_| BusErrno::Internal));
                 wasi_try_mem_bus_ok!(events.write(nevents64, event));
@@ -7775,7 +7807,7 @@ pub fn bus_poll<M: MemorySize>(
                 return Ok(BusErrno::Success);
             }
 
-            let _ = ctx.data().process_signals_and_exit(&mut ctx)?;
+            let _ = ctx.data().clone().process_signals_and_exit(&mut ctx)?;
             env = ctx.data();
             memory = env.memory_view(&ctx);
 
@@ -7993,7 +8025,7 @@ pub fn ws_connect<M: MemorySize>(
 /// The body of the response can be streamed from the returned
 /// file handle
 pub fn http_request<M: MemorySize>(
-    ctx: FunctionEnvMut<'_, WasiEnv>,
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
     url: WasmPtr<u8, M>,
     url_len: M::Offset,
     method: WasmPtr<u8, M>,
@@ -8121,7 +8153,7 @@ pub fn http_request<M: MemorySize>(
 pub fn http_status<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
-    status: WasmPtr<HttpStatus, M>,
+    ref_status: WasmPtr<HttpStatus, M>,
 ) -> Errno {
     debug!(
         "wasi[{}:{}]::http_status",
@@ -8131,8 +8163,7 @@ pub fn http_status<M: MemorySize>(
 
     let mut env = ctx.data();
     let mut memory = env.memory_view(&ctx);
-    let ref_status = status.deref(&memory);
-
+    
     let http_status = wasi_try!(__sock_actor(
         &mut ctx,
         sock,
@@ -8153,6 +8184,7 @@ pub fn http_status<M: MemorySize>(
         status: http_status.status,
     };
 
+    let ref_status = ref_status.deref(&memory);
     wasi_try_mem!(ref_status.write(status));
 
     Errno::Success
@@ -8527,7 +8559,7 @@ pub fn sock_shutdown(
         &mut ctx,
         sock,
         Rights::SOCK_SHUTDOWN,
-        move |socket| async move {
+        move |mut socket| async move {
             socket.shutdown(how).await
         }
     ));
@@ -8759,7 +8791,7 @@ pub fn sock_set_opt_flag(
         &mut ctx,
         sock,
         Rights::empty(),
-        move |socket| async move {
+        move |mut socket| async move {
             socket.set_opt_flag(option, flag)
         }
     ));
@@ -8955,7 +8987,7 @@ pub fn sock_set_opt_size(
         &mut ctx,
         sock,
         Rights::empty(),
-        move |socket| async move {
+        move |mut socket| async move {
             match opt {
                 Sockoption::RecvBufSize => socket.set_recv_buf_size(size as usize),
                 Sockoption::SendBufSize => socket.set_send_buf_size(size as usize),
@@ -9146,7 +9178,7 @@ pub fn sock_leave_multicast_v6<M: MemorySize>(
         &mut ctx,
         sock,
         Rights::empty(),
-        move |socket| async move {
+        move |mut socket| async move {
             socket.leave_multicast_v6(multiaddr, iface).await
         }
     ));
@@ -9325,7 +9357,7 @@ pub fn sock_connect<M: MemorySize>(
         &mut ctx,
         sock,
         Rights::SOCK_CONNECT,
-        move |socket| async move { socket.connect(net, addr).await }
+        move |mut socket| async move { socket.connect(net, addr).await }
     ));
     Errno::Success
 }
@@ -9360,7 +9392,7 @@ pub fn sock_recv<M: MemorySize>(
     );
     let mut env = ctx.data();
     let mut memory = env.memory_view(&ctx);
-    let iovs_arr = wasi_try_mem_ok!(ri_data.slice(&memory, ri_data_len));
+    let mut iovs_arr = wasi_try_mem_ok!(ri_data.slice(&memory, ri_data_len));
 
     let mut max_size = 0usize;
     for iovs in iovs_arr.iter() {
@@ -9379,6 +9411,7 @@ pub fn sock_recv<M: MemorySize>(
     ));
     env = ctx.data();
     memory = env.memory_view(&ctx);
+    iovs_arr = wasi_try_mem_ok!(ri_data.slice(&memory, ri_data_len));
 
     let data_len = data.len();
     let mut reader = &data[..];
@@ -9423,7 +9456,7 @@ pub fn sock_recv_from<M: MemorySize>(
 
     let mut env = ctx.data();
     let mut memory = env.memory_view(&ctx);
-    let iovs_arr = wasi_try_mem_ok!(ri_data.slice(&memory, ri_data_len));
+    let mut iovs_arr = wasi_try_mem_ok!(ri_data.slice(&memory, ri_data_len));
 
     let mut max_size = 0usize;
     for iovs in iovs_arr.iter() {
@@ -9442,6 +9475,7 @@ pub fn sock_recv_from<M: MemorySize>(
     ));
     env = ctx.data();
     memory = env.memory_view(&ctx);
+    iovs_arr = wasi_try_mem_ok!(ri_data.slice(&memory, ri_data_len));
 
     wasi_try_ok!(write_ip_port(&memory, ro_addr, peer.ip(), peer.port()));
 
@@ -9610,8 +9644,8 @@ pub fn sock_send_file<M: MemorySize>(
     let mut env = ctx.data();
     let net = env.net();
     let tasks = env.tasks.clone();
-    let (mut memory, mut state, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
-
+    let state = env.state.clone();
+    
     // Set the offset of the file
     {
         let mut fd_map = state.fs.fd_map.write().unwrap();
@@ -9627,85 +9661,89 @@ pub fn sock_send_file<M: MemorySize>(
         count -= sub_count;
 
         let fd_entry = wasi_try_ok!(state.fs.get_fd(in_fd));
-        let bytes_read = match in_fd {
-            __WASI_STDIN_FILENO => {
-                let mut stdin = wasi_try_ok!(
-                    inodes
-                        .stdin_mut(&state.fs.fd_map)
-                        .map_err(fs_error_into_wasi_err)
-                );
-                wasi_try_ok!(stdin.read(&mut buf).map_err(map_io_err))
-            }
-            __WASI_STDOUT_FILENO | __WASI_STDERR_FILENO => return Ok(Errno::Inval),
-            _ => {
-                if !fd_entry.rights.contains(Rights::FD_READ) {
-                    // TODO: figure out the error to return when lacking rights
-                    return Ok(Errno::Access);
+        let bytes_read = {
+            let (memory, _, mut inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
+            match in_fd {
+                __WASI_STDIN_FILENO => {
+                    let mut stdin = wasi_try_ok!(
+                        inodes
+                            .stdin_mut(&state.fs.fd_map)
+                            .map_err(fs_error_into_wasi_err)
+                    );
+                    wasi_try_ok!(stdin.read(&mut buf).map_err(map_io_err))
                 }
+                __WASI_STDOUT_FILENO | __WASI_STDERR_FILENO => return Ok(Errno::Inval),
+                _ => {
+                    if !fd_entry.rights.contains(Rights::FD_READ) {
+                        // TODO: figure out the error to return when lacking rights
+                        return Ok(Errno::Access);
+                    }
 
-                let offset = fd_entry.offset.load(Ordering::Acquire) as usize;
-                let inode_idx = fd_entry.inode;
-                let inode = &inodes.arena[inode_idx];
+                    let offset = fd_entry.offset.load(Ordering::Acquire) as usize;
+                    let inode_idx = fd_entry.inode;
+                    let inode = &inodes.arena[inode_idx];
 
-                let bytes_read = {
-                    let mut guard = inode.write();
-                    match guard.deref_mut() {
-                        Kind::File { handle, .. } => {
-                            if let Some(handle) = handle {
-                                let mut handle = handle.write().unwrap();
-                                wasi_try_ok!(
-                                    handle
-                                        .seek(std::io::SeekFrom::Start(offset as u64))
-                                        .map_err(map_io_err)
-                                );
-                                wasi_try_ok!(handle.read(&mut buf).map_err(map_io_err))
-                            } else {
+                    let bytes_read = {
+                        let mut guard = inode.write();
+                        match guard.deref_mut() {
+                            Kind::File { handle, .. } => {
+                                if let Some(handle) = handle {
+                                    let mut handle = handle.write().unwrap();
+                                    wasi_try_ok!(
+                                        handle
+                                            .seek(std::io::SeekFrom::Start(offset as u64))
+                                            .map_err(map_io_err)
+                                    );
+                                    wasi_try_ok!(handle.read(&mut buf).map_err(map_io_err))
+                                } else {
+                                    return Ok(Errno::Inval);
+                                }
+                            }
+                            Kind::Socket { socket } => {
+                                let socket = socket.clone();
+                                let tasks = tasks.clone();
+                                let max_size = buf.len();
+                                drop(guard);
+                                drop(inodes);
+                                let data =
+                                    wasi_try_ok!(__asyncify(
+                                        &mut ctx,
+                                        None,
+                                        async move {
+                                            socket.recv(max_size).await
+                                        }
+                                    ));
+                                env = ctx.data();
+                                
+                                buf.copy_from_slice(&data[..]);
+                                data.len()
+                            }
+                            Kind::Pipe { pipe } => {
+                                wasi_try_ok!(pipe.read(&mut buf).map_err(map_io_err))
+                            }
+                            Kind::Dir { .. } | Kind::Root { .. } => {
+                                return Ok(Errno::Isdir);
+                            }
+                            Kind::EventNotifications { .. } => {
                                 return Ok(Errno::Inval);
                             }
+                            Kind::Symlink { .. } => unimplemented!("Symlinks in wasi::fd_read"),
+                            Kind::Buffer { buffer } => {
+                                let mut buf_read = &buffer[offset..];
+                                wasi_try_ok!(buf_read.read(&mut buf).map_err(map_io_err))
+                            }
                         }
-                        Kind::Socket { socket } => {
-                            let socket = socket.clone();
-                            let tasks = tasks.clone();
-                            let max_size = buf.len();
-                            let data =
-                                wasi_try_ok!(__asyncify(
-                                    &mut ctx,
-                                    None,
-                                    async move {
-                                        socket.recv(max_size).await
-                                    }
-                                ));
-                            env = ctx.data();
-                            memory = env.memory_view(&ctx);
+                    };
 
-                            buf.copy_from_slice(&data[..]);
-                            data.len()
-                        }
-                        Kind::Pipe { pipe } => {
-                            wasi_try_ok!(pipe.read(&mut buf).map_err(map_io_err))
-                        }
-                        Kind::Dir { .. } | Kind::Root { .. } => {
-                            return Ok(Errno::Isdir);
-                        }
-                        Kind::EventNotifications { .. } => {
-                            return Ok(Errno::Inval);
-                        }
-                        Kind::Symlink { .. } => unimplemented!("Symlinks in wasi::fd_read"),
-                        Kind::Buffer { buffer } => {
-                            let mut buf_read = &buffer[offset..];
-                            wasi_try_ok!(buf_read.read(&mut buf).map_err(map_io_err))
-                        }
-                    }
-                };
+                    // reborrow
+                    let mut fd_map = state.fs.fd_map.write().unwrap();
+                    let fd_entry = wasi_try_ok!(fd_map.get_mut(&in_fd).ok_or(Errno::Badf));
+                    fd_entry
+                        .offset
+                        .fetch_add(bytes_read as u64, Ordering::AcqRel);
 
-                // reborrow
-                let mut fd_map = state.fs.fd_map.write().unwrap();
-                let fd_entry = wasi_try_ok!(fd_map.get_mut(&in_fd).ok_or(Errno::Badf));
-                fd_entry
-                    .offset
-                    .fetch_add(bytes_read as u64, Ordering::AcqRel);
-
-                bytes_read
+                    bytes_read
+                }
             }
         };
 
@@ -9720,11 +9758,11 @@ pub fn sock_send_file<M: MemorySize>(
             }
         ));
         env = ctx.data();
-        memory = env.memory_view(&ctx);
             
         total_written += bytes_written as u64;
     }
 
+    let memory = env.memory_view(&ctx);
     wasi_try_mem_ok!(ret_sent.write(&memory, total_written as Filesize));
 
     Ok(Errno::Success)
@@ -9761,8 +9799,7 @@ pub fn resolve<M: MemorySize>(
     let mut env = ctx.data();
     let mut memory = env.memory_view(&ctx);
     let host_str = unsafe { get_input_str!(&memory, host, host_len) };
-    let addrs = wasi_try_mem!(addrs.slice(&memory, wasi_try!(to_offset::<M>(naddrs))));
-
+    
     debug!(
         "wasi[{}:{}]::resolve (host={})",
         ctx.data().pid(),
@@ -9785,8 +9822,9 @@ pub fn resolve<M: MemorySize>(
     ));
     env = ctx.data();
     memory = env.memory_view(&ctx);
-
+    
     let mut idx = 0;
+    let addrs = wasi_try_mem!(addrs.slice(&memory, wasi_try!(to_offset::<M>(naddrs))));
     for found_ip in found_ips.iter().take(naddrs) {
         super::state::write_ip(&memory, addrs.index(idx).as_ptr::<M>(), *found_ip);
         idx += 1;

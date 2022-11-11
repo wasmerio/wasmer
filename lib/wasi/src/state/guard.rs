@@ -104,6 +104,7 @@ impl std::fmt::Debug for InodeValFilePollGuard {
 }
 
 impl InodeValFilePollGuard {
+    #[allow(dead_code)]
     pub fn bytes_available_read(&self) -> wasmer_vfs::Result<Option<usize>> {
         match &self.mode {
             InodeValFilePollGuardMode::File(file) => {
@@ -120,6 +121,7 @@ impl InodeValFilePollGuard {
         }
     }
 
+    #[allow(dead_code)]
     pub fn bytes_available_write(&self) -> wasmer_vfs::Result<Option<usize>> {
         match &self.mode {
             InodeValFilePollGuardMode::File(file) => {
@@ -140,6 +142,7 @@ impl InodeValFilePollGuard {
         }
     }
 
+    #[allow(dead_code)]
     pub fn is_open(&self) -> bool {
         match &self.mode {
             InodeValFilePollGuardMode::File(file) => {

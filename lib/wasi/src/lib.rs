@@ -65,9 +65,10 @@ pub use wasmer_compiler_singlepass;
 use wasmer_wasi_types::wasi::{Errno, Signal, ExitCode, BusErrno, Snapshot0Clockid};
 
 pub use crate::state::{
-    default_fs_backing, Fd, Pipe, WasiControlPlane, WasiFs, WasiInodes, WasiPipe, WasiProcess,
+    default_fs_backing, Fd, Pipe, WasiControlPlane, WasiFs, WasiInodes, WasiProcess,
     WasiProcessId, WasiState, WasiStateBuilder, WasiStateCreationError, WasiThread,
     WasiThreadHandle, WasiThreadId, ALL_RIGHTS, VIRTUAL_ROOT_FD,
+    WasiPipe, WasiBidirectionalPipePair, WasiBidirectionalSharedPipePair
 };
 pub use crate::syscalls::types;
 pub use crate::utils::{
