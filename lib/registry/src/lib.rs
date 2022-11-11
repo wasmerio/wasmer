@@ -1327,7 +1327,7 @@ pub fn get_checksum_hash(bytes: &[u8]) -> String {
 pub fn get_remote_webc_checksum(url: &Url) -> Result<String, anyhow::Error> {
     let request_max_bytes = webc::WebC::get_signature_offset_start() + 4 + 1024 + 8 + 8;
     let data = get_webc_bytes(url, Some(0..request_max_bytes)).context("get_webc_bytes failed")?;
-    let mut checksum = webc::WebC::get_checksum_bytes(&data)
+    let checksum = webc::WebC::get_checksum_bytes(&data)
         .map_err(|e| anyhow::anyhow!("{e}"))
         .context("get_checksum_bytes failed")?
         .to_vec();
@@ -1340,7 +1340,7 @@ pub fn get_remote_webc_manifest(url: &Url) -> Result<RemoteWebcInfo, anyhow::Err
     // Request up unti manifest size / manifest len
     let request_max_bytes = webc::WebC::get_signature_offset_start() + 4 + 1024 + 8 + 8;
     let data = get_webc_bytes(url, Some(0..request_max_bytes))?;
-    let mut checksum = webc::WebC::get_checksum_bytes(&data)
+    let checksum = webc::WebC::get_checksum_bytes(&data)
         .map_err(|e| anyhow::anyhow!("{e}"))
         .context("WebC::get_checksum_bytes failed")?
         .to_vec();
