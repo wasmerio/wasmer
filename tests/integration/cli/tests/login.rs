@@ -8,6 +8,7 @@ fn login_works() -> anyhow::Result<()> {
     let wapm_dev_token = std::env::var("WAPM_DEV_TOKEN").expect("WAPM_DEV_TOKEN env var not set");
     let output = Command::new(get_wasmer_path())
         .arg("login")
+        .arg("--registry")
         .arg("wapm.dev")
         .arg(wapm_dev_token)
         .output()?;

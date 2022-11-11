@@ -5,8 +5,8 @@ use dialoguer::Input;
 #[derive(Debug, Clone, Parser)]
 pub struct Login {
     /// Registry to log into (default: wapm.io)
-    #[clap(name = "REGISTRY")]
-    pub registry: Option<String>,
+    #[clap(long, default_value = "wapm.io")]
+    pub registry: String,
     /// Login token
     #[clap(name = "TOKEN")]
     pub token: Option<String>,
@@ -25,11 +25,7 @@ impl Login {
     /// execute [List]
     pub fn execute(&self) -> Result<(), anyhow::Error> {
         let token = self.get_token_or_ask_user()?;
-        let registry = self
-            .registry
-            .as_deref()
-            .unwrap_or("https://registry.wapm.io");
-        wasmer_registry::login::login_and_save_token(registry, &token)
+        wasmer_registry::login::login_and_save_token(&self.registry, &token)
             .map_err(|e| anyhow::anyhow!("{e}"))
     }
 }
