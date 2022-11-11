@@ -1,9 +1,18 @@
 use graphql_client::GraphQLQuery;
 use serde::Deserialize;
 use serde::Serialize;
+#[cfg(test)]
+use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::env;
 use std::path::PathBuf;
+
+#[cfg(test)]
+thread_local! {
+    /// The string is the contents of the manifest, the Option is whether or not the manifest exists.
+    /// Used to mock reading and writing the manifest to the file system.
+    pub static RAW_CONFIG_DATA: RefCell<Option<String>> = RefCell::new(None);
+}
 
 pub static GLOBAL_CONFIG_FILE_NAME: &str = if cfg!(target_os = "wasi") {
     "/.private/wapm.toml"
@@ -247,7 +256,7 @@ impl Registries {
 
 impl PartialWapmConfig {
     /// Save the config to a file
-    #[cfg(not(feature = "integration_tests"))]
+    #[cfg(not(test))]
     pub fn save(&self) -> anyhow::Result<()> {
         use std::{fs::File, io::Write};
         let path = Self::get_file_location().map_err(|e| anyhow::anyhow!("{e}"))?;
@@ -258,10 +267,10 @@ impl PartialWapmConfig {
     }
 
     /// A mocked version of the standard function for integration tests
-    #[cfg(feature = "integration_tests")]
+    #[cfg(test)]
     pub fn save(&self) -> anyhow::Result<()> {
         let config_serialized = toml::to_string(&self)?;
-        crate::integration_tests::data::RAW_CONFIG_DATA.with(|rcd| {
+        RAW_CONFIG_DATA.with(|rcd| {
             *rcd.borrow_mut() = Some(config_serialized);
         });
 
