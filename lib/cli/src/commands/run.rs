@@ -933,7 +933,7 @@ fn try_run_url(url: &Url, _args: &[String], r: &Run, _debug: bool) -> Result<(),
     }
 
     let webc_install_path = wasmer_registry::get_webc_dir()
-        .ok_or_else(|| anyhow::anyhow!("Error installing package: webc download failed"))?
+        .context("Error installing package: no webc dir")?
         .join(checksum);
 
     let mut r = r.clone();

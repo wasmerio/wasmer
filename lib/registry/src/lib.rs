@@ -5,6 +5,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
+use anyhow::Context;
 use reqwest::header::ACCEPT;
 use reqwest::header::RANGE;
 use serde::Deserialize;
@@ -1195,7 +1196,7 @@ pub struct RemoteWebcInfo {
     pub manifest: webc::Manifest,
 }
 
-pub fn install_webc_package(url: &Url, checksum: &str) -> Result<(), String> {
+pub fn install_webc_package(url: &Url, checksum: &str) -> Result<(), anyhow::Error> {
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()
@@ -1203,31 +1204,36 @@ pub fn install_webc_package(url: &Url, checksum: &str) -> Result<(), String> {
         .block_on(async { install_webc_package_inner(url, checksum).await })
 }
 
-async fn install_webc_package_inner(url: &Url, checksum: &str) -> Result<(), String> {
+async fn install_webc_package_inner(url: &Url, checksum: &str) -> Result<(), anyhow::Error> {
     use futures_util::StreamExt;
 
-    let path = get_webc_dir().ok_or_else(|| "no webc dir".to_string())?;
+    let path = get_webc_dir().ok_or_else(|| anyhow::anyhow!("no webc dir"))?;
 
     let _ = std::fs::create_dir_all(&path);
 
     let webc_path = path.join(checksum);
 
-    let mut file =
-        std::fs::File::create(&webc_path).map_err(|e| format!("{}: {e}", webc_path.display()))?;
+    let mut file = std::fs::File::create(&webc_path)
+        .map_err(|e| anyhow::anyhow!("{e}"))
+        .context(anyhow::anyhow!("{}", webc_path.display()))?;
 
     let client = {
         let builder = reqwest::Client::builder();
 
         #[cfg(not(target_os = "wasi"))]
-        let builder = if let Some(proxy) =
-            crate::graphql::proxy::maybe_set_up_proxy().map_err(|e| format!("{e}"))?
+        let builder = if let Some(proxy) = crate::graphql::proxy::maybe_set_up_proxy()
+            .map_err(|e| anyhow::anyhow!("{e}"))
+            .context("install_webc_package: failed to setup proxy for reqwest Client")?
         {
             builder.proxy(proxy)
         } else {
             builder
         };
 
-        builder.build().map_err(|e| format!("{e}"))?
+        builder
+            .build()
+            .map_err(|e| anyhow::anyhow!("{e}"))
+            .context("install_webc_package: failed to build reqwest Client")?
     };
 
     let res = client
@@ -1235,13 +1241,21 @@ async fn install_webc_package_inner(url: &Url, checksum: &str) -> Result<(), Str
         .header(ACCEPT, "application/webc")
         .send()
         .await
-        .map_err(|e| format!("{e}"))?;
+        .map_err(|e| anyhow::anyhow!("{e}"))
+        .context(anyhow::anyhow!("install_webc_package: failed to GET {url}"))?;
 
     let mut stream = res.bytes_stream();
 
     while let Some(item) = stream.next().await {
-        let item = item.map_err(|e| format!("{e}"))?;
-        file.write_all(&item).map_err(|e| format!("{e}"))?;
+        let item = item
+            .map_err(|e| anyhow::anyhow!("{e}"))
+            .context(anyhow::anyhow!("install_webc_package: failed to GET {url}"))?;
+        file.write_all(&item)
+            .map_err(|e| anyhow::anyhow!("{e}"))
+            .context(anyhow::anyhow!(
+                "install_webc_package: failed to write chunk to {}",
+                webc_path.display()
+            ))?;
     }
 
     Ok(())
