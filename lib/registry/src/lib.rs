@@ -42,6 +42,37 @@ pub mod graphql {
             ConnectionError(String),
         }
 
+        pub fn maybe_set_up_proxy_blocking(
+            builder: reqwest::blocking::ClientBuilder,
+        ) -> anyhow::Result<reqwest::blocking::ClientBuilder> {
+            #[cfg(not(target_os = "wasi"))]
+            use anyhow::Context;
+            #[cfg(not(target_os = "wasi"))]
+            if let Some(proxy) = maybe_set_up_proxy_inner()
+                .map_err(|e| anyhow::anyhow!("{e}"))
+                .context("install_webc_package: failed to setup proxy for reqwest Client")?
+            {
+                return Ok(builder.proxy(proxy));
+            }
+            Ok(builder)
+        }
+
+        #[must_use]
+        pub fn maybe_set_up_proxy(
+            builder: reqwest::ClientBuilder,
+        ) -> anyhow::Result<reqwest::ClientBuilder> {
+            #[cfg(not(target_os = "wasi"))]
+            use anyhow::Context;
+            #[cfg(not(target_os = "wasi"))]
+            if let Some(proxy) = maybe_set_up_proxy_inner()
+                .map_err(|e| anyhow::anyhow!("{e}"))
+                .context("install_webc_package: failed to setup proxy for reqwest Client")?
+            {
+                return Ok(builder.proxy(proxy));
+            }
+            Ok(builder)
+        }
+
         /// Tries to set up a proxy
         ///
         /// This function reads from wapm config's `proxy.url` first, then checks
@@ -54,7 +85,7 @@ pub mod graphql {
         /// A return value of `Ok(None)` means that there was no attempt to set up a proxy,
         /// `Ok(Some(proxy))` means that the proxy was set up successfully, and `Err(e)` that
         /// there was a failure while attempting to set up the proxy.
-        pub fn maybe_set_up_proxy() -> anyhow::Result<Option<reqwest::Proxy>> {
+        fn maybe_set_up_proxy_inner() -> anyhow::Result<Option<reqwest::Proxy>> {
             use std::env;
             let proxy = if let Ok(proxy_url) =
                 env::var("ALL_PROXY").or_else(|_| env::var("all_proxy"))
@@ -142,13 +173,7 @@ pub mod graphql {
     {
         let client = {
             let builder = Client::builder();
-
-            #[cfg(not(target_os = "wasi"))]
-            let builder = if let Some(proxy) = proxy::maybe_set_up_proxy()? {
-                builder.proxy(proxy)
-            } else {
-                builder
-            };
+            let builder = proxy::maybe_set_up_proxy_blocking(builder)?;
             builder.build()?
         };
 
@@ -201,13 +226,7 @@ pub mod graphql {
     {
         let client = {
             let builder = Client::builder();
-
-            #[cfg(not(target_os = "wasi"))]
-            let builder = if let Some(proxy) = proxy::maybe_set_up_proxy()? {
-                builder.proxy(proxy)
-            } else {
-                builder
-            };
+            let builder = proxy::maybe_set_up_proxy_blocking(builder)?;
             builder.build()?
         };
 
@@ -1219,17 +1238,7 @@ async fn install_webc_package_inner(url: &Url, checksum: &str) -> Result<(), any
 
     let client = {
         let builder = reqwest::Client::builder();
-
-        #[cfg(not(target_os = "wasi"))]
-        let builder = if let Some(proxy) = crate::graphql::proxy::maybe_set_up_proxy()
-            .map_err(|e| anyhow::anyhow!("{e}"))
-            .context("install_webc_package: failed to setup proxy for reqwest Client")?
-        {
-            builder.proxy(proxy)
-        } else {
-            builder
-        };
-
+        let builder = crate::graphql::proxy::maybe_set_up_proxy(builder)?;
         builder
             .build()
             .map_err(|e| anyhow::anyhow!("{e}"))
@@ -1302,11 +1311,12 @@ pub fn get_all_installed_webc_packages() -> Vec<RemoteWebcInfo> {
 
 /// Returns the checksum of the .webc file, so that we can check whether the
 /// file is already installed before downloading it
-pub fn get_remote_webc_checksum(url: &Url) -> Result<String, String> {
+pub fn get_remote_webc_checksum(url: &Url) -> Result<String, anyhow::Error> {
     let request_max_bytes = webc::WebC::get_signature_offset_start() + 4 + 1024 + 8 + 8;
-    let data = get_webc_bytes(url, Some(0..request_max_bytes))?;
+    let data = get_webc_bytes(url, Some(0..request_max_bytes)).context("get_webc_bytes failed")?;
     let mut checksum = webc::WebC::get_checksum_bytes(&data)
-        .map_err(|e| format!("{e}"))?
+        .map_err(|e| anyhow::anyhow!("{e}"))
+        .context("get_checksum_bytes failed")?
         .to_vec();
     while checksum.last().copied() == Some(0) {
         checksum.pop();
@@ -1317,48 +1327,47 @@ pub fn get_remote_webc_checksum(url: &Url) -> Result<String, String> {
 
 /// Before fetching the entire file from a remote URL, just fetch the manifest
 /// so we can see if the package has already been installed
-pub fn get_remote_webc_manifest(url: &Url) -> Result<RemoteWebcInfo, String> {
+pub fn get_remote_webc_manifest(url: &Url) -> Result<RemoteWebcInfo, anyhow::Error> {
     // Request up unti manifest size / manifest len
     let request_max_bytes = webc::WebC::get_signature_offset_start() + 4 + 1024 + 8 + 8;
     let data = get_webc_bytes(url, Some(0..request_max_bytes))?;
     let mut checksum = webc::WebC::get_checksum_bytes(&data)
-        .map_err(|e| format!("{e}"))?
+        .map_err(|e| anyhow::anyhow!("{e}"))
+        .context("WebC::get_checksum_bytes failed")?
         .to_vec();
     while checksum.last().copied() == Some(0) {
         checksum.pop();
     }
     let hex_string = hex::encode(&checksum);
 
-    let (manifest_start, manifest_len) =
-        webc::WebC::get_manifest_offset_size(&data).map_err(|e| format!("{e}"))?;
+    let (manifest_start, manifest_len) = webc::WebC::get_manifest_offset_size(&data)
+        .map_err(|e| anyhow::anyhow!("{e}"))
+        .context("WebC::get_manifest_offset_size failed")?;
     let data_with_manifest = get_webc_bytes(url, Some(0..manifest_start + manifest_len))?;
-    let manifest = webc::WebC::get_manifest(&data_with_manifest).map_err(|e| e.to_string())?;
+    let manifest = webc::WebC::get_manifest(&data_with_manifest)
+        .map_err(|e| anyhow::anyhow!("{e}"))
+        .context("WebC::get_manifest failed")?;
     Ok(RemoteWebcInfo {
         checksum: hex_string,
         manifest,
     })
 }
 
-fn setup_webc_client(url: &Url) -> Result<reqwest::blocking::RequestBuilder, String> {
+fn setup_webc_client(url: &Url) -> Result<reqwest::blocking::RequestBuilder, anyhow::Error> {
     let client = {
         let builder = reqwest::blocking::Client::builder();
-
-        #[cfg(not(target_os = "wasi"))]
-        let builder = if let Some(proxy) =
-            crate::graphql::proxy::maybe_set_up_proxy().map_err(|e| format!("{e}"))?
-        {
-            builder.proxy(proxy)
-        } else {
-            builder
-        };
-
-        builder.build().map_err(|e| format!("{e}"))?
+        let builder = crate::graphql::proxy::maybe_set_up_proxy_blocking(builder)
+            .context("setup_webc_client")?;
+        builder
+            .build()
+            .map_err(|e| anyhow::anyhow!("{e}"))
+            .context("setup_webc_client: builder.build() failed")?
     };
 
     Ok(client.get(url.clone()).header(ACCEPT, "application/webc"))
 }
 
-fn get_webc_bytes(url: &Url, range: Option<Range<usize>>) -> Result<Vec<u8>, String> {
+fn get_webc_bytes(url: &Url, range: Option<Range<usize>>) -> Result<Vec<u8>, anyhow::Error> {
     // curl -r 0-500 -L https://wapm.dev/syrusakbary/python -H "Accept: application/webc" --output python.webc
 
     let mut res = setup_webc_client(url)?;
@@ -1367,8 +1376,14 @@ fn get_webc_bytes(url: &Url, range: Option<Range<usize>>) -> Result<Vec<u8>, Str
         res = res.header(RANGE, format!("bytes={}-{}", range.start, range.end));
     }
 
-    let res = res.send().map_err(|e| format!("{e}"))?;
-    let bytes = res.bytes().map_err(|e| format!("{e}"))?;
+    let res = res
+        .send()
+        .map_err(|e| anyhow::anyhow!("{e}"))
+        .context("send() failed")?;
+    let bytes = res
+        .bytes()
+        .map_err(|e| anyhow::anyhow!("{e}"))
+        .context("bytes() failed")?;
 
     Ok(bytes.to_vec())
 }
