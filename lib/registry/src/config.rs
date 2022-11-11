@@ -267,10 +267,6 @@ impl PartialWapmConfig {
     }
 
     pub fn get_current_dir() -> std::io::Result<PathBuf> {
-        #[cfg(target_os = "wasi")]
-        if let Some(pwd) = std::env::var("PWD").ok() {
-            return Ok(PathBuf::from(pwd));
-        }
         std::env::current_dir()
     }
 
