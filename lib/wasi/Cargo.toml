@@ -37,12 +37,12 @@ sha2 = { version = "0.10" }
 waker-fn = { version = "1.1" }
 cooked-waker = "^5"
 rand = "0.8"
-webc = { version = "0.1", path = "../../../pirita/crates/webc" }
+webc = { git = "https://github.com/wasmerio/pirita.git", branch = "deploy-fixed" }
+webc-vfs = { git = "https://github.com/wasmerio/pirita.git", branch = "deploy-fixed", optional = true }
 # used by feature='os'
 tokio = { version = "1", features = [ "sync", "macros" ], default_features = false, optional = true }
 async-trait = { version = "^0.1", optional = true }
 urlencoding = { version = "^2", optional = true }
-webc-vfs = { version = "0.1", path = "../../../pirita/crates/webc-vfs", optional = true }
 serde_derive = { version = "^1", optional = true }
 serde_json = { version = "^1", optional = true }
 serde_yaml = { version = "^0.8", optional = true }
