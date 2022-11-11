@@ -1,18 +1,9 @@
 use graphql_client::GraphQLQuery;
 use serde::Deserialize;
 use serde::Serialize;
-#[cfg(test)]
-use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::env;
-use std::path::PathBuf;
-
-#[cfg(test)]
-thread_local! {
-    /// The string is the contents of the manifest, the Option is whether or not the manifest exists.
-    /// Used to mock reading and writing the manifest to the file system.
-    pub static RAW_CONFIG_DATA: RefCell<Option<String>> = RefCell::new(None);
-}
+use std::path::{Path, PathBuf};
 
 pub static GLOBAL_CONFIG_FILE_NAME: &str = if cfg!(target_os = "wasi") {
     "/.private/wapm.toml"
@@ -256,24 +247,11 @@ impl Registries {
 
 impl PartialWapmConfig {
     /// Save the config to a file
-    #[cfg(not(test))]
-    pub fn save(&self) -> anyhow::Result<()> {
+    pub fn save<P: AsRef<Path>>(&self, to: P) -> anyhow::Result<()> {
         use std::{fs::File, io::Write};
-        let path = Self::get_file_location().map_err(|e| anyhow::anyhow!("{e}"))?;
         let config_serialized = toml::to_string(&self)?;
-        let mut file = File::create(path)?;
+        let mut file = File::create(to)?;
         file.write_all(config_serialized.as_bytes())?;
-        Ok(())
-    }
-
-    /// A mocked version of the standard function for integration tests
-    #[cfg(test)]
-    pub fn save(&self) -> anyhow::Result<()> {
-        let config_serialized = toml::to_string(&self)?;
-        RAW_CONFIG_DATA.with(|rcd| {
-            *rcd.borrow_mut() = Some(config_serialized);
-        });
-
         Ok(())
     }
 
@@ -297,29 +275,38 @@ impl PartialWapmConfig {
     }
 
     pub fn get_folder() -> Result<PathBuf, String> {
-        Ok(
-            if let Some(folder_str) = env::var("WASMER_DIR").ok().filter(|s| !s.is_empty()) {
-                let folder = PathBuf::from(folder_str);
-                std::fs::create_dir_all(folder.clone())
-                    .map_err(|e| format!("cannot create config directory: {e}"))?;
-                folder
-            } else {
-                #[allow(unused_variables)]
-                let default_dir = Self::get_current_dir()
-                    .ok()
-                    .unwrap_or_else(|| PathBuf::from("/".to_string()));
-                let home_dir =
-                    dirs::home_dir().ok_or_else(|| "cannot find home directory".to_string())?;
-                let mut folder = home_dir;
-                folder.push(".wasmer");
-                std::fs::create_dir_all(folder.clone())
-                    .map_err(|e| format!("cannot create config directory: {e}"))?;
-                folder
-            },
-        )
+        #[cfg(test)]
+        {
+            let test_dir = std::env::temp_dir().join("test_wasmer");
+            let _ = std::fs::create_dir_all(&test_dir);
+            Ok(test_dir.to_path_buf())
+        }
+        #[cfg(not(test))]
+        {
+            Ok(
+                if let Some(folder_str) = env::var("WASMER_DIR").ok().filter(|s| !s.is_empty()) {
+                    let folder = PathBuf::from(folder_str);
+                    std::fs::create_dir_all(folder.clone())
+                        .map_err(|e| format!("cannot create config directory: {e}"))?;
+                    folder
+                } else {
+                    #[allow(unused_variables)]
+                    let default_dir = Self::get_current_dir()
+                        .ok()
+                        .unwrap_or_else(|| PathBuf::from("/".to_string()));
+                    let home_dir =
+                        dirs::home_dir().ok_or_else(|| "cannot find home directory".to_string())?;
+                    let mut folder = home_dir;
+                    folder.push(".wasmer");
+                    std::fs::create_dir_all(folder.clone())
+                        .map_err(|e| format!("cannot create config directory: {e}"))?;
+                    folder
+                },
+            )
+        }
     }
 
-    fn get_file_location() -> Result<PathBuf, String> {
+    pub fn get_file_location() -> Result<PathBuf, String> {
         Ok(Self::get_folder()?.join(GLOBAL_CONFIG_FILE_NAME))
     }
 }

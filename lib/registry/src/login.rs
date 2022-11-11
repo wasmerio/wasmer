@@ -13,7 +13,8 @@ pub fn login_and_save_token(registry: &str, token: &str) -> Result<(), anyhow::E
         token,
         UpdateRegistry::Update,
     );
-    config.save()?;
+    let path = PartialWapmConfig::get_file_location().map_err(|e| anyhow::anyhow!("{e}"))?;
+    config.save(&path)?;
     let username = crate::utils::get_username_registry_token(&registry, token);
     if let Some(s) = username.ok().and_then(|o| o) {
         println!("Login for WAPM user {:?} saved", s);
