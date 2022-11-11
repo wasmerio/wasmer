@@ -30,6 +30,7 @@ pub struct PackageDownloadInfo {
 }
 
 pub fn get_package_local_dir(
+    #[cfg(test)] test_name: &str,
     registry_host: &str,
     name: &str,
     version: &str,
@@ -42,8 +43,11 @@ pub fn get_package_local_dir(
     let (namespace, name) = name
         .split_once('/')
         .ok_or_else(|| format!("missing namespace / name for {name:?}"))?;
-    let install_dir = get_global_install_dir(registry_host)
-        .ok_or_else(|| format!("no install dir for {name:?}"))?;
+    #[cfg(test)]
+    let global_install_dir = get_global_install_dir(test_name, registry_host);
+    #[cfg(not(test))]
+    let global_install_dir = get_global_install_dir(registry_host);
+    let install_dir = global_install_dir.ok_or_else(|| format!("no install dir for {name:?}"))?;
     Ok(install_dir.join(namespace).join(name).join(version))
 }
 
@@ -53,11 +57,12 @@ pub fn try_finding_local_command(#[cfg(test)] test_name: &str, cmd: &str) -> Opt
     #[cfg(not(test))]
     let local_packages = get_all_local_packages(None);
     for p in local_packages {
-        if p.get_commands()
-            .unwrap_or_default()
-            .iter()
-            .any(|c| c == cmd)
-        {
+        #[cfg(not(test))]
+        let commands = p.get_commands();
+        #[cfg(test)]
+        let commands = p.get_commands(test_name);
+
+        if commands.unwrap_or_default().iter().any(|c| c == cmd) {
             return Some(p);
         }
     }
@@ -72,16 +77,28 @@ pub struct LocalPackage {
 }
 
 impl LocalPackage {
-    pub fn get_path(&self) -> Result<PathBuf, String> {
+    pub fn get_path(&self, #[cfg(test)] test_name: &str) -> Result<PathBuf, String> {
         let host = url::Url::parse(&self.registry)
             .ok()
             .and_then(|o| o.host_str().map(|s| s.to_string()))
             .unwrap_or_else(|| self.registry.clone());
 
-        get_package_local_dir(&host, &self.name, &self.version)
+        #[cfg(test)]
+        {
+            get_package_local_dir(test_name, &host, &self.name, &self.version)
+        }
+
+        #[cfg(not(test))]
+        {
+            get_package_local_dir(&host, &self.name, &self.version)
+        }
     }
-    pub fn get_commands(&self) -> Result<Vec<String>, String> {
-        let toml_path = self.get_path()?.join("wapm.toml");
+    pub fn get_commands(&self, #[cfg(test)] test_name: &str) -> Result<Vec<String>, String> {
+        #[cfg(not(test))]
+        let path = self.get_path()?;
+        #[cfg(test)]
+        let path = self.get_path(test_name)?;
+        let toml_path = path.join("wapm.toml");
         let toml = std::fs::read_to_string(&toml_path)
             .map_err(|e| format!("error reading {}: {e}", toml_path.display()))?;
         let toml_parsed = toml::from_str::<wapm_toml::Manifest>(&toml)
@@ -194,7 +211,11 @@ pub fn get_all_local_packages(
     registry_hosts.dedup();
 
     for host in registry_hosts {
-        let root_dir = match get_global_install_dir(&host) {
+        #[cfg(not(test))]
+        let global_install_dir = get_global_install_dir(&host);
+        #[cfg(test)]
+        let global_install_dir = get_global_install_dir(test_name, &host);
+        let root_dir = match global_install_dir {
             Some(o) => o,
             None => continue,
         };
@@ -381,6 +402,7 @@ fn test_get_if_package_has_new_version() {
 ///
 /// Also returns true if the package is not installed yet.
 pub fn get_if_package_has_new_version(
+    #[cfg(test)] test_name: &str,
     registry_url: &str,
     name: &str,
     version: Option<String>,
@@ -398,7 +420,12 @@ pub fn get_if_package_has_new_version(
         .split_once('/')
         .ok_or_else(|| format!("missing namespace / name for {name:?}"))?;
 
-    let package_dir = get_global_install_dir(&host).map(|path| path.join(namespace).join(name));
+    #[cfg(not(test))]
+    let global_install_dir = get_global_install_dir(&host);
+    #[cfg(test)]
+    let global_install_dir = get_global_install_dir(test_name, &host);
+
+    let package_dir = global_install_dir.map(|path| path.join(namespace).join(name));
 
     let package_dir = match package_dir {
         Some(s) => s,
@@ -684,6 +711,7 @@ where
 /// Given a triple of [registry, name, version], downloads and installs the
 /// .tar.gz if it doesn't yet exist, returns the (package dir, entrypoint .wasm file path)
 pub fn install_package(
+    #[cfg(test)] test_name: &str,
     registry: Option<&str>,
     name: &str,
     version: Option<&str>,
@@ -714,7 +742,16 @@ pub fn install_package(
 
             for r in registries.iter() {
                 if !force_install {
+                    #[cfg(not(test))]
                     let package_has_new_version = get_if_package_has_new_version(
+                        r,
+                        name,
+                        version.map(|s| s.to_string()),
+                        Duration::from_secs(60 * 5),
+                    )?;
+                    #[cfg(test)]
+                    let package_has_new_version = get_if_package_has_new_version(
+                        test_name,
                         r,
                         name,
                         version.map(|s| s.to_string()),
@@ -770,6 +807,14 @@ pub fn install_package(
         .ok_or_else(|| format!("invalid url: {}", package_info.registry))?
         .to_string();
 
+    #[cfg(test)]
+    let dir = get_package_local_dir(
+        test_name,
+        &host,
+        &package_info.package,
+        &package_info.version,
+    )?;
+    #[cfg(not(test))]
     let dir = get_package_local_dir(&host, &package_info.package, &package_info.version)?;
 
     let version = package_info.version;
@@ -806,8 +851,11 @@ pub fn test_if_registry_present(registry: &str) -> Result<bool, String> {
     Ok(true)
 }
 
-pub fn get_all_available_registries() -> Result<Vec<String>, String> {
+pub fn get_all_available_registries(#[cfg(test)] test_name: &str) -> Result<Vec<String>, String> {
+    #[cfg(test)]
+    let config = PartialWapmConfig::from_file(test_name)?;
     let config = PartialWapmConfig::from_file()?;
+
     let mut registries = Vec::new();
     match config.registry {
         Registries::Single(s) => {
