@@ -308,13 +308,8 @@ impl PartialWapmConfig {
                 let default_dir = Self::get_current_dir()
                     .ok()
                     .unwrap_or_else(|| PathBuf::from("/".to_string()));
-                #[cfg(feature = "dirs")]
                 let home_dir =
-                    dirs::home_dir().ok_or(GlobalConfigError::CannotFindHomeDirectory)?;
-                #[cfg(not(feature = "dirs"))]
-                let home_dir = std::env::var("HOME")
-                    .ok()
-                    .unwrap_or_else(|| default_dir.to_string_lossy().to_string());
+                    dirs::home_dir().ok_or_else(|| "cannot find home directory".to_string())?;
                 let mut folder = PathBuf::from(home_dir);
                 folder.push(".wasmer");
                 std::fs::create_dir_all(folder.clone())

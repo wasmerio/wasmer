@@ -124,7 +124,6 @@ where
     let client = {
         let builder = Client::builder();
 
-        #[cfg(not(target_os = "wasi"))]
         let builder = if let Some(proxy) = proxy::maybe_set_up_proxy()? {
             builder.proxy(proxy)
         } else {
@@ -181,7 +180,6 @@ where
     let client = {
         let builder = Client::builder();
 
-        #[cfg(not(target_os = "wasi"))]
         let builder = if let Some(proxy) = proxy::maybe_set_up_proxy()? {
             builder.proxy(proxy)
         } else {
@@ -222,7 +220,9 @@ where
         let error_messages: Vec<String> = errors.into_iter().map(|err| err.message).collect();
         return Err(anyhow::anyhow!("{}", error_messages.join(", ")));
     }
-    Ok(response_body.data.expect("missing response data"))
+    response_body
+        .data
+        .ok_or_else(|| anyhow::anyhow!("missing response data"))
 }
 
 pub fn execute_query<R, V>(
