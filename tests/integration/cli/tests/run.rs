@@ -22,6 +22,34 @@ fn test_no_start_wat_path() -> String {
 }
 
 #[test]
+fn test_cross_compile_python_windows() -> anyhow::Result<()> {
+
+    let temp_dir = tempfile::TempDir::new()?;
+    let python_wasmer_path = temp_dir.path().join("python.exe");
+
+    let output = Command::new(get_wasmer_path())
+        .arg("create-exe")
+        .arg(wasi_test_python_path())
+        .arg("--target")
+        .arg("x86_64-windows")
+        .arg("-o")
+        .arg(python_wasmer_path)
+        .output()?;
+    
+    if !output.status.success() {
+        bail!(
+            "linking failed with: stdout: {}\n\nstderr: {}",
+            std::str::from_utf8(&output.stdout)
+                .expect("stdout is not utf8! need to handle arbitrary bytes"),
+            std::str::from_utf8(&output.stderr)
+                .expect("stderr is not utf8! need to handle arbitrary bytes")
+        );
+    }
+
+    Ok(())
+}
+
+#[test]
 fn run_wasi_works() -> anyhow::Result<()> {
     let output = Command::new(get_wasmer_path())
         .arg("run")

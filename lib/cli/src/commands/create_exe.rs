@@ -1446,7 +1446,7 @@ mod http_fetch {
                     entries.retain(|p| p.to_str().map(|p| check_vendor(p)).unwrap_or(true));
                     entries.retain(|p| p.to_str().map(|p| check_os(p)).unwrap_or(true));
                     entries.retain(|p| p.to_str().map(|p| check_env(p)).unwrap_or(true));
-                    if entries.len() == 1 {
+                    if entries.len() > 0 {
                         cache_path.push(&entries[0]);
                         if cache_path.exists() {
                             eprintln!(
