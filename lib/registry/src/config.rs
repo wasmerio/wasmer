@@ -310,7 +310,7 @@ impl PartialWapmConfig {
                     .unwrap_or_else(|| PathBuf::from("/".to_string()));
                 let home_dir =
                     dirs::home_dir().ok_or_else(|| "cannot find home directory".to_string())?;
-                let mut folder = PathBuf::from(home_dir);
+                let mut folder = home_dir;
                 folder.push(".wasmer");
                 std::fs::create_dir_all(folder.clone())
                     .map_err(|e| format!("cannot create config directory: {e}"))?;
