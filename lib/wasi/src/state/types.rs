@@ -341,7 +341,6 @@ pub(crate) fn poll(
     for (n, file) in files.iter().enumerate() {
         let mut builder = PollEventBuilder::new();
 
-        let file = files[n];
         let can_read = file.bytes_available_read()?.map(|_| true).unwrap_or(false);
         let can_write = file
             .bytes_available_write()?
