@@ -8,7 +8,8 @@ pub mod graphql;
 pub mod login;
 pub mod utils;
 
-use crate::config::{format_graphql, Registries};
+pub use crate::config::format_graphql;
+use crate::config::Registries;
 pub use config::PartialWapmConfig;
 
 pub static GLOBAL_CONFIG_FILE_NAME: &str = if cfg!(target_os = "wasi") {
