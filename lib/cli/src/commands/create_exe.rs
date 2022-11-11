@@ -258,6 +258,7 @@ impl CreateExe {
                 )?;
             }
         } else {
+            println!("compiling non-pirita with object format {object_format:?}");
             match object_format {
                 ObjectFormat::Serialized => {
                     let module = Module::from_file(&store, &wasm_module_path)
@@ -569,6 +570,8 @@ impl CreateExe {
                 .arg(&zig_triple)
                 .arg(&format!("-L{}", libwasmer_path.display()))
                 .arg(&format!("-l:{}", lib_filename))
+                // xcrun --show-sdk-path
+                // .arg("-I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX13.0.sdk/usr/include")
                 .arg(&format!("-I{}", include_dir.display()))
                 .arg(&format!("-I{}", header_code_path.display()));
             if !zig_triple.contains("windows") {
@@ -579,6 +582,8 @@ impl CreateExe {
             if let Some(volume_obj) = pirita_volume_path.as_ref() {
                 cmd_mut = cmd_mut.arg(volume_obj.clone());
             }
+
+            println!("cmd (zig cc): {:?}", cmd_mut);
 
             cmd_mut
                 .arg("-o")
