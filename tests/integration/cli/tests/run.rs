@@ -31,7 +31,7 @@ fn test_cross_compile_python_windows() -> anyhow::Result<()> {
         .arg("create-exe")
         .arg(wasi_test_python_path())
         .arg("--target")
-        .arg("x86_64-windows")
+        .arg("x86_64-windows-gnu")
         .arg("-o")
         .arg(python_wasmer_path)
         .output()?;

@@ -572,6 +572,7 @@ impl CreateExe {
                 .arg(&format!("-l:{}", lib_filename))
                 // xcrun --show-sdk-path
                 // .arg("-I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX13.0.sdk/usr/include")
+                .arg("-I/usr/include")
                 .arg(&format!("-I{}", include_dir.display()))
                 .arg(&format!("-I{}", header_code_path.display()));
             if !zig_triple.contains("windows") {
