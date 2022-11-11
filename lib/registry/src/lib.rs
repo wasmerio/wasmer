@@ -1250,6 +1250,7 @@ async fn install_webc_package_inner(url: &Url, checksum: &str) -> Result<(), any
         .header(ACCEPT, "application/webc")
         .send()
         .await
+        .and_then(|response| response.error_for_status())
         .map_err(|e| anyhow::anyhow!("{e}"))
         .context(anyhow::anyhow!("install_webc_package: failed to GET {url}"))?;
 
