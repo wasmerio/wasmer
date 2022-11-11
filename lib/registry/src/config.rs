@@ -2,6 +2,7 @@ use graphql_client::GraphQLQuery;
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::BTreeMap;
+#[cfg(not(test))]
 use std::env;
 use std::path::{Path, PathBuf};
 
@@ -255,7 +256,10 @@ impl PartialWapmConfig {
         Ok(())
     }
 
-    pub fn from_file() -> Result<Self, String> {
+    pub fn from_file(#[cfg(test)] test_name: &str) -> Result<Self, String> {
+        #[cfg(test)]
+        let path = Self::get_file_location(test_name)?;
+        #[cfg(not(test))]
         let path = Self::get_file_location()?;
 
         match std::fs::read_to_string(&path) {
@@ -270,38 +274,44 @@ impl PartialWapmConfig {
         std::env::current_dir()
     }
 
-    pub fn get_folder() -> Result<PathBuf, String> {
-        #[cfg(test)]
-        {
-            let test_dir = std::env::temp_dir().join("test_wasmer");
-            let _ = std::fs::create_dir_all(&test_dir);
-            Ok(test_dir.to_path_buf())
-        }
-        #[cfg(not(test))]
-        {
-            Ok(
-                if let Some(folder_str) = env::var("WASMER_DIR").ok().filter(|s| !s.is_empty()) {
-                    let folder = PathBuf::from(folder_str);
-                    std::fs::create_dir_all(folder.clone())
-                        .map_err(|e| format!("cannot create config directory: {e}"))?;
-                    folder
-                } else {
-                    #[allow(unused_variables)]
-                    let default_dir = Self::get_current_dir()
-                        .ok()
-                        .unwrap_or_else(|| PathBuf::from("/".to_string()));
-                    let home_dir =
-                        dirs::home_dir().ok_or_else(|| "cannot find home directory".to_string())?;
-                    let mut folder = home_dir;
-                    folder.push(".wasmer");
-                    std::fs::create_dir_all(folder.clone())
-                        .map_err(|e| format!("cannot create config directory: {e}"))?;
-                    folder
-                },
-            )
-        }
+    #[cfg(test)]
+    pub fn get_folder(test_name: &str) -> Result<PathBuf, String> {
+        let test_name = std::env::var("WASMER_REGISTRY_TEST_NAME").unwrap();
+        let test_dir = std::env::temp_dir().join("test_wasmer").join(test_name);
+        let _ = std::fs::create_dir_all(&test_dir);
+        Ok(test_dir.to_path_buf())
     }
 
+    #[cfg(not(test))]
+    pub fn get_folder() -> Result<PathBuf, String> {
+        Ok(
+            if let Some(folder_str) = env::var("WASMER_DIR").ok().filter(|s| !s.is_empty()) {
+                let folder = PathBuf::from(folder_str);
+                std::fs::create_dir_all(folder.clone())
+                    .map_err(|e| format!("cannot create config directory: {e}"))?;
+                folder
+            } else {
+                #[allow(unused_variables)]
+                let default_dir = Self::get_current_dir()
+                    .ok()
+                    .unwrap_or_else(|| PathBuf::from("/".to_string()));
+                let home_dir =
+                    dirs::home_dir().ok_or_else(|| "cannot find home directory".to_string())?;
+                let mut folder = home_dir;
+                folder.push(".wasmer");
+                std::fs::create_dir_all(folder.clone())
+                    .map_err(|e| format!("cannot create config directory: {e}"))?;
+                folder
+            },
+        )
+    }
+
+    #[cfg(test)]
+    pub fn get_file_location(test_name: &str) -> Result<PathBuf, String> {
+        Ok(Self::get_folder(test_name)?.join(GLOBAL_CONFIG_FILE_NAME))
+    }
+
+    #[cfg(not(test))]
     pub fn get_file_location() -> Result<PathBuf, String> {
         Ok(Self::get_folder()?.join(GLOBAL_CONFIG_FILE_NAME))
     }

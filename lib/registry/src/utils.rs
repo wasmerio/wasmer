@@ -9,7 +9,10 @@ use graphql_client::GraphQLQuery;
 )]
 struct WhoAmIQuery;
 
-pub fn get_username() -> anyhow::Result<Option<String>> {
+pub fn get_username(#[cfg(test)] test_name: &str) -> anyhow::Result<Option<String>> {
+    #[cfg(test)]
+    let config = PartialWapmConfig::from_file(test_name).map_err(|e| anyhow::anyhow!("{e}"))?;
+    #[cfg(not(test))]
     let config = PartialWapmConfig::from_file().map_err(|e| anyhow::anyhow!("{e}"))?;
     let registry = &config.registry.get_current_registry();
     let q = WhoAmIQuery::build_query(who_am_i_query::Variables {});

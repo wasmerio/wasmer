@@ -4223,6 +4223,7 @@ dependencies = [
  "flate2",
  "graphql_client",
  "lzma-rs",
+ "rand 0.8.5",
  "reqwest",
  "semver 1.0.14",
  "serde",

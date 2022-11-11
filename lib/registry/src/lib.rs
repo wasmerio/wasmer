@@ -47,8 +47,12 @@ pub fn get_package_local_dir(
     Ok(install_dir.join(namespace).join(name).join(version))
 }
 
-pub fn try_finding_local_command(cmd: &str) -> Option<LocalPackage> {
-    for p in get_all_local_packages(None) {
+pub fn try_finding_local_command(#[cfg(test)] test_name: &str, cmd: &str) -> Option<LocalPackage> {
+    #[cfg(test)]
+    let local_packages = get_all_local_packages(None, test_name);
+    #[cfg(not(test))]
+    let local_packages = get_all_local_packages(None);
+    for p in local_packages {
         if p.get_commands()
             .unwrap_or_default()
             .iter()
@@ -157,7 +161,10 @@ fn get_all_names_in_dir(dir: &PathBuf) -> Vec<(PathBuf, String)> {
 }
 
 /// Returns a list of all locally installed packages
-pub fn get_all_local_packages(registry: Option<&str>) -> Vec<LocalPackage> {
+pub fn get_all_local_packages(
+    registry: Option<&str>,
+    #[cfg(test)] test_name: &str,
+) -> Vec<LocalPackage> {
     let mut packages = Vec::new();
     let registries = match registry {
         Some(s) => vec![s.to_string()],
@@ -169,7 +176,12 @@ pub fn get_all_local_packages(registry: Option<&str>) -> Vec<LocalPackage> {
         .filter_map(|s| url::Url::parse(&s).ok()?.host_str().map(|s| s.to_string()))
         .collect::<Vec<_>>();
 
-    let mut registries_in_root_dir = get_checkouts_dir()
+    #[cfg(not(test))]
+    let checkouts_dir = get_checkouts_dir();
+    #[cfg(test)]
+    let checkouts_dir = get_checkouts_dir(test_name);
+
+    let mut registries_in_root_dir = checkouts_dir
         .as_ref()
         .map(get_all_names_in_dir)
         .unwrap_or_default()
@@ -208,11 +220,17 @@ pub fn get_all_local_packages(registry: Option<&str>) -> Vec<LocalPackage> {
 }
 
 pub fn get_local_package(
+    #[cfg(test)] test_name: &str,
     registry: Option<&str>,
     name: &str,
     version: Option<&str>,
 ) -> Option<LocalPackage> {
-    get_all_local_packages(registry)
+    #[cfg(not(test))]
+    let local_packages = get_all_local_packages(registry);
+    #[cfg(test)]
+    let local_packages = get_all_local_packages(registry, test_name);
+
+    local_packages
         .iter()
         .find(|p| {
             if p.name != name {
@@ -538,16 +556,35 @@ pub fn query_package_from_registry(
     })
 }
 
-pub fn get_wasmer_root_dir() -> Option<PathBuf> {
-    PartialWapmConfig::get_folder().ok()
+pub fn get_wasmer_root_dir(#[cfg(test)] test_name: &str) -> Option<PathBuf> {
+    #[cfg(test)]
+    {
+        PartialWapmConfig::get_folder(test_name).ok()
+    }
+    #[cfg(not(test))]
+    {
+        PartialWapmConfig::get_folder().ok()
+    }
 }
-pub fn get_checkouts_dir() -> Option<PathBuf> {
-    Some(get_wasmer_root_dir()?.join("checkouts"))
+
+pub fn get_checkouts_dir(#[cfg(test)] test_name: &str) -> Option<PathBuf> {
+    #[cfg(test)]
+    let root_dir = get_wasmer_root_dir(test_name)?;
+    #[cfg(not(test))]
+    let root_dir = get_wasmer_root_dir()?;
+    Some(root_dir.join("checkouts"))
 }
 
 /// Returs the path to the directory where all packages on this computer are being stored
-pub fn get_global_install_dir(registry_host: &str) -> Option<PathBuf> {
-    Some(get_checkouts_dir()?.join(registry_host))
+pub fn get_global_install_dir(
+    #[cfg(test)] test_name: &str,
+    registry_host: &str,
+) -> Option<PathBuf> {
+    #[cfg(test)]
+    let root_dir = get_checkouts_dir(test_name)?;
+    #[cfg(not(test))]
+    let root_dir = get_checkouts_dir()?;
+    Some(root_dir.join(registry_host))
 }
 
 /// Whether the top-level directory should be stripped
