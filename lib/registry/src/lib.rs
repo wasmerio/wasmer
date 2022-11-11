@@ -1296,17 +1296,30 @@ pub fn get_all_installed_webc_packages() -> Vec<RemoteWebcInfo> {
             .ok()
         })
         .filter_map(|webc| {
-            let mut checksum = webc.checksum.as_ref().map(|s| &s.data)?.to_vec();
-            while checksum.last().copied() == Some(0) {
-                checksum.pop();
-            }
-            let hex_string = hex::encode(&checksum);
+            let checksum = webc.checksum.as_ref().map(|s| &s.data)?.to_vec();
+            let hex_string = get_checksum_hash(&checksum);
             Some(RemoteWebcInfo {
                 checksum: hex_string,
                 manifest: webc.manifest.clone(),
             })
         })
         .collect()
+}
+
+/// The checksum of the webc file has a bunch of zeros at the end
+/// (it's currently encoded that way in the webc format). This function
+/// strips the zeros because otherwise the filename would become too long.
+///
+/// So:
+///
+/// `3ea47cb0000000000000` -> `3ea47cb`
+///
+pub fn get_checksum_hash(bytes: &[u8]) -> String {
+    let mut checksum = bytes.to_vec();
+    while checksum.last().copied() == Some(0) {
+        checksum.pop();
+    }
+    hex::encode(&checksum)
 }
 
 /// Returns the checksum of the .webc file, so that we can check whether the
@@ -1318,11 +1331,7 @@ pub fn get_remote_webc_checksum(url: &Url) -> Result<String, anyhow::Error> {
         .map_err(|e| anyhow::anyhow!("{e}"))
         .context("get_checksum_bytes failed")?
         .to_vec();
-    while checksum.last().copied() == Some(0) {
-        checksum.pop();
-    }
-    let hex_string = hex::encode(&checksum);
-    Ok(hex_string)
+    Ok(get_checksum_hash(&checksum))
 }
 
 /// Before fetching the entire file from a remote URL, just fetch the manifest
@@ -1335,10 +1344,7 @@ pub fn get_remote_webc_manifest(url: &Url) -> Result<RemoteWebcInfo, anyhow::Err
         .map_err(|e| anyhow::anyhow!("{e}"))
         .context("WebC::get_checksum_bytes failed")?
         .to_vec();
-    while checksum.last().copied() == Some(0) {
-        checksum.pop();
-    }
-    let hex_string = hex::encode(&checksum);
+    let hex_string = get_checksum_hash(&checksum);
 
     let (manifest_start, manifest_len) = webc::WebC::get_manifest_offset_size(&data)
         .map_err(|e| anyhow::anyhow!("{e}"))
