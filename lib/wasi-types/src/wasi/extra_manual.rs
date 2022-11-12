@@ -92,6 +92,8 @@ impl From<Clockid> for Snapshot0Clockid {
         match other {
             Clockid::Realtime => Self::Realtime,
             Clockid::Monotonic => Self::Monotonic,
+            Clockid::ProcessCputimeId => Self::ProcessCputimeId,
+            Clockid::ThreadCputimeId => Self::ThreadCputimeId,
         }
     }
 }
@@ -101,8 +103,8 @@ impl From<Snapshot0Clockid> for Clockid {
         match other {
             Snapshot0Clockid::Realtime => Self::Realtime,
             Snapshot0Clockid::Monotonic => Self::Monotonic,
-            Snapshot0Clockid::ProcessCputimeId => todo!("not implemented for now"),
-            Snapshot0Clockid::ThreadCputimeId => todo!("not implemented for now"),
+            Snapshot0Clockid::ProcessCputimeId => Self::ProcessCputimeId,
+            Snapshot0Clockid::ThreadCputimeId => Self::ThreadCputimeId,
         }
     }
 }
@@ -120,21 +122,33 @@ impl From<Snapshot0SubscriptionClock> for SubscriptionClock {
     }
 }
 
-impl From<Snapshot0SubscriptionEnum> for SubscriptionEnum {
-    fn from(other: Snapshot0SubscriptionEnum) -> Self {
-        match other {
-            Snapshot0SubscriptionEnum::Clock(d) => Self::Clock(SubscriptionClock::from(d)),
-            Snapshot0SubscriptionEnum::Read(d) => Self::Read(d),
-            Snapshot0SubscriptionEnum::Write(d) => Self::Write(d),
-        }
-    }
-}
-
 impl From<Snapshot0Subscription> for Subscription {
     fn from(other: Snapshot0Subscription) -> Self {
         Self {
             userdata: other.userdata,
-            data: SubscriptionEnum::from(other.data),
+            type_: other.type_,
+            data: match other.type_ {
+                Eventtype::Clock => {
+                    SubscriptionUnion {
+                        clock: unsafe { SubscriptionClock {
+                            clock_id: other.u.clock.id.into(),
+                            timeout: other.u.clock.timeout,
+                            precision: other.u.clock.precision,
+                            flags: other.u.clock.flags
+                        } }
+                    }
+                },
+                Eventtype::FdRead => {
+                    SubscriptionUnion {
+                        fd_readwrite: unsafe { other.u.fd_readwrite }
+                    }
+                },
+                Eventtype::FdWrite => {
+                    SubscriptionUnion {
+                        fd_readwrite: unsafe { other.u.fd_readwrite }
+                    }
+                }
+            },
         }
     }
 }
@@ -314,15 +328,5 @@ unsafe impl wasmer::ValueType for Prestat {
             }
         }
         zero!(field_end!(u), core::mem::size_of_val(self));
-    }
-}
-
-impl SubscriptionEnum {
-    pub fn raw_tag(&self) -> Eventtype {
-        match self {
-            SubscriptionEnum::Clock(_) => Eventtype::Clock,
-            SubscriptionEnum::Read(_) => Eventtype::FdRead,
-            SubscriptionEnum::Write(_) => Eventtype::FdWrite,
-        }
     }
 }

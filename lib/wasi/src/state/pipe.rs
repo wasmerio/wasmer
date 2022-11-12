@@ -76,8 +76,11 @@ impl VirtualFile for WasiBidirectionalPipePair {
     fn unlink(&mut self) -> Result<(), FsError> {
         self.recv.unlink()
     }
-    fn bytes_available_read(&self) -> Result<Option<usize>, FsError> {
+    fn bytes_available_read(&self) -> Result<usize, FsError> {
         self.recv.bytes_available_read()
+    }
+    fn bytes_available_write(&self) -> Result<usize, FsError> {
+        self.send.bytes_available_write()
     }
     fn poll_read_ready(
         &self,
@@ -227,11 +230,17 @@ impl VirtualFile for WasiBidirectionalSharedPipePair {
             Err(_) => Err(FsError::Lock),
         }
     }
-    fn bytes_available_read(&self) -> Result<Option<usize>, FsError> {
+    fn bytes_available_read(&self) -> Result<usize, FsError> {
         self.inner
             .lock()
             .map(|l| l.bytes_available_read())
-            .unwrap_or(Ok(None))
+            .unwrap_or(Ok(0))
+    }
+    fn bytes_available_write(&self) -> Result<usize, FsError> {
+        self.inner
+            .lock()
+            .map(|l| l.bytes_available_write())
+            .unwrap_or(Ok(0))
     }
     fn poll_read_ready(
         &self,
@@ -472,7 +481,6 @@ impl VirtualFile for WasiPipe {
     /// the size of the file in bytes
     fn size(&self) -> u64 {
         self.bytes_available_read()
-            .unwrap_or_default()
             .map(|a| a as u64)
             .unwrap_or_default()
     }
@@ -497,13 +505,12 @@ impl VirtualFile for WasiPipe {
 
     /// Returns the number of bytes available.  This function must not block
     fn bytes_available(&self) -> Result<usize, FsError> {
-        Ok(self.bytes_available_read()?.unwrap_or(0usize)
-            + self.bytes_available_write()?.unwrap_or(0usize))
+        Ok(self.bytes_available_read()?.max(self.bytes_available_write()?))
     }
 
     /// Returns the number of bytes available.  This function must not block
     /// Defaults to `None` which means the number of bytes is unknown
-    fn bytes_available_read(&self) -> Result<Option<usize>, FsError> {
+    fn bytes_available_read(&self) -> Result<usize, FsError> {
         let mut no_more = None;
         loop {
             {
@@ -511,7 +518,7 @@ impl VirtualFile for WasiPipe {
                 if let Some(inner_buf) = read_buffer.as_ref() {
                     let buf_len = inner_buf.len();
                     if buf_len > 0 {
-                        return Ok(Some(buf_len));
+                        return Ok(buf_len);
                     }
                 }
             }
@@ -521,12 +528,12 @@ impl VirtualFile for WasiPipe {
             let data = {
                 let mut rx = match self.rx.try_lock() {
                     Ok(a) => a,
-                    Err(_) => { no_more = Some(Ok(None)); continue; }
+                    Err(_) => { no_more = Some(Ok(0)); continue; }
                 };
                 match rx.try_recv() {
                     Ok(a) => a,
-                    Err(TryRecvError::Empty) => { no_more = Some(Ok(None)); continue; },
-                    Err(TryRecvError::Disconnected) => { no_more = Some(Ok(Some(0))); continue; }
+                    Err(TryRecvError::Empty) => { no_more = Some(Ok(0)); continue; },
+                    Err(TryRecvError::Disconnected) => { no_more = Some(Ok(0)); continue; }
                 }
             };
 
@@ -537,10 +544,10 @@ impl VirtualFile for WasiPipe {
 
     /// Returns the number of bytes available.  This function must not block
     /// Defaults to `None` which means the number of bytes is unknown
-    fn bytes_available_write(&self) -> Result<Option<usize>, FsError> {
+    fn bytes_available_write(&self) -> Result<usize, FsError> {
         self.tx.try_lock()
-            .map(|_| Ok(Some(8192)))
-            .unwrap_or_else(|_| Ok(Some(0)))
+            .map(|_| Ok(8192))
+            .unwrap_or_else(|_| Ok(0))
     }
 
     /// Indicates if the file is opened or closed. This function must not block

@@ -22,10 +22,10 @@ pub mod legacy;
 use self::types::{
     wasi::{
         Addressfamily, Advice, Bid, __wasi_busdataformat_t, BusErrno, BusHandles, Cid, Clockid, Dircookie,
-        Dirent, Errno, Event, EventEnum, EventFdReadwrite, Eventrwflags, Eventtype, Fd as WasiFd,
+        Dirent, Errno, Event, EventFdReadwrite, Eventrwflags, Eventtype, Fd as WasiFd,
         Fdflags, Fdstat, Filesize, Filestat, Filetype, Fstflags, Linkcount, OptionFd, Pid, Prestat,
         Rights, Snapshot0Clockid, Sockoption, Sockstatus, Socktype, StdioMode as WasiStdioMode,
-        Streamsecurity, Subscription, SubscriptionEnum, SubscriptionFsReadwrite, Tid, Timestamp,
+        Streamsecurity, Subscription, SubscriptionFsReadwrite, Tid, Timestamp,
         Tty, Whence, ExitCode, TlKey, TlUser, TlVal, WasiHash, StackSnapshot, Longsize
     },
     *,
@@ -54,7 +54,7 @@ use crate::{
 use bytes::{Bytes, BytesMut};
 use cooked_waker::IntoWaker;
 use sha2::Sha256;
-use wasmer_wasi_types::asyncify::__wasi_asyncify_t;
+use wasmer_wasi_types::{asyncify::__wasi_asyncify_t, wasi::EventUnion};
 use std::borrow::{Borrow, Cow};
 use std::cell::RefCell;
 use std::collections::hash_map::Entry;
@@ -686,7 +686,9 @@ pub fn clock_time_set<M: MemorySize>(
 
     let snapshot_clock_id = match clock_id {
         Clockid::Realtime => Snapshot0Clockid::Realtime,
-        Clockid::Monotonic => Snapshot0Clockid::Monotonic
+        Clockid::Monotonic => Snapshot0Clockid::Monotonic,
+        Clockid::ProcessCputimeId => Snapshot0Clockid::ProcessCputimeId,
+        Clockid::ThreadCputimeId => Snapshot0Clockid::ThreadCputimeId
     };
 
     let precision = 1 as Timestamp;
@@ -3808,13 +3810,73 @@ pub fn poll_oneoff<M: MemorySize>(
     nsubscriptions: M::Offset,
     nevents: WasmPtr<M::Offset, M>,
 ) -> Result<Errno, WasiError> {
+
+    let mut env = ctx.data();
+    let mut memory = env.memory_view(&ctx);
+
+    let mut subscriptions = Vec::new();
+    let subscription_array = wasi_try_mem_ok!(in_.slice(&memory, nsubscriptions));
+    for sub in subscription_array.iter() {
+        let s = wasi_try_mem_ok!(sub.read());
+        subscriptions.push(s);
+    }
+
+    // Poll and receive all the events that triggered
+    let triggered_events = poll_oneoff_internal(
+        &mut ctx,
+        subscriptions,
+    );
+    let triggered_events = match triggered_events {
+        Ok(a) => a,
+        Err(err) => {
+            tracing::trace!(
+                "wasi[{}:{}]::poll_oneoff errno={}",
+                ctx.data().pid(),
+                ctx.data().tid(),
+                err
+            );
+            return Ok(err);
+        }
+    };
+
+    // Process all the events that were triggered
+    let mut env = ctx.data();
+    let mut memory = env.memory_view(&ctx);
+    let mut events_seen: u32 = 0;
+    let event_array = wasi_try_mem_ok!(out_.slice(&memory, nsubscriptions));
+    for event in triggered_events {
+        wasi_try_mem_ok!(event_array.index(events_seen as u64).write(event));
+        events_seen += 1;
+    }
+    let events_seen: M::Offset = wasi_try_ok!(events_seen.try_into().map_err(|_| Errno::Overflow));
+    let out_ptr = nevents.deref(&memory);
+    wasi_try_mem_ok!(out_ptr.write(events_seen));
+    Ok(Errno::Success)
+}
+
+/// ### `poll_oneoff()`
+/// Concurrently poll for a set of events
+/// Inputs:
+/// - `const __wasi_subscription_t *in`
+///     The events to subscribe to
+/// - `__wasi_event_t *out`
+///     The events that have occured
+/// - `u32 nsubscriptions`
+///     The number of subscriptions and the number of events
+/// Output:
+/// - `u32 nevents`
+///     The number of events seen
+pub(crate) fn poll_oneoff_internal(
+    ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+    subs: Vec<Subscription>,
+) -> Result<Vec<Event>, Errno> {
     let pid = ctx.data().pid();
     let tid = ctx.data().tid();
     trace!(
         "wasi[{}:{}]::poll_oneoff (nsubscriptions={})",
         pid,
         tid,
-        nsubscriptions
+        subs.len(),
     );
 
     // These are used when we capture what clocks (timeouts) are being
@@ -3828,40 +3890,41 @@ pub fn poll_oneoff<M: MemorySize>(
     let state = ctx.data().state.deref();
     let mut memory = env.memory_view(&ctx);
     let mut subscriptions = HashMap::new();
-    let subscription_array = wasi_try_mem_ok!(in_.slice(&memory, nsubscriptions));
-    for sub in subscription_array.iter() {
-        let s = wasi_try_mem_ok!(sub.read());
+    for s in subs {
 
         let mut peb = PollEventBuilder::new();
         let mut in_events = HashMap::new();
-        let fd = match s.data {
-            SubscriptionEnum::Read(SubscriptionFsReadwrite { file_descriptor }) => {
+        let fd = match s.type_ {
+            Eventtype::FdRead => {
+                let file_descriptor = unsafe { s.data.fd_readwrite.file_descriptor };
                 match file_descriptor {
                     __WASI_STDIN_FILENO | __WASI_STDOUT_FILENO | __WASI_STDERR_FILENO => (),
                     fd => {
-                        let fd_entry = wasi_try_ok!(state.fs.get_fd(fd));
+                        let fd_entry = state.fs.get_fd(fd)?;
                         if !fd_entry.rights.contains(Rights::POLL_FD_READWRITE) {
-                            return Ok(Errno::Access);
+                            return Err(Errno::Access);
                         }
                     }
                 }
                 in_events.insert(peb.add(PollEvent::PollIn).build(), s);
                 file_descriptor
             }
-            SubscriptionEnum::Write(SubscriptionFsReadwrite { file_descriptor }) => {
+            Eventtype::FdWrite => {
+                let file_descriptor = unsafe { s.data.fd_readwrite.file_descriptor };
                 match file_descriptor {
                     __WASI_STDIN_FILENO | __WASI_STDOUT_FILENO | __WASI_STDERR_FILENO => (),
                     fd => {
-                        let fd_entry = wasi_try_ok!(state.fs.get_fd(fd));
+                        let fd_entry = state.fs.get_fd(fd)?;
                         if !fd_entry.rights.contains(Rights::POLL_FD_READWRITE) {
-                            return Ok(Errno::Access);
+                            return Err(Errno::Access);
                         }
                     }
                 }
                 in_events.insert(peb.add(PollEvent::PollOut).build(), s);
                 file_descriptor
             }
-            SubscriptionEnum::Clock(clock_info) => {
+            Eventtype::Clock => {
+                let clock_info = unsafe { s.data.clock };
                 if clock_info.clock_id == Clockid::Realtime
                     || clock_info.clock_id == Clockid::Monotonic
                 {
@@ -3872,7 +3935,7 @@ pub fn poll_oneoff<M: MemorySize>(
                     continue;
                 } else {
                     error!("Polling not implemented for these clocks yet");
-                    return Ok(Errno::Inval);
+                    return Err(Errno::Inval);
                 }
             }
         };
@@ -4021,7 +4084,7 @@ pub fn poll_oneoff<M: MemorySize>(
     // Block on the work and process process
     let mut env = ctx.data();
     let mut ret = __asyncify(
-        &mut ctx,
+        ctx,
         time_to_sleep,
         async move {
             work.await
@@ -4032,39 +4095,43 @@ pub fn poll_oneoff<M: MemorySize>(
 
     // If its a timeout then return an event for it
     if let Err(Errno::Timedout) = ret {
-        tracing::trace!("wasi[{}:{}]::poll_oneoff triggered_timeout", pid, tid);
-
         // The timeout has triggerred so lets add that event
+        if clock_subs.len() <= 0 {
+            tracing::warn!("wasi[{}:{}]::poll_oneoff triggered_timeout (without any clock subscriptions)", pid, tid);
+        }
         for (clock_info, userdata) in clock_subs {
+            let evt = Event {
+                userdata,
+                error: Errno::Success,
+                type_: Eventtype::Clock,
+                u: EventUnion {
+                    clock: 0,
+                },
+            };
+            tracing::trace!("wasi[{}:{}]::poll_oneoff triggered_timeout (event={:?})", pid, tid, evt);
             triggered_events_tx
-                .send(Event {
-                    userdata,
-                    error: Errno::Success,
-                    data: EventEnum::Clock,
-                })
+                .send(evt)
                 .unwrap();
         }
         ret = Ok(Errno::Success);
     }
-    let ret = wasi_try_ok!(ret);
+    let ret = ret?;
+    if ret != Errno::Success {
+        return Err(ret);
+    }
 
     // Process all the events that were triggered
-    let event_array = wasi_try_mem_ok!(out_.slice(&memory, nsubscriptions));
+    let mut event_array = Vec::new();
     while let Ok(event) = triggered_events_rx.try_recv() {
-        wasi_try_mem_ok!(event_array.index(events_seen as u64).write(event));
-        events_seen += 1;
+        event_array.push(event);
     }
-    let events_seen: M::Offset = wasi_try_ok!(events_seen.try_into().map_err(|_| Errno::Overflow));
-    let out_ptr = nevents.deref(&memory);
-    wasi_try_mem_ok!(out_ptr.write(events_seen));
     tracing::trace!(
-        "wasi[{}:{}]::poll_oneoff ret={} seen={}",
-        pid,
-        tid,
-        ret,
-        events_seen
+        "wasi[{}:{}]::poll_oneoff seen={}",
+        ctx.data().pid(),
+        ctx.data().tid(),
+        event_array.len()
     );
-    Ok(ret)
+    Ok(event_array)
 }
 
 /// ### `proc_exit()`

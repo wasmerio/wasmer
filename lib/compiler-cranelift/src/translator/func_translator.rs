@@ -15,7 +15,6 @@ use cranelift_codegen::entity::EntityRef;
 use cranelift_codegen::ir::{self, Block, InstBuilder, ValueLabel};
 use cranelift_codegen::timing;
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext, Variable};
-use tracing::info;
 use wasmer_compiler::wasmparser;
 use wasmer_compiler::{
     wasm_unsupported, wptype_to_type, FunctionBinaryReader, ModuleTranslationState,
@@ -80,7 +79,8 @@ impl FuncTranslator {
         environ: &mut FE,
     ) -> WasmResult<()> {
         let _tt = timing::wasm_translate_function();
-        info!(
+        #[cfg(feature = "verbose")]
+        tracing::info!(
             "translate({} bytes, {}{})",
             reader.bytes_remaining(),
             func.name,

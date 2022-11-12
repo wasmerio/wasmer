@@ -63,10 +63,10 @@ impl VirtualFile for TtyFile {
     fn bytes_available(&self) -> wasmer_vfs::Result<usize> {
         self.stdin.bytes_available()
     }
-    fn bytes_available_read(&self) -> wasmer_vfs::Result<Option<usize>> {
+    fn bytes_available_read(&self) -> wasmer_vfs::Result<usize> {
         self.stdin.bytes_available_read()
     }
-    fn bytes_available_write(&self) -> wasmer_vfs::Result<Option<usize>> {
+    fn bytes_available_write(&self) -> wasmer_vfs::Result<usize> {
         self.stdin.bytes_available_write()
     }
     fn get_fd(&self) -> Option<FileDescriptor> {
