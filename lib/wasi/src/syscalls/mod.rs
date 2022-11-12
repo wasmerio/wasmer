@@ -1389,7 +1389,13 @@ pub fn fd_pwrite<M: MemorySize>(
     offset: Filesize,
     nwritten: WasmPtr<M::Offset, M>,
 ) -> Result<Errno, WasiError> {
-    trace!("wasi[{}:{}]::fd_pwrite", ctx.data().pid(), ctx.data().tid());
+    trace!(
+        "wasi[{}:{}]::fd_pwrite (fd={}, offset={})",
+        ctx.data().pid(),
+        ctx.data().tid(),
+        fd,
+        offset,
+    );
     // TODO: refactor, this is just copied from `fd_write`...
     let mut env = ctx.data();
     let state = env.state.clone();
