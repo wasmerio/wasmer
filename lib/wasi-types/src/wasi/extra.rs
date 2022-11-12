@@ -505,7 +505,7 @@ impl From<std::io::Error> for Errno {
 }
 
 impl std::error::Error for Errno {}
-#[repr(u8)]
+#[repr(u32)]
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum BusErrno {
     /// No error occurred. Call completed successfully.
@@ -1198,7 +1198,7 @@ impl core::fmt::Debug for Subscription {
             .finish()
     }
 }
-#[repr(u8)]
+#[repr(u16)]
 #[derive(Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
 pub enum Socktype {
     Dgram,
@@ -1322,7 +1322,7 @@ impl core::fmt::Debug for Streamsecurity {
         }
     }
 }
-#[repr(u8)]
+#[repr(u16)]
 #[derive(Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
 pub enum Addressfamily {
     Unspec,

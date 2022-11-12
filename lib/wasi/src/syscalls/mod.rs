@@ -1998,7 +1998,7 @@ pub fn fd_event<M: MemorySize>(
         false,
         "event".to_string().into(),
     );
-    let rights = Rights::FD_READ | Rights::FD_WRITE | Rights::POLL_FD_READWRITE;
+    let rights = Rights::FD_READ | Rights::FD_WRITE | Rights::POLL_FD_READWRITE | Rights::FD_FDSTAT_SET_FLAGS;
     let fd = wasi_try!(state
         .fs
         .create_fd(rights, rights, Fdflags::empty(), 0, inode));
@@ -2419,7 +2419,7 @@ pub fn fd_pipe<M: MemorySize>(
         "pipe".to_string().into(),
     );
 
-    let rights = Rights::all_socket();
+    let rights = Rights::FD_READ | Rights::FD_WRITE | Rights::FD_SYNC | Rights::FD_DATASYNC | Rights::POLL_FD_READWRITE | Rights::FD_FDSTAT_SET_FLAGS;
     let fd1 = wasi_try!(state
         .fs
         .create_fd(rights, rights, Fdflags::empty(), 0, inode1));
