@@ -1556,7 +1556,9 @@ impl WasiFs {
             pr_type: Preopentype::Dir,
             u: PrestatEnum::Dir {
                 // REVIEW:
-                pr_name_len: inode_val.name.len() as u32, // no need for +1, because there is no 0 end-of-string marker
+                // no need for +1, because there is no 0 end-of-string marker
+                // john: removing the +1 seems cause regression issues
+                pr_name_len: inode_val.name.len() as u32 + 1, 
             }
             .untagged(),
         }
