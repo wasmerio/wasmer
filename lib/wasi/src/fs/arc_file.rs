@@ -74,11 +74,11 @@ impl VirtualFile for ArcFile {
         let inner = self.inner.lock().unwrap();
         inner.bytes_available()
     }
-    fn bytes_available_read(&self) -> wasmer_vfs::Result<Option<usize>> {
+    fn bytes_available_read(&self) -> wasmer_vfs::Result<usize> {
         let inner = self.inner.lock().unwrap();
         inner.bytes_available_read()
     }
-    fn bytes_available_write(&self) -> wasmer_vfs::Result<Option<usize>> {
+    fn bytes_available_write(&self) -> wasmer_vfs::Result<usize> {
         let inner = self.inner.lock().unwrap();
         inner.bytes_available_write()
     }

@@ -39,8 +39,8 @@ pub type WasiHash = u128;
 pub type WasiSmallHash = u64;
 
 /// Identifiers for clocks, snapshot0 version.
-#[repr(u8)]
-#[derive(Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
+#[repr(u32)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Snapshot0Clockid {
     /// The clock measuring real time. Time value zero corresponds with
     /// 1970-01-01T00:00:00Z.
@@ -70,7 +70,7 @@ impl core::fmt::Debug for Snapshot0Clockid {
     }
 }
 /// Identifiers for clocks.
-#[repr(u8)]
+#[repr(u32)]
 #[derive(Clone, Copy, Hash, PartialEq, Eq, TryFromPrimitive)]
 pub enum Clockid {
     /// The clock measuring real time. Time value zero corresponds with
@@ -80,13 +80,19 @@ pub enum Clockid {
     /// real time, whose value cannot be adjusted and which cannot have negative
     /// clock jumps. The epoch of this clock is undefined. The absolute time
     /// value of this clock therefore has no meaning.
-    Monotonic,
+    Monotonic,    
+    /// The CPU-time clock associated with the current process.
+    ProcessCputimeId,
+    /// The CPU-time clock associated with the current thread.
+    ThreadCputimeId,
 }
 impl core::fmt::Debug for Clockid {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Clockid::Realtime => f.debug_tuple("Clockid::Realtime").finish(),
             Clockid::Monotonic => f.debug_tuple("Clockid::Monotonic").finish(),
+            Clockid::ProcessCputimeId => f.debug_tuple("Clockid::ProcessCputimeId").finish(),
+            Clockid::ThreadCputimeId => f.debug_tuple("Clockid::ThreadCputimeId").finish(),
         }
     }
 }
@@ -94,11 +100,11 @@ impl core::fmt::Debug for Clockid {
 /// Not all of these error codes are returned by the functions provided by this
 /// API; some are used in higher-level library layers, and others are provided
 /// merely for alignment with POSIX.
-#[repr(u8)]
+#[repr(u16)]
 #[derive(Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
 pub enum Errno {
     /// No error occurred. System call completed successfully.
-    Success,
+    Success = 0,
     /// Argument list too long.
     Toobig,
     /// Permission denied.
@@ -251,6 +257,8 @@ pub enum Errno {
     Xdev,
     /// Extension: Capabilities insufficient.
     Notcapable,
+    /// Shutdown
+    Shutdown,
 }
 impl Errno {
     pub fn name(&self) -> &'static str {
@@ -332,6 +340,7 @@ impl Errno {
             Errno::Txtbsy => "txtbsy",
             Errno::Xdev => "xdev",
             Errno::Notcapable => "notcapable",
+            Errno::Shutdown => "shutdown",
         }
     }
     pub fn message(&self) -> &'static str {
@@ -413,6 +422,7 @@ impl Errno {
             Errno::Txtbsy => "Text file busy.",
             Errno::Xdev => "Cross-device link.",
             Errno::Notcapable => "Extension: Capabilities insufficient.",
+            Errno::Shutdown => "Cannot send after socket shutdown.",
         }
     }
 }
@@ -1084,33 +1094,26 @@ pub struct Event {
     pub userdata: Userdata,
     /// If non-zero, an error that occurred while processing the subscription request.
     pub error: Errno,
+    /// Type of event that was triggered
+    pub type_: Eventtype,
     /// The type of the event that occurred, and the contents of the event
-    pub data: EventEnum,
+    pub u: EventUnion,
 }
 impl core::fmt::Debug for Event {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("Event")
             .field("userdata", &self.userdata)
             .field("error", &self.error)
-            .field("data", &self.data)
+            .field("type", &self.type_)
             .finish()
     }
 }
 /// The contents of an `event`.
+#[repr(C)]
 #[derive(Clone, Copy)]
-pub enum EventEnum {
-    FdRead(EventFdReadwrite),
-    FdWrite(EventFdReadwrite),
-    Clock,
-}
-impl core::fmt::Debug for EventEnum {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match self {
-            EventEnum::FdRead(e) => f.debug_tuple("EventEnum::FdRead").field(e).finish(),
-            EventEnum::FdWrite(e) => f.debug_tuple("EventEnum::FdWrite").field(e).finish(),
-            EventEnum::Clock => f.debug_tuple("EventEnum::Clock").finish(),
-        }
-    }
+pub union EventUnion {
+    pub clock: u8,
+    pub fd_readwrite: EventFdReadwrite,
 }
 /// An event that occurred.
 #[repr(C)]
@@ -1137,49 +1140,18 @@ impl core::fmt::Debug for Snapshot0Event {
     }
 }
 /// The contents of a `subscription`, snapshot0 version.
+#[repr(C)]
 #[derive(Clone, Copy)]
-pub enum Snapshot0SubscriptionEnum {
-    Clock(Snapshot0SubscriptionClock),
-    Read(SubscriptionFsReadwrite),
-    Write(SubscriptionFsReadwrite),
-}
-impl core::fmt::Debug for Snapshot0SubscriptionEnum {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match self {
-            Snapshot0SubscriptionEnum::Clock(e) => f
-                .debug_tuple("Snapshot0SubscriptionEnum::Clock")
-                .field(e)
-                .finish(),
-            Snapshot0SubscriptionEnum::Read(e) => f
-                .debug_tuple("Snapshot0SubscriptionEnum::Read")
-                .field(e)
-                .finish(),
-            Snapshot0SubscriptionEnum::Write(e) => f
-                .debug_tuple("Snapshot0SubscriptionEnum::Write")
-                .field(e)
-                .finish(),
-        }
-    }
+pub union Snapshot0SubscriptionUnion {
+    pub clock: Snapshot0SubscriptionClock,
+    pub fd_readwrite: SubscriptionFsReadwrite
 }
 /// The contents of a `subscription`.
+#[repr(C)]
 #[derive(Clone, Copy)]
-pub enum SubscriptionEnum {
-    Clock(SubscriptionClock),
-    Read(SubscriptionFsReadwrite),
-    Write(SubscriptionFsReadwrite),
-}
-impl core::fmt::Debug for SubscriptionEnum {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match self {
-            SubscriptionEnum::Clock(e) => {
-                f.debug_tuple("SubscriptionEnum::Clock").field(e).finish()
-            }
-            SubscriptionEnum::Read(e) => f.debug_tuple("SubscriptionEnum::Read").field(e).finish(),
-            SubscriptionEnum::Write(e) => {
-                f.debug_tuple("SubscriptionEnum::Write").field(e).finish()
-            }
-        }
-    }
+pub union SubscriptionUnion {
+    pub clock: SubscriptionClock,
+    pub fd_readwrite: SubscriptionFsReadwrite
 }
 /// The contents of a `subscription` when the variant is
 /// `eventtype::fd_read` or `eventtype::fd_write`.
@@ -1200,13 +1172,14 @@ impl core::fmt::Debug for SubscriptionFsReadwrite {
 #[derive(Copy, Clone)]
 pub struct Snapshot0Subscription {
     pub userdata: Userdata,
-    pub data: Snapshot0SubscriptionEnum,
+    pub type_: Eventtype,
+    pub u: Snapshot0SubscriptionUnion,
 }
 impl core::fmt::Debug for Snapshot0Subscription {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("Snapshot0Subscription")
             .field("userdata", &self.userdata)
-            .field("data", &self.data)
+            .field("type", &self.type_)
             .finish()
     }
 }
@@ -1214,13 +1187,14 @@ impl core::fmt::Debug for Snapshot0Subscription {
 #[derive(Copy, Clone)]
 pub struct Subscription {
     pub userdata: Userdata,
-    pub data: SubscriptionEnum,
+    pub type_: Eventtype,
+    pub data: SubscriptionUnion,
 }
 impl core::fmt::Debug for Subscription {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("Subscription")
             .field("userdata", &self.userdata)
-            .field("data", &self.data)
+            .field("type", &self.type_)
             .finish()
     }
 }
@@ -2754,6 +2728,8 @@ unsafe impl wasmer::FromToNativeWasmType for Clockid {
         match n {
             0 => Self::Realtime,
             1 => Self::Monotonic,
+            2 => Self::ProcessCputimeId,
+            3 => Self::ThreadCputimeId,
 
             q => todo!("could not serialize number {q} to enum Clockid"),
         }
@@ -2856,6 +2832,7 @@ unsafe impl wasmer::FromToNativeWasmType for Errno {
             74 => Self::Txtbsy,
             75 => Self::Xdev,
             76 => Self::Notcapable,
+            77 => Self::Shutdown,
 
             q => todo!("could not serialize number {q} to enum Errno"),
         }
@@ -3115,7 +3092,7 @@ unsafe impl ValueType for Event {
 }
 
 // TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl ValueType for EventEnum {
+unsafe impl ValueType for EventUnion {
     #[inline]
     fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
 }
@@ -3127,13 +3104,13 @@ unsafe impl ValueType for Snapshot0Event {
 }
 
 // TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl ValueType for Snapshot0SubscriptionEnum {
+unsafe impl ValueType for Snapshot0SubscriptionUnion {
     #[inline]
     fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
 }
 
 // TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl ValueType for SubscriptionEnum {
+unsafe impl ValueType for SubscriptionUnion {
     #[inline]
     fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
 }

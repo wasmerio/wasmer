@@ -231,20 +231,19 @@ pub trait VirtualFile: fmt::Debug + Write + Read + Seek + Upcastable {
 
     /// Returns the number of bytes available.  This function must not block
     fn bytes_available(&self) -> Result<usize> {
-        Ok(self.bytes_available_read()?.unwrap_or(0usize)
-            + self.bytes_available_write()?.unwrap_or(0usize))
+        Ok(self.bytes_available_read()?.max(self.bytes_available_write()?))
     }
 
     /// Returns the number of bytes available.  This function must not block
     /// Defaults to `None` which means the number of bytes is unknown
-    fn bytes_available_read(&self) -> Result<Option<usize>> {
-        Ok(None)
+    fn bytes_available_read(&self) -> Result<usize> {
+        Ok(8192)
     }
 
     /// Returns the number of bytes available.  This function must not block
     /// Defaults to `None` which means the number of bytes is unknown
-    fn bytes_available_write(&self) -> Result<Option<usize>> {
-        Ok(None)
+    fn bytes_available_write(&self) -> Result<usize> {
+        Ok(8192)
     }
 
     /// Polls for when read data is available again
@@ -257,13 +256,12 @@ pub trait VirtualFile: fmt::Debug + Write + Read + Seek + Upcastable {
     ) -> std::task::Poll<Result<usize>> {
         use std::ops::Deref;
         match self.bytes_available_read() {
-            Ok(Some(0)) => {
+            Ok(0) => {
                 let waker = cx.waker().clone();
                 register_root_waker.deref()(waker);
                 std::task::Poll::Pending
             }
-            Ok(Some(a)) => std::task::Poll::Ready(Ok(a)),
-            Ok(None) => std::task::Poll::Ready(Err(FsError::WouldBlock)),
+            Ok(a) => std::task::Poll::Ready(Ok(a)),
             Err(err) => std::task::Poll::Ready(Err(err)),
         }
     }
@@ -278,13 +276,12 @@ pub trait VirtualFile: fmt::Debug + Write + Read + Seek + Upcastable {
     ) -> std::task::Poll<Result<usize>> {
         use std::ops::Deref;
         match self.bytes_available_write() {
-            Ok(Some(0)) => {
+            Ok(0) => {
                 let waker = cx.waker().clone();
                 register_root_waker.deref()(waker);
                 std::task::Poll::Pending
             }
-            Ok(Some(a)) => std::task::Poll::Ready(Ok(a)),
-            Ok(None) => std::task::Poll::Ready(Err(FsError::WouldBlock)),
+            Ok(a) => std::task::Poll::Ready(Ok(a)),
             Err(err) => std::task::Poll::Ready(Err(err)),
         }
     }

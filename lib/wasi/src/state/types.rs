@@ -341,11 +341,8 @@ pub(crate) fn poll(
     for (n, file) in files.iter().enumerate() {
         let mut builder = PollEventBuilder::new();
 
-        let can_read = file.bytes_available_read()?.map(|_| true).unwrap_or(false);
-        let can_write = file
-            .bytes_available_write()?
-            .map(|s| s > 0)
-            .unwrap_or(false);
+        let can_read = file.bytes_available_read()? > 0;
+        let can_write = file.bytes_available_write()? > 0;
         let is_closed = file.is_open() == false;
 
         tracing::debug!(
