@@ -25,7 +25,7 @@ pub mod output {
   pub type Tid = u32;
   pub type Pid = u32;
   /// Identifiers for clocks, snapshot0 version.
-  #[repr(u8)]
+  #[repr(u32)]
   #[derive(Clone, Copy, PartialEq, Eq)]
   pub enum Snapshot0Clockid {
     /// The clock measuring real time. Time value zero corresponds with
@@ -60,7 +60,7 @@ pub mod output {
     }
   }
   /// Identifiers for clocks.
-  #[repr(u8)]
+  #[repr(u32)]
   #[derive(Clone, Copy, PartialEq, Eq)]
   pub enum Clockid {
     /// The clock measuring real time. Time value zero corresponds with
@@ -71,6 +71,10 @@ pub mod output {
     /// clock jumps. The epoch of this clock is undefined. The absolute time
     /// value of this clock therefore has no meaning.
     Monotonic,
+    /// The CPU-time clock associated with the current process.
+    ProcessCputimeId,
+    /// The CPU-time clock associated with the current thread.
+    ThreadCputimeId,
   }
   impl core::fmt::Debug for Clockid {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -81,6 +85,12 @@ pub mod output {
         Clockid::Monotonic => {
           f.debug_tuple("Clockid::Monotonic").finish()
         }
+        Snapshot0Clockid::ProcessCputimeId => {
+          f.debug_tuple("Clockid::ProcessCputimeId").finish()
+        }
+        Snapshot0Clockid::ThreadCputimeId => {
+          f.debug_tuple("Clockid::ThreadCputimeId").finish()
+        }
       }
     }
   }
@@ -88,7 +98,7 @@ pub mod output {
   /// Not all of these error codes are returned by the functions provided by this
   /// API; some are used in higher-level library layers, and others are provided
   /// merely for alignment with POSIX.
-  #[repr(u8)]
+  #[repr(u16)]
   #[derive(Clone, Copy, PartialEq, Eq)]
   pub enum Errno {
     /// No error occurred. System call completed successfully.
@@ -425,7 +435,7 @@ pub mod output {
   }
   
   impl std::error::Error for Errno{}
-  #[repr(u8)]
+  #[repr(u32)]
   #[derive(Clone, Copy, PartialEq, Eq)]
   pub enum BusErrno {
     /// No error occurred. Call completed successfully.
@@ -1137,7 +1147,7 @@ pub mod output {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
       f.debug_struct("Subscription").field("userdata", &self.userdata).field("data", &self.data).finish()}
   }
-  #[repr(u8)]
+  #[repr(u16)]
   #[derive(Clone, Copy, PartialEq, Eq)]
   pub enum Socktype {
     Dgram,
@@ -1333,7 +1343,7 @@ pub mod output {
       }
     }
   }
-  #[repr(u8)]
+  #[repr(u16)]
   #[derive(Clone, Copy, PartialEq, Eq)]
   pub enum Addressfamily {
     Unspec,
