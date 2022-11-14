@@ -1,13 +1,11 @@
 //! This module define the required structures for compilation symbols.
 use crate::{
     entity::{EntityRef, PrimaryMap},
-    CompileModuleInfo, FunctionIndex, LocalFunctionIndex, OwnedDataInitializer,
-    SectionIndex, SignatureIndex,
+    CompileModuleInfo, FunctionIndex, LocalFunctionIndex, OwnedDataInitializer, SectionIndex,
+    SignatureIndex,
 };
 #[cfg(feature = "enable-rkyv")]
-use crate::{
-    DeserializeError, SerializeError,
-};
+use crate::{DeserializeError, SerializeError};
 #[cfg(feature = "rkyv")]
 use rkyv::{
     archived_value, de::deserializers::SharedDeserializeMap, ser::serializers::AllocSerializer,
@@ -18,18 +16,12 @@ use rkyv::{
 use serde::{Deserialize, Serialize};
 
 /// The kinds of wasmer_types objects that might be found in a native object file.
-#[derive(
-    Copy,
-    Clone,
-    PartialEq,
-    Eq,
-    Hash,
-    PartialOrd,
-    Ord,
-    Debug,
-)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "enable-rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
+#[cfg_attr(
+    feature = "enable-rkyv",
+    derive(RkyvSerialize, RkyvDeserialize, Archive)
+)]
 #[cfg_attr(feature = "enable-rkyv", archive(as = "Self"))]
 pub enum Symbol {
     /// A function defined in the wasm.
@@ -59,7 +51,10 @@ pub trait SymbolRegistry: Send + Sync {
 /// Serializable struct that represents the compiled metadata.
 #[derive(Debug)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "enable-rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
+#[cfg_attr(
+    feature = "enable-rkyv",
+    derive(RkyvSerialize, RkyvDeserialize, Archive)
+)]
 pub struct ModuleMetadata {
     /// Compile info
     pub compile_info: CompileModuleInfo,

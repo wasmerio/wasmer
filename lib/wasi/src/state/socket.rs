@@ -15,7 +15,9 @@ use wasmer_vnet::{
     IpCidr, IpRoute, SocketHttpRequest, VirtualIcmpSocket, VirtualNetworking, VirtualRawSocket,
     VirtualTcpListener, VirtualTcpSocket, VirtualUdpSocket, VirtualWebSocket,
 };
-use wasmer_wasi_types::wasi::{Addressfamily, Errno, Fdflags, OptionTag, Sockoption, Socktype, Rights};
+use wasmer_wasi_types::wasi::{
+    Addressfamily, Errno, Fdflags, OptionTag, Rights, Sockoption, Socktype,
+};
 
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
@@ -274,7 +276,7 @@ impl InodeSocket {
             InodeSocketKind::Closed => {
                 tracing::warn!("wasi[?]::sock_listen - failed - socket closed");
                 Err(Errno::Io)
-            },
+            }
             _ => {
                 tracing::warn!("wasi[?]::sock_listen - failed - not supported(2)");
                 Err(Errno::Notsup)
@@ -676,7 +678,6 @@ impl InodeSocket {
         }
     }
 
-
     pub fn set_opt_time(
         &self,
         ty: TimeType,
@@ -798,7 +799,7 @@ impl InodeSocket {
     pub async fn join_multicast_v4(
         &self,
         multiaddr: Ipv4Addr,
-        iface: Ipv4Addr
+        iface: Ipv4Addr,
     ) -> Result<(), Errno> {
         let mut inner = self.inner.write().unwrap();
         match &mut inner.kind {
@@ -839,7 +840,11 @@ impl InodeSocket {
         }
     }
 
-    pub async fn leave_multicast_v6(&mut self, multiaddr: Ipv6Addr, iface: u32) -> Result<(), Errno> {
+    pub async fn leave_multicast_v6(
+        &mut self,
+        multiaddr: Ipv6Addr,
+        iface: u32,
+    ) -> Result<(), Errno> {
         let mut inner = self.inner.write().unwrap();
         match &mut inner.kind {
             InodeSocketKind::UdpSocket(sock) => sock
@@ -851,13 +856,10 @@ impl InodeSocket {
         }
     }
 
-    pub async fn send(
-        &self,
-        buf: Vec<u8>,
-    ) -> Result<usize, Errno> {
+    pub async fn send(&self, buf: Vec<u8>) -> Result<usize, Errno> {
         let buf_len = buf.len();
         let mut inner = self.inner.write().unwrap();
-        
+
         let ret = match &mut inner.kind {
             InodeSocketKind::HttpRequest(sock, ty) => {
                 let sock = sock.get_mut().unwrap();
@@ -879,15 +881,18 @@ impl InodeSocket {
                 .await
                 .map(|_| buf_len)
                 .map_err(net_error_into_wasi_err),
-            InodeSocketKind::Raw(sock) => {
-                sock.send(Bytes::from(buf)).await.map_err(net_error_into_wasi_err)
-            }
-            InodeSocketKind::TcpStream(sock) => {
-                sock.send(Bytes::from(buf)).await.map_err(net_error_into_wasi_err)
-            }
-            InodeSocketKind::UdpSocket(sock) => {
-                sock.send(Bytes::from(buf)).await.map_err(net_error_into_wasi_err)
-            }
+            InodeSocketKind::Raw(sock) => sock
+                .send(Bytes::from(buf))
+                .await
+                .map_err(net_error_into_wasi_err),
+            InodeSocketKind::TcpStream(sock) => sock
+                .send(Bytes::from(buf))
+                .await
+                .map_err(net_error_into_wasi_err),
+            InodeSocketKind::UdpSocket(sock) => sock
+                .send(Bytes::from(buf))
+                .await
+                .map_err(net_error_into_wasi_err),
             InodeSocketKind::PreSocket { .. } => Err(Errno::Notconn),
             InodeSocketKind::Closed => Err(Errno::Io),
             _ => Err(Errno::Notsup),
@@ -907,7 +912,7 @@ impl InodeSocket {
     ) -> Result<usize, Errno> {
         let buf_len = buf.len();
         let mut inner = self.inner.write().unwrap();
-        
+
         let ret = match &mut inner.kind {
             InodeSocketKind::Icmp(sock) => sock
                 .send_to(Bytes::from(buf), addr)
@@ -1034,10 +1039,7 @@ impl InodeSocket {
         }
     }
 
-    pub async fn recv(
-        &self,
-        max_size: usize,
-    ) -> Result<Bytes, Errno> {
+    pub async fn recv(&self, max_size: usize) -> Result<Bytes, Errno> {
         let mut inner = self.inner.write().unwrap();
         loop {
             let is_tcp = if let InodeSocketKind::TcpStream(..) = &inner.kind {
@@ -1148,10 +1150,7 @@ impl InodeSocket {
         }
     }
 
-    pub async fn recv_from(
-        &self,
-        max_size: usize
-    ) -> Result<(Bytes, SocketAddr), Errno> {
+    pub async fn recv_from(&self, max_size: usize) -> Result<(Bytes, SocketAddr), Errno> {
         let mut inner = self.inner.write().unwrap();
         loop {
             let is_tcp = if let InodeSocketKind::TcpStream(..) = &inner.kind {
@@ -1178,10 +1177,10 @@ impl InodeSocket {
             let rcv = match &mut inner.kind {
                 InodeSocketKind::Icmp(sock) => {
                     sock.recv_from().await.map_err(net_error_into_wasi_err)?
-                },
+                }
                 InodeSocketKind::UdpSocket(sock) => {
                     sock.recv_from().await.map_err(net_error_into_wasi_err)?
-                },
+                }
                 InodeSocketKind::PreSocket { .. } => return Err(Errno::Notconn),
                 InodeSocketKind::Closed => return Err(Errno::Io),
                 _ => return Err(Errno::Notsup),

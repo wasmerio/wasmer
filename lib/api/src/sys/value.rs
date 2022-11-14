@@ -4,17 +4,14 @@ use std::string::{String, ToString};
 
 use wasmer_types::Type;
 #[cfg(feature = "compiler")]
-use wasmer_vm::{
-    VMExternRef,
-    VMFuncRef
-};
+use wasmer_vm::{VMExternRef, VMFuncRef};
 
 use crate::ExternRef;
 use crate::Function;
 
-use super::store::AsStoreRef;
 #[cfg(feature = "compiler")]
 use super::store::AsStoreMut;
+use super::store::AsStoreRef;
 
 pub use wasmer_types::RawValue;
 

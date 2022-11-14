@@ -1,6 +1,6 @@
+use num_enum::TryFromPrimitive;
 use std::mem::MaybeUninit;
 use wasmer::ValueType;
-use num_enum::TryFromPrimitive;
 
 /// Type names used by low-level WASI interfaces.
 /// An array size.
@@ -80,7 +80,7 @@ pub enum Clockid {
     /// real time, whose value cannot be adjusted and which cannot have negative
     /// clock jumps. The epoch of this clock is undefined. The absolute time
     /// value of this clock therefore has no meaning.
-    Monotonic,    
+    Monotonic,
     /// The CPU-time clock associated with the current process.
     ProcessCputimeId,
     /// The CPU-time clock associated with the current thread.
@@ -1144,14 +1144,14 @@ impl core::fmt::Debug for Snapshot0Event {
 #[derive(Clone, Copy)]
 pub union Snapshot0SubscriptionUnion {
     pub clock: Snapshot0SubscriptionClock,
-    pub fd_readwrite: SubscriptionFsReadwrite
+    pub fd_readwrite: SubscriptionFsReadwrite,
 }
 /// The contents of a `subscription`.
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub union SubscriptionUnion {
     pub clock: SubscriptionClock,
-    pub fd_readwrite: SubscriptionFsReadwrite
+    pub fd_readwrite: SubscriptionFsReadwrite,
 }
 /// The contents of a `subscription` when the variant is
 /// `eventtype::fd_read` or `eventtype::fd_write`.
@@ -1469,7 +1469,9 @@ impl core::fmt::Debug for __wasi_busdataformat_t {
         match self {
             __wasi_busdataformat_t::Raw => f.debug_tuple("BusDataFormat::Raw").finish(),
             __wasi_busdataformat_t::Bincode => f.debug_tuple("BusDataFormat::Bincode").finish(),
-            __wasi_busdataformat_t::MessagePack => f.debug_tuple("BusDataFormat::MessagePack").finish(),
+            __wasi_busdataformat_t::MessagePack => {
+                f.debug_tuple("BusDataFormat::MessagePack").finish()
+            }
             __wasi_busdataformat_t::Json => f.debug_tuple("BusDataFormat::Json").finish(),
             __wasi_busdataformat_t::Yaml => f.debug_tuple("BusDataFormat::Yaml").finish(),
             __wasi_busdataformat_t::Xml => f.debug_tuple("BusDataFormat::Xml").finish(),

@@ -105,9 +105,7 @@ impl Memory {
         let js_memory = js_sys::WebAssembly::Memory::new(&descriptor)
             .map_err(|_e| MemoryError::Generic("Error while creating the memory".to_owned()))?;
 
-        Ok(
-            js_memory
-        )
+        Ok(js_memory)
     }
 
     /// Creates a new host `Memory` from provided JavaScript memory.

@@ -128,26 +128,22 @@ impl From<Snapshot0Subscription> for Subscription {
             userdata: other.userdata,
             type_: other.type_,
             data: match other.type_ {
-                Eventtype::Clock => {
-                    SubscriptionUnion {
-                        clock: unsafe { SubscriptionClock {
+                Eventtype::Clock => SubscriptionUnion {
+                    clock: unsafe {
+                        SubscriptionClock {
                             clock_id: other.u.clock.id.into(),
                             timeout: other.u.clock.timeout,
                             precision: other.u.clock.precision,
-                            flags: other.u.clock.flags
-                        } }
-                    }
+                            flags: other.u.clock.flags,
+                        }
+                    },
                 },
-                Eventtype::FdRead => {
-                    SubscriptionUnion {
-                        fd_readwrite: unsafe { other.u.fd_readwrite }
-                    }
+                Eventtype::FdRead => SubscriptionUnion {
+                    fd_readwrite: unsafe { other.u.fd_readwrite },
                 },
-                Eventtype::FdWrite => {
-                    SubscriptionUnion {
-                        fd_readwrite: unsafe { other.u.fd_readwrite }
-                    }
-                }
+                Eventtype::FdWrite => SubscriptionUnion {
+                    fd_readwrite: unsafe { other.u.fd_readwrite },
+                },
             },
         }
     }

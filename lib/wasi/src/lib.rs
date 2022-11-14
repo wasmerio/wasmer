@@ -62,20 +62,18 @@ pub use wasmer_compiler_cranelift;
 pub use wasmer_compiler_llvm;
 #[cfg(feature = "compiler-singlepass")]
 pub use wasmer_compiler_singlepass;
-use wasmer_wasi_types::wasi::{Errno, Signal, ExitCode, BusErrno, Snapshot0Clockid};
+use wasmer_wasi_types::wasi::{BusErrno, Errno, ExitCode, Signal, Snapshot0Clockid};
 
 pub use crate::state::{
-    default_fs_backing, Fd, Pipe, WasiControlPlane, WasiFs, WasiInodes, WasiProcess,
-    WasiProcessId, WasiState, WasiStateBuilder, WasiStateCreationError, WasiThread,
-    WasiThreadHandle, WasiThreadId, ALL_RIGHTS, VIRTUAL_ROOT_FD,
-    WasiPipe, WasiBidirectionalPipePair, WasiBidirectionalSharedPipePair
+    default_fs_backing, Fd, Pipe, WasiBidirectionalPipePair, WasiBidirectionalSharedPipePair,
+    WasiControlPlane, WasiFs, WasiInodes, WasiPipe, WasiProcess, WasiProcessId, WasiState,
+    WasiStateBuilder, WasiStateCreationError, WasiThread, WasiThreadHandle, WasiThreadId,
+    ALL_RIGHTS, VIRTUAL_ROOT_FD,
 };
 pub use crate::syscalls::types;
-pub use crate::utils::{
-    get_wasi_version, get_wasi_versions, is_wasi_module, WasiVersion,
-};
 #[cfg(feature = "wasix")]
 pub use crate::utils::is_wasix_module;
+pub use crate::utils::{get_wasi_version, get_wasi_versions, is_wasi_module, WasiVersion};
 #[cfg(feature = "os")]
 use bin_factory::BinFactory;
 #[allow(unused_imports)]
@@ -324,8 +322,7 @@ pub struct WasiVFork {
 /// The environment provided to the WASI imports.
 #[derive(Derivative, Clone)]
 #[derivative(Debug)]
-pub struct WasiEnv
-{
+pub struct WasiEnv {
     /// Represents the process this environment is attached to
     pub process: WasiProcess,
     /// Represents the thread this environment is attached to
@@ -494,8 +491,10 @@ impl WasiEnv {
     }
 
     /// Porcesses any signals that are batched up or any forced exit codes
-    pub fn process_signals_and_exit(&self, store: &mut impl AsStoreMut) -> Result<Result<bool, Errno>, WasiError>
-    {
+    pub fn process_signals_and_exit(
+        &self,
+        store: &mut impl AsStoreMut,
+    ) -> Result<Result<bool, Errno>, WasiError> {
         // If a signal handler has never been set then we need to handle signals
         // differently
         if self.inner().signal_set == false {
@@ -510,7 +509,7 @@ impl WasiEnv {
                 }
                 return Ok(Ok(signal_cnt > 0));
             } else {
-                return Ok(Ok(false))
+                return Ok(Ok(false));
             }
         }
 
@@ -519,14 +518,11 @@ impl WasiEnv {
             return Err(WasiError::Exit(forced_exit));
         }
 
-        Ok(
-            self.process_signals(store)
-        )
+        Ok(self.process_signals(store))
     }
 
     /// Porcesses any signals that are batched up
-    pub fn process_signals(&self, store: &mut impl AsStoreMut) -> Result<bool, Errno>
-    {
+    pub fn process_signals(&self, store: &mut impl AsStoreMut) -> Result<bool, Errno> {
         // If a signal handler has never been set then we need to handle signals
         // differently
         if self.inner().signal_set == false {
@@ -536,16 +532,15 @@ impl WasiEnv {
         // Check for any signals that we need to trigger
         // (but only if a signal handler is registered)
         if let Some(handler) = self.inner().signal.clone() {
-            if let Ok(mut signals) = self.thread.pop_signals_or_subscribe()
-            {
+            if let Ok(mut signals) = self.thread.pop_signals_or_subscribe() {
                 // We might also have signals that trigger on timers
                 let mut now = 0;
                 let has_signal_interval = {
                     let mut any = false;
                     let inner = self.process.inner.read().unwrap();
                     if inner.signal_intervals.is_empty() == false {
-                        now =
-                            platform_clock_time_get(Snapshot0Clockid::Monotonic, 1_000_000).unwrap() as u128;
+                        now = platform_clock_time_get(Snapshot0Clockid::Monotonic, 1_000_000)
+                            .unwrap() as u128;
                         for signal in inner.signal_intervals.values() {
                             let elapsed = now - signal.last_signal;
                             if elapsed >= signal.interval.as_nanos() {
@@ -572,11 +567,7 @@ impl WasiEnv {
                     if let Err(err) = handler.call(store, signal as i32) {
                         match err.downcast::<WasiError>() {
                             Ok(err) => {
-                                warn!(
-                                    "wasi[{}]::signal handler wasi error - {}",
-                                    self.pid(),
-                                    err
-                                );
+                                warn!("wasi[{}]::signal handler wasi error - {}", self.pid(), err);
                                 return Err(Errno::Intr);
                             }
                             Err(err) => {

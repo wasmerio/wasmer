@@ -1,21 +1,20 @@
 use std::{
     borrow::Cow,
     collections::{HashMap, HashSet},
+    convert::TryInto,
     ops::{Deref, DerefMut},
     sync::{
         atomic::{AtomicU32, Ordering},
         Arc, Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard,
     },
-    time::Duration, convert::TryInto,
+    time::Duration,
 };
 
 use bytes::{Bytes, BytesMut};
 #[cfg(feature = "logging")]
 use tracing::log::trace;
 use wasmer_vbus::{BusSpawnedProcess, SignalHandlerAbi};
-use wasmer_wasi_types::{
-    wasi::{Signal, TlKey, TlVal, TlUser, ExitCode, Errno, Snapshot0Clockid},
-};
+use wasmer_wasi_types::wasi::{Errno, ExitCode, Signal, Snapshot0Clockid, TlKey, TlUser, TlVal};
 
 use crate::syscalls::platform_clock_time_get;
 
@@ -86,14 +85,8 @@ pub struct WasiThread {
     pub(crate) is_main: bool,
     pub(crate) pid: WasiProcessId,
     pub(crate) id: WasiThreadId,
-    finished: Arc<Mutex<(
-        Option<ExitCode>,
-        tokio::sync::broadcast::Sender<()>,
-    )>>,
-    pub(crate) signals: Arc<Mutex<(
-        Vec<Signal>,
-        tokio::sync::broadcast::Sender<()>,
-    )>>,
+    finished: Arc<Mutex<(Option<ExitCode>, tokio::sync::broadcast::Sender<()>)>>,
+    pub(crate) signals: Arc<Mutex<(Vec<Signal>, tokio::sync::broadcast::Sender<()>)>>,
     stack: Arc<Mutex<ThreadStack>>,
 }
 
@@ -124,7 +117,7 @@ impl WasiThread {
     }
 
     /// Waits until the thread is finished or the timeout is reached
-    pub async fn join(&self) -> Option<ExitCode> {        
+    pub async fn join(&self) -> Option<ExitCode> {
         loop {
             let mut rx = {
                 let finished = self.finished.lock().unwrap();
@@ -155,13 +148,15 @@ impl WasiThread {
     }
 
     /// Returns all the signals that are waiting to be processed
-    pub fn pop_signals_or_subscribe(&self) -> Result<Vec<Signal>, tokio::sync::broadcast::Receiver<()>> {
+    pub fn pop_signals_or_subscribe(
+        &self,
+    ) -> Result<Vec<Signal>, tokio::sync::broadcast::Receiver<()>> {
         let mut guard = self.signals.lock().unwrap();
         let mut ret = Vec::new();
         std::mem::swap(&mut ret, &mut guard.0);
         match ret.is_empty() {
             true => Err(guard.1.subscribe()),
-            false => Ok(ret)
+            false => Ok(ret),
         }
     }
 
@@ -410,10 +405,7 @@ pub struct WasiProcess {
     /// Reference back to the compute engine
     pub(crate) compute: WasiControlPlane,
     /// Reference to the exit code for the main thread
-    pub(crate) finished: Arc<Mutex<(
-        Option<ExitCode>,
-        tokio::sync::broadcast::Sender<()>,
-    )>>,
+    pub(crate) finished: Arc<Mutex<(Option<ExitCode>, tokio::sync::broadcast::Sender<()>)>>,
     /// List of all the children spawned from this thread
     pub(crate) children: Arc<RwLock<Vec<WasiProcessId>>>,
     /// Number of threads waiting for children to exit
@@ -478,7 +470,10 @@ impl WasiProcess {
             id,
             is_main,
             finished,
-            signals: Arc::new(Mutex::new((Vec::new(), tokio::sync::broadcast::channel(1).0))),
+            signals: Arc::new(Mutex::new((
+                Vec::new(),
+                tokio::sync::broadcast::channel(1).0,
+            ))),
             stack: Arc::new(Mutex::new(ThreadStack::default())),
         };
         inner.threads.insert(id, ctrl.clone());
@@ -531,12 +526,7 @@ impl WasiProcess {
     }
 
     /// Signals one of the threads every interval
-    pub fn signal_interval(
-        &self,
-        signal: Signal,
-        interval: Option<Duration>,
-        repeat: bool,
-    ) {
+    pub fn signal_interval(&self, signal: Signal, interval: Option<Duration>, repeat: bool) {
         let mut inner = self.inner.write().unwrap();
 
         let interval = match interval {
@@ -618,9 +608,7 @@ impl WasiProcess {
     }
 
     /// Waits for any of the children to finished
-    pub async fn join_any_child(
-        &mut self,
-    ) -> Result<Option<(WasiProcessId, ExitCode)>, Errno> {
+    pub async fn join_any_child(&mut self) -> Result<Option<(WasiProcessId, ExitCode)>, Errno> {
         let _guard = WasiProcessWait::new(self);
         loop {
             let children: Vec<_> = {
@@ -643,14 +631,11 @@ impl WasiProcess {
                     })
                 }
             }
-            let woke = futures::future::select_all(
-                        waits.into_iter()
-                            .map(|a| Box::pin(a))
-                    )
-                    .await
-                    .0;
+            let woke = futures::future::select_all(waits.into_iter().map(|a| Box::pin(a)))
+                .await
+                .0;
             if let Some((pid, exit_code)) = woke {
-                return Ok(Some((pid, exit_code)))
+                return Ok(Some((pid, exit_code)));
             }
         }
     }

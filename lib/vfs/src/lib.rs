@@ -6,7 +6,7 @@ use std::io::{self, Read, Seek, Write};
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::sync::Arc;
-use std::task::{Waker, Context, Poll};
+use std::task::{Context, Poll, Waker};
 use thiserror::Error;
 
 #[cfg(all(not(feature = "host-fs"), not(feature = "mem-fs")))]
@@ -231,7 +231,9 @@ pub trait VirtualFile: fmt::Debug + Write + Read + Seek + Upcastable {
 
     /// Returns the number of bytes available.  This function must not block
     fn bytes_available(&self) -> Result<usize> {
-        Ok(self.bytes_available_read()?.max(self.bytes_available_write()?))
+        Ok(self
+            .bytes_available_read()?
+            .max(self.bytes_available_write()?))
     }
 
     /// Returns the number of bytes available.  This function must not block
@@ -306,22 +308,28 @@ pub trait VirtualFile: fmt::Debug + Write + Read + Seek + Upcastable {
     }
 
     /// Asynchronously reads from this file
-    fn read_async<'a>(&'a mut self, max_size: usize, register_root_waker: &'_ Arc<dyn Fn(Waker) + Send + Sync + 'static>) -> Pin<Box<dyn Future<Output=io::Result<Vec<u8>>> + 'a>>
-    {
+    fn read_async<'a>(
+        &'a mut self,
+        max_size: usize,
+        register_root_waker: &'_ Arc<dyn Fn(Waker) + Send + Sync + 'static>,
+    ) -> Pin<Box<dyn Future<Output = io::Result<Vec<u8>>> + 'a>> {
         Box::pin(VirtualFileAsyncRead {
             file: self,
             buf: Some(Vec::with_capacity(max_size)),
-            register_root_waker: register_root_waker.clone()
+            register_root_waker: register_root_waker.clone(),
         })
     }
 
     /// Asynchronously writes to this file
-    fn write_async<'a>(&'a mut self, buf: &'a [u8], register_root_waker: &'_ Arc<dyn Fn(Waker) + Send + Sync + 'static>) -> Pin<Box<dyn Future<Output=io::Result<usize>> + 'a>>
-    {
+    fn write_async<'a>(
+        &'a mut self,
+        buf: &'a [u8],
+        register_root_waker: &'_ Arc<dyn Fn(Waker) + Send + Sync + 'static>,
+    ) -> Pin<Box<dyn Future<Output = io::Result<usize>> + 'a>> {
         Box::pin(VirtualFileAsyncWrite {
             file: self,
             buf,
-            register_root_waker: register_root_waker.clone()
+            register_root_waker: register_root_waker.clone(),
         })
     }
 
@@ -344,24 +352,23 @@ pub trait VirtualFile: fmt::Debug + Write + Read + Seek + Upcastable {
     }
 }
 
-struct VirtualFileAsyncRead<'a, T: ?Sized>
-{
+struct VirtualFileAsyncRead<'a, T: ?Sized> {
     file: &'a mut T,
     buf: Option<Vec<u8>>,
-    register_root_waker: Arc<dyn Fn(Waker) + Send + Sync + 'static>
+    register_root_waker: Arc<dyn Fn(Waker) + Send + Sync + 'static>,
 }
-impl<'a, T: ?Sized> Future
-for VirtualFileAsyncRead<'a, T>
-where T: VirtualFile
+impl<'a, T: ?Sized> Future for VirtualFileAsyncRead<'a, T>
+where
+    T: VirtualFile,
 {
     type Output = io::Result<Vec<u8>>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         match self.file.poll_read_ready(cx, &self.register_root_waker) {
             Poll::Pending => return Poll::Pending,
-            Poll::Ready(Err(FsError::WouldBlock)) => { },
+            Poll::Ready(Err(FsError::WouldBlock)) => {}
             Poll::Ready(Err(err)) => return Poll::Ready(Err(Into::<io::Error>::into(err))),
-            Poll::Ready(Ok(_)) => { }
+            Poll::Ready(Ok(_)) => {}
         };
         let mut buf = match self.buf.take() {
             Some(a) => a,
@@ -369,40 +376,38 @@ where T: VirtualFile
                 return Poll::Ready(Err(Into::<io::Error>::into(io::ErrorKind::BrokenPipe)));
             }
         };
-        unsafe { buf.set_len(buf.capacity()); }
-        Poll::Ready(
-            self.file.read(&mut buf[..])
-                .map(|amt| {
-                    unsafe { buf.set_len(amt); }
-                    buf
-                })
-        )
+        unsafe {
+            buf.set_len(buf.capacity());
+        }
+        Poll::Ready(self.file.read(&mut buf[..]).map(|amt| {
+            unsafe {
+                buf.set_len(amt);
+            }
+            buf
+        }))
     }
 }
 
-struct VirtualFileAsyncWrite<'a, T: ?Sized>
-{
+struct VirtualFileAsyncWrite<'a, T: ?Sized> {
     file: &'a mut T,
     buf: &'a [u8],
-    register_root_waker: Arc<dyn Fn(Waker) + Send + Sync + 'static>
+    register_root_waker: Arc<dyn Fn(Waker) + Send + Sync + 'static>,
 }
-impl<'a, T: ?Sized> Future
-for VirtualFileAsyncWrite<'a, T>
-where T: VirtualFile
+impl<'a, T: ?Sized> Future for VirtualFileAsyncWrite<'a, T>
+where
+    T: VirtualFile,
 {
     type Output = io::Result<usize>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         match self.file.poll_write_ready(cx, &self.register_root_waker) {
             Poll::Pending => return Poll::Pending,
-            Poll::Ready(Err(FsError::WouldBlock)) => { },
+            Poll::Ready(Err(FsError::WouldBlock)) => {}
             Poll::Ready(Err(err)) => return Poll::Ready(Err(Into::<io::Error>::into(err))),
-            Poll::Ready(Ok(_)) => { }
+            Poll::Ready(Ok(_)) => {}
         };
         let buf = self.buf;
-        Poll::Ready(
-            self.file.write(buf)
-        )
+        Poll::Ready(self.file.write(buf))
     }
 }
 

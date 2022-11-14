@@ -11,10 +11,6 @@ use enumset::EnumSet;
 use wasmer_types::entity::PrimaryMap;
 #[cfg(feature = "compiler")]
 use wasmer_types::CompileModuleInfo;
-#[cfg(feature = "enable-rkyv")]
-use wasmer_types::{
-    MetadataHeader, SerializeError
-};
 use wasmer_types::{
     CompileError, CpuFeature, CustomSection, Dwarf, FunctionIndex, LocalFunctionIndex, MemoryIndex,
     MemoryStyle, ModuleInfo, OwnedDataInitializer, Pages, Relocation, SectionIndex, SignatureIndex,
@@ -23,6 +19,8 @@ use wasmer_types::{
 use wasmer_types::{
     CompiledFunctionFrameInfo, FunctionBody, SerializableCompilation, SerializableModule,
 };
+#[cfg(feature = "enable-rkyv")]
+use wasmer_types::{MetadataHeader, SerializeError};
 
 /// A compiled wasm module, ready to be instantiated.
 pub struct ArtifactBuild {

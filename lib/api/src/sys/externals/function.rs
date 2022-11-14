@@ -5,37 +5,28 @@ use crate::sys::FunctionType;
 use crate::sys::TypedFunction;
 use crate::FunctionEnv;
 
+pub use inner::{FromToNativeWasmType, HostFunction, WasmTypeList, WithEnv, WithoutEnv};
 #[cfg(feature = "compiler")]
 use {
     crate::{
-        FunctionEnvMut, Value,
         sys::{
+            store::{StoreInner, StoreMut},
             RuntimeError,
-            store::{
-                StoreInner, StoreMut
-            },
         },
+        FunctionEnvMut, Value,
     },
     inner::StaticFunction,
-    std::{
-        cell::UnsafeCell,
-        cmp::max,
-        ffi::c_void,
-    },
-    wasmer_vm::{
-        wasmer_call_trampoline, on_host_stack, raise_user_trap, resume_panic,
-        MaybeInstanceOwned,
-        VMCallerCheckedAnyfunc, VMFunctionContext, VMTrampoline,
-        VMContext, VMDynamicFunctionContext, VMFunctionBody
-    },
+    std::{cell::UnsafeCell, cmp::max, ffi::c_void},
     wasmer_types::RawValue,
+    wasmer_vm::{
+        on_host_stack, raise_user_trap, resume_panic, wasmer_call_trampoline, MaybeInstanceOwned,
+        VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionContext, VMFunctionBody,
+        VMFunctionContext, VMTrampoline,
+    },
 };
-pub use inner::{FromToNativeWasmType, HostFunction, WasmTypeList, WithEnv, WithoutEnv};
 
 use wasmer_vm::{
-    InternalStoreHandle,
-    StoreHandle, VMExtern,
-    VMFuncRef, VMFunction, VMFunctionKind,
+    InternalStoreHandle, StoreHandle, VMExtern, VMFuncRef, VMFunction, VMFunctionKind,
 };
 
 /// A WebAssembly `function` instance.
@@ -824,7 +815,7 @@ where
 {
     // This function wraps our func, to make it compatible with the
     // reverse trampoline signature
-    #[cfg(feature = "compiler")]    
+    #[cfg(feature = "compiler")]
     unsafe extern "C" fn func_wrapper(
         this: &mut VMDynamicFunctionContext<Self>,
         values_vec: *mut RawValue,

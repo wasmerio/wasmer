@@ -1,9 +1,9 @@
 use derivative::*;
-use wasmer_wasi_types::wasi::{Snapshot0Clockid, Signal};
 use std::{
     io::Write,
     sync::{Arc, Mutex},
 };
+use wasmer_wasi_types::wasi::{Signal, Snapshot0Clockid};
 
 use wasmer_vbus::SignalHandlerAbi;
 use wasmer_vfs::VirtualFile;
@@ -156,8 +156,8 @@ impl Tty {
                 // Due to a nasty bug in xterm.js on Android mobile it sends the keys you press
                 // twice in a row with a short interval between - this hack will avoid that bug
                 if self.is_mobile {
-                    let now =
-                        platform_clock_time_get(Snapshot0Clockid::Monotonic, 1_000_000).unwrap() as u128;
+                    let now = platform_clock_time_get(Snapshot0Clockid::Monotonic, 1_000_000)
+                        .unwrap() as u128;
                     if let Some((what, when)) = self.last.as_ref() {
                         if what.as_str() == data && now - *when < TTY_MOBILE_PAUSE {
                             self.last = None;
