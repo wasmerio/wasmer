@@ -1,13 +1,13 @@
 use crate::sys::exports::{ExportError, Exportable};
 use crate::sys::externals::Extern;
 use crate::sys::store::{AsStoreMut, AsStoreRef};
-use crate::sys::RuntimeError;
 use crate::sys::TableType;
 use crate::Value;
 use wasmer_vm::{InternalStoreHandle, StoreHandle, TableElement, VMExtern, VMTable};
 #[cfg(feature = "compiler")]
 use crate::{
-    ExternRef, Function
+    ExternRef, Function,
+    sys::RuntimeError
 };
 
 /// A WebAssembly `table` instance.

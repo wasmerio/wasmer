@@ -17,8 +17,7 @@ generational-arena = { version = "0.2" }
 tracing = "0.1"
 getrandom = "0.2"
 wasmer-wasi-types = { path = "../wasi-types", version = "=3.0.0-rc.2" }
-# FIXME: evaluate if needed
-wasmer-types = { path = "../types", version = "=3.0.0-rc.2" }
+wasmer-types = { path = "../types", version = "=3.0.0-rc.2", default-features = false }
 wasmer = { path = "../api", version = "=3.0.0-rc.2", default-features = false }
 wasmer-vfs = { path = "../vfs", version = "=3.0.0-rc.2", default-features = false, features = ["mem-fs"] }
 wasmer-vbus = { path = "../vbus", version = "=3.0.0-rc.2", default-features = false }
@@ -46,7 +45,7 @@ futures = { version = "0.3" }
 async-trait = { version = "^0.1", optional = true }
 urlencoding = { version = "^2", optional = true }
 # FIXME: proper dependency!
-webc-vfs = { version = "0.1", path = "../../../pirita/crates/webc-vfs", optional = true }
+webc-vfs = { version = "0.1", path = "../../../pirita/crates/webc-vfs", default_features = false, optional = true }
 serde_derive = { version = "^1", optional = true }
 serde_json = { version = "^1", optional = true }
 serde_yaml = { version = "^0.8", optional = true }

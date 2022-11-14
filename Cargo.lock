@@ -4691,6 +4691,7 @@ dependencies = [
 name = "wasmer-wasi-types"
 version = "3.0.0-rc.2"
 dependencies = [
+ "bitflags",
  "byteorder",
  "num_enum",
  "pretty_assertions",

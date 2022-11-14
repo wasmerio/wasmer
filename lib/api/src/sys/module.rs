@@ -1,15 +1,15 @@
 use std::fmt;
 use std::io;
+#[cfg(feature = "compiler")]
 use std::path::Path;
+#[cfg(feature = "compiler")]
+use wasmer_compiler::ArtifactCreate;
 use std::sync::Arc;
 use thiserror::Error;
-use bytes::Bytes;
-use wasmer_compiler::Artifact;
-use wasmer_compiler::ArtifactCreate;
 #[cfg(feature = "wat")]
 use wasmer_types::WasmError;
 use wasmer_types::{
-    CompileError, ExportsIterator, ImportsIterator, ModuleInfo, SerializeError,
+    CompileError, ExportsIterator, ImportsIterator, ModuleInfo,
 };
 use wasmer_types::{ExportType, ImportType};
 
@@ -20,8 +20,6 @@ use crate::{
     AsStoreRef,
     IntoBytes
 };
-#[cfg(feature = "compiler")]
-use wasmer_types::DeserializeError;
 #[cfg(feature = "compiler")]
 use wasmer_vm::InstanceHandle;
 
@@ -59,7 +57,8 @@ pub struct Module {
     //
     // In the future, this code should be refactored to properly describe the
     // ownership of the code and its metadata.
-    artifact: Arc<Artifact>,
+    #[cfg(feature = "compiler")]
+    artifact: Arc<wasmer_compiler::Artifact>,
     module_info: Arc<ModuleInfo>,
 }
 
@@ -136,7 +135,7 @@ impl Module {
                     e
                 )))
             })?;
-            bytes = Bytes::from(parsed_bytes.to_vec());
+            bytes = bytes::Bytes::from(parsed_bytes.to_vec());
         }
         Self::from_binary(store, bytes.as_ref())
     }
@@ -210,6 +209,7 @@ impl Module {
 
     /// Serializes a module into a binary representation that the `Engine`
     /// can later process via
+    #[cfg(feature = "enable-rkyv")]
     #[cfg_attr(feature = "compiler", doc = "[`Module::deserialize`].")]
     #[cfg_attr(not(feature = "compiler"), doc = "`Module::deserialize`.")]
     ///
@@ -224,12 +224,13 @@ impl Module {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn serialize(&self) -> Result<Bytes, SerializeError> {
+    pub fn serialize(&self) -> Result<bytes::Bytes, wasmer_types::SerializeError> {
         self.artifact.serialize().map(|bytes| bytes.into())
     }
 
     /// Serializes a module into a file that the `Engine`
     /// can later process via
+    #[cfg(feature = "enable-rkyv")]
     #[cfg_attr(feature = "compiler", doc = "[`Module::deserialize_from_file`].")]
     #[cfg_attr(not(feature = "compiler"), doc = "`Module::deserialize_from_file`.")]
     ///
@@ -244,10 +245,11 @@ impl Module {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn serialize_to_file(&self, path: impl AsRef<Path>) -> Result<(), SerializeError> {
+    pub fn serialize_to_file(&self, path: impl AsRef<Path>) -> Result<(), wasmer_types::SerializeError> {
         self.artifact.serialize_to_file(path.as_ref())
     }
 
+    #[cfg(feature = "enable-rkyv")]
     #[cfg(feature = "compiler")]
     /// Deserializes a serialized Module binary into a `Module`.
     /// > Note: the module has to be serialized before with the `serialize` method.
@@ -275,12 +277,13 @@ impl Module {
     pub unsafe fn deserialize(
         store: &impl AsStoreRef,
         bytes: impl IntoBytes,
-    ) -> Result<Self, DeserializeError> {
+    ) -> Result<Self, wasmer_types::DeserializeError> {
         let bytes = bytes.into_bytes();
         let artifact = store.as_store_ref().engine().deserialize(&bytes)?;
         Ok(Self::from_artifact(artifact))
     }
 
+    #[cfg(feature = "enable-rkyv")]
     #[cfg(feature = "compiler")]
     /// Deserializes a a serialized Module located in a `Path` into a `Module`.
     /// > Note: the module has to be serialized before with the `serialize` method.
@@ -302,7 +305,7 @@ impl Module {
     pub unsafe fn deserialize_from_file(
         store: &impl AsStoreRef,
         path: impl AsRef<Path>,
-    ) -> Result<Self, DeserializeError> {
+    ) -> Result<Self, wasmer_types::DeserializeError> {
         let artifact = store
             .as_store_ref()
             .engine()
@@ -311,7 +314,7 @@ impl Module {
     }
 
     #[cfg(feature = "compiler")]
-    fn from_artifact(artifact: Arc<Artifact>) -> Self {
+    fn from_artifact(artifact: Arc<wasmer_compiler::Artifact>) -> Self {
         Self {
             module_info: Arc::new(artifact.create_module_info()),
             artifact,
