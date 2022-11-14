@@ -1400,8 +1400,6 @@ pub fn fd_pwrite<M: MemorySize>(
     let mut env = ctx.data();
     let state = env.state.clone();
     let inodes = state.inodes.clone();
-    let mut memory = env.memory_view(&ctx);
-    let iovs_arr = wasi_try_mem_ok!(iovs.slice(&memory, iovs_len));
     
     let fd_entry = wasi_try_ok!(state.fs.get_fd(fd));
     let bytes_written = {
@@ -1414,6 +1412,9 @@ pub fn fd_pwrite<M: MemorySize>(
                         .stdout_mut(&state.fs.fd_map)
                         .map_err(fs_error_into_wasi_err)
                 );
+                
+                let memory = env.memory_view(&ctx);
+                let iovs_arr = wasi_try_mem_ok!(iovs.slice(&memory, iovs_len));
                 wasi_try_ok!(write_bytes(stdout.deref_mut(), &memory, iovs_arr))
             }
             __WASI_STDERR_FILENO => {
@@ -1422,6 +1423,9 @@ pub fn fd_pwrite<M: MemorySize>(
                         .stderr_mut(&state.fs.fd_map)
                         .map_err(fs_error_into_wasi_err)
                 );
+
+                let memory = env.memory_view(&ctx);
+                let iovs_arr = wasi_try_mem_ok!(iovs.slice(&memory, iovs_len));
                 wasi_try_ok!(write_bytes(stderr.deref_mut(), &memory, iovs_arr))
             }
             _ => {
@@ -1442,12 +1446,16 @@ pub fn fd_pwrite<M: MemorySize>(
                                     .seek(std::io::SeekFrom::Start(offset as u64))
                                     .map_err(map_io_err)
                             );
+                            let memory = env.memory_view(&ctx);
+                            let iovs_arr = wasi_try_mem_ok!(iovs.slice(&memory, iovs_len));
                             wasi_try_ok!(write_bytes(handle.deref_mut(), &memory, iovs_arr))
                         } else {
                             return Ok(Errno::Inval);
                         }
                     }
                     Kind::Socket { socket } => {
+                        let memory = env.memory_view(&ctx);
+                        let iovs_arr = wasi_try_mem_ok!(iovs.slice(&memory, iovs_len));
                         let buf_len: M::Offset = iovs_arr
                             .iter()
                             .filter_map(|a| a.read().ok())
@@ -1457,7 +1465,7 @@ pub fn fd_pwrite<M: MemorySize>(
                             wasi_try_ok!(buf_len.try_into().map_err(|_| Errno::Inval));
                         let mut buf = Vec::with_capacity(buf_len);
                         wasi_try_ok!(write_bytes(&mut buf, &memory, iovs_arr));
-
+                        
                         let socket = socket.clone();
                         let ret = wasi_try_ok!(__asyncify(
                             &mut ctx,
@@ -1465,11 +1473,11 @@ pub fn fd_pwrite<M: MemorySize>(
                             async move { socket.send(buf).await }
                         ));
                         env = ctx.data();
-                        memory = env.memory_view(&ctx);
                         ret
                     }
                     Kind::Pipe { pipe } => {
                         let memory = env.memory_view(&ctx);
+                        let iovs_arr = wasi_try_mem_ok!(iovs.slice(&memory, iovs_len));
                         wasi_try_ok!(pipe.send(&memory, iovs_arr))
                     }
                     Kind::Dir { .. } | Kind::Root { .. } => {
@@ -1479,6 +1487,8 @@ pub fn fd_pwrite<M: MemorySize>(
                     Kind::EventNotifications { .. } => return Ok(Errno::Inval),
                     Kind::Symlink { .. } => unimplemented!("Symlinks in wasi::fd_pwrite"),
                     Kind::Buffer { buffer } => {
+                        let memory = env.memory_view(&ctx);
+                        let iovs_arr = wasi_try_mem_ok!(iovs.slice(&memory, iovs_len));
                         wasi_try_ok!(
                             write_bytes(&mut buffer[(offset as usize)..], &memory, iovs_arr)
                         )
@@ -1490,6 +1500,7 @@ pub fn fd_pwrite<M: MemorySize>(
     
     let bytes_written: M::Offset =
         wasi_try_ok!(bytes_written.try_into().map_err(|_| Errno::Overflow));
+    let memory = env.memory_view(&ctx);
     let nwritten_ref = nwritten.deref(&memory);
     wasi_try_mem_ok!(nwritten_ref.write(bytes_written));
 
@@ -1549,15 +1560,18 @@ pub fn fd_read<M: MemorySize>(
         let offset = fd_entry.offset.load(Ordering::Acquire) as usize;
         let inode_idx = fd_entry.inode;
         
-        let mut memory = env.memory_view(&ctx);
-        let mut iovs_arr = wasi_try_mem_ok!(iovs.slice(&memory, iovs_len));
-        let mut max_size = 0usize;
-        for iovs in iovs_arr.iter() {
-            let iovs = wasi_try_mem_ok!(iovs.read());
-            let buf_len: usize =
-                wasi_try_ok!(iovs.buf_len.try_into().map_err(|_| Errno::Overflow));
-            max_size += buf_len;
-        }
+        let max_size = {
+            let memory = env.memory_view(&ctx);
+            let iovs_arr = wasi_try_mem_ok!(iovs.slice(&memory, iovs_len));
+            let mut max_size = 0usize;
+            for iovs in iovs_arr.iter() {
+                let iovs = wasi_try_mem_ok!(iovs.read());
+                let buf_len: usize =
+                    wasi_try_ok!(iovs.buf_len.try_into().map_err(|_| Errno::Overflow));
+                max_size += buf_len;
+            }
+            max_size
+        };
 
         let bytes_read = {
             let inodes = inodes.read().unwrap();
@@ -1619,24 +1633,16 @@ pub fn fd_read<M: MemorySize>(
                         a => a,
                     }));
                     env = ctx.data();
-                    memory = env.memory_view(&ctx);
-
+                    
                     let data_len = data.len();
                     let mut reader = &data[..];
-                    iovs_arr = wasi_try_mem_ok!(iovs.slice(&memory, iovs_len));
+                    let memory = env.memory_view(&ctx);
+                    let iovs_arr = wasi_try_mem_ok!(iovs.slice(&memory, iovs_len));
                     let bytes_read =
                         wasi_try_ok!(read_bytes(reader, &memory, iovs_arr).map(|_| data_len));
                     bytes_read
                 }
                 Kind::Pipe { pipe } => {
-                    let mut max_size = 0usize;
-                    for iovs in iovs_arr.iter() {
-                        let iovs = wasi_try_mem_ok!(iovs.read());
-                        let buf_len: usize =
-                            wasi_try_ok!(iovs.buf_len.try_into().map_err(|_| Errno::Overflow));
-                        max_size += buf_len;
-                    }
-
                     let pipe = pipe.clone();
                     let data = wasi_try_ok!(__asyncify(
                         &mut ctx,
@@ -1652,11 +1658,12 @@ pub fn fd_read<M: MemorySize>(
                         a => a,
                     }));
                     env = ctx.data();
-                    memory = env.memory_view(&ctx);
-
+                    
                     let data_len = data.len();
                     let mut reader = &data[..];
-                    iovs_arr = wasi_try_mem_ok!(iovs.slice(&memory, iovs_len));
+
+                    let memory = env.memory_view(&ctx);
+                    let iovs_arr = wasi_try_mem_ok!(iovs.slice(&memory, iovs_len));
                     let bytes_read =
                         wasi_try_ok!(read_bytes(reader, &memory, iovs_arr).map(|_| data_len));
                     bytes_read
@@ -1720,13 +1727,12 @@ pub fn fd_read<M: MemorySize>(
                             a => a,
                         }));
                         env = ctx.data();
-                        memory = env.memory_view(&ctx);
                     }
                     ret
                 }
                 Kind::Symlink { .. } => unimplemented!("Symlinks in wasi::fd_read"),
                 Kind::Buffer { buffer } => {
-                    let mut memory = env.memory_view(&ctx);
+                    let memory = env.memory_view(&ctx);
                     let iovs_arr = wasi_try_mem_ok!(iovs.slice(&memory, iovs_len));
                     wasi_try_ok!(read_bytes(&buffer[offset..], &memory, iovs_arr))
                 }
@@ -5963,8 +5969,10 @@ pub fn futex_wait<M: MemorySize>(
     };
 
     // Determine the timeout
-    let mut memory = env.memory_view(&ctx);
-    let timeout = wasi_try_mem_ok!(timeout.read(&memory));
+    let timeout = {
+        let memory = env.memory_view(&ctx);
+        wasi_try_mem_ok!(timeout.read(&memory))
+    };
     let timeout = match timeout.tag {
         OptionTag::Some => Some(timeout.u as u128),
         _ => None,
@@ -6012,7 +6020,6 @@ pub fn futex_wait<M: MemorySize>(
             }
         ));
         env = ctx.data();
-        memory = env.memory_view(&ctx);
     }
 
     // Drop the reference count to the futex (and remove it if the refcnt hits zero)
@@ -6027,6 +6034,7 @@ pub fn futex_wait<M: MemorySize>(
         }
     }
 
+    let memory = env.memory_view(&ctx);
     wasi_try_mem_ok!(ret_woken.write(&memory, woken));
 
     Ok(Errno::Success)
@@ -7418,9 +7426,10 @@ pub fn bus_call<M: MemorySize>(
 ) -> Result<BusErrno, WasiError> {
     let mut env = ctx.data();
     let bus = env.runtime.bus();
-    let mut memory = env.memory_view(&ctx);
-    let topic_hash = wasi_try_mem_bus_ok!(topic_hash.read(&memory));
-    let buf_slice = wasi_try_mem_bus_ok!(buf.slice(&memory, buf_len));
+    let topic_hash = {
+        let memory = env.memory_view(&ctx);
+        wasi_try_mem_bus_ok!(topic_hash.read(&memory))
+    };
     trace!(
         "wasi::bus_call (bid={}, buf_len={})",
         bid,
@@ -7445,7 +7454,11 @@ pub fn bus_call<M: MemorySize>(
     }
 
     // Invoke the call
-    let buf = wasi_try_mem_bus_ok!(buf_slice.read_to_vec());
+    let buf = {
+        let memory = env.memory_view(&ctx);
+        let buf_slice = wasi_try_mem_bus_ok!(buf.slice(&memory, buf_len));
+        wasi_try_mem_bus_ok!(buf_slice.read_to_vec())
+    };
     let mut invoked = process.inst.invoke(topic_hash, format, buf);
     drop(process);
     drop(guard);
@@ -7470,7 +7483,6 @@ pub fn bus_call<M: MemorySize>(
             }
         ).map_err(|_| BusErrno::Invoke));
         env = ctx.data();
-        memory = env.memory_view(&ctx);
     }
 
     // Record the invocation
@@ -7488,6 +7500,7 @@ pub fn bus_call<M: MemorySize>(
     env.state.bus.poll_wake();
 
     // Return the CID and success to the caller
+    let memory = env.memory_view(&ctx);
     wasi_try_mem_bus_ok!(ret_cid.write(&memory, cid));
     Ok(BusErrno::Success)
 }
@@ -7514,9 +7527,10 @@ pub fn bus_subcall<M: MemorySize>(
 ) -> Result<BusErrno, WasiError> {
     let mut env = ctx.data();
     let bus = env.runtime.bus();
-    let mut memory = env.memory_view(&ctx);
-    let topic_hash = wasi_try_mem_bus_ok!(topic_hash.read(&memory));
-    let buf_slice = wasi_try_mem_bus_ok!(buf.slice(&memory, buf_len));
+    let topic_hash = {
+        let memory = env.memory_view(&ctx);
+        wasi_try_mem_bus_ok!(topic_hash.read(&memory))
+    };
     trace!(
         "wasi::bus_subcall (parent={}, buf_len={})",
         parent_cid,
@@ -7524,7 +7538,11 @@ pub fn bus_subcall<M: MemorySize>(
     );
 
     let format = conv_bus_format_from(format);
-    let buf = wasi_try_mem_bus_ok!(buf_slice.read_to_vec());
+    let buf = {
+        let memory = env.memory_view(&ctx);
+        let buf_slice = wasi_try_mem_bus_ok!(buf.slice(&memory, buf_len));
+        wasi_try_mem_bus_ok!(buf_slice.read_to_vec())
+    };
 
     // Get the parent call that we'll invoke this call for
     let mut guard = env.state.bus.protected();
@@ -7556,7 +7574,6 @@ pub fn bus_subcall<M: MemorySize>(
                 }
             ).map_err(|_| BusErrno::Invoke));
             env = ctx.data();
-            memory = env.memory_view(&ctx);
         }
 
         // Add the call and return the ID
@@ -7574,6 +7591,7 @@ pub fn bus_subcall<M: MemorySize>(
         env.state.bus.poll_wake();
 
         // Return the CID and success to the caller
+        let memory = env.memory_view(&ctx);
         wasi_try_mem_bus_ok!(ret_cid.write(&memory, cid));
         Ok(BusErrno::Success)
     } else {
@@ -7633,7 +7651,6 @@ pub fn bus_poll<M: MemorySize>(
 
     let mut env = ctx.data();
     let bus = env.runtime.bus();
-    let mut memory = env.memory_view(&ctx);
     trace!(
         "wasi[{}:{}]::bus_poll (timeout={})",
         ctx.data().pid(),
@@ -7643,8 +7660,7 @@ pub fn bus_poll<M: MemorySize>(
 
     // Lets start by processing events for calls that are already running
     let mut nevents = M::ZERO;
-    let mut events = wasi_try_mem_bus_ok!(ref_events.slice(&memory, maxevents));
-
+    
     let state = env.state.clone();
     let start = platform_clock_time_get(Snapshot0Clockid::Monotonic, 1_000_000).unwrap() as u128;
     loop {
@@ -7742,7 +7758,8 @@ pub fn bus_poll<M: MemorySize>(
 
                         let nevents64: u64 =
                             wasi_try_bus_ok!(nevents.try_into().map_err(|_| BusErrno::Internal));
-                        events = wasi_try_mem_bus_ok!(ref_events.slice(&memory, maxevents));
+                        let memory = env.memory_view(&ctx);
+                        let events = wasi_try_mem_bus_ok!(ref_events.slice(&memory, maxevents));
                         wasi_try_mem_bus_ok!(events.write(nevents64, evt));
 
                         nevents += M::ONE;
@@ -7829,7 +7846,8 @@ pub fn bus_poll<M: MemorySize>(
                                 };
                                 let evt = unsafe { std::mem::transmute(evt) };
 
-                                events = wasi_try_mem_bus_ok!(ref_events.slice(&memory, maxevents));
+                                let memory = env.memory_view(&ctx);
+                                let events = wasi_try_mem_bus_ok!(ref_events.slice(&memory, maxevents));
                                 let nevents64: u64 = wasi_try_bus_ok!(nevents
                                     .try_into()
                                     .map_err(|_| BusErrno::Internal));
@@ -7890,7 +7908,8 @@ pub fn bus_poll<M: MemorySize>(
                                 };
                                 let event = unsafe { std::mem::transmute(event) };
 
-                                events = wasi_try_mem_bus_ok!(ref_events.slice(&memory, maxevents));
+                                let memory = env.memory_view(&ctx);
+                                let events = wasi_try_mem_bus_ok!(ref_events.slice(&memory, maxevents));
                                 let nevents64: u64 = wasi_try_bus_ok!(nevents
                                     .try_into()
                                     .map_err(|_| BusErrno::Internal));
@@ -7955,7 +7974,8 @@ pub fn bus_poll<M: MemorySize>(
                 };
                 let event = unsafe { std::mem::transmute(event) };
 
-                events = wasi_try_mem_bus_ok!(ref_events.slice(&memory, maxevents));
+                let memory = env.memory_view(&ctx);
+                let events = wasi_try_mem_bus_ok!(ref_events.slice(&memory, maxevents));
                 let nevents64: u64 =
                     wasi_try_bus_ok!(nevents.try_into().map_err(|_| BusErrno::Internal));
                 wasi_try_mem_bus_ok!(events.write(nevents64, event));
@@ -7980,13 +8000,13 @@ pub fn bus_poll<M: MemorySize>(
                     ctx.data().pid(),
                     ctx.data().tid()
                 );
+                let memory = env.memory_view(&ctx);
                 wasi_try_mem_bus_ok!(ret_nevents.write(&memory, nevents));
                 return Ok(BusErrno::Success);
             }
 
             let _ = ctx.data().clone().process_signals_and_exit(&mut ctx)?;
             env = ctx.data();
-            memory = env.memory_view(&ctx);
 
             let remaining = timeout.checked_sub(delta).unwrap_or(0);
             let interval = Duration::from_nanos(remaining)
@@ -8012,6 +8032,7 @@ pub fn bus_poll<M: MemorySize>(
         );
     }
 
+    let memory = env.memory_view(&ctx);
     wasi_try_mem_bus_ok!(ret_nevents.write(&memory, nevents));
     Ok(BusErrno::Success)
 }
@@ -8339,7 +8360,6 @@ pub fn http_status<M: MemorySize>(
     );
 
     let mut env = ctx.data();
-    let mut memory = env.memory_view(&ctx);
     
     let http_status = wasi_try!(__sock_actor(
         &mut ctx,
@@ -8348,7 +8368,6 @@ pub fn http_status<M: MemorySize>(
         move |socket| async move { socket.http_status() }
     ));
     env = ctx.data();
-    memory = env.memory_view(&ctx);
 
     // Write everything else and return the status to the caller
     let status = HttpStatus {
@@ -8361,6 +8380,7 @@ pub fn http_status<M: MemorySize>(
         status: http_status.status,
     };
 
+    let memory = env.memory_view(&ctx);
     let ref_status = ref_status.deref(&memory);
     wasi_try_mem!(ref_status.write(status));
 
@@ -9568,15 +9588,18 @@ pub fn sock_recv<M: MemorySize>(
         sock
     );
     let mut env = ctx.data();
-    let mut memory = env.memory_view(&ctx);
-    let mut iovs_arr = wasi_try_mem_ok!(ri_data.slice(&memory, ri_data_len));
-
-    let mut max_size = 0usize;
-    for iovs in iovs_arr.iter() {
-        let iovs = wasi_try_mem_ok!(iovs.read());
-        let buf_len: usize = wasi_try_ok!(iovs.buf_len.try_into().map_err(|_| Errno::Overflow));
-        max_size += buf_len;
-    }
+    
+    let max_size = {
+        let memory = env.memory_view(&ctx);
+        let iovs_arr = wasi_try_mem_ok!(ri_data.slice(&memory, ri_data_len));
+        let mut max_size = 0usize;
+        for iovs in iovs_arr.iter() {
+            let iovs = wasi_try_mem_ok!(iovs.read());
+            let buf_len: usize = wasi_try_ok!(iovs.buf_len.try_into().map_err(|_| Errno::Overflow));
+            max_size += buf_len;
+        }
+        max_size
+    };
 
     let data = wasi_try_ok!(__sock_actor_mut(
         &mut ctx,
@@ -9587,8 +9610,9 @@ pub fn sock_recv<M: MemorySize>(
         }
     ));
     env = ctx.data();
-    memory = env.memory_view(&ctx);
-    iovs_arr = wasi_try_mem_ok!(ri_data.slice(&memory, ri_data_len));
+    
+    let memory = env.memory_view(&ctx);
+    let iovs_arr = wasi_try_mem_ok!(ri_data.slice(&memory, ri_data_len));
 
     let data_len = data.len();
     let mut reader = &data[..];
@@ -9632,15 +9656,18 @@ pub fn sock_recv_from<M: MemorySize>(
     );
 
     let mut env = ctx.data();
-    let mut memory = env.memory_view(&ctx);
-    let mut iovs_arr = wasi_try_mem_ok!(ri_data.slice(&memory, ri_data_len));
-
-    let mut max_size = 0usize;
-    for iovs in iovs_arr.iter() {
-        let iovs = wasi_try_mem_ok!(iovs.read());
-        let buf_len: usize = wasi_try_ok!(iovs.buf_len.try_into().map_err(|_| Errno::Overflow));
-        max_size += buf_len;
-    }
+    
+    let max_size = {
+        let memory = env.memory_view(&ctx);
+        let iovs_arr = wasi_try_mem_ok!(ri_data.slice(&memory, ri_data_len));
+        let mut max_size = 0usize;
+        for iovs in iovs_arr.iter() {
+            let iovs = wasi_try_mem_ok!(iovs.read());
+            let buf_len: usize = wasi_try_ok!(iovs.buf_len.try_into().map_err(|_| Errno::Overflow));
+            max_size += buf_len;
+        }
+        max_size
+    };
 
     let (data, peer) = wasi_try_ok!(__sock_actor_mut(
         &mut ctx,
@@ -9651,9 +9678,9 @@ pub fn sock_recv_from<M: MemorySize>(
         }
     ));
     env = ctx.data();
-    memory = env.memory_view(&ctx);
-    iovs_arr = wasi_try_mem_ok!(ri_data.slice(&memory, ri_data_len));
-
+    
+    let memory = env.memory_view(&ctx);
+    let iovs_arr = wasi_try_mem_ok!(ri_data.slice(&memory, ri_data_len));
     wasi_try_ok!(write_ip_port(&memory, ro_addr, peer.ip(), peer.port()));
 
     let data_len = data.len();
@@ -9697,17 +9724,22 @@ pub fn sock_send<M: MemorySize>(
     let mut env = ctx.data();
     let runtime = env.runtime.clone();
 
-    let mut memory = env.memory_view(&ctx);
-    let iovs_arr = wasi_try_mem_ok!(si_data.slice(&memory, si_data_len));
-
-    let buf_len: M::Offset = iovs_arr
-        .iter()
-        .filter_map(|a| a.read().ok())
-        .map(|a| a.buf_len)
-        .sum();
+    let buf_len: M::Offset = {
+        let memory = env.memory_view(&ctx);
+        let iovs_arr = wasi_try_mem_ok!(si_data.slice(&memory, si_data_len));
+        iovs_arr
+            .iter()
+            .filter_map(|a| a.read().ok())
+            .map(|a| a.buf_len)
+            .sum()
+    };
     let buf_len: usize = wasi_try_ok!(buf_len.try_into().map_err(|_| Errno::Inval));
     let mut buf = Vec::with_capacity(buf_len);
-    wasi_try_ok!(write_bytes(&mut buf, &memory, iovs_arr));
+    {
+        let memory = env.memory_view(&ctx);
+        let iovs_arr = wasi_try_mem_ok!(si_data.slice(&memory, si_data_len));
+        wasi_try_ok!(write_bytes(&mut buf, &memory, iovs_arr));
+    }
 
     let bytes_written = wasi_try_ok!(__sock_actor_mut(
         &mut ctx,
@@ -9718,10 +9750,10 @@ pub fn sock_send<M: MemorySize>(
         }
     ));
     env = ctx.data();
-    memory = env.memory_view(&ctx);
 
     let bytes_written: M::Offset =
         wasi_try_ok!(bytes_written.try_into().map_err(|_| Errno::Overflow));
+    let memory = env.memory_view(&ctx);
     wasi_try_mem_ok!(ret_data_len.write(&memory, bytes_written));
 
     Ok(Errno::Success)
@@ -9758,19 +9790,27 @@ pub fn sock_send_to<M: MemorySize>(
     );
     let mut env = ctx.data();
 
-    let mut memory = env.memory_view(&ctx);
-    let iovs_arr = wasi_try_mem_ok!(si_data.slice(&memory, si_data_len));
-
-    let buf_len: M::Offset = iovs_arr
-        .iter()
-        .filter_map(|a| a.read().ok())
-        .map(|a| a.buf_len)
-        .sum();
+    let buf_len: M::Offset = {
+        let memory = env.memory_view(&ctx);
+        let iovs_arr = wasi_try_mem_ok!(si_data.slice(&memory, si_data_len));
+        iovs_arr
+            .iter()
+            .filter_map(|a| a.read().ok())
+            .map(|a| a.buf_len)
+            .sum()
+    };
     let buf_len: usize = wasi_try_ok!(buf_len.try_into().map_err(|_| Errno::Inval));
     let mut buf = Vec::with_capacity(buf_len);
-    wasi_try_ok!(write_bytes(&mut buf, &memory, iovs_arr));
+    {
+        let memory = env.memory_view(&ctx);
+        let iovs_arr = wasi_try_mem_ok!(si_data.slice(&memory, si_data_len));
+        wasi_try_ok!(write_bytes(&mut buf, &memory, iovs_arr));
+    }
 
-    let (addr_ip, addr_port) = wasi_try_ok!(read_ip_port(&memory, addr));
+    let (addr_ip, addr_port) = {
+        let memory = env.memory_view(&ctx);
+        wasi_try_ok!(read_ip_port(&memory, addr))
+    };
     let addr = SocketAddr::new(addr_ip, addr_port);
 
     let bytes_written = wasi_try_ok!(__sock_actor_mut(
@@ -9782,10 +9822,10 @@ pub fn sock_send_to<M: MemorySize>(
         }
     ));
     env = ctx.data();
-    memory = env.memory_view(&ctx);
 
     let bytes_written: M::Offset =
         wasi_try_ok!(bytes_written.try_into().map_err(|_| Errno::Overflow));
+        let memory = env.memory_view(&ctx);
     wasi_try_mem_ok!(ret_data_len.write(&memory, bytes_written as M::Offset));
 
     Ok(Errno::Success)
@@ -9974,8 +10014,10 @@ pub fn resolve<M: MemorySize>(
 ) -> Errno {
     let naddrs: usize = wasi_try!(naddrs.try_into().map_err(|_| Errno::Inval));
     let mut env = ctx.data();
-    let mut memory = env.memory_view(&ctx);
-    let host_str = unsafe { get_input_str!(&memory, host, host_len) };
+    let host_str = {
+        let memory = env.memory_view(&ctx);
+        unsafe { get_input_str!(&memory, host, host_len) }
+    };
     
     debug!(
         "wasi[{}:{}]::resolve (host={})",
@@ -9998,9 +10040,9 @@ pub fn resolve<M: MemorySize>(
         }
     ));
     env = ctx.data();
-    memory = env.memory_view(&ctx);
     
     let mut idx = 0;
+    let memory = env.memory_view(&ctx);
     let addrs = wasi_try_mem!(addrs.slice(&memory, wasi_try!(to_offset::<M>(naddrs))));
     for found_ip in found_ips.iter().take(naddrs) {
         super::state::write_ip(&memory, addrs.index(idx).as_ptr::<M>(), *found_ip);

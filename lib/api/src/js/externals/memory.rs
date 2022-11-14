@@ -86,23 +86,29 @@ impl Memory {
     /// let m = Memory::new(&store, MemoryType::new(1, None, false)).unwrap();
     /// ```
     pub fn new(store: &mut impl AsStoreMut, ty: MemoryType) -> Result<Self, MemoryError> {
+        let vm_memory = VMMemory::new(Self::new_internal(ty.clone())?, ty);
+        Ok(Self::from_vm_export(store, vm_memory))
+    }
+
+    pub(crate) fn new_internal(ty: MemoryType) -> Result<js_sys::WebAssembly::Memory, MemoryError> {
         let descriptor = js_sys::Object::new();
-        js_sys::Reflect::set(&descriptor, &"initial".into(), &ty.minimum.0.into()).unwrap();
-        if let Some(max) = ty.maximum {
-            js_sys::Reflect::set(&descriptor, &"maximum".into(), &max.0.into()).unwrap();
+        #[allow(unused_unsafe)]
+        #[allow(unused_unsafe)]
+        unsafe {
+            js_sys::Reflect::set(&descriptor, &"initial".into(), &ty.minimum.0.into()).unwrap();
+            if let Some(max) = ty.maximum {
+                js_sys::Reflect::set(&descriptor, &"maximum".into(), &max.0.into()).unwrap();
+            }
+            js_sys::Reflect::set(&descriptor, &"shared".into(), &ty.shared.into()).unwrap();
         }
-        js_sys::Reflect::set(&descriptor, &"shared".into(), &ty.shared.into()).unwrap();
 
         let js_memory = js_sys::WebAssembly::Memory::new(&descriptor)
             .map_err(|_e| MemoryError::Generic("Error while creating the memory".to_owned()))?;
 
-        Ok(js_memory)
+        Ok(
+            js_memory
+        )
     }
-    // FIXME: resolve!
-    // pub fn new(store: &mut impl AsStoreMut, ty: MemoryType) -> Result<Self, MemoryError> {
-    //     let vm_memory = VMMemory::new(Self::new_internal(ty.clone())?, ty);
-    //     Ok(Self::from_vm_export(store, vm_memory))
-    // }
 
     /// Creates a new host `Memory` from provided JavaScript memory.
     pub fn new_raw(

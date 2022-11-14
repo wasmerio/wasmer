@@ -144,7 +144,6 @@ macro_rules! impl_native_traits {
                 // Ok(Rets::from_c_struct(results))
             }
 
-            // FIXME: evaluate what's going on here, and compare with the significintaly expanded Self::call  impl
             #[doc(hidden)]
             #[allow(missing_docs)]
             #[allow(unused_mut)]

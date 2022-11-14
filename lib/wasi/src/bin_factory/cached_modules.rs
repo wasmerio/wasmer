@@ -165,22 +165,25 @@ impl CachedCompiledModules {
         }
 
         // Now try for the WebC
-        let wapm_name = name
-            .split_once(":")
-            .map(|a| a.0)
-            .unwrap_or_else(|| name.as_str());
-        let cache_webc_dir = self.cache_webc_dir.as_str();
-        if let Some(data) = crate::wapm::fetch_webc(cache_webc_dir, wapm_name, runtime, tasks) {
-            // If the package is the same then don't replace it
-            // as we don't want to duplicate the memory usage
-            if let Some(existing) = cache.get_mut(&name) {
-                if existing.hash() == data.hash() && existing.version == data.version {
-                    existing.when_cached = now;
-                    return Some(data.clone());
+        #[cfg(feature = "os")]
+        {
+            let wapm_name = name
+                .split_once(":")
+                .map(|a| a.0)
+                .unwrap_or_else(|| name.as_str());
+            let cache_webc_dir = self.cache_webc_dir.as_str();
+            if let Some(data) = crate::wapm::fetch_webc(cache_webc_dir, wapm_name, runtime, tasks) {
+                // If the package is the same then don't replace it
+                // as we don't want to duplicate the memory usage
+                if let Some(existing) = cache.get_mut(&name) {
+                    if existing.hash() == data.hash() && existing.version == data.version {
+                        existing.when_cached = now;
+                        return Some(data.clone());
+                    }
                 }
+                cache.insert(name, data.clone());
+                return Some(data);
             }
-            cache.insert(name, data.clone());
-            return Some(data);
         }
 
         // Not found

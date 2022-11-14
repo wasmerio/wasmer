@@ -30,7 +30,7 @@ use js_sys::Function as JsFunction;
 use js_sys::WebAssembly::{Memory as JsMemory, Table as JsTable};
 use std::fmt;
 use wasm_bindgen::{JsCast, JsValue};
-use wasmer_types::{ExternType, FunctionType, GlobalType, MemoryType, TableType};
+use wasmer_types::ExternType;
 
 /// The value of an export passed from one instance to another.
 pub enum VMExtern {

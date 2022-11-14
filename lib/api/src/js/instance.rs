@@ -1,5 +1,4 @@
 use crate::js::error::InstantiationError;
-use crate::js::export::Export;
 use crate::js::exports::Exports;
 use crate::js::externals::Extern;
 use crate::js::imports::Imports;
@@ -63,11 +62,11 @@ impl Instance {
         module: &Module,
         imports: &Imports,
     ) -> Result<Self, InstantiationError> {
-        let instance: WebAssembly::Instance = module
+        let (instance, externs) = module
             .instantiate(&mut store, imports)
             .map_err(|e| InstantiationError::Start(e))?;
 
-        let self_instance = Self::from_module_and_instance(store, module, instance)?;
+        let self_instance = Self::from_module_and_instance(store, module, externs, instance)?;
         //self_instance.init_envs(&imports.iter().map(Extern::to_export).collect::<Vec<_>>())?;
         Ok(self_instance)
     }
@@ -106,24 +105,30 @@ impl Instance {
     pub fn from_module_and_instance(
         mut store: &mut impl AsStoreMut,
         module: &Module,
-        instance: WebAssembly::Instance,
+        externs: Vec<Extern>,
+        handle: StoreHandle<WebAssembly::Instance>,
     ) -> Result<Self, InstantiationError> {
         use crate::js::externals::VMExtern;
+
+        let instance = handle.get(store.objects_mut());
         let instance_exports = instance.exports();
+
         let mut exports = module
             .exports()
             .map(|export_type| {
                 let name = export_type.name();
                 let extern_type = export_type.ty().clone();
-                let js_export = js_sys::Reflect::get(&instance_exports, &name.into())
-                    .map_err(|_e| InstantiationError::NotInExports(name.to_string()))?;
+                #[allow(unused_unsafe)]
+                let js_export = unsafe {
+                    js_sys::Reflect::get(&instance_exports, &name.into())
+                        .map_err(|_e| InstantiationError::NotInExports(name.to_string()))?
+                };
                 let export: VMExtern =
                     VMExtern::from_js_value(js_export, &mut store, extern_type)?.into();
                 let extern_ = Extern::from_vm_extern(&mut store, export);
                 Ok((name.to_string(), extern_))
             })
             .collect::<Result<Exports, InstantiationError>>()?;
-        let handle = StoreHandle::new(store.as_store_mut().objects_mut(), instance);
 
         // If the memory is imported then also export it for backwards compatibility reasons
         // (many will assume the memory is always exported) - later we can remove this

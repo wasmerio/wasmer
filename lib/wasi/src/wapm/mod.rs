@@ -1,7 +1,7 @@
 use std::{ops::Deref, path::PathBuf, sync::Arc};
 use tracing::*;
+#[cfg(feature = "webc")]
 use webc::{Annotation, FsEntryType, UrlOrManifest, WebC};
-use webc_vfs::VirtualFileSystem;
 
 #[allow(unused_imports)]
 use tracing::{error, warn};
@@ -18,6 +18,7 @@ mod pirita;
 
 use pirita::*;
 
+#[cfg(feature = "os")]
 pub(crate) fn fetch_webc(
     cache_dir: &str,
     webc: &str,
@@ -116,6 +117,7 @@ pub(crate) fn fetch_webc(
     None
 }
 
+#[cfg(feature = "os")]
 fn download_webc(
     cache_dir: &str,
     name: &str,
@@ -339,7 +341,7 @@ where
             })
             .collect::<Vec<_>>();
 
-        pck.webc_fs = Some(Arc::new(VirtualFileSystem::init(
+        pck.webc_fs = Some(Arc::new(webc_vfs::VirtualFileSystem::init(
             ownership.clone(),
             &package_name,
         )));
