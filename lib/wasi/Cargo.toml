@@ -103,7 +103,7 @@ js = ["wasmer/js", "mem-fs", "wasmer-vfs/no-time", "getrandom/js", "chrono", "wa
 js-default = ["js", "wasmer/js-default"]
 test-js = ["js", "wasmer/js-default", "wasmer/wat"]
 
-os = [ "wasmer/wat", "wasmer/js-serializable-module", "async-trait", "urlencoding", "webc-vfs", "serde", "serde_derive", "serde_json", "serde_yaml", "shellexpand", "weezl", "hex", "linked_hash_set" ]
+os = [ "wasmer/wat", "wasmer/js-serializable-module", "async-trait", "urlencoding", "webc", "webc-vfs", "serde", "serde_derive", "serde_json", "serde_yaml", "shellexpand", "weezl", "hex", "linked_hash_set" ]
 
 host-vnet = [ "wasmer-wasi-local-networking" ]
 host-threads = []

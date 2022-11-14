@@ -1499,7 +1499,7 @@ impl core::fmt::Debug for BusEventType {
         }
     }
 }
-#[derive(Debug, Copy, Clone, PartialEq, Eq, ValueType)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[repr(C)]
 pub struct BusHandles {
     pub bid: Bid,
@@ -2511,7 +2511,7 @@ impl core::fmt::Debug for OptionTimestamp {
             .finish()
     }
 }
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, ValueType)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(C)]
 pub struct StackSnapshot {
     pub user: u64,
@@ -2683,6 +2683,16 @@ impl core::fmt::Debug for Timeout {
 }
 
 // TODO: if necessary, must be implemented in wit-bindgen
+unsafe impl ValueType for BusHandles {
+    #[inline]
+    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
+}
+
+unsafe impl ValueType for StackSnapshot {
+    #[inline]
+    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
+}
+
 unsafe impl ValueType for Snapshot0Clockid {
     #[inline]
     fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}

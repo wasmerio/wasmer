@@ -72,8 +72,10 @@ pub use crate::state::{
 };
 pub use crate::syscalls::types;
 pub use crate::utils::{
-    get_wasi_version, get_wasi_versions, is_wasi_module, is_wasix_module, WasiVersion,
+    get_wasi_version, get_wasi_versions, is_wasi_module, WasiVersion,
 };
+#[cfg(feature = "wasix")]
+pub use crate::utils::is_wasix_module;
 #[cfg(feature = "os")]
 use bin_factory::BinFactory;
 #[allow(unused_imports)]
@@ -968,6 +970,7 @@ impl WasiFunctionEnv {
         let env = self.data_mut(store);
         env.inner.replace(new_inner);
 
+        #[cfg(feature = "wasix")]
         env.state.fs.is_wasix.store(
             is_wasix_module(instance.module()),
             std::sync::atomic::Ordering::Release,

@@ -8,7 +8,7 @@ use wasmer_types::Type;
 //use crate::ExternRef;
 use crate::js::externals::function::Function;
 
-use super::store::{AsStoreMut, AsStoreRef};
+use super::store::AsStoreRef;
 
 /// WebAssembly computations manipulate values of basic value types:
 /// * Integers (32 or 64 bit width)

@@ -438,6 +438,7 @@ pub struct WasiFs {
     pub next_fd: AtomicU32,
     inode_counter: AtomicU64,
     pub current_dir: Mutex<String>,
+    #[cfg(feature = "wasix")]
     pub is_wasix: AtomicBool,
     #[cfg_attr(feature = "enable-serde", serde(skip, default))]
     pub root_fs: WasiFsRoot,
@@ -458,6 +459,7 @@ impl WasiFs {
             next_fd: AtomicU32::new(self.next_fd.load(Ordering::Acquire)),
             inode_counter: AtomicU64::new(self.inode_counter.load(Ordering::Acquire)),
             current_dir: Mutex::new(self.current_dir.lock().unwrap().clone()),
+            #[cfg(feature = "wasix")]
             is_wasix: AtomicBool::new(self.is_wasix.load(Ordering::Acquire)),
             root_fs: self.root_fs.clone(),
             has_unioned: Arc::new(Mutex::new(HashSet::new())),
@@ -749,6 +751,7 @@ impl WasiFs {
             next_fd: AtomicU32::new(3),
             inode_counter: AtomicU64::new(1024),
             current_dir: Mutex::new("/".to_string()),
+            #[cfg(feature = "wasix")]
             is_wasix: AtomicBool::new(false),
             root_fs: fs_backing,
             has_unioned: Arc::new(Mutex::new(HashSet::new())),
@@ -1426,12 +1429,15 @@ impl WasiFs {
         path: &str,
         follow_symlinks: bool,
     ) -> Result<Inode, Errno> {
+        #[cfg(feature = "wasix")]
         let start_inode = if !path.starts_with('/') && self.is_wasix.load(Ordering::Acquire) {
             let (cur_inode, _) = self.get_current_dir(inodes, base)?;
             cur_inode
         } else {
             self.get_fd_inode(base)?
         };
+        #[cfg(not(feature = "wasix"))]
+        let start_inode = self.get_fd_inode(base)?;
 
         self.get_inode_at_path_inner(inodes, start_inode, path, 0, follow_symlinks)
     }
