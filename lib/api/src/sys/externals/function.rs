@@ -2,7 +2,6 @@ use crate::sys::exports::{ExportError, Exportable};
 use crate::sys::externals::Extern;
 use crate::sys::store::{AsStoreMut, AsStoreRef};
 use crate::sys::FunctionType;
-use crate::sys::RuntimeError;
 use crate::sys::TypedFunction;
 use crate::FunctionEnv;
 
@@ -10,8 +9,11 @@ use crate::FunctionEnv;
 use {
     crate::{
         FunctionEnvMut, Value,
-        sys::store::{
-            StoreInner, StoreMut
+        sys::{
+            RuntimeError,
+            store::{
+                StoreInner, StoreMut
+            },
         },
     },
     inner::StaticFunction,

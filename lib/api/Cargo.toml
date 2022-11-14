@@ -36,7 +36,7 @@ tracing = { version = "0.1", optional = true }
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # - Mandatory dependencies for `sys`.
 wasmer-vm = { path = "../vm", version = "=3.0.0-rc.2" }
-wasmer-compiler = { path = "../compiler", version = "=3.0.0-rc.2" }
+wasmer-compiler = { path = "../compiler", version = "=3.0.0-rc.2", optional = true }
 wasmer-derive = { path = "../derive", version = "=3.0.0-rc.2" }
 wasmer-types = { path = "../types", version = "=3.0.0-rc.2" }
 target-lexicon = { version = "0.12.2", default-features = false }
@@ -97,13 +97,14 @@ core = ["hashbrown"]
 
 # Features for `sys`.
 sys = [
+  "compiler",
   "wasmer-compiler/translator",
   "wasmer-compiler/compiler",
 ]
 sys-default = ["sys", "wat", "cranelift"]
 # - Compilers.
 compiler = [
-    "sys",
+    "wasmer-compiler"
 ]
 singlepass = ["compiler", "wasmer-compiler-singlepass"]
 cranelift = ["compiler", "wasmer-compiler-cranelift"]

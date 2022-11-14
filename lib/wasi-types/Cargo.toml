@@ -14,26 +14,27 @@ edition = "2018"
 
 [dependencies]
 wit-bindgen-rust = { package = "wasmer-wit-bindgen-rust", version = "0.1.1", optional = true }
-wit-bindgen-rust-wasm = { package = "wasmer-wit-bindgen-gen-rust-wasm", version = "0.1.1", optional = true }
+wit-bindgen-rust-wasm = { package = "wasmer-wit-bindgen-gen-rust-wasm", version = "0.1.1" }
 wit-bindgen-core = { package = "wasmer-wit-bindgen-gen-core", version = "0.1.1" }
 wit-parser = { package = "wasmer-wit-parser", version = "0.1.1" }
-wasmer-types = { path = "../types", version = "=3.0.0-rc.2" }
+wasmer-types = { path = "../types", version = "=3.0.0-rc.2", default_features = false }
 wasmer-derive = { path = "../derive", version = "=3.0.0-rc.2" }
 serde = { version = "1.0", features = ["derive"], optional = true }
 byteorder = "1.3"
 time = "0.2"
 num_enum = "0.5.7"
+bitflags = "1.3.2"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-wasmer = { default-features = false, path = "../api", version = "3.0.0-beta", features = ["js"] }
+wasmer = { default-features = false, path = "../api", version = "3.0.0-beta" }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-wasmer = { default-features = false, path = "../api", version = "3.0.0-beta", features = ["sys"] }
+wasmer = { default-features = false, path = "../api", version = "3.0.0-beta" }
 
 [dev-dependencies.pretty_assertions]
 version = "1.3.0"
 
 [features]
 enable-serde = ["serde", "wasmer-types/serde"]
-js = ["wasmer/js", "wit-bindgen-rust-wasm" ]
-sys = ["wasmer/sys", "wit-bindgen-rust" ]
+js = ["wasmer/js", "wasmer/std" ]
+sys = ["wasmer/sys" ]

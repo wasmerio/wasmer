@@ -617,7 +617,7 @@ impl core::fmt::Display for BusErrno {
 }
 
 impl std::error::Error for BusErrno {}
-wit_bindgen_rust::bitflags::bitflags! {
+bitflags::bitflags! {
   /// File descriptor rights, determining which actions may be performed.
   pub struct Rights: u64 {
     /// The right to invoke `fd_datasync`.
@@ -835,7 +835,7 @@ impl core::fmt::Debug for Advice {
         }
     }
 }
-wit_bindgen_rust::bitflags::bitflags! {
+bitflags::bitflags! {
   /// File descriptor flags.
   pub struct Fdflags: u16 {
     /// Append mode: Data written to the file is always appended to the file's end.
@@ -883,7 +883,7 @@ impl core::fmt::Debug for Fdstat {
             .finish()
     }
 }
-wit_bindgen_rust::bitflags::bitflags! {
+bitflags::bitflags! {
   /// Which file time attributes to adjust.
   /// TODO: wit appears to not have support for flags repr
   /// (@witx repr u16)
@@ -905,7 +905,7 @@ impl Fstflags {
         Self { bits }
     }
 }
-wit_bindgen_rust::bitflags::bitflags! {
+bitflags::bitflags! {
   /// Flags determining the method of how paths are resolved.
   /// TODO: wit appears to not have support for flags repr
   /// (@witx repr u32)
@@ -921,7 +921,7 @@ impl Lookup {
         Self { bits }
     }
 }
-wit_bindgen_rust::bitflags::bitflags! {
+bitflags::bitflags! {
   /// Open flags used by `path_open`.
   /// TODO: wit appears to not have support for flags repr
   /// (@witx repr u16)
@@ -969,7 +969,7 @@ impl core::fmt::Debug for Eventtype {
         }
     }
 }
-wit_bindgen_rust::bitflags::bitflags! {
+bitflags::bitflags! {
   /// Flags determining how to interpret the timestamp provided in
   /// `subscription-clock::timeout`.
   pub struct Subclockflags: u16 {
@@ -1053,7 +1053,7 @@ impl core::fmt::Debug for Preopentype {
         }
     }
 }
-wit_bindgen_rust::bitflags::bitflags! {
+bitflags::bitflags! {
   /// The state of the file descriptor subscribed to with
   /// `eventtype::fd_read` or `eventtype::fd_write`.
   pub struct Eventrwflags: u16 {
